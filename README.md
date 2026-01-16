@@ -116,14 +116,22 @@ flowchart TB
 
 ## Get Started Fast
 
+**Option 1 — Clone from GitHub (v1.0.0, recommended now):**
+
 ```bash
-# One-line install (recommended)
-curl -fsSL https://cdn.jsdelivr.net/gh/nokhodian/monobrain@main/scripts/install.sh | bash
+git clone https://github.com/nokhodian/monobrain.git
+cd monobrain
+npm install
+node packages/@monobrain/cli/bin/cli.js init --wizard
 
-# Or via npx — no install needed
+# Wire up the MCP server in Claude Code
+claude mcp add monobrain -- node /path/to/monobrain/packages/@monobrain/cli/bin/cli.js mcp start
+```
+
+**Option 2 — npx (once npm package is published):**
+
+```bash
 npx monobrain@latest init --wizard
-
-# Manual setup
 claude mcp add monobrain -- npx -y monobrain@latest mcp start
 npx monobrain@latest daemon start
 npx monobrain@latest doctor --fix
