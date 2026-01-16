@@ -148,7 +148,7 @@ monobrain.config.json
 *.sqlite-journal
 *.sqlite-wal
 monobrain
-docs/ 
+# docs/ — unignored so architecture/article docs are tracked
 # Removed Windows wrapper files per user request
 hive-mind-prompt-*.txt
 
