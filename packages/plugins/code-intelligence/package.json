@@ -1,0 +1,78 @@
+{
+  "name": "@monobrain/plugin-code-intelligence",
+  "version": "1.0.0",
+  "description": "Advanced code intelligence plugin for Monobrain V1 - semantic search, architecture analysis, refactoring impact, module splitting, and pattern learning",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./tools": {
+      "import": "./dist/mcp-tools.js",
+      "types": "./dist/mcp-tools.d.ts"
+    },
+    "./types": {
+      "import": "./dist/types.js",
+      "types": "./dist/types.d.ts"
+    },
+    "./bridges": {
+      "import": "./dist/bridges/index.js",
+      "types": "./dist/bridges/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "plugin.yaml"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run clean && npm run build && npm run typecheck"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "keywords": [
+    "monobrain",
+    "plugin",
+    "code-intelligence",
+    "semantic-search",
+    "architecture",
+    "refactoring",
+    "code-analysis",
+    "mcp"
+  ],
+  "author": "Monobrain Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nokhodian/monobrain.git",
+    "directory": "packages/plugins/code-intelligence"
+  },
+  "dependencies": {
+    "@monobrain/ruvector-upstream": "workspace:*",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^4.1.4"
+  },
+  "peerDependencies": {
+    "@monobrain/plugins": "workspace:*"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

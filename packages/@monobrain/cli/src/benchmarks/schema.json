@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["benchmarkId", "name", "taskDescription", "agentSlug", "qualityMetrics"],
+  "properties": {
+    "benchmarkId": { "type": "string" },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "taskDescription": { "type": "string" },
+    "agentSlug": { "type": "string" },
+    "qualityMetrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "config"],
+        "properties": {
+          "type": { "type": "string", "enum": ["contains_expected", "length_range", "no_hallucination", "json_valid", "custom_regex"] },
+          "config": { "type": "object" }
+        }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "properties": {
+        "pinnedAt": { "type": "string" },
+        "passRate": { "type": "number" },
+        "avgDurationMs": { "type": "number" }
+      }
+    }
+  }
+}

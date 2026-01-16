@@ -1,0 +1,3 @@
+packages:
+  - "@monobrain/*"
+  - "plugins/*"

@@ -1,0 +1,1007 @@
+#!/usr/bin/env node
+/**
+ * Monobrain Hook Handler (Cross-Platform)
+ * Dispatches hook events to the appropriate helper modules.
+ */
+
+const path = require('path');
+const fs = require('fs');
+
+const helpersDir = __dirname;
+const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+
+function safeRequire(modulePath) {
+  try {
+    if (fs.existsSync(modulePath)) {
+      const origLog = console.log;
+      const origError = console.error;
+      console.log = () => {};
+      console.error = () => {};
+      try {
+        const mod = require(modulePath);
+        return mod;
+      } finally {
+        console.log = origLog;
+        console.error = origError;
+      }
+    }
+  } catch (e) {
+    // silently fail
+  }
+  return null;
+}
+
+const router = safeRequire(path.join(helpersDir, 'router.cjs'));
+const session = safeRequire(path.join(helpersDir, 'session.cjs'));
+const memory = safeRequire(path.join(helpersDir, 'memory.cjs'));
+const intelligence = safeRequire(path.join(helpersDir, 'intelligence.cjs'));
+
+// Module-level reference to @monobrain/hooks — populated at session-restore,
+// then used by pre-task / post-task to bridge into the hook registry (Tasks 26, 39).
+let _hooksModule = null;
+
+// ── MicroAgent Trigger Scanner (Task 32) ────────────────────────────────────
+function _triggerExtractYamlValue(raw) {
+  var v = raw.trim();
+  if (v.startsWith('"') && v.endsWith('"')) {
+    // YAML double-quoted: unescape \\ → \ so regex patterns like "\\b" become \b (word boundary)
+    v = v.slice(1, -1).replace(/\\\\/g, '\\');
+  } else if (v.startsWith("'") && v.endsWith("'")) {
+    v = v.slice(1, -1);
+  }
+  return v;
+}
+
+function _triggerFinalize(partial, agentSlug) {
+  return { pattern: partial.pattern, mode: partial.mode || 'inject', priority: partial.priority || 0, agentSlug: agentSlug };
+}
+
+function _triggerExtractFromFrontmatter(content, agentSlug) {
+  var fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!fmMatch) return [];
+  var block = fmMatch[1];
+  var triggers = [];
+  var lines = block.split('\n');
+  var inTriggers = false;
+  var cur = null;
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var trimmed = line.trim();
+    var indent = line.length - line.trimStart().length;
+    if (trimmed === 'triggers:' || trimmed.startsWith('triggers:')) { inTriggers = true; continue; }
+    if (inTriggers && indent === 0 && /^[a-zA-Z]/.test(trimmed)) {
+      inTriggers = false;
+      if (cur && cur.pattern) triggers.push(_triggerFinalize(cur, agentSlug));
+      cur = null; continue;
+    }
+    if (!inTriggers) continue;
+    if (trimmed.startsWith('- pattern:')) {
+      if (cur && cur.pattern) triggers.push(_triggerFinalize(cur, agentSlug));
+      cur = { pattern: _triggerExtractYamlValue(trimmed.replace(/^- pattern:\s*/, '')), agentSlug: agentSlug };
+    } else if (cur && trimmed.startsWith('mode:')) {
+      var mv = _triggerExtractYamlValue(trimmed.replace(/^mode:\s*/, ''));
+      if (mv === 'inject' || mv === 'takeover') cur.mode = mv;
+    } else if (cur && trimmed.startsWith('priority:')) {
+      var pv = parseInt(trimmed.replace(/^priority:\s*/, ''), 10);
+      if (!isNaN(pv)) cur.priority = pv;
+    }
+  }
+  if (cur && cur.pattern) triggers.push(_triggerFinalize(cur, agentSlug));
+  return triggers;
+}
+
+function _triggerCollectMdFiles(dir) {
+  var results = [];
+  try {
+    var entries = fs.readdirSync(dir);
+    for (var i = 0; i < entries.length; i++) {
+      var full = path.join(dir, entries[i]);
+      try {
+        var st = fs.statSync(full);
+        if (st.isDirectory()) results = results.concat(_triggerCollectMdFiles(full));
+        else if (entries[i].endsWith('.md')) results.push(full);
+      } catch (e) {}
+    }
+  } catch (e) {}
+  return results;
+}
+
+function _triggerBuildIndex(agentDir) {
+  var patterns = [];
+  var files = _triggerCollectMdFiles(agentDir);
+  for (var i = 0; i < files.length; i++) {
+    var content;
+    try { content = fs.readFileSync(files[i], 'utf-8'); } catch (e) { continue; }
+    var slug = files[i].split('/').pop().replace(/\.md$/i, '').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    patterns = patterns.concat(_triggerExtractFromFrontmatter(content, slug));
+  }
+  return patterns;
+}
+
+function scanMicroAgentTriggers(prompt) {
+  if (!prompt || typeof prompt !== 'string') return { matches: [], injectAgents: [] };
+  var indexPath = path.join(CWD, '.monobrain', 'trigger-index.json');
+  var agentDir = path.join(CWD, '.claude', 'agents');
+  var patterns = [];
+
+  // Load cached index if fresh (< 1 hour)
+  try {
+    if (fs.existsSync(indexPath)) {
+      var idx = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+      var age = Date.now() - new Date(idx.builtAt || 0).getTime();
+      if (age < 3600000 && Array.isArray(idx.patterns) && idx.patterns.length > 0) {
+        patterns = idx.patterns;
+      }
+    }
+  } catch (e) {}
+
+  // Rebuild if not cached
+  if (patterns.length === 0) {
+    patterns = _triggerBuildIndex(agentDir);
+    try {
+      fs.mkdirSync(path.join(CWD, '.monobrain'), { recursive: true });
+      fs.writeFileSync(indexPath, JSON.stringify({ patterns: patterns, builtAt: new Date().toISOString(), totalAgentsScanned: patterns.length }));
+    } catch (e) {}
+  }
+
+  // Sort by descending priority
+  patterns.sort(function(a, b) { return (b.priority || 0) - (a.priority || 0); });
+
+  // Apply patterns
+  var matches = [];
+  var seen = {};
+  for (var i = 0; i < patterns.length; i++) {
+    var p = patterns[i];
+    if (p.mode !== 'inject' && p.mode !== 'takeover') continue;
+    if (seen[p.agentSlug]) continue;
+    try {
+      var re = new RegExp(p.pattern, 'i');
+      var m = re.exec(prompt);
+      if (m) {
+        seen[p.agentSlug] = true;
+        matches.push({ agentSlug: p.agentSlug, mode: p.mode, matchedText: m[0] });
+        if (p.mode === 'takeover') {
+          return { matches: matches, takeoverAgent: p.agentSlug, injectAgents: [] };
+        }
+      }
+    } catch (e) {}
+  }
+  return { matches: matches, injectAgents: matches.map(function(m) { return m.agentSlug; }) };
+}
+
+// ── Task 28: Knowledge Base — inline CJS search + auto-indexer ─────────────
+//
+// Purpose: give KnowledgeRetriever a real search function and pre-populate
+// the knowledge store with project documents (CLAUDE.md, todo.md, etc.) so
+// retrieveForTask() actually returns useful context on session restore.
+// No compiled deps required — reads/writes JSONL directly.
+
+/**
+ * Build a simple keyword-overlap search function over chunks.jsonl.
+ * Returns results sorted by descending score; compatible with SearchFn signature.
+ */
+function _buildKnowledgeSearchFn(knowledgeDir) {
+  return async function(query, opts) {
+    var chunksFile = path.join(knowledgeDir, 'chunks.jsonl');
+    if (!fs.existsSync(chunksFile)) return [];
+    var lines;
+    try {
+      lines = fs.readFileSync(chunksFile, 'utf-8').trim().split('\n').filter(Boolean);
+    } catch (e) { return []; }
+
+    var ns = (opts && opts.namespace) || null;
+    var limit = (opts && opts.limit) || 10;
+    var minScore = (opts && opts.minScore != null) ? opts.minScore : 0.3;
+    var queryTerms = query.toLowerCase().split(/\s+/).filter(function(t) { return t.length > 2; });
+    if (queryTerms.length === 0) return [];
+
+    var results = [];
+    for (var i = 0; i < lines.length; i++) {
+      try {
+        var chunk = JSON.parse(lines[i]);
+        if (ns && chunk.namespace !== ns) continue;
+        var textLower = (chunk.text || '').toLowerCase();
+        var matchCount = queryTerms.filter(function(t) { return textLower.includes(t); }).length;
+        var score = matchCount / queryTerms.length;
+        if (score >= minScore) {
+          results.push({ key: chunk.chunkId, value: chunk.text, score: score, metadata: chunk.metadata || {} });
+        }
+      } catch (e) {}
+    }
+    results.sort(function(a, b) { return b.score - a.score; });
+    return results.slice(0, limit);
+  };
+}
+
+/**
+ * Index project knowledge sources into chunks.jsonl.
+ * Skips re-indexing if content hasn't changed (hash-gated).
+ * Returns the number of new chunks written.
+ */
+function _autoIndexKnowledge(knowledgeDir) {
+  var crypto = require('crypto');
+  var sources = [
+    { filePath: path.join(CWD, 'CLAUDE.md'), label: 'project-instructions' },
+    { filePath: path.join(CWD, 'docs/todo.md'), label: 'project-todo' },
+    { filePath: path.join(CWD, '.monobrain/last-route.json'), label: 'last-route' },
+    { filePath: path.join(CWD, 'CLAUDE.local.md'), label: 'local-instructions' },
+  ];
+
+  // Compute a combined hash of all source file sizes (fast proxy for content change)
+  var hashInput = '';
+  for (var i = 0; i < sources.length; i++) {
+    try {
+      if (fs.existsSync(sources[i].filePath)) {
+        hashInput += sources[i].filePath + ':' + fs.statSync(sources[i].filePath).size + ';';
+      }
+    } catch (e) {}
+  }
+  var contentHash = crypto.createHash('md5').update(hashInput).digest('hex');
+
+  var chunksFile = path.join(knowledgeDir, 'chunks.jsonl');
+  var hashFile = path.join(knowledgeDir, '.index-hash');
+  var existingHash = '';
+  try { existingHash = fs.readFileSync(hashFile, 'utf-8').trim(); } catch (e) {}
+
+  // Nothing changed — skip re-index
+  var existingChunkCount = 0;
+  try { if (fs.existsSync(chunksFile)) { existingChunkCount = fs.readFileSync(chunksFile, 'utf-8').trim().split('\n').filter(Boolean).length; } } catch (e) {}
+  if (existingHash === contentHash && existingChunkCount > 0) return 0;
+
+  // Build new chunks
+  var newLines = [];
+  for (var si = 0; si < sources.length; si++) {
+    var src = sources[si];
+    try {
+      if (!fs.existsSync(src.filePath)) continue;
+      var content = fs.readFileSync(src.filePath, 'utf-8');
+      // Split on blank lines or markdown headers (## / ###)
+      var sections = content.split(/\n{2,}|\n(?=#{1,3} )/);
+      for (var ci = 0; ci < sections.length; ci++) {
+        var text = sections[ci].trim();
+        if (text.length < 40 || text.length > 3000) continue;
+        var chunkId = crypto.createHash('md5').update(src.filePath + ':' + ci).digest('hex').slice(0, 16);
+        newLines.push(JSON.stringify({
+          chunkId: chunkId,
+          namespace: 'knowledge:shared',
+          text: text,
+          metadata: { filePath: src.filePath, label: src.label, chunkIndex: ci }
+        }));
+      }
+    } catch (e) {}
+  }
+
+  if (newLines.length > 0) {
+    try {
+      fs.mkdirSync(knowledgeDir, { recursive: true });
+      fs.writeFileSync(chunksFile, newLines.join('\n') + '\n', 'utf-8');
+      fs.writeFileSync(hashFile, contentHash, 'utf-8');
+    } catch (e) {}
+  }
+  return newLines.length;
+}
+
+// ── Intelligence timeout protection (fixes #1530, #1531) ───────────────────
+var INTELLIGENCE_TIMEOUT_MS = 3000;
+function runWithTimeout(fn, label) {
+  return new Promise(function(resolve) {
+    var timer = setTimeout(function() {
+      process.stderr.write("[WARN] " + label + " timed out after " + INTELLIGENCE_TIMEOUT_MS + "ms, skipping\n");
+      resolve(null);
+    }, INTELLIGENCE_TIMEOUT_MS);
+    try {
+      var result = fn();
+      clearTimeout(timer);
+      resolve(result);
+    } catch (e) {
+      clearTimeout(timer);
+      resolve(null);
+    }
+  });
+}
+
+
+const [,, command, ...args] = process.argv;
+
+// Read stdin — Claude Code sends hook data as JSON via stdin
+// Uses a timeout to prevent hanging when stdin is in an ambiguous state
+// (not TTY, not a proper pipe) which happens with Claude Code hook invocations.
+async function readStdin() {
+  if (process.stdin.isTTY) return '';
+  return new Promise((resolve) => {
+    let data = '';
+    const timer = setTimeout(() => {
+      process.stdin.removeAllListeners();
+      process.stdin.pause();
+      resolve(data);
+    }, 500);
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', (chunk) => { data += chunk; });
+    process.stdin.on('end', () => { clearTimeout(timer); resolve(data); });
+    process.stdin.on('error', () => { clearTimeout(timer); resolve(data); });
+    process.stdin.resume();
+  });
+}
+
+async function main() {
+  // Global safety timeout: hooks must NEVER hang (#1530, #1531)
+  var safetyTimer = setTimeout(function() {
+    process.stderr.write("[WARN] Hook handler global timeout (5s), forcing exit\n");
+    process.exit(0);
+  }, 5000);
+  safetyTimer.unref();
+
+  let stdinData = '';
+  try { stdinData = await readStdin(); } catch (e) { /* ignore stdin errors */ }
+
+  let hookInput = {};
+  if (stdinData.trim()) {
+    try { hookInput = JSON.parse(stdinData); } catch (e) { /* ignore parse errors */ }
+  }
+
+  // Merge stdin data into prompt resolution: prefer stdin fields, then env vars.
+  // NEVER fall back to argv args — shell glob expansion of braces in bash output
+  // creates junk files (#1342). Use env vars or stdin only.
+  // Normalize snake_case/camelCase: Claude Code sends tool_input/tool_name (snake_case)
+  var toolInput = hookInput.toolInput || hookInput.tool_input || {};
+  var toolName = hookInput.toolName || hookInput.tool_name || '';
+
+  var prompt = hookInput.prompt || hookInput.command || toolInput
+    || process.env.PROMPT || process.env.TOOL_INPUT_command || '';
+
+  // Detect prompts that are predefined single-action commands that don't
+  // need agent routing or skill suggestions — invoking those adds token
+  // overhead without any benefit.
+  function isSimpleCommand(p) {
+    if (typeof p !== 'string') return false;
+    var s = p.trim();
+    // Slash commands: /ts, /list-agents, /commit, /help, /use-agent etc.
+    if (/^\/[a-z0-9_-]+(\s|$)/i.test(s)) return true;
+    // Short single-word operator tokens (toggle, list, status)
+    if (/^(ts|ls|ps|pwd|help|clear|exit|quit|status|toggle|refresh)$/i.test(s)) return true;
+    // Already-resolved command messages (Claude Code sends hook with command-name context)
+    var cmdName = hookInput.commandName || hookInput.command_name || '';
+    if (cmdName && cmdName.length > 0) return true;
+    return false;
+  }
+
+const handlers = {
+  'route': async () => {
+    // For slash commands and single-action invocations: skip routing panel output
+    // but still write last-route.json so the statusline reflects the current action.
+    if (isSimpleCommand(prompt)) {
+      try {
+        var cmdLabel = (typeof prompt === 'string' && prompt.trim().startsWith('/'))
+          ? prompt.trim().split(/\s+/)[0]          // e.g. "/ts"
+          : (hookInput.commandName || hookInput.command_name || 'command');
+        var routeDir = path.join(CWD, '.monobrain');
+        fs.mkdirSync(routeDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(routeDir, 'last-route.json'),
+          JSON.stringify({
+            agent: cmdLabel,
+            confidence: 1.0,
+            reason: 'predefined command — no routing needed',
+            semanticRouting: false,
+            updatedAt: new Date().toISOString(),
+          }),
+          'utf-8'
+        );
+      } catch (e) { /* non-fatal */ }
+      return;
+    }
+
+    if (intelligence && intelligence.getContext) {
+      try {
+        const ctx = intelligence.getContext(prompt);
+        if (ctx) console.log(ctx);
+      } catch (e) { /* non-fatal */ }
+    }
+    if (router && (router.routeTaskSemantic || router.routeTask)) {
+      const routeFn = router.routeTaskSemantic || router.routeTask;
+      const result = await Promise.resolve(routeFn(prompt));
+      var output = [];
+      output.push('[INFO] Routing task: ' + (prompt.substring(0, 80) || '(no prompt)'));
+      output.push('');
+      output.push('+------------------- Primary Recommendation -------------------+');
+      output.push('| Agent: ' + result.agent.padEnd(53) + '|');
+      output.push('| Confidence: ' + (result.confidence * 100).toFixed(1) + '%' + ' '.repeat(44) + '|');
+      output.push('| Reason: ' + result.reason.substring(0, 53).padEnd(53) + '|');
+      output.push('+--------------------------------------------------------------+');
+
+      // ── Persist routing result for statusline display ─────────────
+      try {
+        var routeDir = path.join(CWD, '.monobrain');
+        fs.mkdirSync(routeDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(routeDir, 'last-route.json'),
+          JSON.stringify({
+            agent: result.agent,
+            confidence: result.confidence,
+            reason: result.reason,
+            semanticRouting: result.semanticRouting || false,
+            updatedAt: new Date().toISOString(),
+          }),
+          'utf-8'
+        );
+      } catch (e) { /* non-fatal */ }
+
+      // ── Dev skill suggestions ──────────────────────────────────────
+      var matches = result.skillMatches || [];
+      if (matches.length > 0) {
+        output.push('');
+        if (result.confidence < 0.8) {
+          output.push('+----------- Skill Suggestions (pick one if relevant) ---------+');
+          output.push('| No strong primary match — here are the best skill candidates: |');
+        } else {
+          output.push('+----------- Matching Skills (invoke via Skill tool) ----------+');
+        }
+        matches.forEach(function(m, i) {
+          var label = (i + 1) + '. ' + m.skill;
+          var desc = m.description.substring(0, 38);
+          var line = '| ' + label.padEnd(30) + desc.padEnd(28) + ' |';
+          output.push(line);
+          output.push('|   invoke: ' + m.invoke.padEnd(49) + '|');
+        });
+        output.push('+--------------------------------------------------------------+');
+        if (result.confidence < 0.8) {
+          output.push('| To use a skill: call Skill("skill-name") before responding.  |');
+          output.push('+--------------------------------------------------------------+');
+        }
+      }
+
+      // ── Check if a sub-agent was recently dispatched (suppress redundant panel) ──
+      var _recentDispatch = null;
+      var _dispatchAge = Infinity;
+      try {
+        var _dispatchFile = path.join(CWD, '.monobrain', 'last-dispatch.json');
+        if (fs.existsSync(_dispatchFile)) {
+          _recentDispatch = JSON.parse(fs.readFileSync(_dispatchFile, 'utf-8'));
+          _dispatchAge = Date.now() - new Date(_recentDispatch.dispatchedAt || 0).getTime();
+        }
+      } catch (e) { /* non-fatal */ }
+      // Suppress if a sub-agent was dispatched within the last 3 minutes
+      var _suppressExtras = _recentDispatch && _dispatchAge < 180000;
+
+      // ── Extras agents (non-dev specialist agents) ─────────────────
+      var extras = result.extrasMatches || [];
+      if (_suppressExtras) {
+        // A sub-agent was recently dispatched — show compact note instead of full panel
+        output.push('');
+        var _agentLabel = (_recentDispatch.agentType || 'sub-agent').replace(/-/g, ' ');
+        output.push('   → ROUTED  👤 ' + (_agentLabel.length > 20 ? _agentLabel.substring(0, 20) + '…' : _agentLabel.padEnd(20)) + ' ' + (result.confidence * 100).toFixed(0) + '%');
+      } else if (result.agent === 'extras' && extras.length > 0) {
+        output.push('');
+        output.push('+============= EXTRAS: Specialist Agents Available ============+');
+        output.push('| Non-development domain detected. Pick the best agent below.  |');
+        output.push('| To activate: run  ! node .claude/helpers/hook-handler.cjs    |');
+        output.push('|              load-agent <slug>   — or ask me to use one.     |');
+        output.push('+--------------------------------------------------------------+');
+        extras.forEach(function(e, i) {
+          var label = (i + 1) + '. [' + e.category + '] ' + e.name;
+          output.push('| ' + label.substring(0, 60).padEnd(60) + ' |');
+          output.push('|   ' + e.description.substring(0, 58).padEnd(58) + ' |');
+          output.push('|   slug: ' + e.slug.padEnd(52) + '|');
+        });
+        output.push('+--------------------------------------------------------------+');
+        output.push('| INSTRUCTION: Pick the agent best suited for this task and    |');
+        output.push('| run: Bash("node .claude/helpers/router.cjs --load-agent <slug>") |');
+        output.push('| Then adopt that agent\'s identity for the rest of the task.   |');
+        output.push('+--------------------------------------------------------------+');
+      } else if (extras.length > 0) {
+        // Low-confidence fallback also shows extras if any matched
+        output.push('');
+        output.push('+------- Also available: Extras Specialist Agents -------------+');
+        extras.forEach(function(e, i) {
+          output.push('| ' + (i + 1) + '. [' + e.category + '] ' + e.name.padEnd(48) + ' |');
+          output.push('|   slug: ' + e.slug.padEnd(52) + '|');
+        });
+        output.push('+--------------------------------------------------------------+');
+      }
+
+      // ── MicroAgent Trigger Scan (Task 32) ──────────────────────────────
+      try {
+        var triggerResult = scanMicroAgentTriggers(typeof prompt === 'string' ? prompt : '');
+        if (triggerResult.matches.length > 0) {
+          output.push('');
+          if (triggerResult.takeoverAgent) {
+            var tAgent = triggerResult.takeoverAgent;
+            var tKw = triggerResult.matches[0].matchedText;
+            output.push('+============= MicroAgent TAKEOVER Detected ===================+');
+            output.push('| Specialist: ' + tAgent.substring(0, 49).padEnd(49) + '|');
+            output.push('| Keyword:    ' + ('"' + tKw + '"').substring(0, 49).padEnd(49) + '|');
+            output.push('| Recommended: use this specialist instead of primary agent.  |');
+            output.push('+==============================================================+');
+          } else {
+            output.push('+------- MicroAgent Specialists Triggered ---------------------+');
+            triggerResult.matches.forEach(function(m) {
+              var slug = m.agentSlug.substring(0, 38).padEnd(38);
+              var kw = ('(match: "' + m.matchedText + '")').substring(0, 21).padEnd(21);
+              output.push('| + ' + slug + kw + ' |');
+            });
+            output.push('+--------------------------------------------------------------+');
+          }
+          // Persist trigger matches alongside route result
+          try {
+            var routeFile = path.join(CWD, '.monobrain', 'last-route.json');
+            var existing = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
+            existing.microAgents = { injectAgents: triggerResult.injectAgents || [], takeoverAgent: triggerResult.takeoverAgent || null };
+            fs.writeFileSync(routeFile, JSON.stringify(existing), 'utf-8');
+          } catch (e) {}
+        }
+      } catch (e) { /* non-fatal */ }
+
+      console.log(output.join('\n'));
+    } else {
+      console.log('[INFO] Router not available, using default routing');
+    }
+
+    // Task 22: TeamRoutingModes — only log when an explicit swarm config is present
+    try {
+      var swarmCfgPath = path.join(CWD, '.monobrain', 'swarm-config.json');
+      if (fs.existsSync(swarmCfgPath)) {
+        var topology22 = JSON.parse(fs.readFileSync(swarmCfgPath, 'utf-8')).topology || 'mesh';
+        var mode22 = topology22 === 'hierarchical' ? 'route' : 'coordinate';
+        console.log('[ROUTING_MODE] topology=' + topology22 + ' → mode=' + mode22);
+      }
+    } catch (e) { /* non-fatal */ }
+  },
+
+  'load-agent': () => {
+    // Load and print full agent text so Claude can adopt its identity
+    const slug = args.slice(1).join(' ').trim() || (typeof prompt === 'string' ? prompt.trim() : '');
+    if (!router || !router.loadExtrasAgent) {
+      console.error('[ERROR] Router does not support loadExtrasAgent');
+      process.exit(1);
+    }
+    const agent = router.loadExtrasAgent(slug);
+    if (!agent) {
+      console.error('[ERROR] Extras agent not found: ' + slug);
+      console.error('Run: node .claude/helpers/router.cjs --load-agent <slug>  to check available slugs');
+      process.exit(1);
+    }
+    console.log('=== AGENT ACTIVATED: ' + agent.name + ' [' + agent.category + '] ===');
+    console.log('');
+    console.log(agent.content);
+    console.log('');
+    console.log('=== END AGENT: ' + agent.name + ' ===');
+    console.log('INSTRUCTION: You are now ' + agent.name + '. Adopt the identity, tone, and expertise described above for the remainder of this task.');
+
+    // Persist active agent for statusline
+    try {
+      var routeDir = path.join(CWD, '.monobrain');
+      fs.mkdirSync(routeDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(routeDir, 'last-route.json'),
+        JSON.stringify({
+          agent: agent.slug,
+          name: agent.name,
+          category: agent.category,
+          confidence: 1.0,
+          reason: 'manually activated via load-agent',
+          activated: true,
+          updatedAt: new Date().toISOString(),
+        }),
+        'utf-8'
+      );
+    } catch (e) { /* non-fatal */ }
+  },
+
+  'list-extras': () => {
+    if (!router || !router.loadExtrasRegistry) {
+      console.error('[ERROR] Extras registry not available');
+      process.exit(1);
+    }
+    const registry = router.loadExtrasRegistry();
+    const category = args[1] || '';
+    const entries = category
+      ? registry.extras.filter(e => e.category === category)
+      : registry.extras;
+    const byCategory = {};
+    for (const e of entries) {
+      if (!byCategory[e.category]) byCategory[e.category] = [];
+      byCategory[e.category].push(e);
+    }
+    for (const [cat, agents] of Object.entries(byCategory)) {
+      console.log('\n[' + cat.toUpperCase() + ']');
+      for (const a of agents) {
+        console.log('  ' + a.slug.padEnd(45) + a.name);
+      }
+    }
+    console.log('\nTotal: ' + entries.length + ' extras agents');
+  },
+
+  'pre-bash': () => {
+    var cmd = (hookInput.command || prompt).toLowerCase();
+    var dangerous = ['rm -rf /', 'format c:', 'del /s /q c:\\', ':(){:|:&};:'];
+    for (var i = 0; i < dangerous.length; i++) {
+      if (cmd.includes(dangerous[i])) {
+        console.error('[BLOCKED] Dangerous command detected: ' + dangerous[i]);
+        process.exit(1);
+      }
+    }
+    console.log('[OK] Command validated');
+  },
+
+  'post-edit': () => {
+    if (session && session.metric) {
+      try { session.metric('edits'); } catch (e) { /* no active session */ }
+    }
+    if (intelligence && intelligence.recordEdit) {
+      try {
+        var file = hookInput.file_path || toolInput.file_path
+          || process.env.TOOL_INPUT_file_path || args[0] || '';
+        intelligence.recordEdit(file);
+      } catch (e) { /* non-fatal */ }
+    }
+    console.log('[OK] Edit recorded');
+  },
+
+  'session-restore': async () => {
+    if (session) {
+      var existing = session.restore && session.restore();
+      if (!existing) {
+        session.start && session.start();
+      }
+    } else {
+      console.log('[OK] Session restored: session-' + Date.now());
+    }
+    // Initialize intelligence (with timeout — #1530)
+    if (intelligence && intelligence.init) {
+      var initResult = await runWithTimeout(function() { return intelligence.init(); }, 'intelligence.init()');
+      if (initResult && initResult.nodes > 0) {
+        console.log('[INTELLIGENCE] Loaded ' + initResult.nodes + ' patterns, ' + initResult.edges + ' edges');
+      }
+    }
+    // GAP-001: Bridge hook-handler.cjs to @monobrain/hooks compiled packages.
+    // Dynamic import() resolves ESM packages even from CJS — failures are silent.
+    try {
+      var hooksModule = await import('@monobrain/hooks');
+      if (hooksModule && hooksModule.initDefaultWorkers) {
+        await hooksModule.initDefaultWorkers();
+        // Store reference so pre-task / post-task can call executeHooks (Tasks 26, 39)
+        _hooksModule = hooksModule;
+        console.log('[INFO] @monobrain/hooks workers initialized');
+      }
+    } catch (e) { /* @monobrain/hooks not compiled yet — skip */ }
+
+    // Task 28: AgentKnowledgeBase — preload shared knowledge context on session restore.
+    // Self-contained: auto-indexes project docs into chunks.jsonl, then keyword-searches
+    // them. Works without @monobrain/memory being compiled. Falls back to KnowledgeRetriever
+    // if the compiled package IS available (richer dedup + formatting).
+    try {
+      var knowledgeDir = path.join(CWD, '.monobrain', 'knowledge');
+      var indexed = _autoIndexKnowledge(knowledgeDir);
+      if (indexed > 0) {
+        console.log('[KNOWLEDGE_INDEXED] ' + indexed + ' chunks written from project sources');
+      }
+
+      var kSearchFn = _buildKnowledgeSearchFn(knowledgeDir);
+      var sessionCtx = (hookInput && (hookInput.sessionId || hookInput.session_id))
+        ? 'session context: ' + (hookInput.sessionId || hookInput.session_id)
+        : 'project context general';
+
+      // Prefer compiled KnowledgeRetriever for dedup + formatting; inline fallback otherwise
+      var memoryMod = null;
+      try { memoryMod = await import('@monobrain/memory'); } catch (e) {}
+
+      if (memoryMod && memoryMod.KnowledgeStore && memoryMod.KnowledgeRetriever) {
+        var kStore = new memoryMod.KnowledgeStore(knowledgeDir);
+        var kRetriever = new memoryMod.KnowledgeRetriever(kSearchFn, kStore);
+        var kResult = await kRetriever.retrieveForTask('shared', sessionCtx, 5);
+        if (kResult.excerpts.length > 0) {
+          console.log('[KNOWLEDGE_PRELOADED] ' + kResult.excerpts.length + ' excerpts (KnowledgeRetriever)');
+        }
+      } else {
+        // Inline fallback — no compiled deps needed
+        var directResults = await kSearchFn(sessionCtx, { namespace: 'knowledge:shared', limit: 5, minScore: 0.3 });
+        if (directResults.length > 0) {
+          console.log('[KNOWLEDGE_PRELOADED] ' + directResults.length + ' excerpts (direct keyword search)');
+        }
+      }
+    } catch (e) { /* non-fatal */ }
+
+    // Task 23: SharedInstructions — auto-load .agents/shared_instructions.md on session restore
+    // Hard limit: 1500 chars (~375 tokens). Content beyond this is truncated and flagged.
+    var SI_CHAR_LIMIT = 1500;
+    var applySharedInstrLimit = function(content, source) {
+      if (content.length > SI_CHAR_LIMIT) {
+        console.warn('[SHARED_INSTRUCTIONS_OVERLIMIT] ' + content.length + ' chars exceeds limit of ' + SI_CHAR_LIMIT +
+          ' — truncating. Edit ' + source + ' to stay under limit.');
+        return content.slice(0, SI_CHAR_LIMIT) + '\n… [truncated — file exceeds ' + SI_CHAR_LIMIT + ' char limit]';
+      }
+      return content;
+    };
+    try {
+      var siMod = await import('file://' + path.join(CWD, 'packages/@monobrain/cli/dist/src/agents/shared-instructions-loader.js'));
+      var loader = siMod.sharedInstructionsLoader || (siMod.SharedInstructionsLoader ? new siMod.SharedInstructionsLoader() : null);
+      if (loader) {
+        var sharedInstr = loader.getSharedInstructions(CWD);
+        if (sharedInstr) {
+          var sharedInstrSafe = applySharedInstrLimit(sharedInstr, '.agents/shared_instructions.md');
+          console.log('[SHARED_INSTRUCTIONS] Loaded ' + sharedInstrSafe.length + ' chars from .agents/shared_instructions.md');
+        }
+      }
+    } catch (e) {
+      // Try direct filesystem fallback
+      try {
+        var siPath = path.join(CWD, '.agents', 'shared_instructions.md');
+        if (fs.existsSync(siPath)) {
+          var siContent = fs.readFileSync(siPath, 'utf-8');
+          var siContentSafe = applySharedInstrLimit(siContent, siPath);
+          console.log('[SHARED_INSTRUCTIONS] Loaded ' + siContentSafe.length + ' chars from .agents/shared_instructions.md');
+        }
+      } catch (e2) { /* non-fatal */ }
+    }
+  },
+
+  'session-end': async () => {
+    // Consolidate intelligence (with timeout — #1530)
+    if (intelligence && intelligence.consolidate) {
+      var consResult = await runWithTimeout(function() { return intelligence.consolidate(); }, 'intelligence.consolidate()');
+      if (consResult && consResult.entries > 0) {
+        var msg = '[INTELLIGENCE] Consolidated: ' + consResult.entries + ' entries, ' + consResult.edges + ' edges';
+        if (consResult.newEntries > 0) msg += ', ' + consResult.newEntries + ' new';
+        msg += ', PageRank recomputed';
+        console.log(msg);
+      }
+    }
+    if (session && session.end) {
+      session.end();
+    } else {
+      console.log('[OK] Session ended');
+    }
+  },
+
+  'pre-task': async () => {
+    if (session && session.metric) {
+      try { session.metric('tasks'); } catch (e) { /* no active session */ }
+    }
+
+    // ── Task 27: PerRunModelTier — inline complexity scoring ───────────────
+    var taskStr = typeof prompt === 'string' ? prompt : '';
+    if (taskStr) {
+      var score = 50;
+      var lower = taskStr.toLowerCase();
+      var words = taskStr.trim().split(/\s+/).length;
+      if (words < 20) score -= 20;
+      if (words > 100) score += 20;
+      if (words > 200) score += 10;
+      var highKw = ['architecture','distributed','security audit','cve','consensus','fault-tolerant','migrate','refactor across','orchestrat','design system','database schema','performance optim','threat model','encryption','zero-knowledge'];
+      var lowKw = ['format','list','rename','sort','typo','lint','log','comment','print','echo','delete unused','remove import'];
+      if (highKw.some(function(k) { return lower.includes(k); })) score += 10;
+      if (lowKw.some(function(k) { return lower.includes(k); })) score -= 10;
+      if (/(?:step\s*\d|first[\s,].*then[\s,]|phase\s*\d)/i.test(taskStr)) score += 10;
+      if (/```[\s\S]*?```/.test(taskStr) || /\b[\w./-]+\.\w{1,5}\b/.test(taskStr)) score += 5;
+      score = Math.max(0, Math.min(100, score));
+      var tier = score < 30 ? 'haiku' : score > 70 ? 'opus' : 'sonnet';
+      console.log('[TASK_MODEL_RECOMMENDATION] Use model="' + tier + '" (complexity=' + score + ')');
+    }
+    // Task 06: AutoRetry — signal retry policy only if coordinator path is active
+    if (hookInput.swarmCoordinator || hookInput.coordinator || hookInput.useRetry) {
+      console.log('[AUTO_RETRY_ENABLED] maxAttempts=3 strategy=exponential-backoff backoffMs=1000');
+    }
+
+    if (router && prompt) {
+      var routeFn = router.routeTaskSemantic || router.routeTask;
+      var result = await Promise.resolve(routeFn(prompt));
+      console.log('[INFO] Task routed to: ' + result.agent + ' (confidence: ' + result.confidence + ')');
+    } else {
+      console.log('[OK] Task started');
+    }
+
+    // Task 24: PromptVersioning — resolve prompt variant before agent spawn
+    try {
+      var memMod = await import('@monobrain/memory');
+      if (memMod && memMod.PromptVersionStore) {
+        var pvStore = new memMod.PromptVersionStore(path.join(CWD, '.monobrain', 'prompt-versions'));
+        var pvMod = await import('file://' + path.join(CWD, 'packages/@monobrain/cli/dist/src/agents/prompt-experiment.js'));
+        if (pvMod && pvMod.PromptExperimentRouter) {
+          var pvRouter = new pvMod.PromptExperimentRouter(pvStore);
+          var agentSlug24 = hookInput.agentSlug || hookInput.agentType || hookInput.agent_type || 'unknown';
+          if (agentSlug24 !== 'unknown') {
+            var resolved = pvRouter.resolvePromptForSpawn(agentSlug24);
+            if (resolved.version) {
+              console.log('[PROMPT_VERSION] ' + agentSlug24 + ' v' + resolved.version + (resolved.isCandidate ? ' (experiment candidate)' : ''));
+            }
+          }
+        }
+      }
+    } catch (e) { /* not available or no experiment */ }
+
+    // Bridge to @monobrain/hooks registry — fires Tasks 26 (PromptAssembler) and any other PreTask hooks
+    if (_hooksModule && _hooksModule.executeHooks && _hooksModule.HookEvent) {
+      try {
+        await _hooksModule.executeHooks(_hooksModule.HookEvent.PreTask, {
+          task: typeof prompt === 'string' ? { description: prompt, id: hookInput.taskId || '' } : null,
+          sessionId: hookInput.sessionId || hookInput.session_id || 'default',
+        }, { continueOnError: true, timeout: 2000 });
+      } catch (e) { /* non-fatal */ }
+    }
+  },
+
+  'post-task': async () => {
+    if (intelligence && intelligence.feedback) {
+      try {
+        intelligence.feedback(true);
+      } catch (e) { /* non-fatal */ }
+    }
+    // Each TeammateIdle/TaskCompleted = one agent done → remove oldest registration (FIFO)
+    const regDir = path.join(CWD, '.monobrain', 'agents', 'registrations');
+    try {
+      if (fs.existsSync(regDir)) {
+        const files = fs.readdirSync(regDir).filter(f => f.endsWith('.json'));
+        if (files.length > 0) {
+          // Sort by mtime ascending (oldest first) and remove the oldest one
+          const sorted = files
+            .map(f => ({ f, mtime: (() => { try { return fs.statSync(path.join(regDir, f)).mtimeMs; } catch { return 0; } })() }))
+            .sort((a, b) => a.mtime - b.mtime);
+          try { fs.unlinkSync(path.join(regDir, sorted[0].f)); } catch { /* ignore */ }
+        }
+        // Also purge any stragglers older than 30 min
+        const now = Date.now();
+        for (const f of fs.readdirSync(regDir).filter(f => f.endsWith('.json'))) {
+          try { if (now - fs.statSync(path.join(regDir, f)).mtimeMs > 30 * 60 * 1000) fs.unlinkSync(path.join(regDir, f)); } catch { /* ignore */ }
+        }
+        const remaining = fs.readdirSync(regDir).filter(f => f.endsWith('.json')).length;
+        fs.writeFileSync(path.join(CWD, '.monobrain', 'metrics', 'swarm-activity.json'), JSON.stringify({
+          timestamp: new Date().toISOString(),
+          swarm: { active: remaining > 0, agent_count: remaining, coordination_active: remaining > 0 },
+        }));
+      }
+    } catch (e) { /* non-fatal */ }
+    // Bridge to @monobrain/hooks registry — fires Tasks 39 (SpecializationScorer) and any other PostTask hooks
+    if (_hooksModule && _hooksModule.executeHooks && _hooksModule.HookEvent) {
+      try {
+        var taskSuccess = hookInput.success !== false && hookInput.status !== 'failed';
+        await _hooksModule.executeHooks(_hooksModule.HookEvent.PostTask, {
+          task: {
+            id: hookInput.taskId || hookInput.task_id || '',
+            status: taskSuccess ? 'completed' : 'failed',
+            agentSlug: hookInput.agentSlug || hookInput.agent_slug || 'unknown',
+            type: hookInput.taskType || hookInput.task_type || 'general',
+          },
+          success: taskSuccess,
+          latencyMs: hookInput.latencyMs || hookInput.latency_ms || 0,
+          qualityScore: hookInput.qualityScore || hookInput.quality_score,
+        }, { continueOnError: true, timeout: 2000 });
+      } catch (e) { /* non-fatal */ }
+    }
+    // Task 35: TerminationConditions — detect halted swarms via halt-signal
+    try {
+      var haltMod = await import('file://' + path.join(CWD, 'packages/@monobrain/cli/dist/src/agents/halt-signal.js'));
+      if (haltMod && haltMod.isHalted) {
+        var swarmId35 = hookInput.swarmId || hookInput.swarm_id || 'default';
+        if (haltMod.isHalted(swarmId35)) {
+          console.warn('[HALT_DETECTED] Swarm ' + swarmId35 + ' has an active halt signal — agents should stop');
+        }
+      }
+    } catch (e) {
+      // Try direct file check
+      try {
+        var haltFile = path.join(CWD, 'data', 'halt-signals.jsonl');
+        if (fs.existsSync(haltFile)) {
+          var haltLines = fs.readFileSync(haltFile, 'utf-8').trim().split('\n').filter(Boolean);
+          if (haltLines.length > 0) {
+            console.warn('[HALT_DETECTED] ' + haltLines.length + ' halt signal(s) present');
+          }
+        }
+      } catch (e2) { /* non-fatal */ }
+    }
+
+    // Task 37: DeadLetterQueue — enqueue failed tasks when retries exhausted
+    try {
+      if (!taskSuccess) {
+        var dlqMod = await import('file://' + path.join(CWD, 'packages/@monobrain/cli/dist/src/dlq/dlq-writer.js'));
+        if (dlqMod && dlqMod.DLQWriter) {
+          var dlqDir = path.join(CWD, '.monobrain', 'dlq');
+          var dlqWriter = new dlqMod.DLQWriter(dlqDir);
+          dlqWriter.enqueue({
+            toolName: 'post-task',
+            originalPayload: { taskId: hookInput.taskId || '', agentSlug: hookInput.agentSlug || 'unknown' },
+            deliveryAttempts: [{ attempt: 1, timestamp: new Date().toISOString(), error: hookInput.error || 'task failed' }],
+            agentId: hookInput.agentSlug || hookInput.agent_slug,
+            swarmId: hookInput.swarmId || hookInput.swarm_id,
+          });
+          console.log('[DLQ_ENQUEUED] Failed task ' + (hookInput.taskId || 'unknown') + ' sent to dead-letter queue');
+        }
+      }
+    } catch (e) { /* non-fatal */ }
+
+    console.log('[OK] Task completed');
+  },
+
+  'compact-manual': () => {
+    console.log('PreCompact Guidance:');
+    console.log('IMPORTANT: Review CLAUDE.md in project root for:');
+    console.log('   - Available agents and concurrent usage patterns');
+    console.log('   - Swarm coordination strategies (hierarchical, mesh, adaptive)');
+    console.log('   - Critical concurrent execution rules (1 MESSAGE = ALL OPERATIONS)');
+    console.log('Ready for compact operation');
+  },
+
+  'compact-auto': () => {
+    console.log('Auto-Compact Guidance (Context Window Full):');
+    console.log('CRITICAL: Before compacting, ensure you understand:');
+    console.log('   - All agents available in .claude/agents/ directory');
+    console.log('   - Concurrent execution patterns from CLAUDE.md');
+    console.log('   - Swarm coordination strategies for complex tasks');
+    console.log('Apply GOLDEN RULE: Always batch operations in single messages');
+    console.log('Auto-compact proceeding with full agent context');
+  },
+
+  'agent-start': () => {
+    // Called by SubagentStart hook — register this agent so the statusline can count it
+    const regDir = path.join(CWD, '.monobrain', 'agents', 'registrations');
+    try {
+      fs.mkdirSync(regDir, { recursive: true });
+      const id = Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+      const regFile = path.join(regDir, 'agent-' + id + '.json');
+      fs.writeFileSync(regFile, JSON.stringify({
+        agentId: id,
+        startedAt: new Date().toISOString(),
+        pid: process.pid,
+      }));
+      // Also refresh swarm-activity.json so it's within the 5-min staleness window
+      const activityDir = path.join(CWD, '.monobrain', 'metrics');
+      fs.mkdirSync(activityDir, { recursive: true });
+      const activityPath = path.join(activityDir, 'swarm-activity.json');
+      const active = fs.readdirSync(regDir).filter(f => f.endsWith('.json')).length;
+      fs.writeFileSync(activityPath, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        swarm: {
+          active: active > 0,
+          agent_count: active,
+          coordination_active: active > 0,
+        },
+      }));
+
+      // Write last-dispatch.json so the route handler can suppress redundant suggestions
+      // on the next turn when the same type of agent is recommended.
+      const agentType = hookInput.subagent_type || hookInput.agentType || hookInput.agent_type || hookInput.agentSlug || 'unknown';
+      const agentDesc = hookInput.description || hookInput.prompt_description || '';
+      fs.writeFileSync(
+        path.join(CWD, '.monobrain', 'last-dispatch.json'),
+        JSON.stringify({
+          agentType: agentType,
+          description: agentDesc.substring(0, 120),
+          dispatchedAt: new Date().toISOString(),
+        }),
+        'utf-8'
+      );
+    } catch (e) { /* non-fatal — never block a subagent from starting */ }
+    console.log('[OK] Agent registered');
+  },
+
+  'status': () => {
+    console.log('[OK] Status check');
+  },
+
+  'stats': () => {
+    if (intelligence && intelligence.stats) {
+      intelligence.stats(args.includes('--json'));
+    } else {
+      console.log('[WARN] Intelligence module not available. Run session-restore first.');
+    }
+  },
+};
+
+if (command && handlers[command]) {
+    try {
+      await Promise.resolve(handlers[command]());
+    } catch (e) {
+      console.log('[WARN] Hook ' + command + ' encountered an error: ' + e.message);
+    }
+  } else if (command) {
+    console.log('[OK] Hook: ' + command);
+  } else {
+    console.log('Usage: hook-handler.cjs <route|pre-bash|post-edit|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto|status|stats>');
+  }
+}
+
+main().catch(function(e) {
+  console.log('[WARN] Hook handler error: ' + e.message);
+}).finally(function() {
+  // Ensure clean exit for Claude Code hooks
+  process.exit(0);
+});

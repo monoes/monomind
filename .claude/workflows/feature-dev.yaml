@@ -1,0 +1,18 @@
+name: feature-dev
+description: End-to-end feature development workflow
+steps:
+  - name: design
+    agent: system-architect
+    prompt: "Design the feature architecture and document decisions"
+  - name: implement
+    agent: coder
+    prompt: "Implement the feature following the architect's design"
+    dependsOn: [design]
+  - name: test
+    agent: tester
+    prompt: "Write comprehensive tests for the implementation"
+    dependsOn: [implement]
+  - name: review
+    agent: reviewer
+    prompt: "Review code quality, security, and adherence to design"
+    dependsOn: [implement, test]

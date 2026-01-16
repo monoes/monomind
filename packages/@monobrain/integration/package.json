@@ -1,0 +1,55 @@
+{
+  "name": "@monobrain/integration",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Integration module - agentic-flow@alpha deep integration, ADR-001 compliance, TokenOptimizer",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./token-optimizer": "./dist/token-optimizer.js",
+    "./*": "./dist/*.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "keywords": [
+    "monobrain",
+    "agentic-flow",
+    "token-optimizer",
+    "agent-booster",
+    "reasoningbank",
+    "anti-drift",
+    "swarm"
+  ],
+  "peerDependencies": {
+    "agentic-flow": "^2.0.0-alpha"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.4"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "optionalDependencies": {
+    "agent-booster": "^0.2.2"
+  },
+  "monobrain": {
+    "optionalComponents": {
+      "TokenOptimizer": {
+        "description": "Token reduction via agentic-flow Agent Booster integration",
+        "savings": "30-50%",
+        "features": [
+          "ReasoningBank",
+          "cache",
+          "anti-drift-config"
+        ],
+        "requires": [
+          "agentic-flow"
+        ]
+      }
+    }
+  }
+}

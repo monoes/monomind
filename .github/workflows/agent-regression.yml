@@ -1,0 +1,102 @@
+name: Agent Regression Benchmarks
+
+on:
+  pull_request:
+    paths:
+      - 'packages/@monobrain/cli/src/agents/**'
+      - 'packages/@monobrain/routing/src/**'
+      - 'packages/@monobrain/hooks/src/**'
+      - 'tests/benchmarks/**'
+      - '.github/workflows/agent-regression.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/@monobrain/cli/src/agents/**'
+      - 'tests/benchmarks/**'
+
+concurrency:
+  group: agent-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Agent Quality Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install CLI package dependencies
+        working-directory: packages/@monobrain/cli
+        run: npm ci
+
+      - name: Build CLI package
+        working-directory: packages/@monobrain/cli
+        run: npm run build
+
+      - name: Run regression benchmarks
+        run: npx vitest run tests/benchmarks/
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CI: true
+
+      - name: Check regression threshold
+        run: |
+          node -e "
+          const { BenchmarkRunner } = require('./packages/@monobrain/cli/dist/benchmarks/benchmark-runner.js');
+          const runner = new BenchmarkRunner();
+          runner.checkRegressionGate().then(ok => {
+            if (!ok) {
+              console.error('Quality regression detected — pass rate dropped below baseline threshold');
+              process.exit(1);
+            }
+            console.log('All benchmarks within acceptable range of baseline');
+          }).catch(err => {
+            console.warn('Regression gate check failed (no baseline set yet):', err.message);
+          });
+          "
+        env:
+          CI: true
+        continue-on-error: true
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npx vitest run --reporter=verbose
+        env:
+          CI: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            coverage/
+            test-results/
+          retention-days: 7

@@ -1,0 +1,107 @@
+{
+  "name": "@monobrain/plugin-gastown-bridge",
+  "version": "0.1.3",
+  "description": "Gas Town orchestrator integration for Monobrain V1 with WASM-accelerated formula parsing and graph analysis",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    },
+    "./bridges": {
+      "import": "./dist/bridges.mjs",
+      "require": "./dist/bridges.cjs",
+      "types": "./dist/bridges.d.ts"
+    },
+    "./formula": {
+      "import": "./dist/formula.mjs",
+      "require": "./dist/formula.cjs",
+      "types": "./dist/formula.d.ts"
+    },
+    "./convoy": {
+      "import": "./dist/convoy.mjs",
+      "require": "./dist/convoy.cjs",
+      "types": "./dist/convoy.d.ts"
+    },
+    "./wasm": {
+      "import": "./dist/wasm-loader.mjs",
+      "types": "./dist/wasm-loader.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "wasm/*/pkg/*.wasm",
+    "wasm/*/pkg/*.wasm.gz",
+    "plugin.yaml",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "build:wasm": "./scripts/build-wasm.sh --release --opt-level 3",
+    "build:all": "npm run build:wasm && npm run build",
+    "build:analyze": "tsup --metafile && npx esbuild-visualizer --metadata ./dist/metafile-*.json --filename bundle-analysis.html",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:wasm": "vitest --config vitest.wasm.config.ts",
+    "benchmark": "tsx scripts/benchmark.ts",
+    "size": "size-limit",
+    "size:why": "size-limit --why",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "monobrain",
+    "plugin",
+    "gastown",
+    "beads",
+    "orchestration",
+    "workflows",
+    "formulas",
+    "wasm",
+    "multi-agent"
+  ],
+  "author": "rUv",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nokhodian/monobrain.git",
+    "directory": "packages/plugins/gastown-bridge"
+  },
+  "bugs": {
+    "url": "https://github.com/nokhodian/monobrain/issues"
+  },
+  "homepage": "https://github.com/nokhodian/monobrain/tree/main/packages/plugins/gastown-bridge#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "peerDependencies": {
+    "@monobrain/memory": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@monobrain/memory": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@iarna/toml": "^2.2.5",
+    "uuid": "^9.0.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@size-limit/preset-small-lib": "^11.0.0",
+    "@types/node": "^20.0.0",
+    "@types/uuid": "^9.0.0",
+    "esbuild": "^0.20.0",
+    "size-limit": "^11.0.0",
+    "tsup": "^8.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.4"
+  },
+  "optionalDependencies": {}
+}
