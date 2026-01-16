@@ -1,0 +1,148 @@
+# Monobrain Deep Regression Test Suite
+# Docker Compose orchestration for comprehensive testing
+
+version: '3.8'
+
+services:
+  # Main test runner
+  test-runner:
+    build:
+      context: ../..
+      dockerfile: tests/docker-regression/Dockerfile
+    container_name: monobrain-test-runner
+    volumes:
+      - test-data:/app/data
+      - test-reports:/app/reports
+      - test-logs:/app/logs
+    environment:
+      - NODE_ENV=test
+      - MONOBRAIN_MODE=test
+      - MONOBRAIN_MEMORY_PATH=/app/data
+      - MONOBRAIN_LOG_LEVEL=debug
+      - MONOBRAIN_MAX_AGENTS=15
+      - MONOBRAIN_SECURITY_MODE=strict
+      - MONOBRAIN_HNSW_M=16
+      - MONOBRAIN_HNSW_EF=200
+      - MONOBRAIN_EMBEDDING_DIM=384
+      - CI=true
+      - TEST_REPORT_PATH=/app/reports
+      - MCP_SERVER_HOST=localhost
+      - MCP_SERVER_PORT=3000
+    networks:
+      - monobrain-test
+    command: ["bash", "/app/tests/docker-regression/scripts/run-all-tests.sh"]
+
+  # MCP Server for integration tests
+  mcp-server:
+    build:
+      context: ../..
+      dockerfile: tests/docker-regression/Dockerfile
+    container_name: monobrain-mcp-server
+    volumes:
+      - test-data:/app/data
+      - test-logs:/app/logs
+    environment:
+      - NODE_ENV=test
+      - MONOBRAIN_MODE=test
+      - MONOBRAIN_MEMORY_PATH=/app/data
+      - MONOBRAIN_LOG_LEVEL=info
+      - MCP_PORT=3000
+    ports:
+      - "3000:3000"
+    networks:
+      - monobrain-test
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "3000"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    command: ["npx", "monobrain", "mcp", "start", "--port", "3000"]
+
+  # Unit test runner
+  unit-tests:
+    build:
+      context: ../..
+      dockerfile: tests/docker-regression/Dockerfile
+    container_name: monobrain-unit-tests
+    volumes:
+      - test-reports:/app/reports
+    environment:
+      - NODE_ENV=test
+      - CI=true
+      - TEST_REPORT_PATH=/app/reports
+    networks:
+      - monobrain-test
+    command: ["bash", "/app/tests/docker-regression/scripts/run-unit-tests.sh"]
+
+  # Integration test runner
+  integration-tests:
+    build:
+      context: ../..
+      dockerfile: tests/docker-regression/Dockerfile
+    container_name: monobrain-integration-tests
+    volumes:
+      - test-data:/app/data
+      - test-reports:/app/reports
+    environment:
+      - NODE_ENV=test
+      - MONOBRAIN_MODE=test
+      - MONOBRAIN_MEMORY_PATH=/app/data
+      - CI=true
+      - TEST_REPORT_PATH=/app/reports
+      - MCP_SERVER_HOST=mcp-server
+      - MCP_SERVER_PORT=3000
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    networks:
+      - monobrain-test
+    command: ["bash", "/app/tests/docker-regression/scripts/run-integration-tests.sh"]
+
+  # Performance benchmark runner
+  benchmark-tests:
+    build:
+      context: ../..
+      dockerfile: tests/docker-regression/Dockerfile
+    container_name: monobrain-benchmark-tests
+    volumes:
+      - test-data:/app/data
+      - test-reports:/app/reports
+    environment:
+      - NODE_ENV=test
+      - MONOBRAIN_MODE=test
+      - MONOBRAIN_MEMORY_PATH=/app/data
+      - CI=true
+      - TEST_REPORT_PATH=/app/reports
+    networks:
+      - monobrain-test
+    command: ["bash", "/app/tests/docker-regression/scripts/run-benchmark-tests.sh"]
+
+  # Security test runner
+  security-tests:
+    build:
+      context: ../..
+      dockerfile: tests/docker-regression/Dockerfile
+    container_name: monobrain-security-tests
+    volumes:
+      - test-reports:/app/reports
+    environment:
+      - NODE_ENV=test
+      - MONOBRAIN_SECURITY_MODE=strict
+      - CI=true
+      - TEST_REPORT_PATH=/app/reports
+    networks:
+      - monobrain-test
+    command: ["bash", "/app/tests/docker-regression/scripts/run-security-tests.sh"]
+
+networks:
+  monobrain-test:
+    driver: bridge
+
+volumes:
+  test-data:
+    driver: local
+  test-reports:
+    driver: local
+  test-logs:
+    driver: local

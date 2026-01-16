@@ -1,0 +1,165 @@
+
+!/memory/agents/README.md
+!/memory/sessions/README.md
+!bin/monobrain
+!packages/@monobrain/
+# Binaries
+# Build outputs
+
+# monobrain specific
+# Dependencies
+# Development
+# Dot folders to ignore (except .claude, .claude-plugin, .git, .github, .githooks)
+# Environment
+# Exclude @monobrain module directories from ignore patterns
+# IDE
+# Logs
+# MCP/Swarm
+# OS
+# Python
+# Removed Windows wrapper files
+# SPARC/Roo files (not used)
+# SQLite Database Files
+# Temp files
+# Temporary files
+# Test artifacts
+# Test outputs
+# Testing
+# memory/
+# sessions/
+*$py.class
+*.db
+*.db-journal
+*.db-wal
+*.egg
+*.egg-info/
+*.exe
+*.lcov
+*.log
+*.pid
+*.pid.lock
+*.py[cod]
+*.seed
+*.so
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.swo
+*.swp
+*.temp
+*.tmp
+*.tsbuildinfo
+*~
+.monobrain/
+./claude/checkpoints/
+.DS_Store
+.Python
+.agentic-flow/
+.cache/
+.monobrain/
+.claude/settings.local.json
+.deno/
+.env
+.env.*.local
+.env.local
+.hive-mind/
+.hive-mind/hive.db*
+.idea/
+.mcp.json
+.nyc_output/
+.pnpm-debug.log*
+.pnpm-store/
+.research/
+.roo/
+.roomodes
+.ruv-swarm/
+.swarm/
+.swarm/memory.db*
+.turbo/
+.vscode/
+/coordination/
+/memory/
+/memory/agents/*
+/memory/monobrain-data.json
+/memory/sessions/*
+Thumbs.db
+__pycache__/
+analyzing
+api-project/
+bin/monobrain-*
+build/
+monobrain
+monobrain-mcp-wrapper
+monobrain.config.json
+monobrain.db
+coordination/memory_bank/*
+coordination/orchestration/*
+coordination/subtasks/*
+coverage/
+dist-cjs/
+dist/
+hive-mind-prompt-*.txt
+init-output.log
+lerna-debug.log*
+logs/
+mcp-server.log
+memory/backups/
+node_modules/
+npm-debug.log*
+out/
+output/
+package
+pnpm-debug.log*
+swarm-debug.log
+swarm-runs
+test-full-init
+test-init
+test-output/
+test-reports/
+tests/logs/
+tests/results/
+the
+tmp/
+ui_*.log
+yarn-debug.log*
+yarn-error.log*
+
+# monobrain generated files
+.claude/settings.local.json
+.mcp.json
+monobrain.config.json
+.swarm/
+.hive-mind/
+.monobrain/
+/memory/
+/coordination/
+/memory/monobrain-data.json
+/memory/sessions/*
+!/memory/sessions/README.md
+/memory/agents/*
+!/memory/agents/README.md
+/coordination/memory_bank/*
+/coordination/subtasks/*
+/coordination/orchestration/*
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+monobrain
+docs/ 
+# Removed Windows wrapper files per user request
+hive-mind-prompt-*.txt
+
+# Codex local configuration
+.codex/
+
+# monobrain runtime data
+.monobrain/data/
+.monobrain/logs/
+
+# Environment variables
+.env
+.env.local
+.env.*.local

@@ -1,0 +1,104 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": [
+      "ES2022"
+    ],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": false,
+    "composite": true,
+    "incremental": true,
+    "baseUrl": "./",
+    "paths": {
+      "@monobrain/security": [
+        "./@monobrain/security/src"
+      ],
+      "@monobrain/memory": [
+        "./@monobrain/memory/src"
+      ],
+      "@monobrain/integration": [
+        "./@monobrain/integration/src"
+      ],
+      "@monobrain/swarm": [
+        "./@monobrain/swarm/src"
+      ],
+      "@monobrain/performance": [
+        "./@monobrain/performance/src"
+      ],
+      "@monobrain/cli": [
+        "./@monobrain/cli/src"
+      ],
+      "@monobrain/neural": [
+        "./@monobrain/neural/src"
+      ],
+      "@monobrain/testing": [
+        "./@monobrain/testing/src"
+      ],
+      "@monobrain/deployment": [
+        "./@monobrain/deployment/src"
+      ],
+      "@monobrain/shared": [
+        "./@monobrain/shared/src"
+      ],
+      "@monobrain/hooks": [
+        "./@monobrain/hooks/src"
+      ]
+    },
+    "emitDeclarationOnly": false,
+    "tsBuildInfoFile": "./node_modules/.cache/vitest/tsconfig.tmp.tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "./@monobrain/shared"
+    },
+    {
+      "path": "./@monobrain/security"
+    },
+    {
+      "path": "./@monobrain/memory"
+    },
+    {
+      "path": "./@monobrain/integration"
+    },
+    {
+      "path": "./@monobrain/swarm"
+    },
+    {
+      "path": "./@monobrain/performance"
+    },
+    {
+      "path": "./@monobrain/cli"
+    },
+    {
+      "path": "./@monobrain/neural"
+    },
+    {
+      "path": "./@monobrain/testing"
+    },
+    {
+      "path": "./@monobrain/deployment"
+    },
+    {
+      "path": "./@monobrain/hooks"
+    }
+  ],
+  "include": [],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

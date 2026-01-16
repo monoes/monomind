@@ -1,0 +1,34 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@monobrain/security": ["./@monobrain/security/src"],
+      "@monobrain/memory": ["./@monobrain/memory/src"],
+      "@monobrain/integration": ["./@monobrain/integration/src"],
+      "@monobrain/swarm": ["./@monobrain/swarm/src"],
+      "@monobrain/performance": ["./@monobrain/performance/src"],
+      "@monobrain/cli": ["./@monobrain/cli/src"],
+      "@monobrain/neural": ["./@monobrain/neural/src"],
+      "@monobrain/testing": ["./@monobrain/testing/src"],
+      "@monobrain/deployment": ["./@monobrain/deployment/src"],
+      "@monobrain/shared": ["./@monobrain/shared/src"],
+      "@monobrain/hooks": ["./@monobrain/hooks/src"]
+    }
+  },
+  "references": [
+    { "path": "./@monobrain/shared" },
+    { "path": "./@monobrain/security" },
+    { "path": "./@monobrain/memory" },
+    { "path": "./@monobrain/integration" },
+    { "path": "./@monobrain/swarm" },
+    { "path": "./@monobrain/performance" },
+    { "path": "./@monobrain/cli" },
+    { "path": "./@monobrain/neural" },
+    { "path": "./@monobrain/testing" },
+    { "path": "./@monobrain/deployment" },
+    { "path": "./@monobrain/hooks" }
+  ],
+  "include": [],
+  "exclude": ["node_modules", "dist"]
+}

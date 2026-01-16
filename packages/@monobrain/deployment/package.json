@@ -1,0 +1,27 @@
+{
+  "name": "@monobrain/deployment",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Deployment module - Release management, CI/CD, versioning",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "release": "semantic-release"
+  },
+  "dependencies": {
+    "@monobrain/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "semantic-release": "^25.0.2",
+    "vitest": "^4.1.4"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  }
+}
