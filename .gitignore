@@ -148,7 +148,8 @@ monobrain.config.json
 *.sqlite-journal
 *.sqlite-wal
 monobrain
-docs/
+docs/*.md
+docs/adr/
 # Removed Windows wrapper files per user request
 hive-mind-prompt-*.txt
 
