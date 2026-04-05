@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f0f1a"/>
+      <stop offset="100%" style="stop-color:#1a1a2e"/>
+    </linearGradient>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c3aed"/>
+      <stop offset="100%" style="stop-color:#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="100%" style="stop-color:#06b6d4"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="60" cy="60" r="58" fill="url(#bg)" stroke="url(#grad1)" stroke-width="1.5"/>
+
+  <!-- Neural network nodes -->
+  <!-- Center node -->
+  <circle cx="60" cy="60" r="7" fill="url(#grad1)" filter="url(#glow)"/>
+
+  <!-- Inner ring nodes -->
+  <circle cx="60" cy="35" r="4.5" fill="url(#grad2)" filter="url(#glow)"/>
+  <circle cx="60" cy="85" r="4.5" fill="url(#grad2)" filter="url(#glow)"/>
+  <circle cx="35" cy="60" r="4.5" fill="url(#grad2)" filter="url(#glow)"/>
+  <circle cx="85" cy="60" r="4.5" fill="url(#grad2)" filter="url(#glow)"/>
+  <circle cx="41" cy="41" r="4" fill="url(#grad2)" filter="url(#glow)"/>
+  <circle cx="79" cy="41" r="4" fill="url(#grad2)" filter="url(#glow)"/>
+  <circle cx="41" cy="79" r="4" fill="url(#grad2)" filter="url(#glow)"/>
+  <circle cx="79" cy="79" r="4" fill="url(#grad2)" filter="url(#glow)"/>
+
+  <!-- Outer ring nodes -->
+  <circle cx="60" cy="18" r="3" fill="#7c3aed" opacity="0.8"/>
+  <circle cx="60" cy="102" r="3" fill="#7c3aed" opacity="0.8"/>
+  <circle cx="18" cy="60" r="3" fill="#7c3aed" opacity="0.8"/>
+  <circle cx="102" cy="60" r="3" fill="#7c3aed" opacity="0.8"/>
+  <circle cx="28" cy="28" r="3" fill="#3b82f6" opacity="0.7"/>
+  <circle cx="92" cy="28" r="3" fill="#3b82f6" opacity="0.7"/>
+  <circle cx="28" cy="92" r="3" fill="#3b82f6" opacity="0.7"/>
+  <circle cx="92" cy="92" r="3" fill="#3b82f6" opacity="0.7"/>
+
+  <!-- Connections: center to inner ring -->
+  <line x1="60" y1="60" x2="60" y2="35" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
+  <line x1="60" y1="60" x2="60" y2="85" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
+  <line x1="60" y1="60" x2="35" y2="60" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
+  <line x1="60" y1="60" x2="85" y2="60" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
+  <line x1="60" y1="60" x2="41" y2="41" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
+  <line x1="60" y1="60" x2="79" y2="41" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
+  <line x1="60" y1="60" x2="41" y2="79" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
+  <line x1="60" y1="60" x2="79" y2="79" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
+
+  <!-- Connections: inner to outer -->
+  <line x1="60" y1="35" x2="60" y2="18" stroke="#3b82f6" stroke-width="0.8" opacity="0.5"/>
+  <line x1="60" y1="85" x2="60" y2="102" stroke="#3b82f6" stroke-width="0.8" opacity="0.5"/>
+  <line x1="35" y1="60" x2="18" y2="60" stroke="#3b82f6" stroke-width="0.8" opacity="0.5"/>
+  <line x1="85" y1="60" x2="102" y2="60" stroke="#3b82f6" stroke-width="0.8" opacity="0.5"/>
+  <line x1="41" y1="41" x2="28" y2="28" stroke="#7c3aed" stroke-width="0.8" opacity="0.5"/>
+  <line x1="79" y1="41" x2="92" y2="28" stroke="#7c3aed" stroke-width="0.8" opacity="0.5"/>
+  <line x1="41" y1="79" x2="28" y2="92" stroke="#7c3aed" stroke-width="0.8" opacity="0.5"/>
+  <line x1="79" y1="79" x2="92" y2="92" stroke="#7c3aed" stroke-width="0.8" opacity="0.5"/>
+
+  <!-- Cross connections inner ring -->
+  <line x1="60" y1="35" x2="41" y2="41" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
+  <line x1="60" y1="35" x2="79" y2="41" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
+  <line x1="60" y1="85" x2="41" y2="79" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
+  <line x1="60" y1="85" x2="79" y2="79" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
+  <line x1="35" y1="60" x2="41" y2="41" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
+  <line x1="35" y1="60" x2="41" y2="79" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
+  <line x1="85" y1="60" x2="79" y2="41" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
+  <line x1="85" y1="60" x2="79" y2="79" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
+</svg>

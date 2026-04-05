@@ -1,19 +1,17 @@
-# 🧠 Monobrain v1.0: Multi-Agent AI Orchestration Platform
-
 <div align="center">
 
-[![npm version](https://img.shields.io/npm/v/monobrain?style=for-the-badge&logo=npm&color=blue)](https://www.npmjs.com/package/monobrain)
-[![Downloads](https://img.shields.io/npm/dm/monobrain?style=for-the-badge&logo=npm&color=green&label=Monthly%20Downloads)](https://www.npmjs.com/package/monobrain)
-[![Stars](https://img.shields.io/github/stars/nokhodian/monobrain?style=for-the-badge&logo=github&color=gold)](https://github.com/nokhodian/monobrain)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge&logo=opensourceinitiative)](https://opensource.org/licenses/MIT)
-[![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen?style=for-the-badge&logo=nodedotjs)](https://nodejs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org)
+<img src="docs/assets/banner.svg" alt="Monobrain — Enterprise AI Agent Orchestration" width="860"/>
 
----
+<br/>
 
-# **Multi-agent AI orchestration for Claude Code**
+[![npm version](https://img.shields.io/npm/v/monobrain?style=for-the-badge&logo=npm&color=7c3aed&logoColor=white)](https://www.npmjs.com/package/monobrain)
+[![Downloads](https://img.shields.io/npm/dm/monobrain?style=for-the-badge&logo=npm&color=3b82f6&logoColor=white&label=Monthly%20Downloads)](https://www.npmjs.com/package/monobrain)
+[![Stars](https://img.shields.io/github/stars/monoes/monobrain?style=for-the-badge&logo=github&color=f59e0b&logoColor=white)](https://github.com/monoes/monobrain)
+[![License: MIT](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](https://opensource.org/licenses/MIT)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-06b6d4?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3b82f6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 
-_Deploy 100+ specialized agents in coordinated swarms with self-learning capabilities, fault-tolerant consensus, and enterprise-grade security._
+_Deploy 60+ specialized agents in coordinated swarms with self-learning capabilities, fault-tolerant consensus, and enterprise-grade security._
 
 </div>
 
