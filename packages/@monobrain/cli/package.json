@@ -1,0 +1,106 @@
+{
+  "name": "@monoes/cli",
+  "version": "1.5.0",
+  "type": "module",
+  "description": "Monobrain CLI - Enterprise AI agent orchestration with 60+ specialized agents, swarm coordination, MCP server, self-learning hooks, and vector memory for Claude Code",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "sideEffects": false,
+  "bin": {
+    "cli": "./bin/cli.js",
+    "monobrain": "./bin/cli.js",
+    "monobrain-mcp": "./bin/mcp-server.js"
+  },
+  "homepage": "https://github.com/nokhodian/monobrain#readme",
+  "bugs": {
+    "url": "https://github.com/nokhodian/monobrain/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nokhodian/monobrain.git",
+    "directory": "packages/@monobrain/cli"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "anthropic",
+    "ai-agents",
+    "multi-agent",
+    "swarm",
+    "mcp",
+    "model-context-protocol",
+    "llm",
+    "cli",
+    "orchestration",
+    "automation",
+    "developer-tools",
+    "coding-assistant",
+    "vector-database",
+    "embeddings",
+    "self-learning",
+    "enterprise"
+  ],
+  "author": {
+    "name": "nokhodian",
+    "email": "nokhodian@gmail.com",
+    "url": "https://github.com/nokhodian"
+  },
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./ruvector": {
+      "types": "./dist/src/ruvector/index.d.ts",
+      "import": "./dist/src/ruvector/index.js"
+    },
+    "./ruvector/*": {
+      "types": "./dist/src/ruvector/*.d.ts",
+      "import": "./dist/src/ruvector/*.js"
+    },
+    "./mcp-tools": {
+      "types": "./dist/src/mcp-tools/index.d.ts",
+      "import": "./dist/src/mcp-tools/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "bin",
+    ".claude",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:plugin-store": "npx tsx src/plugins/tests/standalone-test.ts",
+    "test:pattern-store": "npx tsx src/transfer/store/tests/standalone-test.ts",
+    "prepublishOnly": "cp ../../../README.md ./README.md",
+    "release": "npm version prerelease --preid=alpha && npm run publish:all",
+    "publish:all": "./scripts/publish.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^4.1.4"
+  },
+  "dependencies": {
+    "@monoes/graph": "^1.3.0",
+    "@monobrain/security": "workspace:*",
+    "@noble/ed25519": "^2.1.0",
+    "semver": "^7.6.0"
+  },
+  "optionalDependencies": {
+    "@monobrain/plugin-gastown-bridge": "^0.1.3",
+    "agentic-flow": "^3.0.0-alpha.1",
+    "@ruvector/attention": "^0.1.4",
+    "@ruvector/learning-wasm": "^0.1.29",
+    "@ruvector/router": "^0.1.27",
+    "@ruvector/rvagent-wasm": "^0.1.0",
+    "@ruvector/ruvllm-wasm": "^2.0.2",
+    "@ruvector/sona": "^0.1.5"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
+  }
+}

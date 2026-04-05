@@ -1,0 +1,6 @@
+{
+  "fixtures": {
+    "a1b2c3d4e5f6a7b8": "Security review complete. No critical vulnerabilities found.",
+    "f8e7d6c5b4a3f2e1": "{\"findings\":[],\"summary\":\"No vulnerabilities found\",\"severity\":\"low\"}"
+  }
+}

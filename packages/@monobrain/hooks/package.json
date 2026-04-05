@@ -1,0 +1,103 @@
+{
+  "name": "@monobrain/hooks",
+  "version": "1.0.0",
+  "description": "V1 Hooks System - Event-driven lifecycle hooks with ReasoningBank learning integration",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./registry": {
+      "types": "./dist/registry/index.d.ts",
+      "import": "./dist/registry/index.js"
+    },
+    "./executor": {
+      "types": "./dist/executor/index.d.ts",
+      "import": "./dist/executor/index.js"
+    },
+    "./daemons": {
+      "types": "./dist/daemons/index.d.ts",
+      "import": "./dist/daemons/index.js"
+    },
+    "./statusline": {
+      "types": "./dist/statusline/index.d.ts",
+      "import": "./dist/statusline/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp/index.d.ts",
+      "import": "./dist/mcp/index.js"
+    },
+    "./reasoningbank": {
+      "types": "./dist/reasoningbank/index.d.ts",
+      "import": "./dist/reasoningbank/index.js"
+    },
+    "./guidance": {
+      "types": "./dist/reasoningbank/guidance-provider.d.ts",
+      "import": "./dist/reasoningbank/guidance-provider.js"
+    }
+  },
+  "files": [
+    "dist",
+    "bin",
+    "scripts"
+  ],
+  "bin": {
+    "hooks-daemon": "./bin/hooks-daemon.js",
+    "statusline": "./bin/statusline.js",
+    "monobrain-hooks": "./dist/cli/guidance-cli.js",
+    "guidance": "./dist/cli/guidance-cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@monobrain/memory": "workspace:*",
+    "@monobrain/neural": "workspace:*",
+    "@monobrain/shared": "workspace:*",
+    "zod": "^3.23.0"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^4.1.4"
+  },
+  "peerDependencies": {
+    "@monobrain/shared": "workspace:*"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "monobrain",
+    "hooks",
+    "daemons",
+    "statusline",
+    "reasoningbank",
+    "mcp",
+    "agents"
+  ],
+  "author": "Monobrain Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nokhodian/monobrain.git",
+    "directory": "packages/@monobrain/hooks"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  }
+}

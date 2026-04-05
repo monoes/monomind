@@ -1,0 +1,124 @@
+{
+  "name": "monobrain",
+  "version": "1.5.0",
+  "description": "Monobrain - Enterprise AI agent orchestration for Claude Code. Deploy 60+ specialized agents in coordinated swarms with self-learning, fault-tolerant consensus, vector memory, and MCP integration",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "monobrain": "./bin/cli.js"
+  },
+  "homepage": "https://github.com/nokhodian/monobrain#readme",
+  "bugs": {
+    "url": "https://github.com/nokhodian/monobrain/issues",
+    "email": "support@monoes.me"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/nokhodian"
+  },
+  "files": [
+    "bin/**",
+    "packages/@monobrain/cli/bin/**",
+    "packages/@monobrain/cli/dist/**/*.js",
+    "packages/@monobrain/cli/dist/**/*.d.ts",
+    "!packages/@monobrain/cli/dist/**/*.map",
+    "packages/@monobrain/cli/package.json",
+    "packages/@monobrain/shared/dist/**/*.js",
+    "packages/@monobrain/shared/dist/**/*.d.ts",
+    "!packages/@monobrain/shared/dist/**/*.map",
+    "packages/@monobrain/shared/package.json",
+    "packages/@monobrain/guidance/dist/**/*.js",
+    "packages/@monobrain/guidance/dist/**/*.d.ts",
+    "!packages/@monobrain/guidance/dist/**/*.map",
+    "packages/@monobrain/guidance/package.json",
+    ".claude-plugin/**",
+    ".claude/**",
+    "!.claude/**/*.db",
+    "!.claude/**/*.map",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "build:ts": "cd packages/@monobrain/cli && npm run build || true",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:security": "vitest run packages/__tests__/security/",
+    "lint": "cd packages/@monobrain/cli && npm run lint || true",
+    "security:audit": "npm audit --audit-level high",
+    "security:fix": "npm audit fix",
+    "security:test": "npm run test:security",
+    "v1:domains": "npm run build:domains",
+    "v1:swarm": "npm run start:swarm",
+    "v1:security": "npm run security:audit && npm run security:test"
+  },
+  "dependencies": {
+    "semver": "^7.6.0"
+  },
+  "overrides": {
+    "hono": ">=4.11.4"
+  },
+  "devDependencies": {
+    "@openai/codex": "^0.98.0",
+    "@types/bcrypt": "^5.0.2",
+    "@types/node": "^20.0.0",
+    "eslint": "^8.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.4",
+    "zod": "^4.3.6"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nokhodian/monobrain.git"
+  },
+  "keywords": [
+    "ruvflow",
+    "claude",
+    "claude-code",
+    "anthropic",
+    "ai",
+    "ai-agents",
+    "multi-agent",
+    "agent-orchestration",
+    "swarm-intelligence",
+    "swarm",
+    "mcp",
+    "model-context-protocol",
+    "llm",
+    "large-language-model",
+    "gpt",
+    "chatgpt",
+    "automation",
+    "workflow",
+    "orchestration",
+    "cli",
+    "developer-tools",
+    "devtools",
+    "coding-assistant",
+    "code-generation",
+    "enterprise",
+    "vector-database",
+    "embeddings",
+    "machine-learning",
+    "neural-network",
+    "hive-mind",
+    "distributed-systems",
+    "consensus",
+    "self-learning"
+  ],
+  "author": {
+    "name": "nokhodian",
+    "email": "nokhodian@gmail.com",
+    "url": "https://github.com/nokhodian"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
+  }
+}

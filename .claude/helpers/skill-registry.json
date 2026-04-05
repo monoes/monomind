@@ -1,0 +1,961 @@
+{
+  "_meta": {
+    "version": "1.0.0",
+    "description": "Registry of all available skills and agents. Read by router.cjs to suggest the best skill when a task is routed.",
+    "format": "Each entry: { skill, invoke, description, keywords[], category }"
+  },
+  "skills": [
+    {
+      "skill": "code-review:code-review",
+      "invoke": "Skill(\"code-review:code-review\")",
+      "description": "Comprehensive code review — correctness, security, performance, maintainability",
+      "keywords": [
+        "review",
+        "audit",
+        "check",
+        "quality",
+        "best practices",
+        "code review",
+        "feedback"
+      ],
+      "category": "review",
+      "primaryAgent": "reviewer"
+    },
+    {
+      "skill": "feature-dev:feature-dev",
+      "invoke": "Skill(\"feature-dev:feature-dev\")",
+      "description": "Full feature development pipeline — explore, architect, implement, test, review",
+      "keywords": [
+        "feature",
+        "implement",
+        "build",
+        "new functionality",
+        "add feature",
+        "develop"
+      ],
+      "category": "implementation",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "sparc:tdd",
+      "invoke": "Skill(\"sparc:tdd\")",
+      "description": "Test-driven development — write failing tests first, then implementation",
+      "keywords": [
+        "tdd",
+        "test driven",
+        "tests first",
+        "unit test",
+        "spec",
+        "red green refactor"
+      ],
+      "category": "testing",
+      "primaryAgent": "tester"
+    },
+    {
+      "skill": "agent-browser-testing",
+      "invoke": "Skill(\"agent-browser-testing\")",
+      "description": "UI testing and task walkthroughs using agent-browser CLI — install, navigate, snapshot, click, fill, and report UI issues",
+      "keywords": [
+        "ui test",
+        "ui testing",
+        "browser test",
+        "browser testing",
+        "test the ui",
+        "test the frontend",
+        "test this page",
+        "test the app",
+        "visual test",
+        "frontend test",
+        "end to end test",
+        "e2e test",
+        "walk through",
+        "walkthrough",
+        "QA this",
+        "crawl",
+        "scrape",
+        "browse the website",
+        "go to the website",
+        "open the website",
+        "navigate to",
+        "click on the website",
+        "automate the browser",
+        "fill out the form",
+        "log into",
+        "sign in to",
+        "submit the form",
+        "agent-browser",
+        "agent browser",
+        "check the ui",
+        "check the page",
+        "check the frontend"
+      ],
+      "category": "testing",
+      "primaryAgent": "agent-browser-testing"
+    },
+    {
+      "skill": "sparc:architect",
+      "invoke": "Skill(\"sparc:architect\")",
+      "description": "System architecture design — patterns, DDD, scalability, API design",
+      "keywords": [
+        "architect",
+        "design",
+        "system design",
+        "structure",
+        "domain",
+        "ddd",
+        "patterns",
+        "scalability"
+      ],
+      "category": "architecture",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "sparc:security-review",
+      "invoke": "Skill(\"sparc:security-review\")",
+      "description": "Security analysis — vulnerabilities, CVEs, threat modeling, input validation",
+      "keywords": [
+        "security",
+        "vulnerability",
+        "cve",
+        "threat",
+        "injection",
+        "xss",
+        "auth",
+        "exploit"
+      ],
+      "category": "security",
+      "primaryAgent": "reviewer"
+    },
+    {
+      "skill": "sparc:debugger",
+      "invoke": "Skill(\"sparc:debugger\")",
+      "description": "Systematic debugging — root cause analysis, error tracing, fix verification",
+      "keywords": [
+        "debug",
+        "bug",
+        "error",
+        "crash",
+        "fix",
+        "broken",
+        "not working",
+        "exception",
+        "trace"
+      ],
+      "category": "debugging",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "sparc:optimizer",
+      "invoke": "Skill(\"sparc:optimizer\")",
+      "description": "Performance optimization — profiling, bottlenecks, memory, speed improvements",
+      "keywords": [
+        "optimize",
+        "performance",
+        "slow",
+        "speed",
+        "memory",
+        "bottleneck",
+        "profile",
+        "latency"
+      ],
+      "category": "performance",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "sparc:devops",
+      "invoke": "Skill(\"sparc:devops\")",
+      "description": "DevOps and deployment — CI/CD, Docker, infrastructure, pipelines",
+      "keywords": [
+        "deploy",
+        "ci",
+        "cd",
+        "docker",
+        "pipeline",
+        "infrastructure",
+        "kubernetes",
+        "build",
+        "release"
+      ],
+      "category": "devops",
+      "primaryAgent": "devops"
+    },
+    {
+      "skill": "sparc:documenter",
+      "invoke": "Skill(\"sparc:documenter\")",
+      "description": "Documentation generation — READMEs, API docs, architecture docs, inline comments",
+      "keywords": [
+        "document",
+        "docs",
+        "readme",
+        "api docs",
+        "explain",
+        "write documentation",
+        "comment"
+      ],
+      "category": "documentation",
+      "primaryAgent": "researcher"
+    },
+    {
+      "skill": "sparc:researcher",
+      "invoke": "Skill(\"sparc:researcher\")",
+      "description": "Research and analysis — investigate, explore, gather information, summarize",
+      "keywords": [
+        "research",
+        "find",
+        "search",
+        "investigate",
+        "explore",
+        "analyse",
+        "understand",
+        "how does",
+        "what kind",
+        "what is",
+        "list",
+        "show me",
+        "available",
+        "skills",
+        "agents",
+        "capabilities"
+      ],
+      "category": "research",
+      "primaryAgent": "researcher"
+    },
+    {
+      "skill": "sparc:spec-pseudocode",
+      "invoke": "Skill(\"sparc:spec-pseudocode\")",
+      "description": "Specification and pseudocode — clarify requirements, write specs, plan logic",
+      "keywords": [
+        "spec",
+        "specification",
+        "requirements",
+        "pseudocode",
+        "plan",
+        "design logic",
+        "clarify"
+      ],
+      "category": "planning",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "sparc:refactor",
+      "invoke": "Skill(\"sparc:coder\")",
+      "description": "Refactoring — clean up code, extract functions, improve structure without changing behavior",
+      "keywords": [
+        "refactor",
+        "clean up",
+        "restructure",
+        "extract",
+        "simplify",
+        "technical debt",
+        "improve code"
+      ],
+      "category": "implementation",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "github:code-review",
+      "invoke": "Skill(\"github:code-review\")",
+      "description": "GitHub PR code review — review pull requests, suggest improvements, approve/request changes",
+      "keywords": [
+        "pr review",
+        "pull request",
+        "github review",
+        "diff review",
+        "merge review"
+      ],
+      "category": "github",
+      "primaryAgent": "reviewer"
+    },
+    {
+      "skill": "github:pr-manager",
+      "invoke": "Skill(\"github:pr-manager\")",
+      "description": "Pull request lifecycle — create, update, merge, manage GitHub PRs",
+      "keywords": [
+        "create pr",
+        "pull request",
+        "open pr",
+        "pr description",
+        "pr title",
+        "merge pr"
+      ],
+      "category": "github",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "github:release-manager",
+      "invoke": "Skill(\"github:release-manager\")",
+      "description": "Release management — changelogs, versioning, GitHub releases, tags",
+      "keywords": [
+        "release",
+        "changelog",
+        "version",
+        "tag",
+        "publish",
+        "semver",
+        "bump version"
+      ],
+      "category": "github",
+      "primaryAgent": "devops"
+    },
+    {
+      "skill": "github:workflow-automation",
+      "invoke": "Skill(\"github:workflow-automation\")",
+      "description": "GitHub Actions — create/modify CI/CD workflows, automate pipelines",
+      "keywords": [
+        "github actions",
+        "workflow",
+        "yml",
+        "yaml",
+        "action",
+        "ci/cd github",
+        "automation pipeline"
+      ],
+      "category": "github",
+      "primaryAgent": "devops"
+    },
+    {
+      "skill": "github:issue-tracker",
+      "invoke": "Skill(\"github:issue-tracker\")",
+      "description": "GitHub issue management — create, triage, close, label issues",
+      "keywords": [
+        "issue",
+        "bug report",
+        "feature request",
+        "github issue",
+        "label",
+        "milestone",
+        "triage"
+      ],
+      "category": "github",
+      "primaryAgent": "researcher"
+    },
+    {
+      "skill": "swarm:swarm-init",
+      "invoke": "Skill(\"swarm:swarm-init\")",
+      "description": "Initialize a multi-agent swarm — topology, coordination, parallel execution",
+      "keywords": [
+        "swarm",
+        "multi-agent",
+        "parallel agents",
+        "spawn agents",
+        "orchestrate",
+        "coordinate agents"
+      ],
+      "category": "swarm",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "v1-core-implementation",
+      "invoke": "Skill(\"v1-core-implementation\")",
+      "description": "Monobrain v1 package implementation — DDD, clean architecture, TypeScript modules",
+      "keywords": [
+        "v1",
+        "monobrain package",
+        "core module",
+        "domain",
+        "bounded context",
+        "package implementation"
+      ],
+      "category": "implementation",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "v1-security-overhaul",
+      "invoke": "Skill(\"v1-security-overhaul\")",
+      "description": "v1 security hardening — CVE remediation, input validation, access control",
+      "keywords": [
+        "v1 security",
+        "cve fix",
+        "security overhaul",
+        "harden",
+        "validate input",
+        "path traversal"
+      ],
+      "category": "security",
+      "primaryAgent": "reviewer"
+    },
+    {
+      "skill": "performance-analysis",
+      "invoke": "Skill(\"performance-analysis\")",
+      "description": "Performance metrics — token usage, bottleneck detection, optimization recommendations",
+      "keywords": [
+        "performance analysis",
+        "token usage",
+        "slow query",
+        "benchmark",
+        "metrics",
+        "measure"
+      ],
+      "category": "performance",
+      "primaryAgent": "researcher"
+    },
+    {
+      "skill": "verification-quality",
+      "invoke": "Skill(\"verification-quality\")",
+      "description": "Quality assurance — coverage verification, linting, security scanning, completeness",
+      "keywords": [
+        "verify",
+        "quality",
+        "qa",
+        "coverage",
+        "lint",
+        "completeness",
+        "validate output"
+      ],
+      "category": "review",
+      "primaryAgent": "tester"
+    },
+    {
+      "skill": "superpowers:brainstorm",
+      "invoke": "Skill(\"superpowers:brainstorm\")",
+      "description": "Structured brainstorming — explore options, generate ideas, evaluate trade-offs",
+      "keywords": [
+        "brainstorm",
+        "ideas",
+        "options",
+        "alternatives",
+        "explore approaches",
+        "think through"
+      ],
+      "category": "planning",
+      "primaryAgent": "researcher"
+    },
+    {
+      "skill": "superpowers:write-plan",
+      "invoke": "Skill(\"superpowers:write-plan\")",
+      "description": "Write an implementation plan — structured steps, milestones, approach",
+      "keywords": [
+        "plan",
+        "planning",
+        "write plan",
+        "implementation plan",
+        "steps",
+        "roadmap",
+        "strategy"
+      ],
+      "category": "planning",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "superpowers:systematic-debugging",
+      "invoke": "Skill(\"superpowers:systematic-debugging\")",
+      "description": "Systematic debugging process — reproduce, isolate, fix, verify",
+      "keywords": [
+        "systematic debug",
+        "debug process",
+        "reproduce bug",
+        "isolate issue",
+        "root cause"
+      ],
+      "category": "debugging",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "superpowers:test-driven-development",
+      "invoke": "Skill(\"superpowers:test-driven-development\")",
+      "description": "TDD workflow — write tests first, implement to pass, refactor",
+      "keywords": [
+        "tdd",
+        "test first",
+        "failing test",
+        "red green",
+        "test driven"
+      ],
+      "category": "testing",
+      "primaryAgent": "tester"
+    },
+    {
+      "skill": "superpowers:subagent-driven-development",
+      "invoke": "Skill(\"superpowers:subagent-driven-development\")",
+      "description": "Delegate complex tasks to specialized sub-agents working in parallel",
+      "keywords": [
+        "sub-agent",
+        "delegate",
+        "parallel",
+        "specialized agent",
+        "complex task",
+        "multi-step"
+      ],
+      "category": "swarm",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "pair-programming",
+      "invoke": "Skill(\"pair-programming\")",
+      "description": "Pair programming session — driver/navigator modes, real-time collaboration",
+      "keywords": [
+        "pair",
+        "pair programming",
+        "pair session",
+        "driver navigator",
+        "collaborate on code"
+      ],
+      "category": "implementation",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "hive-mind:hive-mind",
+      "invoke": "Skill(\"hive-mind:hive-mind\")",
+      "description": "Collective intelligence — consensus-building across distributed agents, Byzantine tolerance",
+      "keywords": [
+        "hive mind",
+        "consensus",
+        "collective",
+        "distributed decision",
+        "byzantine",
+        "queen"
+      ],
+      "category": "swarm",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "hooks:setup",
+      "invoke": "Skill(\"hooks:setup\")",
+      "description": "Configure the hook system — add/modify pre/post task hooks, event handlers",
+      "keywords": [
+        "hook",
+        "configure hook",
+        "add hook",
+        "pre-task",
+        "post-task",
+        "event handler",
+        "settings"
+      ],
+      "category": "configuration",
+      "primaryAgent": "devops"
+    },
+    {
+      "skill": "agentdb-vector-search",
+      "invoke": "Skill(\"agentdb-vector-search\")",
+      "description": "Vector search operations — semantic search, HNSW, embeddings, nearest neighbor",
+      "keywords": [
+        "vector search",
+        "semantic search",
+        "hnsw",
+        "embedding",
+        "similarity",
+        "agentdb",
+        "nearest"
+      ],
+      "category": "memory",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "stream-chain:pipeline",
+      "invoke": "Skill(\"stream-chain:pipeline\")",
+      "description": "Stream processing pipeline — event-driven data flow, pipeline construction",
+      "keywords": [
+        "stream",
+        "pipeline",
+        "event stream",
+        "data flow",
+        "process stream",
+        "chain"
+      ],
+      "category": "implementation",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "frontend-design:frontend-design",
+      "invoke": "Skill(\"frontend-design:frontend-design\")",
+      "description": "Frontend design system — UI components, CSS, design tokens, visual consistency",
+      "keywords": [
+        "ui design",
+        "frontend design",
+        "design system",
+        "component design",
+        "visual",
+        "ux"
+      ],
+      "category": "frontend",
+      "primaryAgent": "frontend-dev"
+    },
+    {
+      "skill": "agentdb-advanced",
+      "invoke": "Skill(\"agentdb-advanced\")",
+      "description": "Advanced AgentDB — QUIC sync, multi-database, custom metrics, distributed systems",
+      "keywords": [
+        "agentdb",
+        "quic",
+        "synchronization",
+        "distributed",
+        "vector-search",
+        "multi-database"
+      ],
+      "category": "agentdb",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "agentdb-learning",
+      "invoke": "Skill(\"agentdb-learning\")",
+      "description": "AgentDB RL — 9 algorithms: DQN, PPO, Decision Transformer, Q-Learning, SARSA",
+      "keywords": [
+        "reinforcement-learning",
+        "training",
+        "rl",
+        "agentdb",
+        "decision-transformer",
+        "q-learning"
+      ],
+      "category": "agentdb",
+      "primaryAgent": "ml-developer"
+    },
+    {
+      "skill": "agentdb-memory-patterns",
+      "invoke": "Skill(\"agentdb-memory-patterns\")",
+      "description": "Persistent memory patterns for stateful agents and context management",
+      "keywords": [
+        "memory",
+        "persistence",
+        "pattern-learning",
+        "context",
+        "sessions",
+        "stateful"
+      ],
+      "category": "agentdb",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "agentdb-optimization",
+      "invoke": "Skill(\"agentdb-optimization\")",
+      "description": "AgentDB optimization — quantization (4-32x), HNSW (150x faster), caching, batch ops",
+      "keywords": [
+        "optimization",
+        "hnsw",
+        "caching",
+        "quantization",
+        "performance",
+        "batch"
+      ],
+      "category": "agentdb",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "agentic-jujutsu",
+      "invoke": "Skill(\"agentic-jujutsu\")",
+      "description": "Quantum-resistant version control for AI agents with ReasoningBank intelligence",
+      "keywords": [
+        "jujutsu",
+        "version-control",
+        "reasoningbank",
+        "domain-modeling",
+        "actor-systems"
+      ],
+      "category": "advanced",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "github-code-review",
+      "invoke": "Skill(\"github-code-review\")",
+      "description": "AI-powered GitHub code review with swarm coordination",
+      "keywords": [
+        "github",
+        "code-review",
+        "pull-request",
+        "pr-review",
+        "quality"
+      ],
+      "category": "github",
+      "primaryAgent": "reviewer"
+    },
+    {
+      "skill": "github-multi-repo",
+      "invoke": "Skill(\"github-multi-repo\")",
+      "description": "Multi-repository operations with distributed workflow synchronization",
+      "keywords": [
+        "multi-repo",
+        "github",
+        "monorepo",
+        "sync",
+        "cross-repo"
+      ],
+      "category": "github",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "github-project-management",
+      "invoke": "Skill(\"github-project-management\")",
+      "description": "GitHub project management — boards, milestones, automation, sprint planning",
+      "keywords": [
+        "project-management",
+        "github",
+        "milestones",
+        "board",
+        "sprint",
+        "issues"
+      ],
+      "category": "github",
+      "primaryAgent": "planner"
+    },
+    {
+      "skill": "github-release-management",
+      "invoke": "Skill(\"github-release-management\")",
+      "description": "Release management — changelog, semantic versioning, GitHub releases",
+      "keywords": [
+        "release",
+        "versioning",
+        "changelog",
+        "deployment",
+        "publish",
+        "npm"
+      ],
+      "category": "github",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "github-workflow-automation",
+      "invoke": "Skill(\"github-workflow-automation\")",
+      "description": "GitHub Actions CI/CD pipeline automation and workflow orchestration",
+      "keywords": [
+        "github-actions",
+        "ci-cd",
+        "pipeline",
+        "workflow",
+        "automation",
+        "ci"
+      ],
+      "category": "github",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "hive-mind-advanced",
+      "invoke": "Skill(\"hive-mind-advanced\")",
+      "description": "Advanced hive-mind — Byzantine consensus, distributed voting, queen coordination",
+      "keywords": [
+        "hive-mind",
+        "consensus",
+        "byzantine",
+        "distributed",
+        "voting",
+        "queen"
+      ],
+      "category": "advanced",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "hooks-automation",
+      "invoke": "Skill(\"hooks-automation\")",
+      "description": "Automated hooks — pre/post task, Git integration, neural learning, MCP coordination",
+      "keywords": [
+        "hooks",
+        "automation",
+        "git-integration",
+        "neural-learning",
+        "mcp"
+      ],
+      "category": "advanced",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "reasoningbank-agentdb",
+      "invoke": "Skill(\"reasoningbank-agentdb\")",
+      "description": "ReasoningBank adaptive learning with AgentDB vector search and trajectory tracking",
+      "keywords": [
+        "reasoningbank",
+        "adaptive-learning",
+        "trajectory",
+        "vector-search",
+        "verdict"
+      ],
+      "category": "agentdb",
+      "primaryAgent": "ml-developer"
+    },
+    {
+      "skill": "reasoningbank-intelligence",
+      "invoke": "Skill(\"reasoningbank-intelligence\")",
+      "description": "Adaptive learning with pattern recognition and meta-cognitive optimization",
+      "keywords": [
+        "intelligence",
+        "pattern-recognition",
+        "optimization",
+        "meta-cognition",
+        "learning"
+      ],
+      "category": "advanced",
+      "primaryAgent": "ml-developer"
+    },
+    {
+      "skill": "skill-builder",
+      "invoke": "Skill(\"skill-builder\")",
+      "description": "Create Claude Code skills — YAML frontmatter, progressive disclosure, directory structure",
+      "keywords": [
+        "skill",
+        "create-skill",
+        "yaml",
+        "template",
+        "skill-builder"
+      ],
+      "category": "core",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "sparc-methodology",
+      "invoke": "Skill(\"sparc-methodology\")",
+      "description": "SPARC development methodology — Specification, Pseudocode, Architecture, Refinement, Completion",
+      "keywords": [
+        "sparc",
+        "methodology",
+        "architecture",
+        "specification",
+        "development"
+      ],
+      "category": "core",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "specialagent",
+      "invoke": "Skill(\"specialagent\")",
+      "description": "Find the best specialized agent from 60+ roster by domain fit scoring",
+      "keywords": [
+        "agent-selection",
+        "specialist",
+        "routing",
+        "recommendation",
+        "best-agent"
+      ],
+      "category": "advanced",
+      "primaryAgent": "planner"
+    },
+    {
+      "skill": "swarm-advanced",
+      "invoke": "Skill(\"swarm-advanced\")",
+      "description": "Advanced swarm orchestration — dynamic topology, research/dev/test patterns",
+      "keywords": [
+        "swarm",
+        "multi-agent",
+        "topology",
+        "orchestration",
+        "coordination",
+        "parallel"
+      ],
+      "category": "swarm",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "swarm-orchestration",
+      "invoke": "Skill(\"swarm-orchestration\")",
+      "description": "Orchestrate multi-agent swarms with agentic-flow for parallel execution",
+      "keywords": [
+        "orchestration",
+        "agentic-flow",
+        "parallel",
+        "swarm-init",
+        "topology"
+      ],
+      "category": "swarm",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "v3-cli-modernization",
+      "invoke": "Skill(\"v3-cli-modernization\")",
+      "description": "CLI modernization — interactive prompts, command decomposition, hooks enhancement",
+      "keywords": [
+        "cli",
+        "modernization",
+        "interactive",
+        "commands",
+        "hooks"
+      ],
+      "category": "v3",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "v3-core-implementation",
+      "invoke": "Skill(\"v3-core-implementation\")",
+      "description": "Core module implementation — DDD domains, clean architecture, TypeScript",
+      "keywords": [
+        "core",
+        "ddd",
+        "implementation",
+        "typescript",
+        "architecture"
+      ],
+      "category": "v3",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "v3-ddd-architecture",
+      "invoke": "Skill(\"v3-ddd-architecture\")",
+      "description": "Domain-driven design architecture — bounded contexts, modular patterns",
+      "keywords": [
+        "ddd",
+        "bounded-context",
+        "domain-driven",
+        "architecture",
+        "modular"
+      ],
+      "category": "v3",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "v3-integration-deep",
+      "invoke": "Skill(\"v3-integration-deep\")",
+      "description": "Deep agentic-flow integration — ADR-001, eliminate 10K+ duplicate lines",
+      "keywords": [
+        "integration",
+        "agentic-flow",
+        "adr-001",
+        "deep",
+        "deduplication"
+      ],
+      "category": "v3",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "v3-mcp-optimization",
+      "invoke": "Skill(\"v3-mcp-optimization\")",
+      "description": "MCP optimization — connection pooling, load balancing, sub-100ms responses",
+      "keywords": [
+        "mcp",
+        "optimization",
+        "performance",
+        "pooling",
+        "load-balancing"
+      ],
+      "category": "v3",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "v3-memory-unification",
+      "invoke": "Skill(\"v3-memory-unification\")",
+      "description": "Unify 6+ memory systems into AgentDB with HNSW (150x-12.5Kx faster)",
+      "keywords": [
+        "memory",
+        "unification",
+        "hnsw",
+        "agentdb",
+        "hierarchical"
+      ],
+      "category": "v3",
+      "primaryAgent": "architect"
+    },
+    {
+      "skill": "v3-performance-optimization",
+      "invoke": "Skill(\"v3-performance-optimization\")",
+      "description": "Performance targets — 2.49x-7.47x Flash Attention, 50-75% memory reduction",
+      "keywords": [
+        "performance",
+        "optimization",
+        "flash-attention",
+        "memory-reduction",
+        "benchmark"
+      ],
+      "category": "v3",
+      "primaryAgent": "coder"
+    },
+    {
+      "skill": "v3-swarm-coordination",
+      "invoke": "Skill(\"v3-swarm-coordination\")",
+      "description": "15-agent hierarchical mesh coordination for v1 implementation",
+      "keywords": [
+        "swarm",
+        "coordination",
+        "hierarchical-mesh",
+        "v1",
+        "parallel"
+      ],
+      "category": "swarm",
+      "primaryAgent": "architect"
+    }
+  ]
+}

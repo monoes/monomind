@@ -1,0 +1,10 @@
+name: security-audit
+description: Run a full security audit across the codebase
+steps:
+  - name: scan
+    agent: security-auditor
+    prompt: "Scan the codebase for vulnerabilities, CVEs, and OWASP Top 10 issues"
+  - name: report
+    agent: reviewer
+    prompt: "Review security findings and produce a prioritized remediation report"
+    dependsOn: [scan]

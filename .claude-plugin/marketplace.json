@@ -1,0 +1,98 @@
+{
+  "name": "monobrain-marketplace",
+  "owner": {
+    "name": "nokhodian",
+    "email": "nokhodian@gmail.com"
+  },
+  "metadata": {
+    "description": "Enterprise AI agent orchestration marketplace for Claude Code",
+    "version": "2.5.0",
+    "homepage": "https://github.com/nokhodian/monobrain",
+    "repository": "https://github.com/nokhodian/monobrain"
+  },
+  "plugins": [
+    {
+      "name": "monobrain",
+      "source": "./",
+      "description": "Enterprise AI agent orchestration plugin with 150+ commands, 74+ specialized agents, SPARC methodology, swarm coordination, GitHub integration, and neural training capabilities",
+      "version": "2.5.0",
+      "author": {
+        "name": "nokhodian",
+        "email": "nokhodian@gmail.com"
+      },
+      "homepage": "https://github.com/nokhodian/monobrain",
+      "repository": "https://github.com/nokhodian/monobrain",
+      "bugs": {
+        "url": "https://github.com/nokhodian/monobrain/issues"
+      },
+      "license": "MIT",
+      "keywords": [
+        "ai-agents",
+        "swarm-intelligence",
+        "orchestration",
+        "sparc-methodology",
+        "github-automation",
+        "neural-training",
+        "mcp-integration",
+        "enterprise",
+        "workflow-automation",
+        "multi-agent",
+        "coordination",
+        "tdd",
+        "code-review",
+        "performance-optimization"
+      ],
+      "category": "development",
+      "tags": [
+        "productivity",
+        "automation",
+        "ai",
+        "agents",
+        "swarm",
+        "coordination",
+        "sparc",
+        "github",
+        "neural-network",
+        "enterprise"
+      ],
+      "features": [
+        "150+ slash commands across 19 categories",
+        "74+ specialized AI agents",
+        "Multi-agent swarm coordination (Hierarchical, Mesh, Ring, Star)",
+        "SPARC methodology integration (18 development modes)",
+        "GitHub automation (PR management, code review, releases)",
+        "Neural training with WASM acceleration (2.8-4.4x speed)",
+        "Cross-session memory persistence",
+        "Real-time performance monitoring",
+        "110+ MCP tools across 3 servers",
+        "84.8% SWE-Bench solve rate"
+      ],
+      "requirements": {
+        "claudeCode": ">=2.0.0",
+        "node": ">=20.0.0"
+      },
+      "mcpServers": {
+        "monobrain": {
+          "command": "npx",
+          "args": [
+            "monobrain@alpha",
+            "mcp",
+            "start"
+          ],
+          "description": "Core Monobrain MCP server for swarm coordination (40+ tools)",
+          "optional": false
+        },
+        "ruv-swarm": {
+          "command": "npx",
+          "args": [
+            "ruv-swarm",
+            "mcp",
+            "start"
+          ],
+          "description": "Enhanced swarm coordination with WASM acceleration",
+          "optional": true
+        }
+      }
+    }
+  ]
+}
