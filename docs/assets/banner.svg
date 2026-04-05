@@ -142,29 +142,29 @@
   </text>
 
   <!-- Divider line -->
-  <line x1="216" y1="128" x2="690" y2="128" stroke="url(#nodeGrad)" stroke-width="0.5" opacity="0.3"/>
+  <line x1="200" y1="128" x2="698" y2="128" stroke="url(#nodeGrad)" stroke-width="0.5" opacity="0.3"/>
 
-  <!-- Tags row — textLength forces text to fit pill regardless of font metrics -->
-  <g font-family="'SF Mono', 'Fira Code', 'Consolas', monospace" font-size="11" font-weight="500">
-    <!-- Pill 1: "60+ agents" -->
-    <rect x="216" y="137" width="90" height="20" rx="4" fill="#7c3aed" opacity="0.2"/>
-    <text x="224" y="151" fill="#a78bfa" textLength="74" lengthAdjust="spacing">60+ agents</text>
+  <!-- Tags row: text-anchor="middle" centers on rect midpoint; spacingAndGlyphs scales glyphs to fit -->
+  <g font-family="monospace" font-size="10" font-weight="500" text-anchor="middle" dominant-baseline="middle">
+    <!-- Pill 1: "60+ agents" x=200 w=96 mid=248 -->
+    <rect x="200" y="137" width="96" height="20" rx="4" fill="#7c3aed" opacity="0.2"/>
+    <text x="248" y="148" fill="#a78bfa" textLength="76" lengthAdjust="spacingAndGlyphs">60+ agents</text>
 
-    <!-- Pill 2: "MCP server" (gap 10) -->
-    <rect x="316" y="137" width="90" height="20" rx="4" fill="#3b82f6" opacity="0.2"/>
-    <text x="324" y="151" fill="#60a5fa" textLength="74" lengthAdjust="spacing">MCP server</text>
+    <!-- Pill 2: "MCP server" x=304 w=96 mid=352 -->
+    <rect x="304" y="137" width="96" height="20" rx="4" fill="#3b82f6" opacity="0.2"/>
+    <text x="352" y="148" fill="#60a5fa" textLength="76" lengthAdjust="spacingAndGlyphs">MCP server</text>
 
-    <!-- Pill 3: "self-learning" (gap 10) -->
-    <rect x="416" y="137" width="106" height="20" rx="4" fill="#06b6d4" opacity="0.2"/>
-    <text x="424" y="151" fill="#67e8f9" textLength="90" lengthAdjust="spacing">self-learning</text>
+    <!-- Pill 3: "self-learning" x=408 w=116 mid=466 -->
+    <rect x="408" y="137" width="116" height="20" rx="4" fill="#06b6d4" opacity="0.2"/>
+    <text x="466" y="148" fill="#67e8f9" textLength="96" lengthAdjust="spacingAndGlyphs">self-learning</text>
 
-    <!-- Pill 4: "hive-mind" (gap 10) -->
-    <rect x="532" y="137" width="84" height="20" rx="4" fill="#10b981" opacity="0.2"/>
-    <text x="540" y="151" fill="#34d399" textLength="68" lengthAdjust="spacing">hive-mind</text>
+    <!-- Pill 4: "hive-mind" x=532 w=92 mid=578 -->
+    <rect x="532" y="137" width="92" height="20" rx="4" fill="#10b981" opacity="0.2"/>
+    <text x="578" y="148" fill="#34d399" textLength="72" lengthAdjust="spacingAndGlyphs">hive-mind</text>
 
-    <!-- Pill 5: "v1.5.2" (gap 10) -->
-    <rect x="626" y="137" width="64" height="20" rx="4" fill="#f59e0b" opacity="0.2"/>
-    <text x="634" y="151" fill="#fbbf24" textLength="48" lengthAdjust="spacing">v1.5.2</text>
+    <!-- Pill 5: "v1.5.2" x=632 w=66 mid=665 -->
+    <rect x="632" y="137" width="66" height="20" rx="4" fill="#f59e0b" opacity="0.2"/>
+    <text x="665" y="148" fill="#fbbf24" textLength="46" lengthAdjust="spacingAndGlyphs">v1.5.2</text>
   </g>
 
   <!-- Border -->
