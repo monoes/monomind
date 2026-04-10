@@ -116,7 +116,16 @@ flowchart TB
 
 ## Get Started Fast
 
-**Option 1 — Clone from GitHub (v1.0.0, recommended now):**
+**Option 1 — npx (recommended):**
+
+```bash
+npx monobrain@latest init --wizard
+claude mcp add monobrain -- npx -y monobrain@latest mcp start
+npx monobrain@latest daemon start
+npx monobrain@latest doctor --fix
+```
+
+**Option 2 — Clone from GitHub:**
 
 ```bash
 git clone https://github.com/nokhodian/monobrain.git
@@ -124,17 +133,8 @@ cd monobrain
 npm install
 node packages/@monobrain/cli/bin/cli.js init --wizard
 
-# Wire up the MCP server in Claude Code (replace $PWD with your clone path if needed)
+# Wire up the MCP server in Claude Code
 claude mcp add monobrain -- node "$PWD/packages/@monobrain/cli/bin/cli.js" mcp start
-```
-
-**Option 2 — npx (once npm package is published):**
-
-```bash
-npx monobrain@latest init --wizard
-claude mcp add monobrain -- npx -y monobrain@latest mcp start
-npx monobrain@latest daemon start
-npx monobrain@latest doctor --fix
 ```
 
 > **New to Monobrain?** You don't need to learn 310+ MCP tools or 26 CLI commands up front. After running `init`, just use Claude Code normally — the hooks system automatically routes tasks to the right agents, learns from successful patterns, and coordinates multi-agent work in the background.

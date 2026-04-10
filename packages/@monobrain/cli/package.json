@@ -1,5 +1,5 @@
 {
-  "name": "@monobrain/cli",
+  "name": "@monoes/cli",
   "version": "1.0.0",
   "type": "module",
   "description": "Monobrain CLI - Enterprise AI agent orchestration with 60+ specialized agents, swarm coordination, MCP server, self-learning hooks, and vector memory for Claude Code",
