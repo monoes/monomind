@@ -24,11 +24,10 @@ import type { InitOptions } from './types.js';
  */
 export function generateStatuslineScript(options: InitOptions): string {
   const maxAgents = options.runtime.maxAgents;
-
   return `#!/usr/bin/env node
 /**
- * Monobrain Statusline Generator (Optimized)
- * Displays real-time V1 implementation progress and system status
+ * Monobrain V1 Statusline Generator (Optimized)
+ * Displays real-time v1 implementation progress and system status
  *
  * Usage: node statusline.cjs [--json] [--compact]
  *
@@ -48,10 +47,27 @@ const os = require('os');
 
 // Configuration
 const CONFIG = {
-  maxAgents: ${maxAgents},
+  maxAgents: ${{maxAgents}},
 };
 
 const CWD = process.cwd();
+
+// Read version from nearest package.json
+function getVersion() {
+  const candidates = [
+    path.join(CWD, 'monobrain', 'package.json'),
+    path.join(CWD, 'package.json'),
+    path.join(path.dirname(__filename), '../../package.json'),
+  ];
+  for (const p of candidates) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(p, 'utf-8'));
+      if (pkg.version) return \`v\${pkg.version}\`;
+    } catch { /* ignore */ }
+  }
+  return 'v1.0.0';
+}
+const VERSION = getVersion();
 
 // ANSI colors
 const c = {
@@ -134,7 +150,7 @@ function getGitInfo() {
     'git rev-list --left-right --count HEAD...@{upstream} 2>/dev/null || echo "0 0"',
   ].join('; ');
 
-  const raw = safeExec("sh -c '" + script + "'", 3000);
+  const raw = safeExec(\`sh -c '\${script}'\`, 3000);
   if (!raw) return result;
 
   const parts = raw.split('---SEP---').map(s => s.trim());
@@ -162,44 +178,101 @@ function getGitInfo() {
   return result;
 }
 
+// Normalise a model ID string to a short display name
+function modelLabel(id) {
+  if (id.includes('opus'))   return 'Opus 4.6';
+  if (id.includes('sonnet')) return 'Sonnet 4.6';
+  if (id.includes('haiku'))  return 'Haiku 4.5';
+  return id.split('-').slice(1, 3).join(' ');
+}
+
+// Read the last assistant model from the most recent session JSONL.
+// Claude Code writes each assistant turn to ~/.claude/projects/<escaped-cwd>/<uuid>.jsonl
+// with a "message.model" field — this is the most accurate live source and
+// correctly reflects /model session overrides.
+function getModelFromSessionJSONL() {
+  try {
+    // Escape CWD the same way Claude Code does: replace '/' with '-'
+    const escaped = CWD.replace(/\\//g, '-');
+    const projectsDir = path.join(os.homedir(), '.claude', 'projects', escaped);
+    if (!fs.existsSync(projectsDir)) return null;
+
+    // Most recently modified JSONL = current (or latest) session
+    const files = fs.readdirSync(projectsDir)
+      .filter(f => f.endsWith('.jsonl'))
+      .map(f => ({ f, mt: (() => { try { return fs.statSync(path.join(projectsDir, f)).mtimeMs; } catch { return 0; } })() }))
+      .sort((a, b) => b.mt - a.mt);
+    if (files.length === 0) return null;
+
+    const sessionFile = path.join(projectsDir, files[0].f);
+    const raw = fs.readFileSync(sessionFile, 'utf-8');
+    const lines = raw.split('\\n').filter(Boolean);
+
+    // Scan from the end to find the most recent assistant model
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const entry = JSON.parse(lines[i]);
+        const model = entry?.message?.model || entry?.model;
+        if (model && typeof model === 'string' && model.startsWith('claude')) {
+          return model;
+        }
+      } catch { /* skip malformed line */ }
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
 // Detect model name from Claude config (pure file reads, no exec)
 function getModelName() {
+  // PRIMARY: scan the live session JSONL — reflects /model overrides in real time
+  const sessionModel = getModelFromSessionJSONL();
+  if (sessionModel) return modelLabel(sessionModel);
+
+  // SECONDARY: ~/.claude.json lastModelUsage for this exact project path
+  // (longest-prefix match to avoid short paths like /Users matching first)
   try {
     const claudeConfig = readJSON(path.join(os.homedir(), '.claude.json'));
-    if (claudeConfig && claudeConfig.projects) {
+    if (claudeConfig?.projects) {
+      let bestMatch = null;
+      let bestLen = -1;
       for (const [projectPath, projectConfig] of Object.entries(claudeConfig.projects)) {
         if (CWD === projectPath || CWD.startsWith(projectPath + '/')) {
-          const usage = projectConfig.lastModelUsage;
-          if (usage) {
-            const ids = Object.keys(usage);
-            if (ids.length > 0) {
-              let modelId = ids[ids.length - 1];
-              let latest = 0;
-              for (const id of ids) {
-                const ts = usage[id] && usage[id].lastUsedAt ? new Date(usage[id].lastUsedAt).getTime() : 0;
-                if (ts > latest) { latest = ts; modelId = id; }
-              }
-              if (modelId.includes('opus')) return 'Opus 4.6 (1M context)';
-              if (modelId.includes('sonnet')) return 'Sonnet 4.6';
-              if (modelId.includes('haiku')) return 'Haiku 4.5';
-              return modelId.split('-').slice(1, 3).join(' ');
-            }
+          if (projectPath.length > bestLen) {
+            bestLen = projectPath.length;
+            bestMatch = projectConfig;
           }
-          break;
+        }
+      }
+      if (bestMatch?.lastModelUsage) {
+        const usage = bestMatch.lastModelUsage;
+        const ids = Object.keys(usage);
+        if (ids.length > 0) {
+          let bestId = ids[ids.length - 1];
+          let bestTokens = -1;
+          for (const id of ids) {
+            const e = usage[id] || {};
+            const tokens = (e.inputTokens || 0) + (e.outputTokens || 0);
+            if (tokens > bestTokens) { bestTokens = tokens; bestId = id; }
+          }
+          return modelLabel(bestId);
         }
       }
     }
   } catch { /* ignore */ }
 
-  // Fallback: settings.json model field
+  // TERTIARY: settings.json model field (configured default, not live session).
   const settings = getSettings();
-  if (settings && settings.model) {
-    const m = settings.model;
-    if (m.includes('opus')) return 'Opus 4.6 (1M context)';
-    if (m.includes('sonnet')) return 'Sonnet 4.6';
-    if (m.includes('haiku')) return 'Haiku 4.5';
-  }
-  return 'Claude Code';
+  if (settings?.model) return modelLabel(settings.model);
+
+  // QUATERNARY: read ANTHROPIC_MODEL or CLAUDE_MODEL env var (set by the CLI at launch)
+  const envModel = process.env.ANTHROPIC_MODEL || process.env.CLAUDE_MODEL || process.env.MODEL;
+  if (envModel && envModel.startsWith('claude')) return modelLabel(envModel);
+
+  // QUINARY: current model from the model ID in the env injected by Claude Code itself
+  const claudeModel = process.env.CLAUDE_CODE_MODEL;
+  if (claudeModel) return modelLabel(claudeModel);
+
+  return 'Sonnet 4.6'; // known current default rather than the generic "Claude Code"
 }
 
 // Get learning stats from memory database (pure stat calls)
@@ -237,12 +310,12 @@ function getLearningStats() {
 }
 
 // progress from metrics files (pure file reads)
-function getDevProgress() {
+function getv1Progress() {
   const learning = getLearningStats();
   const totalDomains = 5;
 
   const dddData = readJSON(path.join(CWD, '.monobrain', 'metrics', 'ddd-progress.json'));
-  let dddProgress = dddData ? (dddData.progress || 0) : 0;
+  let dddProgress = dddData?.progress || 0;
   let domainsCompleted = Math.min(5, Math.floor(dddProgress / 20));
 
   if (dddProgress === 0 && learning.patterns > 0) {
@@ -267,6 +340,7 @@ function getSecurityStatus() {
   if (auditData) {
     const auditDate = auditData.lastAudit || auditData.lastScan;
     if (!auditDate) {
+      // No audit has ever run — show as pending, not stale
       return { status: 'PENDING', cvesFixed: 0, totalCves: 0 };
     }
     const auditAge = Date.now() - new Date(auditDate).getTime();
@@ -296,8 +370,31 @@ function getSecurityStatus() {
 // Swarm status (pure file reads, NO ps aux)
 function getSwarmStatus() {
   const staleThresholdMs = 5 * 60 * 1000;
+  const agentRegTtlMs = 30 * 60 * 1000; // registration files expire after 30 min
   const now = Date.now();
 
+  // PRIMARY: count live registration files written by SubagentStart hook
+  // Each file = one active sub-agent. Stale files (>30 min) are ignored.
+  const regDir = path.join(CWD, '.monobrain', 'agents', 'registrations');
+  if (fs.existsSync(regDir)) {
+    try {
+      const files = fs.readdirSync(regDir).filter(f => f.endsWith('.json'));
+      const liveCount = files.filter(f => {
+        try {
+          return (now - fs.statSync(path.join(regDir, f)).mtimeMs) < agentRegTtlMs;
+        } catch { return false; }
+      }).length;
+      if (liveCount > 0) {
+        return {
+          activeAgents: liveCount,
+          maxAgents: CONFIG.maxAgents,
+          coordinationActive: true,
+        };
+      }
+    } catch { /* fall through */ }
+  }
+
+  // SECONDARY: swarm-state.json written by MCP swarm_init — trust if fresh
   const swarmStatePath = path.join(CWD, '.monobrain', 'swarm', 'swarm-state.json');
   const swarmState = readJSON(swarmStatePath);
   if (swarmState) {
@@ -305,16 +402,17 @@ function getSwarmStatus() {
     const age = updatedAt ? now - new Date(updatedAt).getTime() : Infinity;
     if (age < staleThresholdMs) {
       return {
-        activeAgents: (swarmState.agents && swarmState.agents.length) || swarmState.agentCount || 0,
+        activeAgents: swarmState.agents?.length || swarmState.agentCount || 0,
         maxAgents: swarmState.maxAgents || CONFIG.maxAgents,
         coordinationActive: true,
       };
     }
   }
 
+  // TERTIARY: swarm-activity.json refreshed by post-task hook
   const activityData = readJSON(path.join(CWD, '.monobrain', 'metrics', 'swarm-activity.json'));
-  if (activityData && activityData.swarm) {
-    const updatedAt = activityData.timestamp || (activityData.swarm && activityData.swarm.timestamp);
+  if (activityData?.swarm) {
+    const updatedAt = activityData.timestamp || activityData.swarm.timestamp;
     const age = updatedAt ? now - new Date(updatedAt).getTime() : Infinity;
     if (age < staleThresholdMs) {
       return {
@@ -339,9 +437,10 @@ function getSystemMetrics() {
   let intelligencePct = 0;
   let contextPct = 0;
 
-  if (learningData && learningData.intelligence && learningData.intelligence.score !== undefined) {
+  if (learningData?.intelligence?.score !== undefined) {
     intelligencePct = Math.min(100, Math.floor(learningData.intelligence.score));
   } else {
+    // Use actual vector/entry counts — 2000 entries = 100%
     const fromPatterns = learning.patterns > 0 ? Math.min(100, Math.floor(learning.patterns / 20)) : 0;
     const fromVectors = agentdb.vectorCount > 0 ? Math.min(100, Math.floor(agentdb.vectorCount / 20)) : 0;
     intelligencePct = Math.max(fromPatterns, fromVectors);
@@ -360,7 +459,7 @@ function getSystemMetrics() {
     intelligencePct = Math.min(100, score);
   }
 
-  if (learningData && learningData.sessions && learningData.sessions.total !== undefined) {
+  if (learningData?.sessions?.total !== undefined) {
     contextPct = Math.min(100, learningData.sessions.total * 5);
   } else {
     contextPct = Math.min(100, Math.floor(learning.sessions * 5));
@@ -369,7 +468,7 @@ function getSystemMetrics() {
   // Sub-agents from file metrics (no ps aux)
   let subAgents = 0;
   const activityData = readJSON(path.join(CWD, '.monobrain', 'metrics', 'swarm-activity.json'));
-  if (activityData && activityData.processes && activityData.processes.estimated_agents) {
+  if (activityData?.processes?.estimated_agents) {
     subAgents = activityData.processes.estimated_agents;
   }
 
@@ -391,6 +490,7 @@ function getADRStatus() {
         const files = fs.readdirSync(adrPath).filter(f =>
           f.endsWith('.md') && (f.startsWith('ADR-') || f.startsWith('adr-') || /^\\d{4}-/.test(f))
         );
+        // Report actual count — don't guess compliance without reading files
         return { count: files.length, implemented: files.length, compliance: 0 };
       }
     } catch { /* ignore */ }
@@ -405,12 +505,12 @@ function getHooksStatus() {
   let total = 0;
   const settings = getSettings();
 
-  if (settings && settings.hooks) {
+  if (settings?.hooks) {
     for (const category of Object.keys(settings.hooks)) {
       const matchers = settings.hooks[category];
       if (!Array.isArray(matchers)) continue;
       for (const matcher of matchers) {
-        const hooks = matcher && matcher.hooks;
+        const hooks = matcher?.hooks;
         if (Array.isArray(hooks)) {
           total += hooks.length;
           enabled += hooks.length;
@@ -431,6 +531,33 @@ function getHooksStatus() {
   return { enabled, total };
 }
 
+// Active agent — reads last routing result persisted by hook-handler
+function getActiveAgent() {
+  const routeFile = path.join(CWD, '.monobrain', 'last-route.json');
+  try {
+    if (!fs.existsSync(routeFile)) return null;
+    const data = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
+    if (!data || !data.agent) return null;
+
+    // Stale after 30 minutes (session likely changed)
+    const age = Date.now() - new Date(data.updatedAt || 0).getTime();
+    if (age > 30 * 60 * 1000) return null;
+
+    // Prefer display name if set (from load-agent), else format the slug
+    const displayName = data.name || data.agent
+      .replace(/-/g, ' ')
+      .replace(/\\b\\w/g, c => c.toUpperCase());
+
+    return {
+      slug: data.agent,
+      name: displayName,
+      category: data.category || null,
+      confidence: data.confidence || 0,
+      activated: data.activated || false,   // true = manually loaded extras agent
+    };
+  } catch { return null; }
+}
+
 // AgentDB stats — count real entries, not file-size heuristics
 function getAgentDBStats() {
   let vectorCount = 0;
@@ -446,14 +573,15 @@ function getAgentDBStats() {
     try {
       const store = JSON.parse(fs.readFileSync(storePath, 'utf-8'));
       if (Array.isArray(store)) vectorCount += store.length;
-      else if (store && store.entries) vectorCount += store.entries.length;
-    } catch { /* fall back */ }
+      else if (store?.entries) vectorCount += store.entries.length;
+    } catch { /* fall back to size estimate */ }
   }
 
   // 2. Count entries from ranked-context.json
+  const rankedPath = path.join(CWD, '.monobrain', 'data', 'ranked-context.json');
   try {
-    const ranked = readJSON(path.join(CWD, '.monobrain', 'data', 'ranked-context.json'));
-    if (ranked && ranked.entries && ranked.entries.length > vectorCount) vectorCount = ranked.entries.length;
+    const ranked = readJSON(rankedPath);
+    if (ranked?.entries?.length > vectorCount) vectorCount = ranked.entries.length;
   } catch { /* ignore */ }
 
   // 3. Add DB file sizes
@@ -470,18 +598,25 @@ function getAgentDBStats() {
     }
   }
 
-  // 4. Graph data size
-  const graphStat = safeStat(path.join(CWD, 'data', 'memory.graph'));
+  // 4. Check for graph data
+  const graphPath = path.join(CWD, 'data', 'memory.graph');
+  const graphStat = safeStat(graphPath);
   if (graphStat) dbSizeKB += graphStat.size / 1024;
 
-  // 5. HNSW index or memory package
+  // 5. HNSW index
   const hnswPaths = [
     path.join(CWD, '.swarm', 'hnsw.index'),
     path.join(CWD, '.monobrain', 'hnsw.index'),
   ];
   for (const p of hnswPaths) {
-    if (safeStat(p)) { hasHnsw = true; break; }
+    const stat = safeStat(p);
+    if (stat) {
+      hasHnsw = true;
+      break;
+    }
   }
+
+  // HNSW is available if memory package is present
   if (!hasHnsw) {
     const memPkgPaths = [
       path.join(CWD, 'packages', '@monobrain', 'memory', 'dist'),
@@ -499,8 +634,7 @@ function getAgentDBStats() {
 function getTestStats() {
   let testFiles = 0;
 
-  function countTestFiles(dir, depth) {
-    if (depth === undefined) depth = 0;
+  function countTestFiles(dir, depth = 0) {
     if (depth > 6) return;
     try {
       if (!fs.existsSync(dir)) return;
@@ -518,11 +652,12 @@ function getTestStats() {
     } catch { /* ignore */ }
   }
 
-  var testDirNames = ['tests', 'test', '__tests__', 'src', 'v1'];
-  for (var i = 0; i < testDirNames.length; i++) {
-    countTestFiles(path.join(CWD, testDirNames[i]));
+  // Scan all source directories
+  for (const d of ['tests', 'test', '__tests__', 'src', 'v1']) {
+    countTestFiles(path.join(CWD, d));
   }
 
+  // Estimate ~4 test cases per file (avoids reading every file)
   return { testFiles, testCases: testFiles * 4 };
 }
 
@@ -531,7 +666,7 @@ function getIntegrationStatus() {
   const mcpServers = { total: 0, enabled: 0 };
   const settings = getSettings();
 
-  if (settings && settings.mcpServers && typeof settings.mcpServers === 'object') {
+  if (settings?.mcpServers && typeof settings.mcpServers === 'object') {
     const servers = Object.keys(settings.mcpServers);
     mcpServers.total = servers.length;
     mcpServers.enabled = settings.enabledMcpjsonServers
@@ -539,10 +674,11 @@ function getIntegrationStatus() {
       : servers.length;
   }
 
+  // Fallback: .mcp.json
   if (mcpServers.total === 0) {
     const mcpConfig = readJSON(path.join(CWD, '.mcp.json'))
                    || readJSON(path.join(os.homedir(), '.claude', 'mcp.json'));
-    if (mcpConfig && mcpConfig.mcpServers) {
+    if (mcpConfig?.mcpServers) {
       const s = Object.keys(mcpConfig.mcpServers);
       mcpServers.total = s.length;
       mcpServers.enabled = s.length;
@@ -558,237 +694,393 @@ function getIntegrationStatus() {
 
 // Session stats (pure file reads)
 function getSessionStats() {
-  var sessionPaths = ['.monobrain/session.json', '.claude/session.json'];
-  for (var i = 0; i < sessionPaths.length; i++) {
-    const data = readJSON(path.join(CWD, sessionPaths[i]));
-    if (data && data.startTime) {
+  for (const p of ['.monobrain/session.json', '.claude/session.json']) {
+    const data = readJSON(path.join(CWD, p));
+    if (data?.startTime) {
       const diffMs = Date.now() - new Date(data.startTime).getTime();
       const mins = Math.floor(diffMs / 60000);
-      const duration = mins < 60 ? mins + 'm' : Math.floor(mins / 60) + 'h' + (mins % 60) + 'm';
-      return { duration: duration };
+      const duration = mins < 60 ? \`\${mins}m\` : \`\${Math.floor(mins / 60)}h\${mins % 60}m\`;
+      return { duration };
     }
   }
   return { duration: '' };
 }
 
-// ─── Rendering ──────────────────────────────────────────────────
+// ─── Extended 256-color palette ─────────────────────────────────
+const x = {
+  // Backgrounds (used sparingly for labels)
+  bgPurple:   '\\x1b[48;5;55m',
+  bgTeal:     '\\x1b[48;5;23m',
+  bgReset:    '\\x1b[49m',
+  // Foregrounds
+  purple:     '\\x1b[38;5;141m',   // soft lavender-purple (brand)
+  violet:     '\\x1b[38;5;99m',    // deeper purple
+  teal:       '\\x1b[38;5;51m',    // bright teal
+  mint:       '\\x1b[38;5;120m',   // soft green
+  gold:       '\\x1b[38;5;220m',   // warm gold
+  orange:     '\\x1b[38;5;208m',   // alert orange
+  coral:      '\\x1b[38;5;203m',   // error red-pink
+  sky:        '\\x1b[38;5;117m',   // soft blue
+  rose:       '\\x1b[38;5;218m',   // warm pink
+  slate:      '\\x1b[38;5;245m',   // neutral grey
+  white:      '\\x1b[38;5;255m',   // bright white
+  green:      '\\x1b[38;5;82m',    // vivid green
+  red:        '\\x1b[38;5;196m',   // vivid red
+  yellow:     '\\x1b[38;5;226m',   // vivid yellow
+  // Shared
+  bold:  '\\x1b[1m',
+  dim:   '\\x1b[2m',
+  reset: '\\x1b[0m',
+};
 
-function progressBar(current, total) {
-  const width = 5;
-  const filled = Math.round((current / total) * width);
-  return '[' + '\\u25CF'.repeat(filled) + '\\u25CB'.repeat(width - filled) + ']';
+// ── Helpers ──────────────────────────────────────────────────────
+
+// Block progress bar: ▰▰▰▱▱  (5 blocks)
+function blockBar(current, total, width = 5) {
+  const filled = Math.min(width, Math.round((current / Math.max(total, 1)) * width));
+  return '\\u25B0'.repeat(filled) + \`\${x.slate}\\u25B1\${x.reset}\`.repeat(width - filled);
 }
 
-function generateStatusline() {
-  const git = getGitInfo();
-  // Prefer model name from Claude Code stdin data, fallback to file-based detection
-  const modelName = getModelFromStdin() || getModelName();
-  const ctxInfo = getContextFromStdin();
-  const costInfo = getCostFromStdin();
-  const progress = getDevProgress();
-  const security = getSecurityStatus();
-  const swarm = getSwarmStatus();
-  const system = getSystemMetrics();
-  const adrs = getADRStatus();
-  const hooks = getHooksStatus();
-  const agentdb = getAgentDBStats();
-  const tests = getTestStats();
-  const session = getSessionStats();
-  const integration = getIntegrationStatus();
-  const lines = [];
+// Health dot: ● colored by status
+function dot(ok) {
+  if (ok === 'good')    return \`\${x.green}●\${x.reset}\`;
+  if (ok === 'warn')    return \`\${x.gold}●\${x.reset}\`;
+  if (ok === 'error')   return \`\${x.coral}●\${x.reset}\`;
+  return \`\${x.slate}●\${x.reset}\`;   // 'none'
+}
 
-  // Header
-  let header = c.bold + c.brightPurple + '\\u258A Monobrain ' + c.reset;
-  header += (swarm.coordinationActive ? c.brightCyan : c.dim) + '\\u25CF ' + c.brightCyan + git.name + c.reset;
-  if (git.gitBranch) {
-    header += '  ' + c.dim + '\\u2502' + c.reset + '  ' + c.brightBlue + '\\u23C7 ' + git.gitBranch + c.reset;
-    const changes = git.modified + git.staged + git.untracked;
-    if (changes > 0) {
-      let ind = '';
-      if (git.staged > 0) ind += c.brightGreen + '+' + git.staged + c.reset;
-      if (git.modified > 0) ind += c.brightYellow + '~' + git.modified + c.reset;
-      if (git.untracked > 0) ind += c.dim + '?' + git.untracked + c.reset;
-      header += ' ' + ind;
+// Pill badge: [ LABEL ] with background
+function badge(label, color) {
+  return \`\${color}[\${label}]\${x.reset}\`;
+}
+
+// Divider character
+const DIV = \`\${x.slate}│\${x.reset}\`;
+const SEP = \`\${x.slate}──────────────────────────────────────────────────────\${x.reset}\`;
+
+// Pct → color
+function pctColor(pct) {
+  if (pct >= 75) return x.green;
+  if (pct >= 40) return x.gold;
+  if (pct > 0)   return x.orange;
+  return x.slate;
+}
+
+// Security status → label + color
+function secBadge(status) {
+  if (status === 'CLEAN')       return { label: '✔ CLEAN',   col: x.green };
+  if (status === 'STALE')       return { label: '⟳ STALE',   col: x.gold };
+  if (status === 'IN_PROGRESS') return { label: '⟳ RUNNING', col: x.sky };
+  if (status === 'SCANNED')     return { label: '✔ SCANNED', col: x.mint };
+  if (status === 'PENDING')     return { label: '⏸ PENDING', col: x.gold };
+  return { label: '✖ NONE', col: x.slate };
+}
+
+// ── Knowledge & trigger stats (Tasks 28 + 32) ────────────────────
+function getKnowledgeStats() {
+  const chunksPath = path.join(CWD, '.monobrain', 'knowledge', 'chunks.jsonl');
+  const skillsPath = path.join(CWD, '.monobrain', 'skills.jsonl');
+  let chunks = 0, skills = 0;
+  try {
+    if (fs.existsSync(chunksPath)) {
+      chunks = fs.readFileSync(chunksPath, 'utf-8').split('\\n').filter(Boolean).length;
     }
-    if (git.ahead > 0) header += ' ' + c.brightGreen + '\\u2191' + git.ahead + c.reset;
-    if (git.behind > 0) header += ' ' + c.brightRed + '\\u2193' + git.behind + c.reset;
-  }
-  header += '  ' + c.dim + '\\u2502' + c.reset + '  ' + c.purple + modelName + c.reset;
-  // Show session duration from Claude Code stdin if available, else from local files
-  const duration = costInfo ? costInfo.duration : session.duration;
-  if (duration) header += '  ' + c.dim + '\\u2502' + c.reset + '  ' + c.cyan + '\\u23F1 ' + duration + c.reset;
-  // Show context usage from Claude Code stdin if available
-  if (ctxInfo && ctxInfo.usedPct > 0) {
-    const ctxColor = ctxInfo.usedPct >= 90 ? c.brightRed : ctxInfo.usedPct >= 70 ? c.brightYellow : c.brightGreen;
-    header += '  ' + c.dim + '\\u2502' + c.reset + '  ' + ctxColor + '\\u25CF ' + ctxInfo.usedPct + '% ctx' + c.reset;
-  }
-  // Show cost from Claude Code stdin if available
-  if (costInfo && costInfo.costUsd > 0) {
-    header += '  ' + c.dim + '\\u2502' + c.reset + '  ' + c.brightYellow + '$' + costInfo.costUsd.toFixed(2) + c.reset;
-  }
-  lines.push(header);
+  } catch { /* ignore */ }
+  try {
+    if (fs.existsSync(skillsPath)) {
+      skills = fs.readFileSync(skillsPath, 'utf-8').split('\\n').filter(Boolean).length;
+    }
+  } catch { /* ignore */ }
+  return { chunks, skills };
+}
 
-  // Separator
-  lines.push(c.dim + '\\u2500'.repeat(53) + c.reset);
+function getTriggerStats() {
+  const indexPath = path.join(CWD, '.monobrain', 'trigger-index.json');
+  try {
+    if (!fs.existsSync(indexPath)) return { triggers: 0, agents: 0 };
+    const raw = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+    const idx = raw.index || raw;
+    const triggers = Object.keys(idx).length;
+    const agents = Object.values(idx).flat().length;
+    return { triggers, agents };
+  } catch { return { triggers: 0, agents: 0 }; }
+}
 
-  // Line 1: DDD Domains
-  const domainsColor = progress.domainsCompleted >= 3 ? c.brightGreen : progress.domainsCompleted > 0 ? c.yellow : c.red;
-  let perfIndicator;
-  if (agentdb.hasHnsw && agentdb.vectorCount > 0) {
-    const speedup = agentdb.vectorCount > 10000 ? '12500x' : agentdb.vectorCount > 1000 ? '150x' : '10x';
-    perfIndicator = c.brightGreen + '\\u26A1 HNSW ' + speedup + c.reset;
-  } else if (progress.patternsLearned > 0) {
-    const pk = progress.patternsLearned >= 1000 ? (progress.patternsLearned / 1000).toFixed(1) + 'k' : String(progress.patternsLearned);
-    perfIndicator = c.brightYellow + '\\uD83D\\uDCDA ' + pk + ' patterns' + c.reset;
+function getSIBudget() {
+  const SI_LIMIT = 1500;
+  const siPath = path.join(CWD, '.agents', 'shared_instructions.md');
+  try {
+    if (!fs.existsSync(siPath)) return null;
+    const len = fs.readFileSync(siPath, 'utf-8').length;
+    return { len, pct: Math.round((len / SI_LIMIT) * 100), limit: SI_LIMIT };
+  } catch { return null; }
+}
+
+// ── Single-line statusline (compact) ─────────────────────────────
+function generateStatusline() {
+  const git       = getGitInfo();
+  const swarm     = getSwarmStatus();
+  const system    = getSystemMetrics();
+  const hooks     = getHooksStatus();
+  const knowledge = getKnowledgeStats();
+  const triggers  = getTriggerStats();
+  const parts     = [];
+
+  // Brand + swarm dot
+  const swarmDot = swarm.coordinationActive ? \`\${x.green}●\${x.reset}\` : \`\${x.slate}○\${x.reset}\`;
+  parts.push(\`\${x.bold}\${x.purple}▊ Monobrain\${x.reset} \${swarmDot}\`);
+
+  // Git branch + changes (compact)
+  if (git.gitBranch) {
+    let b = \`\${x.sky}⎇ \${x.bold}\${git.gitBranch}\${x.reset}\`;
+    if (git.staged   > 0) b += \` \${x.green}+\${git.staged}\${x.reset}\`;
+    if (git.modified > 0) b += \` \${x.gold}~\${git.modified}\${x.reset}\`;
+    if (git.ahead    > 0) b += \` \${x.green}↑\${git.ahead}\${x.reset}\`;
+    if (git.behind   > 0) b += \` \${x.coral}↓\${git.behind}\${x.reset}\`;
+    parts.push(b);
+  }
+
+  // Model
+  parts.push(\`\${x.violet}\${getModelName()}\${x.reset}\`);
+
+  // Active agent
+  const activeAgent = getActiveAgent();
+  if (activeAgent) {
+    const col  = activeAgent.activated ? x.green : x.sky;
+    const icon = activeAgent.activated ? '●' : '→';
+    parts.push(\`\${col}\${icon} \${x.bold}\${activeAgent.name}\${x.reset}\`);
+  }
+
+  // Intelligence
+  const ic = pctColor(system.intelligencePct);
+  parts.push(\`\${ic}💡 \${system.intelligencePct}%\${x.reset}\`);
+
+  // Knowledge chunks (Task 28) — show when populated
+  if (knowledge.chunks > 0) {
+    parts.push(\`\${x.teal}📚 \${knowledge.chunks}k\${x.reset}\`);
+  }
+
+  // Triggers (Task 32) — show when populated
+  if (triggers.triggers > 0) {
+    parts.push(\`\${x.mint}🎯 \${triggers.triggers}t\${x.reset}\`);
+  }
+
+  // Swarm agents (only when active)
+  if (swarm.activeAgents > 0) {
+    parts.push(\`\${x.gold}🐝 \${swarm.activeAgents}/\${swarm.maxAgents}\${x.reset}\`);
+  }
+
+  // Hooks
+  if (hooks.enabled > 0) {
+    parts.push(\`\${x.mint}⚡ \${hooks.enabled}h\${x.reset}\`);
+  }
+
+  return parts.join(\`  \${DIV}  \`);
+}
+
+// ── Multi-line dashboard (full mode) ─────────────────────────────
+function generateDashboard() {
+  const git         = getGitInfo();
+  const modelName   = getModelName();
+  const progress    = getv1Progress();
+  const security    = getSecurityStatus();
+  const swarm       = getSwarmStatus();
+  const system      = getSystemMetrics();
+  const adrs        = getADRStatus();
+  const hooks       = getHooksStatus();
+  const agentdb     = getAgentDBStats();
+  const tests       = getTestStats();
+  const session     = getSessionStats();
+  const integration = getIntegrationStatus();
+  const knowledge   = getKnowledgeStats();
+  const triggers    = getTriggerStats();
+  const si          = getSIBudget();
+  const sec         = secBadge(security.status);
+  const activeAgent = getActiveAgent();
+  const lines       = [];
+
+  // ── Header: brand + git + model + session ────────────────────
+  const swarmDot = swarm.coordinationActive ? \`\${x.green}● LIVE\${x.reset}\` : \`\${x.slate}○ IDLE\${x.reset}\`;
+  let hdr = \`\${x.bold}\${x.purple}▊ Monobrain \${VERSION}\${x.reset}  \${swarmDot}  \${x.teal}\${x.bold}\${git.name}\${x.reset}\`;
+
+  if (git.gitBranch) {
+    hdr += \`  \${DIV}  \${x.sky}⎇ \${x.bold}\${git.gitBranch}\${x.reset}\`;
+    if (git.staged   > 0) hdr += \`  \${x.green}+\${git.staged}\${x.reset}\`;
+    if (git.modified > 0) hdr += \`  \${x.gold}~\${git.modified} mod\${x.reset}\`;
+    if (git.untracked > 0) hdr += \`  \${x.slate}?\${git.untracked}\${x.reset}\`;
+    if (git.ahead    > 0) hdr += \`  \${x.green}↑\${git.ahead}\${x.reset}\`;
+    if (git.behind   > 0) hdr += \`  \${x.coral}↓\${git.behind}\${x.reset}\`;
+  }
+
+  hdr += \`  \${DIV}  🤖 \${x.violet}\${x.bold}\${modelName}\${x.reset}\`;
+  if (session.duration) hdr += \`  \${x.dim}⏱ \${session.duration}\${x.reset}\`;
+
+  lines.push(hdr);
+  lines.push(SEP);
+
+  // ── Row 1: Intelligence & Learning ───────────────────────────
+  const intellCol = pctColor(system.intelligencePct);
+  const intellBar = blockBar(system.intelligencePct, 100, 6);
+
+  // Knowledge (Task 28)
+  const knowStr = knowledge.chunks > 0
+    ? \`\${x.teal}📚 \${x.bold}\${knowledge.chunks}\${x.reset}\${x.slate} chunks\${x.reset}\`
+    : \`\${x.slate}📚 no chunks\${x.reset}\`;
+
+  // Skills (Task 45)
+  const skillStr = knowledge.skills > 0
+    ? \`  \${x.mint}✦ \${knowledge.skills} skills\${x.reset}\`
+    : '';
+
+  // Patterns
+  const patStr = progress.patternsLearned > 0
+    ? \`\${x.gold}\${progress.patternsLearned >= 1000 ? (progress.patternsLearned / 1000).toFixed(1) + 'k' : progress.patternsLearned} patterns\${x.reset}\`
+    : \`\${x.slate}0 patterns\${x.reset}\`;
+
+  lines.push(
+    \`\${x.purple}💡  INTEL\${x.reset}    \` +
+    \`\${intellCol}\${intellBar} \${x.bold}\${system.intelligencePct}%\${x.reset}   \${DIV}   \` +
+    \`\${knowStr}\${skillStr}   \${DIV}   \` +
+    patStr
+  );
+  lines.push(SEP);
+
+  // ── Row 2: Agents & Triggers ──────────────────────────────────
+  const agentCol  = swarm.activeAgents > 0 ? x.green : x.slate;
+  const hookCol   = hooks.enabled > 0      ? x.mint  : x.slate;
+
+  // Triggers (Task 32)
+  const trigStr = triggers.triggers > 0
+    ? \`\${x.mint}🎯 \${x.bold}\${triggers.triggers}\${x.reset}\${x.slate} triggers · \${triggers.agents} agents\${x.reset}\`
+    : \`\${x.slate}🎯 no triggers\${x.reset}\`;
+
+  // Active agent badge
+  let agentBadge;
+  if (activeAgent) {
+    const col  = activeAgent.activated ? x.green : x.sky;
+    const mark = activeAgent.activated ? '● ACTIVE' : '→ ROUTED';
+    const conf = activeAgent.activated ? '' : \`  \${x.slate}\${(activeAgent.confidence * 100).toFixed(0)}%\${x.reset}\`;
+    const cat  = activeAgent.category  ? \`  \${x.slate}[\${activeAgent.category}]\${x.reset}\` : '';
+    agentBadge = \`\${col}\${x.bold}\${mark}\${x.reset}  \${col}👤 \${x.bold}\${activeAgent.name}\${x.reset}\${cat}\${conf}\`;
   } else {
-    perfIndicator = c.dim + '\\u26A1 target: 150x-12500x' + c.reset;
+    agentBadge = \`\${x.slate}👤 no agent routed\${x.reset}\`;
   }
-  lines.push(
-    c.brightCyan + '\\uD83C\\uDFD7\\uFE0F  DDD Domains' + c.reset + '    ' + progressBar(progress.domainsCompleted, progress.totalDomains) + '  ' +
-    domainsColor + progress.domainsCompleted + c.reset + '/' + c.brightWhite + progress.totalDomains + c.reset + '    ' + perfIndicator
-  );
-
-  // Line 2: Swarm + Hooks + CVE + Memory + Intelligence
-  const swarmInd = swarm.coordinationActive ? c.brightGreen + '\\u25C9' + c.reset : c.dim + '\\u25CB' + c.reset;
-  const agentsColor = swarm.activeAgents > 0 ? c.brightGreen : c.red;
-  const secIcon = security.status === 'CLEAN' ? '\\uD83D\\uDFE2' : (security.status === 'IN_PROGRESS' || security.status === 'STALE') ? '\\uD83D\\uDFE1' : (security.status === 'NONE' ? '\\u26AA' : '\\uD83D\\uDD34');
-  const secColor = security.status === 'CLEAN' ? c.brightGreen : (security.status === 'IN_PROGRESS' || security.status === 'STALE') ? c.brightYellow : (security.status === 'NONE' ? c.dim : c.brightRed);
-  const hooksColor = hooks.enabled > 0 ? c.brightGreen : c.dim;
-  const intellColor = system.intelligencePct >= 80 ? c.brightGreen : system.intelligencePct >= 40 ? c.brightYellow : c.dim;
 
   lines.push(
-    c.brightYellow + '\\uD83E\\uDD16 Swarm' + c.reset + '  ' + swarmInd + ' [' + agentsColor + String(swarm.activeAgents).padStart(2) + c.reset + '/' + c.brightWhite + swarm.maxAgents + c.reset + ']  ' +
-    c.brightPurple + '\\uD83D\\uDC65 ' + system.subAgents + c.reset + '    ' +
-    c.brightBlue + '\\uD83E\\uDE9D ' + hooksColor + hooks.enabled + c.reset + '/' + c.brightWhite + hooks.total + c.reset + '    ' +
-    secIcon + ' ' + secColor + 'CVE ' + security.cvesFixed + c.reset + '/' + c.brightWhite + security.totalCves + c.reset + '    ' +
-    c.brightCyan + '\\uD83D\\uDCBE ' + system.memoryMB + 'MB' + c.reset + '    ' +
-    intellColor + '\\uD83E\\uDDE0 ' + String(system.intelligencePct).padStart(3) + '%' + c.reset
+    \`\${x.gold}🐝  SWARM\${x.reset}    \` +
+    \`\${agentCol}\${x.bold}\${swarm.activeAgents}\${x.reset}\${x.slate}/\${x.reset}\${x.white}\${swarm.maxAgents}\${x.reset} agents   \` +
+    \`\${hookCol}⚡ \${hooks.enabled}/\${hooks.total} hooks\${x.reset}   \${DIV}   \` +
+    \`\${trigStr}   \${DIV}   \` +
+    agentBadge
   );
+  lines.push(SEP);
 
-  // Line 3: Architecture
-  const dddColor = progress.dddProgress >= 50 ? c.brightGreen : progress.dddProgress > 0 ? c.yellow : c.red;
-  const adrColor = adrs.count > 0 ? (adrs.implemented === adrs.count ? c.brightGreen : c.yellow) : c.dim;
-  const adrDisplay = adrs.compliance > 0 ? adrColor + '\\u25CF' + adrs.compliance + '%' + c.reset : adrColor + '\\u25CF' + adrs.implemented + '/' + adrs.count + c.reset;
+  // ── Row 3: Architecture & Security ───────────────────────────
+  const adrCol = adrs.count > 0
+    ? (adrs.implemented >= adrs.count ? x.green : x.gold)
+    : x.slate;
+  const adrStr = adrs.count > 0
+    ? \`\${adrCol}\${x.bold}\${adrs.implemented}\${x.reset}\${x.slate}/\${x.reset}\${x.white}\${adrs.count}\${x.reset} ADRs\`
+    : \`\${x.slate}no ADRs\${x.reset}\`;
+
+  const dddCol = pctColor(progress.dddProgress);
+  const dddBar = blockBar(progress.dddProgress, 100, 5);
+
+  const cveStatus = security.totalCves === 0
+    ? (security.status === 'NONE' ? \`\${x.slate}not scanned\${x.reset}\` : \`\${x.green}✔ clean\${x.reset}\`)
+    : \`\${x.coral}\${security.cvesFixed}/\${security.totalCves} fixed\${x.reset}\`;
 
   lines.push(
-    c.brightPurple + '\\uD83D\\uDD27 Architecture' + c.reset + '    ' +
-    c.cyan + 'ADRs' + c.reset + ' ' + adrDisplay + '  ' + c.dim + '\\u2502' + c.reset + '  ' +
-    c.cyan + 'DDD' + c.reset + ' ' + dddColor + '\\u25CF' + String(progress.dddProgress).padStart(3) + '%' + c.reset + '  ' + c.dim + '\\u2502' + c.reset + '  ' +
-    c.cyan + 'Security' + c.reset + ' ' + secColor + '\\u25CF' + security.status + c.reset
+    \`\${x.purple}🧩  ARCH\${x.reset}     \` +
+    \`\${adrStr}   \${DIV}   \` +
+    \`DDD \${dddBar} \${dddCol}\${x.bold}\${progress.dddProgress}%\${x.reset}   \${DIV}   \` +
+    \`🛡️  \${sec.col}\${sec.label}\${x.reset}   \${DIV}   \` +
+    \`CVE \${cveStatus}\`
   );
+  lines.push(SEP);
 
-  // Line 4: AgentDB, Tests, Integration
-  const hnswInd = agentdb.hasHnsw ? c.brightGreen + '\\u26A1' + c.reset : '';
-  const sizeDisp = agentdb.dbSizeKB >= 1024 ? (agentdb.dbSizeKB / 1024).toFixed(1) + 'MB' : agentdb.dbSizeKB + 'KB';
-  const vectorColor = agentdb.vectorCount > 0 ? c.brightGreen : c.dim;
-  const testColor = tests.testFiles > 0 ? c.brightGreen : c.dim;
+  // ── Row 4: Memory & Tests ─────────────────────────────────────
+  const vecCol   = agentdb.vectorCount > 0 ? x.green : x.slate;
+  const hnswTag  = agentdb.hasHnsw && agentdb.vectorCount > 0 ? \`  \${x.green}⚡ HNSW\${x.reset}\` : '';
+  const sizeDisp = agentdb.dbSizeKB >= 1024
+    ? \`\${(agentdb.dbSizeKB / 1024).toFixed(1)} MB\` : \`\${agentdb.dbSizeKB} KB\`;
+  const testCol  = tests.testFiles > 0 ? x.green : x.slate;
+  const memCol   = system.memoryMB > 200 ? x.orange : x.sky;
 
-  let integStr = '';
+  const chips = [];
   if (integration.mcpServers.total > 0) {
-    const mcpCol = integration.mcpServers.enabled === integration.mcpServers.total ? c.brightGreen :
-                   integration.mcpServers.enabled > 0 ? c.brightYellow : c.red;
-    integStr += c.cyan + 'MCP' + c.reset + ' ' + mcpCol + '\\u25CF' + integration.mcpServers.enabled + '/' + integration.mcpServers.total + c.reset;
+    const mc = integration.mcpServers.enabled === integration.mcpServers.total ? x.green
+             : integration.mcpServers.enabled > 0 ? x.gold : x.coral;
+    chips.push(\`\${mc}MCP \${integration.mcpServers.enabled}/\${integration.mcpServers.total}\${x.reset}\`);
   }
-  if (integration.hasDatabase) integStr += (integStr ? '  ' : '') + c.brightGreen + '\\u25C6' + c.reset + 'DB';
-  if (integration.hasApi) integStr += (integStr ? '  ' : '') + c.brightGreen + '\\u25C6' + c.reset + 'API';
-  if (!integStr) integStr = c.dim + '\\u25CF none' + c.reset;
+  if (integration.hasDatabase) chips.push(\`\${x.green}DB ✔\${x.reset}\`);
+  if (integration.hasApi)      chips.push(\`\${x.green}API ✔\${x.reset}\`);
+  const integStr = chips.length ? chips.join('  ') : \`\${x.slate}none\${x.reset}\`;
 
   lines.push(
-    c.brightCyan + '\\uD83D\\uDCCA AgentDB' + c.reset + '    ' +
-    c.cyan + 'Vectors' + c.reset + ' ' + vectorColor + '\\u25CF' + agentdb.vectorCount + hnswInd + c.reset + '  ' + c.dim + '\\u2502' + c.reset + '  ' +
-    c.cyan + 'Size' + c.reset + ' ' + c.brightWhite + sizeDisp + c.reset + '  ' + c.dim + '\\u2502' + c.reset + '  ' +
-    c.cyan + 'Tests' + c.reset + ' ' + testColor + '\\u25CF' + tests.testFiles + c.reset + ' ' + c.dim + '(~' + tests.testCases + ' cases)' + c.reset + '  ' + c.dim + '\\u2502' + c.reset + '  ' +
+    \`\${x.teal}🗄️  MEMORY\${x.reset}   \` +
+    \`\${vecCol}\${x.bold}\${agentdb.vectorCount}\${x.reset}\${x.slate} vectors\${x.reset}\${hnswTag}   \${DIV}   \` +
+    \`\${x.white}\${sizeDisp}\${x.reset}   \${DIV}   \` +
+    \`\${testCol}🧪 \${tests.testFiles} test files\${x.reset}   \${DIV}   \` +
     integStr
+  );
+  lines.push(SEP);
+
+  // ── Row 5: Context budget ─────────────────────────────────────
+  // SI budget (Task 23 monitor)
+  let siStr;
+  if (si) {
+    const siCol = si.pct > 100 ? x.coral : si.pct > 80 ? x.gold : x.green;
+    siStr = \`\${siCol}📄 SI \${si.pct}% budget\${x.reset} \${x.dim}(\${si.len}/\${si.limit} chars)\${x.reset}\`;
+  } else {
+    siStr = \`\${x.slate}📄 no shared instructions\${x.reset}\`;
+  }
+
+  // Domains
+  const domCol = progress.domainsCompleted >= 4 ? x.green
+               : progress.domainsCompleted >= 2 ? x.gold
+               : progress.domainsCompleted >= 1 ? x.orange
+               : x.slate;
+  const domBar = blockBar(progress.domainsCompleted, progress.totalDomains);
+
+  lines.push(
+    \`\${x.slate}📋  CONTEXT\${x.reset}  \` +
+    \`\${siStr}   \${DIV}   \` +
+    \`\${x.teal}🏗 \${domBar} \${domCol}\${x.bold}\${progress.domainsCompleted}\${x.reset}\${x.slate}/\${x.reset}\${x.white}\${progress.totalDomains}\${x.reset} domains   \${DIV}   \` +
+    \`\${x.dim}💾 \${system.memoryMB} MB RAM\${x.reset}\`
   );
 
   return lines.join('\\n');
 }
 
-// JSON output
+// ── JSON output ──────────────────────────────────────────────────
 function generateJSON() {
   const git = getGitInfo();
   return {
-    user: { name: git.name, gitBranch: git.gitBranch, modelName: getModelName() },
-    devProgress: getDevProgress(),
-    security: getSecurityStatus(),
-    swarm: getSwarmStatus(),
-    system: getSystemMetrics(),
-    adrs: getADRStatus(),
-    hooks: getHooksStatus(),
-    agentdb: getAgentDBStats(),
-    tests: getTestStats(),
-    git: { modified: git.modified, untracked: git.untracked, staged: git.staged, ahead: git.ahead, behind: git.behind },
+    user:       { name: git.name, gitBranch: git.gitBranch, modelName: getModelName() },
+    domains:    getv1Progress(),
+    security:   getSecurityStatus(),
+    swarm:      getSwarmStatus(),
+    system:     getSystemMetrics(),
+    adrs:       getADRStatus(),
+    hooks:      getHooksStatus(),
+    agentdb:    getAgentDBStats(),
+    tests:      getTestStats(),
+    git:        { modified: git.modified, untracked: git.untracked, staged: git.staged, ahead: git.ahead, behind: git.behind },
     lastUpdated: new Date().toISOString(),
   };
 }
 
-// ─── Stdin reader (Claude Code pipes session JSON) ──────────────
+// ─── Mode state file ─────────────────────────────────────────────
+const MODE_FILE = path.join(CWD, '.monobrain', 'statusline-mode.txt');
 
-// Claude Code sends session JSON via stdin (model, context, cost, etc.)
-// Read it synchronously so the script works both:
-//   1. When invoked by Claude Code (stdin has JSON)
-//   2. When invoked manually from terminal (stdin is empty/tty)
-let _stdinData = null;
-function getStdinData() {
-  if (_stdinData !== undefined && _stdinData !== null) return _stdinData;
+function readMode() {
   try {
-    // Check if stdin is a TTY (manual run) — skip reading
-    if (process.stdin.isTTY) { _stdinData = null; return null; }
-    // Read stdin synchronously via fd 0
-    const chunks = [];
-    const buf = Buffer.alloc(4096);
-    let bytesRead;
-    try {
-      while ((bytesRead = fs.readSync(0, buf, 0, buf.length, null)) > 0) {
-        chunks.push(buf.slice(0, bytesRead));
-      }
-    } catch { /* EOF or read error */ }
-    const raw = Buffer.concat(chunks).toString('utf-8').trim();
-    if (raw && raw.startsWith('{')) {
-      _stdinData = JSON.parse(raw);
-    } else {
-      _stdinData = null;
+    if (fs.existsSync(MODE_FILE)) {
+      return fs.readFileSync(MODE_FILE, 'utf-8').trim();
     }
-  } catch {
-    _stdinData = null;
-  }
-  return _stdinData;
-}
-
-// Override model detection to prefer stdin data from Claude Code
-function getModelFromStdin() {
-  const data = getStdinData();
-  if (data && data.model && data.model.display_name) return data.model.display_name;
-  return null;
-}
-
-// Get context window info from Claude Code session
-function getContextFromStdin() {
-  const data = getStdinData();
-  if (data && data.context_window) {
-    return {
-      usedPct: Math.floor(data.context_window.used_percentage || 0),
-      remainingPct: Math.floor(data.context_window.remaining_percentage || 100),
-    };
-  }
-  return null;
-}
-
-// Get cost info from Claude Code session
-function getCostFromStdin() {
-  const data = getStdinData();
-  if (data && data.cost) {
-    const durationMs = data.cost.total_duration_ms || 0;
-    const mins = Math.floor(durationMs / 60000);
-    const secs = Math.floor((durationMs % 60000) / 1000);
-    return {
-      costUsd: data.cost.total_cost_usd || 0,
-      duration: mins > 0 ? mins + 'm' + secs + 's' : secs + 's',
-      linesAdded: data.cost.total_lines_added || 0,
-      linesRemoved: data.cost.total_lines_removed || 0,
-    };
-  }
-  return null;
+  } catch { /* ignore */ }
+  return 'full'; // default
 }
 
 // ─── Main ───────────────────────────────────────────────────────
@@ -796,15 +1088,33 @@ if (process.argv.includes('--json')) {
   console.log(JSON.stringify(generateJSON(), null, 2));
 } else if (process.argv.includes('--compact')) {
   console.log(JSON.stringify(generateJSON()));
-} else {
+} else if (process.argv.includes('--single-line')) {
   console.log(generateStatusline());
+} else if (process.argv.includes('--toggle')) {
+  // Toggle mode and print the new view
+  const current = readMode();
+  const next = current === 'compact' ? 'full' : 'compact';
+  try {
+    fs.mkdirSync(path.dirname(MODE_FILE), { recursive: true });
+    fs.writeFileSync(MODE_FILE, next, 'utf-8');
+  } catch { /* ignore */ }
+  if (next === 'compact') {
+    console.log(generateStatusline());
+  } else {
+    console.log(generateDashboard());
+  }
+} else {
+  // Default: respect mode state file
+  const mode = readMode();
+  if (mode === 'compact') {
+    console.log(generateStatusline());
+  } else {
+    console.log(generateDashboard());
+  }
 }
 `;
 }
 
-/**
- * Generate statusline hook for shell integration
- */
 export function generateStatuslineHook(options: InitOptions): string {
   if (!options.statusline.enabled) {
     return '#!/bin/bash\n# Statusline disabled\n';
