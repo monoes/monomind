@@ -48,11 +48,8 @@ const DEFAULT_CONFIG: UpdateConfig = {
 
 // Packages to check for updates
 const MONOBRAIN_PACKAGES = [
-  '@monobrain/cli',
-  '@monobrain/embeddings',
-  '@monobrain/security',
-  '@monobrain/integration',
-  '@monobrain/testing',
+  'monobrain',
+  '@monoes/cli',
 ];
 
 interface NpmPackageInfo {
