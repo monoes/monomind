@@ -2,7 +2,7 @@
  * CLI Cleanup Command
  * Removes project artifacts created by monobrain/monobrain
  *
- * Created with ruv.io
+ * github.com/nokhodian/monobrain
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';

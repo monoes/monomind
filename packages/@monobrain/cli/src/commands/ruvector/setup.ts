@@ -7,7 +7,7 @@
  *   npx monobrain ruvector setup --output /path/to/dir
  *   npx monobrain ruvector setup --print      # Print to stdout only
  *
- * Created with care by ruv.io
+ * https://github.com/nokhodian/monobrain
  */
 
 import type { Command, CommandContext, CommandResult } from '../../types.js';

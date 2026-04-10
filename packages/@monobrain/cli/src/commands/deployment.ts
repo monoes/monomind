@@ -2,7 +2,7 @@
  * CLI Deployment Command
  * Deployment management, environments, rollbacks
  *
- * Created with ❤️ by ruv.io
+ * github.com/nokhodian/monobrain
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -762,7 +762,7 @@ export const deploymentCommand: Command = {
       'Deployment previews for PRs',
     ]);
     output.writeln();
-    output.writeln(output.dim('Created with love by ruv.io'));
+    output.writeln(output.dim('github.com/nokhodian/monobrain'));
     return { success: true };
   },
 };

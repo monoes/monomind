@@ -11,7 +11,7 @@
  * - Module communities using Louvain algorithm
  * - Circular dependency detection
  *
- * Created with ruv.io
+ * github.com/nokhodian/monobrain
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';

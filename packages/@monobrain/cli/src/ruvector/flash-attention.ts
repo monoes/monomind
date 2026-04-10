@@ -12,7 +12,7 @@
  *
  * Target: 2-5x speedup on CPU vs naive attention
  *
- * Created with love by ruv.io
+ * github.com/nokhodian/monobrain
  */
 
 // ============================================================================

@@ -10,7 +10,7 @@
  * - Performance benchmarking
  * - Migration management
  *
- * Created with care by ruv.io
+ * https://github.com/nokhodian/monobrain
  */
 
 import type { Command, CommandContext, CommandResult } from '../../types.js';
