@@ -7,7 +7,7 @@
  *   npx monobrain ruvector import --from-memory
  *   npx monobrain ruvector import --input data.json --batch-size 100
  *
- * Created with care by ruv.io
+ * https://github.com/nokhodian/monobrain
  */
 
 import type { Command, CommandContext, CommandResult } from '../../types.js';

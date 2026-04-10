@@ -2,7 +2,7 @@
  * CLI Main Entry Point
  * Modernized CLI for Monobrain
  *
- * Created with ❤️ by ruv.io
+ * github.com/nokhodian/monobrain
  */
 
 import { readFileSync } from 'fs';
@@ -343,7 +343,7 @@ export class CLI {
 
     this.output.writeln(this.output.dim(`Run "${this.name} <command> --help" for command help`));
     this.output.writeln();
-    this.output.writeln(this.output.dim('Created with ❤️ by ruv.io'));
+    this.output.writeln(this.output.dim('github.com/nokhodian/monobrain'));
     this.output.writeln();
   }
 

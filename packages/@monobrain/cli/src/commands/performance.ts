@@ -2,7 +2,7 @@
  * CLI Performance Command
  * Performance profiling, benchmarking, optimization, metrics
  *
- * Created with ❤️ by ruv.io
+ * github.com/nokhodian/monobrain
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -643,7 +643,7 @@ export const performanceCommand: Command = {
       'Memory: 50-75% reduction with quantization',
     ]);
     output.writeln();
-    output.writeln(output.dim('Created with ❤️ by ruv.io'));
+    output.writeln(output.dim('github.com/nokhodian/monobrain'));
     return { success: true };
   },
 };

@@ -2,7 +2,7 @@
  * CLI Completions Command
  * Shell completions for bash, zsh, fish, powershell
  *
- * Created with ruv.io
+ * github.com/nokhodian/monobrain
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';

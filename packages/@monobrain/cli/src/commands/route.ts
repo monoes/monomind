@@ -8,7 +8,7 @@
  * - Confidence scoring
  * - Learning from feedback
  *
- * Created with love by ruv.io
+ * github.com/nokhodian/monobrain
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';

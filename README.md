@@ -124,8 +124,8 @@ cd monobrain
 npm install
 node packages/@monobrain/cli/bin/cli.js init --wizard
 
-# Wire up the MCP server in Claude Code
-claude mcp add monobrain -- node /path/to/monobrain/packages/@monobrain/cli/bin/cli.js mcp start
+# Wire up the MCP server in Claude Code (replace $PWD with your clone path if needed)
+claude mcp add monobrain -- node "$PWD/packages/@monobrain/cli/bin/cli.js" mcp start
 ```
 
 **Option 2 — npx (once npm package is published):**

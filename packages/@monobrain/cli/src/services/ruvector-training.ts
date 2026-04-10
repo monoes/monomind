@@ -11,7 +11,7 @@
  *
  * Backward Compatible: All v1 APIs preserved, SONA adds new capabilities
  *
- * Created with ❤️ by ruv.io
+ * github.com/nokhodian/monobrain
  */
 
 import type {

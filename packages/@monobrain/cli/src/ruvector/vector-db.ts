@@ -8,7 +8,7 @@
  *
  * Gracefully degrades when ruvector is not installed.
  *
- * Created with love by ruv.io
+ * github.com/nokhodian/monobrain
  */
 
 // ============================================================================

@@ -2,7 +2,7 @@
  * CLI Doctor Command
  * System diagnostics, dependency checks, config validation
  *
- * Created with ruv.io
+ * github.com/nokhodian/monobrain
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';

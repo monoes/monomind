@@ -2,7 +2,7 @@
  * CLI Smart Error Suggestions
  * Levenshtein distance and command suggestions
  *
- * Created with ruv.io
+ * github.com/nokhodian/monobrain
  */
 
 /**
