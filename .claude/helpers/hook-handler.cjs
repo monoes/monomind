@@ -403,7 +403,7 @@ const handlers = {
       var output = [];
       output.push('[INFO] Routing task: ' + (prompt.substring(0, 80) || '(no prompt)'));
       output.push('');
-      output.push('+------------------- Primary Recommendation -------------------+');
+      output.push('+------------ monobrain | Primary Recommendation -------------+');
       output.push('| Agent: ' + result.agent.padEnd(53) + '|');
       output.push('| Confidence: ' + (result.confidence * 100).toFixed(1) + '%' + ' '.repeat(44) + '|');
       output.push('| Reason: ' + result.reason.substring(0, 53).padEnd(53) + '|');

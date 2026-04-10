@@ -150,6 +150,57 @@ const DIRECTORIES = {
 /**
  * Execute initialization
  */
+/**
+ * Remove legacy ruflo/ruv-swarm configuration from existing project files.
+ * Safe to call even if no legacy config exists.
+ */
+function cleanupLegacyTools(targetDir: string): string[] {
+  const cleaned: string[] = [];
+
+  // Clean ruv-swarm from .mcp.json
+  const mcpJsonPath = path.join(targetDir, '.mcp.json');
+  if (fs.existsSync(mcpJsonPath)) {
+    try {
+      const mcp = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8'));
+      if (mcp.mcpServers && mcp.mcpServers['ruv-swarm']) {
+        delete mcp.mcpServers['ruv-swarm'];
+        fs.writeFileSync(mcpJsonPath, JSON.stringify(mcp, null, 2));
+        cleaned.push('.mcp.json: removed ruv-swarm entry');
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  // Clean ruflo / ruv-swarm from .claude/settings.json hooks
+  const settingsPath = path.join(targetDir, '.claude', 'settings.json');
+  if (fs.existsSync(settingsPath)) {
+    try {
+      const raw = fs.readFileSync(settingsPath, 'utf-8');
+      if (raw.includes('ruflo') || raw.includes('ruv-swarm')) {
+        const settings = JSON.parse(raw);
+        // Remove ruflo-referencing hook entries from all hook arrays
+        const hookKeys = ['PreToolUse', 'PostToolUse', 'UserPromptSubmit', 'SessionStart', 'SessionEnd', 'Stop', 'SubagentStart', 'SubagentStop', 'PreCompact'];
+        let changed = false;
+        for (const key of hookKeys) {
+          if (Array.isArray(settings.hooks?.[key])) {
+            const before = settings.hooks[key].length;
+            settings.hooks[key] = settings.hooks[key].filter((entry: any) => {
+              const str = JSON.stringify(entry);
+              return !str.includes('ruflo') && !str.includes('ruv-swarm');
+            });
+            if (settings.hooks[key].length !== before) changed = true;
+          }
+        }
+        if (changed) {
+          fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+          cleaned.push('.claude/settings.json: removed ruflo/ruv-swarm hooks');
+        }
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  return cleaned;
+}
+
 export async function executeInit(options: InitOptions): Promise<InitResult> {
   // Detect platform
   const platform = detectPlatform();
@@ -174,6 +225,12 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
   const targetDir = options.targetDir;
 
   try {
+    // Remove legacy ruflo/ruv-swarm configs before writing new ones
+    const legacyCleaned = cleanupLegacyTools(targetDir);
+    for (const msg of legacyCleaned) {
+      result.created.files.push(`[cleaned] ${msg}`);
+    }
+
     // Create directory structure
     await createDirectories(targetDir, options, result);
 
@@ -1742,17 +1799,15 @@ npx @monobrain/cli@latest hive-mind consensus --propose "task"
 ### Optional Integrations
 | Package | Command |
 |---------|---------|
-| ruv-swarm | \`npx ruv-swarm mcp start\` |
 | flow-nexus | \`npx flow-nexus@latest mcp start\` |
 | agentic-jujutsu | \`npx agentic-jujutsu@latest\` |
 
 ### MCP Server Setup
 \`\`\`bash
 # Add Monobrain MCP
-claude mcp add monobrain -- npx -y monobrain@latest
+claude mcp add monobrain -- npx -y monobrain@latest mcp start
 
 # Optional servers
-claude mcp add ruv-swarm -- npx -y ruv-swarm mcp start
 claude mcp add flow-nexus -- npx -y flow-nexus@latest mcp start
 \`\`\`
 

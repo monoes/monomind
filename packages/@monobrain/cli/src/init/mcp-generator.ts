@@ -68,14 +68,7 @@ export function generateMCPConfig(options: InitOptions): object {
     );
   }
 
-  // Ruv-Swarm MCP server (enhanced coordination)
-  if (config.ruvSwarm) {
-    mcpServers['ruv-swarm'] = createMCPServerEntry(
-      ['ruv-swarm', 'mcp', 'start'],
-      { ...npmEnv },
-      { optional: true }
-    );
-  }
+
 
   // Flow Nexus MCP server (cloud features)
   if (config.flowNexus) {
@@ -106,20 +99,14 @@ export function generateMCPCommands(options: InitOptions): string[] {
 
   if (isWindows()) {
     if (config.monobrain) {
-      commands.push('claude mcp add monobrain -- cmd /c npx -y @monobrain/cli@latest mcp start');
-    }
-    if (config.ruvSwarm) {
-      commands.push('claude mcp add ruv-swarm -- cmd /c npx -y ruv-swarm mcp start');
+      commands.push('claude mcp add monobrain -- cmd /c npx -y monobrain@latest mcp start');
     }
     if (config.flowNexus) {
       commands.push('claude mcp add flow-nexus -- cmd /c npx -y flow-nexus@latest mcp start');
     }
   } else {
     if (config.monobrain) {
-      commands.push("claude mcp add monobrain -- npx -y @monobrain/cli@latest mcp start");
-    }
-    if (config.ruvSwarm) {
-      commands.push("claude mcp add ruv-swarm -- npx -y ruv-swarm mcp start");
+      commands.push("claude mcp add monobrain -- npx -y monobrain@latest mcp start");
     }
     if (config.flowNexus) {
       commands.push("claude mcp add flow-nexus -- npx -y flow-nexus@latest mcp start");
