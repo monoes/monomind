@@ -51,18 +51,26 @@ const CWD = process.cwd();
 
 // Read version from nearest package.json
 function getVersion() {
-  const candidates = [
-    path.join(CWD, 'monobrain', 'package.json'),
-    path.join(CWD, 'package.json'),
-    path.join(path.dirname(__filename), '../../package.json'),
+  const scriptDir = path.dirname(__filename);
+  const walkCandidates = [
+    path.join(scriptDir, '..', '..', 'package.json'),
+    path.join(scriptDir, '..', '..', '..', 'package.json'),
+    path.join(scriptDir, '..', '..', '..', '..', 'package.json'),
   ];
-  for (const p of candidates) {
+  for (const p of walkCandidates) {
     try {
       const pkg = JSON.parse(fs.readFileSync(p, 'utf-8'));
-      if (pkg.version) return \`v\${pkg.version}\`;
+      if (pkg.version && (pkg.name === 'monobrain' || pkg.name === '@monoes/cli' || (pkg.name || '').startsWith('@monobrain'))) {
+        return \`v\${pkg.version}\`;
+      }
     } catch { /* ignore */ }
   }
-  return 'v1.0.0';
+  try {
+    const prefix = execSync('npm config get prefix', { encoding: 'utf-8', timeout: 2000 }).trim();
+    const pkg = JSON.parse(fs.readFileSync(path.join(prefix, 'lib', 'node_modules', 'monobrain', 'package.json'), 'utf-8'));
+    if (pkg.version) return \`v\${pkg.version}\`;
+  } catch { /* ignore */ }
+  return 'v1.0.6';
 }
 const VERSION = getVersion();
 
