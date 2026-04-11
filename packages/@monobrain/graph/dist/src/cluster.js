@@ -1,0 +1,50 @@
+/**
+ * Run Louvain community detection on the graph.
+ * Assigns the `community` attribute to each node in-place.
+ * Returns a map from communityId → list of nodeIds.
+ */
+export async function detectCommunities(graph) {
+    try {
+        const { default: louvain } = await import('graphology-communities-louvain');
+        const assignment = louvain(graph);
+        // Write community id back onto each node
+        for (const [nodeId, communityId] of Object.entries(assignment)) {
+            graph.setNodeAttribute(nodeId, 'community', communityId);
+        }
+        // Build communityId → members map
+        const communities = {};
+        for (const [nodeId, communityId] of Object.entries(assignment)) {
+            if (!communities[communityId])
+                communities[communityId] = [];
+            communities[communityId].push(nodeId);
+        }
+        return communities;
+    }
+    catch {
+        // Louvain unavailable — fall back to directory-based clustering
+        return fallbackCluster(graph);
+    }
+}
+/**
+ * Fallback: group nodes by the directory portion of their sourceFile attribute.
+ * Deterministic and zero-dependency.
+ */
+function fallbackCluster(graph) {
+    const dirMap = new Map();
+    let nextId = 0;
+    const communities = {};
+    graph.forEachNode((id, attrs) => {
+        const file = attrs.sourceFile || '';
+        const parts = file.split('/');
+        const dir = parts.length > 1 ? parts.slice(0, -1).join('/') : 'root';
+        if (!dirMap.has(dir))
+            dirMap.set(dir, nextId++);
+        const cid = dirMap.get(dir);
+        graph.setNodeAttribute(id, 'community', cid);
+        if (!communities[cid])
+            communities[cid] = [];
+        communities[cid].push(id);
+    });
+    return communities;
+}
+//# sourceMappingURL=cluster.js.map
