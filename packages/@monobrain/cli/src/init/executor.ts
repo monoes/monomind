@@ -157,29 +157,56 @@ const DIRECTORIES = {
 function cleanupLegacyTools(targetDir: string): string[] {
   const cleaned: string[] = [];
 
-  // Clean ruv-swarm from .mcp.json
+  // Helper to fix MCP server args: replace @monobrain/cli@latest with monobrain@latest
+  function fixMcpArgs(servers: Record<string, any>): boolean {
+    let changed = false;
+    for (const name of Object.keys(servers)) {
+      const srv = servers[name];
+      if (Array.isArray(srv.args)) {
+        srv.args = srv.args.map((a: string) => {
+          if (typeof a === 'string' && a.includes('@monobrain/cli@')) {
+            changed = true;
+            return a.replace(/@monobrain\/cli@[^\s]*/g, 'monobrain@latest');
+          }
+          return a;
+        });
+      }
+    }
+    return changed;
+  }
+
+  // Clean ruv-swarm from .mcp.json and fix old MCP package name
   const mcpJsonPath = path.join(targetDir, '.mcp.json');
   if (fs.existsSync(mcpJsonPath)) {
     try {
       const mcp = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8'));
+      let mcpChanged = false;
       if (mcp.mcpServers && mcp.mcpServers['ruv-swarm']) {
         delete mcp.mcpServers['ruv-swarm'];
-        fs.writeFileSync(mcpJsonPath, JSON.stringify(mcp, null, 2));
+        mcpChanged = true;
         cleaned.push('.mcp.json: removed ruv-swarm entry');
+      }
+      if (mcp.mcpServers && fixMcpArgs(mcp.mcpServers)) {
+        mcpChanged = true;
+        cleaned.push('.mcp.json: updated MCP package name to monobrain@latest');
+      }
+      if (mcpChanged) {
+        fs.writeFileSync(mcpJsonPath, JSON.stringify(mcp, null, 2));
       }
     } catch { /* non-fatal */ }
   }
 
-  // Clean ruflo / ruv-swarm from .claude/settings.json hooks
+  // Clean ruflo / ruv-swarm from .claude/settings.json hooks and fix MCP package name
   const settingsPath = path.join(targetDir, '.claude', 'settings.json');
   if (fs.existsSync(settingsPath)) {
     try {
       const raw = fs.readFileSync(settingsPath, 'utf-8');
+      const settings = JSON.parse(raw);
+      let settingsChanged = false;
+
       if (raw.includes('ruflo') || raw.includes('ruv-swarm')) {
-        const settings = JSON.parse(raw);
         // Remove ruflo-referencing hook entries from all hook arrays
         const hookKeys = ['PreToolUse', 'PostToolUse', 'UserPromptSubmit', 'SessionStart', 'SessionEnd', 'Stop', 'SubagentStart', 'SubagentStop', 'PreCompact'];
-        let changed = false;
         for (const key of hookKeys) {
           if (Array.isArray(settings.hooks?.[key])) {
             const before = settings.hooks[key].length;
@@ -187,13 +214,22 @@ function cleanupLegacyTools(targetDir: string): string[] {
               const str = JSON.stringify(entry);
               return !str.includes('ruflo') && !str.includes('ruv-swarm');
             });
-            if (settings.hooks[key].length !== before) changed = true;
+            if (settings.hooks[key].length !== before) settingsChanged = true;
           }
         }
-        if (changed) {
-          fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+        if (settingsChanged) {
           cleaned.push('.claude/settings.json: removed ruflo/ruv-swarm hooks');
         }
+      }
+
+      // Fix wrong MCP package name in mcpServers
+      if (settings.mcpServers && fixMcpArgs(settings.mcpServers)) {
+        settingsChanged = true;
+        cleaned.push('.claude/settings.json: updated MCP package name to monobrain@latest');
+      }
+
+      if (settingsChanged) {
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
       }
     } catch { /* non-fatal */ }
   }
@@ -459,6 +495,12 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
   };
 
   try {
+    // Fix legacy ruflo/ruv-swarm configs and old MCP package names
+    const legacyCleaned = cleanupLegacyTools(targetDir);
+    for (const msg of legacyCleaned) {
+      result.updated.push(`[cleaned] ${msg}`);
+    }
+
     // Ensure required directories exist
     const dirs = [
       '.claude/helpers',
