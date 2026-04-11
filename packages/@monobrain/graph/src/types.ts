@@ -114,3 +114,18 @@ export interface ClassifiedFile {
   language?: string;
   sizeBytes: number;
 }
+
+export interface GraphQuestion {
+  type: 'AMBIGUOUS_EDGE' | 'BRIDGE_NODE' | 'INFERRED_GOD_NODE' | 'ISOLATED_NODE' | 'LOW_COHESION_COMMUNITY';
+  question: string;
+  nodes: string[];
+  priority: 'high' | 'medium' | 'low';
+}
+
+export interface GraphDiff {
+  addedNodes: string[];
+  removedNodes: string[];
+  addedEdges: Array<{ source: string; target: string; relation: string }>;
+  removedEdges: Array<{ source: string; target: string; relation: string }>;
+  communityChanges: Array<{ node: string; oldCommunity: number; newCommunity: number }>;
+}
