@@ -84,7 +84,7 @@
     "vitest": "^4.1.4"
   },
   "dependencies": {
-    "@monobrain/graph": "workspace:*",
+    "@monoes/graph": "workspace:*",
     "@monobrain/mcp": "workspace:*",
     "@monobrain/shared": "workspace:*",
     "@noble/ed25519": "^2.1.0",

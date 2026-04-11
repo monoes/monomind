@@ -31,7 +31,7 @@ async function loadKnowledgeGraph(cwd) {
     let rawEdges = [];
 
     try {
-        const { loadGraph } = await import('@monobrain/graph');
+        const { loadGraph } = await import('@monoes/graph');
         const loaded = loadGraph(graphPath);
         rawNodes = loaded.nodes;
         rawEdges = loaded.edges;
@@ -108,7 +108,7 @@ export const graphifyBuildTool = {
         const cwd = getProjectCwd();
         const targetPath = params.path || cwd;
         try {
-            const { buildGraph } = await import('@monobrain/graph');
+            const { buildGraph } = await import('@monoes/graph');
             const outputDir = join(targetPath, '.monobrain', 'graph');
             const result = await buildGraph(targetPath, {
                 codeOnly: Boolean(params.codeOnly),
@@ -126,7 +126,7 @@ export const graphifyBuildTool = {
             return {
                 error: true,
                 message: String(err),
-                hint: '@monobrain/graph package not available — ensure it is installed and built.',
+                hint: '@monoes/graph package not available — ensure it is installed and built.',
             };
         }
     },

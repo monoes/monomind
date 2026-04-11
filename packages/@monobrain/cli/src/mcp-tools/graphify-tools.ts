@@ -81,7 +81,7 @@ async function loadKnowledgeGraph(cwd: string): Promise<LoadedGraph> {
 
   try {
     // Prefer @monobrain/graph's loader which handles format normalization.
-    const { loadGraph } = await import('@monobrain/graph') as unknown as {
+    const { loadGraph } = await import('@monoes/graph') as unknown as {
       loadGraph: (p: string) => { nodes: GraphNode[]; edges: GraphEdge[] };
     };
     const loaded = loadGraph(graphPath);
@@ -182,7 +182,7 @@ export const graphifyBuildTool: MCPTool = {
     const targetPath = (params.path as string) || cwd;
 
     try {
-      const { buildGraph } = await import('@monobrain/graph') as unknown as {
+      const { buildGraph } = await import('@monoes/graph') as unknown as {
         buildGraph: (path: string, opts?: { codeOnly?: boolean; outputDir?: string }) => Promise<{
           filesProcessed: number;
           graphPath: string;

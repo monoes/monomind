@@ -301,13 +301,13 @@ export async function executeInit(options) {
  */
 async function initKnowledgeGraph(targetDir, result) {
     try {
-        await import('@monobrain/graph');
+        await import('@monoes/graph');
         const outputDir = path.join(targetDir, '.monobrain', 'graph');
         const { spawn } = await import('child_process');
         const safePath = targetDir.replace(/'/g, "\\'");
         const safeOut = outputDir.replace(/'/g, "\\'");
         const script = `
-import('@monobrain/graph').then(({ buildGraph }) =>
+import('@monoes/graph').then(({ buildGraph }) =>
   buildGraph('${safePath}', { codeOnly: true, outputDir: '${safeOut}' })
 ).then(r => console.log('[graph] built: ' + r.analysis.stats.nodes + ' nodes'))
  .catch(e => console.error('[graph] build failed:', e.message));

@@ -1,5 +1,5 @@
 {
-  "name": "@monobrain/graph",
+  "name": "@monoes/graph",
   "version": "1.0.0",
   "type": "module",
   "description": "Knowledge graph engine for monobrain — AST extraction, graph construction, community detection, and persistent codebase understanding",
