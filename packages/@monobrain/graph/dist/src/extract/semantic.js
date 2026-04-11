@@ -118,6 +118,50 @@ function parseChunkResult(text, chunkFiles) {
     };
 }
 // ---------------------------------------------------------------------------
+// Best-Fit Decreasing (BFD) chunk packing — from autoresearch experiment loop
+//
+// Instead of slicing files into equal-sized groups, BFD estimates the token
+// count of each file, sorts descending, and packs into bins that stay under
+// targetTokens.  This mirrors the document-packing dataloader in autoresearch
+// (best-fit + zero-waste) and produces denser, fairer prompts than fixed chunks.
+// ---------------------------------------------------------------------------
+/**
+ * Pack `files` into chunks using First-Fit Decreasing bin packing.
+ *
+ * Each file's token estimate = min(content.length / 4, 1500)
+ * (the prompt already truncates each file to 6000 chars = ~1500 tokens).
+ *
+ * @param files         - Files to pack
+ * @param targetTokens  - Soft upper bound on tokens per chunk (default 30 000)
+ * @returns             - Array of chunks; each chunk is an array of files
+ */
+function packChunksBFD(files, targetTokens) {
+    // Estimate tokens per file — capped at the 6 000-char prompt truncation limit
+    const sized = files.map((f) => ({
+        file: f,
+        tokens: Math.min(Math.ceil(f.content.length / 4), 1500),
+    }));
+    // Sort descending so large files get placed first (First Fit Decreasing)
+    sized.sort((a, b) => b.tokens - a.tokens);
+    const bins = [];
+    for (const item of sized) {
+        let placed = false;
+        for (const bin of bins) {
+            if (bin.tokens + item.tokens <= targetTokens) {
+                bin.files.push(item.file);
+                bin.tokens += item.tokens;
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) {
+            // File is too large (or bins are all full) — open a new bin
+            bins.push({ files: [item.file], tokens: item.tokens });
+        }
+    }
+    return bins.map((b) => b.files);
+}
+// ---------------------------------------------------------------------------
 // Main export
 // ---------------------------------------------------------------------------
 /**
@@ -136,21 +180,29 @@ export async function extractSemantic(files, options = {}) {
         return { nodes: [], edges: [], hyperedges: [], filesProcessed: 0, fromCache: 0, errors: ['ANTHROPIC_API_KEY not set — semantic extraction skipped'] };
     }
     const model = options.model ?? 'claude-haiku-4-5-20251001';
-    const chunkSize = options.chunkSize ?? 20;
     const mode = options.mode ?? 'fast';
     const maxTokens = options.maxTokens ?? 8192;
+    // BFD packing — targetChunkTokens defaults to 30 000 (~20 avg files × 1500 tok each).
+    // Fallback to legacy chunkSize if targetChunkTokens is not set and chunkSize was specified,
+    // so callers that relied on chunkSize still get predictable behaviour.
+    const targetChunkTokens = options.targetChunkTokens
+        ?? (options.chunkSize ? options.chunkSize * 1500 : 30_000);
+    // Time budget — undefined = no limit (run all chunks)
+    const deadline = options.timeBudget ? Date.now() + options.timeBudget : Infinity;
     const allNodes = [];
     const allEdges = [];
     const allHyperedges = [];
     const errors = [];
     let totalInput = 0;
     let totalOutput = 0;
-    // Chunk files
-    const chunks = [];
-    for (let i = 0; i < files.length; i += chunkSize) {
-        chunks.push(files.slice(i, i + chunkSize));
-    }
+    // Pack files into token-aware chunks using BFD (replaces fixed equal-size slicing)
+    const chunks = packChunksBFD(files, targetChunkTokens);
     for (let i = 0; i < chunks.length; i++) {
+        // Time budget enforcement — mirrors autoresearch's 5-min wall-clock limit
+        if (Date.now() > deadline) {
+            errors.push(`Time budget (${options.timeBudget}ms) exceeded after chunk ${i}/${chunks.length} — partial results returned`);
+            break;
+        }
         const chunk = chunks[i];
         const prompt = buildPrompt(chunk, mode, i + 1, chunks.length);
         try {

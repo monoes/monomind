@@ -21,6 +21,8 @@ export interface SemanticOptions {
     chunkSize?: number;
     mode?: 'fast' | 'deep';
     maxTokens?: number;
+    timeBudget?: number;
+    targetChunkTokens?: number;
 }
 /**
  * Run semantic extraction on a set of files using the Anthropic Claude API.

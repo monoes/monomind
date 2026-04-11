@@ -18,6 +18,10 @@ export interface BuildResult {
     fromCache: number;
     graphPath: string;
     reportPath: string;
+    /** Graph quality scalar: avgCohesion × ln(1 + avgDegree). Higher is better. */
+    graphQuality: number;
+    /** Experiment loop status — mirrors autoresearch's keep/discard protocol. */
+    experimentStatus: 'BASELINE' | 'KEEP' | 'DISCARD';
 }
 export declare function buildGraph(projectPath: string, options?: BuildOptions): Promise<BuildResult>;
 //# sourceMappingURL=pipeline.d.ts.map

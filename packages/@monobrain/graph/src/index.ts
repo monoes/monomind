@@ -8,6 +8,7 @@ export { saveGraph, loadGraph, graphExists, getGraphPath } from './export.js';
 export { exportHTML } from './visualize.js';
 export { generateReport } from './report.js';
 export { extractSemantic } from './extract/semantic.js';
+export type { SemanticFile, SemanticOptions } from './extract/semantic.js';
 export { isTreeSitterAvailable, tryLoadParser, parseFile, parseFileFromDisk } from './extract/tree-sitter-runner.js';
 export type { LanguageExtractor } from './extract/types.js';
 // Language extractors
