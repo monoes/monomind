@@ -1,17 +1,20 @@
 import { join } from 'path';
-import { mkdirSync, readFileSync } from 'fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import type {
   BuildOptions,
   ExtractionResult,
   GraphAnalysis,
   SerializedGraph,
+  GraphQuestion,
 } from './types.js';
-import { collectFiles } from './detect.js';
+import { collectFiles, corpusHealth } from './detect.js';
 import { FileCache } from './cache.js';
 import { buildGraph as buildGraphologyGraph } from './build.js';
-import { detectCommunities } from './cluster.js';
-import { buildAnalysis } from './analyze.js';
+import { detectCommunities, cohesionScore } from './cluster.js';
+import { buildAnalysis, suggestQuestions } from './analyze.js';
 import { saveGraph } from './export.js';
+import { exportHTML } from './visualize.js';
+import { generateReport } from './report.js';
 import { typescriptExtractor } from './extract/languages/typescript.js';
 import { parseFile } from './extract/tree-sitter-runner.js';
 import type { LanguageExtractor } from './extract/types.js';
@@ -48,18 +51,30 @@ async function tryLoadExtractor(language: string): Promise<LanguageExtractor | u
  * @param options     - Optional build configuration.
  * @returns           - Serialized graph + analysis summary.
  */
+export interface BuildResult {
+  graph: SerializedGraph;
+  analysis: GraphAnalysis;
+  questions: GraphQuestion[];
+  corpusWarnings: string[];
+  filesProcessed: number;
+  fromCache: number;
+  graphPath: string;
+  reportPath: string;
+}
+
 export async function buildGraph(
   projectPath: string,
   options: BuildOptions = {},
-): Promise<{ graph: SerializedGraph; analysis: GraphAnalysis }> {
+): Promise<BuildResult> {
   // Resolve output directory
   const outputDir = options.outputDir ?? join(projectPath, DEFAULT_OUTPUT_SUBDIR);
   mkdirSync(outputDir, { recursive: true });
 
   const cache = new FileCache(outputDir);
 
-  // 1. Collect files
+  // 1. Collect files + corpus health check
   const files = collectFiles(projectPath, options);
+  const corpusWarnings = corpusHealth(files);
 
   // 2. Extract nodes/edges from each file (cache-aware)
   const merged: ExtractionResult = {
@@ -119,8 +134,32 @@ export async function buildGraph(
   // 6. Build analysis (god nodes, surprise edges, communities, stats)
   const analysis = buildAnalysis(graph, outputDir);
 
+  // 6b. Suggest questions the graph can answer
+  const questions = suggestQuestions(graph, analysis.communities);
+
+  // 6c. Compute cohesion scores per community
+  const cohesionScores: Record<number, number> = {};
+  for (const [cidStr, memberIds] of Object.entries(analysis.communities)) {
+    cohesionScores[Number(cidStr)] = cohesionScore(graph, memberIds);
+  }
+
   // 7. Persist to disk
   saveGraph(graph, outputDir, projectPath);
+  const graphPath = join(outputDir, 'graph.json');
+
+  // 7b. Generate and save markdown report (non-fatal)
+  const reportPath = join(outputDir, 'GRAPH_REPORT.md');
+  try {
+    const totalWords = merged.nodes.reduce((sum, n) => sum + ((n.linesOfCode as number | undefined) ?? 0) * 10, 0);
+    const reportMd = generateReport(graph, analysis, cohesionScores, {
+      projectPath,
+      questions,
+      corpusStats: corpusWarnings.length > 0
+        ? { totalFiles: files.length, totalWords, warning: corpusWarnings[0] }
+        : { totalFiles: files.length, totalWords },
+    });
+    writeFileSync(reportPath, reportMd, 'utf-8');
+  } catch { /* report generation is non-fatal */ }
 
   // 8. Serialize to the public return type
   const serialized: SerializedGraph = {
@@ -140,7 +179,23 @@ export async function buildGraph(
     })),
   };
 
-  return { graph: serialized, analysis };
+  // 9. Generate interactive HTML visualization (non-fatal)
+  try {
+    exportHTML(serialized, outputDir);
+  } catch {
+    // Visualization is best-effort; never block the build
+  }
+
+  return {
+    graph: serialized,
+    analysis,
+    questions,
+    corpusWarnings,
+    filesProcessed: merged.filesProcessed,
+    fromCache: merged.fromCache,
+    graphPath,
+    reportPath,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -63,6 +63,15 @@ const LANGUAGE_MODULE_MAP: Record<string, string> = {
   python: 'tree-sitter-python',
   go: 'tree-sitter-go',
   rust: 'tree-sitter-rust',
+  java: 'tree-sitter-java',
+  c: 'tree-sitter-c',
+  cpp: 'tree-sitter-cpp',
+  csharp: 'tree-sitter-c-sharp',
+  ruby: 'tree-sitter-ruby',
+  kotlin: 'tree-sitter-kotlin',
+  swift: 'tree-sitter-swift',
+  scala: 'tree-sitter-scala',
+  php: 'tree-sitter-php',
 };
 
 /**

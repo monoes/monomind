@@ -1,11 +1,13 @@
 import { join } from 'path';
-import { mkdirSync, readFileSync } from 'fs';
-import { collectFiles } from './detect.js';
+import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { collectFiles, corpusHealth } from './detect.js';
 import { FileCache } from './cache.js';
 import { buildGraph as buildGraphologyGraph } from './build.js';
-import { detectCommunities } from './cluster.js';
-import { buildAnalysis } from './analyze.js';
+import { detectCommunities, cohesionScore } from './cluster.js';
+import { buildAnalysis, suggestQuestions } from './analyze.js';
 import { saveGraph } from './export.js';
+import { exportHTML } from './visualize.js';
+import { generateReport } from './report.js';
 import { typescriptExtractor } from './extract/languages/typescript.js';
 import { parseFile } from './extract/tree-sitter-runner.js';
 const DEFAULT_OUTPUT_SUBDIR = '.monobrain/graph';
@@ -30,23 +32,14 @@ async function tryLoadExtractor(language) {
         return undefined;
     }
 }
-/**
- * Main entry point for building a knowledge graph from a codebase.
- *
- * Orchestrates file collection, per-file extraction (with caching),
- * graph construction via graphology, community detection, and serialisation.
- *
- * @param projectPath - Absolute path to the root of the codebase to analyse.
- * @param options     - Optional build configuration.
- * @returns           - Serialized graph + analysis summary.
- */
 export async function buildGraph(projectPath, options = {}) {
     // Resolve output directory
     const outputDir = options.outputDir ?? join(projectPath, DEFAULT_OUTPUT_SUBDIR);
     mkdirSync(outputDir, { recursive: true });
     const cache = new FileCache(outputDir);
-    // 1. Collect files
+    // 1. Collect files + corpus health check
     const files = collectFiles(projectPath, options);
+    const corpusWarnings = corpusHealth(files);
     // 2. Extract nodes/edges from each file (cache-aware)
     const merged = {
         nodes: [],
@@ -99,8 +92,30 @@ export async function buildGraph(projectPath, options = {}) {
     });
     // 6. Build analysis (god nodes, surprise edges, communities, stats)
     const analysis = buildAnalysis(graph, outputDir);
+    // 6b. Suggest questions the graph can answer
+    const questions = suggestQuestions(graph, analysis.communities);
+    // 6c. Compute cohesion scores per community
+    const cohesionScores = {};
+    for (const [cidStr, memberIds] of Object.entries(analysis.communities)) {
+        cohesionScores[Number(cidStr)] = cohesionScore(graph, memberIds);
+    }
     // 7. Persist to disk
     saveGraph(graph, outputDir, projectPath);
+    const graphPath = join(outputDir, 'graph.json');
+    // 7b. Generate and save markdown report (non-fatal)
+    const reportPath = join(outputDir, 'GRAPH_REPORT.md');
+    try {
+        const totalWords = merged.nodes.reduce((sum, n) => sum + (n.linesOfCode ?? 0) * 10, 0);
+        const reportMd = generateReport(graph, analysis, cohesionScores, {
+            projectPath,
+            questions,
+            corpusStats: corpusWarnings.length > 0
+                ? { totalFiles: files.length, totalWords, warning: corpusWarnings[0] }
+                : { totalFiles: files.length, totalWords },
+        });
+        writeFileSync(reportPath, reportMd, 'utf-8');
+    }
+    catch { /* report generation is non-fatal */ }
     // 8. Serialize to the public return type
     const serialized = {
         version: '1.0.0',
@@ -118,7 +133,23 @@ export async function buildGraph(projectPath, options = {}) {
             ...graph.getEdgeAttributes(edgeId),
         })),
     };
-    return { graph: serialized, analysis };
+    // 9. Generate interactive HTML visualization (non-fatal)
+    try {
+        exportHTML(serialized, outputDir);
+    }
+    catch {
+        // Visualization is best-effort; never block the build
+    }
+    return {
+        graph: serialized,
+        analysis,
+        questions,
+        corpusWarnings,
+        filesProcessed: merged.filesProcessed,
+        fromCache: merged.fromCache,
+        graphPath,
+        reportPath,
+    };
 }
 // ---------------------------------------------------------------------------
 // Internal: minimal fallback for languages without a dedicated extractor

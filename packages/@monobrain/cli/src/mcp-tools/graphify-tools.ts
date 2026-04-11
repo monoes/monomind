@@ -886,6 +886,449 @@ export const graphifySurprisesTool: MCPTool = {
   },
 };
 
+/**
+ * Generate or open the interactive HTML visualization of the knowledge graph.
+ */
+export const graphifyVisualizeTool: MCPTool = {
+  name: 'graphify_visualize',
+  description: 'Generate (and optionally open) the interactive HTML knowledge graph explorer. ' +
+    'Produces graph.html alongside graph.json — a self-contained visualization with force-directed ' +
+    'layout, community coloring, god-node panel, sidebar details, minimap, and search. ' +
+    'No internet connection or server required — just open the HTML file in a browser.',
+  category: 'graphify',
+  tags: ['knowledge-graph', 'visualization', 'html', 'browser'],
+  inputSchema: {
+    type: 'object',
+    properties: {
+      open: {
+        type: 'boolean',
+        description: 'Open the HTML file in the default browser after generating (macOS/Linux)',
+        default: false,
+      },
+      path: {
+        type: 'string',
+        description: 'Project path (defaults to current project root)',
+      },
+    },
+  },
+  handler: async (params) => {
+    const cwd = getProjectCwd();
+    const targetPath = (params.path as string) || cwd;
+
+    if (!graphExists(targetPath)) {
+      return {
+        error: true,
+        message: 'No graph found. Run graphify_build first.',
+        hint: `Expected: ${getGraphPath(targetPath)}`,
+      };
+    }
+
+    try {
+      const graphPath = getGraphPath(targetPath);
+      const { readFileSync } = await import('fs');
+      const { join, dirname } = await import('path');
+      const outputDir = dirname(graphPath);
+
+      const { exportHTML } = await import('@monoes/graph') as unknown as {
+        exportHTML: (serialized: unknown, outputDir: string) => string;
+      };
+
+      const raw = JSON.parse(readFileSync(graphPath, 'utf-8'));
+      const htmlPath = exportHTML(raw, outputDir);
+
+      if (params.open) {
+        const { spawn } = await import('child_process');
+        const opener = process.platform === 'darwin' ? 'open'
+          : process.platform === 'win32' ? 'start' : 'xdg-open';
+        spawn(opener, [htmlPath], { detached: true, stdio: 'ignore' }).unref();
+      }
+
+      return {
+        success: true,
+        htmlPath,
+        message: `Interactive visualization generated at ${htmlPath}`,
+        hint: params.open ? 'Opening in browser…' : `Open in browser: open "${htmlPath}"`,
+      };
+    } catch (err) {
+      return { error: true, message: String(err) };
+    }
+  },
+};
+
+// ── Watch PID helpers ─────────────────────────────────────────────────────────
+
+function getPidPath(cwd: string): string {
+  return resolve(join(cwd, '.monobrain', 'graph', 'watch.pid'));
+}
+
+function readWatchPid(cwd: string): number | null {
+  const pidPath = getPidPath(cwd);
+  if (!existsSync(pidPath)) return null;
+  try {
+    const pid = parseInt(readFileSync(pidPath, 'utf-8').trim(), 10);
+    return isNaN(pid) ? null : pid;
+  } catch {
+    return null;
+  }
+}
+
+function isProcessRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ── Watch tools ───────────────────────────────────────────────────────────────
+
+/**
+ * Start a background file watcher that rebuilds the knowledge graph + HTML
+ * whenever source files change (debounced 2 s).
+ */
+export const graphifyWatchTool: MCPTool = {
+  name: 'graphify_watch',
+  description:
+    'Start a background file watcher that automatically rebuilds the knowledge graph ' +
+    '(graph.json + graph.html) whenever source files change. Uses a 2-second debounce ' +
+    'so rapid saves do not trigger repeated rebuilds. The watcher runs as a detached ' +
+    'background process — call graphify_watch_stop to stop it.',
+  category: 'graphify',
+  tags: ['knowledge-graph', 'watch', 'auto-rebuild'],
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: {
+        type: 'string',
+        description: 'Project root to watch (defaults to current project root)',
+      },
+      debounce: {
+        type: 'number',
+        description: 'Debounce delay in milliseconds (default 2000)',
+        default: 2000,
+      },
+      extensions: {
+        type: 'string',
+        description:
+          'Comma-separated list of file extensions to watch (default: ts,js,tsx,jsx,py,go,rs,java,cs,rb,cpp,c)',
+        default: 'ts,js,tsx,jsx,py,go,rs,java,cs,rb,cpp,c',
+      },
+    },
+  },
+  handler: async (params) => {
+    const cwd = getProjectCwd();
+    const targetPath = (params.path as string) || cwd;
+    const debounceMs = (params.debounce as number) || 2000;
+    const extensions = ((params.extensions as string) || 'ts,js,tsx,jsx,py,go,rs,java,cs,rb,cpp,c')
+      .split(',')
+      .map((e) => e.trim())
+      .filter(Boolean);
+
+    // Check if already running
+    const existingPid = readWatchPid(targetPath);
+    if (existingPid !== null && isProcessRunning(existingPid)) {
+      return {
+        success: false,
+        message: `Watcher already running (PID ${existingPid})`,
+        hint: 'Call graphify_watch_stop first to restart.',
+      };
+    }
+
+    const pidPath = getPidPath(targetPath);
+    const outputDir = resolve(join(targetPath, '.monobrain', 'graph'));
+
+    // Inline watcher script — runs as a detached node process
+    const watcherScript = `
+import { watch } from 'chokidar';
+import { writeFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
+
+const TARGET = ${JSON.stringify(targetPath)};
+const OUTPUT_DIR = ${JSON.stringify(outputDir)};
+const PID_PATH = ${JSON.stringify(pidPath)};
+const DEBOUNCE_MS = ${debounceMs};
+const EXTS = new Set(${JSON.stringify(extensions)});
+const IGNORE = [
+  /node_modules/,
+  /\\.git/,
+  /\\.monobrain/,
+  /dist[\\\\/]/,
+  /\\.next/,
+  /\\.turbo/,
+  /coverage/,
+];
+
+// Write own PID
+mkdirSync(OUTPUT_DIR, { recursive: true });
+writeFileSync(PID_PATH, String(process.pid));
+
+console.log('[graphify-watch] PID', process.pid, '— watching', TARGET);
+
+let timer = null;
+
+async function rebuild() {
+  const start = Date.now();
+  console.log('[graphify-watch] Change detected — rebuilding graph…');
+  try {
+    const { buildGraph } = await import('@monoes/graph');
+    const { graph: serialized } = await buildGraph(TARGET, { outputDir: OUTPUT_DIR });
+    const { exportHTML } = await import('@monoes/graph');
+    exportHTML(serialized, OUTPUT_DIR);
+    console.log('[graphify-watch] Done in', Date.now() - start, 'ms');
+  } catch (err) {
+    console.error('[graphify-watch] Build error:', err.message ?? err);
+  }
+}
+
+const watcher = watch(TARGET, {
+  ignored: (p) => IGNORE.some((r) => r.test(p)),
+  persistent: true,
+  ignoreInitial: true,
+  awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 },
+});
+
+watcher.on('all', (event, filePath) => {
+  const ext = filePath.split('.').pop() ?? '';
+  if (!EXTS.has(ext)) return;
+  if (timer) clearTimeout(timer);
+  timer = setTimeout(rebuild, DEBOUNCE_MS);
+});
+
+watcher.on('error', (err) => console.error('[graphify-watch] Watcher error:', err));
+
+// Clean up PID on exit
+process.on('exit', () => { try { require('fs').unlinkSync(PID_PATH); } catch {} });
+process.on('SIGINT', () => process.exit(0));
+process.on('SIGTERM', () => process.exit(0));
+`;
+
+    try {
+      const { spawn } = await import('child_process');
+      const { writeFileSync } = await import('fs');
+      const { mkdirSync } = await import('fs');
+
+      mkdirSync(outputDir, { recursive: true });
+
+      // Write the script to a temp file so it can use ESM imports
+      const scriptPath = resolve(join(outputDir, '_watcher.mjs'));
+      writeFileSync(scriptPath, watcherScript);
+
+      const child = spawn(process.execPath, [scriptPath], {
+        detached: true,
+        stdio: 'ignore',
+        env: { ...process.env },
+      });
+      child.unref();
+
+      // Give the process a moment to write its own PID
+      await new Promise((r) => setTimeout(r, 500));
+
+      const pid = readWatchPid(targetPath) ?? child.pid;
+
+      return {
+        success: true,
+        pid,
+        watching: targetPath,
+        debounceMs,
+        extensions,
+        message: `Graph watcher started (PID ${pid}). graph.json + graph.html will rebuild on file changes.`,
+        hint: 'Call graphify_watch_stop to stop.',
+      };
+    } catch (err) {
+      return { error: true, message: String(err) };
+    }
+  },
+};
+
+/**
+ * Stop the background graph watcher started by graphify_watch.
+ */
+export const graphifyWatchStopTool: MCPTool = {
+  name: 'graphify_watch_stop',
+  description: 'Stop the background file watcher started by graphify_watch.',
+  category: 'graphify',
+  tags: ['knowledge-graph', 'watch'],
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: {
+        type: 'string',
+        description: 'Project root (defaults to current project root)',
+      },
+    },
+  },
+  handler: async (params) => {
+    const cwd = getProjectCwd();
+    const targetPath = (params.path as string) || cwd;
+
+    const pid = readWatchPid(targetPath);
+    if (pid === null) {
+      return { success: false, message: 'No watcher PID found — watcher may not be running.' };
+    }
+
+    if (!isProcessRunning(pid)) {
+      // Clean up stale PID file
+      try {
+        const { unlinkSync } = await import('fs');
+        unlinkSync(getPidPath(targetPath));
+      } catch { /* ignore */ }
+      return { success: false, message: `Process ${pid} is not running (stale PID cleaned up).` };
+    }
+
+    try {
+      process.kill(pid, 'SIGTERM');
+      // Remove PID file
+      try {
+        const { unlinkSync } = await import('fs');
+        unlinkSync(getPidPath(targetPath));
+      } catch { /* ignore */ }
+      return { success: true, message: `Watcher (PID ${pid}) stopped.` };
+    } catch (err) {
+      return { error: true, message: `Failed to stop PID ${pid}: ${String(err)}` };
+    }
+  },
+};
+
+/**
+ * Read the GRAPH_REPORT.md generated during the last build.
+ */
+export const graphifyReportTool: MCPTool = {
+  name: 'graphify_report',
+  description: 'Read the GRAPH_REPORT.md generated by the last graphify_build. ' +
+    'Returns the full markdown audit trail: corpus check, god nodes, surprising connections, ' +
+    'communities, ambiguous edges, knowledge gaps, and suggested questions.',
+  category: 'graphify',
+  tags: ['knowledge-graph', 'report', 'audit'],
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: {
+        type: 'string',
+        description: 'Project path (defaults to current project root)',
+      },
+    },
+  },
+  handler: async (params) => {
+    const cwd = getProjectCwd();
+    const targetPath = (params.path as string) || cwd;
+    const reportPath = resolve(join(targetPath, '.monobrain', 'graph', 'GRAPH_REPORT.md'));
+
+    if (!existsSync(reportPath)) {
+      return {
+        error: true,
+        message: 'No report found. Run graphify_build first.',
+        hint: `Expected: ${reportPath}`,
+      };
+    }
+
+    try {
+      const content = readFileSync(reportPath, 'utf-8');
+      return { success: true, reportPath, content };
+    } catch (err) {
+      return { error: true, message: String(err) };
+    }
+  },
+};
+
+/**
+ * Suggest questions the knowledge graph can answer about the codebase.
+ */
+export const graphifySuggestTool: MCPTool = {
+  name: 'graphify_suggest',
+  description: 'Return a prioritised list of questions this knowledge graph is uniquely ' +
+    'positioned to answer — e.g. bridge nodes between subsystems, god nodes worth investigating, ' +
+    'isolated components with no connections, and low-cohesion communities. ' +
+    'Use after graphify_build to guide architectural analysis.',
+  category: 'graphify',
+  tags: ['knowledge-graph', 'questions', 'analysis'],
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: {
+        type: 'string',
+        description: 'Project path (defaults to current project root)',
+      },
+    },
+  },
+  handler: async (params) => {
+    const cwd = getProjectCwd();
+    const targetPath = (params.path as string) || cwd;
+
+    if (!graphExists(targetPath)) {
+      return { error: true, message: 'No graph found. Run graphify_build first.' };
+    }
+
+    try {
+      const { loadGraph, suggestQuestions, buildAnalysis } = await import('@monoes/graph') as unknown as {
+        loadGraph: (p: string) => { nodes: unknown[]; edges: unknown[] };
+        suggestQuestions: (graph: unknown, communities: unknown) => unknown[];
+        buildAnalysis: (graph: unknown, outputDir: string) => { communities: unknown };
+      };
+
+      const graphPath = getGraphPath(targetPath);
+      const outputDir = resolve(join(targetPath, '.monobrain', 'graph'));
+      const { buildGraphologyGraph } = await import('@monoes/graph') as unknown as {
+        buildGraphologyGraph: (result: unknown) => unknown;
+      };
+      const raw = loadGraph(graphPath);
+      const graph = buildGraphologyGraph({ nodes: raw.nodes, edges: raw.edges, hyperedges: [], filesProcessed: 0, fromCache: 0, errors: [] });
+      const analysis = buildAnalysis(graph, outputDir);
+      const questions = suggestQuestions(graph, analysis.communities);
+      return { success: true, questions, total: (questions as unknown[]).length };
+    } catch (err) {
+      return { error: true, message: String(err) };
+    }
+  },
+};
+
+/**
+ * Run a corpus health check on the project files.
+ */
+export const graphifyHealthTool: MCPTool = {
+  name: 'graphify_health',
+  description: 'Run a corpus health check on the project directory — warns when the codebase ' +
+    'is too small for graph analysis, too large to be useful, security-sensitive files were ' +
+    'found, or when the doc-to-code ratio is skewed. Run before graphify_build to catch issues early.',
+  category: 'graphify',
+  tags: ['knowledge-graph', 'health', 'corpus'],
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: {
+        type: 'string',
+        description: 'Project path (defaults to current project root)',
+      },
+    },
+  },
+  handler: async (params) => {
+    const cwd = getProjectCwd();
+    const targetPath = (params.path as string) || cwd;
+
+    try {
+      const { collectFiles, corpusHealth } = await import('@monoes/graph') as unknown as {
+        collectFiles: (path: string, opts?: unknown) => unknown[];
+        corpusHealth: (files: unknown[]) => string[];
+      };
+
+      const files = collectFiles(targetPath);
+      const warnings = corpusHealth(files);
+
+      return {
+        success: true,
+        totalFiles: files.length,
+        warnings,
+        healthy: warnings.length === 0,
+        message: warnings.length === 0
+          ? `Corpus looks healthy (${files.length} files).`
+          : `${warnings.length} warning(s) found.`,
+      };
+    } catch (err) {
+      return { error: true, message: String(err) };
+    }
+  },
+};
+
 // ── Exports ───────────────────────────────────────────────────────────────────
 
 export const graphifyTools: MCPTool[] = [
@@ -897,6 +1340,12 @@ export const graphifyTools: MCPTool[] = [
   graphifyGetCommunityTool,
   graphifyStatsTool,
   graphifySurprisesTool,
+  graphifyVisualizeTool,
+  graphifyWatchTool,
+  graphifyWatchStopTool,
+  graphifyReportTool,
+  graphifySuggestTool,
+  graphifyHealthTool,
 ];
 
 export default graphifyTools;
