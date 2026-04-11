@@ -323,12 +323,56 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     // Count enabled hooks
     result.summary.hooksEnabled = countEnabledHooks(options);
 
+    // Build knowledge graph in background (non-blocking)
+    if (options.components.graphify) {
+      await initKnowledgeGraph(targetDir, result);
+    }
+
   } catch (error) {
     result.success = false;
     result.errors.push(error instanceof Error ? error.message : String(error));
   }
 
   return result;
+}
+
+/**
+ * Spawn a background process to build the @monobrain/graph knowledge graph.
+ * Fire-and-forget: init does not wait for the ~20s graph build to complete.
+ * Non-fatal: if @monobrain/graph is unavailable the step is simply skipped.
+ */
+async function initKnowledgeGraph(targetDir: string, result: InitResult): Promise<void> {
+  try {
+    // Verify the package is resolvable before spawning — fast path to skip gracefully.
+    await import('@monobrain/graph');
+    const outputDir = path.join(targetDir, '.monobrain', 'graph');
+
+    const { spawn } = await import('child_process');
+    // Escape single quotes in path strings for the inline ES module script.
+    const safePath = targetDir.replace(/'/g, "\\'");
+    const safeOut = outputDir.replace(/'/g, "\\'");
+    const script = `
+import('@monobrain/graph').then(({ buildGraph }) =>
+  buildGraph('${safePath}', { codeOnly: true, outputDir: '${safeOut}' })
+).then(r => console.log('[graph] built: ' + r.filesProcessed + ' files, ' + r.analysis.stats.nodes + ' nodes'))
+ .catch(e => console.error('[graph] build failed:', e.message));
+`;
+
+    const child = spawn(process.execPath, ['--input-type=module'], {
+      stdio: ['pipe', 'ignore', 'ignore'],
+      detached: true,
+      cwd: targetDir,
+    });
+    // Write the script to stdin then close so node processes it.
+    child.stdin?.write(script);
+    child.stdin?.end();
+    child.unref();
+
+    result.created.files.push('.monobrain/graph/ (knowledge graph building in background)');
+  } catch (_err) {
+    // Non-fatal — @monobrain/graph is an optional enhancement.
+    result.skipped.push('knowledge graph: @monobrain/graph not available');
+  }
 }
 
 /**

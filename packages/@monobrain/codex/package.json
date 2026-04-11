@@ -72,10 +72,10 @@
     "node": ">=18"
   },
   "peerDependencies": {
-    "@monobrain/cli": "workspace:*"
+    "@monoes/cli": ">=1.0.0"
   },
   "peerDependenciesMeta": {
-    "@monobrain/cli": {
+    "@monoes/cli": {
       "optional": true
     }
   },

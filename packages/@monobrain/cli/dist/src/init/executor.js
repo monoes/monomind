@@ -283,12 +283,48 @@ export async function executeInit(options) {
         }
         // Count enabled hooks
         result.summary.hooksEnabled = countEnabledHooks(options);
+        // Build knowledge graph in background (non-blocking)
+        if (options.components.graphify) {
+            await initKnowledgeGraph(targetDir, result);
+        }
     }
     catch (error) {
         result.success = false;
         result.errors.push(error instanceof Error ? error.message : String(error));
     }
     return result;
+}
+/**
+ * Spawn a background process to build the @monobrain/graph knowledge graph.
+ * Fire-and-forget: init does not wait for the graph build to complete.
+ * Non-fatal: if @monobrain/graph is unavailable the step is simply skipped.
+ */
+async function initKnowledgeGraph(targetDir, result) {
+    try {
+        await import('@monobrain/graph');
+        const outputDir = path.join(targetDir, '.monobrain', 'graph');
+        const { spawn } = await import('child_process');
+        const safePath = targetDir.replace(/'/g, "\\'");
+        const safeOut = outputDir.replace(/'/g, "\\'");
+        const script = `
+import('@monobrain/graph').then(({ buildGraph }) =>
+  buildGraph('${safePath}', { codeOnly: true, outputDir: '${safeOut}' })
+).then(r => console.log('[graph] built: ' + r.analysis.stats.nodes + ' nodes'))
+ .catch(e => console.error('[graph] build failed:', e.message));
+`;
+        const child = spawn(process.execPath, ['--input-type=module'], {
+            stdio: ['pipe', 'ignore', 'ignore'],
+            detached: true,
+            cwd: targetDir,
+        });
+        child.stdin?.write(script);
+        child.stdin?.end();
+        child.unref();
+        result.created.files.push('.monobrain/graph/ (knowledge graph building in background)');
+    }
+    catch (_err) {
+        result.skipped.push('knowledge graph: @monobrain/graph not available');
+    }
 }
 /**
  * Merge new settings into existing settings.json
