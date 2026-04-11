@@ -746,6 +746,7 @@ const skillsCommand: Command = {
         mcp: false,
         runtime: false,
         claudeMd: false,
+        graphify: false,
       },
       skills: {
         all: ctx.flags.all as boolean,
@@ -802,6 +803,7 @@ const hooksCommand: Command = {
         mcp: false,
         runtime: false,
         claudeMd: false,
+        graphify: false,
       },
       hooks: minimal
         ? {

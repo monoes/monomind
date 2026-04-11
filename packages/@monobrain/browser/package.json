@@ -27,7 +27,7 @@
     "zod": "^3.22.4"
   },
   "peerDependencies": {
-    "@monobrain/cli": "workspace:*"
+    "@monoes/cli": ">=1.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

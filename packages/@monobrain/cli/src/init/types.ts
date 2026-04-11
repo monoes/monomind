@@ -28,6 +28,8 @@ export interface InitComponents {
   runtime: boolean;
   /** Create CLAUDE.md with swarm guidance */
   claudeMd: boolean;
+  /** Build knowledge graph on init using @monobrain/graph */
+  graphify: boolean;
 }
 
 /**
@@ -331,6 +333,7 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     mcp: true,
     runtime: true,
     claudeMd: true,
+    graphify: true,
   },
   hooks: {
     preToolUse: true,
@@ -433,6 +436,7 @@ export const MINIMAL_INIT_OPTIONS: InitOptions = {
     mcp: true,
     runtime: true,
     claudeMd: true,
+    graphify: false,
   },
   hooks: {
     ...DEFAULT_INIT_OPTIONS.hooks,
@@ -502,6 +506,7 @@ export const FULL_INIT_OPTIONS: InitOptions = {
     mcp: true,
     runtime: true,
     claudeMd: true,
+    graphify: true,
   },
   skills: {
     core: true,
@@ -525,6 +530,7 @@ export const FULL_INIT_OPTIONS: InitOptions = {
     monobrain: true,
     ruvSwarm: true,
     flowNexus: true,
+    graphify: false,
     autoStart: false,
     port: 3000,
   },
