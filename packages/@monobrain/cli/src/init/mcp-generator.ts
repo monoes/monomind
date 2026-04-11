@@ -70,6 +70,17 @@ export function generateMCPConfig(options: InitOptions): object {
 
 
 
+  // Graphify knowledge graph MCP server (project understanding)
+  if (config.graphify) {
+    mcpServers['graphify'] = {
+      command: 'python',
+      args: ['-m', 'graphify.serve', 'graphify-out/graph.json'],
+      env: {},
+      optional: true,
+      description: 'Knowledge graph for codebase understanding — run `python -m graphify <path>` first',
+    };
+  }
+
   // Flow Nexus MCP server (cloud features)
   if (config.flowNexus) {
     mcpServers['flow-nexus'] = createMCPServerEntry(
