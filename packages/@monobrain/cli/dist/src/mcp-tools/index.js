@@ -3,8 +3,6 @@
  *
  * Re-exports all tool definitions for use within the CLI package.
  */
-
-export type { MCPTool, MCPToolInputSchema, MCPToolResult } from './types.js';
 export { agentTools } from './agent-tools.js';
 export { swarmTools } from './swarm-tools.js';
 export { memoryTools } from './memory-tools.js';
@@ -26,3 +24,4 @@ export { ruvllmWasmTools } from './ruvllm-tools.js';
 export { guidanceTools } from './guidance-tools.js';
 export { autopilotTools } from './autopilot-tools.js';
 export { graphifyTools } from './graphify-tools.js';
+//# sourceMappingURL=index.js.map

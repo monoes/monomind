@@ -170,6 +170,8 @@ export interface MCPConfig {
   ruvSwarm: boolean;
   /** Include flow-nexus MCP server */
   flowNexus: boolean;
+  /** Include graphify knowledge graph MCP server */
+  graphify: boolean;
   /** Auto-start MCP server */
   autoStart: boolean;
   /** Server port */
@@ -391,6 +393,7 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     monobrain: true,
     ruvSwarm: false,
     flowNexus: false,
+    graphify: false,
     autoStart: false,
     port: 3000,
   },
