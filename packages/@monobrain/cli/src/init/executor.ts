@@ -344,7 +344,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
 async function initKnowledgeGraph(targetDir: string, result: InitResult): Promise<void> {
   try {
     // Verify the package is resolvable before spawning — fast path to skip gracefully.
-    await import('@monobrain/graph');
+    await import('@monoes/graph');
     const outputDir = path.join(targetDir, '.monobrain', 'graph');
 
     const { spawn } = await import('child_process');
@@ -352,7 +352,7 @@ async function initKnowledgeGraph(targetDir: string, result: InitResult): Promis
     const safePath = targetDir.replace(/'/g, "\\'");
     const safeOut = outputDir.replace(/'/g, "\\'");
     const script = `
-import('@monobrain/graph').then(({ buildGraph }) =>
+import('@monoes/graph').then(({ buildGraph }) =>
   buildGraph('${safePath}', { codeOnly: true, outputDir: '${safeOut}' })
 ).then(r => console.log('[graph] built: ' + r.filesProcessed + ' files, ' + r.analysis.stats.nodes + ' nodes'))
  .catch(e => console.error('[graph] build failed:', e.message));
