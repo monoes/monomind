@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import type {
   BuildOptions,
   ExtractionResult,
@@ -20,6 +20,94 @@ import { parseFile } from './extract/tree-sitter-runner.js';
 import type { LanguageExtractor } from './extract/types.js';
 
 const DEFAULT_OUTPUT_SUBDIR = '.monobrain/graph';
+
+// ---------------------------------------------------------------------------
+// Experiment loop — adapted from autoresearch's program.md protocol
+//
+// Every buildGraph call appends one row to results.tsv with a quality scalar,
+// then decides BASELINE / KEEP / DISCARD by comparing against the best known
+// result.  The quality metric mirrors autoresearch's val_bpb (a single number
+// to optimise), but for graph structure rather than language model perplexity.
+// ---------------------------------------------------------------------------
+
+const RESULTS_TSV_HEADER =
+  'timestamp\tnodes\tedges\tcommunities\tavg_cohesion\tavg_degree\tgraph_quality\tfiles_processed\tstatus\tdescription\n';
+
+/**
+ * Graph quality scalar.
+ *
+ * avgCohesion × ln(1 + avgDegree)
+ *
+ * Rewards both tight community structure (cohesion) and overall connectivity
+ * (avgDegree).  Higher is better — directly comparable across builds, like
+ * autoresearch's vocab-size-independent bits-per-byte metric.
+ */
+function computeGraphQuality(
+  avgCohesion: number,
+  nodes: number,
+  edges: number,
+): number {
+  const avgDegree = nodes > 0 ? (2 * edges) / nodes : 0;
+  return avgCohesion * Math.log(1 + avgDegree);
+}
+
+/** Read results.tsv and return the best graph_quality seen so far (BASELINE or KEEP rows). */
+function readBestQuality(tsvPath: string): number {
+  if (!existsSync(tsvPath)) return -Infinity;
+  try {
+    const lines = readFileSync(tsvPath, 'utf-8').split('\n').filter(Boolean);
+    let best = -Infinity;
+    for (const line of lines.slice(1)) { // skip header
+      const cols = line.split('\t');
+      const status = cols[8]; // status column
+      const quality = parseFloat(cols[6] ?? '0'); // graph_quality column
+      if ((status === 'BASELINE' || status === 'KEEP') && !isNaN(quality)) {
+        if (quality > best) best = quality;
+      }
+    }
+    return best;
+  } catch {
+    return -Infinity;
+  }
+}
+
+/** Append one experiment row to results.tsv. Creates file + header if needed. */
+function appendResultsTsv(
+  tsvPath: string,
+  metrics: {
+    nodes: number;
+    edges: number;
+    communities: number;
+    avgCohesion: number;
+    graphQuality: number;
+    filesProcessed: number;
+    status: 'BASELINE' | 'KEEP' | 'DISCARD';
+  },
+): void {
+  const avgDegree = metrics.nodes > 0 ? (2 * metrics.edges) / metrics.nodes : 0;
+  const description = `${metrics.nodes}n/${metrics.edges}e coh=${metrics.avgCohesion.toFixed(3)} deg=${avgDegree.toFixed(1)}`;
+  const row = [
+    new Date().toISOString(),
+    metrics.nodes,
+    metrics.edges,
+    metrics.communities,
+    metrics.avgCohesion.toFixed(4),
+    avgDegree.toFixed(2),
+    metrics.graphQuality.toFixed(6),
+    metrics.filesProcessed,
+    metrics.status,
+    description,
+  ].join('\t') + '\n';
+
+  try {
+    if (!existsSync(tsvPath)) {
+      writeFileSync(tsvPath, RESULTS_TSV_HEADER + row, 'utf-8');
+    } else {
+      const existing = readFileSync(tsvPath, 'utf-8');
+      writeFileSync(tsvPath, existing + row, 'utf-8');
+    }
+  } catch { /* TSV tracking is non-fatal */ }
+}
 
 // Map language identifiers to the extractors we have available.
 // python and go extractors are loaded lazily when their modules exist.
@@ -60,6 +148,10 @@ export interface BuildResult {
   fromCache: number;
   graphPath: string;
   reportPath: string;
+  /** Graph quality scalar: avgCohesion × ln(1 + avgDegree). Higher is better. */
+  graphQuality: number;
+  /** Experiment loop status — mirrors autoresearch's keep/discard protocol. */
+  experimentStatus: 'BASELINE' | 'KEEP' | 'DISCARD';
 }
 
 export async function buildGraph(
@@ -143,6 +235,32 @@ export async function buildGraph(
     cohesionScores[Number(cidStr)] = cohesionScore(graph, memberIds);
   }
 
+  // 6d. Graph quality metric + experiment loop (autoresearch protocol)
+  const cohesionValues = Object.values(cohesionScores);
+  const avgCohesion = cohesionValues.length > 0
+    ? cohesionValues.reduce((a, b) => a + b, 0) / cohesionValues.length
+    : 0;
+  const graphQuality = computeGraphQuality(avgCohesion, graph.order, graph.size);
+
+  const tsvPath = join(outputDir, 'results.tsv');
+  const prevBest = readBestQuality(tsvPath);
+  const experimentStatus: 'BASELINE' | 'KEEP' | 'DISCARD' =
+    prevBest === -Infinity
+      ? 'BASELINE'
+      : graphQuality > prevBest * 1.001 // 0.1% improvement threshold
+        ? 'KEEP'
+        : 'DISCARD';
+
+  appendResultsTsv(tsvPath, {
+    nodes: graph.order,
+    edges: graph.size,
+    communities: analysis.stats.communities,
+    avgCohesion,
+    graphQuality,
+    filesProcessed: merged.filesProcessed,
+    status: experimentStatus,
+  });
+
   // 7. Persist to disk
   saveGraph(graph, outputDir, projectPath);
   const graphPath = join(outputDir, 'graph.json');
@@ -195,6 +313,8 @@ export async function buildGraph(
     fromCache: merged.fromCache,
     graphPath,
     reportPath,
+    graphQuality,
+    experimentStatus,
   };
 }
 

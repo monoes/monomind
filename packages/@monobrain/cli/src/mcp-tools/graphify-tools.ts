@@ -185,8 +185,13 @@ export const graphifyBuildTool: MCPTool = {
       const { buildGraph } = await import('@monoes/graph') as unknown as {
         buildGraph: (path: string, opts?: { codeOnly?: boolean; outputDir?: string }) => Promise<{
           filesProcessed: number;
+          fromCache: number;
           graphPath: string;
-          analysis: { stats: { nodes: number; edges: number } };
+          reportPath: string;
+          graphQuality: number;
+          experimentStatus: 'BASELINE' | 'KEEP' | 'DISCARD';
+          corpusWarnings: string[];
+          analysis: { stats: { nodes: number; edges: number; communities: number } };
         }>;
       };
 
@@ -199,10 +204,16 @@ export const graphifyBuildTool: MCPTool = {
       return {
         success: true,
         graphPath: result.graphPath,
+        reportPath: result.reportPath,
         filesProcessed: result.filesProcessed,
+        fromCache: result.fromCache,
         nodes: result.analysis.stats.nodes,
         edges: result.analysis.stats.edges,
-        message: `Knowledge graph built at ${result.graphPath}`,
+        communities: result.analysis.stats.communities,
+        graphQuality: result.graphQuality,
+        experimentStatus: result.experimentStatus,
+        corpusWarnings: result.corpusWarnings,
+        message: `[${result.experimentStatus}] Knowledge graph built — quality=${result.graphQuality.toFixed(4)} (${result.analysis.stats.nodes}n/${result.analysis.stats.edges}e/${result.analysis.stats.communities}c)`,
       };
     } catch (err) {
       return {

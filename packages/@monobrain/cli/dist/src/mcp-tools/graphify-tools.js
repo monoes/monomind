@@ -138,10 +138,16 @@ export const graphifyBuildTool = {
             return {
                 success: true,
                 graphPath: result.graphPath,
+                reportPath: result.reportPath,
                 filesProcessed: result.filesProcessed,
+                fromCache: result.fromCache,
                 nodes: result.analysis.stats.nodes,
                 edges: result.analysis.stats.edges,
-                message: `Knowledge graph built at ${result.graphPath}`,
+                communities: result.analysis.stats.communities,
+                graphQuality: result.graphQuality,
+                experimentStatus: result.experimentStatus,
+                corpusWarnings: result.corpusWarnings,
+                message: `[${result.experimentStatus}] Knowledge graph built — quality=${result.graphQuality.toFixed(4)} (${result.analysis.stats.nodes}n/${result.analysis.stats.edges}e/${result.analysis.stats.communities}c)`,
             };
         }
         catch (err) {
