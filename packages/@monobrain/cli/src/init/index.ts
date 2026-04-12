@@ -32,7 +32,6 @@ export {
 export {
   generateMCPConfig,
   generateMCPJson,
-  generateMCPCommands,
 } from './mcp-generator.js';
 
 export {
@@ -46,10 +45,9 @@ export {
   generateSessionManager,
   generateAgentRouter,
   generateMemoryHelper,
-  generateHelpers,
-  generateWindowsDaemonManager,
-  generateWindowsBatchWrapper,
-  generateCrossPlatformSessionManager,
+  generateHookHandler,
+  generateIntelligenceStub,
+  generateAutoMemoryHook,
 } from './helpers-generator.js';
 
 export {
