@@ -856,6 +856,10 @@ function isProcessRunning(pid) {
     }
 }
 // ── Watch tools ───────────────────────────────────────────────────────────────
+/**
+ * Start a background file watcher that rebuilds the knowledge graph + HTML
+ * whenever source files change (debounced 2 s).
+ */
 export const graphifyWatchTool = {
     name: 'graphify_watch',
     description: 'Start a background file watcher that automatically rebuilds the knowledge graph ' +
@@ -887,7 +891,7 @@ export const graphifyWatchTool = {
         const cwd = getProjectCwd();
         const targetPath = params.path || cwd;
         const debounceMs = params.debounce || 2000;
-        const extensions = ((params.extensions) || 'ts,js,tsx,jsx,py,go,rs,java,cs,rb,cpp,c')
+        const extensions = (params.extensions || 'ts,js,tsx,jsx,py,go,rs,java,cs,rb,cpp,c')
             .split(',')
             .map((e) => e.trim())
             .filter(Boolean);
@@ -902,19 +906,31 @@ export const graphifyWatchTool = {
         }
         const pidPath = getPidPath(targetPath);
         const outputDir = resolve(join(targetPath, '.monobrain', 'graph'));
+        // Inline watcher script — runs as a detached node process
         const watcherScript = `
 import { watch } from 'chokidar';
 import { writeFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
 
 const TARGET = ${JSON.stringify(targetPath)};
 const OUTPUT_DIR = ${JSON.stringify(outputDir)};
 const PID_PATH = ${JSON.stringify(pidPath)};
 const DEBOUNCE_MS = ${debounceMs};
 const EXTS = new Set(${JSON.stringify(extensions)});
-const IGNORE = [/node_modules/, /\\.git/, /\\.monobrain/, /dist[\\/]/, /\\.next/, /\\.turbo/, /coverage/];
+const IGNORE = [
+  /node_modules/,
+  /\\.git/,
+  /\\.monobrain/,
+  /dist[\\\\/]/,
+  /\\.next/,
+  /\\.turbo/,
+  /coverage/,
+];
 
+// Write own PID
 mkdirSync(OUTPUT_DIR, { recursive: true });
 writeFileSync(PID_PATH, String(process.pid));
+
 console.log('[graphify-watch] PID', process.pid, '— watching', TARGET);
 
 let timer = null;
@@ -924,8 +940,8 @@ async function rebuild() {
   console.log('[graphify-watch] Change detected — rebuilding graph…');
   try {
     const { buildGraph } = await import('@monoes/graph');
-    const { exportHTML } = await import('@monoes/graph');
     const { graph: serialized } = await buildGraph(TARGET, { outputDir: OUTPUT_DIR });
+    const { exportHTML } = await import('@monoes/graph');
     exportHTML(serialized, OUTPUT_DIR);
     console.log('[graphify-watch] Done in', Date.now() - start, 'ms');
   } catch (err) {
@@ -948,13 +964,18 @@ watcher.on('all', (event, filePath) => {
 });
 
 watcher.on('error', (err) => console.error('[graphify-watch] Watcher error:', err));
+
+// Clean up PID on exit
+process.on('exit', () => { try { require('fs').unlinkSync(PID_PATH); } catch {} });
 process.on('SIGINT', () => process.exit(0));
 process.on('SIGTERM', () => process.exit(0));
 `;
         try {
             const { spawn } = await import('child_process');
-            const { writeFileSync, mkdirSync } = await import('fs');
+            const { writeFileSync } = await import('fs');
+            const { mkdirSync } = await import('fs');
             mkdirSync(outputDir, { recursive: true });
+            // Write the script to a temp file so it can use ESM imports
             const scriptPath = resolve(join(outputDir, '_watcher.mjs'));
             writeFileSync(scriptPath, watcherScript);
             const child = spawn(process.execPath, [scriptPath], {
@@ -963,6 +984,7 @@ process.on('SIGTERM', () => process.exit(0));
                 env: { ...process.env },
             });
             child.unref();
+            // Give the process a moment to write its own PID
             await new Promise((r) => setTimeout(r, 500));
             const pid = readWatchPid(targetPath) ?? child.pid;
             return {
@@ -980,6 +1002,9 @@ process.on('SIGTERM', () => process.exit(0));
         }
     },
 };
+/**
+ * Stop the background graph watcher started by graphify_watch.
+ */
 export const graphifyWatchStopTool = {
     name: 'graphify_watch_stop',
     description: 'Stop the background file watcher started by graphify_watch.',
@@ -1002,6 +1027,7 @@ export const graphifyWatchStopTool = {
             return { success: false, message: 'No watcher PID found — watcher may not be running.' };
         }
         if (!isProcessRunning(pid)) {
+            // Clean up stale PID file
             try {
                 const { unlinkSync } = await import('fs');
                 unlinkSync(getPidPath(targetPath));
@@ -1011,6 +1037,7 @@ export const graphifyWatchStopTool = {
         }
         try {
             process.kill(pid, 'SIGTERM');
+            // Remove PID file
             try {
                 const { unlinkSync } = await import('fs');
                 unlinkSync(getPidPath(targetPath));
@@ -1089,9 +1116,10 @@ export const graphifySuggestTool = {
             return { error: true, message: 'No graph found. Run graphify_build first.' };
         }
         try {
-            const { loadGraph, suggestQuestions, buildAnalysis, buildGraphologyGraph } = await import('@monoes/graph');
+            const { loadGraph, suggestQuestions, buildAnalysis } = await import('@monoes/graph');
             const graphPath = getGraphPath(targetPath);
             const outputDir = resolve(join(targetPath, '.monobrain', 'graph'));
+            const { buildGraphologyGraph } = await import('@monoes/graph');
             const raw = loadGraph(graphPath);
             const graph = buildGraphologyGraph({ nodes: raw.nodes, edges: raw.edges, hyperedges: [], filesProcessed: 0, fromCache: 0, errors: [] });
             const analysis = buildAnalysis(graph, outputDir);

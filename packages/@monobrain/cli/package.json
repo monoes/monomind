@@ -1,6 +1,6 @@
 {
   "name": "@monoes/cli",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "type": "module",
   "description": "Monobrain CLI - Enterprise AI agent orchestration with 60+ specialized agents, swarm coordination, MCP server, self-learning hooks, and vector memory for Claude Code",
   "main": "dist/src/index.js",
@@ -84,18 +84,11 @@
     "vitest": "^4.1.4"
   },
   "dependencies": {
-    "@monoes/graph": "workspace:*",
-    "@monobrain/mcp": "workspace:*",
-    "@monobrain/shared": "workspace:*",
+    "@monoes/graph": "^1.3.0",
     "@noble/ed25519": "^2.1.0",
     "semver": "^7.6.0"
   },
   "optionalDependencies": {
-    "@monobrain/aidefence": "workspace:*",
-    "@monobrain/codex": "workspace:*",
-    "@monobrain/embeddings": "workspace:*",
-    "@monobrain/guidance": "workspace:*",
-    "@monobrain/memory": "workspace:*",
     "@monobrain/plugin-gastown-bridge": "^0.1.3",
     "agentic-flow": "^3.0.0-alpha.1",
     "@ruvector/attention": "^0.1.4",
@@ -103,9 +96,7 @@
     "@ruvector/router": "^0.1.27",
     "@ruvector/rvagent-wasm": "^0.1.0",
     "@ruvector/ruvllm-wasm": "^2.0.2",
-    "@ruvector/sona": "^0.1.5",
-    "@monobrain/routing": "workspace:*",
-    "@monobrain/security": "workspace:*"
+    "@ruvector/sona": "^0.1.5"
   },
   "publishConfig": {
     "access": "public",

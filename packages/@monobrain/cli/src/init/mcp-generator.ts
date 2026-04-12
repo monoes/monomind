@@ -55,7 +55,7 @@ export function generateMCPConfig(options: InitOptions): object {
   // Monobrain MCP server (core)
   if (config.monobrain) {
     mcpServers['monobrain'] = createMCPServerEntry(
-      ['@monobrain/cli@latest', 'mcp', 'start'],
+      ['monobrain@latest', 'mcp', 'start'],
       {
         ...npmEnv,
         MONOBRAIN_MODE: 'v1',
@@ -70,16 +70,9 @@ export function generateMCPConfig(options: InitOptions): object {
 
 
 
-  // Graphify knowledge graph MCP server (project understanding)
-  if (config.graphify) {
-    mcpServers['graphify'] = {
-      command: 'python',
-      args: ['-m', 'graphify.serve', 'graphify-out/graph.json'],
-      env: {},
-      optional: true,
-      description: 'Knowledge graph for codebase understanding — run `python -m graphify <path>` first',
-    };
-  }
+  // Graphify knowledge graph — built into monobrain MCP server since v1.3.0.
+  // Available as mcp__monobrain__graphify_build, graphify_report, graphify_suggest, graphify_health.
+  // No separate server needed — the monobrain entry above provides all graphify tools.
 
   // Flow Nexus MCP server (cloud features)
   if (config.flowNexus) {

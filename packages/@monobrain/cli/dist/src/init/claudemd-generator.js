@@ -6,13 +6,9 @@
  * Templates: minimal | standard | full | security | performance | solo
  * All templates use bullet-format rules with imperative keywords for enforceability.
  */
-
-import type { InitOptions, ClaudeMdTemplate } from './types.js';
-
 // --- Section Generators (each returns enforceable markdown) ---
-
-function behavioralRules(): string {
-  return `## Behavioral Rules (Always Enforced)
+function behavioralRules() {
+    return `## Behavioral Rules (Always Enforced)
 
 - Do what has been asked; nothing more, nothing less
 - NEVER create files unless they're absolutely necessary for achieving your goal
@@ -23,9 +19,8 @@ function behavioralRules(): string {
 - ALWAYS read a file before editing it
 - NEVER commit secrets, credentials, or .env files`;
 }
-
-function fileOrganization(): string {
-  return `## File Organization
+function fileOrganization() {
+    return `## File Organization
 
 - NEVER save to root folder — use the directories below
 - Use \`/src\` for source code files
@@ -35,9 +30,8 @@ function fileOrganization(): string {
 - Use \`/scripts\` for utility scripts
 - Use \`/examples\` for example code`;
 }
-
-function projectArchitecture(options: InitOptions): string {
-  return `## Project Architecture
+function projectArchitecture(options) {
+    return `## Project Architecture
 
 - Follow Domain-Driven Design with bounded contexts
 - Keep files under 500 lines
@@ -54,9 +48,8 @@ function projectArchitecture(options: InitOptions): string {
 - **HNSW**: ${options.runtime.enableHNSW ? 'Enabled' : 'Disabled'}
 - **Neural**: ${options.runtime.enableNeural ? 'Enabled' : 'Disabled'}`;
 }
-
-function concurrencyRules(): string {
-  return `## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
+function concurrencyRules() {
+    return `## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
 
 - All operations MUST be concurrent/parallel in a single message
 - Use Claude Code's Task tool for spawning agents, not just MCP
@@ -65,9 +58,8 @@ function concurrencyRules(): string {
 - ALWAYS batch ALL file reads/writes/edits in ONE message
 - ALWAYS batch ALL Bash commands in ONE message`;
 }
-
-function swarmOrchestration(): string {
-  return `## Swarm Orchestration
+function swarmOrchestration() {
+    return `## Swarm Orchestration
 
 - MUST initialize the swarm using CLI tools when starting complex tasks
 - MUST spawn concurrent agents using Claude Code's Task tool
@@ -85,9 +77,8 @@ function swarmOrchestration(): string {
 - Always check for \`[AGENT_BOOSTER_AVAILABLE]\` or \`[TASK_MODEL_RECOMMENDATION]\` before spawning agents
 - Use Edit tool directly when \`[AGENT_BOOSTER_AVAILABLE]\``;
 }
-
-function antiDriftConfig(): string {
-  return `## Swarm Configuration & Anti-Drift
+function antiDriftConfig() {
+    return `## Swarm Configuration & Anti-Drift
 
 - ALWAYS use hierarchical topology for coding swarms
 - Keep maxAgents at 6-8 for tight coordination
@@ -100,9 +91,8 @@ function antiDriftConfig(): string {
 npx monobrain@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
 \`\`\``;
 }
-
-function autoStartProtocol(): string {
-  return `## Swarm Protocols & Routing
+function autoStartProtocol() {
+    return `## Swarm Protocols & Routing
 
 ### Auto-Start Swarm Protocol
 
@@ -135,9 +125,8 @@ Task({prompt: "Review code quality...", subagent_type: "reviewer", run_in_backgr
 - AUTO-INVOKE SWARM when task involves: 3+ files, new features, cross-module refactoring, API changes, security, or performance work
 - SKIP SWARM for: single file edits, simple bug fixes (1-2 lines), documentation updates, configuration changes`;
 }
-
-function executionRules(): string {
-  return `## Swarm Execution Rules
+function executionRules() {
+    return `## Swarm Execution Rules
 
 - ALWAYS use \`run_in_background: true\` for all agent Task calls
 - ALWAYS put ALL agent Task calls in ONE message for parallel execution
@@ -145,9 +134,8 @@ function executionRules(): string {
 - Never poll TaskOutput or check swarm status — trust agents to return
 - When agent results arrive, review ALL results before proceeding`;
 }
-
-function cliCommandsTable(): string {
-  return `## V1 CLI Commands
+function cliCommandsTable() {
+    return `## V1 CLI Commands
 
 ### Core Commands
 
@@ -172,9 +160,8 @@ npx monobrain@latest memory search --query "authentication patterns"
 npx monobrain@latest doctor --fix
 \`\`\``;
 }
-
-function agentTypes(): string {
-  return `## Available Agents (60+ Types)
+function agentTypes() {
+    return `## Available Agents (60+ Types)
 
 ### Core Development
 \`coder\`, \`reviewer\`, \`tester\`, \`planner\`, \`researcher\`
@@ -191,9 +178,8 @@ function agentTypes(): string {
 ### SPARC Methodology
 \`sparc-coord\`, \`sparc-coder\`, \`specification\`, \`pseudocode\`, \`architecture\``;
 }
-
-function hooksSystem(): string {
-  return `## Hooks System (27 Hooks + 12 Workers)
+function hooksSystem() {
+    return `## Hooks System (27 Hooks + 12 Workers)
 
 ### Essential Hooks
 
@@ -223,9 +209,8 @@ npx monobrain@latest hooks post-task --task-id "[id]" --success true
 npx monobrain@latest hooks worker dispatch --trigger audit
 \`\`\``;
 }
-
-function learningProtocol(): string {
-  return `## Auto-Learning Protocol
+function learningProtocol() {
+    return `## Auto-Learning Protocol
 
 ### Before Starting Any Task
 \`\`\`bash
@@ -242,9 +227,8 @@ npx monobrain@latest hooks post-task --task-id "[id]" --success true --store-res
 - ALWAYS check memory before starting new features, debugging, or refactoring
 - ALWAYS store patterns in memory after solving bugs, completing features, or finding optimizations`;
 }
-
-function memoryCommands(): string {
-  return `## Memory Commands Reference
+function memoryCommands() {
+    return `## Memory Commands Reference
 
 \`\`\`bash
 # Store (REQUIRED: --key, --value; OPTIONAL: --namespace, --ttl, --tags)
@@ -260,9 +244,8 @@ npx monobrain@latest memory list --namespace patterns --limit 10
 npx monobrain@latest memory retrieve --key "pattern-auth" --namespace patterns
 \`\`\``;
 }
-
-function securityRulesLight(): string {
-  return `## Security Rules
+function securityRulesLight() {
+    return `## Security Rules
 
 - NEVER hardcode API keys, secrets, or credentials in source files
 - NEVER commit .env files or any file containing secrets
@@ -270,9 +253,8 @@ function securityRulesLight(): string {
 - Always sanitize file paths to prevent directory traversal
 - Run \`npx monobrain@latest security scan\` after security-related changes`;
 }
-
-function buildAndTest(): string {
-  return `## Build & Test
+function buildAndTest() {
+    return `## Build & Test
 
 \`\`\`bash
 # Build
@@ -288,9 +270,8 @@ npm run lint
 - ALWAYS run tests after making code changes
 - ALWAYS verify build succeeds before committing`;
 }
-
-function securitySection(): string {
-  return `## Security Protocol
+function securitySection() {
+    return `## Security Protocol
 
 - NEVER hardcode API keys, secrets, or credentials in source files
 - NEVER commit .env files or any file containing secrets
@@ -311,9 +292,8 @@ npx monobrain@latest security cve --check
 - \`security-auditor\` — code audit, vulnerability detection
 - Use agent routing code 9 (hierarchical/specialized) for security tasks`;
 }
-
-function performanceSection(): string {
-  return `## Performance Optimization Protocol
+function performanceSection() {
+    return `## Performance Optimization Protocol
 
 - Always run benchmarks before and after performance changes
 - Always profile before optimizing — never guess at bottlenecks
@@ -333,9 +313,8 @@ npx monobrain@latest performance metrics --format table
 - \`perf-analyzer\` — bottleneck detection, analysis
 - Use agent routing code 7 (hierarchical/specialized) for performance tasks`;
 }
-
-function intelligenceSystem(): string {
-  return `## Intelligence System (RuVector)
+function intelligenceSystem() {
+    return `## Intelligence System (RuVector)
 
 - **SONA**: Self-Optimizing Neural Architecture (<0.05ms adaptation)
 - **HNSW**: 150x-12,500x faster pattern search
@@ -348,9 +327,8 @@ The 4-step intelligence pipeline:
 3. **DISTILL** - Extract key learnings via LoRA
 4. **CONSOLIDATE** - Prevent catastrophic forgetting via EWC++`;
 }
-
-function envVars(): string {
-  return `## Environment Variables
+function envVars() {
+    return `## Environment Variables
 
 \`\`\`bash
 MONOBRAIN_CONFIG=./monobrain.config.json
@@ -360,9 +338,8 @@ MONOBRAIN_MEMORY_BACKEND=hybrid
 MONOBRAIN_MEMORY_PATH=./data/memory
 \`\`\``;
 }
-
-function graphifySection(): string {
-  return `## Knowledge Graph (graphify)
+function graphifySection() {
+    return `## Knowledge Graph (graphify)
 
 Built into monobrain since v1.3.0 — no separate install needed.
 
@@ -385,9 +362,8 @@ Built into monobrain since v1.3.0 — no separate install needed.
 
 > If graphify tools are not available, run \`npx monobrain@latest init --force\` then restart Claude Code.`;
 }
-
-function setupAndBoundary(): string {
-  return `## Quick Setup
+function setupAndBoundary() {
+    return `## Quick Setup
 
 \`\`\`bash
 # Add MCP server — includes graphify, swarm, memory, hooks, all 200+ tools
@@ -413,142 +389,134 @@ npx monobrain@latest doctor --fix
 - Documentation: https://github.com/nokhodian/monobrain
 - Issues: https://github.com/nokhodian/monobrain/issues`;
 }
-
 // --- Template Composers ---
-
 /**
  * Template section map — defines which sections are included per template.
  */
-const TEMPLATE_SECTIONS: Record<ClaudeMdTemplate, Array<(opts: InitOptions) => string>> = {
-  minimal: [
-    behavioralRules,
-    fileOrganization,
-    projectArchitecture,
-    (_opts) => buildAndTest(),
-    (_opts) => securityRulesLight(),
-    concurrencyRules,
-    (_opts) => antiDriftConfig(),
-    executionRules,
-    (_opts) => cliCommandsTable(),
-    (_opts) => graphifySection(),
-    (_opts) => setupAndBoundary(),
-  ],
-  standard: [
-    behavioralRules,
-    fileOrganization,
-    projectArchitecture,
-    (_opts) => buildAndTest(),
-    (_opts) => securityRulesLight(),
-    concurrencyRules,
-    (_opts) => swarmOrchestration(),
-    (_opts) => antiDriftConfig(),
-    executionRules,
-    (_opts) => cliCommandsTable(),
-    (_opts) => agentTypes(),
-    (_opts) => memoryCommands(),
-    (_opts) => graphifySection(),
-    (_opts) => setupAndBoundary(),
-  ],
-  full: [
-    behavioralRules,
-    fileOrganization,
-    projectArchitecture,
-    (_opts) => buildAndTest(),
-    (_opts) => securityRulesLight(),
-    concurrencyRules,
-    (_opts) => swarmOrchestration(),
-    (_opts) => antiDriftConfig(),
-    (_opts) => autoStartProtocol(),
-    executionRules,
-    (_opts) => cliCommandsTable(),
-    (_opts) => agentTypes(),
-    (_opts) => hooksSystem(),
-    (_opts) => learningProtocol(),
-    (_opts) => memoryCommands(),
-    (_opts) => graphifySection(),
-    (_opts) => intelligenceSystem(),
-    (_opts) => envVars(),
-    (_opts) => setupAndBoundary(),
-  ],
-  security: [
-    behavioralRules,
-    fileOrganization,
-    projectArchitecture,
-    (_opts) => buildAndTest(),
-    concurrencyRules,
-    (_opts) => swarmOrchestration(),
-    (_opts) => antiDriftConfig(),
-    executionRules,
-    (_opts) => securitySection(),
-    (_opts) => cliCommandsTable(),
-    (_opts) => agentTypes(),
-    (_opts) => memoryCommands(),
-    (_opts) => graphifySection(),
-    (_opts) => setupAndBoundary(),
-  ],
-  performance: [
-    behavioralRules,
-    fileOrganization,
-    projectArchitecture,
-    (_opts) => buildAndTest(),
-    (_opts) => securityRulesLight(),
-    concurrencyRules,
-    (_opts) => swarmOrchestration(),
-    (_opts) => antiDriftConfig(),
-    executionRules,
-    (_opts) => performanceSection(),
-    (_opts) => cliCommandsTable(),
-    (_opts) => agentTypes(),
-    (_opts) => memoryCommands(),
-    (_opts) => graphifySection(),
-    (_opts) => intelligenceSystem(),
-    (_opts) => setupAndBoundary(),
-  ],
-  solo: [
-    behavioralRules,
-    fileOrganization,
-    projectArchitecture,
-    (_opts) => buildAndTest(),
-    (_opts) => securityRulesLight(),
-    concurrencyRules,
-    executionRules,
-    (_opts) => cliCommandsTable(),
-    (_opts) => memoryCommands(),
-    (_opts) => setupAndBoundary(),
-  ],
+const TEMPLATE_SECTIONS = {
+    minimal: [
+        behavioralRules,
+        fileOrganization,
+        projectArchitecture,
+        (_opts) => buildAndTest(),
+        (_opts) => securityRulesLight(),
+        concurrencyRules,
+        (_opts) => antiDriftConfig(),
+        executionRules,
+        (_opts) => cliCommandsTable(),
+        (_opts) => graphifySection(),
+        (_opts) => setupAndBoundary(),
+    ],
+    standard: [
+        behavioralRules,
+        fileOrganization,
+        projectArchitecture,
+        (_opts) => buildAndTest(),
+        (_opts) => securityRulesLight(),
+        concurrencyRules,
+        (_opts) => swarmOrchestration(),
+        (_opts) => antiDriftConfig(),
+        executionRules,
+        (_opts) => cliCommandsTable(),
+        (_opts) => agentTypes(),
+        (_opts) => memoryCommands(),
+        (_opts) => graphifySection(),
+        (_opts) => setupAndBoundary(),
+    ],
+    full: [
+        behavioralRules,
+        fileOrganization,
+        projectArchitecture,
+        (_opts) => buildAndTest(),
+        (_opts) => securityRulesLight(),
+        concurrencyRules,
+        (_opts) => swarmOrchestration(),
+        (_opts) => antiDriftConfig(),
+        (_opts) => autoStartProtocol(),
+        executionRules,
+        (_opts) => cliCommandsTable(),
+        (_opts) => agentTypes(),
+        (_opts) => hooksSystem(),
+        (_opts) => learningProtocol(),
+        (_opts) => memoryCommands(),
+        (_opts) => graphifySection(),
+        (_opts) => intelligenceSystem(),
+        (_opts) => envVars(),
+        (_opts) => setupAndBoundary(),
+    ],
+    security: [
+        behavioralRules,
+        fileOrganization,
+        projectArchitecture,
+        (_opts) => buildAndTest(),
+        concurrencyRules,
+        (_opts) => swarmOrchestration(),
+        (_opts) => antiDriftConfig(),
+        executionRules,
+        (_opts) => securitySection(),
+        (_opts) => cliCommandsTable(),
+        (_opts) => agentTypes(),
+        (_opts) => memoryCommands(),
+        (_opts) => graphifySection(),
+        (_opts) => setupAndBoundary(),
+    ],
+    performance: [
+        behavioralRules,
+        fileOrganization,
+        projectArchitecture,
+        (_opts) => buildAndTest(),
+        (_opts) => securityRulesLight(),
+        concurrencyRules,
+        (_opts) => swarmOrchestration(),
+        (_opts) => antiDriftConfig(),
+        executionRules,
+        (_opts) => performanceSection(),
+        (_opts) => cliCommandsTable(),
+        (_opts) => agentTypes(),
+        (_opts) => memoryCommands(),
+        (_opts) => graphifySection(),
+        (_opts) => intelligenceSystem(),
+        (_opts) => setupAndBoundary(),
+    ],
+    solo: [
+        behavioralRules,
+        fileOrganization,
+        projectArchitecture,
+        (_opts) => buildAndTest(),
+        (_opts) => securityRulesLight(),
+        concurrencyRules,
+        executionRules,
+        (_opts) => cliCommandsTable(),
+        (_opts) => memoryCommands(),
+        (_opts) => setupAndBoundary(),
+    ],
 };
-
 // --- Public API ---
-
 /**
  * Generate CLAUDE.md content based on init options and template.
  * Template is determined by: options.runtime.claudeMdTemplate > explicit param > 'standard'
  */
-export function generateClaudeMd(options: InitOptions, template?: ClaudeMdTemplate): string {
-  const tmpl = template ?? options.runtime.claudeMdTemplate ?? 'standard';
-  const sections = TEMPLATE_SECTIONS[tmpl] ?? TEMPLATE_SECTIONS.standard;
-
-  const header = `# Claude Code Configuration - Monobrain\n`;
-  const body = sections.map(fn => fn(options)).join('\n\n');
-
-  return `${header}\n${body}\n`;
+export function generateClaudeMd(options, template) {
+    const tmpl = template ?? options.runtime.claudeMdTemplate ?? 'standard';
+    const sections = TEMPLATE_SECTIONS[tmpl] ?? TEMPLATE_SECTIONS.standard;
+    const header = `# Claude Code Configuration - Monobrain\n`;
+    const body = sections.map(fn => fn(options)).join('\n\n');
+    return `${header}\n${body}\n`;
 }
-
 /**
  * Generate minimal CLAUDE.md content (backward-compatible alias).
  */
-export function generateMinimalClaudeMd(options: InitOptions): string {
-  return generateClaudeMd(options, 'minimal');
+export function generateMinimalClaudeMd(options) {
+    return generateClaudeMd(options, 'minimal');
 }
-
 /** Available template names for CLI wizard */
-export const CLAUDE_MD_TEMPLATES: Array<{ name: ClaudeMdTemplate; description: string }> = [
-  { name: 'minimal', description: 'Quick start — behavioral rules, anti-drift config, CLI reference (~120 lines)' },
-  { name: 'standard', description: 'Recommended — swarm orchestration, agents, memory commands (~250 lines)' },
-  { name: 'full', description: 'Everything — hooks, learning protocol, intelligence system (~400 lines)' },
-  { name: 'security', description: 'Security-focused — adds security scanning, audit protocols, CVE checks' },
-  { name: 'performance', description: 'Performance-focused — adds benchmarking, profiling, optimization protocols' },
-  { name: 'solo', description: 'Solo developer — no swarm, simple agent usage, memory commands (~150 lines)' },
+export const CLAUDE_MD_TEMPLATES = [
+    { name: 'minimal', description: 'Quick start — behavioral rules, anti-drift config, CLI reference (~120 lines)' },
+    { name: 'standard', description: 'Recommended — swarm orchestration, agents, memory commands (~250 lines)' },
+    { name: 'full', description: 'Everything — hooks, learning protocol, intelligence system (~400 lines)' },
+    { name: 'security', description: 'Security-focused — adds security scanning, audit protocols, CVE checks' },
+    { name: 'performance', description: 'Performance-focused — adds benchmarking, profiling, optimization protocols' },
+    { name: 'solo', description: 'Solo developer — no swarm, simple agent usage, memory commands (~150 lines)' },
 ];
-
 export default generateClaudeMd;
+//# sourceMappingURL=claudemd-generator.js.map
