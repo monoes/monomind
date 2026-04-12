@@ -47,7 +47,7 @@ const os = require('os');
 
 // Configuration
 const CONFIG = {
-  maxAgents: ${{maxAgents}},
+  maxAgents: ${maxAgents},
 };
 
 const CWD = process.cwd();
