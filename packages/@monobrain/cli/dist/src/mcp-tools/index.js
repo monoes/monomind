@@ -5,6 +5,17 @@
  */
 export { agentTools } from './agent-tools.js';
 export { swarmTools } from './swarm-tools.js';
+// V2 Compatibility tools
+export { systemTools } from './system-tools.js';
+export { terminalTools } from './terminal-tools.js';
+export { neuralTools } from './neural-tools.js';
+export { performanceTools } from './performance-tools.js';
+export { githubTools } from './github-tools.js';
+export { daaTools } from './daa-tools.js';
+export { coordinationTools } from './coordination-tools.js';
+export { browserTools } from './browser-tools.js';
+// Phase 6: AgentDB v1 controller tools
+export { agentdbTools } from './agentdb-tools.js';
 export { memoryTools } from './memory-tools.js';
 export { configTools } from './config-tools.js';
 export { hooksTools } from './hooks-tools.js';
