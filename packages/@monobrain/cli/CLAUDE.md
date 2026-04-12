@@ -31,7 +31,7 @@
 **Before spawning agents, get routing recommendation:**
 
 ```bash
-npx @monobrain/cli@latest hooks pre-task --description "[task description]"
+npx monobrain@latest hooks pre-task --description "[task description]"
 ```
 
 **When you see these recommendations:**
@@ -59,10 +59,10 @@ Task({
 
 ```bash
 # Small teams (6-8 agents) - use hierarchical for tight control
-npx @monobrain/cli@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monobrain@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
 
 # Large teams (10-15 agents) - use hierarchical-mesh for V1 queen + peer communication
-npx @monobrain/cli@latest swarm init --topology hierarchical-mesh --max-agents 15 --strategy specialized
+npx monobrain@latest swarm init --topology hierarchical-mesh --max-agents 15 --strategy specialized
 ```
 
 **Valid Topologies:**
@@ -90,7 +90,7 @@ When the user requests a complex task, **spawn agents in background and WAIT for
 ```javascript
 // STEP 1: Initialize swarm coordination (anti-drift config)
 Bash(
-  "npx @monobrain/cli@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized",
+  "npx monobrain@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized",
 );
 
 // STEP 2: Spawn ALL agents IN BACKGROUND in a SINGLE message
@@ -174,29 +174,29 @@ They're working in parallel. I'll synthesize their results when they complete.
 
 ```bash
 # 1. Search memory for relevant patterns from past successes
-Bash("npx @monobrain/cli@latest memory search --query '[task keywords]' --namespace patterns")
+Bash("npx monobrain@latest memory search --query '[task keywords]' --namespace patterns")
 
 # 2. Check if similar task was done before
-Bash("npx @monobrain/cli@latest memory search --query '[task type]' --namespace tasks")
+Bash("npx monobrain@latest memory search --query '[task type]' --namespace tasks")
 
 # 3. Load learned optimizations
-Bash("npx @monobrain/cli@latest hooks route --task '[task description]'")
+Bash("npx monobrain@latest hooks route --task '[task description]'")
 ```
 
 ### After Completing Any Task Successfully
 
 ```bash
 # 1. Store successful pattern for future reference
-Bash("npx @monobrain/cli@latest memory store --namespace patterns --key '[pattern-name]' --value '[what worked]'")
+Bash("npx monobrain@latest memory store --namespace patterns --key '[pattern-name]' --value '[what worked]'")
 
 # 2. Train neural patterns on the successful approach
-Bash("npx @monobrain/cli@latest hooks post-edit --file '[main-file]' --train-neural true")
+Bash("npx monobrain@latest hooks post-edit --file '[main-file]' --train-neural true")
 
 # 3. Record task completion with metrics
-Bash("npx @monobrain/cli@latest hooks post-task --task-id '[id]' --success true --store-results true")
+Bash("npx monobrain@latest hooks post-task --task-id '[id]' --success true --store-results true")
 
 # 4. Trigger optimization worker if performance-related
-Bash("npx @monobrain/cli@latest hooks worker dispatch --trigger optimize")
+Bash("npx monobrain@latest hooks worker dispatch --trigger optimize")
 ```
 
 ### Continuous Improvement Triggers
@@ -339,28 +339,28 @@ Bash("npx @monobrain/cli@latest hooks worker dispatch --trigger optimize")
 
 ```bash
 # Initialize project
-npx @monobrain/cli@latest init --wizard
+npx monobrain@latest init --wizard
 
 # Start daemon with background workers
-npx @monobrain/cli@latest daemon start
+npx monobrain@latest daemon start
 
 # Spawn an agent
-npx @monobrain/cli@latest agent spawn -t coder --name my-coder
+npx monobrain@latest agent spawn -t coder --name my-coder
 
 # Initialize swarm
-npx @monobrain/cli@latest swarm init --v1-mode
+npx monobrain@latest swarm init --v1-mode
 
 # Search memory (HNSW-indexed)
-npx @monobrain/cli@latest memory search --query "authentication patterns"
+npx monobrain@latest memory search --query "authentication patterns"
 
 # System diagnostics
-npx @monobrain/cli@latest doctor --fix
+npx monobrain@latest doctor --fix
 
 # Security scan
-npx @monobrain/cli@latest security scan --depth full
+npx monobrain@latest security scan --depth full
 
 # Performance benchmark
-npx @monobrain/cli@latest performance benchmark --suite all
+npx monobrain@latest performance benchmark --suite all
 ```
 
 ## 🚀 Available Agents (60+ Types)
@@ -463,51 +463,51 @@ CVE remediation, input validation, path security:
 
 ```bash
 # Core hooks
-npx @monobrain/cli@latest hooks pre-task --description "[task]"
-npx @monobrain/cli@latest hooks post-task --task-id "[id]" --success true
-npx @monobrain/cli@latest hooks post-edit --file "[file]" --train-neural true
+npx monobrain@latest hooks pre-task --description "[task]"
+npx monobrain@latest hooks post-task --task-id "[id]" --success true
+npx monobrain@latest hooks post-edit --file "[file]" --train-neural true
 
 # Session management
-npx @monobrain/cli@latest hooks session-start --session-id "[id]"
-npx @monobrain/cli@latest hooks session-end --export-metrics true
-npx @monobrain/cli@latest hooks session-restore --session-id "[id]"
+npx monobrain@latest hooks session-start --session-id "[id]"
+npx monobrain@latest hooks session-end --export-metrics true
+npx monobrain@latest hooks session-restore --session-id "[id]"
 
 # Intelligence routing
-npx @monobrain/cli@latest hooks route --task "[task]"
-npx @monobrain/cli@latest hooks explain --topic "[topic]"
+npx monobrain@latest hooks route --task "[task]"
+npx monobrain@latest hooks explain --topic "[topic]"
 
 # Neural learning
-npx @monobrain/cli@latest hooks pretrain --model-type moe --epochs 10
-npx @monobrain/cli@latest hooks build-agents --agent-types coder,tester
+npx monobrain@latest hooks pretrain --model-type moe --epochs 10
+npx monobrain@latest hooks build-agents --agent-types coder,tester
 
 # Background workers
-npx @monobrain/cli@latest hooks worker list
-npx @monobrain/cli@latest hooks worker dispatch --trigger audit
-npx @monobrain/cli@latest hooks worker status
+npx monobrain@latest hooks worker list
+npx monobrain@latest hooks worker dispatch --trigger audit
+npx monobrain@latest hooks worker status
 
 # Coverage-aware routing
-npx @monobrain/cli@latest hooks coverage-gaps --format table
-npx @monobrain/cli@latest hooks coverage-route --task "[task]"
+npx monobrain@latest hooks coverage-gaps --format table
+npx monobrain@latest hooks coverage-route --task "[task]"
 
 # Statusline (for Claude Code integration)
-npx @monobrain/cli@latest hooks statusline
-npx @monobrain/cli@latest hooks statusline --json
+npx monobrain@latest hooks statusline
+npx monobrain@latest hooks statusline --json
 ```
 
 ## 🔄 Migration (V2 to V1)
 
 ```bash
 # Check migration status
-npx @monobrain/cli@latest migrate status
+npx monobrain@latest migrate status
 
 # Run migration with backup
-npx @monobrain/cli@latest migrate run --backup
+npx monobrain@latest migrate run --backup
 
 # Rollback if needed
-npx @monobrain/cli@latest migrate rollback
+npx monobrain@latest migrate rollback
 
 # Validate migration
-npx @monobrain/cli@latest migrate validate
+npx monobrain@latest migrate validate
 ```
 
 ## 🧠 Intelligence System (RuVector)
@@ -572,36 +572,36 @@ Features:
 
 ```bash
 # After any significant operation, track metrics
-Bash("npx @monobrain/cli@latest hooks post-command --command '[operation]' --track-metrics true")
+Bash("npx monobrain@latest hooks post-command --command '[operation]' --track-metrics true")
 
 # Periodically run benchmarks (every major feature)
-Bash("npx @monobrain/cli@latest performance benchmark --suite all")
+Bash("npx monobrain@latest performance benchmark --suite all")
 
 # Analyze bottlenecks when performance degrades
-Bash("npx @monobrain/cli@latest performance profile --target '[component]'")
+Bash("npx monobrain@latest performance profile --target '[component]'")
 ```
 
 ### Session Persistence (Cross-Conversation Learning)
 
 ```bash
 # At session start - restore previous context
-Bash("npx @monobrain/cli@latest session restore --latest")
+Bash("npx monobrain@latest session restore --latest")
 
 # At session end - persist learned patterns
-Bash("npx @monobrain/cli@latest hooks session-end --generate-summary true --persist-state true --export-metrics true")
+Bash("npx monobrain@latest hooks session-end --generate-summary true --persist-state true --export-metrics true")
 ```
 
 ### Neural Pattern Training
 
 ```bash
 # Train on successful code patterns
-Bash("npx @monobrain/cli@latest neural train --pattern-type coordination --epochs 10")
+Bash("npx monobrain@latest neural train --pattern-type coordination --epochs 10")
 
 # Predict optimal approach for new tasks
-Bash("npx @monobrain/cli@latest neural predict --input '[task description]'")
+Bash("npx monobrain@latest neural predict --input '[task description]'")
 
 # View learned patterns
-Bash("npx @monobrain/cli@latest neural patterns --list")
+Bash("npx monobrain@latest neural patterns --list")
 ```
 
 ## 🔧 Environment Variables
@@ -628,7 +628,7 @@ MONOBRAIN_MEMORY_PATH=./data/memory
 
 ## 🔍 Doctor Health Checks
 
-Run `npx @monobrain/cli@latest doctor` to check:
+Run `npx monobrain@latest doctor` to check:
 
 - Node.js version (20+)
 - npm version (9+)
@@ -645,15 +645,15 @@ Run `npx @monobrain/cli@latest doctor` to check:
 
 ```bash
 # Add MCP servers (auto-detects MCP mode when stdin is piped)
-claude mcp add monobrain -- npx -y @monobrain/cli@latest
+claude mcp add monobrain -- npx -y monobrain@latest mcp start
 claude mcp add ruv-swarm -- npx -y ruv-swarm mcp start  # Optional
 claude mcp add flow-nexus -- npx -y flow-nexus@latest mcp start  # Optional
 
 # Start daemon
-npx @monobrain/cli@latest daemon start
+npx monobrain@latest daemon start
 
 # Run doctor
-npx @monobrain/cli@latest doctor --fix
+npx monobrain@latest doctor --fix
 ```
 
 ## 🎯 Claude Code vs CLI Tools
@@ -669,14 +669,14 @@ npx @monobrain/cli@latest doctor --fix
 
 ### CLI Tools Handle Coordination (via Bash):
 
-- **Swarm init**: `npx @monobrain/cli@latest swarm init --topology <type>`
-- **Swarm status**: `npx @monobrain/cli@latest swarm status`
-- **Agent spawn**: `npx @monobrain/cli@latest agent spawn -t <type> --name <name>`
-- **Memory store**: `npx @monobrain/cli@latest memory store --key "mykey" --value "myvalue" --namespace patterns`
-- **Memory search**: `npx @monobrain/cli@latest memory search --query "search terms"`
-- **Memory list**: `npx @monobrain/cli@latest memory list --namespace patterns`
-- **Memory retrieve**: `npx @monobrain/cli@latest memory retrieve --key "mykey" --namespace patterns`
-- **Hooks**: `npx @monobrain/cli@latest hooks <hook-name> [options]`
+- **Swarm init**: `npx monobrain@latest swarm init --topology <type>`
+- **Swarm status**: `npx monobrain@latest swarm status`
+- **Agent spawn**: `npx monobrain@latest agent spawn -t <type> --name <name>`
+- **Memory store**: `npx monobrain@latest memory store --key "mykey" --value "myvalue" --namespace patterns`
+- **Memory search**: `npx monobrain@latest memory search --query "search terms"`
+- **Memory list**: `npx monobrain@latest memory list --namespace patterns`
+- **Memory retrieve**: `npx monobrain@latest memory retrieve --key "mykey" --namespace patterns`
+- **Hooks**: `npx monobrain@latest hooks <hook-name> [options]`
 
 ## 📝 Memory Commands Reference (IMPORTANT)
 
@@ -685,8 +685,8 @@ npx @monobrain/cli@latest doctor --fix
 ```bash
 # REQUIRED: --key and --value
 # OPTIONAL: --namespace (default: "default"), --ttl, --tags
-npx @monobrain/cli@latest memory store --key "pattern-auth" --value "JWT with refresh tokens" --namespace patterns
-npx @monobrain/cli@latest memory store --key "bug-fix-123" --value "Fixed null check" --namespace solutions --tags "bugfix,auth"
+npx monobrain@latest memory store --key "pattern-auth" --value "JWT with refresh tokens" --namespace patterns
+npx monobrain@latest memory store --key "bug-fix-123" --value "Fixed null check" --namespace solutions --tags "bugfix,auth"
 ```
 
 ### Search Data (semantic vector search)
@@ -694,16 +694,16 @@ npx @monobrain/cli@latest memory store --key "bug-fix-123" --value "Fixed null c
 ```bash
 # REQUIRED: --query (full flag, not -q)
 # OPTIONAL: --namespace, --limit, --threshold
-npx @monobrain/cli@latest memory search --query "authentication patterns"
-npx @monobrain/cli@latest memory search --query "error handling" --namespace patterns --limit 5
+npx monobrain@latest memory search --query "authentication patterns"
+npx monobrain@latest memory search --query "error handling" --namespace patterns --limit 5
 ```
 
 ### List Entries
 
 ```bash
 # OPTIONAL: --namespace, --limit
-npx @monobrain/cli@latest memory list
-npx @monobrain/cli@latest memory list --namespace patterns --limit 10
+npx monobrain@latest memory list
+npx monobrain@latest memory list --namespace patterns --limit 10
 ```
 
 ### Retrieve Specific Entry
@@ -711,14 +711,14 @@ npx @monobrain/cli@latest memory list --namespace patterns --limit 10
 ```bash
 # REQUIRED: --key
 # OPTIONAL: --namespace (default: "default")
-npx @monobrain/cli@latest memory retrieve --key "pattern-auth"
-npx @monobrain/cli@latest memory retrieve --key "pattern-auth" --namespace patterns
+npx monobrain@latest memory retrieve --key "pattern-auth"
+npx monobrain@latest memory retrieve --key "pattern-auth" --namespace patterns
 ```
 
 ### Initialize Memory Database
 
 ```bash
-npx @monobrain/cli@latest memory init --force --verbose
+npx monobrain@latest memory init --force --verbose
 ```
 
 **KEY**: CLI coordinates the strategy via Bash, Claude Code's Task tool executes with real agents.

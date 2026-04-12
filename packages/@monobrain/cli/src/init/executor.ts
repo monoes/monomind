@@ -680,7 +680,7 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
         cvesFixed: 0,
         totalCves: 3,
         lastScan: null,
-        _note: 'Run: npx @monobrain/cli@latest security scan'
+        _note: 'Run: npx monobrain@latest security scan'
       };
       fs.writeFileSync(auditPath, JSON.stringify(audit, null, 2), 'utf-8');
       result.created.push('.monobrain/security/audit-status.json');
@@ -1518,7 +1518,7 @@ async function writeInitialMetrics(
       cvesFixed: 0,
       totalCves: 3,
       lastScan: null,
-      _note: 'Run: npx @monobrain/cli@latest security scan'
+      _note: 'Run: npx monobrain@latest security scan'
     };
     fs.writeFileSync(auditPath, JSON.stringify(audit, null, 2), 'utf-8');
     result.created.files.push('.monobrain/security/audit-status.json');
@@ -1602,13 +1602,13 @@ Monobrain is a domain-driven design architecture for multi-agent AI coordination
 ### Quick Commands
 \`\`\`bash
 # Initialize swarm
-npx @monobrain/cli@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monobrain@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
 
 # Check status
-npx @monobrain/cli@latest swarm status
+npx monobrain@latest swarm status
 
 # Monitor activity
-npx @monobrain/cli@latest swarm monitor
+npx monobrain@latest swarm monitor
 \`\`\`
 
 ---
@@ -1692,17 +1692,17 @@ npx @monobrain/cli@latest swarm monitor
 ### Example Commands
 \`\`\`bash
 # Initialize
-npx @monobrain/cli@latest init --wizard
+npx monobrain@latest init --wizard
 
 # Spawn agent
-npx @monobrain/cli@latest agent spawn -t coder --name my-coder
+npx monobrain@latest agent spawn -t coder --name my-coder
 
 # Memory operations
-npx @monobrain/cli@latest memory store --key "pattern" --value "data" --namespace patterns
-npx @monobrain/cli@latest memory search --query "authentication"
+npx monobrain@latest memory store --key "pattern" --value "data" --namespace patterns
+npx monobrain@latest memory search --query "authentication"
 
 # Diagnostics
-npx @monobrain/cli@latest doctor --fix
+npx monobrain@latest doctor --fix
 \`\`\`
 
 ---
@@ -1801,16 +1801,16 @@ High-confidence insights (>0.8) can transfer between agents.
 ### Memory Commands
 \`\`\`bash
 # Store pattern
-npx @monobrain/cli@latest memory store --key "name" --value "data" --namespace patterns
+npx monobrain@latest memory store --key "name" --value "data" --namespace patterns
 
 # Semantic search
-npx @monobrain/cli@latest memory search --query "authentication"
+npx monobrain@latest memory search --query "authentication"
 
 # List entries
-npx @monobrain/cli@latest memory list --namespace patterns
+npx monobrain@latest memory list --namespace patterns
 
 # Initialize database
-npx @monobrain/cli@latest memory init --force
+npx monobrain@latest memory init --force
 \`\`\`
 
 ---
@@ -1839,16 +1839,16 @@ npx @monobrain/cli@latest memory init --force
 ### Hive-Mind Commands
 \`\`\`bash
 # Initialize
-npx @monobrain/cli@latest hive-mind init --queen-type strategic
+npx monobrain@latest hive-mind init --queen-type strategic
 
 # Status
-npx @monobrain/cli@latest hive-mind status
+npx monobrain@latest hive-mind status
 
 # Spawn workers
-npx @monobrain/cli@latest hive-mind spawn --count 5 --type worker
+npx monobrain@latest hive-mind spawn --count 5 --type worker
 
 # Consensus
-npx @monobrain/cli@latest hive-mind consensus --propose "task"
+npx monobrain@latest hive-mind consensus --propose "task"
 \`\`\`
 
 ---

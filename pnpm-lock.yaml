@@ -105,15 +105,15 @@ importers:
 
   packages/@monobrain/cli:
     dependencies:
-      '@monobrain/graph':
-        specifier: workspace:*
-        version: link:../graph
       '@monobrain/mcp':
         specifier: workspace:*
         version: link:../mcp
       '@monobrain/shared':
         specifier: workspace:*
         version: link:../shared
+      '@monoes/graph':
+        specifier: workspace:*
+        version: link:../graph
       '@noble/ed25519':
         specifier: ^2.1.0
         version: 2.3.0
@@ -272,6 +272,9 @@ importers:
       graphology-traversal:
         specifier: ^0.3.1
         version: 0.3.1(graphology-types@0.24.8)
+      graphology-types:
+        specifier: ^0.24.7
+        version: 0.24.8
     devDependencies:
       '@types/node':
         specifier: ^20.0.0

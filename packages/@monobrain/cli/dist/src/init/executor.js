@@ -131,12 +131,15 @@ const DIRECTORIES = {
     ],
 };
 /**
+ * Execute initialization
+ */
+/**
  * Remove legacy ruflo/ruv-swarm configuration from existing project files.
- * Also fixes old @monobrain/cli@latest MCP package name → monobrain@latest.
+ * Safe to call even if no legacy config exists.
  */
 function cleanupLegacyTools(targetDir) {
     const cleaned = [];
-    // Helper to fix MCP server args
+    // Helper to fix MCP server args: replace @monobrain/cli@latest with monobrain@latest
     function fixMcpArgs(servers) {
         let changed = false;
         for (const name of Object.keys(servers)) {
@@ -182,6 +185,7 @@ function cleanupLegacyTools(targetDir) {
             const settings = JSON.parse(raw);
             let settingsChanged = false;
             if (raw.includes('ruflo') || raw.includes('ruv-swarm')) {
+                // Remove ruflo-referencing hook entries from all hook arrays
                 const hookKeys = ['PreToolUse', 'PostToolUse', 'UserPromptSubmit', 'SessionStart', 'SessionEnd', 'Stop', 'SubagentStart', 'SubagentStop', 'PreCompact'];
                 for (const key of hookKeys) {
                     if (Array.isArray(settings.hooks?.[key])) {
@@ -190,7 +194,8 @@ function cleanupLegacyTools(targetDir) {
                             const str = JSON.stringify(entry);
                             return !str.includes('ruflo') && !str.includes('ruv-swarm');
                         });
-                        if (settings.hooks[key].length !== before) settingsChanged = true;
+                        if (settings.hooks[key].length !== before)
+                            settingsChanged = true;
                     }
                 }
                 if (settingsChanged) {
@@ -210,9 +215,6 @@ function cleanupLegacyTools(targetDir) {
     }
     return cleaned;
 }
-/**
- * Execute initialization
- */
 export async function executeInit(options) {
     // Detect platform
     const platform = detectPlatform();
@@ -234,7 +236,7 @@ export async function executeInit(options) {
     };
     const targetDir = options.targetDir;
     try {
-        // Remove legacy ruflo/ruv-swarm configs and fix old MCP package names
+        // Remove legacy ruflo/ruv-swarm configs before writing new ones
         const legacyCleaned = cleanupLegacyTools(targetDir);
         for (const msg of legacyCleaned) {
             result.created.files.push(`[cleaned] ${msg}`);
@@ -296,20 +298,22 @@ export async function executeInit(options) {
 }
 /**
  * Spawn a background process to build the @monobrain/graph knowledge graph.
- * Fire-and-forget: init does not wait for the graph build to complete.
+ * Fire-and-forget: init does not wait for the ~20s graph build to complete.
  * Non-fatal: if @monobrain/graph is unavailable the step is simply skipped.
  */
 async function initKnowledgeGraph(targetDir, result) {
     try {
+        // Verify the package is resolvable before spawning — fast path to skip gracefully.
         await import('@monoes/graph');
         const outputDir = path.join(targetDir, '.monobrain', 'graph');
         const { spawn } = await import('child_process');
+        // Escape single quotes in path strings for the inline ES module script.
         const safePath = targetDir.replace(/'/g, "\\'");
         const safeOut = outputDir.replace(/'/g, "\\'");
         const script = `
 import('@monoes/graph').then(({ buildGraph }) =>
   buildGraph('${safePath}', { codeOnly: true, outputDir: '${safeOut}' })
-).then(r => console.log('[graph] built: ' + r.analysis.stats.nodes + ' nodes'))
+).then(r => console.log('[graph] built: ' + r.filesProcessed + ' files, ' + r.analysis.stats.nodes + ' nodes'))
  .catch(e => console.error('[graph] build failed:', e.message));
 `;
         const child = spawn(process.execPath, ['--input-type=module'], {
@@ -317,12 +321,14 @@ import('@monoes/graph').then(({ buildGraph }) =>
             detached: true,
             cwd: targetDir,
         });
+        // Write the script to stdin then close so node processes it.
         child.stdin?.write(script);
         child.stdin?.end();
         child.unref();
         result.created.files.push('.monobrain/graph/ (knowledge graph building in background)');
     }
     catch (_err) {
+        // Non-fatal — @monobrain/graph is an optional enhancement.
         result.skipped.push('knowledge graph: @monobrain/graph not available');
     }
 }
@@ -605,7 +611,7 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                 cvesFixed: 0,
                 totalCves: 3,
                 lastScan: null,
-                _note: 'Run: npx @monobrain/cli@latest security scan'
+                _note: 'Run: npx monobrain@latest security scan'
             };
             fs.writeFileSync(auditPath, JSON.stringify(audit, null, 2), 'utf-8');
             result.created.push('.monobrain/security/audit-status.json');
@@ -1351,7 +1357,7 @@ async function writeInitialMetrics(targetDir, options, result) {
             cvesFixed: 0,
             totalCves: 3,
             lastScan: null,
-            _note: 'Run: npx @monobrain/cli@latest security scan'
+            _note: 'Run: npx monobrain@latest security scan'
         };
         fs.writeFileSync(auditPath, JSON.stringify(audit, null, 2), 'utf-8');
         result.created.files.push('.monobrain/security/audit-status.json');
@@ -1428,13 +1434,13 @@ Monobrain is a domain-driven design architecture for multi-agent AI coordination
 ### Quick Commands
 \`\`\`bash
 # Initialize swarm
-npx @monobrain/cli@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monobrain@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
 
 # Check status
-npx @monobrain/cli@latest swarm status
+npx monobrain@latest swarm status
 
 # Monitor activity
-npx @monobrain/cli@latest swarm monitor
+npx monobrain@latest swarm monitor
 \`\`\`
 
 ---
@@ -1518,17 +1524,17 @@ npx @monobrain/cli@latest swarm monitor
 ### Example Commands
 \`\`\`bash
 # Initialize
-npx @monobrain/cli@latest init --wizard
+npx monobrain@latest init --wizard
 
 # Spawn agent
-npx @monobrain/cli@latest agent spawn -t coder --name my-coder
+npx monobrain@latest agent spawn -t coder --name my-coder
 
 # Memory operations
-npx @monobrain/cli@latest memory store --key "pattern" --value "data" --namespace patterns
-npx @monobrain/cli@latest memory search --query "authentication"
+npx monobrain@latest memory store --key "pattern" --value "data" --namespace patterns
+npx monobrain@latest memory search --query "authentication"
 
 # Diagnostics
-npx @monobrain/cli@latest doctor --fix
+npx monobrain@latest doctor --fix
 \`\`\`
 
 ---
@@ -1627,16 +1633,16 @@ High-confidence insights (>0.8) can transfer between agents.
 ### Memory Commands
 \`\`\`bash
 # Store pattern
-npx @monobrain/cli@latest memory store --key "name" --value "data" --namespace patterns
+npx monobrain@latest memory store --key "name" --value "data" --namespace patterns
 
 # Semantic search
-npx @monobrain/cli@latest memory search --query "authentication"
+npx monobrain@latest memory search --query "authentication"
 
 # List entries
-npx @monobrain/cli@latest memory list --namespace patterns
+npx monobrain@latest memory list --namespace patterns
 
 # Initialize database
-npx @monobrain/cli@latest memory init --force
+npx monobrain@latest memory init --force
 \`\`\`
 
 ---
@@ -1665,16 +1671,16 @@ npx @monobrain/cli@latest memory init --force
 ### Hive-Mind Commands
 \`\`\`bash
 # Initialize
-npx @monobrain/cli@latest hive-mind init --queen-type strategic
+npx monobrain@latest hive-mind init --queen-type strategic
 
 # Status
-npx @monobrain/cli@latest hive-mind status
+npx monobrain@latest hive-mind status
 
 # Spawn workers
-npx @monobrain/cli@latest hive-mind spawn --count 5 --type worker
+npx monobrain@latest hive-mind spawn --count 5 --type worker
 
 # Consensus
-npx @monobrain/cli@latest hive-mind consensus --propose "task"
+npx monobrain@latest hive-mind consensus --propose "task"
 \`\`\`
 
 ---
@@ -1711,17 +1717,15 @@ npx @monobrain/cli@latest hive-mind consensus --propose "task"
 ### Optional Integrations
 | Package | Command |
 |---------|---------|
-| ruv-swarm | \`npx ruv-swarm mcp start\` |
 | flow-nexus | \`npx flow-nexus@latest mcp start\` |
 | agentic-jujutsu | \`npx agentic-jujutsu@latest\` |
 
 ### MCP Server Setup
 \`\`\`bash
 # Add Monobrain MCP
-claude mcp add monobrain -- npx -y monobrain@latest
+claude mcp add monobrain -- npx -y monobrain@latest mcp start
 
 # Optional servers
-claude mcp add ruv-swarm -- npx -y ruv-swarm mcp start
 claude mcp add flow-nexus -- npx -y flow-nexus@latest mcp start
 \`\`\`
 
