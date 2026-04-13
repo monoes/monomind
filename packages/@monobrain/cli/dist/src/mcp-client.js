@@ -43,6 +43,8 @@ import { autopilotTools } from './mcp-tools/autopilot-tools.js';
 import { graphifyTools } from './mcp-tools/graphify-tools.js';
 // Coverage-aware routing tools
 import { coverageRouterTools } from './ruvector/coverage-tools.js';
+// A2A Agent Card protocol (source: https://a2a-protocol.org)
+import { a2aTools } from './mcp-tools/a2a-tools.js';
 /**
  * MCP Tool Registry
  * Maps tool names to their handler functions
@@ -93,6 +95,8 @@ registerTools([
     ...graphifyTools,
     // Coverage-aware routing tools
     ...coverageRouterTools,
+    // A2A Agent Card protocol (source: https://a2a-protocol.org)
+    ...a2aTools,
 ]);
 /**
  * MCP Client Error

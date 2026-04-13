@@ -35,4 +35,6 @@ export { ruvllmWasmTools } from './ruvllm-tools.js';
 export { guidanceTools } from './guidance-tools.js';
 export { autopilotTools } from './autopilot-tools.js';
 export { graphifyTools } from './graphify-tools.js';
+// A2A Agent Card protocol (source: https://a2a-protocol.org)
+export { a2aTools } from './a2a-tools.js';
 //# sourceMappingURL=index.js.map

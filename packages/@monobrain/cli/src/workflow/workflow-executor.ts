@@ -78,6 +78,10 @@ export class WorkflowExecutor {
         return this.executeMapReduce(step, context);
       case 'loop':
         return this.executeLoop(step, context);
+      default: {
+        const _exhaustive: never = step;
+        throw new Error(`Unknown step type: ${(_exhaustive as { type: string }).type}`);
+      }
     }
   }
 
@@ -105,7 +109,7 @@ export class WorkflowExecutor {
     context: Record<string, unknown>,
   ): Promise<StepResult[]> {
     const results = await Promise.all(
-      step.steps.map((sub) => this.executeStep(sub, context)),
+      step.steps.map((sub) => this.executeStep(sub as WorkflowStep, context)),
     );
     return results.flat();
   }
@@ -116,7 +120,7 @@ export class WorkflowExecutor {
   ): Promise<StepResult[]> {
     const results: StepResult[] = [];
     for (const sub of step.steps) {
-      const r = await this.executeStep(sub, context);
+      const r = await this.executeStep(sub as WorkflowStep, context);
       results.push(...(Array.isArray(r) ? r : [r]));
     }
     return results;
@@ -129,9 +133,9 @@ export class WorkflowExecutor {
     const conditionMet = evaluateCondition(step.condition, context);
 
     if (conditionMet) {
-      return this.executeStep(step.if_true, context);
+      return this.executeStep(step.if_true as WorkflowStep, context);
     } else if (step.if_false) {
-      return this.executeStep(step.if_false, context);
+      return this.executeStep(step.if_false as WorkflowStep, context);
     }
 
     return { stepId: step.id, output: null, status: 'success' };
@@ -200,7 +204,7 @@ export class WorkflowExecutor {
       if (!conditionMet) break;
 
       for (const sub of step.body) {
-        const r = await this.executeStep(sub, context);
+        const r = await this.executeStep(sub as WorkflowStep, context);
         results.push(...(Array.isArray(r) ? r : [r]));
       }
 
