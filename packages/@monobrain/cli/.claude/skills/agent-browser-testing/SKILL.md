@@ -4,6 +4,8 @@ description: UI testing and task walkthrough using agent-browser — install, na
 version: 1.0.0
 triggers:
   - /ui-test
+  - /browse
+  - /crawl
   - ui test
   - test the UI
   - browser test
@@ -13,6 +15,19 @@ triggers:
   - QA this
   - test frontend
   - visual test
+  - crawl
+  - scrape
+  - browse the website
+  - go to the website
+  - open the website
+  - navigate to
+  - click on the website
+  - do this on the website
+  - automate the browser
+  - fill out the form
+  - log into
+  - sign in to
+  - submit the form
 tools:
   - Bash
 requires:
