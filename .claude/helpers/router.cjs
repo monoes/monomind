@@ -20,6 +20,61 @@ const AGENT_CAPABILITIES = {
   devops: ['ci-cd', 'docker', 'deployment', 'infrastructure'],
 };
 
+// Maps generic role → specific specialized agents available in the system
+const SPECIFIC_AGENTS_MAP = {
+  coder: [
+    { slug: 'sparc-coder',       label: 'sparc-coder',        note: 'TDD + SPARC methodology' },
+    { slug: 'backend-dev',       label: 'backend-dev',         note: 'API, DB, server-side' },
+    { slug: 'frontend-dev',      label: 'Frontend Developer',  note: 'React/Vue/CSS' },
+    { slug: 'mobile-dev',        label: 'mobile-dev',          note: 'React Native iOS/Android' },
+    { slug: 'ml-developer',      label: 'ml-developer',        note: 'ML model dev & training' },
+  ],
+  tester: [
+    { slug: 'tdd-london-swarm',      label: 'tdd-london-swarm',       note: 'Mock-driven TDD' },
+    { slug: 'API Tester',            label: 'API Tester',              note: 'API validation & performance' },
+    { slug: 'production-validator',  label: 'production-validator',    note: 'Deployment readiness' },
+    { slug: 'Evidence Collector',    label: 'Evidence Collector',      note: 'Screenshot-backed QA' },
+    { slug: 'agent-browser-testing', label: 'agent-browser-testing',   note: 'UI/browser automation testing' },
+  ],
+  reviewer: [
+    { slug: 'Code Reviewer',              label: 'Code Reviewer',            note: 'Correctness, security, perf' },
+    { slug: 'code-analyzer',              label: 'code-analyzer',            note: 'Quality metrics & smells' },
+    { slug: 'feature-dev:code-reviewer',  label: 'feature-dev:code-reviewer',note: 'Bug & logic error detection' },
+    { slug: 'Reality Checker',            label: 'Reality Checker',          note: 'Evidence-based certification' },
+    { slug: 'Accessibility Auditor',      label: 'Accessibility Auditor',    note: 'WCAG & assistive tech' },
+  ],
+  researcher: [
+    { slug: 'sparc:researcher',  label: 'sparc:researcher',  note: 'Parallel web search + memory' },
+    { slug: 'Explore',           label: 'Explore',            note: 'Fast codebase exploration' },
+    { slug: 'Trend Researcher',  label: 'Trend Researcher',   note: 'Market intelligence' },
+    { slug: 'UX Researcher',     label: 'UX Researcher',      note: 'User behaviour & usability' },
+  ],
+  architect: [
+    { slug: 'system-architect',   label: 'system-architect',   note: 'High-level system design' },
+    { slug: 'Software Architect', label: 'Software Architect',  note: 'DDD, patterns, decisions' },
+    { slug: 'Backend Architect',  label: 'Backend Architect',   note: 'Scalable server-side design' },
+    { slug: 'Plan',               label: 'Plan',                note: 'Implementation strategy' },
+  ],
+  'backend-dev': [
+    { slug: 'backend-dev',        label: 'backend-dev',         note: 'API & server patterns' },
+    { slug: 'Database Optimizer', label: 'Database Optimizer',  note: 'Schema, indexes, query tuning' },
+    { slug: 'Data Engineer',      label: 'Data Engineer',       note: 'Pipelines, ETL, lakehouse' },
+    { slug: 'Security Engineer',  label: 'Security Engineer',   note: 'Threat modelling, secure code' },
+  ],
+  'frontend-dev': [
+    { slug: 'Frontend Developer', label: 'Frontend Developer',  note: 'React/Vue/Angular' },
+    { slug: 'UI Designer',        label: 'UI Designer',          note: 'Design systems & components' },
+    { slug: 'UX Architect',       label: 'UX Architect',         note: 'CSS systems & interaction' },
+    { slug: 'mobile-dev',         label: 'mobile-dev',           note: 'Cross-platform mobile' },
+  ],
+  devops: [
+    { slug: 'DevOps Automator',   label: 'DevOps Automator',    note: 'CI/CD, infra automation' },
+    { slug: 'SRE',                label: 'SRE',                  note: 'SLOs, reliability, on-call' },
+    { slug: 'cicd-engineer',      label: 'cicd-engineer',        note: 'GitHub Actions pipelines' },
+    { slug: 'Incident Response Commander', label: 'Incident Response Commander', note: 'Prod incident mgmt' },
+  ],
+};
+
 const TASK_PATTERNS = {
   'implement|create|build|add|write code': 'coder',
   'test|spec|coverage|unit test|integration': 'tester',
@@ -137,6 +192,7 @@ async function routeTaskSemantic(task) {
           reason: 'RouteLayer semantic (' + (semantic.method || 'semantic') + '): ' + semantic.routeName,
           skillMatches: matchSkills(task),
           extrasMatches: [],
+          specificAgents: SPECIFIC_AGENTS_MAP[semantic.agentSlug] || [],
           semanticRouting: true,
         };
       }
@@ -171,6 +227,7 @@ function routeTask(task) {
         reason: `Matched pattern: ${pattern}`,
         skillMatches: matchSkills(task),
         extrasMatches: [],
+        specificAgents: SPECIFIC_AGENTS_MAP[agent] || [],
       };
     }
   }
@@ -182,6 +239,7 @@ function routeTask(task) {
     reason: 'Default routing - no specific pattern matched',
     skillMatches: matchSkills(task),
     extrasMatches: matchExtras(task),
+    specificAgents: SPECIFIC_AGENTS_MAP['coder'] || [],
   };
 }
 

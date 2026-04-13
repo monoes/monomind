@@ -42,6 +42,7 @@ const SKILLS_MAP: Record<string, string[]> = {
     'verification-quality',
     'stream-chain',
     'skill-builder',
+    'specialagent',
   ],
   browser: ['browser', 'agent-browser-testing'],  // agent-browser integration
   dualMode: ['dual-mode'],  // Claude Code + Codex hybrid execution
