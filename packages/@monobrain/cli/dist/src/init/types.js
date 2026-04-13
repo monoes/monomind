@@ -75,7 +75,6 @@ export const DEFAULT_INIT_OPTIONS = {
         core: true,
         agentdb: true,
         github: true,
-        flowNexus: false,
         browser: true,
         v1: true,
         dualMode: false, // Optional: enable with --dual flag
@@ -118,7 +117,6 @@ export const DEFAULT_INIT_OPTIONS = {
     mcp: {
         monobrain: true,
         ruvSwarm: false,
-        flowNexus: false,
         graphify: false,
         autoStart: false,
         port: 3000,
@@ -172,7 +170,6 @@ export const MINIMAL_INIT_OPTIONS = {
         core: true,
         agentdb: false,
         github: false,
-        flowNexus: false,
         browser: false,
         v1: false,
         dualMode: false,
@@ -233,7 +230,6 @@ export const FULL_INIT_OPTIONS = {
         core: true,
         agentdb: true,
         github: true,
-        flowNexus: true,
         browser: true,
         v1: true,
         dualMode: true, // Include in full init
@@ -250,7 +246,6 @@ export const FULL_INIT_OPTIONS = {
     mcp: {
         monobrain: true,
         ruvSwarm: true,
-        flowNexus: true,
         graphify: false,
         autoStart: false,
         port: 3000,

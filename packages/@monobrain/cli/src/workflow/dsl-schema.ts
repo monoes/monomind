@@ -12,9 +12,8 @@ const retryPolicySchema = z.object({
 });
 
 // ---------- Lazy wrapper for recursive step references ----------
-type StepSchema = z.ZodType<WorkflowStep>;
-
-const lazyStep: StepSchema = z.lazy(() => workflowStepSchema);
+// Use ZodTypeAny to avoid circular type reference (WorkflowStep is defined below)
+const lazyStep: z.ZodTypeAny = z.lazy(() => workflowStepSchema);
 
 // ---------- 6 step-type schemas ----------
 
@@ -89,7 +88,7 @@ export const workflowDefinitionSchema = z.object({
   name: z.string().min(1),
   version: z.string().regex(semverRegex, 'version must be valid semver (e.g. 1.0.0)'),
   description: z.string().optional(),
-  variables: z.record(z.unknown()).optional(),
+  variables: z.record(z.string(), z.unknown()).optional(),
   steps: z.array(workflowStepSchema).min(1),
 });
 
