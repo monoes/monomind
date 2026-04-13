@@ -1241,6 +1241,131 @@ export function createLearningWorker(projectRoot: string): WorkerHandler {
           routingAccuracy: (routing?.accuracy as number) ?? 0,
           intelligenceScore: (intelligence?.score as number) ?? 0,
         };
+
+        // ERL heuristic extraction: distil portable rules from completed trajectory data.
+        // Source: arXiv:2603.24639 — Experiential Reflective Learning (+7.8% on GAIA2).
+        const trajectories = metrics.trajectories as Array<{
+          id: string;
+          taskDescription: string;
+          steps: Array<{ step: number; action: string; outcome: string; error?: string }>;
+          success: boolean;
+          agentSlug?: string;
+          completedAt: number;
+        }> | undefined;
+
+        if (Array.isArray(trajectories) && trajectories.length > 0) {
+          const { ERLWorker } = await import('./erl-worker.js');
+          const erlWorker = new ERLWorker();
+          const allHeuristics: unknown[] = [];
+
+          for (const traj of trajectories) {
+            const erlResult = erlWorker.extract({
+              ...traj,
+              steps: traj.steps.map(s => ({
+                ...s,
+                outcome: s.outcome as 'success' | 'failure' | 'partial',
+              })),
+            });
+            allHeuristics.push(...erlResult.extracted);
+          }
+
+          if (allHeuristics.length > 0) {
+            const heuristicsPath = await safePathAsync(projectRoot, '.monobrain', 'learning', 'heuristics.json');
+            await fs.writeFile(
+              heuristicsPath,
+              JSON.stringify({ updatedAt: Date.now(), heuristics: allHeuristics }, null, 2),
+              'utf-8',
+            ).catch(() => { /* non-fatal */ });
+            learningData.erl = { heuristicsExtracted: allHeuristics.length };
+          }
+        }
+
+        // TextGrad backward pass: generate textual gradients from completed task outputs.
+        // Source: arXiv:2406.07496 — TextGrad automatic differentiation via text.
+        const taskOutputs = metrics.taskOutputs as Array<{
+          taskId: string;
+          taskDescription: string;
+          output: string;
+          agentSlug: string;
+          qualityScore?: number;
+        }> | undefined;
+
+        if (Array.isArray(taskOutputs) && taskOutputs.length > 0) {
+          const { TextGradWorker } = await import('./textgrad-worker.js');
+          const textgradWorker = new TextGradWorker();
+          const allGradients: unknown[] = [];
+
+          for (const task of taskOutputs) {
+            const tgResult = textgradWorker.compute(task);
+            allGradients.push(...tgResult.gradients);
+          }
+
+          if (allGradients.length > 0) {
+            const gradientsPath = await safePathAsync(projectRoot, '.monobrain', 'learning', 'textual-gradients.json');
+            await fs.writeFile(
+              gradientsPath,
+              JSON.stringify({ updatedAt: Date.now(), gradients: allGradients }, null, 2),
+              'utf-8',
+            ).catch(() => { /* non-fatal */ });
+            learningData.textgrad = { gradientsGenerated: allGradients.length };
+          }
+        }
+
+        // FOREVER forgetting curve: apply Ebbinghaus decay to cached pattern entries.
+        // Entries below the replay threshold are scheduled for re-surfacing.
+        // Source: newinnovation.md §2.6 — FOREVER spaced-repetition replay.
+        const cachedEntries = metrics.entries as Array<{
+          id: string;
+          importanceScore: number;
+          lastAccessedAt: number;
+          namespace?: string;
+        }> | undefined;
+
+        if (Array.isArray(cachedEntries) && cachedEntries.length > 0) {
+          // RAPTOR cluster summarisation: group episodic entries into contextual-tier summaries.
+          // Source: arXiv:2401.18059 — Recursive Abstractive Tree Indexing (ICLR 2024).
+          if (cachedEntries.length >= 3) {
+            const { RaptorWorker } = await import('./raptor-worker.js');
+            const raptorWorker = new RaptorWorker({ clusterSize: 5, minClusterSize: 3 });
+            const raptorResult = raptorWorker.consolidate(
+              cachedEntries.map(e => ({ id: e.id, content: String(e.importanceScore), namespace: e.namespace })),
+              'consolidated',
+            );
+
+            if (raptorResult.summaryEntries.length > 0) {
+              const raptorPath = await safePathAsync(projectRoot, '.monobrain', 'learning', 'raptor-summaries.json');
+              await fs.writeFile(
+                raptorPath,
+                JSON.stringify({ generatedAt: Date.now(), summaries: raptorResult.summaryEntries }, null, 2),
+                'utf-8',
+              ).catch(() => { /* non-fatal */ });
+              learningData.raptor = {
+                clusters: raptorResult.clusters.length,
+                summaries: raptorResult.summaryEntries.length,
+              };
+            }
+          }
+
+          const { ForgettingCurveWorker } = await import('./forgetting-curve-worker.js');
+          const forgettingWorker = new ForgettingCurveWorker();
+          const decayResult = await forgettingWorker.execute({ entries: cachedEntries });
+
+          learningData.forgettingCurve = {
+            processedCount: decayResult.processedCount,
+            replayCount: decayResult.replayCount,
+            replayIds: decayResult.scheduledForReplay.map(e => e.id),
+          };
+
+          // Persist the replay schedule for the consolidate worker to act on
+          if (decayResult.replayCount > 0) {
+            const replayPath = await safePathAsync(projectRoot, '.monobrain', 'learning', 'replay-queue.json');
+            await fs.writeFile(
+              replayPath,
+              JSON.stringify({ scheduledAt: Date.now(), entries: decayResult.scheduledForReplay }, null, 2),
+              'utf-8',
+            ).catch(() => { /* non-fatal */ });
+          }
+        }
       } catch {
         // No metrics file
       }

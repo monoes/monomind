@@ -99,6 +99,11 @@ export interface MemoryEntry {
   /** Expiration timestamp (optional) */
   expiresAt?: number;
 
+  /** Event time — when the event occurred (vs createdAt = ingestion time).
+   *  Bi-temporal model: separates T (event) from T' (record).
+   *  Source: https://arxiv.org/abs/2501.13956 (Zep/Graphiti) */
+  eventAt?: number;
+
   /** Version number for optimistic locking */
   version: number;
 
@@ -107,6 +112,9 @@ export interface MemoryEntry {
 
   /** Access count for usage tracking */
   accessCount: number;
+
+  /** Importance score for FOREVER forgetting-curve replay (default 1.0) */
+  importanceScore?: number;
 
   /** Last access timestamp */
   lastAccessedAt: number;
@@ -190,11 +198,19 @@ export interface MemoryQuery {
   /** Metadata filters */
   metadata?: Record<string, unknown>;
 
-  /** Time range filters */
+  /** Time range filters (ingestion time) */
   createdAfter?: number;
   createdBefore?: number;
   updatedAfter?: number;
   updatedBefore?: number;
+
+  /**
+   * Bi-temporal event-time filters (T vs T').
+   * Use these to query by WHEN THE EVENT OCCURRED rather than when it was recorded.
+   * Source: arXiv:2501.13956 — Zep/Graphiti bi-temporal knowledge graph.
+   */
+  eventAfter?: number;
+  eventBefore?: number;
 
   /** Maximum number of results */
   limit: number;

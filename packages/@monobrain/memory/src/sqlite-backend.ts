@@ -151,8 +151,8 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
       INSERT OR REPLACE INTO memory_entries (
         id, key, content, type, namespace, tags, metadata,
         owner_id, access_level, created_at, updated_at, expires_at,
-        version, "references", access_count, last_accessed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        event_at, version, "references", access_count, last_accessed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -168,6 +168,7 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
       entry.createdAt,
       entry.updatedAt,
       entry.expiresAt || null,
+      entry.eventAt ?? null,
       entry.version,
       JSON.stringify(entry.references),
       entry.accessCount,
@@ -193,7 +194,7 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
   /**
    * Get a memory entry by ID
    */
-  async get(id: string): Promise<MemoryEntry | null> {
+  async get(id: string, agentId?: string): Promise<MemoryEntry | null> {
     this.ensureInitialized();
 
     const stmt = this.db!.prepare('SELECT * FROM memory_entries WHERE id = ?');
@@ -201,7 +202,37 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
 
     if (!row) return null;
 
+    // Collaborative memory promotion: track per-agent reads for auto-promotion
+    // Source: https://arxiv.org/abs/2505.18279
+    if (agentId) {
+      try {
+        this.db!.prepare(
+          'INSERT OR IGNORE INTO agent_reads (entry_id, agent_id, read_at) VALUES (?, ?, ?)'
+        ).run(id, agentId, Date.now());
+        void this.checkAndPromoteEntry(id);
+      } catch { /* non-critical */ }
+    }
+
     return this.rowToEntry(row);
+  }
+
+  /**
+   * Auto-promote an entry's access_level to 'team' when 3+ distinct agents
+   * have read it within the past 24 hours.
+   * Source: https://arxiv.org/abs/2505.18279
+   */
+  private checkAndPromoteEntry(entryId: string): void {
+    if (!this.db) return;
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const countRow = this.db.prepare(
+      'SELECT COUNT(DISTINCT agent_id) as cnt FROM agent_reads WHERE entry_id = ? AND read_at > ?'
+    ).get(entryId, cutoff) as { cnt: number } | undefined;
+
+    if ((countRow?.cnt ?? 0) >= 3) {
+      this.db.prepare(
+        "UPDATE memory_entries SET access_level = 'team' WHERE id = ? AND access_level = 'private'"
+      ).run(entryId);
+    }
   }
 
   /**
@@ -329,6 +360,17 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
     if (query.updatedBefore) {
       sql += ' AND updated_at <= ?';
       params.push(query.updatedBefore);
+    }
+
+    // Bi-temporal event-time filters (arXiv:2501.13956 — Zep/Graphiti)
+    if (query.eventAfter) {
+      sql += ' AND event_at >= ?';
+      params.push(query.eventAfter);
+    }
+
+    if (query.eventBefore) {
+      sql += ' AND event_at <= ?';
+      params.push(query.eventBefore);
     }
 
     if (!query.includeExpired) {
@@ -633,6 +675,7 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         expires_at INTEGER,
+        event_at INTEGER,
         version INTEGER NOT NULL,
         "references" TEXT NOT NULL,
         access_count INTEGER NOT NULL,
@@ -653,6 +696,15 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
         embedding BLOB,
         FOREIGN KEY (entry_id) REFERENCES memory_entries(id) ON DELETE CASCADE
       );
+
+      CREATE TABLE IF NOT EXISTS agent_reads (
+        entry_id TEXT NOT NULL,
+        agent_id TEXT NOT NULL,
+        read_at INTEGER NOT NULL,
+        UNIQUE(entry_id, agent_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_agent_reads_entry ON agent_reads(entry_id);
+      CREATE INDEX IF NOT EXISTS idx_agent_reads_at ON agent_reads(read_at);
     `);
   }
 
@@ -681,6 +733,7 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       expiresAt: row.expires_at,
+      eventAt: row.event_at ?? undefined,
       version: row.version,
       references: JSON.parse(row.references),
       accessCount: row.access_count,
@@ -696,8 +749,8 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
       INSERT OR REPLACE INTO memory_entries (
         id, key, content, type, namespace, tags, metadata,
         owner_id, access_level, created_at, updated_at, expires_at,
-        version, "references", access_count, last_accessed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        event_at, version, "references", access_count, last_accessed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -713,6 +766,7 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
       entry.createdAt,
       entry.updatedAt,
       entry.expiresAt || null,
+      entry.eventAt ?? null,
       entry.version,
       JSON.stringify(entry.references),
       entry.accessCount,

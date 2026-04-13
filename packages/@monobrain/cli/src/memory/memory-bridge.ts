@@ -288,11 +288,23 @@ function getDb(registry: any): any | null {
       owner_id TEXT,
       created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
       updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+      event_at INTEGER,
       expires_at INTEGER,
       last_accessed_at INTEGER,
       access_count INTEGER DEFAULT 0,
+      access_level TEXT DEFAULT 'private',
       status TEXT DEFAULT 'active',
       UNIQUE(namespace, key)
+    )`);
+    // Migrate older schemas that predate bi-temporal and collaborative-promotion columns
+    try { db.exec(`ALTER TABLE memory_entries ADD COLUMN event_at INTEGER`); } catch { /* already exists */ }
+    try { db.exec(`ALTER TABLE memory_entries ADD COLUMN access_level TEXT DEFAULT 'private'`); } catch { /* already exists */ }
+    // agent_reads: track per-agent reads for collaborative memory promotion
+    db.exec(`CREATE TABLE IF NOT EXISTS agent_reads (
+      entry_id TEXT NOT NULL,
+      agent_id TEXT NOT NULL,
+      read_at INTEGER NOT NULL,
+      PRIMARY KEY (entry_id, agent_id)
     )`);
     // Ensure indexes
     db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_ns ON memory_entries(namespace)`);
@@ -373,13 +385,13 @@ export async function bridgeStoreEntry(options: {
       ? `INSERT OR REPLACE INTO memory_entries (
           id, key, namespace, content, type,
           embedding, embedding_dimensions, embedding_model,
-          tags, metadata, created_at, updated_at, expires_at, status
-        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')`
+          tags, metadata, created_at, updated_at, event_at, expires_at, status
+        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`
       : `INSERT INTO memory_entries (
           id, key, namespace, content, type,
           embedding, embedding_dimensions, embedding_model,
-          tags, metadata, created_at, updated_at, expires_at, status
-        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, 'active')`;
+          tags, metadata, created_at, updated_at, event_at, expires_at, status
+        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`;
 
     const stmt = ctx.db.prepare(insertSql);
     stmt.run(
@@ -387,7 +399,7 @@ export async function bridgeStoreEntry(options: {
       embeddingJson, dimensions || null, model,
       tags.length > 0 ? JSON.stringify(tags) : null,
       '{}',
-      now, now,
+      now, now, now,  // created_at, updated_at, event_at (bi-temporal: default eventAt = ingestion time)
       ttl ? now + (ttl * 1000) : null
     );
 
@@ -400,7 +412,7 @@ export async function bridgeStoreEntry(options: {
     // Phase 4: AttestationLog write audit
     await logAttestation(registry, 'store', id, { key, namespace, hasEmbedding: !!embeddingJson });
 
-    return {
+    const storeResult = {
       success: true,
       id,
       embedding: embeddingJson ? { dimensions, model } : undefined,
@@ -408,6 +420,35 @@ export async function bridgeStoreEntry(options: {
       cached: true,
       attested: true,
     };
+
+    // A-MEM: Post-write Zettelkasten linking — find top-3 semantic neighbors and create causal edges
+    // Source: https://arxiv.org/abs/2502.12110
+    void (async () => {
+      try {
+        const neighbors = await bridgeSearchEntries({
+          query: options.value,  // A-MEM: search by content, not key string
+          namespace: options.namespace,
+          limit: 3,
+          threshold: 0.7,
+          dbPath: options.dbPath,
+        });
+        if (neighbors?.results) {
+          for (const neighbor of neighbors.results) {
+            if (neighbor.id !== id) {
+              await bridgeRecordCausalEdge({
+                sourceId: id,
+                targetId: neighbor.id,
+                relation: 'similar',
+                weight: neighbor.score,
+                dbPath: options.dbPath,
+              });
+            }
+          }
+        }
+      } catch { /* non-critical background operation */ }
+    })();
+
+    return storeResult;
   } catch {
     return null;
   }
@@ -631,6 +672,8 @@ export async function bridgeGetEntry(options: {
   key: string;
   namespace?: string;
   dbPath?: string;
+  /** Agent identifier for collaborative memory promotion tracking */
+  agentId?: string;
 }): Promise<{
   success: boolean;
   found: boolean;
@@ -705,6 +748,26 @@ export async function bridgeGetEntry(options: {
       ).run(Date.now(), row.id);
     } catch {
       // Non-fatal
+    }
+
+    // Collaborative memory promotion: track agent reads for auto-promotion to 'team'
+    // Source: https://arxiv.org/abs/2505.18279
+    if (options.agentId) {
+      try {
+        ctx.db.prepare(
+          'INSERT OR IGNORE INTO agent_reads (entry_id, agent_id, read_at) VALUES (?, ?, ?)'
+        ).run(row.id, options.agentId, Date.now());
+        // Check if 3+ distinct agents read in past 24h → promote to 'team'
+        const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+        const countRow = ctx.db.prepare(
+          'SELECT COUNT(DISTINCT agent_id) as cnt FROM agent_reads WHERE entry_id = ? AND read_at > ?'
+        ).get(row.id, cutoff) as { cnt: number } | undefined;
+        if ((countRow?.cnt ?? 0) >= 3) {
+          ctx.db.prepare(
+            "UPDATE memory_entries SET access_level = 'team' WHERE id = ? AND access_level = 'private'"
+          ).run(row.id);
+        }
+      } catch { /* non-critical */ }
     }
 
     let tags: string[] = [];

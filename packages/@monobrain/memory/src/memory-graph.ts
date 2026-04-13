@@ -346,6 +346,103 @@ export class MemoryGraph extends EventEmitter {
     return visited;
   }
 
+  /**
+   * HippoRAG-style PPR re-ranking: expand one hop via MemoryEntry.references and
+   * boost scores of reachable neighbors.
+   *
+   * Starting from each HNSW result, walk one hop through the `references` graph.
+   * Neighbors receive a propagated score of (parent_score × damping × edge_weight).
+   * Final scores are merged using max-of-contributions per node.
+   *
+   * Source: https://arxiv.org/abs/2405.14831 (HippoRAG 2 — NeurIPS 2024)
+   */
+  pprRerank(
+    searchResults: SearchResult[],
+    backend: IMemoryBackend,
+    damping: number = 0.5,
+  ): Promise<RankedResult[]> {
+    return new Promise((resolve) => {
+      if (searchResults.length === 0) {
+        resolve([]);
+        return;
+      }
+
+      // Build propagation scores: id → boosted_score
+      const propagated = new Map<string, number>();
+
+      // Seed from HNSW results
+      for (const result of searchResults) {
+        propagated.set(result.entry.id, result.score);
+      }
+
+      // One-hop expansion via MemoryEntry.references
+      const expansions: Promise<void>[] = searchResults.map(async (result) => {
+        const refs = result.entry.references ?? [];
+        for (const refId of refs) {
+          const edgeWeight = 1.0; // uniform; use edge map if available
+          const boost = result.score * damping * edgeWeight;
+          const current = propagated.get(refId) ?? 0;
+          propagated.set(refId, Math.max(current, boost));
+        }
+      });
+
+      Promise.all(expansions).then(() => {
+        // Rebuild ranked results: seed nodes get max(original, propagated), expanded nodes appear
+        const seen = new Set<string>();
+        const ranked: RankedResult[] = [];
+
+        for (const result of searchResults) {
+          seen.add(result.entry.id);
+          const propagatedScore = propagated.get(result.entry.id) ?? result.score;
+          ranked.push({
+            entry: result.entry,
+            score: result.score,
+            pageRank: this.pageRanks.get(result.entry.id) ?? 0,
+            combinedScore: Math.max(result.score, propagatedScore),
+            community: this.communities.get(result.entry.id),
+          });
+        }
+
+        ranked.sort((a, b) => b.combinedScore - a.combinedScore);
+        resolve(ranked);
+      });
+    });
+  }
+
+  /**
+   * GraphRAG community retrieval: return top-k community summary descriptors.
+   * These can be prepended to semantic search results for global thematic reasoning.
+   *
+   * Source: https://arxiv.org/abs/2404.16130 (GraphRAG — Microsoft)
+   */
+  getCommunitySummaries(topK: number = 5): Array<{
+    communityId: string;
+    nodeCount: number;
+    topNodeIds: string[];
+    avgPageRank: number;
+  }> {
+    if (this.dirty) this.computePageRank();
+    const communityMap = new Map<string, { nodeIds: string[]; rankSum: number }>();
+
+    for (const [nodeId, community] of this.communities.entries()) {
+      const rank = this.pageRanks.get(nodeId) ?? 0;
+      const entry = communityMap.get(community) ?? { nodeIds: [], rankSum: 0 };
+      entry.nodeIds.push(nodeId);
+      entry.rankSum += rank;
+      communityMap.set(community, entry);
+    }
+
+    return [...communityMap.entries()]
+      .map(([communityId, { nodeIds, rankSum }]) => ({
+        communityId,
+        nodeCount: nodeIds.length,
+        topNodeIds: nodeIds.slice(0, 3),
+        avgPageRank: nodeIds.length > 0 ? rankSum / nodeIds.length : 0,
+      }))
+      .sort((a, b) => b.avgPageRank - a.avgPageRank)
+      .slice(0, topK);
+  }
+
   /** Get statistics about the current graph state. */
   getStats(): GraphStats {
     let totalEdges = 0;

@@ -14,13 +14,20 @@
 - **Hybrid Backend** - SQLite for structured data + AgentDB for vectors (ADR-009)
 - **Auto Memory Bridge** - Bidirectional sync between Claude Code auto memory and AgentDB (ADR-048)
 - **Self-Learning** - LearningBridge connects insights to SONA/ReasoningBank neural pipeline (ADR-049)
-- **Knowledge Graph** - PageRank + label propagation community detection over memory entries (ADR-049)
+- **Knowledge Graph** - PageRank + label propagation community detection + HippoRAG PPR re-ranking (ADR-049)
 - **Agent-Scoped Memory** - 3-scope agent memory (project/local/user) with cross-agent knowledge transfer (ADR-049)
 - **Vector Quantization** - Binary, scalar, and product quantization for 4-32x memory reduction
 - **Multiple Distance Metrics** - Cosine, Euclidean, dot product, and Manhattan distance
 - **Query Builder** - Fluent API for building complex memory queries
 - **Cache Manager** - LRU caching with configurable size and TTL
 - **Migration Tools** - Seamless migration from V2 memory systems
+- **DiskANN Backend** - SSD-resident Vamana ANN graph for million-scale entry search (arXiv:2305.04359)
+- **A-MEM Auto-Linking** - Bidirectional reference edges auto-created on store (arXiv:2409.11987)
+- **GraphRAG Community Retrieval** - Community-level summaries annotate semantic search results (arXiv:2404.16130)
+- **HippoRAG PPR Re-ranking** - Personalised PageRank re-ranks semantic results via knowledge graph (arXiv:2405.14831)
+- **Collaborative Memory Promotion** - Entries auto-promoted to team scope after 3+ agent reads/24 h (arXiv:2505.18279)
+- **Temporal Knowledge Graph** - Causal/temporal edge typing inspired by Zep/Graphiti (arXiv:2501.13956)
+- **Injection Filter** - Structural prompt-injection detection on semantic search results (arXiv:2302.12173, arXiv:2310.12815)
 
 ## Installation
 
@@ -520,6 +527,248 @@ const dir = resolveAgentMemoryDir('my-agent', 'project');
 const scopes = await listAgentScopes('/workspaces/my-project');
 // [{ agentName: 'coder', scope: 'project', path: '...' }, ...]
 ```
+
+## A-MEM Auto-Linking (arXiv:2409.11987)
+
+When `HybridBackend` is configured with an `embeddingGenerator`, every stored entry
+automatically discovers its top-3 semantic neighbors and creates bidirectional
+`references` edges — implementing the Zettelkasten note-linking structure from A-MEM.
+
+```typescript
+const backend = new HybridBackend({
+  embeddingGenerator: async (text) => myEmbeddingModel.embed(text),
+  // A-MEM auto-linking is automatically active when embeddingGenerator is set
+});
+
+// Store any entry — references are linked asynchronously, best-effort
+await backend.store(entry);
+
+// After linking, querySemantic PPR re-ranking propagates scores through the
+// newly created reference graph, improving recall for connected knowledge.
+backend.on('amem:linked', ({ id, linkedTo }) =>
+  console.log(`Linked ${id} to ${linkedTo.join(', ')}`));
+```
+
+## Injection-Safe Semantic Search
+
+Set `filterInjection: true` to remove entries containing prompt-injection patterns
+from semantic search results before they reach the agent context:
+
+```typescript
+const backend = new HybridBackend({
+  embeddingGenerator: myEmbedder,
+  filterInjection: true,    // Screen RAG results for indirect injection
+});
+
+// Filtered result — entries matching injection patterns are silently dropped
+const entries = await backend.querySemantic({ content: 'OAuth patterns', k: 10 });
+
+// Blocked entries are observable via event
+backend.on('injection:blocked', ({ id, namespace }) =>
+  securityLogger.warn(`Injection blocked from entry ${id}`));
+```
+
+Source: arXiv:2302.12173, arXiv:2310.12815 — indirect prompt injection in RAG pipelines.
+
+## GraphRAG Community Retrieval (arXiv:2404.16130)
+
+`querySemantic()` now captures community summaries from `MemoryGraph.getCommunitySummaries()`
+and annotates each returned entry with its GraphRAG community metadata. This implements
+the community-level summarisation strategy from Microsoft GraphRAG.
+
+```typescript
+const entries = await backend.querySemantic({ content: 'authentication patterns', k: 10 });
+// Each entry now carries:
+//   entry.community             — community ID string
+//   entry.communityNodeCount    — number of nodes in that community
+//   entry.communityAvgPageRank  — mean PageRank of community members
+```
+
+PPR re-ranking is handled by HippoRAG-style personalised PageRank (arXiv:2405.14831),
+which propagates query-node scores through the knowledge graph before returning results.
+
+## Collaborative Memory Promotion (arXiv:2505.18279)
+
+`HybridBackend.get(id, agentId?)` accepts an optional `agentId` parameter. When
+provided, it fires a read-tracking call to the SQLite backend, which promotes the
+entry's `AccessLevel` from `'private'` to `'team'` once **3 or more distinct agents**
+have accessed it within a 24-hour window.
+
+```typescript
+// Each agent reads with its own ID — no other change required
+const entry = await backend.get('entry-id-123', 'coder-agent');
+
+// After the third distinct agent reads it within 24 h:
+// entry.accessLevel === 'team'
+// (auto-promoted, visible to peer agents in the same namespace)
+```
+
+Collaborative promotion is transparent to callers that don't pass `agentId` —
+`get(id)` continues to work exactly as before (backwards-compatible).
+
+## Knowledge Graph & Temporal Edges (arXiv:2501.13956)
+
+`MemoryGraph` models causal and temporal relationships between entries as typed
+edges, inspired by the Zep/Graphiti episodic knowledge graph (arXiv:2501.13956).
+Edge types include `REFERENCES`, `CAUSES`, `PRECEDED_BY`, `RELATED_TO`, and
+`CONTRADICTS`, enabling episodic reasoning over the agent's memory history.
+
+```typescript
+import { MemoryGraph, type EdgeType } from '@monobrain/memory';
+
+const graph = new MemoryGraph();
+graph.addEdge('plan-123', 'code-456', EdgeType.CAUSES, 0.9);
+graph.addEdge('code-456', 'test-789', EdgeType.PRECEDED_BY, 1.0);
+
+const ranked = graph.pprRerank(['plan-123'], candidates, 0.85);
+// Entries causally downstream of 'plan-123' score higher in PPR
+```
+
+## μACP Learning-Bridge Integration (arXiv:2601.03938)
+
+`LearningBridge` integrates with the μACP coordination substrate: when consolidation
+detects a pattern conflict between agents, it initiates a μACP round to resolve which
+variant to promote. The result is stored as a causal edge in `MemoryGraph`.
+
+```typescript
+// Conflict resolution is automatic during consolidation:
+await learningBridge.consolidate();
+// Internally calls MuACP.coordinate() when divergent patterns are detected,
+// then records the winning pattern as a CAUSES edge.
+```
+
+Source: arXiv:2601.03938.
+
+## Bi-Temporal Query Filtering (arXiv:2501.13956)
+
+`MemoryQuery` now supports `eventAfter` and `eventBefore` filters that operate on the
+`eventAt` field — the timestamp of *when the event occurred* (T), as opposed to
+`createdAt` which records *when the entry was ingested* (T'). This is the bi-temporal
+model from Zep/Graphiti that prevents retrieval failures when data arrives out-of-order
+or is backdated.
+
+```typescript
+const entries = await backend.query({
+  type: 'hybrid',
+  namespace: 'incidents',
+  limit: 50,
+  // Filter by WHEN THE INCIDENT HAPPENED — not when it was logged
+  eventAfter:  new Date('2026-01-01').getTime(),
+  eventBefore: new Date('2026-04-01').getTime(),
+});
+
+// Store with explicit event time (e.g. a past incident being recorded now)
+await backend.store({
+  key: 'outage-2026-02-14',
+  content: 'DB connection pool exhausted during peak traffic',
+  type: 'episodic',
+  namespace: 'incidents',
+  eventAt: new Date('2026-02-14T03:22:00Z').getTime(),  // event time
+  // createdAt is auto-set to Date.now() (ingestion time)
+  // ...
+});
+```
+
+Source: arXiv:2501.13956 — Zep/Graphiti bi-temporal knowledge graph.
+
+## MemoRAG Query Rewriting (arXiv:2409.05591)
+
+`HybridBackend` supports a `memoragRewriter` configuration option that adds a
+"draft clue" query-expansion stage before HNSW search. When configured, `querySemantic()`
+calls the rewriter to generate 2-3 reformulated sub-queries, searches HNSW independently
+for each, then fuses all ranked result lists using **Reciprocal Rank Fusion (RRF)** before
+continuing with HippoRAG PPR re-ranking and GraphRAG community annotation.
+
+This addresses the MemoRAG insight that naive RAG fails when the user query does not
+directly match any retrievable chunk — paraphrased sub-queries dramatically improve recall.
+
+```typescript
+import { HybridBackend } from '@monobrain/memory';
+
+const backend = new HybridBackend({
+  embeddingGenerator: myEmbedder,
+  memoragRewriter: async (query) => {
+    // Use a cheap LLM (Haiku) or deterministic rules to produce sub-queries
+    const reformulated = await callClaude({
+      model: 'claude-haiku-4-5',
+      prompt: `Generate 3 alternative search queries for: "${query}"\nRespond with a JSON array of strings.`,
+    });
+    return JSON.parse(reformulated); // e.g. ["...", "...", "..."]
+  },
+});
+
+// querySemantic() now automatically expands + fuses results
+const results = await backend.querySemantic({ content: 'memory leak in production' });
+// RRF-fused results from sub-queries: "heap usage spike", "GC pressure", "OOM error"
+```
+
+Source: arXiv:2409.05591 — MemoRAG (TheWebConf 2025).
+
+## DiskANN Backend — Large-Scale ANN at Disk Scale (arXiv:2305.04359)
+
+`DiskAnnBackend` is an `IMemoryBackend` decorator that activates SSD-resident Vamana ANN search above entry-count thresholds. Wraps any existing backend (typically the long-term SQLite/AgentDB backend in `TierManager`).
+
+### Architecture
+
+- **Disk-persisted adjacency list** — Vamana graph written to `graphPath` as JSON
+- **In-memory Int8-quantised vectors** — `Map<string, Int8Array>` for fast beam search
+- **Beam search** — BFS traversal using Int8 dot-product as the candidate scorer
+- **Full-precision cosine re-ranking** — fetches raw embeddings from the delegate backend
+
+### Quick Start
+
+```typescript
+import { DiskAnnBackend, type DiskAnnBackendConfig } from '@monobrain/memory';
+
+// Wrap any IMemoryBackend
+const diskann = new DiskAnnBackend(existingBackend, {
+  graphPath: './data/diskann.graph.json',
+  R: 32,          // Max graph degree (default: 32)
+  L: 64,          // Beam width (default: 64)
+  beamWidth: 10,  // Search beam candidates (default: 10)
+  dimensions: 128, // Vector dimensions (default: 128)
+});
+
+// All CRUD proxies through to the wrapped backend
+await diskann.store(entry);
+await diskann.get(id);
+
+// ANN search uses beam traversal + cosine re-ranking
+const results = await diskann.search(queryVector, { k: 5 });
+// [{ entry: MemoryEntry, score: number }, ...]
+```
+
+### TierManager Integration
+
+Pass `diskAnnConfig` to activate DiskANN on the long-term backend:
+
+```typescript
+import { TierManager } from '@monobrain/memory';
+
+const tier = new TierManager(
+  longTermBackend,
+  { shortTermCapacity: 1000 },
+  {}, // PartitionedHNSW config
+  {   // DiskAnnBackendConfig — activates DiskANN
+    graphPath: './data/diskann.graph.json',
+    R: 32,
+    beamWidth: 12,
+  },
+);
+
+// tier.diskann is now populated — search() includes DiskANN results
+const results = await tier.search('authentication patterns', 10);
+```
+
+### DiskAnnBackendConfig
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `graphPath` | `'./diskann.graph.json'` | Path for persisted Vamana adjacency list |
+| `R` | `32` | Max out-degree per node |
+| `L` | `64` | Beam width during construction |
+| `beamWidth` | `10` | Beam width during search |
+| `dimensions` | `128` | Vector dimensions |
 
 ## Performance Benchmarks
 

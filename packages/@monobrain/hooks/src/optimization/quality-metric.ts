@@ -100,3 +100,98 @@ export class LLMJudgeMetric implements QualityMetric {
     }
   }
 }
+
+// ===== Agent-as-a-Judge (arXiv:2410.10934) =====
+
+/**
+ * A single step in an agent's execution trace.
+ * Captures the action taken and its intermediate outcome.
+ */
+export interface TraceStep {
+  /** Role of the actor: "agent", "tool", "user" */
+  role: 'agent' | 'tool' | 'user';
+  /** Content of the step — reasoning, tool input, or observation */
+  content: string;
+  /** Tool call name if this is a tool invocation */
+  toolCall?: string;
+  /** Observed result / tool output */
+  outcome?: string;
+}
+
+/**
+ * Agent-as-a-Judge: Evaluates the FULL execution trajectory, not just input/output.
+ *
+ * Unlike LLMJudgeMetric (output-only), TraceAwareJudgeMetric reconstructs the
+ * agent's reasoning chain and lets a judge model audit each intermediate step for
+ * correctness, efficiency, and alignment before scoring the final answer.
+ *
+ * Source: arXiv:2410.10934 — "Agent-as-a-Judge: Evaluate Agents with Agents"
+ */
+export class TraceAwareJudgeMetric implements QualityMetric {
+  readonly name = 'trace-aware-judge';
+
+  constructor(
+    private readonly claudeHaiku: (prompt: string) => Promise<string>,
+    private readonly config: {
+      /** Maximum trace steps to include in the prompt (default: 10) */
+      maxSteps?: number;
+      /** Also score the reasoning quality independently (default: false) */
+      scoreReasoning?: boolean;
+    } = {},
+  ) {}
+
+  async score(input: string, output: string, _schema?: Record<string, unknown>): Promise<number> {
+    // No trace context — fall back to basic LLM judge
+    return this.scoreWithTrace(input, output, []);
+  }
+
+  /**
+   * Full trace-aware evaluation.
+   * @param input  - Original task given to the agent
+   * @param output - Final answer produced by the agent
+   * @param trace  - Ordered list of intermediate steps (reasoning + tool calls)
+   */
+  async scoreWithTrace(
+    input: string,
+    output: string,
+    trace: TraceStep[],
+  ): Promise<number> {
+    const maxSteps = this.config.maxSteps ?? 10;
+    const traceSlice = trace.slice(-maxSteps);
+
+    // Build the trace section of the prompt
+    const traceLines: string[] = [];
+    for (let i = 0; i < traceSlice.length; i++) {
+      const step = traceSlice[i];
+      const header = `STEP ${i + 1} [${step.role.toUpperCase()}]${step.toolCall ? ` → ${step.toolCall}` : ''}`;
+      traceLines.push(header);
+      traceLines.push(step.content.slice(0, 500)); // trim very long steps
+      if (step.outcome) traceLines.push(`  ↳ ${step.outcome.slice(0, 200)}`);
+    }
+
+    const traceSection = traceLines.length > 0
+      ? `\nEXECUTION TRACE (${traceSlice.length} steps):\n${traceLines.join('\n')}\n`
+      : '';
+
+    const prompt = [
+      'You are an expert judge evaluating an AI agent\'s complete reasoning trajectory.',
+      'Score holistically: correctness of final answer, reasoning quality, tool usage efficiency, and alignment with the original task.',
+      'Penalise unnecessary detours, hallucinated tool calls, or reasoning errors even if the final answer happens to be correct.',
+      'Respond with ONLY a JSON object:',
+      '{"score": <0-1>, "reasoning_quality": <0-1>, "efficiency": <0-1>, "reason": "<one sentence>"}',
+      '',
+      `TASK: ${input}`,
+      traceSection,
+      `FINAL OUTPUT: ${output}`,
+    ].join('\n');
+
+    try {
+      const response = await this.claudeHaiku(prompt);
+      const parsed = JSON.parse(response);
+      if (typeof parsed.score !== 'number') return 0.0;
+      return Math.max(0, Math.min(1, parsed.score));
+    } catch {
+      return 0.0;
+    }
+  }
+}

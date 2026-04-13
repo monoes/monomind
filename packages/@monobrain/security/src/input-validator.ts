@@ -459,6 +459,66 @@ export class InputValidator {
 }
 
 // ============================================================================
+// External Content Validation (Indirect Injection Guard)
+// ============================================================================
+
+/**
+ * Patterns that suggest prompt injection attempts in externally-sourced content.
+ * Source: https://arxiv.org/abs/2302.12173, https://arxiv.org/abs/2310.12815
+ */
+const INJECTION_PATTERNS = [
+  /ignore\s+(all\s+)?previous\s+instructions?/i,
+  /you\s+are\s+now\s+(a|an)\s+/i,
+  /system\s*prompt\s*[:=]/i,
+  /\[\s*system\s*\]/i,
+  /\bforget\s+(your\s+)?(previous\s+)?instructions?\b/i,
+  /act\s+as\s+(if\s+you\s+(are|were)\s+)?/i,
+  /jailbreak/i,
+  /\bDAN\b/,
+  /<\s*\/?system\s*>/i,
+  /\bprompt\s+injection\b/i,
+];
+
+/**
+ * Validates content sourced externally (tool results, web pages, user-provided files)
+ * for potential prompt injection attempts.
+ *
+ * Applies structural pattern matching; for semantic analysis use aidefence_is_safe.
+ */
+export async function validateExternalContent(
+  content: string,
+  source?: string,
+): Promise<{ safe: boolean; reason?: string }> {
+  if (!content || typeof content !== 'string') {
+    return { safe: true };
+  }
+
+  for (const pattern of INJECTION_PATTERNS) {
+    if (pattern.test(content)) {
+      return {
+        safe: false,
+        reason: `Potential prompt injection detected in ${source ?? 'external content'}: matched pattern ${pattern.source}`,
+      };
+    }
+  }
+
+  // Optionally escalate to aidefence semantic scan (fire-and-forget safe path)
+  try {
+    const { aiDefenceModule } = await import('./ai-defence.js').catch(() => ({ aiDefenceModule: null }));
+    if (aiDefenceModule && typeof (aiDefenceModule as any).isSafe === 'function') {
+      const result = await (aiDefenceModule as any).isSafe(content);
+      if (result === false) {
+        return { safe: false, reason: `AI defence semantic scan flagged ${source ?? 'content'}` };
+      }
+    }
+  } catch {
+    // aidefence unavailable — structural check is sufficient
+  }
+
+  return { safe: true };
+}
+
+// ============================================================================
 // Export all schemas for direct use
 // ============================================================================
 

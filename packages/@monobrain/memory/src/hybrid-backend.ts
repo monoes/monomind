@@ -26,6 +26,7 @@ import {
 } from './types.js';
 import { SQLiteBackend, SQLiteBackendConfig } from './sqlite-backend.js';
 import { AgentDBBackend, AgentDBBackendConfig } from './agentdb-backend.js';
+import { MemoryGraph } from './memory-graph.js';
 
 /**
  * Configuration for HybridBackend
@@ -54,6 +55,27 @@ export interface HybridBackendConfig {
 
   /** Maximum results to fetch from each backend in hybrid queries */
   hybridMaxResults?: number;
+
+  /**
+   * Filter semantic search results for prompt-injection patterns.
+   * When true, entries whose content matches known injection signatures are
+   * removed from results and an `injection:blocked` event is emitted.
+   * Source: newinnovation.md §5 — Semantic injection detection
+   */
+  filterInjection?: boolean;
+
+  /**
+   * MemoRAG query rewriter — generates 2-3 reformulated sub-queries before HNSW.
+   *
+   * When provided, `querySemantic()` calls this function on the original query text
+   * to produce alternative formulations (e.g. more specific, paraphrased, or
+   * keyword-expanded variants). Each sub-query is embedded and searched independently;
+   * results are fused using Reciprocal Rank Fusion (RRF).
+   *
+   * Use a cheap LLM call (Haiku) or a deterministic paraphrase function.
+   * Source: arXiv:2409.05591 — MemoRAG (TheWebConf 2025)
+   */
+  memoragRewriter?: (query: string) => Promise<string[]>;
 }
 
 /**
@@ -68,7 +90,25 @@ const DEFAULT_CONFIG: Required<HybridBackendConfig> = {
   dualWrite: true,
   semanticThreshold: 0.7,
   hybridMaxResults: 100,
+  filterInjection: false,
+  memoragRewriter: undefined as any,
 };
+
+/**
+ * Structural prompt-injection patterns for filtering externally-sourced content.
+ * Source: arXiv:2302.12173, arXiv:2310.12815 — indirect prompt injection in RAG pipelines.
+ */
+const INJECTION_PATTERNS: RegExp[] = [
+  /ignore\s+(all\s+)?previous\s+instructions?/i,
+  /you\s+are\s+now\s+(a|an)\s+/i,
+  /system\s*prompt\s*[:=]/i,
+  /\[\s*system\s*\]/i,
+  /\bforget\s+(your\s+)?(previous\s+)?instructions?\b/i,
+  /act\s+as\s+(if\s+you\s+(are|were)\s+)?/i,
+  /jailbreak/i,
+  /\bDAN\b/,
+  /<\s*\/?system\s*>/i,
+];
 
 /**
  * Structured Query Interface
@@ -156,6 +196,8 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   private agentdb: AgentDBBackend;
   private config: Required<HybridBackendConfig>;
   private initialized: boolean = false;
+  /** Lazy MemoryGraph for HippoRAG PPR re-ranking */
+  private memoryGraph: MemoryGraph | null = null;
 
   // Performance tracking
   private stats = {
@@ -220,7 +262,12 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   }
 
   /**
-   * Store in both backends (dual-write for consistency)
+   * Store in both backends (dual-write for consistency).
+   *
+   * A-MEM auto-linking: after writing, HNSW-searches for the top-3 most similar
+   * existing entries and adds bidirectional `references` edges between them and
+   * the new entry.  Only runs when an `embeddingGenerator` is configured.
+   * Source: arXiv:2409.11987 (A-MEM — Zettelkasten-style agent memory)
    */
   async store(entry: MemoryEntry): Promise<void> {
     if (this.config.dualWrite) {
@@ -232,13 +279,71 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
     }
 
     this.emit('entry:stored', { id: entry.id });
+
+    // A-MEM: auto-link to top-3 semantic neighbors (non-blocking, best-effort)
+    if (typeof this.config.embeddingGenerator === 'function' && entry.content) {
+      this.aMemAutoLink(entry).catch(() => {
+        // Linking is best-effort; storage already succeeded
+      });
+    }
   }
 
   /**
-   * Get from AgentDB (has caching enabled)
+   * A-MEM bidirectional reference linking.
+   * Finds the top-3 semantically similar existing entries and creates
+   * `references` edges in both directions.
    */
-  async get(id: string): Promise<MemoryEntry | null> {
-    return this.agentdb.get(id);
+  private async aMemAutoLink(newEntry: MemoryEntry): Promise<void> {
+    try {
+      const embedding = await this.config.embeddingGenerator!(newEntry.content!);
+      const neighbors = await this.agentdb.search(embedding, {
+        k: 4, // fetch 4 to exclude self
+        threshold: 0.75,
+      });
+
+      const topNeighbors = neighbors
+        .filter(r => r.entry.id !== newEntry.id)
+        .slice(0, 3);
+
+      if (topNeighbors.length === 0) return;
+
+      const neighborIds = topNeighbors.map(r => r.entry.id);
+
+      // Update new entry to reference neighbors
+      const newRefs = [...new Set([...(newEntry.references ?? []), ...neighborIds])];
+      await this.update(newEntry.id, { references: newRefs });
+
+      // Update each neighbor to back-reference the new entry
+      await Promise.all(
+        topNeighbors.map(async ({ entry: neighbor }) => {
+          const backRefs = [...new Set([...(neighbor.references ?? []), newEntry.id])];
+          await this.update(neighbor.id, { references: backRefs });
+        }),
+      );
+
+      this.emit('amem:linked', { id: newEntry.id, linkedTo: neighborIds });
+    } catch {
+      // Linking is best-effort
+    }
+  }
+
+  /**
+   * Get from AgentDB (has caching enabled).
+   *
+   * Collaborative memory promotion: when `agentId` is supplied, also notifies
+   * the SQLite backend so it can track the read and promote the entry's
+   * AccessLevel to 'team' once 3+ distinct agents have accessed it.
+   * Source: newinnovation.md §2.7 — memory access-level promotion.
+   */
+  async get(id: string, agentId?: string): Promise<MemoryEntry | null> {
+    const entry = await this.agentdb.get(id);
+
+    // Track the read in SQLite for collaborative promotion (best-effort, non-blocking)
+    if (agentId && entry) {
+      this.sqlite.get(id, agentId).catch(() => { /* non-critical */ });
+    }
+
+    return entry;
   }
 
   /**
@@ -357,11 +462,102 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   }
 
   /**
+   * Apply injection filtering and structured field filters to a set of entries.
+   * Used by the MemoRAG path (RRF-fused results) and as a shared post-processing step.
+   */
+  private postProcessSemanticResults(entries: MemoryEntry[], query: SemanticQuery): MemoryEntry[] {
+    let result = entries;
+
+    if (this.config.filterInjection) {
+      result = result.filter(entry => {
+        const content = entry.content ?? '';
+        if (INJECTION_PATTERNS.some(rx => rx.test(content))) {
+          this.emit('injection:blocked', { id: entry.id, namespace: entry.namespace });
+          return false;
+        }
+        return true;
+      });
+    }
+
+    if (query.filters) {
+      const f = query.filters as Record<string, unknown>;
+      if (f.tags && Array.isArray(f.tags)) {
+        const requiredTags = f.tags as string[];
+        result = result.filter(e => requiredTags.every(t => e.tags.includes(t)));
+      }
+      if (f.namespace && typeof f.namespace === 'string') {
+        result = result.filter(e => e.namespace === f.namespace);
+      }
+      if (f.type && typeof f.type === 'string' && f.type !== 'semantic') {
+        result = result.filter(e => e.type === f.type);
+      }
+    }
+
+    return result.slice(0, query.k || 10);
+  }
+
+  /**
+   * Reciprocal Rank Fusion — merge multiple ranked result lists.
+   * Score for entry i in list j: 1 / (k + rank_j(i))  where k=60 (standard).
+   * Source: Cormack et al., "Reciprocal Rank Fusion outperforms Condorcet and individual
+   * Rank Learning Methods" (SIGIR 2009). Used by MemoRAG sub-query fusion.
+   */
+  private rrfFuse(rankedLists: MemoryEntry[][], k = 60): MemoryEntry[] {
+    const scores = new Map<string, number>();
+    const byId = new Map<string, MemoryEntry>();
+
+    for (const list of rankedLists) {
+      for (let rank = 0; rank < list.length; rank++) {
+        const entry = list[rank];
+        byId.set(entry.id, entry);
+        scores.set(entry.id, (scores.get(entry.id) ?? 0) + 1 / (k + rank + 1));
+      }
+    }
+
+    return [...byId.keys()]
+      .sort((a, b) => (scores.get(b) ?? 0) - (scores.get(a) ?? 0))
+      .map(id => byId.get(id)!);
+  }
+
+  /**
    * Semantic queries (vector)
-   * Routes to AgentDB for HNSW-based vector search
+   * Routes to AgentDB for HNSW-based vector search.
+   *
+   * MemoRAG query rewriting (arXiv:2409.05591): when `memoragRewriter` is configured
+   * and `query.content` is present, generates 2-3 reformulated sub-queries, embeds
+   * each, searches HNSW independently, then fuses with Reciprocal Rank Fusion (RRF)
+   * before HippoRAG PPR re-ranking.
    */
   async querySemantic(query: SemanticQuery): Promise<MemoryEntry[]> {
     this.stats.agentdbQueries++;
+
+    // MemoRAG: expand the query into multiple sub-queries for richer recall
+    if (query.content && typeof this.config.memoragRewriter === 'function') {
+      try {
+        const subQueries = await this.config.memoragRewriter(query.content);
+        if (subQueries.length > 0) {
+          // Embed all sub-queries and search in parallel
+          const subResults = await Promise.all(
+            subQueries.map(async (sq) => {
+              if (!this.config.embeddingGenerator) return [];
+              const sqEmbedding = await this.config.embeddingGenerator(sq);
+              const results = await this.agentdb.search(sqEmbedding, {
+                k: (query.k || 10) * 2,
+                threshold: query.threshold || this.config.semanticThreshold,
+                filters: query.filters as MemoryQuery | undefined,
+              });
+              return results.map(r => r.entry);
+            }),
+          );
+          this.emit('memorag:rewritten', { original: query.content, subQueries, count: subResults.flat().length });
+          // RRF-fuse the sub-query results, then continue with HippoRAG/injection pipeline
+          const fused = this.rrfFuse(subResults);
+          return this.postProcessSemanticResults(fused, query);
+        }
+      } catch {
+        // Rewriter failed — fall through to standard path
+      }
+    }
 
     let embedding = query.embedding;
 
@@ -380,7 +576,76 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
       filters: query.filters as MemoryQuery | undefined,
     });
 
-    let entries = searchResults.map((r) => r.entry);
+    // HippoRAG PPR re-ranking: expand one hop through MemoryEntry.references
+    // Source: https://arxiv.org/abs/2405.14831
+    let entries: MemoryEntry[];
+    if (searchResults.length > 0) {
+      if (!this.memoryGraph) {
+        this.memoryGraph = new MemoryGraph();
+        // Seed graph with reference edges from search results
+        for (const r of searchResults) {
+          this.memoryGraph.addNode(r.entry);
+          for (const refId of (r.entry.references ?? [])) {
+            this.memoryGraph.addEdge(r.entry.id, refId, 'reference', 1.0);
+          }
+        }
+      } else {
+        for (const r of searchResults) {
+          this.memoryGraph.addNode(r.entry);
+        }
+      }
+      // GraphRAG: compute community summaries before PPR so communities are populated.
+      // Community summaries are prepended to each entry's metadata so downstream callers
+      // can use global thematic context alongside local vector similarity.
+      // Source: https://arxiv.org/abs/2404.16130 (Microsoft GraphRAG)
+      const communitySummaries = this.memoryGraph.getCommunitySummaries(5);
+      // Build a nodeId → community summary lookup for O(1) annotation
+      const nodeToSummary = new Map<string, { communityId: string; nodeCount: number; avgPageRank: number }>();
+      for (const summary of communitySummaries) {
+        for (const nodeId of summary.topNodeIds) {
+          nodeToSummary.set(nodeId, {
+            communityId: summary.communityId,
+            nodeCount: summary.nodeCount,
+            avgPageRank: summary.avgPageRank,
+          });
+        }
+      }
+
+      const reranked = await this.memoryGraph.pprRerank(searchResults, this.agentdb);
+      // Annotate each entry with its community ID and summary from GraphRAG
+      entries = reranked.map((r) => {
+        const commSummary = nodeToSummary.get(r.entry.id);
+        const community = r.community ?? commSummary?.communityId;
+        if (!community && !commSummary) return r.entry;
+        return {
+          ...r.entry,
+          metadata: {
+            ...(r.entry.metadata ?? {}),
+            community,
+            ...(commSummary ? {
+              communityNodeCount: commSummary.nodeCount,
+              communityAvgPageRank: commSummary.avgPageRank,
+            } : {}),
+          },
+        };
+      });
+    } else {
+      entries = searchResults.map((r) => r.entry);
+    }
+
+    // Injection filter: remove entries whose content matches known injection signatures
+    if (this.config.filterInjection) {
+      const safe: MemoryEntry[] = [];
+      for (const entry of entries) {
+        const content = entry.content ?? '';
+        if (INJECTION_PATTERNS.some(rx => rx.test(content))) {
+          this.emit('injection:blocked', { id: entry.id, namespace: entry.namespace });
+        } else {
+          safe.push(entry);
+        }
+      }
+      entries = safe;
+    }
 
     // Apply tag/namespace/type filters that AgentDB may not enforce
     if (query.filters) {

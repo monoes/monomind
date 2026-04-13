@@ -79,6 +79,8 @@ export {
   postCommandTool,
   daemonStatusTool,
   statuslineTool,
+  evoAgentXTool,
+  modelOutcomeTool,
   type MCPTool,
   // Trace tools (GAP-010)
   listTracesTool,
@@ -199,6 +201,52 @@ export {
 // Entity Workers (Task 10)
 export { EntityExtractorWorker, buildExtractionPrompt, parseEntityFacts } from './workers/entity-extractor.js';
 export { EntityCleanupWorker } from './workers/entity-cleanup.js';
+// FOREVER forgetting curve replay scheduler (newinnovation.md §2.6)
+export {
+  ForgettingCurveWorker,
+  type ForgettingCurveEntry,
+  type ForgettingCurveResult,
+  type ForgettingCurveConfig,
+} from './workers/forgetting-curve-worker.js';
+
+// ERL — Experiential Reflective Learning heuristic extraction (arXiv:2603.24639)
+export {
+  ERLWorker,
+  type ERLTrajectory,
+  type ERLHeuristic,
+  type ERLResult,
+  type ERLConfig,
+  type TrajectoryStep,
+} from './workers/erl-worker.js';
+
+// TextGrad — backward pass via textual gradients (arXiv:2406.07496)
+export {
+  TextGradWorker,
+  type TextGradInput,
+  type TextualGradient,
+  type TextGradResult,
+  type TextGradConfig,
+} from './workers/textgrad-worker.js';
+
+// MAR — Multi-Agent Reflexion structured reflection (arXiv:2512.20845)
+export {
+  MARWorker,
+  type MARInput,
+  type MARReflection,
+  type MARResult,
+  type MARConfig,
+  type DiagnosisReport,
+  type CriticPerspective,
+} from './workers/mar-worker.js';
+
+// RAPTOR — Recursive Abstractive Tree Indexing (arXiv:2401.18059)
+export {
+  RaptorWorker,
+  type RaptorEntry,
+  type RaptorCluster,
+  type RaptorResult,
+  type RaptorConfig,
+} from './workers/raptor-worker.js';
 
 // Episode Binner (Task 11)
 export { EpisodeBinnerWorker } from './workers/episode-binner.js';
@@ -251,12 +299,15 @@ export {
   type ObservabilityBusSink,
 } from './observability/index.js';
 
-// Optimization - Few-Shot Prompt Optimization (Task 25)
+// Optimization - Few-Shot Prompt Optimization (Task 25) + EvoAgentX (Tier 4)
 export {
   type QualityMetric,
   LengthBasedMetric,
   JSONValidityMetric,
   LLMJudgeMetric,
+  // Agent-as-a-Judge (arXiv:2410.10934)
+  TraceAwareJudgeMetric,
+  type TraceStep,
   BootstrapFewShot,
   type TraceRecord,
   type FewShotExample,
@@ -265,9 +316,16 @@ export {
   PromptOptimizer,
   type OptimizationResult,
   type OptimizeOptions,
+  GEPAOptimizer,
+  type GEPAConfig,
+  type GEPACandidate,
+  type GEPAResult,
+  EvoAgentXCoordinator,
+  type EvoAgentXConfig,
+  type EvoAgentXResult,
 } from './optimization/index.js';
 
-// Planning Step (Task 42)
+// Planning Step (Task 42) + LATS coordinator planning (Tier 4, arXiv:2310.04406)
 export {
   buildPlanningPrompt,
   validatePlan,
@@ -277,6 +335,8 @@ export {
   type PlanningConfig,
   type AgentPlan,
   type PlanValidationResult,
+  buildLATSPlan,
+  type LATSConfig,
 } from './planning/index.js';
 
 // Confidence-Gated Human Input (Task 43)
@@ -294,12 +354,16 @@ export {
   type GateResult,
 } from './confidence/index.js';
 
-// SubGraph Composition (Task 48)
+// SubGraph Composition (Task 48) + AFLOW workflow search (arXiv:2410.10762) + DAGLearner (Tier 4)
 export {
   compile as compileSubGraph,
   SubGraphRegistry,
   validateKeyContracts,
   compose as composeSubGraphs,
+  AFLOWSearch,
+  type AFLOWConfig,
+  type AFLOWResult,
+  type SequenceRewardFn,
   type StateKey,
   type AgentNode,
   type Edge,
@@ -307,9 +371,12 @@ export {
   type CompiledSubGraph,
   type SubGraphManifest,
   type ComposedTopology,
+  DAGLearner,
+  type DAGLearnerConfig,
+  type DAGLearnerResult,
 } from './subgraph/index.js';
 
-// Messaging — Per-Agent-Pair Conversation Threading (Task 41)
+// Messaging — Per-Agent-Pair Conversation Threading (Task 41) + μACP (Tier 4)
 export {
   ConversationThread,
   ThreadedMessageBus,
@@ -317,9 +384,14 @@ export {
   type AgentId,
   type Message,
   type ThreadStats,
+  MuACP,
+  type MuACPVerb,
+  type MuACPEvent,
+  type MuACPSession,
+  type MuACPCommitResult,
 } from './messaging/index.js';
 
-// Dynamic Agent Synthesis (Task 47)
+// Dynamic Agent Synthesis (Task 47) + DGM MAP-Elites archive (arXiv:2505.22954)
 export {
   type AgentDefinition,
   type AgentCapability,
@@ -330,6 +402,9 @@ export {
   SynthesisPromptTemplate,
   EphemeralRegistry,
   TTLCleanup,
+  AgentPromoter,
+  DGMArchive,
+  type DGMArchiveEntry,
 } from './synthesis/index.js';
 
 // Nested Swarms (Task 44)

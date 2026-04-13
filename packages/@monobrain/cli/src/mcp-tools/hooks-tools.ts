@@ -1211,6 +1211,44 @@ export const hooksPreTask: MCPTool = {
       // Enhanced router not available
     }
 
+    // ERL: Retrieve past heuristics to inject into recommendations
+    // Source: https://arxiv.org/abs/2603.24639
+    const erlHints: string[] = [];
+    try {
+      const searchFn = await getRealSearchFunction();
+      if (searchFn) {
+        const heuristicResults = await searchFn({
+          query: description,
+          namespace: 'heuristics',
+          limit: 3,
+          threshold: 0.6,
+        });
+        for (const r of (heuristicResults?.results ?? [])) {
+          try {
+            const h = JSON.parse(r.content ?? r.value ?? '{}') as { condition?: string; action?: string; confidence?: number };
+            if (h.action && h.confidence !== undefined && h.confidence >= 0.6) {
+              erlHints.push(`ERL hint (conf=${h.confidence.toFixed(2)}): use "${h.action}" for tasks involving "${h.condition ?? 'similar context'}"`);
+            }
+          } catch { /* skip malformed */ }
+        }
+
+        // TextGrad: also inject relevant past failure gradients to guide away from known pitfalls
+        // Source: https://arxiv.org/abs/2406.07496
+        const gradientResults = await searchFn({
+          query: description,
+          namespace: 'gradients',
+          limit: 2,
+          threshold: 0.55,
+        });
+        for (const r of (gradientResults?.results ?? [])) {
+          const critique = r.content ?? r.value ?? '';
+          if (critique && critique.length > 10) {
+            erlHints.push(`TextGrad warning: ${critique.slice(0, 120)}`);
+          }
+        }
+      }
+    } catch { /* non-critical */ }
+
     return {
       taskId,
       description,
@@ -1227,6 +1265,7 @@ export const hooksPreTask: MCPTool = {
       recommendations: [
         `Use ${suggestion.agents[0]} as primary agent`,
         suggestion.agents.length > 2 ? 'Consider using swarm coordination' : 'Single agent recommended',
+        ...erlHints,
       ],
       modelRouting,
       timestamp: new Date().toISOString(),
@@ -1305,6 +1344,27 @@ export const hooksPostTask: MCPTool = {
       } catch { /* non-critical */ }
     }
 
+    // ERL: Extract and persist structured heuristic for future pre-task injection
+    // Source: https://arxiv.org/abs/2603.24639
+    if (taskText && agent && success !== undefined) {
+      try {
+        const storeFn = await getRealStoreFunction();
+        if (storeFn) {
+          const heuristic = {
+            condition: outcomeKeywords.slice(0, 3).join(', ') || taskText.slice(0, 60),
+            action: agent,
+            confidence: success ? (quality ?? 0.8) : 0.2,
+          };
+          await storeFn({
+            key: `heuristic:${taskId}`,
+            value: JSON.stringify(heuristic),
+            namespace: 'heuristics',
+            tags: ['erl', agent, success ? 'success' : 'failure'],
+          });
+        }
+      } catch { /* non-critical */ }
+    }
+
     // Optionally store in memory DB for cross-session vector retrieval
     if (params.storeDecisions && taskText && agent) {
       try {
@@ -1321,6 +1381,39 @@ export const hooksPostTask: MCPTool = {
     }
 
     const duration = Date.now() - startTime;
+
+    // TextGrad: Store textual gradient critique for failed tasks
+    // Source: https://arxiv.org/abs/2406.07496 (TextGrad — Nature)
+    if (!success && taskText) {
+      try {
+        const storeFn = await getRealStoreFunction();
+        if (storeFn) {
+          const critique = `Task "${taskText.slice(0, 80)}" failed with agent "${agent}". ` +
+            `Quality score: ${quality ?? 'unknown'}. ` +
+            `Improvement direction: review agent selection, consider more capable agent or task decomposition.`;
+          await storeFn({
+            key: `textual_gradient:${taskId}`,
+            value: critique,
+            namespace: 'gradients',
+            tags: ['textual_gradient', agent, 'failure'],
+          });
+        }
+      } catch { /* non-critical */ }
+    }
+
+    // MAR: Structured multi-agent reflection on failure
+    // Source: https://arxiv.org/html/2512.20845 (MAR — December 2025)
+    const marReflection = !success ? {
+      needed: true,
+      suggestedAgents: [
+        { role: 'diagnoser', description: 'Analyze root cause of task failure' },
+        { role: 'critic-1', description: 'Critique from correctness angle (temperature 0.3)' },
+        { role: 'critic-2', description: 'Critique from efficiency angle (temperature 0.8)' },
+        { role: 'aggregator', description: 'Synthesize critiques into actionable reflection heuristic' },
+      ],
+      storeAs: 'heuristics',
+      note: 'Spawn agents sequentially: Diagnoser → Critics in parallel → Aggregator',
+    } : { needed: false };
 
     return {
       taskId,
@@ -1339,6 +1432,7 @@ export const hooksPostTask: MCPTool = {
         controller: feedbackResult.controller,
         updates: feedbackResult.updated,
       } : { recorded: false, controller: 'unavailable', updates: 0 },
+      marReflection,
       timestamp: new Date().toISOString(),
     };
   },
@@ -3482,13 +3576,22 @@ export const hooksModelOutcome: MCPTool = {
       task: { type: 'string', description: 'Original task' },
       model: { type: 'string', enum: ['haiku', 'sonnet', 'opus'], description: 'Model used' },
       outcome: { type: 'string', enum: ['success', 'failure', 'escalated'], description: 'Task outcome' },
+      verifier_type: { type: 'string', enum: ['tsc', 'vitest', 'eslint', 'llm_judge'], description: 'RLVR verifier type for grounded reward signal' },
+      exit_code: { type: 'number', description: 'Verifier exit code (0 = pass); overrides outcome when verifier_type is set' },
     },
     required: ['task', 'model', 'outcome'],
   },
   handler: async (params: Record<string, unknown>) => {
     const task = params.task as string;
     const model = params.model as 'haiku' | 'sonnet' | 'opus';
-    const outcome = params.outcome as 'success' | 'failure' | 'escalated';
+    // RLVR: derive effective outcome from verifier exit_code when provided
+    // Source: https://github.com/opendilab/awesome-RLVR
+    const verifierType = params.verifier_type as string | undefined;
+    const exitCode = params.exit_code as number | undefined;
+    const effectiveOutcome = verifierType !== undefined && exitCode !== undefined
+      ? (exitCode === 0 ? 'success' : 'failure')
+      : params.outcome as 'success' | 'failure' | 'escalated';
+    const outcome = effectiveOutcome;
 
     const router = await getModelRouterInstance();
     if (router) {
