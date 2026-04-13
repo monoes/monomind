@@ -193,23 +193,28 @@ export const graphifyQueryTool = {
                 default: 2000,
                 description: 'Approximate max output tokens',
             },
+            path: {
+                type: 'string',
+                description: 'Project path whose graph to query (defaults to current project root)',
+            },
         },
         required: ['question'],
     },
     handler: async (params) => {
         const cwd = getProjectCwd();
-        if (!graphExists(cwd)) {
+        const targetPath = params.path || cwd;
+        if (!graphExists(targetPath)) {
             return {
                 error: true,
                 message: 'No graph found. Run graphify_build first.',
-                hint: `Expected: ${getGraphPath(cwd)}`,
+                hint: `Expected: ${getGraphPath(targetPath)}`,
             };
         }
         const question = params.question;
         const mode = params.mode || 'bfs';
         const depth = params.depth || 3;
         try {
-            const g = await loadKnowledgeGraph(cwd);
+            const g = await loadKnowledgeGraph(targetPath);
             const terms = question.toLowerCase().split(/\s+/).filter(t => t.length > 2);
             // Score nodes; fall back to highest-degree nodes if no match
             let startNodes = [];
@@ -319,11 +324,16 @@ export const graphifyGodNodesTool = {
                 default: 15,
                 description: 'Number of god nodes to return',
             },
+            path: {
+                type: 'string',
+                description: 'Project path (defaults to current project root)',
+            },
         },
     },
     handler: async (params) => {
         const cwd = getProjectCwd();
-        if (!graphExists(cwd)) {
+        const targetPath = params.path || cwd;
+        if (!graphExists(targetPath)) {
             return {
                 error: true,
                 message: 'No graph found. Run graphify_build first.',
@@ -331,7 +341,7 @@ export const graphifyGodNodesTool = {
         }
         const topN = params.topN || 15;
         try {
-            const g = await loadKnowledgeGraph(cwd);
+            const g = await loadKnowledgeGraph(targetPath);
             const sortedIds = [...g.nodes.keys()]
                 .sort((a, b) => (g.degree.get(b) ?? 0) - (g.degree.get(a) ?? 0))
                 .slice(0, topN);
@@ -374,16 +384,21 @@ export const graphifyGetNodeTool = {
                 type: 'string',
                 description: 'Node label or ID to look up (case-insensitive)',
             },
+            path: {
+                type: 'string',
+                description: 'Project path (defaults to current project root)',
+            },
         },
         required: ['label'],
     },
     handler: async (params) => {
         const cwd = getProjectCwd();
-        if (!graphExists(cwd)) {
+        const targetPath = params.path || cwd;
+        if (!graphExists(targetPath)) {
             return { error: true, message: 'No graph found. Run graphify_build first.' };
         }
         try {
-            const g = await loadKnowledgeGraph(cwd);
+            const g = await loadKnowledgeGraph(targetPath);
             const term = params.label.toLowerCase();
             const matches = [...g.nodes.entries()]
                 .filter(([id, d]) => (d.label ?? id).toLowerCase().includes(term) || id.toLowerCase() === term)
@@ -459,16 +474,18 @@ export const graphifyShortestPathTool = {
             source: { type: 'string', description: 'Source concept label' },
             target: { type: 'string', description: 'Target concept label' },
             maxHops: { type: 'integer', default: 8, description: 'Maximum hops to search' },
+            path: { type: 'string', description: 'Project path (defaults to current project root)' },
         },
         required: ['source', 'target'],
     },
     handler: async (params) => {
         const cwd = getProjectCwd();
-        if (!graphExists(cwd)) {
+        const targetPath = params.path || cwd;
+        if (!graphExists(targetPath)) {
             return { error: true, message: 'No graph found. Run graphify_build first.' };
         }
         try {
-            const g = await loadKnowledgeGraph(cwd);
+            const g = await loadKnowledgeGraph(targetPath);
             const maxHops = params.maxHops || 8;
             /** Find node ids matching a search term, sorted by degree descending. */
             function findNodes(term) {
@@ -576,16 +593,21 @@ export const graphifyGetCommunityTool = {
                 type: 'integer',
                 description: 'Community ID (0 = largest community)',
             },
+            path: {
+                type: 'string',
+                description: 'Project path (defaults to current project root)',
+            },
         },
         required: ['communityId'],
     },
     handler: async (params) => {
         const cwd = getProjectCwd();
-        if (!graphExists(cwd)) {
+        const targetPath = params.path || cwd;
+        if (!graphExists(targetPath)) {
             return { error: true, message: 'No graph found. Run graphify_build first.' };
         }
         try {
-            const g = await loadKnowledgeGraph(cwd);
+            const g = await loadKnowledgeGraph(targetPath);
             const cid = params.communityId;
             const members = [...g.nodes.entries()]
                 .filter(([, d]) => d.community === cid)
@@ -644,19 +666,25 @@ export const graphifyStatsTool = {
     tags: ['knowledge-graph', 'stats', 'overview'],
     inputSchema: {
         type: 'object',
-        properties: {},
+        properties: {
+            path: {
+                type: 'string',
+                description: 'Project path (defaults to current project root)',
+            },
+        },
     },
-    handler: async (_params) => {
+    handler: async (params) => {
         const cwd = getProjectCwd();
-        if (!graphExists(cwd)) {
+        const targetPath = params.path || cwd;
+        if (!graphExists(targetPath)) {
             return {
                 error: true,
                 message: 'No graph found. Run graphify_build first.',
-                hint: `Expected: ${getGraphPath(cwd)}`,
+                hint: `Expected: ${getGraphPath(targetPath)}`,
             };
         }
         try {
-            const g = await loadKnowledgeGraph(cwd);
+            const g = await loadKnowledgeGraph(targetPath);
             // Community sizes
             const communities = new Map();
             for (const d of g.nodes.values()) {
@@ -727,15 +755,20 @@ export const graphifySurprisesTool = {
                 default: 10,
                 description: 'Number of surprising connections to return',
             },
+            path: {
+                type: 'string',
+                description: 'Project path (defaults to current project root)',
+            },
         },
     },
     handler: async (params) => {
         const cwd = getProjectCwd();
-        if (!graphExists(cwd)) {
+        const targetPath = params.path || cwd;
+        if (!graphExists(targetPath)) {
             return { error: true, message: 'No graph found. Run graphify_build first.' };
         }
         try {
-            const g = await loadKnowledgeGraph(cwd);
+            const g = await loadKnowledgeGraph(targetPath);
             const topN = params.topN || 10;
             const surprises = [];
             for (const e of g.edges) {

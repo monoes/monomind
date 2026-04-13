@@ -8,7 +8,9 @@ const EXCLUDED_DIRS = new Set([
 // Maps file extension to [fileType, language]
 const EXTENSION_MAP = {
     '.ts': ['code', 'typescript'], '.tsx': ['code', 'typescript'],
+    '.mts': ['code', 'typescript'], '.cts': ['code', 'typescript'],
     '.js': ['code', 'javascript'], '.jsx': ['code', 'javascript'],
+    '.mjs': ['code', 'javascript'], '.cjs': ['code', 'javascript'],
     '.py': ['code', 'python'], '.go': ['code', 'go'],
     '.rs': ['code', 'rust'], '.java': ['code', 'java'],
     '.c': ['code', 'c'], '.cpp': ['code', 'cpp'],
