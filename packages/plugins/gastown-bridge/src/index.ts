@@ -972,7 +972,7 @@ export class GasTownBridgePlugin extends EventEmitter implements IPlugin {
       name: this.name,
       version: this.version,
       description: this.description,
-      author: 'rUv',
+      author: 'nokhodian',
       license: 'MIT',
       repository: 'https://github.com/nokhodian/monobrain',
       keywords: [

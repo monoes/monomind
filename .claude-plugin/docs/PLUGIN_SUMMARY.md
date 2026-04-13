@@ -4,7 +4,7 @@
 
 **Version**: 2.5.0
 **License**: MIT
-**Author**: rUv
+**Author**: nokhodian
 **Repository**: https://github.com/nokhodian/monobrain
 
 ---
@@ -295,7 +295,7 @@ Should show `monobrain` as active.
 - **Repository**: https://github.com/nokhodian/monobrain
 - **Issues**: https://github.com/nokhodian/monobrain/issues
 - **Discussions**: https://github.com/nokhodian/monobrain/discussions
-- **Website**: https://flow-nexus.ruv.io
+- **Website**: https://github.com/nokhodian/monobrain
 
 ---
 

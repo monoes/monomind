@@ -2,7 +2,7 @@
 
 **Status**: Implemented (see ADR-070 for completion details)
 **Date**: 2026-03-17
-**Author**: RuvNet
+**Author**: Monobrain Team
 
 ## Context
 

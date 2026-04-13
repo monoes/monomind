@@ -234,4 +234,4 @@ npx ts-node -e "
 - **npm**: [@monobrain/guidance](https://www.npmjs.com/package/@monobrain/guidance)
 - **npm**: [monobrain](https://www.npmjs.com/package/monobrain)
 - **npm**: [ruvbot](https://www.npmjs.com/package/ruvbot)
-- **ruv.io**: [ruv.io](https://ruv.io)
+- **GitHub**: [nokhodian/monobrain](https://github.com/nokhodian/monobrain)

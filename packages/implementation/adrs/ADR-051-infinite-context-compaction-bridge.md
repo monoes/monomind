@@ -2,7 +2,7 @@
 
 **Status:** Implemented
 **Date:** 2026-02-10
-**Authors:** RuvNet, Monobrain Team
+**Authors:** Monobrain Team
 **Version:** 2.0.0
 **Related:** ADR-006 (Unified Memory), ADR-009 (Hybrid Memory Backend), ADR-027 (RuVector PostgreSQL), ADR-048 (Auto Memory Integration), ADR-049 (Self-Learning Memory GNN), ADR-052 (Statusline Observability)
 **Implementation:** `.claude/helpers/context-persistence-hook.mjs` (~1600 lines), `.claude/helpers/patch-aggressive-prune.mjs` (~120 lines)

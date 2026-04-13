@@ -64,7 +64,7 @@ export const pluginMetadata = {
   name: '@monobrain/plugin-healthcare-clinical',
   version: '3.0.0-alpha.1',
   description: 'HIPAA-compliant clinical decision support with patient similarity, drug interactions, and clinical pathways',
-  author: 'rUv',
+  author: 'nokhodian',
   license: 'MIT',
   category: 'healthcare',
   tags: ['healthcare', 'clinical', 'hipaa', 'fhir', 'patient-similarity', 'drug-interactions'],

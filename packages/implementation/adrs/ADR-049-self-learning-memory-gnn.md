@@ -2,7 +2,7 @@
 
 **Status:** Implemented
 **Date:** 2026-02-08
-**Authors:** RuvNet, Monobrain Team
+**Authors:** Monobrain Team
 **Supersedes:** None
 **Related:** ADR-048 (Auto Memory Integration), ADR-006 (Unified Memory), ADR-009 (Hybrid Memory Backend)
 

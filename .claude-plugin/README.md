@@ -648,7 +648,7 @@ Monobrain integrates with 3 MCP servers providing 110+ tools:
 - **Documentation**: [GitHub Wiki](https://github.com/nokhodian/monobrain/wiki)
 - **Issues**: [GitHub Issues](https://github.com/nokhodian/monobrain/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/nokhodian/monobrain/discussions)
-- **Website**: [Flow Nexus](https://flow-nexus.ruv.io)
+- **Website**: [Monobrain](https://github.com/nokhodian/monobrain)
 
 ---
 
@@ -715,6 +715,6 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 ---
 
-**Made with ❤️ by rUv**
+**Made with ❤️ by nokhodian**
 
 *Enterprise AI Agent Orchestration for Claude Code*

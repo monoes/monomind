@@ -88,7 +88,7 @@ class MockPrimeRadiantPlugin {
       name: 'prime-radiant',
       version: '0.1.3',
       description: 'Mathematical AI interpretability plugin',
-      author: 'rUv',
+      author: 'nokhodian',
       license: 'MIT',
       wasmSize: '92KB',
       dependencies: ['@monobrain/memory', '@monobrain/security', '@monobrain/coordination'],

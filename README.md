@@ -630,7 +630,6 @@ Monobrain builds on ideas, patterns, and research from the following projects:
 
 | Repository                                                                      | What we took                                                                                                                                     |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [ruvnet/ruflo](https://github.com/ruvnet/ruflo)                                 | Original skeleton — swarm coordination, hooks system, and SPARC methodology                                                                      |
 | [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents)     | Agent architecture patterns and multi-agent md files                                                                                             |
 | [microsoft/autogen](https://github.com/microsoft/autogen)                       | Human oversight interrupt gates, AutoBuild ephemeral agents, procedural skill learning from executions, and tool-retry patterns                  |
 | [crewAIInc/crewAI](https://github.com/crewAIInc/crewAI)                         | Multi-tier memory (short/long/entity/contextual), role/goal/backstory agent registry, task context chaining, and output schema patterns          |
