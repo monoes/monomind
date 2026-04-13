@@ -416,6 +416,63 @@ npx monobrain-codex dual run feature --task "Add rate limiting middleware"
 
 ---
 
+## ⚡ Slash Commands
+
+> Type these directly in Claude Code. No setup beyond `npx monobrain init`.
+
+---
+
+### 🤖 Agent Intelligence
+
+| Command | What it does |
+|---|---|
+| **`/specialagent`** | Scores all 60+ agents against your task and picks the best one (or recommends a full swarm config). Prevents wasting a generic `coder` on a job that needs a `Database Optimizer` or `tdd-london-swarm`. |
+| **`/use-agent [slug]`** | Instantly activates a non-dev specialist agent — Sales Coach, TikTok Strategist, Legal Compliance Checker, UX Researcher, etc. Without a slug, auto-picks from conversation context. |
+| **`/list-agents [category]`** | Lists all available specialist agents, optionally filtered by category (`marketing`, `sales`, `design`, `academic`, `product`, `project-management`, `support`). |
+
+---
+
+### 🌐 Browser & UI Automation
+
+| Command | What it does |
+|---|---|
+| **`/ui-test <url>`** | Full UI test run: opens the URL, snapshots interactive elements, walks golden-path flows, tests edge cases, reports pass/fail/warn. Powered by `agent-browser`. |
+| **`/browse <url>`** | Navigates to a URL and walks through it step by step — narrating what's on screen, proposing actions, and helping you accomplish tasks via the browser. |
+| **`/crawl <url>`** | Crawls a website — extracts links, text, structured data, or anything you specify. Great for scraping, auditing, or data extraction tasks. |
+| **`/browser`** | Raw agent-browser session: opens an interactive browser automation context with snapshot, click, fill, and screenshot tools. Use when you need fine-grained control. |
+
+---
+
+### 🏛️ SPARC Methodology
+
+| Command | What it does |
+|---|---|
+| **`/sparc`** | Runs the full SPARC orchestrator — breaks down your objective, delegates to the right modes, and coordinates the full development lifecycle. |
+| **`/sparc spec-pseudocode`** | Captures requirements, edge cases, and constraints, then translates them into structured pseudocode ready for implementation. |
+| **`/sparc code`** | Auto-coder mode — writes clean, efficient, modular code from pseudocode or a spec. |
+| **`/sparc debug`** | Debugger mode — traces runtime bugs, logic errors, and integration failures systematically. |
+| **`/sparc security-review`** | Security reviewer — static and dynamic audit, flags secrets, poor module boundaries, and injection risks. |
+| **`/sparc devops`** | DevOps mode — CI/CD, Docker, deployment automation. |
+| **`/sparc docs-writer`** | Writes clear, modular Markdown documentation: READMEs, API references, usage guides. |
+| **`/sparc refinement-optimization-mode`** | Refactors, modularizes, and improves system performance. Enforces file size limits and dependency hygiene. |
+| **`/sparc integration`** | System integrator — merges outputs of all modes into a working, tested, production-ready system. |
+
+---
+
+### 🐝 Swarm & Memory
+
+| Command | What it does |
+|---|---|
+| **`/monobrain-swarm`** | Coordinates a multi-agent swarm for complex tasks — spawns agents, distributes work, waits for results, synthesizes output. |
+| **`/monobrain-memory`** | Interacts with the AgentDB memory system — store, search, retrieve, and inspect patterns across sessions. |
+| **`/monobrain-help`** | Shows all Monobrain CLI commands and usage reference inline. |
+
+---
+
+> **Pro tip — automatic activation:** You don't need to type slash commands for most flows. The `UserPromptSubmit` hook reads every prompt and automatically suggests the right slash command (or activates it) based on what you wrote. `/specialagent` activates when you ask "which agent", `/ui-test` activates when you say "test the UI", `/browse` activates when you say "go to the website", etc.
+
+---
+
 ## Agents
 
 100+ specialized agents across every engineering domain:
