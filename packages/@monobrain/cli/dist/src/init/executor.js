@@ -30,7 +30,7 @@ const SKILLS_MAP = {
         'stream-chain',
         'skill-builder',
     ],
-    browser: ['browser'], // agent-browser integration
+    browser: ['browser', 'agent-browser-testing'], // agent-browser integration
     dualMode: ['dual-mode'], // Claude Code + Codex hybrid execution
     agentdb: [
         'agentdb-advanced',
