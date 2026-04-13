@@ -715,6 +715,6 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 ---
 
-**Made with ❤️ by nokhodian**
+**Made with ❤️ by rUv**
 
 *Enterprise AI Agent Orchestration for Claude Code*

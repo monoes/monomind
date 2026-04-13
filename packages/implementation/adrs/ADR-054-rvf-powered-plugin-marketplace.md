@@ -2,7 +2,7 @@
 
 **Status:** Proposed
 **Date:** 2026-02-25
-**Authors:** Monobrain Team
+**Authors:** RuvNet, Monobrain Team
 **Version:** 1.0.0
 **Related:** ADR-053 (Controller Activation), ADR-006 (Unified Memory), ADR-009 (Hybrid Memory Backend), ADR-049 (Self-Learning Memory GNN), ADR-050 (Intelligence Loop)
 

@@ -215,7 +215,7 @@ interface ResourceUsage {
 const PLUGIN_NAME = 'agentic-qe';
 const PLUGIN_VERSION = '3.2.3';
 const PLUGIN_DESCRIPTION = 'Quality Engineering plugin with 51 specialized agents across 12 DDD bounded contexts';
-const PLUGIN_AUTHOR = 'nokhodian';
+const PLUGIN_AUTHOR = 'rUv';
 
 const PLUGIN_CAPABILITIES = [
   'test-generation',

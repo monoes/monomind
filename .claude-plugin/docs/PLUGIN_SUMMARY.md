@@ -4,7 +4,7 @@
 
 **Version**: 2.5.0
 **License**: MIT
-**Author**: nokhodian
+**Author**: rUv
 **Repository**: https://github.com/nokhodian/monobrain
 
 ---
@@ -302,7 +302,7 @@ Should show `monobrain` as active.
 ## 📝 License & Attribution
 
 - **License**: MIT
-- **Author**: nokhodian (nokhodian@gmail.com)
+- **Author**: rUv (nokhodian@gmail.com)
 - **Copyright**: 2025
 - **Open Source**: Free for personal and commercial use
 

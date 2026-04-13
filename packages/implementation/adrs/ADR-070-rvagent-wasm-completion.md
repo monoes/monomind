@@ -2,7 +2,7 @@
 
 **Status**: Implemented
 **Date**: 2026-03-25
-**Author**: Monobrain Team
+**Author**: RuvNet
 **Supersedes**: Gaps identified in ADR-059
 
 ## Context

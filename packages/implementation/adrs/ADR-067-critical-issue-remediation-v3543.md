@@ -4,7 +4,7 @@
 
 **Status**: Implemented
 **Date**: 2026-03-25
-**Author**: Monobrain Team
+**Author**: RuvNet
 **Version**: v1.5.42 → v1.5.43
 **Tracking**: GitHub Issues #1395, #1423, #1425, #1428, #1431, #1399, #1404, #1422
 

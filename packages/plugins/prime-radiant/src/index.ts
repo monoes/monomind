@@ -257,7 +257,7 @@ export const pluginMetadata = {
   version: '0.1.3',
   description:
     'Mathematical AI interpretability with sheaf cohomology, spectral analysis, and causal inference',
-  author: 'nokhodian',
+  author: 'rUv',
   license: 'MIT',
   repository: 'https://github.com/nokhodian/monobrain',
   wasmSize: '92KB',

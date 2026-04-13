@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-02-07
 **Updated:** 2026-02-08
-**Authors:** Monobrain Team
+**Authors:** RuvNet, Monobrain Team
 
 ## Context
 
@@ -61,7 +61,7 @@ npm registry
 | Internal packages       | @monobrain/\*       | Minimal disruption, existing integrations |
 | Functionality           | All features        | No functional changes                     |
 | License                 | MIT                 | No change                                 |
-| Author                  | Monobrain Team      | No change                                 |
+| Author                  | RuvNet              | No change                                 |
 | `monobrain` npm package | Fully supported     | No breaking changes for existing users    |
 
 ## Consequences

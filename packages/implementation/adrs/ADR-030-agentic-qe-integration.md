@@ -181,7 +181,7 @@ export const agenticQEPlugin = new PluginBuilder("agentic-qe", "3.2.3")
   .withDescription(
     "Quality Engineering plugin with 51 specialized agents across 12 DDD bounded contexts",
   )
-  .withAuthor("nokhodian")
+  .withAuthor("rUv")
   .withLicense("MIT")
   .withDependencies([
     "@monobrain/memory",

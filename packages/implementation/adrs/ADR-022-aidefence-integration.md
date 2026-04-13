@@ -393,7 +393,7 @@ export const aidefenceHooks: HookDefinition[] = [
 name: aidefence
 version: 1.0.0
 description: AI Manipulation Defense System integration for real-time threat detection
-author: nokhodian
+author: rUv
 
 capabilities:
   - prompt_injection_detection
@@ -696,7 +696,7 @@ packages/@monobrain/aidefence/
 - **Meta-learning**: Adaptive mitigation improves over time
 - **Performance**: Production-proven throughput (>12,000 req/s)
 - **Shared infrastructure**: Leverages existing AgentDB/HNSW investment
-- **Same author**: Maintained by nokhodian, ensuring alignment
+- **Same author**: Maintained by rUv, ensuring alignment
 
 ### Negative
 

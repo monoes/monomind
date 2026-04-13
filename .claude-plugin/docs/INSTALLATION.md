@@ -229,7 +229,7 @@ This will remove all commands, agents, and hooks.
 
 **Version**: 2.5.0
 **License**: MIT
-**Author**: nokhodian
+**Author**: rUv
 
 ---
 
