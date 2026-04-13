@@ -1185,7 +1185,7 @@ Take 20 real Monobrain tasks from repo history. Run A without control plane, run
 | **npm: @monobrain/guidance** | [npmjs.com/package/@monobrain/guidance](https://www.npmjs.com/package/@monobrain/guidance) |
 | **npm: monobrain** | [npmjs.com/package/monobrain](https://www.npmjs.com/package/monobrain) |
 | **npm: ruvbot** | [npmjs.com/package/ruvbot](https://www.npmjs.com/package/ruvbot) |
-| **ruv.io** | [ruv.io](https://ruv.io) |
+| **GitHub** | [nokhodian/monobrain](https://github.com/nokhodian/monobrain) |
 | **Issues** | [github.com/nokhodian/monobrain/issues](https://github.com/nokhodian/monobrain/issues) |
 | **API Reference** | [docs/reference/api-quick-reference.md](docs/reference/api-quick-reference.md) |
 | **ADR Index** | [docs/adrs/](docs/adrs/) |

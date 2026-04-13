@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-02-07
 **Updated:** 2026-02-08
-**Authors:** RuvNet, Monobrain Team
+**Authors:** Monobrain Team
 
 ## Context
 
@@ -21,7 +21,7 @@ The umbrella package is published to npm as `monobrain`. As the ecosystem grows 
 
 ### Drivers for Change
 
-1. **Brand Cohesion**: Aligns with the ruv ecosystem (ruv.io, @ruvector/\*, ruv-swarm)
+1. **Brand Cohesion**: Aligns with the Monobrain ecosystem (@monobrain/\*, monobrain)
 2. **Trademark Safety**: Removes potential trademark concerns with "Claude" in product name
 3. **Product Identity**: Establishes independent product identity beyond Claude integration
 4. **Discoverability**: "monobrain" is unique, memorable, and searchable
@@ -61,7 +61,7 @@ npm registry
 | Internal packages       | @monobrain/\*       | Minimal disruption, existing integrations |
 | Functionality           | All features        | No functional changes                     |
 | License                 | MIT                 | No change                                 |
-| Author                  | RuvNet              | No change                                 |
+| Author                  | Monobrain Team      | No change                                 |
 | `monobrain` npm package | Fully supported     | No breaking changes for existing users    |
 
 ## Consequences

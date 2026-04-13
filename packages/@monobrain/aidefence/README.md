@@ -625,6 +625,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 ---
 
 <p align="center">
-  <strong>Built with security in mind by <a href="https://ruv.io">rUv</a></strong><br>
-  <sub>Part of the Monobrain ecosystem</sub>
+  <strong>Part of the Monobrain ecosystem</strong><br>
+  <sub>Built for enterprise AI security</sub>
 </p>

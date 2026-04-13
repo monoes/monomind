@@ -288,7 +288,7 @@ export const PLUGIN_METADATA = {
   name: 'agentic-qe',
   version: '1.0.0',
   description: 'Quality Engineering plugin with 51 specialized agents across 12 DDD bounded contexts',
-  author: 'rUv',
+  author: 'nokhodian',
   license: 'MIT',
   homepage: 'https://github.com/nokhodian/agentic-qe',
   repository: 'https://github.com/nokhodian/agentic-qe',

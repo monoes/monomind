@@ -238,7 +238,7 @@ npx @monobrain/cli@latest --help
 ### Release: @monobrain/cli@3.0.0-alpha.11 (2026-01-07)
 
 #### New V1 Advanced CLI Commands
-All commands include subcommand help and "Created with ❤️ by ruv.io" branding.
+All commands include subcommand help and integrated Monobrain branding.
 
 | Command | Description | Subcommands |
 |---------|-------------|-------------|

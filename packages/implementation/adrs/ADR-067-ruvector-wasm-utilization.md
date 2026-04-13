@@ -3,7 +3,7 @@
 
 **Status**: Proposed
 **Date**: 2026-03-26
-**Author**: RuvNet
+**Author**: Monobrain Team
 
 ## Context
 

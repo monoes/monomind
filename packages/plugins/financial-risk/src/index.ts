@@ -66,7 +66,7 @@ export const pluginMetadata = {
   name: '@monobrain/plugin-financial-risk',
   version: '3.0.0-alpha.1',
   description: 'High-performance financial risk analysis with portfolio risk, anomaly detection, and compliance checking',
-  author: 'rUv',
+  author: 'nokhodian',
   license: 'MIT',
   category: 'finance',
   tags: ['finance', 'risk', 'portfolio', 'var', 'anomaly-detection', 'compliance', 'basel3', 'mifid2'],

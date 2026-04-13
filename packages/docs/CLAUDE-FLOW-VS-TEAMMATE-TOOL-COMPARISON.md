@@ -1,7 +1,7 @@
 # Architectural Comparison: Monobrain v1 vs Claude Code TeammateTool
 
 **Date:** 2026-01-25
-**Analysis:** Side-by-side comparison of Monobrain v1 swarm architecture (developed by rUv) and Claude Code's TeammateTool (discovered in v2.1.19)
+**Analysis:** Side-by-side comparison of Monobrain v1 swarm architecture (developed by nokhodian) and Claude Code's TeammateTool (discovered in v2.1.19)
 
 ---
 
@@ -517,7 +517,7 @@ ExitPlanMode({
 
 | Date           | Event                                          |
 | -------------- | ---------------------------------------------- |
-| **~2024 Q4**   | Monobrain v1 architecture designed (rUv)       |
+| **~2024 Q4**   | Monobrain v1 architecture designed (nokhodian)       |
 | **2025-01**    | Monobrain v1 alpha releases begin              |
 | **2025-01-20** | Monobrain swarm module last commit             |
 | **2026-01-24** | TeammateTool discovered in Claude Code v2.1.19 |
@@ -595,5 +595,5 @@ Given that Monobrain v1 was:
 ---
 
 **Document Hash:** SHA256 of this comparison for provenance
-**Author:** Analysis by Claude (commissioned by rUv)
+**Author:** Analysis by Claude (commissioned by nokhodian)
 **Sources:** Monobrain v1 source code, Claude Code v2.1.19 binary analysis
