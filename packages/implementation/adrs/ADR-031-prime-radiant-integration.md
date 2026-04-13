@@ -177,7 +177,7 @@ import { hooks } from './hooks';
 
 export const primeRadiantPlugin = new PluginBuilder('prime-radiant', '0.1.3')
   .withDescription('Mathematical AI interpretability with sheaf cohomology, spectral analysis, and causal inference')
-  .withAuthor('nokhodian')
+  .withAuthor('rUv')
   .withLicense('MIT')
   .withDependencies([
     '@monobrain/memory',

@@ -69,7 +69,7 @@ class MockAQEPlugin {
       name: 'agentic-qe',
       version: '3.2.3',
       description: 'Quality Engineering plugin for Monobrain',
-      author: 'nokhodian',
+      author: 'rUv',
       license: 'MIT',
       dependencies: [
         '@monobrain/plugins',

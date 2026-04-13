@@ -30,7 +30,7 @@ const banner = `/**
  * Bundle optimized: <100KB gzipped total
  *
  * @license MIT
- * @copyright 2024 nokhodian
+ * @copyright 2024 rUv
  */`;
 
 export default defineConfig([

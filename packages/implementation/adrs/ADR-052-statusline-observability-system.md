@@ -2,7 +2,7 @@
 
 **Status:** Implemented
 **Date:** 2026-02-10
-**Authors:** Monobrain Team
+**Authors:** RuvNet, Monobrain Team
 **Version:** 1.0.0
 **Related:** ADR-051 (Infinite Context), ADR-048 (Auto Memory Integration), ADR-006 (Unified Memory), ADR-026 (3-Tier Model Routing)
 

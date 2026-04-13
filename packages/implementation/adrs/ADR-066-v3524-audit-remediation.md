@@ -3,7 +3,7 @@
 
 **Status**: Accepted
 **Date**: 2026-03-17
-**Author**: Monobrain Team
+**Author**: RuvNet
 **Version**: v1.5.24 → v1.5.25
 
 ## Context

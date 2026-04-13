@@ -119,7 +119,7 @@ export const pluginMetadata = {
   version: '3.0.0-alpha.1',
   description: 'Hyperbolic geometry for hierarchical reasoning',
   category: 'exotic',
-  author: 'nokhodian',
+  author: 'rUv',
   license: 'MIT',
   repository: 'https://github.com/nokhodian/monobrain',
   tools: [

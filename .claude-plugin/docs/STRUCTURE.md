@@ -120,7 +120,7 @@ The plugin configures 3 MCP servers:
 
 - **Version**: 2.5.0
 - **License**: MIT
-- **Author**: nokhodian
+- **Author**: rUv
 - **Compatibility**: Claude Code >= 2.0.0
 
 ## Status

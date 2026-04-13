@@ -3,7 +3,7 @@
 **Status:** Implemented
 **Date:** 2026-02-25
 **Updated:** 2026-02-25
-**Authors:** Monobrain Team
+**Authors:** RuvNet, Monobrain Team
 **Version:** 1.3.0
 **Published:** v1.1.0-alpha.51
 **Related:** ADR-006 (Unified Memory), ADR-049 (Self-Learning Memory GNN), ADR-050 (Intelligence Loop), ADR-009 (Hybrid Memory Backend), ADR-060 (Proof-Gated Mutations)

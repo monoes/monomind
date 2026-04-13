@@ -2,7 +2,7 @@
 
 **Status:** Proposed
 **Date:** 2026-02-08
-**Authors:** Monobrain Team
+**Authors:** RuvNet, Monobrain Team
 
 ## Context
 
