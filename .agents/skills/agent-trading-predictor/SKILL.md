@@ -93,12 +93,10 @@ const portfolioOptimization = await mcp__sublinear-time-solver__solve({
 - **Risk Consensus**: Build consensus on risk tolerance and exposure limits
 - **Execution Timing**: Coordinate optimal execution timing across agents
 
-## Integration with Flow Nexus
 
 ### Real-Time Trading Sandbox
 ```javascript
 // Deploy high-frequency trading system
-const tradingSandbox = await mcp__flow-nexus__sandbox_create({
   template: "python",
   name: "hft-predictor",
   env_vars: {
@@ -110,7 +108,6 @@ const tradingSandbox = await mcp__flow-nexus__sandbox_create({
 });
 
 // Execute trading algorithm
-const tradingResult = await mcp__flow-nexus__sandbox_execute({
   sandbox_id: tradingSandbox.id,
   code: `
     import numpy as np
@@ -142,7 +139,6 @@ const tradingResult = await mcp__flow-nexus__sandbox_execute({
 ### Neural Network Price Prediction
 ```javascript
 // Train neural networks for price prediction
-const neuralTraining = await mcp__flow-nexus__neural_train({
   config: {
     architecture: {
       type: "lstm",

@@ -34,7 +34,6 @@ monobrain/
 │   ├── swarm/                   # Swarm management (15 commands)
 │   ├── workflows/               # Workflows (5 commands)
 │   ├── training/                # Neural training (5 commands)
-│   └── flow-nexus/              # Flow Nexus integration (9 commands)
 │
 ├── agents/                      # 74+ specialized agents
 │   ├── core/                    # Core development (5 agents)
@@ -103,7 +102,6 @@ The plugin configures 3 MCP servers:
    - Enhanced coordination
    - WASM acceleration
 
-3. **flow-nexus** (Optional)
    - 70+ cloud tools
    - Requires authentication
 

@@ -208,7 +208,6 @@ claude mcp add monobrain npx monobrain@alpha mcp start
 claude mcp add ruv-swarm npx ruv-swarm mcp start
 
 # Cloud features (optional - requires auth)
-claude mcp add flow-nexus npx flow-nexus@latest mcp start
 ```
 
 ### Test MCP Integration

@@ -50,7 +50,6 @@ Monobrain v1 represents a complete architectural overhaul that builds on **agent
 ```
 Monobrain v2.7.47
 ├── Source Files: 376 TypeScript files (~130,000 lines)
-├── Dependencies: agentic-flow (^1.9.4), ruv-swarm, flow-nexus
 ├── Architecture: Multi-layered (CLI, Core, MCP, Swarm, Hive-Mind)
 └── Configuration: 14.2 MB across 7 directories
 ```
@@ -506,7 +505,6 @@ dist-cjs/
 ├── agents/                        # Reorganized (76 files)
 │   ├── core/                      # coder, tester, reviewer, researcher, planner
 │   ├── orchestration/             # swarm, hive-mind, coordinators
-│   ├── platform/                  # github, flow-nexus, devops
 │   ├── specialized/               # ml, mobile, backend
 │   ├── methodology/               # sparc agents
 │   ├── consensus/                 # byzantine, raft, gossip
@@ -514,7 +512,6 @@ dist-cjs/
 │
 ├── commands/                      # Reorganized (93 files → 5 categories)
 │   ├── core/                      # agents, swarm, sparc
-│   ├── platform/                  # github, hive-mind, flow-nexus
 │   ├── operations/                # memory, training, monitoring
 │   ├── automation/                # hooks, workflows, coordination
 │   └── utilities/                 # analysis, optimization
@@ -523,7 +520,6 @@ dist-cjs/
 │   ├── ai-coordination/           # swarm, hive-mind, orchestration
 │   ├── data-processing/           # agentdb, stream-chain, reasoningbank
 │   ├── development/               # pair-programming, sparc-methodology
-│   ├── platform/                  # flow-nexus, github
 │   └── optimization/              # performance, verification
 │
 ├── checkpoints/
@@ -624,7 +620,6 @@ rm -rf archive/
 agents/
 ├── core/           (5)   # Essential: coder, tester, reviewer, researcher, planner
 ├── orchestration/  (8)   # Coordinators: hierarchical, mesh, adaptive, queen, etc.
-├── platform/       (15)  # External: github-*, flow-nexus-*, devops
 ├── specialized/    (12)  # Domain: backend-dev, mobile-dev, ml-developer
 ├── methodology/    (10)  # Process: sparc-*, tdd-london, production-validator
 ├── consensus/      (14)  # Distributed: byzantine, raft, gossip, crdt
@@ -695,7 +690,6 @@ agentic-flow:
 ```
 commands/
 ├── core/           # agents, swarm, sparc (18 commands)
-├── platform/       # github, hive-mind, flow-nexus (22 commands)
 ├── operations/     # memory, training, monitoring (25 commands)
 ├── automation/     # hooks, workflows, coordination (18 commands)
 └── utilities/      # analysis, optimization, helpers (10 commands)

@@ -92,12 +92,9 @@ const entryEstimate = await mcp__sublinear-time-solver__estimateEntry({
 - **Load Balancing**: Balance matrix operations across available compute nodes
 - **Memory Management**: Optimize memory usage for large-scale matrix operations
 
-## Integration with Flow Nexus
 
 ### Sandbox Deployment
 ```javascript
-// Deploy matrix optimization in Flow Nexus sandbox
-const sandbox = await mcp__flow-nexus__sandbox_create({
   template: "python",
   name: "matrix-optimizer",
   env_vars: {
@@ -107,7 +104,6 @@ const sandbox = await mcp__flow-nexus__sandbox_create({
 });
 
 // Execute matrix optimization
-const result = await mcp__flow-nexus__sandbox_execute({
   sandbox_id: sandbox.id,
   code: `
     import numpy as np
@@ -163,7 +159,6 @@ const result = await mcp__flow-nexus__sandbox_execute({
 
 ### Integration Guidelines
 1. **Coordinate with other agents for distributed operations**
-2. **Use Flow Nexus sandboxes for isolated matrix operations**
 3. **Leverage swarm capabilities for parallel processing**
 4. **Implement proper error handling and recovery mechanisms**
 

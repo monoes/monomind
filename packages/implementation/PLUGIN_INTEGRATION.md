@@ -58,7 +58,6 @@ The plugin bundles three MCP servers:
 
 1. **monobrain** (required): Core swarm coordination
 2. **ruv-swarm** (optional): Enhanced topology patterns
-3. **flow-nexus** (optional): Cloud orchestration
 
 ### 4. Skills Integration
 

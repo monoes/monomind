@@ -72,7 +72,6 @@ Commands organized by category:
 - **Swarm** (15): init, spawn, status, monitor
 - **Workflows** (5): create, execute, export
 - **Training** (5): neural-train, pattern-learn
-- **Flow Nexus** (9): swarm, workflow, sandbox
 - And more...
 
 ### ✅ 74+ Specialized Agents
@@ -90,7 +89,6 @@ Available for delegation:
 3 MCP servers with 110+ tools:
 - **monobrain**: Core orchestration (40+ tools) - Required
 - **ruv-swarm**: Enhanced coordination - Optional
-- **flow-nexus**: Cloud features (70+ tools) - Optional
 
 ---
 
@@ -136,7 +134,6 @@ npm install -g monobrain@alpha
 npm install -g ruv-swarm
 
 # Optional cloud features (requires authentication)
-npm install -g flow-nexus@latest
 ```
 
 MCP servers are automatically configured when you install the plugin.

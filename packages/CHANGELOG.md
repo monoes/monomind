@@ -286,7 +286,6 @@ See [MIGRATION.md](./MIGRATION.md) for detailed upgrade instructions from v2 to 
 ### 🔮 Coming Soon (V1.0.0-beta)
 
 - Full E2B sandbox integration
-- Flow Nexus platform support
 - Enhanced GitHub swarm coordination
 - Multi-agent neural training
 - Distributed consensus protocols

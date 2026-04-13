@@ -23,7 +23,6 @@ agents/
 ├── consensus/       (7 files)
 ├── core/            (5 files)
 ├── devops/          (2 files)
-├── flow-nexus/      (9 files)
 ├── github/          (6 files)
 ├── hive-mind/       (5 files)
 ├── orchestration/   (3 files)
@@ -69,7 +68,6 @@ agents/
 │   │   ├── release-manager.md
 │   │   ├── workflow-automation.md
 │   │   └── repo-architect.md
-│   ├── flow-nexus/
 │   │   ├── neural.md
 │   │   ├── swarm.md
 │   │   ├── workflow.md
@@ -209,7 +207,6 @@ Task("Implement feature", "Create user authentication", "coder", {
 # migrate-agents.sh
 
 # Create new structure
-mkdir -p .claude/agents/{core,orchestration,platform/github,platform/flow-nexus,platform/devops,specialized,methodology,consensus,testing}
 
 # Move core agents
 mv .claude/agents/core/*.md .claude/agents/core/ 2>/dev/null
@@ -220,7 +217,6 @@ mv .claude/agents/hive-mind/*.md .claude/agents/orchestration/
 
 # Consolidate platform
 mv .claude/agents/github/*.md .claude/agents/platform/github/
-mv .claude/agents/flow-nexus/*.md .claude/agents/platform/flow-nexus/
 mv .claude/agents/devops/*.md .claude/agents/platform/devops/
 
 # ... continue for other categories
@@ -249,9 +245,6 @@ skills/
 ├── agentdb-optimization/
 ├── agentdb-vector-search/
 ├── agentic-jujutsu/
-├── flow-nexus-neural/
-├── flow-nexus-platform/
-├── flow-nexus-swarm/
 ├── github-code-review/
 ├── github-multi-repo/
 ├── github-project-management/
@@ -308,9 +301,6 @@ skills/
 │   ├── github-project-management/
 │   ├── github-release-management/
 │   ├── github-workflow-automation/
-│   ├── flow-nexus-neural/
-│   ├── flow-nexus-platform/
-│   └── flow-nexus-swarm/
 │
 └── optimization/                 # Performance & quality
     ├── performance-analysis/
@@ -445,7 +435,6 @@ commands/
 │   │   ├── hive-spawn.md
 │   │   ├── hive-status.md
 │   │   └── ... (3 more)
-│   └── flow-nexus/
 │       ├── nexus-deploy.md
 │       └── ... (5 more)
 │

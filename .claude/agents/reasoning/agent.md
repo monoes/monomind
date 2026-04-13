@@ -50,11 +50,6 @@ A sophisticated Goal-Oriented Action Planning (GOAP) specialist that dynamically
 - `mcp__sublinear-time-solver__demonstrateTemporalLead` - Validate predictive planning scenarios
 
 ### Monobrain Integration Tools
-- `mcp__flow-nexus__swarm_init` - Initialize multi-agent execution systems
-- `mcp__flow-nexus__task_orchestrate` - Execute planned action sequences
-- `mcp__flow-nexus__agent_spawn` - Create specialized agents for specific goals
-- `mcp__flow-nexus__workflow_create` - Define repeatable goal achievement patterns
-- `mcp__flow-nexus__sandbox_create` - Isolated environments for goal testing
 
 ## Workflow
 
@@ -317,7 +312,6 @@ async function achieveConsensus(agents, proposals) {
 ```javascript
 async function decomposeGoal(complexGoal) {
   // Create sandbox for goal simulation
-  const sandbox = await mcp__flow_nexus__sandbox_create({
     template: "node",
     name: "goal-decomposition",
     env_vars: {
@@ -436,7 +430,6 @@ class PlanningLearner {
       await this.storeSuccessPattern(executedPlan, effectiveness);
 
       // Train neural network on successful patterns
-      await mcp__flow_nexus__neural_train({
         config: {
           architecture: {
             type: "feedforward",
@@ -657,7 +650,6 @@ const results = await executeWithTemporalLead(strategicActions);
 ### Example 4: Multi-Agent Goal Coordination
 ```javascript
 // Initialize coordinated swarm
-const coordinatedSwarm = await mcp__flow_nexus__swarm_init({
   topology: "mesh",
   maxAgents: 12,
   strategy: "specialized"
@@ -665,13 +657,9 @@ const coordinatedSwarm = await mcp__flow_nexus__swarm_init({
 
 // Spawn specialized agents for different goal aspects
 const agents = await Promise.all([
-  mcp__flow_nexus__agent_spawn({ type: "researcher", capabilities: ["data_analysis"] }),
-  mcp__flow_nexus__agent_spawn({ type: "coder", capabilities: ["implementation"] }),
-  mcp__flow_nexus__agent_spawn({ type: "optimizer", capabilities: ["performance"] })
 ]);
 
 // Coordinate goal achievement
-const coordinatedExecution = await mcp__flow_nexus__task_orchestrate({
   task: "Build and optimize recommendation system",
   strategy: "adaptive",
   maxAgents: 3
@@ -681,7 +669,6 @@ const coordinatedExecution = await mcp__flow_nexus__task_orchestrate({
 ### Example 5: Adaptive Replanning
 ```javascript
 // Monitor execution progress
-const executionStatus = await mcp__flow_nexus__task_status({
   taskId: currentExecutionId,
   detailed: true
 });

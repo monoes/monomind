@@ -149,7 +149,6 @@ Single source in `config.json`:
 ├── consensus/
 ├── core/
 ├── devops/
-├── flow-nexus/
 ├── github/
 ├── hive-mind/
 ├── orchestration/
@@ -169,7 +168,6 @@ Single source in `config.json`:
 .claude/agents/
 ├── core/           # Essential: coder, tester, reviewer, researcher, planner
 ├── orchestration/  # All coordinators consolidated
-├── platform/       # github, flow-nexus, devops
 ├── specialized/    # Domain experts
 ├── methodology/    # sparc, tdd
 ├── consensus/      # Distributed consensus

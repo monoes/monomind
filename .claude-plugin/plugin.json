@@ -48,20 +48,22 @@
   "mcpServers": {
     "monobrain": {
       "command": "npx",
-      "args": ["monobrain@alpha", "mcp", "start"],
+      "args": [
+        "monobrain@alpha",
+        "mcp",
+        "start"
+      ],
       "description": "Core Monobrain MCP server for swarm coordination, agent management, and task orchestration (40+ tools)",
       "optional": false
     },
     "ruv-swarm": {
       "command": "npx",
-      "args": ["ruv-swarm", "mcp", "start"],
+      "args": [
+        "ruv-swarm",
+        "mcp",
+        "start"
+      ],
       "description": "Enhanced swarm coordination with WASM acceleration (2.8-4.4x speed improvement)",
-      "optional": true
-    },
-    "flow-nexus": {
-      "command": "npx",
-      "args": ["flow-nexus@latest", "mcp", "start"],
-      "description": "Cloud-based orchestration platform with 70+ tools (requires authentication)",
       "optional": true
     }
   }

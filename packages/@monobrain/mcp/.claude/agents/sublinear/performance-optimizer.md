@@ -158,12 +158,9 @@ class BottleneckAnalyzer {
 - **Adaptive Scaling**: Implement adaptive scaling based on performance metrics
 - **Predictive Optimization**: Use predictive algorithms for proactive optimization
 
-## Integration with Flow Nexus
 
 ### Cloud Performance Optimization
 ```javascript
-// Deploy performance optimization in Flow Nexus
-const optimizationSandbox = await mcp__flow-nexus__sandbox_create({
   template: "python",
   name: "performance-optimizer",
   env_vars: {
@@ -175,7 +172,6 @@ const optimizationSandbox = await mcp__flow-nexus__sandbox_create({
 });
 
 // Execute performance optimization
-const optimizationResult = await mcp__flow-nexus__sandbox_execute({
   sandbox_id: optimizationSandbox.id,
   code: `
     import psutil
@@ -245,7 +241,6 @@ const optimizationResult = await mcp__flow-nexus__sandbox_execute({
 ### Neural Performance Modeling
 ```javascript
 // Train neural networks for performance prediction
-const performanceModel = await mcp__flow-nexus__neural_train({
   config: {
     architecture: {
       type: "lstm",
