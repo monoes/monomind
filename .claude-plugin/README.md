@@ -260,16 +260,6 @@ Monobrain is the most comprehensive Claude Code plugin for enterprise AI agent o
 - `/training-model-update` - Model updates
 - `/training-specialization` - Agent specialization
 
-#### Flow Nexus (9)
-- `/flow-nexus-swarm` - Cloud swarm orchestration
-- `/flow-nexus-workflow` - Event-driven workflows
-- `/flow-nexus-neural-network` - Distributed neural training
-- `/flow-nexus-sandbox` - E2B sandbox management
-- `/flow-nexus-app-store` - Application marketplace
-- `/flow-nexus-challenges` - Coding challenges
-- `/flow-nexus-payments` - Credit management
-- `/flow-nexus-user-tools` - User management
-- `/flow-nexus-login` - Authentication
 
 #### And 50+ more commands!
 
@@ -309,7 +299,6 @@ Then in Claude Code:
 # Add MCP servers to Claude Code
 claude mcp add monobrain npx monobrain@alpha mcp start
 claude mcp add ruv-swarm npx ruv-swarm mcp start  # Optional
-claude mcp add flow-nexus npx flow-nexus@latest mcp start  # Optional
 ```
 
 ### 4. Verify Installation
@@ -396,7 +385,6 @@ monobrain/
 │   ├── swarm/                # Swarm management commands
 │   ├── workflows/            # Workflow commands
 │   ├── training/             # Neural training commands
-│   ├── flow-nexus/           # Flow Nexus integration
 │   └── ...                   # And more!
 ├── agents/                   # 74+ specialized agents
 │   ├── core/                 # Core development agents
@@ -544,14 +532,11 @@ Monobrain integrates with 3 MCP servers providing 110+ tools:
 - Advanced topology management
 - Byzantine fault tolerance
 
-### Flow Nexus MCP (Optional - Requires Auth)
 
 ```json
 {
   "mcpServers": {
-    "flow-nexus": {
       "command": "npx",
-      "args": ["flow-nexus@latest", "mcp", "start"]
     }
   }
 }

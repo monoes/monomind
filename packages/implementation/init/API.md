@@ -237,7 +237,6 @@ Lightweight configuration:
 
 Everything enabled:
 - All components
-- All skill sets including Flow Nexus
 - All command groups
 - All agent categories
 - All hook types
@@ -274,7 +273,6 @@ const result = await executeInit({
     core: true,
     agentdb: true,
     github: false, // Skip GitHub skills
-    flowNexus: false,
     v1: true,
     all: false,
   },
@@ -332,7 +330,6 @@ const skillsOnly = await executeInit({
     core: true,
     agentdb: true,
     github: true,
-    flowNexus: false,
     v1: true,
     all: false,
   },

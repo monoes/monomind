@@ -125,12 +125,10 @@ class SwarmTopologyOptimizer {
 - **Byzantine Fault Tolerance**: Analyze network resilience to Byzantine failures
 - **Communication Efficiency**: Optimize communication patterns for consensus protocols
 
-## Integration with Flow Nexus
 
 ### Distributed Graph Processing
 ```javascript
 // Deploy distributed PageRank computation
-const graphSandbox = await mcp__flow-nexus__sandbox_create({
   template: "python",
   name: "pagerank-cluster",
   env_vars: {
@@ -141,7 +139,6 @@ const graphSandbox = await mcp__flow-nexus__sandbox_create({
 });
 
 // Execute distributed PageRank algorithm
-const distributedResult = await mcp__flow-nexus__sandbox_execute({
   sandbox_id: graphSandbox.id,
   code: `
     import numpy as np
@@ -178,7 +175,6 @@ const distributedResult = await mcp__flow-nexus__sandbox_execute({
 ### Neural Graph Networks
 ```javascript
 // Train neural networks for graph analysis
-const graphNeuralNetwork = await mcp__flow-nexus__neural_train({
   config: {
     architecture: {
       type: "gnn", // Graph Neural Network

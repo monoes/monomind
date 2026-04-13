@@ -76,8 +76,6 @@ export interface SkillsConfig {
   agentdb: boolean;
   /** Include GitHub integration skills */
   github: boolean;
-  /** Include Flow Nexus skills */
-  flowNexus: boolean;
   /** Include browser automation skills (agent-browser) */
   browser: boolean;
   /** Include V1 implementation skills */
@@ -170,8 +168,6 @@ export interface MCPConfig {
   monobrain: boolean;
   /** Include ruv-swarm MCP server */
   ruvSwarm: boolean;
-  /** Include flow-nexus MCP server */
-  flowNexus: boolean;
   /** Include graphify knowledge graph MCP server */
   graphify: boolean;
   /** Auto-start MCP server */
@@ -352,7 +348,6 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     core: true,
     agentdb: true,
     github: true,
-    flowNexus: false,
     browser: true,
     v1: true,
     dualMode: false,  // Optional: enable with --dual flag
@@ -395,7 +390,6 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
   mcp: {
     monobrain: true,
     ruvSwarm: false,
-    flowNexus: false,
     graphify: false,
     autoStart: false,
     port: 3000,
@@ -450,7 +444,6 @@ export const MINIMAL_INIT_OPTIONS: InitOptions = {
     core: true,
     agentdb: false,
     github: false,
-    flowNexus: false,
     browser: false,
     v1: false,
     dualMode: false,
@@ -512,7 +505,6 @@ export const FULL_INIT_OPTIONS: InitOptions = {
     core: true,
     agentdb: true,
     github: true,
-    flowNexus: true,
     browser: true,
     v1: true,
     dualMode: true,  // Include in full init
@@ -529,7 +521,6 @@ export const FULL_INIT_OPTIONS: InitOptions = {
   mcp: {
     monobrain: true,
     ruvSwarm: true,
-    flowNexus: true,
     graphify: false,
     autoStart: false,
     port: 3000,

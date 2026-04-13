@@ -90,7 +90,6 @@ interface SkillsConfig {
   core: boolean;       // Core development skills
   agentdb: boolean;    // AgentDB integration skills
   github: boolean;     // GitHub automation skills
-  flowNexus: boolean;  // Flow Nexus platform skills
   v1: boolean;         // V1-specific skills
   all: boolean;        // Install all available skills
 }
@@ -103,7 +102,6 @@ interface SkillsConfig {
 | core | 8 | Swarm, SPARC, hooks, pair programming |
 | agentdb | 7 | Vector search, memory patterns, learning |
 | github | 5 | Code review, releases, workflows |
-| flowNexus | 3 | Neural, swarm, platform skills |
 | v1 | 9 | V1 implementation skills |
 
 ## Commands Configuration
@@ -224,7 +222,6 @@ Recommended for most projects:
     core: true,
     agentdb: true,
     github: true,
-    flowNexus: false,
     v1: true,
     all: false,
   },
@@ -292,7 +289,6 @@ Everything enabled:
 ```typescript
 {
   // All components: true
-  // All skills: true (including flowNexus, all)
   // All commands: true
   // All agents: true (including consensus, hiveMind)
   // All hooks: true

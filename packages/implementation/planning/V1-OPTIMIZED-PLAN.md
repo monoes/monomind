@@ -829,7 +829,6 @@ export class NeuralModeInitializer extends ModeInitializer {
     return ["ml-developer", "perf-analyzer", "code-analyzer"];
   }
   get requiredSkills() {
-    return ["flow-nexus-neural", "reasoningbank-intelligence"];
   }
 
   protected async modeSpecificSetup(): Promise<void> {

@@ -78,7 +78,6 @@
       "mcp__monobrain__*",
       "mcp__ruv-swarm",
       "mcp__ruv-swarm__*",
-      "mcp__flow-nexus__*"
     ],
     "deny": [
       "Bash(rm -rf /)"

@@ -145,7 +145,6 @@ Complete guide to all 87 available agent types in Monobrain v1.
 | ------------------ | ----------------- | ------------- |
 | `docs-api-openapi` | API documentation | OpenAPI specs |
 
-## Flow Nexus (9)
 
 | Agent            | Description         | Best For           |
 | ---------------- | ------------------- | ------------------ |

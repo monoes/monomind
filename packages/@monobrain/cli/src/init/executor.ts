@@ -61,11 +61,6 @@ const SKILLS_MAP: Record<string, string[]> = {
     'github-release-management',
     'github-workflow-automation',
   ],
-  flowNexus: [
-    'flow-nexus-neural',
-    'flow-nexus-platform',
-    'flow-nexus-swarm',
-  ],
   v1: [
     'v1-cli-modernization',
     'v1-core-implementation',
@@ -111,7 +106,6 @@ const AGENTS_MAP: Record<string, string[]> = {
   templates: ['templates'],
   testing: ['testing'],
   sublinear: ['sublinear'],
-  flowNexus: ['flow-nexus'],
   analysis: ['analysis'],
   architecture: ['architecture'],
   development: ['development'],
@@ -959,7 +953,6 @@ async function copySkills(
     if (skillsConfig.core) skillsToCopy.push(...SKILLS_MAP.core);
     if (skillsConfig.agentdb) skillsToCopy.push(...SKILLS_MAP.agentdb);
     if (skillsConfig.github) skillsToCopy.push(...SKILLS_MAP.github);
-    if (skillsConfig.flowNexus) skillsToCopy.push(...SKILLS_MAP.flowNexus);
     if (skillsConfig.browser) skillsToCopy.push(...SKILLS_MAP.browser);
     if (skillsConfig.v1) skillsToCopy.push(...SKILLS_MAP.v1);
     if (skillsConfig.dualMode) skillsToCopy.push(...SKILLS_MAP.dualMode);
@@ -1885,16 +1878,12 @@ npx monobrain@latest hive-mind consensus --propose "task"
 ### Optional Integrations
 | Package | Command |
 |---------|---------|
-| flow-nexus | \`npx flow-nexus@latest mcp start\` |
 | agentic-jujutsu | \`npx agentic-jujutsu@latest\` |
 
 ### MCP Server Setup
 \`\`\`bash
 # Add Monobrain MCP
 claude mcp add monobrain -- npx -y monobrain@latest mcp start
-
-# Optional servers
-claude mcp add flow-nexus -- npx -y flow-nexus@latest mcp start
 \`\`\`
 
 ---

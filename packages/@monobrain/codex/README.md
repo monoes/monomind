@@ -430,18 +430,9 @@ $performance-optimization
 | SPARC Integration     | `$sparc:integration`     | System integration                |
 | SPARC MCP             | `$sparc:mcp`             | MCP integration management        |
 
-#### Flow Nexus Skills
 
 | Skill                 | Syntax                   | Description                              |
 | --------------------- | ------------------------ | ---------------------------------------- |
-| Flow Nexus Neural     | `$flow-nexus-neural`     | Neural network training in E2B sandboxes |
-| Flow Nexus Platform   | `$flow-nexus-platform`   | Platform management and authentication   |
-| Flow Nexus Swarm      | `$flow-nexus-swarm`      | Cloud-based AI swarm deployment          |
-| Flow Nexus Payments   | `$flow-nexus:payments`   | Credit management and billing            |
-| Flow Nexus Challenges | `$flow-nexus:challenges` | Coding challenges and achievements       |
-| Flow Nexus Sandbox    | `$flow-nexus:sandbox`    | E2B sandbox management                   |
-| Flow Nexus App Store  | `$flow-nexus:app-store`  | App publishing and deployment            |
-| Flow Nexus Workflow   | `$flow-nexus:workflow`   | Event-driven workflow automation         |
 
 #### Development Skills
 

@@ -15,7 +15,6 @@ Monobrain is a sophisticated multi-agent orchestration platform with deep integr
 
 - Total TypeScript Files: 376
 - Lines of Code: ~130,000
-- Core Dependencies: agentic-flow (^1.9.4), ruv-swarm (^1.0.14), flow-nexus (^0.1.128)
 - MCP Protocol Version: 2024.11.5
 - Node Version: >=20.0.0
 
@@ -437,7 +436,6 @@ CLI → Orchestrator → [TerminalManager, MemoryManager, CoordinationManager, M
 "dependencies": {
   "agentic-flow": "^1.9.4",
   "ruv-swarm": "^1.0.14",
-  "flow-nexus": "^0.1.128"
 }
 ```
 

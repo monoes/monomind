@@ -491,7 +491,6 @@ const wizardCommand: Command = {
               { value: 'core', label: 'Core', hint: 'Swarm, memory, SPARC skills', selected: true },
               { value: 'agentdb', label: 'AgentDB', hint: 'Vector database skills', selected: true },
               { value: 'github', label: 'GitHub', hint: 'GitHub integration skills', selected: true },
-              { value: 'flowNexus', label: 'Flow Nexus', hint: 'Cloud platform skills', selected: false },
               { value: 'v1', label: 'v1', hint: 'v1 implementation skills', selected: true },
             ],
           });
@@ -499,7 +498,6 @@ const wizardCommand: Command = {
           options.skills.core = skillSets.includes('core');
           options.skills.agentdb = skillSets.includes('agentdb');
           options.skills.github = skillSets.includes('github');
-          options.skills.flowNexus = skillSets.includes('flowNexus');
           options.skills.v1 = skillSets.includes('v1');
         }
 
@@ -753,7 +751,6 @@ const skillsCommand: Command = {
         core: ctx.flags.core as boolean,
         agentdb: ctx.flags.agentdb as boolean,
         github: ctx.flags.github as boolean,
-        flowNexus: false,
         browser: false,
         v1: ctx.flags.v1 as boolean,
         dualMode: false,
