@@ -450,6 +450,21 @@ const handlers = {
         }
       }
 
+      // ── Specific agent panel ──────────────────────────────────────────────────
+      var specificAgents = result.specificAgents || [];
+      if (specificAgents.length > 0) {
+        output.push('');
+        output.push('+------- Specific Agents for "' + result.agent + '" (' + specificAgents.length + ' available) -----+');
+        specificAgents.forEach(function(a, i) {
+          var label = (i + 1) + '. ' + a.label;
+          var note = (a.note || '').substring(0, 26);
+          output.push('| ' + label.substring(0, 33).padEnd(33) + note.padEnd(27) + ' |');
+        });
+        output.push('+--------------------------------------------------------------+');
+        output.push('| Use: Task({ subagent_type: "<slug>" })  or  /specialagent   |');
+        output.push('+--------------------------------------------------------------+');
+      }
+
       // ── Check if a sub-agent was recently dispatched (suppress redundant panel) ──
       var _recentDispatch = null;
       var _dispatchAge = Infinity;
