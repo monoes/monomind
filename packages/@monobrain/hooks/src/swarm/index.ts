@@ -9,6 +9,7 @@
 
 import { EventEmitter } from 'node:events';
 import { reasoningBank, type GuidancePattern } from '../reasoningbank/index.js';
+import { MuACP, type MuACPCommitResult } from '../messaging/muacp.js';
 
 // ============================================================================
 // Types
@@ -92,6 +93,13 @@ export interface SwarmAgentState {
   capabilities: string[];
   patternsShared: number;
   handoffsReceived: number;
+  /**
+   * CP-WBFT confidence weight (0–1). Used to weight votes in `resolveConsensus()`.
+   * Set by a confidence probe before `hive-mind_consensus`.
+   * Defaults to 1.0 (equal weight) when absent.
+   * Source: newinnovation.md §4.1 CP-WBFT
+   */
+  confidence?: number;
   handoffsCompleted: number;
 }
 
@@ -511,22 +519,28 @@ export class SwarmCommunication extends EventEmitter {
     const request = this.consensusRequests.get(consensusId);
     if (!request || request.status !== 'pending') return;
 
-    const voteCounts = new Map<string, number>();
-    for (const vote of request.votes.values()) {
-      voteCounts.set(vote, (voteCounts.get(vote) || 0) + 1);
+    // CP-WBFT: weight each vote by the voting agent's confidence score.
+    // Agents without a confidence probe default to 1.0 (equal weight).
+    // Source: newinnovation.md §4.1 CP-WBFT (confidence-weighted Byzantine fault tolerance)
+    const weightedVotes = new Map<string, number>();
+    let totalWeight = 0;
+    for (const [agentId, vote] of request.votes.entries()) {
+      const agentConfidence = this.agents.get(agentId)?.confidence ?? 1.0;
+      weightedVotes.set(vote, (weightedVotes.get(vote) ?? 0) + agentConfidence);
+      totalWeight += agentConfidence;
     }
 
     let winner = '';
-    let maxVotes = 0;
-    for (const [option, count] of voteCounts) {
-      if (count > maxVotes) {
-        maxVotes = count;
+    let maxWeight = 0;
+    for (const [option, weight] of weightedVotes) {
+      if (weight > maxWeight) {
+        maxWeight = weight;
         winner = option;
       }
     }
 
     const participation = this.agents.size > 0 ? request.votes.size / this.agents.size : 0;
-    const confidence = request.votes.size > 0 ? maxVotes / request.votes.size : 0;
+    const confidence = totalWeight > 0 ? maxWeight / totalWeight : 0;
 
     request.status = request.votes.size > 0 ? 'resolved' : 'expired';
     request.result = {
@@ -555,6 +569,34 @@ export class SwarmCommunication extends EventEmitter {
   getPendingConsensus(): ConsensusRequest[] {
     return Array.from(this.consensusRequests.values())
       .filter(r => r.status === 'pending');
+  }
+
+  /**
+   * Lightweight synchronous coordination using μACP (Minimal Agent Coordination Protocol).
+   *
+   * Runs a single-round four-verb (init → propose → accept → commit) session
+   * with the provided participants.  The `acceptFn` is called for each peer
+   * to determine whether they accept the proposal.
+   *
+   * This is a fast, in-process alternative to the async broadcast-based
+   * `buildConsensus()` / `voteConsensus()` flow — suitable for decisions
+   * that can be evaluated synchronously within a single agent process.
+   *
+   * @param participants  Agent IDs participating in the coordination
+   * @param subject       Human-readable description of the decision
+   * @param proposal      The value the initiator proposes
+   * @param acceptFn      Synchronous accept/reject function for each peer
+   */
+  coordinateWithMuACP(
+    participants: string[],
+    subject: string,
+    proposal: string,
+    acceptFn: (agentId: string, proposal: string) => boolean,
+  ): MuACPCommitResult {
+    const peers = participants.filter(id => id !== this.config.agentId);
+    const result = MuACP.coordinate(this.config.agentId, peers, subject, proposal, acceptFn);
+    this.emit('muacp:committed', result);
+    return result;
   }
 
   /**

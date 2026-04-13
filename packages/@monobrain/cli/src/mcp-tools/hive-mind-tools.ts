@@ -7,6 +7,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
+import { weightedTally } from '../consensus/vote-signer.js';
 
 // Storage paths
 const STORAGE_DIR = '.monobrain';
@@ -47,6 +48,16 @@ interface ConsensusProposal {
   quorumPreset?: QuorumPreset; // Quorum: threshold preset
   byzantineVoters?: string[]; // BFT: detected Byzantine voters
   timeoutAt?: string;         // Raft: timeout for re-proposal
+  /**
+   * O-Information anti-convergence gate.
+   * Minimum number of voting rounds that must show divergent votes (not unanimous)
+   * before the proposal can resolve, even if the quorum threshold is already met.
+   * Prevents groupthink / premature consensus in high-synergy swarms.
+   * Source: arXiv:2510.05174 — O-Information Decomposition for Emergent Coordination
+   */
+  minDivergenceRounds?: number;
+  /** Counter: number of rounds so far where votes were not unanimous */
+  divergenceRoundsSeen?: number;
 }
 
 interface ConsensusResult {
@@ -509,6 +520,7 @@ export const hiveMindTools: MCPTool[] = [
         quorumPreset: { type: 'string', enum: ['unanimous', 'majority', 'supermajority'], description: 'Quorum threshold preset (for quorum strategy, default: majority)' },
         term: { type: 'number', description: 'Term number (for raft strategy)' },
         timeoutMs: { type: 'number', description: 'Timeout in ms for raft re-proposal (default: 30000)' },
+        minDivergenceRounds: { type: 'number', description: 'O-Information anti-groupthink gate: minimum rounds with divergent votes required before resolution (arXiv:2510.05174). Default: 0 (disabled).' },
       },
       required: ['action'],
     },
@@ -541,6 +553,10 @@ export const hiveMindTools: MCPTool[] = [
 
         const required = calculateRequiredVotes(strategy, totalNodes, quorumPreset);
 
+        const minDivergenceRounds = typeof input.minDivergenceRounds === 'number'
+          ? Math.max(0, input.minDivergenceRounds as number)
+          : 0;
+
         const proposal: ConsensusProposal = {
           proposalId,
           type: (input.type as string) || 'general',
@@ -554,6 +570,8 @@ export const hiveMindTools: MCPTool[] = [
           quorumPreset: strategy === 'quorum' ? quorumPreset : undefined,
           byzantineVoters: strategy === 'bft' ? [] : undefined,
           timeoutAt: strategy === 'raft' ? new Date(Date.now() + timeoutMs).toISOString() : undefined,
+          minDivergenceRounds: minDivergenceRounds > 0 ? minDivergenceRounds : undefined,
+          divergenceRoundsSeen: 0,
         };
 
         state.consensus.pending.push(proposal);
@@ -570,6 +588,7 @@ export const hiveMindTools: MCPTool[] = [
           term: proposal.term,
           quorumPreset: proposal.quorumPreset,
           timeoutAt: proposal.timeoutAt,
+          minDivergenceRounds: proposal.minDivergenceRounds,
         };
       }
 
@@ -673,8 +692,30 @@ export const hiveMindTools: MCPTool[] = [
         const votesFor = Object.values(proposal.votes).filter(v => v).length;
         const votesAgainst = Object.values(proposal.votes).filter(v => !v).length;
 
+        // O-Information divergence tracking (arXiv:2510.05174)
+        // Count this voting round as divergent if not all votes are the same direction.
+        // A divergent round signals synergy is still "in play" among agents.
+        const allVotes = Object.values(proposal.votes);
+        const isUnanimous = allVotes.every(v => v) || allVotes.every(v => !v);
+        if (!isUnanimous && allVotes.length >= 2) {
+          proposal.divergenceRoundsSeen = (proposal.divergenceRoundsSeen ?? 0) + 1;
+        }
+
+        // CP-WBFT: weighted tally using uniform confidence (1.0) until probe scores available
+        // Source: https://arxiv.org/abs/2511.10400
+        const weightedVotes = Object.entries(proposal.votes).map(([aid, v]) => ({
+          agentId: aid,
+          vote: v,
+          confidence: 1.0, // uniform until confidence-probe is wired
+        }));
+        const cpwbftTally = weightedTally(weightedVotes);
+
+        // O-Information gate: defer resolution if we haven't seen enough divergent rounds
+        const divergenceGateOpen = !proposal.minDivergenceRounds
+          || (proposal.divergenceRoundsSeen ?? 0) >= proposal.minDivergenceRounds;
+
         // Try to resolve
-        const resolution = tryResolveProposal(proposal, totalNodes);
+        const resolution = divergenceGateOpen ? tryResolveProposal(proposal, totalNodes) : null;
         let resolved = false;
 
         if (resolution !== null) {
@@ -732,6 +773,14 @@ export const hiveMindTools: MCPTool[] = [
           status: proposal.status,
           term: proposal.term,
           byzantineVoters: proposal.byzantineVoters?.length ? proposal.byzantineVoters : undefined,
+          cpwbft: cpwbftTally,
+          // O-Information divergence gate status
+          divergenceGateOpen,
+          divergenceRoundsSeen: proposal.divergenceRoundsSeen ?? 0,
+          minDivergenceRounds: proposal.minDivergenceRounds,
+          divergenceHint: !divergenceGateOpen
+            ? `O-Information gate: ${proposal.divergenceRoundsSeen ?? 0}/${proposal.minDivergenceRounds} divergent rounds seen. Resolution deferred to prevent groupthink.`
+            : undefined,
         };
       }
 

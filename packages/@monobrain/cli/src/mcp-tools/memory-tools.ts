@@ -262,6 +262,7 @@ export const memoryTools: MCPTool[] = [
       properties: {
         key: { type: 'string', description: 'Memory key' },
         namespace: { type: 'string', description: 'Namespace (default: "default")' },
+        agentId: { type: 'string', description: 'Caller agent ID (enables collaborative memory promotion)' },
       },
       required: ['key'],
     },
@@ -271,11 +272,12 @@ export const memoryTools: MCPTool[] = [
 
       const key = input.key as string;
       const namespace = (input.namespace as string) || 'default';
+      const agentId = input.agentId as string | undefined;
 
       validateMemoryInput(key);
 
       try {
-        const result = await getEntry({ key, namespace });
+        const result = await getEntry({ key, namespace, agentId });
 
         if (result.found && result.entry) {
           // Try to parse JSON value

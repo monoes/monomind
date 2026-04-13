@@ -2457,6 +2457,8 @@ export async function getEntry(options: {
   key: string;
   namespace?: string;
   dbPath?: string;
+  /** Agent ID for collaborative memory promotion tracking */
+  agentId?: string;
 }): Promise<{
   success: boolean;
   found: boolean;
@@ -2479,6 +2481,7 @@ export async function getEntry(options: {
     const bridgeResult = await bridge.bridgeGetEntry(options);
     if (bridgeResult) return bridgeResult;
   }
+
 
   // Fallback: raw sql.js
   const {

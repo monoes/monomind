@@ -285,9 +285,12 @@ export class LearningBridge extends EventEmitter {
       if (hoursSinceUpdate < 1) continue;
 
       const currentConf = (entry.metadata?.confidence as number) ?? 0.5;
+      // FOREVER forgetting curve: exponential decay weighted by importanceScore
+      // Source: https://arxiv.org/html/2601.03938v1
+      const importanceScore = (entry.importanceScore ?? entry.metadata?.importanceScore as number) ?? currentConf;
       const newConf = Math.max(
         this.config.minConfidence,
-        currentConf - this.config.confidenceDecayRate * hoursSinceUpdate,
+        importanceScore * Math.exp(-this.config.confidenceDecayRate * hoursSinceUpdate),
       );
 
       if (newConf < currentConf) {

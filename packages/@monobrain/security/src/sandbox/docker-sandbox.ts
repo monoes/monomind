@@ -39,6 +39,9 @@ export function buildDockerArgs(agentId: string, config: SandboxConfig): string[
   // Security options
   args.push('--security-opt', 'no-new-privileges');
   args.push('--read-only');
+  if (config.use_gvisor) {
+    args.push('--runtime', 'runsc');
+  }
 
   // Environment variables
   if (config.env_vars) {

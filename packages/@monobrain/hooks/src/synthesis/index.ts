@@ -27,3 +27,10 @@ export { EphemeralRegistry } from './ephemeral-registry.js';
 
 // TTL cleanup
 export { TTLCleanup } from './ttl-cleanup.js';
+
+// Agent promotion + DGM MAP-Elites archive (source: arXiv:2505.22954)
+export {
+  AgentPromoter,
+  DGMArchive,
+  type DGMArchiveEntry,
+} from './agent-promoter.js';

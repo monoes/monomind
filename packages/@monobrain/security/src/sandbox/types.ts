@@ -48,6 +48,8 @@ export interface SandboxConfig {
   wasm_memory_pages?: number;
   /** Allowed import specifiers (wasm type only) */
   wasm_allowed_imports?: string[];
+  /** Use gVisor runsc runtime for reduced syscall surface (docker only) */
+  use_gvisor?: boolean;
 }
 
 /**

@@ -6,6 +6,7 @@
  */
 
 import type { EphemeralAgentRecord } from './types.js';
+import { AgentPromoter } from './agent-promoter.js';
 
 export class EphemeralRegistry {
   private static instance: EphemeralRegistry | undefined;
@@ -97,5 +98,21 @@ export class EphemeralRegistry {
   /** Current count of registered agents */
   get size(): number {
     return this.records.size;
+  }
+
+  /**
+   * Return all records that are eligible for promotion to the permanent registry
+   * and the DGM MAP-Elites archive (source: arXiv:2505.22954).
+   *
+   * This is the primary call site for AgentPromoter.isEligible().
+   */
+  getPromotionCandidates(): EphemeralAgentRecord[] {
+    const candidates: EphemeralAgentRecord[] = [];
+    for (const record of this.records.values()) {
+      if (AgentPromoter.isEligible(record)) {
+        candidates.push({ ...record });
+      }
+    }
+    return candidates;
   }
 }

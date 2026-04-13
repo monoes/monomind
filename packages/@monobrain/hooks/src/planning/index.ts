@@ -9,3 +9,6 @@ export { buildPlanningPrompt } from './planning-prompt.js';
 export type { PlanValidationResult } from './plan-validator.js';
 export { validatePlan } from './plan-validator.js';
 export { PlanStore } from './plan-store.js';
+// LATS — Language Agent Tree Search for coordinator planning (Task 48 Tier 4)
+// Source: arXiv:2310.04406
+export { buildLATSPlan, type LATSConfig } from './lats-planner.js';
