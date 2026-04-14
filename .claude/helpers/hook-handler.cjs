@@ -413,15 +413,22 @@ const handlers = {
       try {
         var routeDir = path.join(CWD, '.monobrain');
         fs.mkdirSync(routeDir, { recursive: true });
+        var routePayload = {
+          agent: result.agent,
+          confidence: result.confidence,
+          reason: result.reason,
+          semanticRouting: result.semanticRouting || false,
+          updatedAt: new Date().toISOString(),
+        };
+        // Persist extras matches so statusline can show specific specialist names
+        if (result.extrasMatches && result.extrasMatches.length > 0) {
+          routePayload.extrasMatches = result.extrasMatches.map(function(e) {
+            return { name: e.name, slug: e.slug, category: e.category };
+          });
+        }
         fs.writeFileSync(
           path.join(routeDir, 'last-route.json'),
-          JSON.stringify({
-            agent: result.agent,
-            confidence: result.confidence,
-            reason: result.reason,
-            semanticRouting: result.semanticRouting || false,
-            updatedAt: new Date().toISOString(),
-          }),
+          JSON.stringify(routePayload),
           'utf-8'
         );
       } catch (e) { /* non-fatal */ }
@@ -465,52 +472,19 @@ const handlers = {
         output.push('+--------------------------------------------------------------+');
       }
 
-      // ── Check if a sub-agent was recently dispatched (suppress redundant panel) ──
-      var _recentDispatch = null;
-      var _dispatchAge = Infinity;
-      try {
-        var _dispatchFile = path.join(CWD, '.monobrain', 'last-dispatch.json');
-        if (fs.existsSync(_dispatchFile)) {
-          _recentDispatch = JSON.parse(fs.readFileSync(_dispatchFile, 'utf-8'));
-          _dispatchAge = Date.now() - new Date(_recentDispatch.dispatchedAt || 0).getTime();
-        }
-      } catch (e) { /* non-fatal */ }
-      // Suppress if a sub-agent was dispatched within the last 3 minutes
-      var _suppressExtras = _recentDispatch && _dispatchAge < 180000;
-
-      // ── Extras agents (non-dev specialist agents) ─────────────────
+      // ── Specialist agents (extras/non-dev) shown in same style as specificAgents ──
       var extras = result.extrasMatches || [];
-      if (_suppressExtras) {
-        // A sub-agent was recently dispatched — show compact note instead of full panel
+      if (extras.length > 0) {
         output.push('');
-        var _agentLabel = (_recentDispatch.agentType || 'sub-agent').replace(/-/g, ' ');
-        output.push('   → ROUTED  👤 ' + (_agentLabel.length > 20 ? _agentLabel.substring(0, 20) + '…' : _agentLabel.padEnd(20)) + ' ' + (result.confidence * 100).toFixed(0) + '%');
-      } else if (result.agent === 'extras' && extras.length > 0) {
-        output.push('');
-        output.push('+============= EXTRAS: Specialist Agents Available ============+');
-        output.push('| Non-development domain detected. Pick the best agent below.  |');
-        output.push('| To activate: run  ! node .claude/helpers/hook-handler.cjs    |');
-        output.push('|              load-agent <slug>   — or ask me to use one.     |');
-        output.push('+--------------------------------------------------------------+');
-        extras.forEach(function(e, i) {
-          var label = (i + 1) + '. [' + e.category + '] ' + e.name;
-          output.push('| ' + label.substring(0, 60).padEnd(60) + ' |');
-          output.push('|   ' + e.description.substring(0, 58).padEnd(58) + ' |');
-          output.push('|   slug: ' + e.slug.padEnd(52) + '|');
+        output.push('+------- Specialist Agents (' + extras.length + ' matched) ------------------------+');
+        extras.slice(0, 8).forEach(function(e, i) {
+          var label = (i + 1) + '. ' + e.name;
+          var cat = '[' + e.category + ']';
+          output.push('| ' + label.substring(0, 42).padEnd(42) + cat.substring(0, 16).padEnd(16) + ' |');
+          output.push('|   slug: ' + e.slug.substring(0, 52).padEnd(52) + ' |');
         });
         output.push('+--------------------------------------------------------------+');
-        output.push('| INSTRUCTION: Pick the agent best suited for this task and    |');
-        output.push('| run: Bash("node .claude/helpers/router.cjs --load-agent <slug>") |');
-        output.push('| Then adopt that agent\'s identity for the rest of the task.   |');
-        output.push('+--------------------------------------------------------------+');
-      } else if (extras.length > 0) {
-        // Low-confidence fallback also shows extras if any matched
-        output.push('');
-        output.push('+------- Also available: Extras Specialist Agents -------------+');
-        extras.forEach(function(e, i) {
-          output.push('| ' + (i + 1) + '. [' + e.category + '] ' + e.name.padEnd(48) + ' |');
-          output.push('|   slug: ' + e.slug.padEnd(52) + '|');
-        });
+        output.push('| Use: Task({ subagent_type: "<slug>" })                       |');
         output.push('+--------------------------------------------------------------+');
       }
 
@@ -748,6 +722,15 @@ const handlers = {
         }
       } catch (e2) { /* non-fatal */ }
     }
+
+    // Memory Palace — inject L0 (identity) + L1 (essential story) into session context
+    try {
+      var palace = require('./memory-palace.cjs');
+      var palaceContext = palace.wakeUp(CWD);
+      if (palaceContext) {
+        console.log(palaceContext);
+      }
+    } catch (e) { /* non-fatal — palace not available */ }
   },
 
   'session-end': async () => {
@@ -766,6 +749,16 @@ const handlers = {
     } else {
       console.log('[OK] Session ended');
     }
+
+    // Memory Palace — archive session-end marker so timeline is queryable
+    try {
+      var palace = require('./memory-palace.cjs');
+      var sessionId = hookInput.sessionId || hookInput.session_id || ('session-' + Date.now());
+      var summary = hookInput.summary || hookInput.description || '';
+      var marker = 'Session ended: ' + sessionId + (summary ? '. ' + summary : '');
+      palace.storeVerbatim(CWD, marker, { wing: 'sessions', room: 'archive', hall: new Date().toISOString().slice(0, 10) });
+      palace.kgAdd(CWD, sessionId, 'ended_at', new Date().toISOString(), null, 1.0, 'session-end-hook');
+    } catch (e) { /* non-fatal */ }
   },
 
   'pre-task': async () => {
@@ -859,9 +852,17 @@ const handlers = {
           try { if (now - fs.statSync(path.join(regDir, f)).mtimeMs > 30 * 60 * 1000) fs.unlinkSync(path.join(regDir, f)); } catch { /* ignore */ }
         }
         const remaining = fs.readdirSync(regDir).filter(f => f.endsWith('.json')).length;
-        fs.writeFileSync(path.join(CWD, '.monobrain', 'metrics', 'swarm-activity.json'), JSON.stringify({
+        const _actPath = path.join(CWD, '.monobrain', 'metrics', 'swarm-activity.json');
+        let _prevLastActive = 0;
+        try { _prevLastActive = (JSON.parse(fs.readFileSync(_actPath, 'utf-8'))?.swarm?.lastActive) || 0; } catch { /* ignore */ }
+        fs.writeFileSync(_actPath, JSON.stringify({
           timestamp: new Date().toISOString(),
-          swarm: { active: remaining > 0, agent_count: remaining, coordination_active: remaining > 0 },
+          swarm: {
+            active: remaining > 0,
+            agent_count: remaining,
+            coordination_active: remaining > 0,
+            lastActive: Math.max(remaining, _prevLastActive), // preserve peak across completion
+          },
         }));
       }
     } catch (e) { /* non-fatal */ }
@@ -923,6 +924,21 @@ const handlers = {
       }
     } catch (e) { /* non-fatal */ }
 
+    // Memory Palace — store task description as verbatim drawer
+    try {
+      var palace = require('./memory-palace.cjs');
+      var taskContent = typeof prompt === 'string' ? prompt
+        : (hookInput.task_description || hookInput.description || '');
+      if (taskContent && taskContent.length >= 20) {
+        var taskAgent = hookInput.agentSlug || hookInput.agent_slug || 'general';
+        palace.storeVerbatim(CWD, taskContent, {
+          wing: 'tasks',
+          room: taskAgent,
+          hall: new Date().toISOString().slice(0, 10),
+        });
+      }
+    } catch (e) { /* non-fatal */ }
+
     console.log('[OK] Task completed');
   },
 
@@ -962,12 +978,16 @@ const handlers = {
       fs.mkdirSync(activityDir, { recursive: true });
       const activityPath = path.join(activityDir, 'swarm-activity.json');
       const active = fs.readdirSync(regDir).filter(f => f.endsWith('.json')).length;
+      // Preserve lastActive (peak) across agent lifecycle so statusline shows non-zero after completion
+      let prevLastActive = 0;
+      try { prevLastActive = (JSON.parse(fs.readFileSync(activityPath, 'utf-8'))?.swarm?.lastActive) || 0; } catch { /* ignore */ }
       fs.writeFileSync(activityPath, JSON.stringify({
         timestamp: new Date().toISOString(),
         swarm: {
           active: active > 0,
           agent_count: active,
           coordination_active: active > 0,
+          lastActive: Math.max(active, prevLastActive),
         },
       }));
 
