@@ -373,6 +373,7 @@ function getSwarmStatus() {
           activeAgents: liveCount,
           maxAgents: CONFIG.maxAgents,
           coordinationActive: true,
+          lastActive: liveCount,
         };
       }
     } catch { /* fall through */ }
@@ -385,10 +386,12 @@ function getSwarmStatus() {
     const updatedAt = swarmState.updatedAt || swarmState.startedAt;
     const age = updatedAt ? now - new Date(updatedAt).getTime() : Infinity;
     if (age < staleThresholdMs) {
+      const sc = swarmState.agents?.length || swarmState.agentCount || 0;
       return {
-        activeAgents: swarmState.agents?.length || swarmState.agentCount || 0,
+        activeAgents: sc,
         maxAgents: swarmState.maxAgents || CONFIG.maxAgents,
         coordinationActive: true,
+        lastActive: sc,
       };
     }
   }
@@ -403,11 +406,19 @@ function getSwarmStatus() {
         activeAgents: activityData.swarm.agent_count || 0,
         maxAgents: CONFIG.maxAgents,
         coordinationActive: activityData.swarm.coordination_active || activityData.swarm.active || false,
+        lastActive: activityData.swarm.lastActive || 0,
       };
     }
+    // Even if stale, preserve lastActive for display
+    return {
+      activeAgents: 0,
+      maxAgents: CONFIG.maxAgents,
+      coordinationActive: false,
+      lastActive: activityData.swarm.lastActive || 0,
+    };
   }
 
-  return { activeAgents: 0, maxAgents: CONFIG.maxAgents, coordinationActive: false };
+  return { activeAgents: 0, maxAgents: CONFIG.maxAgents, coordinationActive: false, lastActive: 0 };
 }
 
 // System metrics (uses process.memoryUsage() — no shell spawn)
@@ -538,6 +549,7 @@ function getActiveAgent() {
       category: data.category || null,
       confidence: data.confidence || 0,
       activated: data.activated || false,   // true = manually loaded extras agent
+      extrasMatches: data.extrasMatches || [],
     };
   } catch { return null; }
 }
@@ -830,9 +842,19 @@ function generateStatusline() {
   // Active agent
   const activeAgent = getActiveAgent();
   if (activeAgent) {
-    const col  = activeAgent.activated ? x.green : x.sky;
-    const icon = activeAgent.activated ? '●' : '→';
-    parts.push(`${col}${icon} ${x.bold}${activeAgent.name}${x.reset}`);
+    const isExtras = activeAgent.slug === 'extras' || activeAgent.name === 'Extras';
+    if (isExtras && activeAgent.extrasMatches && activeAgent.extrasMatches.length > 0) {
+      // Show first specialist name in compact mode
+      const first = activeAgent.extrasMatches[0];
+      parts.push(`${x.sky}👤 ${x.bold}${first.name}${x.reset}`);
+    } else if (!isExtras) {
+      const col  = activeAgent.activated ? x.green : x.sky;
+      const icon = activeAgent.activated ? '●' : '';
+      parts.push(icon
+        ? `${col}${icon} ${x.bold}${activeAgent.name}${x.reset}`
+        : `${col}👤 ${x.bold}${activeAgent.name}${x.reset}`);
+    }
+    // else: suppress extras with no matches
   }
 
   // Intelligence
@@ -849,9 +871,11 @@ function generateStatusline() {
     parts.push(`${x.mint}🎯 ${triggers.triggers}t${x.reset}`);
   }
 
-  // Swarm agents (only when active)
+  // Swarm agents — show active count, or dim recent count when idle
   if (swarm.activeAgents > 0) {
     parts.push(`${x.gold}🐝 ${swarm.activeAgents}/${swarm.maxAgents}${x.reset}`);
+  } else if ((swarm.lastActive || 0) > 0) {
+    parts.push(`${x.slate}🐝 ${swarm.lastActive}✓${x.reset}`);
   }
 
   // Hooks
@@ -941,18 +965,37 @@ function generateDashboard() {
   // Active agent badge
   let agentBadge;
   if (activeAgent) {
-    const col  = activeAgent.activated ? x.green : x.sky;
-    const mark = activeAgent.activated ? '● ACTIVE' : '→ ROUTED';
-    const conf = activeAgent.activated ? '' : `  ${x.slate}${(activeAgent.confidence * 100).toFixed(0)}%${x.reset}`;
-    const cat  = activeAgent.category  ? `  ${x.slate}[${activeAgent.category}]${x.reset}` : '';
-    agentBadge = `${col}${x.bold}${mark}${x.reset}  ${col}👤 ${x.bold}${activeAgent.name}${x.reset}${cat}${conf}`;
+    const isExtras = activeAgent.slug === 'extras' || activeAgent.name === 'Extras';
+    if (isExtras && activeAgent.extrasMatches && activeAgent.extrasMatches.length > 0) {
+      // Show specific specialist names instead of generic "Extras"
+      const specialists = activeAgent.extrasMatches.slice(0, 3);
+      const badgeParts = specialists.map(s => `${x.sky}👤 ${x.bold}${s.name}${x.reset}`);
+      agentBadge = badgeParts.join(`${x.slate}  ${x.reset}`);
+    } else if (isExtras) {
+      // "extras" with no specific matches — suppress
+      agentBadge = `${x.slate}👤 no agent routed${x.reset}`;
+    } else {
+      const col  = activeAgent.activated ? x.green : x.sky;
+      const mark = activeAgent.activated ? '● ACTIVE' : '';
+      const conf = activeAgent.activated ? '' : `  ${x.slate}${(activeAgent.confidence * 100).toFixed(0)}%${x.reset}`;
+      const cat  = activeAgent.category  ? `  ${x.slate}[${activeAgent.category}]${x.reset}` : '';
+      agentBadge = mark
+        ? `${col}${x.bold}${mark}${x.reset}  ${col}👤 ${x.bold}${activeAgent.name}${x.reset}${cat}${conf}`
+        : `${col}👤 ${x.bold}${activeAgent.name}${x.reset}${cat}${conf}`;
+    }
   } else {
     agentBadge = `${x.slate}👤 no agent routed${x.reset}`;
   }
 
+  // Swarm line: show active count, or "N ✓ idle" when recently used, or "idle" when never used
+  const swarmCountStr = swarm.activeAgents > 0
+    ? `${agentCol}${x.bold}${swarm.activeAgents}${x.reset}${x.slate}/${x.reset}${x.white}${swarm.maxAgents}${x.reset} agents`
+    : (swarm.lastActive || 0) > 0
+      ? `${x.slate}${swarm.lastActive}${x.reset}${x.slate}/${swarm.maxAgents} (${x.reset}${x.green}✓ done${x.slate})${x.reset}`
+      : `${x.slate}idle${x.reset}          `;
   lines.push(
     `${x.gold}🐝  SWARM${x.reset}    ` +
-    `${agentCol}${x.bold}${swarm.activeAgents}${x.reset}${x.slate}/${x.reset}${x.white}${swarm.maxAgents}${x.reset} agents   ` +
+    `${swarmCountStr}   ` +
     `${hookCol}⚡ ${hooks.enabled}/${hooks.total} hooks${x.reset}   ${DIV}   ` +
     `${trigStr}   ${DIV}   ` +
     agentBadge
