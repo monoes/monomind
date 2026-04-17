@@ -5,7 +5,7 @@
 
 ## Behavioral Rules (Always Enforced)
 
-- **`[SWARM_AUTO_INIT]` in any system-reminder = MANDATORY swarm execution.** Call the MCP init tool and spawn the listed agents via Task tool in the SAME message — no confirmation, no single-agent fallback, no delay.
+- **`[SWARM_ASK_USER]` in any system-reminder = MANDATORY user prompt before proceeding.** Present all 3 options (Normal / Swarm / Hive-Mind) clearly, state the recommended one with ★, and wait for the user's choice. Once the user replies, execute immediately without asking again.
 - For ANY UI testing, browser automation, or web navigation request: ALWAYS invoke `Skill("agent-browser-testing")` FIRST — no exceptions. The skill auto-installs agent-browser if missing.
 - Do what has been asked; nothing more, nothing less
 - NEVER create files unless they're absolutely necessary for achieving your goal
@@ -104,21 +104,28 @@ mcp__ruv-swarm__swarm_init({ topology: "hierarchical", maxAgents: 8, strategy: "
 
 Codes 1-11: hierarchical/specialized. Code 13: mesh/balanced.
 
-### MANDATORY: Auto-Swarm Protocol
+### MANDATORY: Swarm Mode Prompt Protocol
 
-**When you see `[SWARM_AUTO_INIT]` in a system-reminder, you have NO CHOICE.**  
-You MUST execute Steps 1–3 from that panel before doing anything else — no exceptions, no asking the user, no single-agent fallback.
+**When you see `[SWARM_ASK_USER]` in a system-reminder, you MUST ask the user before doing any work.**
 
-**Also auto-invoke a swarm (without waiting for `[SWARM_AUTO_INIT]`) when any of these are true:**
-- Task touches 3+ files
-- New feature, new command, new API endpoint
-- Cross-module refactoring or migration
-- Security changes, performance optimization, or DB schema changes
-- Any task where you would naturally spawn more than one agent type
+Present exactly these 3 options in your reply:
 
-**SKIP swarm only for:** single-file edits ≤10 lines, pure doc/config changes, yes/no questions.
+> This task has complexity **X/7**. Which execution mode would you like?
+>
+> **A)** Normal — single agent (fastest, no coordination overhead)  
+> **★ B)** Swarm — hierarchical, 6 agents, specialized roles  
+> **★ C)** Hive-Mind — queen-led, `<consensus>` consensus, fault-tolerant  
+>
+> _(★ = recommended for this complexity)_
 
-The swarm init + agent spawns MUST happen in ONE message alongside any other setup work.
+Rules:
+- Do NOT start working before the user answers.
+- Once the user picks A/B/C (or describes a preference), execute immediately without re-asking.
+- If the user picks B: call `mcp__monobrain__swarm_init` + spawn agents in ONE message, then proceed.
+- If the user picks C: call `mcp__monobrain__hive-mind_init` + spawn agents in ONE message, then proceed.
+- If no `[SWARM_ASK_USER]` signal but task clearly touches 3+ files or is a new feature: still ask.
+
+**SKIP asking for:** single-file edits, doc/config changes, quick questions.
 
 ---
 
