@@ -582,15 +582,13 @@ const handlers = {
           }
 
           if (score >= 3) {
-            var recommended = score >= 5 ? 'hive-mind' : 'swarm';
+            var recommended = score >= 5 ? 'C' : 'B';
             var scoreStr = score + '/7';
             var border = '+' + '='.repeat(73) + '+';
             var pad = function(s, len) { while (s.length < len) s += ' '; return s; };
-            var topology = score >= 5 ? 'hierarchical-mesh' : 'hierarchical';
-            var maxAgents = score >= 5 ? 8 : 6;
-            var initCall = score >= 5
-              ? 'mcp__monobrain__hive-mind_init({topology:"hierarchical-mesh",consensus:"' + consensus + '"})'
-              : 'mcp__monobrain__swarm_init({topology:"hierarchical",maxAgents:6,strategy:"specialized"})';
+            var swarmMark = recommended === 'B' ? '★ ' : '  ';
+            var hiveMark  = recommended === 'C' ? '★ ' : '  ';
+            var hiveLine = hiveMark + 'C)  Hive-Mind — queen-led, ' + consensus + '  (' + consensusNote + ')';
 
             // Determine agent roster from task keywords
             var agentRoster;
@@ -606,20 +604,23 @@ const handlers = {
 
             var panel = [
               '',
-              '[SWARM_AUTO_INIT] score=' + scoreStr + ' mode=' + recommended + ' topology=' + topology + ' consensus=' + consensus,
+              '[SWARM_ASK_USER] score=' + scoreStr + ' recommended=' + recommended,
               border,
-              '| ' + pad('MANDATORY: AUTO-INIT SWARM  (complexity score: ' + scoreStr + ')', 71) + ' |',
-              '| ' + pad('You MUST execute the following before doing ANY other work:', 71) + ' |',
+              '| ' + pad('COMPLEX TASK DETECTED  (complexity score: ' + scoreStr + ')', 71) + ' |',
+              '| ' + pad('INSTRUCTION: Ask the user which execution mode to use:', 71) + ' |',
               '|' + ' '.repeat(73) + '|',
-              '| STEP 1 — Init coordinator (call this MCP tool NOW):                     |',
-              '|   ' + pad(initCall, 69) + ' |',
+              '|   A)  Normal    — single agent, no swarm                                |',
+              '|   ' + pad(swarmMark + 'B)  Swarm     — hierarchical, 6 agents, specialized', 69) + ' |',
+              '|   ' + pad(hiveLine, 69) + ' |',
               '|' + ' '.repeat(73) + '|',
-              '| STEP 2 — Spawn agents via Task tool (all in ONE message):               |',
-              '|   Agents: ' + pad(agentRoster, 61) + ' |',
-              '|' + ' '.repeat(73) + '|',
-              '| STEP 3 — Proceed with task using swarm coordination.                    |',
-              '|' + ' '.repeat(73) + '|',
-              '| DO NOT ask the user. DO NOT skip. DO NOT use single-agent mode.         |',
+              '|   ★ = recommended for this complexity. Present all 3 choices clearly.   |',
+              '|   Suggested agents: ' + pad(agentRoster, 51) + ' |',
+              border,
+              '| On user choice, execute immediately without further confirmation:        |',
+              '|   B → swarm_init({topology:"hierarchical",maxAgents:6,                  |',
+              '|         strategy:"specialized"}) + spawn agents via Task tool            |',
+              '|   C → hive-mind_init({topology:"hierarchical-mesh",                     |',
+              '|         consensus:"' + pad(consensus + '"}) + spawn agents via Task tool', 53) + ' |',
               border,
             ];
             console.log(panel.join('\n'));
