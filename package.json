@@ -1,6 +1,6 @@
 {
   "name": "monobrain",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "Monobrain - Enterprise AI agent orchestration for Claude Code. Deploy 60+ specialized agents in coordinated swarms with self-learning, fault-tolerant consensus, vector memory, and MCP integration",
   "main": "dist/index.js",
   "type": "module",
