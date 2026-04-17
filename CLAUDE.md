@@ -5,6 +5,7 @@
 
 ## Behavioral Rules (Always Enforced)
 
+- **`[SWARM_AUTO_INIT]` in any system-reminder = MANDATORY swarm execution.** Call the MCP init tool and spawn the listed agents via Task tool in the SAME message — no confirmation, no single-agent fallback, no delay.
 - For ANY UI testing, browser automation, or web navigation request: ALWAYS invoke `Skill("agent-browser-testing")` FIRST — no exceptions. The skill auto-installs agent-browser if missing.
 - Do what has been asked; nothing more, nothing less
 - NEVER create files unless they're absolutely necessary for achieving your goal
@@ -103,11 +104,21 @@ mcp__ruv-swarm__swarm_init({ topology: "hierarchical", maxAgents: 8, strategy: "
 
 Codes 1-11: hierarchical/specialized. Code 13: mesh/balanced.
 
-### Task Complexity Detection
+### MANDATORY: Auto-Swarm Protocol
 
-**AUTO-INVOKE SWARM when:** multiple files (3+), new features, cross-module refactoring, API changes with tests, security changes, performance optimization, DB schema changes.
+**When you see `[SWARM_AUTO_INIT]` in a system-reminder, you have NO CHOICE.**  
+You MUST execute Steps 1–3 from that panel before doing anything else — no exceptions, no asking the user, no single-agent fallback.
 
-**SKIP SWARM for:** single file edits, simple bug fixes (1-2 lines), doc updates, config changes, quick questions.
+**Also auto-invoke a swarm (without waiting for `[SWARM_AUTO_INIT]`) when any of these are true:**
+- Task touches 3+ files
+- New feature, new command, new API endpoint
+- Cross-module refactoring or migration
+- Security changes, performance optimization, or DB schema changes
+- Any task where you would naturally spawn more than one agent type
+
+**SKIP swarm only for:** single-file edits ≤10 lines, pure doc/config changes, yes/no questions.
+
+The swarm init + agent spawns MUST happen in ONE message alongside any other setup work.
 
 ---
 

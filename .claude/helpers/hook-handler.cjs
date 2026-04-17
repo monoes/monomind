@@ -582,31 +582,44 @@ const handlers = {
           }
 
           if (score >= 3) {
-            var recommended = score >= 5 ? 'C' : 'B';
+            var recommended = score >= 5 ? 'hive-mind' : 'swarm';
             var scoreStr = score + '/7';
-            var swarmMark = recommended === 'B' ? '★ ' : '  ';
-            var hiveMark  = recommended === 'C' ? '★ ' : '  ';
             var border = '+' + '='.repeat(73) + '+';
             var pad = function(s, len) { while (s.length < len) s += ' '; return s; };
-            var hiveLine = hiveMark + 'C)  Hive-Mind — queen-led, ' + consensus + '  (' + consensusNote + ')';
+            var topology = score >= 5 ? 'hierarchical-mesh' : 'hierarchical';
+            var maxAgents = score >= 5 ? 8 : 6;
+            var initCall = score >= 5
+              ? 'mcp__monobrain__hive-mind_init({topology:"hierarchical-mesh",consensus:"' + consensus + '"})'
+              : 'mcp__monobrain__swarm_init({topology:"hierarchical",maxAgents:6,strategy:"specialized"})';
+
+            // Determine agent roster from task keywords
+            var agentRoster;
+            if (/\b(security|vuln|threat|exploit|auth|cve|attack)\b/.test(promptL)) {
+              agentRoster = 'coordinator, security-architect, security-auditor, coder, tester';
+            } else if (/\b(performance|optim|benchmark|profile|latency)\b/.test(promptL)) {
+              agentRoster = 'coordinator, perf-analyzer, coder, tester';
+            } else if (/\b(refactor|migrat|rewrite|restructur)\b/.test(promptL)) {
+              agentRoster = 'coordinator, architect, coder, reviewer';
+            } else {
+              agentRoster = 'coordinator, architect, coder, tester, reviewer';
+            }
+
             var panel = [
               '',
+              '[SWARM_AUTO_INIT] score=' + scoreStr + ' mode=' + recommended + ' topology=' + topology + ' consensus=' + consensus,
               border,
-              '| ' + pad('SWARM MODE SUGGESTED  (complexity score: ' + scoreStr + ')', 71) + ' |',
-              '| ' + pad('INSTRUCTION: Present these options to the user before proceeding:', 71) + ' |',
+              '| ' + pad('MANDATORY: AUTO-INIT SWARM  (complexity score: ' + scoreStr + ')', 71) + ' |',
+              '| ' + pad('You MUST execute the following before doing ANY other work:', 71) + ' |',
               '|' + ' '.repeat(73) + '|',
-              '|   ' + pad('A)  Normal    — single agent, no swarm  (default if no reply)', 69) + ' |',
-              '|   ' + pad(swarmMark + 'B)  Swarm     — hierarchical, 6 agents, specialized', 69) + ' |',
-              '|   ' + pad(hiveLine, 69) + ' |',
+              '| STEP 1 — Init coordinator (call this MCP tool NOW):                     |',
+              '|   ' + pad(initCall, 69) + ' |',
               '|' + ' '.repeat(73) + '|',
-              '|   ' + pad('★ = recommended for this task complexity. Wait for user choice.', 69) + ' |',
-              border,
-              '| AUTO-EXEC: If user picks B, run:                                        |',
-              '|   mcp__monobrain__swarm_init({topology:"hierarchical",maxAgents:6,       |',
-              '|     strategy:"specialized"})                                             |',
-              '| If user picks C, run:                                                    |',
-              '|   mcp__monobrain__hive-mind_init({topology:"hierarchical-mesh",           |',
-              '|     consensus:"' + pad(consensus + '"})', 55) + '|',
+              '| STEP 2 — Spawn agents via Task tool (all in ONE message):               |',
+              '|   Agents: ' + pad(agentRoster, 61) + ' |',
+              '|' + ' '.repeat(73) + '|',
+              '| STEP 3 — Proceed with task using swarm coordination.                    |',
+              '|' + ' '.repeat(73) + '|',
+              '| DO NOT ask the user. DO NOT skip. DO NOT use single-agent mode.         |',
               border,
             ];
             console.log(panel.join('\n'));
