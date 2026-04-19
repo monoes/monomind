@@ -38,7 +38,6 @@ const commandLoaders: Record<string, CommandLoader> = {
   hooks: () => import('./hooks.js'),
   workflow: () => import('./workflow.js'),
   'hive-mind': () => import('./hive-mind.js'),
-  process: () => import('./process.js'),
   daemon: () => import('./daemon.js'),
   // Advanced Commands (less frequently used - lazy load)
   neural: () => import('./neural.js'),
@@ -56,10 +55,6 @@ const commandLoaders: Record<string, CommandLoader> = {
   analyze: () => import('./analyze.js'),
   // Q-Learning Routing Commands
   route: () => import('./route.js'),
-  // Progress Commands
-  progress: () => import('./progress.js'),
-  // Issue Claims Commands (ADR-016)
-  issues: () => import('./issues.js'),
   // Auto-update System (ADR-025)
   update: () => import('./update.js'),
   // RuVector PostgreSQL Bridge
@@ -138,14 +133,11 @@ import { migrateCommand } from './migrate.js';
 import { workflowCommand } from './workflow.js';
 import { analyzeCommand } from './analyze.js';
 import { routeCommand } from './route.js';
-import { progressCommand } from './progress.js';
 import { providersCommand } from './providers.js';
 import { pluginsCommand } from './plugins.js';
 import { deploymentCommand } from './deployment.js';
 import { claimsCommand } from './claims.js';
-import { issuesCommand } from './issues.js';
 import updateCommand from './update.js';
-import { processCommand } from './process.js';
 import { guidanceCommand } from './guidance.js';
 import { cleanupCommand } from './cleanup.js';
 import { autopilotCommand } from './autopilot.js';
@@ -183,14 +175,11 @@ loadedCommands.set('migrate', migrateCommand);
 loadedCommands.set('workflow', workflowCommand);
 loadedCommands.set('analyze', analyzeCommand);
 loadedCommands.set('route', routeCommand);
-loadedCommands.set('progress', progressCommand);
 loadedCommands.set('providers', providersCommand);
 loadedCommands.set('plugins', pluginsCommand);
 loadedCommands.set('deployment', deploymentCommand);
 loadedCommands.set('claims', claimsCommand);
-loadedCommands.set('issues', issuesCommand);
 loadedCommands.set('update', updateCommand);
-loadedCommands.set('process', processCommand);
 
 // =============================================================================
 // Exports (maintain backwards compatibility)
@@ -224,7 +213,6 @@ export async function getConfigCommand() { return loadCommand('config'); }
 export async function getMigrateCommand() { return loadCommand('migrate'); }
 export async function getWorkflowCommand() { return loadCommand('workflow'); }
 export async function getHiveMindCommand() { return loadCommand('hive-mind'); }
-export async function getProcessCommand() { return loadCommand('process'); }
 export async function getTaskCommand() { return loadCommand('task'); }
 export async function getSessionCommand() { return loadCommand('session'); }
 export async function getNeuralCommand() { return loadCommand('neural'); }
@@ -238,8 +226,6 @@ export async function getEmbeddingsCommand() { return loadCommand('embeddings');
 export async function getCompletionsCommand() { return loadCommand('completions'); }
 export async function getAnalyzeCommand() { return loadCommand('analyze'); }
 export async function getRouteCommand() { return loadCommand('route'); }
-export async function getProgressCommand() { return loadCommand('progress'); }
-export async function getIssuesCommand() { return loadCommand('issues'); }
 export async function getRuvectorCommand() { return loadCommand('ruvector'); }
 export async function getGuidanceCommand() { return loadCommand('guidance'); }
 export async function getCleanupCommand() { return loadCommand('cleanup'); }
@@ -281,14 +267,11 @@ export const commands: Command[] = [
   workflowCommand,
   analyzeCommand,
   routeCommand,
-  progressCommand,
   providersCommand,
   pluginsCommand,
   deploymentCommand,
   claimsCommand,
-  issuesCommand,
   updateCommand,
-  processCommand,
 ];
 
 /**
@@ -328,7 +311,6 @@ export const commandsByCategory = {
   analysis: [
     analyzeCommand,
     routeCommand,
-    progressCommand,
     benchmarkCommand,
     tokensCommand,
   ],
@@ -337,9 +319,7 @@ export const commandsByCategory = {
     pluginsCommand,
     deploymentCommand,
     claimsCommand,
-    issuesCommand,
     updateCommand,
-    processCommand,
     cleanupCommand,
   ],
 };

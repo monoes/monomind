@@ -299,7 +299,7 @@ Bash("npx monobrain@latest hooks worker dispatch --trigger optimize")
 - **HNSW**: Enabled
 - **Neural**: Enabled
 
-## 🚀 CLI Commands (38 Commands)
+## 🚀 CLI Commands (35 Commands)
 
 ### Core Commands
 

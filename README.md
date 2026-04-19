@@ -135,7 +135,7 @@ node packages/@monobrain/cli/bin/cli.js init --wizard
 claude mcp add monobrain -- node "$PWD/packages/@monobrain/cli/bin/cli.js" mcp start
 ```
 
-> **New to Monobrain?** You don't need to learn 170+ MCP tools or 38 CLI commands up front. After running `init`, just use Claude Code normally — the hooks system automatically routes tasks to the right agents, learns from successful patterns, and coordinates multi-agent work in the background.
+> **New to Monobrain?** You don't need to learn 170+ MCP tools or 35 CLI commands up front. After running `init`, just use Claude Code normally — the hooks system automatically routes tasks to the right agents, learns from successful patterns, and coordinates multi-agent work in the background.
 
 ---
 
