@@ -32,12 +32,9 @@ metadata:
 # Dependencies
 dependencies:
   required:
-    - "@monobrain/plugins": ">=3.0.0"
     - "@monobrain/memory": ">=3.0.0"
-    - "@monobrain/security": ">=3.0.0"
     - "@monobrain/embeddings": ">=3.0.0"
   optional:
-    - "@monobrain/browser": ">=3.0.0"  # For E2E/visual testing
     - "@ruvector/attention": ">=1.0.0"   # Enhanced pattern matching
     - "@ruvector/gnn": ">=1.0.0"         # Code graph analysis
     - "@ruvector/sona": ">=1.0.0"        # Self-optimizing learning
@@ -988,7 +985,7 @@ implementation:
       files: 8
       estimatedLines: 1210
       deliverables:
-        - Plugin registers with @monobrain/plugins SDK
+        - Plugin registers with monobrain plugin system
         - Type-safe configuration validation
         - Basic lifecycle hooks (onLoad, onUnload)
 

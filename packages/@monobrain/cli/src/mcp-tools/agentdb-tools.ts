@@ -503,20 +503,6 @@ export const agentdbContextSynthesize: MCPTool = {
       const query = validateString(params.query, 'query', 10_000);
       if (!query) return { success: false, error: 'query is required (non-empty string, max 10KB)' };
 
-      // validateExternalContent: guard against prompt injection in synthesized context
-      // Source: https://arxiv.org/abs/2302.12173, https://arxiv.org/abs/2310.12815
-      try {
-        const { validateExternalContent } = await import('../../security/src/input-validator.js' as string).catch(
-          () => import('@monobrain/security' as string).catch(() => null) as any
-        );
-        if (validateExternalContent) {
-          const check = await validateExternalContent(query, 'agentdb_context-synthesize query');
-          if (!check.safe) {
-            return { success: false, error: `Injection guard: ${check.reason}`, injectionDetected: true };
-          }
-        }
-      } catch { /* security module optional */ }
-
       const bridge = await getBridge();
       const result = await bridge.bridgeContextSynthesize({
         query,

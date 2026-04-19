@@ -39,8 +39,6 @@ domains:
 dependencies:
   required:
     - "@monobrain/memory": ">=3.0.0"
-    - "@monobrain/security": ">=3.0.0"
-    - "@monobrain/coordination": ">=3.0.0"
   optional:
     - "@monobrain/embeddings": ">=3.0.0"  # For embedding generation
     - "@monobrain/aidefence": ">=3.0.0"   # For enhanced threat detection
