@@ -82,12 +82,9 @@ import { claimsCommand } from '../src/commands/claims.js';
 import { deploymentCommand } from '../src/commands/deployment.js';
 import { providersCommand } from '../src/commands/providers.js';
 import { pluginsCommand } from '../src/commands/plugins.js';
-import { processCommand } from '../src/commands/process.js';
 import { startCommand } from '../src/commands/start.js';
 import { analyzeCommand } from '../src/commands/analyze.js';
 import { routeCommand } from '../src/commands/route.js';
-import { progressCommand } from '../src/commands/progress.js';
-import { issuesCommand } from '../src/commands/issues.js';
 import { guidanceCommand } from '../src/commands/guidance.js';
 import updateCommand from '../src/commands/update.js';
 import { ruvectorCommand } from '../src/commands/ruvector/index.js';
@@ -378,12 +375,6 @@ describe('Command Definitions', () => {
     });
   });
 
-  describe('process command', () => {
-    it('should have correct name', () => {
-      expectValidCommand(processCommand, 'process');
-    });
-  });
-
   describe('start command', () => {
     it('should have correct name', () => {
       expectValidCommand(startCommand, 'start');
@@ -403,18 +394,6 @@ describe('Command Definitions', () => {
   describe('route command', () => {
     it('should have correct name', () => {
       expectValidCommand(routeCommand, 'route');
-    });
-  });
-
-  describe('progress command', () => {
-    it('should have correct name', () => {
-      expectValidCommand(progressCommand, 'progress');
-    });
-  });
-
-  describe('issues command', () => {
-    it('should have correct name', () => {
-      expectValidCommand(issuesCommand, 'issues');
     });
   });
 
@@ -467,12 +446,9 @@ const allCommands: { cmd: Command; name: string }[] = [
   { cmd: deploymentCommand, name: 'deployment' },
   { cmd: providersCommand, name: 'providers' },
   { cmd: pluginsCommand, name: 'plugins' },
-  { cmd: processCommand, name: 'process' },
   { cmd: startCommand, name: 'start' },
   { cmd: analyzeCommand, name: 'analyze' },
   { cmd: routeCommand, name: 'route' },
-  { cmd: progressCommand, name: 'progress' },
-  { cmd: issuesCommand, name: 'issues' },
   { cmd: updateCommand, name: 'update' },
   { cmd: guidanceCommand, name: 'guidance' },
   { cmd: ruvectorCommand, name: 'ruvector' },

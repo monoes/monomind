@@ -298,7 +298,6 @@ Then in Claude Code:
 ```bash
 # Add MCP servers to Claude Code
 claude mcp add monobrain npx monobrain@alpha mcp start
-claude mcp add ruv-swarm npx ruv-swarm mcp start  # Optional
 ```
 
 ### 4. Verify Installation
@@ -512,25 +511,6 @@ Monobrain integrates with 3 MCP servers providing 110+ tools:
 - Memory management
 - Neural training
 - Performance monitoring
-
-### ruv-swarm MCP (Optional)
-
-```json
-{
-  "mcpServers": {
-    "ruv-swarm": {
-      "command": "npx",
-      "args": ["ruv-swarm", "mcp", "start"]
-    }
-  }
-}
-```
-
-**Tools**: Enhanced coordination features
-- WASM acceleration (2.8-4.4x speed)
-- SIMD optimization
-- Advanced topology management
-- Byzantine fault tolerance
 
 
 ```json

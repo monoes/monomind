@@ -307,7 +307,6 @@ export * from './types/mcp.types';
 This package is a dependency of all other @monobrain modules:
 
 - [@monobrain/cli](../cli) - CLI module
-- [@monobrain/security](../security) - Security & validation
 - [@monobrain/memory](../memory) - AgentDB & HNSW indexing
 - [@monobrain/neural](../neural) - SONA learning & RL algorithms
 - [@monobrain/performance](../performance) - Benchmarking & optimization

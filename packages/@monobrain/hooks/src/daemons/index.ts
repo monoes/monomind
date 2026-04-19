@@ -755,35 +755,6 @@ export async function initDefaultWorkers(): Promise<void> {
     );
   } catch { /* @monobrain/cli may not be compiled */ }
 
-  // Task 40: CommunicationFlows — register FlowEnforcer as pre-task guard
-  try {
-    // @ts-ignore — cli not in hooks tsconfig
-    const { CommunicationGraph } = await import('../../cli/src/swarm/communication-graph.js');
-    // @ts-ignore
-    const { FlowEnforcer } = await import('../../cli/src/swarm/flow-enforcer.js');
-    // Empty flows = unrestricted (backward compatible); when flows are configured they're enforced
-    const graph = new CommunicationGraph([]);
-    const { registerHook: rh40 } = await import('../registry/index.js');
-    const { HookEvent: HE40, HookPriority: HP40 } = await import('../types.js');
-    rh40(
-      HE40.PreTask,
-      async (ctx) => {
-        const c = ctx as unknown as Record<string, unknown>;
-        const swarmId = (c.swarmId as string | undefined) ?? 'default';
-        const fromSlug = (c.fromAgent as string | undefined) ?? 'orchestrator';
-        const toSlug = (c.agentSlug as string | undefined) ?? (ctx.task as any)?.agentSlug ?? 'unknown';
-        const enforcer = new FlowEnforcer(graph, swarmId, false); // enforce=false: log violations, don't block
-        const result = enforcer.checkAndRecord(fromSlug, toSlug, '');
-        if (result.violation) {
-          console.warn(`[FLOW_VIOLATION] ${fromSlug} → ${toSlug}: unauthorized communication`);
-        }
-        return { success: true };
-      },
-      HP40.Low,
-      { name: 'flow-enforcer:pre-task' },
-    );
-  } catch { /* @monobrain/cli may not be compiled */ }
-
   // SharedInstructions size monitor — daily check; warns when file approaches or exceeds the
   // 1500-char hard limit enforced in hook-handler.cjs (Task 23 token overhead guard).
   {

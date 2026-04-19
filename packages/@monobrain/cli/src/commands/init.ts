@@ -32,7 +32,6 @@ async function initCodexAction(
   // Determine template
   const template = minimal ? 'minimal' : full ? 'full' : 'default';
 
-  // @monobrain/codex package was removed — Codex initialization skipped
   return { success: true, data: null };
 }
 

@@ -99,14 +99,10 @@ const AGENTS_MAP: Record<string, string[]> = {
   hiveMind: ['hive-mind'],
   sparc: ['sparc'],
   swarm: ['swarm'],
-  browser: ['browser'],  // agent-browser integration
-  dualMode: ['dual-mode'],  // Claude Code + Codex hybrid execution
   // V1-specific agents
-  v1: ['v1'],
   optimization: ['optimization'],
   templates: ['templates'],
   testing: ['testing'],
-  sublinear: ['sublinear'],
   analysis: ['analysis'],
   architecture: ['architecture'],
   development: ['development'],

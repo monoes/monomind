@@ -111,12 +111,6 @@ cd monobrain
    - Memory management
    - Neural training
 
-2. **ruv-swarm** (Optional)
-   - Enhanced coordination
-   - WASM acceleration (2.8-4.4x speed)
-   - SIMD optimization
-   - Advanced topology management
-
    - 70+ cloud tools
    - E2B sandbox execution
    - Distributed neural training

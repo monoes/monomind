@@ -156,10 +156,6 @@ Add to ~/.claude/settings.json:
       "command": "npx",
       "args": ["monobrain@alpha", "mcp", "start"]
     },
-    "ruv-swarm": {
-      "command": "npx",
-      "args": ["ruv-swarm", "mcp", "start"]
-    },
     "flow-nexus": {
       "command": "npx",
       "args": ["flow-nexus@latest", "mcp", "start"]
@@ -178,13 +174,6 @@ MCP_INSTRUCTIONS
         info "Installing monobrain MCP server..."
         npx monobrain@alpha --version 2>/dev/null || npm install -g monobrain@alpha
         success "Monobrain MCP server installed"
-
-        read -p "Install optional ruv-swarm MCP? (y/n) [n]: " INSTALL_RUV
-        if [ "$INSTALL_RUV" = "y" ]; then
-            info "Installing ruv-swarm MCP server..."
-            npx ruv-swarm --version 2>/dev/null || npm install -g ruv-swarm
-            success "ruv-swarm MCP server installed"
-        fi
 
         read -p "Install optional flow-nexus MCP? (y/n) [n]: " INSTALL_NEXUS
         if [ "$INSTALL_NEXUS" = "y" ]; then
