@@ -14,7 +14,7 @@ Provides memory management patterns for AI agents using AgentDB's persistent sto
 ## Prerequisites
 
 - Node.js 18+
-- AgentDB v1.0.7+ (via agentic-flow or standalone)
+- AgentDB v1.0.7+ (via monobrain or standalone)
 - Understanding of agent architectures
 
 ## Quick Start with CLI
@@ -65,7 +65,7 @@ npx agentdb@latest create-plugin -t decision-transformer -n my-agent
 ## Quick Start with API
 
 ```typescript
-import { createAgentDBAdapter } from 'agentic-flow/reasoningbank';
+import { createAgentDBAdapter } from 'monobrain/reasoningbank';
 
 // Initialize with default configuration
 const adapter = await createAgentDBAdapter({
@@ -229,7 +229,7 @@ npx agentdb@latest benchmark
 ## Integration with ReasoningBank
 
 ```typescript
-import { createAgentDBAdapter, migrateToAgentDB } from 'agentic-flow/reasoningbank';
+import { createAgentDBAdapter, migrateToAgentDB } from 'monobrain/reasoningbank';
 
 // Migrate from legacy ReasoningBank
 const result = await migrateToAgentDB(
@@ -333,7 +333,7 @@ npx agentdb@latest migrate --source .swarm/memory.db
 
 ## Learn More
 
-- GitHub: https://github.com/nokhodian/agentic-flow/tree/main/packages/agentdb
-- Documentation: node_modules/agentic-flow/docs/AGENTDB_INTEGRATION.md
+- GitHub: https://github.com/nokhodian/monobrain/tree/main/packages/agentdb
+- Documentation: node_modules/monobrain/docs/AGENTDB_INTEGRATION.md
 - MCP Integration: `npx agentdb@latest mcp` for Claude Code
 - Website: https://agentdb.ruv.io

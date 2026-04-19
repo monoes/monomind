@@ -54,14 +54,10 @@
     "node": ">=20.0.0"
   },
   "peerDependencies": {
-    "@monobrain/memory": "workspace:*",
-    "@monobrain/security": "workspace:*"
+    "@monobrain/memory": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@monobrain/memory": {
-      "optional": true
-    },
-    "@monobrain/security": {
       "optional": true
     }
   },

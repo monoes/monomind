@@ -61,7 +61,6 @@
   },
   "dependencies": {
     "@monobrain/memory": "workspace:*",
-    "@monobrain/neural": "workspace:*",
     "@monobrain/shared": "workspace:*",
     "zod": "^3.23.0"
   },

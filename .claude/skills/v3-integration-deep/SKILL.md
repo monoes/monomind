@@ -1,19 +1,19 @@
 ---
 name: "v1 Deep Integration"
-description: "Deep agentic-flow@alpha integration implementing ADR-001. Eliminates 10,000+ duplicate lines by building monobrain as specialized extension rather than parallel implementation."
+description: "Deep monobrain integration implementing ADR-001. Eliminates 10,000+ duplicate lines by building monobrain as specialized extension rather than parallel implementation."
 ---
 
 # Deep Integration
 
 ## What This Skill Does
 
-Transforms monobrain from parallel implementation to specialized extension of agentic-flow@alpha, eliminating massive code duplication while achieving performance improvements and feature parity.
+Transforms monobrain from parallel implementation to specialized extension of monobrain, eliminating massive code duplication while achieving performance improvements and feature parity.
 
 ## Quick Start
 
 ```bash
 # Initialize deep integration
-Task("Integration architecture", "Design agentic-flow@alpha adapter layer", "v1-integration-architect")
+Task("Integration architecture", "Design monobrain adapter layer", "v1-integration-architect")
 
 # Feature integration (parallel)
 Task("SONA integration", "Integrate 5 SONA learning modes", "v1-integration-architect")
@@ -27,7 +27,7 @@ Task("AgentDB coordination", "Setup 150x-12,500x search", "v1-integration-archit
 
 ```
 ┌─────────────────────────────────────────┐
-│  monobrain          agentic-flow      │
+│  monobrain          monobrain      │
 ├─────────────────────────────────────────┤
 │ SwarmCoordinator  →   Swarm System      │ 80% overlap (eliminate)
 │ AgentManager      →   Agent Lifecycle   │ 70% overlap (eliminate)
@@ -38,7 +38,7 @@ Task("AgentDB coordination", "Setup 150x-12,500x search", "v1-integration-archit
 TARGET: <5,000 lines (vs 15,000+ currently)
 ```
 
-## agentic-flow@alpha Feature Integration
+## monobrain Feature Integration
 
 ### SONA Learning Modes
 
@@ -106,7 +106,7 @@ class MCPToolsIntegration {
 ### Phase 1: Adapter Layer
 
 ```typescript
-import { Agent as AgenticFlowAgent } from "agentic-flow@alpha";
+import { Agent as AgenticFlowAgent } from "monobrain";
 
 export class MonobrainAgent extends AgenticFlowAgent {
   async handleMonobrainTask(task: ClaudeTask): Promise<TaskResult> {
@@ -125,13 +125,13 @@ export class MonobrainAgent extends AgenticFlowAgent {
 ```typescript
 class SystemMigration {
   async migrateSwarmCoordination(): Promise<void> {
-    // Replace SwarmCoordinator (800+ lines) with agentic-flow Swarm
+    // Replace SwarmCoordinator (800+ lines) with monobrain Swarm
     const swarmConfig = await this.extractSwarmConfig();
     await this.agenticFlow.swarm.initialize(swarmConfig);
   }
 
   async migrateAgentManagement(): Promise<void> {
-    // Replace AgentManager (1,736+ lines) with agentic-flow lifecycle
+    // Replace AgentManager (1,736+ lines) with monobrain lifecycle
     const agents = await this.extractActiveAgents();
     for (const agent of agents) {
       await this.agenticFlow.agent.create(agent);
@@ -139,7 +139,7 @@ class SystemMigration {
   }
 
   async migrateTaskExecution(): Promise<void> {
-    // Replace TaskScheduler with agentic-flow task graph
+    // Replace TaskScheduler with monobrain task graph
     const tasks = await this.extractTasks();
     await this.agenticFlow.task.executeGraph(this.buildTaskGraph(tasks));
   }
@@ -196,7 +196,7 @@ const attentionBenchmark = {
   baseline: "current attention mechanism",
   target: "2.49x-7.47x improvement",
   memoryReduction: "50-75%",
-  implementation: "agentic-flow@alpha Flash Attention",
+  implementation: "monobrain Flash Attention",
 };
 ```
 
@@ -206,7 +206,7 @@ const attentionBenchmark = {
 const searchBenchmark = {
   baseline: "linear search in current systems",
   target: "150x-12,500x via HNSW indexing",
-  implementation: "agentic-flow@alpha AgentDB",
+  implementation: "monobrain AgentDB",
 };
 ```
 

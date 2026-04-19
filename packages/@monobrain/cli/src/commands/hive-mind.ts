@@ -105,7 +105,7 @@ ${workerTypes.map(type => `• ${type}: ${workerGroups[type].length} agents`).jo
 2️⃣ **QUEEN COORDINATION**
    mcp__monobrain__hive-mind_status       - Monitor swarm health
    mcp__monobrain__task_create            - Create and delegate tasks
-   mcp__monobrain__coordination_orchestrate - Orchestrate task distribution
+   mcp__monobrain__task_assign            - Assign and distribute tasks
    mcp__monobrain__agent_spawn            - Spawn additional workers
 
 3️⃣ **WORKER MANAGEMENT**

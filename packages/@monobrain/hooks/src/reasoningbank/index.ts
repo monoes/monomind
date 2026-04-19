@@ -361,6 +361,24 @@ export class ReasoningBank extends EventEmitter {
   }
 
   /**
+   * Convenience wrapper: embed a string query and search for similar patterns.
+   *
+   * @param query - Plain-text query to embed and search
+   * @param options - Optional topK (default 5) and threshold (minimum similarity, default 0)
+   * @returns Matching patterns sorted by descending similarity
+   */
+  async search(
+    query: string,
+    options: { topK?: number; threshold?: number } = {},
+  ): Promise<Array<{ pattern: GuidancePattern; similarity: number }>> {
+    const { topK = 5, threshold = 0 } = options;
+    const results = await this.searchPatterns(query, topK);
+    return threshold > 0
+      ? results.filter((r) => r.similarity >= threshold)
+      : results;
+  }
+
+  /**
    * Search for similar patterns using HNSW (if available) or brute-force
    */
   async searchPatterns(

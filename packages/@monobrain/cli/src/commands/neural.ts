@@ -55,7 +55,7 @@ const trainCommand: Command = {
 
     try {
       // Import RuVector training service
-      const ruvector = await import('../services/ruvector-training.js');
+      const ruvector = await import('../services/ruvector-training.js' as string);
       const { generateEmbedding } = await import('../memory/memory-initializer.js');
       const {
         initializeIntelligence,
@@ -420,7 +420,7 @@ const statusCommand: Command = {
       // Import real implementations
       const { getIntelligenceStats, initializeIntelligence, benchmarkAdaptation } = await import('../memory/intelligence.js');
       const { getHNSWStatus, loadEmbeddingModel } = await import('../memory/memory-initializer.js');
-      const ruvector = await import('../services/ruvector-training.js');
+      const ruvector = await import('../services/ruvector-training.js' as string);
 
       // Initialize if needed and get real stats
       await initializeIntelligence();

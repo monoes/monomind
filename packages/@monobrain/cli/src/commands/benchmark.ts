@@ -38,7 +38,7 @@ const pretrainCommand: Command = {
 
     try {
       // Dynamically import benchmark suite
-      const { runPretrainBenchmarkSuite } = await import('../benchmarks/pretrain/index.js');
+      const { runPretrainBenchmarkSuite } = await import('../benchmarks/pretrain/index.js' as string);
 
       const results = await runPretrainBenchmarkSuite({
         iterations,

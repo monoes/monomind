@@ -26,7 +26,7 @@ import { execSync } from 'child_process';
 // Dynamic import for AST analyzer
 async function getASTAnalyzer() {
   try {
-    return await import('../ruvector/ast-analyzer.js');
+    return await import('../ruvector/ast-analyzer.js' as string);
   } catch {
     return null;
   }
@@ -35,7 +35,7 @@ async function getASTAnalyzer() {
 // Dynamic import for graph analyzer
 async function getGraphAnalyzer() {
   try {
-    return await import('../ruvector/graph-analyzer.js');
+    return await import('../ruvector/graph-analyzer.js' as string);
   } catch {
     return null;
   }
@@ -2027,9 +2027,9 @@ const dependenciesCommand: Command = {
       output.writeln();
 
       const nodesByDegree = Array.from(graph.nodes.values())
-        .map(n => ({
+        .map((n: any) => ({
           ...n,
-          degree: graph.edges.filter(e => e.source === n.id || e.target === n.id).length,
+          degree: graph.edges.filter((e: any) => e.source === n.id || e.target === n.id).length,
         }))
         .sort((a, b) => b.degree - a.degree)
         .slice(0, 10);

@@ -14,7 +14,7 @@ Provides comprehensive performance optimization techniques for AgentDB vector da
 ## Prerequisites
 
 - Node.js 18+
-- AgentDB v1.0.7+ (via agentic-flow)
+- AgentDB v1.0.7+ (via monobrain)
 - Existing AgentDB database or application
 
 ---
@@ -37,7 +37,7 @@ npx agentdb@latest benchmark
 ### Enable Optimizations
 
 ```typescript
-import { createAgentDBAdapter } from 'agentic-flow/reasoningbank';
+import { createAgentDBAdapter } from 'monobrain/reasoningbank';
 
 // Optimized configuration
 const adapter = await createAgentDBAdapter({
@@ -499,7 +499,7 @@ const adapter = await createAgentDBAdapter({
 
 - **Quantization Paper**: docs/quantization-techniques.pdf
 - **HNSW Algorithm**: docs/hnsw-index.pdf
-- **GitHub**: https://github.com/nokhodian/agentic-flow/tree/main/packages/agentdb
+- **GitHub**: https://github.com/nokhodian/monobrain/tree/main/packages/agentdb
 - **Website**: https://agentdb.ruv.io
 
 ---

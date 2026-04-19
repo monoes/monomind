@@ -708,29 +708,7 @@ export async function initDefaultWorkers(): Promise<void> {
     );
   } catch { /* @monobrain/cli may not be compiled */ }
 
-  // GAP-009: PromptOptimizer + BootstrapFewShot — improve agent prompts from real execution data
-  try {
-    const [{ PromptOptimizationWorker }, { PromptOptimizer }, { BootstrapFewShot }] = await Promise.all([
-      import('../workers/prompt-optimization-worker.js'),
-      import('../optimization/prompt-optimizer.js'),
-      import('../optimization/bootstrap-fewshot.js'),
-    ]);
-    void PromptOptimizer; // available for callers who need direct access
-    void BootstrapFewShot; // referenced so tree-shakers keep the import alive
-    const worker = new PromptOptimizationWorker();
-    defaultDaemonManager.register(
-      {
-        name: 'prompt-optimization',
-        interval: 604_800_000, // 7 days
-        enabled: true,
-      },
-      async () => {
-        for (const agentSlug of ['coder', 'reviewer', 'tester', 'researcher']) {
-          await worker.execute({ agentSlug, promptTemplate: `You are a ${agentSlug} agent.` });
-        }
-      },
-    );
-  } catch { /* optional — PromptOptimizer may not be available */ }
+  // GAP-009: PromptOptimizer removed in dead-code audit (worker stub had no real implementation)
 
   // Task 45: ProceduralMemory — scan SkillRegistry at startup so learned skills are indexed
   try {

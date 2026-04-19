@@ -18,7 +18,8 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
 // AIDefence instance type
-type AIDefenceInstance = ReturnType<typeof import('@monobrain/aidefence').createAIDefence>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AIDefenceInstance = any;
 
 // Lazy-loaded AIDefence instance
 let aidefenceInstance: AIDefenceInstance | null = null;
@@ -393,7 +394,7 @@ const aidefenceIsSafeTool: MCPTool = {
     const input = args.input as string;
 
     try {
-      const { isSafe } = await import('@monobrain/aidefence');
+      const { isSafe } = await import('@monobrain/aidefence' as string);
       const safe = isSafe(input);
 
       return {

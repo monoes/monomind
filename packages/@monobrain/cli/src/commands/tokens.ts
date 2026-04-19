@@ -61,26 +61,26 @@ const summarySubcommand: Command = {
       const projects = tracker.parseAllSessions(range.start, range.end);
 
       if (asJson) {
-        output.log(JSON.stringify(projects, null, 2));
+        output.writeln(JSON.stringify(projects, null, 2));
         return { success: true, data: projects };
       }
 
       const totalCost = projects.reduce((s: number, p: { totalCost: number }) => s + p.totalCost, 0);
       const totalCalls = projects.reduce((s: number, p: { totalApiCalls: number }) => s + p.totalApiCalls, 0);
 
-      output.log('');
-      output.log(`Token Usage — ${period}`);
-      output.log('─'.repeat(50));
-      output.log(`Total Cost:  ${tracker.fmt$(totalCost)}`);
-      output.log(`API Calls:   ${totalCalls}`);
-      output.log(`Projects:    ${projects.length}`);
-      output.log('');
+      output.writeln('');
+      output.writeln(`Token Usage — ${period}`);
+      output.writeln('─'.repeat(50));
+      output.writeln(`Total Cost:  ${tracker.fmt$(totalCost)}`);
+      output.writeln(`API Calls:   ${totalCalls}`);
+      output.writeln(`Projects:    ${projects.length}`);
+      output.writeln('');
 
       for (const p of projects.slice(0, 10) as Array<{ projectPath: string; totalCost: number; totalApiCalls: number }>) {
         const name = p.projectPath.split('/').pop() || p.projectPath;
-        output.log(`  ${name.padEnd(30)} ${tracker.fmt$(p.totalCost).padStart(10)}  ${p.totalApiCalls} calls`);
+        output.writeln(`  ${name.padEnd(30)} ${tracker.fmt$(p.totalCost).padStart(10)}  ${p.totalApiCalls} calls`);
       }
-      output.log('');
+      output.writeln('');
 
       return { success: true, data: { totalCost, totalCalls, projects } };
     } catch (err) {
@@ -98,7 +98,7 @@ const todaySubcommand: Command = {
     try {
       const tracker = loadTracker();
       const summary = tracker.quickSummary();
-      output.log(summary || 'No token data available for today.');
+      output.writeln(summary || 'No token data available for today.');
       return { success: true };
     } catch (err) {
       output.error('Token tracker not available: ' + (err instanceof Error ? err.message : String(err)));

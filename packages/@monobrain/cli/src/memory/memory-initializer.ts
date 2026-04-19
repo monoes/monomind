@@ -373,7 +373,7 @@ export async function getHNSWIndex(options?: {
   try {
     // Import @ruvector/core dynamically
     // Handle both ESM (default export) and CJS patterns
-    const ruvectorModule = await import('@ruvector/core').catch(() => null);
+    const ruvectorModule = await import('@ruvector/core' as string).catch(() => null);
     if (!ruvectorModule) {
       hnswInitializing = false;
       return null; // HNSW not available
@@ -437,7 +437,7 @@ export async function getHNSWIndex(options?: {
 
     if (fs.existsSync(dbPath)) {
       try {
-        const initSqlJs = (await import('sql.js')).default;
+        const initSqlJs = (await import('sql.js' as string)).default;
         const SQL = await initSqlJs();
         const fileBuffer = fs.readFileSync(dbPath);
         const sqlDb = new SQL.Database(fileBuffer);
@@ -976,7 +976,7 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
       return { success: true, columnsAdded: [] };
     }
 
-    const initSqlJs = (await import('sql.js')).default;
+    const initSqlJs = (await import('sql.js' as string)).default;
     const SQL = await initSqlJs();
 
     const fileBuffer = fs.readFileSync(dbPath);
@@ -1061,7 +1061,7 @@ export async function checkAndMigrateLegacy(options: {
   for (const legacyPath of legacyPaths) {
     if (fs.existsSync(legacyPath) && legacyPath !== dbPath) {
       try {
-        const initSqlJs = (await import('sql.js')).default;
+        const initSqlJs = (await import('sql.js' as string)).default;
         const SQL = await initSqlJs();
 
         const legacyBuffer = fs.readFileSync(legacyPath);
@@ -1210,7 +1210,7 @@ export async function initializeMemoryDatabase(options: {
 
     try {
       // Dynamic import of sql.js
-      const initSqlJs = (await import('sql.js')).default;
+      const initSqlJs = (await import('sql.js' as string)).default;
       const SQL = await initSqlJs();
 
       // Load existing database or create new
@@ -1383,7 +1383,7 @@ export async function checkMemoryInitialization(dbPath?: string): Promise<{
 
   try {
     // Try to load with sql.js
-    const initSqlJs = (await import('sql.js')).default;
+    const initSqlJs = (await import('sql.js' as string)).default;
     const SQL = await initSqlJs();
 
     const fileBuffer = fs.readFileSync(path_);
@@ -1438,7 +1438,7 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
   const path_ = dbPath || path.join(swarmDir, 'memory.db');
 
   try {
-    const initSqlJs = (await import('sql.js')).default;
+    const initSqlJs = (await import('sql.js' as string)).default;
     const SQL = await initSqlJs();
 
     const fileBuffer = fs.readFileSync(path_);
@@ -1536,7 +1536,7 @@ export async function loadEmbeddingModel(options?: {
 
   try {
     // Try to import @xenova/transformers for ONNX embeddings
-    const transformers = await import('@xenova/transformers').catch(() => null);
+    const transformers = await import('@xenova/transformers' as string).catch(() => null);
 
     if (transformers) {
       if (verbose) {
@@ -1589,7 +1589,7 @@ export async function loadEmbeddingModel(options?: {
     // v0.2.16: LoRA B=0 fix makes AdaptiveEmbedder safe (identity when untrained)
     // Note: isReady() returns false until first embed() call (lazy init), so we
     // skip the isReady() gate and verify with a probe embed instead.
-    const ruvector = await import('ruvector').catch(() => null);
+    const ruvector = await import('ruvector' as string).catch(() => null);
 
     if (ruvector?.initOnnxEmbedder) {
       try {
@@ -1842,7 +1842,7 @@ export async function verifyMemoryInit(dbPath: string, options?: {
   const tests: { name: string; passed: boolean; details?: string; duration?: number }[] = [];
 
   try {
-    const initSqlJs = (await import('sql.js')).default;
+    const initSqlJs = (await import('sql.js' as string)).default;
     const SQL = await initSqlJs();
     const fs = await import('fs');
 
@@ -2069,7 +2069,7 @@ export async function storeEntry(options: {
     // Ensure schema has all required columns (migration for older DBs)
     await ensureSchemaColumns(dbPath);
 
-    const initSqlJs = (await import('sql.js')).default;
+    const initSqlJs = (await import('sql.js' as string)).default;
     const SQL = await initSqlJs();
 
     const fileBuffer = fs.readFileSync(dbPath);
@@ -2216,7 +2216,7 @@ export async function searchEntries(options: {
     }
 
     // Fall back to brute-force SQLite search
-    const initSqlJs = (await import('sql.js')).default;
+    const initSqlJs = (await import('sql.js' as string)).default;
     const SQL = await initSqlJs();
 
     const fileBuffer = fs.readFileSync(dbPath);
@@ -2370,7 +2370,7 @@ export async function listEntries(options: {
     // Ensure schema has all required columns (migration for older DBs)
     await ensureSchemaColumns(dbPath);
 
-    const initSqlJs = (await import('sql.js')).default;
+    const initSqlJs = (await import('sql.js' as string)).default;
     const SQL = await initSqlJs();
 
     const fileBuffer = fs.readFileSync(dbPath);
@@ -2501,7 +2501,7 @@ export async function getEntry(options: {
     // Ensure schema has all required columns (migration for older DBs)
     await ensureSchemaColumns(dbPath);
 
-    const initSqlJs = (await import('sql.js')).default;
+    const initSqlJs = (await import('sql.js' as string)).default;
     const SQL = await initSqlJs();
 
     const fileBuffer = fs.readFileSync(dbPath);
@@ -2642,7 +2642,7 @@ export async function deleteEntry(options: {
     // Ensure schema has all required columns (migration for older DBs)
     await ensureSchemaColumns(dbPath);
 
-    const initSqlJs = (await import('sql.js')).default;
+    const initSqlJs = (await import('sql.js' as string)).default;
     const SQL = await initSqlJs();
 
     const fileBuffer = fs.readFileSync(dbPath);

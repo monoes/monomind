@@ -19,7 +19,7 @@ import { output } from '../output.js';
 // Dynamic imports for embeddings package
 async function getEmbeddings() {
   try {
-    return await import('@monobrain/embeddings');
+    return await import('@monobrain/embeddings' as string);
   } catch {
     return null;
   }
@@ -155,7 +155,7 @@ const searchCommand: Command = {
       }
 
       // Load sql.js
-      const initSqlJs = (await import('sql.js')).default;
+      const initSqlJs = (await import('sql.js' as string)).default;
       const SQL = await initSqlJs();
 
       const fileBuffer = fs.readFileSync(fullDbPath);
@@ -434,7 +434,7 @@ const collectionsCommand: Command = {
       }
 
       // Load sql.js and query real data
-      const initSqlJs = (await import('sql.js')).default;
+      const initSqlJs = (await import('sql.js' as string)).default;
       const SQL = await initSqlJs();
 
       const fileBuffer = fs.readFileSync(fullDbPath);
@@ -972,7 +972,7 @@ const hyperbolicCommand: Command = {
 
     // Try to import hyperbolic functions from embeddings package
     try {
-      const hyperbolic = await import('@monobrain/embeddings').then(m => m).catch(() => null);
+      const hyperbolic = await import('@monobrain/embeddings' as string).then(m => m).catch(() => null);
 
       if (!hyperbolic || !hyperbolic.euclideanToPoincare) {
         output.printWarning('@monobrain/embeddings hyperbolic module not available');
@@ -1343,7 +1343,7 @@ const cacheCommand: Command = {
 
         // Try to count real entries via sql.js
         try {
-          const initSqlJs = (await import('sql.js')).default;
+          const initSqlJs = (await import('sql.js' as string)).default;
           const SQL = await initSqlJs();
           const fileBuffer = fs.readFileSync(resolvedDbPath);
           const db = new SQL.Database(fileBuffer);

@@ -194,11 +194,8 @@ async function generateRegistry(): Promise<PluginRegistry> {
     '@monobrain/plugin-prime-radiant',
     '@monobrain/plugin-gastown-bridge',
     '@monobrain/security',
-    '@monobrain/claims',
     '@monobrain/embeddings',
-    '@monobrain/neural',
-    '@monobrain/performance',
-    '@monobrain/plugins',
+    '@monobrain/teammate-plugin',
   ];
 
   const plugins: PluginEntry[] = [];

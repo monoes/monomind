@@ -63,7 +63,7 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
   if (!registryPromise) {
     registryPromise = (async () => {
       try {
-        const { ControllerRegistry } = await import('@monobrain/memory');
+        const { ControllerRegistry } = await import('@monobrain/memory' as string);
         const registry = new ControllerRegistry();
 
         // Suppress noisy console.log during init

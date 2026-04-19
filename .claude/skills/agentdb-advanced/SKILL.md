@@ -14,7 +14,7 @@ Covers advanced AgentDB capabilities for distributed systems, multi-database coo
 ## Prerequisites
 
 - Node.js 18+
-- AgentDB v1.0.7+ (via agentic-flow)
+- AgentDB v1.0.7+ (via monobrain)
 - Understanding of distributed systems (for QUIC sync)
 - Vector search fundamentals
 
@@ -36,7 +36,7 @@ QUIC (Quick UDP Internet Connections) enables sub-millisecond latency synchroniz
 ### Enable QUIC Sync
 
 ```typescript
-import { createAgentDBAdapter } from 'agentic-flow/reasoningbank';
+import { createAgentDBAdapter } from 'monobrain/reasoningbank';
 
 // Initialize with QUIC synchronization
 const adapter = await createAgentDBAdapter({
@@ -540,7 +540,7 @@ const result = await adapter.retrieveWithReasoning(queryEmbedding, {
 
 - **QUIC Protocol**: docs/quic-synchronization.pdf
 - **Hybrid Search**: docs/hybrid-search-guide.md
-- **GitHub**: https://github.com/nokhodian/agentic-flow/tree/main/packages/agentdb
+- **GitHub**: https://github.com/nokhodian/monobrain/tree/main/packages/agentdb
 - **Website**: https://agentdb.ruv.io
 
 ---

@@ -3,7 +3,34 @@
  * Modernized type system with strict TypeScript
  */
 
-import type { IAgent, IAgentConfig, IAgentSession, AgentStatus, AgentType } from '../core/interfaces/agent.interface.js';
+export type AgentStatus = 'idle' | 'busy' | 'error' | 'terminated' | 'starting' | 'stopping';
+export type AgentType = 'coder' | 'reviewer' | 'tester' | 'planner' | 'researcher' | 'coordinator' | 'architect' | string;
+
+export interface IAgentConfig {
+  id?: string;
+  name: string;
+  type: string | AgentType;
+  capabilities?: string[];
+  maxConcurrentTasks?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface IAgent {
+  id: string;
+  name: string;
+  type: string;
+  status: AgentStatus;
+  config: IAgentConfig;
+  createdAt: Date;
+}
+
+export interface IAgentSession {
+  id: string;
+  agentId: string;
+  startedAt: Date;
+  endedAt?: Date;
+  metadata?: Record<string, unknown>;
+}
 
 /**
  * Agent profile - extended configuration for spawning

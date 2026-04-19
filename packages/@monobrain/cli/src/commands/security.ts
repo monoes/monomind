@@ -491,9 +491,10 @@ const defendCommand: Command = {
     output.writeln(output.dim('─'.repeat(55)));
 
     // Dynamic import of aidefence (allows package to be optional)
-    let createAIDefence: typeof import('@monobrain/aidefence').createAIDefence;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let createAIDefence: any;
     try {
-      const aidefence = await import('@monobrain/aidefence');
+      const aidefence = await import('@monobrain/aidefence' as string);
       createAIDefence = aidefence.createAIDefence;
     } catch {
       output.error('AIDefence package not installed. Run: npm install @monobrain/aidefence');
@@ -737,7 +738,7 @@ const redteamCommand: Command = {
     // Attempt to load AIDefence for response analysis (optional dependency)
     let analyzeResponse: (text: string) => Promise<boolean> = async () => false;
     try {
-      const aidefence = await import('@monobrain/aidefence');
+      const aidefence = await import('@monobrain/aidefence' as string);
       const defender = aidefence.createAIDefence({ enableLearning: false });
       analyzeResponse = async (text: string) => {
         const r = await defender.detect(text);

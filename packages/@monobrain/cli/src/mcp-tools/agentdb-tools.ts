@@ -506,7 +506,7 @@ export const agentdbContextSynthesize: MCPTool = {
       // validateExternalContent: guard against prompt injection in synthesized context
       // Source: https://arxiv.org/abs/2302.12173, https://arxiv.org/abs/2310.12815
       try {
-        const { validateExternalContent } = await import('../../security/src/input-validator.js').catch(
+        const { validateExternalContent } = await import('../../security/src/input-validator.js' as string).catch(
           () => import('@monobrain/security' as string).catch(() => null) as any
         );
         if (validateExternalContent) {

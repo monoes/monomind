@@ -3,7 +3,30 @@
  * Modernized type system with strict TypeScript
  */
 
-import type { ITask, ITaskResult, TaskStatus, TaskPriority } from '../core/interfaces/task.interface.js';
+export type TaskStatus = 'pending' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'timeout';
+export type TaskPriority = 'critical' | 'high' | 'medium' | 'low';
+
+export interface ITask {
+  id: string;
+  type: string;
+  description: string;
+  status: TaskStatus;
+  priority: number | TaskPriority;
+  input?: Record<string, unknown>;
+  assignedAgent?: string;
+  createdAt: Date;
+  startedAt?: Date;
+  completedAt?: Date;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ITaskResult {
+  taskId: string;
+  success: boolean;
+  output?: unknown;
+  error?: Error;
+  duration?: number;
+}
 
 /**
  * Task creation input

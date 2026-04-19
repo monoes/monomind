@@ -14,10 +14,7 @@
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import {
-  createQLearningRouter,
   isRuvectorAvailable,
-  type QLearningRouter,
-  type RouteDecision,
 } from '../ruvector/index.js';
 
 // ============================================================================
@@ -50,15 +47,13 @@ const AGENT_TYPES: AgentType[] = [
 // Router Singleton
 // ============================================================================
 
-let routerInstance: QLearningRouter | null = null;
+let routerInstance: any = null;
 let routerInitialized = false;
 
-/**
- * Get or create the router instance
- */
-async function getRouter(): Promise<QLearningRouter> {
+async function getRouter(): Promise<any> {
   if (!routerInstance) {
-    routerInstance = createQLearningRouter();
+    const mod = await import('../ruvector/q-learning-router.js' as string);
+    routerInstance = mod.createQLearningRouter();
   }
   if (!routerInitialized) {
     await routerInstance.initialize();
@@ -169,7 +164,7 @@ const routeTaskCommand: Command = {
 
       // Use Q-Learning routing
       const router = await getRouter();
-      const result: RouteDecision = router.route(taskDescription, useExploration);
+      const result = router.route(taskDescription, useExploration);
       const agent = getAgentType(result.route) || AGENT_TYPES[0];
 
       spinner.succeed(`Routed to ${agent.name}`);
@@ -643,7 +638,7 @@ const coverageRouteCommand: Command = {
 
     try {
       // Lazy load coverage router
-      const { coverageRoute, coverageSuggest, coverageGaps } = await import('../ruvector/coverage-router.js');
+      const { coverageRoute, coverageSuggest, coverageGaps } = await import('../ruvector/coverage-router.js' as string);
 
       if (gapsMode) {
         // List coverage gaps with agent assignments
@@ -660,12 +655,13 @@ const coverageRouteCommand: Command = {
 
           if (Object.keys(result.byAgent).length > 0) {
             for (const [agent, files] of Object.entries(result.byAgent)) {
-              output.writeln(`${output.highlight(agent)} (${files.length} files)`);
-              for (const file of files.slice(0, 5)) {
+              const fileList = files as string[];
+              output.writeln(`${output.highlight(agent)} (${fileList.length} files)`);
+              for (const file of fileList.slice(0, 5)) {
                 output.writeln(`  ${output.dim('•')} ${file}`);
               }
-              if (files.length > 5) {
-                output.writeln(output.dim(`    ... and ${files.length - 5} more`));
+              if (fileList.length > 5) {
+                output.writeln(output.dim(`    ... and ${fileList.length - 5} more`));
               }
               output.writeln();
             }
@@ -857,7 +853,7 @@ const semanticRouteCommand: Command = {
     spinner.start();
 
     try {
-      const { RouteLayer, ALL_ROUTES } = await import('@monobrain/routing');
+      const { RouteLayer, ALL_ROUTES } = await import('@monobrain/routing' as string);
       const layer = new RouteLayer({ routes: ALL_ROUTES, debug });
       const result = await layer.route(taskDescription);
 
@@ -902,8 +898,13 @@ const semanticRouteCommand: Command = {
 
       return { success: true, data: result };
     } catch (error) {
-      spinner.fail('Semantic routing failed');
-      output.printError(error instanceof Error ? error.message : String(error));
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('@monobrain/routing') || msg.includes('Cannot find module') || msg.includes('Cannot find package')) {
+        spinner.fail('Semantic routing requires the @monobrain/routing package which is not installed.');
+      } else {
+        spinner.fail('Semantic routing failed');
+        output.printError(msg);
+      }
       return { success: false, exitCode: 1 };
     }
   },

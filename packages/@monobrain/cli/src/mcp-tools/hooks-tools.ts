@@ -92,11 +92,12 @@ async function getEWCConsolidator() {
 }
 
 // MoE Router - lazy loaded
-let moeRouter: Awaited<ReturnType<typeof import('../ruvector/moe-router.js').getMoERouter>> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let moeRouter: any = null;
 async function getMoERouter() {
   if (!moeRouter) {
     try {
-      const { getMoERouter: getMoE } = await import('../ruvector/moe-router.js');
+      const { getMoERouter: getMoE } = await import('../ruvector/moe-router.js' as string);
       moeRouter = await getMoE();
     } catch {
       moeRouter = null;
@@ -107,7 +108,8 @@ async function getMoERouter() {
 
 // Semantic Router - lazy loaded
 // Tries native VectorDb first (16k+ routes/s HNSW), falls back to pure JS (47k routes/s cosine)
-let semanticRouter: import('../ruvector/semantic-router.js').SemanticRouter | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let semanticRouter: any = null;
 let nativeVectorDb: unknown = null;
 let semanticRouterInitialized = false;
 let routerBackend: 'native' | 'pure-js' | 'none' = 'none';
@@ -352,7 +354,7 @@ async function getSemanticRouter() {
 
   // STEP 2: Fall back to pure JS SemanticRouter
   try {
-    const { SemanticRouter } = await import('../ruvector/semantic-router.js');
+    const { SemanticRouter } = await import('../ruvector/semantic-router.js' as string);
     semanticRouter = new SemanticRouter({ dimension: 384 });
 
     for (const [patternName, { keywords, agents }] of Object.entries(getMergedTaskPatterns())) {
@@ -389,11 +391,12 @@ function getRouterBackendInfo(): { backend: string; speed: string } {
 }
 
 // Flash Attention - lazy loaded
-let flashAttention: Awaited<ReturnType<typeof import('../ruvector/flash-attention.js').getFlashAttention>> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let flashAttention: any = null;
 async function getFlashAttention() {
   if (!flashAttention) {
     try {
-      const { getFlashAttention: getFlash } = await import('../ruvector/flash-attention.js');
+      const { getFlashAttention: getFlash } = await import('../ruvector/flash-attention.js' as string);
       flashAttention = await getFlash();
     } catch {
       flashAttention = null;
@@ -403,11 +406,12 @@ async function getFlashAttention() {
 }
 
 // LoRA Adapter - lazy loaded
-let loraAdapter: Awaited<ReturnType<typeof import('../ruvector/lora-adapter.js').getLoRAAdapter>> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let loraAdapter: any = null;
 async function getLoRAAdapter() {
   if (!loraAdapter) {
     try {
-      const { getLoRAAdapter: getLora } = await import('../ruvector/lora-adapter.js');
+      const { getLoRAAdapter: getLora } = await import('../ruvector/lora-adapter.js' as string);
       loraAdapter = await getLora();
     } catch {
       loraAdapter = null;
@@ -1177,7 +1181,7 @@ export const hooksPreTask: MCPTool = {
     // Enhanced model routing with Agent Booster AST (ADR-026)
     let modelRouting: Record<string, unknown> | undefined;
     try {
-      const { getEnhancedModelRouter } = await import('../ruvector/enhanced-model-router.js');
+      const { getEnhancedModelRouter } = await import('../ruvector/enhanced-model-router.js' as string);
       const router = getEnhancedModelRouter();
       const routeResult = await router.route(description, { filePath });
 
@@ -1225,7 +1229,7 @@ export const hooksPreTask: MCPTool = {
         });
         for (const r of (heuristicResults?.results ?? [])) {
           try {
-            const h = JSON.parse(r.content ?? r.value ?? '{}') as { condition?: string; action?: string; confidence?: number };
+            const h = JSON.parse(r.content ?? (r as any).value ?? '{}') as { condition?: string; action?: string; confidence?: number };
             if (h.action && h.confidence !== undefined && h.confidence >= 0.6) {
               erlHints.push(`ERL hint (conf=${h.confidence.toFixed(2)}): use "${h.action}" for tasks involving "${h.condition ?? 'similar context'}"`);
             }
@@ -1241,7 +1245,7 @@ export const hooksPreTask: MCPTool = {
           threshold: 0.55,
         });
         for (const r of (gradientResults?.results ?? [])) {
-          const critique = r.content ?? r.value ?? '';
+          const critique = r.content ?? (r as any).value ?? '';
           if (critique && critique.length > 10) {
             erlHints.push(`TextGrad warning: ${critique.slice(0, 120)}`);
           }
@@ -1395,7 +1399,7 @@ export const hooksPostTask: MCPTool = {
             key: `textual_gradient:${taskId}`,
             value: critique,
             namespace: 'gradients',
-            tags: ['textual_gradient', agent, 'failure'],
+            tags: ['textual_gradient', agent ?? 'unknown', 'failure'],
           });
         }
       } catch { /* non-critical */ }
@@ -2698,7 +2702,7 @@ export const hooksIntelligenceStats: MCPTool = {
     };
     if (moe) {
       const loadBalance = moe.getLoadBalance();
-      const activeExperts = Object.values(loadBalance.routingCounts).filter((u: number) => u > 0).length;
+      const activeExperts = (Object.values(loadBalance.routingCounts) as number[]).filter(u => u > 0).length;
       // Calculate average utilization as proxy for confidence
       const utilValues = Object.values(loadBalance.utilization) as number[];
       const avgUtil = utilValues.length > 0 ? utilValues.reduce((a, b) => a + b, 0) / utilValues.length : 0;
@@ -2945,7 +2949,7 @@ export const hooksIntelligenceAttention: MCPTool = {
           const attentionResult = flash.attention([q], keys, values);
           // Compute softmax weights from output magnitudes
           const outputMags = attentionResult.output[0]
-            ? Array.from(attentionResult.output[0]).slice(0, topK).map(v => Math.abs(v))
+            ? Array.from(attentionResult.output[0] as ArrayLike<number>).slice(0, topK).map(v => Math.abs(v))
             : new Array(topK).fill(1);
           const sumMags = outputMags.reduce((a, b) => a + b, 0) || 1;
           for (let i = 0; i < topK; i++) {
@@ -3509,11 +3513,12 @@ export const hooksWorkerDetect: MCPTool = {
 };
 
 // Model router - lazy loaded
-let modelRouterInstance: Awaited<ReturnType<typeof import('../ruvector/model-router.js').getModelRouter>> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let modelRouterInstance: any = null;
 async function getModelRouterInstance() {
   if (!modelRouterInstance) {
     try {
-      const { getModelRouter } = await import('../ruvector/model-router.js');
+      const { getModelRouter } = await import('../ruvector/model-router.js' as string);
       modelRouterInstance = getModelRouter();
     } catch {
       modelRouterInstance = null;

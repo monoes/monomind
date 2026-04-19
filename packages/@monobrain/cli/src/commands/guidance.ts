@@ -45,7 +45,7 @@ const compileCommand: Command = {
         localContent = await readFile(localPath, 'utf-8');
       }
 
-      const { GuidanceCompiler } = await import('@monobrain/guidance/compiler');
+      const { GuidanceCompiler } = await import('@monobrain/guidance/compiler' as string);
       const compiler = new GuidanceCompiler();
       const bundle = compiler.compile(rootContent, localContent);
 
@@ -122,8 +122,8 @@ const retrieveCommand: Command = {
     try {
       const { readFile } = await import('node:fs/promises');
       const { existsSync } = await import('node:fs');
-      const { GuidanceCompiler } = await import('@monobrain/guidance/compiler');
-      const { ShardRetriever, HashEmbeddingProvider } = await import('@monobrain/guidance/retriever');
+      const { GuidanceCompiler } = await import('@monobrain/guidance/compiler' as string);
+      const { ShardRetriever, HashEmbeddingProvider } = await import('@monobrain/guidance/retriever' as string);
 
       if (!existsSync(rootPath)) {
         output.writeln(output.error(`Root guidance file not found: ${rootPath}`));
@@ -209,7 +209,7 @@ const gatesCommand: Command = {
     output.writeln(output.dim('─'.repeat(50)));
 
     try {
-      const { EnforcementGates } = await import('@monobrain/guidance/gates');
+      const { EnforcementGates } = await import('@monobrain/guidance/gates' as string);
       const gates = new EnforcementGates();
 
       const results: Array<{ type: string; result: any }> = [];
@@ -311,7 +311,7 @@ const statusCommand: Command = {
 
         if (rootExists) {
           const { readFile } = await import('node:fs/promises');
-          const { GuidanceCompiler } = await import('@monobrain/guidance/compiler');
+          const { GuidanceCompiler } = await import('@monobrain/guidance/compiler' as string);
           const rootContent = await readFile('./CLAUDE.md', 'utf-8');
           const compiler = new GuidanceCompiler();
           const bundle = compiler.compile(rootContent);
@@ -382,7 +382,7 @@ const optimizeCommand: Command = {
       }
 
       // Step 1: Analyze current state
-      const { analyze, formatReport, optimizeForSize, formatBenchmark } = await import('@monobrain/guidance/analyzer');
+      const { analyze, formatReport, optimizeForSize, formatBenchmark } = await import('@monobrain/guidance/analyzer' as string);
       const analysis = analyze(rootContent, localContent);
 
       if (jsonOutput && !applyChanges) {
@@ -484,7 +484,7 @@ const abTestCommand: Command = {
     try {
       const { readFile } = await import('node:fs/promises');
       const { existsSync } = await import('node:fs');
-      const { abBenchmark, getDefaultABTasks } = await import('@monobrain/guidance/analyzer');
+      const { abBenchmark, getDefaultABTasks } = await import('@monobrain/guidance/analyzer' as string);
 
       // Load Config B (candidate) content
       if (!existsSync(configBPath)) {

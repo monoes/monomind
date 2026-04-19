@@ -918,12 +918,11 @@ export const pluginsCommand: Command = {
     output.writeln();
     output.writeln(output.bold('Official Plugins:'));
     output.printList([
-      '@monobrain/neural              - Neural patterns and inference (WASM SIMD)',
-      '@monobrain/security            - Security scanning and CVE detection',
       '@monobrain/embeddings          - Vector embeddings with hyperbolic support',
-      '@monobrain/claims              - Claims-based authorization',
-      '@monobrain/performance         - Performance profiling and benchmarks',
+      '@monobrain/plugin-agentic-qe   - AI-powered quality engineering',
+      '@monobrain/plugin-prime-radiant - Mathematical coherence and consensus',
       '@monobrain/plugin-gastown-bridge - Gas Town orchestrator integration (WASM-accelerated)',
+      '@monobrain/teammate-plugin     - Native TeammateTool integration for Claude Code',
     ]);
     output.writeln();
     output.writeln(output.dim('Run "monobrain plugins list --official" to see all official plugins'));

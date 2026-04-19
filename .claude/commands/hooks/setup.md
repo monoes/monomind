@@ -1,4 +1,4 @@
-# Setting Up ruv-swarm Hooks
+# Setting Up Monobrain Hooks
 
 ## Quick Start
 

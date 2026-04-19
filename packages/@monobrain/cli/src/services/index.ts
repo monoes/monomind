@@ -37,28 +37,6 @@ export {
   type WorkerConfig,
 } from './headless-worker-executor.js';
 
-// Container Worker Pool (Phase 3)
-export {
-  ContainerWorkerPool,
-  type ContainerInfo,
-  type ContainerPoolConfig,
-  type ContainerExecutionOptions,
-  type ContainerPoolStatus,
-  type ContainerState,
-} from './container-worker-pool.js';
-
-// Worker Queue (Phase 4)
-export {
-  WorkerQueue,
-  type QueueTask,
-  type WorkerQueueConfig,
-  type QueueStats,
-  type WorkerRegistration,
-  type TaskStatus,
-} from './worker-queue.js';
-
 // Re-export types
 export type { default as WorkerDaemonType, DaemonConfig } from './worker-daemon.js';
 export type { default as HeadlessWorkerExecutorType } from './headless-worker-executor.js';
-export type { default as ContainerWorkerPoolType } from './container-worker-pool.js';
-export type { default as WorkerQueueType } from './worker-queue.js';

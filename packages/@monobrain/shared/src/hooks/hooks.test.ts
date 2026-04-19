@@ -10,7 +10,16 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { HookRegistry, createHookRegistry } from './registry.js';
 import { HookExecutor, createHookExecutor } from './executor.js';
 import { HookEvent, HookPriority, HookContext, HookResult } from './types.js';
-import { createEventBus } from '../core/event-bus.js';
+function createEventBus() {
+  const handlers = new Map<string, Set<(...args: unknown[]) => void>>();
+  return {
+    emit(event: string, data?: unknown) { handlers.get(event)?.forEach(h => h(data)); },
+    on(event: string, handler: (...args: unknown[]) => void) {
+      if (!handlers.has(event)) handlers.set(event, new Set());
+      handlers.get(event)!.add(handler);
+    },
+  };
+}
 
 describe('HookRegistry', () => {
   let registry: HookRegistry;
