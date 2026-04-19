@@ -11,7 +11,7 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D20-06b6d4?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3b82f6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 
-_Deploy 60+ specialized agents in coordinated swarms with self-learning capabilities, fault-tolerant consensus, and enterprise-grade security._
+_Deploy 100+ specialized agents in coordinated swarms with self-learning capabilities, fault-tolerant consensus, and enterprise-grade security._
 
 </div>
 
@@ -135,7 +135,7 @@ node packages/@monobrain/cli/bin/cli.js init --wizard
 claude mcp add monobrain -- node "$PWD/packages/@monobrain/cli/bin/cli.js" mcp start
 ```
 
-> **New to Monobrain?** You don't need to learn 170+ MCP tools or 41 CLI commands up front. After running `init`, just use Claude Code normally — the hooks system automatically routes tasks to the right agents, learns from successful patterns, and coordinates multi-agent work in the background.
+> **New to Monobrain?** You don't need to learn 170+ MCP tools or 38 CLI commands up front. After running `init`, just use Claude Code normally — the hooks system automatically routes tasks to the right agents, learns from successful patterns, and coordinates multi-agent work in the background.
 
 ---
 
@@ -702,7 +702,7 @@ Monobrain builds on ideas, patterns, and research from the following projects:
 | [karpathy/autoresearch](https://github.com/karpathy/autoresearch)               | Experiment loop protocol (BASELINE/KEEP/DISCARD `results.tsv`), fixed time-budget per run, and Best-Fit Decreasing bin packing for API chunking — wired into `@monoes/graph` pipeline |
 | [safishamsi/graphify](https://github.com/safishamsi/graphify)                   | Knowledge graph construction approach, AST-based node/edge extraction, community detection with Louvain, and `GRAPH_REPORT.md` report format — foundation for `@monoes/graph`          |
 | [google/gvisor](https://gvisor.dev) ([paper](https://dl.acm.org/doi/10.1145/3317550.3321422)) | gVisor `runsc` OCI-compatible runtime — reduces Docker container syscall surface from 350+ to ~50 interceptions; wired into `SandboxConfig.use_gvisor` and `buildDockerArgs()` |
-| [Indirect Injection research](https://arxiv.org/abs/2302.12173) ([follow-up](https://arxiv.org/abs/2310.12815)) | Prompt injection via external tool content — `validateExternalContent()` in `@monobrain/security` applies pattern + optional aidefence semantic scan to all externally-sourced content |
+| [Indirect Injection research](https://arxiv.org/abs/2302.12173) ([follow-up](https://arxiv.org/abs/2310.12815)) | Prompt injection via external tool content — `@monobrain/aidefence` applies pattern matching + semantic scan to all externally-sourced content |
 | [FOREVER Forgetting Curve](https://arxiv.org/html/2601.03938v1)                 | Exponential importance-weighted forgetting curve (`importanceScore × e^(−λt)`) replacing linear decay — implemented in `LearningBridge.decayConfidences()` and `MemoryEntry.importanceScore` |
 | [Awesome RLVR](https://github.com/opendilab/awesome-RLVR)                       | Reinforcement Learning with Verifiable Rewards — `hooksModelOutcome` now accepts `verifier_type` (tsc/vitest/eslint/llm_judge) and `exit_code` to derive grounded binary reward signals |
 | [ERL — Experiential Reflective Learning](https://arxiv.org/abs/2603.24639)      | Structured `{condition, action, confidence}` heuristics extracted at `hooks_post-task` and injected as ranked hints into `hooks_pre-task` suggestions via the `heuristics` memory namespace |

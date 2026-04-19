@@ -3,17 +3,29 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@monobrain/memory": ["./@monobrain/memory/src"],
-      "@monobrain/cli": ["./@monobrain/cli/src"],
       "@monobrain/shared": ["./@monobrain/shared/src"],
-      "@monobrain/hooks": ["./@monobrain/hooks/src"]
+      "@monobrain/memory": ["./@monobrain/memory/src"],
+      "@monobrain/hooks": ["./@monobrain/hooks/src"],
+      "@monobrain/cli": ["./@monobrain/cli/src"],
+      "@monobrain/guidance": ["./@monobrain/guidance/src"],
+      "@monobrain/embeddings": ["./@monobrain/embeddings/src"],
+      "@monobrain/aidefence": ["./@monobrain/aidefence/src"],
+      "@monobrain/graph": ["./@monobrain/graph/src"],
+      "@monobrain/mcp": ["./@monobrain/mcp/src"],
+      "@monobrain/routing": ["./@monobrain/routing/src"]
     }
   },
   "references": [
     { "path": "./@monobrain/shared" },
     { "path": "./@monobrain/memory" },
+    { "path": "./@monobrain/hooks" },
     { "path": "./@monobrain/cli" },
-    { "path": "./@monobrain/hooks" }
+    { "path": "./@monobrain/guidance" },
+    { "path": "./@monobrain/embeddings" },
+    { "path": "./@monobrain/aidefence" },
+    { "path": "./@monobrain/graph" },
+    { "path": "./@monobrain/mcp" },
+    { "path": "./@monobrain/routing" }
   ],
   "include": [],
   "exclude": ["node_modules", "dist"]
