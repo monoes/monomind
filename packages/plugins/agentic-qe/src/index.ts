@@ -309,13 +309,10 @@ export const PLUGIN_METADATA = {
   ],
   dependencies: {
     required: [
-      '@monobrain/plugins',
       '@monobrain/memory',
-      '@monobrain/security',
       '@monobrain/embeddings',
     ],
     optional: [
-      '@monobrain/browser',
       '@ruvector/attention',
       '@ruvector/gnn',
       '@ruvector/sona',
