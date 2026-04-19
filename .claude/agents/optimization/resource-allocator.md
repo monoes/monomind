@@ -515,7 +515,7 @@ const resourceIntegration = {
     );
     
     // Apply resource allocation
-    const result = await mcp.daa_resource_alloc({
+    const result = await mcp.monobrain__system_resources({
       resources: allocation.resources,
       agents: allocation.agents
     });

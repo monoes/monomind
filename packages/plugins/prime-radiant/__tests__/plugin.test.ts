@@ -91,7 +91,7 @@ class MockPrimeRadiantPlugin {
       author: 'rUv',
       license: 'MIT',
       wasmSize: '92KB',
-      dependencies: ['@monobrain/memory', '@monobrain/security', '@monobrain/coordination'],
+      dependencies: ['@monobrain/memory'],
       tags: [
         'sheaf-cohomology',
         'causal-inference',
@@ -433,8 +433,6 @@ describe('PrimeRadiantPlugin', () => {
 
     it('should have required dependencies', () => {
       expect(plugin.metadata.dependencies).toContain('@monobrain/memory');
-      expect(plugin.metadata.dependencies).toContain('@monobrain/security');
-      expect(plugin.metadata.dependencies).toContain('@monobrain/coordination');
     });
 
     it('should have expected tags', () => {

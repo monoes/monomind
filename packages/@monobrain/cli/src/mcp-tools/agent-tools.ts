@@ -234,17 +234,6 @@ export const agentTools: MCPTool[] = [
       store.agents[agentId] = agent;
       saveAgentStore(store);
 
-      // Task 46: AgentSandboxing — register sandbox for isolated agent execution
-      try {
-        const { WasmSandbox, DockerSandbox, register } = await import('@monobrain/security' as string);
-        const sandboxType = (config.sandbox as Record<string, unknown>)?.type ?? 'wasm';
-        const sandboxConfig = (config.sandbox as Record<string, unknown>) ?? {};
-        const sandbox = sandboxType === 'docker'
-          ? DockerSandbox.create(agentId, sandboxConfig)
-          : WasmSandbox.create(agentId, sandboxConfig);
-        register(agentId, sandbox);
-      } catch { /* optional — @monobrain/security may not be installed */ }
-
       // Include Agent Booster routing info if applicable
       const response: Record<string, unknown> = {
         success: true,
@@ -288,12 +277,6 @@ export const agentTools: MCPTool[] = [
       if (store.agents[agentId]) {
         store.agents[agentId].status = 'terminated';
         saveAgentStore(store);
-
-        // Task 46: AgentSandboxing — clean up sandbox on termination
-        try {
-          const { cleanup } = await import('@monobrain/security' as string);
-          cleanup(agentId);
-        } catch { /* optional */ }
 
         return {
           success: true,
