@@ -178,7 +178,7 @@ export async function createHnswRouter(config: HnswRouterConfig): Promise<{
       return ok;
     },
     route(query: Float32Array, k = 3): HnswRouteResult[] {
-      return router.route(query, k);
+      return router.route(query, k) as unknown as HnswRouteResult[];
     },
     clear(): void {
       router.clear();
@@ -225,10 +225,10 @@ export async function createSonaInstant(config: SonaConfig = {}): Promise<{
       sona.instantAdapt(quality);
     },
     recordPattern(embedding: number[], success: boolean): void {
-      sona.recordPattern(embedding, success);
+      sona.recordPattern(new Float32Array(embedding), success);
     },
     suggestAction(context: string): string | undefined {
-      return sona.suggestAction(context);
+      return sona.suggestAction(context as any);
     },
     stats(): string {
       return sona.toJson();
@@ -260,7 +260,7 @@ export async function createMicroLora(config: MicroLoraConfig): Promise<{
   await initRuvllmWasm();
   const mod = await import('@ruvector/ruvllm-wasm');
 
-  const loraConfig = new mod.MicroLoraConfigWasm();
+  const loraConfig = new mod.MicroLoraConfigWasm() as any;
   loraConfig.inputDim = config.inputDim;
   loraConfig.outputDim = config.outputDim;
   loraConfig.rank = config.rank ?? 2;
@@ -274,7 +274,7 @@ export async function createMicroLora(config: MicroLoraConfig): Promise<{
     },
     adapt(quality: number, learningRate = 0.01, success = true): void {
       // v2.0.2: adapt(input, feedback) — two args
-      const feedback = new mod.AdaptFeedbackWasm();
+      const feedback = new (mod.AdaptFeedbackWasm as any)();
       feedback.quality = quality;
       feedback.learningRate = learningRate;
       // Note: feedback.success not on prototype in v2.0.2, set via property
@@ -284,7 +284,7 @@ export async function createMicroLora(config: MicroLoraConfig): Promise<{
       lora.adapt(input, feedback);
     },
     applyUpdates(gradients: Float32Array): void {
-      lora.applyUpdates(gradients);
+      lora.applyUpdates(gradients as any);
     },
     stats(): string {
       return lora.toJson();

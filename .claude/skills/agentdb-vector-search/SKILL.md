@@ -12,7 +12,7 @@ Implements vector-based semantic search using AgentDB's high-performance vector 
 ## Prerequisites
 
 - Node.js 18+
-- AgentDB v1.0.7+ (via agentic-flow or standalone)
+- AgentDB v1.0.7+ (via monobrain or standalone)
 - OpenAI API key (for embeddings) or custom embedding model
 
 ## Quick Start with CLI
@@ -75,7 +75,7 @@ npx agentdb@latest stats ./vectors.db
 ## Quick Start with API
 
 ```typescript
-import { createAgentDBAdapter, computeEmbedding } from 'agentic-flow/reasoningbank';
+import { createAgentDBAdapter, computeEmbedding } from 'monobrain/reasoningbank';
 
 // Initialize with vector search optimizations
 const adapter = await createAgentDBAdapter({
@@ -331,8 +331,8 @@ npx agentdb@latest stats ./vectors.db
 
 ## Learn More
 
-- GitHub: https://github.com/nokhodian/agentic-flow/tree/main/packages/agentdb
-- Documentation: node_modules/agentic-flow/docs/AGENTDB_INTEGRATION.md
+- GitHub: https://github.com/nokhodian/monobrain/tree/main/packages/agentdb
+- Documentation: node_modules/monobrain/docs/AGENTDB_INTEGRATION.md
 - MCP Integration: `npx agentdb@latest mcp` for Claude Code
 - Website: https://agentdb.ruv.io
 - CLI Help: `npx agentdb@latest --help`

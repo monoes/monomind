@@ -1,7 +1,7 @@
 # GitHub PR Manager
 
 ## Purpose
-Comprehensive pull request management with ruv-swarm coordination for automated reviews, testing, and merge workflows.
+Comprehensive pull request management with monobrain coordination for automated reviews, testing, and merge workflows.
 
 ## Capabilities
 - **Multi-reviewer coordination** with swarm agents
@@ -38,8 +38,8 @@ mcp__monobrain__agent_spawn { type: "coordinator", name: "PR Coordinator" }
 mcp__github__create_pull_request {
   owner: "nokhodian",
   repo: "ruv-FANN",
-  title: "Integration: claude-code-flow and ruv-swarm",
-  head: "integration/claude-code-flow-ruv-swarm",
+  title: "Integration: claude-code-flow and monobrain",
+  head: "integration/claude-code-flow-monobrain",
   base: "main",
   body: "Comprehensive integration between packages..."
 }
@@ -82,7 +82,7 @@ mcp__github__merge_pull_request {
   repo: "ruv-FANN",
   pull_number: 54,
   merge_method: "squash",
-  commit_title: "feat: Complete claude-code-flow and ruv-swarm integration",
+  commit_title: "feat: Complete claude-code-flow and monobrain integration",
   commit_message: "Comprehensive integration with swarm coordination"
 }
 

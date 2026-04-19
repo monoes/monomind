@@ -89,12 +89,13 @@ const AGENT_TYPE_MODEL_DEFAULTS: Record<string, ClaudeModel> = {
 };
 
 // Lazy-loaded model router
-let modelRouterInstance: Awaited<ReturnType<typeof import('../ruvector/model-router.js').getModelRouter>> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let modelRouterInstance: any = null;
 
 async function getModelRouter() {
   if (!modelRouterInstance) {
     try {
-      const { getModelRouter } = await import('../ruvector/model-router.js');
+      const { getModelRouter } = await import('../ruvector/model-router.js' as string);
       modelRouterInstance = getModelRouter();
     } catch (e) {
       // Log but don't fail - model router is optional
@@ -131,7 +132,7 @@ async function determineAgentModel(
   if (task) {
     try {
       // Try enhanced router first (includes Agent Booster detection)
-      const { getEnhancedModelRouter } = await import('../ruvector/enhanced-model-router.js');
+      const { getEnhancedModelRouter } = await import('../ruvector/enhanced-model-router.js' as string);
       const enhancedRouter = getEnhancedModelRouter();
       const routeResult = await enhancedRouter.route(task, { filePath: config.filePath as string });
 
@@ -235,7 +236,7 @@ export const agentTools: MCPTool[] = [
 
       // Task 46: AgentSandboxing — register sandbox for isolated agent execution
       try {
-        const { WasmSandbox, DockerSandbox, register } = await import('@monobrain/security');
+        const { WasmSandbox, DockerSandbox, register } = await import('@monobrain/security' as string);
         const sandboxType = (config.sandbox as Record<string, unknown>)?.type ?? 'wasm';
         const sandboxConfig = (config.sandbox as Record<string, unknown>) ?? {};
         const sandbox = sandboxType === 'docker'
@@ -290,7 +291,7 @@ export const agentTools: MCPTool[] = [
 
         // Task 46: AgentSandboxing — clean up sandbox on termination
         try {
-          const { cleanup } = await import('@monobrain/security');
+          const { cleanup } = await import('@monobrain/security' as string);
           cleanup(agentId);
         } catch { /* optional */ }
 

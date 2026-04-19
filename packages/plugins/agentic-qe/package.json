@@ -54,25 +54,14 @@
     "zod": "^3.23.0"
   },
   "peerDependencies": {
-    "@monobrain/plugins": "workspace:*",
     "@monobrain/memory": "workspace:*",
-    "@monobrain/security": "workspace:*",
     "@monobrain/embeddings": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@monobrain/plugins": {
-      "optional": true
-    },
     "@monobrain/memory": {
       "optional": true
     },
-    "@monobrain/security": {
-      "optional": true
-    },
     "@monobrain/embeddings": {
-      "optional": true
-    },
-    "@monobrain/browser": {
       "optional": true
     },
     "@ruvector/attention": {

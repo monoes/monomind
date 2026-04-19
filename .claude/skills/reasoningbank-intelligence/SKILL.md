@@ -11,14 +11,14 @@ Implements ReasoningBank's adaptive learning system for AI agents to learn from 
 
 ## Prerequisites
 
-- agentic-flow v1.5.11+
+- monobrain v1.5.11+
 - AgentDB v1.0.4+ (for persistence)
 - Node.js 18+
 
 ## Quick Start
 
 ```typescript
-import { ReasoningBank } from 'agentic-flow/reasoningbank';
+import { ReasoningBank } from 'monobrain/reasoningbank';
 
 // Initialize ReasoningBank
 const rb = new ReasoningBank({
@@ -196,6 +196,6 @@ console.log(`
 
 ## Learn More
 
-- ReasoningBank Guide: agentic-flow/src/reasoningbank/README.md
+- ReasoningBank Guide: monobrain/src/reasoningbank/README.md
 - AgentDB Integration: packages/agentdb/docs/reasoningbank.md
 - Pattern Learning: docs/reasoning/patterns.md

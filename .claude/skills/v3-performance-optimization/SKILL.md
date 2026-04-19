@@ -385,7 +385,7 @@ class PerformanceGates {
 
 ## Related v1 Skills
 
-- `v1-integration-deep` - Performance integration with agentic-flow
+- `v1-integration-deep` - Performance integration with monobrain
 - `v1-memory-unification` - Memory performance optimization
 - `v1-swarm-coordination` - Swarm performance coordination
 - `v1-security-overhaul` - Secure performance patterns

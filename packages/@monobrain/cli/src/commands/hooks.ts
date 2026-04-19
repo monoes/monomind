@@ -1755,7 +1755,7 @@ const preTaskCommand: Command = {
 
       // Enhanced model routing with Agent Booster AST (ADR-026)
       try {
-        const { getEnhancedModelRouter } = await import('../ruvector/enhanced-model-router.js');
+        const { getEnhancedModelRouter } = await import('../ruvector/enhanced-model-router.js' as string);
         const router = getEnhancedModelRouter();
         const routeResult = await router.route(description, { filePath: ctx.flags.file as string });
 

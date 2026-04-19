@@ -12,7 +12,6 @@
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/__tests__/**"],
   "references": [
     { "path": "../shared" },
-    { "path": "../neural" },
     { "path": "../memory" }
   ]
 }

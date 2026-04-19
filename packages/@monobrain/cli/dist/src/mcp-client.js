@@ -25,13 +25,9 @@ import { securityTools } from './mcp-tools/security-tools.js';
 import { transferTools } from './mcp-tools/transfer-tools.js';
 // V2 Compatibility tools
 import { systemTools } from './mcp-tools/system-tools.js';
-import { terminalTools } from './mcp-tools/terminal-tools.js';
 import { neuralTools } from './mcp-tools/neural-tools.js';
 import { performanceTools } from './mcp-tools/performance-tools.js';
 import { githubTools } from './mcp-tools/github-tools.js';
-import { daaTools } from './mcp-tools/daa-tools.js';
-import { coordinationTools } from './mcp-tools/coordination-tools.js';
-import { browserTools } from './mcp-tools/browser-tools.js';
 // Phase 6: AgentDB v1 controller tools
 import { agentdbTools } from './mcp-tools/agentdb-tools.js';
 // RuVector WASM tools
@@ -41,8 +37,6 @@ import { guidanceTools } from './mcp-tools/guidance-tools.js';
 import { autopilotTools } from './mcp-tools/autopilot-tools.js';
 // Knowledge graph tools (graphify)
 import { graphifyTools } from './mcp-tools/graphify-tools.js';
-// Coverage-aware routing tools
-import { coverageRouterTools } from './ruvector/coverage-tools.js';
 // A2A Agent Card protocol (source: https://a2a-protocol.org)
 import { a2aTools } from './mcp-tools/a2a-tools.js';
 /**
@@ -75,13 +69,9 @@ registerTools([
     ...transferTools,
     // V2 Compatibility tools
     ...systemTools,
-    ...terminalTools,
     ...neuralTools,
     ...performanceTools,
     ...githubTools,
-    ...daaTools,
-    ...coordinationTools,
-    ...browserTools,
     // Phase 6: AgentDB v1 controller tools
     ...agentdbTools,
     // RuVector WASM tools
@@ -93,8 +83,6 @@ registerTools([
     ...autopilotTools,
     // Knowledge graph (graphify) tools — build, query, report, suggest, health
     ...graphifyTools,
-    // Coverage-aware routing tools
-    ...coverageRouterTools,
     // A2A Agent Card protocol (source: https://a2a-protocol.org)
     ...a2aTools,
 ]);

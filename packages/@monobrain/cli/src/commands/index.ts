@@ -68,9 +68,6 @@ const commandLoaders: Record<string, CommandLoader> = {
   benchmark: () => import('./benchmark.js'),
   // Guidance Control Plane
   guidance: () => import('./guidance.js'),
-  // RVFA Appliance Management
-  appliance: () => import('./appliance.js'),
-  'appliance-advanced': () => import('./appliance-advanced.js'),
   'transfer-store': () => import('./transfer-store.js'),
   cleanup: () => import('./cleanup.js'),
   autopilot: () => import('./autopilot.js'),
@@ -150,9 +147,10 @@ import { issuesCommand } from './issues.js';
 import updateCommand from './update.js';
 import { processCommand } from './process.js';
 import { guidanceCommand } from './guidance.js';
-import { applianceCommand } from './appliance.js';
 import { cleanupCommand } from './cleanup.js';
 import { autopilotCommand } from './autopilot.js';
+import { benchmarkCommand } from './benchmark.js';
+import { tokensCommand } from './tokens.js';
 
 // Pre-populate cache with core commands
 loadedCommands.set('init', initCommand);
@@ -201,7 +199,6 @@ export { securityCommand } from './security.js';
 export { ruvectorCommand } from './ruvector/index.js';
 export { hiveMindCommand } from './hive-mind.js';
 export { guidanceCommand } from './guidance.js';
-export { applianceCommand } from './appliance.js';
 export { cleanupCommand } from './cleanup.js';
 export { autopilotCommand } from './autopilot.js';
 
@@ -228,7 +225,6 @@ export async function getProgressCommand() { return loadCommand('progress'); }
 export async function getIssuesCommand() { return loadCommand('issues'); }
 export async function getRuvectorCommand() { return loadCommand('ruvector'); }
 export async function getGuidanceCommand() { return loadCommand('guidance'); }
-export async function getApplianceCommand() { return loadCommand('appliance'); }
 export async function getCleanupCommand() { return loadCommand('cleanup'); }
 export async function getAutopilotCommand() { return loadCommand('autopilot'); }
 
@@ -259,6 +255,8 @@ export const commands: Command[] = [
   guidanceCommand,
   cleanupCommand,
   autopilotCommand,
+  benchmarkCommand,
+  tokensCommand,
 ];
 
 /**
@@ -299,6 +297,8 @@ export const commandsByCategory = {
     analyzeCommand,
     routeCommand,
     progressCommand,
+    benchmarkCommand,
+    tokensCommand,
   ],
   management: [
     providersCommand,
@@ -308,7 +308,6 @@ export const commandsByCategory = {
     issuesCommand,
     updateCommand,
     processCommand,
-    applianceCommand,
     cleanupCommand,
   ],
 };

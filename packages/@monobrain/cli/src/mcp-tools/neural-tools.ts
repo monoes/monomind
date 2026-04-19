@@ -23,13 +23,13 @@ try {
   // Tier 1: agentic-flow v1 ReasoningBank (fastest — WASM-accelerated)
   const rb = await import('agentic-flow/reasoningbank').catch(() => null);
   if (rb?.computeEmbedding) {
-    realEmbeddings = { embed: (text: string) => rb.computeEmbedding(text) };
+    realEmbeddings = { embed: async (text: string) => Array.from(await rb.computeEmbedding(text)) };
     embeddingServiceName = 'agentic-flow/reasoningbank';
   }
 
   // Tier 2: @monobrain/embeddings
   if (!realEmbeddings) {
-    const embeddingsModule = await import('@monobrain/embeddings').catch(() => null);
+    const embeddingsModule = await import('@monobrain/embeddings' as string).catch(() => null);
     if (embeddingsModule?.createEmbeddingService) {
       try {
         const service = embeddingsModule.createEmbeddingService({ provider: 'agentic-flow' });

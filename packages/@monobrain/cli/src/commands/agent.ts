@@ -135,7 +135,7 @@ const spawnCommand: Command = {
     const taskDescription = ctx.flags.task as string | undefined;
     if (!agentType && taskDescription) {
       try {
-        const { RouteLayer, ALL_ROUTES } = await import('@monobrain/routing');
+        const { RouteLayer, ALL_ROUTES } = await import('@monobrain/routing' as string);
         const layer = new RouteLayer({ routes: ALL_ROUTES });
         const routeResult = await layer.route(taskDescription);
         agentType = routeResult.agentSlug;

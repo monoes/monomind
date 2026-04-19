@@ -22,7 +22,7 @@ Task("Security testing", "Implement TDD security framework", "test-architect")
 
 # Core domain (Phase 2 - Parallel execution)
 Task("Memory unification", "Implement AgentDB 150x improvement", "v1-memory-specialist")
-Task("Integration architecture", "Deep agentic-flow@alpha integration", "v1-integration-architect")
+Task("Integration architecture", "Deep monobrain integration", "v1-integration-architect")
 Task("Performance validation", "Validate 2.49x-7.47x targets", "v1-performance-engineer")
 ```
 
@@ -60,7 +60,7 @@ Task("Performance validation", "Validate 2.49x-7.47x targets", "v1-performance-e
 | 7   | Memory Specialist     | Core          | Systems      | AgentDB unification                   |
 | 8   | Swarm Specialist      | Core          | Systems      | Unified coordination engine           |
 | 9   | MCP Specialist        | Core          | Systems      | MCP server optimization               |
-| 10  | Integration Architect | Integration   | Integration  | agentic-flow@alpha deep integration   |
+| 10  | Integration Architect | Integration   | Integration  | monobrain deep integration   |
 | 11  | CLI/Hooks Developer   | Integration   | Integration  | CLI modernization                     |
 | 12  | Neural/Learning Dev   | Integration   | Integration  | SONA integration                      |
 | 13  | TDD Test Engineer     | Quality       | All          | London School TDD                     |
@@ -149,7 +149,7 @@ const phase3 = async () => {
   // Parallel integration and optimization
   await Promise.all([
     Task(
-      "agentic-flow integration",
+      "monobrain integration",
       "Eliminate 10,000+ duplicate lines",
       "v1-integration-architect",
     ),
@@ -274,7 +274,7 @@ class GitHubCoordination {
     const epics = [
       { title: "Security Overhaul (CVE-1,2,3)", agents: [2, 3, 4] },
       { title: "Memory Unification (AgentDB)", agents: [7] },
-      { title: "agentic-flow Integration", agents: [10] },
+      { title: "monobrain Integration", agents: [10] },
       { title: "Performance Optimization", agents: [14] },
       { title: "DDD Architecture", agents: [5, 6] },
     ];

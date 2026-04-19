@@ -223,7 +223,7 @@ export class SONAOptimizer {
 
     // Try to load Q-learning router lazily
     try {
-      const { QLearningRouter } = await import('../ruvector/q-learning-router.js');
+      const { QLearningRouter } = await import('../ruvector/q-learning-router.js' as string);
       this.qLearningRouter = new QLearningRouter();
       await this.qLearningRouter.initialize();
       this.qLearningEnabled = true;

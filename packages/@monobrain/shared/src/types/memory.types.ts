@@ -4,7 +4,28 @@
  * Aligned with AgentDB integration (ADR-006, ADR-009)
  */
 
-import type { IMemoryEntry, MemoryType, IVectorSearchParams, IVectorSearchResult } from '../core/interfaces/memory.interface.js';
+export type MemoryType = 'short-term' | 'long-term' | 'episodic' | 'semantic' | 'procedural' | 'working';
+
+export interface IMemoryEntry {
+  key: string;
+  value: unknown;
+  type?: MemoryType;
+  namespace?: string;
+  tags?: string[];
+  embedding?: number[];
+  createdAt: Date;
+  updatedAt?: Date;
+  expiresAt?: Date;
+  metadata?: Record<string, unknown>;
+}
+
+export interface IVectorSearchParams {
+  query: string | number[];
+  limit?: number;
+  threshold?: number;
+  namespace?: string;
+  filter?: Record<string, unknown>;
+}
 
 /**
  * Memory backend type

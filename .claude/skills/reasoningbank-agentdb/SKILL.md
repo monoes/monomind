@@ -14,7 +14,7 @@ Provides ReasoningBank adaptive learning patterns using AgentDB's high-performan
 ## Prerequisites
 
 - Node.js 18+
-- AgentDB v1.0.7+ (via agentic-flow)
+- AgentDB v1.0.7+ (via monobrain)
 - Understanding of reinforcement learning concepts (optional)
 
 ---
@@ -47,7 +47,7 @@ npx agentdb@latest stats ./.agentdb/reasoningbank.db
 ## Quick Start with API
 
 ```typescript
-import { createAgentDBAdapter, computeEmbedding } from 'agentic-flow/reasoningbank';
+import { createAgentDBAdapter, computeEmbedding } from 'monobrain/reasoningbank';
 
 // Initialize ReasoningBank with AgentDB
 const rb = await createAgentDBAdapter({
@@ -275,7 +275,7 @@ import {
   retrieveMemories,
   judgeTrajectory,
   distillMemories
-} from 'agentic-flow/reasoningbank';
+} from 'monobrain/reasoningbank';
 
 // Legacy API works unchanged (uses AgentDB backend automatically)
 const memories = await retrieveMemories(query, {
@@ -434,8 +434,8 @@ await rb.optimize();
 
 ## Learn More
 
-- **AgentDB Integration**: node_modules/agentic-flow/docs/AGENTDB_INTEGRATION.md
-- **GitHub**: https://github.com/nokhodian/agentic-flow/tree/main/packages/agentdb
+- **AgentDB Integration**: node_modules/monobrain/docs/AGENTDB_INTEGRATION.md
+- **GitHub**: https://github.com/nokhodian/monobrain/tree/main/packages/agentdb
 - **MCP Integration**: `npx agentdb@latest mcp`
 - **Website**: https://agentdb.ruv.io
 

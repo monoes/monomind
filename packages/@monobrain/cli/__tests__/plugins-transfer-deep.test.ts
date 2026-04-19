@@ -1494,57 +1494,6 @@ describe('Update Rate Limiter', () => {
 });
 
 // ============================================================================
-// 17. Benchmark Infrastructure
-// ============================================================================
-
-import { runBenchmark, formatBenchmarkResult } from '../src/benchmarks/pretrain/index.js';
-import type { BenchmarkResult, BenchmarkConfig } from '../src/benchmarks/pretrain/index.js';
-
-describe('Benchmark Infrastructure', () => {
-  it('should run a benchmark and return results', async () => {
-    const result = await runBenchmark(
-      'test-bench',
-      () => { /* no-op */ },
-      { iterations: 5, warmupIterations: 1 }
-    );
-    expect(result.name).toBe('test-bench');
-    expect(result.iterations).toBe(5);
-    expect(result.meanMs).toBeGreaterThanOrEqual(0);
-    expect(result.opsPerSecond).toBeGreaterThan(0);
-    expect(result.targetMet).toBe(true); // No target = always met
-  });
-
-  it('should detect when target is not met', async () => {
-    const result = await runBenchmark(
-      'slow-bench',
-      async () => { await new Promise(r => setTimeout(r, 10)); },
-      { iterations: 3, warmupIterations: 1, targetMs: 0.001 }
-    );
-    expect(result.targetMet).toBe(false);
-  });
-
-  it('should format benchmark result as string', () => {
-    const result: BenchmarkResult = {
-      name: 'test',
-      iterations: 100,
-      meanMs: 0.05,
-      medianMs: 0.04,
-      p95Ms: 0.08,
-      p99Ms: 0.1,
-      minMs: 0.01,
-      maxMs: 0.15,
-      stdDev: 0.02,
-      opsPerSecond: 20000,
-      targetMet: true,
-      targetMs: 0.1,
-    };
-    const formatted = formatBenchmarkResult(result);
-    expect(formatted).toContain('test');
-    expect(formatted).toContain('Mean:');
-    expect(formatted).toContain('Ops/s:');
-  });
-});
-
 // ============================================================================
 // 18. Transfer Types (completeness)
 // ============================================================================

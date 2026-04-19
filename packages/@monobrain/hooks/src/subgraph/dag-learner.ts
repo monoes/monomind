@@ -146,8 +146,8 @@ export class DAGLearner {
       const tally = new Map<string, number>();
       for (const { pattern, similarity } of patterns) {
         const hints = [
-          ...extractSlugHints(pattern.task ?? ''),
-          ...extractSlugHints(pattern.guidance ?? ''),
+          ...extractSlugHints(pattern.strategy ?? ''),
+          ...extractSlugHints(pattern.domain ?? ''),
         ];
         for (const slug of hints) {
           tally.set(slug, (tally.get(slug) ?? 0) + similarity);

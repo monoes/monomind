@@ -3,8 +3,41 @@
  * Modernized type system for swarm coordination
  */
 
-import type { ISwarmConfig, ISwarmState, SwarmTopology, CoordinationStatus } from '../core/interfaces/coordinator.interface.js';
-import type { IAgent } from '../core/interfaces/agent.interface.js';
+export type SwarmTopology = 'hierarchical' | 'mesh' | 'ring' | 'star' | 'adaptive' | 'hierarchical-mesh';
+export type CoordinationStatus = 'initializing' | 'active' | 'degraded' | 'terminated' | 'error';
+
+export interface ISwarmConfig {
+  topology: SwarmTopology;
+  maxAgents?: number;
+  autoScale?: {
+    enabled?: boolean;
+    minAgents?: number;
+    maxAgents?: number;
+    scaleUpThreshold?: number;
+    scaleDownThreshold?: number;
+  };
+  coordination?: {
+    consensusRequired?: boolean;
+    timeoutMs?: number;
+    retryPolicy?: { maxRetries?: number; backoffMs?: number };
+  };
+  communication?: {
+    protocol?: string;
+    batchSize?: number;
+    flushIntervalMs?: number;
+  };
+}
+
+export interface ISwarmState {
+  id: string;
+  topology: SwarmTopology;
+  status: CoordinationStatus;
+  agents: string[];
+  createdAt: Date;
+  metadata?: Record<string, unknown>;
+}
+
+import type { IAgent } from './agent.types.js';
 
 /**
  * Swarm initialization options

@@ -89,7 +89,6 @@ import { routeCommand } from '../src/commands/route.js';
 import { progressCommand } from '../src/commands/progress.js';
 import { issuesCommand } from '../src/commands/issues.js';
 import { guidanceCommand } from '../src/commands/guidance.js';
-import { applianceCommand } from '../src/commands/appliance.js';
 import updateCommand from '../src/commands/update.js';
 import { ruvectorCommand } from '../src/commands/ruvector/index.js';
 
@@ -435,16 +434,6 @@ describe('Command Definitions', () => {
     });
   });
 
-  describe('appliance command', () => {
-    it('should have correct name', () => {
-      expectValidCommand(applianceCommand, 'appliance');
-    });
-
-    it('should have subcommands including build, inspect, verify', () => {
-      expectHasSubcommands(applianceCommand, 3);
-    });
-  });
-
   describe('ruvector command', () => {
     it('should have correct name', () => {
       expectValidCommand(ruvectorCommand, 'ruvector');
@@ -486,7 +475,6 @@ const allCommands: { cmd: Command; name: string }[] = [
   { cmd: issuesCommand, name: 'issues' },
   { cmd: updateCommand, name: 'update' },
   { cmd: guidanceCommand, name: 'guidance' },
-  { cmd: applianceCommand, name: 'appliance' },
   { cmd: ruvectorCommand, name: 'ruvector' },
 ];
 
@@ -555,7 +543,6 @@ describe('Command Registry (commands/index.ts)', () => {
     expect(indexModule.securityCommand).toBeDefined();
     expect(indexModule.hiveMindCommand).toBeDefined();
     expect(indexModule.guidanceCommand).toBeDefined();
-    expect(indexModule.applianceCommand).toBeDefined();
     expect(indexModule.ruvectorCommand).toBeDefined();
   });
 

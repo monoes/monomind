@@ -42,5 +42,4 @@ export * from './specialization.js';
 // Communication flow types (Task 40)
 export * from './communication-flow.js';
 
-// Re-export core interfaces for convenience
-export * from '../core/interfaces/index.js';
+// Core interfaces were removed in the 2026-04-19 dead-code audit (zero external consumers)

@@ -14,7 +14,7 @@ Provides access to 9 reinforcement learning algorithms via AgentDB's plugin syst
 ## Prerequisites
 
 - Node.js 18+
-- AgentDB v1.0.7+ (via agentic-flow)
+- AgentDB v1.0.7+ (via monobrain)
 - Basic understanding of reinforcement learning (recommended)
 
 ---
@@ -68,7 +68,7 @@ npx agentdb@latest plugin-info my-agent
 ## Quick Start with API
 
 ```typescript
-import { createAgentDBAdapter } from 'agentic-flow/reasoningbank';
+import { createAgentDBAdapter } from 'monobrain/reasoningbank';
 
 // Initialize with learning enabled
 const adapter = await createAgentDBAdapter({
@@ -534,7 +534,7 @@ await adapter.retrieveWithReasoning(queryEmbedding, {
 ## Learn More
 
 - **Algorithm Papers**: See docs/algorithms/ for detailed papers
-- **GitHub**: https://github.com/nokhodian/agentic-flow/tree/main/packages/agentdb
+- **GitHub**: https://github.com/nokhodian/monobrain/tree/main/packages/agentdb
 - **MCP Integration**: `npx agentdb@latest mcp`
 - **Website**: https://agentdb.ruv.io
 

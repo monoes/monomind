@@ -447,7 +447,7 @@ export class CLI {
   private async loadConfig(configPath?: string): Promise<MonobrainConfig | undefined> {
     try {
       // Import config utilities
-      const { loadConfig: loadSystemConfig } = await import('@monobrain/shared');
+      const { loadConfig: loadSystemConfig } = await import('@monobrain/shared' as string);
       const { systemConfigToMonobrainConfig } = await import('./config-adapter.js');
 
       // Load configuration
@@ -486,20 +486,20 @@ export class CLI {
   private async initSubsystems(): Promise<void> {
     // GAP-003: TierManager
     try {
-      const { TierManager, createPersistentService } = await import('@monobrain/memory');
+      const { TierManager, createPersistentService } = await import('@monobrain/memory' as string);
       const backend = createPersistentService('.monobrain/memory');
       new TierManager(backend, { shortTermCapacity: 1000 });
     } catch { /* optional — monobrain/memory may not be installed */ }
 
     // GAP-004/005/006: Register background workers (EntityExtractor, EpisodeBinner, TraceCollector)
     try {
-      const { initDefaultWorkers } = await import('@monobrain/hooks');
+      const { initDefaultWorkers } = await import('@monobrain/hooks' as string);
       await initDefaultWorkers();
     } catch { /* optional */ }
 
     // GAP-007: SwarmCheckpointer — write checkpoint files so crashed swarms can resume
     try {
-      const { SwarmCheckpointer } = await import('@monobrain/memory');
+      const { SwarmCheckpointer } = await import('@monobrain/memory' as string);
       new SwarmCheckpointer({
         dbPath: '.monobrain/checkpoints/swarm.jsonl',
         swarmId: 'default',
@@ -512,7 +512,7 @@ export class CLI {
     // Extra paths are read from MONOBRAIN_EXTRA_AGENT_PATHS env var (colon-separated)
     // or fall back to the known local path when available.
     try {
-      const { buildUnifiedRegistry } = await import('./agents/registry-builder.js');
+      const { buildUnifiedRegistry } = await import('./agents/registry-builder.js' as string);
       const { mkdirSync } = await import('fs');
       const { join } = await import('path');
 
@@ -557,13 +557,13 @@ export class CLI {
 
     // Task 01-03: SemanticRouteLayer + LLMFallbackRouting + KeywordRouting
     try {
-      const { RouteLayer, ALL_ROUTES } = await import('@monobrain/routing');
+      const { RouteLayer, ALL_ROUTES } = await import('@monobrain/routing' as string);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const routerConfig: any = { routes: ALL_ROUTES, enableKeywordFilter: true };
 
       // Task 02: LLMFallback — wire Anthropic Haiku when API key is present
       if (process.env.ANTHROPIC_API_KEY) {
-        const { default: Anthropic } = await import('@anthropic-ai/sdk');
+        const { default: Anthropic } = await import('@anthropic-ai/sdk' as string);
         const anthropic = new Anthropic();
         routerConfig.llmFallback = {
           llmCaller: async (prompt: string) => {

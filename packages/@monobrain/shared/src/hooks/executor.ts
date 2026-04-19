@@ -7,8 +7,12 @@
  * @module v1/shared/hooks/executor
  */
 
-import type { IEventBus } from '../core/interfaces/event.interface.js';
 import { HookRegistry } from './registry.js';
+
+interface IEventBus {
+  emit(event: string, data?: unknown): void;
+  on?(event: string, handler: (...args: unknown[]) => void): void;
+}
 import {
   HookEvent,
   HookContext,

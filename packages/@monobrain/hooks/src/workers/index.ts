@@ -1514,7 +1514,6 @@ export function createDDDWorker(projectRoot: string): WorkerHandler {
       '@monobrain/hooks',
       '@monobrain/mcp',
       '@monobrain/memory',
-      '@monobrain/security',
     ];
 
     // Process all modules in parallel for 70-90% speedup
@@ -2016,8 +2015,8 @@ export function createProgressWorker(projectRoot: string): WorkerHandler {
     let packages = 0;
     const packageDirs: string[] = [];
     try {
-      const packagesPath = path.join(packagesPath, '@monobrain');
-      const dirs = await fs.readdir(packagesPath, { withFileTypes: true });
+      const monobrainPath = path.join(packagesPath, '@monobrain');
+      const dirs = await fs.readdir(monobrainPath, { withFileTypes: true });
       for (const dir of dirs) {
         if (dir.isDirectory() && !dir.name.startsWith('.')) {
           packages++;

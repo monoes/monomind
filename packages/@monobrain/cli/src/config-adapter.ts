@@ -3,8 +3,34 @@
  * Converts between SystemConfig and MonobrainConfig types
  */
 
-import type { SystemConfig } from '@monobrain/shared';
 import type { MonobrainConfig } from './types.js';
+
+interface SystemConfig {
+  orchestrator?: {
+    lifecycle?: { maxConcurrentAgents?: number; spawnTimeout?: number; terminateTimeout?: number; maxSpawnRetries?: number };
+    session?: { dataDir?: string; persistSessions?: boolean; sessionRetentionMs?: number };
+    health?: { checkInterval?: number; historyLimit?: number; degradedThreshold?: number; unhealthyThreshold?: number };
+  };
+  swarm?: {
+    topology?: string;
+    maxAgents?: number;
+    autoScale?: { enabled?: boolean; minAgents?: number; maxAgents?: number; scaleUpThreshold?: number; scaleDownThreshold?: number };
+    coordination?: { consensusRequired?: boolean; timeoutMs?: number; retryPolicy?: { maxRetries?: number; backoffMs?: number } };
+    communication?: { protocol?: string; batchSize?: number; flushIntervalMs?: number };
+  };
+  memory?: {
+    type?: string;
+    path?: string;
+    maxSize?: number;
+    agentdb?: { dimensions?: number; indexType?: string; efConstruction?: number; m?: number; quantization?: string };
+  };
+  mcp?: {
+    name?: string;
+    version?: string;
+    transport?: { type?: string; host?: string; port?: number };
+    capabilities?: { tools?: boolean; resources?: boolean; prompts?: boolean; logging?: boolean };
+  };
+}
 
 /**
  * Convert SystemConfig to MonobrainConfig (CLI-specific format)
@@ -46,7 +72,7 @@ export function systemConfigToMonobrainConfig(systemConfig: SystemConfig): Monob
       serverHost: systemConfig.mcp?.transport?.host || 'localhost',
       serverPort: systemConfig.mcp?.transport?.port ?? 3000,
       autoStart: false, // Not in SystemConfig
-      transportType: systemConfig.mcp?.transport?.type || 'stdio',
+      transportType: (systemConfig.mcp?.transport?.type || 'stdio') as 'stdio' | 'http' | 'websocket',
       tools: [], // Not in SystemConfig
     },
 
