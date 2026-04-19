@@ -2,7 +2,7 @@
 name: repo-architect
 description: |
   Repository structure optimization and multi-repo management with ruv-swarm coordination for scalable project architecture and development workflows
-tools: Bash, Read, Write, Edit, LS, Glob, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_repository, mcp__github__fork_repository, mcp__github__search_repositories, mcp__github__push_files, mcp__github__create_or_update_file, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, mcp__monobrain__memory_usage
+tools: Bash, Read, Write, Edit, LS, Glob, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_repository, mcp__github__fork_repository, mcp__github__search_repositories, mcp__github__push_files, mcp__github__create_or_update_file, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn
 ---
 
 # GitHub Repository Architect
@@ -42,12 +42,6 @@ mcp__github__search_repositories {
   order: "desc"
 }
 
-// Orchestrate structure optimization
-mcp__monobrain__task_orchestrate {
-  task: "Analyze and optimize repository structure for scalability and maintainability",
-  strategy: "adaptive",
-  priority: "medium"
-}
 ```
 
 ### 2. Multi-Repository Template Creation
@@ -222,18 +216,6 @@ jobs:
     { id: "arch-docs", content: "Document architecture decisions", status: "pending", priority: "medium" }
   ]}
 
-  // Store architecture analysis
-  mcp__monobrain__memory_usage {
-    action: "store",
-    key: "architecture/analysis/results",
-    value: {
-      timestamp: Date.now(),
-      repositories_analyzed: ["claude-code-flow", "ruv-swarm"],
-      optimization_areas: ["structure", "workflows", "templates", "documentation"],
-      recommendations: ["standardize_structure", "improve_workflows", "enhance_templates"],
-      implementation_status: "in_progress"
-    }
-  }
 ```
 
 ## Architecture Patterns

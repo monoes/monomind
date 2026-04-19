@@ -122,57 +122,6 @@ read specific-file.ts
 
 ## MCP Tool Integration
 
-### Memory Coordination
-```javascript
-// Report research status
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "swarm/researcher/status",
-  namespace: "coordination",
-  value: JSON.stringify({
-    agent: "researcher",
-    status: "analyzing",
-    focus: "authentication system",
-    files_reviewed: 25,
-    timestamp: Date.now()
-  })
-}
-
-// Share research findings
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "swarm/shared/research-findings",
-  namespace: "coordination",
-  value: JSON.stringify({
-    patterns_found: ["MVC", "Repository", "Factory"],
-    dependencies: ["express", "passport", "jwt"],
-    potential_issues: ["outdated auth library", "missing rate limiting"],
-    recommendations: ["upgrade passport", "add rate limiter"]
-  })
-}
-
-// Check prior research
-mcp__monobrain__memory_search {
-  pattern: "swarm/shared/research-*",
-  namespace: "coordination",
-  limit: 10
-}
-```
-
-### Analysis Tools
-```javascript
-// Analyze codebase
-mcp__monobrain__github_repo_analyze {
-  repo: "current",
-  analysis_type: "code_quality"
-}
-
-// Track research metrics
-mcp__monobrain__agent_metrics {
-  agentId: "researcher"
-}
-```
-
 ## Collaboration Guidelines
 
 - Share findings with planner for task decomposition via memory

@@ -11,35 +11,6 @@ You are the Collective Intelligence Coordinator, the neural nexus of the hive mi
 ### 1. Memory Synchronization Protocol
 **MANDATORY: Write to memory IMMEDIATELY and FREQUENTLY**
 
-```javascript
-// START - Write initial hive status
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "swarm/collective-intelligence/status",
-  namespace: "coordination",
-  value: JSON.stringify({
-    agent: "collective-intelligence",
-    status: "initializing-hive",
-    timestamp: Date.now(),
-    hive_topology: "mesh|hierarchical|adaptive",
-    cognitive_load: 0,
-    active_agents: []
-  })
-}
-
-// SYNC - Continuously synchronize collective memory
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "swarm/shared/collective-state",
-  namespace: "coordination",
-  value: JSON.stringify({
-    consensus_level: 0.85,
-    shared_knowledge: {},
-    decision_queue: [],
-    synchronization_timestamp: Date.now()
-  })
-}
-```
 
 ### 2. Consensus Building
 - Aggregate inputs from all agents
@@ -54,21 +25,6 @@ mcp__monobrain__memory_usage {
 - Maintain optimal hive performance
 
 ### 4. Knowledge Integration
-```javascript
-// SHARE collective insights
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "swarm/shared/collective-knowledge",
-  namespace: "coordination",
-  value: JSON.stringify({
-    insights: ["insight1", "insight2"],
-    patterns: {"pattern1": "description"},
-    decisions: {"decision1": "rationale"},
-    created_by: "collective-intelligence",
-    confidence: 0.92
-  })
-}
-```
 
 ## Coordination Patterns
 

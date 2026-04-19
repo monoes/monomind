@@ -1,7 +1,7 @@
 ---
 name: multi-repo-swarm
 description: Cross-repository swarm orchestration for organization-wide automation and intelligent collaboration
-tools: Bash, Read, Write, Edit, Glob, Grep, LS, TodoWrite, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, mcp__monobrain__swarm_status, mcp__monobrain__memory_usage, mcp__monobrain__github_repo_analyze, mcp__monobrain__github_pr_manage, mcp__monobrain__github_sync_coord, mcp__monobrain__github_metrics
+tools: Bash, Read, Write, Edit, Glob, Grep, LS, TodoWrite, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__swarm_status, mcp__monobrain__github_repo_analyze, mcp__monobrain__github_pr_manage, mcp__monobrain__github_sync_coord, mcp__monobrain__github_metrics
 ---
 
 # Multi-Repo Swarm - Cross-Repository Swarm Orchestration

@@ -299,7 +299,7 @@ Bash("npx monobrain@latest hooks worker dispatch --trigger optimize")
 - **HNSW**: Enabled
 - **Neural**: Enabled
 
-## 🚀 CLI Commands (41 Commands)
+## 🚀 CLI Commands (38 Commands)
 
 ### Core Commands
 
@@ -315,7 +315,7 @@ Bash("npx monobrain@latest hooks worker dispatch --trigger optimize")
 | `config`    | 7           | Configuration management and provider setup                              |
 | `status`    | 3           | System status monitoring with watch mode                                 |
 | `workflow`  | 6           | Workflow execution and template management                               |
-| `hooks`     | 17          | Self-learning hooks + 12 background workers                              |
+| `hooks`     | 29          | Self-learning hooks + 12 background workers                              |
 | `hive-mind` | 6           | Queen-led Byzantine fault-tolerant consensus                             |
 
 ### Advanced Commands
@@ -373,14 +373,6 @@ npx monobrain@latest performance benchmark --suite all
 
 `security-architect`, `security-auditor`, `memory-specialist`, `performance-engineer`
 
-### 🔐 @monobrain/security
-
-CVE remediation, input validation, path security:
-
-- `InputValidator` - Zod validation
-- `PathValidator` - Traversal prevention
-- `SafeExecutor` - Injection protection
-
 ### Swarm Coordination
 
 `hierarchical-coordinator`, `mesh-coordinator`, `adaptive-coordinator`, `collective-intelligence-coordinator`, `swarm-memory-manager`
@@ -409,7 +401,7 @@ CVE remediation, input validation, path security:
 
 `tdd-london-swarm`, `production-validator`
 
-## 🪝 Hooks System (27 Hooks + 12 Workers)
+## 🪝 Hooks System (29 Hooks + 12 Workers)
 
 ### All Available Hooks
 

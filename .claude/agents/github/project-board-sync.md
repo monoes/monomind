@@ -2,7 +2,7 @@
 name: project-board-sync
 description: |
   Synchronize AI swarms with GitHub Projects for visual task management, progress tracking, and team coordination
-tools: Bash, Read, Write, Edit, Glob, Grep, LS, TodoWrite, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, mcp__monobrain__swarm_status, mcp__monobrain__memory_usage, mcp__monobrain__github_repo_analyze, mcp__monobrain__github_pr_manage, mcp__monobrain__github_issue_track, mcp__monobrain__github_metrics, mcp__monobrain__workflow_create, mcp__monobrain__workflow_execute
+tools: Bash, Read, Write, Edit, Glob, Grep, LS, TodoWrite, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__swarm_status, mcp__monobrain__github_repo_analyze, mcp__monobrain__github_pr_manage, mcp__monobrain__github_issue_track, mcp__monobrain__github_metrics, mcp__monobrain__workflow_create, mcp__monobrain__workflow_execute
 ---
 
 # Project Board Sync - GitHub Projects Integration
