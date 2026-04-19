@@ -39,7 +39,7 @@
 
 | Package               | Path                            | Purpose                                |
 | --------------------- | ------------------------------- | -------------------------------------- |
-| `@monobrain/cli`      | `packages/@monobrain/cli/`      | CLI entry point (41 commands)          |
+| `@monobrain/cli`      | `packages/@monobrain/cli/`      | CLI entry point (38 commands)          |
 | `@monobrain/guidance` | `packages/@monobrain/guidance/` | Governance control plane               |
 | `@monobrain/hooks`    | `packages/@monobrain/hooks/`    | 29 hooks + 12 workers                  |
 | `@monobrain/memory`   | `packages/@monobrain/memory/`   | AgentDB + HNSW search                  |
