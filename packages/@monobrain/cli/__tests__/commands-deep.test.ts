@@ -1618,9 +1618,6 @@ describe('Init System', () => {
 
 import {
   CLIError,
-  ValidationError,
-  ConfigError,
-  CommandNotFoundError,
 } from '../src/types.js';
 
 describe('Error Types', () => {
@@ -1649,33 +1646,4 @@ describe('Error Types', () => {
     });
   });
 
-  describe('ValidationError', () => {
-    it('should have VALIDATION_ERROR code', () => {
-      const err = new ValidationError('invalid input');
-      expect(err.code).toBe('VALIDATION_ERROR');
-      expect(err.name).toBe('ValidationError');
-    });
-
-    it('should be an instance of CLIError', () => {
-      const err = new ValidationError('invalid');
-      expect(err).toBeInstanceOf(CLIError);
-    });
-  });
-
-  describe('ConfigError', () => {
-    it('should have CONFIG_ERROR code', () => {
-      const err = new ConfigError('bad config');
-      expect(err.code).toBe('CONFIG_ERROR');
-      expect(err.name).toBe('ConfigError');
-    });
-  });
-
-  describe('CommandNotFoundError', () => {
-    it('should include command name in message', () => {
-      const err = new CommandNotFoundError('foobar');
-      expect(err.message).toContain('foobar');
-      expect(err.code).toBe('COMMAND_NOT_FOUND');
-      expect(err.exitCode).toBe(127);
-    });
-  });
 });

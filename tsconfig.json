@@ -21,7 +21,7 @@
     "noFallthroughCasesInSwitch": true,
     "noImplicitAny": false,
     "paths": {
-      "@v1/*": ["./packages/*"]
+      "@monobrain/*": ["./packages/*"]
     },
     "baseUrl": "."
   },
