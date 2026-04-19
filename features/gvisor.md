@@ -1,5 +1,7 @@
 # gVisor (google/gvisor)
 
+> **Note:** References to `@monobrain/security` in this document are historical. That package was removed in the 2026-04-19 cleanup. Security features are now in `@monobrain/aidefence`.
+
 **Source:** https://gvisor.dev | https://dl.acm.org/doi/10.1145/3317550.3321422  
 **Category:** Container Security / OS Sandboxing  
 **Role in Monobrain:** Reducing Docker syscall surface for agent sandboxing

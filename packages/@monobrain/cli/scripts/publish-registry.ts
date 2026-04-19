@@ -193,7 +193,6 @@ async function generateRegistry(): Promise<PluginRegistry> {
     '@monobrain/plugin-agentic-qe',
     '@monobrain/plugin-prime-radiant',
     '@monobrain/plugin-gastown-bridge',
-    '@monobrain/security',
     '@monobrain/embeddings',
     '@monobrain/teammate-plugin',
   ];

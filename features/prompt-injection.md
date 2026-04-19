@@ -1,5 +1,7 @@
 # Indirect Prompt Injection (arXiv:2302.12173 + 2310.12815)
 
+> **Note:** References to `@monobrain/security` in this document are historical. That package was removed in the 2026-04-19 cleanup. Security features are now in `@monobrain/aidefence`.
+
 **Source:** https://arxiv.org/abs/2302.12173 | https://arxiv.org/abs/2310.12815  
 **Category:** AI Security Research  
 **Role in Monobrain:** External content validation, aidefence semantic scanning, injection pattern detection

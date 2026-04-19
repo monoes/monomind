@@ -91,19 +91,10 @@ async function getEWCConsolidator() {
   return ewcConsolidator;
 }
 
-// MoE Router - lazy loaded
+// MoE Router — stub (ruvector/moe-router.ts not yet implemented)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let moeRouter: any = null;
-async function getMoERouter() {
-  if (!moeRouter) {
-    try {
-      const { getMoERouter: getMoE } = await import('../ruvector/moe-router.js' as string);
-      moeRouter = await getMoE();
-    } catch {
-      moeRouter = null;
-    }
-  }
-  return moeRouter;
+async function getMoERouter(): Promise<any> {
+  return null;
 }
 
 // Semantic Router - lazy loaded
