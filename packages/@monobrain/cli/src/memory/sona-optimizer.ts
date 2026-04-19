@@ -9,8 +9,6 @@
  * - Extracts keywords from tasks for pattern matching
  * - Maintains learned routing patterns with confidence scoring
  * - Persists patterns to .swarm/sona-patterns.json
- * - Integrates with Q-learning router for combined routing
- *
  * @module v1/cli/memory/sona-optimizer
  */
 
@@ -67,10 +65,8 @@ export interface RoutingSuggestion {
   agent: string;
   /** Confidence in recommendation (0-1) */
   confidence: number;
-  /** Whether Q-learning was used */
-  usedQLearning: boolean;
   /** Source of recommendation */
-  source: 'sona-pattern' | 'q-learning' | 'keyword-match' | 'default';
+  source: 'sona-pattern' | 'keyword-match' | 'default';
   /** Alternative agents with scores */
   alternatives: Array<{ agent: string; score: number }>;
   /** Matched keywords */
@@ -91,8 +87,6 @@ export interface SONAStats {
   trajectoriesProcessed: number;
   /** Average confidence of patterns */
   avgConfidence: number;
-  /** Q-learning integration status */
-  qLearningEnabled: boolean;
   /** Time of last learning update */
   lastUpdate: number | null;
 }
@@ -198,7 +192,6 @@ const KEYWORD_CATEGORIES: Record<string, string[]> = {
  * SONA Optimizer for adaptive routing based on trajectory outcomes
  *
  * Learns from past task outcomes to improve future routing decisions.
- * Integrates with Q-learning router for hybrid routing strategy.
  */
 export class SONAOptimizer {
   private patterns: Map<string, LearnedPattern> = new Map();
@@ -207,8 +200,6 @@ export class SONAOptimizer {
   private failedRoutings = 0;
   private lastUpdate: number | null = null;
   private persistencePath: string;
-  private qLearningRouter: any = null;
-  private qLearningEnabled = false;
 
   constructor(options?: { persistencePath?: string }) {
     this.persistencePath = options?.persistencePath || DEFAULT_PERSISTENCE_PATH;
@@ -220,17 +211,6 @@ export class SONAOptimizer {
   async initialize(): Promise<{ success: boolean; patternsLoaded: number }> {
     // Load persisted patterns
     const loaded = this.loadFromDisk();
-
-    // Try to load Q-learning router lazily
-    try {
-      const { QLearningRouter } = await import('../ruvector/q-learning-router.js' as string);
-      this.qLearningRouter = new QLearningRouter();
-      await this.qLearningRouter.initialize();
-      this.qLearningEnabled = true;
-    } catch {
-      // Q-learning not available, continue without it
-      this.qLearningEnabled = false;
-    }
 
     return {
       success: true,
@@ -305,12 +285,6 @@ export class SONAOptimizer {
     // Prune old patterns if needed
     this.prunePatterns();
 
-    // Update Q-learning router if available
-    if (this.qLearningRouter) {
-      const reward = success ? 1.0 : -0.5;
-      this.qLearningRouter.update(task, agent, reward);
-    }
-
     // Persist to disk (debounced)
     this.saveToDisk();
 
@@ -334,29 +308,10 @@ export class SONAOptimizer {
       return {
         agent: sonaResult.agent,
         confidence: sonaResult.confidence,
-        usedQLearning: false,
         source: 'sona-pattern',
         alternatives: this.getAlternatives(keywords, sonaResult.agent),
         matchedKeywords: sonaResult.matchedKeywords,
       };
-    }
-
-    // Try Q-learning router if available
-    if (this.qLearningRouter && this.qLearningEnabled) {
-      try {
-        const decision = this.qLearningRouter.route(task, false);
-        if (decision.confidence >= 0.5) {
-          return {
-            agent: decision.route,
-            confidence: decision.confidence,
-            usedQLearning: true,
-            source: 'q-learning',
-            alternatives: decision.alternatives,
-          };
-        }
-      } catch {
-        // Q-learning failed, continue to fallback
-      }
     }
 
     // Fallback to keyword-based heuristic
@@ -365,7 +320,6 @@ export class SONAOptimizer {
       return {
         agent: keywordMatch.agent,
         confidence: keywordMatch.confidence,
-        usedQLearning: false,
         source: 'keyword-match',
         alternatives: this.getAlternatives(keywords, keywordMatch.agent),
         matchedKeywords: keywordMatch.matchedKeywords,
@@ -376,7 +330,6 @@ export class SONAOptimizer {
     return {
       agent: 'coder',
       confidence: 0.3,
-      usedQLearning: false,
       source: 'default',
       alternatives: [
         { agent: 'researcher', score: 0.2 },
@@ -400,7 +353,6 @@ export class SONAOptimizer {
       failedRoutings: this.failedRoutings,
       trajectoriesProcessed: this.trajectoriesProcessed,
       avgConfidence: this.patterns.size > 0 ? totalConfidence / this.patterns.size : 0,
-      qLearningEnabled: this.qLearningEnabled,
       lastUpdate: this.lastUpdate,
     };
   }
@@ -445,10 +397,6 @@ export class SONAOptimizer {
     this.successfulRoutings = 0;
     this.failedRoutings = 0;
     this.lastUpdate = null;
-
-    if (this.qLearningRouter) {
-      this.qLearningRouter.reset();
-    }
 
     this.saveToDisk();
   }

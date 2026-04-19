@@ -2,7 +2,7 @@
 name: swarm-pr
 description: |
   Pull request swarm management agent that coordinates multi-agent code review, validation, and integration workflows with automated PR lifecycle management
-tools: mcp__github__get_pull_request, mcp__github__create_pull_request, mcp__github__update_pull_request, mcp__github__list_pull_requests, mcp__github__create_pr_comment, mcp__github__get_pr_diff, mcp__github__merge_pull_request, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, mcp__monobrain__memory_usage, mcp__monobrain__coordination_sync, TodoWrite, TodoRead, Bash, Grep, Read, Write, Edit
+tools: mcp__github__get_pull_request, mcp__github__create_pull_request, mcp__github__update_pull_request, mcp__github__list_pull_requests, mcp__github__create_pr_comment, mcp__github__get_pr_diff, mcp__github__merge_pull_request, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, TodoWrite, TodoRead, Bash, Grep, Read, Write, Edit
 ---
 
 # Swarm PR - Managing Swarms through Pull Requests
@@ -327,25 +327,6 @@ mcp__monobrain__agent_spawn { type: "tester", name: "Test Engineer" }
 mcp__monobrain__agent_spawn { type: "analyst", name: "Impact Analyzer" }
 mcp__monobrain__agent_spawn { type: "optimizer", name: "Performance Optimizer" }
 
-# Store PR context for swarm coordination
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "pr/#{pr_number}/analysis",
-  value: {
-    diff: "pr_diff_content",
-    files_changed: ["file1.js", "file2.py"],
-    complexity_score: 8.5,
-    risk_assessment: "medium"
-  }
-}
-
-# Orchestrate comprehensive PR workflow
-mcp__monobrain__task_orchestrate {
-  task: "Execute multi-agent PR review and validation workflow",
-  strategy: "parallel",
-  priority: "high",
-  dependencies: ["diff_analysis", "test_validation", "security_review"]
-}
 ```
 
 ### Swarm-Coordinated PR Lifecycle
@@ -360,20 +341,6 @@ const prPreHook = async (prData) => {
   // Initialize swarm with PR-specific configuration
   await mcp__monobrain__swarm_init({ topology, maxAgents: 8 });
 
-  // Store comprehensive PR context
-  await mcp__monobrain__memory_usage({
-    action: "store",
-    key: `pr/${prData.number}/context`,
-    value: {
-      pr: prData,
-      complexity,
-      agents_assigned: await getOptimalAgents(prData),
-      timeline: generateTimeline(prData),
-    },
-  });
-
-  // Coordinate initial agent synchronization
-  await mcp__monobrain__coordination_sync({ swarmId: "current" });
 };
 
 // Post-hook: PR Completion and Metrics
@@ -384,44 +351,12 @@ const prPostHook = async (results) => {
   // Update PR with final swarm analysis
   await updatePRWithResults(report);
 
-  // Store completion metrics for future optimization
-  await mcp__monobrain__memory_usage({
-    action: "store",
-    key: `pr/${results.number}/completion`,
-    value: {
-      completion_time: results.duration,
-      agent_efficiency: results.agentMetrics,
-      quality_score: results.qualityAssessment,
-      lessons_learned: results.insights,
-    },
-  });
 };
 ```
 
 ### Intelligent PR Merge Coordination
-
-```bash
-# Coordinate merge decision with swarm consensus
-mcp__monobrain__coordination_sync { swarmId: "pr-review-swarm" }
-
-# Analyze merge readiness with multiple agents
-mcp__monobrain__task_orchestrate {
-  task: "Evaluate PR merge readiness with comprehensive validation",
-  strategy: "sequential",
-  priority: "critical"
-}
-
-# Store merge decision context
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "pr/merge_decisions/#{pr_number}",
-  value: {
-    ready_to_merge: true,
-    validation_passed: true,
-    agent_consensus: "approved",
-    final_review_score: 9.2
-  }
-}
-```
+- Coordinate merge decision with swarm consensus
+- Analyze merge readiness with multiple agents
+- Store merge decision context
 
 See also: [swarm-issue.md](./swarm-issue.md), [sync-coordinator.md](./sync-coordinator.md), [workflow-automation.md](./workflow-automation.md)

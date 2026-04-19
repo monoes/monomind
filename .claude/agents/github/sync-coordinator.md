@@ -2,7 +2,7 @@
 name: sync-coordinator
 description: |
   Multi-repository synchronization coordinator that manages version alignment, dependency synchronization, and cross-package integration with intelligent swarm orchestration
-tools: mcp__github__push_files, mcp__github__create_or_update_file, mcp__github__get_file_contents, mcp__github__create_pull_request, mcp__github__search_repositories, mcp__github__list_repositories, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, mcp__monobrain__memory_usage, mcp__monobrain__coordination_sync, mcp__monobrain__load_balance, TodoWrite, TodoRead, Bash, Read, Write, Edit, MultiEdit
+tools: mcp__github__push_files, mcp__github__create_or_update_file, mcp__github__get_file_contents, mcp__github__create_pull_request, mcp__github__search_repositories, mcp__github__list_repositories, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, TodoWrite, TodoRead, Bash, Read, Write, Edit, MultiEdit
 ---
 
 # GitHub Sync Coordinator
@@ -53,12 +53,6 @@ Bash(`gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/packa
   -f content="$(echo '{ updated package.json with aligned versions }' | base64)" \
   -f sha="$(gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/package.json?ref=sync/package-alignment --jq '.sha')")`)
 
-// Orchestrate validation
-mcp__monobrain__task_orchestrate {
-  task: "Validate package synchronization and run integration tests",
-  strategy: "parallel",
-  priority: "high"
-}
 ```
 
 ### 2. Documentation Synchronization
@@ -79,12 +73,6 @@ Bash(`gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/CLAUD
   -f content="$(echo '# Claude Code Configuration for ruv-swarm\n\n[synchronized content]' | base64)" \
   -f sha="$(gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/CLAUDE.md?ref=sync/documentation --jq '.sha' 2>/dev/null || echo '')")`)
 
-// Store sync state in memory
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "sync/documentation/status",
-  value: { timestamp: Date.now(), status: "synchronized", files: ["CLAUDE.md"] }
-}
 ```
 
 ### 3. Cross-Package Feature Integration
@@ -192,19 +180,6 @@ This integration uses ruv-swarm agents for:
     { id: "sync-pr", content: "Create integration PR", status: "pending", priority: "high" }
   ]}
   
-  // Store comprehensive sync state
-  mcp__monobrain__memory_usage {
-    action: "store",
-    key: "sync/complete/status",
-    value: {
-      timestamp: Date.now(),
-      packages_synced: ["claude-code-flow", "ruv-swarm"],
-      version_alignment: "completed",
-      documentation_sync: "completed",
-      github_integration: "completed",
-      validation_status: "passed"
-    }
-  }
 ```
 
 ## Synchronization Strategies
@@ -306,24 +281,6 @@ mcp__monobrain__agent_spawn { type: "tester", name: "Validation Engineer" }
 mcp__monobrain__agent_spawn { type: "reviewer", name: "Quality Assurance" }
 mcp__monobrain__agent_spawn { type: "monitor", name: "Sync Monitor" }
 
-# Orchestrate complex synchronization workflow
-mcp__monobrain__task_orchestrate {
-  task: "Execute comprehensive multi-repository synchronization with validation",
-  strategy: "adaptive",
-  priority: "critical",
-  dependencies: ["version_analysis", "dependency_resolution", "integration_testing"]
-}
-
-# Load balance synchronization tasks across agents
-mcp__monobrain__load_balance {
-  swarmId: "sync-coordination-swarm",
-  tasks: [
-    "package_json_sync",
-    "documentation_alignment", 
-    "version_compatibility_check",
-    "integration_test_execution"
-  ]
-}
 ```
 
 ### Intelligent Conflict Resolution
@@ -338,48 +295,13 @@ const syncConflictResolver = async (conflicts) => {
   await mcp__monobrain__agent_spawn({ type: "coder", name: "Resolution Developer" });
   await mcp__monobrain__agent_spawn({ type: "reviewer", name: "Solution Validator" });
   
-  // Store conflict context in swarm memory
-  await mcp__monobrain__memory_usage({
-    action: "store",
-    key: "sync/conflicts/current",
-    value: {
-      conflicts,
-      resolution_strategy: "automated_with_validation",
-      priority_order: conflicts.sort((a, b) => b.impact - a.impact)
-    }
-  });
-  
   // Coordinate conflict resolution workflow
-  return await mcp__monobrain__task_orchestrate({
-    task: "Resolve synchronization conflicts with multi-agent validation",
-    strategy: "sequential",
-    priority: "high"
-  });
 };
 ```
 
 ### Comprehensive Synchronization Metrics
-```bash
-# Store detailed synchronization metrics
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "sync/metrics/session",
-  value: {
-    packages_synchronized: ["claude-code-flow", "ruv-swarm"],
-    version_alignment_score: 98.5,
-    dependency_conflicts_resolved: 12,
-    documentation_sync_percentage: 100,
-    integration_test_success_rate: 96.8,
-    total_sync_time: "23.4 minutes",
-    agent_efficiency_scores: {
-      "Master Sync Coordinator": 9.2,
-      "Dependency Analyzer": 8.7,
-      "Integration Developer": 9.0,
-      "Validation Engineer": 8.9
-    }
-  }
-}
-```
+- Track version alignment score, dependency conflicts resolved, documentation sync percentage
+- Monitor integration test success rate, total sync time, and agent efficiency scores
 
 ## Error Handling and Recovery
 
@@ -391,23 +313,6 @@ mcp__monobrain__agent_spawn { type: "monitor", name: "Error Monitor" }
 mcp__monobrain__agent_spawn { type: "analyst", name: "Failure Analyzer" }
 mcp__monobrain__agent_spawn { type: "coder", name: "Recovery Developer" }
 
-# Coordinate recovery procedures
-mcp__monobrain__coordination_sync { swarmId: "error-recovery-swarm" }
-
-# Store recovery state
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "sync/recovery/state",
-  value: {
-    error_type: "version_conflict",
-    recovery_strategy: "incremental_rollback",
-    agent_assignments: {
-      "conflict_resolution": "Recovery Developer",
-      "validation": "Failure Analyzer",
-      "monitoring": "Error Monitor"
-    }
-  }
-}
 ```
 
 ### Automatic handling of:

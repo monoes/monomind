@@ -270,14 +270,7 @@ async function coordinateWithSwarm(complexGoal) {
     capabilities: ["path_optimization", "resource_allocation"]
   });
 
-  // Orchestrate distributed planning
-  const planningTask = await mcp__monobrain__task_orchestrate({
-    task: `Plan execution for: ${complexGoal}`,
-    strategy: "parallel",
-    priority: "high"
-  });
-
-  return { swarm, planningTask };
+  return { swarm };
 }
 ```
 
@@ -402,17 +395,7 @@ class DynamicPlanner {
     if (newPlan && newPlan.confidence > 0.8) {
       this.currentPlan = newPlan;
 
-      // Store successful pattern
-      await mcp__monobrain__memory_usage({
-        action: "store",
-        namespace: "goap-patterns",
-        key: `replan_${Date.now()}`,
-        value: JSON.stringify({
-          trigger: this.lastDeviation,
-          solution: newPlan,
-          worldState: Array.from(this.worldState.entries())
-        })
-      });
+      // Store successful pattern in memory
     }
   }
 }

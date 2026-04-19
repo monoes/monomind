@@ -162,36 +162,6 @@ class TaskAuction:
 ```bash
 # Initialize mesh network
 mcp__monobrain__swarm_init mesh --maxAgents=12 --strategy=distributed
-
-# Establish peer connections
-mcp__monobrain__daa_communication --from="node-1" --to="node-2" --message="{\"type\":\"peer_connect\"}"
-
-# Monitor network health
-mcp__monobrain__swarm_monitor --interval=3000 --metrics="connectivity,latency,throughput"
-```
-
-### Consensus Operations
-```bash
-# Propose network-wide decision
-mcp__monobrain__daa_consensus --agents="all" --proposal="{\"task_assignment\":\"auth-service\",\"assigned_to\":\"node-3\"}"
-
-# Participate in voting
-mcp__monobrain__daa_consensus --agents="current" --vote="approve" --proposal_id="prop-123"
-
-# Monitor consensus status
-mcp__monobrain__neural_patterns analyze --operation="consensus_tracking" --outcome="decision_approved"
-```
-
-### Fault Tolerance
-```bash
-# Detect failed nodes
-mcp__monobrain__daa_fault_tolerance --agentId="node-4" --strategy="heartbeat_monitor"
-
-# Trigger recovery procedures  
-mcp__monobrain__daa_fault_tolerance --agentId="failed-node" --strategy="failover_recovery"
-
-# Update network topology
-mcp__monobrain__topology_optimize --swarmId="${SWARM_ID}"
 ```
 
 ## Consensus Algorithms

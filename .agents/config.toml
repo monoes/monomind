@@ -14,7 +14,7 @@
 
 # Model selection - the AI model to use for code generation
 # Options: gpt-5.3-codex, gpt-4o, claude-sonnet, claude-opus
-model = "gpt-5.3-codex"
+model = "claude-sonnet-4-6"
 
 # Approval policy determines when human approval is required
 # - untrusted: Always require approval
@@ -80,21 +80,8 @@ tool_timeout_sec = 120
 # Skills Configuration
 # =============================================================================
 
-[[skills.config]]
-path = ".agents/skills/swarm-orchestration"
-enabled = true
-
-[[skills.config]]
-path = ".agents/skills/memory-management"
-enabled = true
-
-[[skills.config]]
-path = ".agents/skills/sparc-methodology"
-enabled = true
-
-[[skills.config]]
-path = ".agents/skills/security-audit"
-enabled = true
+# Stale skill references removed (swarm-orchestration, memory-management,
+# sparc-methodology, security-audit) — these paths no longer exist.
 
 # =============================================================================
 # Profiles

@@ -254,56 +254,6 @@ describe('Security', () => {
 
 ## MCP Tool Integration
 
-### Memory Coordination
-```javascript
-// Report test status
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "swarm/tester/status",
-  namespace: "coordination",
-  value: JSON.stringify({
-    agent: "tester",
-    status: "running tests",
-    test_suites: ["unit", "integration", "e2e"],
-    timestamp: Date.now()
-  })
-}
-
-// Share test results
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "swarm/shared/test-results",
-  namespace: "coordination",
-  value: JSON.stringify({
-    passed: 145,
-    failed: 2,
-    coverage: "87%",
-    failures: ["auth.test.ts:45", "api.test.ts:123"]
-  })
-}
-
-// Check implementation status
-mcp__monobrain__memory_usage {
-  action: "retrieve",
-  key: "swarm/coder/status",
-  namespace: "coordination"
-}
-```
-
-### Performance Testing
-```javascript
-// Run performance benchmarks
-mcp__monobrain__benchmark_run {
-  type: "test",
-  iterations: 100
-}
-
-// Monitor test execution
-mcp__monobrain__performance_report {
-  format: "detailed"
-}
-```
-
 ## Best Practices
 
 1. **Test First**: Write tests before implementation (TDD)

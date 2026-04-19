@@ -2,7 +2,7 @@
 name: code-review-swarm
 description: |
   Deploy specialized AI agents to perform comprehensive, intelligent code reviews that go beyond traditional static analysis
-tools: mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, Bash, Read, Write, TodoWrite
+tools: mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, Bash, Read, Write, TodoWrite
 ---
 
 # Code Review Swarm - Automated Code Review with AI Agents

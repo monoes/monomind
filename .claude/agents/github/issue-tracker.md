@@ -2,7 +2,7 @@
 name: issue-tracker
 description: |
   Intelligent issue management and project coordination with automated tracking, progress monitoring, and team coordination
-tools: mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, mcp__monobrain__memory_usage, Bash, TodoWrite, Read, Write
+tools: mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, Bash, TodoWrite, Read, Write
 ---
 
 # GitHub Issue Tracker
@@ -59,22 +59,10 @@ mcp__github__create_issue {
   assignees: ["nokhodian"]
 }
 
-// Set up automated tracking
-mcp__monobrain__task_orchestrate {
-  task: "Monitor and coordinate issue progress with automated updates",
-  strategy: "adaptive",
-  priority: "medium"
-}
 ```
 
 ### 2. Automated Progress Updates
 ```javascript
-// Update issue with progress from swarm memory
-mcp__monobrain__memory_usage {
-  action: "retrieve",
-  key: "issue/54/progress"
-}
-
 // Add coordinated progress comment
 mcp__github__add_issue_comment {
   owner: "nokhodian",
@@ -98,12 +86,6 @@ mcp__github__add_issue_comment {
   🤖 Generated with Claude Code using ruv-swarm coordination`
 }
 
-// Store progress in swarm memory
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "issue/54/latest_update",
-  value: { timestamp: Date.now(), progress: "89%", status: "near_completion" }
-}
 ```
 
 ### 3. Multi-Issue Project Coordination
@@ -164,12 +146,6 @@ mcp__github__update_issue {
     { id: "docs-update", content: "Update documentation", status: "pending", priority: "medium" }
   ]}
   
-  // Store initial coordination state
-  mcp__monobrain__memory_usage {
-    action: "store",
-    key: "project/github_integration/issues",
-    value: { created: Date.now(), total_issues: 3, status: "initialized" }
-  }
 ```
 
 ## Smart Issue Templates

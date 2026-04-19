@@ -2,7 +2,7 @@
 name: workflow-automation
 description: |
   GitHub Actions workflow automation agent that creates intelligent, self-organizing CI/CD pipelines with adaptive multi-agent coordination and automated optimization
-tools: mcp__github__create_workflow, mcp__github__update_workflow, mcp__github__list_workflows, mcp__github__get_workflow_runs, mcp__github__create_workflow_dispatch, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, mcp__monobrain__memory_usage, mcp__monobrain__performance_report, mcp__monobrain__bottleneck_analyze, mcp__monobrain__workflow_create, mcp__monobrain__automation_setup, TodoWrite, TodoRead, Bash, Read, Write, Edit, Grep
+tools: mcp__github__create_workflow, mcp__github__update_workflow, mcp__github__list_workflows, mcp__github__get_workflow_runs, mcp__github__create_workflow_dispatch, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__performance_report, mcp__monobrain__workflow_create, TodoWrite, TodoRead, Bash, Read, Write, Edit, Grep
 ---
 
 # Workflow Automation - GitHub Actions Integration
@@ -487,29 +487,6 @@ mcp__monobrain__agent_spawn { type: "optimizer", name: "Performance Optimizer" }
 mcp__monobrain__agent_spawn { type: "monitor", name: "Automation Monitor" }
 mcp__monobrain__agent_spawn { type: "analyst", name: "Workflow Analyzer" }
 
-# Create intelligent workflow automation rules
-mcp__monobrain__automation_setup {
-  rules: [
-    {
-      trigger: "pull_request",
-      conditions: ["files_changed > 10", "complexity_high"],
-      actions: ["spawn_review_swarm", "parallel_testing", "security_scan"]
-    },
-    {
-      trigger: "push_to_main",
-      conditions: ["all_tests_pass", "security_cleared"],
-      actions: ["deploy_staging", "performance_test", "notify_stakeholders"]
-    }
-  ]
-}
-
-# Orchestrate adaptive workflow management
-mcp__monobrain__task_orchestrate {
-  task: "Manage intelligent CI/CD pipeline with continuous optimization",
-  strategy: "adaptive",
-  priority: "high",
-  dependencies: ["code_analysis", "test_optimization", "deployment_strategy"]
-}
 ```
 
 ### Intelligent Performance Monitoring
@@ -521,23 +498,6 @@ mcp__monobrain__performance_report {
   timeframe: "30d"
 }
 
-# Analyze workflow bottlenecks with swarm intelligence
-mcp__monobrain__bottleneck_analyze {
-  component: "github_actions_workflow",
-  metrics: ["build_time", "test_duration", "deployment_latency", "resource_utilization"]
-}
-
-# Store performance insights in swarm memory
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "workflow/performance/analysis",
-  value: {
-    bottlenecks_identified: ["slow_test_suite", "inefficient_caching"],
-    optimization_opportunities: ["parallel_matrix", "smart_caching"],
-    performance_trends: "improving",
-    cost_optimization_potential: "23%"
-  }
-}
 ```
 
 ### Dynamic Workflow Generation
@@ -586,19 +546,6 @@ const createIntelligentWorkflow = async (repoContext) => {
     triggers: ["pull_request", "push_to_main", "scheduled_optimization"],
   });
 
-  // Store workflow configuration in memory
-  await mcp__monobrain__memory_usage({
-    action: "store",
-    key: `workflow/${repoContext.name}/config`,
-    value: {
-      workflow,
-      generated_at: Date.now(),
-      optimization_level: "high",
-      estimated_performance_gain: "40%",
-      cost_reduction: "25%",
-    },
-  });
-
   return workflow;
 };
 ```
@@ -606,35 +553,6 @@ const createIntelligentWorkflow = async (repoContext) => {
 ### Continuous Learning and Optimization
 
 ```bash
-# Implement continuous workflow learning
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "workflow/learning/patterns",
-  value: {
-    successful_patterns: [
-      "parallel_test_execution",
-      "smart_dependency_caching",
-      "conditional_deployment_stages"
-    ],
-    failure_patterns: [
-      "sequential_heavy_operations",
-      "inefficient_docker_builds",
-      "missing_error_recovery"
-    ],
-    optimization_history: {
-      "build_time_reduction": "45%",
-      "resource_efficiency": "60%",
-      "failure_rate_improvement": "78%"
-    }
-  }
-}
-
-# Generate workflow optimization recommendations
-mcp__monobrain__task_orchestrate {
-  task: "Analyze workflow performance and generate optimization recommendations",
-  strategy: "parallel",
-  priority: "medium"
-}
 ```
 
 See also: [swarm-pr.md](./swarm-pr.md), [swarm-issue.md](./swarm-issue.md), [sync-coordinator.md](./sync-coordinator.md)

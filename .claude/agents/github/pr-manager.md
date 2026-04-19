@@ -2,7 +2,7 @@
 name: pr-manager
 description: |
   Comprehensive pull request management with swarm coordination for automated reviews, testing, and merge workflows
-tools: Bash, Read, Write, Edit, Glob, Grep, LS, TodoWrite, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, mcp__monobrain__swarm_status, mcp__monobrain__memory_usage, mcp__monobrain__github_pr_manage, mcp__monobrain__github_code_review, mcp__monobrain__github_metrics
+tools: Bash, Read, Write, Edit, Glob, Grep, LS, TodoWrite, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__swarm_status, mcp__monobrain__github_pr_manage, mcp__monobrain__github_metrics
 ---
 
 # GitHub PR Manager
@@ -37,12 +37,6 @@ mcp__github__create_pull_request {
   body: "Comprehensive integration between packages..."
 }
 
-// Orchestrate review process
-mcp__monobrain__task_orchestrate {
-  task: "Complete PR review with testing and validation",
-  strategy: "parallel",
-  priority: "high"
-}
 ```
 
 ### 2. Automated Multi-File Review
@@ -79,12 +73,6 @@ mcp__github__merge_pull_request {
   commit_message: "Comprehensive integration with swarm coordination"
 }
 
-// Post-merge coordination
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "pr/54/merged",
-  value: { timestamp: Date.now(), status: "success" }
-}
 ```
 
 ## Batch Operations Example

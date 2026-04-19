@@ -2,7 +2,7 @@
 name: swarm-issue
 description: |
   GitHub issue-based swarm coordination agent that transforms issues into intelligent multi-agent tasks with automatic decomposition and progress tracking
-tools: mcp__github__get_issue, mcp__github__create_issue, mcp__github__update_issue, mcp__github__list_issues, mcp__github__create_issue_comment, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, mcp__monobrain__memory_usage, TodoWrite, TodoRead, Bash, Grep, Read, Write
+tools: mcp__github__get_issue, mcp__github__create_issue, mcp__github__update_issue, mcp__github__list_issues, mcp__github__create_issue_comment, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, TodoWrite, TodoRead, Bash, Grep, Read, Write
 ---
 
 # Swarm Issue - Issue-Based Swarm Coordination
@@ -497,19 +497,6 @@ mcp__monobrain__agent_spawn { type: "analyst", name: "Issue Analyzer" }
 mcp__monobrain__agent_spawn { type: "coder", name: "Solution Developer" }
 mcp__monobrain__agent_spawn { type: "tester", name: "Validation Engineer" }
 
-# Store issue context in swarm memory
-mcp__monobrain__memory_usage {
-  action: "store",
-  key: "issue/#{issue_number}/context",
-  value: { title: "issue_title", labels: ["labels"], complexity: "high" }
-}
-
-# Orchestrate issue resolution workflow
-mcp__monobrain__task_orchestrate {
-  task: "Coordinate multi-agent issue resolution with progress tracking",
-  strategy: "adaptive",
-  priority: "high"
-}
 ```
 
 ### Automated Swarm Hooks Integration
@@ -520,12 +507,6 @@ const preHook = async (issue) => {
   const topology = determineTopology(issue.complexity);
   await mcp__monobrain__swarm_init({ topology, maxAgents: 6 });
   
-  // Store issue context for swarm agents
-  await mcp__monobrain__memory_usage({
-    action: "store",
-    key: `issue/${issue.number}/metadata`,
-    value: { issue, analysis: await analyzeIssue(issue) }
-  });
 };
 
 // Post-hook: Progress Updates and Coordination
@@ -536,12 +517,6 @@ const postHook = async (results) => {
   // Generate follow-up tasks
   await createFollowupTasks(results.remainingWork);
   
-  // Store completion metrics
-  await mcp__monobrain__memory_usage({
-    action: "store", 
-    key: `issue/${issue.number}/completion`,
-    value: { metrics: results.metrics, timestamp: Date.now() }
-  });
 };
 ```
 
