@@ -40,11 +40,9 @@
 | Package               | Path                            | Purpose                                |
 | --------------------- | ------------------------------- | -------------------------------------- |
 | `@monobrain/cli`      | `packages/@monobrain/cli/`      | CLI entry point (41 commands)          |
-| `@monobrain/codex`    | `packages/@monobrain/codex/`    | Dual-mode Claude + Codex collaboration |
 | `@monobrain/guidance` | `packages/@monobrain/guidance/` | Governance control plane               |
 | `@monobrain/hooks`    | `packages/@monobrain/hooks/`    | 17 hooks + 12 workers                  |
 | `@monobrain/memory`   | `packages/@monobrain/memory/`   | AgentDB + HNSW search                  |
-| `@monobrain/security` | `packages/@monobrain/security/` | Input validation, CVE remediation      |
 
 ## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
 
@@ -129,20 +127,6 @@ Rules:
 
 ---
 
-## Dual-Mode Collaboration (Claude Code + Codex)
-
-Runs Claude Code and OpenAI Codex workers in parallel with shared memory coordination.
-
-**Platform strengths:** Claude for architecture/security/testing. Codex for implementation/optimization/refactoring.
-
-**Templates:** `feature`, `security`, `refactor`, `bugfix` -- run via `npx monobrain-codex dual run <template> --task "..."`.
-
-**Worker dependency order:** Architect (L0) -> Coder + Tester (L1) -> Reviewer (L2) -> Optimizer (L3).
-
-**Shared memory:** All workers share state via `collaboration` namespace using `npx monobrain@latest memory store/search/retrieve --namespace collaboration`.
-
----
-
 ## Claude Code vs MCP Tools
 
 **Claude Code handles ALL EXECUTION:** Task tool (agents), file ops (Read/Write/Edit/Glob/Grep), code generation, Bash, TodoWrite, git.
@@ -193,7 +177,7 @@ Enabled via `npx monobrain@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TE
 ## Available Agents (60+ Types)
 
 - **Core:** coder, reviewer, tester, planner, researcher
-- **Security:** security-architect, security-auditor, InputValidator, PathValidator, SafeExecutor
+- **Security:** security-architect, security-auditor
 - **Swarm:** hierarchical-coordinator, mesh-coordinator, adaptive-coordinator, collective-intelligence-coordinator
 - **Consensus:** byzantine-coordinator, raft-manager, gossip-coordinator, crdt-synchronizer, quorum-manager
 - **Performance:** perf-analyzer, performance-benchmarker, task-orchestrator, memory-coordinator
