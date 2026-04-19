@@ -31,10 +31,6 @@ function safeRequire(modulePath) {
   return null;
 }
 
-const router = safeRequire(path.join(helpersDir, 'router.cjs'));
-const session = safeRequire(path.join(helpersDir, 'session.cjs'));
-const memory = safeRequire(path.join(helpersDir, 'memory.cjs'));
-const intelligence = safeRequire(path.join(helpersDir, 'intelligence.cjs'));
 
 // Module-level reference to @monobrain/hooks — populated at session-restore,
 // then used by pre-task / post-task to bridge into the hook registry (Tasks 26, 39).
@@ -391,257 +387,7 @@ const handlers = {
       return;
     }
 
-    if (intelligence && intelligence.getContext) {
-      try {
-        const ctx = intelligence.getContext(prompt);
-        if (ctx) console.log(ctx);
-      } catch (e) { /* non-fatal */ }
-    }
-    if (router && (router.routeTaskSemantic || router.routeTask)) {
-      const routeFn = router.routeTaskSemantic || router.routeTask;
-      const result = await Promise.resolve(routeFn(prompt));
-      var output = [];
-      output.push('[INFO] Routing task: ' + (prompt.substring(0, 80) || '(no prompt)'));
-      output.push('');
-      output.push('+------------ monobrain | Primary Recommendation -------------+');
-      output.push('| Agent: ' + result.agent.padEnd(53) + '|');
-      output.push('| Confidence: ' + (result.confidence * 100).toFixed(1) + '%' + ' '.repeat(44) + '|');
-      output.push('| Reason: ' + result.reason.substring(0, 53).padEnd(53) + '|');
-      output.push('+--------------------------------------------------------------+');
-
-      // ── Persist routing result for statusline display ─────────────
-      try {
-        var routeDir = path.join(CWD, '.monobrain');
-        fs.mkdirSync(routeDir, { recursive: true });
-        var routePayload = {
-          agent: result.agent,
-          confidence: result.confidence,
-          reason: result.reason,
-          semanticRouting: result.semanticRouting || false,
-          updatedAt: new Date().toISOString(),
-        };
-        // Persist extras matches so statusline can show specific specialist names
-        if (result.extrasMatches && result.extrasMatches.length > 0) {
-          routePayload.extrasMatches = result.extrasMatches.map(function(e) {
-            return { name: e.name, slug: e.slug, category: e.category };
-          });
-        }
-        fs.writeFileSync(
-          path.join(routeDir, 'last-route.json'),
-          JSON.stringify(routePayload),
-          'utf-8'
-        );
-      } catch (e) { /* non-fatal */ }
-
-      // ── Dev skill suggestions ──────────────────────────────────────
-      var matches = result.skillMatches || [];
-      if (matches.length > 0) {
-        // Check for high-confidence auto-invoke: if top skill scored >= 3 keyword
-        // hits and is the dominant match, auto-invoke instead of just suggesting
-        var topMatch = matches[0];
-        var autoInvoke = false;
-        if (topMatch && topMatch.score >= 3 && matches.length <= 2) {
-          autoInvoke = true;
-        } else if (topMatch && topMatch.score >= 2 && matches.length === 1 && result.confidence < 0.7) {
-          // Single strong skill match with weak agent routing = skill should take over
-          autoInvoke = true;
-        }
-
-        if (autoInvoke) {
-          output.push('');
-          output.push('+======== SKILL AUTO-ACTIVATED (high confidence match) ========+');
-          output.push('| ' + topMatch.invoke.padEnd(60) + '|');
-          output.push('| INSTRUCTION: Invoke ' + topMatch.invoke.padEnd(40) + '|');
-          output.push('| BEFORE responding. This skill matched with very high         |');
-          output.push('| confidence — do not skip it.                                 |');
-          output.push('+==============================================================+');
-        } else {
-          output.push('');
-          if (result.confidence < 0.8) {
-            output.push('+----------- Skill Suggestions (pick one if relevant) ---------+');
-            output.push('| No strong primary match — here are the best skill candidates: |');
-          } else {
-            output.push('+----------- Matching Skills (invoke via Skill tool) ----------+');
-          }
-          matches.forEach(function(m, i) {
-            var label = (i + 1) + '. ' + m.skill;
-            var desc = m.description.substring(0, 38);
-            var line = '| ' + label.padEnd(30) + desc.padEnd(28) + ' |';
-            output.push(line);
-            output.push('|   invoke: ' + m.invoke.padEnd(49) + '|');
-          });
-          output.push('+--------------------------------------------------------------+');
-          if (result.confidence < 0.8) {
-            output.push('| To use a skill: call Skill("skill-name") before responding.  |');
-            output.push('+--------------------------------------------------------------+');
-          }
-        }
-      }
-
-      // ── Specific agent panel ──────────────────────────────────────────────────
-      var specificAgents = result.specificAgents || [];
-      if (specificAgents.length > 0) {
-        output.push('');
-        output.push('+------- Specific Agents for "' + result.agent + '" (' + specificAgents.length + ' available) -----+');
-        specificAgents.forEach(function(a, i) {
-          var label = (i + 1) + '. ' + a.label;
-          var note = (a.note || '').substring(0, 26);
-          output.push('| ' + label.substring(0, 33).padEnd(33) + note.padEnd(27) + ' |');
-        });
-        output.push('+--------------------------------------------------------------+');
-        output.push('| Use: Task({ subagent_type: "<slug>" })  or  /specialagent   |');
-        output.push('+--------------------------------------------------------------+');
-      }
-
-      // ── Specialist agents (extras/non-dev) shown in same style as specificAgents ──
-      var extras = result.extrasMatches || [];
-      if (extras.length > 0) {
-        output.push('');
-        output.push('+------- Specialist Agents (' + extras.length + ' matched) ------------------------+');
-        extras.slice(0, 8).forEach(function(e, i) {
-          var label = (i + 1) + '. ' + e.name;
-          var cat = '[' + e.category + ']';
-          output.push('| ' + label.substring(0, 42).padEnd(42) + cat.substring(0, 16).padEnd(16) + ' |');
-          output.push('|   slug: ' + e.slug.substring(0, 52).padEnd(52) + ' |');
-        });
-        output.push('+--------------------------------------------------------------+');
-        output.push('| Use: Task({ subagent_type: "<slug>" })                       |');
-        output.push('+--------------------------------------------------------------+');
-      }
-
-      // ── MicroAgent Trigger Scan (Task 32) ──────────────────────────────
-      try {
-        var triggerResult = scanMicroAgentTriggers(typeof prompt === 'string' ? prompt : '');
-        if (triggerResult.matches.length > 0) {
-          output.push('');
-          if (triggerResult.takeoverAgent) {
-            var tAgent = triggerResult.takeoverAgent;
-            var tKw = triggerResult.matches[0].matchedText;
-            output.push('+============= MicroAgent TAKEOVER Detected ===================+');
-            output.push('| Specialist: ' + tAgent.substring(0, 49).padEnd(49) + '|');
-            output.push('| Keyword:    ' + ('"' + tKw + '"').substring(0, 49).padEnd(49) + '|');
-            output.push('| Recommended: use this specialist instead of primary agent.  |');
-            output.push('+==============================================================+');
-          } else {
-            output.push('+------- MicroAgent Specialists Triggered ---------------------+');
-            triggerResult.matches.forEach(function(m) {
-              var slug = m.agentSlug.substring(0, 38).padEnd(38);
-              var kw = ('(match: "' + m.matchedText + '")').substring(0, 21).padEnd(21);
-              output.push('| + ' + slug + kw + ' |');
-            });
-            output.push('+--------------------------------------------------------------+');
-          }
-          // Persist trigger matches alongside route result
-          try {
-            var routeFile = path.join(CWD, '.monobrain', 'last-route.json');
-            var existing = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
-            existing.microAgents = { injectAgents: triggerResult.injectAgents || [], takeoverAgent: triggerResult.takeoverAgent || null };
-            fs.writeFileSync(routeFile, JSON.stringify(existing), 'utf-8');
-          } catch (e) {}
-        }
-      } catch (e) { /* non-fatal */ }
-
-      console.log(output.join('\n'));
-
-      // ── Auto Swarm Mode Selector ──────────────────────────────────────────
-      // Scores task complexity using CLAUDE.md signals and suggests swarm mode
-      (function() {
-        try {
-          var score = 0;
-          var promptL = (typeof prompt === 'string' ? prompt : '').toLowerCase();
-
-          // Multi-file / cross-module work (+2)
-          var fileCount = (promptL.match(/\b(files?|modules?|components?|services?|api|classes?|packages?)\b/g) || []).length;
-          if (fileCount >= 3) score += 2;
-
-          // Feature/refactor/migration keywords (+1 each, max +3)
-          var complexKw = ['refactor', 'migrate', 'migration', 'new feature', 'implement', 'redesign',
-                           'overhaul', 'cross-module', 'across modules', 'build feature', 'add feature'];
-          var kwHits = 0;
-          complexKw.forEach(function(kw) { if (promptL.includes(kw) && kwHits < 3) { score++; kwHits++; } });
-
-          // Architect/system agent with high confidence (+2)
-          if (['architect', 'system-architect', 'software-architect'].includes(result.agent) && result.confidence >= 0.7) score += 2;
-
-          // Security or performance work (+1)
-          if (/\b(security|performance|optimiz|vuln|threat|benchmark)\b/.test(promptL)) score++;
-
-          // Multiple skill matches suggest broad scope (+1)
-          if ((result.skillMatches || []).length >= 2) score++;
-
-          // Consensus selection for Hive-Mind option
-          var consensus, consensusNote;
-          if (/\b(security|vuln|threat|exploit|auth|cve|attack|malicious)\b/.test(promptL)) {
-            consensus = 'byzantine'; consensusNote = 'fault-tolerant, malicious-actor safe';
-          } else if (/\b(refactor|migrat|rewrite|rename|restructur)\b/.test(promptL)) {
-            consensus = 'raft';     consensusNote = 'leader keeps authoritative state';
-          } else if (/\b(stream|realtime|real-time|event|pubsub|pub-sub|live)\b/.test(promptL)) {
-            consensus = 'gossip';   consensusNote = 'decentralized, low overhead';
-          } else {
-            consensus = 'quorum';   consensusNote = 'majority vote, broad coordination';
-          }
-
-          if (score >= 3) {
-            var recommended = score >= 5 ? 'C' : 'B';
-            var scoreStr = score + '/7';
-            var border = '+' + '='.repeat(73) + '+';
-            var pad = function(s, len) { while (s.length < len) s += ' '; return s; };
-            var swarmMark = recommended === 'B' ? '★ ' : '  ';
-            var hiveMark  = recommended === 'C' ? '★ ' : '  ';
-            var hiveLine = hiveMark + 'C)  Hive-Mind — queen-led, ' + consensus + '  (' + consensusNote + ')';
-
-            // Determine agent roster from task keywords
-            var agentRoster;
-            if (/\b(security|vuln|threat|exploit|auth|cve|attack)\b/.test(promptL)) {
-              agentRoster = 'coordinator, security-architect, security-auditor, coder, tester';
-            } else if (/\b(performance|optim|benchmark|profile|latency)\b/.test(promptL)) {
-              agentRoster = 'coordinator, perf-analyzer, coder, tester';
-            } else if (/\b(refactor|migrat|rewrite|restructur)\b/.test(promptL)) {
-              agentRoster = 'coordinator, architect, coder, reviewer';
-            } else {
-              agentRoster = 'coordinator, architect, coder, tester, reviewer';
-            }
-
-            var panel = [
-              '',
-              '[SWARM_ASK_USER] score=' + scoreStr + ' recommended=' + recommended,
-              border,
-              '| ' + pad('COMPLEX TASK DETECTED  (complexity score: ' + scoreStr + ')', 71) + ' |',
-              '| ' + pad('INSTRUCTION: Ask the user which execution mode to use:', 71) + ' |',
-              '|' + ' '.repeat(73) + '|',
-              '|   A)  Normal    — single agent, no swarm                                |',
-              '|   ' + pad(swarmMark + 'B)  Swarm     — hierarchical, 6 agents, specialized', 69) + ' |',
-              '|   ' + pad(hiveLine, 69) + ' |',
-              '|' + ' '.repeat(73) + '|',
-              '|   ★ = recommended for this complexity. Present all 3 choices clearly.   |',
-              '|   Suggested agents: ' + pad(agentRoster, 51) + ' |',
-              border,
-              '| On user choice, execute immediately without further confirmation:        |',
-              '|   B → swarm_init({topology:"hierarchical",maxAgents:6,                  |',
-              '|         strategy:"specialized"}) + spawn agents via Task tool            |',
-              '|   C → hive-mind_init({topology:"hierarchical-mesh",                     |',
-              '|         consensus:"' + pad(consensus + '"}) + spawn agents via Task tool', 53) + ' |',
-              border,
-            ];
-            console.log(panel.join('\n'));
-
-            // Persist swarm suggestion so statusline and subsequent hooks can see it
-            try {
-              var swarmSuggest = {
-                score: score, recommended: recommended, consensus: consensus,
-                consensusNote: consensusNote, timestamp: new Date().toISOString()
-              };
-              var suggestDir = path.join(CWD, '.monobrain');
-              fs.mkdirSync(suggestDir, { recursive: true });
-              fs.writeFileSync(path.join(suggestDir, 'swarm-suggestion.json'),
-                JSON.stringify(swarmSuggest), 'utf-8');
-            } catch (e) { /* non-fatal */ }
-          }
-        } catch (e) { /* non-fatal */ }
-      })();
-    } else {
-      console.log('[INFO] Router not available, using default routing');
-    }
+    console.log('[INFO] Router not available, using default routing');
 
     // Task 22: TeamRoutingModes — only log when an explicit swarm config is present
     try {
@@ -655,67 +401,13 @@ const handlers = {
   },
 
   'load-agent': () => {
-    // Load and print full agent text so Claude can adopt its identity
-    const slug = args.slice(1).join(' ').trim() || (typeof prompt === 'string' ? prompt.trim() : '');
-    if (!router || !router.loadExtrasAgent) {
-      console.error('[ERROR] Router does not support loadExtrasAgent');
-      process.exit(1);
-    }
-    const agent = router.loadExtrasAgent(slug);
-    if (!agent) {
-      console.error('[ERROR] Extras agent not found: ' + slug);
-      console.error('Run: node .claude/helpers/router.cjs --load-agent <slug>  to check available slugs');
-      process.exit(1);
-    }
-    console.log('=== AGENT ACTIVATED: ' + agent.name + ' [' + agent.category + '] ===');
-    console.log('');
-    console.log(agent.content);
-    console.log('');
-    console.log('=== END AGENT: ' + agent.name + ' ===');
-    console.log('INSTRUCTION: You are now ' + agent.name + '. Adopt the identity, tone, and expertise described above for the remainder of this task.');
-
-    // Persist active agent for statusline
-    try {
-      var routeDir = path.join(CWD, '.monobrain');
-      fs.mkdirSync(routeDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(routeDir, 'last-route.json'),
-        JSON.stringify({
-          agent: agent.slug,
-          name: agent.name,
-          category: agent.category,
-          confidence: 1.0,
-          reason: 'manually activated via load-agent',
-          activated: true,
-          updatedAt: new Date().toISOString(),
-        }),
-        'utf-8'
-      );
-    } catch (e) { /* non-fatal */ }
+    console.error('[ERROR] Router module not available — load-agent requires router.cjs');
+    process.exit(1);
   },
 
   'list-extras': () => {
-    if (!router || !router.loadExtrasRegistry) {
-      console.error('[ERROR] Extras registry not available');
-      process.exit(1);
-    }
-    const registry = router.loadExtrasRegistry();
-    const category = args[1] || '';
-    const entries = category
-      ? registry.extras.filter(e => e.category === category)
-      : registry.extras;
-    const byCategory = {};
-    for (const e of entries) {
-      if (!byCategory[e.category]) byCategory[e.category] = [];
-      byCategory[e.category].push(e);
-    }
-    for (const [cat, agents] of Object.entries(byCategory)) {
-      console.log('\n[' + cat.toUpperCase() + ']');
-      for (const a of agents) {
-        console.log('  ' + a.slug.padEnd(45) + a.name);
-      }
-    }
-    console.log('\nTotal: ' + entries.length + ' extras agents');
+    console.error('[ERROR] Router module not available — list-extras requires router.cjs');
+    process.exit(1);
   },
 
   'pre-bash': () => {
@@ -731,16 +423,6 @@ const handlers = {
   },
 
   'post-edit': () => {
-    if (session && session.metric) {
-      try { session.metric('edits'); } catch (e) { /* no active session */ }
-    }
-    if (intelligence && intelligence.recordEdit) {
-      try {
-        var file = hookInput.file_path || toolInput.file_path
-          || process.env.TOOL_INPUT_file_path || args[0] || '';
-        intelligence.recordEdit(file);
-      } catch (e) { /* non-fatal */ }
-    }
     // ── Security-Sensitive File Auto-Alert ────────────────────────────────
     // When editing auth, security, crypto, or env-related files, flag it
     try {
@@ -772,33 +454,7 @@ const handlers = {
   },
 
   'session-restore': async () => {
-    if (session) {
-      var existing = session.restore && session.restore();
-      if (!existing) {
-        session.start && session.start();
-      }
-    } else {
-      console.log('[OK] Session restored: session-' + Date.now());
-    }
-    // Initialize intelligence (with timeout — #1530)
-    // Respects monobrain.neural.enabled kill switch from settings.json
-    var neuralEnabled = true;
-    try {
-      var settingsPath = path.join(CWD, '.claude', 'settings.json');
-      if (fs.existsSync(settingsPath)) {
-        var settingsData = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-        if (settingsData.monobrain && settingsData.monobrain.neural && settingsData.monobrain.neural.enabled === false) {
-          neuralEnabled = false;
-          console.log('[NEURAL] Disabled via monobrain.neural.enabled=false');
-        }
-      }
-    } catch (e) { /* non-fatal */ }
-    if (neuralEnabled && intelligence && intelligence.init) {
-      var initResult = await runWithTimeout(function() { return intelligence.init(); }, 'intelligence.init()');
-      if (initResult && initResult.nodes > 0) {
-        console.log('[INTELLIGENCE] Loaded ' + initResult.nodes + ' patterns, ' + initResult.edges + ' edges');
-      }
-    }
+    console.log('[OK] Session restored: session-' + Date.now());
     // GAP-001: Bridge hook-handler.cjs to @monobrain/hooks compiled packages.
     // Dynamic import() resolves ESM packages even from CJS — failures are silent.
     try {
@@ -1018,21 +674,7 @@ const handlers = {
   },
 
   'session-end': async () => {
-    // Consolidate intelligence (with timeout — #1530)
-    if (intelligence && intelligence.consolidate) {
-      var consResult = await runWithTimeout(function() { return intelligence.consolidate(); }, 'intelligence.consolidate()');
-      if (consResult && consResult.entries > 0) {
-        var msg = '[INTELLIGENCE] Consolidated: ' + consResult.entries + ' entries, ' + consResult.edges + ' edges';
-        if (consResult.newEntries > 0) msg += ', ' + consResult.newEntries + ' new';
-        msg += ', PageRank recomputed';
-        console.log(msg);
-      }
-    }
-    if (session && session.end) {
-      session.end();
-    } else {
-      console.log('[OK] Session ended');
-    }
+    console.log('[OK] Session ended');
 
     // ── Routing Feedback Loop (SE-001) ────────────────────────────────────
     // Persist routing accuracy feedback so the router improves over sessions
@@ -1046,8 +688,7 @@ const handlers = {
           suggestedAgent: lastRoute.agent,
           confidence: lastRoute.confidence,
           sessionId: hookInput.sessionId || hookInput.session_id || '',
-          // If intelligence gave feedback during session, it's recorded here
-          intelligenceFeedback: (intelligence && intelligence.getSessionStats) ? intelligence.getSessionStats() : null,
+          intelligenceFeedback: null,
         };
         fs.appendFileSync(feedbackPath, JSON.stringify(feedbackEntry) + '\n', 'utf-8');
       }
@@ -1115,10 +756,6 @@ const handlers = {
   },
 
   'pre-task': async () => {
-    if (session && session.metric) {
-      try { session.metric('tasks'); } catch (e) { /* no active session */ }
-    }
-
     // ── Task 27: PerRunModelTier — inline complexity scoring ───────────────
     var taskStr = typeof prompt === 'string' ? prompt : '';
     if (taskStr) {
@@ -1143,13 +780,7 @@ const handlers = {
       console.log('[AUTO_RETRY_ENABLED] maxAttempts=3 strategy=exponential-backoff backoffMs=1000');
     }
 
-    if (router && prompt) {
-      var routeFn = router.routeTaskSemantic || router.routeTask;
-      var result = await Promise.resolve(routeFn(prompt));
-      console.log('[INFO] Task routed to: ' + result.agent + ' (confidence: ' + result.confidence + ')');
-    } else {
-      console.log('[OK] Task started');
-    }
+    console.log('[OK] Task started');
 
     // Task 24: PromptVersioning — resolve prompt variant before agent spawn
     try {
@@ -1182,11 +813,6 @@ const handlers = {
   },
 
   'post-task': async () => {
-    if (intelligence && intelligence.feedback) {
-      try {
-        intelligence.feedback(true);
-      } catch (e) { /* non-fatal */ }
-    }
     // Each TeammateIdle/TaskCompleted = one agent done → remove oldest registration (FIFO)
     const regDir = path.join(CWD, '.monobrain', 'agents', 'registrations');
     try {
@@ -1379,10 +1005,6 @@ const handlers = {
   },
 
   'compact-manual': () => {
-    // Consolidate intelligence before compaction so patterns survive
-    if (intelligence && intelligence.consolidate) {
-      try { intelligence.consolidate(); } catch (e) { /* non-fatal */ }
-    }
     // Save current routing context for post-compact restore
     try {
       var lastRoute = path.join(CWD, '.monobrain', 'last-route.json');
@@ -1395,10 +1017,6 @@ const handlers = {
   },
 
   'compact-auto': () => {
-    // Same consolidation for auto-compact
-    if (intelligence && intelligence.consolidate) {
-      try { intelligence.consolidate(); } catch (e) { /* non-fatal */ }
-    }
     try {
       var lastRoute = path.join(CWD, '.monobrain', 'last-route.json');
       if (fs.existsSync(lastRoute)) {
@@ -1462,11 +1080,7 @@ const handlers = {
   },
 
   'stats': () => {
-    if (intelligence && intelligence.stats) {
-      intelligence.stats(args.includes('--json'));
-    } else {
-      console.log('[WARN] Intelligence module not available. Run session-restore first.');
-    }
+    console.log('[WARN] Intelligence module not available. Run session-restore first.');
   },
 };
 

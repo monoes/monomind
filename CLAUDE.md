@@ -41,7 +41,7 @@
 | --------------------- | ------------------------------- | -------------------------------------- |
 | `@monobrain/cli`      | `packages/@monobrain/cli/`      | CLI entry point (41 commands)          |
 | `@monobrain/guidance` | `packages/@monobrain/guidance/` | Governance control plane               |
-| `@monobrain/hooks`    | `packages/@monobrain/hooks/`    | 17 hooks + 12 workers                  |
+| `@monobrain/hooks`    | `packages/@monobrain/hooks/`    | 29 hooks + 12 workers                  |
 | `@monobrain/memory`   | `packages/@monobrain/memory/`   | AgentDB + HNSW search                  |
 
 ## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
@@ -135,7 +135,7 @@ Rules:
 
 ---
 
-## CLI Commands (41 Commands)
+## CLI Commands (38 Commands)
 
 | Command       | Sub | Description                                          |
 | ------------- | --- | ---------------------------------------------------- |
@@ -147,7 +147,7 @@ Rules:
 | `task`        | 6   | Task creation and lifecycle                          |
 | `session`     | 7   | Session state management                             |
 | `config`      | 7   | Configuration management                             |
-| `hooks`       | 17  | Self-learning hooks + 12 background workers          |
+| `hooks`       | 29  | Self-learning hooks + 12 background workers          |
 | `hive-mind`   | 6   | Byzantine fault-tolerant consensus                   |
 | `daemon`      | 5   | Background worker daemon                             |
 | `neural`      | 5   | Neural pattern training                              |

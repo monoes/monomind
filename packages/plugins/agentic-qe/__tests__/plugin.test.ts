@@ -72,9 +72,7 @@ class MockAQEPlugin {
       author: 'rUv',
       license: 'MIT',
       dependencies: [
-        '@monobrain/plugins',
         '@monobrain/memory',
-        '@monobrain/security',
         '@monobrain/embeddings',
       ],
       tags: ['testing', 'quality', 'coverage', 'security', 'tdd'],
@@ -321,9 +319,8 @@ describe('AQEPlugin', () => {
     });
 
     it('should have required dependencies', () => {
-      expect(plugin.metadata.dependencies).toContain('@monobrain/plugins');
       expect(plugin.metadata.dependencies).toContain('@monobrain/memory');
-      expect(plugin.metadata.dependencies).toContain('@monobrain/security');
+      expect(plugin.metadata.dependencies).toContain('@monobrain/embeddings');
     });
 
     it('should have expected tags', () => {

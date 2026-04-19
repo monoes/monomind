@@ -264,8 +264,6 @@ export const pluginMetadata = {
   dependencies: {
     required: [
       '@monobrain/memory',
-      '@monobrain/security',
-      '@monobrain/coordination',
     ],
     optional: ['@monobrain/embeddings', '@monobrain/aidefence'],
   },
