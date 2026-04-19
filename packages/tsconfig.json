@@ -11,8 +11,7 @@
       "@monobrain/embeddings": ["./@monobrain/embeddings/src"],
       "@monobrain/aidefence": ["./@monobrain/aidefence/src"],
       "@monobrain/graph": ["./@monobrain/graph/src"],
-      "@monobrain/mcp": ["./@monobrain/mcp/src"],
-      "@monobrain/routing": ["./@monobrain/routing/src"]
+      "@monobrain/mcp": ["./@monobrain/mcp/src"]
     }
   },
   "references": [
@@ -24,8 +23,7 @@
     { "path": "./@monobrain/embeddings" },
     { "path": "./@monobrain/aidefence" },
     { "path": "./@monobrain/graph" },
-    { "path": "./@monobrain/mcp" },
-    { "path": "./@monobrain/routing" }
+    { "path": "./@monobrain/mcp" }
   ],
   "include": [],
   "exclude": ["node_modules", "dist"]

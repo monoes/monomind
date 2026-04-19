@@ -160,6 +160,18 @@ hive-mind-prompt-*.txt
 .monobrain/data/
 .monobrain/logs/
 
+# Build artifacts in sub-packages
+packages/@monobrain/graph/dist/
+packages/@monobrain/mcp/dist/
+
+# Runtime data
+data/
+
+# Per-package lock files (root pnpm-lock is canonical)
+packages/package-lock.json
+packages/@monobrain/*/pnpm-lock.yaml
+packages/plugins/*/package-lock.json
+
 # Environment variables
 .env
 .env.local
