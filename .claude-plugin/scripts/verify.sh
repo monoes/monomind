@@ -77,12 +77,6 @@ else
     ((WARNINGS++))
 fi
 
-if npx ruv-swarm --version &> /dev/null; then
-    success "ruv-swarm MCP: installed (optional)"
-else
-    info "ruv-swarm MCP: not installed (optional)"
-fi
-
 if npx flow-nexus@latest --version &> /dev/null; then
     success "flow-nexus MCP: installed (optional)"
 else

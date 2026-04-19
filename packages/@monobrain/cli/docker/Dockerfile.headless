@@ -47,7 +47,6 @@ RUN GLOBAL_PREFIX=$(npm config get prefix) \
     && rm -rf \
       "${CLI_NM}/@monobrain/embeddings" \
       "${CLI_NM}/@monobrain/memory" \
-      "${CLI_NM}/@monobrain/codex" \
       "${CLI_NM}/@monobrain/guidance" \
       "${CLI_NM}/@monobrain/aidefence" \
       "${CLI_NM}/@monobrain/plugin-gastown-bridge" \

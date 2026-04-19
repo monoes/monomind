@@ -166,8 +166,6 @@ regression-tests:
 | Package | Tests | Pass Rate |
 |---------|-------|-----------|
 | @monobrain/hooks | 112 | 100% |
-| @monobrain/plugins | 142 | 100% |
-| @monobrain/security | 47 | 100% |
 | @monobrain/swarm | 89 | 100% |
 | @monobrain/cli | 34 | 100% |
 

@@ -373,14 +373,6 @@ npx @monobrain/cli@latest performance benchmark --suite all
 
 `security-architect`, `security-auditor`, `memory-specialist`, `performance-engineer`
 
-### 🔐 @monobrain/security
-
-CVE remediation, input validation, path security:
-
-- `InputValidator` - Zod validation
-- `PathValidator` - Traversal prevention
-- `SafeExecutor` - Injection protection
-
 ### Swarm Coordination
 
 `hierarchical-coordinator`, `mesh-coordinator`, `adaptive-coordinator`, `collective-intelligence-coordinator`, `swarm-memory-manager`
@@ -646,7 +638,6 @@ Run `npx @monobrain/cli@latest doctor` to check:
 ```bash
 # Add MCP servers (auto-detects MCP mode when stdin is piped)
 claude mcp add monobrain -- npx -y @monobrain/cli@latest
-claude mcp add ruv-swarm -- npx -y ruv-swarm mcp start  # Optional
 
 # Start daemon
 npx @monobrain/cli@latest daemon start

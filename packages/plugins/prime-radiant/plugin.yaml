@@ -676,7 +676,7 @@ implementation:
       files: 5
       estimatedLines: 475
       deliverables:
-        - Plugin registers with @monobrain/plugins SDK
+        - Plugin registers with Monobrain plugin system
         - Type-safe configuration
         - Basic lifecycle hooks
 

@@ -638,7 +638,6 @@ Run `npx monobrain@latest doctor` to check:
 ```bash
 # Add MCP servers (auto-detects MCP mode when stdin is piped)
 claude mcp add monobrain -- npx -y monobrain@latest mcp start
-claude mcp add ruv-swarm -- npx -y ruv-swarm mcp start  # Optional
 
 # Start daemon
 npx monobrain@latest daemon start
@@ -727,7 +726,7 @@ This includes:
 - All 27 hooks + 12 background workers
 - RuVector intelligence system details
 - Hive-Mind consensus mechanisms
-- Integration ecosystem (agentic-flow, agentdb, ruv-swarm,  agentic-jujutsu)
+- Integration ecosystem (agentic-flow, agentdb, agentic-jujutsu)
 - Performance targets and status
 
 ## Support

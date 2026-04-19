@@ -85,7 +85,7 @@
 - Keep shared memory namespace for all agents
 
 ```javascript
-mcp__ruv-swarm__swarm_init({ topology: "hierarchical", maxAgents: 8, strategy: "specialized" });
+mcp__monobrain__swarm_init({ topology: "hierarchical", maxAgents: 8, strategy: "specialized" });
 ```
 
 ### Agent Routing (Anti-Drift)
