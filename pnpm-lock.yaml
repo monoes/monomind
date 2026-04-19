@@ -319,36 +319,15 @@ importers:
         specifier: ^1.10.3
         version: 1.14.1
     devDependencies:
-      '@types/cors':
-        specifier: ^2.8.17
-        version: 2.8.19
-      '@types/express':
-        specifier: ^4.17.21
-        version: 4.17.25
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.39
       '@types/sql.js':
         specifier: ^1.4.9
         version: 1.4.11
-      '@types/ws':
-        specifier: ^8.5.10
-        version: 8.18.1
-      cors:
-        specifier: ^2.8.5
-        version: 2.8.6
-      express:
-        specifier: ^4.21.0
-        version: 4.22.1
-      helmet:
-        specifier: ^7.1.0
-        version: 7.2.0
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(vite@8.0.8(@types/node@20.19.39)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
-      ws:
-        specifier: ^8.16.0
-        version: 8.20.0
       zod:
         specifier: ^3.22.4
         version: 3.25.76

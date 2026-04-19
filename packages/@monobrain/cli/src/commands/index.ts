@@ -174,6 +174,23 @@ loadedCommands.set('hive-mind', hiveMindCommand);
 loadedCommands.set('guidance', guidanceCommand);
 loadedCommands.set('cleanup', cleanupCommand);
 loadedCommands.set('autopilot', autopilotCommand);
+loadedCommands.set('benchmark', benchmarkCommand);
+loadedCommands.set('tokens', tokensCommand);
+// Additional synchronously-imported commands (used in commandsByCategory)
+loadedCommands.set('config', configCommand);
+loadedCommands.set('completions', completionsCommand);
+loadedCommands.set('migrate', migrateCommand);
+loadedCommands.set('workflow', workflowCommand);
+loadedCommands.set('analyze', analyzeCommand);
+loadedCommands.set('route', routeCommand);
+loadedCommands.set('progress', progressCommand);
+loadedCommands.set('providers', providersCommand);
+loadedCommands.set('plugins', pluginsCommand);
+loadedCommands.set('deployment', deploymentCommand);
+loadedCommands.set('claims', claimsCommand);
+loadedCommands.set('issues', issuesCommand);
+loadedCommands.set('update', updateCommand);
+loadedCommands.set('process', processCommand);
 
 // =============================================================================
 // Exports (maintain backwards compatibility)
@@ -257,6 +274,21 @@ export const commands: Command[] = [
   autopilotCommand,
   benchmarkCommand,
   tokensCommand,
+  // Additional synchronously-imported commands
+  configCommand,
+  completionsCommand,
+  migrateCommand,
+  workflowCommand,
+  analyzeCommand,
+  routeCommand,
+  progressCommand,
+  providersCommand,
+  pluginsCommand,
+  deploymentCommand,
+  claimsCommand,
+  issuesCommand,
+  updateCommand,
+  processCommand,
 ];
 
 /**
