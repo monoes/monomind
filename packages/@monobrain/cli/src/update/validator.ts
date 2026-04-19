@@ -22,7 +22,6 @@ interface PackageCompatibility {
 const COMPATIBILITY_MATRIX: Record<string, Record<string, PackageCompatibility>> = {
   '@monobrain/cli': {
     '@monobrain/embeddings': { minVersion: '3.0.0-alpha.1' },
-    '@monobrain/security': { minVersion: '3.0.0-alpha.1' },
   },
   '@monobrain/embeddings': {
     '@monobrain/cli': { minVersion: '3.0.0-alpha.50' },

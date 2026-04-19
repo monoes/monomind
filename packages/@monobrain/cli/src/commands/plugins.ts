@@ -447,7 +447,7 @@ const infoCommand: Command = {
     { name: 'registry', short: 'r', type: 'string', description: 'Registry to use' },
   ],
   examples: [
-    { command: 'monobrain plugins info -n @monobrain/neural', description: 'Show plugin info' },
+    { command: 'monobrain plugins info -n @monobrain/embeddings', description: 'Show plugin info' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const name = ctx.flags.name as string;
@@ -675,8 +675,8 @@ const upgradeCommand: Command = {
     { name: 'version', short: 'v', type: 'string', description: 'Target version (default: latest)' },
   ],
   examples: [
-    { command: 'monobrain plugins upgrade -n @monobrain/neural', description: 'Upgrade to latest' },
-    { command: 'monobrain plugins upgrade -n @monobrain/neural -v 3.1.0', description: 'Upgrade to specific version' },
+    { command: 'monobrain plugins upgrade -n @monobrain/embeddings', description: 'Upgrade to latest' },
+    { command: 'monobrain plugins upgrade -n @monobrain/embeddings -v 3.1.0', description: 'Upgrade to specific version' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const name = ctx.flags.name as string;

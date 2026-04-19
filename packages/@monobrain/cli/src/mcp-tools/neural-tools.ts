@@ -9,7 +9,7 @@
  * - Pattern storage and search with cosine similarity (real math in all tiers)
  * - Training stores patterns as searchable embeddings (not simulated)
  *
- * Note: For production neural features, use @monobrain/neural module
+ * Note: Neural features are built into the CLI via RuVector intelligence system
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';

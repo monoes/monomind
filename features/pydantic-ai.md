@@ -1,5 +1,7 @@
 # pydantic-ai (pydantic/pydantic-ai)
 
+> **Note:** References to `@monobrain/security` in this document are historical. That package was removed in the 2026-04-19 cleanup. Security features are now in `@monobrain/aidefence`.
+
 **Source:** https://github.com/pydantic/pydantic-ai  
 **Category:** Type-Safe Agent Framework  
 **Role in Monobrain:** Typed I/O schemas, auto-retry on validation, deterministic test model, dynamic system prompts

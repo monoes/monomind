@@ -1,5 +1,7 @@
 # OpenHands (All-Hands-AI/OpenHands)
 
+> **Note:** References to `@monobrain/security` in this document are historical. That package was removed in the 2026-04-19 cleanup. Security features are now in `@monobrain/aidefence`.
+
 **Source:** https://github.com/All-Hands-AI/OpenHands  
 **Category:** AI Software Development Agent  
 **Role in Monobrain:** Sandboxing, agent registry versioning, session replay

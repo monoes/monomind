@@ -1,5 +1,7 @@
 # Atomic Agents (KRunchPL/atomic-agents)
 
+> **Note:** References to `@monobrain/security` in this document are historical. That package was removed in the 2026-04-19 cleanup. Security features are now in `@monobrain/aidefence`.
+
 **Source:** https://github.com/KRunchPL/atomic-agents  
 **Category:** Typed Agent Contracts Library  
 **Role in Monobrain:** BaseIOSchema typed contracts, SystemPromptContextProvider composition

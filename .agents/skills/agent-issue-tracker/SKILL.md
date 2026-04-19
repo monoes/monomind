@@ -33,7 +33,7 @@ hooks:
 # GitHub Issue Tracker
 
 ## Purpose
-Intelligent issue management and project coordination with ruv-swarm integration for automated tracking, progress monitoring, and team coordination.
+Intelligent issue management and project coordination with monobrain integration for automated tracking, progress monitoring, and team coordination.
 
 ## Capabilities
 - **Automated issue creation** with smart templates and labeling
@@ -66,7 +66,7 @@ mcp__monobrain__agent_spawn { type: "coder", name: "Implementation Planner" }
 mcp__github__create_issue {
   owner: "nokhodian",
   repo: "ruv-FANN",
-  title: "Integration Review: claude-code-flow and ruv-swarm complete integration",
+  title: "Integration Review: claude-code-flow and monobrain complete integration",
   body: `## 🔄 Integration Review
   
   ### Overview
@@ -120,7 +120,7 @@ mcp__github__add_issue_comment {
   - Final validation and merge preparation
   
   ---
-  🤖 Generated with Claude Code using ruv-swarm coordination`
+  🤖 Generated with Claude Code using monobrain coordination`
 }
 
 // Store progress in swarm memory
@@ -172,7 +172,7 @@ mcp__github__update_issue {
   Bash(`gh issue create \
     --repo :owner/:repo \
     --title "Bug: PR merge conflicts in integration branch" \
-    --body "Resolve merge conflicts in integration$claude-code-flow-ruv-swarm..." \
+    --body "Resolve merge conflicts in integration$claude-code-flow-monobrain..." \
     --label "bug,integration,urgent"`)
     
   Bash(`gh issue create \

@@ -37,7 +37,6 @@ const DEFAULT_CONFIG: UpdateConfig = {
     major: false,
   },
   priority: {
-    '@monobrain/security': 'critical',
     '@monobrain/cli': 'high',
     '@monobrain/embeddings': 'normal',
   },
