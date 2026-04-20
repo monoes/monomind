@@ -1,12 +1,11 @@
 # .agents Directory
 
-This directory contains agent configuration and skills for OpenAI Codex CLI.
+This directory contains skill definitions for Monobrain.
 
 ## Structure
 
 ```
 .agents/
-  config.toml     # Main configuration file
   skills/         # Skill definitions
     skill-name/
       SKILL.md    # Skill instructions
@@ -14,15 +13,6 @@ This directory contains agent configuration and skills for OpenAI Codex CLI.
       docs/       # Optional documentation
   README.md       # This file
 ```
-
-## Configuration
-
-The `config.toml` file controls:
-- Model selection
-- Approval policies
-- Sandbox modes
-- MCP server connections
-- Skills configuration
 
 ## Skills
 
@@ -33,6 +23,4 @@ Skills are invoked using `$skill-name` syntax. Each skill has:
 
 ## Documentation
 
-- Main instructions: `AGENTS.md` (project root)
-- Local overrides: `.codex/AGENTS.override.md` (gitignored)
 - Monobrain: https://github.com/nokhodian/monobrain

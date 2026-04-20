@@ -399,23 +399,10 @@ export class LearningBridge extends EventEmitter {
         return;
       }
 
-      const mod = await import('@monobrain/neural' as string);
-      const NeuralLearningSystem = mod.NeuralLearningSystem ?? mod.default;
-      if (!NeuralLearningSystem) return;
-
-      const instance = new NeuralLearningSystem({
-        mode: this.config.sonaMode,
-        ewcLambda: this.config.ewcLambda,
-      });
-
-      if (typeof instance.initialize === 'function') {
-        await instance.initialize();
-      }
-
-      this.neural = instance;
+      // @monobrain/neural was removed. Degrade to no-op.
+      this.neural = null;
     } catch {
-      // @monobrain/neural not installed or failed to initialize.
-      // This is expected in many environments; degrade silently.
+      // Neural loader failed; degrade silently.
       this.neural = null;
     }
   }

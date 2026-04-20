@@ -6,7 +6,7 @@
 
 [![npm version](https://img.shields.io/npm/v/monobrain?style=for-the-badge&logo=npm&color=7c3aed&logoColor=white)](https://www.npmjs.com/package/monobrain)
 [![Downloads](https://img.shields.io/npm/dm/monobrain?style=for-the-badge&logo=npm&color=3b82f6&logoColor=white&label=Monthly%20Downloads)](https://www.npmjs.com/package/monobrain)
-[![Stars](https://img.shields.io/github/stars/monoes/monobrain?style=for-the-badge&logo=github&color=f59e0b&logoColor=white)](https://github.com/monoes/monobrain)
+[![Stars](https://img.shields.io/github/stars/nokhodian/monobrain?style=for-the-badge&logo=github&color=f59e0b&logoColor=white)](https://github.com/nokhodian/monobrain)
 [![License: MIT](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](https://opensource.org/licenses/MIT)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-06b6d4?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3b82f6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -45,7 +45,7 @@ flowchart TB
         SEM[Semantic Router]
         LLM_FB[LLM Fallback · Haiku]
         TRIG[MicroAgent Triggers]
-        HK[17 Hooks · Event Bus]
+        HK[29 Hooks · Event Bus]
     end
 
     subgraph SWARM["🐝 Swarm Coordination"]
@@ -135,13 +135,13 @@ node packages/@monobrain/cli/bin/cli.js init --wizard
 claude mcp add monobrain -- node "$PWD/packages/@monobrain/cli/bin/cli.js" mcp start
 ```
 
-> **New to Monobrain?** You don't need to learn 170+ MCP tools or 35 CLI commands up front. After running `init`, just use Claude Code normally — the hooks system automatically routes tasks to the right agents, learns from successful patterns, and coordinates multi-agent work in the background.
+> **New to Monobrain?** You don't need to learn 110+ MCP tools or 35 CLI commands up front. After running `init`, just use Claude Code normally — the hooks system automatically routes tasks to the right agents, learns from successful patterns, and coordinates multi-agent work in the background.
 
 ---
 
 ## Key Capabilities
 
-🤖 **100+ Specialized Agents** — Ready-to-use AI agents for every engineering domain: coding, review, testing, security, DevOps, mobile, ML, blockchain, SRE, and more. Each optimized for its specific role.
+🤖 **74+ Specialized Agents** — Ready-to-use AI agents for every engineering domain: coding, review, testing, security, DevOps, mobile, ML, blockchain, SRE, and more. Each optimized for its specific role.
 
 🐝 **Coordinated Agent Swarms** — Agents organize into teams using hierarchical (queen/workers) or mesh (peer-to-peer) topologies. They share context, divide work, and reach consensus — even when agents fail.
 
@@ -149,7 +149,7 @@ claude mcp add monobrain -- node "$PWD/packages/@monobrain/cli/bin/cli.js" mcp s
 
 ⚡ **3-Tier Cost Routing** — Simple transforms run in WASM at <1ms and $0. Medium tasks use Haiku. Complex reasoning uses Sonnet/Opus. Smart routing cuts API costs by 30–50%.
 
-🔌 **Deep Claude Code Integration** — 170+ MCP tools expose the full platform directly inside Claude Code sessions. The hooks system fires on every file edit, command, task start/end, and session event.
+🔌 **Deep Claude Code Integration** — 110+ MCP tools expose the full platform directly inside Claude Code sessions. The hooks system fires on every file edit, command, task start/end, and session event.
 
 🔒 **Production-Grade Security** — CVE-hardened AIDefence layer blocks prompt injection, path traversal, command injection, and credential leakage. Per-agent WASM/Docker sandboxing with cryptographic audit proofs.
 
@@ -408,8 +408,6 @@ npx monobrain@latest hive-mind spawn "Refactor auth module to use OAuth2"
 # Search learned patterns
 npx monobrain@latest memory search -q "authentication patterns"
 
-# Dual Claude + Codex workflow
-npx monobrain-codex dual run feature --task "Add rate limiting middleware"
 ```
 
 ---
@@ -612,48 +610,29 @@ Toggle compact ↔ full: `/ts` — Full reference: [tagline.md](tagline.md)
 
 ---
 
-## Dual-Mode Collaboration
-
-Run Claude Code and OpenAI Codex workers **in parallel** with shared memory:
-
-```bash
-# Pre-built templates
-npx monobrain-codex dual run feature --task "Add OAuth authentication"
-npx monobrain-codex dual run security --target "./src"
-npx monobrain-codex dual run bugfix --task "Fix race condition in session handler"
-
-# Custom pipeline
-npx monobrain-codex dual run \
-  --worker "claude:architect:Design the API contract" \
-  --worker "codex:coder:Implement the endpoints" \
-  --worker "claude:tester:Write integration tests" \
-  --worker "codex:optimizer:Reduce allocations"
-```
-
-**Worker dependency order:** Architect (L0) → Coder + Tester (L1) → Reviewer (L2) → Optimizer (L3)
-
-| Template   | Workers                               | Pipeline                  |
-| ---------- | ------------------------------------- | ------------------------- |
-| `feature`  | Architect → Coder → Tester → Reviewer | Full feature development  |
-| `security` | Analyst → Scanner → Reporter          | Security audit            |
-| `refactor` | Architect → Refactorer → Tester       | Code modernization        |
-| `bugfix`   | Researcher → Coder → Tester           | Bug investigation and fix |
-
----
-
 ## Packages
 
-todo: write about packages of this app
+This monorepo contains the following packages:
+
+| Package | Description |
+| --- | --- |
+| `@monobrain/cli` | CLI entry point with 35 commands |
+| `@monobrain/hooks` | Event-driven lifecycle hooks and workers |
+| `@monobrain/memory` | AgentDB with HNSW vector search |
+| `@monobrain/guidance` | Governance control plane |
+| `@monobrain/shared` | Shared types and interfaces |
+| `@monobrain/mcp` | MCP server (stdio/http/ws) |
+| `@monobrain/embeddings` | Vector embeddings service |
+| `@monobrain/aidefence` | AI manipulation defense |
+| `@monoes/graph` | Knowledge graph engine |
 
 ## Plugins
 
-todo: write about plugins of this app
-20 plugins via the IPFS-distributed registry:
+Distributed via IPFS/Pinata. Browse and install:
 
 ```bash
 npx monobrain@latest plugins list
 npx monobrain@latest plugins install @monobrain/plugin-name
-npx monobrain@latest plugins create my-plugin
 ```
 
 ## Contributing
@@ -671,7 +650,7 @@ pnpm test
 | ------------- | -------------------------------------------------------------------------------------- |
 | Documentation | [github.com/nokhodian/monobrain](https://github.com/nokhodian/monobrain)               |
 | Issues        | [github.com/nokhodian/monobrain/issues](https://github.com/nokhodian/monobrain/issues) |
-| Enterprise    | [monoes.me](monoes.me)                                                                 |
+| Enterprise    | [monoes.me](https://monoes.me)                                                         |
 
 ---
 

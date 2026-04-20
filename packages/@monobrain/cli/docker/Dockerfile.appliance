@@ -79,7 +79,6 @@ RUN GLOBAL_NM="$(npm config get prefix)/lib/node_modules" \
        "$GLOBAL_NM/monobrain/node_modules/sharp" \
        "$GLOBAL_NM/monobrain/node_modules/@google" \
        "$GLOBAL_NM/monobrain/node_modules/@monobrain/embeddings" \
-       "$GLOBAL_NM/monobrain/node_modules/@monobrain/codex" \
        "$GLOBAL_NM/monobrain/node_modules/@monobrain/guidance" \
        "$GLOBAL_NM/monobrain/node_modules/@monobrain/neural" \
        "$GLOBAL_NM/monobrain/node_modules/@grpc" \

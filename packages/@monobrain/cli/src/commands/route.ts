@@ -52,10 +52,15 @@ let routerInitialized = false;
 
 async function getRouter(): Promise<any> {
   if (!routerInstance) {
-    const mod = await import('../ruvector/q-learning-router.js' as string);
-    routerInstance = mod.createQLearningRouter();
+    try {
+      const mod = await import('../ruvector/q-learning-router.js' as string);
+      routerInstance = mod.createQLearningRouter();
+    } catch {
+      // q-learning-router module not yet implemented
+      return null;
+    }
   }
-  if (!routerInitialized) {
+  if (routerInstance && !routerInitialized) {
     await routerInstance.initialize();
     routerInitialized = true;
   }
@@ -164,6 +169,12 @@ const routeTaskCommand: Command = {
 
       // Use Q-Learning routing
       const router = await getRouter();
+      if (!router) {
+        spinner.fail('Q-Learning router not available');
+        output.printWarning('The Q-Learning router module is not yet implemented.');
+        output.writeln(output.dim('Tip: Use --agent <name> to route manually, or run `monobrain route list-agents` to see available agents.'));
+        return { success: false, exitCode: 1 };
+      }
       const result = router.route(taskDescription, useExploration);
       const agent = getAgentType(result.route) || AGENT_TYPES[0];
 
@@ -320,6 +331,10 @@ const statsCommand: Command = {
 
     try {
       const router = await getRouter();
+      if (!router) {
+        output.writeln(output.warning('Q-Learning router is not available. Install the ruvector module to enable this feature.'));
+        return { success: false, exitCode: 1 };
+      }
       const stats = router.getStats();
       const ruvectorAvailable = await isRuvectorAvailable();
 
@@ -430,6 +445,10 @@ const feedbackCommand: Command = {
 
     try {
       const router = await getRouter();
+      if (!router) {
+        output.writeln(output.warning('Q-Learning router is not available. Install the ruvector module to enable this feature.'));
+        return { success: false, exitCode: 1 };
+      }
       const clampedReward = Math.max(-1, Math.min(1, reward));
       const tdError = router.update(taskDescription, agentId, clampedReward, nextTask);
 
@@ -482,6 +501,10 @@ const resetCommand: Command = {
 
     try {
       const router = await getRouter();
+      if (!router) {
+        output.writeln(output.warning('Q-Learning router is not available. Install the ruvector module to enable this feature.'));
+        return { success: false, exitCode: 1 };
+      }
       router.reset();
       output.printSuccess('Q-Learning router state has been reset');
       return { success: true };
@@ -516,6 +539,10 @@ const exportCommand: Command = {
 
     try {
       const router = await getRouter();
+      if (!router) {
+        output.writeln(output.warning('Q-Learning router is not available. Install the ruvector module to enable this feature.'));
+        return { success: false, exitCode: 1 };
+      }
       const data = router.export();
 
       if (filePath) {
@@ -563,6 +590,10 @@ const importCommand: Command = {
       const data = JSON.parse(content);
 
       const router = await getRouter();
+      if (!router) {
+        output.writeln(output.warning('Q-Learning router is not available. Install the ruvector module to enable this feature.'));
+        return { success: false, exitCode: 1 };
+      }
       router.import(data);
 
       output.printSuccess(`Q-table imported from ${filePath}`);
@@ -638,7 +669,15 @@ const coverageRouteCommand: Command = {
 
     try {
       // Lazy load coverage router
-      const { coverageRoute, coverageSuggest, coverageGaps } = await import('../ruvector/coverage-router.js' as string);
+      let coverageModule: any;
+      try {
+        coverageModule = await import('../ruvector/coverage-router.js' as string);
+      } catch {
+        spinner.fail('Coverage router not available');
+        output.printWarning('The coverage router module is not yet implemented.');
+        return { success: false, exitCode: 1 };
+      }
+      const { coverageRoute, coverageSuggest, coverageGaps } = coverageModule;
 
       if (gapsMode) {
         // List coverage gaps with agent assignments

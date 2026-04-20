@@ -810,8 +810,6 @@ Add to your Claude settings (`~/.claude/settings.json`):
 ## Related Packages
 
 - [@monobrain/shared](../shared) - Shared utilities and types
-- [@monobrain/neural](../neural) - Neural network and SONA learning
-- [@monobrain/swarm](../swarm) - Multi-agent coordination
 - [@monobrain/memory](../memory) - AgentDB memory system
 
 ## License

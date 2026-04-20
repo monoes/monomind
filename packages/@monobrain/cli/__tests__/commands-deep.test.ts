@@ -1408,13 +1408,9 @@ describe('Init System', () => {
       expect(comps.claudeMd).toBe(true);
     });
 
-    it('should have dualMode skills enabled', () => {
-      expect(FULL_INIT_OPTIONS.skills.dualMode).toBe(true);
-    });
-
     it('should have all MCP servers enabled', () => {
       expect(FULL_INIT_OPTIONS.mcp.monobrain).toBe(true);
-      expect(FULL_INIT_OPTIONS.mcp.ruvSwarm).toBe(true);
+      expect(FULL_INIT_OPTIONS.mcp.graphify).toBe(true);
     });
   });
 

@@ -318,7 +318,7 @@ import type {
 
 ## Self-Learning Bridge (ADR-049)
 
-Connects insights to the `@monobrain/neural` learning pipeline. When neural is unavailable, all operations degrade to no-ops.
+Connects insights to an optional neural learning pipeline. The `@monobrain/neural` package was removed; all neural operations gracefully degrade to no-ops when unavailable.
 
 ### Quick Start
 
@@ -353,11 +353,9 @@ await bridge.syncToAutoMemory(); // Calls consolidate() first
 import { LearningBridge } from '@monobrain/memory';
 
 const lb = new LearningBridge(backend, {
-  // Optional: inject neural loader for custom setups
-  neuralLoader: async () => {
-    const { NeuralLearningSystem } = await import('@monobrain/neural');
-    return new NeuralLearningSystem();
-  },
+  // Optional: inject a custom neural loader (the @monobrain/neural package was removed;
+  // without a loader the bridge degrades to no-ops automatically)
+  // neuralLoader: async () => { return myCustomNeuralSystem(); },
 });
 
 // Boost confidence when insight is accessed

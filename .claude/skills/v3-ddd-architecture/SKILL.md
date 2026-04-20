@@ -1,13 +1,13 @@
 ---
-name: "v1 DDD Architecture"
-description: "Domain-Driven Design architecture for monobrain v1. Implements modular, bounded context architecture with clean separation of concerns and microkernel pattern."
+name: "DDD Architecture"
+description: "Domain-Driven Design architecture for monobrain. Implements modular, bounded context architecture with clean separation of concerns and microkernel pattern."
 ---
 
 # DDD Architecture
 
 ## What This Skill Does
 
-Designs and implements Domain-Driven Design (DDD) architecture for monobrain v1, decomposing god objects into bounded contexts, implementing clean architecture patterns, and enabling modular, testable code structure.
+Designs and implements Domain-Driven Design (DDD) architecture for monobrain, decomposing god objects into bounded contexts, implementing clean architecture patterns, and enabling modular, testable code structure.
 
 ## Quick Start
 
@@ -425,12 +425,12 @@ describe("Task Entity", () => {
 - [ ] **Event-Driven Communication**: Loose coupling between domains
 - [ ] **Test Coverage**: >90% domain logic coverage
 
-## Related v1 Skills
+## Related Skills
 
-- `v1-core-implementation` - Implementation of DDD domains
-- `v1-memory-unification` - AgentDB integration within bounded contexts
-- `v1-swarm-coordination` - Swarm coordination as domain plugin
-- `v1-performance-optimization` - Performance optimization across domains
+- `v3-core-implementation` - Implementation of DDD domains
+- `v3-memory-unification` - AgentDB integration within bounded contexts
+- `v3-swarm-coordination` - Swarm coordination as domain plugin
+- `v3-performance-optimization` - Performance optimization across domains
 
 ## Usage Examples
 

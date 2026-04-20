@@ -43,9 +43,11 @@ const SKILLS_MAP: Record<string, string[]> = {
     'stream-chain',
     'skill-builder',
     'specialagent',
+    'agentic-jujutsu',
+    'hive-mind-advanced',
+    'performance-analysis',
   ],
-  browser: ['browser', 'agent-browser-testing'],  // agent-browser integration
-  dualMode: ['dual-mode'],  // Claude Code + Codex hybrid execution
+  browser: ['agent-browser-testing'],  // agent-browser integration
   agentdb: [
     'agentdb-advanced',
     'agentdb-learning',
@@ -55,23 +57,17 @@ const SKILLS_MAP: Record<string, string[]> = {
     'reasoningbank-agentdb',
     'reasoningbank-intelligence',
   ],
-  github: [
-    'github-code-review',
-    'github-multi-repo',
-    'github-project-management',
-    'github-release-management',
-    'github-workflow-automation',
-  ],
+  github: [],
   v1: [
-    'v1-cli-modernization',
-    'v1-core-implementation',
-    'v1-ddd-architecture',
-    'v1-integration-deep',
-    'v1-mcp-optimization',
-    'v1-memory-unification',
-    'v1-performance-optimization',
-    'v1-security-overhaul',
-    'v1-swarm-coordination',
+    'v3-cli-modernization',
+    'v3-core-implementation',
+    'v3-ddd-architecture',
+    'v3-integration-deep',
+    'v3-mcp-optimization',
+    'v3-memory-unification',
+    'v3-performance-optimization',
+    'v3-security-overhaul',
+    'v3-swarm-coordination',
   ],
 };
 
@@ -79,7 +75,7 @@ const SKILLS_MAP: Record<string, string[]> = {
  * Commands to copy based on configuration
  */
 const COMMANDS_MAP: Record<string, string[]> = {
-  core: ['monobrain-help.md', 'monobrain-swarm.md', 'monobrain-memory.md'],
+  core: ['monobrain-help.md', 'monobrain-swarm.md'],
   analysis: ['analysis'],
   automation: ['automation'],
   github: ['github'],
@@ -103,17 +99,10 @@ const AGENTS_MAP: Record<string, string[]> = {
   optimization: ['optimization'],
   templates: ['templates'],
   testing: ['testing'],
-  analysis: ['analysis'],
   architecture: ['architecture'],
-  development: ['development'],
-  devops: ['devops'],
-  documentation: ['documentation'],
   specialized: ['specialized'],
   goal: ['goal'],
-  sona: ['sona'],
-  payments: ['payments'],
-  data: ['data'],
-  custom: ['custom'],
+  engineering: ['engineering'],
 };
 
 /**
@@ -952,7 +941,6 @@ async function copySkills(
     if (skillsConfig.github) skillsToCopy.push(...SKILLS_MAP.github);
     if (skillsConfig.browser) skillsToCopy.push(...SKILLS_MAP.browser);
     if (skillsConfig.v1) skillsToCopy.push(...SKILLS_MAP.v1);
-    if (skillsConfig.dualMode) skillsToCopy.push(...SKILLS_MAP.dualMode);
   }
 
   // Find source skills directory
@@ -1057,13 +1045,11 @@ async function copyAgents(
     if (agentsConfig.hiveMind) agentsToCopy.push(...AGENTS_MAP.hiveMind);
     if (agentsConfig.sparc) agentsToCopy.push(...AGENTS_MAP.sparc);
     if (agentsConfig.swarm) agentsToCopy.push(...AGENTS_MAP.swarm);
-    if (agentsConfig.browser) agentsToCopy.push(...AGENTS_MAP.browser);
     // V1-specific agent categories
     if (agentsConfig.v1) agentsToCopy.push(...(AGENTS_MAP.v1 || []));
     if (agentsConfig.optimization) agentsToCopy.push(...(AGENTS_MAP.optimization || []));
     if (agentsConfig.testing) agentsToCopy.push(...(AGENTS_MAP.testing || []));
-    // Dual-mode agents (Claude Code + Codex hybrid)
-    if (agentsConfig.dualMode) agentsToCopy.push(...(AGENTS_MAP.dualMode || []));
+    if (agentsConfig.engineering) agentsToCopy.push(...(AGENTS_MAP.engineering || []));
   }
 
   // Find source agents directory

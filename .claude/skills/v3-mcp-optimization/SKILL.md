@@ -1,13 +1,13 @@
 ---
-name: "v1 MCP Optimization"
-description: "MCP server optimization and transport layer enhancement for monobrain v1. Implements connection pooling, load balancing, tool registry optimization, and performance monitoring for sub-100ms response times."
+name: "MCP Optimization"
+description: "MCP server optimization and transport layer enhancement for monobrain. Implements connection pooling, load balancing, tool registry optimization, and performance monitoring for sub-100ms response times."
 ---
 
 # MCP Optimization
 
 ## What This Skill Does
 
-Optimizes monobrain v1 MCP (Model Context Protocol) server implementation with advanced transport layer optimizations, connection pooling, load balancing, and comprehensive performance monitoring to achieve sub-100ms response times.
+Optimizes monobrain MCP (Model Context Protocol) server implementation with advanced transport layer optimizations, connection pooling, load balancing, and comprehensive performance monitoring to achieve sub-100ms response times.
 
 ## Quick Start
 
@@ -788,12 +788,12 @@ const mcpDashboard = {
 };
 ```
 
-## Related v1 Skills
+## Related Skills
 
-- `v1-core-implementation` - Core domain integration with MCP
-- `v1-performance-optimization` - Overall performance optimization
-- `v1-swarm-coordination` - MCP integration with swarm coordination
-- `v1-memory-unification` - Memory sharing via MCP tools
+- `v3-core-implementation` - Core domain integration with MCP
+- `v3-performance-optimization` - Overall performance optimization
+- `v3-swarm-coordination` - MCP integration with swarm coordination
+- `v3-memory-unification` - Memory sharing via MCP tools
 
 ## Usage Examples
 

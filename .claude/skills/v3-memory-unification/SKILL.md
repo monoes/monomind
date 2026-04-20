@@ -1,5 +1,5 @@
 ---
-name: "v1 Memory Unification"
+name: "Memory Unification"
 description: "Unify 6+ memory systems into AgentDB with HNSW indexing for 150x-12,500x search improvements. Implements ADR-006 (Unified Memory Service) and ADR-009 (Hybrid Memory Backend)."
 ---
 
@@ -13,13 +13,13 @@ Consolidates disparate memory systems into unified AgentDB backend with HNSW vec
 
 ```bash
 # Initialize memory unification
-Task("Memory architecture", "Design AgentDB unification strategy", "v1-memory-specialist")
+Task("Memory architecture", "Design AgentDB unification strategy", "memory-specialist")
 
 # AgentDB integration
-Task("AgentDB setup", "Configure HNSW indexing and vector search", "v1-memory-specialist")
+Task("AgentDB setup", "Configure HNSW indexing and vector search", "memory-specialist")
 
 # Data migration
-Task("Memory migration", "Migrate SQLite/Markdown to AgentDB", "v1-memory-specialist")
+Task("Memory migration", "Migrate SQLite/Markdown to AgentDB", "memory-specialist")
 ```
 
 ## Systems to Unify

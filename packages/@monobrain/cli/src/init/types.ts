@@ -80,8 +80,6 @@ export interface SkillsConfig {
   browser: boolean;
   /** Include V1 implementation skills */
   v1: boolean;
-  /** Include dual-mode skills (Claude Code + Codex hybrid) */
-  dualMode: boolean;
   /** Include all available skills */
   all: boolean;
 }
@@ -126,16 +124,14 @@ export interface AgentsConfig {
   sparc: boolean;
   /** Include swarm coordinators */
   swarm: boolean;
-  /** Include browser automation agents (agent-browser) */
-  browser: boolean;
   /** Include V1-specific agents (security, memory, performance, etc.) */
   v1: boolean;
   /** Include optimization agents */
   optimization: boolean;
   /** Include testing agents */
   testing: boolean;
-  /** Include dual-mode agents (Claude Code + Codex hybrid) */
-  dualMode: boolean;
+  /** Include engineering agents (backend, frontend, DevOps, etc.) */
+  engineering: boolean;
   /** Include all agents */
   all: boolean;
 }
@@ -166,8 +162,6 @@ export interface StatuslineConfig {
 export interface MCPConfig {
   /** Include monobrain MCP server */
   monobrain: boolean;
-  /** Include ruv-swarm MCP server */
-  ruvSwarm: boolean;
   /** Include graphify knowledge graph MCP server */
   graphify: boolean;
   /** Auto-start MCP server */
@@ -350,7 +344,6 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     github: true,
     browser: true,
     v1: true,
-    dualMode: false,  // Optional: enable with --dual flag
     all: false,
   },
   commands: {
@@ -371,11 +364,10 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     hiveMind: true,
     sparc: true,
     swarm: true,
-    browser: true,
     v1: true,
     optimization: true,
     testing: true,
-    dualMode: false,  // Optional: enable with --dual flag
+    engineering: true,
     all: true,
   },
   statusline: {
@@ -389,7 +381,6 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
   },
   mcp: {
     monobrain: true,
-    ruvSwarm: false,
     graphify: false,
     autoStart: false,
     port: 3000,
@@ -446,7 +437,6 @@ export const MINIMAL_INIT_OPTIONS: InitOptions = {
     github: false,
     browser: false,
     v1: false,
-    dualMode: false,
     all: false,
   },
   agents: {
@@ -456,11 +446,10 @@ export const MINIMAL_INIT_OPTIONS: InitOptions = {
     hiveMind: false,
     sparc: false,
     swarm: false,
-    browser: false,
     v1: false,
     optimization: false,
     testing: false,
-    dualMode: false,
+    engineering: false,
     all: false,
   },
   runtime: {
@@ -507,7 +496,6 @@ export const FULL_INIT_OPTIONS: InitOptions = {
     github: true,
     browser: true,
     v1: true,
-    dualMode: true,  // Include in full init
     all: true,
   },
   commands: {
@@ -520,8 +508,7 @@ export const FULL_INIT_OPTIONS: InitOptions = {
   },
   mcp: {
     monobrain: true,
-    ruvSwarm: true,
-    graphify: false,
+    graphify: true,
     autoStart: false,
     port: 3000,
   },

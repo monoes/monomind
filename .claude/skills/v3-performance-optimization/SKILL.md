@@ -1,24 +1,24 @@
 ---
-name: "v1 Performance Optimization"
-description: "Achieve aggressive v1 performance targets: 2.49x-7.47x Flash Attention speedup, 150x-12,500x search improvements, 50-75% memory reduction. Comprehensive benchmarking and optimization suite."
+name: "Performance Optimization"
+description: "Achieve aggressive performance targets: 2.49x-7.47x Flash Attention speedup, 150x-12,500x search improvements, 50-75% memory reduction. Comprehensive benchmarking and optimization suite."
 ---
 
 # Performance Optimization
 
 ## What This Skill Does
 
-Validates and optimizes monobrain v1 to achieve industry-leading performance through Flash Attention, AgentDB HNSW indexing, and comprehensive system optimization with continuous benchmarking.
+Validates and optimizes monobrain to achieve industry-leading performance through Flash Attention, AgentDB HNSW indexing, and comprehensive system optimization with continuous benchmarking.
 
 ## Quick Start
 
 ```bash
 # Initialize performance optimization
-Task("Performance baseline", "Establish v2 performance benchmarks", "v1-performance-engineer")
+Task("Performance baseline", "Establish v2 performance benchmarks", "performance-engineer")
 
 # Target validation (parallel)
-Task("Flash Attention", "Validate 2.49x-7.47x speedup target", "v1-performance-engineer")
-Task("Search optimization", "Validate 150x-12,500x search improvement", "v1-performance-engineer")
-Task("Memory optimization", "Achieve 50-75% memory reduction", "v1-performance-engineer")
+Task("Flash Attention", "Validate 2.49x-7.47x speedup target", "performance-engineer")
+Task("Search optimization", "Validate 150x-12,500x search improvement", "performance-engineer")
+Task("Memory optimization", "Achieve 50-75% memory reduction", "performance-engineer")
 ```
 
 ## Performance Target Matrix
@@ -383,12 +383,12 @@ class PerformanceGates {
 - [ ] **Trend Analysis**: Performance evolution tracking
 - [ ] **Alert System**: Immediate regression notification
 
-## Related v1 Skills
+## Related Skills
 
-- `v1-integration-deep` - Performance integration with monobrain
-- `v1-memory-unification` - Memory performance optimization
-- `v1-swarm-coordination` - Swarm performance coordination
-- `v1-security-overhaul` - Secure performance patterns
+- `v3-integration-deep` - Performance integration with monobrain
+- `v3-memory-unification` - Memory performance optimization
+- `v3-swarm-coordination` - Swarm performance coordination
+- `v3-security-overhaul` - Secure performance patterns
 
 ## Usage Examples
 

@@ -49,13 +49,13 @@ This creates:
 
 ```bash
 # Pre-task hook (auto-spawns agents)
-npx monobrain hook pre-task --description "Implement authentication"
+npx monobrain hooks pre-task --description "Implement authentication"
 
 # Post-edit hook (auto-formats and stores in memory)
-npx monobrain hook post-edit --file "src/auth.js" --memory-key "auth/login"
+npx monobrain hooks post-edit --file "src/auth.js" --memory-key "auth/login"
 
 # Session end hook (saves state and metrics)
-npx monobrain hook session-end --session-id "dev-session" --export-metrics
+npx monobrain hooks session-end --session-id "dev-session" --export-metrics
 ```
 
 ---
@@ -70,7 +70,7 @@ Hooks that execute BEFORE operations to prepare and validate:
 
 **pre-edit** - Validate and assign agents before file modifications
 ```bash
-npx monobrain hook pre-edit [options]
+npx monobrain hooks pre-edit [options]
 
 Options:
   --file, -f <path>         File path to be edited
@@ -80,9 +80,9 @@ Options:
   --backup-file             Create backup before editing
 
 Examples:
-  npx monobrain hook pre-edit --file "src/auth/login.js"
-  npx monobrain hook pre-edit -f "config/db.js" --validate-syntax
-  npx monobrain hook pre-edit -f "production.env" --backup-file --check-conflicts
+  npx monobrain hooks pre-edit --file "src/auth/login.js"
+  npx monobrain hooks pre-edit -f "config/db.js" --validate-syntax
+  npx monobrain hooks pre-edit -f "production.env" --backup-file --check-conflicts
 ```
 
 **Features:**
@@ -93,7 +93,7 @@ Examples:
 
 **pre-bash** - Check command safety and resource requirements
 ```bash
-npx monobrain hook pre-bash --command <cmd>
+npx monobrain hooks pre-bash --command <cmd>
 
 Options:
   --command, -c <cmd>       Command to validate
@@ -102,8 +102,8 @@ Options:
   --require-confirmation    Request user confirmation for risky commands
 
 Examples:
-  npx monobrain hook pre-bash -c "rm -rf /tmp/cache"
-  npx monobrain hook pre-bash --command "docker build ." --estimate-resources
+  npx monobrain hooks pre-bash -c "rm -rf /tmp/cache"
+  npx monobrain hooks pre-bash --command "docker build ." --estimate-resources
 ```
 
 **Features:**
@@ -114,7 +114,7 @@ Examples:
 
 **pre-task** - Auto-spawn agents and prepare for complex tasks
 ```bash
-npx monobrain hook pre-task [options]
+npx monobrain hooks pre-task [options]
 
 Options:
   --description, -d <text>  Task description for context
@@ -124,9 +124,9 @@ Options:
   --estimate-complexity     Analyze task complexity
 
 Examples:
-  npx monobrain hook pre-task --description "Implement user authentication"
-  npx monobrain hook pre-task -d "Continue API dev" --load-memory
-  npx monobrain hook pre-task -d "Refactor codebase" --optimize-topology
+  npx monobrain hooks pre-task --description "Implement user authentication"
+  npx monobrain hooks pre-task -d "Continue API dev" --load-memory
+  npx monobrain hooks pre-task -d "Refactor codebase" --optimize-topology
 ```
 
 **Features:**
@@ -135,23 +135,10 @@ Examples:
 - Topology optimization for task structure
 - Complexity estimation and time prediction
 
-**pre-search** - Prepare and optimize search operations
-```bash
-npx monobrain hook pre-search --query <query>
-
-Options:
-  --query, -q <text>        Search query
-  --check-cache             Check cache first (default: true)
-  --optimize-query          Optimize search pattern
-
-Examples:
-  npx monobrain hook pre-search -q "authentication middleware"
+**pre-search** - NOT YET IMPLEMENTED
 ```
-
-**Features:**
-- Cache checking for faster results
-- Query optimization
-- Search pattern improvement
+This hook subcommand is planned but not yet available in the CLI.
+```
 
 #### Post-Operation Hooks
 
@@ -159,7 +146,7 @@ Hooks that execute AFTER operations to process and learn:
 
 **post-edit** - Auto-format, validate, and update memory
 ```bash
-npx monobrain hook post-edit [options]
+npx monobrain hooks post-edit [options]
 
 Options:
   --file, -f <path>         File path that was edited
@@ -169,9 +156,9 @@ Options:
   --validate-output         Validate edited file
 
 Examples:
-  npx monobrain hook post-edit --file "src/components/Button.jsx"
-  npx monobrain hook post-edit -f "api/auth.js" --memory-key "auth/login"
-  npx monobrain hook post-edit -f "utils/helpers.ts" --train-patterns
+  npx monobrain hooks post-edit --file "src/components/Button.jsx"
+  npx monobrain hooks post-edit -f "api/auth.js" --memory-key "auth/login"
+  npx monobrain hooks post-edit -f "utils/helpers.ts" --train-patterns
 ```
 
 **Features:**
@@ -182,7 +169,7 @@ Examples:
 
 **post-bash** - Log execution and update metrics
 ```bash
-npx monobrain hook post-bash --command <cmd>
+npx monobrain hooks post-bash --command <cmd>
 
 Options:
   --command, -c <cmd>       Command that was executed
@@ -191,7 +178,7 @@ Options:
   --store-result            Store result in memory
 
 Examples:
-  npx monobrain hook post-bash -c "npm test" --update-metrics
+  npx monobrain hooks post-bash -c "npm test" --update-metrics
 ```
 
 **Features:**
@@ -202,7 +189,7 @@ Examples:
 
 **post-task** - Performance analysis and decision storage
 ```bash
-npx monobrain hook post-task [options]
+npx monobrain hooks post-task [options]
 
 Options:
   --task-id, -t <id>        Task identifier for tracking
@@ -212,9 +199,9 @@ Options:
   --generate-report         Create task completion report
 
 Examples:
-  npx monobrain hook post-task --task-id "auth-implementation"
-  npx monobrain hook post-task -t "api-refactor" --analyze-performance
-  npx monobrain hook post-task -t "bug-fix-123" --store-decisions
+  npx monobrain hooks post-task --task-id "auth-implementation"
+  npx monobrain hooks post-task -t "api-refactor" --analyze-performance
+  npx monobrain hooks post-task -t "bug-fix-123" --store-decisions
 ```
 
 **Features:**
@@ -223,67 +210,37 @@ Examples:
 - Neural learning pattern export
 - Completion report generation
 
-**post-search** - Cache results and improve patterns
-```bash
-npx monobrain hook post-search --query <query> --results <path>
-
-Options:
-  --query, -q <text>        Original search query
-  --results, -r <path>      Results file path
-  --cache-results           Cache for future use (default: true)
-  --train-patterns          Improve search patterns
-
-Examples:
-  npx monobrain hook post-search -q "auth" -r "results.json" --train-patterns
+**post-search** - NOT YET IMPLEMENTED
 ```
-
-**Features:**
-- Result caching for faster subsequent searches
-- Search pattern improvement
-- Relevance scoring
+This hook subcommand is planned but not yet available in the CLI.
+```
 
 #### MCP Integration Hooks
 
 Hooks that coordinate with MCP swarm tools:
 
-**mcp-initialized** - Persist swarm configuration
-```bash
-npx monobrain hook mcp-initialized --swarm-id <id>
-
-Features:
-- Save swarm topology and configuration
-- Store agent roster in memory
-- Initialize coordination namespace
+**mcp-initialized** - NOT YET IMPLEMENTED
+```
+This hook subcommand is planned but not yet available in the CLI.
+Use `npx monobrain swarm init` and `npx monobrain swarm status` for swarm configuration.
 ```
 
-**agent-spawned** - Update agent roster and memory
-```bash
-npx monobrain hook agent-spawned --agent-id <id> --type <type>
-
-Features:
-- Register agent in coordination memory
-- Update agent roster
-- Initialize agent-specific memory namespace
+**agent-spawned** - NOT YET IMPLEMENTED
+```
+This hook subcommand is planned but not yet available in the CLI.
+Use `npx monobrain agent spawn` and `npx monobrain agent status` for agent management.
 ```
 
-**task-orchestrated** - Monitor task progress
-```bash
-npx monobrain hook task-orchestrated --task-id <id>
-
-Features:
-- Track task progress through memory
-- Monitor agent assignments
-- Update coordination state
+**task-orchestrated** - NOT YET IMPLEMENTED
+```
+This hook subcommand is planned but not yet available in the CLI.
+Use `npx monobrain swarm status` to monitor task progress.
 ```
 
-**neural-trained** - Save pattern improvements
-```bash
-npx monobrain hook neural-trained --pattern <name>
-
-Features:
-- Export trained neural patterns
-- Update coordination models
-- Share learning across agents
+**neural-trained** - NOT YET IMPLEMENTED
+```
+This hook subcommand is planned but not yet available in the CLI.
+Use `npx monobrain neural train` for neural pattern training.
 ```
 
 #### Memory Coordination Hooks
@@ -306,22 +263,17 @@ Features:
 - Track usage statistics
 ```
 
-**memory-sync** - Synchronize memory across swarm agents
-```bash
-npx monobrain hook memory-sync --namespace <ns>
-
-Features:
-- Sync memory state across agents
-- Resolve conflicts
-- Propagate updates
-- Maintain consistency
+**memory-sync** - NOT YET IMPLEMENTED
+```
+This hook subcommand is planned but not yet available in the CLI.
+Use `npx monobrain memory search` and `npx monobrain memory store` for memory operations.
 ```
 
 #### Session Hooks
 
 **session-start** - Initialize new session
 ```bash
-npx monobrain hook session-start --session-id <id>
+npx monobrain hooks session-start --session-id <id>
 
 Options:
   --session-id, -s <id>     Session identifier
@@ -337,7 +289,7 @@ Features:
 
 **session-restore** - Load previous session state
 ```bash
-npx monobrain hook session-restore --session-id <id>
+npx monobrain hooks session-restore --session-id <id>
 
 Options:
   --session-id, -s <id>     Session to restore
@@ -345,8 +297,8 @@ Options:
   --restore-agents          Restore agent configurations
 
 Examples:
-  npx monobrain hook session-restore --session-id "swarm-20241019"
-  npx monobrain hook session-restore -s "feature-auth" --restore-memory
+  npx monobrain hooks session-restore --session-id "swarm-20241019"
+  npx monobrain hooks session-restore -s "feature-auth" --restore-memory
 ```
 
 **Features:**
@@ -357,7 +309,7 @@ Examples:
 
 **session-end** - Cleanup and persist session state
 ```bash
-npx monobrain hook session-end [options]
+npx monobrain hooks session-end [options]
 
 Options:
   --session-id, -s <id>     Session identifier to end
@@ -367,9 +319,9 @@ Options:
   --cleanup-temp            Remove temporary files
 
 Examples:
-  npx monobrain hook session-end --session-id "dev-session-2024"
-  npx monobrain hook session-end -s "feature-auth" --export-metrics --generate-summary
-  npx monobrain hook session-end -s "quick-fix" --cleanup-temp
+  npx monobrain hooks session-end --session-id "dev-session-2024"
+  npx monobrain hooks session-end -s "feature-auth" --export-metrics --generate-summary
+  npx monobrain hooks session-end -s "quick-fix" --cleanup-temp
 ```
 
 **Features:**
@@ -380,7 +332,7 @@ Examples:
 
 **notify** - Custom notifications with swarm status
 ```bash
-npx monobrain hook notify --message <msg>
+npx monobrain hooks notify --message <msg>
 
 Options:
   --message, -m <text>      Notification message
@@ -389,8 +341,8 @@ Options:
   --broadcast               Send to all agents
 
 Examples:
-  npx monobrain hook notify -m "Task completed" --level info
-  npx monobrain hook notify -m "Critical error" --level error --broadcast
+  npx monobrain hooks notify -m "Task completed" --level info
+  npx monobrain hooks notify -m "Critical error" --level error --broadcast
 ```
 
 **Features:**
@@ -413,14 +365,14 @@ Edit `.claude/settings.json` to configure hooks:
         "matcher": "^(Write|Edit|MultiEdit)$",
         "hooks": [{
           "type": "command",
-          "command": "npx monobrain hook pre-edit --file '${tool.params.file_path}' --memory-key 'swarm/editor/current'"
+          "command": "npx monobrain hooks pre-edit --file '${tool.params.file_path}' --memory-key 'swarm/editor/current'"
         }]
       },
       {
         "matcher": "^Bash$",
         "hooks": [{
           "type": "command",
-          "command": "npx monobrain hook pre-bash --command '${tool.params.command}'"
+          "command": "npx monobrain hooks pre-bash --command '${tool.params.command}'"
         }]
       }
     ],
@@ -429,14 +381,14 @@ Edit `.claude/settings.json` to configure hooks:
         "matcher": "^(Write|Edit|MultiEdit)$",
         "hooks": [{
           "type": "command",
-          "command": "npx monobrain hook post-edit --file '${tool.params.file_path}' --memory-key 'swarm/editor/complete' --auto-format --train-patterns"
+          "command": "npx monobrain hooks post-edit --file '${tool.params.file_path}' --memory-key 'swarm/editor/complete' --auto-format --train-patterns"
         }]
       },
       {
         "matcher": "^Bash$",
         "hooks": [{
           "type": "command",
-          "command": "npx monobrain hook post-bash --command '${tool.params.command}' --update-metrics"
+          "command": "npx monobrain hooks post-bash --command '${tool.params.command}' --update-metrics"
         }]
       }
     ]
@@ -461,7 +413,7 @@ Complete hook configuration with all features:
         "hooks": [
           {
             "type": "command",
-            "command": "npx monobrain hook pre-edit --file '${tool.params.file_path}' --auto-assign-agent --validate-syntax",
+            "command": "npx monobrain hooks pre-edit --file '${tool.params.file_path}' --auto-assign-agent --validate-syntax",
             "timeout": 3000,
             "continueOnError": true
           }
@@ -472,7 +424,7 @@ Complete hook configuration with all features:
         "hooks": [
           {
             "type": "command",
-            "command": "npx monobrain hook pre-task --description '${tool.params.task}' --auto-spawn-agents --load-memory",
+            "command": "npx monobrain hooks pre-task --description '${tool.params.task}' --auto-spawn-agents --load-memory",
             "async": true
           }
         ]
@@ -482,7 +434,7 @@ Complete hook configuration with all features:
         "hooks": [
           {
             "type": "command",
-            "command": "npx monobrain hook pre-search --query '${tool.params.pattern}' --check-cache"
+            "command": "npx monobrain hooks pre-task --description 'search: ${tool.params.pattern}' --load-memory"
           }
         ]
       }
@@ -494,7 +446,7 @@ Complete hook configuration with all features:
         "hooks": [
           {
             "type": "command",
-            "command": "npx monobrain hook post-edit --file '${tool.params.file_path}' --memory-key 'edits/${tool.params.file_path}' --auto-format --train-patterns",
+            "command": "npx monobrain hooks post-edit --file '${tool.params.file_path}' --memory-key 'edits/${tool.params.file_path}' --auto-format --train-patterns",
             "async": true
           }
         ]
@@ -504,7 +456,7 @@ Complete hook configuration with all features:
         "hooks": [
           {
             "type": "command",
-            "command": "npx monobrain hook post-task --task-id '${result.task_id}' --analyze-performance --store-decisions --export-learnings",
+            "command": "npx monobrain hooks post-task --task-id '${result.task_id}' --analyze-performance --store-decisions --export-learnings",
             "async": true
           }
         ]
@@ -514,7 +466,7 @@ Complete hook configuration with all features:
         "hooks": [
           {
             "type": "command",
-            "command": "npx monobrain hook post-search --query '${tool.params.pattern}' --cache-results --train-patterns"
+            "command": "npx monobrain hooks post-task --task-id 'search-${tool.params.pattern}' --store-decisions"
           }
         ]
       }
@@ -525,7 +477,7 @@ Complete hook configuration with all features:
         "hooks": [
           {
             "type": "command",
-            "command": "npx monobrain hook session-start --session-id '${session.id}' --load-context"
+            "command": "npx monobrain hooks session-start --session-id '${session.id}' --load-context"
           }
         ]
       }
@@ -536,7 +488,7 @@ Complete hook configuration with all features:
         "hooks": [
           {
             "type": "command",
-            "command": "npx monobrain hook session-end --session-id '${session.id}' --export-metrics --generate-summary --cleanup-temp"
+            "command": "npx monobrain hooks session-end --session-id '${session.id}' --export-metrics --generate-summary --cleanup-temp"
           }
         ]
       }
@@ -558,7 +510,7 @@ Add protection for sensitive files:
         "hooks": [
           {
             "type": "command",
-            "command": "npx monobrain hook check-protected --file '${tool.params.file_path}'"
+            "command": "npx monobrain hooks pre-edit --file '${tool.params.file_path}' --check-conflicts"
           }
         ]
       }
@@ -598,7 +550,7 @@ Hooks automatically integrate with MCP tools for coordination:
 
 ```javascript
 // Hook command
-npx monobrain hook pre-task --description "Build REST API"
+npx monobrain hooks pre-task --description "Build REST API"
 
 // Internally calls MCP tools:
 mcp__monobrain__agent_spawn {
@@ -622,7 +574,7 @@ mcp__monobrain__memory_usage {
 
 ```javascript
 // Hook command
-npx monobrain hook post-edit --file "api/auth.js"
+npx monobrain hooks post-edit --file "api/auth.js"
 
 // Internally calls MCP tools:
 mcp__monobrain__memory_usage {
@@ -648,7 +600,7 @@ mcp__monobrain__neural_train {
 
 ```javascript
 // Hook command
-npx monobrain hook session-end --session-id "dev-2024"
+npx monobrain hooks session-end --session-id "dev-2024"
 
 // Internally calls MCP tools:
 mcp__monobrain__memory_persist {
@@ -775,7 +727,7 @@ FILES=$(git diff --cached --name-only --diff-filter=ACM)
 
 for FILE in $FILES; do
   # Run pre-edit hook for validation
-  npx monobrain hook pre-edit --file "$FILE" --validate-syntax
+  npx monobrain hooks pre-edit --file "$FILE" --validate-syntax
 
   if [ $? -ne 0 ]; then
     echo "Validation failed for $FILE"
@@ -783,7 +735,7 @@ for FILE in $FILES; do
   fi
 
   # Run post-edit hook for formatting
-  npx monobrain hook post-edit --file "$FILE" --auto-format
+  npx monobrain hooks post-edit --file "$FILE" --auto-format
 done
 
 # Run tests
@@ -802,7 +754,7 @@ exit $?
 COMMIT_HASH=$(git rev-parse HEAD)
 COMMIT_MSG=$(git log -1 --pretty=%B)
 
-npx monobrain hook notify \
+npx monobrain hooks notify \
   --message "Commit completed: $COMMIT_MSG" \
   --level info \
   --swarm-status
@@ -819,7 +771,7 @@ npx monobrain hook notify \
 npm run test:all
 
 # Run quality checks
-npx monobrain hook session-end \
+npx monobrain hooks session-end \
   --generate-report \
   --export-metrics
 
@@ -843,13 +795,13 @@ How agents use hooks for coordination:
 ```bash
 # Agent 1: Backend Developer
 # STEP 1: Pre-task preparation
-npx monobrain hook pre-task \
+npx monobrain hooks pre-task \
   --description "Implement user authentication API" \
   --auto-spawn-agents \
   --load-memory
 
 # STEP 2: Work begins - pre-edit validation
-npx monobrain hook pre-edit \
+npx monobrain hooks pre-edit \
   --file "api/auth.js" \
   --auto-assign-agent \
   --validate-syntax
@@ -858,20 +810,20 @@ npx monobrain hook pre-edit \
 # ... code changes ...
 
 # STEP 4: Post-edit processing
-npx monobrain hook post-edit \
+npx monobrain hooks post-edit \
   --file "api/auth.js" \
   --memory-key "swarm/backend/auth-api" \
   --auto-format \
   --train-patterns
 
 # STEP 5: Notify coordination system
-npx monobrain hook notify \
+npx monobrain hooks notify \
   --message "Auth API implementation complete" \
   --swarm-status \
   --broadcast
 
 # STEP 6: Task completion
-npx monobrain hook post-task \
+npx monobrain hooks post-task \
   --task-id "auth-api" \
   --analyze-performance \
   --store-decisions \
@@ -881,25 +833,25 @@ npx monobrain hook post-task \
 ```bash
 # Agent 2: Test Engineer (receives notification)
 # STEP 1: Check memory for API details
-npx monobrain hook session-restore \
+npx monobrain hooks session-restore \
   --session-id "swarm-current" \
   --restore-memory
 
 # Memory contains: swarm/backend/auth-api with implementation details
 
 # STEP 2: Generate tests
-npx monobrain hook pre-task \
+npx monobrain hooks pre-task \
   --description "Write tests for auth API" \
   --load-memory
 
 # STEP 3: Create test file
-npx monobrain hook post-edit \
+npx monobrain hooks post-edit \
   --file "api/auth.test.js" \
   --memory-key "swarm/testing/auth-api-tests" \
   --train-patterns
 
 # STEP 4: Share test results
-npx monobrain hook notify \
+npx monobrain hooks notify \
   --message "Auth API tests complete - 100% coverage" \
   --broadcast
 ```
@@ -978,37 +930,37 @@ module.exports = {
 
 ```bash
 # Session start - initialize coordination
-npx monobrain hook session-start --session-id "fullstack-feature"
+npx monobrain hooks session-start --session-id "fullstack-feature"
 
 # Pre-task planning
-npx monobrain hook pre-task \
+npx monobrain hooks pre-task \
   --description "Build user profile feature - frontend + backend + tests" \
   --auto-spawn-agents \
   --optimize-topology
 
 # Backend work
-npx monobrain hook pre-edit --file "api/profile.js"
+npx monobrain hooks pre-edit --file "api/profile.js"
 # ... implement backend ...
-npx monobrain hook post-edit \
+npx monobrain hooks post-edit \
   --file "api/profile.js" \
   --memory-key "profile/backend" \
   --train-patterns
 
 # Frontend work (reads backend details from memory)
-npx monobrain hook pre-edit --file "components/Profile.jsx"
+npx monobrain hooks pre-edit --file "components/Profile.jsx"
 # ... implement frontend ...
-npx monobrain hook post-edit \
+npx monobrain hooks post-edit \
   --file "components/Profile.jsx" \
   --memory-key "profile/frontend" \
   --train-patterns
 
 # Testing (reads both backend and frontend from memory)
-npx monobrain hook pre-task \
+npx monobrain hooks pre-task \
   --description "Test profile feature" \
   --load-memory
 
 # Session end - export everything
-npx monobrain hook session-end \
+npx monobrain hooks session-end \
   --session-id "fullstack-feature" \
   --export-metrics \
   --generate-summary
@@ -1018,39 +970,39 @@ npx monobrain hook session-end \
 
 ```bash
 # Start debugging session
-npx monobrain hook session-start --session-id "debug-memory-leak"
+npx monobrain hooks session-start --session-id "debug-memory-leak"
 
 # Pre-task: analyze issue
-npx monobrain hook pre-task \
+npx monobrain hooks pre-task \
   --description "Debug memory leak in event handlers" \
   --load-memory \
   --estimate-complexity
 
 # Search for event emitters
-npx monobrain hook pre-search --query "EventEmitter"
+npx monobrain hooks pre-search --query "EventEmitter"
 # ... search executes ...
-npx monobrain hook post-search \
+npx monobrain hooks post-search \
   --query "EventEmitter" \
   --cache-results
 
 # Fix the issue
-npx monobrain hook pre-edit \
+npx monobrain hooks pre-edit \
   --file "services/events.js" \
   --backup-file
 # ... fix code ...
-npx monobrain hook post-edit \
+npx monobrain hooks post-edit \
   --file "services/events.js" \
   --memory-key "debug/memory-leak-fix" \
   --validate-output
 
 # Verify fix
-npx monobrain hook post-task \
+npx monobrain hooks post-task \
   --task-id "memory-leak-fix" \
   --analyze-performance \
   --generate-report
 
 # End session
-npx monobrain hook session-end \
+npx monobrain hooks session-end \
   --session-id "debug-memory-leak" \
   --export-metrics
 ```
@@ -1059,27 +1011,27 @@ npx monobrain hook session-end \
 
 ```bash
 # Initialize swarm for refactoring
-npx monobrain hook pre-task \
+npx monobrain hooks pre-task \
   --description "Refactor legacy codebase to modern patterns" \
   --auto-spawn-agents \
   --optimize-topology
 
 # Agent 1: Code Analyzer
-npx monobrain hook pre-task --description "Analyze code complexity"
+npx monobrain hooks pre-task --description "Analyze code complexity"
 # ... analysis ...
-npx monobrain hook post-task \
+npx monobrain hooks post-task \
   --task-id "analysis" \
   --store-decisions
 
 # Agent 2: Refactoring (reads analysis from memory)
-npx monobrain hook session-restore \
+npx monobrain hooks session-restore \
   --session-id "swarm-refactor" \
   --restore-memory
 
 for file in src/**/*.js; do
-  npx monobrain hook pre-edit --file "$file" --backup-file
+  npx monobrain hooks pre-edit --file "$file" --backup-file
   # ... refactor ...
-  npx monobrain hook post-edit \
+  npx monobrain hooks post-edit \
     --file "$file" \
     --memory-key "refactor/$file" \
     --auto-format \
@@ -1087,12 +1039,12 @@ for file in src/**/*.js; do
 done
 
 # Agent 3: Testing (reads refactored code from memory)
-npx monobrain hook pre-task \
+npx monobrain hooks pre-task \
   --description "Generate tests for refactored code" \
   --load-memory
 
 # Broadcast completion
-npx monobrain hook notify \
+npx monobrain hooks notify \
   --message "Refactoring complete - all tests passing" \
   --broadcast
 ```
@@ -1116,13 +1068,13 @@ Enable debug mode for troubleshooting:
 export MONOBRAIN_DEBUG=true
 
 # Test specific hook with verbose output
-npx monobrain hook pre-edit --file "test.js" --debug
+npx monobrain hooks pre-edit --file "test.js" --debug
 
 # Check hook execution logs
 cat .monobrain/logs/hooks-$(date +%Y-%m-%d).log
 
 # Validate configuration
-npx monobrain hook validate-config
+npx monobrain config validate
 ```
 
 ### Benefits
@@ -1183,8 +1135,8 @@ npx monobrain hook validate-config
 ### Related Commands
 
 - `npx monobrain init --hooks` - Initialize hooks system
-- `npx monobrain hook --list` - List available hooks
-- `npx monobrain hook --test <hook>` - Test specific hook
+- `npx monobrain hooks --list` - List available hooks
+- `npx monobrain hooks --test <hook>` - Test specific hook
 - `npx monobrain memory usage` - Manage memory
 - `npx monobrain agent spawn` - Spawn agents
 - `npx monobrain swarm init` - Initialize swarm

@@ -18,23 +18,6 @@ import {
   type InitOptions,
 } from '../init/index.js';
 
-// Codex initialization action
-async function initCodexAction(
-  ctx: CommandContext,
-  options: { codexMode: boolean; dualMode: boolean; force: boolean; minimal: boolean; full: boolean }
-): Promise<CommandResult> {
-  const { force, minimal, full, dualMode } = options;
-
-  output.writeln();
-  output.writeln(output.bold('Initializing Monobrain for OpenAI Codex'));
-  output.writeln();
-
-  // Determine template
-  const template = minimal ? 'minimal' : full ? 'full' : 'default';
-
-  return { success: true, data: null };
-}
-
 // Check if project is already initialized
 function isInitialized(cwd: string): { claude: boolean; monobrain: boolean } {
   const claudePath = path.join(cwd, '.claude', 'settings.json');
@@ -52,14 +35,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const full = ctx.flags.full as boolean;
   const skipClaude = ctx.flags['skip-claude'] as boolean;
   const onlyClaude = ctx.flags['only-claude'] as boolean;
-  const codexMode = ctx.flags.codex as boolean;
-  const dualMode = ctx.flags.dual as boolean;
   const cwd = ctx.cwd;
-
-  // If codex mode, use the Codex initializer
-  if (codexMode || dualMode) {
-    return initCodexAction(ctx, { codexMode, dualMode, force, minimal, full });
-  }
 
   // Check if already initialized
   const initialized = isInitialized(cwd);
@@ -625,7 +601,6 @@ const skillsCommand: Command = {
         github: ctx.flags.github as boolean,
         browser: false,
         v1: ctx.flags.v1 as boolean,
-        dualMode: false,
       },
     };
 
@@ -933,18 +908,6 @@ export const initCommand: Command = {
       default: 'Xenova/all-MiniLM-L6-v2',
       choices: ['Xenova/all-MiniLM-L6-v2', 'Xenova/all-mpnet-base-v2'],
     },
-    {
-      name: 'codex',
-      description: 'Initialize for OpenAI Codex CLI (creates AGENTS.md, .agents/)',
-      type: 'boolean',
-      default: false,
-    },
-    {
-      name: 'dual',
-      description: 'Initialize for both Claude Code and OpenAI Codex',
-      type: 'boolean',
-      default: false,
-    },
   ],
   examples: [
     { command: 'monobrain init', description: 'Initialize with default configuration' },
@@ -963,9 +926,6 @@ export const initCommand: Command = {
     { command: 'monobrain init upgrade', description: 'Update helpers while preserving data' },
     { command: 'monobrain init upgrade --settings', description: 'Update helpers and merge new settings (Agent Teams)' },
     { command: 'monobrain init upgrade --verbose', description: 'Show detailed upgrade info' },
-    { command: 'monobrain init --codex', description: 'Initialize for OpenAI Codex (AGENTS.md)' },
-    { command: 'monobrain init --codex --full', description: 'Codex init with all 137+ skills' },
-    { command: 'monobrain init --dual', description: 'Initialize for both Claude Code and Codex' },
   ],
   action: initAction,
 };

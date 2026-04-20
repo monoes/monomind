@@ -1,19 +1,19 @@
 ---
-name: "v1 Security Overhaul"
-description: "Complete security architecture overhaul for monobrain v1. Addresses critical CVEs (CVE-1, CVE-2, CVE-3) and implements secure-by-default patterns. Use for security-first v1 implementation."
+name: "Security Overhaul"
+description: "Complete security architecture overhaul for monobrain. Addresses critical CVEs (CVE-1, CVE-2, CVE-3) and implements secure-by-default patterns. Use for security-first implementation."
 ---
 
 # Security Overhaul
 
 ## What This Skill Does
 
-Orchestrates comprehensive security overhaul for monobrain v1, addressing critical vulnerabilities and establishing security-first development practices using specialized v1 security agents.
+Orchestrates comprehensive security overhaul for monobrain, addressing critical vulnerabilities and establishing security-first development practices using specialized security agents.
 
 ## Quick Start
 
 ```bash
-# Initialize v1 security domain (parallel)
-Task("Security architecture", "Design v1 threat model and security boundaries", "v1-security-architect")
+# Initialize security domain (parallel)
+Task("Security architecture", "Design threat model and security boundaries", "security-architect")
 Task("CVE remediation", "Fix CVE-1, CVE-2, CVE-3 critical vulnerabilities", "security-auditor")
 Task("Security testing", "Implement TDD London School security framework", "test-architect")
 ```

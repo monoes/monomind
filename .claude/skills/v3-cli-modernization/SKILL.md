@@ -1,13 +1,13 @@
 ---
-name: "v1 CLI Modernization"
-description: "CLI modernization and hooks system enhancement for monobrain v1. Implements interactive prompts, command decomposition, enhanced hooks integration, and intelligent workflow automation."
+name: "CLI Modernization"
+description: "CLI modernization and hooks system enhancement for monobrain. Implements interactive prompts, command decomposition, enhanced hooks integration, and intelligent workflow automation."
 ---
 
 # CLI Modernization
 
 ## What This Skill Does
 
-Modernizes monobrain v1 CLI with interactive prompts, intelligent command decomposition, enhanced hooks integration, performance optimization, and comprehensive workflow automation capabilities.
+Modernizes monobrain CLI with interactive prompts, intelligent command decomposition, enhanced hooks integration, performance optimization, and comprehensive workflow automation capabilities.
 
 ## Quick Start
 
@@ -913,12 +913,12 @@ const cliImprovements = {
 };
 ```
 
-## Related v1 Skills
+## Related Skills
 
-- `v1-core-implementation` - Core domain integration
-- `v1-memory-unification` - Memory-backed command caching
-- `v1-swarm-coordination` - CLI swarm management integration
-- `v1-performance-optimization` - CLI performance monitoring
+- `v3-core-implementation` - Core domain integration
+- `v3-memory-unification` - Memory-backed command caching
+- `v3-swarm-coordination` - CLI swarm management integration
+- `v3-performance-optimization` - CLI performance monitoring
 
 ## Usage Examples
 

@@ -1,13 +1,13 @@
 ---
-name: "v1 Core Implementation"
-description: "Core module implementation for monobrain v1. Implements DDD domains, clean architecture patterns, dependency injection, and modular TypeScript codebase with comprehensive testing."
+name: "Core Implementation"
+description: "Core module implementation for monobrain. Implements DDD domains, clean architecture patterns, dependency injection, and modular TypeScript codebase with comprehensive testing."
 ---
 
 # Core Implementation
 
 ## What This Skill Does
 
-Implements the core TypeScript modules for monobrain v1 following Domain-Driven Design principles, clean architecture patterns, and modern TypeScript best practices with comprehensive test coverage.
+Implements the core TypeScript modules for monobrain following Domain-Driven Design principles, clean architecture patterns, and modern TypeScript best practices with comprehensive test coverage.
 
 ## Quick Start
 
@@ -839,12 +839,12 @@ export class EntityCache<T extends Entity<any>> {
 - [ ] **Memory Efficiency**: <100MB heap usage for core domains
 - [ ] **Plugin Architecture**: Modular domain loading capability
 
-## Related v1 Skills
+## Related Skills
 
-- `v1-ddd-architecture` - DDD architectural design
-- `v1-mcp-optimization` - MCP server integration
-- `v1-memory-unification` - AgentDB repository integration
-- `v1-swarm-coordination` - Swarm domain implementation
+- `v3-ddd-architecture` - DDD architectural design
+- `v3-mcp-optimization` - MCP server integration
+- `v3-memory-unification` - AgentDB repository integration
+- `v3-swarm-coordination` - Swarm domain implementation
 
 ## Usage Examples
 
