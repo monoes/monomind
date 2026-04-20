@@ -208,29 +208,6 @@ export { guidanceCommand } from './guidance.js';
 export { cleanupCommand } from './cleanup.js';
 export { autopilotCommand } from './autopilot.js';
 
-// Lazy-loaded command re-exports (for backwards compatibility, but async-only)
-export async function getConfigCommand() { return loadCommand('config'); }
-export async function getMigrateCommand() { return loadCommand('migrate'); }
-export async function getWorkflowCommand() { return loadCommand('workflow'); }
-export async function getHiveMindCommand() { return loadCommand('hive-mind'); }
-export async function getTaskCommand() { return loadCommand('task'); }
-export async function getSessionCommand() { return loadCommand('session'); }
-export async function getNeuralCommand() { return loadCommand('neural'); }
-export async function getSecurityCommand() { return loadCommand('security'); }
-export async function getPerformanceCommand() { return loadCommand('performance'); }
-export async function getProvidersCommand() { return loadCommand('providers'); }
-export async function getPluginsCommand() { return loadCommand('plugins'); }
-export async function getDeploymentCommand() { return loadCommand('deployment'); }
-export async function getClaimsCommand() { return loadCommand('claims'); }
-export async function getEmbeddingsCommand() { return loadCommand('embeddings'); }
-export async function getCompletionsCommand() { return loadCommand('completions'); }
-export async function getAnalyzeCommand() { return loadCommand('analyze'); }
-export async function getRouteCommand() { return loadCommand('route'); }
-export async function getRuvectorCommand() { return loadCommand('ruvector'); }
-export async function getGuidanceCommand() { return loadCommand('guidance'); }
-export async function getCleanupCommand() { return loadCommand('cleanup'); }
-export async function getAutopilotCommand() { return loadCommand('autopilot'); }
-
 /**
  * Core commands loaded synchronously (available immediately)
  * Advanced commands loaded on-demand for faster startup

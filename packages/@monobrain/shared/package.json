@@ -8,12 +8,7 @@
   "exports": {
     ".": "./dist/index.js",
     "./types": "./dist/types/index.js",
-    "./core": "./dist/core/index.js",
-    "./events": "./dist/events/index.js",
-    "./hooks": "./dist/hooks/index.js",
-    "./mcp": "./dist/mcp/index.js",
-    "./security": "./dist/security/index.js",
-    "./resilience": "./dist/resilience/index.js"
+    "./hooks": "./dist/hooks/index.js"
   },
   "scripts": {
     "test": "vitest run",

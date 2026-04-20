@@ -153,9 +153,6 @@ docs/adr/
 # Removed Windows wrapper files per user request
 hive-mind-prompt-*.txt
 
-# Codex local configuration
-.codex/
-
 # monobrain runtime data
 .monobrain/data/
 .monobrain/logs/

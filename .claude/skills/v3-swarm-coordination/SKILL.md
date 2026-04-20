@@ -1,29 +1,29 @@
 ---
-name: "v1 Swarm Coordination"
-description: "15-agent hierarchical mesh coordination for v1 implementation. Orchestrates parallel execution across security, core, and integration domains following 10 ADRs with 14-week timeline."
+name: "Swarm Coordination"
+description: "15-agent hierarchical mesh coordination for implementation. Orchestrates parallel execution across security, core, and integration domains following 10 ADRs with 14-week timeline."
 ---
 
 # Swarm Coordination
 
 ## What This Skill Does
 
-Orchestrates the complete 15-agent hierarchical mesh swarm for monobrain v1 implementation, coordinating parallel execution across domains while maintaining dependencies and timeline adherence.
+Orchestrates the complete 15-agent hierarchical mesh swarm for monobrain implementation, coordinating parallel execution across domains while maintaining dependencies and timeline adherence.
 
 ## Quick Start
 
 ```bash
-# Initialize 15-agent v1 swarm
-Task("Swarm initialization", "Initialize hierarchical mesh for v1 implementation", "v1-queen-coordinator")
+# Initialize 15-agent swarm
+Task("Swarm initialization", "Initialize hierarchical mesh for implementation", "queen-coordinator")
 
 # Security domain (Phase 1 - Critical priority)
-Task("Security architecture", "Design v1 threat model and security boundaries", "v1-security-architect")
+Task("Security architecture", "Design threat model and security boundaries", "security-architect")
 Task("CVE remediation", "Fix CVE-1, CVE-2, CVE-3 vulnerabilities", "security-auditor")
 Task("Security testing", "Implement TDD security framework", "test-architect")
 
 # Core domain (Phase 2 - Parallel execution)
-Task("Memory unification", "Implement AgentDB 150x improvement", "v1-memory-specialist")
-Task("Integration architecture", "Deep monobrain integration", "v1-integration-architect")
-Task("Performance validation", "Validate 2.49x-7.47x targets", "v1-performance-engineer")
+Task("Memory unification", "Implement AgentDB 150x improvement", "memory-specialist")
+Task("Integration architecture", "Deep monobrain integration", "integration-architect")
+Task("Performance validation", "Validate 2.49x-7.47x targets", "performance-engineer")
 ```
 
 ## 15-Agent Swarm Architecture
@@ -81,7 +81,7 @@ const phase1 = async () => {
     Task(
       "Security architecture",
       "Complete threat model and security boundaries",
-      "v1-security-architect",
+      "security-architect",
     ),
     Task("CVE-1 fix", "Update vulnerable dependencies", "security-implementer"),
     Task("CVE-2 fix", "Replace weak password hashing", "security-implementer"),
@@ -98,7 +98,7 @@ const phase1 = async () => {
       "Design domain boundaries and structure",
       "core-architect",
     ),
-    Task("Type modernization", "Update type system for v1", "core-implementer"),
+    Task("Type modernization", "Update type system", "core-implementer"),
   ]);
 };
 ```
@@ -114,7 +114,7 @@ const phase2 = async () => {
     Task(
       "Memory unification",
       "Implement AgentDB with 150x-12,500x improvement",
-      "v1-memory-specialist",
+      "memory-specialist",
     ),
     Task(
       "Swarm coordination",
@@ -151,7 +151,7 @@ const phase3 = async () => {
     Task(
       "monobrain integration",
       "Eliminate 10,000+ duplicate lines",
-      "v1-integration-architect",
+      "integration-architect",
     ),
     Task(
       "CLI modernization",
@@ -166,7 +166,7 @@ const phase3 = async () => {
     Task(
       "Performance benchmarking",
       "Validate 2.49x-7.47x targets",
-      "v1-performance-engineer",
+      "performance-engineer",
     ),
     Task(
       "Integration testing",
@@ -188,7 +188,7 @@ const phase4 = async () => {
     Task(
       "Performance optimization",
       "Final optimization pass",
-      "v1-performance-engineer",
+      "performance-engineer",
     ),
     Task(
       "Release preparation",
@@ -262,7 +262,7 @@ class DependencyCoordination {
 
 ```typescript
 class GitHubCoordination {
-  async initializev1Milestone(): Promise<void> {
+  async initializeMilestone(): Promise<void> {
     await gh.createMilestone({
       title: "Monobrain V1.0.0 Implementation",
       description: "15-agent swarm implementation of 10 ADRs",
@@ -398,22 +398,22 @@ class SwarmLoadBalancer {
 - [ ] **Code Reduction**: <5,000 lines (vs 15,000+)
 - [ ] **Security**: 90/100 security score achieved
 
-## Related v1 Skills
+## Related Skills
 
-- `v1-security-overhaul` - Security domain coordination
-- `v1-memory-unification` - Memory system coordination
-- `v1-integration-deep` - Integration domain coordination
-- `v1-performance-optimization` - Performance domain coordination
+- `v3-security-overhaul` - Security domain coordination
+- `v3-memory-unification` - Memory system coordination
+- `v3-integration-deep` - Integration domain coordination
+- `v3-performance-optimization` - Performance domain coordination
 
 ## Usage Examples
 
-### Initialize Complete v1 Swarm
+### Initialize Complete Swarm
 
 ```bash
 # Queen Coordinator initializes full swarm
-Task("v1 swarm initialization",
-     "Initialize 15-agent hierarchical mesh for complete v1 implementation",
-     "v1-queen-coordinator")
+Task("swarm initialization",
+     "Initialize 15-agent hierarchical mesh for complete implementation",
+     "queen-coordinator")
 ```
 
 ### Phase-based Execution

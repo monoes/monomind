@@ -1,7 +1,7 @@
 ---
 name: repo-architect
 description: |
-  Repository structure optimization and multi-repo management with ruv-swarm coordination for scalable project architecture and development workflows
+  Repository structure optimization and multi-repo management with monobrain coordination for scalable project architecture and development workflows
 tools: Bash, Read, Write, Edit, LS, Glob, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_repository, mcp__github__fork_repository, mcp__github__search_repositories, mcp__github__push_files, mcp__github__create_or_update_file, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn
 ---
 
@@ -9,7 +9,7 @@ tools: Bash, Read, Write, Edit, LS, Glob, TodoWrite, TodoRead, Task, WebFetch, m
 
 ## Purpose
 
-Repository structure optimization and multi-repo management with ruv-swarm coordination for scalable project architecture and development workflows.
+Repository structure optimization and multi-repo management with monobrain coordination for scalable project architecture and development workflows.
 
 ## Capabilities
 
@@ -32,8 +32,8 @@ mcp__monobrain__agent_spawn { type: "optimizer", name: "Structure Optimizer" }
 mcp__monobrain__agent_spawn { type: "coordinator", name: "Multi-Repo Coordinator" }
 
 // Analyze current repository structure
-LS("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow")
-LS("/workspaces/ruv-FANN/ruv-swarm/npm")
+LS("/workspaces/ruv-FANN/monobrain/monobrain")
+LS("/workspaces/ruv-FANN/monobrain/npm")
 
 // Search for related repositories
 mcp__github__search_repositories {
@@ -50,7 +50,7 @@ mcp__github__search_repositories {
 // Create standardized repository template
 mcp__github__create_repository {
   name: "claude-project-template",
-  description: "Standardized template for Claude Code projects with ruv-swarm integration",
+  description: "Standardized template for Claude Code projects with monobrain integration",
   private: false,
   autoInit: true
 }
@@ -74,16 +74,16 @@ mcp__github__push_files {
       content: JSON.stringify({
         version: "1.0",
         mcp_servers: {
-          "ruv-swarm": {
+          "monobrain": {
             command: "npx",
-            args: ["ruv-swarm", "mcp", "start"],
+            args: ["monobrain@latest", "mcp", "start"],
             stdio: true
           }
         },
         hooks: {
-          pre_task: "npx ruv-swarm hook pre-task",
-          post_edit: "npx ruv-swarm hook post-edit",
-          notification: "npx ruv-swarm hook notification"
+          pre_task: "npx monobrain@latest hook pre-task",
+          post_edit: "npx monobrain@latest hook post-edit",
+          notification: "npx monobrain@latest hook notification"
         }
       }, null, 2)
     },
@@ -96,10 +96,10 @@ mcp__github__push_files {
       content: JSON.stringify({
         name: "claude-project-template",
         version: "1.0.0",
-        description: "Claude Code project with ruv-swarm integration",
+        description: "Claude Code project with monobrain integration",
         engines: { node: ">=20.0.0" },
         dependencies: {
-          "ruv-swarm": "^1.0.11"
+          "monobrain": "^1.0.11"
         }
       }, null, 2)
     },
@@ -109,13 +109,13 @@ mcp__github__push_files {
 
 ## Quick Start
 \`\`\`bash
-npx monobrain init --sparc
+npx monobrain@latest init --sparc
 npm install
-npx monobrain start --ui
+npx monobrain@latest start --ui
 \`\`\`
 
 ## Features
-- 🧠 ruv-swarm integration
+- 🧠 monobrain integration
 - 🎯 SPARC development modes
 - 🔧 GitHub workflow automation
 - 📊 Advanced coordination capabilities
@@ -124,7 +124,7 @@ npx monobrain start --ui
 See CLAUDE.md for complete integration instructions.`
     }
   ],
-  message: "feat: Create standardized Claude project template with ruv-swarm integration"
+  message: "feat: Create standardized Claude project template with monobrain integration"
 }
 ```
 
@@ -132,7 +132,7 @@ See CLAUDE.md for complete integration instructions.`
 
 ```javascript
 // Synchronize structure across related repositories
-const repositories = ["claude-code-flow", "ruv-swarm", "claude-extensions"];
+const repositories = ["monobrain", "monobrain", "claude-extensions"];
 
 // Update common files across repositories
 repositories.forEach((repo) => {
@@ -171,10 +171,10 @@ jobs:
   mcp__monobrain__agent_spawn { type: "coordinator", name: "Multi-Repo Coordinator" }
 
   // Analyze current repository structures
-  LS("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow")
-  LS("/workspaces/ruv-FANN/ruv-swarm/npm")
-  Read("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow/package.json")
-  Read("/workspaces/ruv-FANN/ruv-swarm/npm/package.json")
+  LS("/workspaces/ruv-FANN/monobrain/monobrain")
+  LS("/workspaces/ruv-FANN/monobrain/npm")
+  Read("/workspaces/ruv-FANN/monobrain/monobrain/package.json")
+  Read("/workspaces/ruv-FANN/monobrain/npm/package.json")
 
   // Search for architectural patterns using gh CLI
   ARCH_PATTERNS=$(Bash(`gh search repos "language:javascript template architecture" \
@@ -188,19 +188,19 @@ jobs:
     branch: "architecture/optimization",
     files: [
       {
-        path: "claude-code-flow/claude-code-flow/.github/ISSUE_TEMPLATE/integration.yml",
+        path: "monobrain/monobrain/.github/ISSUE_TEMPLATE/integration.yml",
         content: "[Integration issue template]"
       },
       {
-        path: "claude-code-flow/claude-code-flow/.github/PULL_REQUEST_TEMPLATE.md",
+        path: "monobrain/monobrain/.github/PULL_REQUEST_TEMPLATE.md",
         content: "[Standardized PR template]"
       },
       {
-        path: "claude-code-flow/claude-code-flow/docs/ARCHITECTURE.md",
+        path: "monobrain/monobrain/docs/ARCHITECTURE.md",
         content: "[Architecture documentation]"
       },
       {
-        path: "ruv-swarm/npm/.github/workflows/cross-package-test.yml",
+        path: "monobrain/npm/.github/workflows/cross-package-test.yml",
         content: "[Cross-package testing workflow]"
       }
     ],
@@ -225,11 +225,11 @@ jobs:
 ```
 ruv-FANN/
 ├── packages/
-│   ├── claude-code-flow/
+│   ├── monobrain/
 │   │   ├── src/
 │   │   ├── .claude/
 │   │   └── package.json
-│   ├── ruv-swarm/
+│   ├── monobrain/
 │   │   ├── src/
 │   │   ├── wasm/
 │   │   └── package.json
@@ -280,12 +280,12 @@ ruv-FANN/
 ```javascript
 const integrationPattern = {
   packages: {
-    "claude-code-flow": {
+    "monobrain": {
       role: "orchestration_layer",
-      dependencies: ["ruv-swarm"],
+      dependencies: ["monobrain"],
       provides: ["CLI", "workflows", "commands"],
     },
-    "ruv-swarm": {
+    "monobrain": {
       role: "coordination_engine",
       dependencies: [],
       provides: ["MCP_tools", "neural_networks", "memory"],

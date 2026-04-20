@@ -541,7 +541,7 @@ mcp__monobrain__bottleneck_analyze({
 })
 
 // Security scanning
-mcp__monobrain__security_scan({
+mcp__monobrain__aidefence_scan({
   "target": "application",
   "depth": "comprehensive"
 })

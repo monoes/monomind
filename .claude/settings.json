@@ -182,7 +182,7 @@
     "pr": "\ud83e\udd16 Generated with [monobrain](https://github.com/nokhodian/monobrain)"
   },
   "monobrain": {
-    "version": "3.5.2",
+    "version": "1.5.3",
     "enabled": true,
     "swarm": {
       "topology": "hierarchical-mesh",

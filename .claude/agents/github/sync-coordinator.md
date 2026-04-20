@@ -8,7 +8,7 @@ tools: mcp__github__push_files, mcp__github__create_or_update_file, mcp__github_
 # GitHub Sync Coordinator
 
 ## Purpose
-Multi-package synchronization and version alignment with ruv-swarm coordination for seamless integration between claude-code-flow and ruv-swarm packages through intelligent multi-agent orchestration.
+Multi-package synchronization and version alignment with monobrain coordination for seamless integration between monobrain and monobrain packages through intelligent multi-agent orchestration.
 
 ## Capabilities
 - **Package synchronization** with intelligent dependency resolution
@@ -38,20 +38,20 @@ mcp__monobrain__agent_spawn { type: "coder", name: "Integration Developer" }
 mcp__monobrain__agent_spawn { type: "tester", name: "Validation Engineer" }
 
 // Analyze current package states
-Read("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow/package.json")
-Read("/workspaces/ruv-FANN/ruv-swarm/npm/package.json")
+Read("/workspaces/ruv-FANN/monobrain/monobrain/package.json")
+Read("/workspaces/ruv-FANN/monobrain/npm/package.json")
 
 // Synchronize versions and dependencies using gh CLI
 // First create branch
 Bash("gh api repos/:owner/:repo/git/refs -f ref='refs/heads/sync/package-alignment' -f sha=$(gh api repos/:owner/:repo/git/refs/heads/main --jq '.object.sha')")
 
 // Update file using gh CLI
-Bash(`gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/package.json \
+Bash(`gh api repos/:owner/:repo/contents/monobrain/monobrain/package.json \
   --method PUT \
   -f message="feat: Align Node.js version requirements across packages" \
   -f branch="sync/package-alignment" \
   -f content="$(echo '{ updated package.json with aligned versions }' | base64)" \
-  -f sha="$(gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/package.json?ref=sync/package-alignment --jq '.sha')")`)
+  -f sha="$(gh api repos/:owner/:repo/contents/monobrain/monobrain/package.json?ref=sync/package-alignment --jq '.sha')")`)
 
 ```
 
@@ -59,19 +59,19 @@ Bash(`gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/packa
 ```javascript
 // Synchronize CLAUDE.md files across packages using gh CLI
 // Get file contents
-CLAUDE_CONTENT=$(Bash("gh api repos/:owner/:repo/contents/ruv-swarm/docs/CLAUDE.md --jq '.content' | base64 -d"))
+CLAUDE_CONTENT=$(Bash("gh api repos/:owner/:repo/contents/monobrain/docs/CLAUDE.md --jq '.content' | base64 -d"))
 
-// Update claude-code-flow CLAUDE.md to match using gh CLI
+// Update monobrain CLAUDE.md to match using gh CLI
 // Create or update branch
 Bash("gh api repos/:owner/:repo/git/refs -f ref='refs/heads/sync/documentation' -f sha=$(gh api repos/:owner/:repo/git/refs/heads/main --jq '.object.sha') 2>/dev/null || gh api repos/:owner/:repo/git/refs/heads/sync/documentation --method PATCH -f sha=$(gh api repos/:owner/:repo/git/refs/heads/main --jq '.object.sha')")
 
 // Update file
-Bash(`gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/CLAUDE.md \
+Bash(`gh api repos/:owner/:repo/contents/monobrain/monobrain/CLAUDE.md \
   --method PUT \
-  -f message="docs: Synchronize CLAUDE.md with ruv-swarm integration patterns" \
+  -f message="docs: Synchronize CLAUDE.md with monobrain integration patterns" \
   -f branch="sync/documentation" \
-  -f content="$(echo '# Claude Code Configuration for ruv-swarm\n\n[synchronized content]' | base64)" \
-  -f sha="$(gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/CLAUDE.md?ref=sync/documentation --jq '.sha' 2>/dev/null || echo '')")`)
+  -f content="$(echo '# Claude Code Configuration for monobrain\n\n[synchronized content]' | base64)" \
+  -f sha="$(gh api repos/:owner/:repo/contents/monobrain/monobrain/CLAUDE.md?ref=sync/documentation --jq '.sha' 2>/dev/null || echo '')")`)
 
 ```
 
@@ -84,15 +84,15 @@ mcp__github__push_files {
   branch: "feature/github-commands",
   files: [
     {
-      path: "claude-code-flow/claude-code-flow/.claude/commands/github/github-modes.md",
+      path: "monobrain/monobrain/.claude/commands/github/github-modes.md",
       content: "[GitHub modes documentation]"
     },
     {
-      path: "claude-code-flow/claude-code-flow/.claude/commands/github/pr-manager.md", 
+      path: "monobrain/monobrain/.claude/commands/github/pr-manager.md", 
       content: "[PR manager documentation]"
     },
     {
-      path: "ruv-swarm/npm/src/github-coordinator/claude-hooks.js",
+      path: "monobrain/npm/src/github-coordinator/claude-hooks.js",
       content: "[GitHub coordination hooks]"
     }
   ],
@@ -115,7 +115,7 @@ Bash(`gh pr create \
 
 ### Integration Points
 - Claude-code-flow: GitHub command modes in .claude/commands/github/
-- ruv-swarm: GitHub coordination hooks and utilities
+- monobrain: GitHub coordination hooks and utilities
 - Documentation: Synchronized CLAUDE.md instructions
 
 ### Testing
@@ -125,14 +125,14 @@ Bash(`gh pr create \
 - [x] Cross-package compatibility
 
 ### Swarm Coordination
-This integration uses ruv-swarm agents for:
+This integration uses monobrain agents for:
 - Multi-agent GitHub workflow management
 - Automated testing and validation
 - Progress tracking and coordination
 - Memory-based state management
 
 ---
-🤖 Generated with Claude Code using ruv-swarm coordination`
+🤖 Generated with Claude Code using monobrain coordination`
 }
 ```
 
@@ -150,26 +150,26 @@ This integration uses ruv-swarm agents for:
   mcp__monobrain__agent_spawn { type: "reviewer", name: "Quality Reviewer" }
   
   // Read current state of both packages
-  Read("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow/package.json")
-  Read("/workspaces/ruv-FANN/ruv-swarm/npm/package.json")
-  Read("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow/CLAUDE.md")
-  Read("/workspaces/ruv-FANN/ruv-swarm/docs/CLAUDE.md")
+  Read("/workspaces/ruv-FANN/monobrain/monobrain/package.json")
+  Read("/workspaces/ruv-FANN/monobrain/npm/package.json")
+  Read("/workspaces/ruv-FANN/monobrain/monobrain/CLAUDE.md")
+  Read("/workspaces/ruv-FANN/monobrain/docs/CLAUDE.md")
   
   // Synchronize multiple files simultaneously
   mcp__github__push_files {
     branch: "sync/complete-integration",
     files: [
-      { path: "claude-code-flow/claude-code-flow/package.json", content: "[aligned package.json]" },
-      { path: "claude-code-flow/claude-code-flow/CLAUDE.md", content: "[synchronized CLAUDE.md]" },
-      { path: "claude-code-flow/claude-code-flow/.claude/commands/github/github-modes.md", content: "[GitHub modes]" }
+      { path: "monobrain/monobrain/package.json", content: "[aligned package.json]" },
+      { path: "monobrain/monobrain/CLAUDE.md", content: "[synchronized CLAUDE.md]" },
+      { path: "monobrain/monobrain/.claude/commands/github/github-modes.md", content: "[GitHub modes]" }
     ],
     message: "feat: Complete package synchronization with GitHub integration"
   }
   
   // Run validation tests
-  Bash("cd /workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm install")
-  Bash("cd /workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm test")
-  Bash("cd /workspaces/ruv-FANN/ruv-swarm/npm && npm test")
+  Bash("cd /workspaces/ruv-FANN/monobrain/monobrain && npm install")
+  Bash("cd /workspaces/ruv-FANN/monobrain/monobrain && npm test")
+  Bash("cd /workspaces/ruv-FANN/monobrain/npm && npm test")
   
   // Track synchronization progress
   TodoWrite { todos: [
@@ -204,14 +204,14 @@ const syncStrategy = {
 ```javascript
 // Keep documentation consistent across packages
 const docSyncPattern = {
-  sourceOfTruth: "ruv-swarm/docs/CLAUDE.md",
+  sourceOfTruth: "monobrain/docs/CLAUDE.md",
   targets: [
-    "claude-code-flow/claude-code-flow/CLAUDE.md",
+    "monobrain/monobrain/CLAUDE.md",
     "CLAUDE.md"  // Root level
   ],
   customSections: {
-    "claude-code-flow": "GitHub Commands Integration",
-    "ruv-swarm": "MCP Tools Reference"
+    "monobrain": "GitHub Commands Integration",
+    "monobrain": "MCP Tools Reference"
   }
 }
 ```
@@ -220,7 +220,7 @@ const docSyncPattern = {
 ```javascript
 // Comprehensive testing across synchronized packages
 const testMatrix = {
-  packages: ["claude-code-flow", "ruv-swarm"],
+  packages: ["monobrain", "monobrain"],
   tests: [
     "unit_tests",
     "integration_tests", 

@@ -1,5 +1,7 @@
 # Deleted Concepts — Future Implementation Reference
 
+> **Note (2026-04-20):** This document references `@monobrain/swarm` and `@monobrain/plugins` which were deleted in the Round 12 cleanup. See `docs/tododeleted.md` for details.
+
 Algorithms, systems, and plugins removed during the cleanup (Apr 2026) that had genuine value but zero consumers. Preserved here for future reimplementation.
 
 ---

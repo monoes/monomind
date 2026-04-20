@@ -1,5 +1,5 @@
 ---
-name: "v1 Deep Integration"
+name: "Deep Integration"
 description: "Deep monobrain integration implementing ADR-001. Eliminates 10,000+ duplicate lines by building monobrain as specialized extension rather than parallel implementation."
 ---
 
@@ -13,12 +13,12 @@ Transforms monobrain from parallel implementation to specialized extension of mo
 
 ```bash
 # Initialize deep integration
-Task("Integration architecture", "Design monobrain adapter layer", "v1-integration-architect")
+Task("Integration architecture", "Design monobrain adapter layer", "integration-architect")
 
 # Feature integration (parallel)
-Task("SONA integration", "Integrate 5 SONA learning modes", "v1-integration-architect")
-Task("Flash Attention", "Implement 2.49x-7.47x speedup", "v1-integration-architect")
-Task("AgentDB coordination", "Setup 150x-12,500x search", "v1-integration-architect")
+Task("SONA integration", "Integrate 5 SONA learning modes", "integration-architect")
+Task("Flash Attention", "Implement 2.49x-7.47x speedup", "integration-architect")
+Task("AgentDB coordination", "Setup 150x-12,500x search", "integration-architect")
 ```
 
 ## Code Deduplication Strategy
@@ -250,9 +250,9 @@ class BackwardCompatibility {
 - **SONA**: <0.05ms adaptation time
 - **Integration**: All 213 MCP tools + 19 hook types available
 
-## Related v1 Skills
+## Related Skills
 
-- `v1-memory-unification` - Memory system integration
-- `v1-performance-optimization` - Performance target validation
-- `v1-swarm-coordination` - Swarm system migration
-- `v1-security-overhaul` - Secure integration patterns
+- `v3-memory-unification` - Memory system integration
+- `v3-performance-optimization` - Performance target validation
+- `v3-swarm-coordination` - Swarm system migration
+- `v3-security-overhaul` - Secure integration patterns

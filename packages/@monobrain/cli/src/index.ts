@@ -613,166 +613,17 @@ export class CLI {
 }
 
 // =============================================================================
-// Module Exports
+// Module Exports — slim public API surface (~10-15 exports)
 // =============================================================================
 
-// Types
+// Types (harmless, useful for TypeScript consumers)
 export * from './types.js';
 
-// Parser
+// Parser (useful for plugin authors)
 export { CommandParser, commandParser } from './parser.js';
 
-// Output
+// Output (useful for plugin authors)
 export { OutputFormatter, output, Progress, Spinner, type VerbosityLevel } from './output.js';
-
-// Prompt
-export * from './prompt.js';
-
-// Commands (internal use)
-export * from './commands/index.js';
-
-// MCP Server management
-export {
-  MCPServerManager,
-  createMCPServerManager,
-  getServerManager,
-  startMCPServer,
-  stopMCPServer,
-  getMCPServerStatus,
-  type MCPServerOptions,
-  type MCPServerStatus,
-} from './mcp-server.js';
-
-// Memory & Intelligence (V1 Performance Features)
-export {
-  initializeMemoryDatabase,
-  generateEmbedding,
-  generateBatchEmbeddings,
-  storeEntry,
-  searchEntries,
-  getHNSWIndex,
-  addToHNSWIndex,
-  searchHNSWIndex,
-  getHNSWStatus,
-  clearHNSWIndex,
-  quantizeInt8,
-  dequantizeInt8,
-  quantizedCosineSim,
-  getQuantizationStats,
-  // Flash Attention-style batch operations
-  batchCosineSim,
-  softmaxAttention,
-  topKIndices,
-  flashAttentionSearch,
-  type MemoryInitResult,
-} from './memory/memory-initializer.js';
-
-export {
-  initializeIntelligence,
-  recordStep,
-  recordTrajectory,
-  findSimilarPatterns,
-  getIntelligenceStats,
-  getSonaCoordinator,
-  getReasoningBank,
-  clearIntelligence,
-  benchmarkAdaptation,
-  // RL loop API
-  endTrajectoryWithVerdict,
-  distillLearning,
-  // Pattern persistence API
-  getAllPatterns,
-  getPatternsByType,
-  flushPatterns,
-  deletePattern,
-  clearAllPatterns,
-  getNeuralDataDir,
-  getPersistenceStatus,
-  type SonaConfig,
-  type TrajectoryStep,
-  type Pattern,
-  type IntelligenceStats,
-} from './memory/intelligence.js';
-
-// EWC++ Consolidation (Prevents Catastrophic Forgetting)
-export {
-  EWCConsolidator,
-  getEWCConsolidator,
-  resetEWCConsolidator,
-  consolidatePatterns,
-  recordPatternOutcome,
-  getEWCStats,
-  type PatternWeights,
-  type EWCConfig,
-  type ConsolidationResult,
-  type EWCStats,
-} from './memory/ewc-consolidation.js';
-
-// SONA Optimizer (Adaptive Routing via Trajectory Learning)
-export {
-  SONAOptimizer,
-  getSONAOptimizer,
-  resetSONAOptimizer,
-  processTrajectory,
-  getSuggestion,
-  getSONAStats,
-  type TrajectoryOutcome,
-  type LearnedPattern,
-  type RoutingSuggestion,
-  type SONAStats,
-} from './memory/sona-optimizer.js';
-
-// Production Hardening
-export {
-  ErrorHandler,
-  withErrorHandling,
-} from './production/error-handler.js';
-export type {
-  ErrorContext,
-  ErrorHandlerConfig,
-} from './production/error-handler.js';
-
-export {
-  RateLimiter,
-  createRateLimiter,
-} from './production/rate-limiter.js';
-export type {
-  RateLimiterConfig,
-  RateLimitResult,
-} from './production/rate-limiter.js';
-
-export {
-  withRetry,
-  makeRetryable,
-} from './production/retry.js';
-export type {
-  RetryConfig,
-  RetryResult,
-  RetryStrategy,
-} from './production/retry.js';
-
-export {
-  CircuitBreaker,
-  getCircuitBreaker,
-  getAllCircuitStats,
-  resetAllCircuits,
-} from './production/circuit-breaker.js';
-export type {
-  CircuitBreakerConfig,
-  CircuitState,
-} from './production/circuit-breaker.js';
-
-export {
-  MonitoringHooks,
-  createMonitor,
-  getMonitor,
-} from './production/monitoring.js';
-export type {
-  MonitorConfig,
-  MetricEvent,
-  HealthStatus,
-  PerformanceMetrics,
-} from './production/monitoring.js';
 
 // Default export
 export default CLI;

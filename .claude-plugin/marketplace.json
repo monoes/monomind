@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Enterprise AI agent orchestration marketplace for Claude Code",
-    "version": "2.5.0",
+    "version": "1.5.3",
     "homepage": "https://github.com/nokhodian/monobrain",
     "repository": "https://github.com/nokhodian/monobrain"
   },
@@ -14,8 +14,8 @@
     {
       "name": "monobrain",
       "source": "./",
-      "description": "Enterprise AI agent orchestration plugin with 150+ commands, 74+ specialized agents, SPARC methodology, swarm coordination, GitHub integration, and neural training capabilities",
-      "version": "2.5.0",
+      "description": "Enterprise AI agent orchestration plugin with 35 commands with 140+ subcommands, 74+ specialized agents, SPARC methodology, swarm coordination, GitHub integration, and neural training capabilities",
+      "version": "1.5.3",
       "author": {
         "name": "nokhodian",
         "email": "nokhodian@gmail.com"
@@ -56,7 +56,7 @@
         "enterprise"
       ],
       "features": [
-        "150+ slash commands across 19 categories",
+        "35 commands with 140+ subcommands",
         "74+ specialized AI agents",
         "Multi-agent swarm coordination (Hierarchical, Mesh, Ring, Star)",
         "SPARC methodology integration (18 development modes)",
