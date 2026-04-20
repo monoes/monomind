@@ -1,3 +1,5 @@
+> **Note:** memory-palace.cjs was removed in Round 3 cleanup. See docs/tododeleted.md.
+
 # Memory Palace Integration
 
 Monobrain integrates the memory architecture from [MemPalace](https://github.com/nokhodian/mempalace) — a spatially-organized, verbatim-retrieval memory system that achieves 96.6% recall on LongMemEval by storing raw content rather than summaries and retrieving via hybrid BM25 + vector search.

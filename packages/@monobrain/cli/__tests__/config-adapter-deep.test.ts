@@ -11,7 +11,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { systemConfigToMonobrainConfig, configToSystemConfig } from '../src/config-adapter.js';
-import type { SystemConfig } from '@monobrain/shared';
+import type { SystemConfig } from '../src/config-adapter.js';
 import type { MonobrainConfig } from '../src/types.js';
 
 // ---------------------------------------------------------------------------

@@ -65,8 +65,8 @@ mcp__monobrain__agent_spawn { type: "coder", name: "Implementation Planner" }
 // Create comprehensive issue
 mcp__github__create_issue {
   owner: "nokhodian",
-  repo: "ruv-FANN",
-  title: "Integration Review: claude-code-flow and monobrain complete integration",
+  repo: "nokhodian",
+  title: "Integration Review: monobrain and monobrain complete integration",
   body: `## 🔄 Integration Review
   
   ### Overview
@@ -103,7 +103,7 @@ mcp__monobrain__memory_usage {
 // Add coordinated progress comment
 mcp__github__add_issue_comment {
   owner: "nokhodian",
-  repo: "ruv-FANN",
+  repo: "nokhodian",
   issue_number: 54,
   body: `## 🚀 Progress Update
 
@@ -135,7 +135,7 @@ mcp__monobrain__memory_usage {
 ```javascript
 // Search and coordinate related issues
 mcp__github__search_issues {
-  q: "repo:nokhodian$ruv-FANN label:integration state:open",
+  q: "repo:nokhodian$nokhodian label:integration state:open",
   sort: "created",
   order: "desc"
 }
@@ -143,7 +143,7 @@ mcp__github__search_issues {
 // Create coordinated issue updates
 mcp__github__update_issue {
   owner: "nokhodian",
-  repo: "ruv-FANN",
+  repo: "nokhodian",
   issue_number: 54,
   state: "open",
   labels: ["integration", "review", "enhancement", "in-progress"],
@@ -172,7 +172,7 @@ mcp__github__update_issue {
   Bash(`gh issue create \
     --repo :owner/:repo \
     --title "Bug: PR merge conflicts in integration branch" \
-    --body "Resolve merge conflicts in integration$claude-code-flow-monobrain..." \
+    --body "Resolve merge conflicts in integration$monobrain-monobrain..." \
     --label "bug,integration,urgent"`)
     
   Bash(`gh issue create \

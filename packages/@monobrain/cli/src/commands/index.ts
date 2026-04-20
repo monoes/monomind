@@ -2,110 +2,14 @@
  * CLI Commands Index
  * Central registry for all CLI commands
  *
- * NOTE: All commands are synchronously imported at module load time (lines below).
- * The commandLoaders/loadCommand infrastructure provides an async fallback for
- * commands looked up via getCommandAsync() but does NOT reduce startup time since
- * all modules are already imported synchronously for the commands array and
- * commandsByCategory exports.
+ * All commands are synchronously imported at module load time.
+ * The commandRegistry map provides O(1) lookup by name or alias.
  */
 
 import type { Command } from '../types.js';
 
 // =============================================================================
-// Lazy Loading Infrastructure
-// =============================================================================
-
-type CommandLoader = () => Promise<{ default?: Command; [key: string]: Command | unknown }>;
-
-/**
- * Command loaders - commands are only imported when needed
- * This reduces initial bundle parse time by ~200ms
- */
-const commandLoaders: Record<string, CommandLoader> = {
-  // P1 Core Commands (frequently used - load first)
-  init: () => import('./init.js'),
-  start: () => import('./start.js'),
-  status: () => import('./status.js'),
-  task: () => import('./task.js'),
-  session: () => import('./session.js'),
-  // Original Commands
-  agent: () => import('./agent.js'),
-  swarm: () => import('./swarm.js'),
-  memory: () => import('./memory.js'),
-  mcp: () => import('./mcp.js'),
-  config: () => import('./config.js'),
-  migrate: () => import('./migrate.js'),
-  hooks: () => import('./hooks.js'),
-  workflow: () => import('./workflow.js'),
-  'hive-mind': () => import('./hive-mind.js'),
-  daemon: () => import('./daemon.js'),
-  // Advanced Commands (less frequently used - lazy load)
-  neural: () => import('./neural.js'),
-  security: () => import('./security.js'),
-  performance: () => import('./performance.js'),
-  providers: () => import('./providers.js'),
-  plugins: () => import('./plugins.js'),
-  deployment: () => import('./deployment.js'),
-  claims: () => import('./claims.js'),
-  embeddings: () => import('./embeddings.js'),
-  // P0 Commands
-  completions: () => import('./completions.js'),
-  doctor: () => import('./doctor.js'),
-  // Analysis Commands
-  analyze: () => import('./analyze.js'),
-  // Q-Learning Routing Commands
-  route: () => import('./route.js'),
-  // Auto-update System (ADR-025)
-  update: () => import('./update.js'),
-  // RuVector PostgreSQL Bridge
-  ruvector: () => import('./ruvector/index.js'),
-  // Benchmark Suite (Pre-training, Neural, Memory)
-  benchmark: () => import('./benchmark.js'),
-  // Guidance Control Plane
-  guidance: () => import('./guidance.js'),
-  'transfer-store': () => import('./transfer-store.js'),
-  cleanup: () => import('./cleanup.js'),
-  autopilot: () => import('./autopilot.js'),
-  tokens: () => import('./tokens.js'),
-};
-
-// Cache for loaded commands
-const loadedCommands = new Map<string, Command>();
-
-/**
- * Load a command lazily
- */
-async function loadCommand(name: string): Promise<Command | undefined> {
-  if (loadedCommands.has(name)) {
-    return loadedCommands.get(name);
-  }
-
-  const loader = commandLoaders[name];
-  if (!loader) return undefined;
-
-  try {
-    const module = await loader();
-    // Try to find the command export (either default or named)
-    const command = (module.default || module[`${name}Command`] || Object.values(module).find(
-      (v): v is Command => typeof v === 'object' && v !== null && 'name' in v && 'description' in v
-    )) as Command | undefined;
-
-    if (command) {
-      loadedCommands.set(name, command);
-      return command;
-    }
-  } catch (error) {
-    // Silently fail for missing optional commands
-    if (process.env.DEBUG) {
-      console.error(`Failed to load command ${name}:`, error);
-    }
-  }
-  return undefined;
-}
-
-// =============================================================================
-// Synchronous Imports for Core Commands (needed immediately at startup)
-// These are the most commonly used commands that need instant access
+// Synchronous Imports
 // =============================================================================
 
 import { initCommand } from './init.js';
@@ -144,48 +48,11 @@ import { autopilotCommand } from './autopilot.js';
 import { benchmarkCommand } from './benchmark.js';
 import { tokensCommand } from './tokens.js';
 
-// Pre-populate cache with core commands
-loadedCommands.set('init', initCommand);
-loadedCommands.set('start', startCommand);
-loadedCommands.set('status', statusCommand);
-loadedCommands.set('task', taskCommand);
-loadedCommands.set('session', sessionCommand);
-loadedCommands.set('agent', agentCommand);
-loadedCommands.set('swarm', swarmCommand);
-loadedCommands.set('memory', memoryCommand);
-loadedCommands.set('mcp', mcpCommand);
-loadedCommands.set('hooks', hooksCommand);
-loadedCommands.set('daemon', daemonCommand);
-loadedCommands.set('doctor', doctorCommand);
-loadedCommands.set('embeddings', embeddingsCommand);
-loadedCommands.set('neural', neuralCommand);
-loadedCommands.set('performance', performanceCommand);
-loadedCommands.set('security', securityCommand);
-loadedCommands.set('ruvector', ruvectorCommand);
-loadedCommands.set('hive-mind', hiveMindCommand);
-loadedCommands.set('guidance', guidanceCommand);
-loadedCommands.set('cleanup', cleanupCommand);
-loadedCommands.set('autopilot', autopilotCommand);
-loadedCommands.set('benchmark', benchmarkCommand);
-loadedCommands.set('tokens', tokensCommand);
-// Additional synchronously-imported commands (used in commandsByCategory)
-loadedCommands.set('config', configCommand);
-loadedCommands.set('completions', completionsCommand);
-loadedCommands.set('migrate', migrateCommand);
-loadedCommands.set('workflow', workflowCommand);
-loadedCommands.set('analyze', analyzeCommand);
-loadedCommands.set('route', routeCommand);
-loadedCommands.set('providers', providersCommand);
-loadedCommands.set('plugins', pluginsCommand);
-loadedCommands.set('deployment', deploymentCommand);
-loadedCommands.set('claims', claimsCommand);
-loadedCommands.set('update', updateCommand);
-
 // =============================================================================
-// Exports (maintain backwards compatibility)
+// Exports
 // =============================================================================
 
-// Export synchronously loaded commands
+// Re-export individual commands for external consumers
 export { initCommand } from './init.js';
 export { startCommand } from './start.js';
 export { statusCommand } from './status.js';
@@ -209,11 +76,9 @@ export { cleanupCommand } from './cleanup.js';
 export { autopilotCommand } from './autopilot.js';
 
 /**
- * Core commands loaded synchronously (available immediately)
- * Advanced commands loaded on-demand for faster startup
+ * All registered commands
  */
 export const commands: Command[] = [
-  // Core commands (synchronously loaded)
   initCommand,
   startCommand,
   statusCommand,
@@ -237,7 +102,6 @@ export const commands: Command[] = [
   autopilotCommand,
   benchmarkCommand,
   tokensCommand,
-  // Additional synchronously-imported commands
   configCommand,
   completionsCommand,
   migrateCommand,
@@ -302,12 +166,11 @@ export const commandsByCategory = {
 };
 
 /**
- * Command registry map for quick lookup
- * Supports both sync (core commands) and async (lazy-loaded) commands
+ * Command registry map for quick lookup by name or alias
  */
 export const commandRegistry = new Map<string, Command>();
 
-// Register core commands and their aliases
+// Register all commands and their aliases
 for (const cmd of commands) {
   commandRegistry.set(cmd.name, cmd);
   if (cmd.aliases) {
@@ -318,89 +181,29 @@ for (const cmd of commands) {
 }
 
 /**
- * Get command by name (sync for core commands, returns undefined for lazy commands)
- * Use getCommandAsync for lazy-loaded commands
+ * Get command by name or alias
  */
 export function getCommand(name: string): Command | undefined {
-  return loadedCommands.get(name) || commandRegistry.get(name);
+  return commandRegistry.get(name);
 }
 
 /**
- * Get command by name (async - supports lazy loading)
+ * Get command by name or alias (async for backwards compatibility)
  */
 export async function getCommandAsync(name: string): Promise<Command | undefined> {
-  // Check already-loaded commands first
-  const cached = loadedCommands.get(name);
-  if (cached) return cached;
-
-  // Check sync registry
-  const synced = commandRegistry.get(name);
-  if (synced) return synced;
-
-  // Try lazy loading
-  return loadCommand(name);
+  return commandRegistry.get(name);
 }
 
 /**
- * Check if command exists (sync check for core commands)
+ * Check if command exists by name or alias
  */
 export function hasCommand(name: string): boolean {
-  return loadedCommands.has(name) || commandRegistry.has(name) || name in commandLoaders;
+  return commandRegistry.has(name);
 }
 
 /**
- * Get all command names (including aliases and lazy-loadable)
+ * Get all command names (including aliases)
  */
 export function getCommandNames(): string[] {
-  const names = new Set([
-    ...Array.from(commandRegistry.keys()),
-    ...Array.from(loadedCommands.keys()),
-    ...Object.keys(commandLoaders),
-  ]);
-  return Array.from(names);
-}
-
-/**
- * Get all unique commands (excluding aliases)
- */
-export function getUniqueCommands(): Command[] {
-  return commands.filter(cmd => !cmd.hidden);
-}
-
-/**
- * Load all commands (populates lazy-loaded commands)
- * Use this when you need all commands available synchronously
- */
-export async function loadAllCommands(): Promise<Command[]> {
-  const allCommands: Command[] = [...commands];
-
-  for (const name of Object.keys(commandLoaders)) {
-    if (!loadedCommands.has(name)) {
-      const cmd = await loadCommand(name);
-      if (cmd && !allCommands.includes(cmd)) {
-        allCommands.push(cmd);
-      }
-    }
-  }
-
-  return allCommands;
-}
-
-/**
- * Setup commands in a CLI instance
- */
-export function setupCommands(cli: { command: (cmd: Command) => void }): void {
-  for (const cmd of commands) {
-    cli.command(cmd);
-  }
-}
-
-/**
- * Setup all commands including lazy-loaded (async)
- */
-export async function setupAllCommands(cli: { command: (cmd: Command) => void }): Promise<void> {
-  const allCommands = await loadAllCommands();
-  for (const cmd of allCommands) {
-    cli.command(cmd);
-  }
+  return Array.from(commandRegistry.keys());
 }

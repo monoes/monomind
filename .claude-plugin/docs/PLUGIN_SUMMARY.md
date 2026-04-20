@@ -2,9 +2,9 @@
 
 ## ✅ Plugin Status: PRODUCTION READY
 
-**Version**: 2.5.0
+**Version**: 1.5.3
 **License**: MIT
-**Author**: rUv
+**Author**: nokhodian
 **Repository**: https://github.com/nokhodian/monobrain
 
 ---
@@ -294,7 +294,7 @@ Should show `monobrain` as active.
 ## 📝 License & Attribution
 
 - **License**: MIT
-- **Author**: rUv (nokhodian@gmail.com)
+- **Author**: nokhodian (nokhodian@gmail.com)
 - **Copyright**: 2025
 - **Open Source**: Free for personal and commercial use
 
@@ -319,7 +319,7 @@ The plugin is configured via `.claude-plugin/plugin.json`:
 ```json
 {
   "name": "monobrain",
-  "version": "2.5.0",
+  "version": "1.5.3",
   "description": "Enterprise AI agent orchestration plugin...",
   "author": {
     "name": "nokhodian",
@@ -348,6 +348,6 @@ Users install with:
 ---
 
 **Plugin Status**: PRODUCTION READY
-**Last Updated**: 2025-10-09
-**Version**: 2.5.0
+**Last Updated**: 2026-04-20
+**Version**: 1.5.3
 **Specification**: Claude Code Official Plugin Format

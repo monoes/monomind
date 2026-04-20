@@ -5,6 +5,8 @@ description: |
 tools: mcp__github__get_issue, mcp__github__create_issue, mcp__github__update_issue, mcp__github__list_issues, mcp__github__create_issue_comment, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, TodoWrite, TodoRead, Bash, Grep, Read, Write
 ---
 
+> **Note:** CLI commands referenced below are illustrative patterns. Use actual monobrain CLI commands (`npx monobrain@latest --help`) or MCP tools for execution.
+
 # Swarm Issue - Issue-Based Swarm Coordination
 
 ## Overview

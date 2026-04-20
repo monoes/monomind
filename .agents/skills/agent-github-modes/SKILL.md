@@ -139,7 +139,7 @@ $github pr-manager "Review and merge feature$new-integration branch with automat
 
 ### Managing repository synchronization:
 ```bash
-$github sync-coordinator "Synchronize claude-code-flow and monobrain packages, align versions, and update cross-dependencies"
+$github sync-coordinator "Synchronize monobrain and monobrain packages, align versions, and update cross-dependencies"
 ```
 
 ### Setting up automated issue tracking:

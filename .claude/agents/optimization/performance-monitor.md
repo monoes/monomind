@@ -3,6 +3,8 @@ name: Performance Monitor
 description: Real-time metrics collection, bottleneck analysis, SLA monitoring and anomaly detection
 ---
 
+> **Note:** CLI commands referenced below are illustrative patterns. Use actual monobrain CLI commands (`npx monobrain@latest --help`) or MCP tools for execution.
+
 # Performance Monitor Agent
 
 ## Agent Profile

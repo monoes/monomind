@@ -47,6 +47,6 @@ The confidence scoring mechanism also created a useful feedback loop: agents tha
 ## Key Files Influenced
 
 - `packages/@monobrain/cli/src/consensus/vote-signer.ts` — `weightedTally()` implementation
-- `packages/@monobrain/cli/src/swarm/hive-mind/` — consensus round management
+- `packages/@monobrain/cli/src/commands/hive-mind/` — consensus round management
 - Agent confidence tracking — score derived from historical task outcomes
 - `hook-handler.cjs` `post-task` — outcome data fed into confidence tracker

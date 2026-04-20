@@ -444,38 +444,10 @@ export class CLI {
   /**
    * Load configuration file
    */
-  private async loadConfig(configPath?: string): Promise<MonobrainConfig | undefined> {
-    try {
-      // Import config utilities
-      const { loadConfig: loadSystemConfig } = await import('@monobrain/shared' as string);
-      const { systemConfigToMonobrainConfig } = await import('./config-adapter.js');
-
-      // Load configuration
-      const loaded = await loadSystemConfig({
-        file: configPath,
-        paths: configPath ? undefined : [process.cwd()],
-      });
-
-      // Convert to MonobrainConfig format
-      const config = systemConfigToMonobrainConfig(loaded.config);
-
-      // Log warnings if any
-      if (loaded.warnings && loaded.warnings.length > 0) {
-        for (const warning of loaded.warnings) {
-          this.output.printWarning(warning);
-        }
-      }
-
-      return config;
-    } catch (error) {
-      // Config loading is optional - don't fail if it doesn't exist
-      if (process.env.DEBUG) {
-        this.output.writeln(
-          this.output.dim(`Config loading failed: ${(error as Error).message}`)
-        );
-      }
-      return undefined;
-    }
+  private async loadConfig(_configPath?: string): Promise<MonobrainConfig | undefined> {
+    // Config loading via @monobrain/shared was removed (loadConfig never existed there).
+    // Returns undefined so callers fall back to defaults.
+    return undefined;
   }
 
   /**

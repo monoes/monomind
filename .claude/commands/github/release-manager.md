@@ -38,7 +38,7 @@ mcp__monobrain__agent_spawn { type: "analyst", name: "Deployment Analyst" }
 // Create release preparation branch
 mcp__github__create_branch {
   owner: "nokhodian",
-  repo: "ruv-FANN",
+  repo: "nokhodian",
   branch: "release/v1.0.72",
   from_branch: "main"
 }
@@ -57,11 +57,11 @@ mcp__monobrain__task_orchestrate {
 // Update versions across packages
 mcp__github__push_files {
   owner: "nokhodian",
-  repo: "ruv-FANN",
+  repo: "nokhodian",
   branch: "release/v1.0.72",
   files: [
     {
-      path: "claude-code-flow/claude-code-flow/package.json",
+      path: "monobrain/monobrain/package.json",
       content: JSON.stringify({
         name: "monobrain",
         version: "1.0.72",
@@ -106,19 +106,19 @@ mcp__github__push_files {
 
 ```javascript
 // Comprehensive release testing
-Bash("cd /workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm install")
-Bash("cd /workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm run test")
-Bash("cd /workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm run lint")
-Bash("cd /workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm run build")
+Bash("cd /workspaces/nokhodian/monobrain/monobrain && npm install")
+Bash("cd /workspaces/nokhodian/monobrain/monobrain && npm run test")
+Bash("cd /workspaces/nokhodian/monobrain/monobrain && npm run lint")
+Bash("cd /workspaces/nokhodian/monobrain/monobrain && npm run build")
 
-Bash("cd /workspaces/ruv-FANN/monobrain/npm && npm install")
-Bash("cd /workspaces/ruv-FANN/monobrain/npm && npm run test:all")
-Bash("cd /workspaces/ruv-FANN/monobrain/npm && npm run lint")
+Bash("cd /workspaces/nokhodian/monobrain/npm && npm install")
+Bash("cd /workspaces/nokhodian/monobrain/npm && npm run test:all")
+Bash("cd /workspaces/nokhodian/monobrain/npm && npm run lint")
 
 // Create release PR with validation results
 mcp__github__create_pull_request {
   owner: "nokhodian",
-  repo: "ruv-FANN",
+  repo: "nokhodian",
   title: "Release v1.0.72: GitHub Integration and Swarm Enhancements",
   head: "release/v1.0.72",
   base: "main",
@@ -199,7 +199,7 @@ This release is production-ready with comprehensive validation and testing.
   Bash("gh repo clone :owner/:repo /tmp/release-v1.0.72 -- --branch release/v1.0.72 --depth=1")
 
   // Update all release-related files
-  Write("/tmp/release-v1.0.72/claude-code-flow/claude-code-flow/package.json", "[updated package.json]")
+  Write("/tmp/release-v1.0.72/monobrain/monobrain/package.json", "[updated package.json]")
   Write("/tmp/release-v1.0.72/monobrain/npm/package.json", "[updated package.json]")
   Write("/tmp/release-v1.0.72/CHANGELOG.md", "[release changelog]")
   Write("/tmp/release-v1.0.72/RELEASE_NOTES.md", "[detailed release notes]")
@@ -207,8 +207,8 @@ This release is production-ready with comprehensive validation and testing.
   Bash("cd /tmp/release-v1.0.72 && git add -A && git commit -m 'release: Prepare v1.0.72 with comprehensive updates' && git push")
 
   // Run comprehensive validation
-  Bash("cd /workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm install && npm test && npm run lint && npm run build")
-  Bash("cd /workspaces/ruv-FANN/monobrain/npm && npm install && npm run test:all && npm run lint")
+  Bash("cd /workspaces/nokhodian/monobrain/monobrain && npm install && npm test && npm run lint && npm run build")
+  Bash("cd /workspaces/nokhodian/monobrain/npm && npm install && npm run test:all && npm run lint")
 
   // Create release PR using gh CLI
   Bash(`gh pr create \
@@ -332,7 +332,7 @@ jobs:
           node-version: "20"
       - name: Install and Test
         run: |
-          cd claude-code-flow/claude-code-flow && npm install && npm test
+          cd monobrain/monobrain && npm install && npm test
           cd ../../monobrain/npm && npm install && npm test:all
       - name: Validate Release
         run: npx monobrain release validate

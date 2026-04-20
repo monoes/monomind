@@ -5,102 +5,10 @@
  * for 150x-12,500x faster vector search compared to brute-force approaches.
  *
  * @module @monobrain/memory
- *
- * @example
- * ```typescript
- * import { UnifiedMemoryService, query, QueryTemplates } from '@monobrain/memory';
- *
- * // Initialize the memory service
- * const memory = new UnifiedMemoryService({
- *   dimensions: 1536,
- *   cacheEnabled: true,
- *   embeddingGenerator: async (text) => embeddings.embed(text),
- * });
- *
- * await memory.initialize();
- *
- * // Store entries
- * await memory.store({
- *   key: 'auth-patterns',
- *   content: 'OAuth 2.0 implementation patterns for secure authentication',
- *   tags: ['auth', 'security', 'patterns'],
- * });
- *
- * // Semantic search
- * const results = await memory.semanticSearch('user authentication best practices', 5);
- *
- * // Query with fluent builder
- * const entries = await memory.query(
- *   query()
- *     .semantic('security vulnerabilities')
- *     .inNamespace('security')
- *     .withTags(['critical'])
- *     .threshold(0.8)
- *     .limit(10)
- *     .build()
- * );
- * ```
  */
 
 // ===== Core Types =====
-export type {
-  // Memory Entry Types
-  MemoryType,
-  AccessLevel,
-  ConsistencyLevel,
-  DistanceMetric,
-  MemoryEntry,
-  MemoryEntryInput,
-  MemoryEntryUpdate,
-
-  // Query Types
-  QueryType,
-  MemoryQuery,
-  SearchResult,
-  SearchOptions,
-
-  // HNSW Types
-  HNSWConfig,
-  HNSWStats,
-  QuantizationConfig,
-
-  // Backend Types
-  IMemoryBackend,
-  BackendStats,
-  HealthCheckResult,
-  ComponentHealth,
-
-  // Cache Types
-  CacheConfig,
-  CacheStats,
-  CachedEntry,
-
-  // Migration Types
-  MigrationSource,
-  MigrationConfig,
-  MigrationProgress,
-  MigrationResult,
-  MigrationError,
-
-  // Event Types
-  MemoryEventType,
-  MemoryEvent,
-  MemoryEventHandler,
-
-  // SONA Types
-  SONAMode,
-  LearningPattern,
-
-  // Utility Types
-  EmbeddingGenerator,
-} from './types.js';
-
-// Utility Functions and Constants (runtime values)
-export {
-  generateMemoryId,
-  createDefaultEntry,
-  PERFORMANCE_TARGETS,
-} from './types.js';
+export * from './types.js';
 
 // ===== Auto Memory Bridge (ADR-048) =====
 export { AutoMemoryBridge, resolveAutoMemoryDir, findGitRoot } from './auto-memory-bridge.js';
@@ -151,20 +59,6 @@ export type {
   EdgeType,
 } from './memory-graph.js';
 
-// ===== Agent-Scoped Memory =====
-export {
-  resolveAgentMemoryDir,
-  createAgentBridge,
-  transferKnowledge,
-  listAgentScopes,
-} from './agent-memory-scope.js';
-export type {
-  AgentMemoryScope,
-  AgentScopedConfig,
-  TransferOptions,
-  TransferResult,
-} from './agent-memory-scope.js';
-
 // ===== Controller Registry (ADR-053) =====
 export { ControllerRegistry, INIT_LEVELS } from './controller-registry.js';
 export type {
@@ -180,30 +74,11 @@ export type {
 // ===== Core Components =====
 export { AgentDBAdapter } from './agentdb-adapter.js';
 export type { AgentDBAdapterConfig } from './agentdb-adapter.js';
-export { AgentDBBackend } from './agentdb-backend.js';
-export type { AgentDBBackendConfig } from './agentdb-backend.js';
-export { SQLiteBackend } from './sqlite-backend.js';
-export type { SQLiteBackendConfig } from './sqlite-backend.js';
-export { SqlJsBackend } from './sqljs-backend.js';
-export type { SqlJsBackendConfig } from './sqljs-backend.js';
-export { HybridBackend } from './hybrid-backend.js';
-export type {
-  HybridBackendConfig,
-  StructuredQuery,
-  SemanticQuery,
-  HybridQuery,
-} from './hybrid-backend.js';
 export { RvfBackend } from './rvf-backend.js';
 export type { RvfBackendConfig } from './rvf-backend.js';
-export { DiskAnnBackend } from './diskann-backend.js';
-export type { DiskAnnBackendConfig } from './diskann-backend.js';
 export { HnswLite, cosineSimilarity } from './hnsw-lite.js';
 export type { HnswSearchResult } from './hnsw-lite.js';
 export { HNSWIndex } from './hnsw-index.js';
-export { CacheManager, TieredCacheManager } from './cache-manager.js';
-export { QueryBuilder, query, QueryTemplates } from './query-builder.js';
-export type { SortDirection, SortField } from './query-builder.js';
-export { MemoryMigrator, createMigrator, migrateMultipleSources } from './migration.js';
 export { createDatabase, getPlatformInfo, getAvailableProviders } from './database-provider.js';
 export type { DatabaseProvider, DatabaseOptions } from './database-provider.js';
 
@@ -213,7 +88,7 @@ export type { AgentState, SwarmCheckpoint, CheckpointMeta } from './types/checkp
 
 // ===== Multi-Tier Memory (Task 09) =====
 export { TierManager } from './tier-manager.js';
-export { ShortTermMemory, EntityMemory, ContextualMemory } from './tiers/index.js';
+export { ShortTermMemory, EntityMemory } from './tiers/index.js';
 export type { EntityFact, SessionSummary } from './tiers/index.js';
 export type { MemoryTier, TierManagerConfig } from './types.js';
 
@@ -548,15 +423,6 @@ export class UnifiedMemoryService extends EventEmitter implements IMemoryBackend
 
 // ===== Factory Functions =====
 
-/**
- * Create a simple in-memory service (for testing)
- */
-export function createInMemoryService(): UnifiedMemoryService {
-  return new UnifiedMemoryService({
-    persistenceEnabled: false,
-    cacheEnabled: true,
-  });
-}
 
 /**
  * Create a persistent memory service
@@ -569,53 +435,6 @@ export function createPersistentService(path: string): UnifiedMemoryService {
   });
 }
 
-/**
- * Create a memory service with embedding support
- */
-export function createEmbeddingService(
-  embeddingGenerator: EmbeddingGenerator,
-  dimensions: number = 1536
-): UnifiedMemoryService {
-  return new UnifiedMemoryService({
-    embeddingGenerator,
-    dimensions,
-    autoEmbed: true,
-    cacheEnabled: true,
-  });
-}
-
-/**
- * Create a hybrid memory service (SQLite + AgentDB)
- * This is the DEFAULT recommended configuration per ADR-009
- *
- * @example
- * ```typescript
- * const memory = createHybridService('./data/memory.db', embeddingFn);
- * await memory.initialize();
- *
- * // Structured queries go to SQLite
- * const user = await memory.getByKey('users', 'john@example.com');
- *
- * // Semantic queries go to AgentDB
- * const similar = await memory.semanticSearch('authentication patterns', 10);
- * ```
- */
-export function createHybridService(
-  databasePath: string,
-  embeddingGenerator: EmbeddingGenerator,
-  dimensions: number = 1536
-): UnifiedMemoryService {
-  return new UnifiedMemoryService({
-    embeddingGenerator,
-    dimensions,
-    autoEmbed: true,
-    cacheEnabled: true,
-    // Note: This would require extending UnifiedMemoryService to support HybridBackend
-    // For now, this creates an AgentDB service with persistence
-    persistenceEnabled: true,
-    persistencePath: databasePath,
-  });
-}
 
 // ===== Prompt Version Management (Task 24) =====
 export { PromptVersionStore } from './prompt-version-store.js';
@@ -634,11 +453,8 @@ export type {
   LearnedSkill,
   ActionSequenceGroup,
 } from './procedural/index.js';
-export { DEFAULT_EXTRACTION_CONFIG } from './procedural/index.js';
 export { ActionRecordStore } from './procedural/index.js';
 export { ActionSequenceExtractor } from './procedural/index.js';
 export { LearnedSkillSerializer } from './procedural/index.js';
 export { SkillRegistry } from './procedural/index.js';
 
-// Default export
-export default UnifiedMemoryService;

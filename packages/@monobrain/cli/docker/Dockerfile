@@ -2,7 +2,7 @@
 # Multi-stage Alpine build with --omit=optional for <100MB image
 #
 # Build:
-#   docker build -t monobrain:lite -f v1/@monobrain/cli/docker/Dockerfile .
+#   docker build -t monobrain:lite -f packages/@monobrain/cli/docker/Dockerfile .
 #
 # Run:
 #   docker run --rm monobrain:lite monobrain --version
@@ -76,7 +76,6 @@ RUN GLOBAL_PREFIX=$(npm config get prefix) \
     && rm -rf \
       "${CLI_NM}/ruvector-onnx-embeddings-wasm" \
       "${CLI_NM}/ruvector-core-linux-x64-gnu" \
-      "${CLI_NM}/@monobrain/neural" \
       "${CLI_NM}/@grpc" \
       "${CLI_NM}/gun"
 

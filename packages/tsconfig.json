@@ -3,7 +3,6 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@monobrain/shared": ["./@monobrain/shared/src"],
       "@monobrain/memory": ["./@monobrain/memory/src"],
       "@monobrain/hooks": ["./@monobrain/hooks/src"],
       "@monobrain/cli": ["./@monobrain/cli/src"],
@@ -15,7 +14,6 @@
     }
   },
   "references": [
-    { "path": "./@monobrain/shared" },
     { "path": "./@monobrain/memory" },
     { "path": "./@monobrain/hooks" },
     { "path": "./@monobrain/cli" },

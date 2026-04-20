@@ -5,6 +5,8 @@ description: |
 tools: mcp__github__create_workflow, mcp__github__update_workflow, mcp__github__list_workflows, mcp__github__get_workflow_runs, mcp__github__create_workflow_dispatch, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__performance_report, mcp__monobrain__workflow_create, TodoWrite, TodoRead, Bash, Read, Write, Edit, Grep
 ---
 
+> **Note:** CLI commands referenced below are illustrative patterns. Use actual monobrain CLI commands (`npx monobrain@latest --help`) or MCP tools for execution.
+
 # Workflow Automation - GitHub Actions Integration
 
 ## Overview

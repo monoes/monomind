@@ -5,7 +5,7 @@
 # Used by docker-compose.workers.yml for scalable worker pools.
 #
 # Build:
-#   docker build -t monobrain:headless -f v1/@monobrain/cli/docker/Dockerfile.headless .
+#   docker build -t monobrain:headless -f packages/@monobrain/cli/docker/Dockerfile.headless .
 #
 # Run:
 #   docker run -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY monobrain:headless
@@ -58,7 +58,6 @@ RUN GLOBAL_PREFIX=$(npm config get prefix) \
     && rm -rf \
       "${CLI_NM}/ruvector-onnx-embeddings-wasm" \
       "${CLI_NM}/ruvector-core-linux-x64-gnu" \
-      "${CLI_NM}/@monobrain/neural" \
       "${CLI_NM}/@grpc" \
       "${CLI_NM}/gun"
 

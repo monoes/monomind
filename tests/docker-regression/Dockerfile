@@ -41,19 +41,10 @@ COPY v1/ ./v1/
 RUN npm install --legacy-peer-deps
 
 # Build v1 packages
-WORKDIR /app/v1/@monobrain/shared
-RUN npm install --legacy-peer-deps && npm run build || true
-
 WORKDIR /app/v1/@monobrain/hooks
 RUN npm install --legacy-peer-deps && npm run build || true
 
-WORKDIR /app/v1/@monobrain/plugins
-RUN npm install --legacy-peer-deps && npm run build || true
-
 WORKDIR /app/v1/@monobrain/security
-RUN npm install --legacy-peer-deps && npm run build || true
-
-WORKDIR /app/v1/@monobrain/swarm
 RUN npm install --legacy-peer-deps && npm run build || true
 
 WORKDIR /app/v1/@monobrain/cli

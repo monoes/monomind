@@ -73,8 +73,8 @@ mcp__monobrain__agent_spawn { type: "optimizer", name: "Structure Optimizer" }
 mcp__monobrain__agent_spawn { type: "coordinator", name: "Multi-Repo Coordinator" }
 
 // Analyze current repository structure
-LS("$workspaces$ruv-FANN$claude-code-flow$claude-code-flow")
-LS("$workspaces$ruv-FANN$monobrain$npm")
+LS("$workspaces$nokhodian$monobrain$monobrain")
+LS("$workspaces$nokhodian$monobrain$npm")
 
 // Search for related repositories
 mcp__github__search_repositories {
@@ -179,13 +179,13 @@ See CLAUDE.md for complete integration instructions.`
 
 ```javascript
 // Synchronize structure across related repositories
-const repositories = ["claude-code-flow", "monobrain", "claude-extensions"];
+const repositories = ["monobrain", "monobrain", "claude-extensions"];
 
 // Update common files across repositories
 repositories.forEach((repo) => {
   mcp__github__create_or_update_file({
     owner: "nokhodian",
-    repo: "ruv-FANN",
+    repo: "nokhodian",
     path: `${repo}/.github$workflows$integration.yml`,
     content: `name: Integration Tests
 on: [push, pull_request]
@@ -218,10 +218,10 @@ jobs:
   mcp__monobrain__agent_spawn { type: "coordinator", name: "Multi-Repo Coordinator" }
 
   // Analyze current repository structures
-  LS("$workspaces$ruv-FANN$claude-code-flow$claude-code-flow")
-  LS("$workspaces$ruv-FANN$monobrain$npm")
-  Read("$workspaces$ruv-FANN$claude-code-flow$claude-code-flow$package.json")
-  Read("$workspaces$ruv-FANN$monobrain$npm$package.json")
+  LS("$workspaces$nokhodian$monobrain$monobrain")
+  LS("$workspaces$nokhodian$monobrain$npm")
+  Read("$workspaces$nokhodian$monobrain$monobrain$package.json")
+  Read("$workspaces$nokhodian$monobrain$npm$package.json")
 
   // Search for architectural patterns using gh CLI
   ARCH_PATTERNS=$(Bash(`gh search repos "language:javascript template architecture" \
@@ -235,15 +235,15 @@ jobs:
     branch: "architecture$optimization",
     files: [
       {
-        path: "claude-code-flow$claude-code-flow/.github/ISSUE_TEMPLATE$integration.yml",
+        path: "monobrain$monobrain/.github/ISSUE_TEMPLATE$integration.yml",
         content: "[Integration issue template]"
       },
       {
-        path: "claude-code-flow$claude-code-flow/.github/PULL_REQUEST_TEMPLATE.md",
+        path: "monobrain$monobrain/.github/PULL_REQUEST_TEMPLATE.md",
         content: "[Standardized PR template]"
       },
       {
-        path: "claude-code-flow$claude-code-flow$docs/ARCHITECTURE.md",
+        path: "monobrain$monobrain$docs/ARCHITECTURE.md",
         content: "[Architecture documentation]"
       },
       {
@@ -269,7 +269,7 @@ jobs:
     key: "architecture$analysis$results",
     value: {
       timestamp: Date.now(),
-      repositories_analyzed: ["claude-code-flow", "monobrain"],
+      repositories_analyzed: ["monobrain", "monobrain"],
       optimization_areas: ["structure", "workflows", "templates", "documentation"],
       recommendations: ["standardize_structure", "improve_workflows", "enhance_templates"],
       implementation_status: "in_progress"
@@ -282,9 +282,9 @@ jobs:
 ### 1. **Monorepo Structure Pattern**
 
 ```
-ruv-FANN/
+nokhodian/
 ├── packages/
-│   ├── claude-code-flow/
+│   ├── monobrain/
 │   │   ├── src/
 │   │   ├── .claude/
 │   │   └── package.json
@@ -339,7 +339,7 @@ ruv-FANN/
 ```javascript
 const integrationPattern = {
   packages: {
-    "claude-code-flow": {
+    "monobrain": {
       role: "orchestration_layer",
       dependencies: ["monobrain"],
       provides: ["CLI", "workflows", "commands"],

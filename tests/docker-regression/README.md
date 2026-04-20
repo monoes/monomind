@@ -22,9 +22,7 @@ docker-compose up --build security-tests
 | CLI Commands | 30+ | All CLI commands and options |
 | MCP Server | 35+ | MCP tools and protocol |
 | Agents (54+) | 60+ | All agent types and spawn |
-| Swarm | 45+ | Topologies and coordination |
 | Hooks | 50+ | Self-learning and routing |
-| Plugins | 70+ | RuVector WASM plugins |
 | Security | 55+ | Security features and CVE |
 | Memory | 50+ | AgentDB and HNSW |
 | Workers | 60+ | Background workers |
@@ -166,7 +164,6 @@ regression-tests:
 | Package | Tests | Pass Rate |
 |---------|-------|-----------|
 | @monobrain/hooks | 112 | 100% |
-| @monobrain/swarm | 89 | 100% |
 | @monobrain/cli | 34 | 100% |
 
 ### Feature Coverage

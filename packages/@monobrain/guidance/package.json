@@ -140,9 +140,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@monobrain/hooks": "workspace:*",
-    "@monobrain/memory": "workspace:*",
-    "@monobrain/shared": "workspace:*"
+    "@monobrain/hooks": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

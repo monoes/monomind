@@ -48,7 +48,6 @@
     "vitest": "^4.1.4"
   },
   "peerDependencies": {
-    "@monobrain/shared": "workspace:*",
     "agentic-flow": "^2.0.0"
   },
   "peerDependenciesMeta": {

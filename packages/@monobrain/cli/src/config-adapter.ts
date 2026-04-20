@@ -5,7 +5,7 @@
 
 import type { MonobrainConfig } from './types.js';
 
-interface SystemConfig {
+export interface SystemConfig {
   orchestrator?: {
     lifecycle?: { maxConcurrentAgents?: number; spawnTimeout?: number; terminateTimeout?: number; maxSpawnRetries?: number };
     session?: { dataDir?: string; persistSessions?: boolean; sessionRetentionMs?: number };

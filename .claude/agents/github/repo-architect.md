@@ -81,9 +81,9 @@ mcp__github__push_files {
           }
         },
         hooks: {
-          pre_task: "npx monobrain@latest hook pre-task",
-          post_edit: "npx monobrain@latest hook post-edit",
-          notification: "npx monobrain@latest hook notification"
+          pre_task: "npx monobrain@latest hooks pre-task",
+          post_edit: "npx monobrain@latest hooks post-edit",
+          notification: "npx monobrain@latest hooks notification"
         }
       }, null, 2)
     },
