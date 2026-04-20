@@ -61,7 +61,6 @@
   },
   "dependencies": {
     "@monobrain/memory": "workspace:*",
-    "@monobrain/shared": "workspace:*",
     "zod": "^3.23.0"
   },
   "optionalDependencies": {
@@ -73,9 +72,7 @@
     "typescript": "^5.3.0",
     "vitest": "^4.1.4"
   },
-  "peerDependencies": {
-    "@monobrain/shared": "workspace:*"
-  },
+  "peerDependencies": {},
   "engines": {
     "node": ">=20.0.0"
   },

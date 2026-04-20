@@ -5,6 +5,8 @@ description: |
 tools: mcp__github__get_pull_request, mcp__github__create_pull_request, mcp__github__update_pull_request, mcp__github__list_pull_requests, mcp__github__create_pr_comment, mcp__github__get_pr_diff, mcp__github__merge_pull_request, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, TodoWrite, TodoRead, Bash, Grep, Read, Write, Edit
 ---
 
+> **Note:** CLI commands referenced below are illustrative patterns. Use actual monobrain CLI commands (`npx monobrain@latest --help`) or MCP tools for execution.
+
 # Swarm PR - Managing Swarms through Pull Requests
 
 ## Overview

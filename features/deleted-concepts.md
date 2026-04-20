@@ -152,7 +152,7 @@ All returned fake "placeholder" success messages. Listed here in case real imple
 ### `packages/src/` (23 DDD files — deleted)
 - **What:** Early DDD implementation with Agent lifecycle, SwarmCoordinator, SQLiteBackend, HybridBackend, MCPServer, PluginManager
 - **Why deleted:** Zero imports from any package — superseded by `packages/@monobrain/*` scoped packages
-- **Rebuild as:** Not needed — all functionality exists in @monobrain/memory, @monobrain/swarm, @monobrain/mcp, @monobrain/plugins
+- **Rebuild as:** Not needed — all functionality exists in @monobrain/memory, @monobrain/mcp, @monobrain/hooks
 
 ### `packages/agents/` (5 YAML files — deleted)
 - **What:** YAML agent config templates (architect, coder, reviewer, security-architect, tester)

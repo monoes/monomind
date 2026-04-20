@@ -1,6 +1,6 @@
 # 🚀 Monobrain Plugin - Complete Enterprise AI Agent Orchestration
 
-[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/nokhodian/monobrain)
+[![Version](https://img.shields.io/badge/version-1.5.3-blue.svg)](https://github.com/nokhodian/monobrain)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-%3E%3D2.0.0-purple.svg)](https://claude.com/code)
 
@@ -680,6 +680,6 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 ---
 
-**Made with ❤️ by rUv**
+**Made with ❤️ by nokhodian**
 
 *Enterprise AI Agent Orchestration for Claude Code*

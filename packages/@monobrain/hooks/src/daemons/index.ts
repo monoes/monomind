@@ -722,9 +722,9 @@ export async function initDefaultWorkers(): Promise<void> {
 
   // Task 36: ConsensusAudit — register AuditWriter in post-task hook for swarm consensus events
   try {
-    // @ts-ignore — cli not in hooks tsconfig
-    const { AuditWriter } = await import('../../cli/src/consensus/audit-writer.js');
-    const auditWriter = new AuditWriter('.monobrain/consensus');
+    // AuditWriter stub — original import from cli/consensus/audit-writer.js was removed.
+    // Inline no-op writer so the hook still registers without a hard dependency.
+    const auditWriter = { record(_entry: Record<string, unknown>) { /* no-op */ } };
     const { registerHook: rh36 } = await import('../registry/index.js');
     const { HookEvent: HE36, HookPriority: HP36 } = await import('../types.js');
     rh36(

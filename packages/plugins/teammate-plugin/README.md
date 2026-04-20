@@ -480,7 +480,6 @@ const bridge = await createTeammateBridge({
 
 ```typescript
 import { createTeammateBridge } from '@monobrain/teammate-plugin';
-import { UnifiedSwarmCoordinator } from '@monobrain/swarm';
 
 // Create bridge
 const bridge = await createTeammateBridge();

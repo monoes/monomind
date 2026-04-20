@@ -1,3 +1,5 @@
+> **Note:** token-tracker.cjs was removed in Round 3 cleanup. See docs/tododeleted.md.
+
 # Codeburn — AI Token Usage Tracker
 
 **Source:** /Users/morteza/Desktop/tools/codeburn  

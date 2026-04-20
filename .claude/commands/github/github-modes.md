@@ -108,7 +108,7 @@ This document describes all GitHub integration modes available in Monobrain with
 
 ### Managing repository synchronization:
 ```bash
-/github sync-coordinator "Synchronize claude-code-flow and monobrain packages, align versions, and update cross-dependencies"
+/github sync-coordinator "Synchronize monobrain and monobrain packages, align versions, and update cross-dependencies"
 ```
 
 ### Setting up automated issue tracking:

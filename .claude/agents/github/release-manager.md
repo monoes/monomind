@@ -5,6 +5,8 @@ description: |
 tools: Bash, Read, Write, Edit, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_pull_request, mcp__github__merge_pull_request, mcp__github__create_branch, mcp__github__push_files, mcp__github__create_issue, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn
 ---
 
+> **Note:** CLI commands referenced below are illustrative patterns. Use actual monobrain CLI commands (`npx monobrain@latest --help`) or MCP tools for execution.
+
 # GitHub Release Manager
 
 ## Purpose

@@ -48,27 +48,7 @@ const SKILLS_MAP: Record<string, string[]> = {
     'performance-analysis',
   ],
   browser: ['agent-browser-testing'],  // agent-browser integration
-  agentdb: [
-    'agentdb-advanced',
-    'agentdb-learning',
-    'agentdb-memory-patterns',
-    'agentdb-optimization',
-    'agentdb-vector-search',
-    'reasoningbank-agentdb',
-    'reasoningbank-intelligence',
-  ],
   github: [],
-  v1: [
-    'v3-cli-modernization',
-    'v3-core-implementation',
-    'v3-ddd-architecture',
-    'v3-integration-deep',
-    'v3-mcp-optimization',
-    'v3-memory-unification',
-    'v3-performance-optimization',
-    'v3-security-overhaul',
-    'v3-swarm-coordination',
-  ],
 };
 
 /**
@@ -103,6 +83,8 @@ const AGENTS_MAP: Record<string, string[]> = {
   specialized: ['specialized'],
   goal: ['goal'],
   engineering: ['engineering'],
+  analysis: ['analysis'],
+  schemas: ['schemas'],
 };
 
 /**

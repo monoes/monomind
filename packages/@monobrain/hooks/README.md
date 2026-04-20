@@ -66,21 +66,6 @@ const result = await executor.preEdit('src/app.ts', 'modify');
 console.log(`Hooks executed: ${result.hooksExecuted}`);
 ```
 
-### Initialize with Daemons
-
-```typescript
-import { initializeHooks } from '@monobrain/hooks';
-
-// Initialize full system with background daemons
-const { registry, executor, statusline } = await initializeHooks({
-  enableDaemons: true,
-  enableStatusline: true,
-});
-
-// Generate statusline
-console.log(statusline.generateStatusline());
-```
-
 ### Using MCP Tools
 
 ```typescript

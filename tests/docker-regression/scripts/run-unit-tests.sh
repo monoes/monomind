@@ -57,20 +57,16 @@ run_package_tests() {
 echo "── V1 Package Unit Tests ──"
 
 run_package_tests "@monobrain/hooks" "/app/packages/@monobrain/hooks"
-run_package_tests "@monobrain/plugins" "/app/packages/@monobrain/plugins"
 run_package_tests "@monobrain/security" "/app/packages/@monobrain/security"
-run_package_tests "@monobrain/swarm" "/app/packages/@monobrain/swarm"
 run_package_tests "@monobrain/cli" "/app/packages/@monobrain/cli"
 run_package_tests "@monobrain/memory" "/app/packages/@monobrain/memory"
 run_package_tests "@monobrain/mcp" "/app/packages/@monobrain/mcp"
-run_package_tests "@monobrain/neural" "/app/packages/@monobrain/neural"
 run_package_tests "@monobrain/testing" "/app/packages/@monobrain/testing"
 run_package_tests "@monobrain/embeddings" "/app/packages/@monobrain/embeddings"
 run_package_tests "@monobrain/providers" "/app/packages/@monobrain/providers"
 run_package_tests "@monobrain/integration" "/app/packages/@monobrain/integration"
 run_package_tests "@monobrain/performance" "/app/packages/@monobrain/performance"
 run_package_tests "@monobrain/deployment" "/app/packages/@monobrain/deployment"
-run_package_tests "@monobrain/shared" "/app/packages/@monobrain/shared"
 
 # ============================================================================
 # SPECIFIC TEST SUITES
@@ -102,17 +98,6 @@ else
     echo "⊘ SKIPPED"
 fi
 
-# Plugin tests
-echo -n "  Testing: RuVector Plugins... "
-if [ -f "/app/packages/@monobrain/plugins/examples/ruvector-plugins/ruvector-plugins.test.ts" ]; then
-    cd /app/packages/@monobrain/plugins
-    set +e
-    npm test -- --run examples/ruvector-plugins/ruvector-plugins.test.ts 2>/dev/null && echo "✓ PASSED" || echo "✓ PASSED (via npm test)"
-    set -e
-    cd /app
-else
-    echo "⊘ SKIPPED"
-fi
 
 # ============================================================================
 # TEST COVERAGE
@@ -121,11 +106,9 @@ echo ""
 echo "── Test Coverage Summary ──"
 
 echo "  @monobrain/hooks:    112 tests"
-echo "  @monobrain/plugins:  142 tests"
 echo "  @monobrain/security: 47 tests"
-echo "  @monobrain/swarm:    89 tests"
 echo "  @monobrain/cli:      34 tests"
-echo "  Total:                 424+ tests"
+echo "  Total:                 193+ tests"
 
 # ============================================================================
 # SUMMARY

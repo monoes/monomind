@@ -2,7 +2,7 @@
 # Use this when you need agentic-flow, RuVector, ONNX, or embeddings.
 #
 # Build:
-#   docker build -t monobrain:full -f v1/@monobrain/cli/docker/Dockerfile.full .
+#   docker build -t monobrain:full -f packages/@monobrain/cli/docker/Dockerfile.full .
 #
 # Run:
 #   docker run -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY monobrain:full

@@ -63,9 +63,9 @@ mcp__monobrain__agent_spawn { type: "coordinator", name: "PR Coordinator" }
 // Create PR and orchestrate review
 mcp__github__create_pull_request {
   owner: "nokhodian",
-  repo: "ruv-FANN",
-  title: "Integration: claude-code-flow and monobrain",
-  head: "integration$claude-code-flow-monobrain",
+  repo: "nokhodian",
+  title: "Integration: monobrain and monobrain",
+  head: "integration$monobrain-monobrain",
   base: "main",
   body: "Comprehensive integration between packages..."
 }
@@ -81,12 +81,12 @@ mcp__monobrain__task_orchestrate {
 ### 2. Automated Multi-File Review
 ```javascript
 // Get PR files and create parallel review tasks
-mcp__github__get_pull_request_files { owner: "nokhodian", repo: "ruv-FANN", pull_number: 54 }
+mcp__github__get_pull_request_files { owner: "nokhodian", repo: "nokhodian", pull_number: 54 }
 
 // Create coordinated reviews
 mcp__github__create_pull_request_review {
   owner: "nokhodian",
-  repo: "ruv-FANN", 
+  repo: "nokhodian", 
   pull_number: 54,
   body: "Automated swarm review with comprehensive analysis",
   event: "APPROVE",
@@ -100,15 +100,15 @@ mcp__github__create_pull_request_review {
 ### 3. Merge Coordination with Testing
 ```javascript
 // Validate PR status and merge when ready
-mcp__github__get_pull_request_status { owner: "nokhodian", repo: "ruv-FANN", pull_number: 54 }
+mcp__github__get_pull_request_status { owner: "nokhodian", repo: "nokhodian", pull_number: 54 }
 
 // Merge with coordination
 mcp__github__merge_pull_request {
   owner: "nokhodian",
-  repo: "ruv-FANN",
+  repo: "nokhodian",
   pull_number: 54,
   merge_method: "squash",
-  commit_title: "feat: Complete claude-code-flow and monobrain integration",
+  commit_title: "feat: Complete monobrain and monobrain integration",
   commit_message: "Comprehensive integration with swarm coordination"
 }
 

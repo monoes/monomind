@@ -1,6 +1,6 @@
 #!/bin/bash
 # Monobrain Plugin Installation Script
-# Version: 2.5.0
+# Version: 1.5.3
 
 set -e
 
@@ -33,7 +33,7 @@ echo -e "${BLUE}"
 cat << "EOF"
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
-║          Monobrain Plugin Installer v2.5.0             ║
+║          Monobrain Plugin Installer v1.5.3             ║
 ║       Enterprise AI Agent Orchestration Plugin           ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝

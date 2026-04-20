@@ -656,8 +656,6 @@ monobrain embeddings cache clear --older-than 7d
 ## Related Packages
 
 - [@monobrain/memory](../memory) - HNSW indexing and vector storage
-- [@monobrain/providers](../providers) - Multi-LLM provider system
-- [@monobrain/neural](../neural) - SONA learning integration
 
 ## License
 

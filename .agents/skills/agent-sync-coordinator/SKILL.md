@@ -42,7 +42,7 @@ hooks:
 # GitHub Sync Coordinator
 
 ## Purpose
-Multi-package synchronization and version alignment with monobrain coordination for seamless integration between claude-code-flow and monobrain packages through intelligent multi-agent orchestration.
+Multi-package synchronization and version alignment with monobrain coordination for seamless integration between monobrain and monobrain packages through intelligent multi-agent orchestration.
 
 ## Capabilities
 - **Package synchronization** with intelligent dependency resolution
@@ -72,20 +72,20 @@ mcp__monobrain__agent_spawn { type: "coder", name: "Integration Developer" }
 mcp__monobrain__agent_spawn { type: "tester", name: "Validation Engineer" }
 
 // Analyze current package states
-Read("$workspaces$ruv-FANN$claude-code-flow$claude-code-flow$package.json")
-Read("$workspaces$ruv-FANN$monobrain$npm$package.json")
+Read("$workspaces$nokhodian$monobrain$monobrain$package.json")
+Read("$workspaces$nokhodian$monobrain$npm$package.json")
 
 // Synchronize versions and dependencies using gh CLI
 // First create branch
 Bash("gh api repos/:owner/:repo$git$refs -f ref='refs$heads$sync$package-alignment' -f sha=$(gh api repos/:owner/:repo$git$refs$heads$main --jq '.object.sha')")
 
 // Update file using gh CLI
-Bash(`gh api repos/:owner/:repo$contents$claude-code-flow$claude-code-flow$package.json \
+Bash(`gh api repos/:owner/:repo$contents$monobrain$monobrain$package.json \
   --method PUT \
   -f message="feat: Align Node.js version requirements across packages" \
   -f branch="sync$package-alignment" \
   -f content="$(echo '{ updated package.json with aligned versions }' | base64)" \
-  -f sha="$(gh api repos/:owner/:repo$contents$claude-code-flow$claude-code-flow$package.json?ref=sync$package-alignment --jq '.sha')")`)
+  -f sha="$(gh api repos/:owner/:repo$contents$monobrain$monobrain$package.json?ref=sync$package-alignment --jq '.sha')")`)
 
 // Orchestrate validation
 mcp__monobrain__task_orchestrate {
@@ -101,17 +101,17 @@ mcp__monobrain__task_orchestrate {
 // Get file contents
 CLAUDE_CONTENT=$(Bash("gh api repos/:owner/:repo$contents$monobrain$docs/CLAUDE.md --jq '.content' | base64 -d"))
 
-// Update claude-code-flow CLAUDE.md to match using gh CLI
+// Update monobrain CLAUDE.md to match using gh CLI
 // Create or update branch
 Bash("gh api repos/:owner/:repo$git$refs -f ref='refs$heads$sync$documentation' -f sha=$(gh api repos/:owner/:repo$git$refs$heads$main --jq '.object.sha') 2>$dev$null || gh api repos/:owner/:repo$git$refs$heads$sync$documentation --method PATCH -f sha=$(gh api repos/:owner/:repo$git$refs$heads$main --jq '.object.sha')")
 
 // Update file
-Bash(`gh api repos/:owner/:repo$contents$claude-code-flow$claude-code-flow/CLAUDE.md \
+Bash(`gh api repos/:owner/:repo$contents$monobrain$monobrain/CLAUDE.md \
   --method PUT \
   -f message="docs: Synchronize CLAUDE.md with monobrain integration patterns" \
   -f branch="sync$documentation" \
   -f content="$(echo '# Claude Code Configuration for monobrain\n\n[synchronized content]' | base64)" \
-  -f sha="$(gh api repos/:owner/:repo$contents$claude-code-flow$claude-code-flow/CLAUDE.md?ref=sync$documentation --jq '.sha' 2>$dev$null || echo '')")`)
+  -f sha="$(gh api repos/:owner/:repo$contents$monobrain$monobrain/CLAUDE.md?ref=sync$documentation --jq '.sha' 2>$dev$null || echo '')")`)
 
 // Store sync state in memory
 mcp__monobrain__memory_usage {
@@ -126,15 +126,15 @@ mcp__monobrain__memory_usage {
 // Coordinate feature implementation across packages
 mcp__github__push_files {
   owner: "nokhodian",
-  repo: "ruv-FANN",
+  repo: "nokhodian",
   branch: "feature$github-commands",
   files: [
     {
-      path: "claude-code-flow$claude-code-flow/.claude$commands$github$github-modes.md",
+      path: "monobrain$monobrain/.claude$commands$github$github-modes.md",
       content: "[GitHub modes documentation]"
     },
     {
-      path: "claude-code-flow$claude-code-flow/.claude$commands$github$pr-manager.md", 
+      path: "monobrain$monobrain/.claude$commands$github$pr-manager.md", 
       content: "[PR manager documentation]"
     },
     {
@@ -196,26 +196,26 @@ This integration uses monobrain agents for:
   mcp__monobrain__agent_spawn { type: "reviewer", name: "Quality Reviewer" }
   
   // Read current state of both packages
-  Read("$workspaces$ruv-FANN$claude-code-flow$claude-code-flow$package.json")
-  Read("$workspaces$ruv-FANN$monobrain$npm$package.json")
-  Read("$workspaces$ruv-FANN$claude-code-flow$claude-code-flow/CLAUDE.md")
-  Read("$workspaces$ruv-FANN$monobrain$docs/CLAUDE.md")
+  Read("$workspaces$nokhodian$monobrain$monobrain$package.json")
+  Read("$workspaces$nokhodian$monobrain$npm$package.json")
+  Read("$workspaces$nokhodian$monobrain$monobrain/CLAUDE.md")
+  Read("$workspaces$nokhodian$monobrain$docs/CLAUDE.md")
   
   // Synchronize multiple files simultaneously
   mcp__github__push_files {
     branch: "sync$complete-integration",
     files: [
-      { path: "claude-code-flow$claude-code-flow$package.json", content: "[aligned package.json]" },
-      { path: "claude-code-flow$claude-code-flow/CLAUDE.md", content: "[synchronized CLAUDE.md]" },
-      { path: "claude-code-flow$claude-code-flow/.claude$commands$github$github-modes.md", content: "[GitHub modes]" }
+      { path: "monobrain$monobrain$package.json", content: "[aligned package.json]" },
+      { path: "monobrain$monobrain/CLAUDE.md", content: "[synchronized CLAUDE.md]" },
+      { path: "monobrain$monobrain/.claude$commands$github$github-modes.md", content: "[GitHub modes]" }
     ],
     message: "feat: Complete package synchronization with GitHub integration"
   }
   
   // Run validation tests
-  Bash("cd $workspaces$ruv-FANN$claude-code-flow$claude-code-flow && npm install")
-  Bash("cd $workspaces$ruv-FANN$claude-code-flow$claude-code-flow && npm test")
-  Bash("cd $workspaces$ruv-FANN$monobrain$npm && npm test")
+  Bash("cd $workspaces$nokhodian$monobrain$monobrain && npm install")
+  Bash("cd $workspaces$nokhodian$monobrain$monobrain && npm test")
+  Bash("cd $workspaces$nokhodian$monobrain$npm && npm test")
   
   // Track synchronization progress
   TodoWrite { todos: [
@@ -232,7 +232,7 @@ This integration uses monobrain agents for:
     key: "sync$complete$status",
     value: {
       timestamp: Date.now(),
-      packages_synced: ["claude-code-flow", "monobrain"],
+      packages_synced: ["monobrain", "monobrain"],
       version_alignment: "completed",
       documentation_sync: "completed",
       github_integration: "completed",
@@ -265,11 +265,11 @@ const syncStrategy = {
 const docSyncPattern = {
   sourceOfTruth: "monobrain$docs/CLAUDE.md",
   targets: [
-    "claude-code-flow$claude-code-flow/CLAUDE.md",
+    "monobrain$monobrain/CLAUDE.md",
     "CLAUDE.md"  // Root level
   ],
   customSections: {
-    "claude-code-flow": "GitHub Commands Integration",
+    "monobrain": "GitHub Commands Integration",
     "monobrain": "MCP Tools Reference"
   }
 }
@@ -279,7 +279,7 @@ const docSyncPattern = {
 ```javascript
 // Comprehensive testing across synchronized packages
 const testMatrix = {
-  packages: ["claude-code-flow", "monobrain"],
+  packages: ["monobrain", "monobrain"],
   tests: [
     "unit_tests",
     "integration_tests", 
@@ -399,7 +399,7 @@ mcp__monobrain__memory_usage {
   action: "store",
   key: "sync$metrics$session",
   value: {
-    packages_synchronized: ["claude-code-flow", "monobrain"],
+    packages_synchronized: ["monobrain", "monobrain"],
     version_alignment_score: 98.5,
     dependency_conflicts_resolved: 12,
     documentation_sync_percentage: 100,
