@@ -1,0 +1,64 @@
+{
+  "name": "monobrain",
+  "version": "1.5.3",
+  "description": "Monobrain - Enterprise AI agent orchestration platform. Deploy 60+ specialized agents in coordinated swarms with self-learning, fault-tolerant consensus, vector memory, and MCP integration",
+  "main": "bin/monobrain.js",
+  "type": "module",
+  "bin": {
+    "monobrain": "./bin/monobrain.js"
+  },
+  "homepage": "https://github.com/nokhodian/monobrain#readme",
+  "bugs": {
+    "url": "https://github.com/nokhodian/monobrain/issues",
+    "email": "nokhodian@gmail.com"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/nokhodian"
+  },
+  "files": [
+    "bin/**",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {},
+  "dependencies": {
+    "@monobrain/cli": ">=1.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nokhodian/monobrain.git",
+    "directory": "monobrain"
+  },
+  "keywords": [
+    "monobrain",
+    "claude",
+    "claude-code",
+    "anthropic",
+    "ai",
+    "ai-agents",
+    "multi-agent",
+    "agent-orchestration",
+    "swarm-intelligence",
+    "swarm",
+    "mcp",
+    "model-context-protocol",
+    "cli",
+    "developer-tools",
+    "enterprise",
+    "self-learning"
+  ],
+  "author": {
+    "name": "nokhodian",
+    "email": "nokhodian@gmail.com",
+    "url": "https://github.com/nokhodian"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
+  }
+}

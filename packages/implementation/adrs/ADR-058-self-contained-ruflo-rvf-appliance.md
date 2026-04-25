@@ -147,7 +147,7 @@ ruvLLM bridges the gap between RuVector's vector intelligence (search, routing, 
 ```
 .env.enc (AES-256-GCM encrypted)
 ├── ANTHROPIC_API_KEY → Claude Sonnet/Opus
-├── OPENAI_API_KEY → GPT-4/Codex (dual-mode)
+├── OPENAI_API_KEY → GPT-4 (optional)
 ├── GOOGLE_API_KEY → Gemini (fallback)
 └── Decryption: passphrase at boot OR hardware key
 ```
