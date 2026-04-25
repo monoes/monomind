@@ -8,7 +8,7 @@
 
 ## What It Is
 
-Codeburn is an AI coding cost tracker that reads Claude Code and Codex session files (JSONL) directly from disk, parses token usage, calculates API costs using LiteLLM pricing, and renders an Ink/React terminal dashboard.
+Codeburn is an AI coding cost tracker that reads Claude Code session files (JSONL) directly from disk, parses token usage, calculates API costs using LiteLLM pricing, and renders an Ink/React terminal dashboard.
 
 Data pipeline:
 ```
@@ -20,7 +20,7 @@ Key capabilities:
 - **13-category activity classifier**: Deterministic keyword + tool-use classification (coding, debugging, feature, refactoring, testing, exploration, planning, delegation, git, build/deploy, conversation, brainstorming, general)
 - **Cost calculation**: `multiplier × (inputTokens × in + outputTokens × out + cacheWrite × cw + cacheRead × cr + webSearch × $0.01)`
 - **Deduplication**: `seenMsgIds` set prevents double-counting subagent chains
-- **Provider plugins**: Claude Code, Claude Desktop, Codex — each with `discoverSessions()` + `createSessionParser()`
+- **Provider plugins**: Claude Code, Claude Desktop — each with `discoverSessions()` + `createSessionParser()`
 
 ## What We Extracted
 

@@ -40,7 +40,6 @@
 | Package               | Path                            | Purpose                                |
 | --------------------- | ------------------------------- | -------------------------------------- |
 | `@monobrain/cli`      | `packages/@monobrain/cli/`      | CLI entry point (41 commands)          |
-| `@monobrain/codex`    | `packages/@monobrain/codex/`    | Dual-mode Claude + Codex collaboration |
 | `@monobrain/guidance` | `packages/@monobrain/guidance/` | Governance control plane               |
 | `@monobrain/hooks`    | `packages/@monobrain/hooks/`    | 17 hooks + 12 workers                  |
 | `@monobrain/memory`   | `packages/@monobrain/memory/`   | AgentDB + HNSW search                  |
@@ -126,20 +125,6 @@ Rules:
 - If no `[SWARM_ASK_USER]` signal but task clearly touches 3+ files or is a new feature: still ask.
 
 **SKIP asking for:** single-file edits, doc/config changes, quick questions.
-
----
-
-## Dual-Mode Collaboration (Claude Code + Codex)
-
-Runs Claude Code and OpenAI Codex workers in parallel with shared memory coordination.
-
-**Platform strengths:** Claude for architecture/security/testing. Codex for implementation/optimization/refactoring.
-
-**Templates:** `feature`, `security`, `refactor`, `bugfix` -- run via `npx monobrain-codex dual run <template> --task "..."`.
-
-**Worker dependency order:** Architect (L0) -> Coder + Tester (L1) -> Reviewer (L2) -> Optimizer (L3).
-
-**Shared memory:** All workers share state via `collaboration` namespace using `npx monobrain@latest memory store/search/retrieve --namespace collaboration`.
 
 ---
 
