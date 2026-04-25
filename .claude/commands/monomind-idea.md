@@ -87,7 +87,7 @@ Spawn 3-5 `researcher` agents in parallel using the Agent tool (mesh topology). 
 - The user's prompt: `$ARGUMENTS`
 - The `PROJECT_CONTEXT` string from Step 1
 
-Each agent MUST return 2-4 ideas as a JSON array:
+Each agent should generate ideas as a JSON array. There is no hard cap -- generate as many or as few as the topic warrants:
 ```json
 [
   { "title": "Short idea title", "description": "2-3 sentence description of the idea, what it solves, and why it matters." }
