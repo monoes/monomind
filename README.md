@@ -407,9 +407,6 @@ npx monobrain@latest hive-mind spawn "Refactor auth module to use OAuth2"
 
 # Search learned patterns
 npx monobrain@latest memory search -q "authentication patterns"
-
-# Dual Claude + Codex workflow
-npx monobrain-codex dual run feature --task "Add rate limiting middleware"
 ```
 
 ---
@@ -609,35 +606,6 @@ Monobrain adds a real-time six-row dashboard to Claude Code:
 | **CONTEXT** | Shared instructions budget, domain coverage, RAM usage              |
 
 Toggle compact ↔ full: `/ts` — Full reference: [tagline.md](tagline.md)
-
----
-
-## Dual-Mode Collaboration
-
-Run Claude Code and OpenAI Codex workers **in parallel** with shared memory:
-
-```bash
-# Pre-built templates
-npx monobrain-codex dual run feature --task "Add OAuth authentication"
-npx monobrain-codex dual run security --target "./src"
-npx monobrain-codex dual run bugfix --task "Fix race condition in session handler"
-
-# Custom pipeline
-npx monobrain-codex dual run \
-  --worker "claude:architect:Design the API contract" \
-  --worker "codex:coder:Implement the endpoints" \
-  --worker "claude:tester:Write integration tests" \
-  --worker "codex:optimizer:Reduce allocations"
-```
-
-**Worker dependency order:** Architect (L0) → Coder + Tester (L1) → Reviewer (L2) → Optimizer (L3)
-
-| Template   | Workers                               | Pipeline                  |
-| ---------- | ------------------------------------- | ------------------------- |
-| `feature`  | Architect → Coder → Tester → Reviewer | Full feature development  |
-| `security` | Analyst → Scanner → Reporter          | Security audit            |
-| `refactor` | Architect → Refactorer → Tester       | Code modernization        |
-| `bugfix`   | Researcher → Coder → Tester           | Bug investigation and fix |
 
 ---
 

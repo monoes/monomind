@@ -1,0 +1,15 @@
+{
+  "id": "session-1776239041448",
+  "startedAt": "2026-04-15T07:44:01.448Z",
+  "platform": "darwin",
+  "cwd": "/Users/morteza/Desktop/tools/monobrain",
+  "context": {},
+  "metrics": {
+    "edits": 13,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "endedAt": "2026-04-15T08:19:59.415Z",
+  "duration": 2157967
+}

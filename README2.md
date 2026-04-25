@@ -151,7 +151,6 @@ Monobrain is a monorepo of focused packages. Each one owns a distinct responsibi
 | `@monobrain/hooks` | `1.5.2` | 17 lifecycle hooks (pre/post-edit, pre/post-task, session-start/end, route, pretrain…) + 12 background workers (ultralearn, optimize, audit, testgaps, refactor…) |
 | `@monobrain/security` | `1.5.2` | AIDefence input validation layer — prompt injection detection, PII scanning, CVE remediation, gVisor sandbox integration, safe execution wrappers |
 | `@monobrain/guidance` | `1.5.2` | Governance control plane — capability registry, workflow templates, quickref generation, routing recommendations for new users and CI pipelines |
-| `@monobrain/codex` | `1.5.2` | Dual-mode orchestration — runs Claude Code and OpenAI Codex workers in parallel with shared memory coordination and dependency-ordered execution |
 
 ### MCP Server
 

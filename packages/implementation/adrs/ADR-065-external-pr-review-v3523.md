@@ -58,14 +58,6 @@ Each PR is evaluated on 4 axes:
 
 ### Tier 2: Build & Interop Fixes
 
-#### PR #1346 — fix(cli): prevent TS2307 for optional @monobrain/codex import
-- **Author**: @TimChesko
-- **Files**: init.ts
-- **Additions**: 3 / **Deletions**: 1
-- **Fix**: Move import specifier to variable to prevent static TS resolution
-- **Verdict**: ACCEPT
-- **Security**: No risk — `const` string literal, no user input. Existing precedent in `ruvllm-bridge.ts:310`.
-
 #### PR #1334 — fix: resolve ESM/CJS interop in ruvector-training.ts
 - **Author**: @fjdevel
 - **Files**: ruvector-training.ts
