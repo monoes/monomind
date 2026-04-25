@@ -60,7 +60,6 @@
     "hono": ">=4.11.4"
   },
   "devDependencies": {
-    "@openai/codex": "^0.98.0",
     "@types/bcrypt": "^5.0.2",
     "@types/node": "^20.0.0",
     "eslint": "^8.0.0",
