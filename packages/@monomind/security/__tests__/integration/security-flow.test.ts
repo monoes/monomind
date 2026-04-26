@@ -1,5 +1,5 @@
 /**
- * V1 Monobrain Security Flow Integration Tests
+ * V1 Monomind Security Flow Integration Tests
  *
  * Integration tests for security module workflow
  * Tests end-to-end security operations across components

@@ -1,4 +1,4 @@
-# Monobrain V1 Plugin System
+# Monomind V1 Plugin System
 
 > Domain-Driven Design Plugin-Based Architecture (ADR-004)
 
@@ -14,9 +14,9 @@ The V1 Plugin System implements a **microkernel architecture** enabling modular 
 ## Quick Start
 
 ```typescript
-import { MonobrainPlugin, PluginContext } from '@monobrain/shared';
+import { MonomindPlugin, PluginContext } from '@monomind/shared';
 
-class MyPlugin implements MonobrainPlugin {
+class MyPlugin implements MonomindPlugin {
   readonly name = 'my-plugin';
   readonly version = '1.0.0';
 
@@ -57,12 +57,12 @@ class MyPlugin implements MonobrainPlugin {
 
 ## Core Components
 
-### 1. MonobrainPlugin Interface
+### 1. MonomindPlugin Interface
 
 All plugins must implement this interface:
 
 ```typescript
-interface MonobrainPlugin {
+interface MonomindPlugin {
   // Required
   readonly name: string;
   readonly version: string;
@@ -272,7 +272,7 @@ uninitialized → initializing → initialized → shutting-down → shutdown
 Plugins can declare dependencies on other plugins:
 
 ```typescript
-class DependentPlugin implements MonobrainPlugin {
+class DependentPlugin implements MonomindPlugin {
   readonly name = 'dependent-plugin';
   readonly version = '1.0.0';
   readonly dependencies = ['base-plugin', 'auth-plugin'];
@@ -291,7 +291,7 @@ The PluginLoader:
 
 ## Official Plugins
 
-Located in `@monobrain/shared/src/plugins/official/`:
+Located in `@monomind/shared/src/plugins/official/`:
 
 ### Maestro Plugin
 
@@ -310,7 +310,7 @@ Collective intelligence coordination:
 ## Error Handling
 
 ```typescript
-import { PluginError, PluginErrorCode } from '@monobrain/shared';
+import { PluginError, PluginErrorCode } from '@monomind/shared';
 
 // Error codes
 type PluginErrorCode =

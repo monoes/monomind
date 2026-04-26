@@ -1,4 +1,4 @@
-# ADR-028: Neural Attention Mechanisms for Monobrain V1
+# ADR-028: Neural Attention Mechanisms for Monomind V1
 
 **Status:** Proposed
 **Date:** 2026-01-16
@@ -7,7 +7,7 @@
 
 ## Context
 
-Monobrain v1 requires advanced attention mechanisms for several critical operations:
+Monomind v1 requires advanced attention mechanisms for several critical operations:
 
 1. **Agent Memory Retrieval**: Current memory lookups use basic vector similarity (cosine/dot product). More sophisticated attention mechanisms can improve retrieval quality by weighing relevance, recency, and contextual importance.
 
@@ -17,11 +17,11 @@ Monobrain v1 requires advanced attention mechanisms for several critical operati
 
 4. **Swarm Coordination Signals**: Multi-agent coordination requires cross-attention mechanisms to share relevant context between agents while filtering noise.
 
-The RuVector intelligence system provides 39 attention mechanism implementations optimized for AI agent workloads. Integrating these into Monobrain v1 will significantly improve memory retrieval, context management, and agent coordination.
+The RuVector intelligence system provides 39 attention mechanism implementations optimized for AI agent workloads. Integrating these into Monomind v1 will significantly improve memory retrieval, context management, and agent coordination.
 
 ## Decision
 
-Integrate RuVector's 39 attention mechanism types into Monobrain v1 via a unified **AttentionService** that provides:
+Integrate RuVector's 39 attention mechanism types into Monomind v1 via a unified **AttentionService** that provides:
 
 1. **Pluggable attention backends** - Select mechanisms based on use case
 2. **Automatic fallback** - Graceful degradation when GPU unavailable
@@ -215,7 +215,7 @@ interface MoEAttentionConfig {
 
 ---
 
-## Use Cases in Monobrain V1
+## Use Cases in Monomind V1
 
 ### 1. Agent Memory Retrieval
 
@@ -398,9 +398,9 @@ class SwarmAttentionCoordinator {
 ### 1. Memory Service (ADR-006)
 
 ```typescript
-// packages/@monobrain/memory/src/attention-enhanced-memory.ts
+// packages/@monomind/memory/src/attention-enhanced-memory.ts
 
-import { AttentionService } from '@monobrain/attention';
+import { AttentionService } from '@monomind/attention';
 import { UnifiedMemoryService } from './unified-memory-service.js';
 
 export class AttentionEnhancedMemoryService extends UnifiedMemoryService {
@@ -443,9 +443,9 @@ export class AttentionEnhancedMemoryService extends UnifiedMemoryService {
 ### 2. SONA Neural Architecture
 
 ```typescript
-// packages/@monobrain/intelligence/src/sona-attention.ts
+// packages/@monomind/intelligence/src/sona-attention.ts
 
-import { AttentionService, FlashAttentionConfig } from '@monobrain/attention';
+import { AttentionService, FlashAttentionConfig } from '@monomind/attention';
 
 export class SONAWithAttention {
   private flashAttention: AttentionService;
@@ -494,9 +494,9 @@ export class SONAWithAttention {
 ### 3. Plugin Hook System
 
 ```typescript
-// packages/@monobrain/cli/src/hooks/attention-hooks.ts
+// packages/@monomind/cli/src/hooks/attention-hooks.ts
 
-import { AttentionService } from '@monobrain/attention';
+import { AttentionService } from '@monomind/attention';
 
 export const attentionHooks = {
   /**
@@ -679,7 +679,7 @@ class AttentionKVCache {
 
 ### Phase 1: Core Attention Service (Week 1-2)
 
-1. Create `@monobrain/attention` package
+1. Create `@monomind/attention` package
 2. Implement base `AttentionService` interface
 3. Add 7 multi-head attention types
 4. Add 6 self-attention variants
@@ -711,7 +711,7 @@ class AttentionKVCache {
 ## File Structure
 
 ```
-packages/@monobrain/attention/
+packages/@monomind/attention/
 ├── package.json
 ├── src/
 │   ├── index.ts                    # Public API exports
@@ -797,7 +797,7 @@ packages/@monobrain/attention/
 ## Configuration Schema
 
 ```typescript
-// monobrain.config.json
+// monomind.config.json
 {
   "attention": {
     // Default mechanism for general use
@@ -841,19 +841,19 @@ packages/@monobrain/attention/
 
 ```bash
 # List available attention mechanisms
-npx @monobrain/cli@latest attention list
+npx @monomind/cli@latest attention list
 
 # Benchmark attention mechanism
-npx @monobrain/cli@latest attention benchmark --mechanism longformer --sequence-length 16384
+npx @monomind/cli@latest attention benchmark --mechanism longformer --sequence-length 16384
 
 # Set default attention mechanism
-npx @monobrain/cli@latest attention set-default --mechanism flash-attention-v2
+npx @monomind/cli@latest attention set-default --mechanism flash-attention-v2
 
 # Show attention statistics
-npx @monobrain/cli@latest attention stats
+npx @monomind/cli@latest attention stats
 
 # Clear attention cache
-npx @monobrain/cli@latest attention cache clear
+npx @monomind/cli@latest attention cache clear
 ```
 
 ---

@@ -16,7 +16,7 @@ interface MCPTool {
   handler: (input: Record<string, unknown>) => Promise<unknown>;
 }
 
-const DEFAULT_CHECKPOINT_FILE = '.monobrain/checkpoints/interrupts.jsonl';
+const DEFAULT_CHECKPOINT_FILE = '.monomind/checkpoints/interrupts.jsonl';
 
 export const listPendingCheckpointsTool: MCPTool = {
   name: 'hooks/interrupt/list-pending',
@@ -26,7 +26,7 @@ export const listPendingCheckpointsTool: MCPTool = {
     properties: {
       checkpointFile: {
         type: 'string',
-        description: 'Custom checkpoint file path (default: .monobrain/checkpoints/interrupts.jsonl)',
+        description: 'Custom checkpoint file path (default: .monomind/checkpoints/interrupts.jsonl)',
       },
     },
   },

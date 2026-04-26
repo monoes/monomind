@@ -1,6 +1,6 @@
 # CLAUDE.md Analysis Report
 
-Generated: 2026-02-01 by `@monobrain/guidance/analyzer`
+Generated: 2026-02-01 by `@monomind/guidance/analyzer`
 
 ## Root CLAUDE.md (`/CLAUDE.md`)
 
@@ -94,13 +94,13 @@ The v1/CLAUDE.md benefited more from auto-optimization because it was missing bo
 
 ```bash
 # From the guidance package directory
-cd packages/@monobrain/guidance
+cd packages/@monomind/guidance
 
 # Run the analysis script
 npx tsx scripts/analyze-claude-md.ts
 
 # Or use the API programmatically
-import { analyze, autoOptimize, formatReport } from '@monobrain/guidance/analyzer';
+import { analyze, autoOptimize, formatReport } from '@monomind/guidance/analyzer';
 
 const result = analyze(claudeMdContent);
 console.log(formatReport(result));

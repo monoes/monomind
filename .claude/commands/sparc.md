@@ -1,6 +1,6 @@
 ---
 name: sparc
-description: Execute SPARC methodology workflows with Monobrain
+description: Execute SPARC methodology workflows with Monomind
 ---
 
 # ⚡️ SPARC Development Methodology
@@ -44,19 +44,19 @@ Use `new_task` to assign:
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
 // Run SPARC orchestrator (default)
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "sparc",
   task_description: "build complete authentication system"
 }
 
 // Run a specific mode
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "architect",
   task_description: "design API structure"
 }
 
 // TDD workflow
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "tdd",
   task_description: "implement user authentication",
   options: {workflow: "full"}
@@ -66,27 +66,27 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Run SPARC orchestrator (default)
-npx monobrain sparc "build complete authentication system"
+npx monomind sparc "build complete authentication system"
 
 # Run a specific mode
-npx monobrain sparc run architect "design API structure"
-npx monobrain sparc run tdd "implement user service"
+npx monomind sparc run architect "design API structure"
+npx monomind sparc run tdd "implement user service"
 
 # Execute full TDD workflow
-npx monobrain sparc tdd "implement user authentication"
+npx monomind sparc tdd "implement user authentication"
 
 # List all modes with details
-npx monobrain sparc modes --verbose
+npx monomind sparc modes --verbose
 
 # For alpha features
-npx monobrain@alpha sparc run <mode> "your task"
+npx monomind@alpha sparc run <mode> "your task"
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc "build complete authentication system"
-./monobrain sparc run architect "design API structure"
+# If monomind is installed locally
+./monomind sparc "build complete authentication system"
+./monomind sparc run architect "design API structure"
 ```
 
 ## SPARC Methodology Phases
@@ -102,7 +102,7 @@ npx monobrain@alpha sparc run <mode> "your task"
 ### Using MCP Tools (Preferred)
 ```javascript
 // Store specifications
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "spec_auth",
   value: "OAuth2 + JWT requirements",
@@ -110,7 +110,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Store architectural decisions
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "arch_decisions",
   value: "Microservices with API Gateway",
@@ -121,16 +121,16 @@ mcp__monobrain__memory_usage {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store specifications
-npx monobrain memory store "spec_auth" "OAuth2 + JWT requirements" --namespace spec
+npx monomind memory store "spec_auth" "OAuth2 + JWT requirements" --namespace spec
 
 # Store architectural decisions
-./monobrain memory store "arch_api" "RESTful microservices design" --namespace arch
+./monomind memory store "arch_api" "RESTful microservices design" --namespace arch
 
 # Query previous work
-./monobrain memory query "authentication" --limit 10
+./monomind memory query "authentication" --limit 10
 
 # Export project memory
-./monobrain memory export sparc-project-backup.json
+./monomind memory export sparc-project-backup.json
 ```
 
 ## Advanced Swarm Mode
@@ -138,21 +138,21 @@ npx monobrain memory store "spec_auth" "OAuth2 + JWT requirements" --namespace s
 For complex tasks requiring multiple agents with timeout-free execution:
 ```bash
 # Development swarm with monitoring
-./monobrain swarm "Build e-commerce platform" --strategy development --monitor --review
+./monomind swarm "Build e-commerce platform" --strategy development --monitor --review
 
 # Background optimization swarm
-./monobrain swarm "Optimize system performance" --strategy optimization --background
+./monomind swarm "Optimize system performance" --strategy optimization --background
 
 # Distributed research swarm
-./monobrain swarm "Analyze market trends" --strategy research --distributed --ui
+./monomind swarm "Analyze market trends" --strategy research --distributed --ui
 ```
 
 ## Non-Interactive Mode
 
 For CI/CD integration and automation:
 ```bash
-./monobrain sparc run code "implement API" --non-interactive
-./monobrain sparc tdd "user tests" --non-interactive --enable-permissions
+./monomind sparc run code "implement API" --non-interactive
+./monomind sparc tdd "user tests" --non-interactive --enable-permissions
 ```
 
 ## Best Practices
@@ -163,4 +163,4 @@ For CI/CD integration and automation:
 ✅ **Memory Usage**: Store important decisions and context
 ✅ **Task Completion**: All tasks should end with `attempt_completion`
 
-See `/monobrain-help` for all available commands.
+See `/monomind-help` for all available commands.

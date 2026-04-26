@@ -10,7 +10,7 @@
  *
  * Promotion rule: Local rules that win twice become root rules.
  *
- * @module @monobrain/guidance/optimizer
+ * @module @monomind/guidance/optimizer
  */
 
 import { randomUUID } from 'node:crypto';

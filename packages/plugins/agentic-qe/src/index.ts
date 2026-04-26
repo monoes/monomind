@@ -1,6 +1,6 @@
 /**
  * Agentic-QE Plugin Entry Point
- * Plugin exports for monobrain V1 integration
+ * Plugin exports for monomind V1 integration
  *
  * @module v1/plugins/agentic-qe
  * @version 1.0.0
@@ -39,7 +39,7 @@ export type {
 
   // Bounded Context Types
   BoundedContext,
-  MonobrainDomain,
+  MonomindDomain,
 
   // Test Generation Types
   TestGenerationRequest,
@@ -292,7 +292,7 @@ export const PLUGIN_METADATA = {
   license: 'MIT',
   homepage: 'https://github.com/nokhodian/agentic-qe',
   repository: 'https://github.com/nokhodian/agentic-qe',
-  minMonobrainVersion: '3.0.0-alpha.50',
+  minMonomindVersion: '3.0.0-alpha.50',
   capabilities: [
     'test-generation',
     'test-execution',
@@ -309,13 +309,13 @@ export const PLUGIN_METADATA = {
   ],
   dependencies: {
     required: [
-      '@monobrain/plugins',
-      '@monobrain/memory',
-      '@monobrain/security',
-      '@monobrain/embeddings',
+      '@monomind/plugins',
+      '@monomind/memory',
+      '@monomind/security',
+      '@monomind/embeddings',
     ],
     optional: [
-      '@monobrain/browser',
+      '@monomind/browser',
       '@ruvector/attention',
       '@ruvector/gnn',
       '@ruvector/sona',

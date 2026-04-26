@@ -4,7 +4,7 @@
  * Stores document metadata and text chunks as JSON-lines files,
  * avoiding any native SQLite dependency.
  *
- * @module @monobrain/memory/knowledge/knowledge-store
+ * @module @monomind/memory/knowledge/knowledge-store
  */
 
 import * as fs from 'node:fs';

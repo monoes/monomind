@@ -1,4 +1,4 @@
-# Monobrain v1: Optimized Learning System Plan
+# Monomind v1: Optimized Learning System Plan
 
 ## Executive Summary
 
@@ -17,7 +17,7 @@ This plan integrates the learning capabilities from **agentic-flow@2.0.1-alpha.5
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                     Monobrain v1 Learning System                       │
+│                     Monomind v1 Learning System                       │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────────┐│
@@ -675,17 +675,17 @@ export const memoryOptimizations = {
 
 ```bash
 # Tier 1: Basic Learning (Minimal)
-npx monobrain install learning:basic
+npx monomind install learning:basic
 # Includes: Pattern storage, skill lookup, basic RL (Q-Learning, SARSA)
 # Size: ~1MB | Platforms: All
 
 # Tier 2: Standard Learning (Recommended)
-npx monobrain install learning
+npx monomind install learning
 # Includes: Tier 1 + 5 more RL algorithms, reflexion memory, trajectory tracking
 # Size: ~2MB | Platforms: All
 
 # Tier 3: Advanced Learning (Full)
-npx monobrain install learning:advanced
+npx monomind install learning:advanced
 # Includes: Tier 2 + causal graphs, nightly learner, FlashAttention
 # Size: ~4MB | Platforms: All (NAPI for FlashAttention speedup)
 ```
@@ -715,22 +715,22 @@ npx monobrain install learning:advanced
 
 ```bash
 # Linux: Maximum performance
-npx monobrain install learning:advanced --native
+npx monomind install learning:advanced --native
 # Uses NAPI for FlashAttention (4x faster, 75% less memory)
 
 # macOS: Universal binary
-npx monobrain install learning:advanced
+npx monomind install learning:advanced
 # Auto-detects ARM vs Intel, uses native when possible
 
 # Windows: WASM-optimized
-npx monobrain install learning:advanced --wasm
+npx monomind install learning:advanced --wasm
 # Full features via WebAssembly, no build tools required
 ```
 
 ### 9.4 Lazy Loading Configuration
 
 ```typescript
-// .monobrain/config.json
+// .monomind/config.json
 {
   "learning": {
     "tier": "standard",              // basic | standard | advanced
@@ -771,33 +771,33 @@ npx monobrain install learning:advanced --wasm
 
 ```bash
 # Install core + basic learning
-npm install monobrain@3
-npx monobrain install learning:basic
+npm install monomind@3
+npx monomind install learning:basic
 
 # Start using immediately
-npx monobrain learning start --algorithm q-learning
+npx monomind learning start --algorithm q-learning
 ```
 
 ### 10.2 Recommended Learning Setup
 
 ```bash
 # Install with persistent memory
-npm install monobrain@3
-npx monobrain install memory learning
+npm install monomind@3
+npx monomind install memory learning
 
 # Initialize with sensible defaults
-npx monobrain init --learning
+npx monomind init --learning
 ```
 
 ### 10.3 Production Learning Setup
 
 ```bash
 # Full installation with native bindings
-npm install monobrain@3
-npx monobrain install --all --native
+npm install monomind@3
+npx monomind install --all --native
 
 # Configure for production
-cat > .monobrain/config.json << 'EOF'
+cat > .monomind/config.json << 'EOF'
 {
   "learning": {
     "tier": "advanced",
@@ -818,11 +818,11 @@ EOF
 
 ```bash
 # Minimal for CI (no native deps)
-npm install monobrain@3
-npx monobrain install learning:basic --wasm
+npm install monomind@3
+npx monomind install learning:basic --wasm
 
 # Run tests with learning
-npx monobrain test --with-learning
+npx monomind test --with-learning
 ```
 
 ---
@@ -833,26 +833,26 @@ npx monobrain test --with-learning
 
 ```bash
 # Upgrade from basic to standard
-npx monobrain install learning --upgrade
+npx monomind install learning --upgrade
 
 # Upgrade from standard to advanced
-npx monobrain install learning:advanced --upgrade
+npx monomind install learning:advanced --upgrade
 
 # Downgrade (preserves data)
-npx monobrain install learning:basic --downgrade
+npx monomind install learning:basic --downgrade
 ```
 
 ### 11.2 Data Migration
 
 ```bash
 # Export learning data before major upgrade
-npx monobrain learning export --output learning-backup.json
+npx monomind learning export --output learning-backup.json
 
 # Import after upgrade
-npx monobrain learning import --input learning-backup.json
+npx monomind learning import --input learning-backup.json
 
 # Verify data integrity
-npx monobrain learning verify
+npx monomind learning verify
 ```
 
 ---
@@ -872,16 +872,16 @@ npx monobrain learning verify
 
 ```bash
 # Check learning system status
-npx monobrain learning status
+npx monomind learning status
 
 # View component load times
-npx monobrain learning diagnostics
+npx monomind learning diagnostics
 
 # Test RL algorithms
-npx monobrain learning test --algorithm ppo
+npx monomind learning test --algorithm ppo
 
 # Verify installation
-npx monobrain verify --component learning
+npx monomind verify --component learning
 ```
 
 ---

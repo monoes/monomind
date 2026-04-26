@@ -14,8 +14,8 @@ Matrix of agent capabilities and their specializations.
 ## Querying Capabilities
 ```bash
 # List all capabilities
-npx monobrain agents capabilities
+npx monomind agents capabilities
 
 # For specific agent
-npx monobrain agents capabilities --type coder
+npx monomind agents capabilities --type coder
 ```

@@ -241,7 +241,7 @@ kbd{background:var(--bg3);border:1px solid var(--border);border-radius:3px;paddi
 
     <!-- Top bar -->
     <div id="topbar">
-      <div class="title"><span>monobrain</span> graph</div>
+      <div class="title"><span>monomind</span> graph</div>
       <div class="pill"><b>${nodeCount}</b> nodes${sampled ? ` <span style="color:#f59e0b" title="Sampled top ${MAX_VISUAL_NODES} of ${totalNodes} by degree">▲</span>` : ''}</div>
       <div class="pill"><b>${edgeCount}</b> edges</div>
       <div class="pill"><b>${communityIds.length}</b> groups</div>

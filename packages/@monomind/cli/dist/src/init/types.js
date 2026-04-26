@@ -77,7 +77,6 @@ export const DEFAULT_INIT_OPTIONS = {
         github: true,
         browser: true,
         v1: true,
-        dualMode: false, // Optional: enable with --dual flag
         all: false,
     },
     commands: {
@@ -102,7 +101,6 @@ export const DEFAULT_INIT_OPTIONS = {
         v1: true,
         optimization: true,
         testing: true,
-        dualMode: false, // Optional: enable with --dual flag
         all: true,
     },
     statusline: {
@@ -115,7 +113,7 @@ export const DEFAULT_INIT_OPTIONS = {
         refreshInterval: 5000,
     },
     mcp: {
-        monobrain: true,
+        monomind: true,
         ruvSwarm: false,
         graphify: false,
         autoStart: false,
@@ -172,7 +170,6 @@ export const MINIMAL_INIT_OPTIONS = {
         github: false,
         browser: false,
         v1: false,
-        dualMode: false,
         all: false,
     },
     agents: {
@@ -186,7 +183,6 @@ export const MINIMAL_INIT_OPTIONS = {
         v1: false,
         optimization: false,
         testing: false,
-        dualMode: false,
         all: false,
     },
     runtime: {
@@ -232,7 +228,6 @@ export const FULL_INIT_OPTIONS = {
         github: true,
         browser: true,
         v1: true,
-        dualMode: true, // Include in full init
         all: true,
     },
     commands: {
@@ -244,7 +239,7 @@ export const FULL_INIT_OPTIONS = {
         all: true,
     },
     mcp: {
-        monobrain: true,
+        monomind: true,
         ruvSwarm: true,
         graphify: false,
         autoStart: false,

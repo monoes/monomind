@@ -11,7 +11,7 @@
  * 4. Evaluate against active rules
  * 5. Store results in the run ledger
  *
- * @module @monobrain/guidance/headless
+ * @module @monomind/guidance/headless
  */
 import type { RunEvent, TaskIntent, Violation, EvaluatorResult } from './types.js';
 import type { RunLedger } from './ledger.js';

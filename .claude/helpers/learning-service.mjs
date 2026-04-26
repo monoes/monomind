@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Monobrain V1 - Persistent Learning Service
+ * Monomind V1 - Persistent Learning Service
  *
  * Connects ReasoningBank to AgentDB with HNSW indexing and ONNX embeddings.
  *
@@ -27,7 +27,7 @@ import Database from 'better-sqlite3';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PROJECT_ROOT = join(__dirname, '../..');
-const DATA_DIR = join(PROJECT_ROOT, '.monobrain/learning');
+const DATA_DIR = join(PROJECT_ROOT, '.monomind/learning');
 const DB_PATH = join(DATA_DIR, 'patterns.db');
 const METRICS_PATH = join(DATA_DIR, 'learning-metrics.json');
 
@@ -1112,7 +1112,7 @@ async function main() {
       case 'help':
       default:
         console.log(`
-Monobrain V1 Learning Service
+Monomind V1 Learning Service
 
 Usage: learning-service.mjs <command> [args]
 

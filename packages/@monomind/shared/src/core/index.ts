@@ -2,7 +2,7 @@
  * V1 Core Module - Public API
  * Domain-Driven Design with Clean Architecture
  *
- * This module provides the core architecture for monobrain v1:
+ * This module provides the core architecture for monomind v1:
  * - Decomposed orchestrator (task, session, health, lifecycle management)
  * - Event-driven architecture with event bus and coordinator
  * - Type-safe configuration with Zod validation

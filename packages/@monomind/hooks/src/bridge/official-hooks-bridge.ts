@@ -2,7 +2,7 @@
  * Official Claude Code Hooks Bridge
  *
  * Maps V1 internal hook events to official Claude Code hook events.
- * This bridge enables seamless integration between monobrain's
+ * This bridge enables seamless integration between monomind's
  * internal hook system and the official Claude Code plugin API.
  *
  * @module v1/hooks/bridge/official-hooks-bridge
@@ -299,7 +299,7 @@ export class OfficialHooksBridge {
    * Create a CLI command for a V1 hook handler
    */
   static createCLICommand(event: HookEvent, handler: string): string {
-    const baseCommand = 'npx monobrain@alpha hooks';
+    const baseCommand = 'npx monomind@alpha hooks';
 
     switch (event) {
       case HookEvent.PreEdit:

@@ -1,10 +1,10 @@
-# Monobrain v1: Complete Reimagining with agentic-flow@alpha Foundation
+# Monomind v1: Complete Reimagining with agentic-flow@alpha Foundation
 
-> **Note:** v2/ has been removed from the repo. v2 backward compatibility references below are historical. The project is now Monobrain (formerly Monobrain).
+> **Note:** v2/ has been removed from the repo. v2 backward compatibility references below are historical. The project is now Monomind (formerly Monomind).
 
 ## Executive Summary
 
-Monobrain v1 represents a complete architectural overhaul that builds on **agentic-flow@alpha** as its core foundation while maintaining full backward compatibility with v2.x. This plan consolidates findings from concurrent swarm analysis covering architecture, security, dead code, Windows compatibility, repository cleanup, and .claude/ optimization.
+Monomind v1 represents a complete architectural overhaul that builds on **agentic-flow@alpha** as its core foundation while maintaining full backward compatibility with v2.x. This plan consolidates findings from concurrent swarm analysis covering architecture, security, dead code, Windows compatibility, repository cleanup, and .claude/ optimization.
 
 ### Key Objectives
 
@@ -48,7 +48,7 @@ Monobrain v1 represents a complete architectural overhaul that builds on **agent
 ### 1.1 Codebase Overview
 
 ```
-Monobrain v2.7.47
+Monomind v2.7.47
 ├── Source Files: 376 TypeScript files (~130,000 lines)
 ├── Architecture: Multi-layered (CLI, Core, MCP, Swarm, Hive-Mind)
 └── Configuration: 14.2 MB across 7 directories
@@ -133,7 +133,7 @@ const hash = await bcrypt.hash(password, SALT_ROUNDS);
 
 ```typescript
 // REMOVE these hardcoded credentials
-email: "admin@monobrain.local";
+email: "admin@monomind.local";
 password: "admin123"; // CRITICAL RISK
 
 // v1: Generate random on installation
@@ -178,7 +178,7 @@ const adminPassword = crypto.randomBytes(32).toString("hex");
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Monobrain v1                          │
+│                     Monomind v1                          │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │              Compatibility Layer (v2 API)            │   │
@@ -418,7 +418,7 @@ export class SqlJsBackend implements DatabaseBackend {
 | ------------------- | ----- | ---------------------------------- |
 | `dist-cjs/`         | 22MB  | Remove from git, add to .gitignore |
 | Duplicate lock file | 0.6MB | Keep one (npm or pnpm)             |
-| `monobrain-wiki/`   | 0     | Remove empty directory             |
+| `monomind-wiki/`   | 0     | Remove empty directory             |
 
 #### Medium Priority (26.6MB)
 
@@ -451,7 +451,7 @@ rm -f package-lock.json  # If using pnpm
 rm -f pnpm-lock.yaml     # If using npm
 
 # 4. Remove empty directory
-rmdir monobrain-wiki/
+rmdir monomind-wiki/
 
 # 5. Clean up .gitignore duplicates
 # (manual edit to remove 8 duplicate "hive-mind-prompt-*.txt" entries)
@@ -473,7 +473,7 @@ dist-cjs/
 # Runtime databases (shouldn't be tracked)
 .swarm/memory.db
 .hive-mind/memory.db
-.monobrain/**/*.db
+.monomind/**/*.db
 ```
 
 ---
@@ -485,7 +485,7 @@ dist-cjs/
 | Directory         | Size  | Issues                                 |
 | ----------------- | ----- | -------------------------------------- |
 | `.claude/`        | 11MB  | 9 settings variants, 3,720 checkpoints |
-| `.monobrain/`     | 2.5MB | Stale training data                    |
+| `.monomind/`     | 2.5MB | Stale training data                    |
 | `.claude-plugin/` | 81KB  | Hook duplication                       |
 | `.hive-mind/`     | 20KB  | Separate database                      |
 | `.swarm/`         | 272KB | Separate database                      |
@@ -531,7 +531,7 @@ dist-cjs/
     ├── MIGRATION_LOG.md
     └── OPTIMIZATION_STATUS.md
 
-.monobrain/
+.monomind/
 ├── swarm-config.json              # Includes agent profiles
 ├── coordination/                  # NEW: Unified runtime
 │   ├── memory.db                  # Merged swarm + hive-mind
@@ -545,8 +545,8 @@ dist-cjs/
     └── latest-validation.json     # Single file
 
 # REMOVE these directories
-.swarm/                            # → .monobrain/coordination/
-.hive-mind/                        # → .monobrain/coordination/
+.swarm/                            # → .monomind/coordination/
+.hive-mind/                        # → .monomind/coordination/
 .ruv-swarm/                        # Archive or remove
 ```
 
@@ -713,23 +713,23 @@ commands/
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "commands": ["npx monobrain hooks pre-tool --tool=$TOOL_NAME"]
+        "commands": ["npx monomind hooks pre-tool --tool=$TOOL_NAME"]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "*",
-        "commands": ["npx monobrain hooks post-tool --tool=$TOOL_NAME"]
+        "commands": ["npx monomind hooks post-tool --tool=$TOOL_NAME"]
       }
     ],
     "PreCompact": [
       {
-        "commands": ["npx monobrain hooks pre-compact --session=$SESSION_ID"]
+        "commands": ["npx monomind hooks pre-compact --session=$SESSION_ID"]
       }
     ],
     "Stop": [
       {
-        "commands": ["npx monobrain hooks session-end --export-metrics true"]
+        "commands": ["npx monomind hooks session-end --export-metrics true"]
       }
     ]
   },
@@ -1100,7 +1100,7 @@ src/v1/
     └── neural/
 
 docs/v1/
-├── MONOBRAIN-MASTER-PLAN.md (this file)
+├── MONOMIND-MASTER-PLAN.md (this file)
 ├── MIGRATION-GUIDE.md
 ├── API-REFERENCE.md
 └── ARCHITECTURE.md
@@ -1123,7 +1123,7 @@ docs/reasoningbank/models/*/memory.db.backup
 dist-cjs/ (remove from git)
 
 # Empty
-monobrain-wiki/
+monomind-wiki/
 
 # Duplicate settings
 .claude/settings-complete.json
@@ -1159,7 +1159,7 @@ npm audit fix --force
 ./scripts/cleanup-v1.sh
 
 # Run migration
-npx monobrain migrate --to v1
+npx monomind migrate --to v1
 
 # Verify backward compatibility
 npm run test:compatibility
@@ -1187,10 +1187,10 @@ npm run build:v1
 
 ```typescript
 // v1 with backward compatibility
-import { SwarmCoordinator } from "monobrain"; // v2 API still works
+import { SwarmCoordinator } from "monomind"; // v2 API still works
 
 // v1 native
-import { AgenticFlowAdapter } from "monobrain/v1";
+import { AgenticFlowAdapter } from "monomind/v1";
 const adapter = new AgenticFlowAdapter({ sona: "research" });
 await adapter.initialize();
 ```

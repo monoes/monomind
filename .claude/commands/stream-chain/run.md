@@ -5,7 +5,7 @@ Execute a custom stream chain with your own prompts.
 ## Usage
 
 ```bash
-monobrain stream-chain run <prompt1> <prompt2> [...] [options]
+monomind stream-chain run <prompt1> <prompt2> [...] [options]
 ```
 
 Minimum 2 prompts required for chaining.
@@ -24,14 +24,14 @@ Each prompt in the chain receives the complete output from the previous step as 
 
 ### Basic Chain
 ```bash
-monobrain stream-chain run \
+monomind stream-chain run \
   "Write a function" \
   "Add tests for it"
 ```
 
 ### Complex Workflow
 ```bash
-monobrain stream-chain run \
+monomind stream-chain run \
   "Analyze the authentication system" \
   "Identify security vulnerabilities" \
   "Propose fixes with priority levels" \
@@ -41,7 +41,7 @@ monobrain stream-chain run \
 
 ### With Options
 ```bash
-monobrain stream-chain run \
+monomind stream-chain run \
   "Complex analysis task" \
   "Detailed implementation" \
   --timeout 60 \

@@ -1,4 +1,4 @@
-# Monobrain v1 Helper System Installation Guide
+# Monomind v1 Helper System Installation Guide
 
 This guide covers installing the v1 helper system across all supported platforms.
 
@@ -8,7 +8,7 @@ This guide covers installing the v1 helper system across all supported platforms
 
 ```bash
 # Copy the entire helper system to your project
-cp -r /path/to/monobrain/v1/helpers/ your-project/.claude/helpers/
+cp -r /path/to/monomind/v1/helpers/ your-project/.claude/helpers/
 
 # Make scripts executable (Linux/macOS)
 chmod +x your-project/.claude/helpers/*.sh
@@ -25,10 +25,10 @@ cd your-existing-project
 mkdir -p .claude/helpers
 
 # Copy helpers
-cp -r /path/to/monobrain/v1/helpers/* .claude/helpers/
+cp -r /path/to/monomind/v1/helpers/* .claude/helpers/
 
 # Initialize
-./.claude/helpers/monobrain-v1.sh init
+./.claude/helpers/monomind-v1.sh init
 ```
 
 ## 🌍 Platform-Specific Setup
@@ -56,10 +56,10 @@ cp -r v1/helpers/ .claude/helpers/
 chmod +x .claude/helpers/*.sh .claude/helpers/templates/*.sh
 
 # Initialize project
-./.claude/helpers/monobrain-v1.sh init
+./.claude/helpers/monomind-v1.sh init
 
 # Validate setup
-./.claude/helpers/monobrain-v1.sh validate
+./.claude/helpers/monomind-v1.sh validate
 ```
 
 ### macOS
@@ -84,10 +84,10 @@ cp -r v1/helpers/ .claude/helpers/
 chmod +x .claude/helpers/*.sh .claude/helpers/templates/*.sh
 
 # Initialize project
-./.claude/helpers/monobrain-v1.sh init
+./.claude/helpers/monomind-v1.sh init
 
 # Validate setup
-./.claude/helpers/monobrain-v1.sh validate
+./.claude/helpers/monomind-v1.sh validate
 ```
 
 ### Windows
@@ -116,10 +116,10 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 Copy-Item -Recurse -Path "v1\helpers\*" -Destination ".claude\helpers\"
 
 # Initialize project
-.\.claude\helpers\monobrain-v1.ps1 init
+.\.claude\helpers\monomind-v1.ps1 init
 
 # Validate setup
-.\.claude\helpers\monobrain-v1.ps1 validate
+.\.claude\helpers\monomind-v1.ps1 validate
 ```
 
 #### Installation (Git Bash/WSL)
@@ -132,7 +132,7 @@ cp -r v1/helpers/ .claude/helpers/
 chmod +x .claude/helpers/*.sh .claude/helpers/templates/*.sh
 
 # Initialize project
-./.claude/helpers/monobrain-v1.sh init
+./.claude/helpers/monomind-v1.sh init
 ```
 
 ## 📋 Configuration
@@ -148,7 +148,7 @@ Add to your `.claude/settings.json`:
     "enabled": true,
     "platform": "auto-detect",
     "scripts": {
-      "master": ".claude/helpers/monobrain-v1",
+      "master": ".claude/helpers/monomind-v1",
       "progressManager": ".claude/helpers/templates/progress-manager",
       "statusDisplay": ".claude/helpers/templates/status-display",
       "configValidator": ".claude/helpers/templates/config-validator"
@@ -193,14 +193,14 @@ Add to your `.claude/settings.json`:
 
 ```bash
 # Linux/macOS
-export MONOBRAIN_v1_MODE=enabled
-export MONOBRAIN_HELPERS_DIR=.claude/helpers
-export MONOBRAIN_PLATFORM=auto
+export MONOMIND_v1_MODE=enabled
+export MONOMIND_HELPERS_DIR=.claude/helpers
+export MONOMIND_PLATFORM=auto
 
 # Windows (PowerShell)
-$env:MONOBRAIN_v1_MODE = "enabled"
-$env:MONOBRAIN_HELPERS_DIR = ".claude\helpers"
-$env:MONOBRAIN_PLATFORM = "auto"
+$env:MONOMIND_v1_MODE = "enabled"
+$env:MONOMIND_HELPERS_DIR = ".claude\helpers"
+$env:MONOMIND_PLATFORM = "auto"
 ```
 
 ## 🔧 Post-Installation Verification
@@ -209,19 +209,19 @@ $env:MONOBRAIN_PLATFORM = "auto"
 
 ```bash
 # Linux/macOS
-./.claude/helpers/monobrain-v1.sh platform-info
-./.claude/helpers/monobrain-v1.sh status
+./.claude/helpers/monomind-v1.sh platform-info
+./.claude/helpers/monomind-v1.sh status
 
 # Windows
-.\.claude\helpers\monobrain-v1.ps1 platform-info
-.\.claude\helpers\monobrain-v1.ps1 status
+.\.claude\helpers\monomind-v1.ps1 platform-info
+.\.claude\helpers\monomind-v1.ps1 status
 ```
 
 ### Full Validation
 
 ```bash
 # Run comprehensive validation
-./.claude/helpers/monobrain-v1.sh validate
+./.claude/helpers/monomind-v1.sh validate
 
 # Expected output: "All checks passed! v1 development environment is ready."
 ```
@@ -294,7 +294,7 @@ Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
 ```bash
 # Verify helper paths
 ls -la .claude/helpers/
-./.claude/helpers/monobrain-v1.sh platform-info
+./.claude/helpers/monomind-v1.sh platform-info
 
 # Add helpers to PATH (optional)
 export PATH="$PATH:$(pwd)/.claude/helpers"
@@ -326,14 +326,14 @@ cp -r .claude/helpers .claude/helpers.backup
 cp -r /path/to/new/v1/helpers/* .claude/helpers/
 
 # Re-initialize
-./.claude/helpers/monobrain-v1.sh init
+./.claude/helpers/monomind-v1.sh init
 ```
 
 ### Version Management
 
 ```bash
 # Check helper version
-./.claude/helpers/monobrain-v1.sh --version
+./.claude/helpers/monomind-v1.sh --version
 
 # View changelog
 cat .claude/helpers/CHANGELOG.md

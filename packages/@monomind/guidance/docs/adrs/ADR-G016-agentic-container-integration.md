@@ -60,7 +60,7 @@ The Memory Clerk conformance test (`ConformanceRunner` + `MemoryClerkCell`) vali
 - All specification requirements are covered by implemented, tested components
 - The Memory Clerk acceptance test provides a single pass/fail gate for system integrity
 - Performance targets are met with margin
-- The system is ready for integration with the broader Monobrain v1 runtime
+- The system is ready for integration with the broader Monomind v1 runtime
 
 ## Alternatives Considered
 

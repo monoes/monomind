@@ -1,4 +1,4 @@
-# better-sqlite3 Usage Inventory - Monobrain v1
+# better-sqlite3 Usage Inventory - Monomind v1
 
 **Generated**: 2026-01-03
 **Purpose**: Complete inventory of better-sqlite3 usage across codebase for sql.js migration
@@ -18,7 +18,7 @@
 
 ### 1.1 Main Abstraction Layer ⭐ (Priority: Critical)
 
-**File**: `/home/user/monobrain/src/memory/sqlite-wrapper.js`
+**File**: `/home/user/monomind/src/memory/sqlite-wrapper.js`
 - **Line**: 14-19 (initialization)
 - **Usage**: Dynamic require/import with error handling
 - **Current features**:
@@ -53,7 +53,7 @@ async function tryLoadSQLite() {
 
 ### 1.2 Database Service
 
-**File**: `/home/user/monobrain/src/api/database-service.ts`
+**File**: `/home/user/monomind/src/api/database-service.ts`
 - **Line**: 559
 - **Usage**: Dynamic import for SQLite initialization
 - **Method**: `initializeSQLite()`
@@ -83,7 +83,7 @@ private async initializeSQLite(): Promise<void> {
 
 ### 1.3 Database Manager
 
-**File**: `/home/user/monobrain/src/core/DatabaseManager.ts`
+**File**: `/home/user/monomind/src/core/DatabaseManager.ts`
 - **Line**: 197
 - **Usage**: CommonJS require with error recovery
 - **Method**: `SQLiteProvider` constructor
@@ -118,7 +118,7 @@ class SQLiteProvider implements IDatabaseProvider {
 
 ### 1.4 Persistence Manager
 
-**File**: `/home/user/monobrain/src/core/persistence.ts`
+**File**: `/home/user/monomind/src/core/persistence.ts`
 - **Line**: 5
 - **Usage**: ES module import (direct)
 - **Type**: TypeScript with full type safety
@@ -128,7 +128,7 @@ class SQLiteProvider implements IDatabaseProvider {
 ```typescript
 // Line 1-8
 /**
- * Persistence layer for Monobrain using SQLite
+ * Persistence layer for Monomind using SQLite
  */
 
 import Database from 'better-sqlite3'; // Line 5
@@ -149,7 +149,7 @@ import { mkdir } from 'fs/promises';
 
 ### 2.1 SQLite Backend
 
-**File**: `/home/user/monobrain/src/memory/backends/sqlite.ts`
+**File**: `/home/user/monomind/src/memory/backends/sqlite.ts`
 - **Line**: N/A (uses wrapper)
 - **Usage**: Indirect via `sqlite-wrapper.js`
 - **Migration**: Template for sql.js backend
@@ -169,7 +169,7 @@ if (!this.sqliteLoaded) {
 
 ### 2.2 SQLite Store
 
-**File**: `/home/user/monobrain/src/memory/sqlite-store.js`
+**File**: `/home/user/monomind/src/memory/sqlite-store.js`
 - **Line**: 10
 - **Usage**: Import from wrapper
 - **Type**: JavaScript (MCP server)
@@ -193,7 +193,7 @@ import { sessionSerializer } from './enhanced-session-serializer.js';
 
 ### 3.1 Hive Mind Main
 
-**File**: `/home/user/monobrain/src/cli/simple-commands/hive-mind.js`
+**File**: `/home/user/monomind/src/cli/simple-commands/hive-mind.js`
 - **Lines**: 38, 46
 - **Usage**: Dual loading (require + dynamic import)
 - **Migration**: Use abstraction layer
@@ -221,7 +221,7 @@ try {
 
 ### 3.2 Hive Mind Wizard
 
-**File**: `/home/user/monobrain/src/cli/simple-commands/hive-mind-wizard.js`
+**File**: `/home/user/monomind/src/cli/simple-commands/hive-mind-wizard.js`
 - **Line**: 4
 - **Usage**: Direct require
 - **Migration**: Add try-catch with sql.js fallback
@@ -239,7 +239,7 @@ const ora = require('ora');
 
 ### 3.3 Hive Mind Memory
 
-**File**: `/home/user/monobrain/src/cli/simple-commands/hive-mind/memory.js`
+**File**: `/home/user/monomind/src/cli/simple-commands/hive-mind/memory.js`
 - **Line**: 7
 - **Usage**: ES module import
 - **Migration**: Use abstraction layer
@@ -259,7 +259,7 @@ import Database from 'better-sqlite3'; // Line 7
 
 ### 3.4 Metrics Reader
 
-**File**: `/home/user/monobrain/src/cli/simple-commands/hive-mind/metrics-reader.js`
+**File**: `/home/user/monomind/src/cli/simple-commands/hive-mind/metrics-reader.js`
 - **Line**: 6
 - **Usage**: ES module import
 - **Migration**: Use abstraction layer
@@ -279,7 +279,7 @@ import Database from 'better-sqlite3'; // Line 6
 
 ### 3.5 Database Optimizer
 
-**File**: `/home/user/monobrain/src/cli/simple-commands/hive-mind/db-optimizer.js`
+**File**: `/home/user/monomind/src/cli/simple-commands/hive-mind/db-optimizer.js`
 - **Line**: 8
 - **Usage**: ES module import
 - **Migration**: Use abstraction layer
@@ -300,7 +300,7 @@ import Database from 'better-sqlite3'; // Line 8
 
 ### 3.6 MCP Wrapper
 
-**File**: `/home/user/monobrain/src/cli/simple-commands/hive-mind/mcp-wrapper.js`
+**File**: `/home/user/monomind/src/cli/simple-commands/hive-mind/mcp-wrapper.js`
 - **Line**: 132
 - **Usage**: Type annotation only (JSDoc)
 - **Migration**: Update type annotation
@@ -316,7 +316,7 @@ this.db = null;
 
 ### 3.7 Hive Mind Init
 
-**File**: `/home/user/monobrain/src/cli/simple-commands/init/hive-mind-init.js`
+**File**: `/home/user/monomind/src/cli/simple-commands/init/hive-mind-init.js`
 - **Lines**: 304, 307
 - **Usage**: Dynamic import with error handling
 - **Migration**: Add sql.js as fallback
@@ -340,7 +340,7 @@ try {
 
 ### 3.8 Swarm Metrics Integration
 
-**File**: `/home/user/monobrain/src/cli/simple-commands/swarm-metrics-integration.js`
+**File**: `/home/user/monomind/src/cli/simple-commands/swarm-metrics-integration.js`
 - **Line**: 8
 - **Usage**: ES module import
 - **Migration**: Use abstraction layer
@@ -362,7 +362,7 @@ import Database from 'better-sqlite3'; // Line 8
 
 ### 4.1 Error Recovery
 
-**File**: `/home/user/monobrain/src/utils/error-recovery.ts`
+**File**: `/home/user/monomind/src/utils/error-recovery.ts`
 - **Lines**: N/A (reference only)
 - **Usage**: Detects better-sqlite3 errors
 - **Functions**:
@@ -390,7 +390,7 @@ export function isNpmCacheError(error: any): boolean {
 
 ### 5.1 Agentic-Flow SQLite Fix
 
-**File**: `/home/user/monobrain/scripts/fix-agentic-flow-sqlite.sh`
+**File**: `/home/user/monomind/scripts/fix-agentic-flow-sqlite.sh`
 - **Line**: 6, 16, 25-26
 - **Usage**: Patches external dependency
 - **Purpose**: Fixes broken better-sqlite3 import in agentic-flow
@@ -413,7 +413,7 @@ sed -i 's/new BetterSqlite3(/new Database(/g' "$QUERIES_FILE"
 
 ### 5.2 Hive Mind Timezone Fix Patch
 
-**File**: `/home/user/monobrain/src/patches/hive-mind-timezone-fix.patch`
+**File**: `/home/user/monomind/src/patches/hive-mind-timezone-fix.patch`
 - **Line**: 77
 - **Usage**: Patch file showing better-sqlite3 import
 - **Migration**: Update patch if needed
@@ -463,7 +463,7 @@ sed -i 's/new BetterSqlite3(/new Database(/g' "$QUERIES_FILE"
 
 ### 7.1 ARM64 Installation Helper
 
-**File**: `/home/user/monobrain/scripts/install-arm64.js`
+**File**: `/home/user/monomind/scripts/install-arm64.js`
 - **Lines**: 9, 11
 - **Usage**: Test and rebuild better-sqlite3 on macOS ARM64
 - **Migration**: Add sql.js check as fallback

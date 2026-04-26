@@ -13,13 +13,13 @@ import { tmpdir } from 'os';
 import type {
   TriggerPattern,
   TriggerIndex as TriggerIndexType,
-} from '../../packages/@monobrain/shared/src/types/trigger.js';
-import { TriggerScanner } from '../../packages/@monobrain/cli/src/agents/trigger-scanner.js';
+} from '../../packages/@monomind/shared/src/types/trigger.js';
+import { TriggerScanner } from '../../packages/@monomind/cli/src/agents/trigger-scanner.js';
 import {
   save,
   load,
   DEFAULT_TRIGGER_INDEX_PATH,
-} from '../../packages/@monobrain/cli/src/agents/trigger-index.js';
+} from '../../packages/@monomind/cli/src/agents/trigger-index.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

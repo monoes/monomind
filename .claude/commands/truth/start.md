@@ -9,7 +9,7 @@ The `truth` command provides comprehensive insights into code quality, agent per
 ## Usage
 
 ```bash
-monobrain truth [options]
+monomind truth [options]
 ```
 
 ## Options
@@ -45,28 +45,28 @@ monobrain truth [options]
 ### Basic Usage
 ```bash
 # View current truth scores
-monobrain truth
+monomind truth
 
 # View scores for last 7 days
-monobrain truth --period 7d
+monomind truth --period 7d
 
 # Export to HTML report
-monobrain truth --export report.html --format html
+monomind truth --export report.html --format html
 ```
 
 ### Advanced Analysis
 ```bash
 # Monitor real-time scores
-monobrain truth --watch
+monomind truth --watch
 
 # Find problematic files
-monobrain truth --threshold 0.8
+monomind truth --threshold 0.8
 
 # Agent-specific metrics
-monobrain truth --agent coder --period 24h
+monomind truth --agent coder --period 24h
 
 # JSON for processing
-monobrain truth --format json | jq '.overall_score'
+monomind truth --format json | jq '.overall_score'
 ```
 
 ## Dashboard View
@@ -100,7 +100,7 @@ Recent Tasks:
 # GitHub Actions example
 - name: Check Truth Scores
   run: |
-    monobrain truth --format json > truth.json
+    monomind truth --format json > truth.json
     score=$(jq '.overall_score' truth.json)
     if (( $(echo "$score < 0.95" | bc -l) )); then
       echo "Truth score too low: $score"
@@ -111,7 +111,7 @@ Recent Tasks:
 ### With Monitoring
 ```bash
 # Send to monitoring system
-monobrain truth --format json | \
+monomind truth --format json | \
   curl -X POST https://metrics.example.com/api/truth \
   -H "Content-Type: application/json" \
   -d @-
@@ -119,7 +119,7 @@ monobrain truth --format json | \
 
 ## Configuration
 
-Set truth display preferences in `.monobrain/config.json`:
+Set truth display preferences in `.monomind/config.json`:
 
 ```json
 {
@@ -130,7 +130,7 @@ Set truth display preferences in `.monobrain/config.json`:
     "criticalThreshold": 0.75,
     "autoExport": {
       "enabled": true,
-      "path": ".monobrain/metrics/truth-daily.json"
+      "path": ".monomind/metrics/truth-daily.json"
     }
   }
 }

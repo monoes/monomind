@@ -2,13 +2,13 @@
 
 ## Summary
 
-Successfully refactored CLI commands in `/workspaces/monobrain/packages/@monobrain/cli/src/commands/` to call MCP tools instead of containing hardcoded business logic, implementing **ADR-005: MCP-First API Design**.
+Successfully refactored CLI commands in `/workspaces/monomind/packages/@monomind/cli/src/commands/` to call MCP tools instead of containing hardcoded business logic, implementing **ADR-005: MCP-First API Design**.
 
 ## Files Created/Modified
 
 ### ✅ New Files
 
-1. **`/workspaces/monobrain/packages/@monobrain/cli/src/mcp-client.ts`**
+1. **`/workspaces/monomind/packages/@monomind/cli/src/mcp-client.ts`**
    - MCP tool client helper
    - Tool registry and routing
    - Type-safe tool calling
@@ -16,14 +16,14 @@ Successfully refactored CLI commands in `/workspaces/monobrain/packages/@monobra
    - Utility functions for tool discovery and validation
    - ~290 lines
 
-2. **`/workspaces/monobrain/packages/@monobrain/cli/REFACTORING_SUMMARY.md`**
+2. **`/workspaces/monomind/packages/@monomind/cli/REFACTORING_SUMMARY.md`**
    - Overview of refactoring effort
    - Before/after patterns
    - Status of each command
    - Benefits and next steps
    - ~250 lines
 
-3. **`/workspaces/monobrain/packages/@monobrain/cli/MCP_CLIENT_GUIDE.md`**
+3. **`/workspaces/monomind/packages/@monomind/cli/MCP_CLIENT_GUIDE.md`**
    - Complete developer guide
    - API documentation
    - Usage examples
@@ -31,13 +31,13 @@ Successfully refactored CLI commands in `/workspaces/monobrain/packages/@monobra
    - Troubleshooting guide
    - ~600 lines
 
-4. **`/workspaces/monobrain/packages/@monobrain/cli/IMPLEMENTATION_COMPLETE.md`** (this file)
+4. **`/workspaces/monomind/packages/@monomind/cli/IMPLEMENTATION_COMPLETE.md`** (this file)
    - Implementation summary
    - Quick reference
 
 ### ✅ Modified Files
 
-1. **`/workspaces/monobrain/packages/@monobrain/cli/src/commands/agent.ts`**
+1. **`/workspaces/monomind/packages/@monomind/cli/src/commands/agent.ts`**
    - Added MCP client import
    - Refactored `spawn` command → calls `agent/spawn`
    - Refactored `list` command → calls `agent/list`
@@ -46,17 +46,17 @@ Successfully refactored CLI commands in `/workspaces/monobrain/packages/@monobra
    - Kept display logic, removed business logic
    - Added proper error handling
 
-2. **`/workspaces/monobrain/packages/@monobrain/cli/src/commands/swarm.ts`**
+2. **`/workspaces/monomind/packages/@monomind/cli/src/commands/swarm.ts`**
    - Added MCP client import
    - Refactored `init` command → calls `swarm/init`
    - Removed hardcoded swarm creation logic
    - Added proper error handling
 
-3. **`/workspaces/monobrain/packages/@monobrain/cli/src/commands/memory.ts`**
+3. **`/workspaces/monomind/packages/@monomind/cli/src/commands/memory.ts`**
    - Added MCP client import
    - Ready for refactoring (pattern established)
 
-4. **`/workspaces/monobrain/packages/@monobrain/cli/src/commands/config.ts`**
+4. **`/workspaces/monomind/packages/@monomind/cli/src/commands/config.ts`**
    - Added MCP client import
    - Ready for refactoring (pattern established)
 

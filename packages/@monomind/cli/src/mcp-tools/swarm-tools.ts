@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 
 // Swarm state persistence
-const SWARM_DIR = '.monobrain/swarm';
+const SWARM_DIR = '.monomind/swarm';
 const SWARM_STATE_FILE = 'swarm-state.json';
 
 interface SwarmState {

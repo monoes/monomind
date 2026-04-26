@@ -1,5 +1,5 @@
 {
-  "name": "@monobrain/performance",
+  "name": "@monomind/performance",
   "version": "1.0.0",
   "type": "module",
   "description": "Performance module - benchmarking, Flash Attention validation, optimization",

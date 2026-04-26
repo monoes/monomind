@@ -1,6 +1,6 @@
-# Monobrain v1 Migration Roadmap
+# Monomind v1 Migration Roadmap
 
-**Project:** Monobrain v2.x → V1.0.0 Migration
+**Project:** Monomind v2.x → V1.0.0 Migration
 **Timeline:** 20 weeks (5 months)
 **Team Size:** 2-3 core developers + community contributors
 **Start Date:** 2026-01-06 (planned)
@@ -24,7 +24,7 @@
 
 ### Vision
 
-Transform Monobrain from a monolithic orchestration system into a modular, agentic-flow-native platform with clear domain boundaries, plugin extensibility, and superior performance.
+Transform Monomind from a monolithic orchestration system into a modular, agentic-flow-native platform with clear domain boundaries, plugin extensibility, and superior performance.
 
 ### Key Objectives
 
@@ -315,7 +315,7 @@ export class Logger implements ILogger {
 ```typescript
 // src-v1/infrastructure/config/config-manager.ts
 export class ConfigManager {
-  private config: MonobrainConfig;
+  private config: MonomindConfig;
 
   load(path?: string): Promise<void>;
   get<T>(key: string): T;
@@ -355,7 +355,7 @@ export class ConfigManager {
 
 ```typescript
 // src-v1/infrastructure/plugins/plugin-interface.ts
-export interface MonobrainPlugin {
+export interface MonomindPlugin {
   readonly name: string;
   readonly version: string;
   readonly dependencies?: string[];
@@ -388,10 +388,10 @@ export interface PluginContext {
 ```typescript
 // src-v1/infrastructure/plugins/plugin-loader.ts
 export class PluginLoader {
-  private plugins = new Map<string, MonobrainPlugin>();
+  private plugins = new Map<string, MonomindPlugin>();
   private initialized = new Set<string>();
 
-  async loadPlugin(plugin: MonobrainPlugin): Promise<void> {
+  async loadPlugin(plugin: MonomindPlugin): Promise<void> {
     // Validate plugin
     this.validatePlugin(plugin);
 
@@ -420,8 +420,8 @@ export class PluginLoader {
     this.initialized.delete(name);
   }
 
-  getPlugin(name: string): MonobrainPlugin | undefined;
-  listPlugins(): MonobrainPlugin[];
+  getPlugin(name: string): MonomindPlugin | undefined;
+  listPlugins(): MonomindPlugin[];
 }
 ```
 
@@ -429,7 +429,7 @@ export class PluginLoader {
 
 ```typescript
 // src-v1/plugins/example/example-plugin.ts
-export class ExamplePlugin implements MonobrainPlugin {
+export class ExamplePlugin implements MonomindPlugin {
   readonly name = "example";
   readonly version = "1.0.0";
 
@@ -513,7 +513,7 @@ describe("ExamplePlugin", () => {
 
 ```yaml
 # .github/workflows/v1-ci.yml
-name: Monobrain v1 CI
+name: Monomind v1 CI
 
 on:
   push:
@@ -629,7 +629,7 @@ Step-by-step guide for migrating from v2 to v1
 ## Automated Migration Tool
 
 ```bash
-npx monobrain migrate v2-to-v1
+npx monomind migrate v2-to-v1
 ```
 ````
 
@@ -1261,7 +1261,7 @@ npm run benchmark:compare -- --base=v2 --compare=v1
 
 # Backup v2 data
 echo "Backing up v2 data..."
-cp monobrain.db monobrain-v2-backup.db
+cp monomind.db monomind-v2-backup.db
 
 # Migrate configuration
 echo "Migrating configuration..."
@@ -1285,7 +1285,7 @@ echo "Migration complete! Review logs at migration.log"
 
 ## Overview
 
-This guide helps you migrate your monobrain installation from v2 to v1.
+This guide helps you migrate your monomind installation from v2 to v1.
 
 ## Prerequisites
 
@@ -1297,7 +1297,7 @@ This guide helps you migrate your monobrain installation from v2 to v1.
 
 ```bash
 # Backup data
-cp monobrain.db backup/
+cp monomind.db backup/
 cp -r .claude/ backup/
 ```
 ````
@@ -1305,31 +1305,31 @@ cp -r .claude/ backup/
 ## Step 2: Install v1
 
 ```bash
-npm install monobrain@3.0.0
+npm install monomind@3.0.0
 ```
 
 ## Step 3: Migrate Config
 
 ```bash
-npx monobrain migrate config
+npx monomind migrate config
 ```
 
 ## Step 4: Migrate Data
 
 ```bash
-npx monobrain migrate data
+npx monomind migrate data
 ```
 
 ## Step 5: Test
 
 ```bash
-npx monobrain test-migration
+npx monomind test-migration
 ```
 
 ## Step 6: Switch
 
 ```bash
-npx monobrain activate v1
+npx monomind activate v1
 ```
 
 ## Rollback
@@ -1337,7 +1337,7 @@ npx monobrain activate v1
 If issues occur:
 
 ```bash
-npx monobrain rollback v2
+npx monomind rollback v2
 ```
 
 ```

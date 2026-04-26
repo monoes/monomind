@@ -30,12 +30,12 @@ The system monitors workload and spawns additional agents when:
 **Status Monitoring:**
 ```javascript
 // Check swarm health
-mcp__monobrain__swarm_status({
+mcp__monomind__swarm_status({
   "swarmId": "current"
 })
 
 // Monitor agent performance
-mcp__monobrain__agent_metrics({
+mcp__monomind__agent_metrics({
   "agentId": "agent-123"
 })
 ```
@@ -43,17 +43,17 @@ mcp__monobrain__agent_metrics({
 ## Configuration
 
 ### MCP Tool Integration
-Uses Monobrain MCP tools for agent coordination:
+Uses Monomind MCP tools for agent coordination:
 ```javascript
 // Initialize swarm with appropriate topology
-mcp__monobrain__swarm_init({
+mcp__monomind__swarm_init({
   "topology": "mesh",
   "maxAgents": 8,
   "strategy": "auto"
 })
 
 // Spawn agents based on file type
-mcp__monobrain__agent_spawn({
+mcp__monomind__agent_spawn({
   "type": "coder",
   "name": "JavaScript Handler",
   "capabilities": ["javascript", "typescript"]
@@ -63,7 +63,7 @@ mcp__monobrain__agent_spawn({
 ### Fallback Configuration
 If MCP tools are unavailable:
 ```bash
-npx monobrain hook pre-task --auto-spawn-agents
+npx monomind hook pre-task --auto-spawn-agents
 ```
 
 ## Benefits

@@ -7,13 +7,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { BenchmarkRunner } from '../../packages/@monobrain/cli/src/benchmarks/benchmark-runner.js';
+import { BenchmarkRunner } from '../../packages/@monomind/cli/src/benchmarks/benchmark-runner.js';
 import type {
   BenchmarkDefinition,
   BenchmarkResult,
   BenchmarkBaseline,
   QualityMetric,
-} from '../../packages/@monobrain/shared/src/types/benchmark.js';
+} from '../../packages/@monomind/shared/src/types/benchmark.js';
 
 vi.mock('fs');
 vi.mock('crypto', () => ({

@@ -9,9 +9,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { SpecializationScorer } from '../../packages/@monobrain/cli/src/agents/specialization-scorer.js';
-import { calculateDecayFactor, SCORE_HALF_LIFE_DAYS } from '../../packages/@monobrain/cli/src/agents/score-decay.js';
-import type { SpecializationScore, ScoreUpdate } from '../../packages/@monobrain/shared/src/types/specialization.js';
+import { SpecializationScorer } from '../../packages/@monomind/cli/src/agents/specialization-scorer.js';
+import { calculateDecayFactor, SCORE_HALF_LIFE_DAYS } from '../../packages/@monomind/cli/src/agents/score-decay.js';
+import type { SpecializationScore, ScoreUpdate } from '../../packages/@monomind/shared/src/types/specialization.js';
 
 function makeTmpDir(): string {
   return mkdtempSync(join(tmpdir(), 'spec-score-'));

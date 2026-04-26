@@ -13,7 +13,7 @@
  *
  * @example
  * ```typescript
- * import { hookPatternLibraryPlugin } from '@monobrain/plugins/examples/ruvector-plugins';
+ * import { hookPatternLibraryPlugin } from '@monomind/plugins/examples/ruvector-plugins';
  * await getDefaultRegistry().register(hookPatternLibraryPlugin);
  * ```
  */
@@ -341,7 +341,7 @@ async function getLibrary(): Promise<HookPatternLibrary> {
 
 export const hookPatternLibraryPlugin = new PluginBuilder('hook-pattern-library', '1.0.0')
   .withDescription('Learn optimal hook patterns for file types using @ruvector/wasm')
-  .withAuthor('Monobrain Team')
+  .withAuthor('Monomind Team')
   .withTags(['hooks', 'patterns', 'learning', 'ruvector', 'optimization'])
   .withMCPTools([
     new MCPToolBuilder('hook-recommend')

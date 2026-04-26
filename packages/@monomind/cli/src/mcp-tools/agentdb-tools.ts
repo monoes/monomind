@@ -87,7 +87,7 @@ export const agentdbControllers: MCPTool = {
     try {
       const bridge = await getBridge();
       const controllers = await bridge.bridgeListControllers();
-      if (!controllers) return { available: false, controllers: [], error: 'AgentDB bridge not available — @monobrain/memory not installed or missing controller-registry. Use memory_store/memory_search tools instead.' };
+      if (!controllers) return { available: false, controllers: [], error: 'AgentDB bridge not available — @monomind/memory not installed or missing controller-registry. Use memory_store/memory_search tools instead.' };
       return {
         available: true,
         controllers,
@@ -507,7 +507,7 @@ export const agentdbContextSynthesize: MCPTool = {
       // Source: https://arxiv.org/abs/2302.12173, https://arxiv.org/abs/2310.12815
       try {
         const { validateExternalContent } = await import('../../security/src/input-validator.js').catch(
-          () => import('@monobrain/security' as string).catch(() => null) as any
+          () => import('@monomind/security' as string).catch(() => null) as any
         );
         if (validateExternalContent) {
           const check = await validateExternalContent(query, 'agentdb_context-synthesize query');

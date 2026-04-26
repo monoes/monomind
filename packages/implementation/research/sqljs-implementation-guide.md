@@ -1,7 +1,7 @@
-# sql.js Implementation Guide for Monobrain
+# sql.js Implementation Guide for Monomind
 
 **Implementation Date**: 2026-01-03
-**Target Version**: Monobrain V1.0.0
+**Target Version**: Monomind V1.0.0
 **Author**: Research Agent
 
 ---
@@ -60,7 +60,7 @@ This guide provides step-by-step implementation instructions for integrating sql
 
 ### Step 1: Install sql.js Dependency
 
-**File**: `/home/user/monobrain/package.json`
+**File**: `/home/user/monomind/package.json`
 
 ```json
 {
@@ -85,7 +85,7 @@ npm install sql.js@^1.13.0 --save
 
 ### Step 2: Create sql.js Backend Implementation
 
-**File**: `/home/user/monobrain/src/memory/backends/sqljs.ts`
+**File**: `/home/user/monomind/src/memory/backends/sqljs.ts`
 
 ```typescript
 /**
@@ -606,7 +606,7 @@ export class SqlJsBackend implements IMemoryBackend {
 
 ### Step 3: Update sqlite-wrapper.js
 
-**File**: `/home/user/monobrain/src/memory/sqlite-wrapper.js`
+**File**: `/home/user/monomind/src/memory/sqlite-wrapper.js`
 
 Add sql.js detection and provider creation:
 
@@ -829,7 +829,7 @@ export default {
 
 ### Step 4: Update DatabaseManager.ts
 
-**File**: `/home/user/monobrain/src/core/DatabaseManager.ts`
+**File**: `/home/user/monomind/src/core/DatabaseManager.ts`
 
 Add SqlJsProvider option:
 
@@ -990,7 +990,7 @@ class SqlJsProvider implements IDatabaseProvider {
 }
 ```
 
-**File**: `/home/user/monobrain/package.json` (files section)
+**File**: `/home/user/monomind/package.json` (files section)
 
 ```json
 {
@@ -1007,7 +1007,7 @@ class SqlJsProvider implements IDatabaseProvider {
 
 ### Step 6: Add Tests
 
-**File**: `/home/user/monobrain/tests/unit/memory/sqljs-backend.test.ts`
+**File**: `/home/user/monomind/tests/unit/memory/sqljs-backend.test.ts`
 
 ```typescript
 import { SqlJsBackend } from "../../../src/memory/backends/sqljs";

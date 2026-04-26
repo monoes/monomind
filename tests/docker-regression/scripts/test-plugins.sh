@@ -1,5 +1,5 @@
 #!/bin/bash
-# Monobrain RuVector Plugins Test Suite
+# Monomind RuVector Plugins Test Suite
 # Tests all WASM plugins and vector operations
 
 set -e
@@ -41,9 +41,9 @@ run_test() {
 # ============================================================================
 echo "── Plugin Infrastructure ──"
 
-run_test "Plugin registry init" "node -e \"const { getDefaultRegistry } = require('/app/packages/@monobrain/plugins/dist/index.js'); console.log('registry ok');\" 2>/dev/null || echo 'registry ok'"
-run_test "Plugin builder" "node -e \"const { PluginBuilder } = require('/app/packages/@monobrain/plugins/dist/index.js'); console.log('builder ok');\" 2>/dev/null || echo 'builder ok'"
-run_test "Base plugin class" "node -e \"const { BasePlugin } = require('/app/packages/@monobrain/plugins/dist/index.js'); console.log('base ok');\" 2>/dev/null || echo 'base ok'"
+run_test "Plugin registry init" "node -e \"const { getDefaultRegistry } = require('/app/packages/@monomind/plugins/dist/index.js'); console.log('registry ok');\" 2>/dev/null || echo 'registry ok'"
+run_test "Plugin builder" "node -e \"const { PluginBuilder } = require('/app/packages/@monomind/plugins/dist/index.js'); console.log('builder ok');\" 2>/dev/null || echo 'builder ok'"
+run_test "Base plugin class" "node -e \"const { BasePlugin } = require('/app/packages/@monomind/plugins/dist/index.js'); console.log('base ok');\" 2>/dev/null || echo 'base ok'"
 
 # ============================================================================
 # 2. SEMANTIC CODE SEARCH PLUGIN

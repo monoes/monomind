@@ -4,7 +4,7 @@
  * Queries shared and agent-private partitions, deduplicates, and formats
  * excerpts as context for downstream LLM consumption.
  *
- * @module @monobrain/memory/knowledge/knowledge-retriever
+ * @module @monomind/memory/knowledge/knowledge-retriever
  */
 
 import type { KnowledgeStore } from './knowledge-store.js';

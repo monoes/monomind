@@ -24,11 +24,11 @@ export interface InitComponents {
   statusline: boolean;
   /** Create MCP configuration */
   mcp: boolean;
-  /** Create .monobrain/ directory (V1 runtime) */
+  /** Create .monomind/ directory (V1 runtime) */
   runtime: boolean;
   /** Create CLAUDE.md with swarm guidance */
   claudeMd: boolean;
-  /** Build knowledge graph on init using @monobrain/graph */
+  /** Build knowledge graph on init using @monomind/graph */
   graphify: boolean;
 }
 
@@ -160,8 +160,8 @@ export interface StatuslineConfig {
  * MCP configuration
  */
 export interface MCPConfig {
-  /** Include monobrain MCP server */
-  monobrain: boolean;
+  /** Include monomind MCP server */
+  monomind: boolean;
   /** Include ruv-swarm MCP server */
   ruvSwarm: boolean;
   /** Include graphify knowledge graph MCP server */
@@ -173,7 +173,7 @@ export interface MCPConfig {
 }
 
 /**
- * Runtime configuration (.monobrain/)
+ * Runtime configuration (.monomind/)
  */
 export interface RuntimeConfig {
   /** Swarm topology */
@@ -384,7 +384,7 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     refreshInterval: 5000,
   },
   mcp: {
-    monobrain: true,
+    monomind: true,
     ruvSwarm: false,
     graphify: false,
     autoStart: false,
@@ -515,7 +515,7 @@ export const FULL_INIT_OPTIONS: InitOptions = {
     all: true,
   },
   mcp: {
-    monobrain: true,
+    monomind: true,
     ruvSwarm: true,
     graphify: false,
     autoStart: false,

@@ -14,14 +14,14 @@ import {
   RvfaBuilder,
   encryptApiKeys,
   decryptApiKeys,
-} from '../../@monobrain/cli/src/appliance/rvfa-builder.js';
-import { RvfaReader } from '../../@monobrain/cli/src/appliance/rvfa-format.js';
+} from '../../@monomind/cli/src/appliance/rvfa-builder.js';
+import { RvfaReader } from '../../@monomind/cli/src/appliance/rvfa-format.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const EXPECTED_SECTION_IDS = ['kernel', 'runtime', 'monobrain', 'models', 'data', 'verify'];
+const EXPECTED_SECTION_IDS = ['kernel', 'runtime', 'monomind', 'models', 'data', 'verify'];
 
 /** Paths to clean up after each test. */
 const cleanupPaths: string[] = [];

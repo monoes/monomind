@@ -1,10 +1,10 @@
 /**
  * Event Store Usage Example
  *
- * Demonstrates how to use the Event Sourcing system in V1 Monobrain.
+ * Demonstrates how to use the Event Sourcing system in V1 Monomind.
  *
  * Usage:
- *   npx tsx packages/@monobrain/shared/src/events/example-usage.ts
+ *   npx tsx packages/@monomind/shared/src/events/example-usage.ts
  */
 
 import { EventStore } from './event-store.js';
@@ -26,7 +26,7 @@ import {
 } from './domain-events.js';
 
 async function main() {
-  console.log('Event Sourcing Example - V1 Monobrain\n');
+  console.log('Event Sourcing Example - V1 Monomind\n');
 
   // =========================================================================
   // 1. Initialize Event Store

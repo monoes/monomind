@@ -1,10 +1,10 @@
-# @monobrain/plugin-agentic-qe
+# @monomind/plugin-agentic-qe
 
 **AI-powered quality engineering that writes tests, finds bugs, and breaks things (safely) so your users don't have to.**
 
 ## What is this?
 
-This plugin adds 58 AI agents to Monobrain that handle all aspects of software quality:
+This plugin adds 58 AI agents to Monomind that handle all aspects of software quality:
 
 - **Write tests for you** - Unit tests, integration tests, E2E tests, even chaos tests
 - **Find coverage gaps** - Shows exactly which code paths aren't tested
@@ -16,19 +16,19 @@ Think of it as having a team of QA engineers who never sleep, never miss edge ca
 
 ## Installation
 
-**Via Monobrain CLI (recommended):**
+**Via Monomind CLI (recommended):**
 ```bash
-npx monobrain plugins install --name @monobrain/plugin-agentic-qe
+npx monomind plugins install --name @monomind/plugin-agentic-qe
 ```
 
 **Via npm:**
 ```bash
-npm install @monobrain/plugin-agentic-qe
+npm install @monomind/plugin-agentic-qe
 ```
 
 **Verify installation:**
 ```bash
-npx monobrain plugins list
+npx monomind plugins list
 ```
 
 ---
@@ -40,7 +40,7 @@ npx monobrain plugins list
 The simplest use case - point it at a file and get tests:
 
 ```bash
-npx monobrain@latest mcp call aqe/generate-tests \
+npx monomind@latest mcp call aqe/generate-tests \
   --targetPath ./src/utils/calculator.ts \
   --testType unit \
   --framework vitest
@@ -69,7 +69,7 @@ describe('Calculator', () => {
 Give it a requirement, and it runs the full red-green-refactor cycle:
 
 ```bash
-npx monobrain@latest mcp call aqe/tdd-cycle \
+npx monomind@latest mcp call aqe/tdd-cycle \
   --requirement "Users can reset their password via email" \
   --targetPath ./src/auth \
   --style london
@@ -86,7 +86,7 @@ npx monobrain@latest mcp call aqe/tdd-cycle \
 Scan your code for vulnerabilities:
 
 ```bash
-npx monobrain@latest mcp call aqe/security-scan \
+npx monomind@latest mcp call aqe/security-scan \
   --targetPath ./src \
   --scanType sast \
   --compliance owasp-top-10
@@ -135,7 +135,7 @@ if (!evaluation.passed) {
 Use ML to find likely defects:
 
 ```bash
-npx monobrain@latest mcp call aqe/predict-defects \
+npx monomind@latest mcp call aqe/predict-defects \
   --targetPath ./src/checkout \
   --includeRootCause true
 ```
@@ -160,7 +160,7 @@ Test how your system handles failures. **Always use dryRun first!**
 
 ```bash
 # Step 1: Preview what would happen (safe)
-npx monobrain@latest mcp call aqe/chaos-inject \
+npx monomind@latest mcp call aqe/chaos-inject \
   --target payment-service \
   --failureType network-latency \
   --duration 30 \
@@ -168,7 +168,7 @@ npx monobrain@latest mcp call aqe/chaos-inject \
   --dryRun true
 
 # Step 2: Run the actual experiment
-npx monobrain@latest mcp call aqe/chaos-inject \
+npx monomind@latest mcp call aqe/chaos-inject \
   --target payment-service \
   --failureType network-latency \
   --duration 30 \
@@ -290,7 +290,7 @@ const patterns = await mcp.call('aqe/suggest-tests', {
 ## Configuration
 
 ```yaml
-# monobrain.config.yaml
+# monomind.config.yaml
 plugins:
   agentic-qe:
     enabled: true

@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NestedSwarmEnvelope } from '../../packages/@monobrain/hooks/src/nested-swarm/nested-swarm-envelope.js';
-import { SummaryGenerator } from '../../packages/@monobrain/hooks/src/nested-swarm/summary-generator.js';
-import { SubSwarmManager } from '../../packages/@monobrain/hooks/src/nested-swarm/sub-swarm-manager.js';
-import type { Message, LlmCallFn } from '../../packages/@monobrain/hooks/src/nested-swarm/types.js';
+import { NestedSwarmEnvelope } from '../../packages/@monomind/hooks/src/nested-swarm/nested-swarm-envelope.js';
+import { SummaryGenerator } from '../../packages/@monomind/hooks/src/nested-swarm/summary-generator.js';
+import { SubSwarmManager } from '../../packages/@monomind/hooks/src/nested-swarm/sub-swarm-manager.js';
+import type { Message, LlmCallFn } from '../../packages/@monomind/hooks/src/nested-swarm/types.js';
 
 function makeMessage(overrides: Partial<Message> = {}): Message {
   return {

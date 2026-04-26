@@ -1,7 +1,7 @@
 {
-  "name": "@monobrain/plugin-gastown-bridge",
+  "name": "@monomind/plugin-gastown-bridge",
   "version": "0.1.3",
-  "description": "Gas Town orchestrator integration for Monobrain V1 with WASM-accelerated formula parsing and graph analysis",
+  "description": "Gas Town orchestrator integration for Monomind V1 with WASM-accelerated formula parsing and graph analysis",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -55,7 +55,7 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [
-    "monobrain",
+    "monomind",
     "plugin",
     "gastown",
     "beads",
@@ -69,21 +69,21 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monobrain.git",
+    "url": "https://github.com/nokhodian/monomind.git",
     "directory": "packages/plugins/gastown-bridge"
   },
   "bugs": {
-    "url": "https://github.com/nokhodian/monobrain/issues"
+    "url": "https://github.com/nokhodian/monomind/issues"
   },
-  "homepage": "https://github.com/nokhodian/monobrain/tree/main/packages/plugins/gastown-bridge#readme",
+  "homepage": "https://github.com/nokhodian/monomind/tree/main/packages/plugins/gastown-bridge#readme",
   "engines": {
     "node": ">=20.0.0"
   },
   "peerDependencies": {
-    "@monobrain/memory": "workspace:*"
+    "@monomind/memory": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@monobrain/memory": {
+    "@monomind/memory": {
       "optional": true
     }
   },

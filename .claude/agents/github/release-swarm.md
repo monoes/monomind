@@ -2,7 +2,7 @@
 name: release-swarm
 description: |
   Orchestrate complex software releases using AI swarms that handle everything from changelog generation to multi-platform deployment
-tools: Bash, Read, Write, Edit, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_pull_request, mcp__github__merge_pull_request, mcp__github__create_branch, mcp__github__push_files, mcp__github__create_issue, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, mcp__monobrain__parallel_execute, mcp__monobrain__load_balance
+tools: Bash, Read, Write, Edit, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_pull_request, mcp__github__merge_pull_request, mcp__github__create_branch, mcp__github__push_files, mcp__github__create_issue, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__parallel_execute, mcp__monomind__load_balance
 ---
 
 # Release Swarm - Intelligent Release Automation

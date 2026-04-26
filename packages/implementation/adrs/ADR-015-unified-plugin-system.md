@@ -8,10 +8,10 @@
 
 ## Context
 
-Monobrain v1 has multiple extension mechanisms scattered across different packages:
-- Plugin interfaces in `@monobrain/shared`
-- Worker system in `@monobrain/integration`
-- Hooks system in `@monobrain/hooks`
+Monomind v1 has multiple extension mechanisms scattered across different packages:
+- Plugin interfaces in `@monomind/shared`
+- Worker system in `@monomind/integration`
+- Hooks system in `@monomind/hooks`
 - Provider definitions spread across multiple modules
 - Duplicate security utilities in various places
 
@@ -24,12 +24,12 @@ This fragmentation leads to:
 
 ## Decision
 
-Create a unified `@monobrain/plugins` package that consolidates all plugin development capabilities into a single, coherent SDK.
+Create a unified `@monomind/plugins` package that consolidates all plugin development capabilities into a single, coherent SDK.
 
 ### Package Structure
 
 ```
-@monobrain/plugins/
+@monomind/plugins/
 ├── src/
 │   ├── types/              # Unified type definitions
 │   │   └── index.ts        # All plugin-related types
@@ -119,7 +119,7 @@ PluginRegistry automatically collects extension points during initialization:
 
 ### Positive
 
-1. **Single Import**: Plugin authors import from `@monobrain/plugins` only
+1. **Single Import**: Plugin authors import from `@monomind/plugins` only
 2. **Type Safety**: Unified types with strict TypeScript validation
 3. **Security**: Centralized, audited security utilities
 4. **Testing**: Comprehensive test suite with 100+ test cases
@@ -209,24 +209,24 @@ PluginRegistry automatically collects extension points during initialization:
 
 ## Migration Guide
 
-### From @monobrain/shared
+### From @monomind/shared
 
 ```typescript
 // Before
-import { IPlugin, PluginMetadata } from '@monobrain/shared';
+import { IPlugin, PluginMetadata } from '@monomind/shared';
 
 // After
-import { IPlugin, PluginMetadata } from '@monobrain/plugins';
+import { IPlugin, PluginMetadata } from '@monomind/plugins';
 ```
 
-### From @monobrain/hooks
+### From @monomind/hooks
 
 ```typescript
 // Before
-import { HookEvent, HookHandler } from '@monobrain/hooks';
+import { HookEvent, HookHandler } from '@monomind/hooks';
 
 // After
-import { HookEvent, HookHandler, HookRegistry } from '@monobrain/plugins';
+import { HookEvent, HookHandler, HookRegistry } from '@monomind/plugins';
 ```
 
 ### From manual plugin creation
@@ -253,7 +253,7 @@ const myPlugin = new PluginBuilder('my-plugin', '1.0.0')
 The package includes a comprehensive example plugin that demonstrates all SDK capabilities:
 
 ```typescript
-import { pluginCreatorPlugin } from '@monobrain/plugins/examples/plugin-creator';
+import { pluginCreatorPlugin } from '@monomind/plugins/examples/plugin-creator';
 
 // Register the meta-plugin
 await getDefaultRegistry().register(pluginCreatorPlugin);
@@ -296,9 +296,9 @@ TypeErrors  0 errors
 
 ## References
 
-- [Plugin Interface Design](../../@monobrain/plugins/src/core/plugin-interface.ts)
-- [Base Plugin Implementation](../../@monobrain/plugins/src/core/base-plugin.ts)
-- [Security Module](../../@monobrain/plugins/src/security/index.ts)
-- [agentic-flow@alpha Integration](../../@monobrain/plugins/src/integrations/agentic-flow.ts)
-- [Plugin Creator Example](../../@monobrain/plugins/examples/plugin-creator/index.ts)
-- [README.md](../../@monobrain/plugins/README.md)
+- [Plugin Interface Design](../../@monomind/plugins/src/core/plugin-interface.ts)
+- [Base Plugin Implementation](../../@monomind/plugins/src/core/base-plugin.ts)
+- [Security Module](../../@monomind/plugins/src/security/index.ts)
+- [agentic-flow@alpha Integration](../../@monomind/plugins/src/integrations/agentic-flow.ts)
+- [Plugin Creator Example](../../@monomind/plugins/examples/plugin-creator/index.ts)
+- [README.md](../../@monomind/plugins/README.md)

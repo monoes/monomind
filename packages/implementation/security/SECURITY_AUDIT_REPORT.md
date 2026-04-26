@@ -1,9 +1,9 @@
-# Monobrain Security Audit Report
+# Monomind Security Audit Report
 
 **Date:** 2026-01-03
 **Version:** v2.7.47
 **Auditor:** Code Reviewer Agent
-**Scope:** Comprehensive security review of Monobrain codebase
+**Scope:** Comprehensive security review of Monomind codebase
 
 ---
 
@@ -114,7 +114,7 @@ private initializeDefaultUsers(): void {
   // Create default admin user
   const adminUser: User = {
     id: 'admin_default',
-    email: 'admin@monobrain.local',
+    email: 'admin@monomind.local',
     passwordHash: createHash('sha256').update('admin123' + 'salt').digest('hex'),
     role: 'admin',
     // ...
@@ -123,7 +123,7 @@ private initializeDefaultUsers(): void {
   // Create default service user
   const serviceUser: User = {
     id: 'service_default',
-    email: 'service@monobrain.local',
+    email: 'service@monomind.local',
     passwordHash: createHash('sha256').update('service123' + 'salt').digest('hex'),
     role: 'service',
     // ...
@@ -133,8 +133,8 @@ private initializeDefaultUsers(): void {
 
 **Default Credentials:**
 
-- Admin: `admin@monobrain.local` / `admin123`
-- Service: `service@monobrain.local` / `service123`
+- Admin: `admin@monomind.local` / `admin123`
+- Service: `service@monomind.local` / `service123`
 
 **Impact:**
 
@@ -181,7 +181,7 @@ const child = spawn("npx", ["ruv-swarm", "hook", ...args], {
 
 ```bash
 # Attacker-controlled input could inject commands
-monobrain hook pre-task --description "test; whoami; echo"
+monomind hook pre-task --description "test; whoami; echo"
 ```
 
 **Recommendation:**
@@ -265,8 +265,8 @@ if (query.search) {
 
 ```bash
 # Read sensitive files
-monobrain task workflow ../../../etc/passwd
-monobrain task workflow ~/.ssh/id_rsa
+monomind task workflow ../../../etc/passwd
+monomind task workflow ~/.ssh/id_rsa
 ```
 
 **Recommendation:**
@@ -360,10 +360,10 @@ process.env.TOKEN = "secret-token";
 
 ```bash
 # Overwrite critical config
-monobrain config set "authConfig.jwtSecret" "hacked"
+monomind config set "authConfig.jwtSecret" "hacked"
 
 # Prototype pollution
-monobrain config set "__proto__.isAdmin" "true"
+monomind config set "__proto__.isAdmin" "true"
 ```
 
 **Recommendation:**
@@ -690,7 +690,7 @@ git-secrets --scan
 truffleHog --regex --entropy=False .
 
 # 4. Container scanning (if using Docker)
-trivy image monobrain:latest
+trivy image monomind:latest
 
 # 5. Dynamic testing
 npm run test:security
@@ -708,7 +708,7 @@ npm run test:security
 
 ## 9. Conclusion
 
-The Monobrain codebase shows **strong security foundations** in some areas (timing-safe comparisons, key redaction, permission management) but has **critical vulnerabilities** that must be addressed before production use:
+The Monomind codebase shows **strong security foundations** in some areas (timing-safe comparisons, key redaction, permission management) but has **critical vulnerabilities** that must be addressed before production use:
 
 **Critical Issues:**
 
@@ -748,7 +748,7 @@ The Monobrain codebase shows **strong security foundations** in some areas (timi
 
 For security vulnerabilities, please contact:
 
-- **Security Team:** security@monobrain.io
+- **Security Team:** security@monomind.io
 - **GitHub Security Advisories:** https://github.com/nokhodian/claude-code-flow/security/advisories
 
 **Report Format:**

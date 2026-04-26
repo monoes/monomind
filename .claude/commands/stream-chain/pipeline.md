@@ -5,7 +5,7 @@ Execute predefined pipelines for common development workflows.
 ## Usage
 
 ```bash
-monobrain stream-chain pipeline <type> [options]
+monomind stream-chain pipeline <type> [options]
 ```
 
 ## Available Pipelines
@@ -14,7 +14,7 @@ monobrain stream-chain pipeline <type> [options]
 Code analysis and improvement pipeline.
 
 ```bash
-monobrain stream-chain pipeline analysis
+monomind stream-chain pipeline analysis
 ```
 
 **Steps:**
@@ -26,7 +26,7 @@ monobrain stream-chain pipeline analysis
 Automated refactoring workflow.
 
 ```bash
-monobrain stream-chain pipeline refactor
+monomind stream-chain pipeline refactor
 ```
 
 **Steps:**
@@ -38,7 +38,7 @@ monobrain stream-chain pipeline refactor
 Comprehensive test generation.
 
 ```bash
-monobrain stream-chain pipeline test
+monomind stream-chain pipeline test
 ```
 
 **Steps:**
@@ -50,7 +50,7 @@ monobrain stream-chain pipeline test
 Performance optimization pipeline.
 
 ```bash
-monobrain stream-chain pipeline optimize
+monomind stream-chain pipeline optimize
 ```
 
 **Steps:**
@@ -68,22 +68,22 @@ monobrain stream-chain pipeline optimize
 
 ### Run Analysis Pipeline
 ```bash
-monobrain stream-chain pipeline analysis
+monomind stream-chain pipeline analysis
 ```
 
 ### Refactor with Extended Timeout
 ```bash
-monobrain stream-chain pipeline refactor --timeout 60
+monomind stream-chain pipeline refactor --timeout 60
 ```
 
 ### Verbose Test Generation
 ```bash
-monobrain stream-chain pipeline test --verbose
+monomind stream-chain pipeline test --verbose
 ```
 
 ### Performance Optimization
 ```bash
-monobrain stream-chain pipeline optimize --debug
+monomind stream-chain pipeline optimize --debug
 ```
 
 ## Output
@@ -96,7 +96,7 @@ Each pipeline generates:
 
 ## Custom Pipelines
 
-Define custom pipelines in `.monobrain/config.json`:
+Define custom pipelines in `.monomind/config.json`:
 
 ```json
 {
@@ -117,5 +117,5 @@ Define custom pipelines in `.monobrain/config.json`:
 
 Then run:
 ```bash
-monobrain stream-chain pipeline security
+monomind stream-chain pipeline security
 ```

@@ -580,31 +580,31 @@ class DashboardProvider {
 ### Monitoring Commands
 ```bash
 # Start comprehensive monitoring
-npx monobrain performance-report --format detailed --timeframe 24h
+npx monomind performance-report --format detailed --timeframe 24h
 
 # Real-time bottleneck analysis
-npx monobrain bottleneck-analyze --component swarm-coordination
+npx monomind bottleneck-analyze --component swarm-coordination
 
 # Health check all components
-npx monobrain health-check --components ["swarm", "agents", "coordination"]
+npx monomind health-check --components ["swarm", "agents", "coordination"]
 
 # Collect specific metrics
-npx monobrain metrics-collect --components ["cpu", "memory", "network"]
+npx monomind metrics-collect --components ["cpu", "memory", "network"]
 
 # Monitor SLA compliance
-npx monobrain sla-monitor --service swarm-coordination --threshold 99.9
+npx monomind sla-monitor --service swarm-coordination --threshold 99.9
 ```
 
 ### Alert Configuration
 ```bash
 # Configure performance alerts
-npx monobrain alert-config --metric cpu_usage --threshold 80 --severity warning
+npx monomind alert-config --metric cpu_usage --threshold 80 --severity warning
 
 # Set up anomaly detection
-npx monobrain anomaly-setup --models ["statistical", "ml", "time_series"]
+npx monomind anomaly-setup --models ["statistical", "ml", "time_series"]
 
 # Configure notification channels
-npx monobrain notification-config --channels ["slack", "email", "webhook"]
+npx monomind notification-config --channels ["slack", "email", "webhook"]
 ```
 
 ## Integration Points

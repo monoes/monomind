@@ -1,13 +1,13 @@
 /**
  * ControllerRegistry - Central controller lifecycle management for AgentDB v1
  *
- * Wraps the AgentDB class and adds CLI-specific controllers from @monobrain/memory.
+ * Wraps the AgentDB class and adds CLI-specific controllers from @monomind/memory.
  * Manages initialization (level-based ordering), health checks, and graceful shutdown.
  *
  * Per ADR-053: Replaces memory-initializer.js's raw sql.js usage with a unified
  * controller ecosystem routing all memory operations through AgentDB v1.
  *
- * @module @monobrain/memory/controller-registry
+ * @module @monomind/memory/controller-registry
  */
 
 import { EventEmitter } from 'node:events';
@@ -47,7 +47,7 @@ export type AgentDBControllerName =
   | 'graphAdapter';
 
 /**
- * CLI-layer controllers (from @monobrain/memory or new)
+ * CLI-layer controllers (from @monomind/memory or new)
  */
 export type CLIControllerName =
   | 'learningBridge'

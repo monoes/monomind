@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { InterruptCheckpointer } from '../../packages/@monobrain/hooks/src/interrupt/interrupt-checkpointer.js';
+import { InterruptCheckpointer } from '../../packages/@monomind/hooks/src/interrupt/interrupt-checkpointer.js';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';

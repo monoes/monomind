@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document reviews the security mechanisms implemented in the IPFS-based Plugin Store for MonoBrain V1.
+This document reviews the security mechanisms implemented in the IPFS-based Plugin Store for MonoMind V1.
 
 ## Security Mechanisms Implemented
 
@@ -14,7 +14,7 @@ type TrustLevel = 'official' | 'verified' | 'community' | 'unverified';
 
 | Level | Description | Requirements |
 |-------|-------------|--------------|
-| **Official** | Monobrain team maintained | Core team, security audit passed |
+| **Official** | Monomind team maintained | Core team, security audit passed |
 | **Verified** | Audited by trusted parties | Third-party security audit |
 | **Community** | Community contributed | Author identity verified |
 | **Unverified** | Unknown origin | None (use with caution) |
@@ -165,4 +165,4 @@ In the current demo implementation:
 
 Security Review Version: 1.0.0
 Last Updated: 2026-01-08
-Reviewed By: Monobrain Security Team
+Reviewed By: Monomind Security Team

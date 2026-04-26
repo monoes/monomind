@@ -2,7 +2,7 @@
 
 **Status:** Implemented
 **Date:** 2026-02-08
-**Authors:** RuvNet, Monobrain Team
+**Authors:** RuvNet, Monomind Team
 **Supersedes:** None
 **Related:** ADR-006 (Unified Memory), ADR-018 (Claude Code Integration)
 
@@ -42,7 +42,7 @@ Key characteristics:
 
 ### Problem Statement
 
-Monobrain has its own rich memory system (`@monobrain/memory`) backed by AgentDB with HNSW vector indexing. These two memory systems are currently disconnected:
+Monomind has its own rich memory system (`@monomind/memory`) backed by AgentDB with HNSW vector indexing. These two memory systems are currently disconnected:
 
 1. **Auto memory** — markdown files, loaded into system prompt, human-readable
 2. **AgentDB memory** — structured entries, vector-indexed, 150x-12,500x faster search
@@ -51,7 +51,7 @@ Without integration, insights discovered during swarm orchestration are lost bet
 
 ## Decision
 
-Implement a **bidirectional bridge** between Claude Code auto memory and monobrain's unified memory system, treating auto memory as a persistent projection of the most relevant AgentDB entries.
+Implement a **bidirectional bridge** between Claude Code auto memory and monomind's unified memory system, treating auto memory as a persistent projection of the most relevant AgentDB entries.
 
 ### Architecture
 
@@ -63,7 +63,7 @@ Implement a **bidirectional bridge** between Claude Code auto memory and monobra
 │                                                      │
 │  ┌──────────────────┐     ┌──────────────────────┐  │
 │  │  Auto Memory Dir │◄───►│  AutoMemoryBridge    │  │
-│  │  ~/.claude/...   │     │  (@monobrain/memory)│  │
+│  │  ~/.claude/...   │     │  (@monomind/memory)│  │
 │  │                  │     │                       │  │
 │  │  MEMORY.md       │     │  ┌─────────────────┐ │  │
 │  │  debugging.md    │     │  │  AgentDB + HNSW │ │  │
@@ -84,7 +84,7 @@ Implement a **bidirectional bridge** between Claude Code auto memory and monobra
 
 #### 1. Auto Memory Bridge Service
 
-New service in `@monobrain/memory` that syncs between AgentDB and auto memory files:
+New service in `@monomind/memory` that syncs between AgentDB and auto memory files:
 
 ```typescript
 interface AutoMemoryBridgeConfig {
@@ -172,7 +172,7 @@ interface MemoryInsight {
 Generated MEMORY.md structure:
 
 ```markdown
-# Monobrain V1 Project Memory
+# Monomind V1 Project Memory
 
 ## Project Patterns
 
@@ -183,7 +183,7 @@ Generated MEMORY.md structure:
 
 ## Architecture
 
-- DDD with bounded contexts in `packages/@monobrain/`
+- DDD with bounded contexts in `packages/@monomind/`
 - Key packages: cli, memory, security, hooks, guidance
 - See `architecture.md` for module relationships
 
@@ -208,7 +208,7 @@ Generated MEMORY.md structure:
 
 #### 4. Hooks Integration
 
-Auto memory syncs are triggered by monobrain hooks:
+Auto memory syncs are triggered by monomind hooks:
 
 | Hook            | Auto Memory Action                             |
 | --------------- | ---------------------------------------------- |
@@ -377,20 +377,20 @@ async function persistSwarmLearnings(
 
 #### 8. CLI Commands
 
-New subcommands under `npx monobrain@latest memory`:
+New subcommands under `npx monomind@latest memory`:
 
 ```bash
 # Sync AgentDB → auto memory files
-npx monobrain@latest memory sync-auto
+npx monomind@latest memory sync-auto
 
 # Import auto memory → AgentDB
-npx monobrain@latest memory import-auto
+npx monomind@latest memory import-auto
 
 # Show auto memory status
-npx monobrain@latest memory auto-status
+npx monomind@latest memory auto-status
 
 # Curate MEMORY.md (prune to 200 lines)
-npx monobrain@latest memory curate
+npx monomind@latest memory curate
 ```
 
 #### 9. MCP Tool Extensions
@@ -431,7 +431,7 @@ New MCP tools for auto memory operations:
 
 ## Configuration
 
-Add to `monobrain.config.json`:
+Add to `monomind.config.json`:
 
 ```json
 {
@@ -505,7 +505,7 @@ Add to `.claude/settings.json`:
 - [x] `pruneTopicFile()` for topic file line management
 - [x] `formatInsightLine()` for markdown formatting
 - [x] 73 unit tests passing (305ms runtime)
-- [x] Exported from `@monobrain/memory` index
+- [x] Exported from `@monomind/memory` index
 
 ### Phase 1b: Optimizations -- COMPLETED
 

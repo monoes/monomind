@@ -1,4 +1,4 @@
-// @ts-nocheck - CLI integration requires the full @monobrain/cli package
+// @ts-nocheck - CLI integration requires the full @monomind/cli package
 /**
  * CLI Claims Command
  * Issue claiming and work distribution management
@@ -314,7 +314,7 @@ const claimCommand: Command = {
 
     if (!issueId) {
       output.printError('Issue ID is required');
-      output.printInfo('Usage: monobrain issues claim <issueId>');
+      output.printInfo('Usage: monomind issues claim <issueId>');
       return { success: false, exitCode: 1 };
     }
 
@@ -402,7 +402,7 @@ const releaseCommand: Command = {
 
     if (!issueId) {
       output.printError('Issue ID is required');
-      output.printInfo('Usage: monobrain issues release <issueId>');
+      output.printInfo('Usage: monomind issues release <issueId>');
       return { success: false, exitCode: 1 };
     }
 
@@ -475,7 +475,7 @@ const handoffCommand: Command = {
 
     if (!issueId) {
       output.printError('Issue ID is required');
-      output.printInfo('Usage: monobrain issues handoff <issueId> --to <target>');
+      output.printInfo('Usage: monomind issues handoff <issueId> --to <target>');
       return { success: false, exitCode: 1 };
     }
 
@@ -585,7 +585,7 @@ const statusCommand: Command = {
 
     if (!issueId) {
       output.printError('Issue ID is required');
-      output.printInfo('Usage: monobrain issues status <issueId> [options]');
+      output.printInfo('Usage: monomind issues status <issueId> [options]');
       return { success: false, exitCode: 1 };
     }
 
@@ -872,7 +872,7 @@ const stealableCommand: Command = {
       output.writeln();
       output.printInfo(`Showing ${result.claims.length} of ${result.total} stealable issues`);
       output.writeln();
-      output.printInfo('Use "monobrain issues steal <issueId>" to take over an issue');
+      output.printInfo('Use "monomind issues steal <issueId>" to take over an issue');
 
       return { success: true, data: result };
     } catch (error) {
@@ -911,7 +911,7 @@ const stealCommand: Command = {
 
     if (!issueId) {
       output.printError('Issue ID is required');
-      output.printInfo('Usage: monobrain issues steal <issueId>');
+      output.printInfo('Usage: monomind issues steal <issueId>');
       return { success: false, exitCode: 1 };
     }
 
@@ -991,7 +991,7 @@ const markStealableCommand: Command = {
 
     if (!issueId) {
       output.printError('Issue ID is required');
-      output.printInfo('Usage: monobrain issues mark-stealable <issueId>');
+      output.printInfo('Usage: monomind issues mark-stealable <issueId>');
       return { success: false, exitCode: 1 };
     }
 
@@ -1055,7 +1055,7 @@ const contestCommand: Command = {
 
     if (!issueId) {
       output.printError('Issue ID is required');
-      output.printInfo('Usage: monobrain issues contest <issueId> --reason "..."');
+      output.printInfo('Usage: monomind issues contest <issueId> --reason "..."');
       return { success: false, exitCode: 1 };
     }
 
@@ -1382,30 +1382,30 @@ export const issuesCommand: Command = {
   ],
   options: [],
   examples: [
-    { command: 'monobrain issues list --available', description: 'List unclaimed issues' },
-    { command: 'monobrain issues list --mine', description: 'List my claims' },
-    { command: 'monobrain issues claim GH-123', description: 'Claim an issue' },
-    { command: 'monobrain issues release GH-123', description: 'Release a claim' },
-    { command: 'monobrain issues handoff GH-123 --to agent:coder-1', description: 'Request handoff to agent' },
-    { command: 'monobrain issues handoff GH-123 --to human:alice', description: 'Request handoff to human' },
-    { command: 'monobrain issues status GH-123 --blocked "Waiting for API"', description: 'Mark as blocked' },
-    { command: 'monobrain issues status GH-123 --review-requested', description: 'Request review' },
-    { command: 'monobrain issues board', description: 'View who is working on what' },
-    { command: 'monobrain issues stealable', description: 'List stealable issues' },
-    { command: 'monobrain issues steal GH-123', description: 'Steal an issue' },
-    { command: 'monobrain issues mark-stealable GH-123', description: 'Mark my claim as stealable' },
-    { command: 'monobrain issues contest GH-123 -r "I was actively working on it"', description: 'Contest a steal' },
-    { command: 'monobrain issues load', description: 'View agent load distribution' },
-    { command: 'monobrain issues load --agent coder-1', description: 'View specific agent load' },
-    { command: 'monobrain issues rebalance --dry-run', description: 'Preview rebalancing' },
-    { command: 'monobrain issues rebalance', description: 'Trigger swarm rebalancing' }
+    { command: 'monomind issues list --available', description: 'List unclaimed issues' },
+    { command: 'monomind issues list --mine', description: 'List my claims' },
+    { command: 'monomind issues claim GH-123', description: 'Claim an issue' },
+    { command: 'monomind issues release GH-123', description: 'Release a claim' },
+    { command: 'monomind issues handoff GH-123 --to agent:coder-1', description: 'Request handoff to agent' },
+    { command: 'monomind issues handoff GH-123 --to human:alice', description: 'Request handoff to human' },
+    { command: 'monomind issues status GH-123 --blocked "Waiting for API"', description: 'Mark as blocked' },
+    { command: 'monomind issues status GH-123 --review-requested', description: 'Request review' },
+    { command: 'monomind issues board', description: 'View who is working on what' },
+    { command: 'monomind issues stealable', description: 'List stealable issues' },
+    { command: 'monomind issues steal GH-123', description: 'Steal an issue' },
+    { command: 'monomind issues mark-stealable GH-123', description: 'Mark my claim as stealable' },
+    { command: 'monomind issues contest GH-123 -r "I was actively working on it"', description: 'Contest a steal' },
+    { command: 'monomind issues load', description: 'View agent load distribution' },
+    { command: 'monomind issues load --agent coder-1', description: 'View specific agent load' },
+    { command: 'monomind issues rebalance --dry-run', description: 'Preview rebalancing' },
+    { command: 'monomind issues rebalance', description: 'Trigger swarm rebalancing' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Show help if no subcommand
     output.writeln();
     output.writeln(output.bold('Issue Claims Management'));
     output.writeln();
-    output.writeln('Usage: monobrain issues <subcommand> [options]');
+    output.writeln('Usage: monomind issues <subcommand> [options]');
     output.writeln();
 
     output.writeln(output.bold('Core Commands'));
@@ -1435,7 +1435,7 @@ export const issuesCommand: Command = {
     ]);
 
     output.writeln();
-    output.writeln('Run "monobrain issues <subcommand> --help" for subcommand help');
+    output.writeln('Run "monomind issues <subcommand> --help" for subcommand help');
 
     return { success: true };
   }

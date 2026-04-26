@@ -2,7 +2,7 @@
  * CLI Doctor Command
  * System diagnostics, dependency checks, config validation
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -72,9 +72,9 @@ async function checkNpmVersion(): Promise<HealthCheck> {
 async function checkConfigFile(): Promise<HealthCheck> {
   // JSON configs (parse-validated)
   const jsonPaths = [
-    '.monobrain/config.json',
-    'monobrain.config.json',
-    '.monobrain.json'
+    '.monomind/config.json',
+    'monomind.config.json',
+    '.monomind.json'
   ];
 
   for (const configPath of jsonPaths) {
@@ -91,9 +91,9 @@ async function checkConfigFile(): Promise<HealthCheck> {
 
   // YAML configs (existence-checked only — no heavy yaml parser dependency)
   const yamlPaths = [
-    '.monobrain/config.yaml',
-    '.monobrain/config.yml',
-    'monobrain.config.yaml'
+    '.monomind/config.yaml',
+    '.monomind/config.yml',
+    'monomind.config.yaml'
   ];
 
   for (const configPath of yamlPaths) {
@@ -102,32 +102,32 @@ async function checkConfigFile(): Promise<HealthCheck> {
     }
   }
 
-  return { name: 'Config File', status: 'warn', message: 'No config file (using defaults)', fix: 'monobrain config init' };
+  return { name: 'Config File', status: 'warn', message: 'No config file (using defaults)', fix: 'monomind config init' };
 }
 
 // Check daemon status
 async function checkDaemonStatus(): Promise<HealthCheck> {
   try {
-    const pidFile = '.monobrain/daemon.pid';
+    const pidFile = '.monomind/daemon.pid';
     if (existsSync(pidFile)) {
       const pid = readFileSync(pidFile, 'utf8').trim();
       try {
         process.kill(parseInt(pid, 10), 0); // Check if process exists
         return { name: 'Daemon Status', status: 'pass', message: `Running (PID: ${pid})` };
       } catch {
-        return { name: 'Daemon Status', status: 'warn', message: 'Stale PID file', fix: 'rm .monobrain/daemon.pid && monobrain daemon start' };
+        return { name: 'Daemon Status', status: 'warn', message: 'Stale PID file', fix: 'rm .monomind/daemon.pid && monomind daemon start' };
       }
     }
-    return { name: 'Daemon Status', status: 'warn', message: 'Not running', fix: 'monobrain daemon start' };
+    return { name: 'Daemon Status', status: 'warn', message: 'Not running', fix: 'monomind daemon start' };
   } catch {
-    return { name: 'Daemon Status', status: 'warn', message: 'Unable to check', fix: 'monobrain daemon status' };
+    return { name: 'Daemon Status', status: 'warn', message: 'Unable to check', fix: 'monomind daemon status' };
   }
 }
 
 // Check memory database
 async function checkMemoryDatabase(): Promise<HealthCheck> {
   const dbPaths = [
-    '.monobrain/memory.db',
+    '.monomind/memory.db',
     '.swarm/memory.db',
     'data/memory.db'
   ];
@@ -144,7 +144,7 @@ async function checkMemoryDatabase(): Promise<HealthCheck> {
     }
   }
 
-  return { name: 'Memory Database', status: 'warn', message: 'Not initialized', fix: 'monobrain memory configure --backend hybrid' };
+  return { name: 'Memory Database', status: 'warn', message: 'Not initialized', fix: 'monomind memory configure --backend hybrid' };
 }
 
 // Check API keys
@@ -206,11 +206,11 @@ async function checkMcpServers(): Promise<HealthCheck> {
         const content = JSON.parse(readFileSync(configPath, 'utf8'));
         const servers = content.mcpServers || content.servers || {};
         const count = Object.keys(servers).length;
-        const hasMonobrain = 'monobrain' in servers || 'monobrain_alpha' in servers || 'monobrain' in servers || 'monobrain_alpha' in servers;
-        if (hasMonobrain) {
-          return { name: 'MCP Servers', status: 'pass', message: `${count} servers (monobrain configured)` };
+        const hasMonomind = 'monomind' in servers || 'monomind_alpha' in servers || 'monomind' in servers || 'monomind_alpha' in servers;
+        if (hasMonomind) {
+          return { name: 'MCP Servers', status: 'pass', message: `${count} servers (monomind configured)` };
         } else {
-          return { name: 'MCP Servers', status: 'warn', message: `${count} servers (monobrain not found)`, fix: 'claude mcp add monobrain -- npx -y monobrain@latest mcp start' };
+          return { name: 'MCP Servers', status: 'warn', message: `${count} servers (monomind not found)`, fix: 'claude mcp add monomind -- npx -y monomind@latest mcp start' };
         }
       } catch {
         // continue to next path
@@ -218,7 +218,7 @@ async function checkMcpServers(): Promise<HealthCheck> {
     }
   }
 
-  return { name: 'MCP Servers', status: 'warn', message: 'No MCP config found', fix: 'claude mcp add monobrain npx @monobrain/cli@v1alpha mcp start' };
+  return { name: 'MCP Servers', status: 'warn', message: 'No MCP config found', fix: 'claude mcp add monomind npx @monomind/cli@v1alpha mcp start' };
 }
 
 // Check disk space (async with proper env inheritance)
@@ -273,7 +273,7 @@ async function checkVersionFreshness(): Promise<HealthCheck> {
       let dir = dirname(thisFile);
 
       // Walk up from the current file's directory until we find the
-      // package.json that belongs to @monobrain/cli (or monobrain/cli).
+      // package.json that belongs to @monomind/cli (or monomind/cli).
       // Walk until dirname(dir) === dir (filesystem root on any platform).
       for (;;) {
         const candidate = join(dir, 'package.json');
@@ -283,7 +283,7 @@ async function checkVersionFreshness(): Promise<HealthCheck> {
             if (
               pkg.version &&
               typeof pkg.name === 'string' &&
-              (pkg.name === '@monobrain/cli' || pkg.name === 'monobrain' || pkg.name === 'monobrain')
+              (pkg.name === '@monomind/cli' || pkg.name === 'monomind' || pkg.name === 'monomind')
             ) {
               currentVersion = pkg.version;
               break;
@@ -309,7 +309,7 @@ async function checkVersionFreshness(): Promise<HealthCheck> {
     // Query npm for latest version (using alpha tag since that's what we publish to)
     let latestVersion = currentVersion;
     try {
-      const npmInfo = await runCommand('npm view @monobrain/cli@alpha version', 5000);
+      const npmInfo = await runCommand('npm view @monomind/cli@alpha version', 5000);
       latestVersion = npmInfo.trim();
     } catch {
       // Can't reach npm registry - skip check
@@ -345,8 +345,8 @@ async function checkVersionFreshness(): Promise<HealthCheck> {
 
     if (isOutdated) {
       const fix = isNpx
-        ? 'rm -rf ~/.npm/_npx/* && npx -y @monobrain/cli@latest'
-        : 'npm update @monobrain/cli';
+        ? 'rm -rf ~/.npm/_npx/* && npx -y @monomind/cli@latest'
+        : 'npm update @monomind/cli';
 
       return {
         name: 'Version Freshness',
@@ -488,11 +488,11 @@ export const doctorCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain doctor', description: 'Run full health check' },
-    { command: 'monobrain doctor --fix', description: 'Show fixes for issues' },
-    { command: 'monobrain doctor --install', description: 'Auto-install missing dependencies' },
-    { command: 'monobrain doctor -c version', description: 'Check for stale npx cache' },
-    { command: 'monobrain doctor -c claude', description: 'Check Claude Code CLI only' }
+    { command: 'monomind doctor', description: 'Run full health check' },
+    { command: 'monomind doctor --fix', description: 'Show fixes for issues' },
+    { command: 'monomind doctor --install', description: 'Auto-install missing dependencies' },
+    { command: 'monomind doctor -c version', description: 'Check for stale npx cache' },
+    { command: 'monomind doctor -c claude', description: 'Check Claude Code CLI only' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const showFix = ctx.flags.fix as boolean;
@@ -501,7 +501,7 @@ export const doctorCommand: Command = {
     const verbose = ctx.flags.verbose as boolean;
 
     output.writeln();
-    output.writeln(output.bold('MonoBrain Doctor'));
+    output.writeln(output.bold('MonoMind Doctor'));
     output.writeln(output.dim('System diagnostics and health check'));
     output.writeln(output.dim('─'.repeat(50)));
     output.writeln();

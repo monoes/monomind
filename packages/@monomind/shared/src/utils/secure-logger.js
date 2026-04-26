@@ -10,7 +10,7 @@
  * - Filters sensitive keys from error objects
  * - Truncates long messages to prevent log injection
  *
- * @module @monobrain/shared/utils/secure-logger
+ * @module @monomind/shared/utils/secure-logger
  */
 const DEFAULT_CONFIG = {
     environment: process.env.NODE_ENV || 'development',
@@ -191,7 +191,7 @@ export function createSecureLogger(prefix, config) {
 /**
  * Default logger instance
  */
-export const logger = createSecureLogger('monobrain');
+export const logger = createSecureLogger('monomind');
 /**
  * Sanitize an error for safe logging/display
  */

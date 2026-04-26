@@ -5,7 +5,7 @@
  * integration, supporting advanced neural search, attention mechanisms,
  * graph neural networks, and hyperbolic embeddings.
  *
- * @module @monobrain/plugins/integrations/ruvector
+ * @module @monomind/plugins/integrations/ruvector
  * @version 1.0.0
  */
 

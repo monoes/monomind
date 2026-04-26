@@ -6,7 +6,7 @@
  * pipeline: idempotency check -> schema validation -> budget check ->
  * enforcement gates -> allow/deny.
  *
- * @module @monobrain/guidance/gateway
+ * @module @monomind/guidance/gateway
  */
 import { createHash } from 'node:crypto';
 import { EnforcementGates } from './gates.js';

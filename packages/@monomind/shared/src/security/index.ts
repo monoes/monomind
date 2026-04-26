@@ -1,7 +1,7 @@
 /**
  * Security Module
  *
- * Shared security utilities for V1 Monobrain.
+ * Shared security utilities for V1 Monomind.
  *
  * @module v1/shared/security
  */

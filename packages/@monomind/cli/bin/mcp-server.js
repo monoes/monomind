@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @monobrain/cli - MCP Server Entry Point
+ * @monomind/cli - MCP Server Entry Point
  *
  * Direct stdio MCP server for Claude Code integration.
  * This entry point handles stdin/stdout directly for MCP protocol
@@ -15,7 +15,7 @@ const sessionId = `mcp-${Date.now()}-${randomUUID().slice(0, 8)}`;
 
 // Log to stderr (doesn't corrupt stdout for MCP protocol)
 console.error(
-  `[${new Date().toISOString()}] INFO [monobrain-mcp] (${sessionId}) Starting in stdio mode`
+  `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) Starting in stdio mode`
 );
 console.error(JSON.stringify({
   arch: process.arch,
@@ -49,7 +49,7 @@ process.stdin.on('data', async (chunk) => {
         }
       } catch (error) {
         console.error(
-          `[${new Date().toISOString()}] ERROR [monobrain-mcp] Failed to parse:`,
+          `[${new Date().toISOString()}] ERROR [monomind-mcp] Failed to parse:`,
           error instanceof Error ? error.message : String(error)
         );
         // Send parse error response
@@ -65,19 +65,19 @@ process.stdin.on('data', async (chunk) => {
 
 process.stdin.on('end', () => {
   console.error(
-    `[${new Date().toISOString()}] INFO [monobrain-mcp] (${sessionId}) stdin closed, shutting down...`
+    `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) stdin closed, shutting down...`
   );
   process.exit(0);
 });
 
 // Handle process termination
 process.on('SIGINT', () => {
-  console.error(`[${new Date().toISOString()}] INFO [monobrain-mcp] Received SIGINT`);
+  console.error(`[${new Date().toISOString()}] INFO [monomind-mcp] Received SIGINT`);
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-  console.error(`[${new Date().toISOString()}] INFO [monobrain-mcp] Received SIGTERM`);
+  console.error(`[${new Date().toISOString()}] INFO [monomind-mcp] Received SIGTERM`);
   process.exit(0);
 });
 
@@ -103,7 +103,7 @@ async function handleMessage(message) {
           id: message.id,
           result: {
             protocolVersion: '2024-11-05',
-            serverInfo: { name: 'monobrain', version: VERSION },
+            serverInfo: { name: 'monomind', version: VERSION },
             capabilities: {
               tools: { listChanged: true },
               resources: { subscribe: true, listChanged: true },
@@ -158,7 +158,7 @@ async function handleMessage(message) {
       }
 
       case 'notifications/initialized':
-        console.error(`[${new Date().toISOString()}] INFO [monobrain-mcp] Client initialized`);
+        console.error(`[${new Date().toISOString()}] INFO [monomind-mcp] Client initialized`);
         return null; // No response for notifications
 
       case 'ping':
@@ -176,7 +176,7 @@ async function handleMessage(message) {
         };
     }
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] ERROR [monobrain-mcp] ${message.method}:`, error);
+    console.error(`[${new Date().toISOString()}] ERROR [monomind-mcp] ${message.method}:`, error);
     return {
       jsonrpc: '2.0',
       id: message.id,

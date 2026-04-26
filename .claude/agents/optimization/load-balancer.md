@@ -351,28 +351,28 @@ class CircuitBreaker {
 ### Load Balancing Commands
 ```bash
 # Initialize load balancer
-npx monobrain agent spawn load-balancer --type coordinator
+npx monomind agent spawn load-balancer --type coordinator
 
 # Start load balancing
-npx monobrain load-balance --swarm-id <id> --strategy adaptive
+npx monomind load-balance --swarm-id <id> --strategy adaptive
 
 # Monitor load distribution
-npx monobrain agent-metrics --type load-balancer
+npx monomind agent-metrics --type load-balancer
 
 # Adjust balancing parameters
-npx monobrain config-manage --action update --config '{"stealThreshold": 5, "agingBoost": 10}'
+npx monomind config-manage --action update --config '{"stealThreshold": 5, "agingBoost": 10}'
 ```
 
 ### Performance Monitoring
 ```bash
 # Real-time load monitoring
-npx monobrain performance-report --format detailed
+npx monomind performance-report --format detailed
 
 # Bottleneck analysis
-npx monobrain bottleneck-analyze --component swarm-coordination
+npx monomind bottleneck-analyze --component swarm-coordination
 
 # Resource utilization tracking
-npx monobrain metrics-collect --components ["load-balancer", "task-queue"]
+npx monomind metrics-collect --components ["load-balancer", "task-queue"]
 ```
 
 ## Integration Points

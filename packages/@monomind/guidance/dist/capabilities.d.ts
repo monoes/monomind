@@ -6,7 +6,7 @@
  * attestations, constraint evaluation, and set-theoretic composition
  * (intersection for actions, union for constraints).
  *
- * @module @monobrain/guidance/capabilities
+ * @module @monomind/guidance/capabilities
  */
 /**
  * Scope categories for capabilities

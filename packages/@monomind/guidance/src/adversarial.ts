@@ -6,13 +6,13 @@
  * - CollusionDetector: Identifies suspicious coordination patterns between agents
  * - MemoryQuorum: Implements voting-based consensus for critical memory operations
  *
- * @module @monobrain/guidance/adversarial
+ * @module @monomind/guidance/adversarial
  * @category Security
  * @since 3.0.0-alpha.1
  *
  * @example
  * ```typescript
- * import { createThreatDetector, createCollusionDetector, createMemoryQuorum } from '@monobrain/guidance/adversarial';
+ * import { createThreatDetector, createCollusionDetector, createMemoryQuorum } from '@monomind/guidance/adversarial';
  *
  * // Threat detection
  * const detector = createThreatDetector();

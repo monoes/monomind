@@ -56,7 +56,7 @@ For accessing MCP resources, use `access_mcp_resource` with proper URI:
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "mcp",
   task_description: "integrate with external API",
   options: {
@@ -69,22 +69,22 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run mcp "integrate with external API"
+npx monomind sparc run mcp "integrate with external API"
 
 # For alpha features
-npx monobrain@alpha sparc run mcp "integrate with external API"
+npx monomind@alpha sparc run mcp "integrate with external API"
 
 # With namespace
-npx monobrain sparc run mcp "your task" --namespace mcp
+npx monomind sparc run mcp "your task" --namespace mcp
 
 # Non-interactive mode
-npx monobrain sparc run mcp "your task" --non-interactive
+npx monomind sparc run mcp "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run mcp "integrate with external API"
+# If monomind is installed locally
+./monomind sparc run mcp "integrate with external API"
 ```
 
 ## Memory Integration
@@ -92,7 +92,7 @@ npx monobrain sparc run mcp "your task" --non-interactive
 ### Using MCP Tools (Preferred)
 ```javascript
 // Store mode-specific context
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "mcp_context",
   value: "important decisions",
@@ -100,7 +100,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Query previous work
-mcp__monobrain__memory_search {
+mcp__monomind__memory_search {
   pattern: "mcp",
   namespace: "mcp",
   limit: 5
@@ -110,8 +110,8 @@ mcp__monobrain__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx monobrain memory store "mcp_context" "important decisions" --namespace mcp
+npx monomind memory store "mcp_context" "important decisions" --namespace mcp
 
 # Query previous work
-npx monobrain memory query "mcp" --limit 5
+npx monomind memory query "mcp" --limit 5
 ```

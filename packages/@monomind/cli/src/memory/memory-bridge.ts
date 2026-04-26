@@ -53,7 +53,7 @@ function generateId(prefix: string): string {
 
 /**
  * Lazily initialize the ControllerRegistry singleton.
- * Returns null if @monobrain/memory is not available.
+ * Returns null if @monomind/memory is not available.
  */
 async function getRegistry(dbPath?: string): Promise<any | null> {
   if (bridgeAvailable === false) return null;
@@ -63,7 +63,7 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
   if (!registryPromise) {
     registryPromise = (async () => {
       try {
-        const { ControllerRegistry } = await import('@monobrain/memory');
+        const { ControllerRegistry } = await import('@monomind/memory');
         const registry = new ControllerRegistry();
 
         // Suppress noisy console.log during init

@@ -25,9 +25,9 @@ const pretrainCommand: Command = {
     { name: 'verbose', short: 'v', type: 'boolean', description: 'Verbose output', default: 'false' },
   ],
   examples: [
-    { command: 'monobrain benchmark pretrain', description: 'Run pre-training benchmarks' },
-    { command: 'monobrain benchmark pretrain -i 500 --save results.json', description: 'Extended benchmark with results saved' },
-    { command: 'monobrain benchmark pretrain -o json', description: 'Output results as JSON' },
+    { command: 'monomind benchmark pretrain', description: 'Run pre-training benchmarks' },
+    { command: 'monomind benchmark pretrain -i 500 --save results.json', description: 'Extended benchmark with results saved' },
+    { command: 'monomind benchmark pretrain -o json', description: 'Output results as JSON' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const iterations = parseInt(ctx.flags.iterations as string || '100', 10);
@@ -53,7 +53,7 @@ const pretrainCommand: Command = {
 
       // Save to file if requested
       if (saveFile) {
-        const resultsDir = join(process.cwd(), '.monobrain', 'benchmarks');
+        const resultsDir = join(process.cwd(), '.monomind', 'benchmarks');
         if (!existsSync(resultsDir)) {
           mkdirSync(resultsDir, { recursive: true });
         }
@@ -94,8 +94,8 @@ const neuralCommand: Command = {
     { name: 'output', short: 'o', type: 'string', description: 'Output format: text, json', default: 'text' },
   ],
   examples: [
-    { command: 'monobrain benchmark neural', description: 'Run neural benchmarks' },
-    { command: 'monobrain benchmark neural -d 768 -n 5000', description: 'Higher dimension, more vectors' },
+    { command: 'monomind benchmark neural', description: 'Run neural benchmarks' },
+    { command: 'monomind benchmark neural -d 768 -n 5000', description: 'Higher dimension, more vectors' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const iterations = parseInt(ctx.flags.iterations as string || '100', 10);
@@ -278,7 +278,7 @@ const memoryCommand: Command = {
     { name: 'output', short: 'o', type: 'string', description: 'Output format: text, json', default: 'text' },
   ],
   examples: [
-    { command: 'monobrain benchmark memory', description: 'Run memory benchmarks' },
+    { command: 'monomind benchmark memory', description: 'Run memory benchmarks' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const iterations = parseInt(ctx.flags.iterations as string || '100', 10);
@@ -310,7 +310,7 @@ const memoryCommand: Command = {
         storeEntry = memory.storeEntry;
         searchEntries = memory.searchEntries;
       } catch {
-        // @monobrain/memory not available — return null metrics instead of fake numbers
+        // @monomind/memory not available — return null metrics instead of fake numbers
         storeEntry = async () => ({ success: true });
         searchEntries = async () => ({ results: [], searchTime: 0 }); // 0 = no-op fallback, not a real benchmark
       }
@@ -408,13 +408,13 @@ const allCommand: Command = {
     { name: 'save', short: 's', type: 'string', description: 'Save results to file' },
   ],
   examples: [
-    { command: 'monobrain benchmark all', description: 'Run all benchmarks' },
-    { command: 'monobrain benchmark all --save full-results.json', description: 'Run all and save results' },
+    { command: 'monomind benchmark all', description: 'Run all benchmarks' },
+    { command: 'monomind benchmark all --save full-results.json', description: 'Run all and save results' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold(output.highlight('═'.repeat(65))));
-    output.writeln(output.bold('  Monobrain - Full Benchmark Suite'));
+    output.writeln(output.bold('  Monomind - Full Benchmark Suite'));
     output.writeln(output.bold(output.highlight('═'.repeat(65))));
 
     const startTime = Date.now();
@@ -454,7 +454,7 @@ const allCommand: Command = {
     // Save if requested
     const saveFile = ctx.flags.save as string | undefined;
     if (saveFile) {
-      const resultsDir = join(process.cwd(), '.monobrain', 'benchmarks');
+      const resultsDir = join(process.cwd(), '.monomind', 'benchmarks');
       if (!existsSync(resultsDir)) {
         mkdirSync(resultsDir, { recursive: true });
       }
@@ -485,14 +485,14 @@ export const benchmarkCommand: Command = {
     allCommand,
   ],
   examples: [
-    { command: 'monobrain benchmark pretrain', description: 'Benchmark pre-training system' },
-    { command: 'monobrain benchmark neural', description: 'Benchmark neural operations' },
-    { command: 'monobrain benchmark memory', description: 'Benchmark memory operations' },
-    { command: 'monobrain benchmark all', description: 'Run all benchmarks' },
+    { command: 'monomind benchmark pretrain', description: 'Benchmark pre-training system' },
+    { command: 'monomind benchmark neural', description: 'Benchmark neural operations' },
+    { command: 'monomind benchmark memory', description: 'Benchmark memory operations' },
+    { command: 'monomind benchmark all', description: 'Run all benchmarks' },
   ],
   action: async (_ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
-    output.writeln(output.bold('Monobrain Benchmark Suite'));
+    output.writeln(output.bold('Monomind Benchmark Suite'));
     output.writeln(output.dim('─'.repeat(50)));
     output.writeln();
     output.writeln('Available subcommands:');
@@ -502,8 +502,8 @@ export const benchmarkCommand: Command = {
     output.writeln(`  ${output.highlight('all')}       - Run all benchmark suites`);
     output.writeln();
     output.writeln('Examples:');
-    output.writeln('  monobrain benchmark pretrain -i 200');
-    output.writeln('  monobrain benchmark all --save results.json');
+    output.writeln('  monomind benchmark pretrain -i 200');
+    output.writeln('  monomind benchmark all --save results.json');
     output.writeln();
 
     return { success: true, message: 'Use a subcommand to run benchmarks' };

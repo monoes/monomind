@@ -1,23 +1,32 @@
-import type Graph from 'graphology';
+import Graph from 'graphology';
+
+type LouvainFn = (g: Graph) => Record<string, number>;
 
 export async function detectCommunities(graph: Graph): Promise<Record<number, string[]>> {
+  let louvainFn: LouvainFn | null = null;
   try {
-    const { default: louvain } = await import('graphology-communities-louvain');
-    const assignment = louvain(graph) as Record<string, number>;
+    const mod = await import('graphology-communities-louvain');
+    louvainFn = mod.default as LouvainFn;
+  } catch { /* louvain not available — fall through to directory heuristic */ }
 
-    for (const [nodeId, communityId] of Object.entries(assignment)) {
-      graph.setNodeAttribute(nodeId, 'community', communityId);
-    }
+  if (louvainFn) {
+    try {
+      const assignment = louvainFn(graph);
 
-    const communities: Record<number, string[]> = {};
-    for (const [nodeId, communityId] of Object.entries(assignment)) {
-      if (!communities[communityId]) communities[communityId] = [];
-      communities[communityId].push(nodeId);
-    }
-    return splitOversizedCommunities(graph, communities);
-  } catch {
-    return splitOversizedCommunities(graph, fallbackCluster(graph));
+      for (const [nodeId, communityId] of Object.entries(assignment)) {
+        graph.setNodeAttribute(nodeId, 'community', communityId);
+      }
+
+      const communities: Record<number, string[]> = {};
+      for (const [nodeId, communityId] of Object.entries(assignment)) {
+        if (!communities[communityId]) communities[communityId] = [];
+        communities[communityId].push(nodeId);
+      }
+      return splitOversizedCommunities(graph, communities, 0.25, louvainFn);
+    } catch { /* fall through */ }
   }
+
+  return splitOversizedCommunities(graph, fallbackCluster(graph), 0.25, louvainFn);
 }
 
 function fallbackCluster(graph: Graph): Record<number, string[]> {
@@ -61,6 +70,7 @@ export function splitOversizedCommunities(
   graph: Graph,
   communities: Record<number, string[]>,
   threshold = 0.25,
+  louvainFn: LouvainFn | null = null,
 ): Record<number, string[]> {
   const maxSize = threshold * graph.order;
   const allIds = Object.keys(communities).map(Number);
@@ -70,6 +80,44 @@ export function splitOversizedCommunities(
     if (members.length <= maxSize) continue;
 
     const cid = Number(cidStr);
+
+    // Attempt a topology-based second pass: run Louvain on a subgraph of this community.
+    // Only use the result if it actually splits (produces >1 sub-community).
+    if (louvainFn && members.length >= 10) {
+      try {
+        const memberSet = new Set(members);
+        const subG = new Graph({ type: 'undirected', multi: false });
+        for (const nodeId of members) subG.addNode(nodeId);
+        graph.forEachEdge((_e, _a, source, target) => {
+          if (memberSet.has(source) && memberSet.has(target) && source !== target && !subG.hasEdge(source, target)) {
+            subG.addEdge(source, target);
+          }
+        });
+
+        const subAssignment = louvainFn(subG);
+        const subCommunityCount = new Set(Object.values(subAssignment)).size;
+
+        if (subCommunityCount > 1 && subCommunityCount <= Math.ceil(members.length / 2)) {
+          // Remap local sub-community IDs to globally unique IDs
+          const subIdMap = new Map<number, number>();
+          const newSubIds: Record<number, string[]> = {};
+
+          for (const [nodeId, localId] of Object.entries(subAssignment)) {
+            if (!subIdMap.has(localId)) subIdMap.set(localId, nextId++);
+            const globalId = subIdMap.get(localId)!;
+            graph.setNodeAttribute(nodeId, 'community', globalId);
+            if (!newSubIds[globalId]) newSubIds[globalId] = [];
+            newSubIds[globalId].push(nodeId);
+          }
+
+          delete communities[cid];
+          Object.assign(communities, newSubIds);
+          continue; // this community is handled — move to next
+        }
+      } catch { /* fall through to directory heuristic */ }
+    }
+
+    // Directory heuristic fallback: split by parent directory
     const subMap = new Map<string, number>();
     const newSubIds: Record<number, string[]> = {};
 

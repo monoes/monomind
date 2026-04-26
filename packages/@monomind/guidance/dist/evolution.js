@@ -12,7 +12,7 @@
  * 5. Advance  - Progress through stages with metric gates
  * 6. Promote / Rollback - Apply permanently or revert
  *
- * @module @monobrain/guidance/evolution
+ * @module @monomind/guidance/evolution
  */
 import { createHash, createHmac, randomUUID } from 'node:crypto';
 const DEFAULT_MAX_DIVERGENCE = 0.3;

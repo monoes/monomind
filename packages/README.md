@@ -1,15 +1,15 @@
-# Monobrain V1
+# Monomind V1
 
-> **Modular AI Agent Coordination System** - A complete reimagining of Monobrain with 15-agent hierarchical mesh swarm coordination.
+> **Modular AI Agent Coordination System** - A complete reimagining of Monomind with 15-agent hierarchical mesh swarm coordination.
 
-[![Version](https://img.shields.io/badge/version-3.0.0--alpha.1-blue.svg)](https://github.com/nokhodian/monobrain)
+[![Version](https://img.shields.io/badge/version-3.0.0--alpha.1-blue.svg)](https://github.com/nokhodian/monomind)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-green.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-blue.svg)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/license-MIT-purple.svg)](../LICENSE)
 
 ## Introduction
 
-Monobrain V1 is a next-generation AI agent coordination system built on 10 Architecture Decision Records (ADRs). It provides a modular, security-first, high-performance platform for orchestrating multi-agent swarms with hierarchical mesh topology.
+Monomind V1 is a next-generation AI agent coordination system built on 10 Architecture Decision Records (ADRs). It provides a modular, security-first, high-performance platform for orchestrating multi-agent swarms with hierarchical mesh topology.
 
 V1 represents a complete architectural overhaul:
 
@@ -68,7 +68,7 @@ V1 represents a complete architectural overhaul:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     @monobrain/v1-monorepo                    │
+│                     @monomind/v1-monorepo                    │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
@@ -101,7 +101,7 @@ V1 represents a complete architectural overhaul:
 
 ```
 v1/
-├── @monobrain/                    # Modular packages
+├── @monomind/                    # Modular packages
 │   ├── security/                    # Security module
 │   │   └── src/
 │   │       ├── index.ts             # Password hashing, validators
@@ -193,8 +193,8 @@ v1/
 │   └── implementation/              # Implementation details
 │
 ├── helpers/                         # Cross-platform helpers
-│   ├── monobrain-v1.sh            # Master helper (Linux/macOS)
-│   ├── monobrain-v1.ps1           # Master helper (Windows)
+│   ├── monomind-v1.sh            # Master helper (Linux/macOS)
+│   ├── monomind-v1.ps1           # Master helper (Windows)
 │   └── templates/                   # Helper templates
 │
 ├── scripts/                         # Utility scripts
@@ -208,7 +208,7 @@ v1/
 
 ## Modules
 
-### @monobrain/security
+### @monomind/security
 
 Security-first implementation with CVE fixes, input validation, and credential management.
 
@@ -217,19 +217,19 @@ import {
   PasswordHasher,
   validateInput,
   sanitizePath,
-} from "@monobrain/security";
+} from "@monomind/security";
 
 const hasher = new PasswordHasher();
 const hash = await hasher.hash("password");
 const valid = await hasher.verify("password", hash);
 ```
 
-### @monobrain/memory
+### @monomind/memory
 
 Unified memory service with AgentDB, HNSW indexing, and 150x-12,500x faster search.
 
 ```typescript
-import { HybridMemoryRepository, HNSWIndex } from '@monobrain/memory';
+import { HybridMemoryRepository, HNSWIndex } from '@monomind/memory';
 
 const memory = new HybridMemoryRepository({
   backend: 'agentdb',
@@ -240,12 +240,12 @@ await memory.store({ key: 'knowledge', value: 'context', embedding: [...] });
 const results = await memory.search({ query: 'knowledge', limit: 10 });
 ```
 
-### @monobrain/swarm
+### @monomind/swarm
 
 15-agent hierarchical mesh coordination with consensus protocols.
 
 ```typescript
-import { UnifiedSwarmCoordinator } from "@monobrain/swarm";
+import { UnifiedSwarmCoordinator } from "@monomind/swarm";
 
 const coordinator = new UnifiedSwarmCoordinator({
   topology: "hierarchical-mesh",
@@ -256,24 +256,24 @@ await coordinator.initialize();
 await coordinator.spawnAgent({ type: "queen-coordinator" });
 ```
 
-### @monobrain/integration
+### @monomind/integration
 
 Deep integration with agentic-flow@alpha per ADR-001.
 
 ```typescript
-import { AgenticFlowBridge } from "@monobrain/integration";
+import { AgenticFlowBridge } from "@monomind/integration";
 
 const bridge = new AgenticFlowBridge();
 await bridge.initialize();
 const agent = await bridge.createAgent({ type: "coder" });
 ```
 
-### @monobrain/performance
+### @monomind/performance
 
 Benchmarking framework with Flash Attention validation.
 
 ```typescript
-import { BenchmarkRunner, formatTime } from "@monobrain/performance";
+import { BenchmarkRunner, formatTime } from "@monomind/performance";
 
 const runner = new BenchmarkRunner();
 const result = await runner.run("map-lookup", () => map.get(key), {
@@ -282,54 +282,54 @@ const result = await runner.run("map-lookup", () => map.get(key), {
 });
 ```
 
-### @monobrain/neural
+### @monomind/neural
 
 SONA learning integration for self-optimizing agents.
 
 ```typescript
-import { SONAAdapter } from "@monobrain/neural";
+import { SONAAdapter } from "@monomind/neural";
 
 const sona = new SONAAdapter();
 await sona.train({ patterns: learningData });
 const prediction = await sona.predict(context);
 ```
 
-### @monobrain/cli
+### @monomind/cli
 
 Modern CLI with interactive prompts and formatted output.
 
 ```bash
-npx @monobrain/cli swarm init --topology hierarchical-mesh
-npx @monobrain/cli agent spawn --type queen-coordinator
-npx @monobrain/cli memory search "knowledge"
+npx @monomind/cli swarm init --topology hierarchical-mesh
+npx @monomind/cli agent spawn --type queen-coordinator
+npx @monomind/cli memory search "knowledge"
 ```
 
-### @monobrain/testing
+### @monomind/testing
 
 TDD London School framework with mocks, fixtures, and regression testing.
 
 ```typescript
-import { createMockAgent, createTestFixture } from "@monobrain/testing";
+import { createMockAgent, createTestFixture } from "@monomind/testing";
 
 const mockAgent = createMockAgent({ type: "coder" });
 const fixture = createTestFixture("swarm-coordination");
 ```
 
-### @monobrain/shared
+### @monomind/shared
 
 Common types, events, utilities, and core interfaces.
 
 ```typescript
-import { EventBus, Result, success, failure } from "@monobrain/shared";
-import type { AgentId, TaskStatus } from "@monobrain/shared/types";
+import { EventBus, Result, success, failure } from "@monomind/shared";
+import type { AgentId, TaskStatus } from "@monomind/shared/types";
 ```
 
-### @monobrain/deployment
+### @monomind/deployment
 
 Release management and CI/CD automation.
 
 ```typescript
-import { ReleaseManager } from "@monobrain/deployment";
+import { ReleaseManager } from "@monomind/deployment";
 
 const release = new ReleaseManager();
 await release.prepare({ version: "3.0.0", changelog: "..." });
@@ -340,7 +340,7 @@ await release.prepare({ version: "3.0.0", changelog: "..." });
 ### Quick Start
 
 ```typescript
-import { initializeSwarm } from "@monobrain/v1";
+import { initializeSwarm } from "@monomind/v1";
 
 // Initialize the swarm
 const swarm = await initializeSwarm();
@@ -366,18 +366,18 @@ const result = await swarm.waitForTask(task.id);
 
 ```typescript
 // Import everything
-import * as monobrain from "@monobrain/v1";
+import * as monomind from "@monomind/v1";
 
 // Or import specific modules for tree-shaking
-import { UnifiedSwarmCoordinator } from "@monobrain/swarm";
-import { PasswordHasher } from "@monobrain/security";
-import { HNSWIndex } from "@monobrain/memory";
+import { UnifiedSwarmCoordinator } from "@monomind/swarm";
+import { PasswordHasher } from "@monomind/security";
+import { HNSWIndex } from "@monomind/memory";
 ```
 
 ### MCP Server
 
 ```typescript
-import { createMCPServer } from "@monobrain/v1/mcp";
+import { createMCPServer } from "@monomind/v1/mcp";
 
 const server = createMCPServer({
   transport: "stdio",
@@ -393,14 +393,14 @@ Cross-platform automation for V1 development:
 
 ```bash
 # Linux/macOS
-./helpers/monobrain-v1.sh init
-./helpers/monobrain-v1.sh status
-./helpers/monobrain-v1.sh update domain 3
+./helpers/monomind-v1.sh init
+./helpers/monomind-v1.sh status
+./helpers/monomind-v1.sh update domain 3
 
 # Windows (PowerShell)
-.\helpers\monobrain-v1.ps1 init
-.\helpers\monobrain-v1.ps1 status
-.\helpers\monobrain-v1.ps1 update domain 3
+.\helpers\monomind-v1.ps1 init
+.\helpers\monomind-v1.ps1 status
+.\helpers\monomind-v1.ps1 update domain 3
 ```
 
 Features:
@@ -414,8 +414,8 @@ Features:
 
 ```bash
 # Clone the repository
-git clone https://github.com/nokhodian/monobrain.git
-cd monobrain/v1
+git clone https://github.com/nokhodian/monomind.git
+cd monomind/v1
 
 # Install dependencies
 pnpm install
@@ -470,21 +470,21 @@ pnpm test:coverage
 
 ### Modules
 
-- [@monobrain/security](./@monobrain/security/)
-- [@monobrain/memory](./@monobrain/memory/)
-- [@monobrain/swarm](./@monobrain/swarm/)
-- [@monobrain/integration](./@monobrain/integration/)
-- [@monobrain/performance](./@monobrain/performance/)
-- [@monobrain/neural](./@monobrain/neural/)
-- [@monobrain/cli](./@monobrain/cli/)
-- [@monobrain/testing](./@monobrain/testing/)
-- [@monobrain/shared](./@monobrain/shared/)
-- [@monobrain/deployment](./@monobrain/deployment/)
+- [@monomind/security](./@monomind/security/)
+- [@monomind/memory](./@monomind/memory/)
+- [@monomind/swarm](./@monomind/swarm/)
+- [@monomind/integration](./@monomind/integration/)
+- [@monomind/performance](./@monomind/performance/)
+- [@monomind/neural](./@monomind/neural/)
+- [@monomind/cli](./@monomind/cli/)
+- [@monomind/testing](./@monomind/testing/)
+- [@monomind/shared](./@monomind/shared/)
+- [@monomind/deployment](./@monomind/deployment/)
 
 ### Examples
 
-- [AgentDB Example](./@monobrain/memory/examples/agentdb-example.ts)
-- [Cross-Platform Usage](./@monobrain/memory/examples/cross-platform-usage.ts)
+- [AgentDB Example](./@monomind/memory/examples/agentdb-example.ts)
+- [Cross-Platform Usage](./@monomind/memory/examples/cross-platform-usage.ts)
 
 ### MCP Tools
 
@@ -495,7 +495,7 @@ pnpm test:coverage
 
 ### External
 
-- [GitHub Repository](https://github.com/nokhodian/monobrain)
+- [GitHub Repository](https://github.com/nokhodian/monomind)
 - [agentic-flow Integration](https://github.com/nokhodian/agentic-flow)
 - [AgentDB](https://github.com/nokhodian/agentdb)
 

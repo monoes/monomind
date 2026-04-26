@@ -1,5 +1,5 @@
 /**
- * V1 Monobrain Shared Types
+ * V1 Monomind Shared Types
  * Core type definitions for the 15-agent swarm coordination system
  *
  * Based on ADR-002 (DDD) and ADR-003 (Single Coordination Engine)

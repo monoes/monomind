@@ -8,7 +8,7 @@
 
 ## Context
 
-The `aidefence` npm package (v2.1.1) provides a production-ready AI Manipulation Defense System (AIMDS) with capabilities that complement and enhance Monobrain V1's security architecture:
+The `aidefence` npm package (v2.1.1) provides a production-ready AI Manipulation Defense System (AIMDS) with capabilities that complement and enhance Monomind V1's security architecture:
 
 ### AIMDS Capabilities
 
@@ -21,9 +21,9 @@ The `aidefence` npm package (v2.1.1) provides a production-ready AI Manipulation
 
 ### Strategic Alignment
 
-| aidefence Feature | Monobrain V1 Equivalent | Synergy |
+| aidefence Feature | Monomind V1 Equivalent | Synergy |
 |-------------------|---------------------------|---------|
-| AgentDB integration | `@monobrain/memory` with AgentDB | **Direct compatibility** - both use AgentDB for vector search |
+| AgentDB integration | `@monomind/memory` with AgentDB | **Direct compatibility** - both use AgentDB for vector search |
 | HNSW threat search | HNSW pattern search (150x faster) | **Shared infrastructure** - unified threat pattern index |
 | Prompt injection detection | Security domain service | **Enhancement** - 50+ patterns vs current regex-based |
 | Behavioral analysis | SecurityDomainService.detectThreats() | **Enhancement** - temporal/chaos analysis |
@@ -33,7 +33,7 @@ The `aidefence` npm package (v2.1.1) provides a production-ready AI Manipulation
 
 ### Current Security Gaps
 
-The current `@monobrain/security` module addresses CVE-2, CVE-3, HIGH-1, HIGH-2 but lacks:
+The current `@monomind/security` module addresses CVE-2, CVE-3, HIGH-1, HIGH-2 but lacks:
 
 1. **Real-time prompt injection detection** - Current approach is pattern-based without ML
 2. **Behavioral anomaly detection** - No temporal/chaos analysis for adversarial inputs
@@ -44,17 +44,17 @@ The current `@monobrain/security` module addresses CVE-2, CVE-3, HIGH-1, HIGH-2 
 
 ## Decision
 
-Integrate `aidefence` as a security enhancement layer within Monobrain V1 using a **bounded context** approach with clear domain boundaries.
+Integrate `aidefence` as a security enhancement layer within Monomind V1 using a **bounded context** approach with clear domain boundaries.
 
 ### 1. Domain-Driven Design Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                        Monobrain V1 Security Domain                        │
+│                        Monomind V1 Security Domain                        │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌────────────────────────────┐    ┌────────────────────────────────────┐   │
-│  │  @monobrain/security     │    │  @monobrain/aidefence            │   │
+│  │  @monomind/security     │    │  @monomind/aidefence            │   │
 │  │  (Core Security Context)   │    │  (AI Defense Context)              │   │
 │  ├────────────────────────────┤    ├────────────────────────────────────┤   │
 │  │  • CVE remediation         │◄──►│  • Prompt injection detection      │   │
@@ -82,7 +82,7 @@ Integrate `aidefence` as a security enhancement layer within Monobrain V1 using 
 
 ### 2. Bounded Context Definitions
 
-#### 2.1 Core Security Context (`@monobrain/security`)
+#### 2.1 Core Security Context (`@monomind/security`)
 **Responsibility**: Foundational security primitives and CVE remediation
 
 ```typescript
@@ -97,7 +97,7 @@ interface CoreSecurityContext {
 }
 ```
 
-#### 2.2 AI Defense Context (`@monobrain/aidefence`) - NEW
+#### 2.2 AI Defense Context (`@monomind/aidefence`) - NEW
 **Responsibility**: AI-specific adversarial defense
 
 ```typescript
@@ -129,13 +129,13 @@ interface AIDefenseContext {
 
 ### 3. Anti-Corruption Layer (ACL)
 
-Translate between aidefence and monobrain domains:
+Translate between aidefence and monomind domains:
 
 ```typescript
-// packages/@monobrain/aidefence/src/infrastructure/aidefence-adapter.ts
+// packages/@monomind/aidefence/src/infrastructure/aidefence-adapter.ts
 
 import { DefenseResult as AIDefenseResult } from 'aidefence';
-import { ThreatDetectionResult } from '@monobrain/security';
+import { ThreatDetectionResult } from '@monomind/security';
 
 export class AIDefenceAdapter {
   private aidefence: AIMDSClient;
@@ -145,12 +145,12 @@ export class AIDefenceAdapter {
   }
 
   /**
-   * Translate aidefence detection result to monobrain threat format
+   * Translate aidefence detection result to monomind threat format
    */
   async detectThreats(input: string): Promise<ThreatDetectionResult> {
     const result: AIDefenseResult = await this.aidefence.defend({
       action: input,
-      source: 'monobrain-agent'
+      source: 'monomind-agent'
     });
 
     return this.translateToThreatResult(result);
@@ -224,7 +224,7 @@ export class AIDefenceAdapter {
 #### 4.1 MCP Server Integration
 
 ```typescript
-// packages/@monobrain/mcp/src/tools/aidefence-tools.ts
+// packages/@monomind/mcp/src/tools/aidefence-tools.ts
 
 export const aidefenceTools: ToolDefinition[] = [
   {
@@ -283,7 +283,7 @@ export const aidefenceTools: ToolDefinition[] = [
 #### 4.2 CLI Command Integration
 
 ```typescript
-// packages/@monobrain/cli/src/commands/security.ts (extension)
+// packages/@monomind/cli/src/commands/security.ts (extension)
 
 // Add aidefence subcommands to existing security command
 securityCommand
@@ -326,7 +326,7 @@ securityCommand
 #### 4.3 Hooks Integration
 
 ```typescript
-// packages/@monobrain/cli/src/hooks/aidefence-hooks.ts
+// packages/@monomind/cli/src/hooks/aidefence-hooks.ts
 
 export const aidefenceHooks: HookDefinition[] = [
   {
@@ -388,7 +388,7 @@ export const aidefenceHooks: HookDefinition[] = [
 ### 5. Skill Definition
 
 ```yaml
-# packages/@monobrain/cli/.claude/skills/aidefence.yaml
+# packages/@monomind/cli/.claude/skills/aidefence.yaml
 
 name: aidefence
 version: 1.0.0
@@ -450,7 +450,7 @@ integration:
 ### 6. Agent Definition Enhancement
 
 ```yaml
-# packages/@monobrain/cli/.claude/agents/v1/security-architect.yaml (enhancement)
+# packages/@monomind/cli/.claude/agents/v1/security-architect.yaml (enhancement)
 
 # Add to existing security-architect capabilities
 capabilities:
@@ -468,7 +468,7 @@ hooks:
     # ... existing pre-hook ...
 
     # NEW: Check for similar attack patterns via aidefence
-    ATTACK_PATTERNS=$(npx monobrain@latest security defend --input "$TASK" --mode thorough --json)
+    ATTACK_PATTERNS=$(npx monomind@latest security defend --input "$TASK" --mode thorough --json)
     if echo "$ATTACK_PATTERNS" | jq -e '.threats | length > 0' > /dev/null; then
       echo "⚠️  Potential manipulation detected in task request"
       echo "$ATTACK_PATTERNS" | jq -r '.threats[] | "  - \(.type): \(.description)"'
@@ -478,7 +478,7 @@ hooks:
     # ... existing post-hook ...
 
     # NEW: Feed security assessment to aidefence meta-learner
-    npx monobrain@latest security behavior --agent "security-architect-$(date +%s)" --record-action "$TASK"
+    npx monomind@latest security behavior --agent "security-architect-$(date +%s)" --record-action "$TASK"
 ```
 
 ### 7. Shared Infrastructure
@@ -486,12 +486,12 @@ hooks:
 #### 7.1 AgentDB Namespace Configuration
 
 ```typescript
-// packages/@monobrain/memory/src/config/security-namespaces.ts
+// packages/@monomind/memory/src/config/security-namespaces.ts
 
 export const securityNamespaces: NamespaceConfig[] = [
   {
     name: 'security_threats',
-    description: 'Shared threat pattern storage (aidefence + monobrain)',
+    description: 'Shared threat pattern storage (aidefence + monomind)',
     vectorDimension: 384,
     hnswConfig: {
       m: 16,
@@ -504,7 +504,7 @@ export const securityNamespaces: NamespaceConfig[] = [
       pattern: { type: 'string' },
       mitigation: { type: 'string' },
       effectiveness: { type: 'number' },
-      source: { type: 'string', enum: ['aidefence', 'monobrain', 'manual'] }
+      source: { type: 'string', enum: ['aidefence', 'monomind', 'manual'] }
     }
   },
   {
@@ -542,7 +542,7 @@ export const securityNamespaces: NamespaceConfig[] = [
 #### 7.2 Prometheus Metrics Integration
 
 ```typescript
-// packages/@monobrain/aidefence/src/infrastructure/metrics.ts
+// packages/@monomind/aidefence/src/infrastructure/metrics.ts
 
 import { Registry, Counter, Histogram, Gauge } from 'prom-client';
 
@@ -598,7 +598,7 @@ export function registerAIDefenceMetrics(registry: Registry) {
 ## Package Structure
 
 ```
-packages/@monobrain/aidefence/
+packages/@monomind/aidefence/
 ├── package.json
 ├── src/
 │   ├── index.ts                    # Public API exports
@@ -638,13 +638,13 @@ packages/@monobrain/aidefence/
 
 ```json
 {
-  "name": "@monobrain/aidefence",
+  "name": "@monomind/aidefence",
   "version": "3.0.0-alpha.1",
   "dependencies": {
     "aidefence": "^2.1.1",
-    "@monobrain/security": "workspace:*",
-    "@monobrain/memory": "workspace:*",
-    "@monobrain/core": "workspace:*",
+    "@monomind/security": "workspace:*",
+    "@monomind/memory": "workspace:*",
+    "@monomind/core": "workspace:*",
     "agentdb": "^2.0.0-alpha.3"
   },
   "peerDependencies": {
@@ -716,7 +716,7 @@ packages/@monobrain/aidefence/
 ## Migration Path
 
 ### Phase 1: Package Setup (Week 1)
-- Create `@monobrain/aidefence` package
+- Create `@monomind/aidefence` package
 - Implement AIDefenceAdapter anti-corruption layer
 - Add to workspace dependencies
 

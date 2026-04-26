@@ -10,7 +10,7 @@
  * - Memory lineage (reads/writes with value hashes)
  * - HMAC-SHA256 signature over the entire envelope body
  *
- * @module @monobrain/guidance/proof
+ * @module @monomind/guidance/proof
  */
 import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { timingSafeEqual } from './crypto-utils.js';

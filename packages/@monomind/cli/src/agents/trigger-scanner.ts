@@ -16,7 +16,7 @@ import type {
   TriggerPattern,
   TriggerMatch,
   TriggerIndex,
-} from '../../../../@monobrain/shared/src/types/trigger.js';
+} from '../../../../@monomind/shared/src/types/trigger.js';
 
 /** Compiled regex paired with its source TriggerPattern. */
 interface CompiledPattern {

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { KeywordPreFilter, DEFAULT_KEYWORD_ROUTES } from '../../packages/@monobrain/routing/src/keyword-pre-filter.js';
-import { RouteLayer } from '../../packages/@monobrain/routing/src/route-layer.js';
+import { KeywordPreFilter, DEFAULT_KEYWORD_ROUTES } from '../../packages/@monomind/routing/src/keyword-pre-filter.js';
+import { RouteLayer } from '../../packages/@monomind/routing/src/route-layer.js';
 
 describe('KeywordPreFilter', () => {
   let filter: KeywordPreFilter;

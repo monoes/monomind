@@ -1,4 +1,4 @@
-# Monobrain V1 Statusline Daemon System
+# Monomind V1 Statusline Daemon System
 
 ## Overview
 
@@ -17,8 +17,8 @@ Real-time statusline updates powered by SQLite-backed daemon processes that moni
 ├─────────────────────────────────────────────────────────────┤
 │  statusline.sh (on-demand)                                   │
 │  └─> Reads from:                                             │
-│       ├─ .monobrain/metrics.db (primary, SQLite)          │
-│       └─ .monobrain/metrics/*.json (exported, compat)     │
+│       ├─ .monomind/metrics.db (primary, SQLite)          │
+│       └─ .monomind/metrics/*.json (exported, compat)     │
 ├─────────────────────────────────────────────────────────────┤
 │  SessionEnd Hook                                             │
 │  └─> daemon-manager.sh stop                                 │
@@ -57,7 +57,7 @@ CREATE TABLE v1_progress (
   id INTEGER PRIMARY KEY,
   domains_completed INTEGER,    -- 0-5 bounded contexts
   ddd_progress INTEGER,         -- 0-100%
-  total_modules INTEGER,        -- @monobrain modules
+  total_modules INTEGER,        -- @monomind modules
   total_files INTEGER,          -- TypeScript files
   total_lines INTEGER,          -- Lines of code
   last_updated TEXT
@@ -143,7 +143,7 @@ On-demand status display for Claude Code.
 **Output Format:**
 
 ```
-▊ Monobrain V1 ● agentic-flow@alpha  │  ⎇ v1
+▊ Monomind V1 ● agentic-flow@alpha  │  ⎇ v1
 ─────────────────────────────────────────────────────
 🏗️  DDD Domains    [●●●●●]  5/5    ⚡ 1.0x → 2.49x-7.47x
 🤖 Swarm Agents    ◉ [ 2/15]      🟢 CVE 3/3    💾 0%
@@ -202,7 +202,7 @@ In `.claude/settings.json`:
   },
   "statusLine": {
     "type": "command",
-    "command": "/workspaces/monobrain/.claude/statusline.sh"
+    "command": "/workspaces/monomind/.claude/statusline.sh"
   }
 }
 ```
@@ -216,10 +216,10 @@ In `.claude/settings.json`:
 | `.claude/helpers/swarm-monitor.sh`   | Process detection             |
 | `.claude/helpers/sync-v1-metrics.sh` | Legacy bash sync (deprecated) |
 | `.claude/statusline.sh`              | Status display                |
-| `.monobrain/metrics.db`              | SQLite database               |
-| `.monobrain/metrics/*.json`          | Exported JSON (compatibility) |
-| `.monobrain/pids/*.pid`              | Daemon PID files              |
-| `.monobrain/logs/*.log`              | Daemon logs                   |
+| `.monomind/metrics.db`              | SQLite database               |
+| `.monomind/metrics/*.json`          | Exported JSON (compatibility) |
+| `.monomind/pids/*.pid`              | Daemon PID files              |
+| `.monomind/logs/*.log`              | Daemon logs                   |
 
 ## Metrics Tracked
 
@@ -227,7 +227,7 @@ In `.claude/settings.json`:
 
 - Domains completed (0-5 bounded contexts)
 - DDD architecture progress (0-100%)
-- Module count (10 @monobrain modules)
+- Module count (10 @monomind modules)
 - Files and lines of code
 
 ### Security
@@ -255,8 +255,8 @@ In `.claude/settings.json`:
 
 ```bash
 # Check logs
-cat .monobrain/logs/daemon.log
-cat .monobrain/logs/metrics-daemon.log
+cat .monomind/logs/daemon.log
+cat .monomind/logs/metrics-daemon.log
 
 # Manual start
 .claude/helpers/daemon-manager.sh start
@@ -276,6 +276,6 @@ node .claude/helpers/metrics-db.mjs sync
 
 ```bash
 # Remove and recreate
-rm .monobrain/metrics.db
+rm .monomind/metrics.db
 node .claude/helpers/metrics-db.mjs sync
 ```

@@ -18,7 +18,7 @@ Create a **Hyperbolic Reasoning Plugin** that leverages RuVector's hyperbolic WA
 
 ## Plugin Name
 
-`@monobrain/plugin-hyperbolic-reasoning`
+`@monomind/plugin-hyperbolic-reasoning`
 
 ## Description
 

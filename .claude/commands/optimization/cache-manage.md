@@ -4,7 +4,7 @@ Manage operation cache for performance.
 
 ## Usage
 ```bash
-npx monobrain optimization cache-manage [options]
+npx monomind optimization cache-manage [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain optimization cache-manage [options]
 ## Examples
 ```bash
 # View cache stats
-npx monobrain optimization cache-manage --action view
+npx monomind optimization cache-manage --action view
 
 # Clear cache
-npx monobrain optimization cache-manage --action clear
+npx monomind optimization cache-manage --action clear
 
 # Set limits
-npx monobrain optimization cache-manage --max-size 100 --ttl 3600
+npx monomind optimization cache-manage --max-size 100 --ttl 3600
 ```

@@ -377,9 +377,9 @@ declare module '@xenova/transformers' {
   export const env: any;
 }
 
-// Optional @monobrain sibling packages (installed separately)
+// Optional @monomind sibling packages (installed separately)
 // Using permissive `any` types since these are runtime-resolved optional deps
-declare module '@monobrain/embeddings' {
+declare module '@monomind/embeddings' {
   const mod: any;
   export default mod;
   export const createEmbeddingService: any;
@@ -396,24 +396,24 @@ declare module '@monobrain/embeddings' {
   export const hyperbolicCentroid: any;
 }
 
-declare module '@monobrain/guidance/compiler' {
+declare module '@monomind/guidance/compiler' {
   export const GuidanceCompiler: any;
   export const compile: any;
   export const compilePolicy: any;
 }
 
-declare module '@monobrain/guidance/retriever' {
+declare module '@monomind/guidance/retriever' {
   export const ShardRetriever: any;
   export const HashEmbeddingProvider: any;
   export const retrieve: any;
 }
 
-declare module '@monobrain/guidance/gates' {
+declare module '@monomind/guidance/gates' {
   export const EnforcementGates: any;
   export const enforce: any;
 }
 
-declare module '@monobrain/guidance/analyzer' {
+declare module '@monomind/guidance/analyzer' {
   export const formatReport: any;
   export const optimizeForSize: any;
   export const formatBenchmark: any;
@@ -422,7 +422,7 @@ declare module '@monobrain/guidance/analyzer' {
   export const analyze: any;
 }
 
-declare module '@monobrain/aidefence' {
+declare module '@monomind/aidefence' {
   export const createAIDefence: any;
   export const scan: any;
   export const analyze: any;
@@ -431,7 +431,7 @@ declare module '@monobrain/aidefence' {
   export class AIDefence { constructor(...args: any[]); }
 }
 
-declare module '@monobrain/mcp' {
+declare module '@monomind/mcp' {
   export const createMCPServer: any;
   export const startMCPServer: any;
   export class MCPServer { constructor(...args: any[]); }

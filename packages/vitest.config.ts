@@ -1,5 +1,5 @@
 /**
- * V1 Monobrain Vitest Configuration
+ * V1 Monomind Vitest Configuration
  *
  * London School TDD Configuration
  * - Mock-first testing approach
@@ -21,8 +21,8 @@ export default defineConfig({
     include: [
       '__tests__/**/*.test.ts',
       '__tests__/**/*.spec.ts',
-      '@monobrain/**/__tests__/**/*.test.ts',
-      '@monobrain/**/__tests__/**/*.spec.ts',
+      '@monomind/**/__tests__/**/*.test.ts',
+      '@monomind/**/__tests__/**/*.spec.ts',
       'mcp/__tests__/**/*.test.ts',
       'mcp/__tests__/**/*.spec.ts',
     ],

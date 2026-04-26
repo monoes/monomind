@@ -4,7 +4,7 @@ Real-time swarm monitoring.
 
 ## Usage
 ```bash
-npx monobrain swarm monitor [options]
+npx monomind swarm monitor [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain swarm monitor [options]
 ## Examples
 ```bash
 # Start monitoring
-npx monobrain swarm monitor
+npx monomind swarm monitor
 
 # Custom interval
-npx monobrain swarm monitor --interval 5000
+npx monomind swarm monitor --interval 5000
 
 # With metrics
-npx monobrain swarm monitor --metrics
+npx monomind swarm monitor --metrics
 ```

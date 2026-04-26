@@ -1,6 +1,6 @@
 /**
  * Registry API Client
- * Secure integration with Monobrain Cloud Functions
+ * Secure integration with Monomind Cloud Functions
  *
  * Security:
  * - HTTPS only
@@ -9,7 +9,7 @@
  * - Input validation
  */
 
-const REGISTRY_API_URL = 'https://us-central1-monobrain.cloudfunctions.net/publish-registry';
+const REGISTRY_API_URL = 'https://us-central1-monomind.cloudfunctions.net/publish-registry';
 
 export interface RatingResponse {
   success: boolean;

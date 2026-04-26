@@ -20,7 +20,7 @@ Three areas needed attention in v1.5.43:
 
 ### 1. Guidance MCP Tools
 
-Add 5 new MCP tools to the `@monobrain/cli` package:
+Add 5 new MCP tools to the `@monomind/cli` package:
 
 | Tool | Purpose |
 |------|---------|
@@ -53,9 +53,9 @@ Changes:
 
 **Self-detection fix**: `start()` now skips the "already running" check when the reported PID matches the current process. `getStatus()` reports `running: true` with `process.pid` for stdio transport even before startup — this is correct for health checks but must not block the initial `start()` call.
 
-**PID reuse guard**: `isProcessRunning()` now verifies the process is actually `node`/`monobrain`/`npx` by inspecting `/proc/{pid}/cmdline` (Linux) or `ps -p` (macOS). Falls back to `kill -0` on platforms where this isn't available.
+**PID reuse guard**: `isProcessRunning()` now verifies the process is actually `node`/`monomind`/`npx` by inspecting `/proc/{pid}/cmdline` (Linux) or `ps -p` (macOS). Falls back to `kill -0` on platforms where this isn't available.
 
-**Legacy cleanup**: `removePidFile()` now also removes `.monobrain/mcp-server.pid` from older versions that wrote to a different path than the current `/tmp/monobrain-mcp.pid`.
+**Legacy cleanup**: `removePidFile()` now also removes `.monomind/mcp-server.pid` from older versions that wrote to a different path than the current `/tmp/monomind-mcp.pid`.
 
 ## Consequences
 
@@ -66,15 +66,15 @@ Changes:
 - `init` generates clean agents when scaffolding new projects
 
 ### Negative
-- `hooks` fields were removed from agent frontmatter (they contained Monobrain shell scripts, not Claude Code hook references — functionality preserved in CLI hooks system)
+- `hooks` fields were removed from agent frontmatter (they contained Monomind shell scripts, not Claude Code hook references — functionality preserved in CLI hooks system)
 - Guidance tools use a static catalog that must be updated when new capabilities are added
 
 ## Files Changed
 
-- `packages/@monobrain/cli/src/mcp-tools/guidance-tools.ts` — new (5 tools)
-- `packages/@monobrain/cli/src/mcp-tools/index.ts` — export guidance tools
-- `packages/@monobrain/cli/src/mcp-client.ts` — register guidance tools
-- `packages/@monobrain/cli/src/mcp-server.ts` — PID self-detection + reuse guard + legacy cleanup
-- `packages/@monobrain/cli/src/init/executor.ts` — stop counting .yaml files
+- `packages/@monomind/cli/src/mcp-tools/guidance-tools.ts` — new (5 tools)
+- `packages/@monomind/cli/src/mcp-tools/index.ts` — export guidance tools
+- `packages/@monomind/cli/src/mcp-client.ts` — register guidance tools
+- `packages/@monomind/cli/src/mcp-server.ts` — PID self-detection + reuse guard + legacy cleanup
+- `packages/@monomind/cli/src/init/executor.ts` — stop counting .yaml files
 - `.claude/agents/**/*.md` — 100+ files standardized
 - `.claude/skills/**/SKILL.md` — 17 files standardized

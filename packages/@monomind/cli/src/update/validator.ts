@@ -18,27 +18,27 @@ interface PackageCompatibility {
   peerDependencies?: Record<string, string>;
 }
 
-// Known compatibility matrix between @monobrain packages
+// Known compatibility matrix between @monomind packages
 const COMPATIBILITY_MATRIX: Record<string, Record<string, PackageCompatibility>> = {
-  '@monobrain/cli': {
-    '@monobrain/embeddings': { minVersion: '3.0.0-alpha.1' },
-    '@monobrain/security': { minVersion: '3.0.0-alpha.1' },
+  '@monomind/cli': {
+    '@monomind/embeddings': { minVersion: '3.0.0-alpha.1' },
+    '@monomind/security': { minVersion: '3.0.0-alpha.1' },
   },
-  '@monobrain/embeddings': {
-    '@monobrain/cli': { minVersion: '3.0.0-alpha.50' },
+  '@monomind/embeddings': {
+    '@monomind/cli': { minVersion: '3.0.0-alpha.50' },
   },
 };
 
 // Known breaking changes by version
 const BREAKING_CHANGES: Record<string, Record<string, string[]>> = {
-  '@monobrain/cli': {
+  '@monomind/cli': {
     '3.0.0': [
       'Memory API changed from key-value to vector-based',
       'Hooks system completely redesigned',
       'Agent spawning now requires type parameter',
     ],
   },
-  '@monobrain/embeddings': {
+  '@monomind/embeddings': {
     '3.0.0': [
       'Switched from better-sqlite3 to sql.js',
       'New initialization required with initEmbeddings()',

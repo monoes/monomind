@@ -7,7 +7,7 @@
  * - Product Quantization (PQ): High compression with codebooks
  * - Optimized Product Quantization (OPQ): PQ with learned rotation
  *
- * @module @monobrain/plugins/integrations/ruvector/quantization
+ * @module @monomind/plugins/integrations/ruvector/quantization
  * @version 1.0.0
  */
 

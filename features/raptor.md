@@ -2,7 +2,7 @@
 
 **Source:** https://arxiv.org/abs/2401.18059  
 **Category:** RAG Architecture Research  
-**Role in Monobrain:** Cluster-then-summarize tree built inside the consolidate background worker
+**Role in Monomind:** Cluster-then-summarize tree built inside the consolidate background worker
 
 ---
 
@@ -21,7 +21,7 @@ At query time, retrieval can match against any level: precise leaf chunks for sp
 
 ### RAPTOR Tree via the `consolidate` Background Worker
 
-Monobrain implements RAPTOR's key step — cluster episodic entries → summarize → store as higher-tier entries — inside the `consolidate` background worker (`runConsolidateWorker`):
+Monomind implements RAPTOR's key step — cluster episodic entries → summarize → store as higher-tier entries — inside the `consolidate` background worker (`runConsolidateWorker`):
 
 **Step 1 — Cluster episodic entries**: The worker runs k-means clustering (simplified from GMM) over the HNSW embedding vectors of recent episodic-tier memory entries. Entries with cosine similarity > 0.75 are grouped into a cluster.
 
@@ -29,17 +29,17 @@ Monobrain implements RAPTOR's key step — cluster episodic entries → summariz
 
 **Step 3 — Store as `contextual`-tier entry**: The summary is stored as a new `MemoryEntry` with `tier: 'contextual'`. This entry contains the abstract theme and references to all the leaf entries in its cluster.
 
-**Step 4 — Recursive (one level)**: Monobrain implements one level of recursion: contextual-tier entries from multiple consolidation runs are themselves clustered and summarized into `executive`-tier entries (the highest abstraction level).
+**Step 4 — Recursive (one level)**: Monomind implements one level of recursion: contextual-tier entries from multiple consolidation runs are themselves clustered and summarized into `executive`-tier entries (the highest abstraction level).
 
 At retrieval time, global queries ("what are the main themes?") retrieve `executive`-tier and `contextual`-tier entries; specific queries retrieve `episodic`-tier entries; and PPR reranking (HippoRAG) bridges between levels.
 
-## How It Improved Monobrain
+## How It Improved Monomind
 
 RAPTOR solved the "global query" problem that pure vector search cannot handle. Before RAPTOR, asking "what are the recurring patterns in how we've solved authentication problems?" would return a handful of similar leaf memories but no coherent synthesis. After RAPTOR, the `consolidate` worker has already built a contextual-tier summary of the authentication cluster, and that summary becomes the retrieval target for broad thematic queries.
 
 ## Key Files Influenced
 
-- `packages/@monobrain/cli/src/commands/hooks/consolidate-worker.ts` — `runConsolidateWorker()` RAPTOR implementation
-- `packages/@monobrain/memory/src/agent-db.ts` — `MemoryEntry.tier` field (`episodic`/`contextual`/`executive`)
-- `packages/@monobrain/memory/src/hnsw.ts` — embedding vectors used for clustering
+- `packages/@monomind/cli/src/commands/hooks/consolidate-worker.ts` — `runConsolidateWorker()` RAPTOR implementation
+- `packages/@monomind/memory/src/agent-db.ts` — `MemoryEntry.tier` field (`episodic`/`contextual`/`executive`)
+- `packages/@monomind/memory/src/hnsw.ts` — embedding vectors used for clustering
 - `hook-handler.cjs` `session-end` — triggers consolidate worker via intelligence.consolidate()

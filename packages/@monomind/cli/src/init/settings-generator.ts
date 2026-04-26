@@ -25,10 +25,10 @@ export function generateSettings(options: InitOptions): object {
   // Add permissions
   settings.permissions = {
     allow: [
-      'Bash(npx @monobrain*)',
-      'Bash(npx monobrain*)',
+      'Bash(npx @monomind*)',
+      'Bash(npx monomind*)',
       'Bash(node .claude/*)',
-      'mcp__monobrain__:*',
+      'mcp__monomind__:*',
     ],
     deny: [
       'Read(./.env)',
@@ -36,30 +36,30 @@ export function generateSettings(options: InitOptions): object {
     ],
   };
 
-  // Add monobrain attribution for git commits and PRs
+  // Add monomind attribution for git commits and PRs
   settings.attribution = {
     commit: 'Co-Authored-By: nokhodian <nokhodian@gmail.com>',
-    pr: '🤖 Generated with [monobrain](https://github.com/nokhodian/monobrain)',
+    pr: '🤖 Generated with [monomind](https://github.com/nokhodian/monomind)',
   };
 
   // Note: Claude Code expects 'model' to be a string, not an object
-  // Model preferences are stored in monobrain settings instead
+  // Model preferences are stored in monomind settings instead
   // settings.model = 'claude-sonnet-4-5-20250929'; // Uncomment if you want to set a default model
 
   // Add Agent Teams configuration (experimental feature)
   settings.env = {
     // Enable Claude Code Agent Teams for multi-agent coordination
     CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
-    // Monobrain specific environment
-    MONOBRAIN_V1_ENABLED: 'true',
-    MONOBRAIN_HOOKS_ENABLED: 'true',
+    // Monomind specific environment
+    MONOMIND_V1_ENABLED: 'true',
+    MONOMIND_HOOKS_ENABLED: 'true',
   };
 
   // Detect platform for platform-aware configuration
   const platform = detectPlatform();
 
   // Add V1-specific settings
-  settings.monobrain = {
+  settings.monomind = {
     version: '3.0.0',
     enabled: true,
     platform: {
@@ -409,7 +409,7 @@ function generateHooksConfig(config: HooksConfig): object {
 
   // NOTE: TeammateIdle, TaskCompleted, and PostCompact are NOT accepted by
   // Claude Code's settings.json validator (rejected as "Invalid key in record").
-  // Agent Teams coordination lives in monobrain.agentTeams.hooks instead.
+  // Agent Teams coordination lives in monomind.agentTeams.hooks instead.
 
   return hooks;
 }

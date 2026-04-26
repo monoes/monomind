@@ -6,7 +6,7 @@
 
 ## Overview
 
-Complete implementation of Event Store Persistence for v1 Monobrain, providing event sourcing capabilities with SQLite backend and cross-platform compatibility.
+Complete implementation of Event Store Persistence for v1 Monomind, providing event sourcing capabilities with SQLite backend and cross-platform compatibility.
 
 ## Deliverables
 
@@ -152,14 +152,14 @@ Complete implementation of Event Store Persistence for v1 Monobrain, providing e
 
 **Updated Files**:
 
-- ✅ `/packages/@monobrain/shared/src/events/index.ts` - Module exports
-- ✅ `/packages/@monobrain/shared/src/index.ts` - Main module integration
-- ✅ `/packages/@monobrain/shared/package.json` - Dependencies added
+- ✅ `/packages/@monomind/shared/src/events/index.ts` - Module exports
+- ✅ `/packages/@monomind/shared/src/index.ts` - Main module integration
+- ✅ `/packages/@monomind/shared/package.json` - Dependencies added
 
 ## File Structure
 
 ```
-packages/@monobrain/shared/src/events/
+packages/@monomind/shared/src/events/
 ├── domain-events.ts           # 439 lines - Event type definitions
 ├── event-store.ts             # 447 lines - Core event store
 ├── projections.ts             # 468 lines - Read model projections
@@ -290,7 +290,7 @@ CREATE TABLE snapshots (
 ### Recording Events
 
 ```typescript
-import { EventStore, createAgentSpawnedEvent } from "@monobrain/shared/events";
+import { EventStore, createAgentSpawnedEvent } from "@monomind/shared/events";
 
 const store = new EventStore({ databasePath: "./events.db" });
 await store.initialize();
@@ -304,7 +304,7 @@ await store.append(
 ### Building Projections
 
 ```typescript
-import { AgentStateProjection } from "@monobrain/shared/events";
+import { AgentStateProjection } from "@monomind/shared/events";
 
 const projection = new AgentStateProjection(store);
 await projection.initialize();
@@ -361,7 +361,7 @@ await eventStore.append(
 npm test -- event-store.test.ts
 
 # Run example
-npx tsx packages/@monobrain/shared/src/events/example-usage.ts
+npx tsx packages/@monomind/shared/src/events/example-usage.ts
 ```
 
 ## Next Steps
@@ -417,5 +417,5 @@ The Event Store Persistence implementation for ADR-007 is **complete and product
 ---
 
 **Implementation completed**: 2026-01-04
-**Module location**: `/workspaces/monobrain/packages/@monobrain/shared/src/events/`
+**Module location**: `/workspaces/monomind/packages/@monomind/shared/src/events/`
 **Status**: ✅ Production Ready

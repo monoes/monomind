@@ -28,7 +28,7 @@ Write modular code using clean architecture principles. Never hardcode secrets o
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "code",
   task_description: "implement REST API endpoints",
   options: {
@@ -41,22 +41,22 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run code "implement REST API endpoints"
+npx monomind sparc run code "implement REST API endpoints"
 
 # For alpha features
-npx monobrain@alpha sparc run code "implement REST API endpoints"
+npx monomind@alpha sparc run code "implement REST API endpoints"
 
 # With namespace
-npx monobrain sparc run code "your task" --namespace code
+npx monomind sparc run code "your task" --namespace code
 
 # Non-interactive mode
-npx monobrain sparc run code "your task" --non-interactive
+npx monomind sparc run code "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run code "implement REST API endpoints"
+# If monomind is installed locally
+./monomind sparc run code "implement REST API endpoints"
 ```
 
 ## Memory Integration
@@ -64,7 +64,7 @@ npx monobrain sparc run code "your task" --non-interactive
 ### Using MCP Tools (Preferred)
 ```javascript
 // Store mode-specific context
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "code_context",
   value: "important decisions",
@@ -72,7 +72,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Query previous work
-mcp__monobrain__memory_search {
+mcp__monomind__memory_search {
   pattern: "code",
   namespace: "code",
   limit: 5
@@ -82,8 +82,8 @@ mcp__monobrain__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx monobrain memory store "code_context" "important decisions" --namespace code
+npx monomind memory store "code_context" "important decisions" --namespace code
 
 # Query previous work
-npx monobrain memory query "code" --limit 5
+npx monomind memory query "code" --limit 5
 ```

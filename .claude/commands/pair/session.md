@@ -6,7 +6,7 @@ Complete guide to managing pair programming sessions.
 
 ### 1. Initialization
 ```bash
-monobrain pair --start
+monomind pair --start
 ```
 
 ### 2. Active Session
@@ -17,7 +17,7 @@ monobrain pair --start
 
 ### 3. Completion
 ```bash
-monobrain pair --end
+monomind pair --end
 ```
 
 ## Session Commands
@@ -93,7 +93,7 @@ During an active session, use these commands:
 Check current session status:
 
 ```bash
-monobrain pair --status
+monomind pair --status
 ```
 
 Output:
@@ -127,7 +127,7 @@ Next Switch: in 3 minutes
 View past sessions:
 
 ```bash
-monobrain pair --history
+monomind pair --history
 ```
 
 Output:
@@ -194,17 +194,17 @@ Rollbacks: 1
 
 ### Save Session
 ```bash
-monobrain pair --save [--name <name>]
+monomind pair --save [--name <name>]
 ```
 
 ### Load Session
 ```bash
-monobrain pair --load <session-id>
+monomind pair --load <session-id>
 ```
 
 ### Export Session
 ```bash
-monobrain pair --export <session-id> [--format json|md]
+monomind pair --export <session-id> [--format json|md]
 ```
 
 ## Background Sessions
@@ -213,17 +213,17 @@ Run pair programming in background:
 
 ### Start Background Session
 ```bash
-monobrain pair --start --background
+monomind pair --start --background
 ```
 
 ### Monitor Background Session
 ```bash
-monobrain pair --monitor
+monomind pair --monitor
 ```
 
 ### Attach to Background Session
 ```bash
-monobrain pair --attach <session-id>
+monomind pair --attach <session-id>
 ```
 
 ## Session Configuration
@@ -245,7 +245,7 @@ monobrain pair --attach <session-id>
 
 ### Per-Session Config
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --config custom-config.json
 ```
 
@@ -253,7 +253,7 @@ monobrain pair --start \
 
 ### Refactoring Template
 ```bash
-monobrain pair --template refactor
+monomind pair --template refactor
 ```
 - Focus: Code improvement
 - Verification: High (0.98)
@@ -262,7 +262,7 @@ monobrain pair --template refactor
 
 ### Feature Template
 ```bash
-monobrain pair --template feature
+monomind pair --template feature
 ```
 - Focus: Implementation
 - Verification: Standard (0.95)
@@ -271,7 +271,7 @@ monobrain pair --template feature
 
 ### Debug Template
 ```bash
-monobrain pair --template debug
+monomind pair --template debug
 ```
 - Focus: Problem solving
 - Verification: Moderate (0.90)
@@ -280,7 +280,7 @@ monobrain pair --template debug
 
 ### Learning Template
 ```bash
-monobrain pair --template learn
+monomind pair --template learn
 ```
 - Mode: Mentor
 - Pace: Slow
@@ -292,7 +292,7 @@ monobrain pair --template learn
 Generate session report:
 
 ```bash
-monobrain pair --report <session-id>
+monomind pair --report <session-id>
 ```
 
 Report includes:
@@ -308,17 +308,17 @@ Report includes:
 
 ### List Active Sessions
 ```bash
-monobrain pair --list
+monomind pair --list
 ```
 
 ### Switch Between Sessions
 ```bash
-monobrain pair --switch <session-id>
+monomind pair --switch <session-id>
 ```
 
 ### Merge Sessions
 ```bash
-monobrain pair --merge <session-1> <session-2>
+monomind pair --merge <session-1> <session-2>
 ```
 
 ## Session Recovery
@@ -328,49 +328,49 @@ Sessions auto-save every 5 minutes with recovery points.
 
 ### Manual Recovery
 ```bash
-monobrain pair --recover [--point <timestamp>]
+monomind pair --recover [--point <timestamp>]
 ```
 
 ### Crash Recovery
 ```bash
-monobrain pair --crash-recovery
+monomind pair --crash-recovery
 ```
 
 ## Session Sharing
 
 ### Share with Team
 ```bash
-monobrain pair --share <session-id> \
+monomind pair --share <session-id> \
   --team <team-id>
 ```
 
 ### Export for Review
 ```bash
-monobrain pair --export-review <session-id>
+monomind pair --export-review <session-id>
 ```
 
 ### Create Learning Material
 ```bash
-monobrain pair --create-tutorial <session-id>
+monomind pair --create-tutorial <session-id>
 ```
 
 ## Advanced Features
 
 ### Session Recording
 ```bash
-monobrain pair --start --record
+monomind pair --start --record
 ```
 Records all interactions for playback.
 
 ### Session Replay
 ```bash
-monobrain pair --replay <session-id>
+monomind pair --replay <session-id>
 ```
 Replay recorded session for learning.
 
 ### Session Analytics
 ```bash
-monobrain pair --analytics <session-id>
+monomind pair --analytics <session-id>
 ```
 Deep analysis of session patterns.
 

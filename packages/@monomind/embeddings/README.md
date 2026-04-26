@@ -1,12 +1,12 @@
-# @monobrain/embeddings
+# @monomind/embeddings
 
-[![npm version](https://img.shields.io/npm/v/@monobrain/embeddings.svg)](https://www.npmjs.com/package/@monobrain/embeddings)
-[![npm downloads](https://img.shields.io/npm/dm/@monobrain/embeddings.svg)](https://www.npmjs.com/package/@monobrain/embeddings)
+[![npm version](https://img.shields.io/npm/v/@monomind/embeddings.svg)](https://www.npmjs.com/package/@monomind/embeddings)
+[![npm downloads](https://img.shields.io/npm/dm/@monomind/embeddings.svg)](https://www.npmjs.com/package/@monomind/embeddings)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![Performance](https://img.shields.io/badge/Performance-<5ms-brightgreen.svg)](https://github.com/nokhodian/monobrain)
+[![Performance](https://img.shields.io/badge/Performance-<5ms-brightgreen.svg)](https://github.com/nokhodian/monomind)
 
-> High-performance embedding generation module for Monobrain V1 - multi-provider support with persistent caching, document chunking, normalization, hyperbolic embeddings, and neural substrate integration.
+> High-performance embedding generation module for Monomind V1 - multi-provider support with persistent caching, document chunking, normalization, hyperbolic embeddings, and neural substrate integration.
 
 ## Features
 
@@ -31,7 +31,7 @@
 ## Installation
 
 ```bash
-npm install @monobrain/embeddings
+npm install @monomind/embeddings
 ```
 
 ## Quick Start
@@ -40,7 +40,7 @@ npm install @monobrain/embeddings
 import {
   createEmbeddingService,
   cosineSimilarity,
-} from "@monobrain/embeddings";
+} from "@monomind/embeddings";
 
 // Create embedding service
 const service = createEmbeddingService({
@@ -76,16 +76,16 @@ console.log(`Similarity: ${similarity.toFixed(4)}`);
 
 ```bash
 # Generate embedding from CLI
-monobrain embeddings embed "Your text here"
+monomind embeddings embed "Your text here"
 
 # Batch embed from file
-monobrain embeddings batch documents.txt -o embeddings.json
+monomind embeddings batch documents.txt -o embeddings.json
 
 # Similarity search
-monobrain embeddings search "query" --index ./vectors
+monomind embeddings search "query" --index ./vectors
 
 # Initialize agentic-flow model
-monobrain embeddings init --provider agentic-flow
+monomind embeddings init --provider agentic-flow
 ```
 
 ## API Reference
@@ -97,7 +97,7 @@ import {
   createEmbeddingService,
   createEmbeddingServiceAsync,
   getEmbedding,
-} from "@monobrain/embeddings";
+} from "@monomind/embeddings";
 
 // Sync: Create with known provider
 const service = createEmbeddingService({
@@ -123,7 +123,7 @@ const embedding = await getEmbedding("Hello world", {
 ### OpenAI Provider
 
 ```typescript
-import { OpenAIEmbeddingService } from "@monobrain/embeddings";
+import { OpenAIEmbeddingService } from "@monomind/embeddings";
 
 const service = new OpenAIEmbeddingService({
   provider: "openai",
@@ -143,7 +143,7 @@ console.log("Tokens used:", result.usage?.totalTokens);
 ### Agentic-Flow Provider (Fastest)
 
 ```typescript
-import { AgenticFlowEmbeddingService } from "@monobrain/embeddings";
+import { AgenticFlowEmbeddingService } from "@monomind/embeddings";
 
 const service = new AgenticFlowEmbeddingService({
   provider: "agentic-flow",
@@ -159,7 +159,7 @@ console.log(`ONNX embedding in ${result.latencyMs}ms`);
 ### Transformers.js Provider (Local)
 
 ```typescript
-import { TransformersEmbeddingService } from "@monobrain/embeddings";
+import { TransformersEmbeddingService } from "@monomind/embeddings";
 
 const service = new TransformersEmbeddingService({
   provider: "transformers",
@@ -175,7 +175,7 @@ console.log(`Local embedding generated in ${result.latencyMs}ms`);
 ### Mock Provider (Testing)
 
 ```typescript
-import { MockEmbeddingService } from "@monobrain/embeddings";
+import { MockEmbeddingService } from "@monomind/embeddings";
 
 const service = new MockEmbeddingService({
   provider: "mock",
@@ -216,7 +216,7 @@ import {
   euclideanDistance,
   dotProduct,
   computeSimilarity,
-} from "@monobrain/embeddings";
+} from "@monomind/embeddings";
 
 // Cosine similarity (most common for embeddings)
 const cosine = cosineSimilarity(embedding1, embedding2);
@@ -345,7 +345,7 @@ import type {
   // Similarity types
   SimilarityMetric,
   SimilarityResult,
-} from "@monobrain/embeddings";
+} from "@monomind/embeddings";
 ```
 
 ## Environment Variables
@@ -377,8 +377,8 @@ try {
 ## Integration with Memory Module
 
 ```typescript
-import { createEmbeddingService } from "@monobrain/embeddings";
-import { HNSWIndex } from "@monobrain/memory";
+import { createEmbeddingService } from "@monomind/embeddings";
+import { HNSWIndex } from "@monomind/memory";
 
 // Create embedding service
 const embeddings = createEmbeddingService({
@@ -415,7 +415,7 @@ import {
   chunkText,
   estimateTokens,
   reconstructFromChunks,
-} from "@monobrain/embeddings";
+} from "@monomind/embeddings";
 
 // Chunk by sentence (default)
 const result = chunkText(longDocument, {
@@ -450,7 +450,7 @@ import {
   normalize, // Generic with type option
   l2Norm,
   isNormalized,
-} from "@monobrain/embeddings";
+} from "@monomind/embeddings";
 
 const embedding = new Float32Array([3, 4, 0]);
 
@@ -479,7 +479,7 @@ import {
   isInPoincareBall,
   batchEuclideanToPoincare,
   hyperbolicCentroid,
-} from "@monobrain/embeddings";
+} from "@monomind/embeddings";
 
 // Convert Euclidean embedding to Poincaré ball
 const euclidean = new Float32Array([0.5, 0.3, 0.2]);
@@ -526,7 +526,7 @@ import {
   isNeuralAvailable,
   listEmbeddingModels,
   downloadEmbeddingModel,
-} from "@monobrain/embeddings";
+} from "@monomind/embeddings";
 
 // Check if neural features are available
 const available = await isNeuralAvailable();
@@ -578,7 +578,7 @@ SQLite-backed persistent cache for embeddings:
 import {
   PersistentEmbeddingCache,
   isPersistentCacheAvailable,
-} from "@monobrain/embeddings";
+} from "@monomind/embeddings";
 
 // Check if SQLite is available
 const hasSQLite = await isPersistentCacheAvailable();
@@ -631,33 +631,33 @@ const service = createEmbeddingService({
 
 ```bash
 # Document chunking
-monobrain embeddings chunk document.txt --strategy sentence --max-size 512
+monomind embeddings chunk document.txt --strategy sentence --max-size 512
 
 # Normalize embedding file
-monobrain embeddings normalize embeddings.json --type l2 -o normalized.json
+monomind embeddings normalize embeddings.json --type l2 -o normalized.json
 
 # Convert to hyperbolic
-monobrain embeddings hyperbolic embeddings.json -o poincare.json
+monomind embeddings hyperbolic embeddings.json -o poincare.json
 
 # Neural operations
-monobrain embeddings neural drift --baseline "context" --input "check this"
-monobrain embeddings neural store --id mem-1 --content "data"
-monobrain embeddings neural recall "query" --top-k 5
+monomind embeddings neural drift --baseline "context" --input "check this"
+monomind embeddings neural store --id mem-1 --content "data"
+monomind embeddings neural recall "query" --top-k 5
 
 # List/download models
-monobrain embeddings models list
-monobrain embeddings models download all-MiniLM-L6-v2
+monomind embeddings models list
+monomind embeddings models download all-MiniLM-L6-v2
 
 # Cache management
-monobrain embeddings cache stats
-monobrain embeddings cache clear --older-than 7d
+monomind embeddings cache stats
+monomind embeddings cache clear --older-than 7d
 ```
 
 ## Related Packages
 
-- [@monobrain/memory](../memory) - HNSW indexing and vector storage
-- [@monobrain/providers](../providers) - Multi-LLM provider system
-- [@monobrain/neural](../neural) - SONA learning integration
+- [@monomind/memory](../memory) - HNSW indexing and vector storage
+- [@monomind/providers](../providers) - Multi-LLM provider system
+- [@monomind/neural](../neural) - SONA learning integration
 
 ## License
 

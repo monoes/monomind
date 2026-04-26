@@ -2,7 +2,7 @@
 name: sync-coordinator
 description: |
   Multi-repository synchronization coordinator that manages version alignment, dependency synchronization, and cross-package integration with intelligent swarm orchestration
-tools: mcp__github__push_files, mcp__github__create_or_update_file, mcp__github__get_file_contents, mcp__github__create_pull_request, mcp__github__search_repositories, mcp__github__list_repositories, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, mcp__monobrain__memory_usage, mcp__monobrain__coordination_sync, mcp__monobrain__load_balance, TodoWrite, TodoRead, Bash, Read, Write, Edit, MultiEdit
+tools: mcp__github__push_files, mcp__github__create_or_update_file, mcp__github__get_file_contents, mcp__github__create_pull_request, mcp__github__search_repositories, mcp__github__list_repositories, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_usage, mcp__monomind__coordination_sync, mcp__monomind__load_balance, TodoWrite, TodoRead, Bash, Read, Write, Edit, MultiEdit
 ---
 
 # GitHub Sync Coordinator
@@ -23,7 +23,7 @@ Multi-package synchronization and version alignment with ruv-swarm coordination 
 - `mcp__github__get_file_contents`
 - `mcp__github__create_pull_request`
 - `mcp__github__search_repositories`
-- `mcp__monobrain__*` (all swarm coordination tools)
+- `mcp__monomind__*` (all swarm coordination tools)
 - `TodoWrite`, `TodoRead`, `Task`, `Bash`, `Read`, `Write`, `Edit`, `MultiEdit`
 
 ## Usage Patterns
@@ -31,11 +31,11 @@ Multi-package synchronization and version alignment with ruv-swarm coordination 
 ### 1. Synchronize Package Dependencies
 ```javascript
 // Initialize sync coordination swarm
-mcp__monobrain__swarm_init { topology: "hierarchical", maxAgents: 5 }
-mcp__monobrain__agent_spawn { type: "coordinator", name: "Sync Coordinator" }
-mcp__monobrain__agent_spawn { type: "analyst", name: "Dependency Analyzer" }
-mcp__monobrain__agent_spawn { type: "coder", name: "Integration Developer" }
-mcp__monobrain__agent_spawn { type: "tester", name: "Validation Engineer" }
+mcp__monomind__swarm_init { topology: "hierarchical", maxAgents: 5 }
+mcp__monomind__agent_spawn { type: "coordinator", name: "Sync Coordinator" }
+mcp__monomind__agent_spawn { type: "analyst", name: "Dependency Analyzer" }
+mcp__monomind__agent_spawn { type: "coder", name: "Integration Developer" }
+mcp__monomind__agent_spawn { type: "tester", name: "Validation Engineer" }
 
 // Analyze current package states
 Read("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow/package.json")
@@ -54,7 +54,7 @@ Bash(`gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/packa
   -f sha="$(gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/package.json?ref=sync/package-alignment --jq '.sha')")`)
 
 // Orchestrate validation
-mcp__monobrain__task_orchestrate {
+mcp__monomind__task_orchestrate {
   task: "Validate package synchronization and run integration tests",
   strategy: "parallel",
   priority: "high"
@@ -80,7 +80,7 @@ Bash(`gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/CLAUD
   -f sha="$(gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/CLAUDE.md?ref=sync/documentation --jq '.sha' 2>/dev/null || echo '')")`)
 
 // Store sync state in memory
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "sync/documentation/status",
   value: { timestamp: Date.now(), status: "synchronized", files: ["CLAUDE.md"] }
@@ -154,12 +154,12 @@ This integration uses ruv-swarm agents for:
 ```javascript
 [Single Message - Complete Synchronization]:
   // Initialize comprehensive sync swarm
-  mcp__monobrain__swarm_init { topology: "mesh", maxAgents: 6 }
-  mcp__monobrain__agent_spawn { type: "coordinator", name: "Master Sync Coordinator" }
-  mcp__monobrain__agent_spawn { type: "analyst", name: "Package Analyzer" }
-  mcp__monobrain__agent_spawn { type: "coder", name: "Integration Coder" }
-  mcp__monobrain__agent_spawn { type: "tester", name: "Validation Tester" }
-  mcp__monobrain__agent_spawn { type: "reviewer", name: "Quality Reviewer" }
+  mcp__monomind__swarm_init { topology: "mesh", maxAgents: 6 }
+  mcp__monomind__agent_spawn { type: "coordinator", name: "Master Sync Coordinator" }
+  mcp__monomind__agent_spawn { type: "analyst", name: "Package Analyzer" }
+  mcp__monomind__agent_spawn { type: "coder", name: "Integration Coder" }
+  mcp__monomind__agent_spawn { type: "tester", name: "Validation Tester" }
+  mcp__monomind__agent_spawn { type: "reviewer", name: "Quality Reviewer" }
   
   // Read current state of both packages
   Read("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow/package.json")
@@ -193,7 +193,7 @@ This integration uses ruv-swarm agents for:
   ]}
   
   // Store comprehensive sync state
-  mcp__monobrain__memory_usage {
+  mcp__monomind__memory_usage {
     action: "store",
     key: "sync/complete/status",
     value: {
@@ -298,16 +298,16 @@ const testMatrix = {
 ### Multi-Agent Coordination Architecture
 ```bash
 # Initialize comprehensive synchronization swarm
-mcp__monobrain__swarm_init { topology: "hierarchical", maxAgents: 10 }
-mcp__monobrain__agent_spawn { type: "coordinator", name: "Master Sync Coordinator" }
-mcp__monobrain__agent_spawn { type: "analyst", name: "Dependency Analyzer" }
-mcp__monobrain__agent_spawn { type: "coder", name: "Integration Developer" }
-mcp__monobrain__agent_spawn { type: "tester", name: "Validation Engineer" }
-mcp__monobrain__agent_spawn { type: "reviewer", name: "Quality Assurance" }
-mcp__monobrain__agent_spawn { type: "monitor", name: "Sync Monitor" }
+mcp__monomind__swarm_init { topology: "hierarchical", maxAgents: 10 }
+mcp__monomind__agent_spawn { type: "coordinator", name: "Master Sync Coordinator" }
+mcp__monomind__agent_spawn { type: "analyst", name: "Dependency Analyzer" }
+mcp__monomind__agent_spawn { type: "coder", name: "Integration Developer" }
+mcp__monomind__agent_spawn { type: "tester", name: "Validation Engineer" }
+mcp__monomind__agent_spawn { type: "reviewer", name: "Quality Assurance" }
+mcp__monomind__agent_spawn { type: "monitor", name: "Sync Monitor" }
 
 # Orchestrate complex synchronization workflow
-mcp__monobrain__task_orchestrate {
+mcp__monomind__task_orchestrate {
   task: "Execute comprehensive multi-repository synchronization with validation",
   strategy: "adaptive",
   priority: "critical",
@@ -315,7 +315,7 @@ mcp__monobrain__task_orchestrate {
 }
 
 # Load balance synchronization tasks across agents
-mcp__monobrain__load_balance {
+mcp__monomind__load_balance {
   swarmId: "sync-coordination-swarm",
   tasks: [
     "package_json_sync",
@@ -331,15 +331,15 @@ mcp__monobrain__load_balance {
 // Advanced conflict detection and resolution
 const syncConflictResolver = async (conflicts) => {
   // Initialize conflict resolution swarm
-  await mcp__monobrain__swarm_init({ topology: "mesh", maxAgents: 6 });
+  await mcp__monomind__swarm_init({ topology: "mesh", maxAgents: 6 });
   
   // Spawn specialized conflict resolution agents
-  await mcp__monobrain__agent_spawn({ type: "analyst", name: "Conflict Analyzer" });
-  await mcp__monobrain__agent_spawn({ type: "coder", name: "Resolution Developer" });
-  await mcp__monobrain__agent_spawn({ type: "reviewer", name: "Solution Validator" });
+  await mcp__monomind__agent_spawn({ type: "analyst", name: "Conflict Analyzer" });
+  await mcp__monomind__agent_spawn({ type: "coder", name: "Resolution Developer" });
+  await mcp__monomind__agent_spawn({ type: "reviewer", name: "Solution Validator" });
   
   // Store conflict context in swarm memory
-  await mcp__monobrain__memory_usage({
+  await mcp__monomind__memory_usage({
     action: "store",
     key: "sync/conflicts/current",
     value: {
@@ -350,7 +350,7 @@ const syncConflictResolver = async (conflicts) => {
   });
   
   // Coordinate conflict resolution workflow
-  return await mcp__monobrain__task_orchestrate({
+  return await mcp__monomind__task_orchestrate({
     task: "Resolve synchronization conflicts with multi-agent validation",
     strategy: "sequential",
     priority: "high"
@@ -361,7 +361,7 @@ const syncConflictResolver = async (conflicts) => {
 ### Comprehensive Synchronization Metrics
 ```bash
 # Store detailed synchronization metrics
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "sync/metrics/session",
   value: {
@@ -386,16 +386,16 @@ mcp__monobrain__memory_usage {
 ### Swarm-Coordinated Error Recovery
 ```bash
 # Initialize error recovery swarm
-mcp__monobrain__swarm_init { topology: "star", maxAgents: 5 }
-mcp__monobrain__agent_spawn { type: "monitor", name: "Error Monitor" }
-mcp__monobrain__agent_spawn { type: "analyst", name: "Failure Analyzer" }
-mcp__monobrain__agent_spawn { type: "coder", name: "Recovery Developer" }
+mcp__monomind__swarm_init { topology: "star", maxAgents: 5 }
+mcp__monomind__agent_spawn { type: "monitor", name: "Error Monitor" }
+mcp__monomind__agent_spawn { type: "analyst", name: "Failure Analyzer" }
+mcp__monomind__agent_spawn { type: "coder", name: "Recovery Developer" }
 
 # Coordinate recovery procedures
-mcp__monobrain__coordination_sync { swarmId: "error-recovery-swarm" }
+mcp__monomind__coordination_sync { swarmId: "error-recovery-swarm" }
 
 # Store recovery state
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "sync/recovery/state",
   value: {

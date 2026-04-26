@@ -4,19 +4,19 @@
  * V2 Compatibility - Neural network and ML tools
  *
  * ✅ HYBRID Implementation:
- * - Uses @monobrain/embeddings for REAL ML embeddings when available
+ * - Uses @monomind/embeddings for REAL ML embeddings when available
  * - Falls back to deterministic hash-based embeddings when ML model not installed
  * - Pattern storage and search with cosine similarity (real math in all tiers)
  * - Training stores patterns as searchable embeddings (not simulated)
  *
- * Note: For production neural features, use @monobrain/neural module
+ * Note: For production neural features, use @monomind/neural module
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-// Try to import real embeddings — prefer agentic-flow v1 ReasoningBank, then @monobrain/embeddings
+// Try to import real embeddings — prefer agentic-flow v1 ReasoningBank, then @monomind/embeddings
 let realEmbeddings: { embed: (text: string) => Promise<number[]> } | null = null;
 let embeddingServiceName: string = 'none';
 try {
@@ -27,9 +27,9 @@ try {
     embeddingServiceName = 'agentic-flow/reasoningbank';
   }
 
-  // Tier 2: @monobrain/embeddings
+  // Tier 2: @monomind/embeddings
   if (!realEmbeddings) {
-    const embeddingsModule = await import('@monobrain/embeddings').catch(() => null);
+    const embeddingsModule = await import('@monomind/embeddings').catch(() => null);
     if (embeddingsModule?.createEmbeddingService) {
       try {
         const service = embeddingsModule.createEmbeddingService({ provider: 'agentic-flow' });
@@ -57,7 +57,7 @@ try {
 }
 
 // Storage paths
-const STORAGE_DIR = '.monobrain';
+const STORAGE_DIR = '.monomind';
 const NEURAL_DIR = 'neural';
 const MODELS_FILE = 'models.json';
 const PATTERNS_FILE = 'patterns.json';
@@ -568,7 +568,7 @@ export const neuralTools: MCPTool[] = [
 
       return {
         _realEmbeddings: !!realEmbeddings,
-        embeddingProvider: realEmbeddings ? `@monobrain/embeddings (${embeddingServiceName})` : 'hash-based (deterministic)',
+        embeddingProvider: realEmbeddings ? `@monomind/embeddings (${embeddingServiceName})` : 'hash-based (deterministic)',
         models: {
           total: models.length,
           ready: models.filter(m => m.status === 'ready').length,

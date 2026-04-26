@@ -4,13 +4,13 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RvfBackend } from '../packages/@monobrain/memory/src/rvf-backend.js';
+import { RvfBackend } from '../packages/@monomind/memory/src/rvf-backend.js';
 import type {
   MemoryEntry,
   MemoryQuery,
   SearchOptions,
   IMemoryBackend,
-} from '../packages/@monobrain/memory/src/types.js';
+} from '../packages/@monomind/memory/src/types.js';
 
 // -- Helpers --
 

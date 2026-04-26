@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type {
   VersionedMCPTool,
   ToolVersionEntry,
-} from '../../packages/@monobrain/shared/src/types/tool-version.js';
+} from '../../packages/@monomind/shared/src/types/tool-version.js';
 
 // ---------- Mock fs so no real I/O occurs ----------
 
@@ -24,8 +24,8 @@ vi.mock('fs', () => ({
 }));
 
 import * as fs from 'fs';
-import { ToolRegistry } from '../../packages/@monobrain/cli/src/mcp/tool-registry.js';
-import { DeprecationInjector } from '../../packages/@monobrain/cli/src/mcp/deprecation-injector.js';
+import { ToolRegistry } from '../../packages/@monomind/cli/src/mcp/tool-registry.js';
+import { DeprecationInjector } from '../../packages/@monomind/cli/src/mcp/deprecation-injector.js';
 
 // ---------- Helpers ----------
 

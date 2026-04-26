@@ -8,14 +8,14 @@ Comprehensive testing through distributed execution.
 ### Using MCP Tools
 ```javascript
 // Initialize testing swarm
-mcp__monobrain__swarm_init({
+mcp__monomind__swarm_init({
   "topology": "star",
   "maxAgents": 7,
   "strategy": "parallel"
 })
 
 // Orchestrate testing task
-mcp__monobrain__task_orchestrate({
+mcp__monomind__task_orchestrate({
   "task": "test application",
   "strategy": "parallel",
   "priority": "high"
@@ -23,38 +23,38 @@ mcp__monobrain__task_orchestrate({
 ```
 
 ### Using CLI (Fallback)
-`npx monobrain swarm "test application" --strategy testing`
+`npx monomind swarm "test application" --strategy testing`
 
 ## Agent Roles
 
 ### Agent Spawning with MCP
 ```javascript
 // Spawn testing agents
-mcp__monobrain__agent_spawn({
+mcp__monomind__agent_spawn({
   "type": "tester",
   "name": "Unit Tester",
   "capabilities": ["unit-testing", "mocking", "coverage"]
 })
 
-mcp__monobrain__agent_spawn({
+mcp__monomind__agent_spawn({
   "type": "tester",
   "name": "Integration Tester",
   "capabilities": ["integration", "api-testing", "contract-testing"]
 })
 
-mcp__monobrain__agent_spawn({
+mcp__monomind__agent_spawn({
   "type": "tester",
   "name": "E2E Tester",
   "capabilities": ["e2e", "ui-testing", "user-flows"]
 })
 
-mcp__monobrain__agent_spawn({
+mcp__monomind__agent_spawn({
   "type": "tester",
   "name": "Performance Tester",
   "capabilities": ["load-testing", "stress-testing", "benchmarking"]
 })
 
-mcp__monobrain__agent_spawn({
+mcp__monomind__agent_spawn({
   "type": "monitor",
   "name": "Security Tester",
   "capabilities": ["security-testing", "penetration-testing", "vulnerability-scanning"]
@@ -66,13 +66,13 @@ mcp__monobrain__agent_spawn({
 ### Coverage Analysis
 ```javascript
 // Quality assessment
-mcp__monobrain__quality_assess({
+mcp__monomind__quality_assess({
   "target": "test-coverage",
   "criteria": ["line-coverage", "branch-coverage", "function-coverage"]
 })
 
 // Edge case detection
-mcp__monobrain__pattern_recognize({
+mcp__monomind__pattern_recognize({
   "data": testScenarios,
   "patterns": ["edge-case", "boundary-condition", "error-path"]
 })
@@ -81,7 +81,7 @@ mcp__monobrain__pattern_recognize({
 ### Test Execution
 ```javascript
 // Parallel test execution
-mcp__monobrain__parallel_execute({
+mcp__monomind__parallel_execute({
   "tasks": [
     { "id": "unit-tests", "command": "npm run test:unit" },
     { "id": "integration-tests", "command": "npm run test:integration" },
@@ -90,7 +90,7 @@ mcp__monobrain__parallel_execute({
 })
 
 // Batch processing for test suites
-mcp__monobrain__batch_process({
+mcp__monomind__batch_process({
   "items": testSuites,
   "operation": "execute-test-suite"
 })
@@ -99,12 +99,12 @@ mcp__monobrain__batch_process({
 ### Performance Testing
 ```javascript
 // Run performance benchmarks
-mcp__monobrain__benchmark_run({
+mcp__monomind__benchmark_run({
   "suite": "performance-tests"
 })
 
 // Security scanning
-mcp__monobrain__security_scan({
+mcp__monomind__security_scan({
   "target": "application",
   "depth": "comprehensive"
 })
@@ -113,19 +113,19 @@ mcp__monobrain__security_scan({
 ### Monitoring and Reporting
 ```javascript
 // Monitor test execution
-mcp__monobrain__swarm_monitor({
+mcp__monomind__swarm_monitor({
   "swarmId": "testing-swarm",
   "interval": 2000
 })
 
 // Generate test report
-mcp__monobrain__performance_report({
+mcp__monomind__performance_report({
   "format": "detailed",
   "timeframe": "current-run"
 })
 
 // Get test results
-mcp__monobrain__task_results({
+mcp__monomind__task_results({
   "taskId": "test-execution-001"
 })
 ```

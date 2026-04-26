@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-import { EpisodicStore } from '../../packages/@monobrain/memory/src/episodic-store.js';
+import { EpisodicStore } from '../../packages/@monomind/memory/src/episodic-store.js';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';

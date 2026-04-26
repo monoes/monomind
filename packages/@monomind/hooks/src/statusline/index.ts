@@ -5,7 +5,7 @@
  * Provides real-time progress, metrics, and status information.
  *
  * Format matches the working .claude/statusline.sh output:
- * ▊ Monobrain ● nokhodian  │  ⎇ v1  │  Opus 4.5
+ * ▊ Monomind ● nokhodian  │  ⎇ v1  │  Opus 4.5
  * ─────────────────────────────────────────────────────
  * 🏗️  DDD Domains    [●●●●●]  5/5    ⚡ 1.0x → 2.49x-7.47x
  * 🤖 Swarm  ◉ [58/15]  👥 0    🟢 CVE 3/3    💾 22282MB    📂  47%    🧠  10%
@@ -145,7 +145,7 @@ export class StatuslineGenerator {
     const lines: string[] = [];
 
     // Header Line: V1 Project + User + Branch + Model
-    let header = `${c.bold}${c.brightPurple}▊ Monobrain ${c.reset}`;
+    let header = `${c.bold}${c.brightPurple}▊ Monomind ${c.reset}`;
     header += `${data.swarm.coordinationActive ? c.brightCyan : c.dim}● ${c.brightCyan}${data.user.name}${c.reset}`;
     if (data.user.gitBranch) {
       header += `  ${c.dim}│${c.reset}  ${c.brightBlue}⎇ ${data.user.gitBranch}${c.reset}`;
@@ -254,7 +254,7 @@ export class StatuslineGenerator {
    * This avoids the multi-line collision bug where Claude Code's internal status
    * (written at absolute terminal coordinates ~cols 15-25) bleeds into conversation
    *
-   * @see https://github.com/nokhodian/monobrain/issues/985
+   * @see https://github.com/nokhodian/monomind/issues/985
    */
   generateSingleLine(): string {
     if (!this.config.enabled) {
@@ -268,8 +268,8 @@ export class StatuslineGenerator {
     const securityStatus = data.security.status === 'CLEAN' ? '✓' :
                            data.security.cvesFixed > 0 ? '~' : '✗';
 
-    // Single line format: Monobrain | D:3/5 | S:●2/15 | CVE:✓3/3 | 🧠12%
-    return `${c.brightPurple}Monobrain${c.reset} ${c.dim}|${c.reset} ` +
+    // Single line format: Monomind | D:3/5 | S:●2/15 | CVE:✓3/3 | 🧠12%
+    return `${c.brightPurple}Monomind${c.reset} ${c.dim}|${c.reset} ` +
       `${c.cyan}D:${data.devProgress.domainsCompleted}/${data.devProgress.totalDomains}${c.reset} ${c.dim}|${c.reset} ` +
       `${c.yellow}S:${swarmIndicator}${data.swarm.activeAgents}/${data.swarm.maxAgents}${c.reset} ${c.dim}|${c.reset} ` +
       `${data.security.status === 'CLEAN' ? c.green : c.red}CVE:${securityStatus}${data.security.cvesFixed}/${data.security.totalCves}${c.reset} ${c.dim}|${c.reset} ` +
@@ -281,7 +281,7 @@ export class StatuslineGenerator {
    * The collision zone is columns 15-25 on the SECOND-TO-LAST line
    * We restructure output so that line has minimal/no content in that zone
    *
-   * @see https://github.com/nokhodian/monobrain/issues/985
+   * @see https://github.com/nokhodian/monomind/issues/985
    */
   generateSafeStatusline(): string {
     if (!this.config.enabled) {
@@ -293,7 +293,7 @@ export class StatuslineGenerator {
     const lines: string[] = [];
 
     // Line 1: Header (NOT collision zone)
-    let header = `${c.bold}${c.brightPurple}▊ Monobrain ${c.reset}`;
+    let header = `${c.bold}${c.brightPurple}▊ Monomind ${c.reset}`;
     header += `${data.swarm.coordinationActive ? c.brightCyan : c.dim}● ${c.brightCyan}${data.user.name}${c.reset}`;
     if (data.user.gitBranch) {
       header += `  ${c.dim}│${c.reset}  ${c.brightBlue}⎇ ${data.user.gitBranch}${c.reset}`;
@@ -392,7 +392,7 @@ export class StatuslineGenerator {
     }
 
     // Try to read from metrics file
-    const metricsPath = join(this.projectRoot, '.monobrain', 'metrics', 'v1-progress.json');
+    const metricsPath = join(this.projectRoot, '.monomind', 'metrics', 'v1-progress.json');
     try {
       if (existsSync(metricsPath)) {
         const data = JSON.parse(readFileSync(metricsPath, 'utf-8'));
@@ -429,7 +429,7 @@ export class StatuslineGenerator {
     }
 
     // Try to read from audit file
-    const auditPath = join(this.projectRoot, '.monobrain', 'security', 'audit-status.json');
+    const auditPath = join(this.projectRoot, '.monomind', 'security', 'audit-status.json');
     try {
       if (existsSync(auditPath)) {
         const data = JSON.parse(readFileSync(auditPath, 'utf-8'));
@@ -476,7 +476,7 @@ export class StatuslineGenerator {
     }
 
     // Also check swarm activity file
-    const activityPath = join(this.projectRoot, '.monobrain', 'metrics', 'swarm-activity.json');
+    const activityPath = join(this.projectRoot, '.monomind', 'metrics', 'swarm-activity.json');
     try {
       if (existsSync(activityPath)) {
         const data = JSON.parse(readFileSync(activityPath, 'utf-8'));
@@ -574,7 +574,7 @@ export class StatuslineGenerator {
 
     // Intelligence score from patterns
     let intelligencePct = 10;
-    const patternsPath = join(this.projectRoot, '.monobrain', 'learning', 'patterns.db');
+    const patternsPath = join(this.projectRoot, '.monomind', 'learning', 'patterns.db');
     try {
       if (existsSync(patternsPath)) {
         // Estimate based on file size

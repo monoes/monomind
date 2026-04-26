@@ -18,7 +18,7 @@ Create a **Multi-Agent Neural Coordination Plugin** that leverages RuVector WASM
 
 ## Plugin Name
 
-`@monobrain/plugin-neural-coordination`
+`@monomind/plugin-neural-coordination`
 
 ## Description
 

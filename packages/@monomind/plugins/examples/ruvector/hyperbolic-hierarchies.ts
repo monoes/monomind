@@ -9,7 +9,7 @@
  *
  * Run with: npx ts-node examples/ruvector/hyperbolic-hierarchies.ts
  *
- * @module @monobrain/plugins/examples/ruvector/hyperbolic-hierarchies
+ * @module @monomind/plugins/examples/ruvector/hyperbolic-hierarchies
  */
 
 import {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Monobrain Cross-Platform Session Manager
+ * Monomind Cross-Platform Session Manager
  * Works on Windows, macOS, and Linux
  */
 
@@ -12,18 +12,18 @@ const platform = os.platform();
 const homeDir = os.homedir();
 
 function getDataDir() {
-  const localDir = path.join(process.cwd(), '.monobrain', 'sessions');
+  const localDir = path.join(process.cwd(), '.monomind', 'sessions');
   if (fs.existsSync(path.dirname(localDir))) {
     return localDir;
   }
 
   switch (platform) {
     case 'win32':
-      return path.join(process.env.APPDATA || homeDir, 'monobrain', 'sessions');
+      return path.join(process.env.APPDATA || homeDir, 'monomind', 'sessions');
     case 'darwin':
-      return path.join(homeDir, 'Library', 'Application Support', 'monobrain', 'sessions');
+      return path.join(homeDir, 'Library', 'Application Support', 'monomind', 'sessions');
     default:
-      return path.join(homeDir, '.monobrain', 'sessions');
+      return path.join(homeDir, '.monomind', 'sessions');
   }
 }
 

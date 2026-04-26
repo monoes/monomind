@@ -161,7 +161,7 @@ function generateSimpleEmbedding(text: string, dimension: number = 384): Float32
 // ── Runtime routing outcome persistence ──────────────────────────────
 // Closes the learning loop: post-task records outcomes → route loads them.
 
-const ROUTING_OUTCOMES_PATH = join(resolve('.'), '.monobrain/routing-outcomes.json');
+const ROUTING_OUTCOMES_PATH = join(resolve('.'), '.monomind/routing-outcomes.json');
 
 const ROUTING_STOPWORDS = new Set([
   'the','a','an','is','are','was','were','be','been','being','have','has','had',
@@ -452,7 +452,7 @@ interface MemoryStore {
   version: string;
 }
 
-const MEMORY_DIR = '.monobrain/memory';
+const MEMORY_DIR = '.monomind/memory';
 const MEMORY_FILE = 'store.json';
 
 function getMemoryPath(): string {
@@ -1472,7 +1472,7 @@ export const hooksExplain: MCPTool = {
     let historicalSuccess: number | null = null;
     let historicalNote = 'No historical data yet';
     try {
-      const outcomesPath = join(resolve('.'), '.monobrain/routing-outcomes.json');
+      const outcomesPath = join(resolve('.'), '.monomind/routing-outcomes.json');
       if (existsSync(outcomesPath)) {
         const data = JSON.parse(readFileSync(outcomesPath, 'utf-8'));
         const outcomes: Array<{ success: boolean }> = data.outcomes || [];
@@ -1874,7 +1874,7 @@ export const hooksSessionEnd: MCPTool = {
     // Check for pending-insights.jsonl
     let insightCount = 0;
     try {
-      const insightsPath = resolve(join('.monobrain', 'data', 'pending-insights.jsonl'));
+      const insightsPath = resolve(join('.monomind', 'data', 'pending-insights.jsonl'));
       if (existsSync(insightsPath)) {
         const content = readFileSync(insightsPath, 'utf-8').trim();
         insightCount = content ? content.split('\n').length : 0;
@@ -2163,9 +2163,9 @@ export const hooksIntelligenceReset: MCPTool = {
 
     // Clear intelligence data files if they exist
     const dataFiles = [
-      join(cwd, '.monobrain', 'data', 'auto-memory-store.json'),
-      join(cwd, '.monobrain', 'data', 'graph-state.json'),
-      join(cwd, '.monobrain', 'data', 'ranked-context.json'),
+      join(cwd, '.monomind', 'data', 'auto-memory-store.json'),
+      join(cwd, '.monomind', 'data', 'graph-state.json'),
+      join(cwd, '.monomind', 'data', 'ranked-context.json'),
     ];
 
     for (const filePath of dataFiles) {
@@ -2181,7 +2181,7 @@ export const hooksIntelligenceReset: MCPTool = {
     }
 
     // Clear neural directory if it exists
-    const neuralDir = join(cwd, '.monobrain', 'neural');
+    const neuralDir = join(cwd, '.monomind', 'neural');
     if (existsSync(neuralDir)) {
       try {
         const files = readdirSync(neuralDir);
@@ -2611,7 +2611,7 @@ export const hooksPatternSearch: MCPTool = {
       results: [],
       searchTimeMs: 0,
       backend: 'unavailable',
-      note: 'Real vector search not available. Initialize memory database with: monobrain memory init',
+      note: 'Real vector search not available. Initialize memory database with: monomind memory init',
     };
   },
 };

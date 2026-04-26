@@ -1,5 +1,5 @@
 /**
- * V1 Monobrain Claims Events Unit Tests
+ * V1 Monomind Claims Events Unit Tests
  *
  * London School TDD - Behavior Verification
  * Tests event emission, event data correctness, and event ordering

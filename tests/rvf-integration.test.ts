@@ -10,10 +10,10 @@ import { join } from 'node:path';
 const {
   createDatabase,
   getAvailableProviders,
-} = await import('../packages/@monobrain/memory/src/database-provider.js');
+} = await import('../packages/@monomind/memory/src/database-provider.js');
 
-type MemoryEntry = import('../packages/@monobrain/memory/src/types.js').MemoryEntry;
-type IMemoryBackend = import('../packages/@monobrain/memory/src/types.js').IMemoryBackend;
+type MemoryEntry = import('../packages/@monomind/memory/src/types.js').MemoryEntry;
+type IMemoryBackend = import('../packages/@monomind/memory/src/types.js').IMemoryBackend;
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -1,6 +1,6 @@
-# Monobrain v1 - Architecture Decision Records
+# Monomind v1 - Architecture Decision Records
 
-**Project:** Monobrain v1 Reimagining
+**Project:** Monomind v1 Reimagining
 **Date Range:** 2026-01-03 onwards
 **Status:** Proposed
 **Decision Authority:** Architecture Team
@@ -37,7 +37,7 @@
 
 ### Context
 
-Monobrain v2.x implements its own agent orchestration, coordination, and execution systems. This duplicates significant functionality available in agentic-flow, our primary dependency. The current architecture treats agentic-flow as an optional add-on rather than the foundation.
+Monomind v2.x implements its own agent orchestration, coordination, and execution systems. This duplicates significant functionality available in agentic-flow, our primary dependency. The current architecture treats agentic-flow as an optional add-on rather than the foundation.
 
 **Current State:**
 - Custom SwarmCoordinator (800+ lines)
@@ -51,7 +51,7 @@ Monobrain v2.x implements its own agent orchestration, coordination, and executi
 ```
 Functionality Overlap:
 ┌─────────────────────────────────────┐
-│  monobrain   │   agentic-flow     │
+│  monomind   │   agentic-flow     │
 ├─────────────────────────────────────┤
 │ SwarmCoordinator │ Swarm System    │ 80% overlap
 │ AgentManager     │ Agent Lifecycle │ 70% overlap
@@ -62,7 +62,7 @@ Functionality Overlap:
 
 ### Decision
 
-**We will adopt agentic-flow as the core foundation for v1, building monobrain as a specialized extension rather than a parallel implementation.**
+**We will adopt agentic-flow as the core foundation for v1, building monomind as a specialized extension rather than a parallel implementation.**
 
 Specifically:
 1. Use agentic-flow's Agent base class for all agents
@@ -110,9 +110,9 @@ Specifically:
 // Create agentic-flow adapter layer
 import { Agent as AgenticFlowAgent } from 'agentic-flow';
 
-export class MonobrainAgent extends AgenticFlowAgent {
-  // Add monobrain specific capabilities
-  async handleMonobrainTask(task: ClaudeTask): Promise<TaskResult> {
+export class MonomindAgent extends AgenticFlowAgent {
+  // Add monomind specific capabilities
+  async handleMonomindTask(task: ClaudeTask): Promise<TaskResult> {
     // Claude-specific logic
   }
 }
@@ -131,7 +131,7 @@ export class MonobrainAgent extends AgenticFlowAgent {
 
 ### Success Metrics
 
-- [ ] <5,000 lines of orchestration code in monobrain (vs 15,000+ currently)
+- [ ] <5,000 lines of orchestration code in monomind (vs 15,000+ currently)
 - [ ] 100% feature parity with v2
 - [ ] <10% performance regression (ideally improvement)
 - [ ] All tests passing
@@ -365,7 +365,7 @@ interface ITopologyStrategy {
 }
 
 // Specialized behaviors as plugins
-class HiveMindPlugin implements MonobrainPlugin {
+class HiveMindPlugin implements MonomindPlugin {
   enhance(engine: CoordinationEngine): void {
     engine.addConsensusProtocol(new ByzantineConsensus());
     engine.addStrategy('queen-led', new QueenLedStrategy());
@@ -466,7 +466,7 @@ v2 bundles all features (Hive Mind, Maestro, Neural, Verification) into core, ma
 ### Plugin Interface
 
 ```typescript
-interface MonobrainPlugin {
+interface MonomindPlugin {
   name: string;
   version: string;
   dependencies?: string[];
@@ -483,7 +483,7 @@ interface MonobrainPlugin {
 }
 
 // Plugin loading
-const core = new MonobrainCore();
+const core = new MonomindCore();
 await core.loadPlugin(new HiveMindPlugin());
 await core.initialize();
 ```
@@ -519,7 +519,7 @@ await core.initialize();
 
 ### Context
 
-v2 CLI commands contain business logic, making it hard to use monobrain programmatically or via other interfaces.
+v2 CLI commands contain business logic, making it hard to use monomind programmatically or via other interfaces.
 
 ### Decision
 
@@ -775,7 +775,7 @@ Need to choose default memory backend for v1.
   memory: {
     backend: 'hybrid',
     sqlite: {
-      path: './monobrain.db'
+      path: './monomind.db'
     },
     agentdb: {
       dimensions: 1536, // OpenAI embeddings

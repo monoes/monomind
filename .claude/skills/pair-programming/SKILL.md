@@ -22,7 +22,7 @@ This skill provides professional pair programming capabilities with AI assistanc
 ## Prerequisites
 
 **Required:**
-- Monobrain CLI installed (`npm install -g monobrain@alpha`)
+- Monomind CLI installed (`npm install -g monomind@alpha`)
 - Git repository (optional but recommended)
 
 **Recommended:**
@@ -35,13 +35,13 @@ This skill provides professional pair programming capabilities with AI assistanc
 ### Basic Session
 ```bash
 # Start simple pair programming
-monobrain pair --start
+monomind pair --start
 ```
 
 ### TDD Session
 ```bash
 # Test-driven development
-monobrain pair --start \
+monomind pair --start \
   --mode tdd \
   --test-first \
   --coverage 90
@@ -56,23 +56,23 @@ monobrain pair --start \
 #### Starting Sessions
 ```bash
 # Basic start
-monobrain pair --start
+monomind pair --start
 
 # Expert refactoring session
-monobrain pair --start \
+monomind pair --start \
   --agent senior-dev \
   --focus refactor \
   --verify \
   --threshold 0.98
 
 # Debugging session
-monobrain pair --start \
+monomind pair --start \
   --agent debugger-expert \
   --focus debug \
   --review
 
 # Learning session
-monobrain pair --start \
+monomind pair --start \
   --mode mentor \
   --pace slow \
   --examples
@@ -81,10 +81,10 @@ monobrain pair --start \
 #### Session Management
 ```bash
 # Check status
-monobrain pair --status
+monomind pair --status
 
 # View history
-monobrain pair --history
+monomind pair --history
 
 # Pause session
 /pause [--reason <reason>]
@@ -93,7 +93,7 @@ monobrain pair --history
 /resume
 
 # End session
-monobrain pair --end [--save] [--report]
+monomind pair --end [--save] [--report]
 ```
 
 ### Available Modes
@@ -102,7 +102,7 @@ monobrain pair --end [--save] [--report]
 You write code while AI provides guidance.
 
 ```bash
-monobrain pair --start --mode driver
+monomind pair --start --mode driver
 ```
 
 **Your Responsibilities:**
@@ -137,7 +137,7 @@ monobrain pair --start --mode driver
 AI writes code while you provide direction.
 
 ```bash
-monobrain pair --start --mode navigator
+monomind pair --start --mode navigator
 ```
 
 **Your Responsibilities:**
@@ -173,13 +173,13 @@ Automatically alternates roles at intervals.
 
 ```bash
 # Default 10-minute intervals
-monobrain pair --start --mode switch
+monomind pair --start --mode switch
 
 # 5-minute intervals (rapid)
-monobrain pair --start --mode switch --interval 5m
+monomind pair --start --mode switch --interval 5m
 
 # 15-minute intervals (deep focus)
-monobrain pair --start --mode switch --interval 15m
+monomind pair --start --mode switch --interval 15m
 ```
 
 **Handoff Process:**
@@ -199,7 +199,7 @@ monobrain pair --start --mode switch --interval 15m
 
 **TDD Mode** - Test-Driven Development:
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode tdd \
   --test-first \
   --coverage 100
@@ -208,7 +208,7 @@ Workflow: Write failing test → Implement → Refactor → Repeat
 
 **Review Mode** - Continuous code review:
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode review \
   --strict \
   --security
@@ -217,7 +217,7 @@ Features: Real-time feedback, security scanning, performance analysis
 
 **Mentor Mode** - Learning-focused:
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode mentor \
   --explain-all \
   --pace slow
@@ -226,7 +226,7 @@ Features: Detailed explanations, step-by-step guidance, pattern teaching
 
 **Debug Mode** - Problem-solving:
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode debug \
   --verbose \
   --trace
@@ -412,7 +412,7 @@ Features: Issue identification, root cause analysis, fix suggestions
 ### Configuration
 
 #### Basic Configuration
-Create `.monobrain/pair-config.json`:
+Create `.monomind/pair-config.json`:
 
 ```json
 {
@@ -559,19 +559,19 @@ Create `.monobrain/pair-config.json`:
 #### CLI Configuration
 ```bash
 # Set configuration
-monobrain pair config set defaultMode switch
-monobrain pair config set verification.threshold 0.98
+monomind pair config set defaultMode switch
+monomind pair config set verification.threshold 0.98
 
 # Get configuration
-monobrain pair config get
-monobrain pair config get defaultMode
+monomind pair config get
+monomind pair config get defaultMode
 
 # Export/Import
-monobrain pair config export > config.json
-monobrain pair config import config.json
+monomind pair config export > config.json
+monomind pair config import config.json
 
 # Reset
-monobrain pair config reset
+monomind pair config reset
 ```
 
 #### Profile Management
@@ -580,17 +580,17 @@ Create reusable profiles:
 
 ```bash
 # Create profile
-monobrain pair profile create refactoring \
+monomind pair profile create refactoring \
   --mode driver \
   --verify true \
   --threshold 0.98 \
   --focus refactor
 
 # Use profile
-monobrain pair --start --profile refactoring
+monomind pair --start --profile refactoring
 
 # List profiles
-monobrain pair profile list
+monomind pair profile list
 ```
 
 Profile configuration:
@@ -629,7 +629,7 @@ Implementing user authentication with JWT tokens:
 
 ```bash
 # Session setup
-monobrain pair --start \
+monomind pair --start \
   --mode switch \
   --agent senior-dev \
   --focus implement \
@@ -676,7 +676,7 @@ Debugging a memory leak in Node.js:
 
 ```bash
 # Session setup
-monobrain pair --start \
+monomind pair --start \
   --mode navigator \
   --agent debugger-expert \
   --focus debug \
@@ -717,7 +717,7 @@ Building shopping cart with test-driven development:
 
 ```bash
 # Session setup
-monobrain pair --start \
+monomind pair --start \
   --mode tdd \
   --agent tdd-specialist \
   --test-first
@@ -759,7 +759,7 @@ Modernizing legacy code:
 
 ```bash
 # Session setup
-monobrain pair --start \
+monomind pair --start \
   --mode driver \
   --focus refactor \
   --verify \
@@ -807,7 +807,7 @@ Optimizing slow React application:
 
 ```bash
 # Session setup
-monobrain pair --start \
+monomind pair --start \
   --mode switch \
   --agent performance-expert \
   --focus optimize \
@@ -852,7 +852,7 @@ Building RESTful API with Express:
 
 ```bash
 # Session setup
-monobrain pair --start \
+monomind pair --start \
   --mode navigator \
   --agent backend-expert \
   --focus implement \
@@ -897,28 +897,28 @@ monobrain pair --start \
 
 ```bash
 # Refactoring template
-monobrain pair --template refactor
+monomind pair --template refactor
 # Focus: Code improvement
 # Verification: High (0.98)
 # Testing: After each change
 # Review: Continuous
 
 # Feature template
-monobrain pair --template feature
+monomind pair --template feature
 # Focus: Implementation
 # Verification: Standard (0.95)
 # Testing: On completion
 # Review: Pre-commit
 
 # Debug template
-monobrain pair --template debug
+monomind pair --template debug
 # Focus: Problem solving
 # Verification: Moderate (0.90)
 # Testing: Regression tests
 # Review: Root cause
 
 # Learning template
-monobrain pair --template learn
+monomind pair --template learn
 # Mode: Mentor
 # Pace: Slow
 # Explanations: Detailed
@@ -930,7 +930,7 @@ monobrain pair --template learn
 #### Session Status
 
 ```bash
-monobrain pair --status
+monomind pair --status
 ```
 
 **Output:**
@@ -962,7 +962,7 @@ Next Switch: in 3 minutes
 #### Session History
 
 ```bash
-monobrain pair --history
+monomind pair --history
 ```
 
 **Output:**
@@ -993,32 +993,32 @@ monobrain pair --history
 
 ```bash
 # Save session
-monobrain pair --save [--name <name>]
+monomind pair --save [--name <name>]
 
 # Load session
-monobrain pair --load <session-id>
+monomind pair --load <session-id>
 
 # Export session
-monobrain pair --export <session-id> [--format json|md]
+monomind pair --export <session-id> [--format json|md]
 
 # Generate report
-monobrain pair --report <session-id>
+monomind pair --report <session-id>
 ```
 
 #### Background Sessions
 
 ```bash
 # Start in background
-monobrain pair --start --background
+monomind pair --start --background
 
 # Monitor background session
-monobrain pair --monitor
+monomind pair --monitor
 
 # Attach to background session
-monobrain pair --attach <session-id>
+monomind pair --attach <session-id>
 
 # End background session
-monobrain pair --end <session-id>
+monomind pair --end <session-id>
 ```
 
 ### Advanced Features
@@ -1054,30 +1054,30 @@ Use custom commands:
 
 ```bash
 # Start with recording
-monobrain pair --start --record
+monomind pair --start --record
 
 # Replay session
-monobrain pair --replay <session-id>
+monomind pair --replay <session-id>
 
 # Session analytics
-monobrain pair --analytics <session-id>
+monomind pair --analytics <session-id>
 ```
 
 #### Integration Options
 
 **With Git:**
 ```bash
-monobrain pair --start --git --auto-commit
+monomind pair --start --git --auto-commit
 ```
 
 **With CI/CD:**
 ```bash
-monobrain pair --start --ci --non-interactive
+monomind pair --start --ci --non-interactive
 ```
 
 **With IDE:**
 ```bash
-monobrain pair --start --ide vscode
+monomind pair --start --ide vscode
 ```
 
 ### Best Practices
@@ -1131,7 +1131,7 @@ monobrain pair --start --ide vscode
 - Validate JSON syntax
 - Check file permissions
 - Review priority order (CLI > env > project > user > global)
-- Run `monobrain pair config validate`
+- Run `monomind pair config validate`
 
 ### Quality Metrics
 
@@ -1195,8 +1195,8 @@ Default shortcuts:
 
 ### Related Commands
 
-- `monobrain pair --help` - Show help
-- `monobrain pair config` - Manage configuration
-- `monobrain pair profile` - Manage profiles
-- `monobrain pair templates` - List templates
-- `monobrain pair agents` - List available agents
+- `monomind pair --help` - Show help
+- `monomind pair config` - Manage configuration
+- `monomind pair profile` - Manage profiles
+- `monomind pair templates` - List templates
+- `monomind pair agents` - List available agents

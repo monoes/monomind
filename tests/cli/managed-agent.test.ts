@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { ManagedAgent, spawnAndAwait, runBatch } from '../../packages/@monobrain/cli/src/agents/managed-agent.js';
+import { ManagedAgent, spawnAndAwait, runBatch } from '../../packages/@monomind/cli/src/agents/managed-agent.js';
 
 describe('ManagedAgent', () => {
   const successRunner = async (_slug: string, _id: string, task: string) => `Done: ${task}`;

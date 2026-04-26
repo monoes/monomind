@@ -4,7 +4,7 @@ Complete configuration guide for pair programming sessions.
 
 ## Configuration File
 
-Main configuration file: `.monobrain/pair-config.json`
+Main configuration file: `.monomind/pair-config.json`
 
 ## Basic Configuration
 
@@ -356,41 +356,41 @@ export CLAUDE_PAIR_AUTO_TEST=true
 ### Set Configuration
 ```bash
 # Set single value
-monobrain pair config set defaultMode switch
+monomind pair config set defaultMode switch
 
 # Set nested value
-monobrain pair config set verification.threshold 0.98
+monomind pair config set verification.threshold 0.98
 
 # Set from file
-monobrain pair config import config.json
+monomind pair config import config.json
 ```
 
 ### Get Configuration
 ```bash
 # Get all configuration
-monobrain pair config get
+monomind pair config get
 
 # Get specific value
-monobrain pair config get defaultMode
+monomind pair config get defaultMode
 
 # Export configuration
-monobrain pair config export > config.json
+monomind pair config export > config.json
 ```
 
 ### Reset Configuration
 ```bash
 # Reset to defaults
-monobrain pair config reset
+monomind pair config reset
 
 # Reset specific section
-monobrain pair config reset verification
+monomind pair config reset verification
 ```
 
 ## Profile Management
 
 ### Create Profile
 ```bash
-monobrain pair profile create refactoring \
+monomind pair profile create refactoring \
   --mode driver \
   --verify true \
   --threshold 0.98 \
@@ -399,12 +399,12 @@ monobrain pair profile create refactoring \
 
 ### Use Profile
 ```bash
-monobrain pair --start --profile refactoring
+monomind pair --start --profile refactoring
 ```
 
 ### List Profiles
 ```bash
-monobrain pair profile list
+monomind pair profile list
 ```
 
 ### Profiles Configuration
@@ -438,13 +438,13 @@ monobrain pair profile list
 ## Workspace Configuration
 
 ### Project-Specific
-`.monobrain/pair-config.json` in project root
+`.monomind/pair-config.json` in project root
 
 ### User-Specific
-`~/.monobrain/pair-config.json`
+`~/.monomind/pair-config.json`
 
 ### Global
-`/etc/monobrain/pair-config.json`
+`/etc/monomind/pair-config.json`
 
 ### Priority Order
 1. Command-line arguments
@@ -458,26 +458,26 @@ monobrain pair profile list
 
 ```bash
 # Validate configuration
-monobrain pair config validate
+monomind pair config validate
 
 # Test configuration
-monobrain pair config test
+monomind pair config test
 ```
 
 ## Migration
 
 ### From Version 1.x
 ```bash
-monobrain pair config migrate --from 1.x
+monomind pair config migrate --from 1.x
 ```
 
 ### Export/Import
 ```bash
 # Export current config
-monobrain pair config export > my-config.json
+monomind pair config export > my-config.json
 
 # Import config
-monobrain pair config import my-config.json
+monomind pair config import my-config.json
 ```
 
 ## Best Practices

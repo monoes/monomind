@@ -133,10 +133,10 @@ export class WorkerDaemon extends EventEmitter {
     this.projectRoot = projectRoot;
     this.originalConfig = config;
 
-    const monobrainDir = join(projectRoot, '.monobrain');
+    const monomindDir = join(projectRoot, '.monomind');
 
-    // Read daemon config from .monobrain/config.json (Layer B)
-    const fileConfig = this.readDaemonConfigFromFile(monobrainDir);
+    // Read daemon config from .monomind/config.json (Layer B)
+    const fileConfig = this.readDaemonConfigFromFile(monomindDir);
 
     // CPU-proportional smart default instead of hardcoded 2.0
     const cpuCount = WorkerDaemon.getEffectiveCpuCount();
@@ -152,8 +152,8 @@ export class WorkerDaemon extends EventEmitter {
     // (e.g. only --max-cpu-load) still pick up defaults for other fields.
     this.config = {
       autoStart: config?.autoStart ?? fileConfig.autoStart ?? false,
-      logDir: config?.logDir ?? join(monobrainDir, 'logs'),
-      stateFile: config?.stateFile ?? join(monobrainDir, 'daemon-state.json'),
+      logDir: config?.logDir ?? join(monomindDir, 'logs'),
+      stateFile: config?.stateFile ?? join(monomindDir, 'daemon-state.json'),
       maxConcurrent: config?.maxConcurrent ?? fileConfig.maxConcurrent ?? 2,
       workerTimeoutMs: config?.workerTimeoutMs ?? fileConfig.workerTimeoutMs ?? DEFAULT_WORKER_TIMEOUT_MS,
       resourceThresholds: {
@@ -167,8 +167,8 @@ export class WorkerDaemon extends EventEmitter {
     this.setupShutdownHandlers();
 
     // Ensure directories exist
-    if (!existsSync(monobrainDir)) {
-      mkdirSync(monobrainDir, { recursive: true });
+    if (!existsSync(monomindDir)) {
+      mkdirSync(monomindDir, { recursive: true });
     }
     if (!existsSync(this.config.logDir)) {
       mkdirSync(this.config.logDir, { recursive: true });
@@ -268,21 +268,21 @@ export class WorkerDaemon extends EventEmitter {
   }
 
   /**
-   * Read daemon-specific config from .monobrain/config.json
+   * Read daemon-specific config from .monomind/config.json
    * Supports dot-notation keys like 'daemon.resourceThresholds.maxCpuLoad'
    */
-  private readDaemonConfigFromFile(monobrainDir: string): {
+  private readDaemonConfigFromFile(monomindDir: string): {
     autoStart?: boolean;
     maxConcurrent?: number;
     workerTimeoutMs?: number;
     maxCpuLoad?: number;
     minFreeMemoryPercent?: number;
   } {
-    const configPath = join(monobrainDir, 'config.json');
+    const configPath = join(monomindDir, 'config.json');
     if (!existsSync(configPath)) {
       // Warn if config.yaml exists but config.json does not (#1395 Bug 4)
-      const yamlPath = join(monobrainDir, 'config.yaml');
-      const ymlPath = join(monobrainDir, 'config.yml');
+      const yamlPath = join(monomindDir, 'config.yaml');
+      const ymlPath = join(monomindDir, 'config.yml');
       if (existsSync(yamlPath) || existsSync(ymlPath)) {
         this.log('warn', `Found ${existsSync(yamlPath) ? 'config.yaml' : 'config.yml'} but daemon reads only config.json — YAML config is being ignored. Convert to JSON or create config.json.`);
       }
@@ -446,7 +446,7 @@ export class WorkerDaemon extends EventEmitter {
    * Get the PID file path for singleton enforcement (#1395 Bug 3).
    */
   private get pidFile(): string {
-    return join(this.projectRoot, '.monobrain', 'daemon.pid');
+    return join(this.projectRoot, '.monomind', 'daemon.pid');
   }
 
   /**
@@ -472,7 +472,7 @@ export class WorkerDaemon extends EventEmitter {
    * Write PID file for singleton enforcement.
    */
   private writePidFile(): void {
-    const dir = join(this.projectRoot, '.monobrain');
+    const dir = join(this.projectRoot, '.monomind');
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     writeFileSync(this.pidFile, String(process.pid), 'utf-8');
   }
@@ -802,8 +802,8 @@ export class WorkerDaemon extends EventEmitter {
 
   private async runMapWorker(): Promise<unknown> {
     // Scan project structure and update metrics
-    const metricsFile = join(this.projectRoot, '.monobrain', 'metrics', 'codebase-map.json');
-    const metricsDir = join(this.projectRoot, '.monobrain', 'metrics');
+    const metricsFile = join(this.projectRoot, '.monomind', 'metrics', 'codebase-map.json');
+    const metricsDir = join(this.projectRoot, '.monomind', 'metrics');
 
     if (!existsSync(metricsDir)) {
       mkdirSync(metricsDir, { recursive: true });
@@ -816,7 +816,7 @@ export class WorkerDaemon extends EventEmitter {
         hasPackageJson: existsSync(join(this.projectRoot, 'package.json')),
         hasTsConfig: existsSync(join(this.projectRoot, 'tsconfig.json')),
         hasClaudeConfig: existsSync(join(this.projectRoot, '.claude')),
-        hasMonobrain: existsSync(join(this.projectRoot, '.monobrain')),
+        hasMonomind: existsSync(join(this.projectRoot, '.monomind')),
       },
       scannedAt: Date.now(),
     };
@@ -830,8 +830,8 @@ export class WorkerDaemon extends EventEmitter {
    */
   private async runAuditWorkerLocal(): Promise<unknown> {
     // Basic security checks
-    const auditFile = join(this.projectRoot, '.monobrain', 'metrics', 'security-audit.json');
-    const metricsDir = join(this.projectRoot, '.monobrain', 'metrics');
+    const auditFile = join(this.projectRoot, '.monomind', 'metrics', 'security-audit.json');
+    const metricsDir = join(this.projectRoot, '.monomind', 'metrics');
 
     if (!existsSync(metricsDir)) {
       mkdirSync(metricsDir, { recursive: true });
@@ -859,8 +859,8 @@ export class WorkerDaemon extends EventEmitter {
    */
   private async runOptimizeWorkerLocal(): Promise<unknown> {
     // Update performance metrics
-    const optimizeFile = join(this.projectRoot, '.monobrain', 'metrics', 'performance.json');
-    const metricsDir = join(this.projectRoot, '.monobrain', 'metrics');
+    const optimizeFile = join(this.projectRoot, '.monomind', 'metrics', 'performance.json');
+    const metricsDir = join(this.projectRoot, '.monomind', 'metrics');
 
     if (!existsSync(metricsDir)) {
       mkdirSync(metricsDir, { recursive: true });
@@ -886,8 +886,8 @@ export class WorkerDaemon extends EventEmitter {
     // RAPTOR-style memory consolidation: cluster episodic entries by namespace,
     // generate a summary entry as 'contextual' type referencing source cluster.
     // Source: https://arxiv.org/abs/2401.18059 (RAPTOR — ICLR 2024)
-    const consolidateFile = join(this.projectRoot, '.monobrain', 'metrics', 'consolidation.json');
-    const metricsDir = join(this.projectRoot, '.monobrain', 'metrics');
+    const consolidateFile = join(this.projectRoot, '.monomind', 'metrics', 'consolidation.json');
+    const metricsDir = join(this.projectRoot, '.monomind', 'metrics');
 
     if (!existsSync(metricsDir)) {
       mkdirSync(metricsDir, { recursive: true });
@@ -951,8 +951,8 @@ export class WorkerDaemon extends EventEmitter {
    */
   private async runTestGapsWorkerLocal(): Promise<unknown> {
     // Check for test coverage gaps
-    const testGapsFile = join(this.projectRoot, '.monobrain', 'metrics', 'test-gaps.json');
-    const metricsDir = join(this.projectRoot, '.monobrain', 'metrics');
+    const testGapsFile = join(this.projectRoot, '.monomind', 'metrics', 'test-gaps.json');
+    const metricsDir = join(this.projectRoot, '.monomind', 'metrics');
 
     if (!existsSync(metricsDir)) {
       mkdirSync(metricsDir, { recursive: true });
@@ -1040,8 +1040,8 @@ export class WorkerDaemon extends EventEmitter {
    * Local benchmark worker
    */
   private async runBenchmarkWorkerLocal(): Promise<unknown> {
-    const benchmarkFile = join(this.projectRoot, '.monobrain', 'metrics', 'benchmark.json');
-    const metricsDir = join(this.projectRoot, '.monobrain', 'metrics');
+    const benchmarkFile = join(this.projectRoot, '.monomind', 'metrics', 'benchmark.json');
+    const metricsDir = join(this.projectRoot, '.monomind', 'metrics');
 
     if (!existsSync(metricsDir)) {
       mkdirSync(metricsDir, { recursive: true });

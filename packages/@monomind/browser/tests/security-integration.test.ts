@@ -1,5 +1,5 @@
 /**
- * @monobrain/browser - Security Integration Tests
+ * @monomind/browser - Security Integration Tests
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';

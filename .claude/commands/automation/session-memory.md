@@ -16,21 +16,21 @@ At session end, automatically saves:
 ### 2. Session Restoration
 ```javascript
 // Using MCP tools for memory operations
-mcp__monobrain__memory_usage({
+mcp__monomind__memory_usage({
   "action": "retrieve",
   "key": "session-state",
   "namespace": "sessions"
 })
 
 // Restore swarm state
-mcp__monobrain__context_restore({
+mcp__monomind__context_restore({
   "snapshotId": "sess-123"
 })
 ```
 
 **Fallback with npx:**
 ```bash
-npx monobrain hook session-restore --session-id "sess-123"
+npx monomind hook session-restore --session-id "sess-123"
 ```
 
 ### 3. Memory Types
@@ -56,20 +56,20 @@ npx monobrain hook session-restore --session-id "sess-123"
 ### 4. Privacy & Control
 ```javascript
 // List memory contents
-mcp__monobrain__memory_usage({
+mcp__monomind__memory_usage({
   "action": "list",
   "namespace": "sessions"
 })
 
 // Delete specific memory
-mcp__monobrain__memory_usage({
+mcp__monomind__memory_usage({
   "action": "delete",
   "key": "session-123",
   "namespace": "sessions"
 })
 
 // Backup memory
-mcp__monobrain__memory_backup({
+mcp__monomind__memory_backup({
   "path": "./backups/memory-backup.json"
 })
 ```
@@ -77,10 +77,10 @@ mcp__monobrain__memory_backup({
 **Manual control:**
 ```bash
 # View stored memory
-ls .monobrain/memory/
+ls .monomind/memory/
 
 # Disable memory
-export MONOBRAIN_MEMORY_PERSIST=false
+export MONOMIND_MEMORY_PERSIST=false
 ```
 
 ## Benefits

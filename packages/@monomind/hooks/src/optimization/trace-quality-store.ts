@@ -4,7 +4,7 @@
  * Stores trace quality records as append-only JSONL files.
  * Supports querying by agent, date range, and quality threshold.
  *
- * @module @monobrain/hooks/optimization/trace-quality-store
+ * @module @monomind/hooks/optimization/trace-quality-store
  */
 
 import * as fs from 'node:fs';

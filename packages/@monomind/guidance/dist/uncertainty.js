@@ -21,7 +21,7 @@
  * - Worst-case and best-case confidence queries
  * - Contested and confirmed status checks across belief sets
  *
- * @module @monobrain/guidance/uncertainty
+ * @module @monomind/guidance/uncertainty
  */
 import { randomUUID } from 'node:crypto';
 // ============================================================================

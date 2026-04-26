@@ -598,34 +598,34 @@ const resourceIntegration = {
 ### Resource Management Commands
 ```bash
 # Analyze resource usage
-npx monobrain metrics-collect --components ["cpu", "memory", "network"]
+npx monomind metrics-collect --components ["cpu", "memory", "network"]
 
 # Optimize resource allocation
-npx monobrain daa-resource-alloc --resources <resource-config>
+npx monomind daa-resource-alloc --resources <resource-config>
 
 # Predictive scaling
-npx monobrain swarm-scale --swarm-id <id> --target-size <size>
+npx monomind swarm-scale --swarm-id <id> --target-size <size>
 
 # Performance profiling
-npx monobrain performance-report --format detailed --timeframe 24h
+npx monomind performance-report --format detailed --timeframe 24h
 
 # Circuit breaker configuration
-npx monobrain fault-tolerance --strategy circuit-breaker --config <config>
+npx monomind fault-tolerance --strategy circuit-breaker --config <config>
 ```
 
 ### Optimization Commands
 ```bash
 # Run performance optimization
-npx monobrain optimize-performance --swarm-id <id> --strategy adaptive
+npx monomind optimize-performance --swarm-id <id> --strategy adaptive
 
 # Generate resource forecasts
-npx monobrain forecast-resources --time-horizon 3600 --confidence 0.95
+npx monomind forecast-resources --time-horizon 3600 --confidence 0.95
 
 # Profile system performance
-npx monobrain profile-performance --duration 60000 --components all
+npx monomind profile-performance --duration 60000 --components all
 
 # Analyze bottlenecks
-npx monobrain bottleneck-analyze --component swarm-coordination
+npx monomind bottleneck-analyze --component swarm-coordination
 ```
 
 ## Integration Points

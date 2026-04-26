@@ -69,7 +69,7 @@ function mergeResults(results) {
  * into a single ExtractionResult (nodes deduplicated by id, edges by source+target+relation).
  *
  * @param files      - Classified files to process (from the classify layer)
- * @param outputDir  - Directory used for cache storage (.monobrain/graph by default)
+ * @param outputDir  - Directory used for cache storage (.monomind/graph by default)
  * @param options    - Build options (languages filter, maxFileSizeBytes, etc.)
  */
 export async function extractAll(files, outputDir, options) {

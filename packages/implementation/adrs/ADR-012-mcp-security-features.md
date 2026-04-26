@@ -8,7 +8,7 @@
 
 ## Context
 
-The `@monobrain/mcp` package implements the Model Context Protocol (MCP) 2025-11-25 specification. A security audit identified several vulnerabilities and missing features that needed to be addressed to ensure production readiness.
+The `@monomind/mcp` package implements the Model Context Protocol (MCP) 2025-11-25 specification. A security audit identified several vulnerabilities and missing features that needed to be addressed to ensure production readiness.
 
 ### Security Vulnerabilities Identified and Fixed
 
@@ -270,7 +270,7 @@ Coverage:
 
 ### Schema Validation
 ```typescript
-import { validateSchema, formatValidationErrors } from '@monobrain/mcp';
+import { validateSchema, formatValidationErrors } from '@monomind/mcp';
 
 const schema = {
   type: 'object',
@@ -285,7 +285,7 @@ const result = validateSchema({ name: '' }, schema);
 
 ### Rate Limiting
 ```typescript
-import { createRateLimiter, rateLimitMiddleware } from '@monobrain/mcp';
+import { createRateLimiter, rateLimitMiddleware } from '@monomind/mcp';
 
 const limiter = createRateLimiter(logger, {
   requestsPerSecond: 100,
@@ -298,7 +298,7 @@ app.use(rateLimitMiddleware(limiter));
 
 ### Sampling
 ```typescript
-import { createSamplingManager, createAnthropicProvider } from '@monobrain/mcp';
+import { createSamplingManager, createAnthropicProvider } from '@monomind/mcp';
 
 const sampling = createSamplingManager(logger);
 sampling.registerProvider(createAnthropicProvider(process.env.ANTHROPIC_API_KEY), true);
@@ -311,7 +311,7 @@ const response = await sampling.createMessage({
 
 ### OAuth 2.1
 ```typescript
-import { createOAuthManager, createGitHubOAuthConfig } from '@monobrain/mcp';
+import { createOAuthManager, createGitHubOAuthConfig } from '@monomind/mcp';
 
 const oauth = createOAuthManager(logger, createGitHubOAuthConfig(
   'client-id',

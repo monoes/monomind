@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { TraceCollector } from '../../packages/@monobrain/hooks/src/observability/trace-collector.js';
+import { TraceCollector } from '../../packages/@monomind/hooks/src/observability/trace-collector.js';
 
 // Mock registerHook to capture registrations without executing real logic
 const mockRegister = vi.fn((..._args: unknown[]) => `hook-${mockRegister.mock.calls.length}`);
 
-vi.mock('../../packages/@monobrain/hooks/src/registry/index.js', () => ({
+vi.mock('../../packages/@monomind/hooks/src/registry/index.js', () => ({
   registerHook: (...args: unknown[]) => mockRegister(...args),
 }));
 

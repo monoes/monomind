@@ -1,6 +1,6 @@
 # Monitoring Commands
 
-Commands for monitoring operations in Monobrain.
+Commands for monitoring operations in Monomind.
 
 ## Available Commands
 

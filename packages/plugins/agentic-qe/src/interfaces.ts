@@ -2,7 +2,7 @@
  * Agentic-QE Plugin Interfaces
  *
  * Public interfaces for the Quality Engineering plugin's anti-corruption layer.
- * These interfaces define contracts between agentic-qe and Monobrain domains.
+ * These interfaces define contracts between agentic-qe and Monomind domains.
  *
  * Based on ADR-030: Agentic-QE Plugin Integration
  *

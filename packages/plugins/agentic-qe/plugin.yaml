@@ -1,5 +1,5 @@
 # agentic-qe Plugin Manifest
-# Quality Engineering plugin for Monobrain V1
+# Quality Engineering plugin for Monomind V1
 
 name: agentic-qe
 version: 3.5.59
@@ -11,8 +11,8 @@ description: |
 
 author: rUv
 license: MIT
-homepage: https://github.com/nokhodian/monobrain/tree/main/v1/plugins/agentic-qe
-repository: https://github.com/nokhodian/monobrain
+homepage: https://github.com/nokhodian/monomind/tree/main/v1/plugins/agentic-qe
+repository: https://github.com/nokhodian/monomind
 
 # Plugin metadata
 metadata:
@@ -27,17 +27,17 @@ metadata:
     - chaos-engineering
     - accessibility
   stability: stable
-  minMonobrainVersion: "3.5.0"
+  minMonomindVersion: "3.5.0"
 
 # Dependencies
 dependencies:
   required:
-    - "@monobrain/plugins": ">=3.0.0"
-    - "@monobrain/memory": ">=3.0.0"
-    - "@monobrain/security": ">=3.0.0"
-    - "@monobrain/embeddings": ">=3.0.0"
+    - "@monomind/plugins": ">=3.0.0"
+    - "@monomind/memory": ">=3.0.0"
+    - "@monomind/security": ">=3.0.0"
+    - "@monomind/embeddings": ">=3.0.0"
   optional:
-    - "@monobrain/browser": ">=3.0.0"  # For E2E/visual testing
+    - "@monomind/browser": ">=3.0.0"  # For E2E/visual testing
     - "@ruvector/attention": ">=1.0.0"   # Enhanced pattern matching
     - "@ruvector/gnn": ">=1.0.0"         # Code graph analysis
     - "@ruvector/sona": ">=1.0.0"        # Self-optimizing learning
@@ -988,7 +988,7 @@ implementation:
       files: 8
       estimatedLines: 1210
       deliverables:
-        - Plugin registers with @monobrain/plugins SDK
+        - Plugin registers with @monomind/plugins SDK
         - Type-safe configuration validation
         - Basic lifecycle hooks (onLoad, onUnload)
 

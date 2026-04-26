@@ -2,7 +2,7 @@
 
 **Source:** https://arxiv.org/html/2601.03938v1  
 **Category:** Memory Retention Research  
-**Role in Monobrain:** Exponential importance-weighted memory decay replacing linear decay
+**Role in Monomind:** Exponential importance-weighted memory decay replacing linear decay
 
 ---
 
@@ -26,7 +26,7 @@ This produces slow decay for important memories and fast decay for trivial ones,
 ## What We Extracted
 
 ### Importance-Weighted Exponential Decay in `LearningBridge.decayConfidences()`
-Monobrain's intelligence system maintains confidence scores for every learned pattern. Without a decay mechanism, patterns from six months ago would have equal weight to patterns from yesterday, even though the codebase has changed dramatically.
+Monomind's intelligence system maintains confidence scores for every learned pattern. Without a decay mechanism, patterns from six months ago would have equal weight to patterns from yesterday, even though the codebase has changed dramatically.
 
 The FOREVER forgetting curve is implemented in `LearningBridge.decayConfidences()`:
 - Each memory entry has an `importanceScore` field set at storage time
@@ -39,7 +39,7 @@ The FOREVER forgetting curve is implemented in `LearningBridge.decayConfidences(
 - Explicit annotation by agents (`@important` tag)
 - Memory tier (entity/contextual tier entries start with higher importance than episodic)
 
-## How It Improved Monobrain
+## How It Improved Monomind
 
 Linear decay (subtract a fixed amount per day) was the original approach. It failed in two ways: important patterns decayed to zero even though they remained relevant, and trivial patterns persisted long after they ceased to be useful. The FOREVER curve fixed both problems by making the decay rate a function of importance, not just time.
 
@@ -47,7 +47,7 @@ The practical result: architectural patterns learned from early project decision
 
 ## Key Files Influenced
 
-- `packages/@monobrain/memory/src/learning-bridge.ts` — `decayConfidences()` implementation
-- `packages/@monobrain/memory/src/agent-db.ts` — `MemoryEntry.importanceScore` field
+- `packages/@monomind/memory/src/learning-bridge.ts` — `decayConfidences()` implementation
+- `packages/@monomind/memory/src/agent-db.ts` — `MemoryEntry.importanceScore` field
 - `hook-handler.cjs` `session-end` — triggers decay on session close
 - Intelligence trajectory system — importance scoring based on outcome quality

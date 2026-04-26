@@ -1,13 +1,13 @@
 ---
 name: "v1 CLI Modernization"
-description: "CLI modernization and hooks system enhancement for monobrain v1. Implements interactive prompts, command decomposition, enhanced hooks integration, and intelligent workflow automation."
+description: "CLI modernization and hooks system enhancement for monomind v1. Implements interactive prompts, command decomposition, enhanced hooks integration, and intelligent workflow automation."
 ---
 
 # CLI Modernization
 
 ## What This Skill Does
 
-Modernizes monobrain v1 CLI with interactive prompts, intelligent command decomposition, enhanced hooks integration, performance optimization, and comprehensive workflow automation capabilities.
+Modernizes monomind v1 CLI with interactive prompts, intelligent command decomposition, enhanced hooks integration, performance optimization, and comprehensive workflow automation capabilities.
 
 ## Quick Start
 
@@ -935,7 +935,7 @@ Task("CLI modernization implementation",
 
 ```bash
 # Enhanced interactive commands
-monobrain swarm init --interactive
-monobrain learning start --guided
-monobrain workflow create --from-intent "setup new project"
+monomind swarm init --interactive
+monomind learning start --guided
+monomind workflow create --from-intent "setup new project"
 ```

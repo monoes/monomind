@@ -10,7 +10,7 @@ import { join, resolve } from 'path';
 import type { MCPTool } from './types.js';
 
 // Configuration paths
-const CONFIG_DIR = '.monobrain';
+const CONFIG_DIR = '.monomind';
 const EMBEDDINGS_CONFIG = 'embeddings.json';
 const MODELS_DIR = 'models';
 

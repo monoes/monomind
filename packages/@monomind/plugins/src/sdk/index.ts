@@ -1,5 +1,5 @@
 /**
- * Plugin SDK - Unified API for Monobrain Plugin Development
+ * Plugin SDK - Unified API for Monomind Plugin Development
  *
  * Provides a comprehensive SDK for building plugins with full access to:
  * - Plugin lifecycle management

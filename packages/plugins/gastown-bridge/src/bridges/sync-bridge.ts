@@ -93,7 +93,7 @@ const SyncStatusSchema = z.enum([
 ]);
 
 /**
- * AgentDB entry schema (compatible with monobrain memory)
+ * AgentDB entry schema (compatible with monomind memory)
  */
 const AgentDBEntrySchema = z.object({
   key: z.string(),
@@ -210,7 +210,7 @@ export interface SyncState {
 }
 
 /**
- * AgentDB interface (to be provided by monobrain)
+ * AgentDB interface (to be provided by monomind)
  */
 export interface IAgentDBService {
   store(key: string, value: unknown, namespace?: string, metadata?: Record<string, unknown>): Promise<void>;

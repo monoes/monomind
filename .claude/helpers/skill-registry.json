@@ -347,10 +347,10 @@
     {
       "skill": "v1-core-implementation",
       "invoke": "Skill(\"v1-core-implementation\")",
-      "description": "Monobrain v1 package implementation — DDD, clean architecture, TypeScript modules",
+      "description": "Monomind v1 package implementation — DDD, clean architecture, TypeScript modules",
       "keywords": [
         "v1",
-        "monobrain package",
+        "monomind package",
         "core module",
         "domain",
         "bounded context",

@@ -10,7 +10,7 @@
  * - Neural substrate integration
  * - Persistent SQLite cache
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -19,7 +19,7 @@ import { output } from '../output.js';
 // Dynamic imports for embeddings package
 async function getEmbeddings() {
   try {
-    return await import('@monobrain/embeddings');
+    return await import('@monomind/embeddings');
   } catch {
     return null;
   }
@@ -36,8 +36,8 @@ const generateCommand: Command = {
     { name: 'output', short: 'o', type: 'string', description: 'Output format: json, array, preview', default: 'preview' },
   ],
   examples: [
-    { command: 'monobrain embeddings generate -t "Hello world"', description: 'Generate embedding' },
-    { command: 'monobrain embeddings generate -t "Test" -o json', description: 'Output as JSON' },
+    { command: 'monomind embeddings generate -t "Hello world"', description: 'Generate embedding' },
+    { command: 'monomind embeddings generate -t "Test" -o json', description: 'Output as JSON' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const text = ctx.flags.text as string;
@@ -119,8 +119,8 @@ const searchCommand: Command = {
     { name: 'db-path', type: 'string', description: 'Database path', default: '.swarm/memory.db' },
   ],
   examples: [
-    { command: 'monobrain embeddings search -q "error handling"', description: 'Search for similar' },
-    { command: 'monobrain embeddings search -q "test" -l 5', description: 'Limit results' },
+    { command: 'monomind embeddings search -q "error handling"', description: 'Search for similar' },
+    { command: 'monomind embeddings search -q "test" -l 5', description: 'Limit results' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const query = ctx.flags.query as string;
@@ -150,7 +150,7 @@ const searchCommand: Command = {
       if (!fs.existsSync(fullDbPath)) {
         spinner.fail('Database not found');
         output.printWarning(`No database at ${fullDbPath}`);
-        output.printInfo('Run: monobrain memory init');
+        output.printInfo('Run: monomind memory init');
         return { success: false, exitCode: 1 };
       }
 
@@ -248,7 +248,7 @@ const searchCommand: Command = {
       if (topResults.length === 0) {
         output.writeln();
         output.printWarning('No matches found');
-        output.printInfo(`Try: monobrain memory store -k "key" --value "your data"`);
+        output.printInfo(`Try: monomind memory store -k "key" --value "your data"`);
         return { success: true, data: [] };
       }
 
@@ -312,7 +312,7 @@ const compareCommand: Command = {
     { name: 'metric', short: 'm', type: 'string', description: 'Metric: cosine, euclidean, dot', default: 'cosine' },
   ],
   examples: [
-    { command: 'monobrain embeddings compare --text1 "Hello" --text2 "Hi there"', description: 'Compare texts' },
+    { command: 'monomind embeddings compare --text1 "Hello" --text2 "Hi there"', description: 'Compare texts' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const text1 = ctx.flags.text1 as string;
@@ -408,8 +408,8 @@ const collectionsCommand: Command = {
     { name: 'db-path', type: 'string', description: 'Database path', default: '.swarm/memory.db' },
   ],
   examples: [
-    { command: 'monobrain embeddings collections', description: 'List collections' },
-    { command: 'monobrain embeddings collections -a stats', description: 'Show detailed stats' },
+    { command: 'monomind embeddings collections', description: 'List collections' },
+    { command: 'monomind embeddings collections -a stats', description: 'Show detailed stats' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const action = ctx.flags.action as string || 'list';
@@ -427,7 +427,7 @@ const collectionsCommand: Command = {
       // Check if database exists
       if (!fs.existsSync(fullDbPath)) {
         output.printWarning('No database found');
-        output.printInfo('Run: monobrain memory init');
+        output.printInfo('Run: monomind memory init');
         output.writeln();
         output.writeln(output.dim('No collections yet - initialize memory first'));
         return { success: true, data: [] };
@@ -480,7 +480,7 @@ const collectionsCommand: Command = {
         output.printWarning('No collections found');
         output.writeln();
         output.writeln(output.dim('Store some data first:'));
-        output.writeln(output.highlight('  monobrain memory store -k "key" --value "data"'));
+        output.writeln(output.highlight('  monomind memory store -k "key" --value "data"'));
         return { success: true, data: [] };
       }
 
@@ -527,9 +527,9 @@ const indexCommand: Command = {
     { name: 'm', type: 'number', description: 'HNSW M parameter', default: '16' },
   ],
   examples: [
-    { command: 'monobrain embeddings index', description: 'Show index status' },
-    { command: 'monobrain embeddings index -a build -c documents', description: 'Build index' },
-    { command: 'monobrain embeddings index -a optimize -c patterns', description: 'Optimize index' },
+    { command: 'monomind embeddings index', description: 'Show index status' },
+    { command: 'monomind embeddings index -a build -c documents', description: 'Build index' },
+    { command: 'monomind embeddings index -a optimize -c patterns', description: 'Optimize index' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const action = ctx.flags.action as string || 'status';
@@ -594,7 +594,7 @@ const indexCommand: Command = {
         } else {
           output.writeln();
           output.printInfo('Index is empty. Store some entries to populate it.');
-          output.printInfo('Run: monobrain memory store -k "key" --value "text"');
+          output.printInfo('Run: monomind memory store -k "key" --value "text"');
         }
 
         return { success: true, data: status };
@@ -664,11 +664,11 @@ const initCommand: Command = {
     { name: 'force', short: 'f', type: 'boolean', description: 'Overwrite existing configuration', default: 'false' },
   ],
   examples: [
-    { command: 'monobrain embeddings init', description: 'Initialize with defaults' },
-    { command: 'monobrain embeddings init --model Xenova/all-mpnet-base-v2', description: 'Use higher quality model' },
-    { command: 'monobrain embeddings init --no-hyperbolic', description: 'Euclidean only' },
-    { command: 'monobrain embeddings init --curvature=-0.5', description: 'Custom curvature (use = for negative)' },
-    { command: 'monobrain embeddings init --force', description: 'Overwrite existing config' },
+    { command: 'monomind embeddings init', description: 'Initialize with defaults' },
+    { command: 'monomind embeddings init --model Xenova/all-mpnet-base-v2', description: 'Use higher quality model' },
+    { command: 'monomind embeddings init --no-hyperbolic', description: 'Euclidean only' },
+    { command: 'monomind embeddings init --curvature=-0.5', description: 'Custom curvature (use = for negative)' },
+    { command: 'monomind embeddings init --force', description: 'Overwrite existing config' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const model = ctx.flags.model as string || 'Xenova/all-MiniLM-L6-v2';
@@ -693,7 +693,7 @@ const initCommand: Command = {
       const path = await import('path');
 
       // Create directories
-      const configDir = path.join(process.cwd(), '.monobrain');
+      const configDir = path.join(process.cwd(), '.monomind');
       const modelDir = path.join(configDir, 'models');
       const configPath = path.join(configDir, 'embeddings.json');
 
@@ -728,7 +728,7 @@ const initCommand: Command = {
         } else {
           // Embeddings package not available — skip download
           await new Promise(r => setTimeout(r, 500));
-          output.writeln(output.dim('  (Skipped — @monobrain/embeddings not installed)'));
+          output.writeln(output.dim('  (Skipped — @monomind/embeddings not installed)'));
         }
       }
 
@@ -809,7 +809,7 @@ const providersCommand: Command = {
   description: 'List available embedding providers',
   options: [],
   examples: [
-    { command: 'monobrain embeddings providers', description: 'List providers' },
+    { command: 'monomind embeddings providers', description: 'List providers' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
@@ -852,8 +852,8 @@ const chunkCommand: Command = {
     { name: 'file', short: 'f', type: 'string', description: 'File to chunk (instead of text)' },
   ],
   examples: [
-    { command: 'monobrain embeddings chunk -t "Long text..." -s 256', description: 'Chunk with 256 char limit' },
-    { command: 'monobrain embeddings chunk -f doc.txt --strategy paragraph', description: 'Chunk file by paragraph' },
+    { command: 'monomind embeddings chunk -t "Long text..." -s 256', description: 'Chunk with 256 char limit' },
+    { command: 'monomind embeddings chunk -f doc.txt --strategy paragraph', description: 'Chunk file by paragraph' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const embeddings = await getEmbeddings();
@@ -867,7 +867,7 @@ const chunkCommand: Command = {
     output.writeln(output.dim('─'.repeat(50)));
 
     if (!embeddings) {
-      output.printWarning('@monobrain/embeddings not installed, showing preview');
+      output.printWarning('@monomind/embeddings not installed, showing preview');
       output.writeln();
       output.printBox([
         `Strategy: ${strategy}`,
@@ -914,8 +914,8 @@ const normalizeCommand: Command = {
     { name: 'check', short: 'c', type: 'boolean', description: 'Check if already normalized' },
   ],
   examples: [
-    { command: 'monobrain embeddings normalize -i "[0.5, 0.3, 0.8]" -t l2', description: 'L2 normalize' },
-    { command: 'monobrain embeddings normalize --check -i "[...]"', description: 'Check if normalized' },
+    { command: 'monomind embeddings normalize -i "[0.5, 0.3, 0.8]" -t l2', description: 'L2 normalize' },
+    { command: 'monomind embeddings normalize --check -i "[...]"', description: 'Check if normalized' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const type = ctx.flags.type as string || 'l2';
@@ -957,8 +957,8 @@ const hyperbolicCommand: Command = {
     { name: 'input', short: 'i', type: 'string', description: 'Input embedding(s) JSON' },
   ],
   examples: [
-    { command: 'monobrain embeddings hyperbolic -a convert -i "[0.5, 0.3]"', description: 'Convert to Poincaré' },
-    { command: 'monobrain embeddings hyperbolic -a distance', description: 'Compute hyperbolic distance' },
+    { command: 'monomind embeddings hyperbolic -a convert -i "[0.5, 0.3]"', description: 'Convert to Poincaré' },
+    { command: 'monomind embeddings hyperbolic -a distance', description: 'Compute hyperbolic distance' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const action = ctx.flags.action as string || 'convert';
@@ -972,11 +972,11 @@ const hyperbolicCommand: Command = {
 
     // Try to import hyperbolic functions from embeddings package
     try {
-      const hyperbolic = await import('@monobrain/embeddings').then(m => m).catch(() => null);
+      const hyperbolic = await import('@monomind/embeddings').then(m => m).catch(() => null);
 
       if (!hyperbolic || !hyperbolic.euclideanToPoincare) {
-        output.printWarning('@monobrain/embeddings hyperbolic module not available');
-        output.printInfo('Install with: npm install @monobrain/embeddings');
+        output.printWarning('@monomind/embeddings hyperbolic module not available');
+        output.printInfo('Install with: npm install @monomind/embeddings');
         return { success: false, exitCode: 1 };
       }
 
@@ -1073,11 +1073,11 @@ const neuralCommand: Command = {
     { name: 'consolidation-interval', type: 'string', description: 'Memory consolidation interval (ms)', default: '60000' },
   ],
   examples: [
-    { command: 'monobrain embeddings neural --init', description: 'Initialize RuVector substrate' },
-    { command: 'monobrain embeddings neural -f drift', description: 'Semantic drift detection' },
-    { command: 'monobrain embeddings neural -f memory', description: 'Memory physics (hippocampal)' },
-    { command: 'monobrain embeddings neural -f coherence', description: 'Safety & alignment monitoring' },
-    { command: 'monobrain embeddings neural --drift-threshold=0.2', description: 'Custom drift threshold' },
+    { command: 'monomind embeddings neural --init', description: 'Initialize RuVector substrate' },
+    { command: 'monomind embeddings neural -f drift', description: 'Semantic drift detection' },
+    { command: 'monomind embeddings neural -f memory', description: 'Memory physics (hippocampal)' },
+    { command: 'monomind embeddings neural -f coherence', description: 'Safety & alignment monitoring' },
+    { command: 'monomind embeddings neural --drift-threshold=0.2', description: 'Custom drift threshold' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const feature = ctx.flags.feature as string || 'all';
@@ -1094,7 +1094,7 @@ const neuralCommand: Command = {
     // Check if embeddings config exists
     const fs = await import('fs');
     const path = await import('path');
-    const configPath = path.join(process.cwd(), '.monobrain', 'embeddings.json');
+    const configPath = path.join(process.cwd(), '.monomind', 'embeddings.json');
 
     if (!fs.existsSync(configPath)) {
       output.printWarning('Embeddings not initialized');
@@ -1214,7 +1214,7 @@ const neuralCommand: Command = {
     if (!neuralConfig.enabled) {
       output.printInfo('Run with --init to enable neural substrate');
     } else {
-      output.writeln(output.dim('Configuration: .monobrain/embeddings.json'));
+      output.writeln(output.dim('Configuration: .monomind/embeddings.json'));
       output.writeln(output.dim('Next: Use "hooks pretrain" to train patterns'));
     }
 
@@ -1231,8 +1231,8 @@ const modelsCommand: Command = {
     { name: 'list', short: 'l', type: 'boolean', description: 'List available models', default: 'true' },
   ],
   examples: [
-    { command: 'monobrain embeddings models', description: 'List models' },
-    { command: 'monobrain embeddings models -d all-MiniLM-L6-v2', description: 'Download model' },
+    { command: 'monomind embeddings models', description: 'List models' },
+    { command: 'monomind embeddings models -d all-MiniLM-L6-v2', description: 'Download model' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const download = ctx.flags.download as string;
@@ -1258,7 +1258,7 @@ const modelsCommand: Command = {
         }
       } else {
         await new Promise(r => setTimeout(r, 500));
-        spinner.succeed(`Download skipped — @monobrain/embeddings not installed`);
+        spinner.succeed(`Download skipped — @monomind/embeddings not installed`);
       }
       return { success: true };
     }
@@ -1306,8 +1306,8 @@ const cacheCommand: Command = {
     { name: 'db-path', type: 'string', description: 'SQLite database path', default: '.cache/embeddings.db' },
   ],
   examples: [
-    { command: 'monobrain embeddings cache', description: 'Show cache stats' },
-    { command: 'monobrain embeddings cache -a clear', description: 'Clear cache' },
+    { command: 'monomind embeddings cache', description: 'Show cache stats' },
+    { command: 'monomind embeddings cache -a clear', description: 'Clear cache' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const action = ctx.flags.action as string || 'stats';
@@ -1438,8 +1438,8 @@ const warmupCommand: Command = {
     { name: 'test', short: 't', type: 'boolean', description: 'Run test embedding after warmup', default: 'true' },
   ],
   examples: [
-    { command: 'monobrain embeddings warmup', description: 'Preload model with test' },
-    { command: 'monobrain embeddings warmup -b', description: 'Background warmup' },
+    { command: 'monomind embeddings warmup', description: 'Preload model with test' },
+    { command: 'monomind embeddings warmup -b', description: 'Background warmup' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const runTest = ctx.flags.test !== false;
@@ -1526,8 +1526,8 @@ const benchmarkCommand: Command = {
     { name: 'full', short: 'f', type: 'boolean', description: 'Run full benchmark suite', default: 'false' },
   ],
   examples: [
-    { command: 'monobrain embeddings benchmark', description: 'Quick benchmark' },
-    { command: 'monobrain embeddings benchmark -n 50 -f', description: 'Full benchmark' },
+    { command: 'monomind embeddings benchmark', description: 'Quick benchmark' },
+    { command: 'monomind embeddings benchmark -n 50 -f', description: 'Full benchmark' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const iterations = parseInt(ctx.flags.iterations as string || '10', 10);
@@ -1694,17 +1694,17 @@ export const embeddingsCommand: Command = {
     benchmarkCommand,
   ],
   examples: [
-    { command: 'monobrain embeddings init', description: 'Initialize ONNX embedding system' },
-    { command: 'monobrain embeddings init --model all-mpnet-base-v2', description: 'Init with larger model' },
-    { command: 'monobrain embeddings generate -t "Hello"', description: 'Generate embedding' },
-    { command: 'monobrain embeddings search -q "error handling"', description: 'Semantic search' },
-    { command: 'monobrain embeddings chunk -t "Long doc..."', description: 'Chunk document' },
-    { command: 'monobrain embeddings hyperbolic -a convert', description: 'Hyperbolic space' },
-    { command: 'monobrain embed neural -f drift', description: 'Neural substrate' },
+    { command: 'monomind embeddings init', description: 'Initialize ONNX embedding system' },
+    { command: 'monomind embeddings init --model all-mpnet-base-v2', description: 'Init with larger model' },
+    { command: 'monomind embeddings generate -t "Hello"', description: 'Generate embedding' },
+    { command: 'monomind embeddings search -q "error handling"', description: 'Semantic search' },
+    { command: 'monomind embeddings chunk -t "Long doc..."', description: 'Chunk document' },
+    { command: 'monomind embeddings hyperbolic -a convert', description: 'Hyperbolic space' },
+    { command: 'monomind embed neural -f drift', description: 'Neural substrate' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
-    output.writeln(output.bold('MonoBrain Embeddings'));
+    output.writeln(output.bold('MonoMind Embeddings'));
     output.writeln(output.dim('Vector embeddings and semantic search'));
     output.writeln();
     output.writeln('Core Commands:');
@@ -1736,7 +1736,7 @@ export const embeddingsCommand: Command = {
       'Hyperbolic: Better hierarchical representation',
     ]);
     output.writeln();
-    output.writeln(output.dim('github.com/nokhodian/monobrain'));
+    output.writeln(output.dim('github.com/nokhodian/monomind'));
     return { success: true };
   },
 };

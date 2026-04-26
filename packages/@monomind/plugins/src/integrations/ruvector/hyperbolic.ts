@@ -10,7 +10,7 @@
  * - Klein Model: Straight geodesics, good for convex optimization
  * - Half-Space Model: Upper half-plane, good for theoretical analysis
  *
- * @module @monobrain/plugins/integrations/ruvector/hyperbolic
+ * @module @monomind/plugins/integrations/ruvector/hyperbolic
  * @version 1.0.0
  */
 

@@ -1,7 +1,7 @@
 /**
  * Browser MCP Tools
  *
- * CLI integration for @monobrain/browser package.
+ * CLI integration for @monomind/browser package.
  * Provides browser automation tools for web navigation, interaction, and data extraction.
  */
 

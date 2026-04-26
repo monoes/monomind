@@ -32,7 +32,6 @@ const SKILLS_MAP = {
         'specialagent',
     ],
     browser: ['browser', 'agent-browser-testing'], // agent-browser integration
-    dualMode: ['dual-mode'], // Claude Code + Codex hybrid execution
     agentdb: [
         'agentdb-advanced',
         'agentdb-learning',
@@ -65,7 +64,7 @@ const SKILLS_MAP = {
  * Commands to copy based on configuration
  */
 const COMMANDS_MAP = {
-    core: ['monobrain-help.md', 'monobrain-swarm.md', 'monobrain-memory.md'],
+    core: ['monomind-help.md', 'monomind-swarm.md', 'monomind-memory.md'],
     analysis: ['analysis'],
     automation: ['automation'],
     github: ['github'],
@@ -85,7 +84,6 @@ const AGENTS_MAP = {
     sparc: ['sparc'],
     swarm: ['swarm'],
     browser: ['browser'], // agent-browser integration
-    dualMode: ['dual-mode'], // Claude Code + Codex hybrid execution
     // V1-specific agents
     v1: ['v1'],
     optimization: ['optimization'],
@@ -116,13 +114,13 @@ const DIRECTORIES = {
         '.claude/helpers',
     ],
     runtime: [
-        '.monobrain',
-        '.monobrain/data',
-        '.monobrain/logs',
-        '.monobrain/sessions',
-        '.monobrain/hooks',
-        '.monobrain/agents',
-        '.monobrain/workflows',
+        '.monomind',
+        '.monomind/data',
+        '.monomind/logs',
+        '.monomind/sessions',
+        '.monomind/hooks',
+        '.monomind/agents',
+        '.monomind/workflows',
     ],
 };
 /**
@@ -134,16 +132,16 @@ const DIRECTORIES = {
  */
 function cleanupLegacyTools(targetDir) {
     const cleaned = [];
-    // Helper to fix MCP server args: replace @monobrain/cli@latest with monobrain@latest
+    // Helper to fix MCP server args: replace @monomind/cli@latest with monomind@latest
     function fixMcpArgs(servers) {
         let changed = false;
         for (const name of Object.keys(servers)) {
             const srv = servers[name];
             if (Array.isArray(srv.args)) {
                 srv.args = srv.args.map((a) => {
-                    if (typeof a === 'string' && a.includes('@monobrain/cli@')) {
+                    if (typeof a === 'string' && a.includes('@monomind/cli@')) {
                         changed = true;
-                        return a.replace(/@monobrain\/cli@[^\s]*/g, 'monobrain@latest');
+                        return a.replace(/@monomind\/cli@[^\s]*/g, 'monomind@latest');
                     }
                     return a;
                 });
@@ -164,7 +162,7 @@ function cleanupLegacyTools(targetDir) {
             }
             if (mcp.mcpServers && fixMcpArgs(mcp.mcpServers)) {
                 mcpChanged = true;
-                cleaned.push('.mcp.json: updated MCP package name to monobrain@latest');
+                cleaned.push('.mcp.json: updated MCP package name to monomind@latest');
             }
             if (mcpChanged) {
                 fs.writeFileSync(mcpJsonPath, JSON.stringify(mcp, null, 2));
@@ -200,7 +198,7 @@ function cleanupLegacyTools(targetDir) {
             // Fix wrong MCP package name in mcpServers
             if (settings.mcpServers && fixMcpArgs(settings.mcpServers)) {
                 settingsChanged = true;
-                cleaned.push('.claude/settings.json: updated MCP package name to monobrain@latest');
+                cleaned.push('.claude/settings.json: updated MCP package name to monomind@latest');
             }
             if (settingsChanged) {
                 fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -292,21 +290,21 @@ export async function executeInit(options) {
     return result;
 }
 /**
- * Spawn a background process to build the @monobrain/graph knowledge graph.
+ * Spawn a background process to build the @monomind/graph knowledge graph.
  * Fire-and-forget: init does not wait for the ~20s graph build to complete.
- * Non-fatal: if @monobrain/graph is unavailable the step is simply skipped.
+ * Non-fatal: if @monomind/graph is unavailable the step is simply skipped.
  */
 async function initKnowledgeGraph(targetDir, result) {
     try {
         // Verify the package is resolvable before spawning — fast path to skip gracefully.
-        await import('@monoes/graph');
-        const outputDir = path.join(targetDir, '.monobrain', 'graph');
+        await import('@monomind/graph');
+        const outputDir = path.join(targetDir, '.monomind', 'graph');
         const { spawn } = await import('child_process');
         // Escape single quotes in path strings for the inline ES module script.
         const safePath = targetDir.replace(/'/g, "\\'");
         const safeOut = outputDir.replace(/'/g, "\\'");
         const script = `
-import('@monoes/graph').then(({ buildGraph }) =>
+import('@monomind/graph').then(({ buildGraph }) =>
   buildGraph('${safePath}', { codeOnly: true, outputDir: '${safeOut}' })
 ).then(r => console.log('[graph] built: ' + r.filesProcessed + ' files, ' + r.analysis.stats.nodes + ' nodes'))
  .catch(e => console.error('[graph] build failed:', e.message));
@@ -320,11 +318,11 @@ import('@monoes/graph').then(({ buildGraph }) =>
         child.stdin?.write(script);
         child.stdin?.end();
         child.unref();
-        result.created.files.push('.monobrain/graph/ (knowledge graph building in background)');
+        result.created.files.push('.monomind/graph/ (knowledge graph building in background)');
     }
     catch (_err) {
-        // Non-fatal — @monobrain/graph is an optional enhancement.
-        result.skipped.push('knowledge graph: @monobrain/graph not available');
+        // Non-fatal — @monomind/graph is an optional enhancement.
+        result.skipped.push('knowledge graph: @monomind/graph not available');
     }
 }
 /**
@@ -341,14 +339,14 @@ function mergeSettingsForUpgrade(existing) {
     // Mac/Linux: Use bash-compatible commands with 2>/dev/null
     // NOTE: teammateIdleCmd and taskCompletedCmd were removed.
     // TeammateIdle/TaskCompleted are not valid Claude Code hook events and caused warnings.
-    // Agent Teams hook config lives in monobrain.agentTeams.hooks instead.
+    // Agent Teams hook config lives in monomind.agentTeams.hooks instead.
     // 1. Merge env vars (preserve existing, add new)
     const existingEnv = existing.env || {};
     merged.env = {
         ...existingEnv,
         CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
-        MONOBRAIN_V1_ENABLED: existingEnv.MONOBRAIN_V1_ENABLED || 'true',
-        MONOBRAIN_HOOKS_ENABLED: existingEnv.MONOBRAIN_HOOKS_ENABLED || 'true',
+        MONOMIND_V1_ENABLED: existingEnv.MONOMIND_V1_ENABLED || 'true',
+        MONOMIND_HOOKS_ENABLED: existingEnv.MONOMIND_HOOKS_ENABLED || 'true',
     };
     // 2. Merge hooks (preserve existing, add new Agent Teams + auto-memory hooks)
     const existingHooks = existing.hooks || {};
@@ -403,7 +401,7 @@ function mergeSettingsForUpgrade(existing) {
     // Remove them if they exist from a previous init.
     delete merged.hooks.TeammateIdle;
     delete merged.hooks.TaskCompleted;
-    // Their configuration lives in monobrain.agentTeams.hooks instead.
+    // Their configuration lives in monomind.agentTeams.hooks instead.
     // 3. Fix statusLine config (remove invalid fields, ensure correct format)
     // Claude Code only supports: type, command, padding
     const existingStatusLine = existing.statusLine;
@@ -414,13 +412,13 @@ function mergeSettingsForUpgrade(existing) {
             // Remove invalid fields: refreshMs, enabled (not supported by Claude Code)
         };
     }
-    // 4. Merge monobrain settings (preserve existing, add agentTeams + memory)
-    const existingMonobrain = existing.monobrain || {};
-    const existingMemory = existingMonobrain.memory || {};
-    merged.monobrain = {
-        ...existingMonobrain,
-        version: existingMonobrain.version || '3.0.0',
-        enabled: existingMonobrain.enabled !== false,
+    // 4. Merge monomind settings (preserve existing, add agentTeams + memory)
+    const existingMonomind = existing.monomind || {};
+    const existingMemory = existingMonomind.memory || {};
+    merged.monomind = {
+        ...existingMonomind,
+        version: existingMonomind.version || '3.0.0',
+        enabled: existingMonomind.enabled !== false,
         agentTeams: {
             enabled: true,
             teammateMode: 'auto',
@@ -470,9 +468,9 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
         // Ensure required directories exist
         const dirs = [
             '.claude/helpers',
-            '.monobrain/metrics',
-            '.monobrain/security',
-            '.monobrain/learning',
+            '.monomind/metrics',
+            '.monomind/security',
+            '.monomind/learning',
         ];
         for (const dir of dirs) {
             const fullPath = path.join(targetDir, dir);
@@ -545,8 +543,8 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
         }
         fs.writeFileSync(statuslinePath, statuslineContent, 'utf-8');
         // 2. Create MISSING metrics files only (preserve existing data)
-        const metricsDir = path.join(targetDir, '.monobrain', 'metrics');
-        const securityDir = path.join(targetDir, '.monobrain', 'security');
+        const metricsDir = path.join(targetDir, '.monomind', 'metrics');
+        const securityDir = path.join(targetDir, '.monomind', 'security');
         // v1-progress.json
         const progressPath = path.join(metricsDir, 'v1-progress.json');
         if (!fs.existsSync(progressPath)) {
@@ -557,13 +555,13 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                 ddd: { progress: 0, modules: 0, totalFiles: 0, totalLines: 0 },
                 swarm: { activeAgents: 0, maxAgents: 15, topology: 'hierarchical-mesh' },
                 learning: { status: 'READY', patternsLearned: 0, sessionsCompleted: 0 },
-                _note: 'Metrics will update as you use Monobrain'
+                _note: 'Metrics will update as you use Monomind'
             };
             fs.writeFileSync(progressPath, JSON.stringify(progress, null, 2), 'utf-8');
-            result.created.push('.monobrain/metrics/v1-progress.json');
+            result.created.push('.monomind/metrics/v1-progress.json');
         }
         else {
-            result.preserved.push('.monobrain/metrics/v1-progress.json');
+            result.preserved.push('.monomind/metrics/v1-progress.json');
         }
         // swarm-activity.json
         const activityPath = path.join(metricsDir, 'swarm-activity.json');
@@ -576,10 +574,10 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                 _initialized: true
             };
             fs.writeFileSync(activityPath, JSON.stringify(activity, null, 2), 'utf-8');
-            result.created.push('.monobrain/metrics/swarm-activity.json');
+            result.created.push('.monomind/metrics/swarm-activity.json');
         }
         else {
-            result.preserved.push('.monobrain/metrics/swarm-activity.json');
+            result.preserved.push('.monomind/metrics/swarm-activity.json');
         }
         // learning.json
         const learningPath = path.join(metricsDir, 'learning.json');
@@ -589,13 +587,13 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                 routing: { accuracy: 0, decisions: 0 },
                 patterns: { shortTerm: 0, longTerm: 0, quality: 0 },
                 sessions: { total: 0, current: null },
-                _note: 'Intelligence grows as you use Monobrain'
+                _note: 'Intelligence grows as you use Monomind'
             };
             fs.writeFileSync(learningPath, JSON.stringify(learning, null, 2), 'utf-8');
-            result.created.push('.monobrain/metrics/learning.json');
+            result.created.push('.monomind/metrics/learning.json');
         }
         else {
-            result.preserved.push('.monobrain/metrics/learning.json');
+            result.preserved.push('.monomind/metrics/learning.json');
         }
         // audit-status.json
         const auditPath = path.join(securityDir, 'audit-status.json');
@@ -606,13 +604,13 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                 cvesFixed: 0,
                 totalCves: 3,
                 lastScan: null,
-                _note: 'Run: npx monobrain@latest security scan'
+                _note: 'Run: npx monomind@latest security scan'
             };
             fs.writeFileSync(auditPath, JSON.stringify(audit, null, 2), 'utf-8');
-            result.created.push('.monobrain/security/audit-status.json');
+            result.created.push('.monomind/security/audit-status.json');
         }
         else {
-            result.preserved.push('.monobrain/security/audit-status.json');
+            result.preserved.push('.monomind/security/audit-status.json');
         }
         // 3. Merge settings if requested
         if (upgradeSettings) {
@@ -629,8 +627,8 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                         'hooks.SessionEnd (auto-memory sync)',
                         'hooks.TeammateIdle (removed — not a valid Claude Code hook)',
                         'hooks.TaskCompleted (removed — not a valid Claude Code hook)',
-                        'monobrain.agentTeams',
-                        'monobrain.memory (learningBridge, memoryGraph, agentScopes)',
+                        'monomind.agentTeams',
+                        'monomind.memory (learningBridge, memoryGraph, agentScopes)',
                     ];
                 }
                 catch (settingsError) {
@@ -683,7 +681,7 @@ export async function executeUpgradeWithMissing(targetDir, upgradeSettings = fal
         const sourceAgentsDir = findSourceDir('agents');
         const sourceCommandsDir = findSourceDir('commands');
         // Debug: Log source directories found
-        if (process.env.DEBUG || process.env.MONOBRAIN_DEBUG) {
+        if (process.env.DEBUG || process.env.MONOMIND_DEBUG) {
             console.log('[DEBUG] Source directories:');
             console.log(`  Skills: ${sourceSkillsDir || 'NOT FOUND'}`);
             console.log(`  Agents: ${sourceAgentsDir || 'NOT FOUND'}`);
@@ -692,7 +690,7 @@ export async function executeUpgradeWithMissing(targetDir, upgradeSettings = fal
         // Add missing skills
         if (sourceSkillsDir) {
             const allSkills = Object.values(SKILLS_MAP).flat();
-            const debugMode = process.env.DEBUG || process.env.MONOBRAIN_DEBUG;
+            const debugMode = process.env.DEBUG || process.env.MONOMIND_DEBUG;
             if (debugMode) {
                 console.log(`[DEBUG] Checking ${allSkills.length} skills from SKILLS_MAP`);
             }
@@ -785,7 +783,7 @@ async function writeSettings(targetDir, options, result) {
                 existing.env = { ...(existing.env || {}), ...generated.env };
                 merged = true;
             }
-            // Merge permissions (add monobrain allow rules)
+            // Merge permissions (add monomind allow rules)
             if (generated.permissions?.allow) {
                 const existingAllow = existing.permissions?.allow || [];
                 const newRules = generated.permissions.allow.filter((r) => !existingAllow.includes(r));
@@ -849,8 +847,6 @@ async function copySkills(targetDir, options, result) {
             skillsToCopy.push(...SKILLS_MAP.browser);
         if (skillsConfig.v1)
             skillsToCopy.push(...SKILLS_MAP.v1);
-        if (skillsConfig.dualMode)
-            skillsToCopy.push(...SKILLS_MAP.dualMode);
     }
     // Find source skills directory
     const sourceSkillsDir = findSourceDir('skills', options.sourceBaseDir);
@@ -963,9 +959,6 @@ async function copyAgents(targetDir, options, result) {
             agentsToCopy.push(...(AGENTS_MAP.optimization || []));
         if (agentsConfig.testing)
             agentsToCopy.push(...(AGENTS_MAP.testing || []));
-        // Dual-mode agents (Claude Code + Codex hybrid)
-        if (agentsConfig.dualMode)
-            agentsToCopy.push(...(AGENTS_MAP.dualMode || []));
     }
     // Find source agents directory
     const sourceAgentsDir = findSourceDir('agents', options.sourceBaseDir);
@@ -1006,7 +999,7 @@ function findSourceHelpersDir(sourceBaseDir) {
     // Strategy 1: require.resolve to find package root (most reliable for npx)
     try {
         const esmRequire = createRequire(import.meta.url);
-        const pkgJsonPath = esmRequire.resolve('@monobrain/cli/package.json');
+        const pkgJsonPath = esmRequire.resolve('@monomind/cli/package.json');
         const pkgRoot = path.dirname(pkgJsonPath);
         possiblePaths.push(path.join(pkgRoot, '.claude', 'helpers'));
     }
@@ -1177,15 +1170,15 @@ async function writeStatusline(targetDir, options, result) {
     result.created.files.push('.claude/helpers/statusline.cjs');
 }
 /**
- * Write runtime configuration (.monobrain/)
+ * Write runtime configuration (.monomind/)
  */
 async function writeRuntimeConfig(targetDir, options, result) {
-    const configPath = path.join(targetDir, '.monobrain', 'config.yaml');
+    const configPath = path.join(targetDir, '.monomind', 'config.yaml');
     if (fs.existsSync(configPath) && !options.force) {
-        result.skipped.push('.monobrain/config.yaml');
+        result.skipped.push('.monomind/config.yaml');
         return;
     }
-    const config = `# Monobrain Runtime Configuration
+    const config = `# Monomind Runtime Configuration
 # Generated: ${new Date().toISOString()}
 
 version: "3.0.0"
@@ -1199,7 +1192,7 @@ swarm:
 memory:
   backend: ${options.runtime.memoryBackend}
   enableHNSW: ${options.runtime.enableHNSW}
-  persistPath: .monobrain/data
+  persistPath: .monomind/data
   cacheSize: 100
   # ADR-049: Self-Learning Memory
   learningBridge:
@@ -1219,7 +1212,7 @@ memory:
 
 neural:
   enabled: ${options.runtime.enableNeural}
-  modelPath: .monobrain/neural
+  modelPath: .monomind/neural
 
 hooks:
   enabled: true
@@ -1230,10 +1223,10 @@ mcp:
   port: ${options.mcp.port}
 `;
     fs.writeFileSync(configPath, config, 'utf-8');
-    result.created.files.push('.monobrain/config.yaml');
+    result.created.files.push('.monomind/config.yaml');
     // Write .gitignore
-    const gitignorePath = path.join(targetDir, '.monobrain', '.gitignore');
-    const gitignore = `# Monobrain runtime files
+    const gitignorePath = path.join(targetDir, '.monomind', '.gitignore');
+    const gitignore = `# Monomind runtime files
 data/
 logs/
 sessions/
@@ -1243,7 +1236,7 @@ neural/
 `;
     if (!fs.existsSync(gitignorePath) || options.force) {
         fs.writeFileSync(gitignorePath, gitignore, 'utf-8');
-        result.created.files.push('.monobrain/.gitignore');
+        result.created.files.push('.monomind/.gitignore');
     }
     // Write CAPABILITIES.md with full system overview
     await writeCapabilitiesDoc(targetDir, options, result);
@@ -1253,9 +1246,9 @@ neural/
  * Creates baseline data so statusline shows meaningful state instead of all zeros
  */
 async function writeInitialMetrics(targetDir, options, result) {
-    const metricsDir = path.join(targetDir, '.monobrain', 'metrics');
-    const learningDir = path.join(targetDir, '.monobrain', 'learning');
-    const securityDir = path.join(targetDir, '.monobrain', 'security');
+    const metricsDir = path.join(targetDir, '.monomind', 'metrics');
+    const learningDir = path.join(targetDir, '.monomind', 'learning');
+    const securityDir = path.join(targetDir, '.monomind', 'security');
     // Ensure directories exist
     for (const dir of [metricsDir, learningDir, securityDir]) {
         if (!fs.existsSync(dir)) {
@@ -1289,10 +1282,10 @@ async function writeInitialMetrics(targetDir, options, result) {
                 patternsLearned: 0,
                 sessionsCompleted: 0
             },
-            _note: 'Metrics will update as you use Monobrain. Run: npx monobrain@latest daemon start'
+            _note: 'Metrics will update as you use Monomind. Run: npx monomind@latest daemon start'
         };
         fs.writeFileSync(progressPath, JSON.stringify(progress, null, 2), 'utf-8');
-        result.created.files.push('.monobrain/metrics/v1-progress.json');
+        result.created.files.push('.monomind/metrics/v1-progress.json');
     }
     // Create initial swarm-activity.json
     const activityPath = path.join(metricsDir, 'swarm-activity.json');
@@ -1316,7 +1309,7 @@ async function writeInitialMetrics(targetDir, options, result) {
             _initialized: true
         };
         fs.writeFileSync(activityPath, JSON.stringify(activity, null, 2), 'utf-8');
-        result.created.files.push('.monobrain/metrics/swarm-activity.json');
+        result.created.files.push('.monomind/metrics/swarm-activity.json');
     }
     // Create initial learning.json
     const learningPath = path.join(metricsDir, 'learning.json');
@@ -1336,10 +1329,10 @@ async function writeInitialMetrics(targetDir, options, result) {
                 total: 0,
                 current: null
             },
-            _note: 'Intelligence grows as you use Monobrain'
+            _note: 'Intelligence grows as you use Monomind'
         };
         fs.writeFileSync(learningPath, JSON.stringify(learning, null, 2), 'utf-8');
-        result.created.files.push('.monobrain/metrics/learning.json');
+        result.created.files.push('.monomind/metrics/learning.json');
     }
     // Create initial audit-status.json
     const auditPath = path.join(securityDir, 'audit-status.json');
@@ -1350,24 +1343,24 @@ async function writeInitialMetrics(targetDir, options, result) {
             cvesFixed: 0,
             totalCves: 3,
             lastScan: null,
-            _note: 'Run: npx monobrain@latest security scan'
+            _note: 'Run: npx monomind@latest security scan'
         };
         fs.writeFileSync(auditPath, JSON.stringify(audit, null, 2), 'utf-8');
-        result.created.files.push('.monobrain/security/audit-status.json');
+        result.created.files.push('.monomind/security/audit-status.json');
     }
 }
 /**
- * Write CAPABILITIES.md - comprehensive overview of all Monobrain features
+ * Write CAPABILITIES.md - comprehensive overview of all Monomind features
  */
 async function writeCapabilitiesDoc(targetDir, options, result) {
-    const capabilitiesPath = path.join(targetDir, '.monobrain', 'CAPABILITIES.md');
+    const capabilitiesPath = path.join(targetDir, '.monomind', 'CAPABILITIES.md');
     if (fs.existsSync(capabilitiesPath) && !options.force) {
-        result.skipped.push('.monobrain/CAPABILITIES.md');
+        result.skipped.push('.monomind/CAPABILITIES.md');
         return;
     }
-    const capabilities = `# Monobrain - Complete Capabilities Reference
+    const capabilities = `# Monomind - Complete Capabilities Reference
 > Generated: ${new Date().toISOString()}
-> Full documentation: https://github.com/nokhodian/monobrain
+> Full documentation: https://github.com/nokhodian/monomind
 
 ## 📋 Table of Contents
 
@@ -1385,7 +1378,7 @@ async function writeCapabilitiesDoc(targetDir, options, result) {
 
 ## Overview
 
-Monobrain is a domain-driven design architecture for multi-agent AI coordination with:
+Monomind is a domain-driven design architecture for multi-agent AI coordination with:
 
 - **15-Agent Swarm Coordination** with hierarchical and mesh topologies
 - **HNSW Vector Search** - 150x-12,500x faster pattern retrieval
@@ -1427,13 +1420,13 @@ Monobrain is a domain-driven design architecture for multi-agent AI coordination
 ### Quick Commands
 \`\`\`bash
 # Initialize swarm
-npx monobrain@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
 
 # Check status
-npx monobrain@latest swarm status
+npx monomind@latest swarm status
 
 # Monitor activity
-npx monobrain@latest swarm monitor
+npx monomind@latest swarm monitor
 \`\`\`
 
 ---
@@ -1517,17 +1510,17 @@ npx monobrain@latest swarm monitor
 ### Example Commands
 \`\`\`bash
 # Initialize
-npx monobrain@latest init --wizard
+npx monomind@latest init --wizard
 
 # Spawn agent
-npx monobrain@latest agent spawn -t coder --name my-coder
+npx monomind@latest agent spawn -t coder --name my-coder
 
 # Memory operations
-npx monobrain@latest memory store --key "pattern" --value "data" --namespace patterns
-npx monobrain@latest memory search --query "authentication"
+npx monomind@latest memory store --key "pattern" --value "data" --namespace patterns
+npx monomind@latest memory search --query "authentication"
 
 # Diagnostics
-npx monobrain@latest doctor --fix
+npx monomind@latest doctor --fix
 \`\`\`
 
 ---
@@ -1626,16 +1619,16 @@ High-confidence insights (>0.8) can transfer between agents.
 ### Memory Commands
 \`\`\`bash
 # Store pattern
-npx monobrain@latest memory store --key "name" --value "data" --namespace patterns
+npx monomind@latest memory store --key "name" --value "data" --namespace patterns
 
 # Semantic search
-npx monobrain@latest memory search --query "authentication"
+npx monomind@latest memory search --query "authentication"
 
 # List entries
-npx monobrain@latest memory list --namespace patterns
+npx monomind@latest memory list --namespace patterns
 
 # Initialize database
-npx monobrain@latest memory init --force
+npx monomind@latest memory init --force
 \`\`\`
 
 ---
@@ -1664,16 +1657,16 @@ npx monobrain@latest memory init --force
 ### Hive-Mind Commands
 \`\`\`bash
 # Initialize
-npx monobrain@latest hive-mind init --queen-type strategic
+npx monomind@latest hive-mind init --queen-type strategic
 
 # Status
-npx monobrain@latest hive-mind status
+npx monomind@latest hive-mind status
 
 # Spawn workers
-npx monobrain@latest hive-mind spawn --count 5 --type worker
+npx monomind@latest hive-mind spawn --count 5 --type worker
 
 # Consensus
-npx monobrain@latest hive-mind consensus --propose "task"
+npx monomind@latest hive-mind consensus --propose "task"
 \`\`\`
 
 ---
@@ -1714,8 +1707,8 @@ npx monobrain@latest hive-mind consensus --propose "task"
 
 ### MCP Server Setup
 \`\`\`bash
-# Add Monobrain MCP
-claude mcp add monobrain -- npx -y monobrain@latest mcp start
+# Add Monomind MCP
+claude mcp add monomind -- npx -y monomind@latest mcp start
 \`\`\`
 
 ---
@@ -1725,29 +1718,29 @@ claude mcp add monobrain -- npx -y monobrain@latest mcp start
 ### Essential Commands
 \`\`\`bash
 # Setup
-npx monobrain@latest init --wizard
-npx monobrain@latest daemon start
-npx monobrain@latest doctor --fix
+npx monomind@latest init --wizard
+npx monomind@latest daemon start
+npx monomind@latest doctor --fix
 
 # Swarm
-npx monobrain@latest swarm init --topology hierarchical --max-agents 8
-npx monobrain@latest swarm status
+npx monomind@latest swarm init --topology hierarchical --max-agents 8
+npx monomind@latest swarm status
 
 # Agents
-npx monobrain@latest agent spawn -t coder
-npx monobrain@latest agent list
+npx monomind@latest agent spawn -t coder
+npx monomind@latest agent list
 
 # Memory
-npx monobrain@latest memory search --query "patterns"
+npx monomind@latest memory search --query "patterns"
 
 # Hooks
-npx monobrain@latest hooks pre-task --description "task"
-npx monobrain@latest hooks worker dispatch --trigger optimize
+npx monomind@latest hooks pre-task --description "task"
+npx monomind@latest hooks worker dispatch --trigger optimize
 \`\`\`
 
 ### File Structure
 \`\`\`
-.monobrain/
+.monomind/
 ├── config.yaml      # Runtime configuration
 ├── CAPABILITIES.md  # This file
 ├── data/            # Memory storage
@@ -1760,11 +1753,11 @@ npx monobrain@latest hooks worker dispatch --trigger optimize
 
 ---
 
-**Full Documentation**: https://github.com/nokhodian/monobrain
-**Issues**: https://github.com/nokhodian/monobrain/issues
+**Full Documentation**: https://github.com/nokhodian/monomind
+**Issues**: https://github.com/nokhodian/monomind/issues
 `;
     fs.writeFileSync(capabilitiesPath, capabilities, 'utf-8');
-    result.created.files.push('.monobrain/CAPABILITIES.md');
+    result.created.files.push('.monomind/CAPABILITIES.md');
 }
 /**
  * Write CLAUDE.md with swarm guidance
@@ -1781,15 +1774,15 @@ async function writeClaudeMd(targetDir, options, result) {
         fs.writeFileSync(claudeMdPath, content, 'utf-8');
         result.created.files.push('CLAUDE.md');
     }
-    // Also write/append global ~/.claude/CLAUDE.md so monobrain tools are used automatically (#1497)
+    // Also write/append global ~/.claude/CLAUDE.md so monomind tools are used automatically (#1497)
     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
     if (homeDir) {
         const globalClaudeDir = path.join(homeDir, '.claude');
         const globalClaudeMd = path.join(globalClaudeDir, 'CLAUDE.md');
-        const monobrainBlock = [
+        const monomindBlock = [
             '',
-            '# Monobrain Integration (auto-generated by monobrain init)',
-            'When working on multi-file tasks or complex features, use ToolSearch to find and invoke monobrain MCP tools.',
+            '# Monomind Integration (auto-generated by monomind init)',
+            'When working on multi-file tasks or complex features, use ToolSearch to find and invoke monomind MCP tools.',
             'Key tools: memory_store, memory_search, hooks_route, swarm_init, agent_spawn.',
             'Check system-reminder tags for [INTELLIGENCE] pattern suggestions before starting work.',
             '',
@@ -1800,13 +1793,13 @@ async function writeClaudeMd(targetDir, options, result) {
             }
             if (fs.existsSync(globalClaudeMd)) {
                 const existing = fs.readFileSync(globalClaudeMd, 'utf-8');
-                if (!existing.includes('Monobrain Integration')) {
-                    fs.appendFileSync(globalClaudeMd, monobrainBlock);
-                    result.created.files.push('~/.claude/CLAUDE.md (appended monobrain block)');
+                if (!existing.includes('Monomind Integration')) {
+                    fs.appendFileSync(globalClaudeMd, monomindBlock);
+                    result.created.files.push('~/.claude/CLAUDE.md (appended monomind block)');
                 }
             }
             else {
-                fs.writeFileSync(globalClaudeMd, monobrainBlock.trimStart(), 'utf-8');
+                fs.writeFileSync(globalClaudeMd, monomindBlock.trimStart(), 'utf-8');
                 result.created.files.push('~/.claude/CLAUDE.md');
             }
         }
@@ -1827,7 +1820,7 @@ function findSourceDir(type, sourceBaseDir) {
     }
     // IMPORTANT: Check the package's own .claude directory first
     // This is the primary path when running as an npm package
-    // __dirname is typically /path/to/node_modules/@monobrain/cli/dist/src/init
+    // __dirname is typically /path/to/node_modules/@monomind/cli/dist/src/init
     // We need to go up 3 levels to reach the package root (dist/src/init -> dist/src -> dist -> root)
     const packageRoot = path.resolve(__dirname, '..', '..', '..');
     const packageDotClaude = path.join(packageRoot, '.claude', type);

@@ -4,7 +4,7 @@
  * Provides scoring functions to evaluate agent output quality.
  * Used by BootstrapFewShot to filter and rank trace examples.
  *
- * @module @monobrain/hooks/optimization/quality-metric
+ * @module @monomind/hooks/optimization/quality-metric
  */
 
 // ===== Interface =====

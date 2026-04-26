@@ -1,4 +1,4 @@
-# 📦 Monobrain Plugin Installation Guide
+# 📦 Monomind Plugin Installation Guide
 
 ## Quick Installation
 
@@ -7,7 +7,7 @@
 In Claude Code:
 
 ```
-/plugin add nokhodian/monobrain
+/plugin add nokhodian/monomind
 ```
 
 This will:
@@ -23,8 +23,8 @@ If you've cloned the repository:
 
 ```bash
 # Clone the repository
-git clone https://github.com/nokhodian/monobrain.git
-cd monobrain
+git clone https://github.com/nokhodian/monomind.git
+cd monomind
 
 # In Claude Code, install the plugin
 /plugin add .
@@ -44,7 +44,7 @@ Restart to activate the plugin:
 /plugin list
 ```
 
-Look for `monobrain` in the active plugins list.
+Look for `monomind` in the active plugins list.
 
 Try a command:
 ```
@@ -87,7 +87,7 @@ Available for delegation:
 ### ✅ MCP Integration
 
 3 MCP servers with 110+ tools:
-- **monobrain**: Core orchestration (40+ tools) - Required
+- **monomind**: Core orchestration (40+ tools) - Required
 - **ruv-swarm**: Enhanced coordination - Optional
 
 ---
@@ -103,19 +103,19 @@ Available for delegation:
 ### Update Plugin
 
 ```
-/plugin update monobrain
+/plugin update monomind
 ```
 
 Or pull latest from GitHub:
 ```
-cd /path/to/monobrain
+cd /path/to/monomind
 git pull
 ```
 
 ### Remove Plugin
 
 ```
-/plugin remove monobrain
+/plugin remove monomind
 ```
 
 ---
@@ -128,7 +128,7 @@ The plugin defines MCP servers, but you may need to install the packages:
 
 ```bash
 # Core MCP (recommended)
-npm install -g monobrain@alpha
+npm install -g monomind@alpha
 
 # Optional enhanced coordination
 npm install -g ruv-swarm
@@ -149,7 +149,7 @@ In Claude Code:
 /plugin list
 ```
 
-Look for `monobrain` in the list with status "active".
+Look for `monomind` in the list with status "active".
 
 ### Test Commands
 
@@ -174,7 +174,7 @@ Agents are automatically available for Claude Code to delegate to when appropria
 /plugin list
 
 # Try installing again
-/plugin add nokhodian/monobrain
+/plugin add nokhodian/monomind
 ```
 
 ### Commands Not Showing
@@ -196,8 +196,8 @@ ls -la agents/
 
 ```
 # Try local installation
-git clone https://github.com/nokhodian/monobrain.git
-cd monobrain
+git clone https://github.com/nokhodian/monomind.git
+cd monomind
 /plugin add .
 ```
 
@@ -207,8 +207,8 @@ cd monobrain
 
 - **Documentation**: See README.md for complete documentation
 - **Quick Start**: See docs/QUICKSTART.md for 5-minute guide
-- **GitHub Issues**: https://github.com/nokhodian/monobrain/issues
-- **Discussions**: https://github.com/nokhodian/monobrain/discussions
+- **GitHub Issues**: https://github.com/nokhodian/monomind/issues
+- **Discussions**: https://github.com/nokhodian/monomind/discussions
 
 ---
 
@@ -217,7 +217,7 @@ cd monobrain
 To remove the plugin:
 
 ```
-/plugin remove monobrain
+/plugin remove monomind
 ```
 
 This will remove all commands, agents, and hooks.
@@ -235,7 +235,7 @@ This will remove all commands, agents, and hooks.
 After installation, the plugin structure is:
 
 ```
-monobrain/
+monomind/
 ├── .claude-plugin/
 │   ├── plugin.json          # Plugin metadata
 │   ├── README.md            # Documentation

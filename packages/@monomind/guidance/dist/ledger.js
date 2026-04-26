@@ -15,7 +15,7 @@
  * 1. Reviewer rating (pass/fail)
  * 2. Architecture compliance (pass/fail)
  *
- * @module @monobrain/guidance/ledger
+ * @module @monomind/guidance/ledger
  */
 import { randomUUID } from 'node:crypto';
 // ============================================================================

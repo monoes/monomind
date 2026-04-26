@@ -1,5 +1,5 @@
 /**
- * @monobrain/claims (ADR-016)
+ * @monomind/claims (ADR-016)
  *
  * Issue claiming and handoff management for human and agent collaboration.
  *

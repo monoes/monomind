@@ -21,7 +21,7 @@ import {
   createHookExecutor,
   HookEvent,
   HookPriority
-} from '@monobrain/shared/hooks';
+} from '@monomind/shared/hooks';
 ```
 
 ## Quick Start
@@ -29,8 +29,8 @@ import {
 ### 1. Create Registry and Executor
 
 ```typescript
-import { createHookRegistry, createHookExecutor } from '@monobrain/shared/hooks';
-import { createEventBus } from '@monobrain/shared/core';
+import { createHookRegistry, createHookExecutor } from '@monomind/shared/hooks';
+import { createEventBus } from '@monomind/shared/core';
 
 const registry = createHookRegistry();
 const eventBus = createEventBus();
@@ -395,7 +395,7 @@ registry.register(
 ## Example: Pre-Edit Hook for Learning
 
 ```typescript
-import { HookEvent, HookPriority } from '@monobrain/shared/hooks';
+import { HookEvent, HookPriority } from '@monomind/shared/hooks';
 
 // Register pre-edit hook for context retrieval
 registry.register(
@@ -500,7 +500,7 @@ registry.register(
 Run the test suite:
 
 ```bash
-cd /workspaces/monobrain/packages/@monobrain/shared
+cd /workspaces/monomind/packages/@monomind/shared
 npm test -- hooks.test.ts
 ```
 
@@ -511,7 +511,7 @@ All 23 tests pass:
 ## File Structure
 
 ```
-packages/@monobrain/shared/src/hooks/
+packages/@monomind/shared/src/hooks/
 ├── types.ts           # Type definitions (~150 lines)
 ├── registry.ts        # Hook registry (~200 lines)
 ├── executor.ts        # Hook executor (~250 lines)
@@ -529,4 +529,4 @@ packages/@monobrain/shared/src/hooks/
 
 ## License
 
-Part of Monobrain V1 - See main LICENSE file
+Part of Monomind V1 - See main LICENSE file

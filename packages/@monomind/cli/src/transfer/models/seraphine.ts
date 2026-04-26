@@ -1,6 +1,6 @@
 /**
  * Seraphine Genesis Model
- * The first Monobrain pattern model - "Hello World" for pattern sharing
+ * The first Monomind pattern model - "Hello World" for pattern sharing
  *
  * Seraphine represents the foundational patterns for intelligent agent coordination.
  * Named after the Greek "Seraphim" (burning ones), symbolizing the spark of knowledge
@@ -29,10 +29,10 @@ export const SERAPHINE_VERSION = '1.0.0';
 export const SERAPHINE_METADATA = {
   name: 'seraphine-genesis',
   displayName: 'Seraphine Genesis',
-  description: 'The foundational Monobrain pattern model. Contains core routing patterns, complexity heuristics, and coordination trajectories for multi-agent swarms.',
+  description: 'The foundational Monomind pattern model. Contains core routing patterns, complexity heuristics, and coordination trajectories for multi-agent swarms.',
   author: {
-    id: 'monobrain-team',
-    displayName: 'Monobrain Team',
+    id: 'monomind-team',
+    displayName: 'Monomind Team',
   },
   license: 'MIT',
   tags: [
@@ -45,7 +45,7 @@ export const SERAPHINE_METADATA = {
     'hello-world',
   ],
   language: 'typescript',
-  framework: 'monobrain',
+  framework: 'monomind',
 };
 
 /**
@@ -333,7 +333,7 @@ export const SERAPHINE_CUSTOM_PATTERNS: CustomPattern[] = [
     id: 'custom-hello-world',
     type: 'greeting',
     data: {
-      message: 'Hello, World! Welcome to Monobrain pattern sharing.',
+      message: 'Hello, World! Welcome to Monomind pattern sharing.',
       version: SERAPHINE_VERSION,
       genesis: true,
     },

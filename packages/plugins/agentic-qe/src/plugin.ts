@@ -17,7 +17,7 @@ import type {
   ModelTier,
   QEMemoryNamespace,
   SecurityLevel,
-  MonobrainDomain,
+  MonomindDomain,
 } from './types.js';
 
 import {
@@ -173,7 +173,7 @@ interface QEAgentDefinition {
  * Context mapper interface
  */
 interface IContextMapper {
-  mapToMonobrainDomain(context: BoundedContext): MonobrainDomain[];
+  mapToMonomindDomain(context: BoundedContext): MonomindDomain[];
   getAgentsForContext(context: BoundedContext): string[];
   getMemoryNamespace(context: BoundedContext): string;
   getSecurityLevel(context: BoundedContext): SecurityLevel;
@@ -380,11 +380,11 @@ class ContextMapper implements IContextMapper {
     return this.mappings.get(context);
   }
 
-  mapToMonobrainDomain(context: BoundedContext): MonobrainDomain[] {
+  mapToMonomindDomain(context: BoundedContext): MonomindDomain[] {
     return this.mappings.get(context)?.domains ?? [];
   }
 
-  getMonobrainDomainsForContext(context: BoundedContext): MonobrainDomain[] {
+  getMonomindDomainsForContext(context: BoundedContext): MonomindDomain[] {
     return this.mappings.get(context)?.domains ?? [];
   }
 
@@ -640,7 +640,7 @@ function getMemoryNamespaces(): QEMemoryNamespace[] {
 
 /**
  * Main Agentic-QE Plugin class
- * Implements IPlugin interface for monobrain integration
+ * Implements IPlugin interface for monomind integration
  */
 export class AQEPlugin implements IPlugin {
   readonly name = PLUGIN_NAME;

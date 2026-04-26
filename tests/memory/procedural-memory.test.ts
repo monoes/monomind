@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { ActionSequenceExtractor } from '../../packages/@monobrain/memory/src/procedural/action-sequence-extractor.js';
-import { LearnedSkillSerializer } from '../../packages/@monobrain/memory/src/procedural/learned-skill.js';
-import { ActionRecordStore } from '../../packages/@monobrain/memory/src/procedural/action-record.js';
-import { SkillRegistry } from '../../packages/@monobrain/memory/src/procedural/skill-registry.js';
-import type { ActionRecord } from '../../packages/@monobrain/memory/src/procedural/types.js';
+import { ActionSequenceExtractor } from '../../packages/@monomind/memory/src/procedural/action-sequence-extractor.js';
+import { LearnedSkillSerializer } from '../../packages/@monomind/memory/src/procedural/learned-skill.js';
+import { ActionRecordStore } from '../../packages/@monomind/memory/src/procedural/action-record.js';
+import { SkillRegistry } from '../../packages/@monomind/memory/src/procedural/skill-registry.js';
+import type { ActionRecord } from '../../packages/@monomind/memory/src/procedural/types.js';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';

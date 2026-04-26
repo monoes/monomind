@@ -2,7 +2,7 @@
 name: workflow-automation
 description: |
   GitHub Actions workflow automation agent that creates intelligent, self-organizing CI/CD pipelines with adaptive multi-agent coordination and automated optimization
-tools: mcp__github__create_workflow, mcp__github__update_workflow, mcp__github__list_workflows, mcp__github__get_workflow_runs, mcp__github__create_workflow_dispatch, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, mcp__monobrain__memory_usage, mcp__monobrain__performance_report, mcp__monobrain__bottleneck_analyze, mcp__monobrain__workflow_create, mcp__monobrain__automation_setup, TodoWrite, TodoRead, Bash, Read, Write, Edit, Grep
+tools: mcp__github__create_workflow, mcp__github__update_workflow, mcp__github__list_workflows, mcp__github__get_workflow_runs, mcp__github__create_workflow_dispatch, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_usage, mcp__monomind__performance_report, mcp__monomind__bottleneck_analyze, mcp__monomind__workflow_create, mcp__monomind__automation_setup, TodoWrite, TodoRead, Bash, Read, Write, Edit, Grep
 ---
 
 # Workflow Automation - GitHub Actions Integration
@@ -478,17 +478,17 @@ npx ruv-swarm actions profile \
 
 ```bash
 # Initialize comprehensive workflow automation swarm
-mcp__monobrain__swarm_init { topology: "mesh", maxAgents: 12 }
-mcp__monobrain__agent_spawn { type: "coordinator", name: "Workflow Coordinator" }
-mcp__monobrain__agent_spawn { type: "architect", name: "Pipeline Architect" }
-mcp__monobrain__agent_spawn { type: "coder", name: "Workflow Developer" }
-mcp__monobrain__agent_spawn { type: "tester", name: "CI/CD Tester" }
-mcp__monobrain__agent_spawn { type: "optimizer", name: "Performance Optimizer" }
-mcp__monobrain__agent_spawn { type: "monitor", name: "Automation Monitor" }
-mcp__monobrain__agent_spawn { type: "analyst", name: "Workflow Analyzer" }
+mcp__monomind__swarm_init { topology: "mesh", maxAgents: 12 }
+mcp__monomind__agent_spawn { type: "coordinator", name: "Workflow Coordinator" }
+mcp__monomind__agent_spawn { type: "architect", name: "Pipeline Architect" }
+mcp__monomind__agent_spawn { type: "coder", name: "Workflow Developer" }
+mcp__monomind__agent_spawn { type: "tester", name: "CI/CD Tester" }
+mcp__monomind__agent_spawn { type: "optimizer", name: "Performance Optimizer" }
+mcp__monomind__agent_spawn { type: "monitor", name: "Automation Monitor" }
+mcp__monomind__agent_spawn { type: "analyst", name: "Workflow Analyzer" }
 
 # Create intelligent workflow automation rules
-mcp__monobrain__automation_setup {
+mcp__monomind__automation_setup {
   rules: [
     {
       trigger: "pull_request",
@@ -504,7 +504,7 @@ mcp__monobrain__automation_setup {
 }
 
 # Orchestrate adaptive workflow management
-mcp__monobrain__task_orchestrate {
+mcp__monomind__task_orchestrate {
   task: "Manage intelligent CI/CD pipeline with continuous optimization",
   strategy: "adaptive",
   priority: "high",
@@ -516,19 +516,19 @@ mcp__monobrain__task_orchestrate {
 
 ```bash
 # Generate comprehensive workflow performance reports
-mcp__monobrain__performance_report {
+mcp__monomind__performance_report {
   format: "detailed",
   timeframe: "30d"
 }
 
 # Analyze workflow bottlenecks with swarm intelligence
-mcp__monobrain__bottleneck_analyze {
+mcp__monomind__bottleneck_analyze {
   component: "github_actions_workflow",
   metrics: ["build_time", "test_duration", "deployment_latency", "resource_utilization"]
 }
 
 # Store performance insights in swarm memory
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "workflow/performance/analysis",
   value: {
@@ -546,25 +546,25 @@ mcp__monobrain__memory_usage {
 // Swarm-powered workflow creation
 const createIntelligentWorkflow = async (repoContext) => {
   // Initialize workflow generation swarm
-  await mcp__monobrain__swarm_init({ topology: "hierarchical", maxAgents: 8 });
+  await mcp__monomind__swarm_init({ topology: "hierarchical", maxAgents: 8 });
 
   // Spawn specialized workflow agents
-  await mcp__monobrain__agent_spawn({
+  await mcp__monomind__agent_spawn({
     type: "architect",
     name: "Workflow Architect",
   });
-  await mcp__monobrain__agent_spawn({ type: "coder", name: "YAML Generator" });
-  await mcp__monobrain__agent_spawn({
+  await mcp__monomind__agent_spawn({ type: "coder", name: "YAML Generator" });
+  await mcp__monomind__agent_spawn({
     type: "optimizer",
     name: "Performance Optimizer",
   });
-  await mcp__monobrain__agent_spawn({
+  await mcp__monomind__agent_spawn({
     type: "tester",
     name: "Workflow Validator",
   });
 
   // Create adaptive workflow based on repository analysis
-  const workflow = await mcp__monobrain__workflow_create({
+  const workflow = await mcp__monomind__workflow_create({
     name: "Intelligent CI/CD Pipeline",
     steps: [
       {
@@ -587,7 +587,7 @@ const createIntelligentWorkflow = async (repoContext) => {
   });
 
   // Store workflow configuration in memory
-  await mcp__monobrain__memory_usage({
+  await mcp__monomind__memory_usage({
     action: "store",
     key: `workflow/${repoContext.name}/config`,
     value: {
@@ -607,7 +607,7 @@ const createIntelligentWorkflow = async (repoContext) => {
 
 ```bash
 # Implement continuous workflow learning
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "workflow/learning/patterns",
   value: {
@@ -630,7 +630,7 @@ mcp__monobrain__memory_usage {
 }
 
 # Generate workflow optimization recommendations
-mcp__monobrain__task_orchestrate {
+mcp__monomind__task_orchestrate {
   task: "Analyze workflow performance and generate optimization recommendations",
   strategy: "parallel",
   priority: "medium"

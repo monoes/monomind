@@ -18,7 +18,7 @@ Create a **Financial Risk Analysis Plugin** that leverages RuVector WASM package
 
 ## Plugin Name
 
-`@monobrain/plugin-financial-risk`
+`@monomind/plugin-financial-risk`
 
 ## Description
 

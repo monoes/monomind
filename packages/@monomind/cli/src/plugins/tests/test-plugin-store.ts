@@ -204,11 +204,11 @@ async function runTests(): Promise<void> {
       );
 
       // Similar plugins
-      const similar = findSimilarPlugins(registry, '@monobrain/neural', 3);
+      const similar = findSimilarPlugins(registry, '@monomind/neural', 3);
       logTest(
         'Similar plugins',
         similar.length >= 0,
-        `Similar to @monobrain/neural: ${similar.map(p => p.name).join(', ') || 'none'}`
+        `Similar to @monomind/neural: ${similar.map(p => p.name).join(', ') || 'none'}`
       );
     }
 

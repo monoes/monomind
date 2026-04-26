@@ -81,7 +81,7 @@ const influenceMatrix = await mcp__sublinear-time-solver__analyzeMatrix({
 const keyInfluencers = identifyInfluencers(influenceMatrix);
 ```
 
-## Integration with Monobrain
+## Integration with Monomind
 
 ### Swarm Topology Optimization
 ```javascript

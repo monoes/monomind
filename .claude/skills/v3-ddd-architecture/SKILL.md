@@ -1,13 +1,13 @@
 ---
 name: "v1 DDD Architecture"
-description: "Domain-Driven Design architecture for monobrain v1. Implements modular, bounded context architecture with clean separation of concerns and microkernel pattern."
+description: "Domain-Driven Design architecture for monomind v1. Implements modular, bounded context architecture with clean separation of concerns and microkernel pattern."
 ---
 
 # DDD Architecture
 
 ## What This Skill Does
 
-Designs and implements Domain-Driven Design (DDD) architecture for monobrain v1, decomposing god objects into bounded contexts, implementing clean architecture patterns, and enabling modular, testable code structure.
+Designs and implements Domain-Driven Design (DDD) architecture for monomind v1, decomposing god objects into bounded contexts, implementing clean architecture patterns, and enabling modular, testable code structure.
 
 ## Quick Start
 
@@ -120,8 +120,8 @@ interface HealthMonitoringDomain {
 ### Core Kernel
 
 ```typescript
-// core/kernel/monobrain-kernel.ts
-export class MonobrainKernel {
+// core/kernel/monomind-kernel.ts
+export class MonomindKernel {
   private domains: Map<string, Domain> = new Map();
   private eventBus: DomainEventBus;
   private dependencyContainer: Container;
@@ -160,7 +160,7 @@ interface DomainPlugin {
   version: string;
   dependencies: string[];
 
-  initialize(kernel: MonobrainKernel): Promise<void>;
+  initialize(kernel: MonomindKernel): Promise<void>;
   shutdown(): Promise<void>;
 }
 
@@ -170,7 +170,7 @@ export class SwarmCoordinationPlugin implements DomainPlugin {
   version = "3.0.0";
   dependencies = ["task-management", "session-management"];
 
-  async initialize(kernel: MonobrainKernel): Promise<void> {
+  async initialize(kernel: MonomindKernel): Promise<void> {
     const taskDomain =
       kernel.getDomain<TaskManagementDomain>("task-management");
     const sessionDomain =

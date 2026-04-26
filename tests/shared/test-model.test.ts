@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { TestModel, hashPrompt } from '../../packages/@monobrain/shared/src/testing/test-model.js';
+import { TestModel, hashPrompt } from '../../packages/@monomind/shared/src/testing/test-model.js';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';

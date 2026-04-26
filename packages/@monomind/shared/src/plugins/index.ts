@@ -1,7 +1,7 @@
 /**
  * Plugins System - ADR-004 Implementation
  *
- * Plugin architecture for extending Monobrain functionality.
+ * Plugin architecture for extending Monomind functionality.
  *
  * @module v1/shared/plugins
  */
@@ -12,7 +12,7 @@ export type {
   PluginContext,
   PluginEvent,
   PluginEventHandler,
-  MonobrainPlugin,
+  MonomindPlugin,
   PluginMetadata,
   IPluginRegistry,
   IPluginLoader,

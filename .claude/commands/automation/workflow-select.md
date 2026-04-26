@@ -4,7 +4,7 @@ Automatically select optimal workflow based on task type.
 
 ## Usage
 ```bash
-npx monobrain automation workflow-select [options]
+npx monomind automation workflow-select [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain automation workflow-select [options]
 ## Examples
 ```bash
 # Select workflow for task
-npx monobrain automation workflow-select --task "Deploy to production"
+npx monomind automation workflow-select --task "Deploy to production"
 
 # With constraints
-npx monobrain automation workflow-select --constraints "no-downtime,rollback"
+npx monomind automation workflow-select --constraints "no-downtime,rollback"
 
 # Preview mode
-npx monobrain automation workflow-select --task "Database migration" --preview
+npx monomind automation workflow-select --task "Database migration" --preview
 ```

@@ -1,4 +1,4 @@
-# Claude Code Hooks for monobrain
+# Claude Code Hooks for monomind
 
 ## Purpose
 Automatically coordinate, format, and learn from Claude Code operations using hooks.
@@ -37,7 +37,7 @@ Hooks are configured in `.claude/settings.json`:
         "matcher": "^(Write|Edit|MultiEdit)$",
         "hooks": [{
           "type": "command",
-          "command": "npx monobrain hook pre-edit --file '${tool.params.file_path}'"
+          "command": "npx monomind hook pre-edit --file '${tool.params.file_path}'"
         }]
       }
     ]

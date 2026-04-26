@@ -1,12 +1,12 @@
-# @monobrain/shared
+# @monomind/shared
 
-[![npm version](https://img.shields.io/npm/v/@monobrain/shared.svg)](https://www.npmjs.com/package/@monobrain/shared)
-[![npm downloads](https://img.shields.io/npm/dm/@monobrain/shared.svg)](https://www.npmjs.com/package/@monobrain/shared)
+[![npm version](https://img.shields.io/npm/v/@monomind/shared.svg)](https://www.npmjs.com/package/@monomind/shared)
+[![npm downloads](https://img.shields.io/npm/dm/@monomind/shared.svg)](https://www.npmjs.com/package/@monomind/shared)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![Core](https://img.shields.io/badge/Module-Core-blue.svg)](https://github.com/nokhodian/monobrain)
+[![Core](https://img.shields.io/badge/Module-Core-blue.svg)](https://github.com/nokhodian/monomind)
 
-> Shared utilities, types, and core infrastructure for Monobrain V1 - the foundation module used by all other @monobrain packages.
+> Shared utilities, types, and core infrastructure for Monomind V1 - the foundation module used by all other @monomind packages.
 
 ## Features
 
@@ -21,7 +21,7 @@
 ## Installation
 
 ```bash
-npm install @monobrain/shared
+npm install @monomind/shared
 ```
 
 ## Quick Start
@@ -33,7 +33,7 @@ import {
   MemoryEntry,
   EventBus,
   ConfigLoader
-} from '@monobrain/shared';
+} from '@monomind/shared';
 
 // Use shared types
 const agent: AgentState = {
@@ -57,16 +57,16 @@ eventBus.on('task.completed', (event) => {
 
 ```typescript
 // Main entry (recommended - includes all modules)
-import { ... } from '@monobrain/shared';
+import { ... } from '@monomind/shared';
 
 // Submodule exports (for tree-shaking or specific imports)
-import { ... } from '@monobrain/shared/types';      // Type definitions
-import { ... } from '@monobrain/shared/core';       // Config, interfaces, orchestrator
-import { ... } from '@monobrain/shared/events';     // Event sourcing (ADR-007)
-import { ... } from '@monobrain/shared/hooks';      // Hooks system
-import { ... } from '@monobrain/shared/mcp';        // MCP server infrastructure
-import { ... } from '@monobrain/shared/security';   // Security utilities
-import { ... } from '@monobrain/shared/resilience'; // Retry, circuit breaker, rate limiter
+import { ... } from '@monomind/shared/types';      // Type definitions
+import { ... } from '@monomind/shared/core';       // Config, interfaces, orchestrator
+import { ... } from '@monomind/shared/events';     // Event sourcing (ADR-007)
+import { ... } from '@monomind/shared/hooks';      // Hooks system
+import { ... } from '@monomind/shared/mcp';        // MCP server infrastructure
+import { ... } from '@monomind/shared/security';   // Security utilities
+import { ... } from '@monomind/shared/resilience'; // Retry, circuit breaker, rate limiter
 ```
 
 ## API Reference
@@ -105,7 +105,7 @@ import type {
   MCPTool,
   MCPRequest,
   MCPResponse
-} from '@monobrain/shared/types';
+} from '@monomind/shared/types';
 ```
 
 ### Core Interfaces
@@ -117,7 +117,7 @@ import type {
   IMemory,
   ICoordinator,
   IEventHandler
-} from '@monobrain/shared/core';
+} from '@monomind/shared/core';
 
 // Agent interface
 interface IAgent {
@@ -152,7 +152,7 @@ import {
   ConfigValidator,
   defaultConfig,
   ConfigSchema
-} from '@monobrain/shared/core';
+} from '@monomind/shared/core';
 
 // Load configuration
 const config = await ConfigLoader.load('./config.json');
@@ -171,7 +171,7 @@ const defaults = defaultConfig();
 ### Event System
 
 ```typescript
-import { EventBus, EventCoordinator } from '@monobrain/shared/events';
+import { EventBus, EventCoordinator } from '@monomind/shared/events';
 
 const eventBus = new EventBus();
 
@@ -202,7 +202,7 @@ coordinator.orchestrate([
 ### Hooks System
 
 ```typescript
-import { HooksManager, Hook } from '@monobrain/shared/hooks';
+import { HooksManager, Hook } from '@monomind/shared/hooks';
 
 const hooks = new HooksManager();
 
@@ -234,7 +234,7 @@ import {
   createSessionManager,
   defineTool,
   quickStart,
-} from '@monobrain/shared/mcp';
+} from '@monomind/shared/mcp';
 
 // Quick start - simplest way to create an MCP server
 const server = await quickStart({
@@ -265,7 +265,7 @@ const session = await sessions.create({ clientInfo: { name: 'client' } });
 ### Health Monitor
 
 ```typescript
-import { HealthMonitor, HealthCheck } from '@monobrain/shared/core';
+import { HealthMonitor, HealthCheck } from '@monomind/shared/core';
 
 const monitor = new HealthMonitor();
 
@@ -304,19 +304,19 @@ export * from './types/mcp.types';
 
 ## Used By
 
-This package is a dependency of all other @monobrain modules:
+This package is a dependency of all other @monomind modules:
 
-- [@monobrain/cli](../cli) - CLI module
-- [@monobrain/security](../security) - Security & validation
-- [@monobrain/memory](../memory) - AgentDB & HNSW indexing
-- [@monobrain/neural](../neural) - SONA learning & RL algorithms
-- [@monobrain/performance](../performance) - Benchmarking & optimization
-- [@monobrain/swarm](../swarm) - 15-agent coordination
-- [@monobrain/integration](../integration) - agentic-flow@alpha bridge
-- [@monobrain/testing](../testing) - TDD framework & fixtures
-- [@monobrain/deployment](../deployment) - Release management
-- [@monobrain/embeddings](../embeddings) - Embedding service
-- [@monobrain/hooks](../hooks) - Hooks system
+- [@monomind/cli](../cli) - CLI module
+- [@monomind/security](../security) - Security & validation
+- [@monomind/memory](../memory) - AgentDB & HNSW indexing
+- [@monomind/neural](../neural) - SONA learning & RL algorithms
+- [@monomind/performance](../performance) - Benchmarking & optimization
+- [@monomind/swarm](../swarm) - 15-agent coordination
+- [@monomind/integration](../integration) - agentic-flow@alpha bridge
+- [@monomind/testing](../testing) - TDD framework & fixtures
+- [@monomind/deployment](../deployment) - Release management
+- [@monomind/embeddings](../embeddings) - Embedding service
+- [@monomind/hooks](../hooks) - Hooks system
 
 ## License
 

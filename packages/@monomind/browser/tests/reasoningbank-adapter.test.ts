@@ -1,5 +1,5 @@
 /**
- * @monobrain/browser - ReasoningBank Adapter Tests
+ * @monomind/browser - ReasoningBank Adapter Tests
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';

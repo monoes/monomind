@@ -1,6 +1,6 @@
 /**
  * CLI Session Command
- * Session management for Monobrain
+ * Session management for Monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -107,7 +107,7 @@ const listCommand: Command = {
 
       if (result.sessions.length === 0) {
         output.printInfo('No sessions found');
-        output.printInfo('Run "monobrain session save" to create a session');
+        output.printInfo('Run "monomind session save" to create a session');
         return { success: true, data: result };
       }
 
@@ -252,7 +252,7 @@ const saveCommand: Command = {
 
       output.writeln();
       output.printSuccess(`Session saved: ${result.sessionId}`);
-      output.printInfo(`Restore with: monobrain session restore ${result.sessionId}`);
+      output.printInfo(`Restore with: monomind session restore ${result.sessionId}`);
 
       if (ctx.flags.format === 'json') {
         output.printJson(result);
@@ -708,7 +708,7 @@ const importCommand: Command = {
       output.printSuccess(`Session imported: ${result.sessionId}`);
 
       if (!result.activated) {
-        output.printInfo(`Restore with: monobrain session restore ${result.sessionId}`);
+        output.printInfo(`Restore with: monomind session restore ${result.sessionId}`);
       }
 
       if (ctx.flags.format === 'json') {
@@ -779,7 +779,7 @@ const currentCommand: Command = {
     } catch (error) {
       if (error instanceof MCPClientError) {
         output.printWarning('No active session');
-        output.printInfo('Start a session with "monobrain start"');
+        output.printInfo('Start a session with "monomind start"');
         return { success: true, data: { active: false } };
       }
       output.printError(`Unexpected error: ${String(error)}`);
@@ -856,20 +856,20 @@ export const sessionCommand: Command = {
   ],
   options: [],
   examples: [
-    { command: 'monobrain session list', description: 'List all sessions' },
-    { command: 'monobrain session save -n "checkpoint-1"', description: 'Save current session' },
-    { command: 'monobrain session restore session-123', description: 'Restore a session' },
-    { command: 'monobrain session delete session-123', description: 'Delete a session' },
-    { command: 'monobrain session export -o backup.json', description: 'Export session to file' },
-    { command: 'monobrain session import backup.json', description: 'Import session from file' },
-    { command: 'monobrain session current', description: 'Show current session' }
+    { command: 'monomind session list', description: 'List all sessions' },
+    { command: 'monomind session save -n "checkpoint-1"', description: 'Save current session' },
+    { command: 'monomind session restore session-123', description: 'Restore a session' },
+    { command: 'monomind session delete session-123', description: 'Delete a session' },
+    { command: 'monomind session export -o backup.json', description: 'Export session to file' },
+    { command: 'monomind session import backup.json', description: 'Import session from file' },
+    { command: 'monomind session current', description: 'Show current session' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Show help if no subcommand
     output.writeln();
     output.writeln(output.bold('Session Management Commands'));
     output.writeln();
-    output.writeln('Usage: monobrain session <subcommand> [options]');
+    output.writeln('Usage: monomind session <subcommand> [options]');
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
@@ -882,7 +882,7 @@ export const sessionCommand: Command = {
       `${output.highlight('current')} - Show current active session`
     ]);
     output.writeln();
-    output.writeln('Run "monobrain session <subcommand> --help" for subcommand help');
+    output.writeln('Run "monomind session <subcommand> --help" for subcommand help');
 
     return { success: true };
   }

@@ -2,7 +2,7 @@
 
 **Source:** https://arxiv.org/abs/2302.12173 | https://arxiv.org/abs/2310.12815  
 **Category:** AI Security Research  
-**Role in Monobrain:** External content validation, aidefence semantic scanning, injection pattern detection
+**Role in Monomind:** External content validation, aidefence semantic scanning, injection pattern detection
 
 ---
 
@@ -17,10 +17,10 @@ The papers demonstrated attacks including:
 
 ## What We Extracted
 
-### `validateExternalContent()` in `@monobrain/security`
+### `validateExternalContent()` in `@monomind/security`
 The research identified the key invariant that defends against indirect injection: **every piece of content retrieved from an external source must be treated as potentially adversarial before being passed to the LLM**.
 
-Monobrain implements this as `validateExternalContent()` in `@monobrain/security`. Every externally-sourced content item passes through a two-layer validation:
+Monomind implements this as `validateExternalContent()` in `@monomind/security`. Every externally-sourced content item passes through a two-layer validation:
 
 **Layer 1 — Pattern matching**: Fast regex scan for known injection signatures:
 - `Ignore all previous instructions`
@@ -29,19 +29,19 @@ Monobrain implements this as `validateExternalContent()` in `@monobrain/security
 - `Output your system prompt`
 - Common data exfiltration patterns
 
-**Layer 2 — aidefence semantic scan** (optional): When `AIDEFENCE_API_KEY` is configured, the content is sent to the `mcp__monobrain__aidefence_scan` tool for semantic analysis that can detect novel injection attempts that don't match known patterns.
+**Layer 2 — aidefence semantic scan** (optional): When `AIDEFENCE_API_KEY` is configured, the content is sent to the `mcp__monomind__aidefence_scan` tool for semantic analysis that can detect novel injection attempts that don't match known patterns.
 
 Content that fails either layer is rejected with a structured error rather than passed to the LLM.
 
-## How It Improved Monobrain
+## How It Improved Monomind
 
-The indirect injection research changed how Monobrain treats tool outputs. Before this influence, the system naively assumed that content retrieved by the agent was safe to show the LLM. After, a validation boundary exists at every external content ingestion point: web fetches, file reads from outside the project directory, API responses, and MCP tool outputs.
+The indirect injection research changed how Monomind treats tool outputs. Before this influence, the system naively assumed that content retrieved by the agent was safe to show the LLM. After, a validation boundary exists at every external content ingestion point: web fetches, file reads from outside the project directory, API responses, and MCP tool outputs.
 
-This is especially critical for Monobrain because its agents routinely fetch external content — searching the web, reading third-party documentation, cloning repositories — and passing adversarial content directly to Claude would be a severe security failure.
+This is especially critical for Monomind because its agents routinely fetch external content — searching the web, reading third-party documentation, cloning repositories — and passing adversarial content directly to Claude would be a severe security failure.
 
 ## Key Files Influenced
 
-- `packages/@monobrain/security/src/input-validator.ts` — `validateExternalContent()`
+- `packages/@monomind/security/src/input-validator.ts` — `validateExternalContent()`
 - `hook-handler.cjs` `pre-bash` handler — command injection pattern detection
-- `packages/@monobrain/cli/src/mcp-tools/` — external content validation wrappers
-- `mcp__monobrain__aidefence_scan` — semantic injection detection
+- `packages/@monomind/cli/src/mcp-tools/` — external content validation wrappers
+- `mcp__monomind__aidefence_scan` — semantic injection detection

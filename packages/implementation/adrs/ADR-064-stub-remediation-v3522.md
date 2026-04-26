@@ -13,7 +13,7 @@ The ADR-063 audit flagged several items as "stub" or "missing" that are in fact 
 | Item | Finding | Evidence |
 |------|---------|----------|
 | **Session restore --latest** | Fully implemented with MCP integration | `session.ts:274-432` — interactive selector when no ID given |
-| **Workflow persistence** | Saves to `.monobrain/workflows/store.json` | `workflow-tools.ts:52-78` — `loadWorkflowStore()`/`saveWorkflowStore()` |
+| **Workflow persistence** | Saves to `.monomind/workflows/store.json` | `workflow-tools.ts:52-78` — `loadWorkflowStore()`/`saveWorkflowStore()` |
 | **Daemon scheduler** | Working process management with PID files | `daemon.ts:234-458` — detached process, signal handling |
 | **Flash Attention JS** | CPU-optimized block-wise implementation | `flash-attention.ts:67-150` — top-K sparse, fused softmax-matmul |
 | **MCP path resolution** | Properly sanitized with `process.cwd()` | `session-tools.ts:34-39` — path sanitization regex |
@@ -29,7 +29,7 @@ The ADR-063 audit flagged several items as "stub" or "missing" that are in fact 
 | **P1** | SONA reinforcement learning | Signal recording only | Trajectory → reward → weight update loop |
 | **P1** | EWC++ consolidation execution | Algorithm defined, not executed | Fisher matrix computation + penalty application |
 | **P2** | Coverage hooks test integration | Returns 0% always | Read lcov.info / jest coverage-summary.json from disk |
-| **P2** | Intelligence stats → neural bridge | Stats counter disconnected | Read from ReasoningBank `.monobrain/neural/patterns.json` |
+| **P2** | Intelligence stats → neural bridge | Stats counter disconnected | Read from ReasoningBank `.monomind/neural/patterns.json` |
 
 ## Implementation Plan
 
@@ -128,8 +128,8 @@ Read real coverage data from common test tools:
 
 Connect `hooks intelligence stats` to ReasoningBank data:
 
-- Read pattern count from `.monobrain/neural/patterns.json`
-- Read trajectory count from `.monobrain/neural/stats.json`
+- Read pattern count from `.monomind/neural/patterns.json`
+- Read trajectory count from `.monomind/neural/stats.json`
 - Read SONA adaptation metrics from intelligence system
 
 **File:** `src/commands/hooks.ts` (intelligence stats handler)
@@ -152,7 +152,7 @@ Connect `hooks intelligence stats` to ReasoningBank data:
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `@ruvector/learning-wasm` | 0.1.29 | MicroLoRA, Flash Attention WASM, Int8 quantization |
-| `@monobrain/memory` | 3.0.0-alpha.12 | AgentDB + ControllerRegistry |
+| `@monomind/memory` | 3.0.0-alpha.12 | AgentDB + ControllerRegistry |
 
 ## Success Criteria
 

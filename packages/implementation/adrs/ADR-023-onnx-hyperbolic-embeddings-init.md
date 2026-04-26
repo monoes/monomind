@@ -5,7 +5,7 @@
 
 ## Context
 
-Monobrain V1 uses embeddings extensively for:
+Monomind V1 uses embeddings extensively for:
 - Memory vector search (HNSW-indexed)
 - Neural pattern recognition
 - Semantic drift detection
@@ -21,7 +21,7 @@ Currently, embeddings are initialized lazily when first used. This causes:
 ### Current Architecture
 
 ```
-@monobrain/embeddings
+@monomind/embeddings
 ├── embedding-service.ts      # Core embedding providers
 ├── hyperbolic.ts            # Poincaré ball transformations
 ├── neural-integration.ts    # agentic-flow substrate wrapper
@@ -96,10 +96,10 @@ function getMigrationSteps(target: string) {
       name: 'Embedding Models',
       description: 'Download ONNX embedding model for V1',
       source: 'N/A (cloud download)',
-      dest: '.monobrain/models/',
+      dest: '.monomind/models/',
       execute: async () => {
-        const { downloadEmbeddingModel } = await import('@monobrain/embeddings');
-        await downloadEmbeddingModel('all-MiniLM-L6-v2', '.monobrain/models/');
+        const { downloadEmbeddingModel } = await import('@monomind/embeddings');
+        await downloadEmbeddingModel('all-MiniLM-L6-v2', '.monomind/models/');
       }
     });
   }
@@ -112,7 +112,7 @@ Add embedding-specific pretraining:
 
 ```bash
 # New pretrain options
-npx monobrain@latest hooks pretrain \
+npx monomind@latest hooks pretrain \
   --model-type embeddings \
   --source-model all-MiniLM-L6-v2 \
   --hyperbolic true \
@@ -128,14 +128,14 @@ npx monobrain@latest hooks pretrain \
 
 ### 4. Configuration Schema
 
-Add to `monobrain.config.json`:
+Add to `monomind.config.json`:
 
 ```json
 {
   "embeddings": {
     "provider": "agentic-flow",
     "model": "all-MiniLM-L6-v2",
-    "modelPath": ".monobrain/models/",
+    "modelPath": ".monomind/models/",
     "dimension": 384,
     "cacheSize": 256,
     "hyperbolic": {
@@ -158,7 +158,7 @@ Add to `monobrain.config.json`:
 #### `embeddings init`
 ```bash
 # Initialize embeddings subsystem
-npx monobrain@latest embeddings init [options]
+npx monomind@latest embeddings init [options]
 
 Options:
   --model <id>      Model to download (default: all-MiniLM-L6-v2)
@@ -171,7 +171,7 @@ Options:
 #### `embeddings status`
 ```bash
 # Check embeddings status
-npx monobrain@latest embeddings status
+npx monomind@latest embeddings status
 
 Output:
 ╭────────────────────────────────────────────────────╮
@@ -189,10 +189,10 @@ Output:
 #### `embeddings download`
 ```bash
 # Download specific model
-npx monobrain@latest embeddings download <model-id>
+npx monomind@latest embeddings download <model-id>
 
 # Example
-npx monobrain@latest embeddings download all-mpnet-base-v2
+npx monomind@latest embeddings download all-mpnet-base-v2
 Downloading all-mpnet-base-v2... [████████░░] 80% (88/110 MB)
 ```
 
@@ -210,7 +210,7 @@ Downloading all-mpnet-base-v2... [████████░░] 80% (88/110 MB
 │                          │                    │              │
 │                          ▼                    ▼              │
 │                  ┌──────────────┐    ┌─────────────────┐   │
-│                  │ Config write │    │ .monobrain/   │   │
+│                  │ Config write │    │ .monomind/   │   │
 │                  │ embeddings{} │    │ models/<model>  │   │
 │                  └──────────────┘    └─────────────────┘   │
 │                                                              │
@@ -312,7 +312,7 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
 async function initializeEmbeddings(options: InitOptions): Promise<void> {
   if (!options.embeddings.enabled) return;
 
-  const configDir = path.join(options.targetDir, '.monobrain');
+  const configDir = path.join(options.targetDir, '.monomind');
   const modelDir = path.join(configDir, 'models');
 
   // Create model directory
@@ -320,7 +320,7 @@ async function initializeEmbeddings(options: InitOptions): Promise<void> {
 
   // Download model if requested
   if (options.embeddings.predownload) {
-    const { downloadEmbeddingModel } = await import('@monobrain/embeddings');
+    const { downloadEmbeddingModel } = await import('@monomind/embeddings');
     await downloadEmbeddingModel(
       options.embeddings.model,
       modelDir,
@@ -359,17 +359,17 @@ async function migrateEmbeddings(ctx: CommandContext): Promise<void> {
   output.writeln('Migrating embeddings...');
 
   // 1. Check for V2 embedding cache
-  const v2CachePath = path.join(ctx.cwd, '.monobrain', 'cache', 'embeddings.db');
+  const v2CachePath = path.join(ctx.cwd, '.monomind', 'cache', 'embeddings.db');
   const v2Exists = fs.existsSync(v2CachePath);
 
   // 2. Download V1 model
-  const { downloadEmbeddingModel, listEmbeddingModels } = await import('@monobrain/embeddings');
+  const { downloadEmbeddingModel, listEmbeddingModels } = await import('@monomind/embeddings');
   const models = await listEmbeddingModels();
   const targetModel = models.find(m => m.id === 'all-MiniLM-L6-v2');
 
   if (!targetModel?.downloaded) {
     output.writeln(output.dim('  Downloading ONNX model...'));
-    await downloadEmbeddingModel('all-MiniLM-L6-v2', '.monobrain/models/');
+    await downloadEmbeddingModel('all-MiniLM-L6-v2', '.monomind/models/');
     output.writeln(output.success('  ✓ Model downloaded'));
   }
 
@@ -417,14 +417,14 @@ const pretrainCommand: Command = {
 
       // 1. Ensure model downloaded
       const { downloadEmbeddingModel, createEmbeddingService } =
-        await import('@monobrain/embeddings');
+        await import('@monomind/embeddings');
 
-      await downloadEmbeddingModel('all-MiniLM-L6-v2', '.monobrain/models/');
+      await downloadEmbeddingModel('all-MiniLM-L6-v2', '.monomind/models/');
 
       // 2. Initialize embedding service
       const embedder = createEmbeddingService({
         provider: 'agentic-flow',
-        modelPath: '.monobrain/models/all-MiniLM-L6-v2',
+        modelPath: '.monomind/models/all-MiniLM-L6-v2',
       });
 
       // 3. Warm cache with common patterns
@@ -479,11 +479,11 @@ const initSubcommand: Command = {
 
     try {
       const { downloadEmbeddingModel, createEmbeddingService } =
-        await import('@monobrain/embeddings');
+        await import('@monomind/embeddings');
 
       // Download model
       spinner.text = 'Downloading ONNX model...';
-      await downloadEmbeddingModel(model, '.monobrain/models/', (p) => {
+      await downloadEmbeddingModel(model, '.monomind/models/', (p) => {
         spinner.text = `Downloading ${model}... ${p.percent}%`;
       });
 
@@ -491,7 +491,7 @@ const initSubcommand: Command = {
       spinner.text = 'Initializing embedding service...';
       const service = createEmbeddingService({
         provider: 'agentic-flow',
-        modelPath: `.monobrain/models/${model}`,
+        modelPath: `.monomind/models/${model}`,
       });
 
       // Test embedding
@@ -517,7 +517,7 @@ const statusSubcommand: Command = {
   description: 'Show embedding system status',
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { listEmbeddingModels, isNeuralAvailable } =
-      await import('@monobrain/embeddings');
+      await import('@monomind/embeddings');
 
     const models = await listEmbeddingModels();
     const neuralAvailable = await isNeuralAvailable();
@@ -551,11 +551,11 @@ const downloadSubcommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const modelId = ctx.args[0] || 'all-MiniLM-L6-v2';
 
-    const { downloadEmbeddingModel } = await import('@monobrain/embeddings');
+    const { downloadEmbeddingModel } = await import('@monomind/embeddings');
 
     output.writeln(`Downloading ${modelId}...`);
 
-    await downloadEmbeddingModel(modelId, '.monobrain/models/', (p) => {
+    await downloadEmbeddingModel(modelId, '.monomind/models/', (p) => {
       const bar = '█'.repeat(Math.floor(p.percent / 5)) +
                   '░'.repeat(20 - Math.floor(p.percent / 5));
       process.stdout.write(`\r[${bar}] ${p.percent}%`);
@@ -616,19 +616,19 @@ export default embeddingsCommand;
 ## Migration Path
 
 ### For Existing V2 Projects
-1. Run `monobrain migrate run -t embeddings`
+1. Run `monomind migrate run -t embeddings`
 2. Downloads ONNX model
 3. Migrates any cached embeddings
 4. Enables hyperbolic by default
 
 ### For New V1 Projects
-1. Run `monobrain init` or `monobrain init wizard`
+1. Run `monomind init` or `monomind init wizard`
 2. Embeddings step auto-runs
 3. Model pre-downloaded
 4. Hyperbolic enabled by default
 
 ### For Pretraining
-1. Run `monobrain hooks pretrain --embeddings`
+1. Run `monomind hooks pretrain --embeddings`
 2. Ensures model downloaded
 3. Warms cache with codebase terms
 4. Pre-computes hierarchical patterns
@@ -650,7 +650,7 @@ export default embeddingsCommand;
 ### Neutral
 - Adds `embeddings` command to CLI
 - Adds `embeddings` step to init/migrate
-- Requires `@monobrain/embeddings` package
+- Requires `@monomind/embeddings` package
 
 ## Related ADRs
 

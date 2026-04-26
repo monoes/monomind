@@ -4,7 +4,7 @@
  * Selects high-quality trace examples and composes them into
  * few-shot prompt blocks that improve agent performance.
  *
- * @module @monobrain/hooks/optimization/bootstrap-fewshot
+ * @module @monomind/hooks/optimization/bootstrap-fewshot
  */
 
 import { createHash } from 'node:crypto';

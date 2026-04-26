@@ -5,7 +5,7 @@ Execute pre-task preparations and context loading.
 ## Usage
 
 ```bash
-npx monobrain hook pre-task [options]
+npx monomind hook pre-task [options]
 ```
 
 ## Options
@@ -21,25 +21,25 @@ npx monobrain hook pre-task [options]
 ### Basic pre-task hook
 
 ```bash
-npx monobrain hook pre-task --description "Implement user authentication"
+npx monomind hook pre-task --description "Implement user authentication"
 ```
 
 ### With memory loading
 
 ```bash
-npx monobrain hook pre-task -d "Continue API development" --load-memory
+npx monomind hook pre-task -d "Continue API development" --load-memory
 ```
 
 ### Manual agent control
 
 ```bash
-npx monobrain hook pre-task -d "Debug issue #123" --auto-spawn-agents false
+npx monomind hook pre-task -d "Debug issue #123" --auto-spawn-agents false
 ```
 
 ### Full optimization
 
 ```bash
-npx monobrain hook pre-task -d "Refactor codebase" --optimize-topology --estimate-complexity
+npx monomind hook pre-task -d "Refactor codebase" --optimize-topology --estimate-complexity
 ```
 
 ## Features
@@ -85,7 +85,7 @@ Manual usage in agents:
 
 ```bash
 # In agent coordination
-npx monobrain hook pre-task --description "Your task here"
+npx monomind hook pre-task --description "Your task here"
 ```
 
 ## Output

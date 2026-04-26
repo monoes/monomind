@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Monobrain Agent Router
+ * Monomind Agent Router
  * Routes tasks to optimal agents based on learned patterns.
  * Also does keyword-matching against skill-registry.json (dev skills)
  * and extras-registry.json (non-dev specialist agents).
@@ -76,29 +76,29 @@ const SPECIFIC_AGENTS_MAP = {
 };
 
 const TASK_PATTERNS = {
-  'implement|create|build|add|write code': 'coder',
-  'test|spec|coverage|unit test|integration': 'tester',
-  'review|audit|check|validate|security': 'reviewer',
-  'research|find|search|documentation|explore|explain|understand|how does|how do|what is': 'researcher',
-  'design|architect|structure|plan': 'architect',
-  'api|endpoint|server|backend|database': 'backend-dev',
-  'ui|frontend|component|react|css|style': 'frontend-dev',
-  'deploy|docker|ci|cd|pipeline|infrastructure': 'devops',
+  '\\bimplement\\b|\\bcreate\\b|\\bbuild\\b|\\badd\\b|\\bwrite\\s+code\\b': 'coder',
+  '\\btest\\b|\\bspec\\b|\\bcoverage\\b|unit test|\\bintegration\\b': 'tester',
+  '\\breview\\b|\\baudit\\b|\\bcheck\\b|\\bvalidate\\b|\\bsecurity\\b': 'reviewer',
+  '\\bresearch\\b|\\bfind\\b|\\bsearch\\b|\\bdocumentation\\b|\\bexplore\\b|\\bexplain\\b|\\bunderstand\\b|\\bhow does\\b|\\bhow do\\b|\\bwhat is\\b': 'researcher',
+  '\\bdesign\\b|\\barchitect\\b|\\bstructure\\b|\\bplan\\b': 'architect',
+  '\\bapi\\b|\\bendpoint\\b|\\bserver\\b|\\bbackend\\b|\\bdatabase\\b': 'backend-dev',
+  '\\bui\\b|\\bfrontend\\b|\\bcomponent\\b|\\breact\\b|\\bcss\\b|\\bstyle\\b': 'frontend-dev',
+  '\\bdeploy\\b|\\bdocker\\b|\\bci\\b|\\bcd\\b|\\bpipeline\\b|\\binfrastructure\\b': 'devops',
 };
 
 // Non-dev domain keywords — if matched, skip dev routing and go to extras
 const NON_DEV_PATTERNS = [
   'marketing', 'campaign', 'social media', 'tiktok', 'instagram', 'twitter', 'linkedin',
   'seo', 'content creation', 'viral', 'growth hacking', 'brand', 'influencer', 'ecommerce',
-  'sales', 'crm', 'pipeline', 'leads', 'prospects', 'quota', 'deal', 'closing', 'outbound',
+  'sales', 'crm', 'sales pipeline', 'leads', 'prospects', 'quota', 'outbound',
   'paid media', 'ppc', 'google ads', 'facebook ads', 'programmatic', 'display ads',
-  'product management', 'roadmap', 'sprint', 'backlog', 'user story', 'customer feedback',
+  'product management', 'product roadmap', 'sprint', 'backlog', 'user story', 'customer feedback',
   'project management', 'milestone', 'stakeholder', 'jira', 'agile', 'scrum',
   'ux research', 'user research', 'usability', 'wireframe', 'prototype', 'figma',
   'ui design', 'visual design', 'illustration', 'branding',
   'academic', 'anthropology', 'history', 'geography', 'psychology', 'narrative theory',
-  'blockchain', 'salesforce', 'healthcare', 'compliance', 'legal', 'supply chain',
-  'recruitment', 'hiring', 'hr', 'finance tracking', 'invoice', 'executive summary',
+  'blockchain', 'salesforce', 'healthcare', 'compliance', 'supply chain',
+  'recruitment', 'hiring', 'human resources', 'finance tracking', 'invoice', 'executive summary',
   'customer support', 'helpdesk', 'podcast', 'video editing', 'short video',
 ];
 
@@ -124,14 +124,16 @@ function loadExtrasRegistry() {
 
 // ─── Scoring helpers ─────────────────────────────────────────────────────────
 function scoreEntry(keywords, taskLower) {
+  if (!Array.isArray(keywords)) return 0;
   let score = 0;
   for (const kw of keywords) {
-    if (taskLower.includes(kw.toLowerCase())) score++;
+    if (typeof kw === 'string' && taskLower.includes(kw.toLowerCase())) score++;
   }
   return score;
 }
 
 function matchSkills(task, topN = 5) {
+  if (typeof task !== 'string') return [];
   const registry = loadSkillRegistry();
   const taskLower = task.toLowerCase();
   return registry.skills
@@ -142,6 +144,7 @@ function matchSkills(task, topN = 5) {
 }
 
 function matchExtras(task, topN = 8) {
+  if (typeof task !== 'string') return [];
   const registry = loadExtrasRegistry();
   const taskLower = task.toLowerCase();
   return registry.extras
@@ -151,29 +154,36 @@ function matchExtras(task, topN = 8) {
     .slice(0, topN);
 }
 
+// Pre-compiled word-boundary regexes for non-dev patterns (built once at load time)
+const _nonDevRegexes = NON_DEV_PATTERNS.map(function(kw) {
+  const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+  return new RegExp('\\b' + escaped + '\\b', 'i');
+});
+
 function isNonDevTask(taskLower) {
-  for (const kw of NON_DEV_PATTERNS) {
-    if (taskLower.includes(kw)) return true;
+  for (const re of _nonDevRegexes) {
+    if (re.test(taskLower)) return true;
   }
   return false;
 }
 
 // ─── RouteLayer bridge (GAP-002) ─────────────────────────────────────────────
-// Cache the RouteLayer instance once loaded so subsequent calls are fast.
-var _routeLayer = null;
-var _routeLayerLoading = false;
+// Cache a Promise so concurrent callers all await the same load operation.
+var _routeLayerPromise = null;
 
 async function tryLoadRouteLayer() {
-  if (_routeLayer || _routeLayerLoading) return _routeLayer;
-  _routeLayerLoading = true;
-  try {
-    var routingModule = await import('@monobrain/routing');
-    if (routingModule && routingModule.RouteLayer && routingModule.ALL_ROUTES) {
-      _routeLayer = new routingModule.RouteLayer({ routes: routingModule.ALL_ROUTES });
-    }
-  } catch (e) { /* @monobrain/routing not compiled — keyword fallback will be used */ }
-  _routeLayerLoading = false;
-  return _routeLayer;
+  if (!_routeLayerPromise) {
+    _routeLayerPromise = (async function() {
+      try {
+        var routingModule = await import('@monomind/routing');
+        if (routingModule && routingModule.RouteLayer && routingModule.ALL_ROUTES) {
+          return new routingModule.RouteLayer({ routes: routingModule.ALL_ROUTES });
+        }
+      } catch (e) { /* @monomind/routing not compiled — keyword fallback will be used */ }
+      return null;
+    })();
+  }
+  return _routeLayerPromise;
 }
 
 /**
@@ -181,18 +191,26 @@ async function tryLoadRouteLayer() {
  * hook-handler.cjs route handler should call this instead of routeTask().
  */
 async function routeTaskSemantic(task) {
+  if (typeof task !== 'string' || !task) return routeTask(task);
   const rl = await tryLoadRouteLayer();
   if (rl && rl.route) {
     try {
       const semantic = await rl.route(task);
       if (semantic && semantic.agentSlug && semantic.confidence > 0.6) {
+        const mapEntry = SPECIFIC_AGENTS_MAP[semantic.agentSlug];
+        const isDevDomain = !!(mapEntry && mapEntry.length > 0);
+        const extrasForTask = isDevDomain ? [] : matchExtras(task);
+        const semanticSpecificAgents = (mapEntry && mapEntry.length > 0)
+          ? mapEntry
+          : extrasForTask.slice(0, 5).map(e => ({ slug: e.slug, label: e.name, note: e.category }));
         return {
           agent: semantic.agentSlug,
+          agentSlug: semantic.agentSlug,
           confidence: semantic.confidence,
           reason: 'RouteLayer semantic (' + (semantic.method || 'semantic') + '): ' + semantic.routeName,
           skillMatches: matchSkills(task),
-          extrasMatches: [],
-          specificAgents: SPECIFIC_AGENTS_MAP[semantic.agentSlug] || [],
+          extrasMatches: extrasForTask,
+          specificAgents: semanticSpecificAgents,
           semanticRouting: true,
         };
       }
@@ -203,17 +221,25 @@ async function routeTaskSemantic(task) {
 
 // ─── Main routing ─────────────────────────────────────────────────────────────
 function routeTask(task) {
+  if (typeof task !== 'string' || !task) {
+    return { agent: 'coder', agentSlug: 'coder', confidence: 0, reason: 'Empty task', skillMatches: [], extrasMatches: [], specificAgents: SPECIFIC_AGENTS_MAP['coder'] || [] };
+  }
   const taskLower = task.toLowerCase();
 
-  // Check non-dev first — if clearly non-dev, surface extras instead of dev agents
+  // Check non-dev first — resolve to the top-matched specialist agent name (never "extras")
   if (isNonDevTask(taskLower)) {
     const extrasMatches = matchExtras(task);
+    const top = extrasMatches[0];
+    const agentName = top ? top.name : 'Specialist Agent';
+    const agentSlug = top ? top.slug : 'specialist-agent';
     return {
-      agent: 'extras',
-      confidence: 0.85,
-      reason: 'Non-development domain detected — extras agents available',
+      agent: agentName,
+      agentSlug: agentSlug,
+      confidence: top ? 0.85 : 0.5,
+      reason: 'Domain: ' + (top ? top.category : 'non-dev') + ' | /specialagent',
       skillMatches: [],
       extrasMatches,
+      specificAgents: extrasMatches.slice(0, 5).map(e => ({ slug: e.slug, label: e.name, note: e.category })),
     };
   }
 
@@ -223,6 +249,7 @@ function routeTask(task) {
     if (regex.test(taskLower)) {
       return {
         agent,
+        agentSlug: agent,
         confidence: 0.8,
         reason: `Matched pattern: ${pattern}`,
         skillMatches: matchSkills(task),
@@ -235,6 +262,7 @@ function routeTask(task) {
   // Default — low confidence, show both skill and extras suggestions
   return {
     agent: 'coder',
+    agentSlug: 'coder',
     confidence: 0.5,
     reason: 'Default routing - no specific pattern matched',
     skillMatches: matchSkills(task),
@@ -248,8 +276,12 @@ function routeTask(task) {
  * Used when Claude picks an agent to activate.
  */
 function loadExtrasAgent(slug) {
+  if (typeof slug !== 'string' || !slug) return null;
   const registry = loadExtrasRegistry();
-  const entry = registry.extras.find(e => e.slug === slug || e.name.toLowerCase() === slug.toLowerCase());
+  const slugLower = slug.toLowerCase();
+  const entry = registry.extras.find(e =>
+    e.slug === slug || (typeof e.name === 'string' && e.name.toLowerCase() === slugLower)
+  );
   if (!entry) return null;
   try {
     return { ...entry, content: fs.readFileSync(entry.filePath, 'utf8') };

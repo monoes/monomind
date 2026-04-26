@@ -101,7 +101,7 @@ export interface SerializedGraph {
 // Build options
 export interface BuildOptions {
   codeOnly?: boolean;
-  outputDir?: string;        // defaults to <projectPath>/.monobrain/graph/
+  outputDir?: string;        // defaults to <projectPath>/.monomind/graph/
   maxFileSizeBytes?: number; // defaults to 500KB
   excludePatterns?: string[];
   languages?: string[];

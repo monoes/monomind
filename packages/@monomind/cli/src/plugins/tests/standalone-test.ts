@@ -23,7 +23,7 @@ import {
 async function main() {
   console.log('');
   console.log('╔══════════════════════════════════════════════════════════════╗');
-  console.log('║  MONOBRAIN - STANDALONE PLUGIN STORE TEST                    ║');
+  console.log('║  MONOMIND - STANDALONE PLUGIN STORE TEST                    ║');
   console.log('║  IPFS-Based Decentralized Plugin Marketplace                 ║');
   console.log('╚══════════════════════════════════════════════════════════════╝');
   console.log('');
@@ -162,8 +162,8 @@ async function main() {
   // Test 10: Similar Plugins
   console.log('▶ Test 10: Find Similar Plugins');
   try {
-    const similar = findSimilarPlugins(registry, '@monobrain/neural', 3);
-    console.log(`  ✅ Found ${similar.length} similar plugins to @monobrain/neural`);
+    const similar = findSimilarPlugins(registry, '@monomind/neural', 3);
+    console.log(`  ✅ Found ${similar.length} similar plugins to @monomind/neural`);
     passed++;
   } catch (e) {
     console.log(`  ❌ Failed: ${(e as Error).message}`);
@@ -185,10 +185,10 @@ async function main() {
     console.log('  🎉 All tests passed! Plugin Store is working correctly.');
     console.log('');
     console.log('  Available CLI Commands:');
-    console.log('    npx @monobrain/cli plugins list');
-    console.log('    npx @monobrain/cli plugins list --official');
-    console.log('    npx @monobrain/cli plugins search -q "plugin creator"');
-    console.log('    npx @monobrain/cli plugins info -n plugin-creator');
+    console.log('    npx @monomind/cli plugins list');
+    console.log('    npx @monomind/cli plugins list --official');
+    console.log('    npx @monomind/cli plugins search -q "plugin creator"');
+    console.log('    npx @monomind/cli plugins info -n plugin-creator');
     console.log('');
   }
 

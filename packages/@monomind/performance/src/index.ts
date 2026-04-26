@@ -1,7 +1,7 @@
 /**
- * @monobrain/performance
+ * @monomind/performance
  *
- * Performance module for monobrain v1.
+ * Performance module for monomind v1.
  * Provides benchmarking, Flash Attention validation, and optimization utilities.
  *
  * Target Performance Metrics:

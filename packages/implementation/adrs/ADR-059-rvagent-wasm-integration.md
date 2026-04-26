@@ -6,7 +6,7 @@
 
 ## Context
 
-Monobrain v1 already integrates four `@ruvector/*` WASM packages for intelligence
+Monomind v1 already integrates four `@ruvector/*` WASM packages for intelligence
 (learning-wasm, attention, router, sona). A new package —
 `@ruvector/rvagent-wasm@0.1.0` — provides a complete sandboxed AI agent runtime
 compiled to WebAssembly. It includes:
@@ -26,7 +26,7 @@ pi-quantization. This ADR covers both integrations.
 
 ## Decision
 
-Integrate `@ruvector/rvagent-wasm` as an optional dependency in `@monobrain/cli`,
+Integrate `@ruvector/rvagent-wasm` as an optional dependency in `@monomind/cli`,
 following the established pattern used by `@ruvector/learning-wasm` et al.
 
 ### Integration Surface
@@ -111,7 +111,7 @@ distribution that avoids floating-point logarithms entirely. Published as v2.0.1
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  @monobrain/cli                                        │
+│  @monomind/cli                                        │
 │                                                          │
 │  src/ruvector/agent-wasm.ts  ◄── Integration module      │
 │    ├─ createWasmAgent()      (lifecycle)                  │

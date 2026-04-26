@@ -8,7 +8,7 @@
  *   4-byte magic "RVLS" + newline
  *   One JSON record per line: {"type":"pattern"|"lora"|"ewc"|"trajectory","data":{...}}
  *
- * @module @monobrain/memory/rvf-learning-store
+ * @module @monomind/memory/rvf-learning-store
  */
 
 import * as fs from 'node:fs';

@@ -1,12 +1,12 @@
-# @monobrain/memory
+# @monomind/memory
 
-[![npm version](https://img.shields.io/npm/v/@monobrain/memory.svg)](https://www.npmjs.com/package/@monobrain/memory)
-[![npm downloads](https://img.shields.io/npm/dm/@monobrain/memory.svg)](https://www.npmjs.com/package/@monobrain/memory)
+[![npm version](https://img.shields.io/npm/v/@monomind/memory.svg)](https://www.npmjs.com/package/@monomind/memory)
+[![npm downloads](https://img.shields.io/npm/dm/@monomind/memory.svg)](https://www.npmjs.com/package/@monomind/memory)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![Performance](https://img.shields.io/badge/Performance-150x--12500x%20Faster-brightgreen.svg)](https://github.com/nokhodian/monobrain)
+[![Performance](https://img.shields.io/badge/Performance-150x--12500x%20Faster-brightgreen.svg)](https://github.com/nokhodian/monomind)
 
-> High-performance memory module for Monobrain V1 - AgentDB unification, HNSW indexing, vector search, self-learning knowledge graph, and hybrid SQLite+AgentDB backend (ADR-009).
+> High-performance memory module for Monomind V1 - AgentDB unification, HNSW indexing, vector search, self-learning knowledge graph, and hybrid SQLite+AgentDB backend (ADR-009).
 
 ## Features
 
@@ -32,13 +32,13 @@
 ## Installation
 
 ```bash
-npm install @monobrain/memory
+npm install @monomind/memory
 ```
 
 ## Quick Start
 
 ```typescript
-import { HNSWIndex, AgentDBAdapter, CacheManager } from '@monobrain/memory';
+import { HNSWIndex, AgentDBAdapter, CacheManager } from '@monomind/memory';
 
 // Create HNSW index for vector search
 const index = new HNSWIndex({
@@ -62,7 +62,7 @@ const results = await index.search(queryVector, 10);
 ### HNSW Index
 
 ```typescript
-import { HNSWIndex } from '@monobrain/memory';
+import { HNSWIndex } from '@monomind/memory';
 
 const index = new HNSWIndex({
   dimensions: 1536,
@@ -104,7 +104,7 @@ const stats = index.getStats();
 ### AgentDB Adapter
 
 ```typescript
-import { AgentDBAdapter } from '@monobrain/memory';
+import { AgentDBAdapter } from '@monomind/memory';
 
 const adapter = new AgentDBAdapter({
   dimension: 1536,
@@ -143,7 +143,7 @@ await adapter.enableCrossAgentSharing({
 ### Cache Manager
 
 ```typescript
-import { CacheManager } from '@monobrain/memory';
+import { CacheManager } from '@monomind/memory';
 
 const cache = new CacheManager({
   maxSize: 1000,
@@ -166,7 +166,7 @@ const stats = cache.getStats();
 ### Query Builder
 
 ```typescript
-import { QueryBuilder } from '@monobrain/memory';
+import { QueryBuilder } from '@monomind/memory';
 
 const results = await new QueryBuilder()
   .semantic(queryVector)
@@ -181,7 +181,7 @@ const results = await new QueryBuilder()
 ### Migration
 
 ```typescript
-import { MemoryMigration } from '@monobrain/memory';
+import { MemoryMigration } from '@monomind/memory';
 
 const migration = new MemoryMigration({
   source: './data/v2-memory.db',
@@ -228,7 +228,7 @@ Bidirectional sync between Claude Code's [auto memory](https://code.claude.com/d
 ### Quick Start
 
 ```typescript
-import { AutoMemoryBridge } from '@monobrain/memory';
+import { AutoMemoryBridge } from '@monomind/memory';
 
 const bridge = new AutoMemoryBridge(memoryBackend, {
   workingDir: '/workspaces/my-project',
@@ -298,7 +298,7 @@ import {
   hashContent,           // SHA-256 truncated to 16 hex chars
   pruneTopicFile,        // Keep topic files under line limit
   hasSummaryLine,        // Exact bullet-prefix dedup check
-} from '@monobrain/memory';
+} from '@monomind/memory';
 ```
 
 ### Types
@@ -313,17 +313,17 @@ import type {
   PruneStrategy,
   SyncResult,
   ImportResult,
-} from '@monobrain/memory';
+} from '@monomind/memory';
 ```
 
 ## Self-Learning Bridge (ADR-049)
 
-Connects insights to the `@monobrain/neural` learning pipeline. When neural is unavailable, all operations degrade to no-ops.
+Connects insights to the `@monomind/neural` learning pipeline. When neural is unavailable, all operations degrade to no-ops.
 
 ### Quick Start
 
 ```typescript
-import { AutoMemoryBridge, LearningBridge } from '@monobrain/memory';
+import { AutoMemoryBridge, LearningBridge } from '@monomind/memory';
 
 const bridge = new AutoMemoryBridge(backend, {
   workingDir: '/workspaces/my-project',
@@ -350,12 +350,12 @@ await bridge.syncToAutoMemory(); // Calls consolidate() first
 ### Standalone Usage
 
 ```typescript
-import { LearningBridge } from '@monobrain/memory';
+import { LearningBridge } from '@monomind/memory';
 
 const lb = new LearningBridge(backend, {
   // Optional: inject neural loader for custom setups
   neuralLoader: async () => {
-    const { NeuralLearningSystem } = await import('@monobrain/neural');
+    const { NeuralLearningSystem } = await import('@monomind/neural');
     return new NeuralLearningSystem();
   },
 });
@@ -391,7 +391,7 @@ Pure TypeScript knowledge graph with PageRank and community detection. No extern
 ### Quick Start
 
 ```typescript
-import { AutoMemoryBridge, MemoryGraph } from '@monobrain/memory';
+import { AutoMemoryBridge, MemoryGraph } from '@monomind/memory';
 
 const bridge = new AutoMemoryBridge(backend, {
   workingDir: '/workspaces/my-project',
@@ -412,7 +412,7 @@ await bridge.curateIndex();
 ### Standalone Usage
 
 ```typescript
-import { MemoryGraph } from '@monobrain/memory';
+import { MemoryGraph } from '@monomind/memory';
 
 const graph = new MemoryGraph({
   pageRankDamping: 0.85,
@@ -474,7 +474,7 @@ Maps Claude Code's 3-scope agent memory directories for per-agent knowledge isol
 ### Quick Start
 
 ```typescript
-import { createAgentBridge, transferKnowledge } from '@monobrain/memory';
+import { createAgentBridge, transferKnowledge } from '@monomind/memory';
 
 // Create a bridge for a specific agent scope
 const agentBridge = createAgentBridge(backend, {
@@ -517,7 +517,7 @@ import {
   createAgentBridge,       // Create scoped AutoMemoryBridge
   transferKnowledge,       // Cross-agent knowledge sharing
   listAgentScopes,         // Discover existing agent scopes
-} from '@monobrain/memory';
+} from '@monomind/memory';
 
 // Resolve path for an agent scope
 const dir = resolveAgentMemoryDir('my-agent', 'project');
@@ -614,7 +614,7 @@ Edge types include `REFERENCES`, `CAUSES`, `PRECEDED_BY`, `RELATED_TO`, and
 `CONTRADICTS`, enabling episodic reasoning over the agent's memory history.
 
 ```typescript
-import { MemoryGraph, type EdgeType } from '@monobrain/memory';
+import { MemoryGraph, type EdgeType } from '@monomind/memory';
 
 const graph = new MemoryGraph();
 graph.addEdge('plan-123', 'code-456', EdgeType.CAUSES, 0.9);
@@ -683,7 +683,7 @@ This addresses the MemoRAG insight that naive RAG fails when the user query does
 directly match any retrievable chunk — paraphrased sub-queries dramatically improve recall.
 
 ```typescript
-import { HybridBackend } from '@monobrain/memory';
+import { HybridBackend } from '@monomind/memory';
 
 const backend = new HybridBackend({
   embeddingGenerator: myEmbedder,
@@ -718,7 +718,7 @@ Source: arXiv:2409.05591 — MemoRAG (TheWebConf 2025).
 ### Quick Start
 
 ```typescript
-import { DiskAnnBackend, type DiskAnnBackendConfig } from '@monobrain/memory';
+import { DiskAnnBackend, type DiskAnnBackendConfig } from '@monomind/memory';
 
 // Wrap any IMemoryBackend
 const diskann = new DiskAnnBackend(existingBackend, {
@@ -743,7 +743,7 @@ const results = await diskann.search(queryVector, { k: 5 });
 Pass `diskAnnConfig` to activate DiskANN on the long-term backend:
 
 ```typescript
-import { TierManager } from '@monobrain/memory';
+import { TierManager } from '@monomind/memory';
 
 const tier = new TierManager(
   longTermBackend,
@@ -815,7 +815,7 @@ import type {
   // Agent Scope (ADR-049)
   AgentMemoryScope, AgentScopedConfig,
   TransferOptions, TransferResult,
-} from '@monobrain/memory';
+} from '@monomind/memory';
 ```
 
 ## Dependencies
@@ -823,13 +823,13 @@ import type {
 - `agentdb` - Vector database engine
 - `better-sqlite3` - SQLite driver (native)
 - `sql.js` - SQLite driver (WASM fallback)
-- `@monobrain/neural` - **Optional peer dependency** for self-learning (graceful fallback when unavailable)
+- `@monomind/neural` - **Optional peer dependency** for self-learning (graceful fallback when unavailable)
 
 ## Related Packages
 
-- [@monobrain/neural](../neural) - Neural learning integration (SONA, ReasoningBank, EWC++)
-- [@monobrain/shared](../shared) - Shared types and utilities
-- [@monobrain/hooks](../hooks) - Session lifecycle hooks for auto memory sync
+- [@monomind/neural](../neural) - Neural learning integration (SONA, ReasoningBank, EWC++)
+- [@monomind/shared](../shared) - Shared types and utilities
+- [@monomind/hooks](../hooks) - Session lifecycle hooks for auto memory sync
 
 ## License
 

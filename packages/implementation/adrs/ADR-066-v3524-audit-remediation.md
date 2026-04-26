@@ -42,7 +42,7 @@ A comprehensive 4-agent deep audit of the v1.5.24 CLI codebase identified 15 iss
 | # | Issue | File | Fix Applied |
 |---|-------|------|-------------|
 | M-1 | Config dir created world-readable | `config-tools.ts:47` | Added `mode: 0o700` to `mkdirSync()` |
-| M-2 | Swarm tools returning mock data | `swarm-tools.ts` | Complete rewrite: 4 tools now use file-based state persistence at `.monobrain/swarm/swarm-state.json` with real CRUD operations |
+| M-2 | Swarm tools returning mock data | `swarm-tools.ts` | Complete rewrite: 4 tools now use file-based state persistence at `.monomind/swarm/swarm-state.json` with real CRUD operations |
 | M-3 | Missing commands in lazy-loader | `commands/index.ts` | Added `appliance-advanced` and `transfer-store` to `commandLoaders` map |
 | M-4 | Memory list hangs without daemon | Runtime | (Documented — requires daemon lifecycle change) |
 | M-5 | AgentDB controller warning noise | Runtime | (Documented — cosmetic, non-blocking) |
@@ -56,7 +56,7 @@ The 4 swarm MCP tools were completely rewritten from stubs to real implementatio
 - **swarm_shutdown**: Finds target swarm (by ID or most recent running), updates status to 'terminated', persists
 - **swarm_health**: Real health checks against persisted state — coordinator status, agent count, persistence file existence, topology info
 
-State file: `.monobrain/swarm/swarm-state.json` (restrictive 0o700 permissions)
+State file: `.monomind/swarm/swarm-state.json` (restrictive 0o700 permissions)
 
 ## Validation
 
