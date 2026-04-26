@@ -4,12 +4,12 @@
  * Runs without TTY for daemon processes and scheduled tasks
  *
  * Usage:
- *   npx @monobrain/cli headless --worker <type>
- *   npx @monobrain/cli headless --daemon
- *   npx @monobrain/cli headless --benchmark
+ *   npx @monomind/cli headless --worker <type>
+ *   npx @monomind/cli headless --daemon
+ *   npx @monomind/cli headless --benchmark
  *
  * Environment:
- *   MONOBRAIN_HEADLESS=true
+ *   MONOMIND_HEADLESS=true
  *   CLAUDE_CODE_HEADLESS=true
  *
  * @module v1/cli/runtime/headless
@@ -98,7 +98,7 @@ function parseArgs(): HeadlessConfig {
  */
 function showHelp(): void {
   console.log(`
-Headless Runtime for Monobrain
+Headless Runtime for Monomind
 
 Usage:
   headless --worker <type>    Run a specific worker
@@ -118,7 +118,7 @@ Options:
   -h, --help            Show help
 
 Environment:
-  MONOBRAIN_HEADLESS=true   Enable headless mode
+  MONOMIND_HEADLESS=true   Enable headless mode
   CLAUDE_CODE_HEADLESS=true   Enable Claude Code headless
 
 Examples:
@@ -194,7 +194,7 @@ async function runDaemon(): Promise<void> {
  * Run benchmarks
  */
 async function runBenchmarks(): Promise<BenchmarkResults> {
-  console.log('=== Monobrain Performance Benchmarks ===\n');
+  console.log('=== Monomind Performance Benchmarks ===\n');
 
   // Initialize intelligence
   await initializeIntelligence();
@@ -274,7 +274,7 @@ async function runBenchmarks(): Promise<BenchmarkResults> {
  * Show system status
  */
 async function showStatus(): Promise<void> {
-  console.log('=== Monobrain System Status ===\n');
+  console.log('=== Monomind System Status ===\n');
 
   // Check daemon
   const daemon = getDaemon();
@@ -302,7 +302,7 @@ async function showStatus(): Promise<void> {
   console.log(`  Entries: ${hnsw.entryCount}`);
 
   console.log('\nEnvironment:');
-  console.log(`  MONOBRAIN_HEADLESS: ${process.env.MONOBRAIN_HEADLESS || 'not set'}`);
+  console.log(`  MONOMIND_HEADLESS: ${process.env.MONOMIND_HEADLESS || 'not set'}`);
   console.log(`  CLAUDE_CODE_HEADLESS: ${process.env.CLAUDE_CODE_HEADLESS || 'not set'}`);
   console.log(`  NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
 }
@@ -312,7 +312,7 @@ async function showStatus(): Promise<void> {
  */
 async function main(): Promise<void> {
   // Set headless environment
-  process.env.MONOBRAIN_HEADLESS = 'true';
+  process.env.MONOMIND_HEADLESS = 'true';
 
   const config = parseArgs();
 

@@ -1,11 +1,11 @@
 <div align="center">
 
-<img src="docs/assets/banner.svg" alt="monobrain" width="860"/>
+<img src="docs/assets/banner.svg" alt="monomind" width="860"/>
 
 <br/>
 
-[![npm version](https://img.shields.io/npm/v/monobrain?color=7c3aed&label=monobrain&style=flat-square)](https://www.npmjs.com/package/monobrain)
-[![npm downloads](https://img.shields.io/npm/dm/monobrain?color=3b82f6&style=flat-square)](https://www.npmjs.com/package/monobrain)
+[![npm version](https://img.shields.io/npm/v/monomind?color=7c3aed&label=monomind&style=flat-square)](https://www.npmjs.com/package/monomind)
+[![npm downloads](https://img.shields.io/npm/dm/monomind?color=3b82f6&style=flat-square)](https://www.npmjs.com/package/monomind)
 [![License: MIT](https://img.shields.io/badge/license-MIT-06b6d4?style=flat-square)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-10b981?style=flat-square)](https://nodejs.org)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-compatible-a78bfa?style=flat-square)](https://claude.ai/code)
@@ -39,7 +39,7 @@ A single LLM session is stateless, single-threaded, and amnesiac. It cannot hold
 
 Complex engineering work is inherently concurrent and cumulative. A human team succeeds because specialists work in parallel, hand off to each other with shared context, and build institutional knowledge over time. A solo AI session has none of that structure. Every run starts from zero, every agent is the same generalist, and every successful pattern learned from the last task evaporates.
 
-Monobrain gives Claude Code a coordinated team: 60+ specialized agents that share persistent vector memory, route work automatically to the right specialist, reach fault-tolerant consensus across disagreements, and grow measurably better with each session.
+Monomind gives Claude Code a coordinated team: 60+ specialized agents that share persistent vector memory, route work automatically to the right specialist, reach fault-tolerant consensus across disagreements, and grow measurably better with each session.
 
 > **One platform. Coordinated agents. Persistent intelligence.**
 
@@ -104,7 +104,7 @@ Every request enters through a unified entry layer, passes through layered secur
 
 ### 3-Tier Model Routing
 
-Not every task warrants an Opus call. Monobrain routes each unit of work to the cheapest handler that can do it correctly.
+Not every task warrants an Opus call. Monomind routes each unit of work to the cheapest handler that can do it correctly.
 
 | Tier | Handler              | Latency | Cost per call | When it applies                                                        |
 |------|----------------------|---------|---------------|------------------------------------------------------------------------|
@@ -142,25 +142,25 @@ Tier 1 bypasses the LLM entirely — the WASM runtime executes the transform in 
 
 ## 4. Core Modules
 
-Monobrain is a monorepo of focused packages. Each one owns a distinct responsibility — there is no shared god-object and no circular dependencies between bounded contexts.
+Monomind is a monorepo of focused packages. Each one owns a distinct responsibility — there is no shared god-object and no circular dependencies between bounded contexts.
 
 | Package | Version | Purpose |
 |---|---|---|
-| `@monobrain/cli` | `1.5.2` | CLI entry point — 41 commands spanning agent lifecycle, swarm orchestration, memory, hooks, sessions, neural training, security, and diagnostics |
-| `@monobrain/memory` | `1.5.2` | AgentDB: hybrid SQLite + HNSW vector store. Stores session patterns, routes semantic queries, persists outcomes across sessions with namespace isolation |
-| `@monobrain/hooks` | `1.5.2` | 17 lifecycle hooks (pre/post-edit, pre/post-task, session-start/end, route, pretrain…) + 12 background workers (ultralearn, optimize, audit, testgaps, refactor…) |
-| `@monobrain/security` | `1.5.2` | AIDefence input validation layer — prompt injection detection, PII scanning, CVE remediation, gVisor sandbox integration, safe execution wrappers |
-| `@monobrain/guidance` | `1.5.2` | Governance control plane — capability registry, workflow templates, quickref generation, routing recommendations for new users and CI pipelines |
+| `@monomind/cli` | `1.5.2` | CLI entry point — 41 commands spanning agent lifecycle, swarm orchestration, memory, hooks, sessions, neural training, security, and diagnostics |
+| `@monomind/memory` | `1.5.2` | AgentDB: hybrid SQLite + HNSW vector store. Stores session patterns, routes semantic queries, persists outcomes across sessions with namespace isolation |
+| `@monomind/hooks` | `1.5.2` | 17 lifecycle hooks (pre/post-edit, pre/post-task, session-start/end, route, pretrain…) + 12 background workers (ultralearn, optimize, audit, testgaps, refactor…) |
+| `@monomind/security` | `1.5.2` | AIDefence input validation layer — prompt injection detection, PII scanning, CVE remediation, gVisor sandbox integration, safe execution wrappers |
+| `@monomind/guidance` | `1.5.2` | Governance control plane — capability registry, workflow templates, quickref generation, routing recommendations for new users and CI pipelines |
 
 ### MCP Server
 
-The MCP server (`monobrain mcp start`) exposes **280+ tools** over stdio or HTTP. Every CLI command has a corresponding MCP tool, enabling Claude Code to invoke the full Monobrain stack from within a conversation without shell access.
+The MCP server (`monomind mcp start`) exposes **280+ tools** over stdio or HTTP. Every CLI command has a corresponding MCP tool, enabling Claude Code to invoke the full Monomind stack from within a conversation without shell access.
 
 Tool categories: `agentdb_*`, `hooks_*`, `neural_*`, `swarm_*`, `memory_*`, `coordination_*`, `embeddings_*`, `performance_*`, `hive-mind_*`, `graphify_*`, `aidefence_*`, `browser_*`, `wasm_*`, `workflow_*`, `ruvllm_*`, and more.
 
 ### Background Workers
 
-The daemon (`monobrain daemon start`) runs 12 workers that operate between sessions without blocking the active conversation:
+The daemon (`monomind daemon start`) runs 12 workers that operate between sessions without blocking the active conversation:
 
 | Worker | Trigger | What it does |
 |---|---|---|
@@ -181,7 +181,7 @@ The daemon (`monobrain daemon start`) runs 12 workers that operate between sessi
 
 ## 5. Agent Ecosystem
 
-Every agent type is a named Claude Code sub-agent with a focused system prompt and a defined set of tools. Monobrain's router selects the minimum-capability agent that can handle a given task, avoiding the cost and latency of over-provisioning.
+Every agent type is a named Claude Code sub-agent with a focused system prompt and a defined set of tools. Monomind's router selects the minimum-capability agent that can handle a given task, avoiding the cost and latency of over-provisioning.
 
 ### Core Engineering
 
@@ -233,17 +233,17 @@ Every agent type is a named Claude Code sub-agent with a focused system prompt a
 
 ### Domain Specialists
 
-Monobrain includes 40+ additional specialists for frontend, backend, mobile, DevOps, ML, data engineering, blockchain, game development, and enterprise platforms. Run `monobrain agent list --available` to see the full catalog.
+Monomind includes 40+ additional specialists for frontend, backend, mobile, DevOps, ML, data engineering, blockchain, game development, and enterprise platforms. Run `monomind agent list --available` to see the full catalog.
 
 ---
 
 ## 6. Research Acknowledgements
 
-Monobrain implements techniques from peer-reviewed research across distributed systems, machine learning, and software engineering. The following papers directly influenced design decisions in the codebase.
+Monomind implements techniques from peer-reviewed research across distributed systems, machine learning, and software engineering. The following papers directly influenced design decisions in the codebase.
 
 | Technique | Paper | Applied In |
 |---|---|---|
-| HNSW approximate nearest neighbor | Malkov & Yashunin, 2018 — *Efficient and Robust ANN* | `@monobrain/memory` vector search |
+| HNSW approximate nearest neighbor | Malkov & Yashunin, 2018 — *Efficient and Robust ANN* | `@monomind/memory` vector search |
 | Flash Attention | Dao et al., 2022 — *Fast and Memory-Efficient Exact Attention* | Session context compression |
 | LoRA fine-tuning | Hu et al., 2021 — *Low-Rank Adaptation of Large Language Models* | Pattern distillation, DISTILL step |
 | EWC (Elastic Weight Consolidation) | Kirkpatrick et al., 2017 — *Overcoming Catastrophic Forgetting* | CONSOLIDATE step, session persistence |
@@ -269,23 +269,23 @@ Monobrain implements techniques from peer-reviewed research across distributed s
 
 **Prerequisites**: Node.js >= 20, npm >= 9
 
-### Step 1: Install Monobrain
+### Step 1: Install Monomind
 
 ```bash
-npm install -g monobrain
-monobrain --version
+npm install -g monomind
+monomind --version
 ```
 
 Or run without installing:
 
 ```bash
-npx monobrain@latest --version
+npx monomind@latest --version
 ```
 
 ### Step 2: Add the MCP Server to Claude Code
 
 ```bash
-claude mcp add monobrain -- npx -y monobrain@latest mcp start
+claude mcp add monomind -- npx -y monomind@latest mcp start
 ```
 
 Verify the server is registered:
@@ -297,16 +297,16 @@ claude mcp list
 ### Step 3: Initialize Your Project
 
 ```bash
-npx monobrain@latest init --wizard
+npx monomind@latest init --wizard
 ```
 
-The wizard walks you through topology selection, memory backend, provider API keys, and hook configuration. It writes a `monobrain.config.json` to your project root and registers default hooks with Claude Code.
+The wizard walks you through topology selection, memory backend, provider API keys, and hook configuration. It writes a `monomind.config.json` to your project root and registers default hooks with Claude Code.
 
 After init, start the background daemon so workers can run between sessions:
 
 ```bash
-npx monobrain@latest daemon start
-npx monobrain@latest doctor --fix
+npx monomind@latest daemon start
+npx monomind@latest doctor --fix
 ```
 
 ### Your First Swarm
@@ -315,22 +315,22 @@ The commands below spin up a 4-agent hierarchical swarm and populate it with cor
 
 ```bash
 # Initialize the swarm coordinator
-npx monobrain@latest swarm init \
+npx monomind@latest swarm init \
   --topology hierarchical \
   --max-agents 4 \
   --strategy specialized
 
 # Spawn four agents in parallel roles
-npx monobrain@latest agent spawn -t coder      --name coder-1
-npx monobrain@latest agent spawn -t tester     --name tester-1
-npx monobrain@latest agent spawn -t reviewer   --name reviewer-1
-npx monobrain@latest agent spawn -t researcher --name researcher-1
+npx monomind@latest agent spawn -t coder      --name coder-1
+npx monomind@latest agent spawn -t tester     --name tester-1
+npx monomind@latest agent spawn -t reviewer   --name reviewer-1
+npx monomind@latest agent spawn -t researcher --name researcher-1
 
 # Confirm all agents are live
-npx monobrain@latest agent list
+npx monomind@latest agent list
 
 # Check swarm coordination status
-npx monobrain@latest swarm status
+npx monomind@latest swarm status
 ```
 
 At this point the swarm is running under raft consensus. The coordinator assigns tasks, agents share memory through AgentDB, and the learning loop records outcomes for every completed task.
@@ -339,19 +339,19 @@ At this point the swarm is running under raft consensus. The coordinator assigns
 
 ## 8. CLI Reference
 
-Commands follow the pattern `npx monobrain@latest <command> <subcommand> [flags]`. The global install alias `monobrain` works identically.
+Commands follow the pattern `npx monomind@latest <command> <subcommand> [flags]`. The global install alias `monomind` works identically.
 
 ### Agent and Swarm
 
 | Command | Description |
 |---|---|
-| `npx monobrain@latest agent spawn -t <type> --name <name>` | Spawn a named agent of a given type |
-| `npx monobrain@latest agent list` | List all running agents and their status |
-| `npx monobrain@latest agent status --name <name>` | Show detailed status for a single agent |
-| `npx monobrain@latest agent stop --name <name>` | Stop and remove an agent |
-| `npx monobrain@latest swarm init --topology <topology> --max-agents <n> --strategy specialized` | Initialize a swarm with the given topology |
-| `npx monobrain@latest swarm status` | Show active swarm, agent count, and consensus state |
-| `npx monobrain@latest swarm shutdown` | Gracefully stop all swarm agents |
+| `npx monomind@latest agent spawn -t <type> --name <name>` | Spawn a named agent of a given type |
+| `npx monomind@latest agent list` | List all running agents and their status |
+| `npx monomind@latest agent status --name <name>` | Show detailed status for a single agent |
+| `npx monomind@latest agent stop --name <name>` | Stop and remove an agent |
+| `npx monomind@latest swarm init --topology <topology> --max-agents <n> --strategy specialized` | Initialize a swarm with the given topology |
+| `npx monomind@latest swarm status` | Show active swarm, agent count, and consensus state |
+| `npx monomind@latest swarm shutdown` | Gracefully stop all swarm agents |
 
 Valid topologies: `hierarchical`, `mesh`, `ring`, `star`, `hybrid`, `hierarchical-mesh`
 
@@ -359,11 +359,11 @@ Valid topologies: `hierarchical`, `mesh`, `ring`, `star`, `hybrid`, `hierarchica
 
 | Command | Description |
 |---|---|
-| `npx monobrain@latest memory store --key <key> --value <value> --namespace <ns>` | Persist a value under a namespaced key |
-| `npx monobrain@latest memory search --query <text> --namespace <ns> --limit <n>` | Semantic vector search across stored entries |
-| `npx monobrain@latest memory retrieve --key <key> --namespace <ns>` | Fetch a specific entry by exact key |
-| `npx monobrain@latest memory list --namespace <ns> --limit <n>` | List all keys in a namespace |
-| `npx monobrain@latest memory init --force --verbose` | Initialize or reset the memory database |
+| `npx monomind@latest memory store --key <key> --value <value> --namespace <ns>` | Persist a value under a namespaced key |
+| `npx monomind@latest memory search --query <text> --namespace <ns> --limit <n>` | Semantic vector search across stored entries |
+| `npx monomind@latest memory retrieve --key <key> --namespace <ns>` | Fetch a specific entry by exact key |
+| `npx monomind@latest memory list --namespace <ns> --limit <n>` | List all keys in a namespace |
+| `npx monomind@latest memory init --force --verbose` | Initialize or reset the memory database |
 
 The `--namespace` flag scopes storage to avoid collisions between projects, agents, or purposes (e.g. `patterns`, `solutions`, `collaboration`). Omitting it writes to the `default` namespace.
 
@@ -371,40 +371,40 @@ The `--namespace` flag scopes storage to avoid collisions between projects, agen
 
 | Command | Description |
 |---|---|
-| `npx monobrain@latest hooks pre-task --description <task>` | Record task start; returns agent routing recommendation |
-| `npx monobrain@latest hooks post-task --task-id <id> --success true` | Record task outcome for learning; stores result patterns |
-| `npx monobrain@latest hooks route --task <task> --context <ctx> --top-k <n>` | Route a task description to the optimal agent type |
-| `npx monobrain@latest hooks session-start --session-id <id>` | Start or restore a session and load prior context |
-| `npx monobrain@latest hooks worker list` | List all 12 background workers and their current status |
-| `npx monobrain@latest hooks worker dispatch --trigger <worker>` | Manually trigger a background worker by name |
+| `npx monomind@latest hooks pre-task --description <task>` | Record task start; returns agent routing recommendation |
+| `npx monomind@latest hooks post-task --task-id <id> --success true` | Record task outcome for learning; stores result patterns |
+| `npx monomind@latest hooks route --task <task> --context <ctx> --top-k <n>` | Route a task description to the optimal agent type |
+| `npx monomind@latest hooks session-start --session-id <id>` | Start or restore a session and load prior context |
+| `npx monomind@latest hooks worker list` | List all 12 background workers and their current status |
+| `npx monomind@latest hooks worker dispatch --trigger <worker>` | Manually trigger a background worker by name |
 
 ### Intelligence
 
 | Command | Description |
 |---|---|
-| `npx monobrain@latest neural train --pattern-type coordination --epochs <n>` | Train neural patterns on recorded task outcomes |
-| `npx monobrain@latest neural predict --input <task description>` | Predict optimal routing and approach for a new task |
-| `npx monobrain@latest neural patterns --list` | Display all learned patterns and their confidence scores |
-| `npx monobrain@latest hooks pretrain --model-type moe --epochs <n>` | Bootstrap intelligence from the current repository |
-| `npx monobrain@latest hooks build-agents --agent-types <types> --focus <area>` | Generate optimized agent configurations for a task type |
+| `npx monomind@latest neural train --pattern-type coordination --epochs <n>` | Train neural patterns on recorded task outcomes |
+| `npx monomind@latest neural predict --input <task description>` | Predict optimal routing and approach for a new task |
+| `npx monomind@latest neural patterns --list` | Display all learned patterns and their confidence scores |
+| `npx monomind@latest hooks pretrain --model-type moe --epochs <n>` | Bootstrap intelligence from the current repository |
+| `npx monomind@latest hooks build-agents --agent-types <types> --focus <area>` | Generate optimized agent configurations for a task type |
 
 ### System
 
 | Command | Description |
 |---|---|
-| `npx monobrain@latest doctor --fix` | Run all health checks and auto-repair fixable issues |
-| `npx monobrain@latest daemon start` | Start the background worker daemon |
-| `npx monobrain@latest daemon stop` | Stop the background worker daemon |
-| `npx monobrain@latest config get <key>` | Read a configuration value |
-| `npx monobrain@latest config set <key> <value>` | Write a configuration value |
-| `npx monobrain@latest session save --session-id <id>` | Persist current session state to disk |
-| `npx monobrain@latest session restore --session-id <id>` | Load a previously saved session |
+| `npx monomind@latest doctor --fix` | Run all health checks and auto-repair fixable issues |
+| `npx monomind@latest daemon start` | Start the background worker daemon |
+| `npx monomind@latest daemon stop` | Stop the background worker daemon |
+| `npx monomind@latest config get <key>` | Read a configuration value |
+| `npx monomind@latest config set <key> <value>` | Write a configuration value |
+| `npx monomind@latest session save --session-id <id>` | Persist current session state to disk |
+| `npx monomind@latest session restore --session-id <id>` | Load a previously saved session |
 
 ---
 
 ## 9. The Learning Loop
 
-Every task Monobrain runs feeds a 4-step intelligence pipeline. It operates on recorded outcomes — successes, failures, timings, and routing decisions — and uses that data to make every subsequent session more accurate than the last.
+Every task Monomind runs feeds a 4-step intelligence pipeline. It operates on recorded outcomes — successes, failures, timings, and routing decisions — and uses that data to make every subsequent session more accurate than the last.
 
 ### The Pipeline
 
@@ -456,6 +456,6 @@ After several sessions of real work, three things measurably improve. Routing ac
 
 Built for engineers who think in systems, not prompts.
 
-**[npm](https://www.npmjs.com/package/monobrain) · [GitHub](https://github.com/nokhodian/monobrain) · [Issues](https://github.com/nokhodian/monobrain/issues)**
+**[npm](https://www.npmjs.com/package/monomind) · [GitHub](https://github.com/nokhodian/monomind) · [Issues](https://github.com/nokhodian/monomind/issues)**
 
 </div>

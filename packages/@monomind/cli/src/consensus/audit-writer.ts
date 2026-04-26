@@ -12,7 +12,7 @@ import type {
   ConsensusProtocol,
   QuorumProof,
   VoteRecord,
-} from '../../../../@monobrain/shared/src/types/consensus-audit.js';
+} from '../../../../@monomind/shared/src/types/consensus-audit.js';
 
 /** Input for recording a consensus decision */
 export interface RecordInput {

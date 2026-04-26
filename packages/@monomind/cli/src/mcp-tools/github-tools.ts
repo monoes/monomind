@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 
 // Storage paths
-const STORAGE_DIR = '.monobrain';
+const STORAGE_DIR = '.monomind';
 const GITHUB_DIR = 'github';
 const GITHUB_FILE = 'store.json';
 

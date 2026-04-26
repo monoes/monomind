@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { buildPlanningPrompt } from '../../packages/@monobrain/hooks/src/planning/planning-prompt.js';
-import { validatePlan } from '../../packages/@monobrain/hooks/src/planning/plan-validator.js';
-import { PlanStore } from '../../packages/@monobrain/hooks/src/planning/plan-store.js';
-import type { PlanningConfig, AgentPlan } from '../../packages/@monobrain/hooks/src/planning/types.js';
-import { DEFAULT_PLANNING_CONFIG } from '../../packages/@monobrain/hooks/src/planning/types.js';
+import { buildPlanningPrompt } from '../../packages/@monomind/hooks/src/planning/planning-prompt.js';
+import { validatePlan } from '../../packages/@monomind/hooks/src/planning/plan-validator.js';
+import { PlanStore } from '../../packages/@monomind/hooks/src/planning/plan-store.js';
+import type { PlanningConfig, AgentPlan } from '../../packages/@monomind/hooks/src/planning/types.js';
+import { DEFAULT_PLANNING_CONFIG } from '../../packages/@monomind/hooks/src/planning/types.js';
 
 // ---------------------------------------------------------------------------
 // helpers

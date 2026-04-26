@@ -2,7 +2,7 @@
  * Agentic-QE Bridge Integration Tests
  *
  * Tests for the anti-corruption layer bridges that connect
- * agentic-qe to Monobrain domains.
+ * agentic-qe to Monomind domains.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

@@ -252,8 +252,8 @@ interface CollectionManagerState {
 ```typescript
 // Core collection - essential plugins
 const coreCollection: PluginCollection = {
-  id: 'monobrain-core',
-  name: 'Monobrain Core Plugins',
+  id: 'monomind-core',
+  name: 'Monomind Core Plugins',
   version: '3.0.0',
   plugins: [
     { plugin: memoryPlugin, defaultEnabled: true, category: 'memory' },
@@ -264,7 +264,7 @@ const coreCollection: PluginCollection = {
 
 // Development collection - coding assistance
 const developmentCollection: PluginCollection = {
-  id: 'monobrain-development',
+  id: 'monomind-development',
   name: 'Development Tools',
   version: '3.0.0',
   plugins: [
@@ -278,7 +278,7 @@ const developmentCollection: PluginCollection = {
 
 // Intelligence collection - AI/ML features
 const intelligenceCollection: PluginCollection = {
-  id: 'monobrain-intelligence',
+  id: 'monomind-intelligence',
   name: 'Intelligence & Learning',
   version: '3.0.0',
   plugins: [
@@ -290,7 +290,7 @@ const intelligenceCollection: PluginCollection = {
 
 // Swarm collection - multi-agent coordination
 const swarmCollection: PluginCollection = {
-  id: 'monobrain-swarm',
+  id: 'monomind-swarm',
   name: 'Swarm Coordination',
   version: '3.0.0',
   plugins: [
@@ -303,7 +303,7 @@ const swarmCollection: PluginCollection = {
 
 // Security collection - security features
 const securityCollection: PluginCollection = {
-  id: 'monobrain-security',
+  id: 'monomind-security',
   name: 'Security & Audit',
   version: '3.0.0',
   plugins: [
@@ -465,7 +465,7 @@ class SecurePluginContext implements PluginContext {
 
 ### Phase 5: CLI Integration (2026-01-24)
 - [x] PluginManager for CLI (real npm installation)
-- [x] Persist to `.monobrain/plugins/installed.json`
+- [x] Persist to `.monomind/plugins/installed.json`
 - [x] Install, uninstall, upgrade, toggle commands
 - [x] Local plugin installation support
 - [x] Discovery service with npm fallback (IPFS demo mode)
@@ -596,7 +596,7 @@ CLI Commands (plugins.ts)
     │
     └── PluginManager (manager.ts)
             │
-            ├── InstalledPlugins manifest (.monobrain/plugins/installed.json)
+            ├── InstalledPlugins manifest (.monomind/plugins/installed.json)
             ├── npm install/uninstall
             └── PluginDiscoveryService (discovery.ts)
                     │
@@ -612,9 +612,9 @@ CLI Commands (plugins.ts)
 
 ## References
 
-- [Plugin Interface](../../@monobrain/plugins/src/core/plugin-interface.ts)
-- [Plugin Registry](../../@monobrain/plugins/src/registry/plugin-registry.ts)
-- [Plugin Manager (CLI)](../../@monobrain/cli/src/plugins/manager.ts)
-- [Collection Manager](../../@monobrain/plugins/src/collections/collection-manager.ts)
-- [Dependency Graph](../../@monobrain/plugins/src/registry/dependency-graph.ts)
-- [Official Collections](../../@monobrain/plugins/src/collections/official/index.ts)
+- [Plugin Interface](../../@monomind/plugins/src/core/plugin-interface.ts)
+- [Plugin Registry](../../@monomind/plugins/src/registry/plugin-registry.ts)
+- [Plugin Manager (CLI)](../../@monomind/cli/src/plugins/manager.ts)
+- [Collection Manager](../../@monomind/plugins/src/collections/collection-manager.ts)
+- [Dependency Graph](../../@monomind/plugins/src/registry/dependency-graph.ts)
+- [Official Collections](../../@monomind/plugins/src/collections/official/index.ts)

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Monobrain MCP Server Test Suite
+# Monomind MCP Server Test Suite
 # Tests MCP server functionality and tools
 
 set -e

@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 
 // Storage paths
-const STORAGE_DIR = '.monobrain';
+const STORAGE_DIR = '.monomind';
 const WORKFLOW_DIR = 'workflows';
 const WORKFLOW_FILE = 'store.json';
 

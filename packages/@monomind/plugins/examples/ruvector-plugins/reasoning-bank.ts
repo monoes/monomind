@@ -13,7 +13,7 @@
  *
  * @example
  * ```typescript
- * import { reasoningBankPlugin } from '@monobrain/plugins/examples/ruvector-plugins';
+ * import { reasoningBankPlugin } from '@monomind/plugins/examples/ruvector-plugins';
  * await getDefaultRegistry().register(reasoningBankPlugin);
  * ```
  */
@@ -301,16 +301,16 @@ export class ReasoningBank {
 
   /**
    * External embedding provider (optional - set via setEmbeddingProvider)
-   * When set, uses @monobrain/embeddings for high-quality embeddings
+   * When set, uses @monomind/embeddings for high-quality embeddings
    */
   private embeddingProvider: ((text: string) => Promise<Float32Array>) | null = null;
 
   /**
-   * Set external embedding provider from @monobrain/embeddings
+   * Set external embedding provider from @monomind/embeddings
    *
    * @example
    * ```typescript
-   * import { createEmbeddingService } from '@monobrain/embeddings';
+   * import { createEmbeddingService } from '@monomind/embeddings';
    * const embeddings = createEmbeddingService({ provider: 'transformers' });
    * await embeddings.initialize();
    * bank.setEmbeddingProvider(async (text) => {
@@ -350,7 +350,7 @@ export class ReasoningBank {
 
   /**
    * Hash-based embedding fallback (fast but low quality)
-   * Used when @monobrain/embeddings is not configured
+   * Used when @monomind/embeddings is not configured
    */
   private generateHashEmbedding(text: string): Float32Array {
     const embedding = new Float32Array(this.dimensions);
@@ -439,7 +439,7 @@ async function getReasoningBank(): Promise<ReasoningBank> {
 
 export const reasoningBankPlugin = new PluginBuilder('reasoning-bank', '1.0.0')
   .withDescription('Store and retrieve reasoning trajectories using @ruvector/wasm HNSW indexing')
-  .withAuthor('Monobrain Team')
+  .withAuthor('Monomind Team')
   .withTags(['reasoning', 'memory', 'learning', 'ruvector', 'hnsw'])
   .withMCPTools([
     new MCPToolBuilder('reasoning-store')

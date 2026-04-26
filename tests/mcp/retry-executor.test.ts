@@ -13,7 +13,7 @@ import {
   AGGRESSIVE_TOOL_RETRY,
   NO_RETRY,
   type ToolRetryPolicy,
-} from '../../packages/@monobrain/shared/src/types/retry.js';
+} from '../../packages/@monomind/shared/src/types/retry.js';
 
 const executor = new RetryExecutor();
 

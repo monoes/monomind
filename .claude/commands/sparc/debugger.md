@@ -7,7 +7,7 @@ Systematic debugging with TodoWrite and Memory integration.
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "debugger",
   task_description: "fix authentication issues",
   options: {
@@ -20,16 +20,16 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run debugger "fix authentication issues"
+npx monomind sparc run debugger "fix authentication issues"
 
 # For alpha features
-npx monobrain@alpha sparc run debugger "fix authentication issues"
+npx monomind@alpha sparc run debugger "fix authentication issues"
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run debugger "fix authentication issues"
+# If monomind is installed locally
+./monomind sparc run debugger "fix authentication issues"
 ```
 
 ## Core Capabilities

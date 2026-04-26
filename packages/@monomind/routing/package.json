@@ -1,7 +1,7 @@
 {
-  "name": "@monobrain/routing",
+  "name": "@monomind/routing",
   "version": "1.0.0",
-  "description": "Semantic task-to-agent routing for monobrain",
+  "description": "Semantic task-to-agent routing for monomind",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

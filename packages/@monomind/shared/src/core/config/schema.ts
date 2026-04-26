@@ -103,7 +103,7 @@ export const MemoryConfigSchema = z.object({
     port: z.number().int().positive().default(6379),
     password: z.string().optional(),
     db: z.number().int().min(0).default(0),
-    keyPrefix: z.string().default('monobrain:'),
+    keyPrefix: z.string().default('monomind:'),
   }).optional(),
   hybrid: z.object({
     vectorThreshold: z.number().int().positive().default(100),
@@ -114,7 +114,7 @@ export const MemoryConfigSchema = z.object({
  * MCP server configuration schema
  */
 export const MCPServerConfigSchema = z.object({
-  name: z.string().min(1).default('monobrain'),
+  name: z.string().min(1).default('monomind'),
   version: z.string().min(1).default('3.0.0'),
   transport: z.object({
     type: z.enum(['stdio', 'http', 'websocket']).default('stdio'),

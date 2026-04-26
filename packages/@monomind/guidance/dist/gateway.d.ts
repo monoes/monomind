@@ -6,7 +6,7 @@
  * pipeline: idempotency check -> schema validation -> budget check ->
  * enforcement gates -> allow/deny.
  *
- * @module @monobrain/guidance/gateway
+ * @module @monomind/guidance/gateway
  */
 import { EnforcementGates } from './gates.js';
 import type { GateConfig } from './types.js';

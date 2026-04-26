@@ -6,7 +6,7 @@
 
 ## Overview
 
-ADR-003 mandates a **single canonical coordination engine** for monobrain v1. This document tracks the implementation of consolidating `UnifiedSwarmCoordinator` + `SwarmHub` into a unified approach.
+ADR-003 mandates a **single canonical coordination engine** for monomind v1. This document tracks the implementation of consolidating `UnifiedSwarmCoordinator` + `SwarmHub` into a unified approach.
 
 ## Architecture Decision
 
@@ -25,7 +25,7 @@ ADR-003 mandates a **single canonical coordination engine** for monobrain v1. Th
 
 ### 1. UnifiedSwarmCoordinator (Canonical)
 
-**Location**: `/workspaces/monobrain/packages/@monobrain/swarm/src/unified-coordinator.ts`
+**Location**: `/workspaces/monomind/packages/@monomind/swarm/src/unified-coordinator.ts`
 
 **Responsibilities**:
 
@@ -49,7 +49,7 @@ ADR-003 mandates a **single canonical coordination engine** for monobrain v1. Th
 
 ### 2. SwarmHub (Compatibility Layer)
 
-**Location**: `/workspaces/monobrain/packages/@monobrain/swarm/src/coordination/swarm-hub.ts`
+**Location**: `/workspaces/monomind/packages/@monomind/swarm/src/coordination/swarm-hub.ts`
 
 **Status**: ✅ Refactored to thin facade
 
@@ -144,7 +144,7 @@ export {
 
 ### 4. Duplicate File Marked
 
-**Location**: `/workspaces/monobrain/v1/coordination/swarm-hub.ts`
+**Location**: `/workspaces/monomind/v1/coordination/swarm-hub.ts`
 
 **Status**: Marked as duplicate with clear warning
 
@@ -155,7 +155,7 @@ export {
  * ⚠️ DEPRECATION WARNING:
  * This file is a DUPLICATE and should NOT be used.
  * Use the canonical implementation at:
- * /workspaces/monobrain/packages/@monobrain/swarm/src/coordination/swarm-hub.ts
+ * /workspaces/monomind/packages/@monomind/swarm/src/coordination/swarm-hub.ts
  */
 ```
 
@@ -164,7 +164,7 @@ export {
 ### For New Code (Recommended)
 
 ```typescript
-import { createUnifiedSwarmCoordinator } from "@monobrain/swarm";
+import { createUnifiedSwarmCoordinator } from "@monomind/swarm";
 
 const coordinator = createUnifiedSwarmCoordinator({
   topology: { type: "hierarchical", maxAgents: 15 },
@@ -187,7 +187,7 @@ const results = await coordinator.executeParallel([
 ### For Legacy Code (Compatibility)
 
 ```typescript
-import { createSwarmHub } from "@monobrain/swarm";
+import { createSwarmHub } from "@monomind/swarm";
 
 const hub = createSwarmHub();
 await hub.initialize();

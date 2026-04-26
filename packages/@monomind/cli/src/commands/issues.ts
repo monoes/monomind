@@ -570,12 +570,12 @@ export const issuesCommand: Command = {
     boardCommand,
   ],
   examples: [
-    { command: 'monobrain issues list', description: 'List all claims' },
-    { command: 'monobrain issues claim 123 --agent coder:coder-1', description: 'Claim as agent' },
-    { command: 'monobrain issues handoff 123 --to agent:tester:tester-1', description: 'Handoff to tester' },
-    { command: 'monobrain issues stealable', description: 'List stealable' },
-    { command: 'monobrain issues steal 123 --agent coder:coder-2', description: 'Steal issue' },
-    { command: 'monobrain issues board', description: 'Visual board' },
+    { command: 'monomind issues list', description: 'List all claims' },
+    { command: 'monomind issues claim 123 --agent coder:coder-1', description: 'Claim as agent' },
+    { command: 'monomind issues handoff 123 --to agent:tester:tester-1', description: 'Handoff to tester' },
+    { command: 'monomind issues stealable', description: 'List stealable' },
+    { command: 'monomind issues steal 123 --agent coder:coder-2', description: 'Steal issue' },
+    { command: 'monomind issues board', description: 'Visual board' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();

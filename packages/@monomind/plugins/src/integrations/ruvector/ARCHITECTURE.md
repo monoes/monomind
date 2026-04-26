@@ -6,7 +6,7 @@
 |----------|-------|
 | Version | 1.0.0 |
 | Status | Draft |
-| Author | Monobrain Architecture Team |
+| Author | Monomind Architecture Team |
 | Last Updated | 2026-01-16 |
 | ADR References | ADR-006 (Unified Memory), ADR-009 (Hybrid Memory Backend) |
 
@@ -14,7 +14,7 @@
 
 ## 1. Executive Summary
 
-The RuVector PostgreSQL Bridge plugin provides a high-performance integration layer between Monobrain v1 and PostgreSQL databases enhanced with RuVector extensions. This plugin exposes 53+ SQL functions for vector operations, 39 attention mechanisms, Graph Neural Network (GNN) layers, hyperbolic embeddings, and self-learning capabilities through MCP tools.
+The RuVector PostgreSQL Bridge plugin provides a high-performance integration layer between Monomind v1 and PostgreSQL databases enhanced with RuVector extensions. This plugin exposes 53+ SQL functions for vector operations, 39 attention mechanisms, Graph Neural Network (GNN) layers, hyperbolic embeddings, and self-learning capabilities through MCP tools.
 
 ### Key Capabilities
 
@@ -36,7 +36,7 @@ The RuVector PostgreSQL Bridge plugin provides a high-performance integration la
                                 | MCP Protocol (stdio/HTTP/WebSocket)
                                 v
 +------------------------------------------------------------------+
-|                    Monobrain v1 MCP Server                      |
+|                    Monomind v1 MCP Server                      |
 |  +------------------------------------------------------------+  |
 |  |                 RuVector PostgreSQL Bridge                  |  |
 |  |  +----------------+  +----------------+  +---------------+  |  |
@@ -64,7 +64,7 @@ The RuVector PostgreSQL Bridge plugin provides a high-performance integration la
 ### 3.1 Plugin Container Structure
 
 ```
-@monobrain/plugins/src/integrations/ruvector/
+@monomind/plugins/src/integrations/ruvector/
 |
 +-- index.ts                    # Plugin entry point & exports
 +-- plugin.ts                   # Main plugin class (extends BasePlugin)
@@ -716,7 +716,7 @@ interface QueryPattern {
 ### 6.1 Plugin Interface
 
 ```typescript
-import { BasePlugin } from '@monobrain/plugins';
+import { BasePlugin } from '@monomind/plugins';
 
 export class RuVectorPostgreSQLBridgePlugin extends BasePlugin {
   // Metadata
@@ -1040,7 +1040,7 @@ const QUANTIZATION_RECOMMENDATIONS = {
 +------------------------------------------+
 |           Application Server             |
 |  +------------------------------------+  |
-|  |      Monobrain MCP Server        |  |
+|  |      Monomind MCP Server        |  |
 |  |  +------------------------------+  |  |
 |  |  |   RuVector Bridge Plugin     |  |  |
 |  |  +------------------------------+  |  |

@@ -4,7 +4,7 @@ Deep analysis of GitHub repository with AI insights.
 
 ## Usage
 ```bash
-npx monobrain github repo-analyze [options]
+npx monomind github repo-analyze [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain github repo-analyze [options]
 ## Examples
 ```bash
 # Basic analysis
-npx monobrain github repo-analyze --repository myorg/myrepo
+npx monomind github repo-analyze --repository myorg/myrepo
 
 # Deep analysis
-npx monobrain github repo-analyze --repository myorg/myrepo --deep
+npx monomind github repo-analyze --repository myorg/myrepo --deep
 
 # Specific areas
-npx monobrain github repo-analyze --repository myorg/myrepo --include issues,prs
+npx monomind github repo-analyze --repository myorg/myrepo --include issues,prs
 ```

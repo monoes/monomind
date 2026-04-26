@@ -12,11 +12,11 @@ import {
   RouteModeExecutor,
   CoordinateModeExecutor,
   CollaborateModeExecutor,
-} from '../../packages/@monobrain/cli/src/orchestration/routing-modes.js';
-import { ModeDispatcher } from '../../packages/@monobrain/cli/src/orchestration/mode-dispatcher.js';
-import { SharedScratchpad } from '../../packages/@monobrain/shared/src/scratchpad.js';
+} from '../../packages/@monomind/cli/src/orchestration/routing-modes.js';
+import { ModeDispatcher } from '../../packages/@monomind/cli/src/orchestration/mode-dispatcher.js';
+import { SharedScratchpad } from '../../packages/@monomind/shared/src/scratchpad.js';
 
-import type { AgentDispatcher } from '../../packages/@monobrain/cli/src/orchestration/routing-modes.js';
+import type { AgentDispatcher } from '../../packages/@monomind/cli/src/orchestration/routing-modes.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

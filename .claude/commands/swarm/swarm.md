@@ -1,10 +1,10 @@
 # swarm
 
-Main swarm orchestration command for Monobrain.
+Main swarm orchestration command for Monomind.
 
 ## Usage
 ```bash
-npx monobrain swarm <objective> [options]
+npx monomind swarm <objective> [options]
 ```
 
 ## Options
@@ -17,11 +17,11 @@ npx monobrain swarm <objective> [options]
 ## Examples
 ```bash
 # Basic swarm
-npx monobrain swarm "Build REST API"
+npx monomind swarm "Build REST API"
 
 # With strategy
-npx monobrain swarm "Research AI patterns" --strategy research
+npx monomind swarm "Research AI patterns" --strategy research
 
 # Open in Claude Code
-npx monobrain swarm "Build API" --claude
+npx monomind swarm "Build API" --claude
 ```

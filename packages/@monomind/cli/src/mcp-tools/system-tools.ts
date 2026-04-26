@@ -30,7 +30,7 @@ function getPackageVersion(): string {
 const PKG_VERSION = getPackageVersion();
 
 // Storage paths
-const STORAGE_DIR = '.monobrain';
+const STORAGE_DIR = '.monomind';
 const SYSTEM_DIR = 'system';
 const METRICS_FILE = 'metrics.json';
 
@@ -307,7 +307,7 @@ export const systemTools: MCPTool[] = [
       // Memory DB check — verify the store file exists
       {
         const t0 = performance.now();
-        const memoryDbPath = join(projectCwd, '.monobrain', 'memory', 'store.json');
+        const memoryDbPath = join(projectCwd, '.monomind', 'memory', 'store.json');
         const memoryExists = existsSync(memoryDbPath);
         const elapsed = performance.now() - t0;
         checks.push({
@@ -321,8 +321,8 @@ export const systemTools: MCPTool[] = [
       // Config check — verify config file exists
       {
         const t0 = performance.now();
-        const configPath = join(projectCwd, '.monobrain', 'config.json');
-        const altConfigPath = join(projectCwd, 'monobrain.config.json');
+        const configPath = join(projectCwd, '.monomind', 'config.json');
+        const altConfigPath = join(projectCwd, 'monomind.config.json');
         const configExists = existsSync(configPath) || existsSync(altConfigPath);
         const elapsed = performance.now() - t0;
         checks.push({
@@ -383,7 +383,7 @@ export const systemTools: MCPTool[] = [
         // Database — check if coordination store exists
         {
           const t0 = performance.now();
-          const coordPath = join(projectCwd, '.monobrain', 'coordination', 'store.json');
+          const coordPath = join(projectCwd, '.monomind', 'coordination', 'store.json');
           const dbExists = existsSync(coordPath);
           const elapsed = performance.now() - t0;
           checks.push({
@@ -508,8 +508,8 @@ export const systemTools: MCPTool[] = [
       // When Claude Code launches us via `claude mcp add`, stdin is piped (not a TTY)
       // and the process IS the MCP server, so it is running.
       const isStdio = !process.stdin.isTTY;
-      const transport = process.env.MONOBRAIN_MCP_TRANSPORT || (isStdio ? 'stdio' : 'http');
-      const port = parseInt(process.env.MONOBRAIN_MCP_PORT || '3000', 10);
+      const transport = process.env.MONOMIND_MCP_TRANSPORT || (isStdio ? 'stdio' : 'http');
+      const port = parseInt(process.env.MONOMIND_MCP_PORT || '3000', 10);
 
       if (transport === 'stdio' || isStdio) {
         // In stdio mode the MCP server is this process itself
@@ -523,7 +523,7 @@ export const systemTools: MCPTool[] = [
       }
 
       // For HTTP/WebSocket, try to check if the server is listening
-      const host = process.env.MONOBRAIN_MCP_HOST || 'localhost';
+      const host = process.env.MONOMIND_MCP_HOST || 'localhost';
       try {
         const { createConnection } = await import('node:net');
         const connected = await new Promise<boolean>((resolve) => {
@@ -564,7 +564,7 @@ export const systemTools: MCPTool[] = [
     },
     handler: async () => {
       // Read from the task store file
-      const storePath = join(getProjectCwd(), '.monobrain', 'tasks', 'store.json');
+      const storePath = join(getProjectCwd(), '.monomind', 'tasks', 'store.json');
       let tasks: Array<{ status: string }> = [];
       try {
         if (existsSync(storePath)) {

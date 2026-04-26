@@ -1,6 +1,6 @@
 # Memory Commands
 
-Commands for memory operations in Monobrain.
+Commands for memory operations in Monomind.
 
 ## Available Commands
 

@@ -28,7 +28,7 @@ export interface UpdateExecutionResult {
   validation: ValidationResult;
 }
 
-const HISTORY_FILE = path.join(os.homedir(), '.monobrain', 'update-history.json');
+const HISTORY_FILE = path.join(os.homedir(), '.monomind', 'update-history.json');
 const MAX_HISTORY_ENTRIES = 100;
 
 function ensureDir(): void {

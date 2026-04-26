@@ -7,7 +7,7 @@ Comprehensive testing with parallel execution capabilities.
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "tester",
   task_description: "full regression suite",
   options: {
@@ -20,16 +20,16 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run tester "full regression suite"
+npx monomind sparc run tester "full regression suite"
 
 # For alpha features
-npx monobrain@alpha sparc run tester "full regression suite"
+npx monomind@alpha sparc run tester "full regression suite"
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run tester "full regression suite"
+# If monomind is installed locally
+./monomind sparc run tester "full regression suite"
 ```
 
 ## Core Capabilities

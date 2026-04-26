@@ -1,7 +1,7 @@
 /**
  * V1 Workers System - Cross-Platform Background Workers
  *
- * Optimizes Monobrain with non-blocking, scheduled workers.
+ * Optimizes Monomind with non-blocking, scheduled workers.
  * Works on Linux, macOS, and Windows.
  */
 
@@ -448,7 +448,7 @@ export class WorkerManager extends EventEmitter {
   constructor(projectRoot?: string) {
     super();
     this.projectRoot = projectRoot || process.cwd();
-    this.metricsDir = path.join(this.projectRoot, '.monobrain', 'metrics');
+    this.metricsDir = path.join(this.projectRoot, '.monomind', 'metrics');
     this.persistPath = path.join(this.metricsDir, 'workers-state.json');
     this.statuslinePath = path.join(this.metricsDir, 'statusline.json');
     this.initializeMetrics();
@@ -1132,7 +1132,7 @@ export function createSwarmWorker(projectRoot: string): WorkerHandler {
     const startTime = Date.now();
 
     // Check for swarm activity file
-    const activityPath = path.join(projectRoot, '.monobrain', 'metrics', 'swarm-activity.json');
+    const activityPath = path.join(projectRoot, '.monomind', 'metrics', 'swarm-activity.json');
     let swarmData: Record<string, unknown> = {};
 
     try {
@@ -1143,7 +1143,7 @@ export function createSwarmWorker(projectRoot: string): WorkerHandler {
     }
 
     // Check for queue messages
-    const queuePath = path.join(projectRoot, '.monobrain', 'swarm', 'queue');
+    const queuePath = path.join(projectRoot, '.monomind', 'swarm', 'queue');
     let queueCount = 0;
     try {
       const files = await fs.readdir(queuePath);
@@ -1213,7 +1213,7 @@ export function createLearningWorker(projectRoot: string): WorkerHandler {
   return async (): Promise<WorkerResult> => {
     const startTime = Date.now();
 
-    const patternsDbPath = path.join(projectRoot, '.monobrain', 'learning', 'patterns.db');
+    const patternsDbPath = path.join(projectRoot, '.monomind', 'learning', 'patterns.db');
     let learningData: Record<string, unknown> = {
       patternsDb: false,
       shortTerm: 0,
@@ -1226,7 +1226,7 @@ export function createLearningWorker(projectRoot: string): WorkerHandler {
       learningData.patternsDb = true;
 
       // Read learning metrics if available
-      const metricsPath = path.join(projectRoot, '.monobrain', 'metrics', 'learning.json');
+      const metricsPath = path.join(projectRoot, '.monomind', 'metrics', 'learning.json');
       try {
         const content = await fs.readFile(metricsPath, 'utf-8');
         const metrics = safeJsonParse<Record<string, unknown>>(content);
@@ -1270,7 +1270,7 @@ export function createLearningWorker(projectRoot: string): WorkerHandler {
           }
 
           if (allHeuristics.length > 0) {
-            const heuristicsPath = await safePathAsync(projectRoot, '.monobrain', 'learning', 'heuristics.json');
+            const heuristicsPath = await safePathAsync(projectRoot, '.monomind', 'learning', 'heuristics.json');
             await fs.writeFile(
               heuristicsPath,
               JSON.stringify({ updatedAt: Date.now(), heuristics: allHeuristics }, null, 2),
@@ -1301,7 +1301,7 @@ export function createLearningWorker(projectRoot: string): WorkerHandler {
           }
 
           if (allGradients.length > 0) {
-            const gradientsPath = await safePathAsync(projectRoot, '.monobrain', 'learning', 'textual-gradients.json');
+            const gradientsPath = await safePathAsync(projectRoot, '.monomind', 'learning', 'textual-gradients.json');
             await fs.writeFile(
               gradientsPath,
               JSON.stringify({ updatedAt: Date.now(), gradients: allGradients }, null, 2),
@@ -1333,7 +1333,7 @@ export function createLearningWorker(projectRoot: string): WorkerHandler {
             );
 
             if (raptorResult.summaryEntries.length > 0) {
-              const raptorPath = await safePathAsync(projectRoot, '.monobrain', 'learning', 'raptor-summaries.json');
+              const raptorPath = await safePathAsync(projectRoot, '.monomind', 'learning', 'raptor-summaries.json');
               await fs.writeFile(
                 raptorPath,
                 JSON.stringify({ generatedAt: Date.now(), summaries: raptorResult.summaryEntries }, null, 2),
@@ -1358,7 +1358,7 @@ export function createLearningWorker(projectRoot: string): WorkerHandler {
 
           // Persist the replay schedule for the consolidate worker to act on
           if (decayResult.replayCount > 0) {
-            const replayPath = await safePathAsync(projectRoot, '.monobrain', 'learning', 'replay-queue.json');
+            const replayPath = await safePathAsync(projectRoot, '.monomind', 'learning', 'replay-queue.json');
             await fs.writeFile(
               replayPath,
               JSON.stringify({ scheduledAt: Date.now(), entries: decayResult.scheduledForReplay }, null, 2),
@@ -1415,16 +1415,16 @@ export function createADRWorker(projectRoot: string): WorkerHandler {
 
       // ADR-002: DDD domains (parallel check)
       Promise.allSettled(
-        dddDomains.map(d => fs.access(path.join(packagesPath, '@monobrain', d)))
+        dddDomains.map(d => fs.access(path.join(packagesPath, '@monomind', d)))
       ),
 
       // ADR-005: MCP-first design
-      fs.access(path.join(packagesPath, '@monobrain', 'mcp'))
+      fs.access(path.join(packagesPath, '@monomind', 'mcp'))
         .then(() => ({ compliant: true, reason: 'MCP package exists' }))
         .catch(() => ({ compliant: false, reason: 'No MCP package' })),
 
       // ADR-006: Memory unification
-      fs.access(path.join(packagesPath, '@monobrain', 'memory'))
+      fs.access(path.join(packagesPath, '@monomind', 'memory'))
         .then(() => ({ compliant: true, reason: 'Memory package exists' }))
         .catch(() => ({ compliant: false, reason: 'No memory package' })),
 
@@ -1438,12 +1438,12 @@ export function createADRWorker(projectRoot: string): WorkerHandler {
         .catch(() => ({ compliant: false, reason: 'Package not readable' })),
 
       // ADR-011: LLM Provider System
-      fs.access(path.join(packagesPath, '@monobrain', 'providers'))
+      fs.access(path.join(packagesPath, '@monomind', 'providers'))
         .then(() => ({ compliant: true, reason: 'Providers package exists' }))
         .catch(() => ({ compliant: false, reason: 'No providers package' })),
 
       // ADR-012: MCP Security
-      fs.readFile(path.join(packagesPath, '@monobrain', 'mcp', 'src', 'index.ts'), 'utf-8')
+      fs.readFile(path.join(packagesPath, '@monomind', 'mcp', 'src', 'index.ts'), 'utf-8')
         .then(content => {
           const hasRateLimiter = content.includes('RateLimiter');
           const hasOAuth = content.includes('OAuth');
@@ -1476,7 +1476,7 @@ export function createADRWorker(projectRoot: string): WorkerHandler {
 
     // Save results
     try {
-      const outputPath = path.join(projectRoot, '.monobrain', 'metrics', 'adr-compliance.json');
+      const outputPath = path.join(projectRoot, '.monomind', 'metrics', 'adr-compliance.json');
       await fs.writeFile(outputPath, JSON.stringify({
         timestamp: new Date().toISOString(),
         compliance: Math.round((compliantCount / totalCount) * 100),
@@ -1511,10 +1511,10 @@ export function createDDDWorker(projectRoot: string): WorkerHandler {
     let maxScore = 0;
 
     const modules = [
-      '@monobrain/hooks',
-      '@monobrain/mcp',
-      '@monobrain/memory',
-      '@monobrain/security',
+      '@monomind/hooks',
+      '@monomind/mcp',
+      '@monomind/memory',
+      '@monomind/security',
     ];
 
     // Process all modules in parallel for 70-90% speedup
@@ -1563,7 +1563,7 @@ export function createDDDWorker(projectRoot: string): WorkerHandler {
 
     // Save metrics
     try {
-      const outputPath = path.join(projectRoot, '.monobrain', 'metrics', 'ddd-progress.json');
+      const outputPath = path.join(projectRoot, '.monomind', 'metrics', 'ddd-progress.json');
       await fs.writeFile(outputPath, JSON.stringify({
         timestamp: new Date().toISOString(),
         progress: progressPct,
@@ -1642,7 +1642,7 @@ export function createSecurityWorker(projectRoot: string): WorkerHandler {
 
     // Save results
     try {
-      const outputPath = path.join(projectRoot, '.monobrain', 'security', 'scan-results.json');
+      const outputPath = path.join(projectRoot, '.monomind', 'security', 'scan-results.json');
       await fs.mkdir(path.dirname(outputPath), { recursive: true });
       await fs.writeFile(outputPath, JSON.stringify({
         timestamp: new Date().toISOString(),
@@ -1678,7 +1678,7 @@ export function createPatternsWorker(projectRoot: string): WorkerHandler {
   return async (): Promise<WorkerResult> => {
     const startTime = Date.now();
 
-    const learningDir = path.join(projectRoot, '.monobrain', 'learning');
+    const learningDir = path.join(projectRoot, '.monomind', 'learning');
     let patternsData: Record<string, unknown> = {
       shortTerm: 0,
       longTerm: 0,
@@ -1717,7 +1717,7 @@ export function createPatternsWorker(projectRoot: string): WorkerHandler {
       };
 
       // Write consolidated metrics
-      const metricsPath = path.join(projectRoot, '.monobrain', 'metrics', 'patterns.json');
+      const metricsPath = path.join(projectRoot, '.monomind', 'metrics', 'patterns.json');
       await fs.writeFile(metricsPath, JSON.stringify({
         timestamp: new Date().toISOString(),
         ...patternsData,
@@ -1744,10 +1744,10 @@ export function createCacheWorker(projectRoot: string): WorkerHandler {
     let cleaned = 0;
     let freedBytes = 0;
 
-    // Only clean directories within .monobrain (safe)
+    // Only clean directories within .monomind (safe)
     const safeCleanDirs = [
-      '.monobrain/cache',
-      '.monobrain/temp',
+      '.monomind/cache',
+      '.monomind/temp',
     ];
 
     const maxAgeMs = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -1967,7 +1967,7 @@ export function createProgressWorker(projectRoot: string): WorkerHandler {
   return async (): Promise<WorkerResult> => {
     const startTime = Date.now();
     const packagesPath = path.join(projectRoot, 'packages');
-    const cliPath = path.join(packagesPath, '@monobrain', 'cli', 'src');
+    const cliPath = path.join(packagesPath, '@monomind', 'cli', 'src');
 
     // Count CLI commands (excluding index.ts)
     let cliCommands = 0;
@@ -2012,11 +2012,11 @@ export function createProgressWorker(projectRoot: string): WorkerHandler {
       hooksSubcommands = 20; // Known count
     }
 
-    // Count @monobrain packages (excluding hidden directories)
+    // Count @monomind packages (excluding hidden directories)
     let packages = 0;
     const packageDirs: string[] = [];
     try {
-      const packagesPath = path.join(packagesPath, '@monobrain');
+      const packagesPath = path.join(packagesPath, '@monomind');
       const dirs = await fs.readdir(packagesPath, { withFileTypes: true });
       for (const dir of dirs) {
         if (dir.isDirectory() && !dir.name.startsWith('.')) {
@@ -2040,7 +2040,7 @@ export function createProgressWorker(projectRoot: string): WorkerHandler {
       if (pkg.startsWith('.')) continue;
 
       try {
-        const srcPath = path.join(packagesPath, '@monobrain', pkg, 'src');
+        const srcPath = path.join(packagesPath, '@monomind', pkg, 'src');
         const srcDirs = await fs.readdir(srcPath, { withFileTypes: true });
         const hasDomain = srcDirs.some(d => d.isDirectory() && d.name === 'domain');
         const hasApp = srcDirs.some(d => d.isDirectory() && d.name === 'application');
@@ -2058,9 +2058,9 @@ export function createProgressWorker(projectRoot: string): WorkerHandler {
     let totalFiles = 0;
     let totalLines = 0;
     try {
-      const monobrainPkgs = path.join(packagesPath, '@monobrain');
-      totalFiles = await countFilesRecursive(monobrainPkgs, '.ts');
-      totalLines = await countLines(monobrainPkgs, '.ts');
+      const monomindPkgs = path.join(packagesPath, '@monomind');
+      totalFiles = await countFilesRecursive(monomindPkgs, '.ts');
+      totalLines = await countLines(monomindPkgs, '.ts');
     } catch {
       totalFiles = 419;
       totalLines = 290913;
@@ -2121,7 +2121,7 @@ export function createProgressWorker(projectRoot: string): WorkerHandler {
 
     // Write to v1-progress.json
     try {
-      const metricsDir = path.join(projectRoot, '.monobrain', 'metrics');
+      const metricsDir = path.join(projectRoot, '.monomind', 'metrics');
       await fs.mkdir(metricsDir, { recursive: true });
       const outputPath = path.join(metricsDir, 'v1-progress.json');
       await fs.writeFile(outputPath, JSON.stringify(metrics, null, 2));

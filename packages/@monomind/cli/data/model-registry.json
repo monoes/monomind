@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "name": "monobrain-model-registry",
+  "name": "monomind-model-registry",
   "description": "Pre-trained learning patterns for common development tasks",
   "updatedAt": "2026-01-24T16:00:00.000Z",
   "models": [

@@ -23,7 +23,7 @@ Successfully implemented ADR-003: Single Coordination Engine by:
 
 ```
 v1/
-├── @monobrain/swarm/src/
+├── @monomind/swarm/src/
 │   ├── unified-coordinator.ts (1,569 lines) ← Full implementation
 │   └── coordination/
 │       └── swarm-hub.ts (681 lines)       ← Duplicate logic ❌
@@ -41,7 +41,7 @@ Problems:
 
 ```
 v1/
-├── @monobrain/swarm/src/
+├── @monomind/swarm/src/
 │   ├── unified-coordinator.ts (1,569 lines) ← CANONICAL ENGINE ⭐
 │   └── coordination/
 │       └── swarm-hub.ts (~700 lines)        ← Thin facade (delegates)
@@ -60,7 +60,7 @@ Benefits:
 
 ### 1. UnifiedSwarmCoordinator (Canonical Engine)
 
-**File**: `/workspaces/monobrain/packages/@monobrain/swarm/src/unified-coordinator.ts`
+**File**: `/workspaces/monomind/packages/@monomind/swarm/src/unified-coordinator.ts`
 
 **Status**: ✅ Remains unchanged - this is the source of truth
 
@@ -76,7 +76,7 @@ Benefits:
 
 ### 2. SwarmHub (Compatibility Layer)
 
-**File**: `/workspaces/monobrain/packages/@monobrain/swarm/src/coordination/swarm-hub.ts`
+**File**: `/workspaces/monomind/packages/@monomind/swarm/src/coordination/swarm-hub.ts`
 
 **Status**: ✅ Refactored to thin facade
 
@@ -183,7 +183,7 @@ export {
 
 ### 4. Duplicate File Handling
 
-**File**: `/workspaces/monobrain/v1/coordination/swarm-hub.ts`
+**File**: `/workspaces/monomind/v1/coordination/swarm-hub.ts`
 
 **Status**: ✅ Marked as duplicate with clear warnings
 
@@ -194,7 +194,7 @@ export {
  * ⚠️ DEPRECATION WARNING:
  * This file is a DUPLICATE and should NOT be used.
  * Use the canonical implementation at:
- * /workspaces/monobrain/packages/@monobrain/swarm/src/coordination/swarm-hub.ts
+ * /workspaces/monomind/packages/@monomind/swarm/src/coordination/swarm-hub.ts
  */
 ```
 
@@ -203,7 +203,7 @@ export {
 ### For New Code (Recommended)
 
 ```typescript
-import { createUnifiedSwarmCoordinator } from "@monobrain/swarm";
+import { createUnifiedSwarmCoordinator } from "@monomind/swarm";
 
 const coordinator = createUnifiedSwarmCoordinator({
   topology: { type: "hierarchical", maxAgents: 15 },
@@ -225,7 +225,7 @@ const results = await coordinator.executeParallel([
 ### For Legacy Code (Compatibility)
 
 ```typescript
-import { createSwarmHub } from "@monobrain/swarm";
+import { createSwarmHub } from "@monomind/swarm";
 
 const hub = createSwarmHub();
 await hub.initialize();
@@ -249,7 +249,7 @@ await coordinator.executeParallel(tasks);
 | File                                     | Purpose                 | Status     |
 | ---------------------------------------- | ----------------------- | ---------- |
 | `docs/ADR-003-implementation-status.md`  | Implementation tracking | ✅ Created |
-| `@monobrain/swarm/README.md`             | Module documentation    | ✅ Created |
+| `@monomind/swarm/README.md`             | Module documentation    | ✅ Created |
 | `docs/ADR-003-CONSOLIDATION-COMPLETE.md` | This file               | ✅ Created |
 
 ## Code Metrics

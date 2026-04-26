@@ -9,7 +9,7 @@
  * list of changes that would improve the score. Changes can be applied
  * programmatically and the score re-measured to verify improvement.
  *
- * @module @monobrain/guidance/analyzer
+ * @module @monomind/guidance/analyzer
  */
 import type { ProofEnvelope } from './proof.js';
 /** Score breakdown for a single dimension (0-100 each) */
@@ -392,7 +392,7 @@ export declare function validateEffect(originalContent: string, optimizedContent
 }): Promise<ValidationReport>;
 /** Task class categories for the A/B benchmark */
 export type ABTaskClass = 'bug-fix' | 'feature' | 'refactor' | 'security' | 'deployment' | 'test' | 'performance';
-/** A single benchmark task representing a real Monobrain scenario */
+/** A single benchmark task representing a real Monomind scenario */
 export interface ABTask {
     /** Unique task identifier */
     id: string;
@@ -499,7 +499,7 @@ export interface ABReport {
  * **Config B** (treatment): With guidance — executor gets setContext(claudeMd) +
  *   gate simulation on every output
  *
- * The 20 tasks span 7 task classes drawn from real Monobrain repo history:
+ * The 20 tasks span 7 task classes drawn from real Monomind repo history:
  * bug-fix (3), feature (5), refactor (3), security (3), deployment (2),
  * test (2), performance (2).
  *

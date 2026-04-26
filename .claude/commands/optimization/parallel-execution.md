@@ -7,7 +7,7 @@ Execute independent subtasks in parallel for maximum efficiency.
 
 ### 1. Task Decomposition
 ```
-Tool: mcp__monobrain__task_orchestrate
+Tool: mcp__monomind__task_orchestrate
 Parameters: {
   "task": "Build complete REST API with auth, CRUD operations, and tests",
   "strategy": "parallel",
@@ -32,7 +32,7 @@ For the REST API task:
 ## CLI Usage
 ```bash
 # Execute parallel tasks via CLI
-npx monobrain parallel "Build REST API" --max-agents 8
+npx monomind parallel "Build REST API" --max-agents 8
 ```
 
 ## Performance Gains
@@ -43,7 +43,7 @@ npx monobrain parallel "Build REST API" --max-agents 8
 
 ## Monitoring
 ```
-Tool: mcp__monobrain__swarm_monitor
+Tool: mcp__monomind__swarm_monitor
 Parameters: {"interval": 1000, "swarmId": "current"}
 ```
 

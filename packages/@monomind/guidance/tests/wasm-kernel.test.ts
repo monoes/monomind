@@ -109,7 +109,7 @@ describe('WASM Kernel: Output Parity', () => {
     if (!wasm) return;
     const testCases = [
       { key: 'secret-key', input: 'message body' },
-      { key: 'monobrain-guidance-default-key', input: '{"envelopeId":"test"}' },
+      { key: 'monomind-guidance-default-key', input: '{"envelopeId":"test"}' },
       { key: '', input: '' },
       { key: 'k'.repeat(100), input: 'i'.repeat(10000) },
     ];

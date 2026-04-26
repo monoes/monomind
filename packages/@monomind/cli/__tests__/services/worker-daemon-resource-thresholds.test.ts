@@ -20,7 +20,7 @@ describe('WorkerDaemon resource thresholds', () => {
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), 'worker-daemon-test-'));
-    mkdirSync(join(tempDir, '.monobrain', 'logs'), { recursive: true });
+    mkdirSync(join(tempDir, '.monomind', 'logs'), { recursive: true });
   });
 
   afterEach(() => {
@@ -146,7 +146,7 @@ describe('WorkerDaemon resource thresholds', () => {
   // =========================================================================
   describe('config.json reading', () => {
     it('should read daemon settings from flat dot-notation keys', () => {
-      const configFile = join(tempDir, '.monobrain', 'config.json');
+      const configFile = join(tempDir, '.monomind', 'config.json');
       writeFileSync(configFile, JSON.stringify({
         'daemon.resourceThresholds.maxCpuLoad': 10,
         'daemon.resourceThresholds.minFreeMemoryPercent': 25,
@@ -160,7 +160,7 @@ describe('WorkerDaemon resource thresholds', () => {
     });
 
     it('should read daemon settings from scopes.project', () => {
-      const configFile = join(tempDir, '.monobrain', 'config.json');
+      const configFile = join(tempDir, '.monomind', 'config.json');
       writeFileSync(configFile, JSON.stringify({
         scopes: {
           project: {
@@ -176,7 +176,7 @@ describe('WorkerDaemon resource thresholds', () => {
     });
 
     it('should handle malformed config.json gracefully', () => {
-      const configFile = join(tempDir, '.monobrain', 'config.json');
+      const configFile = join(tempDir, '.monomind', 'config.json');
       writeFileSync(configFile, '{ invalid json !!!');
 
       const daemon = new WorkerDaemon(tempDir);
@@ -193,7 +193,7 @@ describe('WorkerDaemon resource thresholds', () => {
   // =========================================================================
   describe('config priority: constructor arg > config.json > smart default', () => {
     it('should prefer constructor arg over config.json', () => {
-      const configFile = join(tempDir, '.monobrain', 'config.json');
+      const configFile = join(tempDir, '.monomind', 'config.json');
       writeFileSync(configFile, JSON.stringify({
         'daemon.resourceThresholds.maxCpuLoad': 10,
       }));
@@ -207,7 +207,7 @@ describe('WorkerDaemon resource thresholds', () => {
     });
 
     it('should prefer config.json over smart default', () => {
-      const configFile = join(tempDir, '.monobrain', 'config.json');
+      const configFile = join(tempDir, '.monomind', 'config.json');
       writeFileSync(configFile, JSON.stringify({
         'daemon.resourceThresholds.maxCpuLoad': 42,
       }));
@@ -224,7 +224,7 @@ describe('WorkerDaemon resource thresholds', () => {
   // =========================================================================
   describe('state persistence', () => {
     it('should restore resourceThresholds from daemon-state.json', () => {
-      const stateFile = join(tempDir, '.monobrain', 'daemon-state.json');
+      const stateFile = join(tempDir, '.monomind', 'daemon-state.json');
       writeFileSync(stateFile, JSON.stringify({
         running: false,
         workers: {},
@@ -243,7 +243,7 @@ describe('WorkerDaemon resource thresholds', () => {
     });
 
     it('should restore maxConcurrent and workerTimeoutMs from state', () => {
-      const stateFile = join(tempDir, '.monobrain', 'daemon-state.json');
+      const stateFile = join(tempDir, '.monomind', 'daemon-state.json');
       writeFileSync(stateFile, JSON.stringify({
         running: false,
         workers: {},
@@ -264,7 +264,7 @@ describe('WorkerDaemon resource thresholds', () => {
     });
 
     it('should reject invalid values from saved state', () => {
-      const stateFile = join(tempDir, '.monobrain', 'daemon-state.json');
+      const stateFile = join(tempDir, '.monomind', 'daemon-state.json');
       writeFileSync(stateFile, JSON.stringify({
         running: false,
         workers: {},
@@ -292,7 +292,7 @@ describe('WorkerDaemon resource thresholds', () => {
   // =========================================================================
   describe('input validation', () => {
     it('should ignore non-numeric values in config.json', () => {
-      const configFile = join(tempDir, '.monobrain', 'config.json');
+      const configFile = join(tempDir, '.monomind', 'config.json');
       writeFileSync(configFile, JSON.stringify({
         'daemon.resourceThresholds.maxCpuLoad': 'not-a-number',
         'daemon.resourceThresholds.minFreeMemoryPercent': null,
@@ -310,7 +310,7 @@ describe('WorkerDaemon resource thresholds', () => {
     });
 
     it('should ignore negative values in config.json', () => {
-      const configFile = join(tempDir, '.monobrain', 'config.json');
+      const configFile = join(tempDir, '.monomind', 'config.json');
       writeFileSync(configFile, JSON.stringify({
         'daemon.resourceThresholds.maxCpuLoad': -5,
         'daemon.maxConcurrent': -1,
@@ -326,7 +326,7 @@ describe('WorkerDaemon resource thresholds', () => {
     });
 
     it('should reject minFreeMemoryPercent outside 0-100 range', () => {
-      const configFile = join(tempDir, '.monobrain', 'config.json');
+      const configFile = join(tempDir, '.monomind', 'config.json');
       writeFileSync(configFile, JSON.stringify({
         'daemon.resourceThresholds.minFreeMemoryPercent': 150,
       }));
@@ -507,7 +507,7 @@ describe('WorkerDaemon resource thresholds', () => {
     // MUTANT: Remove scopes.project fallback in readDaemonConfigFromFile
     // Config only at scopes.project level must still be read
     it('should prefer scopes.project over root when both exist', () => {
-      const configFile = join(tempDir, '.monobrain', 'config.json');
+      const configFile = join(tempDir, '.monomind', 'config.json');
       writeFileSync(configFile, JSON.stringify({
         'daemon.resourceThresholds.maxCpuLoad': 5,
         scopes: {
@@ -527,7 +527,7 @@ describe('WorkerDaemon resource thresholds', () => {
 
     // MUTANT: Remove validation `rawCpuLoad > 0` → accept zero
     it('should reject maxCpuLoad of exactly 0 in config.json', () => {
-      const configFile = join(tempDir, '.monobrain', 'config.json');
+      const configFile = join(tempDir, '.monomind', 'config.json');
       writeFileSync(configFile, JSON.stringify({
         'daemon.resourceThresholds.maxCpuLoad': 0,
       }));
@@ -541,7 +541,7 @@ describe('WorkerDaemon resource thresholds', () => {
 
     // MUTANT: Remove validation `rawMinMem <= 100`
     it('should reject minFreeMemoryPercent of exactly 101 in config.json', () => {
-      const configFile = join(tempDir, '.monobrain', 'config.json');
+      const configFile = join(tempDir, '.monomind', 'config.json');
       writeFileSync(configFile, JSON.stringify({
         'daemon.resourceThresholds.minFreeMemoryPercent': 101,
       }));
@@ -555,7 +555,7 @@ describe('WorkerDaemon resource thresholds', () => {
 
     // MUTANT: minFreeMemoryPercent accepts 0 (boundary — should it?)
     it('should accept minFreeMemoryPercent of 0 in config.json (disable memory check)', () => {
-      const configFile = join(tempDir, '.monobrain', 'config.json');
+      const configFile = join(tempDir, '.monomind', 'config.json');
       writeFileSync(configFile, JSON.stringify({
         'daemon.resourceThresholds.minFreeMemoryPercent': 0,
       }));
@@ -569,7 +569,7 @@ describe('WorkerDaemon resource thresholds', () => {
 
     // MUTANT: Remove `typeof ... === 'number'` check → accept booleans
     it('should reject boolean true as maxCpuLoad (typeof guard)', () => {
-      const configFile = join(tempDir, '.monobrain', 'config.json');
+      const configFile = join(tempDir, '.monomind', 'config.json');
       writeFileSync(configFile, JSON.stringify({
         'daemon.resourceThresholds.maxCpuLoad': true,
       }));
@@ -585,7 +585,7 @@ describe('WorkerDaemon resource thresholds', () => {
 
     // MUTANT: State restore `rt.maxCpuLoad < 1000` → remove upper bound
     it('should reject absurdly large maxCpuLoad from saved state', () => {
-      const stateFile = join(tempDir, '.monobrain', 'daemon-state.json');
+      const stateFile = join(tempDir, '.monomind', 'daemon-state.json');
       writeFileSync(stateFile, JSON.stringify({
         running: false,
         workers: {},
@@ -630,7 +630,7 @@ describe('WorkerDaemon resource thresholds', () => {
 
       // Low CPU + low memory → should block on memory
       const tempDir2 = mkdtempSync(join(tmpdir(), 'worker-daemon-test-'));
-      mkdirSync(join(tempDir2, '.monobrain', 'logs'), { recursive: true });
+      mkdirSync(join(tempDir2, '.monomind', 'logs'), { recursive: true });
       const daemon2 = new WorkerDaemon(tempDir2, {
         resourceThresholds: { maxCpuLoad: 100, minFreeMemoryPercent: 50 },
       });
@@ -667,7 +667,7 @@ describe('WorkerDaemon resource thresholds', () => {
 
     // MUTANT: readDaemonConfigFromFile returns {} even when file exists
     it('should read maxConcurrent from config.json', () => {
-      const configFile = join(tempDir, '.monobrain', 'config.json');
+      const configFile = join(tempDir, '.monomind', 'config.json');
       writeFileSync(configFile, JSON.stringify({
         'daemon.maxConcurrent': 8,
         'daemon.workerTimeoutMs': 120000,

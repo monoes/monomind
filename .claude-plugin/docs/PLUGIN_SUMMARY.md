@@ -1,18 +1,18 @@
-# 🎉 Monobrain Plugin - Complete Summary
+# 🎉 Monomind Plugin - Complete Summary
 
 ## ✅ Plugin Status: PRODUCTION READY
 
 **Version**: 2.5.0
 **License**: MIT
 **Author**: rUv
-**Repository**: https://github.com/nokhodian/monobrain
+**Repository**: https://github.com/nokhodian/monomind
 
 ---
 
 ## 📦 Plugin Structure
 
 ```
-monobrain/
+monomind/
 ├── .claude-plugin/
 │   ├── plugin.json           ✓ Official plugin metadata
 │   ├── marketplace.json      ✓ Marketplace distribution metadata
@@ -45,7 +45,7 @@ monobrain/
 
 ```
 # Install plugin
-/plugin add nokhodian/monobrain
+/plugin add nokhodian/monomind
 
 # Restart Claude Code
 /restart
@@ -60,7 +60,7 @@ monobrain/
 ### From Local Directory:
 
 ```
-cd monobrain
+cd monomind
 /plugin add .
 /restart
 ```
@@ -103,7 +103,7 @@ cd monobrain
 
 ### MCP Integration: 110+ Tools
 
-1. **monobrain** (Required)
+1. **monomind** (Required)
    - 40+ orchestration tools
    - Swarm coordination
    - Agent management
@@ -206,7 +206,7 @@ All documentation follows official Claude Code plugin guidelines.
 - **Format**: JSON configuration
 - **Location**: `hooks/hooks.json`
 - **Events**: pre-task, post-task, post-edit, session-start, session-end
-- **Integration**: Monobrain coordination
+- **Integration**: Monomind coordination
 
 ### MCP Servers
 - **Protocol**: Model Context Protocol
@@ -220,23 +220,23 @@ All documentation follows official Claude Code plugin guidelines.
 
 ### Install
 ```
-/plugin add nokhodian/monobrain
+/plugin add nokhodian/monomind
 ```
 
 ### Update
 ```
-/plugin update monobrain
+/plugin update monomind
 ```
 
 Or pull latest from GitHub:
 ```
-cd /path/to/monobrain
+cd /path/to/monomind
 git pull
 ```
 
 ### Remove
 ```
-/plugin remove monobrain
+/plugin remove monomind
 ```
 
 ### List Installed
@@ -262,7 +262,7 @@ After installation, verify with:
 /plugin list
 ```
 
-Should show `monobrain` as active.
+Should show `monomind` as active.
 
 ---
 
@@ -290,10 +290,10 @@ Should show `monobrain` as active.
 
 ## 🤝 Support & Community
 
-- **Repository**: https://github.com/nokhodian/monobrain
-- **Issues**: https://github.com/nokhodian/monobrain/issues
-- **Discussions**: https://github.com/nokhodian/monobrain/discussions
-- **Website**: https://github.com/nokhodian/monobrain
+- **Repository**: https://github.com/nokhodian/monomind
+- **Issues**: https://github.com/nokhodian/monomind/issues
+- **Discussions**: https://github.com/nokhodian/monomind/discussions
+- **Website**: https://github.com/nokhodian/monomind
 
 ---
 
@@ -324,7 +324,7 @@ The plugin is configured via `.claude-plugin/plugin.json`:
 
 ```json
 {
-  "name": "monobrain",
+  "name": "monomind",
   "version": "2.5.0",
   "description": "Enterprise AI agent orchestration plugin...",
   "author": {
@@ -333,12 +333,12 @@ The plugin is configured via `.claude-plugin/plugin.json`:
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monobrain.git"
+    "url": "https://github.com/nokhodian/monomind.git"
   },
   "mcpServers": {
-    "monobrain": {
+    "monomind": {
       "command": "npx",
-      "args": ["monobrain@alpha", "mcp", "start"]
+      "args": ["monomind@alpha", "mcp", "start"]
     }
   }
 }
@@ -348,7 +348,7 @@ Commands and agents are automatically discovered from `commands/` and `agents/` 
 
 Users install with:
 ```
-/plugin add nokhodian/monobrain
+/plugin add nokhodian/monomind
 ```
 
 ---

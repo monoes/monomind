@@ -1,13 +1,13 @@
-# Monobrain v2 to v1 Migration Guide
+# Monomind v2 to v1 Migration Guide
 
 ## Overview
 
-This guide walks you through migrating from Monobrain v2.x to V1.0.0. The migration is designed to be **zero-breaking-changes** - all v2 code continues to work while you gradually adopt v1 features.
+This guide walks you through migrating from Monomind v2.x to V1.0.0. The migration is designed to be **zero-breaking-changes** - all v2 code continues to work while you gradually adopt v1 features.
 
 ## Prerequisites
 
 - Node.js >= 18.0.0
-- Monobrain v2.7.x installed
+- Monomind v2.7.x installed
 - Git for version control
 
 ## Quick Migration (5 minutes)
@@ -16,7 +16,7 @@ This guide walks you through migrating from Monobrain v2.x to V1.0.0. The migrat
 
 ```bash
 # Update to v1
-npm install monobrain@3.0.0
+npm install monomind@3.0.0
 
 # Install new optional dependencies
 npm install sql.js  # Windows support
@@ -25,7 +25,7 @@ npm install sql.js  # Windows support
 ### Step 2: Run Auto-Migration
 
 ```bash
-npx monobrain migrate --to v1
+npx monomind migrate --to v1
 ```
 
 This command:
@@ -42,7 +42,7 @@ This command:
 npm run test:compatibility
 
 # Check migration status
-npx monobrain status --check-migration
+npx monomind status --check-migration
 ```
 
 ## Manual Migration Steps
@@ -127,13 +127,13 @@ Single source in `config.json`:
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "commands": ["npx monobrain hooks pre-tool --tool=$TOOL_NAME"]
+        "commands": ["npx monomind hooks pre-tool --tool=$TOOL_NAME"]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "*",
-        "commands": ["npx monobrain hooks post-tool --tool=$TOOL_NAME"]
+        "commands": ["npx monomind hooks post-tool --tool=$TOOL_NAME"]
       }
     ]
   }
@@ -184,7 +184,7 @@ const coordinator = new SwarmCoordinator();
 const agentId = await coordinator.spawnAgent({ type: "coder" });
 
 // v1 enhanced (opt-in)
-import { AgenticFlowAdapter } from "monobrain/v1";
+import { AgenticFlowAdapter } from "monomind/v1";
 const adapter = new AgenticFlowAdapter({ sona: "research" });
 const agentId = await adapter.createAgent("coder", {
   learning: true, // +55% quality
@@ -200,7 +200,7 @@ const memory = new MemoryManager();
 const results = await memory.search("query");
 
 // v1 enhanced (opt-in)
-import { HybridMemorySystem } from "monobrain/v1";
+import { HybridMemorySystem } from "monomind/v1";
 const memory = new HybridMemorySystem();
 const results = await memory.search("query", {
   semantic: true, // AgentDB vector search
@@ -216,7 +216,7 @@ const results = await memory.search("query", {
 npm install sql.js
 ```
 
-Monobrain v1 automatically detects Windows and uses sql.js.
+Monomind v1 automatically detects Windows and uses sql.js.
 
 ### Manual Configuration
 
@@ -302,7 +302,7 @@ rm -rf archive/
 ### GNN-Enhanced Search
 
 ```typescript
-import { AgenticFlowAdapter } from "monobrain/v1";
+import { AgenticFlowAdapter } from "monomind/v1";
 
 const adapter = new AgenticFlowAdapter({ enableGNN: true });
 const results = await adapter.searchPatterns(query, {
@@ -320,7 +320,7 @@ If you need to rollback to v2:
 cp .claude/config.json.v2.backup .claude/config.json
 
 # Downgrade package
-npm install monobrain@2.7.47
+npm install monomind@2.7.47
 
 # Restore v2 settings (if needed)
 git checkout HEAD~1 -- .claude/settings-*.json
@@ -362,9 +362,9 @@ Manual resolution needed:
 
 ## Support
 
-- Documentation: https://github.com/nokhodian/monobrain/docs/v1
-- Issues: https://github.com/nokhodian/monobrain/issues
-- Discussions: https://github.com/nokhodian/monobrain/discussions
+- Documentation: https://github.com/nokhodian/monomind/docs/v1
+- Issues: https://github.com/nokhodian/monomind/issues
+- Discussions: https://github.com/nokhodian/monomind/discussions
 
 ---
 

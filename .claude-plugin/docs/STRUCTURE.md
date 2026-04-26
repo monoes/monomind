@@ -1,4 +1,4 @@
-# Monobrain Plugin Structure
+# Monomind Plugin Structure
 
 ## Official Claude Code Plugin Format
 
@@ -7,7 +7,7 @@ This plugin follows the official Claude Code plugin specification.
 ## Directory Structure
 
 ```
-monobrain/
+monomind/
 ├── .claude-plugin/              # Plugin metadata and documentation
 │   ├── plugin.json              # Plugin manifest
 │   ├── marketplace.json         # Marketplace distribution metadata
@@ -55,7 +55,7 @@ monobrain/
 Users install with:
 
 ```
-/plugin add nokhodian/monobrain
+/plugin add nokhodian/monomind
 /restart
 ```
 
@@ -86,14 +86,14 @@ Users install with:
 
 ### Hooks (`hooks/hooks.json`)
 - Event handler configuration
-- Integration with Monobrain coordination
+- Integration with Monomind coordination
 - Pre/post task execution, session management
 
 ## MCP Integration
 
 The plugin configures 3 MCP servers:
 
-1. **monobrain** (Required)
+1. **monomind** (Required)
    - 40+ orchestration tools
    - Swarm coordination
    - Agent management

@@ -9,10 +9,10 @@ import { describe, it, expect, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { BootstrapFewShot } from '../../packages/@monobrain/hooks/src/optimization/bootstrap-fewshot.js';
-import { LLMJudgeMetric } from '../../packages/@monobrain/hooks/src/optimization/quality-metric.js';
-import { TraceQualityStore } from '../../packages/@monobrain/hooks/src/optimization/trace-quality-store.js';
-import type { TraceRecord, FewShotExample } from '../../packages/@monobrain/hooks/src/optimization/bootstrap-fewshot.js';
+import { BootstrapFewShot } from '../../packages/@monomind/hooks/src/optimization/bootstrap-fewshot.js';
+import { LLMJudgeMetric } from '../../packages/@monomind/hooks/src/optimization/quality-metric.js';
+import { TraceQualityStore } from '../../packages/@monomind/hooks/src/optimization/trace-quality-store.js';
+import type { TraceRecord, FewShotExample } from '../../packages/@monomind/hooks/src/optimization/bootstrap-fewshot.js';
 
 function makeTrace(overrides: Partial<TraceRecord> = {}): TraceRecord {
   return {

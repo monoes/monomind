@@ -137,7 +137,7 @@ export type BoundedContext =
 /**
  * V1 Domain mapping for context integration
  */
-export type MonobrainDomain =
+export type MonomindDomain =
   | 'Security'
   | 'Core'
   | 'Memory'
@@ -1161,7 +1161,7 @@ export interface ContextMapping {
   /** QE bounded context */
   qeContext: BoundedContext;
   /** V1 domains this context integrates with */
-  domains: MonobrainDomain[];
+  domains: MonomindDomain[];
   /** Agents in this context */
   agents: string[];
   /** Memory namespace for this context */

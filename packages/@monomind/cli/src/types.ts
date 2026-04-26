@@ -1,6 +1,6 @@
 /**
  * CLI Type Definitions
- * Modernized type system for the Monobrain CLI
+ * Modernized type system for the Monomind CLI
  */
 
 // ============================================
@@ -10,7 +10,7 @@
 export interface CommandContext {
   args: string[];
   flags: ParsedFlags;
-  config?: MonobrainConfig;
+  config?: MonomindConfig;
   cwd: string;
   interactive: boolean;
 }
@@ -60,7 +60,7 @@ export interface CommandResult {
 // Configuration Types
 // ============================================
 
-export interface MonobrainConfig {
+export interface MonomindConfig {
   version: string;
   projectRoot: string;
 

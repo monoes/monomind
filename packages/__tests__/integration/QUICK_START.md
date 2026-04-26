@@ -106,7 +106,7 @@ const stats = await PerfUtils.benchmark('operation', async () => {
 
 ### Enable verbose output
 ```bash
-DEBUG=monobrain:* npm run test:integration
+DEBUG=monomind:* npm run test:integration
 ```
 
 ### Run in watch mode with specific test
@@ -201,7 +201,7 @@ Expected CI execution time: <5 minutes
 ### First time running tests
 ```bash
 # Install dependencies (if not done)
-cd /workspaces/monobrain/v1
+cd /workspaces/monomind/v1
 npm install
 
 # Run all integration tests

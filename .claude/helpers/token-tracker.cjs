@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 /**
- * Token Tracker — Monobrain port of codeburn
+ * Token Tracker — Monomind port of codeburn
  * Parses ~/.claude/projects/**\/*.jsonl to aggregate token usage and costs.
  * Pure Node.js built-ins only (fs, os, path).
  */
@@ -441,7 +441,6 @@ function aggregateProjects(projects) {
   for (var i = 0; i < projects.length; i++) {
     var p = projects[i];
     totalCost += p.totalCost;
-    totalApiCalls += p.totalApiCalls;
     for (var j = 0; j < p.sessions.length; j++) {
       var s = p.sessions[j];
       totalIn += s.totalInputTokens;
@@ -500,54 +499,7 @@ function fmtK(n) {
 }
 
 // ── Quick summary (for session-restore hook) ──────────────────────────────────
-/**
- * Returns a one-line token usage summary for the current day and month.
- * Called at session-restore. Limits scan to last 30 days for speed.
- */
-function quickSummary() {
-  var now = new Date();
-  // Derive UTC date strings directly from current time to match JSONL timestamp format
-  var nowIso = now.toISOString(); // e.g. "2026-04-15T07:49:45.506Z"
-  var todayStr = nowIso.slice(0, 10);  // "2026-04-15"
-  var monthStr = nowIso.slice(0, 7);   // "2026-04"
-
-  // Scan only within current UTC month to bound scan time
-  var y = now.getUTCFullYear(), m = now.getUTCMonth(), d = now.getUTCDate();
-  var monthStart = new Date(Date.UTC(y, m, 1));
-  var end = new Date(Date.UTC(y, m, d, 23, 59, 59, 999));
-
-  var projects;
-  try { projects = parseAllSessions(monthStart, end); } catch (e) { return null; }
-  if (!projects || projects.length === 0) return null;
-
-  var todayCost = 0, todayCalls = 0, monthCost = 0, monthCalls = 0;
-
-  for (var i = 0; i < projects.length; i++) {
-    var p = projects[i];
-    for (var j = 0; j < p.sessions.length; j++) {
-      var s = p.sessions[j];
-      for (var t = 0; t < s.turns.length; t++) {
-        var turn = s.turns[t];
-        var ts = turn.timestamp || '';
-        if (!ts) continue;
-        for (var c = 0; c < turn.calls.length; c++) {
-          var cost = turn.calls[c].cost;
-          if (ts.slice(0, 7) === monthStr) { monthCost += cost; monthCalls++; }
-          if (ts.slice(0, 10) === todayStr) { todayCost += cost; todayCalls++; }
-        }
-      }
-    }
-  }
-
-  if (monthCalls === 0) return null;
-  return '[TOKEN_USAGE] Today: ' + fmt$(todayCost) + ' (' + todayCalls + ' calls)  |  Month: ' + fmt$(monthCost) + ' (' + monthCalls + ' calls)';
-}
-
-/**
- * Same computation as quickSummary() but returns raw numbers for caching.
- * Used by hook-handler to write .monobrain/metrics/token-summary.json
- */
-function quickSummaryData() {
+function _computeQuickTotals() {
   var now = new Date();
   var nowIso = now.toISOString();
   var todayStr = nowIso.slice(0, 10);
@@ -579,6 +531,24 @@ function quickSummaryData() {
   }
   if (monthCalls === 0) return null;
   return { todayCost: todayCost, todayCalls: todayCalls, monthCost: monthCost, monthCalls: monthCalls };
+}
+
+/**
+ * Returns a one-line token usage summary for the current day and month.
+ * Called at session-restore.
+ */
+function quickSummary() {
+  var d = _computeQuickTotals();
+  if (!d) return null;
+  return '[TOKEN_USAGE] Today: ' + fmt$(d.todayCost) + ' (' + d.todayCalls + ' calls)  |  Month: ' + fmt$(d.monthCost) + ' (' + d.monthCalls + ' calls)';
+}
+
+/**
+ * Same computation as quickSummary() but returns raw numbers for caching.
+ * Used by hook-handler to write .monomind/metrics/token-summary.json
+ */
+function quickSummaryData() {
+  return _computeQuickTotals();
 }
 
 // ── ANSI Dashboard ────────────────────────────────────────────────────────────
@@ -738,7 +708,7 @@ function renderDashboard(period) {
   var PERIOD_LABELS = { today: 'Today', week: '7 Days', '30days': '30 Days', month: 'This Month' };
   var periodLabel = PERIOD_LABELS[period] || period;
   lines.push('');
-  lines.push(ORANGE + BOLD + '  Monobrain Token Usage — ' + periodLabel + RESET);
+  lines.push(ORANGE + BOLD + '  Monomind Token Usage — ' + periodLabel + RESET);
   lines.push(DIM + '  ' + range.start.toISOString().slice(0, 10) + ' → ' + range.end.toISOString().slice(0, 10) + RESET);
   lines.push('');
 

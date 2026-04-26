@@ -1,6 +1,6 @@
 # RuVector Upstream WASM Packages
 
-This directory contains references and integration bridges for upstream RuVector WASM packages used by Monobrain plugins.
+This directory contains references and integration bridges for upstream RuVector WASM packages used by Monomind plugins.
 
 ## Available WASM Packages
 
@@ -30,10 +30,10 @@ All packages are sourced from: https://github.com/nokhodian/ruvector
 
 | Plugin | Primary WASM Packages |
 |--------|----------------------|
-| `@monobrain/plugin-agentic-qe` | micro-hnsw-wasm, ruvector-gnn-wasm, sona |
-| `@monobrain/plugin-gastown-bridge` | micro-hnsw-wasm, ruvector-attention-wasm |
-| `@monobrain/plugin-prime-radiant` | ruvector-exotic-wasm, ruvector-hyperbolic-hnsw-wasm |
-| `@monobrain/teammate-plugin` | sona |
+| `@monomind/plugin-agentic-qe` | micro-hnsw-wasm, ruvector-gnn-wasm, sona |
+| `@monomind/plugin-gastown-bridge` | micro-hnsw-wasm, ruvector-attention-wasm |
+| `@monomind/plugin-prime-radiant` | ruvector-exotic-wasm, ruvector-hyperbolic-hnsw-wasm |
+| `@monomind/teammate-plugin` | sona |
 
 > 10 domain-specific plugins were archived — see `features/deleted-concepts.md` for details.
 
@@ -56,9 +56,9 @@ import { FlashAttention } from '@ruvector/attention-wasm';
 const hnsw = await initMicroHnsw();
 const attention = await FlashAttention.init();
 
-// Use in Monobrain plugin
-export const plugin: MonobrainPlugin = {
-  name: '@monobrain/plugin-example',
+// Use in Monomind plugin
+export const plugin: MonomindPlugin = {
+  name: '@monomind/plugin-example',
   bridges: {
     hnsw,
     attention,

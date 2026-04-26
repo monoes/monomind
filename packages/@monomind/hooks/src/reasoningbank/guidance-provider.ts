@@ -4,7 +4,7 @@
  * Generates Claude-visible guidance output from ReasoningBank patterns.
  * Outputs plain text (exit 0) or JSON with additionalContext.
  *
- * @module @monobrain/hooks/reasoningbank/guidance-provider
+ * @module @monomind/hooks/reasoningbank/guidance-provider
  */
 
 import { ReasoningBank, GuidanceResult, RoutingResult } from './index.js';
@@ -77,7 +77,7 @@ export class GuidanceProvider {
     const lines = [
       '## V1 Development Context',
       '',
-      '**Architecture**: Domain-Driven Design with 15 @monobrain modules',
+      '**Architecture**: Domain-Driven Design with 15 @monomind modules',
       '**Priority**: Security-first (CVE-1, CVE-2, CVE-3 remediation)',
       '',
       '**Performance Targets**:',

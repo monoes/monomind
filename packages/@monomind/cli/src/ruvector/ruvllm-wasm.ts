@@ -18,7 +18,7 @@
  * - GenerateConfig float precision loss (f32 roundtrip)
  * - MicroLoRA apply() hardcoded to 768 dims regardless of config
  *
- * @module @monobrain/cli/ruvector/ruvllm-wasm
+ * @module @monomind/cli/ruvector/ruvllm-wasm
  */
 
 import { readFileSync } from 'node:fs';

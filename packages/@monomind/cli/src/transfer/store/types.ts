@@ -37,7 +37,7 @@ export interface PatternEntry {
   createdAt: string;
 
   // Requirements
-  minMonobrainVersion: string;
+  minMonomindVersion: string;
   dependencies?: string[];
 
   // Verification

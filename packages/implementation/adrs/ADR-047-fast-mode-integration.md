@@ -2,7 +2,7 @@
 
 **Status:** Proposed
 **Date:** 2026-02-08
-**Authors:** RuvNet, Monobrain Team
+**Authors:** RuvNet, Monomind Team
 
 ## Context
 
@@ -34,7 +34,7 @@ Fast Mode is not a different model - it uses the same Opus 4.6 with a different 
 
 ## Decision
 
-Integrate Fast Mode awareness into RuvFlow/Monobrain to enable:
+Integrate Fast Mode awareness into RuvFlow/Monomind to enable:
 
 1. **Automatic Fast Mode for time-critical swarm tasks**
 2. **Settings integration** for user preference management
@@ -50,7 +50,7 @@ Add fast mode configuration to `.claude/settings.json`:
 ```json
 {
   "fastMode": false,
-  "monobrain": {
+  "monomind": {
     "fastMode": {
       "enabled": false,
       "autoEnable": {
@@ -167,7 +167,7 @@ Update `settings-generator.ts`:
 // Add to generateSettings()
 settings.fastMode = options.fastMode?.enabled || false;
 
-settings.monobrain.fastMode = {
+settings.monomind.fastMode = {
   enabled: options.fastMode?.enabled || false,
   autoEnable: {
     forDebugTasks: true,
@@ -285,7 +285,7 @@ No migration needed - this is an additive feature. Existing users:
 ```json
 {
   "fastMode": true,
-  "monobrain": {
+  "monomind": {
     "fastMode": {
       "enabled": true,
       "autoEnable": {

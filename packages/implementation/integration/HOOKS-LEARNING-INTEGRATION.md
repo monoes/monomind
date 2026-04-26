@@ -1,4 +1,4 @@
-# Monobrain v1: Hooks & Learning Integration
+# Monomind v1: Hooks & Learning Integration
 
 ## Executive Summary
 
@@ -336,7 +336,7 @@ EOF
 - [x] Speculative embedding for related files
 - [x] AST analysis, complexity metrics, security scanning
 
-### Monobrain v1 Needs to Add:
+### Monomind v1 Needs to Add:
 - [ ] Claude Code hook configuration adapter
 - [ ] OpenTelemetry metric export wrapper
 - [ ] Cross-session learning persistence
@@ -347,7 +347,7 @@ EOF
 
 ## 9. Recommendation
 
-**Use agentic-flow@alpha as the learning backbone for Monobrain v1.**
+**Use agentic-flow@alpha as the learning backbone for Monomind v1.**
 
 The package already provides:
 - Complete RL learning system (9 algorithms)
@@ -356,7 +356,7 @@ The package already provides:
 - Parallel processing (7 workers)
 - SQLite persistence (cross-session)
 
-Monobrain v1 should focus on:
+Monomind v1 should focus on:
 1. **Thin integration layer** - Connect Claude Code hooks to agentic-flow hooks
 2. **Configuration UI** - Let users customize learning parameters
 3. **Swarm coordination** - Use learning to optimize swarm topology selection

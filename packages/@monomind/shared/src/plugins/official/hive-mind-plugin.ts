@@ -7,7 +7,7 @@
  * @module v1/shared/plugins/official/hive-mind
  */
 
-import type { MonobrainPlugin, PluginContext, PluginConfig } from '../types.js';
+import type { MonomindPlugin, PluginContext, PluginConfig } from '../types.js';
 import { HookEvent, HookPriority, type TaskInfo } from '../../hooks/index.js';
 
 /**
@@ -48,7 +48,7 @@ export interface EmergentPattern {
 /**
  * HiveMind Plugin Implementation
  */
-export class HiveMindPlugin implements MonobrainPlugin {
+export class HiveMindPlugin implements MonomindPlugin {
   readonly id = 'hive-mind';
   readonly name = 'HiveMind Collective Intelligence';
   readonly version = '1.0.0';

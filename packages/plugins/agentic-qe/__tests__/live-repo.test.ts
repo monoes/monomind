@@ -1,7 +1,7 @@
 /**
  * Live Repo Integration Tests
  *
- * Tests the agentic-qe tool handlers against real files in the monobrain repository.
+ * Tests the agentic-qe tool handlers against real files in the monomind repository.
  * Each test imports the actual handler, calls it with real paths, and validates
  * the response structure and content.
  */
@@ -20,7 +20,7 @@ describe('Live Repo: security-scan', () => {
   it('should scan github-tools.ts and return findings with expected structure', async () => {
     const response = await securityScanHandler(
       {
-        targetPath: 'packages/@monobrain/cli/src/mcp-tools/github-tools.ts',
+        targetPath: 'packages/@monomind/cli/src/mcp-tools/github-tools.ts',
         scanType: 'sast',
         compliance: ['owasp-top-10'],
         severity: 'all',
@@ -91,7 +91,7 @@ describe('Live Repo: security-scan', () => {
   it('should filter by severity when set to critical', async () => {
     const response = await securityScanHandler(
       {
-        targetPath: 'packages/@monobrain/cli/src/mcp-tools/github-tools.ts',
+        targetPath: 'packages/@monomind/cli/src/mcp-tools/github-tools.ts',
         scanType: 'sast',
         compliance: ['owasp-top-10'],
         severity: 'critical',
@@ -116,7 +116,7 @@ describe('Live Repo: analyze-coverage', () => {
   it('should analyze the mcp-tools directory and return coverage data', async () => {
     const response = await analyzeCoverageHandler(
       {
-        targetPath: 'packages/@monobrain/cli/src/mcp-tools',
+        targetPath: 'packages/@monomind/cli/src/mcp-tools',
         algorithm: 'johnson-lindenstrauss',
         prioritize: true,
         includeFileDetails: true,
@@ -199,7 +199,7 @@ describe('Live Repo: analyze-coverage', () => {
   it('should also work with full-scan algorithm', async () => {
     const response = await analyzeCoverageHandler(
       {
-        targetPath: 'packages/@monobrain/cli/src/mcp-tools',
+        targetPath: 'packages/@monomind/cli/src/mcp-tools',
         algorithm: 'full-scan',
         prioritize: false,
         includeFileDetails: false,
@@ -221,7 +221,7 @@ describe('Live Repo: generate-tests', () => {
   it('should generate tests for request-tracker.ts', async () => {
     const response = await generateTestsHandler(
       {
-        targetPath: 'packages/@monobrain/cli/src/mcp-tools/request-tracker.ts',
+        targetPath: 'packages/@monomind/cli/src/mcp-tools/request-tracker.ts',
         testType: 'unit',
         style: 'tdd-london',
         includeEdgeCases: true,
@@ -293,7 +293,7 @@ describe('Live Repo: generate-tests', () => {
   it('should auto-detect language as typescript for .ts files', async () => {
     const response = await generateTestsHandler(
       {
-        targetPath: 'packages/@monobrain/cli/src/mcp-tools/request-tracker.ts',
+        targetPath: 'packages/@monomind/cli/src/mcp-tools/request-tracker.ts',
         testType: 'unit',
         style: 'tdd-london',
         includeEdgeCases: false,

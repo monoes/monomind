@@ -66,9 +66,9 @@ const storeCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain memory store -k "api/auth" -v "JWT implementation"', description: 'Store text' },
-    { command: 'monobrain memory store -k "pattern/singleton" --vector', description: 'Store vector' },
-    { command: 'monobrain memory store -k "pattern" -v "updated" --upsert', description: 'Update existing' }
+    { command: 'monomind memory store -k "api/auth" -v "JWT implementation"', description: 'Store text' },
+    { command: 'monomind memory store -k "pattern/singleton" --vector', description: 'Store vector' },
+    { command: 'monomind memory store -k "pattern" -v "updated" --upsert', description: 'Update existing' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const key = ctx.flags.key as string;
@@ -282,9 +282,9 @@ const searchCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain memory search -q "authentication patterns"', description: 'Semantic search' },
-    { command: 'monobrain memory search -q "JWT" -t keyword', description: 'Keyword search' },
-    { command: 'monobrain memory search -q "test" --build-hnsw', description: 'Build HNSW index and search' }
+    { command: 'monomind memory search -q "authentication patterns"', description: 'Semantic search' },
+    { command: 'monomind memory search -q "JWT" -t keyword', description: 'Keyword search' },
+    { command: 'monomind memory search -q "test" --build-hnsw', description: 'Build HNSW index and search' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const query = ctx.flags.query as string || ctx.args[0];
@@ -362,7 +362,7 @@ const searchCommand: Command = {
 
       if (results.length === 0) {
         output.printWarning('No results found');
-        output.writeln(output.dim('Try: monobrain memory store -k "key" --value "data"'));
+        output.writeln(output.dim('Try: monomind memory store -k "key" --value "data"'));
         return { success: true, data: [] };
       }
 
@@ -448,7 +448,7 @@ const listCommand: Command = {
 
       if (entries.length === 0) {
         output.printWarning('No entries found');
-        output.printInfo('Store data: monobrain memory store -k "key" --value "data"');
+        output.printInfo('Store data: monomind memory store -k "key" --value "data"');
         return { success: true, data: [] };
       }
 
@@ -492,24 +492,244 @@ function formatRelativeTime(isoDate: string): string {
   return 'just now';
 }
 
+// Edit command
+const editCommand: Command = {
+  name: 'edit',
+  description: 'Edit a memory entry (AgentDB, Memory Palace, or knowledge chunk)',
+  options: [
+    { name: 'key', short: 'k', description: 'Storage key (AgentDB)', type: 'string' },
+    { name: 'namespace', short: 'n', description: 'Memory namespace (AgentDB)', type: 'string', default: 'default' },
+    { name: 'value', description: 'New value/content', type: 'string' },
+    { name: 'source', short: 's', description: 'Source to edit: agentdb, palace, knowledge', type: 'string', default: 'agentdb', choices: ['agentdb', 'palace', 'knowledge'] },
+    { name: 'id', description: 'Entry ID (palace/knowledge)', type: 'string' }
+  ],
+  examples: [
+    { command: 'monomind memory edit -k "pattern/auth" --value "updated content"', description: 'Edit AgentDB entry' },
+    { command: 'monomind memory edit --source palace --id "abc123" --value "new content"', description: 'Edit Memory Palace drawer' },
+    { command: 'monomind memory edit --source knowledge --id "chunk-42" --value "updated"', description: 'Edit knowledge chunk' }
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const source = (ctx.flags.source as string) || 'agentdb';
+    let value = (ctx.flags.value as string) || ctx.args[0];
+    const fs = await import('fs');
+    const path = await import('path');
+
+    if (source === 'agentdb') {
+      const key = ctx.flags.key as string;
+      const namespace = (ctx.flags.namespace as string) || 'default';
+      if (!key) {
+        output.printError('Key is required for AgentDB edit. Use --key or -k');
+        return { success: false, exitCode: 1 };
+      }
+      if (!value && ctx.interactive) {
+        value = await input({ message: 'Enter new value:', validate: v => v.length > 0 || 'Value required' });
+      }
+      if (!value) {
+        output.printError('Value is required. Use --value');
+        return { success: false, exitCode: 1 };
+      }
+      try {
+        const { storeEntry } = await import('../memory/memory-initializer.js');
+        const result = await storeEntry({ key, value, namespace, generateEmbeddingFlag: true, upsert: true });
+        if (!result.success) {
+          output.printError((result as any).error || 'Failed to update');
+          return { success: false, exitCode: 1 };
+        }
+        output.printSuccess(`Updated "${key}" in namespace "${namespace}"`);
+        return { success: true, data: result };
+      } catch (error) {
+        output.printError(`Failed to edit: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        return { success: false, exitCode: 1 };
+      }
+    }
+
+    // palace or knowledge — JSONL file edit
+    const id = ctx.flags.id as string;
+    if (!id) {
+      output.printError('Entry ID is required for palace/knowledge edit. Use --id');
+      return { success: false, exitCode: 1 };
+    }
+    const filePath = source === 'palace'
+      ? path.join(process.cwd(), '.monomind', 'palace', 'drawers.jsonl')
+      : path.join(process.cwd(), '.monomind', 'knowledge', 'chunks.jsonl');
+
+    if (!fs.existsSync(filePath)) {
+      output.printError(`File not found: ${filePath}`);
+      return { success: false, exitCode: 1 };
+    }
+
+    let entries: any[];
+    try {
+      const raw = fs.readFileSync(filePath, 'utf8');
+      entries = raw.split('\n').filter(Boolean).map(l => JSON.parse(l));
+    } catch (err) {
+      output.printError(`Failed to read ${source} file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      return { success: false, exitCode: 1 };
+    }
+
+    const idx = entries.findIndex(e => e.id === id);
+    if (idx === -1) {
+      output.printWarning(`Entry not found with id "${id}"`);
+      return { success: false, exitCode: 1 };
+    }
+
+    if (!value && ctx.interactive) {
+      output.writeln(output.dim('Current content:'));
+      output.writeln(entries[idx].content || '(empty)');
+      output.writeln();
+      value = await input({ message: 'Enter new content:', validate: v => v.length > 0 || 'Content required' });
+    }
+    if (!value) {
+      output.printError('Value is required. Use --value');
+      return { success: false, exitCode: 1 };
+    }
+
+    entries[idx] = { ...entries[idx], content: value, ts: new Date().toISOString() };
+    try {
+      fs.writeFileSync(filePath, entries.map(e => JSON.stringify(e)).join('\n') + '\n');
+      output.printSuccess(`Updated ${source} entry "${id}"`);
+      return { success: true, data: entries[idx] };
+    } catch (err) {
+      output.printError(`Failed to write ${source} file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      return { success: false, exitCode: 1 };
+    }
+  }
+};
+
+// Templates command
+const templatesCommand: Command = {
+  name: 'templates',
+  description: 'Show best-practice templates for memory entries',
+  options: [
+    { name: 'type', short: 't', description: 'Template type: user, feedback, project, reference', type: 'string', choices: ['user', 'feedback', 'project', 'reference'] }
+  ],
+  examples: [
+    { command: 'monomind memory templates', description: 'Show all templates' },
+    { command: 'monomind memory templates -t feedback', description: 'Show feedback template only' }
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const filter = ctx.flags.type as string | undefined;
+    const templates: Record<string, { label: string; description: string; example: string }> = {
+      user: {
+        label: 'User Memory',
+        description: 'Role, goals, preferences, knowledge level',
+        example: [
+          '---',
+          'name: user_role',
+          'description: <one-line summary of user role and context>',
+          'type: user',
+          '---',
+          '',
+          '<Role and experience description. What does the user know well? What are they new to?>',
+          'Frame explanations accordingly.'
+        ].join('\n')
+      },
+      feedback: {
+        label: 'Feedback Memory',
+        description: 'How to approach work — corrections and validated choices',
+        example: [
+          '---',
+          'name: feedback_<topic>',
+          'description: <one-line rule that triggers on lookup>',
+          'type: feedback',
+          '---',
+          '',
+          '<The rule itself — what to do or avoid.>',
+          '',
+          '**Why:** <Reason the user gave — past incident, strong preference, etc.>',
+          '',
+          '**How to apply:** <When does this kick in? What edge cases does it cover?>'
+        ].join('\n')
+      },
+      project: {
+        label: 'Project Memory',
+        description: 'Ongoing work context, goals, decisions, deadlines',
+        example: [
+          '---',
+          'name: project_<initiative>',
+          'description: <one-line fact about the project decision or constraint>',
+          'type: project',
+          '---',
+          '',
+          '<The fact or decision — what is happening and what was decided.>',
+          '',
+          '**Why:** <Motivation — constraint, deadline, stakeholder ask, compliance issue.>',
+          '',
+          '**How to apply:** <How should this shape future suggestions and decisions?>'
+        ].join('\n')
+      },
+      reference: {
+        label: 'Reference Memory',
+        description: 'Pointers to external resources and where to find information',
+        example: [
+          '---',
+          'name: reference_<resource>',
+          'description: <what this resource contains and when to use it>',
+          'type: reference',
+          '---',
+          '',
+          '<Resource name and location (URL, project name, channel, etc.)>',
+          '',
+          'Use this when: <specific scenarios where this reference is relevant>.'
+        ].join('\n')
+      }
+    };
+
+    output.writeln();
+    output.writeln(output.bold('Memory Entry Templates'));
+    output.writeln(output.dim('Best-practice scaffolds for .claude/projects/.../memory/ entries'));
+    output.writeln();
+
+    const keys = filter ? [filter] : Object.keys(templates);
+    for (const key of keys) {
+      const t = templates[key];
+      if (!t) {
+        output.printError(`Unknown type: "${key}". Valid types: user, feedback, project, reference`);
+        return { success: false, exitCode: 1 };
+      }
+      output.writeln(output.bold(`── ${t.label}  (--type ${key})`));
+      output.writeln(output.dim(`   ${t.description}`));
+      output.writeln();
+      output.writeln(t.example);
+      output.writeln();
+    }
+
+    output.writeln(output.dim('Save with: monomind memory store -k "<name>" --value "<content>" --namespace auto-memory'));
+    return { success: true };
+  }
+};
+
 // Delete command
 const deleteCommand: Command = {
   name: 'delete',
   aliases: ['rm'],
-  description: 'Delete memory entry',
+  description: 'Delete a memory entry (AgentDB, Memory Palace, or knowledge chunk)',
   options: [
     {
       name: 'key',
       short: 'k',
-      description: 'Storage key',
+      description: 'Storage key (AgentDB)',
       type: 'string'
     },
     {
       name: 'namespace',
       short: 'n',
-      description: 'Memory namespace',
+      description: 'Memory namespace (AgentDB)',
       type: 'string',
       default: 'default'
+    },
+    {
+      name: 'source',
+      short: 's',
+      description: 'Source to delete from: agentdb, palace, knowledge',
+      type: 'string',
+      default: 'agentdb',
+      choices: ['agentdb', 'palace', 'knowledge']
+    },
+    {
+      name: 'id',
+      description: 'Entry ID (palace/knowledge)',
+      type: 'string'
     },
     {
       name: 'force',
@@ -520,53 +740,103 @@ const deleteCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain memory delete -k "mykey"', description: 'Delete entry with default namespace' },
-    { command: 'monobrain memory delete -k "lesson" -n "lessons"', description: 'Delete entry from specific namespace' },
-    { command: 'monobrain memory delete mykey -f', description: 'Delete without confirmation' }
+    { command: 'monomind memory delete -k "mykey"', description: 'Delete AgentDB entry' },
+    { command: 'monomind memory delete -k "lesson" -n "lessons"', description: 'Delete from specific namespace' },
+    { command: 'monomind memory delete --source palace --id "abc123"', description: 'Delete Memory Palace drawer' },
+    { command: 'monomind memory delete --source knowledge --id "chunk-42" -f', description: 'Delete knowledge chunk (no confirm)' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    // Support both --key flag and positional argument
-    const key = ctx.flags.key as string || ctx.args[0];
-    const namespace = (ctx.flags.namespace as string) || 'default';
+    const source = (ctx.flags.source as string) || 'agentdb';
     const force = ctx.flags.force as boolean;
 
-    if (!key) {
-      output.printError('Key is required. Use: memory delete -k "key" [-n "namespace"]');
+    if (source === 'agentdb') {
+      const key = (ctx.flags.key as string) || ctx.args[0];
+      const namespace = (ctx.flags.namespace as string) || 'default';
+      if (!key) {
+        output.printError('Key is required. Use: memory delete -k "key" [-n "namespace"]');
+        return { success: false, exitCode: 1 };
+      }
+      if (!force && ctx.interactive) {
+        const confirmed = await confirm({
+          message: `Delete memory entry "${key}" from namespace "${namespace}"?`,
+          default: false
+        });
+        if (!confirmed) {
+          output.printInfo('Operation cancelled');
+          return { success: true };
+        }
+      }
+      try {
+        const { deleteEntry } = await import('../memory/memory-initializer.js');
+        const result = await deleteEntry({ key, namespace });
+        if (!result.success) {
+          output.printError((result as any).error || 'Failed to delete');
+          return { success: false, exitCode: 1 };
+        }
+        if (result.deleted) {
+          output.printSuccess(`Deleted "${key}" from namespace "${namespace}"`);
+          output.printInfo(`Remaining entries: ${result.remainingEntries}`);
+        } else {
+          output.printWarning(`Key not found: "${key}" in namespace "${namespace}"`);
+        }
+        return { success: result.deleted, data: result };
+      } catch (error) {
+        output.printError(`Failed to delete: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        return { success: false, exitCode: 1 };
+      }
+    }
+
+    // palace or knowledge — JSONL file delete
+    const id = (ctx.flags.id as string) || ctx.args[0];
+    if (!id) {
+      output.printError('Entry ID is required for palace/knowledge delete. Use --id');
+      return { success: false, exitCode: 1 };
+    }
+    const fs = await import('fs');
+    const path = await import('path');
+    const filePath = source === 'palace'
+      ? path.join(process.cwd(), '.monomind', 'palace', 'drawers.jsonl')
+      : path.join(process.cwd(), '.monomind', 'knowledge', 'chunks.jsonl');
+
+    if (!fs.existsSync(filePath)) {
+      output.printError(`File not found: ${filePath}`);
+      return { success: false, exitCode: 1 };
+    }
+
+    let entries: any[];
+    try {
+      const raw = fs.readFileSync(filePath, 'utf8');
+      entries = raw.split('\n').filter(Boolean).map(l => JSON.parse(l));
+    } catch (err) {
+      output.printError(`Failed to read ${source} file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      return { success: false, exitCode: 1 };
+    }
+
+    const idx = entries.findIndex(e => e.id === id);
+    if (idx === -1) {
+      output.printWarning(`Entry not found with id "${id}"`);
       return { success: false, exitCode: 1 };
     }
 
     if (!force && ctx.interactive) {
       const confirmed = await confirm({
-        message: `Delete memory entry "${key}" from namespace "${namespace}"?`,
+        message: `Delete ${source} entry "${id}"?`,
         default: false
       });
-
       if (!confirmed) {
         output.printInfo('Operation cancelled');
         return { success: true };
       }
     }
 
-    // Use sql.js directly for consistent data access (Issue #980)
+    entries.splice(idx, 1);
     try {
-      const { deleteEntry } = await import('../memory/memory-initializer.js');
-      const result = await deleteEntry({ key, namespace });
-
-      if (!result.success) {
-        output.printError(result.error || 'Failed to delete');
-        return { success: false, exitCode: 1 };
-      }
-
-      if (result.deleted) {
-        output.printSuccess(`Deleted "${key}" from namespace "${namespace}"`);
-        output.printInfo(`Remaining entries: ${result.remainingEntries}`);
-      } else {
-        output.printWarning(`Key not found: "${key}" in namespace "${namespace}"`);
-      }
-
-      return { success: result.deleted, data: result };
-    } catch (error) {
-      output.printError(`Failed to delete: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      fs.writeFileSync(filePath, entries.map(e => JSON.stringify(e)).join('\n') + (entries.length ? '\n' : ''));
+      output.printSuccess(`Deleted ${source} entry "${id}"`);
+      output.printInfo(`Remaining entries: ${entries.length}`);
+      return { success: true, data: { id, deleted: true, remainingEntries: entries.length } };
+    } catch (err) {
+      output.printError(`Failed to write ${source} file: ${err instanceof Error ? err.message : 'Unknown error'}`);
       return { success: false, exitCode: 1 };
     }
   }
@@ -781,9 +1051,9 @@ const cleanupCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain memory cleanup --dry-run', description: 'Preview cleanup' },
-    { command: 'monobrain memory cleanup --older-than 30d', description: 'Delete entries older than 30 days' },
-    { command: 'monobrain memory cleanup --expired-only', description: 'Clean expired entries' }
+    { command: 'monomind memory cleanup --dry-run', description: 'Preview cleanup' },
+    { command: 'monomind memory cleanup --older-than 30d', description: 'Delete entries older than 30 days' },
+    { command: 'monomind memory cleanup --expired-only', description: 'Clean expired entries' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const dryRun = ctx.flags.dryRun as boolean;
@@ -920,9 +1190,9 @@ const compressCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain memory compress', description: 'Balanced compression' },
-    { command: 'monobrain memory compress --quantize --bits 4', description: '4-bit quantization (32x reduction)' },
-    { command: 'monobrain memory compress -l max -t vectors', description: 'Max compression on vectors' }
+    { command: 'monomind memory compress', description: 'Balanced compression' },
+    { command: 'monomind memory compress --quantize --bits 4', description: '4-bit quantization (32x reduction)' },
+    { command: 'monomind memory compress -l max -t vectors', description: 'Max compression on vectors' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const level = ctx.flags.level as string || 'balanced';
@@ -1069,8 +1339,8 @@ const exportCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain memory export -o ./backup.json', description: 'Export all to JSON' },
-    { command: 'monobrain memory export -o ./data.csv -f csv', description: 'Export to CSV' }
+    { command: 'monomind memory export -o ./backup.json', description: 'Export all to JSON' },
+    { command: 'monomind memory export -o ./data.csv -f csv', description: 'Export to CSV' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const outputPath = ctx.flags.output as string;
@@ -1147,8 +1417,8 @@ const importCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain memory import -i ./backup.json', description: 'Import from file' },
-    { command: 'monobrain memory import -i ./data.json -n archive', description: 'Import to namespace' }
+    { command: 'monomind memory import -i ./backup.json', description: 'Import from file' },
+    { command: 'monomind memory import -i ./data.json -n archive', description: 'Import to namespace' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const inputPath = ctx.flags.input as string || ctx.args[0];
@@ -1242,10 +1512,10 @@ const initMemoryCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain memory init', description: 'Initialize hybrid backend with all features' },
-    { command: 'monobrain memory init -b agentdb', description: 'Initialize AgentDB backend' },
-    { command: 'monobrain memory init -p ./data/memory.db --force', description: 'Reinitialize at custom path' },
-    { command: 'monobrain memory init --verbose --verify', description: 'Initialize with full verification' }
+    { command: 'monomind memory init', description: 'Initialize hybrid backend with all features' },
+    { command: 'monomind memory init -b agentdb', description: 'Initialize AgentDB backend' },
+    { command: 'monomind memory init -p ./data/memory.db --force', description: 'Reinitialize at custom path' },
+    { command: 'monomind memory init --verbose --verify', description: 'Initialize with full verification' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const backend = (ctx.flags.backend as string) || 'hybrid';
@@ -1424,10 +1694,10 @@ const initMemoryCommand: Command = {
       // Show next steps
       output.writeln(output.bold('Next Steps:'));
       output.printList([
-        `Store data: ${output.highlight('monobrain memory store -k "key" --value "data"')}`,
-        `Search: ${output.highlight('monobrain memory search -q "query"')}`,
-        `Train patterns: ${output.highlight('monobrain neural train -p coordination')}`,
-        `View stats: ${output.highlight('monobrain memory stats')}`
+        `Store data: ${output.highlight('monomind memory store -k "key" --value "data"')}`,
+        `Search: ${output.highlight('monomind memory search -q "query"')}`,
+        `Train patterns: ${output.highlight('monomind neural train -p coordination')}`,
+        `View stats: ${output.highlight('monomind memory stats')}`
       ]);
 
       // Also sync to .claude directory
@@ -1470,33 +1740,35 @@ const initMemoryCommand: Command = {
 export const memoryCommand: Command = {
   name: 'memory',
   description: 'Memory management commands',
-  subcommands: [initMemoryCommand, storeCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand],
+  subcommands: [initMemoryCommand, storeCommand, editCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, templatesCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand],
   options: [],
   examples: [
-    { command: 'monobrain memory store -k "key" -v "value"', description: 'Store data' },
-    { command: 'monobrain memory search -q "auth patterns"', description: 'Search memory' },
-    { command: 'monobrain memory stats', description: 'Show statistics' }
+    { command: 'monomind memory store -k "key" -v "value"', description: 'Store data' },
+    { command: 'monomind memory search -q "auth patterns"', description: 'Search memory' },
+    { command: 'monomind memory stats', description: 'Show statistics' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold('Memory Management Commands'));
     output.writeln();
-    output.writeln('Usage: monobrain memory <subcommand> [options]');
+    output.writeln('Usage: monomind memory <subcommand> [options]');
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
-      `${output.highlight('init')}       - Initialize memory database (sql.js)`,
-      `${output.highlight('store')}      - Store data in memory`,
-      `${output.highlight('retrieve')}   - Retrieve data from memory`,
-      `${output.highlight('search')}     - Semantic/vector search`,
-      `${output.highlight('list')}       - List memory entries`,
-      `${output.highlight('delete')}     - Delete memory entry`,
-      `${output.highlight('stats')}      - Show statistics`,
-      `${output.highlight('configure')}  - Configure backend`,
-      `${output.highlight('cleanup')}    - Clean expired entries`,
-      `${output.highlight('compress')}   - Compress database`,
-      `${output.highlight('export')}     - Export memory to file`,
-      `${output.highlight('import')}     - Import from file`
+      `${output.highlight('init')}        - Initialize memory database (sql.js)`,
+      `${output.highlight('store')}       - Store data in memory`,
+      `${output.highlight('edit')}        - Edit an entry (AgentDB, palace, knowledge)`,
+      `${output.highlight('retrieve')}    - Retrieve data from memory`,
+      `${output.highlight('search')}      - Semantic/vector search`,
+      `${output.highlight('list')}        - List memory entries`,
+      `${output.highlight('delete')}      - Delete an entry (AgentDB, palace, knowledge)`,
+      `${output.highlight('templates')}   - Show best-practice entry templates`,
+      `${output.highlight('stats')}       - Show statistics`,
+      `${output.highlight('configure')}   - Configure backend`,
+      `${output.highlight('cleanup')}     - Clean expired entries`,
+      `${output.highlight('compress')}    - Compress database`,
+      `${output.highlight('export')}      - Export memory to file`,
+      `${output.highlight('import')}      - Import from file`
     ]);
 
     return { success: true };

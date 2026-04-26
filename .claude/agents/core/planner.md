@@ -120,7 +120,7 @@ plan:
 ### Task Orchestration
 ```javascript
 // Orchestrate complex tasks
-mcp__monobrain__task_orchestrate {
+mcp__monomind__task_orchestrate {
   task: "Implement authentication system",
   strategy: "parallel",
   priority: "high",
@@ -128,7 +128,7 @@ mcp__monobrain__task_orchestrate {
 }
 
 // Share task breakdown
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/planner/task-breakdown",
   namespace: "coordination",
@@ -145,7 +145,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Monitor task progress
-mcp__monobrain__task_status {
+mcp__monomind__task_status {
   taskId: "auth-implementation"
 }
 ```
@@ -153,7 +153,7 @@ mcp__monobrain__task_status {
 ### Memory Coordination
 ```javascript
 // Report planning status
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/planner/status",
   namespace: "coordination",

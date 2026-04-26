@@ -4,7 +4,7 @@ Intelligently spawn agents based on workload analysis.
 
 ## Usage
 ```bash
-npx monobrain automation smart-spawn [options]
+npx monomind automation smart-spawn [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain automation smart-spawn [options]
 ## Examples
 ```bash
 # Smart spawn with analysis
-npx monobrain automation smart-spawn --analyze
+npx monomind automation smart-spawn --analyze
 
 # Set spawn threshold
-npx monobrain automation smart-spawn --threshold 5
+npx monomind automation smart-spawn --threshold 5
 
 # Force topology
-npx monobrain automation smart-spawn --topology hierarchical
+npx monomind automation smart-spawn --topology hierarchical
 ```

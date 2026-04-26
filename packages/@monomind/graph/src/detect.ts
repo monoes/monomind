@@ -5,7 +5,7 @@ import type { BuildOptions, ClassifiedFile, FileType } from './types.js';
 const DEFAULT_MAX_FILE_SIZE = 500 * 1024; // 500KB
 
 const EXCLUDED_DIRS = new Set([
-  'node_modules', '.git', 'dist', 'build', '.monobrain',
+  'node_modules', '.git', 'dist', 'build', '.monomind',
   '__pycache__', '.pytest_cache', 'target', '.cache',
 ]);
 

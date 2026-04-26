@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * @monobrain/cli - CLI Entry Point
+ * @monomind/cli - CLI Entry Point
  *
- * Monobrain Command Line Interface
+ * Monomind Command Line Interface
  *
  * Auto-detects MCP mode when stdin is piped and no args provided.
- * This allows: echo '{"jsonrpc":"2.0",...}' | npx @monobrain/cli
+ * This allows: echo '{"jsonrpc":"2.0",...}' | npx @monomind/cli
  */
 
 import { randomUUID } from 'crypto';
@@ -13,7 +13,7 @@ import { randomUUID } from 'crypto';
 // Check if we should run in MCP server mode
 // Conditions:
 //   1. stdin is being piped AND no CLI arguments provided (auto-detect)
-//   2. stdin is being piped AND args are "mcp start" (explicit, e.g. npx monobrain@alpha mcp start)
+//   2. stdin is being piped AND args are "mcp start" (explicit, e.g. npx monomind@alpha mcp start)
 const cliArgs = process.argv.slice(2);
 const isExplicitMCP = cliArgs.length >= 1 && cliArgs[0] === 'mcp' && (cliArgs.length === 1 || cliArgs[1] === 'start');
 const isMCPMode = !process.stdin.isTTY && (process.argv.length === 2 || isExplicitMCP);
@@ -26,7 +26,7 @@ if (isMCPMode) {
   const sessionId = `mcp-${Date.now()}-${randomUUID().slice(0, 8)}`;
 
   console.error(
-    `[${new Date().toISOString()}] INFO [monobrain-mcp] (${sessionId}) Starting in stdio mode`
+    `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) Starting in stdio mode`
   );
 
   let buffer = '';
@@ -77,7 +77,7 @@ if (isMCPMode) {
           id: message.id,
           result: {
             protocolVersion: '2024-11-05',
-            serverInfo: { name: 'monobrain', version: VERSION },
+            serverInfo: { name: 'monomind', version: VERSION },
             capabilities: {
               tools: { listChanged: true },
               resources: { subscribe: true, listChanged: true },

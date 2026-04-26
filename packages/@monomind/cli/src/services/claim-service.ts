@@ -214,7 +214,7 @@ export class ClaimService extends EventEmitter {
 
   constructor(projectRoot: string, config?: Partial<WorkStealingConfig>) {
     super();
-    this.storagePath = path.join(projectRoot, '.monobrain', 'claims');
+    this.storagePath = path.join(projectRoot, '.monomind', 'claims');
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
@@ -957,7 +957,7 @@ export class GitHubSync {
         const claimantStr = claimant.type === 'human'
           ? `@${claimant.name.replace(/[^a-zA-Z0-9_-]/g, '')}`
           : `Agent: ${(claimant.agentType || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '')}`;
-        const comment = `🤖 **Issue claimed** by ${claimantStr}\n\n_Coordinated by Monobrain_`;
+        const comment = `🤖 **Issue claimed** by ${claimantStr}\n\n_Coordinated by Monomind_`;
         try {
           execFileSync('gh', [
             'issue', 'comment', String(issueNumber),

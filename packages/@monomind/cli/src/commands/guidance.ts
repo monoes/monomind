@@ -17,9 +17,9 @@ const compileCommand: Command = {
     { name: 'json', type: 'boolean', description: 'Output as JSON', default: 'false' },
   ],
   examples: [
-    { command: 'monobrain guidance compile', description: 'Compile default CLAUDE.md' },
-    { command: 'monobrain guidance compile -r ./CLAUDE.md -l ./CLAUDE.local.md', description: 'Compile with local overlay' },
-    { command: 'monobrain guidance compile --json', description: 'Output compiled bundle as JSON' },
+    { command: 'monomind guidance compile', description: 'Compile default CLAUDE.md' },
+    { command: 'monomind guidance compile -r ./CLAUDE.md -l ./CLAUDE.local.md', description: 'Compile with local overlay' },
+    { command: 'monomind guidance compile --json', description: 'Output compiled bundle as JSON' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const rootPath = ctx.flags.root as string || './CLAUDE.md';
@@ -45,7 +45,7 @@ const compileCommand: Command = {
         localContent = await readFile(localPath, 'utf-8');
       }
 
-      const { GuidanceCompiler } = await import('@monobrain/guidance/compiler');
+      const { GuidanceCompiler } = await import('@monomind/guidance/compiler');
       const compiler = new GuidanceCompiler();
       const bundle = compiler.compile(rootContent, localContent);
 
@@ -99,8 +99,8 @@ const retrieveCommand: Command = {
     { name: 'json', type: 'boolean', description: 'Output as JSON', default: 'false' },
   ],
   examples: [
-    { command: 'monobrain guidance retrieve -t "Fix SQL injection in user search"', description: 'Retrieve guidance for a security task' },
-    { command: 'monobrain guidance retrieve -t "Add unit tests" -n 3', description: 'Retrieve top 3 shards for testing' },
+    { command: 'monomind guidance retrieve -t "Fix SQL injection in user search"', description: 'Retrieve guidance for a security task' },
+    { command: 'monomind guidance retrieve -t "Add unit tests" -n 3', description: 'Retrieve top 3 shards for testing' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const task = ctx.flags.task as string;
@@ -122,8 +122,8 @@ const retrieveCommand: Command = {
     try {
       const { readFile } = await import('node:fs/promises');
       const { existsSync } = await import('node:fs');
-      const { GuidanceCompiler } = await import('@monobrain/guidance/compiler');
-      const { ShardRetriever, HashEmbeddingProvider } = await import('@monobrain/guidance/retriever');
+      const { GuidanceCompiler } = await import('@monomind/guidance/compiler');
+      const { ShardRetriever, HashEmbeddingProvider } = await import('@monomind/guidance/retriever');
 
       if (!existsSync(rootPath)) {
         output.writeln(output.error(`Root guidance file not found: ${rootPath}`));
@@ -195,8 +195,8 @@ const gatesCommand: Command = {
     { name: 'json', type: 'boolean', description: 'Output as JSON', default: 'false' },
   ],
   examples: [
-    { command: 'monobrain guidance gates -c "rm -rf /tmp"', description: 'Check if a command is destructive' },
-    { command: 'monobrain guidance gates --content "api_key=sk-abc123..."', description: 'Check content for secrets' },
+    { command: 'monomind guidance gates -c "rm -rf /tmp"', description: 'Check if a command is destructive' },
+    { command: 'monomind guidance gates --content "api_key=sk-abc123..."', description: 'Check content for secrets' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const command = ctx.flags.command as string | undefined;
@@ -209,7 +209,7 @@ const gatesCommand: Command = {
     output.writeln(output.dim('─'.repeat(50)));
 
     try {
-      const { EnforcementGates } = await import('@monobrain/guidance/gates');
+      const { EnforcementGates } = await import('@monomind/guidance/gates');
       const gates = new EnforcementGates();
 
       const results: Array<{ type: string; result: any }> = [];
@@ -299,7 +299,7 @@ const statusCommand: Command = {
       const statusData = {
         rootGuidance: rootExists ? 'found' : 'not found',
         localOverlay: localExists ? 'found' : 'not configured',
-        dataDir: existsSync('./.monobrain/guidance') ? 'exists' : 'not created',
+        dataDir: existsSync('./.monomind/guidance') ? 'exists' : 'not created',
       };
 
       if (jsonOutput) {
@@ -311,7 +311,7 @@ const statusCommand: Command = {
 
         if (rootExists) {
           const { readFile } = await import('node:fs/promises');
-          const { GuidanceCompiler } = await import('@monobrain/guidance/compiler');
+          const { GuidanceCompiler } = await import('@monomind/guidance/compiler');
           const rootContent = await readFile('./CLAUDE.md', 'utf-8');
           const compiler = new GuidanceCompiler();
           const bundle = compiler.compile(rootContent);
@@ -348,10 +348,10 @@ const optimizeCommand: Command = {
     { name: 'json', type: 'boolean', description: 'Output as JSON', default: 'false' },
   ],
   examples: [
-    { command: 'monobrain guidance optimize', description: 'Analyze current CLAUDE.md and show suggestions' },
-    { command: 'monobrain guidance optimize --apply', description: 'Apply optimizations to CLAUDE.md' },
-    { command: 'monobrain guidance optimize -s compact --apply', description: 'Optimize for compact context window' },
-    { command: 'monobrain guidance optimize --target-score 95', description: 'Optimize until score reaches 95' },
+    { command: 'monomind guidance optimize', description: 'Analyze current CLAUDE.md and show suggestions' },
+    { command: 'monomind guidance optimize --apply', description: 'Apply optimizations to CLAUDE.md' },
+    { command: 'monomind guidance optimize -s compact --apply', description: 'Optimize for compact context window' },
+    { command: 'monomind guidance optimize --target-score 95', description: 'Optimize until score reaches 95' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const rootPath = ctx.flags.root as string || './CLAUDE.md';
@@ -382,7 +382,7 @@ const optimizeCommand: Command = {
       }
 
       // Step 1: Analyze current state
-      const { analyze, formatReport, optimizeForSize, formatBenchmark } = await import('@monobrain/guidance/analyzer');
+      const { analyze, formatReport, optimizeForSize, formatBenchmark } = await import('@monomind/guidance/analyzer');
       const analysis = analyze(rootContent, localContent);
 
       if (jsonOutput && !applyChanges) {
@@ -465,10 +465,10 @@ const abTestCommand: Command = {
     { name: 'json', type: 'boolean', description: 'Output as JSON', default: 'false' },
   ],
   examples: [
-    { command: 'monobrain guidance ab-test', description: 'Run default A/B test (no guidance vs ./CLAUDE.md)' },
-    { command: 'monobrain guidance ab-test -a old.md -b new.md', description: 'Compare two CLAUDE.md versions' },
-    { command: 'monobrain guidance ab-test --tasks custom-tasks.json', description: 'Run with custom test tasks' },
-    { command: 'monobrain guidance ab-test --json', description: 'Output full report as JSON' },
+    { command: 'monomind guidance ab-test', description: 'Run default A/B test (no guidance vs ./CLAUDE.md)' },
+    { command: 'monomind guidance ab-test -a old.md -b new.md', description: 'Compare two CLAUDE.md versions' },
+    { command: 'monomind guidance ab-test --tasks custom-tasks.json', description: 'Run with custom test tasks' },
+    { command: 'monomind guidance ab-test --json', description: 'Output full report as JSON' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const configAPath = ctx.flags['config-a'] as string | undefined;
@@ -484,7 +484,7 @@ const abTestCommand: Command = {
     try {
       const { readFile } = await import('node:fs/promises');
       const { existsSync } = await import('node:fs');
-      const { abBenchmark, getDefaultABTasks } = await import('@monobrain/guidance/analyzer');
+      const { abBenchmark, getDefaultABTasks } = await import('@monomind/guidance/analyzer');
 
       // Load Config B (candidate) content
       if (!existsSync(configBPath)) {
@@ -590,12 +590,12 @@ export const guidanceCommand: Command = {
   ],
   options: [],
   examples: [
-    { command: 'monobrain guidance compile', description: 'Compile CLAUDE.md into policy bundle' },
-    { command: 'monobrain guidance retrieve -t "Fix auth bug"', description: 'Retrieve relevant guidance' },
-    { command: 'monobrain guidance gates -c "rm -rf /"', description: 'Check enforcement gates' },
-    { command: 'monobrain guidance status', description: 'Show control plane status' },
-    { command: 'monobrain guidance optimize', description: 'Analyze and optimize CLAUDE.md' },
-    { command: 'monobrain guidance ab-test', description: 'Run A/B behavioral comparison' },
+    { command: 'monomind guidance compile', description: 'Compile CLAUDE.md into policy bundle' },
+    { command: 'monomind guidance retrieve -t "Fix auth bug"', description: 'Retrieve relevant guidance' },
+    { command: 'monomind guidance gates -c "rm -rf /"', description: 'Check enforcement gates' },
+    { command: 'monomind guidance status', description: 'Show control plane status' },
+    { command: 'monomind guidance optimize', description: 'Analyze and optimize CLAUDE.md' },
+    { command: 'monomind guidance ab-test', description: 'Run A/B behavioral comparison' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
@@ -610,7 +610,7 @@ export const guidanceCommand: Command = {
     output.writeln(`  ${output.bold('optimize')}  Analyze and optimize CLAUDE.md`);
     output.writeln(`  ${output.bold('ab-test')}   Run A/B behavioral comparison`);
     output.writeln();
-    output.writeln(output.dim('Use monobrain guidance <subcommand> --help for details'));
+    output.writeln(output.dim('Use monomind guidance <subcommand> --help for details'));
 
     return { success: true };
   },

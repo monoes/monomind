@@ -1,12 +1,12 @@
-# @monobrain/performance
+# @monomind/performance
 
-[![npm version](https://img.shields.io/npm/v/@monobrain/performance.svg)](https://www.npmjs.com/package/@monobrain/performance)
-[![npm downloads](https://img.shields.io/npm/dm/@monobrain/performance.svg)](https://www.npmjs.com/package/@monobrain/performance)
+[![npm version](https://img.shields.io/npm/v/@monomind/performance.svg)](https://www.npmjs.com/package/@monomind/performance)
+[![npm downloads](https://img.shields.io/npm/dm/@monomind/performance.svg)](https://www.npmjs.com/package/@monomind/performance)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![Benchmarks](https://img.shields.io/badge/Benchmarks-Vitest-green.svg)](https://vitest.dev/)
 
-> Comprehensive performance benchmarking module for Monobrain V1 - statistical analysis, memory tracking, regression detection, and Flash Attention validation.
+> Comprehensive performance benchmarking module for Monomind V1 - statistical analysis, memory tracking, regression detection, and Flash Attention validation.
 
 ## Features
 
@@ -21,7 +21,7 @@
 ## Installation
 
 ```bash
-npm install @monobrain/performance
+npm install @monomind/performance
 ```
 
 ## Quick Start
@@ -31,7 +31,7 @@ import {
   benchmark,
   BenchmarkRunner,
   V1_PERFORMANCE_TARGETS,
-} from "@monobrain/performance";
+} from "@monomind/performance";
 
 // Single benchmark
 const result = await benchmark(
@@ -58,7 +58,7 @@ if (result.mean <= V1_PERFORMANCE_TARGETS["vector-search"]) {
 ### Single Benchmark
 
 ```typescript
-import { benchmark } from '@monobrain/performance';
+import { benchmark } from '@monomind/performance';
 
 const result = await benchmark(
   'my-benchmark',
@@ -98,7 +98,7 @@ const result = await benchmark(
 ### Benchmark Suite
 
 ```typescript
-import { BenchmarkRunner } from "@monobrain/performance";
+import { BenchmarkRunner } from "@monomind/performance";
 
 const runner = new BenchmarkRunner("Memory Operations");
 
@@ -128,7 +128,7 @@ const json = runner.toJSON();
 ### Comparison & Regression Detection
 
 ```typescript
-import { compareResults, printComparisonReport } from "@monobrain/performance";
+import { compareResults, printComparisonReport } from "@monomind/performance";
 
 // Compare current vs baseline
 const comparisons = compareResults(baselineResults, currentResults, {
@@ -154,7 +154,7 @@ for (const comp of comparisons) {
 ### Performance Targets
 
 ```typescript
-import { V1_PERFORMANCE_TARGETS, meetsTarget } from "@monobrain/performance";
+import { V1_PERFORMANCE_TARGETS, meetsTarget } from "@monomind/performance";
 
 // Built-in targets
 V1_PERFORMANCE_TARGETS = {
@@ -188,7 +188,7 @@ const { met, target, ratio } = meetsTarget("vector-search", 0.8);
 ### Formatting Utilities
 
 ```typescript
-import { formatBytes, formatTime } from "@monobrain/performance";
+import { formatBytes, formatTime } from "@monomind/performance";
 
 formatTime(0.00005); // '50.00 ns'
 formatTime(0.5); // '500.00 us'
@@ -218,7 +218,7 @@ npm run bench:startup
 ```typescript
 // benchmarks/memory.bench.ts
 import { describe, bench } from "vitest";
-import { HNSWIndex } from "@monobrain/memory";
+import { HNSWIndex } from "@monomind/memory";
 
 describe("Memory Benchmarks", () => {
   const index = new HNSWIndex({ dimensions: 1536 });
@@ -252,7 +252,7 @@ import type {
   EnvironmentInfo,
   ComparisonResult,
   PerformanceTarget,
-} from "@monobrain/performance";
+} from "@monomind/performance";
 ```
 
 ## Dependencies
@@ -263,9 +263,9 @@ import type {
 
 ## Related Packages
 
-- [@monobrain/memory](../memory) - Memory operations to benchmark
-- [@monobrain/swarm](../swarm) - Swarm coordination to benchmark
-- [@monobrain/neural](../neural) - Neural operations to benchmark
+- [@monomind/memory](../memory) - Memory operations to benchmark
+- [@monomind/swarm](../swarm) - Swarm coordination to benchmark
+- [@monomind/neural](../neural) - Neural operations to benchmark
 
 ## License
 

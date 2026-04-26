@@ -1,4 +1,4 @@
-# Monobrain Docker — Exclude dev files from build context
+# Monomind Docker — Exclude dev files from build context
 # This keeps the build context small and fast
 
 # Dependencies (installed fresh in Docker)
@@ -56,7 +56,7 @@ docker/.dockerignore
 dist
 data
 .claude
-.monobrain
+.monomind
 
 # Secrets
 .env

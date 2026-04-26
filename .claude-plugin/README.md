@@ -1,6 +1,6 @@
-# 🚀 Monobrain Plugin - Complete Enterprise AI Agent Orchestration
+# 🚀 Monomind Plugin - Complete Enterprise AI Agent Orchestration
 
-[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/nokhodian/monobrain)
+[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/nokhodian/monomind)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-%3E%3D2.0.0-purple.svg)](https://claude.com/code)
 
@@ -25,7 +25,7 @@
 
 ## 🌟 Overview
 
-Monobrain is the most comprehensive Claude Code plugin for enterprise AI agent orchestration. It provides a complete ecosystem for:
+Monomind is the most comprehensive Claude Code plugin for enterprise AI agent orchestration. It provides a complete ecosystem for:
 
 - **Multi-Agent Coordination**: 74+ specialized agents with swarm intelligence
 - **SPARC Methodology**: Systematic development with 18 specialized modes
@@ -272,14 +272,14 @@ Monobrain is the most comprehensive Claude Code plugin for enterprise AI agent o
 In Claude Code:
 
 ```
-/plugin add nokhodian/monobrain
+/plugin add nokhodian/monomind
 ```
 
 Or from local directory:
 
 ```bash
-git clone https://github.com/nokhodian/monobrain.git
-cd monobrain
+git clone https://github.com/nokhodian/monomind.git
+cd monomind
 ```
 
 Then in Claude Code:
@@ -297,7 +297,7 @@ Then in Claude Code:
 
 ```bash
 # Add MCP servers to Claude Code
-claude mcp add monobrain npx monobrain@alpha mcp start
+claude mcp add monomind npx monomind@alpha mcp start
 claude mcp add ruv-swarm npx ruv-swarm mcp start  # Optional
 ```
 
@@ -327,7 +327,7 @@ claude plugin list
 
 In Claude Code:
 ```
-/plugin add nokhodian/monobrain
+/plugin add nokhodian/monomind
 /restart
 ```
 
@@ -335,8 +335,8 @@ In Claude Code:
 
 ```bash
 # Clone the repository
-git clone https://github.com/nokhodian/monobrain.git
-cd monobrain/claude-plugin
+git clone https://github.com/nokhodian/monomind.git
+cd monomind/claude-plugin
 
 # Run installation script
 bash scripts/install.sh
@@ -350,7 +350,7 @@ cp -r agents ~/.claude/agents/
 
 ```bash
 # Run setup via npx
-npx monobrain@alpha init --plugin
+npx monomind@alpha init --plugin
 
 # This will:
 # 1. Create .claude directory
@@ -366,7 +366,7 @@ npx monobrain@alpha init --plugin
 ### Directory Structure
 
 ```
-monobrain/
+monomind/
 ├── .claude-plugin/
 │   ├── plugin.json          # Plugin metadata
 │   ├── README.md            # This file
@@ -490,16 +490,16 @@ monobrain/
 
 ## 🔌 MCP Integration
 
-Monobrain integrates with 3 MCP servers providing 110+ tools:
+Monomind integrates with 3 MCP servers providing 110+ tools:
 
-### Monobrain MCP (Required)
+### Monomind MCP (Required)
 
 ```json
 {
   "mcpServers": {
-    "monobrain": {
+    "monomind": {
       "command": "npx",
-      "args": ["monobrain@alpha", "mcp", "start"]
+      "args": ["monomind@alpha", "mcp", "start"]
     }
   }
 }
@@ -630,10 +630,10 @@ Monobrain integrates with 3 MCP servers providing 110+ tools:
 
 ## 🤝 Support
 
-- **Documentation**: [GitHub Wiki](https://github.com/nokhodian/monobrain/wiki)
-- **Issues**: [GitHub Issues](https://github.com/nokhodian/monobrain/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/nokhodian/monobrain/discussions)
-- **Website**: [Monobrain](https://github.com/nokhodian/monobrain)
+- **Documentation**: [GitHub Wiki](https://github.com/nokhodian/monomind/wiki)
+- **Issues**: [GitHub Issues](https://github.com/nokhodian/monomind/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/nokhodian/monomind/discussions)
+- **Website**: [Monomind](https://github.com/nokhodian/monomind)
 
 ---
 
@@ -696,7 +696,7 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 ## 🌟 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=nokhodian/monobrain&type=Date)](https://star-history.com/#nokhodian/monobrain&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=nokhodian/monomind&type=Date)](https://star-history.com/#nokhodian/monomind&Date)
 
 ---
 

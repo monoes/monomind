@@ -22,7 +22,7 @@ Configure metrics, logs, uptime checks, and alerts. Recommend improvements if th
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "post-deployment-monitoring-mode",
   task_description: "monitor production metrics",
   options: {
@@ -35,22 +35,22 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run post-deployment-monitoring-mode "monitor production metrics"
+npx monomind sparc run post-deployment-monitoring-mode "monitor production metrics"
 
 # For alpha features
-npx monobrain@alpha sparc run post-deployment-monitoring-mode "monitor production metrics"
+npx monomind@alpha sparc run post-deployment-monitoring-mode "monitor production metrics"
 
 # With namespace
-npx monobrain sparc run post-deployment-monitoring-mode "your task" --namespace post-deployment-monitoring-mode
+npx monomind sparc run post-deployment-monitoring-mode "your task" --namespace post-deployment-monitoring-mode
 
 # Non-interactive mode
-npx monobrain sparc run post-deployment-monitoring-mode "your task" --non-interactive
+npx monomind sparc run post-deployment-monitoring-mode "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run post-deployment-monitoring-mode "monitor production metrics"
+# If monomind is installed locally
+./monomind sparc run post-deployment-monitoring-mode "monitor production metrics"
 ```
 
 ## Memory Integration
@@ -58,7 +58,7 @@ npx monobrain sparc run post-deployment-monitoring-mode "your task" --non-intera
 ### Using MCP Tools (Preferred)
 ```javascript
 // Store mode-specific context
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "post-deployment-monitoring-mode_context",
   value: "important decisions",
@@ -66,7 +66,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Query previous work
-mcp__monobrain__memory_search {
+mcp__monomind__memory_search {
   pattern: "post-deployment-monitoring-mode",
   namespace: "post-deployment-monitoring-mode",
   limit: 5
@@ -76,8 +76,8 @@ mcp__monobrain__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx monobrain memory store "post-deployment-monitoring-mode_context" "important decisions" --namespace post-deployment-monitoring-mode
+npx monomind memory store "post-deployment-monitoring-mode_context" "important decisions" --namespace post-deployment-monitoring-mode
 
 # Query previous work
-npx monobrain memory query "post-deployment-monitoring-mode" --limit 5
+npx monomind memory query "post-deployment-monitoring-mode" --limit 5
 ```

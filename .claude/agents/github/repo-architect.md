@@ -2,7 +2,7 @@
 name: repo-architect
 description: |
   Repository structure optimization and multi-repo management with ruv-swarm coordination for scalable project architecture and development workflows
-tools: Bash, Read, Write, Edit, LS, Glob, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_repository, mcp__github__fork_repository, mcp__github__search_repositories, mcp__github__push_files, mcp__github__create_or_update_file, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, mcp__monobrain__memory_usage
+tools: Bash, Read, Write, Edit, LS, Glob, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_repository, mcp__github__fork_repository, mcp__github__search_repositories, mcp__github__push_files, mcp__github__create_or_update_file, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_usage
 ---
 
 # GitHub Repository Architect
@@ -25,11 +25,11 @@ Repository structure optimization and multi-repo management with ruv-swarm coord
 
 ```javascript
 // Initialize architecture analysis swarm
-mcp__monobrain__swarm_init { topology: "mesh", maxAgents: 4 }
-mcp__monobrain__agent_spawn { type: "analyst", name: "Structure Analyzer" }
-mcp__monobrain__agent_spawn { type: "architect", name: "Repository Architect" }
-mcp__monobrain__agent_spawn { type: "optimizer", name: "Structure Optimizer" }
-mcp__monobrain__agent_spawn { type: "coordinator", name: "Multi-Repo Coordinator" }
+mcp__monomind__swarm_init { topology: "mesh", maxAgents: 4 }
+mcp__monomind__agent_spawn { type: "analyst", name: "Structure Analyzer" }
+mcp__monomind__agent_spawn { type: "architect", name: "Repository Architect" }
+mcp__monomind__agent_spawn { type: "optimizer", name: "Structure Optimizer" }
+mcp__monomind__agent_spawn { type: "coordinator", name: "Multi-Repo Coordinator" }
 
 // Analyze current repository structure
 LS("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow")
@@ -43,7 +43,7 @@ mcp__github__search_repositories {
 }
 
 // Orchestrate structure optimization
-mcp__monobrain__task_orchestrate {
+mcp__monomind__task_orchestrate {
   task: "Analyze and optimize repository structure for scalability and maintainability",
   strategy: "adaptive",
   priority: "medium"
@@ -115,9 +115,9 @@ mcp__github__push_files {
 
 ## Quick Start
 \`\`\`bash
-npx monobrain init --sparc
+npx monomind init --sparc
 npm install
-npx monobrain start --ui
+npx monomind start --ui
 \`\`\`
 
 ## Features
@@ -169,12 +169,12 @@ jobs:
 ```javascript
 [Single Message - Repository Architecture Review]:
   // Initialize comprehensive architecture swarm
-  mcp__monobrain__swarm_init { topology: "hierarchical", maxAgents: 6 }
-  mcp__monobrain__agent_spawn { type: "architect", name: "Senior Architect" }
-  mcp__monobrain__agent_spawn { type: "analyst", name: "Structure Analyst" }
-  mcp__monobrain__agent_spawn { type: "optimizer", name: "Performance Optimizer" }
-  mcp__monobrain__agent_spawn { type: "researcher", name: "Best Practices Researcher" }
-  mcp__monobrain__agent_spawn { type: "coordinator", name: "Multi-Repo Coordinator" }
+  mcp__monomind__swarm_init { topology: "hierarchical", maxAgents: 6 }
+  mcp__monomind__agent_spawn { type: "architect", name: "Senior Architect" }
+  mcp__monomind__agent_spawn { type: "analyst", name: "Structure Analyst" }
+  mcp__monomind__agent_spawn { type: "optimizer", name: "Performance Optimizer" }
+  mcp__monomind__agent_spawn { type: "researcher", name: "Best Practices Researcher" }
+  mcp__monomind__agent_spawn { type: "coordinator", name: "Multi-Repo Coordinator" }
 
   // Analyze current repository structures
   LS("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow")
@@ -223,7 +223,7 @@ jobs:
   ]}
 
   // Store architecture analysis
-  mcp__monobrain__memory_usage {
+  mcp__monomind__memory_usage {
     action: "store",
     key: "architecture/analysis/results",
     value: {

@@ -94,8 +94,8 @@ Pre-define shard groups (e.g., "security pack", "testing pack") and load by task
 
 ## References
 
-- `packages/@monobrain/guidance/src/types.ts` -- `Constitution`, `RuleShard`, `PolicyBundle` type definitions
-- `packages/@monobrain/guidance/src/compiler.ts` -- `buildConstitution()`, `buildShards()`, `CONSTITUTION_MARKERS`
-- `packages/@monobrain/guidance/src/retriever.ts` -- `ShardRetriever.retrieve()`, `selectWithContradictionCheck()`
+- `packages/@monomind/guidance/src/types.ts` -- `Constitution`, `RuleShard`, `PolicyBundle` type definitions
+- `packages/@monomind/guidance/src/compiler.ts` -- `buildConstitution()`, `buildShards()`, `CONSTITUTION_MARKERS`
+- `packages/@monomind/guidance/src/retriever.ts` -- `ShardRetriever.retrieve()`, `selectWithContradictionCheck()`
 - ADR-G001 -- Why a separate control plane
 - ADR-G003 -- Intent classification for shard retrieval

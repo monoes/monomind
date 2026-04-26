@@ -1,13 +1,13 @@
 ---
 name: "v1 Security Overhaul"
-description: "Complete security architecture overhaul for monobrain v1. Addresses critical CVEs (CVE-1, CVE-2, CVE-3) and implements secure-by-default patterns. Use for security-first v1 implementation."
+description: "Complete security architecture overhaul for monomind v1. Addresses critical CVEs (CVE-1, CVE-2, CVE-3) and implements secure-by-default patterns. Use for security-first v1 implementation."
 ---
 
 # Security Overhaul
 
 ## What This Skill Does
 
-Orchestrates comprehensive security overhaul for monobrain v1, addressing critical vulnerabilities and establishing security-first development practices using specialized v1 security agents.
+Orchestrates comprehensive security overhaul for monomind v1, addressing critical vulnerabilities and establishing security-first development practices using specialized v1 security agents.
 
 ## Quick Start
 

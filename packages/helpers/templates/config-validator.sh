@@ -1,5 +1,5 @@
 #!/bin/bash
-# Monobrain V1 Configuration Validator Template (Linux/macOS)
+# Monomind V1 Configuration Validator Template (Linux/macOS)
 
 set -e
 
@@ -18,13 +18,13 @@ log_warning() { echo -e "${YELLOW}⚠️  WARNING: $1${RESET}"; ((WARNINGS++)); 
 log_success() { echo -e "${GREEN}✅ $1${RESET}"; }
 log_info() { echo -e "${BLUE}ℹ️  $1${RESET}"; }
 
-echo -e "${BLUE}🔍 Monobrain V1 Configuration Validation${RESET}"
+echo -e "${BLUE}🔍 Monomind V1 Configuration Validation${RESET}"
 echo "==========================================="
 echo ""
 
 # Check required directories
 echo "📁 Checking Directory Structure..."
-required_dirs=(".claude" ".claude/helpers" ".monobrain/metrics" ".monobrain/security")
+required_dirs=(".claude" ".claude/helpers" ".monomind/metrics" ".monomind/security")
 
 for dir in "${required_dirs[@]}"; do
     if [ -d "$dir" ]; then
@@ -37,7 +37,7 @@ done
 # Check required files
 echo ""
 echo "📄 Checking Required Files..."
-required_files=(".monobrain/metrics/v1-progress.json" ".monobrain/metrics/performance.json" ".monobrain/security/audit-status.json")
+required_files=(".monomind/metrics/v1-progress.json" ".monomind/metrics/performance.json" ".monomind/security/audit-status.json")
 
 for file in "${required_files[@]}"; do
     if [ -f "$file" ]; then

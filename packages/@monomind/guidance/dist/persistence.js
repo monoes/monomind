@@ -10,7 +10,7 @@
  *   {storagePath}/index.json     - Metadata index (counts, timestamps, task IDs)
  *   {storagePath}/.lock          - Lock file for concurrent access prevention
  *
- * @module @monobrain/guidance/persistence
+ * @module @monomind/guidance/persistence
  */
 import { mkdir, readFile, writeFile, appendFile, stat, unlink, rename } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -21,7 +21,7 @@ import { RunLedger } from './ledger.js';
 // Default Configuration
 // ============================================================================
 const DEFAULT_PERSISTENCE_CONFIG = {
-    storagePath: '.monobrain/guidance',
+    storagePath: '.monomind/guidance',
     maxEvents: 10_000,
     compactIntervalMs: 60 * 60 * 1000, // 1 hour
     enableWAL: true,

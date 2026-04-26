@@ -1,5 +1,5 @@
 #!/bin/bash
-# Monobrain Background Workers Test Suite
+# Monomind Background Workers Test Suite
 # Tests all 10 background workers and scheduling
 
 set -e

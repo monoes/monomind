@@ -96,9 +96,9 @@ Log events without running evaluators. Rejected because the evaluators are what 
 
 ## References
 
-- `packages/@monobrain/guidance/src/types.ts` -- `RunEvent`, `Violation`, `EvaluatorResult`, `ViolationRanking`, `OptimizationMetrics`
-- `packages/@monobrain/guidance/src/ledger.ts` -- `RunLedger`, all evaluator classes
-- `packages/@monobrain/guidance/src/compiler.ts` -- `hashContent()` for guidance hash generation
-- `packages/@monobrain/guidance/src/index.ts` -- `GuidanceControlPlane.startRun()`, `finalizeRun()`
+- `packages/@monomind/guidance/src/types.ts` -- `RunEvent`, `Violation`, `EvaluatorResult`, `ViolationRanking`, `OptimizationMetrics`
+- `packages/@monomind/guidance/src/ledger.ts` -- `RunLedger`, all evaluator classes
+- `packages/@monomind/guidance/src/compiler.ts` -- `hashContent()` for guidance hash generation
+- `packages/@monomind/guidance/src/index.ts` -- `GuidanceControlPlane.startRun()`, `finalizeRun()`
 - ADR-G001 -- Why auditing is needed for autonomous agents
 - ADR-G008 -- How the optimizer consumes violation rankings

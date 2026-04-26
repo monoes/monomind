@@ -4,7 +4,7 @@
  * Monitors teammate health status with configurable
  * thresholds and automatic status transitions.
  *
- * @module @monobrain/teammate-plugin/utils/health-checker
+ * @module @monomind/teammate-plugin/utils/health-checker
  */
 
 import type {

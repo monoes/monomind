@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ShortTermMemory } from '../../packages/@monobrain/memory/src/tiers/short-term.js';
-import type { MemoryEntry } from '../../packages/@monobrain/memory/src/types.js';
+import { ShortTermMemory } from '../../packages/@monomind/memory/src/tiers/short-term.js';
+import type { MemoryEntry } from '../../packages/@monomind/memory/src/types.js';
 
 function makeEntry(id: string, content = `content-${id}`): MemoryEntry {
   const now = Date.now();
@@ -70,7 +70,7 @@ describe('ShortTermMemory', () => {
       bulkInsert: async (entries: MemoryEntry[]) => {
         flushed.push(...entries);
       },
-    } as unknown as import('../../packages/@monobrain/memory/src/types.js').IMemoryBackend;
+    } as unknown as import('../../packages/@monomind/memory/src/types.js').IMemoryBackend;
 
     const count = await mem.flush(mockBackend);
     expect(count).toBe(2);
@@ -81,7 +81,7 @@ describe('ShortTermMemory', () => {
   it('flush() returns 0 when buffer is empty', async () => {
     const mockBackend = {
       bulkInsert: async () => {},
-    } as unknown as import('../../packages/@monobrain/memory/src/types.js').IMemoryBackend;
+    } as unknown as import('../../packages/@monomind/memory/src/types.js').IMemoryBackend;
 
     const count = await mem.flush(mockBackend);
     expect(count).toBe(0);

@@ -1,5 +1,5 @@
 /**
- * @monobrain/guidance - Guidance Control Plane
+ * @monomind/guidance - Guidance Control Plane
  *
  * Sits beside Claude Code (not inside it) to:
  * 1. Compile CLAUDE.md into constitution + shards + manifest
@@ -18,7 +18,7 @@
  * - Hook system for enforcement gates
  * - RuVector/HNSW for semantic shard retrieval
  *
- * @module @monobrain/guidance
+ * @module @monomind/guidance
  */
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -69,7 +69,7 @@ const DEFAULT_CONFIG = {
     gates: {},
     maxShardsPerTask: 5,
     optimizationCycleDays: 7,
-    dataDir: './.monobrain/guidance',
+    dataDir: './.monomind/guidance',
     headlessMode: false,
 };
 // ============================================================================

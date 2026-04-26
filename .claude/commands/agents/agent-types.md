@@ -1,6 +1,6 @@
 # agent-types
 
-Complete guide to all 54 available agent types in Monobrain.
+Complete guide to all 54 available agent types in Monomind.
 
 ## Core Development Agents
 - `coder` - Implementation specialist
@@ -22,5 +22,5 @@ Complete guide to all 54 available agent types in Monobrain.
 
 For full list and details:
 ```bash
-npx monobrain agents list
+npx monomind agents list
 ```

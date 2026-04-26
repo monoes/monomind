@@ -21,7 +21,7 @@ export function buildDockerArgs(agentId: string, config: SandboxConfig): string[
   const args: string[] = [];
 
   // Container name
-  args.push('--name', `monobrain-sandbox-${agentId}`);
+  args.push('--name', `monomind-sandbox-${agentId}`);
 
   // CPU limit
   if (config.cpu_limit) {
@@ -86,7 +86,7 @@ export function create(
 ): SandboxRuntime {
   const run = execFn ?? ((cmd: string) => execAsync(cmd));
   const image = config.image ?? 'node:20-slim';
-  const containerName = `monobrain-sandbox-${agentId}`;
+  const containerName = `monomind-sandbox-${agentId}`;
   const defaultTimeout = config.timeout_ms ?? 30000;
 
   return {

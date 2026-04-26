@@ -3,7 +3,7 @@
  *
  * Provides MCP tools for checking and syncing V1 implementation progress.
  *
- * @module @monobrain/cli/mcp-tools/progress
+ * @module @monomind/cli/mcp-tools/progress
  */
 
 import type { MCPTool } from './types.js';
@@ -15,10 +15,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 // From dist/src/mcp-tools or src/mcp-tools, navigate to v1 directory
-// CLI is at packages/@monobrain/cli, so go up 2 levels from cli to get to v1
+// CLI is at packages/@monomind/cli, so go up 2 levels from cli to get to v1
 const CLI_ROOT = join(__dirname, '../../..');
-const MONOBRAIN_DIR = join(CLI_ROOT, '..'); // @monobrain directory
-const PACKAGES_DIR = join(MONOBRAIN_DIR, '..'); // v1 directory
+const MONOMIND_DIR = join(CLI_ROOT, '..'); // @monomind directory
+const PACKAGES_DIR = join(MONOMIND_DIR, '..'); // v1 directory
 const PROJECT_ROOT = join(PACKAGES_DIR, '..');
 
 // Utility/service packages follow DDD differently - their services ARE the application layer
@@ -111,7 +111,7 @@ async function calculateProgress(): Promise<ProgressMetrics> {
   const now = new Date().toISOString();
 
   // Count V1 modules
-  const modulesDir = join(PACKAGES_DIR, '@monobrain');
+  const modulesDir = join(PACKAGES_DIR, '@monomind');
   const modules: { name: string; files: number; lines: number; progress: number }[] = [];
   let totalProgress = 0;
   let explicitDDD = 0;
@@ -142,7 +142,7 @@ async function calculateProgress(): Promise<ProgressMetrics> {
 
   // Count CLI commands (from commands/index.ts)
   let cliCommands = 28; // Default to known count
-  const commandsIndexPath = join(PACKAGES_DIR, '@monobrain/cli/src/commands/index.ts');
+  const commandsIndexPath = join(PACKAGES_DIR, '@monomind/cli/src/commands/index.ts');
   if (existsSync(commandsIndexPath)) {
     try {
       const content = readFileSync(commandsIndexPath, 'utf-8');
@@ -155,7 +155,7 @@ async function calculateProgress(): Promise<ProgressMetrics> {
 
   // Count MCP tools
   let mcpTools = 100; // Approximate
-  const toolsIndexPath = join(PACKAGES_DIR, '@monobrain/cli/src/mcp-tools/index.ts');
+  const toolsIndexPath = join(PACKAGES_DIR, '@monomind/cli/src/mcp-tools/index.ts');
   if (existsSync(toolsIndexPath)) {
     try {
       const content = readFileSync(toolsIndexPath, 'utf-8');
@@ -165,7 +165,7 @@ async function calculateProgress(): Promise<ProgressMetrics> {
 
   // Count hooks subcommands (count const *Command definitions)
   let hooksSubcommands = 27; // Default to documented count
-  const hooksPath = join(PACKAGES_DIR, '@monobrain/cli/src/commands/hooks.ts');
+  const hooksPath = join(PACKAGES_DIR, '@monomind/cli/src/commands/hooks.ts');
   if (existsSync(hooksPath)) {
     try {
       const content = readFileSync(hooksPath, 'utf-8');
@@ -215,7 +215,7 @@ async function syncProgress(): Promise<ProgressMetrics> {
   const metrics = await calculateProgress();
 
   // Persist to file
-  const metricsDir = join(PROJECT_ROOT, '.monobrain/metrics');
+  const metricsDir = join(PROJECT_ROOT, '.monomind/metrics');
   if (!existsSync(metricsDir)) {
     mkdirSync(metricsDir, { recursive: true });
   }

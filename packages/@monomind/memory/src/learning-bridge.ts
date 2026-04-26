@@ -6,7 +6,7 @@
  * its own discoveries. The NeuralLearningSystem dependency is optional:
  * when unavailable, all operations degrade gracefully to no-ops.
  *
- * @module @monobrain/memory/learning-bridge
+ * @module @monomind/memory/learning-bridge
  */
 
 import { EventEmitter } from 'node:events';
@@ -41,7 +41,7 @@ export interface LearningBridgeConfig {
   enabled?: boolean;
   /**
    * Optional factory for the neural learning system.
-   * When provided, this replaces the default dynamic import of @monobrain/neural.
+   * When provided, this replaces the default dynamic import of @monomind/neural.
    * Primarily used for testing.
    */
   neuralLoader?: NeuralLoader;
@@ -399,7 +399,7 @@ export class LearningBridge extends EventEmitter {
         return;
       }
 
-      const mod = await import('@monobrain/neural' as string);
+      const mod = await import('@monomind/neural' as string);
       const NeuralLearningSystem = mod.NeuralLearningSystem ?? mod.default;
       if (!NeuralLearningSystem) return;
 
@@ -414,7 +414,7 @@ export class LearningBridge extends EventEmitter {
 
       this.neural = instance;
     } catch {
-      // @monobrain/neural not installed or failed to initialize.
+      // @monomind/neural not installed or failed to initialize.
       // This is expected in many environments; degrade silently.
       this.neural = null;
     }

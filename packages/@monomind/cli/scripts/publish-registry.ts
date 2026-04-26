@@ -46,7 +46,7 @@ interface PluginEntry {
   downloads: number;
   rating: number;
   lastUpdated: string;
-  minMonobrainVersion: string;
+  minMonomindVersion: string;
   type: string;
   hooks: string[];
   commands: string[];
@@ -190,15 +190,15 @@ async function generateRegistry(): Promise<PluginRegistry> {
   console.log('📦 Fetching npm stats for plugins...');
 
   const officialPackages = [
-    '@monobrain/plugin-agentic-qe',
-    '@monobrain/plugin-prime-radiant',
-    '@monobrain/plugin-gastown-bridge',
-    '@monobrain/security',
-    '@monobrain/claims',
-    '@monobrain/embeddings',
-    '@monobrain/neural',
-    '@monobrain/performance',
-    '@monobrain/plugins',
+    '@monomind/plugin-agentic-qe',
+    '@monomind/plugin-prime-radiant',
+    '@monomind/plugin-gastown-bridge',
+    '@monomind/security',
+    '@monomind/claims',
+    '@monomind/embeddings',
+    '@monomind/neural',
+    '@monomind/performance',
+    '@monomind/plugins',
   ];
 
   const plugins: PluginEntry[] = [];
@@ -211,14 +211,14 @@ async function generateRegistry(): Promise<PluginRegistry> {
     plugins.push({
       id: pkg,
       name: pkg,
-      displayName: pkg.replace('@monobrain/plugin-', '').replace('@monobrain/', ''),
-      description: `Official Monobrain plugin: ${pkg}`,
+      displayName: pkg.replace('@monomind/plugin-', '').replace('@monomind/', ''),
+      description: `Official Monomind plugin: ${pkg}`,
       version: stats?.version || '0.0.0',
       size: 100000,
       checksum: `sha256:${crypto.randomBytes(32).toString('hex')}`,
       author: {
-        id: 'monobrain-team',
-        displayName: 'Monobrain Team',
+        id: 'monomind-team',
+        displayName: 'Monomind Team',
         verified: true,
       },
       license: 'MIT',
@@ -227,7 +227,7 @@ async function generateRegistry(): Promise<PluginRegistry> {
       downloads: stats?.downloads || 0,
       rating: 0,
       lastUpdated: now,
-      minMonobrainVersion: '3.0.0',
+      minMonomindVersion: '3.0.0',
       type: 'integration',
       hooks: [],
       commands: [],
@@ -247,7 +247,7 @@ async function generateRegistry(): Promise<PluginRegistry> {
     ipnsName: '', // Will be set after publishing
     plugins,
     categories: [
-      { id: 'official', name: 'Official', description: 'Official Monobrain plugins', pluginCount: plugins.length },
+      { id: 'official', name: 'Official', description: 'Official Monomind plugins', pluginCount: plugins.length },
     ],
     totalPlugins: plugins.length,
     totalDownloads,
@@ -314,7 +314,7 @@ async function main() {
   // Pin to IPFS
   console.log('\n📌 Pinning to IPFS via Pinata...');
   try {
-    const result = await pinToIPFS(registry, 'monobrain-plugin-registry', jwt);
+    const result = await pinToIPFS(registry, 'monomind-plugin-registry', jwt);
 
     console.log('\n✅ Published successfully!');
     console.log(`   CID: ${result.IpfsHash}`);
@@ -334,7 +334,7 @@ async function main() {
     console.log('\n📝 Next steps:');
     console.log('   1. Update DEFAULT_PLUGIN_STORE_CONFIG in discovery.ts with the new CID');
     console.log('   2. If using IPNS, update the IPNS pointer via Pinata dashboard');
-    console.log('   3. Test with: npx monobrain@latest plugins list');
+    console.log('   3. Test with: npx monomind@latest plugins list');
   } catch (error) {
     console.error('\n❌ Publish failed:', error);
     process.exit(1);

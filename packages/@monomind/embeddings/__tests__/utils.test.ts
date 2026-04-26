@@ -1,5 +1,5 @@
 /**
- * Utility tests for @monobrain/embeddings
+ * Utility tests for @monomind/embeddings
  * Lightweight tests that don't require the embedding service
  */
 

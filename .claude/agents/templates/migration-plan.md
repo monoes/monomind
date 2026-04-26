@@ -3,7 +3,7 @@ name: migration-planner
 description: Comprehensive migration plan for converting commands to agent-based system
 ---
 
-# Monobrain Commands to Agent System Migration Plan
+# Monomind Commands to Agent System Migration Plan
 
 ## Overview
 This document provides a comprehensive migration plan to convert existing .claude/commands to the new agent-based system. Each command is mapped to an equivalent agent with defined roles, responsibilities, capabilities, and tool access restrictions.
@@ -53,9 +53,9 @@ capabilities:
   - network-configuration
 tools:
   allowed:
-    - mcp__monobrain__swarm_init
-    - mcp__monobrain__topology_optimize
-    - mcp__monobrain__memory_usage
+    - mcp__monomind__swarm_init
+    - mcp__monomind__topology_optimize
+    - mcp__monomind__memory_usage
     - TodoWrite
   restricted:
     - Bash
@@ -85,10 +85,10 @@ capabilities:
   - pattern-recognition
 tools:
   allowed:
-    - mcp__monobrain__agent_spawn
-    - mcp__monobrain__daa_agent_create
-    - mcp__monobrain__agent_list
-    - mcp__monobrain__memory_usage
+    - mcp__monomind__agent_spawn
+    - mcp__monomind__daa_agent_create
+    - mcp__monomind__agent_list
+    - mcp__monomind__memory_usage
   restricted:
     - Bash
     - Write
@@ -119,10 +119,10 @@ capabilities:
   - progress-tracking
 tools:
   allowed:
-    - mcp__monobrain__task_orchestrate
-    - mcp__monobrain__task_status
-    - mcp__monobrain__task_results
-    - mcp__monobrain__parallel_execute
+    - mcp__monomind__task_orchestrate
+    - mcp__monomind__task_status
+    - mcp__monomind__task_results
+    - mcp__monomind__parallel_execute
     - TodoWrite
     - TodoRead
   restricted:
@@ -158,10 +158,10 @@ capabilities:
 tools:
   allowed:
     - Bash  # For gh CLI commands
-    - mcp__monobrain__swarm_init
-    - mcp__monobrain__agent_spawn
-    - mcp__monobrain__task_orchestrate
-    - mcp__monobrain__memory_usage
+    - mcp__monomind__swarm_init
+    - mcp__monomind__agent_spawn
+    - mcp__monomind__task_orchestrate
+    - mcp__monomind__memory_usage
     - TodoWrite
     - Read
   restricted:
@@ -196,10 +196,10 @@ tools:
     - Bash  # For gh CLI
     - Read
     - Grep
-    - mcp__monobrain__swarm_init
-    - mcp__monobrain__agent_spawn
-    - mcp__monobrain__github_code_review
-    - mcp__monobrain__memory_usage
+    - mcp__monomind__swarm_init
+    - mcp__monomind__agent_spawn
+    - mcp__monomind__github_code_review
+    - mcp__monomind__memory_usage
   restricted:
     - Write
     - Edit
@@ -231,9 +231,9 @@ tools:
   allowed:
     - Bash
     - Read
-    - mcp__monobrain__github_release_coord
-    - mcp__monobrain__swarm_init
-    - mcp__monobrain__task_orchestrate
+    - mcp__monomind__github_release_coord
+    - mcp__monomind__swarm_init
+    - mcp__monomind__task_orchestrate
     - TodoWrite
   restricted:
     - Write  # Use version control for releases
@@ -266,13 +266,13 @@ capabilities:
   - result-synthesis
 tools:
   allowed:
-    - mcp__monobrain__sparc_mode
-    - mcp__monobrain__swarm_init
-    - mcp__monobrain__agent_spawn
-    - mcp__monobrain__task_orchestrate
+    - mcp__monomind__sparc_mode
+    - mcp__monomind__swarm_init
+    - mcp__monomind__agent_spawn
+    - mcp__monomind__task_orchestrate
     - TodoWrite
     - TodoRead
-    - mcp__monobrain__memory_usage
+    - mcp__monomind__memory_usage
   restricted:
     - Bash
     - Write
@@ -308,10 +308,10 @@ tools:
     - Edit
     - MultiEdit
     - Bash
-    - mcp__monobrain__sparc_mode
+    - mcp__monomind__sparc_mode
     - TodoWrite
   restricted:
-    - mcp__monobrain__swarm_init  # Focus on implementation
+    - mcp__monomind__swarm_init  # Focus on implementation
 triggers:
   - pattern: "implement|code|develop|build.*feature"
     priority: high
@@ -342,11 +342,11 @@ tools:
     - Write
     - Edit
     - Bash
-    - mcp__monobrain__sparc_mode
+    - mcp__monomind__sparc_mode
     - TodoWrite
-    - mcp__monobrain__parallel_execute
+    - mcp__monomind__parallel_execute
   restricted:
-    - mcp__monobrain__swarm_init
+    - mcp__monomind__swarm_init
 triggers:
   - pattern: "test|verify|validate|check.*quality"
     priority: high
@@ -375,10 +375,10 @@ capabilities:
   - optimization-planning
 tools:
   allowed:
-    - mcp__monobrain__bottleneck_analyze
-    - mcp__monobrain__performance_report
-    - mcp__monobrain__metrics_collect
-    - mcp__monobrain__trend_analysis
+    - mcp__monomind__bottleneck_analyze
+    - mcp__monomind__performance_report
+    - mcp__monomind__metrics_collect
+    - mcp__monomind__trend_analysis
     - Read
     - Grep
   restricted:
@@ -411,10 +411,10 @@ capabilities:
   - report-generation
 tools:
   allowed:
-    - mcp__monobrain__token_usage
-    - mcp__monobrain__cost_analysis
-    - mcp__monobrain__usage_stats
-    - mcp__monobrain__memory_analytics
+    - mcp__monomind__token_usage
+    - mcp__monomind__cost_analysis
+    - mcp__monomind__usage_stats
+    - mcp__monomind__memory_analytics
     - Read
   restricted:
     - Write
@@ -448,11 +448,11 @@ capabilities:
   - synchronization
 tools:
   allowed:
-    - mcp__monobrain__memory_usage
-    - mcp__monobrain__memory_search
-    - mcp__monobrain__memory_namespace
-    - mcp__monobrain__memory_compress
-    - mcp__monobrain__memory_sync
+    - mcp__monomind__memory_usage
+    - mcp__monomind__memory_search
+    - mcp__monomind__memory_namespace
+    - mcp__monomind__memory_compress
+    - mcp__monomind__memory_sync
   restricted:
     - Write
     - Edit
@@ -483,11 +483,11 @@ capabilities:
   - transfer-learning
 tools:
   allowed:
-    - mcp__monobrain__neural_train
-    - mcp__monobrain__neural_patterns
-    - mcp__monobrain__neural_predict
-    - mcp__monobrain__cognitive_analyze
-    - mcp__monobrain__learning_adapt
+    - mcp__monomind__neural_train
+    - mcp__monomind__neural_patterns
+    - mcp__monomind__neural_predict
+    - mcp__monomind__cognitive_analyze
+    - mcp__monomind__learning_adapt
   restricted:
     - Write
     - Edit
@@ -520,11 +520,11 @@ capabilities:
   - auto-scaling
 tools:
   allowed:
-    - mcp__monobrain__daa_agent_create
-    - mcp__monobrain__daa_capability_match
-    - mcp__monobrain__daa_resource_alloc
-    - mcp__monobrain__swarm_scale
-    - mcp__monobrain__agent_metrics
+    - mcp__monomind__daa_agent_create
+    - mcp__monomind__daa_capability_match
+    - mcp__monomind__daa_resource_alloc
+    - mcp__monomind__swarm_scale
+    - mcp__monomind__agent_metrics
   restricted:
     - Write
     - Edit
@@ -555,10 +555,10 @@ capabilities:
   - error-analysis
 tools:
   allowed:
-    - mcp__monobrain__daa_fault_tolerance
-    - mcp__monobrain__health_check
-    - mcp__monobrain__error_analysis
-    - mcp__monobrain__diagnostic_run
+    - mcp__monomind__daa_fault_tolerance
+    - mcp__monomind__health_check
+    - mcp__monomind__error_analysis
+    - mcp__monomind__diagnostic_run
     - Bash  # For system commands
   restricted:
     - Write  # Prevent accidental file modifications during recovery
@@ -591,10 +591,10 @@ capabilities:
   - bottleneck-removal
 tools:
   allowed:
-    - mcp__monobrain__parallel_execute
-    - mcp__monobrain__load_balance
-    - mcp__monobrain__batch_process
-    - mcp__monobrain__performance_report
+    - mcp__monomind__parallel_execute
+    - mcp__monomind__load_balance
+    - mcp__monomind__batch_process
+    - mcp__monomind__performance_report
     - TodoWrite
   restricted:
     - Write
@@ -625,11 +625,11 @@ capabilities:
   - adaptive-configuration
 tools:
   allowed:
-    - mcp__monobrain__topology_optimize
-    - mcp__monobrain__swarm_monitor
-    - mcp__monobrain__coordination_sync
-    - mcp__monobrain__swarm_status
-    - mcp__monobrain__metrics_collect
+    - mcp__monomind__topology_optimize
+    - mcp__monomind__swarm_monitor
+    - mcp__monomind__coordination_sync
+    - mcp__monomind__swarm_status
+    - mcp__monomind__metrics_collect
   restricted:
     - Write
     - Edit
@@ -662,11 +662,11 @@ capabilities:
   - alert-generation
 tools:
   allowed:
-    - mcp__monobrain__swarm_status
-    - mcp__monobrain__swarm_monitor
-    - mcp__monobrain__agent_metrics
-    - mcp__monobrain__health_check
-    - mcp__monobrain__performance_report
+    - mcp__monomind__swarm_status
+    - mcp__monomind__swarm_monitor
+    - mcp__monomind__agent_metrics
+    - mcp__monomind__health_check
+    - mcp__monomind__performance_report
   restricted:
     - Write
     - Edit

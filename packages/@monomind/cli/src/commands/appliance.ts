@@ -46,7 +46,7 @@ async function loadModule<T>(path: string, exportName: string, label: string): P
     const mod = await import(path);
     return mod[exportName] as T;
   } catch {
-    output.printError(`RVFA ${label} module not found`, 'Install with: npm install @monobrain/appliance');
+    output.printError(`RVFA ${label} module not found`, 'Install with: npm install @monomind/appliance');
     return null;
   }
 }
@@ -79,10 +79,10 @@ async function runSteps(steps: string[], delay = 300): Promise<void> {
 // BUILD
 const buildCommand: Command = {
   name: 'build',
-  description: 'Build a self-contained monobrain.rvf appliance',
+  description: 'Build a self-contained monomind.rvf appliance',
   options: [
     { name: 'profile', short: 'p', type: 'string', description: 'Build profile: cloud, hybrid, offline', default: 'cloud' },
-    { name: 'output', short: 'o', type: 'string', description: 'Output file path', default: 'monobrain.rvf' },
+    { name: 'output', short: 'o', type: 'string', description: 'Output file path', default: 'monomind.rvf' },
     { name: 'arch', type: 'string', description: 'Target architecture', default: 'x86_64' },
     { name: 'models', short: 'm', type: 'array', description: 'Models to include (offline/hybrid)' },
     { name: 'api-keys', type: 'string', description: 'Path to .env file for API key vault' },
@@ -90,7 +90,7 @@ const buildCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const profile = ctx.flags.profile as string || 'cloud';
-    const outputPath = ctx.flags.output as string || 'monobrain.rvf';
+    const outputPath = ctx.flags.output as string || 'monomind.rvf';
     const arch = ctx.flags.arch as string || 'x86_64';
     const models = ctx.flags.models as string[] || [];
     const apiKeysPath = ctx.flags['api-keys'] as string | undefined;
@@ -110,7 +110,7 @@ const buildCommand: Command = {
 
     const steps = [
       'Collecting kernel artifacts', 'Bundling runtime environment',
-      'Packaging monobrain CLI + MCP tools', 'Compressing sections',
+      'Packaging monomind CLI + MCP tools', 'Compressing sections',
       'Computing SHA-256 checksums', 'Writing RVFA container',
     ];
     if (profile !== 'cloud' && models.length > 0) steps.splice(3, 0, 'Embedding model weights');
@@ -170,7 +170,7 @@ const inspectCommand: Command = {
 
       header('RVFA Appliance');
       for (const [label, value] of [
-        ['Name', hdr.name || 'monobrain'], ['Version', hdr.version || 'unknown'],
+        ['Name', hdr.name || 'monomind'], ['Version', hdr.version || 'unknown'],
         ['Architecture', hdr.arch || 'x86_64'], ['Profile', hdr.profile || 'cloud'],
         ['Created', hdr.created || 'unknown'],
       ]) {
@@ -339,7 +339,7 @@ const extractCommand: Command = {
       output.writeln();
       output.printSuccess(`Extraction complete: ${dest}`);
       output.writeln(output.dim('  Directory structure:'));
-      for (const d of ['kernel', 'runtime', 'monobrain', 'models', 'data', 'verify']) {
+      for (const d of ['kernel', 'runtime', 'monomind', 'models', 'data', 'verify']) {
         const exists = fs.existsSync(path.join(dest, d));
         output.writeln(`  ${exists ? output.success('+') : output.dim('-')} ${d}/`);
       }
@@ -405,23 +405,23 @@ export const applianceCommand: Command = {
   aliases: ['rvfa'],
   subcommands: [buildCommand, inspectCommand, verifyCommand, extractCommand, runCommand, signCommand, publishCommand, updateAppCommand],
   examples: [
-    { command: 'monobrain appliance build -p cloud', description: 'Build a cloud appliance' },
-    { command: 'monobrain appliance inspect -f monobrain.rvf', description: 'Inspect appliance contents' },
-    { command: 'monobrain appliance verify -f monobrain.rvf', description: 'Verify integrity' },
-    { command: 'monobrain appliance extract -f monobrain.rvf', description: 'Extract sections' },
-    { command: 'monobrain appliance run -f monobrain.rvf', description: 'Boot and run appliance' },
-    { command: 'monobrain appliance sign -f monobrain.rvf --generate-keys', description: 'Generate keys and sign' },
-    { command: 'monobrain appliance publish -f monobrain.rvf', description: 'Publish to IPFS via Pinata' },
-    { command: 'monobrain appliance update -f monobrain.rvf -s monobrain -d ./new-monobrain.bin', description: 'Hot-patch a section' },
+    { command: 'monomind appliance build -p cloud', description: 'Build a cloud appliance' },
+    { command: 'monomind appliance inspect -f monomind.rvf', description: 'Inspect appliance contents' },
+    { command: 'monomind appliance verify -f monomind.rvf', description: 'Verify integrity' },
+    { command: 'monomind appliance extract -f monomind.rvf', description: 'Extract sections' },
+    { command: 'monomind appliance run -f monomind.rvf', description: 'Boot and run appliance' },
+    { command: 'monomind appliance sign -f monomind.rvf --generate-keys', description: 'Generate keys and sign' },
+    { command: 'monomind appliance publish -f monomind.rvf', description: 'Publish to IPFS via Pinata' },
+    { command: 'monomind appliance update -f monomind.rvf -s monomind -d ./new-monomind.bin', description: 'Hot-patch a section' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
-    output.writeln(output.bold('Monobrain Appliance (RVFA)'));
-    output.writeln(output.dim('Self-contained deployment format for the full Monobrain platform.'));
+    output.writeln(output.bold('Monomind Appliance (RVFA)'));
+    output.writeln(output.dim('Self-contained deployment format for the full Monomind platform.'));
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
-      'build     - Build a self-contained monobrain.rvf appliance',
+      'build     - Build a self-contained monomind.rvf appliance',
       'inspect   - Show appliance header and section manifest',
       'verify    - Verify appliance integrity and run capability tests',
       'extract   - Extract all sections from an appliance',
@@ -438,7 +438,7 @@ export const applianceCommand: Command = {
       `${output.bold('offline')}  - Fully air-gapped with bundled models (~4 GB)`,
     ]);
     output.writeln();
-    output.writeln(output.dim('Use "monobrain appliance <subcommand> --help" for details.'));
+    output.writeln(output.dim('Use "monomind appliance <subcommand> --help" for details.'));
     return { success: true };
   },
 };

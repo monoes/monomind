@@ -3,11 +3,11 @@
  * Import data from sql.js/JSON memory to RuVector PostgreSQL
  *
  * Usage:
- *   npx monobrain ruvector import --input memory-export.json
- *   npx monobrain ruvector import --from-memory
- *   npx monobrain ruvector import --input data.json --batch-size 100
+ *   npx monomind ruvector import --input memory-export.json
+ *   npx monomind ruvector import --from-memory
+ *   npx monomind ruvector import --input data.json --batch-size 100
  *
- * https://github.com/nokhodian/monobrain
+ * https://github.com/nokhodian/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../../types.js';
@@ -78,7 +78,7 @@ function generateInsertSQL(entry: MemoryEntry): string {
     embeddingClause = formatEmbedding(entry.embedding);
   }
 
-  return `INSERT INTO monobrain.memory_entries (key, value, embedding, namespace, metadata, created_at, updated_at)
+  return `INSERT INTO monomind.memory_entries (key, value, embedding, namespace, metadata, created_at, updated_at)
 VALUES (
   '${key}',
   '${value}',
@@ -90,7 +90,7 @@ VALUES (
 )
 ON CONFLICT (key, namespace) DO UPDATE SET
   value = EXCLUDED.value,
-  embedding = COALESCE(EXCLUDED.embedding, monobrain.memory_entries.embedding),
+  embedding = COALESCE(EXCLUDED.embedding, monomind.memory_entries.embedding),
   metadata = EXCLUDED.metadata,
   updated_at = NOW();`;
 }
@@ -111,7 +111,7 @@ export const importCommand: Command = {
     },
     {
       name: 'from-memory',
-      description: 'Export from current Monobrain memory and import',
+      description: 'Export from current Monomind memory and import',
       type: 'boolean',
       default: false,
     },
@@ -147,7 +147,7 @@ export const importCommand: Command = {
       short: 'd',
       description: 'Database name',
       type: 'string',
-      default: 'monobrain',
+      default: 'monomind',
     },
     {
       name: 'user',
@@ -177,10 +177,10 @@ export const importCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain ruvector import --input memory-export.json', description: 'Import from JSON file' },
-    { command: 'monobrain ruvector import --input data.json --output import.sql', description: 'Generate SQL file (dry-run)' },
-    { command: 'monobrain ruvector import --from-memory', description: 'Export current memory and import' },
-    { command: 'monobrain ruvector import --input data.json --container my-postgres', description: 'Import using custom container' },
+    { command: 'monomind ruvector import --input memory-export.json', description: 'Import from JSON file' },
+    { command: 'monomind ruvector import --input data.json --output import.sql', description: 'Generate SQL file (dry-run)' },
+    { command: 'monomind ruvector import --from-memory', description: 'Export current memory and import' },
+    { command: 'monomind ruvector import --input data.json --container my-postgres', description: 'Import using custom container' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const inputFile = ctx.flags.input as string | undefined;
@@ -200,8 +200,8 @@ export const importCommand: Command = {
       output.printError('Either --input <file> or --from-memory is required');
       output.writeln();
       output.printInfo('Examples:');
-      output.writeln('  monobrain ruvector import --input memory-export.json');
-      output.writeln('  monobrain ruvector import --from-memory');
+      output.writeln('  monomind ruvector import --input memory-export.json');
+      output.writeln('  monomind ruvector import --from-memory');
       return { success: false, message: 'Missing input source' };
     }
 
@@ -244,9 +244,9 @@ export const importCommand: Command = {
 
     // Export from current memory
     if (fromMemory) {
-      output.printInfo('Exporting from current Monobrain memory...');
-      output.printWarning('Note: Run "npx monobrain memory list --format json > memory-export.json" first');
-      output.printInfo('Then use: npx monobrain ruvector import --input memory-export.json');
+      output.printInfo('Exporting from current Monomind memory...');
+      output.printWarning('Note: Run "npx monomind memory list --format json > memory-export.json" first');
+      output.printInfo('Then use: npx monomind ruvector import --input memory-export.json');
       return { success: false, message: 'Use explicit JSON export first' };
     }
 
@@ -315,7 +315,7 @@ export const importCommand: Command = {
 
         output.writeln();
         output.printInfo('To execute the import:');
-        output.writeln(`  docker exec -i ${containerName} psql -U claude -d monobrain < ${outputFile}`);
+        output.writeln(`  docker exec -i ${containerName} psql -U claude -d monomind < ${outputFile}`);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         output.printError(`Failed to write SQL file: ${errorMessage}`);
@@ -334,13 +334,13 @@ export const importCommand: Command = {
         output.printInfo('Executing import...');
         output.writeln();
         output.writeln(output.dim('Command:'));
-        output.writeln(output.dim(`  docker exec -i ${containerName} psql -U claude -d monobrain < ${tempFile}`));
+        output.writeln(output.dim(`  docker exec -i ${containerName} psql -U claude -d monomind < ${tempFile}`));
         output.writeln();
 
         // Execute via child_process
         const { execSync } = await import('child_process');
         try {
-          const result = execSync(`docker exec -i ${containerName} psql -U claude -d monobrain < ${tempFile}`, {
+          const result = execSync(`docker exec -i ${containerName} psql -U claude -d monomind < ${tempFile}`, {
             encoding: 'utf-8',
             timeout: 60000,
           });
@@ -355,7 +355,7 @@ export const importCommand: Command = {
           output.printError(`Import failed: ${execErrorMessage}`);
           output.writeln();
           output.printInfo('You can manually run the import with:');
-          output.writeln(`  docker exec -i ${containerName} psql -U claude -d monobrain < ${tempFile}`);
+          output.writeln(`  docker exec -i ${containerName} psql -U claude -d monomind < ${tempFile}`);
           return { success: false, message: execErrorMessage };
         } finally {
           // Clean up temp file
@@ -390,7 +390,7 @@ export const importCommand: Command = {
 
     // Show verification command
     output.printInfo('To verify the import:');
-    output.writeln(`  docker exec ${containerName} psql -U claude -d monobrain -c "SELECT COUNT(*) FROM monobrain.memory_entries;"`);
+    output.writeln(`  docker exec ${containerName} psql -U claude -d monomind -c "SELECT COUNT(*) FROM monomind.memory_entries;"`);
     output.writeln();
 
     return { success: true };

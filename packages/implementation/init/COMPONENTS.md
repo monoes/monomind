@@ -14,7 +14,7 @@ project/
 │   ├── helpers/                # Utility scripts
 │   ├── statusline.sh           # Unix/macOS statusline
 │   └── statusline.mjs          # ESM statusline module
-├── .monobrain/               # V1 runtime
+├── .monomind/               # V1 runtime
 │   ├── config.yaml             # Runtime configuration
 │   ├── data/                   # Persistent data
 │   ├── logs/                   # Log files
@@ -80,9 +80,9 @@ Skills are installed to `.claude/skills/` and provide specialized capabilities.
 Commands are installed to `.claude/commands/` and provide quick actions.
 
 ### Core Commands
-- `monobrain-help.md` - Help documentation
-- `monobrain-swarm.md` - Swarm operations
-- `monobrain-memory.md` - Memory operations
+- `monomind-help.md` - Help documentation
+- `monomind-swarm.md` - Swarm operations
+- `monomind-memory.md` - Memory operations
 
 ### Command Groups
 | Group | Contents |
@@ -171,15 +171,15 @@ Claude Code statusline module showing:
 ```json
 {
   "mcpServers": {
-    "monobrain": {
+    "monomind": {
       "command": "npx",
-      "args": ["@monobrain/cli", "mcp", "start"],
+      "args": ["@monomind/cli", "mcp", "start"],
       "env": {
-        "MONOBRAIN_MODE": "v1",
-        "MONOBRAIN_HOOKS_ENABLED": "true",
-        "MONOBRAIN_TOPOLOGY": "hierarchical-mesh",
-        "MONOBRAIN_MAX_AGENTS": "15",
-        "MONOBRAIN_MEMORY_BACKEND": "hybrid"
+        "MONOMIND_MODE": "v1",
+        "MONOMIND_HOOKS_ENABLED": "true",
+        "MONOMIND_TOPOLOGY": "hierarchical-mesh",
+        "MONOMIND_MAX_AGENTS": "15",
+        "MONOMIND_MEMORY_BACKEND": "hybrid"
       }
     }
   }
@@ -188,7 +188,7 @@ Claude Code statusline module showing:
 
 ## Runtime Configuration
 
-`.monobrain/config.yaml` configures V1 runtime.
+`.monomind/config.yaml` configures V1 runtime.
 
 ```yaml
 version: "3.0.0"
@@ -202,12 +202,12 @@ swarm:
 memory:
   backend: hybrid
   enableHNSW: true
-  persistPath: .monobrain/data
+  persistPath: .monomind/data
   cacheSize: 100
 
 neural:
   enabled: true
-  modelPath: .monobrain/neural
+  modelPath: .monomind/neural
 
 hooks:
   enabled: true

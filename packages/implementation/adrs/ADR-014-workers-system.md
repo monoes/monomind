@@ -31,7 +31,7 @@ V2 relies on shell scripts (`.claude/helpers/`) which are:
 
 ## Decision
 
-### 1. Create TypeScript Worker System in `@monobrain/hooks`
+### 1. Create TypeScript Worker System in `@monomind/hooks`
 
 A cross-platform worker system with:
 
@@ -45,7 +45,7 @@ A cross-platform worker system with:
 ### 2. Architecture
 
 ```
-@monobrain/hooks/src/workers/
+@monomind/hooks/src/workers/
 ├── index.ts           # WorkerManager, all worker implementations
 ├── mcp-tools.ts       # MCP tool definitions for workers
 ├── session-hook.ts    # Claude Code session integration
@@ -207,7 +207,7 @@ Coverage:
 ### Basic Usage
 
 ```typescript
-import { createWorkerManager } from "@monobrain/hooks";
+import { createWorkerManager } from "@monomind/hooks";
 
 const manager = createWorkerManager("/path/to/project");
 await manager.initialize();
@@ -228,7 +228,7 @@ const statusline = manager.getStatuslineString();
 ### MCP Integration
 
 ```typescript
-import { createWorkerToolHandler, workerMCPTools } from "@monobrain/hooks";
+import { createWorkerToolHandler, workerMCPTools } from "@monomind/hooks";
 
 // Register tools with MCP server
 const handler = createWorkerToolHandler(manager);
@@ -240,7 +240,7 @@ const result = await handler("worker/run", { worker: "health" });
 ### Session Hook
 
 ```typescript
-import { onSessionStart, formatSessionStartOutput } from "@monobrain/hooks";
+import { onSessionStart, formatSessionStartOutput } from "@monomind/hooks";
 
 const result = await onSessionStart({
   projectRoot: "/path/to/project",
@@ -271,7 +271,7 @@ console.log(formatSessionStartOutput(result));
 
 ### CLI Hooks Worker Subcommand
 
-Extended the worker system with CLI integration via `hooks worker` command in `@monobrain/cli`.
+Extended the worker system with CLI integration via `hooks worker` command in `@monomind/cli`.
 
 #### New Worker Types (12 Total)
 
@@ -296,27 +296,27 @@ In addition to the original system workers, the CLI exposes 12 trigger-based wor
 
 ```bash
 # List all available workers
-monobrain hooks worker list
+monomind hooks worker list
 
 # Detect triggers from prompt text (<5ms target)
-monobrain hooks worker detect --prompt "optimize performance"
+monomind hooks worker detect --prompt "optimize performance"
 
 # Auto-dispatch when triggers match (confidence ≥0.6)
-monobrain hooks worker detect --prompt "deep dive" --auto-dispatch --min-confidence 0.6
+monomind hooks worker detect --prompt "deep dive" --auto-dispatch --min-confidence 0.6
 
 # Manually dispatch a worker
-monobrain hooks worker dispatch --trigger refactor --context "auth module"
+monomind hooks worker dispatch --trigger refactor --context "auth module"
 
 # Check worker status
-monobrain hooks worker status
+monomind hooks worker status
 
 # Cancel a running worker
-monobrain hooks worker cancel --id worker_refactor_1_abc123
+monomind hooks worker cancel --id worker_refactor_1_abc123
 ```
 
 #### MCP Tools Added
 
-5 new MCP tools in `@monobrain/cli/src/mcp-tools/hooks-tools.ts`:
+5 new MCP tools in `@monomind/cli/src/mcp-tools/hooks-tools.ts`:
 
 - `hooks/worker-list` - List all 12 background workers
 - `hooks/worker-dispatch` - Dispatch a worker by trigger type
@@ -338,7 +338,7 @@ Workers are automatically triggered via the `UserPromptSubmit` hook in `.claude/
           {
             "type": "command",
             "timeout": 6000,
-            "command": "monobrain hooks worker detect --prompt \"$USER_PROMPT\" --auto-dispatch --min-confidence 0.6"
+            "command": "monomind hooks worker detect --prompt \"$USER_PROMPT\" --auto-dispatch --min-confidence 0.6"
           }
         ]
       }
@@ -369,7 +369,7 @@ Fixed nested subcommand routing in `parser.ts` to support 3 levels of subcommand
 
 ### Daemon Service Architecture
 
-Extended the worker system with a full Node.js daemon service in `@monobrain/cli/src/services/worker-daemon.ts`. This replaces the shell-based helpers in `.claude/helpers/` with a cross-platform TypeScript implementation.
+Extended the worker system with a full Node.js daemon service in `@monomind/cli/src/services/worker-daemon.ts`. This replaces the shell-based helpers in `.claude/helpers/` with a cross-platform TypeScript implementation.
 
 #### Key Components
 
@@ -384,22 +384,22 @@ Extended the worker system with a full Node.js daemon service in `@monobrain/cli
 
 ```bash
 # Start the daemon (runs workers on intervals)
-npx monobrain@latest daemon start
-npx monobrain@latest daemon start --quiet  # Run once and exit
+npx monomind@latest daemon start
+npx monomind@latest daemon start --quiet  # Run once and exit
 
 # Stop the daemon
-npx monobrain@latest daemon stop
+npx monomind@latest daemon stop
 
 # Check status and worker history
-npx monobrain@latest daemon status
+npx monomind@latest daemon status
 
 # Manually trigger a worker
-npx monobrain@latest daemon trigger <worker>
-npx monobrain@latest daemon trigger map --force
+npx monomind@latest daemon trigger <worker>
+npx monomind@latest daemon trigger map --force
 
 # Enable/disable workers
-npx monobrain@latest daemon enable map audit optimize
-npx monobrain@latest daemon enable --all
+npx monomind@latest daemon enable map audit optimize
+npx monomind@latest daemon enable --all
 ```
 
 #### Worker Intervals (5 Enabled by Default)
@@ -416,10 +416,10 @@ npx monobrain@latest daemon enable --all
 
 #### Metrics Output
 
-Workers write JSON metrics to `.monobrain/metrics/`:
+Workers write JSON metrics to `.monomind/metrics/`:
 
 ```
-.monobrain/metrics/
+.monomind/metrics/
 ├── codebase-map.json      # map worker output
 ├── security-audit.json    # audit worker output
 ├── performance.json       # optimize worker output
@@ -431,7 +431,7 @@ Workers write JSON metrics to `.monobrain/metrics/`:
 
 #### State Persistence
 
-Daemon state is persisted to `.monobrain/daemon-state.json`:
+Daemon state is persisted to `.monomind/daemon-state.json`:
 
 ```typescript
 interface DaemonState {
@@ -460,7 +460,7 @@ hooks.SessionStart = [
       {
         type: "command",
         command:
-          "npx monobrain@latest daemon start --quiet 2>/dev/null || true",
+          "npx monomind@latest daemon start --quiet 2>/dev/null || true",
         timeout: 5000,
         continueOnError: true,
       },
@@ -480,13 +480,13 @@ hooks.SessionStart = [
 
 #### Package Integration
 
-The root `package.json` now links `monobrain@latest` to the V1 CLI:
+The root `package.json` now links `monomind@latest` to the V1 CLI:
 
 ```json
 {
-  "name": "monobrain",
+  "name": "monomind",
   "bin": {
-    "monobrain": "./packages/@monobrain/cli/bin/cli.js"
+    "monomind": "./packages/@monomind/cli/bin/cli.js"
   },
   "publishConfig": {
     "access": "public",
@@ -497,9 +497,9 @@ The root `package.json` now links `monobrain@latest` to the V1 CLI:
 
 This means all V1 CLI commands (including `daemon`) are available via:
 
-- `npx monobrain@latest daemon start`
-- `npx monobrain@latest daemon status`
-- `npx monobrain@latest hooks ...`
+- `npx monomind@latest daemon start`
+- `npx monomind@latest daemon status`
+- `npx monomind@latest hooks ...`
 - etc.
 
 ---

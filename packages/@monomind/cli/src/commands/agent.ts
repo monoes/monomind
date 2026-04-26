@@ -17,7 +17,7 @@ import * as path from 'path';
  */
 function updateSwarmActivityMetrics(agentCountDelta: number): void {
   try {
-    const metricsDir = path.join(process.cwd(), '.monobrain', 'metrics');
+    const metricsDir = path.join(process.cwd(), '.monomind', 'metrics');
     const activityPath = path.join(metricsDir, 'swarm-activity.json');
 
     let data: Record<string, unknown> = {
@@ -116,8 +116,8 @@ const spawnCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain agent spawn --type coder --name bot-1', description: 'Spawn a coder agent' },
-    { command: 'monobrain agent spawn -t researcher --task "Research React 19"', description: 'Spawn researcher with task' }
+    { command: 'monomind agent spawn --type coder --name bot-1', description: 'Spawn a coder agent' },
+    { command: 'monomind agent spawn -t researcher --task "Research React 19"', description: 'Spawn researcher with task' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let agentType = ctx.flags.type as string;
@@ -135,7 +135,7 @@ const spawnCommand: Command = {
     const taskDescription = ctx.flags.task as string | undefined;
     if (!agentType && taskDescription) {
       try {
-        const { RouteLayer, ALL_ROUTES } = await import('@monobrain/routing');
+        const { RouteLayer, ALL_ROUTES } = await import('@monomind/routing');
         const layer = new RouteLayer({ routes: ALL_ROUTES });
         const routeResult = await layer.route(taskDescription);
         agentType = routeResult.agentSlug;
@@ -676,8 +676,8 @@ const poolCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain agent pool --size 5', description: 'Set pool size' },
-    { command: 'monobrain agent pool --min 2 --max 15', description: 'Configure auto-scaling' }
+    { command: 'monomind agent pool --size 5', description: 'Set pool size' },
+    { command: 'monomind agent pool --min 2 --max 15', description: 'Configure auto-scaling' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -767,8 +767,8 @@ const healthCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain agent health', description: 'Show all agents health' },
-    { command: 'monobrain agent health -i agent-001 -d', description: 'Detailed health for specific agent' }
+    { command: 'monomind agent health', description: 'Show all agents health' },
+    { command: 'monomind agent health -i agent-001 -d', description: 'Detailed health for specific agent' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const agentId = ctx.args[0] || ctx.flags.id as string;
@@ -916,9 +916,9 @@ const logsCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain agent logs -i agent-001', description: 'Show agent logs' },
-    { command: 'monobrain agent logs -i agent-001 -f', description: 'Follow agent logs' },
-    { command: 'monobrain agent logs -l error --since 1h', description: 'Show errors from last hour' }
+    { command: 'monomind agent logs -i agent-001', description: 'Show agent logs' },
+    { command: 'monomind agent logs -i agent-001 -f', description: 'Follow agent logs' },
+    { command: 'monomind agent logs -l error --since 1h', description: 'Show errors from last hour' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const agentId = ctx.args[0] || ctx.flags.id as string;
@@ -1014,16 +1014,16 @@ export const agentCommand: Command = {
   subcommands: [spawnCommand, listCommand, statusCommand, stopCommand, metricsCommand, poolCommand, healthCommand, logsCommand, ...wasmSubcommands],
   options: [],
   examples: [
-    { command: 'monobrain agent spawn -t coder', description: 'Spawn a coder agent' },
-    { command: 'monobrain agent list', description: 'List all agents' },
-    { command: 'monobrain agent status agent-001', description: 'Show agent status' }
+    { command: 'monomind agent spawn -t coder', description: 'Spawn a coder agent' },
+    { command: 'monomind agent list', description: 'List all agents' },
+    { command: 'monomind agent status agent-001', description: 'Show agent status' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Show help if no subcommand
     output.writeln();
     output.writeln(output.bold('Agent Management Commands'));
     output.writeln();
-    output.writeln('Usage: monobrain agent <subcommand> [options]');
+    output.writeln('Usage: monomind agent <subcommand> [options]');
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
@@ -1041,7 +1041,7 @@ export const agentCommand: Command = {
       `${output.highlight('wasm-gallery')}  - List WASM agent gallery templates`,
     ]);
     output.writeln();
-    output.writeln('Run "monobrain agent <subcommand> --help" for subcommand help');
+    output.writeln('Run "monomind agent <subcommand> --help" for subcommand help');
 
     return { success: true };
   }

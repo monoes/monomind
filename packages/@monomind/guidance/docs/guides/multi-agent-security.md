@@ -30,7 +30,7 @@ graph TD
 The `ThreatDetector` scans inputs and memory writes for known attack patterns:
 
 ```ts
-import { createThreatDetector } from '@monobrain/guidance/adversarial';
+import { createThreatDetector } from '@monomind/guidance/adversarial';
 
 const detector = createThreatDetector({
   sensitivityThreshold: 0.3,  // 0-1, lower = more sensitive
@@ -73,7 +73,7 @@ const writeSignals = detector.analyzeMemoryWrite(
 The `CollusionDetector` tracks agent-to-agent interactions and identifies suspicious coordination:
 
 ```ts
-import { createCollusionDetector } from '@monobrain/guidance/adversarial';
+import { createCollusionDetector } from '@monomind/guidance/adversarial';
 
 const collusion = createCollusionDetector({
   ringThreshold: 3,        // Minimum agents to form a ring
@@ -110,7 +110,7 @@ if (report.unusualFrequency.length > 0) {
 The `MemoryQuorum` requires multiple agents to agree before critical memory writes are accepted:
 
 ```ts
-import { createMemoryQuorum } from '@monobrain/guidance/adversarial';
+import { createMemoryQuorum } from '@monomind/guidance/adversarial';
 
 const quorum = createMemoryQuorum({
   threshold: 0.67,          // 2/3 of voters must agree
@@ -159,7 +159,7 @@ if (collusionReport.ringsDetected.length > 0) {
 The `MemoryWriteGate` enforces per-agent namespace permissions, rate limits, and contradiction detection:
 
 ```ts
-import { createMemoryWriteGate } from '@monobrain/guidance/memory-gate';
+import { createMemoryWriteGate } from '@monomind/guidance/memory-gate';
 
 const gate = createMemoryWriteGate();
 
@@ -210,7 +210,7 @@ const contradiction = gate.evaluateWrite('worker-2', 'results', 'task-1', 'failu
 Combine the trust system with gates for dynamic privilege adjustment:
 
 ```ts
-import { createTrustSystem } from '@monobrain/guidance/trust';
+import { createTrustSystem } from '@monomind/guidance/trust';
 
 const trust = createTrustSystem();
 
@@ -235,7 +235,7 @@ if (snapshot.tier === 'untrusted') {
 For high-stakes operations, require human or institutional approval:
 
 ```ts
-import { createAuthorityGate } from '@monobrain/guidance/authority';
+import { createAuthorityGate } from '@monomind/guidance/authority';
 
 const auth = createAuthorityGate('signing-key');
 auth.registerScope({ action: 'deploy-production', requiredLevel: 'human' });
@@ -262,10 +262,10 @@ import {
   createThreatDetector,
   createCollusionDetector,
   createMemoryQuorum,
-} from '@monobrain/guidance/adversarial';
-import { createMemoryWriteGate } from '@monobrain/guidance/memory-gate';
-import { createTrustSystem } from '@monobrain/guidance/trust';
-import { createAuthorityGate } from '@monobrain/guidance/authority';
+} from '@monomind/guidance/adversarial';
+import { createMemoryWriteGate } from '@monomind/guidance/memory-gate';
+import { createTrustSystem } from '@monomind/guidance/trust';
+import { createAuthorityGate } from '@monomind/guidance/authority';
 
 // Initialize all security modules
 const threats = createThreatDetector();

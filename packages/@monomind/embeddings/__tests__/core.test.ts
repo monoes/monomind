@@ -1,5 +1,5 @@
 /**
- * Core utility tests for @monobrain/embeddings
+ * Core utility tests for @monomind/embeddings
  * Tests chunking, normalization, and hyperbolic without heavy deps
  */
 

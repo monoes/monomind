@@ -7,7 +7,7 @@ Autonomous code generation with batch file operations.
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "coder",
   task_description: "implement user authentication",
   options: {
@@ -20,16 +20,16 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run coder "implement user authentication"
+npx monomind sparc run coder "implement user authentication"
 
 # For alpha features
-npx monobrain@alpha sparc run coder "implement user authentication"
+npx monomind@alpha sparc run coder "implement user authentication"
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run coder "implement user authentication"
+# If monomind is installed locally
+./monomind sparc run coder "implement user authentication"
 ```
 
 ## Core Capabilities

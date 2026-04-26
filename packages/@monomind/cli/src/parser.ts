@@ -3,7 +3,7 @@
  * Advanced argument parsing with validation and type coercion
  */
 
-import type { Command, CommandOption, ParsedFlags, CommandContext, MonobrainConfig } from './types.js';
+import type { Command, CommandOption, ParsedFlags, CommandContext, MonomindConfig } from './types.js';
 
 export interface ParseResult {
   command: string[];

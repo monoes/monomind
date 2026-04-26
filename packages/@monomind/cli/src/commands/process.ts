@@ -65,13 +65,13 @@ const daemonCommand: Command = {
       name: 'pid-file',
       type: 'string',
       description: 'PID file location',
-      default: '.monobrain/daemon.pid',
+      default: '.monomind/daemon.pid',
     },
     {
       name: 'log-file',
       type: 'string',
       description: 'Log file location',
-      default: '.monobrain/daemon.log',
+      default: '.monomind/daemon.log',
     },
     {
       name: 'detach',
@@ -81,16 +81,16 @@ const daemonCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain process daemon --action start', description: 'Start the daemon' },
-    { command: 'monobrain process daemon --action stop', description: 'Stop the daemon' },
-    { command: 'monobrain process daemon --action restart --port 3850', description: 'Restart on different port' },
-    { command: 'monobrain process daemon --action status', description: 'Check daemon status' },
+    { command: 'monomind process daemon --action start', description: 'Start the daemon' },
+    { command: 'monomind process daemon --action stop', description: 'Stop the daemon' },
+    { command: 'monomind process daemon --action restart --port 3850', description: 'Restart on different port' },
+    { command: 'monomind process daemon --action status', description: 'Check daemon status' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const action = (ctx.flags?.action as string) || 'status';
     const port = (ctx.flags?.port as number) || 3847;
-    const pidFile = (ctx.flags?.['pid-file'] as string) || '.monobrain/daemon.pid';
-    const logFile = (ctx.flags?.['log-file'] as string) || '.monobrain/daemon.log';
+    const pidFile = (ctx.flags?.['pid-file'] as string) || '.monomind/daemon.pid';
+    const logFile = (ctx.flags?.['log-file'] as string) || '.monomind/daemon.log';
     const detach = ctx.flags?.detach !== false;
 
     // Check existing daemon state from PID file
@@ -113,7 +113,7 @@ const daemonCommand: Command = {
           break;
         }
 
-        console.log('\n🚀 Starting monobrain daemon...\n');
+        console.log('\n🚀 Starting monomind daemon...\n');
         const newPid = process.pid; // Use actual process PID
         daemonState.status = 'running';
         daemonState.pid = newPid;
@@ -142,7 +142,7 @@ const daemonCommand: Command = {
           console.log('\n⚠️  No daemon running\n');
           break;
         }
-        console.log('\n🛑 Stopping monobrain daemon...\n');
+        console.log('\n🛑 Stopping monomind daemon...\n');
         console.log(`  📍 Stopping PID ${existingDaemon.pid}...`);
 
         // Remove PID file
@@ -156,7 +156,7 @@ const daemonCommand: Command = {
         break;
 
       case 'restart':
-        console.log('\n🔄 Restarting monobrain daemon...\n');
+        console.log('\n🔄 Restarting monomind daemon...\n');
         if (existingDaemon) {
           console.log(`  🛑 Stopping PID ${existingDaemon.pid}...`);
           removePidFile(pidFile);
@@ -175,7 +175,7 @@ const daemonCommand: Command = {
       case 'status':
         console.log('\n📊 Daemon Status\n');
         console.log('  ┌─────────────────────────────────────────┐');
-        console.log('  │ monobrain daemon                      │');
+        console.log('  │ monomind daemon                      │');
         console.log('  ├─────────────────────────────────────────┤');
         if (existingDaemon) {
           const uptime = Math.floor((Date.now() - new Date(existingDaemon.startedAt).getTime()) / 1000);
@@ -192,7 +192,7 @@ const daemonCommand: Command = {
         }
         console.log('  └─────────────────────────────────────────┘');
         if (!existingDaemon) {
-          console.log('\n  To start: monobrain process daemon --action start');
+          console.log('\n  To start: monomind process daemon --action start');
         }
         break;
     }
@@ -241,10 +241,10 @@ const monitorCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain process monitor', description: 'Show process dashboard' },
-    { command: 'monobrain process monitor --watch --interval 5', description: 'Watch mode' },
-    { command: 'monobrain process monitor --components agents,memory,tasks', description: 'Monitor specific components' },
-    { command: 'monobrain process monitor --format json', description: 'JSON output' },
+    { command: 'monomind process monitor', description: 'Show process dashboard' },
+    { command: 'monomind process monitor --watch --interval 5', description: 'Watch mode' },
+    { command: 'monomind process monitor --components agents,memory,tasks', description: 'Monitor specific components' },
+    { command: 'monomind process monitor --format json', description: 'JSON output' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const interval = (ctx.flags?.interval as number) || 2;
@@ -265,7 +265,7 @@ const monitorCommand: Command = {
     let agentCount = 0;
     let taskCounts = { running: 0, queued: 0, completed: 0, failed: 0 };
     try {
-      const agentStorePath = resolve('.monobrain/agents/store.json');
+      const agentStorePath = resolve('.monomind/agents/store.json');
       if (existsSync(agentStorePath)) {
         const agentStore = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
         const agents = Array.isArray(agentStore) ? agentStore : Object.values(agentStore.agents || agentStore || {});
@@ -273,7 +273,7 @@ const monitorCommand: Command = {
       }
     } catch { /* no agent store */ }
     try {
-      const taskStorePath = resolve('.monobrain/tasks/store.json');
+      const taskStorePath = resolve('.monomind/tasks/store.json');
       if (existsSync(taskStorePath)) {
         const taskStore = JSON.parse(readFileSync(taskStorePath, 'utf-8'));
         const tasks = Array.isArray(taskStore) ? taskStore : Object.values(taskStore.tasks || taskStore || {});
@@ -300,12 +300,12 @@ const monitorCommand: Command = {
       },
       agents: {
         total: agentCount,
-        _note: agentCount === 0 ? 'No agent store found at .monobrain/agents/store.json' : null,
+        _note: agentCount === 0 ? 'No agent store found at .monomind/agents/store.json' : null,
       },
       tasks: {
         ...taskCounts,
         _note: (taskCounts.running + taskCounts.queued + taskCounts.completed + taskCounts.failed) === 0
-          ? 'No task store found at .monobrain/tasks/store.json' : null,
+          ? 'No task store found at .monomind/tasks/store.json' : null,
       },
       memory: {
         vectorCount: null as number | null,
@@ -337,7 +337,7 @@ const monitorCommand: Command = {
 
     // Dashboard format
     console.log('\n╔══════════════════════════════════════════════════════════╗');
-    console.log('║            🖥️  MONOBRAIN PROCESS MONITOR                   ║');
+    console.log('║            🖥️  MONOMIND PROCESS MONITOR                   ║');
     console.log('╠════════════════════════════════════════════════════════════╣');
 
     // System metrics
@@ -433,10 +433,10 @@ const workersCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain process workers --action list', description: 'List all workers' },
-    { command: 'monobrain process workers --action spawn --type task --count 3', description: 'Spawn task workers' },
-    { command: 'monobrain process workers --action kill --id worker-123', description: 'Kill specific worker' },
-    { command: 'monobrain process workers --action scale --type memory --count 5', description: 'Scale memory workers' },
+    { command: 'monomind process workers --action list', description: 'List all workers' },
+    { command: 'monomind process workers --action spawn --type task --count 3', description: 'Spawn task workers' },
+    { command: 'monomind process workers --action kill --id worker-123', description: 'Kill specific worker' },
+    { command: 'monomind process workers --action scale --type memory --count 5', description: 'Scale memory workers' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const action = (ctx.flags?.action as string) || 'list';
@@ -539,9 +539,9 @@ const signalsCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain process signals --target daemon --signal graceful-shutdown', description: 'Graceful shutdown' },
-    { command: 'monobrain process signals --target workers --signal pause', description: 'Pause workers' },
-    { command: 'monobrain process signals --target all --signal reload-config', description: 'Reload all configs' },
+    { command: 'monomind process signals --target daemon --signal graceful-shutdown', description: 'Graceful shutdown' },
+    { command: 'monomind process signals --target workers --signal pause', description: 'Pause workers' },
+    { command: 'monomind process signals --target all --signal reload-config', description: 'Reload all configs' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const target = ctx.flags?.target as string;
@@ -618,10 +618,10 @@ const logsCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain process logs', description: 'Show recent logs' },
-    { command: 'monobrain process logs --source daemon --tail 100', description: 'Daemon logs' },
-    { command: 'monobrain process logs --follow --level error', description: 'Follow error logs' },
-    { command: 'monobrain process logs --since 1h --grep "error"', description: 'Search logs' },
+    { command: 'monomind process logs', description: 'Show recent logs' },
+    { command: 'monomind process logs --source daemon --tail 100', description: 'Daemon logs' },
+    { command: 'monomind process logs --follow --level error', description: 'Follow error logs' },
+    { command: 'monomind process logs --since 1h --grep "error"', description: 'Search logs' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const source = (ctx.flags?.source as string) || 'all';
@@ -635,8 +635,8 @@ const logsCommand: Command = {
     console.log(`  Level: ${level}+ | Lines: ${tail}${since ? ` | Since: ${since}` : ''}${grep ? ` | Filter: ${grep}` : ''}`);
     console.log('─'.repeat(70));
 
-    // Read actual log files from .monobrain/logs/ if they exist
-    const logsDir = resolve('.monobrain/logs');
+    // Read actual log files from .monomind/logs/ if they exist
+    const logsDir = resolve('.monomind/logs');
     let logEntries: string[] = [];
 
     const levelIcons: Record<string, string> = {
@@ -713,10 +713,10 @@ export const processCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain process daemon --action start', description: 'Start daemon' },
-    { command: 'monobrain process monitor --watch', description: 'Watch processes' },
-    { command: 'monobrain process workers --action list', description: 'List workers' },
-    { command: 'monobrain process logs --follow', description: 'Follow logs' },
+    { command: 'monomind process daemon --action start', description: 'Start daemon' },
+    { command: 'monomind process monitor --watch', description: 'Watch processes' },
+    { command: 'monomind process workers --action list', description: 'List workers' },
+    { command: 'monomind process logs --follow', description: 'Follow logs' },
   ],
   action: async (_ctx: CommandContext): Promise<CommandResult> => {
     // Show help if no subcommand
@@ -729,10 +729,10 @@ export const processCommand: Command = {
     console.log('  signals    - Send signals to processes');
     console.log('  logs       - View and manage process logs');
     console.log('\nExamples:');
-    console.log('  monobrain process daemon --action start');
-    console.log('  monobrain process monitor --watch');
-    console.log('  monobrain process workers --action spawn --type task --count 3');
-    console.log('  monobrain process logs --follow --level error');
+    console.log('  monomind process daemon --action start');
+    console.log('  monomind process monitor --watch');
+    console.log('  monomind process workers --action spawn --type task --count 3');
+    console.log('  monomind process logs --follow --level error');
 
     return { success: true, data: { help: true } };
   },

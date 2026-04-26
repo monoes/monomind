@@ -80,7 +80,7 @@ const entryEstimate = await mcp__sublinear-time-solver__estimateEntry({
 });
 ```
 
-## Integration with Monobrain
+## Integration with Monomind
 
 ### Swarm Coordination
 - **Matrix Distribution**: Distribute large matrix operations across swarm agents

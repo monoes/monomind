@@ -9,7 +9,7 @@
  *
  * Run with: npx ts-node examples/ruvector/streaming-large-data.ts
  *
- * @module @monobrain/plugins/examples/ruvector/streaming-large-data
+ * @module @monomind/plugins/examples/ruvector/streaming-large-data
  */
 
 import {

@@ -1,10 +1,10 @@
 /**
- * @monobrain/teammate-plugin Types
+ * @monomind/teammate-plugin Types
  *
  * Complete type definitions for TeammateTool integration.
  * Requires Claude Code >= 2.1.19
  *
- * @module @monobrain/teammate-plugin/types
+ * @module @monomind/teammate-plugin/types
  * @version 1.0.0-alpha.1
  */
 

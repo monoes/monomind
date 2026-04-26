@@ -1,4 +1,4 @@
-# ADR-019: @monobrain/headless Runtime Package
+# ADR-019: @monomind/headless Runtime Package
 
 **Status:** Proposed
 **Date:** 2026-01-07
@@ -17,7 +17,7 @@ The undocumented `CLAUDE_CODE_HEADLESS` and `CLAUDE_CODE_SANDBOX_MODE` environme
 
 ## Decision
 
-Create `@monobrain/headless` package providing:
+Create `@monomind/headless` package providing:
 - Programmatic Claude Code invocation with environment control
 - Sandbox-aware execution contexts
 - Batch task queue with persistence
@@ -29,7 +29,7 @@ Create `@monobrain/headless` package providing:
 ## Package Architecture
 
 ```
-@monobrain/headless/
+@monomind/headless/
 ├── src/
 │   ├── index.ts                 # Main exports
 │   ├── executor/
@@ -495,7 +495,7 @@ export class APIServer {
 
 export interface DockerConfig {
   // Base image with Claude Code pre-installed
-  image: string;  // e.g., 'ghcr.io/nokhodian/monobrain-headless:latest'
+  image: string;  // e.g., 'ghcr.io/nokhodian/monomind-headless:latest'
 
   // Container resources
   resources: {
@@ -571,27 +571,27 @@ export class ContainerExecutor {
 
 ```bash
 # Start headless server
-npx @monobrain/headless serve --port 3001 --sandbox strict
+npx @monomind/headless serve --port 3001 --sandbox strict
 
 # Execute single prompt
-npx @monobrain/headless exec "Fix the bug in auth.ts" --cwd ./project
+npx @monomind/headless exec "Fix the bug in auth.ts" --cwd ./project
 
 # Execute from file
-npx @monobrain/headless exec --file tasks.txt --parallel 3
+npx @monomind/headless exec --file tasks.txt --parallel 3
 
 # Queue management
-npx @monobrain/headless queue add "Refactor utils" --priority high
-npx @monobrain/headless queue list
-npx @monobrain/headless queue cancel <id>
+npx @monomind/headless queue add "Refactor utils" --priority high
+npx @monomind/headless queue list
+npx @monomind/headless queue cancel <id>
 
 # Docker mode
-npx @monobrain/headless docker start --containers 3
-npx @monobrain/headless docker exec "Run tests" --isolated
-npx @monobrain/headless docker scale 5
+npx @monomind/headless docker start --containers 3
+npx @monomind/headless docker exec "Run tests" --isolated
+npx @monomind/headless docker scale 5
 
 # Monitoring
-npx @monobrain/headless status
-npx @monobrain/headless metrics --prometheus
+npx @monomind/headless status
+npx @monomind/headless metrics --prometheus
 ```
 
 ---
@@ -617,7 +617,7 @@ jobs:
           CLAUDE_CODE_HEADLESS: "true"
           CLAUDE_CODE_SANDBOX_MODE: "strict"
         run: |
-          npx @monobrain/headless exec \
+          npx @monomind/headless exec \
             "Review this PR for bugs, security issues, and code quality. \
              Provide actionable feedback." \
             --output review.md
@@ -638,7 +638,7 @@ jobs:
 ### 2. Batch Test Generation
 
 ```typescript
-import { HeadlessExecutor, TaskQueue } from '@monobrain/headless';
+import { HeadlessExecutor, TaskQueue } from '@monomind/headless';
 
 const executor = new HeadlessExecutor({
   sandbox: { mode: 'permissive' },
@@ -687,7 +687,7 @@ spec:
     spec:
       containers:
       - name: claude
-        image: ghcr.io/nokhodian/monobrain-headless:latest
+        image: ghcr.io/nokhodian/monomind-headless:latest
         env:
         - name: ANTHROPIC_API_KEY
           valueFrom:
@@ -700,7 +700,7 @@ spec:
           value: "strict"
         command:
         - npx
-        - "@monobrain/headless"
+        - "@monomind/headless"
         - exec
         - "Migrate database schema from v2 to v1"
         volumeMounts:
@@ -716,10 +716,10 @@ spec:
 ### 4. Distributed Swarm Execution
 
 ```typescript
-import { ContainerExecutor } from '@monobrain/headless';
+import { ContainerExecutor } from '@monomind/headless';
 
 const executor = new ContainerExecutor({
-  image: 'ghcr.io/nokhodian/monobrain-headless:latest',
+  image: 'ghcr.io/nokhodian/monomind-headless:latest',
   resources: { cpus: 2, memoryMb: 4096, diskMb: 10240 },
   pool: { minContainers: 5, maxContainers: 20, idleTimeoutMs: 60000 }
 });
@@ -824,10 +824,10 @@ const HARD_LIMITS = {
 
 ```json
 {
-  "name": "@monobrain/headless",
+  "name": "@monomind/headless",
   "version": "3.0.0-alpha.1",
   "dependencies": {
-    "@monobrain/shared": "^3.0.0-alpha.1",
+    "@monomind/shared": "^3.0.0-alpha.1",
     "better-sqlite3": "^9.0.0",
     "express": "^4.18.2",
     "ws": "^8.14.2",
@@ -867,7 +867,7 @@ const HARD_LIMITS = {
 ### Neutral
 
 1. **Optional** - Users who don't need headless can skip it
-2. **Standalone** - Can be used without other monobrain packages
+2. **Standalone** - Can be used without other monomind packages
 
 ---
 

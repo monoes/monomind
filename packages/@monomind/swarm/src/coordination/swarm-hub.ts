@@ -7,7 +7,7 @@
  *
  * For new code, use UnifiedSwarmCoordinator directly:
  * ```typescript
- * import { createUnifiedSwarmCoordinator } from '@monobrain/swarm';
+ * import { createUnifiedSwarmCoordinator } from '@monomind/swarm';
  * const coordinator = createUnifiedSwarmCoordinator(config);
  * await coordinator.initialize();
  * ```
@@ -681,7 +681,7 @@ export class SwarmHub implements ISwarmHub {
       {
         id: 'ms-v1-release',
         name: 'V1.0.0 Released',
-        description: 'Monobrain V1.0.0 published to npm',
+        description: 'Monomind V1.0.0 published to npm',
         criteria: [
           { description: 'All tests passing (>90% coverage)', met: false, evidence: null },
           { description: 'Documentation complete', met: false, evidence: null },
@@ -741,7 +741,7 @@ export class SwarmHub implements ISwarmHub {
  * const hub = createSwarmHub();
  *
  * // NEW:
- * import { createUnifiedSwarmCoordinator } from '@monobrain/swarm';
+ * import { createUnifiedSwarmCoordinator } from '@monomind/swarm';
  * const coordinator = createUnifiedSwarmCoordinator();
  * ```
  */

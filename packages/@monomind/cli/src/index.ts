@@ -1,14 +1,14 @@
 /**
  * CLI Main Entry Point
- * Modernized CLI for Monobrain
+ * Modernized CLI for Monomind
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import type { Command, CommandContext, CommandResult, MonobrainConfig, CLIError } from './types.js';
+import type { Command, CommandContext, CommandResult, MonomindConfig, CLIError } from './types.js';
 import { CommandParser, commandParser } from './parser.js';
 import { OutputFormatter, output } from './output.js';
 import { commands, commandsByCategory, commandRegistry, getCommand, getCommandAsync, getCommandNames, hasCommand } from './commands/index.js';
@@ -50,8 +50,8 @@ export class CLI {
   private interactive: boolean;
 
   constructor(options: CLIOptions = {}) {
-    this.name = options.name || 'monobrain';
-    this.description = options.description || 'Monobrain - AI Agent Orchestration Platform';
+    this.name = options.name || 'monomind';
+    this.description = options.description || 'Monomind - AI Agent Orchestration Platform';
     this.version = options.version || VERSION;
     this.parser = commandParser;
     this.output = output;
@@ -343,7 +343,7 @@ export class CLI {
 
     this.output.writeln(this.output.dim(`Run "${this.name} <command> --help" for command help`));
     this.output.writeln();
-    this.output.writeln(this.output.dim('github.com/nokhodian/monobrain'));
+    this.output.writeln(this.output.dim('github.com/nokhodian/monomind'));
     this.output.writeln();
   }
 
@@ -444,11 +444,11 @@ export class CLI {
   /**
    * Load configuration file
    */
-  private async loadConfig(configPath?: string): Promise<MonobrainConfig | undefined> {
+  private async loadConfig(configPath?: string): Promise<MonomindConfig | undefined> {
     try {
       // Import config utilities
-      const { loadConfig: loadSystemConfig } = await import('@monobrain/shared');
-      const { systemConfigToMonobrainConfig } = await import('./config-adapter.js');
+      const { loadConfig: loadSystemConfig } = await import('@monomind/shared');
+      const { systemConfigToMonomindConfig } = await import('./config-adapter.js');
 
       // Load configuration
       const loaded = await loadSystemConfig({
@@ -456,8 +456,8 @@ export class CLI {
         paths: configPath ? undefined : [process.cwd()],
       });
 
-      // Convert to MonobrainConfig format
-      const config = systemConfigToMonobrainConfig(loaded.config);
+      // Convert to MonomindConfig format
+      const config = systemConfigToMonomindConfig(loaded.config);
 
       // Log warnings if any
       if (loaded.warnings && loaded.warnings.length > 0) {
@@ -481,35 +481,35 @@ export class CLI {
   /**
    * Initialize optional subsystems at startup (non-blocking, all failures are silent).
    * Wires TierManager, ObservabilityBus + TraceCollector, and SwarmCheckpointer
-   * so that packages/@monobrain/* actually contribute to the live runtime.
+   * so that packages/@monomind/* actually contribute to the live runtime.
    */
   private async initSubsystems(): Promise<void> {
     // GAP-003: TierManager
     try {
-      const { TierManager, createPersistentService } = await import('@monobrain/memory');
-      const backend = createPersistentService('.monobrain/memory');
+      const { TierManager, createPersistentService } = await import('@monomind/memory');
+      const backend = createPersistentService('.monomind/memory');
       new TierManager(backend, { shortTermCapacity: 1000 });
-    } catch { /* optional — monobrain/memory may not be installed */ }
+    } catch { /* optional — monomind/memory may not be installed */ }
 
     // GAP-004/005/006: Register background workers (EntityExtractor, EpisodeBinner, TraceCollector)
     try {
-      const { initDefaultWorkers } = await import('@monobrain/hooks');
+      const { initDefaultWorkers } = await import('@monomind/hooks');
       await initDefaultWorkers();
     } catch { /* optional */ }
 
     // GAP-007: SwarmCheckpointer — write checkpoint files so crashed swarms can resume
     try {
-      const { SwarmCheckpointer } = await import('@monobrain/memory');
+      const { SwarmCheckpointer } = await import('@monomind/memory');
       new SwarmCheckpointer({
-        dbPath: '.monobrain/checkpoints/swarm.jsonl',
+        dbPath: '.monomind/checkpoints/swarm.jsonl',
         swarmId: 'default',
         sessionId: `session-${Date.now()}`,
       });
-    } catch { /* optional — monobrain/memory may not be installed */ }
+    } catch { /* optional — monomind/memory may not be installed */ }
 
     // Task 30: Build unified agent registry — extras (canonical) first, dev copies second.
     // Deduplication is slug-based; agency-agents wins on conflict.
-    // Extra paths are read from MONOBRAIN_EXTRA_AGENT_PATHS env var (colon-separated)
+    // Extra paths are read from MONOMIND_EXTRA_AGENT_PATHS env var (colon-separated)
     // or fall back to the known local path when available.
     try {
       const { buildUnifiedRegistry } = await import('./agents/registry-builder.js');
@@ -517,8 +517,8 @@ export class CLI {
       const { join } = await import('path');
 
       const devAgentsRoot = join(process.cwd(), '.claude', 'agents');
-      const extraPaths = process.env.MONOBRAIN_EXTRA_AGENT_PATHS
-        ? process.env.MONOBRAIN_EXTRA_AGENT_PATHS.split(':').filter(Boolean)
+      const extraPaths = process.env.MONOMIND_EXTRA_AGENT_PATHS
+        ? process.env.MONOMIND_EXTRA_AGENT_PATHS.split(':').filter(Boolean)
         : [];
 
       // Fallback: well-known sibling path relative to project root (no hardcoded dev paths)
@@ -530,7 +530,7 @@ export class CLI {
 
       // extras-first so they win deduplication; dev agents fill in the rest
       const roots = [...extraPaths, devAgentsRoot];
-      const outDir = join(process.cwd(), '.monobrain');
+      const outDir = join(process.cwd(), '.monomind');
       mkdirSync(outDir, { recursive: true });
       buildUnifiedRegistry(roots, join(outDir, 'registry.json'));
     } catch { /* optional — registry build failures must never block startup */ }
@@ -539,7 +539,7 @@ export class CLI {
     try {
       const { readFileSync, existsSync } = await import('fs');
       const { join: pathJoin } = await import('path');
-      const registryPath = pathJoin(process.cwd(), '.monobrain', 'registry.json');
+      const registryPath = pathJoin(process.cwd(), '.monomind', 'registry.json');
       if (existsSync(registryPath)) {
         const registry = JSON.parse(readFileSync(registryPath, 'utf-8')) as { agents?: Array<Record<string, unknown>> };
         const entries = registry.agents ?? [];
@@ -550,14 +550,14 @@ export class CLI {
           if (!agent.description) issues.push(`Agent ${String(agent.slug ?? '?')} missing 'description'`);
         }
         if (issues.length > 0) {
-          console.warn(`[CapabilityMetadata] ${issues.length} agent metadata issue(s) in registry — run 'monobrain doctor' to review`);
+          console.warn(`[CapabilityMetadata] ${issues.length} agent metadata issue(s) in registry — run 'monomind doctor' to review`);
         }
       }
     } catch { /* optional */ }
 
     // Task 01-03: SemanticRouteLayer + LLMFallbackRouting + KeywordRouting
     try {
-      const { RouteLayer, ALL_ROUTES } = await import('@monobrain/routing');
+      const { RouteLayer, ALL_ROUTES } = await import('@monomind/routing');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const routerConfig: any = { routes: ALL_ROUTES, enableKeywordFilter: true };
 
@@ -579,9 +579,9 @@ export class CLI {
 
       const routeLayer = new RouteLayer(routerConfig);
       await routeLayer.initialize();
-      // Expose for router.cjs via process global (router.cjs already checks __monobrainRouteLayer)
-      (process as unknown as Record<string, unknown>).__monobrainRouteLayer = routeLayer;
-    } catch { /* optional — @monobrain/routing may not be installed */ }
+      // Expose for router.cjs via process global (router.cjs already checks __monomindRouteLayer)
+      (process as unknown as Record<string, unknown>).__monomindRouteLayer = routeLayer;
+    } catch { /* optional — @monomind/routing may not be installed */ }
   }
 
   /**

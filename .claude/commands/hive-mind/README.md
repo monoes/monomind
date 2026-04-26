@@ -1,6 +1,6 @@
 # Hive-mind Commands
 
-Commands for hive-mind operations in Monobrain.
+Commands for hive-mind operations in Monomind.
 
 ## Available Commands
 

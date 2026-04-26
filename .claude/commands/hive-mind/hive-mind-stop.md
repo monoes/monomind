@@ -4,5 +4,5 @@ Command documentation for hive-mind-stop in category hive-mind.
 
 Usage:
 ```bash
-npx monobrain hive-mind hive-mind-stop [options]
+npx monomind hive-mind hive-mind-stop [options]
 ```

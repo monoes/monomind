@@ -11,9 +11,9 @@ import { createHash } from 'crypto';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { AgentVersionStore } from '../../packages/@monobrain/cli/src/agents/version-store.js';
-import type { AgentVersionRecord } from '../../packages/@monobrain/shared/src/types/agent-version.js';
-import { computeUnifiedDiff } from '../../packages/@monobrain/cli/src/agents/version-diff.js';
+import { AgentVersionStore } from '../../packages/@monomind/cli/src/agents/version-store.js';
+import type { AgentVersionRecord } from '../../packages/@monomind/shared/src/types/agent-version.js';
+import { computeUnifiedDiff } from '../../packages/@monomind/cli/src/agents/version-diff.js';
 
 function makeTmpDir(): string {
   return mkdtempSync(join(tmpdir(), 'agent-ver-'));

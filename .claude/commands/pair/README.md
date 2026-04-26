@@ -9,20 +9,20 @@ The `pair` command enables collaborative pair programming between you and AI age
 ## Usage
 
 ```bash
-monobrain pair [--start] [options]
+monomind pair [--start] [options]
 ```
 
 ## Quick Start
 
 ```bash
 # Start pair programming session
-monobrain pair --start
+monomind pair --start
 
 # Start with specific agent
-monobrain pair --start --agent senior-dev
+monomind pair --start --agent senior-dev
 
 # Start with verification
-monobrain pair --start --verify --threshold 0.98
+monomind pair --start --verify --threshold 0.98
 ```
 
 ## Options
@@ -42,19 +42,19 @@ monobrain pair --start --verify --threshold 0.98
 ### Driver Mode
 You write code, AI provides suggestions and reviews.
 ```bash
-monobrain pair --start --mode driver
+monomind pair --start --mode driver
 ```
 
 ### Navigator Mode
 AI writes code, you provide guidance and review.
 ```bash
-monobrain pair --start --mode navigator
+monomind pair --start --mode navigator
 ```
 
 ### Switch Mode (Default)
 Alternate between driver and navigator roles.
 ```bash
-monobrain pair --start --mode switch --interval 10m
+monomind pair --start --mode switch --interval 10m
 ```
 
 ## Features
@@ -87,10 +87,10 @@ monobrain pair --start --mode switch --interval 10m
 ### Start Session
 ```bash
 # Basic start
-monobrain pair --start
+monomind pair --start
 
 # With configuration
-monobrain pair --start \
+monomind pair --start \
   --agent expert-coder \
   --verify \
   --test \
@@ -115,17 +115,17 @@ monobrain pair --start \
 ### End Session
 ```bash
 # End and save session
-monobrain pair --end --save
+monomind pair --end --save
 
 # End and generate report
-monobrain pair --end --report
+monomind pair --end --report
 ```
 
 ## Examples
 
 ### Refactoring Session
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --focus refactor \
   --verify \
   --threshold 0.98
@@ -133,7 +133,7 @@ monobrain pair --start \
 
 ### Test-Driven Development
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --focus test \
   --mode tdd \
   --language javascript
@@ -141,7 +141,7 @@ monobrain pair --start \
 
 ### Bug Fixing
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --focus debug \
   --agent debugger-expert \
   --test
@@ -149,7 +149,7 @@ monobrain pair --start \
 
 ### Code Review Session
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --review \
   --verify \
   --agent senior-reviewer
@@ -160,25 +160,25 @@ monobrain pair --start \
 ### With Git
 ```bash
 # Auto-commit with verification
-monobrain pair --start --git --auto-commit
+monomind pair --start --git --auto-commit
 
 # Review before commit
-monobrain pair --start --git --review-commit
+monomind pair --start --git --review-commit
 ```
 
 ### With Testing Frameworks
 ```bash
 # Jest integration
-monobrain pair --start --test-framework jest
+monomind pair --start --test-framework jest
 
 # Pytest integration
-monobrain pair --start --test-framework pytest
+monomind pair --start --test-framework pytest
 ```
 
 ### With CI/CD
 ```bash
 # CI-friendly mode
-monobrain pair --start --ci --non-interactive
+monomind pair --start --ci --non-interactive
 ```
 
 ## Session Output
@@ -216,7 +216,7 @@ Type /help for commands or start coding...
 
 ## Configuration
 
-Configure pair programming in `.monobrain/config.json`:
+Configure pair programming in `.monomind/config.json`:
 
 ```json
 {

@@ -2,7 +2,7 @@
 
 **Source:** https://arxiv.org/abs/2405.14831  
 **Category:** Graph-Based RAG Research  
-**Role in Monobrain:** Personalized PageRank reranking over the memory reference graph
+**Role in Monomind:** Personalized PageRank reranking over the memory reference graph
 
 ---
 
@@ -18,7 +18,7 @@ The paper demonstrates up to 20% improvement on multi-hop QA benchmarks where th
 
 ### `MemoryGraph.pprRerank()` — One-Hop PPR Expansion
 
-Monobrain implements a one-hop approximation of PPR reranking in `MemoryGraph.pprRerank()`:
+Monomind implements a one-hop approximation of PPR reranking in `MemoryGraph.pprRerank()`:
 
 1. **Start with HNSW candidates**: The standard vector search returns top-k entries by cosine similarity
 2. **One-hop expansion**: For each HNSW candidate, load its `MemoryEntry.references` array (populated by A-MEM's automatic linking via `bridgeRecordCausalEdge`)
@@ -33,13 +33,13 @@ This is a significant simplification of full PPR (which uses the stationary dist
 
 PPR then boosts `token-validator.ts` because it appears in the `references` of both `auth.ts` and `session.ts` — it bridges them. Without PPR, `token-validator.ts` might not make the top-k even though it's central to understanding the login flow.
 
-## How It Improved Monobrain
+## How It Improved Monomind
 
 HippoRAG's insight that vector similarity alone misses associative knowledge is particularly important for a coding assistant. Code has deep dependency structures — understanding a bug requires knowing not just the file where it occurs but the chain of callers, the shared utilities, and the configuration that controls behavior. PPR reranking surfaces this associative context automatically.
 
 ## Key Files Influenced
 
-- `packages/@monobrain/memory/src/memory-graph.ts` — `pprRerank()` implementation
-- `packages/@monobrain/memory/src/agent-db.ts` — `MemoryEntry.references` field (set by A-MEM linker)
-- `packages/@monobrain/memory/src/hnsw.ts` — base vector search feeding PPR expansion
+- `packages/@monomind/memory/src/memory-graph.ts` — `pprRerank()` implementation
+- `packages/@monomind/memory/src/agent-db.ts` — `MemoryEntry.references` field (set by A-MEM linker)
+- `packages/@monomind/memory/src/hnsw.ts` — base vector search feeding PPR expansion
 - Memory search pipeline — combined vector + PPR scoring

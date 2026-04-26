@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 
-import { EntityCleanupWorker } from '../../packages/@monobrain/hooks/src/workers/entity-cleanup.js';
+import { EntityCleanupWorker } from '../../packages/@monomind/hooks/src/workers/entity-cleanup.js';
 
 describe('EntityCleanupWorker', () => {
   it('calls pruneExpired on entity memory', async () => {
