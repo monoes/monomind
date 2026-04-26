@@ -17,7 +17,7 @@ Intelligent issue management and project coordination with ruv-swarm integration
 - `mcp__github__update_issue`
 - `mcp__github__add_issue_comment`
 - `mcp__github__search_issues`
-- `mcp__monobrain__*` (all swarm coordination tools)
+- `mcp__monomind__*` (all swarm coordination tools)
 - `TodoWrite`, `TodoRead`, `Task`, `Bash`, `Read`, `Write`
 
 ## Usage Patterns
@@ -25,10 +25,10 @@ Intelligent issue management and project coordination with ruv-swarm integration
 ### 1. Create Coordinated Issue with Swarm Tracking
 ```javascript
 // Initialize issue management swarm
-mcp__monobrain__swarm_init { topology: "star", maxAgents: 3 }
-mcp__monobrain__agent_spawn { type: "coordinator", name: "Issue Coordinator" }
-mcp__monobrain__agent_spawn { type: "researcher", name: "Requirements Analyst" }
-mcp__monobrain__agent_spawn { type: "coder", name: "Implementation Planner" }
+mcp__monomind__swarm_init { topology: "star", maxAgents: 3 }
+mcp__monomind__agent_spawn { type: "coordinator", name: "Issue Coordinator" }
+mcp__monomind__agent_spawn { type: "researcher", name: "Requirements Analyst" }
+mcp__monomind__agent_spawn { type: "coder", name: "Implementation Planner" }
 
 // Create comprehensive issue
 mcp__github__create_issue {
@@ -53,7 +53,7 @@ mcp__github__create_issue {
 }
 
 // Set up automated tracking
-mcp__monobrain__task_orchestrate {
+mcp__monomind__task_orchestrate {
   task: "Monitor and coordinate issue progress with automated updates",
   strategy: "adaptive",
   priority: "medium"
@@ -63,7 +63,7 @@ mcp__monobrain__task_orchestrate {
 ### 2. Automated Progress Updates
 ```javascript
 // Update issue with progress from swarm memory
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "retrieve",
   key: "issue/54/progress"
 }
@@ -92,7 +92,7 @@ mcp__github__add_issue_comment {
 }
 
 // Store progress in swarm memory
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "issue/54/latest_update",
   value: { timestamp: Date.now(), progress: "89%", status: "near_completion" }
@@ -125,10 +125,10 @@ mcp__github__update_issue {
 ```javascript
 [Single Message - Issue Lifecycle Management]:
   // Initialize issue coordination swarm
-  mcp__monobrain__swarm_init { topology: "mesh", maxAgents: 4 }
-  mcp__monobrain__agent_spawn { type: "coordinator", name: "Issue Manager" }
-  mcp__monobrain__agent_spawn { type: "analyst", name: "Progress Tracker" }
-  mcp__monobrain__agent_spawn { type: "researcher", name: "Context Gatherer" }
+  mcp__monomind__swarm_init { topology: "mesh", maxAgents: 4 }
+  mcp__monomind__agent_spawn { type: "coordinator", name: "Issue Manager" }
+  mcp__monomind__agent_spawn { type: "analyst", name: "Progress Tracker" }
+  mcp__monomind__agent_spawn { type: "researcher", name: "Context Gatherer" }
   
   // Create multiple related issues using gh CLI
   Bash(`gh issue create \
@@ -158,7 +158,7 @@ mcp__github__update_issue {
   ]}
   
   // Store initial coordination state
-  mcp__monobrain__memory_usage {
+  mcp__monomind__memory_usage {
     action: "store",
     key: "project/github_integration/issues",
     value: { created: Date.now(), total_issues: 3, status: "initialized" }

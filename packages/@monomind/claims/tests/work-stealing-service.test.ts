@@ -1,5 +1,5 @@
 /**
- * V1 Monobrain Work Stealing Service Unit Tests
+ * V1 Monomind Work Stealing Service Unit Tests
  *
  * London School TDD - Behavior Verification
  * Tests work stealing, stealable marking, contestation, and cross-type rules

@@ -156,7 +156,7 @@ function getConnectionConfig(ctx: CommandContext) {
     user: (ctx.flags.user as string) || process.env.PGUSER || 'postgres',
     password: (ctx.flags.password as string) || process.env.PGPASSWORD || '',
     ssl: (ctx.flags.ssl as boolean) || process.env.PGSSLMODE === 'require',
-    schema: (ctx.flags.schema as string) || 'monobrain',
+    schema: (ctx.flags.schema as string) || 'monomind',
   };
 }
 
@@ -251,14 +251,14 @@ export const migrateCommand: Command = {
       short: 's',
       description: 'Schema name',
       type: 'string',
-      default: 'monobrain',
+      default: 'monomind',
     },
   ],
   examples: [
-    { command: 'monobrain ruvector migrate --up', description: 'Run pending migrations' },
-    { command: 'monobrain ruvector migrate --down', description: 'Rollback last migration' },
-    { command: 'monobrain ruvector migrate --to 1.2.0', description: 'Migrate to version 1.2.0' },
-    { command: 'monobrain ruvector migrate --dry-run', description: 'Preview migration SQL' },
+    { command: 'monomind ruvector migrate --up', description: 'Run pending migrations' },
+    { command: 'monomind ruvector migrate --down', description: 'Rollback last migration' },
+    { command: 'monomind ruvector migrate --to 1.2.0', description: 'Migrate to version 1.2.0' },
+    { command: 'monomind ruvector migrate --dry-run', description: 'Preview migration SQL' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const config = getConnectionConfig(ctx);
@@ -328,7 +328,7 @@ export const migrateCommand: Command = {
 
       if (schemaExists.rows.length === 0) {
         spinner.fail(`Schema "${config.schema}" not found`);
-        output.printError('Run `monobrain ruvector init` first');
+        output.printError('Run `monomind ruvector init` first');
         await client.end();
         return { success: false, exitCode: 1 };
       }

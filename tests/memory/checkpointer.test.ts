@@ -10,8 +10,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { SwarmCheckpointer } from '../../packages/@monobrain/memory/src/checkpointer.js';
-import type { AgentState } from '../../packages/@monobrain/memory/src/types/checkpoint.js';
+import { SwarmCheckpointer } from '../../packages/@monomind/memory/src/checkpointer.js';
+import type { AgentState } from '../../packages/@monomind/memory/src/types/checkpoint.js';
 
 function makeAgent(overrides: Partial<AgentState> = {}): AgentState {
   return {

@@ -1,5 +1,5 @@
 /**
- * @monobrain/guidance - Guidance Control Plane
+ * @monomind/guidance - Guidance Control Plane
  *
  * Sits beside Claude Code (not inside it) to:
  * 1. Compile CLAUDE.md into constitution + shards + manifest
@@ -18,7 +18,7 @@
  * - Hook system for enforcement gates
  * - RuVector/HNSW for semantic shard retrieval
  *
- * @module @monobrain/guidance
+ * @module @monomind/guidance
  */
 import { RunLedger } from './ledger.js';
 import { OptimizerLoop } from './optimizer.js';

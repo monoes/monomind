@@ -25,7 +25,7 @@
 
 ### Problem Statement
 
-Monobrain V1 requires comprehensive quality engineering (QE) capabilities for:
+Monomind V1 requires comprehensive quality engineering (QE) capabilities for:
 
 1. **Automated test generation** across multiple paradigms (unit, integration, E2E, BDD)
 2. **Intelligent coverage analysis** with gap detection and prioritization
@@ -35,7 +35,7 @@ Monobrain V1 requires comprehensive quality engineering (QE) capabilities for:
 6. **Chaos engineering** and resilience validation
 7. **Security compliance** automation (SAST, DAST, audit trails)
 
-The current V1 architecture provides agent coordination (`@monobrain/plugins`), memory management (`@monobrain/memory`), and security primitives (`@monobrain/security`), but lacks specialized QE capabilities.
+The current V1 architecture provides agent coordination (`@monomind/plugins`), memory management (`@monomind/memory`), and security primitives (`@monomind/security`), but lacks specialized QE capabilities.
 
 ### Agentic-QE Package Analysis
 
@@ -49,7 +49,7 @@ The `agentic-qe` package (v1.2.3) provides a comprehensive Quality Engineering f
 | **TinyDancer Model Routing** | 3-tier routing (Haiku/Sonnet/Opus)                  | <5ms routing       |
 | **Queen Coordinator**        | Hierarchical orchestration with Byzantine tolerance | O(log n) consensus |
 | **O(log n) Coverage**        | Johnson-Lindenstrauss projected gap detection       | 12,500x faster     |
-| **Browser Automation**       | @monobrain/browser integration                      | Full Playwright    |
+| **Browser Automation**       | @monomind/browser integration                      | Full Playwright    |
 | **MCP Server**               | All tools via Model Context Protocol                | <100ms response    |
 
 ### 12 Bounded Contexts
@@ -72,30 +72,30 @@ agentic-qe/
 
 ### Shared Dependencies
 
-| Dependency             | agentic-qe     | monobrain V1          | Strategy               |
+| Dependency             | agentic-qe     | monomind V1          | Strategy               |
 | ---------------------- | -------------- | --------------------- | ---------------------- |
 | `@ruvector/attention`  | Core attention | ADR-028 integration   | **Reuse** V1 instance  |
 | `@ruvector/gnn`        | Code graphs    | ADR-029 integration   | **Reuse** V1 instance  |
 | `@ruvector/sona`       | Self-learning  | ReasoningBank         | **Bridge** via adapter |
-| `hnswlib-node`         | Vector search  | @monobrain/memory     | **Share** index        |
+| `hnswlib-node`         | Vector search  | @monomind/memory     | **Share** index        |
 | `better-sqlite3`       | Persistence    | sql.js (WASM)         | **Separate** DBs       |
-| `@xenova/transformers` | Embeddings     | @monobrain/embeddings | **Share** model        |
+| `@xenova/transformers` | Embeddings     | @monomind/embeddings | **Share** model        |
 
 ---
 
 ## Decision
 
-Integrate `agentic-qe` as a **first-class plugin** for Monobrain V1 using the `@monobrain/plugins` SDK with clear bounded context mapping, shared infrastructure coordination, and security isolation.
+Integrate `agentic-qe` as a **first-class plugin** for Monomind V1 using the `@monomind/plugins` SDK with clear bounded context mapping, shared infrastructure coordination, and security isolation.
 
 ### Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              Monobrain V1                                      │
+│                              Monomind V1                                      │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                  │
 │   ┌────────────────────────────────────────────────────────────────────────┐    │
-│   │                    @monobrain/plugins Registry                        │    │
+│   │                    @monomind/plugins Registry                        │    │
 │   │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌─────────────────┐  │    │
 │   │  │   Core     │  │  Security  │  │  Memory    │  │  agentic-qe     │  │    │
 │   │  │  Plugins   │  │  Plugins   │  │  Plugins   │  │  Plugin (NEW)   │  │    │
@@ -169,7 +169,7 @@ Integrate `agentic-qe` as a **first-class plugin** for Monobrain V1 using the `@
 ```typescript
 // v1/plugins/agentic-qe/src/index.ts
 
-import { PluginBuilder, HookEvent, HookPriority } from "@monobrain/plugins";
+import { PluginBuilder, HookEvent, HookPriority } from "@monomind/plugins";
 import { AgenticQEBridge } from "./infrastructure/agentic-qe-bridge";
 import { ContextMapper } from "./infrastructure/context-mapper";
 import { SecuritySandbox } from "./infrastructure/security-sandbox";
@@ -184,9 +184,9 @@ export const agenticQEPlugin = new PluginBuilder("agentic-qe", "3.2.3")
   .withAuthor("rUv")
   .withLicense("MIT")
   .withDependencies([
-    "@monobrain/memory",
-    "@monobrain/security",
-    "@monobrain/embeddings",
+    "@monomind/memory",
+    "@monomind/security",
+    "@monomind/embeddings",
   ])
   .withCapabilities([
     "test-generation",
@@ -466,9 +466,9 @@ export class ContextMapper {
 ```typescript
 // v1/plugins/agentic-qe/src/infrastructure/agentic-qe-bridge.ts
 
-import type { IMemoryService } from "@monobrain/memory";
-import type { SecurityModule } from "@monobrain/security";
-import type { EmbeddingsService } from "@monobrain/embeddings";
+import type { IMemoryService } from "@monomind/memory";
+import type { SecurityModule } from "@monomind/security";
+import type { EmbeddingsService } from "@monomind/embeddings";
 
 export interface AgenticQEBridgeConfig {
   memory: IMemoryService;
@@ -678,7 +678,7 @@ export class AgenticQEBridge {
 ```typescript
 // v1/plugins/agentic-qe/src/mcp-tools/index.ts
 
-import type { MCPTool } from "@monobrain/plugins";
+import type { MCPTool } from "@monomind/plugins";
 
 export const mcpTools: MCPTool[] = [
   // Test Generation Tools
@@ -1171,7 +1171,7 @@ export const mcpTools: MCPTool[] = [
 import type {
   EnhancedModelRouter,
   EnhancedRouteResult,
-} from "@monobrain/cli/ruvector";
+} from "@monomind/cli/ruvector";
 
 /**
  * Adapter to align TinyDancer model routing with ADR-026 Agent Booster routing
@@ -1298,10 +1298,10 @@ interface ModelRouteResult extends EnhancedRouteResult {
 ```typescript
 // v1/plugins/agentic-qe/src/infrastructure/queen-hive-bridge.ts
 
-import type { HiveMindService } from "@monobrain/coordination";
+import type { HiveMindService } from "@monomind/coordination";
 
 /**
- * Bridge between agentic-qe Queen Coordinator and monobrain Hive Mind
+ * Bridge between agentic-qe Queen Coordinator and monomind Hive Mind
  */
 export class QueenHiveBridge {
   private hiveMind: HiveMindService;
@@ -1442,7 +1442,7 @@ interface QESwarmResult {
 ```typescript
 // v1/plugins/agentic-qe/src/infrastructure/security-sandbox.ts
 
-import type { SecurityModule } from "@monobrain/security";
+import type { SecurityModule } from "@monomind/security";
 
 export interface SandboxConfig {
   maxExecutionTime: number; // ms
@@ -1882,7 +1882,7 @@ v1/plugins/agentic-qe/
 
 **Deliverables:**
 
-- Plugin registers with `@monobrain/plugins` SDK
+- Plugin registers with `@monomind/plugins` SDK
 - Type-safe configuration validation
 - Basic lifecycle hooks (onLoad, onUnload)
 
@@ -2014,14 +2014,14 @@ v1/plugins/agentic-qe/
 
 ```json
 {
-  "name": "@monobrain/plugin-agentic-qe",
+  "name": "@monomind/plugin-agentic-qe",
   "version": "3.0.0-alpha.1",
   "dependencies": {
     "agentic-qe": "^3.2.3",
-    "@monobrain/plugins": "^3.0.0",
-    "@monobrain/memory": "^3.0.0",
-    "@monobrain/security": "^3.0.0",
-    "@monobrain/embeddings": "^3.0.0",
+    "@monomind/plugins": "^3.0.0",
+    "@monomind/memory": "^3.0.0",
+    "@monomind/security": "^3.0.0",
+    "@monomind/embeddings": "^3.0.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
@@ -2030,7 +2030,7 @@ v1/plugins/agentic-qe/
     "@types/node": "^20.0.0"
   },
   "peerDependencies": {
-    "@monobrain/browser": ">=3.0.0"
+    "@monomind/browser": ">=3.0.0"
   }
 }
 ```

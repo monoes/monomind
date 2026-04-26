@@ -6,9 +6,9 @@ import { GuidanceHookProvider, createGuidanceHooks, gateResultsToHookResult } fr
 import { EnforcementGates } from '../src/gates.js';
 import { ShardRetriever, HashEmbeddingProvider } from '../src/retriever.js';
 import { RunLedger } from '../src/ledger.js';
-import { HookRegistry } from '@monobrain/hooks';
-import { HookEvent, HookPriority } from '@monobrain/hooks';
-import type { HookContext, HookResult } from '@monobrain/hooks';
+import { HookRegistry } from '@monomind/hooks';
+import { HookEvent, HookPriority } from '@monomind/hooks';
+import type { HookContext, HookResult } from '@monomind/hooks';
 import type { GateResult, RunEvent, PolicyBundle } from '../src/types.js';
 
 // ============================================================================

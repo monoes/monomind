@@ -7,7 +7,7 @@ Performance optimization with systematic analysis and improvements.
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "optimizer",
   task_description: "optimize application performance",
   options: {
@@ -20,16 +20,16 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run optimizer "optimize application performance"
+npx monomind sparc run optimizer "optimize application performance"
 
 # For alpha features
-npx monobrain@alpha sparc run optimizer "optimize application performance"
+npx monomind@alpha sparc run optimizer "optimize application performance"
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run optimizer "optimize application performance"
+# If monomind is installed locally
+./monomind sparc run optimizer "optimize application performance"
 ```
 
 ## Core Capabilities

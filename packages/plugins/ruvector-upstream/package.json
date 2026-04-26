@@ -1,7 +1,7 @@
 {
-  "name": "@monobrain/ruvector-upstream",
+  "name": "@monomind/ruvector-upstream",
   "version": "1.0.0",
-  "description": "RuVector WASM package bridges for Monobrain plugins",
+  "description": "RuVector WASM package bridges for Monomind plugins",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -55,7 +55,7 @@
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
-    "monobrain",
+    "monomind",
     "ruvector",
     "wasm",
     "vector-search",
@@ -63,11 +63,11 @@
     "graph",
     "quantum"
   ],
-  "author": "Monobrain Team",
+  "author": "Monomind Team",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monobrain.git",
+    "url": "https://github.com/nokhodian/monomind.git",
     "directory": "packages/plugins/ruvector-upstream"
   },
   "dependencies": {

@@ -1,4 +1,4 @@
-# Monobrain v1: Optimized Implementation Plan
+# Monomind v1: Optimized Implementation Plan
 
 ## Core Priorities
 
@@ -610,7 +610,7 @@ export class InitController {
     await this.security.validateEnvironment();
 
     // Check for secure token
-    if (!process.env.MONOBRAIN_TOKEN) {
+    if (!process.env.MONOMIND_TOKEN) {
       const token = this.security.generateSecureToken();
       console.log("Generated secure token - add to environment");
     }
@@ -625,9 +625,9 @@ export class InitController {
       ".claude/commands",
       ".claude/skills",
       ".claude/checkpoints/active",
-      ".monobrain/coordination",
-      ".monobrain/training",
-      ".monobrain/metrics",
+      ".monomind/coordination",
+      ".monomind/training",
+      ".monomind/metrics",
     ];
 
     for (const dir of dirs) {
@@ -905,14 +905,14 @@ import { InitController } from "../init/init-controller";
 
 export function createInitCommand(): Command {
   return new Command("init")
-    .description("Initialize Monobrain v1 with enhanced capabilities")
+    .description("Initialize Monomind v1 with enhanced capabilities")
     .option("-m, --mode <mode>", "Initialization mode", "standard")
     .option("--sona <profile>", "SONA learning profile", "balanced")
     .option("--no-learning", "Disable self-learning")
     .option("--attention <type>", "Attention mechanism", "flash")
     .option("--migrate", "Auto-migrate from v2")
     .action(async (options) => {
-      console.log("🚀 Initializing Monobrain v1...\n");
+      console.log("🚀 Initializing Monomind v1...\n");
 
       const controller = new InitController({
         mode: options.mode,
@@ -1023,21 +1023,21 @@ npm run test:compatibility
 
 ```bash
 # Fresh v1 installation
-npx monobrain init --mode sparc --sona research
+npx monomind init --mode sparc --sona research
 
 # With all features
-npx monobrain init --mode enterprise --sona research --attention flash
+npx monomind init --mode enterprise --sona research --attention flash
 
 # Minimal (fast startup)
-npx monobrain init --mode standard --sona real-time
+npx monomind init --mode standard --sona real-time
 
 # Migrate from v2
-npx monobrain init --migrate
+npx monomind init --migrate
 ```
 
 ```typescript
 // v1 API usage
-import { InitController, SwarmCoordinator, SONAManager } from "monobrain/v1";
+import { InitController, SwarmCoordinator, SONAManager } from "monomind/v1";
 
 // Initialize with learning
 const init = new InitController({

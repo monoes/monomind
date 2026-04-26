@@ -1,4 +1,4 @@
-# Monobrain Deep Regression Test Environment
+# Monomind Deep Regression Test Environment
 # Comprehensive testing for all capabilities
 
 FROM node:20-bookworm
@@ -41,28 +41,28 @@ COPY v1/ ./v1/
 RUN npm install --legacy-peer-deps
 
 # Build v1 packages
-WORKDIR /app/v1/@monobrain/shared
+WORKDIR /app/v1/@monomind/shared
 RUN npm install --legacy-peer-deps && npm run build || true
 
-WORKDIR /app/v1/@monobrain/hooks
+WORKDIR /app/v1/@monomind/hooks
 RUN npm install --legacy-peer-deps && npm run build || true
 
-WORKDIR /app/v1/@monobrain/plugins
+WORKDIR /app/v1/@monomind/plugins
 RUN npm install --legacy-peer-deps && npm run build || true
 
-WORKDIR /app/v1/@monobrain/security
+WORKDIR /app/v1/@monomind/security
 RUN npm install --legacy-peer-deps && npm run build || true
 
-WORKDIR /app/v1/@monobrain/swarm
+WORKDIR /app/v1/@monomind/swarm
 RUN npm install --legacy-peer-deps && npm run build || true
 
-WORKDIR /app/v1/@monobrain/cli
+WORKDIR /app/v1/@monomind/cli
 RUN npm install --legacy-peer-deps && npm run build || true
 
-WORKDIR /app/v1/@monobrain/memory
+WORKDIR /app/v1/@monomind/memory
 RUN npm install --legacy-peer-deps && npm run build || true
 
-WORKDIR /app/v1/@monobrain/mcp
+WORKDIR /app/v1/@monomind/mcp
 RUN npm install --legacy-peer-deps && npm run build || true
 
 # Return to app root
@@ -79,11 +79,11 @@ RUN mkdir -p /app/data /app/reports /app/logs
 
 # Set environment variables
 ENV NODE_ENV=test
-ENV MONOBRAIN_MODE=test
-ENV MONOBRAIN_MEMORY_PATH=/app/data
-ENV MONOBRAIN_LOG_LEVEL=debug
-ENV MONOBRAIN_MAX_AGENTS=15
-ENV MONOBRAIN_SECURITY_MODE=strict
+ENV MONOMIND_MODE=test
+ENV MONOMIND_MEMORY_PATH=/app/data
+ENV MONOMIND_LOG_LEVEL=debug
+ENV MONOMIND_MAX_AGENTS=15
+ENV MONOMIND_SECURITY_MODE=strict
 ENV CI=true
 
 # Health check

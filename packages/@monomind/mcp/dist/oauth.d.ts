@@ -1,5 +1,5 @@
 /**
- * @monobrain/mcp - OAuth 2.1 Authentication
+ * @monomind/mcp - OAuth 2.1 Authentication
  *
  * MCP 2025-11-25 compliant OAuth 2.1 with PKCE
  */

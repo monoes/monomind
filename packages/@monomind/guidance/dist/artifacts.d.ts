@@ -10,7 +10,7 @@
  * - Multi-dimensional search (by kind, run, cell, tags, time range)
  * - Export/import for portability and replay
  *
- * @module @monobrain/guidance/artifacts
+ * @module @monomind/guidance/artifacts
  */
 /**
  * Classification of artifact output types.

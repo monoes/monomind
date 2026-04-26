@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { CostTracker } from '../../packages/@monobrain/hooks/src/cost/cost-tracker.js';
-import { CostReporter } from '../../packages/@monobrain/hooks/src/cost/cost-reporter.js';
+import { CostTracker } from '../../packages/@monomind/hooks/src/cost/cost-tracker.js';
+import { CostReporter } from '../../packages/@monomind/hooks/src/cost/cost-reporter.js';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -10,7 +10,7 @@ let tmpDir: string;
 let dbPath: string;
 
 beforeEach(() => {
-  tmpDir = mkdtempSync(join(tmpdir(), 'monobrain-reporter-test-'));
+  tmpDir = mkdtempSync(join(tmpdir(), 'monomind-reporter-test-'));
   dbPath = join(tmpDir, 'test.jsonl');
   const tracker = new CostTracker({ dbPath });
   tracker.record({ id: 'r1', agentSlug: 'coder', model: 'claude-haiku-3',

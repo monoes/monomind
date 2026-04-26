@@ -1,9 +1,9 @@
 #!/bin/bash
-# Deploy Monobrain Registry Cloud Function
+# Deploy Monomind Registry Cloud Function
 
 set -e
 
-PROJECT_ID="${GCP_PROJECT:-monobrain}"
+PROJECT_ID="${GCP_PROJECT:-monomind}"
 REGION="${GCP_REGION:-us-central1}"
 FUNCTION_NAME="publish-registry"
 
@@ -15,7 +15,7 @@ echo ""
 
 # Create bucket if not exists
 echo "Creating storage bucket..."
-gsutil mb -p $PROJECT_ID gs://monobrain-plugin-registry 2>/dev/null || true
+gsutil mb -p $PROJECT_ID gs://monomind-plugin-registry 2>/dev/null || true
 
 # Create secrets if not exist
 echo "Setting up secrets..."
@@ -48,4 +48,4 @@ echo "Test with:"
 echo "  curl '$FUNCTION_URL?action=status'"
 echo ""
 echo "Rate a plugin:"
-echo "  curl -X POST '$FUNCTION_URL?action=rate' -H 'Content-Type: application/json' -d '{\"itemId\":\"@monobrain/embeddings\",\"rating\":5}'"
+echo "  curl -X POST '$FUNCTION_URL?action=rate' -H 'Content-Type: application/json' -d '{\"itemId\":\"@monomind/embeddings\",\"rating\":5}'"

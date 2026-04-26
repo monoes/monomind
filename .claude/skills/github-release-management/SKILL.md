@@ -20,7 +20,7 @@ gh release create v2.0.0 \
   --title "Release v2.0.0"
 
 # Orchestrate with swarm
-npx monobrain github release-create \
+npx monomind github release-create \
   --version "2.0.0" \
   --build-artifacts \
   --deploy-targets "npm,docker,github"
@@ -30,10 +30,10 @@ npx monobrain github release-create \
 
 ```bash
 # Initialize release swarm
-npx monobrain swarm init --topology hierarchical
+npx monomind swarm init --topology hierarchical
 
 # Execute complete release pipeline
-npx monobrain sparc pipeline "Release v2.0.0 with full validation"
+npx monomind sparc pipeline "Release v2.0.0 with full validation"
 ```
 
 ---
@@ -144,19 +144,19 @@ gh release create $(npm pkg get version) \
 ```javascript
 // Set up coordinated release team
 [Single Message - Swarm Initialization]:
-  mcp__monobrain__swarm_init {
+  mcp__monomind__swarm_init {
     topology: "hierarchical",
     maxAgents: 6,
     strategy: "balanced"
   }
 
   // Spawn specialized agents
-  mcp__monobrain__agent_spawn { type: "coordinator", name: "Release Director" }
-  mcp__monobrain__agent_spawn { type: "coder", name: "Version Manager" }
-  mcp__monobrain__agent_spawn { type: "tester", name: "QA Engineer" }
-  mcp__monobrain__agent_spawn { type: "reviewer", name: "Release Reviewer" }
-  mcp__monobrain__agent_spawn { type: "analyst", name: "Deployment Analyst" }
-  mcp__monobrain__agent_spawn { type: "researcher", name: "Compatibility Checker" }
+  mcp__monomind__agent_spawn { type: "coordinator", name: "Release Director" }
+  mcp__monomind__agent_spawn { type: "coder", name: "Version Manager" }
+  mcp__monomind__agent_spawn { type: "tester", name: "QA Engineer" }
+  mcp__monomind__agent_spawn { type: "reviewer", name: "Release Reviewer" }
+  mcp__monomind__agent_spawn { type: "analyst", name: "Deployment Analyst" }
+  mcp__monomind__agent_spawn { type: "researcher", name: "Compatibility Checker" }
 ```
 
 #### Coordinated Release Workflow
@@ -167,7 +167,7 @@ gh release create $(npm pkg get version) \
   Bash("gh api repos/:owner/:repo/git/refs --method POST -f ref='refs/heads/release/v2.0.0' -f sha=$(gh api repos/:owner/:repo/git/refs/heads/main --jq '.object.sha')")
 
   // Orchestrate release preparation
-  mcp__monobrain__task_orchestrate {
+  mcp__monomind__task_orchestrate {
     task: "Prepare release v2.0.0 with comprehensive testing and validation",
     strategy: "sequential",
     priority: "critical",
@@ -199,7 +199,7 @@ gh release create $(npm pkg get version) \
   ]}
 
   // Store release state
-  mcp__monobrain__memory_usage {
+  mcp__monomind__memory_usage {
     action: "store",
     key: "release/v2.0.0/status",
     value: JSON.stringify({
@@ -225,7 +225,7 @@ COMMITS=$(gh api repos/:owner/:repo/compare/v1.0.0...HEAD \
   --jq '.commits[].commit.message')
 
 # Generate categorized changelog
-npx monobrain github changelog \
+npx monomind github changelog \
   --prs "$PRS" \
   --commits "$COMMITS" \
   --from v1.0.0 \
@@ -246,7 +246,7 @@ npx monobrain github changelog \
 
 ```bash
 # Intelligent version suggestion
-npx monobrain github version-suggest \
+npx monomind github version-suggest \
   --current v1.2.3 \
   --analyze-commits \
   --check-compatibility \
@@ -265,7 +265,7 @@ npx monobrain github version-suggest \
 
 ```bash
 # Multi-platform build coordination
-npx monobrain github release-build \
+npx monomind github release-build \
   --platforms "linux,macos,windows" \
   --architectures "x64,arm64" \
   --parallel \
@@ -284,7 +284,7 @@ npx monobrain github release-build \
 
 ```bash
 # Comprehensive pre-release testing
-npx monobrain github release-test \
+npx monomind github release-test \
   --suites "unit,integration,e2e,performance" \
   --environments "node:16,node:18,node:20" \
   --fail-fast false \
@@ -295,7 +295,7 @@ npx monobrain github release-test \
 
 ```bash
 # Multi-target deployment orchestration
-npx monobrain github release-deploy \
+npx monomind github release-deploy \
   --targets "npm,docker,github,s3" \
   --staged-rollout \
   --monitor-metrics \
@@ -313,27 +313,27 @@ npx monobrain github release-deploy \
 ```javascript
 [Single Message - Multi-Package Release]:
   // Initialize mesh topology for cross-package coordination
-  mcp__monobrain__swarm_init { topology: "mesh", maxAgents: 8 }
+  mcp__monomind__swarm_init { topology: "mesh", maxAgents: 8 }
 
   // Spawn package-specific agents
-  Task("Package A Manager", "Coordinate monobrain package release v1.0.72", "coder")
+  Task("Package A Manager", "Coordinate monomind package release v1.0.72", "coder")
   Task("Package B Manager", "Coordinate ruv-swarm package release v1.0.12", "coder")
   Task("Integration Tester", "Validate cross-package compatibility", "tester")
   Task("Version Coordinator", "Align dependencies and versions", "coordinator")
 
   // Update all packages simultaneously
-  Write("packages/monobrain/package.json", "[v1.0.72 content]")
+  Write("packages/monomind/package.json", "[v1.0.72 content]")
   Write("packages/ruv-swarm/package.json", "[v1.0.12 content]")
   Write("CHANGELOG.md", "[consolidated changelog]")
 
   // Run cross-package validation
-  Bash("cd packages/monobrain && npm install && npm test")
+  Bash("cd packages/monomind && npm install && npm test")
   Bash("cd packages/ruv-swarm && npm install && npm test")
   Bash("npm run test:integration")
 
   // Create unified release PR
   Bash(`gh pr create \
-    --title "Release: monobrain v1.0.72, ruv-swarm v1.0.12" \
+    --title "Release: monomind v1.0.72, ruv-swarm v1.0.12" \
     --body "Multi-package coordinated release with cross-compatibility validation"`)
 ```
 
@@ -375,7 +375,7 @@ deployment:
 
 ```bash
 # Deploy with progressive rollout
-npx monobrain github release-deploy \
+npx monomind github release-deploy \
   --version v2.0.0 \
   --strategy progressive \
   --config .github/release-deployment.yml \
@@ -389,7 +389,7 @@ npx monobrain github release-deploy \
 
 ```bash
 # Synchronize releases across repositories
-npx monobrain github multi-release \
+npx monomind github multi-release \
   --repos "frontend:v2.0.0,backend:v2.1.0,cli:v1.5.0" \
   --ensure-compatibility \
   --atomic-release \
@@ -402,7 +402,7 @@ npx monobrain github multi-release \
 ```javascript
 [Single Message - Cross-Repo Release]:
   // Initialize star topology for centralized coordination
-  mcp__monobrain__swarm_init { topology: "star", maxAgents: 6 }
+  mcp__monomind__swarm_init { topology: "star", maxAgents: 6 }
 
   // Spawn repo-specific coordinators
   Task("Frontend Release", "Release frontend v2.0.0 with API compatibility", "coordinator")
@@ -416,7 +416,7 @@ npx monobrain github multi-release \
   Bash("gh api repos/org/cli/dispatches --method POST -f event_type='release' -F client_payload[version]=v1.5.0")
 
   // Monitor all releases
-  mcp__monobrain__swarm_monitor { interval: 5, duration: 300 }
+  mcp__monomind__swarm_monitor { interval: 5, duration: 300 }
 ```
 
 ### Hotfix Emergency Procedures
@@ -425,7 +425,7 @@ npx monobrain github multi-release \
 
 ```bash
 # Fast-track critical bug fix
-npx monobrain github emergency-release \
+npx monomind github emergency-release \
   --issue 789 \
   --severity critical \
   --target-version v1.2.4 \
@@ -590,7 +590,7 @@ release:
 
 ```bash
 # Pre-release validation with all checks
-npx monobrain github release-validate \
+npx monomind github release-validate \
   --checks "
     version-conflicts,
     dependency-compatibility,
@@ -610,7 +610,7 @@ npx monobrain github release-validate \
 
 ```bash
 # Test against previous versions
-npx monobrain github compat-test \
+npx monomind github compat-test \
   --previous-versions "v1.0,v1.1,v1.2" \
   --api-contracts \
   --data-migrations \
@@ -622,7 +622,7 @@ npx monobrain github compat-test \
 
 ```bash
 # Benchmark against baseline
-npx monobrain github performance-test \
+npx monomind github performance-test \
   --baseline v1.9.0 \
   --candidate v2.0.0 \
   --metrics "throughput,latency,memory,cpu" \
@@ -636,7 +636,7 @@ npx monobrain github performance-test \
 
 ```bash
 # Monitor release health post-deployment
-npx monobrain github release-monitor \
+npx monomind github release-monitor \
   --version v2.0.0 \
   --metrics "error-rate,latency,throughput,adoption" \
   --alert-thresholds \
@@ -648,7 +648,7 @@ npx monobrain github release-monitor \
 
 ```bash
 # Analyze release performance and adoption
-npx monobrain github release-analytics \
+npx monomind github release-analytics \
   --version v2.0.0 \
   --compare-with v1.9.0 \
   --metrics "adoption,performance,stability,feedback" \
@@ -660,7 +660,7 @@ npx monobrain github release-analytics \
 
 ```bash
 # Configure intelligent auto-rollback
-npx monobrain github rollback-config \
+npx monomind github rollback-config \
   --triggers '{
     "error-rate": ">5%",
     "latency-p99": ">1000ms",
@@ -678,7 +678,7 @@ npx monobrain github rollback-config \
 
 ```bash
 # Comprehensive security validation
-npx monobrain github release-security \
+npx monomind github release-security \
   --scan-dependencies \
   --check-secrets \
   --audit-permissions \
@@ -691,7 +691,7 @@ npx monobrain github release-security \
 
 ```bash
 # Ensure regulatory compliance
-npx monobrain github release-compliance \
+npx monomind github release-compliance \
   --standards "SOC2,GDPR,HIPAA" \
   --license-audit \
   --data-governance \
@@ -750,7 +750,7 @@ jobs:
             --jq '.commits[].commit.message')
 
           # Initialize swarm coordination
-          npx monobrain@alpha swarm init --topology hierarchical
+          npx monomind@alpha swarm init --topology hierarchical
 
           # Store release context
           echo "$PRS" > /tmp/release-prs.json
@@ -759,7 +759,7 @@ jobs:
       - name: Generate Release Changelog
         run: |
           # Generate intelligent changelog
-          CHANGELOG=$(npx monobrain@alpha github changelog \
+          CHANGELOG=$(npx monomind@alpha github changelog \
             --prs "$(cat /tmp/release-prs.json)" \
             --commits "$(cat /tmp/release-commits.txt)" \
             --from $PREV_TAG \
@@ -782,7 +782,7 @@ jobs:
           npm run build
 
           # Build platform-specific binaries
-          npx monobrain@alpha github release-build \
+          npx monomind@alpha github release-build \
             --platforms "linux,macos,windows" \
             --architectures "x64,arm64" \
             --parallel
@@ -792,7 +792,7 @@ jobs:
           # Run security validation
           npm audit --audit-level=moderate
 
-          npx monobrain@alpha github release-security \
+          npx monomind@alpha github release-security \
             --scan-dependencies \
             --check-secrets \
             --sign-artifacts
@@ -825,7 +825,7 @@ jobs:
           npm run test:smoke
 
           # Validate deployment
-          npx monobrain@alpha github release-validate \
+          npx monomind@alpha github release-validate \
             --version ${{ github.ref_name }} \
             --smoke-tests \
             --health-checks
@@ -848,7 +848,7 @@ jobs:
       - name: Monitor Release
         run: |
           # Start release monitoring
-          npx monobrain@alpha github release-monitor \
+          npx monomind@alpha github release-monitor \
             --version ${{ github.ref_name }} \
             --duration 1h \
             --alert-on-errors &
@@ -884,7 +884,7 @@ jobs:
 
       - name: Emergency Release
         run: |
-          npx monobrain@alpha github emergency-release \
+          npx monomind@alpha github emergency-release \
             --issue ${{ github.event.issue.number }} \
             --severity critical \
             --fast-track \
@@ -972,7 +972,7 @@ jobs:
 
 ```bash
 # Debug build failures
-npx monobrain@alpha diagnostic-run \
+npx monomind@alpha diagnostic-run \
   --component build \
   --verbose
 
@@ -991,7 +991,7 @@ npm run test -- --verbose --coverage
 npm run test:ci
 
 # Compare local vs CI environment
-npx monobrain@alpha github compat-test \
+npx monomind@alpha github compat-test \
   --environments "local,ci" \
   --compare
 ```
@@ -1000,14 +1000,14 @@ npx monobrain@alpha github compat-test \
 
 ```bash
 # Immediate rollback to previous version
-npx monobrain@alpha github rollback \
+npx monomind@alpha github rollback \
   --to-version v1.9.9 \
   --reason "Critical bug in v2.0.0" \
   --preserve-data \
   --notify-users
 
 # Investigate rollback cause
-npx monobrain@alpha github release-analytics \
+npx monomind@alpha github release-analytics \
   --version v2.0.0 \
   --identify-issues
 ```
@@ -1016,12 +1016,12 @@ npx monobrain@alpha github release-analytics \
 
 ```bash
 # Check and resolve version conflicts
-npx monobrain@alpha github release-validate \
+npx monomind@alpha github release-validate \
   --checks version-conflicts \
   --auto-resolve
 
 # Align multi-package versions
-npx monobrain@alpha github version-sync \
+npx monomind@alpha github version-sync \
   --packages "package-a,package-b" \
   --strategy semantic
 ```
@@ -1060,7 +1060,7 @@ npx monobrain@alpha github version-sync \
 
 - [GitHub CLI Documentation](https://cli.github.com/manual/)
 - [Semantic Versioning Spec](https://semver.org/)
-- [Monobrain SPARC Guide](../../docs/sparc-methodology.md)
+- [Monomind SPARC Guide](../../docs/sparc-methodology.md)
 - [Swarm Coordination Patterns](../../docs/swarm-patterns.md)
 
 ### Related Skills
@@ -1072,9 +1072,9 @@ npx monobrain@alpha github version-sync \
 
 ### Support & Community
 
-- Issues: https://github.com/nokhodian/monobrain/issues
-- Discussions: https://github.com/nokhodian/monobrain/discussions
-- Documentation: https://monobrain.dev/docs
+- Issues: https://github.com/nokhodian/monomind/issues
+- Discussions: https://github.com/nokhodian/monomind/discussions
+- Documentation: https://monomind.dev/docs
 
 ---
 
@@ -1121,4 +1121,4 @@ npx monobrain@alpha github version-sync \
 
 **Version**: 2.0.0
 **Last Updated**: 2025-10-19
-**Maintained By**: Monobrain Team
+**Maintained By**: Monomind Team

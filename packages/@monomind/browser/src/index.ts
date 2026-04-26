@@ -1,6 +1,6 @@
 /**
- * @monobrain/browser
- * Browser automation for AI agents - integrates agent-browser with monobrain swarms
+ * @monomind/browser
+ * Browser automation for AI agents - integrates agent-browser with monomind swarms
  *
  * Features:
  * - 50+ MCP tools for browser automation
@@ -11,7 +11,7 @@
  *
  * @example
  * ```typescript
- * import { createBrowserService, browserTools } from '@monobrain/browser';
+ * import { createBrowserService, browserTools } from '@monomind/browser';
  *
  * // Create a browser service
  * const browser = createBrowserService({ sessionId: 'my-session' });
@@ -59,7 +59,7 @@ export {
 
 // Memory integration (HNSW semantic search)
 export {
-  MonobrainMemoryAdapter,
+  MonomindMemoryAdapter,
   BrowserMemoryManager,
   createMemoryManager,
   getMemoryAdapter,

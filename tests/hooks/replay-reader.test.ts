@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { ReplayReader } from '../../packages/@monobrain/hooks/src/observability/replay-reader.js';
-import { TraceStore } from '../../packages/@monobrain/hooks/src/observability/trace.js';
+import { ReplayReader } from '../../packages/@monomind/hooks/src/observability/replay-reader.js';
+import { TraceStore } from '../../packages/@monomind/hooks/src/observability/trace.js';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';

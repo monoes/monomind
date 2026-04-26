@@ -1,4 +1,4 @@
-# ADR-042: Gas Town & Beads Analysis - Lessons for Monobrain V1
+# ADR-042: Gas Town & Beads Analysis - Lessons for Monomind V1
 
 ## Status
 **Research** - Comparative Analysis (2026-01-24)
@@ -11,7 +11,7 @@
 
 ## Context
 
-Steve Yegge released [Gas Town](https://github.com/steveyegge/gastown) on January 1, 2026, a multi-agent orchestration system built on top of [Beads](https://github.com/steveyegge/beads), his git-backed issue tracker. This ADR analyzes these systems and identifies lessons applicable to Monobrain V1.
+Steve Yegge released [Gas Town](https://github.com/steveyegge/gastown) on January 1, 2026, a multi-agent orchestration system built on top of [Beads](https://github.com/steveyegge/beads), his git-backed issue tracker. This ADR analyzes these systems and identifies lessons applicable to Monomind V1.
 
 ## Source Material
 
@@ -25,7 +25,7 @@ Steve Yegge released [Gas Town](https://github.com/steveyegge/gastown) on Januar
 
 Gas Town operates on the principle that **sessions are ephemeral cattle; agents are persistent identities**. This is the inverse of how most orchestrators work.
 
-| Concept | Gas Town | Monobrain V1 |
+| Concept | Gas Town | Monomind V1 |
 |---------|----------|----------------|
 | Session Persistence | Cattle (disposable) | Cattle (disposable) |
 | Agent Identity | Pets (persistent in Git) | Pets (persistent in memory) |
@@ -49,7 +49,7 @@ Formulas (TOML) → Protomolecules → Molecules → Wisps
 
 ### Worker Roles
 
-| Role | Function | Monobrain Equivalent |
+| Role | Function | Monomind Equivalent |
 |------|----------|----------------------|
 | **Mayor** | Main coordinator, concierge | `hierarchical-coordinator` |
 | **Polecats** | Ephemeral workers for swarms | Task tool agents |
@@ -95,11 +95,11 @@ Workers can communicate with their predecessors via Claude Code's `/resume` feat
 - Useful for handoff continuity
 - Recovers lost context from crashed sessions
 
-## Comparison: Gas Town vs Monobrain V1
+## Comparison: Gas Town vs Monomind V1
 
 ### Similarities
 
-| Feature | Gas Town | Monobrain V1 |
+| Feature | Gas Town | Monomind V1 |
 |---------|----------|----------------|
 | Multi-agent orchestration | ✅ | ✅ |
 | Hierarchical coordination | ✅ Mayor-led | ✅ Queen-led |
@@ -111,7 +111,7 @@ Workers can communicate with their predecessors via Claude Code's `/resume` feat
 
 ### Differences
 
-| Aspect | Gas Town | Monobrain V1 |
+| Aspect | Gas Town | Monomind V1 |
 |--------|----------|----------------|
 | **Primary UI** | tmux | CLI + MCP |
 | **Language** | Go | TypeScript |
@@ -130,7 +130,7 @@ Workers can communicate with their predecessors via Claude Code's `/resume` feat
 4. **Formula marketplace** - Mol Mall for sharing workflows
 5. **Seance** - Talk to previous sessions
 
-### Monobrain V1 Advantages
+### Monomind V1 Advantages
 
 1. **Vector search** - 150x-12,500x faster semantic search
 2. **Neural learning** - SONA, MoE, pattern learning
@@ -139,7 +139,7 @@ Workers can communicate with their predecessors via Claude Code's `/resume` feat
 5. **Multi-model** - Haiku/Sonnet/Opus routing
 6. **Cloud-native** - No tmux dependency
 
-## Lessons for Monobrain V1
+## Lessons for Monomind V1
 
 ### High Priority Adoptions
 
@@ -248,16 +248,16 @@ await hooks.sessionRestore({
 For power users who want terminal-native orchestration:
 
 ```bash
-npx monobrain tmux attach --mayor
-npx monobrain tmux crew cycle
+npx monomind tmux attach --mayor
+npx monomind tmux crew cycle
 ```
 
 #### 9. Mol Mall Equivalent
 Marketplace for workflow templates:
 
 ```bash
-npx monobrain formulas search "release"
-npx monobrain formulas install @community/release-workflow
+npx monomind formulas search "release"
+npx monomind formulas install @community/release-workflow
 ```
 
 ## Architectural Insights
@@ -273,7 +273,7 @@ Git provides:
 - Distributed sync
 - Cryptographic integrity
 
-Monobrain uses AgentDB for vectors, but could add Git-backed audit logs for critical state.
+Monomind uses AgentDB for vectors, but could add Git-backed audit logs for critical state.
 
 ### Why Molecules Work
 
@@ -298,9 +298,9 @@ Yegge's evolution chart is useful for positioning:
 | 5 | CLI single agent | Claude Code |
 | 6 | CLI multi-agent | 3-5 parallel |
 | 7 | 10+ agents, hand-managed | Power user |
-| 8 | Building orchestrator | Gas Town, Monobrain |
+| 8 | Building orchestrator | Gas Town, Monomind |
 
-**Monobrain V1 targets Stage 7-8 users.**
+**Monomind V1 targets Stage 7-8 users.**
 
 ## Recommendations
 
@@ -329,12 +329,12 @@ Gas Town represents a significant advancement in multi-agent orchestration, part
 - **Self-healing**: GUPP + Patrols
 - **Scalability**: 20-30+ concurrent agents
 
-Monobrain V1 has advantages in:
+Monomind V1 has advantages in:
 - **Intelligence**: Vector search, neural learning
 - **Ecosystem**: MCP, plugins, multi-model
 - **Accessibility**: No tmux requirement
 
-The ideal system would combine Gas Town's durability guarantees with Monobrain's intelligence features.
+The ideal system would combine Gas Town's durability guarantees with Monomind's intelligence features.
 
 ## References
 

@@ -16,7 +16,7 @@ const packagesRoot = path.join(__dirname, '..');
 const VERSION = '1.0.0';
 const TAG = 'alpha';
 
-// All @monobrain packages
+// All @monomind packages
 const packages = [
   'shared',
   'security',
@@ -57,7 +57,7 @@ const publishOrder = [
 ];
 
 function updatePackageJson(pkgName) {
-  const pkgPath = path.join(packagesRoot, '@monobrain', pkgName, 'package.json');
+  const pkgPath = path.join(packagesRoot, '@monomind', pkgName, 'package.json');
 
   if (!fs.existsSync(pkgPath)) {
     console.log(`⚠️  ${pkgName}: package.json not found`);
@@ -127,7 +127,7 @@ function updatePackageJson(pkgName) {
 }
 
 function updateMainPackage() {
-  const pkgPath = path.join(packagesRoot, 'monobrain', 'package.json');
+  const pkgPath = path.join(packagesRoot, 'monomind', 'package.json');
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
 
   pkg.version = VERSION;
@@ -146,28 +146,28 @@ function updateMainPackage() {
   }
 
   fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
-  console.log(`✅ monobrain: Updated for publishing`);
+  console.log(`✅ monomind: Updated for publishing`);
 }
 
 console.log('📦 Preparing V1 packages for npm publishing...\n');
 
-// Update all @monobrain packages
+// Update all @monomind packages
 for (const pkg of packages) {
   updatePackageJson(pkg);
 }
 
-// Update main monobrain package
+// Update main monomind package
 updateMainPackage();
 
 console.log('\n✅ All packages prepared for publishing!');
 console.log(`\n📋 Publish order (${publishOrder.length} packages + main):`);
-publishOrder.forEach((pkg, i) => console.log(`   ${i + 1}. @monobrain/${pkg}`));
-console.log(`   ${publishOrder.length + 1}. monobrain`);
+publishOrder.forEach((pkg, i) => console.log(`   ${i + 1}. @monomind/${pkg}`));
+console.log(`   ${publishOrder.length + 1}. monomind`);
 
 console.log('\n🚀 To publish, run:');
 console.log('   npm login');
 console.log('   cd v1 && npm run build');
 for (const pkg of publishOrder) {
-  console.log(`   cd @monobrain/${pkg} && npm publish --tag alpha && cd ../..`);
+  console.log(`   cd @monomind/${pkg} && npm publish --tag alpha && cd ../..`);
 }
-console.log('   cd monobrain && npm publish --tag alpha');
+console.log('   cd monomind && npm publish --tag alpha');

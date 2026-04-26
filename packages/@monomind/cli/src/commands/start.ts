@@ -1,6 +1,6 @@
 /**
  * CLI Start Command
- * System startup for Monobrain orchestration
+ * System startup for Monomind orchestration
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -17,7 +17,7 @@ const DEFAULT_MAX_AGENTS = 15;
 
 // Check if project is initialized
 function isInitialized(cwd: string): boolean {
-  const configPath = path.join(cwd, '.monobrain', 'config.yaml');
+  const configPath = path.join(cwd, '.monomind', 'config.yaml');
   return fs.existsSync(configPath);
 }
 
@@ -75,7 +75,7 @@ function parseSimpleYaml(content: string): Record<string, unknown> {
 
 // Load configuration
 function loadConfig(cwd: string): Record<string, unknown> | null {
-  const configPath = path.join(cwd, '.monobrain', 'config.yaml');
+  const configPath = path.join(cwd, '.monomind', 'config.yaml');
   if (!fs.existsSync(configPath)) return null;
 
   try {
@@ -96,8 +96,8 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
   // Check initialization
   if (!isInitialized(cwd)) {
-    output.printError('MonoBrain is not initialized in this directory');
-    output.printInfo('Run "monobrain init" first to initialize');
+    output.printError('MonoMind is not initialized in this directory');
+    output.printInfo('Run "monomind init" first to initialize');
     return { success: false, exitCode: 1 };
   }
 
@@ -112,7 +112,7 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const mcpPort = port || (mcpConfig.serverPort as number) || DEFAULT_PORT;
 
   output.writeln();
-  output.writeln(output.bold('Starting Monobrain'));
+  output.writeln(output.bold('Starting Monomind'));
   output.writeln();
 
   const spinner = output.createSpinner({ text: 'Initializing system...' });
@@ -185,7 +185,7 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
     // Success output
     output.writeln();
-    output.printSuccess('Monobrain is running!');
+    output.printSuccess('Monomind is running!');
     output.writeln();
 
     // Status display
@@ -204,19 +204,19 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold('Quick Commands:'));
     output.printList([
-      `${output.highlight('monobrain status')} - View system status`,
-      `${output.highlight('monobrain agent spawn -t coder')} - Spawn an agent`,
-      `${output.highlight('monobrain swarm status')} - View swarm details`,
-      `${output.highlight('monobrain stop')} - Stop the system`
+      `${output.highlight('monomind status')} - View system status`,
+      `${output.highlight('monomind agent spawn -t coder')} - Spawn an agent`,
+      `${output.highlight('monomind swarm status')} - View swarm details`,
+      `${output.highlight('monomind stop')} - Stop the system`
     ]);
 
     // Daemon mode
     if (daemon) {
       output.writeln();
-      output.printInfo('Running in daemon mode. Use "monobrain stop" to stop.');
+      output.printInfo('Running in daemon mode. Use "monomind stop" to stop.');
 
       // Store PID for daemon management
-      const daemonPidPath = path.join(cwd, '.monobrain', 'daemon.pid');
+      const daemonPidPath = path.join(cwd, '.monomind', 'daemon.pid');
       fs.writeFileSync(daemonPidPath, String(process.pid));
 
       // Detach from parent process for true daemon behavior
@@ -274,7 +274,7 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
 // Stop subcommand
 const stopCommand: Command = {
   name: 'stop',
-  description: 'Stop the MonoBrain system',
+  description: 'Stop the MonoMind system',
   options: [
     {
       name: 'force',
@@ -295,12 +295,12 @@ const stopCommand: Command = {
     const timeout = ctx.flags.timeout as number;
 
     output.writeln();
-    output.writeln(output.bold('Stopping MonoBrain'));
+    output.writeln(output.bold('Stopping MonoMind'));
     output.writeln();
 
     if (!force && ctx.interactive) {
       const confirmed = await confirm({
-        message: 'Are you sure you want to stop MonoBrain?',
+        message: 'Are you sure you want to stop MonoMind?',
         default: false
       });
 
@@ -338,13 +338,13 @@ const stopCommand: Command = {
       }
 
       // Clean up daemon PID
-      const daemonPidPath = path.join(ctx.cwd, '.monobrain', 'daemon.pid');
+      const daemonPidPath = path.join(ctx.cwd, '.monomind', 'daemon.pid');
       if (fs.existsSync(daemonPidPath)) {
         fs.unlinkSync(daemonPidPath);
       }
 
       output.writeln();
-      output.printSuccess('MonoBrain stopped successfully');
+      output.printSuccess('MonoMind stopped successfully');
 
       return {
         success: true,
@@ -361,7 +361,7 @@ const stopCommand: Command = {
 // Restart subcommand
 const restartCommand: Command = {
   name: 'restart',
-  description: 'Restart the MonoBrain system',
+  description: 'Restart the MonoMind system',
   options: [
     {
       name: 'force',
@@ -373,7 +373,7 @@ const restartCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
-    output.writeln(output.bold('Restarting MonoBrain'));
+    output.writeln(output.bold('Restarting MonoMind'));
     output.writeln();
 
     // Stop first
@@ -432,7 +432,7 @@ const quickCommand: Command = {
 // Main start command
 export const startCommand: Command = {
   name: 'start',
-  description: 'Start the MonoBrain orchestration system',
+  description: 'Start the MonoMind orchestration system',
   subcommands: [stopCommand, restartCommand, quickCommand],
   options: [
     {
@@ -464,13 +464,13 @@ export const startCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain start', description: 'Start with configuration defaults' },
-    { command: 'monobrain start --daemon', description: 'Start as background daemon' },
-    { command: 'monobrain start --port 3001', description: 'Start MCP on custom port' },
-    { command: 'monobrain start --topology mesh', description: 'Start with mesh topology' },
-    { command: 'monobrain start --skip-mcp', description: 'Start without MCP server' },
-    { command: 'monobrain start quick', description: 'Quick start with defaults' },
-    { command: 'monobrain start stop', description: 'Stop the running system' }
+    { command: 'monomind start', description: 'Start with configuration defaults' },
+    { command: 'monomind start --daemon', description: 'Start as background daemon' },
+    { command: 'monomind start --port 3001', description: 'Start MCP on custom port' },
+    { command: 'monomind start --topology mesh', description: 'Start with mesh topology' },
+    { command: 'monomind start --skip-mcp', description: 'Start without MCP server' },
+    { command: 'monomind start quick', description: 'Quick start with defaults' },
+    { command: 'monomind start stop', description: 'Stop the running system' }
   ],
   action: startAction
 };

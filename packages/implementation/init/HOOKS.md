@@ -23,7 +23,7 @@ Executed before tool operations. Used for:
       "matcher": "^(Write|Edit|MultiEdit)$",
       "hooks": [{
         "type": "command",
-        "command": "npx @monobrain/cli hooks pre-edit --file \"$TOOL_INPUT_file_path\"",
+        "command": "npx @monomind/cli hooks pre-edit --file \"$TOOL_INPUT_file_path\"",
         "timeout": 5000,
         "continueOnError": true
       }]
@@ -32,7 +32,7 @@ Executed before tool operations. Used for:
       "matcher": "^Bash$",
       "hooks": [{
         "type": "command",
-        "command": "npx @monobrain/cli hooks pre-command --command \"$TOOL_INPUT_command\"",
+        "command": "npx @monomind/cli hooks pre-command --command \"$TOOL_INPUT_command\"",
         "timeout": 5000,
         "continueOnError": true
       }]
@@ -41,7 +41,7 @@ Executed before tool operations. Used for:
       "matcher": "^Task$",
       "hooks": [{
         "type": "command",
-        "command": "npx @monobrain/cli hooks pre-task --description \"$TOOL_INPUT_prompt\"",
+        "command": "npx @monomind/cli hooks pre-task --description \"$TOOL_INPUT_prompt\"",
         "timeout": 5000,
         "continueOnError": true
       }]
@@ -50,7 +50,7 @@ Executed before tool operations. Used for:
       "matcher": "^(Grep|Glob|Read)$",
       "hooks": [{
         "type": "command",
-        "command": "npx @monobrain/cli hooks pre-search --pattern \"$TOOL_INPUT_pattern\"",
+        "command": "npx @monomind/cli hooks pre-search --pattern \"$TOOL_INPUT_pattern\"",
         "timeout": 2000,
         "continueOnError": true
       }]
@@ -74,7 +74,7 @@ Executed after tool operations. Used for:
       "matcher": "^(Write|Edit|MultiEdit)$",
       "hooks": [{
         "type": "command",
-        "command": "npx @monobrain/cli hooks post-edit --file \"$TOOL_INPUT_file_path\" --success \"$TOOL_SUCCESS\" --train-patterns",
+        "command": "npx @monomind/cli hooks post-edit --file \"$TOOL_INPUT_file_path\" --success \"$TOOL_SUCCESS\" --train-patterns",
         "timeout": 5000,
         "continueOnError": true
       }]
@@ -83,7 +83,7 @@ Executed after tool operations. Used for:
       "matcher": "^Bash$",
       "hooks": [{
         "type": "command",
-        "command": "npx @monobrain/cli hooks post-command --command \"$TOOL_INPUT_command\" --success \"$TOOL_SUCCESS\" --exit-code \"$TOOL_EXIT_CODE\"",
+        "command": "npx @monomind/cli hooks post-command --command \"$TOOL_INPUT_command\" --success \"$TOOL_SUCCESS\" --exit-code \"$TOOL_EXIT_CODE\"",
         "timeout": 5000,
         "continueOnError": true
       }]
@@ -92,7 +92,7 @@ Executed after tool operations. Used for:
       "matcher": "^Task$",
       "hooks": [{
         "type": "command",
-        "command": "npx @monobrain/cli hooks post-task --agent-id \"$TOOL_RESULT_agent_id\" --success \"$TOOL_SUCCESS\" --analyze",
+        "command": "npx @monomind/cli hooks post-task --agent-id \"$TOOL_RESULT_agent_id\" --success \"$TOOL_SUCCESS\" --analyze",
         "timeout": 5000,
         "continueOnError": true
       }]
@@ -110,7 +110,7 @@ Executes when user submits a prompt. Used for intelligent task routing.
   "UserPromptSubmit": [{
     "hooks": [{
       "type": "command",
-      "command": "npx @monobrain/cli hooks route --task \"$PROMPT\" --include-explanation",
+      "command": "npx @monomind/cli hooks route --task \"$PROMPT\" --include-explanation",
       "timeout": 5000,
       "continueOnError": true
     }]
@@ -127,7 +127,7 @@ Executes when a Claude Code session starts. Used for context restoration.
   "SessionStart": [{
     "hooks": [{
       "type": "command",
-      "command": "npx @monobrain/cli hooks session-start --session-id \"$SESSION_ID\" --load-context",
+      "command": "npx @monomind/cli hooks session-start --session-id \"$SESSION_ID\" --load-context",
       "timeout": 10000,
       "continueOnError": true
     }]
@@ -159,7 +159,7 @@ Executes on notifications. Used for swarm status updates.
   "Notification": [{
     "hooks": [{
       "type": "command",
-      "command": "npx @monobrain/cli hooks notify --message \"$NOTIFICATION_MESSAGE\" --swarm-status",
+      "command": "npx @monomind/cli hooks notify --message \"$NOTIFICATION_MESSAGE\" --swarm-status",
       "timeout": 3000,
       "continueOnError": true
     }]
@@ -169,24 +169,24 @@ Executes on notifications. Used for swarm status updates.
 
 ### PermissionRequest Hook
 
-Executes on permission requests. Used for auto-allowing monobrain tools.
+Executes on permission requests. Used for auto-allowing monomind tools.
 
 ```json
 {
   "PermissionRequest": [
     {
-      "matcher": "^mcp__monobrain__.*$",
+      "matcher": "^mcp__monomind__.*$",
       "hooks": [{
         "type": "command",
-        "command": "echo '{\"decision\": \"allow\", \"reason\": \"monobrain MCP tool auto-approved\"}'",
+        "command": "echo '{\"decision\": \"allow\", \"reason\": \"monomind MCP tool auto-approved\"}'",
         "timeout": 1000
       }]
     },
     {
-      "matcher": "^Bash\\(npx @?monobrain.*\\)$",
+      "matcher": "^Bash\\(npx @?monomind.*\\)$",
       "hooks": [{
         "type": "command",
-        "command": "echo '{\"decision\": \"allow\", \"reason\": \"monobrain CLI auto-approved\"}'",
+        "command": "echo '{\"decision\": \"allow\", \"reason\": \"monomind CLI auto-approved\"}'",
         "timeout": 1000
       }]
     }

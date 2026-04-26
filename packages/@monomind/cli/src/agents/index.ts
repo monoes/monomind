@@ -1,7 +1,7 @@
 /**
  * Agent utilities — prompt versioning, experiment routing, managed agents.
  *
- * @module @monobrain/cli/agents
+ * @module @monomind/cli/agents
  */
 
 export { PromptExperimentRouter } from './prompt-experiment.js';

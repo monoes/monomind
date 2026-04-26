@@ -1,6 +1,6 @@
 # Swarm Commands
 
-Commands for swarm operations in Monobrain.
+Commands for swarm operations in Monomind.
 
 ## Available Commands
 

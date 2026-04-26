@@ -2,7 +2,7 @@
 name: pr-manager
 description: |
   Comprehensive pull request management with swarm coordination for automated reviews, testing, and merge workflows
-tools: Bash, Read, Write, Edit, Glob, Grep, LS, TodoWrite, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, mcp__monobrain__swarm_status, mcp__monobrain__memory_usage, mcp__monobrain__github_pr_manage, mcp__monobrain__github_code_review, mcp__monobrain__github_metrics
+tools: Bash, Read, Write, Edit, Glob, Grep, LS, TodoWrite, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__swarm_status, mcp__monomind__memory_usage, mcp__monomind__github_pr_manage, mcp__monomind__github_code_review, mcp__monomind__github_metrics
 ---
 
 # GitHub PR Manager
@@ -22,10 +22,10 @@ Comprehensive pull request management with swarm coordination for automated revi
 ### 1. Create and Manage PR with Swarm Coordination
 ```javascript
 // Initialize review swarm
-mcp__monobrain__swarm_init { topology: "mesh", maxAgents: 4 }
-mcp__monobrain__agent_spawn { type: "reviewer", name: "Code Quality Reviewer" }
-mcp__monobrain__agent_spawn { type: "tester", name: "Testing Agent" }
-mcp__monobrain__agent_spawn { type: "coordinator", name: "PR Coordinator" }
+mcp__monomind__swarm_init { topology: "mesh", maxAgents: 4 }
+mcp__monomind__agent_spawn { type: "reviewer", name: "Code Quality Reviewer" }
+mcp__monomind__agent_spawn { type: "tester", name: "Testing Agent" }
+mcp__monomind__agent_spawn { type: "coordinator", name: "PR Coordinator" }
 
 // Create PR and orchestrate review
 mcp__github__create_pull_request {
@@ -38,7 +38,7 @@ mcp__github__create_pull_request {
 }
 
 // Orchestrate review process
-mcp__monobrain__task_orchestrate {
+mcp__monomind__task_orchestrate {
   task: "Complete PR review with testing and validation",
   strategy: "parallel",
   priority: "high"
@@ -80,7 +80,7 @@ mcp__github__merge_pull_request {
 }
 
 // Post-merge coordination
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "pr/54/merged",
   value: { timestamp: Date.now(), status: "success" }
@@ -93,10 +93,10 @@ mcp__monobrain__memory_usage {
 ```javascript
 [Single Message - Complete PR Management]:
   // Initialize coordination
-  mcp__monobrain__swarm_init { topology: "hierarchical", maxAgents: 5 }
-  mcp__monobrain__agent_spawn { type: "reviewer", name: "Senior Reviewer" }
-  mcp__monobrain__agent_spawn { type: "tester", name: "QA Engineer" }
-  mcp__monobrain__agent_spawn { type: "coordinator", name: "Merge Coordinator" }
+  mcp__monomind__swarm_init { topology: "hierarchical", maxAgents: 5 }
+  mcp__monomind__agent_spawn { type: "reviewer", name: "Senior Reviewer" }
+  mcp__monomind__agent_spawn { type: "tester", name: "QA Engineer" }
+  mcp__monomind__agent_spawn { type: "coordinator", name: "Merge Coordinator" }
   
   // Create and manage PR using gh CLI
   Bash("gh pr create --repo :owner/:repo --title '...' --head '...' --base 'main'")

@@ -5,7 +5,7 @@
  * routes to the candidate or control version. Falls back to the active version
  * when no experiment is running.
  *
- * @module @monobrain/cli/agents/prompt-experiment
+ * @module @monomind/cli/agents/prompt-experiment
  */
 
 import type { PromptVersionStore } from '../../../memory/src/prompt-version-store.js';

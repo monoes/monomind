@@ -48,7 +48,7 @@ Return `attempt_completion` with:
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "devops",
   task_description: "deploy to AWS Lambda",
   options: {
@@ -61,22 +61,22 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run devops "deploy to AWS Lambda"
+npx monomind sparc run devops "deploy to AWS Lambda"
 
 # For alpha features
-npx monobrain@alpha sparc run devops "deploy to AWS Lambda"
+npx monomind@alpha sparc run devops "deploy to AWS Lambda"
 
 # With namespace
-npx monobrain sparc run devops "your task" --namespace devops
+npx monomind sparc run devops "your task" --namespace devops
 
 # Non-interactive mode
-npx monobrain sparc run devops "your task" --non-interactive
+npx monomind sparc run devops "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run devops "deploy to AWS Lambda"
+# If monomind is installed locally
+./monomind sparc run devops "deploy to AWS Lambda"
 ```
 
 ## Memory Integration
@@ -84,7 +84,7 @@ npx monobrain sparc run devops "your task" --non-interactive
 ### Using MCP Tools (Preferred)
 ```javascript
 // Store mode-specific context
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "devops_context",
   value: "important decisions",
@@ -92,7 +92,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Query previous work
-mcp__monobrain__memory_search {
+mcp__monomind__memory_search {
   pattern: "devops",
   namespace: "devops",
   limit: 5
@@ -102,8 +102,8 @@ mcp__monobrain__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx monobrain memory store "devops_context" "important decisions" --namespace devops
+npx monomind memory store "devops_context" "important decisions" --namespace devops
 
 # Query previous work
-npx monobrain memory query "devops" --limit 5
+npx monomind memory query "devops" --limit 5
 ```

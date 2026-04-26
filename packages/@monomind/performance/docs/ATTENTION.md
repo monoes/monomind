@@ -26,7 +26,7 @@ npm install @ruvector/attention@latest
 ### Basic Usage
 
 ```typescript
-import { createFlashAttentionOptimizer } from "@monobrain/performance";
+import { createFlashAttentionOptimizer } from "@monomind/performance";
 
 // Create optimizer
 const optimizer = createFlashAttentionOptimizer(512, 64);
@@ -47,7 +47,7 @@ console.log(`Runtime: ${output.runtime}`); // 'napi', 'wasm', or 'js'
 ### Performance Benchmarking
 
 ```typescript
-import { quickBenchmark } from "@monobrain/performance";
+import { quickBenchmark } from "@monomind/performance";
 
 // Quick benchmark
 const result = await quickBenchmark(512);
@@ -58,7 +58,7 @@ console.log(`Meets target: ${result.meetsTarget ? "YES" : "NO"}`);
 ### Target Validation
 
 ```typescript
-import { quickValidation } from "@monobrain/performance";
+import { quickValidation } from "@monomind/performance";
 
 // Validate v1 performance targets (2.49x-7.47x)
 const isValid = await quickValidation();
@@ -68,7 +68,7 @@ const isValid = await quickValidation();
 ### Comprehensive Benchmark Suite
 
 ```typescript
-import { runAndDisplaySuite } from "@monobrain/performance";
+import { runAndDisplaySuite } from "@monomind/performance";
 
 // Run full benchmark suite across multiple dimensions
 const suite = await runAndDisplaySuite();
@@ -192,7 +192,7 @@ See `/src/examples/flash-attention-demo.ts` for comprehensive examples:
 
 ```bash
 # Run all examples
-npx tsx packages/@monobrain/performance/src/examples/flash-attention-demo.ts
+npx tsx packages/@monomind/performance/src/examples/flash-attention-demo.ts
 ```
 
 ## Technical Details
@@ -227,7 +227,7 @@ Benchmarks measure:
 Performance metrics are automatically exported for the v1 metrics dashboard:
 
 ```typescript
-import { FlashAttentionOptimizer } from "@monobrain/performance";
+import { FlashAttentionOptimizer } from "@monomind/performance";
 
 const optimizer = new FlashAttentionOptimizer();
 // ... run operations ...

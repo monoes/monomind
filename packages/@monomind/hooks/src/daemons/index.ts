@@ -29,8 +29,8 @@ interface DaemonInstance {
  * Default daemon manager configuration
  */
 const DEFAULT_CONFIG: DaemonManagerConfig = {
-  pidDirectory: '.monobrain/pids',
-  logDirectory: '.monobrain/logs',
+  pidDirectory: '.monomind/pids',
+  logDirectory: '.monomind/logs',
   daemons: [],
   autoRestart: true,
   maxRestartAttempts: 3,
@@ -566,15 +566,15 @@ export async function initDefaultWorkers(): Promise<void> {
       import('../workers/episode-binner.js'),
       import('../../../memory/src/episodic-store.js'),
     ]);
-    const store = new EpisodicStore({ filePath: '.monobrain/episodes/episodes.jsonl', maxRunsPerEpisode: 20 });
+    const store = new EpisodicStore({ filePath: '.monomind/episodes/episodes.jsonl', maxRunsPerEpisode: 20 });
     const binner = new EpisodeBinnerWorker(store);
     binner.register();
-  } catch { /* monobrain/memory may not be installed */ }
+  } catch { /* monomind/memory may not be installed */ }
 
   // GAP-004: EntityExtractorWorker — extracts entity facts from task transcripts
   try {
     const { EntityExtractorWorker } = await import('../workers/entity-extractor.js');
-    // No-op entityMemory stub — real implementation wires @monobrain/memory EntityStore
+    // No-op entityMemory stub — real implementation wires @monomind/memory EntityStore
     const entityMemory = { store(_fact: unknown) { /* stub — replaced when EntityStore is available */ } };
     const extractFacts = async (_transcript: string, _runId: string) => [];
     // EntityExtractorWorker is event-driven; expose it on the manager for callers to trigger
@@ -598,7 +598,7 @@ export async function initDefaultWorkers(): Promise<void> {
   // GAP-006: Wire TraceCollector to globalObservabilityBus
   try {
     const { globalObservabilityBus, TraceCollector, TraceStore, CLISink } = await import('../observability/index.js');
-    const traceStore = new TraceStore('.monobrain/traces');
+    const traceStore = new TraceStore('.monomind/traces');
     const collector = new TraceCollector(traceStore);
     collector.register();
     globalObservabilityBus.addSink(new CLISink());
@@ -608,7 +608,7 @@ export async function initDefaultWorkers(): Promise<void> {
   try {
     // @ts-ignore — cli is not in hooks tsconfig references; dynamic import works at runtime
     const { SpecializationScorer } = await import('../../cli/src/agents/specialization-scorer.js');
-    const scorer = new SpecializationScorer('.monobrain/scores.jsonl');
+    const scorer = new SpecializationScorer('.monomind/scores.jsonl');
     const { registerHook } = await import('../registry/index.js');
     const { HookEvent, HookPriority } = await import('../types.js');
     registerHook(
@@ -626,7 +626,7 @@ export async function initDefaultWorkers(): Promise<void> {
       HookPriority.Low,
       { name: 'specialization-scorer:post-task' },
     );
-  } catch { /* @monobrain/cli may not be compiled */ }
+  } catch { /* @monomind/cli may not be compiled */ }
 
   // Task 26: DynamicPromptAssembly — PromptAssembler registered as PreTask hook
   try {
@@ -639,7 +639,7 @@ export async function initDefaultWorkers(): Promise<void> {
       maxTokens: 200,
       fetch: async (_ctx: unknown) => {
         const { existsSync, readFileSync } = await import('node:fs');
-        const routeFile = '.monobrain/last-route.json';
+        const routeFile = '.monomind/last-route.json';
         if (!existsSync(routeFile)) return null;
         try {
           const r = JSON.parse(readFileSync(routeFile, 'utf-8'));
@@ -670,7 +670,7 @@ export async function initDefaultWorkers(): Promise<void> {
       HP26.High,
       { name: 'prompt-assembler:pre-task' },
     );
-  } catch { /* @monobrain/cli may not be compiled */ }
+  } catch { /* @monomind/cli may not be compiled */ }
 
   // Task 31: ToolVersioning — ToolRegistry loaded at startup; DeprecationInjector available for MCP dispatch
   try {
@@ -678,14 +678,14 @@ export async function initDefaultWorkers(): Promise<void> {
     const { ToolRegistry } = await import('../../cli/src/mcp/tool-registry.js');
     // @ts-ignore
     const { DeprecationInjector } = await import('../../cli/src/mcp/deprecation-injector.js');
-    const toolRegistry = new ToolRegistry('.monobrain/tool-versions.jsonl');
+    const toolRegistry = new ToolRegistry('.monomind/tool-versions.jsonl');
     const injector = new DeprecationInjector(toolRegistry);
     void injector; // available for MCP tool dispatch to call injector.inject(response, toolName)
     const deprecated = toolRegistry.listDeprecated();
     if (deprecated.length > 0) {
       console.log(`[TOOL_REGISTRY] ${deprecated.length} deprecated tool(s) tracked`);
     }
-  } catch { /* @monobrain/cli may not be compiled */ }
+  } catch { /* @monomind/cli may not be compiled */ }
 
   // Task 34: RegressionBenchmarks — BenchmarkRunner registered as weekly daemon
   try {
@@ -699,14 +699,14 @@ export async function initDefaultWorkers(): Promise<void> {
         enabled: true,
       },
       async () => {
-        const benchmarkDir = '.monobrain/benchmarks';
+        const benchmarkDir = '.monomind/benchmarks';
         const defs = benchmarkRunner.loadBenchmarks(benchmarkDir);
         if (defs.length > 0) {
           console.log(`[BENCHMARK_RUNNER] Running ${defs.length} regression benchmark(s)`);
         }
       },
     );
-  } catch { /* @monobrain/cli may not be compiled */ }
+  } catch { /* @monomind/cli may not be compiled */ }
 
   // GAP-009: PromptOptimizer + BootstrapFewShot — improve agent prompts from real execution data
   try {
@@ -734,19 +734,19 @@ export async function initDefaultWorkers(): Promise<void> {
 
   // Task 45: ProceduralMemory — scan SkillRegistry at startup so learned skills are indexed
   try {
-    const { SkillRegistry } = await import('@monobrain/memory');
-    const skillRegistry = new SkillRegistry('.monobrain/skills.jsonl');
+    const { SkillRegistry } = await import('@monomind/memory');
+    const skillRegistry = new SkillRegistry('.monomind/skills.jsonl');
     const skills = skillRegistry.list();
     if (skills.length > 0) {
       console.log(`[SKILL_REGISTRY] ${skills.length} learned skill(s) indexed at startup`);
     }
-  } catch { /* @monobrain/memory may not export SkillRegistry */ }
+  } catch { /* @monomind/memory may not export SkillRegistry */ }
 
   // Task 36: ConsensusAudit — register AuditWriter in post-task hook for swarm consensus events
   try {
     // @ts-ignore — cli not in hooks tsconfig
     const { AuditWriter } = await import('../../cli/src/consensus/audit-writer.js');
-    const auditWriter = new AuditWriter('.monobrain/consensus');
+    const auditWriter = new AuditWriter('.monomind/consensus');
     const { registerHook: rh36 } = await import('../registry/index.js');
     const { HookEvent: HE36, HookPriority: HP36 } = await import('../types.js');
     rh36(
@@ -775,7 +775,7 @@ export async function initDefaultWorkers(): Promise<void> {
       HP36.Low,
       { name: 'consensus-audit:post-task' },
     );
-  } catch { /* @monobrain/cli may not be compiled */ }
+  } catch { /* @monomind/cli may not be compiled */ }
 
   // Task 40: CommunicationFlows — register FlowEnforcer as pre-task guard
   try {
@@ -804,7 +804,7 @@ export async function initDefaultWorkers(): Promise<void> {
       HP40.Low,
       { name: 'flow-enforcer:pre-task' },
     );
-  } catch { /* @monobrain/cli may not be compiled */ }
+  } catch { /* @monomind/cli may not be compiled */ }
 
   // SharedInstructions size monitor — daily check; warns when file approaches or exceeds the
   // 1500-char hard limit enforced in hook-handler.cjs (Task 23 token overhead guard).

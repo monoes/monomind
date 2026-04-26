@@ -1,5 +1,5 @@
 #!/bin/bash
-# Monobrain Security Test Runner
+# Monomind Security Test Runner
 # Standalone security test execution
 
 set -e

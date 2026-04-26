@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 
 // Storage paths
-const STORAGE_DIR = '.monobrain';
+const STORAGE_DIR = '.monomind';
 const CONFIG_FILE = 'config.json';
 
 interface ConfigStore {

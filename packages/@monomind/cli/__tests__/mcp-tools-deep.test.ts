@@ -148,12 +148,12 @@ vi.mock('../src/mcp-tools/auto-install.js', () => ({
 }));
 
 // Mock security package
-vi.mock('@monobrain/aidefence', () => {
+vi.mock('@monomind/aidefence', () => {
   throw new Error('Cannot find package');
 });
 
 // Mock embeddings package
-vi.mock('@monobrain/embeddings', () => {
+vi.mock('@monomind/embeddings', () => {
   throw new Error('Cannot find package');
 });
 

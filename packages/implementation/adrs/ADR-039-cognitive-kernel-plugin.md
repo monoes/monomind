@@ -18,7 +18,7 @@ Create a **Cognitive Kernel Plugin** that leverages RuVector WASM packages to pr
 
 ## Plugin Name
 
-`@monobrain/plugin-cognitive-kernel`
+`@monomind/plugin-cognitive-kernel`
 
 ## Description
 

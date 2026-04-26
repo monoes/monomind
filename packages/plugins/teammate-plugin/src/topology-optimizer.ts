@@ -4,7 +4,7 @@
  * Uses WebAssembly-accelerated shortest path algorithms (10-15x faster than JS)
  * to optimize message routing, delegation chains, and team topology.
  *
- * @module @monobrain/teammate-plugin/topology
+ * @module @monomind/teammate-plugin/topology
  * @version 1.0.0-alpha.1
  */
 

@@ -1,12 +1,12 @@
 /**
- * @monobrain/teammate-plugin
+ * @monomind/teammate-plugin
  *
- * Native TeammateTool integration plugin for Monobrain.
- * Bridges Claude Code v2.1.19+ multi-agent capabilities with Monobrain.
+ * Native TeammateTool integration plugin for Monomind.
+ * Bridges Claude Code v2.1.19+ multi-agent capabilities with Monomind.
  *
  * @example
  * ```typescript
- * import { createTeammateBridge, TEAMMATE_MCP_TOOLS } from '@monobrain/teammate-plugin';
+ * import { createTeammateBridge, TEAMMATE_MCP_TOOLS } from '@monomind/teammate-plugin';
  *
  * // Initialize bridge
  * const bridge = await createTeammateBridge();
@@ -32,7 +32,7 @@
  * });
  * ```
  *
- * @module @monobrain/teammate-plugin
+ * @module @monomind/teammate-plugin
  * @version 1.0.0-alpha.1
  * @requires Claude Code >= 2.1.19
  */

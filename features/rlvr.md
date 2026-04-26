@@ -2,7 +2,7 @@
 
 **Source:** https://github.com/opendilab/awesome-RLVR  
 **Category:** Reinforcement Learning for LLMs  
-**Role in Monobrain:** Grounded binary reward signals for hook-based learning
+**Role in Monomind:** Grounded binary reward signals for hook-based learning
 
 ---
 
@@ -15,7 +15,7 @@ DeepSeek-R1's success demonstrated that RLVR with code execution as the verifier
 ## What We Extracted
 
 ### `hooksModelOutcome` with Verifier Types
-Monobrain's `hooks_post-task` hook was extended to accept a `verifier_type` field that specifies which external verifier determined the task's success or failure:
+Monomind's `hooks_post-task` hook was extended to accept a `verifier_type` field that specifies which external verifier determined the task's success or failure:
 
 | `verifier_type` | Verifier | Signal source |
 |-----------------|----------|---------------|
@@ -28,7 +28,7 @@ When `verifier_type` is provided alongside an `exit_code`, the intelligence syst
 
 Without a `verifier_type`, the system falls back to heuristic success detection (`hookInput.success !== false`), which is less reliable.
 
-## How It Improved Monobrain
+## How It Improved Monomind
 
 RLVR changed the quality of the learning signals that feed the intelligence system. Before this influence, task success was inferred from the absence of errors in the hook input — a fragile heuristic. After, tasks that run a type checker or test suite can report their outcome as a verifiable binary signal, making the learned patterns much more reliable.
 
@@ -38,5 +38,5 @@ The practical result: patterns learned from `tsc`-verified tasks have higher con
 
 - `hook-handler.cjs` `post-task` handler — `verifier_type` and `exit_code` processing
 - Intelligence trajectory system — grounded reward signal injection
-- `packages/@monobrain/cli/src/commands/hooks/model-outcome.ts` — `hooksModelOutcome` command
+- `packages/@monomind/cli/src/commands/hooks/model-outcome.ts` — `hooksModelOutcome` command
 - `LearningBridge` — confidence weighting by signal source quality

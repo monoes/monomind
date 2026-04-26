@@ -2,7 +2,7 @@
  * CLI Providers Command
  * Manage AI providers, models, and configurations
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -18,8 +18,8 @@ const listCommand: Command = {
     { name: 'active', short: 'a', type: 'boolean', description: 'Show only active providers' },
   ],
   examples: [
-    { command: 'monobrain providers list', description: 'List all providers' },
-    { command: 'monobrain providers list -t embedding', description: 'List embedding providers' },
+    { command: 'monomind providers list', description: 'List all providers' },
+    { command: 'monomind providers list -t embedding', description: 'List embedding providers' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const type = ctx.flags.type as string || 'all';
@@ -61,8 +61,8 @@ const configureCommand: Command = {
     { name: 'endpoint', short: 'e', type: 'string', description: 'Custom endpoint URL' },
   ],
   examples: [
-    { command: 'monobrain providers configure -p openai -k sk-...', description: 'Set OpenAI key' },
-    { command: 'monobrain providers configure -p anthropic -m claude-3.5-sonnet', description: 'Set default model' },
+    { command: 'monomind providers configure -p openai -k sk-...', description: 'Set OpenAI key' },
+    { command: 'monomind providers configure -p anthropic -m claude-3.5-sonnet', description: 'Set default model' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -132,8 +132,8 @@ const testCommand: Command = {
     { name: 'all', short: 'a', type: 'boolean', description: 'Test all configured providers' },
   ],
   examples: [
-    { command: 'monobrain providers test -p openai', description: 'Test OpenAI connection' },
-    { command: 'monobrain providers test --all', description: 'Test all providers' },
+    { command: 'monomind providers test -p openai', description: 'Test OpenAI connection' },
+    { command: 'monomind providers test --all', description: 'Test all providers' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -273,8 +273,8 @@ const modelsCommand: Command = {
     { name: 'capability', short: 'c', type: 'string', description: 'Filter by capability: chat, completion, embedding' },
   ],
   examples: [
-    { command: 'monobrain providers models', description: 'List all models' },
-    { command: 'monobrain providers models -p anthropic', description: 'List Anthropic models' },
+    { command: 'monomind providers models', description: 'List all models' },
+    { command: 'monomind providers models -p anthropic', description: 'List Anthropic models' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
@@ -313,8 +313,8 @@ const usageCommand: Command = {
     { name: 'timeframe', short: 't', type: 'string', description: 'Timeframe: 24h, 7d, 30d', default: '7d' },
   ],
   examples: [
-    { command: 'monobrain providers usage', description: 'View all usage' },
-    { command: 'monobrain providers usage -t 30d', description: 'View 30-day usage' },
+    { command: 'monomind providers usage', description: 'View all usage' },
+    { command: 'monomind providers usage -t 30d', description: 'View 30-day usage' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const timeframe = ctx.flags.timeframe as string || '7d';
@@ -358,13 +358,13 @@ export const providersCommand: Command = {
   description: 'Manage AI providers, models, and configurations',
   subcommands: [listCommand, configureCommand, testCommand, modelsCommand, usageCommand],
   examples: [
-    { command: 'monobrain providers list', description: 'List all providers' },
-    { command: 'monobrain providers configure -p openai', description: 'Configure OpenAI' },
-    { command: 'monobrain providers test --all', description: 'Test all providers' },
+    { command: 'monomind providers list', description: 'List all providers' },
+    { command: 'monomind providers configure -p openai', description: 'Configure OpenAI' },
+    { command: 'monomind providers test --all', description: 'Test all providers' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
-    output.writeln(output.bold('MonoBrain Provider Management'));
+    output.writeln(output.bold('MonoMind Provider Management'));
     output.writeln(output.dim('Multi-provider AI orchestration'));
     output.writeln();
     output.writeln('Subcommands:');
@@ -384,7 +384,7 @@ export const providersCommand: Command = {
       'Agentic Flow (optimized ONNX with SIMD)',
     ]);
     output.writeln();
-    output.writeln(output.dim('github.com/nokhodian/monobrain'));
+    output.writeln(output.dim('github.com/nokhodian/monomind'));
     return { success: true };
   },
 };

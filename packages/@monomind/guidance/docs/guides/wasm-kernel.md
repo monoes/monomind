@@ -29,7 +29,7 @@ graph LR
 ## Usage
 
 ```ts
-import { getKernel, isWasmAvailable } from '@monobrain/guidance/wasm-kernel';
+import { getKernel, isWasmAvailable } from '@monomind/guidance/wasm-kernel';
 
 const k = getKernel();
 console.log(k.available); // true = WASM, false = JS fallback
@@ -215,7 +215,7 @@ The fallback is functionally identical. The acceptance tests verify output parit
 
 ```bash
 # Run all guidance tests (includes WASM acceptance tests)
-cd packages/@monobrain/guidance
+cd packages/@monomind/guidance
 npx vitest run
 
 # Run only WASM tests

@@ -8,7 +8,7 @@
  *
  * Gracefully degrades when ruvector is not installed.
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 // ============================================================================

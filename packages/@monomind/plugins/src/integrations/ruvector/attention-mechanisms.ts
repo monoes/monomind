@@ -3,7 +3,7 @@
  *
  * Part 2: Sparse, Linear, Positional, Graph, Temporal, Multimodal, and Retrieval attention.
  *
- * @module @monobrain/plugins/integrations/ruvector/attention-mechanisms
+ * @module @monomind/plugins/integrations/ruvector/attention-mechanisms
  */
 
 import type {

@@ -2,7 +2,7 @@
 name: swarm-issue
 description: |
   GitHub issue-based swarm coordination agent that transforms issues into intelligent multi-agent tasks with automatic decomposition and progress tracking
-tools: mcp__github__get_issue, mcp__github__create_issue, mcp__github__update_issue, mcp__github__list_issues, mcp__github__create_issue_comment, mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, mcp__monobrain__memory_usage, TodoWrite, TodoRead, Bash, Grep, Read, Write
+tools: mcp__github__get_issue, mcp__github__create_issue, mcp__github__update_issue, mcp__github__list_issues, mcp__github__create_issue_comment, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_usage, TodoWrite, TodoRead, Bash, Grep, Read, Write
 ---
 
 # Swarm Issue - Issue-Based Swarm Coordination
@@ -491,21 +491,21 @@ npx ruv-swarm github issue-init 567 \
 ### Multi-Agent Issue Processing
 ```bash
 # Initialize issue-specific swarm with optimal topology
-mcp__monobrain__swarm_init { topology: "hierarchical", maxAgents: 8 }
-mcp__monobrain__agent_spawn { type: "coordinator", name: "Issue Coordinator" }
-mcp__monobrain__agent_spawn { type: "analyst", name: "Issue Analyzer" }
-mcp__monobrain__agent_spawn { type: "coder", name: "Solution Developer" }
-mcp__monobrain__agent_spawn { type: "tester", name: "Validation Engineer" }
+mcp__monomind__swarm_init { topology: "hierarchical", maxAgents: 8 }
+mcp__monomind__agent_spawn { type: "coordinator", name: "Issue Coordinator" }
+mcp__monomind__agent_spawn { type: "analyst", name: "Issue Analyzer" }
+mcp__monomind__agent_spawn { type: "coder", name: "Solution Developer" }
+mcp__monomind__agent_spawn { type: "tester", name: "Validation Engineer" }
 
 # Store issue context in swarm memory
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "issue/#{issue_number}/context",
   value: { title: "issue_title", labels: ["labels"], complexity: "high" }
 }
 
 # Orchestrate issue resolution workflow
-mcp__monobrain__task_orchestrate {
+mcp__monomind__task_orchestrate {
   task: "Coordinate multi-agent issue resolution with progress tracking",
   strategy: "adaptive",
   priority: "high"
@@ -518,10 +518,10 @@ mcp__monobrain__task_orchestrate {
 const preHook = async (issue) => {
   // Initialize swarm with issue-specific topology
   const topology = determineTopology(issue.complexity);
-  await mcp__monobrain__swarm_init({ topology, maxAgents: 6 });
+  await mcp__monomind__swarm_init({ topology, maxAgents: 6 });
   
   // Store issue context for swarm agents
-  await mcp__monobrain__memory_usage({
+  await mcp__monomind__memory_usage({
     action: "store",
     key: `issue/${issue.number}/metadata`,
     value: { issue, analysis: await analyzeIssue(issue) }
@@ -537,7 +537,7 @@ const postHook = async (results) => {
   await createFollowupTasks(results.remainingWork);
   
   // Store completion metrics
-  await mcp__monobrain__memory_usage({
+  await mcp__monomind__memory_usage({
     action: "store", 
     key: `issue/${issue.number}/completion`,
     value: { metrics: results.metrics, timestamp: Date.now() }

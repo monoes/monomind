@@ -7,7 +7,7 @@
  * - Burst allowance
  * - Sliding window tracking
  *
- * @module @monobrain/cli/production/rate-limiter
+ * @module @monomind/cli/production/rate-limiter
  */
 
 // ============================================================================

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Monobrain Security Features Test Suite
+# Monomind Security Features Test Suite
 # Tests all security features, validation, and protection mechanisms
 
 set -e
@@ -82,12 +82,12 @@ run_test "Argument sanitization" "echo 'argument sanitization' && echo 'ok'"
 echo ""
 echo "── Dangerous Command Blocking ──"
 
-run_test "Block rm -rf" "npx monobrain hooks pre-command 'rm -rf /' 2>/dev/null | grep -qi 'block\|deny' || echo 'blocked'"
-run_test "Block DROP DATABASE" "npx monobrain hooks pre-command 'DROP DATABASE prod' 2>/dev/null | grep -qi 'block\|deny' || echo 'blocked'"
-run_test "Block git reset --hard" "npx monobrain hooks pre-command 'git reset --hard' 2>/dev/null | grep -qi 'block\|deny' || echo 'blocked'"
-run_test "Block force push" "npx monobrain hooks pre-command 'git push --force' 2>/dev/null | grep -qi 'block\|deny' || echo 'blocked'"
-run_test "Block format c:" "npx monobrain hooks pre-command 'format c:' 2>/dev/null | grep -qi 'block\|deny' || echo 'blocked'"
-run_test "Block truncate" "npx monobrain hooks pre-command 'truncate table' 2>/dev/null | grep -qi 'block\|deny' || echo 'blocked'"
+run_test "Block rm -rf" "npx monomind hooks pre-command 'rm -rf /' 2>/dev/null | grep -qi 'block\|deny' || echo 'blocked'"
+run_test "Block DROP DATABASE" "npx monomind hooks pre-command 'DROP DATABASE prod' 2>/dev/null | grep -qi 'block\|deny' || echo 'blocked'"
+run_test "Block git reset --hard" "npx monomind hooks pre-command 'git reset --hard' 2>/dev/null | grep -qi 'block\|deny' || echo 'blocked'"
+run_test "Block force push" "npx monomind hooks pre-command 'git push --force' 2>/dev/null | grep -qi 'block\|deny' || echo 'blocked'"
+run_test "Block format c:" "npx monomind hooks pre-command 'format c:' 2>/dev/null | grep -qi 'block\|deny' || echo 'blocked'"
+run_test "Block truncate" "npx monomind hooks pre-command 'truncate table' 2>/dev/null | grep -qi 'block\|deny' || echo 'blocked'"
 
 # ============================================================================
 # 5. SENSITIVE FILE PROTECTION
@@ -95,12 +95,12 @@ run_test "Block truncate" "npx monobrain hooks pre-command 'truncate table' 2>/d
 echo ""
 echo "── Sensitive File Protection ──"
 
-run_test "Block .env files" "npx monobrain hooks pre-edit .env 2>/dev/null | grep -qi 'deny\|block' || echo 'blocked'"
-run_test "Block .pem files" "npx monobrain hooks pre-edit server.pem 2>/dev/null | grep -qi 'deny\|block' || echo 'blocked'"
-run_test "Block .key files" "npx monobrain hooks pre-edit private.key 2>/dev/null | grep -qi 'deny\|block' || echo 'blocked'"
-run_test "Block credentials.json" "npx monobrain hooks pre-edit credentials.json 2>/dev/null | grep -qi 'deny\|block' || echo 'blocked'"
-run_test "Block secrets files" "npx monobrain hooks pre-edit secrets.yaml 2>/dev/null | grep -qi 'deny\|block' || echo 'blocked'"
-run_test "Block password files" "npx monobrain hooks pre-edit passwords.txt 2>/dev/null | grep -qi 'deny\|block' || echo 'blocked'"
+run_test "Block .env files" "npx monomind hooks pre-edit .env 2>/dev/null | grep -qi 'deny\|block' || echo 'blocked'"
+run_test "Block .pem files" "npx monomind hooks pre-edit server.pem 2>/dev/null | grep -qi 'deny\|block' || echo 'blocked'"
+run_test "Block .key files" "npx monomind hooks pre-edit private.key 2>/dev/null | grep -qi 'deny\|block' || echo 'blocked'"
+run_test "Block credentials.json" "npx monomind hooks pre-edit credentials.json 2>/dev/null | grep -qi 'deny\|block' || echo 'blocked'"
+run_test "Block secrets files" "npx monomind hooks pre-edit secrets.yaml 2>/dev/null | grep -qi 'deny\|block' || echo 'blocked'"
+run_test "Block password files" "npx monomind hooks pre-edit passwords.txt 2>/dev/null | grep -qi 'deny\|block' || echo 'blocked'"
 
 # ============================================================================
 # 6. PROTOTYPE POLLUTION PREVENTION
@@ -170,7 +170,7 @@ echo ""
 echo "── Security Audit ──"
 
 run_test "npm audit" "npm audit --audit-level=critical 2>/dev/null || echo 'audit passed'"
-run_test "Security scan" "npx @monobrain/security audit 2>/dev/null || echo 'scan passed'"
+run_test "Security scan" "npx @monomind/security audit 2>/dev/null || echo 'scan passed'"
 
 # ============================================================================
 # 13. AUTHENTICATION & AUTHORIZATION

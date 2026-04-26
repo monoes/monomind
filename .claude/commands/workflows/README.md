@@ -1,6 +1,6 @@
 # Workflows Commands
 
-Commands for workflows operations in Monobrain.
+Commands for workflows operations in Monomind.
 
 ## Available Commands
 

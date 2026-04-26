@@ -8,7 +8,7 @@
  * Key rule: The host calls the kernel once per event with a batch payload,
  * not thousands of tiny calls.
  *
- * @module @monobrain/guidance/wasm-kernel
+ * @module @monomind/guidance/wasm-kernel
  */
 
 import { createHash, createHmac } from 'node:crypto';

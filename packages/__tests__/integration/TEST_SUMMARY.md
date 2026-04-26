@@ -2,7 +2,7 @@
 
 ## Overview
 
-Comprehensive integration test suite for monobrain V1 with **75 tests** across **5 test files** covering all major architectural components and their interactions.
+Comprehensive integration test suite for monomind V1 with **75 tests** across **5 test files** covering all major architectural components and their interactions.
 
 ## Files Created
 
@@ -156,7 +156,7 @@ npm run test:coverage:integration
 npx vitest run -t "should execute end-to-end agent workflow"
 
 # Verbose output
-DEBUG=monobrain:* npm run test:integration
+DEBUG=monomind:* npm run test:integration
 
 # HTML coverage report
 npm run test:coverage:integration

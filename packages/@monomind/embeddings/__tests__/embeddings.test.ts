@@ -1,5 +1,5 @@
 /**
- * Comprehensive tests for @monobrain/embeddings
+ * Comprehensive tests for @monomind/embeddings
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';

@@ -1,5 +1,5 @@
 /**
- * Test suite for @monobrain/guidance/uncertainty
+ * Test suite for @monomind/guidance/uncertainty
  *
  * Tests UncertaintyLedger and UncertaintyAggregator classes for probabilistic
  * belief tracking with confidence intervals, evidence management, and inference chains.

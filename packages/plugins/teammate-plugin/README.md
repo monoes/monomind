@@ -1,8 +1,8 @@
-# @monobrain/teammate-plugin
+# @monomind/teammate-plugin
 
-Native **TeammateTool** integration plugin for Monobrain. Bridges Claude Code v2.1.19+ multi-agent orchestration capabilities with Monobrain's swarm system.
+Native **TeammateTool** integration plugin for Monomind. Bridges Claude Code v2.1.19+ multi-agent orchestration capabilities with Monomind's swarm system.
 
-[![npm version](https://badge.fury.io/js/%40monobrain%2Fteammate-plugin.svg)](https://badge.fury.io/js/%40monobrain%2Fteammate-plugin)
+[![npm version](https://badge.fury.io/js/%40monomind%2Fteammate-plugin.svg)](https://badge.fury.io/js/%40monomind%2Fteammate-plugin)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Requirements
@@ -38,32 +38,32 @@ Install directly using Claude Code's plugin system:
 
 ```bash
 # Install from npm registry
-claude plugins install @monobrain/teammate-plugin
+claude plugins install @monomind/teammate-plugin
 
-# Or install from Monobrain plugin registry (IPFS-backed)
-claude plugins install teammate-plugin --registry monobrain
+# Or install from Monomind plugin registry (IPFS-backed)
+claude plugins install teammate-plugin --registry monomind
 ```
 
 ### Via npm
 
 ```bash
-npm install @monobrain/teammate-plugin
+npm install @monomind/teammate-plugin
 ```
 
 Or with pnpm:
 
 ```bash
-pnpm add @monobrain/teammate-plugin
+pnpm add @monomind/teammate-plugin
 ```
 
-### Via Monobrain CLI
+### Via Monomind CLI
 
 ```bash
-# Install via monobrain plugin manager
-npx @monobrain/cli@latest plugins install --name @monobrain/teammate-plugin
+# Install via monomind plugin manager
+npx @monomind/cli@latest plugins install --name @monomind/teammate-plugin
 
-# Or add to your monobrain.config.json
-npx @monobrain/cli@latest config set plugins.teammate-plugin.enabled true
+# Or add to your monomind.config.json
+npx @monomind/cli@latest config set plugins.teammate-plugin.enabled true
 ```
 
 ### Verify Installation
@@ -72,14 +72,14 @@ npx @monobrain/cli@latest config set plugins.teammate-plugin.enabled true
 # Check plugin is loaded
 claude plugins list
 
-# Or via monobrain
-npx @monobrain/cli@latest plugins list
+# Or via monomind
+npx @monomind/cli@latest plugins list
 ```
 
 ## Quick Start
 
 ```typescript
-import { createTeammateBridge } from '@monobrain/teammate-plugin';
+import { createTeammateBridge } from '@monomind/teammate-plugin';
 
 // Initialize the bridge
 const bridge = await createTeammateBridge();
@@ -160,7 +160,7 @@ The main class for interacting with TeammateTool.
 #### Initialization
 
 ```typescript
-import { createTeammateBridge, TeammateBridge } from '@monobrain/teammate-plugin';
+import { createTeammateBridge, TeammateBridge } from '@monomind/teammate-plugin';
 
 // Factory function (recommended)
 const bridge = await createTeammateBridge({
@@ -345,7 +345,7 @@ if (canTeleport) {
 The plugin provides 16 MCP tools for use with Claude Code's MCP server:
 
 ```typescript
-import { TEAMMATE_MCP_TOOLS, handleMCPTool } from '@monobrain/teammate-plugin';
+import { TEAMMATE_MCP_TOOLS, handleMCPTool } from '@monomind/teammate-plugin';
 
 // List all tools
 console.log(TEAMMATE_MCP_TOOLS.map(t => t.name));
@@ -404,7 +404,7 @@ bridge.on('teleport:completed', ({ team, result }) => {
 ## Error Handling
 
 ```typescript
-import { TeammateError, TeammateErrorCode } from '@monobrain/teammate-plugin';
+import { TeammateError, TeammateErrorCode } from '@monomind/teammate-plugin';
 
 try {
   await bridge.launchSwarm('my-team', 'plan-id');
@@ -428,7 +428,7 @@ try {
 ## Configuration
 
 ```typescript
-import { createTeammateBridge, DEFAULT_PLUGIN_CONFIG } from '@monobrain/teammate-plugin';
+import { createTeammateBridge, DEFAULT_PLUGIN_CONFIG } from '@monomind/teammate-plugin';
 
 const bridge = await createTeammateBridge({
   autoInitialize: true,
@@ -476,19 +476,19 @@ const bridge = await createTeammateBridge({
 });
 ```
 
-## Integration with Monobrain
+## Integration with Monomind
 
 ```typescript
-import { createTeammateBridge } from '@monobrain/teammate-plugin';
-import { UnifiedSwarmCoordinator } from '@monobrain/swarm';
+import { createTeammateBridge } from '@monomind/teammate-plugin';
+import { UnifiedSwarmCoordinator } from '@monomind/swarm';
 
 // Create bridge
 const bridge = await createTeammateBridge();
 
-// Map Monobrain topology to team config
+// Map Monomind topology to team config
 const teamConfig = {
   name: 'cf-team',
-  topology: 'hierarchical',  // Maps to Monobrain's hierarchical
+  topology: 'hierarchical',  // Maps to Monomind's hierarchical
   maxTeammates: 8,
   planModeRequired: true,
 };
@@ -496,7 +496,7 @@ const teamConfig = {
 // Create team
 const team = await bridge.spawnTeam(teamConfig);
 
-// Map Monobrain agent types to teammate configs
+// Map Monomind agent types to teammate configs
 const agentMapping = {
   'coder': { role: 'coder', tools: ['Edit', 'Write', 'Read', 'Bash'] },
   'tester': { role: 'tester', tools: ['Read', 'Bash', 'Glob'] },
@@ -504,7 +504,7 @@ const agentMapping = {
   'architect': { role: 'architect', tools: ['Read', 'Glob', 'Grep'] },
 };
 
-// Spawn teammates with Monobrain agent types
+// Spawn teammates with Monomind agent types
 for (const [type, config] of Object.entries(agentMapping)) {
   await bridge.spawnTeammate({
     name: `${type}-1`,
@@ -602,7 +602,7 @@ npm run test:coverage
 ### Verify Plugin Functionality
 
 ```typescript
-import { createTeammateBridge, TEAMMATE_MCP_TOOLS } from '@monobrain/teammate-plugin';
+import { createTeammateBridge, TEAMMATE_MCP_TOOLS } from '@monomind/teammate-plugin';
 
 async function verifyPlugin() {
   console.log('=== Plugin Verification ===\n');
@@ -640,30 +640,30 @@ verifyPlugin().catch(console.error);
 
 ```bash
 # Check plugin is registered
-npx @monobrain/cli@latest plugins list | grep teammate
+npx @monomind/cli@latest plugins list | grep teammate
 
 # Check plugin info
-npx @monobrain/cli@latest plugins info teammate-plugin
+npx @monomind/cli@latest plugins info teammate-plugin
 
 # Test MCP tools
-npx @monobrain/cli@latest mcp tools | grep teammate
+npx @monomind/cli@latest mcp tools | grep teammate
 ```
 
 ## Plugin Registry (IPFS)
 
-This plugin is published to the Monobrain Plugin Registry on IPFS for decentralized distribution.
+This plugin is published to the Monomind Plugin Registry on IPFS for decentralized distribution.
 
 ### Registry Entry
 
 ```json
 {
   "name": "teammate-plugin",
-  "package": "@monobrain/teammate-plugin",
+  "package": "@monomind/teammate-plugin",
   "version": "1.0.0-alpha.1",
   "description": "Native TeammateTool integration for Claude Code v2.1.19+",
-  "author": "Monobrain Team",
+  "author": "Monomind Team",
   "license": "MIT",
-  "repository": "https://github.com/nokhodian/monobrain",
+  "repository": "https://github.com/nokhodian/monomind",
   "keywords": ["claude-code", "teammate", "multi-agent", "swarm"],
   "requirements": {
     "claudeCode": ">=2.1.19",
@@ -686,20 +686,20 @@ This plugin is published to the Monobrain Plugin Registry on IPFS for decentrali
 
 ```bash
 # Install from IPFS-backed registry
-npx @monobrain/cli@latest plugins install teammate-plugin --registry ipfs
+npx @monomind/cli@latest plugins install teammate-plugin --registry ipfs
 
 # Or specify registry CID directly
-npx @monobrain/cli@latest plugins install teammate-plugin --cid <registry-cid>
+npx @monomind/cli@latest plugins install teammate-plugin --cid <registry-cid>
 ```
 
 ### Verify Registry Integrity
 
 ```bash
 # Check plugin hash matches registry
-npx @monobrain/cli@latest plugins verify teammate-plugin
+npx @monomind/cli@latest plugins verify teammate-plugin
 
 # View registry metadata
-npx @monobrain/cli@latest plugins registry info
+npx @monomind/cli@latest plugins registry info
 ```
 
 ## License
@@ -708,6 +708,6 @@ MIT
 
 ## Related
 
-- [Monobrain](https://github.com/nokhodian/monobrain) - Multi-agent orchestration framework
+- [Monomind](https://github.com/nokhodian/monomind) - Multi-agent orchestration framework
 - [Claude Code](https://github.com/anthropics/claude-code) - Anthropic's CLI for Claude
 - [ADR-027](../implementation/adrs/ADR-027-teammate-tool-integration.md) - Architecture decision record

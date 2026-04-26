@@ -12,7 +12,7 @@
  * 6. Emit a signed proof envelope
  * 7. Return a complete, replayable trace
  *
- * @module @monobrain/guidance/conformance-kit
+ * @module @monomind/guidance/conformance-kit
  */
 import { MemoryWriteGate } from './memory-gate.js';
 import type { MemoryAuthority } from './memory-gate.js';

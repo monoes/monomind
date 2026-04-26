@@ -1,7 +1,7 @@
 {
-  "name": "@monobrain/plugin-agentic-qe",
+  "name": "@monomind/plugin-agentic-qe",
   "version": "1.0.0",
-  "description": "Quality Engineering plugin for Monobrain V1 with 51 specialized agents across 12 DDD bounded contexts",
+  "description": "Quality Engineering plugin for Monomind V1 with 51 specialized agents across 12 DDD bounded contexts",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -28,7 +28,7 @@
     "test:watch": "vitest"
   },
   "keywords": [
-    "monobrain",
+    "monomind",
     "plugin",
     "quality-engineering",
     "testing",
@@ -43,36 +43,36 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monobrain.git",
+    "url": "https://github.com/nokhodian/monomind.git",
     "directory": "packages/plugins/agentic-qe"
   },
-  "homepage": "https://github.com/nokhodian/monobrain/tree/main/packages/plugins/agentic-qe",
+  "homepage": "https://github.com/nokhodian/monomind/tree/main/packages/plugins/agentic-qe",
   "bugs": {
-    "url": "https://github.com/nokhodian/monobrain/issues"
+    "url": "https://github.com/nokhodian/monomind/issues"
   },
   "dependencies": {
     "zod": "^3.23.0"
   },
   "peerDependencies": {
-    "@monobrain/plugins": "workspace:*",
-    "@monobrain/memory": "workspace:*",
-    "@monobrain/security": "workspace:*",
-    "@monobrain/embeddings": "workspace:*"
+    "@monomind/plugins": "workspace:*",
+    "@monomind/memory": "workspace:*",
+    "@monomind/security": "workspace:*",
+    "@monomind/embeddings": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@monobrain/plugins": {
+    "@monomind/plugins": {
       "optional": true
     },
-    "@monobrain/memory": {
+    "@monomind/memory": {
       "optional": true
     },
-    "@monobrain/security": {
+    "@monomind/security": {
       "optional": true
     },
-    "@monobrain/embeddings": {
+    "@monomind/embeddings": {
       "optional": true
     },
-    "@monobrain/browser": {
+    "@monomind/browser": {
       "optional": true
     },
     "@ruvector/attention": {

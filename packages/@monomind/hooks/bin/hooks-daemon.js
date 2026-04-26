@@ -25,12 +25,12 @@ const args = process.argv.slice(2);
 const command = args[0] || 'status';
 
 // State file for daemon persistence
-const STATE_FILE = join(process.cwd(), '.monobrain', 'hooks-daemon.json');
+const STATE_FILE = join(process.cwd(), '.monomind', 'hooks-daemon.json');
 
 async function main() {
   const daemonManager = new DaemonManager({
-    pidDirectory: join(process.cwd(), '.monobrain', 'pids'),
-    logDirectory: join(process.cwd(), '.monobrain', 'logs'),
+    pidDirectory: join(process.cwd(), '.monomind', 'pids'),
+    logDirectory: join(process.cwd(), '.monomind', 'logs'),
     autoRestart: true,
     maxRestartAttempts: 3,
     daemons: [],

@@ -1,6 +1,6 @@
 # Memory Palace Integration
 
-Monobrain integrates the memory architecture from [MemPalace](https://github.com/nokhodian/mempalace) — a spatially-organized, verbatim-retrieval memory system that achieves 96.6% recall on LongMemEval by storing raw content rather than summaries and retrieving via hybrid BM25 + vector search.
+Monomind integrates the memory architecture from [MemPalace](https://github.com/nokhodian/mempalace) — a spatially-organized, verbatim-retrieval memory system that achieves 96.6% recall on LongMemEval by storing raw content rather than summaries and retrieving via hybrid BM25 + vector search.
 
 ## How It Works
 
@@ -20,7 +20,7 @@ Content is never summarized. Everything is stored verbatim in 800-character chun
 
 | Layer | Name | What it does | When |
 |-------|------|-------------|------|
-| **L0** | Identity | Loads `.monobrain/palace/identity.md` — static project context | Every session start |
+| **L0** | Identity | Loads `.monomind/palace/identity.md` — static project context | Every session start |
 | **L1** | Essential story | Top-scored recent Drawers → brief narrative injected into context | Every session start |
 | **L2** | On-demand | `recall(wing, room)` — namespace-filtered Drawers sorted by score | Explicit call |
 | **L3** | Deep search | `search(query)` — Okapi BM25 + closet-topic boost across all Drawers | Explicit call |
@@ -31,7 +31,7 @@ On every `SessionStart`, the hook fires and outputs:
 
 ```
 [MEMORY_PALACE_L0] Identity:
-Project: monobrain (nokhodian/monobrain) ...
+Project: monomind (nokhodian/monomind) ...
 
 [MEMORY_PALACE_L1] Essential story (5 drawers):
 [tasks/coder/2026-04-14] Implemented session-restore wiring ...
@@ -42,7 +42,7 @@ Claude Code sees this output as session context — no extra prompt injection ne
 
 ## Storage Files
 
-All palace files live under `.monobrain/palace/` (gitignored):
+All palace files live under `.monomind/palace/` (gitignored):
 
 | File | Purpose |
 |------|---------|
@@ -95,14 +95,14 @@ The palace is wired into `hook-handler.cjs` at three hook events:
 
 ## Seeding L0 Identity
 
-Create or edit `.monobrain/palace/identity.md` to define the project identity that appears at every session start:
+Create or edit `.monomind/palace/identity.md` to define the project identity that appears at every session start:
 
 ```markdown
-Project: monobrain (nokhodian/monobrain)
+Project: monomind (nokhodian/monomind)
 Stack: Node.js/TypeScript monorepo, pnpm workspaces
-Key packages: @monobrain/cli, @monobrain/graph, @monobrain/memory
+Key packages: @monomind/cli, @monomind/graph, @monomind/memory
 Working style: concurrent tool calls, CJS helpers in .claude/helpers/
-Git remote: git@github.com:nokhodian/monobrain.git, main branch
+Git remote: git@github.com:nokhodian/monomind.git, main branch
 ```
 
 Keep it under ~300 characters — it is injected verbatim on every session start.
@@ -124,7 +124,7 @@ Exports: `wakeUp`, `storeVerbatim`, `buildClosets`, `search`, `recall`, `bm25`, 
 ```bash
 node -e "
 const fs = require('fs');
-const f = '.monobrain/palace/drawers.jsonl';
+const f = '.monomind/palace/drawers.jsonl';
 const cutoff = Date.now() - 90*24*60*60*1000;
 const kept = fs.readFileSync(f,'utf-8').split('\n').filter(Boolean)
   .filter(l => { try { return new Date(JSON.parse(l).ts).getTime() > cutoff; } catch { return false; }});

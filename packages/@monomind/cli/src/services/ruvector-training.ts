@@ -11,7 +11,7 @@
  *
  * Backward Compatible: All v1 APIs preserved, SONA adds new capabilities
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 import type {

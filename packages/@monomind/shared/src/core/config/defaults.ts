@@ -90,7 +90,7 @@ export const defaultMemoryConfig: MemoryConfig = {
  * Default MCP server configuration
  */
 export const defaultMCPServerConfig: MCPServerConfig = {
-  name: 'monobrain',
+  name: 'monomind',
   version: '3.0.0',
   transport: {
     type: 'stdio',

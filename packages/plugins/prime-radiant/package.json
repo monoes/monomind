@@ -1,5 +1,5 @@
 {
-  "name": "@monobrain/plugin-prime-radiant",
+  "name": "@monomind/plugin-prime-radiant",
   "version": "0.1.5",
   "description": "Mathematical AI interpretability plugin providing sheaf cohomology, spectral analysis, causal inference, and quantum topology for coherence validation, consensus verification, and hallucination prevention.",
   "type": "module",
@@ -29,7 +29,7 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [
-    "monobrain",
+    "monomind",
     "plugin",
     "ai-interpretability",
     "sheaf-cohomology",
@@ -43,25 +43,25 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monobrain.git",
+    "url": "https://github.com/nokhodian/monomind.git",
     "directory": "packages/plugins/prime-radiant"
   },
   "bugs": {
-    "url": "https://github.com/nokhodian/monobrain/issues"
+    "url": "https://github.com/nokhodian/monomind/issues"
   },
-  "homepage": "https://github.com/nokhodian/monobrain/tree/main/packages/plugins/prime-radiant#readme",
+  "homepage": "https://github.com/nokhodian/monomind/tree/main/packages/plugins/prime-radiant#readme",
   "engines": {
     "node": ">=20.0.0"
   },
   "peerDependencies": {
-    "@monobrain/memory": "workspace:*",
-    "@monobrain/security": "workspace:*"
+    "@monomind/memory": "workspace:*",
+    "@monomind/security": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@monobrain/memory": {
+    "@monomind/memory": {
       "optional": true
     },
-    "@monobrain/security": {
+    "@monomind/security": {
       "optional": true
     }
   },

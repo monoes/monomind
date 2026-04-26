@@ -2,7 +2,7 @@
 
 **Source:** https://arxiv.org/abs/2511.10400 (AAAI 2026)  
 **Category:** Distributed Consensus Research  
-**Role in Monobrain:** Confidence-weighted voting in hive-mind consensus, tolerating 85.7% fault rate
+**Role in Monomind:** Confidence-weighted voting in hive-mind consensus, tolerating 85.7% fault rate
 
 ---
 
@@ -16,7 +16,7 @@ Key result: CP-WBFT tolerates up to 85.7% of nodes being faulty (Byzantine) befo
 
 ### `weightedTally()` in `consensus/vote-signer.ts`
 
-Monobrain's hive-mind consensus system implements CP-WBFT's confidence-weighted voting in `weightedTally()`:
+Monomind's hive-mind consensus system implements CP-WBFT's confidence-weighted voting in `weightedTally()`:
 
 **Standard BFT (before CP-WBFT):**
 ```
@@ -38,7 +38,7 @@ Each agent in the swarm submits:
 
 **Fault tolerance improvement**: Because low-confidence agents (which are more likely to be wrong or compromised) have proportionally less influence, the system can tolerate a much higher fraction of unreliable agents before consensus breaks down.
 
-## How It Improved Monobrain
+## How It Improved Monomind
 
 The standard BFT 1/3 fault tolerance limit was problematic for large agent swarms: in a 15-agent swarm, only 4 agents need to be wrong or compromised to break consensus. CP-WBFT's 85.7% tolerance means up to 12 of 15 agents can be wrong before the consensus fails — dramatically more robust for the kind of unreliable, varied-quality LLM outputs that real agent swarms produce.
 
@@ -46,7 +46,7 @@ The confidence scoring mechanism also created a useful feedback loop: agents tha
 
 ## Key Files Influenced
 
-- `packages/@monobrain/cli/src/consensus/vote-signer.ts` — `weightedTally()` implementation
-- `packages/@monobrain/cli/src/swarm/hive-mind/` — consensus round management
+- `packages/@monomind/cli/src/consensus/vote-signer.ts` — `weightedTally()` implementation
+- `packages/@monomind/cli/src/swarm/hive-mind/` — consensus round management
 - Agent confidence tracking — score derived from historical task outcomes
 - `hook-handler.cjs` `post-task` — outcome data fed into confidence tracker

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `@monobrain/memory` module provides **universal cross-platform support** through intelligent database provider selection. This ensures your application works seamlessly on Windows, macOS, and Linux without code changes.
+The `@monomind/memory` module provides **universal cross-platform support** through intelligent database provider selection. This ensures your application works seamlessly on Windows, macOS, and Linux without code changes.
 
 ## Architecture
 
@@ -170,7 +170,7 @@ Linux:    better-sqlite3 → sql.js → JSON
 ### Example 1: Cross-Platform Application
 
 ```typescript
-import { createDatabase, getPlatformInfo } from '@monobrain/memory';
+import { createDatabase, getPlatformInfo } from '@monomind/memory';
 
 async function initDatabase() {
   const platform = getPlatformInfo();
@@ -189,7 +189,7 @@ async function initDatabase() {
 ### Example 2: Windows-Specific Setup
 
 ```typescript
-import { createDatabase } from '@monobrain/memory';
+import { createDatabase } from '@monomind/memory';
 
 async function windowsSetup() {
   // Force sql.js for Windows reliability
@@ -218,7 +218,7 @@ async function windowsSetup() {
 ### Example 3: Unix Performance Optimization
 
 ```typescript
-import { createDatabase, getAvailableProviders } from '@monobrain/memory';
+import { createDatabase, getAvailableProviders } from '@monomind/memory';
 
 async function unixSetup() {
   const available = await getAvailableProviders();
@@ -247,7 +247,7 @@ async function unixSetup() {
 ### Example 4: Migration Between Providers
 
 ```typescript
-import { createDatabase } from '@monobrain/memory';
+import { createDatabase } from '@monomind/memory';
 
 async function migrateDatabase() {
   // Load from JSON
@@ -338,7 +338,7 @@ async function getAvailableProviders(): Promise<{
 ### All Platforms
 
 ```bash
-npm install @monobrain/memory
+npm install @monomind/memory
 ```
 
 Dependencies are installed automatically:
@@ -351,7 +351,7 @@ If you encounter compilation errors with `better-sqlite3`:
 
 ```bash
 # Skip better-sqlite3 compilation
-npm install @monobrain/memory --no-optional
+npm install @monomind/memory --no-optional
 
 # The module will automatically use sql.js
 ```
@@ -368,7 +368,7 @@ sudo apt-get install libsqlite3-dev
 sudo yum install sqlite-devel
 
 # Then install
-npm install @monobrain/memory
+npm install @monomind/memory
 ```
 
 ## Troubleshooting
@@ -459,13 +459,13 @@ process.on('SIGINT', async () => {
 
 ```bash
 # Force specific provider
-MONOBRAIN_DB_PROVIDER=sql.js
+MONOMIND_DB_PROVIDER=sql.js
 
 # Enable verbose logging
-MONOBRAIN_DB_VERBOSE=true
+MONOMIND_DB_VERBOSE=true
 
 # Set auto-persist interval (ms)
-MONOBRAIN_DB_PERSIST_INTERVAL=10000
+MONOMIND_DB_PERSIST_INTERVAL=10000
 ```
 
 ## Docker Support

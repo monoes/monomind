@@ -7,7 +7,7 @@ Deep research with parallel WebSearch/WebFetch and Memory coordination.
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "researcher",
   task_description: "research AI trends 2024",
   options: {
@@ -20,16 +20,16 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run researcher "research AI trends 2024"
+npx monomind sparc run researcher "research AI trends 2024"
 
 # For alpha features
-npx monobrain@alpha sparc run researcher "research AI trends 2024"
+npx monomind@alpha sparc run researcher "research AI trends 2024"
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run researcher "research AI trends 2024"
+# If monomind is installed locally
+./monomind sparc run researcher "research AI trends 2024"
 ```
 
 ## Core Capabilities

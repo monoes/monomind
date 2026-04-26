@@ -22,7 +22,7 @@ Verify interface compatibility, shared modules, and env config standards. Split 
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "integration",
   task_description: "connect payment service",
   options: {
@@ -35,22 +35,22 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run integration "connect payment service"
+npx monomind sparc run integration "connect payment service"
 
 # For alpha features
-npx monobrain@alpha sparc run integration "connect payment service"
+npx monomind@alpha sparc run integration "connect payment service"
 
 # With namespace
-npx monobrain sparc run integration "your task" --namespace integration
+npx monomind sparc run integration "your task" --namespace integration
 
 # Non-interactive mode
-npx monobrain sparc run integration "your task" --non-interactive
+npx monomind sparc run integration "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run integration "connect payment service"
+# If monomind is installed locally
+./monomind sparc run integration "connect payment service"
 ```
 
 ## Memory Integration
@@ -58,7 +58,7 @@ npx monobrain sparc run integration "your task" --non-interactive
 ### Using MCP Tools (Preferred)
 ```javascript
 // Store mode-specific context
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "integration_context",
   value: "important decisions",
@@ -66,7 +66,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Query previous work
-mcp__monobrain__memory_search {
+mcp__monomind__memory_search {
   pattern: "integration",
   namespace: "integration",
   limit: 5
@@ -76,8 +76,8 @@ mcp__monobrain__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx monobrain memory store "integration_context" "important decisions" --namespace integration
+npx monomind memory store "integration_context" "important decisions" --namespace integration
 
 # Query previous work
-npx monobrain memory query "integration" --limit 5
+npx monomind memory query "integration" --limit 5
 ```

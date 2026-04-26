@@ -5,7 +5,7 @@ Create a specialized swarm for GitHub repository management.
 ## Usage
 
 ```bash
-npx monobrain github swarm [options]
+npx monomind github swarm [options]
 ```
 
 ## Options
@@ -22,25 +22,25 @@ npx monobrain github swarm [options]
 ### Basic GitHub swarm
 
 ```bash
-npx monobrain github swarm --repository owner/repo
+npx monomind github swarm --repository owner/repo
 ```
 
 ### Maintenance-focused swarm
 
 ```bash
-npx monobrain github swarm -r owner/repo -f maintenance --issue-labels
+npx monomind github swarm -r owner/repo -f maintenance --issue-labels
 ```
 
 ### Development swarm with PR automation
 
 ```bash
-npx monobrain github swarm -r owner/repo -f development --auto-pr --code-review
+npx monomind github swarm -r owner/repo -f development --auto-pr --code-review
 ```
 
 ### Full-featured triage swarm
 
 ```bash
-npx monobrain github swarm -r owner/repo -a 8 -f triage --issue-labels --auto-pr
+npx monomind github swarm -r owner/repo -a 8 -f triage --issue-labels --auto-pr
 ```
 
 ## Agent Types
@@ -106,7 +106,7 @@ npx monobrain github swarm -r owner/repo -a 8 -f triage --issue-labels --auto-pr
 Use in Claude Code with MCP tools:
 
 ```javascript
-mcp__monobrain__github_swarm {
+mcp__monomind__github_swarm {
   repository: "owner/repo",
   agents: 6,
   focus: "maintenance"

@@ -8,7 +8,7 @@
 
 ## Context
 
-The `@monobrain/cli` package requires integration with `ruvector` for advanced code intelligence features:
+The `@monomind/cli` package requires integration with `ruvector` for advanced code intelligence features:
 
 1. **Q-Learning Agent Router** - ML-based task routing (80%+ accuracy)
 2. **AST Analysis** - Symbol extraction and complexity metrics
@@ -16,11 +16,11 @@ The `@monobrain/cli` package requires integration with `ruvector` for advanced c
 4. **Coverage Routing** - Test-aware agent selection
 5. **Graph Analysis** - Code boundaries (MinCut/Louvain)
 
-These features are unique to ruvector and complement monobrain's existing capabilities without duplicating functionality already present in `@monobrain/embeddings` or `@monobrain/memory`.
+These features are unique to ruvector and complement monomind's existing capabilities without duplicating functionality already present in `@monomind/embeddings` or `@monomind/memory`.
 
 ## Decision
 
-Implement ruvector as an **OPTIONAL dependency** with graceful fallback, following the existing patterns in `@monobrain/cli`.
+Implement ruvector as an **OPTIONAL dependency** with graceful fallback, following the existing patterns in `@monomind/cli`.
 
 ### Design Principles
 
@@ -35,7 +35,7 @@ Implement ruvector as an **OPTIONAL dependency** with graceful fallback, followi
 ## File Structure
 
 ```
-packages/@monobrain/cli/src/
+packages/@monomind/cli/src/
 ├── commands/
 │   ├── route.ts              # NEW: Q-Learning routing command
 │   ├── analyze.ts            # NEW: AST/Diff/Graph analysis commands
@@ -62,7 +62,7 @@ packages/@monobrain/cli/src/
 ### 1. RuVector Availability Interface
 
 ```typescript
-// packages/@monobrain/cli/src/ruvector/availability.ts
+// packages/@monomind/cli/src/ruvector/availability.ts
 
 /**
  * RuVector availability state
@@ -104,7 +104,7 @@ export async function requireRuVector(
 ### 2. Router Adapter Interface
 
 ```typescript
-// packages/@monobrain/cli/src/ruvector/adapters/router-adapter.ts
+// packages/@monomind/cli/src/ruvector/adapters/router-adapter.ts
 
 export interface RouteRequest {
   task: string;
@@ -154,7 +154,7 @@ export async function routeWithCoverage(
 ### 3. AST Adapter Interface
 
 ```typescript
-// packages/@monobrain/cli/src/ruvector/adapters/ast-adapter.ts
+// packages/@monomind/cli/src/ruvector/adapters/ast-adapter.ts
 
 export interface ASTAnalysisRequest {
   path: string;
@@ -218,7 +218,7 @@ export async function getComplexity(path: string): Promise<ComplexityMetrics>;
 ### 4. Diff Adapter Interface
 
 ```typescript
-// packages/@monobrain/cli/src/ruvector/adapters/diff-adapter.ts
+// packages/@monomind/cli/src/ruvector/adapters/diff-adapter.ts
 
 export interface DiffAnalysisRequest {
   diff?: string;
@@ -274,7 +274,7 @@ export async function classifyDiffRisk(diff: string): Promise<number>;
 ### 5. Graph Adapter Interface
 
 ```typescript
-// packages/@monobrain/cli/src/ruvector/adapters/graph-adapter.ts
+// packages/@monomind/cli/src/ruvector/adapters/graph-adapter.ts
 
 export interface GraphAnalysisRequest {
   path: string;
@@ -329,7 +329,7 @@ export async function analyzeGraphBoundaries(
 ### 1. Route Command
 
 ```typescript
-// packages/@monobrain/cli/src/commands/route.ts
+// packages/@monomind/cli/src/commands/route.ts
 
 export const routeCommand: Command = {
   name: "route",
@@ -374,11 +374,11 @@ export const routeCommand: Command = {
   examples: [
     {
       command:
-        'monobrain route -t "Implement user authentication" --q-learning',
+        'monomind route -t "Implement user authentication" --q-learning',
       description: "Route with Q-Learning model",
     },
     {
-      command: 'monobrain route -t "Fix login bug" --coverage-aware',
+      command: 'monomind route -t "Fix login bug" --coverage-aware',
       description: "Route with coverage awareness",
     },
   ],
@@ -389,7 +389,7 @@ export const routeCommand: Command = {
 ### 2. Analyze Command
 
 ```typescript
-// packages/@monobrain/cli/src/commands/analyze.ts
+// packages/@monomind/cli/src/commands/analyze.ts
 
 export const analyzeCommand: Command = {
   name: "analyze",
@@ -432,11 +432,11 @@ const astSubcommand: Command = {
   ],
   examples: [
     {
-      command: "monobrain analyze ast -p src/",
+      command: "monomind analyze ast -p src/",
       description: "Analyze src directory",
     },
     {
-      command: "monobrain analyze ast -p src/api.ts --complexity",
+      command: "monomind analyze ast -p src/api.ts --complexity",
       description: "Get complexity for file",
     },
   ],
@@ -475,15 +475,15 @@ const diffSubcommand: Command = {
   ],
   examples: [
     {
-      command: "monobrain analyze diff --risk",
+      command: "monomind analyze diff --risk",
       description: "Analyze current diff with risk",
     },
     {
-      command: "monobrain analyze diff --base main --target feature",
+      command: "monomind analyze diff --base main --target feature",
       description: "Compare branches",
     },
     {
-      command: "git diff | monobrain analyze diff --stdin --risk",
+      command: "git diff | monomind analyze diff --stdin --risk",
       description: "Pipe diff from git",
     },
   ],
@@ -518,11 +518,11 @@ const boundariesSubcommand: Command = {
   ],
   examples: [
     {
-      command: "monobrain analyze boundaries -p src/",
+      command: "monomind analyze boundaries -p src/",
       description: "Detect boundaries in src",
     },
     {
-      command: "monobrain analyze boundaries -a louvain",
+      command: "monomind analyze boundaries -a louvain",
       description: "Use Louvain algorithm",
     },
   ],
@@ -537,7 +537,7 @@ const boundariesSubcommand: Command = {
 ### 1. RuVector Not Available Error
 
 ```typescript
-// packages/@monobrain/cli/src/ruvector/errors.ts
+// packages/@monomind/cli/src/ruvector/errors.ts
 
 export class RuVectorNotAvailableError extends CLIError {
   constructor(feature: string) {
@@ -570,7 +570,7 @@ export class RuVectorFeatureDisabledError extends CLIError {
 ### 2. Graceful Degradation Pattern
 
 ```typescript
-// packages/@monobrain/cli/src/ruvector/availability.ts
+// packages/@monomind/cli/src/ruvector/availability.ts
 
 let cachedStatus: RuVectorStatus | null = null;
 
@@ -687,7 +687,7 @@ async function routeAction(ctx: CommandContext): Promise<CommandResult> {
 ### 1. MCP Tool Definitions
 
 ```typescript
-// packages/@monobrain/cli/src/mcp-tools/ruvector-tools.ts
+// packages/@monomind/cli/src/mcp-tools/ruvector-tools.ts
 
 import type { MCPTool } from "./types.js";
 
@@ -807,7 +807,7 @@ export const ruvectorTools: MCPTool[] = [
 ### 2. Lazy Loading Pattern
 
 ```typescript
-// packages/@monobrain/cli/src/ruvector/index.ts
+// packages/@monomind/cli/src/ruvector/index.ts
 
 /**
  * RuVector Integration Module
@@ -862,7 +862,7 @@ export async function getGraphAdapter() {
 
 ```json
 {
-  "name": "@monobrain/cli",
+  "name": "@monomind/cli",
   "version": "3.0.0-alpha.16",
   "optionalDependencies": {
     "ruvector": "^0.1.95"
@@ -883,7 +883,7 @@ export async function getGraphAdapter() {
 ## Command Index Updates
 
 ```typescript
-// packages/@monobrain/cli/src/commands/index.ts
+// packages/@monomind/cli/src/commands/index.ts
 
 // Existing imports...
 import { routeCommand } from "./route.js";
@@ -939,7 +939,7 @@ export const commands: Command[] = [
 ### 1. Availability Tests
 
 ```typescript
-// packages/@monobrain/cli/tests/ruvector/availability.test.ts
+// packages/@monomind/cli/tests/ruvector/availability.test.ts
 
 import { describe, it, expect, vi } from "vitest";
 import { checkRuVectorAvailability } from "../../src/ruvector/availability.js";
@@ -973,7 +973,7 @@ describe("RuVector Availability", () => {
 ### 2. Command Tests
 
 ```typescript
-// packages/@monobrain/cli/tests/commands/route.test.ts
+// packages/@monomind/cli/tests/commands/route.test.ts
 
 import { describe, it, expect, vi } from "vitest";
 import { routeCommand } from "../../src/commands/route.js";
@@ -1290,20 +1290,20 @@ const checkResults = await Promise.allSettled(
 
 ### Cache Utility Functions
 
-All cache utilities exported from `@monobrain/cli/ruvector`:
+All cache utilities exported from `@monomind/cli/ruvector`:
 
 ```typescript
 // Diff caches
-import { clearDiffCache, clearAllDiffCaches } from "@monobrain/cli/ruvector";
+import { clearDiffCache, clearAllDiffCaches } from "@monomind/cli/ruvector";
 
 // Graph caches
-import { clearGraphCaches, getGraphCacheStats } from "@monobrain/cli/ruvector";
+import { clearGraphCaches, getGraphCacheStats } from "@monomind/cli/ruvector";
 
 // Coverage caches
 import {
   clearCoverageCache,
   getCoverageCacheStats,
-} from "@monobrain/cli/ruvector";
+} from "@monomind/cli/ruvector";
 ```
 
 ### Published Versions
@@ -1339,7 +1339,7 @@ Five high-impact, low-effort optimizations were implemented to achieve measurabl
 
 **Changes Made:**
 
-- `@monobrain/cli/src/commands/index.ts` - Refactored to use dynamic imports
+- `@monomind/cli/src/commands/index.ts` - Refactored to use dynamic imports
 
 **Before:**
 
@@ -1380,7 +1380,7 @@ import { agentCommand } from "./agent.js";
 
 **Changes Made:**
 
-- `@monobrain/memory/src/agentdb-adapter.ts` - Optimized bulk methods
+- `@monomind/memory/src/agentdb-adapter.ts` - Optimized bulk methods
 
 **Optimizations:**
 
@@ -1453,9 +1453,9 @@ await pooledTransport.withConnection(async (transport) => {
 **Changes Made:**
 
 - Added `"sideEffects": false` to package.json files:
-  - `monobrain/package.json`
-  - `@monobrain/cli/package.json`
-  - `@monobrain/mcp/package.json`
+  - `monomind/package.json`
+  - `@monomind/cli/package.json`
+  - `@monomind/mcp/package.json`
 
 **How It Works:**
 
@@ -1477,16 +1477,16 @@ await pooledTransport.withConnection(async (transport) => {
 
 | Package          | Before         | After          |
 | ---------------- | -------------- | -------------- |
-| `monobrain`      | 3.0.0-alpha.17 | 3.0.0-alpha.18 |
-| `@monobrain/cli` | 3.0.0-alpha.24 | 3.0.0-alpha.25 |
-| `@monobrain/mcp` | 3.0.0-alpha.7  | 3.0.0-alpha.8  |
+| `monomind`      | 3.0.0-alpha.17 | 3.0.0-alpha.18 |
+| `@monomind/cli` | 3.0.0-alpha.24 | 3.0.0-alpha.25 |
+| `@monomind/mcp` | 3.0.0-alpha.7  | 3.0.0-alpha.8  |
 
 ### Usage Examples
 
 **Lazy Command Loading:**
 
 ```typescript
-import { getCommandAsync, loadAllCommands } from "@monobrain/cli";
+import { getCommandAsync, loadAllCommands } from "@monomind/cli";
 
 // Get single command (loads on demand)
 const neuralCmd = await getCommandAsync("neural");
@@ -1498,7 +1498,7 @@ const allCommands = await loadAllCommands();
 **Batch Memory Operations:**
 
 ```typescript
-import { UnifiedMemoryService } from "@monobrain/memory";
+import { UnifiedMemoryService } from "@monomind/memory";
 
 const memory = new UnifiedMemoryService();
 await memory.initialize();
@@ -1560,19 +1560,19 @@ console.log(pool.getStats());
 
 ### Published Versions
 
-- `monobrain@3.0.0-alpha.18`
-- `@monobrain/cli@3.0.0-alpha.25`
-- `@monobrain/mcp@3.0.0-alpha.8`
-- `@monobrain/memory@3.0.0-alpha.2`
+- `monomind@3.0.0-alpha.18`
+- `@monomind/cli@3.0.0-alpha.25`
+- `@monomind/mcp@3.0.0-alpha.8`
+- `@monomind/memory@3.0.0-alpha.2`
 
 ### Performance Validation
 
 All builds pass successfully:
 
 ```
-✓ @monobrain/cli build passed
-✓ @monobrain/mcp build passed
-✓ @monobrain/memory build passed
+✓ @monomind/cli build passed
+✓ @monomind/mcp build passed
+✓ @monomind/memory build passed
 ```
 
 ---

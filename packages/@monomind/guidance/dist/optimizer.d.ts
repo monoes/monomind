@@ -10,7 +10,7 @@
  *
  * Promotion rule: Local rules that win twice become root rules.
  *
- * @module @monobrain/guidance/optimizer
+ * @module @monomind/guidance/optimizer
  */
 import type { PolicyBundle, ViolationRanking, RuleChange, ABTestResult, OptimizationMetrics, RuleADR } from './types.js';
 import type { RunLedger } from './ledger.js';

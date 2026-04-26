@@ -1,5 +1,5 @@
 /**
- * @monobrain/embeddings Test Setup
+ * @monomind/embeddings Test Setup
  * Local test configuration for Vitest
  */
 

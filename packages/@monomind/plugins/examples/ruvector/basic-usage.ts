@@ -13,7 +13,7 @@
  *
  * Run with: npx ts-node examples/ruvector/basic-usage.ts
  *
- * @module @monobrain/plugins/examples/ruvector/basic-usage
+ * @module @monomind/plugins/examples/ruvector/basic-usage
  */
 
 import {

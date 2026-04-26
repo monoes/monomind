@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { CostTracker } from '../../packages/@monobrain/hooks/src/cost/cost-tracker.js';
+import { CostTracker } from '../../packages/@monomind/hooks/src/cost/cost-tracker.js';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -9,7 +9,7 @@ let tmpDir: string;
 let tracker: CostTracker;
 
 beforeEach(() => {
-  tmpDir = mkdtempSync(join(tmpdir(), 'monobrain-cost-test-'));
+  tmpDir = mkdtempSync(join(tmpdir(), 'monomind-cost-test-'));
   tracker = new CostTracker({ dbPath: join(tmpDir, 'test.jsonl') });
 });
 

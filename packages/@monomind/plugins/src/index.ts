@@ -1,7 +1,7 @@
 /**
- * @monobrain/plugins
+ * @monomind/plugins
  *
- * Unified Plugin SDK for Monobrain v1
+ * Unified Plugin SDK for Monomind v1
  *
  * This package provides a comprehensive plugin development framework including:
  * - Plugin lifecycle management
@@ -20,7 +20,7 @@
  *   WorkerFactory,
  *   ProviderFactory,
  *   Security,
- * } from '@monobrain/plugins';
+ * } from '@monomind/plugins';
  *
  * // Create a plugin with the builder
  * const myPlugin = new PluginBuilder('my-plugin', '1.0.0')

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Monobrain V1 Master Helper (Linux/macOS)
-# Cross-platform development automation for monobrain v1
+# Monomind V1 Master Helper (Linux/macOS)
+# Cross-platform development automation for monomind v1
 
 set -e
 
@@ -9,8 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CLAUDE_DIR="${PROJECT_ROOT}/.claude"
 HELPERS_DIR="${CLAUDE_DIR}/helpers"
-METRICS_DIR="${PROJECT_ROOT}/.monobrain/metrics"
-SECURITY_DIR="${PROJECT_ROOT}/.monobrain/security"
+METRICS_DIR="${PROJECT_ROOT}/.monomind/metrics"
+SECURITY_DIR="${PROJECT_ROOT}/.monomind/security"
 
 # Colors (ANSI)
 RED='\033[0;31m'
@@ -62,7 +62,7 @@ setup_directories() {
 
 # Initialize V1 project
 init_v1_project() {
-  log_header "🚀 Initializing Monobrain V1 Project"
+  log_header "🚀 Initializing Monomind V1 Project"
 
   setup_directories
 
@@ -81,9 +81,9 @@ init_v1_project() {
     log_success "V1 project initialized successfully"
     log_info "Platform: $PLATFORM"
     log_info "Project root: $PROJECT_ROOT"
-    log_info "Run 'monobrain-v1.sh status' to see current progress"
+    log_info "Run 'monomind-v1.sh status' to see current progress"
   else
-    log_error "Initialization failed. Run 'monobrain-v1.sh validate' for details"
+    log_error "Initialization failed. Run 'monomind-v1.sh validate' for details"
     exit 1
   fi
 }
@@ -155,7 +155,7 @@ show_status() {
   if [ -f "$HELPERS_DIR/status-display.sh" ]; then
     "$HELPERS_DIR/status-display.sh"
   else
-    log_info "Status display not available. Run 'monobrain-v1.sh init' to set up helpers."
+    log_info "Status display not available. Run 'monomind-v1.sh init' to set up helpers."
   fi
 }
 
@@ -173,7 +173,7 @@ update_progress() {
   if [ -f "$HELPERS_DIR/progress-manager.sh" ]; then
     "$HELPERS_DIR/progress-manager.sh" "$metric" "$value"
   else
-    log_error "Progress manager not available. Run 'monobrain-v1.sh init' first."
+    log_error "Progress manager not available. Run 'monomind-v1.sh init' first."
     exit 1
   fi
 }
@@ -183,7 +183,7 @@ validate_config() {
   if [ -f "$HELPERS_DIR/config-validator.sh" ]; then
     "$HELPERS_DIR/config-validator.sh"
   else
-    log_error "Config validator not available. Run 'monobrain-v1.sh init' first."
+    log_error "Config validator not available. Run 'monomind-v1.sh init' first."
     exit 1
   fi
 }
@@ -281,7 +281,7 @@ case "$1" in
 
   "help"|"--help"|"-h"|"")
     cat << EOF
-Monobrain V1 Master Helper ($PLATFORM)
+Monomind V1 Master Helper ($PLATFORM)
 $(printf '=%.0s' {1..40})
 
 Usage: $0 <command> [options]

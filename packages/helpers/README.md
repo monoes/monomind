@@ -1,13 +1,13 @@
-# Monobrain V1 Helper System
+# Monomind V1 Helper System
 
-The V1 Helper System provides cross-platform automation and development tools for monobrain v1 users. These helpers enable automatic progress tracking, checkpointing, GitHub integration, and development workflow automation.
+The V1 Helper System provides cross-platform automation and development tools for monomind v1 users. These helpers enable automatic progress tracking, checkpointing, GitHub integration, and development workflow automation.
 
 ## 🚀 Quick Start
 
 ### Installation
 
 ```bash
-# Copy helpers to your monobrain v1 project
+# Copy helpers to your monomind v1 project
 cp -r v1/helpers/ your-project/.claude/helpers/
 
 # Make scripts executable (Linux/Mac)
@@ -20,21 +20,21 @@ chmod +x your-project/.claude/helpers/*.sh
 
 ```bash
 # Linux/Mac
-./.claude/helpers/monobrain-v1.sh init
-./.claude/helpers/monobrain-v1.sh status
-./.claude/helpers/monobrain-v1.sh update domain 3
+./.claude/helpers/monomind-v1.sh init
+./.claude/helpers/monomind-v1.sh status
+./.claude/helpers/monomind-v1.sh update domain 3
 
 # Windows (PowerShell)
-.\.claude\helpers\monobrain-v1.ps1 init
-.\.claude\helpers\monobrain-v1.ps1 status
-.\.claude\helpers\monobrain-v1.ps1 update domain 3
+.\.claude\helpers\monomind-v1.ps1 init
+.\.claude\helpers\monomind-v1.ps1 status
+.\.claude\helpers\monomind-v1.ps1 update domain 3
 ```
 
 ## 🛠️ Available Helpers
 
 ### 🎛️ Master Control Interface
 
-- **`monobrain-v1.sh`** (Linux/Mac) / **`monobrain-v1.ps1`** (Windows)
+- **`monomind-v1.sh`** (Linux/Mac) / **`monomind-v1.ps1`** (Windows)
   - Complete V1 development interface
   - Cross-platform progress tracking
   - Automated environment validation
@@ -71,7 +71,7 @@ chmod +x your-project/.claude/helpers/*.sh
 
 ```bash
 # Bash-based helpers with full ANSI color support
-./helpers/monobrain-v1.sh status
+./helpers/monomind-v1.sh status
 ./helpers/checkpoint-manager.sh auto-checkpoint "Feature complete"
 ```
 
@@ -79,7 +79,7 @@ chmod +x your-project/.claude/helpers/*.sh
 
 ```powershell
 # PowerShell-based helpers with Windows Terminal integration
-.\helpers\monobrain-v1.ps1 status
+.\helpers\monomind-v1.ps1 status
 .\helpers\checkpoint-manager.ps1 auto-checkpoint "Feature complete"
 ```
 
@@ -94,7 +94,7 @@ chmod +x your-project/.claude/helpers/*.sh
     "enabled": true,
     "platform": "auto-detect",
     "scripts": {
-      "master": ".claude/helpers/monobrain-v1",
+      "master": ".claude/helpers/monomind-v1",
       "progressManager": ".claude/helpers/progress-manager",
       "checkpointManager": ".claude/helpers/checkpoint-manager",
       "configValidator": ".claude/helpers/config-validator"
@@ -202,7 +202,7 @@ chmod +x your-project/.claude/helpers/*.sh
 
 ```yaml
 # GitHub Actions example
-name: Monobrain V1 Progress
+name: Monomind V1 Progress
 on: [push]
 jobs:
   update-progress:
@@ -211,7 +211,7 @@ jobs:
       - uses: actions/checkout@v1
       - name: Update V1 Progress
         run: |
-          ./.claude/helpers/monobrain-v1.sh update-from-ci
+          ./.claude/helpers/monomind-v1.sh update-from-ci
           ./.claude/helpers/checkpoint-manager.sh ci-checkpoint "Automated progress update"
 ```
 
@@ -223,7 +223,7 @@ jobs:
     {
       "label": "V1 Status",
       "type": "shell",
-      "command": "./.claude/helpers/monobrain-v1.sh status",
+      "command": "./.claude/helpers/monomind-v1.sh status",
       "group": "build",
       "presentation": {
         "echo": true,
@@ -276,4 +276,4 @@ export PATH="$PATH:$(pwd)/.claude/helpers"
 
 ---
 
-_Monobrain V1 Helper System - Enabling cross-platform development automation_
+_Monomind V1 Helper System - Enabling cross-platform development automation_

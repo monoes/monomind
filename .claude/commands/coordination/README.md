@@ -1,6 +1,6 @@
 # Coordination Commands
 
-Commands for coordination operations in Monobrain.
+Commands for coordination operations in Monomind.
 
 ## Available Commands
 

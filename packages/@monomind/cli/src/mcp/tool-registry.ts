@@ -20,7 +20,7 @@ import type {
 } from '../../../shared/src/types/tool-version.js';
 
 /** Default JSONL storage path relative to project root. */
-const DEFAULT_STORAGE_PATH = '.monobrain/tool-versions.jsonl';
+const DEFAULT_STORAGE_PATH = '.monomind/tool-versions.jsonl';
 
 /**
  * Registry for versioned MCP tools.

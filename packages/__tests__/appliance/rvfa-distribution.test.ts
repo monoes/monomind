@@ -15,12 +15,12 @@ import {
   RvfaPublisher,
   type RvfpHeader,
   type CreatePatchOptions,
-} from '../../@monobrain/cli/src/appliance/rvfa-distribution.js';
+} from '../../@monomind/cli/src/appliance/rvfa-distribution.js';
 import {
   RvfaWriter,
   RvfaReader,
   createDefaultHeader,
-} from '../../@monobrain/cli/src/appliance/rvfa-format.js';
+} from '../../@monomind/cli/src/appliance/rvfa-format.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -58,7 +58,7 @@ function buildTestRvfa(
   const secs = sections ?? [
     { id: 'kernel', data: 'kernel-payload-original' },
     { id: 'runtime', data: 'runtime-payload-original' },
-    { id: 'monobrain', data: 'monobrain-payload-original' },
+    { id: 'monomind', data: 'monomind-payload-original' },
   ];
   for (const s of secs) {
     writer.addSection(s.id, Buffer.from(s.data), { compression: 'none' });
@@ -280,8 +280,8 @@ describe('RvfaPatcher.applyPatch', () => {
     const runtime = reader.extractSection('runtime');
     assert.equal(runtime.toString('utf-8'), 'runtime-payload-original');
 
-    const monobrain = reader.extractSection('monobrain');
-    assert.equal(monobrain.toString('utf-8'), 'monobrain-payload-original');
+    const monomind = reader.extractSection('monomind');
+    assert.equal(monomind.toString('utf-8'), 'monomind-payload-original');
   });
 
   it('creates a backup file', async () => {

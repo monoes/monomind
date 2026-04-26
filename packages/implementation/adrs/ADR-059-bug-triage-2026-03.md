@@ -2,13 +2,13 @@
 
 **Status:** Accepted — Fixes Verified
 **Date:** 2026-03-05 (updated 2026-03-05)
-**Author:** monobrain
+**Author:** monomind
 
 ## Context
 
-As of v1.5.2, monobrain has 30 open issues spanning security, platform stability, CLI correctness, MCP protocol compliance, and Chat UI runtime bugs. This ADR triages every open issue into a priority matrix to guide engineering effort.
+As of v1.5.2, monomind has 30 open issues spanning security, platform stability, CLI correctness, MCP protocol compliance, and Chat UI runtime bugs. This ADR triages every open issue into a priority matrix to guide engineering effort.
 
-Note: `@monobrain/memory` (AgentDB) is now published at `@latest`, which affects several wiring issues below.
+Note: `@monomind/memory` (AgentDB) is now published at `@latest`, which affects several wiring issues below.
 
 ## Priority Levels
 
@@ -25,7 +25,7 @@ Note: `@monobrain/memory` (AgentDB) is now published at `@latest`, which affects
 
 ### 1. Obfuscated preinstall script deletes npm cache entries (#1261)
 
-- **Impact:** Supply-chain trust — the `preinstall` script in `package.json` silently deletes npm cache entries for `monobrain` and `monobrain`. This resembles malicious behavior and will trigger security scanners (Socket, Snyk, npm audit).
+- **Impact:** Supply-chain trust — the `preinstall` script in `package.json` silently deletes npm cache entries for `monomind` and `monomind`. This resembles malicious behavior and will trigger security scanners (Socket, Snyk, npm audit).
 - **Risk:** Package ban from npm registry; user trust erosion.
 - **Fix:** Remove the obfuscated preinstall script entirely. If cache-busting is needed, document it as an explicit post-install step.
 - **Status:** ✅ **FIXED** in PR #1298. Preinstall script removed from root `package.json`. Issue #1261 closed.
@@ -62,7 +62,7 @@ Note: `@monobrain/memory` (AgentDB) is now published at `@latest`, which affects
 - **Fix:** Resolve all hook command paths to absolute paths at generation time using `findRepoRoot()`.
 - **Status:** ✅ **FIXED** in PR #1298. Added `hookCmd()`, `hookCmdEsm()`, `hookHandlerCmd()`, `autoMemoryCmd()` helpers that resolve paths via `git rev-parse --show-toplevel`. Issue #1259 closed.
 
-### 7. auto-memory-hook.mjs fails to resolve @monobrain/memory (#1287)
+### 7. auto-memory-hook.mjs fails to resolve @monomind/memory (#1287)
 
 - **Impact:** Auto-memory import fails when installed as nested dependency (common in monorepos and npx). Memory persistence across sessions broken.
 - **Note:** AgentDB is now @latest — update import paths accordingly.
@@ -71,8 +71,8 @@ Note: `@monobrain/memory` (AgentDB) is now published at `@latest`, which affects
 ### 8. AgentDB bridge always unavailable — ControllerRegistry not exported (#1264)
 
 - **Impact:** AgentDB v1 controllers (ReasoningBank, SkillLibrary, ExplainableRecall) are implemented but never instantiated at runtime. The entire intelligence layer is dead code.
-- **Note:** `@monobrain/memory` (AgentDB) is now published at `@latest`. The export is available but CLI init doesn't wire it.
-- **Fix:** Update CLI to `import { ControllerRegistry } from '@monobrain/memory'` (now on @latest); wire into init sequence.
+- **Note:** `@monomind/memory` (AgentDB) is now published at `@latest`. The export is available but CLI init doesn't wire it.
+- **Fix:** Update CLI to `import { ControllerRegistry } from '@monomind/memory'` (now on @latest); wire into init sequence.
 - **Status:** ✅ **FIXED** in PR #1298. Added `activateControllerRegistry()` in `memory-initializer.ts` (lines 1089-1139). CLI `memory init` now wires ControllerRegistry singleton, activating ReasoningBank, SkillLibrary, and ExplainableRecall. Issue #1264 closed.
 
 ### 9. MCP schema invalid for strict clients — array missing `items` (#1294)
@@ -100,17 +100,17 @@ Note: `@monobrain/memory` (AgentDB) is now published at `@latest`, which affects
 - **Impact:** CLI process hangs after completion. Users must Ctrl+C to exit.
 - **Fix:** Add `.unref()` to all `setInterval` timers in CacheManager.
 
-### 13. MCP server and statusline report 'monobrain' V1.0.0 branding (#1280)
+### 13. MCP server and statusline report 'monomind' V1.0.0 branding (#1280)
 
-- **Impact:** Confusing branding — MCP server still identifies as `monobrain` V1.0.0 instead of `monobrain` v1.5.x.
+- **Impact:** Confusing branding — MCP server still identifies as `monomind` V1.0.0 instead of `monomind` v1.5.x.
 - **Fix:** Update MCP server metadata, version string, and statusline template.
-- **Status:** ✅ **FIXED** in PR #1298. MCP `system-tools.ts` now reads version from `package.json` at runtime via `getPackageVersion()`. Branding updated to "MonoBrain" across 20+ CLI files. Statusline.cjs updated. Issue #1280 closed.
+- **Status:** ✅ **FIXED** in PR #1298. MCP `system-tools.ts` now reads version from `package.json` at runtime via `getPackageVersion()`. Branding updated to "MonoMind" across 20+ CLI files. Statusline.cjs updated. Issue #1280 closed.
 
-### 14. Statusline shows 'Monobrain V1' instead of 'Monobrain V1' (#1254)
+### 14. Statusline shows 'Monomind V1' instead of 'Monomind V1' (#1254)
 
 - **Impact:** Branding inconsistency in IDE status bar.
 - **Fix:** Update statusline configuration defaults.
-- **Status:** ✅ **FIXED** in PR #1298. Updated `statusline.cjs` (lines 3, 552, 619) from "Monobrain V1" to "MonoBrain V1". Updated `settings.json` version to 3.5.2. Issue #1254 closed.
+- **Status:** ✅ **FIXED** in PR #1298. Updated `statusline.cjs` (lines 3, 552, 619) from "Monomind V1" to "MonoMind V1". Updated `settings.json` version to 3.5.2. Issue #1254 closed.
 
 ### 15. MCP server version mismatch — reports V1.0.0-alpha, package is v1.5.2 (#1253)
 
@@ -128,7 +128,7 @@ Note: `@monobrain/memory` (AgentDB) is now published at `@latest`, which affects
 - **Impact:** `status` command shows STOPPED for a correctly-running stdio-mode MCP server. Confusing UX.
 - **Fix:** Detect stdio transport mode and report status accordingly.
 
-### 18. Zero swarms always: `monobrain spawn hive-mind --claude` (#1279)
+### 18. Zero swarms always: `monomind spawn hive-mind --claude` (#1279)
 
 - **Impact:** Hive-mind spawning returns zero agents. The flagship multi-agent feature is non-functional via CLI.
 - **Fix:** Debug agent spawn path; likely missing topology init or agent pool connection.
@@ -180,7 +180,7 @@ Note: `@monobrain/memory` (AgentDB) is now published at `@latest`, which affects
 
 - **Type:** Feature request for convenience alias.
 
-### 28. ADR-058: Self-Contained monobrain.rvf Appliance (#1245)
+### 28. ADR-058: Self-Contained monomind.rvf Appliance (#1245)
 
 - **Type:** Enhancement. Already has implementation from Phase 3-4.
 
@@ -188,7 +188,7 @@ Note: `@monobrain/memory` (AgentDB) is now published at `@latest`, which affects
 
 - **Type:** Enhancement. Architectural improvement.
 
-### 30. "How to use monobrain" (#1251)
+### 30. "How to use monomind" (#1251)
 
 - **Type:** Documentation/support request. Needs getting-started guide.
 
@@ -219,7 +219,7 @@ Fixes delivered in PR #1297 and PR #1298, merged to `main` on 2026-03-05.
 | 8   | #1264 — AgentDB ControllerRegistry | #1298 | `activateControllerRegistry()` in `memory-initializer.ts`                  |
 | 9   | #1294 — MCP array missing `items`  | #1298 | 13 schemas fixed across 7 MCP tool files                                   |
 | 13  | #1280 — MCP branding V1.0.0        | #1298 | `getPackageVersion()` reads from `package.json` at runtime                 |
-| 14  | #1254 — Statusline branding        | #1298 | `statusline.cjs` updated to "MonoBrain V1"                                 |
+| 14  | #1254 — Statusline branding        | #1298 | `statusline.cjs` updated to "MonoMind V1"                                 |
 | 15  | #1253 — MCP version mismatch       | #1298 | Hardcoded `'3.0.0-alpha'` replaced with `PKG_VERSION`                      |
 | 20  | (Chat UI) — Empty web_search       | #1298 | Empty-query validation in `mcp-bridge/index.js`                            |
 | 21  | (Chat UI) — Settings duplication   | #1298 | Dedup pass on startup + string `_id` comparison                            |

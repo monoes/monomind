@@ -9,7 +9,7 @@
  * - Pattern matching: <1ms
  * - Learning step: <10ms
  *
- * @module @monobrain/neural
+ * @module @monomind/neural
  */
 export type { SONAMode, SONAModeConfig, ModeOptimizations, Trajectory, TrajectoryStep, TrajectoryVerdict, DistilledMemory, Pattern, PatternMatch, PatternEvolution, RLAlgorithm, RLConfig, PPOConfig, DQNConfig, DecisionTransformerConfig, CuriosityConfig, LoRAConfig, LoRAWeights, EWCConfig, EWCState, NeuralStats, NeuralEvent, NeuralEventListener, } from './types.js';
 export { SONAManager, createSONAManager, getModeConfig, getModeOptimizations, } from './sona-manager.js';

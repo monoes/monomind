@@ -1,5 +1,5 @@
 {
-  "name": "@monobrain/mcp",
+  "name": "@monomind/mcp",
   "version": "1.0.0",
   "type": "module",
   "description": "Standalone MCP (Model Context Protocol) server - stdio/http/websocket transports, connection pooling, tool registry",

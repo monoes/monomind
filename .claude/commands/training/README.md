@@ -1,6 +1,6 @@
 # Training Commands
 
-Commands for training operations in Monobrain.
+Commands for training operations in Monomind.
 
 ## Available Commands
 

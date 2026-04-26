@@ -1,7 +1,7 @@
 /**
  * Optimization module - Few-Shot Prompt Optimization
  *
- * @module @monobrain/hooks/optimization
+ * @module @monomind/hooks/optimization
  */
 
 export {

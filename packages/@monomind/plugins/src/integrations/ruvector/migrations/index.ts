@@ -3,7 +3,7 @@
  *
  * Exports migration manager and utilities for database schema management.
  *
- * @module @monobrain/plugins/integrations/ruvector/migrations
+ * @module @monomind/plugins/integrations/ruvector/migrations
  */
 
 export {

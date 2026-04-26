@@ -14,7 +14,7 @@
  * - Hyperbolic embeddings (Poincaré ball)
  * - Neural substrate integration (drift, memory, swarm)
  *
- * @module @monobrain/embeddings
+ * @module @monomind/embeddings
  */
 
 export * from './types.js';

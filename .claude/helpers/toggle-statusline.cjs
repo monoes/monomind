@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Toggles the Monobrain statusline between full (multi-line dashboard)
+ * Toggles the Monomind statusline between full (multi-line dashboard)
  * and compact (single-line) mode.
  *
  * Usage:
@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-const MODE_FILE = path.join(CWD, '.monobrain', 'statusline-mode.txt');
+const MODE_FILE = path.join(CWD, '.monomind', 'statusline-mode.txt');
 
 function readMode() {
   try {

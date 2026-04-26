@@ -9,7 +9,7 @@
  *
  * Run with: npx ts-node examples/ruvector/quantization.ts
  *
- * @module @monobrain/plugins/examples/ruvector/quantization
+ * @module @monomind/plugins/examples/ruvector/quantization
  */
 
 import {

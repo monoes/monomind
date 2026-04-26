@@ -14,9 +14,9 @@ import {
   deriveSigningKey,
   signVote,
   verifyVote,
-} from '../../packages/@monobrain/cli/src/consensus/vote-signer.js';
-import { AuditWriter } from '../../packages/@monobrain/cli/src/consensus/audit-writer.js';
-import type { RecordInput } from '../../packages/@monobrain/cli/src/consensus/audit-writer.js';
+} from '../../packages/@monomind/cli/src/consensus/vote-signer.js';
+import { AuditWriter } from '../../packages/@monomind/cli/src/consensus/audit-writer.js';
+import type { RecordInput } from '../../packages/@monomind/cli/src/consensus/audit-writer.js';
 
 function makeInput(overrides: Partial<RecordInput> = {}): RecordInput {
   return {

@@ -1,7 +1,7 @@
 /**
  * Guidance Hook Integration Layer
  *
- * Wires the EnforcementGates and ShardRetriever into the Monobrain
+ * Wires the EnforcementGates and ShardRetriever into the Monomind
  * hook lifecycle. Each guidance concern is registered as a hook that
  * participates in the standard HookRegistry event flow.
  *
@@ -12,9 +12,9 @@
  *   PreTask     -> ShardRetriever.retrieve()            (inject relevant shards)
  *   PostTask    -> RunLedger.finalizeEvent()             (record run completion)
  *
- * @module @monobrain/guidance/hooks
+ * @module @monomind/guidance/hooks
  */
-import { HookEvent, HookPriority, } from '@monobrain/hooks';
+import { HookEvent, HookPriority, } from '@monomind/hooks';
 // ============================================================================
 // Gate-Result -> Hook-Result Mapping
 // ============================================================================

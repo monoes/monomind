@@ -1,6 +1,6 @@
 # Analysis Commands
 
-Commands for analysis operations in Monobrain.
+Commands for analysis operations in Monomind.
 
 ## Available Commands
 

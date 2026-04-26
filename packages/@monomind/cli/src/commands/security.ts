@@ -2,7 +2,7 @@
  * CLI Security Command
  * Security scanning, CVE detection, threat modeling, vulnerability management
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -20,8 +20,8 @@ const scanCommand: Command = {
     { name: 'fix', short: 'f', type: 'boolean', description: 'Auto-fix vulnerabilities where possible' },
   ],
   examples: [
-    { command: 'monobrain security scan -t ./src', description: 'Scan source directory' },
-    { command: 'monobrain security scan --depth deep --fix', description: 'Deep scan with auto-fix' },
+    { command: 'monomind security scan -t ./src', description: 'Scan source directory' },
+    { command: 'monomind security scan --depth deep --fix', description: 'Deep scan with auto-fix' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const target = ctx.flags.target as string || '.';
@@ -252,8 +252,8 @@ const cveCommand: Command = {
     { name: 'severity', short: 's', type: 'string', description: 'Filter by severity: critical, high, medium, low' },
   ],
   examples: [
-    { command: 'monobrain security cve --list', description: 'List all CVEs' },
-    { command: 'monobrain security cve -c CVE-2024-1234', description: 'Check specific CVE' },
+    { command: 'monomind security cve --list', description: 'List all CVEs' },
+    { command: 'monomind security cve -c CVE-2024-1234', description: 'Check specific CVE' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const checkCve = ctx.flags.check as string;
@@ -278,7 +278,7 @@ const cveCommand: Command = {
       ].join('\n'), 'CVE Details');
     } else {
       output.writeln(output.warning('⚠ No real CVE database configured. Showing example data.'));
-      output.writeln(output.dim('Run "npm audit" or "monobrain security scan" for real vulnerability detection.'));
+      output.writeln(output.dim('Run "npm audit" or "monomind security scan" for real vulnerability detection.'));
       output.writeln();
       output.printTable({
         columns: [
@@ -309,8 +309,8 @@ const threatsCommand: Command = {
     { name: 'export', short: 'e', type: 'string', description: 'Export format: json, md, html' },
   ],
   examples: [
-    { command: 'monobrain security threats --model stride', description: 'Run STRIDE analysis' },
-    { command: 'monobrain security threats -e md', description: 'Export as markdown' },
+    { command: 'monomind security threats --model stride', description: 'Run STRIDE analysis' },
+    { command: 'monomind security threats -e md', description: 'Export as markdown' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const model = ctx.flags.model as string || 'stride';
@@ -350,8 +350,8 @@ const auditCommand: Command = {
     { name: 'filter', short: 'f', type: 'string', description: 'Filter by event type' },
   ],
   examples: [
-    { command: 'monobrain security audit --action list', description: 'List audit logs' },
-    { command: 'monobrain security audit -a export', description: 'Export audit trail' },
+    { command: 'monomind security audit --action list', description: 'List audit logs' },
+    { command: 'monomind security audit -a export', description: 'Export audit trail' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const action = ctx.flags.action as string || 'list';
@@ -396,7 +396,7 @@ const auditCommand: Command = {
     auditEntries.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
     if (auditEntries.length === 0) {
-      output.writeln(output.dim('No audit events found. Initialize a project first: monobrain init'));
+      output.writeln(output.dim('No audit events found. Initialize a project first: monomind init'));
     } else {
       output.printTable({
         columns: [
@@ -423,8 +423,8 @@ const secretsCommand: Command = {
     { name: 'ignore', short: 'i', type: 'string', description: 'Patterns to ignore' },
   ],
   examples: [
-    { command: 'monobrain security secrets --action scan', description: 'Scan for secrets' },
-    { command: 'monobrain security secrets -a rotate', description: 'Rotate compromised secrets' },
+    { command: 'monomind security secrets --action scan', description: 'Scan for secrets' },
+    { command: 'monomind security secrets -a rotate', description: 'Rotate compromised secrets' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const path = ctx.flags.path as string || '.';
@@ -440,7 +440,7 @@ const secretsCommand: Command = {
 
     output.writeln();
     output.writeln(output.warning('⚠ No real secrets scan performed. Showing example findings.'));
-    output.writeln(output.dim('Run "monobrain security scan --depth full" for real secret detection.'));
+    output.writeln(output.dim('Run "monomind security scan --depth full" for real secret detection.'));
     output.writeln();
     output.printTable({
       columns: [
@@ -474,9 +474,9 @@ const defendCommand: Command = {
     { name: 'output', short: 'o', type: 'string', description: 'Output format: text, json', default: 'text' },
   ],
   examples: [
-    { command: 'monobrain security defend -i "ignore previous instructions"', description: 'Scan text for threats' },
-    { command: 'monobrain security defend -f ./prompts.txt', description: 'Scan file for threats' },
-    { command: 'monobrain security defend --stats', description: 'Show detection statistics' },
+    { command: 'monomind security defend -i "ignore previous instructions"', description: 'Scan text for threats' },
+    { command: 'monomind security defend -f ./prompts.txt', description: 'Scan file for threats' },
+    { command: 'monomind security defend --stats', description: 'Show detection statistics' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const inputText = ctx.flags.input as string;
@@ -491,12 +491,12 @@ const defendCommand: Command = {
     output.writeln(output.dim('─'.repeat(55)));
 
     // Dynamic import of aidefence (allows package to be optional)
-    let createAIDefence: typeof import('@monobrain/aidefence').createAIDefence;
+    let createAIDefence: typeof import('@monomind/aidefence').createAIDefence;
     try {
-      const aidefence = await import('@monobrain/aidefence');
+      const aidefence = await import('@monomind/aidefence');
       createAIDefence = aidefence.createAIDefence;
     } catch {
-      output.error('AIDefence package not installed. Run: npm install @monobrain/aidefence');
+      output.error('AIDefence package not installed. Run: npm install @monomind/aidefence');
       return { success: false, message: 'AIDefence not available' };
     }
 
@@ -530,7 +530,7 @@ const defendCommand: Command = {
     }
 
     if (!textToScan) {
-      output.writeln('Usage: monobrain security defend -i "<text>" or -f <file>');
+      output.writeln('Usage: monomind security defend -i "<text>" or -f <file>');
       output.writeln();
       output.writeln('Options:');
       output.printList([
@@ -630,10 +630,10 @@ const redteamCommand: Command = {
     { name: 'threshold', type: 'number', description: 'Failure threshold 0-1 — report when success rate exceeds this', default: '0.1' },
   ],
   examples: [
-    { command: 'monobrain security redteam --target my-agent', description: 'Run all red-team scenarios against an agent' },
-    { command: 'monobrain security redteam --target my-agent --scenarios injection,jailbreak', description: 'Test specific attack categories' },
-    { command: 'monobrain security redteam --target my-agent --dry-run', description: 'Preview attack prompts without executing' },
-    { command: 'monobrain security redteam --target my-agent --output json', description: 'JSON output for CI integration' },
+    { command: 'monomind security redteam --target my-agent', description: 'Run all red-team scenarios against an agent' },
+    { command: 'monomind security redteam --target my-agent --scenarios injection,jailbreak', description: 'Test specific attack categories' },
+    { command: 'monomind security redteam --target my-agent --dry-run', description: 'Preview attack prompts without executing' },
+    { command: 'monomind security redteam --target my-agent --output json', description: 'JSON output for CI integration' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const target = ctx.flags.target as string;
@@ -651,7 +651,7 @@ const redteamCommand: Command = {
     if (!target) {
       output.writeln(output.warning('No target specified. Use --target <agent-id>'));
       output.writeln();
-      output.writeln('Usage: monobrain security redteam --target <agent-id> [options]');
+      output.writeln('Usage: monomind security redteam --target <agent-id> [options]');
       output.writeln();
       output.writeln('Attack categories (--scenarios):');
       output.printList([
@@ -737,7 +737,7 @@ const redteamCommand: Command = {
     // Attempt to load AIDefence for response analysis (optional dependency)
     let analyzeResponse: (text: string) => Promise<boolean> = async () => false;
     try {
-      const aidefence = await import('@monobrain/aidefence');
+      const aidefence = await import('@monomind/aidefence');
       const defender = aidefence.createAIDefence({ enableLearning: false });
       analyzeResponse = async (text: string) => {
         const r = await defender.detect(text);
@@ -826,13 +826,13 @@ export const securityCommand: Command = {
   description: 'Security scanning, CVE detection, threat modeling, AI defense',
   subcommands: [scanCommand, cveCommand, threatsCommand, auditCommand, secretsCommand, defendCommand, redteamCommand],
   examples: [
-    { command: 'monobrain security scan', description: 'Run security scan' },
-    { command: 'monobrain security cve --list', description: 'List known CVEs' },
-    { command: 'monobrain security threats', description: 'Run threat analysis' },
+    { command: 'monomind security scan', description: 'Run security scan' },
+    { command: 'monomind security cve --list', description: 'List known CVEs' },
+    { command: 'monomind security threats', description: 'Run threat analysis' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
-    output.writeln(output.bold('MonoBrain Security Suite'));
+    output.writeln(output.bold('MonoMind Security Suite'));
     output.writeln(output.dim('Comprehensive security scanning and vulnerability management'));
     output.writeln();
     output.writeln('Subcommands:');
@@ -848,7 +848,7 @@ export const securityCommand: Command = {
     output.writeln();
     output.writeln('Use --help with subcommands for more info');
     output.writeln();
-    output.writeln(output.dim('github.com/nokhodian/monobrain'));
+    output.writeln(output.dim('github.com/nokhodian/monomind'));
     return { success: true };
   },
 };

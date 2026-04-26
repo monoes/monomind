@@ -4,7 +4,7 @@
  * Exports LLM-specific hooks for request caching,
  * optimization, cost tracking, and pattern learning.
  *
- * @module @monobrain/hooks/llm
+ * @module @monomind/hooks/llm
  */
 
 export * from './llm-hooks.js';

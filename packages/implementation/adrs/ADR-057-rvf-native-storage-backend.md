@@ -4,7 +4,7 @@
 |-------|-------|
 | **Status** | Proposed |
 | **Date** | 2026-02-28 |
-| **Authors** | Monobrain Team |
+| **Authors** | Monomind Team |
 | **Supersedes** | — |
 | **Related** | ADR-053 (AgentDB Controller Activation), ADR-054 (RVF Plugin Marketplace), ADR-055 (Controller Bug Remediation), ADR-056 (agentic-flow v1 Integration) |
 
@@ -14,13 +14,13 @@
 
 ### The Problem
 
-`npx monobrain@latest` installs **1.3GB** across 914 packages with a 35-second cold start in Docker. The Docker optimization work (Dockerfile.lite with `--omit=optional` + aggressive pruning) reduced this to 324MB, but the **core dependency chain** still carries unnecessary weight:
+`npx monomind@latest` installs **1.3GB** across 914 packages with a 35-second cold start in Docker. The Docker optimization work (Dockerfile.lite with `--omit=optional` + aggressive pruning) reduced this to 324MB, but the **core dependency chain** still carries unnecessary weight:
 
 ```
-monobrain (5KB wrapper)
-  └─ @monobrain/cli (9MB)
-       ├─ @monobrain/shared (11MB) ← depends on sql.js (18MB WASM)
-       ├─ @monobrain/mcp (650KB)
+monomind (5KB wrapper)
+  └─ @monomind/cli (9MB)
+       ├─ @monomind/shared (11MB) ← depends on sql.js (18MB WASM)
+       ├─ @monomind/mcp (650KB)
        ├─ semver (tiny)
        └─ @noble/ed25519 (tiny)
 ```
@@ -29,9 +29,9 @@ monobrain (5KB wrapper)
 
 | Consumer | File | Purpose | Lines |
 |----------|------|---------|-------|
-| `@monobrain/shared` | `events/event-store.ts` | Append-only event sourcing log | 589 |
-| `@monobrain/memory` | `sqljs-backend.ts` | Memory entries + brute-force vector search | 767 |
-| `@monobrain/embeddings` | `persistent-cache.ts` | LRU embedding cache with TTL | 411 |
+| `@monomind/shared` | `events/event-store.ts` | Append-only event sourcing log | 589 |
+| `@monomind/memory` | `sqljs-backend.ts` | Memory entries + brute-force vector search | 767 |
+| `@monomind/embeddings` | `persistent-cache.ts` | LRU embedding cache with TTL | 411 |
 
 ### What sql.js Actually Does
 
@@ -55,7 +55,7 @@ recommendations.push('Consider using better-sqlite3 with HNSW for faster vector 
 
 ### The Opportunity
 
-RVF (RuVector Format) is a binary container format already used in the Monobrain ecosystem (ADR-054). It provides everything sql.js does **plus native HNSW indexing** in a fraction of the footprint:
+RVF (RuVector Format) is a binary container format already used in the Monomind ecosystem (ADR-054). It provides everything sql.js does **plus native HNSW indexing** in a fraction of the footprint:
 
 | Capability | sql.js | RVF |
 |-----------|--------|-----|
@@ -74,37 +74,37 @@ RVF (RuVector Format) is a binary container format already used in the Monobrain
 
 ## 2. Decision
 
-**Replace sql.js with RVF as the native storage backend** across `@monobrain/shared`, `@monobrain/memory`, and `@monobrain/embeddings`. Provide automatic and manual migration paths for existing SQLite (`.db`) and JSON (`.json`) data files with full backward compatibility.
+**Replace sql.js with RVF as the native storage backend** across `@monomind/shared`, `@monomind/memory`, and `@monomind/embeddings`. Provide automatic and manual migration paths for existing SQLite (`.db`) and JSON (`.json`) data files with full backward compatibility.
 
 ### Storage Architecture
 
 ```
 Before (sql.js):
 ┌─────────────────────────────────────┐
-│  @monobrain/shared                │
+│  @monomind/shared                │
 │  ├─ EventStore → sql.js (18MB WASM) │
 │  └─ event-store.db                  │
 ├─────────────────────────────────────┤
-│  @monobrain/memory                │
+│  @monomind/memory                │
 │  ├─ SqlJsBackend → sql.js           │
 │  └─ memory.db                       │
 ├─────────────────────────────────────┤
-│  @monobrain/embeddings            │
+│  @monomind/embeddings            │
 │  ├─ PersistentCache → sql.js        │
 │  └─ embeddings.db                   │
 └─────────────────────────────────────┘
 
 After (RVF):
 ┌─────────────────────────────────────┐
-│  @monobrain/shared                │
+│  @monomind/shared                │
 │  ├─ EventStore → RvfEventLog        │
 │  └─ events.rvf (LOG_SEG)            │
 ├─────────────────────────────────────┤
-│  @monobrain/memory                │
+│  @monomind/memory                │
 │  ├─ RvfBackend → RVF native         │
 │  └─ memory.rvf (VEC_SEG + KV_SEG)   │
 ├─────────────────────────────────────┤
-│  @monobrain/embeddings            │
+│  @monomind/embeddings            │
 │  ├─ RvfEmbeddingCache → RVF native  │
 │  └─ embeddings.rvf (VEC_SEG)        │
 └─────────────────────────────────────┘
@@ -204,25 +204,25 @@ async function openStorage(path: string, options: StorageOptions): Promise<IMemo
 
 ```bash
 # Check current storage format and migration status
-monobrain migrate status --storage
+monomind migrate status --storage
 
 # Dry-run migration (report what would change, don't modify)
-monobrain migrate run --storage --dry-run
+monomind migrate run --storage --dry-run
 
 # Migrate specific file
-monobrain migrate run --storage --file ./data/memory/memory.db
+monomind migrate run --storage --file ./data/memory/memory.db
 
 # Migrate all storage files in project
-monobrain migrate run --storage --all
+monomind migrate run --storage --all
 
 # Force re-migration (even if .rvf already exists)
-monobrain migrate run --storage --force
+monomind migrate run --storage --force
 
 # Rollback: restore from .bak files
-monobrain migrate rollback --storage
+monomind migrate rollback --storage
 
 # Validate migrated data integrity
-monobrain migrate validate --storage
+monomind migrate validate --storage
 ```
 
 ### 3.4 Migration for Each Data Type
@@ -467,7 +467,7 @@ async function selectBackend(path: string, options: StorageOptions): Promise<IMe
 1. **Legacy backends become lazy-loaded** — `sql.js` moves to a dynamic `import()`, only loaded when a `.db` file is detected. Zero cost for new installations.
 2. **JSON backend stays** — for the simplest possible fallback (no binary deps at all).
 3. **`.bak` files are kept indefinitely** — users can manually rollback at any time.
-4. **`monobrain migrate rollback --storage`** restores `.bak` → original and removes `.rvf`.
+4. **`monomind migrate rollback --storage`** restores `.bak` → original and removes `.rvf`.
 
 #### Write Compatibility
 
@@ -475,13 +475,13 @@ New writes always go to RVF. The `--legacy-format` flag forces legacy format:
 
 ```bash
 # Force sql.js backend for specific use case
-monobrain memory init --backend sqljs
+monomind memory init --backend sqljs
 
 # Force JSON backend
-monobrain memory init --backend json
+monomind memory init --backend json
 
 # Default (RVF)
-monobrain memory init
+monomind memory init
 ```
 
 #### Version Negotiation
@@ -509,7 +509,7 @@ If a future RVF version adds incompatible features, the reader can detect this a
 The existing `EmbeddingProvider` type union supports 4 providers:
 
 ```typescript
-// packages/@monobrain/embeddings/src/types.ts
+// packages/@monomind/embeddings/src/types.ts
 export type EmbeddingProvider = 'openai' | 'transformers' | 'mock' | 'agentic-flow';
 ```
 
@@ -835,7 +835,7 @@ export class PersistentSonaCoordinator extends SonaCoordinator {
 
 #### Integration with RuVectorProvider
 
-The existing `RuVectorProvider` in `@monobrain/providers` gains RVF-backed persistence:
+The existing `RuVectorProvider` in `@monomind/providers` gains RVF-backed persistence:
 
 ```typescript
 // ruvector-provider.ts — extended with RVF persistence
@@ -907,79 +907,79 @@ data/
 
 | Task | Package | Description |
 |------|---------|-------------|
-| P1.1 | `@monobrain/memory` | Create `RvfBackend` implementing `IMemoryBackend` interface |
-| P1.2 | `@monobrain/memory` | Map `KV_SEG` to memory entry CRUD operations |
-| P1.3 | `@monobrain/memory` | Map `VEC_SEG` to embedding storage with typed quantization |
-| P1.4 | `@monobrain/memory` | Map `INDEX_SEG` to HNSW search (replace brute-force cosine) |
-| P1.5 | `@monobrain/memory` | Add `RvfBackend` to `DatabaseProvider` selection chain |
+| P1.1 | `@monomind/memory` | Create `RvfBackend` implementing `IMemoryBackend` interface |
+| P1.2 | `@monomind/memory` | Map `KV_SEG` to memory entry CRUD operations |
+| P1.3 | `@monomind/memory` | Map `VEC_SEG` to embedding storage with typed quantization |
+| P1.4 | `@monomind/memory` | Map `INDEX_SEG` to HNSW search (replace brute-force cosine) |
+| P1.5 | `@monomind/memory` | Add `RvfBackend` to `DatabaseProvider` selection chain |
 
 ### Phase 2: Event Store Migration (Week 2-3)
 
 | Task | Package | Description |
 |------|---------|-------------|
-| P2.1 | `@monobrain/shared` | Create `RvfEventLog` implementing `IEventStore` interface |
-| P2.2 | `@monobrain/shared` | Map `LOG_SEG` to append-only event operations |
-| P2.3 | `@monobrain/shared` | Map `SNAP_SEG` to snapshot save/load |
-| P2.4 | `@monobrain/shared` | Move `sql.js` from `dependencies` to `optionalDependencies` |
+| P2.1 | `@monomind/shared` | Create `RvfEventLog` implementing `IEventStore` interface |
+| P2.2 | `@monomind/shared` | Map `LOG_SEG` to append-only event operations |
+| P2.3 | `@monomind/shared` | Map `SNAP_SEG` to snapshot save/load |
+| P2.4 | `@monomind/shared` | Move `sql.js` from `dependencies` to `optionalDependencies` |
 
 ### Phase 3: Embedding Cache Migration (Week 3)
 
 | Task | Package | Description |
 |------|---------|-------------|
-| P3.1 | `@monobrain/embeddings` | Create `RvfEmbeddingCache` implementing `IPersistentCache` |
-| P3.2 | `@monobrain/embeddings` | LRU eviction via RVF metadata (no SQL DELETE needed) |
-| P3.3 | `@monobrain/embeddings` | TTL via RVF expiry flags (segment-level) |
-| P3.4 | `@monobrain/embeddings` | Move `sql.js` from `dependencies` to `optionalDependencies` |
+| P3.1 | `@monomind/embeddings` | Create `RvfEmbeddingCache` implementing `IPersistentCache` |
+| P3.2 | `@monomind/embeddings` | LRU eviction via RVF metadata (no SQL DELETE needed) |
+| P3.3 | `@monomind/embeddings` | TTL via RVF expiry flags (segment-level) |
+| P3.4 | `@monomind/embeddings` | Move `sql.js` from `dependencies` to `optionalDependencies` |
 
 ### Phase 4: Migration Tooling (Week 3-4)
 
 | Task | Package | Description |
 |------|---------|-------------|
-| P4.1 | `@monobrain/cli` | `monobrain migrate status --storage` — detect formats, report state |
-| P4.2 | `@monobrain/cli` | `monobrain migrate run --storage` — batch migration with progress |
-| P4.3 | `@monobrain/cli` | `monobrain migrate rollback --storage` — restore from `.bak` |
-| P4.4 | `@monobrain/cli` | `monobrain migrate validate --storage` — integrity verification |
-| P4.5 | `@monobrain/memory` | Automatic migration in `DatabaseProvider.openStorage()` |
+| P4.1 | `@monomind/cli` | `monomind migrate status --storage` — detect formats, report state |
+| P4.2 | `@monomind/cli` | `monomind migrate run --storage` — batch migration with progress |
+| P4.3 | `@monomind/cli` | `monomind migrate rollback --storage` — restore from `.bak` |
+| P4.4 | `@monomind/cli` | `monomind migrate validate --storage` — integrity verification |
+| P4.5 | `@monomind/memory` | Automatic migration in `DatabaseProvider.openStorage()` |
 
 ### Phase 5: RVF Embedding Provider (Week 4)
 
 | Task | Package | Description |
 |------|---------|-------------|
-| P5.1 | `@monobrain/embeddings` | Add `'rvf'` to `EmbeddingProvider` type union |
-| P5.2 | `@monobrain/embeddings` | Implement `RvfEmbeddingService` with hash-based embeddings |
-| P5.3 | `@monobrain/embeddings` | Update `createEmbeddingServiceAsync` auto-select: `rvf > agentic-flow > transformers > mock` |
-| P5.4 | `@monobrain/embeddings` | Add `RvfEmbeddingConfig` interface |
-| P5.5 | `@monobrain/embeddings` | Tests: RVF provider passes `IEmbeddingService` test suite |
+| P5.1 | `@monomind/embeddings` | Add `'rvf'` to `EmbeddingProvider` type union |
+| P5.2 | `@monomind/embeddings` | Implement `RvfEmbeddingService` with hash-based embeddings |
+| P5.3 | `@monomind/embeddings` | Update `createEmbeddingServiceAsync` auto-select: `rvf > agentic-flow > transformers > mock` |
+| P5.4 | `@monomind/embeddings` | Add `RvfEmbeddingConfig` interface |
+| P5.5 | `@monomind/embeddings` | Tests: RVF provider passes `IEmbeddingService` test suite |
 
 ### Phase 6: ruvLLM Learning Persistence (Week 4-5)
 
 | Task | Package | Description |
 |------|---------|-------------|
-| P6.1 | `@monobrain/memory` | Create `RvfLearningStore` class (VEC + KV + LOG segments for SONA) |
-| P6.2 | `@monobrain/memory` | Implement `savePatterns` / `loadPatterns` for ReasoningBank persistence |
-| P6.3 | `@monobrain/memory` | Implement LoRA adapter serialization to RVF OVERLAY segment |
-| P6.4 | `@monobrain/memory` | Implement EWC++ Fisher diagonal persistence to META_SEG |
-| P6.5 | `@monobrain/providers` | Extend `RuVectorProvider` with RVF-backed `searchMemory()` |
-| P6.6 | `@monobrain/memory` | Create `PersistentSonaCoordinator` wrapping `SonaCoordinator` |
+| P6.1 | `@monomind/memory` | Create `RvfLearningStore` class (VEC + KV + LOG segments for SONA) |
+| P6.2 | `@monomind/memory` | Implement `savePatterns` / `loadPatterns` for ReasoningBank persistence |
+| P6.3 | `@monomind/memory` | Implement LoRA adapter serialization to RVF OVERLAY segment |
+| P6.4 | `@monomind/memory` | Implement EWC++ Fisher diagonal persistence to META_SEG |
+| P6.5 | `@monomind/providers` | Extend `RuVectorProvider` with RVF-backed `searchMemory()` |
+| P6.6 | `@monomind/memory` | Create `PersistentSonaCoordinator` wrapping `SonaCoordinator` |
 
 ### Phase 7: Progressive Download System (Week 5-6)
 
 | Task | Package | Description |
 |------|---------|-------------|
-| P7.1 | `@monobrain/cli` | Implement `ProgressiveDownloader` class |
-| P7.2 | `@monobrain/cli` | Create capability manifest schema and seed registry |
-| P7.3 | `@monobrain/cli` | `monobrain capabilities status/install/remove/list/prefetch` CLI commands |
-| P7.4 | `@monobrain/embeddings` | Integrate progressive download into `createEmbeddingServiceAsync` |
-| P7.5 | `@monobrain/providers` | Integrate progressive download into `RuVectorProvider` for LLM models |
-| P7.6 | `@monobrain/cli` | Package Phase 1-2 capabilities as .rvf files on CDN/IPFS |
+| P7.1 | `@monomind/cli` | Implement `ProgressiveDownloader` class |
+| P7.2 | `@monomind/cli` | Create capability manifest schema and seed registry |
+| P7.3 | `@monomind/cli` | `monomind capabilities status/install/remove/list/prefetch` CLI commands |
+| P7.4 | `@monomind/embeddings` | Integrate progressive download into `createEmbeddingServiceAsync` |
+| P7.5 | `@monomind/providers` | Integrate progressive download into `RuVectorProvider` for LLM models |
+| P7.6 | `@monomind/cli` | Package Phase 1-2 capabilities as .rvf files on CDN/IPFS |
 
 ### Phase 8: Dependency Cleanup (Week 6-7)
 
 | Task | Package | Description |
 |------|---------|-------------|
-| P8.1 | `@monobrain/shared` | Remove `sql.js` from hard dependencies |
-| P8.2 | `@monobrain/memory` | Remove `sql.js` from hard dependencies |
-| P8.3 | `@monobrain/embeddings` | Remove `sql.js` from hard dependencies |
+| P8.1 | `@monomind/shared` | Remove `sql.js` from hard dependencies |
+| P8.2 | `@monomind/memory` | Remove `sql.js` from hard dependencies |
+| P8.3 | `@monomind/embeddings` | Remove `sql.js` from hard dependencies |
 | P8.4 | All | Lazy-load sql.js only for legacy `.db` file reads |
 | P8.5 | All | Update Docker images to exclude sql.js entirely |
 | P8.6 | All | Move agentic-flow, @xenova/transformers to progressive downloads |
@@ -1095,18 +1095,18 @@ export class RvfEventLog implements IEventStore {
 
 | Package | Hard Deps | Total Install Weight |
 |---------|-----------|---------------------|
-| `@monobrain/shared` | sql.js (18MB) | ~30MB |
-| `@monobrain/memory` | sql.js (18MB, deduped) | ~5MB own |
-| `@monobrain/embeddings` | sql.js (18MB, deduped) | ~3MB own |
+| `@monomind/shared` | sql.js (18MB) | ~30MB |
+| `@monomind/memory` | sql.js (18MB, deduped) | ~5MB own |
+| `@monomind/embeddings` | sql.js (18MB, deduped) | ~3MB own |
 | **Total sql.js contribution** | | **~18MB (deduped)** |
 
 ### After (RVF)
 
 | Package | Hard Deps | Total Install Weight |
 |---------|-----------|---------------------|
-| `@monobrain/shared` | `@ruvector/rvf` (WASM: 52KB, native: ~2MB) | ~13MB (−17MB) |
-| `@monobrain/memory` | (uses shared's rvf) | ~5MB (no change) |
-| `@monobrain/embeddings` | (uses shared's rvf) | ~3MB (no change) |
+| `@monomind/shared` | `@ruvector/rvf` (WASM: 52KB, native: ~2MB) | ~13MB (−17MB) |
+| `@monomind/memory` | (uses shared's rvf) | ~5MB (no change) |
+| `@monomind/embeddings` | (uses shared's rvf) | ~3MB (no change) |
 | **Total RVF contribution** | | **52KB WASM or ~2MB native** |
 
 ### Net savings
@@ -1133,7 +1133,7 @@ export class RvfEventLog implements IEventStore {
 | Migration corrupts data | Low | High | Atomic write (temp + rename); `.bak` always kept |
 | WASM fallback slower than sql.js | Medium | Low | RVF WASM kernel is 52KB vs 18MB; simpler = faster |
 | Users depend on SQLite tooling | Medium | Low | Legacy read support permanent; `--backend sqljs` flag |
-| `@ruvector/rvf` npm availability | Low | High | Vendor WASM binary into `@monobrain/shared` as fallback |
+| `@ruvector/rvf` npm availability | Low | High | Vendor WASM binary into `@monomind/shared` as fallback |
 
 ---
 
@@ -1203,7 +1203,7 @@ Backward Compatibility Tests:
 - **Migration complexity** — must support 3 legacy formats (sql.js .db, better-sqlite3 .db, JSON)
 - **New dependency** — `@ruvector/rvf` replaces `sql.js` (smaller, but still a dep)
 - **Learning curve** — team must understand RVF segment model vs SQL tables
-- **Loss of SQL tooling** — can't `sqlite3 memory.db` to inspect data (mitigated by `monobrain memory list`)
+- **Loss of SQL tooling** — can't `sqlite3 memory.db` to inspect data (mitigated by `monomind memory list`)
 - **Hash embeddings are not semantic** — `rvf` provider good for matching, not meaning (mitigated by fallback to neural providers)
 
 ### Neutral
@@ -1219,7 +1219,7 @@ Backward Compatibility Tests:
 ### The Problem
 
 Current install paths are all-or-nothing:
-- `npx monobrain@latest` installs 1.3GB (all optional deps)
+- `npx monomind@latest` installs 1.3GB (all optional deps)
 - `--omit=optional` drops to ~30MB but loses all intelligence features
 - Users who want _some_ advanced features must install _all_ of them
 
@@ -1229,27 +1229,27 @@ RVF's segment model enables a **progressive download** approach where capabiliti
 
 ```
 Phase 0: Core CLI (always installed)
-  monobrain (5KB) → @monobrain/cli (9MB) → @monobrain/shared (~13MB with RVF)
+  monomind (5KB) → @monomind/cli (9MB) → @monomind/shared (~13MB with RVF)
   Total: ~22MB — MCP server, memory, events, CLI commands
 
 Phase 1: Lightweight Embeddings (downloaded on first use)
   @ruvector/rvf WASM kernel (52KB)
   Hash-based embeddings — no neural model needed
-  Downloaded to: ~/.monobrain/capabilities/rvf-wasm.rvf
+  Downloaded to: ~/.monomind/capabilities/rvf-wasm.rvf
 
 Phase 2: Neural Embeddings (downloaded on demand)
   all-MiniLM-L6-v2 ONNX model (~22MB)
-  Stored as: ~/.monobrain/capabilities/models/minilm-l6-v2.rvf
+  Stored as: ~/.monomind/capabilities/models/minilm-l6-v2.rvf
   Segment: WASM_SEG (model weights) + META_SEG (tokenizer config)
 
 Phase 3: Local LLM Inference (downloaded on demand)
   GGUF model files via ruvLLM
-  Stored as: ~/.monobrain/capabilities/models/<model>.rvf
+  Stored as: ~/.monomind/capabilities/models/<model>.rvf
   Segment: MODEL_SEG (quantized weights) + OVERLAY (LoRA adapters)
 
 Phase 4: Advanced Intelligence (downloaded on demand)
   CNN/GNN/Transformer kernels for specialized tasks
-  Stored as: ~/.monobrain/capabilities/kernels/<kernel>.rvf
+  Stored as: ~/.monomind/capabilities/kernels/<kernel>.rvf
   Segment: KERNEL_SEG (WASM bytecode) + EBPF_SEG (filters)
 ```
 
@@ -1288,9 +1288,9 @@ export class ProgressiveDownloader {
   private manifestPath: string;
   private capabilitiesDir: string;
 
-  constructor(monobrainHome = '~/.monobrain') {
-    this.manifestPath = `${monobrainHome}/capabilities/manifest.json`;
-    this.capabilitiesDir = `${monobrainHome}/capabilities`;
+  constructor(monomindHome = '~/.monomind') {
+    this.manifestPath = `${monomindHome}/capabilities/manifest.json`;
+    this.capabilitiesDir = `${monomindHome}/capabilities`;
   }
 
   /**
@@ -1305,7 +1305,7 @@ export class ProgressiveDownloader {
     if (entry.status === 'installed') return entry.rvfPath;
 
     // Download the capability
-    console.info(`[monobrain] Downloading ${entry.name} (${this.formatSize(entry.size)})...`);
+    console.info(`[monomind] Downloading ${entry.name} (${this.formatSize(entry.size)})...`);
     entry.status = 'downloading';
     await this.saveManifest(manifest);
 
@@ -1324,7 +1324,7 @@ export class ProgressiveDownloader {
     entry.rvfPath = rvfPath;
     await this.saveManifest(manifest);
 
-    console.info(`[monobrain] ✓ ${entry.name} ready`);
+    console.info(`[monomind] ✓ ${entry.name} ready`);
     return rvfPath;
   }
 
@@ -1391,21 +1391,21 @@ export class ProgressiveDownloader {
 
 ```bash
 # Check what's installed and available
-monobrain capabilities status
+monomind capabilities status
 
 # Download specific capability
-monobrain capabilities install neural-embeddings
+monomind capabilities install neural-embeddings
 
 # Download all capabilities up to phase N
-monobrain capabilities prefetch --phase 2
+monomind capabilities prefetch --phase 2
 
 # Remove a capability
-monobrain capabilities remove local-llm-qwen
+monomind capabilities remove local-llm-qwen
 
 # List all available models/kernels
-monobrain capabilities list --phase 3
-monobrain capabilities list --type model
-monobrain capabilities list --type kernel
+monomind capabilities list --phase 3
+monomind capabilities list --type model
+monomind capabilities list --type kernel
 ```
 
 ### Available Capabilities by Phase

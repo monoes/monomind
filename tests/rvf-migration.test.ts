@@ -8,8 +8,8 @@ import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from 'no
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { RvfMigrator } from '../packages/@monobrain/memory/src/rvf-migration.js';
-import { RvfBackend } from '../packages/@monobrain/memory/src/rvf-backend.js';
+import { RvfMigrator } from '../packages/@monomind/memory/src/rvf-migration.js';
+import { RvfBackend } from '../packages/@monomind/memory/src/rvf-backend.js';
 
 describe('RvfMigrator', () => {
   let tmpDir: string;

@@ -97,36 +97,36 @@ ${workerTypes.map(type => `• ${type}: ${workerGroups[type].length} agents`).jo
 🔧 AVAILABLE MCP TOOLS FOR HIVE MIND COORDINATION:
 
 1️⃣ **COLLECTIVE INTELLIGENCE**
-   mcp__monobrain__hive-mind_consensus    - Democratic decision making
-   mcp__monobrain__hive-mind_memory       - Share knowledge across the hive
-   mcp__monobrain__hive-mind_broadcast    - Broadcast to all workers
-   mcp__monobrain__neural_patterns        - Neural pattern recognition
+   mcp__monomind__hive-mind_consensus    - Democratic decision making
+   mcp__monomind__hive-mind_memory       - Share knowledge across the hive
+   mcp__monomind__hive-mind_broadcast    - Broadcast to all workers
+   mcp__monomind__neural_patterns        - Neural pattern recognition
 
 2️⃣ **QUEEN COORDINATION**
-   mcp__monobrain__hive-mind_status       - Monitor swarm health
-   mcp__monobrain__task_create            - Create and delegate tasks
-   mcp__monobrain__coordination_orchestrate - Orchestrate task distribution
-   mcp__monobrain__agent_spawn            - Spawn additional workers
+   mcp__monomind__hive-mind_status       - Monitor swarm health
+   mcp__monomind__task_create            - Create and delegate tasks
+   mcp__monomind__coordination_orchestrate - Orchestrate task distribution
+   mcp__monomind__agent_spawn            - Spawn additional workers
 
 3️⃣ **WORKER MANAGEMENT**
-   mcp__monobrain__agent_list             - List all active agents
-   mcp__monobrain__agent_status           - Check agent status
-   mcp__monobrain__agent_health           - Check worker health
-   mcp__monobrain__hive-mind_join         - Add agent to hive
-   mcp__monobrain__hive-mind_leave        - Remove agent from hive
+   mcp__monomind__agent_list             - List all active agents
+   mcp__monomind__agent_status           - Check agent status
+   mcp__monomind__agent_health           - Check worker health
+   mcp__monomind__hive-mind_join         - Add agent to hive
+   mcp__monomind__hive-mind_leave        - Remove agent from hive
 
 4️⃣ **TASK ORCHESTRATION**
-   mcp__monobrain__task_assign            - Assign tasks to workers
-   mcp__monobrain__task_status            - Track task progress
-   mcp__monobrain__task_complete          - Mark tasks complete
-   mcp__monobrain__workflow_create        - Create workflows
+   mcp__monomind__task_assign            - Assign tasks to workers
+   mcp__monomind__task_status            - Track task progress
+   mcp__monomind__task_complete          - Mark tasks complete
+   mcp__monomind__workflow_create        - Create workflows
 
 5️⃣ **MEMORY & LEARNING**
-   mcp__monobrain__memory_store           - Store collective knowledge
-   mcp__monobrain__memory_retrieve        - Access shared memory
-   mcp__monobrain__memory_search          - Search memory patterns
-   mcp__monobrain__neural_train           - Learn from experiences
-   mcp__monobrain__hooks_intelligence_pattern-store - Store patterns
+   mcp__monomind__memory_store           - Store collective knowledge
+   mcp__monomind__memory_retrieve        - Access shared memory
+   mcp__monomind__memory_search          - Search memory patterns
+   mcp__monomind__neural_train           - Learn from experiences
+   mcp__monomind__hooks_intelligence_pattern-store - Store patterns
 
 📋 HIVE MIND EXECUTION PROTOCOL:
 
@@ -158,18 +158,18 @@ ${workerTypes.map(type => `• ${type}: ${workerGroups[type].length} agents`).jo
 ${objective}
 
 ⚠️ CRITICAL — TOOL PREFERENCE RULES (#1422):
-• You MUST use Monobrain MCP tools (mcp__monobrain__*) for ALL orchestration tasks
-• Do NOT use Claude native Task/Agent tools for swarm coordination — use mcp__monobrain__agent_spawn, mcp__monobrain__task_assign, etc.
+• You MUST use Monomind MCP tools (mcp__monomind__*) for ALL orchestration tasks
+• Do NOT use Claude native Task/Agent tools for swarm coordination — use mcp__monomind__agent_spawn, mcp__monomind__task_assign, etc.
 • Native Claude tools (Read, Write, Edit, Bash, Grep, Glob) should ONLY be used for file operations and shell commands
-• All agent spawning, task assignment, memory, and coordination MUST go through mcp__monobrain__* tools
-• If a Monobrain MCP tool exists for an operation, always prefer it over any native equivalent
+• All agent spawning, task assignment, memory, and coordination MUST go through mcp__monomind__* tools
+• If a Monomind MCP tool exists for an operation, always prefer it over any native equivalent
 
 💡 COORDINATION TIPS:
-• Use mcp__monobrain__hive-mind_broadcast for swarm-wide announcements
-• Check worker status regularly with mcp__monobrain__hive-mind_status
+• Use mcp__monomind__hive-mind_broadcast for swarm-wide announcements
+• Check worker status regularly with mcp__monomind__hive-mind_status
 • Store important decisions in shared memory for persistence
 • Use consensus for any decisions affecting multiple workers
-• Use mcp__monobrain__task_assign to assign tasks to workers, then mcp__monobrain__task_complete when done
+• Use mcp__monomind__task_assign to assign tasks to workers, then mcp__monomind__task_complete when done
 
 🚀 BEGIN HIVE MIND COORDINATION NOW!
 Start by checking the current hive status and then proceed with the objective.
@@ -219,7 +219,7 @@ async function spawnClaudeCodeInstance(
       `Worker Count: ${output.highlight(String(workers.length))}`,
       `Worker Types: ${output.highlight(Object.keys(workerGroups).join(', '))}`,
       `Consensus: ${output.highlight((flags.consensus as string) || 'byzantine')}`,
-      `MCP Tools: ${output.success('Full Monobrain integration enabled')}`
+      `MCP Tools: ${output.success('Full Monomind integration enabled')}`
     ]);
 
     // Ensure sessions directory exists
@@ -415,8 +415,8 @@ const initCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain hive-mind init -t hierarchical-mesh', description: 'Init hierarchical mesh' },
-    { command: 'monobrain hive-mind init -c byzantine -m 20', description: 'Init with Byzantine consensus' }
+    { command: 'monomind hive-mind init -t hierarchical-mesh', description: 'Init hierarchical mesh' },
+    { command: 'monomind hive-mind init -c byzantine -m 20', description: 'Init with Byzantine consensus' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let topology = ctx.flags.topology as string;
@@ -485,8 +485,8 @@ const initCommand: Command = {
 
       output.writeln();
       output.printInfo('Queen agent is ready to coordinate worker agents');
-      output.writeln(output.dim('  Use "monobrain hive-mind spawn" to add workers'));
-      output.writeln(output.dim('  Use "monobrain hive-mind spawn --claude" to launch Claude Code'));
+      output.writeln(output.dim('  Use "monomind hive-mind spawn" to add workers'));
+      output.writeln(output.dim('  Use "monomind hive-mind spawn --claude" to launch Claude Code'));
 
       return { success: true, data: result };
     } catch (error) {
@@ -574,11 +574,11 @@ const spawnCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain hive-mind spawn -n 5', description: 'Spawn 5 workers' },
-    { command: 'monobrain hive-mind spawn -n 3 -r specialist', description: 'Spawn 3 specialists' },
-    { command: 'monobrain hive-mind spawn -t coder -p my-coder', description: 'Spawn coder with custom prefix' },
-    { command: 'monobrain hive-mind spawn --claude -o "Build a REST API"', description: 'Launch Claude Code with objective' },
-    { command: 'monobrain hive-mind spawn -n 5 --claude -o "Research AI patterns"', description: 'Spawn workers and launch Claude Code' }
+    { command: 'monomind hive-mind spawn -n 5', description: 'Spawn 5 workers' },
+    { command: 'monomind hive-mind spawn -n 3 -r specialist', description: 'Spawn 3 specialists' },
+    { command: 'monomind hive-mind spawn -t coder -p my-coder', description: 'Spawn coder with custom prefix' },
+    { command: 'monomind hive-mind spawn --claude -o "Build a REST API"', description: 'Launch Claude Code with objective' },
+    { command: 'monomind hive-mind spawn -n 5 --claude -o "Research AI patterns"', description: 'Spawn workers and launch Claude Code' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Parse count with fallback to default
@@ -832,7 +832,7 @@ const statusCommand: Command = {
       output.writeln();
       output.writeln(output.bold('Worker Agents'));
       if (workerData.length === 0) {
-        output.printInfo('No workers in hive. Use "monobrain hive-mind spawn" to add workers.');
+        output.printInfo('No workers in hive. Use "monomind hive-mind spawn" to add workers.');
       } else {
         output.printTable({
           columns: [
@@ -923,8 +923,8 @@ const taskCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain hive-mind task -d "Implement auth module"', description: 'Submit task' },
-    { command: 'monobrain hive-mind task -d "Security review" -p critical -c', description: 'Critical task with consensus' }
+    { command: 'monomind hive-mind task -d "Implement auth module"', description: 'Submit task' },
+    { command: 'monomind hive-mind task -d "Security review" -p critical -c', description: 'Critical task with consensus' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let description = ctx.flags.description as string || ctx.args.join(' ');
@@ -983,7 +983,7 @@ const taskCommand: Command = {
 
       output.writeln();
       output.printSuccess('Task submitted to hive');
-      output.writeln(output.dim(`  Track with: monobrain hive-mind task-status ${result.taskId}`));
+      output.writeln(output.dim(`  Track with: monomind hive-mind task-status ${result.taskId}`));
 
       return { success: true, data: result };
     } catch (error) {
@@ -1283,16 +1283,16 @@ export const hiveMindCommand: Command = {
   subcommands: [initCommand, spawnCommand, statusCommand, taskCommand, joinCommand, leaveCommand, consensusCommand, broadcastCommand, memorySubCommand, optimizeMemoryCommand, shutdownCommand],
   options: [],
   examples: [
-    { command: 'monobrain hive-mind init -t hierarchical-mesh', description: 'Initialize hive' },
-    { command: 'monobrain hive-mind spawn -n 5', description: 'Spawn workers' },
-    { command: 'monobrain hive-mind spawn --claude -o "Build a feature"', description: 'Launch Claude Code with hive mind' },
-    { command: 'monobrain hive-mind task -d "Build feature"', description: 'Submit task' }
+    { command: 'monomind hive-mind init -t hierarchical-mesh', description: 'Initialize hive' },
+    { command: 'monomind hive-mind spawn -n 5', description: 'Spawn workers' },
+    { command: 'monomind hive-mind spawn --claude -o "Build a feature"', description: 'Launch Claude Code with hive mind' },
+    { command: 'monomind hive-mind task -d "Build feature"', description: 'Submit task' }
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold('Hive Mind - Consensus-Based Multi-Agent Coordination'));
     output.writeln();
-    output.writeln('Usage: monobrain hive-mind <subcommand> [options]');
+    output.writeln('Usage: monomind hive-mind <subcommand> [options]');
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
@@ -1320,8 +1320,8 @@ export const hiveMindCommand: Command = {
     ]);
     output.writeln();
     output.writeln('Quick Start with Claude Code:');
-    output.writeln(output.dim('  monobrain hive-mind init'));
-    output.writeln(output.dim('  monobrain hive-mind spawn -n 5 --claude -o "Your objective here"'));
+    output.writeln(output.dim('  monomind hive-mind init'));
+    output.writeln(output.dim('  monomind hive-mind spawn -n 5 --claude -o "Your objective here"'));
 
     return { success: true };
   }

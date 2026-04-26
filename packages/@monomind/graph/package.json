@@ -1,8 +1,8 @@
 {
-  "name": "@monoes/graph",
+  "name": "@monomind/graph",
   "version": "1.4.0",
   "type": "module",
-  "description": "Knowledge graph engine for monobrain — AST extraction, graph construction, community detection, and persistent codebase understanding",
+  "description": "Knowledge graph engine for monomind — AST extraction, graph construction, community detection, and persistent codebase understanding",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
   "exports": {

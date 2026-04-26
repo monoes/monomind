@@ -98,14 +98,14 @@ The SPARC methodology enhances GOAP planning by providing a structured framework
 
 ```bash
 # Execute SPARC phases for goal achievement
-npx monobrain sparc run spec-pseudocode "OAuth2 authentication system"
-npx monobrain sparc run architect "microservices communication layer"
-npx monobrain sparc tdd "payment processing feature"
-npx monobrain sparc pipeline "complete feature implementation"
+npx monomind sparc run spec-pseudocode "OAuth2 authentication system"
+npx monomind sparc run architect "microservices communication layer"
+npx monomind sparc tdd "payment processing feature"
+npx monomind sparc pipeline "complete feature implementation"
 
 # Batch processing for complex goals
-npx monobrain sparc batch spec,arch,refine "user management system"
-npx monobrain sparc concurrent tdd tasks.json
+npx monomind sparc batch spec,arch,refine "user management system"
+npx monomind sparc concurrent tdd tasks.json
 ```
 
 ### SPARC-GOAP Feature Implementation Plan
@@ -113,7 +113,7 @@ npx monobrain sparc concurrent tdd tasks.json
 goal: implement_payment_processing_with_sparc
 sparc_phases:
   specification:
-    command: "npx monobrain sparc run spec-pseudocode 'payment processing'"
+    command: "npx monomind sparc run spec-pseudocode 'payment processing'"
     deliverables:
       - requirements_doc
       - acceptance_criteria
@@ -124,7 +124,7 @@ sparc_phases:
       - compliance_standards_identified
       
   pseudocode:
-    command: "npx monobrain sparc run pseudocode 'payment flow algorithms'"
+    command: "npx monomind sparc run pseudocode 'payment flow algorithms'"
     deliverables:
       - payment_flow_logic
       - error_handling_patterns
@@ -134,7 +134,7 @@ sparc_phases:
       - edge_cases_covered
       
   architecture:
-    command: "npx monobrain sparc run architect 'payment system design'"
+    command: "npx monomind sparc run architect 'payment system design'"
     deliverables:
       - system_components
       - api_contracts
@@ -144,7 +144,7 @@ sparc_phases:
       - security_layers_defined
       
   refinement:
-    command: "npx monobrain sparc tdd 'payment feature'"
+    command: "npx monomind sparc tdd 'payment feature'"
     deliverables:
       - unit_tests
       - integration_tests
@@ -154,7 +154,7 @@ sparc_phases:
       - all_tests_passing
       
   completion:
-    command: "npx monobrain sparc run integration 'deploy payment system'"
+    command: "npx monomind sparc run integration 'deploy payment system'"
     deliverables:
       - deployed_system
       - documentation
@@ -329,32 +329,32 @@ async function implementFeatureWithSPARC(feature: string) {
 
 ```javascript
 // Initialize SPARC-enhanced development swarm
-mcp__monobrain__swarm_init {
+mcp__monomind__swarm_init {
   topology: "hierarchical",
   maxAgents: 5
 }
 
 // Spawn SPARC-specific agents
-mcp__monobrain__agent_spawn {
+mcp__monomind__agent_spawn {
   type: "sparc-coder",
   capabilities: ["specification", "pseudocode", "architecture", "refinement", "completion"]
 }
 
 // Spawn specialized agents
-mcp__monobrain__agent_spawn {
+mcp__monomind__agent_spawn {
   type: "coder",
   capabilities: ["refactoring", "optimization"]
 }
 
 // Orchestrate development tasks
-mcp__monobrain__task_orchestrate {
+mcp__monomind__task_orchestrate {
   task: "implement_oauth_system",
   strategy: "adaptive",
   priority: "high"
 }
 
 // Store successful patterns
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   namespace: "code-patterns",
   key: "oauth_implementation_plan",
@@ -413,19 +413,19 @@ class SPARCGoalPlanner {
 
 ```bash
 # 1. Initialize SPARC-GOAP planning
-npx monobrain sparc run spec-pseudocode "user authentication feature"
+npx monomind sparc run spec-pseudocode "user authentication feature"
 
 # 2. Execute architecture phase
-npx monobrain sparc run architect "authentication system design"
+npx monomind sparc run architect "authentication system design"
 
 # 3. TDD implementation with goal tracking
-npx monobrain sparc tdd "authentication feature" --track-goals
+npx monomind sparc tdd "authentication feature" --track-goals
 
 # 4. Complete integration with goal validation
-npx monobrain sparc run integration "deploy authentication" --validate-goals
+npx monomind sparc run integration "deploy authentication" --validate-goals
 
 # 5. Verify goal achievement
-npx monobrain sparc verify "authentication feature complete"
+npx monomind sparc verify "authentication feature complete"
 ```
 
 ## Continuous Improvement

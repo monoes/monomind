@@ -205,21 +205,21 @@ The 1:1 ratio of source-to-test lines (14,212 vs 13,949 LOC) is not overhead —
 
 ```bash
 # Install
-npm install @monobrain/guidance@alpha
+npm install @monomind/guidance@alpha
 
 # Run all 1,328 tests
 npm test
 
 # Score your CLAUDE.md
 npx ts-node -e "
-  import { analyze, formatReport } from '@monobrain/guidance/analyzer';
+  import { analyze, formatReport } from '@monomind/guidance/analyzer';
   import { readFileSync } from 'fs';
   console.log(formatReport(analyze(readFileSync('CLAUDE.md', 'utf-8'))));
 "
 
 # Run the A/B benchmark
 npx ts-node -e "
-  import { abBenchmark } from '@monobrain/guidance/analyzer';
+  import { abBenchmark } from '@monomind/guidance/analyzer';
   import { readFileSync } from 'fs';
   const report = await abBenchmark(readFileSync('CLAUDE.md', 'utf-8'));
   console.log(report.report);
@@ -230,8 +230,8 @@ npx ts-node -e "
 
 ## Links
 
-- **GitHub**: [github.com/nokhodian/monobrain](https://github.com/nokhodian/monobrain)
-- **npm**: [@monobrain/guidance](https://www.npmjs.com/package/@monobrain/guidance)
-- **npm**: [monobrain](https://www.npmjs.com/package/monobrain)
+- **GitHub**: [github.com/nokhodian/monomind](https://github.com/nokhodian/monomind)
+- **npm**: [@monomind/guidance](https://www.npmjs.com/package/@monomind/guidance)
+- **npm**: [monomind](https://www.npmjs.com/package/monomind)
 - **npm**: [ruvbot](https://www.npmjs.com/package/ruvbot)
-- **GitHub**: [nokhodian/monobrain](https://github.com/nokhodian/monobrain)
+- **GitHub**: [nokhodian/monomind](https://github.com/nokhodian/monomind)

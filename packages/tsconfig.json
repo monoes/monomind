@@ -3,25 +3,25 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@monobrain/security": ["./@monobrain/security/src"],
-      "@monobrain/memory": ["./@monobrain/memory/src"],
-      "@monobrain/swarm": ["./@monobrain/swarm/src"],
-      "@monobrain/performance": ["./@monobrain/performance/src"],
-      "@monobrain/cli": ["./@monobrain/cli/src"],
-      "@monobrain/neural": ["./@monobrain/neural/src"],
-      "@monobrain/shared": ["./@monobrain/shared/src"],
-      "@monobrain/hooks": ["./@monobrain/hooks/src"]
+      "@monomind/security": ["./@monomind/security/src"],
+      "@monomind/memory": ["./@monomind/memory/src"],
+      "@monomind/swarm": ["./@monomind/swarm/src"],
+      "@monomind/performance": ["./@monomind/performance/src"],
+      "@monomind/cli": ["./@monomind/cli/src"],
+      "@monomind/neural": ["./@monomind/neural/src"],
+      "@monomind/shared": ["./@monomind/shared/src"],
+      "@monomind/hooks": ["./@monomind/hooks/src"]
     }
   },
   "references": [
-    { "path": "./@monobrain/shared" },
-    { "path": "./@monobrain/security" },
-    { "path": "./@monobrain/memory" },
-    { "path": "./@monobrain/swarm" },
-    { "path": "./@monobrain/performance" },
-    { "path": "./@monobrain/cli" },
-    { "path": "./@monobrain/neural" },
-    { "path": "./@monobrain/hooks" }
+    { "path": "./@monomind/shared" },
+    { "path": "./@monomind/security" },
+    { "path": "./@monomind/memory" },
+    { "path": "./@monomind/swarm" },
+    { "path": "./@monomind/performance" },
+    { "path": "./@monomind/cli" },
+    { "path": "./@monomind/neural" },
+    { "path": "./@monomind/hooks" }
   ],
   "include": [],
   "exclude": ["node_modules", "dist"]
