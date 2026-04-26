@@ -119,13 +119,55 @@ function collectSessions(projectDir) {
   };
 }
 
+const _appendedSwarmIds = new Set();
+
 function collectSwarm(projectDir) {
   const base = path.join(projectDir, '.monomind');
+  const state = readJSON(path.join(base, 'swarm', 'swarm-state.json')) || {};
+  const dotSwarmState = readJSON(path.join(projectDir, '.swarm', 'state.json')) || {};
+  const merged = { ...dotSwarmState, ...state };
+
+  const terminalStatuses = ['stopped', 'terminated', 'completed', 'error'];
+  const swarmId = merged.swarmId || merged.id;
+  if (swarmId && terminalStatuses.includes(merged.status) && !_appendedSwarmIds.has(swarmId)) {
+    _appendedSwarmIds.add(swarmId);
+    const agents = (merged.agents || merged.agentPlan || []).map(a => ({
+      id: a.id || a.type || a.role,
+      type: a.type || a.role || '?',
+      role: a.role || 'worker',
+      tasksCompleted: a.tasksCompleted || a.count || 0,
+      tasksFailed: a.tasksFailed || 0,
+      messageCount: a.messageCount || 0,
+      utilization: a.utilization || 0,
+    }));
+    const entry = {
+      swarmId,
+      topology: merged.topology || '—',
+      consensus: merged.consensus || '—',
+      strategy: merged.strategy || '—',
+      status: merged.status,
+      agents,
+      messages: merged.messages || [],
+      errors: merged.errors || [],
+      findings: merged.findings || [],
+      taskCount: merged.taskCount || 0,
+      completedTasks: merged.completedTasks || 0,
+      failedTasks: merged.failedTasks || 0,
+      startedAt: merged.startedAt || merged.createdAt || new Date().toISOString(),
+      endedAt: merged.stoppedAt || merged.endedAt || new Date().toISOString(),
+      durationMs: 0,
+    };
+    if (entry.startedAt && entry.endedAt) {
+      entry.durationMs = new Date(entry.endedAt).getTime() - new Date(entry.startedAt).getTime();
+    }
+    try { appendSwarmHistory(projectDir, entry); } catch {}
+  }
+
   return {
-    state: readJSON(path.join(base, 'swarm', 'swarm-state.json')) || {},
+    state: merged,
     activity: readJSON(path.join(base, 'metrics', 'swarm-activity.json')) || {},
     suggestion: {},
-    config: readJSON(path.join(base, 'swarm-config.json')) || {}
+    config: readJSON(path.join(base, 'swarm-config.json')) || {},
   };
 }
 
