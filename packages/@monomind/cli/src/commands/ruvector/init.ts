@@ -26,7 +26,7 @@ function getConnectionConfig(ctx: CommandContext): {
     user: (ctx.flags.user as string) || process.env.PGUSER || 'postgres',
     password: (ctx.flags.password as string) || process.env.PGPASSWORD || '',
     ssl: (ctx.flags.ssl as boolean) || process.env.PGSSLMODE === 'require',
-    schema: (ctx.flags.schema as string) || 'monobrain',
+    schema: (ctx.flags.schema as string) || 'monomind',
   };
 }
 
@@ -81,7 +81,7 @@ export const initCommand: Command = {
       short: 's',
       description: 'Schema name for RuVector tables',
       type: 'string',
-      default: 'monobrain',
+      default: 'monomind',
     },
     {
       name: 'force',
@@ -105,10 +105,10 @@ export const initCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain ruvector init -d mydb', description: 'Initialize with database name' },
-    { command: 'monobrain ruvector init -d mydb -h db.example.com --ssl', description: 'Remote with SSL' },
-    { command: 'monobrain ruvector init -d mydb --force', description: 'Force re-initialization' },
-    { command: 'monobrain ruvector init -d mydb --dimensions 768', description: 'Custom vector dimensions' },
+    { command: 'monomind ruvector init -d mydb', description: 'Initialize with database name' },
+    { command: 'monomind ruvector init -d mydb -h db.example.com --ssl', description: 'Remote with SSL' },
+    { command: 'monomind ruvector init -d mydb --force', description: 'Force re-initialization' },
+    { command: 'monomind ruvector init -d mydb --dimensions 768', description: 'Custom vector dimensions' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let config = getConnectionConfig(ctx);
@@ -489,9 +489,9 @@ export const initCommand: Command = {
         '  - GNN edge indexes',
         '',
         'Next steps:',
-        '  1. Run migrations: monobrain ruvector migrate --up',
-        '  2. Check status: monobrain ruvector status --verbose',
-        '  3. Run benchmark: monobrain ruvector benchmark',
+        '  1. Run migrations: monomind ruvector migrate --up',
+        '  2. Check status: monomind ruvector status --verbose',
+        '  3. Run benchmark: monomind ruvector benchmark',
       ].join('\n'), 'Initialization Complete');
 
       return {

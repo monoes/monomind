@@ -9,7 +9,7 @@
  *
  * Can be used from CLI, MCP tools, hooks, or programmatically.
  *
- * @module @monobrain/shared/services/v1-progress
+ * @module @monomind/shared/services/v1-progress
  */
 
 import { promises as fs, existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'fs';
@@ -112,8 +112,8 @@ export class ProgressService extends EventEmitter {
     super();
     this.projectRoot = options.projectRoot || process.cwd();
     this.packagesPath = join(this.projectRoot, 'v1');
-    this.cliPath = join(this.packagesPath, '@monobrain', 'cli', 'src');
-    this.metricsPath = options.outputPath || join(this.projectRoot, '.monobrain', 'metrics', 'v1-progress.json');
+    this.cliPath = join(this.packagesPath, '@monomind', 'cli', 'src');
+    this.metricsPath = options.outputPath || join(this.projectRoot, '.monomind', 'metrics', 'v1-progress.json');
   }
 
   /**
@@ -372,7 +372,7 @@ export class ProgressService extends EventEmitter {
     packages: { total: number; withDDD: number; target: number; list: string[] };
     ddd: { explicit: number; utility: number };
   }> {
-    const packagesPath = join(this.packagesPath, '@monobrain');
+    const packagesPath = join(this.packagesPath, '@monomind');
     const list: string[] = [];
     let explicit = 0;
     let utility = 0;
@@ -421,7 +421,7 @@ export class ProgressService extends EventEmitter {
   }
 
   private async countCodebase(): Promise<{ totalFiles: number; totalLines: number }> {
-    const monobrainPkgs = join(this.packagesPath, '@monobrain');
+    const monomindPkgs = join(this.packagesPath, '@monomind');
     let totalFiles = 0;
     let totalLines = 0;
 
@@ -445,7 +445,7 @@ export class ProgressService extends EventEmitter {
       } catch {}
     };
 
-    await countDir(monobrainPkgs);
+    await countDir(monomindPkgs);
 
     return {
       totalFiles: totalFiles || 419,

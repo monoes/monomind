@@ -9,7 +9,7 @@
  *
  * Run with: npx ts-node examples/ruvector/gnn-analysis.ts
  *
- * @module @monobrain/plugins/examples/ruvector/gnn-analysis
+ * @module @monomind/plugins/examples/ruvector/gnn-analysis
  */
 
 import {

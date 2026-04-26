@@ -8,14 +8,14 @@ Deep research through parallel information gathering.
 ### Using MCP Tools
 ```javascript
 // Initialize research swarm
-mcp__monobrain__swarm_init({
+mcp__monomind__swarm_init({
   "topology": "mesh",
   "maxAgents": 6,
   "strategy": "adaptive"
 })
 
 // Orchestrate research task
-mcp__monobrain__task_orchestrate({
+mcp__monomind__task_orchestrate({
   "task": "research topic X",
   "strategy": "parallel",
   "priority": "medium"
@@ -23,32 +23,32 @@ mcp__monobrain__task_orchestrate({
 ```
 
 ### Using CLI (Fallback)
-`npx monobrain swarm "research topic X" --strategy research`
+`npx monomind swarm "research topic X" --strategy research`
 
 ## Agent Roles
 
 ### Agent Spawning with MCP
 ```javascript
 // Spawn research agents
-mcp__monobrain__agent_spawn({
+mcp__monomind__agent_spawn({
   "type": "researcher",
   "name": "Web Researcher",
   "capabilities": ["web-search", "content-extraction", "source-validation"]
 })
 
-mcp__monobrain__agent_spawn({
+mcp__monomind__agent_spawn({
   "type": "researcher",
   "name": "Academic Researcher",
   "capabilities": ["paper-analysis", "citation-tracking", "literature-review"]
 })
 
-mcp__monobrain__agent_spawn({
+mcp__monomind__agent_spawn({
   "type": "analyst",
   "name": "Data Analyst",
   "capabilities": ["data-processing", "statistical-analysis", "visualization"]
 })
 
-mcp__monobrain__agent_spawn({
+mcp__monomind__agent_spawn({
   "type": "documenter",
   "name": "Report Writer",
   "capabilities": ["synthesis", "technical-writing", "formatting"]
@@ -60,7 +60,7 @@ mcp__monobrain__agent_spawn({
 ### Information Gathering
 ```javascript
 // Parallel information collection
-mcp__monobrain__parallel_execute({
+mcp__monomind__parallel_execute({
   "tasks": [
     { "id": "web-search", "command": "search recent publications" },
     { "id": "academic-search", "command": "search academic databases" },
@@ -69,7 +69,7 @@ mcp__monobrain__parallel_execute({
 })
 
 // Store research findings
-mcp__monobrain__memory_usage({
+mcp__monomind__memory_usage({
   "action": "store",
   "key": "research-findings-" + Date.now(),
   "value": JSON.stringify(findings),
@@ -81,18 +81,18 @@ mcp__monobrain__memory_usage({
 ### Analysis and Validation
 ```javascript
 // Pattern recognition in findings
-mcp__monobrain__pattern_recognize({
+mcp__monomind__pattern_recognize({
   "data": researchData,
   "patterns": ["trend", "correlation", "outlier"]
 })
 
 // Cognitive analysis
-mcp__monobrain__cognitive_analyze({
+mcp__monomind__cognitive_analyze({
   "behavior": "research-synthesis"
 })
 
 // Cross-reference validation
-mcp__monobrain__quality_assess({
+mcp__monomind__quality_assess({
   "target": "research-sources",
   "criteria": ["credibility", "relevance", "recency"]
 })
@@ -101,14 +101,14 @@ mcp__monobrain__quality_assess({
 ### Knowledge Management
 ```javascript
 // Search existing knowledge
-mcp__monobrain__memory_search({
+mcp__monomind__memory_search({
   "pattern": "topic X",
   "namespace": "research",
   "limit": 20
 })
 
 // Create knowledge connections
-mcp__monobrain__neural_patterns({
+mcp__monomind__neural_patterns({
   "action": "learn",
   "operation": "knowledge-graph",
   "metadata": {
@@ -121,7 +121,7 @@ mcp__monobrain__neural_patterns({
 ### Reporting
 ```javascript
 // Generate research report
-mcp__monobrain__workflow_execute({
+mcp__monomind__workflow_execute({
   "workflowId": "research-report-generation",
   "params": {
     "findings": findings,
@@ -130,7 +130,7 @@ mcp__monobrain__workflow_execute({
 })
 
 // Monitor progress
-mcp__monobrain__swarm_status({
+mcp__monomind__swarm_status({
   "swarmId": "research-swarm"
 })
 ```

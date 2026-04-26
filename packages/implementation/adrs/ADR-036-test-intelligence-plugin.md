@@ -18,7 +18,7 @@ Create a **Test Intelligence Plugin** that leverages RuVector WASM packages for 
 
 ## Plugin Name
 
-`@monobrain/plugin-test-intelligence`
+`@monomind/plugin-test-intelligence`
 
 ## Description
 

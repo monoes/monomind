@@ -3,8 +3,8 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { LatencyReporter } from '../../packages/@monobrain/hooks/src/observability/latency-reporter.js';
-import { TraceStore } from '../../packages/@monobrain/hooks/src/observability/trace.js';
+import { LatencyReporter } from '../../packages/@monomind/hooks/src/observability/latency-reporter.js';
+import { TraceStore } from '../../packages/@monomind/hooks/src/observability/trace.js';
 import { writeFileSync, mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -283,7 +283,7 @@ describe('LatencyReporter', () => {
 
   it('createLatencyReporter factory works', async () => {
     const { createLatencyReporter } = await import(
-      '../../packages/@monobrain/hooks/src/observability/latency-reporter.js'
+      '../../packages/@monomind/hooks/src/observability/latency-reporter.js'
     );
     const store = new TraceStore(tempDir);
     const reporter = createLatencyReporter(store, []);

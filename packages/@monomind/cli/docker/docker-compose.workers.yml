@@ -1,4 +1,4 @@
-# Docker Compose for Monobrain V1 Headless Worker Pool
+# Docker Compose for Monomind V1 Headless Worker Pool
 # ADR-020: Headless Worker Integration Architecture - Phase 3
 #
 # Usage:
@@ -10,15 +10,15 @@
 #   ANTHROPIC_API_KEY - Your Anthropic API key
 #
 # Optional:
-#   MONOBRAIN_WORKERS - Comma-separated list of workers to enable
-#   MONOBRAIN_SANDBOX - Sandbox mode (strict, permissive, disabled)
+#   MONOMIND_WORKERS - Comma-separated list of workers to enable
+#   MONOMIND_SANDBOX - Sandbox mode (strict, permissive, disabled)
 
 version: '3.8'
 
 services:
   # Worker Pool - Scalable headless worker containers
   worker-pool:
-    image: ghcr.io/nokhodian/monobrain-headless:latest
+    image: ghcr.io/nokhodian/monomind-headless:latest
     build:
       context: .
       dockerfile: Dockerfile.headless
@@ -38,17 +38,17 @@ services:
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - CLAUDE_CODE_HEADLESS=true
-      - CLAUDE_CODE_SANDBOX_MODE=${MONOBRAIN_SANDBOX:-strict}
-      - MONOBRAIN_WORKERS=${MONOBRAIN_WORKERS:-audit,optimize,testgaps}
+      - CLAUDE_CODE_SANDBOX_MODE=${MONOMIND_SANDBOX:-strict}
+      - MONOMIND_WORKERS=${MONOMIND_WORKERS:-audit,optimize,testgaps}
       - REDIS_URL=redis://redis:6379
       - NODE_ENV=production
     volumes:
       - workspace:/workspace:ro
-      - monobrain-state:/root/.monobrain
-      - worker-logs:/var/log/monobrain
-    command: npx monobrain@alpha daemon start --foreground --headless
+      - monomind-state:/root/.monomind
+      - worker-logs:/var/log/monomind
+    command: npx monomind@alpha daemon start --foreground --headless
     networks:
-      - monobrain-network
+      - monomind-network
     depends_on:
       redis:
         condition: service_healthy
@@ -61,7 +61,7 @@ services:
 
   # Queue Manager - Coordinates task distribution
   queue-manager:
-    image: ghcr.io/nokhodian/monobrain-headless:latest
+    image: ghcr.io/nokhodian/monomind-headless:latest
     build:
       context: .
       dockerfile: Dockerfile.headless
@@ -71,11 +71,11 @@ services:
       - MAX_WORKERS=${MAX_WORKERS:-10}
       - NODE_ENV=production
     volumes:
-      - monobrain-state:/root/.monobrain
+      - monomind-state:/root/.monomind
       - queue-logs:/var/log/queue-manager
-    command: npx monobrain@alpha queue manager --workers ${MAX_WORKERS:-10}
+    command: npx monomind@alpha queue manager --workers ${MAX_WORKERS:-10}
     networks:
-      - monobrain-network
+      - monomind-network
     depends_on:
       redis:
         condition: service_healthy
@@ -92,7 +92,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - monobrain-network
+      - monomind-network
     ports:
       - "6379:6379"
     healthcheck:
@@ -112,7 +112,7 @@ services:
     ports:
       - "9090:9090"
     networks:
-      - monobrain-network
+      - monomind-network
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -133,12 +133,12 @@ services:
     ports:
       - "3000:3000"
     networks:
-      - monobrain-network
+      - monomind-network
     depends_on:
       - metrics
 
 networks:
-  monobrain-network:
+  monomind-network:
     driver: bridge
     ipam:
       config:
@@ -151,7 +151,7 @@ volumes:
       type: none
       o: bind
       device: ${WORKSPACE_PATH:-.}
-  monobrain-state:
+  monomind-state:
   worker-logs:
   queue-logs:
   redis-data:

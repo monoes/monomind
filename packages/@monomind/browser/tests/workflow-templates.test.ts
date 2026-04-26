@@ -1,5 +1,5 @@
 /**
- * @monobrain/browser - Workflow Templates Tests
+ * @monomind/browser - Workflow Templates Tests
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';

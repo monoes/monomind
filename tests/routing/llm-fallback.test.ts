@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { LLMFallbackRouter } from '../../packages/@monobrain/routing/src/llm-fallback.js';
-import { RouteLayer } from '../../packages/@monobrain/routing/src/route-layer.js';
-import { buildCapabilityIndex, buildCandidateHints } from '../../packages/@monobrain/routing/src/capability-index.js';
-import { buildClassificationPrompt } from '../../packages/@monobrain/routing/src/prompts/classify.js';
-import { coreRoutes } from '../../packages/@monobrain/routing/src/routes/core.route.js';
-import type { Route } from '../../packages/@monobrain/routing/src/types.js';
+import { LLMFallbackRouter } from '../../packages/@monomind/routing/src/llm-fallback.js';
+import { RouteLayer } from '../../packages/@monomind/routing/src/route-layer.js';
+import { buildCapabilityIndex, buildCandidateHints } from '../../packages/@monomind/routing/src/capability-index.js';
+import { buildClassificationPrompt } from '../../packages/@monomind/routing/src/prompts/classify.js';
+import { coreRoutes } from '../../packages/@monomind/routing/src/routes/core.route.js';
+import type { Route } from '../../packages/@monomind/routing/src/types.js';
 
 const testRoutes: Route[] = [
   {

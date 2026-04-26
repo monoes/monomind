@@ -21,7 +21,7 @@
  * Human interventions are cryptographically signed using HMAC-SHA256 to
  * create an immutable audit trail of override decisions.
  *
- * @module @monobrain/guidance/authority
+ * @module @monomind/guidance/authority
  */
 import { createHmac, randomUUID } from 'node:crypto';
 import { timingSafeEqual } from './crypto-utils.js';

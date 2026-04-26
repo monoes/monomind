@@ -32,12 +32,12 @@ This guide shows how to integrate the hooks system with V1's event bus, event st
 ### Step 1: Initialize Core Components
 
 ```typescript
-import { createEventBus } from "@monobrain/shared/core";
+import { createEventBus } from "@monomind/shared/core";
 import {
   createHookRegistry,
   createHookExecutor,
-} from "@monobrain/shared/hooks";
-import { EventStore } from "@monobrain/shared/events";
+} from "@monomind/shared/hooks";
+import { EventStore } from "@monomind/shared/events";
 
 // Create core components
 const eventBus = createEventBus();
@@ -124,7 +124,7 @@ eventBus.on("hooks:error", async (event) => {
 ### Example: File Read with Hooks
 
 ```typescript
-import { HookEvent, HookContext } from "@monobrain/shared/hooks";
+import { HookEvent, HookContext } from "@monomind/shared/hooks";
 import { readFile } from "fs/promises";
 
 async function readFileWithHooks(filePath: string): Promise<string> {
@@ -194,7 +194,7 @@ async function readFileWithHooks(filePath: string): Promise<string> {
 ```typescript
 import { exec } from "child_process";
 import { promisify } from "util";
-import { HookEvent, HookContext } from "@monobrain/shared/hooks";
+import { HookEvent, HookContext } from "@monomind/shared/hooks";
 
 const execAsync = promisify(exec);
 
@@ -270,7 +270,7 @@ async function executeCommandWithHooks(
 ## Integration with Agent Lifecycle
 
 ```typescript
-import { HookEvent, HookContext } from "@monobrain/shared/hooks";
+import { HookEvent, HookContext } from "@monomind/shared/hooks";
 
 class AgentManager {
   async spawnAgent(type: string, config: Record<string, unknown>) {
@@ -361,7 +361,7 @@ class AgentManager {
 ## Integration with Session Management
 
 ```typescript
-import { HookEvent, HookContext } from "@monobrain/shared/hooks";
+import { HookEvent, HookContext } from "@monomind/shared/hooks";
 
 class SessionManager {
   async startSession(userId?: string) {
@@ -417,8 +417,8 @@ Hooks can be registered via plugins (ADR-004):
 
 ```typescript
 // v1/plugins/security-hooks/index.ts
-import { Plugin } from "@monobrain/shared";
-import { HookEvent, HookPriority } from "@monobrain/shared/hooks";
+import { Plugin } from "@monomind/shared";
+import { HookEvent, HookPriority } from "@monomind/shared/hooks";
 
 export default {
   name: "security-hooks",
@@ -459,7 +459,7 @@ export default {
 Expose hooks via MCP tools:
 
 ```typescript
-// packages/@monobrain/shared/src/mcp/tools/hooks.ts
+// packages/@monomind/shared/src/mcp/tools/hooks.ts
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 export const registerHookTool: Tool = {
@@ -517,7 +517,7 @@ export const getHookStatsTool: Tool = {
 Store all hook executions for audit trail:
 
 ```typescript
-import { EventStore } from "@monobrain/shared/events";
+import { EventStore } from "@monomind/shared/events";
 
 // Create event store
 const eventStore = new EventStore({
@@ -562,7 +562,7 @@ import {
   HookEvent,
   HookPriority,
   HookContext,
-} from "@monobrain/shared";
+} from "@monomind/shared";
 
 class V1ToolManager {
   private eventBus = createEventBus();

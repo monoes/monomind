@@ -2,7 +2,7 @@
 
 **Source:** https://gvisor.dev | https://dl.acm.org/doi/10.1145/3317550.3321422  
 **Category:** Container Security / OS Sandboxing  
-**Role in Monobrain:** Reducing Docker syscall surface for agent sandboxing
+**Role in Monomind:** Reducing Docker syscall surface for agent sandboxing
 
 ---
 
@@ -15,9 +15,9 @@ The gVisor paper (USENIX ATC 2019) formalized the threat model for multi-tenant 
 ## What We Extracted
 
 ### Reduced Syscall Surface for Agent Sandboxing
-When Monobrain runs agents in Docker containers (production deployments, isolated task execution), the default Docker runtime gives containers access to the full Linux syscall interface. A malicious or buggy agent could exploit obscure syscalls to escape the container or affect the host.
+When Monomind runs agents in Docker containers (production deployments, isolated task execution), the default Docker runtime gives containers access to the full Linux syscall interface. A malicious or buggy agent could exploit obscure syscalls to escape the container or affect the host.
 
-gVisor's `runsc` runtime is wired into Monobrain's `SandboxConfig` as an optional hardening layer:
+gVisor's `runsc` runtime is wired into Monomind's `SandboxConfig` as an optional hardening layer:
 
 ```
 SandboxConfig.use_gvisor = true
@@ -30,12 +30,12 @@ When enabled, `buildDockerArgs()` adds `--runtime=runsc` to the Docker run comma
 
 The tradeoff is ~10% throughput reduction in exchange for preventing kernel-level container escape.
 
-## How It Improved Monobrain
+## How It Improved Monomind
 
 gVisor addressed a hard security requirement: agents that can run bash commands are essentially untrusted code execution environments. Without syscall interposition, a compromised or adversarially-prompted agent could theoretically escalate privileges via kernel vulnerabilities. gVisor's threat model — treat the container runtime as a second security boundary — is the correct production security posture for autonomous agent systems.
 
 ## Key Files Influenced
 
-- `packages/@monobrain/security/src/sandbox-config.ts` — `use_gvisor` flag
-- `packages/@monobrain/cli/src/deployment/` — `buildDockerArgs()` runtime selection
+- `packages/@monomind/security/src/sandbox-config.ts` — `use_gvisor` flag
+- `packages/@monomind/cli/src/deployment/` — `buildDockerArgs()` runtime selection
 - Security documentation and deployment guides

@@ -6,11 +6,11 @@
  *
  * Features:
  * - Real HNSW indexing (M=16, efConstruction=200) for 150x+ faster search
- * - ONNX embeddings via @monobrain/embeddings (MiniLM-L6 384-dim)
+ * - ONNX embeddings via @monomind/embeddings (MiniLM-L6 384-dim)
  * - AgentDB backend for persistence
  * - Pattern promotion from short-term to long-term memory
  *
- * @module @monobrain/hooks/reasoningbank
+ * @module @monomind/hooks/reasoningbank
  */
 
 import { EventEmitter } from 'node:events';
@@ -121,7 +121,7 @@ const DEFAULT_CONFIG: ReasoningBankConfig = {
   promotionThreshold: 3,
   qualityThreshold: 0.6,
   dedupThreshold: 0.95,
-  dbPath: '.monobrain/memory.db',
+  dbPath: '.monomind/memory.db',
   useMockEmbeddings: false,
 };
 
@@ -292,13 +292,13 @@ export class ReasoningBank extends EventEmitter {
       }
     };
 
-    const memoryModule = await dynamicImport('@monobrain/memory');
+    const memoryModule = await dynamicImport('@monomind/memory');
     if (memoryModule) {
       AgentDBAdapter = memoryModule.AgentDBAdapter;
       HNSWIndex = memoryModule.HNSWIndex;
     }
 
-    const embeddingsModule = await dynamicImport('@monobrain/embeddings');
+    const embeddingsModule = await dynamicImport('@monomind/embeddings');
     if (embeddingsModule) {
       EmbeddingServiceImpl = embeddingsModule.createEmbeddingService;
     }
@@ -916,7 +916,7 @@ interface IEmbeddingService {
 }
 
 /**
- * Real embedding service using @monobrain/embeddings
+ * Real embedding service using @monomind/embeddings
  */
 class RealEmbeddingService implements IEmbeddingService {
   private service: any = null;

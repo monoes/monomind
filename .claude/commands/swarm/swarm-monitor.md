@@ -4,5 +4,5 @@ Command documentation for swarm-monitor in category swarm.
 
 Usage:
 ```bash
-npx monobrain swarm swarm-monitor [options]
+npx monomind swarm swarm-monitor [options]
 ```

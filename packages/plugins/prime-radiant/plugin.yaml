@@ -1,5 +1,5 @@
 # Prime Radiant Plugin Manifest
-# Mathematical AI Interpretability for Monobrain V1
+# Mathematical AI Interpretability for Monomind V1
 
 name: prime-radiant
 version: 0.1.3
@@ -10,8 +10,8 @@ description: |
 
 author: rUv
 license: MIT
-repository: https://github.com/nokhodian/monobrain
-documentation: https://github.com/nokhodian/monobrain/blob/main/v1/plugins/prime-radiant/README.md
+repository: https://github.com/nokhodian/monomind
+documentation: https://github.com/nokhodian/monomind/blob/main/v1/plugins/prime-radiant/README.md
 
 # Plugin metadata
 metadata:
@@ -35,15 +35,15 @@ domains:
   - coordination # Swarm stability analysis
   - hive-mind    # Consensus verification
 
-# Required Monobrain dependencies
+# Required Monomind dependencies
 dependencies:
   required:
-    - "@monobrain/memory": ">=3.0.0"
-    - "@monobrain/security": ">=3.0.0"
-    - "@monobrain/coordination": ">=3.0.0"
+    - "@monomind/memory": ">=3.0.0"
+    - "@monomind/security": ">=3.0.0"
+    - "@monomind/coordination": ">=3.0.0"
   optional:
-    - "@monobrain/embeddings": ">=3.0.0"  # For embedding generation
-    - "@monobrain/aidefence": ">=3.0.0"   # For enhanced threat detection
+    - "@monomind/embeddings": ">=3.0.0"  # For embedding generation
+    - "@monomind/aidefence": ">=3.0.0"   # For enhanced threat detection
 
 # Capabilities provided by this plugin
 capabilities:
@@ -678,7 +678,7 @@ implementation:
       files: 5
       estimatedLines: 475
       deliverables:
-        - Plugin registers with @monobrain/plugins SDK
+        - Plugin registers with @monomind/plugins SDK
         - Type-safe configuration
         - Basic lifecycle hooks
 

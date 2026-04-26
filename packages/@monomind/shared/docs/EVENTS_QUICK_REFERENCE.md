@@ -5,7 +5,7 @@ Fast reference guide for using the Event Store system.
 ## Installation
 
 ```bash
-cd packages/@monobrain/shared
+cd packages/@monomind/shared
 npm install
 ```
 
@@ -17,7 +17,7 @@ import {
   AgentStateProjection,
   createAgentSpawnedEvent,
   createTaskCompletedEvent,
-} from '@monobrain/shared/events';
+} from '@monomind/shared/events';
 
 // 1. Initialize
 const store = new EventStore({ databasePath: './events.db' });

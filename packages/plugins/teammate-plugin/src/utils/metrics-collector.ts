@@ -4,7 +4,7 @@
  * Collects and aggregates metrics for monitoring and
  * observability of teammate bridge operations.
  *
- * @module @monobrain/teammate-plugin/utils/metrics-collector
+ * @module @monomind/teammate-plugin/utils/metrics-collector
  */
 
 import type { BridgeMetrics, MetricSnapshot } from '../types.js';

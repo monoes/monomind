@@ -7,7 +7,7 @@
 
 ## Context
 
-The `@anthropic-ai/claude-code` package (v2.1.1) provides the official CLI for Claude AI. Deep integration with Claude Code enables enhanced developer experience for monobrain users. This ADR documents **undocumented integration points** discovered through source code analysis that are not covered in official documentation.
+The `@anthropic-ai/claude-code` package (v2.1.1) provides the official CLI for Claude AI. Deep integration with Claude Code enables enhanced developer experience for monomind users. This ADR documents **undocumented integration points** discovered through source code analysis that are not covered in official documentation.
 
 ### Analysis Methodology
 
@@ -121,22 +121,22 @@ interface PreToolUseOutput {
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "hooks": ["npx monobrain@latest hooks modify-bash"]
+        "hooks": ["npx monomind@latest hooks modify-bash"]
       },
       {
         "matcher": "Write|Edit",
-        "hooks": ["npx monobrain@latest hooks modify-file"]
+        "hooks": ["npx monomind@latest hooks modify-file"]
       }
     ],
     "PostToolUse": [
       {
         "matcher": ".*",
-        "hooks": ["npx monobrain@latest hooks post-command"]
+        "hooks": ["npx monomind@latest hooks post-command"]
       }
     ],
     "UserPromptSubmit": [
       {
-        "hooks": ["npx monobrain@latest hooks route --task \"$PROMPT\""]
+        "hooks": ["npx monomind@latest hooks route --task \"$PROMPT\""]
       }
     ]
   }
@@ -239,9 +239,9 @@ MCP servers can have per-tool access control:
 ```json
 {
   "mcpServers": {
-    "monobrain": {
+    "monomind": {
       "command": "npx",
-      "args": ["monobrain@latest", "mcp", "start"],
+      "args": ["monomind@latest", "mcp", "start"],
       "allowlist": [
         "swarm_init",
         "agent_spawn",
@@ -403,7 +403,7 @@ export async function configureIntegration(options: {
 
   // Add MCP server if requested
   if (options.enableMcp && status.configPath) {
-    await exec(`claude mcp add ${options.mcpServerName || 'monobrain'} npx monobrain@latest mcp start`);
+    await exec(`claude mcp add ${options.mcpServerName || 'monomind'} npx monomind@latest mcp start`);
   }
 }
 ```
@@ -414,7 +414,7 @@ export async function configureIntegration(options: {
 // src/claude-code/hooks.ts
 
 /**
- * Install monobrain hooks into Claude Code settings
+ * Install monomind hooks into Claude Code settings
  */
 export async function installHooks(): Promise<void> {
   const status = await detectClaudeCode();
@@ -436,7 +436,7 @@ export async function installHooks(): Promise<void> {
   if (!bashHook) {
     settings.hooks.PreToolUse.push({
       matcher: 'Bash',
-      hooks: ['npx monobrain@latest hooks modify-bash']
+      hooks: ['npx monomind@latest hooks modify-bash']
     });
   }
 
@@ -448,24 +448,24 @@ export async function installHooks(): Promise<void> {
 
 ## CLI Integration Commands
 
-### `monobrain setup claude-code`
+### `monomind setup claude-code`
 
 ```bash
 # Auto-detect and configure integration
-npx monobrain@latest setup claude-code
+npx monomind@latest setup claude-code
 
 # Options:
 #   --hooks         Install hooks into Claude Code settings
-#   --mcp           Register monobrain MCP server
+#   --mcp           Register monomind MCP server
 #   --agents        Install custom agent definitions
 #   --verify        Verify integration status
 ```
 
-### `monobrain doctor --claude-code`
+### `monomind doctor --claude-code`
 
 ```bash
 # Check Claude Code integration health
-npx monobrain@latest doctor --claude-code
+npx monomind@latest doctor --claude-code
 
 # Output:
 # ✓ Claude Code installed (v2.1.1)
@@ -492,9 +492,9 @@ Hooks execute with user permissions. Recommendations:
 // Recommended MCP server configuration
 {
   "mcpServers": {
-    "monobrain": {
+    "monomind": {
       "command": "npx",
-      "args": ["monobrain@latest", "mcp", "start"],
+      "args": ["monomind@latest", "mcp", "start"],
       // Restrict to safe tools only
       "allowlist": [
         "memory_*",
@@ -664,13 +664,13 @@ Added `--start-all` flag to `init` command for complete project initialization:
 
 ```bash
 # Initialize project AND start all services
-npx @monobrain/cli@latest init --start-all
+npx @monomind/cli@latest init --start-all
 
 # Equivalent to running:
-# 1. npx @monobrain/cli@latest init
-# 2. npx @monobrain/cli@latest memory init
-# 3. npx @monobrain/cli@latest daemon start
-# 4. npx @monobrain/cli@latest swarm init --topology hierarchical
+# 1. npx @monomind/cli@latest init
+# 2. npx @monomind/cli@latest memory init
+# 3. npx @monomind/cli@latest daemon start
+# 4. npx @monomind/cli@latest swarm init --topology hierarchical
 ```
 
 **Flags added:**
@@ -679,7 +679,7 @@ npx @monobrain/cli@latest init --start-all
 
 This simplifies the Claude Code integration setup from multiple commands to a single invocation.
 
-**CLI Version:** `@monobrain/cli@3.0.0-alpha.56`
+**CLI Version:** `@monomind/cli@3.0.0-alpha.56`
 
 ---
 

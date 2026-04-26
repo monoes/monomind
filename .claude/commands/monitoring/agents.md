@@ -5,7 +5,7 @@
 
 ## MCP Tool Usage in Claude Code
 
-**Tool:** `mcp__monobrain__agent_list`
+**Tool:** `mcp__monomind__agent_list`
 
 ## Parameters
 ```json
@@ -27,9 +27,9 @@ Filters:
 ## Example Usage
 
 **In Claude Code:**
-1. List all agents: Use tool `mcp__monobrain__agent_list`
-2. Get specific agent metrics: Use tool `mcp__monobrain__agent_metrics` with parameters `{"agentId": "coder-123"}`
-3. Monitor agent performance: Use tool `mcp__monobrain__swarm_monitor` with parameters `{"interval": 2000}`
+1. List all agents: Use tool `mcp__monomind__agent_list`
+2. Get specific agent metrics: Use tool `mcp__monomind__agent_metrics` with parameters `{"agentId": "coder-123"}`
+3. Monitor agent performance: Use tool `mcp__monomind__swarm_monitor` with parameters `{"interval": 2000}`
 
 ## Important Reminders
 - ✅ This tool provides coordination and structure

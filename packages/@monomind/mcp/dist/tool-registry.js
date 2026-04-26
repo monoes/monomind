@@ -1,5 +1,5 @@
 /**
- * @monobrain/mcp - Tool Registry
+ * @monomind/mcp - Tool Registry
  *
  * High-performance tool management with O(1) lookup
  */

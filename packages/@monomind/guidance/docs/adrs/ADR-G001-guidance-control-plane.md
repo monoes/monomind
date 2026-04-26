@@ -20,11 +20,11 @@ Claude Code loads `CLAUDE.md` into its context window as a system prompt at sess
 
 These limitations compound in autonomous agent scenarios (swarms, long-running daemon tasks) where human oversight is intermittent and context windows are shared across sub-agents.
 
-The existing Monobrain v1 infrastructure provides hooks (`pre-edit`, `pre-command`, `post-task`), a memory subsystem (AgentDB + HNSW), and a headless execution mode (`claude -p --output-format json`). A control plane can leverage all three without modifying Claude Code itself.
+The existing Monomind v1 infrastructure provides hooks (`pre-edit`, `pre-command`, `post-task`), a memory subsystem (AgentDB + HNSW), and a headless execution mode (`claude -p --output-format json`). A control plane can leverage all three without modifying Claude Code itself.
 
 ## Decision
 
-Build a separate package, `@monobrain/guidance`, that runs **beside** Claude Code as a parallel control plane. The control plane has five components:
+Build a separate package, `@monomind/guidance`, that runs **beside** Claude Code as a parallel control plane. The control plane has five components:
 
 1. **Compiler** (`GuidanceCompiler` in `src/compiler.ts`) -- Parses `CLAUDE.md` and optional `CLAUDE.local.md` into a `PolicyBundle` containing a constitution, rule shards, and a machine-readable manifest. The compiler extracts rule IDs, risk classes, tool classes, intent tags, repo scopes, domain tags, verifiers, and priority annotations using deterministic regex patterns.
 
@@ -74,11 +74,11 @@ Route all enforcement through MCP server endpoints. Rejected for latency reasons
 
 ## References
 
-- `packages/@monobrain/guidance/src/index.ts` -- `GuidanceControlPlane` orchestrator class
-- `packages/@monobrain/guidance/src/compiler.ts` -- `GuidanceCompiler`
-- `packages/@monobrain/guidance/src/retriever.ts` -- `ShardRetriever`
-- `packages/@monobrain/guidance/src/gates.ts` -- `EnforcementGates`
-- `packages/@monobrain/guidance/src/ledger.ts` -- `RunLedger`
-- `packages/@monobrain/guidance/src/optimizer.ts` -- `OptimizerLoop`
-- `packages/@monobrain/guidance/src/headless.ts` -- `HeadlessRunner`
-- `packages/@monobrain/guidance/src/types.ts` -- All type definitions
+- `packages/@monomind/guidance/src/index.ts` -- `GuidanceControlPlane` orchestrator class
+- `packages/@monomind/guidance/src/compiler.ts` -- `GuidanceCompiler`
+- `packages/@monomind/guidance/src/retriever.ts` -- `ShardRetriever`
+- `packages/@monomind/guidance/src/gates.ts` -- `EnforcementGates`
+- `packages/@monomind/guidance/src/ledger.ts` -- `RunLedger`
+- `packages/@monomind/guidance/src/optimizer.ts` -- `OptimizerLoop`
+- `packages/@monomind/guidance/src/headless.ts` -- `HeadlessRunner`
+- `packages/@monomind/guidance/src/types.ts` -- All type definitions

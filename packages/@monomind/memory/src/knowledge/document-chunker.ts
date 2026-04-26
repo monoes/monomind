@@ -2,7 +2,7 @@
  * Document chunker for per-agent knowledge base.
  * Splits documents into overlapping text chunks, preferring paragraph boundaries.
  *
- * @module @monobrain/memory/knowledge/document-chunker
+ * @module @monomind/memory/knowledge/document-chunker
  */
 
 export interface TextChunk {

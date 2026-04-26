@@ -2,7 +2,7 @@
 
 **Status:** Accepted — Sprint 1+2 Verified
 **Date:** 2026-03-05 (updated 2026-03-05)
-**Author:** monobrain
+**Author:** monomind
 **Supersedes:** Remaining items from ADR-059
 
 ## Context
@@ -51,7 +51,7 @@ ADR-059 triaged 30 open issues and 11 were fixed in v1.5.3 (PR #1297, #1298). Th
 - **Effort:** Medium.
 - **Status:** ✅ **FIXED** in v1.5.6. Added SIGHUP handler (`process.on('SIGHUP', () => {})`) in foreground daemon mode. PID file now written after `child.unref()` + 100ms delay to prevent race condition.
 
-### 4. auto-memory-hook.mjs fails to resolve @monobrain/memory (#1287)
+### 4. auto-memory-hook.mjs fails to resolve @monomind/memory (#1287)
 
 - **Impact:** Auto-memory import fails when installed as nested dependency (npx, monorepos). Memory persistence across sessions is broken.
 - **Root cause:** ES module import resolution doesn't traverse node_modules correctly from hook context.
@@ -98,7 +98,7 @@ ADR-059 triaged 30 open issues and 11 were fixed in v1.5.3 (PR #1297, #1298). Th
 - **Effort:** Trivial.
 - **Status:** ✅ **FIXED** in PR #1300 (v1.5.4). Added `.unref()` to 6 `setInterval` calls across `mcp-server.ts`, `output.ts`, `worker-queue.ts`, `container-worker-pool.ts`.
 
-### 10. Zero swarms always: `monobrain spawn hive-mind --claude` (#1279)
+### 10. Zero swarms always: `monomind spawn hive-mind --claude` (#1279)
 
 - **Impact:** Hive-mind spawning returns zero agents. Multi-agent feature is non-functional via CLI.
 - **Fix:** Debug agent spawn path — likely missing topology init or agent pool connection.
@@ -138,7 +138,7 @@ ADR-059 triaged 30 open issues and 11 were fixed in v1.5.3 (PR #1297, #1298). Th
 
 ### 16. npm ECOMPROMISED cache corruption (#1231)
 
-- **Impact:** Some users get ECOMPROMISED errors on `npx monobrain`. Related to the removed preinstall script.
+- **Impact:** Some users get ECOMPROMISED errors on `npx monomind`. Related to the removed preinstall script.
 - **Fix:** Document cache clear workaround: `npm cache clean --force`. The preinstall removal in v1.5.3 should prevent new occurrences.
 - **Effort:** Trivial — documentation only.
 
@@ -175,7 +175,7 @@ ADR-059 triaged 30 open issues and 11 were fixed in v1.5.3 (PR #1297, #1298). Th
 
 - **Type:** Feature request for convenience alias.
 
-### 23. ADR-058: Self-Contained monobrain.rvf Appliance (#1245)
+### 23. ADR-058: Self-Contained monomind.rvf Appliance (#1245)
 
 - **Type:** Enhancement. Phase 3-4 implementation exists.
 
@@ -250,11 +250,11 @@ ADR-059 triaged 30 open issues and 11 were fixed in v1.5.3 (PR #1297, #1298). Th
 | 1   | #1282 — Windows daemon     | Platform-aware spawn: `windowsHide`, `shell: true` on Win; no `detached` on Win         |
 | 3   | #1283 — macOS daemon       | SIGHUP handler ignores terminal close; PID written after `unref()` + 100ms delay        |
 | 5   | #1291 — Settings-generator | Added `PostToolUse:Bash`, `PreToolUse:Write\|Edit`, `SubagentEnd`, `Notification` hooks |
-| —   | Daemon branding            | "Worker Daemon" → "MonoBrain Daemon" in 3 status displays                               |
+| —   | Daemon branding            | "Worker Daemon" → "MonoMind Daemon" in 3 status displays                               |
 
 ### V1.0.0 (2026-03-05) — Branding Sweep
 
-All "Monobrain V1" → "MonoBrain V1" across 30+ files (CLI source, helpers, statusline).
+All "Monomind V1" → "MonoMind V1" across 30+ files (CLI source, helpers, statusline).
 
 ### v1.5.4 (2026-03-05) — Sprint 1: Intelligence Pipeline
 

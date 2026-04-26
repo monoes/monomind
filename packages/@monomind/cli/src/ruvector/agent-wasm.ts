@@ -8,7 +8,7 @@
  * Published API (v0.1.0): WasmAgent, WasmGallery, WasmMcpServer,
  * WasmRvfBuilder, JsModelProvider, initSync.
  *
- * @module @monobrain/cli/ruvector/agent-wasm
+ * @module @monomind/cli/ruvector/agent-wasm
  */
 
 import { readFileSync } from 'node:fs';

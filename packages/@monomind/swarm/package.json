@@ -1,5 +1,5 @@
 {
-  "name": "@monobrain/swarm",
+  "name": "@monomind/swarm",
   "version": "1.0.0",
   "type": "module",
   "description": "Standalone swarm coordination - up to 100+ agents, 4 topologies, hive-mind, consensus",

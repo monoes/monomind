@@ -8,7 +8,7 @@
  *   {dirPath}/versions.jsonl  - one PromptVersion JSON per line
  *   {dirPath}/experiments.jsonl - one PromptExperiment JSON per line
  *
- * @module @monobrain/memory/prompt-version-store
+ * @module @monomind/memory/prompt-version-store
  */
 export interface PromptVersion {
     agentSlug: string;

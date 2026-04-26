@@ -1,6 +1,6 @@
 # Github Commands
 
-Commands for github operations in Monobrain.
+Commands for github operations in Monomind.
 
 ## Available Commands
 

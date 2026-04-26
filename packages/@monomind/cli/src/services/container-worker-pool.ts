@@ -123,7 +123,7 @@ export interface ContainerPoolStatus {
 const DEFAULT_CONFIG: ContainerPoolConfig = {
   maxContainers: 3,
   minContainers: 1,
-  image: 'ghcr.io/nokhodian/monobrain-headless:latest',
+  image: 'ghcr.io/nokhodian/monomind-headless:latest',
   resources: {
     cpus: '2',
     memory: '4g',
@@ -131,7 +131,7 @@ const DEFAULT_CONFIG: ContainerPoolConfig = {
   healthCheckIntervalMs: 30000,
   idleTimeoutMs: 300000, // 5 minutes
   workspacePath: '/workspace',
-  statePath: '.monobrain/container-pool',
+  statePath: '.monomind/container-pool',
   defaultSandbox: 'strict',
 };
 
@@ -392,7 +392,7 @@ export class ContainerWorkerPool extends EventEmitter {
    */
   private async createContainer(): Promise<ContainerInfo | null> {
     const id = `cf-worker-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const name = `monobrain-worker-${id}`;
+    const name = `monomind-worker-${id}`;
 
     const containerInfo: ContainerInfo = {
       id,
@@ -414,7 +414,7 @@ export class ContainerWorkerPool extends EventEmitter {
         '--cpus', this.config.resources.cpus,
         '--memory', this.config.resources.memory,
         '-v', `${this.projectRoot}:${this.config.workspacePath}:ro`,
-        '-v', `${join(this.projectRoot, this.config.statePath)}:/root/.monobrain`,
+        '-v', `${join(this.projectRoot, this.config.statePath)}:/root/.monomind`,
         '-w', this.config.workspacePath,
       ];
 
@@ -634,9 +634,9 @@ export class ContainerWorkerPool extends EventEmitter {
    * Build worker command for container execution
    */
   private buildWorkerCommand(options: ContainerExecutionOptions): string[] {
-    // Use npx to run monobrain daemon trigger
+    // Use npx to run monomind daemon trigger
     return [
-      'npx', 'monobrain@latest',
+      'npx', 'monomind@latest',
       'daemon', 'trigger',
       '-w', options.workerType,
       '--headless',

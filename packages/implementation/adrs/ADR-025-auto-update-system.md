@@ -1,4 +1,4 @@
-# ADR-025: Auto-Update System for @monobrain Packages
+# ADR-025: Auto-Update System for @monomind Packages
 
 ## Status
 **Implemented** - 2026-01-13
@@ -14,16 +14,16 @@
 | CLI Commands | `src/commands/update.ts` | ~340 |
 | Startup Integration | `src/index.ts` | ~20 |
 
-**Published:** @monobrain/cli@3.0.0-alpha.83
+**Published:** @monomind/cli@3.0.0-alpha.83
 
 ## Context
 
-The Monobrain V1 ecosystem consists of multiple packages:
-- `@monobrain/cli` - Main CLI tool
-- `@monobrain/embeddings` - Vector embeddings
-- `@monobrain/security` - Security utilities
-- `@monobrain/integration` - agentic-flow integration
-- `@monobrain/testing` - Test utilities
+The Monomind V1 ecosystem consists of multiple packages:
+- `@monomind/cli` - Main CLI tool
+- `@monomind/embeddings` - Vector embeddings
+- `@monomind/security` - Security utilities
+- `@monomind/integration` - agentic-flow integration
+- `@monomind/testing` - Test utilities
 
 When one package is updated, dependent packages may need updates for compatibility. Currently, users must manually check for updates, leading to:
 - Version mismatches causing runtime errors
@@ -55,10 +55,10 @@ Implement an **auto-update system** that:
 
 | Priority | Packages | Auto-Update |
 |----------|----------|-------------|
-| Critical | `@monobrain/security` | Always (patches) |
-| High | `@monobrain/cli` | Minor + Patch |
-| Normal | `@monobrain/embeddings`, `@monobrain/integration` | Patch only |
-| Low | `@monobrain/testing` | Notify only |
+| Critical | `@monomind/security` | Always (patches) |
+| High | `@monomind/cli` | Minor + Patch |
+| Normal | `@monomind/embeddings`, `@monomind/integration` | Patch only |
+| Low | `@monomind/testing` | Notify only |
 
 ## Implementation
 
@@ -129,7 +129,7 @@ interface RateLimitState {
   packageVersions: Record<string, string>;
 }
 
-// Stored in: ~/.monobrain/update-state.json
+// Stored in: ~/.monomind/update-state.json
 ```
 
 #### 3. PackageValidator (`src/update/validator.ts`)
@@ -148,10 +148,10 @@ interface ValidationResult {
 ```
 1. CLI Start
    │
-   ├─► Check rate limit cache (~/.monobrain/update-state.json)
+   ├─► Check rate limit cache (~/.monomind/update-state.json)
    │   └─► If checked within 24h AND no --force-update → Skip
    │
-   ├─► Query npm registry for @monobrain/* packages
+   ├─► Query npm registry for @monomind/* packages
    │   └─► Compare versions using semver
    │
    ├─► For each package with available update:
@@ -160,45 +160,45 @@ interface ValidationResult {
    │   └─► Determine if auto-update applies
    │
    ├─► Execute auto-updates (if any)
-   │   ├─► npm install @monobrain/package@version
+   │   ├─► npm install @monomind/package@version
    │   ├─► Verify installation success
    │   └─► Log to update history
    │
    └─► Display notification for non-auto updates
-       └─► "Run `npx monobrain update` to update X packages"
+       └─► "Run `npx monomind update` to update X packages"
 ```
 
 ### CLI Commands
 
 ```bash
 # Check for updates (manual)
-npx monobrain update check
+npx monomind update check
 
 # Update all packages
-npx monobrain update all
+npx monomind update all
 
 # Update specific package
-npx monobrain update @monobrain/embeddings
+npx monomind update @monomind/embeddings
 
 # View update history
-npx monobrain update history
+npx monomind update history
 
 # Rollback last update
-npx monobrain update rollback
+npx monomind update rollback
 
 # Configure auto-update
-npx monobrain config set update.autoUpdateMinor true
-npx monobrain config set update.checkIntervalHours 12
+npx monomind config set update.autoUpdateMinor true
+npx monomind config set update.checkIntervalHours 12
 ```
 
 ### Environment Variables
 
 ```bash
 # Disable auto-update entirely
-MONOBRAIN_AUTO_UPDATE=false
+MONOMIND_AUTO_UPDATE=false
 
 # Force update check
-MONOBRAIN_FORCE_UPDATE=true
+MONOMIND_FORCE_UPDATE=true
 
 # CI/CD mode (no interactive prompts, no auto-update)
 CI=true
@@ -207,7 +207,7 @@ CI=true
 ### Configuration File
 
 ```json
-// monobrain.config.json
+// monomind.config.json
 {
   "update": {
     "enabled": true,
@@ -218,11 +218,11 @@ CI=true
       "major": false
     },
     "priority": {
-      "@monobrain/security": "critical",
-      "@monobrain/cli": "high",
-      "@monobrain/embeddings": "normal",
-      "@monobrain/integration": "normal",
-      "@monobrain/testing": "low"
+      "@monomind/security": "critical",
+      "@monomind/cli": "high",
+      "@monomind/embeddings": "normal",
+      "@monomind/integration": "normal",
+      "@monomind/testing": "low"
     },
     "exclude": []
   }

@@ -68,14 +68,14 @@ class MockAQEPlugin {
     this.metadata = Object.freeze({
       name: 'agentic-qe',
       version: '3.2.3',
-      description: 'Quality Engineering plugin for Monobrain',
+      description: 'Quality Engineering plugin for Monomind',
       author: 'rUv',
       license: 'MIT',
       dependencies: [
-        '@monobrain/plugins',
-        '@monobrain/memory',
-        '@monobrain/security',
-        '@monobrain/embeddings',
+        '@monomind/plugins',
+        '@monomind/memory',
+        '@monomind/security',
+        '@monomind/embeddings',
       ],
       tags: ['testing', 'quality', 'coverage', 'security', 'tdd'],
       minCoreVersion: '3.0.0-alpha.50',
@@ -321,9 +321,9 @@ describe('AQEPlugin', () => {
     });
 
     it('should have required dependencies', () => {
-      expect(plugin.metadata.dependencies).toContain('@monobrain/plugins');
-      expect(plugin.metadata.dependencies).toContain('@monobrain/memory');
-      expect(plugin.metadata.dependencies).toContain('@monobrain/security');
+      expect(plugin.metadata.dependencies).toContain('@monomind/plugins');
+      expect(plugin.metadata.dependencies).toContain('@monomind/memory');
+      expect(plugin.metadata.dependencies).toContain('@monomind/security');
     });
 
     it('should have expected tags', () => {

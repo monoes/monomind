@@ -1,5 +1,5 @@
 /**
- * @monobrain/mcp - Standalone MCP Server
+ * @monomind/mcp - Standalone MCP Server
  *
  * Zero-dependency MCP (Model Context Protocol) implementation
  *
@@ -11,7 +11,7 @@
  * - Session management with timeout handling
  * - Comprehensive metrics and monitoring
  *
- * @module @monobrain/mcp
+ * @module @monomind/mcp
  * @version 3.0.0
  */
 export type { JsonRpcVersion, RequestId, MCPMessage, MCPRequest, MCPResponse, MCPNotification, MCPError, TransportType, AuthMethod, AuthConfig, LoadBalancerConfig, ConnectionPoolConfig, MCPServerConfig, SessionState, MCPSession, MCPClientInfo, MCPCapabilities, MCPProtocolVersion, MCPInitializeParams, MCPInitializeResult, JSONSchema, ToolContext, ToolHandler, MCPTool, ToolCallResult, ToolRegistrationOptions, RequestHandler, NotificationHandler, TransportHealthStatus, ITransport, ConnectionState, PooledConnection, ConnectionPoolStats, IConnectionPool, ToolCallMetrics, MCPServerMetrics, SessionMetrics, MCPEventType, MCPEvent, EventHandler, LogLevel, ILogger, MCPResource, ResourceContent, ResourceTemplate, ResourceListResult, ResourceReadResult, PromptArgument, MCPPrompt, PromptRole, ContentAnnotations, TextContent, ImageContent, AudioContent, EmbeddedResource, PromptContent, PromptMessage, PromptListResult, PromptGetResult, TaskState, MCPTask, TaskProgress, TaskResult, PaginatedRequest, PaginatedResult, ProgressNotification, CancellationParams, SamplingMessage, ModelPreferences, CreateMessageRequest, CreateMessageResult, Root, RootsListResult, MCPLogLevel, LoggingMessage, CompletionReference, CompletionArgument, CompletionResult, } from './types.js';
@@ -46,7 +46,7 @@ import type { MCPServerConfig, ILogger } from './types.js';
  *
  * @example
  * ```typescript
- * import { quickStart } from '@monobrain/mcp';
+ * import { quickStart } from '@monomind/mcp';
  *
  * const server = await quickStart({
  *   transport: 'stdio',
@@ -71,5 +71,5 @@ export declare const VERSION = "3.0.0";
 /**
  * Module name
  */
-export declare const MODULE_NAME = "@monobrain/mcp";
+export declare const MODULE_NAME = "@monomind/mcp";
 //# sourceMappingURL=index.d.ts.map

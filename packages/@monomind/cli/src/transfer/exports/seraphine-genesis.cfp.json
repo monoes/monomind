@@ -2,13 +2,13 @@
   "magic": "CFP1",
   "version": "1.0.0",
   "createdAt": "2026-01-08T18:42:43.016Z",
-  "generatedBy": "monobrain@3.0.0-alpha",
+  "generatedBy": "monomind@3.0.0-alpha",
   "metadata": {
     "id": "2f7e59c0-af7d-45c8-af9c-4725c6e47e9f",
     "name": "seraphine-genesis",
-    "description": "The foundational Monobrain pattern model. Contains core routing patterns, complexity heuristics, and coordination trajectories for multi-agent swarms.",
+    "description": "The foundational Monomind pattern model. Contains core routing patterns, complexity heuristics, and coordination trajectories for multi-agent swarms.",
     "author": {
-      "id": "monobrain-team",
+      "id": "monomind-team",
       "verified": false
     },
     "license": "MIT",
@@ -22,7 +22,7 @@
       "hello-world"
     ],
     "language": "typescript",
-    "framework": "monobrain",
+    "framework": "monomind",
     "createdAt": "2026-01-08T18:42:43.016Z",
     "updatedAt": "2026-01-08T18:42:43.016Z"
   },
@@ -321,7 +321,7 @@
         "id": "custom-hello-world",
         "type": "greeting",
         "data": {
-          "message": "Hello, World! Welcome to Monobrain pattern sharing.",
+          "message": "Hello, World! Welcome to Monomind pattern sharing.",
           "version": "1.0.0",
           "genesis": true
         },

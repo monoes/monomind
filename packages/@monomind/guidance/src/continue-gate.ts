@@ -26,7 +26,7 @@
  * - pause: Agent should stop and await human review
  * - stop: Agent must halt immediately
  *
- * @module @monobrain/guidance/continue-gate
+ * @module @monomind/guidance/continue-gate
  */
 
 import { randomUUID } from 'node:crypto';

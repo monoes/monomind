@@ -68,8 +68,8 @@ const getCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain config get swarm.topology', description: 'Get swarm topology' },
-    { command: 'monobrain config get -k memory.backend', description: 'Get memory backend' }
+    { command: 'monomind config get swarm.topology', description: 'Get swarm topology' },
+    { command: 'monomind config get -k memory.backend', description: 'Get memory backend' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const key = ctx.flags.key as string || ctx.args[0];
@@ -148,8 +148,8 @@ const setCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain config set swarm.maxAgents 20', description: 'Set max agents' },
-    { command: 'monobrain config set -k memory.backend -v agentdb', description: 'Set memory backend' }
+    { command: 'monomind config set swarm.maxAgents 20', description: 'Set max agents' },
+    { command: 'monomind config set -k memory.backend -v agentdb', description: 'Set memory backend' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const key = ctx.flags.key as string || ctx.args[0];
@@ -354,7 +354,7 @@ const exportCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
-      const exportPath = (ctx.flags.output as string) || ctx.args[0] || 'monobrain.config.export.json';
+      const exportPath = (ctx.flags.output as string) || ctx.args[0] || 'monomind.config.export.json';
       configManager.exportTo(ctx.cwd, exportPath);
       const resolved = path.resolve(ctx.cwd, exportPath);
       output.writeln(`Configuration exported to: ${resolved}`);
@@ -413,15 +413,15 @@ export const configCommand: Command = {
   subcommands: [initCommand, getCommand, setCommand, providersCommand, resetCommand, exportCommand, importCommand],
   options: [],
   examples: [
-    { command: 'monobrain config init --v1', description: 'Initialize v1 config' },
-    { command: 'monobrain config get swarm.topology', description: 'Get config value' },
-    { command: 'monobrain config set swarm.maxAgents 20', description: 'Set config value' }
+    { command: 'monomind config init --v1', description: 'Initialize v1 config' },
+    { command: 'monomind config get swarm.topology', description: 'Get config value' },
+    { command: 'monomind config set swarm.maxAgents 20', description: 'Set config value' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold('Configuration Management'));
     output.writeln();
-    output.writeln('Usage: monobrain config <subcommand> [options]');
+    output.writeln('Usage: monomind config <subcommand> [options]');
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([

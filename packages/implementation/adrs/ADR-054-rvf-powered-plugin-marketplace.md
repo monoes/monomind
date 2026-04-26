@@ -2,15 +2,15 @@
 
 **Status:** Proposed
 **Date:** 2026-02-25
-**Authors:** RuvNet, Monobrain Team
+**Authors:** RuvNet, Monomind Team
 **Version:** 1.0.0
 **Related:** ADR-053 (Controller Activation), ADR-006 (Unified Memory), ADR-009 (Hybrid Memory Backend), ADR-049 (Self-Learning Memory GNN), ADR-050 (Intelligence Loop)
 
 ## Context
 
-The Monobrain plugin ecosystem currently comprises 20 plugins distributed via IPFS (Pinata), discovered through a static JSON registry (`QmXbfEAaR7D2Ujm4GAkbwcGZQMHqAMpwDoje4583uNP834`), and searched via keyword substring matching. While functional, this approach has critical limitations as the ecosystem grows:
+The Monomind plugin ecosystem currently comprises 20 plugins distributed via IPFS (Pinata), discovered through a static JSON registry (`QmXbfEAaR7D2Ujm4GAkbwcGZQMHqAMpwDoje4583uNP834`), and searched via keyword substring matching. While functional, this approach has critical limitations as the ecosystem grows:
 
-1. **Search is keyword-only** — `searchPlugins()` in `search.ts` does case-insensitive substring matching across name, description, tags, keywords. A query like "I need permission management" won't find `@monobrain/claims` unless the user knows the exact term "claims."
+1. **Search is keyword-only** — `searchPlugins()` in `search.ts` does case-insensitive substring matching across name, description, tags, keywords. A query like "I need permission management" won't find `@monomind/claims` unless the user knows the exact term "claims."
 
 2. **Recommendations are primitive** — `findSimilarPlugins()` uses a static scoring formula: tag overlap (2x) + category match (3x) + type match (2x) + author match (1x). No learning from actual install patterns.
 
@@ -18,7 +18,7 @@ The Monobrain plugin ecosystem currently comprises 20 plugins distributed via IP
 
 4. **Static popularity** — Downloads and ratings are baked into the registry JSON at publish time. No real-time trending, no decay.
 
-5. **No behavioral context** — The system cannot observe that a developer working on security tasks should be shown security plugins, or that users who install `@monobrain/security` almost always also install `@monobrain/claims`.
+5. **No behavioral context** — The system cannot observe that a developer working on security tasks should be shown security plugins, or that users who install `@monomind/security` almost always also install `@monomind/claims`.
 
 Meanwhile, AgentDB v1 (activated in ADR-053) provides a full RuVector Framework (RVF) stack — 13 active controllers with HNSW vector search, graph databases, causal inference, learning systems, skill libraries, and proof-gated mutations — all currently with **zero plugin system consumers**.
 
@@ -159,7 +159,7 @@ if (cached) return cached;
 await cache.set(cacheKey, results, { ttl: 300 }); // 5 min
 ```
 
-**Impact:** "permission management" finds `@monobrain/claims`. "machine learning" finds `@monobrain/neural`. "code quality" finds `@monobrain/plugin-agentic-qe`. Zero change to plugin commands — the search function is transparently upgraded.
+**Impact:** "permission management" finds `@monomind/claims`. "machine learning" finds `@monomind/neural`. "code quality" finds `@monomind/plugin-agentic-qe`. Zero change to plugin commands — the search function is transparently upgraded.
 
 **Files Modified:**
 - `src/plugins/store/search.ts` — add `semanticSearchPlugins()`, modify `searchPlugins()` to try semantic first
@@ -217,16 +217,16 @@ async function buildPluginGraph(plugins: PluginEntry[]): Promise<void> {
 
 ```bash
 # Show transitive dependencies
-npx monobrain plugins deps @monobrain/security --transitive
+npx monomind plugins deps @monomind/security --transitive
 
 # Find plugin ecosystems (community detection)
-npx monobrain plugins ecosystems
+npx monomind plugins ecosystems
 
 # Show hub plugins (highest PageRank)
-npx monobrain plugins hubs
+npx monomind plugins hubs
 
 # Check for conflicts
-npx monobrain plugins conflicts @monobrain/plugin-a @monobrain/plugin-b
+npx monomind plugins conflicts @monomind/plugin-a @monomind/plugin-b
 ```
 
 3. **Graph-enhanced search ranking.** Blend vector similarity with PageRank:
@@ -314,9 +314,9 @@ async function consolidatePluginPatterns(): Promise<void> {
 
 **New CLI Features:**
 ```bash
-npx monobrain plugins recommend          # Based on installed plugins + context
-npx monobrain plugins trending           # Real-time trending (not static)
-npx monobrain plugins why @monobrain/X # "Why is this recommended?"
+npx monomind plugins recommend          # Based on installed plugins + context
+npx monomind plugins trending           # Real-time trending (not static)
+npx monomind plugins why @monomind/X # "Why is this recommended?"
 ```
 
 **Files Modified:**
@@ -363,13 +363,13 @@ async function registerPluginSkills(plugin: PluginEntry): Promise<void> {
 2. **Intent-to-plugin routing.** Developer describes what they need, system finds which plugin provides it:
 
 ```bash
-npx monobrain plugins find-for "validate user input with schemas"
-# → @monobrain/security (InputValidator — Zod-based validation)
-# → @monobrain/claims (claims-based authorization)
+npx monomind plugins find-for "validate user input with schemas"
+# → @monomind/security (InputValidator — Zod-based validation)
+# → @monomind/claims (claims-based authorization)
 
-npx monobrain plugins find-for "train neural patterns from code"
-# → @monobrain/neural (SONA, MoE, EWC++)
-# → @monobrain/plugin-neural-coordinator
+npx monomind plugins find-for "train neural patterns from code"
+# → @monomind/neural (SONA, MoE, EWC++)
+# → @monomind/plugin-neural-coordinator
 ```
 
 **Impact:** Developers discover plugins by describing what they want to do, not what the plugin is called.
@@ -479,7 +479,7 @@ async function verifyPlugin(plugin: PluginEntry): Promise<VerificationResult> {
 | `/api/plugins/:id/why` | GET | Explainable recommendation |
 
 **Deployment Options:**
-- **Self-hosted**: `npx monobrain marketplace start --port 3001`
+- **Self-hosted**: `npx monomind marketplace start --port 3001`
 - **Serverless**: Deploy as Cloudflare Worker / Vercel Edge Function with SQLite (D1/Turso)
 - **MCP Server**: Expose as MCP tool for Claude Code integration
 
@@ -515,7 +515,7 @@ async function searchPlugins(query: string, options: SearchOptions) {
 }
 ```
 
-If `@monobrain/memory` or AgentDB is unavailable, every feature falls back to the existing implementation. Zero breaking changes.
+If `@monomind/memory` or AgentDB is unavailable, every feature falls back to the existing implementation. Zero breaking changes.
 
 ### Registry Format
 
@@ -536,7 +536,7 @@ The IPFS registry JSON format is **unchanged**. RVF indexing happens client-side
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Embedding model download (100MB+) blocks first search | High latency on first use | Pre-warm in `daemon start`; cache model in `.monobrain/models/` |
+| Embedding model download (100MB+) blocks first search | High latency on first use | Pre-warm in `daemon start`; cache model in `.monomind/models/` |
 | Small registry (20 plugins) doesn't benefit from HNSW | Overhead without benefit | Skip HNSW when `registry.plugins.length < 100`; use brute-force cosine for small sets |
 | Learning from small install base may overfit | Bad recommendations | Require minimum 5 episodes before activating recommendations; blend with global popularity |
 | Graph transformer NAPI-RS binary may fail on some platforms | Feature unavailable | 4-tier fallback (native → WASM → legacy WASM → pure JS) already in place |
@@ -574,8 +574,8 @@ The IPFS registry JSON format is **unchanged**. RVF indexing happens client-side
 - ADR-009: Hybrid Memory Backend
 - ADR-049: Self-Learning Memory GNN
 - ADR-050: Intelligence Loop
-- Plugin Store Types: `packages/@monobrain/cli/src/plugins/store/types.ts`
-- Plugin Search: `packages/@monobrain/cli/src/plugins/store/search.ts`
-- Plugin Discovery: `packages/@monobrain/cli/src/plugins/store/discovery.ts`
-- ControllerRegistry: `packages/@monobrain/memory/src/controller-registry.ts`
+- Plugin Store Types: `packages/@monomind/cli/src/plugins/store/types.ts`
+- Plugin Search: `packages/@monomind/cli/src/plugins/store/search.ts`
+- Plugin Discovery: `packages/@monomind/cli/src/plugins/store/discovery.ts`
+- ControllerRegistry: `packages/@monomind/memory/src/controller-registry.ts`
 - AgentDB: `agentdb@3.0.0-alpha.7`

@@ -53,11 +53,11 @@ The `node -e` one-liner existed to resolve the git root at runtime, ensuring hoo
 
 ### Platform Detection
 
-Added `detectPlatform()` integration to `generateSettings()`. The detected platform (OS, architecture, shell type) is now stored in `monobrain.platform` within settings.json:
+Added `detectPlatform()` integration to `generateSettings()`. The detected platform (OS, architecture, shell type) is now stored in `monomind.platform` within settings.json:
 
 ```json
 {
-  "monobrain": {
+  "monomind": {
     "platform": {
       "os": "windows",
       "arch": "x64",

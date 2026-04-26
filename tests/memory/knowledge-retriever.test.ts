@@ -9,12 +9,12 @@ import { describe, it, expect, vi } from 'vitest';
 import * as os from 'node:os';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { chunkDocument } from '../../packages/@monobrain/memory/src/knowledge/document-chunker.js';
-import { KnowledgeStore } from '../../packages/@monobrain/memory/src/knowledge/knowledge-store.js';
+import { chunkDocument } from '../../packages/@monomind/memory/src/knowledge/document-chunker.js';
+import { KnowledgeStore } from '../../packages/@monomind/memory/src/knowledge/knowledge-store.js';
 import {
   KnowledgeRetriever,
   type SearchFn,
-} from '../../packages/@monobrain/memory/src/knowledge/knowledge-retriever.js';
+} from '../../packages/@monomind/memory/src/knowledge/knowledge-retriever.js';
 
 function makeTmpDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'kb-test-'));

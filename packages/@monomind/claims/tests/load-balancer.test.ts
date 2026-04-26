@@ -1,5 +1,5 @@
 /**
- * V1 Monobrain Load Balancer Unit Tests
+ * V1 Monomind Load Balancer Unit Tests
  *
  * London School TDD - Behavior Verification
  * Tests load calculation, rebalancing, preview, and imbalance detection

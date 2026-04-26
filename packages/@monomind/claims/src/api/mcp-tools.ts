@@ -1880,7 +1880,7 @@ export const claimsTools: MCPTool[] = [
  *
  * @example
  * ```typescript
- * import { registerClaimsTools, claimsTools } from '@monobrain/claims';
+ * import { registerClaimsTools, claimsTools } from '@monomind/claims';
  *
  * // Register all tools
  * const count = registerClaimsTools(server);

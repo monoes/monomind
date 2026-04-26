@@ -606,8 +606,8 @@ When adding new CLI commands:
 ## Related Documentation
 
 - [REFACTORING_SUMMARY.md](./REFACTORING_SUMMARY.md) - Overview of refactoring
-- [ADR-005: MCP-First API Design](/workspaces/monobrain/docs/adr/ADR-005-mcp-first-api.md) - Architecture decision
-- [MCP Tool Implementations](/workspaces/monobrain/packages/mcp/tools/) - Tool source code
+- [ADR-005: MCP-First API Design](/workspaces/monomind/docs/adr/ADR-005-mcp-first-api.md) - Architecture decision
+- [MCP Tool Implementations](/workspaces/monomind/packages/mcp/tools/) - Tool source code
 
 ## Summary
 
@@ -617,4 +617,4 @@ The MCP Client provides a clean, type-safe way for CLI commands to call MCP tool
 - **MCP Client**: Tool routing & error handling
 - **MCP Tools**: Business logic & data management
 
-This architecture ensures maintainability, testability, and consistency across all interfaces to the monobrain system.
+This architecture ensures maintainability, testability, and consistency across all interfaces to the monomind system.

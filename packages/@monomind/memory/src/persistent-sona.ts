@@ -9,7 +9,7 @@
  * it defines its own compatible types and delegates persistence to
  * RvfLearningStore.
  *
- * @module @monobrain/memory/persistent-sona
+ * @module @monomind/memory/persistent-sona
  */
 
 import {

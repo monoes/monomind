@@ -7,7 +7,7 @@
  * Example usage:
  *
  * ```typescript
- * import { createHookRegistry, createHookExecutor, HookEvent, HookPriority } from '@monobrain/shared/hooks';
+ * import { createHookRegistry, createHookExecutor, HookEvent, HookPriority } from '@monomind/shared/hooks';
  *
  * const registry = createHookRegistry();
  * const executor = createHookExecutor(registry, eventBus);

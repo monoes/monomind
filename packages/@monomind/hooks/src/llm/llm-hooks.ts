@@ -8,7 +8,7 @@
  * - Performance metrics
  * - Pattern learning
  *
- * @module @monobrain/hooks/llm/llm-hooks
+ * @module @monomind/hooks/llm/llm-hooks
  */
 
 import { reasoningBank } from '../reasoningbank/index.js';

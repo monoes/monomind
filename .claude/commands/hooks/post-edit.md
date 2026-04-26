@@ -5,7 +5,7 @@ Execute post-edit processing including formatting, validation, and memory update
 ## Usage
 
 ```bash
-npx monobrain hook post-edit [options]
+npx monomind hook post-edit [options]
 ```
 
 ## Options
@@ -21,25 +21,25 @@ npx monobrain hook post-edit [options]
 ### Basic post-edit hook
 
 ```bash
-npx monobrain hook post-edit --file "src/components/Button.jsx"
+npx monomind hook post-edit --file "src/components/Button.jsx"
 ```
 
 ### With memory storage
 
 ```bash
-npx monobrain hook post-edit -f "api/auth.js" --memory-key "auth/login-implementation"
+npx monomind hook post-edit -f "api/auth.js" --memory-key "auth/login-implementation"
 ```
 
 ### Format and validate
 
 ```bash
-npx monobrain hook post-edit -f "config/webpack.js" --auto-format --validate-output
+npx monomind hook post-edit -f "config/webpack.js" --auto-format --validate-output
 ```
 
 ### Neural training
 
 ```bash
-npx monobrain hook post-edit -f "utils/helpers.ts" --train-patterns --memory-key "utils/refactor"
+npx monomind hook post-edit -f "utils/helpers.ts" --train-patterns --memory-key "utils/refactor"
 ```
 
 ## Features
@@ -86,7 +86,7 @@ Manual usage in agents:
 
 ```bash
 # After editing files
-npx monobrain hook post-edit --file "path/to/edited.js" --memory-key "feature/step1"
+npx monomind hook post-edit --file "path/to/edited.js" --memory-key "feature/step1"
 ```
 
 ## Output

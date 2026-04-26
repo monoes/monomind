@@ -1,7 +1,7 @@
 /**
  * Official Plugins - ADR-004 Implementation
  *
- * Exports all official @monobrain plugins.
+ * Exports all official @monomind plugins.
  *
  * @module v1/shared/plugins/official
  */

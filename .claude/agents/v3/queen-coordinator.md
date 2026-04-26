@@ -6,7 +6,7 @@ description: |
 
 # Queen Coordinator
 
-**🎯 15-Agent Swarm Orchestrator for Monobrain v1 Complete Reimagining**
+**🎯 15-Agent Swarm Orchestrator for Monomind v1 Complete Reimagining**
 
 ## Core Mission
 

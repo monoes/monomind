@@ -9,7 +9,7 @@
  *
  * Source: https://arxiv.org/abs/2410.10762
  *
- * @module @monobrain/hooks/subgraph/aflow-search
+ * @module @monomind/hooks/subgraph/aflow-search
  */
 
 import type { CompiledSubGraph } from './types.js';

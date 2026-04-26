@@ -66,7 +66,7 @@ export class PluginManager {
   private manifest: InstalledPluginsManifest | null = null;
 
   constructor(baseDir: string = process.cwd()) {
-    const pluginsDir = path.join(baseDir, '.monobrain', 'plugins');
+    const pluginsDir = path.join(baseDir, '.monomind', 'plugins');
     this.config = {
       pluginsDir,
       manifestPath: path.join(pluginsDir, 'installed.json'),
@@ -175,10 +175,10 @@ export class PluginManager {
         const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
         installedVersion = pkg.version;
 
-        // Check for monobrain plugin metadata
-        if (pkg['monobrain']) {
-          commands = pkg['monobrain'].commands || [];
-          hooks = pkg['monobrain'].hooks || [];
+        // Check for monomind plugin metadata
+        if (pkg['monomind']) {
+          commands = pkg['monomind'].commands || [];
+          hooks = pkg['monomind'].hooks || [];
         }
       }
 
@@ -250,8 +250,8 @@ export class PluginManager {
         enabled: true,
         source: 'local',
         path: absolutePath,
-        commands: pkg['monobrain']?.commands || [],
-        hooks: pkg['monobrain']?.hooks || [],
+        commands: pkg['monomind']?.commands || [],
+        hooks: pkg['monomind']?.hooks || [],
       };
 
       // Save to manifest
@@ -460,8 +460,8 @@ export class PluginManager {
       if (fs.existsSync(packageJsonPath)) {
         const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
         existing.version = pkg.version;
-        existing.commands = pkg['monobrain']?.commands || existing.commands;
-        existing.hooks = pkg['monobrain']?.hooks || existing.hooks;
+        existing.commands = pkg['monomind']?.commands || existing.commands;
+        existing.hooks = pkg['monomind']?.hooks || existing.hooks;
       }
 
       await this.saveManifest();
@@ -525,7 +525,7 @@ let defaultManager: PluginManager | null = null;
 export function getPluginManager(baseDir?: string): PluginManager {
   if (!defaultManager) {
     defaultManager = new PluginManager(baseDir);
-  } else if (baseDir && defaultManager.getPluginsDir() !== path.join(baseDir, '.monobrain', 'plugins')) {
+  } else if (baseDir && defaultManager.getPluginsDir() !== path.join(baseDir, '.monomind', 'plugins')) {
     console.warn(`[PluginManager] Warning: getPluginManager called with different baseDir. Using existing instance. Call resetPluginManager() first to change.`);
   }
   return defaultManager;

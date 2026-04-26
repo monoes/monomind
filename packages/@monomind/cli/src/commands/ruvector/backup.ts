@@ -18,7 +18,7 @@ function getConnectionConfig(ctx: CommandContext) {
     user: (ctx.flags.user as string) || process.env.PGUSER || 'postgres',
     password: (ctx.flags.password as string) || process.env.PGPASSWORD || '',
     ssl: (ctx.flags.ssl as boolean) || process.env.PGSSLMODE === 'require',
-    schema: (ctx.flags.schema as string) || 'monobrain',
+    schema: (ctx.flags.schema as string) || 'monomind',
   };
 }
 
@@ -116,13 +116,13 @@ const backupSubcommand: Command = {
       short: 's',
       description: 'Schema name',
       type: 'string',
-      default: 'monobrain',
+      default: 'monomind',
     },
   ],
   examples: [
-    { command: 'monobrain ruvector backup create -o backup.sql', description: 'Create SQL backup' },
-    { command: 'monobrain ruvector backup create -o backup.json --format json', description: 'Create JSON backup' },
-    { command: 'monobrain ruvector backup create -o backup.sql.gz --compress', description: 'Compressed backup' },
+    { command: 'monomind ruvector backup create -o backup.sql', description: 'Create SQL backup' },
+    { command: 'monomind ruvector backup create -o backup.json --format json', description: 'Create JSON backup' },
+    { command: 'monomind ruvector backup create -o backup.sql.gz --compress', description: 'Compressed backup' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const config = getConnectionConfig(ctx);
@@ -458,13 +458,13 @@ const restoreSubcommand: Command = {
       short: 's',
       description: 'Schema name',
       type: 'string',
-      default: 'monobrain',
+      default: 'monomind',
     },
   ],
   examples: [
-    { command: 'monobrain ruvector backup restore -i backup.sql', description: 'Restore from SQL backup' },
-    { command: 'monobrain ruvector backup restore -i backup.json --clean', description: 'Clean restore' },
-    { command: 'monobrain ruvector backup restore -i backup.sql --dry-run', description: 'Preview restore' },
+    { command: 'monomind ruvector backup restore -i backup.sql', description: 'Restore from SQL backup' },
+    { command: 'monomind ruvector backup restore -i backup.json --clean', description: 'Clean restore' },
+    { command: 'monomind ruvector backup restore -i backup.sql --dry-run', description: 'Preview restore' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const config = getConnectionConfig(ctx);
@@ -764,12 +764,12 @@ export const backupCommand: Command = {
       short: 's',
       description: 'Schema name',
       type: 'string',
-      default: 'monobrain',
+      default: 'monomind',
     },
   ],
   examples: [
-    { command: 'monobrain ruvector backup create -o backup.sql', description: 'Create backup' },
-    { command: 'monobrain ruvector backup restore -i backup.sql', description: 'Restore backup' },
+    { command: 'monomind ruvector backup create -o backup.sql', description: 'Create backup' },
+    { command: 'monomind ruvector backup restore -i backup.sql', description: 'Restore backup' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
@@ -796,7 +796,7 @@ export const backupCommand: Command = {
     ].join('\n'), 'Backup Commands');
 
     output.writeln();
-    output.printInfo('Run `monobrain ruvector backup <command> --help` for details');
+    output.printInfo('Run `monomind ruvector backup <command> --help` for details');
 
     return { success: true };
   },

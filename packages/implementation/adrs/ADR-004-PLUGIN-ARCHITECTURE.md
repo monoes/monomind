@@ -28,7 +28,7 @@ v2 bundles all features (Hive Mind, Maestro, Neural, Verification) into core, ma
 ## Plugin Interface
 
 ```typescript
-interface MonobrainPlugin {
+interface MonomindPlugin {
   name: string;
   version: string;
   dependencies?: string[];
@@ -45,7 +45,7 @@ interface MonobrainPlugin {
 }
 
 // Plugin loading
-const core = new MonobrainCore();
+const core = new MonomindCore();
 await core.loadPlugin(new HiveMindPlugin());
 await core.initialize();
 ```
@@ -69,9 +69,9 @@ await core.initialize();
 **Plugin Registration:**
 ```typescript
 class PluginManager {
-  private plugins: Map<string, MonobrainPlugin> = new Map();
+  private plugins: Map<string, MonomindPlugin> = new Map();
 
-  async loadPlugin(plugin: MonobrainPlugin): Promise<void> {
+  async loadPlugin(plugin: MonomindPlugin): Promise<void> {
     // Check dependencies
     for (const dep of plugin.dependencies || []) {
       if (!this.plugins.has(dep)) {
@@ -94,10 +94,10 @@ class PluginManager {
 ```
 
 **Official Plugins:**
-1. `@monobrain/hive-mind` - Queen-led coordination
-2. `@monobrain/neural` - Neural training system
-3. `@monobrain/verification` - Truth scoring
-4. `@monobrain/enterprise` - Advanced features
+1. `@monomind/hive-mind` - Queen-led coordination
+2. `@monomind/neural` - Neural training system
+3. `@monomind/verification` - Truth scoring
+4. `@monomind/enterprise` - Advanced features
 
 ## Success Metrics
 

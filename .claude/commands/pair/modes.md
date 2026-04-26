@@ -8,7 +8,7 @@ In driver mode, you write the code while the AI acts as navigator.
 
 ### Usage
 ```bash
-monobrain pair --start --mode driver
+monomind pair --start --mode driver
 ```
 
 ### Responsibilities
@@ -34,7 +34,7 @@ monobrain pair --start --mode driver
 
 ### Example Session
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode driver \
   --agent senior-navigator \
   --review \
@@ -56,7 +56,7 @@ In navigator mode, the AI writes code while you provide guidance.
 
 ### Usage
 ```bash
-monobrain pair --start --mode navigator
+monomind pair --start --mode navigator
 ```
 
 ### Responsibilities
@@ -82,7 +82,7 @@ monobrain pair --start --mode navigator
 
 ### Example Session
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode navigator \
   --agent expert-coder \
   --test \
@@ -104,7 +104,7 @@ Automatically alternates between driver and navigator roles.
 
 ### Usage
 ```bash
-monobrain pair --start --mode switch [--interval <time>]
+monomind pair --start --mode switch [--interval <time>]
 ```
 
 ### Default Intervals
@@ -116,13 +116,13 @@ monobrain pair --start --mode switch [--interval <time>]
 ### Configuration
 ```bash
 # 5-minute intervals
-monobrain pair --start --mode switch --interval 5m
+monomind pair --start --mode switch --interval 5m
 
 # 15-minute intervals
-monobrain pair --start --mode switch --interval 15m
+monomind pair --start --mode switch --interval 15m
 
 # Hour-long intervals
-monobrain pair --start --mode switch --interval 1h
+monomind pair --start --mode switch --interval 1h
 ```
 
 ### Role Transitions
@@ -142,7 +142,7 @@ monobrain pair --start --mode switch --interval 1h
 
 ### Example Session
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode switch \
   --interval 10m \
   --verify \
@@ -155,7 +155,7 @@ monobrain pair --start \
 Test-Driven Development focus.
 
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode tdd \
   --test-first \
   --coverage 100
@@ -171,7 +171,7 @@ monobrain pair --start \
 Continuous code review focus.
 
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode review \
   --strict \
   --security
@@ -187,7 +187,7 @@ monobrain pair --start \
 Learning-focused collaboration.
 
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode mentor \
   --explain-all \
   --pace slow
@@ -203,7 +203,7 @@ monobrain pair --start \
 Problem-solving focus.
 
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode debug \
   --verbose \
   --trace
@@ -257,7 +257,7 @@ monobrain pair --start \
 
 ### Quality-Focused
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode switch \
   --verify \
   --test \
@@ -267,7 +267,7 @@ monobrain pair --start \
 
 ### Learning-Focused
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode mentor \
   --explain-all \
   --examples \
@@ -276,7 +276,7 @@ monobrain pair --start \
 
 ### Speed-Focused
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode navigator \
   --quick \
   --templates \
@@ -285,7 +285,7 @@ monobrain pair --start \
 
 ### Debug-Focused
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode debug \
   --trace \
   --verbose \
@@ -309,7 +309,7 @@ During any session, you can switch modes:
 Save mode preferences:
 
 ```json
-// .monobrain/config.json
+// .monomind/config.json
 {
   "pair": {
     "defaultMode": "switch",

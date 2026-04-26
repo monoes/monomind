@@ -1,12 +1,12 @@
 {
-  "name": "@monobrain/v1-monorepo",
+  "name": "@monomind/v1-monorepo",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Monobrain V1 - Modular AI Agent Coordination System",
+  "description": "Monomind V1 - Modular AI Agent Coordination System",
   "workspaces": [
-    "@monobrain/*",
-    "monobrain"
+    "@monomind/*",
+    "monomind"
   ],
   "scripts": {
     "build": "pnpm -r build",
@@ -21,15 +21,15 @@
     "test:integration:workflow": "vitest run __tests__/integration/workflow-integration.test.ts",
     "test:coverage": "vitest run --coverage",
     "test:coverage:integration": "vitest run __tests__/integration --coverage",
-    "test:security": "pnpm --filter @monobrain/security test",
-    "test:memory": "pnpm --filter @monobrain/memory test",
-    "test:swarm": "pnpm --filter @monobrain/swarm test",
-    "bench": "pnpm --filter @monobrain/performance bench",
-    "bench:attention": "pnpm --filter @monobrain/performance bench:attention",
+    "test:security": "pnpm --filter @monomind/security test",
+    "test:memory": "pnpm --filter @monomind/memory test",
+    "test:swarm": "pnpm --filter @monomind/swarm test",
+    "bench": "pnpm --filter @monomind/performance bench",
+    "bench:attention": "pnpm --filter @monomind/performance bench:attention",
     "typecheck": "pnpm -r typecheck",
-    "clean": "rm -rf node_modules @monobrain/*/node_modules monobrain/node_modules",
-    "publish:dry": "pnpm --filter monobrain publish --dry-run --tag alpha --no-git-checks",
-    "publish:alpha": "pnpm --filter monobrain publish --tag alpha --no-git-checks",
+    "clean": "rm -rf node_modules @monomind/*/node_modules monomind/node_modules",
+    "publish:dry": "pnpm --filter monomind publish --dry-run --tag alpha --no-git-checks",
+    "publish:alpha": "pnpm --filter monomind publish --tag alpha --no-git-checks",
     "version:patch": "pnpm -r exec npm version patch",
     "version:minor": "pnpm -r exec npm version minor",
     "version:major": "pnpm -r exec npm version major",
@@ -37,8 +37,8 @@
     "bun:build": "bun run --filter '*' build",
     "bun:test": "bun test",
     "bun:dev": "bun run --watch src/index.ts",
-    "bun:publish:dry": "cd monobrain && bun publish --dry-run --tag alpha",
-    "bun:publish:alpha": "cd monobrain && bun publish --tag alpha"
+    "bun:publish:dry": "cd monomind && bun publish --dry-run --tag alpha",
+    "bun:publish:alpha": "cd monomind && bun publish --tag alpha"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

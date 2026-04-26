@@ -1,12 +1,12 @@
-# @monobrain/neural
+# @monomind/neural
 
-[![npm version](https://img.shields.io/npm/v/@monobrain/neural.svg)](https://www.npmjs.com/package/@monobrain/neural)
-[![npm downloads](https://img.shields.io/npm/dm/@monobrain/neural.svg)](https://www.npmjs.com/package/@monobrain/neural)
+[![npm version](https://img.shields.io/npm/v/@monomind/neural.svg)](https://www.npmjs.com/package/@monomind/neural)
+[![npm downloads](https://img.shields.io/npm/dm/@monomind/neural.svg)](https://www.npmjs.com/package/@monomind/neural)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![AI Learning](https://img.shields.io/badge/AI-Self--Learning-purple.svg)](https://github.com/nokhodian/monobrain)
+[![AI Learning](https://img.shields.io/badge/AI-Self--Learning-purple.svg)](https://github.com/nokhodian/monomind)
 
-> Self-Optimizing Neural Architecture (SONA) module for Monobrain V1 - adaptive learning, trajectory tracking, and pattern-based optimization.
+> Self-Optimizing Neural Architecture (SONA) module for Monomind V1 - adaptive learning, trajectory tracking, and pattern-based optimization.
 
 ## Features
 
@@ -21,13 +21,13 @@
 ## Installation
 
 ```bash
-npm install @monobrain/neural
+npm install @monomind/neural
 ```
 
 ## Quick Start
 
 ```typescript
-import { SONAManager, createSONAManager } from '@monobrain/neural';
+import { SONAManager, createSONAManager } from '@monomind/neural';
 
 // Create SONA manager
 const sona = createSONAManager('balanced');
@@ -74,7 +74,7 @@ const { mode, config, optimizations } = sona.getConfig();
 ### SONA Manager
 
 ```typescript
-import { SONAManager } from '@monobrain/neural';
+import { SONAManager } from '@monomind/neural';
 
 const sona = new SONAManager('balanced');
 await sona.initialize();
@@ -100,7 +100,7 @@ const stats = sona.getStats();
 ### RL Algorithms
 
 ```typescript
-import { PPO, A2C, DQN, QLearning, SARSA, DecisionTransformer } from '@monobrain/neural';
+import { PPO, A2C, DQN, QLearning, SARSA, DecisionTransformer } from '@monomind/neural';
 
 // Proximal Policy Optimization
 const ppo = new PPO({
@@ -241,19 +241,19 @@ import type {
   LoRAWeights,
   EWCConfig,
   RLAlgorithm
-} from '@monobrain/neural';
+} from '@monomind/neural';
 ```
 
 ## Dependencies
 
-- [@monobrain/memory](../memory) - Memory integration
+- [@monomind/memory](../memory) - Memory integration
 - `@ruvector/sona` - SONA learning engine
 
 ## Related Packages
 
-- [@monobrain/memory](../memory) - Vector memory for patterns
-- [@monobrain/integration](../integration) - agentic-flow integration
-- [@monobrain/performance](../performance) - Benchmarking
+- [@monomind/memory](../memory) - Vector memory for patterns
+- [@monomind/integration](../integration) - agentic-flow integration
+- [@monomind/performance](../performance) - Benchmarking
 
 ## License
 

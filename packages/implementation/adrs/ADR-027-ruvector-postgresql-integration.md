@@ -1,4 +1,4 @@
-# ADR-027: RuVector PostgreSQL Integration for Monobrain v1
+# ADR-027: RuVector PostgreSQL Integration for Monomind v1
 
 **Status:** Proposed
 **Date:** 2026-01-16
@@ -7,7 +7,7 @@
 
 ## Context
 
-Monobrain v1 currently uses a hybrid memory backend (ADR-009) combining SQLite for structured queries and AgentDB for vector search. While this approach works well for many use cases, production deployments increasingly require:
+Monomind v1 currently uses a hybrid memory backend (ADR-009) combining SQLite for structured queries and AgentDB for vector search. While this approach works well for many use cases, production deployments increasingly require:
 
 1. **Scalable Vector Database** - AgentDB (in-memory HNSW) has limitations for datasets exceeding available RAM
 2. **Graph Capabilities** - No native support for graph queries, relationship traversal, or GNN-based analysis
@@ -27,7 +27,7 @@ This creates an opportunity to offer users a high-performance alternative to the
 
 ## Decision
 
-Integrate `@ruvector/postgres-cli` as an **optional plugin bridge** in Monobrain v1, following the plugin architecture established in ADR-015-v2. This provides a production-grade vector database option while maintaining backward compatibility with existing AgentDB deployments.
+Integrate `@ruvector/postgres-cli` as an **optional plugin bridge** in Monomind v1, following the plugin architecture established in ADR-015-v2. This provides a production-grade vector database option while maintaining backward compatibility with existing AgentDB deployments.
 
 ### Design Principles
 
@@ -120,7 +120,7 @@ SELECT ruvector.enable_learning_optimizer(
 ### Plugin Structure
 
 ```
-packages/@monobrain/plugins/src/
+packages/@monomind/plugins/src/
 ├── bridges/
 │   └── ruvector-postgres/
 │       ├── index.ts                 # Plugin entry point
@@ -142,7 +142,7 @@ packages/@monobrain/plugins/src/
 ### Plugin Implementation
 
 ```typescript
-// packages/@monobrain/plugins/src/bridges/ruvector-postgres/plugin.ts
+// packages/@monomind/plugins/src/bridges/ruvector-postgres/plugin.ts
 
 import { IPlugin, PluginMetadata, PluginContext } from '../../core/plugin-interface.js';
 import { ConnectionManager } from './connection-manager.js';
@@ -153,7 +153,7 @@ export class RuVectorPostgresPlugin implements IPlugin {
     name: 'ruvector-postgres',
     version: '1.0.0',
     description: 'RuVector PostgreSQL integration for high-performance vector/graph operations',
-    author: 'Monobrain Team',
+    author: 'Monomind Team',
     tags: ['vector', 'graph', 'postgresql', 'storage', 'production'],
     dependencies: [
       { name: 'core-plugin', version: '^3.0.0' }
@@ -240,7 +240,7 @@ export class RuVectorPostgresPlugin implements IPlugin {
 ### Connection Pooling
 
 ```typescript
-// packages/@monobrain/plugins/src/bridges/ruvector-postgres/connection-manager.ts
+// packages/@monomind/plugins/src/bridges/ruvector-postgres/connection-manager.ts
 
 import { Pool, PoolClient, PoolConfig } from 'pg';
 
@@ -408,7 +408,7 @@ export class ConnectionManager {
 ### MCP Tool Definitions
 
 ```typescript
-// packages/@monobrain/plugins/src/mcp-tools/ruvector-postgres-tools.ts
+// packages/@monomind/plugins/src/mcp-tools/ruvector-postgres-tools.ts
 
 import type { MCPTool } from '../core/types.js';
 
@@ -637,7 +637,7 @@ export const ruvectorPostgresTools: MCPTool[] = [
 ### Async Operations with Batching
 
 ```typescript
-// packages/@monobrain/plugins/src/bridges/ruvector-postgres/embedding-adapter.ts
+// packages/@monomind/plugins/src/bridges/ruvector-postgres/embedding-adapter.ts
 
 export class EmbeddingAdapter {
   private connectionManager: ConnectionManager;
@@ -949,7 +949,7 @@ async function withAudit<T>(
 The migration provides a backward-compatible layer that allows gradual transition:
 
 ```typescript
-// packages/@monobrain/plugins/src/bridges/ruvector-postgres/migration-helper.ts
+// packages/@monomind/plugins/src/bridges/ruvector-postgres/migration-helper.ts
 
 export class MigrationHelper {
   private agentDB: AgentDBAdapter;
@@ -1073,7 +1073,7 @@ class DualWriteAdapter implements IMemoryBackend {
 
 2. **Phase 2: Enable Dual-Write**
    ```typescript
-   // monobrain.config.ts
+   // monomind.config.ts
    export default {
      memory: {
        backend: 'dual-write',
@@ -1088,7 +1088,7 @@ class DualWriteAdapter implements IMemoryBackend {
 
 3. **Phase 3: Migrate Existing Data**
    ```bash
-   npx monobrain migrate \
+   npx monomind migrate \
      --from agentdb \
      --to ruvector-postgres \
      --batch-size 5000
@@ -1188,7 +1188,7 @@ await plugin.attentionQuery({ query: 'complex reasoning', mechanism: 'multi_head
 - [ ] End-to-end tests
 - [ ] Security audit
 - [ ] Performance optimization
-- [ ] CLI integration (`monobrain memory --backend ruvector-postgres`)
+- [ ] CLI integration (`monomind memory --backend ruvector-postgres`)
 - [ ] User documentation
 
 ## References
@@ -1290,7 +1290,7 @@ SELECT * FROM ruvector.hyperbolic_search(
 const devConfig: RuVectorPostgresConfig = {
   host: 'localhost',
   port: 5432,
-  database: 'monobrain_dev',
+  database: 'monomind_dev',
   user: 'dev_user',
   password: 'dev_password',
   poolSize: 5,

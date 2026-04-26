@@ -7,7 +7,7 @@
  * - Test database helpers
  * - Performance measurement utilities
  *
- * @module @monobrain/plugins/__tests__/utils/ruvector-test-utils
+ * @module @monomind/plugins/__tests__/utils/ruvector-test-utils
  */
 
 import { vi, type Mock } from 'vitest';

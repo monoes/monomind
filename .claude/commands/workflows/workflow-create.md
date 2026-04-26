@@ -4,7 +4,7 @@ Create reusable workflow templates.
 
 ## Usage
 ```bash
-npx monobrain workflow create [options]
+npx monomind workflow create [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain workflow create [options]
 ## Examples
 ```bash
 # Create workflow
-npx monobrain workflow create --name "deploy-api"
+npx monomind workflow create --name "deploy-api"
 
 # From history
-npx monobrain workflow create --name "test-suite" --from-history
+npx monomind workflow create --name "test-suite" --from-history
 
 # Interactive mode
-npx monobrain workflow create --interactive
+npx monomind workflow create --interactive
 ```

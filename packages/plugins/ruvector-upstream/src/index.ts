@@ -1,7 +1,7 @@
 /**
- * @monobrain/ruvector-upstream
+ * @monomind/ruvector-upstream
  *
- * RuVector WASM package bridges for Monobrain plugins.
+ * RuVector WASM package bridges for Monomind plugins.
  * Provides unified access to 15+ WASM packages from nokhodian/ruvector.
  */
 

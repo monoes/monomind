@@ -18,7 +18,7 @@ Create an **Advanced Code Intelligence Plugin** that leverages RuVector WASM pac
 
 ## Plugin Name
 
-`@monobrain/plugin-code-intelligence`
+`@monomind/plugin-code-intelligence`
 
 ## Description
 

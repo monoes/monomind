@@ -123,7 +123,7 @@ Assign a risk score and let the model decide whether to proceed. Rejected becaus
 
 ## References
 
-- `packages/@monobrain/guidance/src/gates.ts` -- `EnforcementGates` class, `GateConfig`, default patterns
-- `packages/@monobrain/guidance/src/types.ts` -- `GateDecision`, `GateResult`, `GateConfig`
-- `packages/@monobrain/guidance/src/index.ts` -- `GuidanceControlPlane.evaluateCommand()`, `evaluateToolUse()`, `evaluateEdit()`
+- `packages/@monomind/guidance/src/gates.ts` -- `EnforcementGates` class, `GateConfig`, default patterns
+- `packages/@monomind/guidance/src/types.ts` -- `GateDecision`, `GateResult`, `GateConfig`
+- `packages/@monomind/guidance/src/index.ts` -- `GuidanceControlPlane.evaluateCommand()`, `evaluateToolUse()`, `evaluateEdit()`
 - ADR-G001 -- Why enforcement lives outside the model

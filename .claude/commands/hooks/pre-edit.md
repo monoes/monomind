@@ -5,7 +5,7 @@ Execute pre-edit validations and agent assignment before file modifications.
 ## Usage
 
 ```bash
-npx monobrain hook pre-edit [options]
+npx monomind hook pre-edit [options]
 ```
 
 ## Options
@@ -21,25 +21,25 @@ npx monobrain hook pre-edit [options]
 ### Basic pre-edit hook
 
 ```bash
-npx monobrain hook pre-edit --file "src/auth/login.js"
+npx monomind hook pre-edit --file "src/auth/login.js"
 ```
 
 ### With validation
 
 ```bash
-npx monobrain hook pre-edit -f "config/database.js" --validate-syntax
+npx monomind hook pre-edit -f "config/database.js" --validate-syntax
 ```
 
 ### Manual agent assignment
 
 ```bash
-npx monobrain hook pre-edit -f "api/users.ts" --auto-assign-agent false
+npx monomind hook pre-edit -f "api/users.ts" --auto-assign-agent false
 ```
 
 ### Safe editing with backup
 
 ```bash
-npx monobrain hook pre-edit -f "production.env" --backup-file --check-conflicts
+npx monomind hook pre-edit -f "production.env" --backup-file --check-conflicts
 ```
 
 ## Features
@@ -86,7 +86,7 @@ Manual usage in agents:
 
 ```bash
 # Before editing files
-npx monobrain hook pre-edit --file "path/to/file.js" --validate-syntax
+npx monomind hook pre-edit --file "path/to/file.js" --validate-syntax
 ```
 
 ## Output

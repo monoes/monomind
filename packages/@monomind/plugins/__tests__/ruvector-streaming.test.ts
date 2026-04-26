@@ -7,7 +7,7 @@
  * - Stream batch inserts
  * - Cursor-based iteration
  *
- * @module @monobrain/plugins/__tests__/ruvector-streaming
+ * @module @monomind/plugins/__tests__/ruvector-streaming
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

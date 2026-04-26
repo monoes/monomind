@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 /**
  * Deploy Seraphine Genesis Model
- * Exports and uploads the first Monobrain pattern model to IPFS
+ * Exports and uploads the first Monomind pattern model to IPFS
  *
  * Usage:
  *   npx tsx deploy-seraphine.ts
@@ -96,7 +96,7 @@ function printHelp(): void {
 Seraphine Genesis Deployer
 ==========================
 
-Deploy the foundational Monobrain pattern model.
+Deploy the foundational Monomind pattern model.
 
 Usage:
   npx ts-node deploy-seraphine.ts [options]
@@ -127,7 +127,7 @@ async function deploy(): Promise<void> {
   console.log('');
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log('║        SERAPHINE GENESIS MODEL DEPLOYMENT                 ║');
-  console.log('║        The First Monobrain Pattern Model                ║');
+  console.log('║        The First Monomind Pattern Model                ║');
   console.log('╚══════════════════════════════════════════════════════════╝');
   console.log('');
 
@@ -224,7 +224,7 @@ async function deploy(): Promise<void> {
 
     console.log('');
     console.log('   🎉 Hello World! The genesis pattern has been deployed.');
-    console.log('   🌟 This is the first Monobrain pattern ever shared.');
+    console.log('   🌟 This is the first Monomind pattern ever shared.');
     console.log('');
   } else {
     console.error('❌ Deployment failed!');

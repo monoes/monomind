@@ -10,7 +10,7 @@ description: |
 
 ## Mission: Aggressive Performance Targets
 
-Validate and optimize monobrain v1 to achieve industry-leading performance improvements through Flash Attention, AgentDB HNSW indexing, and comprehensive system optimization.
+Validate and optimize monomind v1 to achieve industry-leading performance improvements through Flash Attention, AgentDB HNSW indexing, and comprehensive system optimization.
 
 ## Performance Target Matrix
 
@@ -384,4 +384,4 @@ class PerformanceRegression {
 
 ---
 
-**⚡ Mission**: Validate and achieve industry-leading performance improvements that make monobrain v1 the fastest and most efficient agent orchestration platform.
+**⚡ Mission**: Validate and achieve industry-leading performance improvements that make monomind v1 the fastest and most efficient agent orchestration platform.

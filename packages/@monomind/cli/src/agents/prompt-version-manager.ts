@@ -4,7 +4,7 @@
  * Provides publish-from-file, promote, rollback, and experiment
  * start/stop workflows on top of PromptVersionStore.
  *
- * @module @monobrain/cli/agents/prompt-version-manager
+ * @module @monomind/cli/agents/prompt-version-manager
  */
 
 import * as fs from 'node:fs';

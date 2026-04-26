@@ -1,17 +1,17 @@
 # ============================================================
-# Monobrain RVFA Appliance Builder
-# ADR-058: Self-Contained Monobrain RVF Appliance
+# Monomind RVFA Appliance Builder
+# ADR-058: Self-Contained Monomind RVF Appliance
 #
 # Builds the rootfs layers for an RVFA appliance.
 # Usage:
-#   docker build -f Dockerfile.appliance -t monobrain-appliance:build .
-#   docker run --rm monobrain-appliance:build monobrain --version
-#   docker run --rm monobrain-appliance:build monobrain doctor
-#   docker run --rm -i monobrain-appliance:build monobrain mcp start
+#   docker build -f Dockerfile.appliance -t monomind-appliance:build .
+#   docker run --rm monomind-appliance:build monomind --version
+#   docker run --rm monomind-appliance:build monomind doctor
+#   docker run --rm -i monomind-appliance:build monomind mcp start
 # ============================================================
 
 # ------------------------------------------------------------------
-# Stage 1: Build — install Monobrain with dependencies
+# Stage 1: Build — install Monomind with dependencies
 # ------------------------------------------------------------------
 FROM node:22-alpine AS build
 
@@ -21,11 +21,11 @@ RUN apk add --no-cache dumb-init git
 
 WORKDIR /build
 
-# Install Monobrain globally.
+# Install Monomind globally.
 # --omit=optional: skip heavy native deps (onnxruntime, better-sqlite3, etc.)
 # --ignore-scripts: skip postinstall scripts that may compile native addons
 # These keep the image under the 100MB target.
-RUN npm install -g monobrain@latest \
+RUN npm install -g monomind@latest \
       --omit=optional \
       --ignore-scripts \
       --no-audit \
@@ -63,34 +63,34 @@ RUN GLOBAL_NM="$(npm config get prefix)/lib/node_modules" \
 # The CLI has graceful fallbacks for all of these.
 RUN GLOBAL_NM="$(npm config get prefix)/lib/node_modules" \
     && rm -rf \
-       "$GLOBAL_NM/monobrain/node_modules/agentic-flow" \
-       "$GLOBAL_NM/monobrain/node_modules/@opentelemetry" \
-       "$GLOBAL_NM/monobrain/node_modules/onnxruntime-node" \
-       "$GLOBAL_NM/monobrain/node_modules/onnxruntime-web" \
-       "$GLOBAL_NM/monobrain/node_modules/onnx-proto" \
-       "$GLOBAL_NM/monobrain/node_modules/@anthropic-ai" \
-       "$GLOBAL_NM/monobrain/node_modules/@xenova" \
-       "$GLOBAL_NM/monobrain/node_modules/agentdb" \
-       "$GLOBAL_NM/monobrain/node_modules/@ruvector" \
-       "$GLOBAL_NM/monobrain/node_modules/ruvector" \
-       "$GLOBAL_NM/monobrain/node_modules/tiktoken" \
-       "$GLOBAL_NM/monobrain/node_modules/@img" \
-       "$GLOBAL_NM/monobrain/node_modules/better-sqlite3" \
-       "$GLOBAL_NM/monobrain/node_modules/sharp" \
-       "$GLOBAL_NM/monobrain/node_modules/@google" \
-       "$GLOBAL_NM/monobrain/node_modules/@monobrain/embeddings" \
-       "$GLOBAL_NM/monobrain/node_modules/@monobrain/guidance" \
-       "$GLOBAL_NM/monobrain/node_modules/@monobrain/neural" \
-       "$GLOBAL_NM/monobrain/node_modules/@grpc" \
-       "$GLOBAL_NM/monobrain/node_modules/gun" \
+       "$GLOBAL_NM/monomind/node_modules/agentic-flow" \
+       "$GLOBAL_NM/monomind/node_modules/@opentelemetry" \
+       "$GLOBAL_NM/monomind/node_modules/onnxruntime-node" \
+       "$GLOBAL_NM/monomind/node_modules/onnxruntime-web" \
+       "$GLOBAL_NM/monomind/node_modules/onnx-proto" \
+       "$GLOBAL_NM/monomind/node_modules/@anthropic-ai" \
+       "$GLOBAL_NM/monomind/node_modules/@xenova" \
+       "$GLOBAL_NM/monomind/node_modules/agentdb" \
+       "$GLOBAL_NM/monomind/node_modules/@ruvector" \
+       "$GLOBAL_NM/monomind/node_modules/ruvector" \
+       "$GLOBAL_NM/monomind/node_modules/tiktoken" \
+       "$GLOBAL_NM/monomind/node_modules/@img" \
+       "$GLOBAL_NM/monomind/node_modules/better-sqlite3" \
+       "$GLOBAL_NM/monomind/node_modules/sharp" \
+       "$GLOBAL_NM/monomind/node_modules/@google" \
+       "$GLOBAL_NM/monomind/node_modules/@monomind/embeddings" \
+       "$GLOBAL_NM/monomind/node_modules/@monomind/guidance" \
+       "$GLOBAL_NM/monomind/node_modules/@monomind/neural" \
+       "$GLOBAL_NM/monomind/node_modules/@grpc" \
+       "$GLOBAL_NM/monomind/node_modules/gun" \
     2>/dev/null || true
 
 # Stage the pruned install into /staged for a clean COPY
 RUN GLOBAL_PREFIX="$(npm config get prefix)" \
     && mkdir -p /staged/lib /staged/bin \
     && cp -a "$GLOBAL_PREFIX/lib/node_modules" /staged/lib/ \
-    && cp -a "$GLOBAL_PREFIX/bin/monobrain" /staged/bin/ 2>/dev/null || true \
-    && cp -a "$GLOBAL_PREFIX/bin/monobrain" /staged/bin/ 2>/dev/null || true
+    && cp -a "$GLOBAL_PREFIX/bin/monomind" /staged/bin/ 2>/dev/null || true \
+    && cp -a "$GLOBAL_PREFIX/bin/monomind" /staged/bin/ 2>/dev/null || true
 
 # ------------------------------------------------------------------
 # Stage 2: Production — minimal Alpine runtime
@@ -107,10 +107,10 @@ RUN apk add --no-cache \
       bash
 
 # Create non-root user for the appliance
-RUN addgroup -g 1001 -S monobrain \
-    && adduser -S -D -H -u 1001 -h /home/monobrain -s /bin/bash -G monobrain monobrain \
-    && mkdir -p /home/monobrain/.monobrain /home/monobrain/data \
-    && chown -R monobrain:monobrain /home/monobrain
+RUN addgroup -g 1001 -S monomind \
+    && adduser -S -D -H -u 1001 -h /home/monomind -s /bin/bash -G monomind monomind \
+    && mkdir -p /home/monomind/.monomind /home/monomind/data \
+    && chown -R monomind:monomind /home/monomind
 
 # Copy only the global node_modules and bin links from the build stage
 COPY --from=build /staged/lib/node_modules /usr/local/lib/node_modules
@@ -118,30 +118,30 @@ COPY --from=build /staged/bin/ /usr/local/bin/
 COPY --from=build /usr/bin/dumb-init /usr/bin/dumb-init
 
 # Ensure bin symlinks resolve correctly
-RUN ln -sf /usr/local/lib/node_modules/monobrain/bin/monobrain.js /usr/local/bin/monobrain 2>/dev/null || true \
-    && chmod +x /usr/local/bin/monobrain 2>/dev/null || true
+RUN ln -sf /usr/local/lib/node_modules/monomind/bin/monomind.js /usr/local/bin/monomind 2>/dev/null || true \
+    && chmod +x /usr/local/bin/monomind 2>/dev/null || true
 
 # Production environment
 ENV NODE_ENV=production \
-    MONOBRAIN_HOME=/home/monobrain/.monobrain \
-    MONOBRAIN_MEMORY_PATH=/home/monobrain/data/memory \
-    MONOBRAIN_LOG_LEVEL=info
+    MONOMIND_HOME=/home/monomind/.monomind \
+    MONOMIND_MEMORY_PATH=/home/monomind/data/memory \
+    MONOMIND_LOG_LEVEL=info
 
 # Switch to non-root user
-USER monobrain
-WORKDIR /home/monobrain
+USER monomind
+WORKDIR /home/monomind
 
 # Volumes for persistent data across container restarts
-VOLUME ["/home/monobrain/data"]
+VOLUME ["/home/monomind/data"]
 
 # Health check via the doctor command
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD monobrain doctor -c version || exit 1
+    CMD monomind doctor -c version || exit 1
 
 # Use dumb-init as PID 1 for proper signal handling
 ENTRYPOINT ["dumb-init", "--"]
 
 # Default: print help. Override with:
-#   docker run --rm monobrain-appliance:build monobrain mcp start
-#   docker run --rm monobrain-appliance:build monobrain doctor
-CMD ["monobrain", "--help"]
+#   docker run --rm monomind-appliance:build monomind mcp start
+#   docker run --rm monomind-appliance:build monomind doctor
+CMD ["monomind", "--help"]

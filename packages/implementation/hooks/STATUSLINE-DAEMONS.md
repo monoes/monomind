@@ -24,9 +24,9 @@ The V1 hooks system integrates with background daemons and statusline displays t
 ├─────────────────────────────────────────────────────────────────────────┤
 │  statusline.sh (on-demand, <200ms)                                       │
 │  └─> Reads from:                                                         │
-│       ├─ .monobrain/metrics.db      (SQLite, primary)                 │
-│       ├─ .monobrain/hooks.db        (ReasoningBank patterns)          │
-│       └─ .monobrain/metrics/*.json  (exported, legacy compat)         │
+│       ├─ .monomind/metrics.db      (SQLite, primary)                 │
+│       ├─ .monomind/hooks.db        (ReasoningBank patterns)          │
+│       └─ .monomind/metrics/*.json  (exported, legacy compat)         │
 ├─────────────────────────────────────────────────────────────────────────┤
 │  SessionEnd Hook                                                         │
 │  └─> .claude/helpers/daemon-manager.sh stop                             │
@@ -59,7 +59,7 @@ Central control for all background processes with hooks integration.
 
 **PID Management:**
 ```
-.monobrain/pids/
+.monomind/pids/
 ├── swarm-monitor.pid      # Swarm monitoring daemon
 ├── metrics-daemon.pid     # Metrics collection daemon
 └── hooks-daemon.pid       # Hooks learning daemon
@@ -67,7 +67,7 @@ Central control for all background processes with hooks integration.
 
 **Log Files:**
 ```
-.monobrain/logs/
+.monomind/logs/
 ├── daemon.log             # Daemon manager operations
 ├── swarm-monitor.log      # Process detection logs
 ├── metrics-daemon.log     # Metrics sync logs
@@ -196,7 +196,7 @@ node .claude/helpers/hooks-daemon.mjs export --format json
 ### Format
 
 ```
-▊ Monobrain V1 ● agentic-flow@alpha  │  ⎇ v1
+▊ Monomind V1 ● agentic-flow@alpha  │  ⎇ v1
 ─────────────────────────────────────────────────────
 🏗️  DDD Domains    [●●●●●]  5/5    ⚡ 1.0x → 2.49x-7.47x
 🤖 Swarm Agents    ◉ [ 5/15]      🟢 CVE 3/3    💾 156 patterns
@@ -212,7 +212,7 @@ node .claude/helpers/hooks-daemon.mjs export --format json
 # .claude/statusline.sh - V1 with Hooks Integration
 
 # Read from SQLite if available
-if [ -f ".monobrain/metrics.db" ]; then
+if [ -f ".monomind/metrics.db" ]; then
   METRICS=$(node -e "
     const db = require('.claude/helpers/metrics-db.mjs');
     console.log(JSON.stringify(db.getStatuslineData()));
@@ -228,7 +228,7 @@ if [ -f ".monobrain/metrics.db" ]; then
 fi
 
 # Format output
-printf "▊ Monobrain V1 ● agentic-flow@alpha  │  ⎇ v1\n"
+printf "▊ Monomind V1 ● agentic-flow@alpha  │  ⎇ v1\n"
 printf "─────────────────────────────────────────────────────\n"
 printf "🏗️  DDD Domains    %s  │  ⚡ Performance targets active\n" "$DDD_PROGRESS"
 printf "🤖 Swarm Agents    ◉ [%2d/15]      🟢 CVE %s    💾 %d patterns\n" "$ACTIVE_AGENTS" "$CVE_STATUS" "$PATTERNS"
@@ -258,7 +258,7 @@ printf "────────────────────────
           {
             "type": "command",
             "timeout": 5000,
-            "command": "/workspaces/monobrain/.claude/helpers/daemon-manager.sh start 3 30 60"
+            "command": "/workspaces/monomind/.claude/helpers/daemon-manager.sh start 3 30 60"
           }
         ]
       }
@@ -269,7 +269,7 @@ printf "────────────────────────
           {
             "type": "command",
             "timeout": 3000,
-            "command": "/workspaces/monobrain/.claude/helpers/daemon-manager.sh stop"
+            "command": "/workspaces/monomind/.claude/helpers/daemon-manager.sh stop"
           }
         ]
       }
@@ -288,12 +288,12 @@ printf "────────────────────────
   },
   "statusLine": {
     "type": "command",
-    "command": "/workspaces/monobrain/.claude/statusline.sh"
+    "command": "/workspaces/monomind/.claude/statusline.sh"
   }
 }
 ```
 
-### Project Settings (`.monobrain/config.json`)
+### Project Settings (`.monomind/config.json`)
 
 ```json
 {
@@ -306,12 +306,12 @@ printf "────────────────────────
     "metricsSync": {
       "enabled": true,
       "interval": 30000,
-      "database": ".monobrain/metrics.db"
+      "database": ".monomind/metrics.db"
     },
     "hooksLearning": {
       "enabled": true,
       "interval": 60000,
-      "database": ".monobrain/hooks.db"
+      "database": ".monomind/hooks.db"
     }
   },
   "statusline": {
@@ -336,7 +336,7 @@ SessionStart Hook Triggered
     │   └─> Start hooks-daemon.mjs (every 60s)
     │
     ├─> Initialize ReasoningBank
-    │   ├─> Load patterns from .monobrain/hooks.db
+    │   ├─> Load patterns from .monomind/hooks.db
     │   └─> Warm HNSW index for retrieval
     │
     └─> First statusline render
@@ -447,13 +447,13 @@ SessionEnd Hook Triggered
 .claude/helpers/daemon-manager.sh status
 
 # View logs
-tail -f .monobrain/logs/daemon.log
+tail -f .monomind/logs/daemon.log
 
 # Check for stale PID files
-ls -la .monobrain/pids/
+ls -la .monomind/pids/
 
 # Manual cleanup and restart
-rm .monobrain/pids/*.pid
+rm .monomind/pids/*.pid
 .claude/helpers/daemon-manager.sh start
 ```
 
@@ -464,7 +464,7 @@ rm .monobrain/pids/*.pid
 node .claude/helpers/metrics-db.mjs sync
 
 # Check SQLite database
-sqlite3 .monobrain/metrics.db "SELECT * FROM hooks_metrics"
+sqlite3 .monomind/metrics.db "SELECT * FROM hooks_metrics"
 
 # Verify statusline script
 bash -x .claude/statusline.sh
@@ -505,7 +505,7 @@ node .claude/helpers/hooks-daemon.mjs rebuild-index
     ├── swarm-monitor.sh             # Process detection
     └── hooks-daemon.mjs             # Learning background process
 
-.monobrain/
+.monomind/
 ├── metrics.db                       # Main metrics database
 ├── hooks.db                         # ReasoningBank storage
 ├── config.json                      # V1 configuration

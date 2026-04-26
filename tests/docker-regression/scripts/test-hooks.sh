@@ -1,5 +1,5 @@
 #!/bin/bash
-# Monobrain Self-Learning Hooks Test Suite
+# Monomind Self-Learning Hooks Test Suite
 # Tests ReasoningBank, SONA, and all hook capabilities
 
 set -e
@@ -45,11 +45,11 @@ echo "export const test = 'hello';" > "$TEST_FILE"
 # ============================================================================
 echo "── Pre-Edit Hooks ──"
 
-run_test "Pre-edit TypeScript file" "npx monobrain hooks pre-edit ${TEST_FILE} 2>/dev/null || echo 'pre-edit ok'"
-run_test "Pre-edit security file" "npx monobrain hooks pre-edit src/auth/login.ts 2>/dev/null || echo 'pre-edit auth'"
-run_test "Pre-edit test file" "npx monobrain hooks pre-edit src/utils.test.ts 2>/dev/null || echo 'pre-edit test'"
-run_test "Pre-edit blocked file (.env)" "npx monobrain hooks pre-edit .env 2>/dev/null || echo 'blocked'"
-run_test "Pre-edit production file" "npx monobrain hooks pre-edit config/production.ts 2>/dev/null || echo 'warned'"
+run_test "Pre-edit TypeScript file" "npx monomind hooks pre-edit ${TEST_FILE} 2>/dev/null || echo 'pre-edit ok'"
+run_test "Pre-edit security file" "npx monomind hooks pre-edit src/auth/login.ts 2>/dev/null || echo 'pre-edit auth'"
+run_test "Pre-edit test file" "npx monomind hooks pre-edit src/utils.test.ts 2>/dev/null || echo 'pre-edit test'"
+run_test "Pre-edit blocked file (.env)" "npx monomind hooks pre-edit .env 2>/dev/null || echo 'blocked'"
+run_test "Pre-edit production file" "npx monomind hooks pre-edit config/production.ts 2>/dev/null || echo 'warned'"
 
 # ============================================================================
 # 2. POST-EDIT HOOKS
@@ -57,9 +57,9 @@ run_test "Pre-edit production file" "npx monobrain hooks pre-edit config/product
 echo ""
 echo "── Post-Edit Hooks ──"
 
-run_test "Post-edit success" "npx monobrain hooks post-edit ${TEST_FILE} --success true 2>/dev/null || echo 'post-edit success'"
-run_test "Post-edit failure" "npx monobrain hooks post-edit ${TEST_FILE} --success false 2>/dev/null || echo 'post-edit fail'"
-run_test "Post-edit with pattern" "npx monobrain hooks post-edit ${TEST_FILE} --pattern 'DI pattern' 2>/dev/null || echo 'post-edit pattern'"
+run_test "Post-edit success" "npx monomind hooks post-edit ${TEST_FILE} --success true 2>/dev/null || echo 'post-edit success'"
+run_test "Post-edit failure" "npx monomind hooks post-edit ${TEST_FILE} --success false 2>/dev/null || echo 'post-edit fail'"
+run_test "Post-edit with pattern" "npx monomind hooks post-edit ${TEST_FILE} --pattern 'DI pattern' 2>/dev/null || echo 'post-edit pattern'"
 
 # ============================================================================
 # 3. PRE-COMMAND HOOKS
@@ -67,11 +67,11 @@ run_test "Post-edit with pattern" "npx monobrain hooks post-edit ${TEST_FILE} --
 echo ""
 echo "── Pre-Command Hooks ──"
 
-run_test "Pre-command npm test" "npx monobrain hooks pre-command 'npm test' 2>/dev/null || echo 'pre-cmd npm test'"
-run_test "Pre-command npm build" "npx monobrain hooks pre-command 'npm run build' 2>/dev/null || echo 'pre-cmd build'"
-run_test "Pre-command dangerous (rm -rf)" "npx monobrain hooks pre-command 'rm -rf /' 2>/dev/null || echo 'blocked'"
-run_test "Pre-command risky (git push)" "npx monobrain hooks pre-command 'git push' 2>/dev/null || echo 'warned'"
-run_test "Pre-command safe (ls)" "npx monobrain hooks pre-command 'ls -la' 2>/dev/null || echo 'allowed'"
+run_test "Pre-command npm test" "npx monomind hooks pre-command 'npm test' 2>/dev/null || echo 'pre-cmd npm test'"
+run_test "Pre-command npm build" "npx monomind hooks pre-command 'npm run build' 2>/dev/null || echo 'pre-cmd build'"
+run_test "Pre-command dangerous (rm -rf)" "npx monomind hooks pre-command 'rm -rf /' 2>/dev/null || echo 'blocked'"
+run_test "Pre-command risky (git push)" "npx monomind hooks pre-command 'git push' 2>/dev/null || echo 'warned'"
+run_test "Pre-command safe (ls)" "npx monomind hooks pre-command 'ls -la' 2>/dev/null || echo 'allowed'"
 
 # ============================================================================
 # 4. POST-COMMAND HOOKS
@@ -79,8 +79,8 @@ run_test "Pre-command safe (ls)" "npx monobrain hooks pre-command 'ls -la' 2>/de
 echo ""
 echo "── Post-Command Hooks ──"
 
-run_test "Post-command success" "npx monobrain hooks post-command 'npm test' --success true 2>/dev/null || echo 'post-cmd success'"
-run_test "Post-command failure" "npx monobrain hooks post-command 'npm test' --success false 2>/dev/null || echo 'post-cmd fail'"
+run_test "Post-command success" "npx monomind hooks post-command 'npm test' --success true 2>/dev/null || echo 'post-cmd success'"
+run_test "Post-command failure" "npx monomind hooks post-command 'npm test' --success false 2>/dev/null || echo 'post-cmd fail'"
 
 # ============================================================================
 # 5. TASK ROUTING
@@ -88,10 +88,10 @@ run_test "Post-command failure" "npx monobrain hooks post-command 'npm test' --s
 echo ""
 echo "── Task Routing ──"
 
-run_test "Route security task" "npx monobrain hooks route 'Fix authentication vulnerability' 2>/dev/null || echo 'routed to security-architect'"
-run_test "Route testing task" "npx monobrain hooks route 'Write unit tests with mocks' 2>/dev/null || echo 'routed to test-architect'"
-run_test "Route performance task" "npx monobrain hooks route 'Optimize memory usage' 2>/dev/null || echo 'routed to performance-engineer'"
-run_test "Route general task" "npx monobrain hooks route 'Implement new feature' 2>/dev/null || echo 'routed to coder'"
+run_test "Route security task" "npx monomind hooks route 'Fix authentication vulnerability' 2>/dev/null || echo 'routed to security-architect'"
+run_test "Route testing task" "npx monomind hooks route 'Write unit tests with mocks' 2>/dev/null || echo 'routed to test-architect'"
+run_test "Route performance task" "npx monomind hooks route 'Optimize memory usage' 2>/dev/null || echo 'routed to performance-engineer'"
+run_test "Route general task" "npx monomind hooks route 'Implement new feature' 2>/dev/null || echo 'routed to coder'"
 
 # ============================================================================
 # 6. ROUTING EXPLANATION
@@ -99,7 +99,7 @@ run_test "Route general task" "npx monobrain hooks route 'Implement new feature'
 echo ""
 echo "── Routing Explanation ──"
 
-run_test "Explain routing" "npx monobrain hooks explain 'Fix authentication vulnerability' 2>/dev/null || echo 'explanation generated'"
+run_test "Explain routing" "npx monomind hooks explain 'Fix authentication vulnerability' 2>/dev/null || echo 'explanation generated'"
 
 # ============================================================================
 # 7. PRETRAINING
@@ -107,8 +107,8 @@ run_test "Explain routing" "npx monobrain hooks explain 'Fix authentication vuln
 echo ""
 echo "── Pretraining Pipeline ──"
 
-run_test "Pretrain dry-run" "npx monobrain hooks pretrain --dry-run 2>/dev/null || echo 'pretrain dry-run'"
-run_test "Build agents" "npx monobrain hooks build-agents --dry-run 2>/dev/null || echo 'build-agents'"
+run_test "Pretrain dry-run" "npx monomind hooks pretrain --dry-run 2>/dev/null || echo 'pretrain dry-run'"
+run_test "Build agents" "npx monomind hooks build-agents --dry-run 2>/dev/null || echo 'build-agents'"
 
 # ============================================================================
 # 8. METRICS & STATS
@@ -116,8 +116,8 @@ run_test "Build agents" "npx monobrain hooks build-agents --dry-run 2>/dev/null 
 echo ""
 echo "── Metrics & Stats ──"
 
-run_test "Hooks metrics" "npx monobrain hooks metrics 2>/dev/null || echo 'metrics displayed'"
-run_test "Pattern count" "npx monobrain hooks stats 2>/dev/null || echo 'stats displayed'"
+run_test "Hooks metrics" "npx monomind hooks metrics 2>/dev/null || echo 'metrics displayed'"
+run_test "Pattern count" "npx monomind hooks stats 2>/dev/null || echo 'stats displayed'"
 
 # ============================================================================
 # 9. REASONING BANK
@@ -160,7 +160,7 @@ run_test "Detect architecture domain" "echo 'architecture domain detection' && e
 echo ""
 echo "── Pattern Transfer ──"
 
-run_test "Transfer patterns" "npx monobrain hooks transfer /tmp/source-project 2>/dev/null || echo 'transfer patterns'"
+run_test "Transfer patterns" "npx monomind hooks transfer /tmp/source-project 2>/dev/null || echo 'transfer patterns'"
 
 # ============================================================================
 # 13. INTELLIGENCE FEATURES
@@ -168,7 +168,7 @@ run_test "Transfer patterns" "npx monobrain hooks transfer /tmp/source-project 2
 echo ""
 echo "── Intelligence Features ──"
 
-run_test "RuVector intelligence" "npx monobrain hooks intelligence 2>/dev/null || echo 'intelligence ok'"
+run_test "RuVector intelligence" "npx monomind hooks intelligence 2>/dev/null || echo 'intelligence ok'"
 
 # Cleanup
 rm -f "$TEST_FILE"

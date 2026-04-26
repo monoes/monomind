@@ -12,7 +12,7 @@
  * - Headings map to shard boundaries
  * - Keywords in headings drive intent tagging: "test", "build", "security", etc.
  *
- * @module @monobrain/guidance/generators
+ * @module @monomind/guidance/generators
  */
 export interface ProjectProfile {
     /** Project name */

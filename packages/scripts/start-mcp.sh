@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Monobrain MCP Server V1 Startup Script
+# Monomind MCP Server V1 Startup Script
 #
 # Usage:
 #   ./start-mcp.sh [options]
@@ -34,8 +34,8 @@ LOG_LEVEL="info"
 DAEMON=false
 
 # PID file location
-PID_FILE="${TMPDIR:-/tmp}/monobrain-mcp.pid"
-LOG_FILE="${TMPDIR:-/tmp}/monobrain-mcp.log"
+PID_FILE="${TMPDIR:-/tmp}/monomind-mcp.pid"
+LOG_FILE="${TMPDIR:-/tmp}/monomind-mcp.log"
 
 # Colors for output
 RED='\033[0;31m'
@@ -64,7 +64,7 @@ print_error() {
 # Show help
 show_help() {
     cat << EOF
-Monobrain MCP Server V1 Startup Script
+Monomind MCP Server V1 Startup Script
 
 Usage:
   ./start-mcp.sh [options]
@@ -252,7 +252,7 @@ CMD="npx tsx $SERVER_ENTRY \
     --log-level $LOG_LEVEL"
 
 # Start server
-print_info "Starting Monobrain MCP Server V1..."
+print_info "Starting Monomind MCP Server V1..."
 print_info "  Transport: $TRANSPORT"
 print_info "  Host: $HOST"
 print_info "  Port: $PORT"

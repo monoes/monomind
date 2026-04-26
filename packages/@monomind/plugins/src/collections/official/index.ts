@@ -17,7 +17,7 @@ import { HookEvent, HookPriority } from '../../types/index.js';
  */
 export const sessionPlugin = new PluginBuilder('session-manager', '3.0.0')
   .withDescription('Manages session lifecycle with auto-save and restore')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['core', 'session', 'persistence'])
   .withHooks([
     {
@@ -44,7 +44,7 @@ export const sessionPlugin = new PluginBuilder('session-manager', '3.0.0')
  */
 export const memoryCoordinatorPlugin = new PluginBuilder('memory-coordinator', '3.0.0')
   .withDescription('Coordinates memory access and synchronization across agents')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['core', 'memory', 'coordination'])
   .withHooks([
     {
@@ -71,7 +71,7 @@ export const memoryCoordinatorPlugin = new PluginBuilder('memory-coordinator', '
  */
 export const eventBusPlugin = new PluginBuilder('event-bus', '3.0.0')
   .withDescription('Pub/sub event messaging system')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['core', 'events', 'messaging'])
   .withMCPTools([
     {
@@ -103,7 +103,7 @@ export const eventBusPlugin = new PluginBuilder('event-bus', '3.0.0')
  */
 export const coderAgentPlugin = new PluginBuilder('coder-agent', '3.0.0')
   .withDescription('AI-powered coding assistance agent')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['development', 'agent', 'coding'])
   .withAgentTypes([
     {
@@ -123,7 +123,7 @@ export const coderAgentPlugin = new PluginBuilder('coder-agent', '3.0.0')
  */
 export const testerAgentPlugin = new PluginBuilder('tester-agent', '3.0.0')
   .withDescription('AI-powered testing and QA agent')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['development', 'agent', 'testing'])
   .withAgentTypes([
     {
@@ -143,7 +143,7 @@ export const testerAgentPlugin = new PluginBuilder('tester-agent', '3.0.0')
  */
 export const reviewerAgentPlugin = new PluginBuilder('reviewer-agent', '3.0.0')
   .withDescription('AI-powered code review agent')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['development', 'agent', 'review'])
   .withAgentTypes([
     {
@@ -163,7 +163,7 @@ export const reviewerAgentPlugin = new PluginBuilder('reviewer-agent', '3.0.0')
  */
 export const gitIntegrationPlugin = new PluginBuilder('git-integration', '3.0.0')
   .withDescription('Git version control integration')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['development', 'integration', 'git'])
   .withMCPTools([
     {
@@ -206,7 +206,7 @@ export const gitIntegrationPlugin = new PluginBuilder('git-integration', '3.0.0'
  */
 export const linterPlugin = new PluginBuilder('linter', '3.0.0')
   .withDescription('Code linting and style checking')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['development', 'tool', 'linting'])
   .withHooks([
     {
@@ -230,7 +230,7 @@ export const linterPlugin = new PluginBuilder('linter', '3.0.0')
  */
 export const sonaPlugin = new PluginBuilder('sona-integration', '3.0.0')
   .withDescription('SONA self-optimizing neural architecture integration')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['intelligence', 'neural', 'learning'])
   .withDependencies(['memory-coordinator@^3.0.0'])
   .withHooks([
@@ -250,7 +250,7 @@ export const sonaPlugin = new PluginBuilder('sona-integration', '3.0.0')
  */
 export const reasoningBankPlugin = new PluginBuilder('reasoning-bank', '3.0.0')
   .withDescription('Pattern storage and retrieval for reasoning')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['intelligence', 'memory', 'patterns'])
   .withMCPTools([
     {
@@ -296,7 +296,7 @@ export const reasoningBankPlugin = new PluginBuilder('reasoning-bank', '3.0.0')
  */
 export const patternLearningPlugin = new PluginBuilder('pattern-learning', '3.0.0')
   .withDescription('Learns patterns from task execution')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['intelligence', 'learning', 'hooks'])
   .withHooks([
     {
@@ -327,7 +327,7 @@ export const patternLearningPlugin = new PluginBuilder('pattern-learning', '3.0.
  */
 export const hiveMindPlugin = new PluginBuilder('hive-mind', '3.0.0')
   .withDescription('Collective intelligence and consensus mechanisms')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['swarm', 'integration', 'consensus'])
   .withMCPTools([
     {
@@ -356,7 +356,7 @@ export const hiveMindPlugin = new PluginBuilder('hive-mind', '3.0.0')
  */
 export const maestroPlugin = new PluginBuilder('maestro', '3.0.0')
   .withDescription('Multi-agent workflow orchestration')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['swarm', 'integration', 'orchestration'])
   .withMCPTools([
     {
@@ -401,7 +401,7 @@ export const maestroPlugin = new PluginBuilder('maestro', '3.0.0')
  */
 export const consensusPlugin = new PluginBuilder('consensus', '3.0.0')
   .withDescription('Byzantine fault-tolerant consensus mechanisms')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['swarm', 'integration', 'consensus', 'byzantine'])
   .withDependencies(['hive-mind@^3.0.0'])
   .build();
@@ -411,7 +411,7 @@ export const consensusPlugin = new PluginBuilder('consensus', '3.0.0')
  */
 export const coordinatorAgentPlugin = new PluginBuilder('coordinator-agent', '3.0.0')
   .withDescription('Swarm coordination agent')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['swarm', 'agent', 'coordination'])
   .withAgentTypes([
     {
@@ -435,7 +435,7 @@ export const coordinatorAgentPlugin = new PluginBuilder('coordinator-agent', '3.
  */
 export const inputValidationPlugin = new PluginBuilder('input-validation', '3.0.0')
   .withDescription('Input validation and sanitization')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['security', 'hook', 'validation'])
   .withHooks([
     {
@@ -464,7 +464,7 @@ export const inputValidationPlugin = new PluginBuilder('input-validation', '3.0.
  */
 export const pathSecurityPlugin = new PluginBuilder('path-security', '3.0.0')
   .withDescription('Path traversal prevention and validation')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['security', 'hook', 'filesystem'])
   .withHooks([
     {
@@ -492,7 +492,7 @@ export const pathSecurityPlugin = new PluginBuilder('path-security', '3.0.0')
  */
 export const auditLogPlugin = new PluginBuilder('audit-log', '3.0.0')
   .withDescription('Comprehensive audit logging')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['security', 'hook', 'audit', 'logging'])
   .withHooks([
     {
@@ -533,7 +533,7 @@ export const auditLogPlugin = new PluginBuilder('audit-log', '3.0.0')
  */
 export const securityScanPlugin = new PluginBuilder('security-scan', '3.0.0')
   .withDescription('Security vulnerability scanning')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['security', 'tool', 'scanning'])
   .withMCPTools([
     {
@@ -565,7 +565,7 @@ export const securityScanPlugin = new PluginBuilder('security-scan', '3.0.0')
  */
 export const metricsPlugin = new PluginBuilder('metrics', '3.0.0')
   .withDescription('Performance and usage metrics collection')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['utility', 'metrics', 'monitoring'])
   .withMCPTools([
     {
@@ -592,7 +592,7 @@ export const metricsPlugin = new PluginBuilder('metrics', '3.0.0')
  */
 export const cachePlugin = new PluginBuilder('cache', '3.0.0')
   .withDescription('Caching utilities for improved performance')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['utility', 'cache', 'performance'])
   .build();
 
@@ -614,7 +614,7 @@ export const cachePlugin = new PluginBuilder('cache', '3.0.0')
  */
 export const ruvectorPostgresPlugin = new PluginBuilder('ruvector-postgres', '3.0.0')
   .withDescription('RuVector PostgreSQL Bridge - Advanced vector search with attention, GNN, and hyperbolic embeddings')
-  .withAuthor('Monobrain')
+  .withAuthor('Monomind')
   .withTags(['database', 'vector', 'postgresql', 'attention', 'gnn', 'hyperbolic', 'intelligence'])
   .withDependencies(['memory-coordinator'])
   .withMCPTools([
@@ -743,14 +743,14 @@ export const ruvectorPostgresPlugin = new PluginBuilder('ruvector-postgres', '3.
 // ============================================================================
 
 /**
- * Core collection - essential plugins for Monobrain operation.
+ * Core collection - essential plugins for Monomind operation.
  */
 export const coreCollection: PluginCollection = {
-  id: 'monobrain-core',
-  name: 'Monobrain Core Plugins',
+  id: 'monomind-core',
+  name: 'Monomind Core Plugins',
   version: '3.0.0',
-  description: 'Essential plugins for Monobrain operation',
-  author: 'Monobrain',
+  description: 'Essential plugins for Monomind operation',
+  author: 'Monomind',
   license: 'MIT',
   categories: ['hook', 'integration', 'utility'],
   plugins: [
@@ -782,11 +782,11 @@ export const coreCollection: PluginCollection = {
  * Development collection - plugins for software development workflows.
  */
 export const developmentCollection: PluginCollection = {
-  id: 'monobrain-development',
+  id: 'monomind-development',
   name: 'Development Tools',
   version: '3.0.0',
   description: 'Plugins for software development workflows',
-  author: 'Monobrain',
+  author: 'Monomind',
   license: 'MIT',
   categories: ['agent', 'tool', 'integration'],
   plugins: [
@@ -832,11 +832,11 @@ export const developmentCollection: PluginCollection = {
  * Intelligence collection - AI/ML and learning plugins.
  */
 export const intelligenceCollection: PluginCollection = {
-  id: 'monobrain-intelligence',
+  id: 'monomind-intelligence',
   name: 'Intelligence & Learning',
   version: '3.0.0',
   description: 'AI/ML features and learning capabilities',
-  author: 'Monobrain',
+  author: 'Monomind',
   license: 'MIT',
   categories: ['integration', 'memory', 'hook', 'database'],
   plugins: [
@@ -878,11 +878,11 @@ export const intelligenceCollection: PluginCollection = {
  * Database collection - database and storage plugins.
  */
 export const databaseCollection: PluginCollection = {
-  id: 'monobrain-database',
+  id: 'monomind-database',
   name: 'Database & Storage',
   version: '3.0.0',
   description: 'Database integrations and storage plugins',
-  author: 'Monobrain',
+  author: 'Monomind',
   license: 'MIT',
   categories: ['database', 'integration'],
   plugins: [
@@ -901,11 +901,11 @@ export const databaseCollection: PluginCollection = {
  * Swarm collection - multi-agent coordination plugins.
  */
 export const swarmCollection: PluginCollection = {
-  id: 'monobrain-swarm',
+  id: 'monomind-swarm',
   name: 'Swarm Coordination',
   version: '3.0.0',
   description: 'Multi-agent swarm coordination and orchestration',
-  author: 'Monobrain',
+  author: 'Monomind',
   license: 'MIT',
   categories: ['integration', 'agent'],
   plugins: [
@@ -944,11 +944,11 @@ export const swarmCollection: PluginCollection = {
  * Security collection - security and audit plugins.
  */
 export const securityCollection: PluginCollection = {
-  id: 'monobrain-security',
+  id: 'monomind-security',
   name: 'Security & Audit',
   version: '3.0.0',
   description: 'Security validation and audit logging',
-  author: 'Monobrain',
+  author: 'Monomind',
   license: 'MIT',
   categories: ['hook', 'tool'],
   plugins: [
@@ -987,11 +987,11 @@ export const securityCollection: PluginCollection = {
  * Utility collection - general utility plugins.
  */
 export const utilityCollection: PluginCollection = {
-  id: 'monobrain-utility',
+  id: 'monomind-utility',
   name: 'Utilities',
   version: '3.0.0',
   description: 'General utility plugins',
-  author: 'Monobrain',
+  author: 'Monomind',
   license: 'MIT',
   categories: ['utility'],
   plugins: [

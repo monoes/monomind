@@ -9,7 +9,7 @@
  *
  * Run with: npx ts-node examples/ruvector/semantic-search.ts
  *
- * @module @monobrain/plugins/examples/ruvector/semantic-search
+ * @module @monomind/plugins/examples/ruvector/semantic-search
  */
 
 import {

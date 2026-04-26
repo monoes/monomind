@@ -1,22 +1,22 @@
 /**
  * Graphify MCP Tools
  *
- * Bridges @monobrain/graph's knowledge graph into monobrain's MCP tool surface.
+ * Bridges @monomind/graph's knowledge graph into monomind's MCP tool surface.
  * Agents can query the codebase knowledge graph without reading files —
  * god_nodes(), query_graph(), shortest_path() give structural understanding
  * in milliseconds vs. reading dozens of source files.
  *
- * Graph is built automatically on `monobrain init` and stored at
- * .monobrain/graph/graph.json (legacy: graphify-out/graph.json).
+ * Graph is built automatically on `monomind init` and stored at
+ * .monomind/graph/graph.json (legacy: graphify-out/graph.json).
  * Rebuild manually: call graphify_build via MCP.
  */
 import { existsSync, readFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { getProjectCwd } from './types.js';
 // ── Path helpers ──────────────────────────────────────────────────────────────
-/** Resolve graph path: prefer native monobrain path, fall back to legacy graphify path. */
+/** Resolve graph path: prefer native monomind path, fall back to legacy graphify path. */
 function getGraphPath(cwd) {
-    const nativePath = resolve(join(cwd, '.monobrain', 'graph', 'graph.json'));
+    const nativePath = resolve(join(cwd, '.monomind', 'graph', 'graph.json'));
     const legacyPath = resolve(join(cwd, 'graphify-out', 'graph.json'));
     if (existsSync(nativePath))
         return nativePath;
@@ -29,15 +29,15 @@ function graphExists(cwd) {
 }
 /**
  * Load the knowledge graph.
- * Tries @monobrain/graph's loadGraph first; falls back to parsing raw JSON.
+ * Tries @monomind/graph's loadGraph first; falls back to parsing raw JSON.
  */
 async function loadKnowledgeGraph(cwd) {
     const graphPath = getGraphPath(cwd);
     let rawNodes = [];
     let rawEdges = [];
     try {
-        // Prefer @monobrain/graph's loader which handles format normalization.
-        const { loadGraph } = await import('@monoes/graph');
+        // Prefer @monomind/graph's loader which handles format normalization.
+        const { loadGraph } = await import('@monomind/graph');
         const loaded = loadGraph(graphPath);
         rawNodes = loaded.nodes;
         rawEdges = loaded.edges;
@@ -129,8 +129,8 @@ export const graphifyBuildTool = {
         const cwd = getProjectCwd();
         const targetPath = params.path || cwd;
         try {
-            const { buildGraph } = await import('@monoes/graph');
-            const outputDir = join(targetPath, '.monobrain', 'graph');
+            const { buildGraph } = await import('@monomind/graph');
+            const outputDir = join(targetPath, '.monomind', 'graph');
             const result = await buildGraph(targetPath, {
                 codeOnly: Boolean(params.codeOnly),
                 outputDir,
@@ -154,7 +154,7 @@ export const graphifyBuildTool = {
             return {
                 error: true,
                 message: String(err),
-                hint: '@monobrain/graph package not available — ensure it is installed and built.',
+                hint: '@monomind/graph package not available — ensure it is installed and built.',
             };
         }
     },
@@ -343,6 +343,10 @@ export const graphifyGodNodesTool = {
         try {
             const g = await loadKnowledgeGraph(targetPath);
             const sortedIds = [...g.nodes.keys()]
+                .filter(id => {
+                const source_file = g.nodes.get(id)?.source_file ?? '';
+                return source_file !== '';
+            })
                 .sort((a, b) => (g.degree.get(b) ?? 0) - (g.degree.get(a) ?? 0))
                 .slice(0, topN);
             const godNodes = sortedIds.map(id => {
@@ -360,7 +364,8 @@ export const graphifyGodNodesTool = {
                     neighbors,
                 };
             });
-            return { god_nodes: godNodes, total_nodes: g.nodes.size };
+            const internalCount = [...g.nodes.keys()].filter(id => (g.nodes.get(id)?.source_file ?? '') !== '').length;
+            return { god_nodes: godNodes, total_nodes: g.nodes.size, internal_nodes: internalCount };
         }
         catch (err) {
             return { error: true, message: String(err) };
@@ -716,6 +721,10 @@ export const graphifyStatsTool = {
                 .slice(0, 10)
                 .reduce((acc, [k, v]) => { acc[k] = v; return acc; }, {});
             const topGodNodes = [...g.nodes.keys()]
+                .filter(id => {
+                const source_file = g.nodes.get(id)?.source_file ?? '';
+                return source_file !== '';
+            })
                 .sort((a, b) => (g.degree.get(b) ?? 0) - (g.degree.get(a) ?? 0))
                 .slice(0, 5)
                 .map(id => g.nodes.get(id)?.label ?? id);
@@ -842,7 +851,7 @@ export const graphifyVisualizeTool = {
             const { readFileSync } = await import('fs');
             const { join, dirname } = await import('path');
             const outputDir = dirname(graphPath);
-            const { exportHTML } = await import('@monoes/graph');
+            const { exportHTML } = await import('@monomind/graph');
             const raw = JSON.parse(readFileSync(graphPath, 'utf-8'));
             const htmlPath = exportHTML(raw, outputDir);
             if (params.open) {
@@ -865,7 +874,7 @@ export const graphifyVisualizeTool = {
 };
 // ── Watch PID helpers ─────────────────────────────────────────────────────────
 function getPidPath(cwd) {
-    return resolve(join(cwd, '.monobrain', 'graph', 'watch.pid'));
+    return resolve(join(cwd, '.monomind', 'graph', 'watch.pid'));
 }
 function readWatchPid(cwd) {
     const pidPath = getPidPath(cwd);
@@ -938,7 +947,7 @@ export const graphifyWatchTool = {
             };
         }
         const pidPath = getPidPath(targetPath);
-        const outputDir = resolve(join(targetPath, '.monobrain', 'graph'));
+        const outputDir = resolve(join(targetPath, '.monomind', 'graph'));
         // Inline watcher script — runs as a detached node process
         const watcherScript = `
 import { watch } from 'chokidar';
@@ -953,7 +962,7 @@ const EXTS = new Set(${JSON.stringify(extensions)});
 const IGNORE = [
   /node_modules/,
   /\\.git/,
-  /\\.monobrain/,
+  /\\.monomind/,
   /dist[\\\\/]/,
   /\\.next/,
   /\\.turbo/,
@@ -972,9 +981,9 @@ async function rebuild() {
   const start = Date.now();
   console.log('[graphify-watch] Change detected — rebuilding graph…');
   try {
-    const { buildGraph } = await import('@monoes/graph');
+    const { buildGraph } = await import('@monomind/graph');
     const { graph: serialized } = await buildGraph(TARGET, { outputDir: OUTPUT_DIR });
-    const { exportHTML } = await import('@monoes/graph');
+    const { exportHTML } = await import('@monomind/graph');
     exportHTML(serialized, OUTPUT_DIR);
     console.log('[graphify-watch] Done in', Date.now() - start, 'ms');
   } catch (err) {
@@ -1105,7 +1114,7 @@ export const graphifyReportTool = {
     handler: async (params) => {
         const cwd = getProjectCwd();
         const targetPath = params.path || cwd;
-        const reportPath = resolve(join(targetPath, '.monobrain', 'graph', 'GRAPH_REPORT.md'));
+        const reportPath = resolve(join(targetPath, '.monomind', 'graph', 'GRAPH_REPORT.md'));
         if (!existsSync(reportPath)) {
             return {
                 error: true,
@@ -1149,10 +1158,10 @@ export const graphifySuggestTool = {
             return { error: true, message: 'No graph found. Run graphify_build first.' };
         }
         try {
-            const { loadGraph, suggestQuestions, buildAnalysis } = await import('@monoes/graph');
+            const { loadGraph, suggestQuestions, buildAnalysis } = await import('@monomind/graph');
             const graphPath = getGraphPath(targetPath);
-            const outputDir = resolve(join(targetPath, '.monobrain', 'graph'));
-            const { buildGraphologyGraph } = await import('@monoes/graph');
+            const outputDir = resolve(join(targetPath, '.monomind', 'graph'));
+            const { buildGraphologyGraph } = await import('@monomind/graph');
             const raw = loadGraph(graphPath);
             const graph = buildGraphologyGraph({ nodes: raw.nodes, edges: raw.edges, hyperedges: [], filesProcessed: 0, fromCache: 0, errors: [] });
             const analysis = buildAnalysis(graph, outputDir);
@@ -1187,7 +1196,7 @@ export const graphifyHealthTool = {
         const cwd = getProjectCwd();
         const targetPath = params.path || cwd;
         try {
-            const { collectFiles, corpusHealth } = await import('@monoes/graph');
+            const { collectFiles, corpusHealth } = await import('@monomind/graph');
             const files = collectFiles(targetPath);
             const warnings = corpusHealth(files);
             return {

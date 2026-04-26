@@ -1,6 +1,6 @@
 /**
  * CFP Format Serializer
- * Monobrain Pattern format serialization
+ * Monomind Pattern format serialization
  */
 
 import type { CFPFormat, SerializationFormat, PatternCollection } from '../types.js';
@@ -8,7 +8,7 @@ import * as crypto from 'crypto';
 
 // Version info
 const CFP_VERSION = '1.0.0';
-const GENERATOR = 'monobrain@3.0.0-alpha';
+const GENERATOR = 'monomind@3.0.0-alpha';
 
 /**
  * Create a new CFP document

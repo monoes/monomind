@@ -9,7 +9,7 @@
  * Each scope stores agent-specific memory in a named subdirectory,
  * enabling isolated yet transferable knowledge between agents.
  *
- * @module @monobrain/memory/agent-memory-scope
+ * @module @monomind/memory/agent-memory-scope
  */
 
 import * as path from 'node:path';

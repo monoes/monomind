@@ -1,7 +1,7 @@
 /**
  * MCP Module
  *
- * Optimized MCP (Model Context Protocol) implementation for Monobrain
+ * Optimized MCP (Model Context Protocol) implementation for Monomind
  *
  * Features:
  * - High-performance server with <400ms startup
@@ -17,7 +17,7 @@
  * - Tool execution: <50ms overhead
  * - Connection acquire: <5ms
  *
- * @module @monobrain/mcp
+ * @module @monomind/mcp
  * @version 3.0.0
  */
 
@@ -136,7 +136,7 @@ export type {
  *
  * @example
  * ```typescript
- * import { quickStart } from '@monobrain/mcp';
+ * import { quickStart } from '@monomind/mcp';
  *
  * const server = await quickStart({
  *   transport: 'stdio',
@@ -180,4 +180,4 @@ export const VERSION = '3.0.0';
 /**
  * Module name
  */
-export const MODULE_NAME = '@monobrain/mcp';
+export const MODULE_NAME = '@monomind/mcp';

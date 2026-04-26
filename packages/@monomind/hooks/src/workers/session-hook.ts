@@ -149,10 +149,10 @@ export function formatSessionStartOutput(result: SessionHookResult): string {
  * Generate a shell hook script for integration with .claude/settings.json
  */
 export function generateShellHook(projectRoot: string): string {
-  const hookPath = path.join(projectRoot, 'packages', '@monobrain', 'hooks');
+  const hookPath = path.join(projectRoot, 'packages', '@monomind', 'hooks');
 
   return `#!/bin/bash
-# Monobrain Workers - Session Start Hook
+# Monomind Workers - Session Start Hook
 # Auto-generated - do not edit manually
 
 set -euo pipefail

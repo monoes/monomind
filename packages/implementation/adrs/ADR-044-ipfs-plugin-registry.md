@@ -57,7 +57,7 @@ Implement a hybrid architecture using:
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐       │
-│  │ Monobrain │────▶│   Resolve   │────▶│   Fetch     │       │
+│  │ Monomind │────▶│   Resolve   │────▶│   Fetch     │       │
 │  │    CLI      │     │    IPNS     │     │    IPFS     │       │
 │  └─────────────┘     └──────┬──────┘     └──────┬──────┘       │
 │                             │                    │              │
@@ -83,12 +83,12 @@ Implement a hybrid architecture using:
 1. **Create GCS Bucket**
 ```bash
 # Create bucket for registry data
-gcloud storage buckets create gs://monobrain-plugin-registry \
+gcloud storage buckets create gs://monomind-plugin-registry \
   --location=US \
   --uniform-bucket-level-access
 
 # Enable versioning for rollback
-gsutil versioning set on gs://monobrain-plugin-registry
+gsutil versioning set on gs://monomind-plugin-registry
 ```
 
 2. **Create Service Account**
@@ -98,7 +98,7 @@ gcloud iam service-accounts create plugin-registry-publisher \
   --display-name="Plugin Registry Publisher"
 
 # Grant permissions
-gsutil iam ch serviceAccount:plugin-registry-publisher@PROJECT.iam.gserviceaccount.com:objectViewer gs://monobrain-plugin-registry
+gsutil iam ch serviceAccount:plugin-registry-publisher@PROJECT.iam.gserviceaccount.com:objectViewer gs://monomind-plugin-registry
 ```
 
 ### Phase 2: Pinata Setup
@@ -118,7 +118,7 @@ const pinata = new PinataSDK({
 
 // Generate IPNS key for the registry
 async function setupIPNS() {
-  const keyName = 'monobrain-official-registry';
+  const keyName = 'monomind-official-registry';
   const key = await pinata.generateKey({
     keyName,
     permissions: {
@@ -162,7 +162,7 @@ export const PluginEntrySchema = z.object({
   downloads: z.number(),
   rating: z.number(),
   lastUpdated: z.string().datetime(),
-  minMonobrainVersion: z.string(),
+  minMonomindVersion: z.string(),
   dependencies: z.array(z.object({
     name: z.string(),
     version: z.string(),
@@ -225,7 +225,7 @@ const pinata = new PinataSDK({
 export async function publishRegistry(req: any, res: any) {
   try {
     // 1. Fetch registry from GCS
-    const bucket = storage.bucket('monobrain-plugin-registry');
+    const bucket = storage.bucket('monomind-plugin-registry');
     const file = bucket.file('registry.json');
     const [content] = await file.download();
     const registry = JSON.parse(content.toString());
@@ -249,7 +249,7 @@ export async function publishRegistry(req: any, res: any) {
     // 4. Pin to IPFS via Pinata
     const pinResult = await pinata.pinJSONToIPFS(validated, {
       pinataMetadata: {
-        name: 'monobrain-plugin-registry',
+        name: 'monomind-plugin-registry',
         keyvalues: {
           version: validated.version,
           updatedAt: validated.updatedAt,
@@ -435,8 +435,8 @@ export function hashContent(content: Buffer): string {
 export const DEFAULT_PLUGIN_STORE_CONFIG: PluginStoreConfig = {
   registries: [
     {
-      name: 'monobrain-official',
-      description: 'Official Monobrain plugin registry',
+      name: 'monomind-official',
+      description: 'Official Monomind plugin registry',
       // Real IPNS name from Pinata
       ipnsName: 'k51qzi5uqu5dl...', // Your actual IPNS key
       gateway: 'https://gateway.pinata.cloud',
@@ -445,15 +445,15 @@ export const DEFAULT_PLUGIN_STORE_CONFIG: PluginStoreConfig = {
       official: true,
     },
   ],
-  defaultRegistry: 'monobrain-official',
+  defaultRegistry: 'monomind-official',
   gateway: 'https://gateway.pinata.cloud',
   timeout: 30000,
-  cacheDir: '.monobrain/plugins/cache',
+  cacheDir: '.monomind/plugins/cache',
   cacheExpiry: 3600000,
   requireVerification: true,
   requireSecurityAudit: false,
   minTrustLevel: 'community',
-  trustedAuthors: ['monobrain-team'],
+  trustedAuthors: ['monomind-team'],
   blockedPlugins: [],
   allowedPermissions: ['network', 'filesystem', 'memory', 'hooks'],
   requirePermissionPrompt: true,

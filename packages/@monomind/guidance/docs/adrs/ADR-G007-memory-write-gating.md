@@ -10,7 +10,7 @@ Accepted
 
 ## Context
 
-In a multi-agent swarm, agents share state through a memory subsystem (AgentDB with HNSW indexing in Monobrain v1). Without governance, agents can:
+In a multi-agent swarm, agents share state through a memory subsystem (AgentDB with HNSW indexing in Monomind v1). Without governance, agents can:
 
 1. **Overwrite critical state.** A coder agent overwrites the architect's design decisions. A tester overwrites the coordinator's task assignments.
 2. **Flood memory.** An agent in a loop writes thousands of entries, degrading search performance and consuming storage.
@@ -100,7 +100,7 @@ Implement a full role-based access control system with cryptographic agent ident
 
 ### 3. CRDT-based conflict resolution for memory writes
 
-Use Conflict-free Replicated Data Types to automatically resolve write conflicts. Rejected because CRDTs solve a different problem (convergence under partition) and do not address authorization or staleness. CRDTs are available in the broader Monobrain hive-mind system for distributed consensus, but memory governance is about policy, not data structures.
+Use Conflict-free Replicated Data Types to automatically resolve write conflicts. Rejected because CRDTs solve a different problem (convergence under partition) and do not address authorization or staleness. CRDTs are available in the broader Monomind hive-mind system for distributed consensus, but memory governance is about policy, not data structures.
 
 ### 4. No memory governance, rely on agent prompts
 
@@ -108,9 +108,9 @@ Instruct agents via their prompts to "only write to your assigned namespace." Re
 
 ## References
 
-- `packages/@monobrain/guidance/src/gates.ts` -- `EnforcementGates.evaluateToolUse()` for MCP tool gating
-- `packages/@monobrain/guidance/src/retriever.ts` -- `areContradictory()`, `selectWithContradictionCheck()`
-- `packages/@monobrain/guidance/src/ledger.ts` -- `ViolationRateEvaluator`, `RunLedger.addEvaluator()`, `computeMetrics()`
-- `packages/@monobrain/guidance/src/types.ts` -- `GuidanceRule.domains`, `GuidanceRule.repoScopes`, `GuidanceRule.toolClasses`
+- `packages/@monomind/guidance/src/gates.ts` -- `EnforcementGates.evaluateToolUse()` for MCP tool gating
+- `packages/@monomind/guidance/src/retriever.ts` -- `areContradictory()`, `selectWithContradictionCheck()`
+- `packages/@monomind/guidance/src/ledger.ts` -- `ViolationRateEvaluator`, `RunLedger.addEvaluator()`, `computeMetrics()`
+- `packages/@monomind/guidance/src/types.ts` -- `GuidanceRule.domains`, `GuidanceRule.repoScopes`, `GuidanceRule.toolClasses`
 - ADR-G004 -- Four enforcement gates that memory gating builds on
 - ADR-G008 -- Optimizer loop that evolves memory governance rules

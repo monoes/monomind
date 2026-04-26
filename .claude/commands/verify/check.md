@@ -5,7 +5,7 @@ Run verification checks on code, tasks, or agent outputs.
 ## Usage
 
 ```bash
-monobrain verify check [options]
+monomind verify check [options]
 ```
 
 ## Options
@@ -22,16 +22,16 @@ monobrain verify check [options]
 
 ```bash
 # Basic file verification
-monobrain verify check --file src/app.js
+monomind verify check --file src/app.js
 
 # Verify with higher threshold
-monobrain verify check --file src/critical.js --threshold 0.99
+monomind verify check --file src/critical.js --threshold 0.99
 
 # Verify and auto-fix issues
-monobrain verify check --directory src/ --auto-fix
+monomind verify check --directory src/ --auto-fix
 
 # Get JSON output for CI/CD
-monobrain verify check --json > verification.json
+monomind verify check --json > verification.json
 ```
 
 ## Truth Scoring

@@ -4,7 +4,7 @@ Manage persistent memory storage.
 
 ## Usage
 ```bash
-npx monobrain memory usage [options]
+npx monomind memory usage [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain memory usage [options]
 ## Examples
 ```bash
 # Store memory
-npx monobrain memory usage --action store --key "project-config" --value '{"api": "v2"}'
+npx monomind memory usage --action store --key "project-config" --value '{"api": "v2"}'
 
 # Retrieve memory
-npx monobrain memory usage --action retrieve --key "project-config"
+npx monomind memory usage --action retrieve --key "project-config"
 
 # List all keys
-npx monobrain memory usage --action list
+npx monomind memory usage --action list
 ```

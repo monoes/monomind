@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# Monobrain Installer (formerly Monobrain)
-# https://github.com/nokhodian/monobrain
+# Monomind Installer (formerly Monomind)
+# https://github.com/nokhodian/monomind
 #
 # Usage:
-#   curl -fsSL https://cdn.jsdelivr.net/gh/nokhodian/monobrain@main/scripts/install.sh | bash
-#   curl -fsSL https://cdn.jsdelivr.net/gh/nokhodian/monobrain@main/scripts/install.sh | bash -s -- --full
-#   curl -fsSL https://cdn.jsdelivr.net/gh/nokhodian/monobrain@main/scripts/install.sh | bash -s -- --global
-#   curl -fsSL https://cdn.jsdelivr.net/gh/nokhodian/monobrain@main/scripts/install.sh | bash -s -- --minimal
+#   curl -fsSL https://cdn.jsdelivr.net/gh/nokhodian/monomind@main/scripts/install.sh | bash
+#   curl -fsSL https://cdn.jsdelivr.net/gh/nokhodian/monomind@main/scripts/install.sh | bash -s -- --full
+#   curl -fsSL https://cdn.jsdelivr.net/gh/nokhodian/monomind@main/scripts/install.sh | bash -s -- --global
+#   curl -fsSL https://cdn.jsdelivr.net/gh/nokhodian/monomind@main/scripts/install.sh | bash -s -- --minimal
 #
 # Options (via arguments):
 #   --global              Global install (npm install -g)
@@ -16,9 +16,9 @@
 #   --version=X.X.X       Specific version
 #
 # Options (via environment - requires export):
-#   export MONOBRAIN_VERSION=alpha
-#   export MONOBRAIN_MINIMAL=1
-#   export MONOBRAIN_GLOBAL=1
+#   export MONOMIND_VERSION=alpha
+#   export MONOMIND_MINIMAL=1
+#   export MONOMIND_GLOBAL=1
 #
 
 set -euo pipefail
@@ -34,12 +34,12 @@ DIM='\033[2m'
 NC='\033[0m' # No Color
 
 # Default configuration (can be overridden by env vars)
-VERSION="${MONOBRAIN_VERSION:-${MONOBRAIN_VERSION:-latest}}"
-MINIMAL="${MONOBRAIN_MINIMAL:-0}"
-GLOBAL="${MONOBRAIN_GLOBAL:-0}"
-SETUP_MCP="${MONOBRAIN_SETUP_MCP:-0}"
-RUN_DOCTOR="${MONOBRAIN_DOCTOR:-0}"
-RUN_INIT="${MONOBRAIN_INIT:-1}"
+VERSION="${MONOMIND_VERSION:-${MONOMIND_VERSION:-latest}}"
+MINIMAL="${MONOMIND_MINIMAL:-0}"
+GLOBAL="${MONOMIND_GLOBAL:-0}"
+SETUP_MCP="${MONOMIND_SETUP_MCP:-0}"
+RUN_DOCTOR="${MONOMIND_DOCTOR:-0}"
+RUN_INIT="${MONOMIND_INIT:-1}"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -80,12 +80,12 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --help|-h)
-            echo "Monobrain Installer"
+            echo "Monomind Installer"
             echo ""
             echo "Usage: curl -fsSL .../install.sh | bash -s -- [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --global, -g     Install globally (npm install -g monobrain)"
+            echo "  --global, -g     Install globally (npm install -g monomind)"
             echo "  --minimal, -m    Minimal install (skip optional deps)"
             echo "  --setup-mcp      Auto-configure MCP server for Claude Code"
             echo "  --doctor, -d     Run diagnostics after install"
@@ -101,7 +101,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-PACKAGE="monobrain@${VERSION}"
+PACKAGE="monomind@${VERSION}"
 
 # Progress animation
 SPINNER_CHARS="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
@@ -115,7 +115,7 @@ spinner() {
 print_banner() {
     echo ""
     echo -e "${CYAN}╔═══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${NC}  ${BOLD}Monobrain${NC} — AI Agent Orchestration for Claude Code     ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}  ${BOLD}Monomind${NC} — AI Agent Orchestration for Claude Code     ${CYAN}║${NC}"
     echo -e "${CYAN}╚═══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -256,10 +256,10 @@ verify_installation() {
 
     local VERSION_OUTPUT
     if [ "$GLOBAL" = "1" ]; then
-        VERSION_OUTPUT=$(monobrain --version 2>/dev/null || monobrain --version 2>/dev/null || echo "")
+        VERSION_OUTPUT=$(monomind --version 2>/dev/null || monomind --version 2>/dev/null || echo "")
         if [ -z "$VERSION_OUTPUT" ]; then
             print_warning "Global command not found in PATH"
-            print_substep "Try: ${BOLD}npm install -g monobrain@${VERSION}${NC}"
+            print_substep "Try: ${BOLD}npm install -g monomind@${VERSION}${NC}"
             return 0  # Don't fail - npm might need PATH refresh
         fi
     else
@@ -285,27 +285,27 @@ show_quickstart() {
 
     if [ "$GLOBAL" = "1" ]; then
         echo -e "  ${DIM}# Initialize project${NC}"
-        echo -e "  ${BOLD}monobrain init --wizard${NC}"
+        echo -e "  ${BOLD}monomind init --wizard${NC}"
         echo ""
         echo -e "  ${DIM}# Run system diagnostics${NC}"
-        echo -e "  ${BOLD}monobrain doctor${NC}"
+        echo -e "  ${BOLD}monomind doctor${NC}"
         echo ""
         echo -e "  ${DIM}# Add as MCP server to Claude Code${NC}"
-        echo -e "  ${BOLD}claude mcp add monobrain -- monobrain mcp start${NC}"
+        echo -e "  ${BOLD}claude mcp add monomind -- monomind mcp start${NC}"
     else
         echo -e "  ${DIM}# Initialize project${NC}"
-        echo -e "  ${BOLD}npx monobrain@latest init --wizard${NC}"
+        echo -e "  ${BOLD}npx monomind@latest init --wizard${NC}"
         echo ""
         echo -e "  ${DIM}# Run system diagnostics${NC}"
-        echo -e "  ${BOLD}npx monobrain@latest doctor${NC}"
+        echo -e "  ${BOLD}npx monomind@latest doctor${NC}"
         echo ""
         echo -e "  ${DIM}# Add as MCP server to Claude Code${NC}"
-        echo -e "  ${BOLD}claude mcp add monobrain -- npx -y monobrain@latest mcp start${NC}"
+        echo -e "  ${BOLD}claude mcp add monomind -- npx -y monomind@latest mcp start${NC}"
     fi
 
     echo ""
-    echo -e "${DIM}Documentation: https://github.com/nokhodian/monobrain${NC}"
-    echo -e "${DIM}Issues: https://github.com/nokhodian/monobrain/issues${NC}"
+    echo -e "${DIM}Documentation: https://github.com/nokhodian/monomind${NC}"
+    echo -e "${DIM}Issues: https://github.com/nokhodian/monomind/issues${NC}"
     echo ""
 }
 
@@ -322,21 +322,21 @@ setup_mcp_server() {
     fi
 
     # Check if already configured
-    if claude mcp list 2>/dev/null | grep -q "monobrain\|monobrain"; then
+    if claude mcp list 2>/dev/null | grep -q "monomind\|monomind"; then
         print_substep "MCP server already configured ✓"
         return 0
     fi
 
-    # Add MCP server (pass MONOBRAIN_CWD so tools resolve paths correctly
+    # Add MCP server (pass MONOMIND_CWD so tools resolve paths correctly
     # even when the MCP server is spawned with cwd='/')
     if [ "$GLOBAL" = "1" ]; then
-        claude mcp add monobrain -e MONOBRAIN_CWD="$HOME" -- monobrain mcp start 2>/dev/null && \
+        claude mcp add monomind -e MONOMIND_CWD="$HOME" -- monomind mcp start 2>/dev/null && \
             print_substep "MCP server configured ✓" || \
-            print_warning "MCP setup failed - run manually: claude mcp add monobrain -e MONOBRAIN_CWD=\"\$HOME\" -- monobrain mcp start"
+            print_warning "MCP setup failed - run manually: claude mcp add monomind -e MONOMIND_CWD=\"\$HOME\" -- monomind mcp start"
     else
-        claude mcp add monobrain -e MONOBRAIN_CWD="$HOME" -- npx -y monobrain@${VERSION} mcp start 2>/dev/null && \
+        claude mcp add monomind -e MONOMIND_CWD="$HOME" -- npx -y monomind@${VERSION} mcp start 2>/dev/null && \
             print_substep "MCP server configured ✓" || \
-            print_warning "MCP setup failed - run manually: claude mcp add monobrain -e MONOBRAIN_CWD=\"\$HOME\" -- npx -y monobrain@latest mcp start"
+            print_warning "MCP setup failed - run manually: claude mcp add monomind -e MONOMIND_CWD=\"\$HOME\" -- npx -y monomind@latest mcp start"
     fi
     echo ""
 }
@@ -350,9 +350,9 @@ run_doctor() {
     echo ""
 
     if [ "$GLOBAL" = "1" ]; then
-        monobrain doctor 2>&1 || true
+        monomind doctor 2>&1 || true
     else
-        npx monobrain@${VERSION} doctor 2>&1 || true
+        npx monomind@${VERSION} doctor 2>&1 || true
     fi
     echo ""
 }
@@ -366,9 +366,9 @@ run_init() {
     echo ""
 
     if [ "$GLOBAL" = "1" ]; then
-        monobrain init --yes 2>&1 || true
+        monomind init --yes 2>&1 || true
     else
-        npx monobrain@${VERSION} init --yes 2>&1 || true
+        npx monomind@${VERSION} init --yes 2>&1 || true
     fi
     echo ""
 }
@@ -385,7 +385,7 @@ main() {
     run_init
     show_quickstart
 
-    print_success "${BOLD}Monobrain is ready!${NC}"
+    print_success "${BOLD}Monomind is ready!${NC}"
     echo ""
 }
 

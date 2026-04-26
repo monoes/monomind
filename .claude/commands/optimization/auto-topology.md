@@ -23,14 +23,14 @@ Based on analysis, it selects:
 
 **Simple Task:**
 ```
-Tool: mcp__monobrain__task_orchestrate
+Tool: mcp__monomind__task_orchestrate
 Parameters: {"task": "Fix typo in README.md"}
 Result: Automatically uses star topology with single agent
 ```
 
 **Complex Task:**
 ```
-Tool: mcp__monobrain__task_orchestrate
+Tool: mcp__monomind__task_orchestrate
 Parameters: {"task": "Refactor authentication system with JWT, add tests, update documentation"}
 Result: Automatically uses hierarchical topology with architect, coder, and tester agents
 ```
@@ -45,18 +45,18 @@ Result: Automatically uses hierarchical topology with architect, coder, and test
 The pre-task hook automatically handles topology selection:
 ```json
 {
-  "command": "npx monobrain hook pre-task --optimize-topology"
+  "command": "npx monomind hook pre-task --optimize-topology"
 }
 ```
 
 ## Direct Optimization
 ```
-Tool: mcp__monobrain__topology_optimize
+Tool: mcp__monomind__topology_optimize
 Parameters: {"swarmId": "current"}
 ```
 
 ## CLI Usage
 ```bash
 # Auto-optimize topology via CLI
-npx monobrain optimize topology
+npx monomind optimize topology
 ```

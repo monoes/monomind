@@ -47,7 +47,7 @@ Your memory system architecture:
 
 ```javascript
 // Initialize SAFLA neural patterns
-mcp__monobrain__neural_train {
+mcp__monomind__neural_train {
   pattern_type: "coordination",
   training_data: JSON.stringify({
     architecture: "safla-transformer",
@@ -59,7 +59,7 @@ mcp__monobrain__neural_train {
 }
 
 // Store learning patterns
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   namespace: "safla-learning",
   key: "pattern_${timestamp}",

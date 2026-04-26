@@ -8,7 +8,7 @@
  * - Circuit breaker pattern
  * - Monitoring and observability hooks
  *
- * @module @monobrain/cli/production
+ * @module @monomind/cli/production
  */
 
 export { ErrorHandler, withErrorHandling } from './error-handler.js';

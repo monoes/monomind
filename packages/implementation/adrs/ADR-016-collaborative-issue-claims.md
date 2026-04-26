@@ -538,36 +538,36 @@ const config: AutoAssignConfig = {
 
 ```bash
 # View available issues
-monobrain issues list --available
+monomind issues list --available
 
 # Claim an issue (as current user/agent)
-monobrain issues claim 123
+monomind issues claim 123
 
 # Release a claim
-monobrain issues release 123
+monomind issues release 123
 
 # Request handoff to specific agent/human
-monobrain issues handoff 123 --to agent:coder-1
-monobrain issues handoff 123 --to human:alice
+monomind issues handoff 123 --to agent:coder-1
+monomind issues handoff 123 --to human:alice
 
 # Update status
-monobrain issues status 123 --blocked "Waiting for API spec"
-monobrain issues status 123 --review-requested
+monomind issues status 123 --blocked "Waiting for API spec"
+monomind issues status 123 --review-requested
 
 # View who's working on what
-monobrain issues board
+monomind issues board
 
 # Work stealing commands
-monobrain issues stealable              # List stealable issues
-monobrain issues steal 123              # Steal an issue
-monobrain issues mark-stealable 123     # Mark your claim as stealable
-monobrain issues contest 123            # Contest a steal
+monomind issues stealable              # List stealable issues
+monomind issues steal 123              # Steal an issue
+monomind issues mark-stealable 123     # Mark your claim as stealable
+monomind issues contest 123            # Contest a steal
 
 # Load balancing
-monobrain issues load                   # View agent load distribution
-monobrain issues load --agent coder-1   # View specific agent load
-monobrain issues rebalance              # Trigger swarm rebalancing
-monobrain issues rebalance --dry-run    # Preview rebalancing without applying
+monomind issues load                   # View agent load distribution
+monomind issues load --agent coder-1   # View specific agent load
+monomind issues rebalance              # Trigger swarm rebalancing
+monomind issues rebalance --dry-run    # Preview rebalancing without applying
 ```
 
 ## MCP Tools
@@ -632,7 +632,7 @@ const claimTools = [
 
 ## Success Metrics
 
-- [x] Claim service implemented (`@monobrain/cli/src/services/claim-service.ts`)
+- [x] Claim service implemented (`@monomind/cli/src/services/claim-service.ts`)
 - [x] Human and agent claims work
 - [x] Human ↔ Agent handoff flow tested
 - [x] Agent ↔ Agent handoff flow tested
@@ -642,7 +642,7 @@ const claimTools = [
 - [x] Load balancing rebalance operation
 - [ ] GitHub sync operational (future)
 - [x] Auto-assignment rules configurable
-- [x] CLI commands functional (`@monobrain/cli/src/commands/issues.ts`)
+- [x] CLI commands functional (`@monomind/cli/src/commands/issues.ts`)
 - [ ] MCP tools exposed (planned for MCP integration phase)
 - [x] Event sourcing for all claim/steal changes
 - [x] <30s average steal latency (sub-second in practice)
@@ -654,23 +654,23 @@ const claimTools = [
 
 | File | Lines | Description |
 |------|-------|-------------|
-| `@monobrain/cli/src/services/claim-service.ts` | ~600 | Full claims service with work stealing |
-| `@monobrain/cli/src/commands/issues.ts` | ~450 | CLI commands for issue claims |
+| `@monomind/cli/src/services/claim-service.ts` | ~600 | Full claims service with work stealing |
+| `@monomind/cli/src/commands/issues.ts` | ~450 | CLI commands for issue claims |
 
 ### CLI Commands Implemented
 
 ```bash
 # Issue claim commands (10 subcommands)
-monobrain issues list          # List all claims
-monobrain issues claim <id>    # Claim an issue
-monobrain issues release <id>  # Release a claim
-monobrain issues handoff       # Request handoff
-monobrain issues status <id>   # Get claim status
-monobrain issues stealable     # List stealable issues
-monobrain issues steal <id>    # Steal an issue
-monobrain issues load          # View agent load
-monobrain issues rebalance     # Rebalance swarm
-monobrain issues board         # Visual claim board
+monomind issues list          # List all claims
+monomind issues claim <id>    # Claim an issue
+monomind issues release <id>  # Release a claim
+monomind issues handoff       # Request handoff
+monomind issues status <id>   # Get claim status
+monomind issues stealable     # List stealable issues
+monomind issues steal <id>    # Steal an issue
+monomind issues load          # View agent load
+monomind issues rebalance     # Rebalance swarm
+monomind issues board         # Visual claim board
 ```
 
 ### Key Features
@@ -680,7 +680,7 @@ monobrain issues board         # Visual claim board
 3. **Work Stealing**: Supports overloaded, stale, blocked-timeout, voluntary reasons
 4. **Load Balancing**: Automatic rebalancing across swarm agents
 5. **Event-Driven**: ClaimEvent types for all state changes
-6. **Persistence**: File-based storage in `.monobrain/claims/claims.json`
+6. **Persistence**: File-based storage in `.monomind/claims/claims.json`
 
 ## Dependencies
 

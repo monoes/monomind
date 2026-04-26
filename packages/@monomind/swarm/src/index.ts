@@ -1,5 +1,5 @@
 /**
- * @monobrain/swarm
+ * @monomind/swarm
  * V1 Unified Swarm Coordination Module (ADR-003)
  *
  * ADR-003 IMPLEMENTATION:
@@ -22,7 +22,7 @@
  *
  * Recommended Usage:
  * ```typescript
- * import { createUnifiedSwarmCoordinator } from '@monobrain/swarm';
+ * import { createUnifiedSwarmCoordinator } from '@monomind/swarm';
  *
  * const coordinator = createUnifiedSwarmCoordinator({
  *   topology: { type: 'hierarchical', maxAgents: 15 },
@@ -32,7 +32,7 @@
  * await coordinator.initialize();
  * ```
  *
- * @module @monobrain/swarm
+ * @module @monomind/swarm
  * @version 3.0.0-alpha.1
  */
 
@@ -221,11 +221,11 @@ export {
  * Migration:
  * ```typescript
  * // OLD:
- * import { createSwarmHub } from '@monobrain/swarm';
+ * import { createSwarmHub } from '@monomind/swarm';
  * const hub = createSwarmHub();
  *
  * // NEW:
- * import { createUnifiedSwarmCoordinator } from '@monobrain/swarm';
+ * import { createUnifiedSwarmCoordinator } from '@monomind/swarm';
  * const coordinator = createUnifiedSwarmCoordinator();
  * ```
  */

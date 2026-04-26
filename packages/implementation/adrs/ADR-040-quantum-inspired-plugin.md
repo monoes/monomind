@@ -18,7 +18,7 @@ Create a **Quantum-Inspired Optimization Plugin** that leverages RuVector's exot
 
 ## Plugin Name
 
-`@monobrain/plugin-quantum-optimizer`
+`@monomind/plugin-quantum-optimizer`
 
 ## Description
 

@@ -9,7 +9,7 @@
  * - Pattern matching: <1ms
  * - Learning step: <10ms
  *
- * @module @monobrain/neural
+ * @module @monomind/neural
  */
 // =============================================================================
 // SONA Manager

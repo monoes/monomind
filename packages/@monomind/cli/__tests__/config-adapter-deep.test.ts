@@ -10,9 +10,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { systemConfigToMonobrainConfig, configToSystemConfig } from '../src/config-adapter.js';
-import type { SystemConfig } from '@monobrain/shared';
-import type { MonobrainConfig } from '../src/types.js';
+import { systemConfigToMonomindConfig, configToSystemConfig } from '../src/config-adapter.js';
+import type { SystemConfig } from '@monomind/shared';
+import type { MonomindConfig } from '../src/types.js';
 
 // ---------------------------------------------------------------------------
 // Helper: minimal valid SystemConfig
@@ -56,9 +56,9 @@ function minimalSystemConfig(overrides: Record<string, unknown> = {}): SystemCon
 }
 
 // ---------------------------------------------------------------------------
-// Helper: minimal valid MonobrainConfig
+// Helper: minimal valid MonomindConfig
 // ---------------------------------------------------------------------------
-function minimalMonobrainConfig(overrides: Partial<MonobrainConfig> = {}): MonobrainConfig {
+function minimalMonomindConfig(overrides: Partial<MonomindConfig> = {}): MonomindConfig {
   return {
     version: '3.0.0',
     projectRoot: '/test',
@@ -103,19 +103,19 @@ function minimalMonobrainConfig(overrides: Partial<MonobrainConfig> = {}): Monob
 }
 
 // ===========================================================================
-// systemConfigToMonobrainConfig edge cases
+// systemConfigToMonomindConfig edge cases
 // ===========================================================================
 describe('ConfigAdapter deep edge cases', () => {
   describe('normalizeTopology', () => {
     it('should map "adaptive" to "hybrid"', () => {
       const cfg = minimalSystemConfig({ swarm: { topology: 'adaptive', maxAgents: 8 } });
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.swarm.topology).toBe('hybrid');
     });
 
     it('should default unknown topology to "hierarchical"', () => {
       const cfg = minimalSystemConfig({ swarm: { topology: 'banana', maxAgents: 4 } });
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.swarm.topology).toBe('hierarchical');
     });
 
@@ -123,14 +123,14 @@ describe('ConfigAdapter deep edge cases', () => {
       const topologies = ['hierarchical', 'mesh', 'ring', 'star', 'hybrid', 'hierarchical-mesh'] as const;
       for (const t of topologies) {
         const cfg = minimalSystemConfig({ swarm: { topology: t, maxAgents: 5 } });
-        const v1 = systemConfigToMonobrainConfig(cfg);
+        const v1 = systemConfigToMonomindConfig(cfg);
         expect(v1.swarm.topology).toBe(t);
       }
     });
 
     it('should default to "hierarchical" when topology is undefined', () => {
       const cfg = minimalSystemConfig({ swarm: { maxAgents: 5 } });
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.swarm.topology).toBe('hierarchical');
     });
   });
@@ -138,19 +138,19 @@ describe('ConfigAdapter deep edge cases', () => {
   describe('normalizeMemoryBackend', () => {
     it('should map "redis" to "memory"', () => {
       const cfg = minimalSystemConfig({ memory: { type: 'redis' } });
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.memory.backend).toBe('memory');
     });
 
     it('should default unknown backend to "hybrid"', () => {
       const cfg = minimalSystemConfig({ memory: { type: 'unknown-db' } });
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.memory.backend).toBe('hybrid');
     });
 
     it('should default undefined backend to "hybrid"', () => {
       const cfg = minimalSystemConfig({ memory: {} });
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.memory.backend).toBe('hybrid');
     });
 
@@ -158,7 +158,7 @@ describe('ConfigAdapter deep edge cases', () => {
       const backends = ['memory', 'sqlite', 'agentdb', 'hybrid'] as const;
       for (const b of backends) {
         const cfg = minimalSystemConfig({ memory: { type: b } });
-        const v1 = systemConfigToMonobrainConfig(cfg);
+        const v1 = systemConfigToMonomindConfig(cfg);
         expect(v1.memory.backend).toBe(b);
       }
     });
@@ -172,7 +172,7 @@ describe('ConfigAdapter deep edge cases', () => {
         persistState: true,
         stateFile: 'session.json',
       };
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       // When dataDir is undefined, falls back to process.cwd()
       expect(typeof v1.projectRoot).toBe('string');
       expect(v1.projectRoot.length).toBeGreaterThan(0);
@@ -180,26 +180,26 @@ describe('ConfigAdapter deep edge cases', () => {
 
     it('should use default memory path when path is missing', () => {
       const cfg = minimalSystemConfig({ memory: { type: 'sqlite' } });
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.memory.persistPath).toBe('./data/memory');
     });
 
     it('should use default MCP host when transport host is missing', () => {
       const cfg = minimalSystemConfig();
       (cfg.mcp as any).transport = { type: 'stdio', port: 3000 };
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.mcp.serverHost).toBe('localhost');
     });
 
     it('should use default maxAgents of 15 when swarm.maxAgents is missing', () => {
       const cfg = minimalSystemConfig({ swarm: { topology: 'mesh' } });
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.swarm.maxAgents).toBe(15);
     });
 
     it('should use default cacheSize when memory.maxSize is missing', () => {
       const cfg = minimalSystemConfig({ memory: { type: 'hybrid' } });
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.memory.cacheSize).toBe(1000000);
     });
 
@@ -210,7 +210,7 @@ describe('ConfigAdapter deep edge cases', () => {
           agentdb: { indexType: 'flat', dimensions: 768 },
         },
       });
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.memory.enableHNSW).toBe(false);
     });
 
@@ -221,12 +221,12 @@ describe('ConfigAdapter deep edge cases', () => {
           agentdb: { indexType: 'hnsw', dimensions: 768 },
         },
       });
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.memory.enableHNSW).toBe(true);
     });
   });
 
-  describe('swarm coordination mapping in systemConfigToMonobrainConfig', () => {
+  describe('swarm coordination mapping in systemConfigToMonomindConfig', () => {
     it('should set coordinationStrategy to "consensus" when consensusRequired is true', () => {
       const cfg = minimalSystemConfig({
         swarm: {
@@ -235,7 +235,7 @@ describe('ConfigAdapter deep edge cases', () => {
           coordination: { consensusRequired: true, timeoutMs: 5000 },
         },
       });
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.swarm.coordinationStrategy).toBe('consensus');
     });
 
@@ -247,13 +247,13 @@ describe('ConfigAdapter deep edge cases', () => {
           coordination: { consensusRequired: false, timeoutMs: 5000 },
         },
       });
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.swarm.coordinationStrategy).toBe('leader');
     });
 
     it('should default autoScale to false when swarm.autoScale is missing', () => {
       const cfg = minimalSystemConfig({ swarm: { topology: 'mesh', maxAgents: 5 } });
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.swarm.autoScale).toBe(false);
     });
 
@@ -265,7 +265,7 @@ describe('ConfigAdapter deep edge cases', () => {
           autoScale: { enabled: true },
         },
       });
-      const v1 = systemConfigToMonobrainConfig(cfg);
+      const v1 = systemConfigToMonomindConfig(cfg);
       expect(v1.swarm.autoScale).toBe(true);
     });
   });
@@ -275,8 +275,8 @@ describe('ConfigAdapter deep edge cases', () => {
   // ===========================================================================
   describe('denormalizeTopology in configToSystemConfig', () => {
     it('should map "hybrid" back to "hierarchical-mesh"', () => {
-      const v1 = minimalMonobrainConfig({
-        swarm: { ...minimalMonobrainConfig().swarm, topology: 'hybrid' },
+      const v1 = minimalMonomindConfig({
+        swarm: { ...minimalMonomindConfig().swarm, topology: 'hybrid' },
       });
       const sys = configToSystemConfig(v1);
       expect(sys.swarm?.topology).toBe('hierarchical-mesh');
@@ -285,8 +285,8 @@ describe('ConfigAdapter deep edge cases', () => {
     it('should pass through non-hybrid topologies unchanged', () => {
       const topologies = ['hierarchical', 'mesh', 'ring', 'star', 'hierarchical-mesh'] as const;
       for (const t of topologies) {
-        const v1 = minimalMonobrainConfig({
-          swarm: { ...minimalMonobrainConfig().swarm, topology: t },
+        const v1 = minimalMonomindConfig({
+          swarm: { ...minimalMonomindConfig().swarm, topology: t },
         });
         const sys = configToSystemConfig(v1);
         expect(sys.swarm?.topology).toBe(t);
@@ -296,16 +296,16 @@ describe('ConfigAdapter deep edge cases', () => {
 
   describe('consensus mapping in configToSystemConfig', () => {
     it('should set consensusRequired to true for "consensus" strategy', () => {
-      const v1 = minimalMonobrainConfig({
-        swarm: { ...minimalMonobrainConfig().swarm, coordinationStrategy: 'consensus' },
+      const v1 = minimalMonomindConfig({
+        swarm: { ...minimalMonomindConfig().swarm, coordinationStrategy: 'consensus' },
       });
       const sys = configToSystemConfig(v1);
       expect(sys.swarm?.coordination?.consensusRequired).toBe(true);
     });
 
     it('should set consensusRequired to false for non-consensus strategy', () => {
-      const v1 = minimalMonobrainConfig({
-        swarm: { ...minimalMonobrainConfig().swarm, coordinationStrategy: 'leader' },
+      const v1 = minimalMonomindConfig({
+        swarm: { ...minimalMonomindConfig().swarm, coordinationStrategy: 'leader' },
       });
       const sys = configToSystemConfig(v1);
       expect(sys.swarm?.coordination?.consensusRequired).toBe(false);
@@ -314,16 +314,16 @@ describe('ConfigAdapter deep edge cases', () => {
 
   describe('HNSW toggle in configToSystemConfig', () => {
     it('should set indexType "hnsw" when enableHNSW is true', () => {
-      const v1 = minimalMonobrainConfig({
-        memory: { ...minimalMonobrainConfig().memory, enableHNSW: true },
+      const v1 = minimalMonomindConfig({
+        memory: { ...minimalMonomindConfig().memory, enableHNSW: true },
       });
       const sys = configToSystemConfig(v1);
       expect(sys.memory?.agentdb?.indexType).toBe('hnsw');
     });
 
     it('should set indexType "flat" when enableHNSW is false', () => {
-      const v1 = minimalMonobrainConfig({
-        memory: { ...minimalMonobrainConfig().memory, enableHNSW: false },
+      const v1 = minimalMonomindConfig({
+        memory: { ...minimalMonomindConfig().memory, enableHNSW: false },
       });
       const sys = configToSystemConfig(v1);
       expect(sys.memory?.agentdb?.indexType).toBe('flat');
@@ -332,24 +332,24 @@ describe('ConfigAdapter deep edge cases', () => {
 
   describe('autoScale mapping in configToSystemConfig', () => {
     it('should set autoScale.enabled true when v1 autoScale is true', () => {
-      const v1 = minimalMonobrainConfig({
-        swarm: { ...minimalMonobrainConfig().swarm, autoScale: true },
+      const v1 = minimalMonomindConfig({
+        swarm: { ...minimalMonomindConfig().swarm, autoScale: true },
       });
       const sys = configToSystemConfig(v1);
       expect(sys.swarm?.autoScale?.enabled).toBe(true);
     });
 
     it('should set autoScale.enabled false when v1 autoScale is false', () => {
-      const v1 = minimalMonobrainConfig({
-        swarm: { ...minimalMonobrainConfig().swarm, autoScale: false },
+      const v1 = minimalMonomindConfig({
+        swarm: { ...minimalMonomindConfig().swarm, autoScale: false },
       });
       const sys = configToSystemConfig(v1);
       expect(sys.swarm?.autoScale?.enabled).toBe(false);
     });
 
     it('should carry maxAgents into autoScale.maxAgents', () => {
-      const v1 = minimalMonobrainConfig({
-        swarm: { ...minimalMonobrainConfig().swarm, maxAgents: 25, autoScale: true },
+      const v1 = minimalMonomindConfig({
+        swarm: { ...minimalMonomindConfig().swarm, maxAgents: 25, autoScale: true },
       });
       const sys = configToSystemConfig(v1);
       expect(sys.swarm?.autoScale?.maxAgents).toBe(25);
@@ -358,8 +358,8 @@ describe('ConfigAdapter deep edge cases', () => {
 
   describe('MCP transport mapping in configToSystemConfig', () => {
     it('should map transportType "http" correctly', () => {
-      const v1 = minimalMonobrainConfig({
-        mcp: { ...minimalMonobrainConfig().mcp, transportType: 'http', serverPort: 8080 },
+      const v1 = minimalMonomindConfig({
+        mcp: { ...minimalMonomindConfig().mcp, transportType: 'http', serverPort: 8080 },
       });
       const sys = configToSystemConfig(v1);
       expect(sys.mcp?.transport?.type).toBe('http');
@@ -367,8 +367,8 @@ describe('ConfigAdapter deep edge cases', () => {
     });
 
     it('should map transportType "websocket" correctly', () => {
-      const v1 = minimalMonobrainConfig({
-        mcp: { ...minimalMonobrainConfig().mcp, transportType: 'websocket', serverHost: '0.0.0.0' },
+      const v1 = minimalMonomindConfig({
+        mcp: { ...minimalMonomindConfig().mcp, transportType: 'websocket', serverHost: '0.0.0.0' },
       });
       const sys = configToSystemConfig(v1);
       expect(sys.mcp?.transport?.type).toBe('websocket');
@@ -386,7 +386,7 @@ describe('ConfigAdapter deep edge cases', () => {
           agentdb: { dimensions: 768, indexType: 'hnsw' },
         },
       });
-      const v1 = systemConfigToMonobrainConfig(original);
+      const v1 = systemConfigToMonomindConfig(original);
       expect(v1.memory.backend).toBe('agentdb');
       expect(v1.memory.enableHNSW).toBe(true);
       expect(v1.memory.vectorDimension).toBe(768);
@@ -405,7 +405,7 @@ describe('ConfigAdapter deep edge cases', () => {
           coordination: { consensusRequired: true, timeoutMs: 8000 },
         },
       });
-      const v1 = systemConfigToMonobrainConfig(original);
+      const v1 = systemConfigToMonomindConfig(original);
       expect(v1.swarm.coordinationStrategy).toBe('consensus');
 
       const sys = configToSystemConfig(v1);

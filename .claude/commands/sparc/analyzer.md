@@ -7,7 +7,7 @@ Deep code and data analysis with batch processing capabilities.
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "analyzer",
   task_description: "analyze codebase performance",
   options: {
@@ -20,16 +20,16 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run analyzer "analyze codebase performance"
+npx monomind sparc run analyzer "analyze codebase performance"
 
 # For alpha features
-npx monobrain@alpha sparc run analyzer "analyze codebase performance"
+npx monomind@alpha sparc run analyzer "analyze codebase performance"
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run analyzer "analyze codebase performance"
+# If monomind is installed locally
+./monomind sparc run analyzer "analyze codebase performance"
 ```
 
 ## Core Capabilities

@@ -1,4 +1,4 @@
-# Monobrain v1 - Architecture Decision Records
+# Monomind v1 - Architecture Decision Records
 
 All ADRs are located in [`/packages/implementation/adrs/`](../../implementation/adrs/).
 
@@ -26,7 +26,7 @@ All ADRs are located in [`/packages/implementation/adrs/`](../../implementation/
 | [ADR-018](../../implementation/adrs/ADR-018-claude-code-integration.md)     | Claude Code Integration               | Complete |
 | [ADR-019](../../implementation/adrs/ADR-019-headless-runtime-package.md)    | Headless Runtime Package              | Complete |
 | [ADR-020](../../implementation/adrs/ADR-020-headless-worker-integration.md) | Headless Worker Integration           | Complete |
-| [ADR-046](../../implementation/adrs/ADR-046-monobrain-rebrand.md)           | Dual Umbrella: monobrain + monobrain  | Accepted |
+| [ADR-046](../../implementation/adrs/ADR-046-monomind-rebrand.md)           | Dual Umbrella: monomind + monomind  | Accepted |
 | [ADR-047](../../implementation/adrs/ADR-047-fast-mode-integration.md)       | Fast Mode Integration                 | Proposed |
 
 ## Summary Documents
@@ -71,4 +71,4 @@ All ADRs are located in [`/packages/implementation/adrs/`](../../implementation/
 ---
 
 **Last Updated:** 2026-01-14
-**CLI Version:** @monobrain/cli@3.0.0-alpha.104
+**CLI Version:** @monomind/cli@3.0.0-alpha.104

@@ -1,11 +1,11 @@
 # swarm init
 
-Initialize a Monobrain swarm with specified topology and configuration.
+Initialize a Monomind swarm with specified topology and configuration.
 
 ## Usage
 
 ```bash
-npx monobrain swarm init [options]
+npx monomind swarm init [options]
 ```
 
 ## Options
@@ -22,25 +22,25 @@ npx monobrain swarm init [options]
 ### Basic initialization
 
 ```bash
-npx monobrain swarm init
+npx monomind swarm init
 ```
 
 ### Mesh topology for research
 
 ```bash
-npx monobrain swarm init --topology mesh --max-agents 5 --strategy balanced
+npx monomind swarm init --topology mesh --max-agents 5 --strategy balanced
 ```
 
 ### Hierarchical for development
 
 ```bash
-npx monobrain swarm init --topology hierarchical --max-agents 10 --strategy parallel --auto-spawn
+npx monomind swarm init --topology hierarchical --max-agents 10 --strategy parallel --auto-spawn
 ```
 
 ### GitHub-focused swarm
 
 ```bash
-npx monobrain swarm init --topology star --github --memory
+npx monomind swarm init --topology star --github --memory
 ```
 
 ## Topologies
@@ -74,7 +74,7 @@ npx monobrain swarm init --topology star --github --memory
 Once initialized, use MCP tools in Claude Code:
 
 ```javascript
-mcp__monobrain__swarm_init { topology: "hierarchical", maxAgents: 8 }
+mcp__monomind__swarm_init { topology: "hierarchical", maxAgents: 8 }
 ```
 
 ## See Also

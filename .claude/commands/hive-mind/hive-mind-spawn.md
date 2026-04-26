@@ -4,7 +4,7 @@ Spawn a Hive Mind swarm with queen-led coordination.
 
 ## Usage
 ```bash
-npx monobrain hive-mind spawn <objective> [options]
+npx monomind hive-mind spawn <objective> [options]
 ```
 
 ## Options
@@ -15,7 +15,7 @@ npx monobrain hive-mind spawn <objective> [options]
 
 ## Examples
 ```bash
-npx monobrain hive-mind spawn "Build API"
-npx monobrain hive-mind spawn "Research patterns" --queen-type adaptive
-npx monobrain hive-mind spawn "Build service" --claude
+npx monomind hive-mind spawn "Build API"
+npx monomind hive-mind spawn "Research patterns" --queen-type adaptive
+npx monomind hive-mind spawn "Build service" --claude
 ```

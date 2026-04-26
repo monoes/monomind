@@ -6,7 +6,7 @@
  * validation error. The ConformanceSuite runs golden traces through an
  * evaluator to prove the platform behaves as specified.
  *
- * @module @monobrain/guidance/manifest-validator
+ * @module @monomind/guidance/manifest-validator
  */
 /** Data sensitivity levels ordered by severity */
 declare const DATA_SENSITIVITY_LEVELS: readonly ["public", "internal", "confidential", "restricted"];

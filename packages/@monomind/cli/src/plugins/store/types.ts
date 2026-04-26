@@ -37,8 +37,8 @@ export interface PluginEntry {
   createdAt: string;
 
   // Requirements
-  minMonobrainVersion: string;
-  maxMonobrainVersion?: string;
+  minMonomindVersion: string;
+  maxMonomindVersion?: string;
   dependencies: PluginDependency[];
   peerDependencies?: PluginDependency[];
 
@@ -187,7 +187,7 @@ export interface PluginRegistry {
 export interface CompatibilityEntry {
   pluginId: string;
   pluginVersion: string;
-  monobrainVersions: string[];
+  monomindVersions: string[];
   tested: boolean;
   notes?: string;
 }

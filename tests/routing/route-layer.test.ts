@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
-import { RouteLayer } from '../../packages/@monobrain/routing/src/route-layer.js';
-import { coreRoutes } from '../../packages/@monobrain/routing/src/routes/core.route.js';
-import { securityRoutes } from '../../packages/@monobrain/routing/src/routes/security.route.js';
-import { engineeringRoutes } from '../../packages/@monobrain/routing/src/routes/engineering.route.js';
-import { ALL_ROUTES } from '../../packages/@monobrain/routing/src/routes/index.js';
-import { TestModel } from '../../packages/@monobrain/shared/src/testing/index.js';
+import { RouteLayer } from '../../packages/@monomind/routing/src/route-layer.js';
+import { coreRoutes } from '../../packages/@monomind/routing/src/routes/core.route.js';
+import { securityRoutes } from '../../packages/@monomind/routing/src/routes/security.route.js';
+import { engineeringRoutes } from '../../packages/@monomind/routing/src/routes/engineering.route.js';
+import { ALL_ROUTES } from '../../packages/@monomind/routing/src/routes/index.js';
+import { TestModel } from '../../packages/@monomind/shared/src/testing/index.js';
 
 describe('RouteLayer', () => {
   let layer: RouteLayer;

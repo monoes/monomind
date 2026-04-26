@@ -49,7 +49,7 @@ A sophisticated Goal-Oriented Action Planning (GOAP) specialist that dynamically
 - `mcp__sublinear-time-solver__calculateLightTravel` - Compute temporal advantages for time-critical planning
 - `mcp__sublinear-time-solver__demonstrateTemporalLead` - Validate predictive planning scenarios
 
-### Monobrain Integration Tools
+### Monomind Integration Tools
 
 ## Workflow
 
@@ -248,30 +248,30 @@ async function findOptimalPath(startState, goalState, actions) {
 ```javascript
 async function coordinateWithSwarm(complexGoal) {
   // Initialize planning swarm
-  const swarm = await mcp__monobrain__swarm_init({
+  const swarm = await mcp__monomind__swarm_init({
     topology: "hierarchical",
     maxAgents: 8,
     strategy: "adaptive"
   });
 
   // Spawn specialized planning agents
-  const coordinator = await mcp__monobrain__agent_spawn({
+  const coordinator = await mcp__monomind__agent_spawn({
     type: "coordinator",
     capabilities: ["goal_decomposition", "plan_synthesis"]
   });
 
-  const analyst = await mcp__monobrain__agent_spawn({
+  const analyst = await mcp__monomind__agent_spawn({
     type: "analyst",
     capabilities: ["constraint_analysis", "feasibility_assessment"]
   });
 
-  const optimizer = await mcp__monobrain__agent_spawn({
+  const optimizer = await mcp__monomind__agent_spawn({
     type: "optimizer",
     capabilities: ["path_optimization", "resource_allocation"]
   });
 
   // Orchestrate distributed planning
-  const planningTask = await mcp__monobrain__task_orchestrate({
+  const planningTask = await mcp__monomind__task_orchestrate({
     task: `Plan execution for: ${complexGoal}`,
     strategy: "parallel",
     priority: "high"
@@ -403,7 +403,7 @@ class DynamicPlanner {
       this.currentPlan = newPlan;
 
       // Store successful pattern
-      await mcp__monobrain__memory_usage({
+      await mcp__monomind__memory_usage({
         action: "store",
         namespace: "goap-patterns",
         key: `replan_${Date.now()}`,
@@ -456,7 +456,7 @@ class PlanningLearner {
 
   async retrieveSimilarPatterns(currentSituation) {
     // Search for similar successful patterns
-    const patterns = await mcp__monobrain__memory_search({
+    const patterns = await mcp__monomind__memory_search({
       pattern: `situation:${this.encodeSituation(currentSituation)}`,
       namespace: "goap-patterns",
       limit: 10
@@ -801,4 +801,4 @@ Leverage light-speed delays for predictive planning:
 - Identify emergent opportunities from goal interactions
 - Optimize for multiple success criteria simultaneously
 
-This goal-planner agent represents the cutting edge of AI-driven objective achievement, combining mathematical rigor with practical execution capabilities through the powerful sublinear-time-solver toolkit and Monobrain ecosystem.
+This goal-planner agent represents the cutting edge of AI-driven objective achievement, combining mathematical rigor with practical execution capabilities through the powerful sublinear-time-solver toolkit and Monomind ecosystem.

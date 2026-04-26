@@ -16,7 +16,7 @@ const execAsync = promisify(execCb);
 export function buildDockerArgs(agentId, config) {
     const args = [];
     // Container name
-    args.push('--name', `monobrain-sandbox-${agentId}`);
+    args.push('--name', `monomind-sandbox-${agentId}`);
     // CPU limit
     if (config.cpu_limit) {
         args.push('--cpus', config.cpu_limit);
@@ -30,6 +30,9 @@ export function buildDockerArgs(agentId, config) {
     // Security options
     args.push('--security-opt', 'no-new-privileges');
     args.push('--read-only');
+    if (config.use_gvisor) {
+        args.push('--runtime', 'runsc');
+    }
     // Environment variables
     if (config.env_vars) {
         for (const [key, value] of Object.entries(config.env_vars)) {
@@ -64,7 +67,7 @@ export function buildDockerArgs(agentId, config) {
 export function create(agentId, config, execFn) {
     const run = execFn ?? ((cmd) => execAsync(cmd));
     const image = config.image ?? 'node:20-slim';
-    const containerName = `monobrain-sandbox-${agentId}`;
+    const containerName = `monomind-sandbox-${agentId}`;
     const defaultTimeout = config.timeout_ms ?? 30000;
     return {
         type: 'docker',

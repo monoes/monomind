@@ -17,7 +17,7 @@ members = [
 version = "3.0.0-alpha.1"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/nokhodian/monobrain"
+repository = "https://github.com/nokhodian/monomind"
 
 [workspace.dependencies]
 # WASM Core

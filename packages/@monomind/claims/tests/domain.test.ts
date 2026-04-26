@@ -1,5 +1,5 @@
 /**
- * @monobrain/claims - Domain Layer Tests
+ * @monomind/claims - Domain Layer Tests
  * Tests for ADR-016 types, events, and business rules
  */
 

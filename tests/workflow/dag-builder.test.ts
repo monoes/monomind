@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { buildDAG, detectCycles, topologicalSort } from '../../packages/@monobrain/cli/src/workflow/dag-builder.js';
-import type { DAGTask } from '../../packages/@monobrain/cli/src/workflow/dag-types.js';
+import { buildDAG, detectCycles, topologicalSort } from '../../packages/@monomind/cli/src/workflow/dag-builder.js';
+import type { DAGTask } from '../../packages/@monomind/cli/src/workflow/dag-types.js';
 
 describe('DAG Builder', () => {
   it('builds DAG from tasks with no deps', () => {

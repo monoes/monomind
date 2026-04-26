@@ -26,8 +26,8 @@ import {
   createSONALearningEngine,
   type Trajectory,
   type Context,
-} from "@monobrain/neural";
-import { getModeConfig } from "@monobrain/neural";
+} from "@monomind/neural";
+import { getModeConfig } from "@monomind/neural";
 
 // Create SONA engine with balanced mode
 const modeConfig = getModeConfig("balanced");
@@ -347,7 +347,7 @@ See `/examples/sona-usage.ts` for comprehensive examples:
 Run examples:
 
 ```bash
-cd packages/@monobrain/neural
+cd packages/@monomind/neural
 npx tsx examples/sona-usage.ts
 ```
 
@@ -356,7 +356,7 @@ npx tsx examples/sona-usage.ts
 The SONA integration works seamlessly with other v1 neural components:
 
 ```typescript
-import { createNeuralLearningSystem } from "@monobrain/neural";
+import { createNeuralLearningSystem } from "@monomind/neural";
 
 const system = createNeuralLearningSystem("balanced");
 await system.initialize();

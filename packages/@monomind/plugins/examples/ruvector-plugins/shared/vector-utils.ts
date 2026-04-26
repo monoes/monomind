@@ -152,7 +152,7 @@ export async function createVectorDB(dimensions: number): Promise<IVectorDB> {
     await db.initialize?.();
     return db as IVectorDB;
   } catch {
-    console.warn('[@monobrain/plugins] @ruvector/wasm not available, using fallback');
+    console.warn('[@monomind/plugins] @ruvector/wasm not available, using fallback');
     return new FallbackVectorDB(dimensions);
   }
 }
@@ -168,7 +168,7 @@ export async function createLoRAEngine(): Promise<ILoRAEngine> {
     await engine.initialize?.();
     return engine as ILoRAEngine;
   } catch {
-    console.warn('[@monobrain/plugins] @ruvector/learning-wasm not available, using fallback');
+    console.warn('[@monomind/plugins] @ruvector/learning-wasm not available, using fallback');
     return new FallbackLoRAEngine();
   }
 }

@@ -6,7 +6,7 @@
  * write to specific namespaces, enforces rate limits, and detects
  * contradictions between memory entries.
  *
- * @module @monobrain/guidance/memory-gate
+ * @module @monomind/guidance/memory-gate
  */
 
 import { createHash } from 'node:crypto';

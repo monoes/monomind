@@ -5,7 +5,7 @@ Start a new pair programming session with AI assistance.
 ## Usage
 
 ```bash
-monobrain pair --start [options]
+monomind pair --start [options]
 ```
 
 ## Options
@@ -24,12 +24,12 @@ monobrain pair --start [options]
 
 ### Basic Start
 ```bash
-monobrain pair --start
+monomind pair --start
 ```
 
 ### Expert Refactoring Session
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --agent senior-dev \
   --focus refactor \
   --verify \
@@ -38,7 +38,7 @@ monobrain pair --start \
 
 ### TDD Session
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --mode driver \
   --focus test \
   --test \
@@ -47,7 +47,7 @@ monobrain pair --start \
 
 ### Debugging Session
 ```bash
-monobrain pair --start \
+monomind pair --start \
   --agent debugger-expert \
   --focus debug \
   --review
@@ -164,33 +164,33 @@ Start sessions in background for long-running collaboration:
 
 ```bash
 # Start in background
-monobrain pair --start --background
+monomind pair --start --background
 
 # Monitor session
-monobrain pair status
+monomind pair status
 
 # View session output
-monobrain pair output session_id
+monomind pair output session_id
 
 # End background session
-monobrain pair --end session_id
+monomind pair --end session_id
 ```
 
 ## Integration
 
 ### With Git
 ```bash
-monobrain pair --start --git --auto-commit
+monomind pair --start --git --auto-commit
 ```
 
 ### With CI/CD
 ```bash
-monobrain pair --start --ci --non-interactive
+monomind pair --start --ci --non-interactive
 ```
 
 ### With IDE
 ```bash
-monobrain pair --start --ide vscode
+monomind pair --start --ide vscode
 ```
 
 ## Best Practices

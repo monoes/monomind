@@ -1,6 +1,6 @@
 # Performance Module Test Suite
 
-Comprehensive test coverage for the `@monobrain/performance` module, focusing on Flash Attention optimization and benchmark validation.
+Comprehensive test coverage for the `@monomind/performance` module, focusing on Flash Attention optimization and benchmark validation.
 
 ## Test Files
 

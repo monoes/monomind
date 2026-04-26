@@ -2,7 +2,7 @@
 
 **Source:** https://arxiv.org/html/2512.20845  
 **Category:** Multi-Agent Reasoning Research  
-**Role in Monobrain:** Heterogeneous reflection loop on task failure — Diagnoser → Critic×2 → Aggregator
+**Role in Monomind:** Heterogeneous reflection loop on task failure — Diagnoser → Critic×2 → Aggregator
 
 ---
 
@@ -20,7 +20,7 @@ The heterogeneous team produces higher-quality reflections than a single self-cr
 
 ### `marReflection` in `hooks_post-task` on Failure
 
-When `hooks_post-task` receives a failed task signal (`success: false` or `status: 'failed'`), Monobrain's hook handler triggers the MAR reflection protocol by returning a `marReflection` object that specifies the four agent roles and their spawn order:
+When `hooks_post-task` receives a failed task signal (`success: false` or `status: 'failed'`), Monomind's hook handler triggers the MAR reflection protocol by returning a `marReflection` object that specifies the four agent roles and their spawn order:
 
 ```json
 {
@@ -43,7 +43,7 @@ The orchestrating agent (Claude Code) reads this signal and spawns the reflectio
 
 The Aggregator's output is stored to the `reflexion` memory namespace, where it becomes a high-importance entry that will be retrieved as a hint before the next similar task (via ERL's heuristic injection at `pre-task`).
 
-## How It Improved Monobrain
+## How It Improved Monomind
 
 Single-agent self-reflection is vulnerable to self-justification bias — an agent that fails tends to explain its failure in ways that minimize the need for fundamental change. MAR's heterogeneous team breaks this bias: the Diagnoser cannot see the Critics' analysis, and the Critics cannot see each other's, so their assessments are genuinely independent. The Aggregator then produces a synthesis that no single agent would have generated alone.
 
@@ -53,5 +53,5 @@ The practical result: failed tasks produce richer reflection that leads to more 
 
 - `hook-handler.cjs` `post-task` — `marReflection` signal generation on failure
 - `.claude/agents/` — diagnoser, critic, aggregator role mappings
-- `packages/@monobrain/memory/` — `reflexion` namespace for aggregated insights
+- `packages/@monomind/memory/` — `reflexion` namespace for aggregated insights
 - `hook-handler.cjs` `pre-task` — reflexion insights injected as pre-task hints

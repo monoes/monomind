@@ -10,7 +10,7 @@
 
 // ── Constants ─────────────────────────────────────────────────
 
-export const STATE_DIR = '.monobrain/data';
+export const STATE_DIR = '.monomind/data';
 export const STATE_FILE = `${STATE_DIR}/autopilot-state.json`;
 export const LOG_FILE = `${STATE_DIR}/autopilot-log.json`;
 
@@ -242,7 +242,7 @@ export function discoverTasks(sources: string[]): TaskInfo[] {
     }
 
     if (source === 'swarm-tasks') {
-      const swarmFile = path.resolve('.monobrain/swarm-tasks.json');
+      const swarmFile = path.resolve('.monomind/swarm-tasks.json');
       try {
         if (fs.existsSync(swarmFile)) {
           const data = safeJsonParse<Record<string, unknown> | unknown[]>(fs.readFileSync(swarmFile, 'utf-8'));
@@ -263,7 +263,7 @@ export function discoverTasks(sources: string[]): TaskInfo[] {
     }
 
     if (source === 'file-checklist') {
-      const checklistFile = path.resolve('.monobrain/data/checklist.json');
+      const checklistFile = path.resolve('.monomind/data/checklist.json');
       try {
         if (fs.existsSync(checklistFile)) {
           const data = safeJsonParse<Record<string, unknown> | unknown[]>(fs.readFileSync(checklistFile, 'utf-8'));

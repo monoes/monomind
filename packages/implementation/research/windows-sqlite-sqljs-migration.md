@@ -1,14 +1,14 @@
 # Windows Installation Support via sql.js Migration Research
 
 **Research Date**: 2026-01-03
-**Project**: Monobrain v1
+**Project**: Monomind v1
 **Objective**: Enable cross-platform Windows support by replacing/augmenting better-sqlite3 with sql.js
 
 ---
 
 ## Executive Summary
 
-Monobrain currently uses `better-sqlite3` as its primary database engine, which causes installation failures on Windows due to native module compilation requirements. This research analyzes migrating to or integrating `sql.js` as a cross-platform fallback to enable seamless Windows support.
+Monomind currently uses `better-sqlite3` as its primary database engine, which causes installation failures on Windows due to native module compilation requirements. This research analyzes migrating to or integrating `sql.js` as a cross-platform fallback to enable seamless Windows support.
 
 **Key Findings**:
 - 17 files currently use better-sqlite3 directly
@@ -25,12 +25,12 @@ Monobrain currently uses `better-sqlite3` as its primary database engine, which 
 
 **Primary Database Locations**:
 ```
-/home/user/monobrain/src/api/database-service.ts          (Line 559: dynamic import)
-/home/user/monobrain/src/core/DatabaseManager.ts          (Line 197: require)
-/home/user/monobrain/src/core/persistence.ts              (Line 5: import)
-/home/user/monobrain/src/memory/backends/sqlite.ts        (Wrapper-based)
-/home/user/monobrain/src/memory/sqlite-store.js           (Wrapper-based)
-/home/user/monobrain/src/memory/sqlite-wrapper.js         (Abstraction layer ⭐)
+/home/user/monomind/src/api/database-service.ts          (Line 559: dynamic import)
+/home/user/monomind/src/core/DatabaseManager.ts          (Line 197: require)
+/home/user/monomind/src/core/persistence.ts              (Line 5: import)
+/home/user/monomind/src/memory/backends/sqlite.ts        (Wrapper-based)
+/home/user/monomind/src/memory/sqlite-store.js           (Wrapper-based)
+/home/user/monomind/src/memory/sqlite-wrapper.js         (Abstraction layer ⭐)
 ```
 
 **Additional Usages** (17 total files):
@@ -45,14 +45,14 @@ Monobrain currently uses `better-sqlite3` as its primary database engine, which 
 
 ### 1.2 Existing Fallback Infrastructure ✅
 
-Monobrain already implements graceful fallback mechanisms:
+Monomind already implements graceful fallback mechanisms:
 
 **Fallback Chain**:
 1. **Primary**: better-sqlite3 (native SQLite)
 2. **Secondary**: JSON file storage (`JSONProvider`)
 3. **Tertiary**: In-memory storage (`InMemoryStore`)
 
-**Key Abstraction Layer**: `/home/user/monobrain/src/memory/sqlite-wrapper.js`
+**Key Abstraction Layer**: `/home/user/monomind/src/memory/sqlite-wrapper.js`
 - Platform detection (Windows, WSL, macOS ARM64)
 - Auto-rebuild on NODE_MODULE_VERSION mismatch
 - Graceful error handling with user-friendly messages
@@ -119,7 +119,7 @@ private initializeSQLiteWithRecovery(): IDatabaseProvider {
 | Database load | Instant | 50-200ms | Initial overhead |
 | Memory usage | Minimal | Full DB in RAM | Depends on DB size |
 
-**Performance Context for Monobrain**:
+**Performance Context for Monomind**:
 - Metadata storage (swarms, agents, tasks): Typically <100MB
 - Query frequency: Low-moderate (coordination, not real-time)
 - **Verdict**: Performance tradeoff acceptable for Windows compatibility
@@ -133,7 +133,7 @@ sql-wasm.wasm      ~850KB (SQLite engine)
 Total              ~1.2MB
 ```
 
-**Monobrain Context**:
+**Monomind Context**:
 - Current package size: ~50MB (with dependencies)
 - Adding sql.js: +1.2MB (~2.4% increase)
 - **Verdict**: Bundle size impact negligible
@@ -238,7 +238,7 @@ function getRecommendedProvider() {
 ### 3.2 Implementation Plan
 
 **Phase 1: sql.js Provider Implementation**
-1. Create `/home/user/monobrain/src/memory/backends/sqljs.ts`
+1. Create `/home/user/monomind/src/memory/backends/sqljs.ts`
 2. Implement `IDatabaseProvider` interface
 3. Add WASM file bundling configuration
 4. Implement file persistence wrapper
@@ -302,7 +302,7 @@ const db = await createDatabaseProvider(path, {
 
 ### 4.2 Configuration Options
 
-**User-Facing Configuration** (`monobrain.config.js`):
+**User-Facing Configuration** (`monomind.config.js`):
 ```javascript
 module.exports = {
   database: {
@@ -489,7 +489,7 @@ stmt.free(); // Release memory
 
 **Current Experience** (Windows):
 ```bash
-$ npm install monobrain@alpha
+$ npm install monomind@alpha
 ⚠️  Warning: On Windows, use pnpm to avoid native dependency issues
 ⚠️  better-sqlite3 compilation failed
 ✅ Falling back to JSON storage
@@ -497,7 +497,7 @@ $ npm install monobrain@alpha
 
 **New Experience** (Windows):
 ```bash
-$ npm install monobrain@alpha
+$ npm install monomind@alpha
 ✅ Installed successfully
 ℹ️  Using sql.js database provider (cross-platform mode)
 ℹ️  For best performance, install build tools for native SQLite
@@ -631,7 +631,7 @@ Implement sql.js as a fallback provider alongside better-sqlite3:
 ### 11.1 SqlJsBackend Implementation (Pseudocode)
 
 ```typescript
-// /home/user/monobrain/src/memory/backends/sqljs.ts
+// /home/user/monomind/src/memory/backends/sqljs.ts
 
 import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
 import { promises as fs } from 'fs';
@@ -715,7 +715,7 @@ export class SqlJsBackend implements IMemoryBackend {
 ### 11.2 Updated sqlite-wrapper.js (Pseudocode)
 
 ```javascript
-// /home/user/monobrain/src/memory/sqlite-wrapper.js
+// /home/user/monomind/src/memory/sqlite-wrapper.js
 
 let BetterSqlite3 = null;
 let SqlJs = null;
@@ -797,7 +797,7 @@ function createSqlJsWrapper(SQL, dbPath) {
 
 ## 12. Conclusion
 
-Integrating sql.js as a fallback provider for Monobrain is **highly recommended** for Windows compatibility:
+Integrating sql.js as a fallback provider for Monomind is **highly recommended** for Windows compatibility:
 
 **Benefits**:
 - ✅ Eliminates Windows installation failures

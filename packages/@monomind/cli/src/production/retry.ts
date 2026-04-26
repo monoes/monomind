@@ -7,7 +7,7 @@
  * - Per-error-type configuration
  * - Circuit breaker integration
  *
- * @module @monobrain/cli/production/retry
+ * @module @monomind/cli/production/retry
  */
 
 // ============================================================================

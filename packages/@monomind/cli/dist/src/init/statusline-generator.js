@@ -12,7 +12,7 @@
 /**
  * Generate optimized statusline script
  * Output format:
- * ▊ Monobrain ● user  │  ⎇ branch  │  Opus 4.6 (1M context)
+ * ▊ Monomind ● user  │  ⎇ branch  │  Opus 4.6 (1M context)
  * ─────────────────────────────────────────────────────
  * 🏗️  DDD Domains    [●●○○○]  2/5    ⚡ HNSW 150x
  * 🤖 Swarm  ◉ [ 5/15]  👥 2    🪝 10/17    🟢 CVE 3/3    💾 4MB    🧠  63%
@@ -23,7 +23,7 @@ export function generateStatuslineScript(options) {
     const maxAgents = options.runtime.maxAgents;
     return `#!/usr/bin/env node
 /**
- * Monobrain V1 Statusline Generator (Optimized)
+ * Monomind V1 Statusline Generator (Optimized)
  * Displays real-time v1 implementation progress and system status
  *
  * Usage: node statusline.cjs [--json] [--compact]
@@ -47,23 +47,23 @@ const CONFIG = {
   maxAgents: ${maxAgents},
 };
 
-const CWD = process.cwd();
+const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
-// Read monobrain version — check global install first, then CWD package.json
+// Read monomind version — check global install first, then CWD package.json
 function getVersion() {
-  // 1. Monobrain global install: script lives at <install>/packages/@monobrain/cli/dist/src/init/
+  // 1. Monomind global install: script lives at <install>/packages/@monomind/cli/dist/src/init/
   //    or user project:           .claude/helpers/statusline.cjs
-  //    Walk up to find a monobrain package.json (has "name":"monobrain" or "@monoes/cli")
+  //    Walk up to find a monomind package.json (has "name":"monomind" or "@monomind/cli")
   const scriptDir = path.dirname(__filename);
   const walkCandidates = [
-    path.join(scriptDir, '..', '..', 'package.json'),          // dist/src -> @monobrain/cli
-    path.join(scriptDir, '..', '..', '..', 'package.json'),    // -> monobrain umbrella
+    path.join(scriptDir, '..', '..', 'package.json'),          // dist/src -> @monomind/cli
+    path.join(scriptDir, '..', '..', '..', 'package.json'),    // -> monomind umbrella
     path.join(scriptDir, '..', '..', '..', '..', 'package.json'),
   ];
   for (const p of walkCandidates) {
     try {
       const pkg = JSON.parse(fs.readFileSync(p, 'utf-8'));
-      if (pkg.version && (pkg.name === 'monobrain' || pkg.name === '@monoes/cli' || (pkg.name || '').startsWith('@monobrain'))) {
+      if (pkg.version && (pkg.name === 'monomind' || pkg.name === '@monomind/cli' || (pkg.name || '').startsWith('@monomind'))) {
         return \`v\${pkg.version}\`;
       }
     } catch { /* ignore */ }
@@ -72,7 +72,7 @@ function getVersion() {
   try {
     const { execSync } = require('child_process');
     const prefix = execSync('npm config get prefix', { encoding: 'utf-8', timeout: 2000 }).trim();
-    const pkg = JSON.parse(fs.readFileSync(path.join(prefix, 'lib', 'node_modules', 'monobrain', 'package.json'), 'utf-8'));
+    const pkg = JSON.parse(fs.readFileSync(path.join(prefix, 'lib', 'node_modules', 'monomind', 'package.json'), 'utf-8'));
     if (pkg.version) return \`v\${pkg.version}\`;
   } catch { /* ignore */ }
   return 'v1.0.6';
@@ -289,7 +289,7 @@ function getModelName() {
 function getLearningStats() {
   const memoryPaths = [
     path.join(CWD, '.swarm', 'memory.db'),
-    path.join(CWD, '.monobrain', 'memory.db'),
+    path.join(CWD, '.monomind', 'memory.db'),
     path.join(CWD, '.claude', 'memory.db'),
     path.join(CWD, 'data', 'memory.db'),
     path.join(CWD, '.agentdb', 'memory.db'),
@@ -324,7 +324,7 @@ function getv1Progress() {
   const learning = getLearningStats();
   const totalDomains = 5;
 
-  const dddData = readJSON(path.join(CWD, '.monobrain', 'metrics', 'ddd-progress.json'));
+  const dddData = readJSON(path.join(CWD, '.monomind', 'metrics', 'ddd-progress.json'));
   let dddProgress = dddData?.progress || 0;
   let domainsCompleted = Math.min(5, Math.floor(dddProgress / 20));
 
@@ -346,7 +346,7 @@ function getv1Progress() {
 
 // Security status (pure file reads)
 function getSecurityStatus() {
-  const auditData = readJSON(path.join(CWD, '.monobrain', 'security', 'audit-status.json'));
+  const auditData = readJSON(path.join(CWD, '.monomind', 'security', 'audit-status.json'));
   if (auditData) {
     const auditDate = auditData.lastAudit || auditData.lastScan;
     if (!auditDate) {
@@ -385,7 +385,7 @@ function getSwarmStatus() {
 
   // PRIMARY: count live registration files written by SubagentStart hook
   // Each file = one active sub-agent. Stale files (>30 min) are ignored.
-  const regDir = path.join(CWD, '.monobrain', 'agents', 'registrations');
+  const regDir = path.join(CWD, '.monomind', 'agents', 'registrations');
   if (fs.existsSync(regDir)) {
     try {
       const files = fs.readdirSync(regDir).filter(f => f.endsWith('.json'));
@@ -405,7 +405,7 @@ function getSwarmStatus() {
   }
 
   // SECONDARY: swarm-state.json written by MCP swarm_init — trust if fresh
-  const swarmStatePath = path.join(CWD, '.monobrain', 'swarm', 'swarm-state.json');
+  const swarmStatePath = path.join(CWD, '.monomind', 'swarm', 'swarm-state.json');
   const swarmState = readJSON(swarmStatePath);
   if (swarmState) {
     const updatedAt = swarmState.updatedAt || swarmState.startedAt;
@@ -420,7 +420,7 @@ function getSwarmStatus() {
   }
 
   // TERTIARY: swarm-activity.json refreshed by post-task hook
-  const activityData = readJSON(path.join(CWD, '.monobrain', 'metrics', 'swarm-activity.json'));
+  const activityData = readJSON(path.join(CWD, '.monomind', 'metrics', 'swarm-activity.json'));
   if (activityData?.swarm) {
     const updatedAt = activityData.timestamp || activityData.swarm.timestamp;
     const age = updatedAt ? now - new Date(updatedAt).getTime() : Infinity;
@@ -443,7 +443,7 @@ function getSystemMetrics() {
   const agentdb = getAgentDBStats();
 
   // Intelligence from learning.json
-  const learningData = readJSON(path.join(CWD, '.monobrain', 'metrics', 'learning.json'));
+  const learningData = readJSON(path.join(CWD, '.monomind', 'metrics', 'learning.json'));
   let intelligencePct = 0;
   let contextPct = 0;
 
@@ -477,7 +477,7 @@ function getSystemMetrics() {
 
   // Sub-agents from file metrics (no ps aux)
   let subAgents = 0;
-  const activityData = readJSON(path.join(CWD, '.monobrain', 'metrics', 'swarm-activity.json'));
+  const activityData = readJSON(path.join(CWD, '.monomind', 'metrics', 'swarm-activity.json'));
   if (activityData?.processes?.estimated_agents) {
     subAgents = activityData.processes.estimated_agents;
   }
@@ -491,7 +491,7 @@ function getADRStatus() {
   const adrPaths = [
     path.join(CWD, 'packages', 'implementation', 'adrs'),
     path.join(CWD, 'docs', 'adrs'),
-    path.join(CWD, '.monobrain', 'adrs'),
+    path.join(CWD, '.monomind', 'adrs'),
   ];
 
   for (const adrPath of adrPaths) {
@@ -543,7 +543,7 @@ function getHooksStatus() {
 
 // Active agent — reads last routing result persisted by hook-handler
 function getActiveAgent() {
-  const routeFile = path.join(CWD, '.monobrain', 'last-route.json');
+  const routeFile = path.join(CWD, '.monomind', 'last-route.json');
   try {
     if (!fs.existsSync(routeFile)) return null;
     const data = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
@@ -576,7 +576,7 @@ function getAgentDBStats() {
   let hasHnsw = false;
 
   // 1. Count real entries from auto-memory-store.json
-  const storePath = path.join(CWD, '.monobrain', 'data', 'auto-memory-store.json');
+  const storePath = path.join(CWD, '.monomind', 'data', 'auto-memory-store.json');
   const storeStat = safeStat(storePath);
   if (storeStat) {
     dbSizeKB += storeStat.size / 1024;
@@ -588,7 +588,7 @@ function getAgentDBStats() {
   }
 
   // 2. Count entries from ranked-context.json
-  const rankedPath = path.join(CWD, '.monobrain', 'data', 'ranked-context.json');
+  const rankedPath = path.join(CWD, '.monomind', 'data', 'ranked-context.json');
   try {
     const ranked = readJSON(rankedPath);
     if (ranked?.entries?.length > vectorCount) vectorCount = ranked.entries.length;
@@ -597,7 +597,7 @@ function getAgentDBStats() {
   // 3. Add DB file sizes
   const dbFiles = [
     path.join(CWD, 'data', 'memory.db'),
-    path.join(CWD, '.monobrain', 'memory.db'),
+    path.join(CWD, '.monomind', 'memory.db'),
     path.join(CWD, '.swarm', 'memory.db'),
   ];
   for (const f of dbFiles) {
@@ -616,7 +616,7 @@ function getAgentDBStats() {
   // 5. HNSW index
   const hnswPaths = [
     path.join(CWD, '.swarm', 'hnsw.index'),
-    path.join(CWD, '.monobrain', 'hnsw.index'),
+    path.join(CWD, '.monomind', 'hnsw.index'),
   ];
   for (const p of hnswPaths) {
     const stat = safeStat(p);
@@ -629,8 +629,8 @@ function getAgentDBStats() {
   // HNSW is available if memory package is present
   if (!hasHnsw) {
     const memPkgPaths = [
-      path.join(CWD, 'packages', '@monobrain', 'memory', 'dist'),
-      path.join(CWD, 'node_modules', '@monobrain', 'memory'),
+      path.join(CWD, 'packages', '@monomind', 'memory', 'dist'),
+      path.join(CWD, 'node_modules', '@monomind', 'memory'),
     ];
     for (const p of memPkgPaths) {
       if (fs.existsSync(p)) { hasHnsw = true; break; }
@@ -695,7 +695,7 @@ function getIntegrationStatus() {
     }
   }
 
-  const hasDatabase = ['.swarm/memory.db', '.monobrain/memory.db', 'data/memory.db']
+  const hasDatabase = ['.swarm/memory.db', '.monomind/memory.db', 'data/memory.db']
     .some(p => fs.existsSync(path.join(CWD, p)));
   const hasApi = !!(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY);
 
@@ -704,7 +704,7 @@ function getIntegrationStatus() {
 
 // Session stats (pure file reads)
 function getSessionStats() {
-  for (const p of ['.monobrain/session.json', '.claude/session.json']) {
+  for (const p of ['.monomind/session.json', '.claude/session.json']) {
     const data = readJSON(path.join(CWD, p));
     if (data?.startTime) {
       const diffMs = Date.now() - new Date(data.startTime).getTime();
@@ -788,8 +788,8 @@ function secBadge(status) {
 
 // ── Knowledge & trigger stats (Tasks 28 + 32) ────────────────────
 function getKnowledgeStats() {
-  const chunksPath = path.join(CWD, '.monobrain', 'knowledge', 'chunks.jsonl');
-  const skillsPath = path.join(CWD, '.monobrain', 'skills.jsonl');
+  const chunksPath = path.join(CWD, '.monomind', 'knowledge', 'chunks.jsonl');
+  const skillsPath = path.join(CWD, '.monomind', 'skills.jsonl');
   let chunks = 0, skills = 0;
   try {
     if (fs.existsSync(chunksPath)) {
@@ -805,7 +805,7 @@ function getKnowledgeStats() {
 }
 
 function getTriggerStats() {
-  const indexPath = path.join(CWD, '.monobrain', 'trigger-index.json');
+  const indexPath = path.join(CWD, '.monomind', 'trigger-index.json');
   try {
     if (!fs.existsSync(indexPath)) return { triggers: 0, agents: 0 };
     const raw = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
@@ -838,7 +838,7 @@ function generateStatusline() {
 
   // Brand + swarm dot
   const swarmDot = swarm.coordinationActive ? \`\${x.green}●\${x.reset}\` : \`\${x.slate}○\${x.reset}\`;
-  parts.push(\`\${x.bold}\${x.purple}▊ Monobrain\${x.reset} \${swarmDot}\`);
+  parts.push(\`\${x.bold}\${x.purple}▊ Monomind\${x.reset} \${swarmDot}\`);
 
   // Git branch + changes (compact)
   if (git.gitBranch) {
@@ -911,7 +911,7 @@ function generateDashboard() {
 
   // ── Header: brand + git + model + session ────────────────────
   const swarmDot = swarm.coordinationActive ? \`\${x.green}● LIVE\${x.reset}\` : \`\${x.slate}○ IDLE\${x.reset}\`;
-  let hdr = \`\${x.bold}\${x.purple}▊ Monobrain \${VERSION}\${x.reset}  \${swarmDot}  \${x.teal}\${x.bold}\${git.name}\${x.reset}\`;
+  let hdr = \`\${x.bold}\${x.purple}▊ Monomind \${VERSION}\${x.reset}  \${swarmDot}  \${x.teal}\${x.bold}\${git.name}\${x.reset}\`;
 
   if (git.gitBranch) {
     hdr += \`  \${DIV}  \${x.sky}⎇ \${x.bold}\${git.gitBranch}\${x.reset}\`;
@@ -1082,7 +1082,7 @@ function generateJSON() {
 }
 
 // ─── Mode state file ─────────────────────────────────────────────
-const MODE_FILE = path.join(CWD, '.monobrain', 'statusline-mode.txt');
+const MODE_FILE = path.join(CWD, '.monomind', 'statusline-mode.txt');
 
 function readMode() {
   try {
@@ -1129,22 +1129,22 @@ export function generateStatuslineHook(options) {
         return '#!/bin/bash\n# Statusline disabled\n';
     }
     return `#!/bin/bash
-# Monobrain Statusline Hook
+# Monomind Statusline Hook
 # Source this in your .bashrc/.zshrc for terminal statusline
 
 # Function to get statusline
-monobrain_statusline() {
-  local statusline_script="\${MONOBRAIN_DIR:-.claude}/helpers/statusline.cjs"
+monomind_statusline() {
+  local statusline_script="\${MONOMIND_DIR:-.claude}/helpers/statusline.cjs"
   if [ -f "$statusline_script" ]; then
     node "$statusline_script" 2>/dev/null || echo ""
   fi
 }
 
 # Bash: Add to PS1
-# export PS1='$(monobrain_statusline) \\n\\$ '
+# export PS1='$(monomind_statusline) \\n\\$ '
 
 # Zsh: Add to RPROMPT
-# export RPROMPT='$(monobrain_statusline)'
+# export RPROMPT='$(monomind_statusline)'
 
 # Claude Code: Add to .claude/settings.json
 # "statusLine": {

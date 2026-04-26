@@ -4,7 +4,7 @@
  * Implements sliding window rate limiting to prevent abuse
  * and ensure fair resource distribution across teammates.
  *
- * @module @monobrain/teammate-plugin/utils/rate-limiter
+ * @module @monomind/teammate-plugin/utils/rate-limiter
  */
 
 import type { RateLimitConfig, RateLimitState } from '../types.js';

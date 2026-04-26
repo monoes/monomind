@@ -1,5 +1,5 @@
 #!/bin/bash
-# MonoBrain v1 Development Status Line
+# MonoMind v1 Development Status Line
 # Shows DDD architecture progress, security status, and performance targets
 
 # Read Claude Code JSON input from stdin (if available)
@@ -12,9 +12,9 @@ if [ -z "$PROJECT_DIR" ] || [ "$PROJECT_DIR" = "null" ]; then
 fi
 
 # File paths relative to project directory
-v1_METRICS="${PROJECT_DIR}/.monobrain/metrics/v1-progress.json"
-SECURITY_AUDIT="${PROJECT_DIR}/.monobrain/security/audit-status.json"
-PERFORMANCE_METRICS="${PROJECT_DIR}/.monobrain/metrics/performance.json"
+v1_METRICS="${PROJECT_DIR}/.monomind/metrics/v1-progress.json"
+SECURITY_AUDIT="${PROJECT_DIR}/.monomind/security/audit-status.json"
+PERFORMANCE_METRICS="${PROJECT_DIR}/.monomind/metrics/performance.json"
 
 # ANSI Color Codes
 RED='\033[0;31m'
@@ -119,10 +119,10 @@ fi
 
 # REAL-TIME SWARM DETECTION
 # Count active agentic-flow processes
-ACTIVE_PROCESSES=$(ps aux 2>/dev/null | grep -E "(agentic-flow|monobrain)" | grep -v grep | wc -l)
+ACTIVE_PROCESSES=$(ps aux 2>/dev/null | grep -E "(agentic-flow|monomind)" | grep -v grep | wc -l)
 
 # Check for real-time activity data from swarm monitor
-SWARM_ACTIVITY=".monobrain/metrics/swarm-activity.json"
+SWARM_ACTIVITY=".monomind/metrics/swarm-activity.json"
 if [ -f "$SWARM_ACTIVITY" ]; then
   # Use accurate data from swarm monitor if available
   DYNAMIC_AGENTS=$(jq -r '.swarm.agent_count // 0' "$SWARM_ACTIVITY" 2>/dev/null || echo "0")
@@ -173,7 +173,7 @@ CONTEXT_PCT=0
 CONTEXT_TOKENS=""
 CONTEXT_COLOR="${DIM}"
 AUTOPILOT_STATUS=""
-AUTOPILOT_STATE="${PROJECT_DIR}/.monobrain/data/autopilot-state.json"
+AUTOPILOT_STATE="${PROJECT_DIR}/.monomind/data/autopilot-state.json"
 
 if [ -f "$AUTOPILOT_STATE" ]; then
   # Primary: read from autopilot real-time state
@@ -231,9 +231,9 @@ fi
 # Calculate Intelligence Score from learning metrics + patterns DB
 INTEL_SCORE=0
 INTEL_COLOR="${DIM}"
-PATTERNS_DB="${PROJECT_DIR}/.monobrain/learning/patterns.db"
-LEARNING_METRICS="${PROJECT_DIR}/.monobrain/metrics/learning.json"
-ARCHIVE_DB="${PROJECT_DIR}/.monobrain/data/transcript-archive.db"
+PATTERNS_DB="${PROJECT_DIR}/.monomind/learning/patterns.db"
+LEARNING_METRICS="${PROJECT_DIR}/.monomind/metrics/learning.json"
+ARCHIVE_DB="${PROJECT_DIR}/.monomind/data/transcript-archive.db"
 
 # Primary: use pre-computed intelligence score from learning.json
 if [ -f "$LEARNING_METRICS" ]; then
@@ -320,13 +320,13 @@ if [ "$CLAUDE_INPUT" != "{}" ]; then
 fi
 
 # Get current directory
-CURRENT_DIR=$(basename "$PROJECT_DIR" 2>/dev/null || echo "monobrain")
+CURRENT_DIR=$(basename "$PROJECT_DIR" 2>/dev/null || echo "monomind")
 
 # Build colorful output with better formatting
 OUTPUT=""
 
 # Header Line: v1 Project + Branch + Integration Status
-OUTPUT="${BOLD}${BRIGHT_PURPLE}▊ MonoBrain v1 ${RESET}"
+OUTPUT="${BOLD}${BRIGHT_PURPLE}▊ MonoMind v1 ${RESET}"
 OUTPUT="${OUTPUT}${INTEGRATION_COLOR}${INTEGRATION_STATUS} ${BRIGHT_CYAN}${GH_USER}${RESET}"
 if [ -n "$GIT_BRANCH" ]; then
   OUTPUT="${OUTPUT}  ${DIM}│${RESET}  ${BRIGHT_BLUE}⎇ ${GIT_BRANCH}${RESET}"

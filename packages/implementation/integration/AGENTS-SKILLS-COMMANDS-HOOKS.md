@@ -1,10 +1,10 @@
-# Monobrain v1: Agent, Skills, Commands & Hooks Optimization
+# Monomind v1: Agent, Skills, Commands & Hooks Optimization
 
 > **Note:** v2/ has been removed. References to v2 structures below are historical context only. Agent templates now live in `v1/agents/`.
 
 ## Overview
 
-This document details the optimization strategy for the four core extensibility systems in Monobrain v1:
+This document details the optimization strategy for the four core extensibility systems in Monomind v1:
 - **Agents**: 76 specialized agent definitions
 - **Skills**: 28 skill definitions with progressive disclosure
 - **Commands**: 93 slash commands
@@ -344,9 +344,9 @@ tools:
   - Task
   - TodoWrite
   - Bash
-  - mcp__monobrain__swarm_init
-  - mcp__monobrain__agent_spawn
-  - mcp__monobrain__task_orchestrate
+  - mcp__monomind__swarm_init
+  - mcp__monomind__agent_spawn
+  - mcp__monomind__task_orchestrate
 ---
 
 # Swarm Orchestration Skill
@@ -580,7 +580,7 @@ All hooks defined in `.claude/config.json`:
       {
         "matcher": "Bash",
         "commands": [
-          "npx monobrain hooks pre-tool --tool=$TOOL_NAME --command=\"$BASH_COMMAND\""
+          "npx monomind hooks pre-tool --tool=$TOOL_NAME --command=\"$BASH_COMMAND\""
         ],
         "timeout": 5000,
         "failOnError": false
@@ -588,7 +588,7 @@ All hooks defined in `.claude/config.json`:
       {
         "matcher": "Write|Edit",
         "commands": [
-          "npx monobrain hooks pre-edit --file=$FILE_PATH"
+          "npx monomind hooks pre-edit --file=$FILE_PATH"
         ]
       }
     ],
@@ -597,13 +597,13 @@ All hooks defined in `.claude/config.json`:
       {
         "matcher": "*",
         "commands": [
-          "npx monobrain hooks post-tool --tool=$TOOL_NAME --success=$SUCCESS"
+          "npx monomind hooks post-tool --tool=$TOOL_NAME --success=$SUCCESS"
         ]
       },
       {
         "matcher": "Write|Edit",
         "commands": [
-          "npx monobrain hooks post-edit --file=$FILE_PATH --memory-key=\"edits/$FILE_PATH\""
+          "npx monomind hooks post-edit --file=$FILE_PATH --memory-key=\"edits/$FILE_PATH\""
         ]
       }
     ],
@@ -611,7 +611,7 @@ All hooks defined in `.claude/config.json`:
     "PreCompact": [
       {
         "commands": [
-          "npx monobrain hooks pre-compact --session=$SESSION_ID"
+          "npx monomind hooks pre-compact --session=$SESSION_ID"
         ]
       }
     ],
@@ -619,7 +619,7 @@ All hooks defined in `.claude/config.json`:
     "Stop": [
       {
         "commands": [
-          "npx monobrain hooks session-end --export-metrics true"
+          "npx monomind hooks session-end --export-metrics true"
         ]
       }
     ]

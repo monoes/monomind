@@ -4,7 +4,7 @@ Spawn a new agent in the current swarm.
 
 ## Usage
 ```bash
-npx monobrain agent spawn [options]
+npx monomind agent spawn [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain agent spawn [options]
 ## Examples
 ```bash
 # Spawn coder agent
-npx monobrain agent spawn --type coder
+npx monomind agent spawn --type coder
 
 # With custom name
-npx monobrain agent spawn --type researcher --name "API Expert"
+npx monomind agent spawn --type researcher --name "API Expert"
 
 # With specific skills
-npx monobrain agent spawn --type coder --skills "python,fastapi,testing"
+npx monomind agent spawn --type coder --skills "python,fastapi,testing"
 ```

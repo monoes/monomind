@@ -4,7 +4,7 @@ Update neural models with new data.
 
 ## Usage
 ```bash
-npx monobrain training model-update [options]
+npx monomind training model-update [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain training model-update [options]
 ## Examples
 ```bash
 # Update all models
-npx monobrain training model-update
+npx monomind training model-update
 
 # Specific model
-npx monobrain training model-update --model agent-selector
+npx monomind training model-update --model agent-selector
 
 # Incremental with validation
-npx monobrain training model-update --incremental --validate
+npx monomind training model-update --incremental --validate
 ```

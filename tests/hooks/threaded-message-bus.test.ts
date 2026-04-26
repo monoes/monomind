@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ThreadedMessageBus } from '../../packages/@monobrain/hooks/src/messaging/threaded-message-bus.js';
-import { ConversationThread } from '../../packages/@monobrain/hooks/src/messaging/conversation-thread.js';
+import { ThreadedMessageBus } from '../../packages/@monomind/hooks/src/messaging/threaded-message-bus.js';
+import { ConversationThread } from '../../packages/@monomind/hooks/src/messaging/conversation-thread.js';
 
 describe('ThreadedMessageBus', () => {
   let bus: ThreadedMessageBus;

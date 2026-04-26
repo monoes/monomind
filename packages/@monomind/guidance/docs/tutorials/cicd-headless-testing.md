@@ -9,8 +9,8 @@ You've written 50 rules in `CLAUDE.md`. How do you know agents actually follow t
 ## Step 1: Define Test Tasks
 
 ```ts
-import { createComplianceSuite } from '@monobrain/guidance/headless';
-import type { TestTask } from '@monobrain/guidance/headless';
+import { createComplianceSuite } from '@monomind/guidance/headless';
+import type { TestTask } from '@monomind/guidance/headless';
 
 const tasks: TestTask[] = [
   {
@@ -89,8 +89,8 @@ for (const result of summary.results) {
 For more control, use the `HeadlessRunner` class:
 
 ```ts
-import { createHeadlessRunner } from '@monobrain/guidance/headless';
-import { createLedger } from '@monobrain/guidance/ledger';
+import { createHeadlessRunner } from '@monomind/guidance/headless';
+import { createLedger } from '@monomind/guidance/ledger';
 
 const ledger = createLedger();
 const runner = createHeadlessRunner(undefined, ledger, 'constitution-hash');
@@ -129,7 +129,7 @@ import {
   TestsPassEvaluator,
   ForbiddenCommandEvaluator,
   ViolationRateEvaluator,
-} from '@monobrain/guidance/ledger';
+} from '@monomind/guidance/ledger';
 
 const ledger = createLedger();
 
@@ -195,8 +195,8 @@ jobs:
 
 ```ts
 // scripts/run-compliance.ts
-import { createGuidanceControlPlane } from '@monobrain/guidance';
-import { createComplianceSuite } from '@monobrain/guidance/headless';
+import { createGuidanceControlPlane } from '@monomind/guidance';
+import { createComplianceSuite } from '@monomind/guidance/headless';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const plane = createGuidanceControlPlane();
@@ -221,7 +221,7 @@ console.log(`All ${summary.total} compliance tests passed`);
 After accumulating enough ledger data, the optimizer identifies patterns and evolves rules:
 
 ```ts
-import { createOptimizer } from '@monobrain/guidance/optimizer';
+import { createOptimizer } from '@monomind/guidance/optimizer';
 
 const optimizer = createOptimizer();
 
@@ -243,16 +243,16 @@ if (ledger.eventCount >= 10) {
 For cross-session analysis, use the persistent ledger:
 
 ```ts
-import { createPersistentLedger, createEventStore } from '@monobrain/guidance/persistence';
+import { createPersistentLedger, createEventStore } from '@monomind/guidance/persistence';
 
-const store = createEventStore({ dataDir: './.monobrain/guidance/events' });
+const store = createEventStore({ dataDir: './.monomind/guidance/events' });
 const ledger = createPersistentLedger(store);
 
 // Events are automatically persisted to disk
 const event = ledger.createEvent('task-1', 'feature', 'constitution-hash');
 // ... work ...
 ledger.finalizeEvent(event);
-// Event is now on disk at .monobrain/guidance/events/
+// Event is now on disk at .monomind/guidance/events/
 
 // Load historical data
 const stats = await store.getStats();

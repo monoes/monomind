@@ -11,7 +11,7 @@
  * 3. Add hard filters by risk class and repo scope
  * 4. Contradiction check: prefer higher-priority rule ID
  *
- * @module @monobrain/guidance/retriever
+ * @module @monomind/guidance/retriever
  */
 import type { PolicyBundle, Constitution, TaskIntent, RetrievalRequest, RetrievalResult } from './types.js';
 export interface IEmbeddingProvider {

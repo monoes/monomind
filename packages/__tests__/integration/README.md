@@ -1,6 +1,6 @@
 # Integration Test Suite
 
-Comprehensive cross-module integration tests for monobrain V1 architecture.
+Comprehensive cross-module integration tests for monomind V1 architecture.
 
 ## Test Files Overview
 
@@ -207,7 +207,7 @@ These integration tests are designed to run in CI/CD pipelines:
 
 ### Enable verbose logging
 ```bash
-DEBUG=monobrain:* npm run test:integration
+DEBUG=monomind:* npm run test:integration
 ```
 
 ### Run single test

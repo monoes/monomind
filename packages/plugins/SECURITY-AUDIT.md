@@ -10,8 +10,8 @@
 ## Executive Summary
 
 Both plugins are now **fully implemented** and **published to npm**:
-- `@monobrain/plugin-agentic-qe@3.0.0-alpha.2` (28 files, ~17,036 LOC)
-- `@monobrain/plugin-prime-radiant@0.1.4` (21 files, ~9,136 LOC)
+- `@monomind/plugin-agentic-qe@3.0.0-alpha.2` (28 files, ~17,036 LOC)
+- `@monomind/plugin-prime-radiant@0.1.4` (21 files, ~9,136 LOC)
 
 ### Security Implementation Status
 
@@ -136,7 +136,7 @@ sandbox:
       - ~/.ssh
       - ~/.aws
       - ~/.config
-      - node_modules/@monobrain/security  # Prevent reading security module
+      - node_modules/@monomind/security  # Prevent reading security module
 ```
 
 **Implementation Pattern:**
@@ -182,8 +182,8 @@ class TestSandbox {
 **Required Controls:**
 
 ```typescript
-// MUST use SafeExecutor from @monobrain/security
-import { SafeExecutor } from '@monobrain/security';
+// MUST use SafeExecutor from @monomind/security
+import { SafeExecutor } from '@monomind/security';
 
 const securityScanExecutor = new SafeExecutor({
   allowedCommands: [
@@ -227,7 +227,7 @@ async function runSecurityScan(input: SecurityScanInput): Promise<ScanResult> {
 ```typescript
 // src/schemas.ts - REQUIRED for all tools
 import { z } from 'zod';
-import { PathSchema, IdentifierSchema, SafeStringSchema } from '@monobrain/security';
+import { PathSchema, IdentifierSchema, SafeStringSchema } from '@monomind/security';
 
 // Example: generate-tests tool schema
 export const GenerateTestsInputSchema = z.object({
@@ -256,7 +256,7 @@ export const TddCycleInputSchema = z.object({
 
 ```typescript
 // In every tool that accesses files
-import { PathValidator, createProjectPathValidator } from '@monobrain/security';
+import { PathValidator, createProjectPathValidator } from '@monomind/security';
 
 const pathValidator = createProjectPathValidator(process.cwd());
 
@@ -285,7 +285,7 @@ grep -r "vm.runInContext" src/ && exit 1  # Use vm2 instead
 **Before storing test results, scan for PII:**
 
 ```typescript
-import { aidefence } from '@monobrain/aidefence';
+import { aidefence } from '@monomind/aidefence';
 
 async function storeTestResult(result: TestResult): Promise<void> {
   // Check for PII in test output
@@ -389,8 +389,8 @@ function validateNamespaceAccess(context: string, namespace: string): void {
 # package.json requirements
 {
   "dependencies": {
-    "@monobrain/security": ">=3.0.0",  # REQUIRED
-    "@monobrain/memory": ">=3.0.0",
+    "@monomind/security": ">=3.0.0",  # REQUIRED
+    "@monomind/memory": ">=3.0.0",
     "zod": "^3.22.0",
     "vm2": "^3.9.19"  # For sandboxing (check for CVEs)
   },
@@ -674,9 +674,9 @@ class SecureCache {
 ### Pre-Implementation Checklist
 
 - [ ] All Zod schemas defined in `src/schemas.ts`
-- [ ] PathValidator imported from `@monobrain/security`
-- [ ] SafeExecutor imported from `@monobrain/security`
-- [ ] InputValidator imported from `@monobrain/security`
+- [ ] PathValidator imported from `@monomind/security`
+- [ ] SafeExecutor imported from `@monomind/security`
+- [ ] InputValidator imported from `@monomind/security`
 - [ ] No hardcoded secrets in source code
 - [ ] npm audit clean (no high/critical vulnerabilities)
 
@@ -750,7 +750,7 @@ import {
   SafeExecutor,
   InputValidator,
   createSecurityModule,
-} from '@monobrain/security';
+} from '@monomind/security';
 
 export class AgenticQEPlugin implements Plugin {
   private security: SecurityModule;
@@ -819,7 +819,7 @@ export class AgenticQEPlugin implements Plugin {
 ```typescript
 // src/schemas.ts
 import { z } from 'zod';
-import { PathSchema, IdentifierSchema, SafeStringSchema } from '@monobrain/security';
+import { PathSchema, IdentifierSchema, SafeStringSchema } from '@monomind/security';
 
 // Test generation
 export const GenerateTestsInputSchema = z.object({
@@ -882,7 +882,7 @@ export const SecurityScanInputSchema = z.object({
 ```typescript
 // src/schemas.ts
 import { z } from 'zod';
-import { IdentifierSchema } from '@monobrain/security';
+import { IdentifierSchema } from '@monomind/security';
 
 const VectorSchema = z.array(z.number())
   .min(1)
@@ -1019,8 +1019,8 @@ describe('Chaos Engineering Safety', () => {
 
 **Report Status:** ✅ POST-IMPLEMENTATION REVIEW COMPLETE
 **Published Versions:**
-- `@monobrain/plugin-agentic-qe@3.0.0-alpha.2`
-- `@monobrain/plugin-prime-radiant@0.1.4`
+- `@monomind/plugin-agentic-qe@3.0.0-alpha.2`
+- `@monomind/plugin-prime-radiant@0.1.4`
 
 **Security Controls Implemented:**
 - ✅ All Zod input validation schemas

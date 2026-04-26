@@ -1,6 +1,6 @@
 # Automation Commands
 
-Commands for automation operations in Monobrain.
+Commands for automation operations in Monomind.
 
 ## Available Commands
 

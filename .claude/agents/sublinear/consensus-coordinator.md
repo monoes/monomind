@@ -145,7 +145,7 @@ class SwarmCoordinator {
 }
 ```
 
-## Integration with Monobrain
+## Integration with Monomind
 
 ### Swarm Consensus Protocols
 - **Agent Agreement**: Coordinate agreement across swarm agents

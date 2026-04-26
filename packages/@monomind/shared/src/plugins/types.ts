@@ -36,11 +36,11 @@ export type PluginEvent = 'initialized' | 'shutdown' | 'error';
 export type PluginEventHandler = (event: PluginEvent, data?: unknown) => void;
 
 /**
- * Monobrain Plugin Interface
+ * Monomind Plugin Interface
  *
  * All plugins must implement this interface.
  */
-export interface MonobrainPlugin {
+export interface MonomindPlugin {
   /** Unique plugin identifier */
   readonly id: string;
 
@@ -91,10 +91,10 @@ export interface PluginMetadata {
  * Plugin registry
  */
 export interface IPluginRegistry {
-  register(plugin: MonobrainPlugin): void;
+  register(plugin: MonomindPlugin): void;
   unregister(pluginId: string): void;
-  get(pluginId: string): MonobrainPlugin | undefined;
-  getAll(): MonobrainPlugin[];
+  get(pluginId: string): MonomindPlugin | undefined;
+  getAll(): MonomindPlugin[];
   isRegistered(pluginId: string): boolean;
 }
 
@@ -102,7 +102,7 @@ export interface IPluginRegistry {
  * Plugin loader interface
  */
 export interface IPluginLoader {
-  loadFromPath(path: string): Promise<MonobrainPlugin>;
-  loadFromPackage(packageName: string): Promise<MonobrainPlugin>;
-  loadBuiltin(pluginId: string): Promise<MonobrainPlugin>;
+  loadFromPath(path: string): Promise<MonomindPlugin>;
+  loadFromPackage(packageName: string): Promise<MonomindPlugin>;
+  loadBuiltin(pluginId: string): Promise<MonomindPlugin>;
 }

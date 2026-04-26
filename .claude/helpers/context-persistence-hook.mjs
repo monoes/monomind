@@ -10,7 +10,7 @@
  * Backend priority:
  *   1. better-sqlite3 (native, WAL mode, indexed queries, ACID transactions)
  *   2. RuVector PostgreSQL (if RUVECTOR_* env vars set - TB-scale, GNN search)
- *   3. AgentDB from @monobrain/memory (HNSW vector search)
+ *   3. AgentDB from @monomind/memory (HNSW vector search)
  *   4. JsonFileBackend (zero dependencies, always works)
  *
  * Proactive archiving:
@@ -35,25 +35,25 @@ import { createRequire } from 'module';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PROJECT_ROOT = join(__dirname, '../..');
-const DATA_DIR = join(PROJECT_ROOT, '.monobrain', 'data');
+const DATA_DIR = join(PROJECT_ROOT, '.monomind', 'data');
 const ARCHIVE_JSON_PATH = join(DATA_DIR, 'transcript-archive.json');
 const ARCHIVE_DB_PATH = join(DATA_DIR, 'transcript-archive.db');
 
 const NAMESPACE = 'transcript-archive';
-const RESTORE_BUDGET = parseInt(process.env.MONOBRAIN_COMPACT_RESTORE_BUDGET || '4000', 10);
+const RESTORE_BUDGET = parseInt(process.env.MONOMIND_COMPACT_RESTORE_BUDGET || '4000', 10);
 const MAX_MESSAGES = 500;
-const BLOCK_COMPACTION = process.env.MONOBRAIN_BLOCK_COMPACTION === 'true';
-const COMPACT_INSTRUCTION_BUDGET = parseInt(process.env.MONOBRAIN_COMPACT_INSTRUCTION_BUDGET || '2000', 10);
-const RETENTION_DAYS = parseInt(process.env.MONOBRAIN_RETENTION_DAYS || '30', 10);
-const AUTO_OPTIMIZE = process.env.MONOBRAIN_AUTO_OPTIMIZE !== 'false'; // on by default
+const BLOCK_COMPACTION = process.env.MONOMIND_BLOCK_COMPACTION === 'true';
+const COMPACT_INSTRUCTION_BUDGET = parseInt(process.env.MONOMIND_COMPACT_INSTRUCTION_BUDGET || '2000', 10);
+const RETENTION_DAYS = parseInt(process.env.MONOMIND_RETENTION_DAYS || '30', 10);
+const AUTO_OPTIMIZE = process.env.MONOMIND_AUTO_OPTIMIZE !== 'false'; // on by default
 
 // ============================================================================
 // Context Autopilot — prevent compaction by managing context size in real-time
 // ============================================================================
-const AUTOPILOT_ENABLED = process.env.MONOBRAIN_CONTEXT_AUTOPILOT !== 'false'; // on by default
-const CONTEXT_WINDOW_TOKENS = parseInt(process.env.MONOBRAIN_CONTEXT_WINDOW || '200000', 10);
-const AUTOPILOT_WARN_PCT = parseFloat(process.env.MONOBRAIN_AUTOPILOT_WARN || '0.70');
-const AUTOPILOT_PRUNE_PCT = parseFloat(process.env.MONOBRAIN_AUTOPILOT_PRUNE || '0.85');
+const AUTOPILOT_ENABLED = process.env.MONOMIND_CONTEXT_AUTOPILOT !== 'false'; // on by default
+const CONTEXT_WINDOW_TOKENS = parseInt(process.env.MONOMIND_CONTEXT_WINDOW || '200000', 10);
+const AUTOPILOT_WARN_PCT = parseFloat(process.env.MONOMIND_AUTOPILOT_WARN || '0.70');
+const AUTOPILOT_PRUNE_PCT = parseFloat(process.env.MONOMIND_AUTOPILOT_PRUNE || '0.85');
 const AUTOPILOT_STATE_PATH = join(DATA_DIR, 'autopilot-state.json');
 
 // Approximate tokens per character (Claude averages ~3.5 chars per token)
@@ -465,7 +465,7 @@ class RuVectorBackend {
       max: 3,
       idleTimeoutMillis: 10000,
       connectionTimeoutMillis: 3000,
-      application_name: 'monobrain-context-persistence',
+      application_name: 'monomind-context-persistence',
     });
 
     // Test connection and create schema
@@ -727,14 +727,14 @@ async function resolveBackend() {
     }
   } catch { /* fall through */ }
 
-  // Tier 3: AgentDB from @monobrain/memory (HNSW)
+  // Tier 3: AgentDB from @monomind/memory (HNSW)
   try {
-    const localDist = join(PROJECT_ROOT, 'packages/@monobrain/memory/dist/index.js');
+    const localDist = join(PROJECT_ROOT, 'packages/@monomind/memory/dist/index.js');
     let memPkg = null;
     if (existsSync(localDist)) {
       memPkg = await import(`file://${localDist}`);
     } else {
-      memPkg = await import('@monobrain/memory');
+      memPkg = await import('@monomind/memory');
     }
     if (memPkg?.AgentDBBackend) {
       const backend = new memPkg.AgentDBBackend();
@@ -1911,6 +1911,11 @@ async function doStatus() {
 // Exports for testing
 // ============================================================================
 
+// Wrappers used by hook-handler.cjs which imports this module and calls
+// cpHook.archive() (session-end / pre-compact) and cpHook.restore() (session-restore).
+export async function archive() { return doPreCompact(); }
+export async function restore() { return doSessionStart(); }
+
 export {
   SQLiteBackend,
   RuVectorBackend,
@@ -1958,22 +1963,26 @@ export {
 };
 
 // ============================================================================
-// Main
+// Main — only runs when invoked directly (not when imported as a module)
 // ============================================================================
 
-const command = process.argv[2] || 'status';
+const _isMain = process.argv[1] === __filename;
 
-try {
-  switch (command) {
-    case 'pre-compact': await doPreCompact(); break;
-    case 'session-start': await doSessionStart(); break;
-    case 'user-prompt-submit': await doUserPromptSubmit(); break;
-    case 'status': await doStatus(); break;
-    default:
-      console.log('Usage: context-persistence-hook.mjs <pre-compact|session-start|user-prompt-submit|status>');
-      process.exit(1);
+if (_isMain) {
+  const command = process.argv[2] || 'status';
+
+  try {
+    switch (command) {
+      case 'pre-compact': await doPreCompact(); break;
+      case 'session-start': await doSessionStart(); break;
+      case 'user-prompt-submit': await doUserPromptSubmit(); break;
+      case 'status': await doStatus(); break;
+      default:
+        console.log('Usage: context-persistence-hook.mjs <pre-compact|session-start|user-prompt-submit|status>');
+        process.exit(1);
+    }
+  } catch (err) {
+    // Hooks must never crash Claude Code - fail silently
+    process.stderr.write(`[ContextPersistence] Error (non-critical): ${err.message}\n`);
   }
-} catch (err) {
-  // Hooks must never crash Claude Code - fail silently
-  process.stderr.write(`[ContextPersistence] Error (non-critical): ${err.message}\n`);
 }

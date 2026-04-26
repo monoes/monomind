@@ -44,8 +44,8 @@
 
 | Command                    | Version         | MCP Server                   |
 | -------------------------- | --------------- | ---------------------------- |
-| `npx @monobrain/cli@alpha` | V1.0.0-alpha.87 | **171 tools**, 19 categories |
-| `npx monobrain@latest`     | V1.0.0-alpha.34 | **171 tools**, 19 categories |
+| `npx @monomind/cli@alpha` | V1.0.0-alpha.87 | **171 tools**, 19 categories |
+| `npx monomind@latest`     | V1.0.0-alpha.34 | **171 tools**, 19 categories |
 
 **Fix Applied:** Pinned exact CLI version in wrapper package to avoid semver resolution to buggy 3.0.x versions. Deprecated versions 3.0.0, 3.0.1, 3.0.2.
 
@@ -104,7 +104,7 @@
 | ADR-001 | Adopt agentic-flow as Core Foundation | ✅ Complete | AgenticFlowAgent, AgentAdapter implemented    |
 | ADR-002 | Domain-Driven Design Structure        | ✅ Complete | 15 bounded context modules                    |
 | ADR-003 | Single Coordination Engine            | ✅ Complete | UnifiedSwarmCoordinator canonical             |
-| ADR-004 | Plugin Architecture                   | ✅ Complete | @monobrain/plugins                            |
+| ADR-004 | Plugin Architecture                   | ✅ Complete | @monomind/plugins                            |
 | ADR-005 | MCP-First API Design                  | ✅ Complete | **171 MCP tools** - V2 compatibility complete |
 
 ### Memory & Data
@@ -126,7 +126,7 @@
 
 | ADR     | Title                 | Status      | Notes                           |
 | ------- | --------------------- | ----------- | ------------------------------- |
-| ADR-011 | LLM Provider System   | ✅ Complete | @monobrain/providers            |
+| ADR-011 | LLM Provider System   | ✅ Complete | @monomind/providers            |
 | ADR-012 | MCP Security Features | ✅ Complete | Security hardening              |
 | ADR-013 | Core Security Module  | ✅ Complete | CVE remediation (444/444 tests) |
 
@@ -149,7 +149,7 @@
 | ADR     | Title                              | Status      | Notes                                   |
 | ------- | ---------------------------------- | ----------- | --------------------------------------- |
 | ADR-018 | Claude Code Integration            | ✅ Complete | Deep Claude Code hooks and tooling      |
-| ADR-019 | Headless Runtime Package           | ✅ Complete | @monobrain/headless for CI/CD           |
+| ADR-019 | Headless Runtime Package           | ✅ Complete | @monomind/headless for CI/CD           |
 | ADR-020 | Headless Worker Integration        | ✅ Complete | Background workers in headless mode     |
 | ADR-021 | Transfer Hook IPFS Pattern Sharing | ✅ Complete | Decentralized pattern registry          |
 | ADR-022 | AIDefence Integration              | ✅ Complete | AI security scanning                    |
@@ -252,18 +252,18 @@ Stats handler (`hooks/intelligence/stats`) pulls from actual implementations:
 
 | Package               | Version             | Published  |
 | --------------------- | ------------------- | ---------- |
-| @monobrain/cli        | **3.0.0-alpha.117** | 2026-01-14 |
-| monobrain             | **3.0.0-alpha.76**  | 2026-01-14 |
-| @monobrain/memory     | 3.0.0-alpha.2       | 2026-01-07 |
-| @monobrain/mcp        | 3.0.0-alpha.8       | 2026-01-07 |
-| @monobrain/neural     | 3.0.0-alpha.2       | 2026-01-06 |
-| @monobrain/security   | 3.0.0-alpha.1       | 2026-01-05 |
-| @monobrain/swarm      | 3.0.0-alpha.1       | 2026-01-04 |
-| @monobrain/hooks      | 3.0.0-alpha.2       | 2026-01-06 |
-| @monobrain/plugins    | 3.0.0-alpha.2       | 2026-01-06 |
-| @monobrain/providers  | 3.0.0-alpha.1       | 2026-01-04 |
-| @monobrain/embeddings | 3.0.0-alpha.12      | 2026-01-05 |
-| @monobrain/shared     | 3.0.0-alpha.1       | 2026-01-03 |
+| @monomind/cli        | **3.0.0-alpha.117** | 2026-01-14 |
+| monomind             | **3.0.0-alpha.76**  | 2026-01-14 |
+| @monomind/memory     | 3.0.0-alpha.2       | 2026-01-07 |
+| @monomind/mcp        | 3.0.0-alpha.8       | 2026-01-07 |
+| @monomind/neural     | 3.0.0-alpha.2       | 2026-01-06 |
+| @monomind/security   | 3.0.0-alpha.1       | 2026-01-05 |
+| @monomind/swarm      | 3.0.0-alpha.1       | 2026-01-04 |
+| @monomind/hooks      | 3.0.0-alpha.2       | 2026-01-06 |
+| @monomind/plugins    | 3.0.0-alpha.2       | 2026-01-06 |
+| @monomind/providers  | 3.0.0-alpha.1       | 2026-01-04 |
+| @monomind/embeddings | 3.0.0-alpha.12      | 2026-01-05 |
+| @monomind/shared     | 3.0.0-alpha.1       | 2026-01-03 |
 
 ### npm dist-tags (as of 2026-01-14)
 
@@ -280,7 +280,7 @@ Stats handler (`hooks/intelligence/stats`) pulls from actual implementations:
 
 | Package        | Version             | Reason                               |
 | -------------- | ------------------- | ------------------------------------ |
-| @monobrain/cli | 3.0.0, 3.0.1, 3.0.2 | Buggy early releases - use alpha.86+ |
+| @monomind/cli | 3.0.0, 3.0.1, 3.0.2 | Buggy early releases - use alpha.86+ |
 
 ---
 
@@ -402,18 +402,18 @@ Stats handler (`hooks/intelligence/stats`) pulls from actual implementations:
 
 | Package               | Version            | Published  | Status        |
 | --------------------- | ------------------ | ---------- | ------------- |
-| @monobrain/cli        | **3.0.0-alpha.87** | 2026-01-13 | ✅ Beta Ready |
-| monobrain             | **3.0.0-alpha.34** | 2026-01-13 | ✅ Beta Ready |
-| @monobrain/memory     | 3.0.0-alpha.2      | 2026-01-07 | ✅            |
-| @monobrain/mcp        | 3.0.0-alpha.8      | 2026-01-07 | ✅            |
-| @monobrain/neural     | 3.0.0-alpha.2      | 2026-01-06 | ✅            |
-| @monobrain/security   | 3.0.0-alpha.1      | 2026-01-05 | ✅            |
-| @monobrain/swarm      | 3.0.0-alpha.1      | 2026-01-04 | ✅            |
-| @monobrain/hooks      | 3.0.0-alpha.2      | 2026-01-06 | ✅            |
-| @monobrain/plugins    | 3.0.0-alpha.2      | 2026-01-06 | ✅            |
-| @monobrain/providers  | 3.0.0-alpha.1      | 2026-01-04 | ✅            |
-| @monobrain/embeddings | 3.0.0-alpha.12     | 2026-01-05 | ✅            |
-| @monobrain/shared     | 3.0.0-alpha.1      | 2026-01-03 | ✅            |
+| @monomind/cli        | **3.0.0-alpha.87** | 2026-01-13 | ✅ Beta Ready |
+| monomind             | **3.0.0-alpha.34** | 2026-01-13 | ✅ Beta Ready |
+| @monomind/memory     | 3.0.0-alpha.2      | 2026-01-07 | ✅            |
+| @monomind/mcp        | 3.0.0-alpha.8      | 2026-01-07 | ✅            |
+| @monomind/neural     | 3.0.0-alpha.2      | 2026-01-06 | ✅            |
+| @monomind/security   | 3.0.0-alpha.1      | 2026-01-05 | ✅            |
+| @monomind/swarm      | 3.0.0-alpha.1      | 2026-01-04 | ✅            |
+| @monomind/hooks      | 3.0.0-alpha.2      | 2026-01-06 | ✅            |
+| @monomind/plugins    | 3.0.0-alpha.2      | 2026-01-06 | ✅            |
+| @monomind/providers  | 3.0.0-alpha.1      | 2026-01-04 | ✅            |
+| @monomind/embeddings | 3.0.0-alpha.12     | 2026-01-05 | ✅            |
+| @monomind/shared     | 3.0.0-alpha.1      | 2026-01-03 | ✅            |
 
 ---
 
@@ -440,9 +440,9 @@ Stats handler (`hooks/intelligence/stats`) pulls from actual implementations:
 ### Hooks Statusline Command
 
 ```bash
-npx @monobrain/cli@latest hooks statusline           # Full colored output
-npx @monobrain/cli@latest hooks statusline --json    # JSON format
-npx @monobrain/cli@latest hooks statusline --compact # Single-line format
+npx @monomind/cli@latest hooks statusline           # Full colored output
+npx @monomind/cli@latest hooks statusline --json    # JSON format
+npx @monomind/cli@latest hooks statusline --compact # Single-line format
 ```
 
 ---
@@ -472,7 +472,7 @@ output.writeln(
 );
 output.writeln(
   output.dim(
-    'Run "npm audit" or "monobrain security scan" for real vulnerability detection.',
+    'Run "npm audit" or "monomind security scan" for real vulnerability detection.',
   ),
 );
 ```
@@ -492,15 +492,15 @@ console.warn(
 
 ### MCP Server Fix
 
-**Problem:** `npx monobrain@alpha mcp start` failed with "Cannot read properties of undefined (reading 'split')"
+**Problem:** `npx monomind@alpha mcp start` failed with "Cannot read properties of undefined (reading 'split')"
 
 **Root Cause:** npm resolved `^3.0.0-alpha.84` to buggy version `3.0.2` (semver: `3.0.2 > 3.0.0-alpha.84`)
 
 **Solution:**
 
-1. Pinned exact version in wrapper: `"@monobrain/cli": "3.0.0-alpha.86"` (no caret)
+1. Pinned exact version in wrapper: `"@monomind/cli": "3.0.0-alpha.86"` (no caret)
 2. Deprecated buggy versions: 3.0.0, 3.0.1, 3.0.2
-3. Published monobrain@3.0.0-alpha.33 with fix
+3. Published monomind@3.0.0-alpha.33 with fix
 
 ### Doctor Version Freshness Check (alpha.86)
 
@@ -510,15 +510,15 @@ Added `checkVersionFreshness()` to doctor command:
 - Queries npm registry for latest alpha version
 - Compares versions including prerelease numbers
 - Warns if stale npx cache detected
-- Provides fix command: `rm -rf ~/.npm/_npx/* && npx -y @monobrain/cli@latest`
+- Provides fix command: `rm -rf ~/.npm/_npx/* && npx -y @monomind/cli@latest`
 
 ```bash
 # Check version freshness
-npx @monobrain/cli@alpha doctor -c version
+npx @monomind/cli@alpha doctor -c version
 
 # Example output when outdated:
 ⚠ Version Freshness: V1.0.0-alpha.84 (latest: V1.0.0-alpha.86) [npx cache stale]
-  Fix: rm -rf ~/.npm/_npx/* && npx -y @monobrain/cli@latest
+  Fix: rm -rf ~/.npm/_npx/* && npx -y @monomind/cli@latest
 ```
 
 ---
@@ -536,11 +536,11 @@ npx @monobrain/cli@alpha doctor -c version
 ### Update CLI Commands
 
 ```bash
-npx monobrain update check      # Check for updates
-npx monobrain update all        # Update all packages
-npx monobrain update history    # View update history
-npx monobrain update rollback   # Rollback last update
-npx monobrain update clear-cache # Clear check cache
+npx monomind update check      # Check for updates
+npx monomind update all        # Update all packages
+npx monomind update history    # View update history
+npx monomind update rollback   # Rollback last update
+npx monomind update clear-cache # Clear check cache
 ```
 
 ---
@@ -583,7 +583,7 @@ V1 now implements **171 MCP tools** with full V2 backward compatibility:
 | --------------------- | ------------- | ------------- | ----------------------------------------- |
 | system-tools.ts       | ✅ File-based | ✅ **REAL**   | Real CPU, memory via os/process APIs      |
 | performance-tools.ts  | ✅ File-based | ✅ **REAL**   | Real benchmarks with actual timing        |
-| neural-tools.ts       | ✅ File-based | ✅ **REAL**   | Real embeddings via @monobrain/embeddings |
+| neural-tools.ts       | ✅ File-based | ✅ **REAL**   | Real embeddings via @monomind/embeddings |
 | terminal-tools.ts     | ✅ File-based | ❌ State only | Records commands, doesn't execute         |
 | github-tools.ts       | ✅ File-based | ❌ State only | Local state, no GitHub API                |
 | daa-tools.ts          | ✅ File-based | ❌ State only | Local agent coordination                  |
@@ -609,7 +609,7 @@ V1 now implements **171 MCP tools** with full V2 backward compatibility:
 **neural-tools.ts** (6 tools) - ✅ **REAL EMBEDDINGS**:
 
 - `neural/train` - Track training progress (state)
-- `neural/predict` - **REAL**: embeddings via @monobrain/embeddings (agentic-flow)
+- `neural/predict` - **REAL**: embeddings via @monomind/embeddings (agentic-flow)
 - `neural/patterns` - **REAL**: Store patterns with real embeddings, cosine similarity search
 - `neural/compress` - Compression info (illustrative)
 - `neural/status` - **REAL**: Shows embedding provider status
@@ -664,7 +664,7 @@ V1 now implements **171 MCP tools** with full V2 backward compatibility:
 
 ✅ V2 API compatibility is complete. The 52 new tools provide:
 
-- File-based persistence in `.monobrain/` directory
+- File-based persistence in `.monomind/` directory
 - V2 API shape for backward compatibility
 - Local state management for workflow coordination
 
@@ -673,7 +673,7 @@ For real operations:
 - **Terminal commands**: Use Claude Code's `Bash` tool
 - **GitHub API**: Use `gh` CLI or GitHub MCP server
 - **Real metrics**: Use `process.memoryUsage()`, `os` module
-- **Neural training**: Use `@monobrain/neural` module
+- **Neural training**: Use `@monomind/neural` module
 
 ---
 

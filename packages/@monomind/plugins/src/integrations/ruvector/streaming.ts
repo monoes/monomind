@@ -5,7 +5,7 @@
  * enhanced transaction handling with savepoints and isolation levels,
  * and efficient batch processing with backpressure handling.
  *
- * @module @monobrain/plugins/integrations/ruvector/streaming
+ * @module @monomind/plugins/integrations/ruvector/streaming
  * @version 1.0.0
  */
 

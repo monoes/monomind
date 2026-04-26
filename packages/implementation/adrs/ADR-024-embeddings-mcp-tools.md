@@ -26,7 +26,7 @@ Following ADR-005 (MCP-First API Design):
 
 ## Decision
 
-Implement 7 MCP tools in `@monobrain/cli/src/mcp-tools/embeddings-tools.ts`:
+Implement 7 MCP tools in `@monomind/cli/src/mcp-tools/embeddings-tools.ts`:
 
 ### 1. `embeddings/init`
 Initialize the ONNX embedding subsystem with hyperbolic support.
@@ -172,7 +172,7 @@ Get embeddings system status and configuration.
 │          ▼                     ▼                    ▼       │
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │               Configuration Layer                        ││
-│  │    .monobrain/embeddings.json (persistent config)      ││
+│  │    .monomind/embeddings.json (persistent config)      ││
 │  └─────────────────────────────────────────────────────────┘│
 │                          │                                   │
 │          ┌───────────────┼───────────────┐                  │
@@ -213,12 +213,12 @@ where scale ensures ||m|| < maxNorm
 
 ## Configuration
 
-Tools store configuration in `.monobrain/embeddings.json`:
+Tools store configuration in `.monomind/embeddings.json`:
 
 ```json
 {
   "model": "all-MiniLM-L6-v2",
-  "modelPath": ".monobrain/models",
+  "modelPath": ".monomind/models",
   "dimension": 384,
   "cacheSize": 256,
   "hyperbolic": {

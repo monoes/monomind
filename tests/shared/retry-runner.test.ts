@@ -6,12 +6,12 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { z } from 'zod';
-import { runAgentWithRetry } from '../../packages/@monobrain/shared/src/retry-runner.js';
-import { isAgentErrorResult } from '../../packages/@monobrain/shared/src/agent-error-result.js';
+import { runAgentWithRetry } from '../../packages/@monomind/shared/src/retry-runner.js';
+import { isAgentErrorResult } from '../../packages/@monomind/shared/src/agent-error-result.js';
 import {
   DEFAULT_RETRY_POLICY,
   STRICT_RETRY_POLICY,
-} from '../../packages/@monobrain/shared/src/retry-policy.js';
+} from '../../packages/@monomind/shared/src/retry-policy.js';
 
 const outputSchema = z.object({
   summary: z.string(),

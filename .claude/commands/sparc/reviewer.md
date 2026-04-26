@@ -7,7 +7,7 @@ Code review using batch file analysis for comprehensive reviews.
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "reviewer",
   task_description: "review pull request #123",
   options: {
@@ -20,16 +20,16 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run reviewer "review pull request #123"
+npx monomind sparc run reviewer "review pull request #123"
 
 # For alpha features
-npx monobrain@alpha sparc run reviewer "review pull request #123"
+npx monomind@alpha sparc run reviewer "review pull request #123"
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run reviewer "review pull request #123"
+# If monomind is installed locally
+./monomind sparc run reviewer "review pull request #123"
 ```
 
 ## Core Capabilities

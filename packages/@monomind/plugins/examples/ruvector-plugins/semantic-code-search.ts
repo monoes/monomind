@@ -13,7 +13,7 @@
  *
  * @example
  * ```typescript
- * import { semanticCodeSearchPlugin } from '@monobrain/plugins/examples/ruvector-plugins';
+ * import { semanticCodeSearchPlugin } from '@monomind/plugins/examples/ruvector-plugins';
  * await getDefaultRegistry().register(semanticCodeSearchPlugin);
  * ```
  */
@@ -401,7 +401,7 @@ async function getCodeSearch(): Promise<SemanticCodeSearch> {
 
 export const semanticCodeSearchPlugin = new PluginBuilder('semantic-code-search', '1.0.0')
   .withDescription('Semantic code search using @ruvector/wasm HNSW indexing (<1ms search)')
-  .withAuthor('Monobrain Team')
+  .withAuthor('Monomind Team')
   .withTags(['search', 'code', 'semantic', 'ruvector', 'hnsw'])
   .withMCPTools([
     new MCPToolBuilder('code-index')

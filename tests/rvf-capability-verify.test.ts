@@ -26,15 +26,15 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 // --- Module Imports ---
-import { RvfBackend } from '../packages/@monobrain/memory/src/rvf-backend.js';
-import type { RvfBackendConfig } from '../packages/@monobrain/memory/src/rvf-backend.js';
-import { HnswLite, cosineSimilarity } from '../packages/@monobrain/memory/src/hnsw-lite.js';
-import { RvfEventLog } from '../packages/@monobrain/shared/src/events/rvf-event-log.js';
-import { RvfEmbeddingCache } from '../packages/@monobrain/embeddings/src/rvf-embedding-cache.js';
-import { RvfEmbeddingService } from '../packages/@monobrain/embeddings/src/rvf-embedding-service.js';
-import { RvfLearningStore } from '../packages/@monobrain/memory/src/rvf-learning-store.js';
-import { PersistentSonaCoordinator } from '../packages/@monobrain/memory/src/persistent-sona.js';
-import { RvfMigrator } from '../packages/@monobrain/memory/src/rvf-migration.js';
+import { RvfBackend } from '../packages/@monomind/memory/src/rvf-backend.js';
+import type { RvfBackendConfig } from '../packages/@monomind/memory/src/rvf-backend.js';
+import { HnswLite, cosineSimilarity } from '../packages/@monomind/memory/src/hnsw-lite.js';
+import { RvfEventLog } from '../packages/@monomind/shared/src/events/rvf-event-log.js';
+import { RvfEmbeddingCache } from '../packages/@monomind/embeddings/src/rvf-embedding-cache.js';
+import { RvfEmbeddingService } from '../packages/@monomind/embeddings/src/rvf-embedding-service.js';
+import { RvfLearningStore } from '../packages/@monomind/memory/src/rvf-learning-store.js';
+import { PersistentSonaCoordinator } from '../packages/@monomind/memory/src/persistent-sona.js';
+import { RvfMigrator } from '../packages/@monomind/memory/src/rvf-migration.js';
 
 // --- Helpers ---
 let tmpDir: string;
@@ -816,7 +816,7 @@ describe('11. DatabaseProvider Integration', () => {
   afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }); });
 
   it('auto-selects RVF when available', async () => {
-    const { createDatabase, getAvailableProviders } = await import('../packages/@monobrain/memory/src/database-provider.js');
+    const { createDatabase, getAvailableProviders } = await import('../packages/@monomind/memory/src/database-provider.js');
     const providers = await getAvailableProviders();
     assert.equal(providers.rvf, true);
 
@@ -830,7 +830,7 @@ describe('11. DatabaseProvider Integration', () => {
   });
 
   it('converts .db extension to .rvf', async () => {
-    const { createDatabase } = await import('../packages/@monobrain/memory/src/database-provider.js');
+    const { createDatabase } = await import('../packages/@monomind/memory/src/database-provider.js');
     const db = await createDatabase(tmp('convert.db'), { provider: 'rvf' });
     await db.store(makeEntry('cv1'));
     await db.shutdown();

@@ -59,7 +59,7 @@ export declare const EmailSchema: z.ZodString;
 /**
  * Password schema with complexity requirements
  */
-export declare const PasswordSchema: z.ZodEffects<z.ZodEffects<z.ZodEffects<z.ZodString, string, string>, string, string>, string, string>;
+export declare const PasswordSchema: z.ZodString;
 /**
  * UUID schema
  */
@@ -67,7 +67,7 @@ export declare const UUIDSchema: z.ZodString;
 /**
  * URL schema with HTTPS enforcement
  */
-export declare const HttpsUrlSchema: z.ZodEffects<z.ZodString, string, string>;
+export declare const HttpsUrlSchema: z.ZodString;
 /**
  * URL schema (allows HTTP for development)
  */
@@ -83,19 +83,40 @@ export declare const PortSchema: z.ZodNumber;
 /**
  * IP address schema (v4)
  */
-export declare const IPv4Schema: z.ZodString;
+export declare const IPv4Schema: any;
 /**
  * IP address schema (v4 or v6)
  */
-export declare const IPSchema: z.ZodString;
+export declare const IPSchema: any;
 /**
  * User role schema
  */
-export declare const UserRoleSchema: z.ZodEnum<["admin", "operator", "developer", "viewer", "service"]>;
+export declare const UserRoleSchema: z.ZodEnum<{
+    admin: "admin";
+    operator: "operator";
+    developer: "developer";
+    viewer: "viewer";
+    service: "service";
+}>;
 /**
  * Permission schema
  */
-export declare const PermissionSchema: z.ZodEnum<["swarm.create", "swarm.read", "swarm.update", "swarm.delete", "swarm.scale", "agent.spawn", "agent.read", "agent.terminate", "task.create", "task.read", "task.cancel", "metrics.read", "system.admin", "api.access"]>;
+export declare const PermissionSchema: z.ZodEnum<{
+    "swarm.create": "swarm.create";
+    "swarm.read": "swarm.read";
+    "swarm.update": "swarm.update";
+    "swarm.delete": "swarm.delete";
+    "swarm.scale": "swarm.scale";
+    "agent.spawn": "agent.spawn";
+    "agent.read": "agent.read";
+    "agent.terminate": "agent.terminate";
+    "task.create": "task.create";
+    "task.read": "task.read";
+    "task.cancel": "task.cancel";
+    "metrics.read": "metrics.read";
+    "system.admin": "system.admin";
+    "api.access": "api.access";
+}>;
 /**
  * Login request schema
  */
@@ -103,106 +124,145 @@ export declare const LoginRequestSchema: z.ZodObject<{
     email: z.ZodString;
     password: z.ZodString;
     mfaCode: z.ZodOptional<z.ZodString>;
-}, "strip", z.ZodTypeAny, {
-    email: string;
-    password: string;
-    mfaCode?: string | undefined;
-}, {
-    email: string;
-    password: string;
-    mfaCode?: string | undefined;
-}>;
+}, z.core.$strip>;
 /**
  * User creation schema
  */
 export declare const CreateUserSchema: z.ZodObject<{
     email: z.ZodString;
-    password: z.ZodEffects<z.ZodEffects<z.ZodEffects<z.ZodString, string, string>, string, string>, string, string>;
-    role: z.ZodEnum<["admin", "operator", "developer", "viewer", "service"]>;
-    permissions: z.ZodOptional<z.ZodArray<z.ZodEnum<["swarm.create", "swarm.read", "swarm.update", "swarm.delete", "swarm.scale", "agent.spawn", "agent.read", "agent.terminate", "task.create", "task.read", "task.cancel", "metrics.read", "system.admin", "api.access"]>, "many">>;
+    password: z.ZodString;
+    role: z.ZodEnum<{
+        admin: "admin";
+        operator: "operator";
+        developer: "developer";
+        viewer: "viewer";
+        service: "service";
+    }>;
+    permissions: z.ZodOptional<z.ZodArray<z.ZodEnum<{
+        "swarm.create": "swarm.create";
+        "swarm.read": "swarm.read";
+        "swarm.update": "swarm.update";
+        "swarm.delete": "swarm.delete";
+        "swarm.scale": "swarm.scale";
+        "agent.spawn": "agent.spawn";
+        "agent.read": "agent.read";
+        "agent.terminate": "agent.terminate";
+        "task.create": "task.create";
+        "task.read": "task.read";
+        "task.cancel": "task.cancel";
+        "metrics.read": "metrics.read";
+        "system.admin": "system.admin";
+        "api.access": "api.access";
+    }>>>;
     isActive: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
-}, "strip", z.ZodTypeAny, {
-    email: string;
-    password: string;
-    role: "admin" | "operator" | "developer" | "viewer" | "service";
-    isActive: boolean;
-    permissions?: ("swarm.create" | "swarm.read" | "swarm.update" | "swarm.delete" | "swarm.scale" | "agent.spawn" | "agent.read" | "agent.terminate" | "task.create" | "task.read" | "task.cancel" | "metrics.read" | "system.admin" | "api.access")[] | undefined;
-}, {
-    email: string;
-    password: string;
-    role: "admin" | "operator" | "developer" | "viewer" | "service";
-    permissions?: ("swarm.create" | "swarm.read" | "swarm.update" | "swarm.delete" | "swarm.scale" | "agent.spawn" | "agent.read" | "agent.terminate" | "task.create" | "task.read" | "task.cancel" | "metrics.read" | "system.admin" | "api.access")[] | undefined;
-    isActive?: boolean | undefined;
-}>;
+}, z.core.$strip>;
 /**
  * API key creation schema
  */
 export declare const CreateApiKeySchema: z.ZodObject<{
     name: z.ZodString;
-    permissions: z.ZodOptional<z.ZodArray<z.ZodEnum<["swarm.create", "swarm.read", "swarm.update", "swarm.delete", "swarm.scale", "agent.spawn", "agent.read", "agent.terminate", "task.create", "task.read", "task.cancel", "metrics.read", "system.admin", "api.access"]>, "many">>;
+    permissions: z.ZodOptional<z.ZodArray<z.ZodEnum<{
+        "swarm.create": "swarm.create";
+        "swarm.read": "swarm.read";
+        "swarm.update": "swarm.update";
+        "swarm.delete": "swarm.delete";
+        "swarm.scale": "swarm.scale";
+        "agent.spawn": "agent.spawn";
+        "agent.read": "agent.read";
+        "agent.terminate": "agent.terminate";
+        "task.create": "task.create";
+        "task.read": "task.read";
+        "task.cancel": "task.cancel";
+        "metrics.read": "metrics.read";
+        "system.admin": "system.admin";
+        "api.access": "api.access";
+    }>>>;
     expiresAt: z.ZodOptional<z.ZodDate>;
-}, "strip", z.ZodTypeAny, {
-    name: string;
-    permissions?: ("swarm.create" | "swarm.read" | "swarm.update" | "swarm.delete" | "swarm.scale" | "agent.spawn" | "agent.read" | "agent.terminate" | "task.create" | "task.read" | "task.cancel" | "metrics.read" | "system.admin" | "api.access")[] | undefined;
-    expiresAt?: Date | undefined;
-}, {
-    name: string;
-    permissions?: ("swarm.create" | "swarm.read" | "swarm.update" | "swarm.delete" | "swarm.scale" | "agent.spawn" | "agent.read" | "agent.terminate" | "task.create" | "task.read" | "task.cancel" | "metrics.read" | "system.admin" | "api.access")[] | undefined;
-    expiresAt?: Date | undefined;
-}>;
+}, z.core.$strip>;
 /**
  * Agent type schema
  */
-export declare const AgentTypeSchema: z.ZodEnum<["coder", "reviewer", "tester", "planner", "researcher", "security-architect", "security-auditor", "memory-specialist", "swarm-specialist", "integration-architect", "performance-engineer", "core-architect", "test-architect", "queen-coordinator", "project-coordinator"]>;
+export declare const AgentTypeSchema: z.ZodEnum<{
+    coder: "coder";
+    reviewer: "reviewer";
+    tester: "tester";
+    planner: "planner";
+    researcher: "researcher";
+    "security-architect": "security-architect";
+    "security-auditor": "security-auditor";
+    "memory-specialist": "memory-specialist";
+    "swarm-specialist": "swarm-specialist";
+    "integration-architect": "integration-architect";
+    "performance-engineer": "performance-engineer";
+    "core-architect": "core-architect";
+    "test-architect": "test-architect";
+    "queen-coordinator": "queen-coordinator";
+    "project-coordinator": "project-coordinator";
+}>;
 /**
  * Agent spawn request schema
  */
 export declare const SpawnAgentSchema: z.ZodObject<{
-    type: z.ZodEnum<["coder", "reviewer", "tester", "planner", "researcher", "security-architect", "security-auditor", "memory-specialist", "swarm-specialist", "integration-architect", "performance-engineer", "core-architect", "test-architect", "queen-coordinator", "project-coordinator"]>;
+    type: z.ZodEnum<{
+        coder: "coder";
+        reviewer: "reviewer";
+        tester: "tester";
+        planner: "planner";
+        researcher: "researcher";
+        "security-architect": "security-architect";
+        "security-auditor": "security-auditor";
+        "memory-specialist": "memory-specialist";
+        "swarm-specialist": "swarm-specialist";
+        "integration-architect": "integration-architect";
+        "performance-engineer": "performance-engineer";
+        "core-architect": "core-architect";
+        "test-architect": "test-architect";
+        "queen-coordinator": "queen-coordinator";
+        "project-coordinator": "project-coordinator";
+    }>;
     id: z.ZodOptional<z.ZodString>;
-    config: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
+    config: z.ZodOptional<z.ZodRecord<z.core.$ZodRecordKey, z.core.SomeType>>;
     timeout: z.ZodOptional<z.ZodNumber>;
-}, "strip", z.ZodTypeAny, {
-    type: "coder" | "reviewer" | "tester" | "planner" | "researcher" | "security-architect" | "security-auditor" | "memory-specialist" | "swarm-specialist" | "integration-architect" | "performance-engineer" | "core-architect" | "test-architect" | "queen-coordinator" | "project-coordinator";
-    config?: Record<string, unknown> | undefined;
-    timeout?: number | undefined;
-    id?: string | undefined;
-}, {
-    type: "coder" | "reviewer" | "tester" | "planner" | "researcher" | "security-architect" | "security-auditor" | "memory-specialist" | "swarm-specialist" | "integration-architect" | "performance-engineer" | "core-architect" | "test-architect" | "queen-coordinator" | "project-coordinator";
-    config?: Record<string, unknown> | undefined;
-    timeout?: number | undefined;
-    id?: string | undefined;
-}>;
+}, z.core.$strip>;
 /**
  * Task input schema
  */
 export declare const TaskInputSchema: z.ZodObject<{
     taskId: z.ZodString;
     content: z.ZodString;
-    agentType: z.ZodEnum<["coder", "reviewer", "tester", "planner", "researcher", "security-architect", "security-auditor", "memory-specialist", "swarm-specialist", "integration-architect", "performance-engineer", "core-architect", "test-architect", "queen-coordinator", "project-coordinator"]>;
-    priority: z.ZodOptional<z.ZodEnum<["low", "medium", "high", "critical"]>>;
-    metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
-}, "strip", z.ZodTypeAny, {
-    taskId: string;
-    content: string;
-    agentType: "coder" | "reviewer" | "tester" | "planner" | "researcher" | "security-architect" | "security-auditor" | "memory-specialist" | "swarm-specialist" | "integration-architect" | "performance-engineer" | "core-architect" | "test-architect" | "queen-coordinator" | "project-coordinator";
-    priority?: "critical" | "high" | "medium" | "low" | undefined;
-    metadata?: Record<string, unknown> | undefined;
-}, {
-    taskId: string;
-    content: string;
-    agentType: "coder" | "reviewer" | "tester" | "planner" | "researcher" | "security-architect" | "security-auditor" | "memory-specialist" | "swarm-specialist" | "integration-architect" | "performance-engineer" | "core-architect" | "test-architect" | "queen-coordinator" | "project-coordinator";
-    priority?: "critical" | "high" | "medium" | "low" | undefined;
-    metadata?: Record<string, unknown> | undefined;
-}>;
+    agentType: z.ZodEnum<{
+        coder: "coder";
+        reviewer: "reviewer";
+        tester: "tester";
+        planner: "planner";
+        researcher: "researcher";
+        "security-architect": "security-architect";
+        "security-auditor": "security-auditor";
+        "memory-specialist": "memory-specialist";
+        "swarm-specialist": "swarm-specialist";
+        "integration-architect": "integration-architect";
+        "performance-engineer": "performance-engineer";
+        "core-architect": "core-architect";
+        "test-architect": "test-architect";
+        "queen-coordinator": "queen-coordinator";
+        "project-coordinator": "project-coordinator";
+    }>;
+    priority: z.ZodOptional<z.ZodEnum<{
+        critical: "critical";
+        high: "high";
+        medium: "medium";
+        low: "low";
+    }>>;
+    metadata: z.ZodOptional<z.ZodRecord<z.core.$ZodRecordKey, z.core.SomeType>>;
+}, z.core.$strip>;
 /**
  * Command argument schema
  */
-export declare const CommandArgumentSchema: z.ZodEffects<z.ZodEffects<z.ZodString, string, string>, string, string>;
+export declare const CommandArgumentSchema: z.ZodString;
 /**
  * Path schema
  */
-export declare const PathSchema: z.ZodEffects<z.ZodEffects<z.ZodString, string, string>, string, string>;
+export declare const PathSchema: z.ZodString;
 /**
  * Security configuration schema
  */
@@ -213,46 +273,18 @@ export declare const SecurityConfigSchema: z.ZodObject<{
     maxLoginAttempts: z.ZodDefault<z.ZodNumber>;
     lockoutDuration: z.ZodDefault<z.ZodNumber>;
     requireMFA: z.ZodDefault<z.ZodBoolean>;
-}, "strip", z.ZodTypeAny, {
-    bcryptRounds: number;
-    jwtExpiresIn: string;
-    sessionTimeout: number;
-    maxLoginAttempts: number;
-    lockoutDuration: number;
-    requireMFA: boolean;
-}, {
-    bcryptRounds?: number | undefined;
-    jwtExpiresIn?: string | undefined;
-    sessionTimeout?: number | undefined;
-    maxLoginAttempts?: number | undefined;
-    lockoutDuration?: number | undefined;
-    requireMFA?: boolean | undefined;
-}>;
+}, z.core.$strip>;
 /**
  * Executor configuration schema
  */
 export declare const ExecutorConfigSchema: z.ZodObject<{
-    allowedCommands: z.ZodArray<z.ZodString, "many">;
-    blockedPatterns: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    allowedCommands: z.ZodArray<z.ZodString>;
+    blockedPatterns: z.ZodOptional<z.ZodArray<z.ZodString>>;
     timeout: z.ZodDefault<z.ZodNumber>;
     maxBuffer: z.ZodDefault<z.ZodNumber>;
-    cwd: z.ZodOptional<z.ZodEffects<z.ZodEffects<z.ZodString, string, string>, string, string>>;
+    cwd: z.ZodOptional<z.ZodString>;
     allowSudo: z.ZodDefault<z.ZodBoolean>;
-}, "strip", z.ZodTypeAny, {
-    allowedCommands: string[];
-    timeout: number;
-    maxBuffer: number;
-    allowSudo: boolean;
-    blockedPatterns?: string[] | undefined;
-    cwd?: string | undefined;
-}, {
-    allowedCommands: string[];
-    blockedPatterns?: string[] | undefined;
-    timeout?: number | undefined;
-    maxBuffer?: number | undefined;
-    cwd?: string | undefined;
-    allowSudo?: boolean | undefined;
-}>;
+}, z.core.$strip>;
 /**
  * Sanitizes a string by removing dangerous characters
  */
@@ -307,5 +339,15 @@ export declare class InputValidator {
      */
     static validateTaskInput(data: unknown): z.infer<typeof TaskInputSchema>;
 }
+/**
+ * Validates content sourced externally (tool results, web pages, user-provided files)
+ * for potential prompt injection attempts.
+ *
+ * Applies structural pattern matching; for semantic analysis use aidefence_is_safe.
+ */
+export declare function validateExternalContent(content: string, source?: string): Promise<{
+    safe: boolean;
+    reason?: string;
+}>;
 export { z, PATTERNS, LIMITS, };
 //# sourceMappingURL=input-validator.d.ts.map

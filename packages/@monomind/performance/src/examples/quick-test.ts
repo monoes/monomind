@@ -3,7 +3,7 @@
  * Quick Integration Test
  *
  * Verifies @ruvector/attention integration is working correctly.
- * Run with: npx tsx packages/@monobrain/performance/src/examples/quick-test.ts
+ * Run with: npx tsx packages/@monomind/performance/src/examples/quick-test.ts
  */
 
 import {

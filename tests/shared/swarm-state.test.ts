@@ -10,11 +10,11 @@ import {
   mergeUniqueReducer,
   deepMergeReducer,
   raftMergeReducer,
-} from '../../packages/@monobrain/shared/src/reducers.js';
-import { StateManager } from '../../packages/@monobrain/shared/src/state-manager.js';
-import { validateSwarmState, createDefaultSwarmState } from '../../packages/@monobrain/shared/src/swarm-state.js';
-import { validateSwarmState as validateFn } from '../../packages/@monobrain/shared/src/state-validator.js';
-import type { Finding, ConsensusVote } from '../../packages/@monobrain/shared/src/swarm-state.js';
+} from '../../packages/@monomind/shared/src/reducers.js';
+import { StateManager } from '../../packages/@monomind/shared/src/state-manager.js';
+import { validateSwarmState, createDefaultSwarmState } from '../../packages/@monomind/shared/src/swarm-state.js';
+import { validateSwarmState as validateFn } from '../../packages/@monomind/shared/src/state-validator.js';
+import type { Finding, ConsensusVote } from '../../packages/@monomind/shared/src/swarm-state.js';
 
 // ---------------------------------------------------------------------------
 // Reducer unit tests

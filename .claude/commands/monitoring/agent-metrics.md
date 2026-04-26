@@ -4,7 +4,7 @@ View agent performance metrics.
 
 ## Usage
 ```bash
-npx monobrain agent metrics [options]
+npx monomind agent metrics [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain agent metrics [options]
 ## Examples
 ```bash
 # All agents metrics
-npx monobrain agent metrics
+npx monomind agent metrics
 
 # Specific agent
-npx monobrain agent metrics --agent-id agent-001
+npx monomind agent metrics --agent-id agent-001
 
 # Last hour
-npx monobrain agent metrics --period 1h
+npx monomind agent metrics --period 1h
 ```

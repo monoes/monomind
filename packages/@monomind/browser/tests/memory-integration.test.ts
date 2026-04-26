@@ -1,10 +1,10 @@
 /**
- * @monobrain/browser - Memory Integration Tests
+ * @monomind/browser - Memory Integration Tests
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  MonobrainMemoryAdapter,
+  MonomindMemoryAdapter,
   BrowserMemoryManager,
   createMemoryManager,
   getMemoryAdapter,
@@ -12,11 +12,11 @@ import {
 } from '../src/infrastructure/memory-integration.js';
 import type { BrowserTrajectory, Snapshot } from '../src/domain/types.js';
 
-describe('MonobrainMemoryAdapter', () => {
-  let adapter: MonobrainMemoryAdapter;
+describe('MonomindMemoryAdapter', () => {
+  let adapter: MonomindMemoryAdapter;
 
   beforeEach(() => {
-    adapter = new MonobrainMemoryAdapter('test-browser');
+    adapter = new MonomindMemoryAdapter('test-browser');
   });
 
   describe('store and retrieve', () => {

@@ -23,8 +23,8 @@ beforeAll(async () => {
 
   // Set test environment variables
   process.env.NODE_ENV = 'test';
-  process.env.MONOBRAIN_ENV = 'test';
-  process.env.MONOBRAIN_MEMORY_PATH = TEST_DB_DIR;
+  process.env.MONOMIND_ENV = 'test';
+  process.env.MONOMIND_MEMORY_PATH = TEST_DB_DIR;
 
   // Increase file descriptor limit for concurrent operations
   if (process.platform !== 'win32') {
@@ -49,8 +49,8 @@ afterAll(async () => {
   }
 
   // Clear environment variables
-  delete process.env.MONOBRAIN_ENV;
-  delete process.env.MONOBRAIN_MEMORY_PATH;
+  delete process.env.MONOMIND_ENV;
+  delete process.env.MONOMIND_MEMORY_PATH;
 });
 
 /**

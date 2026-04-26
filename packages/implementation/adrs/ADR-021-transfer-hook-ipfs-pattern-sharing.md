@@ -7,7 +7,7 @@
 
 ## Context
 
-Monobrain V1's neural learning system generates valuable patterns, trajectories, and learned behaviors during operation. These patterns are currently isolated to individual installations, preventing knowledge sharing across:
+Monomind V1's neural learning system generates valuable patterns, trajectories, and learned behaviors during operation. These patterns are currently isolated to individual installations, preventing knowledge sharing across:
 
 1. **Team collaboration** - Developers can't share optimized routing patterns
 2. **Organizational standards** - Companies can't distribute approved patterns
@@ -69,26 +69,26 @@ Implement a **Transfer Hook System** with:
 
 ```bash
 # Basic export to file
-npx monobrain@latest hooks transfer export \
+npx monomind@latest hooks transfer export \
   --output ./patterns/my-patterns.cfp \
   --format cbor
 
 # Export with anonymization
-npx monobrain@latest hooks transfer export \
+npx monomind@latest hooks transfer export \
   --output ./patterns/team-patterns.cfp \
   --anonymize standard \
   --redact-pii true \
   --strip-paths true
 
 # Export to IPFS
-npx monobrain@latest hooks transfer export \
+npx monomind@latest hooks transfer export \
   --to-ipfs \
   --anonymize strict \
   --pin true \
   --gateway https://w3s.link
 
 # Export specific pattern types
-npx monobrain@latest hooks transfer export \
+npx monomind@latest hooks transfer export \
   --types routing,complexity,coverage \
   --min-confidence 0.7 \
   --since "2026-01-01"
@@ -98,21 +98,21 @@ npx monobrain@latest hooks transfer export \
 
 ```bash
 # Import from file
-npx monobrain@latest hooks transfer import \
+npx monomind@latest hooks transfer import \
   --input ./patterns/team-patterns.cfp
 
 # Import from IPFS
-npx monobrain@latest hooks transfer import \
+npx monomind@latest hooks transfer import \
   --from-ipfs bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi \
   --verify-signature true
 
 # Import from Pattern Store
-npx monobrain@latest hooks transfer import \
+npx monomind@latest hooks transfer import \
   --from-store typescript-routing-patterns \
   --version latest
 
 # Import with merge strategy
-npx monobrain@latest hooks transfer import \
+npx monomind@latest hooks transfer import \
   --input ./patterns.cfp \
   --strategy merge \
   --conflict-resolution highest-confidence
@@ -122,13 +122,13 @@ npx monobrain@latest hooks transfer import \
 
 ```bash
 # Browse pattern store
-npx monobrain@latest hooks transfer store list \
+npx monomind@latest hooks transfer store list \
   --category routing \
   --language typescript \
   --min-downloads 100
 
 # Publish to store
-npx monobrain@latest hooks transfer store publish \
+npx monomind@latest hooks transfer store publish \
   --input ./patterns.cfp \
   --name "react-component-patterns" \
   --description "Optimized routing for React projects" \
@@ -136,7 +136,7 @@ npx monobrain@latest hooks transfer store publish \
   --anonymize strict
 
 # Download from store
-npx monobrain@latest hooks transfer store download \
+npx monomind@latest hooks transfer store download \
   --name "enterprise-security-patterns" \
   --output ./patterns/
 ```
@@ -298,7 +298,7 @@ interface RedactionConfig {
 
 ## Export Format Specification
 
-### Monobrain Pattern (.cfp) Format
+### Monomind Pattern (.cfp) Format
 
 ```typescript
 interface CFPFormat {
@@ -306,7 +306,7 @@ interface CFPFormat {
   magic: "CFP1"; // Magic bytes
   version: SemVer; // Format version
   createdAt: ISO8601;
-  generatedBy: string; // Monobrain version
+  generatedBy: string; // Monomind version
 
   // Metadata
   metadata: {
@@ -387,7 +387,7 @@ interface CFPFormat {
 ### RuVector IPFS Adapter
 
 ```typescript
-// packages/@monobrain/cli/src/transfer/ipfs-adapter.ts
+// packages/@monomind/cli/src/transfer/ipfs-adapter.ts
 
 import { create as createIpfsClient } from "ipfs-http-client";
 
@@ -424,27 +424,27 @@ class IPFSPatternStore {
 
 ```bash
 # Upload to IPFS with pinning
-npx monobrain@latest hooks transfer ipfs upload \
+npx monomind@latest hooks transfer ipfs upload \
   --input ./patterns.cfp \
   --pin pinata \
   --name "my-patterns"
 
 # Download from IPFS
-npx monobrain@latest hooks transfer ipfs download \
+npx monomind@latest hooks transfer ipfs download \
   --cid bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi \
   --output ./patterns.cfp
 
 # List pinned patterns
-npx monobrain@latest hooks transfer ipfs list \
+npx monomind@latest hooks transfer ipfs list \
   --service pinata
 
 # Publish to IPNS (mutable name)
-npx monobrain@latest hooks transfer ipfs publish \
+npx monomind@latest hooks transfer ipfs publish \
   --cid bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi \
   --key my-patterns-key
 
 # Resolve IPNS name
-npx monobrain@latest hooks transfer ipfs resolve \
+npx monomind@latest hooks transfer ipfs resolve \
   --name my-patterns
 ```
 
@@ -456,7 +456,7 @@ npx monobrain@latest hooks transfer ipfs resolve \
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Monobrain Pattern Store                     │
+│                    Monomind Pattern Store                     │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────────────┐    ┌──────────────────┐                   │
@@ -515,7 +515,7 @@ interface PatternEntry {
   ratingCount: number;
 
   // Requirements
-  minMonobrainVersion: SemVer;
+  minMonomindVersion: SemVer;
   dependencies?: string[];
 
   // Verification
@@ -535,34 +535,34 @@ interface Category {
 
 ```bash
 # Search patterns
-npx monobrain@latest hooks transfer store search \
+npx monomind@latest hooks transfer store search \
   --query "react hooks optimization" \
   --category routing \
   --min-rating 4.0
 
 # Get pattern info
-npx monobrain@latest hooks transfer store info \
+npx monomind@latest hooks transfer store info \
   --name react-routing-patterns
 
 # Install pattern
-npx monobrain@latest hooks transfer store install \
+npx monomind@latest hooks transfer store install \
   --name react-routing-patterns \
   --version ^1.0.0
 
 # Publish pattern
-npx monobrain@latest hooks transfer store publish \
+npx monomind@latest hooks transfer store publish \
   --input ./patterns.cfp \
   --name my-patterns \
   --category routing \
   --license MIT
 
 # Update published pattern
-npx monobrain@latest hooks transfer store update \
+npx monomind@latest hooks transfer store update \
   --name my-patterns \
   --input ./patterns-v2.cfp
 
 # Rate pattern
-npx monobrain@latest hooks transfer store rate \
+npx monomind@latest hooks transfer store rate \
   --name react-routing-patterns \
   --rating 5 \
   --comment "Excellent for large React projects"
@@ -619,7 +619,7 @@ interface ImportSandbox {
 
 ```typescript
 type TrustLevel =
-  | "verified" // Signed by Monobrain team
+  | "verified" // Signed by Monomind team
   | "community" // Community verified, high ratings
   | "unverified" // No verification
   | "untrusted"; // Flagged or low trust
@@ -682,7 +682,7 @@ interface TrustPolicy {
 ## File Structure
 
 ```
-packages/@monobrain/cli/src/
+packages/@monomind/cli/src/
 ├── commands/
 │   └── transfer.ts              # Main transfer command with subcommands
 ├── transfer/
@@ -724,7 +724,7 @@ packages/@monobrain/cli/src/
 
 ## Configuration
 
-### monobrain.config.json
+### monomind.config.json
 
 ```json
 {
@@ -743,8 +743,8 @@ packages/@monobrain/cli/src/
 
     "store": {
       "enabled": true,
-      "registryUrl": "https://patterns.monobrain.dev/registry.json",
-      "cacheDir": ".monobrain/patterns"
+      "registryUrl": "https://patterns.monomind.dev/registry.json",
+      "cacheDir": ".monomind/patterns"
     },
 
     "security": {
@@ -809,7 +809,7 @@ packages/@monobrain/cli/src/
 ### Transfer MCP Tools
 
 ```typescript
-// packages/@monobrain/cli/src/mcp-tools/transfer-tools.ts
+// packages/@monomind/cli/src/mcp-tools/transfer-tools.ts
 
 import type { MCPTool } from "./types.js";
 
@@ -1560,7 +1560,7 @@ export const transferTools: MCPTool[] = [
 ### MCP Tool Registration
 
 ```typescript
-// packages/@monobrain/cli/src/mcp-tools/index.ts
+// packages/@monomind/cli/src/mcp-tools/index.ts
 
 import { transferTools } from "./transfer-tools.js";
 
@@ -1585,7 +1585,7 @@ export const toolCategories = {
 
 ```typescript
 // Export patterns via MCP
-await mcp__monobrain__transfer_export({
+await mcp__monomind__transfer_export({
   output: "./patterns/team-patterns.cfp",
   anonymize: "strict",
   redactPii: true,
@@ -1594,14 +1594,14 @@ await mcp__monobrain__transfer_export({
 });
 
 // Import from IPFS via MCP
-await mcp__monobrain__transfer_import({
+await mcp__monomind__transfer_import({
   fromIpfs: "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
   strategy: "merge",
   verifySignature: true,
 });
 
 // Search pattern store via MCP
-const results = await mcp__monobrain__transfer_store_search({
+const results = await mcp__monomind__transfer_store_search({
   query: "react typescript",
   category: "routing",
   minRating: 4.0,
@@ -1610,7 +1610,7 @@ const results = await mcp__monobrain__transfer_store_search({
 });
 
 // Upload to IPFS via MCP
-const { cid, gateway } = await mcp__monobrain__transfer_ipfs_upload({
+const { cid, gateway } = await mcp__monomind__transfer_ipfs_upload({
   input: "./patterns.cfp",
   pin: true,
   pinningService: "pinata",
@@ -1618,7 +1618,7 @@ const { cid, gateway } = await mcp__monobrain__transfer_ipfs_upload({
 });
 
 // Verify pattern integrity via MCP
-const verification = await mcp__monobrain__transfer_verify({
+const verification = await mcp__monomind__transfer_verify({
   input: "./downloaded-patterns.cfp",
   checkSignature: true,
   scanMalware: true,
@@ -1655,7 +1655,7 @@ const verification = await mcp__monobrain__transfer_verify({
 On Windows, MCP servers require a `cmd /c` wrapper to execute npx commands. Without this wrapper, Claude Code will display the warning:
 
 ```
-[Warning] [monobrain] mcpServers.monobrain: Windows requires 'cmd /c' wrapper to execute npx
+[Warning] [monomind] mcpServers.monomind: Windows requires 'cmd /c' wrapper to execute npx
 ```
 
 ### Platform-Specific .mcp.json Configuration
@@ -1665,11 +1665,11 @@ On Windows, MCP servers require a `cmd /c` wrapper to execute npx commands. With
 ```json
 {
   "mcpServers": {
-    "monobrain": {
+    "monomind": {
       "command": "cmd",
-      "args": ["/c", "npx", "@monobrain/cli@latest", "mcp", "start"],
+      "args": ["/c", "npx", "@monomind/cli@latest", "mcp", "start"],
       "env": {
-        "MONOBRAIN_LOG_LEVEL": "info"
+        "MONOMIND_LOG_LEVEL": "info"
       }
     }
   }
@@ -1681,11 +1681,11 @@ On Windows, MCP servers require a `cmd /c` wrapper to execute npx commands. With
 ```json
 {
   "mcpServers": {
-    "monobrain": {
+    "monomind": {
       "command": "npx",
-      "args": ["@monobrain/cli@latest", "mcp", "start"],
+      "args": ["@monomind/cli@latest", "mcp", "start"],
       "env": {
-        "MONOBRAIN_LOG_LEVEL": "info"
+        "MONOMIND_LOG_LEVEL": "info"
       }
     }
   }
@@ -1698,10 +1698,10 @@ The `init` command automatically detects the platform and generates the correct 
 
 ```bash
 # Auto-detects platform and generates correct .mcp.json
-npx @monobrain/cli@latest init --force
+npx @monomind/cli@latest init --force
 
 # Or use the wizard for more options
-npx @monobrain/cli@latest init wizard
+npx @monomind/cli@latest init wizard
 ```
 
 ### MCP Server Auto-Configuration
@@ -1709,7 +1709,7 @@ npx @monobrain/cli@latest init wizard
 The init command generates platform-aware MCP configuration:
 
 ```typescript
-// packages/@monobrain/cli/src/init/mcp-generator.ts
+// packages/@monomind/cli/src/init/mcp-generator.ts
 
 function generateMcpConfig(): MCPConfig {
   const isWindows = process.platform === "win32";
@@ -1717,11 +1717,11 @@ function generateMcpConfig(): MCPConfig {
   if (isWindows) {
     return {
       mcpServers: {
-        monobrain: {
+        monomind: {
           command: "cmd",
-          args: ["/c", "npx", "@monobrain/cli@latest", "mcp", "start"],
+          args: ["/c", "npx", "@monomind/cli@latest", "mcp", "start"],
           env: {
-            MONOBRAIN_LOG_LEVEL: "info",
+            MONOMIND_LOG_LEVEL: "info",
           },
         },
       },
@@ -1730,11 +1730,11 @@ function generateMcpConfig(): MCPConfig {
 
   return {
     mcpServers: {
-      monobrain: {
+      monomind: {
         command: "npx",
-        args: ["@monobrain/cli@latest", "mcp", "start"],
+        args: ["@monomind/cli@latest", "mcp", "start"],
         env: {
-          MONOBRAIN_LOG_LEVEL: "info",
+          MONOMIND_LOG_LEVEL: "info",
         },
       },
     },
@@ -1747,9 +1747,9 @@ function generateMcpConfig(): MCPConfig {
 ```json
 {
   "mcpServers": {
-    "monobrain": {
+    "monomind": {
       "command": "cmd",
-      "args": ["/c", "npx", "@monobrain/cli@latest", "mcp", "start"],
+      "args": ["/c", "npx", "@monomind/cli@latest", "mcp", "start"],
       "tools": [
         "transfer/export",
         "transfer/import",
@@ -1777,13 +1777,13 @@ function generateMcpConfig(): MCPConfig {
 
 ```bash
 # Windows PowerShell
-cmd /c npx @monobrain/cli@latest hooks transfer export --output patterns.cfp
+cmd /c npx @monomind/cli@latest hooks transfer export --output patterns.cfp
 
 # Windows CMD
-npx @monobrain/cli@latest hooks transfer export --output patterns.cfp
+npx @monomind/cli@latest hooks transfer export --output patterns.cfp
 
 # macOS/Linux
-npx @monobrain/cli@latest hooks transfer export --output patterns.cfp
+npx @monomind/cli@latest hooks transfer export --output patterns.cfp
 ```
 
 ### Troubleshooting
@@ -1845,11 +1845,11 @@ Pre-configured trusted registries for initial discovery:
 ```typescript
 const BOOTSTRAP_REGISTRIES: KnownRegistry[] = [
   {
-    name: "monobrain-official",
-    description: "Official Monobrain pattern registry",
+    name: "monomind-official",
+    description: "Official Monomind pattern registry",
     ipnsName: "k51qzi5uqu5dj0w8q1xvqn8ql2g4p7x8qpk9vz3xm1y2n3o4p5q6r7s8t9u0v",
     gateway: "https://w3s.link",
-    publicKey: "ed25519:monobrain-registry-key",
+    publicKey: "ed25519:monomind-registry-key",
     trusted: true,
   },
   {
@@ -1884,7 +1884,7 @@ const BOOTSTRAP_REGISTRIES: KnownRegistry[] = [
 ### Implemented Files
 
 ```
-packages/@monobrain/cli/src/transfer/store/
+packages/@monomind/cli/src/transfer/store/
 ├── types.ts           # Type definitions (PatternEntry, Registry, etc.)
 ├── registry.ts        # Registry management, signature verification
 ├── discovery.ts       # IPNS resolution, IPFS fetch, caching
@@ -1899,7 +1899,7 @@ packages/@monobrain/cli/src/transfer/store/
 ```typescript
 // Create and initialize store
 const store = createPatternStore();
-await store.initialize("monobrain-official");
+await store.initialize("monomind-official");
 
 // Search patterns
 const results = store.search({
@@ -1951,7 +1951,7 @@ Trust:       verified
 
 | Feature                   | Status  | Evidence                                                     |
 | ------------------------- | ------- | ------------------------------------------------------------ |
-| **Memory Store**          | ✅ Real | Data persists to `.monobrain/memory/store.json`              |
+| **Memory Store**          | ✅ Real | Data persists to `.monomind/memory/store.json`              |
 | **CLI-to-Store Wiring**   | ✅ Real | `plugins list` calls actual `createPluginDiscoveryService()` |
 | **Pattern Store Module**  | ✅ Real | `PatternStore` class with search, download, publish APIs     |
 | **Plugin Store Module**   | ✅ Real | `PluginDiscoveryService` with 9 plugins in registry          |
@@ -1968,7 +1968,7 @@ Trust:       verified
 | ---------------------- | ------- | ---------------------------------------------------------- |
 | **IPNS Resolution**    | ⚠️ Demo | Attempts real IPNS resolution, falls back to demo registry |
 | **IPFS Gateway Fetch** | ⚠️ Demo | Tries w3s.link/dweb.link/ipfs.io, uses demo on failure     |
-| **Registry Discovery** | ⚠️ Demo | Shows "monobrain-official (demo)" source                   |
+| **Registry Discovery** | ⚠️ Demo | Shows "monomind-official (demo)" source                   |
 
 **Why Demo Mode?** IPFS public gateways often have:
 
@@ -2043,7 +2043,7 @@ CLI Commands:         Wired to real store modules ✅
 
 3. **Test Upload**:
    ```bash
-   npx @monobrain/cli hooks transfer store publish \
+   npx @monomind/cli hooks transfer store publish \
      -i patterns.cfp \
      -n my-patterns \
      -d "My patterns" \
@@ -2139,7 +2139,7 @@ CLI Commands:         Wired to real store modules ✅
 ```bash
 # Verify CLI uses real store
 ./bin/cli.js plugins list --official
-# Should show: "monobrain-official (demo)" and list 6 official plugins
+# Should show: "monomind-official (demo)" and list 6 official plugins
 
 # Verify MCP tools work
 ./bin/cli.js mcp exec --tool "transfer/plugin-search" --params '{"query":"neural"}'

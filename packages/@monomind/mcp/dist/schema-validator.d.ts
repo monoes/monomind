@@ -1,5 +1,5 @@
 /**
- * @monobrain/mcp - JSON Schema Validator
+ * @monomind/mcp - JSON Schema Validator
  *
  * Lightweight JSON Schema validation for tool inputs
  * Implements JSON Schema Draft 2020-12 subset

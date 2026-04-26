@@ -10,10 +10,10 @@ import { describe, it, expect } from 'vitest';
 import type {
   AgentRegistry,
   AgentRegistryEntry,
-} from '../../packages/@monobrain/shared/src/types/agent-registry.js';
+} from '../../packages/@monomind/shared/src/types/agent-registry.js';
 import {
   RegistryQuery,
-} from '../../packages/@monobrain/cli/src/agents/registry-query.js';
+} from '../../packages/@monomind/cli/src/agents/registry-query.js';
 
 /** Helper to create a minimal valid agent entry. */
 function makeAgent(overrides: Partial<AgentRegistryEntry> = {}): AgentRegistryEntry {

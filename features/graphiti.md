@@ -2,7 +2,7 @@
 
 **Source:** https://arxiv.org/abs/2501.13956 | https://github.com/getzep/graphiti  
 **Category:** Temporal Knowledge Graph Research  
-**Role in Monobrain:** Separating event time from ingestion time in memory entries
+**Role in Monomind:** Separating event time from ingestion time in memory entries
 
 ---
 
@@ -21,7 +21,7 @@ The paper demonstrates 94.8% accuracy on Deep Memory Retrieval benchmarks at 90%
 
 ### `MemoryEntry.eventAt` + `event_at` SQLite Column
 
-Monobrain's AgentDB `MemoryEntry` type was extended with an `eventAt` nullable field:
+Monomind's AgentDB `MemoryEntry` type was extended with an `eventAt` nullable field:
 
 ```typescript
 interface MemoryEntry {
@@ -45,15 +45,15 @@ When agents store memories with explicit temporal context ("I fixed the bug on A
 
 The Memory Palace's `kgQuery(cwd, entity, asOf)` implements the same bi-temporal logic using `valid_from`/`valid_to` fields in `kg.json`.
 
-## How It Improved Monobrain
+## How It Improved Monomind
 
-Before bi-temporal modeling, Monobrain's memory system could only answer "when was this stored?" not "when did this happen?". This caused subtle errors in chronological reasoning: if a user mentioned "the refactor we did last month" six weeks later, the system might retrieve it correctly by content but assign it a timestamp of "6 weeks ago" (ingestion time) rather than "7 weeks ago" (event time), breaking any relative temporal comparisons.
+Before bi-temporal modeling, Monomind's memory system could only answer "when was this stored?" not "when did this happen?". This caused subtle errors in chronological reasoning: if a user mentioned "the refactor we did last month" six weeks later, the system might retrieve it correctly by content but assign it a timestamp of "6 weeks ago" (ingestion time) rather than "7 weeks ago" (event time), breaking any relative temporal comparisons.
 
 The `eventAt` field fixes this by allowing agents to store the actual event time when known, enabling correct temporal reasoning across sessions.
 
 ## Key Files Influenced
 
-- `packages/@monobrain/memory/src/agent-db.ts` — `MemoryEntry.eventAt` field
-- `packages/@monobrain/memory/src/sqlite-backend.ts` — `event_at` column and index
+- `packages/@monomind/memory/src/agent-db.ts` — `MemoryEntry.eventAt` field
+- `packages/@monomind/memory/src/sqlite-backend.ts` — `event_at` column and index
 - `.claude/helpers/memory-palace.cjs` — `kgQuery(asOf)` bi-temporal triple queries
 - Memory search queries — `event_at`-aware temporal filtering

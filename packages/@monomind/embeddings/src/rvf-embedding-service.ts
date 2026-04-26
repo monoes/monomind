@@ -18,7 +18,7 @@
  * - Offline environments without neural model access
  * - Bootstrapping before heavier providers are available
  *
- * @module @monobrain/embeddings
+ * @module @monomind/embeddings
  */
 
 import { EventEmitter } from 'events';

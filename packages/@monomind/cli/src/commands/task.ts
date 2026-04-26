@@ -1,6 +1,6 @@
 /**
  * CLI Task Command
- * Task management for Monobrain
+ * Task management for Monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -758,20 +758,20 @@ export const taskCommand: Command = {
   subcommands: [createCommand, listCommand, statusCommand, cancelCommand, assignCommand, retryCommand],
   options: [],
   examples: [
-    { command: 'monobrain task create -t implementation -d "Add user auth"', description: 'Create a task' },
-    { command: 'monobrain task list', description: 'List pending/running tasks' },
-    { command: 'monobrain task list --all', description: 'List all tasks' },
-    { command: 'monobrain task status task-123', description: 'Get task details' },
-    { command: 'monobrain task cancel task-123', description: 'Cancel a task' },
-    { command: 'monobrain task assign task-123 --agent coder-1', description: 'Assign task to agent' },
-    { command: 'monobrain task retry task-123', description: 'Retry a failed task' }
+    { command: 'monomind task create -t implementation -d "Add user auth"', description: 'Create a task' },
+    { command: 'monomind task list', description: 'List pending/running tasks' },
+    { command: 'monomind task list --all', description: 'List all tasks' },
+    { command: 'monomind task status task-123', description: 'Get task details' },
+    { command: 'monomind task cancel task-123', description: 'Cancel a task' },
+    { command: 'monomind task assign task-123 --agent coder-1', description: 'Assign task to agent' },
+    { command: 'monomind task retry task-123', description: 'Retry a failed task' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Show help if no subcommand
     output.writeln();
     output.writeln(output.bold('Task Management Commands'));
     output.writeln();
-    output.writeln('Usage: monobrain task <subcommand> [options]');
+    output.writeln('Usage: monomind task <subcommand> [options]');
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
@@ -783,7 +783,7 @@ export const taskCommand: Command = {
       `${output.highlight('retry')}   - Retry a failed task`
     ]);
     output.writeln();
-    output.writeln('Run "monobrain task <subcommand> --help" for subcommand help');
+    output.writeln('Run "monomind task <subcommand> --help" for subcommand help');
 
     return { success: true };
   }

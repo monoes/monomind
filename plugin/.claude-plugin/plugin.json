@@ -1,13 +1,13 @@
 {
-  "name": "monobrain",
+  "name": "monomind",
   "description": "Multi-agent swarm coordination, memory management, SPARC methodology, and intelligent hooks for Claude Code. Provides 60+ skills, 100+ commands, and 80+ specialized agents.",
   "version": "3.0.0",
   "author": {
     "name": "nokhodian",
     "url": "https://github.com/nokhodian"
   },
-  "homepage": "https://github.com/nokhodian/monobrain",
-  "repository": "https://github.com/nokhodian/monobrain",
+  "homepage": "https://github.com/nokhodian/monomind",
+  "repository": "https://github.com/nokhodian/monomind",
   "license": "MIT",
   "keywords": [
     "swarm",

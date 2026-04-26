@@ -18,7 +18,7 @@ You teach developers how to apply the SPARC methodology through actionable examp
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "tutorial",
   task_description: "guide me through SPARC methodology",
   options: {
@@ -31,22 +31,22 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run tutorial "guide me through SPARC methodology"
+npx monomind sparc run tutorial "guide me through SPARC methodology"
 
 # For alpha features
-npx monobrain@alpha sparc run tutorial "guide me through SPARC methodology"
+npx monomind@alpha sparc run tutorial "guide me through SPARC methodology"
 
 # With namespace
-npx monobrain sparc run tutorial "your task" --namespace tutorial
+npx monomind sparc run tutorial "your task" --namespace tutorial
 
 # Non-interactive mode
-npx monobrain sparc run tutorial "your task" --non-interactive
+npx monomind sparc run tutorial "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run tutorial "guide me through SPARC methodology"
+# If monomind is installed locally
+./monomind sparc run tutorial "guide me through SPARC methodology"
 ```
 
 ## Memory Integration
@@ -54,7 +54,7 @@ npx monobrain sparc run tutorial "your task" --non-interactive
 ### Using MCP Tools (Preferred)
 ```javascript
 // Store mode-specific context
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "tutorial_context",
   value: "important decisions",
@@ -62,7 +62,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Query previous work
-mcp__monobrain__memory_search {
+mcp__monomind__memory_search {
   pattern: "tutorial",
   namespace: "tutorial",
   limit: 5
@@ -72,8 +72,8 @@ mcp__monobrain__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx monobrain memory store "tutorial_context" "important decisions" --namespace tutorial
+npx monomind memory store "tutorial_context" "important decisions" --namespace tutorial
 
 # Query previous work
-npx monobrain memory query "tutorial" --limit 5
+npx monomind memory query "tutorial" --limit 5
 ```

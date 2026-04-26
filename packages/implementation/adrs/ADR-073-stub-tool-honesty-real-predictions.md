@@ -8,7 +8,7 @@
 
 ### 1. Remove fabricated metrics from token-optimizer
 
-The `TokenOptimizer` class (`@monobrain/integration`) contained hardcoded savings numbers:
+The `TokenOptimizer` class (`@monomind/integration`) contained hardcoded savings numbers:
 
 | Before                                  | After                                                         |
 | --------------------------------------- | ------------------------------------------------------------- |

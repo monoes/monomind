@@ -60,22 +60,22 @@ WORKERS WORKERS WORKERS WORKERS
 ### Research Workers 🔬
 - **Capabilities**: Information gathering, market research, competitive analysis
 - **Use Cases**: Requirements analysis, technology research, feasibility studies
-- **Spawn Command**: `mcp__monobrain__agent_spawn researcher --capabilities="research,analysis,information_gathering"`
+- **Spawn Command**: `mcp__monomind__agent_spawn researcher --capabilities="research,analysis,information_gathering"`
 
 ### Code Workers 💻  
 - **Capabilities**: Implementation, code review, testing, documentation
 - **Use Cases**: Feature development, bug fixes, code optimization
-- **Spawn Command**: `mcp__monobrain__agent_spawn coder --capabilities="code_generation,testing,optimization"`
+- **Spawn Command**: `mcp__monomind__agent_spawn coder --capabilities="code_generation,testing,optimization"`
 
 ### Analyst Workers 📊
 - **Capabilities**: Data analysis, performance monitoring, reporting
 - **Use Cases**: Metrics analysis, performance optimization, reporting
-- **Spawn Command**: `mcp__monobrain__agent_spawn analyst --capabilities="data_analysis,performance_monitoring,reporting"`
+- **Spawn Command**: `mcp__monomind__agent_spawn analyst --capabilities="data_analysis,performance_monitoring,reporting"`
 
 ### Test Workers 🧪
 - **Capabilities**: Quality assurance, validation, compliance checking
 - **Use Cases**: Testing, validation, quality gates
-- **Spawn Command**: `mcp__monobrain__agent_spawn tester --capabilities="testing,validation,quality_assurance"`
+- **Spawn Command**: `mcp__monomind__agent_spawn tester --capabilities="testing,validation,quality_assurance"`
 
 ## Coordination Workflow
 
@@ -139,7 +139,7 @@ WORKERS WORKERS WORKERS WORKERS
 
 ```javascript
 // 1️⃣ IMMEDIATELY write initial status
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/hierarchical/status",
   namespace: "coordination",
@@ -153,7 +153,7 @@ mcp__monobrain__memory_usage {
 }
 
 // 2️⃣ UPDATE progress after each delegation
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/hierarchical/progress",
   namespace: "coordination",
@@ -166,7 +166,7 @@ mcp__monobrain__memory_usage {
 }
 
 // 3️⃣ SHARE command structure for workers
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/shared/hierarchy",
   namespace: "coordination",
@@ -179,14 +179,14 @@ mcp__monobrain__memory_usage {
 }
 
 // 4️⃣ CHECK worker status before assigning
-const workerStatus = mcp__monobrain__memory_usage {
+const workerStatus = mcp__monomind__memory_usage {
   action: "retrieve",
   key: "swarm/worker-1/status",
   namespace: "coordination"
 }
 
 // 5️⃣ SIGNAL completion
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/hierarchical/complete",
   namespace: "coordination",
@@ -209,39 +209,39 @@ mcp__monobrain__memory_usage {
 ### Swarm Management
 ```bash
 # Initialize hierarchical swarm
-mcp__monobrain__swarm_init hierarchical --maxAgents=10 --strategy=centralized
+mcp__monomind__swarm_init hierarchical --maxAgents=10 --strategy=centralized
 
 # Spawn specialized workers
-mcp__monobrain__agent_spawn researcher --capabilities="research,analysis"
-mcp__monobrain__agent_spawn coder --capabilities="implementation,testing"  
-mcp__monobrain__agent_spawn analyst --capabilities="data_analysis,reporting"
+mcp__monomind__agent_spawn researcher --capabilities="research,analysis"
+mcp__monomind__agent_spawn coder --capabilities="implementation,testing"  
+mcp__monomind__agent_spawn analyst --capabilities="data_analysis,reporting"
 
 # Monitor swarm health
-mcp__monobrain__swarm_monitor --interval=5000
+mcp__monomind__swarm_monitor --interval=5000
 ```
 
 ### Task Orchestration
 ```bash
 # Coordinate complex workflows
-mcp__monobrain__task_orchestrate "Build authentication service" --strategy=sequential --priority=high
+mcp__monomind__task_orchestrate "Build authentication service" --strategy=sequential --priority=high
 
 # Load balance across workers
-mcp__monobrain__load_balance --tasks="auth_api,auth_tests,auth_docs" --strategy=capability_based
+mcp__monomind__load_balance --tasks="auth_api,auth_tests,auth_docs" --strategy=capability_based
 
 # Sync coordination state
-mcp__monobrain__coordination_sync --namespace=hierarchy
+mcp__monomind__coordination_sync --namespace=hierarchy
 ```
 
 ### Performance & Analytics
 ```bash
 # Generate performance reports
-mcp__monobrain__performance_report --format=detailed --timeframe=24h
+mcp__monomind__performance_report --format=detailed --timeframe=24h
 
 # Analyze bottlenecks
-mcp__monobrain__bottleneck_analyze --component=coordination --metrics="throughput,latency,success_rate"
+mcp__monomind__bottleneck_analyze --component=coordination --metrics="throughput,latency,success_rate"
 
 # Monitor resource usage
-mcp__monobrain__metrics_collect --components="agents,tasks,coordination"
+mcp__monomind__metrics_collect --components="agents,tasks,coordination"
 ```
 
 ## Decision Making Framework

@@ -3,7 +3,7 @@
  *
  * Check and manage v1 implementation progress.
  *
- * @module @monobrain/cli/commands/progress
+ * @module @monomind/cli/commands/progress
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -121,7 +121,7 @@ const syncCommand: Command = {
 
       output.writeln();
       output.printSuccess(`Progress synced: ${result.progress}%`);
-      output.writeln(output.dim(`  Persisted to .monobrain/metrics/v1-progress.json`));
+      output.writeln(output.dim(`  Persisted to .monomind/metrics/v1-progress.json`));
       output.writeln(output.dim(`  Last updated: ${result.lastUpdated}`));
 
       return { success: true, data: result };
@@ -259,23 +259,23 @@ export const progressCommand: Command = {
   ],
   examples: [
     {
-      command: 'monobrain progress',
+      command: 'monomind progress',
       description: 'Check current progress',
     },
     {
-      command: 'monobrain progress --detailed',
+      command: 'monomind progress --detailed',
       description: 'Show detailed breakdown',
     },
     {
-      command: 'monobrain progress sync',
+      command: 'monomind progress sync',
       description: 'Sync and persist progress',
     },
     {
-      command: 'monobrain progress watch',
+      command: 'monomind progress watch',
       description: 'Watch for changes',
     },
     {
-      command: 'monobrain progress --json',
+      command: 'monomind progress --json',
       description: 'Output as JSON',
     },
   ],

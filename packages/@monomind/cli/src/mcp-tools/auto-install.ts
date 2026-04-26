@@ -45,7 +45,7 @@ export async function autoInstallPackage(
   const validPackageName = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*(@[a-z0-9-._~]+)?$/i;
   if (!validPackageName.test(packageName)) {
     if (!silent) {
-      console.error(`[monobrain] Invalid package name: ${packageName}`);
+      console.error(`[monomind] Invalid package name: ${packageName}`);
     }
     return false;
   }
@@ -58,7 +58,7 @@ export async function autoInstallPackage(
 
   try {
     if (!silent) {
-      console.error(`[monobrain] Auto-installing ${packageName}...`);
+      console.error(`[monomind] Auto-installing ${packageName}...`);
     }
 
     // Use spawn with array args to prevent shell injection
@@ -74,12 +74,12 @@ export async function autoInstallPackage(
     }
 
     if (!silent) {
-      console.error(`[monobrain] Successfully installed ${packageName}`);
+      console.error(`[monomind] Successfully installed ${packageName}`);
     }
     return true;
   } catch (error) {
     if (!silent) {
-      console.error(`[monobrain] Failed to auto-install ${packageName}: ${error}`);
+      console.error(`[monomind] Failed to auto-install ${packageName}: ${error}`);
     }
     return false;
   }
@@ -109,7 +109,7 @@ export async function tryImportOrInstall<T = unknown>(
         const cacheBuster = `?t=${Date.now()}`;
         return await import(`${packageName}${cacheBuster}`) as T;
       } catch {
-        console.error(`[monobrain] ${packageName} installed but failed to load. Restart MCP server.`);
+        console.error(`[monomind] ${packageName} installed but failed to load. Restart MCP server.`);
         return null;
       }
     }
@@ -140,11 +140,11 @@ export function resetInstallAttempts(): void {
  * Optional package dependencies and their purposes
  */
 export const OPTIONAL_PACKAGES = {
-  '@monobrain/aidefence': {
+  '@monomind/aidefence': {
     description: 'AI manipulation defense (prompt injection, PII detection)',
     tools: ['aidefence_scan', 'aidefence_analyze', 'aidefence_stats', 'aidefence_learn'],
   },
-  '@monobrain/embeddings': {
+  '@monomind/embeddings': {
     description: 'Vector embeddings with ONNX support',
     tools: ['embeddings_generate', 'embeddings_search', 'embeddings_batch'],
   },

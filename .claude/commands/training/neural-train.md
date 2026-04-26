@@ -4,7 +4,7 @@ Train neural patterns from operations.
 
 ## Usage
 ```bash
-npx monobrain training neural-train [options]
+npx monomind training neural-train [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain training neural-train [options]
 ## Examples
 ```bash
 # Train from recent ops
-npx monobrain training neural-train --data recent
+npx monomind training neural-train --data recent
 
 # Specific model
-npx monobrain training neural-train --model task-predictor
+npx monomind training neural-train --model task-predictor
 
 # Custom epochs
-npx monobrain training neural-train --epochs 100
+npx monomind training neural-train --epochs 100
 ```

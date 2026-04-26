@@ -7,12 +7,12 @@
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
 
-import * as WasmSandbox from '../../packages/@monobrain/security/src/sandbox/wasm-sandbox.js';
-import * as DockerSandbox from '../../packages/@monobrain/security/src/sandbox/docker-sandbox.js';
-import * as SandboxRegistry from '../../packages/@monobrain/security/src/sandbox/sandbox-registry.js';
-import { provision } from '../../packages/@monobrain/security/src/sandbox/sandbox-provisioner.js';
-import { validateSandboxConfig } from '../../packages/@monobrain/security/src/sandbox/types.js';
-import type { SandboxConfig } from '../../packages/@monobrain/security/src/sandbox/types.js';
+import * as WasmSandbox from '../../packages/@monomind/security/src/sandbox/wasm-sandbox.js';
+import * as DockerSandbox from '../../packages/@monomind/security/src/sandbox/docker-sandbox.js';
+import * as SandboxRegistry from '../../packages/@monomind/security/src/sandbox/sandbox-registry.js';
+import { provision } from '../../packages/@monomind/security/src/sandbox/sandbox-provisioner.js';
+import { validateSandboxConfig } from '../../packages/@monomind/security/src/sandbox/types.js';
+import type { SandboxConfig } from '../../packages/@monomind/security/src/sandbox/types.js';
 
 // ---------------------------------------------------------------------------
 // WasmSandbox

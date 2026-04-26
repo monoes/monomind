@@ -66,8 +66,8 @@ export const MODEL_REGISTRY_CID = 'QmNr1yYMKi7YBaL8JSztQyuB5ZUaTdRMLxJC1pBpGbjsT
 export const DEFAULT_PLUGIN_STORE_CONFIG: PluginStoreConfig = {
   registries: [
     {
-      name: 'monobrain-official',
-      description: 'Official Monobrain plugin registry',
+      name: 'monomind-official',
+      description: 'Official Monomind plugin registry',
       // Use direct CID for reliable resolution (IPNS can be slow)
       ipnsName: LIVE_REGISTRY_CID,
       gateway: 'https://gateway.pinata.cloud',
@@ -85,10 +85,10 @@ export const DEFAULT_PLUGIN_STORE_CONFIG: PluginStoreConfig = {
       official: false,
     },
   ],
-  defaultRegistry: 'monobrain-official',
+  defaultRegistry: 'monomind-official',
   gateway: 'https://gateway.pinata.cloud',
   timeout: 30000,
-  cacheDir: '.monobrain/plugins/cache',
+  cacheDir: '.monomind/plugins/cache',
   cacheExpiry: 3600000, // 1 hour
   requireVerification: true,
   requireSecurityAudit: false,
@@ -227,8 +227,8 @@ export class PluginDiscoveryService {
       ],
       authors: [
         {
-          id: 'monobrain-team',
-          displayName: 'Monobrain Team',
+          id: 'monomind-team',
+          displayName: 'Monomind Team',
           verified: true,
           plugins: plugins.length,
           totalDownloads: plugins.reduce((sum, p) => sum + p.downloads, 0),
@@ -238,13 +238,13 @@ export class PluginDiscoveryService {
       totalPlugins: plugins.length,
       totalDownloads: plugins.reduce((sum, p) => sum + p.downloads, 0),
       totalAuthors: 1,
-      featured: ['@monobrain/plugin-agentic-qe', '@monobrain/plugin-prime-radiant', '@monobrain/security', '@monobrain/claims', '@monobrain/teammate-plugin'],
-      trending: ['@monobrain/plugin-agentic-qe', '@monobrain/plugin-prime-radiant'],
-      newest: ['@monobrain/plugin-agentic-qe', '@monobrain/plugin-prime-radiant'],
-      official: ['@monobrain/plugin-agentic-qe', '@monobrain/plugin-prime-radiant', '@monobrain/security', '@monobrain/claims'],
+      featured: ['@monomind/plugin-agentic-qe', '@monomind/plugin-prime-radiant', '@monomind/security', '@monomind/claims', '@monomind/teammate-plugin'],
+      trending: ['@monomind/plugin-agentic-qe', '@monomind/plugin-prime-radiant'],
+      newest: ['@monomind/plugin-agentic-qe', '@monomind/plugin-prime-radiant'],
+      official: ['@monomind/plugin-agentic-qe', '@monomind/plugin-prime-radiant', '@monomind/security', '@monomind/claims'],
       compatibilityMatrix: [
-        { pluginId: '@monobrain/neural', pluginVersion: '3.0.0', monobrainVersions: ['3.x'], tested: true },
-        { pluginId: '@monobrain/security', pluginVersion: '3.0.0', monobrainVersions: ['3.x'], tested: true },
+        { pluginId: '@monomind/neural', pluginVersion: '3.0.0', monomindVersions: ['3.x'], tested: true },
+        { pluginId: '@monomind/security', pluginVersion: '3.0.0', monomindVersions: ['3.x'], tested: true },
       ],
     };
 
@@ -269,8 +269,8 @@ export class PluginDiscoveryService {
   private getDemoPlugins(): PluginEntry[] {
     const baseTime = new Date().toISOString();
     const officialAuthor = {
-      id: 'monobrain-team',
-      displayName: 'Monobrain Team',
+      id: 'monomind-team',
+      displayName: 'Monomind Team',
       verified: true,
       plugins: 5,
       totalDownloads: 50000,
@@ -288,8 +288,8 @@ export class PluginDiscoveryService {
 
     return [
       {
-        id: '@monobrain/neural',
-        name: '@monobrain/neural',
+        id: '@monomind/neural',
+        name: '@monomind/neural',
         displayName: 'Neural Patterns',
         description: 'Neural pattern training and inference with WASM SIMD acceleration, MoE routing, and Flash Attention optimization',
         version: '3.0.0',
@@ -306,8 +306,8 @@ export class PluginDiscoveryService {
         ratingCount: 245,
         lastUpdated: baseTime,
         createdAt: '2024-01-01T00:00:00Z',
-        minMonobrainVersion: '3.0.0',
-        dependencies: [{ name: '@monobrain/core', version: '^3.0.0' }],
+        minMonomindVersion: '3.0.0',
+        dependencies: [{ name: '@monomind/core', version: '^3.0.0' }],
         type: 'core',
         hooks: ['neural:train', 'neural:inference', 'pattern:learn'],
         commands: ['neural train', 'neural predict', 'neural patterns'],
@@ -317,8 +317,8 @@ export class PluginDiscoveryService {
         trustLevel: 'official',
       },
       {
-        id: '@monobrain/security',
-        name: '@monobrain/security',
+        id: '@monomind/security',
+        name: '@monomind/security',
         displayName: 'Security Scanner',
         description: 'Security scanning, CVE detection, and compliance auditing with threat modeling',
         version: '3.0.0',
@@ -335,8 +335,8 @@ export class PluginDiscoveryService {
         ratingCount: 189,
         lastUpdated: baseTime,
         createdAt: '2024-01-15T00:00:00Z',
-        minMonobrainVersion: '3.0.0',
-        dependencies: [{ name: '@monobrain/core', version: '^3.0.0' }],
+        minMonomindVersion: '3.0.0',
+        dependencies: [{ name: '@monomind/core', version: '^3.0.0' }],
         type: 'command',
         hooks: ['security:scan', 'security:audit'],
         commands: ['security scan', 'security audit', 'security cve', 'security threats'],
@@ -345,7 +345,7 @@ export class PluginDiscoveryService {
         verified: true,
         trustLevel: 'official',
         securityAudit: {
-          auditor: 'monobrain-security-team',
+          auditor: 'monomind-security-team',
           auditDate: '2024-12-01T00:00:00Z',
           auditVersion: '3.0.0',
           passed: true,
@@ -353,8 +353,8 @@ export class PluginDiscoveryService {
         },
       },
       {
-        id: '@monobrain/embeddings',
-        name: '@monobrain/embeddings',
+        id: '@monomind/embeddings',
+        name: '@monomind/embeddings',
         displayName: 'Vector Embeddings',
         description: 'Vector embeddings service with sql.js, document chunking, and hyperbolic embeddings',
         version: '3.0.0',
@@ -371,9 +371,9 @@ export class PluginDiscoveryService {
         ratingCount: 156,
         lastUpdated: baseTime,
         createdAt: '2024-02-01T00:00:00Z',
-        minMonobrainVersion: '3.0.0',
+        minMonomindVersion: '3.0.0',
         dependencies: [
-          { name: '@monobrain/core', version: '^3.0.0' },
+          { name: '@monomind/core', version: '^3.0.0' },
           { name: 'sql.js', version: '^1.8.0' },
         ],
         type: 'core',
@@ -385,8 +385,8 @@ export class PluginDiscoveryService {
         trustLevel: 'official',
       },
       {
-        id: '@monobrain/claims',
-        name: '@monobrain/claims',
+        id: '@monomind/claims',
+        name: '@monomind/claims',
         displayName: 'Claims Authorization',
         description: 'Claims-based authorization system for fine-grained access control',
         version: '3.0.0',
@@ -403,8 +403,8 @@ export class PluginDiscoveryService {
         ratingCount: 98,
         lastUpdated: baseTime,
         createdAt: '2024-02-15T00:00:00Z',
-        minMonobrainVersion: '3.0.0',
-        dependencies: [{ name: '@monobrain/core', version: '^3.0.0' }],
+        minMonomindVersion: '3.0.0',
+        dependencies: [{ name: '@monomind/core', version: '^3.0.0' }],
         type: 'core',
         hooks: ['claims:check', 'claims:grant'],
         commands: ['claims check', 'claims grant', 'claims revoke', 'claims list'],
@@ -414,8 +414,8 @@ export class PluginDiscoveryService {
         trustLevel: 'official',
       },
       {
-        id: '@monobrain/performance',
-        name: '@monobrain/performance',
+        id: '@monomind/performance',
+        name: '@monomind/performance',
         displayName: 'Performance Profiler',
         description: 'Performance profiling, benchmarking, and optimization recommendations',
         version: '3.0.0',
@@ -432,8 +432,8 @@ export class PluginDiscoveryService {
         ratingCount: 134,
         lastUpdated: baseTime,
         createdAt: '2024-03-01T00:00:00Z',
-        minMonobrainVersion: '3.0.0',
-        dependencies: [{ name: '@monobrain/core', version: '^3.0.0' }],
+        minMonomindVersion: '3.0.0',
+        dependencies: [{ name: '@monomind/core', version: '^3.0.0' }],
         type: 'command',
         hooks: ['performance:start', 'performance:stop'],
         commands: ['performance benchmark', 'performance profile', 'performance metrics'],
@@ -446,7 +446,7 @@ export class PluginDiscoveryService {
         id: 'community-analytics',
         name: 'community-analytics',
         displayName: 'Analytics Dashboard',
-        description: 'Analytics and metrics visualization for Monobrain operations',
+        description: 'Analytics and metrics visualization for Monomind operations',
         version: '1.2.0',
         cid: 'bafybeianalyticsplugin',
         size: 210000,
@@ -461,8 +461,8 @@ export class PluginDiscoveryService {
         ratingCount: 67,
         lastUpdated: baseTime,
         createdAt: '2024-06-01T00:00:00Z',
-        minMonobrainVersion: '3.0.0',
-        dependencies: [{ name: '@monobrain/core', version: '^3.0.0' }],
+        minMonomindVersion: '3.0.0',
+        dependencies: [{ name: '@monomind/core', version: '^3.0.0' }],
         type: 'integration',
         hooks: ['analytics:track', 'analytics:report'],
         commands: ['analytics dashboard', 'analytics export'],
@@ -490,8 +490,8 @@ export class PluginDiscoveryService {
         ratingCount: 45,
         lastUpdated: baseTime,
         createdAt: '2024-08-01T00:00:00Z',
-        minMonobrainVersion: '3.0.0',
-        dependencies: [{ name: '@monobrain/core', version: '^3.0.0' }],
+        minMonomindVersion: '3.0.0',
+        dependencies: [{ name: '@monomind/core', version: '^3.0.0' }],
         type: 'agent',
         hooks: ['agent:spawn', 'agent:complete'],
         commands: ['agents custom list', 'agents custom spawn'],
@@ -519,9 +519,9 @@ export class PluginDiscoveryService {
         ratingCount: 38,
         lastUpdated: baseTime,
         createdAt: '2024-09-01T00:00:00Z',
-        minMonobrainVersion: '3.0.0',
+        minMonomindVersion: '3.0.0',
         dependencies: [
-          { name: '@monobrain/core', version: '^3.0.0' },
+          { name: '@monomind/core', version: '^3.0.0' },
           { name: '@slack/web-api', version: '^6.0.0' },
         ],
         type: 'integration',
@@ -534,10 +534,10 @@ export class PluginDiscoveryService {
       },
       // Plugin SDK - Unified Plugin SDK for creating plugins
       {
-        id: '@monobrain/plugins',
-        name: '@monobrain/plugins',
+        id: '@monomind/plugins',
+        name: '@monomind/plugins',
         displayName: 'Plugin SDK',
-        description: 'Unified Plugin SDK for Monobrain - Worker, Hook, and Provider Integration. Create, test, and publish MonoBrain plugins.',
+        description: 'Unified Plugin SDK for Monomind - Worker, Hook, and Provider Integration. Create, test, and publish MonoMind plugins.',
         version: '3.0.0-alpha.2',
         cid: 'bafybeipluginsdk2024xyz',
         size: 156000,
@@ -552,9 +552,9 @@ export class PluginDiscoveryService {
         ratingCount: 0,
         lastUpdated: baseTime,
         createdAt: '2024-04-01T00:00:00Z',
-        minMonobrainVersion: '3.0.0',
+        minMonomindVersion: '3.0.0',
         dependencies: [
-          { name: '@monobrain/core', version: '^3.0.0' },
+          { name: '@monomind/core', version: '^3.0.0' },
         ],
         type: 'core',
         hooks: [
@@ -579,8 +579,8 @@ export class PluginDiscoveryService {
       },
       // Agentic QE - AI-powered quality engineering
       {
-        id: '@monobrain/plugin-agentic-qe',
-        name: '@monobrain/plugin-agentic-qe',
+        id: '@monomind/plugin-agentic-qe',
+        name: '@monomind/plugin-agentic-qe',
         displayName: 'Agentic Quality Engineering',
         description: 'AI-powered quality engineering with 58 agents that write tests, find bugs, predict defects, scan security, and perform chaos engineering safely.',
         version: '3.0.0-alpha.3',
@@ -597,9 +597,9 @@ export class PluginDiscoveryService {
         ratingCount: 24,
         lastUpdated: baseTime,
         createdAt: '2026-01-20T00:00:00Z',
-        minMonobrainVersion: '3.0.0',
+        minMonomindVersion: '3.0.0',
         dependencies: [
-          { name: '@monobrain/core', version: '^3.0.0' },
+          { name: '@monomind/core', version: '^3.0.0' },
         ],
         type: 'integration',
         hooks: [
@@ -630,7 +630,7 @@ export class PluginDiscoveryService {
         verified: true,
         trustLevel: 'official',
         securityAudit: {
-          auditor: 'monobrain-security-team',
+          auditor: 'monomind-security-team',
           auditDate: '2026-01-20T00:00:00Z',
           auditVersion: '3.0.0-alpha.3',
           passed: true,
@@ -639,8 +639,8 @@ export class PluginDiscoveryService {
       },
       // Prime Radiant - Mathematical coherence and consensus verification
       {
-        id: '@monobrain/plugin-prime-radiant',
-        name: '@monobrain/plugin-prime-radiant',
+        id: '@monomind/plugin-prime-radiant',
+        name: '@monomind/plugin-prime-radiant',
         displayName: 'Prime Radiant',
         description: 'Mathematical AI that catches contradictions, verifies consensus, prevents hallucinations, and analyzes swarm stability using sheaf cohomology and spectral graph theory.',
         version: '0.1.5',
@@ -657,9 +657,9 @@ export class PluginDiscoveryService {
         ratingCount: 18,
         lastUpdated: baseTime,
         createdAt: '2026-01-20T00:00:00Z',
-        minMonobrainVersion: '3.0.0',
+        minMonomindVersion: '3.0.0',
         dependencies: [
-          { name: '@monobrain/core', version: '^3.0.0' },
+          { name: '@monomind/core', version: '^3.0.0' },
         ],
         type: 'integration',
         hooks: [
@@ -688,7 +688,7 @@ export class PluginDiscoveryService {
         verified: true,
         trustLevel: 'official',
         securityAudit: {
-          auditor: 'monobrain-security-team',
+          auditor: 'monomind-security-team',
           auditDate: '2026-01-20T00:00:00Z',
           auditVersion: '0.1.5',
           passed: true,
@@ -697,8 +697,8 @@ export class PluginDiscoveryService {
       },
       // Gas Town Bridge - Multi-agent orchestrator integration
       {
-        id: '@monobrain/plugin-gastown-bridge',
-        name: '@monobrain/plugin-gastown-bridge',
+        id: '@monomind/plugin-gastown-bridge',
+        name: '@monomind/plugin-gastown-bridge',
         displayName: 'Gas Town Bridge',
         description: 'Gas Town orchestrator integration with WASM-accelerated formula parsing, Beads sync, convoy management, and graph analysis (352x faster).',
         version: '0.1.0',
@@ -715,8 +715,8 @@ export class PluginDiscoveryService {
         ratingCount: 0,
         lastUpdated: baseTime,
         createdAt: '2026-01-24T00:00:00Z',
-        minMonobrainVersion: '3.0.0',
-        dependencies: [{ name: '@monobrain/core', version: '^3.0.0' }],
+        minMonomindVersion: '3.0.0',
+        dependencies: [{ name: '@monomind/core', version: '^3.0.0' }],
         type: 'integration',
         hooks: ['gastown:sync', 'gastown:formula', 'gastown:convoy'],
         commands: ['gastown beads', 'gastown convoy', 'gastown formula', 'gastown sync'],
@@ -725,7 +725,7 @@ export class PluginDiscoveryService {
         verified: true,
         trustLevel: 'official',
         securityAudit: {
-          auditor: 'monobrain-security-team',
+          auditor: 'monomind-security-team',
           auditDate: '2026-01-24T00:00:00Z',
           auditVersion: '0.1.0',
           passed: true,
@@ -734,8 +734,8 @@ export class PluginDiscoveryService {
       },
       // Teammate Plugin - Claude Code v2.1.19+ integration
       {
-        id: '@monobrain/teammate-plugin',
-        name: '@monobrain/teammate-plugin',
+        id: '@monomind/teammate-plugin',
+        name: '@monomind/teammate-plugin',
         displayName: 'Teammate Plugin',
         description: 'Native TeammateTool integration for Claude Code v2.1.19+. Multi-agent team orchestration with plan approval workflows, delegation, messaging, and BMSSP-optimized topology routing. 21 MCP tools.',
         version: '1.0.0-alpha.1',
@@ -752,9 +752,9 @@ export class PluginDiscoveryService {
         ratingCount: 0,
         lastUpdated: baseTime,
         createdAt: '2026-01-25T00:00:00Z',
-        minMonobrainVersion: '3.0.0',
+        minMonomindVersion: '3.0.0',
         dependencies: [
-          { name: '@monobrain/core', version: '^3.0.0' },
+          { name: '@monomind/core', version: '^3.0.0' },
           { name: 'eventemitter3', version: '^5.0.1' },
         ],
         type: 'integration',
@@ -765,7 +765,7 @@ export class PluginDiscoveryService {
         verified: true,
         trustLevel: 'official',
         securityAudit: {
-          auditor: 'monobrain-security-team',
+          auditor: 'monomind-security-team',
           auditDate: '2026-01-25T00:00:00Z',
           auditVersion: '1.0.0-alpha.1',
           passed: true,
@@ -783,17 +783,17 @@ export class PluginDiscoveryService {
 
     // Only fetch stats for real npm packages
     const realNpmPackages = [
-      '@monobrain/plugin-agentic-qe',
-      '@monobrain/plugin-prime-radiant',
-      '@monobrain/claims',
-      '@monobrain/security',
-      '@monobrain/plugins',
-      '@monobrain/embeddings',
-      '@monobrain/neural',
-      '@monobrain/performance',
-      '@monobrain/teammate-plugin',
+      '@monomind/plugin-agentic-qe',
+      '@monomind/plugin-prime-radiant',
+      '@monomind/claims',
+      '@monomind/security',
+      '@monomind/plugins',
+      '@monomind/embeddings',
+      '@monomind/neural',
+      '@monomind/performance',
+      '@monomind/teammate-plugin',
       // Gas Town Bridge
-      '@monobrain/plugin-gastown-bridge',
+      '@monomind/plugin-gastown-bridge',
     ];
 
     // Fetch stats in parallel

@@ -11,7 +11,7 @@
  * - Module communities using Louvain algorithm
  * - Circular dependency detection
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -83,10 +83,10 @@ const diffCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain analyze diff --risk', description: 'Analyze current diff with risk assessment' },
-    { command: 'monobrain analyze diff HEAD~1 --classify', description: 'Classify changes from last commit' },
-    { command: 'monobrain analyze diff main..feature --format json', description: 'Compare branches with JSON output' },
-    { command: 'monobrain analyze diff --reviewers', description: 'Get recommended reviewers for changes' },
+    { command: 'monomind analyze diff --risk', description: 'Analyze current diff with risk assessment' },
+    { command: 'monomind analyze diff HEAD~1 --classify', description: 'Classify changes from last commit' },
+    { command: 'monomind analyze diff main..feature --format json', description: 'Compare branches with JSON output' },
+    { command: 'monomind analyze diff --reviewers', description: 'Get recommended reviewers for changes' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const ref = ctx.args[0] || 'HEAD';
@@ -311,8 +311,8 @@ const codeCommand: Command = {
     { name: 'format', short: 'f', type: 'string', description: 'Output format: text, json', default: 'text' },
   ],
   examples: [
-    { command: 'monobrain analyze code -p ./src', description: 'Analyze source directory' },
-    { command: 'monobrain analyze code --type complexity', description: 'Run complexity analysis' },
+    { command: 'monomind analyze code -p ./src', description: 'Analyze source directory' },
+    { command: 'monomind analyze code --type complexity', description: 'Run complexity analysis' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const targetPath = resolve(ctx.flags.path as string || '.');
@@ -556,10 +556,10 @@ const astCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain analyze ast src/', description: 'Analyze all files in src/' },
-    { command: 'monobrain analyze ast src/index.ts --complexity', description: 'Analyze with complexity' },
-    { command: 'monobrain analyze ast . --format json', description: 'JSON output' },
-    { command: 'monobrain analyze ast src/ --symbols', description: 'Extract symbols' },
+    { command: 'monomind analyze ast src/', description: 'Analyze all files in src/' },
+    { command: 'monomind analyze ast src/index.ts --complexity', description: 'Analyze with complexity' },
+    { command: 'monomind analyze ast . --format json', description: 'JSON output' },
+    { command: 'monomind analyze ast src/ --symbols', description: 'Extract symbols' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const targetPath = ctx.args[0] || ctx.cwd;
@@ -810,8 +810,8 @@ const complexityAstCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain analyze complexity src/', description: 'Analyze complexity' },
-    { command: 'monobrain analyze complexity src/ --threshold 15', description: 'Flag high complexity' },
+    { command: 'monomind analyze complexity src/', description: 'Analyze complexity' },
+    { command: 'monomind analyze complexity src/ --threshold 15', description: 'Flag high complexity' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const targetPath = ctx.args[0] || ctx.cwd;
@@ -990,9 +990,9 @@ const symbolsCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain analyze symbols src/', description: 'Extract all symbols' },
-    { command: 'monobrain analyze symbols src/ --type function', description: 'Only functions' },
-    { command: 'monobrain analyze symbols src/ --format json', description: 'JSON output' },
+    { command: 'monomind analyze symbols src/', description: 'Extract all symbols' },
+    { command: 'monomind analyze symbols src/ --type function', description: 'Only functions' },
+    { command: 'monomind analyze symbols src/ --format json', description: 'JSON output' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const targetPath = ctx.args[0] || ctx.cwd;
@@ -1154,8 +1154,8 @@ const importsCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain analyze imports src/', description: 'Analyze all imports' },
-    { command: 'monobrain analyze imports src/ --external', description: 'Only npm packages' },
+    { command: 'monomind analyze imports src/', description: 'Analyze all imports' },
+    { command: 'monomind analyze imports src/ --external', description: 'Only npm packages' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const targetPath = ctx.args[0] || ctx.cwd;
@@ -1414,8 +1414,8 @@ const depsCommand: Command = {
     { name: 'format', short: 'f', type: 'string', description: 'Output format: text, json', default: 'text' },
   ],
   examples: [
-    { command: 'monobrain analyze deps --outdated', description: 'Show outdated dependencies' },
-    { command: 'monobrain analyze deps --security', description: 'Check for vulnerabilities' },
+    { command: 'monomind analyze deps --outdated', description: 'Show outdated dependencies' },
+    { command: 'monomind analyze deps --security', description: 'Check for vulnerabilities' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const showOutdated = ctx.flags.outdated as boolean;
@@ -1584,9 +1584,9 @@ const boundariesCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain analyze boundaries src/', description: 'Find code boundaries in src/' },
-    { command: 'monobrain analyze boundaries -p 3 src/', description: 'Find 3 partitions' },
-    { command: 'monobrain analyze boundaries -f dot -o graph.dot src/', description: 'Export to DOT format' },
+    { command: 'monomind analyze boundaries src/', description: 'Find code boundaries in src/' },
+    { command: 'monomind analyze boundaries -p 3 src/', description: 'Find 3 partitions' },
+    { command: 'monomind analyze boundaries -f dot -o graph.dot src/', description: 'Export to DOT format' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const targetDir = ctx.args[0] || ctx.cwd;
@@ -1759,9 +1759,9 @@ const modulesCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain analyze modules src/', description: 'Detect module communities' },
-    { command: 'monobrain analyze modules -f dot -o modules.dot src/', description: 'Export colored DOT graph' },
-    { command: 'monobrain analyze modules -m 3 src/', description: 'Only show communities with 3+ files' },
+    { command: 'monomind analyze modules src/', description: 'Detect module communities' },
+    { command: 'monomind analyze modules -f dot -o modules.dot src/', description: 'Export colored DOT graph' },
+    { command: 'monomind analyze modules -m 3 src/', description: 'Only show communities with 3+ files' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const targetDir = ctx.args[0] || ctx.cwd;
@@ -1928,9 +1928,9 @@ const dependenciesCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain analyze dependencies src/', description: 'Build dependency graph' },
-    { command: 'monobrain analyze dependencies -f dot -o deps.dot src/', description: 'Export to DOT' },
-    { command: 'monobrain analyze dependencies -i .ts,.tsx src/', description: 'Only TypeScript files' },
+    { command: 'monomind analyze dependencies src/', description: 'Build dependency graph' },
+    { command: 'monomind analyze dependencies -f dot -o deps.dot src/', description: 'Export to DOT' },
+    { command: 'monomind analyze dependencies -i .ts,.tsx src/', description: 'Only TypeScript files' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const targetDir = ctx.args[0] || ctx.cwd;
@@ -2114,8 +2114,8 @@ const circularCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain analyze circular src/', description: 'Find circular dependencies' },
-    { command: 'monobrain analyze circular -s high src/', description: 'Only high severity cycles' },
+    { command: 'monomind analyze circular src/', description: 'Find circular dependencies' },
+    { command: 'monomind analyze circular -s high src/', description: 'Only high severity cycles' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const targetDir = ctx.args[0] || ctx.cwd;
@@ -2279,16 +2279,16 @@ export const analyzeCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain analyze ast src/', description: 'Analyze code with AST parsing' },
-    { command: 'monobrain analyze complexity src/ --threshold 15', description: 'Find high-complexity files' },
-    { command: 'monobrain analyze symbols src/ --type function', description: 'Extract all functions' },
-    { command: 'monobrain analyze imports src/ --external', description: 'List npm dependencies' },
-    { command: 'monobrain analyze diff --risk', description: 'Analyze diff with risk assessment' },
-    { command: 'monobrain analyze boundaries src/', description: 'Find code boundaries using MinCut' },
-    { command: 'monobrain analyze modules src/', description: 'Detect module communities with Louvain' },
-    { command: 'monobrain analyze dependencies src/ --format dot', description: 'Export dependency graph as DOT' },
-    { command: 'monobrain analyze circular src/', description: 'Find circular dependencies' },
-    { command: 'monobrain analyze deps --security', description: 'Check dependency vulnerabilities' },
+    { command: 'monomind analyze ast src/', description: 'Analyze code with AST parsing' },
+    { command: 'monomind analyze complexity src/ --threshold 15', description: 'Find high-complexity files' },
+    { command: 'monomind analyze symbols src/ --type function', description: 'Extract all functions' },
+    { command: 'monomind analyze imports src/ --external', description: 'List npm dependencies' },
+    { command: 'monomind analyze diff --risk', description: 'Analyze diff with risk assessment' },
+    { command: 'monomind analyze boundaries src/', description: 'Find code boundaries using MinCut' },
+    { command: 'monomind analyze modules src/', description: 'Detect module communities with Louvain' },
+    { command: 'monomind analyze dependencies src/ --format dot', description: 'Export dependency graph as DOT' },
+    { command: 'monomind analyze circular src/', description: 'Find circular dependencies' },
+    { command: 'monomind analyze deps --security', description: 'Check dependency vulnerabilities' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // If no subcommand, show help
@@ -2314,26 +2314,26 @@ export const analyzeCommand: Command = {
 
     output.writeln(output.bold('AST Analysis Examples:'));
     output.writeln();
-    output.writeln(`  ${output.dim('monobrain analyze ast src/')}                  # Full AST analysis`);
-    output.writeln(`  ${output.dim('monobrain analyze ast src/index.ts -c')}       # Include complexity`);
-    output.writeln(`  ${output.dim('monobrain analyze complexity src/ -t 15')}     # Flag high complexity`);
-    output.writeln(`  ${output.dim('monobrain analyze symbols src/ --type fn')}    # Extract functions`);
-    output.writeln(`  ${output.dim('monobrain analyze imports src/ --external')}   # Only npm imports`);
+    output.writeln(`  ${output.dim('monomind analyze ast src/')}                  # Full AST analysis`);
+    output.writeln(`  ${output.dim('monomind analyze ast src/index.ts -c')}       # Include complexity`);
+    output.writeln(`  ${output.dim('monomind analyze complexity src/ -t 15')}     # Flag high complexity`);
+    output.writeln(`  ${output.dim('monomind analyze symbols src/ --type fn')}    # Extract functions`);
+    output.writeln(`  ${output.dim('monomind analyze imports src/ --external')}   # Only npm imports`);
     output.writeln();
 
     output.writeln(output.bold('Graph Analysis Examples:'));
     output.writeln();
-    output.writeln(`  ${output.dim('monobrain analyze boundaries src/')}            # Find natural code boundaries`);
-    output.writeln(`  ${output.dim('monobrain analyze modules src/')}               # Detect module communities`);
-    output.writeln(`  ${output.dim('monobrain analyze dependencies -f dot src/')}   # Export to DOT format`);
-    output.writeln(`  ${output.dim('monobrain analyze circular src/')}              # Find circular deps`);
+    output.writeln(`  ${output.dim('monomind analyze boundaries src/')}            # Find natural code boundaries`);
+    output.writeln(`  ${output.dim('monomind analyze modules src/')}               # Detect module communities`);
+    output.writeln(`  ${output.dim('monomind analyze dependencies -f dot src/')}   # Export to DOT format`);
+    output.writeln(`  ${output.dim('monomind analyze circular src/')}              # Find circular deps`);
     output.writeln();
 
     output.writeln(output.bold('Diff Analysis Examples:'));
     output.writeln();
-    output.writeln(`  ${output.dim('monobrain analyze diff --risk')}              # Risk assessment`);
-    output.writeln(`  ${output.dim('monobrain analyze diff HEAD~1 --classify')}   # Classify changes`);
-    output.writeln(`  ${output.dim('monobrain analyze diff main..feature')}       # Compare branches`);
+    output.writeln(`  ${output.dim('monomind analyze diff --risk')}              # Risk assessment`);
+    output.writeln(`  ${output.dim('monomind analyze diff HEAD~1 --classify')}   # Classify changes`);
+    output.writeln(`  ${output.dim('monomind analyze diff main..feature')}       # Compare branches`);
     output.writeln();
 
     return { success: true };

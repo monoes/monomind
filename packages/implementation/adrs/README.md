@@ -1,6 +1,6 @@
 # Architecture Decision Records (ADRs)
 
-This directory contains all Architecture Decision Records for Monobrain v1.
+This directory contains all Architecture Decision Records for Monomind v1.
 
 **Status:** ✅ **BETA READY** (22 ADRs Complete)
 **Version:** 3.0.0-alpha.84
@@ -63,7 +63,7 @@ This directory contains all Architecture Decision Records for Monobrain v1.
 
 | ADR | Title | Status | File |
 |-----|-------|--------|------|
-| ADR-046 | Dual Umbrella: monobrain + monobrain | Accepted | [ADR-046-monobrain-rebrand.md](./ADR-046-monobrain-rebrand.md) |
+| ADR-046 | Dual Umbrella: monomind + monomind | Accepted | [ADR-046-monomind-rebrand.md](./ADR-046-monomind-rebrand.md) |
 | ADR-047 | Fast Mode Integration | Proposed | [ADR-047-fast-mode-integration.md](./ADR-047-fast-mode-integration.md) |
 | ADR-048 | Auto Memory Integration | Accepted | [ADR-048-auto-memory-integration.md](./ADR-048-auto-memory-integration.md) |
 
@@ -159,12 +159,12 @@ All ADRs consider security:
 ---
 
 **Last Updated:** 2026-01-13
-**Project:** Monobrain V1
+**Project:** Monomind V1
 **Version:** 3.0.0-alpha.84 (Beta Ready)
 
 ### Recent Updates (2026-01-13)
 
-#### Release: @monobrain/cli@3.0.0-alpha.84 (Beta Ready)
+#### Release: @monomind/cli@3.0.0-alpha.84 (Beta Ready)
 
 **All Audit Issues Resolved:**
 
@@ -176,17 +176,17 @@ All ADRs consider security:
 
 **Auto-Update System (ADR-025):**
 ```bash
-npx monobrain update check      # Check for updates
-npx monobrain update all        # Update all packages
-npx monobrain update history    # View update history
-npx monobrain update rollback   # Rollback last update
+npx monomind update check      # Check for updates
+npx monomind update all        # Update all packages
+npx monomind update history    # View update history
+npx monomind update rollback   # Rollback last update
 ```
 
 ---
 
 ### Previous Updates (2026-01-07)
 
-#### Release: @monobrain/cli@3.0.0-alpha.15 (Latest)
+#### Release: @monomind/cli@3.0.0-alpha.15 (Latest)
 
 **Doctor Command Enhancements**:
 - **Claude Code CLI Check**: Verifies `@anthropic-ai/claude-code` installation
@@ -195,18 +195,18 @@ npx monobrain update rollback   # Rollback last update
 
 ```bash
 # Check system health including Claude Code CLI
-npx monobrain@latest doctor
+npx monomind@latest doctor
 
 # Auto-install Claude Code CLI if missing
-npx monobrain@latest doctor --install
+npx monomind@latest doctor --install
 
 # Check only Claude Code CLI
-npx monobrain@latest doctor -c claude
+npx monomind@latest doctor -c claude
 ```
 
-**Package Resolution Fix**: Fixed Windows module resolution issue where `@monobrain/cli` exports pointed to wrong paths (`dist/index.js` → `dist/src/index.js`).
+**Package Resolution Fix**: Fixed Windows module resolution issue where `@monomind/cli` exports pointed to wrong paths (`dist/index.js` → `dist/src/index.js`).
 
-#### Release: @monobrain/cli@3.0.0-alpha.7
+#### Release: @monomind/cli@3.0.0-alpha.7
 - **Hive-Mind CLI**: All MCP tools now exposed via CLI subcommands:
   - `hive-mind join <agent-id>` - Join agent to hive
   - `hive-mind leave <agent-id>` - Remove agent from hive
@@ -214,7 +214,7 @@ npx monobrain@latest doctor -c claude
   - `hive-mind broadcast -m <msg>` - Broadcast messages to workers
   - `hive-mind memory` - Access shared memory (get/set/delete/list)
 - **Bug Fix**: Fixed positional argument parsing for subcommands in CLI parser
-- **File Persistence**: All MCP tools use file-based persistence in `.monobrain/` directories
+- **File Persistence**: All MCP tools use file-based persistence in `.monomind/` directories
 - **ADR-014**: Node.js Worker Daemon - cross-platform TypeScript daemon replaces shell helpers
 - **CLI**: `daemon` command with start/stop/status/trigger/enable subcommands
 - **Session Integration**: Auto-start daemon on SessionStart, auto-stop on SessionEnd
@@ -232,13 +232,13 @@ npx monobrain@latest doctor -c claude
 
 #### Install
 ```bash
-npx @monobrain/cli@latest --help
+npx @monomind/cli@latest --help
 ```
 
-### Release: @monobrain/cli@3.0.0-alpha.11 (2026-01-07)
+### Release: @monomind/cli@3.0.0-alpha.11 (2026-01-07)
 
 #### New V1 Advanced CLI Commands
-All commands include subcommand help and integrated Monobrain branding.
+All commands include subcommand help and integrated Monomind branding.
 
 | Command | Description | Subcommands |
 |---------|-------------|-------------|
@@ -257,22 +257,22 @@ All commands include subcommand help and integrated Monobrain branding.
 
 **Smart Error Suggestions**: Typo detection with Levenshtein distance
 ```bash
-$ monobrain swram
+$ monomind swram
 [ERROR] Unknown command: swram
   Did you mean one of these?
   - swarm
   - neural
   - start
 
-$ monobrain memroy
+$ monomind memroy
 [ERROR] Unknown command: memroy
   Did you mean "memory"?
 ```
 
 **Doctor Command**: System health diagnostics
 ```bash
-$ monobrain doctor
-Monobrain Doctor
+$ monomind doctor
+Monomind Doctor
 ──────────────────────────────────────────────────
 ✓ Node.js Version: v22.21.1 (>= 20 required)
 ✓ npm Version: v10.9.4
@@ -292,16 +292,16 @@ Summary: 6 passed, 5 warnings
 **Shell Completions**: Tab completion for all shells
 ```bash
 # Install bash completions
-monobrain completions bash > ~/.bash_completion.d/monobrain
+monomind completions bash > ~/.bash_completion.d/monomind
 
 # Install zsh completions
-monobrain completions zsh > ~/.zfunc/_monobrain
+monomind completions zsh > ~/.zfunc/_monomind
 
 # Install fish completions
-monobrain completions fish > ~/.config/fish/completions/monobrain.fish
+monomind completions fish > ~/.config/fish/completions/monomind.fish
 
 # Install PowerShell completions
-monobrain completions powershell >> $PROFILE
+monomind completions powershell >> $PROFILE
 ```
 
 ## CLI Roadmap
@@ -316,41 +316,41 @@ monobrain completions powershell >> $PROFILE
 | 🟡 P1 | Resolve provider config overlap | Pending | Unify provider configs across embeddings/providers commands |
 | 🟡 P1 | Add unified `logs` command | Pending | Centralized log viewing across daemon, agents, swarms |
 | 🟢 P2 | Add `upgrade` command | Pending | Self-update CLI to latest version |
-| 🟢 P2 | Add interactive shell/REPL mode | Pending | `monobrain shell` for interactive command execution |
+| 🟢 P2 | Add interactive shell/REPL mode | Pending | `monomind shell` for interactive command execution |
 
 ### Implementation Plan
 
 **P0 - Critical (Next Release)**
 ```bash
 # Doctor command - diagnose system health
-monobrain doctor              # Full system check
-monobrain doctor --fix        # Auto-fix issues where possible
-monobrain doctor --component mcp  # Check specific component
+monomind doctor              # Full system check
+monomind doctor --fix        # Auto-fix issues where possible
+monomind doctor --component mcp  # Check specific component
 
 # Shell completions
-monobrain completions bash > ~/.bash_completion.d/monobrain
-monobrain completions zsh > ~/.zfunc/_monobrain
-monobrain completions fish > ~/.config/fish/completions/monobrain.fish
+monomind completions bash > ~/.bash_completion.d/monomind
+monomind completions zsh > ~/.zfunc/_monomind
+monomind completions fish > ~/.config/fish/completions/monomind.fish
 ```
 
 **P1 - High Priority**
 ```bash
 # Unified logs command
-monobrain logs                # All logs
-monobrain logs --follow       # Tail logs
-monobrain logs --component daemon
-monobrain logs --level error
+monomind logs                # All logs
+monomind logs --follow       # Tail logs
+monomind logs --component daemon
+monomind logs --level error
 ```
 
 **P2 - Nice to Have**
 ```bash
 # Self-update
-monobrain upgrade             # Upgrade to latest
-monobrain upgrade --check     # Check for updates
-monobrain upgrade --version 3.1.0
+monomind upgrade             # Upgrade to latest
+monomind upgrade --check     # Check for updates
+monomind upgrade --version 3.1.0
 
 # Interactive shell
-monobrain shell               # Enter REPL
+monomind shell               # Enter REPL
 > swarm init mesh
 > agent spawn coder
 > memory search "patterns"
@@ -358,11 +358,11 @@ monobrain shell               # Enter REPL
 
 ---
 
-## agentic-flow vs monobrain Feature Comparison
+## agentic-flow vs monomind Feature Comparison
 
 ### Feature Matrix
 
-| Feature | agentic-flow | monobrain | Integration Value |
+| Feature | agentic-flow | monomind | Integration Value |
 |---------|--------------|-------------|-------------------|
 | **Core Agent System** | | | |
 | Specialized Agents | 66+ | 15 (hierarchical) | 🟡 |
@@ -411,36 +411,36 @@ monobrain shell               # Enter REPL
 **1. QUIC Transport (50-70% faster)**
 ```bash
 # Integration target:
-monobrain transport quic --port 4433
-monobrain swarm start --transport quic  # 50-70% faster agent comms
+monomind transport quic --port 4433
+monomind swarm start --transport quic  # 50-70% faster agent comms
 ```
 
 **2. Federation Hub (Ephemeral Agents)**
 ```bash
 # Integration target:
-monobrain federation start --port 9443
-monobrain federation spawn --tenant acme --lifetime 600
+monomind federation start --port 9443
+monomind federation spawn --tenant acme --lifetime 600
 ```
 *Value: Agents die but memories persist → learning across agent generations*
 
 **3. Model Optimization (85% cost savings)**
 ```bash
 # Integration target:
-monobrain agent spawn -t coder --optimize --priority cost
-monobrain providers optimize --task "Build API" --budget 0.01
+monomind agent spawn -t coder --optimize --priority cost
+monomind providers optimize --task "Build API" --budget 0.01
 ```
 
 **4. Provider Fallback (Enterprise resilience)**
 ```bash
 # Integration target:
-monobrain providers fallback configure --primary anthropic --fallback openrouter,onnx
+monomind providers fallback configure --primary anthropic --fallback openrouter,onnx
 ```
 
 **5. ReasoningBank (WASM Learning Memory)**
 ```bash
 # Integration target:
-monobrain reasoningbank store "pattern" --reasoning "..."
-monobrain reasoningbank search "authentication patterns"
+monomind reasoningbank store "pattern" --reasoning "..."
+monomind reasoningbank search "authentication patterns"
 ```
 *Value: 10-100x faster reasoning pattern storage vs JSON*
 
@@ -464,9 +464,9 @@ monobrain reasoningbank search "authentication patterns"
 
 ```bash
 # After Phase 1:
-monobrain agent spawn -t coder --optimize --priority cost
-monobrain providers fallback configure --primary anthropic --fallback openrouter,onnx
-monobrain embeddings download all-MiniLM-L6-v2
+monomind agent spawn -t coder --optimize --priority cost
+monomind providers fallback configure --primary anthropic --fallback openrouter,onnx
+monomind embeddings download all-MiniLM-L6-v2
 ```
 
 #### Phase 2: Core Integration (2-3 weeks) → 9.5 → 9.7
@@ -480,10 +480,10 @@ monobrain embeddings download all-MiniLM-L6-v2
 
 ```bash
 # After Phase 2:
-monobrain federation start --port 9443
-monobrain federation spawn --lifetime 300 --task "Quick analysis"
-monobrain proxy start --provider openrouter
-monobrain daemon dispatch security-audit
+monomind federation start --port 9443
+monomind federation spawn --lifetime 300 --task "Quick analysis"
+monomind proxy start --provider openrouter
+monomind daemon dispatch security-audit
 ```
 
 #### Phase 3: Advanced (4-6 weeks) → 9.7 → 9.9
@@ -496,16 +496,16 @@ monobrain daemon dispatch security-audit
 
 ```bash
 # After Phase 3:
-monobrain swarm start --transport quic  # 50-70% faster
-monobrain reasoningbank store "pattern" --reasoning "..."
-monobrain agent spawn -t security-analyst  # One of 66 types
+monomind swarm start --transport quic  # 50-70% faster
+monomind reasoningbank store "pattern" --reasoning "..."
+monomind agent spawn -t security-analyst  # One of 66 types
 ```
 
 ### Recommended Integration Approach
 
 **Option A: Dependency Approach (Fastest)**
 ```json
-// monobrain/package.json
+// monomind/package.json
 {
   "dependencies": {
     "agentic-flow": "^2.0.3"
@@ -516,17 +516,17 @@ monobrain agent spawn -t security-analyst  # One of 66 types
 **Option B: Port Code (More Control)**
 ```bash
 # Copy specific modules:
-- agentic-flow/src/transport/quic.ts → monobrain/src/transport/
-- agentic-flow/src/federation/ → monobrain/src/federation/
-- agentic-flow/src/reasoningbank/ → monobrain/src/reasoningbank/
+- agentic-flow/src/transport/quic.ts → monomind/src/transport/
+- agentic-flow/src/federation/ → monomind/src/federation/
+- agentic-flow/src/reasoningbank/ → monomind/src/reasoningbank/
 ```
 
 **Option C: Unified Package (Long-term)**
 ```bash
-@monobrain/core      # Shared primitives
-@monobrain/cli       # CLI (current)
-@monobrain/agents    # From agentic-flow's 66 agents
-@monobrain/transport # QUIC + HTTP + WebSocket
+@monomind/core      # Shared primitives
+@monomind/cli       # CLI (current)
+@monomind/agents    # From agentic-flow's 66 agents
+@monomind/transport # QUIC + HTTP + WebSocket
 ```
 
 ---
@@ -545,21 +545,21 @@ monobrain agent spawn -t security-analyst  # One of 66 types
 
 ### Feature Overlap Analysis
 
-**monobrain ALREADY HAS** (via @monobrain/embeddings):
-| Feature | monobrain | ruvector | Status |
+**monomind ALREADY HAS** (via @monomind/embeddings):
+| Feature | monomind | ruvector | Status |
 |---------|-------------|----------|--------|
 | ONNX Embeddings | ✅ agentic-flow (~3ms) | ✅ @ruvector/core | **Equivalent** |
 | Local Embeddings | ✅ all-MiniLM-L6-v2 | ✅ all-MiniLM-L6-v2 | **Equivalent** |
-| HNSW Indexing | ✅ @monobrain/memory | ✅ @ruvector/core | **Equivalent** |
+| HNSW Indexing | ✅ @monomind/memory | ✅ @ruvector/core | **Equivalent** |
 | Persistent Cache | ✅ SQLite + LRU | ✅ Memory cache | **Equivalent** |
-| Hyperbolic Embeddings | ✅ Poincaré ball | ❌ | **monobrain ahead** |
-| Document Chunking | ✅ 4 strategies | ❌ | **monobrain ahead** |
-| Normalization | ✅ L2, L1, min-max, z-score | ❌ | **monobrain ahead** |
-| Neural Substrate | ✅ Drift, memory physics | ❌ | **monobrain ahead** |
+| Hyperbolic Embeddings | ✅ Poincaré ball | ❌ | **monomind ahead** |
+| Document Chunking | ✅ 4 strategies | ❌ | **monomind ahead** |
+| Normalization | ✅ L2, L1, min-max, z-score | ❌ | **monomind ahead** |
+| Neural Substrate | ✅ Drift, memory physics | ❌ | **monomind ahead** |
 
 ### Unique ruvector Features (Integration Candidates)
 
-#### 🔴 Tier 1: High Value (monobrain lacks these)
+#### 🔴 Tier 1: High Value (monomind lacks these)
 
 | Feature | ruvector Source | Integration Target | Value |
 |---------|-----------------|-------------------|-------|
@@ -583,7 +583,7 @@ monobrain agent spawn -t security-analyst  # One of 66 types
 | Louvain Communities | `hooks_graph_cluster` | Module detection |
 | GNN Layers | `@ruvector/gnn` | Graph analysis |
 
-*Note: Flash Attention, SONA Learning, HNSW, and ONNX embeddings are already in monobrain via agentic-flow.*
+*Note: Flash Attention, SONA Learning, HNSW, and ONNX embeddings are already in monomind via agentic-flow.*
 
 ### MCP Tools from ruvector (Unique Only)
 
@@ -599,16 +599,16 @@ claude mcp add ruvector-mcp -- npx ruvector mcp-server
 - `hooks_coverage_route`, `hooks_coverage_suggest` — Test-aware routing ✅
 - `hooks_graph_mincut`, `hooks_graph_cluster` — Code boundaries ✅
 
-**Already in monobrain (skip):**
-- `hooks_rag_context` — Use @monobrain/memory instead
-- `hooks_attention_info` — Use @monobrain/neural instead
-- Embeddings tools — Use @monobrain/embeddings instead
+**Already in monomind (skip):**
+- `hooks_rag_context` — Use @monomind/memory instead
+- `hooks_attention_info` — Use @monomind/neural instead
+- Embeddings tools — Use @monomind/embeddings instead
 
 ### Integration Approach
 
 **Recommended: Option A - Add as Optional Dependency (for unique features only)**
 ```json
-// @monobrain/cli/package.json
+// @monomind/cli/package.json
 {
   "optionalDependencies": {
     "ruvector": "^0.1.95"
@@ -619,22 +619,22 @@ claude mcp add ruvector-mcp -- npx ruvector mcp-server
 **CLI Wrappers (unique ruvector features):**
 ```bash
 # Q-Learning agent routing (unique to ruvector)
-monobrain route "task" --q-learning          # Uses hooks_route
+monomind route "task" --q-learning          # Uses hooks_route
 
 # AST analysis (unique to ruvector)
-monobrain analyze ast src/                   # Uses hooks_ast_analyze
+monomind analyze ast src/                   # Uses hooks_ast_analyze
 
 # Diff classification (unique to ruvector)
-monobrain analyze diff --risk                # Uses hooks_diff_analyze
+monomind analyze diff --risk                # Uses hooks_diff_analyze
 
 # Coverage-aware routing (unique to ruvector)
-monobrain route "task" --coverage-aware      # Uses hooks_coverage_route
+monomind route "task" --coverage-aware      # Uses hooks_coverage_route
 ```
 
-**Already in monobrain (DO NOT import from ruvector):**
+**Already in monomind (DO NOT import from ruvector):**
 ```bash
-monobrain embeddings generate --local        # Uses @monobrain/embeddings (ONNX)
-monobrain memory search --semantic "query"   # Uses @monobrain/memory (HNSW)
+monomind embeddings generate --local        # Uses @monomind/embeddings (ONNX)
+monomind memory search --semantic "query"   # Uses @monomind/memory (HNSW)
 ```
 
 ### ruvector Integration Roadmap
@@ -654,4 +654,4 @@ monobrain memory search --semantic "query"   # Uses @monobrain/memory (HNSW)
 - [ ] Add Louvain community detection (`analyze --modules`)
 - [ ] Integrate GNN layers for dependency graphs
 
-*Note: SONA, Flash Attention, HNSW already in monobrain - no need to import.*
+*Note: SONA, Flash Attention, HNSW already in monomind - no need to import.*

@@ -18,7 +18,7 @@ Create a **Legal Contract Analysis Plugin** that leverages RuVector WASM package
 
 ## Plugin Name
 
-`@monobrain/plugin-legal-contracts`
+`@monomind/plugin-legal-contracts`
 
 ## Description
 

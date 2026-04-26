@@ -13,8 +13,8 @@ import { mkdtempSync, rmSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
-import { RvfEmbeddingCache } from '../packages/@monobrain/embeddings/src/rvf-embedding-cache.js';
-import { RvfEmbeddingService } from '../packages/@monobrain/embeddings/src/rvf-embedding-service.js';
+import { RvfEmbeddingCache } from '../packages/@monomind/embeddings/src/rvf-embedding-cache.js';
+import { RvfEmbeddingService } from '../packages/@monomind/embeddings/src/rvf-embedding-service.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

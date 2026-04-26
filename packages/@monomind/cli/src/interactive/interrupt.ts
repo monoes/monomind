@@ -57,7 +57,7 @@ export class InterruptController {
     });
 
     console.log('\n' + '='.repeat(60));
-    console.log('[MONOBRAIN] Interrupt — Human approval required');
+    console.log('[MONOMIND] Interrupt — Human approval required');
     console.log(`  Agent:      ${agentSlug}`);
     console.log(`  Task:       ${taskDescription}`);
     console.log(`  Checkpoint: ${checkpointId}`);

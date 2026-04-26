@@ -2,7 +2,7 @@
 
 **Source:** https://arxiv.org/abs/2404.16130 | https://arxiv.org/abs/2507.03226  
 **Category:** Graph-Based RAG Research  
-**Role in Monobrain:** Community-level global query answering via `MemoryGraph.getCommunitySummaries()`
+**Role in Monomind:** Community-level global query answering via `MemoryGraph.getCommunitySummaries()`
 
 ---
 
@@ -20,9 +20,9 @@ Practical GraphRAG (2025 follow-up) refines the approach with efficiency improve
 
 ### `MemoryGraph.getCommunitySummaries()` for Thematic Retrieval
 
-Monobrain implements GraphRAG's community summary approach in the memory graph layer:
+Monomind implements GraphRAG's community summary approach in the memory graph layer:
 
-**Community detection**: The memory graph's Louvain clustering (also used in `@monoes/graph` for codebase analysis) groups semantically related memory entries into communities. Each community is identified by its centroid topic — the dominant theme of its member entries.
+**Community detection**: The memory graph's Louvain clustering (also used in `@monomind/graph` for codebase analysis) groups semantically related memory entries into communities. Each community is identified by its centroid topic — the dominant theme of its member entries.
 
 **Community summaries**: The `consolidate` background worker (RAPTOR's implementation) generates one summary per community. These summaries are stored as `contextual`-tier memory entries tagged with `community_id`.
 
@@ -35,7 +35,7 @@ This means the LLM gets both: the precise matching leaf entries (standard RAG) A
 
 **Statusline integration**: The `[ARCH]` row's "DDD ▰▰▱▱▱ 2/5 domains" display is computed from community detection over the codebase graph — each detected community corresponds to a domain boundary.
 
-## How It Improved Monobrain
+## How It Improved Monomind
 
 GraphRAG addressed the "forest for the trees" problem: when an agent asks "how does this codebase handle errors?", standard vector search returns the 5 most similar memory entries about errors — but these might all be about one specific error pattern, missing the broader picture. `getCommunitySummaries()` prepends the error-handling community summary, giving the agent the architectural overview before it dives into specifics.
 
@@ -43,8 +43,8 @@ The practical result: global architectural questions get qualitatively better an
 
 ## Key Files Influenced
 
-- `packages/@monobrain/memory/src/memory-graph.ts` — `getCommunitySummaries()` implementation
-- `packages/@monobrain/memory/src/memory-graph.ts` — Louvain community detection
-- `packages/@monobrain/cli/src/commands/hooks/consolidate-worker.ts` — community summary generation
+- `packages/@monomind/memory/src/memory-graph.ts` — `getCommunitySummaries()` implementation
+- `packages/@monomind/memory/src/memory-graph.ts` — Louvain community detection
+- `packages/@monomind/cli/src/commands/hooks/consolidate-worker.ts` — community summary generation
 - `.claude/helpers/statusline.cjs` — DDD domain coverage from community count
-- `packages/@monobrain/graph/src/` — codebase-level community detection (`@monoes/graph`)
+- `packages/@monomind/graph/src/` — codebase-level community detection (`@monomind/graph`)

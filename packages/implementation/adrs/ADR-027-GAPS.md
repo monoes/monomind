@@ -443,11 +443,11 @@ interface TeammateBridgeEvents {
 
 ---
 
-## 5. Missing Integration with Monobrain
+## 5. Missing Integration with Monomind
 
 ### 5.1 Memory System Bridge
 
-Need to bridge TeammateTool's session_memory with Monobrain's HNSW-indexed memory:
+Need to bridge TeammateTool's session_memory with Monomind's HNSW-indexed memory:
 
 ```typescript
 // NEED TO ADD
@@ -475,7 +475,7 @@ class MemoryBridge {
 Need hooks for TeammateTool events:
 
 ```typescript
-// NEED TO ADD to Monobrain hooks
+// NEED TO ADD to Monomind hooks
 const teammateHooks = {
   'teammate:pre-spawn': async (config: TeammateSpawnConfig) => { /* validate */ },
   'teammate:post-spawn': async (teammate: TeammateInfo) => { /* track */ },
@@ -488,7 +488,7 @@ const teammateHooks = {
 
 ### 5.3 Consensus Integration
 
-Bridge TeammateTool's approval with Monobrain's consensus:
+Bridge TeammateTool's approval with Monomind's consensus:
 
 ```typescript
 // NEED TO ADD
@@ -618,4 +618,4 @@ Current ADR-027 implementation: ~1,400 lines
 2. Prioritize Phase 1 implementation
 3. Create test cases for each feature
 4. Document all new MCP tools
-5. Add migration guide for existing Monobrain users
+5. Add migration guide for existing Monomind users

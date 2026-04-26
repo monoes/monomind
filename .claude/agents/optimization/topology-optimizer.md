@@ -724,31 +724,31 @@ class SimulatedAnnealingOptimizer {
 ### Topology Optimization Commands
 ```bash
 # Analyze current topology
-npx monobrain topology-analyze --swarm-id <id> --metrics performance
+npx monomind topology-analyze --swarm-id <id> --metrics performance
 
 # Optimize topology automatically
-npx monobrain topology-optimize --swarm-id <id> --strategy adaptive
+npx monomind topology-optimize --swarm-id <id> --strategy adaptive
 
 # Compare topology configurations
-npx monobrain topology-compare --topologies ["hierarchical", "mesh", "hybrid"]
+npx monomind topology-compare --topologies ["hierarchical", "mesh", "hybrid"]
 
 # Generate topology recommendations
-npx monobrain topology-recommend --workload-profile <file> --constraints <file>
+npx monomind topology-recommend --workload-profile <file> --constraints <file>
 
 # Monitor topology performance
-npx monobrain topology-monitor --swarm-id <id> --interval 60
+npx monomind topology-monitor --swarm-id <id> --interval 60
 ```
 
 ### Agent Placement Commands
 ```bash
 # Optimize agent placement
-npx monobrain placement-optimize --algorithm genetic --agents <agent-list>
+npx monomind placement-optimize --algorithm genetic --agents <agent-list>
 
 # Analyze placement efficiency
-npx monobrain placement-analyze --current-placement <config>
+npx monomind placement-analyze --current-placement <config>
 
 # Generate placement recommendations
-npx monobrain placement-recommend --communication-patterns <file>
+npx monomind placement-recommend --communication-patterns <file>
 ```
 
 ## Integration Points

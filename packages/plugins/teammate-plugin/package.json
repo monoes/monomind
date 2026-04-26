@@ -1,7 +1,7 @@
 {
-  "name": "@monobrain/teammate-plugin",
+  "name": "@monomind/teammate-plugin",
   "version": "1.0.0-alpha.1",
-  "description": "Native TeammateTool integration plugin for Monobrain - bridges Claude Code v2.1.19+ multi-agent capabilities",
+  "description": "Native TeammateTool integration plugin for Monomind - bridges Claude Code v2.1.19+ multi-agent capabilities",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -43,7 +43,7 @@
   "keywords": [
     "claude",
     "claude-code",
-    "monobrain",
+    "monomind",
     "teammate",
     "multi-agent",
     "swarm",
@@ -54,13 +54,13 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monobrain.git",
+    "url": "https://github.com/nokhodian/monomind.git",
     "directory": "packages/plugins/teammate-plugin"
   },
   "bugs": {
-    "url": "https://github.com/nokhodian/monobrain/issues"
+    "url": "https://github.com/nokhodian/monomind/issues"
   },
-  "homepage": "https://github.com/nokhodian/monobrain#readme",
+  "homepage": "https://github.com/nokhodian/monomind#readme",
   "engines": {
     "node": ">=18.0.0"
   },

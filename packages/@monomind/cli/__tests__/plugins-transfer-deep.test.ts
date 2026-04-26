@@ -113,7 +113,7 @@ describe('PluginManager', () => {
   });
 
   it('should return correct plugins dir and manifest path', () => {
-    expect(manager.getPluginsDir()).toContain('.monobrain/plugins');
+    expect(manager.getPluginsDir()).toContain('.monomind/plugins');
     expect(manager.getManifestPath()).toContain('installed.json');
   });
 
@@ -179,7 +179,7 @@ describe('Plugin Store Types', () => {
       ratingCount: 10,
       lastUpdated: new Date().toISOString(),
       createdAt: new Date().toISOString(),
-      minMonobrainVersion: '3.0.0',
+      minMonomindVersion: '3.0.0',
       dependencies: [],
       type: 'integration',
       hooks: [],
@@ -249,7 +249,7 @@ function createMockPluginRegistry(): PluginRegistry {
     ratingCount: 10,
     lastUpdated: '2026-01-01T00:00:00Z',
     createdAt: '2026-01-01T00:00:00Z',
-    minMonobrainVersion: '3.0.0',
+    minMonomindVersion: '3.0.0',
     dependencies: [],
     type: 'integration',
     hooks: [],
@@ -869,54 +869,54 @@ describe('IPFS Upload Helpers', () => {
 // 9. Config Adapter
 // ============================================================================
 
-import { systemConfigToMonobrainConfig, configToSystemConfig } from '../src/config-adapter.js';
+import { systemConfigToMonomindConfig, configToSystemConfig } from '../src/config-adapter.js';
 
 describe('Config Adapter', () => {
-  it('should convert minimal SystemConfig to MonobrainConfig', () => {
-    const v1 = systemConfigToMonobrainConfig({} as any);
+  it('should convert minimal SystemConfig to MonomindConfig', () => {
+    const v1 = systemConfigToMonomindConfig({} as any);
     expect(v1.version).toBe('3.0.0');
     expect(v1.swarm.topology).toBe('hierarchical');
     expect(v1.memory.backend).toBe('hybrid');
   });
 
   it('should normalize topology adaptive -> hybrid', () => {
-    const v1 = systemConfigToMonobrainConfig({ swarm: { topology: 'adaptive' } } as any);
+    const v1 = systemConfigToMonomindConfig({ swarm: { topology: 'adaptive' } } as any);
     expect(v1.swarm.topology).toBe('hybrid');
   });
 
   it('should handle hierarchical-mesh topology', () => {
-    const v1 = systemConfigToMonobrainConfig({ swarm: { topology: 'hierarchical-mesh' } } as any);
+    const v1 = systemConfigToMonomindConfig({ swarm: { topology: 'hierarchical-mesh' } } as any);
     expect(v1.swarm.topology).toBe('hierarchical-mesh');
   });
 
   it('should normalize memory backend redis -> memory', () => {
-    const v1 = systemConfigToMonobrainConfig({ memory: { type: 'redis' } } as any);
+    const v1 = systemConfigToMonomindConfig({ memory: { type: 'redis' } } as any);
     expect(v1.memory.backend).toBe('memory');
   });
 
-  it('should convert MonobrainConfig back to SystemConfig', () => {
-    const v1 = systemConfigToMonobrainConfig({} as any);
+  it('should convert MonomindConfig back to SystemConfig', () => {
+    const v1 = systemConfigToMonomindConfig({} as any);
     const sys = configToSystemConfig(v1);
     expect(sys.swarm?.topology).toBe('hierarchical');
-    expect(sys.mcp?.name).toBe('monobrain');
+    expect(sys.mcp?.name).toBe('monomind');
   });
 
   it('should denormalize hybrid topology to hierarchical-mesh', () => {
-    const v1 = systemConfigToMonobrainConfig({ swarm: { topology: 'adaptive' } } as any);
+    const v1 = systemConfigToMonomindConfig({ swarm: { topology: 'adaptive' } } as any);
     expect(v1.swarm.topology).toBe('hybrid');
     const sys = configToSystemConfig(v1);
     expect(sys.swarm?.topology).toBe('hierarchical-mesh');
   });
 
   it('should preserve maxAgents in round trip', () => {
-    const v1 = systemConfigToMonobrainConfig({ swarm: { maxAgents: 12 } } as any);
+    const v1 = systemConfigToMonomindConfig({ swarm: { maxAgents: 12 } } as any);
     expect(v1.swarm.maxAgents).toBe(12);
     const sys = configToSystemConfig(v1);
     expect(sys.swarm?.maxAgents).toBe(12);
   });
 
   it('should set HNSW from agentdb config', () => {
-    const v1 = systemConfigToMonobrainConfig({
+    const v1 = systemConfigToMonomindConfig({
       memory: { agentdb: { indexType: 'hnsw', dimensions: 384 } },
     } as any);
     expect(v1.memory.enableHNSW).toBe(true);
@@ -924,7 +924,7 @@ describe('Config Adapter', () => {
   });
 
   it('should preserve MCP port in round trip', () => {
-    const v1 = systemConfigToMonobrainConfig({
+    const v1 = systemConfigToMonomindConfig({
       mcp: { transport: { port: 4000 } },
     } as any);
     expect(v1.mcp.serverPort).toBe(4000);
@@ -1408,14 +1408,14 @@ import { validateUpdate, validateBulkUpdate } from '../src/update/validator.js';
 describe('Update Validator', () => {
   it('should validate compatible update', () => {
     const result = validateUpdate(
-      '@monobrain/cli', '3.0.0-alpha.50', '3.0.0-alpha.55', {}
+      '@monomind/cli', '3.0.0-alpha.50', '3.0.0-alpha.55', {}
     );
     expect(result.valid).toBe(true);
   });
 
   it('should warn about major version bumps', () => {
     const result = validateUpdate(
-      '@monobrain/cli', '2.0.0', '3.0.0', {}
+      '@monomind/cli', '2.0.0', '3.0.0', {}
     );
     expect(result.warnings.length).toBeGreaterThan(0);
     expect(result.warnings.some(w => w.includes('Major version'))).toBe(true);
@@ -1423,8 +1423,8 @@ describe('Update Validator', () => {
 
   it('should detect incompatible peer dependency', () => {
     const result = validateUpdate(
-      '@monobrain/cli', '3.0.0-alpha.50', '3.0.0-alpha.55',
-      { '@monobrain/embeddings': '2.0.0' }
+      '@monomind/cli', '3.0.0-alpha.50', '3.0.0-alpha.55',
+      { '@monomind/embeddings': '2.0.0' }
     );
     // CLI requires embeddings >= 3.0.0-alpha.1
     expect(result.valid).toBe(false);
@@ -1439,10 +1439,10 @@ describe('Update Validator', () => {
   it('validateBulkUpdate checks all updates', () => {
     const result = validateBulkUpdate(
       [
-        { package: '@monobrain/cli', from: '3.0.0-alpha.50', to: '3.0.0-alpha.55' },
-        { package: '@monobrain/embeddings', from: '3.0.0-alpha.1', to: '3.0.0-alpha.5' },
+        { package: '@monomind/cli', from: '3.0.0-alpha.50', to: '3.0.0-alpha.55' },
+        { package: '@monomind/embeddings', from: '3.0.0-alpha.1', to: '3.0.0-alpha.5' },
       ],
-      { '@monobrain/cli': '3.0.0-alpha.50', '@monobrain/embeddings': '3.0.0-alpha.1' }
+      { '@monomind/cli': '3.0.0-alpha.50', '@monomind/embeddings': '3.0.0-alpha.1' }
     );
     expect(result.valid).toBe(true);
   });
@@ -1466,30 +1466,30 @@ describe('Update Rate Limiter', () => {
 
   it('should block when auto-update disabled', () => {
     const origCI = process.env.CI;
-    const origAutoUpdate = process.env.MONOBRAIN_AUTO_UPDATE;
+    const origAutoUpdate = process.env.MONOMIND_AUTO_UPDATE;
     delete process.env.CI;
     delete process.env.CONTINUOUS_INTEGRATION;
-    process.env.MONOBRAIN_AUTO_UPDATE = 'false';
+    process.env.MONOMIND_AUTO_UPDATE = 'false';
     const result = shouldCheckForUpdates();
     expect(result.allowed).toBe(false);
     expect(result.reason).toContain('disabled');
     if (origCI) process.env.CI = origCI;
-    if (origAutoUpdate) process.env.MONOBRAIN_AUTO_UPDATE = origAutoUpdate;
-    else delete process.env.MONOBRAIN_AUTO_UPDATE;
+    if (origAutoUpdate) process.env.MONOMIND_AUTO_UPDATE = origAutoUpdate;
+    else delete process.env.MONOMIND_AUTO_UPDATE;
   });
 
   it('should allow when force update requested', () => {
     const origCI = process.env.CI;
-    const origForce = process.env.MONOBRAIN_FORCE_UPDATE;
+    const origForce = process.env.MONOMIND_FORCE_UPDATE;
     delete process.env.CI;
     delete process.env.CONTINUOUS_INTEGRATION;
-    delete process.env.MONOBRAIN_AUTO_UPDATE;
-    process.env.MONOBRAIN_FORCE_UPDATE = 'true';
+    delete process.env.MONOMIND_AUTO_UPDATE;
+    process.env.MONOMIND_FORCE_UPDATE = 'true';
     const result = shouldCheckForUpdates();
     expect(result.allowed).toBe(true);
     if (origCI) process.env.CI = origCI;
-    if (origForce) process.env.MONOBRAIN_FORCE_UPDATE = origForce;
-    else delete process.env.MONOBRAIN_FORCE_UPDATE;
+    if (origForce) process.env.MONOMIND_FORCE_UPDATE = origForce;
+    else delete process.env.MONOMIND_FORCE_UPDATE;
   });
 });
 
@@ -1676,7 +1676,7 @@ function createMockPatternRegistry(): TPatternRegistry {
     ratingCount: 5,
     lastUpdated: '2026-01-01T00:00:00Z',
     createdAt: '2026-01-01T00:00:00Z',
-    minMonobrainVersion: '3.0.0',
+    minMonomindVersion: '3.0.0',
     verified: true,
     trustLevel: 'official',
     ...overrides,
@@ -1806,7 +1806,7 @@ describe('Transfer Store Registry', () => {
       ratingCount: 0,
       lastUpdated: new Date().toISOString(),
       createdAt: new Date().toISOString(),
-      minMonobrainVersion: '3.0.0',
+      minMonomindVersion: '3.0.0',
       verified: false,
       trustLevel: 'community',
     };
@@ -1835,7 +1835,7 @@ describe('Transfer Store Registry', () => {
       ratingCount: 0,
       lastUpdated: new Date().toISOString(),
       createdAt: new Date().toISOString(),
-      minMonobrainVersion: '3.0.0',
+      minMonomindVersion: '3.0.0',
       verified: false,
       trustLevel: 'community',
     };
@@ -1880,7 +1880,7 @@ describe('Transfer Store Registry', () => {
       ratingCount: 0,
       lastUpdated: new Date().toISOString(),
       createdAt: new Date().toISOString(),
-      minMonobrainVersion: '3.0.0',
+      minMonomindVersion: '3.0.0',
       verified: false,
       trustLevel: 'community',
     };

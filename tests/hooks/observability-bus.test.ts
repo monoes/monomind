@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { ObservabilityBus } from '../../packages/@monobrain/hooks/src/observability/bus.js';
-import type { ObservabilityEvent } from '../../packages/@monobrain/hooks/src/observability/bus.js';
+import { ObservabilityBus } from '../../packages/@monomind/hooks/src/observability/bus.js';
+import type { ObservabilityEvent } from '../../packages/@monomind/hooks/src/observability/bus.js';
 
 describe('ObservabilityBus', () => {
   it('delivers event to all subscribers', async () => {

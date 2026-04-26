@@ -34,9 +34,9 @@ const statusCommand: Command = {
 
     const components: ComponentStatus[] = [];
 
-    // Check v2 config: monobrain.config.json with version "2" or missing version
-    const v2ConfigPath = path.join(cwd, 'monobrain.config.json');
-    const v1ConfigDir = path.join(cwd, '.monobrain');
+    // Check v2 config: monomind.config.json with version "2" or missing version
+    const v2ConfigPath = path.join(cwd, 'monomind.config.json');
+    const v1ConfigDir = path.join(cwd, '.monomind');
     let hasV2Config = false;
     let hasv1Config = false;
 
@@ -101,7 +101,7 @@ const statusCommand: Command = {
     }
 
     // Check migration state
-    const migrationStatePath = path.join(cwd, '.monobrain', 'migration-state.json');
+    const migrationStatePath = path.join(cwd, '.monomind', 'migration-state.json');
     let migrationState: string | null = null;
     try {
       if (fs.existsSync(migrationStatePath)) {
@@ -142,7 +142,7 @@ const statusCommand: Command = {
     const needsMigration = components.some(c => c.migrationNeeded === 'yes');
     output.writeln();
     if (needsMigration) {
-      output.printInfo('V2 artifacts detected. Run "monobrain migrate run" to migrate.');
+      output.printInfo('V2 artifacts detected. Run "monomind migrate run" to migrate.');
     } else {
       output.printSuccess('No migration needed.');
     }
@@ -188,7 +188,7 @@ const runCommand: Command = {
     const dryRun = ctx.flags['dry-run'] === true;
     const skipBackup = ctx.flags.backup === false;
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const v1Dir = path.join(cwd, '.monobrain');
+    const v1Dir = path.join(cwd, '.monomind');
     const backupDir = path.join(v1Dir, 'backup', `v2-${timestamp}`);
     const migrationStatePath = path.join(v1Dir, 'migration-state.json');
 
@@ -202,7 +202,7 @@ const runCommand: Command = {
     }
     output.writeln();
 
-    // Ensure .monobrain directory exists
+    // Ensure .monomind directory exists
     if (!dryRun) {
       fs.mkdirSync(v1Dir, { recursive: true });
     }
@@ -214,7 +214,7 @@ const runCommand: Command = {
     }
 
     // --- Config migration ---
-    const v2ConfigPath = path.join(cwd, 'monobrain.config.json');
+    const v2ConfigPath = path.join(cwd, 'monomind.config.json');
     try {
       if (fs.existsSync(v2ConfigPath)) {
         const raw = fs.readFileSync(v2ConfigPath, 'utf-8');
@@ -225,7 +225,7 @@ const runCommand: Command = {
           } else {
             // Backup
             if (!skipBackup) {
-              fs.copyFileSync(v2ConfigPath, path.join(backupDir, 'monobrain.config.json'));
+              fs.copyFileSync(v2ConfigPath, path.join(backupDir, 'monomind.config.json'));
             }
             // Transform to v1 format
             const v1Config: Record<string, unknown> = { ...parsed, version: '3' };
@@ -287,7 +287,7 @@ const runCommand: Command = {
               }
             }
             output.printSuccess(`Memory files backed up (${jsonFiles.length} JSON, ${hasDb ? '1 DB' : '0 DB'}).`);
-            output.printInfo('Run "monobrain memory init --force" to import v2 memory into v1 AgentDB.');
+            output.printInfo('Run "monomind memory init --force" to import v2 memory into v1 AgentDB.');
           }
           migrated.push('memory');
         } else {
@@ -370,7 +370,7 @@ const runCommand: Command = {
       output.printInfo(`Dry run complete. ${migrated.length} component(s) would be migrated.`);
     } else if (migrated.length > 0) {
       output.printSuccess(`Migration complete. ${migrated.length} component(s) migrated: ${migrated.join(', ')}`);
-      output.printInfo('Run "monobrain migrate verify" to validate the migration.');
+      output.printInfo('Run "monomind migrate verify" to validate the migration.');
     } else {
       output.printInfo('Nothing to migrate.');
     }
@@ -393,7 +393,7 @@ const verifyCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const cwd = ctx.cwd || process.cwd();
-    const v1Dir = path.join(cwd, '.monobrain');
+    const v1Dir = path.join(cwd, '.monomind');
     const migrationStatePath = path.join(v1Dir, 'migration-state.json');
 
     interface CheckResult {
@@ -510,7 +510,7 @@ const verifyCommand: Command = {
       output.printSuccess('All verification checks passed.');
     } else {
       output.printError('Some verification checks failed.');
-      output.printInfo('Run "monobrain migrate run" to re-run the migration, or "migrate rollback" to restore from backup.');
+      output.printInfo('Run "monomind migrate run" to re-run the migration, or "migrate rollback" to restore from backup.');
     }
 
     return { success: allPassed, data: { checks, allPassed }, exitCode: allPassed ? 0 : 1 };
@@ -537,7 +537,7 @@ const rollbackCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const cwd = ctx.cwd || process.cwd();
-    const v1Dir = path.join(cwd, '.monobrain');
+    const v1Dir = path.join(cwd, '.monomind');
     const migrationStatePath = path.join(v1Dir, 'migration-state.json');
 
     output.writeln();
@@ -573,9 +573,9 @@ const rollbackCommand: Command = {
 
     try {
       // Restore config
-      const backupConfig = path.join(backupPath, 'monobrain.config.json');
+      const backupConfig = path.join(backupPath, 'monomind.config.json');
       if (fs.existsSync(backupConfig)) {
-        const destConfig = path.join(cwd, 'monobrain.config.json');
+        const destConfig = path.join(cwd, 'monomind.config.json');
         fs.copyFileSync(backupConfig, destConfig);
         // Remove v1 config
         const v1Config = path.join(v1Dir, 'config.json');
@@ -643,7 +643,7 @@ const breakingCommand: Command = {
       {
         category: 'Configuration',
         changes: [
-          { change: 'Config file renamed', from: 'monobrain.json', to: 'monobrain.config.json' },
+          { change: 'Config file renamed', from: 'monomind.json', to: 'monomind.config.json' },
           { change: 'Swarm config restructured', from: 'swarm.mode', to: 'swarm.topology' },
           { change: 'Provider config format', from: 'provider: "anthropic"', to: 'providers: [...]' }
         ]
@@ -653,7 +653,7 @@ const breakingCommand: Command = {
         changes: [
           { change: 'Backend option changed', from: 'memory: { type }', to: 'memory: { backend }' },
           { change: 'HNSW enabled by default', from: 'Manual opt-in', to: 'Auto-enabled' },
-          { change: 'Storage path changed', from: '.monobrain/memory', to: 'data/memory' }
+          { change: 'Storage path changed', from: '.monomind/memory', to: 'data/memory' }
         ]
       },
       {
@@ -706,7 +706,7 @@ const breakingCommand: Command = {
       output.writeln();
     }
 
-    output.printInfo('Run "monobrain migrate run" to automatically handle these changes');
+    output.printInfo('Run "monomind migrate run" to automatically handle these changes');
 
     return { success: true, data: changes };
   }
@@ -719,15 +719,15 @@ export const migrateCommand: Command = {
   subcommands: [statusCommand, runCommand, verifyCommand, rollbackCommand, breakingCommand],
   options: [],
   examples: [
-    { command: 'monobrain migrate status', description: 'Check migration status' },
-    { command: 'monobrain migrate run --dry-run', description: 'Preview migration' },
-    { command: 'monobrain migrate run -t all', description: 'Run full migration' }
+    { command: 'monomind migrate status', description: 'Check migration status' },
+    { command: 'monomind migrate run --dry-run', description: 'Preview migration' },
+    { command: 'monomind migrate run -t all', description: 'Run full migration' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold('V2 to v1 Migration Tools'));
     output.writeln();
-    output.writeln('Usage: monobrain migrate <subcommand> [options]');
+    output.writeln('Usage: monomind migrate <subcommand> [options]');
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
@@ -767,12 +767,12 @@ function formatMigrationStatus(status: string): string {
 
 function getMigrationSteps(target: string): Array<{ name: string; description: string; source: string; dest: string }> {
   const allSteps = [
-    { name: 'Configuration Files', description: 'Migrate config schema to v1 format', source: './monobrain.json', dest: './monobrain.config.json' },
-    { name: 'Memory Backend', description: 'Upgrade to hybrid backend with AgentDB', source: './.monobrain/memory', dest: './data/memory' },
-    { name: 'Agent Definitions', description: 'Convert agent configs to v1 format', source: './.monobrain/agents', dest: './packages/agents' },
+    { name: 'Configuration Files', description: 'Migrate config schema to v1 format', source: './monomind.json', dest: './monomind.config.json' },
+    { name: 'Memory Backend', description: 'Upgrade to hybrid backend with AgentDB', source: './.monomind/memory', dest: './data/memory' },
+    { name: 'Agent Definitions', description: 'Convert agent configs to v1 format', source: './.monomind/agents', dest: './packages/agents' },
     { name: 'Hook Registry', description: 'Migrate hooks to v1 hook system', source: './src/hooks', dest: './packages/hooks' },
-    { name: 'Workflow Definitions', description: 'Convert workflows to event-sourced format', source: './.monobrain/workflows', dest: './data/workflows' },
-    { name: 'Embeddings System', description: 'Migrate to ONNX with hyperbolic (Poincaré ball)', source: 'OpenAI/TF.js embeddings', dest: '.monobrain/embeddings.json' }
+    { name: 'Workflow Definitions', description: 'Convert workflows to event-sourced format', source: './.monomind/workflows', dest: './data/workflows' },
+    { name: 'Embeddings System', description: 'Migrate to ONNX with hyperbolic (Poincaré ball)', source: 'OpenAI/TF.js embeddings', dest: '.monomind/embeddings.json' }
   ];
 
   if (target === 'all') return allSteps;

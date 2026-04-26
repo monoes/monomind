@@ -294,7 +294,7 @@ export class PatternDiscovery {
     try {
       const { hasGCSCredentials, downloadFromGCS } = await import('../storage/gcs.js');
       if (hasGCSCredentials()) {
-        const gcsUri = `gs://monobrain-patterns/registry/${cid}.json`;
+        const gcsUri = `gs://monomind-patterns/registry/${cid}.json`;
         console.log(`[Discovery] Trying GCS: ${gcsUri}`);
         const buffer = await downloadFromGCS(gcsUri);
         if (buffer) {
@@ -327,14 +327,14 @@ export class PatternDiscovery {
           id: 'seraphine-genesis-v1',
           name: 'seraphine-genesis',
           displayName: 'Seraphine Genesis',
-          description: 'The foundational Monobrain pattern model. Contains core routing patterns, complexity heuristics, and coordination trajectories for multi-agent swarms.',
+          description: 'The foundational Monomind pattern model. Contains core routing patterns, complexity heuristics, and coordination trajectories for multi-agent swarms.',
           version: '1.0.0',
           cid: 'bafybeibqsa442vty2cvhku4ujlrkupyl75536ene7ybqsa442v',
           size: 8808,
           checksum: '8df766b89d044815c84796e7f33ba30d7806bff7eb2a75e2a0b7d26b64c45231',
           author: {
-            id: 'monobrain-team',
-            displayName: 'Monobrain Team',
+            id: 'monomind-team',
+            displayName: 'Monomind Team',
             verified: true,
             patterns: 1,
             totalDownloads: 1000,
@@ -343,17 +343,17 @@ export class PatternDiscovery {
           categories: ['routing', 'coordination'],
           tags: ['genesis', 'foundational', 'routing', 'swarm', 'coordination', 'multi-agent', 'hello-world'],
           language: 'typescript',
-          framework: 'monobrain',
+          framework: 'monomind',
           downloads: 1000,
           rating: 5.0,
           ratingCount: 42,
           lastUpdated: new Date().toISOString(),
           createdAt: '2026-01-08T18:42:31.126Z',
-          minMonobrainVersion: '3.0.0',
+          minMonomindVersion: '3.0.0',
           verified: true,
           trustLevel: 'verified',
           signature: 'ed25519:genesis-pattern-signature',
-          publicKey: 'ed25519:monobrain-team-key',
+          publicKey: 'ed25519:monomind-team-key',
         },
       ],
 
@@ -367,9 +367,9 @@ export class PatternDiscovery {
 
       authors: [
         {
-          id: 'monobrain-team',
-          displayName: 'Monobrain Team',
-          publicKey: 'ed25519:monobrain-team-key',
+          id: 'monomind-team',
+          displayName: 'Monomind Team',
+          publicKey: 'ed25519:monomind-team-key',
           verified: true,
           patterns: 1,
           totalDownloads: 1000,
@@ -385,7 +385,7 @@ export class PatternDiscovery {
       newest: ['seraphine-genesis-v1'],
 
       registrySignature: crypto.randomBytes(32).toString('hex'),
-      registryPublicKey: 'ed25519:monobrain-registry-key',
+      registryPublicKey: 'ed25519:monomind-registry-key',
     };
   }
 

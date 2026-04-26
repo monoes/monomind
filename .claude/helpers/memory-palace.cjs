@@ -1,6 +1,6 @@
 'use strict';
 /**
- * memory-palace.cjs — MemPalace-inspired cross-session memory for Monobrain
+ * memory-palace.cjs — MemPalace-inspired cross-session memory for Monomind
  *
  * Architecture (Wing → Room → Hall namespace hierarchy):
  *   Drawers   verbatim 800-char chunks with 100-char overlap  → drawers.jsonl
@@ -31,7 +31,7 @@ const BM25_B      = 0.75;  // length normalisation
 
 // ── filesystem helpers ────────────────────────────────────────────────────────
 function palaceDir(cwd) {
-  return path.join(cwd, '.monobrain', 'palace');
+  return path.join(cwd, '.monomind', 'palace');
 }
 
 function ensureDir(dir) {
@@ -375,9 +375,9 @@ function wakeUp(cwd) {
       if (top.length > 0) {
         lines.push('[MEMORY_PALACE_L1] Essential story (' + top.length + ' drawer' + (top.length !== 1 ? 's' : '') + '):');
         top.forEach(function(d) {
-          var ns      = d.wing + '/' + d.room + (d.hall ? '/' + d.hall : '');
+          var ns      = (d.wing || '?') + '/' + (d.room || '?') + (d.hall ? '/' + d.hall : '');
           var dateStr = d.ts ? d.ts.slice(0, 10) : '?';
-          var snippet = d.content.slice(0, 300).replace(/\n/g, ' ');
+          var snippet = (d.content || '').slice(0, 300).replace(/\n/g, ' ');
           lines.push('[' + ns + ' ' + dateStr + '] ' + snippet);
         });
       }

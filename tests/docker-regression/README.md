@@ -1,6 +1,6 @@
-# Monobrain Deep Regression Test Suite
+# Monomind Deep Regression Test Suite
 
-Comprehensive Docker-based test suite for verifying all Monobrain capabilities.
+Comprehensive Docker-based test suite for verifying all Monomind capabilities.
 
 ## Quick Start
 
@@ -109,10 +109,10 @@ bash scripts/run-all-tests.sh
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `TEST_REPORT_PATH` | `/app/reports` | Report output directory |
-| `MONOBRAIN_MODE` | `test` | Operating mode |
-| `MONOBRAIN_MEMORY_PATH` | `/app/data` | Memory storage path |
-| `MONOBRAIN_LOG_LEVEL` | `debug` | Log verbosity |
-| `MONOBRAIN_MAX_AGENTS` | `15` | Max concurrent agents |
+| `MONOMIND_MODE` | `test` | Operating mode |
+| `MONOMIND_MEMORY_PATH` | `/app/data` | Memory storage path |
+| `MONOMIND_LOG_LEVEL` | `debug` | Log verbosity |
+| `MONOMIND_MAX_AGENTS` | `15` | Max concurrent agents |
 | `MCP_SERVER_HOST` | `mcp-server` | MCP server hostname |
 | `MCP_SERVER_PORT` | `3000` | MCP server port |
 
@@ -165,11 +165,11 @@ regression-tests:
 
 | Package | Tests | Pass Rate |
 |---------|-------|-----------|
-| @monobrain/hooks | 112 | 100% |
-| @monobrain/plugins | 142 | 100% |
-| @monobrain/security | 47 | 100% |
-| @monobrain/swarm | 89 | 100% |
-| @monobrain/cli | 34 | 100% |
+| @monomind/hooks | 112 | 100% |
+| @monomind/plugins | 142 | 100% |
+| @monomind/security | 47 | 100% |
+| @monomind/swarm | 89 | 100% |
+| @monomind/cli | 34 | 100% |
 
 ### Feature Coverage
 
@@ -230,4 +230,4 @@ docker-compose up unit-tests
 
 ## License
 
-MIT - Part of Monobrain
+MIT - Part of Monomind

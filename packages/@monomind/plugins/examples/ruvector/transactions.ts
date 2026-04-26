@@ -9,7 +9,7 @@
  *
  * Run with: npx ts-node examples/ruvector/transactions.ts
  *
- * @module @monobrain/plugins/examples/ruvector/transactions
+ * @module @monomind/plugins/examples/ruvector/transactions
  */
 
 import {

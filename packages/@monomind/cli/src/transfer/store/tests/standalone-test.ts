@@ -25,7 +25,7 @@ import {
 async function main() {
   console.log('');
   console.log('╔══════════════════════════════════════════════════════════════╗');
-  console.log('║  MONOBRAIN - STANDALONE PATTERN STORE TEST                   ║');
+  console.log('║  MONOMIND - STANDALONE PATTERN STORE TEST                   ║');
   console.log('║  IPFS-Based Decentralized Pattern Marketplace                ║');
   console.log('╚══════════════════════════════════════════════════════════════╝');
   console.log('');
@@ -191,10 +191,10 @@ async function main() {
     console.log('  🎉 All tests passed! Pattern Store is working correctly.');
     console.log('');
     console.log('  Available CLI Commands:');
-    console.log('    npx @monobrain/cli patterns list');
-    console.log('    npx @monobrain/cli patterns list --featured');
-    console.log('    npx @monobrain/cli patterns search -q "agent"');
-    console.log('    npx @monobrain/cli patterns info -n <pattern-id>');
+    console.log('    npx @monomind/cli patterns list');
+    console.log('    npx @monomind/cli patterns list --featured');
+    console.log('    npx @monomind/cli patterns search -q "agent"');
+    console.log('    npx @monomind/cli patterns info -n <pattern-id>');
     console.log('');
   }
 

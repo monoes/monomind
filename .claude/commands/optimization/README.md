@@ -1,6 +1,6 @@
 # Optimization Commands
 
-Commands for optimization operations in Monobrain.
+Commands for optimization operations in Monomind.
 
 ## Available Commands
 

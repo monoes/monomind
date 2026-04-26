@@ -1,5 +1,5 @@
 /**
- * @monobrain/performance - Flash Attention Integration
+ * @monomind/performance - Flash Attention Integration
  *
  * Integrates @ruvector/attention Flash Attention capabilities into V1 performance module.
  * Provides optimized attention mechanisms with 2.49x-7.47x speedup targets.

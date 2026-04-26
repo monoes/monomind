@@ -1,6 +1,6 @@
 /**
  * V1 Types - Public API
- * Modernized type system for monobrain v1
+ * Modernized type system for monomind v1
  */
 
 // Agent types

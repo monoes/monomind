@@ -7,7 +7,7 @@ Creative problem solving with WebSearch and Memory integration.
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "innovator",
   task_description: "innovative solutions for scaling",
   options: {
@@ -20,16 +20,16 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run innovator "innovative solutions for scaling"
+npx monomind sparc run innovator "innovative solutions for scaling"
 
 # For alpha features
-npx monobrain@alpha sparc run innovator "innovative solutions for scaling"
+npx monomind@alpha sparc run innovator "innovative solutions for scaling"
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run innovator "innovative solutions for scaling"
+# If monomind is installed locally
+./monomind sparc run innovator "innovative solutions for scaling"
 ```
 
 ## Core Capabilities

@@ -81,16 +81,16 @@ Interactive prompts (`select`, `confirm`, `input`, `multiSelect`) are mocked to 
 
 ```bash
 # Run all CLI tests
-npm test -- packages/@monobrain/cli/__tests__/
+npm test -- packages/@monomind/cli/__tests__/
 
 # Run specific test file
-npm test -- packages/@monobrain/cli/__tests__/cli.test.ts
+npm test -- packages/@monomind/cli/__tests__/cli.test.ts
 
 # Run with coverage
-npm test -- packages/@monobrain/cli/__tests__/ --coverage
+npm test -- packages/@monomind/cli/__tests__/ --coverage
 
 # Run in watch mode
-npm test -- packages/@monobrain/cli/__tests__/ --watch
+npm test -- packages/@monomind/cli/__tests__/ --watch
 ```
 
 ## Test Coverage Goals

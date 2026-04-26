@@ -1,6 +1,6 @@
 # Agents Commands
 
-Commands for agents operations in Monobrain.
+Commands for agents operations in Monomind.
 
 ## Available Commands
 

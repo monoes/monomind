@@ -1,5 +1,5 @@
 /**
- * @monobrain/browser - MCP Tools Index
+ * @monomind/browser - MCP Tools Index
  */
 
 export { browserTools, type MCPTool } from './browser-tools.js';

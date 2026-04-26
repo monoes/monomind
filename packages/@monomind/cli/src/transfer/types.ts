@@ -157,7 +157,7 @@ export interface IPFSMetadata {
 }
 
 /**
- * Monobrain Pattern (CFP) format
+ * Monomind Pattern (CFP) format
  */
 export interface CFPFormat {
   // Magic bytes

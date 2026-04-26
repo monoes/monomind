@@ -4,7 +4,7 @@ Generate comprehensive performance reports for swarm operations.
 
 ## Usage
 ```bash
-npx monobrain analysis performance-report [options]
+npx monomind analysis performance-report [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain analysis performance-report [options]
 ## Examples
 ```bash
 # Generate HTML report
-npx monobrain analysis performance-report --format html
+npx monomind analysis performance-report --format html
 
 # Compare swarms
-npx monobrain analysis performance-report --compare swarm-123
+npx monomind analysis performance-report --compare swarm-123
 
 # Full metrics report
-npx monobrain analysis performance-report --include-metrics --format markdown
+npx monomind analysis performance-report --include-metrics --format markdown
 ```

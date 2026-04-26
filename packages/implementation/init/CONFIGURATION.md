@@ -34,7 +34,7 @@ interface InitComponents {
   helpers: boolean;     // .claude/helpers/
   statusline: boolean;  // statusline scripts
   mcp: boolean;         // .mcp.json
-  runtime: boolean;     // .monobrain/
+  runtime: boolean;     // .monomind/
 }
 ```
 
@@ -136,7 +136,7 @@ interface AgentsConfig {
 
 ```typescript
 interface MCPConfig {
-  monobrain: boolean;    // monobrain MCP server
+  monomind: boolean;    // monomind MCP server
   agenticFlow: boolean;   // agentic-flow integration
   memory: boolean;        // Memory MCP tools
   neural: boolean;        // Neural MCP tools
@@ -148,11 +148,11 @@ interface MCPConfig {
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MONOBRAIN_MODE` | `v1` | Operation mode |
-| `MONOBRAIN_HOOKS_ENABLED` | `true` | Enable hooks |
-| `MONOBRAIN_TOPOLOGY` | `hierarchical-mesh` | Swarm topology |
-| `MONOBRAIN_MAX_AGENTS` | `15` | Maximum agents |
-| `MONOBRAIN_MEMORY_BACKEND` | `hybrid` | Memory backend |
+| `MONOMIND_MODE` | `v1` | Operation mode |
+| `MONOMIND_HOOKS_ENABLED` | `true` | Enable hooks |
+| `MONOMIND_TOPOLOGY` | `hierarchical-mesh` | Swarm topology |
+| `MONOMIND_MAX_AGENTS` | `15` | Maximum agents |
+| `MONOMIND_MEMORY_BACKEND` | `hybrid` | Memory backend |
 
 ## Runtime Configuration
 

@@ -2,7 +2,7 @@
  * CLI Claims Command
  * Claims-based authorization, permissions, and access control
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -15,8 +15,8 @@ interface ClaimsConfig {
 }
 
 const CLAIMS_CONFIG_PATHS = [
-  '.monobrain/claims.json',
-  'monobrain.claims.json',
+  '.monomind/claims.json',
+  'monomind.claims.json',
 ];
 
 function getClaimsConfigPaths(): string[] {
@@ -26,7 +26,7 @@ function getClaimsConfigPaths(): string[] {
   return [
     path.resolve(CLAIMS_CONFIG_PATHS[0]),
     path.resolve(CLAIMS_CONFIG_PATHS[1]),
-    path.resolve(process.env.HOME || '~', '.config/monobrain/claims.json'),
+    path.resolve(process.env.HOME || '~', '.config/monomind/claims.json'),
   ];
 }
 
@@ -78,8 +78,8 @@ const listCommand: Command = {
     { name: 'resource', type: 'string', description: 'Filter by resource' },
   ],
   examples: [
-    { command: 'monobrain claims list', description: 'List all claims' },
-    { command: 'monobrain claims list -u user123', description: 'List user claims' },
+    { command: 'monomind claims list', description: 'List all claims' },
+    { command: 'monomind claims list -u user123', description: 'List user claims' },
   ],
   action: async (_ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -162,8 +162,8 @@ const checkCommand: Command = {
     { name: 'resource', short: 'r', type: 'string', description: 'Resource context' },
   ],
   examples: [
-    { command: 'monobrain claims check -c swarm:create', description: 'Check swarm creation permission' },
-    { command: 'monobrain claims check -c admin:delete -u user123', description: 'Check user permission' },
+    { command: 'monomind claims check -c swarm:create', description: 'Check swarm creation permission' },
+    { command: 'monomind claims check -c admin:delete -u user123', description: 'Check user permission' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const claim = ctx.flags.claim as string;
@@ -193,9 +193,9 @@ const checkCommand: Command = {
     try {
       // Check for claims config file
       const claimsConfigPaths = [
-        path.resolve('.monobrain/claims.json'),
-        path.resolve('monobrain.claims.json'),
-        path.resolve(process.env.HOME || '~', '.config/monobrain/claims.json'),
+        path.resolve('.monomind/claims.json'),
+        path.resolve('monomind.claims.json'),
+        path.resolve(process.env.HOME || '~', '.config/monomind/claims.json'),
       ];
 
       let claimsConfig: {
@@ -308,8 +308,8 @@ const grantCommand: Command = {
     { name: 'expires', short: 'e', type: 'string', description: 'Expiration time (e.g., 24h, 7d)' },
   ],
   examples: [
-    { command: 'monobrain claims grant -c swarm:create -u user123', description: 'Grant to user' },
-    { command: 'monobrain claims grant -c agent:spawn -r developer', description: 'Grant to role' },
+    { command: 'monomind claims grant -c swarm:create -u user123', description: 'Grant to user' },
+    { command: 'monomind claims grant -c agent:spawn -r developer', description: 'Grant to role' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const claim = ctx.flags.claim as string;
@@ -370,8 +370,8 @@ const revokeCommand: Command = {
     { name: 'role', short: 'r', type: 'string', description: 'Role name' },
   ],
   examples: [
-    { command: 'monobrain claims revoke -c swarm:delete -u user123', description: 'Revoke from user' },
-    { command: 'monobrain claims revoke -c admin:* -r guest', description: 'Revoke from role' },
+    { command: 'monomind claims revoke -c swarm:delete -u user123', description: 'Revoke from user' },
+    { command: 'monomind claims revoke -c admin:* -r guest', description: 'Revoke from role' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const claim = ctx.flags.claim as string;
@@ -438,8 +438,8 @@ const rolesCommand: Command = {
     { name: 'name', short: 'n', type: 'string', description: 'Role name' },
   ],
   examples: [
-    { command: 'monobrain claims roles', description: 'List all roles' },
-    { command: 'monobrain claims roles -a show -n admin', description: 'Show role details' },
+    { command: 'monomind claims roles', description: 'List all roles' },
+    { command: 'monomind claims roles -a show -n admin', description: 'Show role details' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const action = (ctx.flags.action as string) || 'list';
@@ -546,8 +546,8 @@ const policiesCommand: Command = {
     { name: 'name', short: 'n', type: 'string', description: 'Policy name' },
   ],
   examples: [
-    { command: 'monobrain claims policies', description: 'List policies' },
-    { command: 'monobrain claims policies -a create -n rate-limit', description: 'Create policy' },
+    { command: 'monomind claims policies', description: 'List policies' },
+    { command: 'monomind claims policies -a create -n rate-limit', description: 'Create policy' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const action = (ctx.flags.action as string) || 'list';
@@ -647,13 +647,13 @@ export const claimsCommand: Command = {
   description: 'Claims-based authorization, permissions, and access control',
   subcommands: [listCommand, checkCommand, grantCommand, revokeCommand, rolesCommand, policiesCommand],
   examples: [
-    { command: 'monobrain claims list', description: 'List all claims' },
-    { command: 'monobrain claims check -c swarm:create', description: 'Check permission' },
-    { command: 'monobrain claims grant -c agent:spawn -r developer', description: 'Grant claim' },
+    { command: 'monomind claims list', description: 'List all claims' },
+    { command: 'monomind claims check -c swarm:create', description: 'Check permission' },
+    { command: 'monomind claims grant -c agent:spawn -r developer', description: 'Grant claim' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
-    output.writeln(output.bold('MonoBrain Claims System'));
+    output.writeln(output.bold('MonoMind Claims System'));
     output.writeln(output.dim('Fine-grained authorization and access control'));
     output.writeln();
     output.writeln('Subcommands:');
@@ -674,7 +674,7 @@ export const claimsCommand: Command = {
       'admin:*   - Administrative operations',
     ]);
     output.writeln();
-    output.writeln(output.dim('github.com/nokhodian/monobrain'));
+    output.writeln(output.dim('github.com/nokhodian/monomind'));
     return { success: true };
   },
 };

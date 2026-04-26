@@ -257,7 +257,7 @@ describe('Security', () => {
 ### Memory Coordination
 ```javascript
 // Report test status
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/tester/status",
   namespace: "coordination",
@@ -270,7 +270,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Share test results
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/shared/test-results",
   namespace: "coordination",
@@ -283,7 +283,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Check implementation status
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "retrieve",
   key: "swarm/coder/status",
   namespace: "coordination"
@@ -293,13 +293,13 @@ mcp__monobrain__memory_usage {
 ### Performance Testing
 ```javascript
 // Run performance benchmarks
-mcp__monobrain__benchmark_run {
+mcp__monomind__benchmark_run {
   type: "test",
   iterations: 100
 }
 
 // Monitor test execution
-mcp__monobrain__performance_report {
+mcp__monomind__performance_report {
   format: "detailed"
 }
 ```

@@ -670,7 +670,7 @@ export class AgenticFlowEmbeddingService extends BaseEmbeddingService {
       const absolutePaths = [
         path.join(cwd, 'node_modules/agentic-flow/dist/embeddings/optimized-embedder.js'),
         path.join(cwd, '../node_modules/agentic-flow/dist/embeddings/optimized-embedder.js'),
-        '/workspaces/monobrain/node_modules/agentic-flow/dist/embeddings/optimized-embedder.js',
+        '/workspaces/monomind/node_modules/agentic-flow/dist/embeddings/optimized-embedder.js',
       ];
 
       for (const p of absolutePaths) {

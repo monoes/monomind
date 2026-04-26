@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
-import { SchemaValidator } from '../../packages/@monobrain/shared/src/schema-validator.js';
+import { SchemaValidator } from '../../packages/@monomind/shared/src/schema-validator.js';
 
 const FIXTURE_DIR = join(__dirname, '__fixtures_schema_validator__');
 

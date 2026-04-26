@@ -1,5 +1,5 @@
 /**
- * @monobrain/hooks - V1 Hooks System
+ * @monomind/hooks - V1 Hooks System
  *
  * Event-driven lifecycle hooks with ReasoningBank learning integration.
  *

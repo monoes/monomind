@@ -1,28 +1,26 @@
-# 🧠 Monobrain v1.0: Multi-Agent AI Orchestration Platform
-
 <div align="center">
 
-[![npm version](https://img.shields.io/npm/v/monobrain?style=for-the-badge&logo=npm&color=blue)](https://www.npmjs.com/package/monobrain)
-[![Downloads](https://img.shields.io/npm/dm/monobrain?style=for-the-badge&logo=npm&color=green&label=Monthly%20Downloads)](https://www.npmjs.com/package/monobrain)
-[![Stars](https://img.shields.io/github/stars/nokhodian/monobrain?style=for-the-badge&logo=github&color=gold)](https://github.com/nokhodian/monobrain)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge&logo=opensourceinitiative)](https://opensource.org/licenses/MIT)
-[![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen?style=for-the-badge&logo=nodedotjs)](https://nodejs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org)
+<img src="docs/assets/banner.svg" alt="Monomind — Enterprise AI Agent Orchestration" width="860"/>
 
----
+<br/>
 
-# **Multi-agent AI orchestration for Claude Code**
+[![npm version](https://img.shields.io/npm/v/monomind?style=for-the-badge&logo=npm&color=7c3aed&logoColor=white)](https://www.npmjs.com/package/monomind)
+[![Downloads](https://img.shields.io/npm/dm/monomind?style=for-the-badge&logo=npm&color=3b82f6&logoColor=white&label=Monthly%20Downloads)](https://www.npmjs.com/package/monomind)
+[![Stars](https://img.shields.io/github/stars/monoes/monomind?style=for-the-badge&logo=github&color=f59e0b&logoColor=white)](https://github.com/monoes/monomind)
+[![License: MIT](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](https://opensource.org/licenses/MIT)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-06b6d4?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3b82f6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 
-_Deploy 100+ specialized agents in coordinated swarms with self-learning capabilities, fault-tolerant consensus, and enterprise-grade security._
+_Deploy 60+ specialized agents in coordinated swarms with self-learning capabilities, fault-tolerant consensus, and enterprise-grade security._
 
 </div>
 
-> **Why Monobrain?** Claude Code is powerful — but it thinks alone. Monobrain gives it a brain trust: a coordinated swarm of 100+ specialized agents that share memory, reach consensus, learn from every task, and route work to the right specialist automatically. Built on a WASM-powered intelligence layer, it gets smarter every session.
+> **Why Monomind?** Claude Code is powerful — but it thinks alone. Monomind gives it a brain trust: a coordinated swarm of 100+ specialized agents that share memory, reach consensus, learn from every task, and route work to the right specialist automatically. Built on a WASM-powered intelligence layer, it gets smarter every session.
 
-## How Monobrain Works
+## How Monomind Works
 
 ```
-User → Monobrain (CLI/MCP) → Router → Swarm → Agents → Memory → LLM Providers
+User → Monomind (CLI/MCP) → Router → Swarm → Agents → Memory → LLM Providers
                            ↑                          ↓
                            └──── Learning Loop ←──────┘
 ```
@@ -119,25 +117,25 @@ flowchart TB
 **Option 1 — npx (recommended):**
 
 ```bash
-npx monobrain@latest init --wizard
-claude mcp add monobrain -- npx -y monobrain@latest mcp start
-npx monobrain@latest daemon start
-npx monobrain@latest doctor --fix
+npx monomind@latest init --wizard
+claude mcp add monomind -- npx -y monomind@latest mcp start
+npx monomind@latest daemon start
+npx monomind@latest doctor --fix
 ```
 
 **Option 2 — Clone from GitHub:**
 
 ```bash
-git clone https://github.com/nokhodian/monobrain.git
-cd monobrain
+git clone https://github.com/nokhodian/monomind.git
+cd monomind
 npm install
-node packages/@monobrain/cli/bin/cli.js init --wizard
+node packages/@monomind/cli/bin/cli.js init --wizard
 
 # Wire up the MCP server in Claude Code
-claude mcp add monobrain -- node "$PWD/packages/@monobrain/cli/bin/cli.js" mcp start
+claude mcp add monomind -- node "$PWD/packages/@monomind/cli/bin/cli.js" mcp start
 ```
 
-> **New to Monobrain?** You don't need to learn 170+ MCP tools or 41 CLI commands up front. After running `init`, just use Claude Code normally — the hooks system automatically routes tasks to the right agents, learns from successful patterns, and coordinates multi-agent work in the background.
+> **New to Monomind?** You don't need to learn 170+ MCP tools or 41 CLI commands up front. After running `init`, just use Claude Code normally — the hooks system automatically routes tasks to the right agents, learns from successful patterns, and coordinates multi-agent work in the background.
 
 ---
 
@@ -157,13 +155,13 @@ claude mcp add monobrain -- node "$PWD/packages/@monobrain/cli/bin/cli.js" mcp s
 
 🧩 **Extensible Plugin System** — Add custom capabilities with the plugin SDK. Distribute via the IPFS-based decentralized marketplace. 20 plugins available today across core, integration, optimization, and domain categories.
 
-🏛️ **Runtime Governance** — `@monobrain/guidance` compiles your `CLAUDE.md` into enforced policy gates: destructive-op blocking, tool allowlists, diff size limits, secret detection, trust tiers, and HMAC-chained proof envelopes.
+🏛️ **Runtime Governance** — `@monomind/guidance` compiles your `CLAUDE.md` into enforced policy gates: destructive-op blocking, tool allowlists, diff size limits, secret detection, trust tiers, and HMAC-chained proof envelopes.
 
 ---
 
-## Claude Code: With vs Without Monobrain
+## Claude Code: With vs Without Monomind
 
-| Capability              | Claude Code Alone               | Claude Code + Monobrain                                              |
+| Capability              | Claude Code Alone               | Claude Code + Monomind                                              |
 | ----------------------- | ------------------------------- | -------------------------------------------------------------------- |
 | **Agent Collaboration** | One agent, isolated context     | Swarms with shared memory and consensus                              |
 | **Hive Mind**           | ⛔ Not available                | Queen-led hierarchical swarms with 3+ queen types                    |
@@ -252,7 +250,7 @@ Agents organize into swarms with configurable topologies and consensus algorithm
 **Anti-drift swarm configuration** (recommended for all coding tasks):
 
 ```bash
-npx monobrain@latest swarm init \
+npx monomind@latest swarm init \
   --topology hierarchical \
   --max-agents 8 \
   --strategy specialized \
@@ -279,7 +277,7 @@ npx monobrain@latest swarm init \
 </details>
 
 <details>
-<summary>🧠 <strong>Self-Learning Intelligence</strong> — How Monobrain gets smarter every session</summary>
+<summary>🧠 <strong>Self-Learning Intelligence</strong> — How Monomind gets smarter every session</summary>
 
 Every task feeds the 4-step RETRIEVE-JUDGE-DISTILL-CONSOLIDATE pipeline:
 
@@ -296,13 +294,13 @@ HNSW search   success/fail   LoRA extract   EWC++ preserve
 | --------------------- | ------------------------------------------------------------- |
 | **Episodic memory**   | Full task histories with timestamps and outcomes              |
 | **Entity extraction** | Automatic extraction of code entities into structured records |
-| **Procedural memory** | Learned skills from `.monobrain/skills.jsonl`                 |
+| **Procedural memory** | Learned skills from `.monomind/skills.jsonl`                 |
 | **Vector search**     | 384-dim embeddings, sub-ms retrieval via HNSW                 |
 | **Knowledge graph**   | PageRank + community detection for structural insights        |
 | **Agent isolation**   | Per-agent memory scopes prevent cross-contamination           |
 | **Hybrid backend**    | SQLite + AgentDB, zero native binary dependencies             |
 
-**Specialization scorer** — per-agent, per-task-type success/failure tracking with time-decay. Feeds routing quality over time. Persists to `.monobrain/scores.jsonl`.
+**Specialization scorer** — per-agent, per-task-type success/failure tracking with time-decay. Feeds routing quality over time. Persists to `.monomind/scores.jsonl`.
 
 </details>
 
@@ -344,7 +342,7 @@ Smart caching and routing stack multiplicatively to reduce API costs:
 <details>
 <summary>🏛️ <strong>Governance</strong> — Runtime policy enforcement from CLAUDE.md</summary>
 
-`@monobrain/guidance` compiles `CLAUDE.md` into a 7-phase runtime enforcement pipeline:
+`@monomind/guidance` compiles `CLAUDE.md` into a 7-phase runtime enforcement pipeline:
 
 ```
 CLAUDE.md ──► Compile ──► Retrieve ──► Enforce ──► Trust ──► Prove ──► Defend ──► Evolve
@@ -376,46 +374,46 @@ CLAUDE.md ──► Compile ──► Retrieve ──► Enforce ──► Trust
 **One-line (recommended):**
 
 ```bash
-curl -fsSL https://cdn.jsdelivr.net/gh/nokhodian/monobrain@main/scripts/install.sh | bash
+curl -fsSL https://cdn.jsdelivr.net/gh/nokhodian/monomind@main/scripts/install.sh | bash
 ```
 
 **Via npx:**
 
 ```bash
-npx monobrain@latest init --wizard
+npx monomind@latest init --wizard
 ```
 
 **Manual:**
 
 ```bash
 # Register MCP server with Claude Code
-claude mcp add monobrain -- npx -y monobrain@latest mcp start
+claude mcp add monomind -- npx -y monomind@latest mcp start
 
 # Start background worker daemon
-npx monobrain@latest daemon start
+npx monomind@latest daemon start
 
 # Health check
-npx monobrain@latest doctor --fix
+npx monomind@latest doctor --fix
 ```
 
 ### First Commands
 
 ```bash
 # Spawn an agent
-npx monobrain@latest agent spawn -t coder --name my-coder
+npx monomind@latest agent spawn -t coder --name my-coder
 
 # Launch a full swarm
-npx monobrain@latest hive-mind spawn "Refactor auth module to use OAuth2"
+npx monomind@latest hive-mind spawn "Refactor auth module to use OAuth2"
 
 # Search learned patterns
-npx monobrain@latest memory search -q "authentication patterns"
+npx monomind@latest memory search -q "authentication patterns"
 ```
 
 ---
 
 ## ⚡ Slash Commands
 
-> Type these directly in Claude Code. No setup beyond `npx monobrain init`.
+> Type these directly in Claude Code. No setup beyond `npx monomind init`.
 
 ---
 
@@ -460,9 +458,9 @@ npx monobrain@latest memory search -q "authentication patterns"
 
 | Command | What it does |
 |---|---|
-| **`/monobrain-swarm`** | Coordinates a multi-agent swarm for complex tasks — spawns agents, distributes work, waits for results, synthesizes output. |
-| **`/monobrain-memory`** | Interacts with the AgentDB memory system — store, search, retrieve, and inspect patterns across sessions. |
-| **`/monobrain-help`** | Shows all Monobrain CLI commands and usage reference inline. |
+| **`/monomind-swarm`** | Coordinates a multi-agent swarm for complex tasks — spawns agents, distributes work, waits for results, synthesizes output. |
+| **`/monomind-memory`** | Interacts with the AgentDB memory system — store, search, retrieve, and inspect patterns across sessions. |
+| **`/monomind-help`** | Shows all Monomind CLI commands and usage reference inline. |
 
 ---
 
@@ -574,7 +572,7 @@ npx monobrain@latest memory search -q "authentication patterns"
 | `refinement`    | Iterative improvement                   |
 | `sparc-coder`   | TDD-driven implementation from specs    |
 
-View all: `npx monobrain@latest agent list`
+View all: `npx monomind@latest agent list`
 
 </details>
 
@@ -582,10 +580,10 @@ View all: `npx monobrain@latest agent list`
 
 ## Live Statusline
 
-Monobrain adds a real-time six-row dashboard to Claude Code:
+Monomind adds a real-time six-row dashboard to Claude Code:
 
 ```
-▊ Monobrain v1.0.0  ○ IDLE  nokhodian  │  ⎇ main  +1  ~9921 mod  ↑5  │  🤖 Sonnet 4.6
+▊ Monomind v1.0.0  ○ IDLE  nokhodian  │  ⎇ main  +1  ~9921 mod  ↑5  │  🤖 Sonnet 4.6
 ──────────────────────────────────────────────────────────────────────────────────────
 💡  INTEL    ▱▱▱▱▱▱ 3%   │   📚 190 chunks   │   76 patterns
 ──────────────────────────────────────────────────────────────────────────────────────
@@ -621,16 +619,16 @@ todo: write about plugins of this app
 20 plugins via the IPFS-distributed registry:
 
 ```bash
-npx monobrain@latest plugins list
-npx monobrain@latest plugins install @monobrain/plugin-name
-npx monobrain@latest plugins create my-plugin
+npx monomind@latest plugins list
+npx monomind@latest plugins install @monomind/plugin-name
+npx monomind@latest plugins create my-plugin
 ```
 
 ## Contributing
 
 ```bash
-git clone https://github.com/nokhodian/monobrain.git
-cd monobrain/packages
+git clone https://github.com/nokhodian/monomind.git
+cd monomind/packages
 pnpm install
 pnpm test
 ```
@@ -639,8 +637,8 @@ pnpm test
 
 |               |                                                                                        |
 | ------------- | -------------------------------------------------------------------------------------- |
-| Documentation | [github.com/nokhodian/monobrain](https://github.com/nokhodian/monobrain)               |
-| Issues        | [github.com/nokhodian/monobrain/issues](https://github.com/nokhodian/monobrain/issues) |
+| Documentation | [github.com/nokhodian/monomind](https://github.com/nokhodian/monomind)               |
+| Issues        | [github.com/nokhodian/monomind/issues](https://github.com/nokhodian/monomind/issues) |
 | Enterprise    | [monoes.me](monoes.me)                                                                 |
 
 ---
@@ -651,7 +649,7 @@ MIT — [nokhodian](https://github.com/nokhodian)
 
 ## Acknowledgements
 
-Monobrain builds on ideas, patterns, and research from the following projects:
+Monomind builds on ideas, patterns, and research from the following projects:
 
 | Repository                                                                      | What we took                                                                                                                                     |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -669,10 +667,10 @@ Monobrain builds on ideas, patterns, and research from the following projects:
 | [stanfordnlp/dspy](https://github.com/stanfordnlp/dspy)                         | `BootstrapFewShot` + MIPRO automatic prompt optimization pipeline                                                                                |
 | [aurelio-labs/semantic-router](https://github.com/aurelio-labs/semantic-router) | Utterance-based `RouteLayer` replacing static routing codes, dynamic routes, and hybrid routing mode                                             |
 | [langfuse/langfuse](https://github.com/langfuse/langfuse)                       | Unified trace/span/generation observability hierarchy, per-agent cost attribution, latency views, and prompt version management                  |
-| [karpathy/autoresearch](https://github.com/karpathy/autoresearch)               | Experiment loop protocol (BASELINE/KEEP/DISCARD `results.tsv`), fixed time-budget per run, and Best-Fit Decreasing bin packing for API chunking — wired into `@monoes/graph` pipeline |
-| [safishamsi/graphify](https://github.com/safishamsi/graphify)                   | Knowledge graph construction approach, AST-based node/edge extraction, community detection with Louvain, and `GRAPH_REPORT.md` report format — foundation for `@monoes/graph`          |
+| [karpathy/autoresearch](https://github.com/karpathy/autoresearch)               | Experiment loop protocol (BASELINE/KEEP/DISCARD `results.tsv`), fixed time-budget per run, and Best-Fit Decreasing bin packing for API chunking — wired into `@monomind/graph` pipeline |
+| [safishamsi/graphify](https://github.com/safishamsi/graphify)                   | Knowledge graph construction approach, AST-based node/edge extraction, community detection with Louvain, and `GRAPH_REPORT.md` report format — foundation for `@monomind/graph`          |
 | [google/gvisor](https://gvisor.dev) ([paper](https://dl.acm.org/doi/10.1145/3317550.3321422)) | gVisor `runsc` OCI-compatible runtime — reduces Docker container syscall surface from 350+ to ~50 interceptions; wired into `SandboxConfig.use_gvisor` and `buildDockerArgs()` |
-| [Indirect Injection research](https://arxiv.org/abs/2302.12173) ([follow-up](https://arxiv.org/abs/2310.12815)) | Prompt injection via external tool content — `validateExternalContent()` in `@monobrain/security` applies pattern + optional aidefence semantic scan to all externally-sourced content |
+| [Indirect Injection research](https://arxiv.org/abs/2302.12173) ([follow-up](https://arxiv.org/abs/2310.12815)) | Prompt injection via external tool content — `validateExternalContent()` in `@monomind/security` applies pattern + optional aidefence semantic scan to all externally-sourced content |
 | [FOREVER Forgetting Curve](https://arxiv.org/html/2601.03938v1)                 | Exponential importance-weighted forgetting curve (`importanceScore × e^(−λt)`) replacing linear decay — implemented in `LearningBridge.decayConfidences()` and `MemoryEntry.importanceScore` |
 | [Awesome RLVR](https://github.com/opendilab/awesome-RLVR)                       | Reinforcement Learning with Verifiable Rewards — `hooksModelOutcome` now accepts `verifier_type` (tsc/vitest/eslint/llm_judge) and `exit_code` to derive grounded binary reward signals |
 | [ERL — Experiential Reflective Learning](https://arxiv.org/abs/2603.24639)      | Structured `{condition, action, confidence}` heuristics extracted at `hooks_post-task` and injected as ranked hints into `hooks_pre-task` suggestions via the `heuristics` memory namespace |

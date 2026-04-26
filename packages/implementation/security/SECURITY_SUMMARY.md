@@ -31,7 +31,7 @@
    - **Fix:** Implement bcrypt with salt
 
 3. **Hardcoded Credentials** - Default admin password in code
-   - Username: `admin@monobrain.local`
+   - Username: `admin@monomind.local`
    - Password: `admin123` (in public repo!)
    - **Fix:** Generate random passwords on first run
 
@@ -144,7 +144,7 @@ Full reports available in:
 
 ## Contact
 
-Security issues: security@monobrain.io  
+Security issues: security@monomind.io  
 GitHub: https://github.com/nokhodian/claude-code-flow/security
 
 ---

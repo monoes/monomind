@@ -1,7 +1,7 @@
 /**
  * Per-Agent Knowledge Base module.
  *
- * @module @monobrain/memory/knowledge
+ * @module @monomind/memory/knowledge
  */
 
 export { chunkDocument } from './document-chunker.js';

@@ -4,7 +4,7 @@
  * Centralises timing-safe comparison so every module that verifies
  * HMAC signatures uses the same constant-time implementation.
  *
- * @module @monobrain/guidance/crypto-utils
+ * @module @monomind/guidance/crypto-utils
  */
 import { timingSafeEqual as nodeTimingSafeEqual } from 'node:crypto';
 /**

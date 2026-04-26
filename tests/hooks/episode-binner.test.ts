@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { EpisodeBinnerWorker } from '../../packages/@monobrain/hooks/src/workers/episode-binner.js';
+import { EpisodeBinnerWorker } from '../../packages/@monomind/hooks/src/workers/episode-binner.js';
 
 // Mock the registry so registerHook captures the handlers
 const registeredHooks: Array<{ event: string; handler: Function }> = [];
-vi.mock('../../packages/@monobrain/hooks/src/registry/index.js', () => ({
+vi.mock('../../packages/@monomind/hooks/src/registry/index.js', () => ({
   registerHook: vi.fn((event: string, handler: Function) => {
     registeredHooks.push({ event, handler });
     return `hook-${registeredHooks.length}`;

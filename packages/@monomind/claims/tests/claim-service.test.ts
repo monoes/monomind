@@ -1,5 +1,5 @@
 /**
- * V1 Monobrain Claim Service Unit Tests
+ * V1 Monomind Claim Service Unit Tests
  *
  * London School TDD - Behavior Verification
  * Tests issue/task claiming, releasing, handoffs, and status transitions

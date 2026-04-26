@@ -1,5 +1,5 @@
 #!/bin/bash
-# Monobrain Deep Regression Test Suite - Main Runner
+# Monomind Deep Regression Test Suite - Main Runner
 # Executes all capability tests for comprehensive regression testing
 
 set -e
@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 # Test configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPORT_DIR="${TEST_REPORT_PATH:-/app/reports}"
-LOG_DIR="${MONOBRAIN_LOG_DIR:-/app/logs}"
+LOG_DIR="${MONOMIND_LOG_DIR:-/app/logs}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 REPORT_FILE="${REPORT_DIR}/regression_report_${TIMESTAMP}.json"
 SUMMARY_FILE="${REPORT_DIR}/summary_${TIMESTAMP}.txt"
@@ -30,7 +30,7 @@ SKIPPED_TESTS=0
 mkdir -p "$REPORT_DIR" "$LOG_DIR"
 
 echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║     MONOBRAIN DEEP REGRESSION TEST SUITE                     ║${NC}"
+echo -e "${CYAN}║     MONOMIND DEEP REGRESSION TEST SUITE                     ║${NC}"
 echo -e "${CYAN}║     Comprehensive Capability Testing                           ║${NC}"
 echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
@@ -41,7 +41,7 @@ echo ""
 # Initialize JSON report
 cat > "$REPORT_FILE" << EOF
 {
-  "testSuite": "monobrain-deep-regression",
+  "testSuite": "monomind-deep-regression",
   "version": "3.0.0",
   "timestamp": "$(date -Iseconds)",
   "environment": {
@@ -274,7 +274,7 @@ echo -e "${BLUE}Report: ${REPORT_FILE}${NC}"
 
 # Write summary file
 cat > "$SUMMARY_FILE" << EOF
-MONOBRAIN DEEP REGRESSION TEST SUMMARY
+MONOMIND DEEP REGRESSION TEST SUMMARY
 ========================================
 Date: $(date)
 Version: 3.0.0

@@ -1,4 +1,4 @@
-# @monobrain/guidance Documentation
+# @monomind/guidance Documentation
 
 ## Guides
 

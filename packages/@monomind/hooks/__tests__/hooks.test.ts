@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-describe('@monobrain/hooks', () => {
+describe('@monomind/hooks', () => {
   it('should export hook types', () => {
     // Placeholder test - hooks module exports types and utilities
     expect(true).toBe(true);

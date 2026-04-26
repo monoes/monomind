@@ -1,4 +1,4 @@
-# ADR-029: Graph Neural Network Integration for Monobrain V1
+# ADR-029: Graph Neural Network Integration for Monomind V1
 
 **Status:** Proposed
 **Date:** 2026-01-16
@@ -7,7 +7,7 @@
 
 ## Context
 
-Monobrain V1 processes complex, interconnected data structures that naturally form graphs:
+Monomind V1 processes complex, interconnected data structures that naturally form graphs:
 
 1. **Codebase Dependency Graphs** - Files, modules, and packages with import/export relationships
 2. **Agent Relationship Networks** - Agents with communication patterns, task delegation, and coordination
@@ -39,7 +39,7 @@ However, these are hand-crafted algorithms that don't learn from data. GNN integ
 
 ## Decision
 
-Integrate Graph Neural Network layers from RuVector into Monobrain V1 for graph-aware processing. The integration follows the **optional dependency pattern** established in ADR-017.
+Integrate Graph Neural Network layers from RuVector into Monomind V1 for graph-aware processing. The integration follows the **optional dependency pattern** established in ADR-017.
 
 ### Design Principles
 
@@ -63,7 +63,7 @@ Integrate Graph Neural Network layers from RuVector into Monobrain V1 for graph-
 - Global pattern aggregation
 
 ```typescript
-// packages/@monobrain/gnn/src/layers/gcn.ts
+// packages/@monomind/gnn/src/layers/gcn.ts
 
 export interface GCNConfig {
   inputDim: number;
@@ -164,7 +164,7 @@ export class GraphConvolutionalNetwork implements GCNLayer {
 - Selective pattern propagation
 
 ```typescript
-// packages/@monobrain/gnn/src/layers/gat.ts
+// packages/@monomind/gnn/src/layers/gat.ts
 
 export interface GATConfig {
   inputDim: number;
@@ -328,7 +328,7 @@ export class GraphAttentionNetwork {
 - Scalable processing of large graphs
 
 ```typescript
-// packages/@monobrain/gnn/src/layers/graphsage.ts
+// packages/@monomind/gnn/src/layers/graphsage.ts
 
 export interface GraphSAGEConfig {
   inputDim: number;
@@ -522,7 +522,7 @@ export class LSTMAggregator implements Aggregator {
 - Change impact with relationship strength
 
 ```typescript
-// packages/@monobrain/gnn/src/layers/mpnn.ts
+// packages/@monomind/gnn/src/layers/mpnn.ts
 
 export interface MPNNConfig {
   nodeDim: number;
@@ -698,7 +698,7 @@ export class EdgeNetwork implements MessageNetwork {
 - Dynamic topology adaptation
 
 ```typescript
-// packages/@monobrain/gnn/src/layers/edge-conv.ts
+// packages/@monomind/gnn/src/layers/edge-conv.ts
 
 export interface EdgeConvConfig {
   inputDim: number;
@@ -812,7 +812,7 @@ export class EdgeConvolution {
 ### Node Embeddings
 
 ```typescript
-// packages/@monobrain/gnn/src/data/node-embeddings.ts
+// packages/@monomind/gnn/src/data/node-embeddings.ts
 
 export interface NodeEmbedding {
   id: string;
@@ -893,7 +893,7 @@ export class HNSWNodeEmbeddingStore implements NodeEmbeddingStore {
 ### Edge Features
 
 ```typescript
-// packages/@monobrain/gnn/src/data/edge-features.ts
+// packages/@monomind/gnn/src/data/edge-features.ts
 
 export interface EdgeFeature {
   source: string;
@@ -979,7 +979,7 @@ export class LearnedEdgeTypeEncoder implements EdgeTypeEncoder {
 ### Graph-Level Representations
 
 ```typescript
-// packages/@monobrain/gnn/src/data/graph-representation.ts
+// packages/@monomind/gnn/src/data/graph-representation.ts
 
 export interface GraphData {
   id: string;
@@ -1099,7 +1099,7 @@ export class Set2SetPooling implements GraphPooling {
 ### 1. Codebase Dependency Graphs
 
 ```typescript
-// packages/@monobrain/gnn/src/use-cases/codebase-graph.ts
+// packages/@monomind/gnn/src/use-cases/codebase-graph.ts
 
 export interface CodebaseGraphBuilder {
   /**
@@ -1244,7 +1244,7 @@ export class ImpactAnalyzer {
 ### 2. Agent Relationship Modeling
 
 ```typescript
-// packages/@monobrain/gnn/src/use-cases/agent-graph.ts
+// packages/@monomind/gnn/src/use-cases/agent-graph.ts
 
 export interface AgentGraphManager {
   /**
@@ -1353,7 +1353,7 @@ export class GNNAgentCoordinator implements AgentGraphManager {
 ### 3. Pattern Propagation in Swarms
 
 ```typescript
-// packages/@monobrain/gnn/src/use-cases/pattern-propagation.ts
+// packages/@monomind/gnn/src/use-cases/pattern-propagation.ts
 
 export interface PatternPropagator {
   /**
@@ -1456,7 +1456,7 @@ export class GNNPatternPropagator implements PatternPropagator {
 ### 4. Impact Analysis for Changes
 
 ```typescript
-// packages/@monobrain/gnn/src/use-cases/impact-analysis.ts
+// packages/@monomind/gnn/src/use-cases/impact-analysis.ts
 
 export interface ChangeImpactAnalyzer {
   /**
@@ -1658,7 +1658,7 @@ export class GNNImpactAnalyzer implements ChangeImpactAnalyzer {
 ### 1. Memory Service Integration
 
 ```typescript
-// packages/@monobrain/gnn/src/integration/memory-integration.ts
+// packages/@monomind/gnn/src/integration/memory-integration.ts
 
 export interface GNNMemoryIntegration {
   /**
@@ -1777,7 +1777,7 @@ export class MemoryServiceGNNAdapter implements GNNMemoryIntegration {
 ### 2. Plugin Dependency Graph
 
 ```typescript
-// packages/@monobrain/gnn/src/integration/plugin-graph.ts
+// packages/@monomind/gnn/src/integration/plugin-graph.ts
 
 export interface PluginDependencyAnalyzer {
   /**
@@ -1928,7 +1928,7 @@ export class GNNPluginAnalyzer implements PluginDependencyAnalyzer {
 ### 3. Swarm Topology Optimization
 
 ```typescript
-// packages/@monobrain/gnn/src/integration/swarm-optimization.ts
+// packages/@monomind/gnn/src/integration/swarm-optimization.ts
 
 export interface SwarmTopologyOptimizer {
   /**
@@ -2110,7 +2110,7 @@ export class GNNSwarmOptimizer implements SwarmTopologyOptimizer {
 ### Sparse Matrix Operations
 
 ```typescript
-// packages/@monobrain/gnn/src/utils/sparse.ts
+// packages/@monomind/gnn/src/utils/sparse.ts
 
 export interface SparseMatrix {
   rows: number;
@@ -2179,7 +2179,7 @@ export class CSRMatrix implements SparseMatrix {
 ### Mini-Batch Processing
 
 ```typescript
-// packages/@monobrain/gnn/src/utils/batching.ts
+// packages/@monomind/gnn/src/utils/batching.ts
 
 export interface BatchedGraphData {
   batchedNodeFeatures: Float32Array;
@@ -2238,7 +2238,7 @@ export function batchGraphs(graphs: GraphData[]): BatchedGraphData {
 ### GPU Acceleration (Optional)
 
 ```typescript
-// packages/@monobrain/gnn/src/utils/gpu.ts
+// packages/@monomind/gnn/src/utils/gpu.ts
 
 export interface GPUAccelerator {
   available: boolean;
@@ -2354,7 +2354,7 @@ export async function createGPUAccelerator(): Promise<GPUAccelerator | null> {
 ## Appendix: Type Definitions
 
 ```typescript
-// packages/@monobrain/gnn/src/types/index.ts
+// packages/@monomind/gnn/src/types/index.ts
 
 export type {
   GCNConfig,

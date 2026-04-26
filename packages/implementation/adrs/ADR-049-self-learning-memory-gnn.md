@@ -2,7 +2,7 @@
 
 **Status:** Implemented
 **Date:** 2026-02-08
-**Authors:** RuvNet, Monobrain Team
+**Authors:** RuvNet, Monomind Team
 **Supersedes:** None
 **Related:** ADR-048 (Auto Memory Integration), ADR-006 (Unified Memory), ADR-009 (Hybrid Memory Backend)
 
@@ -10,7 +10,7 @@
 
 ADR-048 established the AutoMemoryBridge for bidirectional sync between Claude Code auto memory files and AgentDB. While this successfully bridges the two systems, it operates as a **passive store** — insights are recorded but the system does not learn from them. Three gaps exist:
 
-1. **No learning pipeline**: The `@monobrain/neural` package has a fully implemented `NeuralLearningSystem` with SONA, ReasoningBank (4-step RETRIEVE/JUDGE/DISTILL/CONSOLIDATE pipeline), and PatternLearner — but these are completely disconnected from the memory bridge.
+1. **No learning pipeline**: The `@monomind/neural` package has a fully implemented `NeuralLearningSystem` with SONA, ReasoningBank (4-step RETRIEVE/JUDGE/DISTILL/CONSOLIDATE pipeline), and PatternLearner — but these are completely disconnected from the memory bridge.
 
 2. **No knowledge graph**: `MemoryEntry.references` supports graph relationships between entries, but nothing constructs or queries a graph from them. Insights are flat lists without structural understanding.
 
@@ -31,7 +31,7 @@ Consolidate      → Complete Trajectories → JUDGE/DISTILL/CONSOLIDATE
 Time Passes      → Decay Confidences
 ```
 
-- **Optional dependency**: `@monobrain/neural` is loaded dynamically; when unavailable, all learning operations degrade to no-ops (confidence remains static).
+- **Optional dependency**: `@monomind/neural` is loaded dynamically; when unavailable, all learning operations degrade to no-ops (confidence remains static).
 - **Confidence lifecycle**: Entries gain confidence when accessed (+0.03 per access, capped at 1.0) and lose confidence over time (-0.005/hour, floored at 0.1).
 - **Consolidation**: Triggered during session-end sync. Completes accumulated trajectories, runs the ReasoningBank pipeline, and updates entry metadata.
 
@@ -89,7 +89,7 @@ user:    ~/.claude/agent-memory/<agentName>/
 │  └──────────────────────────────────────────┘                │
 │           │                                                   │
 │  ┌────────▼─────────────────┐                                │
-│  │  @monobrain/neural     │  (optional peer dependency)    │
+│  │  @monomind/neural     │  (optional peer dependency)    │
 │  │  - NeuralLearningSystem  │                                │
 │  │  - SONA + ReasoningBank  │                                │
 │  │  - PatternLearner        │                                │
@@ -128,7 +128,7 @@ user:    ~/.claude/agent-memory/<agentName>/
 ## Testing Strategy
 
 - **TDD London School**: All dependencies mocked (IMemoryBackend, NeuralLearningSystem)
-- **Graceful degradation**: Tests verify no-op behavior when `@monobrain/neural` unavailable
+- **Graceful degradation**: Tests verify no-op behavior when `@monomind/neural` unavailable
 - **Existing tests preserved**: 73 AutoMemoryBridge tests must remain green
 - **Target**: 100+ new tests across 3 modules
 
@@ -191,7 +191,7 @@ user:    ~/.claude/agent-memory/<agentName>/
 ### Negative
 - Additional complexity in AutoMemoryBridge (~70 lines)
 - Graph construction adds startup latency (~200ms for 1k entries)
-- `@monobrain/neural` becomes an optional peer dependency
+- `@monomind/neural` becomes an optional peer dependency
 
 ### Risks
 - Neural system changes may require LearningBridge updates (mitigated by dynamic import + try/catch)

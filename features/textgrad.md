@@ -2,7 +2,7 @@
 
 **Source:** https://arxiv.org/abs/2406.07496 (Nature, 2024)  
 **Category:** LLM Optimization Research  
-**Role in Monobrain:** Textual gradient critiques stored on failure, injected into next-prompt for self-correction
+**Role in Monomind:** Textual gradient critiques stored on failure, injected into next-prompt for self-correction
 
 ---
 
@@ -22,7 +22,7 @@ The paper reports +20% improvement on LeetCode-Hard problems, demonstrating that
 
 ### Textual Gradient Storage on `hooks_post-task` Failure
 
-When a task fails, Monobrain's `post-task` hook triggers the textual gradient generation process:
+When a task fails, Monomind's `post-task` hook triggers the textual gradient generation process:
 
 **Forward pass result**: The failed task output (code, plan, response)  
 **Loss signal**: The failure reason (test failure, compilation error, review rejection)  
@@ -47,11 +47,11 @@ palace.storeVerbatim(CWD, textualGradient, {
 
 The combination of Memory Palace's BM25 retrieval and textual gradients means the agent effectively "remembers" its previous failures and their diagnosed causes.
 
-## How It Improved Monobrain
+## How It Improved Monomind
 
 TextGrad addressed a fundamental problem: standard retry logic just repeats the same approach and hopes for a different result. Textual gradients give retries a direction — the agent knows specifically what not to repeat.
 
-The +20% improvement on LeetCode-Hard is particularly relevant for Monobrain's coding tasks. Complex multi-file refactors that fail on the first attempt now have a structured critique to guide the second attempt rather than starting from scratch.
+The +20% improvement on LeetCode-Hard is particularly relevant for Monomind's coding tasks. Complex multi-file refactors that fail on the first attempt now have a structured critique to guide the second attempt rather than starting from scratch.
 
 ## Key Files Influenced
 

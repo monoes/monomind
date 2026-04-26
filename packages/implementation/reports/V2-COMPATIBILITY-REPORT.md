@@ -224,12 +224,12 @@ const server = createMCPServer({
 
 ```bash
 # V2 (deprecated but supported)
-npx monobrain hive-mind init
-npx monobrain hive-mind status
+npx monomind hive-mind init
+npx monomind hive-mind status
 
 # (recommended)
-npx @monobrain/cli swarm init
-npx @monobrain/cli swarm status
+npx @monomind/cli swarm init
+npx @monomind/cli swarm status
 ```
 
 #### MCP Tool Migration
@@ -261,12 +261,12 @@ const agent = await mcp.callTool("agent/spawn", {
 
 ```typescript
 // V2 imports
-import { HiveMind } from "monobrain/hive-mind";
-import { MemoryManager } from "monobrain/memory";
+import { HiveMind } from "monomind/hive-mind";
+import { MemoryManager } from "monomind/memory";
 
 // V1 imports with aliases
-import { UnifiedSwarmCoordinator as HiveMind } from "@monobrain/swarm";
-import { UnifiedMemoryService as MemoryManager } from "@monobrain/memory";
+import { UnifiedSwarmCoordinator as HiveMind } from "@monomind/swarm";
+import { UnifiedMemoryService as MemoryManager } from "@monomind/memory";
 
 // Usage remains the same
 const hive = new HiveMind();
@@ -280,29 +280,29 @@ const agent = await hive.spawn("coder");
 
 ```bash
 # Run the V1 migration tool
-npx @monobrain/cli migrate --from v2 --to v1
+npx @monomind/cli migrate --from v2 --to v1
 
 # Migrate configuration
-npx @monobrain/cli migrate config --input .monobrain/config.yaml
+npx @monomind/cli migrate config --input .monomind/config.yaml
 
 # Migrate memory database
-npx @monobrain/cli migrate memory --input .monobrain/memory.db
+npx @monomind/cli migrate memory --input .monomind/memory.db
 ```
 
 #### Manual Configuration Migration
 
 ```yaml
-# V2 Configuration (.monobrain/config.yaml)
+# V2 Configuration (.monomind/config.yaml)
 orchestrator:
   maxAgents: 10
   defaultStrategy: balanced
 memory:
   backend: sqlite
-  path: ./.monobrain/memory.db
+  path: ./.monomind/memory.db
 coordination:
   topology: hierarchical
 
-# Configuration (.monobrain/config.yaml)
+# Configuration (.monomind/config.yaml)
 swarm:
   topology: hierarchical-mesh
   maxAgents: 15
@@ -312,7 +312,7 @@ swarm:
 memory:
   backend: hybrid
   sqlite:
-    path: ./.monobrain/memory.db
+    path: ./.monomind/memory.db
   agentdb:
     enableHNSW: true
     dimensions: 384
@@ -325,10 +325,10 @@ hooks:
 
 1. Enable V2 compatibility mode in MCP server configuration
 2. Update tool calls to use new naming convention (e.g., agent/spawn)
-3. Update import statements to use @monobrain/\* packages
+3. Update import statements to use @monomind/\* packages
 4. Use provided import aliases for backward compatibility
 5. Consider using tool name translation layer for gradual migration
-6. Run migration script: npx @monobrain/cli migrate
+6. Run migration script: npx @monomind/cli migrate
 7. Update to Node.js 20+ (Deno support removed)
 
 ## Feature Compatibility Matrix
@@ -374,14 +374,14 @@ hooks:
 
 | V2 Import           | V1 Import                  |
 | ------------------- | -------------------------- |
-| monobrain/hive-mind | @monobrain/swarm           |
-| monobrain/swarm     | @monobrain/swarm           |
-| monobrain/memory    | @monobrain/memory          |
-| monobrain/agents    | @monobrain/agent-lifecycle |
-| monobrain/tasks     | @monobrain/task-execution  |
-| monobrain/hooks     | @monobrain/hooks           |
-| monobrain/config    | @monobrain/config          |
-| monobrain           | @monobrain/core            |
+| monomind/hive-mind | @monomind/swarm           |
+| monomind/swarm     | @monomind/swarm           |
+| monomind/memory    | @monomind/memory          |
+| monomind/agents    | @monomind/agent-lifecycle |
+| monomind/tasks     | @monomind/task-execution  |
+| monomind/hooks     | @monomind/hooks           |
+| monomind/config    | @monomind/config          |
+| monomind           | @monomind/core            |
 
 ### C. V2 to V1 Class Aliases
 

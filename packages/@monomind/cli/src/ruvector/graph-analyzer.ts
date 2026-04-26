@@ -9,7 +9,7 @@
  *
  * Falls back to built-in implementations when @ruvector/wasm is not available.
  *
- * @module @monobrain/cli/ruvector/graph-analyzer
+ * @module @monomind/cli/ruvector/graph-analyzer
  */
 
 import { readFile, readdir, stat } from 'fs/promises';

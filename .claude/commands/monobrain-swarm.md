@@ -1,15 +1,15 @@
 ---
-name: monobrain-swarm
+name: monomind-swarm
 description: Coordinate multi-agent swarms for complex tasks
 ---
 
-# 🐝 Monobrain Swarm Coordination
+# 🐝 Monomind Swarm Coordination
 
 Advanced multi-agent coordination system with timeout-free execution, distributed memory sharing, and intelligent load balancing.
 
 ## Basic Usage
 ```bash
-./monobrain swarm "your complex task" --strategy <type> [options]
+./monomind swarm "your complex task" --strategy <type> [options]
 ```
 
 ## 🎯 Swarm Strategies
@@ -59,7 +59,7 @@ Advanced multi-agent coordination system with timeout-free execution, distribute
 
 ### Development Swarm with Review
 ```bash
-./monobrain swarm "Build e-commerce REST API" \
+./monomind swarm "Build e-commerce REST API" \
   --strategy development \
   --monitor \
   --review \
@@ -68,7 +68,7 @@ Advanced multi-agent coordination system with timeout-free execution, distribute
 
 ### Long-Running Research Swarm
 ```bash
-./monobrain swarm "Analyze AI market trends 2024-2025" \
+./monomind swarm "Analyze AI market trends 2024-2025" \
   --strategy research \
   --background \
   --distributed \
@@ -77,7 +77,7 @@ Advanced multi-agent coordination system with timeout-free execution, distribute
 
 ### Performance Optimization Swarm
 ```bash
-./monobrain swarm "Optimize database queries and API performance" \
+./monomind swarm "Optimize database queries and API performance" \
   --strategy optimization \
   --testing \
   --parallel \
@@ -86,7 +86,7 @@ Advanced multi-agent coordination system with timeout-free execution, distribute
 
 ### Enterprise Development Swarm
 ```bash
-./monobrain swarm "Implement secure payment processing system" \
+./monomind swarm "Implement secure payment processing system" \
   --strategy development \
   --mode distributed \
   --max-agents 10 \
@@ -100,7 +100,7 @@ Advanced multi-agent coordination system with timeout-free execution, distribute
 
 ### Testing and QA Swarm
 ```bash
-./monobrain swarm "Comprehensive security audit and testing" \
+./monomind swarm "Comprehensive security audit and testing" \
   --strategy testing \
   --review \
   --verbose \
@@ -112,28 +112,28 @@ Advanced multi-agent coordination system with timeout-free execution, distribute
 ### Real-time monitoring:
 ```bash
 # Monitor swarm activity
-./monobrain monitor
+./monomind monitor
 
 # Monitor specific component
-./monobrain monitor --focus swarm
+./monomind monitor --focus swarm
 ```
 
 ### Check swarm status:
 ```bash
 # Overall system status
-./monobrain status
+./monomind status
 
 # Detailed swarm status
-./monobrain status --verbose
+./monomind status --verbose
 ```
 
 ### View agent activity:
 ```bash
 # List all agents
-./monobrain agent list
+./monomind agent list
 
 # Agent details
-./monobrain agent info <agent-id>
+./monomind agent info <agent-id>
 ```
 
 ## 💾 Memory Integration
@@ -142,13 +142,13 @@ Swarms automatically use distributed memory for collaboration:
 
 ```bash
 # Store swarm objectives
-./monobrain memory store "swarm_objective" "Build scalable API" --namespace swarm
+./monomind memory store "swarm_objective" "Build scalable API" --namespace swarm
 
 # Query swarm progress
-./monobrain memory query "swarm_progress" --namespace swarm
+./monomind memory query "swarm_progress" --namespace swarm
 
 # Export swarm memory
-./monobrain memory export swarm-results.json --namespace swarm
+./monomind memory export swarm-results.json --namespace swarm
 ```
 
 ## 🎯 Key Features
@@ -183,12 +183,12 @@ Swarms automatically use distributed memory for collaboration:
 
 ### Dry run to preview:
 ```bash
-./monobrain swarm "Test task" --dry-run --strategy development
+./monomind swarm "Test task" --dry-run --strategy development
 ```
 
 ### Custom quality thresholds:
 ```bash
-./monobrain swarm "High quality API" \
+./monomind swarm "High quality API" \
   --strategy development \
   --quality-threshold 0.95
 ```

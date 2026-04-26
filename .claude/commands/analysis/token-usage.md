@@ -4,7 +4,7 @@ Analyze token usage patterns and optimize for efficiency.
 
 ## Usage
 ```bash
-npx monobrain analysis token-usage [options]
+npx monomind analysis token-usage [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain analysis token-usage [options]
 ## Examples
 ```bash
 # Last 24 hours token usage
-npx monobrain analysis token-usage --period 24h
+npx monomind analysis token-usage --period 24h
 
 # By agent breakdown
-npx monobrain analysis token-usage --by-agent
+npx monomind analysis token-usage --by-agent
 
 # Export detailed report
-npx monobrain analysis token-usage --period 7d --export tokens.csv
+npx monomind analysis token-usage --period 7d --export tokens.csv
 ```

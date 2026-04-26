@@ -14,7 +14,7 @@ import {
 async function demo() {
   console.log('');
   console.log('╔══════════════════════════════════════════════════════════════╗');
-  console.log('║  MONOBRAIN - IPFS PLUGIN STORE DEMO                          ║');
+  console.log('║  MONOMIND - IPFS PLUGIN STORE DEMO                          ║');
   console.log('║  Decentralized Plugin Marketplace                            ║');
   console.log('╚══════════════════════════════════════════════════════════════╝');
   console.log('');
@@ -105,7 +105,7 @@ async function demo() {
       console.log('');
     }
     console.log('   To install:');
-    console.log('   $ monobrain plugins install -n plugin-creator');
+    console.log('   $ monomind plugins install -n plugin-creator');
     console.log('');
   }
 
@@ -125,11 +125,11 @@ async function demo() {
   console.log('   ✅ Content-addressed storage (CID)');
   console.log('');
   console.log('   CLI Commands:');
-  console.log('   $ monobrain plugins list              # List all plugins');
-  console.log('   $ monobrain plugins list --official   # Official only');
-  console.log('   $ monobrain plugins search -q neural  # Search plugins');
-  console.log('   $ monobrain plugins info -n plugin-creator');
-  console.log('   $ monobrain plugins install -n plugin-creator');
+  console.log('   $ monomind plugins list              # List all plugins');
+  console.log('   $ monomind plugins list --official   # Official only');
+  console.log('   $ monomind plugins search -q neural  # Search plugins');
+  console.log('   $ monomind plugins info -n plugin-creator');
+  console.log('   $ monomind plugins install -n plugin-creator');
   console.log('');
 }
 

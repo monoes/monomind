@@ -10,7 +10,7 @@
  * - Performance benchmarking
  * - Migration management
  *
- * https://github.com/nokhodian/monobrain
+ * https://github.com/nokhodian/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../../types.js';
@@ -75,18 +75,18 @@ export const ruvectorCommand: Command = {
       short: 's',
       description: 'Schema name',
       type: 'string',
-      default: 'monobrain',
+      default: 'monomind',
     },
   ],
   examples: [
-    { command: 'monobrain ruvector setup', description: 'Output Docker files and SQL for setup' },
-    { command: 'monobrain ruvector import --input memory.json', description: 'Import from sql.js/JSON export' },
-    { command: 'monobrain ruvector init --database mydb', description: 'Initialize RuVector in PostgreSQL' },
-    { command: 'monobrain ruvector status --verbose', description: 'Check connection and schema status' },
-    { command: 'monobrain ruvector migrate --up', description: 'Run pending migrations' },
-    { command: 'monobrain ruvector benchmark --vectors 10000', description: 'Run performance benchmark' },
-    { command: 'monobrain ruvector optimize --analyze', description: 'Analyze and suggest optimizations' },
-    { command: 'monobrain ruvector backup --output backup.sql', description: 'Backup RuVector data' },
+    { command: 'monomind ruvector setup', description: 'Output Docker files and SQL for setup' },
+    { command: 'monomind ruvector import --input memory.json', description: 'Import from sql.js/JSON export' },
+    { command: 'monomind ruvector init --database mydb', description: 'Initialize RuVector in PostgreSQL' },
+    { command: 'monomind ruvector status --verbose', description: 'Check connection and schema status' },
+    { command: 'monomind ruvector migrate --up', description: 'Run pending migrations' },
+    { command: 'monomind ruvector benchmark --vectors 10000', description: 'Run performance benchmark' },
+    { command: 'monomind ruvector optimize --analyze', description: 'Analyze and suggest optimizations' },
+    { command: 'monomind ruvector backup --output backup.sql', description: 'Backup RuVector data' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Default action: show help/status overview
@@ -96,7 +96,7 @@ export const ruvectorCommand: Command = {
     output.writeln();
 
     output.printBox([
-      'RuVector provides PostgreSQL integration for Monobrain with:',
+      'RuVector provides PostgreSQL integration for Monomind with:',
       '',
       '  - ruvector/pgvector extension for vector operations',
       '  - Attention mechanism embeddings',
@@ -117,7 +117,7 @@ export const ruvectorCommand: Command = {
     ].join('\n'), 'RuVector PostgreSQL Bridge');
 
     output.writeln();
-    output.printInfo('Run `monobrain ruvector <command> --help` for details');
+    output.printInfo('Run `monomind ruvector <command> --help` for details');
     output.writeln();
 
     return { success: true };

@@ -13,7 +13,7 @@
  *
  * @example
  * ```typescript
- * import { sonaLearningPlugin } from '@monobrain/plugins/examples/ruvector-plugins';
+ * import { sonaLearningPlugin } from '@monomind/plugins/examples/ruvector-plugins';
  * await getDefaultRegistry().register(sonaLearningPlugin);
  * ```
  */
@@ -354,7 +354,7 @@ async function getSONALearning(): Promise<SONALearning> {
 
 export const sonaLearningPlugin = new PluginBuilder('sona-learning', '1.0.0')
   .withDescription('Self-Optimizing Neural Adaptation with @ruvector/learning-wasm (<100μs LoRA)')
-  .withAuthor('Monobrain Team')
+  .withAuthor('Monomind Team')
   .withTags(['learning', 'neural', 'adaptation', 'lora', 'ruvector', 'sona', 'ewc'])
   .withMCPTools([
     new MCPToolBuilder('sona-learn')

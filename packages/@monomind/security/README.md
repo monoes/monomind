@@ -1,12 +1,12 @@
-# @monobrain/security
+# @monomind/security
 
-[![npm version](https://img.shields.io/npm/v/@monobrain/security.svg)](https://www.npmjs.com/package/@monobrain/security)
-[![npm downloads](https://img.shields.io/npm/dm/@monobrain/security.svg)](https://www.npmjs.com/package/@monobrain/security)
+[![npm version](https://img.shields.io/npm/v/@monomind/security.svg)](https://www.npmjs.com/package/@monomind/security)
+[![npm downloads](https://img.shields.io/npm/dm/@monomind/security.svg)](https://www.npmjs.com/package/@monomind/security)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![Security Audit](https://img.shields.io/badge/Security-Audited-green.svg)](https://github.com/nokhodian/monobrain)
+[![Security Audit](https://img.shields.io/badge/Security-Audited-green.svg)](https://github.com/nokhodian/monomind)
 
-> Comprehensive security module for Monobrain V1 - CVE fixes, input validation, path security, and secure credential management.
+> Comprehensive security module for Monomind V1 - CVE fixes, input validation, path security, and secure credential management.
 
 ## Features
 
@@ -21,13 +21,13 @@
 ## Installation
 
 ```bash
-npm install @monobrain/security
+npm install @monomind/security
 ```
 
 ## Quick Start
 
 ```typescript
-import { createSecurityModule } from '@monobrain/security';
+import { createSecurityModule } from '@monomind/security';
 
 // Create a complete security module
 const security = createSecurityModule({
@@ -55,7 +55,7 @@ const creds = await security.credentialGenerator.generate();
 ### Password Hashing (CVE-2 Fix)
 
 ```typescript
-import { PasswordHasher, createPasswordHasher } from '@monobrain/security';
+import { PasswordHasher, createPasswordHasher } from '@monomind/security';
 
 const hasher = createPasswordHasher({ rounds: 12 });
 
@@ -72,7 +72,7 @@ const needsRehash = hasher.needsRehash(hash);
 ### Credential Generation (CVE-3 Fix)
 
 ```typescript
-import { CredentialGenerator, generateCredentials } from '@monobrain/security';
+import { CredentialGenerator, generateCredentials } from '@monomind/security';
 
 const generator = new CredentialGenerator();
 
@@ -92,7 +92,7 @@ const creds = generateCredentials({
 ### Safe Command Execution (HIGH-1 Fix)
 
 ```typescript
-import { SafeExecutor, createDevelopmentExecutor } from '@monobrain/security';
+import { SafeExecutor, createDevelopmentExecutor } from '@monomind/security';
 
 const executor = createDevelopmentExecutor();
 
@@ -109,7 +109,7 @@ const result2 = await executor.execute('npm', ['install'], {
 ### Path Validation (HIGH-2 Fix)
 
 ```typescript
-import { PathValidator, createProjectPathValidator } from '@monobrain/security';
+import { PathValidator, createProjectPathValidator } from '@monomind/security';
 
 const validator = createProjectPathValidator('/workspaces/project');
 
@@ -131,7 +131,7 @@ import {
   EmailSchema,
   PasswordSchema,
   SpawnAgentSchema
-} from '@monobrain/security';
+} from '@monomind/security';
 
 // Validate email
 const email = EmailSchema.parse('user@example.com');
@@ -146,7 +146,7 @@ const agentRequest = SpawnAgentSchema.parse({
 });
 
 // Sanitize HTML
-import { sanitizeHtml } from '@monobrain/security';
+import { sanitizeHtml } from '@monomind/security';
 const safe = sanitizeHtml('<script>alert("xss")</script>Hello');
 // 'Hello'
 ```
@@ -154,7 +154,7 @@ const safe = sanitizeHtml('<script>alert("xss")</script>Hello');
 ### Token Generation
 
 ```typescript
-import { TokenGenerator, quickGenerate } from '@monobrain/security';
+import { TokenGenerator, quickGenerate } from '@monomind/security';
 
 const generator = new TokenGenerator({
   hmacSecret: process.env.HMAC_SECRET!
@@ -184,13 +184,13 @@ import {
   MAX_PASSWORD_LENGTH,    // 72 (bcrypt limit)
   DEFAULT_TOKEN_EXPIRATION,   // 3600 (1 hour)
   DEFAULT_SESSION_EXPIRATION  // 86400 (24 hours)
-} from '@monobrain/security';
+} from '@monomind/security';
 ```
 
 ## Security Audit
 
 ```typescript
-import { auditSecurityConfig } from '@monobrain/security';
+import { auditSecurityConfig } from '@monomind/security';
 
 const warnings = auditSecurityConfig({
   bcryptRounds: 10,
@@ -226,8 +226,8 @@ const warnings = auditSecurityConfig({
 
 ## Related Packages
 
-- [@monobrain/shared](../shared) - Shared types and utilities
-- [@monobrain/swarm](../swarm) - Swarm coordination (secure agent spawning)
+- [@monomind/shared](../shared) - Shared types and utilities
+- [@monomind/swarm](../swarm) - Swarm coordination (secure agent spawning)
 
 ## License
 

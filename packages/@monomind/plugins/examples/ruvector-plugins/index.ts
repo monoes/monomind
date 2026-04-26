@@ -1,7 +1,7 @@
 /**
  * RuVector Plugin Collection
  *
- * High-value plugins using @ruvector WASM packages for Monobrain.
+ * High-value plugins using @ruvector WASM packages for Monomind.
  *
  * @packageDocumentation
  */

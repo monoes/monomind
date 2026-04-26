@@ -106,8 +106,8 @@ Fallback stubs           →  HierarchicalMemory, MemoryConsolidation (if agentd
 
 ## Files Changed
 
-- `packages/@monobrain/memory/src/controller-registry.ts` — 8 controllers upgraded from stub/null to real instantiation, added `createEmbeddingService()` helper
-- `packages/@monobrain/cli/src/memory/memory-bridge.ts` — Bridge functions detect real vs stub API, updated recall/store/consolidate signatures
-- `packages/@monobrain/cli/src/mcp-tools/agentdb-tools.ts` — Tier enum, input validation (phase 1)
-- `packages/@monobrain/memory/package.json` — agentdb dependency `^3.0.0-alpha.10`
+- `packages/@monomind/memory/src/controller-registry.ts` — 8 controllers upgraded from stub/null to real instantiation, added `createEmbeddingService()` helper
+- `packages/@monomind/cli/src/memory/memory-bridge.ts` — Bridge functions detect real vs stub API, updated recall/store/consolidate signatures
+- `packages/@monomind/cli/src/mcp-tools/agentdb-tools.ts` — Tier enum, input validation (phase 1)
+- `packages/@monomind/memory/package.json` — agentdb dependency `^3.0.0-alpha.10`
 - `README.md` — Tier names, capacity/TTL claims, RVFOptimizer categorization (phase 1)

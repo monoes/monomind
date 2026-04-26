@@ -8,7 +8,7 @@
  * - Confidence scoring
  * - Learning from feedback
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -111,9 +111,9 @@ const routeTaskCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain route task "implement authentication"', description: 'Route task to best agent' },
-    { command: 'monobrain route task "write unit tests" --q-learning', description: 'Use Q-Learning routing' },
-    { command: 'monobrain route task "review code" --agent reviewer', description: 'Force specific agent' },
+    { command: 'monomind route task "implement authentication"', description: 'Route task to best agent' },
+    { command: 'monomind route task "write unit tests" --q-learning', description: 'Use Q-Learning routing' },
+    { command: 'monomind route task "review code" --agent reviewer', description: 'Force specific agent' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const taskDescription = ctx.args[0];
@@ -123,7 +123,7 @@ const routeTaskCommand: Command = {
 
     if (!taskDescription) {
       output.printError('Task description is required');
-      output.writeln(output.dim('Usage: monobrain route task "task description"'));
+      output.writeln(output.dim('Usage: monomind route task "task description"'));
       return { success: false, exitCode: 1 };
     }
 
@@ -259,8 +259,8 @@ const listAgentsCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain route list-agents', description: 'List all agents' },
-    { command: 'monobrain route agents --json', description: 'List agents as JSON' },
+    { command: 'monomind route list-agents', description: 'List all agents' },
+    { command: 'monomind route agents --json', description: 'List agents as JSON' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const jsonOutput = ctx.flags.json as boolean;
@@ -318,7 +318,7 @@ const statsCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain route stats', description: 'Show routing statistics' },
+    { command: 'monomind route stats', description: 'Show routing statistics' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const jsonOutput = ctx.flags.json as boolean;
@@ -410,8 +410,8 @@ const feedbackCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain route feedback -t "implement auth" -a coder -r 0.9', description: 'Positive feedback' },
-    { command: 'monobrain route feedback -t "write tests" -a tester -r -0.5', description: 'Negative feedback' },
+    { command: 'monomind route feedback -t "implement auth" -a coder -r 0.9', description: 'Positive feedback' },
+    { command: 'monomind route feedback -t "write tests" -a tester -r -0.5', description: 'Negative feedback' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const taskDescription = ctx.flags.task as string;
@@ -473,8 +473,8 @@ const resetCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain route reset', description: 'Reset router state' },
-    { command: 'monobrain route reset --force', description: 'Force reset' },
+    { command: 'monomind route reset', description: 'Reset router state' },
+    { command: 'monomind route reset --force', description: 'Force reset' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const force = ctx.flags.force as boolean;
@@ -513,8 +513,8 @@ const exportCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain route export', description: 'Export Q-table to stdout' },
-    { command: 'monobrain route export -f qtable.json', description: 'Export to file' },
+    { command: 'monomind route export', description: 'Export Q-table to stdout' },
+    { command: 'monomind route export -f qtable.json', description: 'Export to file' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const filePath = ctx.flags.file as string | undefined;
@@ -552,7 +552,7 @@ const importCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain route import -f qtable.json', description: 'Import Q-table from file' },
+    { command: 'monomind route import -f qtable.json', description: 'Import Q-table from file' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const filePath = ctx.flags.file as string;
@@ -626,10 +626,10 @@ const coverageRouteCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain route coverage', description: 'Analyze coverage and suggest routing' },
-    { command: 'monobrain route coverage --suggest', description: 'Get improvement suggestions' },
-    { command: 'monobrain route coverage --gaps', description: 'List coverage gaps by agent' },
-    { command: 'monobrain route coverage -p src/auth -t 90', description: 'Analyze specific path with threshold' },
+    { command: 'monomind route coverage', description: 'Analyze coverage and suggest routing' },
+    { command: 'monomind route coverage --suggest', description: 'Get improvement suggestions' },
+    { command: 'monomind route coverage --gaps', description: 'List coverage gaps by agent' },
+    { command: 'monomind route coverage -p src/auth -t 90', description: 'Analyze specific path with threshold' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const path = (ctx.flags.path as string) || '';
@@ -840,8 +840,8 @@ const semanticRouteCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain route semantic -t "audit the API for injection risks"', description: 'Semantic routing' },
-    { command: 'monobrain route semantic -t "write unit tests" --debug', description: 'Show all route scores' },
+    { command: 'monomind route semantic -t "audit the API for injection risks"', description: 'Semantic routing' },
+    { command: 'monomind route semantic -t "write unit tests" --debug', description: 'Show all route scores' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const taskDescription = ctx.flags.task as string;
@@ -857,7 +857,7 @@ const semanticRouteCommand: Command = {
     spinner.start();
 
     try {
-      const { RouteLayer, ALL_ROUTES } = await import('@monobrain/routing');
+      const { RouteLayer, ALL_ROUTES } = await import('@monomind/routing');
       const layer = new RouteLayer({ routes: ALL_ROUTES, debug });
       const result = await layer.route(taskDescription);
 
@@ -943,11 +943,11 @@ export const routeCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain route "implement feature"', description: 'Route task to best agent' },
-    { command: 'monobrain route "write tests" --q-learning', description: 'Use Q-Learning routing' },
-    { command: 'monobrain route --agent coder "fix bug"', description: 'Force specific agent' },
-    { command: 'monobrain route list-agents', description: 'List available agents' },
-    { command: 'monobrain route stats', description: 'Show routing statistics' },
+    { command: 'monomind route "implement feature"', description: 'Route task to best agent' },
+    { command: 'monomind route "write tests" --q-learning', description: 'Use Q-Learning routing' },
+    { command: 'monomind route --agent coder "fix bug"', description: 'Force specific agent' },
+    { command: 'monomind route list-agents', description: 'List available agents' },
+    { command: 'monomind route stats', description: 'Show routing statistics' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // If task description provided directly, route it
@@ -963,8 +963,8 @@ export const routeCommand: Command = {
     output.writeln(output.dim('Intelligent task-to-agent routing using reinforcement learning'));
     output.writeln();
 
-    output.writeln('Usage: monobrain route <task> [options]');
-    output.writeln('       monobrain route <subcommand>');
+    output.writeln('Usage: monomind route <task> [options]');
+    output.writeln('       monomind route <subcommand>');
     output.writeln();
 
     output.writeln(output.bold('Subcommands:'));
@@ -998,7 +998,7 @@ export const routeCommand: Command = {
     ]);
     output.writeln();
 
-    output.writeln(output.dim('Run "monobrain route <subcommand> --help" for more info'));
+    output.writeln(output.dim('Run "monomind route <subcommand> --help" for more info'));
 
     return { success: true };
   },

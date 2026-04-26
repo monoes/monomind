@@ -50,7 +50,7 @@ use new_task for each new task as a sub-task.
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "sparc",
   task_description: "orchestrate authentication system",
   options: {
@@ -63,22 +63,22 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run sparc "orchestrate authentication system"
+npx monomind sparc run sparc "orchestrate authentication system"
 
 # For alpha features
-npx monobrain@alpha sparc run sparc "orchestrate authentication system"
+npx monomind@alpha sparc run sparc "orchestrate authentication system"
 
 # With namespace
-npx monobrain sparc run sparc "your task" --namespace sparc
+npx monomind sparc run sparc "your task" --namespace sparc
 
 # Non-interactive mode
-npx monobrain sparc run sparc "your task" --non-interactive
+npx monomind sparc run sparc "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run sparc "orchestrate authentication system"
+# If monomind is installed locally
+./monomind sparc run sparc "orchestrate authentication system"
 ```
 
 ## Memory Integration
@@ -86,7 +86,7 @@ npx monobrain sparc run sparc "your task" --non-interactive
 ### Using MCP Tools (Preferred)
 ```javascript
 // Store mode-specific context
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "sparc_context",
   value: "important decisions",
@@ -94,7 +94,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Query previous work
-mcp__monobrain__memory_search {
+mcp__monomind__memory_search {
   pattern: "sparc",
   namespace: "sparc",
   limit: 5
@@ -104,8 +104,8 @@ mcp__monobrain__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx monobrain memory store "sparc_context" "important decisions" --namespace sparc
+npx monomind memory store "sparc_context" "important decisions" --namespace sparc
 
 # Query previous work
-npx monobrain memory query "sparc" --limit 5
+npx monomind memory query "sparc" --limit 5
 ```

@@ -29,7 +29,7 @@ If `$ARGUMENTS` is empty, continue to Step 2.
 Run:
 
 ```bash
-node "${CLAUDE_PROJECT_DIR:-/Users/morteza/Desktop/tools/monobrain}/.claude/helpers/hook-handler.cjs" list-extras
+node "${CLAUDE_PROJECT_DIR:-/Users/morteza/Desktop/tools/monomind}/.claude/helpers/hook-handler.cjs" list-extras
 ```
 
 Read the full output. Based on **the current conversation context** (what the user has been asking about, the topic, the domain), pick the single best matching agent slug. Consider:
@@ -49,7 +49,7 @@ Then proceed with that slug in Step 3.
 Run:
 
 ```bash
-node "${CLAUDE_PROJECT_DIR:-/Users/morteza/Desktop/tools/monobrain}/.claude/helpers/router.cjs" --load-agent CHOSEN_SLUG
+node "${CLAUDE_PROJECT_DIR:-/Users/morteza/Desktop/tools/monomind}/.claude/helpers/router.cjs" --load-agent CHOSEN_SLUG
 ```
 
 (Replace `CHOSEN_SLUG` with either `$ARGUMENTS` from Step 1 or the slug you picked in Step 2.)

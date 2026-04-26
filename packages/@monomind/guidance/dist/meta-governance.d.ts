@@ -20,8 +20,8 @@
  * - Emergency veto power
  * - Immutability protection
  *
- * @module @monobrain/guidance/meta-governance
- * @author Monobrain Team
+ * @module @monomind/guidance/meta-governance
+ * @author Monomind Team
  */
 /**
  * Result of checking a constitutional invariant

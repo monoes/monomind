@@ -12,7 +12,7 @@ import type {
   BenchmarkBaseline,
   QualityMetric,
   MetricResult,
-} from '@monobrain/shared';
+} from '@monomind/shared';
 import {
   containsExpected,
   lengthRange,
@@ -187,7 +187,7 @@ export class BenchmarkRunner {
 // ============================================================
 
 /** Minimal local type aliases so SwarmBench doesn't depend on the broken
- *  @monobrain/shared exports at the top of this file. */
+ *  @monomind/shared exports at the top of this file. */
 export interface SwarmBenchTask {
   /** Unique task ID */
   id: string;

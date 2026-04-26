@@ -1,5 +1,5 @@
 /**
- * @monobrain/mcp - MCP Server
+ * @monomind/mcp - MCP Server
  *
  * High-performance MCP server implementation
  */

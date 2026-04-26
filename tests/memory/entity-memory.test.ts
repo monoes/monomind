@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { EntityMemory, type EntityFact } from '../../packages/@monobrain/memory/src/tiers/entity.js';
+import { EntityMemory, type EntityFact } from '../../packages/@monomind/memory/src/tiers/entity.js';
 
 function makeFact(overrides: Partial<EntityFact> = {}): EntityFact {
   return {

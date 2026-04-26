@@ -7,7 +7,7 @@ System design with Memory-based coordination for scalable architectures.
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "architect",
   task_description: "design microservices architecture",
   options: {
@@ -20,16 +20,16 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run architect "design microservices architecture"
+npx monomind sparc run architect "design microservices architecture"
 
 # For alpha features
-npx monobrain@alpha sparc run architect "design microservices architecture"
+npx monomind@alpha sparc run architect "design microservices architecture"
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run architect "design microservices architecture"
+# If monomind is installed locally
+./monomind sparc run architect "design microservices architecture"
 ```
 
 ## Core Capabilities

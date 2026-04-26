@@ -1,15 +1,15 @@
 {
-  "name": "monobrain",
+  "name": "monomind",
   "version": "1.0.0",
   "description": "Enterprise AI agent orchestration plugin with 150+ commands, 74+ specialized agents, SPARC methodology, swarm coordination, GitHub integration, and neural training capabilities",
   "author": {
     "name": "nokhodian",
     "email": "nokhodian@gmail.com"
   },
-  "homepage": "https://github.com/nokhodian/monobrain",
-  "repository": "https://github.com/nokhodian/monobrain.git",
+  "homepage": "https://github.com/nokhodian/monomind",
+  "repository": "https://github.com/nokhodian/monomind.git",
   "bugs": {
-    "url": "https://github.com/nokhodian/monobrain/issues"
+    "url": "https://github.com/nokhodian/monomind/issues"
   },
   "license": "MIT",
   "keywords": [
@@ -46,14 +46,14 @@
     "node": ">=20.0.0"
   },
   "mcpServers": {
-    "monobrain": {
+    "monomind": {
       "command": "npx",
       "args": [
-        "monobrain@alpha",
+        "monomind@alpha",
         "mcp",
         "start"
       ],
-      "description": "Core Monobrain MCP server for swarm coordination, agent management, and task orchestration (40+ tools)",
+      "description": "Core Monomind MCP server for swarm coordination, agent management, and task orchestration (40+ tools)",
       "optional": false
     },
     "ruv-swarm": {

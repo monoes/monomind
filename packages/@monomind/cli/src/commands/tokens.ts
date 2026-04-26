@@ -1,5 +1,5 @@
 /**
- * Monobrain Tokens Command
+ * Monomind Tokens Command
  * Token usage tracking and visualization — powered by token-tracker.cjs
  */
 

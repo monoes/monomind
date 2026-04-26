@@ -1,5 +1,5 @@
 /**
- * @monobrain/claims - Vitest Configuration
+ * @monomind/claims - Vitest Configuration
  * Test configuration for the claims module
  */
 import { defineConfig } from 'vitest/config';

@@ -16,7 +16,7 @@ interface MCPTool {
   handler: (input: Record<string, unknown>) => Promise<unknown>;
 }
 
-const DEFAULT_TRACE_PATH = '.monobrain/traces';
+const DEFAULT_TRACE_PATH = '.monomind/traces';
 
 export const listTracesTool: MCPTool = {
   name: 'hooks/traces/list',
@@ -31,7 +31,7 @@ export const listTracesTool: MCPTool = {
       },
       tracePath: {
         type: 'string',
-        description: 'Custom trace store path (default: .monobrain/traces)',
+        description: 'Custom trace store path (default: .monomind/traces)',
       },
     },
   },
@@ -57,7 +57,7 @@ export const getTraceTool: MCPTool = {
       },
       tracePath: {
         type: 'string',
-        description: 'Custom trace store path (default: .monobrain/traces)',
+        description: 'Custom trace store path (default: .monomind/traces)',
       },
     },
     required: ['traceId'],

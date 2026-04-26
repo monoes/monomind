@@ -2,7 +2,7 @@
 
 ## Overview
 
-The V1 Hooks System provides a comprehensive event-driven architecture for intercepting, modifying, and recording operations throughout the monobrain lifecycle. It integrates with the **ReasoningBank** neural learning system to enable self-improving agent behaviors.
+The V1 Hooks System provides a comprehensive event-driven architecture for intercepting, modifying, and recording operations throughout the monomind lifecycle. It integrates with the **ReasoningBank** neural learning system to enable self-improving agent behaviors.
 
 ## Architecture
 
@@ -24,12 +24,12 @@ The V1 Hooks System provides a comprehensive event-driven architecture for inter
 
 ## Components
 
-### 1. Hook Registry (`@monobrain/shared/src/hooks/registry.ts`)
+### 1. Hook Registry (`@monomind/shared/src/hooks/registry.ts`)
 
 Manages hook registration, priority ordering, and lifecycle.
 
 ```typescript
-import { createHookRegistry, HookEvent, HookPriority } from '@monobrain/shared';
+import { createHookRegistry, HookEvent, HookPriority } from '@monomind/shared';
 
 const registry = createHookRegistry();
 
@@ -51,12 +51,12 @@ registry.enable(hookId);
 const stats = registry.getStats();
 ```
 
-### 2. Hook Executor (`@monobrain/shared/src/hooks/executor.ts`)
+### 2. Hook Executor (`@monomind/shared/src/hooks/executor.ts`)
 
 Executes registered hooks in priority order with error handling.
 
 ```typescript
-import { createHookExecutor, HookContext } from '@monobrain/shared';
+import { createHookExecutor, HookContext } from '@monomind/shared';
 
 const executor = createHookExecutor(registry, eventBus);
 
@@ -95,31 +95,31 @@ MCP-accessible tools for hooks system operations.
 | `hooks/metrics` | Get learning metrics and statistics |
 | `hooks/list` | List registered hooks |
 
-### 4. CLI Commands (`@monobrain/cli/src/commands/hooks.ts`)
+### 4. CLI Commands (`@monomind/cli/src/commands/hooks.ts`)
 
 User-accessible CLI for hooks operations.
 
 ```bash
 # Pre/Post Edit Hooks
-npx monobrain hooks pre-edit <filePath> [--operation modify]
-npx monobrain hooks post-edit <filePath> --success true
+npx monomind hooks pre-edit <filePath> [--operation modify]
+npx monomind hooks post-edit <filePath> --success true
 
 # Pre/Post Command Hooks
-npx monobrain hooks pre-command "npm test"
-npx monobrain hooks post-command "npm test" --success true --exit-code 0
+npx monomind hooks pre-command "npm test"
+npx monomind hooks post-command "npm test" --success true --exit-code 0
 
 # Task Routing
-npx monobrain hooks route "Implement user authentication"
-npx monobrain hooks explain "Implement user authentication" --verbose
+npx monomind hooks route "Implement user authentication"
+npx monomind hooks explain "Implement user authentication" --verbose
 
 # Intelligence Bootstrap
-npx monobrain hooks pretrain [--include-git --include-deps]
-npx monobrain hooks build-agents [--focus security]
+npx monomind hooks pretrain [--include-git --include-deps]
+npx monomind hooks build-agents [--focus security]
 
 # Metrics & Management
-npx monobrain hooks metrics [--category routing]
-npx monobrain hooks list [--category pre-edit]
-npx monobrain hooks transfer <sourceProject>
+npx monomind hooks metrics [--category routing]
+npx monomind hooks list [--category pre-edit]
+npx monomind hooks transfer <sourceProject>
 ```
 
 ## Hook Events
@@ -178,7 +178,7 @@ V1 introduces **SwarmCommunication** for agent-to-agent coordination within swar
 Agents can share context and coordinate in real-time:
 
 ```typescript
-import { swarmComm } from '@monobrain/hooks';
+import { swarmComm } from '@monomind/hooks';
 
 await swarmComm.initialize();
 
@@ -198,13 +198,13 @@ const messages = swarmComm.getMessages({ limit: 10, type: 'context' });
 **CLI Usage:**
 ```bash
 # Send message
-npx @monobrain/hooks swarm-send security-auditor "Found vulnerability" context high
+npx @monomind/hooks swarm-send security-auditor "Found vulnerability" context high
 
 # Broadcast to all
-npx @monobrain/hooks swarm-broadcast "Switching to security focus"
+npx @monomind/hooks swarm-broadcast "Switching to security focus"
 
 # Get messages
-npx @monobrain/hooks swarm-messages 10
+npx @monomind/hooks swarm-messages 10
 ```
 
 ### 2. Pattern Broadcasting
@@ -228,13 +228,13 @@ for (const bc of broadcasts) {
 **CLI Usage:**
 ```bash
 # Broadcast a new pattern
-npx @monobrain/hooks swarm-pattern-broadcast "Use HNSW for 150x faster search" memory
+npx @monomind/hooks swarm-pattern-broadcast "Use HNSW for 150x faster search" memory
 
 # List recent broadcasts
-npx @monobrain/hooks swarm-patterns memory 0.8
+npx @monomind/hooks swarm-patterns memory 0.8
 
 # Import a broadcast pattern
-npx @monobrain/hooks swarm-import-pattern bc_1234567890_abc123
+npx @monomind/hooks swarm-import-pattern bc_1234567890_abc123
 ```
 
 ### 3. Consensus Guidance
@@ -265,13 +265,13 @@ console.log(guidance);
 **CLI Usage:**
 ```bash
 # Start consensus
-npx @monobrain/hooks swarm-consensus "Which auth method?" "JWT,OAuth2,Session" 30000
+npx @monomind/hooks swarm-consensus "Which auth method?" "JWT,OAuth2,Session" 30000
 
 # Vote
-npx @monobrain/hooks swarm-vote cons_1234567890_abc "JWT"
+npx @monomind/hooks swarm-vote cons_1234567890_abc "JWT"
 
 # Check status
-npx @monobrain/hooks swarm-consensus-status cons_1234567890_abc
+npx @monomind/hooks swarm-consensus-status cons_1234567890_abc
 ```
 
 ### 4. Task Handoff
@@ -309,17 +309,17 @@ swarmComm.completeHandoff(handoff.id, { testsWritten: 15 });
 **CLI Usage:**
 ```bash
 # Initiate handoff
-npx @monobrain/hooks swarm-handoff test-architect "Write auth tests" \
+npx @monomind/hooks swarm-handoff test-architect "Write auth tests" \
   '{"filesModified":["src/auth/login.ts"],"nextSteps":["Write unit tests"]}'
 
 # Accept handoff
-npx @monobrain/hooks swarm-accept-handoff ho_1234567890_abc
+npx @monomind/hooks swarm-accept-handoff ho_1234567890_abc
 
 # Complete handoff
-npx @monobrain/hooks swarm-complete-handoff ho_1234567890_abc '{"testsWritten":15}'
+npx @monomind/hooks swarm-complete-handoff ho_1234567890_abc '{"testsWritten":15}'
 
 # List pending handoffs
-npx @monobrain/hooks swarm-handoffs
+npx @monomind/hooks swarm-handoffs
 ```
 
 ### Swarm Communication Events
@@ -341,7 +341,7 @@ npx @monobrain/hooks swarm-handoffs
 ### Swarm Statistics
 
 ```bash
-npx @monobrain/hooks swarm-stats
+npx @monomind/hooks swarm-stats
 # {
 #   "agentId": "agent_1234567890_abc",
 #   "agentCount": 5,
@@ -412,11 +412,11 @@ V1 maintains full backward compatibility with V2 hooks:
 
 ```bash
 # V2 syntax still works
-npx monobrain hooks pre-task --description "task"
-npx monobrain hooks session-restore --session-id "swarm-123"
-npx monobrain hooks post-edit --file "file.ts" --memory-key "swarm/agent/step"
-npx monobrain hooks notify --message "completed"
-npx monobrain hooks session-end --export-metrics true
+npx monomind hooks pre-task --description "task"
+npx monomind hooks session-restore --session-id "swarm-123"
+npx monomind hooks post-edit --file "file.ts" --memory-key "swarm/agent/step"
+npx monomind hooks notify --message "completed"
+npx monomind hooks session-end --export-metrics true
 ```
 
 ### V2 MCP Tools (Deprecated but Functional)
@@ -471,7 +471,7 @@ const reasoningBank = createReasoningBank({
 
 ```
 v1/
-├── @monobrain/hooks/src/
+├── @monomind/hooks/src/
 │   ├── types.ts                    # Hook type definitions
 │   ├── index.ts                    # Module exports
 │   ├── registry/
@@ -496,7 +496,7 @@ v1/
 │   └── __tests__/
 │       ├── reasoningbank.test.ts   # ReasoningBank tests
 │       └── guidance-provider.test.ts # GuidanceProvider tests
-├── @monobrain/shared/src/hooks/
+├── @monomind/shared/src/hooks/
 │   ├── types.ts                    # Shared hook types
 │   ├── registry.ts                 # Hook registry (shared)
 │   └── index.ts                    # Shared exports
@@ -575,7 +575,7 @@ console.log(result.data?.confidence);        // 0.92
 
 ```bash
 # Run hooks tests
-cd packages/@monobrain/shared
+cd packages/@monomind/shared
 npm test -- hooks.test.ts
 
 # Run with coverage

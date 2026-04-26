@@ -21,7 +21,7 @@ Three modules handle how the system knows what it knows — and how certain it i
 Every piece of knowledge carries explicit uncertainty metadata:
 
 ```ts
-import { createUncertaintyLedger } from "@monobrain/guidance/uncertainty";
+import { createUncertaintyLedger } from "@monomind/guidance/uncertainty";
 
 const ledger = createUncertaintyLedger({
   defaultConfidence: { low: 0.3, mid: 0.5, high: 0.7 },
@@ -109,7 +109,7 @@ const security = ledger.query({ tags: ["security"] });
 ### Aggregation
 
 ```ts
-import { createUncertaintyAggregator } from "@monobrain/guidance/uncertainty";
+import { createUncertaintyAggregator } from "@monomind/guidance/uncertainty";
 
 const agg = createUncertaintyAggregator(ledger);
 
@@ -140,7 +140,7 @@ Every assertion has two time dimensions:
 import {
   createTemporalStore,
   createTemporalReasoner,
-} from "@monobrain/guidance/temporal";
+} from "@monomind/guidance/temporal";
 
 const store = createTemporalStore();
 
@@ -228,7 +228,7 @@ Internal beliefs can be wrong. Agents can reason themselves into incorrect concl
 import {
   createTruthAnchorStore,
   createTruthResolver,
-} from "@monobrain/guidance/truth-anchors";
+} from "@monomind/guidance/truth-anchors";
 
 const store = createTruthAnchorStore("anchor-signing-key");
 

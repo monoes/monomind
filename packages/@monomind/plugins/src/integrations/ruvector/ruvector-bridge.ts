@@ -9,7 +9,7 @@
  * - MCP tool integration
  * - Event emission and metrics
  *
- * @module @monobrain/plugins/integrations/ruvector
+ * @module @monomind/plugins/integrations/ruvector
  * @version 1.0.0
  */
 
@@ -283,7 +283,7 @@ class ConnectionManager extends EventEmitter {
       max: poolSettings.max ?? this.config.poolSize ?? DEFAULT_POOL_MAX,
       idleTimeoutMillis: poolSettings.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS,
       connectionTimeoutMillis: this.config.connectionTimeoutMs ?? DEFAULT_CONNECTION_TIMEOUT_MS,
-      application_name: this.config.applicationName ?? 'monobrain-ruvector',
+      application_name: this.config.applicationName ?? 'monomind-ruvector',
     };
   }
 
@@ -1054,7 +1054,7 @@ class VectorOps {
 // ============================================================================
 
 /**
- * RuVector PostgreSQL Bridge Plugin for Monobrain v1.
+ * RuVector PostgreSQL Bridge Plugin for Monomind v1.
  *
  * Provides comprehensive vector database integration with:
  * - Connection pooling and management
@@ -1097,7 +1097,7 @@ export class RuVectorBridge extends BasePlugin {
     super({
       name: PLUGIN_NAME,
       version: PLUGIN_VERSION,
-      description: 'RuVector PostgreSQL Bridge for Monobrain v1 - Advanced vector database integration',
+      description: 'RuVector PostgreSQL Bridge for Monomind v1 - Advanced vector database integration',
       tags: ['database', 'vector', 'postgresql', 'search', 'embeddings'],
     });
 

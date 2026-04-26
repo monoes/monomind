@@ -1,13 +1,13 @@
-# Architectural Comparison: Monobrain v1 vs Claude Code TeammateTool
+# Architectural Comparison: Monomind v1 vs Claude Code TeammateTool
 
 **Date:** 2026-01-25
-**Analysis:** Side-by-side comparison of Monobrain v1 swarm architecture (developed by nokhodian) and Claude Code's TeammateTool (discovered in v2.1.19)
+**Analysis:** Side-by-side comparison of Monomind v1 swarm architecture (developed by nokhodian) and Claude Code's TeammateTool (discovered in v2.1.19)
 
 ---
 
 ## Executive Summary
 
-A detailed analysis reveals **striking architectural similarities** between Monobrain v1's swarm system and Claude Code's TeammateTool. The terminology differs, but the core concepts, data structures, and workflows are nearly identical.
+A detailed analysis reveals **striking architectural similarities** between Monomind v1's swarm system and Claude Code's TeammateTool. The terminology differs, but the core concepts, data structures, and workflows are nearly identical.
 
 | Similarity Score  | 92% Overlap                               |
 | ----------------- | ----------------------------------------- |
@@ -22,7 +22,7 @@ A detailed analysis reveals **striking architectural similarities** between Mono
 
 ### 1.1 Team/Swarm Management
 
-| Concept             | Monobrain v1            | TeammateTool (v2.1.19)          |
+| Concept             | Monomind v1            | TeammateTool (v2.1.19)          |
 | ------------------- | ----------------------- | ------------------------------- |
 | **Group Unit**      | `Swarm` / `SwarmId`     | `Team` / `team_name`            |
 | **Create Group**    | `swarm_init()`          | `spawnTeam()`                   |
@@ -32,7 +32,7 @@ A detailed analysis reveals **striking architectural similarities** between Mono
 | **Max Members**     | `maxAgents`             | `maxTeammates`                  |
 | **Cleanup**         | `shutdown()`            | `cleanup()`                     |
 
-**Monobrain v1 (types.ts:10-22):**
+**Monomind v1 (types.ts:10-22):**
 
 ```typescript
 export interface SwarmId {
@@ -65,14 +65,14 @@ interface AgentInput {
 
 ### 1.2 Topology Types
 
-| Topology         | Monobrain v1           | TeammateTool                     |
+| Topology         | Monomind v1           | TeammateTool                     |
 | ---------------- | ---------------------- | -------------------------------- |
 | **Flat/Mesh**    | `type: 'mesh'`         | `topology: 'flat'`               |
 | **Hierarchical** | `type: 'hierarchical'` | `topology: 'hierarchical'`       |
 | **Centralized**  | `type: 'centralized'`  | Queen with `planModeRequired`    |
 | **Hybrid**       | `type: 'hybrid'`       | `topology: 'mesh'` + coordinator |
 
-**Monobrain v1 (types.ts:33-42):**
+**Monomind v1 (types.ts:33-42):**
 
 ```typescript
 export type TopologyType = "mesh" | "hierarchical" | "centralized" | "hybrid";
@@ -102,7 +102,7 @@ export interface TopologyConfig {
 
 ### 2.1 Role Definitions
 
-| Role             | Monobrain v1            | TeammateTool                  |
+| Role             | Monomind v1            | TeammateTool                  |
 | ---------------- | ----------------------- | ----------------------------- |
 | **Orchestrator** | `queen` / `coordinator` | `mode: "plan"` agent          |
 | **Code Writer**  | `coder`                 | `subagent_type: "coder"`      |
@@ -112,7 +112,7 @@ export interface TopologyConfig {
 | **Architect**    | `architect`             | `subagent_type: "architect"`  |
 | **Worker**       | `worker`                | Default teammate              |
 
-**Monobrain v1 (types.ts:78-91):**
+**Monomind v1 (types.ts:78-91):**
 
 ```typescript
 export type AgentType =
@@ -140,7 +140,7 @@ subagent_type field supports same agent types
 
 ### 2.2 Agent State
 
-| State Field       | Monobrain v1                      | TeammateTool                                         |
+| State Field       | Monomind v1                      | TeammateTool                                         |
 | ----------------- | --------------------------------- | ---------------------------------------------------- |
 | **ID**            | `id: AgentId`                     | `teammateId`                                         |
 | **Name**          | `name: string`                    | `name` in AgentInput                                 |
@@ -149,7 +149,7 @@ subagent_type field supports same agent types
 | **Capabilities**  | `capabilities: AgentCapabilities` | `allowed_tools: string[]`                            |
 | **Messages Sent** | `metrics.messagesProcessed`       | `messagesSent`                                       |
 
-**Monobrain v1 (types.ts:136-149):**
+**Monomind v1 (types.ts:136-149):**
 
 ```typescript
 export interface AgentState {
@@ -189,7 +189,7 @@ interface TeammateInfo {
 
 ### 3.1 Message Bus vs Mailbox
 
-| Feature         | Monobrain v1                 | TeammateTool                      |
+| Feature         | Monomind v1                 | TeammateTool                      |
 | --------------- | ---------------------------- | --------------------------------- |
 | **System**      | `MessageBus` class           | `teammate_mailbox`                |
 | **Send Direct** | `send(message)`              | `write` operation                 |
@@ -197,7 +197,7 @@ interface TeammateInfo {
 | **Queue**       | `PriorityMessageQueue`       | File-based mailbox                |
 | **Persistence** | In-memory + optional persist | `~/.claude/teams/{team}/mailbox/` |
 
-**Monobrain v1 (types.ts:237-265):**
+**Monomind v1 (types.ts:237-265):**
 
 ```typescript
 export type MessageType =
@@ -238,7 +238,7 @@ export interface Message {
 
 ### 3.2 Message Flow Patterns
 
-**Monobrain v1:**
+**Monomind v1:**
 
 ```
 Coordinator → MessageBus.broadcast() → All Agents
@@ -260,7 +260,7 @@ Teammate → Mailbox polling → Receive messages
 
 ### 4.1 Consensus System
 
-| Feature        | Monobrain v1                           | TeammateTool                            |
+| Feature        | Monomind v1                           | TeammateTool                            |
 | -------------- | -------------------------------------- | --------------------------------------- |
 | **Propose**    | `proposeConsensus(value)`              | `submitPlan()` implicit                 |
 | **Vote**       | `ConsensusVote` interface              | `approvePlan` / `rejectPlan`            |
@@ -268,7 +268,7 @@ Teammate → Mailbox polling → Receive messages
 | **Algorithms** | `raft`, `byzantine`, `gossip`, `paxos` | Implicit majority                       |
 | **Result**     | `ConsensusResult`                      | Plan `status: 'approved' \| 'rejected'` |
 
-**Monobrain v1 (types.ts:197-235):**
+**Monomind v1 (types.ts:197-235):**
 
 ```typescript
 export type ConsensusAlgorithm = "raft" | "byzantine" | "gossip" | "paxos";
@@ -313,7 +313,7 @@ export interface ConsensusVote {
 
 ### 4.2 Plan Mode / Swarm Launch
 
-**Monobrain v1:**
+**Monomind v1:**
 
 ```typescript
 // Queen analyzes task and creates plan
@@ -345,7 +345,7 @@ interface ExitPlanModeInput {
 
 ### 5.1 Agent Lifecycle
 
-| Action             | Monobrain v1                  | TeammateTool                         |
+| Action             | Monomind v1                  | TeammateTool                         |
 | ------------------ | ----------------------------- | ------------------------------------ |
 | **Register**       | `registerAgent(agent)`        | `requestJoin` + approval             |
 | **Join Approval**  | Implicit (no approval needed) | `approveJoin` / `rejectJoin`         |
@@ -353,7 +353,7 @@ interface ExitPlanModeInput {
 | **Leave Approval** | Implicit                      | `approveShutdown` / `rejectShutdown` |
 | **Force Remove**   | `removeNode(agentId)`         | `cleanup()`                          |
 
-**Monobrain v1 (types.ts:519-535):**
+**Monomind v1 (types.ts:519-535):**
 
 ```typescript
 export interface IUnifiedSwarmCoordinator {
@@ -383,14 +383,14 @@ rejectShutdown → Coordinator rejects (implicit)
 
 ### 6.1 Execution Environments
 
-| Backend        | Monobrain v1              | TeammateTool                    |
+| Backend        | Monomind v1              | TeammateTool                    |
 | -------------- | ------------------------- | ------------------------------- |
 | **In-Process** | Default (same process)    | `in_process_teammate` (18 refs) |
 | **tmux**       | Via Bash tool             | `tmux` (26 refs) + env vars     |
 | **Background** | `run_in_background: true` | Same parameter                  |
 | **iTerm2**     | Not implemented           | Suspected (macOS)               |
 
-**Monobrain v1 approach:**
+**Monomind v1 approach:**
 
 - Agents run as sub-processes via Claude Code Task tool
 - Background execution via `run_in_background: true`
@@ -410,10 +410,10 @@ CLAUDE_CODE_TEAMMATE_COMMAND   # Spawn command
 
 ### 7.1 Creating a Team/Swarm
 
-**Monobrain v1:**
+**Monomind v1:**
 
 ```typescript
-import { UnifiedSwarmCoordinator } from "@monobrain/swarm";
+import { UnifiedSwarmCoordinator } from "@monomind/swarm";
 
 const coordinator = new UnifiedSwarmCoordinator({
   topology: { type: "hierarchical", maxAgents: 8 },
@@ -447,7 +447,7 @@ Task({
 
 ### 7.2 Broadcasting a Message
 
-**Monobrain v1:**
+**Monomind v1:**
 
 ```typescript
 await coordinator.broadcastMessage(
@@ -472,7 +472,7 @@ TeammateTool.broadcast({
 
 ### 7.3 Plan Approval
 
-**Monobrain v1:**
+**Monomind v1:**
 
 ```typescript
 const proposal = await coordinator.proposeConsensus({
@@ -517,15 +517,15 @@ ExitPlanMode({
 
 | Date           | Event                                          |
 | -------------- | ---------------------------------------------- |
-| **~2024 Q4**   | Monobrain v1 architecture designed (nokhodian)       |
-| **2025-01**    | Monobrain v1 alpha releases begin              |
-| **2025-01-20** | Monobrain swarm module last commit             |
+| **~2024 Q4**   | Monomind v1 architecture designed (nokhodian)       |
+| **2025-01**    | Monomind v1 alpha releases begin              |
+| **2025-01-20** | Monomind swarm module last commit             |
 | **2026-01-24** | TeammateTool discovered in Claude Code v2.1.19 |
 | **2026-01-25** | This comparison created                        |
 
 ### 8.2 Public Evidence
 
-- Monobrain v1 has been open source on GitHub
+- Monomind v1 has been open source on GitHub
 - ADRs (Architecture Decision Records) document the design decisions
 - Multiple alpha releases published to npm
 - CLAUDE.md configuration predates TeammateTool discovery
@@ -536,7 +536,7 @@ ExitPlanMode({
 
 Despite the similarities, there are differences:
 
-| Aspect                   | Monobrain v1                                  | TeammateTool                |
+| Aspect                   | Monomind v1                                  | TeammateTool                |
 | ------------------------ | --------------------------------------------- | --------------------------- |
 | **Consensus Algorithms** | 4 algorithms (raft, byzantine, gossip, paxos) | Implicit majority           |
 | **Topology Graph**       | Full graph with edges, weights, partitions    | Simpler flat/hierarchical   |
@@ -550,7 +550,7 @@ Despite the similarities, there are differences:
 
 ## 10. Conclusion
 
-The architectural similarity between Monobrain v1 and TeammateTool is **undeniable**:
+The architectural similarity between Monomind v1 and TeammateTool is **undeniable**:
 
 ### Identical Concepts
 
@@ -564,7 +564,7 @@ The architectural similarity between Monobrain v1 and TeammateTool is **undeniab
 
 ### Terminology Mapping
 
-| Monobrain v1      | TeammateTool           |
+| Monomind v1      | TeammateTool           |
 | ----------------- | ---------------------- |
 | Swarm             | Team                   |
 | Agent             | Teammate               |
@@ -583,7 +583,7 @@ Either:
 2. **Inspiration** - One influenced the other
 3. **Shared knowledge** - Common architectural patterns in multi-agent systems
 
-Given that Monobrain v1 was:
+Given that Monomind v1 was:
 
 - Publicly available on GitHub
 - Published to npm with alpha releases
@@ -596,4 +596,4 @@ Given that Monobrain v1 was:
 
 **Document Hash:** SHA256 of this comparison for provenance
 **Author:** Analysis by Claude (commissioned by nokhodian)
-**Sources:** Monobrain v1 source code, Claude Code v2.1.19 binary analysis
+**Sources:** Monomind v1 source code, Claude Code v2.1.19 binary analysis

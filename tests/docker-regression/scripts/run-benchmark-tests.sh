@@ -1,5 +1,5 @@
 #!/bin/bash
-# Monobrain Benchmark Runner
+# Monomind Benchmark Runner
 # Standalone benchmark test execution
 
 set -e

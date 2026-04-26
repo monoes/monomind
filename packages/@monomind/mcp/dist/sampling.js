@@ -1,5 +1,5 @@
 /**
- * @monobrain/mcp - Sampling (Server-Initiated LLM)
+ * @monomind/mcp - Sampling (Server-Initiated LLM)
  *
  * MCP 2025-11-25 compliant sampling for server-initiated LLM calls
  */

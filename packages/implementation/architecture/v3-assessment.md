@@ -1,4 +1,4 @@
-# Monobrain v1 Architecture Assessment
+# Monomind v1 Architecture Assessment
 
 **Date:** 2026-01-03
 **Analyzed Version:** 2.7.47
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-Monobrain is a sophisticated multi-agent orchestration platform with deep integration into the agentic-flow ecosystem. The current v2.x architecture demonstrates strong engineering practices but suffers from architectural complexity, overlapping concerns, and scalability limitations. This assessment provides a comprehensive analysis and roadmap for v1 redesign focused on modularity, performance, and agentic-flow-native architecture.
+Monomind is a sophisticated multi-agent orchestration platform with deep integration into the agentic-flow ecosystem. The current v2.x architecture demonstrates strong engineering practices but suffers from architectural complexity, overlapping concerns, and scalability limitations. This assessment provides a comprehensive analysis and roadmap for v1 redesign focused on modularity, performance, and agentic-flow-native architecture.
 
 **Key Metrics:**
 
@@ -227,7 +227,7 @@ Implementations:
 - Dynamic tool registration
 - Schema validation with JSON Schema
 - Built-in tools: system/info, system/health, tools/list
-- Integration tools: Monobrain tools, Swarm tools, ruv-swarm tools
+- Integration tools: Monomind tools, Swarm tools, ruv-swarm tools
 
 **Session Management:**
 
@@ -488,19 +488,19 @@ CLI → Orchestrator → [TerminalManager, MemoryManager, CoordinationManager, M
 
 3. **Memory Integration**
    - Use agentic-flow's memory system as primary
-   - Add monobrain-specific extensions via plugins
+   - Add monomind-specific extensions via plugins
    - Leverage agentic-flow's distributed memory
 
 4. **Task Execution**
    - Use agentic-flow's task graph execution
-   - Add monobrain-specific task types
+   - Add monomind-specific task types
    - Leverage agentic-flow's retry and fault tolerance
 
 **Architecture Shift:**
 
 ```
-Current: monobrain implements everything, integrates with agentic-flow
-   v1: agentic-flow provides core, monobrain extends and specializes
+Current: monomind implements everything, integrates with agentic-flow
+   v1: agentic-flow provides core, monomind extends and specializes
 ```
 
 ---
@@ -512,7 +512,7 @@ Current: monobrain implements everything, integrates with agentic-flow
 **Proposed Domain Model:**
 
 ```
-Monobrain v1 Domains:
+Monomind v1 Domains:
 ┌─────────────────────────────────────────────────────────┐
 │            Shared Kernel (types, interfaces)            │
 └─────────────────────────────────────────────────────────┘
@@ -602,7 +602,7 @@ src/
 
 ```typescript
 // Plugin interface
-interface MonobrainPlugin {
+interface MonomindPlugin {
   name: string;
   version: string;
   initialize(context: PluginContext): Promise<void>;
@@ -632,7 +632,7 @@ interface MonobrainPlugin {
 **Plugin Loading:**
 
 ```typescript
-const core = new MonobrainCore();
+const core = new MonomindCore();
 
 // Load required plugins
 await core.loadPlugin(new AgentLifecyclePlugin());
@@ -1388,7 +1388,7 @@ interface MCPContext {
 
 ### 11.1 Summary
 
-Monobrain v2.x is a sophisticated system with strong foundations but architectural complexity that limits scalability and maintainability. The v1 redesign presents an opportunity to:
+Monomind v2.x is a sophisticated system with strong foundations but architectural complexity that limits scalability and maintainability. The v1 redesign presents an opportunity to:
 
 1. **Simplify** by adopting agentic-flow native architecture
 2. **Modularize** through domain-driven design and bounded contexts
@@ -1526,7 +1526,7 @@ Orchestrator (core/orchestrator.ts)
 - Swarm coordination from agentic-flow
 - Task graph execution from agentic-flow
 - Memory system from agentic-flow
-- Add monobrain extensions via plugins
+- Add monomind extensions via plugins
 ```
 
 ### Appendix D: Testing Strategy

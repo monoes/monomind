@@ -1,10 +1,10 @@
 /**
  * Guidance MCP Tools
  *
- * Helps the system navigate Monobrain's capabilities by providing structured
+ * Helps the system navigate Monomind's capabilities by providing structured
  * discovery of tools, commands, agents, skills, and recommended workflows.
  *
- * @module @monobrain/cli/mcp-tools/guidance
+ * @module @monomind/cli/mcp-tools/guidance
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
@@ -27,7 +27,7 @@ function findProjectRoot(): string {
   }
 
   // Strategy 2: Walk up from CLI package location
-  // CLI is at packages/@monobrain/cli/ — project root is 4 levels up
+  // CLI is at packages/@monomind/cli/ — project root is 4 levels up
   const fromPackage = join(CLI_ROOT, '../../../..');
   if (existsSync(join(fromPackage, '.claude'))) {
     return fromPackage;
@@ -76,7 +76,7 @@ const CAPABILITY_CATALOG: Record<string, CapabilityArea> = {
     tools: ['swarm_init', 'swarm_status', 'swarm_spawn', 'swarm_terminate', 'swarm_topology', 'swarm_metrics'],
     commands: ['swarm init', 'swarm status', 'swarm spawn', 'swarm terminate'],
     agents: ['hierarchical-coordinator', 'mesh-coordinator', 'adaptive-coordinator', 'queen-coordinator', 'collective-intelligence-coordinator'],
-    skills: ['swarm-orchestration', 'swarm-advanced', 'monobrain-swarm'],
+    skills: ['swarm-orchestration', 'swarm-advanced', 'monomind-swarm'],
     whenToUse: 'When a task requires multiple agents working together (3+ files, features, refactoring).',
   },
   'memory-knowledge': {
@@ -359,7 +359,7 @@ function discoverSkills(): string[] {
 
 const guidanceCapabilities: MCPTool = {
   name: 'guidance_capabilities',
-  description: 'List all capability areas with their tools, commands, agents, and skills. Use this to discover what Monobrain can do.',
+  description: 'List all capability areas with their tools, commands, agents, and skills. Use this to discover what Monomind can do.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -592,39 +592,39 @@ const guidanceQuickRef: MCPTool = {
       'getting-started': {
         title: 'Getting Started',
         commands: [
-          { cmd: 'npx monobrain@latest init --wizard', desc: 'Initialize project with interactive setup' },
-          { cmd: 'npx monobrain@latest doctor --fix', desc: 'Run diagnostics and auto-fix issues' },
-          { cmd: 'npx monobrain@latest daemon start', desc: 'Start background workers' },
-          { cmd: 'npx monobrain@latest status', desc: 'Check system status' },
+          { cmd: 'npx monomind@latest init --wizard', desc: 'Initialize project with interactive setup' },
+          { cmd: 'npx monomind@latest doctor --fix', desc: 'Run diagnostics and auto-fix issues' },
+          { cmd: 'npx monomind@latest daemon start', desc: 'Start background workers' },
+          { cmd: 'npx monomind@latest status', desc: 'Check system status' },
         ],
       },
       'daily-dev': {
         title: 'Daily Development',
         commands: [
-          { cmd: 'npx monobrain@latest hooks pre-task --description "..."', desc: 'Get routing recommendation before task' },
-          { cmd: 'npx monobrain@latest hooks post-task --task-id "..." --success true', desc: 'Record task outcome for learning' },
-          { cmd: 'npx monobrain@latest hooks post-edit --file "..." --train-neural true', desc: 'Train patterns from edits' },
-          { cmd: 'npx monobrain@latest memory search --query "..."', desc: 'Search memory for relevant patterns' },
-          { cmd: 'npx monobrain@latest hooks route --task "..."', desc: 'Route task to optimal agent' },
+          { cmd: 'npx monomind@latest hooks pre-task --description "..."', desc: 'Get routing recommendation before task' },
+          { cmd: 'npx monomind@latest hooks post-task --task-id "..." --success true', desc: 'Record task outcome for learning' },
+          { cmd: 'npx monomind@latest hooks post-edit --file "..." --train-neural true', desc: 'Train patterns from edits' },
+          { cmd: 'npx monomind@latest memory search --query "..."', desc: 'Search memory for relevant patterns' },
+          { cmd: 'npx monomind@latest hooks route --task "..."', desc: 'Route task to optimal agent' },
         ],
       },
       'swarm-ops': {
         title: 'Swarm Operations',
         commands: [
-          { cmd: 'npx monobrain@latest swarm init --topology hierarchical --max-agents 8', desc: 'Initialize anti-drift swarm' },
-          { cmd: 'npx monobrain@latest swarm status', desc: 'Check swarm status' },
-          { cmd: 'npx monobrain@latest agent spawn -t coder --name my-coder', desc: 'Spawn a specific agent' },
-          { cmd: 'npx monobrain@latest hive-mind init --strategy byzantine', desc: 'Start hive-mind consensus' },
+          { cmd: 'npx monomind@latest swarm init --topology hierarchical --max-agents 8', desc: 'Initialize anti-drift swarm' },
+          { cmd: 'npx monomind@latest swarm status', desc: 'Check swarm status' },
+          { cmd: 'npx monomind@latest agent spawn -t coder --name my-coder', desc: 'Spawn a specific agent' },
+          { cmd: 'npx monomind@latest hive-mind init --strategy byzantine', desc: 'Start hive-mind consensus' },
         ],
       },
       'memory-ops': {
         title: 'Memory Operations',
         commands: [
-          { cmd: 'npx monobrain@latest memory init --force', desc: 'Initialize memory database' },
-          { cmd: 'npx monobrain@latest memory store --key "k" --value "v" --namespace patterns', desc: 'Store a value' },
-          { cmd: 'npx monobrain@latest memory search --query "auth patterns"', desc: 'Semantic vector search' },
-          { cmd: 'npx monobrain@latest memory list --namespace patterns', desc: 'List entries in namespace' },
-          { cmd: 'npx monobrain@latest memory retrieve --key "k" --namespace patterns', desc: 'Get a specific entry' },
+          { cmd: 'npx monomind@latest memory init --force', desc: 'Initialize memory database' },
+          { cmd: 'npx monomind@latest memory store --key "k" --value "v" --namespace patterns', desc: 'Store a value' },
+          { cmd: 'npx monomind@latest memory search --query "auth patterns"', desc: 'Semantic vector search' },
+          { cmd: 'npx monomind@latest memory list --namespace patterns', desc: 'List entries in namespace' },
+          { cmd: 'npx monomind@latest memory retrieve --key "k" --namespace patterns', desc: 'Get a specific entry' },
         ],
       },
       'github-ops': {
@@ -639,11 +639,11 @@ const guidanceQuickRef: MCPTool = {
       diagnostics: {
         title: 'Diagnostics & Troubleshooting',
         commands: [
-          { cmd: 'npx monobrain@latest doctor --fix', desc: 'Full system diagnostics with auto-fix' },
-          { cmd: 'npx monobrain@latest status --watch', desc: 'Live system monitoring' },
-          { cmd: 'npx monobrain@latest hooks worker status', desc: 'Background worker health' },
-          { cmd: 'npx monobrain@latest performance benchmark --suite all', desc: 'Run all benchmarks' },
-          { cmd: 'npx monobrain@latest hooks progress --detailed', desc: 'V1 implementation progress' },
+          { cmd: 'npx monomind@latest doctor --fix', desc: 'Full system diagnostics with auto-fix' },
+          { cmd: 'npx monomind@latest status --watch', desc: 'Live system monitoring' },
+          { cmd: 'npx monomind@latest hooks worker status', desc: 'Background worker health' },
+          { cmd: 'npx monomind@latest performance benchmark --suite all', desc: 'Run all benchmarks' },
+          { cmd: 'npx monomind@latest hooks progress --detailed', desc: 'V1 implementation progress' },
         ],
       },
     };

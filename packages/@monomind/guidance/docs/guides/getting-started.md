@@ -1,4 +1,4 @@
-# Getting Started with @monobrain/guidance
+# Getting Started with @monomind/guidance
 
 ## Background: How Claude Code Uses Memory Files
 
@@ -25,7 +25,7 @@ The Guidance Control Plane takes these plain-text files and turns them into stru
 ## Installation
 
 ```bash
-npm install @monobrain/guidance@latest
+npm install @monomind/guidance@latest
 ```
 
 Requires Node.js 20+.
@@ -33,7 +33,7 @@ Requires Node.js 20+.
 ## Minimal Setup
 
 ```ts
-import { createGuidanceControlPlane } from '@monobrain/guidance';
+import { createGuidanceControlPlane } from '@monomind/guidance';
 
 const plane = createGuidanceControlPlane({
   rootGuidancePath: './CLAUDE.md',
@@ -86,15 +86,15 @@ You don't have to use the all-in-one control plane. Each module is independently
 
 ```ts
 // Just the gates
-import { createGates } from '@monobrain/guidance/gates';
+import { createGates } from '@monomind/guidance/gates';
 const gates = createGates({ destructiveOps: true, secrets: true });
 
 // Just the proof chain
-import { createProofChain } from '@monobrain/guidance/proof';
+import { createProofChain } from '@monomind/guidance/proof';
 const chain = createProofChain('my-hmac-key');
 
 // Just the trust system
-import { createTrustSystem } from '@monobrain/guidance/trust';
+import { createTrustSystem } from '@monomind/guidance/trust';
 const trust = createTrustSystem();
 ```
 
@@ -160,7 +160,7 @@ const optimized = await plane.optimize();
 If the pre-built WASM binary is available, hot-path operations (hashing, secret scanning, destructive detection) run 1.25-1.96x faster automatically:
 
 ```ts
-import { getKernel, isWasmAvailable } from '@monobrain/guidance/wasm-kernel';
+import { getKernel, isWasmAvailable } from '@monomind/guidance/wasm-kernel';
 
 console.log(isWasmAvailable()); // true if WASM loaded
 const k = getKernel(); // WASM or JS fallback — same API either way
@@ -171,7 +171,7 @@ No configuration needed. The bridge detects WASM availability at load time.
 ## File Organization
 
 ```
-@monobrain/guidance/
+@monomind/guidance/
   src/
     index.ts            # Control plane + re-exports
     compiler.ts         # CLAUDE.md → PolicyBundle

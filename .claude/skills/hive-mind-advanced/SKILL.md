@@ -10,7 +10,7 @@ Master the advanced Hive Mind collective intelligence system for sophisticated m
 
 ## Overview
 
-The Hive Mind system represents the pinnacle of multi-agent coordination in Monobrain, implementing a queen-led hierarchical architecture where a strategic queen coordinator directs specialized worker agents through collective decision-making and shared memory.
+The Hive Mind system represents the pinnacle of multi-agent coordination in Monomind, implementing a queen-led hierarchical architecture where a strategic queen coordinator directs specialized worker agents through collective decision-making and shared memory.
 
 ## Core Concepts
 
@@ -55,45 +55,45 @@ Requires 2/3 majority for decision approval, ensuring robust consensus even with
 
 ```bash
 # Basic initialization
-npx monobrain hive-mind init
+npx monomind hive-mind init
 
 # Force reinitialize
-npx monobrain hive-mind init --force
+npx monomind hive-mind init --force
 
 # Custom configuration
-npx monobrain hive-mind init --config hive-config.json
+npx monomind hive-mind init --config hive-config.json
 ```
 
 ### 2. Spawn a Swarm
 
 ```bash
 # Basic spawn with objective
-npx monobrain hive-mind spawn "Build microservices architecture"
+npx monomind hive-mind spawn "Build microservices architecture"
 
 # Strategic queen type
-npx monobrain hive-mind spawn "Research AI patterns" --queen-type strategic
+npx monomind hive-mind spawn "Research AI patterns" --queen-type strategic
 
 # Tactical queen with max workers
-npx monobrain hive-mind spawn "Implement API" --queen-type tactical --max-workers 12
+npx monomind hive-mind spawn "Implement API" --queen-type tactical --max-workers 12
 
 # Adaptive queen with consensus
-npx monobrain hive-mind spawn "Optimize system" --queen-type adaptive --consensus byzantine
+npx monomind hive-mind spawn "Optimize system" --queen-type adaptive --consensus byzantine
 
 # Generate Claude Code commands
-npx monobrain hive-mind spawn "Build full-stack app" --claude
+npx monomind hive-mind spawn "Build full-stack app" --claude
 ```
 
 ### 3. Monitor Status
 
 ```bash
 # Check hive mind status
-npx monobrain hive-mind status
+npx monomind hive-mind status
 
 # Get detailed metrics
-npx monobrain hive-mind metrics
+npx monomind hive-mind metrics
 
 # Monitor collective memory
-npx monobrain hive-mind memory
+npx monomind hive-mind memory
 ```
 
 ## Advanced Workflows
@@ -104,16 +104,16 @@ npx monobrain hive-mind memory
 
 ```bash
 # List active sessions
-npx monobrain hive-mind sessions
+npx monomind hive-mind sessions
 
 # Pause a session
-npx monobrain hive-mind pause <session-id>
+npx monomind hive-mind pause <session-id>
 
 # Resume a paused session
-npx monobrain hive-mind resume <session-id>
+npx monomind hive-mind resume <session-id>
 
 # Stop a running session
-npx monobrain hive-mind stop <session-id>
+npx monomind hive-mind stop <session-id>
 ```
 
 **Session Features**
@@ -223,7 +223,7 @@ const config = {
 Generate Claude Code spawn commands directly:
 
 ```bash
-npx monobrain hive-mind spawn "Build REST API" --claude
+npx monomind hive-mind spawn "Build REST API" --claude
 ```
 
 Output:
@@ -238,7 +238,7 @@ Task("Test Engineer", "Create Jest test suite...", "tester")
 
 ```bash
 # Use hive mind for SPARC workflow
-npx monobrain sparc tdd "User authentication" --hive-mind
+npx monomind sparc tdd "User authentication" --hive-mind
 
 # Spawns:
 # - Specification agent
@@ -252,10 +252,10 @@ npx monobrain sparc tdd "User authentication" --hive-mind
 
 ```bash
 # Repository analysis with hive mind
-npx monobrain hive-mind spawn "Analyze repo quality" --objective "owner/repo"
+npx monomind hive-mind spawn "Analyze repo quality" --objective "owner/repo"
 
 # PR review coordination
-npx monobrain hive-mind spawn "Review PR #123" --queen-type tactical
+npx monomind hive-mind spawn "Review PR #123" --queen-type tactical
 ```
 
 ## Performance Optimization
@@ -343,7 +343,7 @@ const insights = hiveMind.getPerformanceInsights();
 
 ## Hooks Integration
 
-Hive Mind integrates with Monobrain hooks for automation:
+Hive Mind integrates with Monomind hooks for automation:
 
 **Pre-Task Hooks**
 - Auto-assign agents by file type
@@ -369,17 +369,17 @@ Hive Mind integrates with Monobrain hooks for automation:
 
 **Strategic Queens** - For research, planning, and analysis
 ```bash
-npx monobrain hive-mind spawn "Research ML frameworks" --queen-type strategic
+npx monomind hive-mind spawn "Research ML frameworks" --queen-type strategic
 ```
 
 **Tactical Queens** - For implementation and execution
 ```bash
-npx monobrain hive-mind spawn "Build authentication" --queen-type tactical
+npx monomind hive-mind spawn "Build authentication" --queen-type tactical
 ```
 
 **Adaptive Queens** - For optimization and dynamic tasks
 ```bash
-npx monobrain hive-mind spawn "Optimize performance" --queen-type adaptive
+npx monomind hive-mind spawn "Optimize performance" --queen-type adaptive
 ```
 
 ### 2. Leverage Consensus
@@ -415,13 +415,13 @@ await memory.associate('jwt-auth', 'oauth2', 0.7);
 
 ```bash
 # Regular status checks
-npx monobrain hive-mind status
+npx monomind hive-mind status
 
 # Track metrics
-npx monobrain hive-mind metrics
+npx monomind hive-mind metrics
 
 # Analyze memory usage
-npx monobrain hive-mind memory
+npx monomind hive-mind memory
 ```
 
 ### 5. Session Management
@@ -439,7 +439,7 @@ await sessionManager.saveCheckpoint(
 **Resume Sessions**
 ```bash
 # Resume from any previous state
-npx monobrain hive-mind resume <session-id>
+npx monomind hive-mind resume <session-id>
 ```
 
 ## Troubleshooting
@@ -449,13 +449,13 @@ npx monobrain hive-mind resume <session-id>
 **High Memory Usage**
 ```bash
 # Run garbage collection
-npx monobrain hive-mind memory --gc
+npx monomind hive-mind memory --gc
 
 # Optimize database
-npx monobrain hive-mind memory --optimize
+npx monomind hive-mind memory --optimize
 
 # Export and clear
-npx monobrain hive-mind memory --export --clear
+npx monomind hive-mind memory --export --clear
 ```
 
 **Low Cache Hit Rate**
@@ -489,10 +489,10 @@ npx monobrain hive-mind memory --export --clear
 **No Consensus Reached (Byzantine)**
 ```bash
 # Switch to weighted consensus for more decisive results
-npx monobrain hive-mind spawn "..." --consensus weighted
+npx monomind hive-mind spawn "..." --consensus weighted
 
 # Or use simple majority
-npx monobrain hive-mind spawn "..." --consensus majority
+npx monomind hive-mind spawn "..." --consensus majority
 ```
 
 ## Advanced Topics
@@ -529,10 +529,10 @@ Run multiple hive minds simultaneously:
 
 ```bash
 # Frontend hive
-npx monobrain hive-mind spawn "Build UI" --name frontend-hive
+npx monomind hive-mind spawn "Build UI" --name frontend-hive
 
 # Backend hive
-npx monobrain hive-mind spawn "Build API" --name backend-hive
+npx monomind hive-mind spawn "Build API" --name backend-hive
 
 # They share collective memory for coordination
 ```
@@ -541,10 +541,10 @@ npx monobrain hive-mind spawn "Build API" --name backend-hive
 
 ```bash
 # Export session for backup
-npx monobrain hive-mind export <session-id> --output backup.json
+npx monomind hive-mind export <session-id> --output backup.json
 
 # Import session
-npx monobrain hive-mind import backup.json
+npx monomind hive-mind import backup.json
 ```
 
 ## API Reference
@@ -611,10 +611,10 @@ await sessionManager.completeSession(sessionId);
 
 ```bash
 # Initialize hive mind
-npx monobrain hive-mind init
+npx monomind hive-mind init
 
 # Spawn full-stack hive
-npx monobrain hive-mind spawn "Build e-commerce platform" \
+npx monomind hive-mind spawn "Build e-commerce platform" \
   --queen-type strategic \
   --max-workers 10 \
   --consensus weighted \
@@ -635,7 +635,7 @@ npx monobrain hive-mind spawn "Build e-commerce platform" \
 
 ```bash
 # Spawn research hive
-npx monobrain hive-mind spawn "Research GraphQL vs REST" \
+npx monomind hive-mind spawn "Research GraphQL vs REST" \
   --queen-type adaptive \
   --consensus byzantine
 
@@ -649,7 +649,7 @@ npx monobrain hive-mind spawn "Research GraphQL vs REST" \
 
 ```bash
 # Review coordination
-npx monobrain hive-mind spawn "Review PR #456" \
+npx monomind hive-mind spawn "Review PR #456" \
   --queen-type tactical \
   --max-workers 6
 
@@ -696,14 +696,14 @@ npx monobrain hive-mind spawn "Review PR #456" \
 
 ## References
 
-- [Hive Mind Documentation](https://github.com/nokhodian/monobrain/docs/hive-mind)
-- [Collective Intelligence Patterns](https://github.com/nokhodian/monobrain/docs/patterns)
-- [Byzantine Consensus](https://github.com/nokhodian/monobrain/docs/consensus)
-- [Memory Optimization](https://github.com/nokhodian/monobrain/docs/memory)
+- [Hive Mind Documentation](https://github.com/nokhodian/monomind/docs/hive-mind)
+- [Collective Intelligence Patterns](https://github.com/nokhodian/monomind/docs/patterns)
+- [Byzantine Consensus](https://github.com/nokhodian/monomind/docs/consensus)
+- [Memory Optimization](https://github.com/nokhodian/monomind/docs/memory)
 
 ---
 
 **Skill Version**: 1.0.0
 **Last Updated**: 2025-10-19
-**Maintained By**: Monobrain Team
+**Maintained By**: Monomind Team
 **License**: MIT

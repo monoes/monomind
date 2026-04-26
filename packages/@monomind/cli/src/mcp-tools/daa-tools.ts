@@ -14,7 +14,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Storage paths
-const STORAGE_DIR = '.monobrain';
+const STORAGE_DIR = '.monomind';
 const DAA_DIR = 'daa';
 const DAA_FILE = 'store.json';
 

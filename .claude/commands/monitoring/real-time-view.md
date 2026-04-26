@@ -4,7 +4,7 @@ Real-time view of swarm activity.
 
 ## Usage
 ```bash
-npx monobrain monitoring real-time-view [options]
+npx monomind monitoring real-time-view [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain monitoring real-time-view [options]
 ## Examples
 ```bash
 # Start real-time view
-npx monobrain monitoring real-time-view
+npx monomind monitoring real-time-view
 
 # Filter errors
-npx monobrain monitoring real-time-view --filter errors
+npx monomind monitoring real-time-view --filter errors
 
 # Highlight pattern
-npx monobrain monitoring real-time-view --highlight "API"
+npx monomind monitoring real-time-view --highlight "API"
 ```

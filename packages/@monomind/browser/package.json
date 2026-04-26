@@ -1,7 +1,7 @@
 {
-  "name": "@monobrain/browser",
+  "name": "@monomind/browser",
   "version": "1.0.0",
-  "description": "Browser automation for AI agents - integrates agent-browser with monobrain swarms",
+  "description": "Browser automation for AI agents - integrates agent-browser with monomind swarms",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -27,7 +27,7 @@
     "zod": "^3.22.4"
   },
   "peerDependencies": {
-    "@monoes/cli": ">=1.0.0"
+    "@monomind/cli": ">=1.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -38,7 +38,7 @@
     "browser",
     "automation",
     "ai-agent",
-    "monobrain",
+    "monomind",
     "playwright",
     "web-scraping",
     "testing"
@@ -47,8 +47,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monobrain.git",
-    "directory": "packages/@monobrain/browser"
+    "url": "https://github.com/nokhodian/monomind.git",
+    "directory": "packages/@monomind/browser"
   },
   "engines": {
     "node": ">=18.0.0"

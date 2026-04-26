@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { TraceStore } from '../../packages/@monobrain/hooks/src/observability/trace.js';
+import { TraceStore } from '../../packages/@monomind/hooks/src/observability/trace.js';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';

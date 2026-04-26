@@ -679,7 +679,7 @@ describe('getRuVectorConfig', () => {
     const saved = { ...process.env };
     process.env.RUVECTOR_HOST = 'pg.example.com';
     process.env.RUVECTOR_PORT = '5433';
-    process.env.RUVECTOR_DATABASE = 'monobrain';
+    process.env.RUVECTOR_DATABASE = 'monomind';
     process.env.RUVECTOR_USER = 'admin';
     process.env.RUVECTOR_PASSWORD = 'secret123';
     process.env.RUVECTOR_SSL = 'true';
@@ -688,7 +688,7 @@ describe('getRuVectorConfig', () => {
     assert.ok(config);
     assert.equal(config.host, 'pg.example.com');
     assert.equal(config.port, 5433);
-    assert.equal(config.database, 'monobrain');
+    assert.equal(config.database, 'monomind');
     assert.equal(config.user, 'admin');
     assert.equal(config.password, 'secret123');
     assert.equal(config.ssl, true);

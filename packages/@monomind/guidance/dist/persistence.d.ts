@@ -10,7 +10,7 @@
  *   {storagePath}/index.json     - Metadata index (counts, timestamps, task IDs)
  *   {storagePath}/.lock          - Lock file for concurrent access prevention
  *
- * @module @monobrain/guidance/persistence
+ * @module @monomind/guidance/persistence
  */
 import { RunLedger } from './ledger.js';
 import type { RunEvent } from './types.js';
@@ -18,7 +18,7 @@ import type { RunEvent } from './types.js';
  * Configuration for the persistent ledger
  */
 export interface PersistenceConfig {
-    /** Directory path for storage files (default: '.monobrain/guidance') */
+    /** Directory path for storage files (default: '.monomind/guidance') */
     storagePath: string;
     /** Maximum events to keep; oldest evicted on compact (default: 10000) */
     maxEvents: number;

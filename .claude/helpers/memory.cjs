@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Monobrain Memory Helper
+ * Monomind Memory Helper
  * Simple key-value memory for cross-session context
  */
 
 const fs = require('fs');
 const path = require('path');
 
-const MEMORY_DIR = path.join(process.cwd(), '.monobrain', 'data');
+const MEMORY_DIR = path.join(process.cwd(), '.monomind', 'data');
 const MEMORY_FILE = path.join(MEMORY_DIR, 'memory.json');
 
 function loadMemory() {

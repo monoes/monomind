@@ -2,7 +2,7 @@
  * CLI Deployment Command
  * Deployment management, environments, rollbacks
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -41,7 +41,7 @@ interface DeploymentState {
 // ============================================
 
 function getStateDir(cwd: string): string {
-  return path.join(cwd, '.monobrain');
+  return path.join(cwd, '.monomind');
 }
 
 function getStatePath(cwd: string): string {
@@ -109,8 +109,8 @@ const deployCommand: Command = {
     { name: 'description', type: 'string', description: 'Deployment description' },
   ],
   examples: [
-    { command: 'monobrain deployment deploy -e prod', description: 'Deploy to production' },
-    { command: 'monobrain deployment deploy --dry-run', description: 'Simulate deployment' },
+    { command: 'monomind deployment deploy -e prod', description: 'Deploy to production' },
+    { command: 'monomind deployment deploy --dry-run', description: 'Simulate deployment' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -206,8 +206,8 @@ const statusCommand: Command = {
     { name: 'env', short: 'e', type: 'string', description: 'Specific environment to check' },
   ],
   examples: [
-    { command: 'monobrain deployment status', description: 'Show all environments' },
-    { command: 'monobrain deployment status -e prod', description: 'Check production' },
+    { command: 'monomind deployment status', description: 'Show all environments' },
+    { command: 'monomind deployment status -e prod', description: 'Check production' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -305,8 +305,8 @@ const rollbackCommand: Command = {
     { name: 'steps', short: 's', type: 'number', description: 'Number of versions to rollback', default: '1' },
   ],
   examples: [
-    { command: 'monobrain deployment rollback -e prod', description: 'Rollback production' },
-    { command: 'monobrain deployment rollback -e prod -v V1.0.0', description: 'Rollback to specific version' },
+    { command: 'monomind deployment rollback -e prod', description: 'Rollback production' },
+    { command: 'monomind deployment rollback -e prod -v V1.0.0', description: 'Rollback to specific version' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -403,8 +403,8 @@ const historyCommand: Command = {
     { name: 'limit', short: 'l', type: 'number', description: 'Number of entries', default: '10' },
   ],
   examples: [
-    { command: 'monobrain deployment history', description: 'Show all history' },
-    { command: 'monobrain deployment history -e prod', description: 'Production history' },
+    { command: 'monomind deployment history', description: 'Show all history' },
+    { command: 'monomind deployment history -e prod', description: 'Production history' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -473,9 +473,9 @@ const environmentsCommand: Command = {
     { name: 'url', short: 'u', type: 'string', description: 'Environment URL' },
   ],
   examples: [
-    { command: 'monobrain deployment environments', description: 'List environments' },
-    { command: 'monobrain deployment envs -a add -n preview -t staging', description: 'Add environment' },
-    { command: 'monobrain deployment envs -a remove -n preview', description: 'Remove environment' },
+    { command: 'monomind deployment environments', description: 'List environments' },
+    { command: 'monomind deployment envs -a add -n preview -t staging', description: 'Add environment' },
+    { command: 'monomind deployment envs -a remove -n preview', description: 'Remove environment' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -579,8 +579,8 @@ const logsCommand: Command = {
     { name: 'lines', short: 'n', type: 'number', description: 'Number of lines', default: '50' },
   ],
   examples: [
-    { command: 'monobrain deployment logs -e prod', description: 'View production logs' },
-    { command: 'monobrain deployment logs -d dep-123', description: 'View specific deployment' },
+    { command: 'monomind deployment logs -e prod', description: 'View production logs' },
+    { command: 'monomind deployment logs -d dep-123', description: 'View specific deployment' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -654,8 +654,8 @@ const releaseCommand: Command = {
     { name: 'description', short: 'd', type: 'string', description: 'Release description' },
   ],
   examples: [
-    { command: 'monobrain deployment release -v 3.5.0', description: 'Release version 3.5.0' },
-    { command: 'monobrain deployment release -v 3.5.0 -d "Major update"', description: 'Release with description' },
+    { command: 'monomind deployment release -v 3.5.0', description: 'Release version 3.5.0' },
+    { command: 'monomind deployment release -v 3.5.0 -d "Major update"', description: 'Release with description' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -733,14 +733,14 @@ export const deploymentCommand: Command = {
   aliases: ['deploy'],
   subcommands: [deployCommand, statusCommand, rollbackCommand, historyCommand, environmentsCommand, logsCommand, releaseCommand],
   examples: [
-    { command: 'monobrain deployment deploy -e prod', description: 'Deploy to production' },
-    { command: 'monobrain deployment status', description: 'Check all environments' },
-    { command: 'monobrain deployment rollback -e prod', description: 'Rollback production' },
-    { command: 'monobrain deployment release -v 3.5.0', description: 'Create a release' },
+    { command: 'monomind deployment deploy -e prod', description: 'Deploy to production' },
+    { command: 'monomind deployment status', description: 'Check all environments' },
+    { command: 'monomind deployment rollback -e prod', description: 'Rollback production' },
+    { command: 'monomind deployment release -v 3.5.0', description: 'Create a release' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
-    output.writeln(output.bold('MonoBrain Deployment'));
+    output.writeln(output.bold('MonoMind Deployment'));
     output.writeln(output.dim('Multi-environment deployment management'));
     output.writeln();
     output.writeln('Subcommands:');
@@ -762,7 +762,7 @@ export const deploymentCommand: Command = {
       'Deployment previews for PRs',
     ]);
     output.writeln();
-    output.writeln(output.dim('github.com/nokhodian/monobrain'));
+    output.writeln(output.dim('github.com/nokhodian/monomind'));
     return { success: true };
   },
 };

@@ -1,6 +1,6 @@
 # Hooks Commands
 
-Commands for hooks operations in Monobrain.
+Commands for hooks operations in Monomind.
 
 ## Available Commands
 

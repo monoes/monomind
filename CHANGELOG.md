@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Monobrain are documented here.
+All notable changes to Monomind are documented here.
 
 ---
 
@@ -17,7 +17,7 @@ All notable changes to Monobrain are documented here.
   - **Score-based L1 promotion** — each retrieval via `search()` or `recall()` increments a drawer's score; top-scored drawers surface at session start
   - **Temporal knowledge graph** — facts stored as `(subject, predicate, object, valid_from, valid_to)` triples in `kg.json`; supports point-in-time and timeline queries
   - **4-layer memory stack**: L0 identity, L1 essential story, L2 on-demand namespace recall, L3 deep BM25 search
-- **`identity.md`** seed file at `.monobrain/palace/identity.md` — project context injected at every session start as L0 identity
+- **`identity.md`** seed file at `.monomind/palace/identity.md` — project context injected at every session start as L0 identity
 - **`features/mempalace.md`** — full technical reference for the integrated memory palace feature
 
 #### Hook Wiring
@@ -37,8 +37,8 @@ All notable changes to Monobrain are documented here.
 |-----------|------|------|
 | Memory Palace core | `.claude/helpers/memory-palace.cjs` | 340 lines |
 | Feature reference | `features/mempalace.md` | full technical doc |
-| L0 identity seed | `.monobrain/palace/identity.md` | project context |
-| Storage | `.monobrain/palace/{drawers,closets}.jsonl`, `kg.json` | append-only, gitignored |
+| L0 identity seed | `.monomind/palace/identity.md` | project context |
+| Storage | `.monomind/palace/{drawers,closets}.jsonl`, `kg.json` | append-only, gitignored |
 
 Exports: `wakeUp`, `storeVerbatim`, `buildClosets`, `search`, `recall`, `bm25`, `kgAdd`, `kgQuery`, `kgTimeline`
 

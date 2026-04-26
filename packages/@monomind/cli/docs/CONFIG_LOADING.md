@@ -9,7 +9,7 @@ The CLI module now supports loading configuration from multiple sources with pro
 ### Files Added/Modified
 
 1. **`src/config-adapter.ts`** (NEW)
-   - Converts between `SystemConfig` (from `@monobrain/shared`) and `v1Config` (CLI-specific format)
+   - Converts between `SystemConfig` (from `@monomind/shared`) and `v1Config` (CLI-specific format)
    - Provides bidirectional conversion functions:
      - `systemConfigTov1Config()` - Convert SystemConfig to v1Config
      - `v1ConfigToSystemConfig()` - Convert v1Config to SystemConfig
@@ -37,25 +37,25 @@ The CLI loads configuration in the following priority order:
 2. **Auto-discovery** - Searches for config files in:
    - Current working directory
    - Parent directory
-   - `~/.monobrain/`
+   - `~/.monomind/`
 
 ### Supported Config Files
 
-- `monobrain.config.json`
-- `monobrain.config.js`
-- `monobrain.json`
-- `.monobrain.json`
+- `monomind.config.json`
+- `monomind.config.js`
+- `monomind.json`
+- `.monomind.json`
 
 ## Environment Variables
 
 Configuration can also be overridden via environment variables:
 
-- `MONOBRAIN_MAX_AGENTS` - Maximum concurrent agents
-- `MONOBRAIN_DATA_DIR` - Data directory path
-- `MONOBRAIN_MEMORY_TYPE` - Memory backend type
-- `MONOBRAIN_MCP_TRANSPORT` - MCP transport type
-- `MONOBRAIN_MCP_PORT` - MCP server port
-- `MONOBRAIN_SWARM_TOPOLOGY` - Swarm topology type
+- `MONOMIND_MAX_AGENTS` - Maximum concurrent agents
+- `MONOMIND_DATA_DIR` - Data directory path
+- `MONOMIND_MEMORY_TYPE` - Memory backend type
+- `MONOMIND_MCP_TRANSPORT` - MCP transport type
+- `MONOMIND_MCP_PORT` - MCP server port
+- `MONOMIND_SWARM_TOPOLOGY` - Swarm topology type
 
 ## Configuration Schema
 
@@ -120,13 +120,13 @@ interface v1Config {
 
 ```bash
 # Use default config search paths
-monobrain agent spawn -t coder
+monomind agent spawn -t coder
 
 # Use specific config file
-monobrain agent spawn -t coder --config ./custom-config.json
+monomind agent spawn -t coder --config ./custom-config.json
 
 # Override with environment variables
-MONOBRAIN_MAX_AGENTS=20 monobrain swarm init
+MONOMIND_MAX_AGENTS=20 monomind swarm init
 ```
 
 ### Example Config File
@@ -223,14 +223,14 @@ npx vitest run __tests__/config-loading.test.ts
 
 1. **Adapter Pattern** - Separates SystemConfig (shared) from v1Config (CLI-specific)
 2. **Optional Loading** - Config files are optional, failures don't crash CLI
-3. **Validation** - Uses existing Zod schemas from `@monobrain/shared`
+3. **Validation** - Uses existing Zod schemas from `@monomind/shared`
 4. **Merge Strategy** - Merges loaded config with defaults
 5. **Environment Priority** - Environment variables override file config
 
 ## Future Enhancements
 
 - [ ] TypeScript config support (`.ts` files)
-- [ ] Config validation command (`monobrain config validate`)
+- [ ] Config validation command (`monomind config validate`)
 - [ ] Config migration tool (v2 → v1)
 - [ ] Interactive config setup wizard
 - [ ] Schema documentation generation

@@ -28,7 +28,7 @@
  * - Conflict detection at a point in time
  * - Forward projection of assertion validity
  *
- * @module @monobrain/guidance/temporal
+ * @module @monomind/guidance/temporal
  */
 /**
  * Computed lifecycle status of a temporal assertion.

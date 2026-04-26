@@ -13,7 +13,7 @@
  *
  * @example
  * ```typescript
- * import { intentRouterPlugin } from '@monobrain/plugins/examples/ruvector-plugins';
+ * import { intentRouterPlugin } from '@monomind/plugins/examples/ruvector-plugins';
  * await getDefaultRegistry().register(intentRouterPlugin);
  * ```
  */
@@ -284,7 +284,7 @@ async function getRouter(): Promise<IntentRouter> {
 
 export const intentRouterPlugin = new PluginBuilder('intent-router', '1.0.0')
   .withDescription('Smart intent → handler routing using @ruvector/wasm HNSW (<1ms)')
-  .withAuthor('Monobrain Team')
+  .withAuthor('Monomind Team')
   .withTags(['routing', 'intent', 'semantic', 'ruvector', 'hnsw'])
   .withMCPTools([
     new MCPToolBuilder('intent-route')

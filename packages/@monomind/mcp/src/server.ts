@@ -1,5 +1,5 @@
 /**
- * @monobrain/mcp - MCP Server
+ * @monomind/mcp - MCP Server
  *
  * High-performance MCP server implementation
  */
@@ -35,7 +35,7 @@ import { RateLimiter, createRateLimiter, type RateLimitConfig } from './rate-lim
 import { SamplingManager, createSamplingManager, type SamplingConfig, type LLMProvider } from './sampling.js';
 
 const DEFAULT_CONFIG: Partial<MCPServerConfig> = {
-  name: 'Monobrain MCP Server V1',
+  name: 'Monomind MCP Server V1',
   version: '3.0.0',
   transport: 'stdio',
   host: 'localhost',
@@ -83,7 +83,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
   private resourceSubscriptions: Map<string, Set<string>> = new Map(); // sessionId -> subscribed URIs
 
   private readonly serverInfo = {
-    name: 'Monobrain MCP Server V1',
+    name: 'Monomind MCP Server V1',
     version: '3.0.0',
   };
 
@@ -492,7 +492,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       protocolVersion: this.protocolVersion,
       capabilities: this.capabilities,
       serverInfo: this.serverInfo,
-      instructions: 'Monobrain MCP Server V1 ready for tool execution',
+      instructions: 'Monomind MCP Server V1 ready for tool execution',
     };
 
     this.logger.info('Session initialized', {

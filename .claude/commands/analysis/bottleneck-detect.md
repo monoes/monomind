@@ -5,7 +5,7 @@ Analyze performance bottlenecks in swarm operations and suggest optimizations.
 ## Usage
 
 ```bash
-npx monobrain bottleneck detect [options]
+npx monomind bottleneck detect [options]
 ```
 
 ## Options
@@ -21,25 +21,25 @@ npx monobrain bottleneck detect [options]
 ### Basic bottleneck detection
 
 ```bash
-npx monobrain bottleneck detect
+npx monomind bottleneck detect
 ```
 
 ### Analyze specific swarm
 
 ```bash
-npx monobrain bottleneck detect --swarm-id swarm-123
+npx monomind bottleneck detect --swarm-id swarm-123
 ```
 
 ### Last 24 hours with export
 
 ```bash
-npx monobrain bottleneck detect -t 24h -e bottlenecks.json
+npx monomind bottleneck detect -t 24h -e bottlenecks.json
 ```
 
 ### Auto-fix detected issues
 
 ```bash
-npx monobrain bottleneck detect --fix --threshold 15
+npx monomind bottleneck detect --fix --threshold 15
 ```
 
 ## Metrics Analyzed
@@ -147,7 +147,7 @@ Typical improvements after bottleneck resolution:
 
 ```javascript
 // Check for bottlenecks in Claude Code
-mcp__monobrain__bottleneck_detect {
+mcp__monomind__bottleneck_detect {
   timeRange: "1h",
   threshold: 20,
   autoFix: false

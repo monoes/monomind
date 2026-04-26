@@ -7,7 +7,7 @@ description: "15-agent hierarchical mesh coordination for v1 implementation. Orc
 
 ## What This Skill Does
 
-Orchestrates the complete 15-agent hierarchical mesh swarm for monobrain v1 implementation, coordinating parallel execution across domains while maintaining dependencies and timeline adherence.
+Orchestrates the complete 15-agent hierarchical mesh swarm for monomind v1 implementation, coordinating parallel execution across domains while maintaining dependencies and timeline adherence.
 
 ## Quick Start
 
@@ -264,7 +264,7 @@ class DependencyCoordination {
 class GitHubCoordination {
   async initializev1Milestone(): Promise<void> {
     await gh.createMilestone({
-      title: "Monobrain V1.0.0 Implementation",
+      title: "Monomind V1.0.0 Implementation",
       description: "15-agent swarm implementation of 10 ADRs",
       dueDate: this.calculate14WeekDeadline(),
     });

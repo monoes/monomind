@@ -7,7 +7,7 @@ Knowledge management with Memory tools for persistent insights.
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "memory-manager",
   task_description: "organize project knowledge",
   options: {
@@ -20,16 +20,16 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run memory-manager "organize project knowledge"
+npx monomind sparc run memory-manager "organize project knowledge"
 
 # For alpha features
-npx monobrain@alpha sparc run memory-manager "organize project knowledge"
+npx monomind@alpha sparc run memory-manager "organize project knowledge"
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run memory-manager "organize project knowledge"
+# If monomind is installed locally
+./monomind sparc run memory-manager "organize project knowledge"
 ```
 
 ## Core Capabilities

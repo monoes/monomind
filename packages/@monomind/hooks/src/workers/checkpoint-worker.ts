@@ -2,7 +2,7 @@
  * CheckpointWorker — Background worker that triggers checkpoint saves
  * for session and swarm state (Task 08).
  *
- * Delegates to the Checkpointer from @monobrain/memory.
+ * Delegates to the Checkpointer from @monomind/memory.
  *
  * @module v1/hooks/workers/checkpoint-worker
  */

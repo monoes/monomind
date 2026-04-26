@@ -2,7 +2,7 @@
 
 ## Overview
 
-This implementation adds **complete Windows cross-platform support** to the `@monobrain/memory` module using sql.js as a WASM-based SQLite fallback when native compilation fails.
+This implementation adds **complete Windows cross-platform support** to the `@monomind/memory` module using sql.js as a WASM-based SQLite fallback when native compilation fails.
 
 ## What Was Implemented
 
@@ -132,7 +132,7 @@ class JsonBackend implements IMemoryBackend {
 ## Files Created
 
 ```
-packages/@monobrain/memory/
+packages/@monomind/memory/
 ├── src/
 │   ├── sqljs-backend.ts           # SQL.js WASM backend
 │   ├── database-provider.ts       # Platform-aware provider
@@ -149,7 +149,7 @@ packages/@monobrain/memory/
 ### Automatic Provider Selection (Recommended)
 
 ```typescript
-import { createDatabase } from '@monobrain/memory';
+import { createDatabase } from '@monomind/memory';
 
 // Auto-selects best provider for current platform
 const db = await createDatabase('./data/memory.db');
@@ -161,7 +161,7 @@ const db = await createDatabase('./data/memory.db');
 ### Windows-Specific Configuration
 
 ```typescript
-import { createDatabase } from '@monobrain/memory';
+import { createDatabase } from '@monomind/memory';
 
 const db = await createDatabase('./data/memory.db', {
   provider: 'sql.js',
@@ -179,7 +179,7 @@ await db.persist();
 ### Check Platform and Available Providers
 
 ```typescript
-import { getPlatformInfo, getAvailableProviders } from '@monobrain/memory';
+import { getPlatformInfo, getAvailableProviders } from '@monomind/memory';
 
 const platform = getPlatformInfo();
 console.log(`Running on ${platform.os}`);
@@ -223,7 +223,7 @@ Memory Usage       Low              Medium        ~2x
 ### Standard Installation
 
 ```bash
-npm install @monobrain/memory
+npm install @monomind/memory
 ```
 
 The module will:
@@ -235,7 +235,7 @@ The module will:
 
 ```bash
 # Skip better-sqlite3 compilation entirely
-npm install @monobrain/memory --no-optional
+npm install @monomind/memory --no-optional
 ```
 
 ### Docker on Windows
@@ -247,7 +247,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # sql.js will be used automatically
-RUN npm install @monobrain/memory
+RUN npm install @monomind/memory
 
 COPY . .
 CMD ["node", "index.js"]
@@ -295,7 +295,7 @@ const db = new Database('./memory.db');
 ### After (Cross-platform)
 
 ```typescript
-import { createDatabase } from '@monobrain/memory';
+import { createDatabase } from '@monomind/memory';
 
 const db = await createDatabase('./memory.db');
 // Works everywhere, auto-selects best provider

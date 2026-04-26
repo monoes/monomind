@@ -23,11 +23,11 @@ export const REGISTRY_VERSION = '1.0.0';
  */
 export const BOOTSTRAP_REGISTRIES: KnownRegistry[] = [
   {
-    name: 'monobrain-official',
-    description: 'Official Monobrain pattern registry',
+    name: 'monomind-official',
+    description: 'Official Monomind pattern registry',
     ipnsName: 'k51qzi5uqu5dj0w8q1xvqn8ql2g4p7x8qpk9vz3xm1y2n3o4p5q6r7s8t9u0v',
     gateway: 'https://w3s.link',
-    publicKey: 'ed25519:monobrain-registry-key',
+    publicKey: 'ed25519:monomind-registry-key',
     trusted: true,
   },
   {
@@ -45,10 +45,10 @@ export const BOOTSTRAP_REGISTRIES: KnownRegistry[] = [
  */
 export const DEFAULT_STORE_CONFIG: StoreConfig = {
   registries: BOOTSTRAP_REGISTRIES,
-  defaultRegistry: 'monobrain-official',
+  defaultRegistry: 'monomind-official',
   gateway: 'https://w3s.link',
   timeout: 30000,
-  cacheDir: '.monobrain/patterns/cache',
+  cacheDir: '.monomind/patterns/cache',
   cacheExpiry: 3600000, // 1 hour
   requireVerification: false,
   minTrustLevel: 'unverified',

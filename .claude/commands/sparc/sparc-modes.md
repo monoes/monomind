@@ -34,7 +34,7 @@ SPARC (Specification, Planning, Architecture, Review, Code) is a comprehensive d
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
 // Execute SPARC mode directly
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "<mode>",
   task_description: "<task>",
   options: {
@@ -43,20 +43,20 @@ mcp__monobrain__sparc_mode {
 }
 
 // Initialize swarm for advanced coordination
-mcp__monobrain__swarm_init {
+mcp__monomind__swarm_init {
   topology: "hierarchical",
   strategy: "auto",
   maxAgents: 8
 }
 
 // Spawn specialized agents
-mcp__monobrain__agent_spawn {
+mcp__monomind__agent_spawn {
   type: "<agent-type>",
   capabilities: ["<capability1>", "<capability2>"]
 }
 
 // Monitor execution
-mcp__monobrain__swarm_monitor {
+mcp__monomind__swarm_monitor {
   swarmId: "current",
   interval: 5000
 }
@@ -65,25 +65,25 @@ mcp__monobrain__swarm_monitor {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run <mode> "task description"
+npx monomind sparc run <mode> "task description"
 
 # For alpha features
-npx monobrain@alpha sparc run <mode> "task description"
+npx monomind@alpha sparc run <mode> "task description"
 
 # List all modes
-npx monobrain sparc modes
+npx monomind sparc modes
 
 # Get help for a mode
-npx monobrain sparc help <mode>
+npx monomind sparc help <mode>
 
 # Run with options
-npx monobrain sparc run <mode> "task" --parallel --monitor
+npx monomind sparc run <mode> "task" --parallel --monitor
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run <mode> "task description"
+# If monomind is installed locally
+./monomind sparc run <mode> "task description"
 ```
 
 ## Common Workflows
@@ -93,31 +93,31 @@ npx monobrain sparc run <mode> "task" --parallel --monitor
 #### Using MCP Tools (Preferred)
 ```javascript
 // 1. Initialize development swarm
-mcp__monobrain__swarm_init {
+mcp__monomind__swarm_init {
   topology: "hierarchical",
   maxAgents: 12
 }
 
 // 2. Architecture design
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "architect",
   task_description: "design microservices"
 }
 
 // 3. Implementation
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "coder",
   task_description: "implement services"
 }
 
 // 4. Testing
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "tdd",
   task_description: "test all services"
 }
 
 // 5. Review
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "reviewer",
   task_description: "review implementation"
 }
@@ -126,16 +126,16 @@ mcp__monobrain__sparc_mode {
 #### Using NPX CLI (Fallback)
 ```bash
 # 1. Architecture design
-npx monobrain sparc run architect "design microservices"
+npx monomind sparc run architect "design microservices"
 
 # 2. Implementation
-npx monobrain sparc run coder "implement services"
+npx monomind sparc run coder "implement services"
 
 # 3. Testing
-npx monobrain sparc run tdd "test all services"
+npx monomind sparc run tdd "test all services"
 
 # 4. Review
-npx monobrain sparc run reviewer "review implementation"
+npx monomind sparc run reviewer "review implementation"
 ```
 
 ### Research and Innovation
@@ -143,19 +143,19 @@ npx monobrain sparc run reviewer "review implementation"
 #### Using MCP Tools (Preferred)
 ```javascript
 // 1. Research phase
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "researcher",
   task_description: "research best practices"
 }
 
 // 2. Innovation
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "innovator",
   task_description: "propose novel solutions"
 }
 
 // 3. Documentation
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "documenter",
   task_description: "document findings"
 }
@@ -164,11 +164,11 @@ mcp__monobrain__sparc_mode {
 #### Using NPX CLI (Fallback)
 ```bash
 # 1. Research phase
-npx monobrain sparc run researcher "research best practices"
+npx monomind sparc run researcher "research best practices"
 
 # 2. Innovation
-npx monobrain sparc run innovator "propose novel solutions"
+npx monomind sparc run innovator "propose novel solutions"
 
 # 3. Documentation
-npx monobrain sparc run documenter "document findings"
+npx monomind sparc run documenter "document findings"
 ```

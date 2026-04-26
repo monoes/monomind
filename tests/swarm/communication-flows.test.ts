@@ -5,10 +5,10 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { CommunicationGraph } from '../../packages/@monobrain/cli/src/swarm/communication-graph.js';
-import { FlowEnforcer } from '../../packages/@monobrain/cli/src/swarm/flow-enforcer.js';
-import { toAscii, toDOT } from '../../packages/@monobrain/cli/src/swarm/flow-visualizer.js';
-import type { FlowEdge } from '../../packages/@monobrain/shared/src/types/communication-flow.js';
+import { CommunicationGraph } from '../../packages/@monomind/cli/src/swarm/communication-graph.js';
+import { FlowEnforcer } from '../../packages/@monomind/cli/src/swarm/flow-enforcer.js';
+import { toAscii, toDOT } from '../../packages/@monomind/cli/src/swarm/flow-visualizer.js';
+import type { FlowEdge } from '../../packages/@monomind/shared/src/types/communication-flow.js';
 
 /* ------------------------------------------------------------------ */
 /*  CommunicationGraph                                                 */

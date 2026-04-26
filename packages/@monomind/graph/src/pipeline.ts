@@ -19,7 +19,7 @@ import { typescriptExtractor } from './extract/languages/typescript.js';
 import { parseFile } from './extract/tree-sitter-runner.js';
 import type { LanguageExtractor } from './extract/types.js';
 
-const DEFAULT_OUTPUT_SUBDIR = '.monobrain/graph';
+const DEFAULT_OUTPUT_SUBDIR = '.monomind/graph';
 
 // ---------------------------------------------------------------------------
 // Experiment loop — adapted from autoresearch's program.md protocol

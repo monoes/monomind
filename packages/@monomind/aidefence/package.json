@@ -1,5 +1,5 @@
 {
-  "name": "@monobrain/aidefence",
+  "name": "@monomind/aidefence",
   "version": "1.0.0",
   "description": "AI Manipulation Defense System (AIMDS) with self-learning, prompt injection detection, and vector search integration",
   "type": "module",
@@ -49,7 +49,7 @@
     "jailbreak-detection",
     "threat-detection",
     "pii-detection",
-    "monobrain",
+    "monomind",
     "vector-search",
     "self-learning",
     "aimds",
@@ -59,13 +59,13 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nokhodian/monobrain.git",
-    "directory": "packages/@monobrain/aidefence"
+    "url": "git+https://github.com/nokhodian/monomind.git",
+    "directory": "packages/@monomind/aidefence"
   },
   "bugs": {
-    "url": "https://github.com/nokhodian/monobrain/issues"
+    "url": "https://github.com/nokhodian/monomind/issues"
   },
-  "homepage": "https://github.com/nokhodian/monobrain/tree/main/packages/@monobrain/aidefence#readme",
+  "homepage": "https://github.com/nokhodian/monomind/tree/main/packages/@monomind/aidefence#readme",
   "publishConfig": {
     "access": "public",
     "tag": "alpha"

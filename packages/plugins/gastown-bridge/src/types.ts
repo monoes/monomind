@@ -426,7 +426,7 @@ export interface GasTownConfig {
   /** Enable convoy tracking */
   readonly enableConvoys: boolean;
 
-  /** Auto-create beads from Monobrain tasks */
+  /** Auto-create beads from Monomind tasks */
   readonly autoCreateBeads: boolean;
 
   /** Enable GUPP integration */

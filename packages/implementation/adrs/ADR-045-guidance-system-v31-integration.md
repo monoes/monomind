@@ -1,13 +1,13 @@
-# ADR-045: Guidance System Integration — Monobrain v1.1
+# ADR-045: Guidance System Integration — Monomind v1.1
 
 **Status:** Accepted
 **Date:** 2026-02-02
-**Author:** Monobrain Architecture
+**Author:** Monomind Architecture
 **Version:** 3.1.0-alpha.1
 
 ## Context
 
-The `@monobrain/guidance` package (published as `3.0.0-alpha.1`) provides a governance control plane for Claude Code sessions:
+The `@monomind/guidance` package (published as `3.0.0-alpha.1`) provides a governance control plane for Claude Code sessions:
 
 - **Compile**: CLAUDE.md → Constitution + Rule Shards + Rule Manifest
 - **Enforce**: 4 enforcement gates (ingestion, retrieval, generation, emission)
@@ -17,50 +17,50 @@ The `@monobrain/guidance` package (published as `3.0.0-alpha.1`) provides a gove
 - **A/B Test**: Headless comparative testing of governance configurations
 - **Templates**: 6 CLAUDE.md templates (minimal, standard, full, security, performance, solo)
 
-Currently, `@monobrain/guidance` is:
+Currently, `@monomind/guidance` is:
 
-1. A standalone package at `packages/@monobrain/guidance/`
-2. Used by `@monobrain/cli` via dynamic `import()` — but NOT declared as a dependency
-3. Not included in the umbrella `monobrain` package's `files` array
-4. Not available to end users running `npx monobrain@alpha`
+1. A standalone package at `packages/@monomind/guidance/`
+2. Used by `@monomind/cli` via dynamic `import()` — but NOT declared as a dependency
+3. Not included in the umbrella `monomind` package's `files` array
+4. Not available to end users running `npx monomind@alpha`
 
 This means the `guidance` CLI commands silently fail at runtime when installed from npm.
 
 ## Decision
 
-Integrate `@monobrain/guidance` as a **first-class dependency** in both `@monobrain/cli` and the `monobrain` umbrella package, making it a core component of Monobrain v1.1.
+Integrate `@monomind/guidance` as a **first-class dependency** in both `@monomind/cli` and the `monomind` umbrella package, making it a core component of Monomind v1.1.
 
 ### 1. Dependency Graph
 
 ```
-monobrain (umbrella v1.1.0-alpha.1)
-  └── @monobrain/cli (v1.1.0-alpha.1)
-        ├── @monobrain/guidance (V1.0.0-alpha.1)  ← NEW
-        ├── @monobrain/shared
-        ├── @monobrain/mcp
-        └── @monobrain/aidefence
+monomind (umbrella v1.1.0-alpha.1)
+  └── @monomind/cli (v1.1.0-alpha.1)
+        ├── @monomind/guidance (V1.0.0-alpha.1)  ← NEW
+        ├── @monomind/shared
+        ├── @monomind/mcp
+        └── @monomind/aidefence
 ```
 
 ### 2. Package Changes
 
-**`@monobrain/cli/package.json`**:
+**`@monomind/cli/package.json`**:
 
 ```json
 {
   "dependencies": {
-    "@monobrain/guidance": "^3.0.0-alpha.1"
+    "@monomind/guidance": "^3.0.0-alpha.1"
   }
 }
 ```
 
-**`monobrain/package.json` (umbrella)**:
+**`monomind/package.json` (umbrella)**:
 
 ```json
 {
   "files": [
-    "packages/@monobrain/guidance/dist/**/*.js",
-    "packages/@monobrain/guidance/dist/**/*.d.ts",
-    "packages/@monobrain/guidance/package.json"
+    "packages/@monomind/guidance/dist/**/*.js",
+    "packages/@monomind/guidance/dist/**/*.d.ts",
+    "packages/@monomind/guidance/package.json"
   ]
 }
 ```
@@ -91,9 +91,9 @@ The CLAUDE.md generator (`claudemd-generator.ts`) now:
 
 | Package                | Current         | v1.1                      |
 | ---------------------- | --------------- | ------------------------- |
-| `monobrain` (umbrella) | 3.0.0-alpha.185 | 3.1.0-alpha.1             |
-| `@monobrain/cli`       | 3.0.0-alpha.185 | 3.1.0-alpha.1             |
-| `@monobrain/guidance`  | 3.0.0-alpha.1   | 3.0.0-alpha.1 (unchanged) |
+| `monomind` (umbrella) | 3.0.0-alpha.185 | 3.1.0-alpha.1             |
+| `@monomind/cli`       | 3.0.0-alpha.185 | 3.1.0-alpha.1             |
+| `@monomind/guidance`  | 3.0.0-alpha.1   | 3.0.0-alpha.1 (unchanged) |
 
 The guidance package itself stays at 3.0.0-alpha.1 since its API is stable. The CLI and umbrella bump to 3.1.0 to reflect the governance integration as a feature milestone.
 
@@ -119,7 +119,7 @@ The guidance package itself stays at 3.0.0-alpha.1 since its API is stable. The 
 
 ## Implementation
 
-1. Add `@monobrain/guidance` to CLI's `dependencies`
+1. Add `@monomind/guidance` to CLI's `dependencies`
 2. Add guidance dist files to umbrella's `files` array
 3. Version bump CLI and umbrella to 3.1.0-alpha.1
 4. Update init wizard to offer template selection

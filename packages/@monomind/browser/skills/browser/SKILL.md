@@ -1,6 +1,6 @@
 ---
 name: browser
-description: Web browser automation with AI-optimized snapshots for monobrain agents
+description: Web browser automation with AI-optimized snapshots for monomind agents
 version: 1.0.0
 triggers:
   - /browser
@@ -166,7 +166,7 @@ agent-browser --session scrape open https://example.com/data
 agent-browser --session scrape snapshot -i
 ```
 
-## Integration with Monobrain
+## Integration with Monomind
 
 ### MCP Tools
 All browser operations are available as MCP tools with `browser/` prefix:
@@ -180,19 +180,19 @@ All browser operations are available as MCP tools with `browser/` prefix:
 ### Memory Integration
 ```bash
 # Store successful patterns
-npx @monobrain/cli memory store --namespace browser-patterns --key "login-flow" --value "snapshot->fill->click->wait"
+npx @monomind/cli memory store --namespace browser-patterns --key "login-flow" --value "snapshot->fill->click->wait"
 
 # Retrieve before similar task
-npx @monobrain/cli memory search --query "login automation"
+npx @monomind/cli memory search --query "login automation"
 ```
 
 ### Hooks
 ```bash
 # Pre-browse hook (get context)
-npx @monobrain/cli hooks pre-edit --file "browser-task.ts"
+npx @monomind/cli hooks pre-edit --file "browser-task.ts"
 
 # Post-browse hook (record success)
-npx @monobrain/cli hooks post-task --task-id "browse-1" --success true
+npx @monomind/cli hooks post-task --task-id "browse-1" --success true
 ```
 
 ## Tips

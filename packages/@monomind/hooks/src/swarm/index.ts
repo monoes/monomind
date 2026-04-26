@@ -4,7 +4,7 @@
  * Enables agent-to-agent communication, pattern broadcasting,
  * consensus building, and task handoff coordination.
  *
- * @module @monobrain/hooks/swarm
+ * @module @monomind/hooks/swarm
  */
 
 import { EventEmitter } from 'node:events';

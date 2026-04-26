@@ -2,7 +2,7 @@
  * Agent Specialization Scorer (Task 39)
  *
  * JSONL-based per-agent-per-task-type scoring with time-decay.
- * Enables monobrain to prefer historically successful agents for specific task types.
+ * Enables monomind to prefer historically successful agents for specific task types.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'fs';

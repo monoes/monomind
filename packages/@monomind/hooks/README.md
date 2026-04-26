@@ -1,14 +1,14 @@
-# @monobrain/hooks
+# @monomind/hooks
 
-[![npm version](https://img.shields.io/npm/v/@monobrain/hooks.svg)](https://www.npmjs.com/package/@monobrain/hooks)
-[![npm downloads](https://img.shields.io/npm/dm/@monobrain/hooks.svg)](https://www.npmjs.com/package/@monobrain/hooks)
+[![npm version](https://img.shields.io/npm/v/@monomind/hooks.svg)](https://www.npmjs.com/package/@monomind/hooks)
+[![npm downloads](https://img.shields.io/npm/dm/@monomind/hooks.svg)](https://www.npmjs.com/package/@monomind/hooks)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 
-> Event-driven lifecycle hooks with ReasoningBank learning integration for Monobrain V1
+> Event-driven lifecycle hooks with ReasoningBank learning integration for Monomind V1
 
-The `@monobrain/hooks` package provides a comprehensive hooks system for intercepting and extending Monobrain operations. It enables intelligent task routing, pattern learning, background metrics collection, and real-time statusline integration.
+The `@monomind/hooks` package provides a comprehensive hooks system for intercepting and extending Monomind operations. It enables intelligent task routing, pattern learning, background metrics collection, and real-time statusline integration.
 
 ## Features
 
@@ -25,13 +25,13 @@ The `@monobrain/hooks` package provides a comprehensive hooks system for interce
 
 ```bash
 # Using npm
-npm install @monobrain/hooks
+npm install @monomind/hooks
 
 # Using pnpm
-pnpm add @monobrain/hooks
+pnpm add @monomind/hooks
 
 # Using yarn
-yarn add @monobrain/hooks
+yarn add @monomind/hooks
 ```
 
 ## Quick Start
@@ -44,7 +44,7 @@ import {
   HookExecutor,
   HookEvent,
   HookPriority,
-} from '@monobrain/hooks';
+} from '@monomind/hooks';
 
 // Create registry and executor
 const registry = new HookRegistry();
@@ -69,7 +69,7 @@ console.log(`Hooks executed: ${result.hooksExecuted}`);
 ### Initialize with Daemons
 
 ```typescript
-import { initializeHooks } from '@monobrain/hooks';
+import { initializeHooks } from '@monomind/hooks';
 
 // Initialize full system with background daemons
 const { registry, executor, statusline } = await initializeHooks({
@@ -84,7 +84,7 @@ console.log(statusline.generateStatusline());
 ### Using MCP Tools
 
 ```typescript
-import { hooksMCPTools, getHooksTool } from '@monobrain/hooks';
+import { hooksMCPTools, getHooksTool } from '@monomind/hooks';
 
 // Get specific tool
 const routeTool = getHooksTool('hooks/route');
@@ -151,7 +151,7 @@ statusline --help
 
 **Example Output:**
 ```
-▊ Monobrain V1 ● agentic-flow@alpha  │  ⎇ v1
+▊ Monomind V1 ● agentic-flow@alpha  │  ⎇ v1
 ─────────────────────────────────────────────────────
 🏗️  DDD Domains    [●●●●●]  5/5    ⚡ 1.0x → 2.49x-7.47x
 🤖 Swarm Agents    ◉ [ 5/15]      🟢 CVE 3/3    💾 156 patterns
@@ -220,22 +220,22 @@ The hooks system includes 12 specialized background workers that can be triggere
 
 ```bash
 # List all available workers
-monobrain hooks worker list
+monomind hooks worker list
 
 # Detect triggers from prompt text
-monobrain hooks worker detect --prompt "optimize performance"
+monomind hooks worker detect --prompt "optimize performance"
 
 # Auto-dispatch when triggers match (confidence ≥0.6)
-monobrain hooks worker detect --prompt "deep dive into auth" --auto-dispatch --min-confidence 0.6
+monomind hooks worker detect --prompt "deep dive into auth" --auto-dispatch --min-confidence 0.6
 
 # Manually dispatch a worker
-monobrain hooks worker dispatch --trigger refactor --context "auth module"
+monomind hooks worker dispatch --trigger refactor --context "auth module"
 
 # Check worker status
-monobrain hooks worker status
+monomind hooks worker status
 
 # Cancel a running worker
-monobrain hooks worker cancel --id worker_refactor_1_abc123
+monomind hooks worker cancel --id worker_refactor_1_abc123
 ```
 
 ### Performance Targets
@@ -258,7 +258,7 @@ Workers are automatically triggered via the `UserPromptSubmit` hook when prompt 
       "hooks": [{
         "type": "command",
         "timeout": 6000,
-        "command": "monobrain hooks worker detect --prompt \"$USER_PROMPT\" --auto-dispatch --min-confidence 0.6"
+        "command": "monomind hooks worker detect --prompt \"$USER_PROMPT\" --auto-dispatch --min-confidence 0.6"
       }]
     }]
   }
@@ -294,7 +294,7 @@ The following modules implement state-of-the-art multi-agent research from the l
 Replaces greedy coordinator planning with MCTS-style tree search over candidate plan steps.
 
 ```typescript
-import { buildLATSPlan, type LATSConfig } from '@monobrain/hooks';
+import { buildLATSPlan, type LATSConfig } from '@monomind/hooks';
 
 const plan = await buildLATSPlan('Implement OAuth2 authentication', {
   simulations: 30,      // MCTS rollouts (default: 20)
@@ -312,7 +312,7 @@ Also available via `hooks/route` MCP tool with `useLATS: true, latsSimulations: 
 Reads ReasoningBank patterns to propose an optimised heterogeneous agent DAG topology.
 
 ```typescript
-import { DAGLearner, type DAGLearnerConfig, type DAGLearnerResult } from '@monobrain/hooks';
+import { DAGLearner, type DAGLearnerConfig, type DAGLearnerResult } from '@monomind/hooks';
 
 const learner = new DAGLearner();
 const result: DAGLearnerResult = await learner.propose('Implement OAuth2 with tests');
@@ -329,7 +329,7 @@ Couples `TraceQualityStore` + `GEPAOptimizer` + `DAGLearner` into a single
 prompt-evolution + topology-discovery pipeline.
 
 ```typescript
-import { EvoAgentXCoordinator, type EvoAgentXConfig } from '@monobrain/hooks';
+import { EvoAgentXCoordinator, type EvoAgentXConfig } from '@monomind/hooks';
 
 const coordinator = new EvoAgentXCoordinator({
   traceStorePath: './data/traces',
@@ -357,7 +357,7 @@ Four-verb (INIT → PROPOSE → ACCEPT → COMMIT) formally minimal coordination
 substrate. All state lives in a caller-owned `MuACPSession`; there is no global registry.
 
 ```typescript
-import { MuACP, type MuACPSession, type MuACPCommitResult } from '@monobrain/hooks';
+import { MuACP, type MuACPSession, type MuACPCommitResult } from '@monomind/hooks';
 
 // Option 1: step-by-step
 const session: MuACPSession = MuACP.init('agent-a', ['agent-a', 'agent-b'], 'Use hierarchical topology?');
@@ -379,7 +379,7 @@ const result2 = MuACP.coordinate(
 Also wired into `SwarmCommunication` via `coordinateWithMuACP()`:
 
 ```typescript
-import { swarmComm } from '@monobrain/hooks';
+import { swarmComm } from '@monomind/hooks';
 
 const result = swarmComm.coordinateWithMuACP(
   ['agent-a', 'agent-b'],
@@ -396,7 +396,7 @@ const result = swarmComm.coordinateWithMuACP(
 optimal multi-step workflow that maximises a caller-supplied reward function.
 
 ```typescript
-import { AFLOWSearch, type AFLOWConfig, compileSubGraph } from '@monobrain/hooks';
+import { AFLOWSearch, type AFLOWConfig, compileSubGraph } from '@monomind/hooks';
 
 const aflow = new AFLOWSearch({
   maxIterations: 50,     // MCTS budget
@@ -419,7 +419,7 @@ novelty scores so that future synthesis requests can draw the highest-performing
 agent for each niche rather than starting from scratch.
 
 ```typescript
-import { DGMArchive, type DGMArchiveEntry } from '@monobrain/hooks';
+import { DGMArchive, type DGMArchiveEntry } from '@monomind/hooks';
 
 const archive = new DGMArchive();
 const entry: DGMArchiveEntry = archive.get('security', 'audit');
@@ -438,7 +438,7 @@ schedules entries for spaced-repetition replay. No schema changes required —
 uses existing `importanceScore` and `lastAccessedAt` fields.
 
 ```typescript
-import { ForgettingCurveWorker, type ForgettingCurveEntry } from '@monobrain/hooks';
+import { ForgettingCurveWorker, type ForgettingCurveEntry } from '@monomind/hooks';
 
 const worker = new ForgettingCurveWorker({
   decayRate: 0.005,       // λ: −0.005 importance per hour (matches LearningBridge default)
@@ -462,7 +462,7 @@ decaying memories via `agentdb_pattern-store`.
 CP-WBFT (confidence-weighted Byzantine fault tolerance):
 
 ```typescript
-import { swarmComm } from '@monobrain/hooks';
+import { swarmComm } from '@monomind/hooks';
 
 // Register agents with confidence weights (e.g. from a pre-round probe)
 swarmComm.registerAgent({ id: 'agent-1', confidence: 0.95, /* ... */ });
@@ -503,7 +503,7 @@ stored in the `heuristics` namespace and injected into agent system prompts via
 `pre-task` hooks.
 
 ```typescript
-import { ERLWorker, type ERLTrajectory, type ERLHeuristic } from '@monobrain/hooks';
+import { ERLWorker, type ERLTrajectory, type ERLHeuristic } from '@monomind/hooks';
 
 const worker = new ERLWorker({ maxPerTrajectory: 3, minQuality: 0.4 });
 
@@ -534,10 +534,10 @@ Runs automatically in `createLearningWorker()` when `metrics.trajectories` is pr
 Automatic "differentiation" for agent outputs. `TextGradWorker` critiques an agent's
 output across five dimensions (correctness, reasoning, format, safety, efficiency)
 and returns `TextualGradient` objects. Gradients are stored in
-`.monobrain/learning/textual-gradients.json` and consumed by `PromptOptimizer`.
+`.monomind/learning/textual-gradients.json` and consumed by `PromptOptimizer`.
 
 ```typescript
-import { TextGradWorker, type TextGradInput } from '@monobrain/hooks';
+import { TextGradWorker, type TextGradInput } from '@monomind/hooks';
 
 const worker = new TextGradWorker({ maxGradients: 3, minMagnitude: 0.2 });
 
@@ -565,7 +565,7 @@ Structured reflection pipeline with heterogeneous critics. `MARWorker` spawns:
 - **Aggregator** — synthesises into a unified reflection + ERL-compatible heuristic
 
 ```typescript
-import { MARWorker, type MARInput } from '@monobrain/hooks';
+import { MARWorker, type MARInput } from '@monomind/hooks';
 
 const worker = new MARWorker({ numCritics: 3 });
 
@@ -590,7 +590,7 @@ summaries, stored as `contextual`-tier entries. Enables thematic retrieval in
 addition to per-entry lookup.
 
 ```typescript
-import { RaptorWorker, type RaptorEntry } from '@monobrain/hooks';
+import { RaptorWorker, type RaptorEntry } from '@monomind/hooks';
 
 const worker = new RaptorWorker({
   clusterSize: 5,       // target entries per cluster
@@ -622,7 +622,7 @@ The judge model can penalise hallucinated tool calls and unnecessary detours eve
 when the final answer happens to be correct.
 
 ```typescript
-import { TraceAwareJudgeMetric, type TraceStep } from '@monobrain/hooks';
+import { TraceAwareJudgeMetric, type TraceStep } from '@monomind/hooks';
 
 const judge = new TraceAwareJudgeMetric(
   async (prompt) => callClaude({ model: 'claude-haiku-4-5', prompt }),
@@ -655,10 +655,10 @@ premature convergence when agent synergy is still "in play".
 
 ```bash
 # Propose with anti-groupthink gate requiring 2 divergent rounds before resolution
-npx monobrain@latest mcp run hive-mind_consensus '{"action":"propose","type":"architecture","value":"use microservices","voterId":"queen","minDivergenceRounds":2}'
+npx monomind@latest mcp run hive-mind_consensus '{"action":"propose","type":"architecture","value":"use microservices","voterId":"queen","minDivergenceRounds":2}'
 
 # Each vote round returns divergenceGateOpen status
-npx monobrain@latest mcp run hive-mind_consensus '{"action":"vote","proposalId":"proposal-xxx","voterId":"worker-1","vote":true}'
+npx monomind@latest mcp run hive-mind_consensus '{"action":"vote","proposalId":"proposal-xxx","voterId":"worker-1","vote":true}'
 # → { divergenceGateOpen: false, divergenceRoundsSeen: 0, minDivergenceRounds: 2, divergenceHint: "..." }
 ```
 
@@ -763,13 +763,13 @@ class StatuslineGenerator {
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `MONOBRAIN_HOOK_TIMEOUT` | Hook execution timeout (ms) | `5000` |
-| `MONOBRAIN_REASONINGBANK_ENABLED` | Enable ReasoningBank | `true` |
-| `MONOBRAIN_HOOKS_NAMESPACE` | Learning namespace | `hooks-learning` |
-| `MONOBRAIN_HOOKS_LOG_LEVEL` | Logging level | `info` |
-| `MONOBRAIN_SHOW_HOOKS_METRICS` | Show hooks in statusline | `true` |
-| `MONOBRAIN_SHOW_SWARM_ACTIVITY` | Show swarm in statusline | `true` |
-| `MONOBRAIN_SHOW_PERFORMANCE` | Show performance targets | `true` |
+| `MONOMIND_HOOK_TIMEOUT` | Hook execution timeout (ms) | `5000` |
+| `MONOMIND_REASONINGBANK_ENABLED` | Enable ReasoningBank | `true` |
+| `MONOMIND_HOOKS_NAMESPACE` | Learning namespace | `hooks-learning` |
+| `MONOMIND_HOOKS_LOG_LEVEL` | Logging level | `info` |
+| `MONOMIND_SHOW_HOOKS_METRICS` | Show hooks in statusline | `true` |
+| `MONOMIND_SHOW_SWARM_ACTIVITY` | Show swarm in statusline | `true` |
+| `MONOMIND_SHOW_PERFORMANCE` | Show performance targets | `true` |
 
 ## Integration with Claude Code
 
@@ -809,11 +809,11 @@ Add to your Claude settings (`~/.claude/settings.json`):
 
 ## Related Packages
 
-- [@monobrain/shared](../shared) - Shared utilities and types
-- [@monobrain/neural](../neural) - Neural network and SONA learning
-- [@monobrain/swarm](../swarm) - Multi-agent coordination
-- [@monobrain/memory](../memory) - AgentDB memory system
+- [@monomind/shared](../shared) - Shared utilities and types
+- [@monomind/neural](../neural) - Neural network and SONA learning
+- [@monomind/swarm](../swarm) - Multi-agent coordination
+- [@monomind/memory](../memory) - AgentDB memory system
 
 ## License
 
-MIT © [Monobrain Team](https://github.com/nokhodian/monobrain)
+MIT © [Monomind Team](https://github.com/nokhodian/monomind)

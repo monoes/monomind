@@ -19,7 +19,7 @@ This skill provides a comprehensive verification and quality assurance system th
 
 ## Prerequisites
 
-- Monobrain installed (`npx monobrain@alpha`)
+- Monomind installed (`npx monomind@alpha`)
 - Git repository (for rollback features)
 - Node.js 18+ (for dashboard features)
 
@@ -27,16 +27,16 @@ This skill provides a comprehensive verification and quality assurance system th
 
 ```bash
 # View current truth scores
-npx monobrain@alpha truth
+npx monomind@alpha truth
 
 # Run verification check
-npx monobrain@alpha verify check
+npx monomind@alpha verify check
 
 # Verify specific file with custom threshold
-npx monobrain@alpha verify check --file src/app.js --threshold 0.98
+npx monomind@alpha verify check --file src/app.js --threshold 0.98
 
 # Rollback last failed verification
-npx monobrain@alpha verify rollback --last-good
+npx monomind@alpha verify rollback --last-good
 ```
 
 ---
@@ -53,42 +53,42 @@ Display comprehensive quality and reliability metrics for your codebase and agen
 
 ```bash
 # View current truth scores (default: table format)
-npx monobrain@alpha truth
+npx monomind@alpha truth
 
 # View scores for specific time period
-npx monobrain@alpha truth --period 7d
+npx monomind@alpha truth --period 7d
 
 # View scores for specific agent
-npx monobrain@alpha truth --agent coder --period 24h
+npx monomind@alpha truth --agent coder --period 24h
 
 # Find files/tasks below threshold
-npx monobrain@alpha truth --threshold 0.8
+npx monomind@alpha truth --threshold 0.8
 ```
 
 **Output Formats:**
 
 ```bash
 # Table format (default)
-npx monobrain@alpha truth --format table
+npx monomind@alpha truth --format table
 
 # JSON for programmatic access
-npx monobrain@alpha truth --format json
+npx monomind@alpha truth --format json
 
 # CSV for spreadsheet analysis
-npx monobrain@alpha truth --format csv
+npx monomind@alpha truth --format csv
 
 # HTML report with visualizations
-npx monobrain@alpha truth --format html --export report.html
+npx monomind@alpha truth --format html --export report.html
 ```
 
 **Real-time Monitoring:**
 
 ```bash
 # Watch mode with live updates
-npx monobrain@alpha truth --watch
+npx monomind@alpha truth --watch
 
 # Export metrics automatically
-npx monobrain@alpha truth --export .monobrain/metrics/truth-$(date +%Y%m%d).json
+npx monomind@alpha truth --export .monomind/metrics/truth-$(date +%Y%m%d).json
 ```
 
 #### Truth Score Dashboard
@@ -149,42 +149,42 @@ Execute comprehensive verification checks on code, tasks, or agent outputs.
 
 ```bash
 # Verify single file
-npx monobrain@alpha verify check --file src/app.js
+npx monomind@alpha verify check --file src/app.js
 
 # Verify directory recursively
-npx monobrain@alpha verify check --directory src/
+npx monomind@alpha verify check --directory src/
 
 # Verify with auto-fix enabled
-npx monobrain@alpha verify check --file src/utils.js --auto-fix
+npx monomind@alpha verify check --file src/utils.js --auto-fix
 
 # Verify current working directory
-npx monobrain@alpha verify check
+npx monomind@alpha verify check
 ```
 
 **Task Verification:**
 
 ```bash
 # Verify specific task output
-npx monobrain@alpha verify check --task task-123
+npx monomind@alpha verify check --task task-123
 
 # Verify with custom threshold
-npx monobrain@alpha verify check --task task-456 --threshold 0.99
+npx monomind@alpha verify check --task task-456 --threshold 0.99
 
 # Verbose output for debugging
-npx monobrain@alpha verify check --task task-789 --verbose
+npx monomind@alpha verify check --task task-789 --verbose
 ```
 
 **Batch Verification:**
 
 ```bash
 # Verify multiple files in parallel
-npx monobrain@alpha verify batch --files "*.js" --parallel
+npx monomind@alpha verify batch --files "*.js" --parallel
 
 # Verify with pattern matching
-npx monobrain@alpha verify batch --pattern "src/**/*.ts"
+npx monomind@alpha verify batch --pattern "src/**/*.ts"
 
 # Integration test suite
-npx monobrain@alpha verify integration --test-suite full
+npx monomind@alpha verify integration --test-suite full
 ```
 
 #### Verification Criteria
@@ -225,7 +225,7 @@ The verification system evaluates:
 
 ```bash
 # Get structured JSON output
-npx monobrain@alpha verify check --json > verification.json
+npx monomind@alpha verify check --json > verification.json
 
 # Example JSON structure:
 {
@@ -258,26 +258,26 @@ Automatically revert changes that fail verification checks.
 
 ```bash
 # Rollback to last known good state
-npx monobrain@alpha verify rollback --last-good
+npx monomind@alpha verify rollback --last-good
 
 # Rollback to specific commit
-npx monobrain@alpha verify rollback --to-commit abc123
+npx monomind@alpha verify rollback --to-commit abc123
 
 # Interactive rollback with preview
-npx monobrain@alpha verify rollback --interactive
+npx monomind@alpha verify rollback --interactive
 ```
 
 **Smart Rollback:**
 
 ```bash
 # Rollback only failed files (preserve good changes)
-npx monobrain@alpha verify rollback --selective
+npx monomind@alpha verify rollback --selective
 
 # Rollback with automatic backup
-npx monobrain@alpha verify rollback --backup-first
+npx monomind@alpha verify rollback --backup-first
 
 # Dry-run mode (preview without executing)
-npx monobrain@alpha verify rollback --dry-run
+npx monomind@alpha verify rollback --dry-run
 ```
 
 **Rollback Performance:**
@@ -296,32 +296,32 @@ Create detailed verification reports with metrics and visualizations.
 
 ```bash
 # JSON report
-npx monobrain@alpha verify report --format json
+npx monomind@alpha verify report --format json
 
 # HTML report with charts
-npx monobrain@alpha verify report --export metrics.html --format html
+npx monomind@alpha verify report --export metrics.html --format html
 
 # CSV for data analysis
-npx monobrain@alpha verify report --format csv --export metrics.csv
+npx monomind@alpha verify report --format csv --export metrics.csv
 
 # Markdown summary
-npx monobrain@alpha verify report --format markdown
+npx monomind@alpha verify report --format markdown
 ```
 
 **Time-based Reports:**
 
 ```bash
 # Last 24 hours
-npx monobrain@alpha verify report --period 24h
+npx monomind@alpha verify report --period 24h
 
 # Last 7 days
-npx monobrain@alpha verify report --period 7d
+npx monomind@alpha verify report --period 7d
 
 # Last 30 days with trends
-npx monobrain@alpha verify report --period 30d --include-trends
+npx monomind@alpha verify report --period 30d --include-trends
 
 # Custom date range
-npx monobrain@alpha verify report --from 2025-01-01 --to 2025-01-31
+npx monomind@alpha verify report --from 2025-01-01 --to 2025-01-31
 ```
 
 **Report Content:**
@@ -342,16 +342,16 @@ Run interactive web-based verification dashboard with real-time updates.
 
 ```bash
 # Launch dashboard on default port (3000)
-npx monobrain@alpha verify dashboard
+npx monomind@alpha verify dashboard
 
 # Custom port
-npx monobrain@alpha verify dashboard --port 8080
+npx monomind@alpha verify dashboard --port 8080
 
 # Export dashboard data
-npx monobrain@alpha verify dashboard --export
+npx monomind@alpha verify dashboard --export
 
 # Dashboard with auto-refresh
-npx monobrain@alpha verify dashboard --refresh 5s
+npx monomind@alpha verify dashboard --refresh 5s
 ```
 
 **Dashboard Features:**
@@ -368,7 +368,7 @@ npx monobrain@alpha verify dashboard --refresh 5s
 
 #### Default Configuration
 
-Set verification preferences in `.monobrain/config.json`:
+Set verification preferences in `.monomind/config.json`:
 
 ```json
 {
@@ -396,7 +396,7 @@ Set verification preferences in `.monobrain/config.json`:
     "criticalThreshold": 0.75,
     "autoExport": {
       "enabled": true,
-      "path": ".monobrain/metrics/truth-daily.json"
+      "path": ".monomind/metrics/truth-daily.json"
     }
   }
 }
@@ -408,13 +408,13 @@ Set verification preferences in `.monobrain/config.json`:
 
 ```bash
 # Strict mode (99% accuracy required)
-npx monobrain@alpha verify check --threshold 0.99
+npx monomind@alpha verify check --threshold 0.99
 
 # Lenient mode (90% acceptable)
-npx monobrain@alpha verify check --threshold 0.90
+npx monomind@alpha verify check --threshold 0.90
 
 # Set default threshold
-npx monobrain@alpha config set verification.threshold 0.98
+npx monomind@alpha config set verification.threshold 0.98
 ```
 
 **Per-environment thresholds:**
@@ -453,7 +453,7 @@ jobs:
 
       - name: Run Verification
         run: |
-          npx monobrain@alpha verify check --json > verification.json
+          npx monomind@alpha verify check --json > verification.json
 
       - name: Check Truth Score
         run: |
@@ -476,7 +476,7 @@ jobs:
 verify:
   stage: test
   script:
-    - npx monobrain@alpha verify check --threshold 0.95 --json > verification.json
+    - npx monomind@alpha verify check --threshold 0.95 --json > verification.json
     - |
       score=$(jq '.overallScore' verification.json)
       if [ $(echo "$score < 0.95" | bc) -eq 1 ]; then
@@ -496,13 +496,13 @@ Run verification automatically during swarm operations:
 
 ```bash
 # Swarm with verification enabled
-npx monobrain@alpha swarm --verify --threshold 0.98
+npx monomind@alpha swarm --verify --threshold 0.98
 
 # Hive Mind with auto-rollback
-npx monobrain@alpha hive-mind --verify --rollback-on-fail
+npx monomind@alpha hive-mind --verify --rollback-on-fail
 
 # Training pipeline with verification
-npx monobrain@alpha train --verify --threshold 0.99
+npx monomind@alpha train --verify --threshold 0.99
 ```
 
 #### Pair Programming Integration
@@ -511,10 +511,10 @@ Enable real-time verification during collaborative development:
 
 ```bash
 # Pair with verification
-npx monobrain@alpha pair --verify --real-time
+npx monomind@alpha pair --verify --real-time
 
 # Pair with custom threshold
-npx monobrain@alpha pair --verify --threshold 0.97 --auto-fix
+npx monomind@alpha pair --verify --threshold 0.97 --auto-fix
 ```
 
 ### Advanced Workflows
@@ -525,13 +525,13 @@ Monitor codebase continuously during development:
 
 ```bash
 # Watch directory for changes
-npx monobrain@alpha verify watch --directory src/
+npx monomind@alpha verify watch --directory src/
 
 # Watch with auto-fix
-npx monobrain@alpha verify watch --directory src/ --auto-fix
+npx monomind@alpha verify watch --directory src/ --auto-fix
 
 # Watch with notifications
-npx monobrain@alpha verify watch --notify --threshold 0.95
+npx monomind@alpha verify watch --notify --threshold 0.95
 ```
 
 #### Monitoring Integration
@@ -540,18 +540,18 @@ Send metrics to external monitoring systems:
 
 ```bash
 # Export to Prometheus
-npx monobrain@alpha truth --format json | \
-  curl -X POST https://pushgateway.example.com/metrics/job/monobrain \
+npx monomind@alpha truth --format json | \
+  curl -X POST https://pushgateway.example.com/metrics/job/monomind \
   -d @-
 
 # Send to DataDog
-npx monobrain@alpha verify report --format json | \
+npx monomind@alpha verify report --format json | \
   curl -X POST "https://api.datadoghq.com/api/v1/series?api_key=${DD_API_KEY}" \
   -H "Content-Type: application/json" \
   -d @-
 
 # Custom webhook
-npx monobrain@alpha truth --format json | \
+npx monomind@alpha truth --format json | \
   curl -X POST https://metrics.example.com/api/truth \
   -H "Content-Type: application/json" \
   -d @-
@@ -563,16 +563,16 @@ Automatically verify before commits:
 
 ```bash
 # Install pre-commit hook
-npx monobrain@alpha verify install-hook --pre-commit
+npx monomind@alpha verify install-hook --pre-commit
 
 # .git/hooks/pre-commit example:
 #!/bin/bash
-npx monobrain@alpha verify check --threshold 0.95 --json > /tmp/verify.json
+npx monomind@alpha verify check --threshold 0.95 --json > /tmp/verify.json
 
 score=$(jq '.overallScore' /tmp/verify.json)
 if (( $(echo "$score < 0.95" | bc -l) )); then
   echo "❌ Verification failed with score: $score"
-  echo "Run 'npx monobrain@alpha verify check --verbose' for details"
+  echo "Run 'npx monomind@alpha verify check --verbose' for details"
   exit 1
 fi
 
@@ -608,13 +608,13 @@ echo "✅ Verification passed with score: $score"
 
 ```bash
 # Get detailed breakdown
-npx monobrain@alpha truth --verbose --threshold 0.0
+npx monomind@alpha truth --verbose --threshold 0.0
 
 # Check specific criteria
-npx monobrain@alpha verify check --verbose
+npx monomind@alpha verify check --verbose
 
 # View agent-specific issues
-npx monobrain@alpha truth --agent <agent-name> --format json
+npx monomind@alpha truth --agent <agent-name> --format json
 ```
 
 **Rollback Failures:**
@@ -624,7 +624,7 @@ npx monobrain@alpha truth --agent <agent-name> --format json
 git status
 
 # View rollback history
-npx monobrain@alpha verify rollback --history
+npx monomind@alpha verify rollback --history
 
 # Manual rollback
 git reset --hard HEAD~1
@@ -634,10 +634,10 @@ git reset --hard HEAD~1
 
 ```bash
 # Increase timeout
-npx monobrain@alpha verify check --timeout 60s
+npx monomind@alpha verify check --timeout 60s
 
 # Verify in batches
-npx monobrain@alpha verify batch --batch-size 10
+npx monomind@alpha verify batch --batch-size 10
 ```
 
 ### Exit Codes
@@ -650,10 +650,10 @@ Verification commands return standard exit codes:
 
 ### Related Commands
 
-- `npx monobrain@alpha pair` - Collaborative development with verification
-- `npx monobrain@alpha train` - Training with verification feedback
-- `npx monobrain@alpha swarm` - Multi-agent coordination with quality checks
-- `npx monobrain@alpha report` - Generate comprehensive project reports
+- `npx monomind@alpha pair` - Collaborative development with verification
+- `npx monomind@alpha train` - Training with verification feedback
+- `npx monomind@alpha swarm` - Multi-agent coordination with quality checks
+- `npx monomind@alpha report` - Generate comprehensive project reports
 
 ### Best Practices
 

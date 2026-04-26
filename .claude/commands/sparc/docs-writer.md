@@ -19,7 +19,7 @@ Only work in .md files. Use sections, examples, and headings. Keep each file und
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "docs-writer",
   task_description: "create API documentation",
   options: {
@@ -32,22 +32,22 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run docs-writer "create API documentation"
+npx monomind sparc run docs-writer "create API documentation"
 
 # For alpha features
-npx monobrain@alpha sparc run docs-writer "create API documentation"
+npx monomind@alpha sparc run docs-writer "create API documentation"
 
 # With namespace
-npx monobrain sparc run docs-writer "your task" --namespace docs-writer
+npx monomind sparc run docs-writer "your task" --namespace docs-writer
 
 # Non-interactive mode
-npx monobrain sparc run docs-writer "your task" --non-interactive
+npx monomind sparc run docs-writer "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run docs-writer "create API documentation"
+# If monomind is installed locally
+./monomind sparc run docs-writer "create API documentation"
 ```
 
 ## Memory Integration
@@ -55,7 +55,7 @@ npx monobrain sparc run docs-writer "your task" --non-interactive
 ### Using MCP Tools (Preferred)
 ```javascript
 // Store mode-specific context
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "docs-writer_context",
   value: "important decisions",
@@ -63,7 +63,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Query previous work
-mcp__monobrain__memory_search {
+mcp__monomind__memory_search {
   pattern: "docs-writer",
   namespace: "docs-writer",
   limit: 5
@@ -73,8 +73,8 @@ mcp__monobrain__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx monobrain memory store "docs-writer_context" "important decisions" --namespace docs-writer
+npx monomind memory store "docs-writer_context" "important decisions" --namespace docs-writer
 
 # Query previous work
-npx monobrain memory query "docs-writer" --limit 5
+npx monomind memory query "docs-writer" --limit 5
 ```

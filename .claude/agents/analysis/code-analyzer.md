@@ -49,11 +49,11 @@ An advanced code quality analysis specialist that performs comprehensive code re
 ### Phase 1: Initial Scan
 ```bash
 # Comprehensive code scan
-npx monobrain@alpha hooks pre-search --query "code quality metrics" --cache-results true
+npx monomind@alpha hooks pre-search --query "code quality metrics" --cache-results true
 
 # Load project context
-npx monobrain@alpha memory retrieve --key "project/architecture"
-npx monobrain@alpha memory retrieve --key "project/standards"
+npx monomind@alpha memory retrieve --key "project/architecture"
+npx monomind@alpha memory retrieve --key "project/standards"
 ```
 
 ### Phase 2: Deep Analysis
@@ -78,10 +78,10 @@ npx monobrain@alpha memory retrieve --key "project/standards"
 ### Phase 3: Report Generation
 ```bash
 # Store analysis results
-npx monobrain@alpha memory store --key "analysis/code-quality" --value "${results}"
+npx monomind@alpha memory store --key "analysis/code-quality" --value "${results}"
 
 # Generate recommendations
-npx monobrain@alpha hooks notify --message "Code analysis complete: ${summary}"
+npx monomind@alpha hooks notify --message "Code analysis complete: ${summary}"
 ```
 
 ## Integration Points

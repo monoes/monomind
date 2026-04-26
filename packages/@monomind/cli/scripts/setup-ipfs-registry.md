@@ -35,7 +35,7 @@ If you have Pinata's paid plan with Dedicated Gateways:
 curl -X POST "https://api.pinata.cloud/v1/ipfs/keys" \
   -H "Authorization: Bearer $PINATA_JWT" \
   -H "Content-Type: application/json" \
-  -d '{"name": "monobrain-registry"}'
+  -d '{"name": "monomind-registry"}'
 ```
 
 ## Step 2: Google Cloud Setup
@@ -44,13 +44,13 @@ curl -X POST "https://api.pinata.cloud/v1/ipfs/keys" \
 
 ```bash
 # Create new project
-gcloud projects create monobrain-registry --name="Monobrain Registry"
+gcloud projects create monomind-registry --name="Monomind Registry"
 
 # Set as active project
-gcloud config set project monobrain-registry
+gcloud config set project monomind-registry
 
 # Enable billing (required for Cloud Functions)
-gcloud beta billing projects link monobrain-registry \
+gcloud beta billing projects link monomind-registry \
   --billing-account=YOUR_BILLING_ACCOUNT_ID
 ```
 
@@ -68,15 +68,15 @@ gcloud services enable \
 
 ```bash
 # Create bucket for registry source data
-gcloud storage buckets create gs://monobrain-plugin-registry \
+gcloud storage buckets create gs://monomind-plugin-registry \
   --location=US \
   --uniform-bucket-level-access
 
 # Enable versioning for rollback
-gsutil versioning set on gs://monobrain-plugin-registry
+gsutil versioning set on gs://monomind-plugin-registry
 
 # Make registry.json publicly readable (optional)
-gsutil iam ch allUsers:objectViewer gs://monobrain-plugin-registry
+gsutil iam ch allUsers:objectViewer gs://monomind-plugin-registry
 ```
 
 ### 2.4 Create Service Account
@@ -87,12 +87,12 @@ gcloud iam service-accounts create plugin-registry-publisher \
   --display-name="Plugin Registry Publisher"
 
 # Grant permissions
-gcloud projects add-iam-policy-binding monobrain-registry \
-  --member="serviceAccount:plugin-registry-publisher@monobrain-registry.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding monomind-registry \
+  --member="serviceAccount:plugin-registry-publisher@monomind-registry.iam.gserviceaccount.com" \
   --role="roles/storage.objectAdmin"
 
-gcloud projects add-iam-policy-binding monobrain-registry \
-  --member="serviceAccount:plugin-registry-publisher@monobrain-registry.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding monomind-registry \
+  --member="serviceAccount:plugin-registry-publisher@monomind-registry.iam.gserviceaccount.com" \
   --role="roles/secretmanager.secretAccessor"
 ```
 
@@ -156,7 +156,7 @@ const secretManager = new SecretManagerServiceClient();
 
 async function getSecret(name) {
   const [version] = await secretManager.accessSecretVersion({
-    name: `projects/monobrain-registry/secrets/${name}/versions/latest`,
+    name: `projects/monomind-registry/secrets/${name}/versions/latest`,
   });
   return version.payload.data.toString();
 }
@@ -168,7 +168,7 @@ export async function publishRegistry(req, res) {
     const privateKey = await getSecret('registry-private-key');
 
     // Fetch registry from GCS
-    const bucket = storage.bucket('monobrain-plugin-registry');
+    const bucket = storage.bucket('monomind-plugin-registry');
     const file = bucket.file('registry.json');
     const [content] = await file.download();
     const registry = JSON.parse(content.toString());
@@ -201,7 +201,7 @@ export async function publishRegistry(req, res) {
       body: JSON.stringify({
         pinataContent: registry,
         pinataMetadata: {
-          name: 'monobrain-plugin-registry',
+          name: 'monomind-plugin-registry',
           keyvalues: {
             version: registry.version,
             updatedAt: registry.updatedAt,
@@ -244,8 +244,8 @@ gcloud functions deploy publish-registry \
   --entry-point=publishRegistry \
   --trigger-http \
   --allow-unauthenticated \
-  --service-account=plugin-registry-publisher@monobrain-registry.iam.gserviceaccount.com \
-  --set-env-vars=GCP_PROJECT=monobrain-registry
+  --service-account=plugin-registry-publisher@monomind-registry.iam.gserviceaccount.com \
+  --set-env-vars=GCP_PROJECT=monomind-registry
 ```
 
 ## Step 4: Create Initial Registry
@@ -257,7 +257,7 @@ gcloud functions deploy publish-registry \
 npx tsx scripts/publish-registry.ts --dry-run > registry.json
 
 # Upload to GCS
-gsutil cp registry.json gs://monobrain-plugin-registry/registry.json
+gsutil cp registry.json gs://monomind-plugin-registry/registry.json
 ```
 
 ### 4.2 Trigger First Publish
@@ -281,18 +281,18 @@ steps:
   - name: 'node:20'
     entrypoint: 'npx'
     args: ['tsx', 'scripts/publish-registry.ts', '--dry-run']
-    dir: 'packages/@monobrain/cli'
+    dir: 'packages/@monomind/cli'
 
   # Upload to GCS
   - name: 'gcr.io/cloud-builders/gsutil'
-    args: ['cp', 'registry.json', 'gs://monobrain-plugin-registry/registry.json']
+    args: ['cp', 'registry.json', 'gs://monomind-plugin-registry/registry.json']
 
   # Trigger Cloud Function
   - name: 'gcr.io/cloud-builders/curl'
     args: ['-X', 'POST', '${_FUNCTION_URL}']
 
 substitutions:
-  _FUNCTION_URL: 'https://us-central1-monobrain-registry.cloudfunctions.net/publish-registry'
+  _FUNCTION_URL: 'https://us-central1-monomind-registry.cloudfunctions.net/publish-registry'
 
 # Run daily at 2am UTC
 options:
@@ -305,11 +305,11 @@ options:
 gcloud scheduler jobs create http publish-registry-daily \
   --location=us-central1 \
   --schedule="0 2 * * *" \
-  --uri="https://us-central1-monobrain-registry.cloudfunctions.net/publish-registry" \
+  --uri="https://us-central1-monomind-registry.cloudfunctions.net/publish-registry" \
   --http-method=POST
 ```
 
-## Step 6: Update Monobrain CLI
+## Step 6: Update Monomind CLI
 
 Update `DEFAULT_PLUGIN_STORE_CONFIG` in `discovery.ts`:
 
@@ -317,8 +317,8 @@ Update `DEFAULT_PLUGIN_STORE_CONFIG` in `discovery.ts`:
 export const DEFAULT_PLUGIN_STORE_CONFIG: PluginStoreConfig = {
   registries: [
     {
-      name: 'monobrain-official',
-      description: 'Official Monobrain plugin registry',
+      name: 'monomind-official',
+      description: 'Official Monomind plugin registry',
       // Use the CID from your first publish
       ipnsName: 'YOUR_IPNS_KEY_OR_CID',
       gateway: 'https://gateway.pinata.cloud',

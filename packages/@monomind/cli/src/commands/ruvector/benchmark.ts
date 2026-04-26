@@ -18,7 +18,7 @@ function getConnectionConfig(ctx: CommandContext) {
     user: (ctx.flags.user as string) || process.env.PGUSER || 'postgres',
     password: (ctx.flags.password as string) || process.env.PGPASSWORD || '',
     ssl: (ctx.flags.ssl as boolean) || process.env.PGSSLMODE === 'require',
-    schema: (ctx.flags.schema as string) || 'monobrain',
+    schema: (ctx.flags.schema as string) || 'monomind',
   };
 }
 
@@ -146,14 +146,14 @@ export const benchmarkCommand: Command = {
       short: 's',
       description: 'Schema name',
       type: 'string',
-      default: 'monobrain',
+      default: 'monomind',
     },
   ],
   examples: [
-    { command: 'monobrain ruvector benchmark', description: 'Run default benchmark' },
-    { command: 'monobrain ruvector benchmark --vectors 50000', description: 'Benchmark with 50k vectors' },
-    { command: 'monobrain ruvector benchmark --index ivfflat', description: 'Test IVFFlat index' },
-    { command: 'monobrain ruvector benchmark --dimensions 768 --metric l2', description: 'Custom dimensions and metric' },
+    { command: 'monomind ruvector benchmark', description: 'Run default benchmark' },
+    { command: 'monomind ruvector benchmark --vectors 50000', description: 'Benchmark with 50k vectors' },
+    { command: 'monomind ruvector benchmark --index ivfflat', description: 'Test IVFFlat index' },
+    { command: 'monomind ruvector benchmark --dimensions 768 --metric l2', description: 'Custom dimensions and metric' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const config = getConnectionConfig(ctx);

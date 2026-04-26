@@ -7,7 +7,7 @@
  * - Product quantization (PQ)
  * - Recall accuracy with quantization
  *
- * @module @monobrain/plugins/__tests__/ruvector-quantization
+ * @module @monomind/plugins/__tests__/ruvector-quantization
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

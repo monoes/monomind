@@ -1,4 +1,4 @@
-# @monobrain/claims
+# @monomind/claims
 
 **Issue claiming and work coordination for human-agent collaboration.**
 
@@ -14,13 +14,13 @@ This package provides a complete system for coordinating work between humans and
 ## Installation
 
 ```bash
-npm install @monobrain/claims
+npm install @monomind/claims
 ```
 
-Or install via Monobrain CLI:
+Or install via Monomind CLI:
 
 ```bash
-npx monobrain plugins install @monobrain/claims
+npx monomind plugins install @monomind/claims
 ```
 
 ---
@@ -30,7 +30,7 @@ npx monobrain plugins install @monobrain/claims
 ### Claim an Issue
 
 ```typescript
-import { ClaimsService } from '@monobrain/claims';
+import { ClaimsService } from '@monomind/claims';
 
 const claims = new ClaimsService();
 
@@ -220,19 +220,19 @@ All claim operations are event-sourced (ADR-007):
 
 ```bash
 # Claim an issue
-npx monobrain claims claim --issue ISSUE-123 --claimant "human:alice"
+npx monomind claims claim --issue ISSUE-123 --claimant "human:alice"
 
 # Release a claim
-npx monobrain claims release --issue ISSUE-123
+npx monomind claims release --issue ISSUE-123
 
 # View claims board
-npx monobrain claims board
+npx monomind claims board
 
 # List stealable issues
-npx monobrain claims stealable
+npx monomind claims stealable
 
 # Rebalance workload
-npx monobrain claims rebalance --dry-run
+npx monomind claims rebalance --dry-run
 ```
 
 ---
@@ -240,7 +240,7 @@ npx monobrain claims rebalance --dry-run
 ## Configuration
 
 ```yaml
-# monobrain.config.yaml
+# monomind.config.yaml
 claims:
   autoExpiration:
     enabled: true

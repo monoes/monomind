@@ -30,7 +30,7 @@ import type {
   QELogger,
 } from '../interfaces.js';
 
-// Security types (would be imported from @monobrain/security in production)
+// Security types (would be imported from @monomind/security in production)
 interface ISecurityModule {
   pathValidator: IPathValidator;
   safeExecutor: ISafeExecutor;

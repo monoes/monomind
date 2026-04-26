@@ -1,21 +1,28 @@
+import Graph from 'graphology';
 export async function detectCommunities(graph) {
+    let louvainFn = null;
     try {
-        const { default: louvain } = await import('graphology-communities-louvain');
-        const assignment = louvain(graph);
-        for (const [nodeId, communityId] of Object.entries(assignment)) {
-            graph.setNodeAttribute(nodeId, 'community', communityId);
-        }
-        const communities = {};
-        for (const [nodeId, communityId] of Object.entries(assignment)) {
-            if (!communities[communityId])
-                communities[communityId] = [];
-            communities[communityId].push(nodeId);
-        }
-        return splitOversizedCommunities(graph, communities);
+        const mod = await import('graphology-communities-louvain');
+        louvainFn = mod.default;
     }
-    catch {
-        return splitOversizedCommunities(graph, fallbackCluster(graph));
+    catch { /* louvain not available */ }
+    if (louvainFn) {
+        try {
+            const assignment = louvainFn(graph);
+            for (const [nodeId, communityId] of Object.entries(assignment)) {
+                graph.setNodeAttribute(nodeId, 'community', communityId);
+            }
+            const communities = {};
+            for (const [nodeId, communityId] of Object.entries(assignment)) {
+                if (!communities[communityId])
+                    communities[communityId] = [];
+                communities[communityId].push(nodeId);
+            }
+            return splitOversizedCommunities(graph, communities, 0.25, louvainFn);
+        }
+        catch { /* fall through */ }
     }
+    return splitOversizedCommunities(graph, fallbackCluster(graph), 0.25, louvainFn);
 }
 function fallbackCluster(graph) {
     const dirMap = new Map();
@@ -50,7 +57,7 @@ export function cohesionScore(graph, communityNodes) {
     });
     return totalEdges === 0 ? 1.0 : internalEdges / totalEdges;
 }
-export function splitOversizedCommunities(graph, communities, threshold = 0.25) {
+export function splitOversizedCommunities(graph, communities, threshold = 0.25, louvainFn = null) {
     const maxSize = threshold * graph.order;
     const allIds = Object.keys(communities).map(Number);
     let nextId = allIds.length > 0 ? Math.max(...allIds) + 1 : 0;
@@ -58,6 +65,39 @@ export function splitOversizedCommunities(graph, communities, threshold = 0.25) 
         if (members.length <= maxSize)
             continue;
         const cid = Number(cidStr);
+        // Attempt topology-based second pass via Louvain on the community subgraph
+        if (louvainFn && members.length >= 10) {
+            try {
+                const memberSet = new Set(members);
+                const subG = new Graph({ type: 'undirected', multi: false });
+                for (const nodeId of members)
+                    subG.addNode(nodeId);
+                graph.forEachEdge((_e, _a, source, target) => {
+                    if (memberSet.has(source) && memberSet.has(target) && source !== target && !subG.hasEdge(source, target))
+                        subG.addEdge(source, target);
+                });
+                const subAssignment = louvainFn(subG);
+                const subCommunityCount = new Set(Object.values(subAssignment)).size;
+                if (subCommunityCount > 1 && subCommunityCount <= Math.ceil(members.length / 2)) {
+                    const subIdMap = new Map();
+                    const newSubIds = {};
+                    for (const [nodeId, localId] of Object.entries(subAssignment)) {
+                        if (!subIdMap.has(localId))
+                            subIdMap.set(localId, nextId++);
+                        const globalId = subIdMap.get(localId);
+                        graph.setNodeAttribute(nodeId, 'community', globalId);
+                        if (!newSubIds[globalId])
+                            newSubIds[globalId] = [];
+                        newSubIds[globalId].push(nodeId);
+                    }
+                    delete communities[cid];
+                    Object.assign(communities, newSubIds);
+                    continue;
+                }
+            }
+            catch { /* fall through to directory heuristic */ }
+        }
+        // Directory heuristic fallback
         const subMap = new Map();
         const newSubIds = {};
         for (const nodeId of members) {

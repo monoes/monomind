@@ -1,8 +1,8 @@
 /**
- * @monobrain/mcp - Standalone Types
+ * @monomind/mcp - Standalone Types
  *
  * Complete type definitions for MCP server implementation
- * Zero external @monobrain dependencies
+ * Zero external @monomind dependencies
  */
 
 // ============================================================================

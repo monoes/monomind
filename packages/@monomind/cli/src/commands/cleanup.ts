@@ -1,8 +1,8 @@
 /**
  * CLI Cleanup Command
- * Removes project artifacts created by monobrain/monobrain
+ * Removes project artifacts created by monomind/monomind
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -11,11 +11,11 @@ import { existsSync, statSync, rmSync, readdirSync } from 'fs';
 import { join } from 'path';
 
 /**
- * Artifact directories and files that monobrain/monobrain may create
+ * Artifact directories and files that monomind/monomind may create
  */
 const ARTIFACT_DIRS = [
   { path: '.claude', description: 'Claude settings, helpers, agents' },
-  { path: '.monobrain', description: 'Capabilities and configuration' },
+  { path: '.monomind', description: 'Capabilities and configuration' },
   { path: 'data', description: 'Memory databases' },
   { path: '.swarm', description: 'Swarm state' },
   { path: '.hive-mind', description: 'Consensus state' },
@@ -24,14 +24,14 @@ const ARTIFACT_DIRS = [
 ];
 
 const ARTIFACT_FILES = [
-  { path: 'monobrain.config.json', description: 'Monobrain configuration' },
+  { path: 'monomind.config.json', description: 'Monomind configuration' },
 ];
 
 /**
  * Paths to preserve when --keep-config is set
  */
 const KEEP_CONFIG_PATHS = [
-  'monobrain.config.json',
+  'monomind.config.json',
   join('.claude', 'settings.json'),
 ];
 
@@ -74,7 +74,7 @@ function formatSize(bytes: number): string {
  */
 export const cleanupCommand: Command = {
   name: 'cleanup',
-  description: 'Remove project artifacts created by monobrain/monobrain',
+  description: 'Remove project artifacts created by monomind/monomind',
   aliases: ['clean'],
   options: [
     {
@@ -94,7 +94,7 @@ export const cleanupCommand: Command = {
     {
       name: 'keep-config',
       short: 'k',
-      description: 'Preserve monobrain.config.json and .claude/settings.json',
+      description: 'Preserve monomind.config.json and .claude/settings.json',
       type: 'boolean',
       default: false,
     },
@@ -106,7 +106,7 @@ export const cleanupCommand: Command = {
     },
     {
       command: 'cleanup --force',
-      description: 'Remove all monobrain artifacts',
+      description: 'Remove all monomind artifacts',
     },
     {
       command: 'cleanup --force --keep-config',
@@ -122,8 +122,8 @@ export const cleanupCommand: Command = {
 
     output.writeln();
     output.writeln(output.bold(dryRun
-      ? 'Monobrain Cleanup (dry run)'
-      : 'Monobrain Cleanup'));
+      ? 'Monomind Cleanup (dry run)'
+      : 'Monomind Cleanup'));
     output.writeln();
 
     const found: { path: string; description: string; size: number; type: 'dir' | 'file'; skipped?: boolean }[] = [];
@@ -150,7 +150,7 @@ export const cleanupCommand: Command = {
     }
 
     if (found.length === 0) {
-      output.writeln(output.info('No monobrain artifacts found in the current directory.'));
+      output.writeln(output.info('No monomind artifacts found in the current directory.'));
       return { success: true, message: 'Nothing to clean' };
     }
 

@@ -1,6 +1,6 @@
 # Implementation Documentation
 
-This directory contains all implementation documentation, planning, and research for Monobrain V1.
+This directory contains all implementation documentation, planning, and research for Monomind V1.
 
 ## Directory Structure
 
@@ -57,7 +57,7 @@ implementation/
 
 | Document                                                            | Description                   |
 | ------------------------------------------------------------------- | ----------------------------- |
-| [Monobrain-MASTER-PLAN.md](./planning/Monobrain-MASTER-PLAN.md)     | Complete V1 master plan       |
+| [Monomind-MASTER-PLAN.md](./planning/Monomind-MASTER-PLAN.md)     | Complete V1 master plan       |
 | [LEARNING-OPTIMIZED-PLAN.md](./planning/LEARNING-OPTIMIZED-PLAN.md) | Learning system optimization  |
 | [V1-OPTIMIZED-PLAN.md](./planning/V1-OPTIMIZED-PLAN.md)             | Optimized implementation plan |
 
@@ -92,9 +92,9 @@ implementation/
 
 ## Quick Links
 
-- **Master Issue:** [GitHub Issue #927](https://github.com/nokhodian/monobrain/issues/927)
+- **Master Issue:** [GitHub Issue #927](https://github.com/nokhodian/monomind/issues/927)
 - **ADR Documentation:** [/v1/docs/adrs/](../docs/adrs/)
-- **Module Source:** [/packages/@monobrain/](../@monobrain/)
+- **Module Source:** [/packages/@monomind/](../@monomind/)
 
 ## Statistics
 

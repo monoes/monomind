@@ -1,97 +1,97 @@
 ---
-name: monobrain-help
-description: Show Monobrain commands and usage
+name: monomind-help
+description: Show Monomind commands and usage
 ---
 
-# Monobrain Commands
+# Monomind Commands
 
-## 🌊 Monobrain: Agent Orchestration Platform
+## 🌊 Monomind: Agent Orchestration Platform
 
-Monobrain is the ultimate multi-terminal orchestration platform that revolutionizes how you work with Claude Code.
+Monomind is the ultimate multi-terminal orchestration platform that revolutionizes how you work with Claude Code.
 
 ## Core Commands
 
 ### 🚀 System Management
-- `./monobrain start` - Start orchestration system
-- `./monobrain start --ui` - Start with interactive process management UI
-- `./monobrain status` - Check system status
-- `./monobrain monitor` - Real-time monitoring
-- `./monobrain stop` - Stop orchestration
+- `./monomind start` - Start orchestration system
+- `./monomind start --ui` - Start with interactive process management UI
+- `./monomind status` - Check system status
+- `./monomind monitor` - Real-time monitoring
+- `./monomind stop` - Stop orchestration
 
 ### 🤖 Agent Management
-- `./monobrain agent spawn <type>` - Create new agent
-- `./monobrain agent list` - List active agents
-- `./monobrain agent info <id>` - Agent details
-- `./monobrain agent terminate <id>` - Stop agent
+- `./monomind agent spawn <type>` - Create new agent
+- `./monomind agent list` - List active agents
+- `./monomind agent info <id>` - Agent details
+- `./monomind agent terminate <id>` - Stop agent
 
 ### 📋 Task Management
-- `./monobrain task create <type> "description"` - Create task
-- `./monobrain task list` - List all tasks
-- `./monobrain task status <id>` - Task status
-- `./monobrain task cancel <id>` - Cancel task
-- `./monobrain task workflow <file>` - Execute workflow
+- `./monomind task create <type> "description"` - Create task
+- `./monomind task list` - List all tasks
+- `./monomind task status <id>` - Task status
+- `./monomind task cancel <id>` - Cancel task
+- `./monomind task workflow <file>` - Execute workflow
 
 ### 🧠 Memory Operations
-- `./monobrain memory store "key" "value"` - Store data
-- `./monobrain memory query "search"` - Search memory
-- `./monobrain memory stats` - Memory statistics
-- `./monobrain memory export <file>` - Export memory
-- `./monobrain memory import <file>` - Import memory
+- `./monomind memory store "key" "value"` - Store data
+- `./monomind memory query "search"` - Search memory
+- `./monomind memory stats` - Memory statistics
+- `./monomind memory export <file>` - Export memory
+- `./monomind memory import <file>` - Import memory
 
 ### ⚡ SPARC Development
-- `./monobrain sparc "task"` - Run SPARC orchestrator
-- `./monobrain sparc modes` - List all 17+ SPARC modes
-- `./monobrain sparc run <mode> "task"` - Run specific mode
-- `./monobrain sparc tdd "feature"` - TDD workflow
-- `./monobrain sparc info <mode>` - Mode details
+- `./monomind sparc "task"` - Run SPARC orchestrator
+- `./monomind sparc modes` - List all 17+ SPARC modes
+- `./monomind sparc run <mode> "task"` - Run specific mode
+- `./monomind sparc tdd "feature"` - TDD workflow
+- `./monomind sparc info <mode>` - Mode details
 
 ### 🐝 Swarm Coordination
-- `./monobrain swarm "task" --strategy <type>` - Start swarm
-- `./monobrain swarm "task" --background` - Long-running swarm
-- `./monobrain swarm "task" --monitor` - With monitoring
-- `./monobrain swarm "task" --ui` - Interactive UI
-- `./monobrain swarm "task" --distributed` - Distributed coordination
+- `./monomind swarm "task" --strategy <type>` - Start swarm
+- `./monomind swarm "task" --background` - Long-running swarm
+- `./monomind swarm "task" --monitor` - With monitoring
+- `./monomind swarm "task" --ui` - Interactive UI
+- `./monomind swarm "task" --distributed` - Distributed coordination
 
 ### 🌍 MCP Integration
-- `./monobrain mcp status` - MCP server status
-- `./monobrain mcp tools` - List available tools
-- `./monobrain mcp config` - Show configuration
-- `./monobrain mcp logs` - View MCP logs
+- `./monomind mcp status` - MCP server status
+- `./monomind mcp tools` - List available tools
+- `./monomind mcp config` - Show configuration
+- `./monomind mcp logs` - View MCP logs
 
 ### 🤖 Claude Integration
-- `./monobrain claude spawn "task"` - Spawn Claude with enhanced guidance
-- `./monobrain claude batch <file>` - Execute workflow configuration
+- `./monomind claude spawn "task"` - Spawn Claude with enhanced guidance
+- `./monomind claude batch <file>` - Execute workflow configuration
 
 ## 🌟 Quick Examples
 
 ### Initialize with SPARC:
 ```bash
-npx -y monobrain@latest init --sparc
+npx -y monomind@latest init --sparc
 ```
 
 ### Start a development swarm:
 ```bash
-./monobrain swarm "Build REST API" --strategy development --monitor --review
+./monomind swarm "Build REST API" --strategy development --monitor --review
 ```
 
 ### Run TDD workflow:
 ```bash
-./monobrain sparc tdd "user authentication"
+./monomind sparc tdd "user authentication"
 ```
 
 ### Store project context:
 ```bash
-./monobrain memory store "project_requirements" "e-commerce platform specs" --namespace project
+./monomind memory store "project_requirements" "e-commerce platform specs" --namespace project
 ```
 
 ### Spawn specialized agents:
 ```bash
-./monobrain agent spawn researcher --name "Senior Researcher" --priority 8
-./monobrain agent spawn developer --name "Lead Developer" --priority 9
+./monomind agent spawn researcher --name "Senior Researcher" --priority 8
+./monomind agent spawn developer --name "Lead Developer" --priority 9
 ```
 
 ## 🎯 Best Practices
-- Use `./monobrain` instead of `npx monobrain` after initialization
+- Use `./monomind` instead of `npx monomind` after initialization
 - Store important context in memory for cross-session persistence
 - Use swarm mode for complex tasks requiring multiple agents
 - Enable monitoring for real-time progress tracking

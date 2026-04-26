@@ -8,14 +8,14 @@ Coordinated development through specialized agent teams.
 ### Using MCP Tools
 ```javascript
 // Initialize development swarm
-mcp__monobrain__swarm_init({
+mcp__monomind__swarm_init({
   "topology": "hierarchical",
   "maxAgents": 8,
   "strategy": "balanced"
 })
 
 // Orchestrate development task
-mcp__monobrain__task_orchestrate({
+mcp__monomind__task_orchestrate({
   "task": "build feature X",
   "strategy": "parallel",
   "priority": "high"
@@ -23,38 +23,38 @@ mcp__monobrain__task_orchestrate({
 ```
 
 ### Using CLI (Fallback)
-`npx monobrain swarm "build feature X" --strategy development`
+`npx monomind swarm "build feature X" --strategy development`
 
 ## Agent Roles
 
 ### Agent Spawning with MCP
 ```javascript
 // Spawn development agents
-mcp__monobrain__agent_spawn({
+mcp__monomind__agent_spawn({
   "type": "architect",
   "name": "System Designer",
   "capabilities": ["system-design", "api-design"]
 })
 
-mcp__monobrain__agent_spawn({
+mcp__monomind__agent_spawn({
   "type": "coder",
   "name": "Frontend Developer",
   "capabilities": ["react", "typescript", "ui"]
 })
 
-mcp__monobrain__agent_spawn({
+mcp__monomind__agent_spawn({
   "type": "coder",
   "name": "Backend Developer",
   "capabilities": ["nodejs", "api", "database"]
 })
 
-mcp__monobrain__agent_spawn({
+mcp__monomind__agent_spawn({
   "type": "specialist",
   "name": "Database Expert",
   "capabilities": ["sql", "nosql", "optimization"]
 })
 
-mcp__monobrain__agent_spawn({
+mcp__monomind__agent_spawn({
   "type": "tester",
   "name": "Integration Tester",
   "capabilities": ["integration", "e2e", "api-testing"]
@@ -70,17 +70,17 @@ mcp__monobrain__agent_spawn({
 ## Status Monitoring
 ```javascript
 // Check swarm status
-mcp__monobrain__swarm_status({
+mcp__monomind__swarm_status({
   "swarmId": "development-swarm"
 })
 
 // Monitor agent performance
-mcp__monobrain__agent_metrics({
+mcp__monomind__agent_metrics({
   "agentId": "architect-001"
 })
 
 // Real-time monitoring
-mcp__monobrain__swarm_monitor({
+mcp__monomind__swarm_monitor({
   "swarmId": "development-swarm",
   "interval": 5000
 })
@@ -89,7 +89,7 @@ mcp__monobrain__swarm_monitor({
 ## Error Handling
 ```javascript
 // Enable fault tolerance
-mcp__monobrain__daa_fault_tolerance({
+mcp__monomind__daa_fault_tolerance({
   "agentId": "all",
   "strategy": "auto-recovery"
 })

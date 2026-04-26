@@ -1,5 +1,5 @@
 /**
- * @monobrain/mcp - Standalone MCP Server
+ * @monomind/mcp - Standalone MCP Server
  *
  * Zero-dependency MCP (Model Context Protocol) implementation
  *
@@ -11,7 +11,7 @@
  * - Session management with timeout handling
  * - Comprehensive metrics and monitoring
  *
- * @module @monobrain/mcp
+ * @module @monomind/mcp
  * @version 3.0.0
  */
 // Error handling
@@ -47,7 +47,7 @@ export { createTransport, createInProcessTransport, TransportManager, createTran
  *
  * @example
  * ```typescript
- * import { quickStart } from '@monobrain/mcp';
+ * import { quickStart } from '@monomind/mcp';
  *
  * const server = await quickStart({
  *   transport: 'stdio',
@@ -81,5 +81,5 @@ export const VERSION = '3.0.0';
 /**
  * Module name
  */
-export const MODULE_NAME = '@monobrain/mcp';
+export const MODULE_NAME = '@monomind/mcp';
 //# sourceMappingURL=index.js.map

@@ -88,6 +88,6 @@ Match keywords without weights, count matches. Rejected because it treats ambigu
 
 ## References
 
-- `packages/@monobrain/guidance/src/retriever.ts` -- `INTENT_PATTERNS` map, `ShardRetriever.classifyIntent()`
-- `packages/@monobrain/guidance/src/types.ts` -- `TaskIntent` union type
+- `packages/@monomind/guidance/src/retriever.ts` -- `INTENT_PATTERNS` map, `ShardRetriever.classifyIntent()`
+- `packages/@monomind/guidance/src/types.ts` -- `TaskIntent` union type
 - ADR-G002 -- Constitution/shard split that depends on intent classification

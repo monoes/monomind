@@ -12,7 +12,7 @@
  *
  * Target: 2-5x speedup on CPU vs naive attention
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 // ============================================================================

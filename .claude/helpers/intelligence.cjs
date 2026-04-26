@@ -10,11 +10,11 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const DATA_DIR = path.join(process.cwd(), '.monobrain', 'data');
+const DATA_DIR = path.join(process.cwd(), '.monomind', 'data');
 const STORE_PATH = path.join(DATA_DIR, 'auto-memory-store.json');
 const RANKED_PATH = path.join(DATA_DIR, 'ranked-context.json');
 const PENDING_PATH = path.join(DATA_DIR, 'pending-insights.jsonl');
-const SESSION_DIR = path.join(process.cwd(), '.monobrain', 'sessions');
+const SESSION_DIR = path.join(process.cwd(), '.monomind', 'sessions');
 const SESSION_FILE = path.join(SESSION_DIR, 'current.json');
 
 // ── Safety limits (fixes #1530, #1531) ─────────────────────────────────────
@@ -77,7 +77,7 @@ function bootstrapFromMemoryFiles() {
   var projectSlug = process.cwd().replace(/^\//, '').replace(/\//g, '-');
   var candidates = [
     path.join(os.homedir(), ".claude", "projects", projectSlug, "memory"),
-    path.join(process.cwd(), ".monobrain", "memory"),
+    path.join(process.cwd(), ".monomind", "memory"),
     path.join(process.cwd(), ".claude", "memory"),
   ];
   for (var i = 0; i < candidates.length; i++) {
@@ -196,10 +196,7 @@ module.exports = {
   },
 
   recordEdit: function(file) {
-    if (!file) return;
-    ensureDir(DATA_DIR);
-    var line = JSON.stringify({ type: "edit", file: file, timestamp: Date.now() }) + "\n";
-    fs.appendFileSync(PENDING_PATH, line, "utf-8");
+    // pending-insights staging removed — consolidate() was a no-op that just cleared this file
   },
 
   feedback: function(success) {

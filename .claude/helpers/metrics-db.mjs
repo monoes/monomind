@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Monobrain V1 - Metrics Database Manager
+ * Monomind V1 - Metrics Database Manager
  * Uses sql.js for cross-platform SQLite storage
  * Single .db file with multiple tables
  */
@@ -14,7 +14,7 @@ import { execSync } from 'child_process';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '../..');
 const v1_DIR = join(PROJECT_ROOT, 'v1');
-const DB_PATH = join(PROJECT_ROOT, '.monobrain', 'metrics.db');
+const DB_PATH = join(PROJECT_ROOT, '.monomind', 'metrics.db');
 
 // Ensure directory exists
 const dbDir = dirname(DB_PATH);
@@ -209,7 +209,7 @@ function calculateModuleProgress(moduleDir) {
  * Check security file status
  */
 function checkSecurityFile(filename, minLines = 100) {
-  const filePath = join(v1_DIR, '@monobrain/security/src', filename);
+  const filePath = join(v1_DIR, '@monomind/security/src', filename);
   if (!existsSync(filePath)) return false;
 
   try {
@@ -248,14 +248,14 @@ async function syncMetrics() {
   const now = new Date().toISOString();
 
   // Count v1 modules
-  const modulesDir = join(v1_DIR, '@monobrain');
+  const modulesDir = join(v1_DIR, '@monomind');
   let modules = [];
   let totalProgress = 0;
 
   if (existsSync(modulesDir)) {
     const entries = readdirSync(modulesDir, { withFileTypes: true });
     for (const entry of entries) {
-      // Skip hidden directories (like .agentic-flow, .monobrain)
+      // Skip hidden directories (like .agentic-flow, .monomind)
       if (entry.isDirectory() && !entry.name.startsWith('.')) {
         const moduleDir = join(modulesDir, entry.name);
         const { files, lines } = countFilesAndLines(moduleDir);
@@ -388,8 +388,8 @@ function getMetricsJSON() {
  */
 function exportToJSON() {
   const metrics = getMetricsJSON();
-  const metricsDir = join(PROJECT_ROOT, '.monobrain/metrics');
-  const securityDir = join(PROJECT_ROOT, '.monobrain/security');
+  const metricsDir = join(PROJECT_ROOT, '.monomind/metrics');
+  const securityDir = join(PROJECT_ROOT, '.monomind/security');
 
   if (!existsSync(metricsDir)) mkdirSync(metricsDir, { recursive: true });
   if (!existsSync(securityDir)) mkdirSync(securityDir, { recursive: true });

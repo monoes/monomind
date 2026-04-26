@@ -14,7 +14,7 @@ Every successful operation trains the neural networks:
 
 ### 2. Manual Training
 ```
-Tool: mcp__monobrain__neural_train
+Tool: mcp__monomind__neural_train
 Parameters: {
   "pattern_type": "coordination",
   "training_data": "successful task patterns",
@@ -34,7 +34,7 @@ Parameters: {
 
 ### 4. Improvement Tracking
 ```
-Tool: mcp__monobrain__neural_status
+Tool: mcp__monomind__neural_status
 Result: {
   "patterns": {
     "convergent": 0.92,
@@ -48,7 +48,7 @@ Result: {
 
 ## Pattern Analysis
 ```
-Tool: mcp__monobrain__neural_patterns
+Tool: mcp__monomind__neural_patterns
 Parameters: {
   "action": "analyze",
   "operation": "recent_edits"
@@ -64,11 +64,11 @@ Parameters: {
 ## CLI Usage
 ```bash
 # Train neural patterns via CLI
-npx monobrain neural train --type coordination --epochs 50
+npx monomind neural train --type coordination --epochs 50
 
 # Check neural status
-npx monobrain neural status
+npx monomind neural status
 
 # Analyze patterns
-npx monobrain neural patterns --analyze
+npx monomind neural patterns --analyze
 ```

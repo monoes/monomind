@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { SharedInstructionsLoader } from '../../packages/@monobrain/cli/src/agents/shared-instructions-loader.js';
+import { SharedInstructionsLoader } from '../../packages/@monomind/cli/src/agents/shared-instructions-loader.js';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';

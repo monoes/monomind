@@ -36,7 +36,7 @@ export class KnowledgeWorker {
     const results: KnowledgeIndexResult[] = [];
 
     try {
-      // KnowledgeStore not yet implemented in @monobrain/memory — stub
+      // KnowledgeStore not yet implemented in @monomind/memory — stub
       void 'knowledge-store-stub';
 
       for (const doc of context.documents) {

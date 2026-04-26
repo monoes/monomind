@@ -23,7 +23,7 @@ export const wasmStatusCommand: Command = {
   description: 'Check rvagent-wasm availability, version, and capabilities',
   options: [],
   examples: [
-    { command: 'monobrain agent wasm-status', description: 'Check WASM agent runtime status' },
+    { command: 'monomind agent wasm-status', description: 'Check WASM agent runtime status' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -136,9 +136,9 @@ export const wasmCreateCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain agent wasm-create', description: 'Create a default WASM agent' },
-    { command: 'monobrain agent wasm-create -t coder', description: 'Create from gallery template' },
-    { command: 'monobrain agent wasm-create -m "anthropic:claude-sonnet-4-20250514" -i "You are a security auditor"', description: 'Create with custom config' },
+    { command: 'monomind agent wasm-create', description: 'Create a default WASM agent' },
+    { command: 'monomind agent wasm-create -t coder', description: 'Create from gallery template' },
+    { command: 'monomind agent wasm-create -m "anthropic:claude-sonnet-4-20250514" -i "You are a security auditor"', description: 'Create with custom config' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
@@ -216,7 +216,7 @@ export const wasmPromptCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain agent wasm-prompt -a wasm-agent-1-abc -i "Write a hello world"', description: 'Send prompt to WASM agent' },
+    { command: 'monomind agent wasm-prompt -a wasm-agent-1-abc -i "Write a hello world"', description: 'Send prompt to WASM agent' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const agentId = ctx.flags['agent-id'] as string || ctx.args[0];
@@ -286,8 +286,8 @@ export const wasmGalleryCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain agent wasm-gallery', description: 'List all gallery templates' },
-    { command: 'monobrain agent wasm-gallery -s coder', description: 'Search gallery templates' },
+    { command: 'monomind agent wasm-gallery', description: 'List all gallery templates' },
+    { command: 'monomind agent wasm-gallery -s coder', description: 'Search gallery templates' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {

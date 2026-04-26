@@ -1,5 +1,5 @@
 /**
- * @monobrain/claims - Event Store Implementation
+ * @monomind/claims - Event Store Implementation
  * Event sourcing storage for claims (ADR-007, ADR-016)
  *
  * @module v1/claims/infrastructure/event-store

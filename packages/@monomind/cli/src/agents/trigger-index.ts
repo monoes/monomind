@@ -2,15 +2,15 @@
  * Trigger Index Persistence (Task 32)
  *
  * Handles saving and loading the TriggerIndex JSON file
- * at `.monobrain/trigger-index.json` (or a custom path).
+ * at `.monomind/trigger-index.json` (or a custom path).
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
-import type { TriggerIndex } from '../../../../@monobrain/shared/src/types/trigger.js';
+import type { TriggerIndex } from '../../../../@monomind/shared/src/types/trigger.js';
 
 /** Default path for the persisted trigger index. */
-export const DEFAULT_TRIGGER_INDEX_PATH = '.monobrain/trigger-index.json';
+export const DEFAULT_TRIGGER_INDEX_PATH = '.monomind/trigger-index.json';
 
 /**
  * Save a TriggerIndex to a JSON file.

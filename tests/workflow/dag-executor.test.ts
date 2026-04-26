@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { DAGExecutor } from '../../packages/@monobrain/cli/src/workflow/dag-executor.js';
-import type { DAGTask, TaskResult } from '../../packages/@monobrain/cli/src/workflow/dag-types.js';
+import { DAGExecutor } from '../../packages/@monomind/cli/src/workflow/dag-executor.js';
+import type { DAGTask, TaskResult } from '../../packages/@monomind/cli/src/workflow/dag-types.js';
 
 describe('DAGExecutor', () => {
   const mockRunner = vi.fn(async (task: DAGTask, _ctx: TaskResult[]): Promise<TaskResult> => ({

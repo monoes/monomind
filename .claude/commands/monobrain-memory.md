@@ -1,58 +1,58 @@
 ---
-name: monobrain-memory
-description: Interact with Monobrain memory system
+name: monomind-memory
+description: Interact with Monomind memory system
 ---
 
-# 🧠 Monobrain Memory System
+# 🧠 Monomind Memory System
 
 The memory system provides persistent storage for cross-session and cross-agent collaboration with CRDT-based conflict resolution.
 
 ## Store Information
 ```bash
 # Store with default namespace
-./monobrain memory store "key" "value"
+./monomind memory store "key" "value"
 
 # Store with specific namespace
-./monobrain memory store "architecture_decisions" "microservices with API gateway" --namespace arch
+./monomind memory store "architecture_decisions" "microservices with API gateway" --namespace arch
 ```
 
 ## Query Memory
 ```bash
 # Search across all namespaces
-./monobrain memory query "authentication"
+./monomind memory query "authentication"
 
 # Search with filters
-./monobrain memory query "API design" --namespace arch --limit 10
+./monomind memory query "API design" --namespace arch --limit 10
 ```
 
 ## Memory Statistics
 ```bash
 # Show overall statistics
-./monobrain memory stats
+./monomind memory stats
 
 # Show namespace-specific stats
-./monobrain memory stats --namespace project
+./monomind memory stats --namespace project
 ```
 
 ## Export/Import
 ```bash
 # Export all memory
-./monobrain memory export full-backup.json
+./monomind memory export full-backup.json
 
 # Export specific namespace
-./monobrain memory export project-backup.json --namespace project
+./monomind memory export project-backup.json --namespace project
 
 # Import memory
-./monobrain memory import backup.json
+./monomind memory import backup.json
 ```
 
 ## Cleanup Operations
 ```bash
 # Clean entries older than 30 days
-./monobrain memory cleanup --days 30
+./monomind memory cleanup --days 30
 
 # Clean specific namespace
-./monobrain memory cleanup --namespace temp --days 7
+./monomind memory cleanup --namespace temp --days 7
 ```
 
 ## 🗂️ Namespaces
@@ -90,18 +90,18 @@ The memory system provides persistent storage for cross-session and cross-agent 
 
 ### Store SPARC context:
 ```bash
-./monobrain memory store "spec_auth_requirements" "OAuth2 + JWT with refresh tokens" --namespace spec
-./monobrain memory store "arch_api_design" "RESTful microservices with GraphQL gateway" --namespace arch
-./monobrain memory store "test_coverage_auth" "95% coverage, all tests passing" --namespace test
+./monomind memory store "spec_auth_requirements" "OAuth2 + JWT with refresh tokens" --namespace spec
+./monomind memory store "arch_api_design" "RESTful microservices with GraphQL gateway" --namespace arch
+./monomind memory store "test_coverage_auth" "95% coverage, all tests passing" --namespace test
 ```
 
 ### Query project decisions:
 ```bash
-./monobrain memory query "authentication" --namespace arch --limit 5
-./monobrain memory query "test results" --namespace test
+./monomind memory query "authentication" --namespace arch --limit 5
+./monomind memory query "test results" --namespace test
 ```
 
 ### Backup project memory:
 ```bash
-./monobrain memory export project-$(date +%Y%m%d).json --namespace project
+./monomind memory export project-$(date +%Y%m%d).json --namespace project
 ```
