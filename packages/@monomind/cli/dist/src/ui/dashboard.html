@@ -3463,163 +3463,391 @@ window.deleteKnowledgeChunk = async function(chunkId) {
   }
 };
 
-function renderPalaceSwarm() {
-  if (!palaceData) return;
-  // Pull swarm data — prefer appData (live SSE feed) over the palace section fetch
-  const src = (appData && appData.swarm) ? appData : { swarm: palaceData.swarmSection || {} };
-  const sw = src.swarm || {};
-  const state = sw.state || {};
-  const activity = sw.activity || {};
-  const config = sw.config || {};
-  const suggestion = sw.suggestion || {};
-  const agentRegs = (src.agents && src.agents.registrations) ? src.agents.registrations : [];
+// ─── Swarm History Tab ─────────────────────────────────────────────────────
+let _swarmHistoryEntries = [];
+let _swarmSelectedIdx = null;
+let _swarmSelectedAgentId = null;
+let _swarmLiveState = null;
 
-  const hasLiveSwarm = !!(state.id || state.swarmId || state.active);
-  const activitySwarm = activity.swarm || {};
-  const topology = config.topology || state.topology || suggestion.topology || '—';
-  const consensus = config.consensus || state.consensus || suggestion.consensus || '—';
-  const agentCount = hasLiveSwarm
-    ? (state.agents || []).length
-    : (activitySwarm.agent_count || agentRegs.length || 0);
-  const score = suggestion.score != null ? suggestion.score + '/7' : null;
-  const lastRun = activity.timestamp ? fmtAge(new Date(activity.timestamp).getTime()) : null;
-  const recommended = suggestion.recommended || null;
+async function renderSwarmHistory() {
+  const list = document.getElementById('po-swarm-list');
+  if (!list) return;
 
-  // Render sidebar meta
-  const meta = document.getElementById('po-swarm-meta');
-  if (meta) {
-    const rows = [
-      ['TOPOLOGY', fmt(topology).toUpperCase()],
-      ['CONSENSUS', fmt(consensus).toUpperCase()],
-      ['STATUS', hasLiveSwarm ? '<span style="color:var(--green)">ACTIVE</span>' : '<span style="color:var(--muted)">IDLE</span>'],
-      ['AGENTS', agentCount || '—'],
-    ];
-    if (score) rows.push(['COMPLEXITY', score]);
-    if (recommended) rows.push(['RECOMMENDED', recommended]);
-    if (lastRun) rows.push(['LAST RUN', `<span style="color:var(--muted)">${escHtml(lastRun)}</span>`]);
-    meta.innerHTML = rows.map(([k, v]) =>
-      `<div class="swarm-row"><span class="swarm-key">${k}</span><span class="swarm-val">${v}</span></div>`
-    ).join('');
+  const dir = selectedProjectDir || '';
+  try {
+    const r = await fetch(`/api/swarm-history${dir ? '?dir=' + encodeURIComponent(dir) : ''}`);
+    const d = r.ok ? await r.json() : { entries: [] };
+    _swarmHistoryEntries = d.entries || [];
+  } catch {
+    _swarmHistoryEntries = [];
   }
 
-  // Update label
-  const labelEl = document.getElementById('po-swarm-label');
-  if (labelEl) labelEl.textContent = hasLiveSwarm ? 'LIVE TOPOLOGY' : 'LAST KNOWN TOPOLOGY';
+  const sw = (appData && appData.swarm) ? appData.swarm : {};
+  const state = sw.state || {};
+  _swarmLiveState = (state.status === 'running' || state.status === 'initializing') ? state : null;
 
-  // Draw on canvas — defer one frame so layout is flushed and offsetWidth/Height are non-zero
+  let html = '';
+
+  if (_swarmLiveState) {
+    const id = _swarmLiveState.swarmId || _swarmLiveState.id || 'live';
+    const topo = (_swarmLiveState.topology || '—').toUpperCase();
+    const agentCount = Array.isArray(_swarmLiveState.agents) ? _swarmLiveState.agents.length : (_swarmLiveState.agents || 0);
+    html += `<div class="po-swarm-item${_swarmSelectedIdx === 'live' ? ' selected' : ''}" onclick="selectSwarmRun('live')">
+      <div class="po-swarm-item-row">
+        <span class="live-dot green"></span>
+        <span class="po-swarm-item-id">${escHtml(String(id).slice(0, 18))}</span>
+        <span class="po-swarm-item-badge status-running">LIVE</span>
+      </div>
+      <div class="po-swarm-item-row">
+        <span class="po-swarm-item-badge topo">${escHtml(topo)}</span>
+        <span class="po-swarm-item-meta">${agentCount} agents</span>
+      </div>
+    </div>`;
+  }
+
+  _swarmHistoryEntries.forEach((entry, i) => {
+    const id = (entry.swarmId || '?').slice(0, 18);
+    const topo = (entry.topology || '—').toUpperCase();
+    const status = entry.status || 'unknown';
+    const statusClass = 'status-' + status;
+    const agentCount = (entry.agents || []).length;
+    const age = entry.endedAt ? fmtAge(new Date(entry.endedAt).getTime()) : '—';
+    html += `<div class="po-swarm-item${_swarmSelectedIdx === i ? ' selected' : ''}" onclick="selectSwarmRun(${i})">
+      <div class="po-swarm-item-row">
+        <span class="po-swarm-item-id">${escHtml(id)}</span>
+        <span class="po-swarm-item-badge ${escHtml(statusClass)}">${escHtml(status.toUpperCase())}</span>
+      </div>
+      <div class="po-swarm-item-row">
+        <span class="po-swarm-item-badge topo">${escHtml(topo)}</span>
+        <span class="po-swarm-item-meta">${agentCount} agents · ${escHtml(age)}</span>
+      </div>
+    </div>`;
+  });
+
+  if (!_swarmLiveState && _swarmHistoryEntries.length === 0) {
+    html = '<div style="padding:16px;color:var(--muted);font-size:10px;text-align:center;">NO SWARM HISTORY</div>';
+  }
+
+  list.innerHTML = html;
+}
+
+function renderPalaceSwarm() { renderSwarmHistory(); }
+
+function selectSwarmRun(idx) {
+  _swarmSelectedIdx = idx;
+  _swarmSelectedAgentId = null;
+
+  const items = document.querySelectorAll('.po-swarm-item');
+  items.forEach((el, i) => {
+    const itemIdx = _swarmLiveState ? (i === 0 ? 'live' : i - 1) : i;
+    el.classList.toggle('selected', itemIdx === idx);
+  });
+
+  let entry;
+  if (idx === 'live') {
+    entry = _buildLiveEntry();
+  } else {
+    entry = _swarmHistoryEntries[idx];
+  }
+  if (!entry) return;
+
+  const hint = document.getElementById('po-swarm-hint');
+  const header = document.getElementById('po-swarm-header');
+  const statsBar = document.getElementById('po-swarm-stats-bar');
+  const body = document.getElementById('po-swarm-body');
+  if (hint) hint.style.display = 'none';
+  if (header) header.style.display = '';
+  if (statsBar) statsBar.style.display = '';
+  if (body) body.style.display = '';
+
+  const title = document.getElementById('po-swarm-title');
+  const subtitle = document.getElementById('po-swarm-subtitle');
+  if (title) title.textContent = entry.swarmId || '—';
+  if (subtitle) {
+    const dur = entry.durationMs ? fmtDuration(entry.durationMs) : '—';
+    subtitle.textContent = `${entry.topology || '—'} · ${entry.consensus || '—'} · ${(entry.agents || []).length} agents · ${dur}`;
+  }
+
+  const topo = document.getElementById('po-swarm-stat-topo');
+  const cons = document.getElementById('po-swarm-stat-consensus');
+  const agts = document.getElementById('po-swarm-stat-agents');
+  const stat = document.getElementById('po-swarm-stat-status');
+  const durEl = document.getElementById('po-swarm-stat-duration');
+  if (topo) topo.innerHTML = `<span style="color:var(--teal)">${escHtml((entry.topology || '—').toUpperCase())}</span>`;
+  if (cons) cons.textContent = (entry.consensus || '—').toUpperCase();
+  if (agts) agts.textContent = `${(entry.agents || []).length} AGENTS`;
+  if (stat) {
+    const s = (entry.status || '—').toUpperCase();
+    const c = entry.status === 'completed' ? 'var(--green,#4caf50)' : entry.status === 'error' ? '#EF5350' : entry.status === 'running' ? '#4caf50' : 'var(--muted)';
+    stat.innerHTML = `<span style="color:${c}">${escHtml(s)}</span>`;
+  }
+  if (durEl) {
+    const d = entry.durationMs ? fmtDuration(entry.durationMs) : (entry.startedAt && entry.endedAt ? fmtDuration(new Date(entry.endedAt) - new Date(entry.startedAt)) : '—');
+    durEl.textContent = d;
+  }
+
+  closeSwarmAgent();
+  drawSwarmTopology(entry, null);
+
+  const agentList = document.getElementById('po-swarm-agent-list');
+  if (agentList) {
+    const agents = entry.agents || [];
+    if (agents.length === 0) {
+      agentList.innerHTML = '<div style="color:var(--muted);font-size:9px;">No agents recorded</div>';
+    } else {
+      agentList.innerHTML = agents.map(a => {
+        const dotColor = (a.tasksFailed || 0) > 0 ? '#EF5350' : '#4caf50';
+        const isQueen = (a.role || '').toLowerCase().includes('queen') || (a.role || '').toLowerCase().includes('coordinator') || (a.role || '').toLowerCase().includes('lead');
+        return `<div class="po-swarm-agent-item" data-agent-id="${escHtml(a.id || a.type)}" onclick="selectSwarmAgent('${escHtml(a.id || a.type)}')">
+          <span class="po-swarm-agent-dot" style="background:${dotColor}"></span>
+          <span class="po-swarm-agent-type">${escHtml(a.type || '?')}</span>
+          <span class="po-swarm-agent-role">${isQueen ? 'QUEEN' : 'WORKER'}</span>
+          <span class="po-swarm-agent-stats">${a.tasksCompleted || 0} tasks · ${a.messageCount || 0} msgs</span>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+function fmtDuration(ms) {
+  if (!ms || ms < 0) return '—';
+  const sec = Math.floor(ms / 1000);
+  if (sec < 60) return sec + 's';
+  const min = Math.floor(sec / 60);
+  const remSec = sec % 60;
+  if (min < 60) return min + 'm ' + remSec + 's';
+  const hr = Math.floor(min / 60);
+  return hr + 'h ' + (min % 60) + 'm';
+}
+
+function drawSwarmTopology(entry, highlightAgentId) {
+  const wrap = document.getElementById('po-swarm-canvas-wrap');
   const canvas = document.getElementById('po-swarm-canvas');
-  if (!canvas) return;
-  if (!canvas.offsetWidth) { requestAnimationFrame(renderPalaceSwarm); return; }
+  const label = document.getElementById('po-swarm-topo-label');
+  if (!canvas || !wrap) return;
+
+  if (label) label.textContent = entry.status === 'running' ? 'LIVE TOPOLOGY' : 'TOPOLOGY';
+
+  if (!wrap.offsetWidth || !wrap.offsetHeight) {
+    requestAnimationFrame(() => drawSwarmTopology(entry, highlightAgentId));
+    return;
+  }
+
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = canvas.offsetWidth * dpr;
-  canvas.height = canvas.offsetHeight * dpr;
+  canvas.width = wrap.offsetWidth * dpr;
+  canvas.height = wrap.offsetHeight * dpr;
+  canvas.style.width = wrap.offsetWidth + 'px';
+  canvas.style.height = wrap.offsetHeight + 'px';
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const CW = canvas.width, CH = canvas.height;
 
-  // Grid background
   const step = 30 * dpr;
   ctx.strokeStyle = 'rgba(58,58,90,0.15)';
   ctx.lineWidth = dpr * 0.5;
-  for (let gx = 0; gx <= CW; gx += step) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,CH); ctx.stroke(); }
-  for (let gy = 0; gy <= CH; gy += step) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(CW,gy); ctx.stroke(); }
+  for (let gx = 0; gx <= CW; gx += step) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, CH); ctx.stroke(); }
+  for (let gy = 0; gy <= CH; gy += step) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(CW, gy); ctx.stroke(); }
 
-  const consensusLow = consensus.toLowerCase();
+  const agents = entry.agents || [];
+  const n = agents.length;
+  if (n === 0) {
+    ctx.fillStyle = 'rgba(100,100,140,0.6)';
+    ctx.font = `500 ${9 * dpr}px "Azeret Mono", monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText('NO AGENTS', CW / 2, CH / 2);
+    return;
+  }
+
   const cx = CW / 2, cy = CH / 2;
+  const r = Math.min(CW, CH) * 0.36;
+  const topo = (entry.topology || '').toLowerCase();
 
-  if (hasLiveSwarm) {
-    // Live: draw actual agent nodes
-    const agentList = (state.agents || []).slice(0, 50);
-    const n = agentList.length || 1;
-    const r = Math.min(CW, CH) * 0.36;
-    const positions = agentList.map((_, i) => {
-      const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
-      return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
-    });
-    // Edges
-    ctx.strokeStyle = 'rgba(0,229,200,0.15)';
-    ctx.lineWidth = dpr;
-    if (consensusLow === 'byzantine' || consensusLow === 'mesh') {
-      for (let i = 0; i < n; i++) {
-        for (let j = i+1; j <= i+2 && j < n; j++) {
-          ctx.beginPath(); ctx.moveTo(positions[i][0], positions[i][1]); ctx.lineTo(positions[j][0], positions[j][1]); ctx.stroke();
-        }
+  const queenIdx = agents.findIndex(a => {
+    const role = (a.role || '').toLowerCase();
+    return role.includes('queen') || role.includes('coordinator') || role.includes('lead');
+  });
+
+  const workers = agents.filter((_, i) => i !== queenIdx);
+  const wn = workers.length;
+
+  const positions = new Array(n);
+  if (queenIdx >= 0) positions[queenIdx] = [cx, cy];
+  let wi = 0;
+  agents.forEach((_, i) => {
+    if (i === queenIdx) return;
+    const angle = (wi / wn) * Math.PI * 2 - Math.PI / 2;
+    positions[i] = [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
+    wi++;
+  });
+
+  ctx.lineWidth = dpr;
+  if (topo === 'mesh' || topo === 'hierarchical-mesh') {
+    ctx.strokeStyle = 'rgba(0,229,200,0.12)';
+    const workerPositions = agents.map((_, i) => i !== queenIdx ? positions[i] : null).filter(Boolean);
+    for (let i = 0; i < workerPositions.length; i++) {
+      for (let j = i + 1; j <= i + 2 && j < workerPositions.length; j++) {
+        ctx.beginPath(); ctx.moveTo(workerPositions[i][0], workerPositions[i][1]); ctx.lineTo(workerPositions[j][0], workerPositions[j][1]); ctx.stroke();
       }
-    } else {
-      positions.forEach(([nx, ny]) => { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(nx, ny); ctx.stroke(); });
     }
-    // Nodes
-    positions.forEach(([nx, ny], i) => {
-      ctx.beginPath(); ctx.arc(nx, ny, 5 * dpr, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(0,229,200,0.4)'; ctx.fill();
-      ctx.strokeStyle = 'rgba(0,229,200,0.7)'; ctx.lineWidth = dpr; ctx.stroke();
-      // Agent label
-      const a = agentList[i];
-      const lbl = (a.type || a.role || '?').slice(0, 6).toUpperCase();
-      ctx.fillStyle = 'rgba(180,180,220,0.6)';
-      ctx.font = `${7 * dpr}px "Azeret Mono", monospace`;
-      ctx.textAlign = 'center';
-      ctx.fillText(lbl, nx, ny + 10 * dpr);
+  }
+  if (topo === 'ring') {
+    ctx.strokeStyle = 'rgba(0,229,200,0.15)';
+    const workerPositions = agents.map((_, i) => i !== queenIdx ? positions[i] : null).filter(Boolean);
+    for (let i = 0; i < workerPositions.length; i++) {
+      const j = (i + 1) % workerPositions.length;
+      ctx.beginPath(); ctx.moveTo(workerPositions[i][0], workerPositions[i][1]); ctx.lineTo(workerPositions[j][0], workerPositions[j][1]); ctx.stroke();
+    }
+  }
+  if (topo === 'hierarchical' || topo === 'star' || topo === 'hierarchical-mesh') {
+    ctx.strokeStyle = 'rgba(0,229,200,0.15)';
+    agents.forEach((_, i) => {
+      if (i === queenIdx) return;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(positions[i][0], positions[i][1]); ctx.stroke();
     });
-    // Coordinator
-    ctx.beginPath(); ctx.arc(cx, cy, 9 * dpr, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(0,229,200,0.7)'; ctx.fill();
-    ctx.strokeStyle = 'rgba(0,229,200,1)'; ctx.lineWidth = dpr * 2; ctx.stroke();
+  }
+
+  agents.forEach((a, i) => {
+    if (i === queenIdx) return;
+    const [nx, ny] = positions[i];
+    const agentId = a.id || a.type;
+    const isHighlighted = highlightAgentId && agentId === highlightAgentId;
+
+    const nodeR = isHighlighted ? 7 * dpr : 5 * dpr;
+    ctx.beginPath(); ctx.arc(nx, ny, nodeR, 0, Math.PI * 2);
+    if (isHighlighted) {
+      ctx.fillStyle = 'rgba(255,180,0,0.4)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(255,180,0,0.8)'; ctx.lineWidth = dpr * 1.5;
+    } else {
+      ctx.fillStyle = 'rgba(0,229,200,0.3)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(0,229,200,0.6)'; ctx.lineWidth = dpr;
+    }
+    ctx.stroke();
+
+    const lbl = (a.type || '?').slice(0, 8).toUpperCase();
+    ctx.fillStyle = isHighlighted ? 'rgba(255,180,0,0.7)' : 'rgba(180,180,220,0.6)';
+    ctx.font = `${7 * dpr}px "Azeret Mono", monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(lbl, nx, ny + 10 * dpr);
+  });
+
+  if (queenIdx >= 0) {
+    const queen = agents[queenIdx];
+    const queenId = queen.id || queen.type;
+    const isHighlighted = highlightAgentId && queenId === highlightAgentId;
+    const qR = isHighlighted ? 11 * dpr : 9 * dpr;
+    ctx.beginPath(); ctx.arc(cx, cy, qR, 0, Math.PI * 2);
+    if (isHighlighted) {
+      ctx.fillStyle = 'rgba(255,180,0,0.7)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(255,180,0,1)';
+    } else {
+      ctx.fillStyle = 'rgba(0,229,200,0.7)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(0,229,200,1)';
+    }
+    ctx.lineWidth = dpr * 2; ctx.stroke();
     ctx.fillStyle = '#fff';
     ctx.font = `bold ${8 * dpr}px "Azeret Mono", monospace`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('Q', cx, cy);
     ctx.textBaseline = 'alphabetic';
-  } else {
-    // Idle: representative static diagram
-    const nodeCount = Math.min(10, Math.max(4, agentCount > 0 ? 7 : 4));
-    const r = Math.min(CW, CH) * 0.36;
-    const positions = [];
-    for (let i = 0; i < nodeCount; i++) {
-      const angle = (i / nodeCount) * Math.PI * 2 - Math.PI / 2;
-      positions.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
-    }
-    // Edges
-    ctx.strokeStyle = 'rgba(0,229,200,0.10)';
-    ctx.lineWidth = dpr;
-    if (consensusLow === 'byzantine' || consensusLow === 'mesh') {
-      for (let i = 0; i < nodeCount; i++) {
-        for (let j = i+1; j <= i+3 && j < nodeCount; j++) {
-          ctx.beginPath(); ctx.moveTo(positions[i][0], positions[i][1]); ctx.lineTo(positions[j][0], positions[j][1]); ctx.stroke();
-        }
-      }
+  }
+}
+
+function selectSwarmAgent(agentId) {
+  _swarmSelectedAgentId = agentId;
+
+  const entry = _swarmSelectedIdx === 'live'
+    ? _buildLiveEntry()
+    : _swarmHistoryEntries[_swarmSelectedIdx];
+  if (!entry) return;
+
+  document.querySelectorAll('.po-swarm-agent-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.agentId === agentId);
+  });
+
+  const wrap = document.getElementById('po-swarm-canvas-wrap');
+  if (wrap) wrap.classList.add('shrunk');
+
+  drawSwarmTopology(entry, agentId);
+
+  const agent = (entry.agents || []).find(a => (a.id || a.type) === agentId);
+  if (!agent) return;
+
+  const drawer = document.getElementById('po-swarm-agent-drawer');
+  const info = document.getElementById('po-swarm-agent-info');
+  const timeline = document.getElementById('po-swarm-agent-timeline');
+  if (!drawer) return;
+  drawer.style.display = '';
+
+  const isQueen = (agent.role || '').toLowerCase().includes('queen') || (agent.role || '').toLowerCase().includes('coordinator') || (agent.role || '').toLowerCase().includes('lead');
+  if (info) {
+    info.innerHTML = `
+      <span style="color:var(--teal);font-weight:700;">${escHtml(agent.type || '?')}</span>
+      <span style="color:var(--muted);">${isQueen ? 'QUEEN' : 'WORKER'}</span>
+      <span><span style="color:var(--muted);">TASKS</span> <span style="color:var(--teal);">${agent.tasksCompleted || 0}/${(agent.tasksCompleted || 0) + (agent.tasksFailed || 0)}</span></span>
+      <span><span style="color:var(--muted);">MSGS</span> <span style="color:var(--teal);">${agent.messageCount || 0}</span></span>
+      <span><span style="color:var(--muted);">UTIL</span> <span style="color:#4caf50;">${agent.utilization || 0}%</span></span>
+    `;
+  }
+
+  if (timeline) {
+    const msgs = (entry.messages || []).filter(m => m.from === agentId || m.to === agentId);
+    if (msgs.length === 0) {
+      timeline.innerHTML = '<div style="color:var(--muted);font-size:9px;padding:4px;">No communication recorded</div>';
     } else {
-      positions.forEach(([nx, ny]) => { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(nx, ny); ctx.stroke(); });
-    }
-    // Outer nodes
-    positions.forEach(([nx, ny]) => {
-      ctx.beginPath(); ctx.arc(nx, ny, 6 * dpr, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(0,229,200,0.2)'; ctx.fill();
-      ctx.strokeStyle = 'rgba(0,229,200,0.45)'; ctx.lineWidth = dpr; ctx.stroke();
-    });
-    // Center coordinator (if not pure mesh)
-    if (consensusLow !== 'mesh') {
-      ctx.beginPath(); ctx.arc(cx, cy, 9 * dpr, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(0,229,200,0.35)'; ctx.fill();
-      ctx.strokeStyle = 'rgba(0,229,200,0.7)'; ctx.lineWidth = dpr * 1.5; ctx.stroke();
-    }
-    // Footer label
-    ctx.fillStyle = 'rgba(100,100,140,0.6)';
-    ctx.font = `500 ${9 * dpr}px "Azeret Mono", monospace`;
-    ctx.textAlign = 'center';
-    const footerLabel = agentCount > 0
-      ? `LAST SWARM · ${agentCount} AGENTS`
-      : 'NO SWARM HISTORY';
-    ctx.fillText(footerLabel, CW / 2, CH - 14 * dpr);
-    // Topology label in center for mesh
-    if (consensusLow === 'mesh' || consensusLow === 'byzantine') {
-      ctx.fillStyle = 'rgba(0,229,200,0.25)';
-      ctx.font = `bold ${10 * dpr}px "Syne", sans-serif`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(consensusLow.toUpperCase(), cx, cy);
-      ctx.textBaseline = 'alphabetic';
+      timeline.innerHTML = msgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)).map(m => {
+        const isSent = m.from === agentId;
+        const dir = isSent ? '→' : '←';
+        const peer = isSent ? m.to : m.from;
+        const ts = m.timestamp ? new Date(m.timestamp).toTimeString().slice(0, 8) : '—';
+        const payload = (m.payload || '').slice(0, 100);
+        return `<div class="po-swarm-msg ${isSent ? 'sent' : 'received'}">
+          <span class="po-swarm-msg-ts">${escHtml(ts)}</span>
+          ${escHtml(dir)} ${escHtml(peer || 'broadcast')}:
+          <span class="po-swarm-msg-type">${escHtml(m.type || '?')}</span>
+          ${payload ? `<span class="po-swarm-msg-payload">${escHtml(payload)}</span>` : ''}
+        </div>`;
+      }).join('');
     }
   }
+}
+
+function _buildLiveEntry() {
+  const sw = (appData && appData.swarm) ? appData.swarm : {};
+  const state = sw.state || {};
+  return {
+    swarmId: state.swarmId || state.id || 'live',
+    topology: state.topology || sw.config?.topology || '—',
+    consensus: state.consensus || sw.config?.consensus || '—',
+    status: state.status || 'running',
+    agents: (state.agents || state.agentPlan || []).map(a => ({
+      id: a.id || a.type || a.role,
+      type: a.type || a.role || '?',
+      role: a.role || 'worker',
+      tasksCompleted: a.tasksCompleted || 0,
+      tasksFailed: a.tasksFailed || 0,
+      messageCount: a.messageCount || 0,
+      utilization: a.utilization || 0,
+    })),
+    messages: state.messages || [],
+    errors: state.errors || [],
+    startedAt: state.startedAt || state.createdAt,
+    endedAt: null,
+    durationMs: state.startedAt ? Date.now() - new Date(state.startedAt).getTime() : 0,
+  };
+}
+
+function closeSwarmAgent() {
+  _swarmSelectedAgentId = null;
+  const drawer = document.getElementById('po-swarm-agent-drawer');
+  if (drawer) drawer.style.display = 'none';
+  const wrap = document.getElementById('po-swarm-canvas-wrap');
+  if (wrap) wrap.classList.remove('shrunk');
+  document.querySelectorAll('.po-swarm-agent-item').forEach(el => el.classList.remove('selected'));
+
+  const entry = _swarmSelectedIdx === 'live'
+    ? _buildLiveEntry()
+    : _swarmHistoryEntries[_swarmSelectedIdx];
+  if (entry) drawSwarmTopology(entry, null);
 }
 
 async function renderPalaceKnowledge() {
