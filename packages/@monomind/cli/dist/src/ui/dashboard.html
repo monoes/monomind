@@ -1,0 +1,4431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MONOMIND CONTROL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500&family=Syne:wght@600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --teal: #00E5C8;
+    --amber: #FFB700;
+    --red: #FF5577;
+    --green: #00E587;
+    --text: #D4D4E8;
+    --muted: #7880A8;
+    --dim: #4A5070;
+    --bg: #07080F;
+    --panel-bg: rgba(10, 11, 24, 0.92);
+    --border: rgba(0, 229, 200, 0.14);
+    --border-live: rgba(0, 229, 200, 0.5);
+    --glow: rgba(0, 229, 200, 0.07);
+    --glow-hover: rgba(0, 229, 200, 0.12);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Azeret Mono', monospace;
+    font-size: 12px;
+    overflow: hidden;
+  }
+
+  body {
+    background-color: var(--bg);
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,229,200,0.04) 39px, rgba(0,229,200,0.04) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,229,200,0.04) 39px, rgba(0,229,200,0.04) 40px);
+    background-size: 40px 40px;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  /* ─── HEADER ───────────────────────────────────────────────────── */
+  #header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(7, 8, 15, 0.97);
+    backdrop-filter: blur(16px);
+    flex-shrink: 0;
+    z-index: 10;
+    box-shadow: 0 1px 20px rgba(0,0,0,0.4);
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  #header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+
+  #header h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: 0.22em;
+    color: var(--teal);
+    text-transform: uppercase;
+    text-shadow: 0 0 20px rgba(0,229,200,0.35);
+    white-space: nowrap;
+  }
+
+  #header-meta {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  #header-meta span { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+
+  #conn-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+    flex-shrink: 0;
+  }
+  #conn-dot.connected { background: var(--green); animation: pulse-dot 2s infinite; }
+  #conn-dot.error { background: var(--red); }
+
+  #header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  #uptime-val, #session-val, #project-val {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  /* ─── GRID LAYOUT ───────────────────────────────────────────────── */
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: auto auto auto auto auto;
+    gap: 8px;
+    padding: 8px 8px 16px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    align-content: start;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  #grid::-webkit-scrollbar { width: 6px; }
+  #grid::-webkit-scrollbar-track { background: transparent; }
+  #grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  #grid::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* Row 0: all projects (full width) */
+  #panel-projects  { grid-column: 1 / 5; grid-row: 1; min-height: 200px; }
+
+  /* Row 1: agents | agents | tokens | tokens */
+  #panel-agents    { grid-column: 1 / 3; grid-row: 2; }
+  #panel-tokens    { grid-column: 3 / 5; grid-row: 2; }
+
+  /* Row 2: memory (2 cols) | hooks (2 cols) */
+  #panel-memory    { grid-column: 1 / 3; grid-row: 3; }
+  #panel-hooks     { grid-column: 3 / 5; grid-row: 3; }
+
+  /* Row 3: metrics (2 cols) | activity | system */
+  #panel-metrics   { grid-column: 1 / 3; grid-row: 4; }
+  #panel-activity  { grid-column: 3; grid-row: 4; }
+  #panel-system    { grid-column: 4; grid-row: 4; }
+
+  /* All grid children must not overflow their columns */
+  #grid > * { min-width: 0; }
+
+  /* ─── PROJECTS TABLE ──────────────────────────────────────────── */
+  #projects-table {
+    display: grid;
+    grid-template-columns: 2fr 1fr 56px 56px 66px 80px;
+    gap: 0;
+    overflow-y: auto;
+    max-height: 160px;
+    font-size: 11px;
+  }
+  .proj-header {
+    color: var(--dim);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 5px 8px;
+    border-bottom: 1px solid rgba(0,229,200,0.10);
+    position: sticky;
+    top: 0;
+    background: rgba(9, 10, 20, 0.98);
+    z-index: 1;
+  }
+  .proj-cell {
+    padding: 5px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .proj-cell:hover { background: rgba(0,229,200,0.05); }
+  .proj-name { color: var(--text); font-weight: 500; }
+  .proj-path { color: var(--muted); font-size: 10px; }
+  .proj-count { color: var(--teal); text-align: right; font-weight: 600; }
+  .proj-size { color: var(--muted); text-align: right; }
+  .proj-age { color: var(--muted); font-size: 10px; }
+  .proj-dots { color: var(--amber); font-size: 10px; font-weight: 600; }
+  .proj-exists-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .proj-exists-dot.on { background: var(--teal); box-shadow: 0 0 4px var(--teal); }
+  .proj-exists-dot.off { background: var(--muted); }
+
+  /* ─── PROJECT STATS STRIP ─────────────────────────────────── */
+  #project-stats-strip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 10px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+    background: rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+  }
+  .stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    background: rgba(0, 229, 200, 0.05);
+    border: 1px solid rgba(0, 229, 200, 0.10);
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .stat-pill-key {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .stat-pill-val {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--teal);
+  }
+  .stat-pill-val.amber { color: var(--amber); }
+  .stat-pill-val.green { color: var(--green); }
+  .stat-pill-val.dim { color: var(--muted); }
+
+  /* ─── PANELS ────────────────────────────────────────────────────── */
+  .panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    backdrop-filter: blur(14px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: border-color 0.4s, box-shadow 0.4s;
+    position: relative;
+  }
+
+  .panel:hover {
+    border-color: rgba(0, 229, 200, 0.28);
+    box-shadow: 0 0 18px rgba(0, 229, 200, 0.06), inset 0 0 14px rgba(0, 229, 200, 0.02);
+  }
+
+  .panel.live {
+    border-color: var(--border-live);
+    box-shadow: 0 0 12px rgba(0, 229, 200, 0.08);
+  }
+
+  /* ─── COLLAPSIBLE PANELS ────────────────────────────────────────── */
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px 6px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+
+  /* Projects panel header is not collapsible */
+  #panel-projects .panel-header { cursor: default; }
+
+  .panel-header:not(#panel-projects .panel-header):hover {
+    background: rgba(0, 229, 200, 0.03);
+  }
+
+  .panel-chevron {
+    font-size: 11px;
+    color: var(--muted);
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+    margin-left: 6px;
+    line-height: 1;
+  }
+
+  /* Body hidden by default (collapsed) — projects panel always visible */
+  .panel-body { display: none; }
+  #panel-projects .panel-body { display: block; }
+  #panel-activity .panel-body { display: flex; flex-direction: column; }
+
+  /* Panel is open */
+  .panel.open .panel-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 140px;
+  }
+
+  /* Override display for specific panels that need block */
+  #panel-memory.open .panel-body,
+  #panel-hooks.open .panel-body { display: block; }
+  #panel-knowledge.open .panel-body,
+  #panel-metrics.open .panel-body,
+  #panel-system.open .panel-body { display: block; }
+
+  /* Graphify panel inner layout */
+  .graphify-layout { display: grid; grid-template-columns: 220px 1fr; gap: 12px; }
+  .graphify-stats { display: flex; flex-direction: column; gap: 6px; }
+  .graphify-stat-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .graphify-stat-key { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .graphify-stat-val { font-size: 11px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+  .graphify-report { overflow-y: auto; max-height: 320px; }
+  .graphify-section { margin-bottom: 10px; }
+  .graphify-section-title { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; padding-bottom: 3px; border-bottom: 1px solid var(--border); }
+  .graphify-section-body { font-size: 10px; color: var(--dim); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .graphify-section-body code { font-family: inherit; color: var(--teal); }
+  .graphify-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; color: var(--muted); font-size: 11px; text-align: center; }
+  .graphify-build-cmd { font-family: monospace; font-size: 10px; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; color: var(--teal); margin-top: 4px; }
+
+  /* Fixed heights for canvas-based panels */
+
+  /* Chevron rotates when open */
+  .panel.open .panel-chevron { transform: rotate(90deg); }
+
+  .panel-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--teal);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .panel-badge {
+    font-family: 'Azeret Mono', monospace;
+    font-size: 10px;
+    background: rgba(0, 229, 200, 0.12);
+    color: var(--teal);
+    border: 1px solid rgba(0, 229, 200, 0.25);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 10px;
+    min-height: 0;
+  }
+
+  .panel-body::-webkit-scrollbar { width: 3px; }
+  .panel-body::-webkit-scrollbar-track { background: transparent; }
+  .panel-body::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 2px; }
+
+  /* ─── ANIMATIONS ────────────────────────────────────────────────── */
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85); }
+  }
+
+  @keyframes flash-teal {
+    0% { color: var(--teal); }
+    100% { color: inherit; }
+  }
+
+  .flash {
+    animation: flash-teal 0.7s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-in { animation: fadeIn 0.25s ease-out; }
+
+  /* ─── LIVE DOT ──────────────────────────────────────────────────── */
+  .live-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--teal);
+    animation: pulse-dot 1.8s infinite;
+    flex-shrink: 0;
+  }
+  .live-dot.amber { background: var(--amber); }
+  .live-dot.muted { background: var(--muted); animation: none; }
+  .live-dot.green { background: var(--green); }
+  .live-dot.red { background: var(--red); animation: none; }
+
+  /* ─── PLACEHOLDER ──────────────────────────────────────────────── */
+  .placeholder {
+    color: var(--dim);
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    letter-spacing: 0.08em;
+  }
+
+  /* ─── SESSIONS PANEL ────────────────────────────────────────────── */
+  .session-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+    margin-bottom: 3px;
+  }
+  .session-item:hover {
+    background: rgba(0, 229, 200, 0.04);
+    border-color: var(--border);
+  }
+  .session-item.expanded {
+    background: rgba(0, 229, 200, 0.06);
+    border-color: rgba(0, 229, 200, 0.2);
+  }
+  .session-id {
+    flex: 1;
+    font-size: 10px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+  }
+  .session-meta {
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .session-drawer {
+    display: none;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    padding: 6px 8px;
+    margin: -1px 0 4px 12px;
+    font-size: 10px;
+    color: var(--muted);
+    border-left: 2px solid rgba(0, 229, 200, 0.2);
+  }
+  .session-drawer.open { display: block; animation: fadeIn 0.2s ease-out; }
+
+  .palace-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 6px;
+    border-radius: 4px;
+    background: rgba(0, 229, 200, 0.04);
+    border: 1px solid var(--border);
+    margin-top: 6px;
+    font-size: 10px;
+  }
+  .palace-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ─── AGENTS PANEL ──────────────────────────────────────────────── */
+  .agent-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+  }
+  .agent-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 7px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    transition: border-color 0.2s;
+  }
+  .agent-card:hover { border-color: rgba(0, 229, 200, 0.25); }
+  .agent-card-top {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .agent-name {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .agent-type {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+  .agent-activity {
+    font-size: 9px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ─── TOKENS PANEL ──────────────────────────────────────────────── */
+  .token-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 5px;
+  }
+  .token-stat {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 6px;
+    text-align: center;
+  }
+  .token-stat-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .token-stat-val {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--teal);
+  }
+  #tokens-canvas { display: none; }
+
+  /* ─── SWARM PANEL ───────────────────────────────────────────────── */
+  .swarm-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+  }
+  .swarm-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+  }
+  .swarm-key { color: var(--muted); letter-spacing: 0.06em; font-size: 9px; text-transform: uppercase; }
+  .swarm-val { color: var(--text); font-weight: 600; }
+  #swarm-canvas {
+    width: 100%;
+    flex: 1;
+    display: block;
+    border-radius: 4px;
+    min-height: 0;
+  }
+  .no-swarm {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    color: var(--muted);
+  }
+  .no-swarm-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .grid-placeholder {
+    width: 64px;
+    height: 64px;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 7px, rgba(58,58,90,0.4) 7px, rgba(58,58,90,0.4) 8px),
+      repeating-linear-gradient(90deg, transparent, transparent 7px, rgba(58,58,90,0.4) 7px, rgba(58,58,90,0.4) 8px);
+    border-radius: 4px;
+    opacity: 0.5;
+  }
+
+  /* ─── MEMORY PANEL ──────────────────────────────────────────────── */
+  .memory-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    height: 100%;
+  }
+  .memory-left, .memory-right { display: flex; flex-direction: column; gap: 5px; overflow-y: auto; }
+  .drawer-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    margin-bottom: 3px;
+    cursor: default;
+  }
+  .drawer-item:hover { border-color: rgba(0,229,200,0.22); }
+  .drawer-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 5px;
+  }
+  .drawer-wing {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+  }
+  .drawer-room { font-size: 9px; color: var(--muted); white-space: nowrap; }
+  .drawer-content {
+    font-size: 9px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .hnsw-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    background: rgba(255, 183, 0, 0.1);
+    border: 1px solid rgba(255, 183, 0, 0.2);
+    color: var(--amber);
+    border-radius: 3px;
+    padding: 2px 5px;
+    letter-spacing: 0.08em;
+  }
+  .mem-stat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+    padding: 4px 6px;
+    border-radius: 3px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--border);
+  }
+  .mem-stat-key { color: var(--muted); font-size: 10px; }
+  .mem-stat-val { color: var(--text); font-weight: 600; }
+
+  /* ─── HOOKS PANEL ───────────────────────────────────────────────── */
+  .hooks-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    height: 100%;
+  }
+  .hooks-col { display: flex; flex-direction: column; gap: 5px; overflow: hidden; }
+  .route-block {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 7px 8px;
+  }
+  .route-task-text {
+    font-size: 10px;
+    color: var(--text);
+    line-height: 1.5;
+    margin-bottom: 5px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .route-agents {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+  .route-agent-tag {
+    font-size: 9px;
+    background: rgba(0, 229, 200, 0.1);
+    color: var(--teal);
+    border: 1px solid rgba(0, 229, 200, 0.2);
+    border-radius: 3px;
+    padding: 1px 5px;
+    letter-spacing: 0.05em;
+  }
+  .feedback-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 5px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: rgba(0,0,0,0.2);
+    margin-bottom: 3px;
+    font-size: 10px;
+  }
+  .feedback-text {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--muted);
+  }
+  .feedback-ok { color: var(--green); font-size: 9px; }
+  .worker-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    background: rgba(255, 183, 0, 0.07);
+    color: var(--amber);
+    border: 1px solid rgba(255, 183, 0, 0.18);
+    border-radius: 3px;
+    padding: 2px 5px;
+    margin: 2px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ─── KNOWLEDGE PANEL ───────────────────────────────────────────── */
+  .knowledge-counts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+    margin-bottom: 7px;
+  }
+  .know-stat {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 7px;
+    text-align: center;
+  }
+  .know-stat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
+  .know-stat-val { font-size: 14px; font-weight: 500; color: var(--text); }
+  .chunk-preview {
+    font-size: 10px;
+    color: var(--muted);
+    padding: 4px 6px;
+    border-radius: 3px;
+    border-left: 2px solid var(--border);
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: rgba(0,0,0,0.15);
+    line-height: 1.5;
+  }
+  .chunk-preview:hover { border-left-color: var(--teal); color: var(--text); }
+  /* Chunk cards in palace KNOWLEDGE tab */
+  .chunk-card {
+    background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 4px;
+    padding: 10px 12px; display: flex; flex-direction: column; gap: 5px;
+    transition: border-color 0.12s;
+  }
+  .chunk-card:hover { border-color: rgba(0,229,200,0.3); }
+  .chunk-card-src { font-size: 8px; color: var(--teal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: 0.04em; }
+  .chunk-card-text { font-size: 10px; color: var(--text); line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+  .chunk-card-ns { font-size: 8px; color: var(--muted); }
+  .chunk-card-actions { display: flex; gap: 6px; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--border); }
+  /* Chunk edit modal */
+  #po-chunk-edit-modal { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.65); z-index: 22; align-items: center; justify-content: center; }
+  #po-chunk-edit-modal.open { display: flex; }
+
+  /* ─── METRICS PANEL ─────────────────────────────────────────────── */
+  .metric-block {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 8px;
+    margin-bottom: 5px;
+  }
+  .metric-block-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+  .metric-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+    margin-bottom: 3px;
+  }
+  .metric-key { color: var(--muted); font-size: 10px; }
+  .metric-val { color: var(--text); font-weight: 600; }
+  .security-ok { color: var(--green); }
+  .security-warn { color: var(--amber); }
+  .security-fail { color: var(--red); }
+
+  /* ─── ACTIVITY PANEL ────────────────────────────────────────────── */
+  #activity-log {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .activity-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 10px;
+    line-height: 1.4;
+    padding: 3px 5px;
+    border-radius: 3px;
+    border-left: 2px solid transparent;
+    animation: fadeIn 0.2s ease-out;
+  }
+  .activity-entry.type-session { border-left-color: var(--teal); background: rgba(0,229,200,0.03); }
+  .activity-entry.type-swarm   { border-left-color: var(--amber); background: rgba(255,183,0,0.03); }
+  .activity-entry.type-agent   { border-left-color: var(--green); background: rgba(0,229,135,0.03); }
+  .activity-entry.type-error   { border-left-color: var(--red); background: rgba(255,68,102,0.03); }
+  .activity-entry.type-default { border-left-color: var(--muted); }
+  .activity-time { color: var(--dim); white-space: nowrap; font-size: 9px; flex-shrink: 0; letter-spacing: 0.03em; }
+  .activity-msg { color: var(--text); flex: 1; font-size: 10px; }
+
+  /* ─── SYSTEM PANEL ──────────────────────────────────────────────── */
+  .sys-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+    padding: 4px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: rgba(0,0,0,0.2);
+    margin-bottom: 4px;
+  }
+  .sys-key { color: var(--muted); letter-spacing: 0.06em; font-size: 10px; }
+  .sys-val { color: var(--text); font-weight: 600; }
+
+  /* ─── SECTION LABELS ────────────────────────────────────────────── */
+  .section-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 5px;
+    margin-top: 4px;
+    opacity: 0.85;
+  }
+
+  /* ─── SCROLLBAR GLOBAL ──────────────────────────────────────────── */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted) transparent;
+  }
+
+  /* ─── SESSION DETAIL OVERLAY ──────────────────────────────────── */
+  #session-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: var(--bg);
+    display: none; flex-direction: column;
+    overflow: hidden;
+  }
+  #session-overlay.open { display: flex; }
+  #sd-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #sd-back {
+    background: none; border: 1px solid var(--border); color: var(--teal);
+    font-family: var(--font); font-size: 11px; letter-spacing: 0.08em;
+    padding: 4px 10px; cursor: pointer; border-radius: 3px;
+    transition: background 0.15s;
+  }
+  #sd-back:hover { background: rgba(0,229,200,0.08); }
+  #sd-title { font-size: 12px; color: var(--text); font-weight: 600; letter-spacing: 0.08em; }
+  #sd-subtitle { font-size: 10px; color: var(--muted); flex: 1; }
+  #sd-stats-bar {
+    display: flex; gap: 12px; font-size: 10px; color: var(--muted);
+  }
+  #sd-stats-bar span { display: flex; align-items: center; gap: 4px; }
+  #sd-body {
+    display: grid; grid-template-columns: 1fr 280px;
+    flex: 1; overflow: hidden;
+    gap: 0;
+  }
+  #sd-timeline {
+    overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px;
+    border-right: 1px solid var(--border);
+  }
+  #sd-sidebar {
+    overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px;
+  }
+
+  /* events */
+  .ev { border-radius: 4px; padding: 6px 10px; font-size: 11px; line-height: 1.45; }
+  .ev-user {
+    background: rgba(74,158,255,0.08); border-left: 3px solid #4A9EFF;
+    color: var(--text);
+  }
+  .ev-user::before { content: '⬤ USER  '; font-size: 9px; color: #4A9EFF; letter-spacing: 0.1em; display: block; margin-bottom: 3px; }
+  .ev-text {
+    background: rgba(0,229,200,0.05); border-left: 3px solid var(--teal);
+    color: var(--text);
+  }
+  .ev-text::before { content: '⬤ ASSISTANT  '; font-size: 9px; color: var(--teal); letter-spacing: 0.1em; display: block; margin-bottom: 3px; }
+  .ev-thinking {
+    background: rgba(255,255,255,0.02); border-left: 3px solid #444;
+    color: var(--muted); font-style: italic; font-size: 10px;
+  }
+  .ev-thinking::before { content: '◌ THINKING  '; font-size: 9px; color: #555; letter-spacing: 0.1em; display: block; margin-bottom: 3px; }
+  .ev-tool {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 8px; border-radius: 3px;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+    font-size: 10px;
+  }
+  .ev-tool-badge {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+    padding: 2px 5px; border-radius: 2px; flex-shrink: 0;
+    text-transform: uppercase;
+  }
+  .ev-tool-label { color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ev-tool-ts { color: var(--muted); font-size: 9px; flex-shrink: 0; }
+  .ev-tool-result {
+    margin-left: 16px; padding: 3px 8px;
+    background: rgba(0,0,0,0.3); border-left: 2px solid #333;
+    font-size: 10px; color: var(--muted);
+    white-space: pre-wrap; word-break: break-all; max-height: 80px; overflow-y: auto;
+    border-radius: 0 3px 3px 0;
+  }
+  .ev-tool-result.error { border-left-color: #EF5350; color: #EF5350; }
+  .ev-agent-spawn {
+    background: rgba(176,120,255,0.08); border: 1px solid rgba(176,120,255,0.3);
+    border-radius: 4px; padding: 6px 10px;
+  }
+  .ev-agent-spawn-header {
+    display: flex; align-items: center; gap: 8px; font-size: 10px;
+  }
+  .ev-agent-type {
+    background: rgba(176,120,255,0.2); color: #B078FF;
+    padding: 2px 6px; border-radius: 2px; font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+  }
+  .ev-agent-label { color: var(--text); font-size: 10px; flex: 1; }
+  .ev-agent-bg { font-size: 9px; color: #888; }
+
+  /* tool badge colors */
+  .cat-file { background: rgba(74,158,255,0.15); color: #4A9EFF; }
+  .cat-bash { background: rgba(255,140,66,0.15); color: #FF8C42; }
+  .cat-agent { background: rgba(176,120,255,0.15); color: #B078FF; }
+  .cat-memory { background: rgba(255,215,0,0.15); color: #FFD700; }
+  .cat-web { background: rgba(0,229,200,0.15); color: var(--teal); }
+  .cat-task { background: rgba(102,187,106,0.15); color: #66BB6A; }
+  .cat-skill { background: rgba(255,128,171,0.15); color: #FF80AB; }
+  .cat-search { background: rgba(239,83,80,0.15); color: #EF5350; }
+  .cat-mcp { background: rgba(38,198,218,0.15); color: #26C6DA; }
+  .cat-other { background: rgba(144,164,174,0.1); color: #90A4AE; }
+
+  /* sidebar */
+  .sd-section-title {
+    font-size: 9px; letter-spacing: 0.1em; color: var(--muted);
+    border-bottom: 1px solid var(--border); padding-bottom: 4px; margin-bottom: 6px;
+  }
+  .tool-breakdown { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tool-chip {
+    display: flex; align-items: center; gap: 4px;
+    padding: 3px 7px; border-radius: 10px; font-size: 10px;
+  }
+  .tool-chip-count { font-weight: 700; }
+  .agent-node {
+    display: flex; align-items: center; gap: 6px; padding: 4px 6px;
+    border-radius: 3px; font-size: 10px; color: var(--text);
+    background: rgba(176,120,255,0.06); margin-bottom: 3px;
+  }
+  .agent-node-dot { width: 6px; height: 6px; border-radius: 50%; background: #B078FF; flex-shrink: 0; }
+  .memory-op {
+    display: flex; align-items: center; gap: 6px;
+    padding: 3px 6px; font-size: 10px; color: var(--muted);
+    border-left: 2px solid #FFD700; padding-left: 6px; margin-bottom: 3px;
+  }
+
+  /* ─── PALACE OVERLAY ────────────────────────────────────────────── */
+  #palace-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: var(--bg);
+    display: none; flex-direction: column;
+    overflow: hidden;
+  }
+  #palace-overlay.open { display: flex; }
+  #po-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; background: rgba(7,8,15,0.97);
+    backdrop-filter: blur(16px);
+  }
+  #po-back {
+    background: none; border: 1px solid var(--border); color: var(--teal);
+    font-family: 'Azeret Mono', monospace; font-size: 11px; letter-spacing: 0.08em;
+    padding: 4px 10px; cursor: pointer; border-radius: 3px; transition: background 0.15s;
+  }
+  #po-back:hover { background: rgba(0,229,200,0.08); }
+  #po-title {
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px;
+    color: var(--teal); letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  #po-tabs { display: flex; gap: 2px; margin-left: 4px; }
+  .po-tab {
+    background: none; border: 1px solid transparent; color: var(--muted);
+    font-family: 'Azeret Mono', monospace; font-size: 10px; letter-spacing: 0.1em;
+    padding: 4px 12px; cursor: pointer; border-radius: 3px; transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .po-tab:hover { color: var(--text); border-color: var(--border); }
+  .po-tab.active { color: var(--teal); border-color: rgba(0,229,200,0.35); background: rgba(0,229,200,0.06); }
+  #po-stats { margin-left: auto; font-size: 10px; color: var(--muted); display: flex; gap: 16px; }
+  #po-body { flex: 1; overflow: hidden; position: relative; }
+  .po-tab-pane { display: none; position: absolute; inset: 0; }
+  .po-tab-pane.active { display: flex; }
+
+  /* Drawers pane */
+  #po-drawers-tab { flex-direction: row; }
+  #po-drawers-sidebar {
+    width: 280px; flex-shrink: 0; border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #po-search {
+    background: rgba(0,0,0,0.4); border: none; border-bottom: 1px solid var(--border);
+    color: var(--text); font-family: 'Azeret Mono', monospace; font-size: 11px;
+    padding: 8px 12px; outline: none;
+  }
+  #po-search::placeholder { color: var(--dim); }
+  #po-search:focus { border-bottom-color: rgba(0,229,200,0.4); }
+  #po-drawer-list { flex: 1; overflow-y: auto; padding: 6px; }
+  .po-drawer-item {
+    padding: 7px 10px; border-radius: 4px; cursor: pointer; margin-bottom: 3px;
+    border: 1px solid transparent; transition: all 0.12s;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .po-drawer-item:hover { background: rgba(0,229,200,0.04); border-color: var(--border); }
+  .po-drawer-item.selected { background: rgba(0,229,200,0.08); border-color: rgba(0,229,200,0.3); }
+  .po-drawer-wing { font-size: 10px; font-weight: 600; color: var(--text); }
+  .po-drawer-room { font-size: 9px; color: var(--teal); letter-spacing: 0.06em; }
+  .po-drawer-preview { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .po-wing-header {
+    font-family: 'Syne', sans-serif; font-size: 9px; color: var(--dim);
+    letter-spacing: 0.14em; text-transform: uppercase; padding: 8px 8px 4px;
+    border-bottom: 1px solid rgba(0,229,200,0.08); margin-bottom: 3px;
+  }
+  #po-drawer-detail {
+    flex: 1; overflow-y: auto; padding: 20px 24px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .po-select-hint {
+    height: 100%; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: var(--dim); letter-spacing: 0.1em;
+  }
+  .po-detail-field { display: flex; flex-direction: column; gap: 4px; }
+  .po-detail-label {
+    font-size: 9px; color: var(--dim); letter-spacing: 0.14em;
+    text-transform: uppercase; font-family: 'Syne', sans-serif;
+  }
+  .po-detail-value {
+    font-size: 11px; color: var(--text); background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px;
+    line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+  }
+  .po-detail-value.mono { font-family: 'Azeret Mono', monospace; font-size: 10px; }
+
+  /* Memory action buttons */
+  .po-action-bar { display: flex; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .po-btn { font-family: 'Azeret Mono', monospace; font-size: 9px; letter-spacing: 0.08em; padding: 4px 12px; border-radius: 3px; cursor: pointer; transition: background 0.15s; }
+  .po-btn-edit { background: none; border: 1px solid rgba(0,229,200,0.35); color: var(--teal); }
+  .po-btn-edit:hover { background: rgba(0,229,200,0.1); }
+  .po-btn-delete { background: none; border: 1px solid rgba(255,80,80,0.35); color: #ff6b6b; }
+  .po-btn-delete:hover { background: rgba(255,80,80,0.1); }
+  .po-btn-save { background: rgba(0,229,200,0.15); border: 1px solid rgba(0,229,200,0.45); color: var(--teal); }
+  .po-btn-save:hover { background: rgba(0,229,200,0.25); }
+  .po-btn-cancel { background: none; border: 1px solid var(--border); color: var(--muted); }
+  .po-btn-cancel:hover { background: rgba(255,255,255,0.04); }
+  /* New memory button */
+  #po-search-row { display: flex; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  #po-search-row #po-search { flex: 1; border-bottom: none; padding: 4px 8px; }
+  #po-new-btn { font-family: 'Azeret Mono', monospace; font-size: 13px; background: none; border: 1px solid rgba(0,229,200,0.3); color: var(--teal); width: 26px; height: 26px; cursor: pointer; border-radius: 3px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
+  #po-new-btn:hover { background: rgba(0,229,200,0.1); }
+  /* Edit modal */
+  #po-edit-modal { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.65); z-index: 20; align-items: center; justify-content: center; }
+  #po-edit-modal.open { display: flex; }
+  #po-edit-box { background: #1a1a2e; border: 1px solid rgba(0,229,200,0.25); border-radius: 6px; width: min(640px, 90%); max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 16px 48px rgba(0,0,0,0.6); }
+  #po-edit-hdr { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); gap: 10px; }
+  #po-edit-title { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--text); flex: 1; }
+  #po-edit-close { background: none; border: none; color: var(--muted); font-size: 14px; cursor: pointer; padding: 0 2px; }
+  #po-edit-close:hover { color: var(--text); }
+  #po-edit-textarea { flex: 1; background: rgba(0,0,0,0.4); border: none; border-bottom: 1px solid var(--border); color: var(--text); font-family: 'Azeret Mono', monospace; font-size: 11px; line-height: 1.6; padding: 14px 16px; resize: none; outline: none; min-height: 300px; white-space: pre; overflow-x: auto; }
+  #po-edit-footer { display: flex; align-items: center; gap: 8px; padding: 10px 16px; }
+  #po-edit-status { font-size: 10px; color: var(--muted); margin-left: auto; }
+  /* Template picker */
+  #po-tpl-picker { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.65); z-index: 21; align-items: center; justify-content: center; }
+  #po-tpl-picker.open { display: flex; }
+  #po-tpl-box { background: #1a1a2e; border: 1px solid rgba(0,229,200,0.25); border-radius: 6px; width: min(400px, 90%); display: flex; flex-direction: column; box-shadow: 0 16px 48px rgba(0,0,0,0.6); padding: 20px; gap: 12px; }
+  .po-tpl-option { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  .po-tpl-option:hover { border-color: rgba(0,229,200,0.35); background: rgba(0,229,200,0.04); }
+  .po-tpl-name { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; }
+  .po-tpl-desc { font-size: 9px; color: var(--muted); }
+
+  /* Sessions pane */
+  #po-sessions-tab { flex-direction: row; }
+  #po-sessions-list {
+    width: 300px; flex-shrink: 0; border-right: 1px solid var(--border);
+    overflow-y: auto; padding: 6px;
+  }
+  .po-session-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: 4px; cursor: pointer; margin-bottom: 3px;
+    border: 1px solid transparent; transition: all 0.12s;
+  }
+  .po-session-item:hover { background: rgba(0,229,200,0.04); border-color: var(--border); }
+  .po-session-item.selected { background: rgba(0,229,200,0.08); border-color: rgba(0,229,200,0.3); }
+  .po-session-id { font-size: 10px; font-weight: 600; color: var(--text); flex: 1; font-family: 'Azeret Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .po-session-meta { font-size: 9px; color: var(--muted); white-space: nowrap; }
+  #po-sessions-detail {
+    flex: 1; overflow: hidden; display: flex; flex-direction: column;
+  }
+  #po-sd-hint { padding: 24px; color: var(--muted); font-size: 10px; text-align: center; }
+  #po-sd-header {
+    padding: 10px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  #po-sd-stats-bar {
+    display: flex; gap: 12px; font-size: 10px; color: var(--muted); padding: 6px 16px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  #po-sd-stats-bar span { display: flex; align-items: center; gap: 4px; }
+  #po-sd-body {
+    display: grid; grid-template-columns: 1fr 220px; flex: 1; overflow: hidden;
+  }
+  #po-sd-timeline {
+    overflow-y: auto; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;
+    border-right: 1px solid var(--border);
+  }
+  #po-sd-sidebar {
+    overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .po-sd-sidebar-section { display: flex; flex-direction: column; gap: 4px; }
+  .po-sd-sidebar-label { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 2px; }
+
+  /* Graph pane */
+  #po-graph-tab { flex-direction: column; }
+  #po-graph-controls {
+    padding: 6px 12px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px; flex-shrink: 0;
+    font-size: 10px; color: var(--muted); letter-spacing: 0.08em;
+  }
+  #po-graph-controls label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  #po-kg-canvas { flex: 1; width: 100%; display: block; }
+
+  /* Knowledge graph pane */
+  #po-knowledge-tab { flex-direction: row; }
+  #po-knowledge-sidebar {
+    width: 200px; flex-shrink: 0; border-right: 1px solid var(--border);
+    padding: 16px 14px; overflow-y: auto; background: rgba(0,0,0,0.12);
+  }
+  #po-knowledge-canvas-wrap {
+    flex: 1; min-width: 0; border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; position: relative;
+  }
+  #po-knowledge-canvas-controls {
+    padding: 5px 12px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+    font-size: 9px; color: var(--muted); letter-spacing: 0.07em;
+  }
+  #po-knowledge-canvas-controls label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  #po-kg2-canvas { flex: 1; width: 100%; display: block; }
+  #po-knowledge-main { flex: 1; min-width: 240px; overflow-y: auto; padding: 16px 20px; }
+
+  /* Sidebar stat blocks */
+  .kg-stat-group { margin-bottom: 18px; }
+  .kg-stat-group-label { font-size: 8px; font-weight: 700; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .kg-stat-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; }
+  .kg-stat-key { font-size: 9px; color: var(--muted); letter-spacing: 0.03em; }
+  .kg-stat-val { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .kg-bar-wrap { margin: 4px 0 10px; height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+  .kg-bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+  .kg-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 8px; letter-spacing: 0.08em; padding: 2px 6px; border-radius: 2px; font-weight: 600; margin-bottom: 5px; }
+  .kg-badge-ok { background: rgba(0,229,200,0.12); color: var(--teal); border: 1px solid rgba(0,229,200,0.2); }
+  .kg-badge-warn { background: rgba(255,183,77,0.1); color: var(--amber); border: 1px solid rgba(255,183,77,0.2); }
+  .kg-action-btn { display: block; width: 100%; margin-top: 6px; background: rgba(0,229,200,0.07); border: 1px solid rgba(0,229,200,0.2); color: var(--teal); font-family: var(--font); font-size: 8px; letter-spacing: 0.1em; padding: 5px 0; cursor: pointer; border-radius: 2px; text-align: center; transition: background 0.15s, border-color 0.15s; }
+  .kg-action-btn:hover { background: rgba(0,229,200,0.14); border-color: rgba(0,229,200,0.35); }
+
+  /* Main report cards */
+  .kg-report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .kg-card { background: rgba(255,255,255,0.025); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; }
+  .kg-card-wide { grid-column: 1 / -1; }
+  .kg-card-title { font-size: 8px; font-weight: 700; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .kg-card-title-icon { font-size: 12px; line-height: 1; }
+  .kg-card-body { font-size: 10px; color: var(--dim); line-height: 1.75; white-space: pre-wrap; word-break: break-word; }
+  .kg-card-body code { color: var(--teal); font-family: inherit; }
+  .kg-card:hover { border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.035); transition: all 0.15s; }
+
+  /* Node list inside cards (god nodes etc.) */
+  .kg-node-list { list-style: none; margin: 0; padding: 0; }
+  .kg-node-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .kg-node-item:last-child { border-bottom: none; }
+  .kg-node-rank { font-size: 8px; color: var(--muted); width: 16px; text-align: right; flex-shrink: 0; }
+  .kg-node-name { font-size: 10px; color: var(--teal); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kg-node-meta { font-size: 8px; color: var(--muted); flex-shrink: 0; }
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ SESSION DETAIL OVERLAY ═══════════════════ -->
+<div id="session-overlay">
+  <div id="sd-header">
+    <button id="sd-back" onclick="closeSessionDetail()">← BACK</button>
+    <span id="sd-title">SESSION</span>
+    <span id="sd-subtitle"></span>
+    <div id="sd-stats-bar">
+      <span id="sd-stat-turns"></span>
+      <span id="sd-stat-tools"></span>
+      <span id="sd-stat-agents"></span>
+      <span id="sd-stat-mem"></span>
+    </div>
+  </div>
+  <div id="sd-body">
+    <div id="sd-timeline"><div class="placeholder">LOADING…</div></div>
+    <div id="sd-sidebar">
+      <div>
+        <div class="sd-section-title">TOOL BREAKDOWN</div>
+        <div id="sd-tool-breakdown" class="tool-breakdown"></div>
+      </div>
+      <div>
+        <div class="sd-section-title">AGENT SPAWNS</div>
+        <div id="sd-agent-tree"></div>
+      </div>
+      <div>
+        <div class="sd-section-title">MEMORY OPS</div>
+        <div id="sd-memory-ops"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ PALACE OVERLAY ═══════════════════ -->
+<div id="palace-overlay">
+  <div id="po-header">
+    <button id="po-back" onclick="closePalaceOverlay()">← BACK</button>
+    <span id="po-title">MEMORY PALACE</span>
+    <div id="po-tabs">
+      <button class="po-tab active" onclick="switchPalaceTab('drawers')">MEMORIES</button>
+      <button class="po-tab" onclick="switchPalaceTab('sessions')">SESSIONS</button>
+      <button class="po-tab" onclick="switchPalaceTab('chunks')">KNOWLEDGE</button>
+      <button class="po-tab" onclick="switchPalaceTab('swarm')">SWARM</button>
+      <button class="po-tab" onclick="switchPalaceTab('graph')">AGENT GRAPH</button>
+      <button class="po-tab" onclick="switchPalaceTab('knowledge')">CODE GRAPH</button>
+    </div>
+    <div id="po-stats"></div>
+  </div>
+  <div id="po-body">
+    <div id="po-drawers-tab" class="po-tab-pane active">
+      <div id="po-drawers-sidebar">
+        <div id="po-search-row">
+          <input id="po-search" type="text" placeholder="Filter memories…" oninput="filterDrawers(this.value)">
+          <button id="po-new-btn" onclick="openNewMemory()" title="New memory entry">＋</button>
+        </div>
+        <div id="po-drawer-list"></div>
+      </div>
+      <div id="po-drawer-detail">
+        <div class="po-select-hint">SELECT A MEMORY</div>
+      </div>
+    </div>
+    <div id="po-sessions-tab" class="po-tab-pane">
+      <div id="po-sessions-list"></div>
+      <div id="po-sessions-detail">
+        <div id="po-sd-hint" class="po-select-hint">SELECT A SESSION</div>
+        <div id="po-sd-header" style="display:none;">
+          <div style="font-size:11px;font-weight:700;color:var(--text);font-family:'Azeret Mono',monospace;" id="po-sd-title"></div>
+          <div style="font-size:9px;color:var(--muted);" id="po-sd-subtitle"></div>
+        </div>
+        <div id="po-sd-stats-bar" style="display:none;">
+          <span id="po-sd-stat-turns"></span>
+          <span id="po-sd-stat-tools"></span>
+          <span id="po-sd-stat-agents"></span>
+          <span id="po-sd-stat-mem"></span>
+        </div>
+        <div id="po-sd-body" style="display:none;">
+          <div id="po-sd-timeline"><div class="placeholder">LOADING…</div></div>
+          <div id="po-sd-sidebar">
+            <div class="po-sd-sidebar-section">
+              <div class="po-sd-sidebar-label">TOOL BREAKDOWN</div>
+              <div id="po-sd-tool-breakdown"></div>
+            </div>
+            <div class="po-sd-sidebar-section">
+              <div class="po-sd-sidebar-label">AGENTS SPAWNED</div>
+              <div id="po-sd-agent-tree"></div>
+            </div>
+            <div class="po-sd-sidebar-section">
+              <div class="po-sd-sidebar-label">MEMORY OPS</div>
+              <div id="po-sd-memory-ops"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="po-graph-tab" class="po-tab-pane">
+      <div id="po-graph-controls">
+        <span id="po-graph-info"></span>
+        <label><input type="checkbox" id="po-graph-labels" checked onchange="kgGraph.toggleLabels(this.checked)"> LABELS</label>
+      </div>
+      <canvas id="po-kg-canvas"></canvas>
+    </div>
+    <div id="po-swarm-tab" class="po-tab-pane" style="flex-direction:row;overflow:hidden;">
+      <div id="po-swarm-list"></div>
+      <div id="po-swarm-detail">
+        <div id="po-swarm-hint" class="po-select-hint">SELECT A SWARM RUN</div>
+        <div id="po-swarm-header" style="display:none;">
+          <div style="font-size:11px;font-weight:700;color:var(--text);font-family:'Azeret Mono',monospace;" id="po-swarm-title"></div>
+          <div style="font-size:9px;color:var(--muted);" id="po-swarm-subtitle"></div>
+        </div>
+        <div id="po-swarm-stats-bar" style="display:none;">
+          <span id="po-swarm-stat-topo"></span>
+          <span id="po-swarm-stat-consensus"></span>
+          <span id="po-swarm-stat-agents"></span>
+          <span id="po-swarm-stat-status"></span>
+          <span id="po-swarm-stat-duration"></span>
+        </div>
+        <div id="po-swarm-body" style="display:none;">
+          <div id="po-swarm-canvas-wrap">
+            <div id="po-swarm-topo-label"></div>
+            <canvas id="po-swarm-canvas"></canvas>
+          </div>
+          <div id="po-swarm-agents-section">
+            <div class="po-sd-sidebar-label">AGENTS (click to inspect)</div>
+            <div id="po-swarm-agent-list"></div>
+          </div>
+          <div id="po-swarm-agent-drawer" style="display:none;">
+            <div id="po-swarm-agent-header">
+              <div id="po-swarm-agent-info"></div>
+              <button id="po-swarm-agent-close" onclick="closeSwarmAgent()">&#10005;</button>
+            </div>
+            <div id="po-swarm-agent-timeline"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="po-chunks-tab" class="po-tab-pane" style="flex-direction:column;overflow:hidden;">
+      <div id="po-chunks-header" style="display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <div style="display:flex;gap:20px;">
+          <div class="know-stat"><div class="know-stat-label">CHUNKS</div><div class="know-stat-val" id="po-chunks-count">—</div></div>
+          <div class="know-stat"><div class="know-stat-label">SKILLS</div><div class="know-stat-val" id="po-skills-count">—</div></div>
+        </div>
+        <input id="po-chunks-search" type="text" placeholder="Filter chunks…" oninput="filterChunks(this.value)"
+          style="flex:1;max-width:320px;background:rgba(0,0,0,0.3);border:1px solid var(--border);color:var(--text);font-family:'Azeret Mono',monospace;font-size:10px;padding:4px 8px;border-radius:3px;outline:none;">
+      </div>
+      <div id="po-chunks-body" style="flex:1;overflow-y:auto;padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;align-content:start;">
+        <div style="color:var(--muted);font-size:10px;">Loading…</div>
+      </div>
+    </div>
+    <div id="po-knowledge-tab" class="po-tab-pane">
+      <div id="po-knowledge-sidebar">
+        <div id="po-knowledge-stats"><div style="color:var(--muted);font-size:10px;">Loading…</div></div>
+      </div>
+      <div id="po-knowledge-canvas-wrap">
+        <div id="po-knowledge-canvas-controls">
+          <span id="po-kg2-info">—</span>
+          <label><input type="checkbox" id="po-kg2-labels" checked onchange="kgCodeGraph.toggleLabels(this.checked)"> LABELS</label>
+        </div>
+        <canvas id="po-kg2-canvas"></canvas>
+      </div>
+      <div id="po-knowledge-main">
+        <div id="po-knowledge-body"><div style="color:var(--muted);font-size:10px;padding:16px;">Loading…</div></div>
+      </div>
+    </div>
+  </div>
+  <!-- Edit memory modal -->
+  <div id="po-edit-modal">
+    <div id="po-edit-box">
+      <div id="po-edit-hdr">
+        <span id="po-edit-title">EDIT MEMORY</span>
+        <button id="po-edit-close" onclick="closeEditModal()">✕</button>
+      </div>
+      <textarea id="po-edit-textarea" spellcheck="false"></textarea>
+      <div id="po-edit-footer">
+        <button class="po-btn po-btn-save" onclick="saveEditedMemory()">SAVE</button>
+        <button class="po-btn po-btn-cancel" onclick="closeEditModal()">CANCEL</button>
+        <span id="po-edit-status"></span>
+      </div>
+    </div>
+  </div>
+  <!-- Template picker modal -->
+  <div id="po-tpl-picker">
+    <div id="po-tpl-box">
+      <div style="display:flex;align-items:center;margin-bottom:4px;">
+        <span style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--text);flex:1;">NEW MEMORY</span>
+        <button onclick="closeTplPicker()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;">✕</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;">Choose a template type</div>
+      <div id="po-tpl-list"></div>
+    </div>
+  </div>
+  <!-- Chunk edit modal -->
+  <div id="po-chunk-edit-modal">
+    <div id="po-edit-box">
+      <div id="po-edit-hdr">
+        <span id="po-chunk-edit-title">EDIT CHUNK</span>
+        <button id="po-edit-close" onclick="closeChunkEditModal()">✕</button>
+      </div>
+      <textarea id="po-chunk-edit-textarea" spellcheck="false"></textarea>
+      <div id="po-edit-footer">
+        <button class="po-btn po-btn-save" onclick="saveEditedChunk()">SAVE</button>
+        <button class="po-btn po-btn-cancel" onclick="closeChunkEditModal()">CANCEL</button>
+        <span id="po-chunk-edit-status"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+<div id="header">
+  <div id="header-left">
+    <h1>MONOMIND CONTROL</h1>
+    <div id="header-meta">
+      <span><span id="conn-dot"></span><span id="conn-label">CONNECTING</span></span>
+    </div>
+  </div>
+  <div id="header-right">
+    <span>PROJECT&nbsp;<span id="project-val">—</span></span>
+    <span>SESSION&nbsp;<span id="session-val">—</span></span>
+    <span>UPTIME&nbsp;<span id="uptime-val">—</span></span>
+    <span id="last-update-label" style="color:var(--muted);font-size:10px;">—</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ GRID ═════════════════════════════ -->
+<div id="grid">
+
+  <!-- ─── ALL PROJECTS ────────────────────────────────────────── -->
+  <div class="panel" id="panel-projects">
+    <div class="panel-header">
+      <div class="panel-title"><span class="live-dot"></span>ALL PROJECTS</div>
+      <span class="panel-badge" id="projects-badge">0</span>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <div id="projects-table">
+        <div class="proj-header">Project</div>
+        <div class="proj-header">Path</div>
+        <div class="proj-header" style="text-align:right">Sessions</div>
+        <div class="proj-header" style="text-align:right">Drawers</div>
+        <div class="proj-header" style="text-align:right">Size</div>
+        <div class="proj-header">Last Active</div>
+        <div class="proj-cell" style="grid-column:1/7;color:var(--muted)">Loading projects…</div>
+      </div>
+      <div id="project-stats-strip"></div>
+    </div>
+  </div>
+
+  <!-- ─── AGENTS ──────────────────────────────────────────────── -->
+  <div class="panel open" id="panel-agents">
+    <div class="panel-header" onclick="togglePanel('panel-agents')">
+      <div class="panel-title"><span class="live-dot green"></span>AGENTS</div>
+      <span class="panel-badge" id="agents-badge">0</span>
+      <span class="panel-chevron">›</span>
+    </div>
+    <div class="panel-body" id="agents-body">
+      <div class="placeholder">NO AGENTS</div>
+    </div>
+  </div>
+
+  <!-- ─── TOKENS ──────────────────────────────────────────────── -->
+  <div class="panel open" id="panel-tokens">
+    <div class="panel-header" onclick="togglePanel('panel-tokens')">
+      <div class="panel-title"><span class="live-dot amber"></span>TOKENS</div>
+      <span class="panel-badge" id="tokens-badge">0</span>
+      <span class="panel-chevron">›</span>
+    </div>
+    <div class="panel-body" id="tokens-body">
+      <div class="token-summary" id="token-summary"></div>
+      <canvas id="tokens-canvas"></canvas>
+    </div>
+  </div>
+
+  <!-- ─── MEMORY PALACE ───────────────────────────────────────── -->
+  <div class="panel open" id="panel-memory">
+    <div class="panel-header" onclick="togglePanel('panel-memory')">
+      <div class="panel-title"><span class="live-dot"></span>MEMORY PALACE</div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <span id="hnsw-indicator"></span>
+        <button onclick="event.stopPropagation();openPalaceOverlay()" style="background:none;border:1px solid rgba(0,229,200,0.3);color:var(--teal);font-family:'Azeret Mono',monospace;font-size:9px;letter-spacing:0.08em;padding:2px 7px;cursor:pointer;border-radius:3px;transition:background 0.15s;" onmouseover="this.style.background='rgba(0,229,200,0.08)'" onmouseout="this.style.background='none'">EXPLORE</button>
+        <span class="panel-badge" id="memory-badge">0</span>
+        <span class="panel-chevron">›</span>
+      </div>
+    </div>
+    <div class="panel-body" id="memory-body">
+      <div class="memory-layout">
+        <div class="memory-left" id="memory-left"></div>
+        <div class="memory-right" id="memory-right"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── HOOKS & ROUTING ─────────────────────────────────────── -->
+  <div class="panel open" id="panel-hooks">
+    <div class="panel-header" onclick="togglePanel('panel-hooks')">
+      <div class="panel-title"><span class="live-dot amber"></span>HOOKS &amp; ROUTING</div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span class="panel-badge" id="hooks-badge">—</span>
+        <span class="panel-chevron">›</span>
+      </div>
+    </div>
+    <div class="panel-body" id="hooks-body">
+      <div class="hooks-layout">
+        <div class="hooks-col" id="hooks-left"></div>
+        <div class="hooks-col" id="hooks-right"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── METRICS ─────────────────────────────────────────────── -->
+  <div class="panel open" id="panel-metrics">
+    <div class="panel-header" onclick="togglePanel('panel-metrics')">
+      <div class="panel-title"><span class="live-dot muted"></span>METRICS</div>
+      <span class="panel-chevron">›</span>
+    </div>
+    <div class="panel-body" id="metrics-body">
+      <div class="placeholder">—</div>
+    </div>
+  </div>
+
+  <!-- ─── ACTIVITY ────────────────────────────────────────────── -->
+  <div class="panel open" id="panel-activity">
+    <div class="panel-header" onclick="togglePanel('panel-activity')">
+      <div class="panel-title"><span class="live-dot"></span>ACTIVITY</div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span class="panel-badge" id="activity-badge">0</span>
+        <span class="panel-chevron">›</span>
+      </div>
+    </div>
+    <div class="panel-body" id="activity-body">
+      <div id="activity-log"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-system">
+    <div class="panel-header" onclick="togglePanel('panel-system')">
+      <div class="panel-title"><span class="live-dot muted"></span>SYSTEM</div>
+      <span class="panel-chevron">›</span>
+    </div>
+    <div class="panel-body" id="system-body">
+      <div class="placeholder">—</div>
+    </div>
+  </div>
+
+
+</div><!-- end #grid -->
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+let appData = null;
+let lastUpdateTime = 0;
+let activityCount = 0;
+const MAX_ACTIVITY = 80;
+
+// Track which panels are currently open (match initial HTML .open classes)
+const expandedPanels = new Set([
+  'panel-projects',
+  'panel-agents', 'panel-tokens', 'panel-activity', 'panel-hooks', 'panel-metrics', 'panel-memory'
+]);
+
+// Section name → panel id mapping
+const SECTION_PANEL = {
+  agents: 'panel-agents',
+  tokens: 'panel-tokens', memory: 'panel-memory', hooks: 'panel-hooks',
+  knowledge: 'panel-memory', metrics: 'panel-metrics', system: 'panel-system',
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// COLLAPSIBLE PANELS
+// ═══════════════════════════════════════════════════════════════════
+window.togglePanel = function(panelId) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+
+  if (expandedPanels.has(panelId)) {
+    // Collapse
+    expandedPanels.delete(panelId);
+    panel.classList.remove('open');
+  } else {
+    // Expand
+    expandedPanels.add(panelId);
+    panel.classList.add('open');
+    // Render from cached data immediately
+    if (appData) {
+      renderPanelById(panelId);
+    }
+  }
+};
+
+function renderPanelById(panelId) {
+  if (!appData) return;
+  switch (panelId) {
+    case 'panel-agents':    renderAgents(appData); break;
+    case 'panel-tokens':    renderTokens(appData); break;
+    case 'panel-memory':    renderMemory(appData); break;
+    case 'panel-hooks':     renderHooks(appData); break;
+    case 'panel-knowledge': renderMemory(appData); break;
+    case 'panel-metrics':   renderMetrics(appData); break;
+    case 'panel-system':    renderSystem(appData); break;
+  }
+}
+
+// Fetch one or more sections from /api/section and re-render them if open
+async function fetchAndRenderSections(sections) {
+  const dir = selectedProjectDir || '';
+  let metricsStale = false;
+  for (const name of sections) {
+    const panelId = SECTION_PANEL[name];
+    // If a data source used by metrics changed, mark metrics for re-render
+    if (['hooks', 'swarm', 'tokens'].includes(name)) metricsStale = true;
+    if (!panelId || !expandedPanels.has(panelId)) continue;
+    try {
+      const url = `/api/section?name=${name}${dir ? '&dir=' + encodeURIComponent(dir) : ''}`;
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const partial = await res.json();
+      if (appData) Object.assign(appData, partial);
+      else appData = partial;
+      renderPanelById(panelId);
+    } catch (e) { /* ignore transient fetch errors */ }
+  }
+  // Re-render metrics panel when its source data changed
+  if (metricsStale && expandedPanels.has('panel-metrics') && appData) {
+    renderMetrics(appData);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════════
+function fmt(v, fallback) {
+  if (v === null || v === undefined || v === '') return fallback || '—';
+  return String(v);
+}
+
+function fmtBytes(b) {
+  if (!b) return '—';
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+function fmtUptime(seconds) {
+  if (!seconds && seconds !== 0) return '—';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) return h + 'h ' + m + 'm';
+  if (m > 0) return m + 'm ' + s + 's';
+  return s + 's';
+}
+
+function fmtAge(mtimeMs) {
+  if (!mtimeMs) return '—';
+  const diff = Date.now() - mtimeMs;
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return s + 's ago';
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + 'm ago';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ago';
+  return Math.floor(h / 24) + 'd ago';
+}
+
+function fmtCost(dollars) {
+  if (dollars === null || dollars === undefined) return '—';
+  if (dollars === 0) return '$0.00';
+  if (dollars < 0.001) return '<$0.001';
+  return '$' + dollars.toFixed(3);
+}
+
+function fmtNum(n) {
+  if (n === null || n === undefined) return '—';
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return String(n);
+}
+
+function now() {
+  const d = new Date();
+  return d.getHours().toString().padStart(2,'0') + ':' +
+         d.getMinutes().toString().padStart(2,'0') + ':' +
+         d.getSeconds().toString().padStart(2,'0');
+}
+
+function flashEl(el) {
+  if (!el) return;
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
+}
+
+function setText(id, value, doFlash) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const str = fmt(value);
+  if (el.textContent !== str) {
+    el.textContent = str;
+    if (doFlash) flashEl(el);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PANEL LIVE STATE
+// ═══════════════════════════════════════════════════════════════════
+function markLive(panelId) {
+  const el = document.getElementById(panelId);
+  if (el) el.classList.add('live');
+}
+
+function updateLiveBorders() {
+  const panelIds = [
+    'panel-agents','panel-tokens',
+    'panel-memory','panel-hooks','panel-metrics',
+    'panel-activity','panel-system'
+  ];
+  const isLive = lastUpdateTime > 0 && (Date.now() - lastUpdateTime) < 5000;
+  panelIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('live', isLive);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// HEADER
+// ═══════════════════════════════════════════════════════════════════
+function updateHeader(data) {
+  const proj = data.project;
+  setText('project-val', proj && proj.name ? proj.name : '—');
+
+  const sys = data.system || {};
+  setText('uptime-val', fmtUptime(sys.uptime));
+
+  // session val = count from sessions
+  const sCount = data.sessions && data.sessions.count != null ? data.sessions.count : 0;
+  setText('session-val', sCount + ' sessions');
+
+  // last update
+  const el = document.getElementById('last-update-label');
+  if (el) el.textContent = 'UPDATED ' + now();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ALL PROJECTS PANEL
+// ═══════════════════════════════════════════════════════════════════
+function formatBytes(b) {
+  if (!b) return '—';
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(0) + ' KB';
+  return (b / (1024 * 1024)).toFixed(1) + ' MB';
+}
+function timeAgo(ms) {
+  if (!ms) return '—';
+  const diff = Date.now() - ms;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return m + 'm ago';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ago';
+  const d = Math.floor(h / 24);
+  return d + 'd ago';
+}
+
+// Track which project dir is currently selected (null = default/server project)
+let selectedProjectDir = null;
+
+async function selectProject(dir) {
+  if (selectedProjectDir === dir) return;
+  selectedProjectDir = dir;
+  _codeGraphLoaded = false; kgCodeGraph.reset();
+  try {
+    const res = await fetch(`/api/data?dir=${encodeURIComponent(dir)}`);
+    const data = await res.json();
+    updateAllPanels(data);
+  } catch (e) {
+    appendActivity(`Failed to load project: ${e.message}`, 'error');
+  }
+}
+
+function renderProjects(data) {
+  const projects = data.allProjects || [];
+  const badge = document.getElementById('projects-badge');
+  if (badge) badge.textContent = projects.length;
+
+  const table = document.getElementById('projects-table');
+  if (!table) return;
+
+  if (!projects.length) {
+    table.innerHTML = '<div class="proj-cell" style="grid-column:1/7;color:var(--muted)">No projects found in ~/.claude/projects/</div>';
+    return;
+  }
+
+  const activeDir = selectedProjectDir || (data.project && data.project.dir);
+  const isCurrent = (p) => p.path === activeDir;
+
+  let html = `
+    <div class="proj-header">Project</div>
+    <div class="proj-header">Path</div>
+    <div class="proj-header" style="text-align:right">Sessions</div>
+    <div class="proj-header" style="text-align:right">Drawers</div>
+    <div class="proj-header" style="text-align:right">Size</div>
+    <div class="proj-header">Last Active</div>
+  `;
+
+  for (const p of projects) {
+    const current = isCurrent(p);
+    const highlight = current ? 'background:rgba(0,229,200,0.08);' : '';
+    const cursor = p.exists ? 'cursor:pointer;' : 'cursor:pointer;opacity:0.6;';
+    const rowClick = `onclick="selectProject('${p.path.replace(/'/g, "\\'")}')"`;
+
+    html += `
+      <div class="proj-cell proj-name" style="${highlight}${cursor}" ${rowClick} title="${p.path}">
+        <span class="proj-exists-dot ${p.exists ? 'on' : 'off'}"></span>
+        ${current ? '<span style="color:var(--teal);margin-right:3px;">▶</span>' : ''}
+        ${p.name}
+      </div>
+      <div class="proj-cell proj-path" style="${highlight}${cursor}" ${rowClick}>${p.path.replace(/\/Users\/[^/]+/, '~')}</div>
+      <div class="proj-cell proj-count" style="${highlight}${cursor};justify-content:flex-end" ${rowClick}>${p.sessionCount}</div>
+      <div class="proj-cell proj-dots" style="${highlight}${cursor};justify-content:flex-end" ${rowClick}>${p.drawerCount || '—'}</div>
+      <div class="proj-cell proj-size" style="${highlight}${cursor};justify-content:flex-end" ${rowClick}>${formatBytes(p.totalSize)}</div>
+      <div class="proj-cell proj-age" style="${highlight}${cursor}" ${rowClick}>${timeAgo(p.lastActivity)}</div>
+    `;
+  }
+
+  table.innerHTML = html;
+}
+
+// SESSIONS PANEL
+// ═══════════════════════════════════════════════════════════════════
+const expandedSessions = new Set();
+
+function renderSessions(data) {
+  const s = data.sessions || {};
+  const list = s.list || [];
+  const palace = s.palace || {};
+
+  const badge = document.getElementById('sessions-badge');
+  if (badge) badge.textContent = list.length;
+
+  const body = document.getElementById('sessions-body');
+  if (!body) return;
+
+  if (!list.length && !palace.count) {
+    body.innerHTML = '<div class="placeholder">NO SESSION DATA</div>';
+    return;
+  }
+
+  let html = '';
+  list.slice(0, 12).forEach(sess => {
+    const safeFile = (sess.file || '').replace(/'/g, "\\'");
+    html += `<div class="session-item" onclick="openSessionDetail('${safeFile}', '${sess.id}')">
+      <span class="live-dot" style="flex-shrink:0;"></span>
+      <span class="session-id" title="${sess.id}">${sess.id.slice(0, 20)}</span>
+      <span class="session-meta">${fmtAge(sess.mtime)}</span>
+      <span class="session-meta">${fmtBytes(sess.size)}</span>
+      <span style="font-size:9px;color:var(--teal);margin-left:2px;">›</span>
+    </div>`;
+  });
+
+  // Palace info
+  html += `<div class="palace-row" style="cursor:pointer;" onclick="openPalaceOverlay()">
+    <span class="palace-label">MEMORY PALACE</span>
+    <span style="display:flex;align-items:center;gap:6px;">
+      <span style="font-size:11px;color:var(--text);font-weight:500;" id="palace-count-anim">${palace.count || 0}</span>
+      <span style="font-size:9px;color:var(--muted);">MEMORIES</span>
+      <span style="font-size:9px;color:var(--teal);letter-spacing:0.06em;">EXPLORE →</span>
+    </span>
+  </div>`;
+
+  body.innerHTML = html;
+}
+
+window.toggleSession = function(id) {
+  if (expandedSessions.has(id)) {
+    expandedSessions.delete(id);
+  } else {
+    expandedSessions.add(id);
+  }
+  if (appData) renderSessions(appData);
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// SESSION DETAIL OVERLAY
+// ═══════════════════════════════════════════════════════════════════
+const CAT_LABELS = { file:'FILE', bash:'BASH', agent:'AGENT', memory:'MEM', web:'WEB', task:'TASK', skill:'SKILL', search:'SEARCH', mcp:'MCP', other:'TOOL' };
+
+window.openSessionDetail = async function(file, id) {
+  const overlay = document.getElementById('session-overlay');
+  overlay.classList.add('open');
+  document.getElementById('sd-title').textContent = 'SESSION ' + id.slice(0, 8) + '…';
+  document.getElementById('sd-subtitle').textContent = file;
+  document.getElementById('sd-timeline').innerHTML = '<div class="placeholder">LOADING…</div>';
+  document.getElementById('sd-tool-breakdown').innerHTML = '';
+  document.getElementById('sd-agent-tree').innerHTML = '';
+  document.getElementById('sd-memory-ops').innerHTML = '';
+
+  try {
+    const res = await fetch(`/api/session?file=${encodeURIComponent(file)}&limit=600`);
+    const { events, total, shown } = await res.json();
+    document.getElementById('sd-subtitle').textContent = `${id} · ${total} entries · showing last ${shown}`;
+    renderSessionDetail(events);
+  } catch (e) {
+    document.getElementById('sd-timeline').innerHTML = `<div class="placeholder" style="color:#EF5350">ERROR: ${e.message}</div>`;
+  }
+};
+
+window.closeSessionDetail = function() {
+  document.getElementById('session-overlay').classList.remove('open');
+};
+
+function renderSessionDetail(events) {
+  // ── Stats ──────────────────────────────────────────────────────
+  const userTurns = events.filter(e => e.kind === 'user').length;
+  const toolEvents = events.filter(e => e.kind === 'tool');
+  const agentEvents = events.filter(e => e.kind === 'tool' && e.cat === 'agent');
+  const memEvents = events.filter(e => e.kind === 'tool' && e.cat === 'memory');
+  setText('sd-stat-turns', `💬 ${userTurns} turns`);
+  setText('sd-stat-tools', `🔧 ${toolEvents.length} tools`);
+  setText('sd-stat-agents', `🤖 ${agentEvents.length} agents`);
+  setText('sd-stat-mem', `🧠 ${memEvents.length} memory`);
+
+  // ── Tool breakdown sidebar ─────────────────────────────────────
+  const catCounts = {};
+  for (const e of toolEvents) catCounts[e.cat] = (catCounts[e.cat] || 0) + 1;
+  const breakdown = document.getElementById('sd-tool-breakdown');
+  breakdown.innerHTML = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).map(([cat, count]) =>
+    `<span class="tool-chip cat-${cat}"><span class="tool-chip-count">${count}</span><span>${CAT_LABELS[cat]||cat}</span></span>`
+  ).join('') || '<span style="font-size:10px;color:var(--muted)">None</span>';
+
+  // ── Agent tree sidebar ─────────────────────────────────────────
+  const agentTree = document.getElementById('sd-agent-tree');
+  agentTree.innerHTML = agentEvents.map(e =>
+    `<div class="agent-node"><div class="agent-node-dot"></div><span style="color:#B078FF;font-size:9px;font-weight:700;margin-right:4px">${e.subagent || '?'}</span><span style="color:var(--muted)">${e.label.replace(/^→\s*/,'').slice(0,40)}</span>${e.background ? '<span style="font-size:9px;color:#555;margin-left:auto">bg</span>' : ''}</div>`
+  ).join('') || '<span style="font-size:10px;color:var(--muted)">No agents spawned</span>';
+
+  // ── Memory ops sidebar ─────────────────────────────────────────
+  const memOpEl = document.getElementById('sd-memory-ops');
+  memOpEl.innerHTML = memEvents.slice(0, 20).map(e =>
+    `<div class="memory-op"><span style="color:#FFD700;font-size:9px">${e.name.replace('mcp__monobrain__','').slice(0,20)}</span><span>${e.label.replace(/^mem:/,'').slice(0,30)}</span></div>`
+  ).join('') || '<span style="font-size:10px;color:var(--muted)">None</span>';
+
+  // ── Timeline ───────────────────────────────────────────────────
+  const timeline = document.getElementById('sd-timeline');
+  const frags = [];
+  // group tool + its result together
+  const usedResultIdx = new Set();
+
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i];
+
+    if (e.kind === 'user') {
+      frags.push(`<div class="ev ev-user">${esc(e.text)}</div>`);
+    } else if (e.kind === 'thinking') {
+      frags.push(`<div class="ev ev-thinking">${esc(e.text.slice(0,120))}${e.text.length>120?'…':''}</div>`);
+    } else if (e.kind === 'text') {
+      frags.push(`<div class="ev ev-text">${esc(e.text)}</div>`);
+    } else if (e.kind === 'tool') {
+      if (e.cat === 'agent') {
+        frags.push(`<div class="ev-agent-spawn">
+          <div class="ev-agent-spawn-header">
+            <span class="ev-agent-type">${e.subagent || 'AGENT'}</span>
+            <span class="ev-agent-label">${esc(e.label.replace(/^→\s*/,''))}</span>
+            ${e.background ? '<span class="ev-agent-bg">⬡ background</span>' : ''}
+            ${e.ts ? `<span class="ev-tool-ts">${fmtTime(e.ts)}</span>` : ''}
+          </div>
+        </div>`);
+      } else {
+        // find matching result
+        let resultHtml = '';
+        for (let j = i+1; j < Math.min(i+8, events.length); j++) {
+          const r = events[j];
+          if (r.kind === 'tool_result' && r.tool_use_id === e.id && !usedResultIdx.has(j)) {
+            usedResultIdx.add(j);
+            const cls = r.isError ? ' error' : '';
+            resultHtml = `<div class="ev-tool-result${cls}">${esc(r.text.slice(0,300))}</div>`;
+            break;
+          }
+        }
+        frags.push(`<div class="ev-tool">
+          <span class="ev-tool-badge cat-${e.cat}">${CAT_LABELS[e.cat]||e.cat}</span>
+          <span class="ev-tool-label" title="${esc(e.label)}">${esc(e.label)}</span>
+          ${e.ts ? `<span class="ev-tool-ts">${fmtTime(e.ts)}</span>` : ''}
+        </div>${resultHtml}`);
+      }
+    }
+    // standalone tool results already embedded above are skipped via usedResultIdx
+  }
+
+  timeline.innerHTML = frags.join('');
+  timeline.scrollTop = timeline.scrollHeight;
+}
+
+function fmtTime(ts) {
+  if (!ts) return '';
+  try { return new Date(ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}); } catch { return ''; }
+}
+
+function esc(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// AGENTS PANEL
+// ═══════════════════════════════════════════════════════════════════
+function renderAgents(data) {
+  const a = data.agents || {};
+  const regs = a.registrations || [];
+  // Prefer registry agents (rich data: slug, name, category) over minimal registrations
+  const registryAgents = (a.registry && a.registry.agents) ? a.registry.agents : [];
+  const displayAgents = registryAgents.length ? registryAgents : regs;
+  const totalCount = (a.registry && a.registry.totalAgents) || regs.length || 0;
+
+  const badge = document.getElementById('agents-badge');
+  if (badge) badge.textContent = totalCount;
+
+  const body = document.getElementById('agents-body');
+  if (!body) return;
+
+  if (!displayAgents.length) {
+    body.innerHTML = '<div class="placeholder">NO REGISTERED AGENTS</div>';
+    return;
+  }
+
+  let html = '<div class="agent-grid">';
+  displayAgents.slice(0, 16).forEach(agent => {
+    if (!agent) return;
+    const status = agent.status || 'idle';
+    const isActive = status === 'active' || status === 'running';
+    const isIdle = status === 'idle' || status === 'waiting';
+    const dotClass = isActive ? '' : isIdle ? 'amber' : 'muted';
+    const name = agent.slug || agent.name || agent.id || '?';
+    const type = agent.category || agent.agentType || agent.type || '';
+    const activity = agent.capabilities && agent.capabilities[0] ? agent.capabilities[0] : (agent.lastActivity || status);
+
+    html += `<div class="agent-card">
+      <div class="agent-card-top">
+        <span class="live-dot ${dotClass}"></span>
+        <span class="agent-name" title="${name}">${name.slice(0,18)}</span>
+      </div>
+      <div class="agent-type">${type.slice(0,20)}</div>
+      <div class="agent-activity" title="${activity}">${activity ? activity.slice(0,30) : status}</div>
+    </div>`;
+  });
+  html += '</div>';
+  body.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TOKENS PANEL + CANVAS BAR CHART
+// ═══════════════════════════════════════════════════════════════════
+let tokensBarData = [];
+let tokensBarAnimPct = 0;
+let tokensBarRAF = null;
+
+function renderTokens(data) {
+  const t = data.tokens || {};
+  const summary = t.summary || {};
+  const sessions = t.sessions || [];
+
+  const todayCost    = summary.todayCost  ?? (summary.today?.cost ?? null);
+  const todayCalls   = summary.todayCalls ?? null;
+  const monthlyCost  = summary.monthlyCost ?? summary.monthCost ?? (summary.monthly?.cost ?? null);
+  const monthlyCalls = summary.monthCalls  ?? summary.monthlyCalls ?? null;
+
+  // All-time: sum sessions if available, else fall back to monthly
+  let allTimeCost  = summary.allTimeCost  ?? summary.totalCost  ?? null;
+  let allTimeCalls = summary.allTimeCalls ?? summary.totalCalls ?? null;
+  if (allTimeCost == null && sessions.length > 0) {
+    allTimeCost  = sessions.reduce((s, x) => s + (x.cost || x.totalCost || 0), 0);
+    allTimeCalls = sessions.reduce((s, x) => s + (x.calls || x.callCount || 0), 0);
+  }
+  // Last resort: use monthly as best available approximation
+  if (allTimeCost  == null) allTimeCost  = monthlyCost;
+  if (allTimeCalls == null) allTimeCalls = monthlyCalls;
+
+  const summaryEl = document.getElementById('token-summary');
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <div class="token-stat">
+        <div class="token-stat-label">DAILY</div>
+        <div class="token-stat-val">${fmtCost(todayCost)}</div>
+        ${todayCalls != null ? `<div style="font-size:9px;color:var(--muted);margin-top:2px;">${fmtNum(todayCalls)} calls</div>` : ''}
+      </div>
+      <div class="token-stat">
+        <div class="token-stat-label">MONTHLY</div>
+        <div class="token-stat-val">${fmtCost(monthlyCost)}</div>
+        ${monthlyCalls != null ? `<div style="font-size:9px;color:var(--muted);margin-top:2px;">${fmtNum(monthlyCalls)} calls</div>` : ''}
+      </div>
+      <div class="token-stat">
+        <div class="token-stat-label">ALL TIME $</div>
+        <div class="token-stat-val">${fmtCost(allTimeCost)}</div>
+      </div>
+      <div class="token-stat">
+        <div class="token-stat-label">ALL TIME CALLS</div>
+        <div class="token-stat-val">${fmtNum(allTimeCalls) || '—'}</div>
+      </div>
+    `;
+  }
+
+  const badge = document.getElementById('tokens-badge');
+  if (badge) badge.textContent = todayCost != null ? fmtCost(todayCost) : '—';
+}
+
+function animateTokenBars() {
+  tokensBarAnimPct = Math.min(1, tokensBarAnimPct + 0.06);
+  drawTokenBars(tokensBarAnimPct);
+  if (tokensBarAnimPct < 1) {
+    tokensBarRAF = requestAnimationFrame(animateTokenBars);
+  }
+}
+
+function drawTokenBars(pct) {
+  const canvas = document.getElementById('tokens-canvas');
+  if (!canvas) return;
+  const body = document.getElementById('tokens-body');
+  const availH = body ? body.clientHeight - 64 : 80;
+  canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+  canvas.height = Math.max(50, availH) * window.devicePixelRatio;
+  canvas.style.height = Math.max(50, availH) + 'px';
+  const dpr = window.devicePixelRatio;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const W = canvas.width;
+  const H = canvas.height;
+  const d = tokensBarData;
+  if (!d || !d.length) {
+    ctx.fillStyle = 'rgba(58,58,90,0.4)';
+    ctx.font = `${10 * dpr}px "Azeret Mono", monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText('NO TOKEN DATA', W / 2, H / 2);
+    return;
+  }
+
+  const padL = 6 * dpr, padR = 6 * dpr, padT = 6 * dpr, padB = 22 * dpr;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const maxVal = Math.max(...d.map(b => b.value), 0.0001);
+  const barW = chartW / d.length;
+  const gap = barW * 0.2;
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(58,58,90,0.35)';
+  ctx.lineWidth = dpr;
+  for (let i = 0; i <= 3; i++) {
+    const y = padT + chartH - (i / 3) * chartH;
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(W - padR, y);
+    ctx.stroke();
+  }
+
+  // Bars
+  d.forEach((bar, i) => {
+    const x = padL + i * barW + gap / 2;
+    const w = barW - gap;
+    const frac = maxVal > 0 ? (bar.value / maxVal) * pct : 0;
+    const barH = Math.max(2 * dpr, frac * chartH);
+    const y = padT + chartH - barH;
+
+    // Bar fill
+    const grad = ctx.createLinearGradient(0, y, 0, padT + chartH);
+    grad.addColorStop(0, 'rgba(0,229,200,0.85)');
+    grad.addColorStop(1, 'rgba(0,229,200,0.2)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, barH, [2 * dpr, 2 * dpr, 0, 0]);
+    ctx.fill();
+
+    // Top cap glow
+    ctx.fillStyle = 'rgba(0,229,200,0.5)';
+    ctx.fillRect(x, y, w, 2 * dpr);
+
+    // Label
+    ctx.fillStyle = 'rgba(58,58,90,0.9)';
+    ctx.font = `${9 * dpr}px "Azeret Mono", monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(bar.label, x + w / 2, H - 4 * dpr);
+
+    // Value above bar
+    if (pct > 0.7 && bar.value > 0) {
+      ctx.fillStyle = 'rgba(192,192,212,0.7)';
+      ctx.font = `${8 * dpr}px "Azeret Mono", monospace`;
+      ctx.textAlign = 'center';
+      const valStr = bar.value < 0.001 ? '<0.001' : bar.value.toFixed(3);
+      ctx.fillText('$' + valStr, x + w / 2, y - 3 * dpr);
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SWARM TOPOLOGY CANVAS — force-directed graph
+// ═══════════════════════════════════════════════════════════════════
+const swarm = {
+  nodes: [],
+  edges: [],
+  animRAF: null,
+  lastNodes: 0
+};
+
+function buildSwarmGraph(data) {
+  const sw = data.swarm || {};
+  const state = sw.state || {};
+  const activity = sw.activity || {};
+  const config = sw.config || {};
+  const suggestion = sw.suggestion || {};
+  const agents = data.agents || {};
+  const regs = agents.registrations || [];
+
+  // A "live" swarm requires real topology state, not just bare agent registrations
+  const hasLiveSwarm = !!(state.id || state.swarmId || state.active);
+  const activitySwarm = activity.swarm || {};
+  const hasActivity = !!(activitySwarm.agent_count);
+
+  // Update swarm meta — prefer live state, fall back to suggestion/activity
+  const meta = document.getElementById('swarm-meta');
+  if (meta) {
+    const topology = config.topology || state.topology || suggestion.topology || '—';
+    const consensus = config.consensus || state.consensus || suggestion.consensus || '—';
+    const score = suggestion.score != null ? suggestion.score + '/7' : null;
+    const lastRun = activity.timestamp ? fmtAge(new Date(activity.timestamp).getTime()) : null;
+    meta.innerHTML = `
+      <div class="swarm-row">
+        <span class="swarm-key">TOPOLOGY</span>
+        <span class="swarm-val">${fmt(topology).toUpperCase()}</span>
+      </div>
+      <div class="swarm-row">
+        <span class="swarm-key">CONSENSUS</span>
+        <span class="swarm-val">${fmt(consensus).toUpperCase()}</span>
+      </div>
+      <div class="swarm-row">
+        <span class="swarm-key">STATUS</span>
+        <span class="swarm-val" style="color:${hasLiveSwarm ? 'var(--green)' : 'var(--muted)'}">${hasLiveSwarm ? 'ACTIVE' : 'IDLE'}</span>
+      </div>
+      ${score ? `<div class="swarm-row"><span class="swarm-key">COMPLEXITY</span><span class="swarm-val">${escHtml(score)}</span></div>` : ''}
+      ${lastRun ? `<div class="swarm-row"><span class="swarm-key">LAST RUN</span><span class="swarm-val" style="color:var(--muted)">${escHtml(lastRun)}</span></div>` : ''}
+    `;
+  }
+
+  const badge = document.getElementById('swarm-agents-badge');
+
+  const canvas = document.getElementById('swarm-canvas');
+  if (!canvas) return;
+
+  if (!hasLiveSwarm) {
+    if (badge) badge.textContent = activitySwarm.agent_count || regs.length || '0';
+    if (swarm.animRAF) { cancelAnimationFrame(swarm.animRAF); swarm.animRAF = null; }
+    // Draw static summary canvas
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+    canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const dpr = window.devicePixelRatio;
+    const CW = canvas.width, CH = canvas.height;
+    // Grid
+    const step = 20 * dpr;
+    ctx.strokeStyle = 'rgba(58,58,90,0.20)';
+    ctx.lineWidth = dpr * 0.5;
+    for (let gx = 0; gx <= CW; gx += step) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,CH); ctx.stroke(); }
+    for (let gy = 0; gy <= CH; gy += step) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(CW,gy); ctx.stroke(); }
+    // Draw a representative static mini-topology based on suggestion
+    const consensus = (suggestion.consensus || 'hierarchical').toLowerCase();
+    const totalAgents = activitySwarm.agent_count || regs.length || 0;
+    const nodeCount = Math.min(8, Math.max(3, totalAgents > 0 ? 7 : 3));
+    const cx = CW / 2, cy = CH / 2;
+    const r = Math.min(CW, CH) * 0.32;
+    // Draw edges first
+    ctx.strokeStyle = 'rgba(0,229,200,0.12)';
+    ctx.lineWidth = dpr;
+    const positions = [];
+    for (let i = 0; i < nodeCount; i++) {
+      const angle = (i / nodeCount) * Math.PI * 2 - Math.PI / 2;
+      positions.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
+    }
+    if (consensus === 'byzantine' || consensus === 'mesh') {
+      // Mesh: connect each to next 2
+      for (let i = 0; i < nodeCount; i++) {
+        for (let j = i+1; j <= i+2 && j < nodeCount; j++) {
+          ctx.beginPath(); ctx.moveTo(positions[i][0], positions[i][1]); ctx.lineTo(positions[j][0], positions[j][1]); ctx.stroke();
+        }
+      }
+    } else {
+      // Hierarchical: center node connects to all
+      for (let i = 0; i < nodeCount; i++) {
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(positions[i][0], positions[i][1]); ctx.stroke();
+      }
+    }
+    // Draw outer nodes
+    for (let i = 0; i < nodeCount; i++) {
+      const [nx, ny] = positions[i];
+      ctx.beginPath();
+      ctx.arc(nx, ny, 5 * dpr, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,229,200,0.35)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,229,200,0.6)';
+      ctx.lineWidth = dpr;
+      ctx.stroke();
+    }
+    // Center node (coordinator)
+    if (consensus !== 'mesh') {
+      ctx.beginPath();
+      ctx.arc(cx, cy, 7 * dpr, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,229,200,0.6)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,229,200,1)';
+      ctx.lineWidth = dpr * 1.5;
+      ctx.stroke();
+    }
+    // Label
+    ctx.fillStyle = 'rgba(100,100,140,0.8)';
+    ctx.font = `500 ${9 * dpr}px "Syne Mono", monospace`;
+    ctx.textAlign = 'center';
+    const label = totalAgents > 0
+      ? `LAST SWARM · ${totalAgents} AGENTS`
+      : 'NO SWARM HISTORY';
+    ctx.fillText(label, CW / 2, CH - 10 * dpr);
+    return;
+  }
+
+  // Live swarm: build nodes from state.agents
+  const agentList = (state.agents || []).slice(0, 40);
+  if (badge) badge.textContent = agentList.length;
+
+  // Only rebuild physics nodes if count changed
+  if (agentList.length !== swarm.lastNodes) {
+    swarm.lastNodes = agentList.length;
+    const cx = 0.5, cy = 0.5;
+    swarm.nodes = agentList.map((a, i) => {
+      const angle = (i / Math.max(agentList.length, 1)) * Math.PI * 2;
+      const r = 0.3;
+      return {
+        id: a ? (a.id || a.name || String(i)) : String(i),
+        label: a ? (a.name || a.type || a.id || '?').slice(0,8) : '?',
+        type: a ? (a.type || a.agentType || '') : '',
+        status: a ? (a.status || 'unknown') : 'unknown',
+        x: cx + r * Math.cos(angle) + (Math.random() - 0.5) * 0.05,
+        y: cy + r * Math.sin(angle) + (Math.random() - 0.5) * 0.05,
+        vx: 0, vy: 0
+      };
+    });
+
+    // Add coordinator node if swarm active
+    if (state.id || state.active) {
+      swarm.nodes.unshift({
+        id: '__coord__',
+        label: 'COORD',
+        type: 'coordinator',
+        status: 'active',
+        x: cx, y: cy, vx: 0, vy: 0, isCoord: true
+      });
+    }
+
+    // Edges: connect all agents to coordinator
+    swarm.edges = [];
+    if (swarm.nodes.length > 1) {
+      const coordIdx = swarm.nodes.findIndex(n => n.isCoord);
+      if (coordIdx >= 0) {
+        swarm.nodes.forEach((n, i) => {
+          if (i !== coordIdx) swarm.edges.push([coordIdx, i]);
+        });
+      } else {
+        // mesh-style
+        for (let i = 0; i < Math.min(swarm.nodes.length, 6); i++) {
+          swarm.edges.push([i, (i + 1) % swarm.nodes.length]);
+        }
+      }
+    }
+  }
+
+  // Start animation loop
+  if (!swarm.animRAF) {
+    swarmAnimate();
+  }
+}
+
+function swarmPhysics() {
+  const nodes = swarm.nodes;
+  if (!nodes || nodes.length < 2) return;
+
+  const repulse = 0.0008;
+  const attract = 0.0015;
+  const damp = 0.88;
+  const restLen = 0.22;
+
+  // Repulsion
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const dx = nodes[j].x - nodes[i].x;
+      const dy = nodes[j].y - nodes[i].y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
+      const force = repulse / (dist * dist);
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
+      nodes[i].vx -= fx;
+      nodes[i].vy -= fy;
+      nodes[j].vx += fx;
+      nodes[j].vy += fy;
+    }
+  }
+
+  // Spring attraction along edges
+  swarm.edges.forEach(([a, b]) => {
+    if (!nodes[a] || !nodes[b]) return;
+    const dx = nodes[b].x - nodes[a].x;
+    const dy = nodes[b].y - nodes[a].y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
+    const stretch = dist - restLen;
+    const force = attract * stretch;
+    const fx = (dx / dist) * force;
+    const fy = (dy / dist) * force;
+    nodes[a].vx += fx;
+    nodes[a].vy += fy;
+    nodes[b].vx -= fx;
+    nodes[b].vy -= fy;
+  });
+
+  // Center gravity
+  nodes.forEach(n => {
+    n.vx += (0.5 - n.x) * 0.001;
+    n.vy += (0.5 - n.y) * 0.001;
+  });
+
+  // Integrate + damp + clamp
+  nodes.forEach(n => {
+    n.vx *= damp;
+    n.vy *= damp;
+    n.x += n.vx;
+    n.y += n.vy;
+    n.x = Math.max(0.05, Math.min(0.95, n.x));
+    n.y = Math.max(0.05, Math.min(0.95, n.y));
+  });
+}
+
+function swarmAnimate() {
+  swarm.animRAF = null; // main swarm panel removed; animation disabled
+}
+
+function swarmDraw() {
+  const canvas = document.getElementById('swarm-canvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio;
+  const W = canvas.offsetWidth * dpr;
+  const H = canvas.offsetHeight * dpr;
+  if (W <= 0 || H <= 0) return;
+  if (canvas.width !== W || canvas.height !== H) {
+    canvas.width = W;
+    canvas.height = H;
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const nodes = swarm.nodes;
+  if (!nodes || !nodes.length) return;
+
+  const tw = W / dpr, th = H / dpr;
+
+  // Draw edges
+  swarm.edges.forEach(([a, b]) => {
+    if (!nodes[a] || !nodes[b]) return;
+    const x1 = nodes[a].x * W;
+    const y1 = nodes[a].y * H;
+    const x2 = nodes[b].x * W;
+    const y2 = nodes[b].y * H;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle = 'rgba(0,229,200,0.15)';
+    ctx.lineWidth = dpr;
+    ctx.stroke();
+  });
+
+  // Draw nodes
+  nodes.forEach(n => {
+    const x = n.x * W;
+    const y = n.y * H;
+    const r = n.isCoord ? 7 * dpr : 5 * dpr;
+    const isActive = n.status === 'active' || n.status === 'running';
+    const isIdle = n.status === 'idle';
+    const color = n.isCoord ? '#00E5C8' : isActive ? '#00E5C8' : isIdle ? '#FFB700' : '#3A3A5A';
+
+    // Glow
+    if (isActive || n.isCoord) {
+      const grd = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
+      grd.addColorStop(0, 'rgba(0,229,200,0.25)');
+      grd.addColorStop(1, 'rgba(0,229,200,0)');
+      ctx.beginPath();
+      ctx.arc(x, y, r * 3, 0, Math.PI * 2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+    }
+
+    // Circle
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    if (n.isCoord) {
+      ctx.strokeStyle = 'rgba(0,229,200,0.8)';
+      ctx.lineWidth = dpr;
+      ctx.stroke();
+    }
+
+    // Label
+    ctx.fillStyle = 'rgba(192,192,212,0.75)';
+    ctx.font = `${7 * dpr}px "Azeret Mono", monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(n.label, x, y + r + 8 * dpr);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MEMORY PALACE PANEL
+// ═══════════════════════════════════════════════════════════════════
+const MEM_COLORS = { user: '#7B8EFF', feedback: '#FFB347', project: '#00E5C8', reference: '#B47BFF', handoff: '#FF6B9D' };
+const MEM_TYPE_ORDER = ['handoff', 'user', 'feedback', 'project', 'reference'];
+
+function renderMemoryFiles(files) {
+  const left = document.getElementById('memory-left');
+  if (!left) return;
+  const byType = {};
+  (files || []).forEach(f => {
+    const t = f.type || 'project';
+    if (!byType[t]) byType[t] = [];
+    byType[t].push(f);
+  });
+  const typesSorted = [...MEM_TYPE_ORDER.filter(t => byType[t]), ...Object.keys(byType).filter(t => !MEM_TYPE_ORDER.includes(t))];
+  let leftHtml = '<div class="section-label">MEMORIES</div>';
+  if (!files || !files.length) {
+    leftHtml += '<div style="color:var(--muted);font-size:10px;padding:4px 0;">No memory files found</div>';
+  } else {
+    typesSorted.forEach(type => {
+      const color = MEM_COLORS[type] || 'var(--muted)';
+      byType[type].forEach(m => {
+        leftHtml += `<div class="drawer-item" style="cursor:pointer;" onclick="openPalaceOverlay()">
+          <div class="drawer-top">
+            <span style="font-size:8px;font-family:monospace;color:${color};background:${color}22;padding:1px 5px;border-radius:2px;letter-spacing:0.06em;white-space:nowrap">${escHtml(type.toUpperCase())}</span>
+            <span class="drawer-wing" style="flex:1;padding-left:6px">${escHtml(m.name)}</span>
+          </div>
+          ${m.description ? `<div class="drawer-content">${escHtml(m.description)}</div>` : ''}
+        </div>`;
+      });
+    });
+  }
+  left.innerHTML = leftHtml;
+
+  const badge = document.getElementById('memory-badge');
+  if (badge) { badge.textContent = (files || []).length; flashEl(badge); }
+
+  // Update BY TYPE in right panel if already rendered
+  const right = document.getElementById('memory-right');
+  if (right) {
+    const byTypeEl = right.querySelector('[data-by-type]');
+    if (byTypeEl) {
+      let html = '';
+      if (!files || !files.length) {
+        html = '<div style="color:var(--muted);font-size:10px;padding:4px 0;">—</div>';
+      } else {
+        typesSorted.forEach(type => {
+          const color = MEM_COLORS[type] || 'var(--muted)';
+          html += `<div class="mem-stat-row"><span class="mem-stat-key" style="color:${color}">${escHtml(type.toUpperCase())}</span><span class="mem-stat-val">${(byType[type]||[]).length}</span></div>`;
+        });
+      }
+      byTypeEl.innerHTML = html;
+    }
+  }
+}
+
+function renderMemory(data) {
+  const mem = data.memory || {};
+
+  const hnswEl = document.getElementById('hnsw-indicator');
+  if (hnswEl) {
+    hnswEl.innerHTML = mem.hnsw ? '<span class="hnsw-badge"><span class="live-dot amber" style="width:5px;height:5px;"></span>HNSW</span>' : '';
+  }
+
+  const left = document.getElementById('memory-left');
+  const right = document.getElementById('memory-right');
+  if (!left || !right) return;
+
+  // Left: fetch memory files directly from endpoint (works regardless of server version)
+  left.innerHTML = '<div class="section-label">MEMORIES</div><div style="color:var(--dim);font-size:10px;padding:4px 0;">Loading…</div>';
+  const dir = selectedProjectDir || '';
+  fetch(`/api/memory-files${dir ? '?dir=' + encodeURIComponent(dir) : ''}`)
+    .then(r => r.ok ? r.json() : { memories: [] })
+    .then(d => renderMemoryFiles(d.memories || []))
+    .catch(() => renderMemoryFiles([]));
+
+  // Right: storage stats + type counts placeholder
+  let rightHtml = '<div class="section-label">STORAGE</div>';
+  const dbTitle = mem.dbPath ? `title="${escHtml(mem.dbPath)}"` : '';
+  rightHtml += `<div class="mem-stat-row" ${dbTitle}><span class="mem-stat-key">DB SIZE</span><span class="mem-stat-val" style="color:${mem.dbSize ? 'var(--text)' : 'var(--muted)'}">${mem.dbSize ? fmtBytes(mem.dbSize) : '—'}</span></div>`;
+  rightHtml += `<div class="mem-stat-row" style="margin-top:4px;"><span class="mem-stat-key">HNSW INDEX</span><span class="mem-stat-val" style="color:${mem.hnsw ? 'var(--green)' : 'var(--muted)'}">${mem.hnsw ? 'PRESENT' : 'ABSENT'}</span></div>`;
+  rightHtml += '<div class="section-label" style="margin-top:10px;">RUVECTOR</div>';
+  rightHtml += `<div class="mem-stat-row"><span class="mem-stat-key">DB SIZE</span><span class="mem-stat-val" style="color:${mem.ruvectorExists ? 'var(--text)' : 'var(--muted)'}">${mem.ruvectorExists ? fmtBytes(mem.ruvectorSize) : '—'}</span></div>`;
+  rightHtml += `<div class="mem-stat-row" style="margin-top:4px;"><span class="mem-stat-key">PATTERNS</span><span class="mem-stat-val" style="color:${mem.ruvectorPatterns ? 'var(--teal)' : 'var(--muted)'}">${mem.ruvectorPatterns || '—'}</span></div>`;
+  rightHtml += '<div class="section-label" style="margin-top:10px;">BY TYPE</div><div data-by-type>—</div>';
+
+  // Knowledge section integrated into Memory Palace
+  const k = data.knowledge || {};
+  const kChunks = k.chunks || 0;
+  const kSkills = k.skills || 0;
+  const kRecent = k.recent || [];
+  rightHtml += '<div class="section-label" style="margin-top:10px;">KNOWLEDGE</div>';
+  rightHtml += `<div class="mem-stat-row"><span class="mem-stat-key">CHUNKS</span><span class="mem-stat-val" style="color:${kChunks ? 'var(--teal)' : 'var(--muted)'}">${kChunks || '—'}</span></div>`;
+  rightHtml += `<div class="mem-stat-row" style="margin-top:3px;"><span class="mem-stat-key">SKILLS</span><span class="mem-stat-val" style="color:${kSkills ? 'var(--text)' : 'var(--muted)'}">${kSkills || '—'}</span></div>`;
+  if (kRecent.length) {
+    rightHtml += '<div style="margin-top:6px;">';
+    kRecent.slice(0,3).forEach(c => {
+      if (!c) return;
+      const text = c.content || c.text || c.chunk || c.value || '';
+      if (!text) return;
+      rightHtml += `<div class="chunk-preview" title="${escHtml(String(text))}">${escHtml(String(text).slice(0,55))}</div>`;
+    });
+    rightHtml += '</div>';
+  }
+
+  right.innerHTML = rightHtml;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// HOOKS & ROUTING PANEL
+// ═══════════════════════════════════════════════════════════════════
+function renderHooks(data) {
+  const h = data.hooks || {};
+  const lastRoute = h.lastRoute || {};
+  const feedback = h.feedback || [];
+  const workers = h.workerDispatch || [];
+
+  const badge = document.getElementById('hooks-badge');
+  if (badge) badge.textContent = feedback.length || '—';
+
+  const left = document.getElementById('hooks-left');
+  const right = document.getElementById('hooks-right');
+  if (!left || !right) return;
+
+  // Left: last route — actual fields: agent, confidence, reason, semanticRouting, updatedAt
+  let leftHtml = '<div class="section-label">LAST ROUTE</div>';
+  const routeAgent = lastRoute.agent || lastRoute.suggestedAgent || null;
+  if (routeAgent) {
+    const conf = lastRoute.confidence != null ? Math.round(lastRoute.confidence * 100) + '%' : null;
+    const reason = lastRoute.reason || null;
+    const mode = lastRoute.semanticRouting ? 'semantic' : 'pattern';
+    const age = lastRoute.updatedAt ? fmtAge(new Date(lastRoute.updatedAt).getTime()) : null;
+    leftHtml += `<div class="route-block">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+        <span class="route-agent-tag" style="font-size:10px;padding:2px 8px;">${escHtml(routeAgent)}</span>
+        ${conf ? `<span style="font-size:11px;color:var(--teal);font-weight:600;">${conf}</span>` : ''}
+        <span style="font-size:9px;color:var(--dim);margin-left:auto;">${escHtml(mode)}</span>
+      </div>
+      ${reason ? `<div class="route-task-text" style="color:var(--muted);font-size:9px;">${escHtml(reason.slice(0,100))}</div>` : ''}
+      ${age ? `<div style="font-size:9px;color:var(--dim);margin-top:4px;">${escHtml(age)}</div>` : ''}
+    </div>`;
+  } else {
+    leftHtml += '<div style="color:var(--muted);font-size:10px;padding:4px 0;">Run a task to see routing</div>';
+  }
+
+  leftHtml += '<div class="section-label" style="margin-top:7px;">WORKERS DISPATCHED</div>';
+  if (!workers.length) {
+    leftHtml += '<div style="color:var(--muted);font-size:10px;padding:4px 0;">None dispatched yet</div>';
+  } else {
+    leftHtml += '<div style="display:flex;flex-wrap:wrap;">';
+    workers.slice(0,12).forEach(w => {
+      leftHtml += `<span class="worker-tag">${escHtml(String(w).slice(0,18))}</span>`;
+    });
+    leftHtml += '</div>';
+  }
+  left.innerHTML = leftHtml;
+
+  // Right: routing history — actual fields: suggestedAgent, confidence, sessionId, timestamp
+  let rightHtml = '<div class="section-label">ROUTING HISTORY</div>';
+  if (!feedback.length) {
+    rightHtml += '<div style="color:var(--muted);font-size:10px;padding:4px 0;">No history yet</div>';
+  } else {
+    [...feedback].reverse().forEach(fb => {
+      if (!fb) return;
+      const agent = fb.suggestedAgent || fb.agent || '?';
+      const conf = fb.confidence != null ? Math.round(fb.confidence * 100) + '%' : '';
+      const ts = fb.timestamp ? fmtAge(new Date(fb.timestamp).getTime()) : '';
+      rightHtml += `<div class="feedback-item">
+        <span class="route-agent-tag" style="font-size:9px;">${escHtml(agent.slice(0,16))}</span>
+        ${conf ? `<span style="font-size:9px;color:var(--teal);font-weight:600;">${conf}</span>` : ''}
+        <span style="font-size:9px;color:var(--dim);margin-left:auto;">${escHtml(ts)}</span>
+      </div>`;
+    });
+  }
+  right.innerHTML = rightHtml;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// KNOWLEDGE PANEL
+// ═══════════════════════════════════════════════════════════════════
+function renderKnowledge(data) {
+  const k = data.knowledge || {};
+  const chunks = k.chunks || 0;
+  const skills = k.skills || 0;
+  const recent = k.recent || [];
+
+  const badge = document.getElementById('knowledge-badge');
+  if (badge) badge.textContent = chunks;
+
+  const body = document.getElementById('knowledge-body');
+  if (!body) return;
+
+  let html = '<div class="knowledge-counts">';
+  html += `<div class="know-stat"><div class="know-stat-label">CHUNKS</div><div class="know-stat-val">${fmtNum(chunks)}</div></div>`;
+  html += `<div class="know-stat"><div class="know-stat-label">SKILLS</div><div class="know-stat-val">${fmtNum(skills)}</div></div>`;
+  html += '</div>';
+
+  if (recent.length) {
+    html += '<div class="section-label">RECENT CHUNKS</div>';
+    recent.forEach(c => {
+      if (!c) return;
+      const text = c.content || c.text || c.chunk || c.value || JSON.stringify(c).slice(0, 60);
+      html += `<div class="chunk-preview" title="${escHtml(String(text))}">${escHtml(String(text).slice(0,70))}</div>`;
+    });
+  } else {
+    html += '<div style="color:var(--muted);font-size:10px;padding:4px 0;">No chunks found</div>';
+  }
+
+  body.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// METRICS PANEL
+// ═══════════════════════════════════════════════════════════════════
+function renderMetrics(data) {
+  const m = data.metrics || {};
+
+  // Fall back to top-level appData sections when metrics sub-keys are missing
+  // (happens when server was started before collectMetrics was updated)
+  let routing = m.routing || {};
+  if (!routing.total && data.hooks && data.hooks.feedback) {
+    const fb = data.hooks.feedback || [];
+    let confSum = 0, confCnt = 0;
+    const counts = {};
+    for (const f of fb) {
+      if (f.confidence != null) { confSum += f.confidence; confCnt++; }
+      const a = f.suggestedAgent || f.agent;
+      if (a) counts[a] = (counts[a] || 0) + 1;
+    }
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    routing = {
+      total: fb.length,
+      avgConfidence: confCnt > 0 ? Math.round((confSum / confCnt) * 100) : null,
+      topAgent: top ? top[0] : null,
+      topAgentCount: top ? top[1] : null,
+    };
+  }
+
+  let swarmM = m.swarm || {};
+  if (!swarmM.lastActive && data.swarm) {
+    const sw = data.swarm || {};
+    const act = sw.activity || {};
+    const actSw = act.swarm || {};
+    swarmM = {
+      active: !!(sw.state && (sw.state.id || sw.state.active)) || actSw.active,
+      agentCount: actSw.agent_count || (sw.state && sw.state.agents && sw.state.agents.length) || null,
+      lastActive: act.timestamp || null,
+    };
+  }
+
+  let tokens = m.tokens || {};
+  if (tokens.todayCost == null && data.tokens) {
+    const sum = data.tokens.summary || {};
+    tokens = {
+      todayCost:  sum.todayCost  ?? null,
+      todayCalls: sum.todayCalls ?? null,
+      monthCost:  sum.monthCost  ?? sum.monthlyCost ?? null,
+      monthCalls: sum.monthCalls ?? sum.monthlyCalls ?? null,
+    };
+  }
+
+  const security = m.security || {};
+
+  const body = document.getElementById('metrics-body');
+  if (!body) return;
+
+  let html = '';
+
+  // Routing Intelligence
+  html += '<div class="metric-block">';
+  html += '<div class="metric-block-title">ROUTING INTELLIGENCE</div>';
+  if (routing.total > 0) {
+    html += `<div class="metric-row"><span class="metric-key">DECISIONS</span><span class="metric-val">${routing.total}</span></div>`;
+    if (routing.avgConfidence != null) html += `<div class="metric-row"><span class="metric-key">AVG CONF</span><span class="metric-val">${routing.avgConfidence}%</span></div>`;
+    if (routing.topAgent) html += `<div class="metric-row"><span class="metric-key">TOP AGENT</span><span class="metric-val" style="color:var(--teal)">${escHtml(routing.topAgent)} <span style="color:var(--muted)">(${routing.topAgentCount}×)</span></span></div>`;
+  } else {
+    html += '<div class="metric-row"><span class="metric-key">STATUS</span><span class="metric-val" style="color:var(--muted)">NO HISTORY YET</span></div>';
+  }
+  html += '</div>';
+
+  // Swarm Activity
+  html += '<div class="metric-block">';
+  html += '<div class="metric-block-title">SWARM ACTIVITY</div>';
+  if (swarmM.lastActive) {
+    const swarmStatusClass = swarmM.active ? 'security-ok' : '';
+    html += `<div class="metric-row"><span class="metric-key">STATUS</span><span class="metric-val ${swarmStatusClass}">${swarmM.active ? 'ACTIVE' : 'IDLE'}</span></div>`;
+    if (swarmM.agentCount != null) html += `<div class="metric-row"><span class="metric-key">AGENTS</span><span class="metric-val">${swarmM.agentCount}</span></div>`;
+    html += `<div class="metric-row"><span class="metric-key">LAST RUN</span><span class="metric-val" style="color:var(--muted)">${escHtml(fmtAge(new Date(swarmM.lastActive).getTime()))}</span></div>`;
+  } else {
+    html += '<div class="metric-row"><span class="metric-key">STATUS</span><span class="metric-val" style="color:var(--muted)">NO SWARM YET</span></div>';
+  }
+  html += '</div>';
+
+  // Token Usage (summary)
+  html += '<div class="metric-block">';
+  html += '<div class="metric-block-title">TOKEN USAGE</div>';
+  if (tokens.todayCost != null) {
+    html += `<div class="metric-row"><span class="metric-key">TODAY</span><span class="metric-val">${fmtCost(tokens.todayCost)} <span style="color:var(--muted)">(${fmt(tokens.todayCalls)} calls)</span></span></div>`;
+    html += `<div class="metric-row"><span class="metric-key">MONTH</span><span class="metric-val">${fmtCost(tokens.monthCost)} <span style="color:var(--muted)">(${fmt(tokens.monthCalls)} calls)</span></span></div>`;
+  } else {
+    html += '<div class="metric-row"><span class="metric-key">STATUS</span><span class="metric-val" style="color:var(--muted)">NO DATA</span></div>';
+  }
+  html += '</div>';
+
+  body.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ACTIVITY PANEL
+// ═══════════════════════════════════════════════════════════════════
+function appendActivity(msg, type) {
+  const log = document.getElementById('activity-log');
+  if (!log) return;
+  activityCount++;
+
+  const entry = document.createElement('div');
+  entry.className = 'activity-entry type-' + (type || 'default');
+  entry.innerHTML = `<span class="activity-time">${now()}</span><span class="activity-msg">${escHtml(String(msg).slice(0,100))}</span>`;
+  log.insertBefore(entry, log.firstChild);
+
+  // Trim old entries
+  while (log.children.length > MAX_ACTIVITY) {
+    log.removeChild(log.lastChild);
+  }
+
+  const badge = document.getElementById('activity-badge');
+  if (badge) badge.textContent = Math.min(activityCount, MAX_ACTIVITY);
+}
+
+function inferActivityType(data, prevData) {
+  if (!prevData) return 'default';
+  // Detect what changed
+  const sessNew = (data.sessions && data.sessions.count) || 0;
+  const sessPrev = (prevData.sessions && prevData.sessions.count) || 0;
+  if (sessNew !== sessPrev) return 'session';
+
+  const swNew = JSON.stringify(data.swarm || {});
+  const swPrev = JSON.stringify(prevData.swarm || {});
+  if (swNew !== swPrev) return 'swarm';
+
+  const agNew = (data.agents && data.agents.count) || 0;
+  const agPrev = (prevData.agents && prevData.agents.count) || 0;
+  if (agNew !== agPrev) return 'agent';
+
+  return 'default';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SYSTEM PANEL
+// ═══════════════════════════════════════════════════════════════════
+function renderSystem(data) {
+  const sys = data.system || {};
+  const body = document.getElementById('system-body');
+  if (!body) return;
+
+  const rows = [
+    { key: 'NODE', val: fmt(sys.nodeVersion) },
+    { key: 'PLATFORM', val: fmt(sys.platform) },
+    { key: 'UPTIME', val: fmtUptime(sys.uptime) },
+    { key: 'HEAP', val: sys.memoryMB != null ? sys.memoryMB + ' MB' : '—' }
+  ];
+
+  let html = rows.map(r =>
+    `<div class="sys-row"><span class="sys-key">${r.key}</span><span class="sys-val">${escHtml(r.val)}</span></div>`
+  ).join('');
+
+  body.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PROJECT STATS STRIP
+// ═══════════════════════════════════════════════════════════════════
+function renderProjectStats(data) {
+  const strip = document.getElementById('project-stats-strip');
+  if (!strip) return;
+
+  const tok = (data.tokens && data.tokens.summary) || {};
+  const mem = data.memory || {};
+  const sw = data.swarm || {};
+  const know = data.knowledge || {};
+  const hooks = data.hooks || {};
+  const swState = sw.state || {};
+  const swConfig = sw.config || {};
+
+  const todayCost = tok.todayCost != null ? tok.todayCost : (tok.today && tok.today.cost != null ? tok.today.cost : null);
+  const monthlyCost = tok.monthlyCost != null ? tok.monthlyCost : (tok.monthly && tok.monthly.cost != null ? tok.monthly.cost : null);
+  const memDb = mem.dbSize ? fmtBytes(mem.dbSize) : null;
+  const hnswOn = !!mem.hnsw;
+  const chunks = know.chunks || 0;
+  const topology = swConfig.topology || swState.topology || null;
+  const swarmActive = !!(swState.id || swState.swarmId || swState.active);
+  const lastAgent = hooks.lastRoute && hooks.lastRoute.agent ? hooks.lastRoute.agent : null;
+  const sessionCount = data.sessions && data.sessions.count != null ? data.sessions.count : 0;
+  const ruvectorPatterns = mem.ruvectorPatterns || 0;
+
+  const pills = [];
+  pills.push({ key: 'SESSIONS', val: String(sessionCount), cls: '' });
+  if (todayCost != null) pills.push({ key: 'TODAY', val: fmtCost(todayCost), cls: 'amber' });
+  if (monthlyCost != null) pills.push({ key: 'MONTH', val: fmtCost(monthlyCost), cls: 'amber' });
+  pills.push({ key: 'MEM DB', val: memDb || '—', cls: memDb ? '' : 'dim' });
+  pills.push({ key: 'HNSW', val: hnswOn ? 'ON' : 'OFF', cls: hnswOn ? 'green' : 'dim' });
+  if (chunks) pills.push({ key: 'CHUNKS', val: fmtNum(chunks), cls: '' });
+  if (ruvectorPatterns) pills.push({ key: 'PATTERNS', val: fmtNum(ruvectorPatterns), cls: '' });
+  pills.push({ key: 'SWARM', val: swarmActive ? (topology || 'ACTIVE').toUpperCase() : (topology ? topology.toUpperCase() : 'IDLE'), cls: swarmActive ? 'green' : (topology ? '' : 'dim') });
+  if (lastAgent) pills.push({ key: 'LAST ROUTE', val: lastAgent.slice(0, 14), cls: '' });
+
+  strip.innerHTML = pills.map(p =>
+    `<div class="stat-pill"><span class="stat-pill-key">${p.key}</span><span class="stat-pill-val ${p.cls}">${escHtml(String(p.val))}</span></div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MASTER UPDATE
+// ═══════════════════════════════════════════════════════════════════
+function updateAllPanels(data) {
+  if (!data) return;
+  const prev = appData;
+  appData = data;
+  lastUpdateTime = Date.now();
+
+  updateHeader(data);
+  renderProjects(data); // always render (navigation panel)
+  renderProjectStats(data);
+  // Only render panels that are currently expanded
+  if (expandedPanels.has('panel-agents'))    renderAgents(data);
+  if (expandedPanels.has('panel-tokens'))    renderTokens(data);
+  if (expandedPanels.has('panel-memory'))    renderMemory(data);
+  // Always update hooks badge even when panel is collapsed
+  { const h = data.hooks || {}; const lr = h.lastRoute || {}; const badge = document.getElementById('hooks-badge'); if (badge) badge.textContent = lr.agent || lr.suggestedAgent || (h.feedback && h.feedback.length) || '—'; }
+  if (expandedPanels.has('panel-hooks'))     renderHooks(data);
+  if (expandedPanels.has('panel-metrics'))   renderMetrics(data);
+  if (expandedPanels.has('panel-system'))    renderSystem(data);
+  // Activity log entry
+  if (prev) {
+    const type = inferActivityType(data, prev);
+    const msg = buildActivityMsg(data, prev);
+    if (msg) appendActivity(msg, type);
+  } else {
+    appendActivity('Initial data loaded', 'default');
+  }
+
+  updateLiveBorders();
+}
+
+function buildActivityMsg(data, prev) {
+  const sessNew = (data.sessions && data.sessions.count) || 0;
+  const sessPrev = (prev.sessions && prev.sessions.count) || 0;
+  if (sessNew !== sessPrev) {
+    return `Sessions changed: ${sessPrev} → ${sessNew}`;
+  }
+  const agNew = (data.agents && data.agents.count) || 0;
+  const agPrev = (prev.agents && prev.agents.count) || 0;
+  if (agNew !== agPrev) {
+    return `Agents changed: ${agPrev} → ${agNew}`;
+  }
+  const swStateNew = JSON.stringify((data.swarm && data.swarm.state) || {});
+  const swStatePrev = JSON.stringify((prev.swarm && prev.swarm.state) || {});
+  if (swStateNew !== swStatePrev) return 'Swarm state updated';
+
+  const tokNew = JSON.stringify((data.tokens && data.tokens.summary) || {});
+  const tokPrev = JSON.stringify((prev.tokens && prev.tokens.summary) || {});
+  if (tokNew !== tokPrev) return 'Token metrics updated';
+
+  return null; // no visible change
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SSE CONNECTION
+// ═══════════════════════════════════════════════════════════════════
+let sse = null;
+
+function connectSSE() {
+  if (sse) { try { sse.close(); } catch(e) {} }
+
+  const dot = document.getElementById('conn-dot');
+  const label = document.getElementById('conn-label');
+
+  sse = new EventSource('/api/stream');
+
+  sse.onopen = function() {
+    if (dot) dot.className = 'connected';
+    if (label) label.textContent = 'LIVE';
+    appendActivity('SSE stream connected', 'session');
+  };
+
+  sse.onmessage = function(e) {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.kind === 'changed' && Array.isArray(msg.sections)) {
+        // Incremental update: fetch only expanded panels that changed
+        fetchAndRenderSections(msg.sections);
+        appendActivity('Changed: ' + msg.sections.join(', '), 'default');
+        lastUpdateTime = Date.now();
+        updateLiveBorders();
+      } else if (!msg.kind) {
+        // Full snapshot (initial SSE message or legacy server)
+        updateAllPanels(msg);
+      }
+    } catch(err) {
+      appendActivity('Parse error: ' + err.message, 'error');
+    }
+  };
+
+  sse.onerror = function() {
+    if (dot) dot.className = 'error';
+    if (label) label.textContent = 'DISCONNECTED';
+    appendActivity('SSE stream disconnected — reconnecting…', 'error');
+    // EventSource auto-reconnects; update UI after a moment
+    setTimeout(() => {
+      if (sse && sse.readyState === EventSource.CONNECTING) {
+        if (label) label.textContent = 'RECONNECTING';
+      }
+    }, 2000);
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INITIAL FETCH
+// ═══════════════════════════════════════════════════════════════════
+async function fetchInitial() {
+  try {
+    const resp = await fetch('/api/data');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    updateAllPanels(data);
+    appendActivity('Initial state loaded from /api/data', 'session');
+  } catch(err) {
+    appendActivity('Failed to load /api/data: ' + err.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LIVE BORDER REFRESH TIMER
+// ═══════════════════════════════════════════════════════════════════
+setInterval(updateLiveBorders, 2000);
+
+// ═══════════════════════════════════════════════════════════════════
+// CANVAS RESIZE HANDLER
+// ═══════════════════════════════════════════════════════════════════
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (appData) renderTokens(appData);
+  }, 150);
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// HTML ESCAPE
+// ═══════════════════════════════════════════════════════════════════
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#x27;');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// UPTIME TICKER
+// ═══════════════════════════════════════════════════════════════════
+setInterval(() => {
+  if (appData && appData.system) {
+    const el = document.getElementById('uptime-val');
+    if (el) {
+      appData.system.uptime = (appData.system.uptime || 0) + 2;
+      el.textContent = fmtUptime(appData.system.uptime);
+    }
+  }
+}, 2000);
+
+// ═══════════════════════════════════════════════════════════════════
+// PALACE OVERLAY
+// ═══════════════════════════════════════════════════════════════════
+let palaceData = null;
+let palaceCurrentTab = 'drawers';
+let palaceSelectedDrawer = null;
+
+window.openPalaceOverlay = async function() {
+  const overlay = document.getElementById('palace-overlay');
+  overlay.classList.add('open');
+  // Load data if not yet loaded
+  if (!palaceData) await loadPalaceData();
+  renderPalaceTab(palaceCurrentTab);
+};
+
+window.closePalaceOverlay = function() {
+  document.getElementById('palace-overlay').classList.remove('open');
+};
+
+window.switchPalaceTab = function(tab) {
+  palaceCurrentTab = tab;
+  // Drive active state from the onclick argument, not DOM index
+  document.querySelectorAll('#po-tabs .po-tab').forEach(b => {
+    const btnTab = (b.getAttribute('onclick') || '').match(/'(\w+)'/);
+    b.classList.toggle('active', !!(btnTab && btnTab[1] === tab));
+  });
+  document.querySelectorAll('.po-tab-pane').forEach(p => p.classList.remove('active'));
+  const paneIds = { drawers: 'po-drawers-tab', sessions: 'po-sessions-tab', chunks: 'po-chunks-tab', swarm: 'po-swarm-tab', graph: 'po-graph-tab', knowledge: 'po-knowledge-tab' };
+  const pane = document.getElementById(paneIds[tab]);
+  if (pane) pane.classList.add('active');
+  if (tab !== 'graph') kgGraph.stop();
+  if (tab !== 'knowledge') kgCodeGraph.stop();
+  if (palaceData) renderPalaceTab(tab);
+};
+
+async function loadPalaceData() {
+  const dir = selectedProjectDir || '';
+  const safeJson = async (res, fallback) => { try { return res.ok ? await res.json() : fallback; } catch { return fallback; } };
+
+  const palaceUrl = `/api/palace${dir ? '?dir=' + encodeURIComponent(dir) : ''}`;
+  const graphUrl = `/api/graph${dir ? '?dir=' + encodeURIComponent(dir) : ''}`;
+  const memUrl = `/api/memory-files${dir ? '?dir=' + encodeURIComponent(dir) : ''}`;
+  const sectionUrl = `/api/section?name=sessions${dir ? '&dir=' + encodeURIComponent(dir) : ''}`;
+
+  const knowUrl = `/api/section?name=knowledge${dir ? '&dir=' + encodeURIComponent(dir) : ''}`;
+  const swarmUrl = `/api/section?name=swarm${dir ? '&dir=' + encodeURIComponent(dir) : ''}`;
+  const [palaceRes, graphRes, memRes, sessRes, knowRes, swarmRes] = await Promise.all([
+    fetch(palaceUrl).catch(() => ({ ok: false })),
+    fetch(graphUrl).catch(() => ({ ok: false })),
+    fetch(memUrl).catch(() => ({ ok: false })),
+    fetch(sectionUrl).catch(() => ({ ok: false })),
+    fetch(knowUrl).catch(() => ({ ok: false })),
+    fetch(swarmUrl).catch(() => ({ ok: false }))
+  ]);
+
+  palaceData = await safeJson(palaceRes, { drawers: [], identity: null, kg: [] });
+  palaceData.graph = await safeJson(graphRes, { nodes: [], edges: [] });
+  const memData = await safeJson(memRes, { memories: [], memDir: '' });
+  palaceData.memories = memData.memories || [];
+  palaceData.memDir = memData.memDir || '';
+  const sessData = await safeJson(sessRes, { sessions: {} });
+  palaceData.sessions = (sessData.sessions && sessData.sessions.list) || [];
+  const knowData = await safeJson(knowRes, { knowledge: {} });
+  palaceData.knowledge = knowData.knowledge || {};
+  const swarmSectionData = await safeJson(swarmRes, {});
+  palaceData.swarmSection = swarmSectionData.swarm || swarmSectionData || {};
+  // Update stats bar
+  const stats = document.getElementById('po-stats');
+  if (stats && palaceData) {
+    const mems = (palaceData.memories || []).length;
+    const sess = (palaceData.sessions || []).length;
+    const chunks = palaceData.knowledge.chunks || 0;
+    stats.innerHTML = `<span>${mems} memories</span><span>${sess} sessions</span>${chunks ? `<span>${fmtNum(chunks)} chunks</span>` : ''}`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GRAPHIFY REPORT PARSER (used by Memory Palace knowledge tab)
+// ═══════════════════════════════════════════════════════════════════
+function parseGraphifyReport(md) {
+  const SECTION_ICONS = {
+    'corpus check': '📂', 'summary': '📊', 'god nodes': '⭐',
+    'surprising connections': '🔗', 'communities': '🏘', 'community': '🏘',
+    'ambiguous edges': '⚠', 'knowledge gaps': '🕳', 'suggested questions': '💡',
+    'hyperedges': '🔀',
+  };
+  const WIDE_SECTIONS = ['summary', 'corpus check', 'suggested questions'];
+  const lines = md.split('\n');
+  const sections = [];
+  let currentTitle = null;
+  let currentBody = [];
+
+  const flush = () => {
+    if (currentTitle === null) return;
+    const body = currentBody.join('\n').trim();
+    sections.push({ title: currentTitle, body: body.length > 1200 ? body.slice(0, 1200) + '\n…' : body });
+  };
+
+  for (const line of lines) {
+    const h = line.match(/^#{2,3}\s+(.+)/);
+    if (h) { flush(); currentTitle = h[1].replace(/\*\*/g, '').trim(); currentBody = []; }
+    else if (currentTitle !== null) currentBody.push(line);
+  }
+  flush();
+
+  if (!sections.length) {
+    return `<div class="kg-report-grid"><div class="kg-card kg-card-wide"><div class="kg-card-body">${escHtml(md.slice(0, 2000))}</div></div></div>`;
+  }
+
+  const cards = sections.map(sec => {
+    const k = Object.keys(SECTION_ICONS).find(key => sec.title.toLowerCase().includes(key));
+    const icon = k ? SECTION_ICONS[k] : '';
+    const wide = WIDE_SECTIONS.some(w => sec.title.toLowerCase().includes(w)) ? ' kg-card-wide' : '';
+    return `<div class="kg-card${wide}">
+      <div class="kg-card-title">${icon ? `<span class="kg-card-title-icon">${icon}</span>` : ''}${escHtml(sec.title.toUpperCase())}</div>
+      ${sec.body ? `<div class="kg-card-body">${escHtml(sec.body)}</div>` : ''}
+    </div>`;
+  }).join('');
+  return `<div class="kg-report-grid">${cards}</div>`;
+}
+
+function renderPalaceTab(tab) {
+  if (!palaceData) return;
+  if (tab === 'drawers') renderMemories();
+  else if (tab === 'sessions') renderPalaceSessions();
+  else if (tab === 'chunks') renderPalaceChunks();
+  else if (tab === 'swarm') renderPalaceSwarm();
+  else if (tab === 'graph') { kgGraph.init(); kgGraph.render(palaceData.graph || { nodes: [], edges: [] }); }
+  else if (tab === 'knowledge') { renderPalaceKnowledge(); renderPalaceCodeGraph(); }
+}
+
+let _allChunks = [];
+function renderPalaceChunks(filter) {
+  const kd = (palaceData && palaceData.knowledge) || {};
+  const countEl = document.getElementById('po-chunks-count');
+  const skillsEl = document.getElementById('po-skills-count');
+  const body = document.getElementById('po-chunks-body');
+  if (!body) return;
+
+  if (countEl) countEl.textContent = fmtNum(kd.chunks || 0);
+  if (skillsEl) skillsEl.textContent = fmtNum(kd.skills || 0);
+
+  // Fetch all chunks from the server if not loaded yet
+  if (!_allChunks.length && kd.chunks > 0) {
+    body.innerHTML = '<div style="color:var(--muted);font-size:10px;">Loading chunks…</div>';
+    const dir = selectedProjectDir || '';
+    fetch(`/api/section?name=knowledge&full=1${dir ? '&dir=' + encodeURIComponent(dir) : ''}`)
+      .then(r => r.ok ? r.json() : { knowledge: {} })
+      .then(d => {
+        const k = d.knowledge || {};
+        _allChunks = k.allChunks || k.recent || [];
+        renderPalaceChunks();
+      })
+      .catch(() => { body.innerHTML = '<div style="color:var(--muted);font-size:10px;">Failed to load chunks</div>'; });
+    return;
+  }
+
+  const chunks = filter
+    ? _allChunks.filter(c => { const t = (c && (c.content || c.text || c.chunk || c.value || '')).toLowerCase(); return t.includes(filter.toLowerCase()); })
+    : _allChunks;
+
+  if (!chunks.length && !kd.chunks) {
+    body.innerHTML = '<div style="color:var(--muted);font-size:10px;padding:8px 0;">No knowledge chunks indexed yet.<br><br>Run: <code style="color:var(--teal)">npx monomind graphify build</code></div>';
+    return;
+  }
+
+  if (!chunks.length) {
+    body.innerHTML = `<div style="color:var(--muted);font-size:10px;padding:8px 0;">${filter ? 'No matches' : 'Chunks not available for preview'}</div>`;
+    return;
+  }
+
+  body.innerHTML = chunks.map(c => {
+    if (!c) return '';
+    const text = c.text || c.content || c.chunk || c.value || '';
+    const src = (c.metadata && c.metadata.filePath) || c.source || c.file || c.sourceFile || '';
+    const ns = c.namespace || c.type || c.chunkType || '';
+    const shortSrc = src ? src.split('/').slice(-2).join('/') : '';
+    const cid = escHtml(c.chunkId || '');
+    return `<div class="chunk-card" data-chunk-id="${cid}" title="${escHtml(src)}">
+      <div class="chunk-card-src">${shortSrc ? escHtml(shortSrc) : '—'}</div>
+      <div class="chunk-card-text">${escHtml(String(text).slice(0, 220))}${text.length > 220 ? '<span style="color:var(--dim)">…</span>' : ''}</div>
+      ${ns ? `<div class="chunk-card-ns">${escHtml(ns)}</div>` : ''}
+      ${cid ? `<div class="chunk-card-actions">
+        <button class="po-btn po-btn-edit" onclick="editKnowledgeChunk('${cid}')">EDIT</button>
+        <button class="po-btn po-btn-delete" onclick="deleteKnowledgeChunk('${cid}')">DELETE</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+window.filterChunks = function(val) {
+  renderPalaceChunks(val);
+};
+
+let _editingChunkId = null;
+window.editKnowledgeChunk = function(chunkId) {
+  const chunk = _allChunks.find(c => c && c.chunkId === chunkId);
+  if (!chunk) return;
+  _editingChunkId = chunkId;
+  const src = (chunk.metadata && chunk.metadata.filePath) || chunk.source || '';
+  const shortSrc = src ? src.split('/').slice(-2).join('/') : chunkId;
+  const titleEl = document.getElementById('po-chunk-edit-title');
+  if (titleEl) titleEl.textContent = 'EDIT CHUNK — ' + shortSrc;
+  const ta = document.getElementById('po-chunk-edit-textarea');
+  if (ta) { ta.value = chunk.text || chunk.content || chunk.chunk || chunk.value || ''; ta.style.height = ''; }
+  const modal = document.getElementById('po-chunk-edit-modal');
+  if (modal) modal.classList.add('open');
+  const status = document.getElementById('po-chunk-edit-status');
+  if (status) status.textContent = '';
+  if (ta) ta.focus();
+};
+
+window.closeChunkEditModal = function() {
+  const modal = document.getElementById('po-chunk-edit-modal');
+  if (modal) modal.classList.remove('open');
+  _editingChunkId = null;
+};
+
+window.saveEditedChunk = async function() {
+  if (!_editingChunkId) return;
+  const ta = document.getElementById('po-chunk-edit-textarea');
+  const status = document.getElementById('po-chunk-edit-status');
+  const newText = ta ? ta.value : '';
+  if (!newText.trim()) { if (status) status.textContent = 'Text cannot be empty'; return; }
+  const dir = selectedProjectDir || '';
+  try {
+    const r = await fetch(`/api/knowledge-chunk${dir ? '?dir=' + encodeURIComponent(dir) : ''}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chunkId: _editingChunkId, text: newText })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Save failed');
+    // Update in-memory cache
+    const idx = _allChunks.findIndex(c => c && c.chunkId === _editingChunkId);
+    if (idx !== -1) _allChunks[idx] = { ..._allChunks[idx], text: newText };
+    closeChunkEditModal();
+    renderPalaceChunks();
+  } catch (e) {
+    if (status) status.textContent = e.message;
+  }
+};
+
+window.deleteKnowledgeChunk = async function(chunkId) {
+  const chunk = _allChunks.find(c => c && c.chunkId === chunkId);
+  const preview = chunk ? (chunk.text || '').slice(0, 60) : chunkId;
+  if (!confirm(`Delete chunk?\n"${preview}"`)) return;
+  const dir = selectedProjectDir || '';
+  try {
+    const r = await fetch(`/api/knowledge-chunk${dir ? '?dir=' + encodeURIComponent(dir) : ''}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chunkId })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Delete failed');
+    _allChunks = _allChunks.filter(c => !c || c.chunkId !== chunkId);
+    if (palaceData && palaceData.knowledge) {
+      palaceData.knowledge.chunks = Math.max(0, (palaceData.knowledge.chunks || 1) - 1);
+    }
+    renderPalaceChunks();
+    const countEl = document.getElementById('po-chunks-count');
+    if (countEl) countEl.textContent = String(_allChunks.length);
+  } catch (e) {
+    alert('Delete failed: ' + e.message);
+  }
+};
+
+function renderPalaceSwarm() {
+  if (!palaceData) return;
+  // Pull swarm data — prefer appData (live SSE feed) over the palace section fetch
+  const src = (appData && appData.swarm) ? appData : { swarm: palaceData.swarmSection || {} };
+  const sw = src.swarm || {};
+  const state = sw.state || {};
+  const activity = sw.activity || {};
+  const config = sw.config || {};
+  const suggestion = sw.suggestion || {};
+  const agentRegs = (src.agents && src.agents.registrations) ? src.agents.registrations : [];
+
+  const hasLiveSwarm = !!(state.id || state.swarmId || state.active);
+  const activitySwarm = activity.swarm || {};
+  const topology = config.topology || state.topology || suggestion.topology || '—';
+  const consensus = config.consensus || state.consensus || suggestion.consensus || '—';
+  const agentCount = hasLiveSwarm
+    ? (state.agents || []).length
+    : (activitySwarm.agent_count || agentRegs.length || 0);
+  const score = suggestion.score != null ? suggestion.score + '/7' : null;
+  const lastRun = activity.timestamp ? fmtAge(new Date(activity.timestamp).getTime()) : null;
+  const recommended = suggestion.recommended || null;
+
+  // Render sidebar meta
+  const meta = document.getElementById('po-swarm-meta');
+  if (meta) {
+    const rows = [
+      ['TOPOLOGY', fmt(topology).toUpperCase()],
+      ['CONSENSUS', fmt(consensus).toUpperCase()],
+      ['STATUS', hasLiveSwarm ? '<span style="color:var(--green)">ACTIVE</span>' : '<span style="color:var(--muted)">IDLE</span>'],
+      ['AGENTS', agentCount || '—'],
+    ];
+    if (score) rows.push(['COMPLEXITY', score]);
+    if (recommended) rows.push(['RECOMMENDED', recommended]);
+    if (lastRun) rows.push(['LAST RUN', `<span style="color:var(--muted)">${escHtml(lastRun)}</span>`]);
+    meta.innerHTML = rows.map(([k, v]) =>
+      `<div class="swarm-row"><span class="swarm-key">${k}</span><span class="swarm-val">${v}</span></div>`
+    ).join('');
+  }
+
+  // Update label
+  const labelEl = document.getElementById('po-swarm-label');
+  if (labelEl) labelEl.textContent = hasLiveSwarm ? 'LIVE TOPOLOGY' : 'LAST KNOWN TOPOLOGY';
+
+  // Draw on canvas — defer one frame so layout is flushed and offsetWidth/Height are non-zero
+  const canvas = document.getElementById('po-swarm-canvas');
+  if (!canvas) return;
+  if (!canvas.offsetWidth) { requestAnimationFrame(renderPalaceSwarm); return; }
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const CW = canvas.width, CH = canvas.height;
+
+  // Grid background
+  const step = 30 * dpr;
+  ctx.strokeStyle = 'rgba(58,58,90,0.15)';
+  ctx.lineWidth = dpr * 0.5;
+  for (let gx = 0; gx <= CW; gx += step) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,CH); ctx.stroke(); }
+  for (let gy = 0; gy <= CH; gy += step) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(CW,gy); ctx.stroke(); }
+
+  const consensusLow = consensus.toLowerCase();
+  const cx = CW / 2, cy = CH / 2;
+
+  if (hasLiveSwarm) {
+    // Live: draw actual agent nodes
+    const agentList = (state.agents || []).slice(0, 50);
+    const n = agentList.length || 1;
+    const r = Math.min(CW, CH) * 0.36;
+    const positions = agentList.map((_, i) => {
+      const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+      return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
+    });
+    // Edges
+    ctx.strokeStyle = 'rgba(0,229,200,0.15)';
+    ctx.lineWidth = dpr;
+    if (consensusLow === 'byzantine' || consensusLow === 'mesh') {
+      for (let i = 0; i < n; i++) {
+        for (let j = i+1; j <= i+2 && j < n; j++) {
+          ctx.beginPath(); ctx.moveTo(positions[i][0], positions[i][1]); ctx.lineTo(positions[j][0], positions[j][1]); ctx.stroke();
+        }
+      }
+    } else {
+      positions.forEach(([nx, ny]) => { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(nx, ny); ctx.stroke(); });
+    }
+    // Nodes
+    positions.forEach(([nx, ny], i) => {
+      ctx.beginPath(); ctx.arc(nx, ny, 5 * dpr, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,229,200,0.4)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(0,229,200,0.7)'; ctx.lineWidth = dpr; ctx.stroke();
+      // Agent label
+      const a = agentList[i];
+      const lbl = (a.type || a.role || '?').slice(0, 6).toUpperCase();
+      ctx.fillStyle = 'rgba(180,180,220,0.6)';
+      ctx.font = `${7 * dpr}px "Azeret Mono", monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(lbl, nx, ny + 10 * dpr);
+    });
+    // Coordinator
+    ctx.beginPath(); ctx.arc(cx, cy, 9 * dpr, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,229,200,0.7)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,229,200,1)'; ctx.lineWidth = dpr * 2; ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${8 * dpr}px "Azeret Mono", monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Q', cx, cy);
+    ctx.textBaseline = 'alphabetic';
+  } else {
+    // Idle: representative static diagram
+    const nodeCount = Math.min(10, Math.max(4, agentCount > 0 ? 7 : 4));
+    const r = Math.min(CW, CH) * 0.36;
+    const positions = [];
+    for (let i = 0; i < nodeCount; i++) {
+      const angle = (i / nodeCount) * Math.PI * 2 - Math.PI / 2;
+      positions.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
+    }
+    // Edges
+    ctx.strokeStyle = 'rgba(0,229,200,0.10)';
+    ctx.lineWidth = dpr;
+    if (consensusLow === 'byzantine' || consensusLow === 'mesh') {
+      for (let i = 0; i < nodeCount; i++) {
+        for (let j = i+1; j <= i+3 && j < nodeCount; j++) {
+          ctx.beginPath(); ctx.moveTo(positions[i][0], positions[i][1]); ctx.lineTo(positions[j][0], positions[j][1]); ctx.stroke();
+        }
+      }
+    } else {
+      positions.forEach(([nx, ny]) => { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(nx, ny); ctx.stroke(); });
+    }
+    // Outer nodes
+    positions.forEach(([nx, ny]) => {
+      ctx.beginPath(); ctx.arc(nx, ny, 6 * dpr, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,229,200,0.2)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(0,229,200,0.45)'; ctx.lineWidth = dpr; ctx.stroke();
+    });
+    // Center coordinator (if not pure mesh)
+    if (consensusLow !== 'mesh') {
+      ctx.beginPath(); ctx.arc(cx, cy, 9 * dpr, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,229,200,0.35)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(0,229,200,0.7)'; ctx.lineWidth = dpr * 1.5; ctx.stroke();
+    }
+    // Footer label
+    ctx.fillStyle = 'rgba(100,100,140,0.6)';
+    ctx.font = `500 ${9 * dpr}px "Azeret Mono", monospace`;
+    ctx.textAlign = 'center';
+    const footerLabel = agentCount > 0
+      ? `LAST SWARM · ${agentCount} AGENTS`
+      : 'NO SWARM HISTORY';
+    ctx.fillText(footerLabel, CW / 2, CH - 14 * dpr);
+    // Topology label in center for mesh
+    if (consensusLow === 'mesh' || consensusLow === 'byzantine') {
+      ctx.fillStyle = 'rgba(0,229,200,0.25)';
+      ctx.font = `bold ${10 * dpr}px "Syne", sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(consensusLow.toUpperCase(), cx, cy);
+      ctx.textBaseline = 'alphabetic';
+    }
+  }
+}
+
+async function renderPalaceKnowledge() {
+  const statsEl = document.getElementById('po-knowledge-stats');
+  const bodyEl = document.getElementById('po-knowledge-body');
+  if (!statsEl || !bodyEl) return;
+
+  const dir = selectedProjectDir || '';
+  let d;
+  try {
+    const r = await fetch(`/api/graphify-report${dir ? '?dir=' + encodeURIComponent(dir) : ''}`);
+    d = r.ok ? await r.json() : { exists: false, stats: null, content: null };
+  } catch { d = { exists: false, stats: null, content: null }; }
+
+  // Append monomind knowledge (chunks/skills) to sidebar regardless of graph state
+  const kd = (palaceData && palaceData.knowledge) || {};
+  const kChunks = kd.chunks || 0;
+  const kSkills = kd.skills || 0;
+  const kRecent = kd.recent || [];
+  const knowledgeSuffix = `
+    <div class="kg-stat-group" style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px;">
+      <div class="kg-stat-group-label">MONOMIND KNOWLEDGE</div>
+      <div class="kg-stat-row"><span class="kg-stat-key">Chunks</span><span class="kg-stat-val" style="color:${kChunks ? 'var(--teal)' : 'var(--muted)'}">${kChunks || '—'}</span></div>
+      ${kSkills ? `<div class="kg-stat-row"><span class="kg-stat-key">Skills</span><span class="kg-stat-val">${kSkills}</span></div>` : ''}
+      ${kRecent.slice(0,3).map(c => {
+        if (!c) return '';
+        const t = c.content || c.text || c.chunk || c.value || '';
+        return t ? `<div class="chunk-preview" title="${escHtml(String(t))}" style="margin-top:4px;">${escHtml(String(t).slice(0,55))}</div>` : '';
+      }).join('')}
+    </div>`;
+
+  if (!d.stats) {
+    statsEl.innerHTML = `<div class="kg-badge kg-badge-warn">NO GRAPH</div>
+      <div style="font-size:9px;color:var(--muted);margin:10px 0 14px;line-height:1.6;">No graph built yet.</div>
+      <button class="kg-action-btn" onclick="triggerPalaceGraphBuild()">BUILD GRAPH</button>
+      <div style="margin-top:10px;font-size:8px;color:var(--dim);line-height:1.7;">or run:<br><code style="color:var(--teal)">npx monomind graphify build</code></div>
+      ${knowledgeSuffix}`;
+  } else {
+    const s = d.stats;
+    const e = s.enriched ?? d.enriched;
+    statsEl.innerHTML = `
+      <div class="kg-badge kg-badge-ok">INDEXED</div>
+      <div class="kg-stat-group" style="margin-top:14px;">
+        <div class="kg-stat-group-label">RAW GRAPH</div>
+        ${s.nodes !== undefined ? `<div class="kg-stat-row"><span class="kg-stat-key">Nodes</span><span class="kg-stat-val" style="color:var(--teal)">${fmtNum(s.nodes)}</span></div><div class="kg-bar-wrap"><div class="kg-bar-fill" style="background:var(--teal);width:60%"></div></div>` : ''}
+        ${s.edges !== undefined ? `<div class="kg-stat-row"><span class="kg-stat-key">Edges</span><span class="kg-stat-val" style="color:var(--sky)">${fmtNum(s.edges)}</span></div><div class="kg-bar-wrap"><div class="kg-bar-fill" style="background:var(--sky);width:78%"></div></div>` : ''}
+        ${s.size ? `<div class="kg-stat-row"><span class="kg-stat-key">Size</span><span class="kg-stat-val" style="color:var(--dim)">${fmtBytes(s.size)}</span></div>` : ''}
+        ${s.mtime ? `<div class="kg-stat-row"><span class="kg-stat-key">Built</span><span id="po-knowledge-age" data-mtime="${s.mtime}" class="kg-stat-val" style="color:var(--dim)">${fmtAge(s.mtime)}</span></div>` : ''}
+      </div>
+      ${e && !e.tooLarge ? `<div class="kg-stat-group">
+        <div class="kg-stat-group-label">ENRICHED</div>
+        ${e.pageRankComputed ? '<div class="kg-badge kg-badge-ok" style="margin-bottom:10px;">PAGERANK</div>' : ''}
+        ${e.enrichedNodes !== undefined ? `<div class="kg-stat-row"><span class="kg-stat-key">Enriched</span><span class="kg-stat-val" style="color:var(--teal)">${fmtNum(e.enrichedNodes)}</span></div>` : ''}
+        ${e.resolvedCallEdges !== undefined ? `<div class="kg-stat-row"><span class="kg-stat-key">Call edges</span><span class="kg-stat-val" style="color:var(--sky)">${fmtNum(e.resolvedCallEdges)}</span></div>` : ''}
+      </div>` : ''}
+      <button class="kg-action-btn" onclick="triggerPalaceGraphBuild()">REBUILD</button>
+      ${knowledgeSuffix}`;
+  }
+
+  if (!d.exists || !d.content) {
+    bodyEl.innerHTML = `<div class="kg-report-grid"><div class="kg-card kg-card-wide" style="text-align:center;padding:40px 20px;">
+      <div class="kg-card-title" style="justify-content:center;margin-bottom:12px;"><span class="kg-card-title-icon">🗂</span>NO REPORT GENERATED</div>
+      <div class="kg-card-body" style="text-align:center;">Run <code>npx monomind graphify report</code><br>or click REBUILD to generate a full analysis.</div>
+    </div></div>`;
+  } else {
+    bodyEl.innerHTML = parseGraphifyReport(d.content);
+  }
+}
+
+let _codeGraphPending = false;
+let _codeGraphLoaded = false;
+async function renderPalaceCodeGraph(force = false) {
+  if (_codeGraphPending) return;
+  if (_codeGraphLoaded && !force) return;
+  _codeGraphPending = true;
+  const dir = selectedProjectDir || '';
+  let gd;
+  try {
+    const r = await fetch(`/api/graphify-graph${dir ? '?dir=' + encodeURIComponent(dir) : ''}`);
+    gd = r.ok ? await r.json() : null;
+  } catch { gd = null; }
+  _codeGraphPending = false;
+  if ((selectedProjectDir || '') !== dir) return;
+  if (palaceCurrentTab !== 'knowledge') return;
+  const info = document.getElementById('po-kg2-info');
+  if (!gd || !gd.nodes || !gd.nodes.length) {
+    if (info) info.textContent = gd && gd.tooLarge ? 'Graph too large to display' : 'No graph data';
+    return;
+  }
+  kgCodeGraph.init();
+  kgCodeGraph.render(gd, () => { _codeGraphLoaded = true; });
+}
+
+window.triggerPalaceGraphBuild = async function() {
+  const statsEl = document.getElementById('po-knowledge-stats');
+  const bodyEl = document.getElementById('po-knowledge-body');
+  if (statsEl) statsEl.innerHTML = '<div style="color:var(--teal);font-size:10px;letter-spacing:0.06em;">BUILDING…</div>';
+  if (bodyEl) bodyEl.innerHTML = '<div style="color:var(--dim);font-size:10px;padding:16px;">Background build started — panel updates when complete.</div>';
+  const dir = selectedProjectDir || '';
+  try {
+    await fetch(`/api/graphify-build${dir ? '?dir=' + encodeURIComponent(dir) : ''}`, { method: 'POST' });
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      try {
+        const r = await fetch(`/api/graphify-report${dir ? '?dir=' + encodeURIComponent(dir) : ''}`);
+        const d = await r.json();
+        if (d.stats || d.exists) { clearInterval(poll); renderPalaceKnowledge(); _codeGraphLoaded = false; kgCodeGraph.reset(); renderPalaceCodeGraph(); }
+        else if (attempts >= 36) { clearInterval(poll); if (bodyEl) bodyEl.innerHTML = '<div style="color:var(--amber);font-size:10px;">Build timed out — check server logs.</div>'; }
+      } catch {}
+    }, 5000);
+  } catch (e) {
+    if (statsEl) statsEl.innerHTML = '<div style="color:#EF5350;font-size:10px;">Build failed.</div>';
+    if (bodyEl) bodyEl.innerHTML = `<div style="color:#EF5350;font-size:10px;">${escHtml(e.message)}</div>`;
+  }
+};
+
+let _palaceSelectedSession = null;
+
+function renderPalaceSessions() {
+  const sessions = palaceData ? palaceData.sessions || [] : [];
+  const list = document.getElementById('po-sessions-list');
+  if (!list) return;
+
+  if (!sessions.length) {
+    list.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:10px;text-align:center;">NO SESSIONS FOUND</div>';
+    return;
+  }
+
+  let html = `<div class="po-wing-header" style="color:var(--teal)">SESSIONS <span style="color:var(--teal)">${sessions.length}</span></div>`;
+  sessions.forEach((sess, i) => {
+    const isSelected = _palaceSelectedSession && _palaceSelectedSession.file === sess.file;
+    html += `<div class="po-session-item${isSelected ? ' selected' : ''}" onclick="selectPalaceSession(${i})">
+      <span class="live-dot" style="flex-shrink:0;"></span>
+      <span class="po-session-id" title="${escHtml(sess.id || '')}">${escHtml((sess.id || 'unknown').slice(0, 22))}</span>
+      <span class="po-session-meta">${fmtAge(sess.mtime)}</span>
+      <span class="po-session-meta">${fmtBytes(sess.size)}</span>
+    </div>`;
+  });
+  list.innerHTML = html;
+}
+
+window.selectPalaceSession = async function(idx) {
+  if (!palaceData) return;
+  const sess = (palaceData.sessions || [])[idx];
+  if (!sess) return;
+  _palaceSelectedSession = sess;
+  renderPalaceSessions();
+
+  const hint    = document.getElementById('po-sd-hint');
+  const header  = document.getElementById('po-sd-header');
+  const statsBar= document.getElementById('po-sd-stats-bar');
+  const body    = document.getElementById('po-sd-body');
+  const timeline= document.getElementById('po-sd-timeline');
+
+  hint.style.display    = 'none';
+  header.style.display  = 'flex';
+  statsBar.style.display= 'flex';
+  body.style.display    = 'grid';
+  timeline.innerHTML    = '<div class="placeholder">LOADING…</div>';
+
+  document.getElementById('po-sd-title').textContent    = (sess.id || 'unknown').slice(0, 40);
+  document.getElementById('po-sd-subtitle').textContent = sess.file || '';
+
+  try {
+    const res = await fetch(`/api/session?file=${encodeURIComponent(sess.file)}&limit=600`);
+    const { events = [], total = 0, shown = 0, error: apiErr } = await res.json();
+    if (apiErr) throw new Error(apiErr);
+
+    document.getElementById('po-sd-subtitle').textContent = `${sess.id || ''} · ${total} entries · showing last ${shown}`;
+
+    // Stats
+    const userTurns  = events.filter(e => e.kind === 'user').length;
+    const toolEvents = events.filter(e => e.kind === 'tool');
+    const agentEvts  = toolEvents.filter(e => e.cat === 'agent');
+    const memEvts    = toolEvents.filter(e => e.cat === 'memory');
+    document.getElementById('po-sd-stat-turns').textContent  = `💬 ${userTurns} turns`;
+    document.getElementById('po-sd-stat-tools').textContent  = `🔧 ${toolEvents.length} tools`;
+    document.getElementById('po-sd-stat-agents').textContent = `🤖 ${agentEvts.length} agents`;
+    document.getElementById('po-sd-stat-mem').textContent    = `🧠 ${memEvts.length} memory`;
+
+    // Tool breakdown
+    const catCounts = {};
+    for (const e of toolEvents) catCounts[e.cat] = (catCounts[e.cat] || 0) + 1;
+    document.getElementById('po-sd-tool-breakdown').innerHTML =
+      Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).map(([cat, count]) =>
+        `<span class="tool-chip cat-${cat}"><span class="tool-chip-count">${count}</span><span>${CAT_LABELS[cat]||cat}</span></span>`
+      ).join('') || '<span style="font-size:10px;color:var(--muted)">None</span>';
+
+    // Agent tree
+    document.getElementById('po-sd-agent-tree').innerHTML =
+      agentEvts.map(e =>
+        `<div class="agent-node"><div class="agent-node-dot"></div><span style="color:#B078FF;font-size:9px;font-weight:700;margin-right:4px">${e.subagent||'?'}</span><span style="color:var(--muted)">${esc(e.label.replace(/^→\s*/,'').slice(0,40))}</span>${e.background?'<span style="font-size:9px;color:#555;margin-left:auto">bg</span>':''}</div>`
+      ).join('') || '<span style="font-size:10px;color:var(--muted)">No agents spawned</span>';
+
+    // Memory ops
+    document.getElementById('po-sd-memory-ops').innerHTML =
+      memEvts.slice(0,20).map(e =>
+        `<div class="memory-op"><span style="color:#FFD700;font-size:9px">${esc(e.name.replace('mcp__monobrain__','').slice(0,20))}</span><span>${esc(e.label.replace(/^mem:/,'').slice(0,30))}</span></div>`
+      ).join('') || '<span style="font-size:10px;color:var(--muted)">None</span>';
+
+    // Timeline — identical logic to renderSessionDetail
+    const frags = [];
+    const usedResultIdx = new Set();
+    for (let i = 0; i < events.length; i++) {
+      const e = events[i];
+      if (e.kind === 'user') {
+        frags.push(`<div class="ev ev-user">${esc(e.text)}</div>`);
+      } else if (e.kind === 'thinking') {
+        frags.push(`<div class="ev ev-thinking">${esc(e.text.slice(0,120))}${e.text.length>120?'…':''}</div>`);
+      } else if (e.kind === 'text') {
+        frags.push(`<div class="ev ev-text">${esc(e.text)}</div>`);
+      } else if (e.kind === 'tool') {
+        if (e.cat === 'agent') {
+          frags.push(`<div class="ev-agent-spawn">
+            <div class="ev-agent-spawn-header">
+              <span class="ev-agent-type">${e.subagent||'AGENT'}</span>
+              <span class="ev-agent-label">${esc(e.label.replace(/^→\s*/,''))}</span>
+              ${e.background?'<span class="ev-agent-bg">⬡ background</span>':''}
+              ${e.ts?`<span class="ev-tool-ts">${fmtTime(e.ts)}</span>`:''}
+            </div>
+          </div>`);
+        } else {
+          let resultHtml = '';
+          for (let j = i+1; j < Math.min(i+8, events.length); j++) {
+            const r = events[j];
+            if (r.kind === 'tool_result' && r.tool_use_id === e.id && !usedResultIdx.has(j)) {
+              usedResultIdx.add(j);
+              resultHtml = `<div class="ev-tool-result${r.isError?' error':''}">${esc(r.text.slice(0,300))}</div>`;
+              break;
+            }
+          }
+          frags.push(`<div class="ev-tool">
+            <span class="ev-tool-badge cat-${e.cat}">${CAT_LABELS[e.cat]||e.cat}</span>
+            <span class="ev-tool-label" title="${esc(e.label)}">${esc(e.label)}</span>
+            ${e.ts?`<span class="ev-tool-ts">${fmtTime(e.ts)}</span>`:''}
+          </div>${resultHtml}`);
+        }
+      }
+    }
+    timeline.innerHTML = frags.join('');
+    timeline.scrollTop = timeline.scrollHeight;
+  } catch (err) {
+    timeline.innerHTML = `<div class="placeholder" style="color:#EF5350">ERROR: ${esc(err.message)}</div>`;
+  }
+};
+
+window.filterDrawers = function(query) {
+  if (!palaceData) return;
+  renderMemories(query.toLowerCase());
+};
+
+// Store filtered memories so onclick can reference by index
+let _palaceFilteredDrawers = [];
+
+const MEMORY_TYPE_COLORS = { user: '#7B8EFF', feedback: '#FFB347', project: '#00E5C8', reference: '#B47BFF', handoff: '#FF6B9D' };
+
+function renderMemories(filter) {
+  const memories = palaceData ? palaceData.memories || [] : [];
+  const list = document.getElementById('po-drawer-list');
+  if (!list) return;
+
+  _palaceFilteredDrawers = filter ? memories.filter(m =>
+    (m.name||'').toLowerCase().includes(filter) ||
+    (m.description||'').toLowerCase().includes(filter) ||
+    (m.type||'').toLowerCase().includes(filter) ||
+    (m.body||'').toLowerCase().includes(filter)
+  ) : memories;
+
+  // Group by type
+  const byType = {};
+  _palaceFilteredDrawers.forEach((m, idx) => {
+    const t = m.type || 'project';
+    if (!byType[t]) byType[t] = [];
+    byType[t].push({ m, idx });
+  });
+
+  const typeOrder = ['handoff', 'user', 'feedback', 'project', 'reference'];
+  const sorted = [...typeOrder.filter(t => byType[t]), ...Object.keys(byType).filter(t => !typeOrder.includes(t))];
+
+  let html = '';
+  for (const type of sorted) {
+    const items = byType[type] || [];
+    const color = MEMORY_TYPE_COLORS[type] || 'var(--muted)';
+    html += `<div class="po-wing-header" style="color:${color}">${type.toUpperCase()} <span style="color:var(--teal)">${items.length}</span></div>`;
+    for (const { m, idx } of items) {
+      const isSelected = palaceSelectedDrawer && palaceSelectedDrawer.filename === m.filename;
+      html += `<div class="po-drawer-item${isSelected ? ' selected' : ''}" onclick="selectDrawer(${idx})">
+        <div class="po-drawer-wing">${escHtml(m.name)}</div>
+        ${m.description ? `<div class="po-drawer-room">${escHtml(m.description)}</div>` : ''}
+      </div>`;
+    }
+  }
+  if (!_palaceFilteredDrawers.length) html = '<div style="padding:16px;font-size:10px;color:var(--dim);text-align:center;">NO MEMORIES</div>';
+  list.innerHTML = html;
+}
+
+window.selectDrawer = function(idx) {
+  const m = _palaceFilteredDrawers[idx];
+  if (!m) return;
+  palaceSelectedDrawer = m;
+  renderMemories(document.getElementById('po-search')?.value?.toLowerCase() || '');
+  renderMemoryDetail(m);
+};
+
+function renderMemoryDetail(m) {
+  const el = document.getElementById('po-drawer-detail');
+  if (!el) return;
+  const ts = m.mtime ? new Date(m.mtime).toLocaleString() : '—';
+  const color = MEMORY_TYPE_COLORS[m.type] || 'var(--muted)';
+  // Simple markdown-lite: bold **text**, headers ##, bullet points
+  const renderBody = text => text.split('\n').map(line => {
+    line = escHtml(line);
+    line = line.replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--text)">$1</strong>');
+    if (line.startsWith('## ')) return `<div style="color:var(--teal);font-size:10px;margin:10px 0 4px;letter-spacing:0.08em">${line.slice(3)}</div>`;
+    if (line.startsWith('# ')) return `<div style="color:var(--teal);font-size:11px;margin:10px 0 4px;letter-spacing:0.08em">${line.slice(2)}</div>`;
+    if (line.startsWith('- ')) return `<div style="padding-left:12px;margin:2px 0">· ${line.slice(2)}</div>`;
+    if (line.trim() === '') return '<div style="height:6px"></div>';
+    return `<div style="margin:2px 0">${line}</div>`;
+  }).join('');
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+      <span style="color:${color};font-size:9px;font-family:monospace;background:${color}22;padding:2px 8px;border-radius:3px;letter-spacing:0.08em">${escHtml(m.type||'project').toUpperCase()}</span>
+      <span style="color:var(--text);font-size:12px;font-family:monospace">${escHtml(m.name)}</span>
+    </div>
+    ${m.description ? `<div class="po-detail-field"><div class="po-detail-label">DESCRIPTION</div><div class="po-detail-value" style="color:var(--muted)">${escHtml(m.description)}</div></div>` : ''}
+    <div class="po-detail-field"><div class="po-detail-label">CONTENT</div>
+      <div class="po-detail-value" style="font-size:10px;line-height:1.6;max-height:none">${renderBody(m.body||'')}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+      <div class="po-detail-field"><div class="po-detail-label">FILE</div><div class="po-detail-value mono" style="font-size:9px;color:var(--dim)">${escHtml(m.filename||'—')}</div></div>
+      <div class="po-detail-field"><div class="po-detail-label">MODIFIED</div><div class="po-detail-value mono" style="font-size:9px">${escHtml(ts)}</div></div>
+    </div>
+    <div class="po-action-bar">
+      <button class="po-btn po-btn-edit" onclick="editMemory(palaceSelectedDrawer)">EDIT</button>
+      <button class="po-btn po-btn-delete" onclick="deleteMemory(palaceSelectedDrawer)">DELETE</button>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MEMORY EDIT / DELETE / NEW
+// ═══════════════════════════════════════════════════════════════════
+
+const MEMORY_TEMPLATES = {
+  user: {
+    label: 'User',
+    color: '#7B8EFF',
+    description: 'Role, goals, knowledge level',
+    scaffold: `---
+name: user_role
+description: <one-line summary of user role and context>
+type: user
+---
+
+<Role and experience description. What does the user know well? What are they new to?>
+Frame explanations accordingly.`
+  },
+  feedback: {
+    label: 'Feedback',
+    color: '#FFB347',
+    description: 'How to approach work — corrections and validations',
+    scaffold: `---
+name: feedback_<topic>
+description: <one-line rule that triggers on lookup>
+type: feedback
+---
+
+<The rule itself — what to do or avoid.>
+
+**Why:** <Reason the user gave — past incident, strong preference, etc.>
+
+**How to apply:** <When does this kick in? What edge cases does it cover?>`
+  },
+  project: {
+    label: 'Project',
+    color: '#00E5C8',
+    description: 'Ongoing work context, decisions, deadlines',
+    scaffold: `---
+name: project_<initiative>
+description: <one-line fact about the project decision or constraint>
+type: project
+---
+
+<The fact or decision — what is happening and what was decided.>
+
+**Why:** <Motivation — constraint, deadline, stakeholder ask, compliance issue.>
+
+**How to apply:** <How should this shape future suggestions and decisions?>`
+  },
+  reference: {
+    label: 'Reference',
+    color: '#B47BFF',
+    description: 'Pointers to external resources',
+    scaffold: `---
+name: reference_<resource>
+description: <what this resource contains and when to use it>
+type: reference
+---
+
+<Resource name and location (URL, project name, channel, etc.)>
+
+Use this when: <specific scenarios where this reference is relevant>.`
+  }
+};
+
+let _editingFilename = null;
+let _editingIsNew = false;
+
+window.editMemory = function(m) {
+  if (!m) return;
+  _editingFilename = m.filename;
+  _editingIsNew = false;
+  // Reconstruct full file content from parsed fields
+  const body = `---\nname: ${m.name || ''}\ndescription: ${m.description || ''}\ntype: ${m.type || 'project'}\n---\n\n${m.body || ''}`;
+  document.getElementById('po-edit-title').textContent = 'EDIT — ' + (m.name || m.filename);
+  document.getElementById('po-edit-textarea').value = body;
+  document.getElementById('po-edit-status').textContent = '';
+  document.getElementById('po-edit-modal').classList.add('open');
+  setTimeout(() => document.getElementById('po-edit-textarea').focus(), 50);
+};
+
+window.closeEditModal = function() {
+  document.getElementById('po-edit-modal').classList.remove('open');
+  _editingFilename = null;
+  _editingIsNew = false;
+};
+
+window.saveEditedMemory = async function() {
+  const content = document.getElementById('po-edit-textarea').value;
+  const statusEl = document.getElementById('po-edit-status');
+
+  if (_editingIsNew) {
+    // Derive filename from name field in frontmatter
+    const nameMatch = content.match(/^name:\s*(.+)$/m);
+    const rawName = nameMatch ? nameMatch[1].trim() : 'memory_' + Date.now();
+    _editingFilename = rawName.replace(/[^a-z0-9_-]/gi, '_').toLowerCase() + '.md';
+  }
+
+  if (!_editingFilename) { statusEl.textContent = 'No filename'; return; }
+
+  statusEl.textContent = 'Saving…';
+  try {
+    const qs = dir ? `?dir=${encodeURIComponent(dir)}` : '';
+    const resp = await fetch(`/api/memory-file${qs}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: _editingFilename, content })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) throw new Error(data.error || 'Failed');
+    statusEl.textContent = 'Saved ✓';
+    setTimeout(() => {
+      closeEditModal();
+      loadPalaceData().then(() => renderMemories());
+    }, 600);
+  } catch (err) {
+    statusEl.textContent = 'Error: ' + err.message;
+  }
+};
+
+window.deleteMemory = async function(m) {
+  if (!m || !m.filename) return;
+  if (!confirm(`Delete memory "${m.name || m.filename}"?\n\nThis cannot be undone.`)) return;
+  try {
+    const qs = dir ? `?dir=${encodeURIComponent(dir)}` : '';
+    const resp = await fetch(`/api/memory-file${qs}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: m.filename })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) throw new Error(data.error || 'Failed');
+    palaceSelectedDrawer = null;
+    document.getElementById('po-drawer-detail').innerHTML = '<div class="po-select-hint">SELECT A MEMORY</div>';
+    loadPalaceData().then(() => renderMemories());
+  } catch (err) {
+    alert('Delete failed: ' + err.message);
+  }
+};
+
+window.openNewMemory = function() {
+  const list = document.getElementById('po-tpl-list');
+  list.innerHTML = Object.entries(MEMORY_TEMPLATES).map(([key, t]) => `
+    <div class="po-tpl-option" onclick="selectTemplate('${key}')">
+      <div class="po-tpl-name" style="color:${t.color}">${t.label.toUpperCase()}</div>
+      <div class="po-tpl-desc">${t.description}</div>
+    </div>`).join('');
+  document.getElementById('po-tpl-picker').classList.add('open');
+};
+
+window.closeTplPicker = function() {
+  document.getElementById('po-tpl-picker').classList.remove('open');
+};
+
+window.selectTemplate = function(type) {
+  closeTplPicker();
+  const t = MEMORY_TEMPLATES[type];
+  if (!t) return;
+  _editingFilename = null;
+  _editingIsNew = true;
+  document.getElementById('po-edit-title').textContent = 'NEW ' + t.label.toUpperCase() + ' MEMORY';
+  document.getElementById('po-edit-textarea').value = t.scaffold;
+  document.getElementById('po-edit-status').textContent = '';
+  document.getElementById('po-edit-modal').classList.add('open');
+  setTimeout(() => document.getElementById('po-edit-textarea').focus(), 50);
+};
+
+// Agent Graph renderer — sessions (inner ring, teal) + agent types (outer ring, amber)
+const kgGraph = (function() {
+  let canvas, ctx, nodes = [], edges = [], animRAF = null, showLabels = true;
+  let mouseX = -999, mouseY = -999, hoveredNode = null;
+
+  function init() {
+    canvas = document.getElementById('po-kg-canvas');
+    if (!canvas) return;
+    ctx = canvas.getContext('2d');
+    canvas.onmousemove = e => {
+      const r = canvas.getBoundingClientRect();
+      mouseX = e.clientX - r.left;
+      mouseY = e.clientY - r.top;
+    };
+    canvas.onmouseleave = () => { mouseX = -999; mouseY = -999; hoveredNode = null; };
+  }
+
+  function render(graphData) {
+    if (!canvas) init();
+    if (!canvas) return;
+    if (!graphData || !graphData.nodes) return;
+
+    const sessionNodes = graphData.nodes.filter(n => n.type === 'session')
+      .sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+    const agentNodes = graphData.nodes.filter(n => n.type === 'agenttype')
+      .sort((a, b) => (b.totalSpawns || 0) - (a.totalSpawns || 0));
+
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2, cy = H / 2;
+    const innerR = Math.min(W, H) * 0.22;
+    const outerR = Math.min(W, H) * 0.40;
+
+    const maxTools = Math.max(...sessionNodes.map(n => n.totalTools || 0), 1);
+    const maxSpawns = Math.max(...agentNodes.map(n => n.totalSpawns || 0), 1);
+
+    // Session nodes on inner ring, sized by tool count
+    sessionNodes.forEach((n, i) => {
+      const angle = (i / Math.max(sessionNodes.length, 1)) * Math.PI * 2 - Math.PI / 2;
+      n._x = cx + Math.cos(angle) * innerR;
+      n._y = cy + Math.sin(angle) * innerR;
+      n._size = 4 + (n.totalTools / maxTools) * 9;
+    });
+
+    // Agent type nodes on outer ring, sized by spawn count
+    agentNodes.forEach((n, i) => {
+      const angle = (i / Math.max(agentNodes.length, 1)) * Math.PI * 2 - Math.PI / 2;
+      n._x = cx + Math.cos(angle) * outerR;
+      n._y = cy + Math.sin(angle) * outerR;
+      n._size = 3 + (n.totalSpawns / maxSpawns) * 7;
+    });
+
+    nodes = [...sessionNodes, ...agentNodes];
+    const nodeIds = new Set(nodes.map(n => n.id));
+    edges = graphData.edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
+
+    const totalSpawns = agentNodes.reduce((s, n) => s + (n.totalSpawns || 0), 0);
+    const info = document.getElementById('po-graph-info');
+    if (info) info.textContent = `${sessionNodes.length} sessions  ·  ${agentNodes.length} agent types  ·  ${totalSpawns} total spawns`;
+
+    if (animRAF) cancelAnimationFrame(animRAF);
+    draw();
+    animRAF = requestAnimationFrame(function loop() {
+      if (palaceCurrentTab !== 'graph') { animRAF = null; return; }
+      const prev = hoveredNode;
+      hoveredNode = null;
+      for (const n of nodes) {
+        const dx = n._x - mouseX, dy = n._y - mouseY;
+        const r = (n._size || 5) + 4;
+        if (dx*dx + dy*dy < r*r) { hoveredNode = n; break; }
+      }
+      if (hoveredNode !== prev) draw();
+      animRAF = requestAnimationFrame(loop);
+    });
+  }
+
+  function draw() {
+    if (!canvas || !ctx) return;
+    const W = canvas.width, H = canvas.height;
+    if (!W || !H) return;
+    ctx.clearRect(0, 0, W, H);
+    const cx = W/2, cy = H/2;
+    const innerR = Math.min(W,H)*0.22, outerR = Math.min(W,H)*0.40;
+
+    // Guide rings
+    ctx.beginPath(); ctx.arc(cx, cy, innerR, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(0,229,200,0.06)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, outerR, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(255,179,71,0.06)'; ctx.lineWidth = 1; ctx.stroke();
+
+    // Ring labels at top
+    ctx.font = '8px monospace'; ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0,229,200,0.3)';
+    ctx.fillText('SESSIONS', cx, cy - innerR - 6);
+    ctx.fillStyle = 'rgba(255,179,71,0.3)';
+    ctx.fillText('AGENT TYPES', cx, cy - outerR - 6);
+
+    // Edges
+    const maxW = Math.max(...edges.map(e => e.weight || 1), 1);
+    const idToNode = {};
+    for (const n of nodes) idToNode[n.id] = n;
+    for (const e of edges) {
+      const a = idToNode[e.source], b = idToNode[e.target];
+      if (!a || !b) continue;
+      const hl = hoveredNode && (hoveredNode.id === e.source || hoveredNode.id === e.target);
+      const alpha = 0.05 + (e.weight / maxW) * 0.22;
+      ctx.beginPath(); ctx.moveTo(a._x, a._y); ctx.lineTo(b._x, b._y);
+      ctx.strokeStyle = hl ? 'rgba(0,229,200,0.65)' : `rgba(120,128,168,${alpha.toFixed(2)})`;
+      ctx.lineWidth = hl ? Math.max(1, (e.weight / maxW) * 3) : Math.max(0.4, (e.weight / maxW) * 1.5);
+      ctx.stroke();
+      if (showLabels && hl) {
+        ctx.font = '8px monospace'; ctx.fillStyle = 'rgba(0,229,200,0.9)'; ctx.textAlign = 'center';
+        ctx.fillText('×' + e.label, (a._x+b._x)/2, (a._y+b._y)/2 - 4);
+      }
+    }
+
+    // Nodes
+    for (const n of nodes) {
+      const isHov = hoveredNode && hoveredNode.id === n.id;
+      const isSession = n.type === 'session';
+      const r = (n._size || 5) + (isHov ? 2 : 0);
+      if (isHov) { ctx.shadowBlur = 18; ctx.shadowColor = isSession ? '#00E5C8' : '#FFB347'; }
+      ctx.beginPath(); ctx.arc(n._x, n._y, r, 0, Math.PI*2);
+      ctx.fillStyle = isSession
+        ? (isHov ? '#00E5C8' : 'rgba(0,229,200,0.82)')
+        : (isHov ? '#FFB347' : 'rgba(255,179,71,0.78)');
+      ctx.fill(); ctx.shadowBlur = 0;
+      if (showLabels) {
+        const label = (n.label || n.id).length > 18 ? (n.label || n.id).slice(0, 16) + '…' : (n.label || n.id);
+        ctx.font = isHov ? '10px monospace' : '8px monospace';
+        ctx.fillStyle = isHov ? 'rgba(255,255,255,0.95)'
+          : (isSession ? 'rgba(0,229,200,0.65)' : 'rgba(255,179,71,0.6)');
+        ctx.textAlign = 'center';
+        ctx.fillText(label, n._x, n._y + r + 11);
+      }
+    }
+
+    // Tooltip
+    if (hoveredNode) {
+      const n = hoveredNode;
+      const isSession = n.type === 'session';
+      const lines = [isSession ? n.label + '  (session)' : n.label + '  (agent type)'];
+      if (isSession) {
+        lines.push(`${n.turns || 0} turns  ·  ${n.totalTools || 0} tools  ·  $${(n.cost || 0).toFixed(3)}`);
+        const ts = n.mtime ? new Date(n.mtime).toLocaleDateString() : '';
+        if (ts) lines.push(ts);
+        const spawned = Object.entries(n.agentSpawns || {}).sort((a,b) => b[1]-a[1]).slice(0, 5);
+        spawned.forEach(([k,v]) => lines.push(`→ ${k.slice(0,22)}  ×${v}`));
+      } else {
+        lines.push(`${n.totalSpawns} total spawns`);
+        const ne = edges.filter(e => e.source === n.id || e.target === n.id).slice(0, 5);
+        ne.forEach(e => {
+          const other = e.source === n.id ? e.target : e.source;
+          lines.push(`${other.slice(0, 8)}…  ×${e.weight}`);
+        });
+      }
+      const tw = 290, th = lines.length * 14 + 16;
+      let tx = n._x + 14, ty = n._y - th / 2;
+      if (tx + tw > W - 4) tx = n._x - tw - 14;
+      if (ty < 4) ty = 4;
+      if (ty + th > H - 4) ty = H - th - 4;
+      ctx.fillStyle = 'rgba(7,8,15,0.95)'; ctx.strokeStyle = 'rgba(0,229,200,0.28)'; ctx.lineWidth = 1;
+      roundRect(ctx, tx, ty, tw, th, 4); ctx.fill(); ctx.stroke();
+      ctx.font = '9px monospace'; ctx.textAlign = 'left';
+      lines.forEach((l, i) => {
+        ctx.fillStyle = i === 0 ? 'rgba(255,255,255,0.92)'
+          : i === 1 ? (isSession ? 'rgba(0,229,200,0.65)' : 'rgba(255,179,71,0.65)')
+          : 'rgba(212,212,232,0.8)';
+        ctx.fillText(l, tx + 8, ty + 13 + i * 14);
+      });
+    }
+  }
+
+  function roundRect(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r);
+    c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r);
+    c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y);
+    c.closePath();
+  }
+
+  function stop() { if (animRAF) { cancelAnimationFrame(animRAF); animRAF = null; } }
+  function toggleLabels(v) { showLabels = v; draw(); }
+
+  return { init, render, stop, toggleLabels };
+})();
+
+// ══════════════════ CODE KNOWLEDGE GRAPH — force-directed ══════════════════
+const kgCodeGraph = (function() {
+  let canvas, ctx, simNodes = [], edges = [], animRAF = null, showLabels = true;
+  let mouseX = -999, mouseY = -999, hoveredNode = null;
+  let W = 0, H = 0, simIdMap = {};
+
+  const TYPE_COLOR = {
+    file: '#6BA3FF', function: '#00E5C8', class: '#FFB347',
+    interface: '#87CEEB', type: '#C39BD3', method: '#7EC8A4',
+  };
+  const DEFAULT_COLOR = '#8890A8';
+
+  function nodeColor(n) { return TYPE_COLOR[n.type] || DEFAULT_COLOR; }
+
+  function init() {
+    canvas = document.getElementById('po-kg2-canvas');
+    if (!canvas) return;
+    ctx = canvas.getContext('2d');
+    canvas.onmousemove = e => {
+      const r = canvas.getBoundingClientRect();
+      mouseX = e.clientX - r.left; mouseY = e.clientY - r.top;
+    };
+    canvas.onmouseleave = () => { mouseX = -999; mouseY = -999; hoveredNode = null; };
+  }
+
+  function render(graphData, onFirstDraw) {
+    if (!canvas) init();
+    if (!canvas || !graphData || !graphData.nodes || !graphData.nodes.length) return;
+    W = canvas.offsetWidth; H = canvas.offsetHeight;
+    if (!W || !H) {
+      if (palaceCurrentTab === 'knowledge') {
+        if (animRAF) cancelAnimationFrame(animRAF);
+        animRAF = requestAnimationFrame(() => render(graphData, onFirstDraw));
+      }
+      return;
+    }
+    canvas.width = W; canvas.height = H;
+    const maxDeg = Math.max(...graphData.nodes.map(n => n.degree || 0), 1);
+    simNodes = graphData.nodes.map(n => ({
+      ...n, _size: 3 + ((n.degree || 0) / maxDeg) * 11,
+      _x: W / 2 + (Math.random() - 0.5) * W * 0.6,
+      _y: H / 2 + (Math.random() - 0.5) * H * 0.6,
+      _vx: 0, _vy: 0,
+    }));
+    edges = graphData.edges || [];
+    simIdMap = {}; for (const n of simNodes) simIdMap[n.id] = n;
+    for (let i = 0; i < 100; i++) tick();
+    const info = document.getElementById('po-kg2-info');
+    if (info) info.textContent = `${simNodes.length} nodes  ·  ${edges.length} edges`;
+    if (animRAF) cancelAnimationFrame(animRAF);
+    let frame = 0;
+    animRAF = requestAnimationFrame(function loop() {
+      if (palaceCurrentTab !== 'knowledge') { animRAF = null; return; }
+      if (frame < 250) { tick(); frame++; }
+      const prev = hoveredNode;
+      hoveredNode = null;
+      for (const n of simNodes) {
+        const dx = n._x - mouseX, dy = n._y - mouseY;
+        if (dx*dx + dy*dy < (n._size + 4) * (n._size + 4)) { hoveredNode = n; break; }
+      }
+      if (frame < 250 || hoveredNode !== prev) draw();
+      animRAF = requestAnimationFrame(loop);
+    });
+    draw();
+    if (onFirstDraw) onFirstDraw();
+  }
+
+  function tick() {
+    if (!simNodes.length) return;
+    const REP = 140, SPRING_K = 0.035, REST = 75, GRAV = 0.012, DAMP = 0.87;
+    const cx = W / 2, cy = H / 2;
+    for (const n of simNodes) { n._fx = 0; n._fy = 0; }
+    // Repulsion
+    for (let i = 0; i < simNodes.length; i++) {
+      const a = simNodes[i];
+      for (let j = i + 1; j < simNodes.length; j++) {
+        const b = simNodes[j];
+        const dx = a._x - b._x, dy = a._y - b._y;
+        const d2 = Math.max(dx*dx + dy*dy, 1), d = Math.sqrt(d2);
+        const f = REP / d2;
+        a._fx += (dx/d)*f; a._fy += (dy/d)*f;
+        b._fx -= (dx/d)*f; b._fy -= (dy/d)*f;
+      }
+    }
+    // Spring
+    for (const e of edges) {
+      const a = simIdMap[e.source], b = simIdMap[e.target];
+      if (!a || !b) continue;
+      const dx = b._x - a._x, dy = b._y - a._y;
+      const d = Math.max(Math.sqrt(dx*dx + dy*dy), 1);
+      const f = SPRING_K * (d - REST);
+      a._fx += (dx/d)*f; a._fy += (dy/d)*f;
+      b._fx -= (dx/d)*f; b._fy -= (dy/d)*f;
+    }
+    // Gravity + integrate
+    for (const n of simNodes) {
+      n._fx += (cx - n._x) * GRAV; n._fy += (cy - n._y) * GRAV;
+      n._vx = (n._vx + n._fx * 0.1) * DAMP; n._vy = (n._vy + n._fy * 0.1) * DAMP;
+      n._x = Math.max(n._size + 2, Math.min(W - n._size - 2, n._x + n._vx));
+      n._y = Math.max(n._size + 2, Math.min(H - n._size - 2, n._y + n._vy));
+    }
+  }
+
+  function draw() {
+    if (!canvas || !ctx || !W || !H) return;
+    ctx.clearRect(0, 0, W, H);
+    // Edges
+    for (const e of edges) {
+      const a = simIdMap[e.source], b = simIdMap[e.target];
+      if (!a || !b) continue;
+      const hl = hoveredNode && (hoveredNode.id === e.source || hoveredNode.id === e.target);
+      ctx.beginPath(); ctx.moveTo(a._x, a._y); ctx.lineTo(b._x, b._y);
+      ctx.strokeStyle = hl ? 'rgba(0,229,200,0.5)' : 'rgba(120,128,168,0.07)';
+      ctx.lineWidth = hl ? 1.4 : 0.5; ctx.stroke();
+    }
+    // Nodes
+    for (const n of simNodes) {
+      const hov = hoveredNode && hoveredNode.id === n.id;
+      const c = nodeColor(n);
+      const r = n._size + (hov ? 2.5 : 0);
+      if (hov) { ctx.shadowBlur = 16; ctx.shadowColor = c; }
+      ctx.beginPath(); ctx.arc(n._x, n._y, r, 0, Math.PI * 2);
+      ctx.globalAlpha = hov ? 1 : 0.75;
+      ctx.fillStyle = c; ctx.fill();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      if (showLabels && (hov || n._size > 7)) {
+        const lbl = (n.label || n.id).length > 20 ? (n.label || n.id).slice(0, 18) + '…' : (n.label || n.id);
+        ctx.font = hov ? '9px monospace' : '8px monospace';
+        ctx.fillStyle = hov ? 'rgba(255,255,255,0.95)' : 'rgba(180,188,210,0.55)';
+        ctx.textAlign = 'center';
+        ctx.fillText(lbl, n._x, n._y + r + 10);
+      }
+    }
+    // Tooltip
+    if (hoveredNode) {
+      const n = hoveredNode;
+      const lines = [n.label || n.id, `${n.type || 'node'}  ·  degree ${n.degree || 0}`];
+      const tw = 250, th = lines.length * 14 + 16;
+      let tx = n._x + 14, ty = n._y - th / 2;
+      if (tx + tw > W - 4) tx = n._x - tw - 14;
+      if (tx < 4) tx = 4;
+      if (ty < 4) ty = 4;
+      if (ty + th > H - 4) ty = H - th - 4;
+      ctx.fillStyle = 'rgba(7,8,15,0.95)';
+      ctx.strokeStyle = 'rgba(0,229,200,0.28)'; ctx.lineWidth = 1;
+      roundRectCG(ctx, tx, ty, tw, th, 4); ctx.fill(); ctx.stroke();
+      ctx.font = '9px monospace'; ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillText(lines[0], tx+8, ty+13);
+      ctx.fillStyle = 'rgba(180,188,210,0.72)'; ctx.fillText(lines[1], tx+8, ty+27);
+    }
+  }
+
+  function roundRectCG(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r);
+    c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r);
+    c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y); c.closePath();
+  }
+
+  function stop() { if (animRAF) { cancelAnimationFrame(animRAF); animRAF = null; } }
+  function reset() { stop(); simNodes = []; edges = []; simIdMap = {}; if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height); }
+  function toggleLabels(v) { showLabels = v; draw(); }
+
+  return { init, render, stop, reset, toggleLabels };
+})();
+
+// Wire up the MEMORY PALACE panel "open" button in sessions panel
+// Also refresh palace data when project changes
+const _origOpenPalace = window.openPalaceOverlay;
+window.openPalaceOverlay = async function() {
+  palaceData = null;
+  _palaceSelectedSession = null;
+  await _origOpenPalace();
+};
+
+// Stop KG graph animations when overlay closes
+const _origClose = window.closePalaceOverlay;
+window.closePalaceOverlay = function() {
+  kgGraph.stop();
+  kgCodeGraph.stop();
+  _origClose();
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════════
+(function boot() {
+  // Set conn dot initial state
+  const dot = document.getElementById('conn-dot');
+  if (dot) dot.className = '';
+
+  fetchInitial();
+  connectSSE();
+})();
+</script>
+</body>
+</html>
