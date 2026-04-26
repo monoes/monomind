@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
-import { scoreComplexity } from '../../packages/@monobrain/cli/src/model/complexity-scorer.js';
-import { resolveModelTier } from '../../packages/@monobrain/cli/src/model/model-tier-resolver.js';
-import { TIER_DEFAULTS } from '../../packages/@monobrain/cli/src/model/model-settings.js';
+import { scoreComplexity } from '../../packages/@monomind/cli/src/model/complexity-scorer.js';
+import { resolveModelTier } from '../../packages/@monomind/cli/src/model/model-tier-resolver.js';
+import { TIER_DEFAULTS } from '../../packages/@monomind/cli/src/model/model-settings.js';
 
 describe('scoreComplexity', () => {
   it('scores simple formatting task below 30', () => {

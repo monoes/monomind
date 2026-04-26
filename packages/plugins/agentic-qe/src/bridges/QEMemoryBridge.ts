@@ -24,7 +24,7 @@ import type {
   QELogger,
 } from '../interfaces.js';
 
-// Memory types (would be imported from @monobrain/memory in production)
+// Memory types (would be imported from @monomind/memory in production)
 interface IMemoryService {
   createNamespace(name: string, config: NamespaceConfig): Promise<void>;
   store(entry: StoreEntry): Promise<string>;
@@ -80,7 +80,7 @@ interface MemoryStats {
   memoryUsage: number;
 }
 
-// Embeddings types (would be imported from @monobrain/embeddings in production)
+// Embeddings types (would be imported from @monomind/embeddings in production)
 interface IEmbeddingsService {
   embed(text: string): Promise<{ embedding: Float32Array }>;
 }

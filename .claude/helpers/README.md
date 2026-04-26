@@ -1,4 +1,4 @@
-# MonoBrain v1 Helpers
+# MonoMind v1 Helpers
 
 This directory contains helper scripts and utilities for v1 development.
 

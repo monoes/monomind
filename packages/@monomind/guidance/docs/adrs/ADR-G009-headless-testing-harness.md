@@ -153,9 +153,9 @@ Run all tasks concurrently for speed. Considered but deferred. Parallel executio
 
 ## References
 
-- `packages/@monobrain/guidance/src/headless.ts` -- `HeadlessRunner`, `TestTask`, `TaskAssertion`, `SuiteRunSummary`, `ProcessExecutor`, `createComplianceSuite()`
-- `packages/@monobrain/guidance/src/types.ts` -- `RunEvent`, `Violation`, `EvaluatorResult`
-- `packages/@monobrain/guidance/src/ledger.ts` -- `RunLedger.createEvent()`, `finalizeEvent()`, `evaluate()`
-- `packages/@monobrain/guidance/src/index.ts` -- `GuidanceControlPlane.getHeadlessRunner()`
+- `packages/@monomind/guidance/src/headless.ts` -- `HeadlessRunner`, `TestTask`, `TaskAssertion`, `SuiteRunSummary`, `ProcessExecutor`, `createComplianceSuite()`
+- `packages/@monomind/guidance/src/types.ts` -- `RunEvent`, `Violation`, `EvaluatorResult`
+- `packages/@monomind/guidance/src/ledger.ts` -- `RunLedger.createEvent()`, `finalizeEvent()`, `evaluate()`
+- `packages/@monomind/guidance/src/index.ts` -- `GuidanceControlPlane.getHeadlessRunner()`
 - ADR-G005 -- Proof envelopes that headless runs populate
 - ADR-G008 -- Optimizer loop that uses headless suites for A/B testing

@@ -4,7 +4,7 @@
  * Comprehensive GNN support for RuVector PostgreSQL vector database integration.
  * Implements GCN, GAT, GraphSAGE, GIN, MPNN, EdgeConv, and more.
  *
- * @module @monobrain/plugins/integrations/ruvector/gnn
+ * @module @monomind/plugins/integrations/ruvector/gnn
  * @version 1.0.0
  */
 

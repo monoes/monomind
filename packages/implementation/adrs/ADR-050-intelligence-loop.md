@@ -2,11 +2,11 @@
 
 **Status**: Accepted
 **Date**: 2026-02-09
-**Authors**: Monobrain Team
+**Authors**: Monomind Team
 
 ## Context
 
-The memory system has three powerful modules — AutoMemoryBridge (storage), MemoryGraph (PageRank + community detection), LearningBridge (confidence tracking) — all shipped and tested (219 tests, published as `@monobrain/memory@3.0.0-alpha.8`). But they are not wired into the hook system that runs during Claude Code sessions.
+The memory system has three powerful modules — AutoMemoryBridge (storage), MemoryGraph (PageRank + community detection), LearningBridge (confidence tracking) — all shipped and tested (219 tests, published as `@monomind/memory@3.0.0-alpha.8`). But they are not wired into the hook system that runs during Claude Code sessions.
 
 The result is a gap:
 
@@ -30,7 +30,7 @@ Add a CJS intelligence layer (`intelligence.js`) to the hook system with file-ba
 
 ### Data Files
 
-All under `.monobrain/data/`:
+All under `.monomind/data/`:
 
 - `auto-memory-store.json` (existing) — written by auto-memory-hook.mjs
 - `graph-state.json` (new) — serialized graph: nodes + edges + pageRanks
@@ -49,7 +49,7 @@ Self-contained CJS implementations (~60 lines each):
 
 ### Why CJS, not ESM?
 
-Hooks are short-lived Node.js processes invoked by Claude Code. `hook-handler.cjs` uses `require()`. ESM dynamic `import()` is async and adds ~50ms overhead per invocation. The memory package (`@monobrain/memory`) is ESM-only. The intelligence layer must be CJS for synchronous, fast loading.
+Hooks are short-lived Node.js processes invoked by Claude Code. `hook-handler.cjs` uses `require()`. ESM dynamic `import()` is async and adds ~50ms overhead per invocation. The memory package (`@monomind/memory`) is ESM-only. The intelligence layer must be CJS for synchronous, fast loading.
 
 ### Why file-based persistence?
 
@@ -66,7 +66,7 @@ A daemon would require process management, health checking, and IPC complexity. 
 ## Alternatives Considered
 
 1. **Daemon-based intelligence** — Long-running process with in-memory graph. Rejected: too much operational complexity for the hook system.
-2. **ESM import of @monobrain/memory** — Use the full memory package in hooks. Rejected: CJS hooks can't synchronously import ESM.
+2. **ESM import of @monomind/memory** — Use the full memory package in hooks. Rejected: CJS hooks can't synchronously import ESM.
 3. **Extend auto-memory-hook.mjs** — Add graph/ranking to the existing ESM hook. Rejected: separate process, only runs at session start/end.
 
 ## Consequences

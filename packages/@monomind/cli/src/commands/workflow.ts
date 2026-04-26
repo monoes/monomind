@@ -72,9 +72,9 @@ const runCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain workflow run -t development --task "Build auth system"', description: 'Run development workflow' },
-    { command: 'monobrain workflow run -f ./workflow.yaml', description: 'Run from file' },
-    { command: 'monobrain workflow run -t sparc --dry-run', description: 'Validate SPARC workflow' }
+    { command: 'monomind workflow run -t development --task "Build auth system"', description: 'Run development workflow' },
+    { command: 'monomind workflow run -f ./workflow.yaml', description: 'Run from file' },
+    { command: 'monomind workflow run -t sparc --dry-run', description: 'Validate SPARC workflow' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let template = ctx.flags.template as string;
@@ -176,7 +176,7 @@ const runCommand: Command = {
 
       if (!dryRun) {
         output.writeln();
-        output.printInfo(`Track progress: monobrain workflow status ${result.workflowId}`);
+        output.printInfo(`Track progress: monomind workflow status ${result.workflowId}`);
       }
 
       return { success: true, data: result };
@@ -213,8 +213,8 @@ const validateCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain workflow validate -f ./workflow.yaml', description: 'Validate workflow file' },
-    { command: 'monobrain workflow validate -f ./workflow.json --strict', description: 'Strict validation' }
+    { command: 'monomind workflow validate -f ./workflow.yaml', description: 'Validate workflow file' },
+    { command: 'monomind workflow validate -f ./workflow.json --strict', description: 'Strict validation' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const file = ctx.flags.file as string || ctx.args[0];
@@ -621,7 +621,7 @@ const templateCommand: Command = {
         }
 
         output.printSuccess(`Template "${name}" created`);
-        output.writeln(output.dim('  Use with: monobrain workflow run -t ' + name));
+        output.writeln(output.dim('  Use with: monomind workflow run -t ' + name));
 
         return { success: true, data: { name, created: true } };
       }
@@ -631,7 +631,7 @@ const templateCommand: Command = {
     output.writeln();
     output.writeln(output.bold('Template Management'));
     output.writeln();
-    output.writeln('Usage: monobrain workflow template <subcommand>');
+    output.writeln('Usage: monomind workflow template <subcommand>');
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
@@ -651,15 +651,15 @@ export const workflowCommand: Command = {
   subcommands: [runCommand, validateCommand, listCommand, statusCommand, stopCommand, templateCommand],
   options: [],
   examples: [
-    { command: 'monobrain workflow run -t development --task "Build feature"', description: 'Run workflow' },
-    { command: 'monobrain workflow validate -f ./workflow.yaml', description: 'Validate workflow' },
-    { command: 'monobrain workflow list', description: 'List workflows' }
+    { command: 'monomind workflow run -t development --task "Build feature"', description: 'Run workflow' },
+    { command: 'monomind workflow validate -f ./workflow.yaml', description: 'Validate workflow' },
+    { command: 'monomind workflow list', description: 'List workflows' }
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold('Workflow Commands'));
     output.writeln();
-    output.writeln('Usage: monobrain workflow <subcommand> [options]');
+    output.writeln('Usage: monomind workflow <subcommand> [options]');
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([
@@ -671,7 +671,7 @@ export const workflowCommand: Command = {
       `${output.highlight('template')}  - Manage templates`
     ]);
     output.writeln();
-    output.writeln('Run "monobrain workflow <subcommand> --help" for more info');
+    output.writeln('Run "monomind workflow <subcommand> --help" for more info');
 
     return { success: true };
   }

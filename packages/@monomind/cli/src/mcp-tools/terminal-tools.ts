@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 
 // Storage paths
-const STORAGE_DIR = '.monobrain';
+const STORAGE_DIR = '.monomind';
 const TERMINAL_DIR = 'terminals';
 const TERMINAL_FILE = 'store.json';
 

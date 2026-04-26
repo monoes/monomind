@@ -20,10 +20,10 @@ Quick reference for migrating from `SwarmHub` to `UnifiedSwarmCoordinator`
 
 ```typescript
 // OLD (deprecated)
-import { createSwarmHub } from "@monobrain/swarm";
+import { createSwarmHub } from "@monomind/swarm";
 
 // NEW (recommended)
-import { createUnifiedSwarmCoordinator } from "@monobrain/swarm";
+import { createUnifiedSwarmCoordinator } from "@monomind/swarm";
 ```
 
 ### Initialization
@@ -102,7 +102,7 @@ await coordinator.shutdown();
 ### Before (SwarmHub)
 
 ```typescript
-import { createSwarmHub } from "@monobrain/swarm";
+import { createSwarmHub } from "@monomind/swarm";
 
 async function runSwarm() {
   const hub = createSwarmHub();
@@ -128,7 +128,7 @@ async function runSwarm() {
 ### After (UnifiedSwarmCoordinator)
 
 ```typescript
-import { createUnifiedSwarmCoordinator } from "@monobrain/swarm";
+import { createUnifiedSwarmCoordinator } from "@monomind/swarm";
 
 async function runSwarm() {
   const coordinator = createUnifiedSwarmCoordinator({
@@ -187,7 +187,7 @@ async function runSwarm() {
 If you can't migrate immediately, use the compatibility layer:
 
 ```typescript
-import { createSwarmHub } from "@monobrain/swarm";
+import { createSwarmHub } from "@monomind/swarm";
 
 const hub = createSwarmHub();
 await hub.initialize();
@@ -392,7 +392,7 @@ await coordinator.assignTaskToDomain(taskId, "security");
 ### Unit Tests
 
 ```typescript
-import { createUnifiedSwarmCoordinator } from "@monobrain/swarm";
+import { createUnifiedSwarmCoordinator } from "@monomind/swarm";
 
 describe("UnifiedSwarmCoordinator", () => {
   let coordinator;
@@ -438,7 +438,7 @@ describe("UnifiedSwarmCoordinator", () => {
 
 ## Getting Help
 
-- **Documentation**: See `@monobrain/swarm/README.md`
+- **Documentation**: See `@monomind/swarm/README.md`
 - **Examples**: See `/v1/examples/swarm-coordinator.ts`
 - **Implementation**: See `/v1/docs/ADR-003-implementation-status.md`
 - **Issues**: Report at GitHub
@@ -448,7 +448,7 @@ describe("UnifiedSwarmCoordinator", () => {
 ### Do This ✅
 
 ```typescript
-import { createUnifiedSwarmCoordinator } from "@monobrain/swarm";
+import { createUnifiedSwarmCoordinator } from "@monomind/swarm";
 
 const coordinator = createUnifiedSwarmCoordinator({
   topology: { type: "hierarchical", maxAgents: 15 },
@@ -463,7 +463,7 @@ await coordinator.executeParallel(tasks);
 ### Not This ❌
 
 ```typescript
-import { createSwarmHub } from "@monobrain/swarm";
+import { createSwarmHub } from "@monomind/swarm";
 
 const hub = createSwarmHub();
 await hub.initialize();

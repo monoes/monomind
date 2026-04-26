@@ -1,5 +1,5 @@
 /**
- * @monobrain/mcp - MCP Server
+ * @monomind/mcp - MCP Server
  *
  * High-performance MCP server implementation
  */
@@ -16,7 +16,7 @@ import { createTransport, createTransportManager } from './transport/index.js';
 import { createRateLimiter } from './rate-limiter.js';
 import { createSamplingManager } from './sampling.js';
 const DEFAULT_CONFIG = {
-    name: 'Monobrain MCP Server V1',
+    name: 'Monomind MCP Server V1',
     version: '3.0.0',
     transport: 'stdio',
     host: 'localhost',
@@ -49,7 +49,7 @@ export class MCPServer extends EventEmitter {
     currentSession;
     resourceSubscriptions = new Map(); // sessionId -> subscribed URIs
     serverInfo = {
-        name: 'Monobrain MCP Server V1',
+        name: 'Monomind MCP Server V1',
         version: '3.0.0',
     };
     // MCP 2025-11-25 protocol version
@@ -370,7 +370,7 @@ export class MCPServer extends EventEmitter {
             protocolVersion: this.protocolVersion,
             capabilities: this.capabilities,
             serverInfo: this.serverInfo,
-            instructions: 'Monobrain MCP Server V1 ready for tool execution',
+            instructions: 'Monomind MCP Server V1 ready for tool execution',
         };
         this.logger.info('Session initialized', {
             sessionId: session.id,

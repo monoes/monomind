@@ -9,12 +9,12 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   PromptAssembler,
   type AssemblyConfig,
-} from '../../packages/@monobrain/cli/src/context/prompt-assembler.js';
+} from '../../packages/@monomind/cli/src/context/prompt-assembler.js';
 import type {
   ContextProvider,
   RunContext,
-} from '../../packages/@monobrain/cli/src/context/context-provider.js';
-import { GitStateProvider } from '../../packages/@monobrain/cli/src/context/git-state-provider.js';
+} from '../../packages/@monomind/cli/src/context/context-provider.js';
+import { GitStateProvider } from '../../packages/@monomind/cli/src/context/git-state-provider.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

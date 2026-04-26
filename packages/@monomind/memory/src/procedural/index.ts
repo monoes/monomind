@@ -3,7 +3,7 @@
  *
  * Barrel export for Task 45.
  *
- * @module @monobrain/memory/procedural
+ * @module @monomind/memory/procedural
  */
 
 export type {

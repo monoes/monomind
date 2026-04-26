@@ -18,7 +18,7 @@ Create a **Healthcare Clinical Decision Support Plugin** that leverages RuVector
 
 ## Plugin Name
 
-`@monobrain/plugin-healthcare-clinical`
+`@monomind/plugin-healthcare-clinical`
 
 ## Description
 

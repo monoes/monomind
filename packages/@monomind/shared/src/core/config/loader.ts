@@ -29,10 +29,10 @@ export interface LoadedConfig {
  * Configuration file names to search for
  */
 const CONFIG_FILE_NAMES = [
-  'monobrain.config.json',
-  'monobrain.config.js',
-  'monobrain.json',
-  '.monobrain.json',
+  'monomind.config.json',
+  'monomind.config.js',
+  'monomind.json',
+  '.monomind.json',
 ];
 
 /**
@@ -63,31 +63,31 @@ function loadEnvConfig(): Partial<SystemConfig> {
   const config: Partial<SystemConfig> = {};
 
   // Orchestrator settings
-  if (process.env.MONOBRAIN_MAX_AGENTS) {
+  if (process.env.MONOMIND_MAX_AGENTS) {
     config.orchestrator = {
       ...defaultSystemConfig.orchestrator,
       lifecycle: {
         ...defaultSystemConfig.orchestrator.lifecycle,
-        maxConcurrentAgents: parseInt(process.env.MONOBRAIN_MAX_AGENTS, 10),
+        maxConcurrentAgents: parseInt(process.env.MONOMIND_MAX_AGENTS, 10),
       },
     };
   }
 
   // Data directory
-  if (process.env.MONOBRAIN_DATA_DIR) {
+  if (process.env.MONOMIND_DATA_DIR) {
     config.orchestrator = {
       ...config.orchestrator,
       ...defaultSystemConfig.orchestrator,
       session: {
         ...defaultSystemConfig.orchestrator.session,
-        dataDir: process.env.MONOBRAIN_DATA_DIR,
+        dataDir: process.env.MONOMIND_DATA_DIR,
       },
     };
   }
 
   // Memory type
-  if (process.env.MONOBRAIN_MEMORY_TYPE) {
-    const memoryType = process.env.MONOBRAIN_MEMORY_TYPE as NonNullable<SystemConfig['memory']>['type'];
+  if (process.env.MONOMIND_MEMORY_TYPE) {
+    const memoryType = process.env.MONOMIND_MEMORY_TYPE as NonNullable<SystemConfig['memory']>['type'];
     if (['sqlite', 'agentdb', 'hybrid', 'redis', 'memory'].includes(memoryType)) {
       config.memory = {
         ...(defaultSystemConfig.memory ?? { type: 'hybrid' }),
@@ -97,9 +97,9 @@ function loadEnvConfig(): Partial<SystemConfig> {
   }
 
   // MCP transport
-  const defaultMcp = defaultSystemConfig.mcp ?? { name: 'monobrain', version: '3.0.0', transport: { type: 'stdio' as const } };
-  if (process.env.MONOBRAIN_MCP_TRANSPORT) {
-    const transport = process.env.MONOBRAIN_MCP_TRANSPORT as 'stdio' | 'http' | 'websocket';
+  const defaultMcp = defaultSystemConfig.mcp ?? { name: 'monomind', version: '3.0.0', transport: { type: 'stdio' as const } };
+  if (process.env.MONOMIND_MCP_TRANSPORT) {
+    const transport = process.env.MONOMIND_MCP_TRANSPORT as 'stdio' | 'http' | 'websocket';
     if (['stdio', 'http', 'websocket'].includes(transport)) {
       config.mcp = {
         ...defaultMcp,
@@ -111,22 +111,22 @@ function loadEnvConfig(): Partial<SystemConfig> {
     }
   }
 
-  if (process.env.MONOBRAIN_MCP_PORT) {
+  if (process.env.MONOMIND_MCP_PORT) {
     config.mcp = {
       ...config.mcp,
       ...defaultMcp,
       transport: {
         ...config.mcp?.transport,
         ...defaultMcp.transport,
-        port: parseInt(process.env.MONOBRAIN_MCP_PORT, 10),
+        port: parseInt(process.env.MONOMIND_MCP_PORT, 10),
       },
     };
   }
 
   // Swarm topology
   const defaultSwarm = defaultSystemConfig.swarm ?? { topology: 'hierarchical-mesh' as const, maxAgents: 20 };
-  if (process.env.MONOBRAIN_SWARM_TOPOLOGY) {
-    const topology = process.env.MONOBRAIN_SWARM_TOPOLOGY as NonNullable<SystemConfig['swarm']>['topology'];
+  if (process.env.MONOMIND_SWARM_TOPOLOGY) {
+    const topology = process.env.MONOMIND_SWARM_TOPOLOGY as NonNullable<SystemConfig['swarm']>['topology'];
     if (['hierarchical', 'mesh', 'ring', 'star', 'adaptive', 'hierarchical-mesh'].includes(topology)) {
       config.swarm = {
         ...defaultSwarm,
@@ -149,7 +149,7 @@ export class ConfigLoader {
     this.searchPaths = [
       process.cwd(),
       resolve(process.cwd(), '..'),
-      resolve(process.env.HOME ?? '', '.monobrain'),
+      resolve(process.env.HOME ?? '', '.monomind'),
     ];
 
     if (additionalPaths) {

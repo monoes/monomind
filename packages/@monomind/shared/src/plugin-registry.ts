@@ -6,7 +6,7 @@
  */
 
 import type {
-  MonobrainPlugin,
+  MonomindPlugin,
   PluginInfo,
   PluginLifecycleState,
   PluginContext,
@@ -33,7 +33,7 @@ export class PluginRegistry {
    * Register a plugin in the registry
    */
   registerPlugin(
-    plugin: MonobrainPlugin,
+    plugin: MonomindPlugin,
     initialState: PluginLifecycleState,
     context: PluginContext
   ): void {

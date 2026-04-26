@@ -526,7 +526,7 @@ export interface ConsensusParams {
 }
 
 // ============================================================================
-// Memory Types (Integration with @monobrain/memory)
+// Memory Types (Integration with @monomind/memory)
 // ============================================================================
 
 /**

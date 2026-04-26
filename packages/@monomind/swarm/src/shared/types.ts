@@ -1,9 +1,9 @@
 /**
- * @monobrain/swarm - Standalone Types
+ * @monomind/swarm - Standalone Types
  * Core type definitions for multi-agent swarm coordination
  *
  * This file provides all types needed for standalone operation
- * without dependency on @monobrain/shared
+ * without dependency on @monomind/shared
  */
 
 // =============================================================================

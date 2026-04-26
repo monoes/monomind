@@ -1,6 +1,6 @@
 # Event Store Persistence (ADR-007)
 
-Complete event sourcing implementation for v1 Monobrain with persistent storage, projections, and event replay.
+Complete event sourcing implementation for v1 Monomind with persistent storage, projections, and event replay.
 
 ## Overview
 
@@ -111,7 +111,7 @@ Build queryable read models from events:
 ### Basic Event Storage
 
 ```typescript
-import { EventStore, createAgentSpawnedEvent } from "@monobrain/shared/events";
+import { EventStore, createAgentSpawnedEvent } from "@monomind/shared/events";
 
 // Initialize
 const eventStore = new EventStore({
@@ -144,7 +144,7 @@ import {
   EventStore,
   AgentStateProjection,
   TaskHistoryProjection,
-} from "@monobrain/shared/events";
+} from "@monomind/shared/events";
 
 const eventStore = new EventStore({ databasePath: "./events.db" });
 await eventStore.initialize();
@@ -270,7 +270,7 @@ npm test -- event-store.test.ts -t "Event Appending"
 See `example-usage.ts` for a complete demonstration:
 
 ```bash
-npx tsx packages/@monobrain/shared/src/events/example-usage.ts
+npx tsx packages/@monomind/shared/src/events/example-usage.ts
 ```
 
 Output includes:
@@ -385,4 +385,4 @@ When adding new domain events:
 
 ## License
 
-Part of monobrain v1 - See root LICENSE file.
+Part of monomind v1 - See root LICENSE file.

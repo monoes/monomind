@@ -18,7 +18,7 @@ Create a **Performance Optimization Plugin** that leverages RuVector WASM packag
 
 ## Plugin Name
 
-`@monobrain/plugin-performance-optimizer`
+`@monomind/plugin-performance-optimizer`
 
 ## Description
 

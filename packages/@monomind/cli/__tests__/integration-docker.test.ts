@@ -1,7 +1,7 @@
 /**
  * Integration Docker Validation Tests
  *
- * Validates the MonoBrain Docker-based deployment stack without running Docker.
+ * Validates the MonoMind Docker-based deployment stack without running Docker.
  * Checks docker-compose.yml, nginx.conf, MCP bridge source, CLI Dockerfile,
  * and CLI build/init/doctor commands for correctness.
  *
@@ -23,16 +23,16 @@ import { resolve, join } from 'path';
 // Paths
 // ---------------------------------------------------------------------------
 
-const ROOT = resolve(__dirname, '..', '..', '..', '..');            // /workspaces/monobrain
-const CLI_DIR = resolve(__dirname, '..');                             // packages/@monobrain/cli
-const MONOBRAIN_DIR = join(ROOT, 'monobrain');
-const COMPOSE_PATH = join(MONOBRAIN_DIR, 'docker-compose.yml');
-const NGINX_CONF_PATH = join(MONOBRAIN_DIR, 'src', 'nginx', 'nginx.conf');
-const NGINX_DOCKERFILE = join(MONOBRAIN_DIR, 'src', 'nginx', 'Dockerfile');
-const MCP_BRIDGE_INDEX = join(MONOBRAIN_DIR, 'src', 'mcp-bridge', 'index.js');
-const MCP_BRIDGE_DOCKERFILE = join(MONOBRAIN_DIR, 'src', 'mcp-bridge', 'Dockerfile');
+const ROOT = resolve(__dirname, '..', '..', '..', '..');            // /workspaces/monomind
+const CLI_DIR = resolve(__dirname, '..');                             // packages/@monomind/cli
+const MONOMIND_DIR = join(ROOT, 'monomind');
+const COMPOSE_PATH = join(MONOMIND_DIR, 'docker-compose.yml');
+const NGINX_CONF_PATH = join(MONOMIND_DIR, 'src', 'nginx', 'nginx.conf');
+const NGINX_DOCKERFILE = join(MONOMIND_DIR, 'src', 'nginx', 'Dockerfile');
+const MCP_BRIDGE_INDEX = join(MONOMIND_DIR, 'src', 'mcp-bridge', 'index.js');
+const MCP_BRIDGE_DOCKERFILE = join(MONOMIND_DIR, 'src', 'mcp-bridge', 'Dockerfile');
 const CLI_DOCKERFILE = join(CLI_DIR, 'docker', 'Dockerfile');
-const ENV_EXAMPLE = join(MONOBRAIN_DIR, '.env.example');
+const ENV_EXAMPLE = join(MONOMIND_DIR, '.env.example');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -229,8 +229,8 @@ describe('Nginx Configuration', () => {
     expect(nginxContent).toContain('proxy_set_header Accept-Encoding ""');
   });
 
-  it('injects MonoBrain welcome.js script via sub_filter', () => {
-    expect(nginxContent).toMatch(/sub_filter\s+'<\/head>'\s+'<script src="\/monobrain\/welcome\.js"/);
+  it('injects MonoMind welcome.js script via sub_filter', () => {
+    expect(nginxContent).toMatch(/sub_filter\s+'<\/head>'\s+'<script src="\/monomind\/welcome\.js"/);
   });
 
   it('has sub_filter_once off for multiple replacements', () => {
@@ -248,8 +248,8 @@ describe('Nginx Configuration', () => {
     expect(nginxContent).toContain('alias /etc/nginx/static/');
   });
 
-  it('serves /monobrain/ static assets from /etc/nginx/static/', () => {
-    expect(nginxContent).toMatch(/location\s+\/monobrain\//);
+  it('serves /monomind/ static assets from /etc/nginx/static/', () => {
+    expect(nginxContent).toMatch(/location\s+\/monomind\//);
   });
 
   it('rewrites localhost:3000 URLs to relative paths via sub_filter', () => {
@@ -397,10 +397,10 @@ describe('MCP Bridge Dockerfile', () => {
     expect(dockerContent).toContain('COPY mcp-stdio-kernel.js ./');
   });
 
-  it('creates writable .monobrain directories', () => {
-    expect(dockerContent).toContain('/app/.monobrain/tasks');
-    expect(dockerContent).toContain('/app/.monobrain/memory');
-    expect(dockerContent).toContain('/app/.monobrain/sessions');
+  it('creates writable .monomind directories', () => {
+    expect(dockerContent).toContain('/app/.monomind/tasks');
+    expect(dockerContent).toContain('/app/.monomind/memory');
+    expect(dockerContent).toContain('/app/.monomind/sessions');
   });
 
   it('runs as non-root user', () => {
@@ -427,7 +427,7 @@ describe('MCP Bridge Dockerfile', () => {
 // 6. CLI Dockerfile Validation
 // ---------------------------------------------------------------------------
 
-describe('CLI Dockerfile (monobrain:lite)', () => {
+describe('CLI Dockerfile (monomind:lite)', () => {
   let dockerContent: string;
 
   beforeAll(() => {
@@ -454,8 +454,8 @@ describe('CLI Dockerfile (monobrain:lite)', () => {
     expect(dockerContent).toMatch(/FROM\s+node:22-alpine\s+AS\s+production/);
   });
 
-  it('installs monobrain globally in the build stage', () => {
-    expect(dockerContent).toContain('npm install -g monobrain@latest');
+  it('installs monomind globally in the build stage', () => {
+    expect(dockerContent).toContain('npm install -g monomind@latest');
   });
 
   it('prunes heavy optional dependencies to reduce image size', () => {
@@ -468,10 +468,10 @@ describe('CLI Dockerfile (monobrain:lite)', () => {
     }
   });
 
-  it('creates a non-root user (monobrain)', () => {
+  it('creates a non-root user (monomind)', () => {
     expect(dockerContent).toContain('adduser');
-    expect(dockerContent).toContain('monobrain');
-    expect(dockerContent).toContain('USER monobrain');
+    expect(dockerContent).toContain('monomind');
+    expect(dockerContent).toContain('USER monomind');
   });
 
   it('installs dumb-init for PID 1 signal handling', () => {
@@ -483,13 +483,13 @@ describe('CLI Dockerfile (monobrain:lite)', () => {
     expect(dockerContent).toContain('NODE_ENV=production');
   });
 
-  it('has a HEALTHCHECK using monobrain doctor', () => {
+  it('has a HEALTHCHECK using monomind doctor', () => {
     expect(dockerContent).toContain('HEALTHCHECK');
-    expect(dockerContent).toContain('monobrain doctor');
+    expect(dockerContent).toContain('monomind doctor');
   });
 
   it('default CMD starts MCP server', () => {
-    expect(dockerContent).toContain('CMD ["monobrain", "mcp", "start"]');
+    expect(dockerContent).toContain('CMD ["monomind", "mcp", "start"]');
   });
 });
 
@@ -546,7 +546,7 @@ describe('Environment Example (.env.example)', () => {
 describe('CLI Build', () => {
   it('package.json exists and has correct name', () => {
     const pkg = JSON.parse(readFile(join(CLI_DIR, 'package.json')));
-    expect(pkg.name).toBe('@monobrain/cli');
+    expect(pkg.name).toBe('@monomind/cli');
   });
 
   it('package.json defines build script as tsc', () => {
@@ -647,7 +647,7 @@ describe('Security Checks', () => {
 
   it('CLI Dockerfile runs as non-root', () => {
     const dockerfile = readFile(CLI_DOCKERFILE);
-    expect(dockerfile).toContain('USER monobrain');
+    expect(dockerfile).toContain('USER monomind');
   });
 
   it('nginx CORS allows all origins (expected for development)', () => {

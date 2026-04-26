@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes how the Quality Engineering (agentic-qe) plugin integrates with Monobrain v1's existing domains: Security, Core, Memory, Integration, and Coordination.
+This document describes how the Quality Engineering (agentic-qe) plugin integrates with Monomind v1's existing domains: Security, Core, Memory, Integration, and Coordination.
 
 ## Integration Architecture
 
@@ -13,7 +13,7 @@ This document describes how the Quality Engineering (agentic-qe) plugin integrat
 │                                                                                  │
 │   ┌─────────────────────────────────────────────────────────────────────────┐   │
 │   │                    Anti-Corruption Layer (ACL)                           │   │
-│   │   Translates between agentic-qe and monobrain v1 domains              │   │
+│   │   Translates between agentic-qe and monomind v1 domains              │   │
 │   └─────────────────────────────────────────────────────────────────────────┘   │
 │                                        │                                         │
 │     ┌──────────────┬──────────────────┼──────────────────┬──────────────┐       │
@@ -57,8 +57,8 @@ The QE domain shares the Memory domain's infrastructure for vector storage, HNSW
 ```typescript
 // v1/plugins/agentic-qe/src/infrastructure/memory-bridge.ts
 
-import type { IMemoryService, MemoryEntry } from "@monobrain/memory";
-import type { EmbeddingsService } from "@monobrain/embeddings";
+import type { IMemoryService, MemoryEntry } from "@monomind/memory";
+import type { EmbeddingsService } from "@monomind/embeddings";
 
 export class QEMemoryBridge {
   constructor(
@@ -168,7 +168,7 @@ export class QEMemoryBridge {
 
 #### Embedding Reuse
 
-The QE domain reuses v1's `@monobrain/embeddings` service instead of running separate `@xenova/transformers` instances:
+The QE domain reuses v1's `@monomind/embeddings` service instead of running separate `@xenova/transformers` instances:
 
 ```typescript
 // Embedding generation delegation
@@ -204,7 +204,7 @@ The QE security-compliance context adapts to v1's security module patterns and u
 ```typescript
 // v1/plugins/agentic-qe/src/infrastructure/security-bridge.ts
 
-import type { SecurityModule } from "@monobrain/security";
+import type { SecurityModule } from "@monomind/security";
 
 export class QESecurityBridge {
   constructor(private security: SecurityModule) {}
@@ -324,7 +324,7 @@ import type {
   AgentService,
   TaskService,
   WorkflowService,
-} from "@monobrain/core";
+} from "@monomind/core";
 
 export class QECoreBridge {
   constructor(
@@ -416,7 +416,7 @@ QE's Queen Coordinator integrates with v1's Hive Mind for swarm coordination.
 ```typescript
 // v1/plugins/agentic-qe/src/infrastructure/hive-bridge.ts
 
-import type { HiveMindService, ConsensusResult } from "@monobrain/coordination";
+import type { HiveMindService, ConsensusResult } from "@monomind/coordination";
 
 export class QEHiveBridge {
   private queenId: string;
@@ -548,7 +548,7 @@ QE tools are registered with v1's MCP server using the standard tool definition 
 ```typescript
 // v1/plugins/agentic-qe/src/mcp-tools/registration.ts
 
-import type { MCPServer, ToolDefinition } from "@monobrain/mcp";
+import type { MCPServer, ToolDefinition } from "@monomind/mcp";
 import { mcpTools } from "./index";
 
 export async function registerQETools(server: MCPServer): Promise<void> {
@@ -600,7 +600,7 @@ TinyDancer model routing is aligned with v1's ADR-026 Agent Booster routing.
 import type {
   EnhancedModelRouter,
   EnhancedRouteResult,
-} from "@monobrain/cli/ruvector";
+} from "@monomind/cli/ruvector";
 
 export class QEModelRoutingAdapter {
   constructor(private v1Router: EnhancedModelRouter) {}

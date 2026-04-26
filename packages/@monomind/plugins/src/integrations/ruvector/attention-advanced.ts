@@ -3,7 +3,7 @@
  *
  * Part 3: Graph, Temporal, Multimodal, Retrieval, and Specialized attention.
  *
- * @module @monobrain/plugins/integrations/ruvector/attention-advanced
+ * @module @monomind/plugins/integrations/ruvector/attention-advanced
  */
 
 import type {

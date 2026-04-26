@@ -1,7 +1,7 @@
 ---
 name: performance-analysis
 description: |
-  Comprehensive performance analysis, bottleneck detection, and optimization recommendations for Monobrain swarms
+  Comprehensive performance analysis, bottleneck detection, and optimization recommendations for Monomind swarms
 ---
 
 # Performance Analysis Skill
@@ -20,17 +20,17 @@ This skill consolidates all performance analysis capabilities:
 
 ### Basic Bottleneck Detection
 ```bash
-npx monobrain bottleneck detect
+npx monomind bottleneck detect
 ```
 
 ### Generate Performance Report
 ```bash
-npx monobrain analysis performance-report --format html --include-metrics
+npx monomind analysis performance-report --format html --include-metrics
 ```
 
 ### Analyze and Auto-Fix
 ```bash
-npx monobrain bottleneck detect --fix --threshold 15
+npx monomind bottleneck detect --fix --threshold 15
 ```
 
 ## Core Capabilities
@@ -39,7 +39,7 @@ npx monobrain bottleneck detect --fix --threshold 15
 
 #### Command Syntax
 ```bash
-npx monobrain bottleneck detect [options]
+npx monomind bottleneck detect [options]
 ```
 
 #### Options
@@ -52,19 +52,19 @@ npx monobrain bottleneck detect [options]
 #### Usage Examples
 ```bash
 # Basic detection for current swarm
-npx monobrain bottleneck detect
+npx monomind bottleneck detect
 
 # Analyze specific swarm over 24 hours
-npx monobrain bottleneck detect --swarm-id swarm-123 -t 24h
+npx monomind bottleneck detect --swarm-id swarm-123 -t 24h
 
 # Export detailed analysis
-npx monobrain bottleneck detect -t 24h -e bottlenecks.json
+npx monomind bottleneck detect -t 24h -e bottlenecks.json
 
 # Auto-fix detected issues
-npx monobrain bottleneck detect --fix --threshold 15
+npx monomind bottleneck detect --fix --threshold 15
 
 # Low threshold for sensitive detection
-npx monobrain bottleneck detect --threshold 10 --export critical-issues.json
+npx monomind bottleneck detect --threshold 10 --export critical-issues.json
 ```
 
 #### Metrics Analyzed
@@ -163,14 +163,14 @@ Automatic analysis during task execution:
 #### MCP Integration
 ```javascript
 // Check for bottlenecks in Claude Code
-mcp__monobrain__bottleneck_detect({
+mcp__monomind__bottleneck_detect({
   timeRange: "1h",
   threshold: 20,
   autoFix: false
 })
 
 // Get detailed task results with bottleneck analysis
-mcp__monobrain__task_results({
+mcp__monomind__task_results({
   taskId: "task-123",
   format: "detailed"
 })
@@ -214,7 +214,7 @@ mcp__monobrain__task_results({
 
 #### Command Syntax
 ```bash
-npx monobrain analysis performance-report [options]
+npx monomind analysis performance-report [options]
 ```
 
 #### Options
@@ -260,26 +260,26 @@ npx monobrain analysis performance-report [options]
 #### Usage Examples
 ```bash
 # Generate HTML report with all metrics
-npx monobrain analysis performance-report --format html --include-metrics
+npx monomind analysis performance-report --format html --include-metrics
 
 # Compare current swarm with previous
-npx monobrain analysis performance-report --compare swarm-123 --format markdown
+npx monomind analysis performance-report --compare swarm-123 --format markdown
 
 # Custom output with specific sections
-npx monobrain analysis performance-report \
+npx monomind analysis performance-report \
   --sections summary,metrics,recommendations \
   --output reports/perf-analysis.html \
   --format html
 
 # Weekly performance report
-npx monobrain analysis performance-report \
+npx monomind analysis performance-report \
   --time-range 7d \
   --include-metrics \
   --format markdown \
   --output docs/weekly-performance.md
 
 # JSON format for CI/CD integration
-npx monobrain analysis performance-report \
+npx monomind analysis performance-report \
   --format json \
   --output build/performance.json
 ```
@@ -368,11 +368,11 @@ Typical improvements after bottleneck resolution:
 ### Continuous Monitoring
 ```bash
 # Monitor performance in real-time
-npx monobrain swarm monitor --interval 5
+npx monomind swarm monitor --interval 5
 
 # Generate hourly reports
 while true; do
-  npx monobrain analysis performance-report \
+  npx monomind analysis performance-report \
     --format json \
     --output logs/perf-$(date +%Y%m%d-%H%M).json
   sleep 3600
@@ -392,12 +392,12 @@ jobs:
       - uses: actions/checkout@v2
       - name: Run Performance Analysis
         run: |
-          npx monobrain analysis performance-report \
+          npx monomind analysis performance-report \
             --format json \
             --output performance.json
       - name: Check Performance Thresholds
         run: |
-          npx monobrain bottleneck detect \
+          npx monomind bottleneck detect \
             --threshold 15 \
             --export bottlenecks.json
       - name: Upload Reports
@@ -418,12 +418,12 @@ const fs = require('fs');
 async function analyzePerformance() {
   // Run bottleneck detection
   const bottlenecks = await runCommand(
-    'npx monobrain bottleneck detect --format json'
+    'npx monomind bottleneck detect --format json'
   );
 
   // Generate performance report
   const report = await runCommand(
-    'npx monobrain analysis performance-report --format json'
+    'npx monomind analysis performance-report --format json'
   );
 
   // Analyze results
@@ -497,37 +497,37 @@ analyzePerformance().catch(console.error);
 **High Memory Usage**
 ```bash
 # Analyze memory bottlenecks
-npx monobrain bottleneck detect --threshold 10
+npx monomind bottleneck detect --threshold 10
 
 # Check cache performance
-npx monobrain cache manage --action stats
+npx monomind cache manage --action stats
 
 # Review memory metrics
-npx monobrain memory usage
+npx monomind memory usage
 ```
 
 **Slow Task Execution**
 ```bash
 # Identify slow tasks
-npx monobrain task status --detailed
+npx monomind task status --detailed
 
 # Analyze coordination overhead
-npx monobrain bottleneck detect --time-range 1h
+npx monomind bottleneck detect --time-range 1h
 
 # Check agent utilization
-npx monobrain agent metrics
+npx monomind agent metrics
 ```
 
 **Poor Cache Performance**
 ```bash
 # Analyze cache hit rates
-npx monobrain analysis performance-report --sections metrics
+npx monomind analysis performance-report --sections metrics
 
 # Review cache strategy
-npx monobrain cache manage --action analyze
+npx monomind cache manage --action analyze
 
 # Enable cache warming
-npx monobrain bottleneck detect --fix
+npx monomind bottleneck detect --fix
 ```
 
 ## Integration with Other Skills
@@ -539,11 +539,11 @@ npx monobrain bottleneck detect --fix
 
 ## Related Commands
 
-- `npx monobrain swarm monitor` - Real-time monitoring
-- `npx monobrain token usage` - Token optimization analysis
-- `npx monobrain cache manage` - Cache optimization
-- `npx monobrain agent metrics` - Agent performance metrics
-- `npx monobrain task status` - Task execution analysis
+- `npx monomind swarm monitor` - Real-time monitoring
+- `npx monomind token usage` - Token optimization analysis
+- `npx monomind cache manage` - Cache optimization
+- `npx monomind agent metrics` - Agent performance metrics
+- `npx monomind task status` - Task execution analysis
 
 ## See Also
 
@@ -557,4 +557,4 @@ npx monobrain bottleneck detect --fix
 
 **Version**: 1.0.0
 **Last Updated**: 2025-10-19
-**Maintainer**: Monobrain Team
+**Maintainer**: Monomind Team

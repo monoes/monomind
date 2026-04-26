@@ -1,6 +1,6 @@
 /**
  * CLI Status Command
- * System status display for Monobrain
+ * System status display for Monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -45,7 +45,7 @@ function getProcessMemoryUsage(): number {
 
 // Check if project is initialized
 function isInitialized(cwd: string): boolean {
-  const configPath = path.join(cwd, '.monobrain', 'config.yaml');
+  const configPath = path.join(cwd, '.monomind', 'config.yaml');
   return fs.existsSync(configPath);
 }
 
@@ -222,7 +222,7 @@ function displayStatus(status: Awaited<ReturnType<typeof getSystemStatus>>): voi
   const statusIcon = status.running
     ? output.success('[RUNNING]')
     : output.warning('[STOPPED]');
-  output.writeln(`${output.bold('Monobrain')} ${statusIcon}`);
+  output.writeln(`${output.bold('Monomind')} ${statusIcon}`);
   output.writeln();
 
   // Swarm section
@@ -343,8 +343,8 @@ const statusAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
   // Check initialization
   if (!isInitialized(cwd)) {
-    output.printError('MonoBrain is not initialized in this directory');
-    output.printInfo('Run "monobrain init" to initialize');
+    output.printError('MonoMind is not initialized in this directory');
+    output.printInfo('Run "monomind init" to initialize');
     return { success: false, exitCode: 1 };
   }
 
@@ -727,14 +727,14 @@ export const statusCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain status', description: 'Show current system status' },
-    { command: 'monobrain status --watch', description: 'Watch mode with live updates' },
-    { command: 'monobrain status --watch -i 5', description: 'Watch mode updating every 5 seconds' },
-    { command: 'monobrain status --health-check', description: 'Run health checks' },
-    { command: 'monobrain status --json', description: 'Output status as JSON' },
-    { command: 'monobrain status agents', description: 'Show detailed agent status' },
-    { command: 'monobrain status tasks', description: 'Show detailed task status' },
-    { command: 'monobrain status memory', description: 'Show detailed memory status' }
+    { command: 'monomind status', description: 'Show current system status' },
+    { command: 'monomind status --watch', description: 'Watch mode with live updates' },
+    { command: 'monomind status --watch -i 5', description: 'Watch mode updating every 5 seconds' },
+    { command: 'monomind status --health-check', description: 'Run health checks' },
+    { command: 'monomind status --json', description: 'Output status as JSON' },
+    { command: 'monomind status agents', description: 'Show detailed agent status' },
+    { command: 'monomind status tasks', description: 'Show detailed task status' },
+    { command: 'monomind status memory', description: 'Show detailed memory status' }
   ],
   action: statusAction
 };

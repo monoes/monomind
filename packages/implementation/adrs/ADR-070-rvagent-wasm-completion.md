@@ -31,7 +31,7 @@ not declared in `package.json` `optionalDependencies`, meaning:
 
 ## Decision
 
-Add both packages to `optionalDependencies` in `packages/@monobrain/cli/package.json`:
+Add both packages to `optionalDependencies` in `packages/@monomind/cli/package.json`:
 
 ```json
 {

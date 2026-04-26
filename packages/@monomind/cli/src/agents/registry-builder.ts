@@ -153,7 +153,7 @@ export function buildRegistry(agentsRoot: string, outputPath?: string): AgentReg
  * buildUnifiedRegistry([
  *   '/path/to/agency-agents',   // canonical source — wins on conflict
  *   '.claude/agents',           // dev copies — used only for unique slugs
- * ], '.monobrain/registry.json');
+ * ], '.monomind/registry.json');
  * ```
  *
  * @param roots      - Ordered list of directories to scan (first-wins on slug conflict).

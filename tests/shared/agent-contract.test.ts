@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
-import { AgentContract } from '../../packages/@monobrain/shared/src/agent-contract.js';
+import { AgentContract } from '../../packages/@monomind/shared/src/agent-contract.js';
 
 const FIXTURE_DIR = join(__dirname, '__fixtures_agent_contract__');
 

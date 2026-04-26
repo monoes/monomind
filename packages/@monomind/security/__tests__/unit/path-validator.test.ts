@@ -1,5 +1,5 @@
 /**
- * V1 Monobrain Path Validator Unit Tests
+ * V1 Monomind Path Validator Unit Tests
  *
  * London School TDD - Behavior Verification
  * Tests path validation for security (CVE-1, CVE-2 prevention)

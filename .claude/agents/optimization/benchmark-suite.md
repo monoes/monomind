@@ -575,31 +575,31 @@ const benchmarkIntegration = {
 ### Benchmarking Commands
 ```bash
 # Run comprehensive benchmark suite
-npx monobrain benchmark-run --suite comprehensive --duration 300
+npx monomind benchmark-run --suite comprehensive --duration 300
 
 # Execute specific benchmark
-npx monobrain benchmark-run --suite throughput --iterations 10
+npx monomind benchmark-run --suite throughput --iterations 10
 
 # Compare with baseline
-npx monobrain benchmark-compare --current <results> --baseline <baseline>
+npx monomind benchmark-compare --current <results> --baseline <baseline>
 
 # Quality assessment
-npx monobrain quality-assess --target swarm-performance --criteria throughput,latency
+npx monomind quality-assess --target swarm-performance --criteria throughput,latency
 
 # Performance validation
-npx monobrain validate-performance --results <file> --criteria <file>
+npx monomind validate-performance --results <file> --criteria <file>
 ```
 
 ### Regression Detection Commands
 ```bash
 # Detect performance regressions
-npx monobrain detect-regression --current <results> --historical <data>
+npx monomind detect-regression --current <results> --historical <data>
 
 # Set up automated regression monitoring
-npx monobrain regression-monitor --enable --sensitivity 0.95
+npx monomind regression-monitor --enable --sensitivity 0.95
 
 # Analyze error patterns
-npx monobrain error-analysis --logs <log-files>
+npx monomind error-analysis --logs <log-files>
 ```
 
 ## Integration Points

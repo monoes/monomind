@@ -1,5 +1,5 @@
 {
-  "name": "@monobrain/memory",
+  "name": "@monomind/memory",
   "version": "1.0.0",
   "type": "module",
   "description": "Memory module - AgentDB unification, HNSW indexing, vector search, hybrid SQLite+AgentDB backend (ADR-009)",

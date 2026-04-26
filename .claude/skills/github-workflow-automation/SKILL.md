@@ -59,7 +59,7 @@ gh run view <run-id> --json jobs,conclusion | \
 
 ```bash
 # Usage example
-npx monobrain@alpha github gh-coordinator \
+npx monomind@alpha github gh-coordinator \
   "Coordinate multi-repo release across 5 repositories"
 ```
 
@@ -89,7 +89,7 @@ gh pr create --title "Feature: New capability" \
 
 ```bash
 # Create coordinated issue workflow
-npx monobrain@alpha github issue-tracker \
+npx monomind@alpha github issue-tracker \
   "Manage sprint issues with automated tracking"
 ```
 
@@ -103,7 +103,7 @@ npx monobrain@alpha github issue-tracker \
 
 ```bash
 # Automated release management
-npx monobrain@alpha github release-manager \
+npx monomind@alpha github release-manager \
   "Create v2.0.0 release with changelog and deployment"
 ```
 
@@ -117,7 +117,7 @@ npx monobrain@alpha github release-manager \
 
 ```bash
 # Optimize repository structure
-npx monobrain@alpha github repo-architect \
+npx monomind@alpha github repo-architect \
   "Restructure monorepo with optimal organization"
 ```
 
@@ -147,7 +147,7 @@ gh pr view 123 --json files | \
 
 ```bash
 # Orchestrate CI/CD pipeline
-npx monobrain@alpha github ci-orchestrator \
+npx monomind@alpha github ci-orchestrator \
   "Setup parallel test execution with smart caching"
 ```
 
@@ -543,7 +543,7 @@ run().catch((error) => core.setFailed(error.message));
 
 </details>
 
-## Integration with Monobrain
+## Integration with Monomind
 
 ### 🔄 Swarm Coordination Patterns
 
@@ -554,19 +554,19 @@ run().catch((error) => core.setFailed(error.message));
 
 ```javascript
 // Step 1: Initialize swarm coordination
-mcp__monobrain__swarm_init {
+mcp__monomind__swarm_init {
   topology: "hierarchical",
   maxAgents: 8
 }
 
 // Step 2: Spawn specialized agents
-mcp__monobrain__agent_spawn { type: "coordinator", name: "GitHub Coordinator" }
-mcp__monobrain__agent_spawn { type: "reviewer", name: "Code Reviewer" }
-mcp__monobrain__agent_spawn { type: "tester", name: "QA Agent" }
-mcp__monobrain__agent_spawn { type: "analyst", name: "Security Analyst" }
+mcp__monomind__agent_spawn { type: "coordinator", name: "GitHub Coordinator" }
+mcp__monomind__agent_spawn { type: "reviewer", name: "Code Reviewer" }
+mcp__monomind__agent_spawn { type: "tester", name: "QA Agent" }
+mcp__monomind__agent_spawn { type: "analyst", name: "Security Analyst" }
 
 // Step 3: Orchestrate GitHub workflow
-mcp__monobrain__task_orchestrate {
+mcp__monomind__task_orchestrate {
   task: "Complete PR review and merge workflow",
   strategy: "parallel",
   priority: "high"
@@ -577,17 +577,17 @@ mcp__monobrain__task_orchestrate {
 
 ```bash
 # Pre-task: Setup GitHub context
-npx monobrain@alpha hooks pre-task \
+npx monomind@alpha hooks pre-task \
   --description "PR review workflow" \
   --context "pr-123"
 
 # During task: Track progress
-npx monobrain@alpha hooks notify \
+npx monomind@alpha hooks notify \
   --message "Completed security scan" \
   --type "github-action"
 
 # Post-task: Export results
-npx monobrain@alpha hooks post-task \
+npx monomind@alpha hooks post-task \
   --task-id "pr-review-123" \
   --export-github-summary
 ```
@@ -955,7 +955,7 @@ jobs:
 
 ```bash
 # Synchronize multiple repositories
-npx monobrain@alpha github sync-coordinator \
+npx monomind@alpha github sync-coordinator \
   "Synchronize version updates across:
    - github.com/org/repo-a
    - github.com/org/repo-b
@@ -1050,7 +1050,7 @@ npx ruv-swarm actions analytics [options]
 - [ ] GitHub CLI (`gh`) installed and authenticated
 - [ ] Git configured with user credentials
 - [ ] Node.js v16+ installed
-- [ ] `monobrain@alpha` package available
+- [ ] `monomind@alpha` package available
 - [ ] Repository has `.github/workflows` directory
 - [ ] GitHub Actions enabled on repository
 - [ ] Necessary secrets configured
@@ -1063,7 +1063,7 @@ npx ruv-swarm actions analytics [options]
 # setup-github-automation.sh
 
 # Install dependencies
-npm install -g monobrain@alpha
+npm install -g monomind@alpha
 
 # Verify GitHub CLI
 gh auth status || gh auth login
@@ -1092,7 +1092,7 @@ echo "✅ GitHub workflow automation setup complete"
 
 - **GitHub CLI Docs**: https://cli.github.com/manual/
 - **GitHub Actions**: https://docs.github.com/en/actions
-- **Monobrain**: https://github.com/nokhodian/monobrain
+- **Monomind**: https://github.com/nokhodian/monomind
 - **Ruv-Swarm**: https://github.com/nokhodian/ruv-swarm
 
 ## Version History
@@ -1108,4 +1108,4 @@ echo "✅ GitHub workflow automation setup complete"
 
 **Skill Status**: ✅ Production Ready
 **Last Updated**: 2025-01-19
-**Maintainer**: monobrain team
+**Maintainer**: monomind team

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { InterruptRegistry } from '../../packages/@monobrain/cli/src/interactive/interrupt.js';
+import { InterruptRegistry } from '../../packages/@monomind/cli/src/interactive/interrupt.js';
 
 describe('InterruptRegistry', () => {
   let registry: InterruptRegistry;

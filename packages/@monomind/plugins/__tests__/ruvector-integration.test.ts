@@ -12,7 +12,7 @@
  * - RUVECTOR_TEST_USER - Database user (default: postgres)
  * - RUVECTOR_TEST_PASSWORD - Database password (default: postgres)
  *
- * @module @monobrain/plugins/__tests__/ruvector-integration
+ * @module @monomind/plugins/__tests__/ruvector-integration
  */
 
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi, type Mock } from 'vitest';

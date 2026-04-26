@@ -2,13 +2,13 @@
 name: github-modes
 description: |
   Comprehensive GitHub integration modes for workflow orchestration, PR management, and repository coordination with batch optimization
-tools: mcp__monobrain__swarm_init, mcp__monobrain__agent_spawn, mcp__monobrain__task_orchestrate, Bash, TodoWrite, Read, Write
+tools: mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, Bash, TodoWrite, Read, Write
 ---
 
 # GitHub Integration Modes
 
 ## Overview
-This document describes all GitHub integration modes available in Monobrain with ruv-swarm coordination. Each mode is optimized for specific GitHub workflows and includes batch tool integration for maximum efficiency.
+This document describes all GitHub integration modes available in Monomind with ruv-swarm coordination. Each mode is optimized for specific GitHub workflows and includes batch tool integration for maximum efficiency.
 
 ## GitHub Workflow Modes
 
@@ -144,11 +144,11 @@ All GitHub modes can be enhanced with ruv-swarm coordination:
 
 ```javascript
 // Initialize swarm for GitHub workflow
-mcp__monobrain__swarm_init { topology: "hierarchical", maxAgents: 5 }
-mcp__monobrain__agent_spawn { type: "coordinator", name: "GitHub Coordinator" }
-mcp__monobrain__agent_spawn { type: "reviewer", name: "Code Reviewer" }
-mcp__monobrain__agent_spawn { type: "tester", name: "QA Agent" }
+mcp__monomind__swarm_init { topology: "hierarchical", maxAgents: 5 }
+mcp__monomind__agent_spawn { type: "coordinator", name: "GitHub Coordinator" }
+mcp__monomind__agent_spawn { type: "reviewer", name: "Code Reviewer" }
+mcp__monomind__agent_spawn { type: "tester", name: "QA Agent" }
 
 // Execute GitHub workflow with coordination
-mcp__monobrain__task_orchestrate { task: "GitHub workflow", strategy: "parallel" }
+mcp__monomind__task_orchestrate { task: "GitHub workflow", strategy: "parallel" }
 ```

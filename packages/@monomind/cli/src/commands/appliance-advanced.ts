@@ -142,7 +142,7 @@ export const updateAppCommand: Command = {
   description: 'Hot-patch a section in an RVFA appliance',
   options: [
     { name: 'file', short: 'f', type: 'string', description: 'Path to .rvf file', required: true },
-    { name: 'section', short: 's', type: 'string', description: 'Section to patch (e.g. monobrain, models)', required: true },
+    { name: 'section', short: 's', type: 'string', description: 'Section to patch (e.g. monomind, models)', required: true },
     { name: 'patch', short: 'p', type: 'string', description: 'Path to .rvfp patch file' },
     { name: 'data', short: 'd', type: 'string', description: 'Path to new section data (creates patch automatically)' },
     { name: 'version', type: 'string', description: 'Patch version', default: '0.0.1' },

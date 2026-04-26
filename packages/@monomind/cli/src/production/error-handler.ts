@@ -7,7 +7,7 @@
  * - Structured error responses
  * - Error aggregation and reporting
  *
- * @module @monobrain/cli/production/error-handler
+ * @module @monomind/cli/production/error-handler
  */
 
 // ============================================================================

@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { parseScore } from '../../packages/@monobrain/hooks/src/confidence/confidence-prompt.js';
-import { evaluate } from '../../packages/@monobrain/hooks/src/confidence/confidence-gate.js';
-import { InputRequestStore } from '../../packages/@monobrain/hooks/src/confidence/input-request-store.js';
-import type { ConfidenceConfig } from '../../packages/@monobrain/hooks/src/confidence/types.js';
-import { DEFAULT_CONFIDENCE_CONFIG } from '../../packages/@monobrain/hooks/src/confidence/types.js';
+import { parseScore } from '../../packages/@monomind/hooks/src/confidence/confidence-prompt.js';
+import { evaluate } from '../../packages/@monomind/hooks/src/confidence/confidence-gate.js';
+import { InputRequestStore } from '../../packages/@monomind/hooks/src/confidence/input-request-store.js';
+import type { ConfidenceConfig } from '../../packages/@monomind/hooks/src/confidence/types.js';
+import { DEFAULT_CONFIDENCE_CONFIG } from '../../packages/@monomind/hooks/src/confidence/types.js';
 
 // ---------------------------------------------------------------------------
 // helpers

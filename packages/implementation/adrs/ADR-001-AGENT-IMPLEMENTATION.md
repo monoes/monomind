@@ -2,15 +2,15 @@
 
 ## Overview
 
-This document describes the implementation of **ADR-001: Adopt agentic-flow as Core Foundation** for agent lifecycle management in Monobrain v1.
+This document describes the implementation of **ADR-001: Adopt agentic-flow as Core Foundation** for agent lifecycle management in Monomind v1.
 
 ## Implementation Summary
 
-Created two new core classes that bridge Monobrain's DDD agent architecture with agentic-flow's optimized agent implementations:
+Created two new core classes that bridge Monomind's DDD agent architecture with agentic-flow's optimized agent implementations:
 
 ### 1. AgenticFlowAgent (`agentic-flow-agent.ts`)
 
-**Purpose**: Base class for all Monobrain v1 agents with automatic delegation to agentic-flow
+**Purpose**: Base class for all Monomind v1 agents with automatic delegation to agentic-flow
 
 **Key Features**:
 - Implements `IAgent` interface for DDD compliance
@@ -33,7 +33,7 @@ Created two new core classes that bridge Monobrain's DDD agent architecture with
 
 ### 2. AgentAdapter (`agent-adapter.ts`)
 
-**Purpose**: Bidirectional adapter between Monobrain and agentic-flow agent formats
+**Purpose**: Bidirectional adapter between Monomind and agentic-flow agent formats
 
 **Key Features**:
 - Converts between agent representations
@@ -43,7 +43,7 @@ Created two new core classes that bridge Monobrain's DDD agent architecture with
 - Provides factory methods for agent creation
 
 **Capabilities**:
-- `fromAgenticFlow()`: Convert external agents to Monobrain format
+- `fromAgenticFlow()`: Convert external agents to Monomind format
 - `toAgenticFlow()`: Export agents in agentic-flow format
 - `createWithDelegation()`: Create agents with automatic delegation
 - Agent pool management (add, get, remove)
@@ -145,7 +145,7 @@ Comprehensive test suites included:
 ### Exports from Integration Module
 
 ```typescript
-// From @monobrain/integration
+// From @monomind/integration
 import {
   // Agent classes
   AgenticFlowAgent,
@@ -162,7 +162,7 @@ import {
   TaskResult,
   Message,
   AgentHealth,
-} from '@monobrain/integration';
+} from '@monomind/integration';
 ```
 
 ### Following Existing Patterns
@@ -181,7 +181,7 @@ All adapters use:
 ## Files Created
 
 ```
-packages/@monobrain/integration/src/
+packages/@monomind/integration/src/
 ├── agentic-flow-agent.ts          # 799 lines - Base agent class
 ├── agent-adapter.ts                # 625 lines - Adapter class
 ├── __tests__/
@@ -299,10 +299,10 @@ console.log(health.metrics.tasksCompleted); // Task count
 ## References
 
 - **ADR-001**: Adopt agentic-flow as Core Foundation
-- **SONAAdapter**: `/packages/@monobrain/integration/src/sona-adapter.ts`
-- **AttentionCoordinator**: `/packages/@monobrain/integration/src/attention-coordinator.ts`
-- **AgenticFlowBridge**: `/packages/@monobrain/integration/src/agentic-flow-bridge.ts`
-- **Shared Interfaces**: `/packages/@monobrain/shared/src/core/interfaces/agent.interface.ts`
+- **SONAAdapter**: `/packages/@monomind/integration/src/sona-adapter.ts`
+- **AttentionCoordinator**: `/packages/@monomind/integration/src/attention-coordinator.ts`
+- **AgenticFlowBridge**: `/packages/@monomind/integration/src/agentic-flow-bridge.ts`
+- **Shared Interfaces**: `/packages/@monomind/shared/src/core/interfaces/agent.interface.ts`
 
 ---
 

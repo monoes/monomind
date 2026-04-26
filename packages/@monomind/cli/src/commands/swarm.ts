@@ -374,8 +374,8 @@ const startCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain swarm start -o "Build REST API" -s development', description: 'Start development swarm' },
-    { command: 'monobrain swarm start -o "Analyze codebase" --parallel', description: 'Parallel analysis' }
+    { command: 'monomind swarm start -o "Build REST API" -s development', description: 'Start development swarm' },
+    { command: 'monomind swarm start -o "Analyze codebase" --parallel', description: 'Parallel analysis' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const objective = ctx.args[0] || ctx.flags.objective as string;
@@ -447,7 +447,7 @@ const startCommand: Command = {
     } catch (err) {
       spinner.fail('MCP swarm_init failed — swarm metadata saved locally only');
       output.writeln(output.dim(`  Error: ${err instanceof Error ? err.message : String(err)}`));
-      output.writeln(output.dim('  The MCP server may not be running. Start it with: claude mcp add monobrain npx monobrain@v1alpha mcp start'));
+      output.writeln(output.dim('  The MCP server may not be running. Start it with: claude mcp add monomind npx monomind@v1alpha mcp start'));
     }
 
     // Persist swarm state to disk so `swarm status` can read it
@@ -474,7 +474,7 @@ const startCommand: Command = {
     output.printSuccess(`Swarm ${swarmId} initialized with ${totalAgents} agent slots`);
     output.writeln(output.dim('  Note: Agents are registered but actual task execution requires'));
     output.writeln(output.dim('  Claude Code Task tool or hive-mind spawn --claude to drive work.'));
-    output.writeln(output.dim(`  Monitor: monobrain swarm status ${swarmId}`));
+    output.writeln(output.dim(`  Monitor: monomind swarm status ${swarmId}`));
 
     return { success: true, data: executionState };
   }
@@ -502,8 +502,8 @@ const statusCommand: Command = {
       output.writeln(output.warning('No active swarm'));
       output.writeln();
       output.writeln(output.dim('Start a swarm with:'));
-      output.writeln(output.dim('  npx @monobrain/cli@latest swarm init'));
-      output.writeln(output.dim('  npx @monobrain/cli@latest swarm start'));
+      output.writeln(output.dim('  npx @monomind/cli@latest swarm init'));
+      output.writeln(output.dim('  npx @monomind/cli@latest swarm start'));
       output.writeln();
       return { success: true, data: status };
     }
@@ -790,15 +790,15 @@ export const swarmCommand: Command = {
   subcommands: [initCommand, startCommand, statusCommand, stopCommand, scaleCommand, coordinateCommand],
   options: [],
   examples: [
-    { command: 'monobrain swarm init --v1-mode', description: 'Initialize swarm' },
-    { command: 'monobrain swarm start -o "Build API" -s development', description: 'Start development swarm' },
-    { command: 'monobrain swarm coordinate --agents 15', description: 'v1 coordination' }
+    { command: 'monomind swarm init --v1-mode', description: 'Initialize swarm' },
+    { command: 'monomind swarm start -o "Build API" -s development', description: 'Start development swarm' },
+    { command: 'monomind swarm coordinate --agents 15', description: 'v1 coordination' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold('Swarm Coordination Commands'));
     output.writeln();
-    output.writeln('Usage: monobrain swarm <subcommand> [options]');
+    output.writeln('Usage: monomind swarm <subcommand> [options]');
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([

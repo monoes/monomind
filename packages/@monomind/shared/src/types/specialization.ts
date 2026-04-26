@@ -1,7 +1,7 @@
 /**
  * Agent Specialization Scoring Types (Task 39)
  *
- * Per-agent-per-task-type scoring with time-decay, enabling monobrain
+ * Per-agent-per-task-type scoring with time-decay, enabling monomind
  * to prefer historically successful agents for specific task types.
  */
 

@@ -4,7 +4,7 @@
  * Implements MCP tools for ADR-016: Collaborative Issue Claims
  * Provides programmatic access to claim operations for MCP clients.
  *
- * @module @monobrain/cli/mcp-tools/claims
+ * @module @monomind/cli/mcp-tools/claims
  */
 
 import type { MCPTool } from './types.js';
@@ -45,7 +45,7 @@ interface ClaimsStore {
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 
-const CLAIMS_DIR = '.monobrain/claims';
+const CLAIMS_DIR = '.monomind/claims';
 const CLAIMS_FILE = 'claims.json';
 
 function getClaimsPath(): string {

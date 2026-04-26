@@ -18,7 +18,7 @@
  * - Consensus coordination: <100ms
  * - Health check: <30ms
  *
- * @module @monobrain/swarm/queen-coordinator
+ * @module @monomind/swarm/queen-coordinator
  */
 
 import { EventEmitter } from 'events';

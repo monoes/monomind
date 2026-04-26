@@ -11,7 +11,7 @@ List all extras specialist agents from the non-dev agent registry.
 Run this immediately:
 
 ```bash
-node "${CLAUDE_PROJECT_DIR:-/Users/morteza/Desktop/tools/monobrain}/.claude/helpers/hook-handler.cjs" list-extras $ARGUMENTS
+node "${CLAUDE_PROJECT_DIR:-/Users/morteza/Desktop/tools/monomind}/.claude/helpers/hook-handler.cjs" list-extras $ARGUMENTS
 ```
 
 After running, show the output to the user as a formatted list grouped by category. Mention they can activate any agent with `/use-agent <slug>`.

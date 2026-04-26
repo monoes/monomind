@@ -4,7 +4,7 @@ Automated code review with swarm intelligence.
 
 ## Usage
 ```bash
-npx monobrain github code-review [options]
+npx monomind github code-review [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain github code-review [options]
 ## Examples
 ```bash
 # Review PR
-npx monobrain github code-review --pr-number 456
+npx monomind github code-review --pr-number 456
 
 # Security focus
-npx monobrain github code-review --pr-number 456 --focus security
+npx monomind github code-review --pr-number 456 --focus security
 
 # With fix suggestions
-npx monobrain github code-review --pr-number 456 --suggest-fixes
+npx monomind github code-review --pr-number 456 --suggest-fixes
 ```

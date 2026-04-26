@@ -19,7 +19,7 @@ import {
   type LoraRecord,
   type EwcRecord,
   type TrajectoryRecord,
-} from '../packages/@monobrain/memory/src/rvf-learning-store.js';
+} from '../packages/@monomind/memory/src/rvf-learning-store.js';
 
 // ===== Fixtures =====
 

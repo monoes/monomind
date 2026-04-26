@@ -12,7 +12,7 @@
  * - Headings map to shard boundaries
  * - Keywords in headings drive intent tagging: "test", "build", "security", etc.
  *
- * @module @monobrain/guidance/generators
+ * @module @monomind/guidance/generators
  */
 // ============================================================================
 // CLAUDE.md Generator
@@ -137,7 +137,7 @@ export function generateClaudeMd(profile) {
     if (profile.guidanceControlPlane) {
         sections.push('## Guidance Control Plane');
         sections.push('');
-        sections.push('This project uses `@monobrain/guidance` to enforce these rules programmatically.');
+        sections.push('This project uses `@monomind/guidance` to enforce these rules programmatically.');
         sections.push('The constitution (this section and above) is always loaded. Sections below are');
         sections.push('retrieved by intent classification — only relevant rules are injected per task.');
         sections.push('');
@@ -645,7 +645,7 @@ function getDefaultSkills(profile) {
             description: 'Enforce guidance rules through the control plane',
             category: 'security',
             tags: ['guidance', 'enforcement', 'gates', 'policy'],
-            requires: ['@monobrain/guidance'],
+            requires: ['@monomind/guidance'],
             capabilities: [
                 'Gate enforcement for commands, edits, and tool calls',
                 'Proof chain generation for audit trails',
@@ -655,7 +655,7 @@ function getDefaultSkills(profile) {
             instructions: [
                 '## Guidance Control Plane',
                 '',
-                'This project uses `@monobrain/guidance` to enforce CLAUDE.md rules programmatically.',
+                'This project uses `@monomind/guidance` to enforce CLAUDE.md rules programmatically.',
                 '',
                 '### Before executing commands:',
                 '```typescript',

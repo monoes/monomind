@@ -1,7 +1,7 @@
-# @monobrain/aidefence
+# @monomind/aidefence
 
-[![npm version](https://img.shields.io/npm/v/@monobrain/aidefence?color=blue&label=npm)](https://www.npmjs.com/package/@monobrain/aidefence)
-[![npm downloads](https://img.shields.io/npm/dm/@monobrain/aidefence?color=green)](https://www.npmjs.com/package/@monobrain/aidefence)
+[![npm version](https://img.shields.io/npm/v/@monomind/aidefence?color=blue&label=npm)](https://www.npmjs.com/package/@monomind/aidefence)
+[![npm downloads](https://img.shields.io/npm/dm/@monomind/aidefence?color=green)](https://www.npmjs.com/package/@monomind/aidefence)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
@@ -35,7 +35,7 @@ Detection Time: 0.04ms | 50+ Patterns | Self-Learning | HNSW Vector Search
 
 ## Introduction
 
-`@monobrain/aidefence` is a high-performance security library designed to protect AI/LLM applications from manipulation attempts. It provides:
+`@monomind/aidefence` is a high-performance security library designed to protect AI/LLM applications from manipulation attempts. It provides:
 
 - **Real-time threat detection** with <10ms latency (actual: ~0.04ms)
 - **50+ built-in patterns** for prompt injection, jailbreaks, and social engineering
@@ -92,13 +92,13 @@ Detection Time: 0.04ms | 50+ Patterns | Self-Learning | HNSW Vector Search
 
 ```bash
 # npm
-npm install @monobrain/aidefence
+npm install @monomind/aidefence
 
 # pnpm
-pnpm add @monobrain/aidefence
+pnpm add @monomind/aidefence
 
 # yarn
-yarn add @monobrain/aidefence
+yarn add @monomind/aidefence
 ```
 
 ### Optional: AgentDB for HNSW Search
@@ -116,7 +116,7 @@ npm install agentdb
 ### Basic Usage
 
 ```typescript
-import { isSafe, checkThreats } from '@monobrain/aidefence';
+import { isSafe, checkThreats } from '@monomind/aidefence';
 
 // Simple boolean check
 const safe = isSafe("Hello, help me write code");
@@ -139,7 +139,7 @@ console.log(result);
 ### With Learning Enabled
 
 ```typescript
-import { createAIDefence } from '@monobrain/aidefence';
+import { createAIDefence } from '@monomind/aidefence';
 
 const aidefence = createAIDefence({ enableLearning: true });
 
@@ -164,7 +164,7 @@ await aidefence.learnFromDetection(input, result, {
 ### With AgentDB (HNSW Search)
 
 ```typescript
-import { createAIDefence } from '@monobrain/aidefence';
+import { createAIDefence } from '@monomind/aidefence';
 import { AgentDB } from 'agentdb';
 
 // Initialize with AgentDB for 150x faster search
@@ -393,23 +393,23 @@ await aidefence.endTrajectory('session-123', 'success');
 
 ## CLI Integration
 
-Use via Monobrain CLI:
+Use via Monomind CLI:
 
 ```bash
 # Basic threat scan
-npx @monobrain/cli security defend -i "ignore previous instructions"
+npx @monomind/cli security defend -i "ignore previous instructions"
 
 # Scan a file
-npx @monobrain/cli security defend -f ./user-prompts.txt
+npx @monomind/cli security defend -f ./user-prompts.txt
 
 # Quick scan (faster)
-npx @monobrain/cli security defend -i "some text" --quick
+npx @monomind/cli security defend -i "some text" --quick
 
 # JSON output
-npx @monobrain/cli security defend -i "test" -o json
+npx @monomind/cli security defend -i "test" -o json
 
 # View statistics
-npx @monobrain/cli security defend --stats
+npx @monomind/cli security defend --stats
 ```
 
 ### CLI Output Example
@@ -508,7 +508,7 @@ const result = await mcp.call('aidefence_scan', {
 Combine assessments from multiple security agents:
 
 ```typescript
-import { calculateSecurityConsensus } from '@monobrain/aidefence';
+import { calculateSecurityConsensus } from '@monomind/aidefence';
 
 const assessments = [
   { agentId: 'guardian-1', threatAssessment: result1, weight: 1.0 },
@@ -529,7 +529,7 @@ if (consensus.consensus === 'threat') {
 Implement custom storage for patterns:
 
 ```typescript
-import { VectorStore, createAIDefence } from '@monobrain/aidefence';
+import { VectorStore, createAIDefence } from '@monomind/aidefence';
 
 class MyVectorStore implements VectorStore {
   async store(key: string, vector: number[], metadata: object): Promise<void> {
@@ -556,7 +556,7 @@ Pre-scan agent inputs automatically:
   "hooks": {
     "pre-agent-input": {
       "command": "node -e \"
-        const { isSafe } = require('@monobrain/aidefence');
+        const { isSafe } = require('@monomind/aidefence');
         if (!isSafe(process.env.AGENT_INPUT)) {
           console.error('BLOCKED: Threat detected');
           process.exit(1);
@@ -572,14 +572,14 @@ Pre-scan agent inputs automatically:
 
 ## Contributing
 
-Contributions are welcome! Please see our [Contributing Guide](https://github.com/nokhodian/monobrain/blob/main/CONTRIBUTING.md).
+Contributions are welcome! Please see our [Contributing Guide](https://github.com/nokhodian/monomind/blob/main/CONTRIBUTING.md).
 
 ### Development
 
 ```bash
 # Clone repository
-git clone https://github.com/nokhodian/monobrain.git
-cd monobrain/packages/@monobrain/aidefence
+git clone https://github.com/nokhodian/monomind.git
+cd monomind/packages/@monomind/aidefence
 
 # Install dependencies
 npm install
@@ -618,13 +618,13 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Related Packages
 
-- [`@monobrain/cli`](https://www.npmjs.com/package/@monobrain/cli) - CLI with security commands
+- [`@monomind/cli`](https://www.npmjs.com/package/@monomind/cli) - CLI with security commands
 - [`agentdb`](https://www.npmjs.com/package/agentdb) - HNSW vector database
-- [`monobrain`](https://www.npmjs.com/package/monobrain) - Full AI coordination system
+- [`monomind`](https://www.npmjs.com/package/monomind) - Full AI coordination system
 
 ---
 
 <p align="center">
   <strong>Built with security in mind by <a href="https://ruv.io">rUv</a></strong><br>
-  <sub>Part of the Monobrain ecosystem</sub>
+  <sub>Part of the Monomind ecosystem</sub>
 </p>

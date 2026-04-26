@@ -1,41 +1,41 @@
 # API Quick Reference
 
-All exports from `@monobrain/guidance`. Each module is also available as a standalone import.
+All exports from `@monomind/guidance`. Each module is also available as a standalone import.
 
 ## Import Map
 
 | Import Path | Key Exports |
 |-------------|-------------|
-| `@monobrain/guidance` | `GuidanceControlPlane`, `createGuidanceControlPlane` |
-| `@monobrain/guidance/compiler` | `GuidanceCompiler`, `createCompiler` |
-| `@monobrain/guidance/retriever` | `ShardRetriever`, `createRetriever`, `HashEmbeddingProvider` |
-| `@monobrain/guidance/gates` | `EnforcementGates`, `createGates` |
-| `@monobrain/guidance/hooks` | `GuidanceHookProvider`, `createGuidanceHooks` |
-| `@monobrain/guidance/ledger` | `RunLedger`, `createLedger`, `TestsPassEvaluator`, `ForbiddenCommandEvaluator`, `ForbiddenDependencyEvaluator`, `ViolationRateEvaluator`, `DiffQualityEvaluator` |
-| `@monobrain/guidance/optimizer` | `OptimizerLoop`, `createOptimizer` |
-| `@monobrain/guidance/persistence` | `PersistentLedger`, `EventStore`, `createPersistentLedger`, `createEventStore` |
-| `@monobrain/guidance/headless` | `HeadlessRunner`, `createHeadlessRunner`, `createComplianceSuite` |
-| `@monobrain/guidance/gateway` | `DeterministicToolGateway`, `createToolGateway` |
-| `@monobrain/guidance/artifacts` | `ArtifactLedger`, `createArtifactLedger` |
-| `@monobrain/guidance/evolution` | `EvolutionPipeline`, `createEvolutionPipeline` |
-| `@monobrain/guidance/manifest-validator` | `ManifestValidator`, `ConformanceSuite`, `createManifestValidator`, `createConformanceSuite` |
-| `@monobrain/guidance/proof` | `ProofChain`, `createProofChain` |
-| `@monobrain/guidance/memory-gate` | `MemoryWriteGate`, `createMemoryWriteGate`, `createMemoryEntry` |
-| `@monobrain/guidance/coherence` | `CoherenceScheduler`, `EconomicGovernor`, `createCoherenceScheduler`, `createEconomicGovernor` |
-| `@monobrain/guidance/capabilities` | `CapabilityAlgebra`, `createCapabilityAlgebra` |
-| `@monobrain/guidance/conformance-kit` | `SimulatedRuntime`, `MemoryClerkCell`, `ConformanceRunner`, `createMemoryClerkCell`, `createConformanceRunner` |
-| `@monobrain/guidance/ruvbot-integration` | `RuvBotGuidanceBridge`, `AIDefenceGate`, `RuvBotMemoryAdapter`, `createRuvBotBridge`, `createAIDefenceGate`, `createRuvBotMemoryAdapter` |
-| `@monobrain/guidance/meta-governance` | `MetaGovernor`, `createMetaGovernor` |
-| `@monobrain/guidance/adversarial` | `ThreatDetector`, `CollusionDetector`, `MemoryQuorum`, `createThreatDetector`, `createCollusionDetector`, `createMemoryQuorum` |
-| `@monobrain/guidance/trust` | `TrustAccumulator`, `TrustScoreLedger`, `TrustSystem`, `getTrustBasedRateLimit`, `createTrustAccumulator`, `createTrustSystem` |
-| `@monobrain/guidance/truth-anchors` | `TruthAnchorStore`, `TruthResolver`, `createTruthAnchorStore`, `createTruthResolver` |
-| `@monobrain/guidance/uncertainty` | `UncertaintyLedger`, `UncertaintyAggregator`, `createUncertaintyLedger`, `createUncertaintyAggregator` |
-| `@monobrain/guidance/temporal` | `TemporalStore`, `TemporalReasoner`, `createTemporalStore`, `createTemporalReasoner` |
-| `@monobrain/guidance/authority` | `AuthorityGate`, `IrreversibilityClassifier`, `createAuthorityGate`, `createIrreversibilityClassifier`, `isHigherAuthority`, `getAuthorityHierarchy` |
-| `@monobrain/guidance/continue-gate` | `ContinueGate`, `createContinueGate` |
-| `@monobrain/guidance/wasm-kernel` | `getKernel`, `isWasmAvailable`, `resetKernel` |
-| `@monobrain/guidance/generators` | `generateClaudeMd`, `generateClaudeLocalMd`, `generateSkillMd`, `generateAgentMd`, `generateAgentIndex`, `scaffold` |
-| `@monobrain/guidance/analyzer` | `analyze`, `benchmark`, `autoOptimize`, `optimizeForSize`, `headlessBenchmark`, `validateEffect`, `abBenchmark`, `getDefaultABTasks`, `formatReport`, `formatBenchmark` |
+| `@monomind/guidance` | `GuidanceControlPlane`, `createGuidanceControlPlane` |
+| `@monomind/guidance/compiler` | `GuidanceCompiler`, `createCompiler` |
+| `@monomind/guidance/retriever` | `ShardRetriever`, `createRetriever`, `HashEmbeddingProvider` |
+| `@monomind/guidance/gates` | `EnforcementGates`, `createGates` |
+| `@monomind/guidance/hooks` | `GuidanceHookProvider`, `createGuidanceHooks` |
+| `@monomind/guidance/ledger` | `RunLedger`, `createLedger`, `TestsPassEvaluator`, `ForbiddenCommandEvaluator`, `ForbiddenDependencyEvaluator`, `ViolationRateEvaluator`, `DiffQualityEvaluator` |
+| `@monomind/guidance/optimizer` | `OptimizerLoop`, `createOptimizer` |
+| `@monomind/guidance/persistence` | `PersistentLedger`, `EventStore`, `createPersistentLedger`, `createEventStore` |
+| `@monomind/guidance/headless` | `HeadlessRunner`, `createHeadlessRunner`, `createComplianceSuite` |
+| `@monomind/guidance/gateway` | `DeterministicToolGateway`, `createToolGateway` |
+| `@monomind/guidance/artifacts` | `ArtifactLedger`, `createArtifactLedger` |
+| `@monomind/guidance/evolution` | `EvolutionPipeline`, `createEvolutionPipeline` |
+| `@monomind/guidance/manifest-validator` | `ManifestValidator`, `ConformanceSuite`, `createManifestValidator`, `createConformanceSuite` |
+| `@monomind/guidance/proof` | `ProofChain`, `createProofChain` |
+| `@monomind/guidance/memory-gate` | `MemoryWriteGate`, `createMemoryWriteGate`, `createMemoryEntry` |
+| `@monomind/guidance/coherence` | `CoherenceScheduler`, `EconomicGovernor`, `createCoherenceScheduler`, `createEconomicGovernor` |
+| `@monomind/guidance/capabilities` | `CapabilityAlgebra`, `createCapabilityAlgebra` |
+| `@monomind/guidance/conformance-kit` | `SimulatedRuntime`, `MemoryClerkCell`, `ConformanceRunner`, `createMemoryClerkCell`, `createConformanceRunner` |
+| `@monomind/guidance/ruvbot-integration` | `RuvBotGuidanceBridge`, `AIDefenceGate`, `RuvBotMemoryAdapter`, `createRuvBotBridge`, `createAIDefenceGate`, `createRuvBotMemoryAdapter` |
+| `@monomind/guidance/meta-governance` | `MetaGovernor`, `createMetaGovernor` |
+| `@monomind/guidance/adversarial` | `ThreatDetector`, `CollusionDetector`, `MemoryQuorum`, `createThreatDetector`, `createCollusionDetector`, `createMemoryQuorum` |
+| `@monomind/guidance/trust` | `TrustAccumulator`, `TrustScoreLedger`, `TrustSystem`, `getTrustBasedRateLimit`, `createTrustAccumulator`, `createTrustSystem` |
+| `@monomind/guidance/truth-anchors` | `TruthAnchorStore`, `TruthResolver`, `createTruthAnchorStore`, `createTruthResolver` |
+| `@monomind/guidance/uncertainty` | `UncertaintyLedger`, `UncertaintyAggregator`, `createUncertaintyLedger`, `createUncertaintyAggregator` |
+| `@monomind/guidance/temporal` | `TemporalStore`, `TemporalReasoner`, `createTemporalStore`, `createTemporalReasoner` |
+| `@monomind/guidance/authority` | `AuthorityGate`, `IrreversibilityClassifier`, `createAuthorityGate`, `createIrreversibilityClassifier`, `isHigherAuthority`, `getAuthorityHierarchy` |
+| `@monomind/guidance/continue-gate` | `ContinueGate`, `createContinueGate` |
+| `@monomind/guidance/wasm-kernel` | `getKernel`, `isWasmAvailable`, `resetKernel` |
+| `@monomind/guidance/generators` | `generateClaudeMd`, `generateClaudeLocalMd`, `generateSkillMd`, `generateAgentMd`, `generateAgentIndex`, `scaffold` |
+| `@monomind/guidance/analyzer` | `analyze`, `benchmark`, `autoOptimize`, `optimizeForSize`, `headlessBenchmark`, `validateEffect`, `abBenchmark`, `getDefaultABTasks`, `formatReport`, `formatBenchmark` |
 
 ---
 
@@ -362,7 +362,7 @@ const k = getKernel()
 ## Generators
 
 ```ts
-import { generateClaudeMd, scaffold } from '@monobrain/guidance/generators';
+import { generateClaudeMd, scaffold } from '@monomind/guidance/generators';
 ```
 
 | Function | Returns | Description |
@@ -381,7 +381,7 @@ import { generateClaudeMd, scaffold } from '@monobrain/guidance/generators';
 ## Analyzer
 
 ```ts
-import { analyze, validateEffect } from '@monobrain/guidance/analyzer';
+import { analyze, validateEffect } from '@monomind/guidance/analyzer';
 ```
 
 ### Scoring & Reporting

@@ -1,5 +1,5 @@
 /**
- * V1 Monobrain Safe Executor Unit Tests
+ * V1 Monomind Safe Executor Unit Tests
  *
  * London School TDD - Behavior Verification
  * Tests secure command execution (CVE-3 prevention)

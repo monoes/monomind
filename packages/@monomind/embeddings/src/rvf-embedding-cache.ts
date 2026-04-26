@@ -14,7 +14,7 @@
  * Binary entry format:
  *   [4-byte key-hash][4-byte dims][dims*4 bytes float32][8-byte timestamp][8-byte access-count]
  *
- * @module @monobrain/embeddings
+ * @module @monomind/embeddings
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'fs';

@@ -10,10 +10,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { DLQWriter } from '../../packages/@monobrain/cli/src/dlq/dlq-writer.js';
-import { DLQReader } from '../../packages/@monobrain/cli/src/dlq/dlq-reader.js';
-import { DLQReplayer } from '../../packages/@monobrain/cli/src/dlq/dlq-replayer.js';
-import type { DeliveryAttempt } from '../../packages/@monobrain/shared/src/types/dlq.js';
+import { DLQWriter } from '../../packages/@monomind/cli/src/dlq/dlq-writer.js';
+import { DLQReader } from '../../packages/@monomind/cli/src/dlq/dlq-reader.js';
+import { DLQReplayer } from '../../packages/@monomind/cli/src/dlq/dlq-replayer.js';
+import type { DeliveryAttempt } from '../../packages/@monomind/shared/src/types/dlq.js';
 
 function makeTmpDir(): string {
   return mkdtempSync(join(tmpdir(), 'dlq-test-'));

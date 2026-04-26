@@ -12,43 +12,43 @@ The verification system provides real-time truth checking and validation for all
 Run verification checks on current code or agent outputs.
 
 ```bash
-monobrain verify check --file src/app.js
-monobrain verify check --task "task-123"
-monobrain verify check --threshold 0.98
+monomind verify check --file src/app.js
+monomind verify check --task "task-123"
+monomind verify check --threshold 0.98
 ```
 
 ### `verify rollback`
 Automatically rollback changes that fail verification.
 
 ```bash
-monobrain verify rollback --to-commit abc123
-monobrain verify rollback --last-good
-monobrain verify rollback --interactive
+monomind verify rollback --to-commit abc123
+monomind verify rollback --last-good
+monomind verify rollback --interactive
 ```
 
 ### `verify report`
 Generate verification reports and metrics.
 
 ```bash
-monobrain verify report --format json
-monobrain verify report --export metrics.html
-monobrain verify report --period 7d
+monomind verify report --format json
+monomind verify report --export metrics.html
+monomind verify report --period 7d
 ```
 
 ### `verify dashboard`
 Launch interactive verification dashboard.
 
 ```bash
-monobrain verify dashboard
-monobrain verify dashboard --port 3000
-monobrain verify dashboard --export
+monomind verify dashboard
+monomind verify dashboard --port 3000
+monomind verify dashboard --export
 ```
 
 ## Configuration
 
 Default threshold: **0.95** (95% accuracy required)
 
-Configure in `.monobrain/config.json`:
+Configure in `.monomind/config.json`:
 ```json
 {
   "verification": {
@@ -68,18 +68,18 @@ Configure in `.monobrain/config.json`:
 
 ### With Swarm Commands
 ```bash
-monobrain swarm --verify --threshold 0.98
-monobrain hive-mind --verify
+monomind swarm --verify --threshold 0.98
+monomind hive-mind --verify
 ```
 
 ### With Training Pipeline
 ```bash
-monobrain train --verify --rollback-on-fail
+monomind train --verify --rollback-on-fail
 ```
 
 ### With Pair Programming
 ```bash
-monobrain pair --verify --real-time
+monomind pair --verify --real-time
 ```
 
 ## Metrics
@@ -94,25 +94,25 @@ monobrain pair --verify --real-time
 ### Basic Verification
 ```bash
 # Verify current directory
-monobrain verify check
+monomind verify check
 
 # Verify with custom threshold
-monobrain verify check --threshold 0.99
+monomind verify check --threshold 0.99
 
 # Verify and auto-fix
-monobrain verify check --auto-fix
+monomind verify check --auto-fix
 ```
 
 ### Advanced Workflows
 ```bash
 # Continuous verification during development
-monobrain verify watch --directory src/
+monomind verify watch --directory src/
 
 # Batch verification
-monobrain verify batch --files "*.js" --parallel
+monomind verify batch --files "*.js" --parallel
 
 # Integration testing
-monobrain verify integration --test-suite full
+monomind verify integration --test-suite full
 ```
 
 ## Performance

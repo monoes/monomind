@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-04-21T07:43:38.923Z",
+  "generatedAt": "2026-04-26T20:46:57.329Z",
   "totalAgents": 347,
   "agents": [
     {
@@ -15,8 +15,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/analysis/analyze-code-quality.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "code-analyzer",
@@ -30,8 +30,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/analysis/code-analyzer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "arch-system-design",
@@ -45,8 +45,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/architecture/arch-system-design.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "byzantine-coordinator",
@@ -60,8 +60,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/consensus/byzantine-coordinator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "crdt-synchronizer",
@@ -75,8 +75,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/consensus/crdt-synchronizer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "gossip-coordinator",
@@ -90,8 +90,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/consensus/gossip-coordinator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "performance-benchmarker",
@@ -105,8 +105,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/consensus/performance-benchmarker.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "quorum-manager",
@@ -120,8 +120,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/consensus/quorum-manager.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "raft-manager",
@@ -135,8 +135,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/consensus/raft-manager.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "security-manager",
@@ -150,8 +150,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/consensus/security-manager.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "coder",
@@ -165,8 +165,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/core/coder.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "planner",
@@ -180,8 +180,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/core/planner.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "researcher",
@@ -195,8 +195,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/core/researcher.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "reviewer",
@@ -210,8 +210,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/core/reviewer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "tester",
@@ -225,8 +225,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/core/tester.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "test-long-runner",
@@ -240,8 +240,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/custom/test-long-runner.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "data-ml-model",
@@ -255,8 +255,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/data/data-ml-model.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "dev-backend-api",
@@ -270,8 +270,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/development/backend/dev-backend-api.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "ops-cicd-github",
@@ -285,8 +285,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/devops/ci-cd/ops-cicd-github.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "docs-api-openapi",
@@ -300,8 +300,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/documentation/api-docs/docs-api-openapi.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "app-store",
@@ -315,8 +315,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/flow-nexus/app-store.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "authentication",
@@ -330,8 +330,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/flow-nexus/authentication.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "challenges",
@@ -345,8 +345,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/flow-nexus/challenges.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "neural-network",
@@ -360,8 +360,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/flow-nexus/neural-network.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "payments",
@@ -375,8 +375,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/flow-nexus/payments.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sandbox",
@@ -390,8 +390,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/flow-nexus/sandbox.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "swarm",
@@ -405,8 +405,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/flow-nexus/swarm.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "user-tools",
@@ -420,8 +420,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/flow-nexus/user-tools.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "workflow",
@@ -435,8 +435,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/flow-nexus/workflow.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "code-review-swarm",
@@ -450,8 +450,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/github/code-review-swarm.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "github-modes",
@@ -467,8 +467,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/github/github-modes.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "issue-tracker",
@@ -482,8 +482,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/github/issue-tracker.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "multi-repo-swarm",
@@ -497,8 +497,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/github/multi-repo-swarm.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "pr-manager",
@@ -512,8 +512,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/github/pr-manager.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "project-board-sync",
@@ -527,8 +527,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/github/project-board-sync.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "release-manager",
@@ -542,8 +542,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/github/release-manager.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "release-swarm",
@@ -557,8 +557,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/github/release-swarm.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "repo-architect",
@@ -572,8 +572,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/github/repo-architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "swarm-issue",
@@ -587,8 +587,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/github/swarm-issue.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "swarm-pr",
@@ -602,8 +602,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/github/swarm-pr.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sync-coordinator",
@@ -617,8 +617,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/github/sync-coordinator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "workflow-automation",
@@ -632,8 +632,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/github/workflow-automation.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "agent",
@@ -647,8 +647,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/goal/agent.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "goal-planner",
@@ -662,8 +662,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/goal/goal-planner.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "benchmark-suite",
@@ -677,8 +677,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/optimization/benchmark-suite.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "load-balancer",
@@ -692,8 +692,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/optimization/load-balancer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "performance-monitor",
@@ -707,8 +707,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/optimization/performance-monitor.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "resource-allocator",
@@ -722,8 +722,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/optimization/resource-allocator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "topology-optimizer",
@@ -737,8 +737,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/optimization/topology-optimizer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "agentic-payments",
@@ -752,8 +752,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/payments/agentic-payments.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sona-learning-optimizer",
@@ -767,8 +767,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/sona/sona-learning-optimizer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "architecture",
@@ -782,8 +782,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/sparc/architecture.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "pseudocode",
@@ -797,8 +797,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/sparc/pseudocode.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "refinement",
@@ -812,8 +812,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/sparc/refinement.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "specification",
@@ -827,8 +827,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/sparc/specification.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "spec-mobile-react-native",
@@ -842,8 +842,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/specialized/mobile/spec-mobile-react-native.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "consensus-coordinator",
@@ -857,8 +857,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/sublinear/consensus-coordinator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "matrix-optimizer",
@@ -872,8 +872,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/sublinear/matrix-optimizer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "pagerank-analyzer",
@@ -887,8 +887,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/sublinear/pagerank-analyzer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "performance-optimizer",
@@ -902,8 +902,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/sublinear/performance-optimizer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "trading-predictor",
@@ -917,8 +917,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/sublinear/trading-predictor.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "adaptive-coordinator",
@@ -932,8 +932,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/swarm/adaptive-coordinator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "hierarchical-coordinator",
@@ -947,8 +947,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/swarm/hierarchical-coordinator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "mesh-coordinator",
@@ -962,8 +962,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/swarm/mesh-coordinator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "automation-smart-agent",
@@ -977,8 +977,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/templates/automation-smart-agent.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "base-template-generator",
@@ -992,8 +992,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/templates/base-template-generator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "coordinator-swarm-init",
@@ -1007,8 +1007,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/templates/coordinator-swarm-init.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "github-pr-manager",
@@ -1022,8 +1022,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/templates/github-pr-manager.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "implementer-sparc-coder",
@@ -1037,8 +1037,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/templates/implementer-sparc-coder.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "memory-coordinator",
@@ -1052,8 +1052,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/templates/memory-coordinator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "orchestrator-task",
@@ -1067,8 +1067,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/templates/orchestrator-task.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "performance-analyzer",
@@ -1082,8 +1082,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/templates/performance-analyzer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sparc-coordinator",
@@ -1097,8 +1097,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/templates/sparc-coordinator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "production-validator",
@@ -1112,8 +1112,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/testing/production-validator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "tdd-london-swarm",
@@ -1127,8 +1127,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/testing/tdd-london-swarm.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "adr-architect",
@@ -1142,8 +1142,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/adr-architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "aidefence-guardian",
@@ -1157,8 +1157,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/aidefence-guardian.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "claims-authorizer",
@@ -1172,8 +1172,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/claims-authorizer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "collective-intelligence-coordinator",
@@ -1187,8 +1187,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/collective-intelligence-coordinator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "ddd-domain-expert",
@@ -1202,8 +1202,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/ddd-domain-expert.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "injection-analyst",
@@ -1217,8 +1217,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/injection-analyst.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "memory-specialist",
@@ -1232,8 +1232,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/memory-specialist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "performance-engineer",
@@ -1247,8 +1247,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/performance-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "pii-detector",
@@ -1262,8 +1262,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/pii-detector.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "reasoningbank-learner",
@@ -1277,8 +1277,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/reasoningbank-learner.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "security-architect-aidefence",
@@ -1292,8 +1292,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/security-architect-aidefence.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "security-architect",
@@ -1307,8 +1307,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/security-architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "security-auditor",
@@ -1322,8 +1322,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/security-auditor.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sparc-orchestrator",
@@ -1337,8 +1337,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/sparc-orchestrator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "swarm-memory-manager",
@@ -1352,8 +1352,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/swarm-memory-manager.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "v3-integration-architect",
@@ -1367,8 +1367,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/v3-integration-architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "commandcompliancereport",
@@ -1382,8 +1382,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/analysis/COMMAND_COMPLIANCE_REPORT.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "readme",
@@ -1397,8 +1397,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/analysis/README.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "bottleneck-detect",
@@ -1412,8 +1412,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/analysis/bottleneck-detect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "performance-bottlenecks",
@@ -1427,8 +1427,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/analysis/performance-bottlenecks.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "performance-report",
@@ -1442,8 +1442,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/analysis/performance-report.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "token-efficiency",
@@ -1457,8 +1457,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/analysis/token-efficiency.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "token-usage",
@@ -1472,8 +1472,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/analysis/token-usage.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "auto-agent",
@@ -1487,8 +1487,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/automation/auto-agent.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "self-healing",
@@ -1502,8 +1502,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/automation/self-healing.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "session-memory",
@@ -1517,8 +1517,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/automation/session-memory.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "smart-agents",
@@ -1532,8 +1532,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/automation/smart-agents.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "smart-spawn",
@@ -1547,8 +1547,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/automation/smart-spawn.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "workflow-select",
@@ -1562,8 +1562,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/automation/workflow-select.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "claude-flow-help",
@@ -1577,8 +1577,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/claude-flow-help.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "claude-flow-memory",
@@ -1592,8 +1592,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/claude-flow-memory.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "claude-flow-swarm",
@@ -1607,8 +1607,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/claude-flow-swarm.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "code-review",
@@ -1622,8 +1622,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/github/code-review.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "github-swarm",
@@ -1637,8 +1637,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/github/github-swarm.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "issue-triage",
@@ -1652,8 +1652,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/github/issue-triage.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "pr-enhance",
@@ -1667,8 +1667,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/github/pr-enhance.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "repo-analyze",
@@ -1682,8 +1682,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/github/repo-analyze.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "overview",
@@ -1697,8 +1697,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/hooks/overview.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "post-edit",
@@ -1712,8 +1712,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/hooks/post-edit.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "post-task",
@@ -1727,8 +1727,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/hooks/post-task.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "pre-edit",
@@ -1742,8 +1742,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/hooks/pre-edit.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "pre-task",
@@ -1757,8 +1757,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/hooks/pre-task.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "session-end",
@@ -1772,8 +1772,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/hooks/session-end.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "setup",
@@ -1787,8 +1787,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/hooks/setup.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "agent-metrics",
@@ -1802,8 +1802,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/monitoring/agent-metrics.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "agents",
@@ -1817,8 +1817,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/monitoring/agents.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "real-time-view",
@@ -1832,8 +1832,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/monitoring/real-time-view.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "status",
@@ -1847,8 +1847,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/monitoring/status.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "swarm-monitor",
@@ -1862,8 +1862,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/monitoring/swarm-monitor.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "auto-topology",
@@ -1877,8 +1877,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/optimization/auto-topology.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "cache-manage",
@@ -1892,8 +1892,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/optimization/cache-manage.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "parallel-execute",
@@ -1907,8 +1907,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/optimization/parallel-execute.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "parallel-execution",
@@ -1922,8 +1922,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/optimization/parallel-execution.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "topology-optimize",
@@ -1937,8 +1937,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/optimization/topology-optimize.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "analyzer",
@@ -1952,8 +1952,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/analyzer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "architect",
@@ -1967,8 +1967,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "ask",
@@ -1982,8 +1982,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/ask.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "batch-executor",
@@ -1997,8 +1997,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/batch-executor.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "code",
@@ -2012,8 +2012,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/code.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "debug",
@@ -2027,8 +2027,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/debug.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "debugger",
@@ -2042,8 +2042,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/debugger.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "designer",
@@ -2057,8 +2057,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/designer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "devops",
@@ -2072,8 +2072,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/devops.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "docs-writer",
@@ -2087,8 +2087,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/docs-writer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "documenter",
@@ -2102,8 +2102,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/documenter.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "innovator",
@@ -2117,8 +2117,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/innovator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "integration",
@@ -2132,8 +2132,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/integration.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "mcp",
@@ -2147,8 +2147,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/mcp.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "memory-manager",
@@ -2162,8 +2162,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/memory-manager.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "optimizer",
@@ -2177,8 +2177,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/optimizer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "orchestrator",
@@ -2192,8 +2192,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/orchestrator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "post-deployment-monitoring-mode",
@@ -2207,8 +2207,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/post-deployment-monitoring-mode.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "refinement-optimization-mode",
@@ -2222,8 +2222,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/refinement-optimization-mode.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "security-review",
@@ -2237,8 +2237,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/security-review.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sparc-modes",
@@ -2252,8 +2252,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/sparc-modes.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sparc",
@@ -2267,8 +2267,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/sparc.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "spec-pseudocode",
@@ -2282,8 +2282,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/spec-pseudocode.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "supabase-admin",
@@ -2297,8 +2297,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/supabase-admin.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "swarm-coordinator",
@@ -2312,8 +2312,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/swarm-coordinator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "tdd",
@@ -2327,8 +2327,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/tdd.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "tutorial",
@@ -2342,8 +2342,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/tutorial.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "workflow-manager",
@@ -2357,8 +2357,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/commands/sparc/workflow-manager.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "skill",
@@ -2372,8 +2372,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/skills/agentdb-advanced/SKILL.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "capabilities",
@@ -2387,8 +2387,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude-flow/CAPABILITIES.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "pullrequesttemplate",
@@ -2402,8 +2402,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/.github/PULL_REQUEST_TEMPLATE.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "claude",
@@ -2417,8 +2417,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/CLAUDE.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "contributing",
@@ -2432,8 +2432,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/CONTRIBUTING.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "academic-anthropologist",
@@ -2447,8 +2447,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/academic/academic-anthropologist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "academic-geographer",
@@ -2462,8 +2462,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/academic/academic-geographer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "academic-historian",
@@ -2477,8 +2477,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/academic/academic-historian.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "academic-narratologist",
@@ -2492,8 +2492,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/academic/academic-narratologist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "academic-psychologist",
@@ -2507,8 +2507,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/academic/academic-psychologist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "design-brand-guardian",
@@ -2522,8 +2522,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/design/design-brand-guardian.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "design-image-prompt-engineer",
@@ -2537,8 +2537,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/design/design-image-prompt-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "design-inclusive-visuals-specialist",
@@ -2552,8 +2552,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/design/design-inclusive-visuals-specialist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "design-ui-designer",
@@ -2567,8 +2567,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/design/design-ui-designer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "design-ux-architect",
@@ -2582,8 +2582,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/design/design-ux-architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "design-ux-researcher",
@@ -2597,8 +2597,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/design/design-ux-researcher.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "design-visual-storyteller",
@@ -2612,8 +2612,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/design/design-visual-storyteller.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "design-whimsy-injector",
@@ -2627,8 +2627,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/design/design-whimsy-injector.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-ai-data-remediation-engineer",
@@ -2642,8 +2642,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-ai-data-remediation-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-ai-engineer",
@@ -2657,8 +2657,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-ai-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-autonomous-optimization-architect",
@@ -2672,8 +2672,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-autonomous-optimization-architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-backend-architect",
@@ -2687,8 +2687,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-backend-architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-code-reviewer",
@@ -2702,8 +2702,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-code-reviewer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-data-engineer",
@@ -2717,8 +2717,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-data-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-database-optimizer",
@@ -2732,8 +2732,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-database-optimizer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-devops-automator",
@@ -2747,8 +2747,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-devops-automator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-embedded-firmware-engineer",
@@ -2762,8 +2762,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-embedded-firmware-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-feishu-integration-developer",
@@ -2777,8 +2777,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-feishu-integration-developer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-frontend-developer",
@@ -2792,8 +2792,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-frontend-developer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-git-workflow-master",
@@ -2807,8 +2807,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-git-workflow-master.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-incident-response-commander",
@@ -2822,8 +2822,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-incident-response-commander.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-mobile-app-builder",
@@ -2837,8 +2837,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-mobile-app-builder.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-rapid-prototyper",
@@ -2852,8 +2852,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-rapid-prototyper.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-security-engineer",
@@ -2867,8 +2867,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-security-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-senior-developer",
@@ -2882,8 +2882,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-senior-developer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-software-architect",
@@ -2897,8 +2897,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-software-architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-solidity-smart-contract-engineer",
@@ -2912,8 +2912,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-solidity-smart-contract-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-sre",
@@ -2927,8 +2927,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-sre.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-technical-writer",
@@ -2942,8 +2942,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-technical-writer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-threat-detection-engineer",
@@ -2957,8 +2957,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-threat-detection-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "engineering-wechat-mini-program-developer",
@@ -2972,8 +2972,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/engineering/engineering-wechat-mini-program-developer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "nexus-spatial-discovery",
@@ -2987,8 +2987,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/examples/nexus-spatial-discovery.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "workflow-book-chapter",
@@ -3002,8 +3002,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/examples/workflow-book-chapter.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "workflow-landing-page",
@@ -3017,8 +3017,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/examples/workflow-landing-page.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "workflow-startup-mvp",
@@ -3032,8 +3032,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/examples/workflow-startup-mvp.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "workflow-with-memory",
@@ -3047,8 +3047,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/examples/workflow-with-memory.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "blender-addon-engineer",
@@ -3062,8 +3062,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/blender/blender-addon-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "game-audio-engineer",
@@ -3077,8 +3077,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/game-audio-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "game-designer",
@@ -3092,8 +3092,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/game-designer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "godot-gameplay-scripter",
@@ -3107,8 +3107,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/godot/godot-gameplay-scripter.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "godot-multiplayer-engineer",
@@ -3122,8 +3122,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/godot/godot-multiplayer-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "godot-shader-developer",
@@ -3137,8 +3137,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/godot/godot-shader-developer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "level-designer",
@@ -3152,8 +3152,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/level-designer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "narrative-designer",
@@ -3167,8 +3167,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/narrative-designer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "roblox-avatar-creator",
@@ -3182,8 +3182,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/roblox-studio/roblox-avatar-creator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "roblox-experience-designer",
@@ -3197,8 +3197,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/roblox-studio/roblox-experience-designer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "roblox-systems-scripter",
@@ -3212,8 +3212,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/roblox-studio/roblox-systems-scripter.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "technical-artist",
@@ -3227,8 +3227,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/technical-artist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "unity-architect",
@@ -3242,8 +3242,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/unity/unity-architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "unity-editor-tool-developer",
@@ -3257,8 +3257,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/unity/unity-editor-tool-developer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "unity-multiplayer-engineer",
@@ -3272,8 +3272,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/unity/unity-multiplayer-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "unity-shader-graph-artist",
@@ -3287,8 +3287,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/unity/unity-shader-graph-artist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "unreal-multiplayer-architect",
@@ -3302,8 +3302,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/unreal-engine/unreal-multiplayer-architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "unreal-systems-engineer",
@@ -3317,8 +3317,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/unreal-engine/unreal-systems-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "unreal-technical-artist",
@@ -3332,8 +3332,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/unreal-engine/unreal-technical-artist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "unreal-world-builder",
@@ -3347,8 +3347,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/game-development/unreal-engine/unreal-world-builder.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "backend-architect-with-memory",
@@ -3362,8 +3362,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/integrations/mcp-memory/backend-architect-with-memory.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-ai-citation-strategist",
@@ -3377,8 +3377,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-ai-citation-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-app-store-optimizer",
@@ -3392,8 +3392,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-app-store-optimizer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-baidu-seo-specialist",
@@ -3407,8 +3407,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-baidu-seo-specialist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-bilibili-content-strategist",
@@ -3422,8 +3422,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-bilibili-content-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-book-co-author",
@@ -3437,8 +3437,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-book-co-author.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-carousel-growth-engine",
@@ -3452,8 +3452,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-carousel-growth-engine.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-china-ecommerce-operator",
@@ -3467,8 +3467,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-china-ecommerce-operator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-content-creator",
@@ -3484,8 +3484,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-content-creator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-cross-border-ecommerce",
@@ -3499,8 +3499,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-cross-border-ecommerce.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-douyin-strategist",
@@ -3514,8 +3514,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-douyin-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-growth-hacker",
@@ -3531,8 +3531,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-growth-hacker.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-instagram-curator",
@@ -3546,8 +3546,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-instagram-curator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-kuaishou-strategist",
@@ -3561,8 +3561,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-kuaishou-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-linkedin-content-creator",
@@ -3576,8 +3576,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-linkedin-content-creator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-livestream-commerce-coach",
@@ -3591,8 +3591,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-livestream-commerce-coach.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-podcast-strategist",
@@ -3606,8 +3606,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-podcast-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-private-domain-operator",
@@ -3621,8 +3621,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-private-domain-operator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-reddit-community-builder",
@@ -3636,8 +3636,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-reddit-community-builder.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-seo-specialist",
@@ -3653,8 +3653,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-seo-specialist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-short-video-editing-coach",
@@ -3668,8 +3668,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-short-video-editing-coach.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-social-media-strategist",
@@ -3685,8 +3685,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-social-media-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-tiktok-strategist",
@@ -3700,8 +3700,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-tiktok-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-twitter-engager",
@@ -3715,8 +3715,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-twitter-engager.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-wechat-official-account",
@@ -3730,8 +3730,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-wechat-official-account.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-weibo-strategist",
@@ -3745,8 +3745,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-weibo-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-xiaohongshu-specialist",
@@ -3760,8 +3760,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-xiaohongshu-specialist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "marketing-zhihu-strategist",
@@ -3775,8 +3775,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/marketing/marketing-zhihu-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "paid-media-auditor",
@@ -3792,8 +3792,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/paid-media/paid-media-auditor.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "paid-media-creative-strategist",
@@ -3809,8 +3809,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/paid-media/paid-media-creative-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "paid-media-paid-social-strategist",
@@ -3826,8 +3826,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/paid-media/paid-media-paid-social-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "paid-media-ppc-strategist",
@@ -3843,8 +3843,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/paid-media/paid-media-ppc-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "paid-media-programmatic-buyer",
@@ -3860,8 +3860,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/paid-media/paid-media-programmatic-buyer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "paid-media-search-query-analyst",
@@ -3877,8 +3877,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/paid-media/paid-media-search-query-analyst.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "paid-media-tracking-specialist",
@@ -3894,8 +3894,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/paid-media/paid-media-tracking-specialist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "product-behavioral-nudge-engine",
@@ -3909,8 +3909,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/product/product-behavioral-nudge-engine.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "product-feedback-synthesizer",
@@ -3926,8 +3926,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/product/product-feedback-synthesizer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "product-manager",
@@ -3943,8 +3943,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/product/product-manager.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "product-sprint-prioritizer",
@@ -3960,8 +3960,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/product/product-sprint-prioritizer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "product-trend-researcher",
@@ -3977,8 +3977,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/product/product-trend-researcher.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "project-management-experiment-tracker",
@@ -3992,8 +3992,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/project-management/project-management-experiment-tracker.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "project-management-jira-workflow-steward",
@@ -4007,8 +4007,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/project-management/project-management-jira-workflow-steward.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "project-management-project-shepherd",
@@ -4022,8 +4022,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/project-management/project-management-project-shepherd.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "project-management-studio-operations",
@@ -4037,8 +4037,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/project-management/project-management-studio-operations.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "project-management-studio-producer",
@@ -4052,8 +4052,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/project-management/project-management-studio-producer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "project-manager-senior",
@@ -4067,8 +4067,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/project-management/project-manager-senior.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sales-account-strategist",
@@ -4082,8 +4082,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/sales/sales-account-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sales-coach",
@@ -4097,8 +4097,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/sales/sales-coach.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sales-deal-strategist",
@@ -4112,8 +4112,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/sales/sales-deal-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sales-discovery-coach",
@@ -4127,8 +4127,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/sales/sales-discovery-coach.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sales-engineer",
@@ -4142,8 +4142,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/sales/sales-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sales-outbound-strategist",
@@ -4157,8 +4157,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/sales/sales-outbound-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sales-pipeline-analyst",
@@ -4172,8 +4172,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/sales/sales-pipeline-analyst.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sales-proposal-strategist",
@@ -4187,8 +4187,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/sales/sales-proposal-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "macos-spatial-metal-engineer",
@@ -4202,8 +4202,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/spatial-computing/macos-spatial-metal-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "terminal-integration-specialist",
@@ -4217,8 +4217,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/spatial-computing/terminal-integration-specialist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "visionos-spatial-engineer",
@@ -4232,8 +4232,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/spatial-computing/visionos-spatial-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "xr-cockpit-interaction-specialist",
@@ -4247,8 +4247,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/spatial-computing/xr-cockpit-interaction-specialist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "xr-immersive-developer",
@@ -4262,8 +4262,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/spatial-computing/xr-immersive-developer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "xr-interface-architect",
@@ -4277,8 +4277,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/spatial-computing/xr-interface-architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "accounts-payable-agent",
@@ -4292,8 +4292,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/accounts-payable-agent.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "agentic-identity-trust",
@@ -4307,8 +4307,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/agentic-identity-trust.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "agents-orchestrator",
@@ -4322,8 +4322,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/agents-orchestrator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "automation-governance-architect",
@@ -4337,8 +4337,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/automation-governance-architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "blockchain-security-auditor",
@@ -4352,8 +4352,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/blockchain-security-auditor.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "compliance-auditor",
@@ -4367,8 +4367,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/compliance-auditor.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "corporate-training-designer",
@@ -4382,8 +4382,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/corporate-training-designer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "data-consolidation-agent",
@@ -4397,8 +4397,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/data-consolidation-agent.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "government-digital-presales-consultant",
@@ -4412,8 +4412,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/government-digital-presales-consultant.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "healthcare-marketing-compliance",
@@ -4427,8 +4427,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/healthcare-marketing-compliance.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "identity-graph-operator",
@@ -4442,8 +4442,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/identity-graph-operator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "lsp-index-engineer",
@@ -4457,8 +4457,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/lsp-index-engineer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "recruitment-specialist",
@@ -4472,8 +4472,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/recruitment-specialist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "report-distribution-agent",
@@ -4487,8 +4487,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/report-distribution-agent.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "sales-data-extraction-agent",
@@ -4502,8 +4502,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/sales-data-extraction-agent.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "specialized-cultural-intelligence-strategist",
@@ -4517,8 +4517,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/specialized-cultural-intelligence-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "specialized-developer-advocate",
@@ -4532,8 +4532,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/specialized-developer-advocate.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "specialized-document-generator",
@@ -4547,8 +4547,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/specialized-document-generator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "specialized-french-consulting-market",
@@ -4562,8 +4562,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/specialized-french-consulting-market.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "specialized-korean-business-navigator",
@@ -4577,8 +4577,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/specialized-korean-business-navigator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "specialized-mcp-builder",
@@ -4592,8 +4592,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/specialized-mcp-builder.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "specialized-model-qa",
@@ -4607,8 +4607,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/specialized-model-qa.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "specialized-salesforce-architect",
@@ -4622,8 +4622,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/specialized-salesforce-architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "specialized-workflow-architect",
@@ -4637,8 +4637,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/specialized-workflow-architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "study-abroad-advisor",
@@ -4652,8 +4652,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/study-abroad-advisor.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "supply-chain-strategist",
@@ -4667,8 +4667,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/supply-chain-strategist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "zk-steward",
@@ -4682,8 +4682,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/specialized/zk-steward.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "executive-brief",
@@ -4697,8 +4697,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/EXECUTIVE-BRIEF.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "quickstart",
@@ -4712,8 +4712,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/QUICKSTART.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "agent-activation-prompts",
@@ -4727,8 +4727,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/coordination/agent-activation-prompts.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "handoff-templates",
@@ -4742,8 +4742,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/coordination/handoff-templates.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "nexus-strategy",
@@ -4757,8 +4757,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/nexus-strategy.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "phase-0-discovery",
@@ -4772,8 +4772,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/playbooks/phase-0-discovery.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "phase-1-strategy",
@@ -4787,8 +4787,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/playbooks/phase-1-strategy.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "phase-2-foundation",
@@ -4802,8 +4802,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/playbooks/phase-2-foundation.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "phase-3-build",
@@ -4817,8 +4817,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/playbooks/phase-3-build.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "phase-4-hardening",
@@ -4832,8 +4832,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/playbooks/phase-4-hardening.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "phase-5-launch",
@@ -4847,8 +4847,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/playbooks/phase-5-launch.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "phase-6-operate",
@@ -4862,8 +4862,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/playbooks/phase-6-operate.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "scenario-enterprise-feature",
@@ -4877,8 +4877,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/runbooks/scenario-enterprise-feature.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "scenario-incident-response",
@@ -4892,8 +4892,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/runbooks/scenario-incident-response.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "scenario-marketing-campaign",
@@ -4907,8 +4907,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/runbooks/scenario-marketing-campaign.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "scenario-startup-mvp",
@@ -4922,8 +4922,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/strategy/runbooks/scenario-startup-mvp.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "support-analytics-reporter",
@@ -4937,8 +4937,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/support/support-analytics-reporter.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "support-executive-summary-generator",
@@ -4952,8 +4952,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/support/support-executive-summary-generator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "support-finance-tracker",
@@ -4967,8 +4967,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/support/support-finance-tracker.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "support-infrastructure-maintainer",
@@ -4982,8 +4982,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/support/support-infrastructure-maintainer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "support-legal-compliance-checker",
@@ -4997,8 +4997,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/support/support-legal-compliance-checker.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "support-support-responder",
@@ -5012,8 +5012,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/support/support-support-responder.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "testing-accessibility-auditor",
@@ -5027,8 +5027,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/testing/testing-accessibility-auditor.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "testing-api-tester",
@@ -5042,8 +5042,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/testing/testing-api-tester.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "testing-evidence-collector",
@@ -5057,8 +5057,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/testing/testing-evidence-collector.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "testing-performance-benchmarker",
@@ -5072,8 +5072,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/testing/testing-performance-benchmarker.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "testing-reality-checker",
@@ -5087,8 +5087,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/testing/testing-reality-checker.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "testing-test-results-analyzer",
@@ -5102,8 +5102,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/testing/testing-test-results-analyzer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "testing-tool-evaluator",
@@ -5117,8 +5117,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/testing/testing-tool-evaluator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "testing-workflow-optimizer",
@@ -5132,8 +5132,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/agency-agents/testing/testing-workflow-optimizer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "code-goal-planner",
@@ -5147,8 +5147,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/goal/code-goal-planner.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "queen-coordinator",
@@ -5162,8 +5162,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/hive-mind/queen-coordinator.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "scout-explorer",
@@ -5177,8 +5177,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/hive-mind/scout-explorer.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "worker-specialist",
@@ -5192,8 +5192,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/hive-mind/worker-specialist.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "safla-neural",
@@ -5207,8 +5207,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/neural/safla-neural.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "migration-plan",
@@ -5222,8 +5222,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/templates/migration-plan.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     },
     {
       "slug": "integration-architect",
@@ -5237,8 +5237,8 @@
       "deprecated": false,
       "dependencies": [],
       "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/v3/integration-architect.md",
-      "registeredAt": "2026-04-21T07:43:38.923Z",
-      "lastUpdated": "2026-04-21T07:43:38.923Z"
+      "registeredAt": "2026-04-26T20:46:57.329Z",
+      "lastUpdated": "2026-04-26T20:46:57.329Z"
     }
   ]
 }

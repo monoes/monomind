@@ -17,8 +17,8 @@ Task("Tester", "Create tests...", "tester")
 
 MCP tools are ONLY for coordination:
 ```javascript
-mcp__monobrain__swarm_init { topology: "mesh" }
-mcp__monobrain__agent_spawn { type: "researcher" }
+mcp__monomind__swarm_init { topology: "mesh" }
+mcp__monomind__agent_spawn { type: "researcher" }
 ```
 
 ## Best Practices

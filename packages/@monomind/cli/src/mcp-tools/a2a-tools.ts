@@ -71,11 +71,11 @@ interface A2AAgentCard {
 /** Well-known agent types and their A2A card metadata */
 const AGENT_CARD_CATALOGUE: Record<string, Omit<A2AAgentCard, 'url' | 'protocolVersion'>> = {
   coder: {
-    name: 'monobrain/coder',
+    name: 'monomind/coder',
     description: 'Implementation specialist — writes clean, efficient code from specifications',
-    provider: { organization: 'monobrain', url: 'https://github.com/nokhodian/monobrain' },
+    provider: { organization: 'monomind', url: 'https://github.com/nokhodian/monomind' },
     version: '1.0.0',
-    documentationUrl: 'https://github.com/nokhodian/monobrain#agents',
+    documentationUrl: 'https://github.com/nokhodian/monomind#agents',
     capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
     authentication: { schemes: ['bearer'] },
     defaultOutputModes: ['application/json', 'text/plain'],
@@ -87,9 +87,9 @@ const AGENT_CARD_CATALOGUE: Record<string, Omit<A2AAgentCard, 'url' | 'protocolV
     ],
   },
   reviewer: {
-    name: 'monobrain/reviewer',
+    name: 'monomind/reviewer',
     description: 'Code review specialist — correctness, security, performance, maintainability',
-    provider: { organization: 'monobrain', url: 'https://github.com/nokhodian/monobrain' },
+    provider: { organization: 'monomind', url: 'https://github.com/nokhodian/monomind' },
     version: '1.0.0',
     capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
     authentication: { schemes: ['bearer'] },
@@ -101,9 +101,9 @@ const AGENT_CARD_CATALOGUE: Record<string, Omit<A2AAgentCard, 'url' | 'protocolV
     ],
   },
   tester: {
-    name: 'monobrain/tester',
+    name: 'monomind/tester',
     description: 'QA specialist — test strategy, test writing, coverage analysis',
-    provider: { organization: 'monobrain', url: 'https://github.com/nokhodian/monobrain' },
+    provider: { organization: 'monomind', url: 'https://github.com/nokhodian/monomind' },
     version: '1.0.0',
     capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
     authentication: { schemes: ['bearer'] },
@@ -115,9 +115,9 @@ const AGENT_CARD_CATALOGUE: Record<string, Omit<A2AAgentCard, 'url' | 'protocolV
     ],
   },
   researcher: {
-    name: 'monobrain/researcher',
+    name: 'monomind/researcher',
     description: 'Research specialist — web search, code exploration, information synthesis',
-    provider: { organization: 'monobrain', url: 'https://github.com/nokhodian/monobrain' },
+    provider: { organization: 'monomind', url: 'https://github.com/nokhodian/monomind' },
     version: '1.0.0',
     capabilities: { streaming: true, pushNotifications: true, stateTransitionHistory: true },
     authentication: { schemes: ['bearer'] },
@@ -129,9 +129,9 @@ const AGENT_CARD_CATALOGUE: Record<string, Omit<A2AAgentCard, 'url' | 'protocolV
     ],
   },
   'security-architect': {
-    name: 'monobrain/security-architect',
+    name: 'monomind/security-architect',
     description: 'Security architecture specialist — threat modelling, CVE remediation, secure design',
-    provider: { organization: 'monobrain', url: 'https://github.com/nokhodian/monobrain' },
+    provider: { organization: 'monomind', url: 'https://github.com/nokhodian/monomind' },
     version: '1.0.0',
     capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
     authentication: { schemes: ['bearer', 'mtls'] },
@@ -170,7 +170,7 @@ export const a2aTools: MCPTool[] = [
         },
         baseUrl: {
           type: 'string',
-          description: 'Base URL of the monobrain server (default: "http://localhost:3000")',
+          description: 'Base URL of the monomind server (default: "http://localhost:3000")',
         },
       },
       required: ['agentType'],
@@ -200,7 +200,7 @@ export const a2aTools: MCPTool[] = [
       properties: {
         baseUrl: {
           type: 'string',
-          description: 'Base URL of the monobrain server (default: "http://localhost:3000")',
+          description: 'Base URL of the monomind server (default: "http://localhost:3000")',
         },
         capabilities: {
           type: 'object',

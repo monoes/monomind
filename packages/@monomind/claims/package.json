@@ -1,7 +1,7 @@
 {
-  "name": "@monobrain/claims",
+  "name": "@monomind/claims",
   "version": "1.0.0",
-  "description": "Issue claiming and work coordination module for Monobrain V1",
+  "description": "Issue claiming and work coordination module for Monomind V1",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -37,7 +37,7 @@
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
-    "monobrain",
+    "monomind",
     "claims",
     "issue-tracking",
     "work-coordination",
@@ -45,17 +45,17 @@
     "swarm",
     "mcp"
   ],
-  "author": "Monobrain Team",
+  "author": "Monomind Team",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monobrain.git",
-    "directory": "packages/@monobrain/claims"
+    "url": "https://github.com/nokhodian/monomind.git",
+    "directory": "packages/@monomind/claims"
   },
   "bugs": {
-    "url": "https://github.com/nokhodian/monobrain/issues"
+    "url": "https://github.com/nokhodian/monomind/issues"
   },
-  "homepage": "https://github.com/nokhodian/monobrain#readme",
+  "homepage": "https://github.com/nokhodian/monomind#readme",
   "dependencies": {
     "zod": "^3.22.4"
   },
@@ -67,10 +67,10 @@
     "vitest": "^4.1.4"
   },
   "peerDependencies": {
-    "@monobrain/shared": "workspace:*"
+    "@monomind/shared": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@monobrain/shared": {
+    "@monomind/shared": {
       "optional": true
     }
   },

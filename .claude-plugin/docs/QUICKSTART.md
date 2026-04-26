@@ -1,6 +1,6 @@
-# 🚀 Monobrain Plugin - Quickstart Guide
+# 🚀 Monomind Plugin - Quickstart Guide
 
-Get started with Monobrain in 5 minutes!
+Get started with Monomind in 5 minutes!
 
 ---
 
@@ -11,7 +11,7 @@ Get started with Monobrain in 5 minutes!
 In Claude Code:
 
 ```
-/plugin add nokhodian/monobrain
+/plugin add nokhodian/monomind
 /restart
 ```
 
@@ -19,8 +19,8 @@ In Claude Code:
 
 ```bash
 # Clone the repository
-git clone https://github.com/nokhodian/monobrain.git
-cd monobrain
+git clone https://github.com/nokhodian/monomind.git
+cd monomind
 ```
 
 Then in Claude Code:
@@ -39,7 +39,7 @@ In Claude Code:
 /plugin list
 ```
 
-Look for `monobrain` in the active plugins.
+Look for `monomind` in the active plugins.
 
 Try a command:
 ```
@@ -202,7 +202,7 @@ The swarm automatically:
 
 ```bash
 # Core MCP (required)
-claude mcp add monobrain npx monobrain@alpha mcp start
+claude mcp add monomind npx monomind@alpha mcp start
 
 # Enhanced coordination (optional)
 claude mcp add ruv-swarm npx ruv-swarm mcp start
@@ -215,7 +215,7 @@ claude mcp add ruv-swarm npx ruv-swarm mcp start
 In Claude Code:
 
 ```
-List available MCP tools for monobrain
+List available MCP tools for monomind
 ```
 
 Expected: 40+ tools including:
@@ -296,10 +296,10 @@ ls ~/.claude/commands/
 cat ~/.claude/settings.json
 
 # Verify MCP package
-npx monobrain@alpha --version
+npx monomind@alpha --version
 
 # Reinstall if needed
-npm install -g monobrain@alpha
+npm install -g monomind@alpha
 ```
 
 ### Agents Not Spawning
@@ -355,6 +355,6 @@ chmod -R 755 ~/.claude/agents/
 
 ## 🚀 You're Ready!
 
-Start building with Monobrain's enterprise AI agent orchestration.
+Start building with Monomind's enterprise AI agent orchestration.
 
 **Happy coding!** 🎉

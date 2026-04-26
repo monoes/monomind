@@ -4,7 +4,7 @@
 
 ### 1. Initialize with Hooks
 ```bash
-npx monobrain init --hooks
+npx monomind init --hooks
 ```
 
 This automatically creates:
@@ -15,10 +15,10 @@ This automatically creates:
 ### 2. Test Hook Functionality
 ```bash
 # Test pre-edit hook
-npx monobrain hook pre-edit --file test.js
+npx monomind hook pre-edit --file test.js
 
 # Test session summary
-npx monobrain hook session-end --summary
+npx monomind hook session-end --summary
 ```
 
 ### 3. Customize Hooks
@@ -33,7 +33,7 @@ Edit `.claude/settings.json` to customize:
         "matcher": "^Write$",
         "hooks": [{
           "type": "command",
-          "command": "npx monobrain hook pre-write --file '${tool.params.file_path}'"
+          "command": "npx monomind hook pre-write --file '${tool.params.file_path}'"
         }]
       }
     ]
@@ -69,10 +69,10 @@ Example blocking response:
 ## Debugging Hooks
 ```bash
 # Enable debug output
-export MONOBRAIN_DEBUG=true
+export MONOMIND_DEBUG=true
 
 # Test specific hook
-npx monobrain hook pre-edit --file app.js --debug
+npx monomind hook pre-edit --file app.js --debug
 ```
 
 ## Common Patterns
@@ -86,7 +86,7 @@ Already configured by default for common file types.
   "matcher": "^(Write|Edit)$",
   "hooks": [{
     "type": "command",
-    "command": "npx monobrain hook check-protected --file '${tool.params.file_path}'"
+    "command": "npx monomind hook check-protected --file '${tool.params.file_path}'"
   }]
 }
 ```

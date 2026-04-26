@@ -2,7 +2,7 @@
  * V1 Plugin Interface
  * Domain-Driven Design - Plugin-Based Architecture (ADR-004)
  *
- * Microkernel pattern for extensible Monobrain
+ * Microkernel pattern for extensible Monomind
  * Enables modular extension points for agents, tasks, MCP tools, CLI commands, and memory backends
  */
 
@@ -497,10 +497,10 @@ export interface MemoryBackendStats {
 }
 
 /**
- * Core MonobrainPlugin interface
+ * Core MonomindPlugin interface
  * All plugins must implement this interface
  */
-export interface MonobrainPlugin {
+export interface MonomindPlugin {
   /**
    * Unique plugin name
    */
@@ -599,7 +599,7 @@ export interface PluginInfo {
   /**
    * Plugin instance
    */
-  plugin: MonobrainPlugin;
+  plugin: MonomindPlugin;
 
   /**
    * Current lifecycle state

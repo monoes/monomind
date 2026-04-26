@@ -93,7 +93,7 @@ export class OTelSink implements ObservabilityBusSink {
     try {
       const otel = (await import('@opentelemetry/api')) as unknown as OTelApi;
       this.api = otel;
-      this.tracer = otel.trace.getTracer('monobrain-observability', '1.0.0');
+      this.tracer = otel.trace.getTracer('monomind-observability', '1.0.0');
     } catch {
       // @opentelemetry/api not installed — sink will no-op.
       this.tracer = null;

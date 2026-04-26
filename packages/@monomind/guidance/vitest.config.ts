@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 export default defineConfig({
   resolve: {
     alias: {
-      '@monobrain/hooks': resolve(__dirname, '../hooks/src/index.ts'),
+      '@monomind/hooks': resolve(__dirname, '../hooks/src/index.ts'),
     },
   },
   test: {

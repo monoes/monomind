@@ -6,7 +6,7 @@
  * - Open: Failing fast, not calling service
  * - Half-Open: Testing if service recovered
  *
- * @module @monobrain/cli/production/circuit-breaker
+ * @module @monomind/cli/production/circuit-breaker
  */
 
 // ============================================================================

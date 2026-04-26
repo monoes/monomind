@@ -145,7 +145,7 @@ class BottleneckAnalyzer {
 }
 ```
 
-## Integration with Monobrain
+## Integration with Monomind
 
 ### Swarm Performance Optimization
 - **Agent Performance Monitoring**: Monitor individual agent performance

@@ -1,5 +1,5 @@
 /**
- * Monobrain Plugin Registry Cloud Function
+ * Monomind Plugin Registry Cloud Function
  *
  * Secure IPFS publishing with:
  * - Ed25519 signature verification
@@ -11,7 +11,7 @@
  *   gcloud functions deploy publish-registry \
  *     --gen2 --runtime=nodejs20 --region=us-central1 \
  *     --trigger-http --allow-unauthenticated \
- *     --service-account=plugin-registry-publisher@monobrain.iam.gserviceaccount.com
+ *     --service-account=plugin-registry-publisher@monomind.iam.gserviceaccount.com
  */
 
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
@@ -21,8 +21,8 @@ import * as ed from '@noble/ed25519';
 const secretManager = new SecretManagerServiceClient();
 const storage = new Storage();
 
-const PROJECT_ID = process.env.GCP_PROJECT || 'monobrain';
-const BUCKET_NAME = 'monobrain-plugin-registry';
+const PROJECT_ID = process.env.GCP_PROJECT || 'monomind';
+const BUCKET_NAME = 'monomind-plugin-registry';
 const PINATA_API_URL = 'https://api.pinata.cloud';
 
 /**
@@ -144,7 +144,7 @@ async function trackEvent(bucket, eventType, pluginId, metadata = {}) {
  * Export model/pattern to IPFS
  */
 async function exportModel(modelData, jwt) {
-  const result = await pinToIPFS(modelData, `monobrain-model-${Date.now()}`, jwt);
+  const result = await pinToIPFS(modelData, `monomind-model-${Date.now()}`, jwt);
   return {
     cid: result.IpfsHash,
     size: result.PinSize,
@@ -235,7 +235,7 @@ export async function publishRegistry(req, res) {
         registry.registryPublicKey = publicKey;
 
         // Pin to IPFS
-        const pinResult = await pinToIPFS(registry, 'monobrain-plugin-registry', pinataJwt);
+        const pinResult = await pinToIPFS(registry, 'monomind-plugin-registry', pinataJwt);
 
         // Save latest CID to GCS
         await bucket.file('latest-cid.txt').save(pinResult.IpfsHash);

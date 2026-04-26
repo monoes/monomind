@@ -5,7 +5,7 @@
  * integration, covering connection management, vector operations,
  * attention mechanisms, GNN layers, hyperbolic embeddings, and self-learning.
  *
- * @module @monobrain/plugins/__tests__/ruvector-bridge
+ * @module @monomind/plugins/__tests__/ruvector-bridge
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';

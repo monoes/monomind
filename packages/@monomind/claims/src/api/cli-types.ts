@@ -2,11 +2,11 @@
  * CLI Type Stubs for Claims Module
  *
  * Local type definitions to avoid cross-package imports.
- * These mirror the types from @monobrain/cli for use in claims commands.
+ * These mirror the types from @monomind/cli for use in claims commands.
  */
 
 // =============================================================================
-// Command Types (mirrors @monobrain/cli/src/types.ts)
+// Command Types (mirrors @monomind/cli/src/types.ts)
 // =============================================================================
 
 export interface CommandContext {
@@ -44,7 +44,7 @@ export interface CommandOption {
 }
 
 // =============================================================================
-// Output Utilities (mirrors @monobrain/cli/src/output.ts)
+// Output Utilities (mirrors @monomind/cli/src/output.ts)
 // =============================================================================
 
 export const output = {
@@ -93,7 +93,7 @@ export const output = {
 };
 
 // =============================================================================
-// Prompt Utilities (mirrors @monobrain/cli/src/prompt.ts)
+// Prompt Utilities (mirrors @monomind/cli/src/prompt.ts)
 // =============================================================================
 
 export interface SelectOption<T = string> {
@@ -124,7 +124,7 @@ export async function input(message: string, defaultValue = ''): Promise<string>
 }
 
 // =============================================================================
-// MCP Client Utilities (mirrors @monobrain/cli/src/mcp-client.ts)
+// MCP Client Utilities (mirrors @monomind/cli/src/mcp-client.ts)
 // =============================================================================
 
 export class MCPClientError extends Error {

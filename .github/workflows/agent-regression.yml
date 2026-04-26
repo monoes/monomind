@@ -3,15 +3,15 @@ name: Agent Regression Benchmarks
 on:
   pull_request:
     paths:
-      - 'packages/@monobrain/cli/src/agents/**'
-      - 'packages/@monobrain/routing/src/**'
-      - 'packages/@monobrain/hooks/src/**'
+      - 'packages/@monomind/cli/src/agents/**'
+      - 'packages/@monomind/routing/src/**'
+      - 'packages/@monomind/hooks/src/**'
       - 'tests/benchmarks/**'
       - '.github/workflows/agent-regression.yml'
   push:
     branches: [main]
     paths:
-      - 'packages/@monobrain/cli/src/agents/**'
+      - 'packages/@monomind/cli/src/agents/**'
       - 'tests/benchmarks/**'
 
 concurrency:
@@ -37,11 +37,11 @@ jobs:
         run: npm ci
 
       - name: Install CLI package dependencies
-        working-directory: packages/@monobrain/cli
+        working-directory: packages/@monomind/cli
         run: npm ci
 
       - name: Build CLI package
-        working-directory: packages/@monobrain/cli
+        working-directory: packages/@monomind/cli
         run: npm run build
 
       - name: Run regression benchmarks
@@ -53,7 +53,7 @@ jobs:
       - name: Check regression threshold
         run: |
           node -e "
-          const { BenchmarkRunner } = require('./packages/@monobrain/cli/dist/benchmarks/benchmark-runner.js');
+          const { BenchmarkRunner } = require('./packages/@monomind/cli/dist/benchmarks/benchmark-runner.js');
           const runner = new BenchmarkRunner();
           runner.checkRegressionGate().then(ok => {
             if (!ok) {

@@ -7,7 +7,7 @@
  * @module v1/shared/plugins/official/maestro
  */
 
-import type { MonobrainPlugin, PluginContext, PluginConfig } from '../types.js';
+import type { MonomindPlugin, PluginContext, PluginConfig } from '../types.js';
 import { HookEvent, HookPriority, type TaskInfo, type ErrorInfo } from '../../hooks/index.js';
 
 /**
@@ -71,7 +71,7 @@ export interface OrchestrationResult {
 /**
  * Maestro Plugin Implementation
  */
-export class MaestroPlugin implements MonobrainPlugin {
+export class MaestroPlugin implements MonomindPlugin {
   readonly id = 'maestro';
   readonly name = 'Maestro Workflow Orchestrator';
   readonly version = '1.0.0';

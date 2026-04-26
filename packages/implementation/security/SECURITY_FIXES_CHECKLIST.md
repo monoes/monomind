@@ -97,7 +97,7 @@ npm run test -- auth-service.test
 private initializeDefaultUsers(): void {
   const adminUser: User = {
     id: 'admin_default',
-    email: 'admin@monobrain.local',
+    email: 'admin@monomind.local',
     passwordHash: createHash('sha256').update('admin123' + 'salt').digest('hex'),
     // ...
   };
@@ -117,7 +117,7 @@ private async initializeDefaultUsers(): Promise<void> {
     console.log('IMPORTANT: SAVE THESE CREDENTIALS NOW');
     console.log('═══════════════════════════════════════════');
     console.log('Default Admin Credentials:');
-    console.log(`Email: admin@monobrain.local`);
+    console.log(`Email: admin@monomind.local`);
     console.log(`Password: ${randomPassword}`);
     console.log('═══════════════════════════════════════════');
     console.log('You will NOT see this password again!');
@@ -126,7 +126,7 @@ private async initializeDefaultUsers(): Promise<void> {
 
     const adminUser: User = {
       id: 'admin_default',
-      email: 'admin@monobrain.local',
+      email: 'admin@monomind.local',
       passwordHash: await this.hashPassword(randomPassword),
       role: 'admin',
       permissions: ROLE_PERMISSIONS.admin,
@@ -249,11 +249,11 @@ async function executeHook(
 
 ```bash
 # Should fail with error
-monobrain hook pre-task --description "test; whoami"
-monobrain hook pre-task --description "test && ls"
+monomind hook pre-task --description "test; whoami"
+monomind hook pre-task --description "test && ls"
 
 # Should succeed
-monobrain hook pre-task --description "legitimate task description"
+monomind hook pre-task --description "legitimate task description"
 ```
 
 ---
@@ -332,7 +332,7 @@ export class PathValidator {
 
 export const defaultPathValidator = new PathValidator([
   process.cwd(),
-  join(process.cwd(), ".monobrain"),
+  join(process.cwd(), ".monomind"),
   join(process.cwd(), "workflows"),
 ]);
 ```
@@ -362,13 +362,13 @@ import { defaultPathValidator } from '../../utils/path-validator.js';
 
 ```bash
 # Should fail
-monobrain task workflow ../../../etc/passwd
-monobrain task workflow ~/.ssh/id_rsa
-monobrain task workflow /etc/hosts
+monomind task workflow ../../../etc/passwd
+monomind task workflow ~/.ssh/id_rsa
+monomind task workflow /etc/hosts
 
 # Should succeed
-monobrain task workflow ./workflows/my-workflow.json
-monobrain task workflow workflows/test.json
+monomind task workflow ./workflows/my-workflow.json
+monomind task workflow workflows/test.json
 ```
 
 ---
@@ -464,13 +464,13 @@ const PROTECTED_KEYS = [
 
 ```bash
 # Should fail
-monobrain config set "authConfig.jwtSecret" "hacked"
-monobrain config set "__proto__.isAdmin" "true"
-monobrain config set "timeout" "999999999"
+monomind config set "authConfig.jwtSecret" "hacked"
+monomind config set "__proto__.isAdmin" "true"
+monomind config set "timeout" "999999999"
 
 # Should succeed
-monobrain config set "theme" "dark"
-monobrain config set "timeout" "30000"
+monomind config set "theme" "dark"
+monomind config set "timeout" "30000"
 ```
 
 ---

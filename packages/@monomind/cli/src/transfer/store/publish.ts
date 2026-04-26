@@ -146,7 +146,7 @@ export class PatternPublisher {
         ratingCount: 0,
         lastUpdated: new Date().toISOString(),
         createdAt: new Date().toISOString(),
-        minMonobrainVersion: '3.0.0',
+        minMonomindVersion: '3.0.0',
         verified: author.verified,
         trustLevel: author.verified ? 'verified' : 'community',
         signature,

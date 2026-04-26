@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Quality Engineering (QE) domain provides comprehensive automated testing, quality assessment, and continuous validation capabilities for Monobrain v1. It is implemented as the `agentic-qe` plugin with 51 specialized QE agents organized across 12 Domain-Driven Design bounded contexts.
+The Quality Engineering (QE) domain provides comprehensive automated testing, quality assessment, and continuous validation capabilities for Monomind v1. It is implemented as the `agentic-qe` plugin with 51 specialized QE agents organized across 12 Domain-Driven Design bounded contexts.
 
 ## Strategic Design
 
@@ -83,7 +83,7 @@ Quality Engineering Domain
 │                                                                                  │
 └─────────────────────────────────────────────────────────────────────────────────┘
                                      │
-                    Integration with Monobrain v1
+                    Integration with Monomind v1
                                      │
         ┌────────────────────────────┼────────────────────────────┐
         │                            │                            │

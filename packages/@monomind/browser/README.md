@@ -1,15 +1,15 @@
-# @monobrain/browser
+# @monomind/browser
 
 <div align="center">
 
-[![npm version](https://img.shields.io/npm/v/@monobrain/browser?style=for-the-badge&logo=npm&color=blue)](https://www.npmjs.com/package/@monobrain/browser)
+[![npm version](https://img.shields.io/npm/v/@monomind/browser?style=for-the-badge&logo=npm&color=blue)](https://www.npmjs.com/package/@monomind/browser)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Tests](https://img.shields.io/badge/Tests-128%20passing-green?style=for-the-badge&logo=vitest)](./tests)
 
-**AI-Optimized Browser Automation for Monobrain Swarms**
+**AI-Optimized Browser Automation for Monomind Swarms**
 
-*Integrate [agent-browser](https://github.com/AugmentCode/agent-browser) with monobrain for intelligent web automation, trajectory learning, security scanning, and multi-agent browser coordination.*
+*Integrate [agent-browser](https://github.com/AugmentCode/agent-browser) with monomind for intelligent web automation, trajectory learning, security scanning, and multi-agent browser coordination.*
 
 </div>
 
@@ -17,7 +17,7 @@
 
 ## Overview
 
-`@monobrain/browser` provides a comprehensive browser automation layer for AI agents, combining Vercel Labs' `agent-browser` CLI with monobrain's learning, memory, and security capabilities. It enables agents to navigate websites, fill forms, extract data, and learn from successful interaction patterns.
+`@monomind/browser` provides a comprehensive browser automation layer for AI agents, combining Vercel Labs' `agent-browser` CLI with monomind's learning, memory, and security capabilities. It enables agents to navigate websites, fill forms, extract data, and learn from successful interaction patterns.
 
 ### Architecture
 
@@ -49,10 +49,10 @@ Agent Request → Security Scan → Browser Adapter → agent-browser CLI → Pl
 
 ```bash
 # Install the package
-npm install @monobrain/browser
+npm install @monomind/browser
 
 # Peer dependency (if not already installed)
-npm install @monobrain/cli@^3.0.0-alpha
+npm install @monomind/cli@^3.0.0-alpha
 
 # agent-browser CLI (required)
 npm install -g agent-browser
@@ -71,7 +71,7 @@ npm install -g agent-browser
 ### Basic Usage
 
 ```typescript
-import { createBrowserService, browserTools } from '@monobrain/browser';
+import { createBrowserService, browserTools } from '@monomind/browser';
 
 // Create a browser service with security and memory enabled
 const browser = createBrowserService({
@@ -104,10 +104,10 @@ await browser.close();
 
 ### MCP Integration
 
-Register browser tools with monobrain's MCP server:
+Register browser tools with monomind's MCP server:
 
 ```typescript
-import { browserTools } from '@monobrain/browser';
+import { browserTools } from '@monomind/browser';
 
 // browserTools contains 59 MCP-compatible tools
 // Register with your MCP server
@@ -200,7 +200,7 @@ const piiResult = browser.scanForPII('SSN: 123-45-6789');
 Store and search browser patterns using HNSW-indexed memory:
 
 ```typescript
-import { createMemoryManager } from '@monobrain/browser';
+import { createMemoryManager } from '@monomind/browser';
 
 const memory = createMemoryManager('session-1');
 
@@ -224,7 +224,7 @@ const stats = await memory.getSessionStats();
 Comprehensive threat detection:
 
 ```typescript
-import { getSecurityScanner, isUrlSafe, containsPII } from '@monobrain/browser';
+import { getSecurityScanner, isUrlSafe, containsPII } from '@monomind/browser';
 
 const scanner = getSecurityScanner({
   requireHttps: true,
@@ -254,7 +254,7 @@ containsPII('My SSN is 123-45-6789'); // true
 Pre-built automation workflows:
 
 ```typescript
-import { listWorkflows, getWorkflow, getWorkflowManager } from '@monobrain/browser';
+import { listWorkflows, getWorkflow, getWorkflowManager } from '@monomind/browser';
 
 // List all templates
 const workflows = listWorkflows();
@@ -300,7 +300,7 @@ const validation = manager.validateVariables('login-basic', {
 Pre-browse and post-browse hooks for learning:
 
 ```typescript
-import { preBrowseHook, postBrowseHook, browserHooks } from '@monobrain/browser';
+import { preBrowseHook, postBrowseHook, browserHooks } from '@monomind/browser';
 
 // Before browsing - get recommendations
 const preResult = await preBrowseHook({
@@ -336,7 +336,7 @@ const postResult = await postBrowseHook({
 Coordinate multiple browser sessions for parallel tasks:
 
 ```typescript
-import { createBrowserSwarm } from '@monobrain/browser';
+import { createBrowserSwarm } from '@monomind/browser';
 
 // Create a swarm coordinator
 const swarm = createBrowserSwarm({
@@ -580,7 +580,7 @@ BROWSER_MEMORY_NAMESPACE=browser
 ### Login and Extract Data
 
 ```typescript
-import { createBrowserService } from '@monobrain/browser';
+import { createBrowserService } from '@monomind/browser';
 
 const browser = createBrowserService();
 
@@ -610,7 +610,7 @@ async function loginAndExtract() {
 ### Parallel Scraping
 
 ```typescript
-import { createBrowserSwarm } from '@monobrain/browser';
+import { createBrowserSwarm } from '@monomind/browser';
 
 async function parallelScrape(urls: string[]) {
   const swarm = createBrowserSwarm({ maxSessions: 5 });
@@ -635,7 +635,7 @@ async function parallelScrape(urls: string[]) {
 ### Security-First Automation
 
 ```typescript
-import { createBrowserService, getSecurityScanner } from '@monobrain/browser';
+import { createBrowserService, getSecurityScanner } from '@monomind/browser';
 
 async function secureAutomation(url: string, formData: Record<string, string>) {
   const scanner = getSecurityScanner({ requireHttps: true });
@@ -714,16 +714,16 @@ MIT License - see [LICENSE](../../LICENSE) for details.
 
 ## Links
 
-- [GitHub Repository](https://github.com/nokhodian/monobrain)
+- [GitHub Repository](https://github.com/nokhodian/monomind)
 - [agent-browser](https://github.com/AugmentCode/agent-browser)
-- [Monobrain Documentation](https://github.com/nokhodian/monobrain#readme)
+- [Monomind Documentation](https://github.com/nokhodian/monomind#readme)
 - [MCP Protocol](https://modelcontextprotocol.io)
 
 ---
 
 <div align="center">
 
-**Part of the [Monobrain](https://github.com/nokhodian/monobrain) ecosystem**
+**Part of the [Monomind](https://github.com/nokhodian/monomind) ecosystem**
 
 Made with ❤️ by [nokhodian](https://github.com/nokhodian)
 

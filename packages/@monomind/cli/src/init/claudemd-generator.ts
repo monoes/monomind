@@ -97,7 +97,7 @@ function antiDriftConfig(): string {
 - Keep shared memory namespace for all agents
 
 \`\`\`bash
-npx monobrain@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
 \`\`\``;
 }
 
@@ -110,7 +110,7 @@ When the user requests a complex task, spawn agents in background and WAIT:
 
 \`\`\`javascript
 // STEP 1: Initialize swarm coordination
-Bash("npx monobrain@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized")
+Bash("npx monomind@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized")
 
 // STEP 2: Spawn ALL agents IN BACKGROUND in a SINGLE message
 Task({prompt: "Research requirements...", subagent_type: "researcher", run_in_background: true})
@@ -165,11 +165,11 @@ function cliCommandsTable(): string {
 ### Quick CLI Examples
 
 \`\`\`bash
-npx monobrain@latest init --wizard
-npx monobrain@latest agent spawn -t coder --name my-coder
-npx monobrain@latest swarm init --v1-mode
-npx monobrain@latest memory search --query "authentication patterns"
-npx monobrain@latest doctor --fix
+npx monomind@latest init --wizard
+npx monomind@latest agent spawn -t coder --name my-coder
+npx monomind@latest swarm init --v1-mode
+npx monomind@latest memory search --query "authentication patterns"
+npx monomind@latest doctor --fix
 \`\`\``;
 }
 
@@ -218,9 +218,9 @@ function hooksSystem(): string {
 | \`document\` | normal | Auto-documentation |
 
 \`\`\`bash
-npx monobrain@latest hooks pre-task --description "[task]"
-npx monobrain@latest hooks post-task --task-id "[id]" --success true
-npx monobrain@latest hooks worker dispatch --trigger audit
+npx monomind@latest hooks pre-task --description "[task]"
+npx monomind@latest hooks post-task --task-id "[id]" --success true
+npx monomind@latest hooks worker dispatch --trigger audit
 \`\`\``;
 }
 
@@ -229,14 +229,14 @@ function learningProtocol(): string {
 
 ### Before Starting Any Task
 \`\`\`bash
-npx monobrain@latest memory search --query "[task keywords]" --namespace patterns
-npx monobrain@latest hooks route --task "[task description]"
+npx monomind@latest memory search --query "[task keywords]" --namespace patterns
+npx monomind@latest hooks route --task "[task description]"
 \`\`\`
 
 ### After Completing Any Task Successfully
 \`\`\`bash
-npx monobrain@latest memory store --namespace patterns --key "[pattern-name]" --value "[what worked]"
-npx monobrain@latest hooks post-task --task-id "[id]" --success true --store-results true
+npx monomind@latest memory store --namespace patterns --key "[pattern-name]" --value "[what worked]"
+npx monomind@latest hooks post-task --task-id "[id]" --success true --store-results true
 \`\`\`
 
 - ALWAYS check memory before starting new features, debugging, or refactoring
@@ -248,16 +248,16 @@ function memoryCommands(): string {
 
 \`\`\`bash
 # Store (REQUIRED: --key, --value; OPTIONAL: --namespace, --ttl, --tags)
-npx monobrain@latest memory store --key "pattern-auth" --value "JWT with refresh" --namespace patterns
+npx monomind@latest memory store --key "pattern-auth" --value "JWT with refresh" --namespace patterns
 
 # Search (REQUIRED: --query; OPTIONAL: --namespace, --limit, --threshold)
-npx monobrain@latest memory search --query "authentication patterns"
+npx monomind@latest memory search --query "authentication patterns"
 
 # List (OPTIONAL: --namespace, --limit)
-npx monobrain@latest memory list --namespace patterns --limit 10
+npx monomind@latest memory list --namespace patterns --limit 10
 
 # Retrieve (REQUIRED: --key; OPTIONAL: --namespace)
-npx monobrain@latest memory retrieve --key "pattern-auth" --namespace patterns
+npx monomind@latest memory retrieve --key "pattern-auth" --namespace patterns
 \`\`\``;
 }
 
@@ -268,7 +268,7 @@ function securityRulesLight(): string {
 - NEVER commit .env files or any file containing secrets
 - Always validate user input at system boundaries
 - Always sanitize file paths to prevent directory traversal
-- Run \`npx monobrain@latest security scan\` after security-related changes`;
+- Run \`npx monomind@latest security scan\` after security-related changes`;
 }
 
 function buildAndTest(): string {
@@ -301,9 +301,9 @@ function securitySection(): string {
 
 ### Security Scanning
 \`\`\`bash
-npx monobrain@latest security scan --depth full
-npx monobrain@latest security audit --report
-npx monobrain@latest security cve --check
+npx monomind@latest security scan --depth full
+npx monomind@latest security audit --report
+npx monomind@latest security cve --check
 \`\`\`
 
 ### Security Agents
@@ -323,9 +323,9 @@ function performanceSection(): string {
 
 ### Performance Tooling
 \`\`\`bash
-npx monobrain@latest performance benchmark --suite all
-npx monobrain@latest performance profile --target "[component]"
-npx monobrain@latest performance metrics --format table
+npx monomind@latest performance benchmark --suite all
+npx monomind@latest performance profile --target "[component]"
+npx monomind@latest performance metrics --format table
 \`\`\`
 
 ### Performance Agents
@@ -353,20 +353,20 @@ function envVars(): string {
   return `## Environment Variables
 
 \`\`\`bash
-MONOBRAIN_CONFIG=./monobrain.config.json
-MONOBRAIN_LOG_LEVEL=info
+MONOMIND_CONFIG=./monomind.config.json
+MONOMIND_LOG_LEVEL=info
 ANTHROPIC_API_KEY=sk-ant-...
-MONOBRAIN_MEMORY_BACKEND=hybrid
-MONOBRAIN_MEMORY_PATH=./data/memory
+MONOMIND_MEMORY_BACKEND=hybrid
+MONOMIND_MEMORY_PATH=./data/memory
 \`\`\``;
 }
 
 function graphifySection(): string {
   return `## Knowledge Graph (graphify)
 
-Built into monobrain since v1.3.0 — no separate install needed.
+Built into monomind since v1.3.0 — no separate install needed.
 
-### MCP Tools (prefix: \`mcp__monobrain__\`)
+### MCP Tools (prefix: \`mcp__monomind__\`)
 
 | Tool | Description |
 |------|-------------|
@@ -383,7 +383,7 @@ Built into monobrain since v1.3.0 — no separate install needed.
 4. **Experiment loop** — tracks BASELINE/KEEP/DISCARD in \`results.tsv\`
 5. **BFD chunking** — efficient Anthropic API calls via bin-packing
 
-> If graphify tools are not available, run \`npx monobrain@latest init --force\` then restart Claude Code.`;
+> If graphify tools are not available, run \`npx monomind@latest init --force\` then restart Claude Code.`;
 }
 
 function setupAndBoundary(): string {
@@ -391,16 +391,16 @@ function setupAndBoundary(): string {
 
 \`\`\`bash
 # Add MCP server — includes graphify, swarm, memory, hooks, all 200+ tools
-claude mcp add monobrain -- npx -y monobrain@latest mcp start
+claude mcp add monomind -- npx -y monomind@latest mcp start
 
 # Start background workers
-npx monobrain@latest daemon start
+npx monomind@latest daemon start
 
 # Verify everything works
-npx monobrain@latest doctor --fix
+npx monomind@latest doctor --fix
 \`\`\`
 
-> **Package name changed:** Use \`monobrain@latest\` (not \`@monobrain/cli@latest\` which is the old name and returns 404).
+> **Package name changed:** Use \`monomind@latest\` (not \`@monomind/cli@latest\` which is the old name and returns 404).
 
 ## Claude Code vs CLI Tools
 
@@ -410,8 +410,8 @@ npx monobrain@latest doctor --fix
 
 ## Support
 
-- Documentation: https://github.com/nokhodian/monobrain
-- Issues: https://github.com/nokhodian/monobrain/issues`;
+- Documentation: https://github.com/nokhodian/monomind
+- Issues: https://github.com/nokhodian/monomind/issues`;
 }
 
 // --- Template Composers ---
@@ -528,7 +528,7 @@ export function generateClaudeMd(options: InitOptions, template?: ClaudeMdTempla
   const tmpl = template ?? options.runtime.claudeMdTemplate ?? 'standard';
   const sections = TEMPLATE_SECTIONS[tmpl] ?? TEMPLATE_SECTIONS.standard;
 
-  const header = `# Claude Code Configuration - Monobrain\n`;
+  const header = `# Claude Code Configuration - Monomind\n`;
   const body = sections.map(fn => fn(options)).join('\n\n');
 
   return `${header}\n${body}\n`;

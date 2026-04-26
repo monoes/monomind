@@ -18,7 +18,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PROJECT_ROOT = join(__dirname, '../..');
-const DATA_DIR = join(PROJECT_ROOT, '.monobrain', 'data');
+const DATA_DIR = join(PROJECT_ROOT, '.monomind', 'data');
 const STORE_PATH = join(DATA_DIR, 'auto-memory-store.json');
 
 // Colors
@@ -132,7 +132,7 @@ class JsonFileBackend {
 
 async function loadMemoryPackage() {
   // Strategy 1: Local dev (built dist)
-  const localDist = join(PROJECT_ROOT, 'packages/@monobrain/memory/dist/index.js');
+  const localDist = join(PROJECT_ROOT, 'packages/@monomind/memory/dist/index.js');
   if (existsSync(localDist)) {
     try {
       return await import(`file://${localDist}`);
@@ -140,23 +140,23 @@ async function loadMemoryPackage() {
   }
 
   // Strategy 2: Use createRequire for CJS-style resolution (handles nested node_modules
-  // when installed as a transitive dependency via npx monobrain / npx monobrain)
+  // when installed as a transitive dependency via npx monomind / npx monomind)
   try {
     const { createRequire } = await import('module');
     const require = createRequire(join(PROJECT_ROOT, 'package.json'));
-    return require('@monobrain/memory');
+    return require('@monomind/memory');
   } catch { /* fall through */ }
 
-  // Strategy 3: ESM import (works when @monobrain/memory is a direct dependency)
+  // Strategy 3: ESM import (works when @monomind/memory is a direct dependency)
   try {
-    return await import('@monobrain/memory');
+    return await import('@monomind/memory');
   } catch { /* fall through */ }
 
-  // Strategy 4: Walk up from PROJECT_ROOT looking for @monobrain/memory in any node_modules
+  // Strategy 4: Walk up from PROJECT_ROOT looking for @monomind/memory in any node_modules
   let searchDir = PROJECT_ROOT;
   const { parse } = await import('path');
   while (searchDir !== parse(searchDir).root) {
-    const candidate = join(searchDir, 'node_modules', '@monobrain', 'memory', 'dist', 'index.js');
+    const candidate = join(searchDir, 'node_modules', '@monomind', 'memory', 'dist', 'index.js');
     if (existsSync(candidate)) {
       try {
         return await import(`file://${candidate}`);
@@ -169,11 +169,11 @@ async function loadMemoryPackage() {
 }
 
 // ============================================================================
-// Read config from .monobrain/config.yaml
+// Read config from .monomind/config.yaml
 // ============================================================================
 
 function readConfig() {
-  const configPath = join(PROJECT_ROOT, '.monobrain', 'config.yaml');
+  const configPath = join(PROJECT_ROOT, '.monomind', 'config.yaml');
   const defaults = {
     learningBridge: { enabled: true, sonaMode: 'balanced', confidenceDecayRate: 0.005, accessBoostAmount: 0.03, consolidationThreshold: 10 },
     memoryGraph: { enabled: true, pageRankDamping: 0.85, maxNodes: 5000, similarityThreshold: 0.8 },

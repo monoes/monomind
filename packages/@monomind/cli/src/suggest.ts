@@ -2,7 +2,7 @@
  * CLI Smart Error Suggestions
  * Levenshtein distance and command suggestions
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 /**
@@ -217,7 +217,7 @@ export function suggestCommand(
   if (suggestions.length === 0) {
     return {
       suggestions: [],
-      message: 'Run "monobrain --help" to see available commands.'
+      message: 'Run "monomind --help" to see available commands.'
     };
   }
 

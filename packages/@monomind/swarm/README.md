@@ -1,11 +1,11 @@
-# @monobrain/swarm
+# @monomind/swarm
 
-[![npm version](https://img.shields.io/npm/v/@monobrain/swarm.svg)](https://www.npmjs.com/package/@monobrain/swarm)
-[![npm downloads](https://img.shields.io/npm/dm/@monobrain/swarm.svg)](https://www.npmjs.com/package/@monobrain/swarm)
+[![npm version](https://img.shields.io/npm/v/@monomind/swarm.svg)](https://www.npmjs.com/package/@monomind/swarm)
+[![npm downloads](https://img.shields.io/npm/dm/@monomind/swarm.svg)](https://www.npmjs.com/package/@monomind/swarm)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![ADR-003](https://img.shields.io/badge/ADR--003-Compliant-green.svg)](https://github.com/nokhodian/monobrain)
-[![Agents](https://img.shields.io/badge/Agents-Up%20to%20100+-orange.svg)](https://github.com/nokhodian/monobrain)
+[![ADR-003](https://img.shields.io/badge/ADR--003-Compliant-green.svg)](https://github.com/nokhodian/monomind)
+[![Agents](https://img.shields.io/badge/Agents-Up%20to%20100+-orange.svg)](https://github.com/nokhodian/monomind)
 
 > V1 Unified Swarm Coordination Module implementing ADR-003: Single Coordination Engine with Hive-Mind Intelligence
 
@@ -16,7 +16,7 @@ This module provides a **complete multi-agent coordination system** with hive-mi
 ### Key Components
 
 ```
-@monobrain/swarm
+@monomind/swarm
 ├── UnifiedSwarmCoordinator ⭐ CANONICAL ENGINE
 │   ├── Configurable agent count (default 15, max 100+)
 │   ├── Domain-based task routing
@@ -78,7 +78,7 @@ const enterpriseCoordinator = createUnifiedSwarmCoordinator({
 ## Quick Start (Recommended)
 
 ```typescript
-import { createUnifiedSwarmCoordinator } from '@monobrain/swarm';
+import { createUnifiedSwarmCoordinator } from '@monomind/swarm';
 
 // Create coordinator
 const coordinator = createUnifiedSwarmCoordinator({
@@ -297,7 +297,7 @@ console.log('Utilization:', {
 For existing code using `SwarmHub`, the compatibility layer is maintained:
 
 ```typescript
-import { createSwarmHub } from '@monobrain/swarm';
+import { createSwarmHub } from '@monomind/swarm';
 
 // ⚠️ DEPRECATED: Use createUnifiedSwarmCoordinator() instead
 const hub = createSwarmHub();
@@ -314,13 +314,13 @@ await coordinator.executeParallel(tasks);
 
 ```typescript
 // OLD (deprecated)
-import { createSwarmHub } from '@monobrain/swarm';
+import { createSwarmHub } from '@monomind/swarm';
 const hub = createSwarmHub();
 await hub.initialize();
 await hub.spawnAllAgents();
 
 // NEW (recommended)
-import { createUnifiedSwarmCoordinator } from '@monobrain/swarm';
+import { createUnifiedSwarmCoordinator } from '@monomind/swarm';
 const coordinator = createUnifiedSwarmCoordinator();
 await coordinator.initialize();
 await coordinator.spawnFullHierarchy();
@@ -331,7 +331,7 @@ await coordinator.spawnFullHierarchy();
 The Queen Coordinator provides intelligent task orchestration:
 
 ```typescript
-import { createQueenCoordinator } from '@monobrain/swarm';
+import { createQueenCoordinator } from '@monomind/swarm';
 
 const queen = createQueenCoordinator({
   swarmCoordinator: coordinator,
@@ -384,7 +384,7 @@ const decision = await queen.coordinateConsensus({
 Six attention mechanisms for intelligent agent coordination:
 
 ```typescript
-import { createAttentionCoordinator } from '@monobrain/swarm';
+import { createAttentionCoordinator } from '@monomind/swarm';
 
 const attention = createAttentionCoordinator({
   topology: coordinator.getTopology(),
@@ -418,7 +418,7 @@ const graphResult = await attention.coordinate(agents, task, { type: 'graph-rope
 Coordinate multiple swarms with ephemeral agents:
 
 ```typescript
-import { createFederationHub, getDefaultFederationHub } from '@monobrain/swarm';
+import { createFederationHub, getDefaultFederationHub } from '@monomind/swarm';
 
 // Get singleton hub or create custom
 const hub = getDefaultFederationHub();
@@ -568,8 +568,8 @@ coordinator.on('swarm.initialized', (event) => {
 This module can integrate with agentic-flow@alpha for enhanced capabilities:
 
 ```typescript
-import { createUnifiedSwarmCoordinator } from '@monobrain/swarm';
-import { AgenticFlowBridge } from '@monobrain/integration';
+import { createUnifiedSwarmCoordinator } from '@monomind/swarm';
+import { AgenticFlowBridge } from '@monomind/integration';
 
 // Connect to agentic-flow for enhanced features
 const bridge = new AgenticFlowBridge({

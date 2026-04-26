@@ -1,17 +1,17 @@
-# Monobrain v1.5 — Optimized Production Image
+# Monomind v1.5 — Optimized Production Image
 # Multi-stage Alpine build with --omit=optional for <100MB image
 #
 # Build:
-#   docker build -t monobrain:lite -f v1/@monobrain/cli/docker/Dockerfile .
+#   docker build -t monomind:lite -f v1/@monomind/cli/docker/Dockerfile .
 #
 # Run:
-#   docker run --rm monobrain:lite monobrain --version
-#   docker run --rm monobrain:lite monobrain doctor
-#   echo '{"jsonrpc":"2.0","id":1,"method":"initialize"}' | docker run --rm -i monobrain:lite
+#   docker run --rm monomind:lite monomind --version
+#   docker run --rm monomind:lite monomind doctor
+#   echo '{"jsonrpc":"2.0","id":1,"method":"initialize"}' | docker run --rm -i monomind:lite
 #
 # Size comparison:
-#   npx monobrain@latest (cold): ~1.3GB, 914 packages, 35s startup
-#   monobrain:lite image:        <100MB, ~60 packages, <5s startup
+#   npx monomind@latest (cold): ~1.3GB, 914 packages, 35s startup
+#   monomind:lite image:        <100MB, ~60 packages, <5s startup
 
 # ── Stage 1: Install ─────────────────────────────────────────────
 FROM node:22-alpine AS build
@@ -20,9 +20,9 @@ RUN apk add --no-cache git
 
 WORKDIR /install
 
-# Install monobrain globally with --omit=optional to skip heavy deps.
+# Install monomind globally with --omit=optional to skip heavy deps.
 # --ignore-scripts skips preinstall cache scanning (no-op in CI)
-RUN npm install -g monobrain@latest \
+RUN npm install -g monomind@latest \
       --omit=optional \
       --ignore-scripts \
       --no-audit \
@@ -30,7 +30,7 @@ RUN npm install -g monobrain@latest \
     && npm cache clean --force
 
 # Prune heavy optional transitive deps that npm still resolves.
-# These are all optionalDependencies of @monobrain/cli — the CLI
+# These are all optionalDependencies of @monomind/cli — the CLI
 # works fine without them (graceful fallbacks built in).
 #   agentic-flow: 238MB (ONNX runtimes, OpenTelemetry, Anthropic SDK)
 #   @opentelemetry: 135MB (transitive via agentic-flow)
@@ -45,7 +45,7 @@ RUN npm install -g monobrain@latest \
 #   @img: 16MB (image processing, not needed)
 #   better-sqlite3: 10MB (native, optional — sql.js used instead)
 RUN GLOBAL_PREFIX=$(npm config get prefix) \
-    && CLI_NM="${GLOBAL_PREFIX}/lib/node_modules/monobrain/node_modules" \
+    && CLI_NM="${GLOBAL_PREFIX}/lib/node_modules/monomind/node_modules" \
     && rm -rf \
       "${CLI_NM}/agentic-flow" \
       "${CLI_NM}/@opentelemetry" \
@@ -63,12 +63,12 @@ RUN GLOBAL_PREFIX=$(npm config get prefix) \
       "${CLI_NM}/sharp" \
       "${CLI_NM}/@google" \
     && rm -rf \
-      "${CLI_NM}/@monobrain/embeddings" \
-      "${CLI_NM}/@monobrain/memory" \
-      "${CLI_NM}/@monobrain/guidance" \
-      "${CLI_NM}/@monobrain/aidefence" \
-      "${CLI_NM}/@monobrain/plugin-gastown-bridge" \
-    && NESTED="${CLI_NM}/@monobrain/cli/node_modules" \
+      "${CLI_NM}/@monomind/embeddings" \
+      "${CLI_NM}/@monomind/memory" \
+      "${CLI_NM}/@monomind/guidance" \
+      "${CLI_NM}/@monomind/aidefence" \
+      "${CLI_NM}/@monomind/plugin-gastown-bridge" \
+    && NESTED="${CLI_NM}/@monomind/cli/node_modules" \
     && rm -rf \
       "${NESTED}/agentic-flow" \
       "${NESTED}/@ruvector" \
@@ -76,7 +76,7 @@ RUN GLOBAL_PREFIX=$(npm config get prefix) \
     && rm -rf \
       "${CLI_NM}/ruvector-onnx-embeddings-wasm" \
       "${CLI_NM}/ruvector-core-linux-x64-gnu" \
-      "${CLI_NM}/@monobrain/neural" \
+      "${CLI_NM}/@monomind/neural" \
       "${CLI_NM}/@grpc" \
       "${CLI_NM}/gun"
 
@@ -84,8 +84,8 @@ RUN GLOBAL_PREFIX=$(npm config get prefix) \
 RUN GLOBAL_PREFIX=$(npm config get prefix) \
     && mkdir -p /staged/lib /staged/bin \
     && cp -a "${GLOBAL_PREFIX}/lib/node_modules" /staged/lib/ \
-    && cp -a "${GLOBAL_PREFIX}/bin/monobrain" /staged/bin/ 2>/dev/null || true \
-    && cp -a "${GLOBAL_PREFIX}/bin/monobrain" /staged/bin/ 2>/dev/null || true \
+    && cp -a "${GLOBAL_PREFIX}/bin/monomind" /staged/bin/ 2>/dev/null || true \
+    && cp -a "${GLOBAL_PREFIX}/bin/monomind" /staged/bin/ 2>/dev/null || true \
     && cp -a "${GLOBAL_PREFIX}/bin/cli" /staged/bin/ 2>/dev/null || true
 
 # ── Stage 2: Production ──────────────────────────────────────────
@@ -95,33 +95,33 @@ FROM node:22-alpine AS production
 RUN apk add --no-cache dumb-init git bash ca-certificates curl
 
 # Non-root user
-RUN addgroup -g 1001 -S monobrain \
-    && adduser -S -D -H -u 1001 -h /home/monobrain -s /bin/bash -G monobrain monobrain \
-    && mkdir -p /home/monobrain/.monobrain /workspace \
-    && chown -R monobrain:monobrain /home/monobrain /workspace
+RUN addgroup -g 1001 -S monomind \
+    && adduser -S -D -H -u 1001 -h /home/monomind -s /bin/bash -G monomind monomind \
+    && mkdir -p /home/monomind/.monomind /workspace \
+    && chown -R monomind:monomind /home/monomind /workspace
 
 # Copy only the global node_modules and bin links from build stage
 COPY --from=build /staged/lib/node_modules /usr/local/lib/node_modules
 COPY --from=build /staged/bin/ /usr/local/bin/
 
 # Ensure bin symlinks point to the right place
-RUN ln -sf /usr/local/lib/node_modules/monobrain/bin/monobrain.js /usr/local/bin/monobrain 2>/dev/null || true \
-    && ln -sf /usr/local/lib/node_modules/@monobrain/cli/bin/cli.js /usr/local/bin/monobrain 2>/dev/null || true \
-    && chmod +x /usr/local/bin/monobrain 2>/dev/null || true \
-    && chmod +x /usr/local/bin/monobrain 2>/dev/null || true
+RUN ln -sf /usr/local/lib/node_modules/monomind/bin/monomind.js /usr/local/bin/monomind 2>/dev/null || true \
+    && ln -sf /usr/local/lib/node_modules/@monomind/cli/bin/cli.js /usr/local/bin/monomind 2>/dev/null || true \
+    && chmod +x /usr/local/bin/monomind 2>/dev/null || true \
+    && chmod +x /usr/local/bin/monomind 2>/dev/null || true
 
 ENV NODE_ENV=production \
-    MONOBRAIN_LOG_LEVEL=info \
-    HOME=/home/monobrain
+    MONOMIND_LOG_LEVEL=info \
+    HOME=/home/monomind
 
 # Healthcheck via CLI doctor (timeout after 10s)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD monobrain doctor --quiet || exit 1
+    CMD monomind doctor --quiet || exit 1
 
-USER monobrain
+USER monomind
 WORKDIR /workspace
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
 # Default: start MCP server on stdio (most common Docker use case)
-CMD ["monobrain", "mcp", "start"]
+CMD ["monomind", "mcp", "start"]

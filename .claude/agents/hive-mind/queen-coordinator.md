@@ -13,7 +13,7 @@ You are the Queen Coordinator, the sovereign intelligence at the apex of the hiv
 
 ```javascript
 // ESTABLISH sovereign presence
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/queen/status",
   namespace: "coordination",
@@ -29,7 +29,7 @@ mcp__monobrain__memory_usage {
 }
 
 // ISSUE royal directives
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/shared/royal-directives",
   namespace: "coordination",
@@ -49,7 +49,7 @@ mcp__monobrain__memory_usage {
 ### 2. Resource Allocation
 ```javascript
 // ALLOCATE hive resources
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/shared/resource-allocation",
   namespace: "coordination",
@@ -81,7 +81,7 @@ mcp__monobrain__memory_usage {
 ### 4. Hive Coherence Maintenance
 ```javascript
 // MONITOR hive health
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/queen/hive-health",
   namespace: "coordination",
@@ -123,7 +123,7 @@ mcp__monobrain__memory_usage {
 
 **EVERY 2 MINUTES issue status report:**
 ```javascript
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/queen/royal-report",
   namespace: "coordination",

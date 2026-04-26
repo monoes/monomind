@@ -1,6 +1,6 @@
 #!/bin/bash
-# Publish script for @monobrain/cli
-# Publishes to both @monobrain/cli@alpha AND monobrain@alpha
+# Publish script for @monomind/cli
+# Publishes to both @monomind/cli@alpha AND monomind@alpha
 
 set -e
 
@@ -13,14 +13,14 @@ cd "$CLI_DIR"
 VERSION=$(node -p "require('./package.json').version")
 echo "Publishing version: $VERSION"
 
-# 1. Publish @monobrain/cli with alpha tag
+# 1. Publish @monomind/cli with alpha tag
 echo ""
-echo "=== Publishing @monobrain/cli@$VERSION (alpha tag) ==="
+echo "=== Publishing @monomind/cli@$VERSION (alpha tag) ==="
 npm publish --tag alpha
 
-# 2. Publish to monobrain with alpha tag
+# 2. Publish to monomind with alpha tag
 echo ""
-echo "=== Publishing monobrain@$VERSION (alpha tag) ==="
+echo "=== Publishing monomind@$VERSION (alpha tag) ==="
 
 # Create temp directory
 TEMP_DIR=$(mktemp -d)
@@ -31,7 +31,7 @@ cp -r dist bin src package.json README.md "$TEMP_DIR/"
 
 # Change package name to unscoped
 cd "$TEMP_DIR"
-sed -i 's/"name": "@monobrain\/cli"/"name": "monobrain"/' package.json
+sed -i 's/"name": "@monomind\/cli"/"name": "monomind"/' package.json
 
 # Publish with alpha tag
 npm publish --tag alpha
@@ -40,16 +40,16 @@ echo ""
 echo "=== Updating dist-tags ==="
 
 # Update all tags to point to the new version
-npm dist-tag add @monobrain/cli@$VERSION alpha
-npm dist-tag add @monobrain/cli@$VERSION latest
-npm dist-tag add monobrain@$VERSION alpha
-npm dist-tag add monobrain@$VERSION latest
+npm dist-tag add @monomind/cli@$VERSION alpha
+npm dist-tag add @monomind/cli@$VERSION latest
+npm dist-tag add monomind@$VERSION alpha
+npm dist-tag add monomind@$VERSION latest
 
 echo ""
 echo "=== Published successfully ==="
-echo "  @monobrain/cli@$VERSION (alpha, latest)"
-echo "  monobrain@$VERSION (alpha, latest)"
+echo "  @monomind/cli@$VERSION (alpha, latest)"
+echo "  monomind@$VERSION (alpha, latest)"
 echo ""
 echo "Install with:"
-echo "  npx monobrain@alpha"
-echo "  npx @monobrain/cli@latest"
+echo "  npx monomind@alpha"
+echo "  npx @monomind/cli@latest"

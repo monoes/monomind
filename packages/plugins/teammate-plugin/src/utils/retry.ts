@@ -4,7 +4,7 @@
  * Provides exponential backoff retry logic with
  * configurable delays and error filtering.
  *
- * @module @monobrain/teammate-plugin/utils/retry
+ * @module @monomind/teammate-plugin/utils/retry
  */
 
 import type { RetryConfig, RetryState } from '../types.js';

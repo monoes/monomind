@@ -1,15 +1,15 @@
 /**
  * Configuration Adapter
- * Converts between SystemConfig and MonobrainConfig types
+ * Converts between SystemConfig and MonomindConfig types
  */
 
-import type { SystemConfig } from '@monobrain/shared';
-import type { MonobrainConfig } from './types.js';
+import type { SystemConfig } from '@monomind/shared';
+import type { MonomindConfig } from './types.js';
 
 /**
- * Convert SystemConfig to MonobrainConfig (CLI-specific format)
+ * Convert SystemConfig to MonomindConfig (CLI-specific format)
  */
-export function systemConfigToMonobrainConfig(systemConfig: SystemConfig): MonobrainConfig {
+export function systemConfigToMonomindConfig(systemConfig: SystemConfig): MonomindConfig {
   return {
     version: '3.0.0',
     projectRoot: systemConfig.orchestrator?.session?.dataDir || process.cwd(),
@@ -69,9 +69,9 @@ export function systemConfigToMonobrainConfig(systemConfig: SystemConfig): Monob
 }
 
 /**
- * Convert MonobrainConfig to SystemConfig
+ * Convert MonomindConfig to SystemConfig
  */
-export function configToSystemConfig(config: MonobrainConfig): Partial<SystemConfig> {
+export function configToSystemConfig(config: MonomindConfig): Partial<SystemConfig> {
   return {
     orchestrator: {
       lifecycle: {
@@ -132,7 +132,7 @@ export function configToSystemConfig(config: MonobrainConfig): Partial<SystemCon
     },
 
     mcp: {
-      name: 'monobrain',
+      name: 'monomind',
       version: '3.0.0',
       transport: {
         type: config.mcp.transportType as 'stdio' | 'http' | 'websocket',
@@ -150,7 +150,7 @@ export function configToSystemConfig(config: MonobrainConfig): Partial<SystemCon
 }
 
 /**
- * Normalize topology from SystemConfig to MonobrainConfig
+ * Normalize topology from SystemConfig to MonomindConfig
  */
 function normalizeTopology(
   topology: string | undefined
@@ -171,7 +171,7 @@ function normalizeTopology(
 }
 
 /**
- * Denormalize topology from MonobrainConfig to SystemConfig
+ * Denormalize topology from MonomindConfig to SystemConfig
  */
 function denormalizeTopology(
   topology: 'hierarchical' | 'mesh' | 'ring' | 'star' | 'hybrid' | 'hierarchical-mesh'
@@ -183,7 +183,7 @@ function denormalizeTopology(
 }
 
 /**
- * Normalize memory backend from SystemConfig to MonobrainConfig
+ * Normalize memory backend from SystemConfig to MonomindConfig
  */
 function normalizeMemoryBackend(
   backend: string | undefined
@@ -202,7 +202,7 @@ function normalizeMemoryBackend(
 }
 
 /**
- * Denormalize memory backend from MonobrainConfig to SystemConfig
+ * Denormalize memory backend from MonomindConfig to SystemConfig
  */
 function denormalizeMemoryBackend(
   backend: 'memory' | 'sqlite' | 'agentdb' | 'hybrid'

@@ -4,8 +4,8 @@
   "env": {},
   "permissions": {
     "allow": [
-      "Bash(npx @monobrain*)",
-      "Bash(npx monobrain*)",
+      "Bash(npx @monomind*)",
+      "Bash(npx monomind*)",
       "Bash(node .claude/*)",
       "Bash(npm run:*)",
       "Bash(npm test:*)",
@@ -26,7 +26,7 @@
       "Bash(pwd)",
       "Bash(ls:*)",
       "Bash(npx:*)",
-      "mcp__monobrain__*"
+      "mcp__monomind__*"
     ],
     "deny": [
       "Read(./.env)",
@@ -82,6 +82,11 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/auto-memory-hook.mjs\" import",
             "timeout": 8000
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/graphify-freshen.cjs\"",
+            "timeout": 5000
           }
         ]
       }
@@ -179,9 +184,9 @@
   },
   "attribution": {
     "commit": "Co-Authored-By: nokhodian <nokhodian@gmail.com>",
-    "pr": "\ud83e\udd16 Generated with [monobrain](https://github.com/nokhodian/monobrain)"
+    "pr": "\ud83e\udd16 Generated with [monomind](https://github.com/nokhodian/monomind)"
   },
-  "monobrain": {
+  "monomind": {
     "version": "3.5.2",
     "enabled": true,
     "swarm": {
@@ -283,16 +288,16 @@
     "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/statusline.cjs\""
   },
   "mcpServers": {
-    "monobrain": {
+    "monomind": {
       "command": "node",
       "args": [
-        "/Users/morteza/Desktop/tools/monobrain/packages/@monobrain/cli/bin/cli.js",
+        "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/bin/cli.js",
         "mcp",
         "start"
       ]
     }
   },
   "enabledMcpjsonServers": [
-    "monobrain"
+    "monomind"
   ]
 }

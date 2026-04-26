@@ -1,7 +1,7 @@
 /**
  * Shared Services
  *
- * @module @monobrain/shared/services
+ * @module @monomind/shared/services
  */
 
 export {

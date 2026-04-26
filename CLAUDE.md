@@ -1,11 +1,11 @@
-# Claude Code Configuration - Monobrain v1.5
+# Claude Code Configuration - Monomind v1.5
 
-> **Monobrain v1.0.0** (2026-01-20) — First releases of Monobrain project extracting main skeleton from Claude Flow project
-> Packages: `@monobrain/cli@1.0.0`, `monobrain@1.0.0`
+> **Monomind v1.0.0** (2026-01-20) — First releases of Monomind project extracting main skeleton from Claude Flow project
+> Packages: `@monomind/cli@1.0.0`, `monomind@1.0.0`
 
 ## Behavioral Rules (Always Enforced)
 
-- **`[SWARM_ASK_USER]` in any system-reminder = MANDATORY user prompt before proceeding.** Present all 3 options (Normal / Swarm / Hive-Mind) clearly, state the recommended one with ★, and wait for the user's choice. Once the user replies, execute immediately without asking again.
+- For swarm/hive-mind mode selection, use `/mastermind` — it presents all topologies and gives a concrete recommendation. Do NOT auto-prompt for swarm mode.
 - For ANY UI testing, browser automation, or web navigation request: ALWAYS invoke `Skill("agent-browser-testing")` FIRST — no exceptions. The skill auto-installs agent-browser if missing.
 - Do what has been asked; nothing more, nothing less
 - NEVER create files unless they're absolutely necessary for achieving your goal
@@ -39,11 +39,11 @@
 
 | Package               | Path                            | Purpose                                |
 | --------------------- | ------------------------------- | -------------------------------------- |
-| `@monobrain/cli`      | `packages/@monobrain/cli/`      | CLI entry point (41 commands)          |
-| `@monobrain/guidance` | `packages/@monobrain/guidance/` | Governance control plane               |
-| `@monobrain/hooks`    | `packages/@monobrain/hooks/`    | 17 hooks + 12 workers                  |
-| `@monobrain/memory`   | `packages/@monobrain/memory/`   | AgentDB + HNSW search                  |
-| `@monobrain/security` | `packages/@monobrain/security/` | Input validation, CVE remediation      |
+| `@monomind/cli`      | `packages/@monomind/cli/`      | CLI entry point (41 commands)          |
+| `@monomind/guidance` | `packages/@monomind/guidance/` | Governance control plane               |
+| `@monomind/hooks`    | `packages/@monomind/hooks/`    | 17 hooks + 12 workers                  |
+| `@monomind/memory`   | `packages/@monomind/memory/`   | AgentDB + HNSW search                  |
+| `@monomind/security` | `packages/@monomind/security/` | Input validation, CVE remediation      |
 
 ## Concurrency: 1 MESSAGE = ALL RELATED OPERATIONS
 
@@ -103,28 +103,36 @@ mcp__ruv-swarm__swarm_init({ topology: "hierarchical", maxAgents: 8, strategy: "
 
 Codes 1-11: hierarchical/specialized. Code 13: mesh/balanced.
 
-### MANDATORY: Swarm Mode Prompt Protocol
+### On-Demand Swarm Selection
 
-**When you see `[SWARM_ASK_USER]` in a system-reminder, you MUST ask the user before doing any work.**
+Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options and gives a concrete recommendation for the current task. Do not auto-prompt or interrupt work to ask about swarm mode.
 
-Present exactly these 3 options in your reply:
+---
 
-> This task has complexity **X/7**. Which execution mode would you like?
->
-> **A)** Normal — single agent (fastest, no coordination overhead)  
-> **★ B)** Swarm — hierarchical, 6 agents, specialized roles  
-> **★ C)** Hive-Mind — queen-led, `<consensus>` consensus, fault-tolerant  
->
-> _(★ = recommended for this complexity)_
+## Knowledge Graph — Graphify (Use Before Codebase Exploration)
 
-Rules:
-- Do NOT start working before the user answers.
-- Once the user picks A/B/C (or describes a preference), execute immediately without re-asking.
-- If the user picks B: call `mcp__monobrain__swarm_init` + spawn agents in ONE message, then proceed.
-- If the user picks C: call `mcp__monobrain__hive-mind_init` + spawn agents in ONE message, then proceed.
-- If no `[SWARM_ASK_USER]` signal but task clearly touches 3+ files or is a new feature: still ask.
+**When starting any task that touches 3+ files, introduces a new feature, or requires understanding a module you haven't worked in recently:**
 
-**SKIP asking for:** single-file edits, doc/config changes, quick questions.
+1. Call `mcp__monobrain__graphify_suggest` first — it returns the most relevant files and relationships for your task description
+2. Call `mcp__monobrain__graphify_query` for targeted lookups ("what imports auth?", "what does UserService depend on?") — results include exact file path and line number
+3. Call `mcp__monobrain__graphify_god_nodes` to find high-centrality **internal** files (external/test symbols are automatically filtered)
+
+**Why:** The knowledge graph encodes full dependency relationships, import chains, and architectural topology. It lets you understand the blast radius of a change and find all affected files without grepping the entire codebase.
+
+**Available graphify tools:**
+
+| Tool | Use when |
+|---|---|
+| `graphify_suggest` | Starting a task — get relevant files ranked by relevance |
+| `graphify_query` | **Primary lookup** — find any symbol by keyword; returns `file` + `location` (line number) |
+| `graphify_god_nodes` | Finding high-centrality **internal** files; automatically filters out external/test symbols |
+| `graphify_shortest_path` | Understanding how two modules are connected |
+| `graphify_stats` | Quick sanity check — how many nodes/edges indexed |
+| `graphify_community` | Understanding which files form a cohesive module cluster |
+
+**Skip graphify for:** single-file edits, doc/config changes, quick fixes where you already know the file.
+
+**If `graphify_suggest` returns empty or errors:** the graph may not be built yet. Call `mcp__monobrain__graphify_build` (codeOnly: true) — it runs in the background; proceed with normal Glob/Grep while it builds.
 
 ---
 
@@ -162,7 +170,7 @@ Rules:
 
 ## Agent Teams (Multi-Agent Coordination)
 
-Enabled via `npx monobrain@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`).
+Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`).
 
 **Components:** Team Lead (main Claude), Teammates (Task tool), Task List (TaskCreate/TaskList/TaskUpdate), Mailbox (SendMessage).
 
@@ -210,54 +218,54 @@ Topology: hierarchical | Max Agents: 8 | Strategy: specialized | Consensus: raft
 ## Quick Setup
 
 ```bash
-claude mcp add monobrain npx monobrain@latest mcp start
-npx monobrain@latest daemon start
-npx monobrain@latest doctor --fix
+claude mcp add monomind npx monomind@latest mcp start
+npx monomind@latest daemon start
+npx monomind@latest doctor --fix
 ```
 
 ## Publishing to npm
 
-MUST publish ALL THREE packages: `@monobrain/cli`, `monobrain` (umbrella), `monobrain` (alias).
+MUST publish ALL THREE packages: `@monomind/cli`, `monomind` (umbrella), `monomind` (alias).
 
 ```bash
 # 1. Build and publish CLI
-cd packages/@monobrain/cli && npm version 3.0.0-alpha.XXX --no-git-tag-version && npm run build
-npm publish --tag alpha && npm dist-tag add @monobrain/cli@3.0.0-alpha.XXX latest
+cd packages/@monomind/cli && npm version 3.0.0-alpha.XXX --no-git-tag-version && npm run build
+npm publish --tag alpha && npm dist-tag add @monomind/cli@3.0.0-alpha.XXX latest
 
-# 2. Publish monobrain umbrella
-cd /workspaces/monobrain && npm version 3.0.0-alpha.XXX --no-git-tag-version && npm publish --tag latest
-npm dist-tag add monobrain@3.0.0-alpha.XXX latest && npm dist-tag add monobrain@3.0.0-alpha.XXX alpha
+# 2. Publish monomind umbrella
+cd /workspaces/monomind && npm version 3.0.0-alpha.XXX --no-git-tag-version && npm publish --tag latest
+npm dist-tag add monomind@3.0.0-alpha.XXX latest && npm dist-tag add monomind@3.0.0-alpha.XXX alpha
 
-# 3. Publish monobrain alias umbrella
-cd /workspaces/monobrain/monobrain && npm version 3.0.0-alpha.XXX --no-git-tag-version
-npm publish --tag alpha && npm dist-tag add monobrain@3.0.0-alpha.XXX latest
+# 3. Publish monomind alias umbrella
+cd /workspaces/monomind/monomind && npm version 3.0.0-alpha.XXX --no-git-tag-version
+npm publish --tag alpha && npm dist-tag add monomind@3.0.0-alpha.XXX latest
 
 # Verify ALL THREE
-npm view @monobrain/cli dist-tags --json
-npm view monobrain dist-tags --json
-npm view monobrain dist-tags --json
+npm view @monomind/cli dist-tags --json
+npm view monomind dist-tags --json
+npm view monomind dist-tags --json
 ```
 
-- Never forget the `monobrain` package (thin wrapper, `npx monobrain@alpha`)
-- `monobrain` source is in `/monobrain/` -- depends on `@monobrain/cli`
+- Never forget the `monomind` package (thin wrapper, `npx monomind@alpha`)
+- `monomind` source is in `/monomind/` -- depends on `@monomind/cli`
 
 ## Plugins
 
-Distributed via IPFS/Pinata. Registry CID in `packages/@monobrain/cli/src/plugins/store/discovery.ts`.
+Distributed via IPFS/Pinata. Registry CID in `packages/@monomind/cli/src/plugins/store/discovery.ts`.
 
 ```bash
-npx monobrain@latest plugins list      # Browse available
-npx monobrain@latest plugins install @monobrain/plugin-name
-npx monobrain@latest plugins create my-plugin  # Development
+npx monomind@latest plugins list      # Browse available
+npx monomind@latest plugins install @monomind/plugin-name
+npx monomind@latest plugins create my-plugin  # Development
 ```
 
 See CLAUDE.local.md for registry maintenance procedures.
 
 ## Support
 
-- Documentation: https://github.com/nokhodian/monobrain
-- Issues: https://github.com/nokhodian/monobrain/issues
+- Documentation: https://github.com/nokhodian/monomind
+- Issues: https://github.com/nokhodian/monomind/issues
 
 ---
 
-Remember: **Monobrain coordinates, Claude Code creates!**
+Remember: **Monomind coordinates, Claude Code creates!**

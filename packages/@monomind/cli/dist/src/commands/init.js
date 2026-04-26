@@ -1,30 +1,19 @@
 /**
  * CLI Init Command
- * Comprehensive initialization for Monobrain with Claude Code integration
+ * Comprehensive initialization for Monomind with Claude Code integration
  */
 import { output } from '../output.js';
 import { confirm, select, multiSelect, input } from '../prompt.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { executeInit, executeUpgrade, executeUpgradeWithMissing, DEFAULT_INIT_OPTIONS, MINIMAL_INIT_OPTIONS, FULL_INIT_OPTIONS, } from '../init/index.js';
-// Codex initialization action
-async function initCodexAction(ctx, options) {
-    const { force, minimal, full, dualMode } = options;
-    output.writeln();
-    output.writeln(output.bold('Initializing Monobrain for OpenAI Codex'));
-    output.writeln();
-    // Determine template
-    const template = minimal ? 'minimal' : full ? 'full' : 'default';
-    // @monobrain/codex package was removed — Codex initialization skipped
-    return { success: true, data: null };
-}
 // Check if project is already initialized
 function isInitialized(cwd) {
     const claudePath = path.join(cwd, '.claude', 'settings.json');
-    const monobrainPath = path.join(cwd, '.monobrain', 'config.yaml');
+    const monomindPath = path.join(cwd, '.monomind', 'config.yaml');
     return {
         claude: fs.existsSync(claudePath),
-        monobrain: fs.existsSync(monobrainPath),
+        monomind: fs.existsSync(monomindPath),
     };
 }
 // Init subcommand (default)
@@ -34,22 +23,16 @@ const initAction = async (ctx) => {
     const full = ctx.flags.full;
     const skipClaude = ctx.flags['skip-claude'];
     const onlyClaude = ctx.flags['only-claude'];
-    const codexMode = ctx.flags.codex;
-    const dualMode = ctx.flags.dual;
     const cwd = ctx.cwd;
-    // If codex mode, use the Codex initializer
-    if (codexMode || dualMode) {
-        return initCodexAction(ctx, { codexMode, dualMode, force, minimal, full });
-    }
     // Check if already initialized
     const initialized = isInitialized(cwd);
-    const hasExisting = initialized.claude || initialized.monobrain;
+    const hasExisting = initialized.claude || initialized.monomind;
     if (hasExisting && !force) {
-        output.printWarning('MonoBrain appears to be already initialized');
+        output.printWarning('MonoMind appears to be already initialized');
         if (initialized.claude)
             output.printInfo('  Found: .claude/settings.json');
-        if (initialized.monobrain)
-            output.printInfo('  Found: .monobrain/config.yaml');
+        if (initialized.monomind)
+            output.printInfo('  Found: .monomind/config.yaml');
         output.printInfo('Use --force to reinitialize');
         if (ctx.interactive) {
             const proceed = await confirm({
@@ -65,19 +48,12 @@ const initAction = async (ctx) => {
         }
     }
     output.writeln();
-    output.writeln(output.bold('Initializing Monobrain'));
+    output.writeln(output.bold('Initializing Monomind'));
     output.writeln();
     // Build init options based on flags
     let options;
-    if (minimal) {
-        options = { ...MINIMAL_INIT_OPTIONS, targetDir: cwd, force };
-    }
-    else if (full) {
-        options = { ...FULL_INIT_OPTIONS, targetDir: cwd, force };
-    }
-    else {
-        options = { ...DEFAULT_INIT_OPTIONS, targetDir: cwd, force };
-    }
+    const base = minimal ? MINIMAL_INIT_OPTIONS : full ? FULL_INIT_OPTIONS : DEFAULT_INIT_OPTIONS;
+    options = { ...base, targetDir: cwd, force, components: { ...base.components } };
     // Handle --skip-claude and --only-claude flags
     if (skipClaude) {
         options.components.settings = false;
@@ -105,7 +81,7 @@ const initAction = async (ctx) => {
             }
             return { success: false, exitCode: 1 };
         }
-        spinner.succeed('Monobrain initialized successfully!');
+        spinner.succeed('Monomind initialized successfully!');
         output.writeln();
         // Display summary
         const summary = [];
@@ -135,10 +111,10 @@ const initAction = async (ctx) => {
         }
         if (options.components.runtime) {
             output.printBox([
-                `Config:      .monobrain/config.yaml`,
-                `Data:        .monobrain/data/`,
-                `Logs:        .monobrain/logs/`,
-                `Sessions:    .monobrain/sessions/`,
+                `Config:      .monomind/config.yaml`,
+                `Data:        .monomind/data/`,
+                `Logs:        .monomind/logs/`,
+                `Sessions:    .monomind/sessions/`,
             ].join('\n'), 'v1 Runtime');
             output.writeln();
         }
@@ -158,7 +134,7 @@ const initAction = async (ctx) => {
             if (startAll) {
                 try {
                     output.writeln(output.dim('  Initializing memory database...'));
-                    execSync('npx @monobrain/cli@latest memory init 2>/dev/null', {
+                    execSync('npx @monoes/cli@latest memory init 2>/dev/null', {
                         stdio: 'pipe',
                         cwd: ctx.cwd,
                         timeout: 30000
@@ -173,7 +149,7 @@ const initAction = async (ctx) => {
             if (startDaemon) {
                 try {
                     output.writeln(output.dim('  Starting daemon...'));
-                    execSync('npx @monobrain/cli@latest daemon start 2>/dev/null &', {
+                    execSync('npx @monoes/cli@latest daemon start 2>/dev/null &', {
                         stdio: 'pipe',
                         cwd: ctx.cwd,
                         timeout: 10000
@@ -188,7 +164,7 @@ const initAction = async (ctx) => {
             if (startAll) {
                 try {
                     output.writeln(output.dim('  Initializing swarm...'));
-                    execSync('npx @monobrain/cli@latest swarm init --topology hierarchical 2>/dev/null', {
+                    execSync('npx @monoes/cli@latest swarm init --topology hierarchical 2>/dev/null', {
                         stdio: 'pipe',
                         cwd: ctx.cwd,
                         timeout: 30000
@@ -212,7 +188,7 @@ const initAction = async (ctx) => {
             try {
                 output.writeln(output.dim(`  Model: ${embeddingModel}`));
                 output.writeln(output.dim('  Hyperbolic: Enabled (Poincaré ball)'));
-                execSync(`npx @monobrain/cli@latest embeddings init --model ${embeddingModel} --no-download --force 2>/dev/null`, {
+                execSync(`npx @monoes/cli@latest embeddings init --model ${embeddingModel} --no-download --force 2>/dev/null`, {
                     stdio: 'pipe',
                     cwd: ctx.cwd,
                     timeout: 30000
@@ -228,10 +204,10 @@ const initAction = async (ctx) => {
             // Next steps (only if not auto-starting)
             output.writeln(output.bold('Next steps:'));
             output.printList([
-                `Run ${output.highlight('monobrain daemon start')} to start background workers`,
-                `Run ${output.highlight('monobrain memory init')} to initialize memory database`,
-                `Run ${output.highlight('monobrain swarm init')} to initialize a swarm`,
-                `Or use ${output.highlight('monobrain init --start-all')} to do all of the above`,
+                `Run ${output.highlight('monomind daemon start')} to start background workers`,
+                `Run ${output.highlight('monomind memory init')} to initialize memory database`,
+                `Run ${output.highlight('monomind swarm init')} to initialize a swarm`,
+                `Or use ${output.highlight('monomind init --start-all')} to do all of the above`,
                 options.components.settings ? `Review ${output.highlight('.claude/settings.json')} for hook configurations` : '',
             ].filter(Boolean));
         }
@@ -252,7 +228,7 @@ const wizardCommand = {
     description: 'Interactive setup wizard for comprehensive configuration',
     action: async (ctx) => {
         output.writeln();
-        output.writeln(output.bold('Monobrain Setup Wizard'));
+        output.writeln(output.bold('Monomind Setup Wizard'));
         output.writeln(output.dim('Answer questions to configure your project'));
         output.writeln();
         try {
@@ -289,7 +265,7 @@ const wizardCommand = {
                         { value: 'helpers', label: 'Helpers', hint: 'Utility scripts in .claude/helpers/', selected: true },
                         { value: 'statusline', label: 'Statusline', hint: 'Shell statusline integration', selected: false },
                         { value: 'mcp', label: 'MCP', hint: '.mcp.json for MCP server configuration', selected: true },
-                        { value: 'runtime', label: 'Runtime', hint: '.monobrain/ directory for v1 runtime', selected: true },
+                        { value: 'runtime', label: 'Runtime', hint: '.monomind/ directory for v1 runtime', selected: true },
                     ],
                 });
                 options.components.claudeMd = components.includes('claudeMd');
@@ -328,7 +304,7 @@ const wizardCommand = {
                             { value: 'sessionStart', label: 'SessionStart', hint: 'Session initialization', selected: true },
                             { value: 'stop', label: 'Stop', hint: 'Task completion evaluation', selected: true },
                             { value: 'notification', label: 'Notification', hint: 'Swarm notifications', selected: true },
-                            { value: 'permissionRequest', label: 'PermissionRequest', hint: 'Auto-allow monobrain tools', selected: true },
+                            { value: 'permissionRequest', label: 'PermissionRequest', hint: 'Auto-allow monomind tools', selected: true },
                         ],
                     });
                     options.hooks.preToolUse = hooks.includes('preToolUse');
@@ -435,7 +411,7 @@ const wizardCommand = {
                 output.printInfo('Initializing ONNX embedding subsystem...');
                 const { execSync } = await import('child_process');
                 try {
-                    execSync(`npx @monobrain/cli@latest embeddings init --model ${embeddingModel} --no-download --force 2>/dev/null`, {
+                    execSync(`npx @monoes/cli@latest embeddings init --model ${embeddingModel} --no-download --force 2>/dev/null`, {
                         stdio: 'pipe',
                         cwd: ctx.cwd,
                         timeout: 30000
@@ -483,16 +459,16 @@ const wizardCommand = {
 // Check subcommand
 const checkCommand = {
     name: 'check',
-    description: 'Check if MonoBrain is initialized',
+    description: 'Check if MonoMind is initialized',
     action: async (ctx) => {
         const initialized = isInitialized(ctx.cwd);
         const result = {
-            initialized: initialized.claude || initialized.monobrain,
+            initialized: initialized.claude || initialized.monomind,
             claude: initialized.claude,
-            monobrain: initialized.monobrain,
+            monomind: initialized.monomind,
             paths: {
                 claudeSettings: initialized.claude ? path.join(ctx.cwd, '.claude', 'settings.json') : null,
-                monobrainConfig: initialized.monobrain ? path.join(ctx.cwd, '.monobrain', 'config.yaml') : null,
+                monomindConfig: initialized.monomind ? path.join(ctx.cwd, '.monomind', 'config.yaml') : null,
             },
         };
         if (ctx.flags.format === 'json') {
@@ -500,17 +476,17 @@ const checkCommand = {
             return { success: true, data: result };
         }
         if (result.initialized) {
-            output.printSuccess('MonoBrain is initialized');
+            output.printSuccess('MonoMind is initialized');
             if (initialized.claude) {
                 output.printInfo(`  Claude Code: .claude/settings.json`);
             }
-            if (initialized.monobrain) {
-                output.printInfo(`  Runtime: .monobrain/config.yaml`);
+            if (initialized.monomind) {
+                output.printInfo(`  Runtime: .monomind/config.yaml`);
             }
         }
         else {
-            output.printWarning('MonoBrain is not initialized in this directory');
-            output.printInfo('Run "monobrain init" to initialize');
+            output.printWarning('MonoMind is not initialized in this directory');
+            output.printInfo('Run "monomind init" to initialize');
         }
         return { success: true, data: result };
     },
@@ -656,7 +632,7 @@ const upgradeCommand = {
         const addMissing = (ctx.flags['add-missing'] || ctx.flags.addMissing);
         const upgradeSettings = (ctx.flags.settings);
         output.writeln();
-        output.writeln(output.bold('Upgrading MonoBrain'));
+        output.writeln(output.bold('Upgrading MonoMind'));
         if (addMissing && upgradeSettings) {
             output.writeln(output.dim('Updates helpers, settings, and adds any missing skills/agents/commands'));
         }
@@ -756,7 +732,7 @@ const upgradeCommand = {
 // Main init command
 export const initCommand = {
     name: 'init',
-    description: 'Initialize MonoBrain in the current directory',
+    description: 'Initialize MonoMind in the current directory',
     subcommands: [wizardCommand, checkCommand, skillsCommand, hooksCommand, upgradeCommand],
     options: [
         {
@@ -816,39 +792,24 @@ export const initCommand = {
             default: 'Xenova/all-MiniLM-L6-v2',
             choices: ['Xenova/all-MiniLM-L6-v2', 'Xenova/all-mpnet-base-v2'],
         },
-        {
-            name: 'codex',
-            description: 'Initialize for OpenAI Codex CLI (creates AGENTS.md, .agents/)',
-            type: 'boolean',
-            default: false,
-        },
-        {
-            name: 'dual',
-            description: 'Initialize for both Claude Code and OpenAI Codex',
-            type: 'boolean',
-            default: false,
-        },
     ],
     examples: [
-        { command: 'monobrain init', description: 'Initialize with default configuration' },
-        { command: 'monobrain init --start-all', description: 'Initialize and start daemon, memory, swarm' },
-        { command: 'monobrain init --start-daemon', description: 'Initialize and start daemon only' },
-        { command: 'monobrain init --minimal', description: 'Initialize with minimal configuration' },
-        { command: 'monobrain init --full', description: 'Initialize with all components' },
-        { command: 'monobrain init --force', description: 'Reinitialize and overwrite existing config' },
-        { command: 'monobrain init --only-claude', description: 'Only create Claude Code integration' },
-        { command: 'monobrain init --skip-claude', description: 'Only create v1 runtime' },
-        { command: 'monobrain init wizard', description: 'Interactive setup wizard' },
-        { command: 'monobrain init --with-embeddings', description: 'Initialize with ONNX embeddings' },
-        { command: 'monobrain init --with-embeddings --embedding-model Xenova/all-mpnet-base-v2', description: 'Use larger embedding model' },
-        { command: 'monobrain init skills --all', description: 'Install all available skills' },
-        { command: 'monobrain init hooks --minimal', description: 'Create minimal hooks configuration' },
-        { command: 'monobrain init upgrade', description: 'Update helpers while preserving data' },
-        { command: 'monobrain init upgrade --settings', description: 'Update helpers and merge new settings (Agent Teams)' },
-        { command: 'monobrain init upgrade --verbose', description: 'Show detailed upgrade info' },
-        { command: 'monobrain init --codex', description: 'Initialize for OpenAI Codex (AGENTS.md)' },
-        { command: 'monobrain init --codex --full', description: 'Codex init with all 137+ skills' },
-        { command: 'monobrain init --dual', description: 'Initialize for both Claude Code and Codex' },
+        { command: 'monomind init', description: 'Initialize with default configuration' },
+        { command: 'monomind init --start-all', description: 'Initialize and start daemon, memory, swarm' },
+        { command: 'monomind init --start-daemon', description: 'Initialize and start daemon only' },
+        { command: 'monomind init --minimal', description: 'Initialize with minimal configuration' },
+        { command: 'monomind init --full', description: 'Initialize with all components' },
+        { command: 'monomind init --force', description: 'Reinitialize and overwrite existing config' },
+        { command: 'monomind init --only-claude', description: 'Only create Claude Code integration' },
+        { command: 'monomind init --skip-claude', description: 'Only create v1 runtime' },
+        { command: 'monomind init wizard', description: 'Interactive setup wizard' },
+        { command: 'monomind init --with-embeddings', description: 'Initialize with ONNX embeddings' },
+        { command: 'monomind init --with-embeddings --embedding-model Xenova/all-mpnet-base-v2', description: 'Use larger embedding model' },
+        { command: 'monomind init skills --all', description: 'Install all available skills' },
+        { command: 'monomind init hooks --minimal', description: 'Create minimal hooks configuration' },
+        { command: 'monomind init upgrade', description: 'Update helpers while preserving data' },
+        { command: 'monomind init upgrade --settings', description: 'Update helpers and merge new settings (Agent Teams)' },
+        { command: 'monomind init upgrade --verbose', description: 'Show detailed upgrade info' },
     ],
     action: initAction,
 };

@@ -41,10 +41,10 @@ modules:
 dependencies: []
 
 tools:
-  - mcp__monobrain__swarm_init
-  - mcp__monobrain__agent_spawn
-  - mcp__monobrain__task_orchestrate
-  - mcp__monobrain__memory_usage
+  - mcp__monomind__swarm_init
+  - mcp__monomind__agent_spawn
+  - mcp__monomind__task_orchestrate
+  - mcp__monomind__memory_usage
   - gh (GitHub CLI)
   - TodoWrite
 
@@ -59,7 +59,7 @@ github_responsibilities:
   - Manage blockers and escalations
 
 spawn_command: |
-  npx monobrain agent spawn queen-coordinator \
+  npx monomind agent spawn queen-coordinator \
     --topology hierarchical \
     --max-agents 15 \
     --github-sync enabled
@@ -108,7 +108,7 @@ deliverables:
   - CVE remediation plan
 
 spawn_command: |
-  npx monobrain agent spawn security-architect \
+  npx monomind agent spawn security-architect \
     --focus "security,architecture" \
     --modules "api,permissions,core"
 ```
@@ -176,7 +176,7 @@ fixes_required:
     files: Multiple file operations
 
 spawn_command: |
-  npx monobrain agent spawn security-implementer \
+  npx monomind agent spawn security-implementer \
     --focus "security,implementation" \
     --tdd enabled
 ```
@@ -239,7 +239,7 @@ test_categories:
       - Key management
 
 spawn_command: |
-  npx monobrain agent spawn security-tester \
+  npx monomind agent spawn security-tester \
     --focus "security,testing" \
     --tdd london-school \
     --coverage-target 95
@@ -299,7 +299,7 @@ refactoring_targets:
     into: core/coordinator/unified-coordinator.ts
 
 spawn_command: |
-  npx monobrain agent spawn core-architect \
+  npx monomind agent spawn core-architect \
     --focus "architecture,core" \
     --pattern "domain-driven"
 ```
@@ -348,7 +348,7 @@ implementation_tasks:
   - Create secure utility functions
 
 spawn_command: |
-  npx monobrain agent spawn core-implementer \
+  npx monomind agent spawn core-implementer \
     --focus "implementation,core" \
     --tdd enabled
 ```
@@ -415,7 +415,7 @@ unification_plan:
     - Maintain backward compatibility layer
 
 spawn_command: |
-  npx monobrain agent spawn memory-specialist \
+  npx monomind agent spawn memory-specialist \
     --focus "memory,agentdb" \
     --integration agentic-flow
 ```
@@ -451,7 +451,7 @@ tools:
   - Write
   - Edit
   - Bash
-  - mcp__monobrain__swarm_*
+  - mcp__monomind__swarm_*
 
 concurrency_limit: 2
 priority: high
@@ -484,7 +484,7 @@ unification_plan:
       - Task decomposition
 
 spawn_command: |
-  npx monobrain agent spawn swarm-specialist \
+  npx monomind agent spawn swarm-specialist \
     --focus "swarm,coordination" \
     --topology-support all
 ```
@@ -534,7 +534,7 @@ optimization_targets:
   - Add metrics collection
 
 spawn_command: |
-  npx monobrain agent spawn mcp-specialist \
+  npx monomind agent spawn mcp-specialist \
     --focus "mcp,transport" \
     --protocol-version 2024.11.5
 ```
@@ -606,7 +606,7 @@ integration_scope:
       - Curiosity-Driven
 
 spawn_command: |
-  npx monobrain agent spawn integration-architect \
+  npx monomind agent spawn integration-architect \
     --focus "integration,agentic-flow" \
     --sdk-version "2.0.1-alpha.50"
 ```
@@ -663,7 +663,7 @@ tasks:
     - Learning hooks for SONA integration
 
 spawn_command: |
-  npx monobrain agent spawn cli-hooks-developer \
+  npx monomind agent spawn cli-hooks-developer \
     --focus "cli,hooks" \
     --interactive enabled
 ```
@@ -727,7 +727,7 @@ integration_targets:
     - Curiosity-Driven
 
 spawn_command: |
-  npx monobrain agent spawn neural-learning-developer \
+  npx monomind agent spawn neural-learning-developer \
     --focus "neural,learning" \
     --sona-integration enabled
 ```
@@ -790,7 +790,7 @@ tdd_methodology:
     - Security tests (vulnerability checks)
 
 spawn_command: |
-  npx monobrain agent spawn tdd-test-engineer \
+  npx monomind agent spawn tdd-test-engineer \
     --focus "testing,tdd" \
     --methodology london-school \
     --coverage-target 90
@@ -865,7 +865,7 @@ benchmark_suite:
     startup_time: <500ms
 
 spawn_command: |
-  npx monobrain agent spawn performance-engineer \
+  npx monomind agent spawn performance-engineer \
     --focus "performance,benchmarks" \
     --profile enabled
 ```
@@ -937,7 +937,7 @@ deployment_strategy:
     - Backward compatibility tests
 
 spawn_command: |
-  npx monobrain agent spawn release-engineer \
+  npx monomind agent spawn release-engineer \
     --focus "deployment,release" \
     --version-target "3.0.0"
 ```
@@ -951,46 +951,46 @@ spawn_command: |
 # Initialize 15-agent swarm for v1 implementation
 
 # Phase 1: Foundation agents
-npx monobrain swarm init v1-implementation \
+npx monomind swarm init v1-implementation \
   --topology hierarchical \
   --max-agents 15 \
   --github-sync enabled
 
 # Spawn Queen Coordinator first
-npx monobrain agent spawn queen-coordinator --id 1
+npx monomind agent spawn queen-coordinator --id 1
 
 # Spawn Security Domain (parallel)
-npx monobrain agent spawn security-architect --id 2 &
-npx monobrain agent spawn security-implementer --id 3 &
-npx monobrain agent spawn security-tester --id 4 &
+npx monomind agent spawn security-architect --id 2 &
+npx monomind agent spawn security-implementer --id 3 &
+npx monomind agent spawn security-tester --id 4 &
 
 # Spawn Core Domain (parallel)
-npx monobrain agent spawn core-architect --id 5 &
-npx monobrain agent spawn core-implementer --id 6 &
+npx monomind agent spawn core-architect --id 5 &
+npx monomind agent spawn core-implementer --id 6 &
 
 wait
 
 # Phase 2: Specialist agents
-npx monobrain agent spawn memory-specialist --id 7 &
-npx monobrain agent spawn swarm-specialist --id 8 &
-npx monobrain agent spawn mcp-specialist --id 9 &
+npx monomind agent spawn memory-specialist --id 7 &
+npx monomind agent spawn swarm-specialist --id 8 &
+npx monomind agent spawn mcp-specialist --id 9 &
 
 wait
 
 # Phase 3: Integration agents
-npx monobrain agent spawn integration-architect --id 10 &
-npx monobrain agent spawn cli-hooks-developer --id 11 &
-npx monobrain agent spawn neural-learning-developer --id 12 &
+npx monomind agent spawn integration-architect --id 10 &
+npx monomind agent spawn cli-hooks-developer --id 11 &
+npx monomind agent spawn neural-learning-developer --id 12 &
 
 wait
 
 # Phase 4: Quality & Deployment
-npx monobrain agent spawn tdd-test-engineer --id 13 &
-npx monobrain agent spawn performance-engineer --id 14 &
-npx monobrain agent spawn release-engineer --id 15 &
+npx monomind agent spawn tdd-test-engineer --id 13 &
+npx monomind agent spawn performance-engineer --id 14 &
+npx monomind agent spawn release-engineer --id 15 &
 
 wait
 
 echo "All 15 agents spawned successfully"
-npx monobrain swarm status
+npx monomind swarm status
 ```

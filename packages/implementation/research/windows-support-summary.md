@@ -1,14 +1,14 @@
 # Windows Support via sql.js - Executive Summary
 
 **Date**: 2026-01-03
-**Project**: Monobrain v1
+**Project**: Monomind v1
 **Status**: ✅ Research Complete - Ready for Implementation
 
 ---
 
 ## TL;DR
 
-**Problem**: Monobrain fails to install on Windows due to `better-sqlite3` requiring native compilation (node-gyp, python, gcc).
+**Problem**: Monomind fails to install on Windows due to `better-sqlite3` requiring native compilation (node-gyp, python, gcc).
 
 **Solution**: Add `sql.js` (WebAssembly SQLite) as a cross-platform fallback provider alongside existing `better-sqlite3`.
 
@@ -96,7 +96,7 @@ Fallback:      JSON (compatibility)
 
 ## Performance Analysis
 
-### Use Case: Monobrain Metadata Storage
+### Use Case: Monomind Metadata Storage
 
 | Operation | better-sqlite3 | sql.js | Impact |
 |-----------|----------------|--------|--------|
@@ -140,14 +140,14 @@ Fallback:      JSON (compatibility)
 
 **Before** (Windows):
 ```bash
-$ npm install monobrain@alpha
+$ npm install monomind@alpha
 ⚠️  Warning: Use pnpm on Windows
 ❌ Error: better-sqlite3 compilation failed
 ```
 
 **After** (Windows):
 ```bash
-$ npm install monobrain@alpha
+$ npm install monomind@alpha
 ✅ Installed successfully
 ℹ️  Using sql.js (cross-platform mode)
 ```
@@ -214,7 +214,7 @@ JSON              | ✅            | ❌            | ❌
 - Monitor performance in production
 - Optimize sql.js usage patterns
 - Consider sql.js as default on all platforms (if performance acceptable)
-- Explore browser-based Monobrain (sql.js enables this)
+- Explore browser-based Monomind (sql.js enables this)
 
 ---
 
@@ -247,10 +247,10 @@ JSON              | ✅            | ❌            | ❌
 - [SQLite WASM Documentation](https://sqlite.org/wasm)
 
 ### Codebase Files
-- `/home/user/monobrain/src/memory/sqlite-wrapper.js` - Main abstraction
-- `/home/user/monobrain/src/core/DatabaseManager.ts` - Provider manager
-- `/home/user/monobrain/src/memory/backends/sqlite.ts` - Current backend
-- `/home/user/monobrain/src/utils/error-recovery.ts` - Error handling
+- `/home/user/monomind/src/memory/sqlite-wrapper.js` - Main abstraction
+- `/home/user/monomind/src/core/DatabaseManager.ts` - Provider manager
+- `/home/user/monomind/src/memory/backends/sqlite.ts` - Current backend
+- `/home/user/monomind/src/utils/error-recovery.ts` - Error handling
 
 ---
 

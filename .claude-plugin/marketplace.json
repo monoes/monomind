@@ -1,5 +1,5 @@
 {
-  "name": "monobrain-marketplace",
+  "name": "monomind-marketplace",
   "owner": {
     "name": "nokhodian",
     "email": "nokhodian@gmail.com"
@@ -7,12 +7,12 @@
   "metadata": {
     "description": "Enterprise AI agent orchestration marketplace for Claude Code",
     "version": "2.5.0",
-    "homepage": "https://github.com/nokhodian/monobrain",
-    "repository": "https://github.com/nokhodian/monobrain"
+    "homepage": "https://github.com/nokhodian/monomind",
+    "repository": "https://github.com/nokhodian/monomind"
   },
   "plugins": [
     {
-      "name": "monobrain",
+      "name": "monomind",
       "source": "./",
       "description": "Enterprise AI agent orchestration plugin with 150+ commands, 74+ specialized agents, SPARC methodology, swarm coordination, GitHub integration, and neural training capabilities",
       "version": "2.5.0",
@@ -20,10 +20,10 @@
         "name": "nokhodian",
         "email": "nokhodian@gmail.com"
       },
-      "homepage": "https://github.com/nokhodian/monobrain",
-      "repository": "https://github.com/nokhodian/monobrain",
+      "homepage": "https://github.com/nokhodian/monomind",
+      "repository": "https://github.com/nokhodian/monomind",
       "bugs": {
-        "url": "https://github.com/nokhodian/monobrain/issues"
+        "url": "https://github.com/nokhodian/monomind/issues"
       },
       "license": "MIT",
       "keywords": [
@@ -72,14 +72,14 @@
         "node": ">=20.0.0"
       },
       "mcpServers": {
-        "monobrain": {
+        "monomind": {
           "command": "npx",
           "args": [
-            "monobrain@alpha",
+            "monomind@alpha",
             "mcp",
             "start"
           ],
-          "description": "Core Monobrain MCP server for swarm coordination (40+ tools)",
+          "description": "Core Monomind MCP server for swarm coordination (40+ tools)",
           "optional": false
         },
         "ruv-swarm": {

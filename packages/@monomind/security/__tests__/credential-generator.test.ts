@@ -197,11 +197,11 @@ describe('CredentialGenerator', () => {
       const credentials = generator.generateInstallationCredentials();
       const script = generator.createEnvScript(credentials);
 
-      expect(script).toContain('export MONOBRAIN_ADMIN_PASSWORD=');
-      expect(script).toContain('export MONOBRAIN_SERVICE_PASSWORD=');
-      expect(script).toContain('export MONOBRAIN_JWT_SECRET=');
-      expect(script).toContain('export MONOBRAIN_SESSION_SECRET=');
-      expect(script).toContain('export MONOBRAIN_ENCRYPTION_KEY=');
+      expect(script).toContain('export MONOMIND_ADMIN_PASSWORD=');
+      expect(script).toContain('export MONOMIND_SERVICE_PASSWORD=');
+      expect(script).toContain('export MONOMIND_JWT_SECRET=');
+      expect(script).toContain('export MONOMIND_SESSION_SECRET=');
+      expect(script).toContain('export MONOMIND_ENCRYPTION_KEY=');
     });
 
     it('should include warning comment', () => {
@@ -225,11 +225,11 @@ describe('CredentialGenerator', () => {
       const json = generator.createJsonConfig(credentials);
       const parsed = JSON.parse(json);
 
-      expect(parsed['monobrain/admin-password']).toBe(credentials.adminPassword);
-      expect(parsed['monobrain/service-password']).toBe(credentials.servicePassword);
-      expect(parsed['monobrain/jwt-secret']).toBe(credentials.jwtSecret);
-      expect(parsed['monobrain/session-secret']).toBe(credentials.sessionSecret);
-      expect(parsed['monobrain/encryption-key']).toBe(credentials.encryptionKey);
+      expect(parsed['monomind/admin-password']).toBe(credentials.adminPassword);
+      expect(parsed['monomind/service-password']).toBe(credentials.servicePassword);
+      expect(parsed['monomind/jwt-secret']).toBe(credentials.jwtSecret);
+      expect(parsed['monomind/session-secret']).toBe(credentials.sessionSecret);
+      expect(parsed['monomind/encryption-key']).toBe(credentials.encryptionKey);
     });
   });
 

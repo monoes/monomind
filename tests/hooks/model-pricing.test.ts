@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { calculateCostUsd } from '../../packages/@monobrain/hooks/src/cost/model-pricing.js';
+import { calculateCostUsd } from '../../packages/@monomind/hooks/src/cost/model-pricing.js';
 
 describe('calculateCostUsd', () => {
   it('calculates haiku-3 input cost correctly', () => {

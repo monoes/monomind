@@ -22,11 +22,11 @@ export interface MCPToolResult {
 
 /**
  * Returns the effective project working directory.
- * Prefers MONOBRAIN_CWD (set by the install script for global/MCP installs
+ * Prefers MONOMIND_CWD (set by the install script for global/MCP installs
  * where process.cwd() may resolve to '/') over the real process.cwd().
  */
 export function getProjectCwd(): string {
-  return process.env.MONOBRAIN_CWD || process.cwd();
+  return process.env.MONOMIND_CWD || process.cwd();
 }
 
 export interface MCPTool {

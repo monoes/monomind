@@ -1,4 +1,4 @@
-# Bun configuration for monobrain v1
+# Bun configuration for monomind v1
 # Bun is used for development, but package works with Node.js too
 
 [install]

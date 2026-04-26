@@ -1,5 +1,5 @@
 /**
- * @monobrain/browser - Agent Browser Adapter Tests
+ * @monomind/browser - Agent Browser Adapter Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';

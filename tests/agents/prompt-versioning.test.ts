@@ -10,14 +10,14 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { TestModel } from '../../packages/@monobrain/shared/src/testing/index.js';
-import { PromptVersionStore } from '../../packages/@monobrain/memory/src/prompt-version-store.js';
+import { TestModel } from '../../packages/@monomind/shared/src/testing/index.js';
+import { PromptVersionStore } from '../../packages/@monomind/memory/src/prompt-version-store.js';
 import type {
   PromptVersion,
   PromptExperiment,
-} from '../../packages/@monobrain/memory/src/prompt-version-store.js';
-import { PromptExperimentRouter } from '../../packages/@monobrain/cli/src/agents/prompt-experiment.js';
-import { PromptVersionManager } from '../../packages/@monobrain/cli/src/agents/prompt-version-manager.js';
+} from '../../packages/@monomind/memory/src/prompt-version-store.js';
+import { PromptExperimentRouter } from '../../packages/@monomind/cli/src/agents/prompt-experiment.js';
+import { PromptVersionManager } from '../../packages/@monomind/cli/src/agents/prompt-version-manager.js';
 
 function makeTmpDir(): string {
   return mkdtempSync(join(tmpdir(), 'prompt-ver-'));

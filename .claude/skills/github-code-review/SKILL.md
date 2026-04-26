@@ -1029,10 +1029,10 @@ fi
 ```javascript
 [Single Message - Parallel Execution]:
   // Initialize coordination
-  mcp__monobrain__swarm_init { topology: "hierarchical", maxAgents: 5 }
-  mcp__monobrain__agent_spawn { type: "reviewer", name: "Senior Reviewer" }
-  mcp__monobrain__agent_spawn { type: "tester", name: "QA Engineer" }
-  mcp__monobrain__agent_spawn { type: "coordinator", name: "Merge Coordinator" }
+  mcp__monomind__swarm_init { topology: "hierarchical", maxAgents: 5 }
+  mcp__monomind__agent_spawn { type: "reviewer", name: "Senior Reviewer" }
+  mcp__monomind__agent_spawn { type: "tester", name: "QA Engineer" }
+  mcp__monomind__agent_spawn { type: "coordinator", name: "Merge Coordinator" }
 
   // Create and manage PR using gh CLI
   Bash("gh pr create --title 'Feature: Add authentication' --base main")
@@ -1127,7 +1127,7 @@ npx ruv-swarm github review-init --pr 123 --parallel --cache-results
 
 - [GitHub CLI Documentation](https://cli.github.com/manual/)
 - [RUV Swarm Guide](https://github.com/nokhodian/ruv-swarm)
-- [Monobrain Integration](https://github.com/nokhodian/monobrain)
+- [Monomind Integration](https://github.com/nokhodian/monomind)
 
 ### Support
 

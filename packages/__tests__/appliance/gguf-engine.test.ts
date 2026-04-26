@@ -15,7 +15,7 @@ import {
   parseGgufHeader,
   GgufEngine,
   type GgufMetadata,
-} from '../../@monobrain/cli/src/appliance/gguf-engine.js';
+} from '../../@monomind/cli/src/appliance/gguf-engine.js';
 
 // ---------------------------------------------------------------------------
 // GGUF Binary Helpers

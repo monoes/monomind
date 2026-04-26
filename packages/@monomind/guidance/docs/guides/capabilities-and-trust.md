@@ -15,7 +15,7 @@ Simple role-based access (admin/user/guest) is too coarse for multi-agent system
 ### Creating Capabilities
 
 ```ts
-import { createCapabilityAlgebra } from '@monobrain/guidance/capabilities';
+import { createCapabilityAlgebra } from '@monomind/guidance/capabilities';
 
 const algebra = createCapabilityAlgebra();
 
@@ -116,7 +116,7 @@ const merged = algebra.merge(capA, capB);
 Every time an agent's action passes or fails a gate, the trust system records the outcome:
 
 ```ts
-import { createTrustSystem } from '@monobrain/guidance/trust';
+import { createTrustSystem } from '@monomind/guidance/trust';
 
 const trust = createTrustSystem({
   initialTrust: 0.5,    // New agents start at 0.5
@@ -151,7 +151,7 @@ const snapshot = trust.getSnapshot('agent-1');
 ### Trust-Based Rate Limiting
 
 ```ts
-import { getTrustBasedRateLimit } from '@monobrain/guidance/trust';
+import { getTrustBasedRateLimit } from '@monomind/guidance/trust';
 
 const rateLimit = getTrustBasedRateLimit(snapshot.score);
 // Higher trust → higher rate limit
@@ -210,7 +210,7 @@ regulatory > institutional > human > agent
 Each action can require a minimum authority level:
 
 ```ts
-import { createAuthorityGate, createIrreversibilityClassifier } from '@monobrain/guidance/authority';
+import { createAuthorityGate, createIrreversibilityClassifier } from '@monomind/guidance/authority';
 
 const auth = createAuthorityGate('signing-key');
 

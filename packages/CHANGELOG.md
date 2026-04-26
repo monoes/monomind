@@ -1,4 +1,4 @@
-# Changelog - Monobrain v1
+# Changelog - Monomind v1
 
 All notable changes to this project will be documented in this file.
 
@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Module Constellation
 
-Complete restructure into 10 independent @monobrain modules:
+Complete restructure into 10 independent @monomind modules:
 
 - Code reduced from 15,000+ lines to <5,000 lines
 - Each module independently versioned and publishable
@@ -63,9 +63,9 @@ Complete restructure into 10 independent @monobrain modules:
 - **Memory reduction**: 83.1% achieved
 - **Task orchestration**: 2.8-4.4x parallel speedup
 
-### 🔧 New @monobrain Modules
+### 🔧 New @monomind Modules
 
-#### 1. `@monobrain/security` - Security Module
+#### 1. `@monomind/security` - Security Module
 
 - CVE-1, CVE-2, CVE-3 remediation
 - Input validation and sanitization
@@ -74,7 +74,7 @@ Complete restructure into 10 independent @monobrain modules:
 - Command injection prevention
 - Cross-platform ACL/keychain integration
 
-#### 2. `@monobrain/memory` - Memory Unification
+#### 2. `@monomind/memory` - Memory Unification
 
 - AgentDB as primary backend
 - HNSW vector indexing (150x faster)
@@ -83,7 +83,7 @@ Complete restructure into 10 independent @monobrain modules:
 - GNN-enhanced retrieval
 - 4-32x quantization support
 
-#### 3. `@monobrain/integration` - Agentic Flow Integration
+#### 3. `@monomind/integration` - Agentic Flow Integration
 
 - Deep integration with agentic-flow@alpha
 - Eliminates 10,000+ duplicate lines
@@ -92,7 +92,7 @@ Complete restructure into 10 independent @monobrain modules:
 - Unified task orchestration
 - Plugin architecture compliance
 
-#### 4. `@monobrain/performance` - Performance & Benchmarking
+#### 4. `@monomind/performance` - Performance & Benchmarking
 
 - Flash Attention integration
 - SONA learning optimization
@@ -101,7 +101,7 @@ Complete restructure into 10 independent @monobrain modules:
 - Memory profiling tools
 - Benchmark suite with 2.49x-7.47x targets
 
-#### 5. `@monobrain/swarm` - Swarm Coordination
+#### 5. `@monomind/swarm` - Swarm Coordination
 
 - Unified SwarmCoordinator (single implementation)
 - 15-agent hierarchical mesh topology
@@ -110,7 +110,7 @@ Complete restructure into 10 independent @monobrain modules:
 - Self-healing workflows
 - Smart auto-spawning
 
-#### 6. `@monobrain/cli` - CLI Modernization
+#### 6. `@monomind/cli` - CLI Modernization
 
 - Interactive prompts with validation
 - Command decomposition engine
@@ -119,7 +119,7 @@ Complete restructure into 10 independent @monobrain modules:
 - Cross-platform compatibility
 - 20ms cold start performance
 
-#### 7. `@monobrain/neural` - Neural Features
+#### 7. `@monomind/neural` - Neural Features
 
 - SONA learning integration
 - ReasoningBank adaptive learning
@@ -128,7 +128,7 @@ Complete restructure into 10 independent @monobrain modules:
 - Continuous improvement tracking
 - Neural training pipelines
 
-#### 8. `@monobrain/testing` - TDD Framework
+#### 8. `@monomind/testing` - TDD Framework
 
 - London School TDD methodology
 - Mock-first approach
@@ -137,7 +137,7 @@ Complete restructure into 10 independent @monobrain modules:
 - Security-focused test patterns
 - Comprehensive coverage reporting
 
-#### 9. `@monobrain/deployment` - Release Management
+#### 9. `@monomind/deployment` - Release Management
 
 - Automated versioning
 - CI/CD pipeline integration
@@ -146,7 +146,7 @@ Complete restructure into 10 independent @monobrain modules:
 - Rollback mechanisms
 - Health check monitoring
 
-#### 10. `@monobrain/shared` - Shared Utilities
+#### 10. `@monomind/shared` - Shared Utilities
 
 - Common types and interfaces
 - Platform detection and adaptation
@@ -305,9 +305,9 @@ See [MIGRATION.md](./MIGRATION.md) for detailed upgrade instructions from v2 to 
 npm install agentic-flow@3.0.0-alpha.1
 
 # Or specific modules
-npm install @monobrain/security@latest
-npm install @monobrain/memory@latest
-npm install @monobrain/integration@latest
+npm install @monomind/security@latest
+npm install @monomind/memory@latest
+npm install @monomind/integration@latest
 ```
 
 ### Getting Started
@@ -317,13 +317,13 @@ npm install @monobrain/integration@latest
 npx agentic-flow@3.0.0-alpha.1 init --v1
 
 # Run security audit
-npx @monobrain/security audit
+npx @monomind/security audit
 
 # Start with unified memory
-npx @monobrain/memory unify --backend agentdb
+npx @monomind/memory unify --backend agentdb
 
 # Spawn v1 swarm
-npx @monobrain/swarm coordinate --agents 15
+npx @monomind/swarm coordinate --agents 15
 ```
 
 ### Support & Feedback

@@ -1,8 +1,8 @@
-# Monobrain v1 SDK Architecture Analysis
+# Monomind v1 SDK Architecture Analysis
 
 ## Deep Review: agentic-flow@alpha + ruvector Ecosystem
 
-This document provides a comprehensive analysis of using `agentic-flow@2.0.1-alpha.50` as the SDK foundation for Monobrain v1, including additional capabilities from the ruvector ecosystem.
+This document provides a comprehensive analysis of using `agentic-flow@2.0.1-alpha.50` as the SDK foundation for Monomind v1, including additional capabilities from the ruvector ecosystem.
 
 ---
 
@@ -10,7 +10,7 @@ This document provides a comprehensive analysis of using `agentic-flow@2.0.1-alp
 
 ### Key Findings
 
-**agentic-flow@alpha provides a complete, production-ready SDK** that wraps and fixes the raw @ruvector/_ alpha packages. Monobrain v1 should use agentic-flow as its primary SDK rather than importing @ruvector/_ packages directly.
+**agentic-flow@alpha provides a complete, production-ready SDK** that wraps and fixes the raw @ruvector/_ alpha packages. Monomind v1 should use agentic-flow as its primary SDK rather than importing @ruvector/_ packages directly.
 
 | Aspect         | agentic-flow@alpha   | Raw @ruvector/\*      |
 | -------------- | -------------------- | --------------------- |
@@ -24,7 +24,7 @@ This document provides a comprehensive analysis of using `agentic-flow@2.0.1-alp
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Monobrain v1                               │
+│                     Monomind v1                               │
 ├─────────────────────────────────────────────────────────────────┤
 │  Thin Integration Layer (~500 lines)                            │
 │  - Hook event mapping                                           │
@@ -400,7 +400,7 @@ const config = await optimizer.getOptimization(
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Monobrain Hook Dispatcher                     │
+│              Monomind Hook Dispatcher                     │
 │         (Maps Claude events → agentic-flow hooks)           │
 └─────────────────────┬───────────────────────────────────────┘
                       │
@@ -485,34 +485,34 @@ const result = await integration.completeTrajectory(trajectoryId, results);
 
 ---
 
-## 8. Monobrain v1 Integration Strategy
+## 8. Monomind v1 Integration Strategy
 
 ### 8.1 Installation Tiers
 
 **Tier 1: Core (~2MB)**
 
 ```bash
-npm install monobrain@3 agentic-flow@alpha
+npm install monomind@3 agentic-flow@alpha
 # Includes: hooks, routing, basic learning
 ```
 
 **Tier 2: Learning (~8MB)**
 
 ```bash
-npx monobrain enable-learning
+npx monomind enable-learning
 # Adds: SONA, AgentDB, ReasoningBank
 ```
 
 **Tier 3: Full (~15MB)**
 
 ```bash
-npx monobrain enable-swarm
+npx monomind enable-swarm
 # Adds: QUIC, attention coordination, GNN
 ```
 
 ### 8.2 Integration Layer
 
-Monobrain v1 needs a thin integration layer (~500 lines):
+Monomind v1 needs a thin integration layer (~500 lines):
 
 ```typescript
 // src/integrations/agentic-flow.ts
@@ -551,19 +551,19 @@ export async function initSwarmCoordination(config) {
 
 ```bash
 # Learning
-npx monobrain learn status          # Show learning stats
-npx monobrain learn force           # Force learning cycle
-npx monobrain learn export <path>   # Export learned patterns
+npx monomind learn status          # Show learning stats
+npx monomind learn force           # Force learning cycle
+npx monomind learn export <path>   # Export learned patterns
 
 # Hooks
-npx monobrain hooks list            # List available hooks
-npx monobrain hooks enable <hook>   # Enable specific hook
-npx monobrain hooks metrics         # Show hook performance
+npx monomind hooks list            # List available hooks
+npx monomind hooks enable <hook>   # Enable specific hook
+npx monomind hooks metrics         # Show hook performance
 
 # Swarm
-npx monobrain swarm init <topology> # Initialize swarm
-npx monobrain swarm status          # Show swarm status
-npx monobrain swarm optimize        # Get optimization recommendations
+npx monomind swarm init <topology> # Initialize swarm
+npx monomind swarm status          # Show swarm status
+npx monomind swarm optimize        # Get optimization recommendations
 ```
 
 ---
@@ -618,15 +618,15 @@ npx monobrain swarm optimize        # Get optimization recommendations
 
 ---
 
-## 11. Monobrain v1 Modular Package Constellation
+## 11. Monomind v1 Modular Package Constellation
 
 ### 11.1 Overview
 
-Monobrain v1 will be architected as a **modular constellation of npm packages** similar to the @ruvector/\* collection. Each component can operate independently or integrate seamlessly within the ecosystem.
+Monomind v1 will be architected as a **modular constellation of npm packages** similar to the @ruvector/\* collection. Each component can operate independently or integrate seamlessly within the ecosystem.
 
 ```
                         ┌─────────────────────────┐
-                        │    @monobrain/core    │
+                        │    @monomind/core    │
                         │   (Central Connector)   │
                         │       ~50KB base        │
                         └───────────┬─────────────┘
@@ -650,23 +650,23 @@ Monobrain v1 will be architected as a **modular constellation of npm packages** 
 
 ### 11.2 Package Specifications
 
-#### @monobrain/core (Central Connector)
+#### @monomind/core (Central Connector)
 
 **Purpose:** Minimal core that connects all packages, provides unified configuration, and manages inter-package communication.
 
 ```typescript
-// Package: @monobrain/core
-// Size: ~50KB (no dependencies on other @monobrain/* packages)
+// Package: @monomind/core
+// Size: ~50KB (no dependencies on other @monomind/* packages)
 
-export interface MonobrainConfig {
+export interface MonomindConfig {
   enabledModules: string[];
   sharedConfig: SharedConfig;
   eventBus: EventBus;
 }
 
-export class MonobrainCore {
+export class MonomindCore {
   // Module registry
-  register(module: MonobrainModule): void;
+  register(module: MonomindModule): void;
   unregister(moduleId: string): void;
 
   // Cross-module communication
@@ -674,7 +674,7 @@ export class MonobrainCore {
   on(event: string, handler: EventHandler): void;
 
   // Unified configuration
-  configure(config: Partial<MonobrainConfig>): void;
+  configure(config: Partial<MonomindConfig>): void;
 
   // Module discovery
   getModule<T>(id: string): T | undefined;
@@ -682,8 +682,8 @@ export class MonobrainCore {
 }
 
 // Usage:
-import { MonobrainCore } from "@monobrain/core";
-const core = new MonobrainCore();
+import { MonomindCore } from "@monomind/core";
+const core = new MonomindCore();
 ```
 
 **Key Features:**
@@ -691,34 +691,34 @@ const core = new MonobrainCore();
 - Event bus for inter-module communication
 - Shared configuration management
 - Module lifecycle management
-- Zero dependencies on other @monobrain/\* packages
+- Zero dependencies on other @monomind/\* packages
 - Can run standalone for minimal setups
 
 ---
 
-#### @monobrain/hooks
+#### @monomind/hooks
 
 **Purpose:** Claude Code event hooks for pre/post operations with intelligent routing.
 
 ```typescript
-// Package: @monobrain/hooks
-// Dependencies: @monobrain/core (optional peer)
+// Package: @monomind/hooks
+// Dependencies: @monomind/core (optional peer)
 // SDK: agentic-flow/hooks
 
 export interface HookConfig {
   enabled: boolean;
   events: ClaudeCodeEvent[];
-  learning?: boolean; // Requires @monobrain/learning
+  learning?: boolean; // Requires @monomind/learning
 }
 
 // Standalone usage
-import { createHookDispatcher } from "@monobrain/hooks";
+import { createHookDispatcher } from "@monomind/hooks";
 const dispatcher = createHookDispatcher();
 dispatcher.register("PreToolUse", preEditHook);
 
 // With core integration
-import { MonobrainCore } from "@monobrain/core";
-import { HooksModule } from "@monobrain/hooks";
+import { MonomindCore } from "@monomind/core";
+import { HooksModule } from "@monomind/hooks";
 core.register(new HooksModule());
 ```
 
@@ -738,13 +738,13 @@ core.register(new HooksModule());
 
 ---
 
-#### @monobrain/learning
+#### @monomind/learning
 
 **Purpose:** Self-optimizing learning system with multiple RL algorithms.
 
 ```typescript
-// Package: @monobrain/learning
-// Dependencies: @monobrain/core (optional peer)
+// Package: @monomind/learning
+// Dependencies: @monomind/core (optional peer)
 // SDK: agentic-flow (SONA + AgentDB)
 
 export interface LearningConfig {
@@ -755,13 +755,13 @@ export interface LearningConfig {
 }
 
 // Standalone usage
-import { createLearningEngine } from "@monobrain/learning";
+import { createLearningEngine } from "@monomind/learning";
 const engine = createLearningEngine({ algorithm: "PPO" });
 await engine.train(pattern);
 const similar = await engine.query(embedding);
 
 // With core integration
-import { LearningModule } from "@monobrain/learning";
+import { LearningModule } from "@monomind/learning";
 core.register(new LearningModule({ profile: "balanced" }));
 ```
 
@@ -790,13 +790,13 @@ type RLAlgorithm =
 
 ---
 
-#### @monobrain/swarm
+#### @monomind/swarm
 
 **Purpose:** Multi-agent swarm coordination with topology support.
 
 ```typescript
-// Package: @monobrain/swarm
-// Dependencies: @monobrain/core (optional peer)
+// Package: @monomind/swarm
+// Dependencies: @monomind/core (optional peer)
 // SDK: agentic-flow/swarm
 
 export interface SwarmConfig {
@@ -807,7 +807,7 @@ export interface SwarmConfig {
 }
 
 // Standalone usage
-import { createSwarm } from "@monobrain/swarm";
+import { createSwarm } from "@monomind/swarm";
 const swarm = await createSwarm({
   topology: "hierarchical",
   maxAgents: 10,
@@ -815,7 +815,7 @@ const swarm = await createSwarm({
 await swarm.spawnAgent({ type: "researcher" });
 
 // With core integration
-import { SwarmModule } from "@monobrain/swarm";
+import { SwarmModule } from "@monomind/swarm";
 core.register(new SwarmModule({ topology: "mesh" }));
 ```
 
@@ -830,13 +830,13 @@ core.register(new SwarmModule({ topology: "mesh" }));
 
 ---
 
-#### @monobrain/memory
+#### @monomind/memory
 
 **Purpose:** Persistent memory and pattern storage.
 
 ```typescript
-// Package: @monobrain/memory
-// Dependencies: @monobrain/core (optional peer)
+// Package: @monomind/memory
+// Dependencies: @monomind/core (optional peer)
 // SDK: agentic-flow/reasoningbank
 
 export interface MemoryConfig {
@@ -847,13 +847,13 @@ export interface MemoryConfig {
 }
 
 // Standalone usage
-import { createMemoryStore } from "@monobrain/memory";
+import { createMemoryStore } from "@monomind/memory";
 const memory = createMemoryStore({ backend: "hybrid" });
 await memory.store("task/123", pattern);
 const similar = await memory.retrieve("code review", { k: 5 });
 
 // With core integration
-import { MemoryModule } from "@monobrain/memory";
+import { MemoryModule } from "@monomind/memory";
 core.register(new MemoryModule());
 ```
 
@@ -867,13 +867,13 @@ core.register(new MemoryModule());
 
 ---
 
-#### @monobrain/agents
+#### @monomind/agents
 
 **Purpose:** Agent definitions and dynamic agent generation.
 
 ```typescript
-// Package: @monobrain/agents
-// Dependencies: @monobrain/core (optional peer)
+// Package: @monomind/agents
+// Dependencies: @monomind/core (optional peer)
 
 export interface AgentDefinition {
   id: string;
@@ -884,14 +884,14 @@ export interface AgentDefinition {
 }
 
 // Standalone usage
-import { defineAgent, loadAgents } from "@monobrain/agents";
+import { defineAgent, loadAgents } from "@monomind/agents";
 const researcher = defineAgent({
   type: "researcher",
   capabilities: ["web-search", "code-analysis"],
 });
 
 // With core integration
-import { AgentsModule } from "@monobrain/agents";
+import { AgentsModule } from "@monomind/agents";
 core.register(new AgentsModule());
 ```
 
@@ -905,13 +905,13 @@ core.register(new AgentsModule());
 
 ---
 
-#### @monobrain/mcp
+#### @monomind/mcp
 
 **Purpose:** MCP server and tool definitions.
 
 ```typescript
-// Package: @monobrain/mcp
-// Dependencies: @monobrain/core (optional peer)
+// Package: @monomind/mcp
+// Dependencies: @monomind/core (optional peer)
 
 export interface MCPConfig {
   servers: MCPServerConfig[];
@@ -920,13 +920,13 @@ export interface MCPConfig {
 }
 
 // Standalone usage
-import { startMCPServer } from "@monobrain/mcp";
+import { startMCPServer } from "@monomind/mcp";
 const server = await startMCPServer({
   tools: ["swarm_init", "agent_spawn", "task_orchestrate"],
 });
 
 // With core integration
-import { MCPModule } from "@monobrain/mcp";
+import { MCPModule } from "@monomind/mcp";
 core.register(new MCPModule());
 ```
 
@@ -940,13 +940,13 @@ core.register(new MCPModule());
 
 ---
 
-#### @monobrain/neural
+#### @monomind/neural
 
 **Purpose:** Neural network operations and attention mechanisms.
 
 ```typescript
-// Package: @monobrain/neural
-// Dependencies: @monobrain/core (optional peer)
+// Package: @monomind/neural
+// Dependencies: @monomind/core (optional peer)
 // SDK: @ruvector/attention, @ruvector/gnn
 
 export interface NeuralConfig {
@@ -956,12 +956,12 @@ export interface NeuralConfig {
 }
 
 // Standalone usage
-import { createAttentionService } from "@monobrain/neural";
+import { createAttentionService } from "@monomind/neural";
 const attention = createAttentionService({ mechanism: "flash" });
 const result = await attention.compute(Q, K, V);
 
 // With core integration
-import { NeuralModule } from "@monobrain/neural";
+import { NeuralModule } from "@monomind/neural";
 core.register(new NeuralModule());
 ```
 
@@ -977,13 +977,13 @@ core.register(new NeuralModule());
 
 ---
 
-#### @monobrain/attention
+#### @monomind/attention
 
 **Purpose:** Attention-based agent coordination and consensus.
 
 ```typescript
-// Package: @monobrain/attention
-// Dependencies: @monobrain/core, @monobrain/neural (optional peers)
+// Package: @monomind/attention
+// Dependencies: @monomind/core, @monomind/neural (optional peers)
 
 export interface AttentionCoordinatorConfig {
   mechanism: AttentionMechanism;
@@ -991,24 +991,24 @@ export interface AttentionCoordinatorConfig {
 }
 
 // Standalone usage
-import { createAttentionCoordinator } from "@monobrain/attention";
+import { createAttentionCoordinator } from "@monomind/attention";
 const coordinator = createAttentionCoordinator({ mechanism: "flash" });
 const consensus = await coordinator.coordinateAgents(outputs);
 
 // With core integration
-import { AttentionModule } from "@monobrain/attention";
+import { AttentionModule } from "@monomind/attention";
 core.register(new AttentionModule());
 ```
 
 ---
 
-#### @monobrain/vector
+#### @monomind/vector
 
 **Purpose:** Vector database operations with HNSW indexing.
 
 ```typescript
-// Package: @monobrain/vector
-// Dependencies: @monobrain/core (optional peer)
+// Package: @monomind/vector
+// Dependencies: @monomind/core (optional peer)
 // SDK: @ruvector/core, agentdb
 
 export interface VectorConfig {
@@ -1019,13 +1019,13 @@ export interface VectorConfig {
 }
 
 // Standalone usage
-import { createVectorStore } from "@monobrain/vector";
+import { createVectorStore } from "@monomind/vector";
 const vectors = createVectorStore({ dimensions: 384 });
 await vectors.add("id", embedding, metadata);
 const results = await vectors.search(query, { k: 5 });
 
 // With core integration
-import { VectorModule } from "@monobrain/vector";
+import { VectorModule } from "@monomind/vector";
 core.register(new VectorModule());
 ```
 
@@ -1037,13 +1037,13 @@ core.register(new VectorModule());
 
 ---
 
-#### @monobrain/cli
+#### @monomind/cli
 
 **Purpose:** Command-line interface for all modules.
 
 ```typescript
-// Package: @monobrain/cli
-// Dependencies: All @monobrain/* packages (optional peers)
+// Package: @monomind/cli
+// Dependencies: All @monomind/* packages (optional peers)
 
 // Commands auto-detect installed modules
 ```
@@ -1052,31 +1052,31 @@ core.register(new VectorModule());
 
 ```bash
 # Core
-npx @monobrain/cli init           # Initialize project
-npx @monobrain/cli status         # Show module status
-npx @monobrain/cli config         # Configure modules
+npx @monomind/cli init           # Initialize project
+npx @monomind/cli status         # Show module status
+npx @monomind/cli config         # Configure modules
 
-# Hooks (if @monobrain/hooks installed)
-npx @monobrain/cli hooks list
-npx @monobrain/cli hooks enable <hook>
+# Hooks (if @monomind/hooks installed)
+npx @monomind/cli hooks list
+npx @monomind/cli hooks enable <hook>
 
-# Learning (if @monobrain/learning installed)
-npx @monobrain/cli learn status
-npx @monobrain/cli learn train <patterns>
-npx @monobrain/cli learn export
+# Learning (if @monomind/learning installed)
+npx @monomind/cli learn status
+npx @monomind/cli learn train <patterns>
+npx @monomind/cli learn export
 
-# Swarm (if @monobrain/swarm installed)
-npx @monobrain/cli swarm init <topology>
-npx @monobrain/cli swarm spawn <type>
-npx @monobrain/cli swarm status
+# Swarm (if @monomind/swarm installed)
+npx @monomind/cli swarm init <topology>
+npx @monomind/cli swarm spawn <type>
+npx @monomind/cli swarm status
 
-# Memory (if @monobrain/memory installed)
-npx @monobrain/cli memory stats
-npx @monobrain/cli memory consolidate
+# Memory (if @monomind/memory installed)
+npx @monomind/cli memory stats
+npx @monomind/cli memory consolidate
 
-# MCP (if @monobrain/mcp installed)
-npx @monobrain/cli mcp start
-npx @monobrain/cli mcp list-tools
+# MCP (if @monomind/mcp installed)
+npx @monomind/cli mcp start
+npx @monomind/cli mcp list-tools
 ```
 
 ---
@@ -1085,7 +1085,7 @@ npx @monobrain/cli mcp list-tools
 
 ```
                  core  hooks  learn  swarm  memory  agents  mcp  neural  attn  vector  cli
-@monobrain/
+@monomind/
   core            -     -      -      -      -       -      -     -       -     -      -
   hooks           P     -      P      -      P       -      -     -       -     -      -
   learning        P     -      -      -      P       -      -     P       -     P      -
@@ -1107,14 +1107,14 @@ P = Optional peer dependency (enhances features when present)
 #### Minimal (Core Only)
 
 ```bash
-npm install @monobrain/core
+npm install @monomind/core
 # 50KB, event bus and configuration only
 ```
 
 #### Hooks Only
 
 ```bash
-npm install @monobrain/hooks
+npm install @monomind/hooks
 # Works standalone, no core required
 # 200KB, Claude Code hook integration
 ```
@@ -1122,22 +1122,22 @@ npm install @monobrain/hooks
 #### Learning Stack
 
 ```bash
-npm install @monobrain/core @monobrain/learning @monobrain/memory @monobrain/vector
+npm install @monomind/core @monomind/learning @monomind/memory @monomind/vector
 # 3MB, full learning system
 ```
 
 #### Swarm Stack
 
 ```bash
-npm install @monobrain/core @monobrain/swarm @monobrain/agents @monobrain/attention
+npm install @monomind/core @monomind/swarm @monomind/agents @monomind/attention
 # 4MB, multi-agent coordination
 ```
 
 #### Full Installation
 
 ```bash
-npm install monobrain
-# Meta-package that includes all @monobrain/* packages
+npm install monomind
+# Meta-package that includes all @monomind/* packages
 # 15MB, everything included
 ```
 
@@ -1145,16 +1145,16 @@ npm install monobrain
 
 ```bash
 # Hooks + Learning (self-optimizing hooks)
-npm install @monobrain/hooks @monobrain/learning
+npm install @monomind/hooks @monomind/learning
 
 # Swarm + Memory (persistent swarm state)
-npm install @monobrain/swarm @monobrain/memory
+npm install @monomind/swarm @monomind/memory
 
 # Neural + Vector (embeddings + search)
-npm install @monobrain/neural @monobrain/vector
+npm install @monomind/neural @monomind/vector
 
 # CLI with specific modules
-npm install @monobrain/cli @monobrain/hooks @monobrain/swarm
+npm install @monomind/cli @monomind/hooks @monomind/swarm
 ```
 
 ### 11.5 Module Communication Protocol
@@ -1188,7 +1188,7 @@ interface ModuleEvents {
 }
 
 // Cross-module communication example
-// @monobrain/hooks emits, @monobrain/learning listens
+// @monomind/hooks emits, @monomind/learning listens
 core.on("hook:completed", async (data) => {
   if (data.hookId === "postEdit") {
     await learningModule.train({
@@ -1202,9 +1202,9 @@ core.on("hook:completed", async (data) => {
 
 ### 11.6 SDK Mapping to Packages
 
-Each @monobrain/\* package maps to specific agentic-flow SDK components:
+Each @monomind/\* package maps to specific agentic-flow SDK components:
 
-| @monobrain/\* | agentic-flow SDK                                                                                |
+| @monomind/\* | agentic-flow SDK                                                                                |
 | ------------- | ----------------------------------------------------------------------------------------------- |
 | hooks         | `agentic-flow/hooks`, `agentic-flow/mcp/fastmcp/tools/hooks`                                    |
 | learning      | `agentic-flow/services/sona-agentdb-integration`, `agentic-flow/hooks/swarm-learning-optimizer` |
@@ -1220,7 +1220,7 @@ Each @monobrain/\* package maps to specific agentic-flow SDK components:
 ### 11.7 Version Compatibility Matrix
 
 ```
-@monobrain/*  | agentic-flow | @ruvector/* | Node.js
+@monomind/*  | agentic-flow | @ruvector/* | Node.js
 ----------------|--------------|-------------|--------
 3.0.x           | 2.0.x-alpha  | 0.1.x       | ≥18.x
 3.1.x           | 2.1.x-alpha  | 0.2.x       | ≥18.x
@@ -1232,9 +1232,9 @@ Each @monobrain/\* package maps to specific agentic-flow SDK components:
 
 ```typescript
 // Each package works independently
-import { createHookDispatcher } from "@monobrain/hooks";
-import { createLearningEngine } from "@monobrain/learning";
-import { createSwarm } from "@monobrain/swarm";
+import { createHookDispatcher } from "@monomind/hooks";
+import { createLearningEngine } from "@monomind/learning";
+import { createSwarm } from "@monomind/swarm";
 
 // Manual coordination required
 const dispatcher = createHookDispatcher();
@@ -1250,12 +1250,12 @@ dispatcher.on("postEdit", async (data) => {
 
 ```typescript
 // Automatic cross-module communication
-import { MonobrainCore } from "@monobrain/core";
-import { HooksModule } from "@monobrain/hooks";
-import { LearningModule } from "@monobrain/learning";
-import { SwarmModule } from "@monobrain/swarm";
+import { MonomindCore } from "@monomind/core";
+import { HooksModule } from "@monomind/hooks";
+import { LearningModule } from "@monomind/learning";
+import { SwarmModule } from "@monomind/swarm";
 
-const core = new MonobrainCore();
+const core = new MonomindCore();
 core.register(new HooksModule());
 core.register(new LearningModule());
 core.register(new SwarmModule());
@@ -1268,20 +1268,20 @@ core.register(new SwarmModule());
 
 ### 11.9 Shared Types Package
 
-#### @monobrain/types
+#### @monomind/types
 
 **Purpose:** Zero-runtime TypeScript definitions shared across all packages.
 
 ```typescript
-// Package: @monobrain/types
+// Package: @monomind/types
 // Size: ~20KB (types only, no runtime)
 // Dependencies: None
 
 // Core interfaces
-export interface MonobrainModule {
+export interface MonomindModule {
   id: string;
   version: string;
-  initialize(core?: MonobrainCore): Promise<void>;
+  initialize(core?: MonomindCore): Promise<void>;
   shutdown(): Promise<void>;
 }
 
@@ -1388,7 +1388,7 @@ export interface HookResult {
 #### Tool Selection: pnpm Workspaces + Turborepo
 
 ```
-monobrain/
+monomind/
 ├── package.json              # Root workspace config
 ├── pnpm-workspace.yaml       # pnpm workspace definition
 ├── turbo.json                # Turborepo pipeline config
@@ -1491,15 +1491,15 @@ describe("HookDispatcher", () => {
 
 ```typescript
 // packages/integration-tests/core-hooks.test.ts
-import { MonobrainCore } from "@monobrain/core";
-import { HooksModule } from "@monobrain/hooks";
-import { LearningModule } from "@monobrain/learning";
+import { MonomindCore } from "@monomind/core";
+import { HooksModule } from "@monomind/hooks";
+import { LearningModule } from "@monomind/learning";
 
 describe("Core + Hooks + Learning Integration", () => {
-  let core: MonobrainCore;
+  let core: MonomindCore;
 
   beforeEach(async () => {
-    core = new MonobrainCore();
+    core = new MonomindCore();
     core.register(new HooksModule());
     core.register(new LearningModule({ profile: "realtime" }));
     await core.initialize();
@@ -1563,8 +1563,8 @@ export const createMockLearningEngine = () => ({
 #### Cross-Module Error Propagation
 
 ```typescript
-// @monobrain/core error types
-export class MonobrainError extends Error {
+// @monomind/core error types
+export class MonomindError extends Error {
   constructor(
     message: string,
     public code: ErrorCode,
@@ -1573,7 +1573,7 @@ export class MonobrainError extends Error {
     public cause?: Error,
   ) {
     super(message);
-    this.name = "MonobrainError";
+    this.name = "MonomindError";
   }
 }
 
@@ -1606,8 +1606,8 @@ export enum ErrorCode {
 #### Graceful Degradation
 
 ```typescript
-// @monobrain/core graceful degradation
-class MonobrainCore {
+// @monomind/core graceful degradation
+class MonomindCore {
   async safeGetModule<T>(id: string): Promise<T | null> {
     try {
       return this.getModule<T>(id) ?? null;
@@ -1631,7 +1631,7 @@ class MonobrainCore {
     try {
       return await primary();
     } catch (error) {
-      if (error instanceof MonobrainError && errorCodes.includes(error.code)) {
+      if (error instanceof MonomindError && errorCodes.includes(error.code)) {
         this.emit("error:fallback", { error, using: "fallback" });
         return await fallback();
       }
@@ -1644,7 +1644,7 @@ class MonobrainCore {
 #### Circuit Breaker Pattern
 
 ```typescript
-// @monobrain/core circuit breaker
+// @monomind/core circuit breaker
 interface CircuitBreakerConfig {
   failureThreshold: number; // Failures before opening
   resetTimeout: number; // Ms before half-open
@@ -1661,7 +1661,7 @@ class CircuitBreaker {
       if (Date.now() - this.lastFailure > this.config.resetTimeout) {
         this.state = "half-open";
       } else {
-        throw new MonobrainError(
+        throw new MonomindError(
           "Circuit open",
           ErrorCode.MODULE_INIT_FAILED,
           "circuit",
@@ -1689,7 +1689,7 @@ class CircuitBreaker {
 #### API Key Management
 
 ```typescript
-// @monobrain/core secrets
+// @monomind/core secrets
 interface SecretsConfig {
   provider: "env" | "keychain" | "vault";
   keyPrefix?: string;
@@ -1712,7 +1712,7 @@ class SecretsManager {
   async validate(required: string[]): Promise<boolean> {
     for (const key of required) {
       if (!(await this.get(key))) {
-        throw new MonobrainError(
+        throw new MonomindError(
           `Missing required secret: ${key}`,
           ErrorCode.MODULE_INIT_FAILED,
           "secrets",
@@ -1728,7 +1728,7 @@ class SecretsManager {
 #### Agent Sandboxing
 
 ```typescript
-// @monobrain/agents sandboxing
+// @monomind/agents sandboxing
 interface SandboxConfig {
   maxMemoryMB: number;
   maxCpuPercent: number;
@@ -1749,7 +1749,7 @@ const DEFAULT_SANDBOX: SandboxConfig = {
 #### PII Handling
 
 ```typescript
-// @monobrain/memory PII scrubbing (from agentic-flow)
+// @monomind/memory PII scrubbing (from agentic-flow)
 import { scrubPII, containsPII } from "agentic-flow/reasoningbank";
 
 class SecureMemoryStore {
@@ -1769,7 +1769,7 @@ class SecureMemoryStore {
 #### Audit Logging
 
 ```typescript
-// @monobrain/core audit
+// @monomind/core audit
 interface AuditEvent {
   timestamp: number;
   module: string;
@@ -1801,23 +1801,23 @@ class AuditLogger {
 #### OpenTelemetry Integration
 
 ```typescript
-// @monobrain/core telemetry
+// @monomind/core telemetry
 import { trace, metrics, context } from "@opentelemetry/api";
 
 class Telemetry {
-  private tracer = trace.getTracer("@monobrain/core");
-  private meter = metrics.getMeter("@monobrain/core");
+  private tracer = trace.getTracer("@monomind/core");
+  private meter = metrics.getMeter("@monomind/core");
 
   // Counters
-  private hookCounter = this.meter.createCounter("monobrain.hooks.total");
+  private hookCounter = this.meter.createCounter("monomind.hooks.total");
   private learningCounter = this.meter.createCounter(
-    "monobrain.learning.patterns",
+    "monomind.learning.patterns",
   );
-  private swarmGauge = this.meter.createUpDownCounter("monobrain.swarm.agents");
+  private swarmGauge = this.meter.createUpDownCounter("monomind.swarm.agents");
 
   // Histograms
   private latencyHistogram = this.meter.createHistogram(
-    "monobrain.operation.latency",
+    "monomind.operation.latency",
     {
       unit: "ms",
       description: "Operation latency",
@@ -1858,12 +1858,12 @@ interface ClaudeCodeMetrics {
   tools_invoked: Record<string, number>;
   tool_success_rate: number;
 
-  // Learning metrics (Monobrain specific)
+  // Learning metrics (Monomind specific)
   patterns_learned: number;
   learning_cycles: number;
   avg_pattern_quality: number;
 
-  // Swarm metrics (Monobrain specific)
+  // Swarm metrics (Monomind specific)
   agents_spawned: number;
   tasks_completed: number;
   consensus_rounds: number;
@@ -1912,24 +1912,24 @@ class SwarmTracer {
 
 | v2 API                     | v1 API                                            | Migration         |
 | -------------------------- | ------------------------------------------------- | ----------------- |
-| `require('monobrain')`     | `import { MonobrainCore } from '@monobrain/core'` | ESM only          |
-| `monobrain.init()`         | `new MonobrainCore()`                             | Constructor-based |
-| `monobrain.swarm.create()` | `import { createSwarm } from '@monobrain/swarm'`  | Modular import    |
-| `monobrain.memory.store()` | `memoryModule.store()`                            | Module instance   |
+| `require('monomind')`     | `import { MonomindCore } from '@monomind/core'` | ESM only          |
+| `monomind.init()`         | `new MonomindCore()`                             | Constructor-based |
+| `monomind.swarm.create()` | `import { createSwarm } from '@monomind/swarm'`  | Modular import    |
+| `monomind.memory.store()` | `memoryModule.store()`                            | Module instance   |
 | Callbacks                  | Promises/async-await                              | All async         |
 
 #### Automatic Migration (Codemod)
 
 ```bash
 # Install migration tool
-npx @monobrain/migrate
+npx @monomind/migrate
 
 # Analyze codebase
-npx @monobrain/migrate analyze ./src
+npx @monomind/migrate analyze ./src
 
 # Apply migrations
-npx @monobrain/migrate run ./src --dry-run
-npx @monobrain/migrate run ./src
+npx @monomind/migrate run ./src --dry-run
+npx @monomind/migrate run ./src
 ```
 
 #### Codemod Transforms
@@ -1940,16 +1940,16 @@ export default function transformer(file, api) {
   const j = api.jscodeshift;
   const root = j(file.source);
 
-  // Transform: require('monobrain') → import
+  // Transform: require('monomind') → import
   root
     .find(j.CallExpression, {
       callee: { name: "require" },
-      arguments: [{ value: "monobrain" }],
+      arguments: [{ value: "monomind" }],
     })
     .replaceWith(() =>
       j.importDeclaration(
-        [j.importSpecifier(j.identifier("MonobrainCore"))],
-        j.literal("@monobrain/core"),
+        [j.importSpecifier(j.identifier("MonomindCore"))],
+        j.literal("@monomind/core"),
       ),
     );
 
@@ -1960,17 +1960,17 @@ export default function transformer(file, api) {
 #### Compatibility Shim (Temporary)
 
 ```typescript
-// @monobrain/compat - Temporary v2 compatibility
-import { MonobrainCore } from "@monobrain/core";
-import { HooksModule } from "@monobrain/hooks";
-import { SwarmModule } from "@monobrain/swarm";
-import { MemoryModule } from "@monobrain/memory";
+// @monomind/compat - Temporary v2 compatibility
+import { MonomindCore } from "@monomind/core";
+import { HooksModule } from "@monomind/hooks";
+import { SwarmModule } from "@monomind/swarm";
+import { MemoryModule } from "@monomind/memory";
 
 // v2-style API
-export function createMonobrain(config?: any) {
-  console.warn("[@monobrain/compat] Deprecated: Migrate to v1 modular imports");
+export function createMonomind(config?: any) {
+  console.warn("[@monomind/compat] Deprecated: Migrate to v1 modular imports");
 
-  const core = new MonobrainCore();
+  const core = new MonomindCore();
 
   return {
     init: async () => {
@@ -2005,14 +2005,14 @@ export function createMonobrain(config?: any) {
 #### Plugin Interface
 
 ```typescript
-// @monobrain/core plugin system
-interface MonobrainPlugin {
+// @monomind/core plugin system
+interface MonomindPlugin {
   name: string;
   version: string;
 
   // Lifecycle hooks
-  onCoreInit?(core: MonobrainCore): Promise<void>;
-  onModuleRegister?(module: MonobrainModule): void;
+  onCoreInit?(core: MonomindCore): Promise<void>;
+  onModuleRegister?(module: MonomindModule): void;
   onEvent?(event: string, data: any): void;
   onShutdown?(): Promise<void>;
 
@@ -2030,7 +2030,7 @@ core.use(myPlugin);
 
 ```typescript
 // Third-party hook example
-const securityPlugin: MonobrainPlugin = {
+const securityPlugin: MonomindPlugin = {
   name: "security-scanner",
   version: "1.0.0",
 
@@ -2066,7 +2066,7 @@ const customAgent: AgentDefinition = {
 };
 
 // Register via plugin
-const analyzerPlugin: MonobrainPlugin = {
+const analyzerPlugin: MonomindPlugin = {
   name: "custom-analyzer",
   version: "1.0.0",
   agents: [customAgent],
@@ -2079,10 +2079,10 @@ core.use(analyzerPlugin);
 
 ```bash
 # Install community extension
-npm install @community/monobrain-security
+npm install @community/monomind-security
 
 # Auto-discovered via naming convention
-# @*/monobrain-* or monobrain-plugin-*
+# @*/monomind-* or monomind-plugin-*
 ```
 
 ---
@@ -2093,17 +2093,17 @@ npm install @community/monobrain-security
 
 1. **Programmatic** (highest) - `core.configure({ ... })`
 2. **CLI flags** - `--swarm-topology=mesh`
-3. **Environment variables** - `MONOBRAIN_SWARM_TOPOLOGY=mesh`
-4. **Project config** - `.monobrain.json` or `monobrain.config.js`
-5. **User config** - `~/.monobrain/config.json`
+3. **Environment variables** - `MONOMIND_SWARM_TOPOLOGY=mesh`
+4. **Project config** - `.monomind.json` or `monomind.config.js`
+5. **User config** - `~/.monomind/config.json`
 6. **Defaults** (lowest) - Built-in defaults
 
 #### Configuration File
 
 ```json
-// .monobrain.json
+// .monomind.json
 {
-  "$schema": "https://monobrain.dev/schema.json",
+  "$schema": "https://monomind.dev/schema.json",
   "version": "3.0",
 
   "core": {
@@ -2130,7 +2130,7 @@ npm install @community/monobrain-security
 
   "memory": {
     "backend": "hybrid",
-    "path": ".monobrain/memory",
+    "path": ".monomind/memory",
     "consolidationInterval": 3600000
   }
 }
@@ -2139,17 +2139,17 @@ npm install @community/monobrain-security
 #### Environment Variable Mapping
 
 ```bash
-# Pattern: MONOBRAIN_<MODULE>_<OPTION>
-MONOBRAIN_LEARNING_ALGORITHM=PPO
-MONOBRAIN_SWARM_TOPOLOGY=mesh
-MONOBRAIN_MEMORY_BACKEND=sqlite
-MONOBRAIN_HOOKS_TIMEOUT=10000
+# Pattern: MONOMIND_<MODULE>_<OPTION>
+MONOMIND_LEARNING_ALGORITHM=PPO
+MONOMIND_SWARM_TOPOLOGY=mesh
+MONOMIND_MEMORY_BACKEND=sqlite
+MONOMIND_HOOKS_TIMEOUT=10000
 ```
 
 #### Configuration API
 
 ```typescript
-// @monobrain/core configuration
+// @monomind/core configuration
 class ConfigManager {
   // Load from all sources
   async load(): Promise<ResolvedConfig> {
@@ -2284,7 +2284,7 @@ jobs:
 #### Feature Detection
 
 ```typescript
-// @monobrain/core feature detection
+// @monomind/core feature detection
 class FeatureDetector {
   async detect(): Promise<AvailableFeatures> {
     return {
@@ -2326,7 +2326,7 @@ class FeatureDetector {
 #### Degraded Mode Configuration
 
 ```typescript
-// @monobrain/core degraded mode
+// @monomind/core degraded mode
 interface DegradedModeConfig {
   // What to do when network unavailable
   offline: {
@@ -2371,7 +2371,7 @@ const DEFAULT_DEGRADED: DegradedModeConfig = {
 
 ### 12.1 SDK Foundation
 
-**agentic-flow@alpha provides everything Monobrain v1 needs:**
+**agentic-flow@alpha provides everything Monomind v1 needs:**
 
 - ✅ 19 hook tools for comprehensive integration
 - ✅ 9 RL algorithms for adaptive learning
@@ -2383,21 +2383,21 @@ const DEFAULT_DEGRADED: DegradedModeConfig = {
 
 ### 12.2 Modular Package Architecture
 
-**Monobrain v1 will be a modular constellation of 10 npm packages:**
+**Monomind v1 will be a modular constellation of 10 npm packages:**
 
 | Package                | Purpose                  | Size   | Standalone |
 | ---------------------- | ------------------------ | ------ | ---------- |
-| `@monobrain/core`      | Central connector        | ~50KB  | ✅         |
-| `@monobrain/hooks`     | Claude Code events       | ~200KB | ✅         |
-| `@monobrain/learning`  | Self-optimization        | ~2MB   | ✅         |
-| `@monobrain/swarm`     | Multi-agent coordination | ~1MB   | ✅         |
-| `@monobrain/memory`    | Persistent storage       | ~500KB | ✅         |
-| `@monobrain/agents`    | Agent definitions        | ~300KB | ✅         |
-| `@monobrain/mcp`       | MCP server/tools         | ~400KB | ✅         |
-| `@monobrain/neural`    | Neural operations        | ~1MB   | ✅         |
-| `@monobrain/attention` | Agent consensus          | ~200KB | ✅         |
-| `@monobrain/vector`    | HNSW search              | ~800KB | ✅         |
-| `@monobrain/cli`       | CLI interface            | ~100KB | ❌         |
+| `@monomind/core`      | Central connector        | ~50KB  | ✅         |
+| `@monomind/hooks`     | Claude Code events       | ~200KB | ✅         |
+| `@monomind/learning`  | Self-optimization        | ~2MB   | ✅         |
+| `@monomind/swarm`     | Multi-agent coordination | ~1MB   | ✅         |
+| `@monomind/memory`    | Persistent storage       | ~500KB | ✅         |
+| `@monomind/agents`    | Agent definitions        | ~300KB | ✅         |
+| `@monomind/mcp`       | MCP server/tools         | ~400KB | ✅         |
+| `@monomind/neural`    | Neural operations        | ~1MB   | ✅         |
+| `@monomind/attention` | Agent consensus          | ~200KB | ✅         |
+| `@monomind/vector`    | HNSW search              | ~800KB | ✅         |
+| `@monomind/cli`       | CLI interface            | ~100KB | ❌         |
 
 ### 12.3 Key Architectural Decisions
 
@@ -2411,35 +2411,35 @@ const DEFAULT_DEGRADED: DegradedModeConfig = {
 
 **Phase 1: Core Packages**
 
-- `@monobrain/core` - Event bus, configuration, module registry
-- `@monobrain/hooks` - Claude Code event mapping
-- `@monobrain/cli` - Basic CLI with init/status
+- `@monomind/core` - Event bus, configuration, module registry
+- `@monomind/hooks` - Claude Code event mapping
+- `@monomind/cli` - Basic CLI with init/status
 
 **Phase 2: Learning Stack**
 
-- `@monobrain/learning` - SONA + AgentDB integration
-- `@monobrain/memory` - ReasoningBank wrapper
-- `@monobrain/vector` - HNSW indexing
+- `@monomind/learning` - SONA + AgentDB integration
+- `@monomind/memory` - ReasoningBank wrapper
+- `@monomind/vector` - HNSW indexing
 
 **Phase 3: Swarm Stack**
 
-- `@monobrain/swarm` - QUIC coordination
-- `@monobrain/agents` - Agent definitions
-- `@monobrain/attention` - Consensus mechanisms
+- `@monomind/swarm` - QUIC coordination
+- `@monomind/agents` - Agent definitions
+- `@monomind/attention` - Consensus mechanisms
 
 **Phase 4: Neural Stack**
 
-- `@monobrain/neural` - Attention mechanisms
-- `@monobrain/mcp` - Full MCP server
+- `@monomind/neural` - Attention mechanisms
+- `@monomind/mcp` - Full MCP server
 
 ### 12.5 Final Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         monobrain (meta-package)                       │
-│                      npm install monobrain@3                           │
+│                         monomind (meta-package)                       │
+│                      npm install monomind@3                           │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  @monobrain/*                                                          │
+│  @monomind/*                                                          │
 │  ┌───────┬─────────┬───────┬────────┬────────┬──────┬──────┬─────────┐ │
 │  │ core  │  hooks  │ learn │ swarm  │ memory │agents│ mcp  │ neural  │ │
 │  └───────┴─────────┴───────┴────────┴────────┴──────┴──────┴─────────┘ │
@@ -2794,13 +2794,13 @@ const learningResult = await ruvector.completeTrajectory(
 const patterns = await ruvector.findPatterns(topic, 5);
 ```
 
-### 13.7 @monobrain/workers Package
+### 13.7 @monomind/workers Package
 
-Monobrain v1 workers package specification:
+Monomind v1 workers package specification:
 
 ```typescript
-// @monobrain/workers
-// Dependencies: @monobrain/core (optional peer)
+// @monomind/workers
+// Dependencies: @monomind/core (optional peer)
 // SDK: agentic-flow/workers
 
 export interface WorkersConfig {
@@ -2862,10 +2862,10 @@ export {
 Workers can be triggered from Claude Code hooks:
 
 ```typescript
-import { HooksModule } from "@monobrain/hooks";
-import { WorkersModule } from "@monobrain/workers";
+import { HooksModule } from "@monomind/hooks";
+import { WorkersModule } from "@monomind/workers";
 
-const core = new MonobrainCore();
+const core = new MonomindCore();
 core.register(new HooksModule());
 core.register(new WorkersModule());
 

@@ -1,5 +1,5 @@
 /**
- * @monobrain/claims - Infrastructure Layer
+ * @monomind/claims - Infrastructure Layer
  *
  * Exports persistence implementations for the claims module.
  *

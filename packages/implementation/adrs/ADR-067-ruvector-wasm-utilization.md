@@ -86,6 +86,6 @@ Invert the current pattern where WASM is optional and JS is default. For `learni
 ## Related
 
 - ADR-066: v1.5.24 Audit Remediation (prior audit cycle)
-- `packages/@monobrain/cli/package.json` -- optionalDependencies declarations
-- `packages/@monobrain/cli/src/hooks/` -- hooks route command
-- `packages/@monobrain/cli/src/mcp/tools/` -- MCP tool definitions for rvagent and ruvllm
+- `packages/@monomind/cli/package.json` -- optionalDependencies declarations
+- `packages/@monomind/cli/src/hooks/` -- hooks route command
+- `packages/@monomind/cli/src/mcp/tools/` -- MCP tool definitions for rvagent and ruvllm

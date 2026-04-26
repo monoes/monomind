@@ -1,15 +1,15 @@
 {
-  "name": "monobrain",
-  "version": "1.5.3",
-  "description": "Monobrain - Enterprise AI agent orchestration for Claude Code. Deploy 60+ specialized agents in coordinated swarms with self-learning, fault-tolerant consensus, vector memory, and MCP integration",
+  "name": "monomind",
+  "version": "1.6.0",
+  "description": "Monomind - Enterprise AI agent orchestration for Claude Code. Deploy 60+ specialized agents in coordinated swarms with self-learning, fault-tolerant consensus, vector memory, and MCP integration",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "monobrain": "./bin/cli.js"
+    "monomind": "./bin/cli.js"
   },
-  "homepage": "https://github.com/nokhodian/monobrain#readme",
+  "homepage": "https://github.com/nokhodian/monomind#readme",
   "bugs": {
-    "url": "https://github.com/nokhodian/monobrain/issues",
+    "url": "https://github.com/nokhodian/monomind/issues",
     "email": "support@monoes.me"
   },
   "funding": {
@@ -18,19 +18,19 @@
   },
   "files": [
     "bin/**",
-    "packages/@monobrain/cli/bin/**",
-    "packages/@monobrain/cli/dist/**/*.js",
-    "packages/@monobrain/cli/dist/**/*.d.ts",
-    "!packages/@monobrain/cli/dist/**/*.map",
-    "packages/@monobrain/cli/package.json",
-    "packages/@monobrain/shared/dist/**/*.js",
-    "packages/@monobrain/shared/dist/**/*.d.ts",
-    "!packages/@monobrain/shared/dist/**/*.map",
-    "packages/@monobrain/shared/package.json",
-    "packages/@monobrain/guidance/dist/**/*.js",
-    "packages/@monobrain/guidance/dist/**/*.d.ts",
-    "!packages/@monobrain/guidance/dist/**/*.map",
-    "packages/@monobrain/guidance/package.json",
+    "packages/@monomind/cli/bin/**",
+    "packages/@monomind/cli/dist/**/*.js",
+    "packages/@monomind/cli/dist/**/*.d.ts",
+    "!packages/@monomind/cli/dist/**/*.map",
+    "packages/@monomind/cli/package.json",
+    "packages/@monomind/shared/dist/**/*.js",
+    "packages/@monomind/shared/dist/**/*.d.ts",
+    "!packages/@monomind/shared/dist/**/*.map",
+    "packages/@monomind/shared/package.json",
+    "packages/@monomind/guidance/dist/**/*.js",
+    "packages/@monomind/guidance/dist/**/*.d.ts",
+    "!packages/@monomind/guidance/dist/**/*.map",
+    "packages/@monomind/guidance/package.json",
     ".claude-plugin/**",
     ".claude/**",
     "!.claude/**/*.db",
@@ -41,11 +41,11 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "build:ts": "cd packages/@monobrain/cli && npm run build || true",
+    "build:ts": "cd packages/@monomind/cli && npm run build || true",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:security": "vitest run packages/__tests__/security/",
-    "lint": "cd packages/@monobrain/cli && npm run lint || true",
+    "lint": "cd packages/@monomind/cli && npm run lint || true",
     "security:audit": "npm audit --audit-level high",
     "security:fix": "npm audit fix",
     "security:test": "npm run test:security",
@@ -73,7 +73,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/nokhodian/monobrain.git"
+    "url": "https://github.com/nokhodian/monomind.git"
   },
   "keywords": [
     "ruvflow",

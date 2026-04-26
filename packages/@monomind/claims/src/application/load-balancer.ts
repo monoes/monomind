@@ -19,7 +19,7 @@
  * - AgentOverloaded: When an agent exceeds load threshold
  * - AgentUnderloaded: When an agent is below load threshold
  *
- * @module packages/@monobrain/claims/application/load-balancer
+ * @module packages/@monomind/claims/application/load-balancer
  */
 
 import { EventEmitter } from 'node:events';

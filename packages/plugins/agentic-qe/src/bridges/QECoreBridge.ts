@@ -34,7 +34,7 @@ import type {
   QELogger,
 } from '../interfaces.js';
 
-// Core types (would be imported from @monobrain/core in production)
+// Core types (would be imported from @monomind/core in production)
 interface IAgentService {
   spawn(config: AgentSpawnConfig): Promise<SpawnedAgent>;
   terminate(agentId: string): Promise<void>;

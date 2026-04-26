@@ -2,7 +2,7 @@
 
 **Source:** /Users/morteza/Desktop/tools/codeburn  
 **Category:** Developer Tool  
-**Role in Monobrain:** Token usage tracking and cost visualization via `token-tracker.cjs` + `monobrain tokens` CLI
+**Role in Monomind:** Token usage tracking and cost visualization via `token-tracker.cjs` + `monomind tokens` CLI
 
 ---
 
@@ -26,7 +26,7 @@ Key capabilities:
 
 ### `token-tracker.cjs` (`.claude/helpers/`)
 
-A CJS port of codeburn's entire pipeline, adapted for monobrain's runtime constraints (pure built-ins, no Ink/React):
+A CJS port of codeburn's entire pipeline, adapted for monomind's runtime constraints (pure built-ins, no Ink/React):
 
 **Pricing**: Hardcoded fallback table for all Claude/GPT/Gemini models with `fastMultiplier=6` for Opus fast mode
 
@@ -68,14 +68,14 @@ try {
 
 This injects today/month costs into every session context automatically.
 
-### `monobrain tokens` CLI Command
+### `monomind tokens` CLI Command
 
 Three subcommands:
-- `monobrain tokens dashboard [--period today|week|30days|month]` — interactive TUI dashboard
-- `monobrain tokens summary [--period] [--json]` — text or JSON summary
-- `monobrain tokens today` — quick one-line cost check
+- `monomind tokens dashboard [--period today|week|30days|month]` — interactive TUI dashboard
+- `monomind tokens summary [--period] [--json]` — text or JSON summary
+- `monomind tokens today` — quick one-line cost check
 
-## How It Improved Monobrain
+## How It Improved Monomind
 
 Codeburn addressed a fundamental blind spot: agents had no awareness of how much they were costing. Now every session starts with token usage context, enabling:
 
@@ -89,6 +89,6 @@ Codeburn addressed a fundamental blind spot: agents had no awareness of how much
 
 - `.claude/helpers/token-tracker.cjs` — core parser, cost calculator, classifier, ANSI dashboard
 - `.claude/helpers/hook-handler.cjs` — `session-restore` handler calls `quickSummary()`
-- `packages/@monobrain/cli/src/commands/tokens.ts` — TypeScript CLI command source
-- `packages/@monobrain/cli/dist/src/commands/tokens.js` — pre-compiled JS for CLI runtime
-- `packages/@monobrain/cli/src/commands/index.ts` — `tokens` registered in command loader
+- `packages/@monomind/cli/src/commands/tokens.ts` — TypeScript CLI command source
+- `packages/@monomind/cli/dist/src/commands/tokens.js` — pre-compiled JS for CLI runtime
+- `packages/@monomind/cli/src/commands/index.ts` — `tokens` registered in command loader

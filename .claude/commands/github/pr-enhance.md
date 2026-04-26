@@ -4,7 +4,7 @@ AI-powered pull request enhancements.
 
 ## Usage
 ```bash
-npx monobrain github pr-enhance [options]
+npx monomind github pr-enhance [options]
 ```
 
 ## Options
@@ -16,11 +16,11 @@ npx monobrain github pr-enhance [options]
 ## Examples
 ```bash
 # Enhance PR
-npx monobrain github pr-enhance --pr-number 123
+npx monomind github pr-enhance --pr-number 123
 
 # Add tests
-npx monobrain github pr-enhance --pr-number 123 --add-tests
+npx monomind github pr-enhance --pr-number 123 --add-tests
 
 # Full enhancement
-npx monobrain github pr-enhance --pr-number 123 --add-tests --improve-docs
+npx monomind github pr-enhance --pr-number 123 --add-tests --improve-docs
 ```

@@ -4,7 +4,7 @@ Learn patterns from successful operations.
 
 ## Usage
 ```bash
-npx monobrain training pattern-learn [options]
+npx monomind training pattern-learn [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain training pattern-learn [options]
 ## Examples
 ```bash
 # Learn from all ops
-npx monobrain training pattern-learn
+npx monomind training pattern-learn
 
 # High success only
-npx monobrain training pattern-learn --threshold 0.9
+npx monomind training pattern-learn --threshold 0.9
 
 # Save patterns
-npx monobrain training pattern-learn --save optimal-patterns
+npx monomind training pattern-learn --save optimal-patterns
 ```

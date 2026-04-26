@@ -1,7 +1,7 @@
 /**
  * RVF Migration Utility — bidirectional migration between RVF and legacy
  * formats (JSON files, sql.js / better-sqlite3 databases).
- * @module @monobrain/memory/rvf-migration
+ * @module @monomind/memory/rvf-migration
  */
 import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';

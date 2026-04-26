@@ -1,5 +1,5 @@
 /**
- * Auto-update system for @monobrain packages
+ * Auto-update system for @monomind packages
  *
  * Features:
  * - Rate-limited update checks (24h default)

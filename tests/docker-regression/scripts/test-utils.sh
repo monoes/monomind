@@ -1,5 +1,5 @@
 #!/bin/bash
-# Monobrain Test Utilities
+# Monomind Test Utilities
 # Shared functions for test scripts
 
 # Colors

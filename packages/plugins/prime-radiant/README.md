@@ -1,10 +1,10 @@
-# @monobrain/plugin-prime-radiant
+# @monomind/plugin-prime-radiant
 
 **Mathematical AI that catches contradictions, verifies consensus, and prevents hallucinations before they cause problems.**
 
 ## What is this?
 
-This plugin brings advanced mathematical techniques to Monobrain for ensuring AI reliability:
+This plugin brings advanced mathematical techniques to Monomind for ensuring AI reliability:
 
 - **Coherence Checking** - Detect when information contradicts itself before storing it
 - **Consensus Verification** - Mathematically verify that multiple agents actually agree
@@ -17,7 +17,7 @@ Think of it as a mathematical "sanity check" layer that catches logical inconsis
 ## Installation
 
 ```bash
-npm install @monobrain/plugin-prime-radiant
+npm install @monomind/plugin-prime-radiant
 ```
 
 ---
@@ -326,7 +326,7 @@ class CoherentKnowledgeBase {
 ## Configuration
 
 ```yaml
-# monobrain.config.yaml
+# monomind.config.yaml
 plugins:
   prime-radiant:
     enabled: true

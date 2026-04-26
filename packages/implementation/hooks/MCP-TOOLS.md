@@ -395,7 +395,7 @@ Bootstrap intelligence from repository analysis.
 ```json
 {
   "success": true,
-  "repositoryPath": "/workspaces/monobrain",
+  "repositoryPath": "/workspaces/monomind",
   "statistics": {
     "filesAnalyzed": 247,
     "patternsExtracted": 156,

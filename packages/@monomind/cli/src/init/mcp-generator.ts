@@ -52,17 +52,17 @@ export function generateMCPConfig(options: InitOptions): object {
     npm_config_update_notifier: 'false',
   };
 
-  // Monobrain MCP server (core)
-  if (config.monobrain) {
-    mcpServers['monobrain'] = createMCPServerEntry(
-      ['monobrain@latest', 'mcp', 'start'],
+  // Monomind MCP server (core)
+  if (config.monomind) {
+    mcpServers['monomind'] = createMCPServerEntry(
+      ['monomind@latest', 'mcp', 'start'],
       {
         ...npmEnv,
-        MONOBRAIN_MODE: 'v1',
-        MONOBRAIN_HOOKS_ENABLED: 'true',
-        MONOBRAIN_TOPOLOGY: options.runtime.topology,
-        MONOBRAIN_MAX_AGENTS: String(options.runtime.maxAgents),
-        MONOBRAIN_MEMORY_BACKEND: options.runtime.memoryBackend,
+        MONOMIND_MODE: 'v1',
+        MONOMIND_HOOKS_ENABLED: 'true',
+        MONOMIND_TOPOLOGY: options.runtime.topology,
+        MONOMIND_MAX_AGENTS: String(options.runtime.maxAgents),
+        MONOMIND_MEMORY_BACKEND: options.runtime.memoryBackend,
       },
       { autoStart: config.autoStart }
     );
@@ -70,9 +70,9 @@ export function generateMCPConfig(options: InitOptions): object {
 
 
 
-  // Graphify knowledge graph — built into monobrain MCP server since v1.3.0.
-  // Available as mcp__monobrain__graphify_build, graphify_report, graphify_suggest, graphify_health.
-  // No separate server needed — the monobrain entry above provides all graphify tools.
+  // Graphify knowledge graph — built into monomind MCP server since v1.3.0.
+  // Available as mcp__monomind__graphify_build, graphify_report, graphify_suggest, graphify_health.
+  // No separate server needed — the monomind entry above provides all graphify tools.
 
   return { mcpServers };
 }
@@ -93,12 +93,12 @@ export function generateMCPCommands(options: InitOptions): string[] {
   const config = options.mcp;
 
   if (isWindows()) {
-    if (config.monobrain) {
-      commands.push('claude mcp add monobrain -- cmd /c npx -y monobrain@latest mcp start');
+    if (config.monomind) {
+      commands.push('claude mcp add monomind -- cmd /c npx -y monomind@latest mcp start');
     }
   } else {
-    if (config.monobrain) {
-      commands.push("claude mcp add monobrain -- npx -y monobrain@latest mcp start");
+    if (config.monomind) {
+      commands.push("claude mcp add monomind -- npx -y monomind@latest mcp start");
     }
   }
 

@@ -1,5 +1,5 @@
 /**
- * V1 Monobrain Password Hasher Unit Tests
+ * V1 Monomind Password Hasher Unit Tests
  *
  * London School TDD - Behavior Verification
  * Tests password hashing and verification behavior

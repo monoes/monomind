@@ -34,12 +34,12 @@ Cross-package integration testing and deployment coordination.
 
 ```bash
 # Basic swarm initialization
-npx monobrain skill run github-multi-repo init \
+npx monomind skill run github-multi-repo init \
   --repos "org/frontend,org/backend,org/shared" \
   --topology hierarchical
 
 # Advanced initialization with synchronization
-npx monobrain skill run github-multi-repo init \
+npx monomind skill run github-multi-repo init \
   --repos "org/frontend,org/backend,org/shared" \
   --topology mesh \
   --shared-memory \
@@ -50,7 +50,7 @@ npx monobrain skill run github-multi-repo init \
 
 ```bash
 # Synchronize package versions and dependencies
-npx monobrain skill run github-multi-repo sync \
+npx monomind skill run github-multi-repo sync \
   --packages "claude-code-flow,ruv-swarm" \
   --align-versions \
   --update-docs
@@ -60,7 +60,7 @@ npx monobrain skill run github-multi-repo sync \
 
 ```bash
 # Analyze and optimize repository structure
-npx monobrain skill run github-multi-repo optimize \
+npx monomind skill run github-multi-repo optimize \
   --analyze-structure \
   --suggest-improvements \
   --create-templates
@@ -86,7 +86,7 @@ const DEPS = Bash(`gh repo list my-organization --json name | \
   done | jq -s '.'`);
 
 // Initialize swarm with discovered repositories
-mcp__monobrain__swarm_init({
+mcp__monomind__swarm_init({
   topology: "hierarchical",
   maxAgents: 8,
   metadata: { repos: REPOS, dependencies: DEPS },
@@ -143,7 +143,7 @@ mcp__monobrain__swarm_init({
 // Synchronize package dependencies and versions
 [Complete Package Sync]:
   // Initialize sync swarm
-  mcp__monobrain__swarm_init({ topology: "mesh", maxAgents: 5 })
+  mcp__monomind__swarm_init({ topology: "mesh", maxAgents: 5 })
 
   // Spawn sync agents
   Task("Sync Coordinator", "Coordinate version alignment", "coordinator")
@@ -167,7 +167,7 @@ mcp__monobrain__swarm_init({
     -f content="$(cat aligned-package.json | base64)"`)
 
   // Store sync state
-  mcp__monobrain__memory_usage({
+  mcp__monomind__memory_usage({
     action: "store",
     key: "sync/packages/status",
     value: {
@@ -195,7 +195,7 @@ mcp__monobrain__swarm_init({
     -f content="$(cat /tmp/claude-source.md | base64)"`)
 
   // Track sync status
-  mcp__monobrain__memory_usage({
+  mcp__monomind__memory_usage({
     action: "store",
     key: "sync/documentation/status",
     value: { status: "synchronized", files: ["CLAUDE.md"] }
@@ -247,7 +247,7 @@ mcp__monobrain__swarm_init({
 // Analyze and optimize repository structure
 [Architecture Analysis]:
   // Initialize architecture swarm
-  mcp__monobrain__swarm_init({ topology: "hierarchical", maxAgents: 6 })
+  mcp__monomind__swarm_init({ topology: "hierarchical", maxAgents: 6 })
 
   // Spawn architecture agents
   Task("Senior Architect", "Analyze repository structure", "architect")
@@ -267,7 +267,7 @@ mcp__monobrain__swarm_init({
     --order desc`)
 
   // Store analysis results
-  mcp__monobrain__memory_usage({
+  mcp__monomind__memory_usage({
     action: "store",
     key: "architecture/analysis/results",
     value: {
@@ -411,7 +411,7 @@ Part of #$TRACKING_ISSUE"
 // Coordinate large-scale refactoring
 [Cross-Repo Refactoring]:
   // Initialize refactoring swarm
-  mcp__monobrain__swarm_init({ topology: "mesh", maxAgents: 8 })
+  mcp__monomind__swarm_init({ topology: "mesh", maxAgents: 8 })
 
   // Spawn specialized agents
   Task("Refactoring Coordinator", "Coordinate refactoring across repos", "coordinator")
@@ -421,7 +421,7 @@ Part of #$TRACKING_ISSUE"
   Task("Integration Tester", "Validate refactored code", "tester")
 
   // Execute refactoring
-  mcp__monobrain__task_orchestrate({
+  mcp__monomind__task_orchestrate({
     task: "Rename OldAPI to NewAPI across all repositories",
     strategy: "sequential",
     priority: "high"
@@ -603,7 +603,7 @@ kafka:
 ### 1. Microservices Coordination
 
 ```bash
-npx monobrain skill run github-multi-repo microservices \
+npx monomind skill run github-multi-repo microservices \
   --services "auth,users,orders,payments" \
   --ensure-compatibility \
   --sync-contracts \
@@ -613,7 +613,7 @@ npx monobrain skill run github-multi-repo microservices \
 ### 2. Library Updates
 
 ```bash
-npx monobrain skill run github-multi-repo lib-update \
+npx monomind skill run github-multi-repo lib-update \
   --library "org/shared-lib" \
   --version "2.0.0" \
   --find-consumers \
@@ -624,7 +624,7 @@ npx monobrain skill run github-multi-repo lib-update \
 ### 3. Organization-Wide Changes
 
 ```bash
-npx monobrain skill run github-multi-repo org-policy \
+npx monomind skill run github-multi-repo org-policy \
   --policy "add-security-headers" \
   --repos "org/*" \
   --validate-compliance \
@@ -693,7 +693,7 @@ ruv-FANN/
 ### Multi-Repo Dashboard
 
 ```bash
-npx monobrain skill run github-multi-repo dashboard \
+npx monomind skill run github-multi-repo dashboard \
   --port 3000 \
   --metrics "agent-activity,task-progress,memory-usage" \
   --real-time
@@ -702,7 +702,7 @@ npx monobrain skill run github-multi-repo dashboard \
 ### Dependency Graph
 
 ```bash
-npx monobrain skill run github-multi-repo dep-graph \
+npx monomind skill run github-multi-repo dep-graph \
   --format mermaid \
   --include-agents \
   --show-data-flow
@@ -711,7 +711,7 @@ npx monobrain skill run github-multi-repo dep-graph \
 ### Health Monitoring
 
 ```bash
-npx monobrain skill run github-multi-repo health-check \
+npx monomind skill run github-multi-repo health-check \
   --repos "org/*" \
   --check "connectivity,memory,agents" \
   --alert-on-issues
@@ -757,7 +757,7 @@ npx monobrain skill run github-multi-repo health-check \
 ### Caching Strategy
 
 ```bash
-npx monobrain skill run github-multi-repo cache-strategy \
+npx monomind skill run github-multi-repo cache-strategy \
   --analyze-patterns \
   --suggest-cache-layers \
   --implement-invalidation
@@ -766,7 +766,7 @@ npx monobrain skill run github-multi-repo cache-strategy \
 ### Parallel Execution
 
 ```bash
-npx monobrain skill run github-multi-repo parallel-optimize \
+npx monomind skill run github-multi-repo parallel-optimize \
   --analyze-dependencies \
   --identify-parallelizable \
   --execute-optimal
@@ -775,7 +775,7 @@ npx monobrain skill run github-multi-repo parallel-optimize \
 ### Resource Pooling
 
 ```bash
-npx monobrain skill run github-multi-repo resource-pool \
+npx monomind skill run github-multi-repo resource-pool \
   --share-agents \
   --distribute-load \
   --monitor-usage
@@ -786,7 +786,7 @@ npx monobrain skill run github-multi-repo resource-pool \
 ### Connectivity Issues
 
 ```bash
-npx monobrain skill run github-multi-repo diagnose-connectivity \
+npx monomind skill run github-multi-repo diagnose-connectivity \
   --test-all-repos \
   --check-permissions \
   --verify-webhooks
@@ -795,7 +795,7 @@ npx monobrain skill run github-multi-repo diagnose-connectivity \
 ### Memory Synchronization
 
 ```bash
-npx monobrain skill run github-multi-repo debug-memory \
+npx monomind skill run github-multi-repo debug-memory \
   --check-consistency \
   --identify-conflicts \
   --repair-state
@@ -804,7 +804,7 @@ npx monobrain skill run github-multi-repo debug-memory \
 ### Performance Bottlenecks
 
 ```bash
-npx monobrain skill run github-multi-repo perf-analysis \
+npx monomind skill run github-multi-repo perf-analysis \
   --profile-operations \
   --identify-bottlenecks \
   --suggest-optimizations
@@ -815,7 +815,7 @@ npx monobrain skill run github-multi-repo perf-analysis \
 ### 1. Distributed Task Queue
 
 ```bash
-npx monobrain skill run github-multi-repo queue \
+npx monomind skill run github-multi-repo queue \
   --backend redis \
   --workers 10 \
   --priority-routing \
@@ -825,7 +825,7 @@ npx monobrain skill run github-multi-repo queue \
 ### 2. Cross-Repo Testing
 
 ```bash
-npx monobrain skill run github-multi-repo test \
+npx monomind skill run github-multi-repo test \
   --setup-test-env \
   --link-services \
   --run-e2e \
@@ -835,7 +835,7 @@ npx monobrain skill run github-multi-repo test \
 ### 3. Monorepo Migration
 
 ```bash
-npx monobrain skill run github-multi-repo to-monorepo \
+npx monomind skill run github-multi-repo to-monorepo \
   --analyze-repos \
   --suggest-structure \
   --preserve-history \
@@ -847,7 +847,7 @@ npx monobrain skill run github-multi-repo to-monorepo \
 ### Full-Stack Application Update
 
 ```bash
-npx monobrain skill run github-multi-repo fullstack-update \
+npx monomind skill run github-multi-repo fullstack-update \
   --frontend "org/web-app" \
   --backend "org/api-server" \
   --database "org/db-migrations" \
@@ -857,7 +857,7 @@ npx monobrain skill run github-multi-repo fullstack-update \
 ### Cross-Team Collaboration
 
 ```bash
-npx monobrain skill run github-multi-repo cross-team \
+npx monomind skill run github-multi-repo cross-team \
   --teams "frontend,backend,devops" \
   --task "implement-feature-x" \
   --assign-by-expertise \
@@ -905,12 +905,12 @@ npx monobrain skill run github-multi-repo cross-team \
 
 ## Support and Resources
 
-- Documentation: https://github.com/nokhodian/monobrain
-- Issues: https://github.com/nokhodian/monobrain/issues
+- Documentation: https://github.com/nokhodian/monomind
+- Issues: https://github.com/nokhodian/monomind/issues
 - Examples: `.claude/examples/github-multi-repo/`
 
 ---
 
 **Version:** 1.0.0
 **Last Updated:** 2025-10-19
-**Maintainer:** Monobrain Team
+**Maintainer:** Monomind Team

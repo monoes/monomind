@@ -26,7 +26,7 @@
  * - Decision conflict resolution (constrains proposed actions)
  * - Topic-based ground truth retrieval with fuzzy tag matching
  *
- * @module @monobrain/guidance/truth-anchors
+ * @module @monomind/guidance/truth-anchors
  */
 import { createHmac, randomUUID } from 'node:crypto';
 // ============================================================================

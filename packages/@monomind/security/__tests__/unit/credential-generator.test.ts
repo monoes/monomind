@@ -164,8 +164,8 @@ describe('CredentialGenerator', () => {
       const creds = generator.generateInstallationCredentials();
       const script = generator.createEnvScript(creds);
 
-      expect(script).toContain('MONOBRAIN_ADMIN_PASSWORD');
-      expect(script).toContain('MONOBRAIN_JWT_SECRET');
+      expect(script).toContain('MONOMIND_ADMIN_PASSWORD');
+      expect(script).toContain('MONOMIND_JWT_SECRET');
       expect(script).toContain('export');
     });
 
@@ -175,8 +175,8 @@ describe('CredentialGenerator', () => {
       const json = generator.createJsonConfig(creds);
 
       const parsed = JSON.parse(json);
-      expect(parsed['monobrain/admin-password']).toBeDefined();
-      expect(parsed['monobrain/jwt-secret']).toBeDefined();
+      expect(parsed['monomind/admin-password']).toBeDefined();
+      expect(parsed['monomind/jwt-secret']).toBeDefined();
     });
   });
 });

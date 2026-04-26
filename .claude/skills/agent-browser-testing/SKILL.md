@@ -278,11 +278,11 @@ agent-browser screenshot after-action.png   # after
 agent-browser screenshot --full full-page.png
 ```
 
-## Integration with Monobrain
+## Integration with Monomind
 
 ### Store test patterns in memory
 ```bash
-npx monobrain memory store \
+npx monomind memory store \
   --namespace ui-testing \
   --key "login-flow-<app-name>" \
   --value "open→snapshot→fill @email →fill @password →click @submit →wait dashboard"
@@ -290,12 +290,12 @@ npx monobrain memory store \
 
 ### Retrieve before re-testing
 ```bash
-npx monobrain memory search --query "login flow" --namespace ui-testing
+npx monomind memory search --query "login flow" --namespace ui-testing
 ```
 
 ### Report issues as tasks
 ```bash
-npx monobrain task create --title "UI Bug: form submits with empty email" \
+npx monomind task create --title "UI Bug: form submits with empty email" \
   --description "Steps: open /login, click submit without filling email — no validation shown"
 ```
 

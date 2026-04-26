@@ -1450,7 +1450,7 @@ describe('Init System', () => {
     });
 
     it('should have all MCP servers enabled', () => {
-      expect(FULL_INIT_OPTIONS.mcp.monobrain).toBe(true);
+      expect(FULL_INIT_OPTIONS.mcp.monomind).toBe(true);
       expect(FULL_INIT_OPTIONS.mcp.ruvSwarm).toBe(true);
     });
   });
@@ -1505,10 +1505,10 @@ describe('Init System', () => {
       expect(env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS).toBe('1');
     });
 
-    it('should include monobrain v1 settings', () => {
+    it('should include monomind v1 settings', () => {
       const settings = generateSettings(DEFAULT_INIT_OPTIONS) as Record<string, unknown>;
-      expect(settings.monobrain).toBeDefined();
-      const cf = settings.monobrain as Record<string, unknown>;
+      expect(settings.monomind).toBeDefined();
+      const cf = settings.monomind as Record<string, unknown>;
       expect(cf.version).toBe('3.0.0');
       expect(cf.enabled).toBe(true);
     });
@@ -1536,9 +1536,9 @@ describe('Init System', () => {
       expect(md.length).toBeGreaterThan(100);
     });
 
-    it('should contain header with Monobrain', () => {
+    it('should contain header with Monomind', () => {
       const md = generateClaudeMd(DEFAULT_INIT_OPTIONS);
-      expect(md).toContain('Monobrain');
+      expect(md).toContain('Monomind');
     });
 
     it('should contain behavioral rules', () => {

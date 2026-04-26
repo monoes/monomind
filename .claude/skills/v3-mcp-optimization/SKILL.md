@@ -1,13 +1,13 @@
 ---
 name: "v1 MCP Optimization"
-description: "MCP server optimization and transport layer enhancement for monobrain v1. Implements connection pooling, load balancing, tool registry optimization, and performance monitoring for sub-100ms response times."
+description: "MCP server optimization and transport layer enhancement for monomind v1. Implements connection pooling, load balancing, tool registry optimization, and performance monitoring for sub-100ms response times."
 ---
 
 # MCP Optimization
 
 ## What This Skill Does
 
-Optimizes monobrain v1 MCP (Model Context Protocol) server implementation with advanced transport layer optimizations, connection pooling, load balancing, and comprehensive performance monitoring to achieve sub-100ms response times.
+Optimizes monomind v1 MCP (Model Context Protocol) server implementation with advanced transport layer optimizations, connection pooling, load balancing, and comprehensive performance monitoring to achieve sub-100ms response times.
 
 ## Quick Start
 
@@ -78,7 +78,7 @@ export class OptimizedMCPServer {
   constructor(config: OptimizedMCPConfig) {
     this.server = new Server(
       {
-        name: "monobrain-v1",
+        name: "monomind-v1",
         version: "3.0.0",
       },
       {

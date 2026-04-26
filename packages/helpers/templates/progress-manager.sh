@@ -1,10 +1,10 @@
 #!/bin/bash
-# Monobrain V1 Progress Manager Template (Linux/macOS)
+# Monomind V1 Progress Manager Template (Linux/macOS)
 
 set -e
 
-METRICS_DIR="${PROJECT_ROOT:-.}/.monobrain/metrics"
-SECURITY_DIR="${PROJECT_ROOT:-.}/.monobrain/security"
+METRICS_DIR="${PROJECT_ROOT:-.}/.monomind/metrics"
+SECURITY_DIR="${PROJECT_ROOT:-.}/.monomind/security"
 
 # Colors
 GREEN='\033[0;32m'

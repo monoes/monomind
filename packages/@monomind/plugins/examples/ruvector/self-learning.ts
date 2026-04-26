@@ -9,7 +9,7 @@
  *
  * Run with: npx ts-node examples/ruvector/self-learning.ts
  *
- * @module @monobrain/plugins/examples/ruvector/self-learning
+ * @module @monomind/plugins/examples/ruvector/self-learning
  */
 
 import {

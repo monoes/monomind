@@ -4,7 +4,7 @@ Persist memory across sessions.
 
 ## Usage
 ```bash
-npx monobrain memory persist [options]
+npx monomind memory persist [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain memory persist [options]
 ## Examples
 ```bash
 # Export memory
-npx monobrain memory persist --export memory-backup.json
+npx monomind memory persist --export memory-backup.json
 
 # Import memory
-npx monobrain memory persist --import memory-backup.json
+npx monomind memory persist --import memory-backup.json
 
 # Compressed export
-npx monobrain memory persist --export memory.gz --compress
+npx monomind memory persist --export memory.gz --compress
 ```

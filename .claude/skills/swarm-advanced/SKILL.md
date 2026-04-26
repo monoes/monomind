@@ -12,23 +12,23 @@ Master advanced swarm patterns for distributed research, development, and testin
 
 ### Prerequisites
 ```bash
-# Ensure Monobrain is installed
-npm install -g monobrain@alpha
+# Ensure Monomind is installed
+npm install -g monomind@alpha
 
 # Add MCP server (if using MCP tools)
-claude mcp add monobrain npx monobrain@alpha mcp start
+claude mcp add monomind npx monomind@alpha mcp start
 ```
 
 ### Basic Pattern
 ```javascript
 // 1. Initialize swarm topology
-mcp__monobrain__swarm_init({ topology: "mesh", maxAgents: 6 })
+mcp__monomind__swarm_init({ topology: "mesh", maxAgents: 6 })
 
 // 2. Spawn specialized agents
-mcp__monobrain__agent_spawn({ type: "researcher", name: "Agent 1" })
+mcp__monomind__agent_spawn({ type: "researcher", name: "Agent 1" })
 
 // 3. Orchestrate tasks
-mcp__monobrain__task_orchestrate({ task: "...", strategy: "parallel" })
+mcp__monomind__task_orchestrate({ task: "...", strategy: "parallel" })
 ```
 
 ## Core Concepts
@@ -70,7 +70,7 @@ Deep research through parallel information gathering, analysis, and synthesis.
 ### Architecture
 ```javascript
 // Initialize research swarm
-mcp__monobrain__swarm_init({
+mcp__monomind__swarm_init({
   "topology": "mesh",
   "maxAgents": 6,
   "strategy": "adaptive"
@@ -107,7 +107,7 @@ const researchAgents = [
 
 // Spawn all agents
 researchAgents.forEach(agent => {
-  mcp__monobrain__agent_spawn({
+  mcp__monomind__agent_spawn({
     type: agent.type,
     name: agent.name,
     capabilities: agent.capabilities
@@ -120,7 +120,7 @@ researchAgents.forEach(agent => {
 #### Phase 1: Information Gathering
 ```javascript
 // Parallel information collection
-mcp__monobrain__parallel_execute({
+mcp__monomind__parallel_execute({
   "tasks": [
     {
       "id": "web-search",
@@ -142,7 +142,7 @@ mcp__monobrain__parallel_execute({
 })
 
 // Store research findings in memory
-mcp__monobrain__memory_usage({
+mcp__monomind__memory_usage({
   "action": "store",
   "key": "research-findings-" + Date.now(),
   "value": JSON.stringify(findings),
@@ -154,24 +154,24 @@ mcp__monobrain__memory_usage({
 #### Phase 2: Analysis and Validation
 ```javascript
 // Pattern recognition in findings
-mcp__monobrain__pattern_recognize({
+mcp__monomind__pattern_recognize({
   "data": researchData,
   "patterns": ["trend", "correlation", "outlier", "emerging-pattern"]
 })
 
 // Cognitive analysis
-mcp__monobrain__cognitive_analyze({
+mcp__monomind__cognitive_analyze({
   "behavior": "research-synthesis"
 })
 
 // Quality assessment
-mcp__monobrain__quality_assess({
+mcp__monomind__quality_assess({
   "target": "research-sources",
   "criteria": ["credibility", "relevance", "recency", "authority"]
 })
 
 // Cross-reference validation
-mcp__monobrain__neural_patterns({
+mcp__monomind__neural_patterns({
   "action": "analyze",
   "operation": "fact-checking",
   "metadata": { "sources": sourcesArray }
@@ -181,14 +181,14 @@ mcp__monobrain__neural_patterns({
 #### Phase 3: Knowledge Management
 ```javascript
 // Search existing knowledge base
-mcp__monobrain__memory_search({
+mcp__monomind__memory_search({
   "pattern": "topic X",
   "namespace": "research",
   "limit": 20
 })
 
 // Create knowledge graph connections
-mcp__monobrain__neural_patterns({
+mcp__monomind__neural_patterns({
   "action": "learn",
   "operation": "knowledge-graph",
   "metadata": {
@@ -199,7 +199,7 @@ mcp__monobrain__neural_patterns({
 })
 
 // Store connections for future use
-mcp__monobrain__memory_usage({
+mcp__monomind__memory_usage({
   "action": "store",
   "key": "knowledge-graph-X",
   "value": JSON.stringify(knowledgeGraph),
@@ -211,7 +211,7 @@ mcp__monobrain__memory_usage({
 #### Phase 4: Report Generation
 ```javascript
 // Orchestrate report generation
-mcp__monobrain__task_orchestrate({
+mcp__monomind__task_orchestrate({
   "task": "generate comprehensive research report",
   "strategy": "sequential",
   "priority": "high",
@@ -219,12 +219,12 @@ mcp__monobrain__task_orchestrate({
 })
 
 // Monitor research progress
-mcp__monobrain__swarm_status({
+mcp__monomind__swarm_status({
   "swarmId": "research-swarm"
 })
 
 // Generate final report
-mcp__monobrain__workflow_execute({
+mcp__monomind__workflow_execute({
   "workflowId": "research-report-generation",
   "params": {
     "findings": findings,
@@ -237,7 +237,7 @@ mcp__monobrain__workflow_execute({
 ### CLI Fallback
 ```bash
 # Quick research swarm
-npx monobrain swarm "research AI trends in 2025" \
+npx monomind swarm "research AI trends in 2025" \
   --strategy research \
   --mode distributed \
   --max-agents 6 \
@@ -253,7 +253,7 @@ Full-stack development through coordinated specialist agents.
 ### Architecture
 ```javascript
 // Initialize development swarm with hierarchy
-mcp__monobrain__swarm_init({
+mcp__monomind__swarm_init({
   "topology": "hierarchical",
   "maxAgents": 8,
   "strategy": "balanced"
@@ -273,7 +273,7 @@ const devTeam = [
 
 // Spawn all team members
 devTeam.forEach(member => {
-  mcp__monobrain__agent_spawn({
+  mcp__monomind__agent_spawn({
     type: member.type,
     name: member.name,
     capabilities: member.capabilities,
@@ -287,7 +287,7 @@ devTeam.forEach(member => {
 #### Phase 1: Architecture and Design
 ```javascript
 // System architecture design
-mcp__monobrain__task_orchestrate({
+mcp__monomind__task_orchestrate({
   "task": "design system architecture for REST API",
   "strategy": "sequential",
   "priority": "critical",
@@ -295,7 +295,7 @@ mcp__monobrain__task_orchestrate({
 })
 
 // Store architecture decisions
-mcp__monobrain__memory_usage({
+mcp__monomind__memory_usage({
   "action": "store",
   "key": "architecture-decisions",
   "value": JSON.stringify(architectureDoc),
@@ -306,7 +306,7 @@ mcp__monobrain__memory_usage({
 #### Phase 2: Parallel Implementation
 ```javascript
 // Parallel development tasks
-mcp__monobrain__parallel_execute({
+mcp__monomind__parallel_execute({
   "tasks": [
     {
       "id": "backend-api",
@@ -332,7 +332,7 @@ mcp__monobrain__parallel_execute({
 })
 
 // Monitor development progress
-mcp__monobrain__swarm_monitor({
+mcp__monomind__swarm_monitor({
   "swarmId": "dev-swarm",
   "interval": 5000
 })
@@ -341,7 +341,7 @@ mcp__monobrain__swarm_monitor({
 #### Phase 3: Testing and Validation
 ```javascript
 // Comprehensive testing
-mcp__monobrain__batch_process({
+mcp__monomind__batch_process({
   "items": [
     { type: "unit", target: "all-modules" },
     { type: "integration", target: "api-endpoints" },
@@ -352,7 +352,7 @@ mcp__monobrain__batch_process({
 })
 
 // Quality assessment
-mcp__monobrain__quality_assess({
+mcp__monomind__quality_assess({
   "target": "codebase",
   "criteria": ["coverage", "complexity", "maintainability", "security"]
 })
@@ -361,7 +361,7 @@ mcp__monobrain__quality_assess({
 #### Phase 4: Review and Deployment
 ```javascript
 // Code review workflow
-mcp__monobrain__workflow_execute({
+mcp__monomind__workflow_execute({
   "workflowId": "code-review-process",
   "params": {
     "reviewers": ["Code Reviewer"],
@@ -370,7 +370,7 @@ mcp__monobrain__workflow_execute({
 })
 
 // CI/CD pipeline
-mcp__monobrain__pipeline_create({
+mcp__monomind__pipeline_create({
   "config": {
     "stages": ["build", "test", "security-scan", "deploy"],
     "environment": "production"
@@ -381,7 +381,7 @@ mcp__monobrain__pipeline_create({
 ### CLI Fallback
 ```bash
 # Quick development swarm
-npx monobrain swarm "build REST API with authentication" \
+npx monomind swarm "build REST API with authentication" \
   --strategy development \
   --mode hierarchical \
   --monitor \
@@ -396,7 +396,7 @@ Comprehensive quality assurance through distributed testing.
 ### Architecture
 ```javascript
 // Initialize testing swarm with star topology
-mcp__monobrain__swarm_init({
+mcp__monomind__swarm_init({
   "topology": "star",
   "maxAgents": 7,
   "strategy": "parallel"
@@ -443,7 +443,7 @@ const testingTeam = [
 
 // Spawn all testers
 testingTeam.forEach(tester => {
-  mcp__monobrain__agent_spawn({
+  mcp__monomind__agent_spawn({
     type: tester.type,
     name: tester.name,
     capabilities: tester.capabilities,
@@ -457,7 +457,7 @@ testingTeam.forEach(tester => {
 #### Phase 1: Test Planning
 ```javascript
 // Analyze test coverage requirements
-mcp__monobrain__quality_assess({
+mcp__monomind__quality_assess({
   "target": "test-coverage",
   "criteria": [
     "line-coverage",
@@ -468,7 +468,7 @@ mcp__monobrain__quality_assess({
 })
 
 // Identify test scenarios
-mcp__monobrain__pattern_recognize({
+mcp__monomind__pattern_recognize({
   "data": testScenarios,
   "patterns": [
     "edge-case",
@@ -479,7 +479,7 @@ mcp__monobrain__pattern_recognize({
 })
 
 // Store test plan
-mcp__monobrain__memory_usage({
+mcp__monomind__memory_usage({
   "action": "store",
   "key": "test-plan-" + Date.now(),
   "value": JSON.stringify(testPlan),
@@ -490,7 +490,7 @@ mcp__monobrain__memory_usage({
 #### Phase 2: Parallel Test Execution
 ```javascript
 // Execute all test suites in parallel
-mcp__monobrain__parallel_execute({
+mcp__monomind__parallel_execute({
   "tasks": [
     {
       "id": "unit-tests",
@@ -521,7 +521,7 @@ mcp__monobrain__parallel_execute({
 })
 
 // Batch process test suites
-mcp__monobrain__batch_process({
+mcp__monomind__batch_process({
   "items": testSuites,
   "operation": "execute-test-suite"
 })
@@ -530,24 +530,24 @@ mcp__monobrain__batch_process({
 #### Phase 3: Performance and Security
 ```javascript
 // Run performance benchmarks
-mcp__monobrain__benchmark_run({
+mcp__monomind__benchmark_run({
   "suite": "comprehensive-performance"
 })
 
 // Bottleneck analysis
-mcp__monobrain__bottleneck_analyze({
+mcp__monomind__bottleneck_analyze({
   "component": "application",
   "metrics": ["response-time", "throughput", "memory", "cpu"]
 })
 
 // Security scanning
-mcp__monobrain__security_scan({
+mcp__monomind__security_scan({
   "target": "application",
   "depth": "comprehensive"
 })
 
 // Vulnerability analysis
-mcp__monobrain__error_analysis({
+mcp__monomind__error_analysis({
   "logs": securityScanLogs
 })
 ```
@@ -555,24 +555,24 @@ mcp__monobrain__error_analysis({
 #### Phase 4: Monitoring and Reporting
 ```javascript
 // Real-time test monitoring
-mcp__monobrain__swarm_monitor({
+mcp__monomind__swarm_monitor({
   "swarmId": "testing-swarm",
   "interval": 2000
 })
 
 // Generate comprehensive test report
-mcp__monobrain__performance_report({
+mcp__monomind__performance_report({
   "format": "detailed",
   "timeframe": "current-run"
 })
 
 // Get test results
-mcp__monobrain__task_results({
+mcp__monomind__task_results({
   "taskId": "test-execution-001"
 })
 
 // Trend analysis
-mcp__monobrain__trend_analysis({
+mcp__monomind__trend_analysis({
   "metric": "test-coverage",
   "period": "30d"
 })
@@ -581,7 +581,7 @@ mcp__monobrain__trend_analysis({
 ### CLI Fallback
 ```bash
 # Quick testing swarm
-npx monobrain swarm "test application comprehensively" \
+npx monomind swarm "test application comprehensively" \
   --strategy testing \
   --mode star \
   --parallel \
@@ -596,7 +596,7 @@ Deep code and system analysis through specialized analyzers.
 ### Architecture
 ```javascript
 // Initialize analysis swarm
-mcp__monobrain__swarm_init({
+mcp__monomind__swarm_init({
   "topology": "mesh",
   "maxAgents": 5,
   "strategy": "adaptive"
@@ -633,7 +633,7 @@ const analysisTeam = [
 
 // Spawn all analysts
 analysisTeam.forEach(analyst => {
-  mcp__monobrain__agent_spawn({
+  mcp__monomind__agent_spawn({
     type: analyst.type,
     name: analyst.name,
     capabilities: analyst.capabilities
@@ -644,7 +644,7 @@ analysisTeam.forEach(analyst => {
 ### Analysis Workflow
 ```javascript
 // Parallel analysis execution
-mcp__monobrain__parallel_execute({
+mcp__monomind__parallel_execute({
   "tasks": [
     { "id": "analyze-code", "command": "analyze codebase structure and quality" },
     { "id": "analyze-security", "command": "scan for security vulnerabilities" },
@@ -654,13 +654,13 @@ mcp__monobrain__parallel_execute({
 })
 
 // Generate comprehensive analysis report
-mcp__monobrain__performance_report({
+mcp__monomind__performance_report({
   "format": "detailed",
   "timeframe": "current"
 })
 
 // Cost analysis
-mcp__monobrain__cost_analysis({
+mcp__monomind__cost_analysis({
   "timeframe": "30d"
 })
 ```
@@ -671,30 +671,30 @@ mcp__monobrain__cost_analysis({
 
 ```javascript
 // Setup fault tolerance for all agents
-mcp__monobrain__daa_fault_tolerance({
+mcp__monomind__daa_fault_tolerance({
   "agentId": "all",
   "strategy": "auto-recovery"
 })
 
 // Error handling pattern
 try {
-  await mcp__monobrain__task_orchestrate({
+  await mcp__monomind__task_orchestrate({
     "task": "complex operation",
     "strategy": "parallel",
     "priority": "high"
   })
 } catch (error) {
   // Check swarm health
-  const status = await mcp__monobrain__swarm_status({})
+  const status = await mcp__monomind__swarm_status({})
 
   // Analyze error patterns
-  await mcp__monobrain__error_analysis({
+  await mcp__monomind__error_analysis({
     "logs": [error.message]
   })
 
   // Auto-recovery attempt
   if (status.healthy) {
-    await mcp__monobrain__task_orchestrate({
+    await mcp__monomind__task_orchestrate({
       "task": "retry failed operation",
       "strategy": "sequential"
     })
@@ -706,28 +706,28 @@ try {
 
 ```javascript
 // Cross-session persistence
-mcp__monobrain__memory_persist({
+mcp__monomind__memory_persist({
   "sessionId": "swarm-session-001"
 })
 
 // Namespace management for different swarms
-mcp__monobrain__memory_namespace({
+mcp__monomind__memory_namespace({
   "namespace": "research-swarm",
   "action": "create"
 })
 
 // Create state snapshot
-mcp__monobrain__state_snapshot({
+mcp__monomind__state_snapshot({
   "name": "development-checkpoint-1"
 })
 
 // Restore from snapshot if needed
-mcp__monobrain__context_restore({
+mcp__monomind__context_restore({
   "snapshotId": "development-checkpoint-1"
 })
 
 // Backup memory stores
-mcp__monobrain__memory_backup({
+mcp__monomind__memory_backup({
   "path": "/workspaces/claude-code-flow/backups/swarm-memory.json"
 })
 ```
@@ -736,14 +736,14 @@ mcp__monobrain__memory_backup({
 
 ```javascript
 // Train neural patterns from successful workflows
-mcp__monobrain__neural_train({
+mcp__monomind__neural_train({
   "pattern_type": "coordination",
   "training_data": JSON.stringify(successfulWorkflows),
   "epochs": 50
 })
 
 // Adaptive learning from experience
-mcp__monobrain__learning_adapt({
+mcp__monomind__learning_adapt({
   "experience": {
     "workflow": "research-to-report",
     "success": true,
@@ -753,7 +753,7 @@ mcp__monobrain__learning_adapt({
 })
 
 // Pattern recognition for optimization
-mcp__monobrain__pattern_recognize({
+mcp__monomind__pattern_recognize({
   "data": workflowMetrics,
   "patterns": ["bottleneck", "optimization-opportunity", "efficiency-gain"]
 })
@@ -763,7 +763,7 @@ mcp__monobrain__pattern_recognize({
 
 ```javascript
 // Create reusable workflow
-mcp__monobrain__workflow_create({
+mcp__monomind__workflow_create({
   "name": "full-stack-development",
   "steps": [
     { "phase": "design", "agents": ["architect"] },
@@ -776,7 +776,7 @@ mcp__monobrain__workflow_create({
 })
 
 // Setup automation rules
-mcp__monobrain__automation_setup({
+mcp__monomind__automation_setup({
   "rules": [
     {
       "trigger": "file-changed",
@@ -791,7 +791,7 @@ mcp__monobrain__automation_setup({
 })
 
 // Event-driven triggers
-mcp__monobrain__trigger_setup({
+mcp__monomind__trigger_setup({
   "events": ["code-commit", "PR-merge", "deployment"],
   "actions": ["test", "analyze", "document"]
 })
@@ -801,23 +801,23 @@ mcp__monobrain__trigger_setup({
 
 ```javascript
 // Topology optimization
-mcp__monobrain__topology_optimize({
+mcp__monomind__topology_optimize({
   "swarmId": "current-swarm"
 })
 
 // Load balancing
-mcp__monobrain__load_balance({
+mcp__monomind__load_balance({
   "swarmId": "development-swarm",
   "tasks": taskQueue
 })
 
 // Agent coordination sync
-mcp__monobrain__coordination_sync({
+mcp__monomind__coordination_sync({
   "swarmId": "development-swarm"
 })
 
 // Auto-scaling
-mcp__monobrain__swarm_scale({
+mcp__monomind__swarm_scale({
   "swarmId": "development-swarm",
   "targetSize": 12
 })
@@ -827,28 +827,28 @@ mcp__monobrain__swarm_scale({
 
 ```javascript
 // Real-time swarm monitoring
-mcp__monobrain__swarm_monitor({
+mcp__monomind__swarm_monitor({
   "swarmId": "active-swarm",
   "interval": 3000
 })
 
 // Collect comprehensive metrics
-mcp__monobrain__metrics_collect({
+mcp__monomind__metrics_collect({
   "components": ["agents", "tasks", "memory", "performance"]
 })
 
 // Health monitoring
-mcp__monobrain__health_check({
+mcp__monomind__health_check({
   "components": ["swarm", "agents", "neural", "memory"]
 })
 
 // Usage statistics
-mcp__monobrain__usage_stats({
+mcp__monomind__usage_stats({
   "component": "swarm-orchestration"
 })
 
 // Trend analysis
-mcp__monobrain__trend_analysis({
+mcp__monomind__trend_analysis({
   "metric": "agent-performance",
   "period": "7d"
 })
@@ -903,7 +903,7 @@ mcp__monobrain__trend_analysis({
 ### Example 1: AI Research Project
 ```javascript
 // Research AI trends, analyze findings, generate report
-mcp__monobrain__swarm_init({ topology: "mesh", maxAgents: 6 })
+mcp__monomind__swarm_init({ topology: "mesh", maxAgents: 6 })
 // Spawn: 2 researchers, 2 analysts, 1 synthesizer, 1 documenter
 // Parallel gather → Analyze patterns → Synthesize → Report
 ```
@@ -911,7 +911,7 @@ mcp__monobrain__swarm_init({ topology: "mesh", maxAgents: 6 })
 ### Example 2: Full-Stack Application
 ```javascript
 // Build complete web application with testing
-mcp__monobrain__swarm_init({ topology: "hierarchical", maxAgents: 8 })
+mcp__monomind__swarm_init({ topology: "hierarchical", maxAgents: 8 })
 // Spawn: 1 architect, 2 devs, 1 db engineer, 2 testers, 1 reviewer, 1 devops
 // Design → Parallel implement → Test → Review → Deploy
 ```
@@ -919,7 +919,7 @@ mcp__monobrain__swarm_init({ topology: "hierarchical", maxAgents: 8 })
 ### Example 3: Security Audit
 ```javascript
 // Comprehensive security analysis
-mcp__monobrain__swarm_init({ topology: "star", maxAgents: 5 })
+mcp__monomind__swarm_init({ topology: "star", maxAgents: 5 })
 // Spawn: 1 coordinator, 1 code analyzer, 1 security scanner, 1 penetration tester, 1 reporter
 // Parallel scan → Vulnerability analysis → Penetration test → Report
 ```
@@ -927,7 +927,7 @@ mcp__monobrain__swarm_init({ topology: "star", maxAgents: 5 })
 ### Example 4: Performance Optimization
 ```javascript
 // Identify and fix performance bottlenecks
-mcp__monobrain__swarm_init({ topology: "mesh", maxAgents: 4 })
+mcp__monomind__swarm_init({ topology: "mesh", maxAgents: 4 })
 // Spawn: 1 profiler, 1 bottleneck analyzer, 1 optimizer, 1 tester
 // Profile → Identify bottlenecks → Optimize → Validate
 ```
@@ -957,10 +957,10 @@ mcp__monobrain__swarm_init({ topology: "mesh", maxAgents: 4 })
 
 ## References
 
-- [Monobrain Documentation](https://github.com/nokhodian/monobrain)
-- [Swarm Orchestration Guide](https://github.com/nokhodian/monobrain/wiki/swarm)
-- [MCP Tools Reference](https://github.com/nokhodian/monobrain/wiki/mcp)
-- [Performance Optimization](https://github.com/nokhodian/monobrain/wiki/performance)
+- [Monomind Documentation](https://github.com/nokhodian/monomind)
+- [Swarm Orchestration Guide](https://github.com/nokhodian/monomind/wiki/swarm)
+- [MCP Tools Reference](https://github.com/nokhodian/monomind/wiki/mcp)
+- [Performance Optimization](https://github.com/nokhodian/monomind/wiki/performance)
 
 ---
 

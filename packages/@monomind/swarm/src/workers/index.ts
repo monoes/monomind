@@ -1,5 +1,5 @@
 /**
- * @monobrain/swarm/workers
+ * @monomind/swarm/workers
  * Worker Dispatch Module (agentic-flow@alpha compatible)
  *
  * Provides background worker functionality with 12 trigger types
@@ -19,7 +19,7 @@
  * - benchmark: Performance benchmarking
  * - testgaps: Test coverage analysis
  *
- * @module @monobrain/swarm/workers
+ * @module @monomind/swarm/workers
  * @version 3.0.0-alpha.1
  */
 

@@ -4,7 +4,7 @@ Intelligent issue classification and triage.
 
 ## Usage
 ```bash
-npx monobrain github issue-triage [options]
+npx monomind github issue-triage [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain github issue-triage [options]
 ## Examples
 ```bash
 # Triage issues
-npx monobrain github issue-triage --repository myorg/myrepo
+npx monomind github issue-triage --repository myorg/myrepo
 
 # With auto-labeling
-npx monobrain github issue-triage --repository myorg/myrepo --auto-label
+npx monomind github issue-triage --repository myorg/myrepo --auto-label
 
 # Full automation
-npx monobrain github issue-triage --repository myorg/myrepo --auto-label --assign
+npx monomind github issue-triage --repository myorg/myrepo --auto-label --assign
 ```

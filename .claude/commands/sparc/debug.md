@@ -22,7 +22,7 @@ Use logs, traces, and stack analysis to isolate bugs. Avoid changing env configu
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "debug",
   task_description: "fix memory leak in service",
   options: {
@@ -35,22 +35,22 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run debug "fix memory leak in service"
+npx monomind sparc run debug "fix memory leak in service"
 
 # For alpha features
-npx monobrain@alpha sparc run debug "fix memory leak in service"
+npx monomind@alpha sparc run debug "fix memory leak in service"
 
 # With namespace
-npx monobrain sparc run debug "your task" --namespace debug
+npx monomind sparc run debug "your task" --namespace debug
 
 # Non-interactive mode
-npx monobrain sparc run debug "your task" --non-interactive
+npx monomind sparc run debug "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run debug "fix memory leak in service"
+# If monomind is installed locally
+./monomind sparc run debug "fix memory leak in service"
 ```
 
 ## Memory Integration
@@ -58,7 +58,7 @@ npx monobrain sparc run debug "your task" --non-interactive
 ### Using MCP Tools (Preferred)
 ```javascript
 // Store mode-specific context
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "debug_context",
   value: "important decisions",
@@ -66,7 +66,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Query previous work
-mcp__monobrain__memory_search {
+mcp__monomind__memory_search {
   pattern: "debug",
   namespace: "debug",
   limit: 5
@@ -76,8 +76,8 @@ mcp__monobrain__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx monobrain memory store "debug_context" "important decisions" --namespace debug
+npx monomind memory store "debug_context" "important decisions" --namespace debug
 
 # Query previous work
-npx monobrain memory query "debug" --limit 5
+npx monomind memory query "debug" --limit 5
 ```

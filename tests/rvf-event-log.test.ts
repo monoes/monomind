@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 
 // Use dynamic import — tsx handles TS source directly.
 const { RvfEventLog } = await import(
-  '../packages/@monobrain/shared/src/events/rvf-event-log.ts'
+  '../packages/@monomind/shared/src/events/rvf-event-log.ts'
 );
 
 // ---------------------------------------------------------------------------

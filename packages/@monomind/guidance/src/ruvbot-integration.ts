@@ -1,7 +1,7 @@
 /**
  * RuvBot Integration Bridge
  *
- * Bridges ruvbot (npm: ruvbot@0.1.8) with the @monobrain/guidance control
+ * Bridges ruvbot (npm: ruvbot@0.1.8) with the @monomind/guidance control
  * plane. Wires ruvbot events to guidance hooks, wraps AIDefence as an
  * enforcement gate, governs memory operations, and feeds trust accumulation.
  *
@@ -14,7 +14,7 @@
  * 2. AIDefenceGate         - Prompt injection, jailbreak, PII detection gate
  * 3. RuvBotMemoryAdapter   - Governed memory read/write with proof logging
  *
- * @module @monobrain/guidance/ruvbot-integration
+ * @module @monomind/guidance/ruvbot-integration
  */
 
 import type { GateResult, GateDecision } from './types.js';
@@ -182,7 +182,7 @@ async function requireRuvBot(): Promise<Record<string, unknown>> {
   } catch {
     throw new Error(
       'ruvbot is not installed. Install it with: npm install ruvbot@0.1.8\n' +
-      'ruvbot is an optional peer dependency of @monobrain/guidance.',
+      'ruvbot is an optional peer dependency of @monomind/guidance.',
     );
   }
 }
@@ -605,7 +605,7 @@ export class RuvBotMemoryAdapter {
 // ============================================================================
 
 /**
- * Bridges a ruvbot instance with the @monobrain/guidance control plane.
+ * Bridges a ruvbot instance with the @monomind/guidance control plane.
  *
  * Wires ruvbot event hooks to guidance enforcement and trust systems:
  *

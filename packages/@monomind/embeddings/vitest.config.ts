@@ -1,5 +1,5 @@
 /**
- * @monobrain/embeddings Vitest Configuration
+ * @monomind/embeddings Vitest Configuration
  */
 import { defineConfig } from 'vitest/config';
 

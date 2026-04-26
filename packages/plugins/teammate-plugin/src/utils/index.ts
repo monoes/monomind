@@ -1,7 +1,7 @@
 /**
  * Utility exports for teammate-plugin
  *
- * @module @monobrain/teammate-plugin/utils
+ * @module @monomind/teammate-plugin/utils
  */
 
 export { RateLimiter } from './rate-limiter.js';

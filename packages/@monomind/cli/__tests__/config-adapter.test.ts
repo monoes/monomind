@@ -3,13 +3,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { systemConfigToMonobrainConfig, configToSystemConfig } from '../src/config-adapter.js';
-import type { SystemConfig } from '@monobrain/shared';
-import type { MonobrainConfig } from '../src/types.js';
+import { systemConfigToMonomindConfig, configToSystemConfig } from '../src/config-adapter.js';
+import type { SystemConfig } from '@monomind/shared';
+import type { MonomindConfig } from '../src/types.js';
 
 describe('ConfigAdapter', () => {
-  describe('systemConfigToMonobrainConfig', () => {
-    it('should convert minimal SystemConfig to MonobrainConfig', () => {
+  describe('systemConfigToMonomindConfig', () => {
+    it('should convert minimal SystemConfig to MonomindConfig', () => {
       const systemConfig: SystemConfig = {
         orchestrator: {
           lifecycle: {
@@ -66,7 +66,7 @@ describe('ConfigAdapter', () => {
         },
       };
 
-      const config = systemConfigToMonobrainConfig(systemConfig);
+      const config = systemConfigToMonomindConfig(systemConfig);
 
       expect(config.version).toBe('3.0.0');
       expect(config.projectRoot).toBe('/test/data');
@@ -141,7 +141,7 @@ describe('ConfigAdapter', () => {
         },
       };
 
-      const config = systemConfigToMonobrainConfig(minimalConfig);
+      const config = systemConfigToMonomindConfig(minimalConfig);
 
       expect(config.agents.maxConcurrent).toBe(5);
       expect(config.agents.autoSpawn).toBe(false);
@@ -152,8 +152,8 @@ describe('ConfigAdapter', () => {
   });
 
   describe('configToSystemConfig', () => {
-    it('should convert MonobrainConfig to SystemConfig', () => {
-      const config: MonobrainConfig = {
+    it('should convert MonomindConfig to SystemConfig', () => {
+      const config: MonomindConfig = {
         version: '3.0.0',
         projectRoot: '/test/project',
         agents: {
@@ -227,7 +227,7 @@ describe('ConfigAdapter', () => {
     });
 
     it('should handle different coordination strategies', () => {
-      const leaderConfig: MonobrainConfig = {
+      const leaderConfig: MonomindConfig = {
         version: '3.0.0',
         projectRoot: '/test',
         agents: {
@@ -345,7 +345,7 @@ describe('ConfigAdapter', () => {
         },
       };
 
-      const config = systemConfigToMonobrainConfig(originalSystemConfig);
+      const config = systemConfigToMonomindConfig(originalSystemConfig);
       const roundTripConfig = configToSystemConfig(config);
 
       // Core values preserved through round-trip

@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { TraceCollector } from '../../packages/@monobrain/cli/src/eval/trace-collector.js';
-import { DatasetManager } from '../../packages/@monobrain/cli/src/eval/dataset-manager.js';
-import { DatasetRunner } from '../../packages/@monobrain/cli/src/eval/dataset-runner.js';
-import type { RecordTraceInput } from '../../packages/@monobrain/cli/src/eval/trace-collector.js';
-import type { EvalTrace, EvalRunResult } from '../../packages/@monobrain/shared/src/types/eval.js';
+import { TraceCollector } from '../../packages/@monomind/cli/src/eval/trace-collector.js';
+import { DatasetManager } from '../../packages/@monomind/cli/src/eval/dataset-manager.js';
+import { DatasetRunner } from '../../packages/@monomind/cli/src/eval/dataset-runner.js';
+import type { RecordTraceInput } from '../../packages/@monomind/cli/src/eval/trace-collector.js';
+import type { EvalTrace, EvalRunResult } from '../../packages/@monomind/shared/src/types/eval.js';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';

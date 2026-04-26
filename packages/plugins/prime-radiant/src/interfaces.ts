@@ -537,7 +537,7 @@ export interface IPlugin {
   readonly description: string;
 
   /**
-   * Register the plugin with monobrain
+   * Register the plugin with monomind
    * Called once when plugin is loaded
    */
   register(context: PluginContext): Promise<void>;

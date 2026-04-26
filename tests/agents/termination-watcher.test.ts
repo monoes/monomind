@@ -10,10 +10,10 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { check, persistEvent } from '../../packages/@monobrain/cli/src/agents/termination-watcher.js';
-import type { AgentRunState } from '../../packages/@monobrain/cli/src/agents/termination-watcher.js';
-import { DEFAULT_TERMINATION_POLICY } from '../../packages/@monobrain/shared/src/types/termination.js';
-import { broadcast, isHalted } from '../../packages/@monobrain/cli/src/agents/halt-signal.js';
+import { check, persistEvent } from '../../packages/@monomind/cli/src/agents/termination-watcher.js';
+import type { AgentRunState } from '../../packages/@monomind/cli/src/agents/termination-watcher.js';
+import { DEFAULT_TERMINATION_POLICY } from '../../packages/@monomind/shared/src/types/termination.js';
+import { broadcast, isHalted } from '../../packages/@monomind/cli/src/agents/halt-signal.js';
 
 function makeTmpDir(): string {
   return mkdtempSync(join(tmpdir(), 'term-watcher-'));

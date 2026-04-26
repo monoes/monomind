@@ -2,7 +2,7 @@
  * CLI Performance Command
  * Performance profiling, benchmarking, optimization, metrics
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -19,8 +19,8 @@ const benchmarkCommand: Command = {
     { name: 'output', short: 'o', type: 'string', description: 'Output format: text, json, csv', default: 'text' },
   ],
   examples: [
-    { command: 'monobrain performance benchmark -s neural', description: 'Benchmark neural operations' },
-    { command: 'monobrain performance benchmark -i 1000', description: 'Run with 1000 iterations' },
+    { command: 'monomind performance benchmark -s neural', description: 'Benchmark neural operations' },
+    { command: 'monomind performance benchmark -i 1000', description: 'Run with 1000 iterations' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const suite = ctx.flags.suite as string || 'all';
@@ -256,8 +256,8 @@ const profileCommand: Command = {
     { name: 'output', short: 'o', type: 'string', description: 'Output file for profile data' },
   ],
   examples: [
-    { command: 'monobrain performance profile -t cpu', description: 'Profile CPU usage' },
-    { command: 'monobrain performance profile -d 60', description: 'Profile for 60 seconds' },
+    { command: 'monomind performance profile -t cpu', description: 'Profile CPU usage' },
+    { command: 'monomind performance profile -d 60', description: 'Profile for 60 seconds' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const type = ctx.flags.type as string || 'all';
@@ -338,8 +338,8 @@ const metricsCommand: Command = {
     { name: 'component', short: 'c', type: 'string', description: 'Component to filter' },
   ],
   examples: [
-    { command: 'monobrain performance metrics -t 7d', description: 'Show 7-day metrics' },
-    { command: 'monobrain performance metrics -f prometheus', description: 'Export as Prometheus format' },
+    { command: 'monomind performance metrics -t 7d', description: 'Show 7-day metrics' },
+    { command: 'monomind performance metrics -f prometheus', description: 'Export as Prometheus format' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const timeframe = ctx.flags.timeframe as string || '24h';
@@ -434,22 +434,22 @@ const metricsCommand: Command = {
     }
 
     if (format === 'prometheus') {
-      output.writeln(`# HELP monobrain_heap_used_bytes Heap memory used`);
-      output.writeln(`monobrain_heap_used_bytes ${memUsage.heapUsed}`);
-      output.writeln(`# HELP monobrain_heap_total_bytes Total heap memory`);
-      output.writeln(`monobrain_heap_total_bytes ${memUsage.heapTotal}`);
-      output.writeln(`# HELP monobrain_rss_bytes Resident set size`);
-      output.writeln(`monobrain_rss_bytes ${memUsage.rss}`);
-      output.writeln(`# HELP monobrain_cpu_user_microseconds CPU user time`);
-      output.writeln(`monobrain_cpu_user_microseconds ${cpuUsage.user}`);
-      output.writeln(`# HELP monobrain_cpu_system_microseconds CPU system time`);
-      output.writeln(`monobrain_cpu_system_microseconds ${cpuUsage.system}`);
-      output.writeln(`# HELP monobrain_cache_entries Embedding cache entries`);
-      output.writeln(`monobrain_cache_entries ${cacheEntries}`);
-      output.writeln(`# HELP monobrain_hnsw_entries HNSW index entries`);
-      output.writeln(`monobrain_hnsw_entries ${hnswEntries}`);
-      output.writeln(`# HELP monobrain_uptime_seconds Process uptime`);
-      output.writeln(`monobrain_uptime_seconds ${uptime}`);
+      output.writeln(`# HELP monomind_heap_used_bytes Heap memory used`);
+      output.writeln(`monomind_heap_used_bytes ${memUsage.heapUsed}`);
+      output.writeln(`# HELP monomind_heap_total_bytes Total heap memory`);
+      output.writeln(`monomind_heap_total_bytes ${memUsage.heapTotal}`);
+      output.writeln(`# HELP monomind_rss_bytes Resident set size`);
+      output.writeln(`monomind_rss_bytes ${memUsage.rss}`);
+      output.writeln(`# HELP monomind_cpu_user_microseconds CPU user time`);
+      output.writeln(`monomind_cpu_user_microseconds ${cpuUsage.user}`);
+      output.writeln(`# HELP monomind_cpu_system_microseconds CPU system time`);
+      output.writeln(`monomind_cpu_system_microseconds ${cpuUsage.system}`);
+      output.writeln(`# HELP monomind_cache_entries Embedding cache entries`);
+      output.writeln(`monomind_cache_entries ${cacheEntries}`);
+      output.writeln(`# HELP monomind_hnsw_entries HNSW index entries`);
+      output.writeln(`monomind_hnsw_entries ${hnswEntries}`);
+      output.writeln(`# HELP monomind_uptime_seconds Process uptime`);
+      output.writeln(`monomind_uptime_seconds ${uptime}`);
       return { success: true };
     }
 
@@ -531,8 +531,8 @@ const optimizeCommand: Command = {
     { name: 'dry-run', short: 'd', type: 'boolean', description: 'Show changes without applying' },
   ],
   examples: [
-    { command: 'monobrain performance optimize -t memory', description: 'Optimize memory usage' },
-    { command: 'monobrain performance optimize --apply', description: 'Apply all optimizations' },
+    { command: 'monomind performance optimize -t memory', description: 'Optimize memory usage' },
+    { command: 'monomind performance optimize --apply', description: 'Apply all optimizations' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const target = ctx.flags.target as string || 'all';
@@ -579,8 +579,8 @@ const bottleneckCommand: Command = {
     { name: 'depth', short: 'd', type: 'string', description: 'Analysis depth: quick, full', default: 'quick' },
   ],
   examples: [
-    { command: 'monobrain performance bottleneck', description: 'Find bottlenecks' },
-    { command: 'monobrain performance bottleneck -d full', description: 'Full analysis' },
+    { command: 'monomind performance bottleneck', description: 'Find bottlenecks' },
+    { command: 'monomind performance bottleneck -d full', description: 'Full analysis' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
@@ -618,13 +618,13 @@ export const performanceCommand: Command = {
   aliases: ['perf'],
   subcommands: [benchmarkCommand, profileCommand, metricsCommand, optimizeCommand, bottleneckCommand],
   examples: [
-    { command: 'monobrain performance benchmark', description: 'Run benchmarks' },
-    { command: 'monobrain performance profile', description: 'Profile application' },
-    { command: 'monobrain perf metrics', description: 'View metrics (alias)' },
+    { command: 'monomind performance benchmark', description: 'Run benchmarks' },
+    { command: 'monomind performance profile', description: 'Profile application' },
+    { command: 'monomind perf metrics', description: 'View metrics (alias)' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
-    output.writeln(output.bold('MonoBrain Performance Suite'));
+    output.writeln(output.bold('MonoMind Performance Suite'));
     output.writeln(output.dim('Advanced performance profiling and optimization'));
     output.writeln();
     output.writeln('Subcommands:');
@@ -643,7 +643,7 @@ export const performanceCommand: Command = {
       'Memory: 50-75% reduction with quantization',
     ]);
     output.writeln();
-    output.writeln(output.dim('github.com/nokhodian/monobrain'));
+    output.writeln(output.dim('github.com/nokhodian/monomind'));
     return { success: true };
   },
 };

@@ -1,9 +1,9 @@
 #!/bin/bash
-# MonoBrain v1 - Swarm Communication Hooks
+# MonoMind v1 - Swarm Communication Hooks
 # Enables agent-to-agent messaging, pattern sharing, consensus, and task handoffs
 #
 # Integration with:
-# - @monobrain/hooks SwarmCommunication module
+# - @monomind/hooks SwarmCommunication module
 # - agentic-flow@alpha swarm coordination
 # - Local hooks system for real-time agent coordination
 #
@@ -16,7 +16,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-SWARM_DIR="$PROJECT_ROOT/.monobrain/swarm"
+SWARM_DIR="$PROJECT_ROOT/.monomind/swarm"
 MESSAGES_DIR="$SWARM_DIR/messages"
 PATTERNS_DIR="$SWARM_DIR/patterns"
 CONSENSUS_DIR="$SWARM_DIR/consensus"
@@ -715,7 +715,7 @@ case "${1:-help}" in
 
   "help"|"-h"|"--help")
     cat << 'EOF'
-MonoBrain v1 - Swarm Communication Hooks
+MonoMind v1 - Swarm Communication Hooks
 
 Usage: swarm-hooks.sh <command> [args]
 

@@ -1,5 +1,5 @@
 /**
- * V1 Monobrain Security Compliance Acceptance Tests
+ * V1 Monomind Security Compliance Acceptance Tests
  *
  * Acceptance tests for security requirements
  * Tests CVE prevention and security compliance

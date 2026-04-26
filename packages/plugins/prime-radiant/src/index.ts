@@ -1,7 +1,7 @@
 /**
  * Prime Radiant Plugin - Entry Point
  *
- * Mathematical AI Interpretability for Monobrain
+ * Mathematical AI Interpretability for Monomind
  *
  * Provides:
  * - Sheaf Laplacian coherence detection (CohomologyEngine)
@@ -259,15 +259,15 @@ export const pluginMetadata = {
     'Mathematical AI interpretability with sheaf cohomology, spectral analysis, and causal inference',
   author: 'rUv',
   license: 'MIT',
-  repository: 'https://github.com/nokhodian/monobrain',
+  repository: 'https://github.com/nokhodian/monomind',
   wasmSize: '92KB',
   dependencies: {
     required: [
-      '@monobrain/memory',
-      '@monobrain/security',
-      '@monobrain/coordination',
+      '@monomind/memory',
+      '@monomind/security',
+      '@monomind/coordination',
     ],
-    optional: ['@monobrain/embeddings', '@monobrain/aidefence'],
+    optional: ['@monomind/embeddings', '@monomind/aidefence'],
   },
   capabilities: [
     'coherence-checking',
