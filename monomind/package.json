@@ -23,7 +23,7 @@
   ],
   "scripts": {},
   "dependencies": {
-    "@monomind/cli": ">=1.5.8"
+    "@monoes/monomindcli": ">=1.6.0"
   },
   "engines": {
     "node": ">=20.0.0"
