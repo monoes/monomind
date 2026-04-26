@@ -21,16 +21,16 @@ import { dirname, join } from 'node:path';
 
 /**
  * Get the data directory for neural pattern persistence
- * Uses .monobrain/neural in the current working directory,
+ * Uses .monomind/neural in the current working directory,
  * falling back to home directory
  */
 function getDataDir(): string {
   const cwd = process.cwd();
-  const localDir = join(cwd, '.monobrain', 'neural');
-  const homeDir = join(homedir(), '.monobrain', 'neural');
+  const localDir = join(cwd, '.monomind', 'neural');
+  const homeDir = join(homedir(), '.monomind', 'neural');
 
-  // Prefer local directory if .monobrain exists
-  if (existsSync(join(cwd, '.monobrain'))) {
+  // Prefer local directory if .monomind exists
+  if (existsSync(join(cwd, '.monomind'))) {
     return localDir;
   }
 

@@ -101,43 +101,43 @@ Switch to HYBRID when:
 ### Pattern Recognition & Learning
 ```bash
 # Analyze coordination patterns
-mcp__monobrain__neural_patterns analyze --operation="topology_analysis" --metadata="{\"current_topology\":\"mesh\",\"performance_metrics\":{}}"
+mcp__monomind__neural_patterns analyze --operation="topology_analysis" --metadata="{\"current_topology\":\"mesh\",\"performance_metrics\":{}}"
 
 # Train adaptive models
-mcp__monobrain__neural_train coordination --training_data="swarm_performance_history" --epochs=50
+mcp__monomind__neural_train coordination --training_data="swarm_performance_history" --epochs=50
 
 # Make predictions
-mcp__monobrain__neural_predict --modelId="adaptive-coordinator" --input="{\"workload\":\"high_complexity\",\"agents\":10}"
+mcp__monomind__neural_predict --modelId="adaptive-coordinator" --input="{\"workload\":\"high_complexity\",\"agents\":10}"
 
 # Learn from outcomes
-mcp__monobrain__neural_patterns learn --operation="topology_switch" --outcome="improved_performance_15%" --metadata="{\"from\":\"hierarchical\",\"to\":\"mesh\"}"
+mcp__monomind__neural_patterns learn --operation="topology_switch" --outcome="improved_performance_15%" --metadata="{\"from\":\"hierarchical\",\"to\":\"mesh\"}"
 ```
 
 ### Performance Optimization
 ```bash
 # Real-time performance monitoring
-mcp__monobrain__performance_report --format=json --timeframe=1h
+mcp__monomind__performance_report --format=json --timeframe=1h
 
 # Bottleneck analysis
-mcp__monobrain__bottleneck_analyze --component="coordination" --metrics="latency,throughput,success_rate"
+mcp__monomind__bottleneck_analyze --component="coordination" --metrics="latency,throughput,success_rate"
 
 # Automatic optimization
-mcp__monobrain__topology_optimize --swarmId="${SWARM_ID}"
+mcp__monomind__topology_optimize --swarmId="${SWARM_ID}"
 
 # Load balancing optimization
-mcp__monobrain__load_balance --swarmId="${SWARM_ID}" --strategy="ml_optimized"
+mcp__monomind__load_balance --swarmId="${SWARM_ID}" --strategy="ml_optimized"
 ```
 
 ### Predictive Scaling
 ```bash
 # Analyze usage trends
-mcp__monobrain__trend_analysis --metric="agent_utilization" --period="7d"
+mcp__monomind__trend_analysis --metric="agent_utilization" --period="7d"
 
 # Predict resource needs
-mcp__monobrain__neural_predict --modelId="resource-predictor" --input="{\"time_horizon\":\"4h\",\"current_load\":0.7}"
+mcp__monomind__neural_predict --modelId="resource-predictor" --input="{\"time_horizon\":\"4h\",\"current_load\":0.7}"
 
 # Auto-scale swarm
-mcp__monobrain__swarm_scale --swarmId="${SWARM_ID}" --targetSize="12" --strategy="predictive"
+mcp__monomind__swarm_scale --swarmId="${SWARM_ID}" --targetSize="12" --strategy="predictive"
 ```
 
 ## Dynamic Adaptation Algorithms

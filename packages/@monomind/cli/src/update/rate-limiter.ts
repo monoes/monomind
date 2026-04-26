@@ -14,7 +14,7 @@ export interface RateLimitState {
   packageVersions: Record<string, string>;
 }
 
-const STATE_FILE = path.join(os.homedir(), '.monobrain', 'update-state.json');
+const STATE_FILE = path.join(os.homedir(), '.monomind', 'update-state.json');
 const DEFAULT_INTERVAL_HOURS = 24;
 const MAX_CHECKS_PER_DAY = 10;
 
@@ -69,12 +69,12 @@ export function shouldCheckForUpdates(
   }
 
   // Skip if explicitly disabled
-  if (process.env.MONOBRAIN_AUTO_UPDATE === 'false') {
+  if (process.env.MONOMIND_AUTO_UPDATE === 'false') {
     return { allowed: false, reason: 'Auto-update disabled via environment' };
   }
 
   // Force update if requested
-  if (process.env.MONOBRAIN_FORCE_UPDATE === 'true') {
+  if (process.env.MONOMIND_FORCE_UPDATE === 'true') {
     return { allowed: true };
   }
 

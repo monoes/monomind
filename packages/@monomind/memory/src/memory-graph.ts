@@ -1,5 +1,5 @@
 /**
- * Knowledge Graph Module for @monobrain/memory
+ * Knowledge Graph Module for @monomind/memory
  *
  * Builds a graph from MemoryEntry.references, computes PageRank,
  * detects communities via label propagation, and provides

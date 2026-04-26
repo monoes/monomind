@@ -2,7 +2,7 @@
 name = "guidance-kernel"
 version = "0.1.0"
 edition = "2021"
-description = "Rust WASM kernel for @monobrain/guidance — deterministic policy engine"
+description = "Rust WASM kernel for @monomind/guidance — deterministic policy engine"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

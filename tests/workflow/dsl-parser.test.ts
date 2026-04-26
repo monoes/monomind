@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { DSLParser } from '../../packages/@monobrain/cli/src/workflow/dsl-parser.js';
-import { substitute } from '../../packages/@monobrain/cli/src/workflow/template-engine.js';
-import { evaluateCondition } from '../../packages/@monobrain/cli/src/workflow/condition-evaluator.js';
-import { WorkflowExecutor } from '../../packages/@monobrain/cli/src/workflow/workflow-executor.js';
-import type { AgentDispatcher } from '../../packages/@monobrain/cli/src/workflow/workflow-executor.js';
-import type { WorkflowDefinition } from '../../packages/@monobrain/cli/src/workflow/dsl-schema.js';
+import { DSLParser } from '../../packages/@monomind/cli/src/workflow/dsl-parser.js';
+import { substitute } from '../../packages/@monomind/cli/src/workflow/template-engine.js';
+import { evaluateCondition } from '../../packages/@monomind/cli/src/workflow/condition-evaluator.js';
+import { WorkflowExecutor } from '../../packages/@monomind/cli/src/workflow/workflow-executor.js';
+import type { AgentDispatcher } from '../../packages/@monomind/cli/src/workflow/workflow-executor.js';
+import type { WorkflowDefinition } from '../../packages/@monomind/cli/src/workflow/dsl-schema.js';
 
 // ---------------------------------------------------------------------------
 // DSLParser tests

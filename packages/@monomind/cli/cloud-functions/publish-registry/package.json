@@ -1,7 +1,7 @@
 {
   "name": "publish-registry",
   "version": "1.0.0",
-  "description": "Secure IPFS plugin registry publisher for Monobrain",
+  "description": "Secure IPFS plugin registry publisher for Monomind",
   "main": "index.js",
   "type": "module",
   "engines": {

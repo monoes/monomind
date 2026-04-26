@@ -1,5 +1,5 @@
 /**
- * @monobrain/plugins - Core Type Definitions
+ * @monomind/plugins - Core Type Definitions
  *
  * Unified type system for plugins, workers, hooks, and providers.
  */

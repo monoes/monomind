@@ -1,7 +1,7 @@
 {
-  "name": "@monobrain/plugins",
+  "name": "@monomind/plugins",
   "version": "1.0.0",
-  "description": "Unified Plugin SDK for Monobrain V1 - Worker, Hook, and Provider Integration",
+  "description": "Unified Plugin SDK for Monomind V1 - Worker, Hook, and Provider Integration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -46,16 +46,16 @@
     "events": "^3.3.0"
   },
   "peerDependencies": {
-    "@monobrain/hooks": "workspace:*",
-    "@monobrain/memory": "workspace:*",
+    "@monomind/hooks": "workspace:*",
+    "@monomind/memory": "workspace:*",
     "@ruvector/learning-wasm": "^0.1.0",
     "@ruvector/wasm": "^0.1.0"
   },
   "peerDependenciesMeta": {
-    "@monobrain/hooks": {
+    "@monomind/hooks": {
       "optional": true
     },
-    "@monobrain/memory": {
+    "@monomind/memory": {
       "optional": true
     },
     "@ruvector/wasm": {
@@ -71,7 +71,7 @@
     "vitest": "^4.1.4"
   },
   "keywords": [
-    "monobrain",
+    "monomind",
     "plugins",
     "sdk",
     "workers",
@@ -85,7 +85,7 @@
     "lora",
     "neural-adaptation"
   ],
-  "author": "Monobrain Team",
+  "author": "Monomind Team",
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0"

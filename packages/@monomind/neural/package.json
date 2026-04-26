@@ -1,5 +1,5 @@
 {
-  "name": "@monobrain/neural",
+  "name": "@monomind/neural",
   "version": "1.0.0",
   "type": "module",
   "description": "Neural module - SONA learning integration, neural modes",
@@ -13,7 +13,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@monobrain/memory": "workspace:*",
+    "@monomind/memory": "workspace:*",
     "@ruvector/sona": "latest"
   },
   "optionalDependencies": {

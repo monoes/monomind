@@ -1,10 +1,10 @@
-# ADR-058: Self-Contained Monobrain RVF Appliance — Linux Kernel + Claude Code + ruvLLM
+# ADR-058: Self-Contained Monomind RVF Appliance — Linux Kernel + Claude Code + ruvLLM
 
 | Field | Value |
 |-------|-------|
 | **Status** | Proposed |
 | **Date** | 2026-02-28 |
-| **Authors** | Monobrain Team |
+| **Authors** | Monomind Team |
 | **Supersedes** | — |
 | **Related** | ADR-057 (RVF Native Storage), ADR-054 (RVF Plugin Marketplace), ADR-056 (agentic-flow v1 Integration), ADR-017 (RuVector Integration) |
 
@@ -14,7 +14,7 @@
 
 ### The Problem
 
-Monobrain v1.5 requires the user to have Node.js 20+, npm, Claude Code CLI, API keys, and a properly configured OS environment. This means:
+Monomind v1.5 requires the user to have Node.js 20+, npm, Claude Code CLI, API keys, and a properly configured OS environment. This means:
 
 - **10+ setup steps** before a user can run their first agent swarm
 - **Network dependency** at runtime for API calls, npm installs, MCP server downloads
@@ -24,14 +24,14 @@ Monobrain v1.5 requires the user to have Node.js 20+, npm, Claude Code CLI, API 
 
 ### The Vision
 
-A **single `monobrain.rvf` file** that contains everything needed to run the full Monobrain platform:
+A **single `monomind.rvf` file** that contains everything needed to run the full Monomind platform:
 
 ```
-monobrain.rvf (self-contained appliance)
+monomind.rvf (self-contained appliance)
 ├── Linux microkernel (Alpine-based, ~5MB)
 ├── Node.js 22 runtime (~30MB stripped)
 ├── Claude Code CLI
-├── Monobrain v1.5+ (all packages)
+├── Monomind v1.5+ (all packages)
 ├── ruvLLM local inference OR API key vault
 ├── AgentDB with HNSW indexes
 ├── Pre-trained SONA patterns
@@ -54,7 +54,7 @@ The RVF (RuVector Format) binary format from ADR-057 already provides:
 | CRC32/SHA256 integrity | Appliance verification |
 | Streaming reads | Boot without full decompression |
 
-Extending RVF to `RVFA` (RuVector Format Appliance) creates a unified format that Monobrain already understands natively.
+Extending RVF to `RVFA` (RuVector Format Appliance) creates a unified format that Monomind already understands natively.
 
 ---
 
@@ -77,14 +77,14 @@ Extending RVF to `RVFA` (RuVector Format Appliance) creates a unified format tha
 ├─────────────────────────────────────────────────┤
 │ Section 0: KERNEL (compressed rootfs)           │
 │   Alpine Linux 3.23 minimal + busybox           │
-│   /sbin/init → monobrain-init (PID 1)              │
+│   /sbin/init → monomind-init (PID 1)              │
 ├─────────────────────────────────────────────────┤
 │ Section 1: RUNTIME (compressed)                 │
 │   Node.js 22 (stripped, no npm)                 │
 │   Claude Code CLI binary                        │
 ├─────────────────────────────────────────────────┤
-│ Section 2: MONOBRAIN (compressed)                │
-│   @monobrain/cli + shared + guidance           │
+│ Section 2: MONOMIND (compressed)                │
+│   @monomind/cli + shared + guidance           │
 │   All 26 commands, 140+ subcommands             │
 │   60+ agent definitions                         │
 │   17 hooks + 12 workers                         │
@@ -155,11 +155,11 @@ ruvLLM bridges the gap between RuVector's vector intelligence (search, routing, 
 ### 2.3 Boot Sequence
 
 ```
-1. monobrain-appliance load monobrain.rvf
+1. monomind-appliance load monomind.rvf
 2. Verify RVFA magic bytes + footer SHA256
 3. Extract KERNEL section → mount as rootfs
 4. Extract RUNTIME section → /usr/local/bin/
-5. Extract MONOBRAIN section → /opt/monobrain/
+5. Extract MONOMIND section → /opt/monomind/
 6. Mount DATA section (read-write overlay)
 7. Load MODELS section:
    - If ruvLLM: start inference server on unix socket
@@ -174,13 +174,13 @@ ruvLLM bridges the gap between RuVector's vector intelligence (search, routing, 
 
 | Mode | Command | Description |
 |------|---------|-------------|
-| **Run** | `monobrain-appliance run monobrain.rvf` | Boot and enter interactive CLI |
-| **MCP** | `monobrain-appliance mcp monobrain.rvf` | Boot as MCP server (stdio) |
-| **Verify** | `monobrain-appliance verify monobrain.rvf` | Run full capability test suite |
-| **Extract** | `monobrain-appliance extract monobrain.rvf ./out/` | Unpack all sections |
-| **Build** | `monobrain-appliance build --profile offline` | Create new appliance |
-| **Update** | `monobrain-appliance update monobrain.rvf --section MONOBRAIN` | Hot-patch one section |
-| **Inspect** | `monobrain-appliance inspect monobrain.rvf` | Show header + section manifest |
+| **Run** | `monomind-appliance run monomind.rvf` | Boot and enter interactive CLI |
+| **MCP** | `monomind-appliance mcp monomind.rvf` | Boot as MCP server (stdio) |
+| **Verify** | `monomind-appliance verify monomind.rvf` | Run full capability test suite |
+| **Extract** | `monomind-appliance extract monomind.rvf ./out/` | Unpack all sections |
+| **Build** | `monomind-appliance build --profile offline` | Create new appliance |
+| **Update** | `monomind-appliance update monomind.rvf --section MONOMIND` | Hot-patch one section |
+| **Inspect** | `monomind-appliance inspect monomind.rvf` | Show header + section manifest |
 
 ### 2.5 Runtime Isolation
 
@@ -195,16 +195,16 @@ The appliance runs in one of three isolation levels:
 Container mode (default):
 ```bash
 # The .rvf file IS the container image
-monobrain-appliance run monobrain.rvf
+monomind-appliance run monomind.rvf
 # Equivalent to:
-# docker run --rm -it monobrain:self-contained
+# docker run --rm -it monomind:self-contained
 ```
 
 ---
 
 ## 3. Capability Verification Suite
 
-The appliance includes a built-in verification suite that tests **every capability** of Monobrain + Monobrain. This runs automatically at boot (`Section 5: VERIFY`) and can be triggered manually.
+The appliance includes a built-in verification suite that tests **every capability** of Monomind + Monomind. This runs automatically at boot (`Section 5: VERIFY`) and can be triggered manually.
 
 ### 3.1 Test Categories (25 Categories, 80+ Checks)
 
@@ -249,20 +249,20 @@ The appliance includes a built-in verification suite that tests **every capabili
 | 32 | MCP E2E | JSON-RPC init → tool call → response | Protocol compliance |
 | 33 | Persistence | write data → reboot → verify data survives | RVF durability |
 | 34 | Offline Mode | disconnect network → run full workflow | Air-gap capability |
-| 35 | Hot Update | patch MONOBRAIN section → verify new version | Live update |
+| 35 | Hot Update | patch MONOMIND section → verify new version | Live update |
 
 ### 3.3 Test Output Format
 
 ```
 ╔══════════════════════════════════════════════════════════╗
-║  Monobrain Appliance v1.5.2 — Full Capability Verification  ║
+║  Monomind Appliance v1.5.2 — Full Capability Verification  ║
 ║  Format: RVFA v1 | Profile: offline | Arch: x86_64      ║
 ║  Kernel: Alpine 3.23 | Node: 22.22.0 | ruvLLM: 0.1.0    ║
 ╚══════════════════════════════════════════════════════════╝
 
 ═══ 1. CLI Core ═══
-  ✓ monobrain --version
-  ✓ monobrain --help
+  ✓ monomind --version
+  ✓ monomind --help
   ✓ version is 3.5.2
 
 ═══ 2. Doctor ═══
@@ -297,24 +297,24 @@ The appliance includes a built-in verification suite that tests **every capabili
 
 ```bash
 # Build offline appliance (includes local models)
-monobrain-appliance build \
+monomind-appliance build \
   --profile offline \
   --arch x86_64 \
   --models "phi-3-mini-q4,qwen2.5-coder-3b-q4" \
-  --output monobrain-offline.rvf
+  --output monomind-offline.rvf
 
 # Build cloud appliance (API keys only)
-monobrain-appliance build \
+monomind-appliance build \
   --profile cloud \
   --api-keys .env \
-  --output monobrain-cloud.rvf
+  --output monomind-cloud.rvf
 
 # Build hybrid appliance
-monobrain-appliance build \
+monomind-appliance build \
   --profile hybrid \
   --models "phi-3-mini-q4" \
   --api-keys .env \
-  --output monobrain-hybrid.rvf
+  --output monomind-hybrid.rvf
 ```
 
 ### 4.2 Build Stages
@@ -332,8 +332,8 @@ Stage 2: RUNTIME
   ├── Include Claude Code CLI binary
   └── Compress (~30MB → ~12MB)
 
-Stage 3: MONOBRAIN
-  ├── npm pack monobrain@latest --omit=optional
+Stage 3: MONOMIND
+  ├── npm pack monomind@latest --omit=optional
   ├── Include all CLI commands + agent defs
   ├── Pre-configure MCP server
   └── Compress (~9MB → ~3MB)
@@ -358,14 +358,14 @@ Final: Assemble RVFA
   ├── Write magic + version + header
   ├── Append all sections with offsets
   ├── Compute and append footer SHA256
-  └── Output: monobrain.rvf
+  └── Output: monomind.rvf
 ```
 
 ### 4.3 Size Targets
 
 | Profile | Sections | Compressed Size |
 |---------|----------|-----------------|
-| `cloud` | Kernel + Runtime + Monobrain + Data + Verify | ~60MB |
+| `cloud` | Kernel + Runtime + Monomind + Data + Verify | ~60MB |
 | `hybrid` | All + Phi-3-mini-Q4 | ~2GB |
 | `offline` | All + Phi-3 + Qwen2.5-Coder-3B | ~4GB |
 
@@ -377,13 +377,13 @@ Final: Assemble RVFA
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    monobrain.rvf (RVFA)                           │
+│                    monomind.rvf (RVFA)                           │
 │  ┌────────────────────────────────────────────────────────┐  │
 │  │  KERNEL: Alpine Linux 3.23 (~5MB)                      │  │
 │  │  ┌──────────────────────────────────────────────────┐  │  │
 │  │  │  RUNTIME: Node.js 22 + Claude Code CLI           │  │  │
 │  │  │  ┌──────────────────────────────────────────────┐│  │  │
-│  │  │  │  MONOBRAIN v1.5+                              ││  │  │
+│  │  │  │  MONOMIND v1.5+                              ││  │  │
 │  │  │  │  ├── 26 CLI commands (140+ subcommands)      ││  │  │
 │  │  │  │  ├── 60+ agent definitions                   ││  │  │
 │  │  │  │  ├── 17 hooks + 12 workers                   ││  │  │
@@ -495,18 +495,18 @@ Hot Update Flow:
 | Task | Description |
 |------|-------------|
 | Define RVFA binary spec | Magic bytes, header schema, section table |
-| `monobrain-appliance build` | Multi-stage builder with profile selection |
-| `monobrain-appliance inspect` | Header + section manifest viewer |
-| `monobrain-appliance extract` | Unpack all sections to directory |
-| Cloud profile | Kernel + Runtime + Monobrain + encrypted keys |
+| `monomind-appliance build` | Multi-stage builder with profile selection |
+| `monomind-appliance inspect` | Header + section manifest viewer |
+| `monomind-appliance extract` | Unpack all sections to directory |
+| Cloud profile | Kernel + Runtime + Monomind + encrypted keys |
 
 ### Phase 2: Runtime + Verification (Week 3-4)
 
 | Task | Description |
 |------|-------------|
-| `monobrain-appliance run` | Boot sequence with container isolation |
-| `monobrain-appliance verify` | 95-check capability suite |
-| `monobrain-appliance mcp` | MCP server mode (stdio + SSE) |
+| `monomind-appliance run` | Boot sequence with container isolation |
+| `monomind-appliance verify` | 95-check capability suite |
+| `monomind-appliance mcp` | MCP server mode (stdio + SSE) |
 | DATA section | Pre-built AgentDB + HNSW + SONA |
 | CI integration | Build appliance on every release |
 
@@ -524,7 +524,7 @@ Hot Update Flow:
 
 | Task | Description |
 |------|-------------|
-| `monobrain-appliance update` | Hot-patch individual sections |
+| `monomind-appliance update` | Hot-patch individual sections |
 | Ed25519 signing | Code signing for appliance + patches |
 | IPFS distribution | Publish appliances to decentralized storage |
 | MicroVM support | Firecracker/Cloud Hypervisor isolation |
@@ -540,7 +540,7 @@ Hot Update Flow:
 - **Offline-capable**: Full agent orchestration without internet (offline profile)
 - **Reproducible**: Same binary = same behavior everywhere
 - **Secure**: Encrypted keys, signed updates, container isolation
-- **Fast boot**: <5s from cold start (vs 35s for `npx monobrain@latest`)
+- **Fast boot**: <5s from cold start (vs 35s for `npx monomind@latest`)
 - **Verifiable**: Built-in 95-check suite proves every capability works
 - **Updatable**: Hot-patch sections without rebuilding entire appliance
 

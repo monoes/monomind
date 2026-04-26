@@ -24,9 +24,9 @@ This ADR documents all findings, root causes, and the remediation plan for v1.5.
 | **P1 — High** | Stale/nonexistent model IDs in daemon workers | #1431 | Hardcoded `claude-sonnet-4-5-20250929` and `claude-haiku-4-5-20251001` — both expired/invalid |
 | **P1 — High** | Daemons never terminate, accumulate across sessions | #1395 (Bug 3) | No PID singleton enforcement; each session spawns a new daemon |
 | **P1 — High** | `memory init` hangs after completion | #1428 | ONNX worker threads + SQLite connection never terminated; no `process.exit()` after init |
-| **P2 — Medium** | AgentDB bridge unavailable | #1399 | CLI bundles `@monobrain/memory@alpha.11` (missing `ControllerRegistry`); runtime patch targets v1.x paths |
+| **P2 — Medium** | AgentDB bridge unavailable | #1399 | CLI bundles `@monomind/memory@alpha.11` (missing `ControllerRegistry`); runtime patch targets v1.x paths |
 | **P2 — Medium** | MCP array schema missing `items` | #1404 | `type: 'array'` without `items` in ruvllm-tools.ts — invalid JSON Schema, breaks VSCode Copilot |
-| **P2 — Medium** | Hive-mind uses native tools instead of MCP | #1422 | No tool preference enforcement; Claude defaults to native tools over Monobrain MCP |
+| **P2 — Medium** | Hive-mind uses native tools instead of MCP | #1422 | No tool preference enforcement; Claude defaults to native tools over Monomind MCP |
 
 ## Decision
 
@@ -36,7 +36,7 @@ Address all issues in a single v1.5.43 release, prioritized by severity and depe
 
 **1.1 — Fix stdin pipe (one-line change)**
 
-File: `packages/@monobrain/cli/src/daemon/headless-worker-executor.ts`
+File: `packages/@monomind/cli/src/daemon/headless-worker-executor.ts`
 
 ```diff
 - stdio: ['pipe', 'pipe', 'pipe']
@@ -54,7 +54,7 @@ Options (choose one):
 
 **1.3 — Update model IDs to aliases**
 
-File: `packages/@monobrain/cli/src/daemon/headless-worker-executor.ts`
+File: `packages/@monomind/cli/src/daemon/headless-worker-executor.ts`
 
 ```diff
   const MODEL_IDS = {
@@ -72,7 +72,7 @@ Rationale: Model aliases auto-resolve to the latest version, preventing future s
 **1.4 — PID singleton enforcement for daemon**
 
 Implement standard PID-file pattern:
-1. On `daemon start`, check `$PROJECT/.monobrain/daemon.pid`
+1. On `daemon start`, check `$PROJECT/.monomind/daemon.pid`
 2. If recorded PID is alive (`kill -0`), skip start
 3. If dead, clean PID file and start fresh
 4. Write PID on start; delete on clean exit and SIGTERM/SIGINT handlers
@@ -100,7 +100,7 @@ Audit all commands in `swarm.ts` and `deployment.ts` for stub responses. Either:
 
 **2.3 — Dynamic agent count**
 
-File: `packages/@monobrain/cli/src/commands/swarm.ts` (line ~645)
+File: `packages/@monomind/cli/src/commands/swarm.ts` (line ~645)
 
 Replace hardcoded 8-agent count with dynamic fetch from swarm state.
 
@@ -108,7 +108,7 @@ Replace hardcoded 8-agent count with dynamic fetch from swarm state.
 
 **3.1 — Fix memory init hang**
 
-File: `packages/@monobrain/cli/src/commands/memory.ts` (init handler)
+File: `packages/@monomind/cli/src/commands/memory.ts` (init handler)
 
 1. Call `ort.env.close()` or terminate ONNX inference sessions after init
 2. Close SQLite connection explicitly
@@ -117,7 +117,7 @@ File: `packages/@monobrain/cli/src/commands/memory.ts` (init handler)
 
 **3.2 — Fix AgentDB bridge**
 
-1. Update `@monobrain/cli` dependency on `@monobrain/memory` to `>=3.0.0-alpha.12`
+1. Update `@monomind/cli` dependency on `@monomind/memory` to `>=3.0.0-alpha.12`
 2. Fix `agentdb-runtime-patch.js` path: `dist/controllers/index.js` → `dist/src/controllers/index.js`
 3. Fix CJS wrapper self-reference: `require('./controllers/index.js')` → `require('./index.js')`
 
@@ -132,13 +132,13 @@ File: `packages/@monobrain/cli/src/commands/memory.ts` (init handler)
 
 Files: `ruvllm-tools.ts`, `process-manager-tools.ts`, and all other MCP tool definitions.
 
-Audit all `type: 'array'` properties and add appropriate `items` schema. This is partially addressed in PR #73 (monobrain repo).
+Audit all `type: 'array'` properties and add appropriate `items` schema. This is partially addressed in PR #73 (monomind repo).
 
-**4.2 — Enforce Monobrain MCP tool preference in hive-mind**
+**4.2 — Enforce Monomind MCP tool preference in hive-mind**
 
 Options:
-- **A**: Add `--allowedTools` constraint when spawning hive-mind sessions to prefer Monobrain MCP tools
-- **B**: Add system prompt injection that instructs Claude to use Monobrain MCP tools for orchestration
+- **A**: Add `--allowedTools` constraint when spawning hive-mind sessions to prefer Monomind MCP tools
+- **B**: Add system prompt injection that instructs Claude to use Monomind MCP tools for orchestration
 - **C**: Document expected behavior and provide configuration guidance
 
 ### Phase 5: Code Quality (from #1425 audit)
@@ -191,8 +191,8 @@ Phase 5.x (code quality)       ← ongoing
 
 Each phase must pass:
 1. Unit tests for changed code paths
-2. Integration test: `npx monobrain daemon start` → workers execute successfully
-3. Integration test: `npx monobrain memory init` → process exits cleanly
+2. Integration test: `npx monomind daemon start` → workers execute successfully
+3. Integration test: `npx monomind memory init` → process exits cleanly
 4. Integration test: `agentdb_health` returns `available: true`
 5. Schema validation: all MCP tools pass strict JSON Schema validation
 6. Stress test: 8 projects with daemons running — no process accumulation after 1 hour

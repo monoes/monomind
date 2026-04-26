@@ -1,5 +1,5 @@
 /**
- * Simple Node.js test for @monobrain/embeddings utilities
+ * Simple Node.js test for @monomind/embeddings utilities
  * Uses Node's native test runner to avoid vitest memory issues
  */
 

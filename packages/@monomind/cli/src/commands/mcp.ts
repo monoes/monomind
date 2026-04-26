@@ -2,7 +2,7 @@
  * CLI MCP Command
  * MCP server control and management with real server integration
  *
- * @module @monobrain/cli/commands/mcp
+ * @module @monomind/cli/commands/mcp
  * @version 3.0.0
  */
 
@@ -96,10 +96,10 @@ const startCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain mcp start', description: 'Start with defaults (stdio)' },
-    { command: 'monobrain mcp start -p 8080 -t http', description: 'Start HTTP server' },
-    { command: 'monobrain mcp start -d', description: 'Start as daemon' },
-    { command: 'monobrain mcp start -f', description: 'Force restart (kill existing)' }
+    { command: 'monomind mcp start', description: 'Start with defaults (stdio)' },
+    { command: 'monomind mcp start -p 8080 -t http', description: 'Start HTTP server' },
+    { command: 'monomind mcp start -d', description: 'Start as daemon' },
+    { command: 'monomind mcp start -f', description: 'Force restart (kill existing)' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const port = (ctx.flags.port as number) ?? 3000;
@@ -130,7 +130,7 @@ const startCommand: Command = {
 
         if (health.healthy) {
           output.printWarning(`MCP Server already running (PID: ${existingStatus.pid})`);
-          output.writeln(output.dim('Use "monobrain mcp stop" to stop the server first, or use --force'));
+          output.writeln(output.dim('Use "monomind mcp stop" to stop the server first, or use --force'));
           return { success: false, exitCode: 1 };
         }
       }
@@ -292,7 +292,7 @@ const statusCommand: Command = {
       // If PID-based check says not running, detect stdio mode
       if (!status.running) {
         const isStdio = !process.stdin.isTTY;
-        const envTransport = process.env.MONOBRAIN_MCP_TRANSPORT;
+        const envTransport = process.env.MONOMIND_MCP_TRANSPORT;
         if (isStdio || envTransport === 'stdio') {
           status = {
             running: true,
@@ -323,7 +323,7 @@ const statusCommand: Command = {
         });
 
         output.writeln();
-        output.writeln(output.dim('Run "monobrain mcp start" to start the server'));
+        output.writeln(output.dim('Run "monomind mcp start" to start the server'));
         return { success: true, data: status };
       }
 
@@ -559,7 +559,7 @@ const execCommand: Command = {
     }
   ],
   examples: [
-    { command: 'monobrain mcp exec -t swarm_init -p \'{"topology":"mesh"}\'', description: 'Execute tool' }
+    { command: 'monomind mcp exec -t swarm_init -p \'{"topology":"mesh"}\'', description: 'Execute tool' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const tool = ctx.flags.tool as string || ctx.args[0];
@@ -780,17 +780,17 @@ export const mcpCommand: Command = {
   ],
   options: [],
   examples: [
-    { command: 'monobrain mcp start', description: 'Start MCP server' },
-    { command: 'monobrain mcp start -t http -p 8080', description: 'Start HTTP server on port 8080' },
-    { command: 'monobrain mcp status', description: 'Show server status' },
-    { command: 'monobrain mcp tools', description: 'List tools' },
-    { command: 'monobrain mcp stop', description: 'Stop the server' }
+    { command: 'monomind mcp start', description: 'Start MCP server' },
+    { command: 'monomind mcp start -t http -p 8080', description: 'Start HTTP server on port 8080' },
+    { command: 'monomind mcp status', description: 'Show server status' },
+    { command: 'monomind mcp tools', description: 'List tools' },
+    { command: 'monomind mcp stop', description: 'Stop the server' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
     output.writeln(output.bold('MCP Server Management'));
     output.writeln();
-    output.writeln('Usage: monobrain mcp <subcommand> [options]');
+    output.writeln('Usage: monomind mcp <subcommand> [options]');
     output.writeln();
     output.writeln('Subcommands:');
     output.printList([

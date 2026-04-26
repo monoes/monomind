@@ -4,7 +4,7 @@
  * Collects traces, selects examples, composes optimized prompts,
  * and manages version lifecycle via PromptVersionStore.
  *
- * @module @monobrain/hooks/optimization/prompt-optimizer
+ * @module @monomind/hooks/optimization/prompt-optimizer
  */
 
 import type { PromptVersionStore } from '../../../memory/src/prompt-version-store.js';

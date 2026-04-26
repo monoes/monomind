@@ -9,7 +9,7 @@ DIR=$(basename "$CWD")
 
 # Replace claude-code-flow with branded name
 if [ "$DIR" = "claude-code-flow" ]; then
-  DIR="🌊 Monobrain"
+  DIR="🌊 Monomind"
 fi
 
 # Get git branch
@@ -19,8 +19,8 @@ BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null)
 printf "\033[1m$MODEL\033[0m in \033[36m$DIR\033[0m"
 [ -n "$BRANCH" ] && printf " on \033[33m⎇ $BRANCH\033[0m"
 
-# Monobrain integration
-FLOW_DIR="$CWD/.monobrain"
+# Monomind integration
+FLOW_DIR="$CWD/.monomind"
 
 if [ -d "$FLOW_DIR" ]; then
   printf " │"

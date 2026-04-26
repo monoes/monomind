@@ -5,7 +5,7 @@
  * Allows programmatic control of the autopilot loop via MCP.
  *
  * ADR-072: Autopilot Integration
- * @module @monobrain/cli/mcp-tools/autopilot
+ * @module @monomind/cli/mcp-tools/autopilot
  */
 
 import type { MCPTool } from './types.js';

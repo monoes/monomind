@@ -36,7 +36,7 @@ Help users craft `new_task` messages to delegate effectively, and always remind 
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "ask",
   task_description: "help me choose the right mode",
   options: {
@@ -49,22 +49,22 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run ask "help me choose the right mode"
+npx monomind sparc run ask "help me choose the right mode"
 
 # For alpha features
-npx monobrain@alpha sparc run ask "help me choose the right mode"
+npx monomind@alpha sparc run ask "help me choose the right mode"
 
 # With namespace
-npx monobrain sparc run ask "your task" --namespace ask
+npx monomind sparc run ask "your task" --namespace ask
 
 # Non-interactive mode
-npx monobrain sparc run ask "your task" --non-interactive
+npx monomind sparc run ask "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run ask "help me choose the right mode"
+# If monomind is installed locally
+./monomind sparc run ask "help me choose the right mode"
 ```
 
 ## Memory Integration
@@ -72,7 +72,7 @@ npx monobrain sparc run ask "your task" --non-interactive
 ### Using MCP Tools (Preferred)
 ```javascript
 // Store mode-specific context
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "ask_context",
   value: "important decisions",
@@ -80,7 +80,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Query previous work
-mcp__monobrain__memory_search {
+mcp__monomind__memory_search {
   pattern: "ask",
   namespace: "ask",
   limit: 5
@@ -90,8 +90,8 @@ mcp__monobrain__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx monobrain memory store "ask_context" "important decisions" --namespace ask
+npx monomind memory store "ask_context" "important decisions" --namespace ask
 
 # Query previous work
-npx monobrain memory query "ask" --limit 5
+npx monomind memory query "ask" --limit 5
 ```

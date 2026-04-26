@@ -5,7 +5,7 @@
  * advanced vector search, attention mechanisms, graph neural networks,
  * and hyperbolic embeddings.
  *
- * @module @monobrain/plugins/integrations/ruvector
+ * @module @monomind/plugins/integrations/ruvector
  */
 
 // Export the main bridge plugin

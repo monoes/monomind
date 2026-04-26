@@ -13,7 +13,7 @@
  * - Health check: <10ms
  * - Graceful shutdown: <5s
  *
- * @module @monobrain/cli/mcp-server
+ * @module @monomind/cli/mcp-server
  * @version 3.0.0
  */
 
@@ -72,8 +72,8 @@ const DEFAULT_OPTIONS: Required<MCPServerOptions> = {
   transport: 'stdio',
   host: 'localhost',
   port: 3000,
-  pidFile: path.join(os.tmpdir(), 'monobrain-mcp.pid'),
-  logFile: path.join(os.tmpdir(), 'monobrain-mcp.log'),
+  pidFile: path.join(os.tmpdir(), 'monomind-mcp.pid'),
+  logFile: path.join(os.tmpdir(), 'monomind-mcp.log'),
   tools: 'all',
   daemonize: false,
   timeout: 30000,
@@ -207,7 +207,7 @@ export class MCPServerManager extends EventEmitter {
       // No PID file found. Detect if we are running in stdio mode
       // (e.g., launched by Claude Code via `claude mcp add`).
       const isStdio = !process.stdin.isTTY;
-      const envTransport = process.env.MONOBRAIN_MCP_TRANSPORT;
+      const envTransport = process.env.MONOMIND_MCP_TRANSPORT;
       if (isStdio || envTransport === 'stdio' || this.options.transport === 'stdio') {
         return {
           running: true,
@@ -317,7 +317,7 @@ export class MCPServerManager extends EventEmitter {
 
     // Log to stderr to not corrupt stdout
     console.error(
-      `[${new Date().toISOString()}] INFO [monobrain-mcp] (${sessionId}) Starting in stdio mode`
+      `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) Starting in stdio mode`
     );
 
     // Auto-initialize memory database before tools are registered (#1524)
@@ -328,28 +328,28 @@ export class MCPServerManager extends EventEmitter {
       const status = await checkMemoryInitialization();
       if (!status.initialized) {
         console.error(
-          `[${new Date().toISOString()}] INFO [monobrain-mcp] (${sessionId}) Auto-initializing memory database...`
+          `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) Auto-initializing memory database...`
         );
         const result = await initializeMemoryDatabase({ force: false, verbose: false });
         if (result.success) {
           console.error(
-            `[${new Date().toISOString()}] INFO [monobrain-mcp] (${sessionId}) Memory database initialized at ${result.dbPath}`
+            `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) Memory database initialized at ${result.dbPath}`
           );
         } else if (result.error && !result.error.includes('already exists')) {
           console.error(
-            `[${new Date().toISOString()}] WARN [monobrain-mcp] (${sessionId}) Memory database init returned: ${result.error}`
+            `[${new Date().toISOString()}] WARN [monomind-mcp] (${sessionId}) Memory database init returned: ${result.error}`
           );
         }
       } else {
         console.error(
-          `[${new Date().toISOString()}] INFO [monobrain-mcp] (${sessionId}) Memory database already initialized (v${status.version || 'unknown'})`
+          `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) Memory database already initialized (v${status.version || 'unknown'})`
         );
       }
     } catch (memInitError) {
       // Graceful degradation: server continues even if memory init fails.
       // Memory tools will attempt lazy init on first call via ensureInitialized().
       console.error(
-        `[${new Date().toISOString()}] WARN [monobrain-mcp] (${sessionId}) Memory auto-init failed (tools will retry on first call): ${memInitError instanceof Error ? memInitError.message : String(memInitError)}`
+        `[${new Date().toISOString()}] WARN [monomind-mcp] (${sessionId}) Memory auto-init failed (tools will retry on first call): ${memInitError instanceof Error ? memInitError.message : String(memInitError)}`
       );
     }
     console.error(JSON.stringify({
@@ -369,7 +369,7 @@ export class MCPServerManager extends EventEmitter {
       method: 'server.initialized',
       params: {
         serverInfo: {
-          name: 'monobrain',
+          name: 'monomind',
           version: VERSION,
           capabilities: {
             tools: { listChanged: true },
@@ -388,7 +388,7 @@ export class MCPServerManager extends EventEmitter {
 
       if (buffer.length > MAX_BUFFER_SIZE) {
         console.error(
-          `[${new Date().toISOString()}] ERROR [monobrain-mcp] Buffer exceeded ${MAX_BUFFER_SIZE} bytes, rejecting`
+          `[${new Date().toISOString()}] ERROR [monomind-mcp] Buffer exceeded ${MAX_BUFFER_SIZE} bytes, rejecting`
         );
         buffer = '';
         console.log(JSON.stringify({
@@ -412,7 +412,7 @@ export class MCPServerManager extends EventEmitter {
             }
           } catch (error) {
             console.error(
-              `[${new Date().toISOString()}] ERROR [monobrain-mcp] Failed to parse message:`,
+              `[${new Date().toISOString()}] ERROR [monomind-mcp] Failed to parse message:`,
               error instanceof Error ? error.message : String(error)
             );
           }
@@ -422,7 +422,7 @@ export class MCPServerManager extends EventEmitter {
 
     process.stdin.on('end', () => {
       console.error(
-        `[${new Date().toISOString()}] INFO [monobrain-mcp] (${sessionId}) stdin closed, shutting down...`
+        `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) stdin closed, shutting down...`
       );
       process.exit(0);
     });
@@ -430,14 +430,14 @@ export class MCPServerManager extends EventEmitter {
     // Handle process termination
     process.on('SIGINT', () => {
       console.error(
-        `[${new Date().toISOString()}] INFO [monobrain-mcp] (${sessionId}) Received SIGINT, shutting down...`
+        `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) Received SIGINT, shutting down...`
       );
       process.exit(0);
     });
 
     process.on('SIGTERM', () => {
       console.error(
-        `[${new Date().toISOString()}] INFO [monobrain-mcp] (${sessionId}) Received SIGTERM, shutting down...`
+        `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) Received SIGTERM, shutting down...`
       );
       process.exit(0);
     });
@@ -473,7 +473,7 @@ export class MCPServerManager extends EventEmitter {
             id: message.id,
             result: {
               protocolVersion: '2024-11-05',
-              serverInfo: { name: 'monobrain', version: '3.0.0' },
+              serverInfo: { name: 'monomind', version: '3.0.0' },
               capabilities: {
                 tools: { listChanged: true },
                 resources: { subscribe: true, listChanged: true },
@@ -530,7 +530,7 @@ export class MCPServerManager extends EventEmitter {
         case 'notifications/initialized':
           // Client notification - no response needed
           console.error(
-            `[${new Date().toISOString()}] INFO [monobrain-mcp] (${sessionId}) Client initialized`
+            `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) Client initialized`
           );
           return null;
 
@@ -550,7 +550,7 @@ export class MCPServerManager extends EventEmitter {
       }
     } catch (error) {
       console.error(
-        `[${new Date().toISOString()}] ERROR [monobrain-mcp] Error handling ${message.method}:`,
+        `[${new Date().toISOString()}] ERROR [monomind-mcp] Error handling ${message.method}:`,
         error
       );
       return {
@@ -570,7 +570,7 @@ export class MCPServerManager extends EventEmitter {
   private async startHttpServer(): Promise<void> {
     // Dynamically import the MCP server package
     // FIX for issue #942: Use proper package import instead of broken relative path
-    const { createMCPServer } = await import('@monobrain/mcp');
+    const { createMCPServer } = await import('@monomind/mcp');
 
     const logger = {
       debug: (msg: string, data?: unknown) => this.emit('log', { level: 'debug', msg, data }),
@@ -581,7 +581,7 @@ export class MCPServerManager extends EventEmitter {
 
     const mcpServer = createMCPServer(
       {
-        name: 'Monobrain MCP Server V1',
+        name: 'Monomind MCP Server V1',
         version: '3.0.0',
         transport: this.options.transport as 'http' | 'websocket',
         host: this.options.host,
@@ -689,7 +689,7 @@ export class MCPServerManager extends EventEmitter {
     }
     // Also clean up legacy PID file location from older versions
     try {
-      const legacyPath = path.join(process.env.MONOBRAIN_CWD || process.cwd(), '.monobrain', 'mcp-server.pid');
+      const legacyPath = path.join(process.env.MONOMIND_CWD || process.cwd(), '.monomind', 'mcp-server.pid');
       if (legacyPath !== this.options.pidFile) {
         await fs.promises.unlink(legacyPath);
       }
@@ -699,7 +699,7 @@ export class MCPServerManager extends EventEmitter {
   }
 
   /**
-   * Check if process is running AND is a node/monobrain process.
+   * Check if process is running AND is a node/monomind process.
    * Plain `kill -0` returns true for any process with the same owner,
    * which causes false positives when the OS recycles the PID.
    */
@@ -718,7 +718,7 @@ export class MCPServerManager extends EventEmitter {
         timeout: 1000,
       }).trim();
       // Must be a node process to be our MCP server
-      return cmdline.includes('node') || cmdline.includes('monobrain') || cmdline.includes('npx');
+      return cmdline.includes('node') || cmdline.includes('monomind') || cmdline.includes('npx');
     } catch {
       // If we can't inspect the process (macOS, Windows, permissions), fall back to kill check
       return true;

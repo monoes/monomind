@@ -52,7 +52,7 @@ export class LocalEncoder implements Encoder {
 }
 
 /**
- * Production encoder backed by the monobrain HNSW embedding infrastructure.
+ * Production encoder backed by the monomind HNSW embedding infrastructure.
  * Falls back to LocalEncoder until the HNSW embedding backend is wired in Task 04.
  */
 export class HNSWEncoder implements Encoder {

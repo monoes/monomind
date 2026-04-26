@@ -1,5 +1,5 @@
 /**
- * @monobrain/browser - Domain Types
+ * @monomind/browser - Domain Types
  * Core type definitions for browser automation
  */
 

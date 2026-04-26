@@ -7,14 +7,14 @@ Structure Claude Code's approach to complex development tasks for maximum effici
 
 ### 1. Initialize Development Framework
 ```
-Tool: mcp__monobrain__swarm_init
+Tool: mcp__monomind__swarm_init
 Parameters: {"topology": "hierarchical", "maxAgents": 8, "strategy": "specialized"}
 ```
 Creates hierarchical structure for organized, top-down development.
 
 ### 2. Define Development Perspectives
 ```
-Tool: mcp__monobrain__agent_spawn
+Tool: mcp__monomind__agent_spawn
 Parameters: {
   "type": "architect",
   "name": "System Design",
@@ -22,7 +22,7 @@ Parameters: {
 }
 ```
 ```
-Tool: mcp__monobrain__agent_spawn
+Tool: mcp__monomind__agent_spawn
 Parameters: {
   "type": "coder",
   "name": "Implementation Focus",
@@ -30,7 +30,7 @@ Parameters: {
 }
 ```
 ```
-Tool: mcp__monobrain__agent_spawn
+Tool: mcp__monomind__agent_spawn
 Parameters: {
   "type": "tester",
   "name": "Quality Assurance",
@@ -41,7 +41,7 @@ Sets up architectural and implementation thinking patterns.
 
 ### 3. Coordinate Implementation
 ```
-Tool: mcp__monobrain__task_orchestrate
+Tool: mcp__monomind__task_orchestrate
 Parameters: {
   "task": "Build REST API with authentication",
   "strategy": "parallel",
@@ -52,7 +52,7 @@ Parameters: {
 
 ### 4. Monitor Progress
 ```
-Tool: mcp__monobrain__task_status
+Tool: mcp__monomind__task_status
 Parameters: {"taskId": "api-build-task-123"}
 ```
 
@@ -68,11 +68,11 @@ Remember: All code is written by Claude Code using its native tools!
 ## CLI Usage
 ```bash
 # Start development workflow via CLI
-npx monobrain workflow dev "REST API with auth"
+npx monomind workflow dev "REST API with auth"
 
 # Create custom workflow
-npx monobrain workflow create --name "api-dev" --steps "design,implement,test,deploy"
+npx monomind workflow create --name "api-dev" --steps "design,implement,test,deploy"
 
 # Execute saved workflow
-npx monobrain workflow execute api-dev
+npx monomind workflow execute api-dev
 ```

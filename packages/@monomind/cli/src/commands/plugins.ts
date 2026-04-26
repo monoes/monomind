@@ -3,7 +3,7 @@
  * Plugin management, installation, and lifecycle
  * Now uses IPFS-based decentralized registry for discovery
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
@@ -32,13 +32,13 @@ const listCommand: Command = {
     { name: 'type', short: 't', type: 'string', description: 'Filter by plugin type' },
     { name: 'official', short: 'o', type: 'boolean', description: 'Show only official plugins' },
     { name: 'featured', short: 'f', type: 'boolean', description: 'Show featured plugins' },
-    { name: 'registry', short: 'r', type: 'string', description: 'Registry to use (default: monobrain-official)' },
+    { name: 'registry', short: 'r', type: 'string', description: 'Registry to use (default: monomind-official)' },
   ],
   examples: [
-    { command: 'monobrain plugins list', description: 'List all plugins from registry' },
-    { command: 'monobrain plugins list --installed', description: 'List installed only' },
-    { command: 'monobrain plugins list --official', description: 'List official plugins' },
-    { command: 'monobrain plugins list --category security', description: 'List security plugins' },
+    { command: 'monomind plugins list', description: 'List all plugins from registry' },
+    { command: 'monomind plugins list --installed', description: 'List installed only' },
+    { command: 'monomind plugins list --official', description: 'List official plugins' },
+    { command: 'monomind plugins list --category security', description: 'List security plugins' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const installedOnly = ctx.flags.installed as boolean;
@@ -62,8 +62,8 @@ const listCommand: Command = {
         if (installed.length === 0) {
           output.writeln(output.dim('No plugins installed.'));
           output.writeln();
-          output.writeln(output.dim('Run "monobrain plugins list" to see available plugins'));
-          output.writeln(output.dim('Run "monobrain plugins install -n <plugin>" to install'));
+          output.writeln(output.dim('Run "monomind plugins list" to see available plugins'));
+          output.writeln(output.dim('Run "monomind plugins install -n <plugin>" to install'));
           return { success: true };
         }
 
@@ -211,8 +211,8 @@ const installCommand: Command = {
     { name: 'registry', short: 'r', type: 'string', description: 'Registry to use' },
   ],
   examples: [
-    { command: 'monobrain plugins install -n community-analytics', description: 'Install plugin from IPFS' },
-    { command: 'monobrain plugins install -n ./my-plugin --dev', description: 'Install local plugin' },
+    { command: 'monomind plugins install -n community-analytics', description: 'Install plugin from IPFS' },
+    { command: 'monomind plugins install -n ./my-plugin --dev', description: 'Install local plugin' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const name = ctx.flags.name as string;
@@ -247,7 +247,7 @@ const installCommand: Command = {
       if (existingPlugin) {
         spinner.fail(`Plugin ${name} is already installed (v${existingPlugin.version})`);
         output.writeln();
-        output.writeln(output.dim('Use "monobrain plugins upgrade -n ' + name + '" to update'));
+        output.writeln(output.dim('Use "monomind plugins upgrade -n ' + name + '" to update'));
         return { success: false, exitCode: 1 };
       }
 
@@ -322,7 +322,7 @@ const uninstallCommand: Command = {
     { name: 'force', short: 'f', type: 'boolean', description: 'Force uninstall without confirmation' },
   ],
   examples: [
-    { command: 'monobrain plugins uninstall -n community-analytics', description: 'Uninstall plugin' },
+    { command: 'monomind plugins uninstall -n community-analytics', description: 'Uninstall plugin' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const name = ctx.flags.name as string;
@@ -378,8 +378,8 @@ const toggleCommand: Command = {
     { name: 'disable', short: 'd', type: 'boolean', description: 'Disable the plugin' },
   ],
   examples: [
-    { command: 'monobrain plugins toggle -n analytics --enable', description: 'Enable plugin' },
-    { command: 'monobrain plugins toggle -n analytics --disable', description: 'Disable plugin' },
+    { command: 'monomind plugins toggle -n analytics --enable', description: 'Enable plugin' },
+    { command: 'monomind plugins toggle -n analytics --disable', description: 'Disable plugin' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const name = ctx.flags.name as string;
@@ -447,7 +447,7 @@ const infoCommand: Command = {
     { name: 'registry', short: 'r', type: 'string', description: 'Registry to use' },
   ],
   examples: [
-    { command: 'monobrain plugins info -n @monobrain/neural', description: 'Show plugin info' },
+    { command: 'monomind plugins info -n @monomind/neural', description: 'Show plugin info' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const name = ctx.flags.name as string;
@@ -616,8 +616,8 @@ const createCommand: Command = {
     { name: 'path', short: 'p', type: 'string', description: 'Output path', default: '.' },
   ],
   examples: [
-    { command: 'monobrain plugins create -n my-plugin', description: 'Create basic plugin' },
-    { command: 'monobrain plugins create -n my-plugin -t hooks', description: 'Create hooks plugin' },
+    { command: 'monomind plugins create -n my-plugin', description: 'Create basic plugin' },
+    { command: 'monomind plugins create -n my-plugin -t hooks', description: 'Create hooks plugin' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const name = ctx.flags.name as string;
@@ -675,8 +675,8 @@ const upgradeCommand: Command = {
     { name: 'version', short: 'v', type: 'string', description: 'Target version (default: latest)' },
   ],
   examples: [
-    { command: 'monobrain plugins upgrade -n @monobrain/neural', description: 'Upgrade to latest' },
-    { command: 'monobrain plugins upgrade -n @monobrain/neural -v 3.1.0', description: 'Upgrade to specific version' },
+    { command: 'monomind plugins upgrade -n @monomind/neural', description: 'Upgrade to latest' },
+    { command: 'monomind plugins upgrade -n @monomind/neural -v 3.1.0', description: 'Upgrade to specific version' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const name = ctx.flags.name as string;
@@ -737,8 +737,8 @@ const searchCommand: Command = {
     { name: 'registry', short: 'r', type: 'string', description: 'Registry to use' },
   ],
   examples: [
-    { command: 'monobrain plugins search -q neural', description: 'Search for neural plugins' },
-    { command: 'monobrain plugins search -q security --verified', description: 'Search verified security plugins' },
+    { command: 'monomind plugins search -q neural', description: 'Search for neural plugins' },
+    { command: 'monomind plugins search -q security --verified', description: 'Search verified security plugins' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const query = ctx.flags.query as string;
@@ -837,8 +837,8 @@ const rateCommand: Command = {
     { name: 'rating', short: 'r', type: 'number', description: 'Rating (1-5)', required: true },
   ],
   examples: [
-    { command: 'monobrain plugins rate -n @monobrain/embeddings -r 5', description: 'Rate 5 stars' },
-    { command: 'monobrain plugins rate -n my-plugin -r 4', description: 'Rate 4 stars' },
+    { command: 'monomind plugins rate -n @monomind/embeddings -r 5', description: 'Rate 5 stars' },
+    { command: 'monomind plugins rate -n my-plugin -r 4', description: 'Rate 4 stars' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const { rateItem } = await import('../services/registry-api.js');
@@ -885,14 +885,14 @@ export const pluginsCommand: Command = {
   description: 'Plugin management with IPFS-based decentralized registry',
   subcommands: [listCommand, searchCommand, installCommand, uninstallCommand, upgradeCommand, toggleCommand, infoCommand, createCommand, rateCommand],
   examples: [
-    { command: 'monobrain plugins list', description: 'List plugins from IPFS registry' },
-    { command: 'monobrain plugins search -q neural', description: 'Search for plugins' },
-    { command: 'monobrain plugins install -n community-analytics', description: 'Install from IPFS' },
-    { command: 'monobrain plugins create -n my-plugin', description: 'Create new plugin' },
+    { command: 'monomind plugins list', description: 'List plugins from IPFS registry' },
+    { command: 'monomind plugins search -q neural', description: 'Search for plugins' },
+    { command: 'monomind plugins install -n community-analytics', description: 'Install from IPFS' },
+    { command: 'monomind plugins create -n my-plugin', description: 'Create new plugin' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln();
-    output.writeln(output.bold('MonoBrain Plugin System'));
+    output.writeln(output.bold('MonoMind Plugin System'));
     output.writeln(output.dim('Decentralized plugin marketplace via IPFS'));
     output.writeln();
     output.writeln('Subcommands:');
@@ -918,16 +918,16 @@ export const pluginsCommand: Command = {
     output.writeln();
     output.writeln(output.bold('Official Plugins:'));
     output.printList([
-      '@monobrain/neural              - Neural patterns and inference (WASM SIMD)',
-      '@monobrain/security            - Security scanning and CVE detection',
-      '@monobrain/embeddings          - Vector embeddings with hyperbolic support',
-      '@monobrain/claims              - Claims-based authorization',
-      '@monobrain/performance         - Performance profiling and benchmarks',
-      '@monobrain/plugin-gastown-bridge - Gas Town orchestrator integration (WASM-accelerated)',
+      '@monomind/neural              - Neural patterns and inference (WASM SIMD)',
+      '@monomind/security            - Security scanning and CVE detection',
+      '@monomind/embeddings          - Vector embeddings with hyperbolic support',
+      '@monomind/claims              - Claims-based authorization',
+      '@monomind/performance         - Performance profiling and benchmarks',
+      '@monomind/plugin-gastown-bridge - Gas Town orchestrator integration (WASM-accelerated)',
     ]);
     output.writeln();
-    output.writeln(output.dim('Run "monobrain plugins list --official" to see all official plugins'));
-    output.writeln(output.dim('github.com/nokhodian/monobrain'));
+    output.writeln(output.dim('Run "monomind plugins list --official" to see all official plugins'));
+    output.writeln(output.dim('github.com/nokhodian/monomind'));
     return { success: true };
   },
 };

@@ -4,10 +4,10 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { compile } from '../../packages/@monobrain/hooks/src/subgraph/subgraph-compiler.js';
-import { SubGraphRegistry } from '../../packages/@monobrain/hooks/src/subgraph/subgraph-registry.js';
-import { validateKeyContracts, compose } from '../../packages/@monobrain/hooks/src/subgraph/subgraph-composer.js';
-import type { CompiledSubGraph } from '../../packages/@monobrain/hooks/src/subgraph/types.js';
+import { compile } from '../../packages/@monomind/hooks/src/subgraph/subgraph-compiler.js';
+import { SubGraphRegistry } from '../../packages/@monomind/hooks/src/subgraph/subgraph-registry.js';
+import { validateKeyContracts, compose } from '../../packages/@monomind/hooks/src/subgraph/subgraph-composer.js';
+import type { CompiledSubGraph } from '../../packages/@monomind/hooks/src/subgraph/types.js';
 
 /** Helper to create a minimal CompiledSubGraph for composer tests */
 function makeCompiled(overrides: Partial<CompiledSubGraph> & { subGraphId: string }): CompiledSubGraph {

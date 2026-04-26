@@ -1,12 +1,12 @@
 # Init System
 
-Comprehensive initialization system for Claude Code integration with monobrain V1.
+Comprehensive initialization system for Claude Code integration with monomind V1.
 
 ## Overview
 
 The V1 init system creates a complete development environment including:
 - `.claude/` directory with settings, skills, commands, agents, and helpers
-- `.monobrain/` runtime configuration
+- `.monomind/` runtime configuration
 - `.mcp.json` MCP server configuration
 - Cross-platform support (Windows, macOS, Linux)
 
@@ -16,30 +16,30 @@ The V1 init system creates a complete development environment including:
 
 ```bash
 # Default initialization (recommended settings)
-npx @monobrain/cli init
+npx @monomind/cli init
 
 # Minimal setup (lightweight)
-npx @monobrain/cli init --minimal
+npx @monomind/cli init --minimal
 
 # Full setup (everything enabled)
-npx @monobrain/cli init --full
+npx @monomind/cli init --full
 
 # Force overwrite existing files
-npx @monobrain/cli init --force
+npx @monomind/cli init --force
 
 # Interactive wizard
-npx @monobrain/cli init wizard
+npx @monomind/cli init wizard
 ```
 
 ### Programmatic Usage
 
 ```typescript
-import { executeInit, DEFAULT_INIT_OPTIONS } from '@monobrain/cli/init';
+import { executeInit, DEFAULT_INIT_OPTIONS } from '@monomind/cli/init';
 
 const result = await executeInit({
   ...DEFAULT_INIT_OPTIONS,
   targetDir: process.cwd(),
-  sourceBaseDir: '/path/to/monobrain',
+  sourceBaseDir: '/path/to/monomind',
 });
 
 console.log(`Created ${result.created.files.length} files`);
@@ -95,7 +95,7 @@ project/
 │   ├── helpers/           # Utility scripts
 │   ├── statusline.sh      # Unix statusline
 │   └── statusline.mjs     # ESM module
-├── .monobrain/
+├── .monomind/
 │   ├── config.yaml        # Runtime config
 │   ├── data/              # Persistent data
 │   ├── logs/              # Log files

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 
-import { CLISink } from '../../packages/@monobrain/hooks/src/observability/sinks/cli-sink.js';
+import { CLISink } from '../../packages/@monomind/hooks/src/observability/sinks/cli-sink.js';
 
 describe('CLISink', () => {
   it('writes event to stdout when enabled', () => {

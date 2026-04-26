@@ -7,7 +7,7 @@ Test-driven development with TodoWrite planning and comprehensive testing.
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "tdd",
   task_description: "shopping cart feature",
   options: {
@@ -20,16 +20,16 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run tdd "shopping cart feature"
+npx monomind sparc run tdd "shopping cart feature"
 
 # For alpha features
-npx monobrain@alpha sparc run tdd "shopping cart feature"
+npx monomind@alpha sparc run tdd "shopping cart feature"
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run tdd "shopping cart feature"
+# If monomind is installed locally
+./monomind sparc run tdd "shopping cart feature"
 ```
 
 ## Core Capabilities

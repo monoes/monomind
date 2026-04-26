@@ -104,9 +104,9 @@ Validate tool call parameters against a schema before execution. Rejected becaus
 
 ## References
 
-- `packages/@monobrain/guidance/src/gates.ts` -- `EnforcementGates.aggregateDecision()`, stateless evaluation methods
-- `packages/@monobrain/guidance/src/ledger.ts` -- `RunLedger.createEvent()`, `DiffQualityEvaluator`
-- `packages/@monobrain/guidance/src/index.ts` -- `GuidanceControlPlane.evaluateCommand()`, `evaluateToolUse()`, `evaluateEdit()`
-- `packages/@monobrain/guidance/src/types.ts` -- `GateDecision`, `GateResult`
+- `packages/@monomind/guidance/src/gates.ts` -- `EnforcementGates.aggregateDecision()`, stateless evaluation methods
+- `packages/@monomind/guidance/src/ledger.ts` -- `RunLedger.createEvent()`, `DiffQualityEvaluator`
+- `packages/@monomind/guidance/src/index.ts` -- `GuidanceControlPlane.evaluateCommand()`, `evaluateToolUse()`, `evaluateEdit()`
+- `packages/@monomind/guidance/src/types.ts` -- `GateDecision`, `GateResult`
 - ADR-G004 -- The four gates this gateway wraps
 - ADR-G005 -- The proof envelope that records gate decisions

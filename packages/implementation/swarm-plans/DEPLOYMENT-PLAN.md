@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document defines the **deployment and release strategy** for Monobrain v1. Agent #15 (Release Engineer) leads this effort with coordination from Agent #1 (Queen Coordinator).
+This document defines the **deployment and release strategy** for Monomind v1. Agent #15 (Release Engineer) leads this effort with coordination from Agent #1 (Queen Coordinator).
 
 ---
 
@@ -57,12 +57,12 @@ V1.0.0          → Stable release
 
 ```json
 {
-  "name": "@anthropic/monobrain",
+  "name": "@anthropic/monomind",
   "version": "3.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "monobrain": "bin/monobrain.js"
+    "monomind": "bin/monomind.js"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -74,7 +74,7 @@ V1.0.0          → Stable release
 ### GitHub Release
 
 ```markdown
-## Monobrain V1.0.0
+## Monomind V1.0.0
 
 ### Highlights
 
@@ -108,7 +108,7 @@ See [MIGRATION-GUIDE.md](./packages/implementation/migration/MIGRATION-GUIDE.md)
 
 ---
 
-**Full Changelog**: https://github.com/anthropic/monobrain/compare/v2.7.47...V1.0.0
+**Full Changelog**: https://github.com/anthropic/monomind/compare/v2.7.47...V1.0.0
 ```
 
 ---
@@ -251,7 +251,7 @@ jobs:
 
             ## Installation
             ```bash
-            npm install -g @anthropic/monobrain@${{ github.ref_name }}
+            npm install -g @anthropic/monomind@${{ github.ref_name }}
             ```
 
             ## Documentation
@@ -369,13 +369,13 @@ import { program } from 'commander';
 import { migrate } from '../src/migration/migrator';
 
 program
-  .name('monobrain-migrate')
-  .description('Migrate Monobrain v2 to v1')
+  .name('monomind-migrate')
+  .description('Migrate Monomind v2 to v1')
   .option('-d, --dry-run', 'Show what would be migrated')
   .option('-b, --backup', 'Create backup before migration')
   .option('--config <path>', 'Path to config file')
   .action(async (options) => {
-    console.log('Monobrain v2 → v1 Migration');
+    console.log('Monomind v2 → v1 Migration');
     console.log('================================\n');
 
     const result = await migrate({
@@ -474,12 +474,12 @@ jobs:
     environment: production
     steps:
       - name: Deprecate current version
-        run: npm deprecate @anthropic/monobrain@latest "Rolling back due to: ${{ inputs.reason }}"
+        run: npm deprecate @anthropic/monomind@latest "Rolling back due to: ${{ inputs.reason }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Promote previous version
-        run: npm dist-tag add @anthropic/monobrain@${{ inputs.version }} latest
+        run: npm dist-tag add @anthropic/monomind@${{ inputs.version }} latest
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -500,13 +500,13 @@ jobs:
         with:
           payload: |
             {
-              "text": "🚨 Monobrain rollback executed",
+              "text": "🚨 Monomind rollback executed",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*Monobrain Rollback*\nVersion: v${{ inputs.version }}\nReason: ${{ inputs.reason }}"
+                    "text": "*Monomind Rollback*\nVersion: v${{ inputs.version }}\nReason: ${{ inputs.reason }}"
                   }
                 }
               ]
@@ -558,20 +558,20 @@ export async function reportReleaseMetrics(): Promise<void> {
 # Post-release health checks
 checks:
   - name: npm install
-    command: npm install -g @anthropic/monobrain@latest
+    command: npm install -g @anthropic/monomind@latest
     timeout: 60s
 
   - name: CLI startup
-    command: monobrain --version
+    command: monomind --version
     expected: "3.0.0"
     timeout: 5s
 
   - name: Basic swarm
-    command: monobrain swarm init test --dry-run
+    command: monomind swarm init test --dry-run
     timeout: 10s
 
   - name: MCP server
-    command: monobrain mcp start --health-check
+    command: monomind mcp start --health-check
     timeout: 30s
 ```
 
@@ -582,9 +582,9 @@ checks:
 ### Announcement Template
 
 ````markdown
-# 🚀 Monobrain V1.0.0 Released!
+# 🚀 Monomind V1.0.0 Released!
 
-We're excited to announce the release of Monobrain V1.0.0, a major update
+We're excited to announce the release of Monomind V1.0.0, a major update
 that brings significant performance improvements, enhanced security, and
 deep integration with the agentic-flow ecosystem.
 
@@ -613,8 +613,8 @@ deep integration with the agentic-flow ecosystem.
 ## Upgrade
 
 ```bash
-npm install -g @anthropic/monobrain@3.0.0
-monobrain migrate --from v2
+npm install -g @anthropic/monomind@3.0.0
+monomind migrate --from v2
 ```
 ````
 

@@ -1,5 +1,5 @@
 /**
- * RuVector Integration Module for Monobrain CLI
+ * RuVector Integration Module for Monomind CLI
  *
  * Provides integration with @ruvector packages for:
  * - Q-Learning based task routing
@@ -10,7 +10,7 @@
  * - Graph boundary analysis
  * - Flash Attention for faster similarity computations
  *
- * @module @monobrain/cli/ruvector
+ * @module @monomind/cli/ruvector
  */
 
 export { QLearningRouter, createQLearningRouter, type QLearningRouterConfig, type RouteDecision } from './q-learning-router.js';

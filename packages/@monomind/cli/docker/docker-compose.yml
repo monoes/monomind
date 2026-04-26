@@ -1,4 +1,4 @@
-# Monobrain v1.5 — Docker Compose Profiles
+# Monomind v1.5 — Docker Compose Profiles
 #
 # Profiles:
 #   lite     — MCP server only (stdio), minimal footprint
@@ -6,9 +6,9 @@
 #   workers  — Scalable worker pool (extends docker-compose.workers.yml)
 #
 # Usage:
-#   docker compose -f packages/@monobrain/cli/docker/docker-compose.yml --profile lite up
-#   docker compose -f packages/@monobrain/cli/docker/docker-compose.yml --profile full up -d
-#   docker compose -f packages/@monobrain/cli/docker/docker-compose.yml --profile workers up -d --scale worker=5
+#   docker compose -f packages/@monomind/cli/docker/docker-compose.yml --profile lite up
+#   docker compose -f packages/@monomind/cli/docker/docker-compose.yml --profile full up -d
+#   docker compose -f packages/@monomind/cli/docker/docker-compose.yml --profile workers up -d --scale worker=5
 #
 # Environment (required for full/workers):
 #   ANTHROPIC_API_KEY — Your Anthropic API key
@@ -19,12 +19,12 @@ services:
     profiles: ["lite"]
     build:
       context: ../../../..
-      dockerfile: packages/@monobrain/cli/docker/Dockerfile
-    image: monobrain:lite
+      dockerfile: packages/@monomind/cli/docker/Dockerfile
+    image: monomind:lite
     stdin_open: true
     environment:
       - NODE_ENV=production
-      - MONOBRAIN_MCP_TRANSPORT=stdio
+      - MONOMIND_MCP_TRANSPORT=stdio
     deploy:
       resources:
         limits:
@@ -34,29 +34,29 @@ services:
           cpus: "0.25"
           memory: 128M
     healthcheck:
-      test: ["CMD", "monobrain", "doctor", "--quiet"]
+      test: ["CMD", "monomind", "doctor", "--quiet"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
 
   # ── full: CLI + daemon + optional deps (~800MB) ────────────────
-  monobrain-full:
+  monomind-full:
     profiles: ["full"]
     build:
       context: ../../../..
-      dockerfile: packages/@monobrain/cli/docker/Dockerfile.full
-    image: monobrain:full
+      dockerfile: packages/@monomind/cli/docker/Dockerfile.full
+    image: monomind:full
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - NODE_ENV=production
-      - MONOBRAIN_LOG_LEVEL=${MONOBRAIN_LOG_LEVEL:-info}
-      - MONOBRAIN_MEMORY_BACKEND=hybrid
+      - MONOMIND_LOG_LEVEL=${MONOMIND_LOG_LEVEL:-info}
+      - MONOMIND_MEMORY_BACKEND=hybrid
     volumes:
-      - monobrain-state:/home/monobrain/.monobrain
-      - monobrain-logs:/var/log/monobrain
+      - monomind-state:/home/monomind/.monomind
+      - monomind-logs:/var/log/monomind
     ports:
-      - "${MONOBRAIN_MCP_PORT:-3000}:3000"
+      - "${MONOMIND_MCP_PORT:-3000}:3000"
     deploy:
       resources:
         limits:
@@ -65,9 +65,9 @@ services:
         reservations:
           cpus: "1"
           memory: 2G
-    command: ["monobrain", "daemon", "start", "--foreground"]
+    command: ["monomind", "daemon", "start", "--foreground"]
     healthcheck:
-      test: ["CMD", "monobrain", "doctor", "--quiet"]
+      test: ["CMD", "monomind", "doctor", "--quiet"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -78,19 +78,19 @@ services:
     profiles: ["workers"]
     build:
       context: ../../../..
-      dockerfile: packages/@monobrain/cli/docker/Dockerfile
-    image: monobrain:lite
+      dockerfile: packages/@monomind/cli/docker/Dockerfile
+    image: monomind:lite
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - CLAUDE_CODE_HEADLESS=true
-      - CLAUDE_CODE_SANDBOX_MODE=${MONOBRAIN_SANDBOX:-strict}
-      - MONOBRAIN_WORKERS=${MONOBRAIN_WORKERS:-audit,optimize,testgaps}
+      - CLAUDE_CODE_SANDBOX_MODE=${MONOMIND_SANDBOX:-strict}
+      - MONOMIND_WORKERS=${MONOMIND_WORKERS:-audit,optimize,testgaps}
       - NODE_ENV=production
     volumes:
-      - worker-state:/home/monobrain/.monobrain
-      - worker-logs:/var/log/monobrain
+      - worker-state:/home/monomind/.monomind
+      - worker-logs:/var/log/monomind
     deploy:
-      replicas: ${MONOBRAIN_WORKER_REPLICAS:-3}
+      replicas: ${MONOMIND_WORKER_REPLICAS:-3}
       resources:
         limits:
           cpus: "2"
@@ -102,16 +102,16 @@ services:
         condition: on-failure
         delay: 5s
         max_attempts: 3
-    command: ["monobrain", "daemon", "start", "--foreground", "--headless"]
+    command: ["monomind", "daemon", "start", "--foreground", "--headless"]
     healthcheck:
-      test: ["CMD", "monobrain", "doctor", "--quiet"]
+      test: ["CMD", "monomind", "doctor", "--quiet"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
 
 volumes:
-  monobrain-state:
-  monobrain-logs:
+  monomind-state:
+  monomind-logs:
   worker-state:
   worker-logs:

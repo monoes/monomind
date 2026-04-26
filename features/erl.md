@@ -2,7 +2,7 @@
 
 **Source:** https://arxiv.org/abs/2603.24639  
 **Category:** Agent Learning Research  
-**Role in Monobrain:** Structured heuristic extraction at post-task, ranked hint injection at pre-task
+**Role in Monomind:** Structured heuristic extraction at post-task, ranked hint injection at pre-task
 
 ---
 
@@ -16,7 +16,7 @@ The key innovation over naive experience replay is the structured format: instea
 
 ### Structured `{condition, action, confidence}` Heuristics
 
-Monobrain implements ERL's heuristic lifecycle across two hook events:
+Monomind implements ERL's heuristic lifecycle across two hook events:
 
 **At `hooks_post-task`** (extraction):
 When a task completes, the intelligence system extracts heuristics in structured format:
@@ -35,7 +35,7 @@ Before a new task starts, the system retrieves the top-k most relevant heuristic
 
 The confidence score determines ranking: high-confidence heuristics appear first. Heuristics decay via the FOREVER forgetting curve if they aren't validated by future successes.
 
-## How It Improved Monobrain
+## How It Improved Monomind
 
 ERL bridges the gap between raw experience storage (which autogen and smolagents handle) and useful learning (which requires distillation). Without ERL's structured format, the intelligence system stored task transcripts and hoped semantic search would retrieve relevant ones. With structured heuristics, retrieval is precise — a TypeScript task retrieves TypeScript-specific heuristics, not Python ones.
 
@@ -46,4 +46,4 @@ The practical result: after 50+ tasks, the system's pre-task hints become genuin
 - `hook-handler.cjs` `post-task` — heuristic extraction trigger
 - `hook-handler.cjs` `pre-task` — heuristic injection via `[INTELLIGENCE]` signal
 - Intelligence trajectory system — `trajectory-end` fires heuristic distillation
-- `packages/@monobrain/memory/` — `heuristics` namespace storage and retrieval
+- `packages/@monomind/memory/` — `heuristics` namespace storage and retrieval

@@ -11,7 +11,7 @@
  * 4. Evaluate against active rules
  * 5. Store results in the run ledger
  *
- * @module @monobrain/guidance/headless
+ * @module @monomind/guidance/headless
  */
 /**
  * Default command executor using child_process

@@ -22,7 +22,7 @@ Audit files for clarity, modularity, and size. Break large components (>500 line
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "refinement-optimization-mode",
   task_description: "optimize database queries",
   options: {
@@ -35,22 +35,22 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run refinement-optimization-mode "optimize database queries"
+npx monomind sparc run refinement-optimization-mode "optimize database queries"
 
 # For alpha features
-npx monobrain@alpha sparc run refinement-optimization-mode "optimize database queries"
+npx monomind@alpha sparc run refinement-optimization-mode "optimize database queries"
 
 # With namespace
-npx monobrain sparc run refinement-optimization-mode "your task" --namespace refinement-optimization-mode
+npx monomind sparc run refinement-optimization-mode "your task" --namespace refinement-optimization-mode
 
 # Non-interactive mode
-npx monobrain sparc run refinement-optimization-mode "your task" --non-interactive
+npx monomind sparc run refinement-optimization-mode "your task" --non-interactive
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run refinement-optimization-mode "optimize database queries"
+# If monomind is installed locally
+./monomind sparc run refinement-optimization-mode "optimize database queries"
 ```
 
 ## Memory Integration
@@ -58,7 +58,7 @@ npx monobrain sparc run refinement-optimization-mode "your task" --non-interacti
 ### Using MCP Tools (Preferred)
 ```javascript
 // Store mode-specific context
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "refinement-optimization-mode_context",
   value: "important decisions",
@@ -66,7 +66,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Query previous work
-mcp__monobrain__memory_search {
+mcp__monomind__memory_search {
   pattern: "refinement-optimization-mode",
   namespace: "refinement-optimization-mode",
   limit: 5
@@ -76,8 +76,8 @@ mcp__monobrain__memory_search {
 ### Using NPX CLI (Fallback)
 ```bash
 # Store mode-specific context
-npx monobrain memory store "refinement-optimization-mode_context" "important decisions" --namespace refinement-optimization-mode
+npx monomind memory store "refinement-optimization-mode_context" "important decisions" --namespace refinement-optimization-mode
 
 # Query previous work
-npx monobrain memory query "refinement-optimization-mode" --limit 5
+npx monomind memory query "refinement-optimization-mode" --limit 5
 ```

@@ -6,12 +6,12 @@
  * Outputs plain text or JSON that Claude Code hooks can consume.
  *
  * Usage:
- *   npx @monobrain/hooks session-context
- *   npx @monobrain/hooks user-prompt "Fix authentication bug"
- *   npx @monobrain/hooks pre-edit "/path/to/file.ts"
- *   npx @monobrain/hooks route "Implement caching layer"
+ *   npx @monomind/hooks session-context
+ *   npx @monomind/hooks user-prompt "Fix authentication bug"
+ *   npx @monomind/hooks pre-edit "/path/to/file.ts"
+ *   npx @monomind/hooks route "Implement caching layer"
  *
- * @module @monobrain/hooks/cli/guidance-cli
+ * @module @monomind/hooks/cli/guidance-cli
  */
 
 import { GuidanceProvider } from '../reasoningbank/guidance-provider.js';
@@ -433,9 +433,9 @@ async function main(): Promise<void> {
 
 function printHelp(): void {
   console.log(`
-@monobrain/hooks - V1 Guidance System CLI
+@monomind/hooks - V1 Guidance System CLI
 
-Usage: npx @monobrain/hooks <command> [args]
+Usage: npx @monomind/hooks <command> [args]
 
 Guidance Commands (for Claude hooks):
   session-context           Output project context for SessionStart hook
@@ -496,28 +496,28 @@ Exit Codes:
 
 Examples:
   # Session start guidance
-  npx @monobrain/hooks session-context
+  npx @monomind/hooks session-context
 
   # User prompt analysis
-  npx @monobrain/hooks user-prompt "Fix authentication security vulnerability"
+  npx @monomind/hooks user-prompt "Fix authentication security vulnerability"
 
   # Pre-edit security check
-  npx @monobrain/hooks pre-edit "src/auth/login.ts"
+  npx @monomind/hooks pre-edit "src/auth/login.ts"
 
   # Agent routing
-  npx @monobrain/hooks route "Implement HNSW vector search"
+  npx @monomind/hooks route "Implement HNSW vector search"
 
   # Store a learned pattern
-  npx @monobrain/hooks store "Use dependency injection for testability" architecture
+  npx @monomind/hooks store "Use dependency injection for testability" architecture
 
   # Broadcast pattern to swarm
-  npx @monobrain/hooks swarm-pattern-broadcast "Use HNSW for 150x faster search" memory
+  npx @monomind/hooks swarm-pattern-broadcast "Use HNSW for 150x faster search" memory
 
   # Initiate consensus
-  npx @monobrain/hooks swarm-consensus "Which auth method?" "JWT,OAuth2,Session"
+  npx @monomind/hooks swarm-consensus "Which auth method?" "JWT,OAuth2,Session"
 
   # Hand off task
-  npx @monobrain/hooks swarm-handoff security-auditor "Review auth implementation"
+  npx @monomind/hooks swarm-handoff security-auditor "Review auth implementation"
 `);
 }
 

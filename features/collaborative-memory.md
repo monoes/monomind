@@ -2,7 +2,7 @@
 
 **Source:** https://arxiv.org/abs/2505.18279  
 **Category:** Multi-Agent Memory Research  
-**Role in Monobrain:** Auto-promotion of private memories to team-shared when accessed by multiple agents
+**Role in Monomind:** Auto-promotion of private memories to team-shared when accessed by multiple agents
 
 ---
 
@@ -16,7 +16,7 @@ The proposed rule: promote `access_level` from `private` → `team` when **3+ di
 
 ### Auto-Promotion via `agent_reads` Table
 
-Monobrain implements collaborative memory promotion in `SQLiteBackend`:
+Monomind implements collaborative memory promotion in `SQLiteBackend`:
 
 **Tracking reads**: Every time an agent retrieves a memory entry, a row is written to the `agent_reads` table:
 ```sql
@@ -34,7 +34,7 @@ If `unique_readers >= 3`, the entry's `access_level` is updated from `private` t
 
 **Why this matters**: In a multi-agent swarm working on a complex task, the coder, tester, and reviewer agents might all independently retrieve the same memory about a project's authentication architecture. The promotion system recognizes this as a signal that the memory is genuinely important to the task and promotes it, so future agents (the security auditor, the architect) inherit it without having to discover it themselves.
 
-## How It Improved Monobrain
+## How It Improved Monomind
 
 Before collaborative memory promotion, memories were either fully private (only the creating agent could see them) or manually tagged as shared. This meant important cross-cutting knowledge — security patterns, architectural decisions, learned conventions — stayed siloed even when multiple agents would benefit from it.
 
@@ -42,7 +42,7 @@ The auto-promotion mechanism creates an emergent shared knowledge layer: the mem
 
 ## Key Files Influenced
 
-- `packages/@monobrain/memory/src/sqlite-backend.ts` — `agent_reads` table and `checkAndPromoteEntry()`
-- `packages/@monobrain/memory/src/agent-db.ts` — `access_level` field on `MemoryEntry`
-- `packages/@monobrain/cli/src/swarm/` — agent identity for read attribution
+- `packages/@monomind/memory/src/sqlite-backend.ts` — `agent_reads` table and `checkAndPromoteEntry()`
+- `packages/@monomind/memory/src/agent-db.ts` — `access_level` field on `MemoryEntry`
+- `packages/@monomind/cli/src/swarm/` — agent identity for read attribution
 - Background `consolidate` worker — reads promotion check results

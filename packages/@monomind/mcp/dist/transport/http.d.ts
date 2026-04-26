@@ -1,5 +1,5 @@
 /**
- * @monobrain/mcp - HTTP Transport
+ * @monomind/mcp - HTTP Transport
  *
  * HTTP/REST transport with WebSocket support
  */

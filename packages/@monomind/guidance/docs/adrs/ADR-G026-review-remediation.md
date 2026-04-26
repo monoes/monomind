@@ -8,7 +8,7 @@ Accepted
 
 ## Context
 
-A comprehensive code review of the `@monobrain/guidance` package identified several critical, high, and medium severity issues that required remediation before the package could be considered production-ready.
+A comprehensive code review of the `@monomind/guidance` package identified several critical, high, and medium severity issues that required remediation before the package could be considered production-ready.
 
 ### Critical Issues Found
 

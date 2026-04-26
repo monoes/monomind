@@ -105,14 +105,14 @@ describe('resolveAutoMemoryDir', () => {
 
 describe('findGitRoot', () => {
   it('should find git root for a directory inside a repo', () => {
-    // We know /workspaces/monobrain is a git repo
-    const root = findGitRoot('/workspaces/monobrain/packages/@monobrain/memory');
-    expect(root).toBe('/workspaces/monobrain');
+    // We know /workspaces/monomind is a git repo
+    const root = findGitRoot('/workspaces/monomind/packages/@monomind/memory');
+    expect(root).toBe('/workspaces/monomind');
   });
 
   it('should return the directory itself if it is the git root', () => {
-    const root = findGitRoot('/workspaces/monobrain');
-    expect(root).toBe('/workspaces/monobrain');
+    const root = findGitRoot('/workspaces/monomind');
+    expect(root).toBe('/workspaces/monomind');
   });
 
   it('should return null for root filesystem', () => {
@@ -588,7 +588,7 @@ Already in DB
       await bridge.curateIndex();
 
       const indexContent = fsSync.readFileSync(bridge.getIndexPath(), 'utf-8');
-      expect(indexContent).toContain('# Monobrain Project Memory');
+      expect(indexContent).toContain('# Monomind Project Memory');
       expect(indexContent).toContain('Init HNSW before search');
       expect(indexContent).toContain('Use Int8 quantization');
     });

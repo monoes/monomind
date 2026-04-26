@@ -3,11 +3,11 @@
  * Outputs Docker files and SQL for easy RuVector PostgreSQL setup
  *
  * Usage:
- *   npx monobrain ruvector setup              # Output to ./ruvector-postgres/
- *   npx monobrain ruvector setup --output /path/to/dir
- *   npx monobrain ruvector setup --print      # Print to stdout only
+ *   npx monomind ruvector setup              # Output to ./ruvector-postgres/
+ *   npx monomind ruvector setup --output /path/to/dir
+ *   npx monomind ruvector setup --print      # Print to stdout only
  *
- * https://github.com/nokhodian/monobrain
+ * https://github.com/nokhodian/monomind
  */
 
 import type { Command, CommandContext, CommandResult } from '../../types.js';
@@ -36,15 +36,15 @@ services:
     container_name: ruvector-postgres
     environment:
       POSTGRES_USER: claude
-      POSTGRES_PASSWORD: monobrain-test
-      POSTGRES_DB: monobrain
+      POSTGRES_PASSWORD: monomind-test
+      POSTGRES_DB: monomind
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U claude -d monobrain"]
+      test: ["CMD-SHELL", "pg_isready -U claude -d monomind"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -58,7 +58,7 @@ services:
     image: dpage/pgadmin4:latest
     container_name: ruvector-pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@monobrain.local
+      PGADMIN_DEFAULT_EMAIL: admin@monomind.local
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
@@ -81,7 +81,7 @@ const INIT_SQL_TEMPLATE = `-- ============================================
 -- ============================================
 --
 -- This script initializes RuVector PostgreSQL extension
--- from nokhodian/ruvector-postgres with Monobrain integration.
+-- from nokhodian/ruvector-postgres with Monomind integration.
 --
 -- RuVector provides 77+ SQL functions including:
 -- - Vector similarity search (HNSW with SIMD)
@@ -102,21 +102,21 @@ CREATE EXTENSION IF NOT EXISTS ruvector VERSION '0.1.0';
 -- Enable additional required extensions
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Create the monobrain schema
-CREATE SCHEMA IF NOT EXISTS monobrain;
+-- Create the monomind schema
+CREATE SCHEMA IF NOT EXISTS monomind;
 
 -- Grant permissions
-GRANT ALL ON SCHEMA monobrain TO claude;
+GRANT ALL ON SCHEMA monomind TO claude;
 
 -- Set search path
-SET search_path TO monobrain, public;
+SET search_path TO monomind, public;
 
 -- ============================================
 -- PART 2: CORE TABLES
 -- ============================================
 
 -- Embeddings table with RuVector vector type (384-dim for all-MiniLM-L6-v2)
-CREATE TABLE IF NOT EXISTS monobrain.embeddings (
+CREATE TABLE IF NOT EXISTS monomind.embeddings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content TEXT NOT NULL,
     embedding ruvector(384),
@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS monobrain.embeddings (
 );
 
 -- Patterns table for learned patterns (ReasoningBank)
-CREATE TABLE IF NOT EXISTS monobrain.patterns (
+CREATE TABLE IF NOT EXISTS monomind.patterns (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS monobrain.patterns (
 );
 
 -- Agents table for multi-agent memory coordination
-CREATE TABLE IF NOT EXISTS monobrain.agents (
+CREATE TABLE IF NOT EXISTS monomind.agents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     agent_id VARCHAR(255) NOT NULL UNIQUE,
     agent_type VARCHAR(50),
@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS monobrain.agents (
 );
 
 -- Trajectories table for SONA reinforcement learning
-CREATE TABLE IF NOT EXISTS monobrain.trajectories (
+CREATE TABLE IF NOT EXISTS monomind.trajectories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     trajectory_id VARCHAR(255) NOT NULL UNIQUE,
     agent_type VARCHAR(50),
@@ -166,8 +166,8 @@ CREATE TABLE IF NOT EXISTS monobrain.trajectories (
     ended_at TIMESTAMPTZ
 );
 
--- Memory entries table (main storage for Monobrain memory)
-CREATE TABLE IF NOT EXISTS monobrain.memory_entries (
+-- Memory entries table (main storage for Monomind memory)
+CREATE TABLE IF NOT EXISTS monomind.memory_entries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     key VARCHAR(255) NOT NULL,
     value TEXT NOT NULL,
@@ -181,20 +181,20 @@ CREATE TABLE IF NOT EXISTS monobrain.memory_entries (
 );
 
 -- Hyperbolic embeddings for hierarchical data
-CREATE TABLE IF NOT EXISTS monobrain.hyperbolic_embeddings (
+CREATE TABLE IF NOT EXISTS monomind.hyperbolic_embeddings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content TEXT NOT NULL,
     euclidean_embedding ruvector(384),
     poincare_embedding real[],  -- Array for hyperbolic operations
     curvature FLOAT DEFAULT -1.0,
     hierarchy_level INT DEFAULT 0,
-    parent_id UUID REFERENCES monobrain.hyperbolic_embeddings(id),
+    parent_id UUID REFERENCES monomind.hyperbolic_embeddings(id),
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Graph nodes for GNN operations
-CREATE TABLE IF NOT EXISTS monobrain.graph_nodes (
+CREATE TABLE IF NOT EXISTS monomind.graph_nodes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     node_id VARCHAR(255) NOT NULL UNIQUE,
     node_type VARCHAR(50),
@@ -204,10 +204,10 @@ CREATE TABLE IF NOT EXISTS monobrain.graph_nodes (
 );
 
 -- Graph edges for message passing
-CREATE TABLE IF NOT EXISTS monobrain.graph_edges (
+CREATE TABLE IF NOT EXISTS monomind.graph_edges (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    source_id UUID REFERENCES monobrain.graph_nodes(id),
-    target_id UUID REFERENCES monobrain.graph_nodes(id),
+    source_id UUID REFERENCES monomind.graph_nodes(id),
+    target_id UUID REFERENCES monomind.graph_nodes(id),
     edge_type VARCHAR(50),
     weight FLOAT DEFAULT 1.0,
     metadata JSONB DEFAULT '{}',
@@ -220,51 +220,51 @@ CREATE TABLE IF NOT EXISTS monobrain.graph_edges (
 
 -- HNSW index for embeddings (cosine distance)
 CREATE INDEX IF NOT EXISTS idx_embeddings_hnsw
-ON monobrain.embeddings
+ON monomind.embeddings
 USING hnsw (embedding ruvector_cosine_ops)
 WITH (m = 16, ef_construction = 100);
 
 -- HNSW index for patterns
 CREATE INDEX IF NOT EXISTS idx_patterns_hnsw
-ON monobrain.patterns
+ON monomind.patterns
 USING hnsw (embedding ruvector_cosine_ops)
 WITH (m = 16, ef_construction = 100);
 
 -- HNSW index for agent memory
 CREATE INDEX IF NOT EXISTS idx_agents_hnsw
-ON monobrain.agents
+ON monomind.agents
 USING hnsw (memory_embedding ruvector_cosine_ops)
 WITH (m = 16, ef_construction = 64);
 
 -- HNSW index for memory entries
 CREATE INDEX IF NOT EXISTS idx_memory_entries_hnsw
-ON monobrain.memory_entries
+ON monomind.memory_entries
 USING hnsw (embedding ruvector_cosine_ops)
 WITH (m = 16, ef_construction = 100);
 
 -- HNSW index for hyperbolic embeddings
 CREATE INDEX IF NOT EXISTS idx_hyperbolic_hnsw
-ON monobrain.hyperbolic_embeddings
+ON monomind.hyperbolic_embeddings
 USING hnsw (euclidean_embedding ruvector_cosine_ops)
 WITH (m = 16, ef_construction = 100);
 
 -- HNSW index for graph nodes
 CREATE INDEX IF NOT EXISTS idx_graph_nodes_hnsw
-ON monobrain.graph_nodes
+ON monomind.graph_nodes
 USING hnsw (embedding ruvector_cosine_ops)
 WITH (m = 16, ef_construction = 64);
 
 -- Additional indices for common queries
-CREATE INDEX IF NOT EXISTS idx_embeddings_namespace ON monobrain.embeddings(namespace);
-CREATE INDEX IF NOT EXISTS idx_memory_entries_namespace ON monobrain.memory_entries(namespace);
-CREATE INDEX IF NOT EXISTS idx_memory_entries_key ON monobrain.memory_entries(key);
+CREATE INDEX IF NOT EXISTS idx_embeddings_namespace ON monomind.embeddings(namespace);
+CREATE INDEX IF NOT EXISTS idx_memory_entries_namespace ON monomind.memory_entries(namespace);
+CREATE INDEX IF NOT EXISTS idx_memory_entries_key ON monomind.memory_entries(key);
 
 -- ============================================
 -- PART 4: CORE SEARCH FUNCTIONS
 -- ============================================
 
 -- Semantic similarity search using RuVector HNSW
-CREATE OR REPLACE FUNCTION monobrain.search_similar(
+CREATE OR REPLACE FUNCTION monomind.search_similar(
     query_embedding ruvector(384),
     limit_count INT DEFAULT 10,
     min_similarity FLOAT DEFAULT 0.5
@@ -282,7 +282,7 @@ BEGIN
         e.content,
         (1 - (e.embedding <=> query_embedding))::FLOAT AS similarity,
         e.metadata
-    FROM monobrain.embeddings e
+    FROM monomind.embeddings e
     WHERE e.embedding IS NOT NULL
       AND (1 - (e.embedding <=> query_embedding)) >= min_similarity
     ORDER BY e.embedding <=> query_embedding
@@ -291,7 +291,7 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- Memory search with namespace filtering
-CREATE OR REPLACE FUNCTION monobrain.search_memory(
+CREATE OR REPLACE FUNCTION monomind.search_memory(
     query_embedding ruvector(384),
     namespace_filter VARCHAR(100) DEFAULT NULL,
     limit_count INT DEFAULT 10,
@@ -314,7 +314,7 @@ BEGIN
         m.namespace,
         (1 - (m.embedding <=> query_embedding))::FLOAT AS similarity,
         m.metadata
-    FROM monobrain.memory_entries m
+    FROM monomind.memory_entries m
     WHERE m.embedding IS NOT NULL
       AND (1 - (m.embedding <=> query_embedding)) >= min_similarity
       AND (namespace_filter IS NULL OR m.namespace = namespace_filter)
@@ -325,7 +325,7 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- Pattern search with type filtering
-CREATE OR REPLACE FUNCTION monobrain.search_patterns(
+CREATE OR REPLACE FUNCTION monomind.search_patterns(
     query_embedding ruvector(384),
     pattern_type_filter VARCHAR(50) DEFAULT NULL,
     limit_count INT DEFAULT 10,
@@ -348,7 +348,7 @@ BEGIN
         (1 - (p.embedding <=> query_embedding))::FLOAT AS similarity,
         p.confidence,
         p.metadata
-    FROM monobrain.patterns p
+    FROM monomind.patterns p
     WHERE p.embedding IS NOT NULL
       AND p.confidence >= min_confidence
       AND (pattern_type_filter IS NULL OR p.pattern_type = pattern_type_filter)
@@ -358,7 +358,7 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- Agent routing by expertise similarity
-CREATE OR REPLACE FUNCTION monobrain.find_agents(
+CREATE OR REPLACE FUNCTION monomind.find_agents(
     query_embedding ruvector(384),
     agent_type_filter VARCHAR(50) DEFAULT NULL,
     limit_count INT DEFAULT 5
@@ -376,7 +376,7 @@ BEGIN
         a.agent_type,
         (1 - (a.memory_embedding <=> query_embedding))::FLOAT AS similarity,
         a.state
-    FROM monobrain.agents a
+    FROM monomind.agents a
     WHERE a.memory_embedding IS NOT NULL
       AND (agent_type_filter IS NULL OR a.agent_type = agent_type_filter)
     ORDER BY a.memory_embedding <=> query_embedding
@@ -389,7 +389,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- ============================================
 
 -- Convert Euclidean to Poincaré embedding
-CREATE OR REPLACE FUNCTION monobrain.to_poincare(
+CREATE OR REPLACE FUNCTION monomind.to_poincare(
     euclidean real[],
     curvature FLOAT DEFAULT -1.0
 )
@@ -400,7 +400,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
 -- Poincaré distance (geodesic)
-CREATE OR REPLACE FUNCTION monobrain.poincare_distance(
+CREATE OR REPLACE FUNCTION monomind.poincare_distance(
     x real[],
     y real[],
     curvature FLOAT DEFAULT -1.0
@@ -412,7 +412,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
 -- Hyperbolic search in Poincaré ball
-CREATE OR REPLACE FUNCTION monobrain.hyperbolic_search(
+CREATE OR REPLACE FUNCTION monomind.hyperbolic_search(
     query ruvector(384),
     limit_count INT DEFAULT 10,
     curvature FLOAT DEFAULT -1.0
@@ -433,7 +433,7 @@ BEGIN
     SELECT array_agg(x::real ORDER BY ordinality) INTO query_arr
     FROM unnest(string_to_array(trim(both '[]' from query::text), ',')) WITH ORDINALITY AS t(x, ordinality);
 
-    query_poincare := monobrain.to_poincare(query_arr, curvature);
+    query_poincare := monomind.to_poincare(query_arr, curvature);
 
     RETURN QUERY
     SELECT
@@ -443,7 +443,7 @@ BEGIN
         COALESCE(ruvector_poincare_distance(he.poincare_embedding, query_poincare, curvature), 999.0)::FLOAT AS hyp_dist,
         he.hierarchy_level,
         he.metadata
-    FROM monobrain.hyperbolic_embeddings he
+    FROM monomind.hyperbolic_embeddings he
     WHERE he.euclidean_embedding IS NOT NULL
     ORDER BY he.euclidean_embedding <-> query
     LIMIT limit_count;
@@ -455,7 +455,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- ============================================
 
 -- Get RuVector version info
-CREATE OR REPLACE FUNCTION monobrain.ruvector_info()
+CREATE OR REPLACE FUNCTION monomind.ruvector_info()
 RETURNS TABLE (
     version TEXT,
     simd_info TEXT
@@ -467,7 +467,7 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- Cosine similarity helper (converts cosine distance to similarity)
-CREATE OR REPLACE FUNCTION monobrain.cosine_similarity(
+CREATE OR REPLACE FUNCTION monomind.cosine_similarity(
     a ruvector,
     b ruvector
 )
@@ -478,7 +478,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
 -- L2 distance helper
-CREATE OR REPLACE FUNCTION monobrain.l2_distance(
+CREATE OR REPLACE FUNCTION monomind.l2_distance(
     a ruvector,
     b ruvector
 )
@@ -489,7 +489,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
 -- Upsert memory entry
-CREATE OR REPLACE FUNCTION monobrain.upsert_memory(
+CREATE OR REPLACE FUNCTION monomind.upsert_memory(
     p_key VARCHAR(255),
     p_value TEXT,
     p_embedding ruvector(384) DEFAULT NULL,
@@ -501,11 +501,11 @@ RETURNS UUID AS $$
 DECLARE
     v_id UUID;
 BEGIN
-    INSERT INTO monobrain.memory_entries (key, value, embedding, namespace, metadata, ttl, updated_at)
+    INSERT INTO monomind.memory_entries (key, value, embedding, namespace, metadata, ttl, updated_at)
     VALUES (p_key, p_value, p_embedding, p_namespace, p_metadata, p_ttl, NOW())
     ON CONFLICT (key, namespace) DO UPDATE SET
         value = EXCLUDED.value,
-        embedding = COALESCE(EXCLUDED.embedding, monobrain.memory_entries.embedding),
+        embedding = COALESCE(EXCLUDED.embedding, monomind.memory_entries.embedding),
         metadata = EXCLUDED.metadata,
         ttl = EXCLUDED.ttl,
         updated_at = NOW()
@@ -535,19 +535,19 @@ BEGIN
     RAISE NOTICE 'RuVector Version: %', v_version;
     RAISE NOTICE 'SIMD: %', v_simd;
     RAISE NOTICE '';
-    RAISE NOTICE 'Schema: monobrain';
+    RAISE NOTICE 'Schema: monomind';
     RAISE NOTICE 'Tables: embeddings, patterns, agents, trajectories,';
     RAISE NOTICE '        memory_entries, hyperbolic_embeddings,';
     RAISE NOTICE '        graph_nodes, graph_edges';
     RAISE NOTICE 'Indices: 6 HNSW indices + 3 B-tree indices';
     RAISE NOTICE '';
     RAISE NOTICE 'Key Functions:';
-    RAISE NOTICE '  - monobrain.search_similar(embedding, limit, min_sim)';
-    RAISE NOTICE '  - monobrain.search_memory(embedding, namespace, limit)';
-    RAISE NOTICE '  - monobrain.search_patterns(embedding, type, limit)';
-    RAISE NOTICE '  - monobrain.find_agents(embedding, type, limit)';
-    RAISE NOTICE '  - monobrain.hyperbolic_search(embedding, limit, curvature)';
-    RAISE NOTICE '  - monobrain.upsert_memory(key, value, embedding, namespace)';
+    RAISE NOTICE '  - monomind.search_similar(embedding, limit, min_sim)';
+    RAISE NOTICE '  - monomind.search_memory(embedding, namespace, limit)';
+    RAISE NOTICE '  - monomind.search_patterns(embedding, type, limit)';
+    RAISE NOTICE '  - monomind.find_agents(embedding, type, limit)';
+    RAISE NOTICE '  - monomind.hyperbolic_search(embedding, limit, curvature)';
+    RAISE NOTICE '  - monomind.upsert_memory(key, value, embedding, namespace)';
     RAISE NOTICE '';
     RAISE NOTICE 'Operators: <=> (cosine), <-> (L2), <#> (neg inner product)';
     RAISE NOTICE '';
@@ -559,7 +559,7 @@ END $$;
  */
 const README_TEMPLATE = `# RuVector PostgreSQL Setup
 
-This directory contains the Docker configuration for RuVector PostgreSQL with Monobrain.
+This directory contains the Docker configuration for RuVector PostgreSQL with Monomind.
 
 ## Quick Start
 
@@ -571,7 +571,7 @@ docker-compose up -d
 docker-compose ps
 
 # Check RuVector version
-docker exec ruvector-postgres psql -U claude -d monobrain -c "SELECT ruvector_version();"
+docker exec ruvector-postgres psql -U claude -d monomind -c "SELECT ruvector_version();"
 \`\`\`
 
 ## Connection Details
@@ -580,10 +580,10 @@ docker exec ruvector-postgres psql -U claude -d monobrain -c "SELECT ruvector_ve
 |---------|-------|
 | Host | localhost |
 | Port | 5432 |
-| Database | monobrain |
+| Database | monomind |
 | Username | claude |
-| Password | monobrain-test |
-| Schema | monobrain |
+| Password | monomind-test |
+| Schema | monomind |
 
 ## RuVector Syntax
 
@@ -620,11 +620,11 @@ WITH (m = 16, ef_construction = 100);
 ## Import from sql.js/JSON
 
 \`\`\`bash
-# Export current Monobrain memory
-npx monobrain memory list --format json > memory-export.json
+# Export current Monomind memory
+npx monomind memory list --format json > memory-export.json
 
 # Import to RuVector PostgreSQL
-npx monobrain ruvector import --input memory-export.json
+npx monomind ruvector import --input memory-export.json
 \`\`\`
 
 ## pgAdmin (Optional)
@@ -634,7 +634,7 @@ docker-compose --profile gui up -d
 \`\`\`
 
 Access at: http://localhost:5050
-- Email: admin@monobrain.local
+- Email: admin@monomind.local
 - Password: admin
 
 ## Troubleshooting
@@ -651,7 +651,7 @@ docker-compose up -d
 
 ## Learn More
 - [RuVector Docker Hub](https://hub.docker.com/r/nokhodian/ruvector-postgres)
-- [Monobrain Documentation](https://github.com/nokhodian/monobrain)
+- [Monomind Documentation](https://github.com/nokhodian/monomind)
 `;
 
 /**
@@ -685,10 +685,10 @@ export const setupCommand: Command = {
     },
   ],
   examples: [
-    { command: 'monobrain ruvector setup', description: 'Output files to ./ruvector-postgres/' },
-    { command: 'monobrain ruvector setup --output /path/to/dir', description: 'Output to custom directory' },
-    { command: 'monobrain ruvector setup --print', description: 'Print files to stdout' },
-    { command: 'monobrain ruvector setup --force', description: 'Overwrite existing files' },
+    { command: 'monomind ruvector setup', description: 'Output files to ./ruvector-postgres/' },
+    { command: 'monomind ruvector setup --output /path/to/dir', description: 'Output to custom directory' },
+    { command: 'monomind ruvector setup --print', description: 'Print files to stdout' },
+    { command: 'monomind ruvector setup --force', description: 'Overwrite existing files' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const outputDir = (ctx.flags.output as string) || './ruvector-postgres';
@@ -766,7 +766,7 @@ export const setupCommand: Command = {
         '',
         `  cd ${outputDir}`,
         '  docker-compose up -d',
-        '  docker exec ruvector-postgres psql -U claude -d monobrain -c "SELECT ruvector_version();"',
+        '  docker exec ruvector-postgres psql -U claude -d monomind -c "SELECT ruvector_version();"',
       ].join('\n'), 'Setup Complete');
 
       output.writeln();

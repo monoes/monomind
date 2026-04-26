@@ -1,6 +1,6 @@
 ---
 name: monomind-idea
-description: Research ideas from a prompt, evaluate them, and decompose into subtasks on monotask boards
+description: "Monomind — Research ideas from a prompt, evaluate them, and decompose into subtasks on monotask boards"
 ---
 
 If `$ARGUMENTS` is empty, output this and STOP:
@@ -114,24 +114,28 @@ Spawn a single `Product Manager` agent via the Agent tool. Provide it with:
 - The `PROJECT_CONTEXT`
 - The user's original prompt: `$ARGUMENTS`
 
-For EACH idea, the agent must return one of three verdicts:
+For EACH idea, the agent must return one of three verdicts, along with an **impact** score (0-10) and an **effort** score (0-10):
 
 | Verdict | Action |
 |---------|--------|
-| **evaluated** | Idea is worth pursuing. Include a `skipElaboration` boolean: `true` if the idea is straightforward and needs no further research, `false` if edge cases should be explored. Include a 1-2 sentence value statement. |
-| **iced** | Idea might have potential but needs a question answered first. Include the blocking question. |
+| **evaluated** | Idea is worth pursuing. Include a `skipElaboration` boolean: `true` if the idea is straightforward and needs no further research, `false` if edge cases should be explored. Include a 1-2 sentence value statement. Include `impact` (0-10, how much value it adds) and `effort` (0-10, how much work it requires). |
+| **iced** | Idea might have potential but needs a question answered first. Include the blocking question. Include `impact` and `effort` estimates. |
 | **rejected** | Idea is out of scope, infeasible, or low value. Include a 1-sentence reason. |
 
 For each verdict, update the monotask board:
 
-- **evaluated**: Move card to `Evaluated`. Add comment with the value statement.
+- **evaluated**: Move card to `Evaluated`. Set impact and effort. Add comment with the value statement.
   ```bash
   monotask card move $BOARD_ID $CARD_ID $COL_EVALUATED --json
+  monotask card set-impact $BOARD_ID $CARD_ID <0-10>
+  monotask card set-effort $BOARD_ID $CARD_ID <0-10>
   monotask card comment add $BOARD_ID $CARD_ID "Value: <value statement>"
   ```
-- **iced**: Move card to `Iced`. Add comment with the blocking question.
+- **iced**: Move card to `Iced`. Set impact and effort estimates. Add comment with the blocking question.
   ```bash
   monotask card move $BOARD_ID $CARD_ID $COL_ICED --json
+  monotask card set-impact $BOARD_ID $CARD_ID <0-10>
+  monotask card set-effort $BOARD_ID $CARD_ID <0-10>
   monotask card comment add $BOARD_ID $CARD_ID "Blocked: <question>"
   ```
 - **rejected**: Move card to `Rejected`. Add comment with the reason.
@@ -155,12 +159,17 @@ Check if ANY evaluated ideas have `skipElaboration: false`.
   ```
 - Skip spawning the elaborator agent entirely.
 
-**Otherwise**, spawn a single `researcher` agent via the Agent tool (with WebSearch capability). Provide it with:
+**Otherwise**, spawn two agents in parallel via the Agent tool:
+
+1. A `feature-dev:code-explorer` agent — deep-dives into the existing codebase to trace execution paths, map dependencies, and surface internal constraints relevant to each idea.
+2. A `researcher` agent (with WebSearch capability) — searches the internet for prior art, external edge cases, and potential technical pitfalls.
+
+Provide both agents with:
 - All evaluated ideas that have `skipElaboration: false`
 - The `PROJECT_CONTEXT`
 
-For each idea needing elaboration, the agent must:
-1. Research edge cases, prior art, and potential technical pitfalls.
+After both agents complete, merge their findings per idea. For each idea needing elaboration:
+1. Research edge cases, prior art, codebase constraints, and potential technical pitfalls.
 2. Add findings as comments on the card:
    ```bash
    monotask card comment add $BOARD_ID $CARD_ID "Edge cases: <findings>"
@@ -199,15 +208,16 @@ Spawn a single `Software Architect` agent via the Agent tool. Provide it with:
 - The `PROJECT_CONTEXT`
 
 For each elaborated idea, the agent must:
-1. Break it into 2-6 actionable subtasks. Each subtask should have a clear title and a 1-2 sentence description of what to implement.
-2. Create each subtask as a card in the `Backlog` column of the `monomind-task` board:
+1. Break it into 2-6 actionable subtasks. Each subtask should have a clear title, a 1-2 sentence description of what to implement, and the recommended **agent type** to assign for implementation (e.g., `backend-dev`, `Frontend Developer`, `coder`, `Security Engineer`). Pick the agent type from the available agents list that best matches the subtask's domain.
+2. Create each subtask as a card in the `Backlog` column of the `monomind-task` board, including the agent type:
    ```bash
    monotask card create $TASK_BOARD_ID $COL_BACKLOG "<subtask title>" --json
    monotask card comment add $TASK_BOARD_ID $SUBTASK_CARD_ID "<subtask description>"
+   monotask card comment add $TASK_BOARD_ID $SUBTASK_CARD_ID "Assigned agent: <agent type>"
    ```
-3. Comment on the original idea card listing all subtask titles:
+3. Comment on the original idea card listing all subtask titles with their assigned agents:
    ```bash
-   monotask card comment add $BOARD_ID $IDEA_CARD_ID "Subtasks created: <list of subtask titles>"
+   monotask card comment add $BOARD_ID $IDEA_CARD_ID "Subtasks created: <title> (agent: <type>), <title> (agent: <type>), ..."
    ```
 4. Move the idea card to `Tasked`:
    ```bash
@@ -237,6 +247,23 @@ Then output:
 - Ideas tasked: N (with M total subtasks in Backlog)
 - Ideas iced: N
 - Ideas rejected: N
-- Monotask space: `$REPO_NAME`
-- Idea board: `monomind-idea`
-- Task board: `monomind-task`
+- Monotask space: `$REPO_NAME` (ID: `$SPACE_ID`)
+- Idea board: `monomind-idea` (ID: `$BOARD_ID`)
+- Task board: `monomind-task` (ID: `$TASK_BOARD_ID`)
+
+---
+
+## Step 8: Offer to Execute Tasks
+
+If there are any tasked ideas (subtasks in Backlog), ask the user:
+
+> **M subtasks are ready in the backlog.** Want me to start executing them now?
+>
+> Say **yes** to launch `/monomind:do` — it will pick up tasks one by one, execute them with the assigned agent, review for bugs, and loop every 2 minutes until the queue is empty.
+
+If the user says yes (or any affirmative), invoke the Skill tool with:
+```
+Skill("monomind-do", "--space $SPACE_ID --board $TASK_BOARD_ID")
+```
+
+This passes the exact space and board IDs so `monomind:do` skips discovery and starts executing immediately.

@@ -5,7 +5,7 @@ Automatically spawn and manage agents based on task requirements.
 ## Usage
 
 ```bash
-npx monobrain auto agent [options]
+npx monomind auto agent [options]
 ```
 
 ## Options
@@ -21,25 +21,25 @@ npx monobrain auto agent [options]
 ### Basic auto-spawning
 
 ```bash
-npx monobrain auto agent --task "Build a REST API with authentication"
+npx monomind auto agent --task "Build a REST API with authentication"
 ```
 
 ### Constrained spawning
 
 ```bash
-npx monobrain auto agent -t "Debug performance issue" --max-agents 3
+npx monomind auto agent -t "Debug performance issue" --max-agents 3
 ```
 
 ### Analysis only
 
 ```bash
-npx monobrain auto agent -t "Refactor codebase" --no-spawn
+npx monomind auto agent -t "Refactor codebase" --no-spawn
 ```
 
 ### Minimal strategy
 
 ```bash
-npx monobrain auto agent -t "Fix bug in login" -s minimal
+npx monomind auto agent -t "Fix bug in login" -s minimal
 ```
 
 ## How It Works
@@ -107,7 +107,7 @@ npx monobrain auto agent -t "Fix bug in login" -s minimal
 
 ```javascript
 // In Claude Code after auto-spawning
-mcp__monobrain__auto_agent {
+mcp__monomind__auto_agent {
   task: "Build authentication system",
   strategy: "balanced",
   maxAgents: 6

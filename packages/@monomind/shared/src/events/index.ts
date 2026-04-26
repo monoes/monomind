@@ -1,7 +1,7 @@
 /**
  * Event Sourcing System (ADR-007)
  *
- * Complete event sourcing implementation for V1 Monobrain:
+ * Complete event sourcing implementation for V1 Monomind:
  * - Domain events for all aggregates (agent, task, memory, swarm)
  * - Persistent event store with SQLite backend
  * - Projections for building read models

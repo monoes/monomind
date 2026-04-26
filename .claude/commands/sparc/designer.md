@@ -7,7 +7,7 @@ UI/UX design with Memory coordination for consistent experiences.
 
 ### Option 1: Using MCP Tools (Preferred in Claude Code)
 ```javascript
-mcp__monobrain__sparc_mode {
+mcp__monomind__sparc_mode {
   mode: "designer",
   task_description: "create dashboard UI",
   options: {
@@ -20,16 +20,16 @@ mcp__monobrain__sparc_mode {
 ### Option 2: Using NPX CLI (Fallback when MCP not available)
 ```bash
 # Use when running from terminal or MCP tools unavailable
-npx monobrain sparc run designer "create dashboard UI"
+npx monomind sparc run designer "create dashboard UI"
 
 # For alpha features
-npx monobrain@alpha sparc run designer "create dashboard UI"
+npx monomind@alpha sparc run designer "create dashboard UI"
 ```
 
 ### Option 3: Local Installation
 ```bash
-# If monobrain is installed locally
-./monobrain sparc run designer "create dashboard UI"
+# If monomind is installed locally
+./monomind sparc run designer "create dashboard UI"
 ```
 
 ## Core Capabilities

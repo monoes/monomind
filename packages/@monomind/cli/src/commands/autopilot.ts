@@ -376,10 +376,10 @@ export const autopilotCommand: Command = {
   aliases: ['ap'],
   subcommands: [statusCommand, enableCommand, disableCommand, configCommand, resetCommand, logCommand, learnCommand, historyCommand, predictCommand, checkCommand],
   examples: [
-    { command: 'monobrain autopilot status', description: 'Show current state and progress' },
-    { command: 'monobrain autopilot enable', description: 'Enable persistent completion' },
-    { command: 'monobrain autopilot config --max-iterations 100 --timeout 180', description: 'Configure limits' },
-    { command: 'monobrain autopilot predict', description: 'Get recommended next action' },
+    { command: 'monomind autopilot status', description: 'Show current state and progress' },
+    { command: 'monomind autopilot enable', description: 'Enable persistent completion' },
+    { command: 'monomind autopilot config --max-iterations 100 --timeout 180', description: 'Configure limits' },
+    { command: 'monomind autopilot predict', description: 'Get recommended next action' },
   ],
   action: async (): Promise<CommandResult> => {
     output.writeln(output.bold('Autopilot — Persistent Swarm Completion'));

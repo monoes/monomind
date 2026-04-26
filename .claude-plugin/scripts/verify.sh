@@ -1,5 +1,5 @@
 #!/bin/bash
-# Monobrain Plugin Verification Script
+# Monomind Plugin Verification Script
 # Verifies installation and configuration
 
 set -e
@@ -17,7 +17,7 @@ warning() { echo -e "${YELLOW}⚠${NC} $1"; }
 error() { echo -e "${RED}✗${NC} $1"; }
 
 echo -e "${BLUE}═══════════════════════════════════════════════════${NC}"
-echo -e "${BLUE}    Monobrain Plugin Verification${NC}"
+echo -e "${BLUE}    Monomind Plugin Verification${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════════${NC}"
 echo ""
 
@@ -56,10 +56,10 @@ info "Checking Claude Code settings..."
 if [ -f "$HOME/.claude/settings.json" ]; then
     success "Settings file exists"
 
-    if grep -q "monobrain" "$HOME/.claude/settings.json"; then
-        success "Monobrain MCP server configured"
+    if grep -q "monomind" "$HOME/.claude/settings.json"; then
+        success "Monomind MCP server configured"
     else
-        warning "Monobrain MCP server not configured"
+        warning "Monomind MCP server not configured"
         ((WARNINGS++))
     fi
 else
@@ -69,11 +69,11 @@ fi
 
 # Check MCP packages
 info "Checking MCP packages..."
-if npx monobrain@alpha --version &> /dev/null; then
-    VERSION=$(npx monobrain@alpha --version 2>/dev/null || echo "unknown")
-    success "monobrain MCP: $VERSION"
+if npx monomind@alpha --version &> /dev/null; then
+    VERSION=$(npx monomind@alpha --version 2>/dev/null || echo "unknown")
+    success "monomind MCP: $VERSION"
 else
-    warning "monobrain MCP not installed"
+    warning "monomind MCP not installed"
     ((WARNINGS++))
 fi
 

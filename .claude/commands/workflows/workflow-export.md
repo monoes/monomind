@@ -4,7 +4,7 @@ Export workflows for sharing.
 
 ## Usage
 ```bash
-npx monobrain workflow export [options]
+npx monomind workflow export [options]
 ```
 
 ## Options
@@ -15,11 +15,11 @@ npx monobrain workflow export [options]
 ## Examples
 ```bash
 # Export workflow
-npx monobrain workflow export --name "deploy-api"
+npx monomind workflow export --name "deploy-api"
 
 # As YAML
-npx monobrain workflow export --name "test-suite" --format yaml
+npx monomind workflow export --name "test-suite" --format yaml
 
 # With history
-npx monobrain workflow export --name "deploy-api" --include-history
+npx monomind workflow export --name "deploy-api" --include-history
 ```

@@ -1,5 +1,5 @@
 /**
- * Update checker for @monobrain packages
+ * Update checker for @monomind packages
  * Queries npm registry and compares versions
  */
 
@@ -37,17 +37,17 @@ const DEFAULT_CONFIG: UpdateConfig = {
     major: false,
   },
   priority: {
-    '@monobrain/security': 'critical',
-    '@monobrain/cli': 'high',
-    '@monobrain/embeddings': 'normal',
+    '@monomind/security': 'critical',
+    '@monomind/cli': 'high',
+    '@monomind/embeddings': 'normal',
   },
   exclude: [],
 };
 
 // Packages to check for updates
-const MONOBRAIN_PACKAGES = [
-  'monobrain',
-  '@monoes/cli',
+const MONOMIND_PACKAGES = [
+  'monomind',
+  '@monomind/cli',
 ];
 
 interface NpmPackageInfo {
@@ -171,7 +171,7 @@ export async function checkForUpdates(
   const versionCache: Record<string, string> = {};
 
   // Check each package
-  const packagesToCheck = MONOBRAIN_PACKAGES.filter(
+  const packagesToCheck = MONOMIND_PACKAGES.filter(
     (pkg) => !config.exclude.includes(pkg)
   );
 

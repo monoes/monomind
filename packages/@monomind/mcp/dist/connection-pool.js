@@ -1,5 +1,5 @@
 /**
- * @monobrain/mcp - Connection Pool
+ * @monomind/mcp - Connection Pool
  *
  * High-performance connection pooling
  */

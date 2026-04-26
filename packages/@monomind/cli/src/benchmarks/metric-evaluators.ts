@@ -3,7 +3,7 @@
  * Individual metric evaluation functions for quality assessment.
  */
 
-import type { MetricResult } from '@monobrain/shared';
+import type { MetricResult } from '@monomind/shared';
 
 /**
  * Checks whether the output contains the expected substring.

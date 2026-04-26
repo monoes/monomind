@@ -28,7 +28,7 @@ import type {
   QELogger,
 } from '../interfaces.js';
 
-// Hive-Mind types (would be imported from @monobrain/coordination in production)
+// Hive-Mind types (would be imported from @monomind/coordination in production)
 interface IHiveMindService {
   join(config: HiveJoinConfig): Promise<void>;
   leave(agentId: string): Promise<void>;

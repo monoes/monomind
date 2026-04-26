@@ -1,8 +1,8 @@
 #!/bin/bash
-# Monobrain V1 Status Display Template (Linux/macOS)
+# Monomind V1 Status Display Template (Linux/macOS)
 
-METRICS_DIR="${PROJECT_ROOT:-.}/.monobrain/metrics"
-SECURITY_DIR="${PROJECT_ROOT:-.}/.monobrain/security"
+METRICS_DIR="${PROJECT_ROOT:-.}/.monomind/metrics"
+SECURITY_DIR="${PROJECT_ROOT:-.}/.monomind/security"
 
 # Colors
 GREEN='\033[0;32m'
@@ -55,7 +55,7 @@ get_color() {
 display_status() {
     get_metrics
 
-    echo -e "${BOLD}${PURPLE}⚡ Monobrain V1 Development Status${RESET}"
+    echo -e "${BOLD}${PURPLE}⚡ Monomind V1 Development Status${RESET}"
     echo -e "${BLUE}============================================${RESET}"
     echo ""
 
@@ -85,7 +85,7 @@ display_status() {
     fi
 
     echo ""
-    echo -e "${BLUE}Commands: monobrain-v1.sh {status|update|validate|checkpoint}${RESET}"
+    echo -e "${BLUE}Commands: monomind-v1.sh {status|update|validate|checkpoint}${RESET}"
 }
 
 display_status

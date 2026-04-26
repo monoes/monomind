@@ -1,7 +1,7 @@
 ---
 name: v1-integration-architect
 description: |
-  v1 Integration Architect for deep agentic-flow@alpha integration. Implements ADR-001 to eliminate 10,000+ duplicate lines and build monobrain as specialized extension rather than parallel implementation.
+  v1 Integration Architect for deep agentic-flow@alpha integration. Implements ADR-001 to eliminate 10,000+ duplicate lines and build monomind as specialized extension rather than parallel implementation.
 ---
 
 # Integration Architect
@@ -10,7 +10,7 @@ description: |
 
 ## Core Mission: ADR-001 Implementation
 
-Transform monobrain from parallel implementation to specialized extension of agentic-flow, eliminating 10,000+ lines of duplicate code while achieving 100% feature parity and performance improvements.
+Transform monomind from parallel implementation to specialized extension of agentic-flow, eliminating 10,000+ lines of duplicate code while achieving 100% feature parity and performance improvements.
 
 ## Integration Strategy
 
@@ -20,7 +20,7 @@ Transform monobrain from parallel implementation to specialized extension of age
 ┌─────────────────────────────────────────┐
 │         FUNCTIONALITY OVERLAP           │
 ├─────────────────────────────────────────┤
-│  monobrain          agentic-flow      │
+│  monomind          agentic-flow      │
 ├─────────────────────────────────────────┤
 │ SwarmCoordinator  →   Swarm System      │ 80% overlap
 │ AgentManager      →   Agent Lifecycle   │ 70% overlap
@@ -37,9 +37,9 @@ TARGET: <5,000 lines orchestration (vs 15,000+ currently)
 // Phase 1: Adapter Layer Creation
 import { Agent as AgenticFlowAgent } from "agentic-flow@alpha";
 
-export class MonobrainAgent extends AgenticFlowAgent {
-  // Add monobrain specific capabilities
-  async handleMonobrainTask(task: ClaudeTask): Promise<TaskResult> {
+export class MonomindAgent extends AgenticFlowAgent {
+  // Add monomind specific capabilities
+  async handleMonomindTask(task: ClaudeTask): Promise<TaskResult> {
     return this.executeWithSONA(task);
   }
 
@@ -66,7 +66,7 @@ interface SONAIntegration {
 }
 
 // Integration implementation
-class MonobrainSONAAdapter {
+class MonomindSONAAdapter {
   async initializeSONAMode(mode: SONAMode): Promise<void> {
     await this.agenticFlow.sona.setMode(mode);
     await this.configureAdaptationRate(mode);
@@ -112,13 +112,13 @@ class MCPToolsIntegration {
   async integrateBuiltinTools(): Promise<void> {
     const tools = await this.agenticFlow.mcp.getAvailableTools();
     // 213 tools available
-    await this.registerMonobrainSpecificTools(tools);
+    await this.registerMonomindSpecificTools(tools);
   }
 
   async setupHookTypes(): Promise<void> {
     const hookTypes = await this.agenticFlow.hooks.getTypes();
     // 19 hook types: pre/post execution, error handling, etc.
-    await this.configureMonobrainHooks(hookTypes);
+    await this.configureMonomindHooks(hookTypes);
   }
 }
 ```
@@ -145,7 +145,7 @@ class RLIntegration {
       await this.agenticFlow.rl.train(algorithm, {
         episodes: 1000,
         learningRate: 0.001,
-        rewardFunction: this.monobrainRewardFunction,
+        rewardFunction: this.monomindRewardFunction,
       });
     }
   }
@@ -318,7 +318,7 @@ class BackwardCompatibility {
 
 ### **Swarm Specialist (Agent #8)**
 
-- Swarm system migration from monobrain to agentic-flow
+- Swarm system migration from monomind to agentic-flow
 - Topology coordination and optimization
 - Agent communication protocol alignment
 

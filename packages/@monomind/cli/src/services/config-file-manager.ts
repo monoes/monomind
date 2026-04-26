@@ -8,8 +8,8 @@ import * as path from 'path';
 
 /** Config file search paths in priority order */
 const CONFIG_FILENAMES = [
-  'monobrain.config.json',
-  '.monobrain/config.json',
+  'monomind.config.json',
+  '.monomind/config.json',
 ];
 
 /** Default config values */
@@ -70,7 +70,7 @@ export class ConfigFileManager {
       }
     }
     // Check env var
-    const envPath = process.env.MONOBRAIN_CONFIG;
+    const envPath = process.env.MONOMIND_CONFIG;
     if (envPath && fs.existsSync(envPath)) {
       return path.resolve(envPath);
     }

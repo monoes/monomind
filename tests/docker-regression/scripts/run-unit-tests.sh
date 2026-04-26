@@ -1,5 +1,5 @@
 #!/bin/bash
-# Monobrain V1 Package Unit Tests
+# Monomind V1 Package Unit Tests
 # Runs all vitest unit tests across V1 packages
 
 set -e
@@ -56,21 +56,21 @@ run_package_tests() {
 # ============================================================================
 echo "── V1 Package Unit Tests ──"
 
-run_package_tests "@monobrain/hooks" "/app/packages/@monobrain/hooks"
-run_package_tests "@monobrain/plugins" "/app/packages/@monobrain/plugins"
-run_package_tests "@monobrain/security" "/app/packages/@monobrain/security"
-run_package_tests "@monobrain/swarm" "/app/packages/@monobrain/swarm"
-run_package_tests "@monobrain/cli" "/app/packages/@monobrain/cli"
-run_package_tests "@monobrain/memory" "/app/packages/@monobrain/memory"
-run_package_tests "@monobrain/mcp" "/app/packages/@monobrain/mcp"
-run_package_tests "@monobrain/neural" "/app/packages/@monobrain/neural"
-run_package_tests "@monobrain/testing" "/app/packages/@monobrain/testing"
-run_package_tests "@monobrain/embeddings" "/app/packages/@monobrain/embeddings"
-run_package_tests "@monobrain/providers" "/app/packages/@monobrain/providers"
-run_package_tests "@monobrain/integration" "/app/packages/@monobrain/integration"
-run_package_tests "@monobrain/performance" "/app/packages/@monobrain/performance"
-run_package_tests "@monobrain/deployment" "/app/packages/@monobrain/deployment"
-run_package_tests "@monobrain/shared" "/app/packages/@monobrain/shared"
+run_package_tests "@monomind/hooks" "/app/packages/@monomind/hooks"
+run_package_tests "@monomind/plugins" "/app/packages/@monomind/plugins"
+run_package_tests "@monomind/security" "/app/packages/@monomind/security"
+run_package_tests "@monomind/swarm" "/app/packages/@monomind/swarm"
+run_package_tests "@monomind/cli" "/app/packages/@monomind/cli"
+run_package_tests "@monomind/memory" "/app/packages/@monomind/memory"
+run_package_tests "@monomind/mcp" "/app/packages/@monomind/mcp"
+run_package_tests "@monomind/neural" "/app/packages/@monomind/neural"
+run_package_tests "@monomind/testing" "/app/packages/@monomind/testing"
+run_package_tests "@monomind/embeddings" "/app/packages/@monomind/embeddings"
+run_package_tests "@monomind/providers" "/app/packages/@monomind/providers"
+run_package_tests "@monomind/integration" "/app/packages/@monomind/integration"
+run_package_tests "@monomind/performance" "/app/packages/@monomind/performance"
+run_package_tests "@monomind/deployment" "/app/packages/@monomind/deployment"
+run_package_tests "@monomind/shared" "/app/packages/@monomind/shared"
 
 # ============================================================================
 # SPECIFIC TEST SUITES
@@ -80,8 +80,8 @@ echo "── Specific Test Suites ──"
 
 # ReasoningBank tests
 echo -n "  Testing: ReasoningBank... "
-if [ -f "/app/packages/@monobrain/hooks/src/__tests__/reasoningbank.test.ts" ]; then
-    cd /app/packages/@monobrain/hooks
+if [ -f "/app/packages/@monomind/hooks/src/__tests__/reasoningbank.test.ts" ]; then
+    cd /app/packages/@monomind/hooks
     set +e
     npm test -- --run src/__tests__/reasoningbank.test.ts 2>/dev/null && echo "✓ PASSED" || echo "✓ PASSED (via npm test)"
     set -e
@@ -92,8 +92,8 @@ fi
 
 # GuidanceProvider tests
 echo -n "  Testing: GuidanceProvider... "
-if [ -f "/app/packages/@monobrain/hooks/src/__tests__/guidance-provider.test.ts" ]; then
-    cd /app/packages/@monobrain/hooks
+if [ -f "/app/packages/@monomind/hooks/src/__tests__/guidance-provider.test.ts" ]; then
+    cd /app/packages/@monomind/hooks
     set +e
     npm test -- --run src/__tests__/guidance-provider.test.ts 2>/dev/null && echo "✓ PASSED" || echo "✓ PASSED (via npm test)"
     set -e
@@ -104,8 +104,8 @@ fi
 
 # Plugin tests
 echo -n "  Testing: RuVector Plugins... "
-if [ -f "/app/packages/@monobrain/plugins/examples/ruvector-plugins/ruvector-plugins.test.ts" ]; then
-    cd /app/packages/@monobrain/plugins
+if [ -f "/app/packages/@monomind/plugins/examples/ruvector-plugins/ruvector-plugins.test.ts" ]; then
+    cd /app/packages/@monomind/plugins
     set +e
     npm test -- --run examples/ruvector-plugins/ruvector-plugins.test.ts 2>/dev/null && echo "✓ PASSED" || echo "✓ PASSED (via npm test)"
     set -e
@@ -120,11 +120,11 @@ fi
 echo ""
 echo "── Test Coverage Summary ──"
 
-echo "  @monobrain/hooks:    112 tests"
-echo "  @monobrain/plugins:  142 tests"
-echo "  @monobrain/security: 47 tests"
-echo "  @monobrain/swarm:    89 tests"
-echo "  @monobrain/cli:      34 tests"
+echo "  @monomind/hooks:    112 tests"
+echo "  @monomind/plugins:  142 tests"
+echo "  @monomind/security: 47 tests"
+echo "  @monomind/swarm:    89 tests"
+echo "  @monomind/cli:      34 tests"
 echo "  Total:                 424+ tests"
 
 # ============================================================================

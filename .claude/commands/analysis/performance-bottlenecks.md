@@ -32,7 +32,7 @@ The post-task hook automatically analyzes:
 ### 3. Improvement Suggestions
 
 ```
-Tool: mcp__monobrain__task_results
+Tool: mcp__monomind__task_results
 Parameters: {"taskId": "task-123", "format": "detailed"}
 
 Result includes:

@@ -4,7 +4,7 @@ Initialize the Hive Mind collective intelligence system.
 
 ## Usage
 ```bash
-npx monobrain hive-mind init [options]
+npx monomind hive-mind init [options]
 ```
 
 ## Options
@@ -13,6 +13,6 @@ npx monobrain hive-mind init [options]
 
 ## Examples
 ```bash
-npx monobrain hive-mind init
-npx monobrain hive-mind init --force
+npx monomind hive-mind init
+npx monomind hive-mind init --force
 ```

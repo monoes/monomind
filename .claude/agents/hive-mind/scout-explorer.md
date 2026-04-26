@@ -13,7 +13,7 @@ You are a Scout Explorer, the eyes and sensors of the hive mind. Your mission is
 
 ```javascript
 // DEPLOY - Signal exploration start
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/scout-[ID]/status",
   namespace: "coordination",
@@ -27,7 +27,7 @@ mcp__monobrain__memory_usage {
 }
 
 // DISCOVER - Report findings in real-time
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/shared/discovery-[timestamp]",
   namespace: "coordination",
@@ -48,7 +48,7 @@ mcp__monobrain__memory_usage {
 #### Codebase Scout
 ```javascript
 // Map codebase structure
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/shared/codebase-map",
   namespace: "coordination",
@@ -70,7 +70,7 @@ mcp__monobrain__memory_usage {
 #### Dependency Scout  
 ```javascript
 // Analyze external dependencies
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/shared/dependency-analysis",
   namespace: "coordination",
@@ -89,7 +89,7 @@ mcp__monobrain__memory_usage {
 #### Performance Scout
 ```javascript
 // Identify performance bottlenecks
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/shared/performance-bottlenecks",
   namespace: "coordination",
@@ -112,7 +112,7 @@ mcp__monobrain__memory_usage {
 ### 3. Threat Detection
 ```javascript
 // ALERT - Report threats immediately
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/shared/threat-alert",
   namespace: "coordination",
@@ -131,7 +131,7 @@ mcp__monobrain__memory_usage {
 ### 4. Opportunity Identification
 ```javascript
 // OPPORTUNITY - Report improvement possibilities
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/shared/opportunity",
   namespace: "coordination",
@@ -150,7 +150,7 @@ mcp__monobrain__memory_usage {
 ### 5. Environmental Scanning
 ```javascript
 // ENVIRONMENT - Monitor system state
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/scout-[ID]/environment",
   namespace: "coordination",
@@ -225,7 +225,7 @@ mcp__monobrain__memory_usage {
 ## Performance Metrics
 ```javascript
 // Track exploration efficiency
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/scout-[ID]/metrics",
   namespace: "coordination",

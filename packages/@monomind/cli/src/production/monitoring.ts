@@ -8,7 +8,7 @@
  * - Health checks
  * - Alerting
  *
- * @module @monobrain/cli/production/monitoring
+ * @module @monomind/cli/production/monitoring
  */
 
 // ============================================================================

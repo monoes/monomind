@@ -172,9 +172,9 @@ Require three consecutive wins. Considered but rejected as too slow. At a weekly
 
 ## References
 
-- `packages/@monobrain/guidance/src/optimizer.ts` -- `OptimizerLoop.runCycle()`, `proposeChanges()`, `evaluateChange()`, `applyPromotions()`, `promotionTracker`
-- `packages/@monobrain/guidance/src/types.ts` -- `RuleChange`, `ABTestResult`, `OptimizationMetrics`, `ViolationRanking`, `RuleADR`
-- `packages/@monobrain/guidance/src/ledger.ts` -- `RunLedger.rankViolations()`, `computeMetrics()`
-- `packages/@monobrain/guidance/src/index.ts` -- `GuidanceControlPlane.optimize()`
+- `packages/@monomind/guidance/src/optimizer.ts` -- `OptimizerLoop.runCycle()`, `proposeChanges()`, `evaluateChange()`, `applyPromotions()`, `promotionTracker`
+- `packages/@monomind/guidance/src/types.ts` -- `RuleChange`, `ABTestResult`, `OptimizationMetrics`, `ViolationRanking`, `RuleADR`
+- `packages/@monomind/guidance/src/ledger.ts` -- `RunLedger.rankViolations()`, `computeMetrics()`
+- `packages/@monomind/guidance/src/index.ts` -- `GuidanceControlPlane.optimize()`
 - ADR-G002 -- Constitution/shard split that promotions modify
 - ADR-G005 -- Proof envelopes that record the evidence for promotion decisions

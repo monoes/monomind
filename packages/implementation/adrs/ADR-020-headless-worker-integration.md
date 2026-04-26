@@ -321,7 +321,7 @@ export const HEADLESS_WORKERS: HeadlessWorkerConfig[] = [
       sandbox: 'strict',
       model: 'haiku',
       outputFormat: 'json',
-      contextPatterns: ['.monobrain/metrics/*.json'],
+      contextPatterns: ['.monomind/metrics/*.json'],
     },
   },
 ];
@@ -611,16 +611,16 @@ export class WorkerDaemon extends EventEmitter {
 
 ```bash
 # Start daemon with headless workers
-npx monobrain@latest daemon start --headless
+npx monomind@latest daemon start --headless
 
 # Start with specific sandbox mode for all workers
-npx monobrain@latest daemon start --sandbox strict
+npx monomind@latest daemon start --sandbox strict
 
 # Trigger headless worker manually
-npx monobrain@latest daemon trigger -w audit --headless
+npx monomind@latest daemon trigger -w audit --headless
 
 # Show worker modes
-npx monobrain@latest daemon status --show-modes
+npx monomind@latest daemon status --show-modes
 ```
 
 ### Output Example
@@ -676,7 +676,7 @@ export class ContainerWorkerPool {
     try {
       // Mount workspace and execute
       const result = await container.exec([
-        'npx', 'monobrain@latest', 'daemon', 'trigger',
+        'npx', 'monomind@latest', 'daemon', 'trigger',
         '-w', worker.type,
         '--headless',
         '--sandbox', worker.headless?.sandbox || 'strict',
@@ -706,7 +706,7 @@ version: '3.8'
 
 services:
   worker-pool:
-    image: ghcr.io/nokhodian/monobrain-headless:latest
+    image: ghcr.io/nokhodian/monomind-headless:latest
     deploy:
       replicas: 3
       resources:
@@ -719,11 +719,11 @@ services:
       - CLAUDE_CODE_SANDBOX_MODE=strict
     volumes:
       - workspace:/workspace:ro
-      - monobrain-state:/root/.monobrain
+      - monomind-state:/root/.monomind
     command: daemon start --foreground --workers audit,optimize,testgaps
 
   queue-manager:
-    image: ghcr.io/nokhodian/monobrain-headless:latest
+    image: ghcr.io/nokhodian/monomind-headless:latest
     environment:
       - REDIS_URL=redis://redis:6379
     depends_on:
@@ -737,7 +737,7 @@ services:
 
 volumes:
   workspace:
-  monobrain-state:
+  monomind-state:
   redis-data:
 ```
 
@@ -820,7 +820,7 @@ volumes:
 
 ## References
 
-- ADR-019: @monobrain/headless Runtime Package
+- ADR-019: @monomind/headless Runtime Package
 - ADR-014: Workers System
 - V1 Worker Daemon: `src/services/worker-daemon.ts`
 - Claude Code Environment Variables

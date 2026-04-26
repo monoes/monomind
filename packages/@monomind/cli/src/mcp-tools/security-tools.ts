@@ -7,7 +7,7 @@
  * - aidefence_stats: Get detection statistics
  * - aidefence_learn: Learn from detection feedback
  *
- * github.com/nokhodian/monobrain
+ * github.com/nokhodian/monomind
  */
 
 import type { MCPTool, MCPToolResult } from './types.js';
@@ -18,7 +18,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
 // AIDefence instance type
-type AIDefenceInstance = ReturnType<typeof import('@monobrain/aidefence').createAIDefence>;
+type AIDefenceInstance = ReturnType<typeof import('@monomind/aidefence').createAIDefence>;
 
 // Lazy-loaded AIDefence instance
 let aidefenceInstance: AIDefenceInstance | null = null;
@@ -34,7 +34,7 @@ async function getAIDefence(): Promise<AIDefenceInstance> {
     return aidefenceInstance;
   }
 
-  const packageName = '@monobrain/aidefence';
+  const packageName = '@monomind/aidefence';
 
   // First attempt - try to load via dynamic import (ESM)
   try {
@@ -56,16 +56,16 @@ async function getAIDefence(): Promise<AIDefenceInstance> {
 
   // Don't attempt install more than once per session
   if (installAttempted) {
-    throw new Error('AIDefence package not available. Install with: npm install @monobrain/aidefence');
+    throw new Error('AIDefence package not available. Install with: npm install @monomind/aidefence');
   }
   installAttempted = true;
 
   // Second attempt - auto-install and retry
-  console.error(`[monobrain] ${packageName} not found, attempting auto-install...`);
+  console.error(`[monomind] ${packageName} not found, attempting auto-install...`);
   const installed = await autoInstallPackage(packageName);
 
   if (!installed) {
-    throw new Error('AIDefence package not available. Install with: npm install @monobrain/aidefence');
+    throw new Error('AIDefence package not available. Install with: npm install @monomind/aidefence');
   }
 
   // Retry with ESM cache busting via file:// URL + timestamp
@@ -78,7 +78,7 @@ async function getAIDefence(): Promise<AIDefenceInstance> {
       throw new Error('createAIDefence returned null after install');
     }
     aidefenceInstance = instance;
-    console.error(`[monobrain] ${packageName} loaded successfully after install`);
+    console.error(`[monomind] ${packageName} loaded successfully after install`);
     return instance;
   } catch (retryError) {
     throw new Error(`AIDefence installed but failed to load: ${retryError}. Try restarting the MCP server.`);
@@ -393,7 +393,7 @@ const aidefenceIsSafeTool: MCPTool = {
     const input = args.input as string;
 
     try {
-      const { isSafe } = await import('@monobrain/aidefence');
+      const { isSafe } = await import('@monomind/aidefence');
       const safe = isSafe(input);
 
       return {

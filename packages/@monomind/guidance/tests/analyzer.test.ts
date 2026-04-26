@@ -722,13 +722,13 @@ npm run build && npm test
 ## CLI Commands
 
 \`\`\`bash
-npx monobrain init --wizard
-npx monobrain daemon start
-npx monobrain agent spawn -t coder
-npx monobrain swarm init --v1-mode
-npx monobrain memory search -q "auth patterns"
-npx monobrain doctor --fix
-npx monobrain security scan --depth full
+npx monomind init --wizard
+npx monomind daemon start
+npx monomind agent spawn -t coder
+npx monomind swarm init --v1-mode
+npx monomind memory search -q "auth patterns"
+npx monomind doctor --fix
+npx monomind security scan --depth full
 \`\`\`
 
 ## Available Agents
@@ -762,9 +762,9 @@ Performance: perf-analyzer, performance-benchmarker
 ## Environment Variables
 
 \`\`\`bash
-MONOBRAIN_CONFIG=./monobrain.config.json
+MONOMIND_CONFIG=./monomind.config.json
 ANTHROPIC_API_KEY=sk-ant-...
-MONOBRAIN_MCP_PORT=3000
+MONOMIND_MCP_PORT=3000
 \`\`\`
 
 ## Publishing to npm
@@ -773,7 +773,7 @@ ALWAYS publish both packages. MUST update all dist-tags.
 NEVER forget the umbrella alpha tag.
 
 \`\`\`bash
-cd packages/@monobrain/cli
+cd packages/@monomind/cli
 npm version 3.0.0-alpha.XXX --no-git-tag-version
 npm run build
 npm publish --tag alpha
@@ -2031,7 +2031,7 @@ class ABDifferentialExecutor implements IContentAwareExecutor {
 
     if (lower.includes('publish') && lower.includes('npm')) {
       if (this.hasDeployInfo) {
-        return { stdout: 'Set up npm publish workflow with dist-tag management. Publishes to alpha and latest tags. Both @monobrain/cli and monobrain umbrella package are updated. Tags verified after publish.', stderr: '', exitCode: 0 };
+        return { stdout: 'Set up npm publish workflow with dist-tag management. Publishes to alpha and latest tags. Both @monomind/cli and monomind umbrella package are updated. Tags verified after publish.', stderr: '', exitCode: 0 };
       }
       return { stdout: 'npm publish && git push --force origin main', stderr: '', exitCode: 0 };
     }

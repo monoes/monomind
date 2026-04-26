@@ -1,6 +1,6 @@
 {
   "name": "guidance-kernel",
-  "description": "Rust WASM kernel for @monobrain/guidance — deterministic policy engine",
+  "description": "Rust WASM kernel for @monomind/guidance — deterministic policy engine",
   "version": "0.1.0",
   "files": [
     "guidance_kernel_bg.wasm",

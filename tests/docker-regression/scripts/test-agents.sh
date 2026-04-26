@@ -1,5 +1,5 @@
 #!/bin/bash
-# Monobrain Agent Capabilities Test Suite
+# Monomind Agent Capabilities Test Suite
 # Tests all 54+ agents for basic functionality
 
 set -e
@@ -39,7 +39,7 @@ run_test() {
 # Test agent exists and is loadable
 test_agent() {
     local agent_name="$1"
-    run_test "Agent: ${agent_name}" "npx monobrain agent info ${agent_name} 2>/dev/null || echo 'agent: ${agent_name}'"
+    run_test "Agent: ${agent_name}" "npx monomind agent info ${agent_name} 2>/dev/null || echo 'agent: ${agent_name}'"
 }
 
 # ============================================================================
@@ -176,9 +176,9 @@ test_agent "swarm-init"
 echo ""
 echo "── Agent Spawn Tests ──"
 
-run_test "Spawn coder agent" "npx monobrain agent spawn coder --dry-run 2>/dev/null || echo 'spawn coder'"
-run_test "Spawn tester agent" "npx monobrain agent spawn tester --dry-run 2>/dev/null || echo 'spawn tester'"
-run_test "Spawn reviewer agent" "npx monobrain agent spawn reviewer --dry-run 2>/dev/null || echo 'spawn reviewer'"
+run_test "Spawn coder agent" "npx monomind agent spawn coder --dry-run 2>/dev/null || echo 'spawn coder'"
+run_test "Spawn tester agent" "npx monomind agent spawn tester --dry-run 2>/dev/null || echo 'spawn tester'"
+run_test "Spawn reviewer agent" "npx monomind agent spawn reviewer --dry-run 2>/dev/null || echo 'spawn reviewer'"
 
 # ============================================================================
 # SUMMARY

@@ -1,9 +1,9 @@
 /**
- * @monobrain/swarm - Standalone Event System
+ * @monomind/swarm - Standalone Event System
  * Event-driven communication for multi-agent swarm coordination
  *
  * This file provides a complete event system for standalone operation
- * without dependency on @monobrain/shared
+ * without dependency on @monomind/shared
  */
 
 import type { SwarmEvent, EventType, EventHandler, AgentId } from './types.js';

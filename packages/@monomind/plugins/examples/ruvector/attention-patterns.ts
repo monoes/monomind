@@ -9,7 +9,7 @@
  *
  * Run with: npx ts-node examples/ruvector/attention-patterns.ts
  *
- * @module @monobrain/plugins/examples/ruvector/attention-patterns
+ * @module @monomind/plugins/examples/ruvector/attention-patterns
  */
 
 import {

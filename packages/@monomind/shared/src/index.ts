@@ -1,6 +1,6 @@
 /**
- * @monobrain/shared - Shared Module
- * Common types, events, utilities, and core interfaces for V1 Monobrain
+ * @monomind/shared - Shared Module
+ * Common types, events, utilities, and core interfaces for V1 Monomind
  *
  * Based on ADR-002 (DDD) and ADR-006 (Unified Memory Service)
  */

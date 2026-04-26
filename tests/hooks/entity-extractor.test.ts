@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import type { EntityFact } from '../../packages/@monobrain/memory/src/tiers/entity.js';
+import type { EntityFact } from '../../packages/@monomind/memory/src/tiers/entity.js';
 import {
   EntityExtractorWorker,
   buildExtractionPrompt,
   parseEntityFacts,
-} from '../../packages/@monobrain/hooks/src/workers/entity-extractor.js';
+} from '../../packages/@monomind/hooks/src/workers/entity-extractor.js';
 
 function makeFact(overrides: Partial<EntityFact> = {}): EntityFact {
   return {

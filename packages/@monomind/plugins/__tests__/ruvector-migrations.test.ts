@@ -7,7 +7,7 @@
  * - Rollback support
  * - Partial failure handling
  *
- * @module @monobrain/plugins/__tests__/ruvector-migrations
+ * @module @monomind/plugins/__tests__/ruvector-migrations
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

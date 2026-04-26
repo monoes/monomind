@@ -1,8 +1,8 @@
-# Monobrain V1 Complete CLI Reference
+# Monomind V1 Complete CLI Reference
 
 ## Overview
 
-Complete command reference for the monobrain V1 CLI including hooks, workflow execution, hive-mind coordination, process management, and all subcommands with SONA/MoE/HNSW integration.
+Complete command reference for the monomind V1 CLI including hooks, workflow execution, hive-mind coordination, process management, and all subcommands with SONA/MoE/HNSW integration.
 
 ## Table of Contents
 
@@ -24,11 +24,11 @@ The V1 hooks CLI provides command-line access to the hooks system for shell scri
 ## Installation
 
 ```bash
-# Hooks are available through the main monobrain CLI
-npm install -g @monobrain/cli
+# Hooks are available through the main monomind CLI
+npm install -g @monomind/cli
 
 # Or via npx
-npx monobrain hooks --help
+npx monomind hooks --help
 ```
 
 ## Commands
@@ -40,7 +40,7 @@ npx monobrain hooks --help
 Get context and suggestions before editing a file.
 
 ```bash
-npx monobrain hooks pre-edit <filePath> [options]
+npx monomind hooks pre-edit <filePath> [options]
 
 Options:
   --operation, -o    Edit operation type (create|modify|delete) [default: modify]
@@ -49,9 +49,9 @@ Options:
   --format           Output format (json|text) [default: text]
 
 Examples:
-  npx monobrain hooks pre-edit src/auth.ts
-  npx monobrain hooks pre-edit src/new-file.ts --operation create
-  npx monobrain hooks pre-edit src/legacy.ts --no-suggestions --format json
+  npx monomind hooks pre-edit src/auth.ts
+  npx monomind hooks pre-edit src/new-file.ts --operation create
+  npx monomind hooks pre-edit src/legacy.ts --no-suggestions --format json
 ```
 
 #### post-edit
@@ -59,7 +59,7 @@ Examples:
 Record edit outcome for learning.
 
 ```bash
-npx monobrain hooks post-edit <filePath> [options]
+npx monomind hooks post-edit <filePath> [options]
 
 Options:
   --success, -s      Whether edit was successful [required]
@@ -69,11 +69,11 @@ Options:
   --memory-key       Memory storage key (V2 compatibility)
 
 Examples:
-  npx monobrain hooks post-edit src/auth.ts --success true
-  npx monobrain hooks post-edit src/auth.ts --success false --outcome "Type error on line 42"
+  npx monomind hooks post-edit src/auth.ts --success true
+  npx monomind hooks post-edit src/auth.ts --success false --outcome "Type error on line 42"
 
   # V2 compatibility
-  npx monobrain hooks post-edit --file src/auth.ts --success true --memory-key "swarm/coder/edit1"
+  npx monomind hooks post-edit --file src/auth.ts --success true --memory-key "swarm/coder/edit1"
 ```
 
 ---
@@ -85,7 +85,7 @@ Examples:
 Assess risk before executing a command.
 
 ```bash
-npx monobrain hooks pre-command "<command>" [options]
+npx monomind hooks pre-command "<command>" [options]
 
 Options:
   --working-dir, -d  Working directory for command
@@ -94,9 +94,9 @@ Options:
   --format           Output format (json|text) [default: text]
 
 Examples:
-  npx monobrain hooks pre-command "npm test"
-  npx monobrain hooks pre-command "rm -rf ./dist" --working-dir /project
-  npx monobrain hooks pre-command "docker compose up" --format json
+  npx monomind hooks pre-command "npm test"
+  npx monomind hooks pre-command "rm -rf ./dist" --working-dir /project
+  npx monomind hooks pre-command "docker compose up" --format json
 ```
 
 #### post-command
@@ -104,7 +104,7 @@ Examples:
 Record command execution outcome.
 
 ```bash
-npx monobrain hooks post-command "<command>" [options]
+npx monomind hooks post-command "<command>" [options]
 
 Options:
   --success, -s      Whether command was successful [required]
@@ -114,8 +114,8 @@ Options:
   --time             Execution time in milliseconds
 
 Examples:
-  npx monobrain hooks post-command "npm test" --success true --time 5230
-  npx monobrain hooks post-command "npm build" --success false --exit-code 1 --error "Module not found"
+  npx monomind hooks post-command "npm test" --success true --time 5230
+  npx monomind hooks post-command "npm build" --success false --exit-code 1 --error "Module not found"
 ```
 
 ---
@@ -127,7 +127,7 @@ Examples:
 Record task start for coordination.
 
 ```bash
-npx monobrain hooks pre-task [options]
+npx monomind hooks pre-task [options]
 
 Options:
   --description, -d  Task description [required]
@@ -135,8 +135,8 @@ Options:
   --agent            Assigned agent type
 
 Examples:
-  npx monobrain hooks pre-task --description "Implement OAuth2 flow"
-  npx monobrain hooks pre-task -d "Fix login bug" --agent debugger --task-id task-123
+  npx monomind hooks pre-task --description "Implement OAuth2 flow"
+  npx monomind hooks pre-task -d "Fix login bug" --agent debugger --task-id task-123
 ```
 
 #### post-task
@@ -144,7 +144,7 @@ Examples:
 Record task completion.
 
 ```bash
-npx monobrain hooks post-task [options]
+npx monomind hooks post-task [options]
 
 Options:
   --task-id          Task identifier [required]
@@ -153,8 +153,8 @@ Options:
   --metrics          Include task metrics
 
 Examples:
-  npx monobrain hooks post-task --task-id task-123 --success true
-  npx monobrain hooks post-task --task-id task-123 --success false --result "Blocked by dependency"
+  npx monomind hooks post-task --task-id task-123 --success true
+  npx monomind hooks post-task --task-id task-123 --success false --result "Blocked by dependency"
 ```
 
 ---
@@ -166,7 +166,7 @@ Examples:
 Restore previous session context.
 
 ```bash
-npx monobrain hooks session-restore [options]
+npx monomind hooks session-restore [options]
 
 Options:
   --session-id       Session identifier to restore [required]
@@ -174,8 +174,8 @@ Options:
   --include-agents   Restore agent states [default: true]
 
 Examples:
-  npx monobrain hooks session-restore --session-id swarm-abc123
-  npx monobrain hooks session-restore --session-id previous --include-memory false
+  npx monomind hooks session-restore --session-id swarm-abc123
+  npx monomind hooks session-restore --session-id previous --include-memory false
 ```
 
 #### session-end
@@ -183,7 +183,7 @@ Examples:
 End session and persist state.
 
 ```bash
-npx monobrain hooks session-end [options]
+npx monomind hooks session-end [options]
 
 Options:
   --export-metrics   Export session metrics [default: true]
@@ -191,8 +191,8 @@ Options:
   --summary          Generate session summary
 
 Examples:
-  npx monobrain hooks session-end
-  npx monobrain hooks session-end --export-metrics true --summary
+  npx monomind hooks session-end
+  npx monomind hooks session-end --export-metrics true --summary
 ```
 
 ---
@@ -204,7 +204,7 @@ Examples:
 Route a task to the optimal agent.
 
 ```bash
-npx monobrain hooks route "<task>" [options]
+npx monomind hooks route "<task>" [options]
 
 Options:
   --context, -c      Additional context
@@ -213,9 +213,9 @@ Options:
   --format           Output format (json|text) [default: text]
 
 Examples:
-  npx monobrain hooks route "Implement user authentication"
-  npx monobrain hooks route "Fix CSS bug" --prefer "coder,reviewer"
-  npx monobrain hooks route "Research API options" --context "REST vs GraphQL" --format json
+  npx monomind hooks route "Implement user authentication"
+  npx monomind hooks route "Fix CSS bug" --prefer "coder,reviewer"
+  npx monomind hooks route "Research API options" --context "REST vs GraphQL" --format json
 ```
 
 #### explain
@@ -223,7 +223,7 @@ Examples:
 Explain routing decision with transparency.
 
 ```bash
-npx monobrain hooks explain "<task>" [options]
+npx monomind hooks explain "<task>" [options]
 
 Options:
   --context, -c      Additional context
@@ -231,8 +231,8 @@ Options:
   --format           Output format (json|text) [default: text]
 
 Examples:
-  npx monobrain hooks explain "Implement OAuth2 authentication"
-  npx monobrain hooks explain "Security audit" --verbose
+  npx monomind hooks explain "Implement OAuth2 authentication"
+  npx monomind hooks explain "Security audit" --verbose
 ```
 
 ---
@@ -244,7 +244,7 @@ Examples:
 Bootstrap intelligence from repository analysis.
 
 ```bash
-npx monobrain hooks pretrain [options]
+npx monomind hooks pretrain [options]
 
 Options:
   --path, -p         Repository path [default: current directory]
@@ -254,9 +254,9 @@ Options:
   --force            Force retraining even if data exists
 
 Examples:
-  npx monobrain hooks pretrain
-  npx monobrain hooks pretrain --path /project --max-patterns 5000
-  npx monobrain hooks pretrain --force --no-include-git
+  npx monomind hooks pretrain
+  npx monomind hooks pretrain --path /project --max-patterns 5000
+  npx monomind hooks pretrain --force --no-include-git
 ```
 
 #### build-agents
@@ -264,7 +264,7 @@ Examples:
 Generate optimized agent configurations from pretrain data.
 
 ```bash
-npx monobrain hooks build-agents [options]
+npx monomind hooks build-agents [options]
 
 Options:
   --focus            Focus area (all|security|performance|testing) [default: all]
@@ -272,9 +272,9 @@ Options:
   --v1-mode          Use V1 agent definitions
 
 Examples:
-  npx monobrain hooks build-agents --focus security
-  npx monobrain hooks build-agents --output agents.json
-  npx monobrain hooks build-agents --v1-mode --focus performance
+  npx monomind hooks build-agents --focus security
+  npx monomind hooks build-agents --output agents.json
+  npx monomind hooks build-agents --v1-mode --focus performance
 ```
 
 #### transfer
@@ -282,7 +282,7 @@ Examples:
 Transfer learned patterns from another project.
 
 ```bash
-npx monobrain hooks transfer <sourceProject> [options]
+npx monomind hooks transfer <sourceProject> [options]
 
 Options:
   --filter           Pattern filter (glob pattern)
@@ -290,9 +290,9 @@ Options:
   --dry-run          Show what would be transferred
 
 Examples:
-  npx monobrain hooks transfer /other-project
-  npx monobrain hooks transfer ../shared-project --filter "security/*"
-  npx monobrain hooks transfer /template --dry-run
+  npx monomind hooks transfer /other-project
+  npx monomind hooks transfer ../shared-project --filter "security/*"
+  npx monomind hooks transfer /template --dry-run
 ```
 
 ---
@@ -304,7 +304,7 @@ Examples:
 View learning metrics dashboard.
 
 ```bash
-npx monobrain hooks metrics [options]
+npx monomind hooks metrics [options]
 
 Options:
   --category, -c     Category (all|routing|edits|commands|patterns) [default: all]
@@ -314,10 +314,10 @@ Options:
   --v1-dashboard     Use V1 metrics dashboard
 
 Examples:
-  npx monobrain hooks metrics
-  npx monobrain hooks metrics --category routing --time-range week
-  npx monobrain hooks metrics --detailed --format json
-  npx monobrain hooks metrics --v1-dashboard
+  npx monomind hooks metrics
+  npx monomind hooks metrics --category routing --time-range week
+  npx monomind hooks metrics --detailed --format json
+  npx monomind hooks metrics --v1-dashboard
 ```
 
 #### list
@@ -325,7 +325,7 @@ Examples:
 List registered hooks.
 
 ```bash
-npx monobrain hooks list [options]
+npx monomind hooks list [options]
 
 Options:
   --category, -c     Filter by category
@@ -334,9 +334,9 @@ Options:
   --format           Output format (json|text|table) [default: table]
 
 Examples:
-  npx monobrain hooks list
-  npx monobrain hooks list --category routing
-  npx monobrain hooks list --include-disabled --format json
+  npx monomind hooks list
+  npx monomind hooks list --category routing
+  npx monomind hooks list --include-disabled --format json
 ```
 
 ---
@@ -348,7 +348,7 @@ Examples:
 Send notification message (V2 compatibility).
 
 ```bash
-npx monobrain hooks notify [options]
+npx monomind hooks notify [options]
 
 Options:
   --message, -m      Notification message [required]
@@ -356,8 +356,8 @@ Options:
   --channel          Notification channel
 
 Examples:
-  npx monobrain hooks notify --message "Task completed successfully"
-  npx monobrain hooks notify -m "Build failed" --level error
+  npx monomind hooks notify --message "Task completed successfully"
+  npx monomind hooks notify -m "Build failed" --level error
 ```
 
 ---
@@ -366,16 +366,16 @@ Examples:
 
 ```bash
 # Hook execution timeout (milliseconds)
-MONOBRAIN_HOOK_TIMEOUT=5000
+MONOMIND_HOOK_TIMEOUT=5000
 
 # Enable/disable ReasoningBank integration
-MONOBRAIN_REASONINGBANK_ENABLED=true
+MONOMIND_REASONINGBANK_ENABLED=true
 
 # Learning namespace
-MONOBRAIN_HOOKS_NAMESPACE=hooks-learning
+MONOMIND_HOOKS_NAMESPACE=hooks-learning
 
 # Logging level
-MONOBRAIN_HOOKS_LOG_LEVEL=info
+MONOMIND_HOOKS_LOG_LEVEL=info
 ```
 
 ## V2 Compatibility
@@ -384,12 +384,12 @@ All V2 hook commands are supported for backward compatibility:
 
 ```bash
 # V2 syntax (still works)
-npx monobrain hooks pre-task --description "[task]"
-npx monobrain hooks session-restore --session-id "swarm-[id]"
-npx monobrain hooks post-edit --file "[file]" --memory-key "swarm/[agent]/[step]"
-npx monobrain hooks notify --message "[what was done]"
-npx monobrain hooks post-task --task-id "[task]"
-npx monobrain hooks session-end --export-metrics true
+npx monomind hooks pre-task --description "[task]"
+npx monomind hooks session-restore --session-id "swarm-[id]"
+npx monomind hooks post-edit --file "[file]" --memory-key "swarm/[agent]/[step]"
+npx monomind hooks notify --message "[what was done]"
+npx monomind hooks post-task --task-id "[task]"
+npx monomind hooks session-end --export-metrics true
 ```
 
 ## Exit Codes
@@ -408,7 +408,7 @@ npx monobrain hooks session-end --export-metrics true
 ### Text Format (Default)
 
 ```
-$ npx monobrain hooks route "Implement authentication"
+$ npx monomind hooks route "Implement authentication"
 
 Task Routing Result
 ==================
@@ -428,7 +428,7 @@ Alternative Agents:
 ### JSON Format
 
 ```bash
-$ npx monobrain hooks route "Implement authentication" --format json
+$ npx monomind hooks route "Implement authentication" --format json
 ```
 
 ```json
@@ -447,7 +447,7 @@ $ npx monobrain hooks route "Implement authentication" --format json
 ### Table Format
 
 ```
-$ npx monobrain hooks metrics --format table
+$ npx monomind hooks metrics --format table
 
 Hooks Learning Metrics
 ======================
@@ -467,7 +467,7 @@ Total       1547        89%           279
 The `hooks intelligence` command provides RuVector intelligence with SONA, MoE, and HNSW integration.
 
 ```bash
-npx monobrain hooks intelligence [options]
+npx monomind hooks intelligence [options]
 ```
 
 **Options:**
@@ -548,7 +548,7 @@ Workflow templates and execution management.
 Execute a workflow by name or file.
 
 ```bash
-npx monobrain workflow run <name|file> [options]
+npx monomind workflow run <name|file> [options]
 ```
 
 **Options:**
@@ -563,7 +563,7 @@ npx monobrain workflow run <name|file> [options]
 **Example:**
 
 ```bash
-npx monobrain workflow run development --input '{"feature": "auth"}' --parallel 6
+npx monomind workflow run development --input '{"feature": "auth"}' --parallel 6
 ```
 
 ### `workflow validate`
@@ -571,7 +571,7 @@ npx monobrain workflow run development --input '{"feature": "auth"}' --parallel 
 Validate a workflow definition.
 
 ```bash
-npx monobrain workflow validate <file> [options]
+npx monomind workflow validate <file> [options]
 ```
 
 **Options:**
@@ -585,7 +585,7 @@ npx monobrain workflow validate <file> [options]
 List available workflows.
 
 ```bash
-npx monobrain workflow list [options]
+npx monomind workflow list [options]
 ```
 
 **Options:**
@@ -599,7 +599,7 @@ npx monobrain workflow list [options]
 Show status of running workflows.
 
 ```bash
-npx monobrain workflow status [options]
+npx monomind workflow status [options]
 ```
 
 **Options:**
@@ -613,7 +613,7 @@ npx monobrain workflow status [options]
 Stop a running workflow.
 
 ```bash
-npx monobrain workflow stop [options]
+npx monomind workflow stop [options]
 ```
 
 **Options:**
@@ -629,13 +629,13 @@ Manage workflow templates.
 
 ```bash
 # List templates
-npx monobrain workflow template list
+npx monomind workflow template list
 
 # Show template details
-npx monobrain workflow template show <name>
+npx monomind workflow template show <name>
 
 # Create new template
-npx monobrain workflow template create --name <name> --output <file>
+npx monomind workflow template create --name <name> --output <file>
 ```
 
 **Built-in Templates:**
@@ -660,7 +660,7 @@ Queen-led consensus-based multi-agent coordination.
 Initialize a new hive-mind swarm.
 
 ```bash
-npx monobrain hive-mind init [options]
+npx monomind hive-mind init [options]
 ```
 
 **Options:**
@@ -690,7 +690,7 @@ npx monobrain hive-mind init [options]
 **Example:**
 
 ```bash
-npx monobrain hive-mind init --topology hierarchical-mesh --consensus byzantine --workers 15
+npx monomind hive-mind init --topology hierarchical-mesh --consensus byzantine --workers 15
 ```
 
 ### `hive-mind spawn`
@@ -698,7 +698,7 @@ npx monobrain hive-mind init --topology hierarchical-mesh --consensus byzantine 
 Spawn new worker agents.
 
 ```bash
-npx monobrain hive-mind spawn [options]
+npx monomind hive-mind spawn [options]
 ```
 
 **Options:**
@@ -716,7 +716,7 @@ npx monobrain hive-mind spawn [options]
 Show hive status and metrics.
 
 ```bash
-npx monobrain hive-mind status [options]
+npx monomind hive-mind status [options]
 ```
 
 **Options:**
@@ -730,7 +730,7 @@ npx monobrain hive-mind status [options]
 Submit tasks to the hive.
 
 ```bash
-npx monobrain hive-mind task [options]
+npx monomind hive-mind task [options]
 ```
 
 **Options:**
@@ -747,7 +747,7 @@ npx monobrain hive-mind task [options]
 Optimize hive collective memory.
 
 ```bash
-npx monobrain hive-mind optimize-memory [options]
+npx monomind hive-mind optimize-memory [options]
 ```
 
 **Options:**
@@ -761,7 +761,7 @@ npx monobrain hive-mind optimize-memory [options]
 Gracefully shutdown the hive.
 
 ```bash
-npx monobrain hive-mind shutdown [options]
+npx monomind hive-mind shutdown [options]
 ```
 
 **Options:**
@@ -780,7 +780,7 @@ npx monobrain hive-mind shutdown [options]
 Spawn a new agent.
 
 ```bash
-npx monobrain agent spawn [options]
+npx monomind agent spawn [options]
 ```
 
 **Options:**
@@ -798,7 +798,7 @@ npx monobrain agent spawn [options]
 List active agents.
 
 ```bash
-npx monobrain agent list [options]
+npx monomind agent list [options]
 ```
 
 ### `agent pool`
@@ -806,7 +806,7 @@ npx monobrain agent list [options]
 Manage agent pool.
 
 ```bash
-npx monobrain agent pool [options]
+npx monomind agent pool [options]
 ```
 
 **Options:**
@@ -845,7 +845,7 @@ Agent Distribution:
 Monitor agent health.
 
 ```bash
-npx monobrain agent health [options]
+npx monomind agent health [options]
 ```
 
 **Options:**
@@ -860,7 +860,7 @@ npx monobrain agent health [options]
 View agent activity logs.
 
 ```bash
-npx monobrain agent logs [options]
+npx monomind agent logs [options]
 ```
 
 **Options:**
@@ -881,7 +881,7 @@ npx monobrain agent logs [options]
 Store data in memory.
 
 ```bash
-npx monobrain memory store --key <key> --value <value> [options]
+npx monomind memory store --key <key> --value <value> [options]
 ```
 
 ### `memory retrieve`
@@ -889,7 +889,7 @@ npx monobrain memory store --key <key> --value <value> [options]
 Retrieve data from memory.
 
 ```bash
-npx monobrain memory retrieve --key <key> [options]
+npx monomind memory retrieve --key <key> [options]
 ```
 
 ### `memory search`
@@ -897,7 +897,7 @@ npx monobrain memory retrieve --key <key> [options]
 Semantic vector search.
 
 ```bash
-npx monobrain memory search --query "<query>" [options]
+npx monomind memory search --query "<query>" [options]
 ```
 
 **Options:**
@@ -912,7 +912,7 @@ npx monobrain memory search --query "<query>" [options]
 Show memory statistics.
 
 ```bash
-npx monobrain memory stats [options]
+npx monomind memory stats [options]
 ```
 
 ### `memory cleanup`
@@ -920,7 +920,7 @@ npx monobrain memory stats [options]
 Clean up stale/expired entries.
 
 ```bash
-npx monobrain memory cleanup [options]
+npx monomind memory cleanup [options]
 ```
 
 **Options:**
@@ -936,7 +936,7 @@ npx monobrain memory cleanup [options]
 Compress and optimize storage.
 
 ```bash
-npx monobrain memory compress [options]
+npx monomind memory compress [options]
 ```
 
 **Options:**
@@ -973,10 +973,10 @@ Backup and restore memory.
 
 ```bash
 # Export memory
-npx monobrain memory export --output <file> [options]
+npx monomind memory export --output <file> [options]
 
 # Import memory
-npx monobrain memory import --input <file> [options]
+npx monomind memory import --input <file> [options]
 ```
 
 ---
@@ -988,7 +988,7 @@ npx monobrain memory import --input <file> [options]
 Manage background daemon.
 
 ```bash
-npx monobrain process daemon --action <action> [options]
+npx monomind process daemon --action <action> [options]
 ```
 
 **Actions:** `start`, `stop`, `restart`, `status`
@@ -997,8 +997,8 @@ npx monobrain process daemon --action <action> [options]
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `--port` | number | `3847` | Daemon HTTP API port |
-| `--pid-file` | string | `.monobrain/daemon.pid` | PID file location |
-| `--log-file` | string | `.monobrain/daemon.log` | Log file location |
+| `--pid-file` | string | `.monomind/daemon.pid` | PID file location |
+| `--log-file` | string | `.monomind/daemon.log` | Log file location |
 | `--detach` | boolean | `true` | Run detached |
 
 ### `process monitor`
@@ -1006,7 +1006,7 @@ npx monobrain process daemon --action <action> [options]
 Real-time process monitoring.
 
 ```bash
-npx monobrain process monitor [options]
+npx monomind process monitor [options]
 ```
 
 **Options:**
@@ -1022,7 +1022,7 @@ npx monobrain process monitor [options]
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
-║            🖥️  MONOBRAIN PROCESS MONITOR                    ║
+║            🖥️  MONOMIND PROCESS MONITOR                    ║
 ╠══════════════════════════════════════════════════════════════╣
 ║  SYSTEM                                                      ║
 ║  CPU:    [████████░░░░░░░░░░░░] 38.5%                        ║
@@ -1045,7 +1045,7 @@ npx monobrain process monitor [options]
 Manage background workers.
 
 ```bash
-npx monobrain process workers --action <action> [options]
+npx monomind process workers --action <action> [options]
 ```
 
 **Actions:** `list`, `spawn`, `kill`, `scale`
@@ -1062,7 +1062,7 @@ npx monobrain process workers --action <action> [options]
 Send signals to processes.
 
 ```bash
-npx monobrain process signals --target <target> --signal <signal> [options]
+npx monomind process signals --target <target> --signal <signal> [options]
 ```
 
 **Signals:** `graceful-shutdown`, `force-kill`, `pause`, `resume`, `reload-config`
@@ -1072,7 +1072,7 @@ npx monobrain process signals --target <target> --signal <signal> [options]
 View process logs.
 
 ```bash
-npx monobrain process logs [options]
+npx monomind process logs [options]
 ```
 
 **Options:**
@@ -1093,7 +1093,7 @@ npx monobrain process logs [options]
 Initialize a swarm.
 
 ```bash
-npx monobrain swarm init [options]
+npx monomind swarm init [options]
 ```
 
 **Options:**
@@ -1107,7 +1107,7 @@ npx monobrain swarm init [options]
 Spawn agents into swarm.
 
 ```bash
-npx monobrain swarm spawn [options]
+npx monomind swarm spawn [options]
 ```
 
 ### `swarm status`
@@ -1115,7 +1115,7 @@ npx monobrain swarm spawn [options]
 Show swarm status.
 
 ```bash
-npx monobrain swarm status [options]
+npx monomind swarm status [options]
 ```
 
 ### `swarm task`
@@ -1123,7 +1123,7 @@ npx monobrain swarm status [options]
 Submit task to swarm.
 
 ```bash
-npx monobrain swarm task --description "<task>" [options]
+npx monomind swarm task --description "<task>" [options]
 ```
 
 ---
@@ -1132,12 +1132,12 @@ npx monobrain swarm task --description "<task>" [options]
 
 | Variable                          | Description               | Default                  |
 | --------------------------------- | ------------------------- | ------------------------ |
-| `MONOBRAIN_CONFIG`                | Config file path          | `.monobrain/config.json` |
-| `MONOBRAIN_LOG_LEVEL`             | Log level                 | `info`                   |
-| `MONOBRAIN_MEMORY_BACKEND`        | Memory backend            | `agentdb`                |
-| `MONOBRAIN_EMBEDDING_PROVIDER`    | Embedding provider        | `transformers`           |
-| `MONOBRAIN_HOOK_TIMEOUT`          | Hook timeout (ms)         | `5000`                   |
-| `MONOBRAIN_REASONINGBANK_ENABLED` | ReasoningBank integration | `true`                   |
+| `MONOMIND_CONFIG`                | Config file path          | `.monomind/config.json` |
+| `MONOMIND_LOG_LEVEL`             | Log level                 | `info`                   |
+| `MONOMIND_MEMORY_BACKEND`        | Memory backend            | `agentdb`                |
+| `MONOMIND_EMBEDDING_PROVIDER`    | Embedding provider        | `transformers`           |
+| `MONOMIND_HOOK_TIMEOUT`          | Hook timeout (ms)         | `5000`                   |
+| `MONOMIND_REASONINGBANK_ENABLED` | ReasoningBank integration | `true`                   |
 | `ANTHROPIC_API_KEY`               | Anthropic API key         | -                        |
 | `OPENAI_API_KEY`                  | OpenAI API key            | -                        |
 

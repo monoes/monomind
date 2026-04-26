@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-const CLI_SRC = join(__dirname, '../../@monobrain/cli/src');
+const CLI_SRC = join(__dirname, '../../@monomind/cli/src');
 const MCP_TOOLS = join(CLI_SRC, 'mcp-tools');
 
 // Helper: read a source file and return its contents

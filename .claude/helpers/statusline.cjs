@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Monobrain V1 Statusline Generator (Optimized)
+ * Monomind V1 Statusline Generator (Optimized)
  * Displays real-time v1 implementation progress and system status
  *
  * Usage: node statusline.cjs [--json] [--compact]
@@ -24,11 +24,11 @@ const CONFIG = {
   maxAgents: 15,
 };
 
-const CWD = process.cwd();
+const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
-// Read monobrain version — check global install first, then CWD package.json
+// Read monomind version — check global install first, then CWD package.json
 function getVersion() {
-  // 1. Walk up from script location to find monobrain package.json
+  // 1. Walk up from script location to find monomind package.json
   const scriptDir = path.dirname(__filename);
   const walkCandidates = [
     path.join(scriptDir, '..', '..', 'package.json'),
@@ -38,7 +38,7 @@ function getVersion() {
   for (const p of walkCandidates) {
     try {
       const pkg = JSON.parse(fs.readFileSync(p, 'utf-8'));
-      if (pkg.version && (pkg.name === 'monobrain' || pkg.name === '@monoes/cli' || (pkg.name || '').startsWith('@monobrain'))) {
+      if (pkg.version && (pkg.name === 'monomind' || pkg.name === '@monomind/cli' || (pkg.name || '').startsWith('@monomind'))) {
         return `v${pkg.version}`;
       }
     } catch { /* ignore */ }
@@ -46,7 +46,7 @@ function getVersion() {
   // 2. Fallback: npm global prefix
   try {
     const prefix = execSync('npm config get prefix', { encoding: 'utf-8', timeout: 2000 }).trim();
-    const pkg = JSON.parse(fs.readFileSync(path.join(prefix, 'lib', 'node_modules', 'monobrain', 'package.json'), 'utf-8'));
+    const pkg = JSON.parse(fs.readFileSync(path.join(prefix, 'lib', 'node_modules', 'monomind', 'package.json'), 'utf-8'));
     if (pkg.version) return `v${pkg.version}`;
   } catch { /* ignore */ }
   return 'v1.0.6';
@@ -263,7 +263,7 @@ function getModelName() {
 function getLearningStats() {
   const memoryPaths = [
     path.join(CWD, '.swarm', 'memory.db'),
-    path.join(CWD, '.monobrain', 'memory.db'),
+    path.join(CWD, '.monomind', 'memory.db'),
     path.join(CWD, '.claude', 'memory.db'),
     path.join(CWD, 'data', 'memory.db'),
     path.join(CWD, '.agentdb', 'memory.db'),
@@ -298,7 +298,7 @@ function getv1Progress() {
   const learning = getLearningStats();
   const totalDomains = 5;
 
-  const dddData = readJSON(path.join(CWD, '.monobrain', 'metrics', 'ddd-progress.json'));
+  const dddData = readJSON(path.join(CWD, '.monomind', 'metrics', 'ddd-progress.json'));
   let dddProgress = dddData?.progress || 0;
   let domainsCompleted = Math.min(5, Math.floor(dddProgress / 20));
 
@@ -320,7 +320,7 @@ function getv1Progress() {
 
 // Security status (pure file reads)
 function getSecurityStatus() {
-  const auditData = readJSON(path.join(CWD, '.monobrain', 'security', 'audit-status.json'));
+  const auditData = readJSON(path.join(CWD, '.monomind', 'security', 'audit-status.json'));
   if (auditData) {
     const auditDate = auditData.lastAudit || auditData.lastScan;
     if (!auditDate) {
@@ -359,7 +359,7 @@ function getSwarmStatus() {
 
   // PRIMARY: count live registration files written by SubagentStart hook
   // Each file = one active sub-agent. Stale files (>30 min) are ignored.
-  const regDir = path.join(CWD, '.monobrain', 'agents', 'registrations');
+  const regDir = path.join(CWD, '.monomind', 'agents', 'registrations');
   if (fs.existsSync(regDir)) {
     try {
       const files = fs.readdirSync(regDir).filter(f => f.endsWith('.json'));
@@ -380,7 +380,7 @@ function getSwarmStatus() {
   }
 
   // SECONDARY: swarm-state.json written by MCP swarm_init — trust if fresh
-  const swarmStatePath = path.join(CWD, '.monobrain', 'swarm', 'swarm-state.json');
+  const swarmStatePath = path.join(CWD, '.monomind', 'swarm', 'swarm-state.json');
   const swarmState = readJSON(swarmStatePath);
   if (swarmState) {
     const updatedAt = swarmState.updatedAt || swarmState.startedAt;
@@ -397,7 +397,7 @@ function getSwarmStatus() {
   }
 
   // TERTIARY: swarm-activity.json refreshed by post-task hook
-  const activityData = readJSON(path.join(CWD, '.monobrain', 'metrics', 'swarm-activity.json'));
+  const activityData = readJSON(path.join(CWD, '.monomind', 'metrics', 'swarm-activity.json'));
   if (activityData?.swarm) {
     const updatedAt = activityData.timestamp || activityData.swarm.timestamp;
     const age = updatedAt ? now - new Date(updatedAt).getTime() : Infinity;
@@ -432,7 +432,7 @@ function getSystemMetrics() {
   const agentdb = getAgentDBStats();
 
   // Intelligence from learning.json
-  const learningData = readJSON(path.join(CWD, '.monobrain', 'metrics', 'learning.json'));
+  const learningData = readJSON(path.join(CWD, '.monomind', 'metrics', 'learning.json'));
   let intelligencePct = 0;
   let contextPct = 0;
 
@@ -466,7 +466,7 @@ function getSystemMetrics() {
 
   // Sub-agents from file metrics (no ps aux)
   let subAgents = 0;
-  const activityData = readJSON(path.join(CWD, '.monobrain', 'metrics', 'swarm-activity.json'));
+  const activityData = readJSON(path.join(CWD, '.monomind', 'metrics', 'swarm-activity.json'));
   if (activityData?.processes?.estimated_agents) {
     subAgents = activityData.processes.estimated_agents;
   }
@@ -480,7 +480,7 @@ function getADRStatus() {
   const adrPaths = [
     path.join(CWD, 'packages', 'implementation', 'adrs'),
     path.join(CWD, 'docs', 'adrs'),
-    path.join(CWD, '.monobrain', 'adrs'),
+    path.join(CWD, '.monomind', 'adrs'),
   ];
 
   for (const adrPath of adrPaths) {
@@ -532,7 +532,7 @@ function getHooksStatus() {
 
 // Active agent — reads last routing result persisted by hook-handler
 function getActiveAgent() {
-  const routeFile = path.join(CWD, '.monobrain', 'last-route.json');
+  const routeFile = path.join(CWD, '.monomind', 'last-route.json');
   try {
     if (!fs.existsSync(routeFile)) return null;
     const data = JSON.parse(fs.readFileSync(routeFile, 'utf-8'));
@@ -566,7 +566,7 @@ function getAgentDBStats() {
   let hasHnsw = false;
 
   // 0. PRIMARY: Count drawers from Memory Palace (this is where memories actually live)
-  const drawersPath = path.join(CWD, '.monobrain', 'palace', 'drawers.jsonl');
+  const drawersPath = path.join(CWD, '.monomind', 'palace', 'drawers.jsonl');
   const drawersStat = safeStat(drawersPath);
   if (drawersStat) {
     dbSizeKB += drawersStat.size / 1024;
@@ -577,7 +577,7 @@ function getAgentDBStats() {
   }
 
   // 1. Count real entries from auto-memory-store.json (intelligence layer)
-  const storePath = path.join(CWD, '.monobrain', 'data', 'auto-memory-store.json');
+  const storePath = path.join(CWD, '.monomind', 'data', 'auto-memory-store.json');
   const storeStat = safeStat(storePath);
   if (storeStat) {
     dbSizeKB += storeStat.size / 1024;
@@ -589,7 +589,7 @@ function getAgentDBStats() {
   }
 
   // 2. Count entries from ranked-context.json
-  const rankedPath = path.join(CWD, '.monobrain', 'data', 'ranked-context.json');
+  const rankedPath = path.join(CWD, '.monomind', 'data', 'ranked-context.json');
   try {
     const ranked = readJSON(rankedPath);
     if (ranked?.entries?.length > vectorCount) vectorCount = ranked.entries.length;
@@ -598,7 +598,7 @@ function getAgentDBStats() {
   // 3. Add DB file sizes
   const dbFiles = [
     path.join(CWD, 'data', 'memory.db'),
-    path.join(CWD, '.monobrain', 'memory.db'),
+    path.join(CWD, '.monomind', 'memory.db'),
     path.join(CWD, '.swarm', 'memory.db'),
   ];
   for (const f of dbFiles) {
@@ -617,7 +617,7 @@ function getAgentDBStats() {
   // 5. HNSW index
   const hnswPaths = [
     path.join(CWD, '.swarm', 'hnsw.index'),
-    path.join(CWD, '.monobrain', 'hnsw.index'),
+    path.join(CWD, '.monomind', 'hnsw.index'),
   ];
   for (const p of hnswPaths) {
     const stat = safeStat(p);
@@ -630,8 +630,8 @@ function getAgentDBStats() {
   // HNSW is available if memory package is present
   if (!hasHnsw) {
     const memPkgPaths = [
-      path.join(CWD, 'packages', '@monobrain', 'memory', 'dist'),
-      path.join(CWD, 'node_modules', '@monobrain', 'memory'),
+      path.join(CWD, 'packages', '@monomind', 'memory', 'dist'),
+      path.join(CWD, 'node_modules', '@monomind', 'memory'),
     ];
     for (const p of memPkgPaths) {
       if (fs.existsSync(p)) { hasHnsw = true; break; }
@@ -643,7 +643,7 @@ function getAgentDBStats() {
 
 // Memory Palace stats — drawers.jsonl + kg.json (the real persistent memory)
 function getMemoryPalaceStats() {
-  const palaceDir = path.join(CWD, '.monobrain', 'palace');
+  const palaceDir = path.join(CWD, '.monomind', 'palace');
   let drawers = 0, triples = 0, palaceSizeKB = 0;
 
   try {
@@ -668,10 +668,33 @@ function getMemoryPalaceStats() {
   return { drawers, triples, palaceSizeKB: Math.floor(palaceSizeKB) };
 }
 
+// Auto-memory file stats — reads ~/.claude/projects/<slug>/memory/*.md
+function getAutoMemoryStats() {
+  const homeDir = os.homedir();
+  const slug = path.resolve(CWD).replace(/\//g, '-');
+  const memDir = path.join(homeDir, '.claude', 'projects', slug, 'memory');
+  let files = [];
+  try {
+    files = fs.readdirSync(memDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md');
+  } catch { /* dir may not exist */ }
+
+  const byType = {};
+  for (const fname of files) {
+    let type = 'project';
+    try {
+      const raw = fs.readFileSync(path.join(memDir, fname), 'utf-8').replace(/\r\n/g, '\n');
+      const m = raw.match(/^---\n[\s\S]*?type:\s*(\S+)/);
+      if (m) type = m[1].trim();
+    } catch { /* ignore */ }
+    byType[type] = (byType[type] || 0) + 1;
+  }
+  return { count: files.length, byType };
+}
+
 // Token summary — reads cache written by session-restore hook.
 // Valid for the entire UTC day it was written; expires at midnight UTC.
 function getTokenStats() {
-  const cachePath = path.join(CWD, '.monobrain', 'metrics', 'token-summary.json');
+  const cachePath = path.join(CWD, '.monomind', 'metrics', 'token-summary.json');
   const data = readJSON(cachePath);
   if (!data) return null;
   // Reject only if cache is from a different UTC day (midnight boundary)
@@ -741,7 +764,7 @@ function getIntegrationStatus() {
     }
   }
 
-  const hasDatabase = ['.swarm/memory.db', '.monobrain/memory.db', 'data/memory.db']
+  const hasDatabase = ['.swarm/memory.db', '.monomind/memory.db', 'data/memory.db']
     .some(p => fs.existsSync(path.join(CWD, p)));
   const hasApi = !!(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY);
 
@@ -750,7 +773,7 @@ function getIntegrationStatus() {
 
 // Session stats (pure file reads)
 function getSessionStats() {
-  for (const p of ['.monobrain/session.json', '.claude/session.json']) {
+  for (const p of ['.monomind/session.json', '.claude/session.json']) {
     const data = readJSON(path.join(CWD, p));
     if (data?.startTime) {
       const diffMs = Date.now() - new Date(data.startTime).getTime();
@@ -834,8 +857,8 @@ function secBadge(status) {
 
 // ── Knowledge & trigger stats (Tasks 28 + 32) ────────────────────
 function getKnowledgeStats() {
-  const chunksPath = path.join(CWD, '.monobrain', 'knowledge', 'chunks.jsonl');
-  const skillsPath = path.join(CWD, '.monobrain', 'skills.jsonl');
+  const chunksPath = path.join(CWD, '.monomind', 'knowledge', 'chunks.jsonl');
+  const skillsPath = path.join(CWD, '.monomind', 'skills.jsonl');
   let chunks = 0, skills = 0;
   try {
     if (fs.existsSync(chunksPath)) {
@@ -851,7 +874,7 @@ function getKnowledgeStats() {
 }
 
 function getTriggerStats() {
-  const indexPath = path.join(CWD, '.monobrain', 'trigger-index.json');
+  const indexPath = path.join(CWD, '.monomind', 'trigger-index.json');
   try {
     if (!fs.existsSync(indexPath)) return { triggers: 0, agents: 0 };
     const raw = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
@@ -886,7 +909,7 @@ function generateStatusline() {
 
   // Brand + swarm dot
   const swarmDot = swarm.coordinationActive ? `${x.green}●${x.reset}` : `${x.slate}○${x.reset}`;
-  parts.push(`${x.bold}${x.purple}▊ Monobrain${x.reset} ${swarmDot}`);
+  parts.push(`${x.bold}${x.purple}▊ Monomind${x.reset} ${swarmDot}`);
 
   // Git branch + changes (compact)
   if (git.gitBranch) {
@@ -923,10 +946,16 @@ function generateStatusline() {
   const ic = pctColor(system.intelligencePct);
   parts.push(`${ic}💡 ${system.intelligencePct}%${x.reset}`);
 
-  // Memory Palace drawers
-  if (palace.drawers > 0) {
-    const kgPart = palace.triples > 0 ? ` ${x.mint}· ${palace.triples}kg${x.reset}` : '';
-    parts.push(`${x.purple}🏛 ${palace.drawers}d${x.reset}${kgPart}`);
+  // Auto-memory files
+  const autoMemCompact = getAutoMemoryStats();
+  if (autoMemCompact.count > 0) {
+    const typeOrder = ['handoff', 'user', 'feedback', 'project', 'reference'];
+    const typeColors = { user: x.sky, feedback: x.gold, project: x.teal, reference: x.violet, handoff: x.coral };
+    const typeParts = typeOrder
+      .filter(t => autoMemCompact.byType[t] > 0)
+      .map(t => `${typeColors[t] || x.slate}${autoMemCompact.byType[t]}${t.slice(0,1)}${x.reset}`);
+    const typeSuffix = typeParts.length > 0 ? ` ${typeParts.join(' ')}` : '';
+    parts.push(`${x.purple}🧠 ${autoMemCompact.count}m${x.reset}${typeSuffix}`);
   }
 
   // Knowledge chunks (Task 28) — show when populated
@@ -978,6 +1007,7 @@ function generateDashboard() {
   const triggers    = getTriggerStats();
   const si          = getSIBudget();
   const palace      = getMemoryPalaceStats();
+  const autoMem     = getAutoMemoryStats();
   const tokens      = getTokenStats();
   const sec         = secBadge(security.status);
   const activeAgent = getActiveAgent();
@@ -985,7 +1015,7 @@ function generateDashboard() {
 
   // ── Header: brand + git + model + session ────────────────────
   const swarmDot = swarm.coordinationActive ? `${x.green}● LIVE${x.reset}` : `${x.slate}○ IDLE${x.reset}`;
-  let hdr = `${x.bold}${x.purple}▊ Monobrain ${VERSION}${x.reset}  ${swarmDot}  ${x.teal}${x.bold}${git.name}${x.reset}`;
+  let hdr = `${x.bold}${x.purple}▊ Monomind ${VERSION}${x.reset}  ${swarmDot}  ${x.teal}${x.bold}${git.name}${x.reset}`;
 
   if (git.gitBranch) {
     hdr += `  ${DIV}  ${x.sky}⎇ ${x.bold}${git.gitBranch}${x.reset}`;
@@ -1110,14 +1140,17 @@ function generateDashboard() {
   const testCol  = tests.testFiles > 0 ? x.green : x.slate;
   const memCol   = system.memoryMB > 200 ? x.orange : x.sky;
 
-  // Memory Palace display
-  const drawerCol = palace.drawers > 0 ? x.purple : x.slate;
-  const drawerStr = palace.drawers > 0
-    ? `${drawerCol}${x.bold}${palace.drawers}${x.reset}${x.slate} drawers${x.reset}`
-    : `${x.slate}no drawers${x.reset}`;
-  const kgStr = palace.triples > 0
-    ? `  ${x.mint}🕸 ${palace.triples} triples${x.reset}`
-    : '';
+  // Auto-memory files display
+  const memFileCol = autoMem.count > 0 ? x.purple : x.slate;
+  const memFileStr = autoMem.count > 0
+    ? `${memFileCol}${x.bold}${autoMem.count}${x.reset}${x.slate} memories${x.reset}`
+    : `${x.slate}no memories${x.reset}`;
+  const memTypeOrder = ['handoff', 'user', 'feedback', 'project', 'reference'];
+  const typeColors = { user: x.sky, feedback: x.gold, project: x.teal, reference: x.violet, handoff: x.coral };
+  const typeParts = memTypeOrder
+    .filter(t => autoMem.byType[t] > 0)
+    .map(t => `${typeColors[t] || x.slate}${autoMem.byType[t]}${t.slice(0,1)}${x.reset}`);
+  const kgStr = typeParts.length > 0 ? `  ${typeParts.join(' ')}` : '';
 
   // Total memory size (palace + agentdb)
   const totalSizeKB = agentdb.dbSizeKB + palace.palaceSizeKB;
@@ -1140,7 +1173,7 @@ function generateDashboard() {
 
   lines.push(
     `${x.teal}🗄️  MEMORY${x.reset}   ` +
-    `${drawerStr}${kgStr}${hnswTag}   ${DIV}   ` +
+    `${memFileStr}${kgStr}${hnswTag}   ${DIV}   ` +
     `${x.white}${sizeDisp}${x.reset}   ${DIV}   ` +
     `${testCol}🧪 ${tests.testFiles} test files${x.reset}   ${DIV}   ` +
     integStr
@@ -1201,7 +1234,7 @@ function generateJSON() {
 }
 
 // ─── Mode state file ─────────────────────────────────────────────
-const MODE_FILE = path.join(CWD, '.monobrain', 'statusline-mode.txt');
+const MODE_FILE = path.join(CWD, '.monomind', 'statusline-mode.txt');
 
 function readMode() {
   try {

@@ -223,15 +223,15 @@ export class CredentialGenerator {
      * @returns Environment variable export script
      */
     createEnvScript(credentials) {
-        return `# Monobrain - Generated Credentials
+        return `# Monomind - Generated Credentials
 # Generated: ${credentials.generatedAt.toISOString()}
 # IMPORTANT: Store these securely and delete this file after use
 
-export MONOBRAIN_ADMIN_PASSWORD="${credentials.adminPassword}"
-export MONOBRAIN_SERVICE_PASSWORD="${credentials.servicePassword}"
-export MONOBRAIN_JWT_SECRET="${credentials.jwtSecret}"
-export MONOBRAIN_SESSION_SECRET="${credentials.sessionSecret}"
-export MONOBRAIN_ENCRYPTION_KEY="${credentials.encryptionKey}"
+export MONOMIND_ADMIN_PASSWORD="${credentials.adminPassword}"
+export MONOMIND_SERVICE_PASSWORD="${credentials.servicePassword}"
+export MONOMIND_JWT_SECRET="${credentials.jwtSecret}"
+export MONOMIND_SESSION_SECRET="${credentials.sessionSecret}"
+export MONOMIND_ENCRYPTION_KEY="${credentials.encryptionKey}"
 `;
     }
     /**
@@ -242,13 +242,13 @@ export MONOBRAIN_ENCRYPTION_KEY="${credentials.encryptionKey}"
      */
     createJsonConfig(credentials) {
         return JSON.stringify({
-            'monobrain/admin-password': credentials.adminPassword,
-            'monobrain/service-password': credentials.servicePassword,
-            'monobrain/jwt-secret': credentials.jwtSecret,
-            'monobrain/session-secret': credentials.sessionSecret,
-            'monobrain/encryption-key': credentials.encryptionKey,
-            'monobrain/generated-at': credentials.generatedAt.toISOString(),
-            'monobrain/expires-at': credentials.expiresAt?.toISOString() ?? null,
+            'monomind/admin-password': credentials.adminPassword,
+            'monomind/service-password': credentials.servicePassword,
+            'monomind/jwt-secret': credentials.jwtSecret,
+            'monomind/session-secret': credentials.sessionSecret,
+            'monomind/encryption-key': credentials.encryptionKey,
+            'monomind/generated-at': credentials.generatedAt.toISOString(),
+            'monomind/expires-at': credentials.expiresAt?.toISOString() ?? null,
         }, null, 2);
     }
 }

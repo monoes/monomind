@@ -201,7 +201,7 @@ src/
 ### Memory Coordination
 ```javascript
 // Report implementation status
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/coder/status",
   namespace: "coordination",
@@ -215,7 +215,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Share code decisions
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "store",
   key: "swarm/shared/implementation",
   namespace: "coordination",
@@ -228,7 +228,7 @@ mcp__monobrain__memory_usage {
 }
 
 // Check dependencies
-mcp__monobrain__memory_usage {
+mcp__monomind__memory_usage {
   action: "retrieve",
   key: "swarm/shared/dependencies",
   namespace: "coordination"
@@ -238,13 +238,13 @@ mcp__monobrain__memory_usage {
 ### Performance Monitoring
 ```javascript
 // Track implementation metrics
-mcp__monobrain__benchmark_run {
+mcp__monomind__benchmark_run {
   type: "code",
   iterations: 10
 }
 
 // Analyze bottlenecks
-mcp__monobrain__bottleneck_analyze {
+mcp__monomind__bottleneck_analyze {
   component: "api-endpoint",
   metrics: ["response-time", "memory-usage"]
 }

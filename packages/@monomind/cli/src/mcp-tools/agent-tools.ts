@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 
 // Storage paths
-const STORAGE_DIR = '.monobrain';
+const STORAGE_DIR = '.monomind';
 const AGENT_DIR = 'agents';
 const AGENT_FILE = 'store.json';
 
@@ -235,14 +235,14 @@ export const agentTools: MCPTool[] = [
 
       // Task 46: AgentSandboxing — register sandbox for isolated agent execution
       try {
-        const { WasmSandbox, DockerSandbox, register } = await import('@monobrain/security');
+        const { WasmSandbox, DockerSandbox, register } = await import('@monomind/security');
         const sandboxType = (config.sandbox as Record<string, unknown>)?.type ?? 'wasm';
         const sandboxConfig = (config.sandbox as Record<string, unknown>) ?? {};
         const sandbox = sandboxType === 'docker'
           ? DockerSandbox.create(agentId, sandboxConfig)
           : WasmSandbox.create(agentId, sandboxConfig);
         register(agentId, sandbox);
-      } catch { /* optional — @monobrain/security may not be installed */ }
+      } catch { /* optional — @monomind/security may not be installed */ }
 
       // Include Agent Booster routing info if applicable
       const response: Record<string, unknown> = {
@@ -290,7 +290,7 @@ export const agentTools: MCPTool[] = [
 
         // Task 46: AgentSandboxing — clean up sandbox on termination
         try {
-          const { cleanup } = await import('@monobrain/security');
+          const { cleanup } = await import('@monomind/security');
           cleanup(agentId);
         } catch { /* optional */ }
 

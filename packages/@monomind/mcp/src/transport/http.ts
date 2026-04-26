@@ -1,5 +1,5 @@
 /**
- * @monobrain/mcp - HTTP Transport
+ * @monomind/mcp - HTTP Transport
  *
  * HTTP/REST transport with WebSocket support
  */
@@ -252,7 +252,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
 
     this.app.get('/info', (req, res) => {
       res.json({
-        name: 'Monobrain MCP Server V1',
+        name: 'Monomind MCP Server V1',
         version: '3.0.0',
         transport: 'http',
         capabilities: {

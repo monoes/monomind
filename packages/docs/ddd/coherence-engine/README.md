@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Coherence Engine domain provides mathematical AI interpretability capabilities for Monobrain v1 through the `prime-radiant` plugin. It enables rigorous coherence validation, spectral stability analysis, and causal reasoning using advanced mathematical frameworks including Sheaf Cohomology, Spectral Graph Theory, and Do-Calculus.
+The Coherence Engine domain provides mathematical AI interpretability capabilities for Monomind v1 through the `prime-radiant` plugin. It enables rigorous coherence validation, spectral stability analysis, and causal reasoning using advanced mathematical frameworks including Sheaf Cohomology, Spectral Graph Theory, and Do-Calculus.
 
 ## Strategic Design
 
@@ -71,7 +71,7 @@ Coherence Engine Domain
 │                                                                                  │
 └─────────────────────────────────────────────────────────────────────────────────┘
                                      │
-                    Integration with Monobrain v1
+                    Integration with Monomind v1
                                      │
         ┌────────────────────────────┼────────────────────────────┐
         │                            │                            │

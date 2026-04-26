@@ -18,7 +18,7 @@ function getConnectionConfig(ctx: CommandContext) {
     user: (ctx.flags.user as string) || process.env.PGUSER || 'postgres',
     password: (ctx.flags.password as string) || process.env.PGPASSWORD || '',
     ssl: (ctx.flags.ssl as boolean) || process.env.PGSSLMODE === 'require',
-    schema: (ctx.flags.schema as string) || 'monobrain',
+    schema: (ctx.flags.schema as string) || 'monomind',
   };
 }
 
@@ -114,14 +114,14 @@ export const optimizeCommand: Command = {
       short: 's',
       description: 'Schema name',
       type: 'string',
-      default: 'monobrain',
+      default: 'monomind',
     },
   ],
   examples: [
-    { command: 'monobrain ruvector optimize --analyze', description: 'Analyze and show recommendations' },
-    { command: 'monobrain ruvector optimize --apply', description: 'Apply optimizations' },
-    { command: 'monobrain ruvector optimize --vacuum', description: 'Run VACUUM ANALYZE' },
-    { command: 'monobrain ruvector optimize --reindex', description: 'Rebuild all indexes' },
+    { command: 'monomind ruvector optimize --analyze', description: 'Analyze and show recommendations' },
+    { command: 'monomind ruvector optimize --apply', description: 'Apply optimizations' },
+    { command: 'monomind ruvector optimize --vacuum', description: 'Run VACUUM ANALYZE' },
+    { command: 'monomind ruvector optimize --reindex', description: 'Rebuild all indexes' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const config = getConnectionConfig(ctx);
@@ -547,9 +547,9 @@ export const optimizeCommand: Command = {
         `  Low: ${low.length}`,
         '',
         'Quick commands:',
-        `  monobrain ruvector optimize --vacuum    # Clean up tables`,
-        `  monobrain ruvector optimize --reindex  # Rebuild indexes`,
-        `  monobrain ruvector optimize --apply    # Apply critical fixes`,
+        `  monomind ruvector optimize --vacuum    # Clean up tables`,
+        `  monomind ruvector optimize --reindex  # Rebuild indexes`,
+        `  monomind ruvector optimize --apply    # Apply critical fixes`,
       ].join('\n'), 'Optimization Summary');
 
       return {

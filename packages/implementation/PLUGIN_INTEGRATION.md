@@ -1,8 +1,8 @@
-# Monobrain Plugin Integration
+# Monomind Plugin Integration
 
 ## Overview
 
-This document describes how monobrain integrates with the official Claude Code plugin system.
+This document describes how monomind integrates with the official Claude Code plugin system.
 
 ## Plugin Structure
 
@@ -24,7 +24,7 @@ plugin/
 
 ```json
 {
-  "name": "monobrain",
+  "name": "monomind",
   "version": "3.0.0",
   "capabilities": {
     "skills": true,
@@ -56,7 +56,7 @@ plugin/
 
 The plugin bundles three MCP servers:
 
-1. **monobrain** (required): Core swarm coordination
+1. **monomind** (required): Core swarm coordination
 2. **ruv-swarm** (optional): Enhanced topology patterns
 
 ### 4. Skills Integration
@@ -76,7 +76,7 @@ allowed-tools: Read, Write, Bash
 
 ## Hooks Bridge
 
-The `@monobrain/hooks` package includes an official hooks bridge:
+The `@monomind/hooks` package includes an official hooks bridge:
 
 ```typescript
 import {
@@ -84,7 +84,7 @@ import {
   processOfficialHookInput,
   outputOfficialHookResult,
   executeWithBridge,
-} from "@monobrain/hooks";
+} from "@monomind/hooks";
 
 // Process input from Claude Code
 const input = await processOfficialHookInput();
@@ -109,24 +109,24 @@ outputOfficialHookResult(output);
 
 ```bash
 # Add plugin marketplace
-/plugin marketplace add monobrain https://github.com/nokhodian/monobrain
+/plugin marketplace add monomind https://github.com/nokhodian/monomind
 
 # Install plugin
-/plugin install monobrain
+/plugin install monomind
 ```
 
 ### Manual Installation
 
 ```bash
 # Clone and link
-git clone https://github.com/nokhodian/monobrain
-claude --plugin-dir ./monobrain/plugin
+git clone https://github.com/nokhodian/monomind
+claude --plugin-dir ./monomind/plugin
 ```
 
 ### Via npx Init
 
 ```bash
-npx monobrain@alpha init --hooks
+npx monomind@alpha init --hooks
 ```
 
 ## Configuration
@@ -158,7 +158,7 @@ Enable only specific hooks by choosing matchers:
       {
         "matcher": "^(Write|Edit)$",
         "hooks": [
-          { "type": "command", "command": "npx monobrain@alpha hooks pre-edit" }
+          { "type": "command", "command": "npx monomind@alpha hooks pre-edit" }
         ]
       }
     ]
@@ -170,12 +170,12 @@ Enable only specific hooks by choosing matchers:
 
 After installation, MCP tools are available:
 
-- `mcp__monobrain__swarm_init`
-- `mcp__monobrain__agent_spawn`
-- `mcp__monobrain__task_orchestrate`
-- `mcp__monobrain__memory_usage`
-- `mcp__monobrain__hooks_route`
-- `mcp__monobrain__hooks_metrics`
+- `mcp__monomind__swarm_init`
+- `mcp__monomind__agent_spawn`
+- `mcp__monomind__task_orchestrate`
+- `mcp__monomind__memory_usage`
+- `mcp__monomind__hooks_route`
+- `mcp__monomind__hooks_metrics`
 
 ## Marketplace Publishing
 
@@ -183,10 +183,10 @@ After installation, MCP tools are available:
 
 ```json
 {
-  "name": "monobrain-marketplace",
+  "name": "monomind-marketplace",
   "plugins": [
     {
-      "name": "monobrain",
+      "name": "monomind",
       "description": "Multi-agent swarm coordination",
       "version": "3.0.0",
       "path": "plugin"
@@ -199,7 +199,7 @@ After installation, MCP tools are available:
 
 1. Push to repository
 2. Add marketplace: `/plugin marketplace add name https://github.com/user/repo`
-3. Users install: `/plugin install monobrain@name`
+3. Users install: `/plugin install monomind@name`
 
 ## Architecture
 
@@ -215,7 +215,7 @@ After installation, MCP tools are available:
 │         ▼             ▼             ▼             ▼          │
 │  ┌──────────────────────────────────────────────────────────┐│
 │  │              Official Hooks Bridge                        ││
-│  │  (packages/@monobrain/hooks/src/bridge/official-hooks-bridge)││
+│  │  (packages/@monomind/hooks/src/bridge/official-hooks-bridge)││
 │  └──────────────────────────────────────────────────────────┘│
 │         │             │             │             │          │
 │         ▼             ▼             ▼             ▼          │
@@ -225,7 +225,7 @@ After installation, MCP tools are available:
 │  └─────────────┴─────────────┴─────────────┴──────────────┘ │
 │                     V1 Hooks System                          │
 ├─────────────────────────────────────────────────────────────┤
-│                    @monobrain/hooks                        │
+│                    @monomind/hooks                        │
 │  ┌───────────┬───────────┬───────────┬───────────────────┐  │
 │  │ Registry  │ Executor  │ Daemons   │ MCP Tools         │  │
 │  └───────────┴───────────┴───────────┴───────────────────┘  │

@@ -11,12 +11,12 @@ import { generateStatuslineScript, generateStatuslineHook } from './statusline-g
  */
 export function generatePreCommitHook(): string {
   return `#!/bin/bash
-# Monobrain Pre-Commit Hook
+# Monomind Pre-Commit Hook
 # Validates code quality before commit
 
 set -e
 
-echo "🔍 Running Monobrain pre-commit checks..."
+echo "🔍 Running Monomind pre-commit checks..."
 
 # Get staged files
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
@@ -25,7 +25,7 @@ STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
 for FILE in $STAGED_FILES; do
   if [[ "$FILE" =~ \\.(ts|js|tsx|jsx)$ ]]; then
     echo "  Validating: $FILE"
-    npx @monobrain/cli hooks pre-edit --file "$FILE" --validate-syntax 2>/dev/null || true
+    npx @monomind/cli hooks pre-edit --file "$FILE" --validate-syntax 2>/dev/null || true
   fi
 done
 
@@ -44,7 +44,7 @@ echo "✅ Pre-commit checks complete"
  */
 export function generatePostCommitHook(): string {
   return `#!/bin/bash
-# Monobrain Post-Commit Hook
+# Monomind Post-Commit Hook
 # Records commit metrics and trains patterns
 
 COMMIT_HASH=$(git rev-parse HEAD)
@@ -52,8 +52,8 @@ COMMIT_MSG=$(git log -1 --pretty=%B)
 
 echo "📊 Recording commit metrics..."
 
-# Notify monobrain of commit
-npx monobrain@latest hooks notify \\
+# Notify monomind of commit
+npx monomind@latest hooks notify \\
   --message "Commit: $COMMIT_MSG" \\
   --level info \\
   --metadata '{"hash": "'$COMMIT_HASH'"}' 2>/dev/null || true
@@ -68,14 +68,14 @@ echo "✅ Commit recorded"
 export function generateSessionManager(): string {
   return `#!/usr/bin/env node
 /**
- * Monobrain Session Manager
+ * Monomind Session Manager
  * Handles session lifecycle: start, restore, end
  */
 
 const fs = require('fs');
 const path = require('path');
 
-const SESSION_DIR = path.join(process.cwd(), '.monobrain', 'sessions');
+const SESSION_DIR = path.join(process.cwd(), '.monomind', 'sessions');
 const SESSION_FILE = path.join(SESSION_DIR, 'current.json');
 
 const commands = {
@@ -202,7 +202,7 @@ module.exports = commands;
 export function generateAgentRouter(): string {
   return `#!/usr/bin/env node
 /**
- * Monobrain Agent Router
+ * Monomind Agent Router
  * Routes tasks to optimal agents based on learned patterns
  */
 
@@ -275,14 +275,14 @@ module.exports = { routeTask, AGENT_CAPABILITIES, TASK_PATTERNS };
 export function generateMemoryHelper(): string {
   return `#!/usr/bin/env node
 /**
- * Monobrain Memory Helper
+ * Monomind Memory Helper
  * Simple key-value memory for cross-session context
  */
 
 const fs = require('fs');
 const path = require('path');
 
-const MEMORY_DIR = path.join(process.cwd(), '.monobrain', 'data');
+const MEMORY_DIR = path.join(process.cwd(), '.monomind', 'data');
 const MEMORY_FILE = path.join(MEMORY_DIR, 'memory.json');
 
 function loadMemory() {
@@ -369,7 +369,7 @@ export function generateHookHandler(): string {
   const lines = [
     '#!/usr/bin/env node',
     '/**',
-    ' * Monobrain Hook Handler (Cross-Platform)',
+    ' * Monomind Hook Handler (Cross-Platform)',
     ' * Dispatches hook events to the appropriate helper modules.',
     ' */',
     '',
@@ -448,7 +448,7 @@ export function generateHookHandler(): string {
     '      var output = [];',
     "      output.push('[INFO] Routing task: ' + (prompt.substring(0, 80) || '(no prompt)'));",
     "      output.push('');",
-    "      output.push('+------------ monobrain | Primary Recommendation -------------+');",
+    "      output.push('+------------ monomind | Primary Recommendation -------------+');",
     "      output.push('| Agent: ' + result.agent.padEnd(53) + '|');",
     "      output.push('| Confidence: ' + (result.confidence * 100).toFixed(1) + '%' + ' '.repeat(44) + '|');",
     "      output.push('| Reason: ' + result.reason.substring(0, 53).padEnd(53) + '|');",
@@ -467,9 +467,9 @@ export function generateHookHandler(): string {
     "          gfOutput.push('+------- graphify | Knowledge Graph Available ----------------+');",
     '          if (hasGraph) {',
     "            gfOutput.push('| Graph: graphify-out/graph.json                              |');",
-    "            gfOutput.push('| Use: mcp__monobrain__graphify_god_nodes                     |');",
-    "            gfOutput.push('|      mcp__monobrain__graphify_query                         |');",
-    "            gfOutput.push('|      mcp__monobrain__graphify_shortest_path                 |');",
+    "            gfOutput.push('| Use: mcp__monomind__graphify_god_nodes                     |');",
+    "            gfOutput.push('|      mcp__monomind__graphify_query                         |');",
+    "            gfOutput.push('|      mcp__monomind__graphify_shortest_path                 |');",
     "            gfOutput.push('| Tip: Call graphify_god_nodes first for architecture overview|');",
     '          } else {',
     "            gfOutput.push('| No graph found. Build with:                                 |');",
@@ -650,11 +650,11 @@ export function generateIntelligenceStub(): string {
     "const path = require('path');",
     "const os = require('os');",
     '',
-    "const DATA_DIR = path.join(process.cwd(), '.monobrain', 'data');",
+    "const DATA_DIR = path.join(process.cwd(), '.monomind', 'data');",
     "const STORE_PATH = path.join(DATA_DIR, 'auto-memory-store.json');",
     "const RANKED_PATH = path.join(DATA_DIR, 'ranked-context.json');",
     "const PENDING_PATH = path.join(DATA_DIR, 'pending-insights.jsonl');",
-    "const SESSION_DIR = path.join(process.cwd(), '.monobrain', 'sessions');",
+    "const SESSION_DIR = path.join(process.cwd(), '.monomind', 'sessions');",
     "const SESSION_FILE = path.join(SESSION_DIR, 'current.json');",
     '',
     'function ensureDir(dir) {',
@@ -698,7 +698,7 @@ export function generateIntelligenceStub(): string {
     '  var entries = [];',
     '  var candidates = [',
     '    path.join(os.homedir(), ".claude", "projects"),',
-    '    path.join(process.cwd(), ".monobrain", "memory"),',
+    '    path.join(process.cwd(), ".monomind", "memory"),',
     '    path.join(process.cwd(), ".claude", "memory"),',
     '  ];',
     '  for (var i = 0; i < candidates.length; i++) {',
@@ -852,7 +852,7 @@ export function generateIntelligenceStub(): string {
 /**
  * Generate a minimal auto-memory-hook.mjs fallback for fresh installs.
  * This ESM script handles import/sync/status commands gracefully when
- * @monobrain/memory is not installed. Gets overwritten when source copy succeeds.
+ * @monomind/memory is not installed. Gets overwritten when source copy succeeds.
  */
 export function generateAutoMemoryHook(): string {
   return `#!/usr/bin/env node
@@ -873,7 +873,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PROJECT_ROOT = join(__dirname, '../..');
-const DATA_DIR = join(PROJECT_ROOT, '.monobrain', 'data');
+const DATA_DIR = join(PROJECT_ROOT, '.monomind', 'data');
 const STORE_PATH = join(DATA_DIR, 'auto-memory-store.json');
 
 const DIM = '\\x1b[2m';
@@ -885,21 +885,21 @@ if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
 
 async function loadMemoryPackage() {
   // Strategy 1: Use createRequire for CJS-style resolution (handles nested node_modules
-  // when installed as a transitive dependency via npx monobrain / npx monobrain)
+  // when installed as a transitive dependency via npx monomind / npx monomind)
   try {
     const { createRequire } = await import('module');
     const require = createRequire(join(PROJECT_ROOT, 'package.json'));
-    return require('@monobrain/memory');
+    return require('@monomind/memory');
   } catch { /* fall through */ }
 
-  // Strategy 2: ESM import (works when @monobrain/memory is a direct dependency)
-  try { return await import('@monobrain/memory'); } catch { /* fall through */ }
+  // Strategy 2: ESM import (works when @monomind/memory is a direct dependency)
+  try { return await import('@monomind/memory'); } catch { /* fall through */ }
 
   // Strategy 3: Walk up from PROJECT_ROOT looking for the package in any node_modules
   let searchDir = PROJECT_ROOT;
   const { parse } = await import('path');
   while (searchDir !== parse(searchDir).root) {
-    const candidate = join(searchDir, 'node_modules', '@monobrain', 'memory', 'dist', 'index.js');
+    const candidate = join(searchDir, 'node_modules', '@monomind', 'memory', 'dist', 'index.js');
     if (existsSync(candidate)) {
       try { return await import(\`file://\${candidate}\`); } catch { /* fall through */ }
     }
@@ -975,7 +975,7 @@ process.exit(0);
  * Generate Windows PowerShell daemon manager
  */
 export function generateWindowsDaemonManager(): string {
-  return `# Monobrain Daemon Manager for Windows
+  return `# Monomind Daemon Manager for Windows
 # PowerShell script for managing background processes
 
 param(
@@ -985,8 +985,8 @@ param(
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
-$MonobrainDir = Join-Path $PWD '.monobrain'
-$PidDir = Join-Path $MonobrainDir 'pids'
+$MonomindDir = Join-Path $PWD '.monomind'
+$PidDir = Join-Path $MonomindDir 'pids'
 
 # Ensure directories exist
 if (-not (Test-Path $PidDir)) {
@@ -1018,7 +1018,7 @@ function Start-SwarmMonitor {
     Write-Host "Starting swarm monitor..." -ForegroundColor Cyan
     $process = Start-Process -FilePath 'node' -ArgumentList @(
         '-e',
-        'setInterval(() => { require("fs").writeFileSync(".monobrain/metrics/swarm-activity.json", JSON.stringify({swarm:{active:true,agent_count:0},timestamp:Date.now()})) }, 5000)'
+        'setInterval(() => { require("fs").writeFileSync(".monomind/metrics/swarm-activity.json", JSON.stringify({swarm:{active:true,agent_count:0},timestamp:Date.now()})) }, 5000)'
     ) -PassThru -WindowStyle Hidden
 
     $process.Id | Out-File $pidFile
@@ -1041,7 +1041,7 @@ function Stop-SwarmMonitor {
 
 function Show-Status {
     Write-Host ""
-    Write-Host "Monobrain Daemon Status" -ForegroundColor Cyan
+    Write-Host "Monomind Daemon Status" -ForegroundColor Cyan
     Write-Host "=============================" -ForegroundColor Cyan
 
     $swarmPid = Join-Path $PidDir 'swarm-monitor.pid'
@@ -1082,7 +1082,7 @@ switch ($Action) {
  */
 export function generateWindowsBatchWrapper(): string {
   return `@echo off
-REM Monobrain - Windows Batch Wrapper
+REM Monomind - Windows Batch Wrapper
 REM Routes to PowerShell daemon manager
 
 PowerShell -ExecutionPolicy Bypass -File "%~dp0daemon-manager.ps1" %*
@@ -1095,7 +1095,7 @@ PowerShell -ExecutionPolicy Bypass -File "%~dp0daemon-manager.ps1" %*
 export function generateCrossPlatformSessionManager(): string {
   return `#!/usr/bin/env node
 /**
- * Monobrain Cross-Platform Session Manager
+ * Monomind Cross-Platform Session Manager
  * Works on Windows, macOS, and Linux
  */
 
@@ -1109,18 +1109,18 @@ const homeDir = os.homedir();
 
 // Get data directory based on platform
 function getDataDir() {
-  const localDir = path.join(process.cwd(), '.monobrain', 'sessions');
+  const localDir = path.join(process.cwd(), '.monomind', 'sessions');
   if (fs.existsSync(path.dirname(localDir))) {
     return localDir;
   }
 
   switch (platform) {
     case 'win32':
-      return path.join(process.env.APPDATA || homeDir, 'monobrain', 'sessions');
+      return path.join(process.env.APPDATA || homeDir, 'monomind', 'sessions');
     case 'darwin':
-      return path.join(homeDir, 'Library', 'Application Support', 'monobrain', 'sessions');
+      return path.join(homeDir, 'Library', 'Application Support', 'monomind', 'sessions');
     default:
-      return path.join(homeDir, '.monobrain', 'sessions');
+      return path.join(homeDir, '.monomind', 'sessions');
   }
 }
 

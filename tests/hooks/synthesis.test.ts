@@ -7,14 +7,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   agentDefinitionSchema,
   SynthesisPromptTemplate,
-} from '../../packages/@monobrain/hooks/src/synthesis/synthesis-prompt-template.js';
-import { EphemeralRegistry } from '../../packages/@monobrain/hooks/src/synthesis/ephemeral-registry.js';
-import { TTLCleanup } from '../../packages/@monobrain/hooks/src/synthesis/ttl-cleanup.js';
+} from '../../packages/@monomind/hooks/src/synthesis/synthesis-prompt-template.js';
+import { EphemeralRegistry } from '../../packages/@monomind/hooks/src/synthesis/ephemeral-registry.js';
+import { TTLCleanup } from '../../packages/@monomind/hooks/src/synthesis/ttl-cleanup.js';
 import type {
   AgentDefinition,
   SynthesisRequest,
   EphemeralAgentRecord,
-} from '../../packages/@monobrain/hooks/src/synthesis/types.js';
+} from '../../packages/@monomind/hooks/src/synthesis/types.js';
 
 // ── fs mocks ──
 

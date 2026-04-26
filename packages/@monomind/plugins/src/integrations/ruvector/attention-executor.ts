@@ -3,7 +3,7 @@
  *
  * Provides execution layer and factory for attention mechanisms.
  *
- * @module @monobrain/plugins/integrations/ruvector/attention-executor
+ * @module @monomind/plugins/integrations/ruvector/attention-executor
  */
 
 import type {

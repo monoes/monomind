@@ -7,7 +7,7 @@ description: "Achieve aggressive v1 performance targets: 2.49x-7.47x Flash Atten
 
 ## What This Skill Does
 
-Validates and optimizes monobrain v1 to achieve industry-leading performance through Flash Attention, AgentDB HNSW indexing, and comprehensive system optimization with continuous benchmarking.
+Validates and optimizes monomind v1 to achieve industry-leading performance through Flash Attention, AgentDB HNSW indexing, and comprehensive system optimization with continuous benchmarking.
 
 ## Quick Start
 

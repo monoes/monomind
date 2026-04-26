@@ -36,10 +36,10 @@ Usage:
   statusline --help       Show this help
 
 Environment Variables:
-  MONOBRAIN_STATUSLINE_REFRESH   Refresh interval in ms
-  MONOBRAIN_SHOW_HOOKS_METRICS   Show hooks metrics (true/false)
-  MONOBRAIN_SHOW_SWARM_ACTIVITY  Show swarm activity (true/false)
-  MONOBRAIN_SHOW_PERFORMANCE     Show performance targets (true/false)
+  MONOMIND_STATUSLINE_REFRESH   Refresh interval in ms
+  MONOMIND_SHOW_HOOKS_METRICS   Show hooks metrics (true/false)
+  MONOMIND_SHOW_SWARM_ACTIVITY  Show swarm activity (true/false)
+  MONOMIND_SHOW_PERFORMANCE     Show performance targets (true/false)
 
 Examples:
   statusline                       # Display formatted status
@@ -53,9 +53,9 @@ Examples:
   const generator = new StatuslineGenerator({
     enabled: true,
     refreshOnHook: true,
-    showHooksMetrics: process.env.MONOBRAIN_SHOW_HOOKS_METRICS !== 'false',
-    showSwarmActivity: process.env.MONOBRAIN_SHOW_SWARM_ACTIVITY !== 'false',
-    showPerformance: process.env.MONOBRAIN_SHOW_PERFORMANCE !== 'false',
+    showHooksMetrics: process.env.MONOMIND_SHOW_HOOKS_METRICS !== 'false',
+    showSwarmActivity: process.env.MONOMIND_SHOW_SWARM_ACTIVITY !== 'false',
+    showPerformance: process.env.MONOMIND_SHOW_PERFORMANCE !== 'false',
   });
 
   // Try to read from metrics database or files

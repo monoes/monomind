@@ -14,7 +14,7 @@ Agents automatically specialize based on file extensions:
 
 ### 2. By Task Type
 ```
-Tool: mcp__monobrain__agent_spawn
+Tool: mcp__monomind__agent_spawn
 Parameters: {
   "type": "coder",
   "capabilities": ["react", "typescript", "testing"],
@@ -32,7 +32,7 @@ The system trains through:
 ### 4. Specialization Benefits
 ```
 # Check agent specializations
-Tool: mcp__monobrain__agent_list
+Tool: mcp__monomind__agent_list
 Parameters: {"swarmId": "current"}
 
 Result shows expertise levels:
@@ -56,8 +56,8 @@ Agents share learnings across sessions for cumulative expertise!
 ## CLI Usage
 ```bash
 # Train agent specialization via CLI
-npx monobrain train agent --type coder --capabilities "react,typescript"
+npx monomind train agent --type coder --capabilities "react,typescript"
 
 # Check specializations
-npx monobrain agent list --specializations
+npx monomind agent list --specializations
 ```

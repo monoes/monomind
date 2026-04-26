@@ -1,5 +1,5 @@
 /**
- * @monobrain/mcp - Test Suite
+ * @monomind/mcp - Test Suite
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -31,14 +31,14 @@ const createMockLogger = (): ILogger => ({
   error: vi.fn(),
 });
 
-describe('@monobrain/mcp', () => {
+describe('@monomind/mcp', () => {
   describe('Module exports', () => {
     it('should export VERSION', () => {
       expect(VERSION).toBe('3.0.0');
     });
 
     it('should export MODULE_NAME', () => {
-      expect(MODULE_NAME).toBe('@monobrain/mcp');
+      expect(MODULE_NAME).toBe('@monomind/mcp');
     });
 
     it('should export ErrorCodes', () => {

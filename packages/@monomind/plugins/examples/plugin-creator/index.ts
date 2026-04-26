@@ -7,8 +7,8 @@
  *
  * @example
  * ```typescript
- * import { pluginCreatorPlugin } from '@monobrain/plugins/examples/plugin-creator';
- * import { getDefaultRegistry } from '@monobrain/plugins';
+ * import { pluginCreatorPlugin } from '@monomind/plugins/examples/plugin-creator';
+ * import { getDefaultRegistry } from '@monomind/plugins';
  *
  * await getDefaultRegistry().register(pluginCreatorPlugin);
  * ```
@@ -320,7 +320,7 @@ export function generatePlugin(options: CreatePluginOptions): GeneratedPlugin {
   codeBlocks.push(`import {
   PluginBuilder,${enabledFeatures.tools ? '\n  MCPToolBuilder,' : ''}${enabledFeatures.hooks ? '\n  HookBuilder,\n  HookEvent,\n  HookPriority,' : ''}${enabledFeatures.workers ? '\n  WorkerFactory,' : ''}${enabledFeatures.security ? '\n  Security,' : ''}
   type IPlugin,${enabledFeatures.workers ? '\n  type WorkerDefinition,' : ''}${agents.length > 0 ? '\n  type AgentTypeDefinition,' : ''}
-} from '@monobrain/plugins';
+} from '@monomind/plugins';
 `);
 
   // Generate tools
@@ -453,7 +453,7 @@ function getEventEnumName(event: HookEvent): string {
  */
 export const pluginCreatorPlugin = new PluginBuilder('plugin-creator', '1.0.0')
   .withDescription('A meta-plugin that creates new plugins with various configurations')
-  .withAuthor('Monobrain Team')
+  .withAuthor('Monomind Team')
   .withTags(['meta', 'generator', 'developer-tools'])
   .withMCPTools([
     // Tool: Create Plugin

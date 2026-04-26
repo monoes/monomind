@@ -1,5 +1,5 @@
 /**
- * @monobrain/claims - Claim Repository Implementation
+ * @monomind/claims - Claim Repository Implementation
  * SQLite-based persistence for claims (ADR-016)
  *
  * @module v1/claims/infrastructure/claim-repository
