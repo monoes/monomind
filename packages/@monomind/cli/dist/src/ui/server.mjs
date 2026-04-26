@@ -187,7 +187,7 @@ function bindServer(server, port) {
     let attempt = 0;
 
     function tryPort(p) {
-      server.listen(p, '127.0.0.1', () => resolve(p));
+      server.listen(p, () => resolve(p));
       server.once('error', (err) => {
         if (err.code === 'EADDRINUSE' && attempt < maxTries) {
           attempt += 1;
