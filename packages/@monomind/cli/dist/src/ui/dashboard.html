@@ -1160,6 +1160,92 @@
   .po-sd-sidebar-section { display: flex; flex-direction: column; gap: 4px; }
   .po-sd-sidebar-label { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 2px; }
 
+  /* Swarm pane */
+  #po-swarm-tab { flex-direction: row; }
+  #po-swarm-list {
+    width: 220px; flex-shrink: 0; border-right: 1px solid var(--border);
+    overflow-y: auto; padding: 6px;
+  }
+  .po-swarm-item {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 7px 10px; border-radius: 4px; cursor: pointer; margin-bottom: 3px;
+    border: 1px solid transparent; transition: all 0.12s;
+  }
+  .po-swarm-item:hover { background: rgba(0,229,200,0.04); border-color: var(--border); }
+  .po-swarm-item.selected { background: rgba(0,229,200,0.08); border-color: rgba(0,229,200,0.3); }
+  .po-swarm-item-row { display: flex; align-items: center; gap: 6px; }
+  .po-swarm-item-id { font-size: 10px; font-weight: 600; color: var(--text); font-family: 'Azeret Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .po-swarm-item-badge { font-size: 8px; padding: 1px 5px; border-radius: 2px; font-family: 'Azeret Mono', monospace; letter-spacing: 0.05em; }
+  .po-swarm-item-badge.topo { background: rgba(0,229,200,0.12); color: var(--teal); }
+  .po-swarm-item-badge.status-completed { background: rgba(76,175,80,0.15); color: #4caf50; }
+  .po-swarm-item-badge.status-error { background: rgba(239,83,80,0.15); color: #EF5350; }
+  .po-swarm-item-badge.status-terminated { background: rgba(255,180,0,0.15); color: #ffb400; }
+  .po-swarm-item-badge.status-stopped { background: rgba(150,150,180,0.15); color: var(--muted); }
+  .po-swarm-item-badge.status-running { background: rgba(76,175,80,0.15); color: #4caf50; }
+  .po-swarm-item-meta { font-size: 9px; color: var(--muted); }
+  #po-swarm-detail {
+    flex: 1; overflow: hidden; display: flex; flex-direction: column;
+  }
+  #po-swarm-header {
+    padding: 10px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  #po-swarm-stats-bar {
+    display: flex; gap: 12px; font-size: 10px; color: var(--muted); padding: 6px 16px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  #po-swarm-stats-bar span { display: flex; align-items: center; gap: 4px; }
+  #po-swarm-body {
+    flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+  }
+  #po-swarm-canvas-wrap {
+    position: relative; min-height: 200px; transition: min-height 0.25s ease;
+    flex-shrink: 0;
+  }
+  #po-swarm-canvas-wrap.shrunk { min-height: 120px; }
+  #po-swarm-topo-label {
+    position: absolute; top: 8px; left: 14px; font-size: 9px;
+    color: var(--muted); letter-spacing: 0.1em; z-index: 2;
+  }
+  #po-swarm-canvas { width: 100%; height: 100%; display: block; }
+  #po-swarm-agents-section { padding: 10px 14px; border-top: 1px solid var(--border); }
+  .po-swarm-agent-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 8px; border-radius: 3px; cursor: pointer; margin-bottom: 2px;
+    transition: background 0.12s;
+  }
+  .po-swarm-agent-item:hover { background: rgba(0,229,200,0.05); }
+  .po-swarm-agent-item.selected { background: rgba(255,180,0,0.08); }
+  .po-swarm-agent-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .po-swarm-agent-type { font-size: 10px; font-family: 'Azeret Mono', monospace; color: var(--text); width: 100px; }
+  .po-swarm-agent-role { font-size: 8px; font-family: 'Azeret Mono', monospace; color: var(--muted); }
+  .po-swarm-agent-stats { font-size: 9px; color: var(--muted); font-family: 'Azeret Mono', monospace; margin-left: auto; }
+  #po-swarm-agent-drawer {
+    border-top: 1px solid var(--border); flex-shrink: 0;
+    max-height: 240px; overflow: hidden;
+    transition: max-height 0.25s ease;
+  }
+  #po-swarm-agent-header {
+    display: flex; align-items: center; padding: 8px 14px;
+    border-bottom: 1px solid var(--border); gap: 12px;
+  }
+  #po-swarm-agent-info { flex: 1; font-size: 10px; font-family: 'Azeret Mono', monospace; display: flex; gap: 14px; }
+  #po-swarm-agent-close { background: none; border: none; color: var(--muted); font-size: 14px; cursor: pointer; padding: 0 2px; }
+  #po-swarm-agent-close:hover { color: var(--text); }
+  #po-swarm-agent-timeline {
+    overflow-y: auto; padding: 8px 14px; max-height: 190px;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .po-swarm-msg {
+    padding: 3px 8px; font-size: 9px; font-family: 'Azeret Mono', monospace;
+    color: var(--muted); border-radius: 0 3px 3px 0;
+  }
+  .po-swarm-msg.sent { border-left: 2px solid var(--teal); }
+  .po-swarm-msg.received { border-left: 2px solid #4488cc; }
+  .po-swarm-msg-ts { color: rgba(100,100,140,0.6); }
+  .po-swarm-msg-type { color: var(--text); font-weight: 600; }
+  .po-swarm-msg-payload { color: rgba(180,180,220,0.7); }
+
   /* Graph pane */
   #po-graph-tab { flex-direction: column; }
   #po-graph-controls {
