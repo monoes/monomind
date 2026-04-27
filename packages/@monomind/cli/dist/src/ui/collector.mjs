@@ -508,12 +508,12 @@ export function collectAllProjects() {
     // Last activity = most recent session mtime
     const lastActivity = sessions.length ? sessions[0].mtime : null;
 
-    // Read memory palace if available
-    let drawerCount = 0;
+    // Count auto-memory files from ~/.claude/projects/<slug>/memory/
+    let memoryCount = 0;
     try {
-      const drawersPath = path.join(diskPath, '.monomind', 'palace', 'drawers.jsonl');
-      if (fs.existsSync(drawersPath)) {
-        drawerCount = fs.readFileSync(drawersPath, 'utf8').split('\n').filter(Boolean).length;
+      const memDir = path.join(os.homedir(), '.claude', 'projects', slug, 'memory');
+      if (fs.existsSync(memDir)) {
+        memoryCount = fs.readdirSync(memDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md').length;
       }
     } catch {}
 
@@ -525,7 +525,7 @@ export function collectAllProjects() {
       sessionCount: sessions.length,
       sessions: sessions.slice(0, 5), // top 5 most recent
       lastActivity,
-      drawerCount,
+      memoryCount,
       totalSize: sessions.reduce((sum, s) => sum + (s.size || 0), 0),
     });
   }

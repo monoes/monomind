@@ -145,18 +145,14 @@
   /* Row 0: all projects (full width) */
   #panel-projects  { grid-column: 1 / 5; grid-row: 1; min-height: 200px; }
 
-  /* Row 1: agents | agents | tokens | tokens */
-  #panel-agents    { grid-column: 1 / 3; grid-row: 2; }
-  #panel-tokens    { grid-column: 3 / 5; grid-row: 2; }
+  /* Row 1: tokens (full) */
+  #panel-tokens    { grid-column: 1 / 5; grid-row: 2; }
 
-  /* Row 2: memory (2 cols) | hooks (2 cols) */
-  #panel-memory    { grid-column: 1 / 3; grid-row: 3; }
-  #panel-hooks     { grid-column: 3 / 5; grid-row: 3; }
+  /* Row 2: loops (full width) */
+  #panel-loops     { grid-column: 1 / 5; grid-row: 3; }
 
-  /* Row 3: metrics (2 cols) | activity | system */
-  #panel-metrics   { grid-column: 1 / 3; grid-row: 4; }
-  #panel-activity  { grid-column: 3; grid-row: 4; }
-  #panel-system    { grid-column: 4; grid-row: 4; }
+  /* Row 3: activity (full width) */
+  #panel-activity  { grid-column: 1 / 5; grid-row: 4; }
 
   /* All grid children must not overflow their columns */
   #grid > * { min-width: 0; }
@@ -306,11 +302,7 @@
   }
 
   /* Override display for specific panels that need block */
-  #panel-memory.open .panel-body,
-  #panel-hooks.open .panel-body { display: block; }
-  #panel-knowledge.open .panel-body,
-  #panel-metrics.open .panel-body,
-  #panel-system.open .panel-body { display: block; }
+  #panel-knowledge.open .panel-body { display: block; }
 
   /* Graphify panel inner layout */
   .graphify-layout { display: grid; grid-template-columns: 220px 1fr; gap: 12px; }
@@ -525,27 +517,28 @@
   }
 
   /* ─── TOKENS PANEL ──────────────────────────────────────────────── */
+  #panel-tokens.open .panel-body { min-height: 0; padding: 6px 10px; }
   .token-summary {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr 1fr;
-    gap: 5px;
+    gap: 4px;
   }
   .token-stat {
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid var(--border);
     border-radius: 4px;
-    padding: 5px 6px;
+    padding: 4px 6px;
     text-align: center;
   }
   .token-stat-label {
-    font-size: 9px;
+    font-size: 8px;
     color: var(--muted);
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    margin-bottom: 3px;
+    margin-bottom: 2px;
   }
   .token-stat-val {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     color: var(--teal);
   }
@@ -783,6 +776,133 @@
   #po-chunk-edit-modal { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.65); z-index: 22; align-items: center; justify-content: center; }
   #po-chunk-edit-modal.open { display: flex; }
 
+  /* ─── LOOPS PANEL ──────────────────────────────────────────────── */
+  #loops-body { display: flex; flex-direction: column; gap: 8px; }
+  .loop-card {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto auto;
+    gap: 4px 10px;
+    transition: border-color 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .loop-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    border-radius: 4px 0 0 4px;
+  }
+  .loop-card.lc-repeat::before { background: var(--teal); }
+  .loop-card.lc-do::before { background: var(--amber); }
+  .loop-card.lc-stop-pending { opacity: 0.55; }
+  .loop-card:hover { border-color: rgba(255,255,255,0.15); }
+  .loop-type-pill {
+    grid-row: 1;
+    grid-column: 1;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 2px 5px;
+    border-radius: 2px;
+    align-self: start;
+  }
+  .loop-type-pill.lp-repeat { background: rgba(0,229,200,0.12); color: var(--teal); border: 1px solid rgba(0,229,200,0.25); }
+  .loop-type-pill.lp-do { background: rgba(255,179,0,0.12); color: var(--amber); border: 1px solid rgba(255,179,0,0.25); }
+  .loop-prompt {
+    grid-row: 1;
+    grid-column: 2;
+    font-size: 10px;
+    color: var(--text);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    align-self: center;
+  }
+  .loop-stop-btn {
+    grid-row: 1 / 4;
+    grid-column: 3;
+    align-self: center;
+    background: rgba(220,60,60,0.08);
+    border: 1px solid rgba(220,60,60,0.3);
+    color: rgba(220,100,100,0.9);
+    font-family: 'Azeret Mono', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 5px 8px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .loop-stop-btn:hover { background: rgba(220,60,60,0.2); border-color: rgba(220,80,80,0.6); color: #f88; }
+  .loop-stop-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .loop-meta {
+    grid-row: 2;
+    grid-column: 1 / 3;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .loop-meta-item { font-size: 9px; color: var(--muted); }
+  .loop-meta-item span { color: var(--dim); }
+  .loop-progress-row {
+    grid-row: 3;
+    grid-column: 1 / 3;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .loop-progress-bar {
+    flex: 1;
+    height: 2px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .loop-progress-fill {
+    height: 100%;
+    border-radius: 1px;
+    transition: width 0.4s ease;
+  }
+  .lc-repeat .loop-progress-fill { background: var(--teal); }
+  .lc-do .loop-progress-fill { background: var(--amber); }
+  .loop-countdown {
+    font-size: 9px;
+    color: var(--dim);
+    white-space: nowrap;
+    min-width: 70px;
+    text-align: right;
+  }
+  .loop-task-label {
+    grid-row: 2;
+    grid-column: 1 / 3;
+    font-size: 9px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .loop-status-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+  .loop-status-dot.running { background: var(--teal); box-shadow: 0 0 5px var(--teal); animation: pulse 1.6s ease-in-out infinite; }
+  .loop-status-dot.waiting { background: var(--amber); box-shadow: 0 0 4px var(--amber); animation: pulse 2.5s ease-in-out infinite; }
+  .loop-status-dot.stopped { background: rgba(220,60,60,0.7); }
+  .loops-empty { font-size: 10px; color: var(--dim); text-align: center; padding: 18px 0; letter-spacing: 0.08em; }
+
   /* ─── METRICS PANEL ─────────────────────────────────────────────── */
   .metric-block {
     background: rgba(0,0,0,0.25);
@@ -812,30 +932,41 @@
   .security-warn { color: var(--amber); }
   .security-fail { color: var(--red); }
 
-  /* ─── ACTIVITY PANEL ────────────────────────────────────────────── */
-  #activity-log {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
+  /* ─── SESSION JOURNAL ────────────────────────────────────────────── */
+  #journal-list { display: flex; flex-direction: column; gap: 1px; }
+  .jn-card {
+    border-left: 2px solid var(--border);
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: border-color 0.12s, background 0.12s;
   }
-  .activity-entry {
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    font-size: 10px;
-    line-height: 1.4;
-    padding: 3px 5px;
-    border-radius: 3px;
-    border-left: 2px solid transparent;
-    animation: fadeIn 0.2s ease-out;
+  .jn-card:hover { border-left-color: var(--teal); background: rgba(0,229,200,0.03); }
+  .jn-card.open  { border-left-color: var(--teal); background: rgba(0,229,200,0.04); }
+  .jn-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .jn-date { font-size: 9px; color: var(--teal); white-space: nowrap; font-family: 'Azeret Mono', monospace; }
+  .jn-id { font-size: 8px; color: var(--dim); font-family: 'Azeret Mono', monospace; }
+  .jn-stats { font-size: 8px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+  .jn-prompt {
+    font-size: 10px; color: var(--text); font-style: italic;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-bottom: 4px;
   }
-  .activity-entry.type-session { border-left-color: var(--teal); background: rgba(0,229,200,0.03); }
-  .activity-entry.type-swarm   { border-left-color: var(--amber); background: rgba(255,183,0,0.03); }
-  .activity-entry.type-agent   { border-left-color: var(--green); background: rgba(0,229,135,0.03); }
-  .activity-entry.type-error   { border-left-color: var(--red); background: rgba(255,68,102,0.03); }
-  .activity-entry.type-default { border-left-color: var(--muted); }
-  .activity-time { color: var(--dim); white-space: nowrap; font-size: 9px; flex-shrink: 0; letter-spacing: 0.03em; }
-  .activity-msg { color: var(--text); flex: 1; font-size: 10px; }
+  .jn-excerpt { font-size: 9px; color: var(--muted); line-height: 1.5; }
+  .jn-summary-full {
+    display: none; margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid var(--border);
+    font-size: 9px; color: var(--muted); line-height: 1.6;
+    white-space: pre-wrap; max-height: 320px; overflow-y: auto;
+  }
+  .jn-card.open .jn-summary-full { display: block; }
+  .jn-no-summary { font-size: 9px; color: var(--dim); font-style: italic; }
+  .jn-badge-compact {
+    font-size: 7px; letter-spacing: 0.06em;
+    background: rgba(0,229,200,0.1); color: var(--teal);
+    border: 1px solid rgba(0,229,200,0.2); border-radius: 2px;
+    padding: 1px 4px; flex-shrink: 0;
+  }
+  #journal-empty { padding: 20px; font-size: 10px; color: var(--dim); text-align: center; }
 
   /* ─── SYSTEM PANEL ──────────────────────────────────────────────── */
   .sys-row {
@@ -1254,15 +1385,71 @@
   .po-swarm-event-detail { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #po-swarm-clean-btn:hover { background: rgba(239,83,80,0.2); }
 
-  /* Graph pane */
-  #po-graph-tab { flex-direction: column; }
-  #po-graph-controls {
-    padding: 6px 12px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 16px; flex-shrink: 0;
-    font-size: 10px; color: var(--muted); letter-spacing: 0.08em;
+  /* Agent graph pane */
+  #po-ag-sidebar {
+    width: 190px; min-width: 190px; flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+    background: rgba(0,0,0,0.12);
   }
-  #po-graph-controls label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
-  #po-kg-canvas { flex: 1; width: 100%; display: block; }
+  #po-ag-sidebar-hdr {
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+    font-size: 9px; color: var(--muted); letter-spacing: 0.1em;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-shrink: 0;
+  }
+  #po-ag-session-list { flex: 1; overflow-y: auto; }
+  .po-ag-sess {
+    padding: 8px 12px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: background 0.1s;
+  }
+  .po-ag-sess:hover { background: rgba(255,255,255,0.04); }
+  .po-ag-sess.active { background: rgba(0,229,200,0.07); border-left: 2px solid var(--teal); padding-left: 10px; }
+  .po-ag-sess-id { font-size: 10px; color: var(--text); font-family: 'Azeret Mono', monospace; margin-bottom: 3px; }
+  .po-ag-sess-meta { font-size: 9px; color: var(--muted); line-height: 1.5; }
+  .po-ag-sess-meta .hi { color: var(--dim); }
+  .po-ag-sess-spawns { display: inline-flex; align-items: center; gap: 3px; margin-top: 2px; }
+  .po-ag-sess-spawn-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--amber); }
+  #po-ag-main {
+    flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  }
+  #po-ag-summary-bar {
+    padding: 8px 16px; border-bottom: 1px solid var(--border);
+    display: flex; gap: 20px; flex-shrink: 0; flex-wrap: wrap;
+    background: rgba(0,0,0,0.1);
+  }
+  .po-ag-stat { display: flex; flex-direction: column; }
+  .po-ag-stat-lbl { font-size: 8px; color: var(--muted); letter-spacing: 0.08em; }
+  .po-ag-stat-val { font-size: 12px; color: var(--text); font-weight: 700; font-family: 'Azeret Mono', monospace; }
+  #po-ag-content { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+  .po-ag-section-lbl {
+    font-size: 9px; color: var(--muted); letter-spacing: 0.1em;
+    margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border);
+  }
+  .po-ag-agent-card {
+    background: rgba(0,0,0,0.25); border: 1px solid var(--border);
+    border-radius: 4px; padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 6px;
+    transition: border-color 0.12s;
+  }
+  .po-ag-agent-card:hover { border-color: rgba(255,179,71,0.3); }
+  .po-ag-agent-top { display: flex; align-items: center; gap: 8px; }
+  .po-ag-agent-name { font-size: 11px; font-weight: 700; color: var(--text); flex: 1; }
+  .po-ag-agent-type { font-size: 8px; color: var(--amber); background: rgba(255,179,71,0.1); border: 1px solid rgba(255,179,71,0.2); border-radius: 2px; padding: 1px 5px; letter-spacing: 0.06em; }
+  .po-ag-spawn-row { display: flex; align-items: center; gap: 8px; }
+  .po-ag-spawn-lbl { font-size: 9px; color: var(--muted); min-width: 60px; }
+  .po-ag-bar-wrap { flex: 1; height: 3px; background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden; }
+  .po-ag-bar-fill { height: 100%; border-radius: 2px; background: var(--amber); transition: width 0.4s ease; }
+  .po-ag-spawn-count { font-size: 9px; color: var(--dim); min-width: 40px; text-align: right; }
+  .po-ag-tool-section { margin-top: 4px; }
+  .po-ag-tool-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .po-ag-tool-name { font-size: 9px; color: var(--teal); min-width: 55px; font-family: 'Azeret Mono', monospace; }
+  .po-ag-tool-bar-wrap { flex: 1; height: 2px; background: rgba(255,255,255,0.06); border-radius: 1px; overflow: hidden; }
+  .po-ag-tool-bar-fill { height: 100%; border-radius: 1px; background: var(--teal); }
+  .po-ag-tool-count { font-size: 9px; color: var(--dim); min-width: 36px; text-align: right; }
+  .po-ag-sess-hdr { margin-bottom: 10px; }
+  .po-ag-sess-title { font-size: 11px; font-weight: 700; color: var(--text); font-family: 'Azeret Mono', monospace; margin-bottom: 4px; }
+  .po-ag-sess-subtitle { font-size: 9px; color: var(--muted); }
 
   /* Knowledge graph pane */
   #po-knowledge-tab { flex-direction: row; }
@@ -1360,6 +1547,7 @@
       <button class="po-tab active" onclick="switchPalaceTab('drawers')">MEMORIES</button>
       <button class="po-tab" onclick="switchPalaceTab('sessions')">SESSIONS</button>
       <button class="po-tab" onclick="switchPalaceTab('chunks')">KNOWLEDGE</button>
+      <button class="po-tab" onclick="switchPalaceTab('routing')">ROUTING</button>
       <button class="po-tab" onclick="switchPalaceTab('swarm')">SWARM</button>
       <button class="po-tab" onclick="switchPalaceTab('graph')">AGENT GRAPH</button>
       <button class="po-tab" onclick="switchPalaceTab('knowledge')">CODE GRAPH</button>
@@ -1412,12 +1600,30 @@
         </div>
       </div>
     </div>
-    <div id="po-graph-tab" class="po-tab-pane">
-      <div id="po-graph-controls">
-        <span id="po-graph-info"></span>
-        <label><input type="checkbox" id="po-graph-labels" checked onchange="kgGraph.toggleLabels(this.checked)"> LABELS</label>
+    <div id="po-graph-tab" class="po-tab-pane" style="flex-direction:row;overflow:hidden;">
+      <div id="po-ag-sidebar">
+        <div id="po-ag-sidebar-hdr">
+          <span>SESSIONS</span>
+          <span id="po-ag-session-count" style="color:var(--dim);font-size:9px;"></span>
+        </div>
+        <div id="po-ag-session-list"></div>
       </div>
-      <canvas id="po-kg-canvas"></canvas>
+      <div id="po-ag-main">
+        <div id="po-ag-summary-bar"></div>
+        <div id="po-ag-content">
+          <div class="po-select-hint" id="po-ag-hint">SELECT A SESSION</div>
+        </div>
+      </div>
+    </div>
+    <div id="po-routing-tab" class="po-tab-pane" style="flex-direction:row;overflow:hidden;">
+      <div style="width:240px;min-width:240px;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:rgba(0,0,0,0.1);">
+        <div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:9px;color:var(--muted);letter-spacing:0.1em;flex-shrink:0;">LAST ROUTE</div>
+        <div id="po-hooks-left" style="flex:1;overflow-y:auto;padding:10px 12px;"></div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:9px;color:var(--muted);letter-spacing:0.1em;flex-shrink:0;">ROUTING HISTORY</div>
+        <div id="po-hooks-right" style="flex:1;overflow-y:auto;padding:10px 12px;"></div>
+      </div>
     </div>
     <div id="po-swarm-tab" class="po-tab-pane" style="flex-direction:row;overflow:hidden;">
       <div style="width:220px;min-width:220px;display:flex;flex-direction:column;border-right:1px solid var(--border);">
@@ -1541,6 +1747,7 @@
     <h1>MONOMIND CONTROL</h1>
     <div id="header-meta">
       <span><span id="conn-dot"></span><span id="conn-label">CONNECTING</span></span>
+      <button onclick="openPalaceOverlay()" style="background:none;border:1px solid rgba(0,229,200,0.3);color:var(--teal);font-family:'Azeret Mono',monospace;font-size:9px;letter-spacing:0.1em;padding:3px 9px;cursor:pointer;border-radius:3px;transition:background 0.15s;" onmouseover="this.style.background='rgba(0,229,200,0.1)'" onmouseout="this.style.background='none'">⬡ MEMORY PALACE</button>
     </div>
   </div>
   <div id="header-right">
@@ -1565,7 +1772,7 @@
         <div class="proj-header">Project</div>
         <div class="proj-header">Path</div>
         <div class="proj-header" style="text-align:right">Sessions</div>
-        <div class="proj-header" style="text-align:right">Drawers</div>
+        <div class="proj-header" style="text-align:right">Memories</div>
         <div class="proj-header" style="text-align:right">Size</div>
         <div class="proj-header">Last Active</div>
         <div class="proj-cell" style="grid-column:1/7;color:var(--muted)">Loading projects…</div>
@@ -1575,17 +1782,6 @@
   </div>
 
   <!-- ─── AGENTS ──────────────────────────────────────────────── -->
-  <div class="panel open" id="panel-agents">
-    <div class="panel-header" onclick="togglePanel('panel-agents')">
-      <div class="panel-title"><span class="live-dot green"></span>AGENTS</div>
-      <span class="panel-badge" id="agents-badge">0</span>
-      <span class="panel-chevron">›</span>
-    </div>
-    <div class="panel-body" id="agents-body">
-      <div class="placeholder">NO AGENTS</div>
-    </div>
-  </div>
-
   <!-- ─── TOKENS ──────────────────────────────────────────────── -->
   <div class="panel open" id="panel-tokens">
     <div class="panel-header" onclick="togglePanel('panel-tokens')">
@@ -1599,76 +1795,35 @@
     </div>
   </div>
 
-  <!-- ─── MEMORY PALACE ───────────────────────────────────────── -->
-  <div class="panel open" id="panel-memory">
-    <div class="panel-header" onclick="togglePanel('panel-memory')">
-      <div class="panel-title"><span class="live-dot"></span>MEMORY PALACE</div>
-      <div style="display:flex;gap:6px;align-items:center;">
-        <span id="hnsw-indicator"></span>
-        <button onclick="event.stopPropagation();openPalaceOverlay()" style="background:none;border:1px solid rgba(0,229,200,0.3);color:var(--teal);font-family:'Azeret Mono',monospace;font-size:9px;letter-spacing:0.08em;padding:2px 7px;cursor:pointer;border-radius:3px;transition:background 0.15s;" onmouseover="this.style.background='rgba(0,229,200,0.08)'" onmouseout="this.style.background='none'">EXPLORE</button>
-        <span class="panel-badge" id="memory-badge">0</span>
-        <span class="panel-chevron">›</span>
-      </div>
-    </div>
-    <div class="panel-body" id="memory-body">
-      <div class="memory-layout">
-        <div class="memory-left" id="memory-left"></div>
-        <div class="memory-right" id="memory-right"></div>
-      </div>
-    </div>
-  </div>
 
-  <!-- ─── HOOKS & ROUTING ─────────────────────────────────────── -->
-  <div class="panel open" id="panel-hooks">
-    <div class="panel-header" onclick="togglePanel('panel-hooks')">
-      <div class="panel-title"><span class="live-dot amber"></span>HOOKS &amp; ROUTING</div>
+  <!-- ─── SCHEDULED LOOPS ──────────────────────────────────────── -->
+  <div class="panel open" id="panel-loops">
+    <div class="panel-header" onclick="togglePanel('panel-loops')">
+      <div class="panel-title"><span class="live-dot" id="loops-live-dot"></span>SCHEDULED LOOPS</div>
       <div style="display:flex;align-items:center;gap:6px;">
-        <span class="panel-badge" id="hooks-badge">—</span>
+        <span class="panel-badge" id="loops-badge">0</span>
         <span class="panel-chevron">›</span>
       </div>
     </div>
-    <div class="panel-body" id="hooks-body">
-      <div class="hooks-layout">
-        <div class="hooks-col" id="hooks-left"></div>
-        <div class="hooks-col" id="hooks-right"></div>
-      </div>
+    <div class="panel-body" id="loops-body">
+      <div class="loops-empty">NO ACTIVE LOOPS</div>
     </div>
   </div>
 
-  <!-- ─── METRICS ─────────────────────────────────────────────── -->
-  <div class="panel open" id="panel-metrics">
-    <div class="panel-header" onclick="togglePanel('panel-metrics')">
-      <div class="panel-title"><span class="live-dot muted"></span>METRICS</div>
-      <span class="panel-chevron">›</span>
-    </div>
-    <div class="panel-body" id="metrics-body">
-      <div class="placeholder">—</div>
-    </div>
-  </div>
-
-  <!-- ─── ACTIVITY ────────────────────────────────────────────── -->
+  <!-- ─── SESSION JOURNAL ────────────────────────────────────────── -->
   <div class="panel open" id="panel-activity">
     <div class="panel-header" onclick="togglePanel('panel-activity')">
-      <div class="panel-title"><span class="live-dot"></span>ACTIVITY</div>
+      <div class="panel-title"><span class="live-dot"></span>SESSION JOURNAL</div>
       <div style="display:flex;align-items:center;gap:6px;">
         <span class="panel-badge" id="activity-badge">0</span>
         <span class="panel-chevron">›</span>
       </div>
     </div>
     <div class="panel-body" id="activity-body">
-      <div id="activity-log"></div>
+      <div id="journal-list"><div id="journal-empty">Loading sessions…</div></div>
     </div>
   </div>
 
-  <div class="panel" id="panel-system">
-    <div class="panel-header" onclick="togglePanel('panel-system')">
-      <div class="panel-title"><span class="live-dot muted"></span>SYSTEM</div>
-      <span class="panel-chevron">›</span>
-    </div>
-    <div class="panel-body" id="system-body">
-      <div class="placeholder">—</div>
-    </div>
-  </div>
 
 
 </div><!-- end #grid -->
@@ -1687,14 +1842,12 @@ const MAX_ACTIVITY = 80;
 // Track which panels are currently open (match initial HTML .open classes)
 const expandedPanels = new Set([
   'panel-projects',
-  'panel-agents', 'panel-tokens', 'panel-activity', 'panel-hooks', 'panel-metrics', 'panel-memory'
+  'panel-tokens', 'panel-activity'
 ]);
 
 // Section name → panel id mapping
 const SECTION_PANEL = {
-  agents: 'panel-agents',
-  tokens: 'panel-tokens', memory: 'panel-memory', hooks: 'panel-hooks',
-  knowledge: 'panel-memory', metrics: 'panel-metrics', system: 'panel-system',
+  tokens: 'panel-tokens',
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1722,13 +1875,7 @@ window.togglePanel = function(panelId) {
 function renderPanelById(panelId) {
   if (!appData) return;
   switch (panelId) {
-    case 'panel-agents':    renderAgents(appData); break;
     case 'panel-tokens':    renderTokens(appData); break;
-    case 'panel-memory':    renderMemory(appData); break;
-    case 'panel-hooks':     renderHooks(appData); break;
-    case 'panel-knowledge': renderMemory(appData); break;
-    case 'panel-metrics':   renderMetrics(appData); break;
-    case 'panel-system':    renderSystem(appData); break;
   }
 }
 
@@ -1751,10 +1898,7 @@ async function fetchAndRenderSections(sections) {
       renderPanelById(panelId);
     } catch (e) { /* ignore transient fetch errors */ }
   }
-  // Re-render metrics panel when its source data changed
-  if (metricsStale && expandedPanels.has('panel-metrics') && appData) {
-    renderMetrics(appData);
-  }
+
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1842,9 +1986,8 @@ function markLive(panelId) {
 
 function updateLiveBorders() {
   const panelIds = [
-    'panel-agents','panel-tokens',
-    'panel-memory','panel-hooks','panel-metrics',
-    'panel-activity','panel-system'
+    'panel-tokens',
+    'panel-activity'
   ];
   const isLive = lastUpdateTime > 0 && (Date.now() - lastUpdateTime) < 5000;
   panelIds.forEach(id => {
@@ -1900,13 +2043,12 @@ async function selectProject(dir) {
   if (selectedProjectDir === dir) return;
   selectedProjectDir = dir;
   _codeGraphLoaded = false; kgCodeGraph.reset();
+  renderJournal();
   try {
     const res = await fetch(`/api/data?dir=${encodeURIComponent(dir)}`);
     const data = await res.json();
     updateAllPanels(data);
-  } catch (e) {
-    appendActivity(`Failed to load project: ${e.message}`, 'error');
-  }
+  } catch (e) {}
 }
 
 function renderProjects(data) {
@@ -1929,7 +2071,7 @@ function renderProjects(data) {
     <div class="proj-header">Project</div>
     <div class="proj-header">Path</div>
     <div class="proj-header" style="text-align:right">Sessions</div>
-    <div class="proj-header" style="text-align:right">Drawers</div>
+    <div class="proj-header" style="text-align:right">Memories</div>
     <div class="proj-header" style="text-align:right">Size</div>
     <div class="proj-header">Last Active</div>
   `;
@@ -1948,7 +2090,7 @@ function renderProjects(data) {
       </div>
       <div class="proj-cell proj-path" style="${highlight}${cursor}" ${rowClick}>${p.path.replace(/\/Users\/[^/]+/, '~')}</div>
       <div class="proj-cell proj-count" style="${highlight}${cursor};justify-content:flex-end" ${rowClick}>${p.sessionCount}</div>
-      <div class="proj-cell proj-dots" style="${highlight}${cursor};justify-content:flex-end" ${rowClick}>${p.drawerCount || '—'}</div>
+      <div class="proj-cell proj-dots" style="${highlight}${cursor};justify-content:flex-end" ${rowClick}>${p.memoryCount || '—'}</div>
       <div class="proj-cell proj-size" style="${highlight}${cursor};justify-content:flex-end" ${rowClick}>${formatBytes(p.totalSize)}</div>
       <div class="proj-cell proj-age" style="${highlight}${cursor}" ${rowClick}>${timeAgo(p.lastActivity)}</div>
     `;
@@ -2211,12 +2353,12 @@ function renderTokens(data) {
       <div class="token-stat">
         <div class="token-stat-label">DAILY</div>
         <div class="token-stat-val">${fmtCost(todayCost)}</div>
-        ${todayCalls != null ? `<div style="font-size:9px;color:var(--muted);margin-top:2px;">${fmtNum(todayCalls)} calls</div>` : ''}
+        ${todayCalls != null ? `<div style="font-size:8px;color:var(--muted);">${fmtNum(todayCalls)} calls</div>` : ''}
       </div>
       <div class="token-stat">
         <div class="token-stat-label">MONTHLY</div>
         <div class="token-stat-val">${fmtCost(monthlyCost)}</div>
-        ${monthlyCalls != null ? `<div style="font-size:9px;color:var(--muted);margin-top:2px;">${fmtNum(monthlyCalls)} calls</div>` : ''}
+        ${monthlyCalls != null ? `<div style="font-size:8px;color:var(--muted);">${fmtNum(monthlyCalls)} calls</div>` : ''}
       </div>
       <div class="token-stat">
         <div class="token-stat-label">ALL TIME $</div>
@@ -2750,6 +2892,123 @@ function renderMemory(data) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// SCHEDULED LOOPS PANEL
+// ═══════════════════════════════════════════════════════════════════
+let _loopCountdownTimers = [];
+
+function fmtCountdown(nextRunAt) {
+  if (!nextRunAt) return '';
+  const diff = nextRunAt - Date.now();
+  if (diff <= 0) return 'running now';
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `next in ${s}s`;
+  const m = Math.floor(s / 60), rs = s % 60;
+  return `next in ${m}m ${rs}s`;
+}
+
+function fmtRelTime(ts) {
+  if (!ts) return '—';
+  const diff = Date.now() - ts;
+  if (diff < 5000) return 'just now';
+  if (diff < 60000) return `${Math.floor(diff/1000)}s ago`;
+  if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+  return new Date(ts).toLocaleTimeString();
+}
+
+async function renderLoops() {
+  try {
+    const r = await fetch('/api/loops');
+    const { loops = [] } = await r.json();
+    const body = document.getElementById('loops-body');
+    const badge = document.getElementById('loops-badge');
+    const dot = document.getElementById('loops-live-dot');
+    if (!body) return;
+
+    // Clear old countdown timers
+    _loopCountdownTimers.forEach(clearInterval);
+    _loopCountdownTimers = [];
+
+    const active = loops.filter(l => l.status !== 'complete');
+    badge.textContent = active.length || '0';
+
+    if (dot) {
+      dot.className = 'live-dot' + (active.length > 0 ? ' green' : '');
+    }
+
+    if (!loops.length) {
+      body.innerHTML = '<div class="loops-empty">NO ACTIVE LOOPS</div>';
+      return;
+    }
+
+    body.innerHTML = loops.map(loop => {
+      const isRepeat = loop.type === 'repeat';
+      const isDo = loop.type === 'do';
+      const typeClass = isRepeat ? 'lc-repeat' : 'lc-do';
+      const pillClass = isRepeat ? 'lp-repeat' : 'lp-do';
+      const typeLabel = isRepeat ? 'REPEAT' : 'DO';
+      const stopPending = loop.stopRequested;
+      const statusDotClass = stopPending ? 'stopped' : (loop.status === 'waiting' ? 'waiting' : 'running');
+
+      const progress = isRepeat && loop.maxReps > 0
+        ? Math.round((loop.currentRep - 1) / loop.maxReps * 100)
+        : null;
+      const progressBar = progress !== null
+        ? `<div class="loop-progress-row">
+            <div class="loop-progress-bar"><div class="loop-progress-fill" style="width:${progress}%"></div></div>
+            <div class="loop-countdown" id="lcd-${loop.id}">${fmtCountdown(loop.nextRunAt)}</div>
+          </div>`
+        : `<div class="loop-progress-row">
+            <div style="flex:1"></div>
+            <div class="loop-countdown" id="lcd-${loop.id}">${fmtCountdown(loop.nextRunAt)}</div>
+          </div>`;
+
+      const metaItems = isRepeat
+        ? `<span class="loop-meta-item">run <span>${loop.currentRep || 1}/${loop.maxReps || '?'}</span></span>
+           <span class="loop-meta-item">every <span>${loop.interval || '?'}m</span></span>
+           <span class="loop-meta-item">started <span>${fmtRelTime(loop.startedAt)}</span></span>`
+        : `<span class="loop-meta-item">task <span>${escHtml(String(loop.currentTask || '—').slice(0,40))}</span></span>
+           <span class="loop-meta-item">last run <span>${fmtRelTime(loop.lastRunAt)}</span></span>`;
+
+      const stopLabel = stopPending ? 'STOPPING…' : 'STOP';
+      const disabledAttr = stopPending ? 'disabled' : '';
+
+      return `<div class="loop-card ${typeClass}${stopPending ? ' lc-stop-pending' : ''}" data-loop-id="${escHtml(loop.id)}">
+        <span class="loop-type-pill ${pillClass}"><span class="loop-status-dot ${statusDotClass}"></span>${typeLabel}</span>
+        <div class="loop-prompt" title="${escHtml(loop.prompt || '')}">${escHtml((loop.prompt || '').slice(0,80))}</div>
+        <button class="loop-stop-btn" onclick="stopLoop('${escHtml(loop.id)}')" ${disabledAttr}>${stopLabel}</button>
+        <div class="loop-meta">${metaItems}</div>
+        ${progressBar}
+      </div>`;
+    }).join('');
+
+    // Live countdown update
+    const timer = setInterval(() => {
+      loops.forEach(loop => {
+        const el = document.getElementById(`lcd-${loop.id}`);
+        if (el) el.textContent = fmtCountdown(loop.nextRunAt);
+      });
+    }, 1000);
+    _loopCountdownTimers.push(timer);
+  } catch {}
+}
+
+async function stopLoop(id) {
+  const card = document.querySelector(`[data-loop-id="${id}"]`);
+  const btn = card?.querySelector('.loop-stop-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'STOPPING…'; }
+  try {
+    await fetch('/api/loops/stop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    setTimeout(renderLoops, 400);
+  } catch {
+    if (btn) { btn.disabled = false; btn.textContent = 'STOP'; }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // HOOKS & ROUTING PANEL
 // ═══════════════════════════════════════════════════════════════════
 function renderHooks(data) {
@@ -2758,11 +3017,8 @@ function renderHooks(data) {
   const feedback = h.feedback || [];
   const workers = h.workerDispatch || [];
 
-  const badge = document.getElementById('hooks-badge');
-  if (badge) badge.textContent = feedback.length || '—';
-
-  const left = document.getElementById('hooks-left');
-  const right = document.getElementById('hooks-right');
+  const left = document.getElementById('po-hooks-left');
+  const right = document.getElementById('po-hooks-right');
   if (!left || !right) return;
 
   // Left: last route — actual fields: agent, confidence, reason, semanticRouting, updatedAt
@@ -2949,44 +3205,76 @@ function renderMetrics(data) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// ACTIVITY PANEL
+// SESSION JOURNAL
 // ═══════════════════════════════════════════════════════════════════
-function appendActivity(msg, type) {
-  const log = document.getElementById('activity-log');
-  if (!log) return;
-  activityCount++;
+function appendActivity() {} // no-op: panel replaced by Session Journal
+function inferActivityType() { return 'default'; }
 
-  const entry = document.createElement('div');
-  entry.className = 'activity-entry type-' + (type || 'default');
-  entry.innerHTML = `<span class="activity-time">${now()}</span><span class="activity-msg">${escHtml(String(msg).slice(0,100))}</span>`;
-  log.insertBefore(entry, log.firstChild);
+function fmtDur(ms) {
+  if (!ms) return '';
+  const m = Math.round(ms / 60000);
+  if (m < 60) return m + 'm';
+  return Math.floor(m / 60) + 'h ' + (m % 60) + 'm';
+}
 
-  // Trim old entries
-  while (log.children.length > MAX_ACTIVITY) {
-    log.removeChild(log.lastChild);
+function toggleJournalCard(el) {
+  el.classList.toggle('open');
+}
+
+async function renderJournal() {
+  const dir = selectedProjectDir || '';
+  const url = `/api/session-journal${dir ? '?dir=' + encodeURIComponent(dir) : ''}`;
+  let sessions = [];
+  try {
+    const res = await fetch(url);
+    if (res.ok) ({ sessions } = await res.json());
+  } catch {}
+
+  const list = document.getElementById('journal-list');
+  const badge = document.getElementById('activity-badge');
+  if (!list) return;
+  if (badge) badge.textContent = sessions.length;
+
+  if (!sessions.length) {
+    list.innerHTML = '<div id="journal-empty">NO SESSIONS FOUND</div>';
+    return;
   }
 
-  const badge = document.getElementById('activity-badge');
-  if (badge) badge.textContent = Math.min(activityCount, MAX_ACTIVITY);
+  list.innerHTML = sessions.map(s => {
+    const dt = s.lastTs ? new Date(s.lastTs) : (s.mtime ? new Date(s.mtime) : null);
+    const dateStr = dt ? dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    const dur = fmtDur(s.totalDurationMs);
+    const msgs = s.totalMessages ? s.totalMessages + ' msgs' : '';
+    const stats = [dur, msgs].filter(Boolean).join(' · ');
+    const shortId = s.id.slice(0, 8) + '…';
+    const prompt = s.lastPrompt ? escHtml(s.lastPrompt.slice(0, 120)) : '';
+
+    const latestSummary = s.summaries && s.summaries.length ? s.summaries[s.summaries.length - 1] : null;
+    const excerpt = latestSummary ? escHtml(latestSummary.text.slice(0, 200).replace(/\n+/g, ' ')) : '';
+    const fullText = latestSummary ? escHtml(latestSummary.text) : '';
+    const compactBadge = s.summaries && s.summaries.length > 0
+      ? `<span class="jn-badge-compact">${s.summaries.length > 1 ? s.summaries.length + ' compacts' : 'compacted'}</span>` : '';
+
+    return `<div class="jn-card" onclick="toggleJournalCard(this)">
+      <div class="jn-header">
+        <span class="jn-date">${dateStr}</span>
+        <span class="jn-id">${shortId}</span>
+        ${compactBadge}
+        ${stats ? `<span class="jn-stats">${stats}</span>` : ''}
+      </div>
+      ${prompt ? `<div class="jn-prompt">"${prompt}${s.lastPrompt && s.lastPrompt.length > 120 ? '…' : ''}"</div>` : ''}
+      ${excerpt
+        ? `<div class="jn-excerpt">${excerpt}${latestSummary && latestSummary.text.length > 200 ? '…' : ''}</div>
+           <div class="jn-summary-full">${fullText}</div>`
+        : `<div class="jn-no-summary">No compact summary available</div>`
+      }
+    </div>`;
+  }).join('');
 }
 
-function inferActivityType(data, prevData) {
-  if (!prevData) return 'default';
-  // Detect what changed
-  const sessNew = (data.sessions && data.sessions.count) || 0;
-  const sessPrev = (prevData.sessions && prevData.sessions.count) || 0;
-  if (sessNew !== sessPrev) return 'session';
-
-  const swNew = JSON.stringify(data.swarm || {});
-  const swPrev = JSON.stringify(prevData.swarm || {});
-  if (swNew !== swPrev) return 'swarm';
-
-  const agNew = (data.agents && data.agents.count) || 0;
-  const agPrev = (prevData.agents && prevData.agents.count) || 0;
-  if (agNew !== agPrev) return 'agent';
-
-  return 'default';
-}
+// Initial load + refresh every 2 minutes
+renderJournal();
+setInterval(renderJournal, 120000);
 
 // ═══════════════════════════════════════════════════════════════════
 // SYSTEM PANEL
@@ -3065,14 +3353,7 @@ function updateAllPanels(data) {
   renderProjects(data); // always render (navigation panel)
   renderProjectStats(data);
   // Only render panels that are currently expanded
-  if (expandedPanels.has('panel-agents'))    renderAgents(data);
   if (expandedPanels.has('panel-tokens'))    renderTokens(data);
-  if (expandedPanels.has('panel-memory'))    renderMemory(data);
-  // Always update hooks badge even when panel is collapsed
-  { const h = data.hooks || {}; const lr = h.lastRoute || {}; const badge = document.getElementById('hooks-badge'); if (badge) badge.textContent = lr.agent || lr.suggestedAgent || (h.feedback && h.feedback.length) || '—'; }
-  if (expandedPanels.has('panel-hooks'))     renderHooks(data);
-  if (expandedPanels.has('panel-metrics'))   renderMetrics(data);
-  if (expandedPanels.has('panel-system'))    renderSystem(data);
   // Activity log entry
   if (prev) {
     const type = inferActivityType(data, prev);
@@ -3173,6 +3454,12 @@ async function fetchInitial() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// LOOPS POLLING — every 10 seconds
+// ═══════════════════════════════════════════════════════════════════
+renderLoops();
+setInterval(renderLoops, 10000);
+
+// ═══════════════════════════════════════════════════════════════════
 // LIVE BORDER REFRESH TIMER
 // ═══════════════════════════════════════════════════════════════════
 setInterval(updateLiveBorders, 2000);
@@ -3240,10 +3527,9 @@ window.switchPalaceTab = function(tab) {
     b.classList.toggle('active', !!(btnTab && btnTab[1] === tab));
   });
   document.querySelectorAll('.po-tab-pane').forEach(p => p.classList.remove('active'));
-  const paneIds = { drawers: 'po-drawers-tab', sessions: 'po-sessions-tab', chunks: 'po-chunks-tab', swarm: 'po-swarm-tab', graph: 'po-graph-tab', knowledge: 'po-knowledge-tab' };
+  const paneIds = { drawers: 'po-drawers-tab', sessions: 'po-sessions-tab', chunks: 'po-chunks-tab', routing: 'po-routing-tab', swarm: 'po-swarm-tab', graph: 'po-graph-tab', knowledge: 'po-knowledge-tab' };
   const pane = document.getElementById(paneIds[tab]);
   if (pane) pane.classList.add('active');
-  if (tab !== 'graph') kgGraph.stop();
   if (tab !== 'knowledge') kgCodeGraph.stop();
   if (palaceData) renderPalaceTab(tab);
 };
@@ -3339,8 +3625,9 @@ function renderPalaceTab(tab) {
   if (tab === 'drawers') renderMemories();
   else if (tab === 'sessions') renderPalaceSessions();
   else if (tab === 'chunks') renderPalaceChunks();
+  else if (tab === 'routing') renderHooks(appData || {});
   else if (tab === 'swarm') renderPalaceSwarm();
-  else if (tab === 'graph') { kgGraph.init(); kgGraph.render(palaceData.graph || { nodes: [], edges: [] }); }
+  else if (tab === 'graph') { renderAgentGraph(palaceData.graph || { nodes: [], edges: [] }); }
   else if (tab === 'knowledge') { renderPalaceKnowledge(); renderPalaceCodeGraph(); }
 }
 
@@ -4464,194 +4751,126 @@ window.selectTemplate = function(type) {
   setTimeout(() => document.getElementById('po-edit-textarea').focus(), 50);
 };
 
-// Agent Graph renderer — sessions (inner ring, teal) + agent types (outer ring, amber)
-const kgGraph = (function() {
-  let canvas, ctx, nodes = [], edges = [], animRAF = null, showLabels = true;
-  let mouseX = -999, mouseY = -999, hoveredNode = null;
+// Agent Graph renderer — HTML two-pane: session list on left, details on right
+let _agGraphData = null;
 
-  function init() {
-    canvas = document.getElementById('po-kg-canvas');
-    if (!canvas) return;
-    ctx = canvas.getContext('2d');
-    canvas.onmousemove = e => {
-      const r = canvas.getBoundingClientRect();
-      mouseX = e.clientX - r.left;
-      mouseY = e.clientY - r.top;
-    };
-    canvas.onmouseleave = () => { mouseX = -999; mouseY = -999; hoveredNode = null; };
+function renderAgentGraph(graphData) {
+  _agGraphData = graphData;
+
+  const sessionNodes = (graphData.nodes || []).filter(n => n.type === 'session')
+    .sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+  const agentTypeNodes = (graphData.nodes || []).filter(n => n.type === 'agenttype')
+    .sort((a, b) => (b.totalSpawns || 0) - (a.totalSpawns || 0));
+
+  const countEl = document.getElementById('po-ag-session-count');
+  if (countEl) countEl.textContent = sessionNodes.length + ' sessions';
+
+  const totalTools = sessionNodes.reduce((s, n) => s + (n.totalTools || 0), 0);
+  const totalCost = sessionNodes.reduce((s, n) => s + (n.cost || 0), 0);
+  const totalTurns = sessionNodes.reduce((s, n) => s + (n.turns || 0), 0);
+  const totalSpawns = agentTypeNodes.reduce((s, n) => s + (n.totalSpawns || 0), 0);
+  const summaryBar = document.getElementById('po-ag-summary-bar');
+  if (summaryBar) {
+    summaryBar.innerHTML = [
+      [sessionNodes.length, 'SESSIONS'],
+      [agentTypeNodes.length, 'AGENT TYPES'],
+      [totalSpawns, 'SPAWNS'],
+      [totalTools, 'TOOL CALLS'],
+      [totalTurns, 'TURNS'],
+      ['$' + totalCost.toFixed(3), 'COST'],
+    ].map(([v, l]) => `<div class="po-ag-stat"><span class="po-ag-stat-val">${v}</span><span class="po-ag-stat-lbl">${l}</span></div>`).join('');
   }
 
-  function render(graphData) {
-    if (!canvas) init();
-    if (!canvas) return;
-    if (!graphData || !graphData.nodes) return;
+  const listEl = document.getElementById('po-ag-session-list');
+  if (!listEl) return;
 
-    const sessionNodes = graphData.nodes.filter(n => n.type === 'session')
-      .sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
-    const agentNodes = graphData.nodes.filter(n => n.type === 'agenttype')
-      .sort((a, b) => (b.totalSpawns || 0) - (a.totalSpawns || 0));
-
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-    const W = canvas.width, H = canvas.height;
-    const cx = W / 2, cy = H / 2;
-    const innerR = Math.min(W, H) * 0.22;
-    const outerR = Math.min(W, H) * 0.40;
-
-    const maxTools = Math.max(...sessionNodes.map(n => n.totalTools || 0), 1);
-    const maxSpawns = Math.max(...agentNodes.map(n => n.totalSpawns || 0), 1);
-
-    // Session nodes on inner ring, sized by tool count
-    sessionNodes.forEach((n, i) => {
-      const angle = (i / Math.max(sessionNodes.length, 1)) * Math.PI * 2 - Math.PI / 2;
-      n._x = cx + Math.cos(angle) * innerR;
-      n._y = cy + Math.sin(angle) * innerR;
-      n._size = 4 + (n.totalTools / maxTools) * 9;
-    });
-
-    // Agent type nodes on outer ring, sized by spawn count
-    agentNodes.forEach((n, i) => {
-      const angle = (i / Math.max(agentNodes.length, 1)) * Math.PI * 2 - Math.PI / 2;
-      n._x = cx + Math.cos(angle) * outerR;
-      n._y = cy + Math.sin(angle) * outerR;
-      n._size = 3 + (n.totalSpawns / maxSpawns) * 7;
-    });
-
-    nodes = [...sessionNodes, ...agentNodes];
-    const nodeIds = new Set(nodes.map(n => n.id));
-    edges = graphData.edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
-
-    const totalSpawns = agentNodes.reduce((s, n) => s + (n.totalSpawns || 0), 0);
-    const info = document.getElementById('po-graph-info');
-    if (info) info.textContent = `${sessionNodes.length} sessions  ·  ${agentNodes.length} agent types  ·  ${totalSpawns} total spawns`;
-
-    if (animRAF) cancelAnimationFrame(animRAF);
-    draw();
-    animRAF = requestAnimationFrame(function loop() {
-      if (palaceCurrentTab !== 'graph') { animRAF = null; return; }
-      const prev = hoveredNode;
-      hoveredNode = null;
-      for (const n of nodes) {
-        const dx = n._x - mouseX, dy = n._y - mouseY;
-        const r = (n._size || 5) + 4;
-        if (dx*dx + dy*dy < r*r) { hoveredNode = n; break; }
-      }
-      if (hoveredNode !== prev) draw();
-      animRAF = requestAnimationFrame(loop);
-    });
+  if (!sessionNodes.length) {
+    listEl.innerHTML = '<div style="padding:16px 12px;color:var(--dim);font-size:9px;text-align:center;">NO SESSIONS RECORDED</div>';
+    const content = document.getElementById('po-ag-content');
+    if (content) content.innerHTML = '<div class="po-select-hint">SELECT A SESSION</div>';
+    return;
   }
 
-  function draw() {
-    if (!canvas || !ctx) return;
-    const W = canvas.width, H = canvas.height;
-    if (!W || !H) return;
-    ctx.clearRect(0, 0, W, H);
-    const cx = W/2, cy = H/2;
-    const innerR = Math.min(W,H)*0.22, outerR = Math.min(W,H)*0.40;
+  listEl.innerHTML = sessionNodes.map(n => {
+    const dt = n.mtime ? new Date(n.mtime) : null;
+    const dateStr = dt ? dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+    const spawns = Object.values(n.agentSpawns || {}).reduce((s, v) => s + v, 0);
+    return `<div class="po-ag-sess" data-id="${n.id}" onclick="selectAgentSession('${n.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:4px;">
+        <div class="po-ag-sess-id">${(n.label || n.id).slice(0, 20)}</div>
+        <div style="font-size:8px;color:var(--dim);white-space:nowrap;">${dateStr}</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:2px;">
+        <span style="font-size:8px;color:var(--teal);">${n.totalTools || 0} tools</span>
+        ${spawns > 0 ? `<span style="font-size:8px;color:var(--amber);">${spawns} spawns</span>` : ''}
+        ${(n.cost || 0) > 0 ? `<span style="font-size:8px;color:var(--dim);">$${(n.cost || 0).toFixed(3)}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
 
-    // Guide rings
-    ctx.beginPath(); ctx.arc(cx, cy, innerR, 0, Math.PI*2);
-    ctx.strokeStyle = 'rgba(0,229,200,0.06)'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy, outerR, 0, Math.PI*2);
-    ctx.strokeStyle = 'rgba(255,179,71,0.06)'; ctx.lineWidth = 1; ctx.stroke();
+  const content = document.getElementById('po-ag-content');
+  if (content) content.innerHTML = '<div class="po-select-hint">SELECT A SESSION</div>';
+}
 
-    // Ring labels at top
-    ctx.font = '8px monospace'; ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(0,229,200,0.3)';
-    ctx.fillText('SESSIONS', cx, cy - innerR - 6);
-    ctx.fillStyle = 'rgba(255,179,71,0.3)';
-    ctx.fillText('AGENT TYPES', cx, cy - outerR - 6);
+function selectAgentSession(id) {
+  if (!_agGraphData) return;
+  const n = _agGraphData.nodes.find(x => x.id === id);
+  if (!n) return;
 
-    // Edges
-    const maxW = Math.max(...edges.map(e => e.weight || 1), 1);
-    const idToNode = {};
-    for (const n of nodes) idToNode[n.id] = n;
-    for (const e of edges) {
-      const a = idToNode[e.source], b = idToNode[e.target];
-      if (!a || !b) continue;
-      const hl = hoveredNode && (hoveredNode.id === e.source || hoveredNode.id === e.target);
-      const alpha = 0.05 + (e.weight / maxW) * 0.22;
-      ctx.beginPath(); ctx.moveTo(a._x, a._y); ctx.lineTo(b._x, b._y);
-      ctx.strokeStyle = hl ? 'rgba(0,229,200,0.65)' : `rgba(120,128,168,${alpha.toFixed(2)})`;
-      ctx.lineWidth = hl ? Math.max(1, (e.weight / maxW) * 3) : Math.max(0.4, (e.weight / maxW) * 1.5);
-      ctx.stroke();
-      if (showLabels && hl) {
-        ctx.font = '8px monospace'; ctx.fillStyle = 'rgba(0,229,200,0.9)'; ctx.textAlign = 'center';
-        ctx.fillText('×' + e.label, (a._x+b._x)/2, (a._y+b._y)/2 - 4);
-      }
-    }
+  document.querySelectorAll('#po-ag-session-list .po-ag-sess').forEach(el =>
+    el.classList.toggle('active', el.dataset.id === id));
 
-    // Nodes
-    for (const n of nodes) {
-      const isHov = hoveredNode && hoveredNode.id === n.id;
-      const isSession = n.type === 'session';
-      const r = (n._size || 5) + (isHov ? 2 : 0);
-      if (isHov) { ctx.shadowBlur = 18; ctx.shadowColor = isSession ? '#00E5C8' : '#FFB347'; }
-      ctx.beginPath(); ctx.arc(n._x, n._y, r, 0, Math.PI*2);
-      ctx.fillStyle = isSession
-        ? (isHov ? '#00E5C8' : 'rgba(0,229,200,0.82)')
-        : (isHov ? '#FFB347' : 'rgba(255,179,71,0.78)');
-      ctx.fill(); ctx.shadowBlur = 0;
-      if (showLabels) {
-        const label = (n.label || n.id).length > 18 ? (n.label || n.id).slice(0, 16) + '…' : (n.label || n.id);
-        ctx.font = isHov ? '10px monospace' : '8px monospace';
-        ctx.fillStyle = isHov ? 'rgba(255,255,255,0.95)'
-          : (isSession ? 'rgba(0,229,200,0.65)' : 'rgba(255,179,71,0.6)');
-        ctx.textAlign = 'center';
-        ctx.fillText(label, n._x, n._y + r + 11);
-      }
-    }
+  const agentSpawns = n.agentSpawns || {};
+  const toolCounts = n.toolCounts || {};
+  const totalSpawns = Object.values(agentSpawns).reduce((s, v) => s + v, 0);
+  const maxSpawn = Math.max(...Object.values(agentSpawns).concat([1]));
+  const maxTool = Math.max(...Object.values(toolCounts).concat([1]));
+  const dt = n.mtime ? new Date(n.mtime) : null;
+  const dateStr = dt ? dt.toLocaleString() : '';
 
-    // Tooltip
-    if (hoveredNode) {
-      const n = hoveredNode;
-      const isSession = n.type === 'session';
-      const lines = [isSession ? n.label + '  (session)' : n.label + '  (agent type)'];
-      if (isSession) {
-        lines.push(`${n.turns || 0} turns  ·  ${n.totalTools || 0} tools  ·  $${(n.cost || 0).toFixed(3)}`);
-        const ts = n.mtime ? new Date(n.mtime).toLocaleDateString() : '';
-        if (ts) lines.push(ts);
-        const spawned = Object.entries(n.agentSpawns || {}).sort((a,b) => b[1]-a[1]).slice(0, 5);
-        spawned.forEach(([k,v]) => lines.push(`→ ${k.slice(0,22)}  ×${v}`));
-      } else {
-        lines.push(`${n.totalSpawns} total spawns`);
-        const ne = edges.filter(e => e.source === n.id || e.target === n.id).slice(0, 5);
-        ne.forEach(e => {
-          const other = e.source === n.id ? e.target : e.source;
-          lines.push(`${other.slice(0, 8)}…  ×${e.weight}`);
-        });
-      }
-      const tw = 290, th = lines.length * 14 + 16;
-      let tx = n._x + 14, ty = n._y - th / 2;
-      if (tx + tw > W - 4) tx = n._x - tw - 14;
-      if (ty < 4) ty = 4;
-      if (ty + th > H - 4) ty = H - th - 4;
-      ctx.fillStyle = 'rgba(7,8,15,0.95)'; ctx.strokeStyle = 'rgba(0,229,200,0.28)'; ctx.lineWidth = 1;
-      roundRect(ctx, tx, ty, tw, th, 4); ctx.fill(); ctx.stroke();
-      ctx.font = '9px monospace'; ctx.textAlign = 'left';
-      lines.forEach((l, i) => {
-        ctx.fillStyle = i === 0 ? 'rgba(255,255,255,0.92)'
-          : i === 1 ? (isSession ? 'rgba(0,229,200,0.65)' : 'rgba(255,179,71,0.65)')
-          : 'rgba(212,212,232,0.8)';
-        ctx.fillText(l, tx + 8, ty + 13 + i * 14);
-      });
-    }
-  }
+  const spawnEntries = Object.entries(agentSpawns).sort((a, b) => b[1] - a[1]);
+  const toolEntries = Object.entries(toolCounts).sort((a, b) => b[1] - a[1]);
 
-  function roundRect(c, x, y, w, h, r) {
-    c.beginPath();
-    c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r);
-    c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-    c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r);
-    c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y);
-    c.closePath();
-  }
+  const content = document.getElementById('po-ag-content');
+  if (!content) return;
 
-  function stop() { if (animRAF) { cancelAnimationFrame(animRAF); animRAF = null; } }
-  function toggleLabels(v) { showLabels = v; draw(); }
-
-  return { init, render, stop, toggleLabels };
-})();
+  content.innerHTML = `
+    <div>
+      <div class="po-ag-sess-title">${n.label || n.id}</div>
+      <div class="po-ag-sess-subtitle">${dateStr}</div>
+      <div style="display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;">
+        <span style="font-size:9px;"><span style="color:var(--teal)">${n.turns || 0}</span> <span style="color:var(--dim)">turns</span></span>
+        <span style="font-size:9px;"><span style="color:var(--amber)">${totalSpawns}</span> <span style="color:var(--dim)">spawns</span></span>
+        <span style="font-size:9px;"><span style="color:var(--teal)">${n.totalTools || 0}</span> <span style="color:var(--dim)">tool calls</span></span>
+        ${(n.cost || 0) > 0 ? `<span style="font-size:9px;color:var(--muted);">$${(n.cost || 0).toFixed(4)}</span>` : ''}
+      </div>
+    </div>
+    ${spawnEntries.length > 0 ? `
+    <div>
+      <div class="po-ag-section-lbl">AGENT TYPES SPAWNED</div>
+      ${spawnEntries.map(([type, count]) => `
+        <div class="po-ag-agent-card">
+          <div class="po-ag-spawn-row">
+            <span class="po-ag-agent-type">${type}</span>
+            <div class="po-ag-bar-wrap"><div class="po-ag-bar-fill" style="width:${Math.round(count/maxSpawn*100)}%"></div></div>
+            <span class="po-ag-spawn-count">×${count}</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>` : ''}
+    ${toolEntries.length > 0 ? `
+    <div>
+      <div class="po-ag-section-lbl">TOOL USAGE (top ${Math.min(toolEntries.length, 15)})</div>
+      ${toolEntries.slice(0, 15).map(([tool, count]) => `
+        <div class="po-ag-tool-row">
+          <span class="po-ag-tool-name">${tool.slice(0, 18)}</span>
+          <div class="po-ag-tool-bar-wrap"><div class="po-ag-tool-bar-fill" style="width:${Math.round(count/maxTool*100)}%"></div></div>
+          <span class="po-ag-tool-count">${count}</span>
+        </div>
+      `).join('')}
+    </div>` : '<div style="font-size:9px;color:var(--dim);text-align:center;padding:20px 0;">NO TOOL DATA</div>'}
+  `;
+}
 
 // ══════════════════ CODE KNOWLEDGE GRAPH — force-directed ══════════════════
 const kgCodeGraph = (function() {
@@ -4832,7 +5051,6 @@ window.openPalaceOverlay = async function() {
 // Stop KG graph animations when overlay closes
 const _origClose = window.closePalaceOverlay;
 window.closePalaceOverlay = function() {
-  kgGraph.stop();
   kgCodeGraph.stop();
   _origClose();
 };
