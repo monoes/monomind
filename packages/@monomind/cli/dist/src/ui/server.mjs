@@ -277,6 +277,65 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // ------------------------------------------------------- GET /api/session-journal
+    if (req.method === 'GET' && url === '/api/session-journal') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir;
+        const d = path.resolve(dir || process.cwd());
+        const slug = d.replace(/\//g, '-');
+        const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
+
+        let sessionFiles = [];
+        try {
+          sessionFiles = fs.readdirSync(projectClaudeDir)
+            .filter(f => f.endsWith('.jsonl'))
+            .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
+            .filter(Boolean)
+            .sort((a, b) => b.mtime - a.mtime)
+            .slice(0, 15);
+        } catch {}
+
+        const sessions = [];
+        for (const { f, mtime } of sessionFiles) {
+          const fp = path.join(projectClaudeDir, f);
+          const id = f.replace('.jsonl', '');
+          let lastPrompt = '', summaries = [], totalDurationMs = 0, totalMessages = 0, firstTs = null, lastTs = null;
+          try {
+            const lines = fs.readFileSync(fp, 'utf8').split('\n').filter(Boolean);
+            let pendingCompact = false;
+            for (const line of lines) {
+              let e; try { e = JSON.parse(line); } catch { continue; }
+              if (e.timestamp) { if (!firstTs) firstTs = e.timestamp; lastTs = e.timestamp; }
+              if (e.type === 'last-prompt' && e.lastPrompt) lastPrompt = e.lastPrompt;
+              if (e.type === 'system' && e.subtype === 'compact_boundary') pendingCompact = true;
+              if (pendingCompact && e.type === 'user') {
+                const msg = e.message || {};
+                const ct = msg.content || [];
+                let text = '';
+                if (Array.isArray(ct)) { for (const b of ct) { if (b && b.type === 'text') { text = b.text; break; } } }
+                else if (typeof ct === 'string') text = ct;
+                const m = text.match(/Summary:\s*([\s\S]+)/);
+                if (m) summaries.push({ ts: e.timestamp, text: m[1].trim() });
+                pendingCompact = false;
+              }
+              if (e.type === 'system' && e.subtype === 'turn_duration') {
+                totalDurationMs += e.durationMs || 0;
+                if ((e.messageCount || 0) > totalMessages) totalMessages = e.messageCount;
+              }
+            }
+          } catch {}
+          sessions.push({ id, mtime, firstTs, lastTs, lastPrompt, summaries, totalDurationMs, totalMessages });
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ sessions }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
     // ------------------------------------------------------- GET /api/palace
     if (req.method === 'GET' && url === '/api/palace') {
       try {
@@ -412,6 +471,47 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: err.message }));
         }
+      });
+      return;
+    }
+
+    // ---------------------------------------------------------- GET /api/loops
+    if (req.method === 'GET' && url === '/api/loops') {
+      try {
+        const loopsDir = path.join(projectDir || process.cwd(), '.monomind', 'loops');
+        let loops = [];
+        try {
+          const files = fs.readdirSync(loopsDir).filter(f => f.endsWith('.json'));
+          const stopFiles = new Set(fs.readdirSync(loopsDir).filter(f => f.endsWith('.stop')).map(f => f.replace('.stop', '')));
+          for (const file of files) {
+            try {
+              const data = JSON.parse(fs.readFileSync(path.join(loopsDir, file), 'utf-8'));
+              data.stopRequested = stopFiles.has(data.id);
+              loops.push(data);
+            } catch {}
+          }
+        } catch (e) { if (e.code !== 'ENOENT') throw e; }
+        loops.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ loops }));
+      } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
+      return;
+    }
+
+    // ---------------------------------------------------------- POST /api/loops/stop
+    if (req.method === 'POST' && url === '/api/loops/stop') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const { id } = JSON.parse(body);
+          if (!id) { res.writeHead(400); res.end(JSON.stringify({ error: 'id required' })); return; }
+          const loopsDir = path.join(projectDir || process.cwd(), '.monomind', 'loops');
+          fs.mkdirSync(loopsDir, { recursive: true });
+          fs.writeFileSync(path.join(loopsDir, `${id}.stop`), `stop-requested-${Date.now()}`);
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ ok: true }));
+        } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
       });
       return;
     }
