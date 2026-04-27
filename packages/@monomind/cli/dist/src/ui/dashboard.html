@@ -1163,8 +1163,7 @@
   /* Swarm pane */
   #po-swarm-tab { flex-direction: row; }
   #po-swarm-list {
-    width: 220px; flex-shrink: 0; border-right: 1px solid var(--border);
-    overflow-y: auto; padding: 6px;
+    padding: 6px;
   }
   .po-swarm-item {
     display: flex; flex-direction: column; gap: 2px;
@@ -1245,6 +1244,15 @@
   .po-swarm-msg-ts { color: rgba(100,100,140,0.6); }
   .po-swarm-msg-type { color: var(--text); font-weight: 600; }
   .po-swarm-msg-payload { color: rgba(180,180,220,0.7); }
+  .po-swarm-event-row {
+    display: flex; align-items: baseline; gap: 6px;
+    padding: 2px 0; font-size: 9px; font-family: 'Azeret Mono', monospace;
+    border-bottom: 1px solid rgba(58,58,90,0.1);
+  }
+  .po-swarm-event-ts { color: rgba(100,100,140,0.6); min-width: 60px; }
+  .po-swarm-event-kind { color: var(--teal); font-weight: 600; min-width: 130px; }
+  .po-swarm-event-detail { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #po-swarm-clean-btn:hover { background: rgba(239,83,80,0.2); }
 
   /* Graph pane */
   #po-graph-tab { flex-direction: column; }
@@ -1412,7 +1420,13 @@
       <canvas id="po-kg-canvas"></canvas>
     </div>
     <div id="po-swarm-tab" class="po-tab-pane" style="flex-direction:row;overflow:hidden;">
-      <div id="po-swarm-list"></div>
+      <div style="width:220px;min-width:220px;display:flex;flex-direction:column;border-right:1px solid var(--border);">
+        <div id="po-swarm-list" style="flex:1;overflow-y:auto;"></div>
+        <div id="po-swarm-footer" style="padding:6px 8px;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px;">
+          <span id="po-swarm-data-size" style="font-size:8px;color:var(--muted);font-family:'Azeret Mono',monospace;flex:1;"></span>
+          <button id="po-swarm-clean-btn" onclick="cleanSwarmDataUI()" style="font-size:8px;font-family:'Azeret Mono',monospace;background:rgba(239,83,80,0.1);color:#EF5350;border:1px solid rgba(239,83,80,0.3);border-radius:3px;padding:2px 6px;cursor:pointer;">CLEAN</button>
+        </div>
+      </div>
       <div id="po-swarm-detail">
         <div id="po-swarm-hint" class="po-select-hint">SELECT A SWARM RUN</div>
         <div id="po-swarm-header" style="display:none;">
@@ -1441,6 +1455,10 @@
               <button id="po-swarm-agent-close" onclick="closeSwarmAgent()">&#10005;</button>
             </div>
             <div id="po-swarm-agent-timeline"></div>
+          </div>
+          <div id="po-swarm-events-section" style="padding:10px 14px;border-top:1px solid var(--border);">
+            <div class="po-sd-sidebar-label">EVENT LOG</div>
+            <div id="po-swarm-events-list" style="max-height:200px;overflow-y:auto;"></div>
           </div>
         </div>
       </div>
@@ -3529,11 +3547,43 @@ async function renderSwarmHistory() {
   }
 
   list.innerHTML = html;
+
+  // Update data size in footer
+  try {
+    const sr = await fetch(`/api/swarm-data-size${dir ? '?dir=' + encodeURIComponent(dir) : ''}`);
+    if (sr.ok) {
+      const sz = await sr.json();
+      const sizeEl = document.getElementById('po-swarm-data-size');
+      if (sizeEl) sizeEl.textContent = sz.humanSize || '0 B';
+      const cleanBtn = document.getElementById('po-swarm-clean-btn');
+      if (cleanBtn) cleanBtn.style.display = sz.totalBytes > 0 ? '' : 'none';
+    }
+  } catch {}
+}
+
+async function cleanSwarmDataUI() {
+  if (!confirm('Remove all swarm event recordings? This cannot be undone.')) return;
+  const dir = selectedProjectDir || '';
+  try {
+    await fetch(`/api/swarm-clean${dir ? '?dir=' + encodeURIComponent(dir) : ''}`, { method: 'DELETE' });
+  } catch {}
+  _swarmHistoryEntries = [];
+  _swarmSelectedIdx = null;
+  _swarmSelectedAgentId = null;
+  renderSwarmHistory();
+  const hint = document.getElementById('po-swarm-hint');
+  const header = document.getElementById('po-swarm-header');
+  const statsBar = document.getElementById('po-swarm-stats-bar');
+  const body = document.getElementById('po-swarm-body');
+  if (hint) hint.style.display = '';
+  if (header) header.style.display = 'none';
+  if (statsBar) statsBar.style.display = 'none';
+  if (body) body.style.display = 'none';
 }
 
 function renderPalaceSwarm() { renderSwarmHistory(); }
 
-function selectSwarmRun(idx) {
+async function selectSwarmRun(idx) {
   _swarmSelectedIdx = idx;
   _swarmSelectedAgentId = null;
 
@@ -3605,6 +3655,35 @@ function selectSwarmRun(idx) {
           <span class="po-swarm-agent-stats">${a.tasksCompleted || 0} tasks · ${a.messageCount || 0} msgs</span>
         </div>`;
       }).join('');
+    }
+  }
+
+  // Populate event log section
+  const evList = document.getElementById('po-swarm-events-list');
+  if (evList) {
+    const dir = selectedProjectDir || '';
+    try {
+      const evr = await fetch(`/api/swarm-events${dir ? '?dir=' + encodeURIComponent(dir) : ''}`);
+      if (evr.ok) {
+        const ed = await evr.json();
+        const evts = (ed.events || []).reverse();
+        if (evts.length === 0) {
+          evList.innerHTML = '<div style="color:var(--muted);font-size:9px;">No events recorded yet</div>';
+        } else {
+          evList.innerHTML = evts.slice(0, 200).map(ev => {
+            const ts = ev.ts ? new Date(ev.ts).toTimeString().slice(0, 8) : '—';
+            const kind = ev.kind || '?';
+            const detail = ev.agentId || ev.swarmId || ev.message || ev.proposalId || '';
+            return `<div class="po-swarm-event-row">
+              <span class="po-swarm-event-ts">${escHtml(ts)}</span>
+              <span class="po-swarm-event-kind">${escHtml(kind)}</span>
+              <span class="po-swarm-event-detail">${escHtml(String(detail).slice(0, 80))}</span>
+            </div>`;
+          }).join('');
+        }
+      }
+    } catch {
+      evList.innerHTML = '<div style="color:var(--muted);font-size:9px;">Failed to load events</div>';
     }
   }
 }
@@ -3752,7 +3831,7 @@ function drawSwarmTopology(entry, highlightAgentId) {
   }
 }
 
-function selectSwarmAgent(agentId) {
+async function selectSwarmAgent(agentId) {
   _swarmSelectedAgentId = agentId;
 
   const entry = _swarmSelectedIdx === 'live'
@@ -3790,23 +3869,52 @@ function selectSwarmAgent(agentId) {
   }
 
   if (timeline) {
+    // Fetch events from API for this agent
+    const dir = selectedProjectDir || '';
+    let events = [];
+    try {
+      const evr = await fetch(`/api/swarm-events?agentId=${encodeURIComponent(agentId)}${dir ? '&dir=' + encodeURIComponent(dir) : ''}`);
+      if (evr.ok) { const ed = await evr.json(); events = ed.events || []; }
+    } catch {}
+
+    // Also include entry-level messages (legacy)
     const msgs = (entry.messages || []).filter(m => m.from === agentId || m.to === agentId);
-    if (msgs.length === 0) {
+
+    if (events.length === 0 && msgs.length === 0) {
       timeline.innerHTML = '<div style="color:var(--muted);font-size:9px;padding:4px;">No communication recorded</div>';
     } else {
-      timeline.innerHTML = msgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)).map(m => {
-        const isSent = m.from === agentId;
-        const dir = isSent ? '→' : '←';
-        const peer = isSent ? m.to : m.from;
-        const ts = m.timestamp ? new Date(m.timestamp).toTimeString().slice(0, 8) : '—';
-        const payload = (m.payload || '').slice(0, 100);
-        return `<div class="po-swarm-msg ${isSent ? 'sent' : 'received'}">
-          <span class="po-swarm-msg-ts">${escHtml(ts)}</span>
-          ${escHtml(dir)} ${escHtml(peer || 'broadcast')}:
-          <span class="po-swarm-msg-type">${escHtml(m.type || '?')}</span>
-          ${payload ? `<span class="po-swarm-msg-payload">${escHtml(payload)}</span>` : ''}
-        </div>`;
-      }).join('');
+      let html = '';
+      // Render events from events.jsonl
+      if (events.length > 0) {
+        html += events.map(ev => {
+          const ts = ev.ts ? new Date(ev.ts).toTimeString().slice(0, 8) : '—';
+          const kind = ev.kind || '?';
+          const detail = ev.message || ev.task || ev.topology || '';
+          const isSent = kind.includes('spawn') || kind.includes('init') || kind.includes('broadcast');
+          return `<div class="po-swarm-msg ${isSent ? 'sent' : 'received'}">
+            <span class="po-swarm-msg-ts">${escHtml(ts)}</span>
+            <span class="po-swarm-msg-type">${escHtml(kind)}</span>
+            ${detail ? `<span class="po-swarm-msg-payload">${escHtml(String(detail).slice(0, 120))}</span>` : ''}
+          </div>`;
+        }).join('');
+      }
+      // Render legacy messages
+      if (msgs.length > 0) {
+        html += msgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)).map(m => {
+          const isSent = m.from === agentId;
+          const dir = isSent ? '→' : '←';
+          const peer = isSent ? m.to : m.from;
+          const ts = m.timestamp ? new Date(m.timestamp).toTimeString().slice(0, 8) : '—';
+          const payload = (m.payload || '').slice(0, 100);
+          return `<div class="po-swarm-msg ${isSent ? 'sent' : 'received'}">
+            <span class="po-swarm-msg-ts">${escHtml(ts)}</span>
+            ${escHtml(dir)} ${escHtml(peer || 'broadcast')}:
+            <span class="po-swarm-msg-type">${escHtml(m.type || '?')}</span>
+            ${payload ? `<span class="po-swarm-msg-payload">${escHtml(payload)}</span>` : ''}
+          </div>`;
+        }).join('');
+      }
+      timeline.innerHTML = html;
     }
   }
 }

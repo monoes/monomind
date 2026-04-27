@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
-import { collectAll, getWatchPaths, collectProject, collectSessions, collectSwarm, collectSwarmHistory, appendSwarmHistory, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem } from './collector.mjs';
+import { collectAll, getWatchPaths, collectProject, collectSessions, collectSwarm, collectSwarmHistory, appendSwarmHistory, collectSwarmEvents, getSwarmDataSize, cleanSwarmData, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem } from './collector.mjs';
 
 const JSONL_SIZE_CAP = 10 * 1024 * 1024; // 10 MB — skip files larger than this in /api/graph
 
@@ -730,7 +730,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     if (req.method === 'GET' && url === '/api/swarm-history') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const entries = collectSwarmHistory(path.resolve(dir));
         res.writeHead(200, {
           'Content-Type': 'application/json',
@@ -738,6 +738,52 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           'Cache-Control': 'no-cache',
         });
         res.end(JSON.stringify({ entries }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // ------------------------------------------------- GET /api/swarm-events
+    if (req.method === 'GET' && url === '/api/swarm-events') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir || process.cwd();
+        const swarmId = qs.get('swarmId') || undefined;
+        const agentId = qs.get('agentId') || undefined;
+        const last = qs.get('last') ? parseInt(qs.get('last')) : undefined;
+        const events = collectSwarmEvents(path.resolve(dir), { swarmId, agentId, last });
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ events, count: events.length }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // ------------------------------------------------- GET /api/swarm-data-size
+    if (req.method === 'GET' && url === '/api/swarm-data-size') {
+      try {
+        const dir = new URL(req.url, 'http://localhost').searchParams.get('dir') || projectDir || process.cwd();
+        const size = getSwarmDataSize(path.resolve(dir));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify(size));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // ------------------------------------------------- DELETE /api/swarm-clean
+    if (req.method === 'DELETE' && url === '/api/swarm-clean') {
+      try {
+        const dir = new URL(req.url, 'http://localhost').searchParams.get('dir') || projectDir || process.cwd();
+        const result = cleanSwarmData(path.resolve(dir));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: true, ...result }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
