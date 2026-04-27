@@ -185,6 +185,38 @@ function appendSwarmHistory(projectDir, entry) {
   fs.appendFileSync(historyPath, JSON.stringify(entry) + '\n');
 }
 
+function collectSwarmEvents(projectDir, opts = {}) {
+  const eventsPath = path.join(projectDir, '.monomind', 'swarm', 'events.jsonl');
+  const events = readJSONL(eventsPath, opts.last || null);
+  if (opts.swarmId) return events.filter(e => e.swarmId === opts.swarmId);
+  if (opts.agentId) return events.filter(e => e.agentId === opts.agentId);
+  return events;
+}
+
+function getSwarmDataSize(projectDir) {
+  const dir = path.join(projectDir, '.monomind', 'swarm');
+  let totalBytes = 0;
+  let fileCount = 0;
+  const files = ['history.jsonl', 'events.jsonl'];
+  for (const f of files) {
+    const stat = fileStat(path.join(dir, f));
+    if (stat) { totalBytes += stat.size; fileCount++; }
+  }
+  return { totalBytes, fileCount, humanSize: totalBytes < 1024 ? totalBytes + ' B' : totalBytes < 1048576 ? (totalBytes / 1024).toFixed(1) + ' KB' : (totalBytes / 1048576).toFixed(1) + ' MB' };
+}
+
+function cleanSwarmData(projectDir) {
+  const dir = path.join(projectDir, '.monomind', 'swarm');
+  const files = ['history.jsonl', 'events.jsonl'];
+  let removed = 0;
+  for (const f of files) {
+    const fp = path.join(dir, f);
+    try { fs.unlinkSync(fp); removed++; } catch {}
+  }
+  _appendedSwarmIds.clear();
+  return { removed, files };
+}
+
 function collectAgents(projectDir) {
   const base = path.join(projectDir, '.monomind');
   const regsDir = path.join(base, 'agents', 'registrations');
@@ -529,7 +561,7 @@ export function collectAll(projectDir) {
   };
 }
 
-export { collectProject, collectSessions, collectSwarm, collectSwarmHistory, appendSwarmHistory, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem };
+export { collectProject, collectSessions, collectSwarm, collectSwarmHistory, appendSwarmHistory, collectSwarmEvents, getSwarmDataSize, cleanSwarmData, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem };
 
 export function getWatchPaths(projectDir) {
   const resolvedDir = path.resolve(projectDir);
