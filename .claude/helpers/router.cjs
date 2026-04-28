@@ -167,6 +167,127 @@ function isNonDevTask(taskLower) {
   return false;
 }
 
+// ─── Two-Stage LLM Router (for non-dev and ambiguous tasks) ─────────────────
+// Stage 1: LLM picks category from ~9 categories
+// Stage 2: LLM picks specific agent from agents in that category
+// Falls back to keyword scoring if API unavailable
+
+function getAnthropicKey() {
+  return process.env.ANTHROPIC_API_KEY || '';
+}
+
+function buildCategoryList() {
+  const registry = loadExtrasRegistry();
+  const cats = {};
+  for (const e of registry.extras) {
+    if (!cats[e.category]) cats[e.category] = [];
+    cats[e.category].push(e.name);
+  }
+  return Object.entries(cats).map(([name, agents]) => ({
+    name,
+    count: agents.length,
+    examples: agents.slice(0, 4).join(', '),
+  }));
+}
+
+function getAgentsInCategory(category) {
+  const registry = loadExtrasRegistry();
+  return registry.extras
+    .filter(e => e.category === category)
+    .map(e => ({ slug: e.slug, name: e.name, description: (e.description || '').slice(0, 120) }));
+}
+
+async function llmPick(systemPrompt, userPrompt) {
+  const key = getAnthropicKey();
+  if (!key) return null;
+  try {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 2000);
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 60,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+      signal: ac.signal,
+    });
+    clearTimeout(timer);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const text = (data.content && data.content[0] && data.content[0].text) || '';
+    return text.trim();
+  } catch { return null; }
+}
+
+async function routeTaskLLM(task) {
+  const categories = buildCategoryList();
+  if (!categories.length) return null;
+
+  // Stage 1: pick category
+  const catList = categories.map((c, i) => `${i + 1}. ${c.name} (${c.count} agents, e.g. ${c.examples})`).join('\n');
+  const stage1System = 'You route tasks to agent categories. Reply with ONLY the category name, nothing else.';
+  const stage1User = `Task: "${task}"\n\nCategories:\n${catList}\n\nWhich category best fits this task? Reply with the category name only.`;
+
+  const pickedCat = await llmPick(stage1System, stage1User);
+  if (!pickedCat) return null;
+
+  // Normalize — find closest category match
+  const catLower = pickedCat.toLowerCase().replace(/[^a-z-]/g, '');
+  const matchedCat = categories.find(c => c.name.toLowerCase().replace(/[^a-z-]/g, '') === catLower);
+  const categoryName = matchedCat ? matchedCat.name : categories.find(c => catLower.includes(c.name.toLowerCase().replace(/[^a-z-]/g, '')))?.name;
+  if (!categoryName) return null;
+
+  // Stage 2: pick agent within category
+  const agents = getAgentsInCategory(categoryName);
+  if (!agents.length) return null;
+
+  const agentList = agents.map((a, i) => `${i + 1}. ${a.name} — ${a.description}`).join('\n');
+  const stage2System = 'You pick the best agent for a task. Reply with ONLY the agent name exactly as listed, nothing else.';
+  const stage2User = `Task: "${task}"\n\nAgents in ${categoryName}:\n${agentList}\n\nWhich agent is the best fit? Reply with the exact agent name only.`;
+
+  const pickedAgent = await llmPick(stage2System, stage2User);
+  if (!pickedAgent) return null;
+
+  // Find the agent entry — exact match only, fall back to keyword routing
+  const agentLower = pickedAgent.toLowerCase().trim();
+  const matched = agents.find(a => a.name.toLowerCase() === agentLower);
+  if (!matched) return null;
+
+  return {
+    agent: matched.name,
+    agentSlug: matched.slug,
+    confidence: 0.9,
+    reason: `LLM 2-stage: ${categoryName} → ${matched.name}`,
+    category: categoryName,
+    allInCategory: agents.map(a => ({ slug: a.slug, label: a.name, note: categoryName })),
+  };
+}
+
+/**
+ * Route multiple subtasks for swarm agent selection.
+ * Each subtask description gets its own 2-stage LLM routing.
+ * Returns array of { subtask, agent, agentSlug, confidence, reason }.
+ */
+async function routeSwarmAgents(subtasks) {
+  if (!Array.isArray(subtasks) || !subtasks.length) return [];
+  const results = await Promise.all(subtasks.map(async (sub) => {
+    const desc = typeof sub === 'string' ? sub : sub.description || sub.task || '';
+    if (!desc) return { subtask: desc, agent: 'coder', agentSlug: 'coder', confidence: 0.5, reason: 'empty subtask' };
+    const llm = await routeTaskLLM(desc);
+    if (llm) return { subtask: desc, agent: llm.agent, agentSlug: llm.agentSlug, confidence: llm.confidence, reason: llm.reason };
+    const kw = routeTask(desc);
+    return { subtask: desc, agent: kw.agent, agentSlug: kw.agentSlug, confidence: kw.confidence, reason: kw.reason };
+  }));
+  return results;
+}
+
 // ─── RouteLayer bridge (GAP-002) ─────────────────────────────────────────────
 // Cache a Promise so concurrent callers all await the same load operation.
 var _routeLayerPromise = null;
@@ -187,11 +308,33 @@ async function tryLoadRouteLayer() {
 }
 
 /**
- * Async variant — tries RouteLayer semantic routing first, falls back to keywords.
- * hook-handler.cjs route handler should call this instead of routeTask().
+ * Async variant — tries LLM 2-stage routing for non-dev tasks,
+ * RouteLayer semantic routing for dev tasks, falls back to keywords.
  */
 async function routeTaskSemantic(task) {
   if (typeof task !== 'string' || !task) return routeTask(task);
+  const taskLower = task.toLowerCase();
+
+  // For non-dev tasks or ambiguous defaults, try LLM 2-stage routing first
+  if (isNonDevTask(taskLower)) {
+    const llmResult = await routeTaskLLM(task);
+    if (llmResult) {
+      const extrasMatches = matchExtras(task);
+      return {
+        agent: llmResult.agent,
+        agentSlug: llmResult.agentSlug,
+        confidence: llmResult.confidence,
+        reason: llmResult.reason,
+        skillMatches: [],
+        extrasMatches,
+        specificAgents: llmResult.allInCategory.slice(0, 5),
+        llmRouting: true,
+      };
+    }
+    // LLM failed — fall through to keyword-based extras matching
+  }
+
+  // Dev tasks: try RouteLayer semantic routing
   const rl = await tryLoadRouteLayer();
   if (rl && rl.route) {
     try {
@@ -216,7 +359,25 @@ async function routeTaskSemantic(task) {
       }
     } catch (e) { /* fall through to keyword */ }
   }
-  return routeTask(task);
+
+  // Default keyword fallback — also try LLM if no dev pattern matched
+  const keywordResult = routeTask(task);
+  if (keywordResult.confidence <= 0.5) {
+    const llmResult = await routeTaskLLM(task);
+    if (llmResult) {
+      return {
+        agent: llmResult.agent,
+        agentSlug: llmResult.agentSlug,
+        confidence: llmResult.confidence,
+        reason: llmResult.reason,
+        skillMatches: keywordResult.skillMatches,
+        extrasMatches: matchExtras(task),
+        specificAgents: llmResult.allInCategory.slice(0, 5),
+        llmRouting: true,
+      };
+    }
+  }
+  return keywordResult;
 }
 
 // ─── Main routing ─────────────────────────────────────────────────────────────
@@ -288,7 +449,7 @@ function loadExtrasAgent(slug) {
   } catch (e) { return null; }
 }
 
-module.exports = { routeTask, routeTaskSemantic, matchSkills, matchExtras, loadExtrasAgent, loadExtrasRegistry, loadSkillRegistry, AGENT_CAPABILITIES, TASK_PATTERNS };
+module.exports = { routeTask, routeTaskSemantic, routeTaskLLM, routeSwarmAgents, matchSkills, matchExtras, loadExtrasAgent, loadExtrasRegistry, loadSkillRegistry, buildCategoryList, getAgentsInCategory, AGENT_CAPABILITIES, TASK_PATTERNS };
 
 // CLI
 if (require.main === module) {
