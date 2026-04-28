@@ -433,6 +433,7 @@ const handlers = {
           confidence: result.confidence,
           reason: result.reason,
           semanticRouting: result.semanticRouting || false,
+          llmRouting: result.llmRouting || false,
           updatedAt: new Date().toISOString(),
         };
         if (result.extrasMatches && result.extrasMatches.length > 0) {
