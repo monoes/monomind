@@ -8,12 +8,21 @@ const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const graphDir = path.join(projectDir, '.monomind', 'graph');
 const statsFile = path.join(graphDir, 'stats.json');
 
-// Locate @monomind/graph — check pnpm store first, then regular node_modules
+// Locate @monomind/graph — check local, global npm, bundled-graph, pnpm
 function findGraphPkg(base) {
   const candidates = [
     path.join(base, 'node_modules', '@monomind', 'graph', 'dist', 'src', 'index.js'),
     path.join(base, 'packages', '@monomind', 'cli', 'node_modules', '@monomind', 'graph', 'dist', 'src', 'index.js'),
+    path.join(base, 'packages', '@monomind', 'graph', 'dist', 'src', 'index.js'),
   ];
+  // Check global npm install paths (monomind umbrella ships bundled-graph)
+  try {
+    const globalRoot = require('child_process').execSync('npm root -g', { encoding: 'utf-8' }).trim();
+    candidates.push(
+      path.join(globalRoot, 'monomind', 'packages', '@monomind', 'cli', 'bundled-graph', 'dist', 'src', 'index.js'),
+      path.join(globalRoot, 'monomind', 'node_modules', '@monoes', 'monomindcli', 'bundled-graph', 'dist', 'src', 'index.js'),
+    );
+  } catch {}
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
