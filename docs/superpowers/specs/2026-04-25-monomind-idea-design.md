@@ -64,8 +64,8 @@ Before any agent runs, the skill collects project context:
 
 1. **README.md** — first 200 lines
 2. **package.json** (or equivalent project manifest) — name, description, keywords
-3. **Graphify** — `mcp__monobrain__graphify_suggest` with the user's prompt (if graph is built)
-4. **Monomind memories** — `mcp__monobrain__memory_search` for relevant project context
+3. **Graphify** — `mcp__monomind__graphify_suggest` with the user's prompt (if graph is built)
+4. **Monomind memories** — `mcp__monomind__memory_search` for relevant project context
 
 All bundled into a `PROJECT_CONTEXT` string passed to every agent.
 

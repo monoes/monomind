@@ -92,9 +92,9 @@ Collect project context by running these in parallel:
 
 3. **Project manifest**: Read `package.json` (or `Cargo.toml`, `pyproject.toml`, `go.mod` — whichever exists). Extract name, description, and keywords.
 
-4. **Graphify context**: Call `mcp__monobrain__graphify_suggest` with `$ARGUMENTS` as the query. If it errors or returns empty, skip — the graph may not be built.
+4. **Graphify context**: Call `mcp__monomind__graphify_suggest` with `$ARGUMENTS` as the query. If it errors or returns empty, skip — the graph may not be built.
 
-5. **Memory context**: Call `mcp__monobrain__memory_search` with `$ARGUMENTS` as the query. Use top 5 results.
+5. **Memory context**: Call `mcp__monomind__memory_search` with `$ARGUMENTS` as the query. Use top 5 results.
 
 Bundle all collected context into a single string called `PROJECT_CONTEXT`. This will be passed to every agent in subsequent stages. Format it as:
 

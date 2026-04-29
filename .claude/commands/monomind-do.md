@@ -55,6 +55,35 @@ If `cargo` is also missing, output this and STOP:
 
 ---
 
+## Step 1.5: Initialize Loop State
+
+Generate a loop ID and write the initial state file so the dashboard can track this run:
+```bash
+mkdir -p .monomind/loops
+export DO_LOOP_ID="do-$(date +%s%3N)"
+cat > ".monomind/loops/${DO_LOOP_ID}.json" << EOF
+{
+  "id": "${DO_LOOP_ID}",
+  "type": "do",
+  "prompt": "/monomind:do $ARGUMENTS",
+  "currentTask": "discovering...",
+  "spaceId": "${SPACE_ID:-}",
+  "boardId": "${TASK_BOARD_ID:-}",
+  "filter": "${FILTER:-}",
+  "startedAt": $(date +%s%3N),
+  "lastRunAt": $(date +%s%3N),
+  "nextRunAt": 0,
+  "status": "running"
+}
+EOF
+```
+
+Also check if a stop was requested from a previous cycle:
+```bash
+[ -f ".monomind/loops/${DO_LOOP_ID}.stop" ] && echo "DO_STOP_REQUESTED=true"
+```
+If `DO_STOP_REQUESTED=true`, output `[monomind:do] Stop requested via dashboard. Halting.`, remove state files, and STOP.
+
 ## Step 2: Find Next Task
 
 1. List cards in `Todo` first (prioritized), then `Backlog`:
@@ -68,6 +97,13 @@ If `cargo` is also missing, output this and STOP:
 3. Pick the **first available card** (Todo before Backlog). If no cards found, output:
    ```
    [monomind:do] No tasks in Todo or Backlog. Checking again in 2 minutes...
+   ```
+   Update loop state before scheduling:
+   ```bash
+   NEXT_AT=$(( $(date +%s%3N) + 120000 ))
+   cat > ".monomind/loops/${DO_LOOP_ID}.json" << EOF
+   {"id":"${DO_LOOP_ID}","type":"do","prompt":"/monomind:do $ARGUMENTS","currentTask":"queue empty — waiting","spaceId":"${SPACE_ID:-}","boardId":"${TASK_BOARD_ID:-}","filter":"${FILTER:-}","startedAt":$(cat .monomind/loops/${DO_LOOP_ID}.json 2>/dev/null | python3 -c "import sys,json;print(json.load(sys.stdin).get('startedAt',0))" 2>/dev/null || date +%s%3N),"lastRunAt":$(date +%s%3N),"nextRunAt":${NEXT_AT},"status":"waiting"}
+   EOF
    ```
    Then use `ScheduleWakeup` with `delaySeconds: 120` and prompt `/monomind:do --space $SPACE_ID --board $TASK_BOARD_ID` (plus `--filter` if one was set) to check again. STOP this iteration.
 
@@ -102,8 +138,8 @@ Collect in parallel (skip any that error):
 
 1. **README**: Read `README.md` (first 200 lines).
 2. **Package manifest**: Read whichever exists first: `package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`.
-3. **Memory search**: Call `mcp__monobrain__memory_search` with the card title.
-4. **Knowledge graph**: Call `mcp__monobrain__graphify_suggest` with the card title.
+3. **Memory search**: Call `mcp__monomind__memory_search` with the card title.
+4. **Knowledge graph**: Call `mcp__monomind__graphify_suggest` with the card title.
 
 Bundle into `PROJECT_CONTEXT`.
 
@@ -271,6 +307,11 @@ Use `ScheduleWakeup` with `delaySeconds: 120` and prompt `/monomind:do --space $
 If no tasks remain, output:
 ```
 [monomind:do] All tasks processed. Queue empty.
+```
+
+Remove the loop state file:
+```bash
+rm -f ".monomind/loops/${DO_LOOP_ID}.json" ".monomind/loops/${DO_LOOP_ID}.stop"
 ```
 
 Do NOT schedule another wake-up. STOP.

@@ -79,7 +79,7 @@ const SKILLS_MAP: Record<string, string[]> = {
  */
 const COMMANDS_MAP: Record<string, string[]> = {
   core: [
-    'monobrain-help.md', 'monobrain-swarm.md', 'monobrain-memory.md',
+    'monomind-help.md', 'monomind-swarm.md', 'monomind-memory.md',
     'monomind-do.md', 'monomind-idea.md', 'monomind-createtask.md', 'monomind-repeat.md',
     'mastermind.md', 'list-agents.md', 'use-agent.md',
     'metrics.md', 'tokens.md', 'browse.md', 'sparc.md', 'ts.md',
