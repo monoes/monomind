@@ -19,6 +19,36 @@ function behavioralRules() {
 - ALWAYS read a file before editing it
 - NEVER commit secrets, credentials, or .env files`;
 }
+function codingPrinciples() {
+    return `## Coding Principles
+
+### Think Before Coding
+- State assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them — don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+### Simplicity First
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+### Surgical Changes
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+- Every changed line should trace directly to the user's request.
+
+### Goal-Driven Execution
+- Transform tasks into verifiable goals with success criteria.
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- For multi-step tasks, state a brief plan with verification steps.`;
+}
 function fileOrganization() {
     return `## File Organization
 
@@ -376,7 +406,7 @@ npx monomind@latest daemon start
 npx monomind@latest doctor --fix
 \`\`\`
 
-> **Package name changed:** Use \`monomind@latest\` (not \`@monoes/cli@latest\` which is the old name and returns 404).
+> **Package name changed:** Use \`monomind@latest\` (not \`@monomind/cli@latest\` which is the old name and returns 404).
 
 ## Claude Code vs CLI Tools
 
@@ -396,6 +426,7 @@ npx monomind@latest doctor --fix
 const TEMPLATE_SECTIONS = {
     minimal: [
         behavioralRules,
+        (_opts) => codingPrinciples(),
         fileOrganization,
         projectArchitecture,
         (_opts) => buildAndTest(),
@@ -409,6 +440,7 @@ const TEMPLATE_SECTIONS = {
     ],
     standard: [
         behavioralRules,
+        (_opts) => codingPrinciples(),
         fileOrganization,
         projectArchitecture,
         (_opts) => buildAndTest(),
@@ -425,6 +457,7 @@ const TEMPLATE_SECTIONS = {
     ],
     full: [
         behavioralRules,
+        (_opts) => codingPrinciples(),
         fileOrganization,
         projectArchitecture,
         (_opts) => buildAndTest(),
@@ -446,6 +479,7 @@ const TEMPLATE_SECTIONS = {
     ],
     security: [
         behavioralRules,
+        (_opts) => codingPrinciples(),
         fileOrganization,
         projectArchitecture,
         (_opts) => buildAndTest(),
@@ -462,6 +496,7 @@ const TEMPLATE_SECTIONS = {
     ],
     performance: [
         behavioralRules,
+        (_opts) => codingPrinciples(),
         fileOrganization,
         projectArchitecture,
         (_opts) => buildAndTest(),
@@ -480,6 +515,7 @@ const TEMPLATE_SECTIONS = {
     ],
     solo: [
         behavioralRules,
+        (_opts) => codingPrinciples(),
         fileOrganization,
         projectArchitecture,
         (_opts) => buildAndTest(),
