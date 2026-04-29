@@ -64,7 +64,12 @@ const SKILLS_MAP = {
  * Commands to copy based on configuration
  */
 const COMMANDS_MAP = {
-    core: ['monomind-help.md', 'monomind-swarm.md', 'monomind-memory.md'],
+    core: [
+        'monomind-help.md', 'monomind-swarm.md', 'monomind-memory.md',
+        'monomind-do.md', 'monomind-idea.md', 'monomind-createtask.md', 'monomind-repeat.md',
+        'mastermind.md', 'list-agents.md', 'use-agent.md',
+        'metrics.md', 'tokens.md', 'browse.md', 'sparc.md', 'ts.md',
+    ],
     analysis: ['analysis'],
     automation: ['automation'],
     github: ['github'],

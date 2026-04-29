@@ -202,27 +202,95 @@ Also move any `skipElaboration: true` ideas directly to `Elaborated`.
   - `Done`
 - Store column IDs (especially `COL_BACKLOG`).
 
-### Decomposition
+### Decomposition into Professional Task Cards
+
 Spawn a single `Software Architect` agent via the Agent tool. Provide it with:
 - All ideas in the `Elaborated` column (titles, descriptions, and all comments)
 - The `PROJECT_CONTEXT`
 
 For each elaborated idea, the agent must:
-1. Break it into 2-6 actionable subtasks. Each subtask should have a clear title, a 1-2 sentence description of what to implement, and the recommended **agent type** to assign for implementation (e.g., `backend-dev`, `Frontend Developer`, `coder`, `Security Engineer`). Pick the agent type from the available agents list that best matches the subtask's domain.
-2. Create each subtask as a card in the `Backlog` column of the `monomind-task` board, including the agent type:
+
+1. **Analyze and decompose** into 2-6 subtasks. Each subtask must be a professional task card following this structure:
+
+```json
+{
+  "title": "Action-oriented title (verb + noun + context)",
+  "description": "## What\nExact deliverable (new file, modified function, endpoint, etc.).\n\n## Why\nBusiness or technical motivation — what breaks without this?\n\n## Where\nFile paths, module boundaries, related components.\n\n## Patterns\nExisting conventions to follow (naming, error handling, test style).",
+  "definition_of_done": [
+    "Specific, binary, verifiable condition (include HTTP codes, error shapes, edge cases)",
+    "Quantified thresholds where applicable (rate limits, timeouts, sizes)"
+  ],
+  "testing_criteria": {
+    "unit_tests": ["function(input) → expected outcome"],
+    "integration_tests": ["endpoint + method → status + response shape"],
+    "edge_cases": ["boundary condition → expected behavior"]
+  },
+  "checklist": [
+    "Write failing test for [specific behavior]",
+    "Implement [function/class] in [file path]",
+    "Run tests — verify green",
+    "Commit: '[type]: [description]'"
+  ],
+  "agent_type": "best-fit agent from 230+ roster (e.g., backend-dev, Frontend Developer, Security Engineer)",
+  "priority": "critical | high | medium | low",
+  "effort": "1-10 (1=trivial, 10=full day)",
+  "dependencies": ["titles of prerequisite tasks, or empty"]
+}
+```
+
+**Task generation rules:**
+- Tasks MUST be ordered so dependencies come first
+- Each task: 5-30 minutes for a single agent
+- Split anything larger
+- Every task starts with writing a test (TDD)
+- DOD items must be binary (pass/fail, not "looks good")
+- Testing criteria must name specific functions, endpoints, inputs
+
+2. **Create each subtask** as a card in `Backlog` (has deps) or `Todo` (no deps):
    ```bash
-   monotask card create $TASK_BOARD_ID $COL_BACKLOG "<subtask title>" --json
-   monotask card comment add $TASK_BOARD_ID $SUBTASK_CARD_ID "<subtask description>"
-   monotask card comment add $TASK_BOARD_ID $SUBTASK_CARD_ID "Assigned agent: <agent type>"
+   monotask card create $TASK_BOARD_ID $COLUMN_ID "<title>" --json
    ```
-3. Comment on the original idea card listing all subtask titles with their assigned agents:
+
+3. **Set description** with full context block:
    ```bash
-   monotask card comment add $BOARD_ID $IDEA_CARD_ID "Subtasks created: <title> (agent: <type>), <title> (agent: <type>), ..."
+   monotask card set-description $TASK_BOARD_ID $CARD_ID "<description with What/Why/Where/Patterns>"
    ```
-4. Move the idea card to `Tasked`:
+
+4. **Add DOD comment**:
    ```bash
-   monotask card move $BOARD_ID $IDEA_CARD_ID $COL_TASKED --json
+   monotask card comment add $TASK_BOARD_ID $CARD_ID "## Definition of Done\n- [ ] <condition 1>\n- [ ] <condition 2>\n..."
    ```
+
+5. **Add testing criteria comment**:
+   ```bash
+   monotask card comment add $TASK_BOARD_ID $CARD_ID "## Testing Criteria\n\n### Unit Tests\n- <test 1>\n\n### Integration Tests\n- <test 1>\n\n### Edge Cases\n- <case 1>"
+   ```
+
+6. **Add agent assignment + metadata**:
+   ```bash
+   monotask card comment add $TASK_BOARD_ID $CARD_ID "Assigned agent: <agent_type>\nPriority: <priority>\nEffort: <effort>/10\nDependencies: <dep titles or none>"
+   ```
+
+7. **Set priority**: `monotask card set-priority $TASK_BOARD_ID $CARD_ID <1-4>`
+
+8. **Create checklist** (TDD implementation steps):
+   ```bash
+   monotask checklist add $TASK_BOARD_ID $CARD_ID "Implementation Steps" --json
+   ```
+   Then for each step:
+   ```bash
+   monotask checklist item-add $TASK_BOARD_ID $CARD_ID $CHECKLIST_ID "<step>"
+   ```
+
+9. **Comment on original idea card** listing all subtask titles with their assigned agents:
+   ```bash
+   monotask card comment add $BOARD_ID $IDEA_CARD_ID "Subtasks created:\n- <title> (agent: <type>, effort: <N>/10)\n- <title> (agent: <type>, effort: <N>/10)\n..."
+   ```
+
+10. **Move the idea card** to `Tasked`:
+    ```bash
+    monotask card move $BOARD_ID $IDEA_CARD_ID $COL_TASKED --json
+    ```
 
 **If the architect has doubts** about decomposing an idea (unclear scope, missing info), they should:
 - Add a comment with the question
@@ -235,16 +303,17 @@ For each elaborated idea, the agent must:
 Output a summary table:
 
 ```
-| # | Idea                        | Status   | Subtasks |
-|---|-----------------------------|----------|----------|
-| 1 | <title>                     | Tasked   | 4        |
-| 2 | <title>                     | Iced     | --       |
-| 3 | <title>                     | Rejected | --       |
+| # | Idea                        | Status   | Subtasks | Total Effort | Agents |
+|---|-----------------------------|----------|----------|--------------|--------|
+| 1 | <title>                     | Tasked   | 4        | 18/40        | coder, backend-dev, tester |
+| 2 | <title>                     | Iced     | --       | --           | --     |
+| 3 | <title>                     | Rejected | --       | --           | --     |
 ```
 
 Then output:
 - Total ideas generated: N
-- Ideas tasked: N (with M total subtasks in Backlog)
+- Ideas tasked: N (with M total subtasks)
+- Total effort points: X
 - Ideas iced: N
 - Ideas rejected: N
 - Monotask space: `$REPO_NAME` (ID: `$SPACE_ID`)
