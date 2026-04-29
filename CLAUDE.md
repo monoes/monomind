@@ -113,9 +113,9 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 
 **When starting any task that touches 3+ files, introduces a new feature, or requires understanding a module you haven't worked in recently:**
 
-1. Call `mcp__monobrain__graphify_suggest` first — it returns the most relevant files and relationships for your task description
-2. Call `mcp__monobrain__graphify_query` for targeted lookups ("what imports auth?", "what does UserService depend on?") — results include exact file path and line number
-3. Call `mcp__monobrain__graphify_god_nodes` to find high-centrality **internal** files (external/test symbols are automatically filtered)
+1. Call `mcp__monomind__graphify_suggest` first — it returns the most relevant files and relationships for your task description
+2. Call `mcp__monomind__graphify_query` for targeted lookups ("what imports auth?", "what does UserService depend on?") — results include exact file path and line number
+3. Call `mcp__monomind__graphify_god_nodes` to find high-centrality **internal** files (external/test symbols are automatically filtered)
 
 **Why:** The knowledge graph encodes full dependency relationships, import chains, and architectural topology. It lets you understand the blast radius of a change and find all affected files without grepping the entire codebase.
 
@@ -132,7 +132,7 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 
 **Skip graphify for:** single-file edits, doc/config changes, quick fixes where you already know the file.
 
-**If `graphify_suggest` returns empty or errors:** the graph may not be built yet. Call `mcp__monobrain__graphify_build` (codeOnly: true) — it runs in the background; proceed with normal Glob/Grep while it builds.
+**If `graphify_suggest` returns empty or errors:** the graph may not be built yet. Call `mcp__monomind__graphify_build` (codeOnly: true) — it runs in the background; proceed with normal Glob/Grep while it builds.
 
 ---
 
