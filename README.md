@@ -2,6 +2,10 @@
   <img src="assets/hero-banner.png" alt="Monomind — AI Agent Orchestration" width="100%" />
 </p>
 
+<p align="center">
+  <img src="assets/logo.png" alt="Monomind Logo" width="120" />
+</p>
+
 <h1 align="center">Monomind</h1>
 
 <p align="center">
