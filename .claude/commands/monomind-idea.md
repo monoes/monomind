@@ -49,9 +49,9 @@ Collect ALL of the following in parallel (skip any that error):
 
 3. **Package manifest**: Read whichever exists first: `package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`. Extract name, description, and keywords/tags.
 
-4. **Knowledge graph**: Call `mcp__monobrain__graphify_suggest` with the user's prompt (`$ARGUMENTS`). Skip if it errors or returns empty.
+4. **Knowledge graph**: Call `mcp__monomind__graphify_suggest` with the user's prompt (`$ARGUMENTS`). Skip if it errors or returns empty.
 
-5. **Memory search**: Call `mcp__monobrain__memory_search` with the user's prompt (`$ARGUMENTS`). Use the top 5 results.
+5. **Memory search**: Call `mcp__monomind__memory_search` with the user's prompt (`$ARGUMENTS`). Use the top 5 results.
 
 Bundle all gathered information into a single `PROJECT_CONTEXT` string for downstream agents.
 
