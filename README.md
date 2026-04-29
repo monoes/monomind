@@ -60,11 +60,17 @@ That's it. Monomind is now active in your Claude Code sessions.
 
 ---
 
-## What Monomind Does
+## Monomind Control — Live Dashboard
 
 <p align="center">
-  <img src="assets/swarm-topology.png" alt="Swarm Topology Visualization" width="80%" />
+  <img src="assets/dashboard-control.png" alt="Monomind Control Dashboard" width="100%" />
 </p>
+
+Real-time visibility into every project, session, agent, memory, route decision, and token spend — all in one terminal-native dashboard.
+
+---
+
+## What Monomind Does
 
 ### From Prompt to Production
 
@@ -106,15 +112,17 @@ Not generic "code assistants" — domain experts with targeted system prompts, e
 
 | Category | Count | Examples |
 |---|---|---|
-| **Engineering** | 50+ | Backend Architect, Frontend Developer, Database Optimizer, Embedded Firmware Engineer, SRE |
-| **Security** | 10+ | Security Engineer, Blockchain Auditor, Threat Detection Engineer, Compliance Auditor |
+| **Engineering** | 23 | Backend Architect, Frontend Developer, Database Optimizer, Embedded Firmware Engineer, SRE |
 | **Marketing** | 27 | SEO Specialist, TikTok Strategist, Content Creator, Growth Hacker, LinkedIn Content Creator |
+| **Specialized** | 27 | Legal Compliance, Finance Tracker, Salesforce Architect, Document Generator, MCP Builder |
+| **Game Dev** | 20 | Unity Architect, Unreal Systems Engineer, Godot Scripter, Roblox Systems Scripter |
 | **Sales** | 8 | Deal Strategist, Sales Engineer, Pipeline Analyst, Outbound Strategist |
 | **Design** | 8 | UI Designer, UX Researcher, Brand Guardian, Visual Storyteller |
-| **Game Dev** | 15+ | Unity Architect, Unreal Systems Engineer, Godot Scripter, Roblox Systems Scripter |
+| **Paid Media** | 7 | PPC Strategist, Ad Creative Strategist, Programmatic Buyer, Tracking Specialist |
+| **Support** | 6 | Support Responder, Analytics Reporter, Study Abroad Advisor, Trend Researcher |
+| **Product** | 5 | Product Manager, Sprint Prioritizer, UX Researcher, Experiment Tracker |
 | **Academic** | 5 | Anthropologist, Historian, Psychologist, Geographer, Narratologist |
-| **DevOps** | 5 | DevOps Automator, SRE, CI/CD Engineer, Incident Response Commander |
-| **And more...** | 100+ | Product Manager, Data Engineer, Legal Compliance, Finance Tracker, Technical Writer |
+| **And more...** | 94+ | Consensus, Swarm Coordination, Neural, SPARC, Architecture, DevOps, Testing |
 
 ### Two-Stage LLM Routing
 
@@ -140,6 +148,10 @@ Coordinate multiple agents working on the same problem:
 
 **Consensus protocols:** Raft (leader-based), Byzantine (fault-tolerant), Gossip (eventually consistent), CRDT (conflict-free), Quorum (majority vote).
 
+<p align="center">
+  <img src="assets/swarm-topology.png" alt="Swarm Topology" width="60%" />
+</p>
+
 ```bash
 # Let Monomind pick the best topology
 /mastermind
@@ -157,6 +169,10 @@ Every interaction makes Monomind smarter:
 - **Session Continuity** — Pick up exactly where you left off across sessions
 - **Neural Patterns** — SONA learning adapts routing and agent behavior over time
 - **Memory Palace** — Visual dashboard for exploring stored knowledge
+
+<p align="center">
+  <img src="assets/memory-palace.png" alt="Memory Palace — Browse memories, sessions, knowledge, and swarms" width="100%" />
+</p>
 
 ### 17 Hooks + 12 Background Workers
 
@@ -220,13 +236,17 @@ Monomind hooks into every phase of your Claude Code workflow:
 | `Godot Gameplay Scripter` | GDScript 2.0, signal architecture |
 | `Roblox Systems Scripter` | Luau, client-server, DataStore |
 
-[See all 230+ agents →](packages/@monomind/cli/.claude/agents/)
+[See all 230 agents →](.claude/agents/)
 
 ---
 
 ## Swarm Orchestration
 
 ### How Swarms Work
+
+<p align="center">
+  <img src="assets/swarm-inspector.png" alt="Swarm Inspector — topology graph, agent roles, and communication logs" width="100%" />
+</p>
 
 ```
 /mastermind "implement authentication system with OAuth2, JWT, and role-based access"
@@ -279,24 +299,37 @@ monomind daemon start                    # Start background workers
 
 41 CLI commands across: agent management, swarm coordination, memory, sessions, hooks, neural training, security, performance profiling, and more.
 
+### Session Inspector
+
+Every session is recorded and browsable — tool calls, agent spawns, memory operations, and full conversation replay:
+
+<p align="center">
+  <img src="assets/session-detail.png" alt="Session Inspector — full conversation replay with tool breakdown" width="100%" />
+</p>
+
 ---
 
 ## Memory & Intelligence
 
 ### Knowledge Graph (Graphify)
 
-Monomind builds a full dependency graph of your codebase:
+Monomind builds a full dependency graph of your codebase — automatically queried before every task:
 
 ```bash
 # What files are relevant to my task?
-mcp__monobrain__graphify_suggest "add webhook retry logic"
+graphify_suggest "add webhook retry logic"
+# → returns ranked list of files with relevance scores
 
 # What depends on UserService?
-mcp__monobrain__graphify_query "UserService dependencies"
+graphify_query "UserService dependencies"
+# → returns file paths + line numbers
 
 # Find the most connected files in the codebase
-mcp__monobrain__graphify_god_nodes
+graphify_god_nodes
+# → returns high-centrality internal files (external/test filtered out)
 ```
+
+All graphify tools are called automatically by hooks and slash commands — you don't need to invoke them manually.
 
 ### Vector Memory (AgentDB + HNSW)
 
