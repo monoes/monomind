@@ -73,9 +73,9 @@ Parse `$ARGUMENTS` to determine input type:
 
 Run ALL of the following in parallel (skip any that error):
 
-1. **Knowledge graph — suggest**: Call `mcp__monobrain__graphify_suggest` with the first 200 chars of `RAW_CONTENT`.
-2. **Knowledge graph — query**: If any specific module/component names appear in `RAW_CONTENT`, call `mcp__monobrain__graphify_query` for each (up to 5 queries).
-3. **Memory search**: Call `mcp__monobrain__memory_search` with a summary of the input. Use top 5 results.
+1. **Knowledge graph — suggest**: Call `mcp__monomind__graphify_suggest` with the first 200 chars of `RAW_CONTENT`.
+2. **Knowledge graph — query**: If any specific module/component names appear in `RAW_CONTENT`, call `mcp__monomind__graphify_query` for each (up to 5 queries).
+3. **Memory search**: Call `mcp__monomind__memory_search` with a summary of the input. Use top 5 results.
 4. **README**: Read `README.md` (first 200 lines). Skip if missing.
 5. **Package manifest**: Read whichever exists first: `package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`.
 6. **Repo name**: Run `git remote get-url origin`, extract last path segment, strip `.git`. Fallback: `basename` of cwd. Store as `REPO_NAME`.
