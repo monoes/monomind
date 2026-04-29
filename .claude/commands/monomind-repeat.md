@@ -37,6 +37,27 @@ Extract:
 - `MAX_REPS` — from `--times` flag, default `10`
 - `PROMPT` — everything remaining after flags are removed
 - `CURRENT_REP` — starts at `1`
+- `LOOP_ID` — generate as `repeat-<unix-timestamp-ms>` (use `date +%s000`)
+
+Write the initial loop state file so the dashboard can track this run:
+```bash
+mkdir -p .monomind/loops
+LOOP_ID="repeat-$(date +%s%3N)"
+cat > ".monomind/loops/${LOOP_ID}.json" << EOF
+{
+  "id": "${LOOP_ID}",
+  "type": "repeat",
+  "prompt": "PROMPT",
+  "interval": INTERVAL,
+  "currentRep": 1,
+  "maxReps": MAX_REPS,
+  "startedAt": $(date +%s%3N),
+  "lastRunAt": $(date +%s%3N),
+  "nextRunAt": $(date +%s%3N),
+  "status": "running"
+}
+EOF
+```
 
 Output:
 ```
@@ -58,6 +79,16 @@ Run the `PROMPT` as if the user typed it directly. This means:
 
 ## Step 3: Report and Schedule Next
 
+Before scheduling the next run, check if a stop was requested:
+```bash
+[ -f ".monomind/loops/${LOOP_ID}.stop" ] && echo "STOP_REQUESTED=true"
+```
+If `STOP_REQUESTED=true`, output `[monomind:repeat] Stop requested via dashboard. Halting.` and remove the state files:
+```bash
+rm -f ".monomind/loops/${LOOP_ID}.json" ".monomind/loops/${LOOP_ID}.stop"
+```
+Then STOP.
+
 After execution completes, output:
 ```
 [monomind:repeat] Run CURRENT_REP/MAX_REPS complete. Next in INTERVAL minutes...
@@ -69,9 +100,32 @@ If `CURRENT_REP > MAX_REPS`, output:
 ```
 [monomind:repeat] All MAX_REPS repetitions complete.
 ```
+Remove the state file:
+```bash
+rm -f ".monomind/loops/${LOOP_ID}.json"
+```
 STOP. Do NOT schedule another wake-up.
 
-Otherwise, use `ScheduleWakeup` with:
+Otherwise, update the loop state before scheduling:
+```bash
+NEXT_AT=$(( $(date +%s%3N) + INTERVAL * 60 * 1000 ))
+cat > ".monomind/loops/${LOOP_ID}.json" << EOF
+{
+  "id": "${LOOP_ID}",
+  "type": "repeat",
+  "prompt": "PROMPT",
+  "interval": INTERVAL,
+  "currentRep": CURRENT_REP,
+  "maxReps": MAX_REPS,
+  "startedAt": STARTED_AT,
+  "lastRunAt": $(date +%s%3N),
+  "nextRunAt": ${NEXT_AT},
+  "status": "running"
+}
+EOF
+```
+
+Use `ScheduleWakeup` with:
 - `delaySeconds`: `INTERVAL * 60`
 - `prompt`: `/monomind:repeat --every INTERVAL --times MAX_REPS --rep CURRENT_REP PROMPT`
 - `reason`: `"repeat run CURRENT_REP/MAX_REPS of: PROMPT"`
