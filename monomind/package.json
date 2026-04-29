@@ -1,6 +1,6 @@
 {
   "name": "monomind",
-  "version": "1.6.7",
+  "version": "1.6.8",
   "description": "Monomind - Enterprise AI agent orchestration platform. Deploy 60+ specialized agents in coordinated swarms with self-learning, fault-tolerant consensus, vector memory, and MCP integration",
   "main": "bin/monomind.js",
   "type": "module",
