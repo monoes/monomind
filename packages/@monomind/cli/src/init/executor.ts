@@ -78,7 +78,12 @@ const SKILLS_MAP: Record<string, string[]> = {
  * Commands to copy based on configuration
  */
 const COMMANDS_MAP: Record<string, string[]> = {
-  core: ['monomind-help.md', 'monomind-swarm.md', 'monomind-memory.md'],
+  core: [
+    'monobrain-help.md', 'monobrain-swarm.md', 'monobrain-memory.md',
+    'monomind-do.md', 'monomind-idea.md', 'monomind-createtask.md', 'monomind-repeat.md',
+    'mastermind.md', 'list-agents.md', 'use-agent.md',
+    'metrics.md', 'tokens.md', 'browse.md', 'sparc.md', 'ts.md',
+  ],
   analysis: ['analysis'],
   automation: ['automation'],
   github: ['github'],
