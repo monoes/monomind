@@ -28,7 +28,7 @@ export interface InitComponents {
   runtime: boolean;
   /** Create CLAUDE.md with swarm guidance */
   claudeMd: boolean;
-  /** Build knowledge graph on init using @monomind/graph */
+  /** Build knowledge graph on init using graphify (Python) */
   graphify: boolean;
 }
 

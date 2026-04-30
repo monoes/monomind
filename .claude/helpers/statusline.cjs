@@ -104,6 +104,18 @@ function safeStat(filePath) {
   return null;
 }
 
+// Project identifier — github owner/repo from git remote, else folder name
+function getProjectName() {
+  try {
+    const remote = safeExec('git remote get-url origin 2>/dev/null', 2000).trim();
+    if (remote) {
+      const m = remote.match(/[/:]([\w.-]+)\/([\w.-]+?)(?:\.git)?$/);
+      if (m) return `${m[1]}/${m[2]}`;
+    }
+  } catch { /* ignore */ }
+  return path.basename(CWD);
+}
+
 // Shared settings cache — read once, used by multiple functions
 let _settingsCache = undefined;
 function getSettings() {
@@ -565,37 +577,56 @@ function getAgentDBStats() {
   let namespaces = 0;
   let hasHnsw = false;
 
-  // 0. PRIMARY: Count drawers from Memory Palace (this is where memories actually live)
+  // Count all memory entries across sources (sum, not max)
+  // 0. Palace drawers
   const drawersPath = path.join(CWD, '.monomind', 'palace', 'drawers.jsonl');
   const drawersStat = safeStat(drawersPath);
   if (drawersStat) {
     dbSizeKB += drawersStat.size / 1024;
     try {
-      const lines = fs.readFileSync(drawersPath, 'utf-8').split('\n').filter(Boolean);
-      if (lines.length > vectorCount) vectorCount = lines.length;
+      vectorCount += fs.readFileSync(drawersPath, 'utf-8').split('\n').filter(Boolean).length;
     } catch { /* ignore */ }
   }
 
-  // 1. Count real entries from auto-memory-store.json (intelligence layer)
+  // 1. Palace closets
+  const closetsPath = path.join(CWD, '.monomind', 'palace', 'closets.jsonl');
+  const closetsStat = safeStat(closetsPath);
+  if (closetsStat) {
+    dbSizeKB += closetsStat.size / 1024;
+    try {
+      vectorCount += fs.readFileSync(closetsPath, 'utf-8').split('\n').filter(Boolean).length;
+    } catch { /* ignore */ }
+  }
+
+  // 2. Knowledge chunks
+  const chunksPath = path.join(CWD, '.monomind', 'knowledge', 'chunks.jsonl');
+  const chunksStat = safeStat(chunksPath);
+  if (chunksStat) {
+    dbSizeKB += chunksStat.size / 1024;
+    try {
+      vectorCount += fs.readFileSync(chunksPath, 'utf-8').split('\n').filter(Boolean).length;
+    } catch { /* ignore */ }
+  }
+
+  // 3. Auto-memory store (intelligence layer)
   const storePath = path.join(CWD, '.monomind', 'data', 'auto-memory-store.json');
   const storeStat = safeStat(storePath);
   if (storeStat) {
     dbSizeKB += storeStat.size / 1024;
     try {
       const store = JSON.parse(fs.readFileSync(storePath, 'utf-8'));
-      const storeCount = Array.isArray(store) ? store.length : (store?.entries?.length || 0);
-      if (storeCount > vectorCount) vectorCount = storeCount;
-    } catch { /* fall back to size estimate */ }
+      vectorCount += Array.isArray(store) ? store.length : (store?.entries?.length || 0);
+    } catch { /* ignore */ }
   }
 
-  // 2. Count entries from ranked-context.json
+  // 4. Ranked context
   const rankedPath = path.join(CWD, '.monomind', 'data', 'ranked-context.json');
   try {
     const ranked = readJSON(rankedPath);
-    if (ranked?.entries?.length > vectorCount) vectorCount = ranked.entries.length;
+    if (ranked?.entries?.length) vectorCount += ranked.entries.length;
   } catch { /* ignore */ }
 
-  // 3. Add DB file sizes
+  // 5. DB file sizes
   const dbFiles = [
     path.join(CWD, 'data', 'memory.db'),
     path.join(CWD, '.monomind', 'memory.db'),
@@ -603,31 +634,17 @@ function getAgentDBStats() {
   ];
   for (const f of dbFiles) {
     const stat = safeStat(f);
-    if (stat) {
-      dbSizeKB += stat.size / 1024;
-      namespaces++;
-    }
+    if (stat) { dbSizeKB += stat.size / 1024; namespaces++; }
   }
 
-  // 4. Check for graph data
-  const graphPath = path.join(CWD, 'data', 'memory.graph');
-  const graphStat = safeStat(graphPath);
-  if (graphStat) dbSizeKB += graphStat.size / 1024;
-
-  // 5. HNSW index
+  // 6. HNSW index
   const hnswPaths = [
     path.join(CWD, '.swarm', 'hnsw.index'),
     path.join(CWD, '.monomind', 'hnsw.index'),
   ];
   for (const p of hnswPaths) {
-    const stat = safeStat(p);
-    if (stat) {
-      hasHnsw = true;
-      break;
-    }
+    if (safeStat(p)) { hasHnsw = true; break; }
   }
-
-  // HNSW is available if memory package is present
   if (!hasHnsw) {
     const memPkgPaths = [
       path.join(CWD, 'packages', '@monomind', 'memory', 'dist'),
@@ -639,6 +656,26 @@ function getAgentDBStats() {
   }
 
   return { vectorCount, dbSizeKB: Math.floor(dbSizeKB), namespaces, hasHnsw };
+}
+
+// Graphify knowledge graph stats
+function getGraphifyStats() {
+  const statsPath = path.join(CWD, '.monomind', 'graph', 'stats.json');
+  const graphPath = path.join(CWD, '.monomind', 'graph', 'graph.json');
+  try {
+    const s = readJSON(statsPath);
+    if (s && s.nodes !== undefined) return { nodes: s.nodes, edges: s.edges || 0, exists: true };
+  } catch { /* ignore */ }
+  try {
+    const stat = safeStat(graphPath);
+    if (stat && stat.size < 10 * 1024 * 1024) {
+      const g = JSON.parse(fs.readFileSync(graphPath, 'utf-8'));
+      const nodes = Array.isArray(g.nodes) ? g.nodes.length : 0;
+      const edges = (Array.isArray(g.edges) ? g.edges : (Array.isArray(g.links) ? g.links : [])).length;
+      return { nodes, edges, exists: true };
+    }
+  } catch { /* ignore */ }
+  return { nodes: 0, edges: 0, exists: false };
 }
 
 // Memory Palace stats — drawers.jsonl + kg.json (the real persistent memory)
@@ -907,9 +944,10 @@ function generateStatusline() {
   const tokens    = getTokenStats();
   const parts     = [];
 
-  // Brand + swarm dot
+  // Brand + project + swarm dot
   const swarmDot = swarm.coordinationActive ? `${x.green}●${x.reset}` : `${x.slate}○${x.reset}`;
-  parts.push(`${x.bold}${x.purple}▊ Monomind${x.reset} ${swarmDot}`);
+  const projName = getProjectName();
+  parts.push(`${x.bold}${x.purple}▊ MonoMind${x.reset} ${x.teal}${projName}${x.reset} ${swarmDot}`);
 
   // Git branch + changes (compact)
   if (git.gitBranch) {
@@ -958,12 +996,18 @@ function generateStatusline() {
     parts.push(`${x.purple}🧠 ${autoMemCompact.count}m${x.reset}${typeSuffix}`);
   }
 
-  // Knowledge chunks (Task 28) — show when populated
+  // Knowledge chunks — show when populated
   if (knowledge.chunks > 0) {
     parts.push(`${x.teal}📚 ${knowledge.chunks}k${x.reset}`);
   }
 
-  // Triggers (Task 32) — show when populated
+  // Graphify code graph
+  const gfCompact = getGraphifyStats();
+  if (gfCompact.exists) {
+    parts.push(`${x.sky}🔗 ${gfCompact.nodes}n ${gfCompact.edges}e${x.reset}`);
+  }
+
+  // Triggers — show when populated
   if (triggers.triggers > 0) {
     parts.push(`${x.mint}🎯 ${triggers.triggers}t${x.reset}`);
   }
@@ -997,7 +1041,7 @@ function generateDashboard() {
   const security    = getSecurityStatus();
   const swarm       = getSwarmStatus();
   const system      = getSystemMetrics();
-  const adrs        = getADRStatus();
+  // adrs removed — internal dev metric
   const hooks       = getHooksStatus();
   const agentdb     = getAgentDBStats();
   const tests       = getTestStats();
@@ -1015,7 +1059,8 @@ function generateDashboard() {
 
   // ── Header: brand + git + model + session ────────────────────
   const swarmDot = swarm.coordinationActive ? `${x.green}● LIVE${x.reset}` : `${x.slate}○ IDLE${x.reset}`;
-  let hdr = `${x.bold}${x.purple}▊ Monomind ${VERSION}${x.reset}  ${swarmDot}  ${x.teal}${x.bold}${git.name}${x.reset}`;
+  const projName = getProjectName();
+  let hdr = `${x.bold}${x.purple}▊ MonoMind${x.reset} ${x.dim}${VERSION}${x.reset}  ${swarmDot}  ${x.teal}${x.bold}${projName}${x.reset}`;
 
   if (git.gitBranch) {
     hdr += `  ${DIV}  ${x.sky}⎇ ${x.bold}${git.gitBranch}${x.reset}`;
@@ -1036,30 +1081,29 @@ function generateDashboard() {
   lines.push(hdr);
   lines.push(SEP);
 
-  // ── Row 1: Intelligence & Learning ───────────────────────────
-  const intellCol = pctColor(system.intelligencePct);
-  const intellBar = blockBar(system.intelligencePct, 100, 6);
-
-  // Knowledge (Task 28)
+  // ── Row 1: Knowledge & Graphify ──────────────────────────────
   const knowStr = knowledge.chunks > 0
     ? `${x.teal}📚 ${x.bold}${knowledge.chunks}${x.reset}${x.slate} chunks${x.reset}`
     : `${x.slate}📚 no chunks${x.reset}`;
 
-  // Skills (Task 45)
   const skillStr = knowledge.skills > 0
     ? `  ${x.mint}✦ ${knowledge.skills} skills${x.reset}`
     : '';
 
-  // Patterns
   const patStr = progress.patternsLearned > 0
     ? `${x.gold}${progress.patternsLearned >= 1000 ? (progress.patternsLearned / 1000).toFixed(1) + 'k' : progress.patternsLearned} patterns${x.reset}`
     : `${x.slate}0 patterns${x.reset}`;
 
+  const gf = getGraphifyStats();
+  const gfStr = gf.exists
+    ? `${x.sky}🔗 ${x.bold}${gf.nodes}${x.reset}${x.slate} nodes · ${x.reset}${x.sky}${x.bold}${gf.edges}${x.reset}${x.slate} edges${x.reset}`
+    : `${x.slate}🔗 no graph${x.reset}`;
+
   lines.push(
     `${x.purple}💡  INTEL${x.reset}    ` +
-    `${intellCol}${intellBar} ${x.bold}${system.intelligencePct}%${x.reset}   ${DIV}   ` +
     `${knowStr}${skillStr}   ${DIV}   ` +
-    patStr
+    `${patStr}   ${DIV}   ` +
+    gfStr
   );
   lines.push(SEP);
 
@@ -1112,26 +1156,14 @@ function generateDashboard() {
   );
   lines.push(SEP);
 
-  // ── Row 3: Architecture & Security ───────────────────────────
-  const adrCol = adrs.count > 0
-    ? (adrs.implemented >= adrs.count ? x.green : x.gold)
-    : x.slate;
-  const adrStr = adrs.count > 0
-    ? `${adrCol}${x.bold}${adrs.implemented}${x.reset}${x.slate}/${x.reset}${x.white}${adrs.count}${x.reset} ADRs`
-    : `${x.slate}no ADRs${x.reset}`;
-
-  const dddCol = pctColor(progress.dddProgress);
-  const dddBar = blockBar(progress.dddProgress, 100, 5);
-
+  // ── Row 3: Security ──────────────────────────────────────────
   const cveStatus = security.totalCves === 0
     ? (security.status === 'NONE' ? `${x.slate}not scanned${x.reset}` : `${x.green}✔ clean${x.reset}`)
     : `${x.coral}${security.cvesFixed}/${security.totalCves} fixed${x.reset}`;
 
   lines.push(
-    `${x.purple}🧩  ARCH${x.reset}     ` +
-    `${adrStr}   ${DIV}   ` +
-    `DDD ${dddBar} ${dddCol}${x.bold}${progress.dddProgress}%${x.reset}   ${DIV}   ` +
-    `🛡️  ${sec.col}${sec.label}${x.reset}   ${DIV}   ` +
+    `${x.purple}🛡️  SECURITY${x.reset}  ` +
+    `${sec.col}${sec.label}${x.reset}   ${DIV}   ` +
     `CVE ${cveStatus}`
   );
   lines.push(SEP);
@@ -1190,13 +1222,6 @@ function generateDashboard() {
     siStr = `${x.slate}📄 no shared instructions${x.reset}`;
   }
 
-  // Domains
-  const domCol = progress.domainsCompleted >= 4 ? x.green
-               : progress.domainsCompleted >= 2 ? x.gold
-               : progress.domainsCompleted >= 1 ? x.orange
-               : x.slate;
-  const domBar = blockBar(progress.domainsCompleted, progress.totalDomains);
-
   let monthStr = '';
   if (tokens) {
     const mFmt = tokens.monthCost >= 100 ? `$${tokens.monthCost.toFixed(2)}` : tokens.monthCost >= 1 ? `$${tokens.monthCost.toFixed(3)}` : `$${tokens.monthCost.toFixed(4)}`;
@@ -1205,7 +1230,6 @@ function generateDashboard() {
   lines.push(
     `${x.slate}📋  CONTEXT${x.reset}  ` +
     `${siStr}   ${DIV}   ` +
-    `${x.teal}🏗 ${domBar} ${domCol}${x.bold}${progress.domainsCompleted}${x.reset}${x.slate}/${x.reset}${x.white}${progress.totalDomains}${x.reset} domains   ${DIV}   ` +
     `${x.dim}💾 ${system.memoryMB} MB RAM${x.reset}` +
     monthStr
   );
