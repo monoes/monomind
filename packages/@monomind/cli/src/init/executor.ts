@@ -354,7 +354,7 @@ async function initKnowledgeGraph(targetDir: string, result: InitResult): Promis
   mkdirSync(outputDir, { recursive: true });
 
   try {
-    const { buildAsync } = await import('@monomind/monograph');
+    const { buildAsync } = await import('@monoes/monograph');
     buildAsync(targetDir, { codeOnly: false })
       .then(() => { /* success — silent */ })
       .catch((err: unknown) => {
