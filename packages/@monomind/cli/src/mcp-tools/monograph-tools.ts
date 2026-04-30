@@ -785,6 +785,78 @@ const monographGroupQueryTool: MCPTool = {
   },
 };
 
+// ── monograph_wiki ────────────────────────────────────────────────────────────
+
+const monographWikiTool: MCPTool = {
+  name: 'monograph_wiki',
+  description: 'Retrieve LLM-generated wiki pages for code communities. Returns one page by communityId or all pages if no filter provided.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      communityId: { type: 'string', description: 'Community ID to retrieve (omit to list all pages)' },
+    },
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, getWikiToolResult } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const result = getWikiToolResult(db, { communityId: input.communityId as string | undefined });
+      return text(JSON.stringify(result, null, 2));
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_wiki_build ──────────────────────────────────────────────────────
+
+const monographWikiBuildTool: MCPTool = {
+  name: 'monograph_wiki_build',
+  description: 'Generate LLM-powered wiki pages for code communities using the Anthropic API. Requires ANTHROPIC_API_KEY environment variable.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      communityId: { type: 'string', description: 'Only generate for this community ID (omit for all communities)' },
+      force: { type: 'boolean', description: 'Regenerate even if page already exists (default false)' },
+      model: { type: 'string', description: 'Anthropic model to use (default: claude-haiku-4-5-20251001)' },
+    },
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, runWikiBuildTool } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const result = await runWikiBuildTool(db, {
+        communityId: input.communityId as string | undefined,
+        force: input.force as boolean | undefined,
+        model: input.model as string | undefined,
+      });
+      return text(JSON.stringify(result, null, 2));
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_serve ───────────────────────────────────────────────────────────
+
+const monographServeTool: MCPTool = {
+  name: 'monograph_serve',
+  description: 'Start a web UI server that visualizes the knowledge graph interactively using Sigma.js. Returns the URL where the dashboard is accessible.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      port: { type: 'number', description: 'Port to listen on (default 7374)' },
+      open: { type: 'boolean', description: 'Open the URL in the default browser after starting (default false)' },
+    },
+  },
+  handler: async (input) => {
+    const { openDb, serveMonograph } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    const result = await serveMonograph({
+      port: (input.port as number | undefined) ?? 7374,
+      open: (input.open as boolean | undefined) ?? false,
+      db,
+    });
+    return text(`Monograph web UI ${result.status === 'already_running' ? 'already running' : 'started'} at ${result.url}`);
+  },
+};
+
 // ── Export all tools ──────────────────────────────────────────────────────────
 
 export const monographTools: MCPTool[] = [
@@ -815,4 +887,6 @@ export const monographTools: MCPTool[] = [
   monographEmbedTool,
   monographGroupListTool,
   monographGroupQueryTool,
+  monographWikiTool,
+  monographWikiBuildTool,
 ];
