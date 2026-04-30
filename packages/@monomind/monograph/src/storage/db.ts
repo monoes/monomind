@@ -4,7 +4,7 @@ import { dirname } from 'path';
 import {
   CREATE_NODES, CREATE_EDGES, CREATE_COMMUNITIES,
   CREATE_INDEX_META, CREATE_NODES_FTS, CREATE_INDEXES, FTS_SYNC_TRIGGERS,
-  CREATE_EMBEDDINGS,
+  CREATE_EMBEDDINGS, CREATE_WIKI_PAGES,
 } from './schema.js';
 import { MonographError } from '../types.js';
 
@@ -36,6 +36,7 @@ function applyMigrations(db: MonographDb): void {
   for (const idx of CREATE_INDEXES) db.exec(idx);
   db.exec(FTS_SYNC_TRIGGERS);
   db.exec(CREATE_EMBEDDINGS);
+  db.exec(CREATE_WIKI_PAGES);
 }
 
 /** Write to a .tmp file then rename for atomic replacement. */

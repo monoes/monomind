@@ -10,3 +10,4 @@ export * from './group-query.js';
 export * from './group-list.js';
 export * from './wiki.js';
 export * from './wiki-build.js';
+export * from './serve.js';

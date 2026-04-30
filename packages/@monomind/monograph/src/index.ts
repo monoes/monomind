@@ -31,3 +31,5 @@ export * from './mcp-tools/group-list.js';
 export * from './wiki/wiki-store.js';
 export * from './wiki/prompt-builder.js';
 export * from './wiki/wiki-generator.js';
+export * from './web/server.js';
+export * from './web/api.js';

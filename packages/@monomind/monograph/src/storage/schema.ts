@@ -56,6 +56,13 @@ CREATE TABLE IF NOT EXISTS embeddings (
   vector BLOB NOT NULL
 )`;
 
+export const CREATE_WIKI_PAGES = `
+CREATE TABLE IF NOT EXISTS wiki_pages (
+  community_id TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  generated_at TEXT NOT NULL
+)`;
+
 export const CREATE_INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_nodes_file ON nodes(file_path)`,
   `CREATE INDEX IF NOT EXISTS idx_nodes_label ON nodes(label)`,
