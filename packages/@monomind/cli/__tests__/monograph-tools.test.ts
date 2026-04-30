@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-vi.mock('@monomind/monograph', () => ({
+vi.mock('@monoes/monograph', () => ({
   ftsSearch: vi.fn().mockReturnValue([{ id: 'n1', name: 'Foo', label: 'Class', normLabel: 'foo', filePath: 'src/foo.ts', rank: 1.0 }]),
   countNodes: vi.fn().mockReturnValue(100),
   countEdges: vi.fn().mockReturnValue(200),

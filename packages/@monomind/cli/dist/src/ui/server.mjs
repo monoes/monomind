@@ -716,7 +716,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
 
         // Build via monograph in background
         const { spawn: sp } = await import('child_process');
-        const script = `import { buildAsync } from '@monomind/monograph'; await buildAsync(${JSON.stringify(d)});`;
+        const script = `import { buildAsync } from '@monoes/monograph'; await buildAsync(${JSON.stringify(d)});`;
         const child = sp(process.execPath, ['--input-type=module', '--eval', script], { stdio: 'ignore', detached: true, cwd: d });
         child.unref();
         console.log(`[graph] build started for ${d} via monograph`);
