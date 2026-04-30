@@ -6,7 +6,7 @@ export type NodeLabel =
   | 'Namespace' | 'Trait' | 'Impl' | 'TypeAlias' | 'Const' | 'Static'
   | 'Property' | 'Record' | 'Delegate' | 'Annotation' | 'Constructor'
   | 'Template' | 'Module' | 'Process' | 'Route' | 'Community' | 'Concept'
-  | 'Document';
+  | 'Document' | 'Tool';
 
 export const SYMBOL_NODE_LABELS = new Set<NodeLabel>([
   'Function', 'Class', 'Method', 'Interface', 'Variable', 'Struct', 'Enum',
