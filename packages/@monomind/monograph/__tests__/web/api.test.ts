@@ -166,7 +166,7 @@ describe('server lifecycle', () => {
   it('starts and stops cleanly on port 0', async () => {
     const handle = await startServer({ port: 0, db });
     expect(handle.url).toMatch(/^http:\/\/localhost:\d+$/);
-    handle.stop();
+    await handle.stop();
   });
 
   it('serves /api/stats endpoint', async () => {
@@ -178,7 +178,7 @@ describe('server lifecycle', () => {
       const json = await res.json() as { nodeCount: number };
       expect(typeof json.nodeCount).toBe('number');
     } finally {
-      handle.stop();
+      await handle.stop();
     }
   });
 
@@ -191,7 +191,7 @@ describe('server lifecycle', () => {
       expect(Array.isArray(json.nodes)).toBe(true);
       expect(Array.isArray(json.edges)).toBe(true);
     } finally {
-      handle.stop();
+      await handle.stop();
     }
   });
 
@@ -204,7 +204,7 @@ describe('server lifecycle', () => {
       expect(Array.isArray(json)).toBe(true);
       expect(json.length).toBeGreaterThanOrEqual(1);
     } finally {
-      handle.stop();
+      await handle.stop();
     }
   });
 });

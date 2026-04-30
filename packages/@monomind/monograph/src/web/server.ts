@@ -12,7 +12,7 @@ export interface ServerOptions {
 
 export interface ServerHandle {
   url: string;
-  stop: () => void;
+  stop: () => Promise<void>;
 }
 
 // ── Singleton tracking ────────────────────────────────────────────────────────
@@ -61,13 +61,13 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
 
       resolve({
         url,
-        stop: () => {
-          server.close();
+        stop: () => new Promise<void>((res) => {
+          server.close(() => res());
           if (activeServer === server) {
             activeServer = null;
             activeUrl = null;
           }
-        },
+        }),
       });
     });
   });
