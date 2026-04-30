@@ -6,3 +6,7 @@ export * from './staleness.js';
 export * from './route-map.js';
 export * from './api-impact.js';
 export * from './cypher.js';
+export * from './group-query.js';
+export * from './group-list.js';
+export * from './wiki.js';
+export * from './wiki-build.js';
