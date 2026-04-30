@@ -49,7 +49,12 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
 
     if (ctx.db) {
       insertNodes(ctx.db, symbolNodes);
-      insertEdges(ctx.db, allEdges);
+      // Only insert edges whose target already exists in the DB (intra-file edges).
+      // Cross-file import edges with unresolved targets are handled by crossFilePhase
+      // after it resolves them to real node IDs.
+      const knownIds = new Set(symbolNodes.map(n => n.id));
+      const resolvableEdges = allEdges.filter(e => knownIds.has(e.targetId));
+      insertEdges(ctx.db, resolvableEdges);
     }
 
     return { symbolNodes, allEdges, parseErrors };

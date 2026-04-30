@@ -1,6 +1,7 @@
 import type { PipelinePhase, PipelineContext } from '../types.js';
 import type { MonographEdge } from '../../types.js';
 import { makeId, CONFIDENCE_SCORE } from '../../types.js';
+import { insertEdges } from '../../storage/edge-store.js';
 import type { ParseOutput } from './parse.js';
 
 export interface CrossFileOutput {
@@ -36,6 +37,10 @@ export const crossFilePhase: PipelinePhase<CrossFileOutput> = {
           confidenceScore: CONFIDENCE_SCORE.INFERRED,
         });
       }
+    }
+
+    if (_ctx.db && resolvedEdges.length > 0) {
+      insertEdges(_ctx.db, resolvedEdges);
     }
 
     return { resolvedEdges };
