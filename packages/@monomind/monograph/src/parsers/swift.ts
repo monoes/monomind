@@ -16,7 +16,7 @@ export const swiftConfig: LanguageConfig = {
   constructorNodeTypes: new Set(['init_declaration']),
   interfaceNodeTypes: new Set(['protocol_declaration']),
   importNodeTypes: new Set(['import_declaration']),
-  callNodeTypes: new Set(['call_expression', 'function_call_expression']),
+  callNodeTypes: new Set(['call_expression']),
   decoratorNodeTypes: new Set(['attribute']),
   nameField: 'name',
   importExtractor: (_source, node) => {
