@@ -42,8 +42,9 @@ import { ruvllmWasmTools } from './mcp-tools/ruvllm-tools.js';
 import { wasmAgentTools } from './mcp-tools/wasm-agent-tools.js';
 import { guidanceTools } from './mcp-tools/guidance-tools.js';
 import { autopilotTools } from './mcp-tools/autopilot-tools.js';
-// Knowledge graph tools (graphify)
+// Knowledge graph tools (graphify — deprecated shims + monograph native)
 import { graphifyTools } from './mcp-tools/graphify-tools.js';
+import { monographTools } from './mcp-tools/monograph-tools.js';
 // Coverage-aware routing tools
 import { coverageRouterTools } from './ruvector/coverage-tools.js';
 // A2A Agent Card protocol (source: https://a2a-protocol.org)
@@ -97,7 +98,9 @@ registerTools([
   ...guidanceTools,
   // Autopilot persistent completion tools
   ...autopilotTools,
-  // Knowledge graph (graphify) tools — build, query, report, suggest, health
+  // Knowledge graph — native monograph tools (replaces Python graphify)
+  ...monographTools,
+  // Graphify deprecated shims — proxy to monograph_* tools
   ...graphifyTools,
   // Coverage-aware routing tools
   ...coverageRouterTools,
