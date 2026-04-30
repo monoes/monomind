@@ -10,6 +10,7 @@ import { routesPhase } from './phases/routes.js';
 import { toolsPhase } from './phases/tools.js';
 import { ormPhase } from './phases/orm.js';
 import { crossFilePhase } from './phases/cross-file.js';
+import { scopeResolutionPhase } from './phases/scope-resolution.js';
 import { mroPhase } from './phases/mro.js';
 import { communitiesPhase } from './phases/communities.js';
 import { processesPhase } from './phases/processes.js';
@@ -41,7 +42,7 @@ export async function buildAsync(repoPath: string, options: BuildOptions = {}): 
 
     const runner = new PipelineRunner([
       scanPhase, structurePhase, parsePhase, markdownPhase, routesPhase, toolsPhase, ormPhase, crossFilePhase,
-      mroPhase, communitiesPhase, processesPhase, godNodesPhase, surprisesPhase, suggestPhase,
+      scopeResolutionPhase, mroPhase, communitiesPhase, processesPhase, godNodesPhase, surprisesPhase, suggestPhase,
     ]);
 
     await runner.run(ctx);
