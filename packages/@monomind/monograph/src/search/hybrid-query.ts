@@ -108,9 +108,10 @@ export async function hybridQuery(
   const merged = mergeRanks(bm25Results, vectorResults);
 
   // Enrich nodes not in bm25 cache with a DB lookup
-  const unknownIds = merged
-    .filter((r) => !r['name'])
-    .map((r) => r.id);
+  const enrichable = merged as Partial<HybridResult>[];
+  const unknownIds = enrichable
+    .filter((r) => !r.name)
+    .map((r) => r.id as string);
 
   if (unknownIds.length > 0) {
     const placeholders = unknownIds.map(() => '?').join(',');
@@ -127,14 +128,14 @@ export async function hybridQuery(
     }[];
 
     const rowMap = new Map(rows.map((r) => [r.id, r]));
-    for (const item of merged) {
-      if (!item['name']) {
-        const row = rowMap.get(item.id);
+    for (const item of enrichable) {
+      if (!item.name) {
+        const row = rowMap.get(item.id as string);
         if (row) {
-          item['name'] = row.name;
-          item['normLabel'] = row.norm_label;
-          item['filePath'] = row.file_path;
-          item['label'] = row.label;
+          item.name = row.name;
+          item.normLabel = row.norm_label;
+          item.filePath = row.file_path;
+          item.label = row.label;
         }
       }
     }
