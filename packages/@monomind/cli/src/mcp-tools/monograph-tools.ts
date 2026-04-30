@@ -473,6 +473,115 @@ const monographExportTool: MCPTool = {
   },
 };
 
+// ── monograph_context ─────────────────────────────────────────────────────────
+
+const monographContextTool: MCPTool = {
+  name: 'monograph_context',
+  description: '360° symbol view: callers, callees, imports, importedBy, community, and containing processes for a symbol.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      name: { type: 'string', description: 'Symbol name to look up' },
+      filePath: { type: 'string', description: 'Optional file path to disambiguate' },
+    },
+    required: ['name'],
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, getMonographContext } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const result = getMonographContext(db, {
+        name: input.name as string,
+        filePath: input.filePath as string | undefined,
+      });
+      return text(JSON.stringify(result, null, 2));
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_impact ──────────────────────────────────────────────────────────
+
+const monographImpactTool: MCPTool = {
+  name: 'monograph_impact',
+  description: 'Blast radius analysis: finds all direct and transitive callers of a symbol and computes a risk score.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      name: { type: 'string', description: 'Symbol name to analyze' },
+      filePath: { type: 'string', description: 'Optional file path to disambiguate' },
+      depth: { type: 'number', description: 'Max BFS depth (default 3, max 6)' },
+    },
+    required: ['name'],
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, getMonographImpact } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const result = getMonographImpact(db, {
+        name: input.name as string,
+        filePath: input.filePath as string | undefined,
+        depth: input.depth as number | undefined,
+      });
+      return text(JSON.stringify(result, null, 2));
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_detect_changes ──────────────────────────────────────────────────
+
+const monographDetectChangesTool: MCPTool = {
+  name: 'monograph_detect_changes',
+  description: 'Git diff → affected symbols: identifies which indexed symbols live in files changed since the base branch.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      baseBranch: { type: 'string', description: 'Base branch to diff against (default: main)' },
+      includeTests: { type: 'boolean', description: 'Include test files (default: true)' },
+    },
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, detectMonographChanges } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const result = detectMonographChanges(db, {
+        baseBranch: input.baseBranch as string | undefined,
+        includeTests: input.includeTests as boolean | undefined,
+      }, getProjectCwd());
+      return text(JSON.stringify(result, null, 2));
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_rename ──────────────────────────────────────────────────────────
+
+const monographRenameTool: MCPTool = {
+  name: 'monograph_rename',
+  description: 'Dry-run multi-file rename: finds all references to a symbol and shows before/after diffs without writing files.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      oldName: { type: 'string', description: 'Current symbol name' },
+      newName: { type: 'string', description: 'New symbol name' },
+      filePath: { type: 'string', description: 'Optional file path to disambiguate the symbol' },
+      dryRun: { type: 'boolean', description: 'Always true — files are never modified (default: true)' },
+    },
+    required: ['oldName', 'newName'],
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, getMonographRename } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const result = getMonographRename(db, {
+        oldName: input.oldName as string,
+        newName: input.newName as string,
+        filePath: input.filePath as string | undefined,
+        dryRun: (input.dryRun as boolean | undefined) ?? true,
+      });
+      return text(JSON.stringify(result, null, 2));
+    } finally { closeDb(db); }
+  },
+};
+
 // ── Export all tools ──────────────────────────────────────────────────────────
 
 export const monographTools: MCPTool[] = [
@@ -492,4 +601,8 @@ export const monographTools: MCPTool[] = [
   monographReportTool,
   monographDiffTool,
   monographExportTool,
+  monographContextTool,
+  monographImpactTool,
+  monographDetectChangesTool,
+  monographRenameTool,
 ];
