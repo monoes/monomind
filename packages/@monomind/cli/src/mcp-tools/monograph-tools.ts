@@ -694,6 +694,7 @@ const monographEmbedTool: MCPTool = {
   inputSchema: {
     type: 'object',
     properties: {
+      codeOnly: { type: 'boolean', description: 'Only embed code symbol nodes (Functions, Classes, Methods), skip Document/Route/Tool nodes (default: false)' },
       force: { type: 'boolean', description: 'Re-embed all nodes even if embeddings already exist (default: false)' },
     },
   },
@@ -701,7 +702,7 @@ const monographEmbedTool: MCPTool = {
     const { openDb, closeDb, runEmbed } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
-      const result = await runEmbed(db, { force: (input.force as boolean | undefined) ?? false });
+      const result = await runEmbed(db, { codeOnly: (input.codeOnly as boolean | undefined) ?? false, force: (input.force as boolean | undefined) ?? false });
       return text(
         `Embedding complete.\n  model: ${result.model}\n  embedded: ${result.embedded}\n  skipped: ${result.skipped}`,
       );

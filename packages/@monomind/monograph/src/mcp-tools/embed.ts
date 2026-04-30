@@ -12,6 +12,7 @@ import type Database from 'better-sqlite3';
 import type { EmbedAllResult } from '../search/embed-batch.js';
 
 export interface EmbedToolInput {
+  codeOnly?: boolean;
   force?: boolean;
 }
 
@@ -31,10 +32,10 @@ export async function runEmbed(
   db: Database.Database,
   options: EmbedToolInput = {},
 ): Promise<EmbedToolResult> {
-  const { force = false } = options;
+  const { force = false, codeOnly = false } = options;
 
   let getEmbedder: () => Promise<unknown>;
-  let embedAll: (db: Database.Database, embedder: unknown, force: boolean) => Promise<EmbedAllResult>;
+  let embedAll: (db: Database.Database, embedder: unknown, force: boolean, codeOnly: boolean) => Promise<EmbedAllResult>;
 
   try {
     const embedderMod = await import('../search/embedder.js');
@@ -49,7 +50,7 @@ export async function runEmbed(
   }
 
   const embedder = await getEmbedder();
-  const result = await embedAll(db, embedder as Parameters<typeof embedAll>[1], force);
+  const result = await embedAll(db, embedder as Parameters<typeof embedAll>[1], force, codeOnly);
 
   return { ...result, model: MODEL };
 }
