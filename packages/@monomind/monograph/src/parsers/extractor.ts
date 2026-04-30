@@ -50,8 +50,15 @@ export function extractSymbols(
     if (isClass || isStruct || isEnum || isFunction || isMethod || isInterface || isConstructor) {
       const nameNode = node.childForFieldName(config.nameField);
       const name = nameNode?.text ?? node.text.split('\n')[0].slice(0, 40);
+      // When a node type is in BOTH functionNodeTypes and methodNodeTypes (e.g. Python
+      // `function_definition`), check parent chain to disambiguate: a function_definition
+      // whose grandparent is a class_definition is a method, otherwise it's a function.
+      const isBothFunctionAndMethod = isFunction && isMethod;
+      const isActuallyMethod = isBothFunctionAndMethod
+        ? config.classNodeTypes.has(node.parent?.parent?.type ?? '')
+        : isMethod;
       const label = isClass ? 'Class' : isStruct ? 'Struct' : isEnum ? 'Enum' :
-                    isInterface ? 'Interface' : isMethod ? 'Method' :
+                    isInterface ? 'Interface' : isActuallyMethod ? 'Method' :
                     isConstructor ? 'Constructor' : 'Function';
       const id = nodeId(name, repoPath, label.toLowerCase());
       const isExported = config.exportDetector
