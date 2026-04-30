@@ -1,7 +1,6 @@
 import { bidirectional } from 'graphology-shortest-path';
 import type Graph from 'graphology';
 import type { MonographDb } from '../storage/db.js';
-import type { GodNode } from '../types.js';
 import { loadGraphFromDb } from './loader.js';
 
 export function getShortestPath(
