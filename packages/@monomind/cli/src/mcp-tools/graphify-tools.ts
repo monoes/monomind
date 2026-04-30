@@ -1,14 +1,14 @@
 /**
  * Graphify MCP Tools
  *
- * Bridges @monomind/graph's knowledge graph into monomind's MCP tool surface.
+ * Bridges graphify's (Python) knowledge graph into monomind's MCP tool surface.
  * Agents can query the codebase knowledge graph without reading files —
  * god_nodes(), query_graph(), shortest_path() give structural understanding
  * in milliseconds vs. reading dozens of source files.
  *
- * Graph is built automatically on `monomind init` and stored at
- * .monomind/graph/graph.json (legacy: graphify-out/graph.json).
- * Rebuild manually: call graphify_build via MCP.
+ * Graph is built by `graphify update` (Python CLI) on `monomind init` and
+ * stored at .monomind/graph/graph.json (legacy: graphify-out/graph.json).
+ * Install: uv tool install graphifyy
  */
 
 import { existsSync, readFileSync } from 'fs';
@@ -71,28 +71,14 @@ interface LoadedGraph {
 
 /**
  * Load the knowledge graph.
- * Tries @monomind/graph's loadGraph first; falls back to parsing raw JSON.
+ * Parses the graph.json produced by graphify (Python).
  */
 async function loadKnowledgeGraph(cwd: string): Promise<LoadedGraph> {
   const graphPath = getGraphPath(cwd);
 
-  let rawNodes: GraphNode[] = [];
-  let rawEdges: GraphEdge[] = [];
-
-  try {
-    // Prefer @monomind/graph's loader which handles format normalization.
-    const { loadGraph } = await import('@monomind/graph') as unknown as {
-      loadGraph: (p: string) => { nodes: GraphNode[]; edges: GraphEdge[] };
-    };
-    const loaded = loadGraph(graphPath);
-    rawNodes = loaded.nodes;
-    rawEdges = loaded.edges;
-  } catch {
-    // Fallback: parse JSON directly
-    const data: RawGraphData = JSON.parse(readFileSync(graphPath, 'utf-8'));
-    rawNodes = data.nodes || [];
-    rawEdges = data.links || data.edges || [];
-  }
+  const data: RawGraphData = JSON.parse(readFileSync(graphPath, 'utf-8'));
+  const rawNodes: GraphNode[] = data.nodes || [];
+  const rawEdges: GraphEdge[] = data.links || data.edges || [];
 
   // Build in-memory graph structures
   const nodes = new Map<string, GraphNode>();
@@ -182,44 +168,45 @@ export const graphifyBuildTool: MCPTool = {
     const targetPath = (params.path as string) || cwd;
 
     try {
-      const { buildGraph } = await import('@monomind/graph') as unknown as {
-        buildGraph: (path: string, opts?: { codeOnly?: boolean; outputDir?: string }) => Promise<{
-          filesProcessed: number;
-          fromCache: number;
-          graphPath: string;
-          reportPath: string;
-          graphQuality: number;
-          experimentStatus: 'BASELINE' | 'KEEP' | 'DISCARD';
-          corpusWarnings: string[];
-          analysis: { stats: { nodes: number; edges: number; communities: number } };
-        }>;
-      };
-
-      const outputDir = join(targetPath, '.monomind', 'graph');
-      const result = await buildGraph(targetPath, {
-        codeOnly: Boolean(params.codeOnly),
-        outputDir,
+      const { execSync } = await import('child_process');
+      execSync(`graphify update ${targetPath}`, {
+        encoding: 'utf8',
+        cwd: targetPath,
+        timeout: 300000,
+        stdio: 'pipe',
       });
+
+      // graphify outputs to graphify-out/ by default
+      const graphPath = getGraphPath(targetPath);
+      const outputDir = join(targetPath, '.monomind', 'graph');
+      const statsPath = join(outputDir, 'stats.json');
+      let stats = { nodes: 0, edges: 0, communities: 0, files: 0 };
+      try {
+        stats = JSON.parse(readFileSync(statsPath, 'utf-8'));
+      } catch {
+        // Stats may not exist yet — read from graph directly
+        try {
+          const g = JSON.parse(readFileSync(graphPath, 'utf-8'));
+          stats.nodes = g.nodes?.length || 0;
+          stats.edges = (g.links || g.edges)?.length || 0;
+        } catch {}
+      }
 
       return {
         success: true,
-        graphPath: result.graphPath,
-        reportPath: result.reportPath,
-        filesProcessed: result.filesProcessed,
-        fromCache: result.fromCache,
-        nodes: result.analysis.stats.nodes,
-        edges: result.analysis.stats.edges,
-        communities: result.analysis.stats.communities,
-        graphQuality: result.graphQuality,
-        experimentStatus: result.experimentStatus,
-        corpusWarnings: result.corpusWarnings,
-        message: `[${result.experimentStatus}] Knowledge graph built — quality=${result.graphQuality.toFixed(4)} (${result.analysis.stats.nodes}n/${result.analysis.stats.edges}e/${result.analysis.stats.communities}c)`,
+        graphPath,
+        outputDir,
+        nodes: stats.nodes,
+        edges: stats.edges,
+        communities: stats.communities || 0,
+        filesProcessed: stats.files || 0,
+        message: `Knowledge graph built (${stats.nodes}n/${stats.edges}e)`,
       };
     } catch (err) {
       return {
         error: true,
         message: String(err),
-        hint: '@monomind/graph package not available — ensure it is installed and built.',
+        hint: 'graphify not installed — run: uv tool install graphifyy',
       };
     }
   },
@@ -978,19 +965,22 @@ export const graphifyVisualizeTool: MCPTool = {
 
     try {
       const graphPath = getGraphPath(targetPath);
-      const { readFileSync } = await import('fs');
-      const { join, dirname } = await import('path');
+      const { dirname } = await import('path');
       const outputDir = dirname(graphPath);
 
-      const { exportHTML } = await import('@monomind/graph') as unknown as {
-        exportHTML: (serialized: unknown, outputDir: string) => string;
-      };
-
-      const raw = JSON.parse(readFileSync(graphPath, 'utf-8'));
-      const htmlPath = exportHTML(raw, outputDir);
+      const { execSync, spawn } = await import('child_process');
+      // graphify doesn't have a visualize CLI command — generate a simple HTML viewer
+      const graphData = readFileSync(graphPath, 'utf-8');
+      const htmlContent = `<!DOCTYPE html><html><head><title>Knowledge Graph</title></head><body>
+<h1>Knowledge Graph Visualization</h1>
+<p>Nodes: ${JSON.parse(graphData).nodes?.length || 0}, Edges: ${(JSON.parse(graphData).links || JSON.parse(graphData).edges)?.length || 0}</p>
+<pre style="max-height:80vh;overflow:auto">${graphData.slice(0, 50000)}</pre>
+</body></html>`;
+      const { writeFileSync } = await import('fs');
+      const htmlPath = join(outputDir, 'graph.html');
+      writeFileSync(htmlPath, htmlContent);
 
       if (params.open) {
-        const { spawn } = await import('child_process');
         const opener = process.platform === 'darwin' ? 'open'
           : process.platform === 'win32' ? 'start' : 'xdg-open';
         spawn(opener, [htmlPath], { detached: true, stdio: 'ignore' }).unref();
@@ -1003,7 +993,7 @@ export const graphifyVisualizeTool: MCPTool = {
         hint: params.open ? 'Opening in browser…' : `Open in browser: open "${htmlPath}"`,
       };
     } catch (err) {
-      return { error: true, message: String(err) };
+      return { error: true, message: String(err), hint: 'graphify not installed — run: uv tool install graphifyy' };
     }
   },
 };
@@ -1124,10 +1114,10 @@ async function rebuild() {
   const start = Date.now();
   console.log('[graphify-watch] Change detected — rebuilding graph…');
   try {
-    const { buildGraph } = await import('@monomind/graph');
-    const { graph: serialized } = await buildGraph(TARGET, { outputDir: OUTPUT_DIR });
-    const { exportHTML } = await import('@monomind/graph');
-    exportHTML(serialized, OUTPUT_DIR);
+    const { execSync } = await import('child_process');
+    execSync('graphify update ' + TARGET, {
+      encoding: 'utf8', cwd: TARGET, timeout: 300000, stdio: 'pipe',
+    });
     console.log('[graphify-watch] Done in', Date.now() - start, 'ms');
   } catch (err) {
     console.error('[graphify-watch] Build error:', err.message ?? err);
@@ -1313,22 +1303,21 @@ export const graphifySuggestTool: MCPTool = {
     }
 
     try {
-      const { loadGraph, suggestQuestions, buildAnalysis } = await import('@monomind/graph') as unknown as {
-        loadGraph: (p: string) => { nodes: unknown[]; edges: unknown[] };
-        suggestQuestions: (graph: unknown, communities: unknown) => unknown[];
-        buildAnalysis: (graph: unknown, outputDir: string) => { communities: unknown };
-      };
+      const loaded = await loadKnowledgeGraph(targetPath);
+      const godNodes = [...loaded.degree.entries()]
+        .filter(([id]) => loaded.nodes.get(id)?.source_file)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([id, deg]) => ({ node: id, degree: deg, file: loaded.nodes.get(id)?.source_file, question: `What role does ${id} play and why does it have ${deg} connections?` }));
 
-      const graphPath = getGraphPath(targetPath);
-      const outputDir = resolve(join(targetPath, '.monomind', 'graph'));
-      const { buildGraphologyGraph } = await import('@monomind/graph') as unknown as {
-        buildGraphologyGraph: (result: unknown) => unknown;
-      };
-      const raw = loadGraph(graphPath);
-      const graph = buildGraphologyGraph({ nodes: raw.nodes, edges: raw.edges, hyperedges: [], filesProcessed: 0, fromCache: 0, errors: [] });
-      const analysis = buildAnalysis(graph, outputDir);
-      const questions = suggestQuestions(graph, analysis.communities);
-      return { success: true, questions, total: (questions as unknown[]).length };
+      // Find isolated nodes (no connections)
+      const isolated = [...loaded.degree.entries()]
+        .filter(([id, d]) => d === 0 && loaded.nodes.get(id)?.source_file)
+        .slice(0, 3)
+        .map(([id]) => ({ node: id, degree: 0, file: loaded.nodes.get(id)?.source_file, question: `Why is ${id} isolated with no connections?` }));
+
+      const questions = [...godNodes, ...isolated];
+      return { success: true, questions, total: questions.length };
     } catch (err) {
       return { error: true, message: String(err) };
     }
@@ -1359,17 +1348,22 @@ export const graphifyHealthTool: MCPTool = {
     const targetPath = (params.path as string) || cwd;
 
     try {
-      const { collectFiles, corpusHealth } = await import('@monomind/graph') as unknown as {
-        collectFiles: (path: string, opts?: unknown) => unknown[];
-        corpusHealth: (files: unknown[]) => string[];
-      };
+      const warnings: string[] = [];
+      let totalFiles = 0;
 
-      const files = collectFiles(targetPath);
-      const warnings = corpusHealth(files);
+      if (!graphExists(targetPath)) {
+        warnings.push('No graph found — run graphify_build first');
+      } else {
+        const loaded = await loadKnowledgeGraph(targetPath);
+        totalFiles = new Set([...loaded.nodes.values()].map(n => n.source_file).filter(Boolean)).size;
+        if (loaded.nodes.size === 0) warnings.push('Graph is empty — rebuild with graphify_build');
+        if (totalFiles < 3) warnings.push('Very few source files — graph analysis may not be useful');
+        if (loaded.edges.length === 0) warnings.push('No edges found — code may lack imports/calls');
+      }
 
       return {
         success: true,
-        totalFiles: files.length,
+        totalFiles,
         warnings,
         healthy: warnings.length === 0,
         message: warnings.length === 0

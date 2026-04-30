@@ -961,6 +961,22 @@ const handlers = {
       }
     } catch (e) { /* non-fatal */ }
 
+    // ── Monomind Control UI Status ────────────────────────────────────────
+    try {
+      var http = require('http');
+      var controlPort = 4242;
+      var req = http.get('http://localhost:' + controlPort + '/', function(res) {
+        if (res.statusCode === 200) {
+          console.log('[CONTROL_UI] UP — http://localhost:' + controlPort);
+        }
+        res.resume();
+      });
+      req.on('error', function() {
+        console.log('[CONTROL_UI] offline — run: npx monomind mcp start');
+      });
+      req.setTimeout(800, function() { req.destroy(); });
+    } catch (e) { /* non-fatal */ }
+
     // ── Worker Queue Resume (SR-003) ────────────────────────────────────
     try {
       var dispatchDir = path.join(CWD, '.monomind', 'worker-dispatch');
