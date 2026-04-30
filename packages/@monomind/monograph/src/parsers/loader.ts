@@ -58,3 +58,28 @@ export function getLanguageForExt(ext: string): string {
   };
   return map[ext] ?? 'unknown';
 }
+
+export interface ParseResult {
+  nodes: import('../types.js').MonographNode[];
+  edges: import('../types.js').MonographEdge[];
+  parseErrors: string[];
+}
+
+export async function parseFile(
+  absolutePath: string,
+  sourceText: string,
+  repoRelativePath: string,
+): Promise<ParseResult> {
+  const ext = absolutePath.slice(absolutePath.lastIndexOf('.'));
+  const entry = await getParser(ext);
+  if (!entry) return { nodes: [], edges: [], parseErrors: [] };
+
+  const { parser, config } = entry;
+  try {
+    const tree = parser.parse(sourceText);
+    const { extractSymbols } = await import('./extractor.js');
+    return extractSymbols(tree, sourceText, repoRelativePath, config, ext);
+  } catch (err) {
+    return { nodes: [], edges: [], parseErrors: [`${repoRelativePath}: ${err}`] };
+  }
+}
