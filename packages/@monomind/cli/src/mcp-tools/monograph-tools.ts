@@ -742,6 +742,49 @@ const monographCypherTool: MCPTool = {
   },
 };
 
+// ── monograph_group_list ──────────────────────────────────────────────────────
+
+const monographGroupListTool: MCPTool = {
+  name: 'monograph_group_list',
+  description: 'List repos in a group.yaml with index metadata (node count and indexed_at timestamp). Useful for checking which repos have been indexed.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      configPath: { type: 'string', description: 'Path to group.yaml (defaults to group.yaml in project cwd)' },
+    },
+  },
+  handler: async (input) => {
+    const { getGroupList } = await import('@monoes/monograph');
+    const configPath = (input.configPath as string | undefined) ?? join(getProjectCwd(), 'group.yaml');
+    const result = await getGroupList(configPath);
+    return text(JSON.stringify(result, null, 2));
+  },
+};
+
+// ── monograph_group_query ─────────────────────────────────────────────────────
+
+const monographGroupQueryTool: MCPTool = {
+  name: 'monograph_group_query',
+  description: 'BM25 keyword search merged across all repos in a group.yaml using Reciprocal Rank Fusion (RRF). Returns results tagged with which repo they came from.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'Search terms' },
+      configPath: { type: 'string', description: 'Path to group.yaml (defaults to group.yaml in project cwd)' },
+      limit: { type: 'number', description: 'Max results (default 20)' },
+    },
+    required: ['query'],
+  },
+  handler: async (input) => {
+    const { runGroupQuery } = await import('@monoes/monograph');
+    const configPath = (input.configPath as string | undefined) ?? join(getProjectCwd(), 'group.yaml');
+    const results = await runGroupQuery(configPath, input.query as string, input.limit as number | undefined);
+    if (results.length === 0) return text('No results found.');
+    const lines = results.map(r => `[${r.label}] ${r.name}  ${r.filePath ?? ''}  repo:${r.repo}  (score: ${r.score.toFixed(4)})`);
+    return text(lines.join('\n'));
+  },
+};
+
 // ── Export all tools ──────────────────────────────────────────────────────────
 
 export const monographTools: MCPTool[] = [
@@ -770,4 +813,6 @@ export const monographTools: MCPTool[] = [
   monographApiImpactTool,
   monographCypherTool,
   monographEmbedTool,
+  monographGroupListTool,
+  monographGroupQueryTool,
 ];
