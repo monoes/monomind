@@ -408,6 +408,50 @@ async function installClaudeCode(): Promise<boolean> {
   }
 }
 
+// Check graphify (Python knowledge graph engine)
+async function checkGraphify(): Promise<HealthCheck> {
+  try {
+    await runCommand('graphify --help');
+    return { name: 'Graphify', status: 'pass', message: 'installed (knowledge graph engine)' };
+  } catch {
+    // Check if Python/uv are available for the fix suggestion
+    let fix = 'pip install graphifyy';
+    try {
+      await runCommand('uv --version');
+      fix = 'uv tool install graphifyy';
+    } catch {}
+    return {
+      name: 'Graphify',
+      status: 'warn',
+      message: 'Not installed (knowledge graph disabled)',
+      fix
+    };
+  }
+}
+
+// Install graphify Python package
+async function installGraphify(): Promise<boolean> {
+  try {
+    output.writeln();
+    output.writeln(output.bold('Installing Graphify knowledge graph engine...'));
+    // Prefer uv (fast, isolated), fall back to pip
+    let cmd = 'pip install graphifyy';
+    try {
+      await runCommand('uv --version');
+      cmd = 'uv tool install graphifyy';
+    } catch {}
+    execSync(cmd, { encoding: 'utf8', stdio: 'inherit', timeout: 120000 });
+    output.writeln(output.success('Graphify installed successfully!'));
+    return true;
+  } catch (error) {
+    output.writeln(output.error('Failed to install Graphify'));
+    if (error instanceof Error) {
+      output.writeln(output.dim(error.message));
+    }
+    return false;
+  }
+}
+
 // Check agentic-flow v1 integration (filesystem-based to avoid slow WASM/DB init)
 async function checkAgenticFlow(): Promise<HealthCheck> {
   try {
@@ -469,14 +513,14 @@ export const doctorCommand: Command = {
     {
       name: 'install',
       short: 'i',
-      description: 'Auto-install missing dependencies (Claude Code CLI)',
+      description: 'Auto-install missing dependencies (Claude Code CLI, Graphify)',
       type: 'boolean',
       default: false
     },
     {
       name: 'component',
       short: 'c',
-      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript)',
+      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, graphify)',
       type: 'string'
     },
     {
@@ -520,6 +564,7 @@ export const doctorCommand: Command = {
       checkMcpServers,
       checkDiskSpace,
       checkBuildTools,
+      checkGraphify,
       checkAgenticFlow
     ];
 
@@ -537,6 +582,7 @@ export const doctorCommand: Command = {
       'mcp': checkMcpServers,
       'disk': checkDiskSpace,
       'typescript': checkBuildTools,
+      'graphify': checkGraphify,
       'agentic-flow': checkAgenticFlow
     };
 
@@ -588,13 +634,28 @@ export const doctorCommand: Command = {
       if (claudeCodeResult && claudeCodeResult.status !== 'pass') {
         const installed = await installClaudeCode();
         if (installed) {
-          // Re-check Claude Code after installation
           const newCheck = await checkClaudeCode();
           const idx = results.findIndex(r => r.name === 'Claude Code CLI');
           if (idx !== -1) {
             results[idx] = newCheck;
-            // Update fixes list
             const fixIdx = fixes.findIndex(f => f.startsWith('Claude Code CLI:'));
+            if (fixIdx !== -1 && newCheck.status === 'pass') {
+              fixes.splice(fixIdx, 1);
+            }
+          }
+          output.writeln(formatCheck(newCheck));
+        }
+      }
+
+      const graphifyResult = results.find(r => r.name === 'Graphify');
+      if (graphifyResult && graphifyResult.status !== 'pass') {
+        const installed = await installGraphify();
+        if (installed) {
+          const newCheck = await checkGraphify();
+          const idx = results.findIndex(r => r.name === 'Graphify');
+          if (idx !== -1) {
+            results[idx] = newCheck;
+            const fixIdx = fixes.findIndex(f => f.startsWith('Graphify:'));
             if (fixIdx !== -1 && newCheck.status === 'pass') {
               fixes.splice(fixIdx, 1);
             }
