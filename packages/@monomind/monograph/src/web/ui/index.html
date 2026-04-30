@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monograph Graph Explorer</title>
+  <script src="https://cdn.jsdelivr.net/npm/graphology@0.25.4/dist/graphology.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sigma@2.4.0/build/sigma.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: monospace; display: flex; height: 100vh; overflow: hidden; background: #1a1a2e; color: #e0e0e0; }
+    #sidebar { width: 280px; min-width: 280px; overflow-y: auto; padding: 12px; border-right: 1px solid #333; background: #16213e; }
+    #sidebar h2 { margin: 0 0 10px; font-size: 14px; color: #4cc9f0; text-transform: uppercase; letter-spacing: 1px; }
+    #search { width: 100%; padding: 8px; background: #0f3460; border: 1px solid #4cc9f0; color: #e0e0e0; font-family: monospace; font-size: 13px; border-radius: 4px; }
+    #search::placeholder { color: #888; }
+    #results { margin-top: 8px; }
+    .result-item { padding: 6px 8px; cursor: pointer; border-radius: 3px; font-size: 12px; border-left: 3px solid transparent; margin-bottom: 2px; }
+    .result-item:hover { background: #0f3460; border-left-color: #4cc9f0; }
+    .result-label { font-size: 10px; color: #888; }
+    #graph-container { flex: 1; position: relative; }
+    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); color: #4cc9f0; font-size: 14px; }
+    #stats { position: absolute; bottom: 10px; left: 10px; font-size: 11px; color: #666; }
+    #detail { display: none; position: fixed; right: 0; top: 0; width: 300px; height: 100vh; background: #16213e; border-left: 1px solid #333; padding: 12px; overflow-y: auto; z-index: 10; }
+    #detail h3 { margin: 0 0 8px; color: #4cc9f0; font-size: 14px; }
+    #detail-close { float: right; cursor: pointer; color: #888; font-size: 16px; line-height: 1; }
+    #detail-close:hover { color: #e0e0e0; }
+    .detail-section { margin-top: 12px; }
+    .detail-section h4 { margin: 0 0 4px; font-size: 12px; color: #888; text-transform: uppercase; }
+    .detail-item { font-size: 12px; padding: 3px 0; cursor: pointer; color: #4cc9f0; }
+    .detail-item:hover { text-decoration: underline; }
+    .detail-meta { font-size: 11px; color: #666; margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <h2>Monograph</h2>
+    <input id="search" type="text" placeholder="Search nodes..." autocomplete="off">
+    <div id="results"></div>
+  </div>
+  <div id="graph-container">
+    <div id="loading">Loading graph...</div>
+    <div id="stats"></div>
+  </div>
+  <div id="detail">
+    <span id="detail-close" title="Close">&#x2715;</span>
+    <h3 id="detail-name"></h3>
+    <div id="detail-content"></div>
+  </div>
+
+  <script>
+    // ── Utilities ──────────────────────────────────────────────────────────────
+
+    function communityColor(communityId) {
+      if (communityId == null) return '#555555';
+      const hue = (communityId * 137.508) % 360;
+      return `hsl(${hue}, 60%, 55%)`;
+    }
+
+    function debounce(fn, delay) {
+      let timer;
+      return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), delay); };
+    }
+
+    // ── Graph ──────────────────────────────────────────────────────────────────
+
+    let sigmaInstance = null;
+
+    async function loadGraph() {
+      const res = await fetch('/api/graph');
+      const data = await res.json();
+
+      document.getElementById('loading').style.display = 'none';
+
+      const graph = new graphology.Graph({ multi: false, allowSelfLoops: false });
+
+      for (const node of data.nodes) {
+        if (!graph.hasNode(node.id)) {
+          graph.addNode(node.id, {
+            label: node.name,
+            size: 5,
+            color: communityColor(node.communityId),
+            x: Math.random() * 100 - 50,
+            y: Math.random() * 100 - 50,
+            nodeData: node,
+          });
+        }
+      }
+
+      for (const edge of data.edges) {
+        if (graph.hasNode(edge.sourceId) && graph.hasNode(edge.targetId)) {
+          const edgeKey = `${edge.sourceId}--${edge.targetId}`;
+          if (!graph.hasEdge(edgeKey)) {
+            try {
+              graph.addEdgeWithKey(edgeKey, edge.sourceId, edge.targetId, {
+                size: 1,
+                color: '#333',
+              });
+            } catch (_) { /* skip duplicate */ }
+          }
+        }
+      }
+
+      const container = document.getElementById('graph-container');
+      sigmaInstance = new Sigma(graph, container, {
+        renderEdgeLabels: false,
+        defaultEdgeColor: '#333',
+        defaultNodeColor: '#4cc9f0',
+      });
+
+      sigmaInstance.on('clickNode', ({ node }) => {
+        showNodeDetail(node);
+      });
+
+      const statsRes = await fetch('/api/stats');
+      const stats = await statsRes.json();
+      document.getElementById('stats').textContent =
+        `${stats.nodeCount} nodes · ${stats.edgeCount} edges · ${stats.communityCount} communities`;
+    }
+
+    // ── Node detail panel ──────────────────────────────────────────────────────
+
+    async function showNodeDetail(nodeId) {
+      const res = await fetch(`/api/nodes/${encodeURIComponent(nodeId)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.node) return;
+
+      const node = data.node;
+      document.getElementById('detail-name').textContent = node.name;
+
+      const meta = [
+        node.label,
+        node.filePath ? `${node.filePath}${node.startLine ? ':' + node.startLine : ''}` : '',
+      ].filter(Boolean).join(' — ');
+
+      let html = `<div class="detail-meta">${escapeHtml(meta)}</div>`;
+
+      if (data.callers.length > 0) {
+        html += `<div class="detail-section"><h4>Called by (${data.callers.length})</h4>`;
+        for (const c of data.callers) {
+          html += `<div class="detail-item" onclick="showNodeDetail('${escapeHtml(c.id)}')">${escapeHtml(c.name)}</div>`;
+        }
+        html += '</div>';
+      }
+
+      if (data.callees.length > 0) {
+        html += `<div class="detail-section"><h4>Calls (${data.callees.length})</h4>`;
+        for (const c of data.callees) {
+          html += `<div class="detail-item" onclick="showNodeDetail('${escapeHtml(c.id)}')">${escapeHtml(c.name)}</div>`;
+        }
+        html += '</div>';
+      }
+
+      document.getElementById('detail-content').innerHTML = html;
+      document.getElementById('detail').style.display = 'block';
+
+      // Highlight node in graph
+      if (sigmaInstance) {
+        sigmaInstance.getCamera().animatedReset();
+      }
+    }
+
+    document.getElementById('detail-close').onclick = () => {
+      document.getElementById('detail').style.display = 'none';
+    };
+
+    // ── Search ─────────────────────────────────────────────────────────────────
+
+    const searchInput = document.getElementById('search');
+    const resultsDiv = document.getElementById('results');
+
+    const doSearch = debounce(async (q) => {
+      if (!q.trim()) { resultsDiv.innerHTML = ''; return; }
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const items = await res.json();
+      if (items.length === 0) {
+        resultsDiv.innerHTML = '<div style="font-size:12px;color:#666;padding:4px">No results</div>';
+        return;
+      }
+      resultsDiv.innerHTML = items.map(item => `
+        <div class="result-item" onclick="showNodeDetail('${escapeHtml(item.id)}')">
+          <div>${escapeHtml(item.name)}</div>
+          <div class="result-label">${escapeHtml(item.label)} ${item.filePath ? '· ' + escapeHtml(item.filePath) : ''}</div>
+        </div>
+      `).join('');
+    }, 300);
+
+    searchInput.addEventListener('input', (e) => doSearch(e.target.value));
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+
+    loadGraph().catch(err => {
+      document.getElementById('loading').textContent = 'Failed to load graph: ' + err.message;
+    });
+  </script>
+</body>
+</html>
