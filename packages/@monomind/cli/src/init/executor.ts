@@ -345,82 +345,25 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
 }
 
 /**
- * Ensure graphify (Python knowledge graph engine) is installed.
- * Tries uv first, falls back to pip. Non-fatal if neither works.
- */
-async function ensureGraphifyInstalled(result: InitResult): Promise<boolean> {
-  const { execSync } = await import('child_process');
-  try {
-    execSync('graphify --help', { encoding: 'utf8', stdio: 'ignore' });
-    return true;
-  } catch {
-    const installers = ['uv tool install graphifyy', 'pip install graphifyy'];
-    for (const cmd of installers) {
-      try {
-        execSync(cmd, { encoding: 'utf8', stdio: 'ignore', timeout: 120000 });
-        result.created.files.push('graphify (installed via ' + cmd.split(' ')[0] + ')');
-        return true;
-      } catch { /* try next */ }
-    }
-    result.skipped.push('graphify: could not auto-install (run: uv tool install graphifyy)');
-    return false;
-  }
-}
-
-/**
- * Initialize graphify fully: install skill, git hooks, build graph, install watch.
- * Fire-and-forget for the graph build — init does not wait for it to complete.
- * Non-fatal: if graphify is unavailable the step is simply skipped.
+ * Initialize the Monograph knowledge graph (native TypeScript, no Python required).
+ * Fire-and-forget build — init does not wait for it to complete.
  */
 async function initKnowledgeGraph(targetDir: string, result: InitResult): Promise<void> {
-  const installed = await ensureGraphifyInstalled(result);
-  if (!installed) return;
-
-  const { execSync, spawn } = await import('child_process');
   const { mkdirSync } = await import('fs');
   const outputDir = path.join(targetDir, '.monomind', 'graph');
   mkdirSync(outputDir, { recursive: true });
 
-  // 1. Install graphify skill into Claude Code config
   try {
-    execSync('graphify claude install', { cwd: targetDir, stdio: 'ignore', timeout: 10000 });
-    result.created.files.push('graphify claude skill (installed)');
-  } catch { /* non-fatal */ }
-
-  // 2. Install git hooks (auto-rebuild on commit)
-  try {
-    execSync('graphify hook install', { cwd: targetDir, stdio: 'ignore', timeout: 10000 });
-    result.created.files.push('graphify git hooks (post-commit, post-checkout)');
-  } catch { /* non-fatal */ }
-
-  // 3. Build knowledge graph in background (fire-and-forget)
-  try {
-    const child = spawn('graphify', ['update', targetDir], {
-      stdio: 'ignore',
-      detached: true,
-      cwd: targetDir,
-    });
-    child.unref();
-    result.created.files.push('.monomind/graph/ (knowledge graph building in background)');
-  } catch (_err) {
-    result.skipped.push('knowledge graph: graphify update failed');
+    const { buildAsync } = await import('@monomind/monograph');
+    buildAsync(targetDir, { codeOnly: false })
+      .then(() => { /* success — silent */ })
+      .catch((err: unknown) => {
+        console.warn('[monograph] Background build failed:', err);
+      });
+    result.created.files.push('.monomind/monograph.db (knowledge graph building in background)');
+  } catch (err) {
+    result.skipped.push('knowledge graph: monograph package unavailable');
   }
-
-  // 4. Start graphify watch daemon (live graph updates on file save)
-  try {
-    const watchChild = spawn('graphify', ['watch', targetDir], {
-      stdio: 'ignore',
-      detached: true,
-      cwd: targetDir,
-    });
-    watchChild.unref();
-
-    // Store PID so it can be stopped later
-    const { writeFileSync } = await import('fs');
-    const pidPath = path.join(outputDir, 'watch.pid');
-    writeFileSync(pidPath, String(watchChild.pid));
-    result.created.files.push('graphify watch (live graph updates on file save)');
-  } catch { /* non-fatal */ }
 }
 
 /**
