@@ -654,6 +654,35 @@ const monographApiImpactTool: MCPTool = {
   },
 };
 
+// ── monograph_cypher ──────────────────────────────────────────────────────────
+
+const monographCypherTool: MCPTool = {
+  name: 'monograph_cypher',
+  description: 'Execute a restricted read-only Cypher-style MATCH query against the Monograph knowledge graph. Supports node and relationship patterns. Write operations (CREATE, MERGE, SET, DELETE, REMOVE, DROP) are blocked.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        description: 'Cypher MATCH query. Example: MATCH (a:Function)-[:CALLS]->(b:Function {name: "authenticate"}) RETURN a.name, a.filePath',
+      },
+    },
+    required: ['query'],
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, getMonographCypher } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const result = getMonographCypher(db, input.query as string);
+      if (result.error) return text(`Error: ${result.error}`);
+      if (result.rows.length === 0) return text('No results found.');
+      const header = Object.keys(result.rows[0]).join('\t');
+      const lines = result.rows.map(r => Object.values(r).join('\t'));
+      return text([header, ...lines, `\n(${result.rows.length} rows, ${result.queryTime}ms)`].join('\n'));
+    } finally { closeDb(db); }
+  },
+};
+
 // ── Export all tools ──────────────────────────────────────────────────────────
 
 export const monographTools: MCPTool[] = [
@@ -680,4 +709,5 @@ export const monographTools: MCPTool[] = [
   monographRenameTool,
   monographRouteMapTool,
   monographApiImpactTool,
+  monographCypherTool,
 ];

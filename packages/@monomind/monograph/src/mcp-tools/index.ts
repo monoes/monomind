@@ -5,3 +5,4 @@ export * from './rename.js';
 export * from './staleness.js';
 export * from './route-map.js';
 export * from './api-impact.js';
+export * from './cypher.js';
