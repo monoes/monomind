@@ -19,7 +19,7 @@ function createTestDb(
   dbPath: string,
   nodes: { id: string; name: string; label: string; filePath?: string }[],
 ): void {
-  mkdirSync(require('path').dirname(dbPath), { recursive: true });
+  mkdirSync(join(dbPath, '..'), { recursive: true });
   const db = new Database(dbPath);
 
   db.exec(`

@@ -37,6 +37,18 @@ const nodeB: MonographNode = {
   communityId: 2,
 };
 
+const nodeC: MonographNode = {
+  id: 'web_c',
+  label: 'Function',
+  name: 'buildAsync',
+  normLabel: 'buildasync',
+  filePath: 'src/build.ts',
+  startLine: 1,
+  endLine: 20,
+  isExported: true,
+  communityId: 1,
+};
+
 const edge: MonographEdge = {
   id: 'web_e_ab',
   sourceId: 'web_a',
@@ -50,6 +62,7 @@ beforeAll(() => {
   db = openDb(dbPath);
   insertNode(db, nodeA);
   insertNode(db, nodeB);
+  insertNode(db, nodeC);
   insertEdge(db, edge);
 });
 
@@ -177,6 +190,19 @@ describe('server lifecycle', () => {
       const json = await res.json() as { nodes: unknown[]; edges: unknown[]; communities: unknown };
       expect(Array.isArray(json.nodes)).toBe(true);
       expect(Array.isArray(json.edges)).toBe(true);
+    } finally {
+      handle.stop();
+    }
+  });
+
+  it('serves /api/search?q=build returns ≥1 result', async () => {
+    const handle = await startServer({ port: 0, db });
+    try {
+      const res = await fetch(`${handle.url}/api/search?q=build`);
+      expect(res.ok).toBe(true);
+      const json = await res.json() as unknown[];
+      expect(Array.isArray(json)).toBe(true);
+      expect(json.length).toBeGreaterThanOrEqual(1);
     } finally {
       handle.stop();
     }
