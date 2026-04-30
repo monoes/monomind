@@ -5,6 +5,7 @@ import { PipelineRunner } from './runner.js';
 import { scanPhase } from './phases/scan.js';
 import { structurePhase } from './phases/structure.js';
 import { parsePhase } from './phases/parse.js';
+import { markdownPhase } from './phases/markdown.js';
 import { crossFilePhase } from './phases/cross-file.js';
 import { mroPhase } from './phases/mro.js';
 import { communitiesPhase } from './phases/communities.js';
@@ -35,7 +36,7 @@ export async function buildAsync(repoPath: string, options: BuildOptions = {}): 
     };
 
     const runner = new PipelineRunner([
-      scanPhase, structurePhase, parsePhase, crossFilePhase,
+      scanPhase, structurePhase, parsePhase, markdownPhase, crossFilePhase,
       mroPhase, communitiesPhase, godNodesPhase, surprisesPhase, suggestPhase,
     ]);
 

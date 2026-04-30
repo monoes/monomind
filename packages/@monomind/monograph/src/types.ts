@@ -5,7 +5,8 @@ export type NodeLabel =
   | 'Variable' | 'Struct' | 'Enum' | 'Macro' | 'Typedef' | 'Union'
   | 'Namespace' | 'Trait' | 'Impl' | 'TypeAlias' | 'Const' | 'Static'
   | 'Property' | 'Record' | 'Delegate' | 'Annotation' | 'Constructor'
-  | 'Template' | 'Module' | 'Process' | 'Route' | 'Community' | 'Concept';
+  | 'Template' | 'Module' | 'Process' | 'Route' | 'Community' | 'Concept'
+  | 'Document';
 
 export const SYMBOL_NODE_LABELS = new Set<NodeLabel>([
   'Function', 'Class', 'Method', 'Interface', 'Variable', 'Struct', 'Enum',
@@ -20,7 +21,8 @@ export type EdgeRelation =
   | 'CONTAINS' | 'DEFINES' | 'CALLS' | 'IMPORTS' | 'EXTENDS' | 'IMPLEMENTS'
   | 'HAS_METHOD' | 'HAS_PROPERTY' | 'ACCESSES' | 'METHOD_OVERRIDES'
   | 'METHOD_IMPLEMENTS' | 'MEMBER_OF' | 'STEP_IN_PROCESS' | 'HANDLES_ROUTE'
-  | 'FETCHES' | 'HANDLES_TOOL' | 'ENTRY_POINT_OF' | 'WRAPS' | 'QUERIES';
+  | 'FETCHES' | 'HANDLES_TOOL' | 'ENTRY_POINT_OF' | 'WRAPS' | 'QUERIES'
+  | 'REFERENCES';
 
 // ── Confidence ────────────────────────────────────────────────────────────────
 
