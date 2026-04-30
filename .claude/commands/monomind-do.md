@@ -258,7 +258,7 @@ Collect in parallel (skip any that error):
 1. **README**: Read `README.md` (first 200 lines).
 2. **Package manifest**: Read whichever exists first: `package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`.
 3. **Memory search**: Call `mcp__monomind__memory_search` with the first task's title.
-4. **Knowledge graph**: Call `mcp__monomind__graphify_suggest` with the first task's title.
+4. **Knowledge graph**: Call `mcp__monomind__monograph_suggest` with the first task's title.
 
 Bundle into `PROJECT_CONTEXT` and include in every agent prompt.
 
