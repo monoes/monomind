@@ -66,15 +66,15 @@ export function queryGraph(db: Database.Database): GraphData {
 
   const edges: ApiEdge[] = [];
   if (nodeIds.size > 0) {
-    const placeholders = [...nodeIds].map(() => '?').join(',');
+    // Use a subquery instead of IN(?,...) to avoid SQLite's SQLITE_MAX_VARIABLE_NUMBER limit
     const edgeRows = db
       .prepare(
-        `SELECT source_id, target_id, relation, confidence_score
-         FROM edges
-         WHERE source_id IN (${placeholders})
+        `SELECT e.source_id, e.target_id, e.relation, e.confidence_score
+         FROM edges e
+         JOIN (SELECT id FROM nodes LIMIT 2000) n ON e.source_id = n.id
          LIMIT 10000`,
       )
-      .all(...([...nodeIds] as string[])) as Record<string, unknown>[];
+      .all() as Record<string, unknown>[];
 
     for (const r of edgeRows) {
       edges.push({
