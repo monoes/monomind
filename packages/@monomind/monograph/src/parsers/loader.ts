@@ -1,5 +1,8 @@
+import { createRequire } from 'module';
 import Parser from 'tree-sitter';
 import type { LanguageConfig } from './language-config.js';
+
+const require = createRequire(import.meta.url);
 
 const parserCache = new Map<string, Parser>();
 const configCache = new Map<string, LanguageConfig>();
@@ -120,9 +123,26 @@ export async function parseFile(
 
   const { parser, config } = entry;
   try {
-    const tree = parser.parse(sourceText);
+    // For .vue files using the TypeScript fallback grammar, extract only the <script> block
+    // so the TypeScript parser does not choke on the HTML <template> and <style> sections.
+    let source = sourceText;
+    if (ext === '.vue') {
+      let vueGrammarAvailable = false;
+      try {
+        require('tree-sitter-vue');
+        vueGrammarAvailable = true;
+      } catch {
+        vueGrammarAvailable = false;
+      }
+      if (!vueGrammarAvailable) {
+        const { extractVueScriptContent } = await import('./vue.js');
+        const extracted = extractVueScriptContent(sourceText);
+        source = extracted.content || sourceText;
+      }
+    }
+    const tree = parser.parse(source);
     const { extractSymbols } = await import('./extractor.js');
-    return extractSymbols(tree, sourceText, repoRelativePath, config, ext);
+    return extractSymbols(tree, source, repoRelativePath, config, ext);
   } catch (err) {
     return { nodes: [], edges: [], parseErrors: [`${repoRelativePath}: ${err}`] };
   }
