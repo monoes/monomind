@@ -199,113 +199,44 @@ Also move any `skipElaboration: true` ideas directly to `Elaborated`.
 
 ---
 
-## Step 6: Task Decomposer -- Break Ideas into Subtasks
+## Step 6: Task Decomposer — Break Ideas into Subtasks
 
-### Task Board Setup
-- Check if a `monomind-task` board exists in the space (same lookup method as Step 2).
-- If not, create it with these columns:
-  - `Backlog`
-  - `Todo`
-  - `In Progress`
-  - `Review`
-  - `Human in Loop`
-  - `Done`
-- Store column IDs (especially `COL_BACKLOG`).
-
-### Decomposition into Professional Task Cards
+### Generate the TASKS Array
 
 Spawn a single `Software Architect` agent via the Agent tool. Provide it with:
 - All ideas in the `Elaborated` column (titles, descriptions, and all comments)
 - The `PROJECT_CONTEXT`
+- **The Task Grouping Rules and Card Format from `monomind-task-engine` skill (Sections 1 & 2)** — include them verbatim in the agent prompt so it produces correctly structured tasks
 
-For each elaborated idea, the agent must:
-
-1. **Analyze and decompose** into 2-6 subtasks. Each subtask must be a professional task card following this structure:
-
-```json
-{
-  "title": "Action-oriented title (verb + noun + context)",
-  "description": "## What\nExact deliverable (new file, modified function, endpoint, etc.).\n\n## Why\nBusiness or technical motivation — what breaks without this?\n\n## Where\nFile paths, module boundaries, related components.\n\n## Patterns\nExisting conventions to follow (naming, error handling, test style).",
-  "definition_of_done": [
-    "Specific, binary, verifiable condition (include HTTP codes, error shapes, edge cases)",
-    "Quantified thresholds where applicable (rate limits, timeouts, sizes)"
-  ],
-  "testing_criteria": {
-    "unit_tests": ["function(input) → expected outcome"],
-    "integration_tests": ["endpoint + method → status + response shape"],
-    "edge_cases": ["boundary condition → expected behavior"]
-  },
-  "checklist": [
-    "Write failing test for [specific behavior]",
-    "Implement [function/class] in [file path]",
-    "Run tests — verify green",
-    "Commit: '[type]: [description]'"
-  ],
-  "agent_type": "best-fit agent from 230+ roster (e.g., backend-dev, Frontend Developer, Security Engineer)",
-  "priority": "critical | high | medium | low",
-  "effort": "1-10 (1=trivial, 10=full day)",
-  "dependencies": ["titles of prerequisite tasks, or empty"]
-}
-```
-
-**Task generation rules:**
-- Tasks MUST be ordered so dependencies come first
-- Each task: 5-30 minutes for a single agent
-- Split anything larger
-- Every task starts with writing a test (TDD)
-- DOD items must be binary (pass/fail, not "looks good")
-- Testing criteria must name specific functions, endpoints, inputs
-
-2. **Create each subtask** as a card in `Backlog` (has deps) or `Todo` (no deps):
-   ```bash
-   monotask card create $TASK_BOARD_ID $COLUMN_ID "<title>" --json
-   monotask card tag add $TASK_BOARD_ID $CARD_ID "monomind-idea"
-   ```
-
-3. **Set description** with full context block:
-   ```bash
-   monotask card set-description $TASK_BOARD_ID $CARD_ID "<description with What/Why/Where/Patterns>"
-   ```
-
-4. **Add DOD comment**:
-   ```bash
-   monotask card comment add $TASK_BOARD_ID $CARD_ID "## Definition of Done\n- [ ] <condition 1>\n- [ ] <condition 2>\n..."
-   ```
-
-5. **Add testing criteria comment**:
-   ```bash
-   monotask card comment add $TASK_BOARD_ID $CARD_ID "## Testing Criteria\n\n### Unit Tests\n- <test 1>\n\n### Integration Tests\n- <test 1>\n\n### Edge Cases\n- <case 1>"
-   ```
-
-6. **Add agent assignment + metadata**:
-   ```bash
-   monotask card comment add $TASK_BOARD_ID $CARD_ID "Assigned agent: <agent_type>\nPriority: <priority>\nEffort: <effort>/10\nDependencies: <dep titles or none>"
-   ```
-
-7. **Set priority**: `monotask card set-priority $TASK_BOARD_ID $CARD_ID <1-4>`
-
-8. **Create checklist** (TDD implementation steps):
-   ```bash
-   monotask checklist add $TASK_BOARD_ID $CARD_ID "Implementation Steps" --json
-   ```
-   Then for each step:
-   ```bash
-   monotask checklist item-add $TASK_BOARD_ID $CARD_ID $CHECKLIST_ID "<step>"
-   ```
-
-9. **Comment on original idea card** listing all subtask titles with their assigned agents:
-   ```bash
-   monotask card comment add $BOARD_ID $IDEA_CARD_ID "Subtasks created:\n- <title> (agent: <type>, effort: <N>/10)\n- <title> (agent: <type>, effort: <N>/10)\n..."
-   ```
-
-10. **Move the idea card** to `Tasked`:
-    ```bash
-    monotask card move $BOARD_ID $IDEA_CARD_ID $COL_TASKED --json
-    ```
+The agent MUST produce a `TASKS` array following the `monomind-task-engine` card format (Section 2). Each task must comply with all 7 grouping rules (Section 1). For each elaborated idea, decompose into 2-6 subtasks.
 
 **If the architect has doubts** about decomposing an idea (unclear scope, missing info), they should:
 - Add a comment with the question
 - Move the idea to `Iced` instead of `Tasked`
+
+Store the result as `TASKS` array.
+
+### Invoke the Unified Task Engine
+
+Invoke the `monomind-task-engine` skill (Sections 3-7) with these parameters:
+
+| Parameter | Value |
+|-----------|-------|
+| `TASKS` | The array from the architect agent |
+| `TASK_BOARD_ID` | From Step 2 (or let the engine set up the board) |
+| `REPO_NAME` | From Step 1 |
+| `SOURCE_TAG` | `"monomind-idea"` |
+| `SOURCE_SUMMARY` | First 100 chars of `$ARGUMENTS` |
+| `PARENT_CARD_ID` | Each `IDEA_CARD_ID` in the Elaborated column |
+| `PARENT_BOARD_ID` | `$BOARD_ID` (the monomind-idea board) |
+| `PARENT_DONE_COLUMN` | `$COL_TASKED` |
+
+The engine will:
+1. Create all cards on the monotask board (Section 4)
+2. Store execution strategy in session memory (Section 5)
+3. Run the **Final Dependency & Critical Path Review** (Section 6) — a fresh Code Reviewer agent validates prerequisites, context groups, critical path, parallel safety, and agent assignments
+4. Fix any blocker issues automatically, present warnings to user
+5. Present execution offer with mode recommendation (Section 7)
 
 ---
 
@@ -335,15 +266,10 @@ Then output:
 
 ## Step 8: Offer to Execute Tasks
 
-If there are any tasked ideas (subtasks in Backlog), ask the user:
+The `monomind-task-engine` (Section 7) already presents the execution offer after the final review passes. If the user picks a mode there, it invokes `monomind-do` automatically.
 
-> **M subtasks are ready in the backlog.** Want me to start executing them now?
->
-> Say **yes** to launch `/monomind:do` — it will pick up tasks one by one, execute them with the assigned agent, review for bugs, and loop every 2 minutes until the queue is empty.
+If the engine's execution offer was skipped or the user deferred, and there are tasks in Todo, offer:
 
-If the user says yes (or any affirmative), invoke the Skill tool with:
 ```
-Skill("monomind-do", "--space $SPACE_ID --board $TASK_BOARD_ID")
+Skill("monomind-do", "--space $SPACE_ID --board $TASK_BOARD_ID --mode <parallel|minimal|sequential>")
 ```
-
-This passes the exact space and board IDs so `monomind:do` skips discovery and starts executing immediately.

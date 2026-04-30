@@ -14,6 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 import type { InitOptions, InitResult, PlatformInfo } from './types.js';
 import { detectPlatform, DEFAULT_INIT_OPTIONS } from './types.js';
+import { writeSharedInstructions } from './shared-instructions-generator.js';
 import { generateSettingsJson, generateSettings } from './settings-generator.js';
 import { generateMCPJson } from './mcp-generator.js';
 import { generateStatuslineScript, generateStatuslineHook } from './statusline-generator.js';
@@ -318,6 +319,9 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       await writeClaudeMd(targetDir, options, result);
     }
 
+    // Generate .agents/shared_instructions.md + seed project memory
+    writeSharedInstructions(targetDir, options.force, result);
+
     // Count enabled hooks
     result.summary.hooksEnabled = countEnabledHooks(options);
 
@@ -325,6 +329,12 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
     if (options.components.graphify) {
       await initKnowledgeGraph(targetDir, result);
     }
+
+    // Start daemon with background workers (non-blocking)
+    await startDaemonBackground(targetDir, result);
+
+    // Run doctor auto-fix (non-blocking, best-effort)
+    await runDoctorFix(targetDir, result);
 
   } catch (error) {
     result.success = false;
@@ -335,41 +345,129 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
 }
 
 /**
- * Spawn a background process to build the @monomind/graph knowledge graph.
- * Fire-and-forget: init does not wait for the ~20s graph build to complete.
- * Non-fatal: if @monomind/graph is unavailable the step is simply skipped.
+ * Ensure graphify (Python knowledge graph engine) is installed.
+ * Tries uv first, falls back to pip. Non-fatal if neither works.
+ */
+async function ensureGraphifyInstalled(result: InitResult): Promise<boolean> {
+  const { execSync } = await import('child_process');
+  try {
+    execSync('graphify --help', { encoding: 'utf8', stdio: 'ignore' });
+    return true;
+  } catch {
+    const installers = ['uv tool install graphifyy', 'pip install graphifyy'];
+    for (const cmd of installers) {
+      try {
+        execSync(cmd, { encoding: 'utf8', stdio: 'ignore', timeout: 120000 });
+        result.created.files.push('graphify (installed via ' + cmd.split(' ')[0] + ')');
+        return true;
+      } catch { /* try next */ }
+    }
+    result.skipped.push('graphify: could not auto-install (run: uv tool install graphifyy)');
+    return false;
+  }
+}
+
+/**
+ * Initialize graphify fully: install skill, git hooks, build graph, install watch.
+ * Fire-and-forget for the graph build — init does not wait for it to complete.
+ * Non-fatal: if graphify is unavailable the step is simply skipped.
  */
 async function initKnowledgeGraph(targetDir: string, result: InitResult): Promise<void> {
+  const installed = await ensureGraphifyInstalled(result);
+  if (!installed) return;
+
+  const { execSync, spawn } = await import('child_process');
+  const { mkdirSync } = await import('fs');
+  const outputDir = path.join(targetDir, '.monomind', 'graph');
+  mkdirSync(outputDir, { recursive: true });
+
+  // 1. Install graphify skill into Claude Code config
   try {
-    // Verify the package is resolvable before spawning — fast path to skip gracefully.
-    await import('@monomind/graph');
-    const outputDir = path.join(targetDir, '.monomind', 'graph');
+    execSync('graphify claude install', { cwd: targetDir, stdio: 'ignore', timeout: 10000 });
+    result.created.files.push('graphify claude skill (installed)');
+  } catch { /* non-fatal */ }
 
-    const { spawn } = await import('child_process');
-    // Escape single quotes in path strings for the inline ES module script.
-    const safePath = targetDir.replace(/'/g, "\\'");
-    const safeOut = outputDir.replace(/'/g, "\\'");
-    const script = `
-import('@monomind/graph').then(({ buildGraph }) =>
-  buildGraph('${safePath}', { codeOnly: true, outputDir: '${safeOut}' })
-).then(r => console.log('[graph] built: ' + r.filesProcessed + ' files, ' + r.analysis.stats.nodes + ' nodes'))
- .catch(e => console.error('[graph] build failed:', e.message));
-`;
+  // 2. Install git hooks (auto-rebuild on commit)
+  try {
+    execSync('graphify hook install', { cwd: targetDir, stdio: 'ignore', timeout: 10000 });
+    result.created.files.push('graphify git hooks (post-commit, post-checkout)');
+  } catch { /* non-fatal */ }
 
-    const child = spawn(process.execPath, ['--input-type=module'], {
-      stdio: ['pipe', 'ignore', 'ignore'],
+  // 3. Build knowledge graph in background (fire-and-forget)
+  try {
+    const child = spawn('graphify', ['update', targetDir], {
+      stdio: 'ignore',
       detached: true,
       cwd: targetDir,
     });
-    // Write the script to stdin then close so node processes it.
-    child.stdin?.write(script);
-    child.stdin?.end();
     child.unref();
-
     result.created.files.push('.monomind/graph/ (knowledge graph building in background)');
   } catch (_err) {
-    // Non-fatal — @monomind/graph is an optional enhancement.
-    result.skipped.push('knowledge graph: @monomind/graph not available');
+    result.skipped.push('knowledge graph: graphify update failed');
+  }
+
+  // 4. Start graphify watch daemon (live graph updates on file save)
+  try {
+    const watchChild = spawn('graphify', ['watch', targetDir], {
+      stdio: 'ignore',
+      detached: true,
+      cwd: targetDir,
+    });
+    watchChild.unref();
+
+    // Store PID so it can be stopped later
+    const { writeFileSync } = await import('fs');
+    const pidPath = path.join(outputDir, 'watch.pid');
+    writeFileSync(pidPath, String(watchChild.pid));
+    result.created.files.push('graphify watch (live graph updates on file save)');
+  } catch { /* non-fatal */ }
+}
+
+/**
+ * Start the monomind daemon with background workers.
+ * Non-fatal: if daemon fails to start, init continues.
+ */
+async function startDaemonBackground(targetDir: string, result: InitResult): Promise<void> {
+  try {
+    const { execSync } = await import('child_process');
+    // Check if daemon is already running
+    const pidFile = path.join(targetDir, '.monomind', 'daemon.pid');
+    const { existsSync, readFileSync } = await import('fs');
+    if (existsSync(pidFile)) {
+      const pid = parseInt(readFileSync(pidFile, 'utf8').trim(), 10);
+      try {
+        process.kill(pid, 0);
+        result.skipped.push('daemon: already running (PID ' + pid + ')');
+        return;
+      } catch { /* stale PID, continue */ }
+    }
+
+    execSync('npx monomind@latest daemon start --background', {
+      cwd: targetDir,
+      stdio: 'ignore',
+      timeout: 15000,
+    });
+    result.created.files.push('monomind daemon (background workers started)');
+  } catch {
+    result.skipped.push('daemon: could not auto-start (run: monomind daemon start)');
+  }
+}
+
+/**
+ * Run doctor --install to auto-fix any remaining issues.
+ * Non-fatal: best-effort health check and auto-install.
+ */
+async function runDoctorFix(targetDir: string, result: InitResult): Promise<void> {
+  try {
+    const { execSync } = await import('child_process');
+    execSync('npx monomind@latest doctor --install', {
+      cwd: targetDir,
+      stdio: 'ignore',
+      timeout: 120000,
+    });
+    result.created.files.push('doctor --install (health check + auto-fix)');
+  } catch {
+    result.skipped.push('doctor: auto-fix skipped (run: monomind doctor --install)');
   }
 }
 
@@ -1988,6 +2086,40 @@ async function writeClaudeMd(
       }
     } catch {
       // Non-critical — global CLAUDE.md is best-effort
+    }
+
+    // Also inject the token-display hook into ~/.claude/settings.json
+    const globalSettingsPath = path.join(globalClaudeDir, 'settings.json');
+    try {
+      if (!fs.existsSync(globalClaudeDir)) {
+        fs.mkdirSync(globalClaudeDir, { recursive: true });
+      }
+      let globalSettings: Record<string, unknown> = {};
+      if (fs.existsSync(globalSettingsPath)) {
+        try {
+          globalSettings = JSON.parse(fs.readFileSync(globalSettingsPath, 'utf-8'));
+        } catch { /* malformed JSON — start fresh */ }
+      }
+
+      // Inject SessionStart token hook if not already present
+      const hooks = (globalSettings.hooks as Record<string, unknown[]> | undefined) ?? {};
+      const sessionStartHooks = (hooks['SessionStart'] as Array<{ hooks: Array<{ type?: string; command?: string; timeout?: number }> }> | undefined) ?? [];
+      const tokenHookCommand = 'npx --yes monomind@latest tokens today';
+      const alreadyPresent = sessionStartHooks.some(entry =>
+        Array.isArray(entry.hooks) && entry.hooks.some(h => h.command === tokenHookCommand)
+      );
+
+      if (!alreadyPresent) {
+        sessionStartHooks.push({
+          hooks: [{ type: 'command', command: tokenHookCommand, timeout: 10000 }],
+        });
+        hooks['SessionStart'] = sessionStartHooks;
+        globalSettings.hooks = hooks;
+        fs.writeFileSync(globalSettingsPath, JSON.stringify(globalSettings, null, 2), 'utf-8');
+        result.created.files.push('~/.claude/settings.json (added token hook)');
+      }
+    } catch {
+      // Non-critical — global settings hook is best-effort
     }
   }
 }
