@@ -1,5 +1,5 @@
 {
-  "name": "@monomind/monograph",
+  "name": "@monoes/monograph",
   "version": "1.0.0",
   "type": "module",
   "description": "Native TypeScript code intelligence engine for monomind",
@@ -10,6 +10,10 @@
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
     }
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
   },
   "scripts": {
     "build": "tsc",
