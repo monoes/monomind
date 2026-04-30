@@ -408,6 +408,25 @@ const monographReportTool: MCPTool = {
   },
 };
 
+// ── monograph_staleness ───────────────────────────────────────────────────────
+
+const monographStalenessTool: MCPTool = {
+  name: 'monograph_staleness',
+  description: 'Git staleness detection: compares the commit hash at last index build against current HEAD. Returns isStale, changed files, and the timestamp of first diverging commit.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: 'Absolute path to the repo (defaults to project cwd)' },
+    },
+  },
+  handler: async (input) => {
+    const { getMonographStaleness } = await import('@monoes/monograph');
+    const repoPath = (input.path as string | undefined) ?? getProjectCwd();
+    const report = await getMonographStaleness(repoPath);
+    return text(JSON.stringify(report, null, 2));
+  },
+};
+
 // ── monograph_diff ────────────────────────────────────────────────────────────
 
 const monographDiffTool: MCPTool = {
@@ -599,6 +618,7 @@ export const monographTools: MCPTool[] = [
   monographWatchTool,
   monographWatchStopTool,
   monographReportTool,
+  monographStalenessTool,
   monographDiffTool,
   monographExportTool,
   monographContextTool,

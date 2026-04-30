@@ -1,4 +1,5 @@
 import { resolve, join } from 'path';
+import { execSync } from 'child_process';
 import Graph from 'graphology';
 import { openDb, closeDb } from '../storage/db.js';
 import { PipelineRunner } from './runner.js';
@@ -20,6 +21,14 @@ import { suggestPhase } from './phases/suggest.js';
 import type { PipelineOptions, PipelineContext } from './types.js';
 import { DEFAULT_OPTIONS } from './types.js';
 import type { PipelineProgress } from '../types.js';
+
+function getCurrentCommitHash(repoPath: string): string | null {
+  try {
+    return execSync('git rev-parse HEAD', { cwd: repoPath, encoding: 'utf8' }).trim();
+  } catch {
+    return null;
+  }
+}
 
 export interface BuildOptions extends Partial<PipelineOptions> {
   onProgress?: (p: PipelineProgress) => void;
@@ -46,6 +55,11 @@ export async function buildAsync(repoPath: string, options: BuildOptions = {}): 
     ]);
 
     await runner.run(ctx);
+
+    const hash = getCurrentCommitHash(resolve(repoPath));
+    if (hash) {
+      db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('last_commit_hash', ?)").run(hash);
+    }
   } finally {
     closeDb(db);
   }
