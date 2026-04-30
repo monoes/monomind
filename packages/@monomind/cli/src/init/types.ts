@@ -28,7 +28,7 @@ export interface InitComponents {
   runtime: boolean;
   /** Create CLAUDE.md with swarm guidance */
   claudeMd: boolean;
-  /** Build knowledge graph on init using graphify (Python) */
+  /** Build knowledge graph on init using monograph (TypeScript) */
   graphify: boolean;
 }
 
@@ -164,7 +164,7 @@ export interface MCPConfig {
   monomind: boolean;
   /** Include ruv-swarm MCP server */
   ruvSwarm: boolean;
-  /** Include graphify knowledge graph MCP server */
+  /** Include monograph knowledge graph MCP server */
   graphify: boolean;
   /** Auto-start MCP server */
   autoStart: boolean;

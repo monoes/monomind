@@ -393,18 +393,18 @@ MONOMIND_MEMORY_PATH=./data/memory
 }
 
 function graphifySection(): string {
-  return `## Knowledge Graph (graphify)
+  return `## Knowledge Graph (Monograph)
 
-Built into monomind since v1.3.0 — no separate install needed.
+Built into monomind since v1.8.0 — no separate install needed. Pure TypeScript, no Python required.
 
 ### MCP Tools (prefix: \`mcp__monomind__\`)
 
 | Tool | Description |
 |------|-------------|
-| \`graphify_build\` | Build or refresh knowledge graph from codebase |
-| \`graphify_report\` | Generate GRAPH_REPORT.md with community breakdown |
-| \`graphify_suggest\` | Get refactoring/architecture suggestions from graph |
-| \`graphify_health\` | Check graph quality score and experiment status |
+| \`monograph_build\` | Build or refresh knowledge graph from codebase |
+| \`monograph_report\` | Generate GRAPH_REPORT.md with community breakdown |
+| \`monograph_suggest\` | Get refactoring/architecture suggestions from graph |
+| \`monograph_health\` | Check graph quality score and experiment status |
 
 ### How It Works
 
@@ -414,14 +414,14 @@ Built into monomind since v1.3.0 — no separate install needed.
 4. **Experiment loop** — tracks BASELINE/KEEP/DISCARD in \`results.tsv\`
 5. **BFD chunking** — efficient Anthropic API calls via bin-packing
 
-> If graphify tools are not available, run \`npx monomind@latest init --force\` then restart Claude Code.`;
+> If monograph tools are not available, run \`npx monomind@latest init --force\` then restart Claude Code.`;
 }
 
 function setupAndBoundary(): string {
   return `## Quick Setup
 
 \`\`\`bash
-# Add MCP server — includes graphify, swarm, memory, hooks, all 200+ tools
+# Add MCP server — includes monograph, swarm, memory, hooks, all 200+ tools
 claude mcp add monomind -- npx -y monomind@latest mcp start
 
 # Start background workers

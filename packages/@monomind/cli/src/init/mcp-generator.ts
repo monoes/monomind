@@ -70,9 +70,9 @@ export function generateMCPConfig(options: InitOptions): object {
 
 
 
-  // Graphify knowledge graph — built into monomind MCP server since v1.3.0.
-  // Available as mcp__monomind__graphify_build, graphify_report, graphify_suggest, graphify_health.
-  // No separate server needed — the monomind entry above provides all graphify tools.
+  // Monograph knowledge graph — built into monomind MCP server since v1.8.0.
+  // Available as mcp__monomind__monograph_build, monograph_query, monograph_suggest, monograph_health.
+  // No separate server needed — the monomind entry above provides all monograph tools.
 
   return { mcpServers };
 }
