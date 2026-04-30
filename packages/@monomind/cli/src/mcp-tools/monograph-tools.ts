@@ -47,7 +47,7 @@ const monographBuildTool: MCPTool = {
 
 const monographQueryTool: MCPTool = {
   name: 'monograph_query',
-  description: 'BM25 keyword search across the code knowledge graph. Returns nodes with file path and line number.',
+  description: 'BM25 keyword search across the code knowledge graph. When MONOGRAPH_EMBEDDINGS=true uses hybrid BM25+vector ranking (RRF). Returns nodes with file path and line number.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -58,10 +58,20 @@ const monographQueryTool: MCPTool = {
     required: ['query'],
   },
   handler: async (input) => {
-    const { openDb, closeDb, ftsSearch } = await import('@monoes/monograph');
+    const { openDb, closeDb, ftsSearch, hybridQuery } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
-      const results = ftsSearch(db, input.query as string, (input.limit as number | undefined) ?? 20, input.label as string | undefined);
+      const limit = (input.limit as number | undefined) ?? 20;
+      const label = input.label as string | undefined;
+
+      if (process.env['MONOGRAPH_EMBEDDINGS'] === 'true') {
+        const results = await hybridQuery(db, input.query as string, { limit, label });
+        if (results.length === 0) return text('No results found.');
+        const lines = results.map(r => `[${r.label ?? '?'}] ${r.name ?? r.id}  ${r.filePath ?? ''}  (score: ${r.score.toFixed(4)})`);
+        return text(lines.join('\n'));
+      }
+
+      const results = ftsSearch(db, input.query as string, limit, label);
       if (results.length === 0) return text('No results found.');
       const lines = results.map(r => `[${r.label}] ${r.name}  ${r.filePath ?? ''}  (score: ${r.rank.toFixed(3)})`);
       return text(lines.join('\n'));
@@ -261,7 +271,7 @@ const monographSurprisesTool: MCPTool = {
 
 const monographSuggestTool: MCPTool = {
   name: 'monograph_suggest',
-  description: 'Get graph-topology-derived questions to explore the codebase. Pass task= to score by task relevance.',
+  description: 'Get graph-topology-derived questions to explore the codebase. Pass task= to score by task relevance. When MONOGRAPH_EMBEDDINGS=true uses semantic search for task relevance.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -270,11 +280,33 @@ const monographSuggestTool: MCPTool = {
     },
   },
   handler: async (input) => {
-    const { openDb, closeDb } = await import('@monoes/monograph');
+    const { openDb, closeDb, hybridQuery } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
       const limit = (input.limit as number | undefined) ?? 10;
       const task = (input.task as string | undefined) ?? '';
+
+      // When a task is provided and embeddings are enabled, use semantic search
+      // to find relevant nodes and surface edge-level questions about them.
+      if (task && process.env['MONOGRAPH_EMBEDDINGS'] === 'true') {
+        const hits = await hybridQuery(db, task, { limit: 20 });
+        const hitIds = new Set(hits.map(h => h.id));
+        const rows = db.prepare(`
+          SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt, n1.file_path as src_file
+          FROM edges e
+          JOIN nodes n1 ON n1.id = e.source_id
+          JOIN nodes n2 ON n2.id = e.target_id
+          WHERE (e.source_id IN (${[...hitIds].map(() => '?').join(',')})
+                 OR e.target_id IN (${[...hitIds].map(() => '?').join(',')}))
+          AND e.confidence IN ('AMBIGUOUS', 'INFERRED')
+          LIMIT 100
+        `).all(...[...hitIds], ...[...hitIds]) as any[];
+
+        const questions = rows.map(r =>
+          `Why does ${r.src} ${r.relation.toLowerCase()} ${r.tgt}? (${r.confidence})`,
+        );
+        return text(questions.slice(0, limit).join('\n') || 'No suggestions for this task. Run monograph_build first.');
+      }
 
       const rows = db.prepare(`
         SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt, n1.file_path as src_file
@@ -654,6 +686,32 @@ const monographApiImpactTool: MCPTool = {
   },
 };
 
+// ── monograph_embed ───────────────────────────────────────────────────────────
+
+const monographEmbedTool: MCPTool = {
+  name: 'monograph_embed',
+  description: 'Embed all symbol nodes using Snowflake/snowflake-arctic-embed-xs (384D). Requires @huggingface/transformers. Enables hybrid BM25+vector search via MONOGRAPH_EMBEDDINGS=true.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      force: { type: 'boolean', description: 'Re-embed all nodes even if embeddings already exist (default: false)' },
+    },
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, runEmbed } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const result = await runEmbed(db, { force: (input.force as boolean | undefined) ?? false });
+      return text(
+        `Embedding complete.\n  model: ${result.model}\n  embedded: ${result.embedded}\n  skipped: ${result.skipped}`,
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return text(`Embedding failed: ${msg}`);
+    } finally { closeDb(db); }
+  },
+};
+
 // ── monograph_cypher ──────────────────────────────────────────────────────────
 
 const monographCypherTool: MCPTool = {
@@ -710,4 +768,5 @@ export const monographTools: MCPTool[] = [
   monographRouteMapTool,
   monographApiImpactTool,
   monographCypherTool,
+  monographEmbedTool,
 ];
