@@ -1,4 +1,5 @@
 import louvain from 'graphology-communities-louvain';
+import { leiden } from './leiden.js';
 import type { PipelinePhase, PipelineContext } from '../types.js';
 import type { MonographEdge } from '../../types.js';
 import { loadGraphFromEdges } from '../../graph/loader.js';
@@ -21,9 +22,14 @@ export const communitiesPhase: PipelinePhase<CommunitiesOutput> = {
     const graph = loadGraphFromEdges(allUsedEdges);
     let communities: Record<string, number> = {};
     try {
-      communities = louvain(graph);
-    } catch {
-      // Empty or disconnected graph
+      communities = leiden(graph, { seed: 42 });
+    } catch (e) {
+      console.warn('[monograph] Leiden failed, falling back to Louvain:', e);
+      try {
+        communities = louvain(graph, { randomWalk: false });
+      } catch {
+        // Empty or disconnected graph
+      }
     }
 
     const memberships = new Map<string, number>(Object.entries(communities).map(([k, v]) => [k, v]));
