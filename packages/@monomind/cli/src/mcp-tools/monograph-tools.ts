@@ -601,6 +601,59 @@ const monographRenameTool: MCPTool = {
   },
 };
 
+// ── monograph_route_map ───────────────────────────────────────────────────────
+
+const monographRouteMapTool: MCPTool = {
+  name: 'monograph_route_map',
+  description: 'List all HTTP routes in the codebase with their handler info. Supports filtering by URL prefix or HTTP method.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      prefix: { type: 'string', description: 'Filter routes whose path contains this prefix (e.g. /api)' },
+      method: { type: 'string', description: 'Filter by HTTP method: GET, POST, PUT, DELETE, PATCH, ANY' },
+      includeMiddleware: { type: 'boolean', description: 'Include middleware/use routes (default: false)' },
+    },
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, getMonographRouteMap } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const result = getMonographRouteMap(db, {
+        prefix: input.prefix as string | undefined,
+        method: input.method as string | undefined,
+        includeMiddleware: input.includeMiddleware as boolean | undefined,
+      });
+      return text(JSON.stringify(result, null, 2));
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_api_impact ──────────────────────────────────────────────────────
+
+const monographApiImpactTool: MCPTool = {
+  name: 'monograph_api_impact',
+  description: 'Analyze the blast radius of an API route: finds the handler, performs forward BFS through CALLS edges, and computes a risk score.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      routePath: { type: 'string', description: 'Route path to analyze (e.g. /api/users)' },
+      method: { type: 'string', description: 'Optional HTTP method filter: GET, POST, etc.' },
+    },
+    required: ['routePath'],
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, getMonographApiImpact } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const result = getMonographApiImpact(db, {
+        routePath: input.routePath as string,
+        method: input.method as string | undefined,
+      });
+      return text(JSON.stringify(result, null, 2));
+    } finally { closeDb(db); }
+  },
+};
+
 // ── Export all tools ──────────────────────────────────────────────────────────
 
 export const monographTools: MCPTool[] = [
@@ -625,4 +678,6 @@ export const monographTools: MCPTool[] = [
   monographImpactTool,
   monographDetectChangesTool,
   monographRenameTool,
+  monographRouteMapTool,
+  monographApiImpactTool,
 ];
