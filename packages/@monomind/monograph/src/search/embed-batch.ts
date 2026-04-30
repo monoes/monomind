@@ -24,10 +24,13 @@ export interface EmbedAllResult {
  * @param embedder - Feature extraction pipeline function
  * @param force    - When true, re-embed nodes even if they already have an embedding
  */
+const CODE_LABELS = new Set(['Function', 'Method', 'Class', 'Module', 'Interface', 'Enum', 'Struct', 'Constructor', 'Variable', 'Constant', 'Type']);
+
 export async function embedAll(
   db: Database.Database,
   embedder: EmbedderFn,
   force = false,
+  codeOnly = false,
 ): Promise<EmbedAllResult> {
   let embedded = 0;
   let skipped = 0;
@@ -41,6 +44,8 @@ export async function embedAll(
     )
     .all() as { id: string; name: string; norm_label: string; label: string; file_path: string | null }[];
 
+  const filteredRows = codeOnly ? rows.filter((r) => CODE_LABELS.has(r.label)) : rows;
+
   // Build set of node IDs that already have embeddings
   const existingIds = force
     ? new Set<string>()
@@ -51,7 +56,7 @@ export async function embedAll(
       );
 
   // Filter to only rows that need embedding
-  const toEmbed = rows.filter((r) => !existingIds.has(r.id));
+  const toEmbed = filteredRows.filter((r) => !existingIds.has(r.id));
   skipped = rows.length - toEmbed.length;
 
   // Process in batches
