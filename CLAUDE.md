@@ -109,30 +109,30 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 
 ---
 
-## Knowledge Graph — Graphify (Use Before Codebase Exploration)
+## Knowledge Graph — Monograph (Use Before Codebase Exploration)
 
 **When starting any task that touches 3+ files, introduces a new feature, or requires understanding a module you haven't worked in recently:**
 
-1. Call `mcp__monomind__graphify_suggest` first — it returns the most relevant files and relationships for your task description
-2. Call `mcp__monomind__graphify_query` for targeted lookups ("what imports auth?", "what does UserService depend on?") — results include exact file path and line number
-3. Call `mcp__monomind__graphify_god_nodes` to find high-centrality **internal** files (external/test symbols are automatically filtered)
+1. Call `mcp__monomind__monograph_suggest` first — it returns the most relevant files and relationships for your task description
+2. Call `mcp__monomind__monograph_query` for targeted lookups ("what imports auth?", "what does UserService depend on?") — results include exact file path and line number
+3. Call `mcp__monomind__monograph_god_nodes` to find high-centrality **internal** files (external/test symbols are automatically filtered)
 
 **Why:** The knowledge graph encodes full dependency relationships, import chains, and architectural topology. It lets you understand the blast radius of a change and find all affected files without grepping the entire codebase.
 
-**Available graphify tools:**
+**Available monograph tools:**
 
 | Tool | Use when |
 |---|---|
-| `graphify_suggest` | Starting a task — get relevant files ranked by relevance |
-| `graphify_query` | **Primary lookup** — find any symbol by keyword; returns `file` + `location` (line number) |
-| `graphify_god_nodes` | Finding high-centrality **internal** files; automatically filters out external/test symbols |
-| `graphify_shortest_path` | Understanding how two modules are connected |
-| `graphify_stats` | Quick sanity check — how many nodes/edges indexed |
-| `graphify_community` | Understanding which files form a cohesive module cluster |
+| `monograph_suggest` | Starting a task — get relevant files ranked by relevance |
+| `monograph_query` | **Primary lookup** — find any symbol by keyword; returns `file` + `location` (line number) |
+| `monograph_god_nodes` | Finding high-centrality **internal** files; automatically filters out external/test symbols |
+| `monograph_shortest_path` | Understanding how two modules are connected |
+| `monograph_stats` | Quick sanity check — how many nodes/edges indexed |
+| `monograph_community` | Understanding which files form a cohesive module cluster |
 
-**Skip graphify for:** single-file edits, doc/config changes, quick fixes where you already know the file.
+**Skip monograph for:** single-file edits, doc/config changes, quick fixes where you already know the file.
 
-**If `graphify_suggest` returns empty or errors:** the graph may not be built yet. Call `mcp__monomind__graphify_build` (codeOnly: true) — it runs in the background; proceed with normal Glob/Grep while it builds.
+**If `monograph_suggest` returns empty or errors:** the graph may not be built yet. Call `mcp__monomind__monograph_build` (codeOnly: true) — it runs in the background; proceed with normal Glob/Grep while it builds.
 
 ---
 

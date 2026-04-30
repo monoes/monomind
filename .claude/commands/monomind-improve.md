@@ -53,7 +53,7 @@ Collect ALL of the following in parallel (skip any that error):
 
 3. **Package manifest**: Read whichever exists first: `package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`. Extract name, description, and keywords/tags.
 
-4. **Knowledge graph**: Call `mcp__monomind__graphify_suggest` with the user's prompt (`$ARGUMENTS`). Skip if it errors or returns empty.
+4. **Knowledge graph**: Call `mcp__monomind__monograph_suggest` with the user's prompt (`$ARGUMENTS`). Skip if it errors or returns empty.
 
 5. **Memory search**: Call `mcp__monomind__memory_search` with the user's prompt (`$ARGUMENTS`). Use the top 5 results.
 
@@ -71,8 +71,8 @@ Spawn 2 agents in parallel via the Agent tool:
 
 Provide it with `$ARGUMENTS` and `PROJECT_CONTEXT`. It must:
 
-1. **Trace the component** — find all files, functions, classes, and modules related to the target. Use `mcp__monomind__graphify_query` for each key term found.
-2. **Map dependencies** — what does the component depend on? What depends on it? Use `mcp__monomind__graphify_shortest_path` for key relationships.
+1. **Trace the component** — find all files, functions, classes, and modules related to the target. Use `mcp__monomind__monograph_query` for each key term found.
+2. **Map dependencies** — what does the component depend on? What depends on it? Use `mcp__monomind__monograph_shortest_path` for key relationships.
 3. **Identify pain points** — look for:
    - Code smells (large files, deep nesting, god objects, duplicated logic)
    - Missing tests or low coverage areas
