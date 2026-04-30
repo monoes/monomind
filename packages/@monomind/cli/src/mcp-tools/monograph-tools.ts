@@ -889,4 +889,5 @@ export const monographTools: MCPTool[] = [
   monographGroupQueryTool,
   monographWikiTool,
   monographWikiBuildTool,
+  monographServeTool,
 ];
