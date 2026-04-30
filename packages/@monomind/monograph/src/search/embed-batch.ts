@@ -57,7 +57,7 @@ export async function embedAll(
 
   // Filter to only rows that need embedding
   const toEmbed = filteredRows.filter((r) => !existingIds.has(r.id));
-  skipped = rows.length - toEmbed.length;
+  skipped = filteredRows.length - toEmbed.length;
 
   // Process in batches
   for (let i = 0; i < toEmbed.length; i += BATCH_SIZE) {
