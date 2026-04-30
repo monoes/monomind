@@ -33,11 +33,33 @@ export function diffSnapshots(before: GraphSnapshot, after: GraphSnapshot): Grap
 }
 
 export function snapshotFromDb(db: import('../storage/db.js').MonographDb): GraphSnapshot {
-  const nodes = db.prepare('SELECT * FROM nodes').all() as Record<string, unknown>[];
-  const edges = db.prepare('SELECT * FROM edges').all() as Record<string, unknown>[];
-  return {
-    nodes: nodes as unknown as MonographNode[],
-    edges: edges as unknown as MonographEdge[],
-    capturedAt: new Date().toISOString(),
-  };
+  const rawNodes = db.prepare(`
+    SELECT id, label, name,
+      norm_label AS normLabel,
+      file_path AS filePath,
+      start_line AS startLine,
+      end_line AS endLine,
+      community_id AS communityId,
+      is_exported AS isExported,
+      language, properties
+    FROM nodes
+  `).all() as Array<Record<string, unknown>>;
+
+  const rawEdges = db.prepare(`
+    SELECT id,
+      source_id AS sourceId,
+      target_id AS targetId,
+      relation, confidence,
+      confidence_score AS confidenceScore
+    FROM edges
+  `).all() as Array<Record<string, unknown>>;
+
+  const nodes: MonographNode[] = rawNodes.map(r => ({
+    ...r,
+    isExported: Boolean(r['isExported']),
+  } as MonographNode));
+
+  const edges = rawEdges as unknown as MonographEdge[];
+
+  return { nodes, edges, capturedAt: new Date().toISOString() };
 }
