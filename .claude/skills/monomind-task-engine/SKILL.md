@@ -74,7 +74,7 @@ Every task in the `TASKS` array MUST follow this schema:
 {
   "title": "Action-oriented title (verb + noun + context)",
   "description": "## What\nExact deliverable.\n\n## Why\nBusiness or technical motivation.\n\n## Where\nFile paths, module boundaries.\n\n## Patterns\nExisting conventions to follow.",
-  "context": "All relevant context a coder needs: existing patterns, related files, API shapes, data models. Include file paths from graphify. Include output/changes from prerequisite tasks if any.",
+  "context": "All relevant context a coder needs: existing patterns, related files, API shapes, data models. Include file paths from monograph. Include output/changes from prerequisite tasks if any.",
   "definition_of_done": [
     "Specific, binary, verifiable condition"
   ],
