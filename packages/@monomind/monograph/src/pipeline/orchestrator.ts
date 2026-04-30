@@ -8,6 +8,7 @@ import { parsePhase } from './phases/parse.js';
 import { markdownPhase } from './phases/markdown.js';
 import { routesPhase } from './phases/routes.js';
 import { toolsPhase } from './phases/tools.js';
+import { ormPhase } from './phases/orm.js';
 import { crossFilePhase } from './phases/cross-file.js';
 import { mroPhase } from './phases/mro.js';
 import { communitiesPhase } from './phases/communities.js';
@@ -38,7 +39,7 @@ export async function buildAsync(repoPath: string, options: BuildOptions = {}): 
     };
 
     const runner = new PipelineRunner([
-      scanPhase, structurePhase, parsePhase, markdownPhase, routesPhase, toolsPhase, crossFilePhase,
+      scanPhase, structurePhase, parsePhase, markdownPhase, routesPhase, toolsPhase, ormPhase, crossFilePhase,
       mroPhase, communitiesPhase, godNodesPhase, surprisesPhase, suggestPhase,
     ]);
 
