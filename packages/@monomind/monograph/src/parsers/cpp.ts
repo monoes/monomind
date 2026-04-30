@@ -5,7 +5,7 @@ const require = createRequire(import.meta.url);
 
 export const cppConfig: LanguageConfig = {
   name: 'cpp',
-  extensions: ['.cpp', '.cc', '.cxx', '.hpp', '.hxx', '.h'],
+  extensions: ['.cpp', '.cc', '.cxx', '.hpp', '.hxx'],
   treeSitterModule: 'tree-sitter-cpp',
   getLanguage: () => require('tree-sitter-cpp').language as import('tree-sitter').Language,
   classNodeTypes: new Set(['class_specifier']),
