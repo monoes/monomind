@@ -2,7 +2,7 @@
  * Monograph MCP Tools
  *
  * Native TypeScript code intelligence — replaces Python graphify.
- * All monograph_* tools are backed by @monomind/monograph package.
+ * All monograph_* tools are backed by @monoes/monograph package.
  */
 
 import { join } from 'path';
@@ -31,7 +31,7 @@ const monographBuildTool: MCPTool = {
     },
   },
   handler: async (input) => {
-    const { buildAsync } = await import('@monomind/monograph');
+    const { buildAsync } = await import('@monoes/monograph');
     const repoPath = (input.path as string | undefined) ?? getProjectCwd();
     let progressLog = '';
     await buildAsync(repoPath, {
@@ -58,7 +58,7 @@ const monographQueryTool: MCPTool = {
     required: ['query'],
   },
   handler: async (input) => {
-    const { openDb, closeDb, ftsSearch } = await import('@monomind/monograph');
+    const { openDb, closeDb, ftsSearch } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
       const results = ftsSearch(db, input.query as string, (input.limit as number | undefined) ?? 20, input.label as string | undefined);
@@ -76,7 +76,7 @@ const monographStatsTool: MCPTool = {
   description: 'Show node/edge/community counts and index freshness.',
   inputSchema: { type: 'object', properties: {} },
   handler: async () => {
-    const { openDb, closeDb, countNodes, countEdges } = await import('@monomind/monograph');
+    const { openDb, closeDb, countNodes, countEdges } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
       const nodes = countNodes(db);
@@ -95,7 +95,7 @@ const monographHealthTool: MCPTool = {
   description: 'Check index staleness: compares last indexed git commit vs current HEAD.',
   inputSchema: { type: 'object', properties: {} },
   handler: async () => {
-    const { openDb, closeDb } = await import('@monomind/monograph');
+    const { openDb, closeDb } = await import('@monoes/monograph');
     const { execSync } = await import('child_process');
     const db = openDb(getDbPath());
     try {
@@ -127,7 +127,7 @@ const monographGodNodesTool: MCPTool = {
     properties: { limit: { type: 'number', description: 'Max nodes to return (default 20)' } },
   },
   handler: async (input) => {
-    const { openDb, closeDb } = await import('@monomind/monograph');
+    const { openDb, closeDb } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
       const limit = (input.limit as number | undefined) ?? 20;
@@ -167,7 +167,7 @@ const monographGetNodeTool: MCPTool = {
     required: ['id'],
   },
   handler: async (input) => {
-    const { openDb, closeDb, getNode } = await import('@monomind/monograph');
+    const { openDb, closeDb, getNode } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
       let node = getNode(db, input.id as string);
@@ -196,7 +196,7 @@ const monographShortestPathTool: MCPTool = {
     required: ['source', 'target'],
   },
   handler: async (input) => {
-    const { openDb, closeDb, getShortestPath } = await import('@monomind/monograph');
+    const { openDb, closeDb, getShortestPath } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
       const path = getShortestPath(db, input.source as string, input.target as string, (input.maxDepth as number | undefined) ?? 6);
@@ -219,7 +219,7 @@ const monographCommunityTool: MCPTool = {
     required: ['id'],
   },
   handler: async (input) => {
-    const { openDb, closeDb } = await import('@monomind/monograph');
+    const { openDb, closeDb } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
       const rows = db.prepare('SELECT * FROM nodes WHERE community_id = ?').all(parseInt(input.id as string, 10)) as any[];
@@ -239,7 +239,7 @@ const monographSurprisesTool: MCPTool = {
     properties: { limit: { type: 'number', description: 'Max results (default 20)' } },
   },
   handler: async (input) => {
-    const { openDb, closeDb } = await import('@monomind/monograph');
+    const { openDb, closeDb } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
       const limit = (input.limit as number | undefined) ?? 20;
@@ -270,7 +270,7 @@ const monographSuggestTool: MCPTool = {
     },
   },
   handler: async (input) => {
-    const { openDb, closeDb } = await import('@monomind/monograph');
+    const { openDb, closeDb } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
       const limit = (input.limit as number | undefined) ?? 10;
@@ -316,7 +316,7 @@ const monographVisualizeTool: MCPTool = {
     },
   },
   handler: async (input) => {
-    const { openDb, closeDb, toJson, toHtml, toSvg } = await import('@monomind/monograph');
+    const { openDb, closeDb, toJson, toHtml, toSvg } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
       const limit = (input.maxNodes as number | undefined) ?? 500;
@@ -342,11 +342,11 @@ const monographWatchTool: MCPTool = {
     },
   },
   handler: async (input) => {
-    const { MonographWatcher } = await import('@monomind/monograph');
+    const { MonographWatcher } = await import('@monoes/monograph');
     const repoPath = (input.path as string | undefined) ?? getProjectCwd();
     const watcher = new MonographWatcher(repoPath);
     watcher.on('monograph:updated', (_paths: string[]) => {
-      import('@monomind/monograph').then(({ buildAsync }) => buildAsync(repoPath)).catch(() => {});
+      import('@monoes/monograph').then(({ buildAsync }) => buildAsync(repoPath)).catch(() => {});
     });
     await watcher.start();
     return text(`Monograph watcher started for ${repoPath}. Watching for file changes...`);
@@ -376,7 +376,7 @@ const monographReportTool: MCPTool = {
     },
   },
   handler: async (input) => {
-    const { openDb, closeDb, countNodes, countEdges } = await import('@monomind/monograph');
+    const { openDb, closeDb, countNodes, countEdges } = await import('@monoes/monograph');
     const { writeFileSync, mkdirSync } = await import('fs');
     const db = openDb(getDbPath());
     try {
@@ -438,7 +438,7 @@ const monographExportTool: MCPTool = {
     required: ['format'],
   },
   handler: async (input) => {
-    const { openDb, closeDb, toJson, toSvg, toGraphml, toCypher } = await import('@monomind/monograph');
+    const { openDb, closeDb, toJson, toSvg, toGraphml, toCypher } = await import('@monoes/monograph');
     const { writeFileSync, mkdirSync } = await import('fs');
     const db = openDb(getDbPath());
     try {
