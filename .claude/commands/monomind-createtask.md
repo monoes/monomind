@@ -125,7 +125,7 @@ The agent MUST produce a structured analysis:
       "name": "component or module name",
       "description": "what it does",
       "dependencies": ["other components it depends on"],
-      "files_likely_affected": ["paths from graphify or educated guesses"],
+      "files_likely_affected": ["paths from monograph or educated guesses"],
       "shared_context_with": ["other component names that share state, models, or interfaces"]
     }
   ],

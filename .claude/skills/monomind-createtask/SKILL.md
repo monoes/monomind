@@ -109,8 +109,8 @@ Parse `$ARGUMENTS`:
 ### Step 2: Enrich with Project Context
 
 Run ALL in parallel (skip errors):
-1. `mcp__monomind__graphify_suggest` with first 200 chars of input
-2. `mcp__monomind__graphify_query` for module/component names found in input (up to 5)
+1. `mcp__monomind__monograph_suggest` with first 200 chars of input
+2. `mcp__monomind__monograph_query` for module/component names found in input (up to 5)
 3. `mcp__monomind__memory_search` with input summary
 4. Read `README.md` (first 200 lines)
 5. Read first found: `package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`
@@ -139,7 +139,7 @@ Required output:
       "name": "component name",
       "description": "what it does",
       "dependencies": ["other components"],
-      "files_likely_affected": ["paths from graphify or educated guesses"]
+      "files_likely_affected": ["paths from monograph or educated guesses"]
     }
   ],
   "technical_constraints": ["stack requirements, limitations"],
