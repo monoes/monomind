@@ -50,6 +50,12 @@ CREATE VIRTUAL TABLE IF NOT EXISTS nodes_fts USING fts5(
   content_rowid='rowid'
 )`;
 
+export const CREATE_EMBEDDINGS = `
+CREATE TABLE IF NOT EXISTS embeddings (
+  node_id TEXT PRIMARY KEY,
+  vector BLOB NOT NULL
+)`;
+
 export const CREATE_INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_nodes_file ON nodes(file_path)`,
   `CREATE INDEX IF NOT EXISTS idx_nodes_label ON nodes(label)`,
