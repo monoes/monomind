@@ -16,3 +16,4 @@ export * from './export/cypher.js';
 export * from './export/graphml.js';
 export * from './export/svg.js';
 export * from './mcp-tools/index.js';
+export * from './staleness/git-staleness.js';
