@@ -9,6 +9,7 @@ export function toGraphml(nodes: MonographNode[], edges: MonographEdge[]): strin
         `<data key="name">${esc(n.name)}</data>` +
         `<data key="file">${esc(n.filePath ?? '')}</data>` +
         `<data key="exported">${n.isExported ? 'true' : 'false'}</data>` +
+        (n.communityId !== undefined ? `<data key="community">${n.communityId}</data>` : '') +
         `</node>`
     )
     .join('\n');
@@ -29,6 +30,7 @@ export function toGraphml(nodes: MonographNode[], edges: MonographEdge[]): strin
   <key id="name" for="node" attr.name="name" attr.type="string"/>
   <key id="file" for="node" attr.name="file" attr.type="string"/>
   <key id="exported" for="node" attr.name="exported" attr.type="boolean"/>
+  <key id="community" for="node" attr.name="community" attr.type="int"/>
   <key id="relation" for="edge" attr.name="relation" attr.type="string"/>
   <key id="confidence" for="edge" attr.name="confidence" attr.type="string"/>
   <graph id="G" edgedefault="directed">
