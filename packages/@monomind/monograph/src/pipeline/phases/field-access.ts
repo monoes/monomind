@@ -1,0 +1,37 @@
+export type AccessReason = 'read' | 'write';
+
+export interface FieldAccess {
+  varName: string;
+  field: string;
+  reason: AccessReason;
+  line: number;
+}
+
+export function extractFieldAccesses(source: string, varName: string, filePath: string): FieldAccess[] {
+  const results: FieldAccess[] = [];
+  const lines = source.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Write: varName.field = or varName.field +=/-=/*=
+    const writeRe = new RegExp(`\\b${varName}\\.(\\w+)\\s*(?:\\+|-|\\*|\\/|%)?=(?!=)`, 'g');
+    // Read: varName.field NOT followed by assignment operator
+    const readRe = new RegExp(`\\b${varName}\\.(\\w+)`, 'g');
+
+    const writeFields = new Set<string>();
+    let m: RegExpExecArray | null;
+
+    while ((m = writeRe.exec(line)) !== null) {
+      writeFields.add(m[1]);
+      results.push({ varName, field: m[1], reason: 'write', line: i + 1 });
+    }
+
+    while ((m = readRe.exec(line)) !== null) {
+      if (!writeFields.has(m[1])) {
+        results.push({ varName, field: m[1], reason: 'read', line: i + 1 });
+      }
+    }
+  }
+
+  return results;
+}
