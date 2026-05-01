@@ -4,10 +4,61 @@
 
 import type Database from 'better-sqlite3';
 import type { EmbedderFn } from './embedder.js';
+import type { EmbedDeviceConfig } from './device-config.js';
+import type { HttpEmbedderConfig } from './http-embedder.js';
 import { upsertEmbedding, countEmbeddings } from '../storage/embedding-store.js';
 import { embedText } from './embedder.js';
 
 const BATCH_SIZE = 32;
+
+export interface EmbedBatchConfig {
+  device?: EmbedDeviceConfig;
+  remote?: HttpEmbedderConfig; // if set, use HttpEmbedder instead of local
+  batchSize?: number;          // override default batch size
+}
+
+/**
+ * Embed a list of text strings and return an array of embedding vectors.
+ *
+ * If `config.remote` is provided, delegates to `HttpEmbedder`.
+ * Otherwise falls back to the local HuggingFace embedder.
+ *
+ * @param texts  - Strings to embed
+ * @param config - Optional device/remote/batchSize config
+ */
+export async function embedBatch(
+  texts: string[],
+  config?: EmbedBatchConfig,
+): Promise<number[][]> {
+  // Store device config in a local variable (passed through for future use)
+  const _device = config?.device;
+  void _device;
+
+  if (config?.remote) {
+    const { HttpEmbedder } = await import('./http-embedder.js');
+    const embedder = new HttpEmbedder(config.remote);
+    return embedder.embedBatch(texts);
+  }
+
+  // Local embedder path
+  const { getEmbedder } = await import('./embedder.js');
+  const embedderFn = await getEmbedder();
+  const batchSize = config?.batchSize ?? BATCH_SIZE;
+  const results: number[][] = [];
+
+  for (let i = 0; i < texts.length; i += batchSize) {
+    const batch = texts.slice(i, i + batchSize);
+    const batchResults = await Promise.all(
+      batch.map(async (text) => {
+        const vector = await embedText(text, embedderFn);
+        return Array.from(vector);
+      }),
+    );
+    results.push(...batchResults);
+  }
+
+  return results;
+}
 
 export interface EmbedAllResult {
   embedded: number;
