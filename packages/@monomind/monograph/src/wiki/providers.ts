@@ -15,6 +15,12 @@ export interface LLMResponse {
   outputTokens?: number;
 }
 
+const REASONING_MODELS = new Set(['o1', 'o1-mini', 'o1-preview', 'o3', 'o3-mini', 'o4-mini']);
+
+function isReasoningModel(model: string): boolean {
+  return REASONING_MODELS.has(model) || /^o\d+(-mini|-preview)?$/.test(model);
+}
+
 /**
  * Call an LLM provider with the given prompt and configuration.
  * Supports anthropic, openai, and ollama providers.
@@ -91,12 +97,20 @@ async function callOpenAI(
       'Authorization': `Bearer ${apiKey ?? ''}`,
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      model: config.model ?? 'gpt-4o-mini',
-      max_tokens: config.maxTokens ?? 2048,
-      temperature: config.temperature ?? 0.2,
-      messages: [{ role: 'user', content: prompt }],
-    }),
+    body: (() => {
+      const reasoning = isReasoningModel(config.model ?? '');
+      const bodyObj: Record<string, unknown> = {
+        model: config.model ?? 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+      };
+      if (reasoning) {
+        bodyObj['max_completion_tokens'] = config.maxTokens ?? 2048;
+      } else {
+        bodyObj['max_tokens'] = config.maxTokens ?? 2048;
+        bodyObj['temperature'] = config.temperature ?? 0.2;
+      }
+      return JSON.stringify(bodyObj);
+    })(),
   });
 
   if (!response.ok) {
