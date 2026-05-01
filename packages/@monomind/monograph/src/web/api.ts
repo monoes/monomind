@@ -44,7 +44,7 @@ export interface StatsData {
 
 // ── Query helpers (testable in isolation) ─────────────────────────────────────
 
-function rowToApiNode(row: Record<string, unknown>): ApiNode {
+export function rowToApiNode(row: Record<string, unknown>): ApiNode {
   return {
     id: row['id'] as string,
     name: row['name'] as string,
@@ -214,6 +214,71 @@ export function readFileContent(filePath: string, startLine?: number, endLine?: 
   return { path: filePath, totalLines: allLines.length, lines };
 }
 
+// ── Cluster / community queries ───────────────────────────────────────────────
+
+export interface ClusterSummary {
+  id: number;
+  label: string | null;
+  memberCount: number;
+}
+
+export interface ClusterDetail {
+  id: number;
+  label: string | null;
+  members: unknown[];
+}
+
+export function queryClusters(db: Database.Database): ClusterSummary[] {
+  try {
+    const rows = db.prepare(
+      `SELECT c.id, c.label, COUNT(n.id) as memberCount
+       FROM communities c LEFT JOIN nodes n ON n.community_id = c.id
+       GROUP BY c.id ORDER BY memberCount DESC`,
+    ).all() as { id: number; label: string | null; memberCount: number }[];
+    return rows;
+  } catch {
+    const rows = db.prepare(
+      `SELECT community_id as id, COUNT(*) as memberCount FROM nodes WHERE community_id IS NOT NULL GROUP BY community_id ORDER BY memberCount DESC`,
+    ).all() as { id: number; memberCount: number }[];
+    return rows.map(r => ({ id: r.id, label: null, memberCount: r.memberCount }));
+  }
+}
+
+export function queryCluster(db: Database.Database, name: string): ClusterDetail | null {
+  try {
+    const comm = db.prepare('SELECT id, label FROM communities WHERE label = ? LIMIT 1').get(name) as { id: number; label: string } | undefined;
+    if (!comm) return null;
+    const members = db.prepare(
+      'SELECT id, name, label, file_path, start_line, end_line, community_id FROM nodes WHERE community_id = ? LIMIT 200',
+    ).all(comm.id) as Record<string, unknown>[];
+    return { id: comm.id, label: comm.label, members: members.map(rowToApiNode) };
+  } catch {
+    return null;
+  }
+}
+
+// ── Process queries ───────────────────────────────────────────────────────────
+
+export interface ProcessSummary {
+  id: string;
+  name: string;
+  filePath: string | null;
+}
+
+export function queryProcessesList(db: Database.Database): ProcessSummary[] {
+  const rows = db.prepare(
+    `SELECT id, name, file_path FROM nodes WHERE label = 'Process' LIMIT 200`,
+  ).all() as { id: string; name: string; file_path: string | null }[];
+  return rows.map(r => ({ id: r.id, name: r.name, filePath: r.file_path }));
+}
+
+export function queryProcess(db: Database.Database, name: string): Record<string, unknown> | null {
+  const row = db.prepare(
+    `SELECT id, name, label, file_path, start_line, end_line, community_id FROM nodes WHERE label = 'Process' AND name = ? LIMIT 1`,
+  ).get(name) as Record<string, unknown> | undefined;
+  return row ?? null;
+}
+
 // ── Server info ───────────────────────────────────────────────────────────────
 
 export interface ServerInfo {
@@ -374,6 +439,34 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
     }, 500);
 
     req.on('close', () => clearInterval(interval));
+  });
+
+  app.get('/api/clusters', (_req, res) => {
+    try { res.json(queryClusters(db)); } catch (err) { res.status(500).json({ error: String(err) }); }
+  });
+
+  app.get('/api/cluster', (req, res) => {
+    try {
+      const name = (req.query['name'] as string | undefined) ?? '';
+      if (!name) { res.status(400).json({ error: 'name required' }); return; }
+      const result = queryCluster(db, name);
+      if (!result) { res.status(404).json({ error: 'Cluster not found' }); return; }
+      res.json(result);
+    } catch (err) { res.status(500).json({ error: String(err) }); }
+  });
+
+  app.get('/api/processes', (_req, res) => {
+    try { res.json(queryProcessesList(db)); } catch (err) { res.status(500).json({ error: String(err) }); }
+  });
+
+  app.get('/api/process', (req, res) => {
+    try {
+      const name = (req.query['name'] as string | undefined) ?? '';
+      if (!name) { res.status(400).json({ error: 'name required' }); return; }
+      const result = queryProcess(db, name);
+      if (!result) { res.status(404).json({ error: 'Process not found' }); return; }
+      res.json(result);
+    } catch (err) { res.status(500).json({ error: String(err) }); }
   });
 
   app.get('/api/info', (_req, res) => {
