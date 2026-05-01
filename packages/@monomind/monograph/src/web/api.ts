@@ -259,6 +259,21 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
     }
   });
 
+  app.get('/api/file', (req, res) => {
+    try {
+      const filePath = (req.query['path'] as string | undefined) ?? '';
+      if (!filePath) {
+        res.status(400).json({ error: 'path query param required' });
+        return;
+      }
+      const startLine = req.query['start'] ? parseInt(req.query['start'] as string, 10) : undefined;
+      const endLine = req.query['end'] ? parseInt(req.query['end'] as string, 10) : undefined;
+      res.json(readFileContent(filePath, startLine, endLine));
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   // Async analyze job API
   app.post('/api/analyze', (req, res) => {
     const { repoPath } = req.body as { repoPath?: string };
