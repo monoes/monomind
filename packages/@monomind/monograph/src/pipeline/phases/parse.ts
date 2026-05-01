@@ -49,6 +49,19 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
       if (['.ts', '.tsx', '.js', '.jsx'].includes(ext)) {
         const varInfos = extractVariables(source, fileNode.filePath ?? '');
         symbolNodes.push(...varInfos.map(v => variableToNode(v)));
+
+        // Extract named arrow functions
+        const arrowFns = extractArrowFunctions(source, fileNode.filePath ?? '');
+        for (const fn of arrowFns) {
+          symbolNodes.push({
+            id: `${fn.filePath}::fn::${fn.name}`,
+            name: fn.name,
+            kind: 'Function',
+            filePath: fn.filePath,
+            line: fn.line,
+            isExported: fn.isExported,
+          } as import('../../types.js').MonographNode);
+        }
       }
       processed++;
 
@@ -70,3 +83,27 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
     return { symbolNodes, allEdges, parseErrors, fileContents };
   },
 };
+
+export function extractArrowFunctions(
+  source: string,
+  filePath: string,
+): Array<{ name: string; isExported: boolean; line: number; filePath: string }> {
+  const results: Array<{ name: string; isExported: boolean; line: number; filePath: string }> = [];
+  // Match: (export)? const/let NAME = (async)? (...) =>
+  const re = /^([ \t]*)(export\s+)?(?:const|let)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/gm;
+
+  let m: RegExpExecArray | null;
+  re.lastIndex = 0;
+  while ((m = re.exec(source)) !== null) {
+    const charsBefore = source.slice(0, m.index);
+    const lineNum = (charsBefore.match(/\n/g)?.length ?? 0) + 1;
+    results.push({
+      name: m[3]!,
+      isExported: !!(m[2]?.trim()),
+      line: lineNum,
+      filePath,
+    });
+  }
+
+  return results;
+}
