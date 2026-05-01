@@ -54,6 +54,7 @@ export * from './validation/extraction-validator.js';
 export * from './security/safe-fetch.js';
 export * from './cache/extraction-cache.js';
 export * from './pipeline/phases/variables.js';
+export * from './pipeline/cluster-only.js';
 export * from './pipeline/phases/field-access.js';
 export * from './pipeline/phases/wildcard-synthesis.js';
 export * from './cli/hooks-install.js';
