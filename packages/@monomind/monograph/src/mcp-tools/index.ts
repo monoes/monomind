@@ -11,3 +11,4 @@ export * from './group-list.js';
 export * from './wiki.js';
 export * from './wiki-build.js';
 export * from './serve.js';
+export * from './tool-map.js';
