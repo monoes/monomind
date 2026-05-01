@@ -47,3 +47,4 @@ export * from './cache/extraction-cache.js';
 export * from './pipeline/phases/variables.js';
 export * from './pipeline/phases/field-access.js';
 export * from './pipeline/phases/wildcard-synthesis.js';
+export * from './cli/augment.js';
