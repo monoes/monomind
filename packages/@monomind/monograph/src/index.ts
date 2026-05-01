@@ -36,3 +36,5 @@ export * from './wiki/prompt-builder.js';
 export * from './wiki/wiki-generator.js';
 export * from './web/server.js';
 export * from './web/api.js';
+export * from './mcp-resources/index.js';
+export * from './analysis/shape-extractor.js';
