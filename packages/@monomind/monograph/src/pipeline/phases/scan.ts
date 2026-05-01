@@ -33,12 +33,16 @@ export const scanPhase: PipelinePhase<ScanOutput> = {
 
     // Read .monographignore patterns
     const ignorePatterns: string[] = [];
+    const negationPatterns: string[] = [];
     const ignoreFilePath = join(ctx.repoPath, '.monographignore');
     if (existsSync(ignoreFilePath)) {
       const raw = readFileSync(ignoreFilePath, 'utf8');
       for (const line of raw.split('\n')) {
         const trimmed = line.trim();
-        if (trimmed && !trimmed.startsWith('#')) {
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        if (trimmed.startsWith('!')) {
+          negationPatterns.push(trimmed.slice(1)); // strip the !
+        } else {
           ignorePatterns.push(trimmed);
         }
       }
@@ -54,13 +58,21 @@ export const scanPhase: PipelinePhase<ScanOutput> = {
         let stat: ReturnType<typeof statSync>;
         try { stat = statSync(fullPath); } catch { continue; }
 
-        if (ignorePatterns.length > 0) {
-          const rel = fullPath.slice(ctx.repoPath.length + 1);
-          if (micromatch.isMatch(rel, ignorePatterns, { dot: true })) continue;
-          if (stat.isDirectory() && micromatch.isMatch(rel + '/', ignorePatterns, { dot: true })) continue;
+        if (stat.isDirectory()) {
+          // Always traverse directories — negation patterns may rescue files inside ignored dirs
+          walk(fullPath);
+          continue;
         }
 
-        if (stat.isDirectory()) { walk(fullPath); continue; }
+        if (ignorePatterns.length > 0) {
+          const rel = fullPath.slice(ctx.repoPath.length + 1);
+          const isIgnored = micromatch.isMatch(rel, ignorePatterns, { dot: true });
+          const isDirIgnored = micromatch.isMatch(rel, ignorePatterns.map(p => p.endsWith('/') ? p + '**' : p), { dot: true });
+          if (isIgnored || isDirIgnored) {
+            const isNegated = negationPatterns.length > 0 && micromatch.isMatch(rel, negationPatterns, { dot: true });
+            if (!isNegated) continue;
+          }
+        }
 
         const ext = extname(entry).toLowerCase();
         if (BINARY_EXTENSIONS.has(ext)) continue;
