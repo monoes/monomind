@@ -73,3 +73,39 @@ function topoSort(phases: PipelinePhase<unknown>[]): string[] {
 
   return result;
 }
+
+export interface IncrementalAstOptions {
+  /** If true, preserve INFERRED and AMBIGUOUS edges during code-only rebuild. Default true. */
+  preserveInferred?: boolean;
+}
+
+/**
+ * Incremental AST-only rebuild: clears EXTRACTED edges (re-parsed from code)
+ * while preserving INFERRED and AMBIGUOUS edges (derived by reasoning).
+ * Accepts a list of changed file paths; if empty, clears all EXTRACTED edges.
+ */
+export async function runIncrementalAst(
+  db: import('better-sqlite3').Database,
+  changedFiles: string[],
+  options: IncrementalAstOptions = {},
+): Promise<void> {
+  const { preserveInferred = true } = options;
+
+  if (preserveInferred) {
+    if (changedFiles.length > 0) {
+      const placeholders = changedFiles.map(() => '?').join(',');
+      db.prepare(`
+        DELETE FROM edges
+        WHERE confidence = 'EXTRACTED'
+        AND (
+          source_id IN (SELECT id FROM nodes WHERE file_path IN (${placeholders}))
+          OR target_id IN (SELECT id FROM nodes WHERE file_path IN (${placeholders}))
+        )
+      `).run(...changedFiles, ...changedFiles);
+    } else {
+      db.prepare(`DELETE FROM edges WHERE confidence = 'EXTRACTED'`).run();
+    }
+  } else {
+    db.prepare(`DELETE FROM edges`).run();
+  }
+}
