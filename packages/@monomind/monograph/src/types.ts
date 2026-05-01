@@ -50,6 +50,14 @@ export interface MonographNode {
   properties?: Record<string, unknown>;
 }
 
+// ── Evidence ──────────────────────────────────────────────────────────────────
+
+export interface EvidenceEntry {
+  kind: string;      // e.g., 'import', 'call', 'heuristic', 'inferred'
+  weight: number;    // 0-1
+  note?: string;     // human-readable explanation
+}
+
 // ── Edges ─────────────────────────────────────────────────────────────────────
 
 export interface MonographEdge {
@@ -59,6 +67,7 @@ export interface MonographEdge {
   relation: EdgeRelation;
   confidence: EdgeConfidence;
   confidenceScore: number;
+  evidence?: EvidenceEntry[];
 }
 
 // ── Communities ───────────────────────────────────────────────────────────────
