@@ -77,6 +77,50 @@ function queryConfidenceBreakdown(db: MonographDb): { confidence: string; count:
   return rows;
 }
 
+function buildKnowledgeGapSection(db: MonographDb): string {
+  // Isolated nodes: nodes with no edges (excluding File/Folder structural nodes)
+  const isolated = db.prepare(`
+    SELECT n.id, n.name, n.label FROM nodes n
+    WHERE n.label NOT IN ('File','Folder')
+    AND n.id NOT IN (SELECT source_id FROM edges)
+    AND n.id NOT IN (SELECT target_id FROM edges)
+    LIMIT 20
+  `).all() as { id: string; name: string; label: string }[];
+
+  // Thin communities: community_id groups with fewer than 3 members
+  const thin = db.prepare(`
+    SELECT community_id, COUNT(*) as cnt FROM nodes
+    WHERE community_id IS NOT NULL
+    GROUP BY community_id
+    HAVING cnt < 3
+    LIMIT 10
+  `).all() as { community_id: number; cnt: number }[];
+
+  if (isolated.length === 0 && thin.length === 0) return '';
+
+  const lines = ['## Knowledge Gaps\n'];
+
+  if (isolated.length > 0) {
+    lines.push(`### Isolated Nodes (${isolated.length})\n`);
+    lines.push('Nodes with no edges — may indicate dead code or missing imports:\n');
+    for (const n of isolated.slice(0, 10)) {
+      lines.push(`- **${n.label}** \`${n.name}\``);
+    }
+    lines.push('');
+  }
+
+  if (thin.length > 0) {
+    lines.push(`### Thin Communities (${thin.length})\n`);
+    lines.push('Communities with fewer than 3 members — may need merging:\n');
+    for (const t of thin) {
+      lines.push(`- Community ${t.community_id}: ${t.cnt} member${t.cnt === 1 ? '' : 's'}`);
+    }
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
 function buildConfidenceAuditSection(db: MonographDb): string {
   const rows = queryConfidenceBreakdown(db);
   if (rows.length === 0) return '';
@@ -279,6 +323,7 @@ export function generateGraphReportFromDb(
   const communities = queryCommunities(db);
   const confidenceSection = buildConfidenceAuditSection(db);
 
+  const gapSection = buildKnowledgeGapSection(db);
   const markdown = buildMarkdownWithQuestions(
     nodeCount,
     edgeCount,
@@ -289,7 +334,7 @@ export function generateGraphReportFromDb(
     [],
     [],
     confidenceSection,
-  );
+  ) + (gapSection ? '\n' + gapSection : '');
 
   writeFileSync(resolvedOutputPath, markdown, 'utf8');
 
@@ -356,6 +401,7 @@ export function generateGraphReport(
       }
 
       const confidenceSection = buildConfidenceAuditSection(db);
+      const gapSection = buildKnowledgeGapSection(db);
       const markdown = buildMarkdownWithQuestions(
         nodeCount,
         edgeCount,
@@ -366,7 +412,7 @@ export function generateGraphReport(
         staleFiles,
         questions,
         confidenceSection,
-      );
+      ) + (gapSection ? '\n' + gapSection : '');
 
       writeFileSync(resolvedOutputPath, markdown, 'utf8');
 
