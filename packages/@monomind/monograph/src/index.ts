@@ -50,3 +50,4 @@ export * from './pipeline/phases/wildcard-synthesis.js';
 export * from './cli/augment.js';
 export * from './cli/setup.js';
 export * from './cli/doctor.js';
+export * from './cli/eval-server.js';
