@@ -41,3 +41,4 @@ export * from './analysis/shape-extractor.js';
 export * from './mcp-tools/tool-map.js';
 export * from './mcp-tools/shape-check.js';
 export * from './security/sensitive-files.js';
+export * from './validation/extraction-validator.js';
