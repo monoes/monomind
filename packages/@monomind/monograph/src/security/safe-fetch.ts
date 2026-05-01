@@ -73,9 +73,37 @@ export async function safeFetch(
   try {
     const res = await fetch(rawUrl, { signal: controller.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${rawUrl}`);
-    const text = await res.text();
-    if (text.length > maxBytes) throw new Error(`Response exceeds ${maxBytes} bytes`);
-    return text;
+
+    // Stream the body incrementally so we can enforce maxBytes before
+    // the full response is loaded into memory (prevents memory exhaustion
+    // on large/malicious payloads).
+    if (!res.body) {
+      throw new Error(`Response body is missing: ${rawUrl}`);
+    }
+    const reader = (res.body as ReadableStream<Uint8Array>).getReader();
+    const decoder = new TextDecoder();
+    const chunks: string[] = [];
+    let totalBytes = 0;
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (value) {
+          totalBytes += value.byteLength;
+          if (totalBytes > maxBytes) {
+            throw new Error(`Response exceeds ${maxBytes} bytes: ${rawUrl}`);
+          }
+          chunks.push(decoder.decode(value, { stream: true }));
+        }
+      }
+      // Flush any remaining bytes held in the decoder
+      chunks.push(decoder.decode());
+    } finally {
+      reader.releaseLock();
+    }
+
+    return chunks.join('');
   } finally {
     clearTimeout(timer);
   }
