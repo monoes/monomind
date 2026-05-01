@@ -45,6 +45,21 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
       allEdges.push(...result.edges);
       parseErrors.push(...result.parseErrors);
 
+      // Extract C# namespace declarations
+      if (ext === '.cs') {
+        const csNamespaces = extractCsharpNamespaces(source, fileNode.filePath ?? '');
+        for (const ns of csNamespaces) {
+          symbolNodes.push({
+            id: `${ns.filePath}::namespace::${ns.name}`,
+            name: ns.name,
+            kind: 'Namespace',
+            filePath: ns.filePath,
+            line: ns.line,
+            isExported: true,
+          } as import('../../types.js').MonographNode);
+        }
+      }
+
       // Extract top-level variable declarations for TS/JS files
       if (['.ts', '.tsx', '.js', '.jsx'].includes(ext)) {
         const varInfos = extractVariables(source, fileNode.filePath ?? '');
@@ -83,6 +98,21 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
     return { symbolNodes, allEdges, parseErrors, fileContents };
   },
 };
+
+export function extractCsharpNamespaces(
+  source: string,
+  filePath: string,
+): Array<{ name: string; label: 'Namespace'; filePath: string; line: number }> {
+  const results: Array<{ name: string; label: 'Namespace'; filePath: string; line: number }> = [];
+  const re = /^[ \t]*namespace\s+([\w.]+)\s*[\{;]/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(source)) !== null) {
+    const charsBefore = source.slice(0, m.index);
+    const line = (charsBefore.match(/\n/g)?.length ?? 0) + 1;
+    results.push({ name: m[1]!, label: 'Namespace', filePath, line });
+  }
+  return results;
+}
 
 export function extractArrowFunctions(
   source: string,
