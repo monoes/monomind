@@ -13,3 +13,4 @@ export * from './wiki-build.js';
 export * from './serve.js';
 export * from './tool-map.js';
 export * from './shape-check.js';
+export * from './neighbors.js';
