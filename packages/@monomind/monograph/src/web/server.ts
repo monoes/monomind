@@ -2,6 +2,7 @@ import { createServer } from 'http';
 import type { Server } from 'http';
 import type Database from 'better-sqlite3';
 import { setupApiRoutes } from './api.js';
+import { getReactUiHtml } from './react-ui.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,8 +32,6 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
 
   // Dynamically import express to keep it optional at module load time
   const { default: express } = await import('express');
-  const { fileURLToPath } = await import('url');
-  const { join, dirname } = await import('path');
 
   const app = express();
   app.use(express.json());
@@ -40,12 +39,15 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
   // Mount API routes
   setupApiRoutes(app, db);
 
-  // Serve UI static file
-  const __filename = fileURLToPath(import.meta.url);
-  const __dir = dirname(__filename);
-  const htmlPath = join(__dir, 'ui', 'index.html');
+  // Serve React SPA
+  const reactHtml = getReactUiHtml();
   app.get('/', (_req, res) => {
-    res.sendFile(htmlPath);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(reactHtml);
+  });
+  app.get('/index.html', (_req, res) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(reactHtml);
   });
 
   const server = createServer(app);
