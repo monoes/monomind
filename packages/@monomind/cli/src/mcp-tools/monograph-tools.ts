@@ -1004,6 +1004,111 @@ const monographSkillGenTool: MCPTool = {
   },
 };
 
+// ── monograph_install_skills ──────────────────────────────────────────────────
+
+const monographInstallSkillsTool: MCPTool = {
+  name: 'monograph_install_skills',
+  description: 'Install monograph skill files for a specific IDE/platform (claude, cursor, vscode, zed).',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      platform: {
+        type: 'string',
+        description: 'Target platform: claude, cursor, vscode, or zed',
+      },
+      repoPath: {
+        type: 'string',
+        description: 'Absolute path to the repository (defaults to cwd)',
+      },
+    },
+    required: ['platform'],
+  },
+  handler: async (input) => {
+    const { openDb, closeDb } = await import('@monoes/monograph');
+    const { installSkillsForPlatform } = await import('@monoes/monograph');
+    const repoPath = (input.repoPath as string | undefined) ?? getProjectCwd();
+    const platform = input.platform as string;
+
+    const validPlatforms = ['claude', 'cursor', 'vscode', 'zed'];
+    if (!validPlatforms.includes(platform)) {
+      return text(`Invalid platform "${platform}". Must be one of: ${validPlatforms.join(', ')}`);
+    }
+
+    // Load community data from graph
+    const dbPath = join(repoPath, '.monomind', 'monograph.db');
+    let db: ReturnType<typeof openDb>;
+    try {
+      db = openDb(dbPath);
+    } catch {
+      return text('Graph not built yet. Run monograph_build first.');
+    }
+
+    let communities: Array<{ name: string; symbols: string[] }>;
+    try {
+      // Query distinct community IDs with exported symbols
+      const communityIds = db.prepare(`
+        SELECT DISTINCT community_id
+        FROM nodes
+        WHERE community_id IS NOT NULL
+          AND label NOT IN ('File', 'Folder', 'Community', 'Concept')
+        ORDER BY community_id
+      `).all() as Array<{ community_id: number }>;
+
+      if (communityIds.length === 0) {
+        closeDb(db);
+        return text('No communities found in graph. Run monograph_build first.');
+      }
+
+      communities = communityIds.map(({ community_id }) => {
+        // Derive a readable name from folder paths
+        const pathRows = db.prepare(`
+          SELECT file_path FROM nodes
+          WHERE community_id = ? AND file_path IS NOT NULL
+            AND label NOT IN ('File', 'Folder', 'Community', 'Concept')
+          LIMIT 20
+        `).all(community_id) as Array<{ file_path: string }>;
+
+        let name = `community-${community_id}`;
+        const folderCounts = new Map<string, number>();
+        for (const row of pathRows) {
+          const parts = row.file_path.replace(/\\/g, '/').split('/').filter(Boolean);
+          if (parts.length >= 2) {
+            const folder = parts[parts.length - 2].toLowerCase();
+            if (!['src', 'lib', 'core', 'utils', 'common', 'shared', 'helpers', 'dist'].includes(folder)) {
+              folderCounts.set(folder, (folderCounts.get(folder) ?? 0) + 1);
+            }
+          }
+        }
+        let bestCount = 0;
+        for (const [folder, count] of folderCounts) {
+          if (count > bestCount) { bestCount = count; name = folder; }
+        }
+
+        // Collect exported symbol names
+        const symbolRows = db.prepare(`
+          SELECT name FROM nodes
+          WHERE community_id = ? AND is_exported = 1
+            AND label NOT IN ('File', 'Folder', 'Community', 'Concept')
+          ORDER BY name
+          LIMIT 50
+        `).all(community_id) as Array<{ name: string }>;
+
+        return { name, symbols: symbolRows.map(r => r.name) };
+      });
+    } catch (err: unknown) {
+      closeDb(db);
+      const msg = err instanceof Error ? err.message : String(err);
+      return text(`Failed to query graph: ${msg}`);
+    }
+    closeDb(db);
+
+    const result = await installSkillsForPlatform(repoPath, communities, {
+      platform: platform as 'claude' | 'cursor' | 'vscode' | 'zed',
+    });
+    return text(`Installed ${result.filesWritten.length} skill files for ${result.platform} in ${result.outputDir}`);
+  },
+};
+
 // ── monograph_doctor ──────────────────────────────────────────────────────────
 
 const monographDoctorTool: MCPTool = {
@@ -1131,6 +1236,7 @@ export const monographTools: MCPTool[] = [
   monographAugmentTool,
   monographInjectContextTool,
   monographSkillGenTool,
+  monographInstallSkillsTool,
   monographDoctorTool,
   monographListReposTool,
   monographGroupContractsTool,

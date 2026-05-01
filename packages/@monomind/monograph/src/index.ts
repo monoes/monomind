@@ -54,6 +54,7 @@ export * from './cli/ai-context.js';
 export * from './cli/doctor.js';
 export * from './cli/eval-server.js';
 export * from './cli/skill-gen.js';
+export * from './skills/platform-skills.js';
 export * from './reporting/graph-report.js';
 export * from './analysis/surprise-scorer.js';
 export * from './pipeline/phases/evidence.js';
