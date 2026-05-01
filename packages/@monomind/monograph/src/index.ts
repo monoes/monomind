@@ -57,3 +57,4 @@ export * from './reporting/graph-report.js';
 export * from './analysis/surprise-scorer.js';
 export * from './pipeline/phases/evidence.js';
 export * from './registry/repo-registry.js';
+export * from './search/ast-chunker.js';
