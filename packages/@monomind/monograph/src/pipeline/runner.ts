@@ -2,23 +2,37 @@ import type { PipelinePhase, PipelineContext } from './types.js';
 import { MonographError } from '../types.js';
 
 export class PipelineRunner {
-  private readonly order: string[];
+  private readonly phases: PipelinePhase<unknown>[];
 
-  constructor(private readonly phases: PipelinePhase<unknown>[]) {
-    this.order = topoSort(phases);
+  constructor(phases: PipelinePhase<unknown>[]) {
+    this.phases = phases;
+    // Validate: detect cycles and unknown deps
+    topoSort(phases);
   }
 
   async run(ctx: PipelineContext): Promise<Map<string, unknown>> {
     const outputs = new Map<string, unknown>();
     const phaseMap = new Map(this.phases.map(p => [p.name, p]));
 
-    for (const name of this.order) {
-      const phase = phaseMap.get(name)!;
-      ctx.onProgress?.({ phase: name });
-      const output = await phase.execute(ctx, outputs);
-      outputs.set(name, output);
-    }
+    // Lazily-created promise per phase — ensures dep promises exist before they are awaited
+    const promises = new Map<string, Promise<void>>();
 
+    const getOrCreatePromise = (name: string): Promise<void> => {
+      if (promises.has(name)) return promises.get(name)!;
+      const phase = phaseMap.get(name)!;
+      const p = (async () => {
+        // Wait for all dep phases to finish
+        await Promise.all(phase.deps.map(dep => getOrCreatePromise(dep)));
+        ctx.onProgress?.({ phase: phase.name });
+        const output = await phase.execute(ctx, outputs);
+        outputs.set(phase.name, output);
+      })();
+      promises.set(name, p);
+      return p;
+    };
+
+    // Kick off all phases — each self-manages its dep wait via lazy promise creation
+    await Promise.all(this.phases.map(phase => getOrCreatePromise(phase.name)));
     return outputs;
   }
 }
