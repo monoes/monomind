@@ -52,3 +52,4 @@ export * from './cli/setup.js';
 export * from './cli/ai-context.js';
 export * from './cli/doctor.js';
 export * from './cli/eval-server.js';
+export * from './cli/skill-gen.js';
