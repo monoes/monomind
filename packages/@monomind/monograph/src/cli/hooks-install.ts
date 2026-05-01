@@ -59,3 +59,22 @@ export function listInstalledHooks(repoPath: string): string[] {
   }
   return installed;
 }
+
+export interface HookStatus {
+  installed: boolean;
+  hooks: string[];
+  hooksDir: string;
+}
+
+export function getHookStatus(repoPath: string): HookStatus {
+  const hooksDir = join(repoPath, '.git', 'hooks');
+  let installed: string[] = [];
+  try {
+    installed = listInstalledHooks(repoPath);
+  } catch { /* .git dir missing or unreadable */ }
+  return {
+    installed: installed.length > 0,
+    hooks: installed,
+    hooksDir,
+  };
+}
