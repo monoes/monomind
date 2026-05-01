@@ -857,6 +857,78 @@ const monographServeTool: MCPTool = {
   },
 };
 
+// ── monograph_tool_map ────────────────────────────────────────────────────────
+
+const monographToolMapTool: MCPTool = {
+  name: 'monograph_tool_map',
+  description: 'List MCP/RPC tool definitions in the knowledge graph with handler associations. Shows which functions handle each tool.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      tool: { type: 'string', description: 'Filter by tool name substring' },
+    },
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, getToolMap } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const results = getToolMap(db, { tool: input.tool as string | undefined });
+      if (results.length === 0) return text('No tools found. Run monograph_build first.');
+      return text(JSON.stringify(results, null, 2));
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_shape_check ─────────────────────────────────────────────────────
+
+const monographShapeCheckTool: MCPTool = {
+  name: 'monograph_shape_check',
+  description: 'Validate API route response shapes: checks that handler return keys match consumer property accesses. Detects shape mismatches between producer and consumer.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      route: { type: 'string', description: 'Filter by route path substring (e.g. /api/users)' },
+      file: { type: 'string', description: 'Filter by source file path substring' },
+    },
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, getShapeCheck } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    const repoPath = getProjectCwd();
+    try {
+      const result = getShapeCheck(db, repoPath, {
+        route: input.route as string | undefined,
+        file: input.file as string | undefined,
+      });
+      return text(JSON.stringify(result, null, 2));
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_group_sync ──────────────────────────────────────────────────────
+
+const monographGroupSyncTool: MCPTool = {
+  name: 'monograph_group_sync',
+  description: 'Scan all repos in a group.yaml for Route nodes, detect shared HTTP contracts across repos, and persist the Contract Registry to disk.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      configPath: { type: 'string', description: 'Path to group.yaml (defaults to group.yaml in project cwd)' },
+    },
+  },
+  handler: async (input) => {
+    const { runGroupSync } = await import('@monoes/monograph');
+    const configPath = (input.configPath as string | undefined) ?? join(getProjectCwd(), 'group.yaml');
+    try {
+      const result = await runGroupSync(configPath);
+      return text(JSON.stringify(result, null, 2));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return text(`Group sync failed: ${msg}`);
+    }
+  },
+};
+
 // ── Export all tools ──────────────────────────────────────────────────────────
 
 export const monographTools: MCPTool[] = [
@@ -890,4 +962,7 @@ export const monographTools: MCPTool[] = [
   monographWikiTool,
   monographWikiBuildTool,
   monographServeTool,
+  monographToolMapTool,
+  monographShapeCheckTool,
+  monographGroupSyncTool,
 ];
