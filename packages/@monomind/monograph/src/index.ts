@@ -37,6 +37,7 @@ export * from './wiki/wiki-generator.js';
 export * from './wiki/gist-publisher.js';
 export * from './web/server.js';
 export * from './web/api.js';
+export * from './web/async-jobs.js';
 export * from './web/react-ui.js';
 export * from './web/analyze-api.js';
 export * from './web/mcp-http.js';
