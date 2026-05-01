@@ -6,9 +6,40 @@ import type Database from 'better-sqlite3';
  * Vectors are stored as BLOBs (raw Float32Array bytes) and reconstructed on read.
  */
 
-export function upsertEmbedding(db: Database.Database, nodeId: string, vector: Float32Array): void {
+export function upsertEmbedding(
+  db: Database.Database,
+  nodeId: string,
+  vector: Float32Array,
+  contentHash?: string,
+): void {
+  // Migrate existing DBs that may not have the content_hash column yet.
+  try {
+    db.exec('ALTER TABLE embeddings ADD COLUMN content_hash TEXT');
+  } catch {
+    // Column already exists — ignore.
+  }
   const buf = Buffer.from(vector.buffer, vector.byteOffset, vector.byteLength);
-  db.prepare('INSERT OR REPLACE INTO embeddings (node_id, vector) VALUES (?, ?)').run(nodeId, buf);
+  db
+    .prepare(
+      'INSERT OR REPLACE INTO embeddings (node_id, vector, content_hash) VALUES (?, ?, ?)',
+    )
+    .run(nodeId, buf, contentHash ?? null);
+}
+
+export function getEmbeddingContentHash(db: Database.Database, nodeId: string): string | null {
+  const row = db
+    .prepare('SELECT content_hash FROM embeddings WHERE node_id = ?')
+    .get(nodeId) as { content_hash: string | null } | undefined;
+  return row?.content_hash ?? null;
+}
+
+export function isEmbeddingStale(
+  db: Database.Database,
+  nodeId: string,
+  currentHash: string,
+): boolean {
+  const stored = getEmbeddingContentHash(db, nodeId);
+  return stored !== currentHash;
 }
 
 export function getEmbedding(db: Database.Database, nodeId: string): Float32Array | null {
