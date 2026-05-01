@@ -1023,6 +1023,75 @@ const monographDoctorTool: MCPTool = {
   },
 };
 
+// ── monograph_list_repos ──────────────────────────────────────────────────────
+
+const monographListReposTool: MCPTool = {
+  name: 'monograph_list_repos',
+  description: 'List all repositories tracked in the global monograph registry (~/.monograph/registry.json).',
+  inputSchema: {
+    type: 'object',
+    properties: {},
+  },
+  handler: async (_input) => {
+    const { listRepos } = await import('@monoes/monograph');
+    const repos = listRepos();
+    if (repos.length === 0) return text('No repositories registered. Run monograph build in a repo to register it.');
+    const lines = repos.map(r =>
+      `${r.name} — ${r.path}${r.lastIndexed ? ` (indexed ${r.lastIndexed.slice(0, 10)})` : ''}${r.nodeCount != null ? ` [${r.nodeCount} nodes, ${r.edgeCount ?? 0} edges]` : ''}`
+    );
+    return text(lines.join('\n'));
+  },
+};
+
+// ── monograph_group_contracts ─────────────────────────────────────────────────
+
+const monographGroupContractsTool: MCPTool = {
+  name: 'monograph_group_contracts',
+  description: 'List public API contracts (exported symbols, interfaces, and types) for all groups defined in .monograph/groups.json.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      repoPath: { type: 'string', description: 'Absolute path to the repository (defaults to cwd).' },
+    },
+  },
+  handler: async (input) => {
+    const { getGroupContracts } = await import('@monoes/monograph');
+    const { join } = await import('path');
+    const repoPath = (input as { repoPath?: string }).repoPath ?? getProjectCwd();
+    const configPath = join(repoPath, '.monograph', 'groups.json');
+    const contracts = await getGroupContracts(configPath);
+    if (contracts.length === 0) return text('No contracts found. Ensure groups are defined in .monograph/groups.json.');
+    const lines = contracts.map(c => `[${c.groupName}] ${c.symbol} — ${c.filePath}:${c.line}`);
+    return text(lines.join('\n'));
+  },
+};
+
+// ── monograph_group_status ────────────────────────────────────────────────────
+
+const monographGroupStatusTool: MCPTool = {
+  name: 'monograph_group_status',
+  description: 'Show health status for all groups: whether each group is indexed, has contracts, and was recently synced.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      repoPath: { type: 'string', description: 'Absolute path to the repository (defaults to cwd).' },
+    },
+  },
+  handler: async (input) => {
+    const { getGroupStatus } = await import('@monoes/monograph');
+    const { join } = await import('path');
+    const repoPath = (input as { repoPath?: string }).repoPath ?? getProjectCwd();
+    const configPath = join(repoPath, '.monograph', 'groups.json');
+    const status = await getGroupStatus(configPath);
+    const lines = [`Groups: ${status.totalGroups} (${status.indexedGroups} indexed, ${status.stalledGroups} stalled)`];
+    for (const g of status.groups) {
+      const icon = g.indexed ? (g.stale ? '⚠️' : '✅') : '❌';
+      lines.push(`${icon} ${g.name} — ${g.contractCount} contracts${g.lastSync ? ` (synced ${g.lastSync.slice(0, 10)})` : ''}`);
+    }
+    return text(lines.join('\n'));
+  },
+};
+
 // ── Export all tools ──────────────────────────────────────────────────────────
 
 export const monographTools: MCPTool[] = [
@@ -1063,4 +1132,7 @@ export const monographTools: MCPTool[] = [
   monographInjectContextTool,
   monographSkillGenTool,
   monographDoctorTool,
+  monographListReposTool,
+  monographGroupContractsTool,
+  monographGroupStatusTool,
 ];
