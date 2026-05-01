@@ -13,16 +13,26 @@ export interface Job {
   updatedAt: string;
 }
 
+export interface ProgressEvent {
+  phase: string;
+  percent?: number;
+  message?: string;
+  timestamp?: string;
+}
+
 export interface JobRegistry {
   create(type: string, payload: unknown): Job;
   get(id: string): Job | undefined;
   update(id: string, patch: Partial<Pick<Job, 'status' | 'result' | 'error'>>): boolean;
   cancel(id: string): boolean;
   list(): Job[];
+  emitProgress(id: string, event: ProgressEvent): void;
+  getProgress(id: string): ProgressEvent[];
 }
 
 export function createJobRegistry(): JobRegistry {
   const jobs = new Map<string, Job>();
+  const progressMap = new Map<string, ProgressEvent[]>();
 
   function now(): string { return new Date().toISOString(); }
 
@@ -37,6 +47,7 @@ export function createJobRegistry(): JobRegistry {
         updatedAt: now(),
       };
       jobs.set(job.id, job);
+      progressMap.set(job.id, []);
       return { ...job };
     },
     get(id) {
@@ -58,6 +69,15 @@ export function createJobRegistry(): JobRegistry {
     },
     list() {
       return [...jobs.values()].map(j => ({ ...j }));
+    },
+    emitProgress(id, event) {
+      if (!jobs.has(id)) return;
+      const evts = progressMap.get(id) ?? [];
+      evts.push({ ...event, timestamp: new Date().toISOString() });
+      progressMap.set(id, evts);
+    },
+    getProgress(id) {
+      return [...(progressMap.get(id) ?? [])];
     },
   };
 }
