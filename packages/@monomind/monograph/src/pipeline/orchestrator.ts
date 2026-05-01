@@ -18,6 +18,10 @@ import { processesPhase } from './phases/processes.js';
 import { godNodesPhase } from './phases/god-nodes.js';
 import { surprisesPhase } from './phases/surprises.js';
 import { suggestPhase } from './phases/suggest.js';
+import { variablesPhase } from './phases/variables-phase.js';
+import { wildcardSynthesisPhase } from './phases/wildcard-phase.js';
+import { frameworkDetectPhase } from './phases/framework-detect.js';
+import { importResolverPhase } from './phases/import-resolver.js';
 import type { PipelineOptions, PipelineContext } from './types.js';
 import { DEFAULT_OPTIONS } from './types.js';
 import type { PipelineProgress, SuggestedQuestion } from '../types.js';
@@ -51,8 +55,10 @@ export async function buildAsync(repoPath: string, options: BuildOptions = {}): 
     };
 
     const runner = new PipelineRunner([
-      scanPhase, structurePhase, parsePhase, markdownPhase, routesPhase, toolsPhase, ormPhase, crossFilePhase,
-      scopeResolutionPhase, mroPhase, communitiesPhase, processesPhase, godNodesPhase, surprisesPhase, suggestPhase,
+      scanPhase, frameworkDetectPhase, structurePhase, parsePhase, variablesPhase,
+      markdownPhase, routesPhase, toolsPhase, ormPhase,
+      crossFilePhase, wildcardSynthesisPhase, importResolverPhase, scopeResolutionPhase,
+      mroPhase, communitiesPhase, processesPhase, godNodesPhase, surprisesPhase, suggestPhase,
     ]);
 
     const outputs = await runner.run(ctx);

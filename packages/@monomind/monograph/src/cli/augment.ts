@@ -12,6 +12,7 @@
 import { join } from 'path';
 import { openDb, closeDb } from '../storage/db.js';
 import { hybridQuery, type HybridResult } from '../search/hybrid-query.js';
+import { globalAugmentCache } from '../cache/augment-cache.js';
 
 export interface AugmentContextOptions {
   /** The search query or task description */
@@ -50,6 +51,10 @@ export async function augmentContext(options: AugmentContextOptions): Promise<st
       ? JSON.stringify({ query, results: [], context: '' }, null, 2)
       : '';
   }
+
+  const cacheKey = globalAugmentCache.makeKey(query, repoPath, topK, format);
+  const cached = globalAugmentCache.get(cacheKey);
+  if (cached !== undefined) return cached;
 
   const dbPath = join(repoPath, '.monomind', 'monograph.db');
   const db = openDb(dbPath);
@@ -96,5 +101,7 @@ export async function augmentContext(options: AugmentContextOptions): Promise<st
     lines.push('');
   }
 
-  return lines.join('\n').trimEnd();
+  const output = lines.join('\n').trimEnd();
+  globalAugmentCache.set(cacheKey, output);
+  return output;
 }
