@@ -14,3 +14,4 @@ export * from './serve.js';
 export * from './tool-map.js';
 export * from './shape-check.js';
 export * from './neighbors.js';
+export * from './graph-query.js';
