@@ -982,6 +982,28 @@ const monographInjectContextTool: MCPTool = {
   },
 };
 
+// ── monograph_skill_gen ───────────────────────────────────────────────────────
+
+const monographSkillGenTool: MCPTool = {
+  name: 'monograph_skill_gen',
+  description: 'Generate per-community skill files summarizing code structure for AI navigation.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      outputDir: { type: 'string', description: 'Output directory for skill files (default: .monomind/skills/)' },
+    },
+  },
+  handler: async (input) => {
+    const { generateSkillFiles } = await import('@monoes/monograph');
+    const repoPath = getProjectCwd();
+    const result = await generateSkillFiles(repoPath, input.outputDir as string | undefined);
+    const dir = result.filesWritten.length > 0
+      ? result.filesWritten[0].replace(/\/[^/]+$/, '/')
+      : join(repoPath, '.monomind', 'skills') + '/';
+    return text(`Generated ${result.communityCount} skill files in ${dir}`);
+  },
+};
+
 // ── monograph_doctor ──────────────────────────────────────────────────────────
 
 const monographDoctorTool: MCPTool = {
@@ -1039,5 +1061,6 @@ export const monographTools: MCPTool[] = [
   monographGroupSyncTool,
   monographAugmentTool,
   monographInjectContextTool,
+  monographSkillGenTool,
   monographDoctorTool,
 ];
