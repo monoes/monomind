@@ -48,6 +48,7 @@ export * from './mcp-tools/tool-map.js';
 export * from './mcp-tools/shape-check.js';
 export * from './mcp-tools/neighbors.js';
 export * from './mcp-tools/graph-query.js';
+export * from './mcp-tools/explain.js';
 export * from './security/sensitive-files.js';
 export * from './validation/extraction-validator.js';
 export * from './security/safe-fetch.js';
