@@ -12,6 +12,7 @@ export interface ParseOutput {
   symbolNodes: MonographNode[];
   allEdges: MonographEdge[];
   parseErrors: string[];
+  fileContents: Map<string, string>;
 }
 
 export const parsePhase: PipelinePhase<ParseOutput> = {
@@ -22,6 +23,7 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
     const symbolNodes: MonographNode[] = [];
     const allEdges: MonographEdge[] = [];
     const parseErrors: string[] = [];
+    const fileContents = new Map<string, string>();
     let processed = 0;
 
     for (const fileNode of fileNodes) {
@@ -35,6 +37,7 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
           continue;
         }
         source = readFileSync(absPath, 'utf-8');
+        fileContents.set(fileNode.filePath ?? absPath, source);
       } catch { continue; }
 
       const result = await parseFile(absPath, source, fileNode.filePath ?? '');
@@ -64,6 +67,6 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
       insertEdges(ctx.db, resolvableEdges);
     }
 
-    return { symbolNodes, allEdges, parseErrors };
+    return { symbolNodes, allEdges, parseErrors, fileContents };
   },
 };
