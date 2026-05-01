@@ -956,6 +956,32 @@ const monographAugmentTool: MCPTool = {
   },
 };
 
+// ── monograph_inject_context ──────────────────────────────────────────────────
+
+const monographInjectContextTool: MCPTool = {
+  name: 'monograph_inject_context',
+  description: 'Inject monograph capabilities description into AGENTS.md or CLAUDE.md for AI agent discovery.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      targets: {
+        type: 'array',
+        items: { type: 'string', enum: ['claude', 'agents-md'] },
+        description: 'Which files to update (default: both)',
+      },
+    },
+  },
+  handler: async (input) => {
+    const { injectAiContext } = await import('@monoes/monograph');
+    const repoPath = getProjectCwd();
+    const result = await injectAiContext({
+      repoPath,
+      targets: input.targets as Array<'claude' | 'agents-md'> | undefined,
+    });
+    return text(`Injected context into: ${result.updated.join(', ') || 'none'}`);
+  },
+};
+
 // ── monograph_doctor ──────────────────────────────────────────────────────────
 
 const monographDoctorTool: MCPTool = {
@@ -1012,5 +1038,6 @@ export const monographTools: MCPTool[] = [
   monographShapeCheckTool,
   monographGroupSyncTool,
   monographAugmentTool,
+  monographInjectContextTool,
   monographDoctorTool,
 ];
