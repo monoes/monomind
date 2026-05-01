@@ -6,6 +6,58 @@ import { callLLM, type LLMConfig } from './providers.js';
 export type { LLMConfig } from './providers.js';
 export type { LLMProvider, LLMResponse } from './providers.js';
 
+export interface WikiGeneratorOptions {
+  repoPath: string;
+  reviewOnly?: boolean;
+  db?: MonographDb;
+}
+
+export interface WikiGeneratorResult {
+  reviewMode?: boolean;
+  proposedGroupings?: unknown[];
+  pages: string[];
+  pageCount: number;
+}
+
+/**
+ * Top-level wiki generation entry point.
+ * When reviewOnly is true, returns proposed community groupings without generating pages.
+ */
+export async function generateWiki(options: WikiGeneratorOptions): Promise<WikiGeneratorResult> {
+  const db = options.db;
+
+  // Collect community groupings from DB (if available)
+  let groupings: unknown[] = [];
+  if (db) {
+    try {
+      const rows = db.prepare('SELECT DISTINCT community_id FROM nodes WHERE community_id IS NOT NULL').all();
+      groupings = rows as unknown[];
+    } catch {
+      groupings = [];
+    }
+  }
+
+  if (options.reviewOnly) {
+    return {
+      reviewMode: true,
+      proposedGroupings: groupings,
+      pages: [],
+      pageCount: 0,
+    };
+  }
+
+  // Full generation path
+  if (!db) {
+    return { pages: [], pageCount: 0 };
+  }
+
+  const result = await generateAllWikiPages(db);
+  return {
+    pages: [],
+    pageCount: result.generated,
+  };
+}
+
 export interface LlmClient {
   generate: (prompt: string) => Promise<string>;
 }
