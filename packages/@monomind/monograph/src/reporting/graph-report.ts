@@ -70,6 +70,28 @@ function queryTopNodesByDegree(db: MonographDb, limit = 10): TopDegreeNode[] {
   return rows;
 }
 
+function queryConfidenceBreakdown(db: MonographDb): { confidence: string; count: number }[] {
+  const rows = db.prepare(`
+    SELECT confidence, COUNT(*) as count FROM edges GROUP BY confidence ORDER BY count DESC
+  `).all() as { confidence: string; count: number }[];
+  return rows;
+}
+
+function buildConfidenceAuditSection(db: MonographDb): string {
+  const rows = queryConfidenceBreakdown(db);
+  if (rows.length === 0) return '';
+  const total = rows.reduce((s, r) => s + r.count, 0);
+  const lines = ['## Confidence Audit\n'];
+  lines.push('| Confidence | Count | Percentage |');
+  lines.push('|-----------|-------|------------|');
+  for (const r of rows) {
+    const pct = total > 0 ? ((r.count / total) * 100).toFixed(1) : '0.0';
+    lines.push(`| ${r.confidence} | ${r.count} | ${pct}% |`);
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
 function queryCommunities(db: MonographDb): CommunityStat[] {
   // Get communities from nodes (community_id column)
   const rows = db.prepare(`
@@ -110,6 +132,7 @@ function buildMarkdown(
   topNodes: TopDegreeNode[],
   communities: CommunityStat[],
   staleFiles: string[],
+  confidenceSection = '',
 ): string {
   const timestamp = new Date().toISOString();
   const lines: string[] = [];
@@ -196,6 +219,10 @@ function buildMarkdown(
   }
   lines.push('');
 
+  if (confidenceSection) {
+    lines.push(confidenceSection);
+  }
+
   return lines.join('\n');
 }
 
@@ -208,8 +235,9 @@ export function buildMarkdownWithQuestions(
   communities: CommunityStat[],
   staleFiles: string[],
   questions: SuggestedQuestion[],
+  confidenceSection = '',
 ): string {
-  let md = buildMarkdown(nodeCount, edgeCount, nodesByType, edgesByRelation, topNodes, communities, staleFiles);
+  let md = buildMarkdown(nodeCount, edgeCount, nodesByType, edgesByRelation, topNodes, communities, staleFiles, confidenceSection);
 
   if (questions.length === 0) return md;
 
@@ -235,65 +263,124 @@ export function buildMarkdownWithQuestions(
 }
 
 /**
+ * Generates a graph report synchronously from an existing DB instance.
+ * Writes the markdown to outputPath/GRAPH_REPORT.md and returns the result.
+ */
+export function generateGraphReportFromDb(
+  db: MonographDb,
+  outputPath: string,
+): GraphReportResult {
+  const resolvedOutputPath = join(outputPath, 'GRAPH_REPORT.md');
+  const nodeCount = queryNodeCount(db);
+  const edgeCount = queryEdgeCount(db);
+  const nodesByType = queryNodesByType(db);
+  const edgesByRelation = queryEdgesByRelation(db);
+  const topNodes = queryTopNodesByDegree(db, 10);
+  const communities = queryCommunities(db);
+  const confidenceSection = buildConfidenceAuditSection(db);
+
+  const markdown = buildMarkdownWithQuestions(
+    nodeCount,
+    edgeCount,
+    nodesByType,
+    edgesByRelation,
+    topNodes,
+    communities,
+    [],
+    [],
+    confidenceSection,
+  );
+
+  writeFileSync(resolvedOutputPath, markdown, 'utf8');
+
+  return {
+    markdown,
+    path: resolvedOutputPath,
+    stats: {
+      nodeCount,
+      edgeCount,
+      communityCount: communities.length,
+    },
+  };
+}
+
+/**
  * Generates a GRAPH_REPORT.md summarizing the knowledge graph.
  *
- * @param repoPath - Path to the repository root (also used to locate the DB)
- * @param outputPath - Where to write the markdown file (defaults to repoPath/GRAPH_REPORT.md)
- * @param dbPath - Path to the SQLite database (defaults to repoPath/.monograph/graph.db)
- * @param questions - Suggested questions from the suggest pipeline phase
+ * Overload 1: accepts an existing DB instance and output directory (synchronous).
+ * Overload 2: accepts a repo path string and optional params (async, opens its own DB).
  */
-export async function generateGraphReport(
+export function generateGraphReport(db: MonographDb, outputPath: string): GraphReportResult;
+export function generateGraphReport(
   repoPath: string,
   outputPath?: string,
   dbPath?: string,
+  questions?: SuggestedQuestion[],
+): Promise<GraphReportResult>;
+export function generateGraphReport(
+  dbOrRepoPath: MonographDb | string,
+  outputPath?: string,
+  dbPath?: string,
   questions: SuggestedQuestion[] = [],
-): Promise<GraphReportResult> {
+): GraphReportResult | Promise<GraphReportResult> {
+  // Sync overload: first arg is a DB instance
+  if (typeof dbOrRepoPath !== 'string') {
+    const db = dbOrRepoPath;
+    return generateGraphReportFromDb(db, outputPath ?? '/tmp');
+  }
+
+  // Async overload: first arg is a repo path string
+  const repoPath = dbOrRepoPath;
   const resolvedDbPath = dbPath ?? join(repoPath, '.monograph', 'graph.db');
   const resolvedOutputPath = outputPath ?? join(repoPath, 'GRAPH_REPORT.md');
 
-  const db = openDb(resolvedDbPath);
-  try {
-    const nodeCount = queryNodeCount(db);
-    const edgeCount = queryEdgeCount(db);
-    const nodesByType = queryNodesByType(db);
-    const edgesByRelation = queryEdgesByRelation(db);
-    const topNodes = queryTopNodesByDegree(db, 10);
-    const communities = queryCommunities(db);
-
-    // Stale files from git-staleness
-    let staleFiles: string[] = [];
+  return (async () => {
+    const db = openDb(resolvedDbPath);
     try {
-      const stalenessReport = checkStaleness(db, repoPath);
-      if (stalenessReport.isStale && stalenessReport.changedSince.length > 0) {
-        staleFiles = stalenessReport.changedSince;
+      const nodeCount = queryNodeCount(db);
+      const edgeCount = queryEdgeCount(db);
+      const nodesByType = queryNodesByType(db);
+      const edgesByRelation = queryEdgesByRelation(db);
+      const topNodes = queryTopNodesByDegree(db, 10);
+      const communities = queryCommunities(db);
+
+      // Stale files from git-staleness
+      let staleFiles: string[] = [];
+      try {
+        const stalenessReport = checkStaleness(db, repoPath);
+        if (stalenessReport.isStale && stalenessReport.changedSince.length > 0) {
+          staleFiles = stalenessReport.changedSince;
+        }
+      } catch {
+        // Staleness check is best-effort
       }
-    } catch {
-      // Staleness check is best-effort
-    }
 
-    const markdown = buildMarkdownWithQuestions(
-      nodeCount,
-      edgeCount,
-      nodesByType,
-      edgesByRelation,
-      topNodes,
-      communities,
-      staleFiles,
-      questions,
-    );
-
-    writeFileSync(resolvedOutputPath, markdown, 'utf8');
-
-    return {
-      markdown,
-      path: resolvedOutputPath,
-      stats: {
+      const confidenceSection = buildConfidenceAuditSection(db);
+      const markdown = buildMarkdownWithQuestions(
         nodeCount,
         edgeCount,
-        communityCount: communities.length,
-      },
-    };
-  } finally {
-    closeDb(db);
-  }
+        nodesByType,
+        edgesByRelation,
+        topNodes,
+        communities,
+        staleFiles,
+        questions,
+        confidenceSection,
+      );
+
+      writeFileSync(resolvedOutputPath, markdown, 'utf8');
+
+      return {
+        markdown,
+        path: resolvedOutputPath,
+        stats: {
+          nodeCount,
+          edgeCount,
+          communityCount: communities.length,
+        },
+      };
+    } finally {
+      closeDb(db);
+    }
+  })();
 }
