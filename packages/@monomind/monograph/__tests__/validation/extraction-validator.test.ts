@@ -43,5 +43,6 @@ describe('validateExtraction', () => {
     const badEdge = { ...validEdge, confidence: 'MADE_UP' as any };
     const r = validateExtraction([validNode], [badEdge]);
     expect(r.valid).toBe(false);
+    expect(r.errors.some(e => e.includes('confidence'))).toBe(true);
   });
 });
