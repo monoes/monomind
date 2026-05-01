@@ -19,6 +19,17 @@ function rowToNode(row: Record<string, unknown>): MonographNode {
   };
 }
 
+// ── Risk level ─────────────────────────────────────────────────────────────────
+
+export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export function computeRiskLevel(riskScore: number): RiskLevel {
+  if (riskScore > 0.75) return 'CRITICAL';
+  if (riskScore > 0.5) return 'HIGH';
+  if (riskScore > 0.25) return 'MEDIUM';
+  return 'LOW';
+}
+
 // ── Output type ────────────────────────────────────────────────────────────────
 
 export interface MonographImpactResult {
@@ -27,6 +38,7 @@ export interface MonographImpactResult {
   transitiveCallers: Array<{ depth: number; nodes: MonographNode[] }>;
   affectedFiles: string[];
   riskScore: number;
+  riskLevel: RiskLevel;
 }
 
 // ── Reverse BFS on CALLS edges ────────────────────────────────────────────────
@@ -131,5 +143,5 @@ export function getMonographImpact(
   const totalCallerCount = visited.size - 1; // exclude start node
   const riskScore = Math.min(Math.log2(totalCallerCount + 1), 10);
 
-  return { node, directCallers, transitiveCallers, affectedFiles, riskScore };
+  return { node, directCallers, transitiveCallers, affectedFiles, riskScore, riskLevel: computeRiskLevel(riskScore) };
 }
