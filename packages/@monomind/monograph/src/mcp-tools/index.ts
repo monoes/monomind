@@ -16,3 +16,5 @@ export * from './shape-check.js';
 export * from './neighbors.js';
 export * from './graph-query.js';
 export * from './explain.js';
+export * from './embed.js';
+export * from './group-sync.js';
