@@ -9,6 +9,7 @@ export * from './pipeline/orchestrator.js';
 export * from './graph/loader.js';
 export * from './graph/analyzer.js';
 export * from './graph/diff.js';
+export * from './graph/dfs.js';
 export * from './watch/watcher.js';
 export * from './export/json.js';
 export * from './export/html.js';
