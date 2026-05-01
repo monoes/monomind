@@ -190,6 +190,179 @@ describe('orm phase — Mongoose new Schema()', () => {
   });
 });
 
+// ── Sequelize ─────────────────────────────────────────────────────────────────
+
+describe('orm phase — Sequelize Model.init()', () => {
+  const base = join(tmpdir(), `monograph-orm-sequelize-init-${Date.now()}`);
+  const dbPath = join(base, '.monomind', 'monograph.db');
+
+  beforeAll(async () => {
+    mkdirSync(join(base, 'src'), { recursive: true });
+
+    writeFileSync(
+      join(base, 'src', 'order.model.ts'),
+      [
+        `import { Model, DataTypes, Sequelize } from 'sequelize';`,
+        ``,
+        `class Order extends Model {}`,
+        ``,
+        `Order.init(`,
+        `  {`,
+        `    id: { type: DataTypes.INTEGER, primaryKey: true },`,
+        `    total: { type: DataTypes.DECIMAL },`,
+        `    status: DataTypes.STRING,`,
+        `  },`,
+        `  { sequelize, tableName: 'orders' },`,
+        `);`,
+        ``,
+        `export { Order };`,
+      ].join('\n') + '\n',
+    );
+
+    await buildAsync(base);
+  }, 60000);
+
+  afterAll(() => rmSync(base, { recursive: true, force: true }));
+
+  it('creates the SQLite database', () => {
+    expect(existsSync(dbPath)).toBe(true);
+  });
+
+  it('creates an Entity node for the Sequelize Model subclass', () => {
+    const db = openDb(dbPath);
+    try {
+      const row = db
+        .prepare(`SELECT * FROM nodes WHERE label = 'Entity' AND name = 'Order'`)
+        .get() as { name: string } | undefined;
+      expect(row).toBeDefined();
+      expect(row!.name).toBe('Order');
+    } finally {
+      closeDb(db);
+    }
+  });
+
+  it('creates Field nodes for Sequelize columns', () => {
+    const db = openDb(dbPath);
+    try {
+      const rows = db
+        .prepare(`SELECT name FROM nodes WHERE label = 'Field'`)
+        .all() as { name: string }[];
+      const names = rows.map(r => r.name);
+      expect(names.length).toBeGreaterThan(0);
+    } finally {
+      closeDb(db);
+    }
+  });
+});
+
+describe('orm phase — Sequelize sequelize.define()', () => {
+  const base = join(tmpdir(), `monograph-orm-sequelize-define-${Date.now()}`);
+  const dbPath = join(base, '.monomind', 'monograph.db');
+
+  beforeAll(async () => {
+    mkdirSync(join(base, 'src'), { recursive: true });
+
+    writeFileSync(
+      join(base, 'src', 'product.js'),
+      [
+        `const { DataTypes } = require('sequelize');`,
+        ``,
+        `const Product = sequelize.define('Product', {`,
+        `  name: DataTypes.STRING,`,
+        `  price: { type: DataTypes.FLOAT },`,
+        `  sku: DataTypes.STRING,`,
+        `});`,
+        ``,
+        `module.exports = Product;`,
+      ].join('\n') + '\n',
+    );
+
+    await buildAsync(base);
+  }, 60000);
+
+  afterAll(() => rmSync(base, { recursive: true, force: true }));
+
+  it('creates the SQLite database', () => {
+    expect(existsSync(dbPath)).toBe(true);
+  });
+
+  it('creates an Entity node from sequelize.define()', () => {
+    const db = openDb(dbPath);
+    try {
+      const row = db
+        .prepare(`SELECT * FROM nodes WHERE label = 'Entity' AND name = 'Product'`)
+        .get() as { name: string } | undefined;
+      expect(row).toBeDefined();
+    } finally {
+      closeDb(db);
+    }
+  });
+});
+
+// ── MikroORM ──────────────────────────────────────────────────────────────────
+
+describe('orm phase — MikroORM @Entity() with @Property()', () => {
+  const base = join(tmpdir(), `monograph-orm-mikro-${Date.now()}`);
+  const dbPath = join(base, '.monomind', 'monograph.db');
+
+  beforeAll(async () => {
+    mkdirSync(join(base, 'src'), { recursive: true });
+
+    writeFileSync(
+      join(base, 'src', 'book.entity.ts'),
+      [
+        `import { Entity, PrimaryKey, Property, ManyToOne } from '@mikro-orm/core';`,
+        ``,
+        `@Entity()`,
+        `export class Book {`,
+        `  @PrimaryKey()`,
+        `  id!: number;`,
+        ``,
+        `  @Property()`,
+        `  title!: string;`,
+        ``,
+        `  @Property()`,
+        `  isbn!: string;`,
+        `}`,
+      ].join('\n') + '\n',
+    );
+
+    await buildAsync(base);
+  }, 60000);
+
+  afterAll(() => rmSync(base, { recursive: true, force: true }));
+
+  it('creates the SQLite database', () => {
+    expect(existsSync(dbPath)).toBe(true);
+  });
+
+  it('creates an Entity node for the MikroORM entity class', () => {
+    const db = openDb(dbPath);
+    try {
+      const row = db
+        .prepare(`SELECT * FROM nodes WHERE label = 'Entity' AND name = 'Book'`)
+        .get() as { name: string } | undefined;
+      expect(row).toBeDefined();
+      expect(row!.name).toBe('Book');
+    } finally {
+      closeDb(db);
+    }
+  });
+
+  it('creates Field nodes for @Property() decorated fields', () => {
+    const db = openDb(dbPath);
+    try {
+      const rows = db
+        .prepare(`SELECT name FROM nodes WHERE label = 'Field'`)
+        .all() as { name: string }[];
+      const names = rows.map(r => r.name);
+      expect(names.length).toBeGreaterThan(0);
+    } finally {
+      closeDb(db);
+    }
+  });
+});
+
 // ── No ORM patterns ───────────────────────────────────────────────────────────
 
 describe('orm phase — no ORM patterns', () => {
