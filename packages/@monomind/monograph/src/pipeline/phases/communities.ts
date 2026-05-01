@@ -84,3 +84,16 @@ export const communitiesPhase: PipelinePhase<CommunitiesOutput> = {
     return { memberships, communityLabels, cohesionScores };
   },
 };
+
+/**
+ * Split a community that is too large into smaller sub-groups.
+ * By graphify convention, communities >25% of total graph nodes are split.
+ */
+export function splitOversizedCommunity(memberIds: string[], maxGroupSize: number): string[][] {
+  if (memberIds.length <= maxGroupSize) return [memberIds];
+  const groups: string[][] = [];
+  for (let i = 0; i < memberIds.length; i += maxGroupSize) {
+    groups.push(memberIds.slice(i, i + maxGroupSize));
+  }
+  return groups;
+}
