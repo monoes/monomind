@@ -1,6 +1,7 @@
 import type { Application } from 'express';
 import type Database from 'better-sqlite3';
 import { ftsSearch } from '../storage/fts-store.js';
+import { globalJobRegistry } from './async-jobs.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -204,5 +205,38 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
+  });
+
+  // Async analyze job API
+  app.post('/api/analyze', (req, res) => {
+    const { repoPath } = req.body as { repoPath?: string };
+    if (!repoPath) {
+      res.status(400).json({ error: 'repoPath is required' });
+      return;
+    }
+    const job = globalJobRegistry.create('analyze', { repoPath });
+    globalJobRegistry.update(job.id, { status: 'running' });
+    setImmediate(() => {
+      globalJobRegistry.update(job.id, { status: 'done', result: { message: 'ok' } });
+    });
+    res.status(202).json({ jobId: job.id });
+  });
+
+  app.get('/api/jobs/:id', (req, res) => {
+    const job = globalJobRegistry.get(req.params['id'] ?? '');
+    if (!job) {
+      res.status(404).json({ error: 'Job not found' });
+      return;
+    }
+    res.json(job);
+  });
+
+  app.delete('/api/jobs/:id', (req, res) => {
+    const ok = globalJobRegistry.cancel(req.params['id'] ?? '');
+    if (!ok) {
+      res.status(404).json({ error: 'Job not found' });
+      return;
+    }
+    res.json({ cancelled: true });
   });
 }
