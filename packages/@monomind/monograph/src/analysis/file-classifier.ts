@@ -59,3 +59,26 @@ export function classifyFile(pathOrUrl: string): FileType {
 
   return 'CODE';
 }
+
+const PAPER_CONTENT_SIGNALS: RegExp[] = [
+  /\\cite\{/,
+  /\[\d{1,3}\](?:\[\d{1,3}\])+/,
+  /\bEq(?:uation|n)?\.\s*\d+/i,
+  /\bdoi:\s*10\.\d{4,}/i,
+  /^Abstract\b/im,
+  /\bWe propose\b/i,
+  /\bProceedings\s+of\b/i,
+  /\b(Journal|Preprint|arXiv)\b/i,
+  /\d{4}\.\d{4,5}/,
+  /\b\d+\(\d+\):\d+-\d+\b/,
+  /\\bibliography\{/,
+  /\bTable of Contents\b.*\n.*\bIntroduction\b/is,
+];
+
+const PAPER_CONTENT_THRESHOLD = 1;
+
+export function classifyContent(text: string): FileType {
+  const matches = PAPER_CONTENT_SIGNALS.filter(p => p.test(text)).length;
+  if (matches >= PAPER_CONTENT_THRESHOLD) return 'PAPER';
+  return 'DOCUMENT';
+}

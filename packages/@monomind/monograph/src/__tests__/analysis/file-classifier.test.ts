@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyFile } from '../../analysis/file-classifier.js';
+import { classifyFile, classifyContent } from '../../analysis/file-classifier.js';
 
 describe('classifyFile', () => {
   it('classifies TypeScript as CODE', () => {
@@ -28,5 +28,23 @@ describe('classifyFile', () => {
   });
   it('detects paper signals in filename', () => {
     expect(classifyFile('attention_is_all_you_need.pdf')).toBe('PAPER');
+  });
+});
+
+describe('paper detection signals', () => {
+  it('detects LaTeX cite command', () => {
+    expect(classifyContent('We show \\cite{smith2020} that...')).toBe('PAPER');
+  });
+  it('detects numbered citations', () => {
+    expect(classifyContent('The results [1][2][3] confirm...')).toBe('PAPER');
+  });
+  it('detects DOI pattern', () => {
+    expect(classifyContent('doi:10.1145/3491102.3501993')).toBe('PAPER');
+  });
+  it('detects abstract keyword', () => {
+    expect(classifyContent('Abstract\nIn this paper we propose...')).toBe('PAPER');
+  });
+  it('does not classify random text as PAPER', () => {
+    expect(classifyContent('Hello world this is a readme.')).not.toBe('PAPER');
   });
 });
