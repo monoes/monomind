@@ -30,7 +30,7 @@ describe('surprises 5-factor scoring', () => {
     const communitiesOutput = { memberships: new Map([['n1', 0], ['n2', 0], ['n3', 0], ['n4', 0]]) };
 
     const db = new Database(':memory:');
-    const deps = new Map([
+    const deps = new Map<string, any>([
       ['parse', parseOutput],
       ['cross-file', crossFileOutput],
       ['communities', communitiesOutput],

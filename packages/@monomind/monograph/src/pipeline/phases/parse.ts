@@ -52,7 +52,8 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
           symbolNodes.push({
             id: `${ns.filePath}::namespace::${ns.name}`,
             name: ns.name,
-            kind: 'Namespace',
+            label: 'Namespace',
+            normLabel: 'namespace',
             filePath: ns.filePath,
             line: ns.line,
             isExported: true,
@@ -71,7 +72,8 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
           symbolNodes.push({
             id: `${fn.filePath}::fn::${fn.name}`,
             name: fn.name,
-            kind: 'Function',
+            label: 'Function',
+            normLabel: 'function',
             filePath: fn.filePath,
             line: fn.line,
             isExported: fn.isExported,

@@ -44,7 +44,7 @@ describe('wildcardSynthesisPhase', () => {
       fileContents: new Map([['/main.ts', source]]),
     };
     const crossFileOutput = { resolvedEdges: [] };
-    const deps = new Map([['parse', parseOutput], ['cross-file', crossFileOutput]]);
+    const deps = new Map<string, any>([['parse', parseOutput], ['cross-file', crossFileOutput]]);
     const result = await wildcardSynthesisPhase.execute(makeCtx(db), deps);
     expect((result as any).synthesizedCount).toBeGreaterThanOrEqual(0);
   });
@@ -58,7 +58,7 @@ describe('wildcardSynthesisPhase', () => {
       fileContents: new Map([['/main.ts', 'import { greet } from "./mod.js"; greet("hello");']]),
     };
     const crossFileOutput = { resolvedEdges: [] };
-    const deps = new Map([['parse', parseOutput], ['cross-file', crossFileOutput]]);
+    const deps = new Map<string, any>([['parse', parseOutput], ['cross-file', crossFileOutput]]);
     await expect(wildcardSynthesisPhase.execute(makeCtx(db), deps)).resolves.not.toThrow();
   });
 });
