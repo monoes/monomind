@@ -3,6 +3,7 @@ import type { SurprisingConnection } from '../../types.js';
 import type { ParseOutput } from './parse.js';
 import type { CrossFileOutput } from './cross-file.js';
 import type { CommunitiesOutput } from './communities.js';
+import { classifyFile } from '../../analysis/file-classifier.js';
 
 const WEIGHTS = {
   confidence: 0.30,
@@ -53,6 +54,18 @@ export const surprisesPhase: PipelinePhase<SurprisesOutput> = {
         if (srcComm !== undefined && tgtComm !== undefined && srcComm !== tgtComm) {
           score += WEIGHTS.crossCommunity;
           reasons.push('cross-community');
+        }
+
+        // Cross-filetype bonus: CODE↔DOCUMENT/PAPER edges get extra weight
+        const srcFilePath = symbolNodes.find(n => n.id === e.sourceId)?.filePath;
+        const tgtFilePath = symbolNodes.find(n => n.id === e.targetId)?.filePath;
+        if (srcFilePath && tgtFilePath) {
+          const srcFileType = classifyFile(srcFilePath);
+          const tgtFileType = classifyFile(tgtFilePath);
+          if (srcFileType !== tgtFileType) {
+            score += WEIGHTS.crossRepo;  // reuse unused crossRepo weight (0.15)
+            reasons.push(`cross-filetype (${srcFileType}→${tgtFileType})`);
+          }
         }
 
         if ((inDeg.get(e.targetId) ?? 0) < peripheralThreshold) {
