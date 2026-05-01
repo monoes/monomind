@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS edges (
   relation TEXT NOT NULL,
   confidence TEXT NOT NULL DEFAULT 'EXTRACTED',
   confidence_score REAL NOT NULL DEFAULT 1.0,
+  reason TEXT,
   FOREIGN KEY (source_id) REFERENCES nodes(id),
   FOREIGN KEY (target_id) REFERENCES nodes(id)
 )`;
