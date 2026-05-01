@@ -82,3 +82,4 @@ export * from './analysis/benchmark.js';
 export * from './parsers/named-bindings.js';
 export * from './cache/augment-cache.js';
 export * from './scope-resolution/evidence-weights.js';
+export * from './export/csv.js';
