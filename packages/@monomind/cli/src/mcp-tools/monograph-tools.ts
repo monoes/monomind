@@ -929,6 +929,33 @@ const monographGroupSyncTool: MCPTool = {
   },
 };
 
+// ── monograph_augment ─────────────────────────────────────────────────────────
+
+const monographAugmentTool: MCPTool = {
+  name: 'monograph_augment',
+  description: 'Retrieve relevant code context for a query using graph-RAG. Returns formatted context block for injection into AI prompts.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'The search query or task description' },
+      topK: { type: 'number', description: 'Number of results (default: 10)' },
+      format: { type: 'string', enum: ['markdown', 'json'], description: 'Output format (default: markdown)' },
+    },
+    required: ['query'],
+  },
+  handler: async (input) => {
+    const { augmentContext } = await import('@monoes/monograph');
+    const repoPath = getProjectCwd();
+    const result = await augmentContext({
+      query: input.query as string,
+      repoPath,
+      topK: (input.topK as number | undefined) ?? 10,
+      format: (input.format as 'markdown' | 'json' | undefined) ?? 'markdown',
+    });
+    return text(result);
+  },
+};
+
 // ── Export all tools ──────────────────────────────────────────────────────────
 
 export const monographTools: MCPTool[] = [
@@ -965,4 +992,5 @@ export const monographTools: MCPTool[] = [
   monographToolMapTool,
   monographShapeCheckTool,
   monographGroupSyncTool,
+  monographAugmentTool,
 ];
