@@ -30,6 +30,14 @@ export function computeRiskLevel(riskScore: number): RiskLevel {
   return 'LOW';
 }
 
+// ── Options ────────────────────────────────────────────────────────────────────
+
+export interface ImpactOptions {
+  minConfidenceScore?: number;
+  relationTypes?: string[];
+  maxDepth?: number;
+}
+
 // ── Output type ────────────────────────────────────────────────────────────────
 
 export interface MonographImpactResult {
@@ -43,19 +51,33 @@ export interface MonographImpactResult {
 
 // ── Reverse BFS on CALLS edges ────────────────────────────────────────────────
 
-function reverseBfs(startNodeId: string, db: Database.Database, maxDepth: number): Map<string, number> {
+function reverseBfs(
+  startNodeId: string,
+  db: Database.Database,
+  maxDepth: number,
+  options: ImpactOptions = {},
+): Map<string, number> {
   const visited = new Map<string, number>([[startNodeId, 0]]);
   const queue: Array<{ id: string; depth: number }> = [{ id: startNodeId, depth: 0 }];
 
-  const stmt = db.prepare(
-    `SELECT source_id FROM edges WHERE target_id = ? AND relation = 'CALLS'`,
-  );
+  const relations = options.relationTypes ?? ['CALLS'];
+  const placeholders = relations.map(() => '?').join(',');
+  const baseQuery = `SELECT source_id FROM edges WHERE target_id = ? AND relation IN (${placeholders})`;
+  const query = options.minConfidenceScore !== undefined
+    ? `${baseQuery} AND confidence_score >= ?`
+    : baseQuery;
+
+  const stmt = db.prepare(query);
 
   while (queue.length > 0) {
     const { id, depth } = queue.shift()!;
     if (depth >= maxDepth) continue;
 
-    const callers = stmt.all(id) as Array<{ source_id: string }>;
+    const params: unknown[] = [id, ...relations];
+    if (options.minConfidenceScore !== undefined) {
+      params.push(options.minConfidenceScore);
+    }
+    const callers = stmt.all(...params) as Array<{ source_id: string }>;
     for (const { source_id } of callers) {
       if (!visited.has(source_id)) {
         visited.set(source_id, depth + 1);
@@ -95,7 +117,7 @@ export function getMonographImpact(
   const nodeId = node.id;
 
   // Reverse BFS to find all callers (depth 0 = start node)
-  const visited = reverseBfs(nodeId, db, maxDepth);
+  const visited = reverseBfs(nodeId, db, maxDepth, {});
 
   // Separate direct callers (depth 1) from transitive (depth 2+)
   const directCallerIds: string[] = [];
@@ -141,6 +163,72 @@ export function getMonographImpact(
 
   // Risk score: log2(totalCallerCount + 1) normalized to [0, 1] (max log2(11) ≈ 3.46, capped at 10, /10)
   const totalCallerCount = visited.size - 1; // exclude start node
+  const rawScore = Math.min(Math.log2(totalCallerCount + 1), 10);
+  const riskScore = rawScore / 10;
+
+  return { node, directCallers, transitiveCallers, affectedFiles, riskScore, riskLevel: computeRiskLevel(riskScore) };
+}
+
+// ── id-based impact with filtering options ────────────────────────────────────
+
+export async function monographImpact(
+  db: Database.Database,
+  nodeId: string,
+  options: ImpactOptions = {},
+): Promise<MonographImpactResult> {
+  const maxDepth = Math.min(options.maxDepth ?? 3, 6);
+
+  const nodeRow = db
+    .prepare('SELECT * FROM nodes WHERE id = ? LIMIT 1')
+    .get(nodeId) as Record<string, unknown> | undefined;
+
+  if (!nodeRow) {
+    return { node: null, directCallers: [], transitiveCallers: [], affectedFiles: [], riskScore: 0, riskLevel: 'LOW' };
+  }
+
+  const node = rowToNode(nodeRow);
+  const visited = reverseBfs(nodeId, db, maxDepth, options);
+
+  const directCallerIds: string[] = [];
+  const byDepth = new Map<number, string[]>();
+
+  for (const [id, depth] of visited.entries()) {
+    if (id === nodeId) continue;
+    if (depth === 1) {
+      directCallerIds.push(id);
+    } else {
+      const existing = byDepth.get(depth) ?? [];
+      existing.push(id);
+      byDepth.set(depth, existing);
+    }
+  }
+
+  const getNodesByIds = (ids: string[]): MonographNode[] => {
+    if (ids.length === 0) return [];
+    const placeholders = ids.map(() => '?').join(',');
+    const rows = db
+      .prepare(`SELECT * FROM nodes WHERE id IN (${placeholders})`)
+      .all(...ids) as Record<string, unknown>[];
+    return rows.map(rowToNode);
+  };
+
+  const directCallers = getNodesByIds(directCallerIds);
+
+  const transitiveCallers: Array<{ depth: number; nodes: MonographNode[] }> = [];
+  const sortedDepths = Array.from(byDepth.keys()).sort((a, b) => a - b);
+  for (const depth of sortedDepths) {
+    const ids = byDepth.get(depth)!;
+    transitiveCallers.push({ depth, nodes: getNodesByIds(ids) });
+  }
+
+  const allAffectedNodes = [...directCallers, ...transitiveCallers.flatMap(t => t.nodes)];
+  const affectedFiles = [...new Set(
+    allAffectedNodes
+      .map(n => n.filePath)
+      .filter((p): p is string => p != null),
+  )];
+
+  const totalCallerCount = visited.size - 1;
   const rawScore = Math.min(Math.log2(totalCallerCount + 1), 10);
   const riskScore = rawScore / 10;
 
