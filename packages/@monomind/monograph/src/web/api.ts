@@ -297,11 +297,40 @@ export function getServerInfo(): ServerInfo {
   };
 }
 
+// ── Streaming graph export ────────────────────────────────────────────────────
+
+export async function streamGraph(
+  db: Database.Database,
+  onRecord: (record: unknown) => void,
+): Promise<void> {
+  const nodeRows = db.prepare('SELECT id, name, label, file_path, start_line, end_line, community_id FROM nodes').all() as Record<string, unknown>[];
+  for (const row of nodeRows) {
+    onRecord({ type: 'node', ...rowToApiNode(row) });
+  }
+  const edgeRows = db.prepare('SELECT source_id, target_id, relation, confidence_score FROM edges').all() as Record<string, unknown>[];
+  for (const row of edgeRows) {
+    onRecord({
+      type: 'edge',
+      sourceId: row['source_id'],
+      targetId: row['target_id'],
+      relation: row['relation'],
+      confidenceScore: row['confidence_score'],
+    });
+  }
+}
+
 // ── Route setup ───────────────────────────────────────────────────────────────
 
 export function setupApiRoutes(app: Application, db: Database.Database): void {
-  app.get('/api/graph', (_req, res) => {
+  app.get('/api/graph', (req, res) => {
     try {
+      if (req.query['stream'] === 'true') {
+        res.setHeader('Content-Type', 'application/x-ndjson');
+        streamGraph(db, (record) => {
+          res.write(JSON.stringify(record) + '\n');
+        }).then(() => res.end()).catch(() => res.end());
+        return;
+      }
       res.json(queryGraph(db));
     } catch (err) {
       res.status(500).json({ error: String(err) });
