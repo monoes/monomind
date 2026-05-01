@@ -20,7 +20,8 @@ import { surprisesPhase } from './phases/surprises.js';
 import { suggestPhase } from './phases/suggest.js';
 import type { PipelineOptions, PipelineContext } from './types.js';
 import { DEFAULT_OPTIONS } from './types.js';
-import type { PipelineProgress } from '../types.js';
+import type { PipelineProgress, SuggestedQuestion } from '../types.js';
+import { generateGraphReport } from '../reporting/graph-report.js';
 
 function getCurrentCommitHash(repoPath: string): string | null {
   try {
@@ -54,12 +55,16 @@ export async function buildAsync(repoPath: string, options: BuildOptions = {}): 
       scopeResolutionPhase, mroPhase, communitiesPhase, processesPhase, godNodesPhase, surprisesPhase, suggestPhase,
     ]);
 
-    await runner.run(ctx);
+    const outputs = await runner.run(ctx);
 
     const hash = getCurrentCommitHash(resolve(repoPath));
     if (hash) {
       db.prepare("INSERT OR REPLACE INTO index_meta VALUES ('last_commit_hash', ?)").run(hash);
     }
+
+    const suggestOut = outputs.get('suggest') as { questions: SuggestedQuestion[] } | undefined;
+    const questions = suggestOut?.questions ?? [];
+    await generateGraphReport(resolve(repoPath), undefined, dbPath, questions);
   } finally {
     closeDb(db);
   }

@@ -3,6 +3,7 @@ import { join } from 'path';
 import type { MonographDb } from '../storage/db.js';
 import { openDb, closeDb } from '../storage/db.js';
 import { checkStaleness } from '../staleness/git-staleness.js';
+import type { SuggestedQuestion } from '../types.js';
 
 export interface GraphReportResult {
   markdown: string;
@@ -198,17 +199,54 @@ function buildMarkdown(
   return lines.join('\n');
 }
 
+export function buildMarkdownWithQuestions(
+  nodeCount: number,
+  edgeCount: number,
+  nodesByType: NodeTypeStat[],
+  edgesByRelation: EdgeRelationStat[],
+  topNodes: TopDegreeNode[],
+  communities: CommunityStat[],
+  staleFiles: string[],
+  questions: SuggestedQuestion[],
+): string {
+  let md = buildMarkdown(nodeCount, edgeCount, nodesByType, edgesByRelation, topNodes, communities, staleFiles);
+
+  if (questions.length === 0) return md;
+
+  const capped = questions.slice(0, 20);
+  const lines: string[] = ['## Suggested Questions', ''];
+  for (const q of capped) {
+    if (q.type === 'bridge_node') {
+      lines.push(`- **bridge_node**: \`${q.node.name}\` bridges community ${q.commA} and ${q.commB}`);
+    } else if (q.type === 'ambiguous_edge') {
+      lines.push(`- **ambiguous_edge**: \`${q.edge.sourceId}\` → \`${q.edge.targetId}\` — ${q.reason}`);
+    } else if (q.type === 'verify_inferred') {
+      lines.push(`- **verify_inferred**: \`${q.edge.sourceId}\` → \`${q.edge.targetId}\` (inferred from ${q.inferredFrom})`);
+    } else if (q.type === 'isolated_nodes') {
+      const names = q.nodes.map(n => `\`${n.name}\``).join(', ');
+      lines.push(`- **isolated_nodes**: ${names} — ${q.reason}`);
+    } else if (q.type === 'low_cohesion') {
+      lines.push(`- **low_cohesion**: community ${q.community.id} (cohesion: ${q.community.cohesionScore.toFixed(2)})`);
+    }
+  }
+  lines.push('');
+  md = md + '\n' + lines.join('\n');
+  return md;
+}
+
 /**
  * Generates a GRAPH_REPORT.md summarizing the knowledge graph.
  *
  * @param repoPath - Path to the repository root (also used to locate the DB)
  * @param outputPath - Where to write the markdown file (defaults to repoPath/GRAPH_REPORT.md)
  * @param dbPath - Path to the SQLite database (defaults to repoPath/.monograph/graph.db)
+ * @param questions - Suggested questions from the suggest pipeline phase
  */
 export async function generateGraphReport(
   repoPath: string,
   outputPath?: string,
   dbPath?: string,
+  questions: SuggestedQuestion[] = [],
 ): Promise<GraphReportResult> {
   const resolvedDbPath = dbPath ?? join(repoPath, '.monograph', 'graph.db');
   const resolvedOutputPath = outputPath ?? join(repoPath, 'GRAPH_REPORT.md');
@@ -233,7 +271,7 @@ export async function generateGraphReport(
       // Staleness check is best-effort
     }
 
-    const markdown = buildMarkdown(
+    const markdown = buildMarkdownWithQuestions(
       nodeCount,
       edgeCount,
       nodesByType,
@@ -241,6 +279,7 @@ export async function generateGraphReport(
       topNodes,
       communities,
       staleFiles,
+      questions,
     );
 
     writeFileSync(resolvedOutputPath, markdown, 'utf8');
