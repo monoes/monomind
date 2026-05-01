@@ -75,6 +75,7 @@ const commandLoaders: Record<string, CommandLoader> = {
   cleanup: () => import('./cleanup.js'),
   autopilot: () => import('./autopilot.js'),
   tokens: () => import('./tokens.js'),
+  platforms: () => import('./platforms.js'),
 };
 
 // Cache for loaded commands
@@ -153,6 +154,7 @@ import { guidanceCommand } from './guidance.js';
 import { applianceCommand } from './appliance.js';
 import { cleanupCommand } from './cleanup.js';
 import { autopilotCommand } from './autopilot.js';
+import { platformsCommand } from './platforms.js';
 
 // Pre-populate cache with core commands
 loadedCommands.set('init', initCommand);
@@ -176,6 +178,7 @@ loadedCommands.set('hive-mind', hiveMindCommand);
 loadedCommands.set('guidance', guidanceCommand);
 loadedCommands.set('cleanup', cleanupCommand);
 loadedCommands.set('autopilot', autopilotCommand);
+loadedCommands.set('platforms', platformsCommand);
 
 // =============================================================================
 // Exports (maintain backwards compatibility)
@@ -204,6 +207,7 @@ export { guidanceCommand } from './guidance.js';
 export { applianceCommand } from './appliance.js';
 export { cleanupCommand } from './cleanup.js';
 export { autopilotCommand } from './autopilot.js';
+export { platformsCommand } from './platforms.js';
 
 // Lazy-loaded command re-exports (for backwards compatibility, but async-only)
 export async function getConfigCommand() { return loadCommand('config'); }
@@ -259,6 +263,7 @@ export const commands: Command[] = [
   guidanceCommand,
   cleanupCommand,
   autopilotCommand,
+  platformsCommand,
 ];
 
 /**
@@ -310,6 +315,7 @@ export const commandsByCategory = {
     processCommand,
     applianceCommand,
     cleanupCommand,
+    platformsCommand,
   ],
 };
 
