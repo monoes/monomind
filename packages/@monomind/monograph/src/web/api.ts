@@ -1,5 +1,6 @@
 import type { Application } from 'express';
 import type Database from 'better-sqlite3';
+import { readFileSync } from 'fs';
 import { ftsSearch } from '../storage/fts-store.js';
 import { globalJobRegistry } from './async-jobs.js';
 
@@ -162,6 +163,57 @@ export function queryStats(db: Database.Database): StatsData {
   };
 }
 
+export interface GrepResult {
+  id: string;
+  name: string;
+  label: string;
+  filePath: string | null;
+  startLine: number | null;
+}
+
+export function queryGrep(db: Database.Database, pattern: string, caseSensitive: boolean): GrepResult[] {
+  const sql = caseSensitive
+    ? `SELECT id, name, label, file_path, start_line FROM nodes WHERE name GLOB ? LIMIT 100`
+    : `SELECT id, name, label, file_path, start_line FROM nodes WHERE name LIKE ? LIMIT 100`;
+  const param = caseSensitive ? `*${pattern}*` : `%${pattern}%`;
+  const rows = db.prepare(sql).all(param) as Record<string, unknown>[];
+  return rows.map(r => ({
+    id: r['id'] as string,
+    name: r['name'] as string,
+    label: r['label'] as string,
+    filePath: (r['file_path'] as string | null) ?? null,
+    startLine: (r['start_line'] as number | null) ?? null,
+  }));
+}
+
+export interface FileLine {
+  number: number;
+  content: string;
+}
+
+export interface FileContent {
+  path: string;
+  totalLines: number;
+  lines: FileLine[];
+}
+
+export function readFileContent(filePath: string, startLine?: number, endLine?: number): FileContent {
+  const raw = readFileSync(filePath, 'utf8');
+  const allLines = raw.split('\n');
+  // Remove trailing empty line from split
+  if (allLines.length > 0 && allLines[allLines.length - 1] === '') allLines.pop();
+
+  const start = startLine ?? 1;
+  const end = endLine ?? allLines.length;
+
+  const lines: FileLine[] = [];
+  for (let i = start - 1; i < end && i < allLines.length; i++) {
+    lines.push({ number: i + 1, content: allLines[i]! });
+  }
+
+  return { path: filePath, totalLines: allLines.length, lines };
+}
+
 // ── Route setup ───────────────────────────────────────────────────────────────
 
 export function setupApiRoutes(app: Application, db: Database.Database): void {
@@ -238,5 +290,15 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
       return;
     }
     res.json({ cancelled: true });
+  });
+
+  app.get('/api/grep', (req, res) => {
+    try {
+      const pattern = (req.query['q'] as string | undefined) ?? '';
+      const caseSensitive = req.query['case'] === 'true';
+      res.json(queryGrep(db, pattern, caseSensitive));
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
   });
 }
