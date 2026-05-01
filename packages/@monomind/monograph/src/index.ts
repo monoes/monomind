@@ -89,3 +89,4 @@ export * from './mcp-tools/query.js';
 export * from './search/diacritic.js';
 export * from './ingest/url-ingest.js';
 export * from './analysis/corpus-health.js';
+export * from './groups/grpc-extractor.js';
