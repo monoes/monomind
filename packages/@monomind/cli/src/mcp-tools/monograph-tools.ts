@@ -956,6 +956,25 @@ const monographAugmentTool: MCPTool = {
   },
 };
 
+// ── monograph_doctor ──────────────────────────────────────────────────────────
+
+const monographDoctorTool: MCPTool = {
+  name: 'monograph_doctor',
+  description: 'Run platform diagnostics — checks Node version, SQLite DB health, node count, disk space.',
+  inputSchema: {
+    type: 'object',
+    properties: {},
+  },
+  handler: async (_input) => {
+    const { runDoctor } = await import('@monoes/monograph');
+    const repoPath = getProjectCwd();
+    const result = await runDoctor(repoPath);
+    const lines = result.checks.map(c => `${c.status === 'ok' ? '✅' : c.status === 'warn' ? '⚠️' : '❌'} ${c.name}: ${c.message}`);
+    if (!result.healthy) lines.push('\nSome checks failed. Run monograph build to fix.');
+    return text(lines.join('\n'));
+  },
+};
+
 // ── Export all tools ──────────────────────────────────────────────────────────
 
 export const monographTools: MCPTool[] = [
@@ -993,4 +1012,5 @@ export const monographTools: MCPTool[] = [
   monographShapeCheckTool,
   monographGroupSyncTool,
   monographAugmentTool,
+  monographDoctorTool,
 ];
