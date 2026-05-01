@@ -42,7 +42,7 @@ export function computeCohesion(
 
 export const communitiesPhase: PipelinePhase<CommunitiesOutput> = {
   name: 'communities',
-  deps: ['cross-file', 'mro'],
+  deps: ['parse', 'cross-file', 'mro'],
   async execute(_ctx, deps) {
     const { resolvedEdges } = deps.get('cross-file') as CrossFileOutput;
     const { allEdges } = deps.get('parse') as ParseOutput;

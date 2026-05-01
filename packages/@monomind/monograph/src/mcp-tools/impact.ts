@@ -88,7 +88,7 @@ export function getMonographImpact(
   }
 
   if (!nodeRow) {
-    return { node: null, directCallers: [], transitiveCallers: [], affectedFiles: [], riskScore: 0 };
+    return { node: null, directCallers: [], transitiveCallers: [], affectedFiles: [], riskScore: 0, riskLevel: 'LOW' };
   }
 
   const node = rowToNode(nodeRow);
@@ -139,9 +139,10 @@ export function getMonographImpact(
       .filter((p): p is string => p != null),
   )];
 
-  // Risk score: log2(totalCallerCount + 1), capped at 10
+  // Risk score: log2(totalCallerCount + 1) normalized to [0, 1] (max log2(11) ≈ 3.46, capped at 10, /10)
   const totalCallerCount = visited.size - 1; // exclude start node
-  const riskScore = Math.min(Math.log2(totalCallerCount + 1), 10);
+  const rawScore = Math.min(Math.log2(totalCallerCount + 1), 10);
+  const riskScore = rawScore / 10;
 
   return { node, directCallers, transitiveCallers, affectedFiles, riskScore, riskLevel: computeRiskLevel(riskScore) };
 }
