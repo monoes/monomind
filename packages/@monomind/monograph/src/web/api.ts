@@ -252,7 +252,9 @@ export function queryCluster(db: Database.Database, name: string): ClusterDetail
       'SELECT id, name, label, file_path, start_line, end_line, community_id FROM nodes WHERE community_id = ? LIMIT 200',
     ).all(comm.id) as Record<string, unknown>[];
     return { id: comm.id, label: comm.label, members: members.map(rowToApiNode) };
-  } catch {
+  } catch (err) {
+    const msg = String(err);
+    if (!msg.includes('no such table')) throw err;
     return null;
   }
 }
