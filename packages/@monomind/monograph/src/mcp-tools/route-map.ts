@@ -1,4 +1,6 @@
+import { readFileSync } from 'fs';
 import type Database from 'better-sqlite3';
+import { extractMiddlewareChain } from '../pipeline/phases/middleware-extractor.js';
 
 // ── Output types ───────────────────────────────────────────────────────────────
 
@@ -9,6 +11,7 @@ export interface RouteMapEntry {
   handlerFile: string | null;
   handlerLine: number | null;
   routeNodeId: string;
+  middlewareChain: string[];
 }
 
 export interface MonographRouteMapResult {
@@ -20,7 +23,7 @@ export interface MonographRouteMapResult {
 
 export function getMonographRouteMap(
   db: Database.Database,
-  input: { prefix?: string; method?: string; includeMiddleware?: boolean },
+  input: { prefix?: string; method?: string; includeMiddleware?: boolean; repoPath?: string },
 ): MonographRouteMapResult {
   // 1. Query all Route nodes
   let routeRows = db
@@ -70,6 +73,18 @@ export function getMonographRouteMap(
       | { name: string; file_path: string | null; start_line: number | null }
       | undefined;
 
+    // Detect middleware chain at query time when requested
+    let middlewareChain: string[] = [];
+    if (input.includeMiddleware && input.repoPath && handlerRow?.name && handlerRow?.file_path) {
+      try {
+        const absPath = `${input.repoPath}/${handlerRow.file_path}`;
+        const source = readFileSync(absPath, 'utf-8');
+        middlewareChain = extractMiddlewareChain(source, handlerRow.name).middlewareNames;
+      } catch {
+        // File not found or unreadable — leave middlewareChain as []
+      }
+    }
+
     return {
       method,
       path,
@@ -77,6 +92,7 @@ export function getMonographRouteMap(
       handlerFile: handlerRow?.file_path ?? null,
       handlerLine: handlerRow?.start_line ?? null,
       routeNodeId,
+      middlewareChain,
     };
   });
 

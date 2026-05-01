@@ -28,6 +28,7 @@ export interface RouteEntry {
   handlerNodeId?: string;
   filePath: string;
   routeNodeId: string;
+  middlewareChain: string[];
 }
 
 export interface RoutesOutput {
@@ -76,7 +77,7 @@ export const routesPhase: PipelinePhase<RoutesOutput> = {
         };
         routeNodes.push(routeNode);
 
-        const entry: RouteEntry = { method, path: routePath, filePath: relPath, routeNodeId };
+        const entry: RouteEntry = { method, path: routePath, filePath: relPath, routeNodeId, middlewareChain: [] };
 
         if (ctx.db) {
           const source = safeReadSource(`${ctx.repoPath}/${relPath}`, ctx.options.maxFileSizeBytes);
@@ -127,7 +128,7 @@ export const routesPhase: PipelinePhase<RoutesOutput> = {
         };
         routeNodes.push(routeNode);
 
-        const entry: RouteEntry = { method: e.method, path: e.path, filePath: relPath, routeNodeId };
+        const entry: RouteEntry = { method: e.method, path: e.path, filePath: relPath, routeNodeId, middlewareChain: [] };
 
         if (ctx.db && e.handlerName) {
           const row = ctx.db
@@ -168,7 +169,7 @@ export const routesPhase: PipelinePhase<RoutesOutput> = {
         };
         routeNodes.push(routeNode);
 
-        const entry: RouteEntry = { method: e.method, path: e.path, filePath: relPath, routeNodeId };
+        const entry: RouteEntry = { method: e.method, path: e.path, filePath: relPath, routeNodeId, middlewareChain: [] };
 
         if (ctx.db && e.handlerName) {
           const row = ctx.db
