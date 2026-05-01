@@ -43,3 +43,4 @@ export * from './mcp-tools/shape-check.js';
 export * from './security/sensitive-files.js';
 export * from './validation/extraction-validator.js';
 export * from './security/safe-fetch.js';
+export * from './cache/extraction-cache.js';
