@@ -214,6 +214,24 @@ export function readFileContent(filePath: string, startLine?: number, endLine?: 
   return { path: filePath, totalLines: allLines.length, lines };
 }
 
+// ── Server info ───────────────────────────────────────────────────────────────
+
+export interface ServerInfo {
+  name: string;
+  version: string;
+  nodeVersion: string;
+  uptimeSeconds: number;
+}
+
+export function getServerInfo(): ServerInfo {
+  return {
+    name: 'monograph',
+    version: '1.0.0',
+    nodeVersion: process.version,
+    uptimeSeconds: process.uptime(),
+  };
+}
+
 // ── Route setup ───────────────────────────────────────────────────────────────
 
 export function setupApiRoutes(app: Application, db: Database.Database): void {
@@ -355,6 +373,25 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
       }
     }, 500);
 
+    req.on('close', () => clearInterval(interval));
+  });
+
+  app.get('/api/info', (_req, res) => {
+    res.json(getServerInfo());
+  });
+
+  app.get('/api/heartbeat', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const interval = setInterval(() => {
+      res.write(`data: ${JSON.stringify({ ts: Date.now() })}\n\n`);
+    }, 15000);
+
+    // Send immediate heartbeat
+    res.write(`data: ${JSON.stringify({ ts: Date.now() })}\n\n`);
     req.on('close', () => clearInterval(interval));
   });
 }
