@@ -61,8 +61,26 @@ export const suggestPhase: PipelinePhase<SuggestOutput> = {
       questions.push({ type: 'isolated_nodes', nodes: isolated.slice(0, 10), reason: 'No edges found' });
     }
 
+    // Signal 5: no_signal — AMBIGUOUS edges with very low confidence
+    for (const edge of allEdges) {
+      if (edge.confidence === 'AMBIGUOUS' && (edge.confidenceScore ?? 1) < 0.2) {
+        questions.push({ type: 'no_signal', edge, reason: 'Very low confidence — no supporting evidence found' });
+      }
+    }
+
+    // Signal 6: thin_community — communities with fewer than 3 members
+    const commMemberCount = new Map<number, number>();
+    for (const [, commId] of memberships) {
+      commMemberCount.set(commId, (commMemberCount.get(commId) ?? 0) + 1);
+    }
+    for (const [commId, count] of commMemberCount) {
+      if (count < 3) {
+        questions.push({ type: 'thin_community', communityId: commId, memberCount: count, reason: `Community has only ${count} members — may need merging` });
+      }
+    }
+
     const PRIORITY: Record<string, number> = {
-      bridge_node: 5, ambiguous_edge: 4, verify_inferred: 3, low_cohesion: 2, isolated_nodes: 1
+      bridge_node: 5, ambiguous_edge: 4, verify_inferred: 3, no_signal: 3, low_cohesion: 2, thin_community: 2, isolated_nodes: 1
     };
     questions.sort((a, b) => (PRIORITY[b.type] ?? 0) - (PRIORITY[a.type] ?? 0));
 
