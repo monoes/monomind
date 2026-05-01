@@ -6,6 +6,7 @@ import { parseFile } from '../../parsers/loader.js';
 import { insertNodes } from '../../storage/node-store.js';
 import { insertEdges } from '../../storage/edge-store.js';
 import type { StructureOutput } from './structure.js';
+import { extractVariables, variableToNode } from './variables.js';
 
 export interface ParseOutput {
   symbolNodes: MonographNode[];
@@ -40,6 +41,12 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
       symbolNodes.push(...result.nodes);
       allEdges.push(...result.edges);
       parseErrors.push(...result.parseErrors);
+
+      // Extract top-level variable declarations for TS/JS files
+      if (['.ts', '.tsx', '.js', '.jsx'].includes(ext)) {
+        const varInfos = extractVariables(source, fileNode.filePath ?? '');
+        symbolNodes.push(...varInfos.map(v => variableToNode(v)));
+      }
       processed++;
 
       if (processed % 50 === 0) {
