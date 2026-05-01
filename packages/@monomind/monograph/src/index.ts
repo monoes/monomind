@@ -49,3 +49,4 @@ export * from './pipeline/phases/field-access.js';
 export * from './pipeline/phases/wildcard-synthesis.js';
 export * from './cli/augment.js';
 export * from './cli/setup.js';
+export * from './cli/doctor.js';
