@@ -15,6 +15,7 @@ import { mergeRanks, type RankedResult } from './rrf.js';
 import { getAllEmbeddings, countEmbeddings } from '../storage/embedding-store.js';
 import { embedText } from './embedder.js';
 import { ftsSearch } from '../storage/fts-store.js';
+import { normalizeSearchTerm } from './diacritic.js';
 
 export interface HybridQueryOptions {
   limit?: number;
@@ -47,9 +48,12 @@ export async function hybridQuery(
 ): Promise<HybridResult[]> {
   const { limit = 20, label, embedder } = options;
 
+  // Normalize the query for text-based lookups (strip diacritics, lowercase, trim)
+  const normalizedQuery = normalizeSearchTerm(query);
+
   // ── BM25 via FTS5 ──────────────────────────────────────────────────────────
   const bm25Limit = 50;
-  const bm25Raw = ftsSearch(db, query, bm25Limit, label);
+  const bm25Raw = ftsSearch(db, normalizedQuery, bm25Limit, label);
   const bm25Results: RankedResult[] = bm25Raw.map((r) => ({
     id: r.id,
     name: r.name,
@@ -72,7 +76,7 @@ export async function hybridQuery(
   let queryVec: Float32Array;
   try {
     const fn = embedder ?? (await import('./embedder.js').then((m) => m.getEmbedder()));
-    queryVec = await embedText(query, fn);
+    queryVec = await embedText(normalizedQuery, fn);
   } catch {
     // Embedding failed — degrade gracefully to BM25
     return sliceHybrid(bm25Results, limit);
