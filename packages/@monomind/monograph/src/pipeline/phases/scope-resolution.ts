@@ -39,13 +39,87 @@ const PY_KEYWORDS = new Set([
   'except', 'elif', 'else', 'not', 'and', 'or', 'in', 'is', 'print',
 ]);
 
+const GO_KEYWORDS = new Set([
+  'if', 'for', 'range', 'return', 'func', 'type', 'var', 'const', 'import', 'package',
+  'go', 'defer', 'select', 'case', 'default', 'break', 'continue', 'goto', 'fallthrough',
+  'chan', 'map', 'struct', 'interface', 'make', 'new', 'len', 'cap', 'append', 'delete',
+  'panic', 'recover', 'close', 'switch', 'else',
+]);
+
+const JAVA_KEYWORDS = new Set([
+  'if', 'for', 'while', 'do', 'switch', 'case', 'return', 'class', 'interface', 'enum',
+  'new', 'extends', 'implements', 'import', 'package', 'throw', 'throws', 'catch', 'try',
+  'finally', 'static', 'final', 'abstract', 'public', 'private', 'protected', 'void',
+  'break', 'continue', 'default', 'else', 'instanceof', 'this', 'super',
+]);
+
+const RUST_KEYWORDS = new Set([
+  'if', 'let', 'for', 'while', 'loop', 'match', 'return', 'fn', 'struct', 'enum', 'trait',
+  'impl', 'use', 'mod', 'pub', 'super', 'self', 'type', 'where', 'in', 'as', 'mut',
+  'ref', 'move', 'async', 'await', 'dyn', 'extern', 'crate', 'static', 'const', 'unsafe',
+  'break', 'continue', 'else',
+]);
+
 // ── Supported extensions ──────────────────────────────────────────────────────
 
 const TS_JS_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx']);
 const PY_EXTS = new Set(['.py']);
+const GO_EXTS = new Set(['.go']);
+const JAVA_EXTS = new Set(['.java']);
+const RUST_EXTS = new Set(['.rs']);
 
 function isSupportedExt(ext: string): boolean {
-  return TS_JS_EXTS.has(ext) || PY_EXTS.has(ext);
+  return TS_JS_EXTS.has(ext) || PY_EXTS.has(ext) || GO_EXTS.has(ext) || JAVA_EXTS.has(ext) || RUST_EXTS.has(ext);
+}
+
+// ── Language-specific extractors ──────────────────────────────────────────────
+
+export function extractGoCallSites(source: string, filePath: string, fileNodeId: string): CallSite[] {
+  const sites: CallSite[] = [];
+  const methodPattern = /(\w+)\.(\w+)\s*\(/g;
+  let m: RegExpExecArray | null;
+  while ((m = methodPattern.exec(source)) !== null) {
+    sites.push({ callerFileNodeId: fileNodeId, callerFilePath: filePath, calleeRaw: `${m[1]}.${m[2]}`, form: 'method', receiverName: m[1], methodName: m[2] });
+  }
+  const directPattern = /(?<![.[\w])([A-Za-z_][\w]*)\s*\(/g;
+  while ((m = directPattern.exec(source)) !== null) {
+    const name = m[1]!;
+    if (GO_KEYWORDS.has(name)) continue;
+    sites.push({ callerFileNodeId: fileNodeId, callerFilePath: filePath, calleeRaw: name, form: 'direct' });
+  }
+  return sites;
+}
+
+export function extractJavaCallSites(source: string, filePath: string, fileNodeId: string): CallSite[] {
+  const sites: CallSite[] = [];
+  const methodPattern = /(\w+)\.(\w+)\s*\(/g;
+  let m: RegExpExecArray | null;
+  while ((m = methodPattern.exec(source)) !== null) {
+    sites.push({ callerFileNodeId: fileNodeId, callerFilePath: filePath, calleeRaw: `${m[1]}.${m[2]}`, form: 'method', receiverName: m[1], methodName: m[2] });
+  }
+  const directPattern = /(?<![.[\w])([A-Za-z_$][\w$]*)\s*\(/g;
+  while ((m = directPattern.exec(source)) !== null) {
+    const name = m[1]!;
+    if (JAVA_KEYWORDS.has(name)) continue;
+    sites.push({ callerFileNodeId: fileNodeId, callerFilePath: filePath, calleeRaw: name, form: 'direct' });
+  }
+  return sites;
+}
+
+export function extractRustCallSites(source: string, filePath: string, fileNodeId: string): CallSite[] {
+  const sites: CallSite[] = [];
+  const methodPattern = /(\w+)\.(\w+)\s*\(/g;
+  let m: RegExpExecArray | null;
+  while ((m = methodPattern.exec(source)) !== null) {
+    sites.push({ callerFileNodeId: fileNodeId, callerFilePath: filePath, calleeRaw: `${m[1]}.${m[2]}`, form: 'method', receiverName: m[1], methodName: m[2] });
+  }
+  const directPattern = /(?<![.[\w])([A-Za-z_][\w]*)\s*\(/g;
+  while ((m = directPattern.exec(source)) !== null) {
+    const name = m[1]!;
+    if (RUST_KEYWORDS.has(name)) continue;
+    sites.push({ callerFileNodeId: fileNodeId, callerFilePath: filePath, calleeRaw: name, form: 'direct' });
+  }
+  return sites;
 }
 
 // ── Stage 1 + 2: Extract and classify call sites ──────────────────────────────
@@ -125,6 +199,12 @@ function extractCallSites(
         methodName: name,
       });
     }
+  } else if (GO_EXTS.has(ext)) {
+    return extractGoCallSites(source, filePath, fileNodeId);
+  } else if (JAVA_EXTS.has(ext)) {
+    return extractJavaCallSites(source, filePath, fileNodeId);
+  } else if (RUST_EXTS.has(ext)) {
+    return extractRustCallSites(source, filePath, fileNodeId);
   }
 
   return sites;
