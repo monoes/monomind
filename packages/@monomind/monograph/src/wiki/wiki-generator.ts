@@ -1,6 +1,10 @@
 import type { MonographDb } from '../storage/db.js';
 import { buildWikiPrompt } from './prompt-builder.js';
 import { upsertWikiPage, getWikiPage, listWikiPages } from './wiki-store.js';
+import { callLLM, type LLMConfig } from './providers.js';
+
+export type { LLMConfig } from './providers.js';
+export type { LLMProvider, LLMResponse } from './providers.js';
 
 export interface LlmClient {
   generate: (prompt: string) => Promise<string>;
@@ -11,6 +15,8 @@ export interface GenerateWikiPageOptions {
   apiKey?: string;
   /** Inject a test client instead of calling Anthropic API */
   llmClient?: LlmClient;
+  /** Use a multi-provider LLM config instead of the default Anthropic SDK */
+  llmConfig?: LLMConfig;
 }
 
 export interface GenerateAllWikiPagesOptions {
@@ -18,6 +24,8 @@ export interface GenerateAllWikiPagesOptions {
   model?: string;
   communityId?: string;
   llmClient?: LlmClient;
+  /** Use a multi-provider LLM config instead of the default Anthropic SDK */
+  llmConfig?: LLMConfig;
 }
 
 export interface GenerateAllResult {
@@ -76,11 +84,14 @@ export async function generateWikiPage(
     outgoingCount: outgoingRow.cnt,
   });
 
-  // 6. Call LLM (injected client or Anthropic SDK)
+  // 6. Call LLM (injected client, multi-provider config, or Anthropic SDK)
   let content: string;
 
   if (options?.llmClient) {
     content = await options.llmClient.generate(prompt);
+  } else if (options?.llmConfig) {
+    const result = await callLLM(prompt, options.llmConfig);
+    content = result.text;
   } else {
     const apiKey = options?.apiKey ?? process.env['ANTHROPIC_API_KEY'];
     if (!apiKey) {
@@ -141,6 +152,7 @@ export async function generateAllWikiPages(
       await generateWikiPage(db, communityIdStr, {
         model: options?.model,
         llmClient: options?.llmClient,
+        llmConfig: options?.llmConfig,
       });
       generated++;
     } catch {
