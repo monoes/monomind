@@ -102,7 +102,9 @@ export type SuggestedQuestion =
   | { type: 'bridge_node'; node: MonographNode; commA: number; commB: number }
   | { type: 'verify_inferred'; edge: MonographEdge; inferredFrom: string }
   | { type: 'isolated_nodes'; nodes: MonographNode[]; reason: string }
-  | { type: 'low_cohesion'; community: MonographCommunity };
+  | { type: 'low_cohesion'; community: MonographCommunity }
+  | { type: 'no_signal'; edge: MonographEdge; reason: string }
+  | { type: 'thin_community'; communityId: number; memberCount: number; reason: string };
 
 // ── ID generation ─────────────────────────────────────────────────────────────
 
