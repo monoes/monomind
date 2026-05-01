@@ -1,5 +1,6 @@
-import { readdirSync, statSync } from 'fs';
+import { readdirSync, statSync, existsSync, readFileSync } from 'fs';
 import { join, extname } from 'path';
+import micromatch from 'micromatch';
 import type { PipelinePhase, PipelineContext } from '../types.js';
 import { isSupportedExtension } from '../../parsers/loader.js';
 import { isSensitiveFile } from '../../security/sensitive-files.js';
@@ -30,6 +31,19 @@ export const scanPhase: PipelinePhase<ScanOutput> = {
     let totalBytes = 0;
     const ignoreDirs = new Set([...DEFAULT_IGNORE, ...ctx.options.ignore]);
 
+    // Read .monographignore patterns
+    const ignorePatterns: string[] = [];
+    const ignoreFilePath = join(ctx.repoPath, '.monographignore');
+    if (existsSync(ignoreFilePath)) {
+      const raw = readFileSync(ignoreFilePath, 'utf8');
+      for (const line of raw.split('\n')) {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#')) {
+          ignorePatterns.push(trimmed);
+        }
+      }
+    }
+
     function walk(dir: string) {
       let entries: string[];
       try { entries = readdirSync(dir); } catch { return; }
@@ -39,6 +53,12 @@ export const scanPhase: PipelinePhase<ScanOutput> = {
         const fullPath = join(dir, entry);
         let stat: ReturnType<typeof statSync>;
         try { stat = statSync(fullPath); } catch { continue; }
+
+        if (ignorePatterns.length > 0) {
+          const rel = fullPath.slice(ctx.repoPath.length + 1);
+          if (micromatch.isMatch(rel, ignorePatterns, { dot: true })) continue;
+          if (stat.isDirectory() && micromatch.isMatch(rel + '/', ignorePatterns, { dot: true })) continue;
+        }
 
         if (stat.isDirectory()) { walk(fullPath); continue; }
 
