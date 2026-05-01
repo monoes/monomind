@@ -316,4 +316,45 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
       res.status(500).json({ error: String(err) });
     }
   });
+
+  // SSE progress stream for a job
+  app.get('/api/jobs/:id/progress', (req, res) => {
+    const jobId = req.params['id'] ?? '';
+    const job = globalJobRegistry.get(jobId);
+    if (!job) {
+      res.status(404).json({ error: 'Job not found' });
+      return;
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    // Send existing progress events
+    for (const evt of globalJobRegistry.getProgress(jobId)) {
+      res.write(`data: ${JSON.stringify(evt)}\n\n`);
+    }
+
+    // Poll for new events until job is done
+    let lastSent = globalJobRegistry.getProgress(jobId).length;
+    const interval = setInterval(() => {
+      const current = globalJobRegistry.get(jobId);
+      if (!current) { clearInterval(interval); res.end(); return; }
+
+      const all = globalJobRegistry.getProgress(jobId);
+      for (let i = lastSent; i < all.length; i++) {
+        res.write(`data: ${JSON.stringify(all[i])}\n\n`);
+      }
+      lastSent = all.length;
+
+      if (current.status === 'done' || current.status === 'failed' || current.status === 'cancelled') {
+        res.write(`data: ${JSON.stringify({ phase: 'complete', status: current.status })}\n\n`);
+        clearInterval(interval);
+        res.end();
+      }
+    }, 500);
+
+    req.on('close', () => clearInterval(interval));
+  });
 }
