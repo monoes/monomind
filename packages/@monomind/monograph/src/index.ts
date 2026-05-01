@@ -87,3 +87,4 @@ export * from './export/csv.js';
 export * from './mcp-tools/list-repos.js';
 export * from './mcp-tools/query.js';
 export * from './search/diacritic.js';
+export * from './ingest/url-ingest.js';
