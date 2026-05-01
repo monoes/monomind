@@ -2,6 +2,7 @@ import { readdirSync, statSync } from 'fs';
 import { join, extname } from 'path';
 import type { PipelinePhase, PipelineContext } from '../types.js';
 import { isSupportedExtension } from '../../parsers/loader.js';
+import { isSensitiveFile } from '../../security/sensitive-files.js';
 
 const DEFAULT_IGNORE = new Set([
   'node_modules', '.git', 'dist', 'build', '__pycache__',
@@ -44,6 +45,7 @@ export const scanPhase: PipelinePhase<ScanOutput> = {
         const ext = extname(entry).toLowerCase();
         if (BINARY_EXTENSIONS.has(ext)) continue;
         if (GENERATED_PATTERNS.some(r => r.test(entry))) continue;
+        if (isSensitiveFile(fullPath)) continue;
         if (ctx.options.codeOnly && !isSupportedExtension(ext)) continue;
 
         filePaths.push(fullPath);
