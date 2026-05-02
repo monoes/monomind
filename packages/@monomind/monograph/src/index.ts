@@ -82,6 +82,7 @@ export * from './pipeline/phases/import-resolver.js';
 export * from './analysis/benchmark.js';
 export * from './analysis/cluster-quality.js';
 export * from './analysis/node-similarity.js';
+export * from './graph/ripple-impact.js';
 export * from './parsers/named-bindings.js';
 export * from './parsers/language-parsers.js';
 export * from './cache/augment-cache.js';
