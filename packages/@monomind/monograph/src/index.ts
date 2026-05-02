@@ -80,6 +80,7 @@ export * from './pipeline/phases/wildcard-phase.js';
 export * from './pipeline/phases/framework-detect.js';
 export * from './pipeline/phases/import-resolver.js';
 export * from './analysis/benchmark.js';
+export * from './analysis/cluster-quality.js';
 export * from './parsers/named-bindings.js';
 export * from './parsers/language-parsers.js';
 export * from './cache/augment-cache.js';
