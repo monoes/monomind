@@ -109,30 +109,46 @@ Use `/mastermind` to pick a swarm or hive-mind topology. It lists all options an
 
 ---
 
-## Knowledge Graph — Graphify (Use Before Codebase Exploration)
+## Knowledge Graph — Monograph (Use Before Codebase Exploration)
 
 **When starting any task that touches 3+ files, introduces a new feature, or requires understanding a module you haven't worked in recently:**
 
-1. Call `mcp__monomind__graphify_suggest` first — it returns the most relevant files and relationships for your task description
-2. Call `mcp__monomind__graphify_query` for targeted lookups ("what imports auth?", "what does UserService depend on?") — results include exact file path and line number
-3. Call `mcp__monomind__graphify_god_nodes` to find high-centrality **internal** files (external/test symbols are automatically filtered)
+1. Call `mcp__monomind__monograph_suggest` first — it returns the most relevant files and relationships for your task description
+2. Call `mcp__monomind__monograph_query` for targeted lookups ("what imports auth?", "what does UserService depend on?") — results include exact file path and line number
+3. Call `mcp__monomind__monograph_god_nodes` to find high-centrality **internal** files (external/test symbols are automatically filtered)
 
 **Why:** The knowledge graph encodes full dependency relationships, import chains, and architectural topology. It lets you understand the blast radius of a change and find all affected files without grepping the entire codebase.
 
-**Available graphify tools:**
+**Available monograph tools (23 total):**
 
 | Tool | Use when |
 |---|---|
-| `graphify_suggest` | Starting a task — get relevant files ranked by relevance |
-| `graphify_query` | **Primary lookup** — find any symbol by keyword; returns `file` + `location` (line number) |
-| `graphify_god_nodes` | Finding high-centrality **internal** files; automatically filters out external/test symbols |
-| `graphify_shortest_path` | Understanding how two modules are connected |
-| `graphify_stats` | Quick sanity check — how many nodes/edges indexed |
-| `graphify_community` | Understanding which files form a cohesive module cluster |
+| `monograph_suggest` | **Start every task** — returns ambiguous edges, bridge nodes, isolated nodes ranked by task relevance |
+| `monograph_query` | **Primary lookup** — BM25 keyword search; returns file + line number |
+| `monograph_god_nodes` | Finding high-centrality internal files (external/test filtered) |
+| `monograph_impact` | **Before changing anything** — find all upstream dependents + downstream dependencies (blast radius) |
+| `monograph_context` | 360° view of a file: importers, imports, parent, community siblings |
+| `monograph_detect_changes` | Map current git diff to affected graph nodes + dependents |
+| `monograph_shortest_path` | Understanding how two modules are connected |
+| `monograph_community` | Understanding which files form a cohesive module cluster |
+| `monograph_cohesion` | Community quality scores — ratio of internal to max possible edges |
+| `monograph_bridge` | Cross-community connectors — architectural coupling points |
+| `monograph_rename` | Dry-run multi-file rename — finds all graph + text occurrences |
+| `monograph_cypher` | Ad-hoc graph queries: MATCH (n:Class)-[:IMPORTS]->(b) RETURN n.name |
+| `monograph_snapshot` | Save current graph state to a named JSON snapshot for before/after diffing |
+| `monograph_diff` | Compare two named snapshots (or live graph vs snapshot) — added/removed nodes and edges |
+| `monograph_neighbors` | N-hop BFS neighborhood of a node — layered results by hop distance |
+| `monograph_add_fact` | Add a custom semantic edge (LLM annotation) — e.g. DEPENDS_ON, DOCUMENTS, CALLS |
+| `monograph_clear` | Wipe all graph data or nodes of a specific label (requires confirm="yes") |
+| `monograph_surprises` | Unexpected cross-community or low-confidence edges |
+| `monograph_stats` | Quick sanity check — node/edge counts |
+| `monograph_health` | Index staleness: commits behind HEAD |
+| `monograph_report` | Generate GRAPH_REPORT.md with top nodes |
+| `monograph_export` | Export: json, svg, graphml, cypher |
 
-**Skip graphify for:** single-file edits, doc/config changes, quick fixes where you already know the file.
+**Skip monograph for:** single-file edits, doc/config changes, quick fixes where you already know the file.
 
-**If `graphify_suggest` returns empty or errors:** the graph may not be built yet. Call `mcp__monomind__graphify_build` (codeOnly: true) — it runs in the background; proceed with normal Glob/Grep while it builds.
+**If `monograph_suggest` returns empty or errors:** the graph may not be built yet. Call `mcp__monomind__monograph_build` (codeOnly: true) — it runs in the background; proceed with normal Glob/Grep while it builds.
 
 ---
 
