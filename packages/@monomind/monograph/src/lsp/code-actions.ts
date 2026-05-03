@@ -107,3 +107,21 @@ export function buildSuppressActions(
   }
   return actions;
 }
+
+// ── Round 9: delete-file code actions ─────────────────────────────────────────
+
+export interface DeleteFileAction {
+  kind: 'deleteFile';
+  title: string;
+  filePath: string;
+  isPreferred: boolean;
+}
+
+export function buildDeleteFileActions(filePath: string): DeleteFileAction[] {
+  return [{
+    kind: 'deleteFile',
+    title: `Delete unused file: ${filePath.split('/').pop() ?? filePath}`,
+    filePath,
+    isPreferred: false,
+  }];
+}
