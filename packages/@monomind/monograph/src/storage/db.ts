@@ -4,7 +4,7 @@ import { dirname } from 'path';
 import {
   CREATE_NODES, CREATE_EDGES, CREATE_COMMUNITIES,
   CREATE_INDEX_META, CREATE_NODES_FTS, CREATE_INDEXES, FTS_SYNC_TRIGGERS,
-  CREATE_NODE_PROPERTIES, SEED_NODE_PROPERTIES,
+  CREATE_NODE_PROPERTIES, SEED_NODE_PROPERTIES, CREATE_SUPPRESSIONS,
 } from './schema.js';
 import { MonographError } from '../types.js';
 
@@ -68,6 +68,9 @@ function applyMigrations(db: MonographDb): void {
   // v5: typed property registry
   db.exec(CREATE_NODE_PROPERTIES);
   db.exec(SEED_NODE_PROPERTIES);
+
+  // v6: stale suppression detection table
+  db.exec(CREATE_SUPPRESSIONS);
 }
 
 /** Write to a .tmp file then rename for atomic replacement. */

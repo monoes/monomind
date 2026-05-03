@@ -85,6 +85,16 @@ INSERT OR IGNORE INTO node_properties (ident, type, cardinality, view_context, d
   ('language',      'text',    'one',  'query', 'Programming language',                 1),
   ('is_exported',   'boolean', 'one',  'query', 'Whether symbol is exported',           1)`;
 
+export const CREATE_SUPPRESSIONS = `
+CREATE TABLE IF NOT EXISTS suppressions (
+  id TEXT PRIMARY KEY,
+  file_path TEXT NOT NULL,
+  line INTEGER NOT NULL DEFAULT 0,
+  rule TEXT NOT NULL,
+  added_at TEXT NOT NULL,
+  last_seen_at TEXT
+)`;
+
 export const FTS_SYNC_TRIGGERS = `
 CREATE TRIGGER IF NOT EXISTS nodes_fts_insert AFTER INSERT ON nodes BEGIN
   INSERT INTO nodes_fts(rowid, id, name, norm_label, file_path, label)
