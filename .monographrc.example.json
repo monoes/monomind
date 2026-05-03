@@ -1,0 +1,14 @@
+{
+  "zones": [
+    { "name": "api", "glob": "src/api/**" },
+    { "name": "service", "glob": "src/services/**" },
+    { "name": "repository", "glob": "src/repositories/**" },
+    { "name": "model", "glob": "src/models/**" }
+  ],
+  "allowedImports": [
+    ["api", "service"],
+    ["service", "repository"],
+    ["service", "model"],
+    ["repository", "model"]
+  ]
+}
