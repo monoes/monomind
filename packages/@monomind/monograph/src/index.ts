@@ -41,7 +41,7 @@ export { computeComplexity, computeCrapScore, type FunctionComplexity, type Comp
 export { detectCycles, type DependencyCycle, type CycleDetectionResult } from './analysis/cycles.js';
 export { computeCoverageGaps, type UntestedFile, type UntestedExport, type CoverageGapsResult } from './analysis/coverage-gaps.js';
 export { detectDuplicateExports, type DuplicateExportGroup, type DuplicateExportsResult } from './analysis/duplicate-exports.js';
-export { computeRefactoringTargets, type RefactoringTarget, type RefactoringTargetsResult, type RecommendationCategory, type EffortEstimate, type TargetConfidence } from './analysis/targets.js';
+export { computeRefactoringTargets, type RefactoringTarget, type RefactoringTargetsResult, type RecommendationCategory, type EffortEstimate, type TargetConfidence, computeTargetPriority, tryMatchPriorityRules, normalizeMetric, PRIORITY_RULE_WEIGHTS, type ContributingFactor, type EvidenceFunction, type TargetEvidence, type PriorityRule } from './analysis/targets.js';
 export { runAudit, type AuditSummary, type AuditVerdict, type AuditGate, type AuditAttribution } from './audit.js';
 export { detectPrivateTypeLeaks, type PrivateTypeLeak, type PrivateTypeLeaksResult } from './analysis/private-type-leaks.js';
 export { fixUnusedExports, type ExportFix, type FixResult } from './fix/exports.js';
@@ -62,7 +62,7 @@ export { computeTrend, trendArrow, STABLE_BAND, type HealthTrend, type TrendMetr
 export { computeHealthScore, letterGradeFromScore, HOTSPOT_SCORE_THRESHOLD, MI_DENSITY_MIN_LINES, type HealthScore, type HealthScorePenalties, type VitalSignsInput, type HealthGrade } from './health/health-score.js';
 export { computeSizeRiskProfile, computeInterfacingRiskProfile, computeCouplingConcentration, type RiskProfile } from './health/risk-profile.js';
 export { detectLargeFunctions, shouldReportLargeFunctions, LARGE_FUNCTION_LOC_THRESHOLD, LARGE_FUNCTION_REPORT_THRESHOLD_PCT, type LargeFunctionEntry } from './health/large-functions.js';
-export { formatPerformanceTable, startTimer, type HealthTimings } from './health/timings.js';
+export { formatPerformanceTable, startTimer, type HealthTimings, type HealthPipelineTimings, ZERO_HEALTH_PIPELINE_TIMINGS, formatHealthPipelineTimings, sumHealthPipelineTimings } from './health/timings.js';
 export { computeOwnershipMetrics, computeBusFactor, detectDrift, normalizeEmail, DRIFT_MIN_FILE_AGE_DAYS, DRIFT_MAX_ORIGINAL_SHARE, type EmailMode, type ContributorEntry, type OwnershipMetrics } from './health/ownership.js';
 export { computeHotspots, isTestPath, type HotspotInput, type HotspotEntry, type HotspotSummary } from './health/hotspots.js';
 export { classifyRuntimeCoverageHealth, type RuntimeCoverageVerdict, type RuntimeCoverageRiskBand, type RuntimeCoverageAction, type RuntimeCoverageReportVerdict } from './health/runtime-coverage.js';
@@ -74,8 +74,8 @@ export { getChangedFiles, validateGitRef, filterResultsByChangedFiles, ChangedFi
 export { resolveAnalyses, runCombined, type AnalysisKind, type CombinedOptions, type CombinedResult } from './analysis/combined.js';
 export { listBoundaries, listEntryPoints, formatBoundaryTable, type BoundaryRule, type PluginInfo, type ListOptions } from './analysis/list.js';
 export { createSuppressionContext, markConsumed, findStale, NON_CORE_KINDS, type SuppressionKind, type Suppression, type StaleSuppression, type SuppressionContext } from './analysis/suppressions.js';
-export { applyRules, resolveRulesForFile, type RuleSet, type RuleOverride } from './analysis/rule-overrides.js';
-export { filterToWorkspaces, createSubsetFilter, isInSubset, type SubsetFilter } from './analysis/workspace-filter.js';
+export { applyRules, resolveRulesForFile, type RuleSet, type RuleOverride, type IssueSeverity, type RuleWithSeverity, hasErrorSeverityIssues, promoteWarnsToErrors, demoteErrorsToWarns } from './analysis/rule-overrides.js';
+export { filterToWorkspaces, createSubsetFilter, isInSubset, type SubsetFilter, type WorkspaceFilterPattern, parseWorkspaceFilterPattern, matchWorkspacePattern, resolveWorkspaceFilters, formatAvailableWorkspaces, workspacesContainingAny } from './analysis/workspace-filter.js';
 export { buildHealthBaseline, filterNewHealthFindings, type HealthBaselineData, type HealthFileCounts, type HealthFinding } from './analysis/health-baseline.js';
 export { parseTolerance, toleranceExceeded, saveBaselineToConfig, type Tolerance } from './analysis/regression-config.js';
 export { fixEnumMembers, removeEnumMember, findEnumDeclarationRange, declaresExportedEnum, type EnumMemberFix, type EnumMemberFixResult } from './fix/enum-members.js';
@@ -111,3 +111,12 @@ export { createVitalSigns, formatVitalSignsSummary, VITAL_SIGNS_SCHEMA_VERSION, 
 export { computeTargetThresholds, labelForCategory, compactLabelForCategory, RECOMMENDATION_CATEGORIES, type ExtendedRecommendationCategory, type CategoryMeta, type TargetThresholds, type MetricSample } from './health/target-thresholds.js';
 export { isValidEmailMode, isValidAuditGate, type AnalyzeParams, type HealthParams, type CheckRuntimeCoverageParams, type AuditParams, type FindDupesParams, type TraceExportParams, type TraceFileParams, type TraceDependencyParams, type TraceCloneParams, type ProjectInfoParams, type FeatureFlagsParams, type ListBoundariesParams, type EmailModeParam, type AuditGate } from './mcp/params.js';
 export { resolveProductionMode, resolveAllProductionModes, buildBaselineAuditMeta, productionModeLabel, DEFAULT_PRODUCTION_MODE, type ProductionOverride, type ProductionModeConfig, type BaselineAuditMeta } from './api/production-override.js';
+// ── Round 8: Fallow feature ports ─────────────────────────────────────────────
+export { applyIssueFilters, activateExplicitOptIns, anyFiltersActive, parseIssueFilters, ALL_FILTERS_ON, ALL_FILTERS_OFF, type IssueFilters, type IssueFilterKey } from './analysis/issue-filters.js';
+export { augmentExternalStylePackageUsage, isTrackableExternalStylePath, packageNameFromPath, scanStyleImports, type ExternalStyleImport, type ExternalStyleScanResult } from './graph/external-style-usage.js';
+export { detectProject, detectFramework, detectTestRunner, detectPackageManager, buildJsonConfig, buildTomlConfig, type DetectedFramework, type DetectedTestRunner, type DetectedPackageManager, type DetectedMonorepoTool, type ProjectInfo } from './init/project-detection.js';
+export { detectHooksManager, validateBranchName, renderedHookScript, mergeHookContent, removeHookBlock, GIT_HOOK_INSTALL_RESULT_NONE, type GitHooksManager, type GitHooksInstallOptions, type GitHooksInstallResult } from './init/git-hooks.js';
+export { buildAgentsMdBlock, mergeAgentsMdBlock, removeAgentsMdBlock, buildClaudeCodeHookEntry, mergeClaudeCodeSettings, AGENTS_BLOCK_START, AGENTS_BLOCK_END, MONOGRAPH_GATE_SCRIPT, DEFAULT_SETUP_RESULT, type AgentHooksTarget, type SetupHooksOptions, type SetupHooksResult } from './init/agent-hooks.js';
+export { computeDistributionThresholds, formatDistributionThresholds, THRESHOLD_FLOORS, type DistributionThresholds, type FileTopologyScore } from './health/distribution-thresholds.js';
+export { computeAnalysisCounts, deadCodePct, unusedDepsPct, formatAnalysisCounts, ZERO_ANALYSIS_COUNTS, type AnalysisCounts, type AnalysisResultsInput } from './health/analysis-counts.js';
+export { createHealthReport, createHealthReportSummary, formatHealthReportSummary, healthReportToJson, type HealthReport, type HealthReportSummary } from './health/health-report.js';
