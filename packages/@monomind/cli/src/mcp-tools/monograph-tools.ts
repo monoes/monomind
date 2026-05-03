@@ -120,14 +120,21 @@ const monographStatsTool: MCPTool = {
   description: 'Show node/edge/community counts and index freshness.',
   inputSchema: { type: 'object', properties: {} },
   handler: async () => {
-    const { openDb, closeDb, countNodes, countEdges } = await import('@monoes/monograph');
+    const { openDb, closeDb, countNodes, countEdges, computeCouplingProfile } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
       const nodes = countNodes(db);
       const edges = countEdges(db);
       const meta = db.prepare('SELECT key, value FROM index_meta').all() as { key: string; value: string }[];
       const metaStr = meta.map(m => `  ${m.key}: ${m.value}`).join('\n');
-      return text(`Monograph index stats:\n  nodes: ${nodes}\n  edges: ${edges}\n${metaStr}`);
+      const cp = computeCouplingProfile(db);
+      const couplingStr = [
+        '\nCoupling Profile:',
+        `  p95 fan-in: ${cp.p95FanIn} (${cp.couplingHighPct}% of files exceed this)`,
+        `  Fan-in distribution: low ${cp.fanInProfile.lowPct}% | medium ${cp.fanInProfile.mediumPct}% | high ${cp.fanInProfile.highPct}% | critical ${cp.fanInProfile.criticalPct}%`,
+        `  Fan-out distribution: low ${cp.fanOutProfile.lowPct}% | medium ${cp.fanOutProfile.mediumPct}% | high ${cp.fanOutProfile.highPct}% | critical ${cp.fanOutProfile.criticalPct}%`,
+      ].join('\n');
+      return text(`Monograph index stats:\n  nodes: ${nodes}\n  edges: ${edges}\n${metaStr}${couplingStr}`);
     } finally { closeDb(db); }
   },
 };
@@ -171,11 +178,26 @@ const monographGodNodesTool: MCPTool = {
     properties: { limit: { type: 'number', description: 'Max nodes to return (default 20)' } },
   },
   handler: async (input) => {
-    const { openDb, closeDb } = await import('@monoes/monograph');
+    const { openDb, closeDb, computeCouplingProfile } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
       const limit = (input.limit as number | undefined) ?? 20;
       const excluded = ['File', 'Folder', 'Community', 'Concept'];
+
+      // Compute percentile thresholds from coupling profile
+      const cp = computeCouplingProfile(db);
+      const p95FanIn = cp.p95FanIn;
+      const p75FanOut = cp.fanOutProfile
+        ? (() => {
+            // Recompute p75 fan-out from raw data
+            const fanOutRows = db.prepare('SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id').all() as { source_id: string; c: number }[];
+            const sorted = fanOutRows.map(r => r.c).sort((a: number, b: number) => a - b);
+            if (sorted.length === 0) return 0;
+            const idx = Math.floor(0.75 * sorted.length);
+            return sorted[Math.min(idx, sorted.length - 1)];
+          })()
+        : 0;
+
       const rows = db.prepare(`
         SELECT n.id, n.label, n.name, n.file_path,
                COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree,
@@ -190,9 +212,30 @@ const monographGodNodesTool: MCPTool = {
       `).all(...excluded, limit) as any[];
 
       if (rows.length === 0) return text('No god nodes found. Run monograph_build first.');
-      const lines = rows.map(r =>
-        `[${r.label}] ${r.name}  degree=${r.degree} (↑${r.out_degree} ↓${r.in_degree})  ${r.file_path ?? ''}`
-      );
+
+      const thresholds = {
+        p75FanIn: cp.p75FanIn,
+        p90FanIn: cp.p90FanIn,
+        p95FanIn: cp.p95FanIn,
+        p75FanOut,
+        p90FanOut: p75FanOut, // approximate
+      };
+
+      const lines = rows.map((r: any) => {
+        const fanIn = r.in_degree;
+        const fanOut = r.out_degree;
+        const category = (fanIn > p95FanIn && fanOut > p75FanOut)
+          ? 'BRIDGE_NODE'
+          : 'HIGH_CENTRALITY';
+        const factors: string[] = [];
+        if (fanIn > p95FanIn) factors.push(`fanIn: ${fanIn} (threshold: p95=${p95FanIn})`);
+        if (fanOut > p75FanOut) factors.push(`fanOut: ${fanOut} (threshold: p75=${p75FanOut})`);
+        const factorStr = factors.length > 0 ? `  [${factors.join(', ')}]` : '';
+        return `[${r.label}] ${r.name}  degree=${r.degree} (↑${r.out_degree} ↓${r.in_degree})  category: ${category}${factorStr}  ${r.file_path ?? ''}`;
+      });
+
+      const thresholdsStr = `\nThresholds: p75FanIn=${thresholds.p75FanIn} p90FanIn=${thresholds.p90FanIn} p95FanIn=${thresholds.p95FanIn} p75FanOut=${thresholds.p75FanOut}`;
+
       const actions = rows.map((r: any) => ({
         type: 'refactor',
         file: r.file_path ?? undefined,
@@ -200,7 +243,7 @@ const monographGodNodesTool: MCPTool = {
         description: `High-centrality node (${r.degree} connections) — consider decomposing`,
         confidence: 'medium',
       }));
-      return text(lines.join('\n') + '\n\n## Actions\n' + JSON.stringify(actions, null, 2));
+      return text(lines.join('\n') + thresholdsStr + '\n\n## Actions\n' + JSON.stringify(actions, null, 2));
     } finally { closeDb(db); }
   },
 };
@@ -929,6 +972,38 @@ const monographDiffTool: MCPTool = {
         if (removedEdges.length > 20) summary.push(`  ... and ${removedEdges.length - 20} more`);
       }
 
+      // ── Trend table ────────────────────────────────────────────────────────
+      if (oldSnap.vitals && (useCurrent ? true : true)) {
+        try {
+          const { computeTrend } = await import('@monoes/monograph');
+          const beforeVitals = { ...oldSnap, ...(oldSnap.vitals ?? {}) };
+          const afterVitals = useCurrent
+            ? {
+                version: 1 as const,
+                savedAt: new Date().toISOString(),
+                projectPath: oldSnap.projectPath ?? getProjectCwd(),
+                findings: [],
+                nodeCount: newNodes.length,
+                edgeCount: newEdges.length,
+              }
+            : { ...JSON.parse(readFileSync(pathMod.join(snapshotsDir, `${input.snapshot2 as string}.json`), 'utf-8')), ...((JSON.parse(readFileSync(pathMod.join(snapshotsDir, `${input.snapshot2 as string}.json`), 'utf-8')) as any).vitals ?? {}) };
+          const trend = computeTrend(beforeVitals, afterVitals);
+          summary.push('\nVital Signs Trend:');
+          summary.push('  Metric                  Before  After   Delta  Direction');
+          summary.push('  ----------------------  ------  ------  -----  ---------');
+          for (const m of trend.metrics) {
+            const metric = m.metric.padEnd(22);
+            const prev = String(m.previous).padStart(6);
+            const curr = String(m.current).padStart(6);
+            const delta = (m.delta >= 0 ? '+' : '') + String(m.delta).padStart(5);
+            summary.push(`  ${metric}  ${prev}  ${curr}  ${delta}  ${m.symbol} ${m.direction}`);
+          }
+          summary.push(`\nOverall trend: ${trend.overallDirection}`);
+        } catch {
+          // vitals not available — skip trend section
+        }
+      }
+
       return text(summary.join('\n'));
     } finally { closeDb(db); }
   },
@@ -938,25 +1013,34 @@ const monographDiffTool: MCPTool = {
 
 const monographExportTool: MCPTool = {
   name: 'monograph_export',
-  description: 'Export the knowledge graph in various formats: obsidian, canvas, cypher, graphml, svg, json.',
+  description: 'Export the knowledge graph in various formats: obsidian, canvas, cypher, graphml, svg, json, sarif.',
   inputSchema: {
     type: 'object',
     properties: {
-      format: { type: 'string', description: 'Format: obsidian, canvas, cypher, graphml, svg, json' },
+      format: { type: 'string', description: 'Format: obsidian, canvas, cypher, graphml, svg, json, sarif' },
       outputPath: { type: 'string', description: 'Output path' },
     },
     required: ['format'],
   },
   handler: async (input) => {
-    const { openDb, closeDb, toJson, toSvg, toGraphml, toCypher } = await import('@monoes/monograph');
+    const { openDb, closeDb, toJson, toSvg, toGraphml, toCypher, exportSarif } = await import('@monoes/monograph');
     const { writeFileSync, mkdirSync } = await import('fs');
     const db = openDb(getDbPath());
     try {
+      const fmt = input.format as string;
+      const projectPath = getProjectCwd();
+      const outDir = (input.outputPath as string | undefined) ?? join(projectPath, '.monomind', 'export');
+      mkdirSync(outDir, { recursive: true });
+
+      if (fmt === 'sarif') {
+        const sarifDoc = exportSarif(db, projectPath);
+        const p = join(outDir, 'monograph.sarif');
+        writeFileSync(p, JSON.stringify(sarifDoc, null, 2));
+        return text(`Exported SARIF 2.1.0 to ${p}\n${sarifDoc.runs[0].results.length} findings`);
+      }
+
       const nodes = db.prepare('SELECT * FROM nodes').all() as any[];
       const edges = db.prepare('SELECT * FROM edges').all() as any[];
-      const fmt = input.format as string;
-      const outDir = (input.outputPath as string | undefined) ?? join(getProjectCwd(), '.monomind', 'export');
-      mkdirSync(outDir, { recursive: true });
 
       if (fmt === 'json') {
         const p = join(outDir, 'graph.json');
@@ -1735,6 +1819,30 @@ const monographBaselineCompareTool: MCPTool = {
   },
 };
 
+// ── monograph_health_score ────────────────────────────────────────────────────
+
+const monographHealthScoreTool: MCPTool = {
+  name: 'monograph_health_score',
+  description: 'Compute a composite health score (0–100) with a letter grade (A–F) for the knowledge graph. Accounts for unreachable files, god nodes, circular edges, hotspot files, isolated nodes, and cross-community edges.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: 'Project root path (defaults to project cwd)' },
+    },
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, computeHealthScore } = await import('@monoes/monograph');
+    const { join } = await import('path');
+    const projectPath = (input.path as string | undefined) ?? getProjectCwd();
+    const dbPath = join(projectPath, '.monomind', 'monograph.db');
+    const db = openDb(dbPath);
+    try {
+      const result = computeHealthScore(db);
+      return text(result.summary);
+    } finally { closeDb(db); }
+  },
+};
+
 // ── monograph_reachability ────────────────────────────────────────────────────
 
 const monographReachabilityTool: MCPTool = {
@@ -1825,6 +1933,264 @@ const monographReachabilityTool: MCPTool = {
   },
 };
 
+// ── monograph_boundary_check ──────────────────────────────────────────────────
+
+const monographBoundaryCheckTool: MCPTool = {
+  name: 'monograph_boundary_check',
+  description: 'Check for boundary zone violations defined in .monographrc.json. Returns cross-zone import violations that are not in the allowedImports allowlist.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: 'Project root path (defaults to project cwd)' },
+      fix: { type: 'boolean', description: 'Reserved for future use: auto-fix violations' },
+    },
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, loadMonographConfig, detectBoundaryViolations } = await import('@monoes/monograph');
+    const projectPath = (input.path as string | undefined) ?? getProjectCwd();
+    const config = loadMonographConfig(projectPath);
+    if (!config.zones || config.zones.length === 0) {
+      return text('No .monographrc.json found or no zones defined. Create one to enable boundary checking.\nSee .monographrc.example.json for the expected format.');
+    }
+    const db = openDb(getDbPath());
+    try {
+      const violations = detectBoundaryViolations(db, projectPath);
+      if (violations.length === 0) return text('No boundary violations found.');
+
+      // Group violations by fromZone → toZone
+      const groups = new Map<string, typeof violations>();
+      for (const v of violations) {
+        const key = `${v.fromZone} → ${v.toZone}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(v);
+      }
+
+      const lines: string[] = [`Boundary violations: ${violations.length} total\n`];
+      for (const [key, vs] of groups) {
+        lines.push(`[${key}] — ${vs.length} violation(s)`);
+        vs.slice(0, 10).forEach(v => lines.push(`  ${v.fromPath}  --${v.edgeRelation}-->  ${v.toPath}`));
+        if (vs.length > 10) lines.push(`  ... and ${vs.length - 10} more`);
+      }
+      return text(lines.join('\n'));
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_codeowners ──────────────────────────────────────────────────────
+
+const monographCodeownersTool: MCPTool = {
+  name: 'monograph_codeowners',
+  description: 'CODEOWNERS-based file ownership. If filePath given: return owner(s) for that file. If unownedOnly: return all File nodes with no declared owner. Otherwise: return summary (total files, % owned, top owners by file count).',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: 'Project root (defaults to project cwd)' },
+      filePath: { type: 'string', description: 'Look up owner(s) for a single file path (relative to project root)' },
+      unownedOnly: { type: 'boolean', description: 'Return all File nodes with no declared owner' },
+    },
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, parseCodeowners, resolveOwner, annotateOwnership } = await import('@monoes/monograph');
+    const repoPath = (input.path as string | undefined) ?? getProjectCwd();
+    const db = openDb(getDbPath());
+    try {
+      const entries = parseCodeowners(repoPath);
+
+      if (input.filePath) {
+        const filePath = input.filePath as string;
+        const owners = resolveOwner(entries, filePath);
+        if (owners.length === 0) return text(`${filePath}: unowned`);
+        return text(`${filePath}: ${owners.join(', ')}`);
+      }
+
+      if (input.unownedOnly) {
+        annotateOwnership(db, repoPath);
+        const rows = db.prepare(`
+          SELECT file_path, properties FROM nodes
+          WHERE label = 'File' AND file_path IS NOT NULL
+        `).all() as { file_path: string; properties: string | null }[];
+
+        const unownedFiles = rows.filter(r => {
+          const props = r.properties ? JSON.parse(r.properties) : {};
+          return !props.codeowners || props.codeowners.length === 0;
+        });
+
+        if (unownedFiles.length === 0) return text('All files have declared owners.');
+        const lines = [`Unowned files (${unownedFiles.length}):`];
+        for (const f of unownedFiles) lines.push(`  ${f.file_path}`);
+        return text(lines.join('\n'));
+      }
+
+      // Summary mode
+      const { annotated, unowned } = annotateOwnership(db, repoPath);
+      const total = annotated + unowned;
+      const pct = total > 0 ? Math.round(annotated / total * 100) : 0;
+
+      const rows = db.prepare(`
+        SELECT properties FROM nodes WHERE label = 'File' AND file_path IS NOT NULL AND properties IS NOT NULL
+      `).all() as { properties: string }[];
+
+      const ownerCount = new Map<string, number>();
+      for (const r of rows) {
+        const props = JSON.parse(r.properties);
+        const owners: string[] = props.codeowners ?? [];
+        for (const o of owners) {
+          ownerCount.set(o, (ownerCount.get(o) ?? 0) + 1);
+        }
+      }
+
+      const sorted = [...ownerCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+      const lines = [
+        `CODEOWNERS summary:`,
+        `  total files : ${total}`,
+        `  owned       : ${annotated} (${pct}%)`,
+        `  unowned     : ${unowned}`,
+        entries.length === 0 ? '  (no CODEOWNERS file found)' : `  entries     : ${entries.length}`,
+        '',
+        'Top owners by file count:',
+        ...sorted.map(([o, c]) => `  ${o}: ${c} file${c !== 1 ? 's' : ''}`),
+      ];
+      return text(lines.join('\n'));
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_suppress ────────────────────────────────────────────────────────
+
+const monographSuppressTool: MCPTool = {
+  name: 'monograph_suppress',
+  description: 'Manage finding suppressions. action=add: add suppression for filePath+line+rule. action=list: list all (or filtered) suppressions. action=remove: remove by id. action=stale: find suppressions where the file was deleted or the issue no longer exists.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: 'Project root (defaults to project cwd)' },
+      action: { type: 'string', enum: ['add', 'list', 'remove', 'stale'], description: 'Action to perform' },
+      filePath: { type: 'string', description: 'File path for add/list/stale' },
+      line: { type: 'number', description: 'Line number (0 = file-wide, default 0)' },
+      rule: { type: 'string', description: 'Rule name for add/list/stale (e.g. god_node, isolated_node)' },
+      id: { type: 'string', description: 'Suppression ID for remove action' },
+    },
+    required: ['action'],
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, addSuppression, listSuppressions, removeSuppression, findStaleSuppressions, extractFindingsFromDb } = await import('@monoes/monograph');
+    const projectPath = (input.path as string | undefined) ?? getProjectCwd();
+    const { join } = await import('path');
+    const dbPath = join(projectPath, '.monomind', 'monograph.db');
+    const db = openDb(dbPath);
+    try {
+      const action = input.action as string;
+
+      if (action === 'add') {
+        const filePath = input.filePath as string | undefined;
+        const rule = input.rule as string | undefined;
+        if (!filePath || !rule) return text('add requires filePath and rule.');
+        const line = (input.line as number | undefined) ?? 0;
+        const sup = addSuppression(db, filePath, line, rule);
+        return text(`Suppression added:\n  id: ${sup.id}\n  file: ${sup.filePath}  line: ${sup.line}  rule: ${sup.rule}`);
+      }
+
+      if (action === 'list') {
+        const filePath = input.filePath as string | undefined;
+        const rule = input.rule as string | undefined;
+        const sups = listSuppressions(db, filePath, rule);
+        if (sups.length === 0) return text('No suppressions found.');
+        const lines = [`Suppressions (${sups.length}):`];
+        for (const s of sups) {
+          lines.push(`  [${s.id}] ${s.filePath}:${s.line}  rule=${s.rule}  added=${s.addedAt}`);
+        }
+        return text(lines.join('\n'));
+      }
+
+      if (action === 'remove') {
+        const id = input.id as string | undefined;
+        if (!id) return text('remove requires id.');
+        removeSuppression(db, id);
+        return text(`Suppression ${id} removed.`);
+      }
+
+      if (action === 'stale') {
+        const findings = extractFindingsFromDb(db, projectPath);
+        const activeFindings = findings.map(f => ({ filePath: f.filePath ?? '', rule: f.type }));
+        const stale = findStaleSuppressions(db, activeFindings);
+        if (stale.length === 0) return text('No stale suppressions found.');
+        const lines = [`Stale suppressions (${stale.length}):`];
+        for (const s of stale) {
+          lines.push(`  [${s.id}] ${s.filePath}:${s.line}  rule=${s.rule}  reason=${s.reason}`);
+        }
+        return text(lines.join('\n'));
+      }
+
+      return text(`Unknown action: ${action}. Must be one of: add, list, remove, stale.`);
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_regression_check ────────────────────────────────────────────────
+
+const monographRegressionCheckTool: MCPTool = {
+  name: 'monograph_regression_check',
+  description: 'Check for metric regressions by comparing the current graph state against a saved baseline. Returns PASSED/FAILED with a per-metric breakdown. Use as a CI gate after monograph_build.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: 'Absolute path to the repo (defaults to project cwd)' },
+      baselineName: { type: 'string', description: 'Name of the saved baseline (e.g. "main-2026-05-01")' },
+      tolerance: { type: 'string', description: 'Default tolerance for all metrics, e.g. "5%" or "10"' },
+      metricTolerances: { type: 'object', description: 'Per-metric tolerance overrides as a JSON object, e.g. {"godNodeCount":"2","surpriseCount":"10%"}' },
+    },
+    required: ['baselineName', 'tolerance'],
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, checkRegression, defaultBaselinePath } = await import('@monoes/monograph');
+    const { join } = await import('path');
+    const projectPath = (input.path as string | undefined) ?? getProjectCwd();
+    const dbPath = join(projectPath, '.monomind', 'monograph.db');
+    const baselineName = input.baselineName as string;
+    const toleranceSpec = input.tolerance as string;
+    const metricTolerances = input.metricTolerances as Record<string, string> | undefined;
+    const baselinePath = defaultBaselinePath(projectPath, baselineName);
+    const db = openDb(dbPath);
+    try {
+      const outcome = checkRegression(db, baselinePath, toleranceSpec, metricTolerances);
+
+      const statusLine = outcome.passed
+        ? `Regression Check: PASSED ✓`
+        : `Regression Check: FAILED ✗`;
+
+      const header = [
+        statusLine,
+        `Baseline: ${baselineName}  Tolerance: ${toleranceSpec}`,
+        '',
+        `${'Metric'.padEnd(28)} ${'Baseline'.padStart(8)} ${'Current'.padStart(8)} ${'Delta'.padStart(6)}  Status`,
+        `${'-'.repeat(28)} ${'-'.repeat(8)} ${'-'.repeat(8)} ${'-'.repeat(6)}  ${'-'.repeat(20)}`,
+      ];
+
+      const rows = outcome.checkedMetrics.map(m => {
+        const deltaStr = m.delta > 0 ? `+${m.delta}` : String(m.delta);
+        let status: string;
+        if (!m.violated) {
+          const pctChange = m.baseline > 0 && m.delta > 0
+            ? ` (+${((m.delta / m.baseline) * 100).toFixed(1)}%)`
+            : '';
+          status = m.delta > 0
+            ? `OK (within ${m.tolerance}${pctChange})`
+            : 'OK';
+        } else {
+          const pctChange = m.baseline > 0
+            ? `+${((m.delta / m.baseline) * 100).toFixed(1)}%`
+            : '∞';
+          status = `VIOLATED (${pctChange})`;
+        }
+        return `${m.metric.padEnd(28)} ${String(m.baseline).padStart(8)} ${String(m.current).padStart(8)} ${deltaStr.padStart(6)}  ${status}`;
+      });
+
+      const lines = [...header, ...rows, '', outcome.summary];
+      return text(lines.join('\n'));
+    } finally { closeDb(db); }
+  },
+};
+
 // ── Export all tools ──────────────────────────────────────────────────────────
 
 export const monographTools: MCPTool[] = [
@@ -1861,4 +2227,9 @@ export const monographTools: MCPTool[] = [
   monographBaselineSaveTool,
   monographBaselineCompareTool,
   monographReachabilityTool,
+  monographHealthScoreTool,
+  monographBoundaryCheckTool,
+  monographCodeownersTool,
+  monographSuppressTool,
+  monographRegressionCheckTool,
 ];

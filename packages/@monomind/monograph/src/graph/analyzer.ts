@@ -1,8 +1,21 @@
 import { bidirectional } from 'graphology-shortest-path';
+import { createHash } from 'crypto';
 import type Graph from 'graphology';
 import type Database from 'better-sqlite3';
 import type { MonographDb } from '../storage/db.js';
 import { loadGraphFromDb } from './loader.js';
+
+/**
+ * Deterministic 16-hex fingerprint for a finding.
+ * Stable across runs: same ruleId + filePath + extraParts → same fingerprint.
+ * Used for deduplication in baseline comparison and Linear/GitHub issue tracking.
+ */
+export function fingerprintFinding(ruleId: string, filePath: string, ...extraParts: string[]): string {
+  return createHash('sha256')
+    .update([ruleId, filePath, ...extraParts].join('\0'))
+    .digest('hex')
+    .slice(0, 16);
+}
 
 export function getShortestPath(
   db: MonographDb,
