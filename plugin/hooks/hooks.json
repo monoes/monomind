@@ -38,30 +38,6 @@
             "continueOnError": true
           }
         ]
-      },
-      {
-        "matcher": "^(Grep|Glob|Read)$",
-        "description": "Pre-search hook for caching",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx monomind@alpha hooks pre-search --query \"$TOOL_INPUT_pattern\"",
-            "timeout": 2000,
-            "continueOnError": true
-          }
-        ]
-      },
-      {
-        "matcher": "^mcp__monomind__.*$",
-        "description": "Pre-MCP hook for swarm coordination",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx monomind@alpha hooks mcp-pre --tool \"$TOOL_NAME\"",
-            "timeout": 3000,
-            "continueOnError": true
-          }
-        ]
       }
     ],
     "PostToolUse": [
@@ -83,7 +59,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx monomind@alpha hooks post-command --command \"$TOOL_INPUT_command\" --success \"$TOOL_SUCCESS\" --exit-code \"$TOOL_EXIT_CODE\"",
+            "command": "npx monomind@alpha hooks post-command --command \"$TOOL_INPUT_command\" --success \"$TOOL_SUCCESS\"",
             "timeout": 3000,
             "continueOnError": true
           }
@@ -97,30 +73,6 @@
             "type": "command",
             "command": "npx monomind@alpha hooks post-task --task-id \"$TOOL_RESULT_agent_id\" --success \"$TOOL_SUCCESS\" --analyze-performance",
             "timeout": 5000,
-            "continueOnError": true
-          }
-        ]
-      },
-      {
-        "matcher": "^(Grep|Glob|Read)$",
-        "description": "Post-search hook for caching results",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx monomind@alpha hooks post-search --query \"$TOOL_INPUT_pattern\" --cache-results",
-            "timeout": 2000,
-            "continueOnError": true
-          }
-        ]
-      },
-      {
-        "matcher": "^mcp__monomind__.*$",
-        "description": "Post-MCP hook for coordination state",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx monomind@alpha hooks mcp-post --tool \"$TOOL_NAME\" --success \"$TOOL_SUCCESS\"",
-            "timeout": 3000,
             "continueOnError": true
           }
         ]

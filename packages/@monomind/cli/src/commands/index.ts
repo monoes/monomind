@@ -75,6 +75,7 @@ const commandLoaders: Record<string, CommandLoader> = {
   cleanup: () => import('./cleanup.js'),
   autopilot: () => import('./autopilot.js'),
   tokens: () => import('./tokens.js'),
+  monograph: () => import('./monograph.js'),
 };
 
 // Cache for loaded commands
@@ -153,6 +154,7 @@ import { guidanceCommand } from './guidance.js';
 import { applianceCommand } from './appliance.js';
 import { cleanupCommand } from './cleanup.js';
 import { autopilotCommand } from './autopilot.js';
+import { monographCommand } from './monograph.js';
 
 // Pre-populate cache with core commands
 loadedCommands.set('init', initCommand);
@@ -176,6 +178,7 @@ loadedCommands.set('hive-mind', hiveMindCommand);
 loadedCommands.set('guidance', guidanceCommand);
 loadedCommands.set('cleanup', cleanupCommand);
 loadedCommands.set('autopilot', autopilotCommand);
+loadedCommands.set('monograph', monographCommand);
 
 // =============================================================================
 // Exports (maintain backwards compatibility)
@@ -204,6 +207,7 @@ export { guidanceCommand } from './guidance.js';
 export { applianceCommand } from './appliance.js';
 export { cleanupCommand } from './cleanup.js';
 export { autopilotCommand } from './autopilot.js';
+export { monographCommand } from './monograph.js';
 
 // Lazy-loaded command re-exports (for backwards compatibility, but async-only)
 export async function getConfigCommand() { return loadCommand('config'); }
@@ -231,6 +235,7 @@ export async function getGuidanceCommand() { return loadCommand('guidance'); }
 export async function getApplianceCommand() { return loadCommand('appliance'); }
 export async function getCleanupCommand() { return loadCommand('cleanup'); }
 export async function getAutopilotCommand() { return loadCommand('autopilot'); }
+export async function getMonographCommand() { return loadCommand('monograph'); }
 
 /**
  * Core commands loaded synchronously (available immediately)
@@ -259,6 +264,7 @@ export const commands: Command[] = [
   guidanceCommand,
   cleanupCommand,
   autopilotCommand,
+  monographCommand,
 ];
 
 /**
@@ -299,6 +305,7 @@ export const commandsByCategory = {
     analyzeCommand,
     routeCommand,
     progressCommand,
+    monographCommand,
   ],
   management: [
     providersCommand,

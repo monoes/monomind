@@ -109,6 +109,24 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     }
 
     spinner.succeed('Monomind initialized successfully!');
+
+    // Trigger background monograph build + continuous watch
+    try {
+      const { spawn } = await import('child_process');
+      for (const args of [
+        ['monograph', 'build', '--code-only'],
+        ['monograph', 'watch'],
+      ]) {
+        const proc = spawn(process.execPath, [process.argv[1], ...args], {
+          detached: true, stdio: 'ignore', cwd: ctx.cwd, env: process.env,
+        });
+        proc.unref();
+      }
+      output.printInfo('◈ Building knowledge graph in background… (watch mode active)');
+    } catch {
+      // non-critical
+    }
+
     output.writeln();
 
     // Display summary
@@ -260,6 +278,14 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
         options.components.settings ? `Review ${output.highlight('.claude/settings.json')} for hook configurations` : '',
       ].filter(Boolean));
     }
+
+    // Recommend UA semantic enrichment
+    output.writeln('');
+    output.writeln(output.bold('Tip: Enrich your knowledge graph with semantic summaries'));
+    output.writeln(output.dim('  Run /monomind:understand in Claude Code to analyze your project'));
+    output.writeln(output.dim('  and add LLM-generated summaries, tags, and architectural layers'));
+    output.writeln(output.dim(`  to the monograph graph. This gives Claude Code a richer mental`));
+    output.writeln(output.dim(`  model of your codebase from the very first session.`));
 
     if (ctx.flags.format === 'json') {
       output.printJson(result);
