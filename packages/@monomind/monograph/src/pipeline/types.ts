@@ -16,6 +16,8 @@ export interface PipelineOptions {
   workerPoolThreshold: number;
   workerChunkBudgetBytes: number;
   ignore: string[];
+  /** Max Section nodes to submit to LLM extraction (0 = disabled). Default 0. */
+  llmMaxSections: number;
 }
 
 export const DEFAULT_OPTIONS: PipelineOptions = {
@@ -24,6 +26,7 @@ export const DEFAULT_OPTIONS: PipelineOptions = {
   workerPoolThreshold: 15,
   workerChunkBudgetBytes: 20971520,
   ignore: [],
+  llmMaxSections: 0,
 };
 
 export interface PipelinePhase<TOutput> {

@@ -96,6 +96,28 @@ export function extractSymbols(
   }
 
   walk(tree.rootNode);
+
+  // Re-export detection: export { ... } from '...' or export * from '...'
+  // These create RE_EXPORTS edges from this file to the re-exported module.
+  // Only applicable for TypeScript/JavaScript files.
+  if (ext === '.ts' || ext === '.tsx' || ext === '.js' || ext === '.jsx' || ext === '.mjs' || ext === '.cjs') {
+    const reExportPattern = /export\s+(?:\*|\{[^}]*\})\s+from\s+['"]([^'"]+)['"]/g;
+    let reMatch: RegExpExecArray | null;
+    while ((reMatch = reExportPattern.exec(source)) !== null) {
+      const targetPath = reMatch[1];
+      // Use same placeholder convention as handleImport so cross-file resolution applies
+      const targetId = makeId('import', targetPath);
+      edges.push({
+        id: makeId(fileNodeId, targetId, 'reexports'),
+        sourceId: fileNodeId,
+        targetId,
+        relation: 'RE_EXPORTS',
+        confidence: 'EXTRACTED',
+        confidenceScore: CONFIDENCE_SCORE.EXTRACTED,
+      });
+    }
+  }
+
   return { nodes, edges, parseErrors };
 }
 

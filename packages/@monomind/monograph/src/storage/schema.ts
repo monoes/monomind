@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS nodes (
   community_id INTEGER,
   is_exported INTEGER NOT NULL DEFAULT 0,
   language TEXT,
-  properties TEXT
+  properties TEXT,
+  embedding TEXT
 )`;
 
 export const CREATE_EDGES = `
@@ -21,6 +22,7 @@ CREATE TABLE IF NOT EXISTS edges (
   relation TEXT NOT NULL,
   confidence TEXT NOT NULL DEFAULT 'EXTRACTED',
   confidence_score REAL NOT NULL DEFAULT 1.0,
+  weight REAL NOT NULL DEFAULT 1.0,
   FOREIGN KEY (source_id) REFERENCES nodes(id),
   FOREIGN KEY (target_id) REFERENCES nodes(id)
 )`;
@@ -47,7 +49,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS nodes_fts USING fts5(
   file_path,
   label UNINDEXED,
   content='nodes',
-  content_rowid='rowid'
+  content_rowid='rowid',
+  tokenize='trigram'
 )`;
 
 export const CREATE_INDEXES = [
@@ -59,6 +62,28 @@ export const CREATE_INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_edges_relation ON edges(relation)`,
   `CREATE INDEX IF NOT EXISTS idx_edges_confidence ON edges(confidence)`,
 ];
+
+export const CREATE_NODE_PROPERTIES = `
+CREATE TABLE IF NOT EXISTS node_properties (
+  ident TEXT PRIMARY KEY,
+  type TEXT NOT NULL CHECK(type IN ('text','number','boolean','date','node-ref','closed')),
+  cardinality TEXT NOT NULL DEFAULT 'one' CHECK(cardinality IN ('one','many')),
+  view_context TEXT NOT NULL DEFAULT 'all' CHECK(view_context IN ('all','graph','query','never')),
+  closed_values TEXT,
+  description TEXT,
+  queryable INTEGER NOT NULL DEFAULT 1
+)`;
+
+export const SEED_NODE_PROPERTIES = `
+INSERT OR IGNORE INTO node_properties (ident, type, cardinality, view_context, description, queryable) VALUES
+  ('ua_type',       'closed',  'one',  'query', 'Understand-Anything node type',        1),
+  ('summary',       'text',    'one',  'all',   'LLM-generated description',            1),
+  ('tags',          'text',    'many', 'all',   'Semantic tags from analysis',          1),
+  ('complexity',    'closed',  'one',  'query', 'Code complexity rating',               1),
+  ('layer',         'closed',  'one',  'graph', 'Architectural layer (community name)', 1),
+  ('community_id',  'number',  'one',  'query', 'Community cluster id',                 1),
+  ('language',      'text',    'one',  'query', 'Programming language',                 1),
+  ('is_exported',   'boolean', 'one',  'query', 'Whether symbol is exported',           1)`;
 
 export const FTS_SYNC_TRIGGERS = `
 CREATE TRIGGER IF NOT EXISTS nodes_fts_insert AFTER INSERT ON nodes BEGIN
