@@ -315,25 +315,25 @@ Every session is recorded and browsable — tool calls, agent spawns, memory ope
 
 ## Memory & Intelligence
 
-### Knowledge Graph (Graphify)
+### Knowledge Graph (Monograph)
 
 Monomind builds a full dependency graph of your codebase — automatically queried before every task:
 
 ```bash
 # What files are relevant to my task?
-graphify_suggest "add webhook retry logic"
+monograph_suggest "add webhook retry logic"
 # → returns ranked list of files with relevance scores
 
 # What depends on UserService?
-graphify_query "UserService dependencies"
+monograph_query "UserService dependencies"
 # → returns file paths + line numbers
 
 # Find the most connected files in the codebase
-graphify_god_nodes
+monograph_god_nodes
 # → returns high-centrality internal files (external/test filtered out)
 ```
 
-All graphify tools are called automatically by hooks and slash commands — you don't need to invoke them manually.
+All monograph tools are called automatically by hooks and slash commands — you don't need to invoke them manually.
 
 ### Vector Memory (AgentDB + HNSW)
 

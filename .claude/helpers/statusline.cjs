@@ -932,6 +932,22 @@ function getSIBudget() {
   } catch { return null; }
 }
 
+// Control server status (Neural Control Room web UI)
+function getControlStatus() {
+  const statusPath = path.join(CWD, '.monomind', 'control.json');
+  try {
+    if (!fs.existsSync(statusPath)) return { running: false, port: null };
+    const data = JSON.parse(fs.readFileSync(statusPath, 'utf-8'));
+    if (!data || !data.pid) return { running: false, port: null };
+    try {
+      process.kill(data.pid, 0);
+      return { running: true, port: data.port || 4242, url: data.url };
+    } catch {
+      return { running: false, port: null };
+    }
+  } catch { return { running: false, port: null }; }
+}
+
 // ── Single-line statusline (compact) ─────────────────────────────
 function generateStatusline() {
   const git       = getGitInfo();
@@ -1030,6 +1046,12 @@ function generateStatusline() {
     parts.push(`${x.gold}💰 ${todayFmt}${x.reset}`);
   }
 
+  // Control server (Neural Control Room)
+  const ctrl = getControlStatus();
+  if (ctrl.running) {
+    parts.push(`${x.teal}🎛️ :${ctrl.port}${x.reset}`);
+  }
+
   return parts.join(`  ${DIV}  `);
 }
 
@@ -1073,6 +1095,13 @@ function generateDashboard() {
 
   hdr += `  ${DIV}  🤖 ${x.violet}${x.bold}${modelName}${x.reset}`;
   if (session.duration) hdr += `  ${x.dim}⏱ ${session.duration}${x.reset}`;
+
+  // Control server (Neural Control Room)
+  const ctrl = getControlStatus();
+  if (ctrl.running) {
+    hdr += `  ${DIV}  ${x.teal}${x.bold}🎛️  CTRL${x.reset}${x.teal} :${ctrl.port}${x.reset}`;
+  }
+
   if (tokens) {
     const todayFmt = tokens.todayCost >= 100 ? `$${tokens.todayCost.toFixed(2)}` : tokens.todayCost >= 1 ? `$${tokens.todayCost.toFixed(3)}` : `$${tokens.todayCost.toFixed(4)}`;
     hdr += `  ${DIV}  ${x.gold}💰 ${x.bold}${todayFmt}${x.reset}${x.slate} today · ${tokens.todayCalls} calls${x.reset}`;

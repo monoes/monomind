@@ -19,7 +19,7 @@ for dir in skills commands agents helpers; do
   fi
 done
 
-# Bundle @monomind/graph dist so graphify-freshen.cjs works from npm installs
+# Bundle @monomind/graph dist for npm installs
 GRAPH_SRC="$ROOT_DIR/packages/@monomind/graph"
 GRAPH_DEST="$PKG_DIR/bundled-graph"
 if [ -d "$GRAPH_SRC/dist" ]; then
