@@ -86,7 +86,7 @@
   },
   "dependencies": {
     "@noble/ed25519": "^2.1.0",
-    "@monoes/monograph": "^1.1.0",
+    "@monoes/monograph": "workspace:*",
     "graphology": "^0.25.4",
     "graphology-communities-louvain": "^2.0.1",
     "graphology-metrics": "^2.4.0",
