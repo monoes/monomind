@@ -150,6 +150,7 @@ monobrain.config.json
 monobrain
 docs/*.md
 docs/adr/
+docs/superpowers/
 # Removed Windows wrapper files per user request
 hive-mind-prompt-*.txt
 
@@ -164,3 +165,6 @@ hive-mind-prompt-*.txt
 .env
 .env.local
 .env.*.local
+.worktrees/
+.understand/
+graphify-out/
