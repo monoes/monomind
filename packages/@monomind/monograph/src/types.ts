@@ -5,7 +5,8 @@ export type NodeLabel =
   | 'Variable' | 'Struct' | 'Enum' | 'Macro' | 'Typedef' | 'Union'
   | 'Namespace' | 'Trait' | 'Impl' | 'TypeAlias' | 'Const' | 'Static'
   | 'Property' | 'Record' | 'Delegate' | 'Annotation' | 'Constructor'
-  | 'Template' | 'Module' | 'Process' | 'Route' | 'Community' | 'Concept';
+  | 'Template' | 'Module' | 'Process' | 'Route' | 'Community' | 'Concept'
+  | 'Section';
 
 export const SYMBOL_NODE_LABELS = new Set<NodeLabel>([
   'Function', 'Class', 'Method', 'Interface', 'Variable', 'Struct', 'Enum',
@@ -17,10 +18,15 @@ export const SYMBOL_NODE_LABELS = new Set<NodeLabel>([
 // ── Edge relations ────────────────────────────────────────────────────────────
 
 export type EdgeRelation =
-  | 'CONTAINS' | 'DEFINES' | 'CALLS' | 'IMPORTS' | 'EXTENDS' | 'IMPLEMENTS'
+  | 'CONTAINS' | 'DEFINES' | 'CALLS' | 'IMPORTS' | 'RE_EXPORTS' | 'EXTENDS' | 'IMPLEMENTS'
   | 'HAS_METHOD' | 'HAS_PROPERTY' | 'ACCESSES' | 'METHOD_OVERRIDES'
   | 'METHOD_IMPLEMENTS' | 'MEMBER_OF' | 'STEP_IN_PROCESS' | 'HANDLES_ROUTE'
-  | 'FETCHES' | 'HANDLES_TOOL' | 'ENTRY_POINT_OF' | 'WRAPS' | 'QUERIES';
+  | 'FETCHES' | 'HANDLES_TOOL' | 'ENTRY_POINT_OF' | 'WRAPS' | 'QUERIES'
+  | 'REFERENCES' | 'PARENT_SECTION' | 'TAGGED_AS'
+  // Doc KG — contextual proximity
+  | 'CO_OCCURS'
+  // Doc KG — LLM-inferred semantic relations
+  | 'DESCRIBES' | 'CAUSES' | 'CONTRASTS_WITH' | 'PART_OF' | 'RELATED_TO' | 'USES';
 
 // ── Confidence ────────────────────────────────────────────────────────────────
 
@@ -45,6 +51,7 @@ export interface MonographNode {
   communityId?: number;
   isExported: boolean;
   language?: string;
+  reachabilityRole?: 'runtime' | 'test' | 'support' | 'unreachable';
   properties?: Record<string, unknown>;
 }
 
@@ -57,6 +64,7 @@ export interface MonographEdge {
   relation: EdgeRelation;
   confidence: EdgeConfidence;
   confidenceScore: number;
+  weight?: number;
 }
 
 // ── Communities ───────────────────────────────────────────────────────────────
@@ -92,6 +100,36 @@ export type SuggestedQuestion =
   | { type: 'verify_inferred'; edge: MonographEdge; inferredFrom: string }
   | { type: 'isolated_nodes'; nodes: MonographNode[]; reason: string }
   | { type: 'low_cohesion'; community: MonographCommunity };
+
+// ── Finding actions (structured remediation steps) ────────────────────────────
+
+export type FindingActionType =
+  | 'investigate'     // read/understand the file
+  | 'refactor'        // reduce complexity or coupling
+  | 'delete'          // safe to remove
+  | 'add-test'        // add test coverage
+  | 'add-import'      // add missing import edge
+  | 'extract'         // extract to separate module
+  | 'review'          // human review required
+  | 'add-edge';       // add explicit graph relationship
+
+export interface FindingAction {
+  type: FindingActionType;
+  file?: string;       // target file path
+  symbol?: string;     // specific symbol/export name
+  description: string; // human-readable instruction
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface AnnotatedFinding {
+  title: string;
+  severity: 'error' | 'warning' | 'info';
+  nodeId?: string;
+  nodeName?: string;
+  filePath?: string | null;
+  introduced?: boolean;
+  actions: FindingAction[];
+}
 
 // ── ID generation ─────────────────────────────────────────────────────────────
 
