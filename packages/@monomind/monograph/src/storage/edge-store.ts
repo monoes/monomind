@@ -3,8 +3,8 @@ import type { MonographEdge } from '../types.js';
 
 export function insertEdge(db: Database.Database, edge: MonographEdge): void {
   db.prepare(`
-    INSERT OR REPLACE INTO edges (id, source_id, target_id, relation, confidence, confidence_score)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO edges (id, source_id, target_id, relation, confidence, confidence_score, weight)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(
     edge.id,
     edge.sourceId,
@@ -12,6 +12,7 @@ export function insertEdge(db: Database.Database, edge: MonographEdge): void {
     edge.relation,
     edge.confidence,
     edge.confidenceScore,
+    edge.weight ?? 1.0,
   );
 }
 
@@ -57,5 +58,6 @@ function rowToEdge(row: Record<string, unknown>): MonographEdge {
     relation: row.relation as MonographEdge['relation'],
     confidence: row.confidence as MonographEdge['confidence'],
     confidenceScore: row.confidence_score as number,
+    weight: (row.weight as number | undefined) ?? 1.0,
   };
 }

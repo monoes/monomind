@@ -163,4 +163,4 @@ For CI/CD integration and automation:
 ✅ **Memory Usage**: Store important decisions and context
 ✅ **Task Completion**: All tasks should end with `attempt_completion`
 
-See `/monomind-help` for all available commands.
+See `/monomind:help` for all available commands.
