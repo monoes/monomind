@@ -94,3 +94,29 @@ export function isValidEmailMode(v: unknown): v is EmailModeParam {
 export function isValidAuditGate(v: unknown): v is AuditGate {
   return v === 'new-only' || v === 'all';
 }
+
+// ── Round 9: extended MCP params ──────────────────────────────────────────────
+
+export interface CheckChangedMcpParams {
+  root: string;
+  gitRef?: string;
+  filters?: string[];
+  workspace?: string;
+  includeEntryFiles?: boolean;
+}
+
+export interface FixMcpParams {
+  root: string;
+  apply?: boolean;
+  filterUnused?: boolean;
+  filterDeps?: boolean;
+}
+
+export interface ExplainMcpParams {
+  ruleId: string;
+  verbose?: boolean;
+}
+
+export function isValidFixMode(mode: unknown): mode is 'preview' | 'apply' {
+  return mode === 'preview' || mode === 'apply';
+}

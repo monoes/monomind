@@ -3599,6 +3599,269 @@ const monographHealthReportTool: MCPTool = {
   },
 };
 
+// ── Round 9: complexity findings ─────────────────────────────────────────────
+
+const monographComplexityFindingsTool: MCPTool = {
+  name: 'monograph_complexity_findings',
+  description: 'Classify function-level severity and summarize health findings using CRAP score, cyclomatic/cognitive thresholds, and coverage tiering.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      findings: { type: 'array', description: 'Array of HealthFinding objects' },
+    },
+    required: ['findings'],
+  },
+  handler: async (args) => {
+    const { summarizeFindings } = await import('@monoes/monograph');
+    const summary = summarizeFindings(args.findings as Parameters<typeof summarizeFindings>[0]);
+    return { content: [{ type: 'text' as const, text: JSON.stringify(summary, null, 2) }] };
+  },
+};
+
+// ── Round 9: runtime coverage report ─────────────────────────────────────────
+
+const monographRuntimeCoverageReportTool: MCPTool = {
+  name: 'monograph_runtime_coverage_report',
+  description: 'Create a structured RuntimeCoverageReport from an array of findings, computing the aggregate summary.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      findings: { type: 'array', description: 'Array of RuntimeCoverageFinding objects' },
+    },
+    required: ['findings'],
+  },
+  handler: async (args) => {
+    const { createRuntimeCoverageReport } = await import('@monoes/monograph');
+    const report = createRuntimeCoverageReport(args.findings as Parameters<typeof createRuntimeCoverageReport>[0]);
+    return { content: [{ type: 'text' as const, text: JSON.stringify(report, null, 2) }] };
+  },
+};
+
+// ── Round 9: duplication grouping ────────────────────────────────────────────
+
+const monographDuplicationGroupingTool: MCPTool = {
+  name: 'monograph_duplication_grouping',
+  description: 'Group raw clone-detection results by owner/directory for duplication reports.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      groups: { type: 'array', description: 'Array of CloneGroupInput objects with id, instances, duplicatedLines' },
+    },
+    required: ['groups'],
+  },
+  handler: async (args) => {
+    const { buildDuplicationGrouping, formatDuplicationGrouping } = await import('@monoes/monograph');
+    const grouping = buildDuplicationGrouping(args.groups as Parameters<typeof buildDuplicationGrouping>[0]);
+    return { content: [{ type: 'text' as const, text: formatDuplicationGrouping(grouping) + '\n\n' + JSON.stringify(grouping, null, 2) }] };
+  },
+};
+
+// ── Round 9: grouped JSON builders ───────────────────────────────────────────
+
+const monographJsonBuildersTool: MCPTool = {
+  name: 'monograph_json_builders',
+  description: 'Build grouped health/duplication JSON or baseline-delta summaries.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      kind: { type: 'string', enum: ['health', 'duplication', 'baseline-delta'], description: 'Which builder to invoke' },
+      data: { type: 'object', description: 'Input data for the builder' },
+    },
+    required: ['kind', 'data'],
+  },
+  handler: async (args) => {
+    const { buildGroupedHealthJson, buildGroupedDuplicationJson, buildBaselineDeltasJson } = await import('@monoes/monograph');
+    const kind = args.kind as string;
+    const d = args.data as Record<string, unknown>;
+    let text: string;
+    if (kind === 'health') text = buildGroupedHealthJson((d['groups'] as Parameters<typeof buildGroupedHealthJson>[0]) ?? []);
+    else if (kind === 'duplication') text = buildGroupedDuplicationJson((d['groups'] as Parameters<typeof buildGroupedDuplicationJson>[0]) ?? []);
+    else text = buildBaselineDeltasJson((d['current'] as Record<string, number>) ?? {}, (d['baseline'] as Record<string, number>) ?? {});
+    return { content: [{ type: 'text' as const, text }] };
+  },
+};
+
+// ── Round 9: regression baseline I/O ─────────────────────────────────────────
+
+const monographRegressionBaselineTool: MCPTool = {
+  name: 'monograph_regression_baseline',
+  description: 'Load a regression baseline file and compare against current counts.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      baselinePath: { type: 'string', description: 'Path to the baseline JSON file' },
+      current: { type: 'object', description: 'Current metric counts (Record<string, number>)' },
+      tolerance: { type: 'number', description: 'Allowed increase per metric (default 0)' },
+      root: { type: 'string', description: 'Project root (default: process.cwd())' },
+    },
+    required: ['current'],
+  },
+  handler: async (args) => {
+    const { loadRegressionBaseline, compareWithRegressionBaseline } = await import('@monoes/monograph');
+    const baseline = loadRegressionBaseline(args.baselinePath as string | undefined, args.root as string | undefined);
+    if (!baseline) return { content: [{ type: 'text' as const, text: 'No regression baseline found at specified path.' }] };
+    const result = compareWithRegressionBaseline(baseline, args.current as Record<string, number>, (args.tolerance as number) ?? 0);
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+  },
+};
+
+// ── Round 9: MCP tool builders ────────────────────────────────────────────────
+
+const monographToolBuildersTool: MCPTool = {
+  name: 'monograph_tool_builders',
+  description: 'Convert structured MCP params into CLI argv arrays for any monograph command.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      command: { type: 'string', description: 'CLI command name (analyze, health, audit, find-dupes, trace-export, trace-file, trace-dependency, trace-clone, project-info, feature-flags, list-boundaries, check-runtime-coverage, check-changed, fix-preview, fix-apply, explain)' },
+      params: { type: 'object', description: 'Params object for the chosen command' },
+    },
+    required: ['command', 'params'],
+  },
+  handler: async (args) => {
+    const builders = await import('@monoes/monograph');
+    const cmd = args.command as string;
+    const p = args.params as Record<string, unknown>;
+    const map: Record<string, (p: unknown) => string[]> = {
+      'analyze': builders.buildAnalyzeArgs,
+      'health': builders.buildHealthArgs,
+      'audit': builders.buildAuditArgs,
+      'find-dupes': builders.buildFindDupesArgs,
+      'trace-export': builders.buildTraceExportArgs,
+      'trace-file': builders.buildTraceFileArgs,
+      'trace-dependency': builders.buildTraceDependencyArgs,
+      'trace-clone': builders.buildTraceCloneArgs,
+      'project-info': builders.buildProjectInfoArgs,
+      'feature-flags': builders.buildFeatureFlagsArgs,
+      'list-boundaries': builders.buildListBoundariesArgs,
+      'check-runtime-coverage': builders.buildCheckRuntimeCoverageArgs,
+      'check-changed': builders.buildCheckChangedArgs,
+      'fix-preview': builders.buildFixPreviewArgs,
+      'fix-apply': builders.buildFixApplyArgs,
+      'explain': builders.buildExplainArgs,
+    };
+    const builder = map[cmd];
+    if (!builder) return { content: [{ type: 'text' as const, text: `Unknown command: ${cmd}` }] };
+    return { content: [{ type: 'text' as const, text: JSON.stringify(builder(p), null, 2) }] };
+  },
+};
+
+// ── Round 9: workspace discovery ──────────────────────────────────────────────
+
+const monographWorkspaceDiscoveryTool: MCPTool = {
+  name: 'monograph_workspace_discovery',
+  description: 'Discover monorepo workspace packages from package.json workspaces field.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string', description: 'Project root directory' },
+      detectUndeclared: { type: 'boolean', description: 'Also report undeclared workspaces' },
+    },
+    required: ['root'],
+  },
+  handler: async (args) => {
+    const { discoverWorkspaces, findUndeclaredWorkspaces } = await import('@monoes/monograph');
+    const workspaces = discoverWorkspaces(args.root as string);
+    const diagnostics = (args.detectUndeclared as boolean)
+      ? findUndeclaredWorkspaces(args.root as string, workspaces)
+      : [];
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ workspaces, diagnostics }, null, 2) }] };
+  },
+};
+
+// ── Round 9: external plugins ─────────────────────────────────────────────────
+
+const monographExternalPluginsTool: MCPTool = {
+  name: 'monograph_external_plugins',
+  description: 'Discover monograph plugins declared in node_modules packages via the monograph-plugin package.json key.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string', description: 'Project root containing node_modules' },
+    },
+    required: ['root'],
+  },
+  handler: async (args) => {
+    const { discoverExternalPlugins, mergePluginSuppressPatterns } = await import('@monoes/monograph');
+    const plugins = discoverExternalPlugins(args.root as string);
+    const suppressPatterns = mergePluginSuppressPatterns(plugins);
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ plugins, suppressPatterns }, null, 2) }] };
+  },
+};
+
+// ── Round 9: config types ─────────────────────────────────────────────────────
+
+const monographConfigTypesTool: MCPTool = {
+  name: 'monograph_config_types',
+  description: 'Return the default resolved monograph configuration schema.',
+  inputSchema: { type: 'object', properties: {} },
+  handler: async (_args) => {
+    const { DEFAULT_MONOGRAPH_CONFIG } = await import('@monoes/monograph');
+    return { content: [{ type: 'text' as const, text: JSON.stringify(DEFAULT_MONOGRAPH_CONFIG, null, 2) }] };
+  },
+};
+
+// ── Round 9: scripts analysis ─────────────────────────────────────────────────
+
+const monographScriptsTool: MCPTool = {
+  name: 'monograph_analyze_scripts',
+  description: 'Analyze npm package.json scripts to extract production entry-point commands and build a binary-to-package map.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      scripts: { type: 'object', description: 'The scripts field from package.json' },
+    },
+    required: ['scripts'],
+  },
+  handler: async (args) => {
+    const { analyzeScripts } = await import('@monoes/monograph');
+    const result = analyzeScripts(args.scripts as Record<string, string>);
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ entryPatterns: result.entryPatterns, commands: result.commands }, null, 2) }] };
+  },
+};
+
+// ── Round 9: LSP diagnostics push ────────────────────────────────────────────
+
+const monographDiagnosticsPushTool: MCPTool = {
+  name: 'monograph_diagnostics_push',
+  description: 'Build a flat list of LSP diagnostics from any combination of finding arrays (unused exports, files, imports, deps, members, cycles, boundaries, duplicate exports, duplication, stale suppressions).',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      unusedExports: { type: 'array', description: 'UnusedExportFinding[]' },
+      unusedFiles: { type: 'array', description: 'UnusedFileFinding[]' },
+      unresolvedImports: { type: 'array', description: 'UnresolvedImportFinding[]' },
+      unusedDeps: { type: 'array', description: 'UnusedDepFinding[]' },
+      unusedMembers: { type: 'array', description: 'UnusedMemberFinding[]' },
+      circularDeps: { type: 'array', description: 'CircularDepFinding[]' },
+      boundaryViolations: { type: 'array', description: 'BoundaryViolFinding[]' },
+      duplicateExports: { type: 'array', description: 'DupeExportFinding[]' },
+      duplication: { type: 'array', description: 'DuplicationFinding[]' },
+      staleSuppressions: { type: 'array', description: 'StaleSuppressionFinding[]' },
+    },
+  },
+  handler: async (args) => {
+    const {
+      pushExportDiagnostics, pushFileDiagnostics, pushImportDiagnostics, pushDepDiagnostics,
+      pushMemberDiagnostics, pushCircularDepDiagnostics, pushBoundaryViolationDiagnostics,
+      pushDuplicateExportDiagnostics, pushDuplicationDiagnostics, pushStaleSuppressionDiagnostics,
+    } = await import('@monoes/monograph');
+    const map = new Map();
+    if (args.unusedExports) pushExportDiagnostics(map, args.unusedExports as Parameters<typeof pushExportDiagnostics>[1]);
+    if (args.unusedFiles) pushFileDiagnostics(map, args.unusedFiles as Parameters<typeof pushFileDiagnostics>[1]);
+    if (args.unresolvedImports) pushImportDiagnostics(map, args.unresolvedImports as Parameters<typeof pushImportDiagnostics>[1]);
+    if (args.unusedDeps) pushDepDiagnostics(map, args.unusedDeps as Parameters<typeof pushDepDiagnostics>[1]);
+    if (args.unusedMembers) pushMemberDiagnostics(map, args.unusedMembers as Parameters<typeof pushMemberDiagnostics>[1]);
+    if (args.circularDeps) pushCircularDepDiagnostics(map, args.circularDeps as Parameters<typeof pushCircularDepDiagnostics>[1]);
+    if (args.boundaryViolations) pushBoundaryViolationDiagnostics(map, args.boundaryViolations as Parameters<typeof pushBoundaryViolationDiagnostics>[1]);
+    if (args.duplicateExports) pushDuplicateExportDiagnostics(map, args.duplicateExports as Parameters<typeof pushDuplicateExportDiagnostics>[1]);
+    if (args.duplication) pushDuplicationDiagnostics(map, args.duplication as Parameters<typeof pushDuplicationDiagnostics>[1]);
+    if (args.staleSuppressions) pushStaleSuppressionDiagnostics(map, args.staleSuppressions as Parameters<typeof pushStaleSuppressionDiagnostics>[1]);
+    const all = [...map.values()].flat();
+    return { content: [{ type: 'text' as const, text: JSON.stringify(all, null, 2) }] };
+  },
+};
+
 // ── Export all tools ──────────────────────────────────────────────────────────
 
 export const monographTools: MCPTool[] = [
@@ -3721,4 +3984,15 @@ export const monographTools: MCPTool[] = [
   monographDistributionThresholdsTool,
   monographAnalysisCountsTool,
   monographHealthReportTool,
+  monographComplexityFindingsTool,
+  monographRuntimeCoverageReportTool,
+  monographDuplicationGroupingTool,
+  monographJsonBuildersTool,
+  monographRegressionBaselineTool,
+  monographToolBuildersTool,
+  monographWorkspaceDiscoveryTool,
+  monographExternalPluginsTool,
+  monographConfigTypesTool,
+  monographScriptsTool,
+  monographDiagnosticsPushTool,
 ];
