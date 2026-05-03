@@ -6,6 +6,7 @@ import { isSupportedExtension } from '../../parsers/loader.js';
 const DEFAULT_IGNORE = new Set([
   'node_modules', '.git', 'dist', 'build', '__pycache__',
   '.cache', 'coverage', '.monomind', 'vendor', 'target',
+  '.worktrees', '.claude', '.claude-plugin', '.github', '.githooks',
 ]);
 
 const BINARY_EXTENSIONS = new Set([
