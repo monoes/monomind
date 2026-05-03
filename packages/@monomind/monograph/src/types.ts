@@ -26,7 +26,7 @@ export type EdgeRelation =
   // Doc KG — contextual proximity
   | 'CO_OCCURS'
   // Doc KG — LLM-inferred semantic relations
-  | 'DESCRIBES' | 'CAUSES' | 'CONTRASTS_WITH' | 'PART_OF' | 'RELATED_TO' | 'USES';
+  | 'DESCRIBES' | 'CAUSES' | 'CONTRASTS_WITH' | 'PART_OF' | 'RELATED_TO' | 'USES' | 'STRUCTURALLY_SIMILAR';
 
 // ── Confidence ────────────────────────────────────────────────────────────────
 
@@ -82,6 +82,22 @@ export interface GodNode extends MonographNode {
   degree: number;
   inDegree: number;
   outDegree: number;
+}
+
+// ── Complexity metrics ────────────────────────────────────────────────────────
+
+export interface ComplexityMetrics {
+  cyclomaticComplexity: number;
+  cognitiveComplexity: number;
+  linesOfCode: number;
+  paramCount: number;
+}
+
+export interface CrapScore {
+  cc: number;
+  coverage: number;   // 0-1
+  score: number;      // CC² × (1-coverage)³ + CC
+  risk: 'low' | 'medium' | 'high' | 'critical';
 }
 
 // ── Surprising connections ────────────────────────────────────────────────────
