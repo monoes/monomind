@@ -81,3 +81,38 @@ export function programmaticErrorToJson(err: ProgrammaticError): string {
     exitCode: err.exitCode,
   });
 }
+
+// ── Round 9: programmatic execution function stubs ────────────────────────────
+// These return structured JSON strings matching the CLI JSON reporter output.
+
+export interface ProgrammaticRunOptions {
+  root: string;
+  tsconfig?: string;
+  entry?: string | string[];
+  production?: boolean;
+  reporter?: 'json' | 'compact';
+}
+
+export async function detectDeadCodeProgrammatic(opts: ProgrammaticRunOptions): Promise<string> {
+  return JSON.stringify({ kind: 'dead-code', root: opts.root, results: [], message: 'Run via CLI: npx monograph analyze' });
+}
+
+export async function detectCircularDependenciesProgrammatic(opts: ProgrammaticRunOptions): Promise<string> {
+  return JSON.stringify({ kind: 'cycles', root: opts.root, results: [], message: 'Run via CLI: npx monograph analyze --cycles' });
+}
+
+export async function detectBoundaryViolationsProgrammatic(opts: ProgrammaticRunOptions): Promise<string> {
+  return JSON.stringify({ kind: 'boundaries', root: opts.root, results: [], message: 'Run via CLI: npx monograph check-boundaries' });
+}
+
+export async function detectDuplicationProgrammatic(opts: ProgrammaticRunOptions): Promise<string> {
+  return JSON.stringify({ kind: 'duplication', root: opts.root, results: [], message: 'Run via CLI: npx monograph find-dupes' });
+}
+
+export async function computeComplexityProgrammatic(opts: ProgrammaticRunOptions): Promise<string> {
+  return JSON.stringify({ kind: 'complexity', root: opts.root, results: [], message: 'Run via CLI: npx monograph health' });
+}
+
+export async function computeHealthProgrammatic(opts: ProgrammaticRunOptions): Promise<string> {
+  return JSON.stringify({ kind: 'health', root: opts.root, results: [], message: 'Run via CLI: npx monograph health --reporter json' });
+}

@@ -156,3 +156,19 @@ export function computeOwnershipMetrics(
     botFilteredCount: botEmails.size,
   };
 }
+
+// ── Round 9: contributor identifier format ─────────────────────────────────
+
+export type ContributorIdentifierFormat = 'fullEmail' | 'domainEmail' | 'displayName';
+
+/** Normalize a raw git author string to the specified identifier format. */
+export function normalizeContributorId(raw: string, format: ContributorIdentifierFormat): string {
+  const email = raw.match(/<([^>]+)>/)?.[1] ?? raw;
+  if (format === 'fullEmail') return email.toLowerCase();
+  if (format === 'domainEmail') {
+    const domain = email.split('@')[1] ?? email;
+    return domain.toLowerCase();
+  }
+  // displayName: strip the <email> part if present
+  return raw.replace(/<[^>]+>/, '').trim() || email;
+}
