@@ -159,3 +159,81 @@ export function computeRefactoringTargets(db: MonographDb): RefactoringTargetsRe
     totalAnalyzed: rows.length,
   };
 }
+
+// ── Round 8: priority scoring + evidence types ─────────────────────────────
+
+export interface ContributingFactor {
+  metric: string;          // e.g. 'fanIn', 'cyclomaticComplexity'
+  value: number;
+  threshold: number;
+  detail: string;
+}
+
+export interface EvidenceFunction {
+  name: string;
+  startLine: number;
+  cognitiveComplexity: number;
+}
+
+export interface TargetEvidence {
+  unusedExportsCount: number;
+  complexFunctions: EvidenceFunction[];
+  cyclePath: string[];       // for circular-dep evidence
+  contributingFactors: ContributingFactor[];
+}
+
+export interface PriorityRule {
+  name: string;
+  description: string;
+  weight: number;
+  /** Returns a 0-1 score contribution or null if the rule doesn't apply. */
+  evaluate: (factors: Record<string, number>) => number | null;
+}
+
+export const PRIORITY_RULE_WEIGHTS = {
+  densityWeight: 30,
+  hotspotWeight: 25,
+  deadCodeWeight: 20,
+  fanInWeight: 15,
+  fanOutWeight: 10,
+} as const;
+
+/** Normalize a raw metric value against a threshold to a 0-1 score. */
+export function normalizeMetric(value: number, threshold: number): number {
+  if (threshold <= 0) return 0;
+  return Math.min(value / threshold, 1);
+}
+
+/** Compute a 0-100 composite priority score for a refactoring target. */
+export function computeTargetPriority(factors: {
+  densityScore: number;     // 0-1 already normalized
+  hotspotScore: number;     // 0-1
+  deadCodeScore: number;    // 0-1
+  fanInRaw: number;
+  fanOutRaw: number;
+  fanInThreshold: number;
+  fanOutThreshold: number;
+}): number {
+  const { densityWeight, hotspotWeight, deadCodeWeight, fanInWeight, fanOutWeight } = PRIORITY_RULE_WEIGHTS;
+  const fanIn  = normalizeMetric(factors.fanInRaw,  factors.fanInThreshold);
+  const fanOut = normalizeMetric(factors.fanOutRaw, factors.fanOutThreshold);
+  return Math.min(100, Math.round(
+    factors.densityScore * densityWeight +
+    factors.hotspotScore * hotspotWeight +
+    factors.deadCodeScore * deadCodeWeight +
+    fanIn  * fanInWeight +
+    fanOut * fanOutWeight,
+  ));
+}
+
+/** Apply named priority rules in priority order, returning the first match's score or null. */
+export function tryMatchPriorityRules(
+  rules: PriorityRule[],
+  factors: Record<string, number>,
+): { rule: PriorityRule; score: number } | null {
+  for (const rule of [...rules].sort((a, b) => b.weight - a.weight)) {
+    const score = rule.evaluate(factors);
+    if (score !== null) return { rule, score };
+  }
+  return null;
+}

@@ -3431,6 +3431,174 @@ const monographQualityGateTool: MCPTool = {
   },
 };
 
+// ── Round 8: issue filters ────────────────────────────────────────────────────
+
+const monographIssueFiltersTool: MCPTool = {
+  name: 'monograph_issue_filters',
+  description: 'Apply selective issue filters to an analysis result — zero-out specific check categories so callers can run any subset of checks in one pass.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      checks: { type: 'array', items: { type: 'string' }, description: 'List of IssueFilterKey values to enable (all others disabled)' },
+      allOn: { type: 'boolean', description: 'Enable all filters (overrides checks)' },
+    },
+  },
+  handler: async (args) => {
+    const { applyIssueFilters, activateExplicitOptIns, ALL_FILTERS_ON, ALL_FILTERS_OFF } = await import('@monoes/monograph');
+    const filters = (args.allOn as boolean) ? ALL_FILTERS_ON
+      : activateExplicitOptIns((args.checks as string[] | undefined) ?? []);
+    return { content: [{ type: 'text' as const, text: JSON.stringify(filters, null, 2) }] };
+  },
+};
+
+// ── Round 8: external style usage ────────────────────────────────────────────
+
+const monographExternalStyleTool: MCPTool = {
+  name: 'monograph_external_style_usage',
+  description: 'Scan source files for external CSS/styling package imports and augment the graph with style-dependency edges.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      source: { type: 'string', description: 'Source file content to scan for style imports' },
+    },
+    required: ['source'],
+  },
+  handler: async (args) => {
+    const { scanStyleImports } = await import('@monoes/monograph');
+    const imports = scanStyleImports(args.source as string);
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ imports }, null, 2) }] };
+  },
+};
+
+// ── Round 8: project detection ────────────────────────────────────────────────
+
+const monographProjectDetectionTool: MCPTool = {
+  name: 'monograph_detect_project',
+  description: 'Detect project framework, test runner, package manager, and monorepo tool from package.json deps and root files. Returns a ProjectInfo object and rendered config strings.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      deps: { type: 'object', description: 'package.json dependencies + devDependencies merged' },
+      rootFiles: { type: 'array', items: { type: 'string' }, description: 'List of root directory file names' },
+      format: { type: 'string', enum: ['json', 'toml'], description: 'Config output format (default: json)' },
+    },
+    required: ['deps'],
+  },
+  handler: async (args) => {
+    const { detectProject, buildJsonConfig, buildTomlConfig } = await import('@monoes/monograph');
+    const info = detectProject(args.deps as Record<string, string>, (args.rootFiles as string[] | undefined) ?? []);
+    const config = (args.format as string) === 'toml' ? buildTomlConfig(info) : buildJsonConfig(info);
+    return { content: [{ type: 'text' as const, text: JSON.stringify(info, null, 2) + '\n\n' + config }] };
+  },
+};
+
+// ── Round 8: git hooks ────────────────────────────────────────────────────────
+
+const monographGitHooksTool: MCPTool = {
+  name: 'monograph_git_hooks',
+  description: 'Detect the git hooks manager (husky/lefthook/raw/none) and render the monograph pre-commit gate script.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      rootFiles: { type: 'array', items: { type: 'string' }, description: 'List of root directory file names' },
+      command: { type: 'string', description: 'CLI command to embed in the hook script' },
+    },
+    required: ['rootFiles'],
+  },
+  handler: async (args) => {
+    const { detectHooksManager, renderedHookScript } = await import('@monoes/monograph');
+    const manager = detectHooksManager(args.rootFiles as string[]);
+    const script = renderedHookScript({ command: (args.command as string) ?? 'npx monograph check', manager });
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ manager, script }, null, 2) }] };
+  },
+};
+
+// ── Round 8: agent hooks ──────────────────────────────────────────────────────
+
+const monographAgentHooksTool: MCPTool = {
+  name: 'monograph_agent_hooks',
+  description: 'Build or merge a monograph quality-gate block for AGENTS.md / CLAUDE.md and Claude Code settings JSON.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      existing: { type: 'string', description: 'Existing AGENTS.md / CLAUDE.md content (empty string if new file)' },
+      command: { type: 'string', description: 'Gate command to embed (default: monograph check --since HEAD~1)' },
+    },
+    required: ['existing'],
+  },
+  handler: async (args) => {
+    const { mergeAgentsMdBlock, buildAgentsMdBlock } = await import('@monoes/monograph');
+    const cmd = (args.command as string | undefined) ?? 'npx monograph check --since HEAD~1';
+    const block = buildAgentsMdBlock(cmd);
+    const merged = mergeAgentsMdBlock(args.existing as string, block);
+    return { content: [{ type: 'text' as const, text: merged }] };
+  },
+};
+
+// ── Round 8: distribution thresholds ─────────────────────────────────────────
+
+const monographDistributionThresholdsTool: MCPTool = {
+  name: 'monograph_distribution_thresholds',
+  description: 'Compute adaptive fan-in/fan-out percentile thresholds from per-file topology scores.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      scores: {
+        type: 'array',
+        items: { type: 'object', properties: { fanIn: { type: 'number' }, fanOut: { type: 'number' } }, required: ['fanIn', 'fanOut'] },
+        description: 'Array of {fanIn, fanOut} scores per file',
+      },
+    },
+    required: ['scores'],
+  },
+  handler: async (args) => {
+    const { computeDistributionThresholds, formatDistributionThresholds } = await import('@monoes/monograph');
+    const t = computeDistributionThresholds(args.scores as Array<{ fanIn: number; fanOut: number }>);
+    return { content: [{ type: 'text' as const, text: formatDistributionThresholds(t) + '\n\n' + JSON.stringify(t, null, 2) }] };
+  },
+};
+
+// ── Round 8: analysis counts ──────────────────────────────────────────────────
+
+const monographAnalysisCountsTool: MCPTool = {
+  name: 'monograph_analysis_counts',
+  description: 'Compute aggregate dead-code and unused-deps counts from analysis results, with dead-code% and unused-deps% helpers.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      results: { type: 'object', description: 'AnalysisResultsInput object with unusedFiles, unusedExports, unusedDeps arrays' },
+    },
+    required: ['results'],
+  },
+  handler: async (args) => {
+    const { computeAnalysisCounts, deadCodePct, unusedDepsPct, formatAnalysisCounts } = await import('@monoes/monograph');
+    const counts = computeAnalysisCounts(args.results as Parameters<typeof computeAnalysisCounts>[0]);
+    return { content: [{ type: 'text' as const, text: formatAnalysisCounts(counts) + '\n\n' + JSON.stringify({ counts, deadCodePct: deadCodePct(counts), unusedDepsPct: unusedDepsPct(counts) }, null, 2) }] };
+  },
+};
+
+// ── Round 8: health report ────────────────────────────────────────────────────
+
+const monographHealthReportTool: MCPTool = {
+  name: 'monograph_health_report',
+  description: 'Create a structured HealthReport from vital signs, analysis counts, hotspots, and ownership metrics. Returns JSON and a human-readable summary.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      vitals: { type: 'object', description: 'VitalSigns object' },
+      counts: { type: 'object', description: 'AnalysisCounts object' },
+      hotspots: { type: 'array', description: 'Array of HotspotEntry objects' },
+    },
+    required: ['vitals', 'counts'],
+  },
+  handler: async (args) => {
+    const { createHealthReport, createHealthReportSummary, formatHealthReportSummary, healthReportToJson } = await import('@monoes/monograph');
+    const report = createHealthReport(args.vitals as Parameters<typeof createHealthReport>[0], args.counts as Parameters<typeof createHealthReport>[1], (args.hotspots as Parameters<typeof createHealthReport>[2]) ?? []);
+    const summary = createHealthReportSummary(report);
+    return { content: [{ type: 'text' as const, text: formatHealthReportSummary(summary) + '\n\n' + healthReportToJson(report) }] };
+  },
+};
+
 // ── Export all tools ──────────────────────────────────────────────────────────
 
 export const monographTools: MCPTool[] = [
@@ -3545,4 +3713,12 @@ export const monographTools: MCPTool[] = [
   monographConfigSchemaTool,
   monographEffortTool,
   monographQualityGateTool,
+  monographIssueFiltersTool,
+  monographExternalStyleTool,
+  monographProjectDetectionTool,
+  monographGitHooksTool,
+  monographAgentHooksTool,
+  monographDistributionThresholdsTool,
+  monographAnalysisCountsTool,
+  monographHealthReportTool,
 ];
