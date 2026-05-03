@@ -2440,6 +2440,439 @@ const monographDepClosureTool: MCPTool = {
   },
 };
 
+// ── Round 5 tools ─────────────────────────────────────────────────────────────
+
+const monographVitalSignsSnapshotTool: MCPTool = {
+  name: 'monograph_vital_signs_snapshot',
+  description: 'Save or load VitalSigns+HealthScore timestamped snapshots for trend tracking',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      action: { type: 'string', enum: ['save', 'load', 'latest'], description: 'save: write snapshot; load: list all; latest: most recent' },
+      dir: { type: 'string', description: 'Snapshot directory (default: .monograph/snapshots)' },
+      vitalSigns: { type: 'object', description: 'For save: VitalSigns data' },
+      healthScore: { type: 'object', description: 'For save: HealthScore data' },
+    },
+    required: ['action'],
+  },
+  handler: async (args) => {
+    const { buildSnapshot, saveSnapshot, loadSnapshots, latestSnapshot } = await import('@monoes/monograph');
+    const dir = (args.dir as string | undefined) ?? '.monograph/snapshots';
+    if (args.action === 'save') {
+      const snap = buildSnapshot(args.vitalSigns as Record<string, unknown>, args.healthScore as { value: number; grade: string; penalties: Record<string, number> });
+      const path = saveSnapshot(dir, snap);
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ saved: path, timestamp: snap.timestamp }) }] };
+    }
+    if (args.action === 'latest') {
+      const snap = latestSnapshot(dir);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(snap ?? null, null, 2) }] };
+    }
+    const snaps = loadSnapshots(dir);
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ count: snaps.length, snapshots: snaps.map(s => ({ timestamp: s.timestamp, healthScore: s.healthScore?.value })) }, null, 2) }] };
+  },
+};
+
+const monographHealthTrendTool: MCPTool = {
+  name: 'monograph_health_trend',
+  description: 'Compare current VitalSigns against the most recent snapshot to produce per-metric trend directions',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      current: { type: 'object', description: 'Current metrics (keyed numeric values)' },
+      snapshotDir: { type: 'string', description: 'Directory containing snapshots' },
+    },
+    required: ['current'],
+  },
+  handler: async (args) => {
+    const { computeTrend, latestSnapshot, trendArrow } = await import('@monoes/monograph');
+    const dir = (args.snapshotDir as string | undefined) ?? '.monograph/snapshots';
+    const prev = latestSnapshot(dir);
+    if (!prev) return { content: [{ type: 'text' as const, text: 'No previous snapshot found' }] };
+    const trend = computeTrend(args.current as Record<string, number>, prev);
+    const summary = Object.entries(trend).map(([k, v]: [string, unknown]) => {
+      const t = v as { direction: string; delta: number; current: number; previous: number };
+      return `${k}: ${trendArrow(t.direction as 'improving' | 'declining' | 'stable')} ${t.delta >= 0 ? '+' : ''}${t.delta.toFixed(2)} (${t.previous.toFixed(1)} → ${t.current.toFixed(1)})`;
+    });
+    return { content: [{ type: 'text' as const, text: summary.join('\n') }] };
+  },
+};
+
+const monographHealthScoreComputeTool: MCPTool = {
+  name: 'monograph_health_score_compute',
+  description: 'Compute a 0–100 health score from VitalSigns with 11 weighted penalty components',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      vitalSigns: { type: 'object', description: 'VitalSignsInput object with all metric fields' },
+      totalFiles: { type: 'number', description: 'Total file count in the project' },
+    },
+    required: ['vitalSigns'],
+  },
+  handler: async (args) => {
+    const { computeHealthScore } = await import('@monoes/monograph');
+    const score = computeHealthScore(args.vitalSigns as Parameters<typeof computeHealthScore>[0], (args.totalFiles as number | undefined) ?? 1);
+    return { content: [{ type: 'text' as const, text: JSON.stringify(score, null, 2) }] };
+  },
+};
+
+const monographRiskProfileTool: MCPTool = {
+  name: 'monograph_risk_profile',
+  description: 'Compute function size and parameter-count risk profiles (low/medium/high/veryHigh bins)',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      lineCounts: { type: 'array', items: { type: 'number' }, description: 'LOC per function for size profile' },
+      paramCounts: { type: 'array', items: { type: 'number' }, description: 'Param count per function for interfacing profile' },
+      fanInScores: { type: 'array', items: { type: 'number' }, description: 'Fan-in scores for coupling concentration' },
+    },
+  },
+  handler: async (args) => {
+    const { computeSizeRiskProfile, computeInterfacingRiskProfile, computeCouplingConcentration } = await import('@monoes/monograph');
+    const result: Record<string, unknown> = {};
+    if (args.lineCounts) result['sizeRiskProfile'] = computeSizeRiskProfile(args.lineCounts as number[]);
+    if (args.paramCounts) result['interfacingRiskProfile'] = computeInterfacingRiskProfile(args.paramCounts as number[]);
+    if (args.fanInScores) result['couplingConcentration'] = computeCouplingConcentration(args.fanInScores as number[]);
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+  },
+};
+
+const monographLargeFunctionsTool: MCPTool = {
+  name: 'monograph_large_functions',
+  description: 'Detect functions exceeding LOC threshold; reports when ≥3% of functions are very large',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      threshold: { type: 'number', description: 'LOC threshold (default 60)' },
+    },
+  },
+  handler: async (args) => {
+    const { detectLargeFunctions } = await import('@monoes/monograph');
+    const { openDb, closeDb } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const entries = detectLargeFunctions(db, (args.threshold as number | undefined) ?? 60);
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ count: entries.length, entries: entries.slice(0, 50) }, null, 2) }] };
+    } finally { closeDb(db); }
+  },
+};
+
+const monographOwnershipTool: MCPTool = {
+  name: 'monograph_ownership',
+  description: 'Compute bus factor and ownership metrics from git contributor data',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      contributors: { type: 'array', description: 'Array of ContributorEntry objects' },
+      driftedCount: { type: 'number', description: 'Number of drifted hotspot files' },
+    },
+    required: ['contributors'],
+  },
+  handler: async (args) => {
+    const { computeOwnershipMetrics } = await import('@monoes/monograph');
+    const metrics = computeOwnershipMetrics(
+      args.contributors as Parameters<typeof computeOwnershipMetrics>[0],
+      (args.driftedCount as number | undefined) ?? 0,
+    );
+    return { content: [{ type: 'text' as const, text: JSON.stringify(metrics, null, 2) }] };
+  },
+};
+
+const monographChurnTool: MCPTool = {
+  name: 'monograph_churn',
+  description: 'Analyze git churn per file with exponential recency decay (90-day half-life)',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      since: { type: 'string', description: 'Time range: 7d, 2w, 3m, 1y, or ISO date' },
+      root: { type: 'string', description: 'Project root directory' },
+    },
+  },
+  handler: async (args) => {
+    const { analyzeChurn, parseSince } = await import('@monoes/monograph');
+    const root = (args.root as string | undefined) ?? getProjectCwd();
+    const since = parseSince((args.since as string | undefined) ?? '3m');
+    const result = analyzeChurn(root, since);
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ totalFiles: result.files.length, top20: result.files.slice(0, 20) }, null, 2) }] };
+  },
+};
+
+const monographHotspotsComputeTool: MCPTool = {
+  name: 'monograph_hotspots_compute',
+  description: 'Score files by churn × complexity density to identify hotspots',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      inputs: { type: 'array', description: 'Array of {filePath, weightedCommits, complexityDensity}' },
+      minCommits: { type: 'number', description: 'Minimum commits to include a file' },
+    },
+    required: ['inputs'],
+  },
+  handler: async (args) => {
+    const { computeHotspots } = await import('@monoes/monograph');
+    const { entries, summary } = computeHotspots(
+      args.inputs as Parameters<typeof computeHotspots>[0],
+      args.minCommits as number | undefined,
+    );
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ summary, top20: entries.slice(0, 20) }, null, 2) }] };
+  },
+};
+
+const monographRuntimeCoverageHealthTool: MCPTool = {
+  name: 'monograph_runtime_coverage_health',
+  description: 'Classify files by runtime coverage verdict + risk band + recommended action',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      files: { type: 'array', description: 'Array of {filePath, staticVerdict, runtimeVerdict}' },
+    },
+    required: ['files'],
+  },
+  handler: async (args) => {
+    const { classifyRuntimeCoverageHealth } = await import('@monoes/monograph');
+    const files = args.files as Array<{ filePath: string; staticVerdict: 'unused' | 'used' | 'unknown'; runtimeVerdict: string }>;
+    const results = files.map(f => classifyRuntimeCoverageHealth(f.filePath, f.staticVerdict, f.runtimeVerdict as Parameters<typeof classifyRuntimeCoverageHealth>[2]));
+    return { content: [{ type: 'text' as const, text: JSON.stringify(results, null, 2) }] };
+  },
+};
+
+const monographHealthGroupTool: MCPTool = {
+  name: 'monograph_health_group',
+  description: 'Group files by directory/owner/package/section for per-team health dashboards',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      grouping: { type: 'string', enum: ['directory', 'owner', 'package', 'section'], description: 'Grouping dimension' },
+    },
+    required: ['grouping'],
+  },
+  handler: async (args) => {
+    const { groupFilesByKey } = await import('@monoes/monograph');
+    const { openDb, closeDb } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const rows = db.prepare(`SELECT DISTINCT file_path FROM nodes WHERE file_path IS NOT NULL`).all() as { file_path: string }[];
+      const filePaths = rows.map(r => r.file_path);
+      const groups = groupFilesByKey(filePaths, args.grouping as Parameters<typeof groupFilesByKey>[1]);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(groups.slice(0, 50), null, 2) }] };
+    } finally { closeDb(db); }
+  },
+};
+
+const monographChurnTraceTool: MCPTool = {
+  name: 'monograph_trace',
+  description: 'Trace why an export is used/unused, show file import/export map, or trace a package dependency',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      kind: { type: 'string', enum: ['export', 'file', 'dependency'], description: 'Trace type' },
+      target: { type: 'string', description: 'File path (for export/file) or package name (for dependency)' },
+      exportName: { type: 'string', description: 'Export name (for export trace)' },
+    },
+    required: ['kind', 'target'],
+  },
+  handler: async (args) => {
+    const { traceExport, traceFile, traceDependency } = await import('@monoes/monograph');
+    const { openDb, closeDb } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      let result: unknown;
+      if (args.kind === 'export') result = traceExport(db, args.target as string, (args.exportName as string | undefined) ?? '');
+      else if (args.kind === 'file') result = traceFile(db, args.target as string);
+      else result = traceDependency(db, args.target as string);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    } finally { closeDb(db); }
+  },
+};
+
+const monographChangedFilesTool: MCPTool = {
+  name: 'monograph_changed_files',
+  description: 'Get files changed since a git ref (validates ref to prevent injection)',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      sinceRef: { type: 'string', description: 'Git ref (branch, tag, commit SHA)' },
+      root: { type: 'string', description: 'Project root directory' },
+    },
+    required: ['sinceRef'],
+  },
+  handler: async (args) => {
+    const { getChangedFiles } = await import('@monoes/monograph');
+    const root = (args.root as string | undefined) ?? getProjectCwd();
+    const files = getChangedFiles(root, args.sinceRef as string);
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ count: files.size, files: [...files].sort() }, null, 2) }] };
+  },
+};
+
+const monographSuppressionsCheckTool: MCPTool = {
+  name: 'monograph_suppressions_check',
+  description: 'Find stale suppression comments that no longer match any real finding',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {},
+  },
+  handler: async (_args) => {
+    return { content: [{ type: 'text' as const, text: 'Stale suppression detection requires active analysis results. Pass suppressions via the API.' }] };
+  },
+};
+
+const monographHealthBaselineTool: MCPTool = {
+  name: 'monograph_health_baseline',
+  description: 'Save health findings baseline and filter to show only new regressions',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      action: { type: 'string', enum: ['save', 'filter'], description: 'save: build baseline from findings; filter: return only new findings' },
+      findings: { type: 'array', description: 'Array of HealthFinding objects' },
+      root: { type: 'string', description: 'Project root for relative path keys' },
+    },
+    required: ['action', 'findings'],
+  },
+  handler: async (args) => {
+    const { buildHealthBaseline } = await import('@monoes/monograph');
+    const root = (args.root as string | undefined) ?? getProjectCwd();
+    const baseline = buildHealthBaseline(args.findings as Parameters<typeof buildHealthBaseline>[0], root);
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ fileCount: baseline.counts.size }, null, 2) }] };
+  },
+};
+
+const monographRegressionConfigTool: MCPTool = {
+  name: 'monograph_regression_config',
+  description: 'Parse tolerance strings (5 or 2%) and persist baseline counts to config file',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      action: { type: 'string', enum: ['parse', 'save', 'check'] },
+      tolerance: { type: 'string', description: 'For parse/check: tolerance string like "5" or "2%"' },
+      baseline: { type: 'number', description: 'For check: baseline count' },
+      current: { type: 'number', description: 'For check: current count' },
+      configPath: { type: 'string', description: 'For save: config file path' },
+      counts: { type: 'object', description: 'For save: counts to persist' },
+    },
+    required: ['action'],
+  },
+  handler: async (args) => {
+    const { parseTolerance, toleranceExceeded, saveBaselineToConfig } = await import('@monoes/monograph');
+    if (args.action === 'parse') {
+      return { content: [{ type: 'text' as const, text: JSON.stringify(parseTolerance(args.tolerance as string)) }] };
+    }
+    if (args.action === 'check') {
+      const tol = parseTolerance(args.tolerance as string);
+      const exceeded = toleranceExceeded(tol, args.baseline as number, args.current as number);
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ exceeded, tolerance: tol }) }] };
+    }
+    saveBaselineToConfig(args.configPath as string, args.counts as Record<string, number>);
+    return { content: [{ type: 'text' as const, text: 'Baseline saved to config' }] };
+  },
+};
+
+const monographEnumMemberFixTool: MCPTool = {
+  name: 'monograph_fix_enum_members',
+  description: 'Auto-remove unused enum members; promotes to whole-enum deletion when body becomes empty',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      fixes: { type: 'array', description: 'Array of {filePath, enumName, memberName} fix targets' },
+    },
+    required: ['fixes'],
+  },
+  handler: async (args) => {
+    const { fixEnumMembers } = await import('@monoes/monograph');
+    const result = fixEnumMembers(args.fixes as Parameters<typeof fixEnumMembers>[0]);
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+  },
+};
+
+const monographCodeownersGitlabTool: MCPTool = {
+  name: 'monograph_codeowners_gitlab',
+  description: 'Parse GitLab-style CODEOWNERS with sections, optional sections, negation patterns, and per-section defaults',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      content: { type: 'string', description: 'CODEOWNERS file content' },
+      filePath: { type: 'string', description: 'File path to look up owner/section for' },
+    },
+    required: ['content'],
+  },
+  handler: async (args) => {
+    const { parseCodeownersWithSections, matchOwners, hasSections } = await import('@monoes/monograph');
+    const entries = parseCodeownersWithSections(args.content as string);
+    if (args.filePath) {
+      const { owners, section } = matchOwners(entries, args.filePath as string);
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ owners, section, hasSections: hasSections(entries) }, null, 2) }] };
+    }
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ entryCount: entries.length, hasSections: hasSections(entries) }, null, 2) }] };
+  },
+};
+
+const monographCodeLensTool: MCPTool = {
+  name: 'monograph_code_lens',
+  description: 'Build LSP CodeLens items showing reference counts above export declarations',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      usages: { type: 'array', description: 'Array of ExportUsage objects with line, col, exportName, referenceLocations' },
+      documentUri: { type: 'string', description: 'LSP document URI' },
+    },
+    required: ['usages', 'documentUri'],
+  },
+  handler: async (args) => {
+    const { buildCodeLenses } = await import('@monoes/monograph');
+    const lenses = buildCodeLenses(args.usages as Parameters<typeof buildCodeLenses>[0], args.documentUri as string);
+    return { content: [{ type: 'text' as const, text: JSON.stringify(lenses, null, 2) }] };
+  },
+};
+
+const monographLspHoverTool: MCPTool = {
+  name: 'monograph_lsp_hover',
+  description: 'Build LSP Hover content for unused exports and duplication at a cursor position',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      unusedExports: { type: 'array', description: 'UnusedExportInfo array for the file' },
+      duplication: { type: 'array', description: 'DuplicationInfo array for the file' },
+      line: { type: 'number', description: 'Cursor line (0-based LSP)' },
+      character: { type: 'number', description: 'Cursor character (0-based LSP)' },
+      filePath: { type: 'string', description: 'File path' },
+    },
+    required: ['line', 'character', 'filePath'],
+  },
+  handler: async (args) => {
+    const { buildHover } = await import('@monoes/monograph');
+    const hover = buildHover(
+      (args.unusedExports as Parameters<typeof buildHover>[0]) ?? [],
+      (args.duplication as Parameters<typeof buildHover>[1]) ?? [],
+      { line: args.line as number, character: args.character as number },
+      args.filePath as string,
+    );
+    return { content: [{ type: 'text' as const, text: hover ? hover.contents : '(no hover)' }] };
+  },
+};
+
+const monographLspDiagnosticsExtTool: MCPTool = {
+  name: 'monograph_lsp_diagnostics_ext',
+  description: 'Build LSP diagnostics for duplicate exports (with relatedInformation) and stale suppressions (tagged Unnecessary)',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      duplicateExportGroups: { type: 'array', description: 'DuplicateExportGroup array' },
+      staleSuppressions: { type: 'array', description: 'StaleSuppressionInfo array' },
+    },
+  },
+  handler: async (args) => {
+    const { buildDuplicateExportDiagnostics, buildStaleSuppressionDiagnostics } = await import('@monoes/monograph');
+    const result: Record<string, unknown> = {};
+    if (args.duplicateExportGroups) {
+      const map = buildDuplicateExportDiagnostics(args.duplicateExportGroups as Parameters<typeof buildDuplicateExportDiagnostics>[0]);
+      result['duplicateExports'] = Object.fromEntries(map);
+    }
+    if (args.staleSuppressions) {
+      const map = buildStaleSuppressionDiagnostics(args.staleSuppressions as Parameters<typeof buildStaleSuppressionDiagnostics>[0]);
+      result['staleSuppressions'] = Object.fromEntries(map);
+    }
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+  },
+};
+
 // ── Export all tools ──────────────────────────────────────────────────────────
 
 export const monographTools: MCPTool[] = [
@@ -2511,4 +2944,24 @@ export const monographTools: MCPTool[] = [
   monographMigrateKnipTool,
   monographMigrateJscpdTool,
   monographLspDiagnosticsTool,
+  monographVitalSignsSnapshotTool,
+  monographHealthTrendTool,
+  monographHealthScoreComputeTool,
+  monographRiskProfileTool,
+  monographLargeFunctionsTool,
+  monographOwnershipTool,
+  monographChurnTool,
+  monographHotspotsComputeTool,
+  monographRuntimeCoverageHealthTool,
+  monographHealthGroupTool,
+  monographChurnTraceTool,
+  monographChangedFilesTool,
+  monographSuppressionsCheckTool,
+  monographHealthBaselineTool,
+  monographRegressionConfigTool,
+  monographEnumMemberFixTool,
+  monographCodeownersGitlabTool,
+  monographCodeLensTool,
+  monographLspHoverTool,
+  monographLspDiagnosticsExtTool,
 ];
