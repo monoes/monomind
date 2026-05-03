@@ -10,6 +10,21 @@ const fs = require('fs');
 const helpersDir = __dirname;
 const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
+// Resolve @monoes/monograph — it lives in pnpm's virtual store, not a named symlink.
+// Try common locations; fall back gracefully so all hooks remain non-fatal.
+function _requireMonograph() {
+  var candidates = [
+    path.join(CWD, 'node_modules/.pnpm/node_modules/@monoes/monograph'),
+    path.join(CWD, 'packages/node_modules/.pnpm/node_modules/@monoes/monograph'),
+    path.join(CWD, 'node_modules/@monoes/monograph'),
+  ];
+  for (var i = 0; i < candidates.length; i++) {
+    try { if (fs.existsSync(candidates[i])) return require(candidates[i]); } catch(e) {}
+  }
+  try { return require('@monoes/monograph'); } catch(e) {}
+  return null;
+}
+
 function safeRequire(modulePath) {
   try {
     if (fs.existsSync(modulePath)) {
@@ -240,6 +255,12 @@ function _autoIndexKnowledge(knowledgeDir) {
       }
     } catch (e) {}
   }
+  // Include monograph graph build time in hash so re-index happens after graph rebuild
+  try {
+    var statsForHash = JSON.parse(fs.readFileSync(path.join(CWD, '.monomind', 'graph', 'stats.json'), 'utf-8'));
+    hashInput += 'monograph:' + (statsForHash.builtAt || 0) + ';';
+  } catch(e) {}
+
   var contentHash = crypto.createHash('md5').update(hashInput).digest('hex');
 
   var chunksFile = path.join(knowledgeDir, 'chunks.jsonl');
@@ -274,6 +295,60 @@ function _autoIndexKnowledge(knowledgeDir) {
       }
     } catch (e) {}
   }
+
+  // Inject monograph graph summary as a knowledge chunk
+  try {
+    var statsPath = path.join(CWD, '.monomind', 'graph', 'stats.json');
+    var graphPath = path.join(CWD, '.monomind', 'graph', 'graph.json');
+    if (fs.existsSync(statsPath) && fs.existsSync(graphPath)) {
+      var stats = JSON.parse(fs.readFileSync(statsPath, 'utf-8'));
+      var graphStat = fs.statSync(graphPath);
+      // Only read graph if under 10MB
+      if (graphStat.size < 10 * 1024 * 1024) {
+        var graph = JSON.parse(fs.readFileSync(graphPath, 'utf-8'));
+        var rawNodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+        var rawEdges = Array.isArray(graph.edges) ? graph.edges : (Array.isArray(graph.links) ? graph.links : []);
+        // Top 15 nodes by degree (god nodes)
+        var degree = {};
+        rawNodes.forEach(function(n) { degree[n.id] = 0; });
+        rawEdges.forEach(function(e) {
+          if (degree[e.source] !== undefined) degree[e.source]++;
+          if (degree[e.target] !== undefined) degree[e.target]++;
+        });
+        var topNodes = rawNodes
+          .filter(function(n) { return n.sourceFile && n.sourceFile !== ''; })
+          .sort(function(a, b) { return (degree[b.id] || 0) - (degree[a.id] || 0); })
+          .slice(0, 15);
+        // Community summary — group by type
+        var typeCounts = {};
+        rawNodes.forEach(function(n) { var t = n.type || n.label || 'unknown'; typeCounts[t] = (typeCounts[t] || 0) + 1; });
+        var topTypes = Object.entries(typeCounts).sort(function(a,b){return b[1]-a[1];}).slice(0,8).map(function(e){return e[0]+':'+e[1];}).join(', ');
+        var builtDate = stats.builtAt ? new Date(stats.builtAt).toISOString().slice(0,10) : 'unknown';
+        var summaryText = [
+          'MONOGRAPH KNOWLEDGE GRAPH SUMMARY',
+          'Built: ' + builtDate + ' | Nodes: ' + (stats.nodes || rawNodes.length) + ' | Edges: ' + (stats.edges || rawEdges.length) + ' | Files: ' + (stats.files || 0),
+          '',
+          'TOP GOD NODES (highest connectivity):',
+          topNodes.map(function(n) {
+            return '  ' + (n.name || n.id) + ' [' + (n.type || n.label || '?') + '] — ' + (n.sourceFile || '') + ' (degree: ' + (degree[n.id] || 0) + ')';
+          }).join('\n'),
+          '',
+          'NODE TYPE DISTRIBUTION: ' + topTypes,
+          '',
+          'Use mcp__monomind__monograph_suggest to find files relevant to your task.',
+          'Use mcp__monomind__monograph_query to search for symbols.',
+          'Use mcp__monomind__monograph_god_nodes for architecture overview.',
+        ].join('\n');
+        var chunkId = crypto.createHash('md5').update('monograph-graph-summary').digest('hex').slice(0, 16);
+        newLines.push(JSON.stringify({
+          chunkId: chunkId,
+          namespace: 'knowledge:shared',
+          text: summaryText,
+          metadata: { label: 'monograph-graph-summary', builtAt: stats.builtAt }
+        }));
+      }
+    }
+  } catch (e) { /* graph not available yet, skip */ }
 
   try {
     fs.mkdirSync(knowledgeDir, { recursive: true });
@@ -564,6 +639,17 @@ const handlers = {
 
       console.log(output.join('\n'));
 
+      // Inject monograph hint for complex tasks
+      try {
+        var graphStatsPath = path.join(CWD, '.monomind', 'graph', 'stats.json');
+        if (fs.existsSync(graphStatsPath)) {
+          var gStats = JSON.parse(fs.readFileSync(graphStatsPath, 'utf-8'));
+          if (gStats.nodes > 100) {
+            console.log('\n[MONOGRAPH] ' + gStats.nodes + ' nodes indexed. For this task, call mcp__monomind__monograph_suggest first.');
+          }
+        }
+      } catch(e) {}
+
       // Swarm mode selection is available on-demand via /mastermind slash command.
     } else {
       console.log('[INFO] Router not available, using default routing');
@@ -657,7 +743,7 @@ const handlers = {
     console.log('[OK] Command validated');
   },
 
-  'post-edit': () => {
+  'post-edit': async () => {
     if (session && session.metric) {
       try { session.metric('edits'); } catch (e) { /* no active session */ }
     }
@@ -692,6 +778,70 @@ const handlers = {
         console.log('[AUTO_SUGGEST] package.json changed — consider running: npm install');
       } else if (editBase === 'tsconfig.json' || editBase === 'tsconfig.base.json') {
         console.log('[AUTO_SUGGEST] TypeScript config changed — consider running: npm run build');
+      }
+    } catch (e) { /* non-fatal */ }
+
+    // ── Monograph Incremental Rebuild ─────────────────────────────────────
+    // After every code file edit, trigger a background monograph rebuild so
+    // the knowledge graph stays current. Debounced via a lock file (5s cooldown).
+    try {
+      var editedFile = (hookInput.file_path || toolInput.file_path
+        || process.env.TOOL_INPUT_file_path || args[0] || '');
+      var codeExts = /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|cs|cpp|c|rb|swift|php)$/i;
+      if (editedFile && codeExts.test(editedFile)) {
+        var lockFile = path.join(CWD, '.monomind', 'graph', '.rebuild-lock');
+        var now = Date.now();
+        var lastBuild = 0;
+        try { lastBuild = parseInt(fs.readFileSync(lockFile, 'utf-8').trim(), 10) || 0; } catch (e) {}
+        var COOLDOWN_MS = 5000; // 5-second debounce
+        if (now - lastBuild > COOLDOWN_MS) {
+          fs.writeFileSync(lockFile, String(now), 'utf-8');
+          var { spawn: spawnRebuild } = require('child_process');
+          var rebuildScript = "import { buildAsync } from '@monoes/monograph'; await buildAsync(" + JSON.stringify(CWD) + ");";
+          var graphDir = path.join(CWD, '.monomind', 'graph');
+          var logPath = path.join(graphDir, 'build.log');
+          var logFd;
+          try { logFd = fs.openSync(logPath, 'a'); } catch(e) { logFd = 'ignore'; }
+          var child = spawnRebuild(process.execPath, ['--input-type=module', '--eval', rebuildScript], {
+            detached: true, stdio: ['ignore', logFd, logFd], cwd: CWD,
+          });
+          child.unref();
+          console.log('[MONOGRAPH] Incremental rebuild triggered for ' + path.basename(editedFile));
+
+          // Option C: fire ua-enrich.mjs in background after monograph rebuild
+          var uaEnrichScript = path.join(CWD, 'scripts', 'ua-enrich.mjs');
+          if (fs.existsSync(uaEnrichScript)) {
+            var uaChild = spawnRebuild(process.execPath, [uaEnrichScript, '--dir', CWD, '--file', editedFile, '--db', path.join(CWD, '.monomind', 'monograph.db')], {
+              detached: true, stdio: 'ignore', cwd: CWD,
+            });
+            uaChild.unref();
+          }
+        }
+        // Show importers of the edited file so Claude sees blast radius
+        try {
+          var mgDbPath4 = path.join(CWD, '.monomind', 'monograph.db');
+          if (fs.existsSync(mgDbPath4)) {
+            var mgMod4 = null;
+            mgMod4 = _requireMonograph();
+            if (mgMod4 && mgMod4.openDb) {
+              var db4 = mgMod4.openDb(mgDbPath4);
+              try {
+                var editedBase4 = path.basename(editedFile).replace(/\.[^.]+$/, '');
+                var editNode4 = db4.prepare("SELECT id, name, label FROM nodes WHERE file_path LIKE ? OR name = ? LIMIT 1")
+                  .get('%' + path.sep + path.basename(editedFile), editedBase4);
+                if (editNode4) {
+                  var editImporters4 = db4.prepare(
+                    'SELECT n2.name FROM edges e JOIN nodes n2 ON n2.id = e.source_id WHERE e.target_id = ? LIMIT 8'
+                  ).all(editNode4.id);
+                  if (editImporters4.length > 0) {
+                    console.log('[MONOGRAPH_IMPACT] ' + editNode4.name + ' (' + editNode4.label + ') is depended on by: ' +
+                      editImporters4.map(function(i) { return i.name; }).join(', '));
+                  }
+                }
+              } finally { if (mgMod4.closeDb) mgMod4.closeDb(db4); }
+            }
+          }
+        } catch(e) { /* non-fatal */ }
       }
     } catch (e) { /* non-fatal */ }
 
@@ -788,6 +938,56 @@ const handlers = {
         }
       }
     } catch (e) { /* non-fatal */ }
+
+    // ── Monograph Context Injection ──────────────────────────────────────────
+    // On session start, query monograph DB for god nodes, inject as context,
+    // and write them into knowledge/chunks.jsonl for semantic search recall.
+    try {
+      var mgDbPath = path.join(CWD, '.monomind', 'monograph.db');
+      if (fs.existsSync(mgDbPath)) {
+        var mgMod = null;
+        mgMod = _requireMonograph();
+        if (mgMod && mgMod.openDb) {
+          var mgDb = mgMod.openDb(mgDbPath);
+          try {
+            var mgNodeCount = mgDb.prepare('SELECT COUNT(*) AS c FROM nodes').get().c;
+            var mgEdgeCount = mgDb.prepare('SELECT COUNT(*) AS c FROM edges').get().c;
+            var mgGodNodes = mgDb.prepare(
+              'SELECT n.name, n.label, n.file_path, ' +
+              '(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg ' +
+              'FROM nodes n ORDER BY deg DESC LIMIT 12'
+            ).all();
+            if (mgGodNodes.length > 0) {
+              var mgGodStr = mgGodNodes.slice(0, 8).map(function(n) {
+                return n.name + ' (' + n.label + ', ' + n.deg + ' links)';
+              }).join(', ');
+              console.log('[MONOGRAPH_CONTEXT] ' + mgNodeCount + ' nodes · ' + mgEdgeCount + ' edges. Key nodes: ' + mgGodStr);
+              // Write god nodes into knowledge chunks so semantic search finds them
+              var mgKnowledgeDir = path.join(CWD, '.monomind', 'knowledge');
+              var mgChunksFile = path.join(mgKnowledgeDir, 'chunks.jsonl');
+              try {
+                fs.mkdirSync(mgKnowledgeDir, { recursive: true });
+                var mgGodChunk = JSON.stringify({
+                  id: 'monograph-god-nodes',
+                  text: 'Codebase architecture — high-centrality nodes (most depended-on): ' + mgGodNodes.map(function(n) {
+                    return n.name + ' [' + n.label + '] at ' + (n.file_path || '') + ' (' + n.deg + ' connections)';
+                  }).join('; '),
+                  namespace: 'knowledge:monograph',
+                  metadata: { label: 'monograph-god-nodes', nodes: mgNodeCount, edges: mgEdgeCount }
+                });
+                var mgExisting = [];
+                try { mgExisting = fs.readFileSync(mgChunksFile, 'utf-8').trim().split('\n').filter(Boolean); } catch(e) {}
+                mgExisting = mgExisting.filter(function(line) {
+                  try { return JSON.parse(line).id !== 'monograph-god-nodes'; } catch(e) { return true; }
+                });
+                mgExisting.push(mgGodChunk);
+                fs.writeFileSync(mgChunksFile, mgExisting.join('\n') + '\n');
+              } catch(e) {}
+            }
+          } finally { if (mgMod.closeDb) mgMod.closeDb(mgDb); }
+        }
+      }
+    } catch(e) { /* non-fatal */ }
 
     // Task 23: SharedInstructions — auto-load .agents/shared_instructions.md on session restore
     // Hard limit: 1500 chars (~375 tokens). Content beyond this is truncated and flagged.
@@ -1155,6 +1355,61 @@ const handlers = {
         }
       }
     } catch (e) { /* not available or no experiment */ }
+
+    // Monograph impact — detect changed files and surface their dependents
+    try {
+      var mgDbPath1 = path.join(CWD, '.monomind', 'monograph.db');
+      if (fs.existsSync(mgDbPath1)) {
+        var execSync1 = require('child_process').execSync;
+        var changedFiles1 = '';
+        try { changedFiles1 = execSync1('git diff --name-only HEAD 2>/dev/null || git diff --name-only 2>/dev/null', { cwd: CWD, timeout: 3000, shell: true }).toString().trim(); } catch(e) {}
+        if (changedFiles1) {
+          var mgMod1 = null;
+          mgMod1 = _requireMonograph();
+          if (mgMod1 && mgMod1.openDb) {
+            var db1 = mgMod1.openDb(mgDbPath1);
+            try {
+              var fileList1 = changedFiles1.split('\n').filter(Boolean).slice(0, 8);
+              var impacted1 = [];
+              for (var fi = 0; fi < fileList1.length; fi++) {
+                var fBase = path.basename(fileList1[fi]);
+                var fNode = db1.prepare("SELECT id, name, label FROM nodes WHERE file_path LIKE ? LIMIT 1").get('%' + fBase);
+                if (fNode) {
+                  var fImporters = db1.prepare(
+                    'SELECT n2.name FROM edges e JOIN nodes n2 ON n2.id = e.source_id WHERE e.target_id = ? LIMIT 5'
+                  ).all(fNode.id);
+                  var entry = fNode.name + ' (' + fNode.label + ')';
+                  if (fImporters.length) entry += ' ← ' + fImporters.map(function(i){ return i.name; }).join(', ');
+                  impacted1.push(entry);
+                }
+              }
+              if (impacted1.length > 0) {
+                console.log('[MONOGRAPH_IMPACT] Changed files and their dependents: ' + impacted1.join(' | '));
+              }
+
+              // Effective blast radius — second pass using first impacted node
+              try {
+                if (fileList1.length > 0 && mgMod1.effectiveBlastRadius) {
+                  var firstFile1 = path.basename(fileList1[0]);
+                  var firstNode1 = db1.prepare("SELECT id, name, label FROM nodes WHERE file_path LIKE ? LIMIT 1").get('%' + firstFile1);
+                  if (firstNode1) {
+                    var blastResults1 = mgMod1.effectiveBlastRadius(db1, firstNode1.id, { maxDepth: 4 });
+                    if (blastResults1 && blastResults1.length > 0) {
+                      var bwdCount1 = blastResults1.filter(function(r){ return r.direction === 'backward' || r.direction === 'both'; }).length;
+                      var fwdCount1 = blastResults1.filter(function(r){ return r.direction === 'forward' || r.direction === 'both'; }).length;
+                      var topBlast1 = blastResults1.slice(0, 8).map(function(r){
+                        return '[' + r.direction + ':' + r.hops + '] ' + r.nodeName + ' (' + r.nodeLabel + ')';
+                      });
+                      console.log('[MONOGRAPH_BLAST_RADIUS] Node: ' + firstNode1.name + ' | forward=' + fwdCount1 + ' backward=' + bwdCount1 + ' | ' + topBlast1.join(', '));
+                    }
+                  }
+                }
+              } catch(blastErr) { /* non-fatal */ }
+            } finally { if (mgMod1.closeDb) mgMod1.closeDb(db1); }
+          }
+        }
+      }
+    } catch(e) { /* non-fatal */ }
 
     // Bridge to @monomind/hooks registry — fires Tasks 26 (PromptAssembler) and any other PreTask hooks
     if (_hooksModule && _hooksModule.executeHooks && _hooksModule.HookEvent) {
