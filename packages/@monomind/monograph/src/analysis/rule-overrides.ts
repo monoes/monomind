@@ -50,3 +50,32 @@ export function applyRules<T extends { filePath?: string | null; ruleCode?: stri
     return !effectiveRules.allow.includes(ruleCode);
   });
 }
+
+// ── Round 8: severity helpers ──────────────────────────────────────────────
+
+export type IssueSeverity = 'error' | 'warn' | 'off';
+
+export interface RuleWithSeverity {
+  name: string;
+  severity: IssueSeverity;
+}
+
+/** Returns true if any rule currently set to 'error' has findings in results. */
+export function hasErrorSeverityIssues(
+  rules: RuleWithSeverity[],
+  resultCounts: Record<string, number>,
+): boolean {
+  return rules
+    .filter(r => r.severity === 'error')
+    .some(r => (resultCounts[r.name] ?? 0) > 0);
+}
+
+/** Bulk-upgrade all 'warn' severity rules to 'error' for strict CI gates. */
+export function promoteWarnsToErrors(rules: RuleWithSeverity[]): RuleWithSeverity[] {
+  return rules.map(r => r.severity === 'warn' ? { ...r, severity: 'error' as IssueSeverity } : r);
+}
+
+/** Downgrade all 'error' severity rules to 'warn'. */
+export function demoteErrorsToWarns(rules: RuleWithSeverity[]): RuleWithSeverity[] {
+  return rules.map(r => r.severity === 'error' ? { ...r, severity: 'warn' as IssueSeverity } : r);
+}
