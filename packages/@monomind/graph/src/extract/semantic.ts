@@ -40,7 +40,7 @@ function buildPrompt(files: SemanticFile[], mode: 'fast' | 'deep', chunkNum: num
     .map((f) => `--- file: ${f.relPath} ---\n${f.content.slice(0, 6000)}\n---`)
     .join('\n\n');
 
-  return `You are a graphify extraction subagent. Read the files listed and extract a knowledge graph fragment.
+  return `You are a monograph extraction subagent. Read the files listed and extract a knowledge graph fragment.
 Output ONLY valid JSON matching the schema below - no explanation, no markdown fences, no preamble.
 
 Files (chunk ${chunkNum} of ${totalChunks}):

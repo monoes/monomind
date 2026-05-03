@@ -408,47 +408,30 @@ async function installClaudeCode(): Promise<boolean> {
   }
 }
 
-// Check graphify (Python knowledge graph engine)
-async function checkGraphify(): Promise<HealthCheck> {
+// Check monograph (TypeScript knowledge graph engine, bundled with CLI)
+async function checkMonograph(): Promise<HealthCheck> {
   try {
-    await runCommand('graphify --help');
-    return { name: 'Graphify', status: 'pass', message: 'installed (knowledge graph engine)' };
-  } catch {
-    // Check if Python/uv are available for the fix suggestion
-    let fix = 'pip install graphifyy';
-    try {
-      await runCommand('uv --version');
-      fix = 'uv tool install graphifyy';
-    } catch {}
-    return {
-      name: 'Graphify',
-      status: 'warn',
-      message: 'Not installed (knowledge graph disabled)',
-      fix
-    };
-  }
-}
-
-// Install graphify Python package
-async function installGraphify(): Promise<boolean> {
-  try {
-    output.writeln();
-    output.writeln(output.bold('Installing Graphify knowledge graph engine...'));
-    // Prefer uv (fast, isolated), fall back to pip
-    let cmd = 'pip install graphifyy';
-    try {
-      await runCommand('uv --version');
-      cmd = 'uv tool install graphifyy';
-    } catch {}
-    execSync(cmd, { encoding: 'utf8', stdio: 'inherit', timeout: 120000 });
-    output.writeln(output.success('Graphify installed successfully!'));
-    return true;
-  } catch (error) {
-    output.writeln(output.error('Failed to install Graphify'));
-    if (error instanceof Error) {
-      output.writeln(output.dim(error.message));
+    const __filename = fileURLToPath(import.meta.url);
+    const candidates = [
+      join(dirname(__filename), '..', '..', 'node_modules', '@monomind', 'monograph', 'package.json'),
+      join(dirname(__filename), '..', '..', '..', '..', 'node_modules', '@monomind', 'monograph', 'package.json'),
+    ];
+    if (candidates.some(p => existsSync(p))) {
+      return { name: 'Monograph', status: 'pass', message: 'available (knowledge graph engine)' };
     }
-    return false;
+    return {
+      name: 'Monograph',
+      status: 'warn',
+      message: 'Package not found (knowledge graph disabled)',
+      fix: 'npm install in project root'
+    };
+  } catch {
+    return {
+      name: 'Monograph',
+      status: 'warn',
+      message: 'Package check failed (knowledge graph may be unavailable)',
+      fix: 'npm install in project root'
+    };
   }
 }
 
@@ -513,14 +496,14 @@ export const doctorCommand: Command = {
     {
       name: 'install',
       short: 'i',
-      description: 'Auto-install missing dependencies (Claude Code CLI, Graphify)',
+      description: 'Auto-install missing dependencies (Claude Code CLI)',
       type: 'boolean',
       default: false
     },
     {
       name: 'component',
       short: 'c',
-      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, graphify)',
+      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph)',
       type: 'string'
     },
     {
@@ -564,7 +547,7 @@ export const doctorCommand: Command = {
       checkMcpServers,
       checkDiskSpace,
       checkBuildTools,
-      checkGraphify,
+      checkMonograph,
       checkAgenticFlow
     ];
 
@@ -582,7 +565,7 @@ export const doctorCommand: Command = {
       'mcp': checkMcpServers,
       'disk': checkDiskSpace,
       'typescript': checkBuildTools,
-      'graphify': checkGraphify,
+      'monograph': checkMonograph,
       'agentic-flow': checkAgenticFlow
     };
 
@@ -647,22 +630,6 @@ export const doctorCommand: Command = {
         }
       }
 
-      const graphifyResult = results.find(r => r.name === 'Graphify');
-      if (graphifyResult && graphifyResult.status !== 'pass') {
-        const installed = await installGraphify();
-        if (installed) {
-          const newCheck = await checkGraphify();
-          const idx = results.findIndex(r => r.name === 'Graphify');
-          if (idx !== -1) {
-            results[idx] = newCheck;
-            const fixIdx = fixes.findIndex(f => f.startsWith('Graphify:'));
-            if (fixIdx !== -1 && newCheck.status === 'pass') {
-              fixes.splice(fixIdx, 1);
-            }
-          }
-          output.writeln(formatCheck(newCheck));
-        }
-      }
     }
 
     // Summary

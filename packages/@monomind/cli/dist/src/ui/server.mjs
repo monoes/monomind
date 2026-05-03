@@ -594,6 +594,23 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // ------------------------------------------------------- GET /api/graphify-html
+    if (req.method === 'GET' && url === '/api/graphify-html') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir;
+        const d = path.resolve(dir || process.cwd());
+        const htmlPath = path.join(d, '.monomind', 'graph', 'graph.html');
+        const html = fs.readFileSync(htmlPath, 'utf-8');
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(html);
+      } catch (err) {
+        res.writeHead(404, { 'Content-Type': 'text/html' });
+        res.end('<html><body style="background:#0f0f1a;color:#888;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;"><div style="text-align:center;"><h3 style="color:#4E79A7;">No Graph Built Yet</h3><p>Run <code style="color:#00E5C8;">mcp__monomind__monograph_build</code> or click BUILD in the sidebar.</p></div></body></html>');
+      }
+      return;
+    }
+
     // ------------------------------------------------------- GET /api/graphify-report
     if (req.method === 'GET' && url === '/api/graphify-report') {
       try {
@@ -693,25 +710,194 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const dir = qs.get('dir') || projectDir;
         const d = path.resolve(dir || process.cwd());
-        const outputDir = path.join(d, '.monomind', 'graph');
 
-        // Start build in background, respond immediately so UI can show progress state
         res.writeHead(202, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ status: 'building', dir: d, outputDir }));
+        res.end(JSON.stringify({ status: 'building', dir: d }));
 
-        (async () => {
-          try {
-            const { buildGraph } = await import('@monoes/graph');
-            const r = await buildGraph(d, { codeOnly: true, outputDir });
-            console.log(`[graph] built for ${d}: ${r.filesProcessed} files`);
-            // Run enrichment after build
-            try {
-              const { enrichGraph } = await import('file://' + new URL('../graph/enrich.mjs', import.meta.url).pathname);
-              const er = await enrichGraph(d, { graphDir: outputDir });
-              console.log(`[graph] enriched: ${er.metrics.enrichedNodes}/${er.metrics.totalNodes} nodes, PageRank: ${er.metrics.pageRankComputed}`);
-            } catch (ee) { console.error('[graph] enrichment failed:', ee.message); }
-          } catch (e) { console.error(`[graph] build failed for ${d}:`, e.message); }
-        })();
+        // Build via monograph in background
+        const { spawn: sp } = await import('child_process');
+        const script = `import { buildAsync } from '@monoes/monograph'; await buildAsync(${JSON.stringify(d)});`;
+        const child = sp(process.execPath, ['--input-type=module', '--eval', script], { stdio: 'ignore', detached: true, cwd: d });
+        child.unref();
+        console.log(`[graph] build started for ${d} via monograph`);
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // -------------------------------------------------- GET /api/graphify-query
+    if (req.method === 'GET' && url === '/api/graphify-query') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir;
+        const q = qs.get('q') || '';
+        const mode = qs.get('mode') === 'dfs' ? '--dfs' : '';
+        const budget = qs.get('budget') || '2000';
+        const d = path.resolve(dir || process.cwd());
+        const graphPath = path.join(d, '.monomind', 'graph', 'graph.json');
+        const legacyPath = path.join(d, 'graphify-out', 'graph.json');
+        const gp = fs.existsSync(graphPath) ? graphPath : (fs.existsSync(legacyPath) ? legacyPath : null);
+
+        if (!q) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing ?q= parameter' }));
+          return;
+        }
+
+        const { execSync: ex } = await import('child_process');
+        const args = ['query', JSON.stringify(q), '--budget', budget];
+        if (mode) args.push(mode);
+        if (gp) args.push('--graph', gp);
+        const out = ex(`graphify ${args.join(' ')}`, { encoding: 'utf8', cwd: d, timeout: 30000, stdio: ['pipe', 'pipe', 'pipe'] });
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: true, query: q, result: out }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // -------------------------------------------------- GET /api/graphify-explain
+    if (req.method === 'GET' && url === '/api/graphify-explain') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir;
+        const node = qs.get('node') || '';
+        const d = path.resolve(dir || process.cwd());
+        const graphPath = path.join(d, '.monomind', 'graph', 'graph.json');
+        const legacyPath = path.join(d, 'graphify-out', 'graph.json');
+        const gp = fs.existsSync(graphPath) ? graphPath : (fs.existsSync(legacyPath) ? legacyPath : null);
+
+        if (!node) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing ?node= parameter' }));
+          return;
+        }
+
+        const { execSync: ex } = await import('child_process');
+        const args = ['explain', JSON.stringify(node)];
+        if (gp) args.push('--graph', gp);
+        const out = ex(`graphify ${args.join(' ')}`, { encoding: 'utf8', cwd: d, timeout: 15000, stdio: ['pipe', 'pipe', 'pipe'] });
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: true, node, explanation: out }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // -------------------------------------------------- GET /api/graphify-path
+    if (req.method === 'GET' && url === '/api/graphify-path') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir;
+        const from = qs.get('from') || '';
+        const to = qs.get('to') || '';
+        const d = path.resolve(dir || process.cwd());
+        const graphPath = path.join(d, '.monomind', 'graph', 'graph.json');
+        const legacyPath = path.join(d, 'graphify-out', 'graph.json');
+        const gp = fs.existsSync(graphPath) ? graphPath : (fs.existsSync(legacyPath) ? legacyPath : null);
+
+        if (!from || !to) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing ?from= and ?to= parameters' }));
+          return;
+        }
+
+        const { execSync: ex } = await import('child_process');
+        const args = ['path', JSON.stringify(from), JSON.stringify(to)];
+        if (gp) args.push('--graph', gp);
+        const out = ex(`graphify ${args.join(' ')}`, { encoding: 'utf8', cwd: d, timeout: 15000, stdio: ['pipe', 'pipe', 'pipe'] });
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: true, from, to, path: out }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // -------------------------------------------------- GET /api/graphify-watch-status
+    if (req.method === 'GET' && url === '/api/graphify-watch-status') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir;
+        const d = path.resolve(dir || process.cwd());
+        const pidPath = path.join(d, '.monomind', 'graph', 'watch.pid');
+        let running = false, pid = null;
+        try {
+          pid = parseInt(fs.readFileSync(pidPath, 'utf-8').trim(), 10);
+          process.kill(pid, 0);
+          running = true;
+        } catch {}
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ running, pid }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // -------------------------------------------------- POST /api/graphify-watch-toggle
+    if (req.method === 'POST' && url === '/api/graphify-watch-toggle') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir;
+        const d = path.resolve(dir || process.cwd());
+        const pidPath = path.join(d, '.monomind', 'graph', 'watch.pid');
+        let wasRunning = false;
+        try {
+          const pid = parseInt(fs.readFileSync(pidPath, 'utf-8').trim(), 10);
+          process.kill(pid, 0);
+          wasRunning = true;
+          process.kill(pid, 'SIGTERM');
+          try { fs.unlinkSync(pidPath); } catch {}
+        } catch {}
+
+        if (wasRunning) {
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ running: false, action: 'stopped' }));
+        } else {
+          const { spawn: sp } = await import('child_process');
+          const child = sp('graphify', ['watch', d], { stdio: 'ignore', detached: true, cwd: d });
+          child.unref();
+          try { fs.mkdirSync(path.join(d, '.monomind', 'graph'), { recursive: true }); } catch {}
+          try { fs.writeFileSync(pidPath, String(child.pid)); } catch {}
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ running: true, pid: child.pid, action: 'started' }));
+        }
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // -------------------------------------------------- GET /api/graphify-benchmark
+    if (req.method === 'GET' && url === '/api/graphify-benchmark') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir;
+        const d = path.resolve(dir || process.cwd());
+        const graphPath = path.join(d, '.monomind', 'graph', 'graph.json');
+        const legacyPath = path.join(d, 'graphify-out', 'graph.json');
+        const gp = fs.existsSync(graphPath) ? graphPath : (fs.existsSync(legacyPath) ? legacyPath : null);
+
+        if (!gp) {
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ available: false }));
+          return;
+        }
+
+        const { execSync: ex } = await import('child_process');
+        const out = ex(`graphify benchmark ${gp}`, { encoding: 'utf8', cwd: d, timeout: 30000, stdio: ['pipe', 'pipe', 'pipe'] });
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ available: true, result: out }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
