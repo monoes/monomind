@@ -2873,6 +2873,349 @@ const monographLspDiagnosticsExtTool: MCPTool = {
   },
 };
 
+// ── Round 7: cloud coverage ───────────────────────────────────────────────────
+
+const monographCloudCoverageTool: MCPTool = {
+  name: 'monograph_cloud_coverage',
+  description: 'Fetch production runtime coverage context from the Fallow Cloud API — hit counts, blast radius, importance scores',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      projectId: { type: 'string', description: 'Cloud project ID' },
+      environment: { type: 'string', description: 'Deployment environment (e.g. production)' },
+      period: { type: 'string', description: 'Observation window (e.g. 7d)' },
+      commitSha: { type: 'string', description: 'Git commit SHA to scope coverage' },
+      apiKey: { type: 'string', description: 'Cloud API key' },
+    },
+    required: ['projectId'],
+  },
+  handler: async (args) => {
+    const { fetchRuntimeContext, isCloudError } = await import('@monoes/monograph');
+    const result = await fetchRuntimeContext(args as Parameters<typeof fetchRuntimeContext>[0]);
+    if (isCloudError(result)) {
+      return { content: [{ type: 'text' as const, text: `Error (${result.kind}): ${result.message}` }] };
+    }
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+  },
+};
+
+// ── Round 7: upload inventory ─────────────────────────────────────────────────
+
+const monographUploadInventoryTool: MCPTool = {
+  name: 'monograph_upload_inventory',
+  description: 'Extract function inventory from source text and upload it to the cloud for untracked-functions three-state coverage',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      projectId: { type: 'string', description: 'Cloud project ID' },
+      source: { type: 'string', description: 'Source file content to extract functions from' },
+      filePath: { type: 'string', description: 'File path for the source' },
+      apiKey: { type: 'string', description: 'Cloud API key' },
+    },
+    required: ['projectId', 'source', 'filePath'],
+  },
+  handler: async (args) => {
+    const { extractFunctionInventory, uploadInventory } = await import('@monoes/monograph');
+    const functions = extractFunctionInventory(args.source as string, args.filePath as string);
+    const result = await uploadInventory(
+      { projectId: args.projectId as string, root: '.', apiKey: args.apiKey as string | undefined },
+      functions,
+    );
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ extracted: functions.length, ...result }, null, 2) }] };
+  },
+};
+
+// ── Round 7: license ──────────────────────────────────────────────────────────
+
+const monographLicenseTool: MCPTool = {
+  name: 'monograph_license',
+  description: 'Manage license lifecycle — parse/verify JWT, check status, activate trial, refresh',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      action: { type: 'string', enum: ['status', 'activate-trial', 'refresh'], description: 'License action' },
+      jwt: { type: 'string', description: 'License JWT (for status/refresh)' },
+      email: { type: 'string', description: 'Email address (for activate-trial)' },
+    },
+    required: ['action'],
+  },
+  handler: async (args) => {
+    const { parseLicenseJwt, licenseStatusFromPayload, activateTrial, refreshLicense, getFreeLicenseStatus } = await import('@monoes/monograph');
+    let result: unknown;
+    switch (args.action as string) {
+      case 'status':
+        result = args.jwt
+          ? licenseStatusFromPayload(parseLicenseJwt(args.jwt as string))
+          : getFreeLicenseStatus();
+        break;
+      case 'activate-trial':
+        result = { jwt: await activateTrial({ email: args.email as string }) };
+        break;
+      case 'refresh':
+        result = { jwt: await refreshLicense(args.jwt as string, {}) };
+        break;
+      default:
+        result = { error: 'Unknown action' };
+    }
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+  },
+};
+
+// ── Round 7: programmatic API ─────────────────────────────────────────────────
+
+const monographProgrammaticTool: MCPTool = {
+  name: 'monograph_programmatic',
+  description: 'Validate AnalysisOptions and build a programmatic error envelope for library embedders',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      options: { type: 'object', description: 'AnalysisOptions to validate' },
+    },
+    required: ['options'],
+  },
+  handler: async (args) => {
+    const { validateAnalysisOptions, makeProgrammaticError } = await import('@monoes/monograph');
+    try {
+      validateAnalysisOptions(args.options as Parameters<typeof validateAnalysisOptions>[0]);
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ valid: true }) }] };
+    } catch (e) {
+      const err = e as ReturnType<typeof makeProgrammaticError>;
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ valid: false, error: err }) }] };
+    }
+  },
+};
+
+// ── Round 7: regression counts ────────────────────────────────────────────────
+
+const monographRegressionCountsTool: MCPTool = {
+  name: 'monograph_regression_counts',
+  description: 'Create a per-category regression baseline from CheckCounts and compute deltas against a previous baseline',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      action: { type: 'string', enum: ['create', 'delta'], description: 'create=build baseline, delta=compare two baselines' },
+      counts: { type: 'object', description: 'Current CheckCounts object' },
+      baseline: { type: 'object', description: 'Previous RegressionBaseline (for delta)' },
+      gitSha: { type: 'string', description: 'Git SHA to embed in baseline' },
+    },
+    required: ['action', 'counts'],
+  },
+  handler: async (args) => {
+    const { createRegressionBaseline, checkCountsDeltas, totalCheckCounts } = await import('@monoes/monograph');
+    if (args.action === 'create') {
+      const bl = createRegressionBaseline(
+        args.counts as Parameters<typeof createRegressionBaseline>[0],
+        args.gitSha as string | undefined,
+      );
+      return { content: [{ type: 'text' as const, text: JSON.stringify(bl, null, 2) }] };
+    }
+    const prev = (args.baseline as { checks: Parameters<typeof checkCountsDeltas>[0] }).checks;
+    const deltas = checkCountsDeltas(prev, args.counts as Parameters<typeof checkCountsDeltas>[1]);
+    const total = totalCheckCounts(args.counts as Parameters<typeof totalCheckCounts>[0]);
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ total, deltas }, null, 2) }] };
+  },
+};
+
+// ── Round 7: regression outcome ───────────────────────────────────────────────
+
+const monographRegressionOutcomeTool: MCPTool = {
+  name: 'monograph_regression_outcome',
+  description: 'Build a pass/exceeded/skipped regression outcome and format it for display or machine consumption',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      kind: { type: 'string', enum: ['pass', 'exceeded', 'skipped'], description: 'Outcome kind' },
+      delta: { type: 'number', description: 'Numeric delta' },
+      tolerance: { type: 'number', description: 'Allowed tolerance' },
+      exceeded: { type: 'array', description: 'CountDelta array (for exceeded)' },
+      reason: { type: 'string', description: 'Reason (for skipped)' },
+    },
+    required: ['kind'],
+  },
+  handler: async (args) => {
+    const { makePassOutcome, makeExceededOutcome, makeSkippedOutcome, printRegressionOutcome, regressionOutcomeToJson } = await import('@monoes/monograph');
+    let outcome: Awaited<ReturnType<typeof makePassOutcome>> | Awaited<ReturnType<typeof makeExceededOutcome>> | Awaited<ReturnType<typeof makeSkippedOutcome>>;
+    switch (args.kind as string) {
+      case 'exceeded': outcome = makeExceededOutcome(args.delta as number ?? 0, args.tolerance as number ?? 0, args.exceeded as Parameters<typeof makeExceededOutcome>[2] ?? []); break;
+      case 'skipped': outcome = makeSkippedOutcome(args.reason as string ?? 'no baseline'); break;
+      default: outcome = makePassOutcome(args.delta as number ?? 0, args.tolerance as number ?? 0);
+    }
+    return { content: [{ type: 'text' as const, text: printRegressionOutcome(outcome) + '\n\n' + regressionOutcomeToJson(outcome) }] };
+  },
+};
+
+// ── Round 7: namespace narrowing ──────────────────────────────────────────────
+
+const monographNarrowingTool: MCPTool = {
+  name: 'monograph_narrowing',
+  description: 'Narrow which exports are used from a namespace import (import * as ns) by analysing member accesses in source text',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      source: { type: 'string', description: 'Source file content' },
+      localName: { type: 'string', description: 'Namespace local name (the "ns" in import * as ns)' },
+      allExports: { type: 'array', items: { type: 'string' }, description: 'All export names from the target module' },
+      isEntryPoint: { type: 'boolean', description: 'Whether the target module is a public entry point' },
+    },
+    required: ['source', 'localName', 'allExports'],
+  },
+  handler: async (args) => {
+    const { narrowNamespaceReferences } = await import('@monoes/monograph');
+    const result = narrowNamespaceReferences(
+      args.source as string,
+      args.localName as string,
+      args.allExports as string[],
+      (args.isEntryPoint as boolean | undefined) ?? false,
+    );
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+  },
+};
+
+// ── Round 7: dynamic imports ──────────────────────────────────────────────────
+
+const monographDynamicImportsTool: MCPTool = {
+  name: 'monograph_dynamic_imports',
+  description: 'Parse and resolve dynamic import() calls in source text, expanding template literals to glob patterns',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      source: { type: 'string', description: 'Source file content' },
+      currentDir: { type: 'string', description: 'Directory of the source file' },
+      allFiles: { type: 'array', items: { type: 'string' }, description: 'All known file paths in the project' },
+    },
+    required: ['source'],
+  },
+  handler: async (args) => {
+    const { parseDynamicImports, resolveSingleDynamicImport } = await import('@monoes/monograph');
+    const imports = parseDynamicImports(args.source as string);
+    const resolved = imports.map(imp => resolveSingleDynamicImport(imp, (args.allFiles as string[] | undefined) ?? [], (args.currentDir as string | undefined) ?? '.'));
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ parsed: imports.length, resolved }, null, 2) }] };
+  },
+};
+
+// ── Round 7: report grouping ──────────────────────────────────────────────────
+
+const monographGroupingTool: MCPTool = {
+  name: 'monograph_grouping',
+  description: 'Group analysis result items by owner, directory, or package with primary-owner attribution for clone groups',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      mode: { type: 'string', enum: ['directory', 'package'], description: 'Group-by mode' },
+      items: { type: 'array', description: 'Items with filePath property' },
+      packages: { type: 'array', description: 'Package roots [{root, name}] for package mode' },
+      directoryDepth: { type: 'number', description: 'Directory depth level (default 1)' },
+    },
+    required: ['mode', 'items'],
+  },
+  handler: async (args) => {
+    const { createPackageResolver, resolveDirectoryGroup, groupItemsByFile } = await import('@monoes/monograph');
+    const resolver = args.mode === 'package' && args.packages
+      ? createPackageResolver(args.packages as Parameters<typeof createPackageResolver>[0])
+      : null;
+    const groups = groupItemsByFile(
+      args.items as Array<{ filePath: string }>,
+      resolver
+        ? (f: string) => resolver.resolve(f)
+        : (f: string) => resolveDirectoryGroup(f, (args.directoryDepth as number | undefined) ?? 1),
+    );
+    return { content: [{ type: 'text' as const, text: JSON.stringify(groups, null, 2) }] };
+  },
+};
+
+// ── Round 7: vital signs ──────────────────────────────────────────────────────
+
+const monographVitalSignsTool: MCPTool = {
+  name: 'monograph_vital_signs',
+  description: 'Create and format a comprehensive VitalSigns snapshot with size/interfacing risk profiles and coverage model',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      projectPath: { type: 'string', description: 'Project root path' },
+      partial: { type: 'object', description: 'Partial VitalSigns fields to merge' },
+    },
+    required: ['projectPath'],
+  },
+  handler: async (args) => {
+    const { createVitalSigns, formatVitalSignsSummary } = await import('@monoes/monograph');
+    const vs = createVitalSigns({
+      projectPath: args.projectPath as string,
+      ...(args.partial as object | undefined ?? {}),
+    });
+    return { content: [{ type: 'text' as const, text: formatVitalSignsSummary(vs) + '\n\n' + JSON.stringify(vs, null, 2) }] };
+  },
+};
+
+// ── Round 7: target thresholds ────────────────────────────────────────────────
+
+const monographTargetThresholdsTool: MCPTool = {
+  name: 'monograph_target_thresholds',
+  description: 'Compute adaptive refactoring target thresholds from project metric distribution (percentile-based with floor)',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      sample: {
+        type: 'object',
+        description: 'MetricSample: { fanIn[], fanOut[], complexity[], loc[], churnScore[] }',
+      },
+    },
+    required: ['sample'],
+  },
+  handler: async (args) => {
+    const { computeTargetThresholds, RECOMMENDATION_CATEGORIES } = await import('@monoes/monograph');
+    const thresholds = computeTargetThresholds(args.sample as Parameters<typeof computeTargetThresholds>[0]);
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ thresholds, categories: RECOMMENDATION_CATEGORIES }, null, 2) }] };
+  },
+};
+
+// ── Round 7: production override ─────────────────────────────────────────────
+
+const monographProductionOverrideTool: MCPTool = {
+  name: 'monograph_production_override',
+  description: 'Resolve effective production mode for each analysis kind from per-analysis overrides and config defaults',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      overrides: { type: 'object', description: 'Partial<Record<deadCode|health|duplication|complexity, boolean|"config">>' },
+      configured: { type: 'object', description: 'ProductionModeConfig from project config' },
+    },
+  },
+  handler: async (args) => {
+    const { resolveAllProductionModes, DEFAULT_PRODUCTION_MODE, productionModeLabel } = await import('@monoes/monograph');
+    const resolved = resolveAllProductionModes(
+      (args.overrides as Parameters<typeof resolveAllProductionModes>[0]) ?? {},
+      (args.configured as Parameters<typeof resolveAllProductionModes>[1]) ?? DEFAULT_PRODUCTION_MODE,
+    );
+    const labels = Object.fromEntries(
+      Object.entries(resolved).map(([k, v]) => [k, productionModeLabel(v as boolean)]),
+    );
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ resolved, labels }, null, 2) }] };
+  },
+};
+
+// ── Round 7: MCP params validator ────────────────────────────────────────────
+
+const monographMcpParamsTool: MCPTool = {
+  name: 'monograph_mcp_params',
+  description: 'Validate and normalize typed MCP tool parameter objects (HealthParams, AuditParams, FindDupesParams, etc.)',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      paramsType: { type: 'string', description: 'Parameter type name (e.g. HealthParams, AuditParams)' },
+      params: { type: 'object', description: 'Parameter values to validate' },
+    },
+    required: ['paramsType', 'params'],
+  },
+  handler: async (args) => {
+    const { isValidEmailMode, isValidAuditGate } = await import('@monoes/monograph');
+    const p = args.params as Record<string, unknown>;
+    const issues: string[] = [];
+    if ('emailMode' in p && !isValidEmailMode(p.emailMode)) issues.push(`emailMode "${p.emailMode}" invalid; must be full|domain|name`);
+    if ('gate' in p && !isValidAuditGate(p.gate)) issues.push(`gate "${p.gate}" invalid; must be new-only|all`);
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ valid: issues.length === 0, issues, params: p }, null, 2) }] };
+  },
+};
+
 // ── Round 6: feature flags ────────────────────────────────────────────────────
 
 const monographFeatureFlagsTool: MCPTool = {
@@ -3179,6 +3522,19 @@ export const monographTools: MCPTool[] = [
   monographCodeLensTool,
   monographLspHoverTool,
   monographLspDiagnosticsExtTool,
+  monographCloudCoverageTool,
+  monographUploadInventoryTool,
+  monographLicenseTool,
+  monographProgrammaticTool,
+  monographRegressionCountsTool,
+  monographRegressionOutcomeTool,
+  monographNarrowingTool,
+  monographDynamicImportsTool,
+  monographGroupingTool,
+  monographVitalSignsTool,
+  monographTargetThresholdsTool,
+  monographProductionOverrideTool,
+  monographMcpParamsTool,
   monographFeatureFlagsTool,
   monographCloneFamiliesTool,
   monographDuplicationStatsTool,
