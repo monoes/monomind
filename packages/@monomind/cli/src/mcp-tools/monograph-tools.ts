@@ -2873,6 +2873,221 @@ const monographLspDiagnosticsExtTool: MCPTool = {
   },
 };
 
+// ── Round 6: feature flags ────────────────────────────────────────────────────
+
+const monographFeatureFlagsTool: MCPTool = {
+  name: 'monograph_feature_flags',
+  description: 'Detect feature flags (env vars, SDK calls, config objects) in codebase and cross-reference with dead-code findings',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      projectPath: { type: 'string', description: 'Project root path' },
+      crossReference: { type: 'boolean', description: 'Cross-reference flags with dead-code analysis' },
+    },
+    required: ['projectPath'],
+  },
+  handler: async (args) => {
+    const { analyzeFeatureFlags, summarizeFlags } = await import('@monoes/monograph');
+    const flags = await analyzeFeatureFlags(args.projectPath as string);
+    const summary = summarizeFlags(flags);
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ flags, summary }, null, 2) }] };
+  },
+};
+
+// ── Round 6: clone families ───────────────────────────────────────────────────
+
+const monographCloneFamiliesTool: MCPTool = {
+  name: 'monograph_clone_families',
+  description: 'Group clone groups into file-set families and generate ExtractFunction/ExtractModule/MergeDirectories refactoring suggestions',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      groups: { type: 'array', description: 'CloneGroup array from monograph_clone_detect' },
+    },
+    required: ['groups'],
+  },
+  handler: async (args) => {
+    const { groupIntoFamilies, cloneFamilySummary } = await import('@monoes/monograph');
+    const families = groupIntoFamilies(args.groups as Parameters<typeof groupIntoFamilies>[0]);
+    const summary = cloneFamilySummary(families);
+    return { content: [{ type: 'text' as const, text: JSON.stringify({ families, summary }, null, 2) }] };
+  },
+};
+
+// ── Round 6: duplication stats ────────────────────────────────────────────────
+
+const monographDuplicationStatsTool: MCPTool = {
+  name: 'monograph_duplication_stats',
+  description: 'Compute aggregate duplication statistics (% lines, % tokens) from clone groups with per-file deduplication',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      groups: { type: 'array', description: 'CloneGroupInput array' },
+      allFilePaths: { type: 'array', items: { type: 'string' }, description: 'All scanned file paths' },
+      totalLines: { type: 'number', description: 'Total lines across all files' },
+      totalTokens: { type: 'number', description: 'Total tokens across all files' },
+    },
+    required: ['groups', 'allFilePaths', 'totalLines', 'totalTokens'],
+  },
+  handler: async (args) => {
+    const { computeDuplicationStats, formatDuplicationStats } = await import('@monoes/monograph');
+    const stats = computeDuplicationStats(
+      args.groups as Parameters<typeof computeDuplicationStats>[0],
+      args.allFilePaths as string[],
+      args.totalLines as number,
+      args.totalTokens as number,
+    );
+    return { content: [{ type: 'text' as const, text: formatDuplicationStats(stats) + '\n\n' + JSON.stringify(stats, null, 2) }] };
+  },
+};
+
+// ── Round 6: changed workspaces ───────────────────────────────────────────────
+
+const monographChangedWorkspacesTool: MCPTool = {
+  name: 'monograph_changed_workspaces',
+  description: 'Find which monorepo workspace packages are affected by changed files in a git diff',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      projectPath: { type: 'string', description: 'Monorepo root path' },
+      ref: { type: 'string', description: 'Git ref to compare against (default: HEAD~1)' },
+    },
+    required: ['projectPath'],
+  },
+  handler: async (args) => {
+    const { getChangedWorkspaces } = await import('@monoes/monograph');
+    const result = await getChangedWorkspaces(args.projectPath as string, (args.ref as string | undefined) ?? 'HEAD~1');
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+  },
+};
+
+// ── Round 6: LSP code actions ─────────────────────────────────────────────────
+
+const monographLspCodeActionsTool: MCPTool = {
+  name: 'monograph_lsp_code_actions',
+  description: 'Build LSP CodeAction items to remove unused exports or add monograph-suppress comments',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      kind: { type: 'string', enum: ['remove-export', 'suppress'], description: 'Action kind' },
+      locations: { type: 'array', description: 'UnusedExportLocation array' },
+      filePath: { type: 'string', description: 'File path for suppress actions' },
+      suppressKind: { type: 'string', description: 'Suppression kind (e.g. unused-export)' },
+    },
+    required: ['kind', 'locations'],
+  },
+  handler: async (args) => {
+    const { buildRemoveExportActions, buildSuppressActions } = await import('@monoes/monograph');
+    const actions = args.kind === 'remove-export'
+      ? buildRemoveExportActions(args.locations as Parameters<typeof buildRemoveExportActions>[0])
+      : buildSuppressActions(args.locations as Parameters<typeof buildSuppressActions>[0], args.suppressKind as string);
+    return { content: [{ type: 'text' as const, text: JSON.stringify(actions, null, 2) }] };
+  },
+};
+
+// ── Round 6: extended LSP diagnostics ────────────────────────────────────────
+
+const monographExtendedDiagnosticsTool: MCPTool = {
+  name: 'monograph_extended_diagnostics',
+  description: 'Build LSP diagnostics for unused symbols, circular deps, boundary violations, and high-complexity functions',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      kind: { type: 'string', enum: ['unused-symbol', 'circular', 'boundary', 'complexity'], description: 'Diagnostic kind' },
+      locations: { type: 'array', description: 'Location objects matching the chosen kind' },
+    },
+    required: ['kind', 'locations'],
+  },
+  handler: async (args) => {
+    const { buildUnusedSymbolDiagnostics, buildCircularDepDiagnostics, buildBoundaryViolationDiagnostics, buildComplexityDiagnostics } = await import('@monoes/monograph');
+    let result: unknown;
+    switch (args.kind as string) {
+      case 'unused-symbol': result = Object.fromEntries(buildUnusedSymbolDiagnostics(args.locations as Parameters<typeof buildUnusedSymbolDiagnostics>[0])); break;
+      case 'circular': result = Object.fromEntries(buildCircularDepDiagnostics(args.locations as Parameters<typeof buildCircularDepDiagnostics>[0])); break;
+      case 'boundary': result = Object.fromEntries(buildBoundaryViolationDiagnostics(args.locations as Parameters<typeof buildBoundaryViolationDiagnostics>[0])); break;
+      default: result = Object.fromEntries(buildComplexityDiagnostics(args.locations as Parameters<typeof buildComplexityDiagnostics>[0]));
+    }
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+  },
+};
+
+// ── Round 6: config validation ────────────────────────────────────────────────
+
+const monographConfigValidateTool: MCPTool = {
+  name: 'monograph_config_validate',
+  description: 'Validate a monograph.config.json file and report errors with line-level detail',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      configPath: { type: 'string', description: 'Path to monograph config file (default: ./monograph.config.json)' },
+    },
+  },
+  handler: async (args) => {
+    const { validateConfig } = await import('@monoes/monograph');
+    const result = validateConfig((args.configPath as string | undefined) ?? 'monograph.config.json');
+    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+  },
+};
+
+// ── Round 6: config schema generation ────────────────────────────────────────
+
+const monographConfigSchemaTool: MCPTool = {
+  name: 'monograph_config_schema',
+  description: 'Generate a JSON Schema for monograph.config.json to enable editor auto-complete and validation',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {},
+  },
+  handler: async () => {
+    const { generateConfigSchema, schemaToJson } = await import('@monoes/monograph');
+    const schema = generateConfigSchema();
+    return { content: [{ type: 'text' as const, text: schemaToJson(schema) }] };
+  },
+};
+
+// ── Round 6: pipeline effort ──────────────────────────────────────────────────
+
+const monographEffortTool: MCPTool = {
+  name: 'monograph_effort',
+  description: 'Get an effort profile (low/medium/high) controlling which sub-analyses run for performance vs depth trade-off',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      effort: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Analysis effort level' },
+    },
+  },
+  handler: async (args) => {
+    const { getEffortProfile } = await import('@monoes/monograph');
+    const profile = getEffortProfile(args.effort as 'low' | 'medium' | 'high' | undefined);
+    return { content: [{ type: 'text' as const, text: JSON.stringify(profile, null, 2) }] };
+  },
+};
+
+// ── Round 6: quality gate ─────────────────────────────────────────────────────
+
+const monographQualityGateTool: MCPTool = {
+  name: 'monograph_quality_gate',
+  description: 'Evaluate a health score against a quality gate config and return pass/warn/fail with per-metric details',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      score: { type: 'number', description: 'Computed health score (0-100)' },
+      config: { type: 'object', description: 'QualityGateConfig: { minScore, maxDuplication, maxComplexity, ... }' },
+      vitals: { type: 'object', description: 'Vitals object with duplication, complexity, etc.' },
+    },
+    required: ['score'],
+  },
+  handler: async (args) => {
+    const { evaluateQualityGate, formatQualityGateResult } = await import('@monoes/monograph');
+    const result = evaluateQualityGate(
+      args.score as number,
+      (args.config as Parameters<typeof evaluateQualityGate>[1]) ?? {},
+      args.vitals as Parameters<typeof evaluateQualityGate>[2],
+    );
+    return { content: [{ type: 'text' as const, text: formatQualityGateResult(result) + '\n\n' + JSON.stringify(result, null, 2) }] };
+  },
+};
+
 // ── Export all tools ──────────────────────────────────────────────────────────
 
 export const monographTools: MCPTool[] = [
@@ -2964,4 +3179,14 @@ export const monographTools: MCPTool[] = [
   monographCodeLensTool,
   monographLspHoverTool,
   monographLspDiagnosticsExtTool,
+  monographFeatureFlagsTool,
+  monographCloneFamiliesTool,
+  monographDuplicationStatsTool,
+  monographChangedWorkspacesTool,
+  monographLspCodeActionsTool,
+  monographExtendedDiagnosticsTool,
+  monographConfigValidateTool,
+  monographConfigSchemaTool,
+  monographEffortTool,
+  monographQualityGateTool,
 ];
