@@ -83,3 +83,16 @@ export { parseCodeownersWithSections, matchOwners, parseSectionHeader, ownerCoun
 export { buildCodeLenses, type MonographCodeLens, type ExportUsage } from './lsp/code-lens.js';
 export { buildHover, type MonographHover, type UnusedExportInfo, type DuplicationInfo } from './lsp/hover.js';
 export { buildDuplicateExportDiagnostics, buildStaleSuppressionDiagnostics, type MonographDiagnostic, type RelatedInformation, type DuplicateExportGroup } from './lsp/diagnostics.js';
+// ── Round 6: Fallow feature ports ─────────────────────────────────────────────
+export { analyzeFeatureFlags, crossReferenceWithDeadCode, summarizeFlags, DEFAULT_FLAGS_CONFIG, type FlagKind, type FlagConfidence, type FeatureFlag, type FlagsConfig, type FlagsSummary } from './analysis/feature-flags.js';
+export { KNOWN_SDK_PATTERNS, detectSdkFromPackageJson, type SdkPattern } from './analysis/feature-flags-config.js';
+export { getChangedWorkspaces, resolveChangedWorkspaceRoots, type WorkspacePackage } from './analysis/changed-workspaces.js';
+export { groupIntoFamilies, cloneFamilySummary, MODULE_EXTRACTION_THRESHOLD_LINES, type RefactoringKind, type RefactoringSuggestion, type CloneInstance, type CloneGroup, type CloneFamily } from './graph/clone-families.js';
+export { computeDuplicationStats, formatDuplicationStats, type DuplicationStats, type CloneGroupInput } from './graph/duplication-stats.js';
+export { buildRemoveExportActions, buildSuppressActions, type LspTextEdit, type LspWorkspaceEdit, type CodeAction, type UnusedExportLocation, type ExportKeywordVariant } from './lsp/code-actions.js';
+export { buildUnusedSymbolDiagnostics, buildCircularDepDiagnostics, buildBoundaryViolationDiagnostics, buildComplexityDiagnostics, type UnusedSymbolLocation, type CircularDepLocation, type BoundaryViolationLocation, type ComplexityIssueLocation } from './lsp/diagnostics-ext.js';
+export { validateConfig, type ValidationError, type ValidationResult } from './config/validate.js';
+export { generateConfigSchema, schemaToJson, type JSONSchemaProperty, type JSONSchema } from './config/schema-gen.js';
+export { getEffortProfile, parseEffort, type AnalysisEffort, type EffortProfile } from './pipeline/effort.js';
+export { ProgressReporter, consoleProgressReporter, type ProgressPhase, type ProgressEvent, type ProgressCallback } from './pipeline/progress.js';
+export { evaluateQualityGate, formatQualityGateResult, type QualityGateConfig, type QualityGateStatus, type QualityGateResult } from './health/quality-gate.js';
