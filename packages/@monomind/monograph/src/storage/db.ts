@@ -4,7 +4,7 @@ import { dirname } from 'path';
 import {
   CREATE_NODES, CREATE_EDGES, CREATE_COMMUNITIES,
   CREATE_INDEX_META, CREATE_NODES_FTS, CREATE_INDEXES, FTS_SYNC_TRIGGERS,
-  CREATE_NODE_PROPERTIES, SEED_NODE_PROPERTIES, CREATE_SUPPRESSIONS,
+  CREATE_NODE_PROPERTIES, SEED_NODE_PROPERTIES, CREATE_SUPPRESSIONS, CREATE_FILE_CACHE,
 } from './schema.js';
 import { MonographError } from '../types.js';
 
@@ -71,6 +71,9 @@ function applyMigrations(db: MonographDb): void {
 
   // v6: stale suppression detection table
   db.exec(CREATE_SUPPRESSIONS);
+
+  // v7: incremental build cache for file-level content hashing
+  db.exec(CREATE_FILE_CACHE);
 }
 
 /** Write to a .tmp file then rename for atomic replacement. */

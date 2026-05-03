@@ -95,6 +95,16 @@ CREATE TABLE IF NOT EXISTS suppressions (
   last_seen_at TEXT
 )`;
 
+export const CREATE_FILE_CACHE = `
+  CREATE TABLE IF NOT EXISTS file_cache (
+    file_path TEXT PRIMARY KEY,
+    content_hash TEXT NOT NULL,
+    last_parsed INTEGER NOT NULL,
+    node_count INTEGER NOT NULL DEFAULT 0,
+    edge_count INTEGER NOT NULL DEFAULT 0
+  )
+`;
+
 export const FTS_SYNC_TRIGGERS = `
 CREATE TRIGGER IF NOT EXISTS nodes_fts_insert AFTER INSERT ON nodes BEGIN
   INSERT INTO nodes_fts(rowid, id, name, norm_label, file_path, label)

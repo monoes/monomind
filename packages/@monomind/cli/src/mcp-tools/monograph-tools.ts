@@ -2191,6 +2191,255 @@ const monographRegressionCheckTool: MCPTool = {
   },
 };
 
+// ── monograph_clone_detect ────────────────────────────────────────────────────
+
+const monographCloneDetectTool: MCPTool = {
+  name: 'monograph_clone_detect',
+  description: 'Detect structurally similar or duplicate files using token-normalized Jaccard similarity. Returns clone pairs with similarity scores and emits STRUCTURALLY_SIMILAR edges.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      minSimilarity: { type: 'number', description: 'Minimum Jaccard similarity threshold (0-1, default 0.8)' },
+      minTokens: { type: 'number', description: 'Minimum shared token count (default 50)' },
+    },
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, detectClones } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const result = detectClones(db, (input.minSimilarity as number | undefined) ?? 0.8, (input.minTokens as number | undefined) ?? 50);
+      return text(JSON.stringify(result, null, 2));
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_similar_files ───────────────────────────────────────────────────
+
+const monographSimilarFilesTool: MCPTool = {
+  name: 'monograph_similar_files',
+  description: 'Find files most similar to a given file using the MinHash shingle pre-filter. Fast approximate nearest-neighbor search for structural clones.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      filePath: { type: 'string', description: 'Target file path to find similar files for' },
+      topK: { type: 'number', description: 'Number of similar files to return (default 10)' },
+    },
+    required: ['filePath'],
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, detectClones } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const result = detectClones(db, 0.5, 10);
+      const filePath = input.filePath as string;
+      const matches = result.pairs.filter(p => p.fileA === filePath || p.fileB === filePath);
+      return text(JSON.stringify(matches.slice(0, (input.topK as number | undefined) ?? 10), null, 2));
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_maintainability ─────────────────────────────────────────────────
+
+const monographMaintainabilityTool: MCPTool = {
+  name: 'monograph_maintainability',
+  description: 'Compute Halstead-based Maintainability Index (0-100) for all functions. A=excellent(>85), F=critical(<25). Identifies hardest-to-maintain code.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      maxResults: { type: 'number', description: 'Max results to return (default 50)' },
+      minMi: { type: 'number', description: 'Filter to MI below this value (default 65 = B threshold)' },
+    },
+  },
+  handler: async (args) => {
+    const { openDb, closeDb, computeMaintainabilityIndex } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const report = computeMaintainabilityIndex(db);
+      const filtered = report.results
+        .filter(r => r.mi < ((args.minMi as number | undefined) ?? 65))
+        .slice(0, (args.maxResults as number | undefined) ?? 50);
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ ...report, results: filtered }, null, 2) }] };
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_cache_status ────────────────────────────────────────────────────
+
+const monographCacheStatusTool: MCPTool = {
+  name: 'monograph_cache_status',
+  description: 'Show incremental build cache statistics: total cached files, hit rate, and stale paths that need re-parsing.',
+  inputSchema: { type: 'object', properties: {} },
+  handler: async (_args) => {
+    const { openDb, closeDb, getFileCacheStats } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const stats = getFileCacheStats(db);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(stats, null, 2) }] };
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_mirrored_dirs ───────────────────────────────────────────────────
+
+const monographMirroredDirsTool: MCPTool = {
+  name: 'monograph_mirrored_dirs',
+  description: 'Detect directory subtrees that are structural mirrors of each other (same file basenames). Identifies copy-paste directory structures that could be consolidated.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      minSimilarity: { type: 'number', description: 'Minimum Jaccard similarity for basenames (default 0.7)' },
+    },
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, detectMirroredDirs } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const report = detectMirroredDirs(db, (input.minSimilarity as number | undefined) ?? 0.7);
+      return { content: [{ type: 'text', text: JSON.stringify(report, null, 2) }] };
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_cross_reference ─────────────────────────────────────────────────
+
+const monographCrossReferenceTool: MCPTool = {
+  name: 'monograph_cross_reference',
+  description: 'Cross-reference unreachable files with duplicated files. Files that are BOTH dead code AND structurally duplicated are the highest-confidence safe-delete candidates.',
+  inputSchema: { type: 'object', properties: {} },
+  handler: async () => {
+    const { openDb, closeDb, crossReferenceDuplicatesAndDeadCode } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const report = crossReferenceDuplicatesAndDeadCode(db);
+      return { content: [{ type: 'text', text: JSON.stringify(report, null, 2) }] };
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_complexity ──────────────────────────────────────────────────────
+
+const monographComplexityTool: MCPTool = {
+  name: 'monograph_complexity',
+  description: 'Compute cyclomatic and cognitive complexity for all functions/methods. Returns p50/p90/p95 CC percentiles and identifies high-complexity hotspots (CC > 10).',
+  inputSchema: { type: 'object', properties: {} },
+  handler: async (_input) => {
+    const { openDb, closeDb, computeComplexity } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const report = computeComplexity(db);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(report, null, 2) }] };
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_crap_score ──────────────────────────────────────────────────────
+
+const monographCrapScoreTool: MCPTool = {
+  name: 'monograph_crap_score',
+  description: 'Compute CRAP score (CC² × (1-coverage)³ + CC) for all functions. Functions with no test coverage get worst-case CRAP. Identifies change-risky untested code.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      threshold: { type: 'number', description: 'CRAP score threshold to filter results (default 30)' },
+    },
+  },
+  handler: async (input) => {
+    const { openDb, closeDb, computeComplexity } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const report = computeComplexity(db);
+      const threshold = (input.threshold as number | undefined) ?? 30;
+      const risky = report.functions
+        .filter(f => f.crapScore >= threshold)
+        .sort((a, b) => b.crapScore - a.crapScore);
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ threshold, count: risky.length, functions: risky }, null, 2) }] };
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_author_analytics ────────────────────────────────────────────────
+
+const monographAuthorAnalyticsTool: MCPTool = {
+  name: 'monograph_author_analytics',
+  description: 'Per-author ownership analytics: commit counts, file ownership, bot detection, and ChurnTrend (accelerating/stable/declining). Requires a git repository.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      repoPath: { type: 'string', description: 'Repository root path (default: inferred from db location)' },
+    },
+  },
+  handler: async (args) => {
+    const { openDb, closeDb, computeAuthorAnalytics } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const rp = (args.repoPath as string | undefined) ?? getProjectCwd();
+      const report = computeAuthorAnalytics(rp, db);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(report, null, 2) }] };
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_risk_profile ────────────────────────────────────────────────────
+
+const monographRiskProfileTool: MCPTool = {
+  name: 'monograph_risk_profile',
+  description: 'Risk profile distribution: function size histogram (LOC bins) and parameter count histogram. Shows p50/p90/p95 function size and counts of oversized/high-param functions.',
+  inputSchema: { type: 'object', properties: {} },
+  handler: async (_args) => {
+    const { openDb, closeDb, computeRiskProfile } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const report = computeRiskProfile(db);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(report, null, 2) }] };
+    } finally { closeDb(db); }
+  },
+};
+
+// ── monograph_explain ─────────────────────────────────────────────────────────
+
+const monographExplainTool: MCPTool = {
+  name: 'monograph_explain',
+  description: 'Explain a monograph rule: description, rationale, and remediation steps. Use with a ruleId like "god-node", "unreachable-file", "circular-deps". Call with no ruleId to list all rules.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      ruleId: { type: 'string', description: 'Rule ID to explain (e.g. god-node, unreachable-file, circular-deps, high-coupling, isolated-node, boundary-violation, low-cohesion)' },
+    },
+  },
+  handler: async (args) => {
+    const { explainRule, listRules } = await import('@monoes/monograph');
+    if (!args.ruleId) {
+      return { content: [{ type: 'text' as const, text: JSON.stringify(listRules(), null, 2) }] };
+    }
+    const rule = explainRule(args.ruleId as string);
+    if (!rule) {
+      return { content: [{ type: 'text' as const, text: `Rule '${args.ruleId}' not found. Available: ${listRules().map(r => r.id).join(', ')}` }] };
+    }
+    return { content: [{ type: 'text' as const, text: JSON.stringify(rule, null, 2) }] };
+  },
+};
+
+// ── monograph_dep_closure ─────────────────────────────────────────────────────
+
+const monographDepClosureTool: MCPTool = {
+  name: 'monograph_dep_closure',
+  description: 'Compute full transitive dependency closure for files. Shows direct vs transitive deps, dependency chain depth, and highlights files with unusually deep dependency trees (depth > 5).',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      maxNodes: { type: 'number', description: 'Max number of files to analyze (default 100, sorted by degree)' },
+    },
+  },
+  handler: async (args) => {
+    const { openDb, closeDb, computeDependencyClosure } = await import('@monoes/monograph');
+    const db = openDb(getDbPath());
+    try {
+      const report = computeDependencyClosure(db, (args.maxNodes as number | undefined) ?? 100);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(report, null, 2) }] };
+    } finally { closeDb(db); }
+  },
+};
+
 // ── Export all tools ──────────────────────────────────────────────────────────
 
 export const monographTools: MCPTool[] = [
@@ -2232,4 +2481,16 @@ export const monographTools: MCPTool[] = [
   monographCodeownersTool,
   monographSuppressTool,
   monographRegressionCheckTool,
+  monographCloneDetectTool,
+  monographSimilarFilesTool,
+  monographMaintainabilityTool,
+  monographCacheStatusTool,
+  monographComplexityTool,
+  monographCrapScoreTool,
+  monographMirroredDirsTool,
+  monographCrossReferenceTool,
+  monographAuthorAnalyticsTool,
+  monographRiskProfileTool,
+  monographExplainTool,
+  monographDepClosureTool,
 ];
