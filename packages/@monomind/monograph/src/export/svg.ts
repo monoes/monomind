@@ -15,13 +15,26 @@ export function toSvg(nodes: MonographNode[], edges: MonographEdge[]): string {
     })
     .join('\n');
 
+  const COMMUNITY_COLORS = [
+    '#3b82f6','#ef4444','#22c55e','#f59e0b','#8b5cf6',
+    '#ec4899','#14b8a6','#f97316','#06b6d4','#84cc16',
+  ];
+  const degree = new Map<string, number>();
+  for (const e of edges) {
+    degree.set(e.sourceId, (degree.get(e.sourceId) ?? 0) + 1);
+    degree.set(e.targetId, (degree.get(e.targetId) ?? 0) + 1);
+  }
+
   const nodeSvg = [...positions.entries()]
     .map(([id, pos]) => {
       const node = nodes.find(n => n.id === id);
       const label = node?.name ?? id;
+      const deg = degree.get(id) ?? 0;
+      const r = Math.max(4, Math.min(16, 4 + deg));
+      const color = COMMUNITY_COLORS[(node?.communityId ?? 0) % COMMUNITY_COLORS.length];
       return (
-        `<circle cx="${pos.x}" cy="${pos.y}" r="6" fill="#3b82f6" stroke="#1e293b" stroke-width="0.5"/>` +
-        `<text x="${pos.x + 8}" y="${pos.y + 4}" font-size="10" fill="#1e293b">${sanitizeLabel(label)}</text>`
+        `<circle cx="${pos.x}" cy="${pos.y}" r="${r}" fill="${color}" stroke="#1e293b" stroke-width="0.5" opacity="0.85"/>` +
+        `<text x="${pos.x + r + 2}" y="${pos.y + 4}" font-size="10" fill="#1e293b">${sanitizeLabel(label)}</text>`
       );
     })
     .join('\n');

@@ -4,6 +4,7 @@ import { dirname } from 'path';
 import {
   CREATE_NODES, CREATE_EDGES, CREATE_COMMUNITIES,
   CREATE_INDEX_META, CREATE_NODES_FTS, CREATE_INDEXES, FTS_SYNC_TRIGGERS,
+  CREATE_NODE_PROPERTIES, SEED_NODE_PROPERTIES,
 } from './schema.js';
 import { MonographError } from '../types.js';
 
@@ -34,6 +35,39 @@ function applyMigrations(db: MonographDb): void {
   db.exec(CREATE_NODES_FTS);
   for (const idx of CREATE_INDEXES) db.exec(idx);
   db.exec(FTS_SYNC_TRIGGERS);
+
+  // v2: embedding column for semantic search (ALTER TABLE for existing dbs)
+  const cols = (db.prepare('PRAGMA table_info(nodes)').all() as { name: string }[]).map(c => c.name);
+  if (!cols.includes('embedding')) {
+    db.exec('ALTER TABLE nodes ADD COLUMN embedding TEXT');
+  }
+
+  // v3: weight column on edges for co-occurrence frequency
+  const edgeCols = (db.prepare('PRAGMA table_info(edges)').all() as { name: string }[]).map(c => c.name);
+  if (!edgeCols.includes('weight')) {
+    db.exec('ALTER TABLE edges ADD COLUMN weight REAL NOT NULL DEFAULT 1.0');
+  }
+
+  // v4: trigram FTS for substring matching
+  // FTS5 virtual tables cannot be ALTER'd; check the tokenize config key and rebuild if needed.
+  let hasTrigram = false;
+  try {
+    const row = db.prepare(`SELECT v FROM nodes_fts_config WHERE k='tokenize'`).get() as { v: string } | undefined;
+    hasTrigram = row?.v === 'trigram';
+  } catch {
+    // nodes_fts_config may not exist if the table is newly created — in that case
+    // CREATE_NODES_FTS above already used trigram, so skip the rebuild.
+    hasTrigram = true;
+  }
+  if (!hasTrigram) {
+    db.exec('DROP TABLE IF EXISTS nodes_fts');
+    db.exec(CREATE_NODES_FTS);
+    db.exec(`INSERT INTO nodes_fts(nodes_fts) VALUES('rebuild')`);
+  }
+
+  // v5: typed property registry
+  db.exec(CREATE_NODE_PROPERTIES);
+  db.exec(SEED_NODE_PROPERTIES);
 }
 
 /** Write to a .tmp file then rename for atomic replacement. */

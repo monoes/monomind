@@ -1,11 +1,37 @@
 import chokidar from 'chokidar';
 import { EventEmitter } from 'events';
 import { isSupportedExtension } from '../parsers/loader.js';
+import type { PipelineProgress } from '../types.js';
 import { extname } from 'path';
 import { platform } from 'os';
 
 export interface WatcherOptions {
   debounceMs?: number;  // default 3000ms
+}
+
+export interface WatchAsyncOptions extends WatcherOptions {
+  onProgress?: (p: PipelineProgress) => void;
+  force?: boolean;
+  codeOnly?: boolean;
+  llmMaxSections?: number;
+}
+
+/** Convenience: start a watcher and trigger buildAsync on every change. Returns stop() fn. */
+export async function watchAsync(
+  repoPath: string,
+  opts: WatchAsyncOptions = {},
+): Promise<{ stop: () => Promise<void> }> {
+  const { buildAsync } = await import('../pipeline/orchestrator.js');
+  const watcher = new MonographWatcher(repoPath, { debounceMs: opts.debounceMs ?? 3000 });
+
+  watcher.on('monograph:updated', async (files: string[]) => {
+    opts.onProgress?.({ phase: 'watch', message: `Changed: ${files.slice(0, 3).join(', ')}` });
+    await buildAsync(repoPath, { onProgress: opts.onProgress, force: opts.force, codeOnly: opts.codeOnly, llmMaxSections: opts.llmMaxSections ?? 0 });
+    opts.onProgress?.({ phase: 'watch', message: 'Graph rebuilt.' });
+  });
+
+  await watcher.start();
+  return { stop: () => watcher.stop() };
 }
 
 export class MonographWatcher extends EventEmitter {

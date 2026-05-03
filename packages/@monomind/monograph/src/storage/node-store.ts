@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import type { MonographNode } from '../types.js';
-import { toNormLabel } from '../types.js';
+import { toNormLabel, MonographError } from '../types.js';
 
 export function insertNode(db: Database.Database, node: MonographNode): void {
   db.prepare(`
@@ -53,6 +53,105 @@ export function deleteNodesForFile(db: Database.Database, filePath: string): voi
 export function countNodes(db: Database.Database): number {
   const row = db.prepare('SELECT COUNT(*) as n FROM nodes').get() as { n: number };
   return row.n;
+}
+
+// ── Property registry ─────────────────────────────────────────────────────────
+
+export interface PropertyDef {
+  ident: string;
+  type: string;
+  cardinality: string;
+  viewContext: string;
+  closedValues: string[] | null;
+  description: string | null;
+  queryable: boolean;
+}
+
+function rowToPropDef(row: Record<string, unknown>): PropertyDef {
+  return {
+    ident: row.ident as string,
+    type: row.type as string,
+    cardinality: row.cardinality as string,
+    viewContext: row.view_context as string,
+    closedValues: row.closed_values ? JSON.parse(row.closed_values as string) : null,
+    description: (row.description as string | null) ?? null,
+    queryable: (row.queryable as number) === 1,
+  };
+}
+
+/** List all registered property definitions */
+export function listProperties(db: Database.Database): PropertyDef[] {
+  const rows = db.prepare('SELECT * FROM node_properties ORDER BY ident').all() as Record<string, unknown>[];
+  return rows.map(rowToPropDef);
+}
+
+/** Get a single property definition */
+export function getProperty(db: Database.Database, ident: string): PropertyDef | null {
+  const row = db.prepare('SELECT * FROM node_properties WHERE ident = ?').get(ident) as Record<string, unknown> | undefined;
+  return row ? rowToPropDef(row) : null;
+}
+
+/** Register or update a custom property */
+export function upsertProperty(db: Database.Database, def: PropertyDef): void {
+  db.prepare(`
+    INSERT INTO node_properties (ident, type, cardinality, view_context, closed_values, description, queryable)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(ident) DO UPDATE SET
+      type = excluded.type,
+      cardinality = excluded.cardinality,
+      view_context = excluded.view_context,
+      closed_values = excluded.closed_values,
+      description = excluded.description,
+      queryable = excluded.queryable
+  `).run(
+    def.ident,
+    def.type,
+    def.cardinality,
+    def.viewContext,
+    def.closedValues != null ? JSON.stringify(def.closedValues) : null,
+    def.description ?? null,
+    def.queryable ? 1 : 0,
+  );
+}
+
+/**
+ * Query nodes by a typed property value extracted from their JSON properties column.
+ * For queryable properties only.
+ * @param ident - property ident (e.g. 'layer', 'tags', 'ua_type')
+ * @param value - value to match (exact for closed/text, numeric comparison for number)
+ * @param comparator - '=' | 'LIKE' | '>' | '<' (default '=')
+ */
+export function queryByProperty(
+  db: Database.Database,
+  ident: string,
+  value: string | number | boolean,
+  comparator: '=' | 'LIKE' | '>' | '<' = '=',
+  limit = 100,
+): Array<{ id: string; name: string; label: string; filePath: string | null; propertyValue: unknown }> {
+  const propDef = getProperty(db, ident);
+  if (!propDef) {
+    throw new MonographError(`Unknown property: '${ident}'. Register it first with upsertProperty.`);
+  }
+  if (!propDef.queryable) {
+    throw new MonographError(`Property '${ident}' is not queryable (view_context may be 'never' or queryable=false).`);
+  }
+
+  const extractExpr = `json_extract(properties, '$.${ident}')`;
+  const rows = db.prepare(`
+    SELECT id, name, label, file_path, ${extractExpr} AS property_value
+    FROM nodes
+    WHERE properties IS NOT NULL
+      AND ${extractExpr} ${comparator} ?
+    LIMIT ?
+  `).all(value, limit) as Array<Record<string, unknown>>;
+
+  return rows.map(r => ({
+    id: r.id as string,
+    name: r.name as string,
+    label: r.label as string,
+    filePath: (r.file_path as string | null) ?? null,
+    propertyValue: r.property_value,
+  }));
 }
 
 function rowToNode(row: Record<string, unknown>): MonographNode {
