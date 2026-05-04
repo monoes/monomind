@@ -171,6 +171,38 @@ body {
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(150,100,255,.3); border-radius: 4px; }
+
+/* Live status strip */
+#live-strip {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 28px;
+  background: rgba(6,5,18,0.92);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 18px;
+  z-index: 80;
+  font-family: 'Azeret Mono', 'Cascadia Code', monospace;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+#live-strip.visible { opacity: 1; }
+.ls-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #333; flex-shrink: 0;
+  transition: background 0.4s;
+}
+.ls-dot.active { background: #50ff80; box-shadow: 0 0 6px #50ff80; animation: dot-pulse 1.2s ease-in-out infinite; }
+@keyframes dot-pulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
+.ls-item { color: #444; white-space: nowrap; }
+.ls-item span { color: #888; }
+.ls-item.hi span { color: #c0a0ff; }
+.ls-sep { color: #222; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -228,6 +260,9 @@ body {
   <!-- Agents -->
   <g id="g-agents"></g>
 
+  <!-- Live glow rings (one per agent, shown when domain is active) -->
+  <g id="g-glow-rings"></g>
+
   <!-- Brain center (rendered last = on top) -->
   <g id="g-brain" opacity="0">
     <!-- Outer halos -->
@@ -274,6 +309,20 @@ body {
 
 <div id="controls">
   <button class="ctrl-btn" onclick="replay()">↺ &nbsp;Replay</button>
+</div>
+
+<!-- Live status strip -->
+<div id="live-strip">
+  <div class="ls-dot" id="ls-dot"></div>
+  <div class="ls-item" id="ls-status"><span>IDLE</span></div>
+  <div class="ls-sep">·</div>
+  <div class="ls-item" id="ls-swarm">swarm <span id="ls-swarm-val">—</span></div>
+  <div class="ls-sep">·</div>
+  <div class="ls-item" id="ls-agents">agents <span id="ls-agents-val">—</span></div>
+  <div class="ls-sep">·</div>
+  <div class="ls-item" id="ls-route">last route <span id="ls-route-val">—</span></div>
+  <div class="ls-sep">·</div>
+  <div class="ls-item" id="ls-session">session <span id="ls-session-val">—</span></div>
 </div>
 
 <div id="legend">
@@ -805,7 +854,188 @@ startLineFlow();
 startBrainPulse();
 runAnimation();
 
-window.addEventListener('resize', () => { buildScene(); });
+window.addEventListener('resize', () => { buildScene(); if (glowRingEls.length) buildGlowRings(); });
+
+/* ════════════════════════════════════════════════════════════
+   LIVE DATA LAYER
+   Polls /api/data every 3 s, maps swarm/agent state to domains,
+   lights up glow rings + status strip accordingly.
+   ════════════════════════════════════════════════════════════ */
+
+// Determine projectDir from URL query (?dir=...) or default to cwd
+const POLL_MS   = 3000;
+const API_DIR   = new URLSearchParams(location.search).get('dir') || '';
+const API_URL   = `/api/data${API_DIR ? '?dir=' + encodeURIComponent(API_DIR) : ''}`;
+
+// Per-domain active state
+let domainActive = Array(DOMAINS.length).fill(false);
+let glowRingEls  = [];   // SVG circle per domain (glow ring around agent)
+let glowAnimIds  = [];   // rAF IDs for glow pulse
+
+// Build one glow ring per agent — initially hidden
+function buildGlowRings() {
+  const g = document.getElementById('g-glow-rings');
+  g.innerHTML = '';
+  glowRingEls = [];
+  seats.forEach((seat, i) => {
+    const c = svgEl('circle', {
+      cx: seat.x, cy: seat.y, r: '28',
+      fill: 'none',
+      stroke: DOMAINS[i].color,
+      'stroke-width': '2',
+      opacity: '0'
+    });
+    glowRingEls.push(c);
+    g.appendChild(c);
+  });
+}
+
+// Animate glow ring pulse for active domains
+function startGlowPulse(i) {
+  const c = glowRingEls[i];
+  if (!c) return;
+  const ph = (i / DOMAINS.length) * Math.PI * 2;
+  function tick(ts) {
+    if (!domainActive[i]) { c.setAttribute('opacity', '0'); return; }
+    const op = 0.35 + 0.45 * Math.sin(ts * 0.003 + ph);
+    const rr = 28 + 6 * Math.sin(ts * 0.0025 + ph + 1);
+    c.setAttribute('opacity', op.toFixed(2));
+    c.setAttribute('r', rr.toFixed(1));
+    glowAnimIds[i] = requestAnimationFrame(tick);
+  }
+  glowAnimIds[i] = requestAnimationFrame(tick);
+}
+
+function stopGlowPulse(i) {
+  cancelAnimationFrame(glowAnimIds[i]);
+  if (glowRingEls[i]) glowRingEls[i].setAttribute('opacity', '0');
+}
+
+// Determine which domains are active from API snapshot
+function computeActiveDomains(data) {
+  const active = Array(DOMAINS.length).fill(false);
+
+  // 1. Swarm agent plan: collect all agent types currently in swarm
+  const swarmAgentTypes = new Set();
+  const agentPlan = data?.swarm?.state?.agentPlan || [];
+  agentPlan.forEach(a => { if (a.type) swarmAgentTypes.add(a.type.toLowerCase()); });
+
+  // 2. Swarm active flag (with 90s recency window)
+  const swarmActivity  = data?.swarm?.activity?.swarm || {};
+  const swarmIsActive  = swarmActivity.active === true &&
+                         (swarmActivity.lastActive || 9999) < 90;
+
+  // 3. Last routed agent
+  const lastRouteAgent = (data?.hooks?.lastRoute?.agent || '').toLowerCase();
+  const routedAt       = data?.hooks?.lastRoute?.updatedAt
+                           ? (Date.now() - new Date(data.hooks.lastRoute.updatedAt).getTime()) / 1000
+                           : 9999;
+  const routeIsFresh   = routedAt < 120; // within 2 minutes
+
+  // 4. Score each domain
+  DOMAINS.forEach((d, i) => {
+    let score = 0;
+
+    // Manager type match (exact)
+    if (routeIsFresh && lastRouteAgent === d.manager.toLowerCase()) score += 3;
+
+    // Agent type overlap with swarm plan
+    if (swarmIsActive) {
+      const domAgents = [d.manager.toLowerCase(), ...d.agents.map(a => a.toLowerCase())];
+      domAgents.forEach(a => { if (swarmAgentTypes.has(a)) score += 1; });
+    }
+
+    // Keyword match between last route agent and domain agents
+    if (routeIsFresh) {
+      const domAgents = [d.manager.toLowerCase(), ...d.agents.map(a => a.toLowerCase())];
+      if (domAgents.some(a => a.includes(lastRouteAgent) || lastRouteAgent.includes(a.split(' ')[0]))) score += 2;
+    }
+
+    active[i] = score > 0;
+  });
+
+  return active;
+}
+
+// Apply active state to visuals
+function applyLiveState(newActive, data) {
+  const wasAnyActive = domainActive.some(Boolean);
+  const isAnyActive  = newActive.some(Boolean);
+
+  newActive.forEach((on, i) => {
+    const wasOn = domainActive[i];
+    if (on && !wasOn)  { domainActive[i] = true;  startGlowPulse(i); setLineBright(i, true);  }
+    if (!on && wasOn)  { domainActive[i] = false; stopGlowPulse(i);  setLineBright(i, false); }
+  });
+
+  // Brain ring: faster/brighter when any domain active
+  if (isAnyActive !== wasAnyActive) {
+    document.getElementById('brain-ring').setAttribute(
+      'stroke', isAnyActive ? 'rgba(180,120,255,0.7)' : 'rgba(160,100,255,0.3)'
+    );
+  }
+
+  updateStrip(data, isAnyActive);
+}
+
+// Brighten/dim connection line for a domain
+function setLineBright(i, on) {
+  const l = lineEls[i];
+  if (!l) return;
+  l.setAttribute('stroke-width', on ? '2.5' : '1.5');
+  // Opacity is animated by dash flow, but we nudge the base
+  l.style.filter = on ? `drop-shadow(0 0 4px ${DOMAINS[i].color})` : '';
+}
+
+// Update status strip
+function updateStrip(data, anyActive) {
+  const dot = document.getElementById('ls-dot');
+  dot.classList.toggle('active', anyActive);
+
+  const swarmState = data?.swarm?.state || {};
+  const swarmAct   = data?.swarm?.activity?.swarm || {};
+  const routeAgent = data?.hooks?.lastRoute?.agent || '—';
+  const regCount   = data?.agents?.count ?? data?.agents?.registrations?.length ?? '—';
+  const sessCount  = data?.sessions?.count ?? '—';
+
+  document.getElementById('ls-status').querySelector('span').textContent =
+    anyActive ? 'ACTIVE' : (swarmState.status === 'running' ? 'RUNNING' : 'IDLE');
+  document.getElementById('ls-swarm-val').textContent =
+    swarmState.status || '—';
+  document.getElementById('ls-agents-val').textContent =
+    swarmAct.agent_count ? `${swarmAct.agent_count} active` : String(regCount);
+  document.getElementById('ls-route-val').textContent = routeAgent;
+  document.getElementById('ls-session-val').textContent =
+    typeof sessCount === 'number' ? `${sessCount} loaded` : '—';
+
+  // Highlight status item when active
+  document.getElementById('ls-status').classList.toggle('hi', anyActive);
+
+  document.getElementById('live-strip').classList.add('visible');
+}
+
+// Main poll loop
+async function pollLiveData() {
+  try {
+    const res  = await fetch(API_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    const newActive = computeActiveDomains(data);
+    applyLiveState(newActive, data);
+  } catch (e) {
+    // Server unreachable — dim all
+    applyLiveState(Array(DOMAINS.length).fill(false), {});
+  }
+}
+
+// Start polling after animation settles
+setTimeout(() => {
+  buildGlowRings();
+  pollLiveData();
+  setInterval(pollLiveData, POLL_MS);
+}, 4000);
 </script>
 </body>
 </html>
