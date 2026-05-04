@@ -1,5 +1,5 @@
 ---
-name: monomind-idea
+name: monomind:idea
 description: "Monomind — Research ideas from a prompt, evaluate them, and decompose into subtasks on monotask boards"
 ---
 

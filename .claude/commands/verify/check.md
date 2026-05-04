@@ -1,50 +1,106 @@
-# verify check
+---
+name: verify-check
+description: Verify code quality, security, and correctness using real MCP tools — AI defence scanning, neural pattern analysis, and system health checks
+---
 
-Run verification checks on code, tasks, or agent outputs.
+# Verify Check
 
-## Usage
+Run verification checks on code, tasks, or agent outputs using real MCP analysis tools.
 
-```bash
-monomind verify check [options]
+## How to Invoke
+
+```
+Skill("verify:check")
 ```
 
-## Options
+---
 
-- `--file <path>` - Verify specific file
-- `--task <id>` - Verify task output
-- `--directory <path>` - Verify entire directory
-- `--threshold <0-1>` - Override default threshold (0.95)
-- `--auto-fix` - Attempt automatic fixes
-- `--json` - Output results as JSON
-- `--verbose` - Show detailed verification steps
+## What to Verify
 
-## Examples
+| Area | MCP Tools |
+|------|-----------|
+| Security vulnerabilities | `aidefence_scan`, `aidefence_is_safe`, `aidefence_analyze` |
+| Pattern correctness | `neural_patterns`, `agentdb_pattern_search` |
+| System integrity | `agentdb_health`, `system_health` |
+| Memory consistency | `memory_search`, `memory_stats` |
+| Performance regressions | `performance_report`, `performance_bottleneck` |
 
-```bash
-# Basic file verification
-monomind verify check --file src/app.js
+## Security Verification
 
-# Verify with higher threshold
-monomind verify check --file src/critical.js --threshold 0.99
+```javascript
+// Scan content for security issues
+mcp__monomind__aidefence_scan({ content: "file content or task output" })
 
-# Verify and auto-fix issues
-monomind verify check --directory src/ --auto-fix
+// Check if content is safe
+mcp__monomind__aidefence_is_safe({ content: "content to check" })
 
-# Get JSON output for CI/CD
-monomind verify check --json > verification.json
+// Deep analysis with context
+mcp__monomind__aidefence_analyze({ content: "task output or code change" })
+
+// Check for PII exposure
+mcp__monomind__transfer_detect_pii({ content: "content to check" })
 ```
 
-## Truth Scoring
+## Pattern Verification
 
-The check command evaluates:
-- Code correctness
-- Best practices adherence
-- Security vulnerabilities
-- Performance implications
-- Documentation completeness
+```javascript
+// Check stored patterns for this type of task
+mcp__monomind__agentdb_pattern_search({ query: "task or code description", limit: 5 })
 
-## Exit Codes
+// Compare with known good patterns
+mcp__monomind__neural_patterns({ action: "analyze", query: "task type" })
 
-- `0` - Verification passed
-- `1` - Verification failed
-- `2` - Error during verification
+// Predict expected routing for the task
+mcp__monomind__neural_predict({ input: "task description" })
+```
+
+## System Health Verification
+
+```javascript
+// AgentDB memory integrity
+mcp__monomind__agentdb_health({})
+
+// Full system health
+mcp__monomind__system_health({})
+
+// Performance snapshot
+mcp__monomind__performance_report({ format: "detailed" })
+```
+
+## Code Verification Workflow
+
+Run checks in parallel for speed:
+
+```javascript
+// Batch all checks at once
+mcp__monomind__aidefence_scan({ content: "code or output" })
+mcp__monomind__agentdb_health({})
+mcp__monomind__system_health({})
+mcp__monomind__performance_bottleneck({ component: "all" })
+```
+
+Then synthesize:
+- **Pass** — no security issues, healthy system, no performance regressions
+- **Review** — low-confidence patterns, minor warnings
+- **Fail** — security vulnerabilities found, system degraded
+
+## Git-Based Code Review
+
+For verifying code changes, use git and standard tools:
+
+```bash
+# Check what changed
+git diff HEAD~1
+
+# Run tests against changed files
+npm test -- --testPathPattern "changed-file"
+
+# TypeScript type check
+npx tsc --noEmit
+```
+
+## Related Skills
+
+- `truth:start` — Full system reliability assessment
+- `swarm:swarm-analysis` — Post-swarm run analysis
+- `security-hardening` — Comprehensive security hardening workflow

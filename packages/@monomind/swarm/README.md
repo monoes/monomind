@@ -17,7 +17,7 @@ This module provides a **complete multi-agent coordination system** with hive-mi
 
 ```
 @monomind/swarm
-├── UnifiedSwarmCoordinator ⭐ CANONICAL ENGINE
+├── UnifiedSwarmCoordinator — CANONICAL ENGINE
 │   ├── Configurable agent count (default 15, max 100+)
 │   ├── Domain-based task routing
 │   ├── Parallel execution across domains
@@ -25,14 +25,14 @@ This module provides a **complete multi-agent coordination system** with hive-mi
 │   ├── 4 topology types (mesh, hierarchical, centralized, hybrid)
 │   └── Performance: <100ms coordination
 │
-├── QueenCoordinator 👑 HIVE-MIND INTELLIGENCE
+├── QueenCoordinator — HIVE-MIND INTELLIGENCE
 │   ├── Strategic task analysis & decomposition
 │   ├── Agent capability-based delegation
 │   ├── Swarm health monitoring & bottleneck detection
 │   ├── 5 consensus types (majority, supermajority, unanimous, weighted, queen-override)
 │   └── Learning from outcomes
 │
-├── AttentionCoordinator 🧠 ATTENTION MECHANISMS
+├── AttentionCoordinator — ATTENTION MECHANISMS
 │   ├── Flash Attention (2.49x-7.47x speedup)
 │   ├── Multi-Head Attention (8 heads)
 │   ├── Linear Attention (O(n) complexity)
@@ -40,13 +40,13 @@ This module provides a **complete multi-agent coordination system** with hive-mi
 │   ├── Mixture of Experts (MoE) routing
 │   └── GraphRoPE (topology-aware positioning)
 │
-├── FederationHub 🌐 CROSS-SWARM COORDINATION
+├── FederationHub — CROSS-SWARM COORDINATION
 │   ├── Ephemeral agent spawning with TTL
 │   ├── Cross-swarm messaging
 │   ├── Federation-wide consensus voting
 │   └── Auto-cleanup & heartbeat tracking
 │
-├── ConsensusEngines 🗳️ DISTRIBUTED AGREEMENT
+├── ConsensusEngines — DISTRIBUTED AGREEMENT
 │   ├── Raft (leader election, log replication)
 │   ├── Byzantine (fault-tolerant, 2/3 supermajority)
 │   └── Gossip (epidemic protocol for large swarms)
@@ -54,7 +54,7 @@ This module provides a **complete multi-agent coordination system** with hive-mi
 └── SwarmHub (deprecated) - Thin facade for backward compatibility
 ```
 
-## ⚠️ Agent Count: Configurable, Not Limited
+## Agent Count: Configurable, Not Limited
 
 The default 15-agent architecture is a **recommendation**, not a hard limit:
 
@@ -130,7 +130,7 @@ The coordinator manages 5 domains with specific agent assignments:
 | **Queen** | 1 | Top-level coordination, consensus, planning |
 | **Security** | 2-4 | Security architecture, CVE fixes, threat modeling |
 | **Core** | 5-9 | DDD design, memory unification, type modernization |
-| **Integration** | 10-12 | agentic-flow integration, CLI, neural features |
+| **Integration** | 10-12 | CLI integration, neural features, embedding providers |
 | **Support** | 13-15 | TDD testing, performance, deployment |
 
 ### Domain-Based Task Routing
@@ -563,42 +563,7 @@ coordinator.on('swarm.initialized', (event) => {
 - `getPerformanceReport(): PerformanceReport` - Get performance stats
 - `getStatus(): {swarmId, status, domains, metrics}` - Get comprehensive status
 
-## Integration with agentic-flow@alpha
-
-This module can integrate with agentic-flow@alpha for enhanced capabilities:
-
-```typescript
-import { createUnifiedSwarmCoordinator } from '@monomind/swarm';
-import { AgenticFlowBridge } from '@monomind/integration';
-
-// Connect to agentic-flow for enhanced features
-const bridge = new AgenticFlowBridge({
-  agenticFlow: { version: 'alpha' },
-});
-
-const coordinator = createUnifiedSwarmCoordinator({
-  topology: { type: 'hierarchical', maxAgents: 15 },
-  // Enable agentic-flow features via bridge
-  extensions: {
-    transport: bridge.getQuicTransport(),     // QUIC 0-RTT
-    learning: bridge.getSwarmLearningOptimizer(),
-  },
-});
-```
-
-### Available from agentic-flow@alpha
-
-| Feature | Status | Description |
-|---------|--------|-------------|
-| QUIC Transport | 🔌 Via bridge | 0-RTT connections, 50-70% faster |
-| Swarm Learning Optimizer | 🔌 Via bridge | Auto topology recommendations |
-| E2B Sandbox Agents | 🔌 Via bridge | Isolated execution environments |
-| P2P with GunDB/IPFS | 🔌 Via bridge | Free decentralized coordination |
-| WASM Acceleration | ⏳ Planned | HNSW indexing, semantic routing |
-
 ## Roadmap: Future Enhancements
-
-Based on agentic-flow@alpha capabilities that could be integrated:
 
 ### Priority 1 (High Impact)
 - [ ] Native QUIC transport with HTTP/2 fallback
@@ -607,7 +572,7 @@ Based on agentic-flow@alpha capabilities that could be integrated:
 
 ### Priority 2 (Medium Impact)
 - [ ] WASM-accelerated member indexing
-- [ ] E2B sandbox agent specialization
+- [ ] Sandbox agent specialization
 - [ ] Enhanced message types with fuel/memory budgets
 
 ### Priority 3 (Nice to Have)

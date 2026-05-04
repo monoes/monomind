@@ -1,7 +1,7 @@
 /**
  * Neural Substrate Integration
  *
- * Integrates agentic-flow's neural embedding features:
+ * Integrates neural embedding features:
  * - Semantic drift detection
  * - Memory physics (hippocampal dynamics)
  * - Embedding state machine
@@ -11,7 +11,7 @@
  * These features treat embeddings as a synthetic nervous system.
  */
 
-// Types from agentic-flow/embeddings
+// Neural embedding type definitions
 export interface DriftResult {
   distance: number;
   velocity: number;
@@ -66,7 +66,7 @@ export interface NeuralSubstrateConfig {
 /**
  * Lazy-loaded Neural Substrate wrapper
  *
- * Wraps agentic-flow's NeuralSubstrate with graceful fallback
+ * Wraps the NeuralSubstrate with graceful fallback
  */
 export class NeuralEmbeddingService {
   private substrate: any = null;

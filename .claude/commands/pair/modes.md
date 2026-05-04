@@ -1,348 +1,122 @@
+---
+name: pair:modes
+description: Pair programming collaboration modes — driver, navigator, TDD, review, and debug modes with effective prompts for each
+---
+
 # Pair Programming Modes
 
-Detailed guide to pair programming modes and their optimal use cases.
+Different collaboration patterns for different goals. Choose based on what you're trying to accomplish.
 
-## Driver Mode
+## Driver Mode — You Write, Claude Reviews
 
-In driver mode, you write the code while the AI acts as navigator.
+You do the coding. Claude watches, suggests, and catches issues in real time.
 
-### Usage
-```bash
-monomind pair --start --mode driver
-```
+**Start it:**
+> "I'm implementing [feature]. Watch what I'm building and review each piece as I share it. Point out issues, security problems, and improvements."
 
-### Responsibilities
+**Best for:**
+- Learning new patterns (you get hands-on + feedback)
+- Implementing features you understand but want reviewed
+- Debugging when you have a hypothesis to test
 
-**You (Driver):**
-- Write the actual code
-- Implement solutions
-- Make immediate decisions
-- Handle syntax and structure
+**Effective prompts during driver mode:**
+- "Here's what I wrote — what do you think?"
+- "I'm about to add validation here. Any pitfalls?"
+- "Is this the right pattern for this situation?"
+- "Review this function before I move on."
 
-**AI (Navigator):**
-- Provide strategic guidance
-- Spot potential issues
-- Suggest improvements
-- Review in real-time
-- Track overall direction
+---
 
-### Best For
-- Learning new patterns
-- Implementing familiar features
-- Quick iterations
-- Hands-on debugging
+## Navigator Mode — Claude Writes, You Guide
 
-### Example Session
-```bash
-monomind pair --start \
-  --mode driver \
-  --agent senior-navigator \
-  --review \
-  --verify
-```
+Claude does the coding. You provide direction, review output, and control architecture decisions.
 
-### Commands in Driver Mode
-```
-/suggest     - Get implementation suggestions
-/review      - Request code review
-/explain     - Ask for explanations
-/optimize    - Request optimization ideas
-/patterns    - Get pattern recommendations
-```
+**Start it:**
+> "Implement [feature]. I'll guide the direction and review each section before you move on. Start with [specific first piece]."
 
-## Navigator Mode
-
-In navigator mode, the AI writes code while you provide guidance.
-
-### Usage
-```bash
-monomind pair --start --mode navigator
-```
-
-### Responsibilities
-
-**You (Navigator):**
-- Provide high-level direction
-- Review generated code
-- Make architectural decisions
-- Ensure business requirements
-
-**AI (Driver):**
-- Write implementation code
-- Handle syntax details
-- Implement your guidance
-- Manage boilerplate
-- Execute refactoring
-
-### Best For
+**Best for:**
 - Rapid prototyping
-- Boilerplate generation
-- Learning from AI patterns
-- Exploring solutions
+- Boilerplate and scaffolding
+- Exploring approaches you haven't used before
+- Getting unstuck quickly
 
-### Example Session
-```bash
-monomind pair --start \
-  --mode navigator \
-  --agent expert-coder \
-  --test \
-  --language python
+**Effective prompts during navigator mode:**
+- "Implement X. Use [pattern/library]."
+- "That's good but change [specific thing]."
+- "Before writing the next piece, explain your approach."
+- "Show me an alternative approach to this."
+
+---
+
+## TDD Mode — Tests First
+
+Write failing tests, then implement just enough to pass, then refactor.
+
+**Start it:**
+> "We're doing TDD for [feature]. Write the failing tests first, explain what each test covers, then I'll implement. We refactor together after tests pass."
+
+**The cycle:**
+1. Claude writes a failing test — you understand it
+2. You implement minimal passing code
+3. Claude reviews the implementation
+4. Together you refactor
+5. Repeat
+
+**Invoke the TDD skill for full workflow:**
+```
+Skill("superpowers:test-driven-development")
 ```
 
-### Commands in Navigator Mode
+---
+
+## Review Mode — Quality Focus
+
+Work through existing code with Claude as reviewer.
+
+**Start it:**
+> "Review the changes in `src/auth/`. Focus on [security / correctness / performance]. Be specific about issues — give file, line, and explanation."
+
+**Structured review request:**
+> "Review this PR diff. Rate it on: (1) correctness, (2) security, (3) readability, (4) test coverage. List issues by severity."
+
+**Invoke the review skill:**
 ```
-/implement   - Direct implementation
-/refactor    - Request refactoring
-/test        - Generate tests
-/document    - Add documentation
-/alternate   - See alternative approaches
-```
-
-## Switch Mode
-
-Automatically alternates between driver and navigator roles.
-
-### Usage
-```bash
-monomind pair --start --mode switch [--interval <time>]
-```
-
-### Default Intervals
-- **10 minutes** - Standard switching
-- **5 minutes** - Rapid collaboration
-- **15 minutes** - Deep focus periods
-- **Custom** - Set your preference
-
-### Configuration
-```bash
-# 5-minute intervals
-monomind pair --start --mode switch --interval 5m
-
-# 15-minute intervals
-monomind pair --start --mode switch --interval 15m
-
-# Hour-long intervals
-monomind pair --start --mode switch --interval 1h
+Skill("superpowers:requesting-code-review")
 ```
 
-### Role Transitions
+---
 
-**Handoff Process:**
-1. 30-second warning before switch
-2. Current driver completes thought
-3. Context summary generated
-4. Roles swap smoothly
-5. New driver continues
+## Debug Mode — Problem Solving
 
-### Best For
-- Balanced collaboration
-- Knowledge sharing
-- Complex features
-- Extended sessions
+Systematic debugging as a pair.
 
-### Example Session
-```bash
-monomind pair --start \
-  --mode switch \
-  --interval 10m \
-  --verify \
-  --test
+**Start it:**
+> "We have a bug: [describe symptom]. Let's debug together. Start by asking me questions to narrow down the cause."
+
+**Invoke the debugging skill:**
+```
+Skill("superpowers:systematic-debugging")
 ```
 
-## Specialized Modes
+---
 
-### TDD Mode
-Test-Driven Development focus.
+## Switching Modes
 
-```bash
-monomind pair --start \
-  --mode tdd \
-  --test-first \
-  --coverage 100
-```
+You can switch modes at any point just by redirecting:
 
-**Workflow:**
-1. Write failing test (Red)
-2. Implement minimal code (Green)
-3. Refactor (Refactor)
-4. Repeat cycle
+> "Let's switch — now you drive. Implement the auth middleware based on what we've discussed."
 
-### Review Mode
-Continuous code review focus.
+> "Actually let me write this part. Review as I go."
 
-```bash
-monomind pair --start \
-  --mode review \
-  --strict \
-  --security
-```
-
-**Features:**
-- Real-time feedback
-- Security scanning
-- Performance analysis
-- Best practice enforcement
-
-### Mentor Mode
-Learning-focused collaboration.
-
-```bash
-monomind pair --start \
-  --mode mentor \
-  --explain-all \
-  --pace slow
-```
-
-**Features:**
-- Detailed explanations
-- Step-by-step guidance
-- Pattern teaching
-- Best practice examples
-
-### Debug Mode
-Problem-solving focus.
-
-```bash
-monomind pair --start \
-  --mode debug \
-  --verbose \
-  --trace
-```
-
-**Features:**
-- Issue identification
-- Root cause analysis
-- Fix suggestions
-- Prevention strategies
+> "Stop implementing — let's do TDD for the rest of this."
 
 ## Mode Selection Guide
 
-### Choose Driver Mode When:
-- You want hands-on practice
-- Learning new concepts
-- Implementing your ideas
-- Prefer writing code yourself
-
-### Choose Navigator Mode When:
-- Need rapid implementation
-- Generating boilerplate
-- Exploring AI suggestions
-- Learning from examples
-
-### Choose Switch Mode When:
-- Long sessions planned
-- Balanced collaboration needed
-- Complex features
-- Team simulation
-
-### Choose Specialized Modes When:
-- **TDD**: Building with tests
-- **Review**: Quality focus
-- **Mentor**: Learning priority
-- **Debug**: Fixing issues
-
-## Mode Comparison
-
-| Mode | You Write | AI Writes | Best For | Switch Time |
-|------|-----------|-----------|----------|-------------|
-| Driver | ✅ | ❌ | Learning, Control | N/A |
-| Navigator | ❌ | ✅ | Speed, Generation | N/A |
-| Switch | ✅/❌ | ✅/❌ | Balance, Long Sessions | 5-60min |
-| TDD | ✅/❌ | ✅/❌ | Test-First | Per cycle |
-| Review | ✅ | ❌ | Quality | N/A |
-| Mentor | ✅ | ❌ | Learning | N/A |
-| Debug | ✅/❌ | ✅/❌ | Fixing | N/A |
-
-## Mode Combinations
-
-### Quality-Focused
-```bash
-monomind pair --start \
-  --mode switch \
-  --verify \
-  --test \
-  --review \
-  --threshold 0.98
-```
-
-### Learning-Focused
-```bash
-monomind pair --start \
-  --mode mentor \
-  --explain-all \
-  --examples \
-  --pace slow
-```
-
-### Speed-Focused
-```bash
-monomind pair --start \
-  --mode navigator \
-  --quick \
-  --templates \
-  --no-review
-```
-
-### Debug-Focused
-```bash
-monomind pair --start \
-  --mode debug \
-  --trace \
-  --verbose \
-  --breakpoints
-```
-
-## Switching Modes Mid-Session
-
-During any session, you can switch modes:
-
-```
-/mode driver     - Switch to driver mode
-/mode navigator  - Switch to navigator mode
-/mode switch     - Enable auto-switching
-/mode tdd        - Switch to TDD mode
-/mode review     - Switch to review mode
-```
-
-## Mode Persistence
-
-Save mode preferences:
-
-```json
-// .monomind/config.json
-{
-  "pair": {
-    "defaultMode": "switch",
-    "switchInterval": "10m",
-    "preferredRole": "driver",
-    "autoSwitchOnIdle": true
-  }
-}
-```
-
-## Best Practices by Mode
-
-### Driver Mode
-1. Ask questions frequently
-2. Request reviews often
-3. Use suggestions wisely
-4. Learn from feedback
-
-### Navigator Mode
-1. Provide clear direction
-2. Review thoroughly
-3. Test generated code
-4. Understand implementations
-
-### Switch Mode
-1. Prepare for handoffs
-2. Maintain context
-3. Document decisions
-4. Stay synchronized
-
-## Related Documentation
-
-- [Pair Programming Overview](./README.md)
-- [Starting Sessions](./start.md)
-- [Session Management](./session.md)
-- [Configuration](./config.md)
+| Goal | Mode |
+|---|---|
+| Learning + control | Driver |
+| Speed + generation | Navigator |
+| Quality from the start | TDD |
+| Fix existing code | Review |
+| Fix a bug | Debug |
+| Long complex feature | Switch (start navigator, finish driver) |

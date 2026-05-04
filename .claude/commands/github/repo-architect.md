@@ -1,8 +1,12 @@
+---
+name: github:repo-architect
+---
+
 # GitHub Repository Architect
 
 ## Purpose
 
-Repository structure optimization and multi-repo management with ruv-swarm coordination for scalable project architecture and development workflows.
+Repository structure optimization and multi-repo management with Monomind swarm coordination for scalable project architecture and development workflows.
 
 ## Capabilities
 
@@ -35,21 +39,20 @@ mcp__monomind__agent_spawn { type: "optimizer", name: "Structure Optimizer" }
 mcp__monomind__agent_spawn { type: "coordinator", name: "Multi-Repo Coordinator" }
 
 // Analyze current repository structure
-LS("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow")
-LS("/workspaces/ruv-FANN/ruv-swarm/npm")
+LS(".")
 
 // Search for related repositories
 mcp__github__search_repositories {
-  query: "user:nokhodian claude",
+  query: "user::owner",
   sort: "updated",
   order: "desc"
 }
 
 // Orchestrate structure optimization
-mcp__monomind__task_orchestrate {
+mcp__monomind__coordination_orchestrate {
   task: "Analyze and optimize repository structure for scalability and maintainability",
-  strategy: "adaptive",
-  priority: "medium"
+  agents: ["analyst", "architect", "optimizer"],
+  strategy: "parallel"
 }
 ```
 
@@ -59,14 +62,14 @@ mcp__monomind__task_orchestrate {
 // Create standardized repository template
 mcp__github__create_repository {
   name: "claude-project-template",
-  description: "Standardized template for Claude Code projects with ruv-swarm integration",
+  description: "Standardized template for Claude Code projects with monomind integration",
   private: false,
   autoInit: true
 }
 
 // Push template structure
 mcp__github__push_files {
-  owner: "nokhodian",
+  owner: ":owner",
   repo: "claude-project-template",
   branch: "main",
   files: [
@@ -83,16 +86,16 @@ mcp__github__push_files {
       content: JSON.stringify({
         version: "1.0",
         mcp_servers: {
-          "ruv-swarm": {
+          "monomind": {
             command: "npx",
-            args: ["ruv-swarm", "mcp", "start"],
+            args: ["monomind", "mcp", "start"],
             stdio: true
           }
         },
         hooks: {
-          pre_task: "npx ruv-swarm hook pre-task",
-          post_edit: "npx ruv-swarm hook post-edit",
-          notification: "npx ruv-swarm hook notification"
+          pre_task: "npx monomind hooks pre-task",
+          post_edit: "npx monomind hooks post-edit",
+          notification: "npx monomind hooks notify"
         }
       }, null, 2)
     },
@@ -105,10 +108,10 @@ mcp__github__push_files {
       content: JSON.stringify({
         name: "claude-project-template",
         version: "1.0.0",
-        description: "Claude Code project with ruv-swarm integration",
+        description: "Claude Code project with monomind integration",
         engines: { node: ">=20.0.0" },
         dependencies: {
-          "ruv-swarm": "^1.0.11"
+          "@monomind/cli": "latest"
         }
       }, null, 2)
     },
@@ -124,16 +127,16 @@ npx monomind start --ui
 \`\`\`
 
 ## Features
-- 🧠 ruv-swarm integration
-- 🎯 SPARC development modes
-- 🔧 GitHub workflow automation
-- 📊 Advanced coordination capabilities
+- Monomind swarm integration
+- SPARC development modes
+- GitHub workflow automation
+- Advanced coordination capabilities
 
 ## Documentation
 See CLAUDE.md for complete integration instructions.`
     }
   ],
-  message: "feat: Create standardized Claude project template with ruv-swarm integration"
+  message: "feat: Create standardized Claude project template with Monomind integration"
 }
 ```
 
@@ -141,13 +144,13 @@ See CLAUDE.md for complete integration instructions.`
 
 ```javascript
 // Synchronize structure across related repositories
-const repositories = ["claude-code-flow", "ruv-swarm", "claude-extensions"];
+const repositories = ["@monomind/cli", "@monomind/hooks", "@monomind/memory"];
 
 // Update common files across repositories
 repositories.forEach((repo) => {
   mcp__github__create_or_update_file({
     owner: "nokhodian",
-    repo: "ruv-FANN",
+    repo: "monomind",
     path: `${repo}/.github/workflows/integration.yml`,
     content: `name: Integration Tests
 on: [push, pull_request]
@@ -180,10 +183,8 @@ jobs:
   mcp__monomind__agent_spawn { type: "coordinator", name: "Multi-Repo Coordinator" }
 
   // Analyze current repository structures
-  LS("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow")
-  LS("/workspaces/ruv-FANN/ruv-swarm/npm")
-  Read("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow/package.json")
-  Read("/workspaces/ruv-FANN/ruv-swarm/npm/package.json")
+  LS(".")
+  Read("package.json")
 
   // Search for architectural patterns using gh CLI
   ARCH_PATTERNS=$(Bash(`gh search repos "language:javascript template architecture" \
@@ -197,19 +198,19 @@ jobs:
     branch: "architecture/optimization",
     files: [
       {
-        path: "claude-code-flow/claude-code-flow/.github/ISSUE_TEMPLATE/integration.yml",
+        path: ".github/ISSUE_TEMPLATE/integration.yml",
         content: "[Integration issue template]"
       },
       {
-        path: "claude-code-flow/claude-code-flow/.github/PULL_REQUEST_TEMPLATE.md",
+        path: ".github/PULL_REQUEST_TEMPLATE.md",
         content: "[Standardized PR template]"
       },
       {
-        path: "claude-code-flow/claude-code-flow/docs/ARCHITECTURE.md",
+        path: "docs/ARCHITECTURE.md",
         content: "[Architecture documentation]"
       },
       {
-        path: "ruv-swarm/npm/.github/workflows/cross-package-test.yml",
+        path: ".github/workflows/cross-package-test.yml",
         content: "[Cross-package testing workflow]"
       }
     ],
@@ -226,12 +227,10 @@ jobs:
   ]}
 
   // Store architecture analysis
-  mcp__monomind__memory_usage {
-    action: "store",
+  mcp__monomind__memory_store {
     key: "architecture/analysis/results",
     value: {
       timestamp: Date.now(),
-      repositories_analyzed: ["claude-code-flow", "ruv-swarm"],
       optimization_areas: ["structure", "workflows", "templates", "documentation"],
       recommendations: ["standardize_structure", "improve_workflows", "enhance_templates"],
       implementation_status: "in_progress"
@@ -244,15 +243,14 @@ jobs:
 ### 1. **Monorepo Structure Pattern**
 
 ```
-ruv-FANN/
+monomind/
 ├── packages/
-│   ├── claude-code-flow/
+│   ├── @monomind/cli/
 │   │   ├── src/
 │   │   ├── .claude/
 │   │   └── package.json
-│   ├── ruv-swarm/
+│   ├── @monomind/hooks/
 │   │   ├── src/
-│   │   ├── wasm/
 │   │   └── package.json
 │   └── shared/
 │       ├── types/
@@ -301,12 +299,12 @@ ruv-FANN/
 ```javascript
 const integrationPattern = {
   packages: {
-    "claude-code-flow": {
+    "@monomind/cli": {
       role: "orchestration_layer",
-      dependencies: ["ruv-swarm"],
+      dependencies: ["@monomind/hooks", "@monomind/memory"],
       provides: ["CLI", "workflows", "commands"],
     },
-    "ruv-swarm": {
+    "@monomind/hooks": {
       role: "coordination_engine",
       dependencies: [],
       provides: ["MCP_tools", "neural_networks", "memory"],

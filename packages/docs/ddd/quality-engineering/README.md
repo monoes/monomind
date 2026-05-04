@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Quality Engineering (QE) domain provides comprehensive automated testing, quality assessment, and continuous validation capabilities for Monomind v1. It is implemented as the `agentic-qe` plugin with 51 specialized QE agents organized across 12 Domain-Driven Design bounded contexts.
+The Quality Engineering (QE) domain provides comprehensive automated testing, quality assessment, and continuous validation capabilities for Monomind v1. It is implemented as the `@monomind/quality-engineering` plugin with 51 specialized QE agents organized across 12 Domain-Driven Design bounded contexts.
 
 ## Strategic Design
 
@@ -389,7 +389,7 @@ All QE data is stored under the `aqe/v1/` namespace prefix:
 
 ## Related Documentation
 
-- [ADR-030: Agentic-QE Integration](../../implementation/adrs/ADR-030-agentic-qe-integration.md)
+- [ADR-030: Quality Engineering Integration](../../implementation/adrs/ADR-030-agentic-qe-integration.md)
 - [Domain Model](./domain-model.md)
 - [Integration Points](./integration-points.md)
 - [ADR-015: Unified Plugin System](../../implementation/adrs/ADR-015-unified-plugin-system.md)

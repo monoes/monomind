@@ -52,8 +52,15 @@ const initAction = async (ctx) => {
     output.writeln();
     // Build init options based on flags
     let options;
-    const base = minimal ? MINIMAL_INIT_OPTIONS : full ? FULL_INIT_OPTIONS : DEFAULT_INIT_OPTIONS;
-    options = { ...base, targetDir: cwd, force, components: { ...base.components } };
+    if (minimal) {
+        options = { ...MINIMAL_INIT_OPTIONS, targetDir: cwd, force };
+    }
+    else if (full) {
+        options = { ...FULL_INIT_OPTIONS, targetDir: cwd, force };
+    }
+    else {
+        options = { ...DEFAULT_INIT_OPTIONS, targetDir: cwd, force };
+    }
     // Handle --skip-claude and --only-claude flags
     if (skipClaude) {
         options.components.settings = false;
@@ -82,6 +89,23 @@ const initAction = async (ctx) => {
             return { success: false, exitCode: 1 };
         }
         spinner.succeed('Monomind initialized successfully!');
+        // Trigger background monograph build + continuous watch
+        try {
+            const { spawn } = await import('child_process');
+            for (const args of [
+                ['monograph', 'build', '--code-only'],
+                ['monograph', 'watch'],
+            ]) {
+                const proc = spawn(process.execPath, [process.argv[1], ...args], {
+                    detached: true, stdio: 'ignore', cwd: ctx.cwd, env: process.env,
+                });
+                proc.unref();
+            }
+            output.printInfo('◈ Building knowledge graph in background… (watch mode active)');
+        }
+        catch {
+            // non-critical
+        }
         output.writeln();
         // Display summary
         const summary = [];
@@ -134,7 +158,7 @@ const initAction = async (ctx) => {
             if (startAll) {
                 try {
                     output.writeln(output.dim('  Initializing memory database...'));
-                    execSync('npx @monoes/cli@latest memory init 2>/dev/null', {
+                    execSync('npx @monomind/cli@latest memory init 2>/dev/null', {
                         stdio: 'pipe',
                         cwd: ctx.cwd,
                         timeout: 30000
@@ -149,7 +173,7 @@ const initAction = async (ctx) => {
             if (startDaemon) {
                 try {
                     output.writeln(output.dim('  Starting daemon...'));
-                    execSync('npx @monoes/cli@latest daemon start 2>/dev/null &', {
+                    execSync('npx @monomind/cli@latest daemon start 2>/dev/null &', {
                         stdio: 'pipe',
                         cwd: ctx.cwd,
                         timeout: 10000
@@ -164,7 +188,7 @@ const initAction = async (ctx) => {
             if (startAll) {
                 try {
                     output.writeln(output.dim('  Initializing swarm...'));
-                    execSync('npx @monoes/cli@latest swarm init --topology hierarchical 2>/dev/null', {
+                    execSync('npx @monomind/cli@latest swarm init --topology hierarchical 2>/dev/null', {
                         stdio: 'pipe',
                         cwd: ctx.cwd,
                         timeout: 30000
@@ -188,7 +212,7 @@ const initAction = async (ctx) => {
             try {
                 output.writeln(output.dim(`  Model: ${embeddingModel}`));
                 output.writeln(output.dim('  Hyperbolic: Enabled (Poincaré ball)'));
-                execSync(`npx @monoes/cli@latest embeddings init --model ${embeddingModel} --no-download --force 2>/dev/null`, {
+                execSync(`npx @monomind/cli@latest embeddings init --model ${embeddingModel} --no-download --force 2>/dev/null`, {
                     stdio: 'pipe',
                     cwd: ctx.cwd,
                     timeout: 30000
@@ -211,6 +235,13 @@ const initAction = async (ctx) => {
                 options.components.settings ? `Review ${output.highlight('.claude/settings.json')} for hook configurations` : '',
             ].filter(Boolean));
         }
+        // Recommend UA semantic enrichment
+        output.writeln('');
+        output.writeln(output.bold('Tip: Enrich your knowledge graph with semantic summaries'));
+        output.writeln(output.dim('  Run /monomind:understand in Claude Code to analyze your project'));
+        output.writeln(output.dim('  and add LLM-generated summaries, tags, and architectural layers'));
+        output.writeln(output.dim('  to the monograph graph. This gives Claude Code a richer mental'));
+        output.writeln(output.dim('  model of your codebase from the very first session.'));
         if (ctx.flags.format === 'json') {
             output.printJson(result);
         }
@@ -411,7 +442,7 @@ const wizardCommand = {
                 output.printInfo('Initializing ONNX embedding subsystem...');
                 const { execSync } = await import('child_process');
                 try {
-                    execSync(`npx @monoes/cli@latest embeddings init --model ${embeddingModel} --no-download --force 2>/dev/null`, {
+                    execSync(`npx @monomind/cli@latest embeddings init --model ${embeddingModel} --no-download --force 2>/dev/null`, {
                         stdio: 'pipe',
                         cwd: ctx.cwd,
                         timeout: 30000

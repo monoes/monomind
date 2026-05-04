@@ -1,7 +1,11 @@
+---
+name: github:github-modes
+---
+
 # GitHub Integration Modes
 
 ## Overview
-This document describes all GitHub integration modes available in Monomind with ruv-swarm coordination. Each mode is optimized for specific GitHub workflows and includes batch tool integration for maximum efficiency.
+This document describes all GitHub integration modes available in Monomind. Each mode is optimized for specific GitHub workflows and includes batch tool integration for maximum efficiency.
 
 ## GitHub Workflow Modes
 
@@ -108,7 +112,7 @@ This document describes all GitHub integration modes available in Monomind with 
 
 ### Managing repository synchronization:
 ```bash
-/github sync-coordinator "Synchronize claude-code-flow and ruv-swarm packages, align versions, and update cross-dependencies"
+/github sync-coordinator "Synchronize packages, align versions, and update cross-dependencies"
 ```
 
 ### Setting up automated issue tracking:
@@ -131,9 +135,9 @@ All GitHub modes support batch operations for maximum efficiency:
   Bash("git checkout main && git pull")
 ```
 
-## Integration with ruv-swarm
+## Integration with Monomind Swarm
 
-All GitHub modes can be enhanced with ruv-swarm coordination:
+All GitHub modes can be enhanced with swarm coordination:
 
 ```javascript
 // Initialize swarm for GitHub workflow
@@ -143,5 +147,5 @@ mcp__monomind__agent_spawn { type: "reviewer", name: "Code Reviewer" }
 mcp__monomind__agent_spawn { type: "tester", name: "QA Agent" }
 
 // Execute GitHub workflow with coordination
-mcp__monomind__task_orchestrate { task: "GitHub workflow", strategy: "parallel" }
+mcp__monomind__coordination_orchestrate { task: "GitHub workflow", agents: ["coordinator", "reviewer", "tester"], strategy: "parallel" }
 ```

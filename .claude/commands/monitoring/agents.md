@@ -1,44 +1,71 @@
-# List Active Patterns
+---
+name: monitoring:agents
+---
 
-## 🎯 Key Principle
-**This tool coordinates Claude Code's actions. It does NOT write code or create content.**
+# status agents
 
-## MCP Tool Usage in Claude Code
+Show detailed agent status — ID, type, current task, uptime, and success rate for all running agents.
 
-**Tool:** `mcp__monomind__agent_list`
+## Usage
 
-## Parameters
-```json
-{
-  "swarmId": "current"
-}
+```bash
+npx monomind status agents [options]
 ```
 
-## Description
-View all active cognitive patterns and their current focus areas
+## Options
 
-## Details
-Filters:
-- **all**: Show all defined patterns
-- **active**: Currently engaged patterns
-- **idle**: Available but unused patterns
-- **busy**: Patterns actively coordinating tasks
+| Flag | Type | Description |
+|---|---|---|
+| `--format` | string | Output format: `json` |
 
-## Example Usage
+## Examples
 
-**In Claude Code:**
-1. List all agents: Use tool `mcp__monomind__agent_list`
-2. Get specific agent metrics: Use tool `mcp__monomind__agent_metrics` with parameters `{"agentId": "coder-123"}`
-3. Monitor agent performance: Use tool `mcp__monomind__swarm_monitor` with parameters `{"interval": 2000}`
+```bash
+# Show all agents
+npx monomind status agents
 
-## Important Reminders
-- ✅ This tool provides coordination and structure
-- ✅ Claude Code performs all actual implementation
-- ❌ The tool does NOT write code
-- ❌ The tool does NOT access files directly
-- ❌ The tool does NOT execute commands
+# JSON output
+npx monomind status agents --format json
+```
+
+## Output Columns
+
+| Column | Description |
+|---|---|
+| ID | Agent identifier |
+| Type | Agent type (coder, reviewer, tester, etc.) |
+| Status | `healthy` / `degraded` / `stopped` |
+| Current Task | Task the agent is executing (or `-`) |
+| Uptime | How long the agent has been running |
+| Success | Task success rate (%) |
+
+## Related Commands
+
+```bash
+# Quick agent count overview (in main status)
+npx monomind status
+
+# Agent performance metrics by type
+npx monomind agent metrics
+
+# Agent health check
+npx monomind agent health
+
+# List all agents
+npx monomind agent list
+```
+
+## MCP Tool
+
+```javascript
+mcp__monomind__agent_list({
+  includeMetrics: true,
+  status: "all"
+})
+```
 
 ## See Also
-- Main documentation: /CLAUDE.md
-- Other commands in this category
-- Workflow examples in /workflows/
+
+- `status` — full system status including agents
+- `agent metrics` — performance metrics over time
+- `agent health` — per-agent health checks

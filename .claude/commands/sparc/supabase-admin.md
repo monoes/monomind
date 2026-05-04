@@ -1,9 +1,9 @@
 ---
-name: sparc-supabase-admin
-description: 🔐 Supabase Admin - You are the Supabase database, authentication, and storage specialist. You design and implement d...
+name: sparc:supabase-admin
+description: Supabase Admin - You are the Supabase database, authentication, and storage specialist. You design and implement database schemas, RLS policies, triggers, and functions.
 ---
 
-# 🔐 Supabase Admin
+# Supabase Admin
 
 ## Role Definition
 You are the Supabase database, authentication, and storage specialist. You design and implement database schemas, RLS policies, triggers, and functions for Supabase projects. You ensure secure, efficient, and scalable data management.
@@ -69,11 +69,11 @@ Return `attempt_completion` with:
 • Authentication configuration
 • SQL migration files created
 
-⚠️ Never expose API keys or secrets in SQL or code.
-✅ Implement proper RLS policies for all tables
-✅ Use parameterized queries to prevent SQL injection
-✅ Document all database objects and policies
-✅ Create modular SQL migration files. Don't use apply_migration. Use execute_sql where possible. 
+Never expose API keys or secrets in SQL or code.
+- Implement proper RLS policies for all tables
+- Use parameterized queries to prevent SQL injection
+- Document all database objects and policies
+- Create modular SQL migration files. Don't use apply_migration. Use execute_sql where possible.
 
 # Supabase MCP
 
@@ -109,12 +109,6 @@ The Supabase MCP (Management Control Panel) provides a set of tools for managing
    - Never expose API keys in code or logs
    - Implement proper RLS policies for all tables
    - Test security policies thoroughly
-
-### Current Project
-
-```json
-{"id":"hgbfbvtujatvwpjgibng","organization_id":"wvkxkdydapcjjdbsqkiu","name":"permit-place-dashboard-v2","region":"us-west-1","created_at":"2025-04-22T17:22:14.786709Z","status":"ACTIVE_HEALTHY"}
-```
 
 ## Available Commands
 
@@ -283,66 +277,25 @@ Rebases a development branch on production. This will effectively run any newer 
 - **edit**: File modification and creation
 - **mcp**: Model Context Protocol tools
 
-## Usage
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "supabase-admin",
-  task_description: "create user authentication schema",
-  options: {
-    namespace: "supabase-admin",
-    non_interactive: false
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run supabase-admin "create user authentication schema"
-
-# For alpha features
-npx monomind@alpha sparc run supabase-admin "create user authentication schema"
-
-# With namespace
-npx monomind sparc run supabase-admin "your task" --namespace supabase-admin
-
-# Non-interactive mode
-npx monomind sparc run supabase-admin "your task" --non-interactive
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run supabase-admin "create user authentication schema"
+Skill("sparc:supabase-admin")
 ```
 
 ## Memory Integration
 
-### Using MCP Tools (Preferred)
 ```javascript
-// Store mode-specific context
-mcp__monomind__memory_usage {
-  action: "store",
-  key: "supabase-admin_context",
-  value: "important decisions",
-  namespace: "supabase-admin"
-}
+// Store context
+mcp__monomind__memory_store({ key: "supabase_context", value: "important decisions", namespace: "supabase" })
 
-// Query previous work
-mcp__monomind__memory_search {
-  pattern: "supabase-admin",
-  namespace: "supabase-admin",
-  limit: 5
-}
+// Search previous work
+mcp__monomind__memory_search({ query: "supabase", namespace: "supabase", limit: 5 })
 ```
 
-### Using NPX CLI (Fallback)
 ```bash
-# Store mode-specific context
-npx monomind memory store "supabase-admin_context" "important decisions" --namespace supabase-admin
-
-# Query previous work
-npx monomind memory query "supabase-admin" --limit 5
+# CLI equivalents
+npx monomind memory store "supabase_context" "important decisions" --namespace supabase
+npx monomind memory search --query "supabase" --namespace supabase
 ```

@@ -2,7 +2,7 @@
  * Integrations Module
  *
  * Provides integration bridges for external systems:
- * - agentic-flow@alpha for swarm coordination
+ * - agentic-flow for swarm coordination
  * - AgentDB for vector storage and similarity search
  * - RuVector PostgreSQL Bridge for advanced vector operations
  */

@@ -1,205 +1,161 @@
 ---
 name: monomind-swarm
-description: Coordinate multi-agent swarms for complex tasks
+description: Multi-agent swarm coordination — init, start, status, stop, scale, and coordinate agent teams
 ---
 
-# 🐝 Monomind Swarm Coordination
+# Monomind Swarm Coordination
 
-Advanced multi-agent coordination system with timeout-free execution, distributed memory sharing, and intelligent load balancing.
+Multi-agent swarm coordination with hierarchical topology, distributed memory, and load balancing.
 
-## Basic Usage
-```bash
-./monomind swarm "your complex task" --strategy <type> [options]
-```
+## Subcommands
 
-## 🎯 Swarm Strategies
-- **auto** - Automatic strategy selection based on task analysis
-- **development** - Code implementation with review and testing
-- **research** - Information gathering and synthesis
-- **analysis** - Data processing and pattern identification
-- **testing** - Comprehensive quality assurance
-- **optimization** - Performance tuning and refactoring
-- **maintenance** - System updates and bug fixes
+| Subcommand | Description |
+|---|---|
+| `init` | Initialize a new swarm (topology + strategy) |
+| `start` | Start swarm execution with an objective |
+| `status` | Show current swarm status and progress |
+| `stop` | Stop swarm execution |
+| `scale` | Scale swarm agent count up or down |
+| `coordinate` | Launch v1 15-agent hierarchical-mesh coordination |
 
-## 🤖 Agent Types
-- **coordinator** - Plans and delegates tasks to other agents
-- **developer** - Writes code and implements solutions
-- **researcher** - Gathers and analyzes information
-- **analyzer** - Identifies patterns and generates insights
-- **tester** - Creates and runs tests for quality assurance
-- **reviewer** - Performs code and design reviews
-- **documenter** - Creates documentation and guides
-- **monitor** - Tracks performance and system health
-- **specialist** - Domain-specific expert agents
-
-## 🔄 Coordination Modes
-- **centralized** - Single coordinator manages all agents (default)
-- **distributed** - Multiple coordinators share management
-- **hierarchical** - Tree structure with nested coordination
-- **mesh** - Peer-to-peer agent collaboration
-- **hybrid** - Mixed coordination strategies
-
-## ⚙️ Common Options
-- `--strategy <type>` - Execution strategy
-- `--mode <type>` - Coordination mode
-- `--max-agents <n>` - Maximum concurrent agents (default: 5)
-- `--timeout <minutes>` - Timeout in minutes (default: 60)
-- `--background` - Run in background for tasks > 30 minutes
-- `--monitor` - Enable real-time monitoring
-- `--ui` - Launch terminal UI interface
-- `--parallel` - Enable parallel execution
-- `--distributed` - Enable distributed coordination
-- `--review` - Enable peer review process
-- `--testing` - Include automated testing
-- `--encryption` - Enable data encryption
-- `--verbose` - Detailed logging output
-- `--dry-run` - Show configuration without executing
-
-## 🌟 Examples
-
-### Development Swarm with Review
-```bash
-./monomind swarm "Build e-commerce REST API" \
-  --strategy development \
-  --monitor \
-  --review \
-  --testing
-```
-
-### Long-Running Research Swarm
-```bash
-./monomind swarm "Analyze AI market trends 2024-2025" \
-  --strategy research \
-  --background \
-  --distributed \
-  --max-agents 8
-```
-
-### Performance Optimization Swarm
-```bash
-./monomind swarm "Optimize database queries and API performance" \
-  --strategy optimization \
-  --testing \
-  --parallel \
-  --monitor
-```
-
-### Enterprise Development Swarm
-```bash
-./monomind swarm "Implement secure payment processing system" \
-  --strategy development \
-  --mode distributed \
-  --max-agents 10 \
-  --parallel \
-  --monitor \
-  --review \
-  --testing \
-  --encryption \
-  --verbose
-```
-
-### Testing and QA Swarm
-```bash
-./monomind swarm "Comprehensive security audit and testing" \
-  --strategy testing \
-  --review \
-  --verbose \
-  --max-agents 6
-```
-
-## 📊 Monitoring and Control
-
-### Real-time monitoring:
-```bash
-# Monitor swarm activity
-./monomind monitor
-
-# Monitor specific component
-./monomind monitor --focus swarm
-```
-
-### Check swarm status:
-```bash
-# Overall system status
-./monomind status
-
-# Detailed swarm status
-./monomind status --verbose
-```
-
-### View agent activity:
-```bash
-# List all agents
-./monomind agent list
-
-# Agent details
-./monomind agent info <agent-id>
-```
-
-## 💾 Memory Integration
-
-Swarms automatically use distributed memory for collaboration:
+## init — Initialize a Swarm
 
 ```bash
-# Store swarm objectives
-./monomind memory store "swarm_objective" "Build scalable API" --namespace swarm
+# Default (hierarchical, 15 agents)
+npx monomind swarm init
 
-# Query swarm progress
-./monomind memory query "swarm_progress" --namespace swarm
+# Anti-drift configuration (recommended)
+npx monomind swarm init --topology hierarchical --max-agents 8 --strategy specialized
 
-# Export swarm memory
-./monomind memory export swarm-results.json --namespace swarm
+# v1 15-agent hierarchical-mesh
+npx monomind swarm init --v1-mode
+npx monomind swarm init --topology hierarchical-mesh --max-agents 15 --strategy specialized
 ```
 
-## 🎯 Key Features
+**Flags:**
 
-### Timeout-Free Execution
-- Background mode for long-running tasks
-- State persistence across sessions
-- Automatic checkpoint recovery
+| Flag | Short | Default | Description |
+|---|---|---|---|
+| `--topology` | `-t` | `hierarchical` | Swarm topology (see table below) |
+| `--max-agents` | `-m` | `15` | Maximum concurrent agents |
+| `--strategy` | `-s` | — | Coordination strategy |
+| `--auto-scale` | — | `true` | Enable automatic scaling |
+| `--v1-mode` | — | `false` | Enable v1 hierarchical-mesh with 15 agents |
 
-### Work Stealing & Load Balancing
-- Dynamic task redistribution
-- Automatic agent scaling
-- Resource-aware scheduling
+## Topologies
 
-### Circuit Breakers & Fault Tolerance
-- Automatic retry with exponential backoff
-- Graceful degradation
-- Health monitoring and recovery
+| Topology | Use When |
+|---|---|
+| `hierarchical` | Feature dev, bug fixes — anti-drift, tight control |
+| `hierarchical-mesh` | Large teams 10-15 agents — v1 queen + peer communication |
+| `mesh` | Research, analysis — broad coverage |
+| `star` | Parallel testing, parallel maintenance |
+| `ring` | Sequential pipeline processing |
+| `hybrid` | Dynamic topology switching |
 
-### Real-Time Collaboration
-- Cross-agent communication
-- Shared memory access
-- Event-driven coordination
+## Strategies
 
-### Enterprise Security
-- Role-based access control
-- Audit logging
-- Data encryption
-- Input validation
+`specialized` (anti-drift, clear roles), `balanced`, `adaptive`, `development`, `research`, `testing`, `optimization`, `maintenance`, `analysis`
 
-## 🔧 Advanced Configuration
+## start — Start Swarm Execution
 
-### Dry run to preview:
 ```bash
-./monomind swarm "Test task" --dry-run --strategy development
+# Start a development swarm
+npx monomind swarm start -o "Build REST API with authentication" -s development
+
+# Parallel research swarm
+npx monomind swarm start -o "Analyze performance bottlenecks" -s research --parallel
 ```
 
-### Custom quality thresholds:
+**Flags:**
+
+| Flag | Short | Default | Description |
+|---|---|---|---|
+| `--objective` | `-o` | — | Swarm objective/task (required) |
+| `--strategy` | `-s` | `development` | Execution strategy |
+| `--parallel` | `-p` | `true` | Enable parallel execution |
+| `--monitor` | — | `true` | Enable real-time monitoring |
+
+## status — Check Swarm Progress
+
 ```bash
-./monomind swarm "High quality API" \
-  --strategy development \
-  --quality-threshold 0.95
+# Overall status
+npx monomind swarm status
+
+# Status for a specific swarm ID
+npx monomind swarm status swarm-abc123
 ```
 
-### Scheduling algorithms:
-- FIFO (First In, First Out)
-- Priority-based
-- Deadline-driven
-- Shortest Job First
-- Critical Path
-- Resource-aware
-- Adaptive
+## stop — Stop a Swarm
 
-For detailed documentation, see: https://github.com/nokhodian/claude-code-flow/docs/swarm-system.md
+```bash
+# Graceful stop (saves state by default)
+npx monomind swarm stop swarm-abc123
+
+# Force immediate stop
+npx monomind swarm stop swarm-abc123 --force
+```
+
+**Flags:**
+
+| Flag | Short | Default | Description |
+|---|---|---|---|
+| `--force` | `-f` | `false` | Force immediate stop |
+| `--save-state` | — | `true` | Save state for potential resume |
+
+## scale — Adjust Agent Count
+
+```bash
+# Scale to 12 agents
+npx monomind swarm scale swarm-abc123 --agents 12
+
+# Scale a specific agent type
+npx monomind swarm scale swarm-abc123 --agents 8 --type coder
+```
+
+## coordinate — v1 15-Agent Coordination
+
+```bash
+# Full v1 15-agent hierarchical mesh
+npx monomind swarm coordinate
+
+# Subset of agents
+npx monomind swarm coordinate --agents 8
+```
+
+Activates the v1 agent roster: Queen Coordinator, Security Architect, Security Auditor, Test Architect, Core Architect, Memory Specialist, Swarm Specialist, Integration Architect, Performance Engineer, CLI Developer, Hooks Developer, MCP Specialist, Project Coordinator, Documentation Lead, DevOps Engineer.
+
+## MCP Tools
+
+```javascript
+// Initialize swarm
+mcp__monomind__swarm_init({ topology: "hierarchical", maxAgents: 8, strategy: "specialized" })
+
+// Check status
+mcp__monomind__swarm_status({})
+
+// Health check
+mcp__monomind__swarm_health({})
+
+// Shutdown swarm
+mcp__monomind__swarm_shutdown({})
+```
+
+## Agent Team Routing
+
+| Task Type | Agents | Topology |
+|---|---|---|
+| Bug Fix | coordinator, researcher, coder, tester | hierarchical |
+| Feature | coordinator, architect, coder, tester, reviewer | hierarchical |
+| Refactor | coordinator, architect, coder, reviewer | hierarchical |
+| Performance | coordinator, perf-engineer, coder | hierarchical |
+| Security | coordinator, security-architect, auditor | hierarchical |
+| Research | coordinator, researcher x4, analyst x2 | mesh |
+
+## See Also
+
+- `npx monomind agent spawn` — Spawn individual agents
+- `npx monomind hive-mind init` — Byzantine fault-tolerant consensus
+- `/mastermind` — Interactive swarm topology selection
+
+Documentation: https://github.com/nokhodian/monomind

@@ -1,25 +1,60 @@
+---
+name: automation:workflow-select
+---
+
 # workflow-select
 
-Automatically select optimal workflow based on task type.
+Run a predefined workflow template for common tasks.
 
 ## Usage
+
 ```bash
-npx monomind automation workflow-select [options]
+npx monomind workflow run [options]
 ```
 
 ## Options
-- `--task <description>` - Task description
-- `--constraints <list>` - Workflow constraints
-- `--preview` - Preview without executing
+
+- `--template, -t <name>` - Workflow template name
+- `--task <description>` - Task description (for template selection)
+- `--parallel` - Enable parallel agent execution
+- `--max-agents <n>` - Max agents to spawn (default: 4)
+- `--dry-run` - Preview workflow without executing
 
 ## Examples
+
+### List available templates
+
 ```bash
-# Select workflow for task
-npx monomind automation workflow-select --task "Deploy to production"
-
-# With constraints
-npx monomind automation workflow-select --constraints "no-downtime,rollback"
-
-# Preview mode
-npx monomind automation workflow-select --task "Database migration" --preview
+npx monomind workflow template list
 ```
+
+### Run a template
+
+```bash
+npx monomind workflow run --template feature-development --task "Add OAuth login"
+```
+
+### Preview without executing
+
+```bash
+npx monomind workflow run --template deploy --dry-run
+```
+
+### Run in parallel
+
+```bash
+npx monomind workflow run --template code-review --parallel --max-agents 6
+```
+
+## Workflow Status
+
+```bash
+npx monomind workflow list
+npx monomind workflow status --watch
+```
+
+## See Also
+
+- `auto-agent` — spawn agents without a template
+- `smart-spawn` — auto-select agents from task description
+- `swarm init` — manual swarm initialization

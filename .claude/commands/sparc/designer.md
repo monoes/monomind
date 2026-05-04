@@ -1,35 +1,18 @@
+---
+name: sparc:designer
+description: Designer - UI/UX design with Memory coordination for consistent experiences. Interface design, component architecture, and design system creation.
+---
+
 # SPARC Designer Mode
 
 ## Purpose
 UI/UX design with Memory coordination for consistent experiences.
 
-## Activation
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "designer",
-  task_description: "create dashboard UI",
-  options: {
-    design_system: true,
-    responsive: true
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run designer "create dashboard UI"
-
-# For alpha features
-npx monomind@alpha sparc run designer "create dashboard UI"
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run designer "create dashboard UI"
+Skill("sparc:designer")
 ```
 
 ## Core Capabilities

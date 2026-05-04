@@ -1,31 +1,18 @@
+---
+name: sparc:orchestrator
+description: Orchestrator - Multi-agent task orchestration with TodoWrite/TodoRead/Task/Memory coordination. Decomposes complex goals into parallel agent tasks.
+---
+
 # SPARC Orchestrator Mode
 
 ## Purpose
-Multi-agent task orchestration with TodoWrite/TodoRead/Task/Memory using MCP tools.
+Multi-agent task orchestration with TodoWrite/TodoRead/Task/Memory using real Claude Code tools.
 
-## Activation
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "orchestrator",
-  task_description: "coordinate feature development"
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run orchestrator "coordinate feature development"
-
-# For alpha features
-npx monomind@alpha sparc run orchestrator "coordinate feature development"
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run orchestrator "coordinate feature development"
+Skill("sparc:orchestrator")
 ```
 
 ## Core Capabilities
@@ -35,41 +22,34 @@ npx monomind@alpha sparc run orchestrator "coordinate feature development"
 - Progress tracking
 - Result synthesis
 
-## Integration Examples
+## Orchestration Workflow
 
-### Using MCP Tools (Preferred)
+1. Create plan with TodoWrite
+2. Initialize swarm (if multi-agent)
+3. Spawn specialized agents via Task tool
+4. Monitor via swarm_status
+5. Synthesize results
+
+## Real MCP Tools
+
 ```javascript
 // Initialize orchestration swarm
-mcp__monomind__swarm_init {
-  topology: "hierarchical",
-  strategy: "auto",
-  maxAgents: 8
-}
+mcp__monomind__swarm_init({ topology: "hierarchical", strategy: "specialized", maxAgents: 8 })
 
 // Spawn coordinator agent
-mcp__monomind__agent_spawn {
-  type: "coordinator",
-  capabilities: ["task-planning", "resource-management"]
-}
+mcp__monomind__agent_spawn({ type: "coordinator", capabilities: ["task-planning", "resource-management"] })
 
-// Orchestrate tasks
-mcp__monomind__task_orchestrate {
-  task: "feature development",
-  strategy: "parallel",
-  dependencies: ["auth", "ui", "api"]
-}
+// Coordinate tasks
+mcp__monomind__coordination_orchestrate({ task: "feature development", strategy: "parallel" })
+
+// Monitor progress
+mcp__monomind__swarm_status({ swarmId: "current" })
 ```
 
-### Using NPX CLI (Fallback)
 ```bash
-# Initialize orchestration swarm
-npx monomind swarm init --topology hierarchical --strategy auto --max-agents 8
-
-# Spawn coordinator agent
-npx monomind agent spawn --type coordinator --capabilities "task-planning,resource-management"
-
-# Orchestrate tasks
-npx monomind task orchestrate --task "feature development" --strategy parallel --deps "auth,ui,api"
+# CLI equivalents
+npx monomind swarm init --topology hierarchical --max-agents 8
+npx monomind swarm status
 ```
 
 ## Orchestration Patterns
@@ -79,54 +59,12 @@ npx monomind task orchestrate --task "feature development" --strategy parallel -
 - Event-driven flows
 - Adaptive strategies
 
-## Coordination Tools
-- TodoWrite for planning
-- Task for agent launch
-- Memory for sharing
-- Progress monitoring
-- Result aggregation
+## Memory Integration
 
-## Workflow Example
-
-### Using MCP Tools (Preferred)
 ```javascript
-// 1. Initialize orchestration swarm
-mcp__monomind__swarm_init {
-  topology: "hierarchical",
-  maxAgents: 10
-}
+// Store orchestration state
+mcp__monomind__memory_store({ key: "orchestrator_context", value: "task breakdown", namespace: "orchestrator" })
 
-// 2. Create workflow
-mcp__monomind__workflow_create {
-  name: "feature-development",
-  steps: ["design", "implement", "test", "deploy"]
-}
-
-// 3. Execute orchestration
-mcp__monomind__sparc_mode {
-  mode: "orchestrator",
-  options: {parallel: true, monitor: true},
-  task_description: "develop user management system"
-}
-
-// 4. Monitor progress
-mcp__monomind__swarm_monitor {
-  swarmId: "current",
-  interval: 5000
-}
-```
-
-### Using NPX CLI (Fallback)
-```bash
-# 1. Initialize orchestration swarm
-npx monomind swarm init --topology hierarchical --max-agents 10
-
-# 2. Create workflow
-npx monomind workflow create --name "feature-development" --steps "design,implement,test,deploy"
-
-# 3. Execute orchestration
-npx monomind sparc run orchestrator "develop user management system" --parallel --monitor
-
-# 4. Monitor progress
-npx monomind swarm monitor --interval 5000
+// Search previous patterns
+mcp__monomind__memory_search({ query: "orchestrator", namespace: "orchestrator", limit: 5 })
 ```

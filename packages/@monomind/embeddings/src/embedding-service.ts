@@ -1,7 +1,7 @@
 /**
  * V1 Embedding Service Implementation
  *
- * Production embedding service aligned with agentic-flow@alpha:
+ * Production embedding service for Monomind:
  * - OpenAI provider (text-embedding-3-small/large)
  * - Transformers.js provider (local ONNX models)
  * - Mock provider (development/testing)
@@ -894,7 +894,7 @@ export interface AutoEmbeddingConfig {
   fallback?: EmbeddingProvider;
   /** Auto-install agentic-flow if not available (default: true for 'auto' provider) */
   autoInstall?: boolean;
-  /** Model ID for agentic-flow */
+  /** Model ID for the neural embedding provider */
   modelId?: string;
   /** Model name for transformers */
   model?: string;

@@ -312,7 +312,6 @@ This package is a dependency of all other @monomind modules:
 - [@monomind/neural](../neural) - SONA learning & RL algorithms
 - [@monomind/performance](../performance) - Benchmarking & optimization
 - [@monomind/swarm](../swarm) - 15-agent coordination
-- [@monomind/integration](../integration) - agentic-flow@alpha bridge
 - [@monomind/testing](../testing) - TDD framework & fixtures
 - [@monomind/deployment](../deployment) - Release management
 - [@monomind/embeddings](../embeddings) - Embedding service

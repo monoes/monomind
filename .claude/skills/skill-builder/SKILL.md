@@ -1,5 +1,5 @@
 ---
-name: "Skill Builder"
+name: skill-builder
 description: "Create new Claude Code Skills with proper YAML frontmatter, progressive disclosure structure, and complete directory organization. Use when you need to build custom skills for specific workflows, generate skill templates, or understand the Claude Skills specification."
 ---
 
@@ -47,7 +47,7 @@ EOF
 
 ## Complete Specification
 
-### 📋 YAML Frontmatter (REQUIRED)
+### YAML Frontmatter (REQUIRED)
 
 Every SKILL.md **must** start with YAML frontmatter containing exactly two required fields:
 
@@ -68,11 +68,11 @@ and when Claude should use it."       # Include BOTH what & when
 - **Usage**: Shown in skill lists, UI, and loaded into Claude's system prompt
 - **Best Practice**: Use Title Case, be concise and descriptive
 - **Examples**:
-  - ✅ "API Documentation Generator"
-  - ✅ "React Component Builder"
-  - ✅ "Database Schema Designer"
-  - ❌ "skill-1" (not descriptive)
-  - ❌ "This is a very long skill name that exceeds sixty-four characters" (too long)
+  - Good: "API Documentation Generator"
+  - Good: "React Component Builder"
+  - Good: "Database Schema Designer"
+  - Bad: "skill-1" (not descriptive)
+  - Bad: "This is a very long skill name that exceeds sixty-four characters" (too long)
 
 **`description`** (REQUIRED):
 - **Type**: String
@@ -84,10 +84,10 @@ and when Claude should use it."       # Include BOTH what & when
 - **Usage**: Loaded into Claude's system prompt for autonomous matching
 - **Best Practice**: Front-load key trigger words, be specific about use cases
 - **Examples**:
-  - ✅ "Generate OpenAPI 3.0 documentation from Express.js routes. Use when creating API docs, documenting endpoints, or building API specifications."
-  - ✅ "Create React functional components with TypeScript, hooks, and tests. Use when scaffolding new components or converting class components."
-  - ❌ "A comprehensive guide to API documentation" (no "when" clause)
-  - ❌ "Documentation tool" (too vague)
+  - Good: "Generate OpenAPI 3.0 documentation from Express.js routes. Use when creating API docs, documenting endpoints, or building API specifications."
+  - Good: "Create React functional components with TypeScript, hooks, and tests. Use when scaffolding new components or converting class components."
+  - Bad: "A comprehensive guide to API documentation" (no "when" clause)
+  - Bad: "Documentation tool" (too vague)
 
 #### YAML Formatting Rules
 
@@ -121,7 +121,7 @@ tags: ["dev", "api"]   # NOT part of spec
 
 ---
 
-### 📂 Directory Structure
+### Directory Structure
 
 #### Minimal Skill (Required)
 ```
@@ -181,7 +181,7 @@ Claude Code does NOT support nested subdirectories or namespaces!
 
 ---
 
-### 🎯 Progressive Disclosure Architecture
+### Progressive Disclosure Architecture
 
 Claude Code uses a **3-level progressive disclosure system** to scale to 100+ skills without context penalty:
 
@@ -238,7 +238,7 @@ Use template: `resources/templates/api-template.js`
 
 ---
 
-### 📝 SKILL.md Content Structure
+### SKILL.md Content Structure
 
 #### Recommended 4-Level Structure
 
@@ -345,7 +345,7 @@ See [examples/](resources/examples/)
 
 ---
 
-### 🎨 Content Best Practices
+### Content Best Practices
 
 #### Writing Effective Descriptions
 
@@ -412,7 +412,7 @@ For complex scenarios like HOCs, render props, or custom hooks, see [ADVANCED.md
 
 ---
 
-### 🛠️ Adding Scripts and Resources
+### Adding Scripts and Resources
 
 #### Scripts Directory
 
@@ -483,7 +483,7 @@ See working examples in `resources/examples/`:
 
 ---
 
-### 🔗 File References and Navigation
+### File References and Navigation
 
 Claude can navigate to referenced files automatically. Use these patterns:
 
@@ -514,7 +514,7 @@ See `resources/examples/config.json`:
 
 ---
 
-### ✅ Validation Checklist
+### Validation Checklist
 
 Before publishing a skill, verify:
 
@@ -906,5 +906,5 @@ See `resources/templates/` for available component templates.
 
 **Created**: 2025-10-19
 **Version**: 1.0.0
-**Maintained By**: agentic-flow team
+**Maintained By**: monomind team
 **License**: MIT

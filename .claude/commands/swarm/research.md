@@ -1,136 +1,76 @@
+---
+name: swarm-research
+description: Research swarm strategy — parallel information gathering with mesh topology for deep research, literature review, and knowledge synthesis
+---
+
 # Research Swarm Strategy
 
-## Purpose
 Deep research through parallel information gathering.
 
-## Activation
+## How to Invoke
 
-### Using MCP Tools
+```
+Skill("swarm:research")
+```
+
+Then describe the research topic:
+> "Start a research swarm on AI agent coordination patterns."
+> "Research best practices for distributed consensus algorithms."
+
+---
+
+## Swarm Setup
+
 ```javascript
 // Initialize research swarm
 mcp__monomind__swarm_init({
-  "topology": "mesh",
-  "maxAgents": 6,
-  "strategy": "adaptive"
+  topology: "mesh",
+  maxAgents: 6,
+  strategy: "adaptive"
 })
 
-// Orchestrate research task
-mcp__monomind__task_orchestrate({
-  "task": "research topic X",
-  "strategy": "parallel",
-  "priority": "medium"
+// Coordinate research
+mcp__monomind__coordination_orchestrate({
+  task: "research topic X",
+  strategy: "parallel"
 })
 ```
 
-### Using CLI (Fallback)
-`npx monomind swarm "research topic X" --strategy research`
+```bash
+# CLI equivalent
+npx monomind swarm init --topology mesh --max-agents 6
+npx monomind swarm start "research topic X" --strategy research --parallel
+```
 
 ## Agent Roles
 
-### Agent Spawning with MCP
 ```javascript
-// Spawn research agents
-mcp__monomind__agent_spawn({
-  "type": "researcher",
-  "name": "Web Researcher",
-  "capabilities": ["web-search", "content-extraction", "source-validation"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "researcher",
-  "name": "Academic Researcher",
-  "capabilities": ["paper-analysis", "citation-tracking", "literature-review"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "analyst",
-  "name": "Data Analyst",
-  "capabilities": ["data-processing", "statistical-analysis", "visualization"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "documenter",
-  "name": "Report Writer",
-  "capabilities": ["synthesis", "technical-writing", "formatting"]
-})
+mcp__monomind__agent_spawn({ type: "researcher", capabilities: ["web-search", "content-extraction", "source-validation"] })
+mcp__monomind__agent_spawn({ type: "researcher", capabilities: ["paper-analysis", "citation-tracking", "literature-review"] })
+mcp__monomind__agent_spawn({ type: "analyst", capabilities: ["data-processing", "statistical-analysis"] })
+mcp__monomind__agent_spawn({ type: "documenter", capabilities: ["synthesis", "technical-writing", "formatting"] })
 ```
 
-## Research Methods
+## Knowledge Management
 
-### Information Gathering
 ```javascript
-// Parallel information collection
-mcp__monomind__parallel_execute({
-  "tasks": [
-    { "id": "web-search", "command": "search recent publications" },
-    { "id": "academic-search", "command": "search academic databases" },
-    { "id": "data-collection", "command": "gather relevant datasets" }
-  ]
+// Store research findings for future sessions
+mcp__monomind__memory_store({
+  key: "research-findings",
+  value: "summary of findings",
+  namespace: "research"
 })
 
-// Store research findings
-mcp__monomind__memory_usage({
-  "action": "store",
-  "key": "research-findings-" + Date.now(),
-  "value": JSON.stringify(findings),
-  "namespace": "research",
-  "ttl": 604800 // 7 days
-})
-```
-
-### Analysis and Validation
-```javascript
-// Pattern recognition in findings
-mcp__monomind__pattern_recognize({
-  "data": researchData,
-  "patterns": ["trend", "correlation", "outlier"]
-})
-
-// Cognitive analysis
-mcp__monomind__cognitive_analyze({
-  "behavior": "research-synthesis"
-})
-
-// Cross-reference validation
-mcp__monomind__quality_assess({
-  "target": "research-sources",
-  "criteria": ["credibility", "relevance", "recency"]
-})
-```
-
-### Knowledge Management
-```javascript
-// Search existing knowledge
+// Search existing research
 mcp__monomind__memory_search({
-  "pattern": "topic X",
-  "namespace": "research",
-  "limit": 20
-})
-
-// Create knowledge connections
-mcp__monomind__neural_patterns({
-  "action": "learn",
-  "operation": "knowledge-graph",
-  "metadata": {
-    "topic": "X",
-    "connections": relatedTopics
-  }
+  query: "topic X",
+  namespace: "research",
+  limit: 20
 })
 ```
 
-### Reporting
-```javascript
-// Generate research report
-mcp__monomind__workflow_execute({
-  "workflowId": "research-report-generation",
-  "params": {
-    "findings": findings,
-    "format": "comprehensive"
-  }
-})
+## Monitoring
 
-// Monitor progress
-mcp__monomind__swarm_status({
-  "swarmId": "research-swarm"
-})
+```javascript
+mcp__monomind__swarm_status({ swarmId: "current" })
 ```

@@ -12,9 +12,6 @@ importers:
         specifier: ^7.6.0
         version: 7.7.4
     devDependencies:
-      '@openai/codex':
-        specifier: ^0.98.0
-        version: 0.98.0
       '@types/bcrypt':
         specifier: ^5.0.2
         version: 5.0.2
@@ -37,7 +34,7 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
 
-  packages/@monobrain/aidefence:
+  packages/@monomind/aidefence:
     dependencies:
       agentdb:
         specifier: '>=2.0.0-alpha.1'
@@ -53,34 +50,9 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(vite@8.0.8(@types/node@20.19.39)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
 
-  packages/@monobrain/browser:
+  packages/@monomind/claims:
     dependencies:
-      '@monoes/cli':
-        specifier: '>=1.0.0'
-        version: 1.1.0(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))
-      agent-browser:
-        specifier: ^0.6.0
-        version: 0.6.0
-      agentic-flow:
-        specifier: ^2.0.3
-        version: 2.0.7(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(@types/node@20.19.39)
-      zod:
-        specifier: ^3.22.4
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.39
-      typescript:
-        specifier: ^5.3.0
-        version: 5.9.3
-      vitest:
-        specifier: ^4.1.4
-        version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(vite@8.0.8(@types/node@20.19.39)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
-
-  packages/@monobrain/claims:
-    dependencies:
-      '@monobrain/shared':
+      '@monomind/shared':
         specifier: workspace:*
         version: link:../shared
       zod:
@@ -103,17 +75,35 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(vite@8.0.8(@types/node@20.19.39)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
 
-  packages/@monobrain/cli:
+  packages/@monomind/cli:
     dependencies:
-      '@monobrain/security':
+      '@monoes/monograph':
         specifier: workspace:*
-        version: link:../security
-      '@monoes/graph':
-        specifier: ^1.3.0
-        version: 1.4.0
+        version: link:../monograph
       '@noble/ed25519':
         specifier: ^2.1.0
         version: 2.3.0
+      chokidar:
+        specifier: ^3.6.0
+        version: 3.6.0
+      graphology:
+        specifier: ^0.25.4
+        version: 0.25.4(graphology-types@0.24.8)
+      graphology-communities-louvain:
+        specifier: ^2.0.1
+        version: 2.0.2(graphology-types@0.24.8)
+      graphology-metrics:
+        specifier: ^2.4.0
+        version: 2.4.0(graphology-types@0.24.8)
+      graphology-shortest-path:
+        specifier: ^2.0.2
+        version: 2.1.0(graphology-types@0.24.8)
+      graphology-traversal:
+        specifier: ^0.3.1
+        version: 0.3.1(graphology-types@0.24.8)
+      graphology-types:
+        specifier: ^0.24.7
+        version: 0.24.8
       semver:
         specifier: ^7.6.0
         version: 7.7.4
@@ -142,14 +132,14 @@ importers:
         version: 0.1.0
       '@ruvector/sona':
         specifier: ^0.1.5
-        version: 0.1.5
+        version: 0.1.6
       agentic-flow:
         specifier: ^3.0.0-alpha.1
         version: 3.0.0-alpha.2(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))
 
-  packages/@monobrain/embeddings:
+  packages/@monomind/embeddings:
     dependencies:
-      '@monobrain/shared':
+      '@monomind/shared':
         specifier: workspace:*
         version: link:../shared
       '@xenova/transformers':
@@ -172,7 +162,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(vite@8.0.8(@types/node@20.19.39)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
 
-  packages/@monobrain/graph:
+  packages/@monomind/graph:
     dependencies:
       chokidar:
         specifier: ^3.6.0
@@ -217,41 +207,41 @@ importers:
         version: 0.23.4
       tree-sitter-go:
         specifier: ^0.23.4
-        version: 0.23.4
+        version: 0.23.4(tree-sitter@0.22.4)
       tree-sitter-java:
         specifier: ^0.23.5
-        version: 0.23.5
+        version: 0.23.5(tree-sitter@0.22.4)
       tree-sitter-javascript:
         specifier: ^0.23.1
-        version: 0.23.1
+        version: 0.23.1(tree-sitter@0.22.4)
       tree-sitter-php:
         specifier: ^0.23.11
         version: 0.23.12
       tree-sitter-python:
         specifier: ^0.23.6
-        version: 0.23.6
+        version: 0.23.6(tree-sitter@0.22.4)
       tree-sitter-ruby:
         specifier: ^0.23.1
         version: 0.23.1
       tree-sitter-rust:
         specifier: ^0.23.2
-        version: 0.23.3
+        version: 0.23.3(tree-sitter@0.22.4)
       tree-sitter-scala:
         specifier: ^0.23.4
         version: 0.23.4
       tree-sitter-typescript:
         specifier: ^0.23.2
-        version: 0.23.2
+        version: 0.23.2(tree-sitter@0.22.4)
 
-  packages/@monobrain/guidance:
+  packages/@monomind/guidance:
     dependencies:
-      '@monobrain/hooks':
+      '@monomind/hooks':
         specifier: workspace:*
         version: link:../hooks
-      '@monobrain/memory':
+      '@monomind/memory':
         specifier: workspace:*
         version: link:../memory
-      '@monobrain/shared':
+      '@monomind/shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:
@@ -265,15 +255,15 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(vite@8.0.8(@types/node@20.19.39)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
 
-  packages/@monobrain/hooks:
+  packages/@monomind/hooks:
     dependencies:
-      '@monobrain/memory':
+      '@monomind/memory':
         specifier: workspace:*
         version: link:../memory
-      '@monobrain/neural':
+      '@monomind/neural':
         specifier: workspace:*
         version: link:../neural
-      '@monobrain/shared':
+      '@monomind/shared':
         specifier: workspace:*
         version: link:../shared
       zod:
@@ -297,7 +287,7 @@ importers:
         specifier: ^11.0.0
         version: 11.10.0
 
-  packages/@monobrain/mcp:
+  packages/@monomind/mcp:
     dependencies:
       ajv:
         specifier: ^8.12.0
@@ -328,7 +318,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(vite@8.0.8(@types/node@20.19.39)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
 
-  packages/@monobrain/memory:
+  packages/@monomind/memory:
     dependencies:
       agentdb:
         specifier: ^3.0.0-alpha.11
@@ -350,38 +340,96 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(vite@8.0.8(@types/node@20.19.39)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
 
-  packages/@monobrain/neural:
+  packages/@monomind/monograph:
     dependencies:
-      '@monobrain/memory':
+      better-sqlite3:
+        specifier: ^12.0.0
+        version: 12.9.0
+      chokidar:
+        specifier: ^3.6.0
+        version: 3.6.0
+      graphology:
+        specifier: ^0.25.4
+        version: 0.25.4(graphology-types@0.24.8)
+      graphology-communities-louvain:
+        specifier: ^2.0.1
+        version: 2.0.2(graphology-types@0.24.8)
+      graphology-metrics:
+        specifier: ^2.4.0
+        version: 2.4.0(graphology-types@0.24.8)
+      graphology-shortest-path:
+        specifier: ^2.0.2
+        version: 2.1.0(graphology-types@0.24.8)
+      graphology-traversal:
+        specifier: ^0.3.1
+        version: 0.3.1(graphology-types@0.24.8)
+      graphology-types:
+        specifier: ^0.24.7
+        version: 0.24.8
+      tree-sitter:
+        specifier: ^0.22.0
+        version: 0.22.4
+      tree-sitter-go:
+        specifier: ^0.23.0
+        version: 0.23.4(tree-sitter@0.22.4)
+      tree-sitter-java:
+        specifier: ^0.23.0
+        version: 0.23.5(tree-sitter@0.22.4)
+      tree-sitter-python:
+        specifier: ^0.23.0
+        version: 0.23.6(tree-sitter@0.22.4)
+      tree-sitter-rust:
+        specifier: ^0.23.0
+        version: 0.23.3(tree-sitter@0.22.4)
+      tree-sitter-typescript:
+        specifier: ^0.23.0
+        version: 0.23.2(tree-sitter@0.22.4)
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.0
+        version: 7.6.13
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.39
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.4
+        version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(vite@8.0.8(@types/node@20.19.39)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
+
+  packages/@monomind/neural:
+    dependencies:
+      '@monomind/memory':
         specifier: workspace:*
         version: link:../memory
       '@ruvector/sona':
         specifier: latest
-        version: 0.1.5
+        version: 0.1.6
     optionalDependencies:
       agentdb:
         specifier: ^2.0.0 || ^3.0.0-alpha.11
         version: 3.0.0-alpha.11(@types/node@20.19.39)(zod@4.3.6)
 
-  packages/@monobrain/performance:
+  packages/@monomind/performance:
     dependencies:
       '@ruvector/attention':
         specifier: latest
         version: 0.1.32
       '@ruvector/sona':
         specifier: latest
-        version: 0.1.5
+        version: 0.1.6
     devDependencies:
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(vite@8.0.8(@types/node@20.19.39)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
 
-  packages/@monobrain/plugins:
+  packages/@monomind/plugins:
     dependencies:
-      '@monobrain/hooks':
+      '@monomind/hooks':
         specifier: workspace:*
         version: link:../hooks
-      '@monobrain/memory':
+      '@monomind/memory':
         specifier: workspace:*
         version: link:../memory
       '@ruvector/learning-wasm':
@@ -404,7 +452,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(vite@8.0.8(@types/node@20.19.39)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
 
-  packages/@monobrain/routing:
+  packages/@monomind/routing:
     dependencies:
       zod:
         specifier: ^3.22.0
@@ -420,7 +468,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(vite@8.0.8(@types/node@20.19.39)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
 
-  packages/@monobrain/security:
+  packages/@monomind/security:
     dependencies:
       bcrypt:
         specifier: ^5.1.1
@@ -436,7 +484,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(vite@8.0.8(@types/node@20.19.39)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))
 
-  packages/@monobrain/shared:
+  packages/@monomind/shared:
     dependencies:
       sql.js:
         specifier: ^1.10.3
@@ -476,7 +524,7 @@ importers:
         specifier: ^3.22.4
         version: 3.25.76
 
-  packages/@monobrain/swarm:
+  packages/@monomind/swarm:
     devDependencies:
       vitest:
         specifier: ^4.1.4
@@ -893,13 +941,6 @@ packages:
       '@cfworker/json-schema':
         optional: true
 
-  '@monoes/cli@1.1.0':
-    resolution: {integrity: sha512-s4iT83rKCdfTR9naVdBeNtA34p0b9AwfphJxAazB2WlNxB8SMDB9KA2W/7bBszfoXhCp/btjrbmb0WuJ0laaDw==}
-    hasBin: true
-
-  '@monoes/graph@1.4.0':
-    resolution: {integrity: sha512-oFogH3QIPkewbMVjqvjVUxj7kzniJNn/KxQSZ3V32+9FyHBpmYxyd/4iHJ2thwk9bVsL3PdF3XL89PB2OrfDOA==}
-
   '@napi-rs/wasm-runtime@1.1.3':
     resolution: {integrity: sha512-xK9sGVbJWYb08+mTJt3/YV24WxvxpXcXtP6B172paPZ+Ts69Re9dAr7lKwJoeIx8OoeuimEiRZ7umkiUVClmmQ==}
     peerDependencies:
@@ -978,11 +1019,6 @@ packages:
 
   '@octokit/types@14.1.0':
     resolution: {integrity: sha512-1y6DgTy8Jomcpu33N+p5w58l6xyt55Ar2I91RPiIA0xCJBXyUAhXCcmZaDWSANiha7R9a6qJJ2CRomGPZ6f46g==}
-
-  '@openai/codex@0.98.0':
-    resolution: {integrity: sha512-CKjrhAmzTvWn7Vbsi27iZRKBAJw9a7ZTTkWQDbLgQZP1weGbDIBk1r6wiLEp1ZmDO7w0fHPLYgnVspiOrYgcxg==}
-    engines: {node: '>=16'}
-    hasBin: true
 
   '@opentelemetry/api-logs@0.52.1':
     resolution: {integrity: sha512-qnSqB2DQ9TPP96dl8cDubDvrUyWc0/sK81xHTK8eSUspzDM3bsewX903qclQFvVhgStjRWdC5bLb3kQqMkfV5A==}
@@ -2110,43 +2146,44 @@ packages:
   '@ruvector/rvf@0.1.9':
     resolution: {integrity: sha512-W40NLeSj/+FwIHT0+v3soFrtk4pnAZL5Ghx93qAsZkuwriNw2y6vGPnsapflQyp34WgMN362syIRiACXx3KW8g==}
 
-  '@ruvector/sona-darwin-arm64@0.1.5':
-    resolution: {integrity: sha512-+bXB7+WdbkiNbcw0Xh5VENNILgDVpuma7fyx8NwGylWaYRe1niM03k/rezdM3zbpf4qGSqp6fVKIIDU8/H9lHw==}
+  '@ruvector/sona-darwin-arm64@0.1.4':
+    resolution: {integrity: sha512-XLXGnlcrrVM00cTsq7VyGhWu2Fvr4zJQD1bktthR3j0r4Y1PXwnw1QPHVtdcKzKmZ5WKPDGxsgRNPUKAIT/PRA==}
     cpu: [arm64]
     os: [darwin]
 
-  '@ruvector/sona-darwin-x64@0.1.5':
-    resolution: {integrity: sha512-wnr1oxeZqaHomjRevdqvciy8BSLyxF9pjkcZ7G5rszmmNNQf+YcM9IUUEbxno4b4MXj1HJC/ZtS602PBNvf5PA==}
+  '@ruvector/sona-darwin-x64@0.1.4':
+    resolution: {integrity: sha512-8bUvmQHn/N7zcD5Zf/u+lsggl6ql0NiuwPPYxitimJKAV+8oT7Zt4zE7kgnx8wqO2YCD4GPxw5laqhRz6IWwQQ==}
     cpu: [x64]
     os: [darwin]
 
-  '@ruvector/sona-linux-arm64-gnu@0.1.5':
-    resolution: {integrity: sha512-Kp895NJC52HfRlSjg+vZ32/8+v9eIDSbJXKMrjZNdA7aep4tsFTcE5bQG2Iru+zoIeFi+jcx0AVeqDPBS/9HHA==}
+  '@ruvector/sona-linux-arm64-gnu@0.1.4':
+    resolution: {integrity: sha512-QyGIK++wbdRDTF2oio1Ikq1QjS5KKUKJx4Z/rRjxJu29TGXigEdJmwTnPDtsKKzVwXahrEi1mI4Ri/ALMJID9w==}
     cpu: [arm64]
     os: [linux]
 
-  '@ruvector/sona-linux-x64-gnu@0.1.5':
-    resolution: {integrity: sha512-fmYlrJx9IQBHxeNX2Tu0ihHr3xsb3NwhgMmasOTOHBv/42fnxuuYrwhfHtMA6J6JtjyVxoBw1XLD6QJy4Y9BsA==}
+  '@ruvector/sona-linux-x64-gnu@0.1.4':
+    resolution: {integrity: sha512-lh4HYZUag0yiFpooFxAF6TTx/SVDnh/OPD1yY6G2KH9UaIPgLzw0l/dGv4DaVtv6qjeQMMrxrI8y6vFHUOBvuw==}
     cpu: [x64]
     os: [linux]
 
-  '@ruvector/sona-linux-x64-musl@0.1.5':
-    resolution: {integrity: sha512-q0hzfilUUCQNsx2QTZ0H07FKuwdfaxh7mNuv01oq5fGCC/0beBENiL5UKxm0YHtTmMPNze83Vwp1fGT9ObOQ3g==}
+  '@ruvector/sona-linux-x64-musl@0.1.4':
+    resolution: {integrity: sha512-+g+5px2k4lztba8wqxuoNnOU1tFWEdCJHMXqU0Tqn5rq06YoGCGpzoDI55jo1OKtCgCbPLBVT8KiUHIKxT1L/g==}
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
-  '@ruvector/sona-win32-arm64-msvc@0.1.5':
-    resolution: {integrity: sha512-kk7aiedLw/Z8Xogv+sQfoYQp8Y+om7/X4Ycbl830RSNpVBXEKkQpI7vMbK55eaQ9zjBbqjtgcoZNWXzGUmbTeA==}
+  '@ruvector/sona-win32-arm64-msvc@0.1.4':
+    resolution: {integrity: sha512-xQkFe5x8SBcg+IM/I5EtDz7gQYdznG1GZnAqt9zKbY/xEOqPmJFlk9A8ab3w9QMBgXTCmlZKkWKDGQgqg3RQ5w==}
     cpu: [arm64]
     os: [win32]
 
-  '@ruvector/sona-win32-x64-msvc@0.1.5':
-    resolution: {integrity: sha512-ifB2meo3GeguivC5Dcq50UZEupc+F/yFZ1+cg2mVgUpoqNN9lzJ+k3IdGgdYyMu7YAM8CrgTswfp/krUwx8BLQ==}
+  '@ruvector/sona-win32-x64-msvc@0.1.4':
+    resolution: {integrity: sha512-kox5tXvKiTtZaSw0fyo7fvAIp/VK5XAtnoN8C8BuERcqOgrcwY6CS8z5M1hEH1XUR9CHBNpiL6+wURsLXwq4/g==}
     cpu: [x64]
     os: [win32]
 
-  '@ruvector/sona@0.1.5':
-    resolution: {integrity: sha512-XHQbphnWsRzWRWGK/HxK+RreY6OdlggMrOvrfkWlEq8EctHVy2ASwps7hk25Somx8Umj7+CkNuyQEbHcNcl/oQ==}
+  '@ruvector/sona@0.1.6':
+    resolution: {integrity: sha512-LW40r28yQxXz3vt1fOLRWVV5nln4rzw6a/Yy11EJJdeEN9q4wZG1Glwf9leTp4SjQjuIJ5hklNW8OVMwgyzd5w==}
     engines: {node: '>= 16'}
 
   '@ruvector/tiny-dancer-darwin-arm64@0.1.15':
@@ -2447,10 +2484,6 @@ packages:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
     engines: {node: '>= 14'}
 
-  agent-browser@0.6.0:
-    resolution: {integrity: sha512-C4Mtxfvyi/m04hyD2XdUNKc878RPZqbhXFIPEUJElZW6RhZJ1QG1/L5PSgIAhRSi4TF/EkB8iq4IAWoecMvGdg==}
-    hasBin: true
-
   agentdb@1.6.1:
     resolution: {integrity: sha512-OO/hwO+MYtqsgz+6CyrY2BCjcgRWGv5Ob7nFupNEt7m1ZchIArCwvBAcJgFMFNFqWxH6AN2ThiQKBmfXboBkPg==}
     engines: {node: '>=18.0.0'}
@@ -2624,6 +2657,10 @@ packages:
 
   better-sqlite3@11.10.0:
     resolution: {integrity: sha512-EwhOpyXiOEL/lKzHz9AW1msWFNzGc/z+LzeB3/jnFJpxu+th2yqvzsSWas1v9jgs9+xiXJcD5A8CJxAG2TaghQ==}
+
+  better-sqlite3@12.9.0:
+    resolution: {integrity: sha512-wqUv4Gm3toFpHDQmaKD4QhZm3g1DjUBI0yzS4UBl6lElUmXFYdTQmmEDpAFa5o8FiFiymURypEnfVHzILKaxqQ==}
+    engines: {node: 20.x || 22.x || 23.x || 24.x || 25.x}
 
   bignumber.js@9.3.1:
     resolution: {integrity: sha512-Ko0uX15oIUS7wJ3Rb30Fs6SkVbLmPBAKdlm7q9+ak9bbIeFf0MwuBsQV6z7+X768/cHsfg+WlysDWJcmthjsjQ==}
@@ -4176,11 +4213,6 @@ packages:
   platform@1.3.6:
     resolution: {integrity: sha512-fnWVljUchTro6RiCFvCXBbNhJc2NijN7oIQxbwsyL0buWJPG85v81ehlHI9fXrJsMNgTofEoWIQeClKpgxFLrg==}
 
-  playwright-core@1.59.1:
-    resolution: {integrity: sha512-HBV/RJg81z5BiiZ9yPzIiClYV/QMsDCKUyogwH9p3MCP6IYjUFu/MActgYAvK0oWyV9NlwM3GLBjADyWgydVyg==}
-    engines: {node: '>=18'}
-    hasBin: true
-
   postcss-load-config@6.0.1:
     resolution: {integrity: sha512-oPtTM4oerL+UXmx+93ytZVN82RrlY/wPUV8IeDxFrzIjXOLF1pN+EmKPLbubvKHT2HC20xXsCAH2Z+CKV6Oz/g==}
     engines: {node: '>= 18'}
@@ -4800,6 +4832,9 @@ packages:
       tree-sitter:
         optional: true
 
+  tree-sitter@0.22.4:
+    resolution: {integrity: sha512-usbHZP9/oxNsUY65MQUsduGRqDHQOou1cagUSwjhoSYAmSahjQDAVsh9s+SlZkn8X8+O1FULRGwHu7AFP3kjzg==}
+
   ts-algebra@2.0.0:
     resolution: {integrity: sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw==}
 
@@ -4917,6 +4952,7 @@ packages:
 
   uuid@9.0.1:
     resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   validator@13.15.35:
@@ -5345,6 +5381,7 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
+    optional: true
 
   '@google/genai@1.49.0(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))':
     dependencies:
@@ -5544,67 +5581,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@monoes/cli@1.1.0(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))':
-    dependencies:
-      '@monobrain/mcp': link:packages/@monobrain/mcp
-      '@monobrain/shared': link:packages/@monobrain/shared
-      '@noble/ed25519': 2.3.0
-      semver: 7.7.4
-    optionalDependencies:
-      '@monobrain/aidefence': link:packages/@monobrain/aidefence
-      '@monobrain/embeddings': link:packages/@monobrain/embeddings
-      '@monobrain/guidance': link:packages/@monobrain/guidance
-      '@monobrain/memory': link:packages/@monobrain/memory
-      '@monobrain/routing': link:packages/@monobrain/routing
-      '@monobrain/security': link:packages/@monobrain/security
-      '@ruvector/attention': 0.1.32
-      '@ruvector/learning-wasm': 0.1.29
-      '@ruvector/router': 0.1.30
-      '@ruvector/ruvllm-wasm': 2.0.2
-      '@ruvector/rvagent-wasm': 0.1.0
-      '@ruvector/sona': 0.1.5
-      agentic-flow: 3.0.0-alpha.2(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - '@modelcontextprotocol/sdk'
-      - '@valibot/to-json-schema'
-      - arktype
-      - bare-abort-controller
-      - bare-buffer
-      - bufferutil
-      - debug
-      - effect
-      - jose
-      - react-native-b4a
-      - supports-color
-      - sury
-      - utf-8-validate
-
-  '@monoes/graph@1.4.0':
-    dependencies:
-      chokidar: 3.6.0
-      graphology: 0.25.4(graphology-types@0.24.8)
-      graphology-communities-louvain: 2.0.2(graphology-types@0.24.8)
-      graphology-metrics: 2.4.0(graphology-types@0.24.8)
-      graphology-shortest-path: 2.1.0(graphology-types@0.24.8)
-      graphology-traversal: 0.3.1(graphology-types@0.24.8)
-      graphology-types: 0.24.8
-    optionalDependencies:
-      tree-sitter-c: 0.23.6
-      tree-sitter-c-sharp: 0.23.1
-      tree-sitter-cpp: 0.23.4
-      tree-sitter-go: 0.23.4
-      tree-sitter-java: 0.23.5
-      tree-sitter-javascript: 0.23.1
-      tree-sitter-php: 0.23.12
-      tree-sitter-python: 0.23.6
-      tree-sitter-ruby: 0.23.1
-      tree-sitter-rust: 0.23.3
-      tree-sitter-scala: 0.23.4
-      tree-sitter-typescript: 0.23.2
-    transitivePeerDependencies:
-      - tree-sitter
-
   '@napi-rs/wasm-runtime@1.1.3(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)':
     dependencies:
       '@emnapi/core': 1.9.2
@@ -5707,8 +5683,6 @@ snapshots:
     dependencies:
       '@octokit/openapi-types': 25.1.0
     optional: true
-
-  '@openai/codex@0.98.0': {}
 
   '@opentelemetry/api-logs@0.52.1':
     dependencies:
@@ -6882,36 +6856,36 @@ snapshots:
       '@ruvector/rvf-wasm': 0.1.6
     optional: true
 
-  '@ruvector/sona-darwin-arm64@0.1.5':
+  '@ruvector/sona-darwin-arm64@0.1.4':
     optional: true
 
-  '@ruvector/sona-darwin-x64@0.1.5':
+  '@ruvector/sona-darwin-x64@0.1.4':
     optional: true
 
-  '@ruvector/sona-linux-arm64-gnu@0.1.5':
+  '@ruvector/sona-linux-arm64-gnu@0.1.4':
     optional: true
 
-  '@ruvector/sona-linux-x64-gnu@0.1.5':
+  '@ruvector/sona-linux-x64-gnu@0.1.4':
     optional: true
 
-  '@ruvector/sona-linux-x64-musl@0.1.5':
+  '@ruvector/sona-linux-x64-musl@0.1.4':
     optional: true
 
-  '@ruvector/sona-win32-arm64-msvc@0.1.5':
+  '@ruvector/sona-win32-arm64-msvc@0.1.4':
     optional: true
 
-  '@ruvector/sona-win32-x64-msvc@0.1.5':
+  '@ruvector/sona-win32-x64-msvc@0.1.4':
     optional: true
 
-  '@ruvector/sona@0.1.5':
+  '@ruvector/sona@0.1.6':
     optionalDependencies:
-      '@ruvector/sona-darwin-arm64': 0.1.5
-      '@ruvector/sona-darwin-x64': 0.1.5
-      '@ruvector/sona-linux-arm64-gnu': 0.1.5
-      '@ruvector/sona-linux-x64-gnu': 0.1.5
-      '@ruvector/sona-linux-x64-musl': 0.1.5
-      '@ruvector/sona-win32-arm64-msvc': 0.1.5
-      '@ruvector/sona-win32-x64-msvc': 0.1.5
+      '@ruvector/sona-darwin-arm64': 0.1.4
+      '@ruvector/sona-darwin-x64': 0.1.4
+      '@ruvector/sona-linux-arm64-gnu': 0.1.4
+      '@ruvector/sona-linux-x64-gnu': 0.1.4
+      '@ruvector/sona-linux-x64-musl': 0.1.4
+      '@ruvector/sona-win32-arm64-msvc': 0.1.4
+      '@ruvector/sona-win32-x64-msvc': 0.1.4
 
   '@ruvector/tiny-dancer-darwin-arm64@0.1.15':
     optional: true
@@ -7278,15 +7252,6 @@ snapshots:
 
   agent-base@7.1.4: {}
 
-  agent-browser@0.6.0:
-    dependencies:
-      playwright-core: 1.59.1
-      ws: 8.20.0
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
-
   agentdb@1.6.1:
     dependencies:
       '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
@@ -7315,7 +7280,7 @@ snapshots:
       '@ruvector/graph-node': 0.1.26
       '@ruvector/router': 0.1.30
       '@ruvector/ruvllm': 0.2.4
-      '@ruvector/sona': 0.1.5
+      '@ruvector/sona': 0.1.6
       ajv: 8.18.0
       chalk: 5.6.2
       cli-table3: 0.6.5
@@ -7379,7 +7344,7 @@ snapshots:
       '@ruvector/rvf-node': 0.1.8
       '@ruvector/rvf-solver': 0.1.8
       '@ruvector/rvf-wasm': 0.1.6
-      '@ruvector/sona': 0.1.5
+      '@ruvector/sona': 0.1.6
       '@xenova/transformers': 2.17.2
       argon2: 0.44.0
       better-sqlite3: 11.10.0
@@ -7398,55 +7363,6 @@ snapshots:
       - react-native-b4a
       - supports-color
       - zod
-
-  agentic-flow@2.0.7(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(@types/node@20.19.39):
-    dependencies:
-      '@anthropic-ai/claude-agent-sdk': 0.1.77(zod@3.25.76)
-      '@anthropic-ai/sdk': 0.65.0(zod@3.25.76)
-      '@google/genai': 1.49.0(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))
-      '@ruvector/core': 0.1.31
-      '@ruvector/edge-full': 0.1.0
-      '@ruvector/router': 0.1.30
-      '@ruvector/ruvllm': 0.2.4
-      '@ruvector/tiny-dancer': 0.1.17
-      '@supabase/supabase-js': 2.103.0
-      '@xenova/transformers': 2.17.2
-      agentdb: 2.0.0-alpha.3.7(@types/node@20.19.39)(express@5.2.1)(marked@15.0.12)
-      axios: 1.15.0(debug@4.4.3)
-      dotenv: 16.6.1
-      express: 5.2.1
-      fastmcp: 3.35.0
-      gun: 0.2020.1241
-      http-proxy-middleware: 3.0.5
-      onnxruntime-node: 1.24.3
-      ruvector: 0.1.100(zod@3.25.76)
-      ruvector-onnx-embeddings-wasm: 0.1.2
-      tiktoken: 1.0.22
-      ulid: 3.0.2
-      ws: 8.20.0
-      yaml: 2.8.3
-      zod: 3.25.76
-    optionalDependencies:
-      better-sqlite3: 11.10.0
-      sql.js: 1.14.1
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - '@modelcontextprotocol/sdk'
-      - '@types/node'
-      - '@valibot/to-json-schema'
-      - arktype
-      - bare-abort-controller
-      - bare-buffer
-      - bufferutil
-      - debug
-      - effect
-      - encoding
-      - jose
-      - marked
-      - react-native-b4a
-      - supports-color
-      - sury
-      - utf-8-validate
 
   agentic-flow@2.0.7(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@types/node@20.19.39):
     dependencies:
@@ -7675,6 +7591,11 @@ snapshots:
     optional: true
 
   better-sqlite3@11.10.0:
+    dependencies:
+      bindings: 1.5.0
+      prebuild-install: 7.1.3
+
+  better-sqlite3@12.9.0:
     dependencies:
       bindings: 1.5.0
       prebuild-install: 7.1.3
@@ -8278,7 +8199,7 @@ snapshots:
       strict-event-emitter-types: 2.0.0
       undici: 7.24.7
       uri-templates: 0.2.0
-      xsschema: 0.4.4(zod-to-json-schema@3.25.2(zod@3.25.76))(zod@4.3.6)
+      xsschema: 0.4.4(zod-to-json-schema@3.25.2(zod@4.3.6))(zod@4.3.6)
       yargs: 18.0.0
       zod: 4.3.6
       zod-to-json-schema: 3.25.2(zod@4.3.6)
@@ -9154,8 +9075,7 @@ snapshots:
 
   node-addon-api@6.1.0: {}
 
-  node-addon-api@8.7.0:
-    optional: true
+  node-addon-api@8.7.0: {}
 
   node-domexception@1.0.0: {}
 
@@ -9176,8 +9096,7 @@ snapshots:
       fetch-blob: 3.2.0
       formdata-polyfill: 4.0.10
 
-  node-gyp-build@4.8.4:
-    optional: true
+  node-gyp-build@4.8.4: {}
 
   nopt@5.0.0:
     dependencies:
@@ -9374,8 +9293,6 @@ snapshots:
       pathe: 2.0.3
 
   platform@1.3.6: {}
-
-  playwright-core@1.59.1: {}
 
   postcss-load-config@6.0.1(postcss@8.5.9)(tsx@4.21.0)(yaml@2.8.3):
     dependencies:
@@ -9684,7 +9601,7 @@ snapshots:
       '@ruvector/attention': 0.1.32
       '@ruvector/core': 0.1.31
       '@ruvector/gnn': 0.1.25
-      '@ruvector/sona': 0.1.5
+      '@ruvector/sona': 0.1.6
       chalk: 4.1.2
       commander: 11.1.0
       ora: 5.4.1
@@ -9701,7 +9618,7 @@ snapshots:
       '@ruvector/attention': 0.1.32
       '@ruvector/core': 0.1.31
       '@ruvector/gnn': 0.1.25
-      '@ruvector/sona': 0.1.5
+      '@ruvector/sona': 0.1.6
       chalk: 4.1.2
       commander: 11.1.0
       ora: 5.4.1
@@ -10084,23 +10001,26 @@ snapshots:
       tree-sitter-c: 0.23.6
     optional: true
 
-  tree-sitter-go@0.23.4:
+  tree-sitter-go@0.23.4(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
-    optional: true
+    optionalDependencies:
+      tree-sitter: 0.22.4
 
-  tree-sitter-java@0.23.5:
+  tree-sitter-java@0.23.5(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
-    optional: true
+    optionalDependencies:
+      tree-sitter: 0.22.4
 
-  tree-sitter-javascript@0.23.1:
+  tree-sitter-javascript@0.23.1(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
-    optional: true
+    optionalDependencies:
+      tree-sitter: 0.22.4
 
   tree-sitter-php@0.23.12:
     dependencies:
@@ -10108,11 +10028,12 @@ snapshots:
       node-gyp-build: 4.8.4
     optional: true
 
-  tree-sitter-python@0.23.6:
+  tree-sitter-python@0.23.6(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
-    optional: true
+    optionalDependencies:
+      tree-sitter: 0.22.4
 
   tree-sitter-ruby@0.23.1:
     dependencies:
@@ -10120,11 +10041,12 @@ snapshots:
       node-gyp-build: 4.8.4
     optional: true
 
-  tree-sitter-rust@0.23.3:
+  tree-sitter-rust@0.23.3(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
-    optional: true
+    optionalDependencies:
+      tree-sitter: 0.22.4
 
   tree-sitter-scala@0.23.4:
     dependencies:
@@ -10132,12 +10054,18 @@ snapshots:
       node-gyp-build: 4.8.4
     optional: true
 
-  tree-sitter-typescript@0.23.2:
+  tree-sitter-typescript@0.23.2(tree-sitter@0.22.4):
     dependencies:
       node-addon-api: 8.7.0
       node-gyp-build: 4.8.4
-      tree-sitter-javascript: 0.23.1
-    optional: true
+      tree-sitter-javascript: 0.23.1(tree-sitter@0.22.4)
+    optionalDependencies:
+      tree-sitter: 0.22.4
+
+  tree-sitter@0.22.4:
+    dependencies:
+      node-addon-api: 8.7.0
+      node-gyp-build: 4.8.4
 
   ts-algebra@2.0.0: {}
 
@@ -10355,10 +10283,10 @@ snapshots:
 
   ws@8.20.0: {}
 
-  xsschema@0.4.4(zod-to-json-schema@3.25.2(zod@3.25.76))(zod@4.3.6):
+  xsschema@0.4.4(zod-to-json-schema@3.25.2(zod@4.3.6))(zod@4.3.6):
     optionalDependencies:
       zod: 4.3.6
-      zod-to-json-schema: 3.25.2(zod@3.25.76)
+      zod-to-json-schema: 3.25.2(zod@4.3.6)
 
   xtend@4.0.2:
     optional: true

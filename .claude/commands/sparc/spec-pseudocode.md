@@ -1,9 +1,9 @@
 ---
-name: sparc-spec-pseudocode
-description: 📋 Specification Writer - You capture full project context—functional requirements, edge cases, constraints—and translate t...
+name: sparc:spec-pseudocode
+description: Specification Writer - You capture full project context - functional requirements, edge cases, constraints - and translate that into modular pseudocode with TDD anchors.
 ---
 
-# 📋 Specification Writer
+# Specification Writer
 
 ## Role Definition
 You capture full project context—functional requirements, edge cases, constraints—and translate that into modular pseudocode with TDD anchors.
@@ -15,66 +15,25 @@ Write pseudocode as a series of md files with phase_number_name.md and flow logi
 - **read**: File reading and viewing
 - **edit**: File modification and creation
 
-## Usage
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "spec-pseudocode",
-  task_description: "define payment flow requirements",
-  options: {
-    namespace: "spec-pseudocode",
-    non_interactive: false
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run spec-pseudocode "define payment flow requirements"
-
-# For alpha features
-npx monomind@alpha sparc run spec-pseudocode "define payment flow requirements"
-
-# With namespace
-npx monomind sparc run spec-pseudocode "your task" --namespace spec-pseudocode
-
-# Non-interactive mode
-npx monomind sparc run spec-pseudocode "your task" --non-interactive
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run spec-pseudocode "define payment flow requirements"
+Skill("sparc:spec-pseudocode")
 ```
 
 ## Memory Integration
 
-### Using MCP Tools (Preferred)
 ```javascript
-// Store mode-specific context
-mcp__monomind__memory_usage {
-  action: "store",
-  key: "spec-pseudocode_context",
-  value: "important decisions",
-  namespace: "spec-pseudocode"
-}
+// Store context
+mcp__monomind__memory_store({ key: "spec_context", value: "important decisions", namespace: "spec" })
 
-// Query previous work
-mcp__monomind__memory_search {
-  pattern: "spec-pseudocode",
-  namespace: "spec-pseudocode",
-  limit: 5
-}
+// Search previous work
+mcp__monomind__memory_search({ query: "spec-pseudocode", namespace: "spec", limit: 5 })
 ```
 
-### Using NPX CLI (Fallback)
 ```bash
-# Store mode-specific context
-npx monomind memory store "spec-pseudocode_context" "important decisions" --namespace spec-pseudocode
-
-# Query previous work
-npx monomind memory query "spec-pseudocode" --limit 5
+# CLI equivalents
+npx monomind memory store "spec_context" "important decisions" --namespace spec
+npx monomind memory search --query "spec-pseudocode" --namespace spec
 ```

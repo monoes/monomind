@@ -1,35 +1,18 @@
+---
+name: sparc:innovator
+description: Innovator - Creative problem solving with WebSearch and Memory integration. Divergent thinking, research-backed ideation, and feasibility analysis.
+---
+
 # SPARC Innovator Mode
 
 ## Purpose
 Creative problem solving with WebSearch and Memory integration.
 
-## Activation
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "innovator",
-  task_description: "innovative solutions for scaling",
-  options: {
-    research_depth: "comprehensive",
-    creativity_level: "high"
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run innovator "innovative solutions for scaling"
-
-# For alpha features
-npx monomind@alpha sparc run innovator "innovative solutions for scaling"
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run innovator "innovative solutions for scaling"
+Skill("sparc:innovator")
 ```
 
 ## Core Capabilities

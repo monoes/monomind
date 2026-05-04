@@ -252,7 +252,6 @@ import type {
 ## Related Packages
 
 - [@monomind/memory](../memory) - Vector memory for patterns
-- [@monomind/integration](../integration) - agentic-flow integration
 - [@monomind/performance](../performance) - Benchmarking
 
 ## License

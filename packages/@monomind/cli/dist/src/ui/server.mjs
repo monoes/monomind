@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 import { collectAll, getWatchPaths, collectProject, collectSessions, collectSwarm, collectSwarmHistory, appendSwarmHistory, collectSwarmEvents, getSwarmDataSize, cleanSwarmData, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem } from './collector.mjs';
 
 const JSONL_SIZE_CAP = 10 * 1024 * 1024; // 10 MB — skip files larger than this in /api/graph
@@ -234,7 +235,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     if (req.method === 'GET' && url === '/api/data') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const snapshot = await collectAll(dir);
         res.writeHead(200, {
           'Content-Type': 'application/json',
@@ -281,7 +282,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     if (req.method === 'GET' && url === '/api/session-journal') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
         const slug = d.replace(/\//g, '-');
         const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
@@ -340,7 +341,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     if (req.method === 'GET' && url === '/api/palace') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
         const palaceDir = path.join(d, '.monomind', 'palace');
 
@@ -369,7 +370,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     if (req.method === 'GET' && url === '/api/memory-files') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
         const homeDir = os.homedir();
         const slug = d.replace(/\//g, '-');
@@ -478,11 +479,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     // ---------------------------------------------------------- GET /api/loops
     if (req.method === 'GET' && url === '/api/loops') {
       try {
-        const loopsDir = path.join(projectDir || process.cwd(), '.monomind', 'loops');
+        const cwd = projectDir || process.cwd();
+        const loopsDir = path.join(cwd, '.monomind', 'loops');
         let loops = [];
+        let stopFiles = new Set();
         try {
           const files = fs.readdirSync(loopsDir).filter(f => f.endsWith('.json'));
-          const stopFiles = new Set(fs.readdirSync(loopsDir).filter(f => f.endsWith('.stop')).map(f => f.replace('.stop', '')));
+          stopFiles = new Set(fs.readdirSync(loopsDir).filter(f => f.endsWith('.stop')).map(f => f.replace('.stop', '')));
           for (const file of files) {
             try {
               const data = JSON.parse(fs.readFileSync(path.join(loopsDir, file), 'utf-8'));
@@ -491,6 +494,98 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
             } catch {}
           }
         } catch (e) { if (e.code !== 'ENOENT') throw e; }
+
+        // Also read .claude/scheduled_tasks.lock — active Claude Code /loop sessions
+        // that haven't had their ScheduleWakeup hook fire yet (or running on older version)
+        try {
+          const lockPath = path.join(cwd, '.claude', 'scheduled_tasks.lock');
+          if (fs.existsSync(lockPath)) {
+            const lock = JSON.parse(fs.readFileSync(lockPath, 'utf-8'));
+            const sessionId = lock.sessionId;
+            const pid = lock.pid;
+            // Verify PID is alive
+            let alive = false;
+            try { process.kill(pid, 0); alive = true; } catch {}
+            const alreadyTracked = loops.some(l => l.id === sessionId || l.sessionId === sessionId);
+            if (alive && sessionId && !alreadyTracked && !stopFiles.has(sessionId)) {
+              // Try to extract ScheduleWakeup context from session JSONL
+              let loopEntry = null;
+              try {
+                const escaped = cwd.replace(/\//g, '-');
+                const sessionFile = path.join(os.homedir(), '.claude', 'projects', escaped, `${sessionId}.jsonl`);
+                if (fs.existsSync(sessionFile)) {
+                  const stat = fs.statSync(sessionFile);
+                  const readStart = Math.max(0, stat.size - 100000);
+                  const buf = Buffer.alloc(stat.size - readStart);
+                  const fd = fs.openSync(sessionFile, 'r');
+                  fs.readSync(fd, buf, 0, buf.length, readStart);
+                  fs.closeSync(fd);
+                  const lines = buf.toString('utf-8').split('\n').filter(Boolean);
+                  let lastWakeup = null;
+                  for (const line of lines) {
+                    try {
+                      const entry = JSON.parse(line);
+                      const content = entry?.message?.content;
+                      if (Array.isArray(content)) {
+                        for (const block of content) {
+                          if (block?.type === 'tool_use' && block?.name === 'ScheduleWakeup') {
+                            lastWakeup = block.input;
+                          }
+                        }
+                      }
+                    } catch {}
+                  }
+                  if (lastWakeup) {
+                    const prompt = lastWakeup.prompt || '';
+                    const reason = lastWakeup.reason || '';
+                    const delaySeconds = lastWakeup.delaySeconds || 60;
+                    // Parse rep info from reason e.g. "repeat run 2/10"
+                    const repM = (reason || prompt).match(/(\d+)\s*\/\s*(\d+)/);
+                    const currentRep = repM ? parseInt(repM[1]) : 1;
+                    const maxReps = repM ? parseInt(repM[2]) : 0;
+                    const repFlag = (prompt).match(/--rep\s+(\d+)/);
+                    const timesFlag = (prompt).match(/--times\s+(\d+)/);
+                    const finalRep = repFlag ? parseInt(repFlag[1]) : currentRep;
+                    const finalMax = timesFlag ? parseInt(timesFlag[1]) : maxReps;
+                    const type = (finalMax > 0 || /repeat|loop/i.test(prompt)) ? 'repeat' : 'do';
+                    loopEntry = {
+                      id: sessionId,
+                      sessionId,
+                      type,
+                      status: 'waiting',
+                      prompt: prompt.slice(0, 300),
+                      reason,
+                      startedAt: lock.acquiredAt || Date.now(),
+                      lastRunAt: Date.now(),
+                      nextRunAt: Date.now() + delaySeconds * 1000,
+                      currentRep: finalRep,
+                      maxReps: finalMax,
+                      interval: Math.round(delaySeconds / 60),
+                      source: 'scheduled_tasks_lock',
+                    };
+                  }
+                }
+              } catch {}
+              // Fallback: minimal entry from lock file alone
+              if (!loopEntry) {
+                loopEntry = {
+                  id: sessionId,
+                  sessionId,
+                  type: 'do',
+                  status: 'running',
+                  prompt: '(active session)',
+                  reason: '',
+                  startedAt: lock.acquiredAt || Date.now(),
+                  lastRunAt: lock.acquiredAt || Date.now(),
+                  nextRunAt: null,
+                  source: 'scheduled_tasks_lock',
+                };
+              }
+              loops.push(loopEntry);
+            }
+          }
+        } catch {}
+
         loops.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ loops }));
@@ -594,12 +689,55 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
-    // ------------------------------------------------------- GET /api/graphify-html
-    if (req.method === 'GET' && url === '/api/graphify-html') {
+    // ------------------------------------------------------- GET /api/monograph-html
+    if (req.method === 'GET' && url === '/api/monograph-html') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
+        const dbPath = path.join(d, '.monomind', 'monograph.db');
+
+        // Generate HTML on-the-fly from SQLite DB using the improved toHtml export
+        if (fs.existsSync(dbPath)) {
+          const { openDb, closeDb, toHtml } = await import('@monoes/monograph');
+          const db = openDb(dbPath);
+          let html;
+          try {
+            const rawNodes = db.prepare('SELECT * FROM nodes LIMIT 5000').all();
+            const rawEdges = db.prepare('SELECT * FROM edges').all();
+            // Remap snake_case DB columns to camelCase MonographNode/MonographEdge interfaces
+            const parsedNodes = rawNodes.map(n => ({
+              id: n.id,
+              label: n.label,
+              name: n.name,
+              normLabel: n.norm_label,
+              filePath: n.file_path,
+              startLine: n.start_line,
+              endLine: n.end_line,
+              communityId: n.community_id,
+              isExported: !!n.is_exported,
+              language: n.language,
+              properties: n.properties ? JSON.parse(n.properties) : {},
+            }));
+            const parsedEdges = rawEdges.map(e => ({
+              id: e.id,
+              sourceId: e.source_id,
+              targetId: e.target_id,
+              relation: e.relation,
+              confidence: e.confidence,
+              confidenceScore: e.confidence_score,
+              weight: e.weight,
+            }));
+            html = toHtml(parsedNodes, parsedEdges);
+          } finally {
+            closeDb(db);
+          }
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+          res.end(html);
+          return;
+        }
+
+        // Fallback: try legacy graph.html on disk
         const htmlPath = path.join(d, '.monomind', 'graph', 'graph.html');
         const html = fs.readFileSync(htmlPath, 'utf-8');
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
@@ -611,45 +749,43 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
-    // ------------------------------------------------------- GET /api/graphify-report
-    if (req.method === 'GET' && url === '/api/graphify-report') {
+    // ------------------------------------------------------- GET /api/monograph-report
+    if (req.method === 'GET' && url === '/api/monograph-report') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
-        const reportPath = path.join(d, '.monomind', 'graph', 'GRAPH_REPORT.md');
-        const graphPath = path.join(d, '.monomind', 'graph', 'graph.json');
-
-        let content = null, exists = false, stats = null, enriched = null;
-        try { content = fs.readFileSync(reportPath, 'utf-8'); exists = true; } catch {}
-        try {
-          const s = fs.statSync(graphPath);
-          if (s.size < 5 * 1024 * 1024) {
-            const g = JSON.parse(fs.readFileSync(graphPath, 'utf-8'));
-            const nodes = Array.isArray(g.nodes) ? g.nodes.length : 0;
-            const edgeArr = Array.isArray(g.edges) ? g.edges : (Array.isArray(g.links) ? g.links : []);
-            const edges = edgeArr.length;
-            stats = { nodes, edges, size: s.size, mtime: s.mtimeMs };
-          } else {
-            stats = { size: s.size, mtime: s.mtimeMs, tooLarge: true };
-          }
-        } catch {}
-        // Include enriched metadata if available (same 5MB size cap as graph.json)
-        const enrichedPath = path.join(d, '.monomind', 'graph', 'graph.enriched.json');
-        try {
-          const es = fs.statSync(enrichedPath);
-          if (es.size < 5 * 1024 * 1024) {
-            const em = JSON.parse(fs.readFileSync(enrichedPath, 'utf-8'));
-            enriched = { enrichedAt: em.enrichedAt, enrichedNodes: em.metrics?.enrichedNodes,
-              resolvedCallEdges: em.metrics?.resolvedCallEdges, pageRankComputed: em.metrics?.pageRankComputed, size: es.size };
-          } else {
-            enriched = { size: es.size, tooLarge: true };
-          }
-          if (stats) stats.enriched = enriched;
-        } catch {}
-
+        const dbPath = path.join(d, '.monomind', 'monograph.db');
+        let report = null, exists = false, stats = null;
+        if (fs.existsSync(dbPath)) {
+          exists = true;
+          const { openDb, closeDb } = await import('@monoes/monograph');
+          const db = openDb(dbPath);
+          try {
+            const nodeCount = db.prepare('SELECT COUNT(*) AS c FROM nodes').get().c;
+            const edgeCount = db.prepare('SELECT COUNT(*) AS c FROM edges').get().c;
+            const topNodes = db.prepare(`SELECT n.id, n.name, n.label, (SELECT COUNT(*) FROM edges e WHERE e.source_id=n.id OR e.target_id=n.id) AS deg FROM nodes n ORDER BY deg DESC LIMIT 20`).all();
+            const labelDist = db.prepare('SELECT label, COUNT(*) AS cnt FROM nodes GROUP BY label ORDER BY cnt DESC LIMIT 10').all();
+            const dbStat = fs.statSync(dbPath);
+            stats = { nodes: nodeCount, edges: edgeCount, size: dbStat.size, mtime: dbStat.mtimeMs };
+            report = [
+              '# Monograph Knowledge Graph',
+              '',
+              `## Overview`,
+              `- **Nodes**: ${nodeCount.toLocaleString()}`,
+              `- **Edges**: ${edgeCount.toLocaleString()}`,
+              `- **Last built**: ${new Date(dbStat.mtimeMs).toLocaleString()}`,
+              '',
+              '## Top 20 Nodes by Degree',
+              ...topNodes.map((n, i) => `${String(i+1).padStart(3,' ')}. **${n.name || n.id}** \`${n.label}\` — ${n.deg} connections`),
+              '',
+              '## Node Type Distribution',
+              ...labelDist.map(r => `- **${r.label}**: ${r.cnt}`),
+            ].join('\n');
+          } finally { closeDb(db); }
+        }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
-        res.end(JSON.stringify({ exists, content, stats, reportPath, enriched }));
+        res.end(JSON.stringify({ exists, report, stats }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
@@ -657,58 +793,97 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
-    // -------------------------------------------------- GET /api/graphify-graph
-    if (req.method === 'GET' && url === '/api/graphify-graph') {
+    // -------------------------------------------------- GET /api/monograph-graph
+    if (req.method === 'GET' && url === '/api/monograph-graph') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
-        const graphPath = path.join(d, '.monomind', 'graph', 'graph.json');
-        let nodes = [], edges = [], tooLarge = false;
-        try {
-          const s = fs.statSync(graphPath);
-          if (s.size < 50 * 1024 * 1024) {
-            const g = JSON.parse(fs.readFileSync(graphPath, 'utf-8'));
-            const rawNodes = Array.isArray(g.nodes) ? g.nodes : [];
-            const rawEdges = Array.isArray(g.edges) ? g.edges : (Array.isArray(g.links) ? g.links : []);
-            // Filter to internal nodes (project symbols with a known source file)
-            const internalNodes = rawNodes.filter(n => n.sourceFile && n.sourceFile !== '');
-            const internalIds = new Set(internalNodes.map(n => n.id));
-            // Compute degree: count edges that touch any internal node (measures real-world connectivity)
+        const dbPath = path.join(d, '.monomind', 'monograph.db');
+        let nodes = [], edges = [];
+        if (fs.existsSync(dbPath)) {
+          const { openDb, closeDb } = await import('@monoes/monograph');
+          const db = openDb(dbPath);
+          try {
+            const nodeLimit = Math.min(parseInt(qs.get('limit') || '500', 10), 5000);
+            // ?labels=Section,Concept  →  fetch only those label types (no degree cutoff)
+            const labelFilter = qs.get('labels') ? new Set(qs.get('labels').split(',').map(s => s.trim())) : null;
+            const rawNodes = labelFilter
+              ? db.prepare(`SELECT id, name, label, file_path, community_id FROM nodes WHERE label IN (${[...labelFilter].map(() => '?').join(',')}) LIMIT 5000`).all(...labelFilter)
+              : db.prepare('SELECT id, name, label, file_path, community_id FROM nodes LIMIT 5000').all();
+            const rawEdges = db.prepare('SELECT source_id, target_id, relation FROM edges').all();
+            // Compute degree
             const degree = new Map();
-            for (const n of internalNodes) degree.set(n.id, 0);
+            for (const n of rawNodes) degree.set(n.id, 0);
             for (const e of rawEdges) {
-              if (internalIds.has(e.source)) degree.set(e.source, (degree.get(e.source) || 0) + 1);
-              if (internalIds.has(e.target)) degree.set(e.target, (degree.get(e.target) || 0) + 1);
+              if (degree.has(e.source_id)) degree.set(e.source_id, (degree.get(e.source_id) || 0) + 1);
+              if (degree.has(e.target_id)) degree.set(e.target_id, (degree.get(e.target_id) || 0) + 1);
             }
-            // Top 120 internal nodes by degree
-            const topNodes = [...internalNodes]
-              .sort((a, b) => (degree.get(b.id) || 0) - (degree.get(a.id) || 0))
-              .slice(0, 120);
+            // When filtering by labels, return all matching nodes (skip degree sort+slice)
+            const topNodes = labelFilter
+              ? rawNodes
+              : [...rawNodes].sort((a, b) => (degree.get(b.id) || 0) - (degree.get(a.id) || 0)).slice(0, nodeLimit);
             const topIds = new Set(topNodes.map(n => n.id));
-            nodes = topNodes.map(n => ({ id: n.id, label: n.label || n.id, type: n.type, degree: degree.get(n.id) || 0 }));
-            edges = rawEdges
-              .filter(e => topIds.has(e.source) && topIds.has(e.target))
-              .sort((a, b) => ((degree.get(b.source) || 0) + (degree.get(b.target) || 0)) - ((degree.get(a.source) || 0) + (degree.get(a.target) || 0)))
-              .slice(0, 500)
-              .map(e => ({ source: e.source, target: e.target, relation: e.relation || e.type }));
-          } else {
-            tooLarge = true;
-          }
-        } catch (e) { if (e.code !== 'ENOENT') throw e; }
+            nodes = topNodes.map(n => ({ id: n.id, label: n.name || n.id, type: n.label || 'unknown', degree: degree.get(n.id) || 0 }));
+            edges = rawEdges.filter(e => topIds.has(e.source_id) && topIds.has(e.target_id)).slice(0, 2000).map(e => ({ source: e.source_id, target: e.target_id, relation: e.relation || 'REF' }));
+          } finally { closeDb(db); }
+        }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
-        res.end(JSON.stringify({ nodes, edges, tooLarge }));
+        res.end(JSON.stringify({ nodes, edges }));
       } catch (err) {
         res.writeHead(500); res.end(JSON.stringify({ error: err.message }));
       }
       return;
     }
 
-    // -------------------------------------------------- POST /api/graphify-build
-    if (req.method === 'POST' && url === '/api/graphify-build') {
+    // -------------------------------------------------- POST /api/ua-enrich
+    // Trigger semantic enrichment on an existing monograph DB.
+    // Imports understand graph.json if present; falls back to structural-only pass.
+    if (req.method === 'POST' && url === '/api/ua-enrich') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
+        const d = path.resolve(dir || process.cwd());
+        const dbFilePath = path.join(d, '.monomind', 'monograph.db');
+
+        // Check for UA graph.json first
+        const uaGraphCandidates = [
+          path.join(d, '.understand-anything', 'knowledge-graph.json'),
+          path.join(d, '.understand-anything', 'graph.json'),
+          path.join(d, '.ua', 'knowledge-graph.json'),
+          path.join(d, '.ua', 'graph.json'),
+        ];
+        const uaGraph = uaGraphCandidates.find(p => fs.existsSync(p));
+        const importScript = path.join(process.cwd(), 'scripts', 'ua-import.mjs');
+        const enrichScript = path.join(process.cwd(), 'scripts', 'ua-enrich.mjs');
+
+        res.writeHead(202, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+
+        if (uaGraph && fs.existsSync(importScript)) {
+          res.end(JSON.stringify({ status: 'importing', source: uaGraph }));
+          const { spawn: sp } = await import('child_process');
+          const child = sp(process.execPath, [importScript, uaGraph, dbFilePath], { stdio: 'ignore', detached: true, cwd: d });
+          child.unref();
+        } else if (fs.existsSync(enrichScript)) {
+          res.end(JSON.stringify({ status: 'enriching', mode: 'structural-only' }));
+          const { spawn: sp } = await import('child_process');
+          const child = sp(process.execPath, [enrichScript, '--dir', d, '--db', dbFilePath, '--full'], { stdio: 'ignore', detached: true, cwd: d });
+          child.unref();
+        } else {
+          res.end(JSON.stringify({ status: 'skipped', reason: 'No understand graph.json found. Run /monomind:understand in Claude Code first.' }));
+        }
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // -------------------------------------------------- POST /api/monograph-build
+    if (req.method === 'POST' && url === '/api/monograph-build') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
 
         res.writeHead(202, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -727,32 +902,35 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
-    // -------------------------------------------------- GET /api/graphify-query
-    if (req.method === 'GET' && url === '/api/graphify-query') {
+    // -------------------------------------------------- GET /api/monograph-query
+    if (req.method === 'GET' && url === '/api/monograph-query') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const q = qs.get('q') || '';
-        const mode = qs.get('mode') === 'dfs' ? '--dfs' : '';
-        const budget = qs.get('budget') || '2000';
         const d = path.resolve(dir || process.cwd());
-        const graphPath = path.join(d, '.monomind', 'graph', 'graph.json');
-        const legacyPath = path.join(d, 'graphify-out', 'graph.json');
-        const gp = fs.existsSync(graphPath) ? graphPath : (fs.existsSync(legacyPath) ? legacyPath : null);
-
-        if (!q) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Missing ?q= parameter' }));
-          return;
-        }
-
-        const { execSync: ex } = await import('child_process');
-        const args = ['query', JSON.stringify(q), '--budget', budget];
-        if (mode) args.push(mode);
-        if (gp) args.push('--graph', gp);
-        const out = ex(`graphify ${args.join(' ')}`, { encoding: 'utf8', cwd: d, timeout: 30000, stdio: ['pipe', 'pipe', 'pipe'] });
+        const dbPath = path.join(d, '.monomind', 'monograph.db');
+        if (!q) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?q= parameter' })); return; }
+        if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ success: false, result: 'Graph not built yet. Run: monomind monograph build' })); return; }
+        const { openDb, closeDb, ftsSearch } = await import('@monoes/monograph');
+        const db = openDb(dbPath);
+        let result = '';
+        try {
+          const hits = ftsSearch(db, q, 20);
+          if (!hits.length) {
+            result = `No matches found for: "${q}"`;
+          } else {
+            result = hits.map((h, i) => `${String(i+1).padStart(3,' ')}. ${h.name} [${h.normLabel}]${h.filePath ? '\n     ' + h.filePath : ''}`).join('\n');
+            // Show outgoing edges for top hit
+            const topHit = hits[0];
+            const neighbors = db.prepare('SELECT target_id, relation FROM edges WHERE source_id=? LIMIT 10').all(topHit.id);
+            if (neighbors.length) {
+              result += `\n\n── ${topHit.name} references:\n` + neighbors.map(n => `   ${n.relation} → ${n.target_id.split('/').pop() || n.target_id}`).join('\n');
+            }
+          }
+        } finally { closeDb(db); }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ success: true, query: q, result: out }));
+        res.end(JSON.stringify({ success: true, query: q, result }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
@@ -760,29 +938,40 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
-    // -------------------------------------------------- GET /api/graphify-explain
-    if (req.method === 'GET' && url === '/api/graphify-explain') {
+    // -------------------------------------------------- GET /api/monograph-explain
+    if (req.method === 'GET' && url === '/api/monograph-explain') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
-        const node = qs.get('node') || '';
+        const dir = qs.get('dir') || projectDir || process.cwd();
+        const nodeQ = qs.get('node') || '';
         const d = path.resolve(dir || process.cwd());
-        const graphPath = path.join(d, '.monomind', 'graph', 'graph.json');
-        const legacyPath = path.join(d, 'graphify-out', 'graph.json');
-        const gp = fs.existsSync(graphPath) ? graphPath : (fs.existsSync(legacyPath) ? legacyPath : null);
-
-        if (!node) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Missing ?node= parameter' }));
-          return;
-        }
-
-        const { execSync: ex } = await import('child_process');
-        const args = ['explain', JSON.stringify(node)];
-        if (gp) args.push('--graph', gp);
-        const out = ex(`graphify ${args.join(' ')}`, { encoding: 'utf8', cwd: d, timeout: 15000, stdio: ['pipe', 'pipe', 'pipe'] });
+        const dbPath = path.join(d, '.monomind', 'monograph.db');
+        if (!nodeQ) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?node= parameter' })); return; }
+        if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ success: false, explanation: 'Graph not built yet. Run: monomind monograph build' })); return; }
+        const { openDb, closeDb, ftsSearch } = await import('@monoes/monograph');
+        const db = openDb(dbPath);
+        let explanation = '';
+        try {
+          let nd = db.prepare('SELECT * FROM nodes WHERE id=?').get(nodeQ) || db.prepare('SELECT * FROM nodes WHERE name=?').get(nodeQ);
+          if (!nd) { const hits = ftsSearch(db, nodeQ, 1); if (hits[0]) nd = db.prepare('SELECT * FROM nodes WHERE id=?').get(hits[0].id); }
+          if (!nd) {
+            explanation = `No node found matching: "${nodeQ}"`;
+          } else {
+            const outEdges = db.prepare('SELECT target_id, relation FROM edges WHERE source_id=? LIMIT 20').all(nd.id);
+            const inEdges = db.prepare('SELECT source_id, relation FROM edges WHERE target_id=? LIMIT 20').all(nd.id);
+            explanation = [
+              `## ${nd.name} [${nd.label}]`,
+              nd.file_path ? `File: ${nd.file_path}${nd.start_line ? ':' + nd.start_line : ''}` : '',
+              nd.language ? `Language: ${nd.language}` : '',
+              nd.is_exported ? 'Exported: yes' : 'Exported: no',
+              '',
+              outEdges.length ? `References (${outEdges.length}):\n` + outEdges.map(e => `  ${e.relation} → ${e.target_id.split('/').pop() || e.target_id}`).join('\n') : 'No outgoing references.',
+              inEdges.length ? `\nReferenced by (${inEdges.length}):\n` + inEdges.map(e => `  ${e.source_id.split('/').pop() || e.source_id} [${e.relation}]`).join('\n') : '',
+            ].filter(Boolean).join('\n');
+          }
+        } finally { closeDb(db); }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ success: true, node, explanation: out }));
+        res.end(JSON.stringify({ success: true, node: nodeQ, explanation }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
@@ -790,30 +979,39 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
-    // -------------------------------------------------- GET /api/graphify-path
-    if (req.method === 'GET' && url === '/api/graphify-path') {
+    // -------------------------------------------------- GET /api/monograph-path
+    if (req.method === 'GET' && url === '/api/monograph-path') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const from = qs.get('from') || '';
         const to = qs.get('to') || '';
         const d = path.resolve(dir || process.cwd());
-        const graphPath = path.join(d, '.monomind', 'graph', 'graph.json');
-        const legacyPath = path.join(d, 'graphify-out', 'graph.json');
-        const gp = fs.existsSync(graphPath) ? graphPath : (fs.existsSync(legacyPath) ? legacyPath : null);
-
-        if (!from || !to) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Missing ?from= and ?to= parameters' }));
-          return;
-        }
-
-        const { execSync: ex } = await import('child_process');
-        const args = ['path', JSON.stringify(from), JSON.stringify(to)];
-        if (gp) args.push('--graph', gp);
-        const out = ex(`graphify ${args.join(' ')}`, { encoding: 'utf8', cwd: d, timeout: 15000, stdio: ['pipe', 'pipe', 'pipe'] });
+        const dbPath = path.join(d, '.monomind', 'monograph.db');
+        if (!from || !to) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?from= and ?to= parameters' })); return; }
+        if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ success: false, path: 'Graph not built yet.' })); return; }
+        const { openDb, closeDb, getShortestPath, ftsSearch } = await import('@monoes/monograph');
+        const db = openDb(dbPath);
+        let pathResult = '';
+        try {
+          const resolveId = (q) => {
+            const direct = db.prepare('SELECT id FROM nodes WHERE id=? OR name=?').get(q, q);
+            if (direct) return direct.id;
+            const hits = ftsSearch(db, q, 1);
+            return hits[0]?.id || q;
+          };
+          const fromId = resolveId(from);
+          const toId = resolveId(to);
+          const p = getShortestPath(db, fromId, toId);
+          if (!p || !p.length) {
+            pathResult = `No path found between "${from}" and "${to}"`;
+          } else {
+            const names = p.map(id => { const n = db.prepare('SELECT name FROM nodes WHERE id=?').get(id); return n ? n.name : id.split('/').pop() || id; });
+            pathResult = names.join(' → ') + `  (${p.length - 1} hop${p.length !== 2 ? 's' : ''})`;
+          }
+        } finally { closeDb(db); }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ success: true, from, to, path: out }));
+        res.end(JSON.stringify({ success: true, from, to, path: pathResult }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
@@ -821,13 +1019,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
-    // -------------------------------------------------- GET /api/graphify-watch-status
-    if (req.method === 'GET' && url === '/api/graphify-watch-status') {
+    // -------------------------------------------------- GET /api/monograph-watch-status
+    if (req.method === 'GET' && url === '/api/monograph-watch-status') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
-        const pidPath = path.join(d, '.monomind', 'graph', 'watch.pid');
+        const pidPath = path.join(d, '.monomind', 'monograph.watch.pid');
         let running = false, pid = null;
         try {
           pid = parseInt(fs.readFileSync(pidPath, 'utf-8').trim(), 10);
@@ -843,13 +1041,13 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
-    // -------------------------------------------------- POST /api/graphify-watch-toggle
-    if (req.method === 'POST' && url === '/api/graphify-watch-toggle') {
+    // -------------------------------------------------- POST /api/monograph-watch-toggle
+    if (req.method === 'POST' && url === '/api/monograph-watch-toggle') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
-        const pidPath = path.join(d, '.monomind', 'graph', 'watch.pid');
+        const pidPath = path.join(d, '.monomind', 'monograph.watch.pid');
         let wasRunning = false;
         try {
           const pid = parseInt(fs.readFileSync(pidPath, 'utf-8').trim(), 10);
@@ -864,9 +1062,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           res.end(JSON.stringify({ running: false, action: 'stopped' }));
         } else {
           const { spawn: sp } = await import('child_process');
-          const child = sp('graphify', ['watch', d], { stdio: 'ignore', detached: true, cwd: d });
+          const child = sp(process.execPath, [process.argv[1], 'monograph', 'watch'], { stdio: 'ignore', detached: true, cwd: d, env: process.env });
           child.unref();
-          try { fs.mkdirSync(path.join(d, '.monomind', 'graph'), { recursive: true }); } catch {}
+          try { fs.mkdirSync(path.join(d, '.monomind'), { recursive: true }); } catch {}
           try { fs.writeFileSync(pidPath, String(child.pid)); } catch {}
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ running: true, pid: child.pid, action: 'started' }));
@@ -878,11 +1076,144 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
-    // -------------------------------------------------- GET /api/graphify-benchmark
-    if (req.method === 'GET' && url === '/api/graphify-benchmark') {
+    // -------------------------------------------------- POST /api/mcp/call
+    if (req.method === 'POST' && url === '/api/mcp/call') {
+      let body = '';
+      req.on('data', c => body += c);
+      req.on('end', async () => {
+        const json = res => { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); };
+        const ok = (data) => { json(res); res.end(JSON.stringify({ content: [{ type: 'text', text: typeof data === 'string' ? data : JSON.stringify(data, null, 2) }] })); };
+        const err = (msg) => { json(res); res.end(JSON.stringify({ error: msg })); };
+        try {
+          const { tool, input = {} } = JSON.parse(body);
+          const qs2 = new URL(req.url, 'http://localhost').searchParams;
+          const dir2 = qs2.get('dir') || projectDir;
+          const d2 = path.resolve(dir2 || process.cwd());
+          const dbPath2 = path.join(d2, '.monomind', 'monograph.db');
+          if (!fs.existsSync(dbPath2)) { err('monograph.db not found — run monograph build first'); return; }
+          const { openDb, closeDb, ftsSearch, getShortestPath, countNodes, countEdges } = await import('@monoes/monograph');
+          const db2 = openDb(dbPath2);
+          try {
+            if (tool === 'monograph_stats') {
+              const n = countNodes(db2), e = countEdges(db2);
+              ok(`nodes: ${n}\nedges: ${e}`);
+            } else if (tool === 'monograph_cypher') {
+              // Translate basic MATCH (n:Label) queries to SQL
+              const q = (input.query || '').trim();
+              const labelMatch = q.match(/MATCH\s+\(n:(\w+)\)/i);
+              if (labelMatch) {
+                const label = labelMatch[1];
+                const rows = db2.prepare('SELECT name FROM nodes WHERE label = ? LIMIT 5000').all(label);
+                ok(rows.map(r => r.name).join('\n'));
+              } else {
+                ok('Cypher: unsupported query pattern');
+              }
+            } else if (tool === 'monograph_cohesion') {
+              const limit = input.limit || 30;
+              // Check if community_id is populated
+              const hasCommunities = db2.prepare('SELECT COUNT(*) as c FROM nodes WHERE community_id IS NOT NULL').get().c > 0;
+              if (hasCommunities) {
+                const rows = db2.prepare('SELECT community_id, COUNT(*) as size FROM nodes GROUP BY community_id ORDER BY size DESC LIMIT ?').all(limit);
+                ok(rows.map(r => `community ${r.community_id}: ${r.size} nodes`).join('\n'));
+              } else {
+                // Fallback: group by type (label)
+                const rows = db2.prepare('SELECT label, COUNT(*) as cnt FROM nodes GROUP BY label ORDER BY cnt DESC LIMIT ?').all(limit);
+                const total = db2.prepare('SELECT COUNT(*) as c FROM nodes').get().c;
+                const lines = rows.map(r => {
+                  const pct = ((r.cnt / total) * 100).toFixed(1);
+                  const bar = '█'.repeat(Math.round(pct / 3));
+                  return `${(r.label || 'unknown').padEnd(12)} ${r.cnt.toString().padStart(6)} nodes  (${pct}%)  ${bar}`;
+                });
+                ok(`Type Distribution (community clustering not yet run)\n${'─'.repeat(50)}\n${lines.join('\n')}`);
+              }
+            } else if (tool === 'monograph_bridge') {
+              const limit = input.limit || 20;
+              // Find hub nodes that connect many different directories (cross-module connectors)
+              const rows = db2.prepare(`
+                SELECT n.name, n.label, n.file_path,
+                  COUNT(DISTINCT CASE WHEN e.source_id = n.id THEN n2.file_path ELSE NULL END) +
+                  COUNT(DISTINCT CASE WHEN e.target_id = n.id THEN n2.file_path ELSE NULL END) as cross_file_count,
+                  (SELECT COUNT(*) FROM edges WHERE source_id = n.id OR target_id = n.id) as total_degree
+                FROM nodes n
+                JOIN edges e ON e.source_id = n.id OR e.target_id = n.id
+                JOIN nodes n2 ON (e.source_id = n2.id OR e.target_id = n2.id) AND n2.id != n.id
+                GROUP BY n.id
+                HAVING cross_file_count > 2
+                ORDER BY cross_file_count DESC, total_degree DESC
+                LIMIT ?`).all(limit);
+              if (!rows.length) {
+                ok('No cross-module bridge nodes found in top results. Try running monograph build to index more files.');
+              } else {
+                const lines = rows.map(r =>
+                  `${r.name} (${r.label})\n  → connects ${r.cross_file_count} files, degree ${r.total_degree}\n  ${r.file_path || '?'}`
+                );
+                ok(`Cross-Module Bridge Nodes (${rows.length})\n${'─'.repeat(50)}\n${lines.join('\n\n')}`);
+              }
+            } else if (tool === 'monograph_detect_changes') {
+              const { execSync } = await import('child_process');
+              let changed = '';
+              try { changed = execSync('git diff --name-only HEAD', { cwd: d2, encoding: 'utf-8' }); } catch { changed = '(git not available)'; }
+              ok(changed.trim() || 'No changed files detected');
+            } else if (tool === 'monograph_diff') {
+              ok('Graph diff: compare two snapshots using monograph snapshot + monograph diff commands');
+            } else if (tool === 'monograph_rename') {
+              const sym = input.symbolName || '';
+              if (!sym) { ok('Provide symbolName to rename'); return; }
+              const hits = ftsSearch(db2, sym, 20);
+              ok(`Found ${hits.length} occurrences of "${sym}":\n` + hits.map(h => `  ${h.filePath || '?'}:${h.startLine || '?'} — ${h.name}`).join('\n'));
+            } else if (tool === 'monograph_impact') {
+              const target = input.target || '';
+              const dir3 = input.direction || 'both';
+              const depth = input.maxDepth || 4;
+              const hits = ftsSearch(db2, target, 5);
+              if (!hits.length) { ok(`Node not found: ${target}`); return; }
+              const nodeId = hits[0].id;
+              const visited = new Set([nodeId]);
+              const frontier = [nodeId];
+              const results = [];
+              for (let d3 = 0; d3 < depth && frontier.length; d3++) {
+                const next = [];
+                for (const id of frontier) {
+                  const outgoing = dir3 !== 'upstream' ? db2.prepare('SELECT target_id, relation FROM edges WHERE source_id = ?').all(id) : [];
+                  const incoming = dir3 !== 'downstream' ? db2.prepare('SELECT source_id as target_id, relation FROM edges WHERE target_id = ?').all(id) : [];
+                  for (const e of [...outgoing, ...incoming]) {
+                    if (!visited.has(e.target_id)) {
+                      visited.add(e.target_id);
+                      next.push(e.target_id);
+                      const n3 = db2.prepare('SELECT name, label FROM nodes WHERE id = ?').get(e.target_id);
+                      if (n3) results.push(`  [hop ${d3+1}] ${n3.name} (${n3.label}) via ${e.relation}`);
+                    }
+                  }
+                }
+                frontier.length = 0; frontier.push(...next);
+              }
+              ok(`Impact of "${hits[0].name}" (${dir3}, depth=${depth}):\n` + (results.join('\n') || '  (no dependencies found)'));
+            } else if (tool === 'monograph_context') {
+              const id = input.id || '';
+              const hits = ftsSearch(db2, id, 5);
+              if (!hits.length) { ok(`Node not found: ${id}`); return; }
+              const node = hits[0];
+              const outEdges = db2.prepare('SELECT e.relation, n.name FROM edges e JOIN nodes n ON n.id = e.target_id WHERE e.source_id = ? LIMIT 20').all(node.id);
+              const inEdges = db2.prepare('SELECT e.relation, n.name FROM edges e JOIN nodes n ON n.id = e.source_id WHERE e.target_id = ? LIMIT 20').all(node.id);
+              ok(`# ${node.name} (${node.label})\nFile: ${node.filePath || '?'}\n\n**Imports / depends on (${outEdges.length}):**\n${outEdges.map(e => `  → ${e.name} [${e.relation}]`).join('\n') || '  (none)'}\n\n**Used by / depended on by (${inEdges.length}):**\n${inEdges.map(e => `  ← ${e.name} [${e.relation}]`).join('\n') || '  (none)'}`);
+            } else if (tool === 'monograph_query' || tool === 'monograph_suggest') {
+              const q2 = input.query || input.task || '';
+              const hits2 = ftsSearch(db2, q2, 20);
+              ok(hits2.map(h => `${h.name} (${h.label}) — ${h.filePath || '?'}:${h.startLine || '?'}`).join('\n') || 'No results');
+            } else {
+              ok(`Tool "${tool}" not implemented in control panel`);
+            }
+          } finally { closeDb(db2); }
+        } catch(e2) { err(String(e2)); }
+      });
+      return;
+    }
+
+    // -------------------------------------------------- GET /api/monograph-benchmark
+    if (req.method === 'GET' && url === '/api/monograph-benchmark') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
         const graphPath = path.join(d, '.monomind', 'graph', 'graph.json');
         const legacyPath = path.join(d, 'graphify-out', 'graph.json');
@@ -910,7 +1241,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     if (req.method === 'GET' && url === '/api/graph') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const d = path.resolve(dir || process.cwd());
 
         // Find session files — sort by mtime descending before processing
@@ -1077,12 +1408,71 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // -------------------------------------------------- GET /api/token-usage
+    if (req.method === 'GET' && url.startsWith('/api/token-usage')) {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const period = ['today','week','30days','month'].includes(qs.get('period')) ? qs.get('period') : 'today';
+        const dir = path.resolve(qs.get('dir') || projectDir || process.cwd());
+        const trackerPath = path.join(dir, '.claude', 'helpers', 'token-tracker.cjs');
+        const fallback = () => {
+          const summary = (() => { try { return JSON.parse(fs.readFileSync(path.join(dir, '.monomind', 'metrics', 'token-summary.json'), 'utf8')); } catch { return {}; } })();
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+          res.end(JSON.stringify({ totalCost: summary.todayCost || 0, totalCalls: summary.todayCalls || 0, totalIn: 0, totalOut: 0, totalCR: 0, totalCW: 0, projects: [], modelBreakdown: {}, categoryBreakdown: {}, toolBreakdown: {}, mcpBreakdown: {}, periodLabel: period }));
+        };
+        if (!fs.existsSync(trackerPath)) { fallback(); return; }
+        try {
+          const _req = createRequire(import.meta.url);
+          const tracker = _req(trackerPath);
+          const range = tracker.getDateRange(period);
+          const projects = tracker.parseAllSessions(range.start, range.end);
+          let totalCost = 0, totalIn = 0, totalOut = 0, totalCR = 0, totalCW = 0, totalCalls = 0;
+          const modelBreakdown = {}, categoryBreakdown = {}, toolBreakdown = {}, mcpBreakdown = {};
+          for (const p of projects) {
+            totalCost += p.totalCost || 0;
+            for (const s of (p.sessions || [])) {
+              totalIn += s.totalInputTokens || 0;
+              totalOut += s.totalOutputTokens || 0;
+              totalCR += s.totalCacheRead || 0;
+              totalCW += s.totalCacheWrite || 0;
+              totalCalls += s.apiCalls || 0;
+              for (const [mn, m] of Object.entries(s.modelBreakdown || {})) {
+                if (!modelBreakdown[mn]) modelBreakdown[mn] = { calls: 0, cost: 0, tokens: 0 };
+                modelBreakdown[mn].calls += m.calls || 0;
+                modelBreakdown[mn].cost += m.cost || 0;
+                modelBreakdown[mn].tokens += m.tokens || 0;
+              }
+              for (const [cat, c] of Object.entries(s.categoryBreakdown || {})) {
+                if (!categoryBreakdown[cat]) categoryBreakdown[cat] = { turns: 0, cost: 0 };
+                categoryBreakdown[cat].turns += c.turns || 0;
+                categoryBreakdown[cat].cost += c.cost || 0;
+              }
+              for (const [tool, t] of Object.entries(s.toolBreakdown || {})) {
+                if (!toolBreakdown[tool]) toolBreakdown[tool] = { calls: 0 };
+                toolBreakdown[tool].calls += t.calls || 0;
+              }
+              for (const [srv, m] of Object.entries(s.mcpBreakdown || {})) {
+                if (!mcpBreakdown[srv]) mcpBreakdown[srv] = { calls: 0 };
+                mcpBreakdown[srv].calls += m.calls || 0;
+              }
+            }
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+          res.end(JSON.stringify({ totalCost, totalCalls, totalIn, totalOut, totalCR, totalCW, projects, modelBreakdown, categoryBreakdown, toolBreakdown, mcpBreakdown, periodLabel: period }));
+        } catch (e) { fallback(); }
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
     // ------------------------------------------------------- GET /api/section
     if (req.method === 'GET' && url === '/api/section') {
       try {
         const qs = new URL(req.url, 'http://localhost').searchParams;
         const name = qs.get('name') || '';
-        const dir = qs.get('dir') || projectDir;
+        const dir = qs.get('dir') || projectDir || process.cwd();
         const full = qs.get('full') === '1';
         let partial = buildSectionData(name, dir || process.cwd());
         // For full knowledge request, include all chunks
@@ -1257,4 +1647,15 @@ export function getServerStatus() {
     url: currentUrl,
     clientCount: sseClients.size,
   };
+}
+
+// Auto-start when invoked directly: node server.mjs [port]
+const _isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (_isMain) {
+  const _port = parseInt(process.argv[2] || process.env.CONTROL_PORT || '4242', 10);
+  const _dir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  startServer({ port: _port, openBrowser: false, projectDir: _dir }).catch(err => {
+    process.stderr.write(`[server] failed to start: ${err.message}\n`);
+    process.exit(1);
+  });
 }

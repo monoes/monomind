@@ -1,74 +1,73 @@
+---
+name: training:neural-patterns
+description: Neural pattern training overview — automatic learning from operations, manual training, pattern types, and improvement tracking
+---
+
 # Neural Pattern Training
 
-## Purpose
-Continuously improve coordination through neural network learning.
+How Monomind continuously learns and improves through neural pattern training.
 
-## How Training Works
+## How to Invoke
 
-### 1. Automatic Learning
-Every successful operation trains the neural networks:
+```
+Skill("training:neural-patterns")
+```
+
+---
+
+## Automatic Learning
+
+Every successful operation trains the neural networks automatically:
 - Edit patterns for different file types
 - Search strategies that find results faster
 - Task decomposition approaches
 - Agent coordination patterns
 
-### 2. Manual Training
-```
-Tool: mcp__monomind__neural_train
-Parameters: {
-  "pattern_type": "coordination",
-  "training_data": "successful task patterns",
-  "epochs": 50
-}
-```
+The hooks system (`post-edit`, `post-task`) feeds successful operations into training automatically.
 
-### 3. Pattern Types
+## Manual Training
 
-**Cognitive Patterns:**
-- Convergent: Focused problem-solving
-- Divergent: Creative exploration
-- Lateral: Alternative approaches
-- Systems: Holistic thinking
-- Critical: Analytical evaluation
-- Abstract: High-level design
+```javascript
+// Train coordination patterns
+mcp__monomind__neural_train({ patternType: "coordination", epochs: 50 })
 
-### 4. Improvement Tracking
-```
-Tool: mcp__monomind__neural_status
-Result: {
-  "patterns": {
-    "convergent": 0.92,
-    "divergent": 0.87,
-    "lateral": 0.85
-  },
-  "improvement": "5.3% since last session",
-  "confidence": 0.89
-}
+// Train security patterns with contrastive learning
+mcp__monomind__neural_train({ patternType: "security", epochs: 100 })
+
+// Check training status and pattern scores
+mcp__monomind__neural_status({})
+
+// Analyze recent patterns
+mcp__monomind__neural_patterns({ action: "analyze", limit: 20 })
 ```
 
-## Pattern Analysis
-```
-Tool: mcp__monomind__neural_patterns
-Parameters: {
-  "action": "analyze",
-  "operation": "recent_edits"
-}
-```
-
-## Benefits
-- 🧠 Learns your coding style
-- 📈 Improves with each use
-- 🎯 Better task predictions
-- ⚡ Faster coordination
-
-## CLI Usage
 ```bash
-# Train neural patterns via CLI
-npx monomind neural train --type coordination --epochs 50
-
-# Check neural status
+npx monomind neural train --pattern coordination --epochs 50
 npx monomind neural status
-
-# Analyze patterns
-npx monomind neural patterns --analyze
+npx monomind neural patterns --action analyze
 ```
+
+## Pattern Types
+
+| Pattern | Purpose |
+|---------|---------|
+| `coordination` | Multi-agent task coordination (default) |
+| `optimization` | Performance and resource optimization |
+| `prediction` | Task routing and agent selection |
+| `security` | Security scanning and vulnerability detection |
+| `testing` | Test strategy selection and coverage |
+
+## Improvement Tracking
+
+```javascript
+// View current pattern scores and improvement
+mcp__monomind__neural_status({ verbose: true })
+```
+
+Output includes pattern confidence scores and improvement percentage since last session.
+
+## See Also
+
+- `training:neural-train` — Full training options with WASM acceleration
+- `training:pattern-learn` — Manual pattern storage
+- `training:model-update` — Model optimization

@@ -1,128 +1,105 @@
-# 🔍 Verification Commands
+---
+name: verify-start
+description: Verification skill overview — guides running quality, security, and correctness checks using real MCP tools and git-based workflows
+---
 
-Truth verification system for ensuring code quality and correctness with a 0.95 accuracy threshold.
+# Verify — Quality and Correctness Checks
 
-## Overview
+Run targeted verification checks on code, agent outputs, and system state.
 
-The verification system provides real-time truth checking and validation for all agent tasks, ensuring high-quality outputs and automatic rollback on failures.
+## How to Invoke
 
-## Subcommands
+```
+Skill("verify:start")
+```
 
-### `verify check`
-Run verification checks on current code or agent outputs.
+Then describe what to verify:
+> "Verify the last agent output for security issues."
+> "Check system health before deploying."
+> "Verify the code changes in this PR are safe."
+
+---
+
+## Verification Areas
+
+| Area | Skill | What it checks |
+|------|-------|---------------|
+| Code security | `verify:check` | AI defence scan, PII detection |
+| Pattern quality | `verify:check` | Neural pattern confidence, routing accuracy |
+| System health | `truth:start` | MCP status, AgentDB health, performance |
+| Agent outputs | `verify:check` | Task correctness against stored patterns |
+
+## Quick Checks
+
+### Security Scan
+
+```javascript
+mcp__monomind__aidefence_scan({ content: "output or code to verify" })
+mcp__monomind__aidefence_is_safe({ content: "content" })
+```
+
+### System Integrity
+
+```javascript
+mcp__monomind__agentdb_health({})
+mcp__monomind__system_health({})
+mcp__monomind__system_status({})
+```
+
+### Pattern Confidence
+
+```javascript
+mcp__monomind__neural_status({ verbose: true })
+mcp__monomind__neural_patterns({ action: "analyze" })
+```
+
+### Performance Baseline
+
+```javascript
+mcp__monomind__performance_report({ format: "detailed" })
+mcp__monomind__performance_bottleneck({ component: "all" })
+```
+
+## Code Change Verification
+
+For verifying code changes before committing or merging:
 
 ```bash
-monomind verify check --file src/app.js
-monomind verify check --task "task-123"
-monomind verify check --threshold 0.98
+# Type safety
+npx tsc --noEmit
+
+# Tests
+npm test
+
+# Lint
+npm run lint
+
+# Diff review
+git diff HEAD~1 --stat
 ```
 
-### `verify rollback`
-Automatically rollback changes that fail verification.
+## Post-Task Verification
 
-```bash
-monomind verify rollback --to-commit abc123
-monomind verify rollback --last-good
-monomind verify rollback --interactive
+After a swarm or agent task completes, verify outputs:
+
+```javascript
+// 1. Check agent health post-task
+mcp__monomind__agent_health({})
+
+// 2. Scan output for security issues
+mcp__monomind__aidefence_analyze({ content: "task summary or generated code" })
+
+// 3. Store verified pattern for future use
+mcp__monomind__agentdb_pattern_store({
+  pattern: "verified-approach",
+  context: "task type and context",
+  outcome: "success"
+})
 ```
 
-### `verify report`
-Generate verification reports and metrics.
+## Related Skills
 
-```bash
-monomind verify report --format json
-monomind verify report --export metrics.html
-monomind verify report --period 7d
-```
-
-### `verify dashboard`
-Launch interactive verification dashboard.
-
-```bash
-monomind verify dashboard
-monomind verify dashboard --port 3000
-monomind verify dashboard --export
-```
-
-## Configuration
-
-Default threshold: **0.95** (95% accuracy required)
-
-Configure in `.monomind/config.json`:
-```json
-{
-  "verification": {
-    "threshold": 0.95,
-    "autoRollback": true,
-    "gitIntegration": true,
-    "hooks": {
-      "preCommit": true,
-      "preTask": true,
-      "postEdit": true
-    }
-  }
-}
-```
-
-## Integration
-
-### With Swarm Commands
-```bash
-monomind swarm --verify --threshold 0.98
-monomind hive-mind --verify
-```
-
-### With Training Pipeline
-```bash
-monomind train --verify --rollback-on-fail
-```
-
-### With Pair Programming
-```bash
-monomind pair --verify --real-time
-```
-
-## Metrics
-
-- **Truth Score**: 0.0 to 1.0 (higher is better)
-- **Confidence Level**: Statistical confidence in verification
-- **Rollback Rate**: Percentage of changes rolled back
-- **Quality Improvement**: Trend over time
-
-## Examples
-
-### Basic Verification
-```bash
-# Verify current directory
-monomind verify check
-
-# Verify with custom threshold
-monomind verify check --threshold 0.99
-
-# Verify and auto-fix
-monomind verify check --auto-fix
-```
-
-### Advanced Workflows
-```bash
-# Continuous verification during development
-monomind verify watch --directory src/
-
-# Batch verification
-monomind verify batch --files "*.js" --parallel
-
-# Integration testing
-monomind verify integration --test-suite full
-```
-
-## Performance
-
-- Verification latency: <100ms for most checks
-- Rollback time: <1s for git-based rollback
-- Dashboard refresh: Real-time via WebSocket
-
-## Related Commands
-
-- `truth` - View truth scores and metrics
-- `pair` - Collaborative development with verification
-- `train` - Training with verification feedback
+- `verify:check` — Targeted verification checks with MCP tools
+- `truth:start` — Full system reliability assessment
+- `hooks:post-task` — Automatic post-task verification via hooks
+- `security-hardening` — Comprehensive security workflows

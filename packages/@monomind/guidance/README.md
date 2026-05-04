@@ -8,7 +8,6 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![GitHub stars](https://img.shields.io/github/stars/nokhodian/monomind?style=flat-square&logo=github)](https://github.com/nokhodian/monomind)
 [![monomind](https://img.shields.io/npm/v/monomind.svg?style=flat-square&label=monomind&color=blueviolet)](https://www.npmjs.com/package/monomind)
-[![ruvbot](https://img.shields.io/npm/v/ruvbot.svg?style=flat-square&label=ruvbot&color=orange)](https://www.npmjs.com/package/ruvbot)
 
 **Long-horizon governance for Claude Code agents.**
 
@@ -1184,8 +1183,6 @@ Take 20 real Monomind tasks from repo history. Run A without control plane, run 
 | **GitHub** | [github.com/nokhodian/monomind](https://github.com/nokhodian/monomind) |
 | **npm: @monomind/guidance** | [npmjs.com/package/@monomind/guidance](https://www.npmjs.com/package/@monomind/guidance) |
 | **npm: monomind** | [npmjs.com/package/monomind](https://www.npmjs.com/package/monomind) |
-| **npm: ruvbot** | [npmjs.com/package/ruvbot](https://www.npmjs.com/package/ruvbot) |
-| **GitHub** | [nokhodian/monomind](https://github.com/nokhodian/monomind) |
 | **Issues** | [github.com/nokhodian/monomind/issues](https://github.com/nokhodian/monomind/issues) |
 | **API Reference** | [docs/reference/api-quick-reference.md](docs/reference/api-quick-reference.md) |
 | **ADR Index** | [docs/adrs/](docs/adrs/) |

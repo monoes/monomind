@@ -1,78 +1,86 @@
+---
+name: workflows:development
+description: Development workflow coordination pattern — hierarchical swarm for structured implementation tasks using real MCP tools and npx monomind workflow run -t development
+---
+
 # Development Workflow Coordination
 
-## Purpose
-Structure Claude Code's approach to complex development tasks for maximum efficiency.
+Structure multi-agent development tasks using the built-in development template for maximum efficiency.
 
-## Step-by-Step Coordination
+## How to Invoke
 
-### 1. Initialize Development Framework
 ```
-Tool: mcp__monomind__swarm_init
-Parameters: {"topology": "hierarchical", "maxAgents": 8, "strategy": "specialized"}
-```
-Creates hierarchical structure for organized, top-down development.
-
-### 2. Define Development Perspectives
-```
-Tool: mcp__monomind__agent_spawn
-Parameters: {
-  "type": "architect",
-  "name": "System Design",
-  "capabilities": ["api-design", "database-schema"]
-}
-```
-```
-Tool: mcp__monomind__agent_spawn
-Parameters: {
-  "type": "coder",
-  "name": "Implementation Focus",
-  "capabilities": ["nodejs", "typescript", "express"]
-}
-```
-```
-Tool: mcp__monomind__agent_spawn
-Parameters: {
-  "type": "tester",
-  "name": "Quality Assurance",
-  "capabilities": ["unit-testing", "integration-testing"]
-}
-```
-Sets up architectural and implementation thinking patterns.
-
-### 3. Coordinate Implementation
-```
-Tool: mcp__monomind__task_orchestrate
-Parameters: {
-  "task": "Build REST API with authentication",
-  "strategy": "parallel",
-  "priority": "high",
-  "dependencies": ["database setup", "auth system"]
-}
+Skill("workflows:development")
 ```
 
-### 4. Monitor Progress
+---
+
+## Quick Start
+
+```bash
+# Run the built-in development workflow
+npx monomind workflow run -t development --task "Build REST API with auth"
+
+# Preview stages without executing
+npx monomind workflow run -t development --dry-run
+
+# Show template details (stages, agents, duration)
+npx monomind workflow template show development
 ```
-Tool: mcp__monomind__task_status
-Parameters: {"taskId": "api-build-task-123"}
+
+## Stages
+
+The `development` template runs these stages:
+1. **Planning** — Requirements, architecture decisions
+2. **Implementation** — Code writing
+3. **Testing** — Unit and integration tests
+4. **Review** — Code quality and security check
+5. **Integration** — Connect all pieces
+
+Agents: `coder`, `tester`, `reviewer` (in parallel where possible)
+
+## MCP Coordination
+
+For custom development coordination via MCP:
+
+```javascript
+// Initialize hierarchical swarm for development
+mcp__monomind__swarm_init({
+  topology: "hierarchical",
+  maxAgents: 8,
+  strategy: "specialized"
+})
+
+// Run the development workflow
+mcp__monomind__workflow_run({
+  template: "development",
+  task: "Build REST API with authentication",
+  options: { parallel: true, maxAgents: 6 }
+})
+
+// Check progress
+mcp__monomind__workflow_status({ workflowId: "wf-123" })
+
+// Store findings for future sessions
+mcp__monomind__memory_store({
+  key: "dev-pattern-rest-api",
+  value: "JWT auth + Express + Zod validation worked well",
+  namespace: "patterns"
+})
 ```
 
 ## What Claude Code Actually Does
-1. Uses **Write** tool to create new files
-2. Uses **Edit/MultiEdit** tools for code modifications
-3. Uses **Bash** tool for testing and building
-4. Uses **TodoWrite** tool for task tracking
-5. Follows coordination patterns for systematic implementation
 
-Remember: All code is written by Claude Code using its native tools!
+Claude Code handles all execution via native tools:
+1. **Read/Write/Edit** tools — create and modify files
+2. **Bash** tool — run tests, builds, type checks
+3. **TodoWrite** tool — track implementation steps
+4. **Task** tool — spawn parallel agent workers
 
-## CLI Usage
-```bash
-# Start development workflow via CLI
-npx monomind workflow dev "REST API with auth"
+The workflow template defines the coordination strategy; Claude Code does the actual work.
 
-# Create custom workflow
-npx monomind workflow create --name "api-dev" --steps "design,implement,test,deploy"
+## Related Skills
 
-# Execute saved workflow
-npx monomind workflow execute api-dev
-```
+- `workflows:workflow-execute` — Full workflow run reference
+- `swarm:development` — Direct swarm-based development coordination
+- `swarm:swarm-strategies` — Strategy selection guide

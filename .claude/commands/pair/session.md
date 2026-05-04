@@ -1,407 +1,124 @@
-# Pair Programming Session Management
+---
+name: pair:session
+description: Pair programming session lifecycle — pre-session setup, context setting, mid-session quality checks, breakpoints, end-of-session recording, and multi-session continuity
+---
 
-Complete guide to managing pair programming sessions.
+# Pair Programming Session Lifecycle
 
-## Session Lifecycle
+How to structure a productive pair programming session from start to finish.
 
-### 1. Initialization
-```bash
-monomind pair --start
-```
+## 1. Before You Start
 
-### 2. Active Session
-- Real-time collaboration
-- Continuous verification
-- Quality monitoring
-- Role management
-
-### 3. Completion
-```bash
-monomind pair --end
-```
-
-## Session Commands
-
-During an active session, use these commands:
-
-### Basic Commands
-```
-/help          - Show all available commands
-/status        - Current session status
-/metrics       - View quality metrics
-/pause         - Pause current session
-/resume        - Resume paused session
-/end           - End current session
-```
-
-### Code Commands
-```
-/explain       - Explain current code
-/suggest       - Get improvement suggestions
-/refactor      - Refactor selected code
-/optimize      - Optimize for performance
-/document      - Add documentation
-/comment       - Add inline comments
-```
-
-### Testing Commands
-```
-/test          - Run test suite
-/test-gen      - Generate tests
-/coverage      - Check test coverage
-/test-watch    - Enable test watching
-/mock          - Generate mocks
-```
-
-### Review Commands
-```
-/review        - Full code review
-/security      - Security analysis
-/perf          - Performance review
-/quality       - Quality metrics
-/lint          - Run linters
-```
-
-### Navigation Commands
-```
-/goto <file>   - Navigate to file
-/find <text>   - Search in project
-/recent        - Recent files
-/bookmark      - Bookmark location
-/history       - Command history
-```
-
-### Role Commands
-```
-/switch        - Switch driver/navigator
-/mode <type>   - Change mode
-/role          - Show current role
-/handoff       - Prepare role handoff
-```
-
-### Git Commands
-```
-/diff          - Show changes
-/commit        - Commit with verification
-/branch        - Branch operations
-/stash         - Stash changes
-/log           - View git log
-```
-
-## Session Status
-
-Check current session status:
+Get routing and context from the hooks system:
 
 ```bash
-monomind pair --status
+# Register the task and get agent/model recommendations
+npx monomind hooks pre-task -d "Pair programming: implement [feature]"
 ```
 
-Output:
-```
-👥 Pair Programming Session
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Session ID: pair_1755021234567
-Duration: 45 minutes
-Status: Active
-
-Partner: senior-dev
-Current Role: DRIVER (you)
-Mode: Switch (10m intervals)
-Next Switch: in 3 minutes
-
-📊 Metrics:
-├── Truth Score: 0.982 ✅
-├── Lines Changed: 234
-├── Files Modified: 5
-├── Tests Added: 12
-├── Coverage: 87% ↑3%
-└── Commits: 3
-
-🎯 Focus: Implementation
-📝 Current File: src/auth/login.js
-```
-
-## Session History
-
-View past sessions:
+Load relevant context from memory:
 
 ```bash
-monomind pair --history
+npx monomind memory search --query "[feature domain]" --type hybrid
 ```
 
-Output:
+## 2. Set Session Context
+
+Tell Claude everything it needs to know upfront:
+
 ```
-📚 Session History
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-1. 2024-01-15 14:30 - 16:45 (2h 15m)
-   Partner: expert-coder
-   Focus: Refactoring
-   Truth Score: 0.975
-   Changes: +340 -125 lines
-
-2. 2024-01-14 10:00 - 11:30 (1h 30m)
-   Partner: tdd-specialist
-   Focus: Testing
-   Truth Score: 0.991
-   Tests Added: 24
-
-3. 2024-01-13 15:00 - 17:00 (2h)
-   Partner: debugger-expert
-   Focus: Bug Fixing
-   Truth Score: 0.968
-   Issues Fixed: 5
+Context for this session:
+- Goal: [what we're building]
+- Mode: [driver/navigator/TDD/review]
+- Stack: [language, framework, key libraries]
+- Constraints: [any architectural decisions already made]
+- Focus: [what matters most — correctness / speed / learning]
 ```
 
-## Session Metrics
+The more context upfront, the less correction mid-session.
 
-Real-time metrics during session:
+## 3. During the Session
 
-### Truth Score
-```
-Current: 0.982 ✅
-Average: 0.975
-Minimum: 0.951
-Threshold: 0.950
-```
+**Keeping the session focused:**
+- One concern at a time — don't mix "implement auth" with "also fix the bug in payments"
+- Check in at logical breakpoints: "Before we continue, does this approach make sense?"
+- If you get stuck: "I'm not sure how to handle [edge case]. What are our options?"
 
-### Productivity
-```
-Lines Changed: 234
-Files Modified: 5
-Functions Added: 8
-Functions Refactored: 3
-```
-
-### Quality
-```
-Test Coverage: 87% ↑3%
-Lint Issues: 0
-Security Issues: 0
-Performance Issues: 1 ⚠️
-```
-
-### Collaboration
-```
-Suggestions Given: 45
-Suggestions Accepted: 38 (84%)
-Reviews Completed: 12
-Rollbacks: 1
-```
-
-## Session Persistence
-
-### Save Session
+**Real-time quality checks:**
 ```bash
-monomind pair --save [--name <name>]
+# Watch system status during long sessions
+npx monomind status --watch
+
+# Check test state
+# (run your test suite normally)
 ```
 
-### Load Session
+**Capture decisions as you go:**
 ```bash
-monomind pair --load <session-id>
+# Store important patterns discovered during session
+npx monomind memory store --key "session-[date]-[feature]" \
+  --value "[what we decided and why]" \
+  --namespace "decisions"
 ```
 
-### Export Session
-```bash
-monomind pair --export <session-id> [--format json|md]
-```
+## 4. Breakpoints and Handoffs
 
-## Background Sessions
+Use natural stopping points:
+- After implementing a complete unit (function, class, endpoint)
+- Before switching between subsystems
+- When you need to run tests and wait
 
-Run pair programming in background:
+At each breakpoint:
+> "Summarize what we've done so far and what comes next."
 
-### Start Background Session
-```bash
-monomind pair --start --background
-```
+This keeps both you and Claude aligned on state.
 
-### Monitor Background Session
-```bash
-monomind pair --monitor
-```
+## 5. End of Session
 
-### Attach to Background Session
-```bash
-monomind pair --attach <session-id>
-```
-
-## Session Configuration
-
-### Default Settings
-```json
-{
-  "pair": {
-    "session": {
-      "autoSave": true,
-      "saveInterval": "5m",
-      "maxDuration": "4h",
-      "idleTimeout": "15m",
-      "metricsInterval": "1m"
-    }
-  }
-}
-```
-
-### Per-Session Config
-```bash
-monomind pair --start \
-  --config custom-config.json
-```
-
-## Session Templates
-
-### Refactoring Template
-```bash
-monomind pair --template refactor
-```
-- Focus: Code improvement
-- Verification: High (0.98)
-- Testing: After each change
-- Review: Continuous
-
-### Feature Template
-```bash
-monomind pair --template feature
-```
-- Focus: Implementation
-- Verification: Standard (0.95)
-- Testing: On completion
-- Review: Pre-commit
-
-### Debug Template
-```bash
-monomind pair --template debug
-```
-- Focus: Problem solving
-- Verification: Moderate (0.90)
-- Testing: Regression tests
-- Review: Root cause
-
-### Learning Template
-```bash
-monomind pair --template learn
-```
-- Mode: Mentor
-- Pace: Slow
-- Explanations: Detailed
-- Examples: Many
-
-## Session Reports
-
-Generate session report:
+Record outcomes for future sessions:
 
 ```bash
-monomind pair --report <session-id>
+# Record task completion
+npx monomind hooks post-task --task-id <id> --success true --quality 0.9
+
+# Store any patterns worth remembering
+npx monomind memory store \
+  --key "pattern-[name]" \
+  --value "[the pattern we found/confirmed]" \
+  --namespace "patterns"
 ```
 
-Report includes:
-- Session summary
-- Metrics overview
-- Code changes
-- Test results
-- Quality scores
-- Learning points
-- Recommendations
+Get a session summary:
+> "Summarize: what did we build, what decisions did we make, and what's left to do?"
 
-## Multi-Session Management
+## Session Anti-Patterns
 
-### List Active Sessions
+| Anti-pattern | Instead |
+|---|---|
+| Asking 5 things at once | One question at a time |
+| No upfront context | Always set context first |
+| Never verifying Claude's code | Test frequently, review before committing |
+| Letting the session drift | Define the goal, return to it |
+| Skipping the summary | Always end with a recap |
+
+## Multi-Session Continuity
+
+Use the hooks session system to restore context across conversations:
+
 ```bash
-monomind pair --list
+# At session end — persist state
+npx monomind hooks session-end
+
+# Next session — restore
+npx monomind hooks session-restore
 ```
 
-### Switch Between Sessions
-```bash
-monomind pair --switch <session-id>
-```
+Or just tell Claude at the start of the next session:
+> "We were implementing JWT auth. We finished the token generation but still need the refresh token endpoint. Continue from there."
 
-### Merge Sessions
-```bash
-monomind pair --merge <session-1> <session-2>
-```
+## See Also
 
-## Session Recovery
-
-### Auto-Recovery
-Sessions auto-save every 5 minutes with recovery points.
-
-### Manual Recovery
-```bash
-monomind pair --recover [--point <timestamp>]
-```
-
-### Crash Recovery
-```bash
-monomind pair --crash-recovery
-```
-
-## Session Sharing
-
-### Share with Team
-```bash
-monomind pair --share <session-id> \
-  --team <team-id>
-```
-
-### Export for Review
-```bash
-monomind pair --export-review <session-id>
-```
-
-### Create Learning Material
-```bash
-monomind pair --create-tutorial <session-id>
-```
-
-## Advanced Features
-
-### Session Recording
-```bash
-monomind pair --start --record
-```
-Records all interactions for playback.
-
-### Session Replay
-```bash
-monomind pair --replay <session-id>
-```
-Replay recorded session for learning.
-
-### Session Analytics
-```bash
-monomind pair --analytics <session-id>
-```
-Deep analysis of session patterns.
-
-## Troubleshooting
-
-### Session Won't Start
-- Check agent availability
-- Verify configuration
-- Ensure clean workspace
-
-### Session Disconnected
-- Use `--recover` to restore
-- Check network connection
-- Verify background processes
-
-### Poor Performance
-- Reduce verification threshold
-- Disable continuous testing
-- Check system resources
-
-## Best Practices
-
-1. **Regular Saves** - Auto-save enabled
-2. **Clear Goals** - Define objectives
-3. **Appropriate Duration** - 1-2 hour sessions
-4. **Breaks** - Take regular breaks
-5. **Review** - End with summary
-
-## Related Commands
-
-- `pair --start` - Start new session
-- `pair --config` - Configure settings
-- `pair --templates` - Manage templates
-- `pair --analytics` - View analytics
+- [modes.md](./modes.md) — pick the right collaboration mode
+- [examples.md](./examples.md) — real workflow examples
+- `hooks pre-task` / `hooks post-task` — task tracking
+- `memory store` / `memory search` — persist session knowledge

@@ -1,7 +1,11 @@
+---
+name: github:issue-tracker
+---
+
 # GitHub Issue Tracker
 
 ## Purpose
-Intelligent issue management and project coordination with ruv-swarm integration for automated tracking, progress monitoring, and team coordination.
+Intelligent issue management and project coordination with monomind swarm integration for automated tracking, progress monitoring, and team coordination.
 
 ## Capabilities
 - **Automated issue creation** with smart templates and labeling
@@ -32,10 +36,10 @@ mcp__monomind__agent_spawn { type: "coder", name: "Implementation Planner" }
 
 // Create comprehensive issue
 mcp__github__create_issue {
-  owner: "nokhodian",
-  repo: "ruv-FANN",
-  title: "Integration Review: claude-code-flow and ruv-swarm complete integration",
-  body: `## 🔄 Integration Review
+  owner: ":owner",
+  repo: ":repo",
+  title: "Integration Review: comprehensive package integration",
+  body: `## Integration Review
   
   ### Overview
   Comprehensive review and integration between packages.
@@ -49,51 +53,49 @@ mcp__github__create_issue {
   ### Swarm Coordination
   This issue will be managed by coordinated swarm agents for optimal progress tracking.`,
   labels: ["integration", "review", "enhancement"],
-  assignees: ["nokhodian"]
+  assignees: [":assignee"]
 }
 
 // Set up automated tracking
-mcp__monomind__task_orchestrate {
+mcp__monomind__coordination_orchestrate {
   task: "Monitor and coordinate issue progress with automated updates",
-  strategy: "adaptive",
-  priority: "medium"
+  agents: ["coordinator", "researcher", "coder"],
+  strategy: "parallel"
 }
 ```
 
 ### 2. Automated Progress Updates
 ```javascript
 // Update issue with progress from swarm memory
-mcp__monomind__memory_usage {
-  action: "retrieve",
+mcp__monomind__memory_retrieve {
   key: "issue/54/progress"
 }
 
 // Add coordinated progress comment
 mcp__github__add_issue_comment {
-  owner: "nokhodian",
-  repo: "ruv-FANN",
+  owner: ":owner",
+  repo: ":repo",
   issue_number: 54,
-  body: `## 🚀 Progress Update
+  body: `## Progress Update
 
   ### Completed Tasks
-  - ✅ Architecture review completed (agent-1751574161764)
-  - ✅ Dependency analysis finished (agent-1751574162044)
-  - ✅ Integration testing verified (agent-1751574162300)
+  - Architecture review completed (agent-1751574161764)
+  - Dependency analysis finished (agent-1751574162044)
+  - Integration testing verified (agent-1751574162300)
   
   ### Current Status
-  - 🔄 Documentation review in progress
-  - 📊 Integration score: 89% (Excellent)
+  - Documentation review in progress
+  - Integration score: 89% (Excellent)
   
   ### Next Steps
   - Final validation and merge preparation
   
   ---
-  🤖 Generated with Claude Code using ruv-swarm coordination`
+  Generated with Claude Code using Monomind swarm coordination`
 }
 
 // Store progress in swarm memory
-mcp__monomind__memory_usage {
-  action: "store",
+mcp__monomind__memory_store {
   key: "issue/54/latest_update",
   value: { timestamp: Date.now(), progress: "89%", status: "near_completion" }
 }
@@ -103,15 +105,15 @@ mcp__monomind__memory_usage {
 ```javascript
 // Search and coordinate related issues
 mcp__github__search_issues {
-  q: "repo:nokhodian/ruv-FANN label:integration state:open",
+  q: "repo::owner/:repo label:integration state:open",
   sort: "created",
   order: "desc"
 }
 
 // Create coordinated issue updates
 mcp__github__update_issue {
-  owner: "nokhodian",
-  repo: "ruv-FANN",
+  owner: ":owner",
+  repo: ":repo",
   issue_number: 54,
   state: "open",
   labels: ["integration", "review", "enhancement", "in-progress"],
@@ -140,9 +142,9 @@ mcp__github__update_issue {
   Bash(`gh issue create \
     --repo :owner/:repo \
     --title "Bug: PR merge conflicts in integration branch" \
-    --body "Resolve merge conflicts in integration/claude-code-flow-ruv-swarm..." \
+    --body "Resolve merge conflicts in integration branch..." \
     --label "bug,integration,urgent"`)
-    
+
   Bash(`gh issue create \
     --repo :owner/:repo \
     --title "Documentation: Update integration guides" \
@@ -158,8 +160,7 @@ mcp__github__update_issue {
   ]}
   
   // Store initial coordination state
-  mcp__monomind__memory_usage {
-    action: "store",
+  mcp__monomind__memory_store {
     key: "project/github_integration/issues",
     value: { created: Date.now(), total_issues: 3, status: "initialized" }
   }
@@ -169,7 +170,7 @@ mcp__github__update_issue {
 
 ### Integration Issue Template:
 ```markdown
-## 🔄 Integration Task
+## Integration Task
 
 ### Overview
 [Brief description of integration requirements]
@@ -206,12 +207,12 @@ mcp__github__update_issue {
 Updates will be posted automatically by swarm agents during implementation.
 
 ---
-🤖 Generated with Claude Code
+Generated with Claude Code
 ```
 
 ### Bug Report Template:
 ```markdown
-## 🐛 Bug Report
+## Bug Report
 
 ### Problem Description
 [Clear description of the issue]
@@ -244,7 +245,7 @@ Updates will be posted automatically by swarm agents during implementation.
 - **Tester**: Validation and testing
 
 ---
-🤖 Generated with Claude Code
+Generated with Claude Code
 ```
 
 ## Best Practices

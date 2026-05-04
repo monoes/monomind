@@ -12,14 +12,14 @@ The `@monomind/hooks` package provides a comprehensive hooks system for intercep
 
 ## Features
 
-- 🎣 **Hook Registry** - Priority-based hook registration with filtering and management
-- ⚡ **Hook Executor** - Timeout handling, error recovery, and result aggregation
-- 🤖 **Background Daemons** - Metrics collection, swarm monitoring, pattern learning
-- 👷 **Background Workers** - 12 specialized workers for analysis, optimization, and automation
-- 📊 **Statusline Integration** - Real-time status display for Claude Code
-- 🧠 **ReasoningBank Learning** - Intelligent task routing based on learned patterns
-- 🔧 **MCP Tools** - 13 MCP tools for programmatic hooks access
-- 🔄 **V2 Compatibility** - Backward compatible with V2 hook commands
+- **Hook Registry** - Priority-based hook registration with filtering and management
+- **Hook Executor** - Timeout handling, error recovery, and result aggregation
+- **Background Daemons** - Metrics collection, swarm monitoring, pattern learning
+- **Background Workers** - 12 specialized workers for analysis, optimization, and automation
+- **Statusline Integration** - Real-time status display for Claude Code
+- **ReasoningBank Learning** - Intelligent task routing based on learned patterns
+- **MCP Tools** - 13 MCP tools for programmatic hooks access
+- **V2 Compatibility** - Backward compatible with V2 hook commands
 
 ## Installation
 

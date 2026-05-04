@@ -2,7 +2,7 @@
  * V1 Task Orchestrator
  * Manages task decomposition, dependency resolution, and parallel execution
  *
- * Based on ADR-003 (Single Coordination Engine) and ADR-001 (agentic-flow integration)
+ * Based on ADR-003 (Single Coordination Engine) and ADR-001 (Monomind integration)
  */
 
 import {

@@ -1,3 +1,7 @@
+---
+name: agents:readme
+---
+
 # Agents Commands
 
 Commands for agents operations in Monomind.

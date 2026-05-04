@@ -1,5 +1,5 @@
 ---
-name: monomind-repeat
+name: monomind:repeat
 description: "Monomind — Repeat a prompt on a schedule — default 15 min interval, 10 repetitions"
 ---
 

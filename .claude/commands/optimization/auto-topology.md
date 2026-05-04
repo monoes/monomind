@@ -1,62 +1,85 @@
-# Automatic Topology Selection
+---
+name: optimization:auto-topology
+description: Automatically select the optimal swarm topology based on task complexity — use pre-task hook recommendations, swarm init flags, and performance optimize CLI
+---
 
-## Purpose
-Automatically select the optimal swarm topology based on task complexity analysis.
+# Auto Topology Selection
+
+Automatically select the optimal swarm topology based on task complexity so you don't have to configure it manually.
 
 ## How It Works
 
-### 1. Task Analysis
-The system analyzes your task description to determine:
-- Complexity level (simple/medium/complex)
-- Required agent types
-- Estimated duration
-- Resource requirements
+### 1. Get a Routing Recommendation
 
-### 2. Topology Selection
-Based on analysis, it selects:
-- **Star**: For simple, centralized tasks
-- **Mesh**: For medium complexity with flexibility needs
-- **Hierarchical**: For complex tasks requiring structure
-- **Ring**: For sequential processing workflows
+Before spawning agents, run the `pre-task` hook. It analyzes task complexity and recommends a topology:
 
-### 3. Example Usage
-
-**Simple Task:**
-```
-Tool: mcp__monomind__task_orchestrate
-Parameters: {"task": "Fix typo in README.md"}
-Result: Automatically uses star topology with single agent
+```bash
+npx monomind hooks pre-task -d "Refactor authentication system with JWT, add tests, update docs"
 ```
 
-**Complex Task:**
-```
-Tool: mcp__monomind__task_orchestrate
-Parameters: {"task": "Refactor authentication system with JWT, add tests, update documentation"}
-Result: Automatically uses hierarchical topology with architect, coder, and tester agents
+Output includes `[TASK_MODEL_RECOMMENDATION] Use model="sonnet"` and agent/topology suggestions.
+
+### 2. Initialize the Swarm With the Recommended Topology
+
+```bash
+# Simple/medium tasks — hierarchical (anti-drift, tight control)
+npx monomind swarm init --topology hierarchical --max-agents 6 --strategy specialized
+
+# Complex multi-domain tasks — hierarchical-mesh (peer communication + queen)
+npx monomind swarm init --topology hierarchical-mesh --max-agents 12 --strategy specialized
 ```
 
-## Benefits
-- 🎯 Optimal performance for each task type
-- 🤖 Automatic agent assignment
-- ⚡ Reduced setup time
-- 📊 Better resource utilization
+### Topology Selection Guide
 
-## Hook Configuration
-The pre-task hook automatically handles topology selection:
+| Complexity | Agents Needed | Recommended Topology |
+|---|---|---|
+| Simple (single file) | 1–2 | `star` — skip swarm, use Edit tool directly |
+| Medium | 3–5 | `hierarchical` |
+| Complex (multi-module) | 6–8 | `hierarchical` |
+| Large (10+ agents) | 10–15 | `hierarchical-mesh` |
+| Sequential pipeline | any | `ring` |
+
+## Optimize Existing Swarm Topology
+
+If a swarm is already running, optimize its topology via the coordination MCP tool:
+
+```javascript
+mcp__monomind__coordination_topology({
+  swarmId: "current",
+  optimize: true
+})
+```
+
+Or via the performance CLI:
+
+```bash
+# Analyze and recommend optimizations (dry run)
+npx monomind performance optimize --target all --dry-run
+
+# Apply recommended optimizations
+npx monomind performance optimize --target all --apply
+```
+
+## Hook Integration
+
+`pre-task` fires automatically if wired in `settings.json`:
+
 ```json
 {
-  "command": "npx monomind hook pre-task --optimize-topology"
+  "hooks": {
+    "PreToolUse": [{
+      "matcher": "^Task$",
+      "hooks": [{
+        "type": "command",
+        "command": "npx monomind hooks pre-task -d '${tool.params.description}'"
+      }]
+    }]
+  }
 }
 ```
 
-## Direct Optimization
-```
-Tool: mcp__monomind__topology_optimize
-Parameters: {"swarmId": "current"}
-```
+## See Also
 
-## CLI Usage
-```bash
-# Auto-optimize topology via CLI
-npx monomind optimize topology
-```
+- `swarm init` — initialize swarm with explicit topology
+- `performance optimize` — system-level performance tuning
+- `hooks pre-task` — get routing and topology recommendations

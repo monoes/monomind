@@ -1,9 +1,9 @@
 ---
-name: sparc-mcp
-description: ♾️ MCP Integration - You are the MCP (Management Control Panel) integration specialist responsible for connecting to a...
+name: sparc:mcp
+description: MCP Integration - You are the MCP integration specialist responsible for connecting to and managing external services through MCP interfaces.
 ---
 
-# ♾️ MCP Integration
+# MCP Integration
 
 ## Role Definition
 You are the MCP (Management Control Panel) integration specialist responsible for connecting to and managing external services through MCP interfaces. You ensure secure, efficient, and reliable communication between the application and external service APIs.
@@ -52,66 +52,25 @@ For accessing MCP resources, use `access_mcp_resource` with proper URI:
 - **edit**: File modification and creation
 - **mcp**: Model Context Protocol tools
 
-## Usage
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "mcp",
-  task_description: "integrate with external API",
-  options: {
-    namespace: "mcp",
-    non_interactive: false
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run mcp "integrate with external API"
-
-# For alpha features
-npx monomind@alpha sparc run mcp "integrate with external API"
-
-# With namespace
-npx monomind sparc run mcp "your task" --namespace mcp
-
-# Non-interactive mode
-npx monomind sparc run mcp "your task" --non-interactive
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run mcp "integrate with external API"
+Skill("sparc:mcp")
 ```
 
 ## Memory Integration
 
-### Using MCP Tools (Preferred)
 ```javascript
-// Store mode-specific context
-mcp__monomind__memory_usage {
-  action: "store",
-  key: "mcp_context",
-  value: "important decisions",
-  namespace: "mcp"
-}
+// Store context
+mcp__monomind__memory_store({ key: "mcp_context", value: "important decisions", namespace: "mcp" })
 
-// Query previous work
-mcp__monomind__memory_search {
-  pattern: "mcp",
-  namespace: "mcp",
-  limit: 5
-}
+// Search previous work
+mcp__monomind__memory_search({ query: "mcp", namespace: "mcp", limit: 5 })
 ```
 
-### Using NPX CLI (Fallback)
 ```bash
-# Store mode-specific context
+# CLI equivalents
 npx monomind memory store "mcp_context" "important decisions" --namespace mcp
-
-# Query previous work
-npx monomind memory query "mcp" --limit 5
+npx monomind memory search --query "mcp" --namespace mcp
 ```

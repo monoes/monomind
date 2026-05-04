@@ -1,113 +1,81 @@
-# hook pre-edit
+---
+name: hooks:pre-edit
+---
 
-Execute pre-edit validations and agent assignment before file modifications.
+# hooks pre-edit
+
+Get context and agent suggestions before editing a file.
 
 ## Usage
 
 ```bash
-npx monomind hook pre-edit [options]
+npx monomind hooks pre-edit [options]
 ```
 
 ## Options
 
-- `--file, -f <path>` - File path to be edited
-- `--auto-assign-agent` - Automatically assign best agent (default: true)
-- `--validate-syntax` - Pre-validate syntax before edit
-- `--check-conflicts` - Check for merge conflicts
-- `--backup-file` - Create backup before editing
+| Flag | Short | Type | Default | Description |
+|---|---|---|---|---|
+| `--file` | `-f` | string | `unknown` | File path to edit |
+| `--operation` | `-o` | string | `update` | Edit operation: `create`, `update`, `delete`, `refactor` |
+| `--context` | `-c` | string | — | Additional context about the edit |
+| `--format` | — | string | — | Output format: `json` |
 
 ## Examples
 
-### Basic pre-edit hook
-
 ```bash
-npx monomind hook pre-edit --file "src/auth/login.js"
-```
+# Get context before editing a file
+npx monomind hooks pre-edit --file src/auth/login.ts
 
-### With validation
+# With operation type
+npx monomind hooks pre-edit -f src/api.ts -o refactor
 
-```bash
-npx monomind hook pre-edit -f "config/database.js" --validate-syntax
-```
+# With additional context
+npx monomind hooks pre-edit -f src/auth.ts -o update -c "Adding JWT refresh logic"
 
-### Manual agent assignment
-
-```bash
-npx monomind hook pre-edit -f "api/users.ts" --auto-assign-agent false
-```
-
-### Safe editing with backup
-
-```bash
-npx monomind hook pre-edit -f "production.env" --backup-file --check-conflicts
-```
-
-## Features
-
-### Auto Agent Assignment
-
-- Analyzes file type and content
-- Assigns specialist agents
-- TypeScript → TypeScript expert
-- Database → Data specialist
-- Tests → QA engineer
-
-### Syntax Validation
-
-- Pre-checks syntax validity
-- Identifies potential errors
-- Suggests corrections
-- Prevents broken code
-
-### Conflict Detection
-
-- Checks for git conflicts
-- Identifies concurrent edits
-- Warns about stale files
-- Suggests merge strategies
-
-### File Backup
-
-- Creates safety backups
-- Enables quick rollback
-- Tracks edit history
-- Preserves originals
-
-## Integration
-
-This hook is automatically called by Claude Code when:
-
-- Using Edit or MultiEdit tools
-- Before file modifications
-- During refactoring operations
-- When updating critical files
-
-Manual usage in agents:
-
-```bash
-# Before editing files
-npx monomind hook pre-edit --file "path/to/file.js" --validate-syntax
+# JSON output for scripting
+npx monomind hooks pre-edit -f src/utils.ts --format json
 ```
 
 ## Output
 
-Returns JSON with:
+- **File context** — file type, exists/not-exists, operation
+- **Suggested agents** — which agent types are best for this file
+- **Related files** — files likely affected by the edit
+- **Learned patterns** — matching patterns from past edits with confidence scores
+- **Potential risks** — warnings about the edit
+
+## Claude Code Integration
+
+Typically fired automatically via `settings.json`:
 
 ```json
 {
-  "continue": true,
-  "file": "src/auth/login.js",
-  "assignedAgent": "auth-specialist",
-  "syntaxValid": true,
-  "conflicts": false,
-  "backupPath": ".backups/login.js.bak",
-  "warnings": []
+  "hooks": {
+    "PreToolUse": [{
+      "matcher": "^(Write|Edit|MultiEdit)$",
+      "hooks": [{
+        "type": "command",
+        "command": "npx monomind hooks pre-edit --file '${tool.params.file_path}'"
+      }]
+    }]
+  }
 }
+```
+
+## MCP Tool
+
+```javascript
+mcp__monomind__hooks_pre_edit({
+  filePath: "src/auth/login.ts",
+  operation: "update",
+  context: "Adding JWT refresh logic",
+  includePatterns: true,
+  includeRisks: true
+})
 ```
 
 ## See Also
 
-- `hook post-edit` - Post-edit processing
-- `Edit` - File editing tool
-- `MultiEdit` - Multiple edits tool
-- `agent spawn` - Manual agent creation
+- `hooks post-edit` — record edit outcome
+- `hooks route` — manual agent routing

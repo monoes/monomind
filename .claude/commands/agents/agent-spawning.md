@@ -1,3 +1,7 @@
+---
+name: agents:agent-spawning
+---
+
 # agent-spawning
 
 Guide to spawning agents with Claude Code's Task tool.

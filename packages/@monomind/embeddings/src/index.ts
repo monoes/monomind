@@ -1,7 +1,7 @@
 /**
  * V1 Embedding Service Module
  *
- * Production embedding service aligned with agentic-flow@alpha:
+ * Production embedding service for Monomind:
  * - OpenAI provider (text-embedding-3-small/large)
  * - Transformers.js provider (local ONNX models)
  * - Agentic-flow provider (optimized ONNX with SIMD)

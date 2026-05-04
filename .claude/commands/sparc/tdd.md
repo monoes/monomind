@@ -1,35 +1,18 @@
+---
+name: sparc:tdd
+description: TDD - Test-driven development with TodoWrite planning and comprehensive testing. Red-green-refactor cycle with coverage optimization.
+---
+
 # SPARC TDD Mode
 
 ## Purpose
 Test-driven development with TodoWrite planning and comprehensive testing.
 
-## Activation
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "tdd",
-  task_description: "shopping cart feature",
-  options: {
-    coverage_target: 90,
-    test_framework: "jest"
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run tdd "shopping cart feature"
-
-# For alpha features
-npx monomind@alpha sparc run tdd "shopping cart feature"
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run tdd "shopping cart feature"
+Skill("sparc:tdd")
 ```
 
 ## Core Capabilities

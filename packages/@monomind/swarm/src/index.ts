@@ -236,7 +236,7 @@ export {
 } from './coordination/swarm-hub.js';
 
 // =============================================================================
-// Worker Dispatch (agentic-flow@alpha compatible)
+// Worker Dispatch
 // =============================================================================
 
 export {

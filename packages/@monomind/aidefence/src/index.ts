@@ -279,7 +279,7 @@ export function checkThreats(input: string) {
 }
 
 /**
- * Integration with agentic-flow attention mechanisms
+ * Integration with Monomind attention mechanisms
  * Use for multi-agent security consensus
  */
 export interface AttentionContext {
@@ -290,7 +290,7 @@ export interface AttentionContext {
 
 /**
  * Calculate security consensus from multiple agent assessments
- * Uses attention-based weighting for flash attention integration
+ * Uses attention-based weighting for Monomind flash attention integration
  */
 export function calculateSecurityConsensus(
   assessments: AttentionContext[]

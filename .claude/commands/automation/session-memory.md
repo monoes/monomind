@@ -1,3 +1,7 @@
+---
+name: automation:session-memory
+---
+
 # Cross-Session Memory
 
 ## Purpose
@@ -15,22 +19,21 @@ At session end, automatically saves:
 
 ### 2. Session Restoration
 ```javascript
-// Using MCP tools for memory operations
-mcp__monomind__memory_usage({
-  "action": "retrieve",
-  "key": "session-state",
-  "namespace": "sessions"
+// Retrieve saved session state
+mcp__monomind__memory_retrieve({
+  key: "session-state",
+  namespace: "sessions"
 })
 
-// Restore swarm state
-mcp__monomind__context_restore({
-  "snapshotId": "sess-123"
+// Restore a named session
+mcp__monomind__session_restore({
+  sessionId: "sess-123"
 })
 ```
 
 **Fallback with npx:**
 ```bash
-npx monomind hook session-restore --session-id "sess-123"
+npx monomind hooks session-restore --id "sess-123"
 ```
 
 ### 3. Memory Types
@@ -55,36 +58,32 @@ npx monomind hook session-restore --session-id "sess-123"
 
 ### 4. Privacy & Control
 ```javascript
-// List memory contents
-mcp__monomind__memory_usage({
-  "action": "list",
-  "namespace": "sessions"
+// List memory entries by namespace
+mcp__monomind__memory_list({
+  namespace: "sessions"
 })
 
-// Delete specific memory
-mcp__monomind__memory_usage({
-  "action": "delete",
-  "key": "session-123",
-  "namespace": "sessions"
+// Delete specific memory entry
+mcp__monomind__memory_delete({
+  key: "session-123",
+  namespace: "sessions"
 })
 
-// Backup memory
-mcp__monomind__memory_backup({
-  "path": "./backups/memory-backup.json"
-})
+// Check memory stats
+mcp__monomind__memory_stats({})
 ```
 
 **Manual control:**
 ```bash
-# View stored memory
-ls .monomind/memory/
+# List saved sessions
+npx monomind session list
 
-# Disable memory
+# Disable memory persistence
 export MONOMIND_MEMORY_PERSIST=false
 ```
 
 ## Benefits
-- 🧠 Contextual awareness
-- 📈 Cumulative learning
-- ⚡ Faster task completion
-- 🎯 Personalized optimization
+- Contextual awareness
+- Cumulative learning
+- Faster task completion
+- Personalized optimization

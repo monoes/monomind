@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes how the Coherence Engine domain integrates with Monomind v1 modules, including the Memory, Security, Coordination, and Hive-Mind domains.
+This document describes how the Coherence Engine domain integrates with Monomind modules, including the Memory, Security, Coordination, and Hive-Mind domains.
 
 ## Integration Architecture
 

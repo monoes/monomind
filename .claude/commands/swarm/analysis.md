@@ -1,95 +1,73 @@
+---
+name: swarm-analysis
+description: Analysis swarm strategy — distributed codebase, performance, and security analysis through coordinated mesh agents
+---
+
 # Analysis Swarm Strategy
 
-## Purpose
 Comprehensive analysis through distributed agent coordination.
 
-## Activation
+## How to Invoke
 
-### Using MCP Tools
+```
+Skill("swarm:analysis")
+```
+
+Then describe what to analyze:
+> "Run an analysis swarm on the src/ directory."
+> "Analyze API performance bottlenecks across all services."
+
+---
+
+## Swarm Setup
+
 ```javascript
 // Initialize analysis swarm
 mcp__monomind__swarm_init({
-  "topology": "mesh",
-  "maxAgents": 6,
-  "strategy": "adaptive"
+  topology: "mesh",
+  maxAgents: 6,
+  strategy: "adaptive"
 })
 
-// Orchestrate analysis task
-mcp__monomind__task_orchestrate({
-  "task": "analyze system performance",
-  "strategy": "parallel",
-  "priority": "medium"
+// Coordinate analysis
+mcp__monomind__coordination_orchestrate({
+  task: "analyze system performance",
+  strategy: "parallel"
 })
 ```
 
-### Using CLI (Fallback)
-`npx monomind swarm "analyze system performance" --strategy analysis`
+```bash
+# CLI equivalent
+npx monomind swarm init --topology mesh --max-agents 6
+npx monomind swarm start "analyze system performance" --strategy analysis --parallel
+```
 
 ## Agent Roles
 
-### Agent Spawning with MCP
 ```javascript
-// Spawn analysis agents
-mcp__monomind__agent_spawn({
-  "type": "analyst",
-  "name": "Data Collector",
-  "capabilities": ["metrics", "logging", "monitoring"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "analyst",
-  "name": "Pattern Analyzer",
-  "capabilities": ["pattern-recognition", "anomaly-detection"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "documenter",
-  "name": "Report Generator",
-  "capabilities": ["reporting", "visualization"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "coordinator",
-  "name": "Insight Synthesizer",
-  "capabilities": ["synthesis", "correlation"]
-})
+mcp__monomind__agent_spawn({ type: "analyst", capabilities: ["metrics", "logging", "monitoring"] })
+mcp__monomind__agent_spawn({ type: "analyst", capabilities: ["pattern-recognition", "anomaly-detection"] })
+mcp__monomind__agent_spawn({ type: "documenter", capabilities: ["reporting", "visualization"] })
+mcp__monomind__agent_spawn({ type: "coordinator", capabilities: ["synthesis", "correlation"] })
 ```
 
 ## Coordination Modes
-- Mesh: For exploratory analysis
-- Pipeline: For sequential processing
-- Hierarchical: For complex systems
 
-## Analysis Operations
+| Mode | When to use |
+|------|-------------|
+| Mesh | Exploratory analysis — agents search in parallel |
+| Hierarchical | Complex systems — coordinator aggregates sub-agent findings |
+| Star | Sequential pipeline — each step depends on previous |
+
+## Monitoring
+
 ```javascript
-// Run performance analysis
-mcp__monomind__performance_report({
-  "format": "detailed",
-  "timeframe": "24h"
-})
+// Check analysis progress
+mcp__monomind__swarm_status({ swarmId: "current" })
 
-// Identify bottlenecks
-mcp__monomind__bottleneck_analyze({
-  "component": "api",
-  "metrics": ["response-time", "throughput"]
-})
+// Performance metrics
+mcp__monomind__performance_report({ format: "detailed" })
 
-// Pattern recognition
-mcp__monomind__pattern_recognize({
-  "data": performanceData,
-  "patterns": ["anomaly", "trend", "cycle"]
-})
-```
-
-## Status Monitoring
-```javascript
-// Monitor analysis progress
-mcp__monomind__task_status({
-  "taskId": "analysis-task-001"
-})
-
-// Get analysis results
-mcp__monomind__task_results({
-  "taskId": "analysis-task-001"
-})
+// System health
+mcp__monomind__system_health({})
 ```

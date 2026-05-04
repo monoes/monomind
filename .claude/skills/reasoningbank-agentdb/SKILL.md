@@ -1,5 +1,5 @@
 ---
-name: "ReasoningBank with AgentDB"
+name: reasoningbank-agentdb
 description: "Implement ReasoningBank adaptive learning with AgentDB's 150x faster vector database. Includes trajectory tracking, verdict judgment, memory distillation, and pattern recognition. Use when building self-learning agents, optimizing decision-making, or implementing experience replay systems."
 ---
 
@@ -14,7 +14,7 @@ Provides ReasoningBank adaptive learning patterns using AgentDB's high-performan
 ## Prerequisites
 
 - Node.js 18+
-- AgentDB v1.0.7+ (via agentic-flow)
+- @monomind/memory package
 - Understanding of reinforcement learning concepts (optional)
 
 ---
@@ -25,21 +25,21 @@ Provides ReasoningBank adaptive learning patterns using AgentDB's high-performan
 
 ```bash
 # Initialize AgentDB for ReasoningBank
-npx agentdb@latest init ./.agentdb/reasoningbank.db --dimension 1536
+npx monomind memory init ./.agentdb/reasoningbank.db --dimension 1536
 
 # Start MCP server for Claude Code integration
-npx agentdb@latest mcp
-claude mcp add agentdb npx agentdb@latest mcp
+npx monomind mcp start
+claude mcp add monomind npx monomind@latest mcp start
 ```
 
 ### Migrate from Legacy ReasoningBank
 
 ```bash
 # Automatic migration with validation
-npx agentdb@latest migrate --source .swarm/memory.db
+npx monomind memory migrate --source .swarm/memory.db
 
 # Verify migration
-npx agentdb@latest stats ./.agentdb/reasoningbank.db
+npx monomind memory stats ./.agentdb/reasoningbank.db
 ```
 
 ---
@@ -47,7 +47,7 @@ npx agentdb@latest stats ./.agentdb/reasoningbank.db
 ## Quick Start with API
 
 ```typescript
-import { createAgentDBAdapter, computeEmbedding } from 'agentic-flow/reasoningbank';
+import { createAgentDBAdapter, computeEmbedding } from '@monomind/memory';
 
 // Initialize ReasoningBank with AgentDB
 const rb = await createAgentDBAdapter({
@@ -275,7 +275,7 @@ import {
   retrieveMemories,
   judgeTrajectory,
   distillMemories
-} from 'agentic-flow/reasoningbank';
+} from '@monomind/memory';
 
 // Legacy API works unchanged (uses AgentDB backend automatically)
 const memories = await retrieveMemories(query, {
@@ -376,13 +376,13 @@ const transferredKnowledge = backendExperience.memories.map(mem => ({
 
 ```bash
 # Export trajectories and patterns
-npx agentdb@latest export ./.agentdb/reasoningbank.db ./backup.json
+npx monomind memory export ./.agentdb/reasoningbank.db ./backup.json
 
 # Import experiences
-npx agentdb@latest import ./experiences.json
+npx monomind memory import ./experiences.json
 
 # Get statistics
-npx agentdb@latest stats ./.agentdb/reasoningbank.db
+npx monomind memory stats ./.agentdb/reasoningbank.db
 # Shows: total patterns, domains, confidence distribution
 ```
 
@@ -390,10 +390,10 @@ npx agentdb@latest stats ./.agentdb/reasoningbank.db
 
 ```bash
 # Migrate from legacy ReasoningBank
-npx agentdb@latest migrate --source .swarm/memory.db --target .agentdb/reasoningbank.db
+npx monomind memory migrate --source .swarm/memory.db --target .agentdb/reasoningbank.db
 
 # Validate migration
-npx agentdb@latest stats .agentdb/reasoningbank.db
+npx monomind memory stats .agentdb/reasoningbank.db
 ```
 
 ---
@@ -406,7 +406,7 @@ npx agentdb@latest stats .agentdb/reasoningbank.db
 ls -la .swarm/memory.db
 
 # Run with verbose logging
-DEBUG=agentdb:* npx agentdb@latest migrate --source .swarm/memory.db
+DEBUG=agentdb:* npx monomind memory migrate --source .swarm/memory.db
 ```
 
 ### Issue: Low confidence scores
@@ -434,10 +434,8 @@ await rb.optimize();
 
 ## Learn More
 
-- **AgentDB Integration**: node_modules/agentic-flow/docs/AGENTDB_INTEGRATION.md
-- **GitHub**: https://github.com/nokhodian/agentic-flow/tree/main/packages/agentdb
-- **MCP Integration**: `npx agentdb@latest mcp`
-- **Website**: https://agentdb.ruv.io
+- **GitHub**: https://github.com/nokhodian/monomind
+- **MCP Integration**: `npx monomind mcp start`
 
 ---
 

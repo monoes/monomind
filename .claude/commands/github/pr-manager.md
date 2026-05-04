@@ -1,7 +1,11 @@
+---
+name: github:pr-manager
+---
+
 # GitHub PR Manager
 
 ## Purpose
-Comprehensive pull request management with ruv-swarm coordination for automated reviews, testing, and merge workflows.
+Comprehensive pull request management with monomind swarm coordination for automated reviews, testing, and merge workflows.
 
 ## Capabilities
 - **Multi-reviewer coordination** with swarm agents
@@ -36,31 +40,31 @@ mcp__monomind__agent_spawn { type: "coordinator", name: "PR Coordinator" }
 
 // Create PR and orchestrate review
 mcp__github__create_pull_request {
-  owner: "nokhodian",
-  repo: "ruv-FANN",
-  title: "Integration: claude-code-flow and ruv-swarm",
-  head: "integration/claude-code-flow-ruv-swarm",
+  owner: ":owner",
+  repo: ":repo",
+  title: "feat: comprehensive package integration",
+  head: "feature/integration",
   base: "main",
   body: "Comprehensive integration between packages..."
 }
 
 // Orchestrate review process
-mcp__monomind__task_orchestrate {
+mcp__monomind__coordination_orchestrate {
   task: "Complete PR review with testing and validation",
-  strategy: "parallel",
-  priority: "high"
+  agents: ["reviewer", "tester", "coordinator"],
+  strategy: "parallel"
 }
 ```
 
 ### 2. Automated Multi-File Review
 ```javascript
 // Get PR files and create parallel review tasks
-mcp__github__get_pull_request_files { owner: "nokhodian", repo: "ruv-FANN", pull_number: 54 }
+mcp__github__get_pull_request_files { owner: ":owner", repo: ":repo", pull_number: 54 }
 
 // Create coordinated reviews
 mcp__github__create_pull_request_review {
-  owner: "nokhodian",
-  repo: "ruv-FANN", 
+  owner: ":owner",
+  repo: ":repo", 
   pull_number: 54,
   body: "Automated swarm review with comprehensive analysis",
   event: "APPROVE",
@@ -74,21 +78,20 @@ mcp__github__create_pull_request_review {
 ### 3. Merge Coordination with Testing
 ```javascript
 // Validate PR status and merge when ready
-mcp__github__get_pull_request_status { owner: "nokhodian", repo: "ruv-FANN", pull_number: 54 }
+mcp__github__get_pull_request_status { owner: ":owner", repo: ":repo", pull_number: 54 }
 
 // Merge with coordination
 mcp__github__merge_pull_request {
-  owner: "nokhodian",
-  repo: "ruv-FANN",
+  owner: ":owner",
+  repo: ":repo",
   pull_number: 54,
   merge_method: "squash",
-  commit_title: "feat: Complete claude-code-flow and ruv-swarm integration",
+  commit_title: "feat: comprehensive package integration",
   commit_message: "Comprehensive integration with swarm coordination"
 }
 
 // Post-merge coordination
-mcp__monomind__memory_usage {
-  action: "store",
+mcp__monomind__memory_store {
   key: "pr/54/merged",
   value: { timestamp: Date.now(), status: "success" }
 }

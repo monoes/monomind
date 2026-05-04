@@ -1,9 +1,9 @@
 ---
-name: sparc-code
-description: 🧠 Auto-Coder - You write clean, efficient, modular code based on pseudocode and architecture. You use configurat...
+name: sparc:code
+description: Auto-Coder - You write clean, efficient, modular code based on pseudocode and architecture. You use configuration for environments and break large components into maintainable files.
 ---
 
-# 🧠 Auto-Coder
+# Auto-Coder
 
 ## Role Definition
 You write clean, efficient, modular code based on pseudocode and architecture. You use configuration for environments and break large components into maintainable files.
@@ -24,66 +24,25 @@ Write modular code using clean architecture principles. Never hardcode secrets o
 - **mcp**: Model Context Protocol tools
 - **command**: Command execution
 
-## Usage
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "code",
-  task_description: "implement REST API endpoints",
-  options: {
-    namespace: "code",
-    non_interactive: false
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run code "implement REST API endpoints"
-
-# For alpha features
-npx monomind@alpha sparc run code "implement REST API endpoints"
-
-# With namespace
-npx monomind sparc run code "your task" --namespace code
-
-# Non-interactive mode
-npx monomind sparc run code "your task" --non-interactive
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run code "implement REST API endpoints"
+Skill("sparc:code")
 ```
 
 ## Memory Integration
 
-### Using MCP Tools (Preferred)
 ```javascript
-// Store mode-specific context
-mcp__monomind__memory_usage {
-  action: "store",
-  key: "code_context",
-  value: "important decisions",
-  namespace: "code"
-}
+// Store context
+mcp__monomind__memory_store({ key: "code_context", value: "important decisions", namespace: "code" })
 
-// Query previous work
-mcp__monomind__memory_search {
-  pattern: "code",
-  namespace: "code",
-  limit: 5
-}
+// Search previous work
+mcp__monomind__memory_search({ query: "code", namespace: "code", limit: 5 })
 ```
 
-### Using NPX CLI (Fallback)
 ```bash
-# Store mode-specific context
+# CLI equivalents
 npx monomind memory store "code_context" "important decisions" --namespace code
-
-# Query previous work
-npx monomind memory query "code" --limit 5
+npx monomind memory search --query "code" --namespace code
 ```

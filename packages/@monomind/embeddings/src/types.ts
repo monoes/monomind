@@ -1,7 +1,7 @@
 /**
  * V1 Embedding Service Types
  *
- * Type definitions for embedding service aligned with agentic-flow@alpha:
+ * Type definitions for embedding service for Monomind:
  * - OpenAI provider
  * - Transformers.js provider
  * - Mock provider

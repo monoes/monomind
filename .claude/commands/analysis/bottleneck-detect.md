@@ -1,162 +1,69 @@
-# bottleneck detect
+---
+name: analysis:bottleneck-detect
+---
 
-Analyze performance bottlenecks in swarm operations and suggest optimizations.
+# bottleneck-detect
+
+Detect performance bottlenecks in system components and swarm operations.
 
 ## Usage
 
 ```bash
-npx monomind bottleneck detect [options]
+npx monomind performance bottleneck [options]
 ```
 
 ## Options
 
-- `--swarm-id, -s <id>` - Analyze specific swarm (default: current)
-- `--time-range, -t <range>` - Analysis period: 1h, 24h, 7d, all (default: 1h)
-- `--threshold <percent>` - Bottleneck threshold percentage (default: 20)
-- `--export, -e <file>` - Export analysis to file
-- `--fix` - Apply automatic optimizations
+- `--component, -c <name>` - Analyze a specific component (e.g. `memory`, `neural`, `swarm`)
+- `--depth, -d <level>` - Analysis depth: `quick` (default) or `full`
 
 ## Examples
 
-### Basic bottleneck detection
+### Quick bottleneck scan
 
 ```bash
-npx monomind bottleneck detect
+npx monomind performance bottleneck
 ```
 
-### Analyze specific swarm
+### Deep analysis of a specific component
 
 ```bash
-npx monomind bottleneck detect --swarm-id swarm-123
-```
-
-### Last 24 hours with export
-
-```bash
-npx monomind bottleneck detect -t 24h -e bottlenecks.json
-```
-
-### Auto-fix detected issues
-
-```bash
-npx monomind bottleneck detect --fix --threshold 15
+npx monomind performance bottleneck --component memory --depth full
 ```
 
 ## Metrics Analyzed
 
-### Communication Bottlenecks
-
-- Message queue delays
-- Agent response times
-- Coordination overhead
-- Memory access patterns
-
 ### Processing Bottlenecks
 
-- Task completion times
-- Agent utilization rates
+- CPU load and utilization
+- Memory pressure and heap usage
+- Disk I/O latency
+
+### Swarm Bottlenecks
+
+- Agent coordination overhead
+- Task queue depth and wait times
 - Parallel execution efficiency
-- Resource contention
 
 ### Memory Bottlenecks
 
 - Cache hit rates
-- Memory access patterns
+- Neural pattern load time
 - Storage I/O performance
-- Neural pattern loading
-
-### Network Bottlenecks
-
-- API call latency
-- MCP communication delays
-- External service timeouts
-- Concurrent request limits
-
-## Output Format
-
-```
-🔍 Bottleneck Analysis Report
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📊 Summary
-├── Time Range: Last 1 hour
-├── Agents Analyzed: 6
-├── Tasks Processed: 42
-└── Critical Issues: 2
-
-🚨 Critical Bottlenecks
-1. Agent Communication (35% impact)
-   └── coordinator → coder-1 messages delayed by 2.3s avg
-
-2. Memory Access (28% impact)
-   └── Neural pattern loading taking 1.8s per access
-
-⚠️ Warning Bottlenecks
-1. Task Queue (18% impact)
-   └── 5 tasks waiting > 10s for assignment
-
-💡 Recommendations
-1. Switch to hierarchical topology (est. 40% improvement)
-2. Enable memory caching (est. 25% improvement)
-3. Increase agent concurrency to 8 (est. 20% improvement)
-
-✅ Quick Fixes Available
-Run with --fix to apply:
-- Enable smart caching
-- Optimize message routing
-- Adjust agent priorities
-```
-
-## Automatic Fixes
-
-When using `--fix`, the following optimizations may be applied:
-
-1. **Topology Optimization**
-
-   - Switch to more efficient topology
-   - Adjust communication patterns
-   - Reduce coordination overhead
-
-2. **Caching Enhancement**
-
-   - Enable memory caching
-   - Optimize cache strategies
-   - Preload common patterns
-
-3. **Concurrency Tuning**
-
-   - Adjust agent counts
-   - Optimize parallel execution
-   - Balance workload distribution
-
-4. **Priority Adjustment**
-   - Reorder task queues
-   - Prioritize critical paths
-   - Reduce wait times
-
-## Performance Impact
-
-Typical improvements after bottleneck resolution:
-
-- **Communication**: 30-50% faster message delivery
-- **Processing**: 20-40% reduced task completion time
-- **Memory**: 40-60% fewer cache misses
-- **Overall**: 25-45% performance improvement
 
 ## Integration with Claude Code
 
 ```javascript
-// Check for bottlenecks in Claude Code
-mcp__monomind__bottleneck_detect {
-  timeRange: "1h",
-  threshold: 20,
-  autoFix: false
-}
+mcp__monomind__performance_bottleneck({
+  component: "memory",   // optional — omit to scan all
+  threshold: 20,         // alert threshold %
+  deep: false            // set true for full analysis
+})
 ```
 
 ## See Also
 
-- `performance report` - Detailed performance analysis
-- `token usage` - Token optimization analysis
-- `swarm monitor` - Real-time monitoring
-- `cache manage` - Cache optimization
+- `performance metrics` — detailed time-series metrics
+- `performance optimize` — apply recommended fixes
+- `performance benchmark` — run benchmark suites
+- `token-usage` — token consumption analysis

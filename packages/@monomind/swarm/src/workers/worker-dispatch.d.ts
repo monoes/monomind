@@ -1,7 +1,7 @@
 /**
  * Worker Dispatch Service
  *
- * Implements the 12 background worker triggers from agentic-flow@alpha:
+ * Implements the 12 background worker triggers:
  * - ultralearn: Deep knowledge acquisition
  * - optimize: Performance optimization
  * - consolidate: Memory consolidation
@@ -24,7 +24,7 @@
  */
 import { EventEmitter } from 'events';
 /**
- * Worker trigger types (matching agentic-flow@alpha)
+ * Worker trigger types
  */
 export type WorkerTrigger = 'ultralearn' | 'optimize' | 'consolidate' | 'predict' | 'audit' | 'map' | 'preload' | 'deepdive' | 'document' | 'refactor' | 'benchmark' | 'testgaps';
 /**

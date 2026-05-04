@@ -1,131 +1,80 @@
+---
+name: swarm-testing
+description: Testing swarm strategy — distributed parallel test execution with specialized unit, integration, E2E, and performance testing agents
+---
+
 # Testing Swarm Strategy
 
-## Purpose
 Comprehensive testing through distributed execution.
 
-## Activation
+## How to Invoke
 
-### Using MCP Tools
+```
+Skill("swarm:testing")
+```
+
+Then describe the testing scope:
+> "Start a testing swarm to run full test coverage on the API."
+> "Run a testing swarm to validate the auth module end-to-end."
+
+---
+
+## Swarm Setup
+
 ```javascript
 // Initialize testing swarm
 mcp__monomind__swarm_init({
-  "topology": "star",
-  "maxAgents": 7,
-  "strategy": "parallel"
+  topology: "star",
+  maxAgents: 7,
+  strategy: "parallel"
 })
 
-// Orchestrate testing task
-mcp__monomind__task_orchestrate({
-  "task": "test application",
-  "strategy": "parallel",
-  "priority": "high"
+// Coordinate testing
+mcp__monomind__coordination_orchestrate({
+  task: "test application",
+  strategy: "parallel"
 })
 ```
 
-### Using CLI (Fallback)
-`npx monomind swarm "test application" --strategy testing`
+```bash
+# CLI equivalent
+npx monomind swarm init --topology star --max-agents 7
+npx monomind swarm start "test application" --strategy testing --parallel
+```
 
 ## Agent Roles
 
-### Agent Spawning with MCP
 ```javascript
-// Spawn testing agents
-mcp__monomind__agent_spawn({
-  "type": "tester",
-  "name": "Unit Tester",
-  "capabilities": ["unit-testing", "mocking", "coverage"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "tester",
-  "name": "Integration Tester",
-  "capabilities": ["integration", "api-testing", "contract-testing"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "tester",
-  "name": "E2E Tester",
-  "capabilities": ["e2e", "ui-testing", "user-flows"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "tester",
-  "name": "Performance Tester",
-  "capabilities": ["load-testing", "stress-testing", "benchmarking"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "monitor",
-  "name": "Security Tester",
-  "capabilities": ["security-testing", "penetration-testing", "vulnerability-scanning"]
-})
+mcp__monomind__agent_spawn({ type: "tester", capabilities: ["unit-testing", "mocking", "coverage"] })
+mcp__monomind__agent_spawn({ type: "tester", capabilities: ["integration", "api-testing", "contract-testing"] })
+mcp__monomind__agent_spawn({ type: "tester", capabilities: ["e2e", "ui-testing", "user-flows"] })
+mcp__monomind__agent_spawn({ type: "tester", capabilities: ["load-testing", "stress-testing", "benchmarking"] })
+mcp__monomind__agent_spawn({ type: "tester", capabilities: ["security-testing", "vulnerability-scanning"] })
 ```
 
-## Test Coverage
+## Test Execution
 
-### Coverage Analysis
-```javascript
-// Quality assessment
-mcp__monomind__quality_assess({
-  "target": "test-coverage",
-  "criteria": ["line-coverage", "branch-coverage", "function-coverage"]
-})
+Run tests in parallel via Bash agents:
 
-// Edge case detection
-mcp__monomind__pattern_recognize({
-  "data": testScenarios,
-  "patterns": ["edge-case", "boundary-condition", "error-path"]
-})
+```bash
+# Agents each run one of these in parallel
+npm run test:unit
+npm run test:integration
+npm run test:e2e
 ```
 
-### Test Execution
-```javascript
-// Parallel test execution
-mcp__monomind__parallel_execute({
-  "tasks": [
-    { "id": "unit-tests", "command": "npm run test:unit" },
-    { "id": "integration-tests", "command": "npm run test:integration" },
-    { "id": "e2e-tests", "command": "npm run test:e2e" }
-  ]
-})
+## Monitoring and Reporting
 
-// Batch processing for test suites
-mcp__monomind__batch_process({
-  "items": testSuites,
-  "operation": "execute-test-suite"
-})
+```javascript
+// Check swarm status
+mcp__monomind__swarm_status({ swarmId: "current" })
+
+// Performance metrics
+mcp__monomind__performance_report({ format: "detailed" })
 ```
 
-### Performance Testing
-```javascript
-// Run performance benchmarks
-mcp__monomind__benchmark_run({
-  "suite": "performance-tests"
-})
+## Best Practices
 
-// Security scanning
-mcp__monomind__security_scan({
-  "target": "application",
-  "depth": "comprehensive"
-})
-```
-
-### Monitoring and Reporting
-```javascript
-// Monitor test execution
-mcp__monomind__swarm_monitor({
-  "swarmId": "testing-swarm",
-  "interval": 2000
-})
-
-// Generate test report
-mcp__monomind__performance_report({
-  "format": "detailed",
-  "timeframe": "current-run"
-})
-
-// Get test results
-mcp__monomind__task_results({
-  "taskId": "test-execution-001"
-})
-```
+- Use star topology (coordinator at center, test agents at spokes) for isolated parallel runs
+- Run unit and integration tests in parallel; run E2E only after integration passes
+- Security testing agent runs last, after code is stable

@@ -1,3 +1,8 @@
+---
+name: browse
+description: Launch agent-browser for web UI testing and automation — installs if missing, then runs the agent-browser-testing skill
+---
+
 Invoke the agent-browser-testing skill to test or automate a web UI.
 
 Run this shell command immediately without asking for confirmation:
