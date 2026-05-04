@@ -220,3 +220,13 @@ export { type NormalizationMaxima, computeNormalizationMaxima, normalizeHotspotS
 export { type ContributorRecord, type OwnershipRisk, BOT_PATTERNS, isBot, computeOwnershipRisk } from './health/ownership-risk.js';
 export { type PerFunctionCrap, type CoverageGapData, type FileScoreBundle, computeComplexityDensity, computeDeadCodeRatio, computeMaintainabilityIndex } from './health/scoring-types.js';
 export { groupFilesByOwner, computeGroupScore, buildHealthGrouping } from './health/health-grouping.js';
+// ── Round 15: Fallow feature ports ────────────────────────────────────────────
+export { type BoundaryPreset, type BoundaryZoneConfig, type BoundaryRuleConfig, type BoundaryConfigFallow, type ResolvedZone, type ResolvedBoundaryRule, type ResolvedBoundaryConfig, expandPreset, resolveBoundaryConfig, isImportAllowed } from './config/boundary-config.js';
+export { type FallowOutputFormat, DEFAULT_OUTPUT_FORMAT, parseFallowOutputFormat, isFallowOutputFormat } from './config/output-format.js';
+export { type FallowEmailMode, type FallowOwnershipConfig, type FallowHealthConfig, DEFAULT_BOT_PATTERNS, DEFAULT_FALLOW_HEALTH_CONFIG, mergeFallowHealthConfig } from './config/health-config.js';
+export { type ConfigFormat, CONFIG_NAMES, detectConfigFormat, findConfigFile, detectSourceRoot, parseConfigFile, loadConfigFromDir } from './config/config-parsing.js';
+export { type FallowDependencyLocation, type FallowMemberKind, type FallowFlagKind, type FallowFlagConfidence, type FallowUnusedFile, type FallowUnusedExport, type FallowPrivateTypeLeak, type FallowUnusedDependency, type FallowUnusedMember, type FallowUnresolvedImport, type FallowImportSite, type FallowUnlistedDependency, type FallowDuplicateLocation, type FallowDuplicateExport, type FallowTypeOnlyDependency, type FallowTestOnlyDependency, type FallowCircularDependency, type FallowBoundaryViolation, type FallowSuppressionOrigin, type FallowStaleSuppression, type FallowFeatureFlag, type FallowEntryPointSummary, type FallowExportUsage, type FallowReferenceLocation, type FallowAnalysisResults, makeEmptyFallowResults, totalFallowIssues, hasFallowIssues, sortFallowResults } from './results/fallow-results.js';
+export { type FallowIssueKind, type FallowSuppression, parseFallowIssueKind, issueKindToDiscriminant, issueKindFromDiscriminant, isFallowSuppression, isFileWideSuppression } from './analysis/fallow-suppression.js';
+export { type EntryPointSource } from './discover/entry-points.js';
+export { fileId, type FallowEntryPoint, formatEntryPointSource, type FallowDiscoveredFile } from './graph/resolve/discover-types.js';
+export { type MirroredDirResult, detectMirroredFamilies } from './graph/mirrored-dirs.js';
