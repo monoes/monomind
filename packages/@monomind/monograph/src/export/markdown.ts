@@ -245,3 +245,46 @@ export function exportMarkdown(db: MonographDb, options?: MarkdownReportOptions)
 
   return sections.join('\n');
 }
+
+// ── Round 10: health + duplication Markdown exports ───────────────────────────
+
+export interface MarkdownHealthFinding {
+  filePath: string;
+  functionName: string;
+  startLine: number;
+  cyclomatic: number;
+  cognitive: number;
+  crapScore: number;
+  severity: string;
+}
+
+export interface MarkdownDuplicationGroup {
+  groupId: number;
+  instances: Array<{ filePath: string; startLine: number; endLine: number }>;
+  duplicatedLines: number;
+}
+
+export function exportHealthMarkdown(findings: MarkdownHealthFinding[], title = 'Health Report'): string {
+  const lines = [`# ${title}`, '', `Found ${findings.length} complex function(s).`, ''];
+  if (findings.length === 0) return lines.join('\n');
+  lines.push('| File | Function | Line | Cyclomatic | Cognitive | CRAP | Severity |');
+  lines.push('|------|----------|------|------------|-----------|------|----------|');
+  for (const f of findings) {
+    const file = f.filePath.split('/').slice(-2).join('/');
+    lines.push(`| ${file} | \`${f.functionName}\` | ${f.startLine} | ${f.cyclomatic} | ${f.cognitive} | ${f.crapScore.toFixed(1)} | ${f.severity} |`);
+  }
+  return lines.join('\n');
+}
+
+export function exportDuplicationMarkdown(groups: MarkdownDuplicationGroup[], title = 'Duplication Report'): string {
+  const lines = [`# ${title}`, '', `Found ${groups.length} clone group(s).`, ''];
+  for (const g of groups) {
+    lines.push(`## Group ${g.groupId} — ${g.duplicatedLines} lines`);
+    for (const inst of g.instances) {
+      const file = inst.filePath.split('/').slice(-2).join('/');
+      lines.push(`- \`${file}\` lines ${inst.startLine}–${inst.endLine}`);
+    }
+    lines.push('');
+  }
+  return lines.join('\n');
+}
