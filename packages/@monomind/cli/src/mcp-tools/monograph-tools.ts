@@ -4837,3 +4837,349 @@ export const monographTools: MCPTool[] = [
   monographOwnershipMetricsTool,
   monographChurnTrendTool,
 ];
+
+// ── Round 12: Fallow feature ports ────────────────────────────────────────────
+
+const monographResolveImportsTool: MCPTool = {
+  name: 'monograph_resolve_imports',
+  description: 'Resolve all imports across modules using the monograph import resolution pipeline (static, dynamic, CommonJS, re-exports)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      modules: { type: 'array', description: 'Array of module info objects with fileId, path, imports, reExports' },
+      root: { type: 'string', description: 'Project root directory' },
+      pathAliases: { type: 'array', description: 'Path alias pairs [[pattern, target]]', default: [] },
+      scssIncludePaths: { type: 'array', description: 'SCSS include paths', default: [] },
+      activePlugins: { type: 'array', description: 'Active plugin names for RN/Expo extension ordering', default: [] },
+    },
+    required: ['modules', 'root'],
+  },
+  handler: async (args: { modules: any[]; root: string; pathAliases?: [string, string][]; scssIncludePaths?: string[]; activePlugins?: string[] }) => {
+    const { resolveAllImports } = await import('@monoes/monograph');
+    const resolved = resolveAllImports(args.modules, [], [], args.activePlugins ?? [], args.pathAliases ?? [], args.scssIncludePaths ?? [], args.root, []);
+    return { resolved: resolved.map(m => ({ fileId: m.fileId, path: m.path, importCount: m.resolvedImports.length, reExportCount: m.resolvedReExports.length })) };
+  },
+};
+
+const monographPathInfoTool: MCPTool = {
+  name: 'monograph_path_info',
+  description: 'Classify an import specifier: isPathAlias, isBareSpecifier, extractPackageName',
+  inputSchema: {
+    type: 'object',
+    properties: { specifier: { type: 'string', description: 'Import specifier to classify' } },
+    required: ['specifier'],
+  },
+  handler: async (args: { specifier: string }) => {
+    const { isPathAlias, isBareSpecifier, isValidPackageName, extractPackageName } = await import('@monoes/monograph');
+    return {
+      specifier: args.specifier,
+      isPathAlias: isPathAlias(args.specifier),
+      isBareSpecifier: isBareSpecifier(args.specifier),
+      isValidPackageName: isValidPackageName(args.specifier),
+      packageName: isBareSpecifier(args.specifier) ? extractPackageName(args.specifier) : null,
+    };
+  },
+};
+
+const monographResolveSpecifierTool: MCPTool = {
+  name: 'monograph_resolve_specifier',
+  description: 'Resolve a single import specifier from a given file using monograph resolution logic',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      fromFile: { type: 'string', description: 'Absolute path of the file containing the import' },
+      specifier: { type: 'string', description: 'The import specifier to resolve' },
+      root: { type: 'string', description: 'Project root directory' },
+      fromStyle: { type: 'boolean', description: 'Whether the importing file is a style file', default: false },
+    },
+    required: ['fromFile', 'specifier', 'root'],
+  },
+  handler: async (args: { fromFile: string; specifier: string; root: string; fromStyle?: boolean }) => {
+    const { resolveSpecifier } = await import('@monoes/monograph');
+    const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
+    const result = resolveSpecifier(ctx as any, args.fromFile, args.specifier, args.fromStyle ?? false);
+    return { specifier: args.specifier, result };
+  },
+};
+
+const monographResolveStaticImportsTool: MCPTool = {
+  name: 'monograph_resolve_static_imports',
+  description: 'Resolve a list of static ES module imports for a given file',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      filePath: { type: 'string', description: 'Path of the file containing imports' },
+      imports: { type: 'array', description: 'Array of ImportInfo objects with specifier field' },
+      root: { type: 'string', description: 'Project root' },
+    },
+    required: ['filePath', 'imports', 'root'],
+  },
+  handler: async (args: { filePath: string; imports: any[]; root: string }) => {
+    const { resolveStaticImports } = await import('@monoes/monograph');
+    const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
+    return { resolved: resolveStaticImports(ctx as any, args.filePath, args.imports) };
+  },
+};
+
+const monographResolveRequireImportsTool: MCPTool = {
+  name: 'monograph_resolve_require_imports',
+  description: 'Resolve CommonJS require() calls for a given file',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      filePath: { type: 'string', description: 'Path of the file containing require calls' },
+      requireCalls: { type: 'array', description: 'Array of RequireCallInfo objects with specifier field' },
+      root: { type: 'string', description: 'Project root' },
+    },
+    required: ['filePath', 'requireCalls', 'root'],
+  },
+  handler: async (args: { filePath: string; requireCalls: any[]; root: string }) => {
+    const { resolveRequireImports } = await import('@monoes/monograph');
+    const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
+    return { resolved: resolveRequireImports(ctx as any, args.filePath, args.requireCalls) };
+  },
+};
+
+const monographResolveReExportsTool: MCPTool = {
+  name: 'monograph_resolve_re_exports',
+  description: 'Resolve re-export specifiers (export { x } from "y") for a given file',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      filePath: { type: 'string', description: 'Path of the file containing re-exports' },
+      reExports: { type: 'array', description: 'Array of ReExportInfo objects with specifier field' },
+      root: { type: 'string', description: 'Project root' },
+    },
+    required: ['filePath', 'reExports', 'root'],
+  },
+  handler: async (args: { filePath: string; reExports: any[]; root: string }) => {
+    const { resolveReExports } = await import('@monoes/monograph');
+    const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
+    return { resolved: resolveReExports(ctx as any, args.filePath, args.reExports) };
+  },
+};
+
+const monographResolveFallbacksTool: MCPTool = {
+  name: 'monograph_resolve_fallbacks',
+  description: 'Apply resolution fallbacks: source dir mapping, pnpm workspace, workspace package, SCSS include paths',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      canonicalPath: { type: 'string', description: 'Canonical file path to resolve via fallback' },
+      strategy: { type: 'string', enum: ['source', 'pnpm', 'workspace', 'glob-pattern'], description: 'Fallback strategy to apply' },
+      pattern: { type: 'string', description: 'Dynamic import pattern (for glob-pattern strategy)' },
+    },
+    required: ['canonicalPath', 'strategy'],
+  },
+  handler: async (args: { canonicalPath: string; strategy: string; pattern?: string }) => {
+    const { trySourceFallback, makeGlobFromPattern } = await import('@monoes/monograph');
+    if (args.strategy === 'source') {
+      const fileId = trySourceFallback(args.canonicalPath, new Map());
+      return { strategy: 'source', fileId, found: fileId !== null };
+    }
+    if (args.strategy === 'glob-pattern' && args.pattern) {
+      const glob = makeGlobFromPattern({ pattern: args.pattern, fromFile: args.canonicalPath });
+      return { strategy: 'glob-pattern', glob };
+    }
+    return { strategy: args.strategy, note: 'Requires a live pathToId map — use resolveAllImports for full resolution' };
+  },
+};
+
+const monographReactNativeTool: MCPTool = {
+  name: 'monograph_react_native',
+  description: 'Get React Native / Expo aware resolver configuration: platform extensions and condition names',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      activePlugins: { type: 'array', items: { type: 'string' }, description: 'Active plugin names' },
+      extraConditions: { type: 'array', items: { type: 'string' }, description: 'Extra condition names', default: [] },
+    },
+    required: ['activePlugins'],
+  },
+  handler: async (args: { activePlugins: string[]; extraConditions?: string[] }) => {
+    const { hasReactNativePlugin, buildExtensions, buildConditionNames } = await import('@monoes/monograph');
+    return {
+      hasReactNative: hasReactNativePlugin(args.activePlugins),
+      extensions: buildExtensions(args.activePlugins),
+      conditionNames: buildConditionNames(args.activePlugins, args.extraConditions ?? []),
+    };
+  },
+};
+
+const monographSpecifierUpgradesTool: MCPTool = {
+  name: 'monograph_specifier_upgrades',
+  description: 'Apply post-resolution upgrades: promote NpmPackage targets to InternalModule when specifier resolves internally in any context',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      summary: { type: 'string', description: 'Describe the modules to apply upgrades to' },
+    },
+  },
+  handler: async (_args: Record<string, unknown>) => {
+    return { note: 'applySpecifierUpgrades mutates ResolvedModule[] in-place. Use resolveAllImports which calls it automatically.' };
+  },
+};
+
+const monographTokenTypesTool: MCPTool = {
+  name: 'monograph_token_types',
+  description: 'Tokenize source code and return token type breakdown for clone detection analysis',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      source: { type: 'string', description: 'Source code to tokenize' },
+      filePath: { type: 'string', description: 'File path (used to determine language)', default: 'file.ts' },
+      skipImports: { type: 'boolean', description: 'Skip import/export statements', default: false },
+    },
+    required: ['source'],
+  },
+  handler: async (args: { source: string; filePath?: string; skipImports?: boolean }) => {
+    const { tokenizeFile } = await import('@monoes/monograph');
+    const result = tokenizeFile(args.filePath ?? 'file.ts', args.source, args.skipImports ?? false);
+    const kindCounts: Record<string, number> = {};
+    for (const tok of result.tokens) kindCounts[tok.kind.kind] = (kindCounts[tok.kind.kind] ?? 0) + 1;
+    return { tokenCount: result.tokens.length, lineCount: result.lineCount, kindCounts };
+  },
+};
+
+const monographNormalizeTool: MCPTool = {
+  name: 'monograph_normalize_tokens',
+  description: 'Normalize and hash token sequences for duplicate/clone detection using configurable detection mode',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      source: { type: 'string', description: 'Source code to tokenize and normalize' },
+      filePath: { type: 'string', description: 'File path', default: 'file.ts' },
+      mode: { type: 'string', enum: ['Exact', 'NormalizeIdentifiers', 'NormalizeLiterals', 'NormalizeAll'], description: 'Normalization mode', default: 'NormalizeAll' },
+    },
+    required: ['source'],
+  },
+  handler: async (args: { source: string; filePath?: string; mode?: string }) => {
+    const { tokenizeFile, normalizeAndHash } = await import('@monoes/monograph');
+    const tokens = tokenizeFile(args.filePath ?? 'file.ts', args.source, false);
+    const hashed = normalizeAndHash(tokens.tokens, (args.mode ?? 'NormalizeAll') as any);
+    return { tokenCount: tokens.tokens.length, hashedCount: hashed.length, sample: hashed.slice(0, 10) };
+  },
+};
+
+const monographTokenizeTool: MCPTool = {
+  name: 'monograph_tokenize',
+  description: 'Tokenize source files including Vue SFCs, Svelte, Astro frontmatter, MDX, and JS/TS for clone detection',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      source: { type: 'string', description: 'Source code to tokenize' },
+      filePath: { type: 'string', description: 'File path with extension to determine file type' },
+      stripTypes: { type: 'boolean', description: 'Strip TypeScript type annotations for cross-language detection', default: false },
+      skipImports: { type: 'boolean', description: 'Skip import statements', default: false },
+    },
+    required: ['source', 'filePath'],
+  },
+  handler: async (args: { source: string; filePath: string; stripTypes?: boolean; skipImports?: boolean }) => {
+    const { tokenizeFileCrossLanguage } = await import('@monoes/monograph');
+    const result = tokenizeFileCrossLanguage(args.filePath, args.source, args.stripTypes ?? false, args.skipImports ?? false);
+    return { tokenCount: result.tokens.length, lineCount: result.lineCount };
+  },
+};
+
+const monographCheckFilterTool: MCPTool = {
+  name: 'monograph_check_filter',
+  description: 'Filter analysis issues by rules, severity, issue kind flags, and workspace scope',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      issues: { type: 'array', description: 'Array of AnalysisIssue objects with kind, filePath, message' },
+      root: { type: 'string', description: 'Project root' },
+      workspacePatterns: { type: 'array', items: { type: 'string' }, description: 'Workspace filter patterns' },
+    },
+    required: ['issues', 'root'],
+  },
+  handler: async (args: { issues: any[]; root: string; workspacePatterns?: string[] }) => {
+    const { runCheckFilter, DEFAULT_ISSUE_FILTERS } = await import('@monoes/monograph');
+    const result = runCheckFilter(args.issues, { filters: DEFAULT_ISSUE_FILTERS, root: args.root, workspace: args.workspacePatterns });
+    return { filteredCount: result.issues.length, hasErrors: result.hasErrors, filteredByWorkspace: result.filteredByWorkspace };
+  },
+};
+
+const monographCheckRulesTool: MCPTool = {
+  name: 'monograph_check_rules',
+  description: 'Apply severity rules to analysis issues and check if error-level issues exist',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      issues: { type: 'array', description: 'Array of AnalysisIssue objects' },
+      rules: { type: 'object', description: 'RulesConfig overrides (partial)', default: {} },
+    },
+    required: ['issues'],
+  },
+  handler: async (args: { issues: any[]; rules?: any }) => {
+    const { applyRules, hasErrorSeverityIssues, DEFAULT_RULES_CONFIG } = await import('@monoes/monograph');
+    const rules = { ...DEFAULT_RULES_CONFIG, ...(args.rules ?? {}) };
+    const filtered = applyRules(args.issues, rules);
+    return { filteredCount: filtered.length, hasErrors: hasErrorSeverityIssues(filtered, rules), issues: filtered };
+  },
+};
+
+const monographCheckOutputTool: MCPTool = {
+  name: 'monograph_check_output',
+  description: 'Format analysis issues as SARIF, JSON, or text output. Parse trace specs (FILE:EXPORT_NAME format)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      issues: { type: 'array', description: 'Array of AnalysisIssue objects' },
+      format: { type: 'string', enum: ['sarif', 'json', 'text'], description: 'Output format', default: 'text' },
+      traceSpec: { type: 'string', description: 'Trace spec to parse (FILE:EXPORT_NAME format)' },
+      toolVersion: { type: 'string', description: 'Tool version for SARIF output', default: '1.0.0' },
+    },
+  },
+  handler: async (args: { issues?: any[]; format?: string; traceSpec?: string; toolVersion?: string }) => {
+    const { buildSarifOutput, formatIssuesAsText, formatIssuesAsJson, parseTraceSpec } = await import('@monoes/monograph');
+    if (args.traceSpec) return { parsed: parseTraceSpec(args.traceSpec) };
+    const issues = args.issues ?? [];
+    if (args.format === 'sarif') return buildSarifOutput(issues, args.toolVersion ?? '1.0.0');
+    if (args.format === 'json') return JSON.parse(formatIssuesAsJson(issues));
+    return { output: formatIssuesAsText(issues, false) };
+  },
+};
+
+const monographFlagsTool: MCPTool = {
+  name: 'monograph_flags',
+  description: 'Analyze and format feature flags found in source code across a project',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      flags: { type: 'array', description: 'Array of FeatureFlag objects with name, filePath, isEnabled, line' },
+      top: { type: 'number', description: 'Limit to top N most-used flags' },
+      format: { type: 'string', enum: ['text', 'grouped'], description: 'Output format', default: 'text' },
+    },
+    required: ['flags'],
+  },
+  handler: async (args: { flags: any[]; top?: number; format?: string }) => {
+    const { groupFlagsByName, formatFlagsText } = await import('@monoes/monograph');
+    const result = { flags: args.flags, totalFiles: new Set(args.flags.map((f: any) => f.filePath)).size, totalFlags: args.flags.length };
+    if (args.format === 'grouped') {
+      const grouped: Record<string, any[]> = {};
+      for (const [name, uses] of groupFlagsByName(args.flags)) grouped[name] = uses;
+      return { grouped, totalFlags: args.flags.length };
+    }
+    return { output: formatFlagsText(result, args.top) };
+  },
+};
+
+const monographErrorTypesTool: MCPTool = {
+  name: 'monograph_error_types',
+  description: 'Format and emit monograph analysis errors with typed error classes (Config, Resolve, Analysis)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      message: { type: 'string', description: 'Error message' },
+      errorType: { type: 'string', enum: ['config', 'resolve', 'analysis'], description: 'Error type', default: 'analysis' },
+      format: { type: 'string', enum: ['text', 'json'], description: 'Output format', default: 'text' },
+    },
+    required: ['message'],
+  },
+  handler: async (args: { message: string; errorType?: string; format?: string }) => {
+    const { formatError } = await import('@monoes/monograph');
+    const err = { code: args.errorType === 'config' ? 'CONFIG_ERROR' : args.errorType === 'resolve' ? 'RESOLVE_ERROR' : 'ANALYSIS_ERROR', message: args.message };
+    return { formatted: formatError(err, (args.format ?? 'text') as any), error: err };
+  },
+};
