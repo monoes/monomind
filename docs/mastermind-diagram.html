@@ -5,7 +5,6 @@
 <title>MASTERMIND — Autonomous Business Brain</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
 body {
   background: #07071a;
   color: #e0e0ff;
@@ -14,197 +13,161 @@ body {
   overflow: hidden;
   user-select: none;
 }
-
-/* ─── Starfield ─── */
-#stars {
-  position: fixed; inset: 0;
-  background: radial-gradient(ellipse at 50% 50%, #12123a 0%, #07071a 70%);
-  overflow: hidden;
-  z-index: 0;
+#canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
-.star {
-  position: absolute; background: #fff; border-radius: 50%;
-  animation: twinkle var(--dur) ease-in-out infinite alternate;
-  animation-delay: var(--delay);
+/* Cinematic intro */
+#cinema {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #07071a;
+  pointer-events: none;
+  transition: opacity 0.9s ease;
 }
-@keyframes twinkle { from { opacity: .1; } to { opacity: .9; } }
-
-/* ─── Main stage ─── */
-#stage {
-  position: relative; width: 100vw; height: 100vh;
-  display: flex; align-items: center; justify-content: center;
-  z-index: 1;
+#cinema-text {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: 16px;
+  background: linear-gradient(135deg, #c080ff, #7040ff, #ff60ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  opacity: 0;
+  transition: opacity 0.7s;
 }
-
-/* ─── Title ─── */
+#cinema-sub {
+  font-size: 10px;
+  letter-spacing: 6px;
+  color: #5555aa;
+  margin-top: 14px;
+  opacity: 0;
+  transition: opacity 0.7s 0.3s;
+}
+#cinema-scan {
+  width: 220px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #7040ff, transparent);
+  margin-top: 30px;
+  opacity: 0;
+  animation: scan-move 1.4s ease-in-out infinite;
+  transition: opacity 0.5s 0.6s;
+}
+@keyframes scan-move {
+  0%   { transform: scaleX(0.3); opacity: 0.3; }
+  50%  { transform: scaleX(1);   opacity: 1; }
+  100% { transform: scaleX(0.3); opacity: 0.3; }
+}
+/* Title */
 #title {
-  position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
-  text-align: center; z-index: 60; pointer-events: none;
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.8s;
 }
 #title h1 {
-  font-size: 26px; font-weight: 900; letter-spacing: 10px;
-  background: linear-gradient(135deg, #c080ff 0%, #7040ff 50%, #ff60ff 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 10px;
+  background: linear-gradient(135deg, #c080ff, #7040ff, #ff60ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 #title p { font-size: 10px; color: #5555aa; letter-spacing: 4px; margin-top: 3px; }
-
-/* ─── Round table ─── */
-#table {
-  position: absolute;
-  width: 660px; height: 660px; border-radius: 50%;
-  background:
-    radial-gradient(circle at 38% 32%, rgba(100,60,180,.35) 0%, rgba(25,15,60,.55) 55%, rgba(8,5,22,.85) 100%);
-  border: 2px solid rgba(130,80,255,.28);
-  box-shadow:
-    0 0 80px rgba(90,40,220,.18),
-    inset 0 0 80px rgba(40,15,90,.35);
-}
-
-/* ─── SVG connections ─── */
-#svg-layer {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  pointer-events: none; z-index: 2;
-  overflow: visible;
-}
-.conn-line {
-  fill: none; stroke-width: 1.5;
-  stroke-dasharray: 7 14;
-  opacity: .35;
-  animation: dash-flow 2.8s linear infinite;
-}
-@keyframes dash-flow { from { stroke-dashoffset: 84; } to { stroke-dashoffset: 0; } }
-
-/* ─── Mastermind center ─── */
-#mm-center {
-  position: absolute; z-index: 20;
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-}
-#mm-brain {
-  font-size: 76px; line-height: 1;
-  filter: drop-shadow(0 0 22px rgba(160,100,255,.95));
-  animation: brain-pulse 2.4s ease-in-out infinite;
-  cursor: default;
-}
-@keyframes brain-pulse {
-  0%,100% { transform: scale(1);   filter: drop-shadow(0 0 22px rgba(160,100,255,.95)); }
-  50%      { transform: scale(1.07); filter: drop-shadow(0 0 40px rgba(200,140,255,1)); }
-}
-#mm-label {
-  font-size: 15px; font-weight: 900; letter-spacing: 4px;
-  color: #c0a0ff; text-shadow: 0 0 18px rgba(160,100,255,.8);
-}
-#mm-sub { font-size: 9px; color: #7070a0; letter-spacing: 2px; }
-
-#monograph-btn {
-  display: flex; align-items: center; gap: 5px;
-  background: rgba(70,40,140,.65);
-  border: 1px solid rgba(150,100,255,.65);
-  color: #c0a0ff; padding: 5px 14px;
-  border-radius: 20px; font-size: 11px; font-weight: 700;
-  cursor: pointer; transition: all .22s; letter-spacing: .5px;
-}
-#monograph-btn:hover {
-  background: rgba(120,70,210,.85);
-  border-color: rgba(210,160,255,.9);
-  box-shadow: 0 0 18px rgba(150,100,255,.55);
-  transform: scale(1.07);
-}
-
-#iterate-badge {
-  background: rgba(30,120,70,.4);
-  border: 1px solid rgba(60,200,110,.55);
-  color: #70ffaa; padding: 3px 12px;
-  border-radius: 12px; font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
-}
-
-/* ─── Domain nodes ─── */
-.domain-node {
-  position: absolute; width: 148px;
-  background: rgba(14,10,32,.92);
-  border: 1.5px solid rgba(150,100,255,.22);
-  border-radius: 18px; padding: 13px 10px 11px;
-  cursor: pointer;
-  transition: transform .32s cubic-bezier(.34,1.56,.64,1), box-shadow .22s, border-color .22s;
-  transform: translate(-50%, -50%);
-  z-index: 5; text-align: center;
-  backdrop-filter: blur(6px);
-}
-.domain-node:hover, .domain-node.active {
-  transform: translate(-50%, -50%) scale(1.14);
-  border-color: var(--clr);
-  box-shadow: 0 0 30px var(--glow), inset 0 0 18px rgba(0,0,0,.3);
-  z-index: 25;
-}
-.dn-emoji  { font-size: 34px; display: block; margin-bottom: 3px; }
-.dn-name   { font-size: 12px; font-weight: 800; color: var(--clr); letter-spacing: 1.5px; display: block; }
-.dn-mgr    { font-size: 9px; color: #777; margin-top: 3px; display: block; line-height: 1.5; }
-.swarm-tag {
-  display: inline-block; margin-top: 6px;
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 8px; padding: 2px 7px;
-  font-size: 8px; color: #999; letter-spacing: .3px;
-}
-.agents-row {
-  display: flex; flex-wrap: wrap; gap: 3px;
-  justify-content: center; margin-top: 8px;
-  max-height: 0; overflow: hidden;
-  transition: max-height .38s ease, padding .38s;
-}
-.domain-node:hover .agents-row,
-.domain-node.active .agents-row { max-height: 140px; padding-bottom: 2px; }
-.agent-chip {
-  background: rgba(255,255,255,.07);
-  border: 1px solid rgba(255,255,255,.13);
-  border-radius: 7px; padding: 2px 6px;
-  font-size: 8px; color: #bbb; white-space: nowrap;
-}
-
-/* ─── Detail panel ─── */
+/* Detail panel */
 #detail-panel {
-  position: fixed; right: 22px; top: 50%;
-  transform: translateY(-50%);
-  width: 270px;
-  background: rgba(12,8,30,.96);
+  position: fixed;
+  right: 22px;
+  top: 50%;
+  transform: translateY(-50%) translateX(30px);
+  width: 272px;
+  background: rgba(10,7,28,.97);
   border: 1px solid rgba(140,90,255,.4);
-  border-radius: 18px; padding: 22px;
-  z-index: 100;
-  opacity: 0; pointer-events: none;
-  transition: opacity .28s, transform .28s;
-  backdrop-filter: blur(14px);
-  transform: translateY(-50%) translateX(20px);
-  box-shadow: 0 8px 40px rgba(0,0,0,.6), 0 0 30px rgba(100,50,255,.15);
+  border-radius: 18px;
+  padding: 22px;
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .3s, transform .3s;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 10px 50px rgba(0,0,0,.7), 0 0 40px rgba(100,50,255,.12);
+  max-height: 90vh;
+  overflow-y: auto;
 }
-#detail-panel.visible {
-  opacity: 1; pointer-events: all;
+#detail-panel.open {
+  opacity: 1;
+  pointer-events: all;
   transform: translateY(-50%) translateX(0);
 }
-#close-panel {
+#close-btn {
   position: absolute; top: 12px; right: 14px;
   background: none; border: none;
-  color: #666; font-size: 16px; cursor: pointer;
+  color: #555; font-size: 16px; cursor: pointer;
   transition: color .15s;
 }
-#close-panel:hover { color: #ccc; }
-
-/* ─── Mode pill ─── */
+#close-btn:hover { color: #ccc; }
 .mode-pill {
   display: inline-block;
   padding: 2px 10px; border-radius: 10px;
   font-size: 9px; font-weight: 700; letter-spacing: 1px;
 }
-.mode-auto    { background: rgba(50,200,100,.2); border: 1px solid rgba(50,200,100,.5); color: #60ef90; }
-.mode-confirm { background: rgba(220,150,30,.2);  border: 1px solid rgba(220,150,30,.5);  color: #ffc040; }
-
-/* ─── Legend ─── */
-#legend {
-  position: fixed; bottom: 16px; left: 18px;
-  font-size: 9px; color: #444; z-index: 50;
-  line-height: 2; pointer-events: none;
+.mode-auto { background: rgba(50,200,100,.2); border: 1px solid rgba(50,200,100,.5); color: #60ef90; }
+.mode-confirm { background: rgba(220,150,30,.2); border: 1px solid rgba(220,150,30,.5); color: #ffc040; }
+/* Controls */
+#controls {
+  position: fixed;
+  bottom: 18px;
+  right: 22px;
+  display: flex;
+  gap: 8px;
+  z-index: 150;
+  opacity: 0;
+  transition: opacity 0.6s;
 }
-
-/* ─── Scrollbar (panel) ─── */
+#controls.visible { opacity: 1; }
+.ctrl-btn {
+  background: rgba(40,25,80,.75);
+  border: 1px solid rgba(130,80,255,.55);
+  color: #b090ff;
+  padding: 7px 16px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: .5px;
+  transition: all .22s;
+}
+.ctrl-btn:hover {
+  background: rgba(100,60,200,.8);
+  box-shadow: 0 0 18px rgba(140,90,255,.5);
+  transform: scale(1.05);
+}
+/* Legend */
+#legend {
+  position: fixed;
+  bottom: 18px;
+  left: 20px;
+  font-size: 9px;
+  color: #3a3a66;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s;
+  line-height: 2;
+}
+#legend.visible { opacity: 1; }
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(150,100,255,.3); border-radius: 4px; }
@@ -212,323 +175,637 @@ body {
 </head>
 <body>
 
-<div id="stars"></div>
+<div id="cinema">
+  <div id="cinema-text">MASTERMIND</div>
+  <div id="cinema-sub">ASSEMBLING AGENTS...</div>
+  <div id="cinema-scan"></div>
+</div>
 
 <div id="title">
   <h1>MASTERMIND</h1>
   <p>AUTONOMOUS BUSINESS BRAIN &nbsp;·&nbsp; 10 DOMAINS &nbsp;·&nbsp; SELF-IMPROVING</p>
 </div>
 
-<div id="stage">
-  <svg id="svg-layer"></svg>
-  <div id="table"></div>
+<svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="table-grad" cx="38%" cy="32%" r="65%">
+      <stop offset="0%"   stop-color="rgba(100,60,180,0.38)"/>
+      <stop offset="55%"  stop-color="rgba(25,15,60,0.55)"/>
+      <stop offset="100%" stop-color="rgba(8,5,22,0.92)"/>
+    </radialGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-xl" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="14" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="rgba(0,0,0,0.5)"/>
+    </filter>
+  </defs>
 
-  <!-- Mastermind center node -->
-  <div id="mm-center">
-    <div id="mm-brain">🧠</div>
-    <div id="mm-label">MASTERMIND</div>
-    <div id="mm-sub">TOP-LEVEL ORCHESTRATOR</div>
-    <button id="monograph-btn" onclick="showMonograph()">📊 &nbsp;Monograph</button>
-    <div id="iterate-badge">⚡ &nbsp;--iterate N</div>
-  </div>
+  <!-- Stars -->
+  <g id="g-stars"></g>
 
-  <div id="nodes"></div>
+  <!-- Table -->
+  <circle id="table-ring" cx="0" cy="0" r="0"
+    fill="url(#table-grad)"
+    stroke="rgba(130,80,255,0.22)" stroke-width="2"/>
+
+  <!-- Decorative orbit ring -->
+  <circle id="orbit-ring" cx="0" cy="0" r="0"
+    fill="none" stroke="rgba(100,60,200,0.12)" stroke-width="1"
+    stroke-dasharray="4 18"/>
+
+  <!-- Connection lines -->
+  <g id="g-lines"></g>
+
+  <!-- Ripples -->
+  <g id="g-ripples"></g>
+
+  <!-- Agents -->
+  <g id="g-agents"></g>
+
+  <!-- Brain center (rendered last = on top) -->
+  <g id="g-brain" opacity="0">
+    <!-- Outer halos -->
+    <circle cx="0" cy="0" r="72" fill="rgba(130,70,255,0.06)" stroke="none"/>
+    <circle cx="0" cy="0" r="55" fill="rgba(150,80,255,0.10)" stroke="none"/>
+    <circle id="brain-ring" cx="0" cy="0" r="42"
+      fill="rgba(100,50,220,0.15)"
+      stroke="rgba(160,100,255,0.3)" stroke-width="1.5"/>
+    <!-- Brain emoji -->
+    <text id="brain-emoji" x="0" y="2"
+      text-anchor="middle" dominant-baseline="middle"
+      font-size="68" filter="url(#glow-xl)">🧠</text>
+    <!-- Labels -->
+    <text x="0" y="52" text-anchor="middle"
+      font-size="12" font-weight="900" fill="#c0a0ff"
+      letter-spacing="4" filter="url(#glow)"
+      font-family="Segoe UI, system-ui, sans-serif">MASTERMIND</text>
+    <text x="0" y="66" text-anchor="middle"
+      font-size="7.5" fill="#6060a0" letter-spacing="2"
+      font-family="Segoe UI, system-ui, sans-serif">TOP-LEVEL ORCHESTRATOR</text>
+    <!-- Monograph button group -->
+    <g id="g-mono" cursor="pointer" opacity="0" onclick="showMonograph()">
+      <rect x="-58" y="78" width="116" height="24" rx="12"
+        fill="rgba(70,40,140,0.7)" stroke="rgba(150,100,255,0.65)" stroke-width="1"/>
+      <text x="0" y="90" text-anchor="middle" dominant-baseline="middle"
+        font-size="10" font-weight="700" fill="#c0a0ff" letter-spacing="0.5"
+        font-family="Segoe UI, system-ui, sans-serif">📊  Monograph</text>
+    </g>
+    <!-- Iterate badge -->
+    <g id="g-iter" opacity="0">
+      <rect x="-50" y="108" width="100" height="18" rx="9"
+        fill="rgba(30,120,70,0.4)" stroke="rgba(60,200,110,0.5)" stroke-width="1"/>
+      <text x="0" y="117" text-anchor="middle" dominant-baseline="middle"
+        font-size="8" font-weight="700" fill="#70ffaa" letter-spacing="1.5"
+        font-family="Segoe UI, system-ui, sans-serif">⚡  --iterate N</text>
+    </g>
+  </g>
+</svg>
+
+<div id="detail-panel">
+  <button id="close-btn" onclick="closePanel()">✕</button>
+  <div id="detail-body"></div>
 </div>
 
-<!-- Detail / Monograph panel -->
-<div id="detail-panel">
-  <button id="close-panel" onclick="closePanel()">✕</button>
-  <div id="detail-content"></div>
+<div id="controls">
+  <button class="ctrl-btn" onclick="replay()">↺ &nbsp;Replay</button>
 </div>
 
 <div id="legend">
-  🐒 hover a domain to see sub-agents &nbsp;·&nbsp; click for details &nbsp;·&nbsp; 📊 for brain/memory info
+  click an agent to see details &nbsp;·&nbsp; 📊 for memory / brain info
 </div>
 
 <script>
-/* ── Domain data ── */
+/* ── Data ── */
 const DOMAINS = [
-  {
-    name:'Build',    emoji:'🔨',
-    manager:'coordinator', mode:'auto',
-    swarm:'hierarchical · 6 agents · raft',
-    color:'#4FC3F7', board:'development',
+  { name:'Build',    emoji:'🔨', manager:'coordinator', mode:'auto',
+    swarm:'hierarchical · 6 · raft', color:'#4FC3F7', board:'development',
     agents:['backend-dev','frontend-dev','tester','reviewer','sparc-coder'],
-    desc:'Ship features, fix bugs, refactor code. Development Manager decomposes goals into monotask briefings and coordinates a hierarchical raft swarm.'
-  },
-  {
-    name:'Idea',     emoji:'💡',
-    manager:'coordinator', mode:'confirm',
-    swarm:'mesh · 6 agents · gossip',
-    color:'#FFD54F', board:'ideation',
+    desc:'Ship features, fix bugs, refactor code. Development Manager decomposes goals into monotask briefings and coordinates a hierarchical raft swarm.' },
+  { name:'Idea',     emoji:'💡', manager:'coordinator', mode:'confirm',
+    swarm:'mesh · 6 · gossip', color:'#FFD54F', board:'ideation',
     agents:['researcher','Trend Researcher','UX Researcher','Growth Hacker','Content Creator'],
-    desc:'Brainstorm products, features, pivots. A mesh of specialists explore multiple angles simultaneously, cross-pollinating insights via gossip protocol.'
-  },
-  {
-    name:'Marketing',emoji:'📣',
-    manager:'coordinator', mode:'confirm',
-    swarm:'star · 5 agents · parallel',
-    color:'#FF8A65', board:'marketing',
+    desc:'Brainstorm products, features, pivots. A mesh of specialists explore multiple angles simultaneously, cross-pollinating insights via gossip protocol.' },
+  { name:'Marketing',emoji:'📣', manager:'coordinator', mode:'confirm',
+    swarm:'star · 5 · parallel', color:'#FF8A65', board:'marketing',
     agents:['Content Creator','SEO Specialist','Social Media Strategist','Analytics Reporter','Ad Creative Strategist'],
-    desc:'Campaigns, copy, SEO, social media. Star topology runs all channel workstreams in parallel, then the hub synthesises outputs.'
-  },
-  {
-    name:'Review',   emoji:'🔍',
-    manager:'reviewer', mode:'auto',
-    swarm:'mesh · 4 agents · gossip',
-    color:'#CE93D8', board:'review',
+    desc:'Campaigns, copy, SEO, social media. Star topology runs all channel workstreams in parallel, then the hub synthesises outputs.' },
+  { name:'Review',   emoji:'🔍', manager:'reviewer',    mode:'auto',
+    swarm:'mesh · 4 · gossip', color:'#CE93D8', board:'review',
     agents:['Code Reviewer','Security Engineer','Software Architect','Accessibility Auditor'],
-    desc:'Code, content, security, strategy review. Specialist reviewers share findings via gossip mesh for multi-angle assessment.'
-  },
-  {
-    name:'Research', emoji:'🔬',
-    manager:'researcher', mode:'auto',
-    swarm:'mesh · 4 agents · gossip',
-    color:'#80DEEA', board:'research',
+    desc:'Code, content, security, strategy review. Specialist reviewers share findings via gossip mesh for multi-angle assessment.' },
+  { name:'Research', emoji:'🔬', manager:'researcher',  mode:'auto',
+    swarm:'mesh · 4 · gossip', color:'#80DEEA', board:'research',
     agents:['researcher','Trend Researcher','UX Researcher','Analytics Reporter'],
-    desc:'Market, competitor, user research. Intelligence streams cross-pollinate via mesh to build a comprehensive picture.'
-  },
-  {
-    name:'Content',  emoji:'✍️',
-    manager:'coordinator', mode:'confirm',
-    swarm:'ring · 4 agents · pipeline',
-    color:'#A5D6A7', board:'content',
+    desc:'Market, competitor, user research. Intelligence streams cross-pollinate via mesh to build a comprehensive picture.' },
+  { name:'Content',  emoji:'✍️', manager:'coordinator', mode:'confirm',
+    swarm:'ring · 4 · pipeline', color:'#A5D6A7', board:'content',
     agents:['researcher','Content Creator','Technical Writer','editor'],
-    desc:'Blog, docs, newsletters. Ring pipeline: research → draft → edit → format/publish. Each stage feeds the next.'
-  },
-  {
-    name:'Release',  emoji:'🚀',
-    manager:'coordinator', mode:'auto',
-    swarm:'hierarchical · 5 agents · raft',
-    color:'#EF9A9A', board:'release',
+    desc:'Blog, docs, newsletters. Ring pipeline: research → draft → edit → format/publish. Each stage feeds the next.' },
+  { name:'Release',  emoji:'🚀', manager:'coordinator', mode:'auto',
+    swarm:'hierarchical · 5 · raft', color:'#EF9A9A', board:'release',
     agents:['release-manager','tester','DevOps Automator','cicd-engineer'],
-    desc:'Version, changelog, deploy. Hierarchical raft keeps authoritative release state across environments with rollback plan.'
-  },
-  {
-    name:'Sales',    emoji:'💼',
-    manager:'coordinator', mode:'confirm',
-    swarm:'hierarchical · 4 agents · raft',
-    color:'#FFCC80', board:'sales',
+    desc:'Version, changelog, deploy. Hierarchical raft keeps authoritative release state across environments with rollback plan.' },
+  { name:'Sales',    emoji:'💼', manager:'coordinator', mode:'confirm',
+    swarm:'hierarchical · 4 · raft', color:'#FFCC80', board:'sales',
     agents:['Outbound Strategist','Proposal Strategist','Deal Strategist','Account Strategist'],
-    desc:'Outreach, proposals, pipeline. Coordinated sales motions from ICP definition through to proposal and deal close.'
-  },
-  {
-    name:'Ops',      emoji:'⚙️',
-    manager:'coordinator', mode:'auto',
-    swarm:'star · 4 agents · parallel',
-    color:'#90CAF9', board:'ops',
+    desc:'Outreach, proposals, pipeline. Coordinated sales motions from ICP definition through to proposal and close.' },
+  { name:'Ops',      emoji:'⚙️', manager:'coordinator', mode:'auto',
+    swarm:'star · 4 · parallel', color:'#90CAF9', board:'ops',
     agents:['Workflow Optimizer','Analytics Reporter','DevOps Automator','cicd-engineer'],
-    desc:'Workflow automation, reporting, process optimisation. Star hub aggregates independent workstream outputs.'
-  },
-  {
-    name:'Finance',  emoji:'💰',
-    manager:'coordinator', mode:'confirm',
-    swarm:'hierarchical · 3 agents · raft',
-    color:'#C8E6C9', board:'finance',
+    desc:'Workflow automation, reporting, process optimisation. Star hub aggregates independent workstream outputs.' },
+  { name:'Finance',  emoji:'💰', manager:'coordinator', mode:'confirm',
+    swarm:'hierarchical · 3 · raft', color:'#C8E6C9', board:'finance',
     agents:['Finance Tracker','Analytics Reporter'],
-    desc:'Invoicing, budget, forecasting. Small precise team with raft authority for numerical accuracy and auditability.'
-  },
+    desc:'Invoicing, budget, forecasting. Small precise team with raft authority for numerical accuracy and auditability.' },
 ];
 
-let activeIdx = null;
+/* ── Layout state ── */
+let cx = 0, cy = 0, r = 0;
+function updateLayout() {
+  cx = innerWidth / 2;
+  cy = innerHeight / 2;
+  r  = Math.min(innerWidth, innerHeight) * 0.308;
+}
+
+/* ── Easing functions ── */
+function easeOutBack(t) {
+  const c1 = 1.70158, c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+function easeInOutQuart(t) { return t < .5 ? 8*t*t*t*t : 1 - Math.pow(-2*t+2,4)/2; }
+
+/* ── SVG helpers ── */
+const NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs) {
+  const el = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  return el;
+}
+function svgText(content, attrs) {
+  const el = svgEl('text', attrs);
+  el.textContent = content;
+  return el;
+}
+
+/* ── Agent character builder ── */
+function buildAgentChar(d, i) {
+  const g = svgEl('g', { id: `ag-${i}`, opacity: '0', cursor: 'pointer' });
+  const c = d.color;
+
+  // Ground shadow
+  g.appendChild(svgEl('ellipse', { cx:'0', cy:'36', rx:'15', ry:'5',
+    fill:'rgba(0,0,0,0.35)' }));
+
+  // Body / torso
+  g.appendChild(svgEl('ellipse', { cx:'0', cy:'24', rx:'14', ry:'13',
+    fill: c, opacity:'0.72' }));
+
+  // Ears
+  for (const ex of [-15, 15]) {
+    g.appendChild(svgEl('circle', { cx: ex, cy:'-4', r:'6', fill: c, opacity:'0.78' }));
+    g.appendChild(svgEl('circle', { cx: ex, cy:'-4', r:'3.5', fill:'#e87a7a', opacity:'0.5' }));
+  }
+
+  // Head
+  g.appendChild(svgEl('circle', { cx:'0', cy:'-5', r:'17',
+    fill:'#1a1230', stroke: c, 'stroke-width':'1.8', filter:'url(#shadow)' }));
+
+  // Domain emoji face
+  const face = svgEl('text', { x:'0', y:'-5',
+    'text-anchor':'middle', 'dominant-baseline':'middle',
+    'font-size':'16' });
+  face.textContent = d.emoji;
+  g.appendChild(face);
+
+  // Manager icon (small monkey above head left)
+  const mgr = svgEl('text', { x:'14', y:'-18',
+    'text-anchor':'middle', 'dominant-baseline':'middle',
+    'font-size':'10', opacity:'0.6' });
+  mgr.textContent = '🐒';
+  g.appendChild(mgr);
+
+  // Name label
+  const lbl = svgEl('text', { x:'0', y:'46',
+    'text-anchor':'middle', 'dominant-baseline':'middle',
+    'font-size':'8', 'font-weight':'bold',
+    fill: c, 'letter-spacing':'0.6',
+    'font-family':'Segoe UI, system-ui, sans-serif' });
+  lbl.textContent = d.name.toUpperCase();
+  g.appendChild(lbl);
+
+  return g;
+}
 
 /* ── Stars ── */
-(function makeStars() {
-  const el = document.getElementById('stars');
-  for (let i = 0; i < 160; i++) {
-    const s = document.createElement('div');
-    s.className = 'star';
-    const sz = Math.random() * 2.4 + .4;
-    s.style.cssText =
-      `width:${sz}px;height:${sz}px;`+
-      `left:${Math.random()*100}%;top:${Math.random()*100}%;`+
-      `--dur:${(Math.random()*4+2).toFixed(1)}s;`+
-      `--delay:${(Math.random()*3).toFixed(1)}s;`+
-      `opacity:${(Math.random()*.6+.1).toFixed(2)};`;
-    el.appendChild(s);
+function buildStars() {
+  const g = document.getElementById('g-stars');
+  g.innerHTML = '';
+  for (let i = 0; i < 200; i++) {
+    const sz = Math.random() * 2.2 + 0.3;
+    g.appendChild(svgEl('circle', {
+      cx: (Math.random() * innerWidth).toFixed(1),
+      cy: (Math.random() * innerHeight).toFixed(1),
+      r:  sz.toFixed(2),
+      fill: 'white',
+      opacity: (Math.random() * 0.65 + 0.1).toFixed(2)
+    }));
   }
-})();
+}
 
-/* ── Build nodes + SVG lines ── */
-function build() {
-  const svg   = document.getElementById('svg-layer');
-  const nodes = document.getElementById('nodes');
-  svg.innerHTML = ''; nodes.innerHTML = '';
+/* ── Animation tracking ── */
+let lineEls   = [];
+let agentEls  = [];
+let seats     = [];  // { x, y, ang }
+let origins   = [];  // far start positions
+let bobAnims  = [];  // per-agent requestAnimationFrame IDs
+let interactive = false;
+let activeIdx   = null;
+let dashOffset  = 0;
 
-  const cx = window.innerWidth  / 2;
-  const cy = window.innerHeight / 2;
-  const r  = Math.min(window.innerWidth, window.innerHeight) * 0.315;
-  const n  = DOMAINS.length;
+/* ── Build scene ── */
+function buildScene() {
+  updateLayout();
+  buildStars();
+
+  // Table circle
+  const tc = document.getElementById('table-ring');
+  tc.setAttribute('cx', cx); tc.setAttribute('cy', cy);
+
+  // Orbit ring (seat circle)
+  const orbit = document.getElementById('orbit-ring');
+  orbit.setAttribute('cx', cx); orbit.setAttribute('cy', cy);
+  orbit.setAttribute('r', r);
+
+  // Brain center
+  const gb = document.getElementById('g-brain');
+  gb.setAttribute('transform', `translate(${cx},${cy})`);
+
+  // Lines + agents
+  const gLines  = document.getElementById('g-lines');
+  const gAgents = document.getElementById('g-agents');
+  gLines.innerHTML  = '';
+  gAgents.innerHTML = '';
+  lineEls  = [];
+  agentEls = [];
+  seats    = [];
+  origins  = [];
+
+  const n    = DOMAINS.length;
+  const farR = r * 2.7;
 
   DOMAINS.forEach((d, i) => {
     const ang = (i / n) * 2 * Math.PI - Math.PI / 2;
-    const x = cx + r * Math.cos(ang);
-    const y = cy + r * Math.sin(ang);
+    const tx = cx + r * Math.cos(ang);
+    const ty = cy + r * Math.sin(ang);
+    const sx = cx + farR * Math.cos(ang);
+    const sy = cy + farR * Math.sin(ang);
+    seats.push({ x: tx, y: ty, ang });
+    origins.push({ x: sx, y: sy });
 
-    /* SVG line */
-    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
-    line.setAttribute('x1', cx); line.setAttribute('y1', cy);
-    line.setAttribute('x2', x);  line.setAttribute('y2', y);
-    line.setAttribute('stroke', d.color);
-    line.classList.add('conn-line');
-    line.style.animationDelay = `${i * 0.28}s`;
-    svg.appendChild(line);
+    // Connection line
+    const line = svgEl('line', {
+      x1: cx, y1: cy, x2: tx, y2: ty,
+      stroke: d.color, 'stroke-width':'1.5',
+      'stroke-dasharray':'7 14', opacity:'0'
+    });
+    lineEls.push(line);
+    gLines.appendChild(line);
 
-    /* Domain node */
-    const nd = document.createElement('div');
-    nd.className = 'domain-node';
-    nd.id = `dn-${i}`;
-    nd.style.cssText =
-      `left:${x}px;top:${y}px;`+
-      `--clr:${d.color};--glow:${d.color}44;`+
-      `border-color:${d.color}33;`;
-    nd.innerHTML = `
-      <span class="dn-emoji">${d.emoji}</span>
-      <span class="dn-name">${d.name}</span>
-      <span class="dn-mgr">🐒 ${d.manager}
-        <span class="mode-pill mode-${d.mode}">${d.mode}</span>
-      </span>
-      <span class="swarm-tag">${d.swarm}</span>
-      <div class="agents-row">${d.agents.map(a=>`<span class="agent-chip">🐒 ${a}</span>`).join('')}</div>
-    `;
-    nd.addEventListener('click', ()=> showDomain(i));
-    nodes.appendChild(nd);
+    // Agent character
+    const ag = buildAgentChar(d, i);
+    ag.setAttribute('transform', `translate(${sx},${sy})`);
+    ag.addEventListener('click', e => { e.stopPropagation(); if (interactive) showDomain(i); });
+    agentEls.push(ag);
+    gAgents.appendChild(ag);
   });
 }
 
-build();
-window.addEventListener('resize', build);
+/* ── Animate a single agent arriving ── */
+function animateArrival(i, onDone) {
+  const ag  = agentEls[i];
+  const ln  = lineEls[i];
+  const src = origins[i];
+  const dst = seats[i];
+  const dur = 1150; // ms per agent
 
-/* ── Show domain detail ── */
+  ag.setAttribute('opacity', '1');
+  const t0 = performance.now();
+
+  function step(ts) {
+    const raw  = Math.min((ts - t0) / dur, 1);
+    const ease = easeOutCubic(raw);
+
+    const x = src.x + (dst.x - src.x) * ease;
+    const y = src.y + (dst.y - src.y) * ease;
+
+    // Walking bob: dampens as agent approaches
+    const bob = Math.sin(raw * Math.PI * 7) * 12 * (1 - raw);
+    const sc  = 1.5 - 0.5 * ease; // starts big, settles to 1
+
+    ag.setAttribute('transform', `translate(${x},${y + bob}) scale(${sc})`);
+    ln.setAttribute('opacity', (ease * 0.42).toFixed(2));
+
+    if (raw < 1) {
+      requestAnimationFrame(step);
+    } else {
+      ag.setAttribute('transform', `translate(${dst.x},${dst.y}) scale(1)`);
+      ln.setAttribute('opacity', '0.4');
+      ripple(dst.x, dst.y, DOMAINS[i].color);
+      startIdleBob(i);
+      onDone && onDone();
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+/* ── Ripple on landing ── */
+function ripple(x, y, color) {
+  const g  = document.getElementById('g-ripples');
+  const c1 = svgEl('circle', { cx: x, cy: y, r:'4', fill:'none',
+    stroke: color, 'stroke-width':'2', opacity:'0.8' });
+  const c2 = svgEl('circle', { cx: x, cy: y, r:'4', fill:'none',
+    stroke: color, 'stroke-width':'1', opacity:'0.4' });
+  g.appendChild(c1);
+  g.appendChild(c2);
+  const t0 = performance.now();
+  function anim(ts) {
+    const p = Math.min((ts - t0) / 750, 1);
+    c1.setAttribute('r',  (4 + 44 * p).toFixed(1));
+    c1.setAttribute('opacity', (0.8 * (1 - p)).toFixed(2));
+    c2.setAttribute('r',  (4 + 28 * p * 0.7).toFixed(1));
+    c2.setAttribute('opacity', (0.4 * (1 - p)).toFixed(2));
+    if (p < 1) requestAnimationFrame(anim);
+    else { g.removeChild(c1); g.removeChild(c2); }
+  }
+  requestAnimationFrame(anim);
+}
+
+/* ── Idle bob per agent ── */
+function startIdleBob(i) {
+  const ag  = agentEls[i];
+  const dst = seats[i];
+  const ph  = (i / DOMAINS.length) * Math.PI * 2;
+  function bob(ts) {
+    const by = Math.sin(ts * 0.0012 + ph) * 2.8;
+    const sc = 1 + Math.sin(ts * 0.0009 + ph + 1) * 0.022;
+    ag.setAttribute('transform', `translate(${dst.x},${dst.y + by}) scale(${sc})`);
+    bobAnims[i] = requestAnimationFrame(bob);
+  }
+  bobAnims[i] = requestAnimationFrame(bob);
+}
+
+/* ── Line dash flow (runs continuously) ── */
+function startLineFlow() {
+  let offset = 0;
+  function tick(ts) {
+    offset = (ts / 1000 * 28) % 21; // period = 7+14 = 21
+    lineEls.forEach(l => {
+      if (parseFloat(l.getAttribute('opacity') || '0') > 0.01)
+        l.setAttribute('stroke-dashoffset', -offset);
+    });
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ── Brain pulse (runs continuously) ── */
+function startBrainPulse() {
+  const br = document.getElementById('brain-ring');
+  const be = document.getElementById('brain-emoji');
+  function tick(ts) {
+    const sc  = 1 + Math.sin(ts * 0.0026) * 0.055;
+    const rsc = 1 + Math.sin(ts * 0.0018) * 0.04;
+    be.setAttribute('transform', `scale(${sc.toFixed(3)})`);
+    const rr = 42 * rsc;
+    br.setAttribute('r', rr.toFixed(2));
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ── Table grow animation ── */
+function animateTable(targetR, onDone) {
+  const tc = document.getElementById('table-ring');
+  const t0 = performance.now();
+  const dur = 900;
+  function step(ts) {
+    const p = Math.min((ts - t0) / dur, 1);
+    const e = easeOutBack(p);
+    tc.setAttribute('r', Math.max(0, e * targetR).toFixed(1));
+    if (p < 1) requestAnimationFrame(step);
+    else { tc.setAttribute('r', targetR); onDone && onDone(); }
+  }
+  requestAnimationFrame(step);
+}
+
+/* ── Brain drop animation ── */
+function animateBrainDrop(onDone) {
+  const gb = document.getElementById('g-brain');
+  gb.setAttribute('opacity', '1');
+  const startY = cy - 220;
+  const t0  = performance.now();
+  const dur = 700;
+  function step(ts) {
+    const p = Math.min((ts - t0) / dur, 1);
+    const e = easeOutBack(p);
+    const curY = startY + (cy - startY) * e;
+    const sc   = 0.2 + 0.8 * e;
+    gb.setAttribute('transform', `translate(${cx},${curY}) scale(${sc})`);
+    if (p < 1) requestAnimationFrame(step);
+    else {
+      gb.setAttribute('transform', `translate(${cx},${cy})`);
+      onDone && onDone();
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+/* ── Full animation sequence ── */
+function runAnimation() {
+  interactive = false;
+  activeIdx   = null;
+
+  const cinema = document.getElementById('cinema');
+  const ct = document.getElementById('cinema-text');
+  const cs = document.getElementById('cinema-sub');
+  const cs2 = document.getElementById('cinema-scan');
+
+  // Reset all
+  document.getElementById('g-brain').setAttribute('opacity', '0');
+  document.getElementById('g-mono').setAttribute('opacity', '0');
+  document.getElementById('g-iter').setAttribute('opacity', '0');
+  document.getElementById('table-ring').setAttribute('r', '0');
+  document.getElementById('title').style.opacity = '0';
+  document.getElementById('controls').classList.remove('visible');
+  document.getElementById('legend').classList.remove('visible');
+  lineEls.forEach(l => l.setAttribute('opacity', '0'));
+  agentEls.forEach((ag, i) => {
+    ag.setAttribute('opacity', '0');
+    ag.setAttribute('transform', `translate(${origins[i].x},${origins[i].y})`);
+  });
+  bobAnims.forEach(id => id && cancelAnimationFrame(id));
+  bobAnims = Array(DOMAINS.length).fill(null);
+
+  // Show cinema overlay
+  cinema.style.display = 'flex';
+  cinema.style.opacity = '1';
+  cinema.style.pointerEvents = 'none';
+  ct.style.opacity = '0';
+  cs.style.opacity = '0';
+  cs2.style.opacity = '0';
+
+  // Phase 1: cinema text fades in
+  setTimeout(() => {
+    ct.style.opacity = '1';
+    cs.style.opacity = '1';
+    cs2.style.opacity = '1';
+  }, 120);
+
+  // Phase 2: cinema fades out, table grows
+  setTimeout(() => {
+    cinema.style.opacity = '0';
+    setTimeout(() => { cinema.style.display = 'none'; }, 900);
+    document.getElementById('title').style.opacity = '1';
+    animateTable(r, () => {
+      // Phase 3: brain drops in
+      setTimeout(() => {
+        animateBrainDrop(() => {
+          // Show buttons
+          document.getElementById('g-mono').setAttribute('opacity', '1');
+          document.getElementById('g-iter').setAttribute('opacity', '1');
+
+          // Phase 4: stagger agent arrivals
+          let lastAgentDone = false;
+          DOMAINS.forEach((_, i) => {
+            setTimeout(() => {
+              animateArrival(i, i === DOMAINS.length - 1 ? () => {
+                // All arrived — go interactive
+                setTimeout(() => {
+                  interactive = true;
+                  document.getElementById('controls').classList.add('visible');
+                  document.getElementById('legend').classList.add('visible');
+                }, 600);
+              } : null);
+            }, i * 520);
+          });
+        });
+      }, 300);
+    });
+  }, 1900);
+}
+
+/* ── Replay ── */
+function replay() {
+  closePanel();
+  buildScene();
+  runAnimation();
+}
+
+/* ── Detail panel — Domain ── */
 function showDomain(i) {
+  if (!interactive) return;
   const d = DOMAINS[i];
   if (activeIdx === i) { closePanel(); return; }
-
-  if (activeIdx !== null && activeIdx !== 'mono') {
-    document.getElementById(`dn-${activeIdx}`)?.classList.remove('active');
-  }
   activeIdx = i;
-  document.getElementById(`dn-${i}`).classList.add('active');
 
-  document.getElementById('detail-content').innerHTML = `
+  document.getElementById('detail-body').innerHTML = `
     <div style="text-align:center;margin-bottom:14px;">
-      <div style="font-size:42px;line-height:1">${d.emoji}</div>
-      <div style="font-size:17px;font-weight:900;color:${d.color};letter-spacing:2px;margin-top:6px;">
+      <div style="font-size:40px;line-height:1">${d.emoji}</div>
+      <div style="font-size:16px;font-weight:900;color:${d.color};letter-spacing:2px;margin-top:6px;">
         mastermind:${d.name.toLowerCase()}
       </div>
-      <div style="margin-top:5px;">
+      <div style="margin-top:6px;">
         <span class="mode-pill mode-${d.mode}">default: ${d.mode}</span>
       </div>
     </div>
-
     <p style="font-size:11px;color:#aaa;line-height:1.75;margin-bottom:14px;">${d.desc}</p>
-
-    <div style="font-size:9px;color:#666;letter-spacing:1.5px;margin-bottom:5px;">SWARM CONFIG</div>
-    <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);
-        border-radius:9px;padding:9px 12px;font-size:11px;color:#ccc;margin-bottom:14px;
-        font-family:monospace;letter-spacing:.5px;">
-      ${d.swarm}
-    </div>
-
-    <div style="font-size:9px;color:#666;letter-spacing:1.5px;margin-bottom:6px;">MANAGER AGENT</div>
-    <div style="font-size:13px;margin-bottom:14px;">🐒 <strong style="color:${d.color}">${d.manager}</strong>
-      <span style="font-size:10px;color:#666;margin-left:6px;">→ board: ${d.board}</span>
-    </div>
-
-    <div style="font-size:9px;color:#666;letter-spacing:1.5px;margin-bottom:7px;">SPECIALIST AGENTS</div>
+    <div style="font-size:9px;color:#555;letter-spacing:1.5px;margin-bottom:5px;">SWARM CONFIG</div>
+    <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+        border-radius:9px;padding:9px 12px;font-size:11px;color:#bbb;margin-bottom:14px;
+        font-family:monospace;letter-spacing:.5px;">${d.swarm}</div>
+    <div style="font-size:9px;color:#555;letter-spacing:1.5px;margin-bottom:6px;">MANAGER AGENT</div>
+    <div style="font-size:12px;margin-bottom:14px;">🐒 <strong style="color:${d.color}">${d.manager}</strong>
+      <span style="font-size:10px;color:#555;margin-left:6px;">→ board: ${d.board}</span></div>
+    <div style="font-size:9px;color:#555;letter-spacing:1.5px;margin-bottom:7px;">SPECIALIST AGENTS</div>
     <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:16px;">
-      ${d.agents.map(a=>`<span style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);
+      ${d.agents.map(a => `<span style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);
         border-radius:7px;padding:3px 8px;font-size:9px;color:#bbb;">🐒 ${a}</span>`).join('')}
     </div>
-
-    <div style="padding-top:13px;border-top:1px solid rgba(255,255,255,.07);">
-      <div style="font-family:monospace;font-size:10px;color:#8877cc;line-height:2;">
+    <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:13px;">
+      <div style="font-family:monospace;font-size:10px;color:#7766bb;line-height:2.1;">
         /mastermind:${d.name.toLowerCase()} [prompt]<br>
-        /mastermind:${d.name.toLowerCase()} [prompt] --auto<br>
+        /mastermind:${d.name.toLowerCase()} --auto<br>
         /mastermind:master [prompt] --iterate 3
       </div>
-    </div>
-  `;
-
-  document.getElementById('detail-panel').classList.add('visible');
+    </div>`;
+  document.getElementById('detail-panel').classList.add('open');
 }
 
-/* ── Show Monograph panel ── */
+/* ── Detail panel — Monograph ── */
 function showMonograph() {
-  if (activeIdx !== null && activeIdx !== 'mono') {
-    document.getElementById(`dn-${activeIdx}`)?.classList.remove('active');
-  }
   if (activeIdx === 'mono') { closePanel(); return; }
   activeIdx = 'mono';
 
-  document.getElementById('detail-content').innerHTML = `
+  document.getElementById('detail-body').innerHTML = `
     <div style="text-align:center;margin-bottom:14px;">
-      <div style="font-size:44px;line-height:1">📊</div>
-      <div style="font-size:17px;font-weight:900;color:#b090ff;letter-spacing:2px;margin-top:6px;">MONOGRAPH</div>
-      <div style="font-size:9px;color:#666;letter-spacing:2px;margin-top:3px;">KNOWLEDGE GRAPH ENGINE</div>
+      <div style="font-size:42px;line-height:1">📊</div>
+      <div style="font-size:16px;font-weight:900;color:#b090ff;letter-spacing:2px;margin-top:6px;">MONOGRAPH</div>
+      <div style="font-size:9px;color:#555;letter-spacing:2px;margin-top:3px;">KNOWLEDGE GRAPH ENGINE</div>
     </div>
-
     <p style="font-size:11px;color:#aaa;line-height:1.75;margin-bottom:14px;">
-      Mastermind's long-term memory. Every run writes decisions, lessons, and patterns into a
-      three-tier brain that self-compacts and improves over time.
-    </p>
-
-    <div style="font-size:9px;color:#666;letter-spacing:1.5px;margin-bottom:8px;">THREE-TIER BRAIN</div>
+      Mastermind's long-term memory. Every run writes decisions, lessons, and patterns into a three-tier brain that self-compacts and improves over time.</p>
+    <div style="font-size:9px;color:#555;letter-spacing:1.5px;margin-bottom:8px;">THREE-TIER BRAIN</div>
     <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px;">
-      <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);
+      ${[['📁 Tier 1 — Raw Logs','AgentDB · append-only · scored per run'],
+         ['📋 Tier 2 — Weekly Summaries','LLM-distilled per domain · auto-compacted'],
+         ['🌐 Tier 3 — Core Principles','Graph-consolidated · cross-domain · exceptions as edges']]
+        .map(([t,s]) => `<div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
           border-radius:9px;padding:9px 12px;">
-        <div style="font-size:10px;color:#ccc;margin-bottom:2px;">📁 Tier 1 — Raw Logs</div>
-        <div style="font-size:9px;color:#777;">AgentDB · append-only · scored per run</div>
-      </div>
-      <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);
-          border-radius:9px;padding:9px 12px;">
-        <div style="font-size:10px;color:#ccc;margin-bottom:2px;">📋 Tier 2 — Weekly Summaries</div>
-        <div style="font-size:9px;color:#777;">LLM-distilled per domain · auto-compacted</div>
-      </div>
-      <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);
-          border-radius:9px;padding:9px 12px;">
-        <div style="font-size:10px;color:#ccc;margin-bottom:2px;">🌐 Tier 3 — Core Principles</div>
-        <div style="font-size:9px;color:#777;">Graph-consolidated · cross-domain · exceptions as edges</div>
-      </div>
+          <div style="font-size:10px;color:#ccc;margin-bottom:2px;">${t}</div>
+          <div style="font-size:9px;color:#666;">${s}</div></div>`).join('')}
     </div>
-
-    <div style="font-size:9px;color:#666;letter-spacing:1.5px;margin-bottom:7px;">MEMORY SCORE FORMULA</div>
-    <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);
+    <div style="font-size:9px;color:#555;letter-spacing:1.5px;margin-bottom:7px;">MEMORY SCORE</div>
+    <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
         border-radius:9px;padding:9px 12px;font-family:monospace;font-size:10px;color:#c0a0ff;
-        margin-bottom:14px;text-align:center;">
-      score = confidence × 1/(days+1) × log(uses+1)
-    </div>
-
-    <div style="font-size:9px;color:#666;letter-spacing:1.5px;margin-bottom:7px;">BRAIN COMMANDS</div>
-    <div style="font-family:monospace;font-size:10px;color:#8877cc;line-height:2.2;">
+        margin-bottom:14px;text-align:center;">score = conf × 1/(days+1) × log(uses+1)</div>
+    <div style="font-size:9px;color:#555;letter-spacing:1.5px;margin-bottom:7px;">BRAIN COMMANDS</div>
+    <div style="font-family:monospace;font-size:10px;color:#7766bb;line-height:2.1;">
       /mastermind:brain status<br>
       /mastermind:brain compact<br>
       /mastermind:brain refresh --domain X<br>
       /mastermind:brain inspect --tier 1<br>
       /mastermind:brain forget --query "..."<br>
       /mastermind:brain reset --domain X --confirm
-    </div>
-  `;
-
-  document.getElementById('detail-panel').classList.add('visible');
+    </div>`;
+  document.getElementById('detail-panel').classList.add('open');
 }
 
 /* ── Close panel ── */
 function closePanel() {
-  if (activeIdx !== null && activeIdx !== 'mono') {
-    document.getElementById(`dn-${activeIdx}`)?.classList.remove('active');
-  }
   activeIdx = null;
-  document.getElementById('detail-panel').classList.remove('visible');
+  document.getElementById('detail-panel').classList.remove('open');
 }
 
-/* ── Close on backdrop click ── */
-document.getElementById('stage').addEventListener('click', e => {
-  if (e.target === document.getElementById('stage') ||
-      e.target === document.getElementById('table')) {
-    closePanel();
-  }
+/* ── Click background to close ── */
+document.getElementById('canvas').addEventListener('click', e => {
+  if (e.target.closest('#g-brain')) return; // monograph btn / brain area
+  closePanel();
 });
+
+/* ── Init ── */
+buildScene();
+startLineFlow();
+startBrainPulse();
+runAnimation();
+
+window.addEventListener('resize', () => { buildScene(); });
 </script>
 </body>
 </html>
