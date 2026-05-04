@@ -17,7 +17,7 @@
  * - SwarmHub maintained ONLY for compatibility with existing code
  * - All core logic delegated to UnifiedSwarmCoordinator
  *
- * Based on ADR-001 (agentic-flow integration), ADR-003 (Single Coordination Engine),
+ * Based on ADR-001 (Monomind integration), ADR-003 (Single Coordination Engine),
  * and the 15-Agent Swarm Architecture
  */
 

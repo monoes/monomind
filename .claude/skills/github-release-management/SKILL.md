@@ -166,13 +166,8 @@ gh release create $(npm pkg get version) \
   // Create release branch
   Bash("gh api repos/:owner/:repo/git/refs --method POST -f ref='refs/heads/release/v2.0.0' -f sha=$(gh api repos/:owner/:repo/git/refs/heads/main --jq '.object.sha')")
 
-  // Orchestrate release preparation
-  mcp__monomind__task_orchestrate {
-    task: "Prepare release v2.0.0 with comprehensive testing and validation",
-    strategy: "sequential",
-    priority: "critical",
-    maxAgents: 6
-  }
+  // Orchestrate release preparation via Task tool
+  Task("Release Coordinator", "Prepare release v2.0.0 with comprehensive testing and validation", "coordinator")
 
   // Update all release files
   Write("package.json", "[updated version]")
@@ -198,9 +193,8 @@ gh release create $(npm pkg get version) \
     { content: "Merge and deploy", status: "pending", priority: "critical" }
   ]}
 
-  // Store release state
-  mcp__monomind__memory_usage {
-    action: "store",
+  // Store release state via memory tool
+  mcp__monomind__memory_store({
     key: "release/v2.0.0/status",
     value: JSON.stringify({
       version: "2.0.0",
@@ -208,7 +202,7 @@ gh release create $(npm pkg get version) \
       timestamp: Date.now(),
       ready_for_review: true
     })
-  }
+  })
 ```
 
 ### Release Agent Specializations
@@ -317,23 +311,23 @@ npx monomind github release-deploy \
 
   // Spawn package-specific agents
   Task("Package A Manager", "Coordinate monomind package release v1.0.72", "coder")
-  Task("Package B Manager", "Coordinate ruv-swarm package release v1.0.12", "coder")
+  Task("Package B Manager", "Coordinate @monomind/memory package release v1.0.12", "coder")
   Task("Integration Tester", "Validate cross-package compatibility", "tester")
   Task("Version Coordinator", "Align dependencies and versions", "coordinator")
 
   // Update all packages simultaneously
-  Write("packages/monomind/package.json", "[v1.0.72 content]")
-  Write("packages/ruv-swarm/package.json", "[v1.0.12 content]")
+  Write("packages/@monomind/cli/package.json", "[v1.0.72 content]")
+  Write("packages/@monomind/memory/package.json", "[v1.0.12 content]")
   Write("CHANGELOG.md", "[consolidated changelog]")
 
   // Run cross-package validation
   Bash("cd packages/monomind && npm install && npm test")
-  Bash("cd packages/ruv-swarm && npm install && npm test")
+  Bash("cd packages/@monomind/cli && npm install && npm test")
   Bash("npm run test:integration")
 
   // Create unified release PR
   Bash(`gh pr create \
-    --title "Release: monomind v1.0.72, ruv-swarm v1.0.12" \
+    --title "Release: @monomind/cli v1.0.72, @monomind/memory v1.0.12" \
     --body "Multi-package coordinated release with cross-compatibility validation"`)
 ```
 
@@ -459,7 +453,7 @@ npx monomind github emergency-release \
 
   // Notify stakeholders
   Bash(`gh issue create \
-    --title "🚨 HOTFIX v1.2.4 Deployed" \
+    --title "HOTFIX v1.2.4 Deployed" \
     --body "Critical security patch deployed. Please update immediately." \
     --label "critical,security,hotfix"`)
 ```
@@ -834,7 +828,7 @@ jobs:
         run: |
           # Create announcement issue
           gh issue create \
-            --title "🎉 Released ${{ github.ref_name }}" \
+            --title "Released ${{ github.ref_name }}" \
             --body "$(cat RELEASE_CHANGELOG.md)" \
             --label "announcement,release"
 

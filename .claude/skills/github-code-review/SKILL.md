@@ -7,16 +7,16 @@ description: Comprehensive GitHub code review with AI-powered swarm coordination
 
 > **AI-Powered Code Review**: Deploy specialized review agents to perform comprehensive, intelligent code reviews that go beyond traditional static analysis.
 
-## 🎯 Quick Start
+## Quick Start
 
 ### Simple Review
 
 ```bash
 # Initialize review swarm for PR
-gh pr view 123 --json files,diff | npx ruv-swarm github review-init --pr 123
+gh pr view 123 --json files,diff | npx monomind github review-init --pr 123
 
 # Post review status
-gh pr comment 123 --body "🔍 Multi-agent code review initiated"
+gh pr comment 123 --body "Multi-agent code review initiated"
 ```
 
 ### Complete Review Workflow
@@ -27,7 +27,7 @@ PR_DATA=$(gh pr view 123 --json files,additions,deletions,title,body)
 PR_DIFF=$(gh pr diff 123)
 
 # Initialize comprehensive review
-npx ruv-swarm github review-init \
+npx monomind github review-init \
   --pr 123 \
   --pr-data "$PR_DATA" \
   --diff "$PR_DIFF" \
@@ -37,7 +37,7 @@ npx ruv-swarm github review-init \
 
 ---
 
-## 📚 Table of Contents
+## Table of Contents
 
 <details>
 <summary><strong>Core Features</strong></summary>
@@ -83,7 +83,7 @@ npx ruv-swarm github review-init \
 
 ---
 
-## 🚀 Core Features
+## Core Features
 
 ### Multi-Agent Review System
 
@@ -95,7 +95,7 @@ PR_DATA=$(gh pr view 123 --json files,additions,deletions,title,body)
 PR_DIFF=$(gh pr diff 123)
 
 # Start multi-agent review
-npx ruv-swarm github review-init \
+npx monomind github review-init \
   --pr 123 \
   --pr-data "$PR_DATA" \
   --diff "$PR_DIFF" \
@@ -103,19 +103,19 @@ npx ruv-swarm github review-init \
   --depth comprehensive
 
 # Post initial review status
-gh pr comment 123 --body "🔍 Multi-agent code review initiated"
+gh pr comment 123 --body "Multi-agent code review initiated"
 ```
 
 **Benefits:**
 
-- ✅ Parallel review by specialized agents
-- ✅ Comprehensive coverage across multiple domains
-- ✅ Faster review cycles with coordinated analysis
-- ✅ Consistent quality standards enforcement
+- Parallel review by specialized agents
+- Comprehensive coverage across multiple domains
+- Faster review cycles with coordinated analysis
+- Consistent quality standards enforcement
 
 ---
 
-## 🤖 Specialized Review Agents
+## Specialized Review Agents
 
 ### Security Review Agent
 
@@ -126,7 +126,7 @@ gh pr comment 123 --body "🔍 Multi-agent code review initiated"
 CHANGED_FILES=$(gh pr view 123 --json files --jq '.files[].path')
 
 # Run security-focused review
-SECURITY_RESULTS=$(npx ruv-swarm github review-security \
+SECURITY_RESULTS=$(npx monomind github review-security \
   --pr 123 \
   --files "$CHANGED_FILES" \
   --check "owasp,cve,secrets,permissions" \
@@ -207,7 +207,7 @@ fi
 
 ```bash
 # Run performance analysis
-npx ruv-swarm github review-performance \
+npx monomind github review-performance \
   --pr 123 \
   --profile "cpu,memory,io" \
   --benchmark-against main \
@@ -247,7 +247,7 @@ npx ruv-swarm github review-performance \
 
 ```bash
 # Architecture review
-npx ruv-swarm github review-architecture \
+npx monomind github review-architecture \
   --pr 123 \
   --check "patterns,coupling,cohesion,solid" \
   --visualize-impact \
@@ -287,7 +287,7 @@ npx ruv-swarm github review-architecture \
 
 ```bash
 # Style enforcement with auto-fix
-npx ruv-swarm github review-style \
+npx monomind github review-style \
   --pr 123 \
   --check "formatting,naming,docs,tests" \
   --auto-fix "formatting,imports,whitespace"
@@ -320,20 +320,20 @@ npx ruv-swarm github review-style \
 
 ---
 
-## 🔄 PR-Based Swarm Management
+## PR-Based Swarm Management
 
 ### Create Swarm from PR
 
 ```bash
 # Create swarm from PR description using gh CLI
-gh pr view 123 --json body,title,labels,files | npx ruv-swarm swarm create-from-pr
+gh pr view 123 --json body,title,labels,files | npx monomind swarm create-from-pr
 
 # Auto-spawn agents based on PR labels
-gh pr view 123 --json labels | npx ruv-swarm swarm auto-spawn
+gh pr view 123 --json labels | npx monomind swarm auto-spawn
 
 # Create swarm with full PR context
 gh pr view 123 --json body,labels,author,assignees | \
-  npx ruv-swarm swarm init --from-pr-data
+  npx monomind swarm init --from-pr-data
 ```
 
 ### Label-Based Agent Assignment
@@ -360,7 +360,7 @@ Map PR labels to specialized agents:
 # Small PR (< 100 lines): ring topology
 # Medium PR (100-500 lines): mesh topology
 # Large PR (> 500 lines): hierarchical topology
-npx ruv-swarm github pr-topology --pr 123
+npx monomind github pr-topology --pr 123
 ```
 
 ---
@@ -392,13 +392,13 @@ createServer((req, res) => {
     const event = JSON.parse(body);
 
     if (event.action === "opened" && event.pull_request) {
-      execSync(`npx ruv-swarm github pr-init ${event.pull_request.number}`);
+      execSync(`npx monomind github pr-init ${event.pull_request.number}`);
     }
 
     if (event.comment && event.comment.body.startsWith("/swarm")) {
       const command = event.comment.body;
       execSync(
-        `npx ruv-swarm github handle-comment --pr ${event.issue.number} --command "${command}"`,
+        `npx monomind github handle-comment --pr ${event.issue.number} --command "${command}"`,
       );
     }
 
@@ -412,7 +412,7 @@ createServer((req, res) => {
 
 ---
 
-## ⚙️ Review Configuration
+## Review Configuration
 
 ### Configuration File
 
@@ -482,7 +482,7 @@ review:
 
 ---
 
-## 🤖 Automated Workflows
+## Automated Workflows
 
 ### Auto-Review on PR Creation
 
@@ -514,7 +514,7 @@ jobs:
           PR_DIFF=$(gh pr diff $PR_NUM)
 
           # Run swarm review
-          REVIEW_OUTPUT=$(npx ruv-swarm github review-all \
+          REVIEW_OUTPUT=$(npx monomind github review-all \
             --pr $PR_NUM \
             --pr-data "$PR_DATA" \
             --diff "$PR_DIFF" \
@@ -543,7 +543,7 @@ jobs:
 
 ---
 
-## 💬 Intelligent Comment Generation
+## Intelligent Comment Generation
 
 ### Generate Contextual Review Comments
 
@@ -553,7 +553,7 @@ PR_DIFF=$(gh pr diff 123 --color never)
 PR_FILES=$(gh pr view 123 --json files)
 
 # Generate review comments
-COMMENTS=$(npx ruv-swarm github review-comment \
+COMMENTS=$(npx monomind github review-comment \
   --pr 123 \
   --diff "$PR_DIFF" \
   --files "$PR_FILES" \
@@ -583,7 +583,7 @@ done
 
 ```bash
 # Manage review comments efficiently
-npx ruv-swarm github review-comments \
+npx monomind github review-comments \
   --pr 123 \
   --group-by "agent,severity" \
   --summarize \
@@ -592,7 +592,7 @@ npx ruv-swarm github review-comments \
 
 ---
 
-## 🚪 Quality Gates & Checks
+## Quality Gates & Checks
 
 ### Status Checks
 
@@ -612,7 +612,7 @@ protection_rules:
 
 ```bash
 # Set quality gate thresholds
-npx ruv-swarm github quality-gates \
+npx monomind github quality-gates \
   --define '{
     "security": {"threshold": "no-critical"},
     "performance": {"regression": "<5%"},
@@ -626,7 +626,7 @@ npx ruv-swarm github quality-gates \
 
 ```bash
 # Monitor review effectiveness
-npx ruv-swarm github review-metrics \
+npx monomind github review-metrics \
   --period 30d \
   --metrics "issues-found,false-positives,fix-rate,time-to-review" \
   --export-dashboard \
@@ -635,7 +635,7 @@ npx ruv-swarm github review-metrics \
 
 ---
 
-## 🎓 Advanced Features
+## Advanced Features
 
 ### Context-Aware Reviews
 
@@ -643,7 +643,7 @@ Analyze PRs with full project context:
 
 ```bash
 # Review with comprehensive context
-npx ruv-swarm github review-context \
+npx monomind github review-context \
   --pr 123 \
   --load-related-prs \
   --analyze-impact \
@@ -657,14 +657,14 @@ Train review agents on your codebase patterns:
 
 ```bash
 # Learn from past reviews
-npx ruv-swarm github review-learn \
+npx monomind github review-learn \
   --analyze-past-reviews \
   --identify-patterns \
   --improve-suggestions \
   --reduce-false-positives
 
 # Train on your codebase
-npx ruv-swarm github review-train \
+npx monomind github review-train \
   --learn-patterns \
   --adapt-to-style \
   --improve-accuracy
@@ -676,7 +676,7 @@ Coordinate reviews across related pull requests:
 
 ```bash
 # Analyze related PRs together
-npx ruv-swarm github review-batch \
+npx monomind github review-batch \
   --prs "123,124,125" \
   --check-consistency \
   --verify-integration \
@@ -687,7 +687,7 @@ npx ruv-swarm github review-batch \
 
 ```bash
 # Coordinate swarms across related PRs
-npx ruv-swarm github multi-pr \
+npx monomind github multi-pr \
   --prs "123,124,125" \
   --strategy "parallel" \
   --share-memory
@@ -695,7 +695,7 @@ npx ruv-swarm github multi-pr \
 
 ---
 
-## 🛠️ Custom Review Agents
+## Custom Review Agents
 
 ### Create Custom Agent
 
@@ -755,7 +755,7 @@ module.exports = CustomReviewAgent;
 
 ```bash
 # Register custom review agent
-npx ruv-swarm github register-agent \
+npx monomind github register-agent \
   --name "custom-reviewer" \
   --file "./custom-review-agent.js" \
   --category "standards"
@@ -763,7 +763,7 @@ npx ruv-swarm github register-agent \
 
 ---
 
-## 🔧 CI/CD Integration
+## CI/CD Integration
 
 ### Integration with Build Pipeline
 
@@ -787,7 +787,7 @@ jobs:
     steps:
       - name: Run Swarm Review
         run: |
-          npx ruv-swarm github review-all \
+          npx monomind github review-all \
             --pr ${{ github.event.pull_request.number }} \
             --include-build-results
 ```
@@ -796,7 +796,7 @@ jobs:
 
 ```bash
 # Auto-fix common issues
-npx ruv-swarm github pr-fix 123 \
+npx monomind github pr-fix 123 \
   --issues "lint,test-failures,formatting" \
   --commit-fixes \
   --push-changes
@@ -806,7 +806,7 @@ npx ruv-swarm github pr-fix 123 \
 
 ```bash
 # Post swarm progress to PR using gh CLI
-PROGRESS=$(npx ruv-swarm github pr-progress 123 --format markdown)
+PROGRESS=$(npx monomind github pr-progress 123 --format markdown)
 
 gh pr comment 123 --body "$PROGRESS"
 
@@ -818,13 +818,13 @@ fi
 
 ---
 
-## 📋 Complete Workflow Examples
+## Complete Workflow Examples
 
 ### Example 1: Security-Critical PR
 
 ```bash
 # Review authentication system changes
-npx ruv-swarm github review-init \
+npx monomind github review-init \
   --pr 456 \
   --agents "security,authentication,audit" \
   --depth "maximum" \
@@ -836,7 +836,7 @@ npx ruv-swarm github review-init \
 
 ```bash
 # Review database optimization
-npx ruv-swarm github review-init \
+npx monomind github review-init \
   --pr 789 \
   --agents "performance,database,caching" \
   --benchmark \
@@ -848,7 +848,7 @@ npx ruv-swarm github review-init \
 
 ```bash
 # Review new component library
-npx ruv-swarm github review-init \
+npx monomind github review-init \
   --pr 321 \
   --agents "accessibility,style,i18n,docs" \
   --visual-regression \
@@ -861,7 +861,7 @@ npx ruv-swarm github review-init \
 ```bash
 # Review new feature implementation
 gh pr view 456 --json body,labels,files | \
-  npx ruv-swarm github pr-init 456 \
+  npx monomind github pr-init 456 \
     --topology hierarchical \
     --agents "architect,coder,tester,security" \
     --auto-assign-tasks
@@ -871,7 +871,7 @@ gh pr view 456 --json body,labels,files | \
 
 ```bash
 # Review bug fix with debugging focus
-npx ruv-swarm github pr-init 789 \
+npx monomind github pr-init 789 \
   --topology mesh \
   --agents "debugger,analyst,tester" \
   --priority high \
@@ -880,13 +880,13 @@ npx ruv-swarm github pr-init 789 \
 
 ---
 
-## 📊 Monitoring & Analytics
+## Monitoring & Analytics
 
 ### Review Dashboard
 
 ```bash
 # Launch real-time review dashboard
-npx ruv-swarm github review-dashboard \
+npx monomind github review-dashboard \
   --real-time \
   --show "agent-activity,issue-trends,fix-rates,coverage"
 ```
@@ -895,7 +895,7 @@ npx ruv-swarm github review-dashboard \
 
 ```bash
 # Create comprehensive review report
-npx ruv-swarm github review-report \
+npx monomind github review-report \
   --format "markdown" \
   --include "summary,details,trends,recommendations" \
   --email-stakeholders \
@@ -906,7 +906,7 @@ npx ruv-swarm github review-report \
 
 ```bash
 # Generate PR-specific analytics
-npx ruv-swarm github pr-report 123 \
+npx monomind github pr-report 123 \
   --metrics "completion-time,agent-efficiency,token-usage,issue-density" \
   --format markdown \
   --compare-baseline
@@ -916,7 +916,7 @@ npx ruv-swarm github pr-report 123 \
 
 ```bash
 # Export metrics to GitHub Insights
-npx ruv-swarm github export-metrics \
+npx monomind github export-metrics \
   --pr 123 \
   --to-insights \
   --dashboard-url
@@ -924,7 +924,7 @@ npx ruv-swarm github export-metrics \
 
 ---
 
-## 🔐 Security Considerations
+## Security Considerations
 
 ### Best Practices
 
@@ -946,28 +946,28 @@ npx ruv-swarm github export-metrics \
 
 ---
 
-## 📚 Best Practices
+## Best Practices
 
 ### 1. Review Configuration
 
-- ✅ Define clear review criteria upfront
-- ✅ Set appropriate severity thresholds
-- ✅ Configure agent specializations for your stack
-- ✅ Establish override procedures for emergencies
+- Define clear review criteria upfront
+- Set appropriate severity thresholds
+- Configure agent specializations for your stack
+- Establish override procedures for emergencies
 
 ### 2. Comment Quality
 
-- ✅ Provide actionable, specific feedback
-- ✅ Include code examples with suggestions
-- ✅ Reference documentation and best practices
-- ✅ Maintain respectful, constructive tone
+- Provide actionable, specific feedback
+- Include code examples with suggestions
+- Reference documentation and best practices
+- Maintain respectful, constructive tone
 
 ### 3. Performance Optimization
 
-- ✅ Cache analysis results to avoid redundant work
-- ✅ Use incremental reviews for large PRs
-- ✅ Enable parallel agent execution
-- ✅ Batch comment operations efficiently
+- Cache analysis results to avoid redundant work
+- Use incremental reviews for large PRs
+- Enable parallel agent execution
+- Batch comment operations efficiently
 
 ### 4. PR Templates
 
@@ -999,7 +999,7 @@ npx ruv-swarm github export-metrics \
 
 ```bash
 # Auto-merge when swarm completes and passes checks
-SWARM_STATUS=$(npx ruv-swarm github pr-status 123)
+SWARM_STATUS=$(npx monomind github pr-status 123)
 
 if [[ "$SWARM_STATUS" == "complete" ]]; then
   # Check review requirements
@@ -1055,7 +1055,7 @@ fi
 
 ---
 
-## 🆘 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -1066,13 +1066,13 @@ fi
 
 ```bash
 # Check swarm status
-npx ruv-swarm swarm-status
+npx monomind swarm-status
 
 # Verify GitHub CLI authentication
 gh auth status
 
 # Re-initialize swarm
-npx ruv-swarm github review-init --pr 123 --force
+npx monomind github review-init --pr 123 --force
 ```
 
 </details>
@@ -1090,7 +1090,7 @@ gh auth status
 gh api rate_limit
 
 # Use batch comment posting
-npx ruv-swarm github review-comments --pr 123 --batch
+npx monomind github review-comments --pr 123 --batch
 ```
 
 </details>
@@ -1102,20 +1102,20 @@ npx ruv-swarm github review-comments --pr 123 --batch
 
 ```bash
 # Use incremental review for large PRs
-npx ruv-swarm github review-init --pr 123 --incremental
+npx monomind github review-init --pr 123 --incremental
 
 # Reduce agent count
-npx ruv-swarm github review-init --pr 123 --agents "security,style" --max-agents 3
+npx monomind github review-init --pr 123 --agents "security,style" --max-agents 3
 
 # Enable parallel processing
-npx ruv-swarm github review-init --pr 123 --parallel --cache-results
+npx monomind github review-init --pr 123 --parallel --cache-results
 ```
 
 </details>
 
 ---
 
-## 📖 Additional Resources
+## Additional Resources
 
 ### Related Skills
 
@@ -1126,8 +1126,7 @@ npx ruv-swarm github review-init --pr 123 --parallel --cache-results
 ### Documentation
 
 - [GitHub CLI Documentation](https://cli.github.com/manual/)
-- [RUV Swarm Guide](https://github.com/nokhodian/ruv-swarm)
-- [Monomind Integration](https://github.com/nokhodian/monomind)
+- [Monomind Documentation](https://github.com/nokhodian/monomind)
 
 ### Support
 
@@ -1137,9 +1136,9 @@ npx ruv-swarm github review-init --pr 123 --parallel --cache-results
 
 ---
 
-## 📄 License
+## License
 
-This skill is part of the Claude Code Flow project and is licensed under the MIT License.
+This skill is part of the Monomind project and is licensed under the MIT License.
 
 ---
 

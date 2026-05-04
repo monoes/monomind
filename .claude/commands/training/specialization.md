@@ -1,63 +1,92 @@
+---
+name: training:specialization
+description: Agent specialization training — spawn capability-specific agents for TypeScript, React, security, and other domains; track specialization progress
+---
+
 # Agent Specialization Training
 
-## Purpose
-Train agents to become experts in specific domains for better performance.
+Train and spawn agents that specialize in specific domains for better task performance.
 
-## Specialization Areas
+## How to Invoke
 
-### 1. By File Type
-Agents automatically specialize based on file extensions:
-- **.js/.ts**: Modern JavaScript patterns
-- **.py**: Pythonic idioms
-- **.go**: Go best practices
-- **.rs**: Rust safety patterns
-
-### 2. By Task Type
 ```
-Tool: mcp__monomind__agent_spawn
-Parameters: {
-  "type": "coder",
-  "capabilities": ["react", "typescript", "testing"],
-  "name": "React Specialist"
-}
+Skill("training:specialization")
 ```
 
-### 3. Training Process
-The system trains through:
-- Successful edit operations
-- Code review patterns
-- Error fix approaches
-- Performance optimizations
+---
 
-### 4. Specialization Benefits
-```
-# Check agent specializations
-Tool: mcp__monomind__agent_list
-Parameters: {"swarmId": "current"}
+## Spawning Specialized Agents
 
-Result shows expertise levels:
-{
-  "agents": [
-    {
-      "id": "coder-123",
-      "specializations": {
-        "javascript": 0.95,
-        "react": 0.88,
-        "testing": 0.82
-      }
-    }
-  ]
-}
+```javascript
+// Spawn a React/TypeScript specialist
+mcp__monomind__agent_spawn({
+  type: "coder",
+  capabilities: ["react", "typescript", "testing"],
+  name: "React Specialist"
+})
+
+// Spawn a security-focused agent
+mcp__monomind__agent_spawn({
+  type: "security-architect",
+  capabilities: ["security-audit", "vulnerability-detection", "cve-remediation"]
+})
+
+// Spawn a database specialist
+mcp__monomind__agent_spawn({
+  type: "analyst",
+  capabilities: ["sql", "nosql", "query-optimization", "schema-design"]
+})
 ```
 
-## Continuous Improvement
-Agents share learnings across sessions for cumulative expertise!
-
-## CLI Usage
 ```bash
-# Train agent specialization via CLI
-npx monomind train agent --type coder --capabilities "react,typescript"
+npx monomind agent spawn --type coder --capabilities "react,typescript,testing"
+npx monomind agent list
+```
 
-# Check specializations
-npx monomind agent list --specializations
+## How Specialization Builds
+
+Agents accumulate expertise through:
+- Successful edits to files of a given type (`.ts`, `.py`, `.go`)
+- Pattern matching from stored neural patterns
+- Hooks feedback from `post-edit` and `post-task` results
+
+The hooks intelligence system records what worked and feeds it back into agent routing.
+
+## Specialization by File Type
+
+| Extension | Auto-specialization |
+|-----------|-------------------|
+| `.ts` / `.tsx` | TypeScript, React patterns |
+| `.py` | Python idioms, type hints |
+| `.go` | Go concurrency, interfaces |
+| `.rs` | Rust borrowing, ownership |
+| `.sql` | Query optimization, schema |
+
+## Checking Agent Specializations
+
+```javascript
+// List agents with their capabilities
+mcp__monomind__agent_list({})
+
+// Agent status detail
+mcp__monomind__agent_status({ agentId: "coder-001" })
+```
+
+```bash
+npx monomind agent list
+npx monomind agent status --id coder-001
+```
+
+## Training New Specializations
+
+```javascript
+// Train neural patterns for a specific domain
+mcp__monomind__neural_train({ patternType: "optimization", epochs: 100 })
+
+// Store a domain-specific pattern for future reuse
+mcp__monomind__agentdb_pattern_store({
+  pattern: "react-component-pattern",
+  context: "TypeScript functional components with hooks",
+  outcome: "clean, testable components"
+})
 ```

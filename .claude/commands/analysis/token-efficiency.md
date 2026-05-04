@@ -1,3 +1,7 @@
+---
+name: analysis:token-efficiency
+---
+
 # Token Usage Optimization
 
 ## Purpose
@@ -18,18 +22,11 @@ Reduce token consumption while maintaining quality through intelligent coordinat
 ### 3. Measurement & Tracking
 
 ```bash
-# Check token savings after session
-Tool: mcp__monomind__token_usage
-Parameters: {"operation": "session", "timeframe": "24h"}
+# Check token usage for today
+npx monomind tokens today
 
-# Result shows:
-{
-  "metrics": {
-    "tokensSaved": 15420,
-    "operations": 45,
-    "efficiency": "343 tokens/operation"
-  }
-}
+# Full period breakdown
+npx monomind tokens summary --period 30days --json
 ```
 
 ## Best Practices
@@ -39,7 +36,7 @@ Parameters: {"operation": "session", "timeframe": "24h"}
 4. **Review session summaries** for insights
 
 ## Token Reduction Results
-- 📉 32.3% average token reduction
-- 🎯 More focused operations
-- 🔄 Intelligent result reuse
-- 📊 Cumulative improvements
+- 32.3% average token reduction
+- More focused operations
+- Intelligent result reuse
+- Cumulative improvements

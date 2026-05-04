@@ -1,35 +1,18 @@
+---
+name: sparc:batch-executor
+description: Batch Executor - Parallel task execution specialist using batch operations. Concurrent file operations, load balancing, and result aggregation.
+---
+
 # SPARC Batch Executor Mode
 
 ## Purpose
 Parallel task execution specialist using batch operations.
 
-## Activation
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "batch-executor",
-  task_description: "process multiple files",
-  options: {
-    parallel: true,
-    batch_size: 10
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run batch-executor "process multiple files"
-
-# For alpha features
-npx monomind@alpha sparc run batch-executor "process multiple files"
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run batch-executor "process multiple files"
+Skill("sparc:batch-executor")
 ```
 
 ## Core Capabilities

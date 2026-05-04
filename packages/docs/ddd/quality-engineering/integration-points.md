@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes how the Quality Engineering (agentic-qe) plugin integrates with Monomind v1's existing domains: Security, Core, Memory, Integration, and Coordination.
+This document describes how the Quality Engineering plugin integrates with Monomind v1's existing domains: Security, Core, Memory, Integration, and Coordination.
 
 ## Integration Architecture
 
@@ -13,7 +13,7 @@ This document describes how the Quality Engineering (agentic-qe) plugin integrat
 │                                                                                  │
 │   ┌─────────────────────────────────────────────────────────────────────────┐   │
 │   │                    Anti-Corruption Layer (ACL)                           │   │
-│   │   Translates between agentic-qe and monomind v1 domains              │   │
+│   │   Translates between quality-engineering and monomind v1 domains     │   │
 │   └─────────────────────────────────────────────────────────────────────────┘   │
 │                                        │                                         │
 │     ┌──────────────┬──────────────────┼──────────────────┬──────────────┐       │
@@ -29,9 +29,9 @@ This document describes how the Quality Engineering (agentic-qe) plugin integrat
       │              │                  │                  │              │
       ▼              ▼                  ▼                  ▼              ▼
 ┌──────────┐  ┌──────────┐      ┌──────────┐      ┌────────────┐   ┌─────────┐
-│@claude-  │  │@claude-  │      │@claude-  │      │@claude-    │   │@claude- │
-│flow/     │  │flow/     │      │flow/     │      │flow/       │   │flow/    │
-│memory    │  │security  │      │core      │      │coordination│   │mcp      │
+│@monomind/│  │@monomind/│      │@monomind/│      │@monomind/  │   │@monomind│
+│          │  │          │      │          │      │            │   │         │
+│memory    │  │security  │      │shared    │      │swarm       │   │mcp      │
 └──────────┘  └──────────┘      └──────────┘      └────────────┘   └─────────┘
 ```
 
@@ -55,7 +55,7 @@ The QE domain shares the Memory domain's infrastructure for vector storage, HNSW
 #### Memory Bridge Implementation
 
 ```typescript
-// v1/plugins/agentic-qe/src/infrastructure/memory-bridge.ts
+// v1/plugins/quality-engineering/src/infrastructure/memory-bridge.ts
 
 import type { IMemoryService, MemoryEntry } from "@monomind/memory";
 import type { EmbeddingsService } from "@monomind/embeddings";
@@ -202,7 +202,7 @@ The QE security-compliance context adapts to v1's security module patterns and u
 #### Security Bridge Implementation
 
 ```typescript
-// v1/plugins/agentic-qe/src/infrastructure/security-bridge.ts
+// v1/plugins/quality-engineering/src/infrastructure/security-bridge.ts
 
 import type { SecurityModule } from "@monomind/security";
 
@@ -318,7 +318,7 @@ QE acts as a customer of v1 Core services, generating tests that Core executes.
 #### Core Bridge Implementation
 
 ```typescript
-// v1/plugins/agentic-qe/src/infrastructure/core-bridge.ts
+// v1/plugins/quality-engineering/src/infrastructure/core-bridge.ts
 
 import type {
   AgentService,
@@ -414,7 +414,7 @@ QE's Queen Coordinator integrates with v1's Hive Mind for swarm coordination.
 #### Hive Mind Bridge Implementation
 
 ```typescript
-// v1/plugins/agentic-qe/src/infrastructure/hive-bridge.ts
+// v1/plugins/quality-engineering/src/infrastructure/hive-bridge.ts
 
 import type { HiveMindService, ConsensusResult } from "@monomind/coordination";
 
@@ -439,7 +439,7 @@ export class QEHiveBridge {
         "quality-gate-enforcement",
       ],
       metadata: {
-        source: "agentic-qe",
+        source: "quality-engineering",
         version: "3.2.3",
       },
     });
@@ -546,7 +546,7 @@ QE tools are registered with v1's MCP server using the standard tool definition 
 #### MCP Registration
 
 ```typescript
-// v1/plugins/agentic-qe/src/mcp-tools/registration.ts
+// v1/plugins/quality-engineering/src/mcp-tools/registration.ts
 
 import type { MCPServer, ToolDefinition } from "@monomind/mcp";
 import { mcpTools } from "./index";
@@ -595,7 +595,7 @@ TinyDancer model routing is aligned with v1's ADR-026 Agent Booster routing.
 #### Routing Adapter
 
 ```typescript
-// v1/plugins/agentic-qe/src/infrastructure/model-routing-adapter.ts
+// v1/plugins/quality-engineering/src/infrastructure/model-routing-adapter.ts
 
 import type {
   EnhancedModelRouter,
@@ -907,7 +907,7 @@ Memory Namespace Hierarchy
 
 - [README](./README.md) - Domain overview
 - [Domain Model](./domain-model.md) - Entities and aggregates
-- [ADR-030: Agentic-QE Integration](../../implementation/adrs/ADR-030-agentic-qe-integration.md)
+- [ADR-030: Quality Engineering Integration](../../implementation/adrs/ADR-030-agentic-qe-integration.md)
 - [ADR-006: Unified Memory Service](../../implementation/adrs/ADR-006-UNIFIED-MEMORY.md)
 - [ADR-013: Core Security Module](../../implementation/adrs/ADR-013-core-security-module.md)
 - [ADR-026: Agent Booster Model Routing](../../implementation/adrs/ADR-026-agent-booster-model-routing.md)

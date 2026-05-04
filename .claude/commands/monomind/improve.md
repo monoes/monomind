@@ -1,5 +1,5 @@
 ---
-name: monomind-improve
+name: monomind:improve
 description: "Monomind — Deeply analyze a project component, research improvements online, and create improvement tasks on monotask boards"
 ---
 

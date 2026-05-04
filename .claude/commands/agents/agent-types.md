@@ -1,6 +1,10 @@
+---
+name: agents:agent-types
+---
+
 # agent-types
 
-Complete guide to all 54 available agent types in Monomind.
+Complete guide to all 60+ available agent types in Monomind.
 
 ## Core Development Agents
 - `coder` - Implementation specialist
@@ -22,5 +26,5 @@ Complete guide to all 54 available agent types in Monomind.
 
 For full list and details:
 ```bash
-npx monomind agents list
+npx monomind agent list
 ```

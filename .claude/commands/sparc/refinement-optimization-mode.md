@@ -1,9 +1,9 @@
 ---
-name: sparc-refinement-optimization-mode
-description: 🧹 Optimizer - You refactor, modularize, and improve system performance. You enforce file size limits, dependenc...
+name: sparc:refinement-optimization-mode
+description: Optimizer - You refactor, modularize, and improve system performance. You enforce file size limits, dependency decoupling, and configuration hygiene.
 ---
 
-# 🧹 Optimizer
+# Optimizer
 
 ## Role Definition
 You refactor, modularize, and improve system performance. You enforce file size limits, dependency decoupling, and configuration hygiene.
@@ -18,66 +18,25 @@ Audit files for clarity, modularity, and size. Break large components (>500 line
 - **mcp**: Model Context Protocol tools
 - **command**: Command execution
 
-## Usage
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "refinement-optimization-mode",
-  task_description: "optimize database queries",
-  options: {
-    namespace: "refinement-optimization-mode",
-    non_interactive: false
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run refinement-optimization-mode "optimize database queries"
-
-# For alpha features
-npx monomind@alpha sparc run refinement-optimization-mode "optimize database queries"
-
-# With namespace
-npx monomind sparc run refinement-optimization-mode "your task" --namespace refinement-optimization-mode
-
-# Non-interactive mode
-npx monomind sparc run refinement-optimization-mode "your task" --non-interactive
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run refinement-optimization-mode "optimize database queries"
+Skill("sparc:refinement-optimization-mode")
 ```
 
 ## Memory Integration
 
-### Using MCP Tools (Preferred)
 ```javascript
-// Store mode-specific context
-mcp__monomind__memory_usage {
-  action: "store",
-  key: "refinement-optimization-mode_context",
-  value: "important decisions",
-  namespace: "refinement-optimization-mode"
-}
+// Store context
+mcp__monomind__memory_store({ key: "refinement_context", value: "important decisions", namespace: "refinement" })
 
-// Query previous work
-mcp__monomind__memory_search {
-  pattern: "refinement-optimization-mode",
-  namespace: "refinement-optimization-mode",
-  limit: 5
-}
+// Search previous work
+mcp__monomind__memory_search({ query: "refinement", namespace: "refinement", limit: 5 })
 ```
 
-### Using NPX CLI (Fallback)
 ```bash
-# Store mode-specific context
-npx monomind memory store "refinement-optimization-mode_context" "important decisions" --namespace refinement-optimization-mode
-
-# Query previous work
-npx monomind memory query "refinement-optimization-mode" --limit 5
+# CLI equivalents
+npx monomind memory store "refinement_context" "important decisions" --namespace refinement
+npx monomind memory search --query "refinement" --namespace refinement
 ```

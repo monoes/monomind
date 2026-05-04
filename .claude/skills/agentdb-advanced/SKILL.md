@@ -1,5 +1,5 @@
 ---
-name: "AgentDB Advanced Features"
+name: agentdb-advanced
 description: "Master advanced AgentDB features including QUIC synchronization, multi-database management, custom distance metrics, hybrid search, and distributed systems integration. Use when building distributed AI systems, multi-agent coordination, or advanced vector search applications."
 ---
 
@@ -14,7 +14,7 @@ Covers advanced AgentDB capabilities for distributed systems, multi-database coo
 ## Prerequisites
 
 - Node.js 18+
-- AgentDB v1.0.7+ (via agentic-flow)
+- @monomind/memory package
 - Understanding of distributed systems (for QUIC sync)
 - Vector search fundamentals
 
@@ -36,7 +36,7 @@ QUIC (Quick UDP Internet Connections) enables sub-millisecond latency synchroniz
 ### Enable QUIC Sync
 
 ```typescript
-import { createAgentDBAdapter } from 'agentic-flow/reasoningbank';
+import { createAgentDBAdapter } from '@monomind/memory';
 
 // Initialize with QUIC synchronization
 const adapter = await createAgentDBAdapter({
@@ -104,7 +104,7 @@ Best for normalized vectors, semantic similarity:
 
 ```bash
 # CLI
-npx agentdb@latest query ./vectors.db "[0.1,0.2,...]" -m cosine
+npx monomind memory query ./vectors.db "[0.1,0.2,...]" -m cosine
 
 # API
 const result = await adapter.retrieveWithReasoning(queryEmbedding, {
@@ -128,7 +128,7 @@ Best for spatial data, geometric similarity:
 
 ```bash
 # CLI
-npx agentdb@latest query ./vectors.db "[0.1,0.2,...]" -m euclidean
+npx monomind memory query ./vectors.db "[0.1,0.2,...]" -m euclidean
 
 # API
 const result = await adapter.retrieveWithReasoning(queryEmbedding, {
@@ -152,7 +152,7 @@ Best for pre-normalized vectors, fast computation:
 
 ```bash
 # CLI
-npx agentdb@latest query ./vectors.db "[0.1,0.2,...]" -m dot
+npx monomind memory query ./vectors.db "[0.1,0.2,...]" -m dot
 
 # API
 const result = await adapter.retrieveWithReasoning(queryEmbedding, {
@@ -446,13 +446,13 @@ console.log('Database Stats:', {
 
 ```bash
 # Export with compression
-npx agentdb@latest export ./vectors.db ./backup.json.gz --compress
+npx monomind memory export ./vectors.db ./backup.json.gz --compress
 
 # Import from backup
-npx agentdb@latest import ./backup.json.gz --decompress
+npx monomind memory import ./backup.json.gz --decompress
 
 # Merge databases
-npx agentdb@latest merge ./db1.sqlite ./db2.sqlite ./merged.sqlite
+npx monomind memory merge ./db1.sqlite ./db2.sqlite ./merged.sqlite
 ```
 
 ### Database Optimization
@@ -465,7 +465,7 @@ sqlite3 .agentdb/vectors.db "VACUUM;"
 sqlite3 .agentdb/vectors.db "ANALYZE;"
 
 # Rebuild indices
-npx agentdb@latest reindex ./vectors.db
+npx monomind memory reindex ./vectors.db
 ```
 
 ---
@@ -540,8 +540,7 @@ const result = await adapter.retrieveWithReasoning(queryEmbedding, {
 
 - **QUIC Protocol**: docs/quic-synchronization.pdf
 - **Hybrid Search**: docs/hybrid-search-guide.md
-- **GitHub**: https://github.com/nokhodian/agentic-flow/tree/main/packages/agentdb
-- **Website**: https://agentdb.ruv.io
+- **GitHub**: https://github.com/nokhodian/monomind
 
 ---
 

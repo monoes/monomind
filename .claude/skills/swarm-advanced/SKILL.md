@@ -28,7 +28,7 @@ mcp__monomind__swarm_init({ topology: "mesh", maxAgents: 6 })
 mcp__monomind__agent_spawn({ type: "researcher", name: "Agent 1" })
 
 // 3. Orchestrate tasks
-mcp__monomind__task_orchestrate({ task: "...", strategy: "parallel" })
+Task("orchestrate task", "...", "coordinator")
 ```
 
 ## Core Concepts
@@ -142,7 +142,7 @@ mcp__monomind__parallel_execute({
 })
 
 // Store research findings in memory
-mcp__monomind__memory_usage({
+mcp__monomind__memory_store({
   "action": "store",
   "key": "research-findings-" + Date.now(),
   "value": JSON.stringify(findings),
@@ -199,7 +199,7 @@ mcp__monomind__neural_patterns({
 })
 
 // Store connections for future use
-mcp__monomind__memory_usage({
+mcp__monomind__memory_store({
   "action": "store",
   "key": "knowledge-graph-X",
   "value": JSON.stringify(knowledgeGraph),
@@ -211,12 +211,7 @@ mcp__monomind__memory_usage({
 #### Phase 4: Report Generation
 ```javascript
 // Orchestrate report generation
-mcp__monomind__task_orchestrate({
-  "task": "generate comprehensive research report",
-  "strategy": "sequential",
-  "priority": "high",
-  "dependencies": ["gather", "analyze", "validate", "synthesize"]
-})
+Task("generate comprehensive research report", "sequential, high priority", "documenter")
 
 // Monitor research progress
 mcp__monomind__swarm_status({
@@ -287,15 +282,10 @@ devTeam.forEach(member => {
 #### Phase 1: Architecture and Design
 ```javascript
 // System architecture design
-mcp__monomind__task_orchestrate({
-  "task": "design system architecture for REST API",
-  "strategy": "sequential",
-  "priority": "critical",
-  "assignTo": "System Architect"
-})
+Task("design system architecture for REST API", "sequential, critical priority", "System Architect")
 
 // Store architecture decisions
-mcp__monomind__memory_usage({
+mcp__monomind__memory_store({
   "action": "store",
   "key": "architecture-decisions",
   "value": JSON.stringify(architectureDoc),
@@ -479,7 +469,7 @@ mcp__monomind__pattern_recognize({
 })
 
 // Store test plan
-mcp__monomind__memory_usage({
+mcp__monomind__memory_store({
   "action": "store",
   "key": "test-plan-" + Date.now(),
   "value": JSON.stringify(testPlan),
@@ -678,26 +668,14 @@ mcp__monomind__daa_fault_tolerance({
 
 // Error handling pattern
 try {
-  await mcp__monomind__task_orchestrate({
-    "task": "complex operation",
-    "strategy": "parallel",
-    "priority": "high"
-  })
+  Task("complex operation", "parallel execution, high priority", "coordinator")
 } catch (error) {
   // Check swarm health
   const status = await mcp__monomind__swarm_status({})
 
-  // Analyze error patterns
-  await mcp__monomind__error_analysis({
-    "logs": [error.message]
-  })
-
   // Auto-recovery attempt
   if (status.healthy) {
-    await mcp__monomind__task_orchestrate({
-      "task": "retry failed operation",
-      "strategy": "sequential"
-    })
+    Task("retry failed operation", "sequential", "coordinator")
   }
 }
 ```
@@ -706,9 +684,7 @@ try {
 
 ```javascript
 // Cross-session persistence
-mcp__monomind__memory_persist({
-  "sessionId": "swarm-session-001"
-})
+// npx monomind session save --session-id "swarm-session-001"
 
 // Namespace management for different swarms
 mcp__monomind__memory_namespace({
@@ -722,13 +698,11 @@ mcp__monomind__state_snapshot({
 })
 
 // Restore from snapshot if needed
-mcp__monomind__context_restore({
-  "snapshotId": "development-checkpoint-1"
-})
+// npx monomind session restore --snapshot "development-checkpoint-1"
 
 // Backup memory stores
 mcp__monomind__memory_backup({
-  "path": "/workspaces/claude-code-flow/backups/swarm-memory.json"
+  "path": "./backups/swarm-memory.json"
 })
 ```
 
@@ -736,11 +710,7 @@ mcp__monomind__memory_backup({
 
 ```javascript
 // Train neural patterns from successful workflows
-mcp__monomind__neural_train({
-  "pattern_type": "coordination",
-  "training_data": JSON.stringify(successfulWorkflows),
-  "epochs": 50
-})
+// npx monomind neural train --pattern coordination --epochs 50
 
 // Adaptive learning from experience
 mcp__monomind__learning_adapt({
