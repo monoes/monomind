@@ -1,117 +1,78 @@
-# hook post-edit
+---
+name: hooks:post-edit
+---
 
-Execute post-edit processing including formatting, validation, and memory updates.
+# hooks post-edit
+
+Record editing outcome for neural pattern learning.
 
 ## Usage
 
 ```bash
-npx monomind hook post-edit [options]
+npx monomind hooks post-edit [options]
 ```
 
 ## Options
 
-- `--file, -f <path>` - File path that was edited
-- `--auto-format` - Automatically format code (default: true)
-- `--memory-key, -m <key>` - Store edit context in memory
-- `--train-patterns` - Train neural patterns from edit
-- `--validate-output` - Validate edited file
+| Flag | Short | Type | Default | Description |
+|---|---|---|---|---|
+| `--file` | `-f` | string | `unknown` | File path that was edited |
+| `--success` | `-s` | boolean | `true` | Whether the edit succeeded |
+| `--outcome` | `-o` | string | — | Outcome description |
+| `--metrics` | `-m` | string | — | Performance metrics, e.g. `"time:500ms,quality:0.95"` |
+| `--format` | — | string | — | Output format: `json` |
 
 ## Examples
 
-### Basic post-edit hook
-
 ```bash
-npx monomind hook post-edit --file "src/components/Button.jsx"
-```
+# Record successful edit
+npx monomind hooks post-edit --file src/utils.ts --success true
 
-### With memory storage
+# Record failed edit with reason
+npx monomind hooks post-edit -f src/api.ts --success false -o "Type error in return type"
 
-```bash
-npx monomind hook post-edit -f "api/auth.js" --memory-key "auth/login-implementation"
-```
+# With performance metrics
+npx monomind hooks post-edit -f src/auth.ts --success true -m "time:200ms,quality:0.9"
 
-### Format and validate
-
-```bash
-npx monomind hook post-edit -f "config/webpack.js" --auto-format --validate-output
-```
-
-### Neural training
-
-```bash
-npx monomind hook post-edit -f "utils/helpers.ts" --train-patterns --memory-key "utils/refactor"
-```
-
-## Features
-
-### Auto Formatting
-
-- Language-specific formatters
-- Prettier for JS/TS/JSON
-- Black for Python
-- gofmt for Go
-- Maintains consistency
-
-### Memory Storage
-
-- Saves edit context
-- Records decisions made
-- Tracks implementation details
-- Enables knowledge sharing
-
-### Pattern Training
-
-- Learns from successful edits
-- Improves future suggestions
-- Adapts to coding style
-- Enhances coordination
-
-### Output Validation
-
-- Checks syntax correctness
-- Runs linting rules
-- Validates formatting
-- Ensures quality
-
-## Integration
-
-This hook is automatically called by Claude Code when:
-
-- After Edit tool completes
-- Following MultiEdit operations
-- During file saves
-- After code generation
-
-Manual usage in agents:
-
-```bash
-# After editing files
-npx monomind hook post-edit --file "path/to/edited.js" --memory-key "feature/step1"
+# JSON output
+npx monomind hooks post-edit -f src/utils.ts --format json
 ```
 
 ## Output
 
-Returns JSON with:
+- **Learning updates** — patterns updated, confidence adjustments, new patterns discovered
+
+## Claude Code Integration
+
+Typically fired automatically via `settings.json`:
 
 ```json
 {
-  "file": "src/components/Button.jsx",
-  "formatted": true,
-  "formatterUsed": "prettier",
-  "lintPassed": true,
-  "memorySaved": "component/button-refactor",
-  "patternsTrained": 3,
-  "warnings": [],
-  "stats": {
-    "linesChanged": 45,
-    "charactersAdded": 234
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "^(Write|Edit|MultiEdit)$",
+      "hooks": [{
+        "type": "command",
+        "command": "npx monomind hooks post-edit --file '${tool.params.file_path}' --success true"
+      }]
+    }]
   }
 }
 ```
 
+## MCP Tool
+
+```javascript
+mcp__monomind__hooks_post_edit({
+  filePath: "src/utils.ts",
+  success: true,
+  outcome: "Added error handling",
+  metrics: { time: 200, quality: 0.9 },
+  timestamp: Date.now()
+})
+```
+
 ## See Also
 
-- `hook pre-edit` - Pre-edit preparation
-- `Edit` - File editing tool
-- `memory usage` - Memory management
-- `neural train` - Pattern training
+- `hooks pre-edit` — get context before editing
+- `hooks metrics` — view learning metrics

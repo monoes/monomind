@@ -1,5 +1,5 @@
 ---
-name: monomind-understand
+name: monomind:understand
 description: "Monomind — Run semantic enrichment on the current project's monograph knowledge graph"
 ---
 

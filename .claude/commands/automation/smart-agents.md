@@ -1,3 +1,7 @@
+---
+name: automation:smart-agents
+---
+
 # Smart Agent Auto-Spawning
 
 ## Purpose
@@ -31,12 +35,16 @@ The system monitors workload and spawns additional agents when:
 ```javascript
 // Check swarm health
 mcp__monomind__swarm_status({
-  "swarmId": "current"
+  swarmId: "current"
 })
 
-// Monitor agent performance
-mcp__monomind__agent_metrics({
-  "agentId": "agent-123"
+// Monitor agent status and health
+mcp__monomind__agent_status({
+  id: "agent-123"
+})
+mcp__monomind__agent_health({
+  id: "agent-123",
+  detailed: true
 })
 ```
 
@@ -63,11 +71,11 @@ mcp__monomind__agent_spawn({
 ### Fallback Configuration
 If MCP tools are unavailable:
 ```bash
-npx monomind hook pre-task --auto-spawn-agents
+npx monomind hooks pre-task --description "<task>" --auto-spawn
 ```
 
 ## Benefits
-- 🤖 Zero manual agent management
-- 🎯 Perfect agent selection
-- 📈 Dynamic scaling
-- 💾 Resource efficiency
+- Zero manual agent management
+- Perfect agent selection
+- Dynamic scaling
+- Resource efficiency

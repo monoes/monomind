@@ -1,9 +1,13 @@
+---
+name: coordination:readme
+---
+
 # Coordination Commands
 
-Commands for coordination operations in Monomind.
+Commands and guidance for swarm coordination and task orchestration in Monomind.
 
-## Available Commands
+## Commands (invoke as slash commands)
 
-- [swarm-init](./swarm-init.md)
-- [agent-spawn](./agent-spawn.md)
-- [task-orchestrate](./task-orchestrate.md)
+- [swarm-init](./swarm-init.md) — initialize a swarm with topology and strategy (`monomind swarm init`)
+- [agent-spawn](./agent-spawn.md) — spawn a new agent in the swarm (`monomind agent spawn`)
+- [task-orchestrate](./task-orchestrate.md) — coordinate tasks across swarm agents (`monomind swarm coordinate`)

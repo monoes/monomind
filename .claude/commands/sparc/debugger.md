@@ -1,35 +1,18 @@
+---
+name: sparc:debugger
+description: Debugger - Systematic debugging with TodoWrite and Memory integration. Root cause analysis, stack trace parsing, and memory leak detection.
+---
+
 # SPARC Debugger Mode
 
 ## Purpose
 Systematic debugging with TodoWrite and Memory integration.
 
-## Activation
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "debugger",
-  task_description: "fix authentication issues",
-  options: {
-    verbose: true,
-    trace: true
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run debugger "fix authentication issues"
-
-# For alpha features
-npx monomind@alpha sparc run debugger "fix authentication issues"
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run debugger "fix authentication issues"
+Skill("sparc:debugger")
 ```
 
 ## Core Capabilities

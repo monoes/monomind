@@ -1,512 +1,156 @@
+---
+name: pair:examples
+description: Real-world pair programming scenarios — JWT auth, memory leak debugging, TDD, code review, and refactoring with effective prompt patterns
+---
+
 # Pair Programming Examples
 
-Real-world examples and scenarios for pair programming sessions.
+Real-world scenarios with actual Claude Code patterns — no fictional CLI.
 
-## Example 1: Feature Implementation
+---
 
-### Scenario
-Implementing a user authentication feature with JWT tokens.
+## Example 1: Feature Implementation (Navigator Mode)
 
-### Session Setup
+**Goal:** Implement JWT authentication with refresh tokens.
+
+**Setup:**
 ```bash
-monomind pair --start \
-  --mode switch \
-  --agent senior-dev \
-  --focus implement \
-  --verify \
-  --test
+npx monomind hooks pre-task -d "Implement JWT auth with refresh tokens"
 ```
 
-### Session Flow
-```
-👥 Starting pair programming for authentication feature...
+**Session:**
 
-[DRIVER: You - 10 minutes]
-/explain JWT authentication flow
-> AI explains JWT concepts and best practices
+> "Implement JWT auth middleware for Express. Include: access token (15min expiry), refresh token (7 days), token rotation on refresh, and blacklisting revoked tokens. Start with the token generation utilities, then we'll do the middleware."
 
-/suggest implementation approach
-> AI suggests using middleware pattern with refresh tokens
+Claude implements. Review each piece:
 
-# You write the basic auth middleware structure
+> "Good. One issue: store refresh tokens in Redis, not in-memory. Update that before continuing."
 
-[SWITCH TO NAVIGATOR]
+After middleware is done:
 
-[NAVIGATOR: AI - 10 minutes]
-/implement JWT token generation with refresh tokens
-> AI generates secure token implementation
+> "Now write unit tests for the token generation utilities. Use Jest. Cover: valid tokens, expired tokens, tampered tokens, and token rotation."
 
-/test-gen
-> AI creates comprehensive test suite
+End:
+> "Summarize what we built and what's still needed before this is production-ready."
 
-[SWITCH TO DRIVER]
-
-[DRIVER: You - 10 minutes]
-# You refine the implementation
-/review --security
-> AI performs security review, suggests improvements
-
-/commit --message "feat: JWT authentication with refresh tokens"
-✅ Truth Score: 0.98 - Committed successfully
-```
-
-## Example 2: Bug Fixing Session
-
-### Scenario
-Debugging a memory leak in a Node.js application.
-
-### Session Setup
 ```bash
-monomind pair --start \
-  --mode navigator \
-  --agent debugger-expert \
-  --focus debug \
-  --trace
+npx monomind hooks post-task --task-id <id> --success true --quality 0.9
 ```
 
-### Session Flow
+---
+
+## Example 2: Debugging (Debug Mode)
+
+**Goal:** Memory leak in a Node.js service.
+
+**Setup:**
 ```
-👥 Starting debugging session...
-
-/status
-> Analyzing application for memory issues...
-
-/perf --profile
-> Memory usage growing: 150MB → 450MB over 10 minutes
-
-/find "new EventEmitter" --regex
-> Found 3 instances of EventEmitter creation
-
-/inspect eventEmitters --deep
-> Discovering listeners not being removed
-
-/suggest fix for memory leak
-> AI suggests: "Add removeListener in cleanup functions"
-
-/implement cleanup functions for all event emitters
-> AI generates proper cleanup code
-
-/test
-> Memory stable at 150MB ✅
-
-/commit --message "fix: memory leak in event emitters"
+Skill("superpowers:systematic-debugging")
 ```
 
-## Example 3: Test-Driven Development
+Or directly:
 
-### Scenario
-Building a shopping cart feature using TDD.
+> "Debug session: our Node.js service leaks memory — grows from 150MB to 450MB over 10 minutes, then crashes. I'll share code as needed. Start by asking me questions to narrow down the cause."
 
-### Session Setup
+Claude asks targeted questions. You share relevant code sections.
+
+> "Here's the event emitter setup: [paste code]"
+
+> "Found it: EventEmitter listeners aren't removed on cleanup. Show me the fix and explain why this pattern causes the leak."
+
+Apply the fix, verify:
+
+> "Fixed. Write a test that would have caught this — one that monitors memory over time or checks listener counts."
+
+---
+
+## Example 3: TDD (TDD Mode)
+
+**Goal:** Shopping cart feature, test-first.
+
+**Setup:**
+```
+Skill("superpowers:test-driven-development")
+```
+
+Or:
+
+> "TDD session: shopping cart. Write failing tests first for: add item, remove item, update quantity, calculate total, apply discount. Then I'll implement each. Don't write implementation code — just tests."
+
+**Red phase:** Claude writes failing tests. You read and understand each.
+
+**Green phase:** You implement just enough to pass.
+
+> "Tests passing. Now refactor the total calculation — it's too long."
+
+Claude refactors. You verify tests still pass.
+
+> "Next cycle: write failing tests for the discount system."
+
+---
+
+## Example 4: Code Review (Review Mode)
+
+**Goal:** Review a PR diff before merging.
+
+**Setup:**
 ```bash
-monomind pair --start \
-  --mode tdd \
-  --agent tdd-specialist \
-  --test-first
+git diff main...feat/auth > /tmp/auth-diff.txt
 ```
 
-### Session Flow
-```
-👥 TDD Session: Shopping Cart Feature
-
-[RED PHASE]
-/test-gen "add item to cart"
-> AI writes failing test:
-  ✗ should add item to cart
-  ✗ should update quantity for existing item
-  ✗ should calculate total price
-
-[GREEN PHASE]
-/implement minimal cart functionality
-> You write just enough code to pass tests
-
-/test
-> Tests passing: 3/3 ✅
-
-[REFACTOR PHASE]
-/refactor --pattern repository
-> AI refactors to repository pattern
-
-/test
-> Tests still passing: 3/3 ✅
-
-[NEXT CYCLE]
-/test-gen "remove item from cart"
-> AI writes new failing tests...
-```
-
-## Example 4: Code Refactoring
-
-### Scenario
-Refactoring legacy code to modern patterns.
-
-### Session Setup
-```bash
-monomind pair --start \
-  --mode driver \
-  --focus refactor \
-  --verify \
-  --threshold 0.98
-```
-
-### Session Flow
-```
-👥 Refactoring Session: Modernizing UserService
-
-/analyze UserService.js
-> AI identifies:
-  - Callback hell (5 levels deep)
-  - No error handling
-  - Tight coupling
-  - No tests
-
-/suggest refactoring plan
-> AI suggests:
-  1. Convert callbacks to async/await
-  2. Add error boundaries
-  3. Extract dependencies
-  4. Add unit tests
-
-/test-gen --before-refactor
-> AI generates tests for current behavior
-
-/refactor callbacks to async/await
-# You refactor with AI guidance
-
-/test
-> All tests passing ✅
-
-/review --compare
-> AI shows before/after comparison
-> Code complexity: 35 → 12
-> Truth score: 0.99 ✅
-
-/commit --message "refactor: modernize UserService with async/await"
-```
-
-## Example 5: Learning Session
-
-### Scenario
-Learning React hooks with AI mentorship.
-
-### Session Setup
-```bash
-monomind pair --start \
-  --mode mentor \
-  --agent react-expert \
-  --pace slow \
-  --examples
-```
-
-### Session Flow
-```
-👥 Learning Session: React Hooks
-
-/learn useState hook
-> AI explains with interactive examples
-
-/example custom hook for API calls
-> AI shows best practice implementation:
-```javascript
-function useApi(url) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  
-  useEffect(() => {
-    // Implementation explained step by step
-  }, [url]);
-  
-  return { data, loading, error };
-}
-```
-
-/implement my own custom hook
-# You write with AI guidance
-
-/review --educational
-> AI provides detailed feedback with learning points
-
-/quiz react hooks
-> AI tests your understanding
-> Score: 8/10 - Good progress!
-```
-
-## Example 6: Performance Optimization
-
-### Scenario
-Optimizing a slow React application.
-
-### Session Setup
-```bash
-monomind pair --start \
-  --mode switch \
-  --agent performance-expert \
-  --focus optimize \
-  --profile
-```
-
-### Session Flow
-```
-👥 Performance Optimization Session
-
-/perf --profile
-> React DevTools Profiler Results:
-  - ProductList: 450ms render
-  - CartSummary: 200ms render
-  - Unnecessary re-renders: 15
-
-/suggest optimizations for ProductList
-> AI suggests:
-  1. Add React.memo
-  2. Use useMemo for expensive calculations
-  3. Implement virtualization for long lists
-
-/implement React.memo and useMemo
-# You implement with AI guidance
-
-/perf --profile
-> ProductList: 45ms render (90% improvement!) ✅
-
-/implement virtualization with react-window
-> AI implements virtual scrolling
-
-/perf --profile
-> ProductList: 12ms render (97% improvement!) ✅
-> FPS: 60 stable ✅
-
-/commit --message "perf: optimize ProductList with memoization and virtualization"
-```
-
-## Example 7: API Development
-
-### Scenario
-Building a RESTful API with Express.
-
-### Session Setup
-```bash
-monomind pair --start \
-  --mode navigator \
-  --agent backend-expert \
-  --focus implement \
-  --test
-```
-
-### Session Flow
-```
-👥 API Development Session
-
-/design REST API for blog platform
-> AI designs endpoints:
-  POST   /api/posts
-  GET    /api/posts
-  GET    /api/posts/:id
-  PUT    /api/posts/:id
-  DELETE /api/posts/:id
-
-/implement CRUD endpoints with validation
-> AI implements with Express + Joi validation
-
-/test-gen --integration
-> AI generates integration tests
-
-/security --api
-> AI adds:
-  - Rate limiting
-  - Input sanitization
-  - JWT authentication
-  - CORS configuration
-
-/document --openapi
-> AI generates OpenAPI documentation
-
-/test --integration
-> All endpoints tested: 15/15 ✅
-
-/deploy --staging
-> API deployed to staging environment
-```
-
-## Example 8: Database Migration
-
-### Scenario
-Migrating from MongoDB to PostgreSQL.
-
-### Session Setup
-```bash
-monomind pair --start \
-  --mode switch \
-  --agent database-expert \
-  --verify \
-  --test
-```
-
-### Session Flow
-```
-👥 Database Migration Session
-
-/analyze MongoDB schema
-> AI maps current structure:
-  - users collection → users table
-  - posts collection → posts table
-  - Embedded comments → comments table with FK
-
-/design PostgreSQL schema
-> AI creates normalized schema with relations
-
-/implement migration script
-# You write migration with AI assistance
-
-/test --migration --sample-data
-> Migration successful for 10,000 records ✅
-
-/implement data access layer
-> AI creates repository pattern implementation
-
-/test --integration
-> All queries working correctly ✅
-
-/verify data integrity
-> Truth score: 0.995 ✅
-> No data loss detected
-```
-
-## Example 9: CI/CD Pipeline
-
-### Scenario
-Setting up GitHub Actions CI/CD pipeline.
-
-### Session Setup
-```bash
-monomind pair --start \
-  --mode navigator \
-  --agent devops-expert \
-  --focus implement
-```
-
-### Session Flow
-```
-👥 CI/CD Pipeline Setup
-
-/implement GitHub Actions workflow
-> AI creates .github/workflows/ci.yml:
-  - Build on push/PR
-  - Run tests
-  - Check coverage
-  - Deploy to staging
-
-/test --ci --dry-run
-> Pipeline simulation successful ✅
-
-/implement deployment to production
-> AI adds:
-  - Manual approval step
-  - Rollback capability
-  - Health checks
-  - Notifications
-
-/security --scan-pipeline
-> AI adds security scanning:
-  - Dependency scanning
-  - Container scanning
-  - Secret scanning
-
-/commit --message "ci: complete CI/CD pipeline with security scanning"
-```
-
-## Example 10: Mobile App Development
-
-### Scenario
-Building a React Native mobile feature.
-
-### Session Setup
-```bash
-monomind pair --start \
-  --mode switch \
-  --agent mobile-expert \
-  --language react-native \
-  --test
-```
-
-### Session Flow
-```
-👥 Mobile Development Session
-
-/implement offline-first data sync
-> AI implements:
-  - Local SQLite storage
-  - Queue for pending changes
-  - Sync on connection restore
-  - Conflict resolution
-
-/test --device ios simulator
-> Feature working on iOS ✅
-
-/test --device android emulator
-> Feature working on Android ✅
-
-/optimize --mobile
-> AI optimizes:
-  - Reduces bundle size by 30%
-  - Implements lazy loading
-  - Adds image caching
-
-/review --accessibility
-> AI ensures:
-  - Screen reader support
-  - Proper contrast ratios
-  - Touch target sizes
-
-/commit --message "feat: offline-first sync with optimizations"
-```
-
-## Common Patterns
-
-### Starting Patterns
-```bash
-# Quick start for common scenarios
-monomind pair --template <template>
-```
-
-Available templates:
-- `feature` - New feature development
-- `bugfix` - Bug fixing session
-- `refactor` - Code refactoring
-- `optimize` - Performance optimization
-- `test` - Test writing
-- `review` - Code review
-- `learn` - Learning session
-
-### Session Commands Flow
-
-#### Typical Feature Development
-```
-/start → /explain → /design → /implement → /test → /review → /commit → /end
-```
-
-#### Typical Bug Fix
-```
-/start → /reproduce → /debug → /trace → /fix → /test → /verify → /commit → /end
-```
-
-#### Typical Refactoring
-```
-/start → /analyze → /plan → /test-gen → /refactor → /test → /review → /commit → /end
-```
-
-## Best Practices from Examples
-
-1. **Always Start with Context** - Use `/explain` or `/analyze`
-2. **Test Early and Often** - Run tests after each change
-3. **Verify Before Commit** - Check truth scores
-4. **Document Decisions** - Use `/note` for important choices
-5. **Review Security** - Always run `/security` for sensitive code
-6. **Profile Performance** - Use `/perf` for optimization
-7. **Save Sessions** - Use `/save` for complex work
-
-## Related Documentation
-
-- [Getting Started](./README.md)
-- [Session Management](./session.md)
-- [Commands Reference](./commands.md)
-- [Configuration](./config.md)
+> "Review this PR. File: `src/auth/middleware.ts`. Rate: (1) correctness, (2) security vulnerabilities, (3) error handling, (4) test coverage. List issues as: [CRITICAL] / [MAJOR] / [MINOR] with file+line."
+
+Review output guides your fixes. For each CRITICAL issue:
+
+> "Fix #2 (JWT secret in code). Show me the corrected version."
+
+After applying fixes:
+
+> "Any remaining issues worth fixing before merge?"
+
+---
+
+## Example 5: Refactoring (Driver Mode)
+
+**Goal:** Modernize callback-heavy code to async/await.
+
+> "Driver mode: I'm refactoring `UserService.js` from callbacks to async/await. Watch what I change and flag if I miss anything or introduce bugs. I'll share the original first."
+
+Paste the original code.
+
+> "Here's the original getUserById. I'm changing it to async/await now."
+
+Paste your refactored version.
+
+Claude reviews: "Looks good, but you're missing error handling on the database call. Add a try/catch."
+
+Continue through each function.
+
+At end:
+
+> "Final check: any patterns in the refactored code that should be extracted into utilities?"
+
+---
+
+## Effective Prompts Reference
+
+| Situation | Prompt |
+|---|---|
+| Start navigator mode | "Implement [X]. I'll review each section before you continue." |
+| Start driver mode | "I'm implementing [X]. Review as I share code and flag issues." |
+| Start TDD | "Write failing tests for [X] first. I'll implement after." |
+| Start review | "Review [file/diff]. Focus on [concern]. Rate and list issues." |
+| Start debug | "Debug [symptom]. Ask me questions to narrow down the cause." |
+| Switch mode | "Now you drive — implement [next piece] based on what we've discussed." |
+| Mid-session check | "Before we continue: summarize state and confirm the next step." |
+| End session | "Summarize: what we built, decisions made, what's left." |
+| Get unstuck | "I'm not sure how to handle [edge case]. What are the options?" |
+| Pattern question | "Is this the right pattern here, or is there a better approach?" |
+
+## See Also
+
+- [modes.md](./modes.md) — choosing the right mode
+- [session.md](./session.md) — session lifecycle and tracking
+- `superpowers:pair-programming` — structured pair programming skill
+- `superpowers:test-driven-development` — full TDD workflow
+- `superpowers:systematic-debugging` — debugging methodology

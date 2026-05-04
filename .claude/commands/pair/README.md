@@ -1,261 +1,79 @@
-# 👥 Pair Programming Command
+---
+name: pair:README
+description: Pair programming with Claude Code — driver/navigator modes, TDD sessions, review sessions, Task tool agent spawning, and hooks integration
+---
 
-Collaborative development with real-time verification and AI assistance.
+# Pair Programming with Claude Code
 
-## Overview
+Collaborative development using Claude Code as your AI pair partner. No special CLI needed — Claude Code IS the pair partner.
 
-The `pair` command enables collaborative pair programming between you and AI agents, with real-time verification, code review, and quality enforcement.
+## How It Works
 
-## Usage
-
-```bash
-monomind pair [--start] [options]
-```
+Pair programming with Claude Code means structuring your conversation to get the most out of the collaboration. Depending on your goal, you drive or Claude drives.
 
 ## Quick Start
 
+**You drive, Claude reviews (driver mode):**
+> "I'm going to implement JWT auth. Review my approach and flag issues as we go."
+
+**Claude drives, you guide (navigator mode):**
+> "Implement a JWT auth middleware for Express with refresh token support. I'll review each piece."
+
+**TDD session:**
+> "Let's do TDD for this shopping cart feature. Write the failing tests first, then we'll implement."
+
+**Review session:**
+> "Review all the changes I've made today to `src/auth/`. Focus on security issues."
+
+## Using the Pair Programming Skill
+
+Invoke the `pair-programming` skill for structured collaboration:
+
+```
+/pair-programming
+```
+
+This loads the workflow guide and sets up the session context.
+
+## Spawning a Specialized Agent
+
+For long-running or complex sessions, spawn a dedicated coding agent via the Task tool:
+
+```javascript
+Task({
+  prompt: "Act as a senior developer pair programming partner. The user is implementing JWT auth. Review their code as they write it, suggest improvements, catch issues, and explain patterns. Start by asking what they want to build.",
+  subagent_type: "Senior Developer",
+  run_in_background: false
+})
+```
+
+Or use a specific specialist:
+- `superpowers:test-driven-development` — TDD-focused pairing
+- `superpowers:systematic-debugging` — debugging sessions
+- `superpowers:receiving-code-review` — code review sessions
+
+## Hooks Integration
+
+Use hooks to track pair session quality:
+
 ```bash
-# Start pair programming session
-monomind pair --start
+# Register session start
+npx monomind hooks pre-task -d "Pair programming: implement JWT auth"
 
-# Start with specific agent
-monomind pair --start --agent senior-dev
-
-# Start with verification
-monomind pair --start --verify --threshold 0.98
+# After session, record outcome
+npx monomind hooks post-task --task-id <id> --success true --quality 0.95
 ```
 
-## Options
+## Files
 
-- `--start` - Start new pair programming session
-- `--agent <name>` - Specify AI pair partner (default: auto-select)
-- `--verify` - Enable real-time verification
-- `--threshold <0-1>` - Verification threshold (default: 0.95)
-- `--mode <type>` - Programming mode: driver, navigator, switch
-- `--focus <area>` - Focus area: refactor, test, debug, implement
-- `--language <lang>` - Primary language for session
-- `--review` - Enable continuous code review
-- `--test` - Run tests after each change
+- [modes.md](./modes.md) — Driver, navigator, TDD, review, debug modes
+- [session.md](./session.md) — Session lifecycle and real monitoring commands
+- [examples.md](./examples.md) — Real-world pair programming scenarios
 
-## Modes
+## See Also
 
-### Driver Mode
-You write code, AI provides suggestions and reviews.
-```bash
-monomind pair --start --mode driver
-```
-
-### Navigator Mode
-AI writes code, you provide guidance and review.
-```bash
-monomind pair --start --mode navigator
-```
-
-### Switch Mode (Default)
-Alternate between driver and navigator roles.
-```bash
-monomind pair --start --mode switch --interval 10m
-```
-
-## Features
-
-### Real-Time Verification
-- Continuous truth checking (0.95 threshold)
-- Automatic rollback on verification failure
-- Quality gates before commits
-
-### Code Review
-- Instant feedback on code changes
-- Best practice suggestions
-- Security vulnerability detection
-- Performance optimization tips
-
-### Test Integration
-- Automatic test generation
-- Test-driven development support
-- Coverage monitoring
-- Integration test suggestions
-
-### Collaboration Tools
-- Shared context between you and AI
-- Session history and replay
-- Code explanation on demand
-- Learning from your preferences
-
-## Session Management
-
-### Start Session
-```bash
-# Basic start
-monomind pair --start
-
-# With configuration
-monomind pair --start \
-  --agent expert-coder \
-  --verify \
-  --test \
-  --focus refactor
-```
-
-### During Session
-```commands
-/help          - Show available commands
-/explain       - Explain current code
-/suggest       - Get improvement suggestions
-/test          - Run tests
-/verify        - Check verification score
-/switch        - Switch driver/navigator roles
-/focus <area>  - Change focus area
-/commit        - Commit with verification
-/pause         - Pause session
-/resume        - Resume session
-/end           - End session
-```
-
-### End Session
-```bash
-# End and save session
-monomind pair --end --save
-
-# End and generate report
-monomind pair --end --report
-```
-
-## Examples
-
-### Refactoring Session
-```bash
-monomind pair --start \
-  --focus refactor \
-  --verify \
-  --threshold 0.98
-```
-
-### Test-Driven Development
-```bash
-monomind pair --start \
-  --focus test \
-  --mode tdd \
-  --language javascript
-```
-
-### Bug Fixing
-```bash
-monomind pair --start \
-  --focus debug \
-  --agent debugger-expert \
-  --test
-```
-
-### Code Review Session
-```bash
-monomind pair --start \
-  --review \
-  --verify \
-  --agent senior-reviewer
-```
-
-## Integration
-
-### With Git
-```bash
-# Auto-commit with verification
-monomind pair --start --git --auto-commit
-
-# Review before commit
-monomind pair --start --git --review-commit
-```
-
-### With Testing Frameworks
-```bash
-# Jest integration
-monomind pair --start --test-framework jest
-
-# Pytest integration
-monomind pair --start --test-framework pytest
-```
-
-### With CI/CD
-```bash
-# CI-friendly mode
-monomind pair --start --ci --non-interactive
-```
-
-## Session Output
-
-```
-👥 Pair Programming Session Started
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Partner: expert-coder
-Mode: Switch (10m intervals)
-Focus: Implementation
-Verification: ✅ Enabled (0.95)
-Testing: ✅ Auto-run
-
-Current Role: DRIVER (you)
-Navigator: expert-coder is reviewing...
-
-📝 Working on: src/auth/login.js
-Truth Score: 0.972 ✅
-Test Coverage: 84% 📈
-
-💡 Suggestion: Consider adding input validation for email field
-🔍 Review: Line 23 - Potential SQL injection vulnerability
-
-Type /help for commands or start coding...
-```
-
-## Quality Metrics
-
-- **Session Duration**: Total pair programming time
-- **Code Quality**: Average truth score during session
-- **Productivity**: Lines changed, features completed
-- **Learning**: Patterns learned from collaboration
-- **Test Coverage**: Coverage improvement during session
-
-## Configuration
-
-Configure pair programming in `.monomind/config.json`:
-
-```json
-{
-  "pair": {
-    "defaultAgent": "expert-coder",
-    "defaultMode": "switch",
-    "switchInterval": "10m",
-    "verification": {
-      "enabled": true,
-      "threshold": 0.95,
-      "autoRollback": true
-    },
-    "testing": {
-      "autoRun": true,
-      "framework": "jest",
-      "coverage": {
-        "minimum": 80,
-        "enforce": true
-      }
-    },
-    "review": {
-      "continuous": true,
-      "preCommit": true
-    }
-  }
-}
-```
-
-## Best Practices
-
-1. **Start with Clear Goals**: Define what you want to accomplish
-2. **Use Verification**: Enable verification for critical code
-3. **Test Frequently**: Run tests after significant changes
-4. **Review Together**: Use review features for learning
-5. **Document Decisions**: AI will help document why choices were made
-
-## Related Commands
-
-- `verify` - Standalone verification
-- `truth` - View quality metrics
-- `test` - Run test suites
-- `review` - Code review tools
+- `superpowers:pair-programming` — structured pair programming skill
+- `superpowers:test-driven-development` — TDD workflow
+- `superpowers:systematic-debugging` — debugging workflow
+- `superpowers:requesting-code-review` — code review workflow
+- `hooks pre-task` — register task start and get recommendations

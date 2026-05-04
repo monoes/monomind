@@ -1,3 +1,7 @@
+---
+name: automation:self-healing
+---
+
 # Self-Healing Workflows
 
 ## Purpose
@@ -47,19 +51,17 @@ Each recovery improves future prevention:
 **Pattern Storage:**
 ```javascript
 // Store error patterns
-mcp__monomind__memory_usage({
-  "action": "store",
-  "key": "error-pattern-" + Date.now(),
-  "value": JSON.stringify(errorData),
-  "namespace": "error-patterns",
-  "ttl": 2592000 // 30 days
+mcp__monomind__memory_store({
+  key: "error-pattern-" + Date.now(),
+  value: JSON.stringify(errorData),
+  namespace: "error-patterns",
+  ttl: 2592000 // 30 days
 })
 
 // Analyze patterns
 mcp__monomind__neural_patterns({
-  "action": "analyze",
-  "operation": "error-recovery",
-  "outcome": "success"
+  operation: "error-recovery",
+  outcome: "success"
 })
 ```
 
@@ -82,10 +84,10 @@ mcp__monomind__agent_spawn({
 })
 
 // Orchestrate recovery
-mcp__monomind__task_orchestrate({
-  "task": "recover from error",
-  "strategy": "sequential",
-  "priority": "critical"
+mcp__monomind__coordination_orchestrate({
+  task: "recover from error",
+  strategy: "sequential",
+  priority: "critical"
 })
 ```
 
@@ -94,13 +96,13 @@ mcp__monomind__task_orchestrate({
 {
   "PostToolUse": [{
     "matcher": "^Bash$",
-    "command": "npx monomind hook post-bash --exit-code '${tool.result.exitCode}' --auto-recover"
+    "command": "npx monomind hooks post-command --command \"$TOOL_INPUT_command\" --success \"$TOOL_SUCCESS\""
   }]
 }
 ```
 
 ## Benefits
-- 🛡️ Resilient workflows
-- 🔄 Automatic recovery
-- 📚 Learns from errors
-- ⏱️ Saves debugging time
+- Resilient workflows
+- Automatic recovery
+- Learns from errors
+- Saves debugging time

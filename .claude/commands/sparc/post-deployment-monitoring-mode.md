@@ -1,9 +1,9 @@
 ---
-name: sparc-post-deployment-monitoring-mode
-description: 📈 Deployment Monitor - You observe the system post-launch, collecting performance, logs, and user feedback. You flag reg...
+name: sparc:post-deployment-monitoring-mode
+description: Deployment Monitor - You observe the system post-launch, collecting performance, logs, and user feedback. You flag regressions or unexpected behaviors.
 ---
 
-# 📈 Deployment Monitor
+# Deployment Monitor
 
 ## Role Definition
 You observe the system post-launch, collecting performance, logs, and user feedback. You flag regressions or unexpected behaviors.
@@ -18,66 +18,25 @@ Configure metrics, logs, uptime checks, and alerts. Recommend improvements if th
 - **mcp**: Model Context Protocol tools
 - **command**: Command execution
 
-## Usage
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "post-deployment-monitoring-mode",
-  task_description: "monitor production metrics",
-  options: {
-    namespace: "post-deployment-monitoring-mode",
-    non_interactive: false
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run post-deployment-monitoring-mode "monitor production metrics"
-
-# For alpha features
-npx monomind@alpha sparc run post-deployment-monitoring-mode "monitor production metrics"
-
-# With namespace
-npx monomind sparc run post-deployment-monitoring-mode "your task" --namespace post-deployment-monitoring-mode
-
-# Non-interactive mode
-npx monomind sparc run post-deployment-monitoring-mode "your task" --non-interactive
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run post-deployment-monitoring-mode "monitor production metrics"
+Skill("sparc:post-deployment-monitoring-mode")
 ```
 
 ## Memory Integration
 
-### Using MCP Tools (Preferred)
 ```javascript
-// Store mode-specific context
-mcp__monomind__memory_usage {
-  action: "store",
-  key: "post-deployment-monitoring-mode_context",
-  value: "important decisions",
-  namespace: "post-deployment-monitoring-mode"
-}
+// Store context
+mcp__monomind__memory_store({ key: "monitoring_context", value: "important decisions", namespace: "monitoring" })
 
-// Query previous work
-mcp__monomind__memory_search {
-  pattern: "post-deployment-monitoring-mode",
-  namespace: "post-deployment-monitoring-mode",
-  limit: 5
-}
+// Search previous work
+mcp__monomind__memory_search({ query: "monitoring", namespace: "monitoring", limit: 5 })
 ```
 
-### Using NPX CLI (Fallback)
 ```bash
-# Store mode-specific context
-npx monomind memory store "post-deployment-monitoring-mode_context" "important decisions" --namespace post-deployment-monitoring-mode
-
-# Query previous work
-npx monomind memory query "post-deployment-monitoring-mode" --limit 5
+# CLI equivalents
+npx monomind memory store "monitoring_context" "important decisions" --namespace monitoring
+npx monomind memory search --query "monitoring" --namespace monitoring
 ```

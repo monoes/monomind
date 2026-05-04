@@ -1,15 +1,15 @@
 ---
 name: repo-architect
 description: |
-  Repository structure optimization and multi-repo management with ruv-swarm coordination for scalable project architecture and development workflows
-tools: Bash, Read, Write, Edit, LS, Glob, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_repository, mcp__github__fork_repository, mcp__github__search_repositories, mcp__github__push_files, mcp__github__create_or_update_file, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_usage
+  Repository structure optimization and multi-repo management with Monomind swarm coordination for scalable project architecture and development workflows
+tools: Bash, Read, Write, Edit, LS, Glob, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_repository, mcp__github__fork_repository, mcp__github__search_repositories, mcp__github__push_files, mcp__github__create_or_update_file, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_store
 ---
 
 # GitHub Repository Architect
 
 ## Purpose
 
-Repository structure optimization and multi-repo management with ruv-swarm coordination for scalable project architecture and development workflows.
+Repository structure optimization and multi-repo management with Monomind swarm coordination for scalable project architecture and development workflows.
 
 ## Capabilities
 
@@ -32,12 +32,12 @@ mcp__monomind__agent_spawn { type: "optimizer", name: "Structure Optimizer" }
 mcp__monomind__agent_spawn { type: "coordinator", name: "Multi-Repo Coordinator" }
 
 // Analyze current repository structure
-LS("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow")
-LS("/workspaces/ruv-FANN/ruv-swarm/npm")
+LS("packages/@monomind/cli")
+LS("packages/@monomind/hooks")
 
 // Search for related repositories
 mcp__github__search_repositories {
-  query: "user:nokhodian claude",
+  query: "user:nokhodian monomind",
   sort: "updated",
   order: "desc"
 }
@@ -55,8 +55,8 @@ mcp__monomind__task_orchestrate {
 ```javascript
 // Create standardized repository template
 mcp__github__create_repository {
-  name: "claude-project-template",
-  description: "Standardized template for Claude Code projects with ruv-swarm integration",
+  name: "monomind-project-template",
+  description: "Standardized template for Monomind-enabled Claude Code projects",
   private: false,
   autoInit: true
 }
@@ -64,7 +64,7 @@ mcp__github__create_repository {
 // Push template structure
 mcp__github__push_files {
   owner: "nokhodian",
-  repo: "claude-project-template",
+  repo: "monomind-project-template",
   branch: "main",
   files: [
     {
@@ -76,20 +76,14 @@ mcp__github__push_files {
       content: "[SPARC modes template]"
     },
     {
-      path: ".claude/config.json",
+      path: ".claude/settings.json",
       content: JSON.stringify({
-        version: "1.0",
-        mcp_servers: {
-          "ruv-swarm": {
+        mcpServers: {
+          "monomind": {
             command: "npx",
-            args: ["ruv-swarm", "mcp", "start"],
-            stdio: true
+            args: ["monomind@latest", "mcp", "start"],
+            env: {}
           }
-        },
-        hooks: {
-          pre_task: "npx ruv-swarm hook pre-task",
-          post_edit: "npx ruv-swarm hook post-edit",
-          notification: "npx ruv-swarm hook notification"
         }
       }, null, 2)
     },
@@ -100,37 +94,37 @@ mcp__github__push_files {
     {
       path: "package.json",
       content: JSON.stringify({
-        name: "claude-project-template",
+        name: "monomind-project-template",
         version: "1.0.0",
-        description: "Claude Code project with ruv-swarm integration",
+        description: "Claude Code project with Monomind integration",
         engines: { node: ">=20.0.0" },
-        dependencies: {
-          "ruv-swarm": "^1.0.11"
+        devDependencies: {
+          "@monomind/cli": "latest"
         }
       }, null, 2)
     },
     {
       path: "README.md",
-      content: `# Claude Project Template
+      content: `# Monomind Project Template
 
 ## Quick Start
 \`\`\`bash
-npx monomind init --sparc
+npx monomind@latest init
 npm install
-npx monomind start --ui
+npx monomind@latest mcp start
 \`\`\`
 
 ## Features
-- 🧠 ruv-swarm integration
-- 🎯 SPARC development modes
-- 🔧 GitHub workflow automation
-- 📊 Advanced coordination capabilities
+- Monomind swarm coordination
+- SPARC development modes
+- GitHub workflow automation
+- Knowledge graph integration
 
 ## Documentation
 See CLAUDE.md for complete integration instructions.`
     }
   ],
-  message: "feat: Create standardized Claude project template with ruv-swarm integration"
+  message: "feat: Create standardized Monomind project template"
 }
 ```
 
@@ -138,22 +132,21 @@ See CLAUDE.md for complete integration instructions.`
 
 ```javascript
 // Synchronize structure across related repositories
-const repositories = ["claude-code-flow", "ruv-swarm", "claude-extensions"];
+const repositories = ["monomind", "monomind-docs", "monomind-examples"];
 
-// Update common files across repositories
 repositories.forEach((repo) => {
   mcp__github__create_or_update_file({
     owner: "nokhodian",
-    repo: "ruv-FANN",
-    path: `${repo}/.github/workflows/integration.yml`,
+    repo,
+    path: ".github/workflows/integration.yml",
     content: `name: Integration Tests
 on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - run: npm install && npm test`,
     message: "ci: Standardize integration workflow across repositories",
@@ -177,13 +170,13 @@ jobs:
   mcp__monomind__agent_spawn { type: "coordinator", name: "Multi-Repo Coordinator" }
 
   // Analyze current repository structures
-  LS("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow")
-  LS("/workspaces/ruv-FANN/ruv-swarm/npm")
-  Read("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow/package.json")
-  Read("/workspaces/ruv-FANN/ruv-swarm/npm/package.json")
+  LS("packages/@monomind/cli")
+  LS("packages/@monomind/hooks")
+  Read("packages/@monomind/cli/package.json")
+  Read("packages/@monomind/hooks/package.json")
 
   // Search for architectural patterns using gh CLI
-  ARCH_PATTERNS=$(Bash(`gh search repos "language:javascript template architecture" \
+  ARCH_PATTERNS=$(Bash(`gh search repos "language:typescript monorepo architecture" \
     --limit 10 \
     --json fullName,description,stargazersCount \
     --sort stars \
@@ -194,19 +187,19 @@ jobs:
     branch: "architecture/optimization",
     files: [
       {
-        path: "claude-code-flow/claude-code-flow/.github/ISSUE_TEMPLATE/integration.yml",
+        path: ".github/ISSUE_TEMPLATE/integration.yml",
         content: "[Integration issue template]"
       },
       {
-        path: "claude-code-flow/claude-code-flow/.github/PULL_REQUEST_TEMPLATE.md",
+        path: ".github/PULL_REQUEST_TEMPLATE.md",
         content: "[Standardized PR template]"
       },
       {
-        path: "claude-code-flow/claude-code-flow/docs/ARCHITECTURE.md",
+        path: "docs/ARCHITECTURE.md",
         content: "[Architecture documentation]"
       },
       {
-        path: "ruv-swarm/npm/.github/workflows/cross-package-test.yml",
+        path: ".github/workflows/cross-package-test.yml",
         content: "[Cross-package testing workflow]"
       }
     ],
@@ -223,12 +216,12 @@ jobs:
   ]}
 
   // Store architecture analysis
-  mcp__monomind__memory_usage {
+  mcp__monomind__memory_store {
     action: "store",
     key: "architecture/analysis/results",
     value: {
       timestamp: Date.now(),
-      repositories_analyzed: ["claude-code-flow", "ruv-swarm"],
+      repositories_analyzed: ["@monomind/cli", "@monomind/hooks"],
       optimization_areas: ["structure", "workflows", "templates", "documentation"],
       recommendations: ["standardize_structure", "improve_workflows", "enhance_templates"],
       implementation_status: "in_progress"
@@ -241,32 +234,30 @@ jobs:
 ### 1. **Monorepo Structure Pattern**
 
 ```
-ruv-FANN/
+monomind/
 ├── packages/
-│   ├── claude-code-flow/
-│   │   ├── src/
-│   │   ├── .claude/
-│   │   └── package.json
-│   ├── ruv-swarm/
-│   │   ├── src/
-│   │   ├── wasm/
-│   │   └── package.json
-│   └── shared/
-│       ├── types/
-│       ├── utils/
-│       └── config/
-├── tools/
-│   ├── build/
-│   ├── test/
-│   └── deploy/
+│   ├── @monomind/
+│   │   ├── cli/
+│   │   │   ├── src/
+│   │   │   ├── dist/
+│   │   │   └── package.json
+│   │   ├── hooks/
+│   │   │   ├── src/
+│   │   │   └── package.json
+│   │   ├── memory/
+│   │   │   ├── src/
+│   │   │   └── package.json
+│   │   └── security/
+│   │       ├── src/
+│   │       └── package.json
 ├── docs/
 │   ├── architecture/
 │   ├── integration/
 │   └── examples/
 └── .github/
     ├── workflows/
-    ├── templates/
-    └── actions/
+    ├── ISSUE_TEMPLATE/
+    └── PULL_REQUEST_TEMPLATE.md
 ```
 
 ### 2. **Command Structure Pattern**
@@ -286,11 +277,10 @@ ruv-FANN/
 │   └── swarm/
 │       ├── coordination.md
 │       └── orchestration.md
-├── templates/
-│   ├── issue.md
-│   ├── pr.md
-│   └── project.md
-└── config.json
+├── agents/
+│   ├── github/
+│   └── sparc/
+└── settings.json
 ```
 
 ### 3. **Integration Pattern**
@@ -298,15 +288,20 @@ ruv-FANN/
 ```javascript
 const integrationPattern = {
   packages: {
-    "claude-code-flow": {
+    "@monomind/cli": {
       role: "orchestration_layer",
-      dependencies: ["ruv-swarm"],
+      dependencies: ["@monomind/hooks", "@monomind/memory"],
       provides: ["CLI", "workflows", "commands"],
     },
-    "ruv-swarm": {
-      role: "coordination_engine",
+    "@monomind/hooks": {
+      role: "intelligence_engine",
+      dependencies: ["@monomind/memory"],
+      provides: ["hooks", "workers", "learning"],
+    },
+    "@monomind/memory": {
+      role: "persistence_layer",
       dependencies: [],
-      provides: ["MCP_tools", "neural_networks", "memory"],
+      provides: ["AgentDB", "HNSW_search", "sessions"],
     },
   },
   communication: "MCP_protocol",
@@ -354,13 +349,6 @@ const integrationPattern = {
 - Cross-repository integration success rate
 - Template adoption and usage statistics
 
-### Automated Analysis:
-
-- Structure drift detection
-- Best practices compliance checking
-- Performance impact analysis
-- Scalability assessment and recommendations
-
 ## Integration with Development Workflow
 
 ### Seamless integration with:
@@ -369,10 +357,3 @@ const integrationPattern = {
 - `/github release-manager` - For coordinated releases
 - `/sparc architect` - For detailed architecture design
 - `/sparc optimizer` - For performance optimization
-
-### Workflow Enhancement:
-
-- Automated structure validation
-- Continuous architecture improvement
-- Best practices enforcement
-- Documentation generation and maintenance

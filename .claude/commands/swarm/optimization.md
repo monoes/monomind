@@ -1,117 +1,84 @@
+---
+name: swarm-optimization
+description: Optimization swarm strategy — performance profiling, bottleneck detection, and coordinated optimization through specialized mesh agents
+---
+
 # Optimization Swarm Strategy
 
-## Purpose
-Performance optimization through specialized analysis.
+Performance optimization through specialized analysis agents.
 
-## Activation
+## How to Invoke
 
-### Using MCP Tools
+```
+Skill("swarm:optimization")
+```
+
+Then describe the optimization target:
+> "Start an optimization swarm to improve API response times."
+> "Run an optimization swarm on the memory usage in the agent system."
+
+---
+
+## Swarm Setup
+
 ```javascript
 // Initialize optimization swarm
 mcp__monomind__swarm_init({
-  "topology": "mesh",
-  "maxAgents": 6,
-  "strategy": "adaptive"
+  topology: "mesh",
+  maxAgents: 6,
+  strategy: "adaptive"
 })
 
-// Orchestrate optimization task
-mcp__monomind__task_orchestrate({
-  "task": "optimize performance",
-  "strategy": "parallel",
-  "priority": "high"
+// Coordinate optimization
+mcp__monomind__coordination_orchestrate({
+  task: "optimize performance",
+  strategy: "parallel"
 })
 ```
 
-### Using CLI (Fallback)
-`npx monomind swarm "optimize performance" --strategy optimization`
+```bash
+# CLI equivalent
+npx monomind swarm init --topology mesh --max-agents 6
+npx monomind swarm start "optimize performance" --strategy optimization --parallel
+```
 
 ## Agent Roles
 
-### Agent Spawning with MCP
 ```javascript
-// Spawn optimization agents
-mcp__monomind__agent_spawn({
-  "type": "optimizer",
-  "name": "Performance Profiler",
-  "capabilities": ["profiling", "bottleneck-detection"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "analyst",
-  "name": "Memory Analyzer",
-  "capabilities": ["memory-analysis", "leak-detection"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "optimizer",
-  "name": "Code Optimizer",
-  "capabilities": ["code-optimization", "refactoring"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "tester",
-  "name": "Benchmark Runner",
-  "capabilities": ["benchmarking", "performance-testing"]
-})
+mcp__monomind__agent_spawn({ type: "optimizer", capabilities: ["profiling", "bottleneck-detection"] })
+mcp__monomind__agent_spawn({ type: "analyst", capabilities: ["memory-analysis", "leak-detection"] })
+mcp__monomind__agent_spawn({ type: "optimizer", capabilities: ["code-optimization", "refactoring"] })
+mcp__monomind__agent_spawn({ type: "tester", capabilities: ["benchmarking", "performance-testing"] })
 ```
 
-## Optimization Areas
+## Performance Analysis
 
-### Performance Analysis
 ```javascript
-// Analyze bottlenecks
-mcp__monomind__bottleneck_analyze({
-  "component": "all",
-  "metrics": ["cpu", "memory", "io", "network"]
-})
+// Profile performance
+mcp__monomind__performance_profile({ target: "api", metrics: ["cpu", "memory", "latency"] })
 
-// Run benchmarks
-mcp__monomind__benchmark_run({
-  "suite": "performance"
-})
+// Find bottlenecks
+mcp__monomind__performance_bottleneck({ component: "all" })
 
-// WASM optimization
-mcp__monomind__wasm_optimize({
-  "operation": "simd-acceleration"
-})
-```
-
-### Optimization Operations
-```javascript
-// Optimize topology
-mcp__monomind__topology_optimize({
-  "swarmId": "optimization-swarm"
-})
-
-// DAA optimization
-mcp__monomind__daa_optimization({
-  "target": "performance",
-  "metrics": ["speed", "memory", "efficiency"]
-})
-
-// Load balancing
-mcp__monomind__load_balance({
-  "swarmId": "optimization-swarm",
-  "tasks": optimizationTasks
-})
-```
-
-### Monitoring and Reporting
-```javascript
 // Performance report
-mcp__monomind__performance_report({
-  "format": "detailed",
-  "timeframe": "7d"
-})
+mcp__monomind__performance_report({ format: "detailed", timeframe: "7d" })
 
-// Trend analysis
-mcp__monomind__trend_analysis({
-  "metric": "performance",
-  "period": "30d"
-})
+// Benchmark results
+mcp__monomind__performance_benchmark({ suite: "performance" })
+```
 
-// Cost analysis
-mcp__monomind__cost_analysis({
-  "timeframe": "30d"
+## Load Balancing
+
+```javascript
+// Balance work across optimization agents
+mcp__monomind__coordination_load_balance({
+  tasks: ["profile", "analyze", "optimize", "benchmark"]
 })
+```
+
+## Monitoring
+
+```javascript
+mcp__monomind__swarm_status({ swarmId: "current" })
+mcp__monomind__system_metrics({})
 ```

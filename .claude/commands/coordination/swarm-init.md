@@ -1,4 +1,8 @@
-# swarm init
+---
+name: coordination:swarm-init
+---
+
+# swarm-init
 
 Initialize a Monomind swarm with specified topology and configuration.
 
@@ -10,76 +14,69 @@ npx monomind swarm init [options]
 
 ## Options
 
-- `--topology, -t <type>` - Swarm topology: mesh, hierarchical, ring, star (default: hierarchical)
-- `--max-agents, -m <number>` - Maximum number of agents (default: 8)
-- `--strategy, -s <type>` - Execution strategy: balanced, parallel, sequential (default: parallel)
-- `--auto-spawn` - Automatically spawn agents based on task complexity
-- `--memory` - Enable cross-session memory persistence
-- `--github` - Enable GitHub integration features
+- `--topology, -t <type>` - Swarm topology (default: `hierarchical`)
+- `--max-agents, -m <n>` - Maximum number of agents (default: `8`)
+- `--strategy, -s <type>` - Coordination strategy: `balanced`, `parallel`, `sequential`, `specialized`
+- `--auto-scale` - Enable automatic agent scaling
+- `--v1-mode` - Enable v1 15-agent hierarchical mesh mode
 
 ## Examples
 
-### Basic initialization
+### Default hierarchical swarm
 
 ```bash
 npx monomind swarm init
 ```
 
-### Mesh topology for research
+### Mesh topology for research tasks
 
 ```bash
 npx monomind swarm init --topology mesh --max-agents 5 --strategy balanced
 ```
 
-### Hierarchical for development
+### Specialized development swarm
 
 ```bash
-npx monomind swarm init --topology hierarchical --max-agents 10 --strategy parallel --auto-spawn
+npx monomind swarm init --topology hierarchical --max-agents 8 --strategy specialized
 ```
 
-### GitHub-focused swarm
+### Auto-scaling adaptive swarm
 
 ```bash
-npx monomind swarm init --topology star --github --memory
+npx monomind swarm init --topology adaptive --auto-scale
+```
+
+### v1 high-performance mode (15 agents)
+
+```bash
+npx monomind swarm init --v1-mode
 ```
 
 ## Topologies
 
-### Mesh
-
-- All agents connect to all others
-- Best for: Research, exploration, brainstorming
-- Communication: High overhead, maximum information sharing
-
-### Hierarchical
-
-- Tree structure with clear command chain
-- Best for: Development, structured tasks, large projects
-- Communication: Efficient, clear responsibilities
-
-### Ring
-
-- Agents connect in a circle
-- Best for: Pipeline processing, sequential workflows
-- Communication: Low overhead, ordered processing
-
-### Star
-
-- Central coordinator with satellite agents
-- Best for: Simple tasks, centralized control
-- Communication: Minimal overhead, clear coordination
+| Topology | Best For | Communication |
+|----------|----------|---------------|
+| `hierarchical` | Development, structured tasks, large projects | Efficient, clear chain of command |
+| `hierarchical-mesh` | Complex cross-domain work (recommended default) | Balanced overhead + information sharing |
+| `mesh` | Research, exploration, brainstorming | High information sharing |
+| `ring` | Pipeline processing, sequential workflows | Low overhead, ordered |
+| `star` | Centralized control, simple tasks | Minimal overhead |
+| `adaptive` | Unknown complexity, dynamic workloads | Self-adjusting |
+| `hybrid` | Mixed-mode tasks | Configurable |
 
 ## Integration with Claude Code
 
-Once initialized, use MCP tools in Claude Code:
-
 ```javascript
-mcp__monomind__swarm_init { topology: "hierarchical", maxAgents: 8 }
+mcp__monomind__swarm_init({
+  topology: "hierarchical",
+  maxAgents: 8,
+  strategy: "specialized"
+})
 ```
 
 ## See Also
 
-- `agent spawn` - Create swarm agents
-- `task orchestrate` - Coordinate task execution
-- `swarm status` - Check swarm state
-- `swarm monitor` - Real-time monitoring
+- `agent-spawn` — create agents within the swarm
+- `swarm status` — check swarm state (`monomind swarm status`)
+- `swarm start` — start execution (`monomind swarm start --objective "..."`)
+- `task-orchestrate` — coordinate tasks across agents

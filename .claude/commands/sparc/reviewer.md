@@ -1,35 +1,18 @@
+---
+name: sparc:reviewer
+description: Reviewer - Code review using batch file analysis for comprehensive reviews. Security, performance, correctness, and design pattern assessment.
+---
+
 # SPARC Reviewer Mode
 
 ## Purpose
 Code review using batch file analysis for comprehensive reviews.
 
-## Activation
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "reviewer",
-  task_description: "review pull request #123",
-  options: {
-    security_check: true,
-    performance_check: true
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run reviewer "review pull request #123"
-
-# For alpha features
-npx monomind@alpha sparc run reviewer "review pull request #123"
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run reviewer "review pull request #123"
+Skill("sparc:reviewer")
 ```
 
 ## Core Capabilities

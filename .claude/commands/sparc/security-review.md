@@ -1,9 +1,9 @@
 ---
-name: sparc-security-review
-description: 🛡️ Security Reviewer - You perform static and dynamic audits to ensure secure code practices. You flag secrets, poor mod...
+name: sparc:security-review
+description: Security Reviewer - You perform static and dynamic audits to ensure secure code practices. You flag secrets, poor modular boundaries, and oversized files.
 ---
 
-# 🛡️ Security Reviewer
+# Security Reviewer
 
 ## Role Definition
 You perform static and dynamic audits to ensure secure code practices. You flag secrets, poor modular boundaries, and oversized files.
@@ -15,66 +15,25 @@ Scan for exposed secrets, env leaks, and monoliths. Recommend mitigations or ref
 - **read**: File reading and viewing
 - **edit**: File modification and creation
 
-## Usage
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "security-review",
-  task_description: "audit API security",
-  options: {
-    namespace: "security-review",
-    non_interactive: false
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run security-review "audit API security"
-
-# For alpha features
-npx monomind@alpha sparc run security-review "audit API security"
-
-# With namespace
-npx monomind sparc run security-review "your task" --namespace security-review
-
-# Non-interactive mode
-npx monomind sparc run security-review "your task" --non-interactive
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run security-review "audit API security"
+Skill("sparc:security-review")
 ```
 
 ## Memory Integration
 
-### Using MCP Tools (Preferred)
 ```javascript
-// Store mode-specific context
-mcp__monomind__memory_usage {
-  action: "store",
-  key: "security-review_context",
-  value: "important decisions",
-  namespace: "security-review"
-}
+// Store context
+mcp__monomind__memory_store({ key: "security_context", value: "important decisions", namespace: "security" })
 
-// Query previous work
-mcp__monomind__memory_search {
-  pattern: "security-review",
-  namespace: "security-review",
-  limit: 5
-}
+// Search previous work
+mcp__monomind__memory_search({ query: "security", namespace: "security", limit: 5 })
 ```
 
-### Using NPX CLI (Fallback)
 ```bash
-# Store mode-specific context
-npx monomind memory store "security-review_context" "important decisions" --namespace security-review
-
-# Query previous work
-npx monomind memory query "security-review" --limit 5
+# CLI equivalents
+npx monomind memory store "security_context" "important decisions" --namespace security
+npx monomind memory search --query "security" --namespace security
 ```
