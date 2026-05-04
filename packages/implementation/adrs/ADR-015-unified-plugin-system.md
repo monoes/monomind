@@ -1,3 +1,5 @@
+> **Status: SUPERSEDED** by ADR-015-v2-unified-plugin-system.md. That document contains the current plugin system design.
+
 # ADR-015: Unified Plugin System
 
 ## Status
@@ -10,7 +12,7 @@
 
 Monomind v1 has multiple extension mechanisms scattered across different packages:
 - Plugin interfaces in `@monomind/shared`
-- Worker system in `@monomind/integration`
+- Worker system in `@monomind/integration` *(⚠️ @monomind/integration was a planned package that was never built)*
 - Hooks system in `@monomind/hooks`
 - Provider definitions spread across multiple modules
 - Duplicate security utilities in various places

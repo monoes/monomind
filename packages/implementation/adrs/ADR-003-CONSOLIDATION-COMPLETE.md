@@ -1,3 +1,5 @@
+> **Note:** ADR-003-implementation-status.md is a companion implementation status document. It shares this number but contains status tracking, not decision rationale.
+
 # ADR-003 Consolidation Complete
 
 **Date**: 2026-01-04

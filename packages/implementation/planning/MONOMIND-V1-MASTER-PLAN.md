@@ -1,3 +1,5 @@
+> **Renamed:** This file was formerly CLAUDE-FLOW-V3-MASTER-PLAN.md. "CLAUDE-FLOW-V3" was a legacy project codename; this document covers the Monomind v1 master plan.
+
 # Monomind v1: Complete Reimagining with agentic-flow@alpha Foundation
 
 > **Note:** v2/ has been removed from the repo. v2 backward compatibility references below are historical. The project is now Monomind (formerly Monomind).

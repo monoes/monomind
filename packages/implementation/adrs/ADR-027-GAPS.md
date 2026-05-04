@@ -1,3 +1,5 @@
+> **ADR number conflict:** Three documents share this number. This file is the gap analysis meta-document. See also: ADR-027-ruvector-postgresql-integration.md (PostgreSQL storage) and ADR-027-teammate-tool-integration.md (TeammateTool).
+
 # ADR-027 Gap Analysis: Missing Plugin Features
 
 **Date:** 2026-01-25
