@@ -1,3 +1,5 @@
+> **Status: ORPHANED** — This ADR describes integration with a "Prime Radiant" system and references `packages/@monomind/plugins/src/integrations/prime-radiant/` which does not exist in the repository. This plan was never implemented. Retained for historical context.
+
 # ADR-031: Prime Radiant WASM Plugin Integration
 
 ## Status

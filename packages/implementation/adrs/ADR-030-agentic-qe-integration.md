@@ -2030,7 +2030,7 @@ v1/plugins/agentic-qe/
     "@types/node": "^20.0.0"
   },
   "peerDependencies": {
-    "@monomind/browser": ">=3.0.0"
+    "@monomind/browser": ">=3.0.0"  // ⚠️ @monomind/browser does not exist — planned but never built
   }
 }
 ```
