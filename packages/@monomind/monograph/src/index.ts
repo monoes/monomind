@@ -237,3 +237,11 @@ export { type HumanHealthOptions, formatVitalSignsSection, formatHotspotSection,
 export { type VitalSignsTrend, computeVitalSignsScore } from './health/vital-signs-compute.js';
 export { type UnusedExportsOptions, findUnusedExports, findDuplicateExports } from './analyze/unused-exports.js';
 export { type BoundaryAnalysisResult, findBoundaryViolations, analyzeBoundaries } from './analyze/boundary-analysis.js';
+// ── Round 17: Plugin registry, infra discovery, baseline deltas, fix surgery ──
+export { type BuiltinPlugin, type PluginRegistry } from './config/plugins/types.js';
+export { createPluginRegistry } from './config/plugins/registry.js';
+export { BUILTIN_PLUGINS, DEFAULT_PLUGIN_REGISTRY, ALWAYS_DEV_TOOLING } from './config/plugins/builtin.js';
+export { type InfraFileKind, type InfraEntryPoint, detectInfraFiles, parseDockerfileEntries, parseProcfileEntries } from './discover/infrastructure-entries.js';
+export { type CategoryDelta, type BaselineDeltas, computeBaselineDeltas, filterNewIssues, formatBaselineDeltas } from './regression/baseline-deltas.js';
+export { type ExportSurgeryResult, removeNameFromExportList, removeTypeFromExportList, promoteToTypeExport, applyExportSurgeries } from './fix/export-surgery.js';
+export { type ActionKind, type JsonAction, type JsonIssueWithActions, makeDeleteFileAction, makeRemoveExportAction, makeExportTypeAction, makeRemoveDependencyAction, makeAddSuppressionAction, buildDocsUrl, buildActionsForUnusedFile, buildActionsForUnusedExport, buildActionsForUnusedDep } from './report/json-actions.js';
