@@ -182,3 +182,15 @@ export { filterToWorkspaces, resolveWorkspaceFilters, resolveWorkspaceScope, get
 export { type OutputFormat, type TraceOptions, type SarifOutput, type SarifRun, type SarifRule, type SarifResult, parseTraceSpec, buildSarifOutput, formatIssuesAsText, formatIssuesAsJson } from './check/output.js';
 export { type FlagsOptions, type FeatureFlag, type FlagUse, type FlagsResult, flagUseToFeatureFlag, groupFlagsByName, formatFlagsText } from './commands/flags.js';
 export { type MonographError, type OutputFormat as ErrorOutputFormat, emitError, formatError, MonographAnalysisError, MonographConfigError, MonographResolveError } from './error.js';
+// ── Round 13: Fallow feature ports ────────────────────────────────────────────
+export { type DependencyLocation, type UnusedFile, type UnusedExport, type UnusedDependency, type CircularDependency, type DuplicateExport, type AnalysisResults, makeEmptyAnalysisResults, totalIssues, hasIssues, mergeAnalysisResults, filterResultsByFile } from './results/types.js';
+export { type ProjectFile, type WorkspaceEntry, type ProjectState, makeProjectState, fileById, idForPath, workspaceForFile, filesInWorkspace } from './analysis/project-state.js';
+export { resolveGitToplevel, collectGitPaths, tryGetChangedFiles, getChangedFilesSince } from './analysis/git-changed-files.js';
+export { type MigrationResult, type MigrationSourceKind, type MigrationSource, KNIP_CONFIG_FILENAMES, JSCPD_CONFIG_FILENAMES, KNOWN_KNIP_FIELDS, KNOWN_JSCPD_FIELDS, detectMigrationSource, makeMigrationWarning, migrationSuccess } from './config/migration-types.js';
+export { textWidth, gradeColor, xmlEscape, svgIdSuffix, renderBadge, renderHealthBadge, renderGradeBadge } from './report/badge-svg.js';
+export { type DuplicationGroup, resolveOwnerFromDirectory, formatDuplicationGroup } from './report/attributed-duplication.js';
+export { MAX_FLAT_ITEMS, MAX_GROUPED_FILES, DIR_ROLLUP_THRESHOLD, thousands, formatPercent, formatPath, formatPathParts, buildSectionHeader, type GroupedByFile, buildGroupedByFile, pluralize, summarizeTruncation, formatCircularCycle, formatDuration, formatBytes } from './report/number-format.js';
+export { type UnitSizeProfile, type IssueCounts, type FileScore, makeHealthScore, computeVitalSigns, formatVitalSigns } from './health/health-report-types.js';
+export { type FallowErrorKind, type FallowErrorOptions, FallowError, isFallowError, formatFallowError } from './error/fallow-error.js';
+export { type GroupOutputFormat, type GroupedOutputOptions, buildGroupedJsonOutput, buildGroupedTextLines, buildGroupedCompactLines, partitionGroupsByOwner } from './report/output-grouped.js';
+export { ANALYSIS_SCHEMA_VERSION, HEALTH_SCHEMA_VERSION, RUNTIME_COVERAGE_SCHEMA_VERSION, DUPLICATION_SCHEMA_VERSION, type SchemaEnvelope, makeEnvelope, injectActions, buildAnalysisJsonEnvelope, buildHealthJsonEnvelope, buildDuplicationJsonEnvelope } from './report/json-schema.js';
