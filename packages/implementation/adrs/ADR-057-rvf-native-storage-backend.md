@@ -836,6 +836,7 @@ export class PersistentSonaCoordinator extends SonaCoordinator {
 #### Integration with RuVectorProvider
 
 The existing `RuVectorProvider` in `@monomind/providers` gains RVF-backed persistence:
+<!-- ⚠️ @monomind/providers does not exist — planned but never built. packages/@monomind/providers/ is not present in this repository. -->
 
 ```typescript
 // ruvector-provider.ts — extended with RVF persistence
@@ -959,7 +960,7 @@ data/
 | P6.2 | `@monomind/memory` | Implement `savePatterns` / `loadPatterns` for ReasoningBank persistence |
 | P6.3 | `@monomind/memory` | Implement LoRA adapter serialization to RVF OVERLAY segment |
 | P6.4 | `@monomind/memory` | Implement EWC++ Fisher diagonal persistence to META_SEG |
-| P6.5 | `@monomind/providers` | Extend `RuVectorProvider` with RVF-backed `searchMemory()` |
+| P6.5 | `@monomind/providers` *(⚠️ phantom — never built)* | Extend `RuVectorProvider` with RVF-backed `searchMemory()` |
 | P6.6 | `@monomind/memory` | Create `PersistentSonaCoordinator` wrapping `SonaCoordinator` |
 
 ### Phase 7: Progressive Download System (Week 5-6)
@@ -970,7 +971,7 @@ data/
 | P7.2 | `@monomind/cli` | Create capability manifest schema and seed registry |
 | P7.3 | `@monomind/cli` | `monomind capabilities status/install/remove/list/prefetch` CLI commands |
 | P7.4 | `@monomind/embeddings` | Integrate progressive download into `createEmbeddingServiceAsync` |
-| P7.5 | `@monomind/providers` | Integrate progressive download into `RuVectorProvider` for LLM models |
+| P7.5 | `@monomind/providers` *(⚠️ phantom — never built)* | Integrate progressive download into `RuVectorProvider` for LLM models |
 | P7.6 | `@monomind/cli` | Package Phase 1-2 capabilities as .rvf files on CDN/IPFS |
 
 ### Phase 8: Dependency Cleanup (Week 6-7)

@@ -16,7 +16,7 @@ This guide walks you through migrating from Monomind v2.x to V1.0.0. The migrati
 
 ```bash
 # Update to v1
-npm install monomind@3.0.0
+npm install monomind@latest
 
 # Install new optional dependencies
 npm install sql.js  # Windows support

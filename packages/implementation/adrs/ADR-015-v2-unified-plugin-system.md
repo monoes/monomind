@@ -1,3 +1,5 @@
+> **Supersedes:** ADR-015-unified-plugin-system.md (original plugin system design).
+
 # ADR-015-v2: Unified Plugin System (Enhanced)
 
 ## Status

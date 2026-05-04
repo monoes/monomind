@@ -1,3 +1,5 @@
+> **Superseded:** This research supported the ADR-006 sql.js decision. ADR-057 has since reversed that direction — sql.js is being replaced by RVF as the native storage backend. This document is retained for historical context.
+
 # Windows Installation Support via sql.js Migration Research
 
 **Research Date**: 2026-01-03

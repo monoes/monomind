@@ -1,3 +1,5 @@
+> **STALE — Two Major Versions Behind:** This analysis covers upgrading `agentic-flow` from v1.9.4 → v2.0.1-alpha.50. The version currently pinned in `packages/@monomind/cli/package.json` is `^3.0.0-alpha.1`. See ADR-056 for the current v3 integration decision. This document is retained for historical context only.
+
 # agentic-flow@alpha Deep Analysis & Integration Optimization
 
 ## Executive Summary

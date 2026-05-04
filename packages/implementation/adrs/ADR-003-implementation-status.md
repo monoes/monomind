@@ -1,3 +1,5 @@
+> **ADR numbering note:** This document is a status update/implementation record, not the primary ADR. The primary decision record is ADR-003-CONSOLIDATION-COMPLETE.md. If renumbering is needed, this file should become ADR-003a or a separate tracking doc.
+
 # ADR-003 Implementation Status: Single Coordination Engine
 
 **Status**: ✅ IMPLEMENTED

@@ -1,3 +1,5 @@
+> **ADR number conflict:** Three documents share this number. This file covers TeammateTool integration. See also: ADR-027-GAPS.md (gap analysis) and ADR-027-ruvector-postgresql-integration.md (PostgreSQL storage).
+
 # ADR-027: Native TeammateTool Integration for Monomind
 
 **Status:** Implemented ✅
@@ -10,6 +12,8 @@
 ---
 
 ## Implementation Summary
+
+> ⚠️ **@monomind/teammate-plugin does not exist.** `packages/@monomind/teammate-plugin/` does not exist in the repository. This ADR describes a planned package that was never created. The implementation summary below is a design artifact, not a record of shipped code.
 
 The `@monomind/teammate-plugin` package has been fully implemented with:
 
@@ -44,6 +48,7 @@ The `@monomind/teammate-plugin` package has been fully implemented with:
 ### Package Structure
 
 ```
+# ⚠️ This directory does not exist — packages/@monomind/teammate-plugin/ was never created.
 packages/@monomind/teammate-plugin/
 ├── package.json           # npm package (requires Claude Code >= 2.1.19)
 ├── tsconfig.json          # TypeScript configuration
@@ -1147,6 +1152,8 @@ The plugin provides **16 MCP tools** for complete TeammateTool integration:
 | `teammate_cleanup` | Clean up resources | Utility |
 
 ```typescript
+// ⚠️ @monomind/teammate-plugin does not exist on npm — planned but not published.
+// packages/@monomind/teammate-plugin/ does not exist in the repository.
 // mcp-tools.ts - Complete implementation in packages/@monomind/teammate-plugin/src/mcp-tools.ts
 
 import { TEAMMATE_MCP_TOOLS, handleMCPTool } from '@monomind/teammate-plugin';
@@ -1353,9 +1360,9 @@ if (mode === 'native') {
 
 ---
 
-**Status:** Implemented ✅
-**Package:** `@monomind/teammate-plugin` (v1.0.0-alpha.1)
-**Location:** `packages/@monomind/teammate-plugin/`
+**Status:** Implemented ✅ *(⚠️ claimed but not verified — packages/@monomind/teammate-plugin/ does not exist)*
+**Package:** `@monomind/teammate-plugin` (v1.0.0-alpha.1) *(⚠️ @monomind/teammate-plugin does not exist on npm — planned but not published)*
+**Location:** `packages/@monomind/teammate-plugin/` *(⚠️ directory does not exist in this repository)*
 
 ## Next Steps
 

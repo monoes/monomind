@@ -140,14 +140,14 @@ await learnFromEpisode(
         "matcher": "Bash",
         "hooks": [{
           "type": "command",
-          "command": "npx agentic-flow@alpha hooks pre-command --validate --predict --cache"
+          "command": "npx monomind@latest hooks pre-command --validate --predict --cache"
         }]
       },
       {
         "matcher": "Edit|Write",
         "hooks": [{
           "type": "command",
-          "command": "npx agentic-flow@alpha hooks pre-edit --analyze-impact --check-patterns"
+          "command": "npx monomind@latest hooks pre-edit --analyze-impact --check-patterns"
         }]
       }
     ],
@@ -156,14 +156,14 @@ await learnFromEpisode(
         "matcher": "Bash",
         "hooks": [{
           "type": "command",
-          "command": "npx agentic-flow@alpha hooks post-command --learn --store-pattern --batch"
+          "command": "npx monomind@latest hooks post-command --learn --store-pattern --batch"
         }]
       },
       {
         "matcher": "Edit|Write",
         "hooks": [{
           "type": "command",
-          "command": "npx agentic-flow@alpha hooks post-edit --extract-patterns --train-neural"
+          "command": "npx monomind@latest hooks post-edit --extract-patterns --train-neural"
         }]
       }
     ],
@@ -171,7 +171,7 @@ await learnFromEpisode(
       {
         "hooks": [{
           "type": "command",
-          "command": "npx agentic-flow@alpha hooks session-start --restore-memory --warm-cache"
+          "command": "npx monomind@latest hooks session-start --restore-memory --warm-cache"
         }]
       }
     ],
@@ -179,7 +179,7 @@ await learnFromEpisode(
       {
         "hooks": [{
           "type": "command",
-          "command": "npx agentic-flow@alpha hooks session-end --consolidate --export-metrics"
+          "command": "npx monomind@latest hooks session-end --consolidate --export-metrics"
         }]
       }
     ]
@@ -300,21 +300,21 @@ npx agentic-flow@alpha stats --learning
 
 ```bash
 npm install agentic-flow@alpha
-npx agentic-flow@alpha hooks install --learning
+npx monomind@latest hooks install --learning
 ```
 
 ### 7.2 Full Setup (All Features)
 
 ```bash
 npm install agentic-flow@alpha
-npx agentic-flow@alpha hooks install --all --parallel
+npx monomind@latest hooks install --all --parallel
 
 # Configure Claude Code hooks
 cat >> ~/.claude/settings.json << 'EOF'
 {
   "hooks": {
-    "PreToolUse": [{"matcher": "Bash|Edit", "hooks": [{"type": "command", "command": "npx agentic-flow@alpha hooks pre-task"}]}],
-    "PostToolUse": [{"matcher": "Bash|Edit", "hooks": [{"type": "command", "command": "npx agentic-flow@alpha hooks post-task --learn"}]}]
+    "PreToolUse": [{"matcher": "Bash|Edit", "hooks": [{"type": "command", "command": "npx monomind@latest hooks pre-task"}]}],
+    "PostToolUse": [{"matcher": "Bash|Edit", "hooks": [{"type": "command", "command": "npx monomind@latest hooks post-task --learn"}]}]
   }
 }
 EOF

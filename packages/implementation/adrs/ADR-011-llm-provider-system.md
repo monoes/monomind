@@ -23,9 +23,15 @@ V2 has concrete provider implementations in `v2/src/providers/` that need to be 
 
 ### 1. Create `@monomind/providers` Package
 
+> ⚠️ **@monomind/providers does not exist on npm and was never published.**
+> `packages/@monomind/providers/` does not exist in the repository.
+> This was a planned package that was never built. Provider logic currently
+> lives inside `packages/@monomind/cli/src/` and related modules.
+
 A dedicated package for LLM provider implementations:
 
 ```
+# ⚠️ This directory does not exist — planned but never created.
 packages/@monomind/providers/
 ├── src/
 │   ├── types.ts              # Unified type definitions
@@ -149,7 +155,7 @@ Include latest models:
 - Testing requires API mocks
 
 ### Neutral
-- Integration with existing `@monomind/integration` multi-model-router
+- Integration with existing `@monomind/integration` multi-model-router *(⚠️ @monomind/integration was a planned package that was never built)*
 - Can coexist with agentic-flow's provider system
 
 ## Implementation Notes
@@ -208,7 +214,7 @@ Include latest models:
 ## References
 
 - V2 Provider System: `v2/src/providers/`
-- V1 Multi-Model Router: `packages/@monomind/integration/src/multi-model-router.ts`
+- V1 Multi-Model Router: `packages/@monomind/integration/src/multi-model-router.ts` *(⚠️ path is phantom — @monomind/integration was never built)*
 - RuVector ruvLLM: `https://github.com/nokhodian/ruvector/tree/main/examples/ruvLLM`
 - ADR-001: agentic-flow Integration
 - ADR-006: Unified Memory Service

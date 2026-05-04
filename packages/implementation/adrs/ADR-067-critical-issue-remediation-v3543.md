@@ -1,3 +1,5 @@
+> **ADR numbering note:** This is an incident/remediation tracking document. The architectural decision record for ADR-067 is ADR-067-ruvector-wasm-utilization.md. This document should be moved to /reports/.
+
 ---
 # ADR-067: Critical Issue Remediation — v1.5.43
 ---

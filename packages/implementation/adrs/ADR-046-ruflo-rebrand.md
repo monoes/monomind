@@ -1,3 +1,5 @@
+> **Filename note:** The filename references "ruflo," a development codename that was superseded before this ADR was written. The content below covers the Monomind dual-umbrella npm package strategy, not a rebrand.
+
 # ADR-046: Dual Umbrella Packages — monomind + monomind
 
 **Status:** Accepted

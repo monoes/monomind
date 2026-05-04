@@ -9,6 +9,7 @@
 ### 1. Remove fabricated metrics from token-optimizer
 
 The `TokenOptimizer` class (`@monomind/integration`) contained hardcoded savings numbers:
+<!-- ⚠️ @monomind/integration does not exist — planned but never built. This class reference is to a phantom package. -->
 
 | Before                                  | After                                                         |
 | --------------------------------------- | ------------------------------------------------------------- |
