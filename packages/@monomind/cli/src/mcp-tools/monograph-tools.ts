@@ -6116,3 +6116,147 @@ monographTools.push(
   monographUnusedExportsTool,
   monographBoundaryAnalysisTool,
 );
+
+// ── Round 17: Plugin registry, infra discovery, baseline deltas, fix surgery ──
+
+const monographPluginRegistryTool: MCPTool = {
+  name: 'monograph_plugin_registry',
+  description: 'Query the built-in plugin registry: check if a file path is always considered used, get config patterns/tooling packages for installed packages, or list all built-in plugins.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['is_always_used', 'config_patterns', 'tooling_packages', 'entry_patterns', 'list_plugins'], description: 'Operation' },
+      filePath: { type: 'string', description: 'File path for is_always_used check' },
+      installedPackages: { type: 'array', items: { type: 'string' }, description: 'Installed npm package names to filter active plugins' },
+    },
+    required: ['action'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { DEFAULT_PLUGIN_REGISTRY, BUILTIN_PLUGINS, ALWAYS_DEV_TOOLING } = await import('@monoes/monograph');
+    const installed = (args.installedPackages as string[]) ?? [];
+    const action = args.action as string;
+    if (action === 'is_always_used') return { alwaysUsed: DEFAULT_PLUGIN_REGISTRY.isAlwaysUsed(args.filePath as string, installed) };
+    if (action === 'config_patterns') return { patterns: DEFAULT_PLUGIN_REGISTRY.getConfigPatterns(installed) };
+    if (action === 'tooling_packages') return { packages: DEFAULT_PLUGIN_REGISTRY.getToolingPackages(installed) };
+    if (action === 'entry_patterns') return { patterns: DEFAULT_PLUGIN_REGISTRY.getEntryPatterns(installed) };
+    if (action === 'list_plugins') return { plugins: BUILTIN_PLUGINS.map(p => ({ name: p.name, configPatterns: p.configPatterns })), alwaysDevTooling: ALWAYS_DEV_TOOLING };
+    return { error: 'Unknown action' };
+  },
+};
+
+const monographInfraEntriesTool: MCPTool = {
+  name: 'monograph_infra_entries',
+  description: 'Discover infrastructure entry points (Dockerfile, Procfile, fly.toml, etc.) in a project root and extract JS/TS file references from them.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['detect', 'parse_dockerfile', 'parse_procfile'], description: 'Operation' },
+      projectRoot: { type: 'string', description: 'Project root directory for detect' },
+      content: { type: 'string', description: 'File content for parse_dockerfile/parse_procfile' },
+    },
+    required: ['action'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { detectInfraFiles, parseDockerfileEntries, parseProcfileEntries } = await import('@monoes/monograph');
+    const action = args.action as string;
+    if (action === 'detect') return { entries: detectInfraFiles(args.projectRoot as string) };
+    if (action === 'parse_dockerfile') return { files: parseDockerfileEntries(args.content as string) };
+    if (action === 'parse_procfile') return { files: parseProcfileEntries(args.content as string) };
+    return { error: 'Unknown action' };
+  },
+};
+
+const monographBaselineDeltasTool: MCPTool = {
+  name: 'monograph_baseline_deltas',
+  description: 'Compare two FallowAnalysisResults snapshots (baseline vs current) to compute deltas, filter only new issues, or format a human-readable delta report.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['compute_deltas', 'filter_new', 'format_deltas'], description: 'Operation' },
+      baseline: { type: 'object', description: 'FallowAnalysisResults baseline snapshot' },
+      current: { type: 'object', description: 'FallowAnalysisResults current results' },
+      deltas: { type: 'object', description: 'BaselineDeltas object for format_deltas' },
+    },
+    required: ['action'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { computeBaselineDeltas, filterNewIssues, formatBaselineDeltas } = await import('@monoes/monograph');
+    const action = args.action as string;
+    if (action === 'compute_deltas') return computeBaselineDeltas(args.baseline as Parameters<typeof computeBaselineDeltas>[0], args.current as Parameters<typeof computeBaselineDeltas>[1]);
+    if (action === 'filter_new') return filterNewIssues(args.baseline as Parameters<typeof filterNewIssues>[0], args.current as Parameters<typeof filterNewIssues>[1]);
+    if (action === 'format_deltas') return { lines: formatBaselineDeltas(args.deltas as Parameters<typeof formatBaselineDeltas>[0]) };
+    return { error: 'Unknown action' };
+  },
+};
+
+const monographExportSurgeryTool: MCPTool = {
+  name: 'monograph_export_surgery',
+  description: 'Perform surgical removal of a specific name from an export list (e.g. remove "unusedName" from "export { a, unusedName, b }") without removing the entire export statement.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['remove_name', 'remove_type', 'promote_type', 'apply_all'], description: 'Operation' },
+      fileContent: { type: 'string', description: 'Full file content' },
+      exportName: { type: 'string', description: 'Export name to operate on (for single operations)' },
+      line: { type: 'number', description: '1-based line number of the export' },
+      surgeries: { type: 'array', items: { type: 'object' }, description: 'Array of {exportName, line, action} for apply_all' },
+    },
+    required: ['action', 'fileContent'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { removeNameFromExportList, removeTypeFromExportList, promoteToTypeExport, applyExportSurgeries } = await import('@monoes/monograph');
+    const action = args.action as string;
+    const content = args.fileContent as string;
+    if (action === 'remove_name') return removeNameFromExportList(content, args.exportName as string, args.line as number);
+    if (action === 'remove_type') return removeTypeFromExportList(content, args.exportName as string, args.line as number);
+    if (action === 'promote_type') return promoteToTypeExport(content, args.exportName as string, args.line as number);
+    if (action === 'apply_all') return applyExportSurgeries(content, args.surgeries as Parameters<typeof applyExportSurgeries>[1]);
+    return { error: 'Unknown action' };
+  },
+};
+
+const monographJsonActionsTool: MCPTool = {
+  name: 'monograph_json_actions',
+  description: 'Build machine-readable JSON action objects for Fallow issues (delete-file, remove-export, export-type, remove-dependency, add-suppression) or build the full actions list for a given issue type.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['unused_file_actions', 'unused_export_actions', 'unused_dep_actions', 'docs_url', 'make_action'], description: 'Operation' },
+      filePath: { type: 'string', description: 'File path' },
+      symbol: { type: 'string', description: 'Export name or member name' },
+      line: { type: 'number', description: 'Line number' },
+      col: { type: 'number', description: 'Column number' },
+      isTypeOnly: { type: 'boolean', description: 'Whether export is type-only' },
+      packageName: { type: 'string', description: 'npm package name for dependency actions' },
+      isDev: { type: 'boolean', description: 'Whether it is a devDependency' },
+      issueKind: { type: 'string', description: 'Issue kind string for docs_url' },
+      actionKind: { type: 'string', description: 'ActionKind for make_action' },
+    },
+    required: ['action'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { buildActionsForUnusedFile, buildActionsForUnusedExport, buildActionsForUnusedDep, buildDocsUrl, makeDeleteFileAction, makeRemoveExportAction, makeExportTypeAction, makeRemoveDependencyAction, makeAddSuppressionAction } = await import('@monoes/monograph');
+    const op = args.action as string;
+    if (op === 'unused_file_actions') return { actions: buildActionsForUnusedFile(args.filePath as string) };
+    if (op === 'unused_export_actions') return { actions: buildActionsForUnusedExport(args.filePath as string, args.symbol as string, args.line as number, args.col as number, Boolean(args.isTypeOnly)) };
+    if (op === 'unused_dep_actions') return { actions: buildActionsForUnusedDep(args.packageName as string, Boolean(args.isDev)) };
+    if (op === 'docs_url') return { url: buildDocsUrl(args.issueKind as string) };
+    if (op === 'make_action') {
+      const kind = args.actionKind as string;
+      if (kind === 'delete-file') return makeDeleteFileAction(args.filePath as string);
+      if (kind === 'remove-export') return makeRemoveExportAction(args.filePath as string, args.symbol as string, args.line as number, args.col as number);
+      if (kind === 'export-type') return makeExportTypeAction(args.filePath as string, args.symbol as string, args.line as number, args.col as number);
+      if (kind === 'remove-dependency' || kind === 'remove-dev-dependency') return makeRemoveDependencyAction(args.packageName as string, Boolean(args.isDev));
+      if (kind === 'add-suppression') return makeAddSuppressionAction(args.filePath as string, args.line as number, args.symbol as string);
+    }
+    return { error: 'Unknown action' };
+  },
+};
+
+monographTools.push(
+  monographPluginRegistryTool,
+  monographInfraEntriesTool,
+  monographBaselineDeltasTool,
+  monographExportSurgeryTool,
+  monographJsonActionsTool,
+);
