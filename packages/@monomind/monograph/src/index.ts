@@ -218,7 +218,7 @@ export { type Confidence, computeEffortFromLines, computeConfidenceFromFactors }
 export { type FileScoreInput, computeThresholds } from './health/targets.js';
 export { type NormalizationMaxima, computeNormalizationMaxima, normalizeHotspotScore } from './health/hotspot-utils.js';
 export { type ContributorRecord, type OwnershipRisk, BOT_PATTERNS, isBot, computeOwnershipRisk } from './health/ownership-risk.js';
-export { type PerFunctionCrap, type CoverageGapData, type FileScoreBundle, computeComplexityDensity, computeDeadCodeRatio, computeMaintainabilityIndex } from './health/scoring-types.js';
+export { type PerFunctionCrap, type CoverageGapData, type FileScoreBundle, computeComplexityDensity, computeDeadCodeRatio } from './health/scoring-types.js';
 export { groupFilesByOwner, computeGroupScore, buildHealthGrouping } from './health/health-grouping.js';
 // ── Round 15: Fallow feature ports ────────────────────────────────────────────
 export { type BoundaryPreset, type BoundaryZoneConfig, type BoundaryRuleConfig, type BoundaryConfigFallow, type ResolvedZone, type ResolvedBoundaryRule, type ResolvedBoundaryConfig, expandPreset, resolveBoundaryConfig, isImportAllowed } from './config/boundary-config.js';
