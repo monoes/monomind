@@ -5997,3 +5997,122 @@ monographTools.push(
   monographDiscoverTypesTool,
   monographMirroredFamiliesTool,
 );
+
+// ── Round 16: Fallow feature ports (final) ──────────────────────────────────
+
+const monographCheckHumanTool: MCPTool = {
+  name: 'monograph_check_human',
+  description: 'Format dead-code check results as human-readable terminal output lines. Sections for unused files, exports, deps, members, and unresolved imports.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      results: { type: 'object', description: 'FallowAnalysisResults object' },
+      opts: { type: 'object', description: 'HumanCheckOptions (maxFlatItems, maxGroupedFiles, maxItemsPerFile, top)' },
+    },
+    required: ['results'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { buildCheckHumanLines } = await import('@monoes/monograph');
+    return { lines: buildCheckHumanLines(args.results as Parameters<typeof buildCheckHumanLines>[0], args.opts as Parameters<typeof buildCheckHumanLines>[1]) };
+  },
+};
+
+const monographDupesHumanTool: MCPTool = {
+  name: 'monograph_dupes_human',
+  description: 'Format duplication results as human-readable terminal output. Shows clone group listings and a stats summary.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      stats: { type: 'object', description: 'PipelineDuplicationStats object' },
+      groups: { type: 'array', items: { type: 'object' }, description: 'Array of CloneGroup objects' },
+      opts: { type: 'object', description: 'HumanDupesOptions (maxGroups, showSnippets)' },
+    },
+    required: ['stats', 'groups'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { buildDuplicationFamilyLines } = await import('@monoes/monograph');
+    return { lines: buildDuplicationFamilyLines(args.groups as Parameters<typeof buildDuplicationFamilyLines>[0], args.opts as Parameters<typeof buildDuplicationFamilyLines>[1]) };
+  },
+};
+
+const monographHealthHumanTool: MCPTool = {
+  name: 'monograph_health_human',
+  description: 'Format health report results as human-readable terminal output. Shows vital signs, hotspots, and coverage gaps.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      scores: { type: 'array', items: { type: 'object' }, description: 'Array of FileScore objects' },
+      vitals: { type: 'object', description: 'VitalSigns object' },
+      opts: { type: 'object', description: 'HumanHealthOptions (hotspotLimit, coverageGapLimit, noColor)' },
+    },
+    required: ['scores', 'vitals'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { buildHealthHumanLines } = await import('@monoes/monograph');
+    return { lines: buildHealthHumanLines(args.scores as Parameters<typeof buildHealthHumanLines>[0], args.vitals as Parameters<typeof buildHealthHumanLines>[1], args.opts as Parameters<typeof buildHealthHumanLines>[2]) };
+  },
+};
+
+const monographVitalSignsScoreTool: MCPTool = {
+  name: 'monograph_vital_signs_score',
+  description: 'Compute a 0-100 health score from a VitalSigns object, or compute trend direction from a list of snapshots.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['score', 'trend'], description: 'Operation' },
+      vitals: { type: 'object', description: 'VitalSigns object for score action' },
+      snapshots: { type: 'array', items: { type: 'object' }, description: 'Array of VitalSignsSnapshot for trend action' },
+    },
+    required: ['action'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { computeVitalSignsScore } = await import('@monoes/monograph');
+    if (args.action === 'score') return { score: computeVitalSignsScore(args.vitals as Parameters<typeof computeVitalSignsScore>[0]) };
+    return { error: 'Unknown action or missing snapshots' };
+  },
+};
+
+const monographUnusedExportsTool: MCPTool = {
+  name: 'monograph_unused_exports',
+  description: 'Find unused exports across all modules in the dependency graph, or find duplicate exports (same name in multiple files).',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['find_unused', 'find_duplicates'], description: 'Operation' },
+      modules: { type: 'array', items: { type: 'object' }, description: 'Array of ModuleNode objects' },
+      opts: { type: 'object', description: 'UnusedExportsOptions (isEntryPoint fn string, ignorePaths, includeTypeOnlyExports, maxDuplicates)' },
+    },
+    required: ['action', 'modules'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { findUnusedExports, findDuplicateExports } = await import('@monoes/monograph');
+    if (args.action === 'find_unused') return findUnusedExports(args.modules as Parameters<typeof findUnusedExports>[0], args.opts as Parameters<typeof findUnusedExports>[1]);
+    return findDuplicateExports(args.modules as Parameters<typeof findDuplicateExports>[0]);
+  },
+};
+
+const monographBoundaryAnalysisTool: MCPTool = {
+  name: 'monograph_boundary_analysis',
+  description: 'Analyze boundary violations across all modules given a resolved boundary config. Returns violations list plus checked/unchecked counts.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      modules: { type: 'array', items: { type: 'object' }, description: 'Array of ModuleNode objects' },
+      config: { type: 'object', description: 'ResolvedBoundaryConfig (zones, rules)' },
+    },
+    required: ['modules', 'config'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { analyzeBoundaries } = await import('@monoes/monograph');
+    return analyzeBoundaries(args.modules as Parameters<typeof analyzeBoundaries>[0], args.config as Parameters<typeof analyzeBoundaries>[1]);
+  },
+};
+
+monographTools.push(
+  monographCheckHumanTool,
+  monographDupesHumanTool,
+  monographHealthHumanTool,
+  monographVitalSignsScoreTool,
+  monographUnusedExportsTool,
+  monographBoundaryAnalysisTool,
+);
