@@ -79,3 +79,53 @@ export function getRulesByFinding(findingTitle: string): RuleDef[] {
   const lower = findingTitle.toLowerCase();
   return CHECK_RULES.filter(r => lower.includes(r.id) || lower.includes(r.name.toLowerCase()));
 }
+
+// ── Round 10: health + duplication rule catalogs ──────────────────────────────
+
+export interface RuleGuide {
+  rule: string;
+  checklist: string[];
+  relatedRules: string[];
+  antiPatterns: string[];
+  examples: string[];
+}
+
+export const HEALTH_RULES: RuleDef[] = [
+  { id: 'health/cyclomatic', title: 'High Cyclomatic Complexity', description: 'Function has too many independent execution paths', docs: 'https://en.wikipedia.org/wiki/Cyclomatic_complexity' },
+  { id: 'health/cognitive', title: 'High Cognitive Complexity', description: 'Function is hard to understand for human readers', docs: 'https://www.sonarsource.com/docs/CognitiveComplexity.pdf' },
+  { id: 'health/crap', title: 'High CRAP Score', description: 'Function has high complexity and low test coverage', docs: '' },
+  { id: 'health/maintainability', title: 'Low Maintainability Index', description: 'File has a low maintainability index score', docs: '' },
+  { id: 'health/large-function', title: 'Large Function', description: 'Function exceeds the maximum allowed lines of code', docs: '' },
+];
+
+export const DUPES_RULES: RuleDef[] = [
+  { id: 'duplication/clone', title: 'Code Duplication', description: 'Code block is duplicated across multiple files', docs: '' },
+];
+
+export function getRuleGuide(ruleId: string): RuleGuide | null {
+  const guides: Record<string, RuleGuide> = {
+    'health/cyclomatic': {
+      rule: 'health/cyclomatic',
+      checklist: ['Extract complex conditionals into named predicates', 'Split large functions into smaller helpers', 'Use early returns to reduce nesting'],
+      relatedRules: ['health/cognitive', 'health/crap'],
+      antiPatterns: ['Deeply nested if/else chains', 'Long switch statements without extraction'],
+      examples: ['Extract `isEligible()` from a 15-branch function'],
+    },
+    'health/crap': {
+      rule: 'health/crap',
+      checklist: ['Add tests to increase coverage', 'Refactor to reduce cyclomatic complexity', 'Break into smaller testable units'],
+      relatedRules: ['health/cyclomatic', 'health/cognitive'],
+      antiPatterns: ['Complex functions with zero test coverage'],
+      examples: [],
+    },
+  };
+  return guides[ruleId] ?? null;
+}
+
+export function healthMeta(): Record<string, unknown> {
+  return { version: 1, rules: HEALTH_RULES.map(r => ({ id: r.id, title: r.title, description: r.description })) };
+}
+
+export function dupesMeta(): Record<string, unknown> {
+  return { version: 1, rules: DUPES_RULES.map(r => ({ id: r.id, title: r.title, description: r.description })) };
+}

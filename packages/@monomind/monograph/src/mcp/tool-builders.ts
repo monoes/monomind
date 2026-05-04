@@ -139,3 +139,60 @@ export function buildFixApplyArgs(p: FixParams): string[] {
 export function buildExplainArgs(p: ExplainParams): string[] {
   return ['explain', p.ruleId, ...flag('verbose', p.verbose)].filter(Boolean);
 }
+
+// ── Round 10: runtime-coverage sub-command builders ───────────────────────────
+
+export interface GetHotPathsParams {
+  root: string;
+  minRequestsPerDay?: number;
+  limit?: number;
+}
+
+export interface GetBlastRadiusParams {
+  root: string;
+  filePath: string;
+  limit?: number;
+}
+
+export interface GetImportanceParams {
+  root: string;
+  limit?: number;
+  minScore?: number;
+}
+
+export interface GetCleanupCandidatesParams {
+  root: string;
+  maxCoveragePct?: number;
+  limit?: number;
+}
+
+export function buildGetHotPathsArgs(p: GetHotPathsParams): string[] {
+  return [
+    'get-hot-paths', p.root,
+    ...flag('min-requests-per-day', p.minRequestsPerDay),
+    ...flag('limit', p.limit),
+  ].filter(Boolean);
+}
+
+export function buildGetBlastRadiusArgs(p: GetBlastRadiusParams): string[] {
+  return [
+    'get-blast-radius', p.root, p.filePath,
+    ...flag('limit', p.limit),
+  ].filter(Boolean);
+}
+
+export function buildGetImportanceArgs(p: GetImportanceParams): string[] {
+  return [
+    'get-importance', p.root,
+    ...flag('limit', p.limit),
+    ...flag('min-score', p.minScore),
+  ].filter(Boolean);
+}
+
+export function buildGetCleanupCandidatesArgs(p: GetCleanupCandidatesParams): string[] {
+  return [
+    'get-cleanup-candidates', p.root,
+    ...flag('max-coverage-pct', p.maxCoveragePct),
+    ...flag('limit', p.limit),
+  ].filter(Boolean);
+}
