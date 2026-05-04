@@ -304,19 +304,19 @@
   /* Override display for specific panels that need block */
   #panel-knowledge.open .panel-body { display: block; }
 
-  /* Graphify panel inner layout */
-  .graphify-layout { display: grid; grid-template-columns: 220px 1fr; gap: 12px; }
-  .graphify-stats { display: flex; flex-direction: column; gap: 6px; }
-  .graphify-stat-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .graphify-stat-key { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-  .graphify-stat-val { font-size: 11px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
-  .graphify-report { overflow-y: auto; max-height: 320px; }
-  .graphify-section { margin-bottom: 10px; }
-  .graphify-section-title { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; padding-bottom: 3px; border-bottom: 1px solid var(--border); }
-  .graphify-section-body { font-size: 10px; color: var(--dim); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-  .graphify-section-body code { font-family: inherit; color: var(--teal); }
-  .graphify-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; color: var(--muted); font-size: 11px; text-align: center; }
-  .graphify-build-cmd { font-family: monospace; font-size: 10px; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; color: var(--teal); margin-top: 4px; }
+  /* Monograph panel inner layout */
+  .monograph-layout { display: grid; grid-template-columns: 220px 1fr; gap: 12px; }
+  .monograph-stats { display: flex; flex-direction: column; gap: 6px; }
+  .monograph-stat-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .monograph-stat-key { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .monograph-stat-val { font-size: 11px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+  .monograph-report { overflow-y: auto; max-height: 320px; }
+  .monograph-section { margin-bottom: 10px; }
+  .monograph-section-title { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; padding-bottom: 3px; border-bottom: 1px solid var(--border); }
+  .monograph-section-body { font-size: 10px; color: var(--dim); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .monograph-section-body code { font-family: inherit; color: var(--teal); }
+  .monograph-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; color: var(--muted); font-size: 11px; text-align: center; }
+  .monograph-build-cmd { font-family: monospace; font-size: 10px; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; color: var(--teal); margin-top: 4px; }
 
   /* Fixed heights for canvas-based panels */
 
@@ -1135,6 +1135,251 @@
     overflow: hidden;
   }
   #palace-overlay.open { display: flex; }
+
+  /* ─── MONOGRAPH OVERLAY ──────────────────────────────────────────── */
+  #monograph-overlay {
+    position: fixed; inset: 0; z-index: 1001;
+    background: var(--bg);
+    display: none; flex-direction: column;
+    overflow: hidden;
+  }
+  #monograph-overlay.open { display: flex; }
+  #mg-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; background: rgba(7,8,15,0.97);
+    backdrop-filter: blur(16px);
+  }
+  #mg-back {
+    background: none; border: 1px solid rgba(123,97,255,0.4); color: rgba(123,97,255,0.9);
+    font-family: 'Azeret Mono', monospace; font-size: 11px; letter-spacing: 0.08em;
+    padding: 4px 10px; cursor: pointer; border-radius: 3px; transition: background 0.15s;
+  }
+  #mg-back:hover { background: rgba(123,97,255,0.1); }
+  #mg-title {
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px;
+    color: rgba(123,97,255,0.9); letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  #mg-tabs { display: flex; gap: 2px; margin-left: 4px; }
+  .mg-tab {
+    background: none; border: 1px solid transparent; color: var(--muted);
+    font-family: 'Azeret Mono', monospace; font-size: 10px; letter-spacing: 0.1em;
+    padding: 4px 12px; cursor: pointer; border-radius: 3px; transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .mg-tab:hover { color: var(--text); border-color: var(--border); }
+  .mg-tab.active { color: rgba(123,97,255,0.9); border-color: rgba(123,97,255,0.4); background: rgba(123,97,255,0.08); }
+  #mg-stats {
+    margin-left: auto; display: flex; gap: 12px; font-family: 'Azeret Mono', monospace;
+    font-size: 9px; color: var(--muted); letter-spacing: 0.08em;
+  }
+  #mg-stats span { color: var(--dim); }
+  #mg-body {
+    flex: 1; overflow: hidden; display: flex; flex-direction: column;
+  }
+  .mg-pane { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+  .mg-pane.active { display: flex; }
+
+  /* Overview tab */
+  #mg-overview { overflow-y: auto; padding: 20px; }
+  .mg-section-title {
+    font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase; color: rgba(123,97,255,0.7);
+    margin: 20px 0 10px; padding-bottom: 4px; border-bottom: 1px solid rgba(123,97,255,0.15);
+  }
+  .mg-section-title:first-child { margin-top: 0; }
+  .mg-feature-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px; margin-bottom: 6px;
+  }
+  .mg-feature-card {
+    background: rgba(123,97,255,0.04); border: 1px solid rgba(123,97,255,0.15);
+    border-radius: 5px; padding: 10px 12px; cursor: default;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .mg-feature-card:hover { border-color: rgba(123,97,255,0.35); background: rgba(123,97,255,0.08); }
+  .mg-card-name {
+    font-family: 'Azeret Mono', monospace; font-size: 10px; font-weight: 700;
+    color: var(--text); letter-spacing: 0.06em; margin-bottom: 4px;
+  }
+  .mg-card-desc {
+    font-family: 'Azeret Mono', monospace; font-size: 9px; color: var(--muted);
+    line-height: 1.5; letter-spacing: 0.02em;
+  }
+  .mg-card-badge {
+    display: inline-block; font-size: 8px; font-family: 'Azeret Mono', monospace;
+    padding: 1px 5px; border-radius: 2px; margin-top: 5px;
+    background: rgba(123,97,255,0.15); color: rgba(123,97,255,0.8);
+    letter-spacing: 0.06em;
+  }
+
+  /* Wiki tab */
+  #mg-wiki-layout { display: flex; flex: 1; overflow: hidden; flex-direction: row; }
+  #mg-wiki-sidebar {
+    width: 280px; flex-shrink: 0; border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden; background: rgba(0,0,0,0.15);
+  }
+  #mg-wiki-search-bar {
+    padding: 10px 10px 0; flex-shrink: 0;
+  }
+  #mg-wiki-q {
+    width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+    border-radius: 3px; padding: 7px 10px; font-size: 10px; font-family: 'Azeret Mono', monospace;
+    color: var(--text); outline: none; box-sizing: border-box;
+  }
+  #mg-wiki-q:focus { border-color: rgba(0,229,135,0.4); background: rgba(0,229,135,0.04); }
+  #mg-wiki-q::placeholder { color: var(--dim); }
+  #mg-wiki-pills {
+    display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 10px 6px;
+  }
+  .wiki-pill {
+    background: none; border: 1px solid var(--border); border-radius: 2px;
+    color: var(--dim); font-family: 'Azeret Mono', monospace; font-size: 8px;
+    letter-spacing: 0.07em; padding: 2px 7px; cursor: pointer; transition: all 0.12s;
+    text-transform: uppercase;
+  }
+  .wiki-pill:hover { color: var(--text); border-color: rgba(0,229,135,0.3); }
+  .wiki-pill.active { background: rgba(0,229,135,0.12); border-color: rgba(0,229,135,0.5); color: rgba(0,229,135,0.9); }
+  #mg-wiki-list {
+    flex: 1; overflow-y: auto; padding: 4px 6px 12px;
+  }
+  .wiki-card {
+    padding: 8px 10px; border-radius: 3px; cursor: pointer; border: 1px solid transparent;
+    margin-bottom: 3px; transition: all 0.12s;
+  }
+  .wiki-card:hover { background: rgba(255,255,255,0.04); border-color: var(--border); }
+  .wiki-card.selected { background: rgba(0,229,135,0.07); border-color: rgba(0,229,135,0.3); }
+  .wiki-card-header { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+  .wiki-type-badge {
+    font-size: 7px; letter-spacing: 0.1em; padding: 1px 5px; border-radius: 2px;
+    font-family: 'Azeret Mono', monospace; flex-shrink: 0; text-transform: uppercase;
+  }
+  .wiki-card-name { font-size: 10px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .wiki-card-path { font-size: 8px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wiki-deg { margin-left: auto; font-size: 8px; color: var(--muted); flex-shrink: 0; }
+  #mg-wiki-detail {
+    flex: 1; overflow-y: auto; padding: 20px 24px; font-family: 'Azeret Mono', monospace;
+  }
+  .wiki-detail-header { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .wiki-detail-type { font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 6px; }
+  .wiki-detail-name { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 4px; word-break: break-all; }
+  .wiki-detail-path { font-size: 9px; color: var(--dim); }
+  .wiki-detail-path span { color: rgba(0,229,135,0.7); }
+  .wiki-stat-row { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+  .wiki-stat { display: flex; flex-direction: column; gap: 2px; }
+  .wiki-stat-label { font-size: 8px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
+  .wiki-stat-val { font-size: 14px; font-weight: 700; color: var(--text); }
+  .wiki-section-title { font-size: 8px; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .wiki-edge-list { display: flex; flex-direction: column; gap: 4px; }
+  .wiki-edge-item {
+    display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+    border-radius: 3px; cursor: pointer; transition: all 0.12s;
+  }
+  .wiki-edge-item:hover { background: rgba(255,255,255,0.06); border-color: rgba(123,97,255,0.3); }
+  .wiki-edge-rel { font-size: 7px; letter-spacing: 0.1em; color: var(--dim); text-transform: uppercase; flex-shrink: 0; width: 72px; }
+  .wiki-edge-name { font-size: 10px; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wiki-edge-type { font-size: 8px; color: var(--muted); flex-shrink: 0; }
+  .wiki-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--border); font-size: 11px; letter-spacing: 0.1em; flex-direction: column; gap: 8px; }
+  #mg-wiki-statsbar {
+    display: flex; gap: 0; flex-shrink: 0; border-bottom: 1px solid var(--border);
+    font-family: 'Azeret Mono', monospace;
+  }
+  .wiki-stat-cell {
+    flex: 1; padding: 7px 10px; border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 1px;
+  }
+  .wiki-stat-cell:last-child { border-right: none; }
+  .wiki-stat-cell-label { font-size: 7px; letter-spacing: 0.1em; color: var(--dim); text-transform: uppercase; }
+  .wiki-stat-cell-val { font-size: 11px; font-weight: 700; color: rgba(0,229,135,0.9); }
+
+  /* Analyze tab */
+  #mg-analyze { display: flex; flex-direction: row; flex: 1; overflow: hidden; }
+  #mg-analyze-sidebar {
+    width: 220px; flex-shrink: 0; border-right: 1px solid var(--border);
+    overflow-y: auto; padding: 12px 8px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .mg-analyze-btn {
+    background: none; border: 1px solid var(--border); color: var(--dim);
+    font-family: 'Azeret Mono', monospace; font-size: 9px; letter-spacing: 0.08em;
+    padding: 7px 10px; cursor: pointer; border-radius: 3px; text-align: left;
+    transition: all 0.15s; text-transform: uppercase; width: 100%;
+  }
+  .mg-analyze-btn:hover { color: var(--text); border-color: rgba(123,97,255,0.4); background: rgba(123,97,255,0.06); }
+  .mg-analyze-btn.active { color: rgba(123,97,255,0.9); border-color: rgba(123,97,255,0.5); background: rgba(123,97,255,0.1); }
+  #mg-analyze-result {
+    flex: 1; overflow-y: auto; padding: 16px 20px;
+    font-family: 'Azeret Mono', monospace; font-size: 10px; color: var(--dim);
+    line-height: 1.7;
+  }
+
+  /* Query tab */
+  #mg-query-pane { overflow-y: auto; padding: 16px 20px; }
+  .mg-query-section { margin-bottom: 24px; }
+  .mg-query-label {
+    font-family: 'Syne', sans-serif; font-size: 9px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .mg-input-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .mg-input {
+    flex: 1; background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    border-radius: 3px; padding: 7px 10px; color: var(--text);
+    font-family: 'Azeret Mono', monospace; font-size: 11px; outline: none;
+  }
+  .mg-input:focus { border-color: rgba(123,97,255,0.5); }
+  .mg-action-btn {
+    background: rgba(123,97,255,0.12); border: 1px solid rgba(123,97,255,0.35);
+    color: rgba(123,97,255,0.9); font-family: 'Azeret Mono', monospace;
+    font-size: 9px; letter-spacing: 0.08em; padding: 5px 14px;
+    cursor: pointer; border-radius: 3px; transition: all 0.15s; white-space: nowrap;
+  }
+  .mg-action-btn:hover { background: rgba(123,97,255,0.2); }
+  .mg-result-box {
+    background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px;
+    padding: 12px 14px; font-size: 10px; color: var(--dim); line-height: 1.7;
+    white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow-y: auto;
+    min-height: 40px;
+  }
+
+  /* Export tab */
+  #mg-export-pane { overflow-y: auto; padding: 20px; }
+  .mg-export-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: 12px; }
+  .mg-export-card {
+    background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+    border-radius: 5px; padding: 14px 16px; cursor: pointer; transition: all 0.15s;
+  }
+  .mg-export-card:hover { border-color: rgba(123,97,255,0.4); background: rgba(123,97,255,0.06); }
+  .mg-export-name {
+    font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700;
+    color: var(--text); letter-spacing: 0.06em; margin-bottom: 4px;
+  }
+  .mg-export-desc { font-family: 'Azeret Mono', monospace; font-size: 9px; color: var(--muted); line-height: 1.5; }
+  .mg-export-ext {
+    display: inline-block; margin-top: 8px; font-size: 8px; font-family: 'Azeret Mono', monospace;
+    padding: 2px 6px; border-radius: 2px; background: rgba(0,229,200,0.1); color: var(--teal);
+    letter-spacing: 0.08em;
+  }
+  #mg-export-status { margin-top: 12px; font-family: 'Azeret Mono', monospace; font-size: 10px; color: var(--muted); min-height: 20px; }
+
+  /* Report tab */
+  #mg-report-pane { overflow-y: auto; padding: 20px; }
+  #mg-report-content { }
+  .mg-report-card {
+    background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+    border-radius: 5px; padding: 14px 16px; margin-bottom: 10px;
+  }
+  .mg-report-card-title {
+    font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase; color: rgba(123,97,255,0.8);
+    margin-bottom: 8px;
+  }
+  .mg-report-card-body {
+    font-family: 'Azeret Mono', monospace; font-size: 10px; color: var(--dim);
+    line-height: 1.7; white-space: pre-wrap; word-break: break-word;
+  }
+
   #po-header {
     display: flex; align-items: center; gap: 14px;
     padding: 10px 16px; border-bottom: 1px solid var(--border);
@@ -1161,6 +1406,27 @@
   .po-tab:hover { color: var(--text); border-color: var(--border); }
   .po-tab.active { color: var(--teal); border-color: rgba(0,229,200,0.35); background: rgba(0,229,200,0.06); }
   #po-stats { margin-left: auto; font-size: 10px; color: var(--muted); display: flex; gap: 16px; }
+
+  /* Usage pane */
+  #po-usage-tab { flex-direction: column; overflow: hidden; }
+  .po-usage-period-tabs { display: flex; gap: 4px; padding: 10px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .po-usage-ptab { font-family: 'Azeret Mono', monospace; font-size: 9px; letter-spacing: 0.08em; padding: 3px 10px; background: none; border: 1px solid transparent; color: var(--muted); cursor: pointer; border-radius: 3px; text-transform: uppercase; transition: all 0.15s; }
+  .po-usage-ptab:hover { color: var(--text); border-color: var(--border); }
+  .po-usage-ptab.active { color: var(--teal); border-color: rgba(0,229,200,0.35); background: rgba(0,229,200,0.06); }
+  .po-usage-section { padding: 16px 24px; border-bottom: 1px solid var(--border); }
+  .po-usage-section:last-child { border-bottom: none; }
+  .po-usage-section-title { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 12px; font-family: 'Syne', sans-serif; }
+  .po-usage-stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .po-usage-stat { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px; }
+  .po-usage-stat-label { font-size: 8px; color: var(--dim); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 4px; }
+  .po-usage-stat-value { font-size: 20px; font-weight: 700; color: #ffd700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .po-usage-stat-sub { font-size: 9px; color: var(--muted); margin-top: 3px; }
+  .po-usage-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  .po-usage-bar-row:last-child { margin-bottom: 0; }
+  .po-usage-bar-label { font-size: 10px; width: 130px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .po-usage-bar-track { flex: 1; height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+  .po-usage-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+  .po-usage-bar-count { font-size: 9px; color: var(--muted); width: 90px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; font-family: 'Azeret Mono', monospace; }
   #po-body { flex: 1; overflow: hidden; position: relative; }
   .po-tab-pane { display: none; position: absolute; inset: 0; }
   .po-tab-pane.active { display: flex; }
@@ -1451,24 +1717,6 @@
   .po-ag-sess-title { font-size: 11px; font-weight: 700; color: var(--text); font-family: 'Azeret Mono', monospace; margin-bottom: 4px; }
   .po-ag-sess-subtitle { font-size: 9px; color: var(--muted); }
 
-  /* Knowledge graph pane */
-  #po-knowledge-tab { flex-direction: row; }
-  #po-knowledge-sidebar {
-    width: 200px; flex-shrink: 0; border-right: 1px solid var(--border);
-    padding: 16px 14px; overflow-y: auto; background: rgba(0,0,0,0.12);
-  }
-  #po-knowledge-canvas-wrap {
-    flex: 1; min-width: 0; border-right: 1px solid var(--border);
-    display: flex; flex-direction: column; position: relative;
-  }
-  #po-knowledge-canvas-controls {
-    padding: 5px 12px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 14px; flex-shrink: 0;
-    font-size: 9px; color: var(--muted); letter-spacing: 0.07em;
-  }
-  #po-knowledge-canvas-controls label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
-  #po-kg2-canvas { flex: 1; width: 100%; display: block; }
-  #po-knowledge-main { flex: 1; min-width: 240px; overflow-y: auto; padding: 16px 20px; }
 
   /* Sidebar stat blocks */
   .kg-stat-group { margin-bottom: 18px; }
@@ -1550,7 +1798,7 @@
       <button class="po-tab" onclick="switchPalaceTab('routing')">ROUTING</button>
       <button class="po-tab" onclick="switchPalaceTab('swarm')">SWARM</button>
       <button class="po-tab" onclick="switchPalaceTab('graph')">AGENT GRAPH</button>
-      <button class="po-tab" onclick="switchPalaceTab('knowledge')">CODE GRAPH</button>
+      <button class="po-tab" onclick="switchPalaceTab('usage')">USAGE</button>
     </div>
     <div id="po-stats"></div>
   </div>
@@ -1682,20 +1930,14 @@
         <div style="color:var(--muted);font-size:10px;">Loading…</div>
       </div>
     </div>
-    <div id="po-knowledge-tab" class="po-tab-pane">
-      <div id="po-knowledge-sidebar">
-        <div id="po-knowledge-stats"><div style="color:var(--muted);font-size:10px;">Loading…</div></div>
+    <div id="po-usage-tab" class="po-tab-pane" style="flex-direction:column;overflow:hidden;">
+      <div class="po-usage-period-tabs">
+        <button class="po-usage-ptab active" onclick="switchUsagePeriod('today')">TODAY</button>
+        <button class="po-usage-ptab" onclick="switchUsagePeriod('week')">WEEK</button>
+        <button class="po-usage-ptab" onclick="switchUsagePeriod('30days')">30 DAYS</button>
+        <button class="po-usage-ptab" onclick="switchUsagePeriod('month')">MONTH</button>
       </div>
-      <div id="po-knowledge-canvas-wrap">
-        <div id="po-knowledge-canvas-controls">
-          <span id="po-kg2-info">—</span>
-          <label><input type="checkbox" id="po-kg2-labels" checked onchange="kgCodeGraph.toggleLabels(this.checked)"> LABELS</label>
-        </div>
-        <canvas id="po-kg2-canvas"></canvas>
-      </div>
-      <div id="po-knowledge-main">
-        <div id="po-knowledge-body"><div style="color:var(--muted);font-size:10px;padding:16px;">Loading…</div></div>
-      </div>
+      <div id="po-usage-body" style="flex:1;overflow-y:auto;"></div>
     </div>
   </div>
   <!-- Edit memory modal -->
@@ -1741,6 +1983,431 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════ MONOGRAPH OVERLAY ══════════════════ -->
+<div id="monograph-overlay">
+  <div id="mg-header">
+    <button id="mg-back" onclick="closeMonographOverlay()">← BACK</button>
+    <span id="mg-title">MONOGRAPH</span>
+    <div id="mg-tabs">
+      <button class="mg-tab active" onclick="switchMonographTab('overview')">OVERVIEW</button>
+      <button class="mg-tab" onclick="switchMonographTab('graph')">GRAPH</button>
+      <button class="mg-tab" onclick="switchMonographTab('analyze')">ANALYZE</button>
+      <button class="mg-tab" onclick="switchMonographTab('query')">QUERY</button>
+      <button class="mg-tab" onclick="switchMonographTab('export')">EXPORT</button>
+      <button class="mg-tab" onclick="switchMonographTab('report')">REPORT</button>
+      <button class="mg-tab" onclick="switchMonographTab('wiki')" style="color:rgba(0,229,135,0.85);border-bottom-color:rgba(0,229,135,0.5);">WIKI</button>
+    </div>
+    <div id="mg-stats"></div>
+  </div>
+  <div id="mg-body">
+
+    <!-- OVERVIEW -->
+    <div id="mg-pane-overview" class="mg-pane active">
+      <div id="mg-overview">
+        <div class="mg-section-title">Parse &amp; Pipeline</div>
+        <div class="mg-feature-grid">
+          <div class="mg-feature-card"><div class="mg-card-name">Arrow Function Extractor</div><div class="mg-card-desc">Extracts const/let arrow functions from TS/JS source with export detection.</div><span class="mg-card-badge">parse.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">C# Namespace Extractor</div><div class="mg-card-desc">Extracts namespace declarations from .cs files using regex matching.</div><span class="mg-card-badge">parse.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Variable Phase</div><div class="mg-card-desc">Top-level variable declaration extraction for TS/JS files.</div><span class="mg-card-badge">variables-phase.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Field Access Phase</div><div class="mg-card-desc">Tracks property/field access patterns across the codebase.</div><span class="mg-card-badge">field-access.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Wildcard Synthesis</div><div class="mg-card-desc">Synthesizes wildcard import/export edges into real symbol edges.</div><span class="mg-card-badge">wildcard-phase.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Framework Detector</div><div class="mg-card-desc">Detects React, Vue, Angular, Next.js, Express and other frameworks.</div><span class="mg-card-badge">framework-detect.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Import Resolver</div><div class="mg-card-desc">Resolves TypeScript path aliases and tsconfig paths to real files.</div><span class="mg-card-badge">import-resolver.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Evidence Phase</div><div class="mg-card-desc">Collects confidence evidence for edges based on multiple signals.</div><span class="mg-card-badge">evidence.ts</span></div>
+        </div>
+
+        <div class="mg-section-title">Graph Algorithms</div>
+        <div class="mg-feature-grid">
+          <div class="mg-feature-card"><div class="mg-card-name">PageRank</div><div class="mg-card-desc">Power iteration PageRank (d=0.85) to find influential nodes in the graph.</div><span class="mg-card-badge">pagerank.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Topological Sort</div><div class="mg-card-desc">Kahn's algorithm on reversed graph for dependency ordering.</div><span class="mg-card-badge">topo-sort.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Weakly Connected Components</div><div class="mg-card-desc">Union-find WCC detection to find isolated subgraphs.</div><span class="mg-card-badge">wcc.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Cycle Detection (SCC)</div><div class="mg-card-desc">Kosaraju's SCC algorithm to find circular dependencies.</div><span class="mg-card-badge">cycles.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Dead Code Detection</div><div class="mg-card-desc">Finds unexported nodes with in-degree 0 — unreachable symbols.</div><span class="mg-card-badge">dead-code.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Import Chain Tracer</div><div class="mg-card-desc">DFS traversal to find all import paths between any two nodes.</div><span class="mg-card-badge">import-chain.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Ripple Impact</div><div class="mg-card-desc">Multi-hop cascade analysis — which nodes are affected by a change.</div><span class="mg-card-badge">ripple-impact.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Graph Statistics</div><div class="mg-card-desc">Density, clustering coefficient, average path length, diameter.</div><span class="mg-card-badge">statistics.ts</span></div>
+        </div>
+
+        <div class="mg-section-title">Analysis &amp; Scoring</div>
+        <div class="mg-feature-grid">
+          <div class="mg-feature-card"><div class="mg-card-name">Surprise Scorer</div><div class="mg-card-desc">5-factor scoring: cross-type, cross-community, cross-filetype, MRO, god-node bonuses.</div><span class="mg-card-badge">surprise-scorer.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">File Classifier</div><div class="mg-card-desc">Classifies files as CODE, TEST, CONFIG, DOCUMENT or PAPER using 12 content signals.</div><span class="mg-card-badge">file-classifier.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Corpus Health</div><div class="mg-card-desc">Checks corpus for too-small / too-large / too-many-files thresholds.</div><span class="mg-card-badge">corpus-health.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Cluster Quality</div><div class="mg-card-desc">Silhouette score and modularity score for community quality assessment.</div><span class="mg-card-badge">cluster-quality.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Node Similarity</div><div class="mg-card-desc">Jaccard similarity on neighbor sets to find structurally similar nodes.</div><span class="mg-card-badge">node-similarity.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Dependency Health</div><div class="mg-card-desc">Detects circular deps, fan-in/fan-out violations, instability metrics.</div><span class="mg-card-badge">dependency-health.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Betweenness Centrality</div><div class="mg-card-desc">Identifies bridge nodes whose removal would disconnect the graph.</div><span class="mg-card-badge">analyzer.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Graph Benchmark</div><div class="mg-card-desc">Tracks pipeline performance metrics across builds over time.</div><span class="mg-card-badge">benchmark.ts</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(123,97,255,0.4)"><div class="mg-card-name">Blast Radius (Impact)</div><div class="mg-card-desc">BFS upstream/downstream traversal — find all files that depend on a node.</div><span class="mg-card-badge">monograph_impact</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(123,97,255,0.4)"><div class="mg-card-name">360° Context View</div><div class="mg-card-desc">Importers, imports, parent, and community siblings for any node.</div><span class="mg-card-badge">monograph_context</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(123,97,255,0.4)"><div class="mg-card-name">Community Cohesion</div><div class="mg-card-desc">Ratio of intra-community edges to max possible — identifies loose clusters.</div><span class="mg-card-badge">monograph_cohesion</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(123,97,255,0.4)"><div class="mg-card-name">Bridge Nodes</div><div class="mg-card-desc">Cross-community connectors — architectural coupling points with cross-edge count.</div><span class="mg-card-badge">monograph_bridge</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(123,97,255,0.4)"><div class="mg-card-name">Rename (Dry-run)</div><div class="mg-card-desc">Graph-assisted multi-file rename — finds all graph + text occurrences with confidence tags.</div><span class="mg-card-badge">monograph_rename</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(123,97,255,0.4)"><div class="mg-card-name">Cypher Query</div><div class="mg-card-desc">MATCH (n:Class)-[:IMPORTS]->(b) style graph queries translated to SQL.</div><span class="mg-card-badge">monograph_cypher</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(123,97,255,0.4)"><div class="mg-card-name">Detect Changes</div><div class="mg-card-desc">Maps git diff changed files → graph nodes + 1-level dependents.</div><span class="mg-card-badge">monograph_detect_changes</span></div>
+        </div>
+
+        <div class="mg-section-title" style="color:rgba(255,160,0,0.9);border-bottom-color:rgba(255,160,0,0.3);">⚡ Fallow Analysis Engine — Dead Code, Duplication &amp; Health (Rounds 1–17)</div>
+        <div style="font-size:9px;color:var(--muted);margin:-6px 0 10px;letter-spacing:0.04em;">480 Rust source files ported to TypeScript · 95+ new modules · 60+ MCP tools</div>
+
+        <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:rgba(255,160,0,0.6);margin-bottom:6px;text-transform:uppercase;">Dead Code Analysis</div>
+        <div class="mg-feature-grid" style="margin-bottom:12px;">
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Unused Exports</div><div class="mg-card-desc">Reference-set inversion over ModuleNode graph — finds every export not consumed by any reachable file. Handles re-exports, type-only guards, and CJS modules.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_unused_exports</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Unused Files</div><div class="mg-card-desc">Graph-reachability scan from all entry points — files with no reachable importer are flagged. Integrates with suppress rules and plugin-provided entry patterns.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">analyze/unused-files.ts</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Unused Dependencies</div><div class="mg-card-desc">Correlates npm package names against actual imports across the module graph. Finds unused, unresolved, and type-only dependencies.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">analyze/unused-deps.ts</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Boundary Violations</div><div class="mg-card-desc">Zone classification with caching + isImportAllowed edge checking. Supports 4 presets: layered, hexagonal, feature-sliced, bulletproof.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_boundary_analysis</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Graph Reachability</div><div class="mg-card-desc">Marks reachable/runtime-reachable/test-reachable flags on all ModuleNodes from entry points using BFS. collectUnreachable enumerates dead files.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_graph_reachability</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Cycle Detection (Tarjan)</div><div class="mg-card-desc">Iterative Tarjan SCC for circular dependency detection — no recursion stack overflow on large graphs. Returns CycleGroup arrays sorted by size.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_find_cycles</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Narrowing (Namespace Imports)</div><div class="mg-card-desc">Tracks member accesses on namespace imports, marks all-exports-referenced, and prunes unused import bindings from the symbol set.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">graph/narrowing.ts</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Suppression System</div><div class="mg-card-desc">FallowIssueKind (20 variants) with discriminant round-trip encoding for compact storage. Detects file-wide vs line-level suppression comments.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_fallow_suppression</span></div>
+        </div>
+
+        <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:rgba(255,160,0,0.6);margin-bottom:6px;text-transform:uppercase;">Duplication Detection Pipeline</div>
+        <div class="mg-feature-grid" style="margin-bottom:12px;">
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Suffix Array (O(N log N))</div><div class="mg-card-desc">Prefix-doubling suffix array construction for exact clone detection. Paired with Kasai's O(N) LCP array algorithm for longest common prefix.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_suffix_array_pipeline</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Shingle Filter</div><div class="mg-card-desc">MinHash-inspired k-shingle pre-filter that narrows candidate pairs before the expensive suffix-array pass. Configurable shingle size.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_shingle_filter</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Clone Group Extraction</div><div class="mg-card-desc">Extracts RawInstance/RawGroup pairs from LCP array using the suffix + threshold approach. Handles overlapping spans with IntervalIndex deduplication.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">duplicates/detect/extraction.ts</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Clone Families</div><div class="mg-card-desc">Groups clone instances by file-set key into families, generates refactoring suggestions: ExtractFunction / ExtractModule / MergeDirectories.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_clone_families</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Mirrored Directories</div><div class="mg-card-desc">Pairs directories whose file sets overlap (Jaccard ≥ 0.5) — identifies copy-paste directory structures that should be merged.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_mirrored_families</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Duplication Stats</div><div class="mg-card-desc">Per-file deduplicated line sets (no double-counting), duplicated token counting, and duplication % across the full pipeline.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">graph/duplication-stats.ts</span></div>
+        </div>
+
+        <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:rgba(255,160,0,0.6);margin-bottom:6px;text-transform:uppercase;">Health Scoring</div>
+        <div class="mg-feature-grid" style="margin-bottom:12px;">
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Vital Signs</div><div class="mg-card-desc">0–100 health score from complexity, maintainability, duplication, dead-code penalties. JSONL snapshot persistence with trend detection (improving/degrading/stable).</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_vital_signs_score</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Hotspot Scoring</div><div class="mg-card-desc">Composite hotspot score from churn × complexity. NormalizationMaxima computation + normalizeHotspotScore for cross-project comparison.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_health_scoring</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Ownership Risk</div><div class="mg-card-desc">Bus factor computation with bot-pattern filtering. Identifies single-owner files and computes OwnershipRisk from git-blame contributor records.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_ownership_risk</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Effort Estimation</div><div class="mg-card-desc">Converts duplicated line count to effort (hours/days) and confidence level using log-scale calibrated thresholds from the Fallow model.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">health/target-types.ts</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Health Grouping</div><div class="mg-card-desc">Groups files by owner, computes per-group aggregate scores, and builds a HealthGrouping for team-level health dashboards.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">health/health-grouping.ts</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Scoring Types</div><div class="mg-card-desc">CRAP score density, dead-code ratio, and Maintainability Index (171 − 5.2·ln(V) − 0.23·G − 16.2·ln(L)) per file.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">health/scoring-types.ts</span></div>
+        </div>
+
+        <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:rgba(255,160,0,0.6);margin-bottom:6px;text-transform:uppercase;">Terminal Formatters</div>
+        <div class="mg-feature-grid" style="margin-bottom:12px;">
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Check Report Formatter</div><div class="mg-card-desc">buildCheckHumanLines: grouped/truncated sections for unused files, exports, deps, members, unresolved imports. Category headers with item counts.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_check_human</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Duplication Formatter</div><div class="mg-card-desc">buildDuplicationFamilyLines: clone groups sorted by line count, instance listings with file:start-end format, stats summary, suggestions.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_dupes_human</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Health Report Formatter</div><div class="mg-card-desc">buildHealthHumanLines: vital signs with OK/WARNING/CRITICAL indicators, top N hotspot table, coverage gap listings, configurable limits.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_health_human</span></div>
+        </div>
+
+        <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:rgba(255,160,0,0.6);margin-bottom:6px;text-transform:uppercase;">Config, Plugins &amp; Discover</div>
+        <div class="mg-feature-grid" style="margin-bottom:12px;">
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Built-in Plugin Registry</div><div class="mg-card-desc">30 built-in plugins (eslint, jest, vitest, prettier, vite, webpack, storybook, nx, turborepo, playwright, cypress, husky, docker, vercel, netlify, …). Prevents false positives on tool config files. 60 ALWAYS_DEV_TOOLING prefixes.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_plugin_registry</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Boundary Config</div><div class="mg-card-desc">4 architecture presets (layered, hexagonal, feature-sliced, bulletproof) with full zone/rule resolution. isImportAllowed checks any cross-file import against the active preset.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_boundary_config</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Config File Parser</div><div class="mg-card-desc">Walk-up VCS-stop config file discovery, JSON/JSONC/TOML format detection, JSONC comment stripping, sourceRoot auto-detection from src/lib/app.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_config_parsing</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Infrastructure Entry Points</div><div class="mg-card-desc">Scans Dockerfile, Procfile, fly.toml, render.yaml, railway.toml for CMD/ENTRYPOINT/command references to .js/.ts files. Prevents false unreachability reports.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_infra_entries</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Entry Point Categorization</div><div class="mg-card-desc">Classifies entry points as app/lib/bin/test/infra with formatSkippedEntryWarning and deduplication by canonical path.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">discover/entry-points.ts</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Output Format Parser</div><div class="mg-card-desc">Parses FallowOutputFormat strings with CLI alias normalisation (codeclimate → code-climate). isFallowOutputFormat for validation.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_output_format</span></div>
+        </div>
+
+        <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:rgba(255,160,0,0.6);margin-bottom:6px;text-transform:uppercase;">Fix, Actions &amp; Baseline</div>
+        <div class="mg-feature-grid" style="margin-bottom:12px;">
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Export Surgery</div><div class="mg-card-desc">Surgical removal of a specific name from export { a, b, unusedName } lists — without deleting the entire statement. Handles aliases, type exports, multi-line spans, and batched multi-surgery.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_export_surgery</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">JSON Action Specs</div><div class="mg-card-desc">Machine-readable action objects: delete-file, remove-export, export-type, remove-dependency, add-suppression. buildActionsFor* helpers produce the full action list per issue type.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_json_actions</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Baseline Deltas</div><div class="mg-card-desc">Unified cross-category issue diffing: CategoryDelta per issue type, filterNewIssues removes anything already in baseline, formatBaselineDeltas produces human-readable summary lines.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_baseline_deltas</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Fallow Analysis Results</div><div class="mg-card-desc">25-type complete result system: FallowAnalysisResults with 17 arrays. makeEmptyFallowResults, totalFallowIssues, hasFallowIssues, sortFallowResults.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_fallow_results</span></div>
+        </div>
+
+        <div class="mg-section-title">Export Formats</div>
+        <div class="mg-feature-grid">
+          <div class="mg-feature-card"><div class="mg-card-name">JSON</div><div class="mg-card-desc">Native graph format with all node/edge metadata.</div><span class="mg-card-badge">.json</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">GraphML</div><div class="mg-card-desc">XML-based format with community attributes for Gephi/yEd.</div><span class="mg-card-badge">.graphml</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Mermaid</div><div class="mg-card-desc">Flowchart diagram with subgraphs per community, dashed INFERRED edges.</div><span class="mg-card-badge">.mmd</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">DOT (Graphviz)</div><div class="mg-card-desc">Graphviz DOT format for layout with neato/dot/fdp engines.</div><span class="mg-card-badge">.dot</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">GEXF</div><div class="mg-card-desc">GEXF 1.3 XML for Gephi with full metadata support.</div><span class="mg-card-badge">.gexf</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">SVG</div><div class="mg-card-desc">Static SVG diagram with force-directed layout.</div><span class="mg-card-badge">.svg</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Cypher</div><div class="mg-card-desc">Neo4j Cypher CREATE statements for graph database import.</div><span class="mg-card-badge">.cypher</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">CSV</div><div class="mg-card-desc">Node and edge CSV files for spreadsheet analysis.</div><span class="mg-card-badge">.csv</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Adjacency Matrix</div><div class="mg-card-desc">Square matrix representation with node ID headers.</div><span class="mg-card-badge">.csv</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">HTML Report</div><div class="mg-card-desc">Self-contained interactive HTML with full graph visualization.</div><span class="mg-card-badge">.html</span></div>
+        </div>
+
+        <div class="mg-section-title">Search &amp; Retrieval</div>
+        <div class="mg-feature-grid">
+          <div class="mg-feature-card"><div class="mg-card-name">Hybrid RRF Search</div><div class="mg-card-desc">Reciprocal Rank Fusion combining BM25 FTS + vector similarity.</div><span class="mg-card-badge">rrf.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Exact Vector Search</div><div class="mg-card-desc">Brute-force cosine similarity when ANN index isn't available.</div><span class="mg-card-badge">exact-search.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Diacritic Search</div><div class="mg-card-desc">Normalizes accented characters for language-aware search.</div><span class="mg-card-badge">diacritic.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">AST Chunker</div><div class="mg-card-desc">Splits code into semantic chunks at function/class boundaries.</div><span class="mg-card-badge">ast-chunker.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Embedding Staleness</div><div class="mg-card-desc">Content-hash tracking to detect and re-embed stale nodes.</div><span class="mg-card-badge">embedding-store.ts</span></div>
+        </div>
+
+        <div class="mg-section-title">Groups &amp; Contracts</div>
+        <div class="mg-feature-grid">
+          <div class="mg-feature-card"><div class="mg-card-name">gRPC Contract Extractor</div><div class="mg-card-desc">Parses .proto files and Go/Node/Python/Java gRPC clients into contracts.</div><span class="mg-card-badge">grpc-extractor.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Topic Contract Extractor</div><div class="mg-card-desc">Detects Kafka, RabbitMQ, SQS and generic pub/sub topic contracts.</div><span class="mg-card-badge">topic-extractor.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Service Boundary Detector</div><div class="mg-card-desc">Identifies service boundaries from HTTP clients, gRPC stubs, and DB access.</div><span class="mg-card-badge">service-boundary.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Contract Bridge</div><div class="mg-card-desc">Links producers and consumers across service boundaries.</div><span class="mg-card-badge">contract-bridge.ts</span></div>
+        </div>
+
+        <div class="mg-section-title">Wiki &amp; Knowledge</div>
+        <div class="mg-feature-grid">
+          <div class="mg-feature-card"><div class="mg-card-name">Wiki Generator</div><div class="mg-card-desc">Auto-generates wiki pages from graph analysis. Supports reviewOnly mode for pre-flight checks.</div><span class="mg-card-badge">wiki-generator.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Provider-Aware LLM</div><div class="mg-card-desc">Anthropic / OpenAI / Ollama support with special handling for o1/o3/o4-mini reasoning models.</div><span class="mg-card-badge">providers.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Gist Publisher</div><div class="mg-card-desc">Publishes wiki pages to GitHub Gist with upsert support.</div><span class="mg-card-badge">gist-publisher.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Graph Report</div><div class="mg-card-desc">Generates Markdown report with knowledge gap section for isolated nodes.</div><span class="mg-card-badge">graph-report.ts</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(0,229,135,0.4)"><div class="mg-card-name">Docs KG Parser</div><div class="mg-card-desc">Parses .md/.mdx/.txt/.rst into Section nodes. Extracts headings, YAML frontmatter, wiki links, and #hashtags into the graph.</div><span class="mg-card-badge" style="color:rgba(0,229,135,0.7);">docs-parse.ts</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(0,229,135,0.4)"><div class="mg-card-name">Wiki Links</div><div class="mg-card-desc">[[WikiLink]] and [text](./file.md) resolve to REFERENCES edges between Section and File nodes with deferred resolution.</div><span class="mg-card-badge" style="color:rgba(0,229,135,0.7);">REFERENCES edge</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(0,229,135,0.4)"><div class="mg-card-name">Section Hierarchy</div><div class="mg-card-desc">H1 → H2 → H3 nesting expressed as PARENT_SECTION edges. Navigate like a tree with monograph_neighbors.</div><span class="mg-card-badge" style="color:rgba(0,229,135,0.7);">PARENT_SECTION edge</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(0,229,135,0.4)"><div class="mg-card-name">Tag Graph</div><div class="mg-card-desc">Frontmatter tags/categories and inline #hashtags become Concept nodes connected via TAGGED_AS edges — enables topic-based graph traversal.</div><span class="mg-card-badge" style="color:rgba(0,229,135,0.7);">TAGGED_AS edge</span></div>
+          <div class="mg-feature-card" style="border-color:rgba(0,229,135,0.4)"><div class="mg-card-name">Hybrid Doc Search</div><div class="mg-card-desc">Section content is embedded at build time. Query with mode=hybrid for BM25+cosine RRF merge — semantic search across all docs.</div><span class="mg-card-badge" style="color:rgba(0,229,135,0.7);">monograph_query</span></div>
+        </div>
+
+        <div class="mg-section-title">Ingest &amp; Input</div>
+        <div class="mg-feature-grid">
+          <div class="mg-feature-card"><div class="mg-card-name">URL Ingest</div><div class="mg-card-desc">Fetches and ingests web content into the knowledge graph.</div><span class="mg-card-badge">url-ingest.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Git Clone / Pull</div><div class="mg-card-desc">SSRF-protected git clone and pull for remote repository ingestion.</div><span class="mg-card-badge">git-clone.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Transcription</div><div class="mg-card-desc">Audio/video transcription via whisper/yt-dlp pipeline.</div><span class="mg-card-badge">transcribe.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Query Memory</div><div class="mg-card-desc">Saves Q&amp;A pairs as Markdown+YAML for persistent knowledge.</div><span class="mg-card-badge">query-memory.ts</span></div>
+        </div>
+
+        <div class="mg-section-title">CLI &amp; Platform</div>
+        <div class="mg-feature-grid">
+          <div class="mg-feature-card"><div class="mg-card-name">Platform Installs</div><div class="mg-card-desc">14-platform hook installer (Claude, GitHub Actions, Cursor, VSCode, etc.) with marker blocks.</div><span class="mg-card-badge">platforms.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Embedding Device</div><div class="mg-card-desc">--embedding-device flag: auto/cpu/dml/cuda/wasm selection.</div><span class="mg-card-badge">analyze.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Marker-Based Hooks</div><div class="mg-card-desc">Idempotent hook installs using start/end marker blocks with Husky detection.</div><span class="mg-card-badge">hooks-install.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Language Parsers</div><div class="mg-card-desc">Symbol extractors for Scala, Lua, Zig, PowerShell, Elixir.</div><span class="mg-card-badge">language-parsers.ts</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRAPH -->
+    <div id="mg-pane-graph" class="mg-pane" style="flex-direction:column;">
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 12px;border-bottom:1px solid var(--border);flex-shrink:0;background:rgba(0,0,0,0.15);">
+        <span id="mg-watch-indicator" style="font-size:8px;letter-spacing:0.06em;color:var(--muted);">○ IDLE</span>
+        <button id="mg-watch-btn" onclick="toggleMonographWatch()" style="background:none;border:1px solid var(--border);color:var(--muted);font-family:'Azeret Mono',monospace;font-size:8px;letter-spacing:0.08em;padding:3px 8px;cursor:pointer;border-radius:2px;">WATCH</button>
+        <button onclick="triggerPalaceGraphBuild()" style="background:none;border:1px solid rgba(123,97,255,0.4);color:rgba(123,97,255,0.8);font-family:'Azeret Mono',monospace;font-size:8px;letter-spacing:0.08em;padding:3px 8px;cursor:pointer;border-radius:2px;">REBUILD</button>
+        <button onclick="window.open('/api/monograph-html'+(selectedProjectDir?'?dir='+encodeURIComponent(selectedProjectDir):''),'_blank')" style="background:none;border:1px solid var(--border);color:var(--muted);font-family:'Azeret Mono',monospace;font-size:8px;letter-spacing:0.08em;padding:3px 8px;cursor:pointer;border-radius:2px;">OPEN ↗</button>
+        <span style="flex:1;"></span>
+        <span id="mg-graph-node-count" style="font-size:9px;color:var(--muted);font-family:'Azeret Mono',monospace;"></span>
+      </div>
+      <iframe id="mg-graph-iframe" style="flex:1;width:100%;border:none;background:#0f0f1a;"></iframe>
+    </div>
+
+    <!-- ANALYZE -->
+    <div id="mg-pane-analyze" class="mg-pane">
+      <div id="mg-analyze">
+        <div id="mg-analyze-sidebar">
+          <div style="font-family:'Azeret Mono',monospace;font-size:8px;letter-spacing:0.1em;color:var(--muted);padding:4px 6px 8px;text-transform:uppercase;">Algorithms</div>
+          <button class="mg-analyze-btn active" onclick="runMonographAnalysis('stats')">Graph Statistics</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('pagerank')">PageRank Top 20</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('deadcode')">Dead Code</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('cycles')">Cycles / SCCs</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('wcc')">Connected Components</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('topo')">Topological Order</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('hubs')">Top Hubs (Degree)</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('surprises')">Surprising Edges</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('communities')">Communities</button>
+          <div style="font-family:'Azeret Mono',monospace;font-size:8px;letter-spacing:0.1em;color:var(--muted);padding:12px 6px 8px;text-transform:uppercase;border-top:1px solid var(--border);margin-top:8px;">Impact</div>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('detect_changes')">Changed Files</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('diff')">Graph Diff</button>
+          <div style="font-family:'Azeret Mono',monospace;font-size:8px;letter-spacing:0.1em;color:var(--muted);padding:12px 6px 8px;text-transform:uppercase;border-top:1px solid var(--border);margin-top:8px;">Quality</div>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('cohesion')">Community Cohesion</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('bridges')">Bridge Nodes</button>
+        </div>
+        <div id="mg-analyze-result"><span style="color:var(--border);">SELECT AN ANALYSIS →</span></div>
+      </div>
+    </div>
+
+    <!-- QUERY -->
+    <div id="mg-pane-query" class="mg-pane">
+      <div id="mg-query-pane">
+        <div class="mg-query-section">
+          <div class="mg-query-label">Search nodes</div>
+          <div class="mg-input-row">
+            <input class="mg-input" id="mg-search-input" placeholder="Type to search nodes by name…" oninput="runMonographSearch(this.value)">
+          </div>
+          <div class="mg-result-box" id="mg-search-result" style="min-height:80px;">–</div>
+        </div>
+        <div class="mg-query-section">
+          <div class="mg-query-label">Impact / Blast Radius</div>
+          <div class="mg-input-row">
+            <input class="mg-input" id="mg-impact-input" placeholder="File path or node name…" onkeydown="if(event.key==='Enter')runMonographImpact()">
+            <select id="mg-impact-dir" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:3px;padding:5px 8px;color:var(--text);font-family:'Azeret Mono',monospace;font-size:9px;">
+              <option value="both">Both</option>
+              <option value="upstream">Upstream</option>
+              <option value="downstream">Downstream</option>
+            </select>
+            <button class="mg-action-btn" onclick="runMonographImpact()">ANALYZE</button>
+          </div>
+          <div class="mg-result-box" id="mg-impact-result">–</div>
+        </div>
+        <div class="mg-query-section">
+          <div class="mg-query-label">Context (360° view)</div>
+          <div class="mg-input-row">
+            <input class="mg-input" id="mg-context-input" placeholder="File path or node name…" onkeydown="if(event.key==='Enter')runMonographContext()">
+            <button class="mg-action-btn" onclick="runMonographContext()">CONTEXT</button>
+          </div>
+          <div class="mg-result-box" id="mg-context-result">–</div>
+        </div>
+        <div class="mg-query-section">
+          <div class="mg-query-label">Explain node</div>
+          <div class="mg-input-row">
+            <input class="mg-input" id="mg-explain-input" placeholder="Node name or ID…" onkeydown="if(event.key==='Enter')runMonographExplain()">
+            <button class="mg-action-btn" onclick="runMonographExplain()">EXPLAIN</button>
+          </div>
+          <div class="mg-result-box" id="mg-explain-result">–</div>
+        </div>
+        <div class="mg-query-section">
+          <div class="mg-query-label">Shortest path</div>
+          <div class="mg-input-row">
+            <input class="mg-input" id="mg-path-from" placeholder="From node…">
+            <span style="color:var(--muted);font-size:11px;">→</span>
+            <input class="mg-input" id="mg-path-to" placeholder="To node…">
+            <button class="mg-action-btn" onclick="runMonographPath()">FIND PATH</button>
+          </div>
+          <div class="mg-result-box" id="mg-path-result">–</div>
+        </div>
+        <div class="mg-query-section">
+          <div class="mg-query-label">Rename (dry-run)</div>
+          <div class="mg-input-row">
+            <input class="mg-input" id="mg-rename-from" placeholder="Current symbol name…">
+            <span style="color:var(--muted);font-size:11px;">→</span>
+            <input class="mg-input" id="mg-rename-to" placeholder="New name…">
+            <button class="mg-action-btn" onclick="runMonographRename()">PREVIEW</button>
+          </div>
+          <div class="mg-result-box" id="mg-rename-result">–</div>
+        </div>
+        <div class="mg-query-section">
+          <div class="mg-query-label">Cypher Query</div>
+          <div class="mg-input-row">
+            <input class="mg-input" id="mg-cypher-input" placeholder="MATCH (n:Class) RETURN n.name LIMIT 10" onkeydown="if(event.key==='Enter')runMonographCypher()" style="flex:3;">
+            <button class="mg-action-btn" onclick="runMonographCypher()">QUERY</button>
+          </div>
+          <div class="mg-result-box" id="mg-cypher-result">–</div>
+        </div>
+        <div class="mg-query-section">
+          <div class="mg-query-label">Ask the graph</div>
+          <div class="mg-input-row">
+            <input class="mg-input" id="mg-ask-input" placeholder="Ask a question about the codebase…" onkeydown="if(event.key==='Enter')runMonographAsk()">
+            <select id="mg-ask-mode" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:3px;padding:5px 8px;color:var(--text);font-family:'Azeret Mono',monospace;font-size:9px;">
+              <option value="bfs">BFS</option>
+              <option value="dfs">DFS</option>
+            </select>
+            <button class="mg-action-btn" onclick="runMonographAsk()">ASK</button>
+          </div>
+          <div class="mg-result-box" id="mg-ask-result">–</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div id="mg-pane-export" class="mg-pane">
+      <div id="mg-export-pane">
+        <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--text);margin-bottom:4px;">EXPORT GRAPH</div>
+        <div style="font-family:'Azeret Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:4px;">Download the knowledge graph in various formats</div>
+        <div style="font-family:'Azeret Mono',monospace;font-size:9px;color:rgba(245,158,11,0.7);margin-bottom:10px;padding:6px 10px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);border-radius:3px;">
+          ⚠ Dashboard exports use the visible 500-node subset. For full <span id="mg-export-total-hint">54K</span>-node exports, use: <code>monomind monograph export --format json</code>
+        </div>
+        <div id="mg-export-status"></div>
+        <div class="mg-export-grid">
+          <div class="mg-export-card" onclick="downloadMonographExport('json')">
+            <div class="mg-export-name">JSON</div>
+            <div class="mg-export-desc">Full graph with all node and edge metadata</div>
+            <span class="mg-export-ext">.json</span>
+          </div>
+          <div class="mg-export-card" onclick="downloadMonographExport('graphml')">
+            <div class="mg-export-name">GraphML</div>
+            <div class="mg-export-desc">XML with community attributes for Gephi / yEd</div>
+            <span class="mg-export-ext">.graphml</span>
+          </div>
+          <div class="mg-export-card" onclick="downloadMonographExport('mermaid')">
+            <div class="mg-export-name">Mermaid</div>
+            <div class="mg-export-desc">Flowchart diagram with community subgraphs</div>
+            <span class="mg-export-ext">.mmd</span>
+          </div>
+          <div class="mg-export-card" onclick="downloadMonographExport('dot')">
+            <div class="mg-export-name">DOT (Graphviz)</div>
+            <div class="mg-export-desc">Graphviz DOT format for layout engines</div>
+            <span class="mg-export-ext">.dot</span>
+          </div>
+          <div class="mg-export-card" onclick="downloadMonographExport('gexf')">
+            <div class="mg-export-name">GEXF</div>
+            <div class="mg-export-desc">GEXF 1.3 XML for Gephi with full metadata</div>
+            <span class="mg-export-ext">.gexf</span>
+          </div>
+          <div class="mg-export-card" onclick="downloadMonographExport('cypher')">
+            <div class="mg-export-name">Cypher</div>
+            <div class="mg-export-desc">Neo4j CREATE statements for graph database</div>
+            <span class="mg-export-ext">.cypher</span>
+          </div>
+          <div class="mg-export-card" onclick="downloadMonographExport('csv-nodes')">
+            <div class="mg-export-name">CSV (Nodes)</div>
+            <div class="mg-export-desc">Node list with id, label, type, degree</div>
+            <span class="mg-export-ext">nodes.csv</span>
+          </div>
+          <div class="mg-export-card" onclick="downloadMonographExport('csv-edges')">
+            <div class="mg-export-name">CSV (Edges)</div>
+            <div class="mg-export-desc">Edge list with source, target, relation</div>
+            <span class="mg-export-ext">edges.csv</span>
+          </div>
+          <div class="mg-export-card" onclick="downloadMonographExport('matrix')">
+            <div class="mg-export-name">Adjacency Matrix</div>
+            <div class="mg-export-desc">Square matrix CSV representation</div>
+            <span class="mg-export-ext">matrix.csv</span>
+          </div>
+          <div class="mg-export-card" onclick="downloadMonographExport('html')">
+            <div class="mg-export-name">HTML Report</div>
+            <div class="mg-export-desc">Open interactive graph visualization</div>
+            <span class="mg-export-ext">.html</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORT -->
+    <div id="mg-pane-report" class="mg-pane">
+      <div id="mg-report-pane">
+        <div id="mg-report-content"><div style="color:var(--muted);font-family:'Azeret Mono',monospace;font-size:10px;">Loading report…</div></div>
+      </div>
+    </div>
+
+    <!-- WIKI / DOCS KG -->
+    <div id="mg-pane-wiki" class="mg-pane">
+      <div id="mg-wiki-layout">
+
+        <!-- Left sidebar: stats + search + results list -->
+        <div id="mg-wiki-sidebar">
+          <div id="mg-wiki-statsbar">
+            <div class="wiki-stat-cell"><div class="wiki-stat-cell-label">Nodes</div><div class="wiki-stat-cell-val" id="wstat-nodes">—</div></div>
+            <div class="wiki-stat-cell"><div class="wiki-stat-cell-label">Sections</div><div class="wiki-stat-cell-val" id="wstat-sections">—</div></div>
+            <div class="wiki-stat-cell"><div class="wiki-stat-cell-label">Functions</div><div class="wiki-stat-cell-val" id="wstat-fns">—</div></div>
+            <div class="wiki-stat-cell" style="cursor:pointer;flex:0;padding:7px 10px;" onclick="wikiRefresh()" title="Refresh graph data"><div class="wiki-stat-cell-label">↺</div><div class="wiki-stat-cell-val" style="font-size:9px;">SYNC</div></div>
+          </div>
+          <div id="mg-wiki-search-bar">
+            <input id="mg-wiki-q" placeholder="Search nodes… (name, file, type)" oninput="wikiOnSearch(this.value)" autocomplete="off">
+          </div>
+          <div id="mg-wiki-mode-bar" style="display:flex;gap:3px;padding:6px 10px 0;flex-shrink:0;">
+            <button class="wiki-pill active" data-mode="all" onclick="wikiSetMode(this,'all')" style="flex:1;text-align:center;">ALL</button>
+            <button class="wiki-pill" data-mode="docs" onclick="wikiSetMode(this,'docs')" style="flex:1;text-align:center;color:rgba(0,229,135,0.7);">DOCS</button>
+            <button class="wiki-pill" data-mode="code" onclick="wikiSetMode(this,'code')" style="flex:1;text-align:center;color:rgba(0,229,200,0.7);">CODE</button>
+          </div>
+          <div id="mg-wiki-pills">
+            <button class="wiki-pill active" data-type="" onclick="wikiSetType(this,'')">ALL</button>
+            <button class="wiki-pill" data-type="File" onclick="wikiSetType(this,'File')">FILE</button>
+            <button class="wiki-pill" data-type="Function" onclick="wikiSetType(this,'Function')">FN</button>
+            <button class="wiki-pill" data-type="Class" onclick="wikiSetType(this,'Class')">CLASS</button>
+            <button class="wiki-pill" data-type="Interface" onclick="wikiSetType(this,'Interface')">IFACE</button>
+            <button class="wiki-pill" data-type="Method" onclick="wikiSetType(this,'Method')">METHOD</button>
+            <button class="wiki-pill" data-type="Section" onclick="wikiSetType(this,'Section')" style="color:rgba(0,229,135,0.8);">§ SECTION</button>
+            <button class="wiki-pill" data-type="Concept" onclick="wikiSetType(this,'Concept')" style="color:rgba(0,229,135,0.8);">💡 CONCEPT</button>
+          </div>
+          <div id="mg-wiki-list"><div class="wiki-empty" style="height:120px;font-size:9px;">Loading…</div></div>
+        </div>
+
+        <!-- Right detail panel -->
+        <div id="mg-wiki-detail">
+          <div class="wiki-empty">
+            <span style="font-size:22px;opacity:0.3;">◈</span>
+            <span>Select a node to explore</span>
+            <span style="font-size:9px;color:var(--dim);">Search or browse the sidebar</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
 <div id="header">
   <div id="header-left">
@@ -1748,6 +2415,7 @@
     <div id="header-meta">
       <span><span id="conn-dot"></span><span id="conn-label">CONNECTING</span></span>
       <button onclick="openPalaceOverlay()" style="background:none;border:1px solid rgba(0,229,200,0.3);color:var(--teal);font-family:'Azeret Mono',monospace;font-size:9px;letter-spacing:0.1em;padding:3px 9px;cursor:pointer;border-radius:3px;transition:background 0.15s;" onmouseover="this.style.background='rgba(0,229,200,0.1)'" onmouseout="this.style.background='none'">⬡ MEMORY PALACE</button>
+      <button onclick="openMonographOverlay()" style="background:none;border:1px solid rgba(123,97,255,0.4);color:rgba(123,97,255,0.9);font-family:'Azeret Mono',monospace;font-size:9px;letter-spacing:0.1em;padding:3px 9px;cursor:pointer;border-radius:3px;transition:background 0.15s;margin-left:4px;" onmouseover="this.style.background='rgba(123,97,255,0.12)'" onmouseout="this.style.background='none'">◈ MONOGRAPH</button>
     </div>
   </div>
   <div id="header-right">
@@ -2038,11 +2706,14 @@ function timeAgo(ms) {
 
 // Track which project dir is currently selected (null = default/server project)
 let selectedProjectDir = null;
+let _codeGraphLoaded = false;
 
 async function selectProject(dir) {
   if (selectedProjectDir === dir) return;
   selectedProjectDir = dir;
   _codeGraphLoaded = false; kgCodeGraph.reset();
+  // Reset monograph caches so next open reloads data for the new project
+  mgGraphData = null; mgReportData = null; _wikiData = null;
   renderJournal();
   try {
     const res = await fetch(`/api/data?dir=${encodeURIComponent(dir)}`);
@@ -2138,6 +2809,14 @@ function renderSessions(data) {
       <span style="font-size:11px;color:var(--text);font-weight:500;" id="palace-count-anim">${palace.count || 0}</span>
       <span style="font-size:9px;color:var(--muted);">MEMORIES</span>
       <span style="font-size:9px;color:var(--teal);letter-spacing:0.06em;">EXPLORE →</span>
+    </span>
+  </div>`;
+  html += `<div class="palace-row" style="cursor:pointer;margin-top:4px;background:rgba(123,97,255,0.05);border-color:rgba(123,97,255,0.2);" onclick="openMonographOverlay()">
+    <span class="palace-label" style="color:rgba(123,97,255,0.8);">MONOGRAPH</span>
+    <span style="display:flex;align-items:center;gap:6px;">
+      <span style="font-size:11px;color:var(--text);font-weight:500;" id="mg-node-count-anim">–</span>
+      <span style="font-size:9px;color:var(--muted);">NODES</span>
+      <span style="font-size:9px;color:rgba(123,97,255,0.9);letter-spacing:0.06em;">EXPLORE →</span>
     </span>
   </div>`;
 
@@ -3527,10 +4206,10 @@ window.switchPalaceTab = function(tab) {
     b.classList.toggle('active', !!(btnTab && btnTab[1] === tab));
   });
   document.querySelectorAll('.po-tab-pane').forEach(p => p.classList.remove('active'));
-  const paneIds = { drawers: 'po-drawers-tab', sessions: 'po-sessions-tab', chunks: 'po-chunks-tab', routing: 'po-routing-tab', swarm: 'po-swarm-tab', graph: 'po-graph-tab', knowledge: 'po-knowledge-tab' };
+  const paneIds = { drawers: 'po-drawers-tab', sessions: 'po-sessions-tab', chunks: 'po-chunks-tab', routing: 'po-routing-tab', swarm: 'po-swarm-tab', graph: 'po-graph-tab', usage: 'po-usage-tab' };
   const pane = document.getElementById(paneIds[tab]);
   if (pane) pane.classList.add('active');
-  if (tab !== 'knowledge') kgCodeGraph.stop();
+  if (typeof kgCodeGraph !== 'undefined' && kgCodeGraph.stop) kgCodeGraph.stop();
   if (palaceData) renderPalaceTab(tab);
 };
 
@@ -3576,9 +4255,9 @@ async function loadPalaceData() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// GRAPHIFY REPORT PARSER (used by Memory Palace knowledge tab)
+// MONOGRAPH REPORT PARSER (used by Memory Palace knowledge tab)
 // ═══════════════════════════════════════════════════════════════════
-function parseGraphifyReport(md) {
+function parseMonographReport(md) {
   const SECTION_ICONS = {
     'corpus check': '📂', 'summary': '📊', 'god nodes': '⭐',
     'surprising connections': '🔗', 'communities': '🏘', 'community': '🏘',
@@ -3628,7 +4307,97 @@ function renderPalaceTab(tab) {
   else if (tab === 'routing') renderHooks(appData || {});
   else if (tab === 'swarm') renderPalaceSwarm();
   else if (tab === 'graph') { renderAgentGraph(palaceData.graph || { nodes: [], edges: [] }); }
-  else if (tab === 'knowledge') { renderPalaceKnowledge(); renderPalaceCodeGraph(); }
+  else if (tab === 'usage') renderPalaceUsage();
+}
+
+// ── USAGE TAB ────────────────────────────────────────────────────────────────
+let _usagePeriod = 'today';
+
+window.switchUsagePeriod = function(period) {
+  _usagePeriod = period;
+  document.querySelectorAll('.po-usage-ptab').forEach(b => {
+    const m = (b.getAttribute('onclick') || '').match(/'([\w]+)'/);
+    b.classList.toggle('active', !!(m && m[1] === period));
+  });
+  renderPalaceUsage();
+};
+
+async function renderPalaceUsage() {
+  const body = document.getElementById('po-usage-body');
+  if (!body) return;
+  body.innerHTML = '<div style="color:var(--muted);font-size:10px;padding:20px 24px;">Loading…</div>';
+
+  const dir = selectedProjectDir || '';
+  const apiUrl = `/api/token-usage?period=${_usagePeriod}${dir ? '&dir=' + encodeURIComponent(dir) : ''}`;
+  let data;
+  try {
+    const res = await fetch(apiUrl);
+    data = res.ok ? await res.json() : null;
+  } catch { data = null; }
+
+  if (!data) {
+    body.innerHTML = '<div style="color:var(--muted);font-size:10px;padding:20px 24px;">No usage data available.</div>';
+    return;
+  }
+
+  const { totalCost, totalCalls, totalIn, totalOut, totalCR, projects, modelBreakdown, categoryBreakdown, toolBreakdown, mcpBreakdown } = data;
+  const totalCached = totalCR || 0;
+  const cacheEff = (totalIn + totalCached) > 0 ? Math.round(totalCached / (totalIn + totalCached) * 100) : 0;
+
+  function _fmtC(n) { if (!n) return '$0.00'; if (n >= 100) return '$'+n.toFixed(2); if (n >= 1) return '$'+n.toFixed(3); return '$'+n.toFixed(4); }
+  function _fmtN(n) { if (!n) return '0'; if (n >= 1e9) return (n/1e9).toFixed(1)+'B'; if (n >= 1e6) return (n/1e6).toFixed(1)+'M'; if (n >= 1e3) return (n/1e3).toFixed(1)+'K'; return String(n); }
+  function _bar(pct, color) { return `<div class="po-usage-bar-track"><div class="po-usage-bar-fill" style="width:${pct}%;background:${color}"></div></div>`; }
+
+  const modelRows = Object.entries(modelBreakdown||{}).sort((a,b) => b[1].cost-a[1].cost);
+  const maxMC = modelRows.length ? modelRows[0][1].cost : 1;
+  const modelHTML = modelRows.map(([name, m]) => {
+    const short = name.replace(/^claude-/,'').replace(/-\d{8}$/,'');
+    return `<div class="po-usage-bar-row"><div class="po-usage-bar-label" style="color:rgba(224,91,245,0.9)">${short}</div>${_bar(Math.round(m.cost/maxMC*100),'rgba(224,91,245,0.55)')}<div class="po-usage-bar-count">${_fmtC(m.cost)} · ${m.calls}x</div></div>`;
+  }).join('');
+
+  const ACT_COLORS = {Coding:'rgba(91,158,245,0.7)',Exploration:'rgba(91,245,224,0.7)',Debugging:'rgba(245,91,91,0.7)',Feature:'rgba(91,245,160,0.7)',Brainstorming:'rgba(245,91,224,0.7)',Testing:'rgba(224,91,245,0.7)',Conversation:'rgba(136,136,136,0.7)',Refactoring:'rgba(245,200,91,0.7)'};
+  const catRows = Object.entries(categoryBreakdown||{}).sort((a,b) => b[1].turns-a[1].turns);
+  const maxCC = catRows.length ? catRows[0][1].turns : 1;
+  const catHTML = catRows.map(([cat, c]) =>
+    `<div class="po-usage-bar-row"><div class="po-usage-bar-label" style="color:var(--text)">${cat}</div>${_bar(Math.round(c.turns/maxCC*100), ACT_COLORS[cat]||'rgba(91,158,245,0.6)')}<div class="po-usage-bar-count">${c.turns} turns</div></div>`
+  ).join('');
+
+  const toolRows = Object.entries(toolBreakdown||{}).sort((a,b) => b[1].calls-a[1].calls).slice(0,8);
+  const maxTC = toolRows.length ? toolRows[0][1].calls : 1;
+  const toolHTML = toolRows.map(([tool, t]) =>
+    `<div class="po-usage-bar-row"><div class="po-usage-bar-label" style="color:var(--teal)">${tool}</div>${_bar(Math.round(t.calls/maxTC*100),'rgba(0,229,200,0.5)')}<div class="po-usage-bar-count">${t.calls}x</div></div>`
+  ).join('');
+
+  const mcpRows = Object.entries(mcpBreakdown||{}).sort((a,b) => b[1].calls-a[1].calls);
+  const maxMCP = mcpRows.length ? mcpRows[0][1].calls : 1;
+  const mcpHTML = mcpRows.length
+    ? mcpRows.map(([srv, m]) => `<div class="po-usage-bar-row"><div class="po-usage-bar-label" style="color:var(--text)">${srv}</div>${_bar(Math.round(m.calls/maxMCP*100),'rgba(245,200,91,0.55)')}<div class="po-usage-bar-count">${m.calls}x</div></div>`).join('')
+    : '<div style="font-size:10px;color:var(--dim);">No MCP calls</div>';
+
+  const projRows = (projects||[]).slice(0,5);
+  const maxPC = projRows.length ? projRows[0].totalCost : 1;
+  const projHTML = projRows.map(p => {
+    const name = (p.projectPath||p.project||'').replace(/^.*[/\\]/,'') || 'unknown';
+    return `<div class="po-usage-bar-row"><div class="po-usage-bar-label" style="color:rgba(91,245,160,0.9)">${name}</div>${_bar(Math.round(p.totalCost/maxPC*100),'rgba(91,245,160,0.5)')}<div class="po-usage-bar-count">${_fmtC(p.totalCost)} · ${p.totalApiCalls}x</div></div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="po-usage-section">
+      <div class="po-usage-section-title">Overview — ${_usagePeriod}</div>
+      <div class="po-usage-stat-grid">
+        <div class="po-usage-stat"><div class="po-usage-stat-label">Total Cost</div><div class="po-usage-stat-value">${_fmtC(totalCost)}</div></div>
+        <div class="po-usage-stat"><div class="po-usage-stat-label">API Calls</div><div class="po-usage-stat-value" style="color:rgba(0,229,200,0.9)">${_fmtN(totalCalls)}</div></div>
+        <div class="po-usage-stat"><div class="po-usage-stat-label">Tokens In</div><div class="po-usage-stat-value" style="color:rgba(220,220,220,0.9)">${_fmtN(totalIn)}</div></div>
+        <div class="po-usage-stat"><div class="po-usage-stat-label">Tokens Out</div><div class="po-usage-stat-value" style="color:rgba(220,220,220,0.9)">${_fmtN(totalOut)}</div></div>
+        <div class="po-usage-stat"><div class="po-usage-stat-label">Cache Read</div><div class="po-usage-stat-value" style="color:rgba(91,158,245,0.9)">${_fmtN(totalCached)}</div><div class="po-usage-stat-sub">Efficiency: ${cacheEff}%</div></div>
+      </div>
+    </div>
+    ${modelHTML ? `<div class="po-usage-section"><div class="po-usage-section-title">Models</div>${modelHTML}</div>` : ''}
+    ${catHTML ? `<div class="po-usage-section"><div class="po-usage-section-title">Activity</div>${catHTML}</div>` : ''}
+    ${toolHTML ? `<div class="po-usage-section"><div class="po-usage-section-title">Top Tools</div>${toolHTML}</div>` : ''}
+    <div class="po-usage-section"><div class="po-usage-section-title">MCP Servers</div>${mcpHTML}</div>
+    ${projHTML ? `<div class="po-usage-section"><div class="po-usage-section-title">Projects</div>${projHTML}</div>` : ''}
+  `;
 }
 
 let _allChunks = [];
@@ -3662,7 +4431,7 @@ function renderPalaceChunks(filter) {
     : _allChunks;
 
   if (!chunks.length && !kd.chunks) {
-    body.innerHTML = '<div style="color:var(--muted);font-size:10px;padding:8px 0;">No knowledge chunks indexed yet.<br><br>Run: <code style="color:var(--teal)">npx monomind graphify build</code></div>';
+    body.innerHTML = '<div style="color:var(--muted);font-size:10px;padding:8px 0;">No knowledge chunks indexed yet.<br><br>Run: <code style="color:var(--teal)">npx monomind monograph build</code></div>';
     return;
   }
 
@@ -4253,7 +5022,7 @@ async function renderPalaceKnowledge() {
   const dir = selectedProjectDir || '';
   let d;
   try {
-    const r = await fetch(`/api/graphify-report${dir ? '?dir=' + encodeURIComponent(dir) : ''}`);
+    const r = await fetch(`/api/monograph-report${dir ? '?dir=' + encodeURIComponent(dir) : ''}`);
     d = r.ok ? await r.json() : { exists: false, stats: null, content: null };
   } catch { d = { exists: false, stats: null, content: null }; }
 
@@ -4278,7 +5047,7 @@ async function renderPalaceKnowledge() {
     statsEl.innerHTML = `<div class="kg-badge kg-badge-warn">NO GRAPH</div>
       <div style="font-size:9px;color:var(--muted);margin:10px 0 14px;line-height:1.6;">No graph built yet.</div>
       <button class="kg-action-btn" onclick="triggerPalaceGraphBuild()">BUILD GRAPH</button>
-      <div style="margin-top:10px;font-size:8px;color:var(--dim);line-height:1.7;">or run:<br><code style="color:var(--teal)">npx monomind graphify build</code></div>
+      <div style="margin-top:10px;font-size:8px;color:var(--dim);line-height:1.7;">or run:<br><code style="color:var(--teal)">npx monomind monograph build</code></div>
       ${knowledgeSuffix}`;
   } else {
     const s = d.stats;
@@ -4299,41 +5068,29 @@ async function renderPalaceKnowledge() {
         ${e.resolvedCallEdges !== undefined ? `<div class="kg-stat-row"><span class="kg-stat-key">Call edges</span><span class="kg-stat-val" style="color:var(--sky)">${fmtNum(e.resolvedCallEdges)}</span></div>` : ''}
       </div>` : ''}
       <button class="kg-action-btn" onclick="triggerPalaceGraphBuild()">REBUILD</button>
+      <button class="kg-action-btn" onclick="triggerUAEnrich()" style="margin-left:6px;border-color:rgba(0,229,135,0.4);color:rgba(0,229,135,0.9);" title="Run semantic enrichment — imports understand graph or runs structural analysis">UNDERSTAND</button>
       ${knowledgeSuffix}`;
   }
 
   if (!d.exists || !d.content) {
     bodyEl.innerHTML = `<div class="kg-report-grid"><div class="kg-card kg-card-wide" style="text-align:center;padding:40px 20px;">
       <div class="kg-card-title" style="justify-content:center;margin-bottom:12px;"><span class="kg-card-title-icon">🗂</span>NO REPORT GENERATED</div>
-      <div class="kg-card-body" style="text-align:center;">Run <code>npx monomind graphify report</code><br>or click REBUILD to generate a full analysis.</div>
+      <div class="kg-card-body" style="text-align:center;">Run <code>npx monomind monograph report</code><br>or click REBUILD to generate a full analysis.</div>
     </div></div>`;
   } else {
-    bodyEl.innerHTML = parseGraphifyReport(d.content);
+    bodyEl.innerHTML = parseMonographReport(d.content);
   }
 }
 
-let _codeGraphPending = false;
-let _codeGraphLoaded = false;
-async function renderPalaceCodeGraph(force = false) {
-  if (_codeGraphPending) return;
-  if (_codeGraphLoaded && !force) return;
-  _codeGraphPending = true;
+let _monographIframeLoaded = false;
+function loadMonographIframe(force) {
+  const iframe = document.getElementById('mg-graph-iframe');
+  if (!iframe) return;
   const dir = selectedProjectDir || '';
-  let gd;
-  try {
-    const r = await fetch(`/api/graphify-graph${dir ? '?dir=' + encodeURIComponent(dir) : ''}`);
-    gd = r.ok ? await r.json() : null;
-  } catch { gd = null; }
-  _codeGraphPending = false;
-  if ((selectedProjectDir || '') !== dir) return;
-  if (palaceCurrentTab !== 'knowledge') return;
-  const info = document.getElementById('po-kg2-info');
-  if (!gd || !gd.nodes || !gd.nodes.length) {
-    if (info) info.textContent = gd && gd.tooLarge ? 'Graph too large to display' : 'No graph data';
-    return;
-  }
-  kgCodeGraph.init();
-  kgCodeGraph.render(gd, () => { _codeGraphLoaded = true; });
+  const src = `/api/monograph-html${dir ? '?dir=' + encodeURIComponent(dir) : ''}`;
+  if (!force && _monographIframeLoaded && iframe.src && iframe.src.includes('/api/monograph-html')) return;
+  iframe.src = src;
+  _monographIframeLoaded = true;
 }
 
 window.triggerPalaceGraphBuild = async function() {
@@ -4343,14 +5100,14 @@ window.triggerPalaceGraphBuild = async function() {
   if (bodyEl) bodyEl.innerHTML = '<div style="color:var(--dim);font-size:10px;padding:16px;">Background build started — panel updates when complete.</div>';
   const dir = selectedProjectDir || '';
   try {
-    await fetch(`/api/graphify-build${dir ? '?dir=' + encodeURIComponent(dir) : ''}`, { method: 'POST' });
+    await fetch(`/api/monograph-build${dir ? '?dir=' + encodeURIComponent(dir) : ''}`, { method: 'POST' });
     let attempts = 0;
     const poll = setInterval(async () => {
       attempts++;
       try {
-        const r = await fetch(`/api/graphify-report${dir ? '?dir=' + encodeURIComponent(dir) : ''}`);
+        const r = await fetch(`/api/monograph-report${dir ? '?dir=' + encodeURIComponent(dir) : ''}`);
         const d = await r.json();
-        if (d.stats || d.exists) { clearInterval(poll); renderPalaceKnowledge(); _codeGraphLoaded = false; kgCodeGraph.reset(); renderPalaceCodeGraph(); }
+        if (d.stats || d.exists) { clearInterval(poll); renderPalaceKnowledge(); _monographIframeLoaded = false; loadMonographIframe(true); }
         else if (attempts >= 36) { clearInterval(poll); if (bodyEl) bodyEl.innerHTML = '<div style="color:var(--amber);font-size:10px;">Build timed out — check server logs.</div>'; }
       } catch {}
     }, 5000);
@@ -4359,6 +5116,178 @@ window.triggerPalaceGraphBuild = async function() {
     if (bodyEl) bodyEl.innerHTML = `<div style="color:#EF5350;font-size:10px;">${escHtml(e.message)}</div>`;
   }
 };
+
+window.triggerUAEnrich = async function() {
+  const dir = selectedProjectDir || '';
+  const btn = event && event.target;
+  if (btn) { btn.textContent = 'ENRICHING…'; btn.disabled = true; }
+  try {
+    const r = await fetch(`/api/ua-enrich${dir ? '?dir=' + encodeURIComponent(dir) : ''}`, { method: 'POST' });
+    const d = await r.json();
+    if (d.status === 'importing') {
+      showToast('Understand: importing graph — graph will update shortly');
+    } else if (d.status === 'enriching') {
+      showToast('Understand: structural enrichment running in background');
+    } else {
+      showToast('Understand: ' + (d.reason || d.status || 'done'));
+    }
+    // Reload graph after short delay
+    setTimeout(() => {
+      mgGraphData = null; mgReportData = null; _wikiData = null;
+      _monographIframeLoaded = false;
+      if (mgCurrentTab === 'graph') loadMonographIframe(true);
+      if (mgCurrentTab === 'report') renderMonographReport();
+    }, 3000);
+  } catch (e) {
+    showToast('Understand enrichment failed: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.textContent = 'UNDERSTAND'; btn.disabled = false; }
+  }
+};
+
+function showToast(msg, type) {
+  var el = document.getElementById('mg-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'mg-toast';
+    el.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--panel-bg);border:1px solid var(--border);color:var(--text);font-family:\'Azeret Mono\',monospace;font-size:10px;padding:8px 14px;border-radius:4px;z-index:9999;transition:opacity 0.3s;pointer-events:none;';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.borderColor = type === 'error' ? 'rgba(239,83,80,0.5)' : 'rgba(0,229,135,0.4)';
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 4000);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MONOGRAPH INTERACTIVE VIEWS
+// ═══════════════════════════════════════════════════════════════════
+let _currentMonographView = 'graph';
+
+window.switchMonographView = function(view) {
+  switchMonographTab(view === 'report' ? 'report' : view === 'graph' ? 'graph' : 'query');
+};
+
+window.runMonographQuery = async function() {
+  const input = document.getElementById('mg-ask-input') || document.getElementById('gf-query-input');
+  const mode = document.getElementById('mg-ask-mode') || document.getElementById('gf-query-mode');
+  const budget = document.getElementById('gf-query-budget');
+  const result = document.getElementById('mg-ask-result') || document.getElementById('gf-query-result');
+  const q = (input && input.value || '').trim();
+  if (!q) { if (result) result.textContent = 'Type a question first.'; return; }
+  if (result) result.innerHTML = '<span style="color:var(--teal);">Querying…</span>';
+  const dir = selectedProjectDir || '';
+  try {
+    const params = new URLSearchParams({ q, mode: mode.value, budget: budget.value });
+    if (dir) params.set('dir', dir);
+    const r = await fetch('/api/monograph-query?' + params);
+    const d = await r.json();
+    if (d.error) { result.innerHTML = `<span style="color:var(--red);">${escHtml(d.error)}</span>`; return; }
+    result.innerHTML = `<div class="kg-card kg-card-wide" style="margin-bottom:10px;">
+      <div class="kg-card-title"><span class="kg-card-title-icon">🔍</span>QUERY RESULT</div>
+      <div class="kg-card-body">${escHtml(d.output || d.result || JSON.stringify(d, null, 2))}</div>
+    </div>`;
+  } catch (e) { result.innerHTML = `<span style="color:var(--red);">${escHtml(e.message)}</span>`; }
+};
+
+window.runMonographExplain = async function() {
+  const input = document.getElementById('mg-explain-input') || document.getElementById('gf-explain-input');
+  const result = document.getElementById('mg-explain-result') || document.getElementById('gf-explain-result');
+  const node = (input && input.value || '').trim();
+  if (!node) { if (result) result.textContent = 'Enter a node name first.'; return; }
+  if (result) result.innerHTML = '<span style="color:var(--teal);">Explaining…</span>';
+  const dir = selectedProjectDir || '';
+  try {
+    const params = new URLSearchParams({ node });
+    if (dir) params.set('dir', dir);
+    const r = await fetch('/api/monograph-explain?' + params);
+    const d = await r.json();
+    if (d.error) { result.innerHTML = `<span style="color:var(--red);">${escHtml(d.error)}</span>`; return; }
+    result.innerHTML = `<div class="kg-card kg-card-wide" style="margin-bottom:10px;">
+      <div class="kg-card-title"><span class="kg-card-title-icon">📖</span>EXPLAIN: ${escHtml(node.toUpperCase())}</div>
+      <div class="kg-card-body">${escHtml(d.output || d.result || JSON.stringify(d, null, 2))}</div>
+    </div>`;
+  } catch (e) { result.innerHTML = `<span style="color:var(--red);">${escHtml(e.message)}</span>`; }
+};
+
+window.runMonographPath = async function() {
+  const fromEl = document.getElementById('mg-path-from') || document.getElementById('gf-path-from');
+  const toEl = document.getElementById('mg-path-to') || document.getElementById('gf-path-to');
+  const result = document.getElementById('mg-path-result') || document.getElementById('gf-path-result');
+  const from = (fromEl && fromEl.value || '').trim();
+  const to = (toEl && toEl.value || '').trim();
+  if (!from || !to) { if (result) result.textContent = 'Enter both source and target nodes.'; return; }
+  if (result) result.innerHTML = '<span style="color:var(--teal);">Finding shortest path…</span>';
+  const dir = selectedProjectDir || '';
+  try {
+    const params = new URLSearchParams({ from, to });
+    if (dir) params.set('dir', dir);
+    const r = await fetch('/api/monograph-path?' + params);
+    const d = await r.json();
+    if (d.error) { result.innerHTML = `<span style="color:var(--red);">${escHtml(d.error)}</span>`; return; }
+    result.innerHTML = `<div class="kg-card kg-card-wide" style="margin-bottom:10px;">
+      <div class="kg-card-title"><span class="kg-card-title-icon">🛤</span>PATH: ${escHtml(from)} → ${escHtml(to)}</div>
+      <div class="kg-card-body">${escHtml(d.output || d.result || JSON.stringify(d, null, 2))}</div>
+    </div>`;
+  } catch (e) { result.innerHTML = `<span style="color:var(--red);">${escHtml(e.message)}</span>`; }
+};
+
+window.runMonographBenchmark = async function() {
+  const result = document.getElementById('gf-benchmark-result');
+  const status = document.getElementById('gf-bench-status');
+  if (result) result.innerHTML = '<span style="color:var(--teal);">Running benchmark…</span>';
+  if (status) status.textContent = 'Running…';
+  const dir = selectedProjectDir || '';
+  try {
+    const params = dir ? '?dir=' + encodeURIComponent(dir) : '';
+    const r = await fetch('/api/monograph-benchmark' + params);
+    const d = await r.json();
+    if (status) status.textContent = '';
+    if (d.error) { result.innerHTML = `<span style="color:var(--red);">${escHtml(d.error)}</span>`; return; }
+    result.innerHTML = `<div class="kg-card kg-card-wide">
+      <div class="kg-card-title"><span class="kg-card-title-icon">⚡</span>BENCHMARK RESULTS</div>
+      <div class="kg-card-body">${escHtml(d.output || d.result || JSON.stringify(d, null, 2))}</div>
+    </div>`;
+  } catch (e) { if (status) status.textContent = ''; result.innerHTML = `<span style="color:var(--red);">${escHtml(e.message)}</span>`; }
+};
+
+window.toggleMonographWatch = async function() {
+  const btn = document.getElementById('mg-watch-btn') || document.getElementById('gf-watch-btn');
+  const indicator = document.getElementById('mg-watch-indicator') || document.getElementById('gf-watch-indicator');
+  const dir = selectedProjectDir || '';
+  const params = dir ? '?dir=' + encodeURIComponent(dir) : '';
+  try {
+    const r = await fetch('/api/monograph-watch-toggle' + params, { method: 'POST' });
+    const d = await r.json();
+    updateWatchIndicator(d);
+  } catch (e) {
+    if (indicator) indicator.innerHTML = `<span style="color:var(--red);">Error</span>`;
+  }
+};
+
+async function refreshWatchStatus() {
+  const dir = selectedProjectDir || '';
+  const params = dir ? '?dir=' + encodeURIComponent(dir) : '';
+  try {
+    const r = await fetch('/api/monograph-watch-status' + params);
+    const d = await r.json();
+    updateWatchIndicator(d);
+  } catch {}
+}
+
+function updateWatchIndicator(d) {
+  const indicator = document.getElementById('mg-watch-indicator') || document.getElementById('gf-watch-indicator');
+  const btn = document.getElementById('mg-watch-btn') || document.getElementById('gf-watch-btn');
+  if (!indicator) return;
+  if (d.running) {
+    indicator.innerHTML = '<span style="color:var(--green);">● WATCHING</span>';
+    if (btn) btn.textContent = 'STOP';
+  } else {
+    indicator.innerHTML = '<span style="color:var(--muted);">○ IDLE</span>';
+    if (btn) btn.textContent = 'WATCH';
+  }
+}
 
 let _palaceSelectedSession = null;
 
@@ -5054,6 +5983,706 @@ window.closePalaceOverlay = function() {
   kgCodeGraph.stop();
   _origClose();
 };
+
+// ═══════════════════════════════════════════════════════════════════
+// MONOGRAPH OVERLAY
+// ═══════════════════════════════════════════════════════════════════
+let mgGraphData = null;
+let mgReportData = null;
+let _wikiData = null;
+let mgCurrentTab = 'overview';
+
+window.openMonographOverlay = async function() {
+  document.getElementById('monograph-overlay').classList.add('open');
+  if (!mgGraphData) await loadMonographData();
+  renderMonographTab(mgCurrentTab);
+};
+
+window.closeMonographOverlay = function() {
+  document.getElementById('monograph-overlay').classList.remove('open');
+};
+
+window.switchMonographTab = function(tab) {
+  mgCurrentTab = tab;
+  document.querySelectorAll('#mg-tabs .mg-tab').forEach(b => {
+    const m = (b.getAttribute('onclick') || '').match(/'(\w+)'/);
+    b.classList.toggle('active', !!(m && m[1] === tab));
+  });
+  document.querySelectorAll('.mg-pane').forEach(p => p.classList.remove('active'));
+  const pane = document.getElementById('mg-pane-' + tab);
+  if (pane) pane.classList.add('active');
+  if (mgGraphData) renderMonographTab(tab);
+};
+
+async function loadMonographData() {
+  const dir = selectedProjectDir || '';
+  const qs = dir ? '?dir=' + encodeURIComponent(dir) : '';
+  try {
+    const [graphRes, reportRes] = await Promise.all([
+      fetch('/api/monograph-graph' + qs).catch(() => ({ ok: false })),
+      fetch('/api/monograph-report' + qs).catch(() => ({ ok: false })),
+    ]);
+    mgGraphData = graphRes.ok ? await graphRes.json() : { nodes: [], edges: [] };
+    const reportJson = reportRes.ok ? await reportRes.json() : {};
+    mgReportData = reportJson.report || '';
+    // Use real totals from DB stats when available, fall back to visible subset
+    const totalNodes = reportJson.stats?.nodes ?? (mgGraphData.nodes || []).length;
+    const totalEdges = reportJson.stats?.edges ?? (mgGraphData.edges || []).length;
+    // Update stats bar
+    const stats = document.getElementById('mg-stats');
+    if (stats) stats.innerHTML = `<span>${totalNodes.toLocaleString()} nodes</span><span>${totalEdges.toLocaleString()} edges</span>`;
+    // Update node count in button
+    const btn = document.getElementById('mg-node-count-anim');
+    if (btn) btn.textContent = totalNodes || '–';
+    const countEl = document.getElementById('mg-graph-node-count');
+    if (countEl) countEl.textContent = `${totalNodes.toLocaleString()} nodes · ${totalEdges.toLocaleString()} edges`;
+  } catch (e) {
+    mgGraphData = { nodes: [], edges: [] };
+  }
+}
+
+function renderMonographTab(tab) {
+  if (tab === 'graph') {
+    const iframe = document.getElementById('mg-graph-iframe');
+    if (iframe && !iframe.src) {
+      const dir = selectedProjectDir || '';
+      const qs = dir ? '?dir=' + encodeURIComponent(dir) : '';
+      iframe.src = '/api/monograph-html' + qs;
+    }
+  } else if (tab === 'analyze') {
+    runMonographAnalysis('stats');
+  } else if (tab === 'report') {
+    renderMonographReport();
+  } else if (tab === 'wiki') {
+    loadWikiTab();
+  }
+}
+
+window.runMonographAnalysis = function(type) {
+  document.querySelectorAll('.mg-analyze-btn').forEach(b => {
+    const m = (b.getAttribute('onclick') || '').match(/'(\w+)'/);
+    b.classList.toggle('active', !!(m && m[1] === type));
+  });
+  const result = document.getElementById('mg-analyze-result');
+  if (!mgGraphData || !mgGraphData.nodes) {
+    result.innerHTML = '<span style="color:var(--muted);">No graph data loaded.</span>';
+    return;
+  }
+  const nodes = mgGraphData.nodes || [];
+  const edges = mgGraphData.edges || [];
+  const n = nodes.length, e = edges.length;
+
+  if (type === 'stats') {
+    const density = n > 1 ? (2 * e / (n * (n - 1))).toFixed(6) : '0';
+    const avgDegree = n ? (2 * e / n).toFixed(2) : '0';
+    const maxDeg = nodes.reduce((m, x) => Math.max(m, x.degree || 0), 0);
+    result.innerHTML = `<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:rgba(123,97,255,0.8);margin-bottom:12px;">GRAPH STATISTICS</div>
+<table style="border-collapse:collapse;width:100%;max-width:400px;">
+  <tr><td style="padding:4px 12px 4px 0;color:var(--muted);">Nodes</td><td style="color:var(--text);font-weight:700;">${n.toLocaleString()}</td></tr>
+  <tr><td style="padding:4px 12px 4px 0;color:var(--muted);">Edges</td><td style="color:var(--text);font-weight:700;">${e.toLocaleString()}</td></tr>
+  <tr><td style="padding:4px 12px 4px 0;color:var(--muted);">Density</td><td style="color:var(--text);font-weight:700;">${density}</td></tr>
+  <tr><td style="padding:4px 12px 4px 0;color:var(--muted);">Avg Degree</td><td style="color:var(--text);font-weight:700;">${avgDegree}</td></tr>
+  <tr><td style="padding:4px 12px 4px 0;color:var(--muted);">Max Degree</td><td style="color:var(--text);font-weight:700;">${maxDeg}</td></tr>
+  <tr><td style="padding:4px 12px 4px 0;color:var(--muted);">Edge/Node Ratio</td><td style="color:var(--text);font-weight:700;">${n ? (e/n).toFixed(2) : 0}</td></tr>
+</table>`;
+  } else if (type === 'pagerank') {
+    // Approximate PageRank by degree (normalized)
+    const sorted = [...nodes].sort((a, b) => (b.degree||0) - (a.degree||0)).slice(0, 20);
+    const maxD = sorted[0]?.degree || 1;
+    result.innerHTML = `<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:rgba(123,97,255,0.8);margin-bottom:12px;">PAGERANK TOP 20 (by degree)</div>` +
+      sorted.map((nd, i) => {
+        const pct = Math.round(((nd.degree||0) / maxD) * 100);
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+          <span style="color:var(--muted);width:20px;text-align:right;">${i+1}</span>
+          <span style="flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${nd.id}">${nd.label || nd.id}</span>
+          <div style="width:100px;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+            <div style="width:${pct}%;height:100%;background:rgba(123,97,255,0.6);border-radius:3px;"></div>
+          </div>
+          <span style="color:var(--muted);width:28px;text-align:right;">${nd.degree||0}</span>
+        </div>`;
+      }).join('');
+  } else if (type === 'deadcode') {
+    const dead = nodes.filter(nd => (nd.degree || 0) === 0);
+    if (!dead.length) {
+      result.innerHTML = '<span style="color:var(--teal);">✓ No dead code nodes detected in the visible graph.</span>';
+    } else {
+      result.innerHTML = `<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:rgba(123,97,255,0.8);margin-bottom:12px;">DEAD CODE — ${dead.length} nodes (degree = 0)</div>` +
+        dead.slice(0, 50).map(nd => `<div style="color:var(--dim);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${nd.id}">${nd.label || nd.id} <span style="color:var(--border);">${nd.type || ''}</span></div>`).join('') +
+        (dead.length > 50 ? `<div style="color:var(--muted);margin-top:6px;">…and ${dead.length - 50} more</div>` : '');
+    }
+  } else if (type === 'wcc') {
+    // Union-find on undirected graph
+    const parent = {};
+    nodes.forEach(nd => { parent[nd.id] = nd.id; });
+    function find(x) { return parent[x] === x ? x : (parent[x] = find(parent[x])); }
+    function union(a, b) { parent[find(a)] = find(b); }
+    const idSet = new Set(nodes.map(nd => nd.id));
+    edges.forEach(e => { if (idSet.has(e.source) && idSet.has(e.target)) union(e.source, e.target); });
+    const compMap = {};
+    nodes.forEach(nd => { const root = find(nd.id); (compMap[root] = compMap[root] || []).push(nd); });
+    const comps = Object.values(compMap).sort((a, b) => b.length - a.length);
+    result.innerHTML = `<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:rgba(123,97,255,0.8);margin-bottom:12px;">WEAKLY CONNECTED COMPONENTS — ${comps.length}</div>` +
+      comps.slice(0, 20).map((c, i) => `<div style="margin-bottom:6px;">
+        <span style="color:var(--muted);">Component ${i+1}</span>
+        <span style="color:var(--text);margin-left:8px;font-weight:700;">${c.length} nodes</span>
+        <div style="color:var(--border);font-size:9px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.slice(0,4).map(nd=>nd.label||nd.id).join(', ')}${c.length>4?' …':''}</div>
+      </div>`).join('') +
+      (comps.length > 20 ? `<div style="color:var(--muted);">…and ${comps.length - 20} more</div>` : '');
+  } else if (type === 'topo') {
+    // Kahn's topological sort
+    const inDeg = {};
+    const idSet = new Set(nodes.map(nd => nd.id));
+    nodes.forEach(nd => { inDeg[nd.id] = 0; });
+    edges.forEach(e => { if (idSet.has(e.target)) inDeg[e.target] = (inDeg[e.target]||0) + 1; });
+    const queue = nodes.filter(nd => (inDeg[nd.id]||0) === 0).map(nd => nd.id);
+    const order = [];
+    const adj = {};
+    edges.forEach(e => { (adj[e.source] = adj[e.source]||[]).push(e.target); });
+    while (queue.length) {
+      const cur = queue.shift(); order.push(cur);
+      (adj[cur]||[]).forEach(t => { if (--inDeg[t] === 0) queue.push(t); });
+    }
+    const hasCycle = order.length < nodes.length;
+    const labelMap = {};
+    nodes.forEach(nd => { labelMap[nd.id] = nd.label || nd.id; });
+    result.innerHTML = `<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:rgba(123,97,255,0.8);margin-bottom:12px;">TOPOLOGICAL ORDER — ${order.length}/${nodes.length} nodes sorted${hasCycle?' (cycles detected, partial)':''}</div>` +
+      order.slice(0, 40).map((id, i) => `<div style="color:var(--dim);margin-bottom:2px;"><span style="color:var(--border);margin-right:8px;">${String(i+1).padStart(3,' ')}</span>${labelMap[id]||id}</div>`).join('') +
+      (order.length > 40 ? `<div style="color:var(--muted);margin-top:6px;">…and ${order.length - 40} more</div>` : '');
+  } else if (type === 'hubs') {
+    const sorted = [...nodes].sort((a, b) => (b.degree||0) - (a.degree||0)).slice(0, 30);
+    result.innerHTML = `<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:rgba(123,97,255,0.8);margin-bottom:12px;">TOP HUBS BY DEGREE — Top 30</div>` +
+      sorted.map(nd => `<div style="display:flex;justify-content:space-between;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.03);padding-bottom:3px;">
+        <span style="color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;" title="${nd.id}">${nd.label||nd.id}</span>
+        <span style="color:var(--muted);margin-left:8px;font-size:9px;">${nd.type||''}</span>
+        <span style="color:rgba(123,97,255,0.7);font-weight:700;margin-left:12px;flex-shrink:0;">${nd.degree||0}</span>
+      </div>`).join('');
+  } else if (type === 'cycles') {
+    // Simple cycle detection using DFS
+    const idSet = new Set(nodes.map(nd => nd.id));
+    const adj = {};
+    edges.forEach(e => { if (idSet.has(e.source)&&idSet.has(e.target)) (adj[e.source]=adj[e.source]||[]).push(e.target); });
+    const visited = new Set(), inStack = new Set();
+    const cycles = [];
+    function dfs(node, path) {
+      if (cycles.length >= 10) return;
+      visited.add(node); inStack.add(node);
+      for (const nb of (adj[node]||[])) {
+        if (!visited.has(nb)) { dfs(nb, [...path, nb]); }
+        else if (inStack.has(nb)) {
+          const cycleStart = path.indexOf(nb);
+          if (cycleStart >= 0) cycles.push(path.slice(cycleStart));
+        }
+      }
+      inStack.delete(node);
+    }
+    nodes.forEach(nd => { if (!visited.has(nd.id)) dfs(nd.id, [nd.id]); });
+    const labelMap = {};
+    nodes.forEach(nd => { labelMap[nd.id] = nd.label || nd.id; });
+    if (!cycles.length) {
+      result.innerHTML = '<span style="color:var(--teal);">✓ No cycles detected in the visible graph.</span>';
+    } else {
+      result.innerHTML = `<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:rgba(123,97,255,0.8);margin-bottom:12px;">CYCLES DETECTED — ${cycles.length} (showing up to 10)</div>` +
+        cycles.map((c, i) => `<div style="margin-bottom:10px;background:rgba(239,83,80,0.05);border:1px solid rgba(239,83,80,0.15);border-radius:3px;padding:8px 10px;">
+          <div style="color:rgba(239,83,80,0.7);font-size:9px;margin-bottom:4px;">CYCLE ${i+1} — ${c.length} nodes</div>
+          <div style="color:var(--dim);font-size:9px;">${c.map(id=>labelMap[id]||id).join(' → ')}</div>
+        </div>`).join('');
+    }
+  } else if (type === 'surprises') {
+    // Show edges that cross file type boundaries
+    const getExt = id => { const m = id.match(/\.[^.]+$/); return m ? m[0].toLowerCase() : ''; };
+    const labelMap = {};
+    nodes.forEach(nd => { labelMap[nd.id] = nd.label || nd.id; });
+    const crossed = edges.filter(e => getExt(e.source) !== getExt(e.target) && getExt(e.source) && getExt(e.target)).slice(0, 30);
+    if (!crossed.length) {
+      result.innerHTML = '<span style="color:var(--muted);">No cross-filetype edges in visible graph.</span>';
+    } else {
+      result.innerHTML = `<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:rgba(123,97,255,0.8);margin-bottom:12px;">CROSS-FILETYPE EDGES — ${crossed.length} shown</div>` +
+        crossed.map(e => `<div style="margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.03);padding-bottom:5px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="color:var(--teal);font-size:8px;">${getExt(e.source)}</span>
+            <span style="color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;" title="${e.source}">${labelMap[e.source]||e.source}</span>
+            <span style="color:var(--muted);font-size:9px;">─${e.relation||'REF'}→</span>
+            <span style="color:var(--teal);font-size:8px;">${getExt(e.target)}</span>
+            <span style="color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;" title="${e.target}">${labelMap[e.target]||e.target}</span>
+          </div>
+        </div>`).join('');
+    }
+  } else if (type === 'communities') {
+    const groups = {};
+    nodes.forEach(nd => { const g = nd.type || 'unknown'; (groups[g]=groups[g]||[]).push(nd); });
+    const sorted = Object.entries(groups).sort((a,b) => b[1].length - a[1].length);
+    result.innerHTML = `<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:rgba(123,97,255,0.8);margin-bottom:12px;">NODE TYPE DISTRIBUTION — ${sorted.length} types</div>` +
+      sorted.map(([type, nds]) => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+        <span style="flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${type}</span>
+        <div style="width:120px;height:6px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;">
+          <div style="width:${Math.round(nds.length/nodes.length*100)}%;height:100%;background:rgba(123,97,255,0.5);border-radius:3px;"></div>
+        </div>
+        <span style="color:var(--muted);width:32px;text-align:right;">${nds.length}</span>
+      </div>`).join('');
+  } else if (type === 'cohesion') {
+    result.innerHTML = '<span style="color:var(--muted);">Computing cohesion scores…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_cohesion', input:{ limit: 30 } }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre;line-height:1.7;color:var(--text);">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'bridges') {
+    result.innerHTML = '<span style="color:var(--muted);">Finding bridge nodes…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_bridge', input:{ limit: 20 } }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'detect_changes') {
+    result.innerHTML = '<span style="color:var(--muted);">Loading changed files…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_detect_changes', input:{ scope: 'all' } }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'diff') {
+    result.innerHTML = '<span style="color:var(--muted);">Computing graph diff…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_diff', input:{} }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  }
+};
+
+window.runMonographSearch = function(val) {
+  const box = document.getElementById('mg-search-result');
+  if (!val || !mgGraphData) { box.textContent = '–'; return; }
+  const q = val.toLowerCase();
+  const matches = (mgGraphData.nodes||[]).filter(nd => (nd.label||nd.id||'').toLowerCase().includes(q)).slice(0, 20);
+  if (!matches.length) { box.textContent = 'No matches.'; return; }
+  box.innerHTML = matches.map(nd => `<div style="display:flex;gap:8px;margin-bottom:4px;">
+    <span style="color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${nd.label||nd.id}</span>
+    <span style="color:var(--muted);font-size:9px;">${nd.type||''}</span>
+    <span style="color:var(--border);font-size:9px;">${nd.degree||0} edges</span>
+  </div>`).join('');
+};
+
+window.runMonographExplain = async function() {
+  const input = document.getElementById('mg-explain-input').value.trim();
+  const box = document.getElementById('mg-explain-result');
+  if (!input) return;
+  box.textContent = 'Loading…';
+  const dir = selectedProjectDir || '';
+  const qs = `?node=${encodeURIComponent(input)}${dir ? '&dir='+encodeURIComponent(dir) : ''}`;
+  try {
+    const res = await fetch('/api/monograph-explain' + qs);
+    const data = await res.json();
+    box.textContent = data.explanation || data.error || 'No explanation available.';
+  } catch(e) { box.textContent = 'Error: ' + e.message; }
+};
+
+window.runMonographPath = async function() {
+  const from = document.getElementById('mg-path-from').value.trim();
+  const to = document.getElementById('mg-path-to').value.trim();
+  const box = document.getElementById('mg-path-result');
+  if (!from || !to) return;
+  box.textContent = 'Loading…';
+  const dir = selectedProjectDir || '';
+  const qs = `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${dir ? '&dir='+encodeURIComponent(dir) : ''}`;
+  try {
+    const res = await fetch('/api/monograph-path' + qs);
+    const data = await res.json();
+    box.textContent = data.path || data.error || 'No path found.';
+  } catch(e) { box.textContent = 'Error: ' + e.message; }
+};
+
+window.runMonographAsk = async function() {
+  const input = document.getElementById('mg-ask-input').value.trim();
+  const mode = document.getElementById('mg-ask-mode').value;
+  const box = document.getElementById('mg-ask-result');
+  if (!input) return;
+  box.textContent = 'Loading…';
+  const dir = selectedProjectDir || '';
+  const qs = `?q=${encodeURIComponent(input)}&mode=${mode}&budget=2000${dir ? '&dir='+encodeURIComponent(dir) : ''}`;
+  try {
+    const res = await fetch('/api/monograph-query' + qs);
+    const data = await res.json();
+    box.textContent = data.result || data.error || '–';
+  } catch(e) { box.textContent = 'Error: ' + e.message; }
+};
+
+window.runMonographRename = async function() {
+  const from = document.getElementById('mg-rename-from').value.trim();
+  const to = document.getElementById('mg-rename-to').value.trim();
+  const box = document.getElementById('mg-rename-result');
+  if (!from || !to) { box.textContent = 'Enter both current and new name.'; return; }
+  box.textContent = 'Scanning…';
+  try {
+    const res = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_rename', input:{ symbolName: from, newName: to, dryRun: true } }) });
+    const data = await res.json();
+    box.textContent = (data.content && data.content[0] && data.content[0].text) || data.error || JSON.stringify(data);
+  } catch(e) { box.textContent = 'Error: ' + e.message; }
+};
+
+window.runMonographCypher = async function() {
+  const input = document.getElementById('mg-cypher-input').value.trim();
+  const box = document.getElementById('mg-cypher-result');
+  if (!input) return;
+  box.textContent = 'Running…';
+  try {
+    const res = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_cypher', input:{ query: input } }) });
+    const data = await res.json();
+    const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+    box.innerHTML = `<pre style="margin:0;font-size:9px;line-height:1.5;">${txt.replace(/</g,'&lt;')}</pre>`;
+  } catch(e) { box.textContent = 'Error: ' + e.message; }
+};
+
+window.runMonographImpact = async function() {
+  const input = document.getElementById('mg-impact-input').value.trim();
+  const dir = document.getElementById('mg-impact-dir').value;
+  const box = document.getElementById('mg-impact-result');
+  if (!input) return;
+  box.textContent = 'Analyzing…';
+  try {
+    const res = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_impact', input:{ target: input, direction: dir, maxDepth: 4 } }) });
+    const data = await res.json();
+    box.textContent = (data.content && data.content[0] && data.content[0].text) || data.error || JSON.stringify(data);
+  } catch(e) { box.textContent = 'Error: ' + e.message; }
+};
+
+window.runMonographContext = async function() {
+  const input = document.getElementById('mg-context-input').value.trim();
+  const box = document.getElementById('mg-context-result');
+  if (!input) return;
+  box.textContent = 'Loading…';
+  try {
+    const res = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_context', input:{ id: input } }) });
+    const data = await res.json();
+    box.textContent = (data.content && data.content[0] && data.content[0].text) || data.error || JSON.stringify(data);
+  } catch(e) { box.textContent = 'Error: ' + e.message; }
+};
+
+window.downloadMonographExport = function(format) {
+  const status = document.getElementById('mg-export-status');
+  const data = mgGraphData;
+  if (!data || !data.nodes) { status.textContent = 'No graph data. Build the graph first.'; return; }
+  const nodes = data.nodes || [], edges = data.edges || [];
+
+  if (format === 'html') {
+    const dir = selectedProjectDir || '';
+    window.open('/api/monograph-html' + (dir ? '?dir='+encodeURIComponent(dir) : ''), '_blank');
+    return;
+  }
+
+  let content = '', filename = '', mime = 'text/plain';
+
+  if (format === 'json') {
+    content = JSON.stringify({ nodes, edges }, null, 2);
+    filename = 'monograph-graph.json'; mime = 'application/json';
+  } else if (format === 'csv-nodes') {
+    const csvQn = s => '"' + String(s || '').replace(/"/g, '""') + '"';
+    content = 'id,label,type,degree\n' + nodes.map(n => `${csvQn(n.id)},${csvQn(n.label||n.id)},${csvQn(n.type||'')},${n.degree||0}`).join('\n');
+    filename = 'monograph-nodes.csv'; mime = 'text/csv';
+  } else if (format === 'csv-edges') {
+    const csvQ = s => '"' + String(s || '').replace(/"/g, '""') + '"';
+    content = 'source,target,relation\n' + edges.map(e => `${csvQ(e.source)},${csvQ(e.target)},${csvQ(e.relation)}`).join('\n');
+    filename = 'monograph-edges.csv'; mime = 'text/csv';
+  } else if (format === 'matrix') {
+    const ids = nodes.map(n => n.id);
+    const adj = new Set(edges.map(e => e.source+'||'+e.target));
+    content = ',' + ids.join(',') + '\n' + ids.map(src => src + ',' + ids.map(tgt => adj.has(src+'||'+tgt)?'1':'0').join(',')).join('\n');
+    filename = 'monograph-matrix.csv'; mime = 'text/csv';
+  } else if (format === 'dot') {
+    content = 'digraph monograph {\n  rankdir=LR;\n  node [shape=box fontname="monospace" fontsize=9];\n' +
+      nodes.map(n => `  "${n.id.replace(/"/g,'\\"')}" [label="${(n.label||n.id).replace(/"/g,'\\"')}"];`).join('\n') + '\n' +
+      edges.map(e => `  "${e.source.replace(/"/g,'\\"')}" -> "${e.target.replace(/"/g,'\\"')}" [label="${(e.relation||'').replace(/"/g,'\\"')}"];`).join('\n') + '\n}';
+    filename = 'monograph.dot';
+  } else if (format === 'mermaid') {
+    content = 'graph LR\n' + edges.slice(0,200).map(e => {
+      const sl = (e.source.split('/').pop()||e.source).replace(/[^a-zA-Z0-9_]/g,'_');
+      const tl = (e.target.split('/').pop()||e.target).replace(/[^a-zA-Z0-9_]/g,'_');
+      return `  ${sl} --> ${tl}`;
+    }).join('\n');
+    filename = 'monograph.mmd';
+  } else if (format === 'cypher') {
+    const nodeIds = new Set(nodes.map(n=>n.id));
+    content = nodes.map(n => `CREATE (n:Node {id: "${n.id.replace(/"/g,'\\"')}", label: "${(n.label||n.id).replace(/"/g,'\\"')}", type: "${(n.type||'').replace(/"/g,'\\"')}"});`).join('\n') + '\n' +
+      edges.filter(e=>nodeIds.has(e.source)&&nodeIds.has(e.target)).map(e => `MATCH (a:Node {id: "${e.source.replace(/"/g,'\\"')}"}), (b:Node {id: "${e.target.replace(/"/g,'\\"')}"}) CREATE (a)-[:${(e.relation||'REF').replace(/[^A-Z0-9_]/g,'_')}]->(b);`).join('\n');
+    filename = 'monograph.cypher';
+  } else if (format === 'graphml') {
+    content = `<?xml version="1.0" encoding="UTF-8"?>\n<graphml xmlns="http://graphml.graphdrawing.org/graphml">\n<graph id="G" edgedefault="directed">\n` +
+      nodes.map(n=>`<node id="${n.id.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"><data key="label">${(n.label||n.id).replace(/&/g,'&amp;')}</data></node>`).join('\n') + '\n' +
+      edges.map((e,i)=>`<edge id="e${i}" source="${e.source.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" target="${e.target.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"></edge>`).join('\n') + '\n</graph>\n</graphml>';
+    filename = 'monograph.graphml'; mime = 'application/xml';
+  } else if (format === 'gexf') {
+    content = `<?xml version="1.0" encoding="UTF-8"?>\n<gexf xmlns="http://gexf.net/1.3" version="1.3">\n<graph defaultedgetype="directed">\n<nodes>\n` +
+      nodes.map(n=>`<node id="${n.id.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" label="${(n.label||n.id).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"/>`).join('\n') + '\n</nodes>\n<edges>\n' +
+      edges.map((e,i)=>`<edge id="${i}" source="${e.source.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" target="${e.target.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"/>`).join('\n') + '\n</edges>\n</graph>\n</gexf>';
+    filename = 'monograph.gexf'; mime = 'application/xml';
+  }
+
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+  status.textContent = `Downloaded ${filename}`;
+  setTimeout(() => { status.textContent = ''; }, 3000);
+};
+
+function renderMonographReport() {
+  const box = document.getElementById('mg-report-content');
+  if (!mgReportData) {
+    box.innerHTML = '<div style="color:var(--muted);font-family:\'Azeret Mono\',monospace;font-size:10px;">No report available — build the graph first.</div>';
+    return;
+  }
+  box.innerHTML = parseMonographReport(mgReportData);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// WIKI — Code Knowledge Explorer
+// ═══════════════════════════════════════════════════════════════════
+
+const TYPE_COLORS = {
+  File: '#7B61FF', Function: '#00E5C8', Class: '#f59e0b', Interface: '#06b6d4',
+  Method: '#00E5C8', Variable: '#94a3b8', Module: '#ec4899', Concept: '#22c55e',
+  Section: '#22c55e', Default: '#64748b',
+};
+const TYPE_ICONS = {
+  File: '📄', Function: '⚡', Class: '🏛', Interface: '◇', Method: '⚡',
+  Variable: '▪', Module: '📦', Concept: '💡', Section: '§', Default: '○',
+};
+
+const CODE_LABELS = new Set(['File','Function','Class','Interface','Method','Variable','Module']);
+const DOC_LABELS  = new Set(['Section','Concept']);
+
+let _wikiCodeData = null;     // top nodes by degree (code-heavy)
+let _wikiDocData  = null;     // Section + Concept nodes (fetched separately)
+let _wikiTypeFilter = '';
+let _wikiModeFilter = 'all';  // 'all' | 'docs' | 'code'
+let _wikiSearchTimer = null;
+let _wikiSelectedId = null;
+
+function _wikiDirQs(extra) {
+  const base = selectedProjectDir ? 'dir=' + encodeURIComponent(selectedProjectDir) : '';
+  return (base || extra) ? '?' + [base, extra].filter(Boolean).join('&') : '';
+}
+
+async function loadWikiTab(force) {
+  // Load code/all data — re-fetch if forced or cache is empty
+  if (!_wikiCodeData || force) {
+    try {
+      const r = await fetch('/api/monograph-graph' + _wikiDirQs('limit=500'));
+      if (r.ok) _wikiCodeData = await r.json();
+    } catch {}
+  }
+  // Load doc data — re-fetch if forced OR previously cached empty (stale pre-rebuild state)
+  if (!_wikiDocData || force || (_wikiDocData.nodes || []).length === 0) {
+    try {
+      const r = await fetch('/api/monograph-graph' + _wikiDirQs('labels=Section%2CConcept'));
+      if (r.ok) _wikiDocData = await r.json();
+    } catch {}
+  }
+
+  if (!_wikiCodeData && !_wikiDocData) {
+    document.getElementById('mg-wiki-list').innerHTML = '<div class="wiki-empty" style="height:80px;font-size:9px;color:var(--red);">Graph not built yet</div>';
+    return;
+  }
+
+  // Stats bar — merge both datasets for accurate counts
+  const allNodes = [...(_wikiCodeData?.nodes || []), ...(_wikiDocData?.nodes || [])];
+  const seenIds = new Set();
+  const uniqueNodes = allNodes.filter(n => { if (seenIds.has(n.id)) return false; seenIds.add(n.id); return true; });
+  const typeCounts = {};
+  uniqueNodes.forEach(n => { typeCounts[n.type] = (typeCounts[n.type] || 0) + 1; });
+  document.getElementById('wstat-nodes').textContent = uniqueNodes.length.toLocaleString();
+  document.getElementById('wstat-edges').textContent = ((_wikiCodeData?.edges || []).length).toLocaleString();
+  document.getElementById('wstat-sections').textContent = ((typeCounts['Section'] || 0) + (typeCounts['Concept'] || 0)).toLocaleString();
+  document.getElementById('wstat-fns').textContent = ((typeCounts['Function'] || 0) + (typeCounts['Method'] || 0)).toLocaleString();
+
+  wikiApplyFilter();
+}
+
+window.wikiRefresh = async function() {
+  _wikiCodeData = null;
+  _wikiDocData = null;
+  document.getElementById('mg-wiki-list').innerHTML = '<div class="wiki-empty" style="height:80px;font-size:9px;">Refreshing…</div>';
+  await loadWikiTab(true);
+};
+
+function wikiRenderList(nodes) {
+  const list = document.getElementById('mg-wiki-list');
+  if (!nodes || !nodes.length) {
+    list.innerHTML = '<div class="wiki-empty" style="height:80px;font-size:9px;">No results</div>';
+    return;
+  }
+  list.innerHTML = nodes.map(n => {
+    const color = TYPE_COLORS[n.type] || TYPE_COLORS.Default;
+    const icon = TYPE_ICONS[n.type] || TYPE_ICONS.Default;
+    const shortPath = (n.id || '').split('/').slice(-2).join('/');
+    return `<div class="wiki-card${n.id === _wikiSelectedId ? ' selected' : ''}" onclick="wikiSelectNode('${n.id.replace(/'/g,"\\'")}')">
+      <div class="wiki-card-header">
+        <span class="wiki-type-badge" style="background:${color}22;color:${color}">${icon} ${n.type || '?'}</span>
+        <span class="wiki-card-name">${(n.label || n.id).replace(/</g,'&lt;')}</span>
+        <span class="wiki-deg">${n.degree || 0}</span>
+      </div>
+      <div class="wiki-card-path">${shortPath}</div>
+    </div>`;
+  }).join('');
+}
+
+window.wikiSetMode = function(btn, mode) {
+  document.querySelectorAll('#mg-wiki-mode-bar .wiki-pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _wikiModeFilter = mode;
+  // Reset type pill to ALL when switching modes
+  _wikiTypeFilter = '';
+  document.querySelectorAll('#mg-wiki-pills .wiki-pill').forEach(b => b.classList.remove('active'));
+  document.querySelector('#mg-wiki-pills .wiki-pill[data-type=""]').classList.add('active');
+  // Show/hide type pills based on mode
+  document.querySelectorAll('#mg-wiki-pills .wiki-pill[data-type]').forEach(b => {
+    const t = b.dataset.type;
+    if (!t) { b.style.display = ''; return; }
+    if (mode === 'docs') b.style.display = DOC_LABELS.has(t) ? '' : 'none';
+    else if (mode === 'code') b.style.display = CODE_LABELS.has(t) ? '' : 'none';
+    else b.style.display = '';
+  });
+  wikiApplyFilter();
+};
+
+window.wikiSetType = function(btn, type) {
+  document.querySelectorAll('#mg-wiki-pills .wiki-pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _wikiTypeFilter = type;
+  wikiApplyFilter();
+};
+
+function wikiApplyFilter() {
+  // Pick the right dataset for the current mode
+  let nodes;
+  if (_wikiModeFilter === 'docs') {
+    nodes = (_wikiDocData?.nodes || []);
+  } else if (_wikiModeFilter === 'code') {
+    nodes = (_wikiCodeData?.nodes || []).filter(n => CODE_LABELS.has(n.type));
+  } else {
+    // ALL: merge both, deduplicate
+    const seen = new Set();
+    nodes = [...(_wikiCodeData?.nodes || []), ...(_wikiDocData?.nodes || [])].filter(n => {
+      if (seen.has(n.id)) return false; seen.add(n.id); return true;
+    });
+  }
+  const q = (document.getElementById('mg-wiki-q').value || '').trim().toLowerCase();
+  if (_wikiTypeFilter) nodes = nodes.filter(n => n.type === _wikiTypeFilter);
+  if (q) nodes = nodes.filter(n => (n.label || n.id || '').toLowerCase().includes(q));
+  if (!q && !_wikiTypeFilter && _wikiModeFilter === 'all') nodes = nodes.slice(0, 200);
+  wikiRenderList(nodes.slice(0, 300));
+}
+
+window.wikiOnSearch = function(val) {
+  clearTimeout(_wikiSearchTimer);
+  _wikiSearchTimer = setTimeout(wikiApplyFilter, 150);
+};
+
+window.wikiSelectNode = async function(nodeId) {
+  _wikiSelectedId = nodeId;
+  // Update selected state in list
+  document.querySelectorAll('.wiki-card').forEach(c => {
+    c.classList.toggle('selected', c.getAttribute('onclick') && c.getAttribute('onclick').includes(nodeId.replace(/'/g,"\\'")));
+  });
+
+  const detail = document.getElementById('mg-wiki-detail');
+  detail.innerHTML = '<div class="wiki-empty" style="height:80px;font-size:9px;">Loading…</div>';
+
+  try {
+    const qs = selectedProjectDir ? '?dir=' + encodeURIComponent(selectedProjectDir) : '';
+    const r = await fetch('/api/mcp/call' + (qs ? qs : ''), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tool: 'monograph_context', input: { id: nodeId } }),
+    });
+    const data = await r.json();
+    const txt = (data.content && data.content[0] && data.content[0].text) || '';
+
+    // Parse the markdown text from monograph_context
+    const nameMatch = txt.match(/^# (.+?) \((\w+)\)/m);
+    const fileMatch = txt.match(/File: (.+)/);
+    const outSection = txt.match(/\*\*Imports \/ depends on \((\d+)\):\*\*\n([\s\S]*?)(?=\*\*Used by|$)/);
+    const inSection = txt.match(/\*\*Used by \/ depended on by \((\d+)\):\*\*\n([\s\S]*?)$/);
+
+    const name = nameMatch ? nameMatch[1] : nodeId;
+    const type = nameMatch ? nameMatch[2] : 'Unknown';
+    const filePath = fileMatch ? fileMatch[1] : '';
+    const color = TYPE_COLORS[type] || TYPE_COLORS.Default;
+    const icon = TYPE_ICONS[type] || TYPE_ICONS.Default;
+
+    const parseEdges = (section) => {
+      if (!section) return [];
+      return section.trim().split('\n')
+        .filter(l => l.trim() && l.trim() !== '(none)')
+        .map(l => {
+          const m = l.match(/→\s+(.+?)\s+\[(\w+)\]/);
+          const m2 = l.match(/←\s+(.+?)\s+\[(\w+)\]/);
+          const matched = m || m2;
+          return matched ? { name: matched[1], rel: matched[2] } : null;
+        }).filter(Boolean);
+    };
+
+    const outEdges = parseEdges(outSection ? outSection[2] : '');
+    const inEdges = parseEdges(inSection ? inSection[2] : '');
+    const outCount = outSection ? outSection[1] : outEdges.length;
+    const inCount = inSection ? inSection[1] : inEdges.length;
+
+    const edgeItem = (e, dir) => {
+      const rel = e.rel || 'REF';
+      const relColor = { IMPORTS:'#3b82f6',CALLS:'#8b5cf6',EXTENDS:'#ef4444',IMPLEMENTS:'#f97316',DEFINES:'#22c55e',CONTAINS:'#64748b',REF:'#475569' }[rel] || '#475569';
+      return `<div class="wiki-edge-item" onclick="wikiSelectNode('${e.name.replace(/'/g,"\\'")}')">
+        <span class="wiki-edge-rel" style="color:${relColor}">${dir === 'out' ? '→' : '←'} ${rel}</span>
+        <span class="wiki-edge-name">${e.name.replace(/</g,'&lt;')}</span>
+      </div>`;
+    };
+
+    const pathParts = filePath ? filePath.split('/') : [];
+    const fileName = pathParts.pop() || filePath;
+    const dirPath = pathParts.join('/');
+
+    detail.innerHTML = `
+      <div class="wiki-detail-header">
+        <div class="wiki-detail-type" style="color:${color}">${icon} ${type}</div>
+        <div class="wiki-detail-name">${name.replace(/</g,'&lt;')}</div>
+        ${filePath ? `<div class="wiki-detail-path">${dirPath ? dirPath + '/' : ''}<span>${fileName}</span></div>` : ''}
+      </div>
+      <div class="wiki-stat-row">
+        <div class="wiki-stat"><div class="wiki-stat-label">Outgoing</div><div class="wiki-stat-val" style="color:rgba(0,229,135,0.9)">${outCount}</div></div>
+        <div class="wiki-stat"><div class="wiki-stat-label">Incoming</div><div class="wiki-stat-val" style="color:rgba(123,97,255,0.9)">${inCount}</div></div>
+        <div class="wiki-stat"><div class="wiki-stat-label">Total Degree</div><div class="wiki-stat-val">${+outCount + +inCount}</div></div>
+      </div>
+      ${outEdges.length ? `<div class="wiki-section-title">Depends on (${outEdges.length})</div><div class="wiki-edge-list">${outEdges.map(e => edgeItem(e,'out')).join('')}</div>` : ''}
+      ${inEdges.length ? `<div class="wiki-section-title">Used by (${inEdges.length})</div><div class="wiki-edge-list">${inEdges.map(e => edgeItem(e,'in')).join('')}</div>` : ''}
+      ${!outEdges.length && !inEdges.length ? '<div style="color:var(--dim);font-size:10px;margin-top:12px;">No connections found</div>' : ''}
+      <div class="wiki-section-title">Find path from here</div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input class="mg-input" id="wpath-to" placeholder="Target node name…" style="flex:1;" onkeydown="if(event.key==='Enter')wikiPath('${nodeId.replace(/'/g,"\\'")}')">
+        <button class="mg-action-btn" onclick="wikiPath('${nodeId.replace(/'/g,"\\'")}')">PATH →</button>
+      </div>
+      <div id="wpath-result" style="margin-top:8px;font-size:10px;color:var(--muted);"></div>
+    `;
+  } catch(e) {
+    detail.innerHTML = `<div style="color:var(--red);padding:20px;font-size:10px;">Error: ${e.message}</div>`;
+  }
+};
+
+window.wikiPath = async function(fromId) {
+  const to = document.getElementById('wpath-to')?.value.trim();
+  const box = document.getElementById('wpath-result');
+  if (!to || !box) return;
+  box.textContent = 'Finding path…';
+  try {
+    const r = await fetch('/api/monograph-path?from=' + encodeURIComponent(fromId) + '&to=' + encodeURIComponent(to) + (selectedProjectDir ? '&dir='+encodeURIComponent(selectedProjectDir) : ''));
+    const d = await r.json();
+    box.textContent = d.path || d.error || 'No path found';
+  } catch(e) { box.textContent = 'Error: ' + e.message; }
+};
+
+async function loadDocStats() { /* replaced by loadWikiTab */ }
 
 // ═══════════════════════════════════════════════════════════════════
 // BOOT
