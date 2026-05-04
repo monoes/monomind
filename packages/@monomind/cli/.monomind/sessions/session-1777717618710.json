@@ -1,0 +1,15 @@
+{
+  "id": "session-1777717618710",
+  "startedAt": "2026-05-02T10:26:58.710Z",
+  "platform": "darwin",
+  "cwd": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli",
+  "context": {},
+  "metrics": {
+    "edits": 11,
+    "commands": 0,
+    "tasks": 3,
+    "errors": 0
+  },
+  "endedAt": "2026-05-02T11:46:20.130Z",
+  "duration": 4761421
+}
