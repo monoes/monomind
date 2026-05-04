@@ -4145,6 +4145,460 @@ const monographMigrateKnipExtTool: MCPTool = {
   },
 };
 
+// ── Round 11: Fallow feature ports ───────────────────────────────────────────
+
+const monographChurnCacheTool: MCPTool = {
+  name: 'monograph_churn_cache',
+  description: 'Analyze git churn with incremental disk caching. Faster than full git log on large repos — reuses cached results and only processes new commits since the last run.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string', description: 'Project root path' },
+      gitAfter: { type: 'string', description: 'Git --after date or duration (e.g. "6 months ago")' },
+      cacheDir: { type: 'string', description: 'Directory to store churn.json cache (default: .monomind/cache)' },
+      noCache: { type: 'boolean', description: 'Force full re-analysis, ignoring cache' },
+    },
+    required: ['root', 'gitAfter'],
+  },
+  handler: async (params: { root: string; gitAfter: string; cacheDir?: string; noCache?: boolean }) => {
+    const { analyzeChurnCached } = await import('@monoes/monograph');
+    const cacheDir = params.cacheDir ?? `${params.root}/.monomind/cache`;
+    const result = analyzeChurnCached(params.root, params.gitAfter, cacheDir, params.noCache ?? false);
+    if (!result) return { content: [{ type: 'text', text: 'Could not analyze churn (not a git repo?)' }] };
+    const top = [...result.files.entries()].sort((a, b) => b[1].weightedCommits - a[1].weightedCommits).slice(0, 20);
+    return { content: [{ type: 'text', text: JSON.stringify({ cacheHit: result.cacheHit, topFiles: top.map(([path, d]) => ({ path, ...d })) }, null, 2) }] };
+  },
+};
+
+const monographSuppressionContextTool: MCPTool = {
+  name: 'monograph_suppression_context',
+  description: 'Build a suppression context from module suppression data, check if an issue is suppressed, and find stale suppressions that no longer match any issue.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      modules: { type: 'array', description: 'Array of {filePath, suppressions[]} objects', items: { type: 'object' } },
+      action: { type: 'string', enum: ['find-stale', 'used-count'], description: 'Action to perform' },
+    },
+    required: ['root', 'modules', 'action'],
+  },
+  handler: async (params: { root: string; modules: unknown[]; action: string }) => {
+    const { SuppressionContext } = await import('@monoes/monograph');
+    const ctx = new SuppressionContext(params.modules as never);
+    if (params.action === 'find-stale') {
+      const stale = ctx.findStale();
+      return { content: [{ type: 'text', text: JSON.stringify(stale, null, 2) }] };
+    }
+    return { content: [{ type: 'text', text: JSON.stringify({ usedCount: ctx.usedCount() }) }] };
+  },
+};
+
+const monographToleranceTool: MCPTool = {
+  name: 'monograph_tolerance',
+  description: 'Parse regression tolerance strings (e.g. "5%", "10") and check if a count increase exceeds the allowed tolerance.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      toleranceStr: { type: 'string', description: 'Tolerance string e.g. "5%" or "10"' },
+      baselineTotal: { type: 'number', description: 'Baseline count for exceeded check' },
+      currentTotal: { type: 'number', description: 'Current count for exceeded check' },
+    },
+    required: ['root', 'toleranceStr'],
+  },
+  handler: async (params: { root: string; toleranceStr: string; baselineTotal?: number; currentTotal?: number }) => {
+    const { parseTolerance, toleranceExceeded, formatTolerance } = await import('@monoes/monograph');
+    const tol = parseTolerance(params.toleranceStr);
+    const result: Record<string, unknown> = { tolerance: tol, formatted: formatTolerance(tol) };
+    if (params.baselineTotal !== undefined && params.currentTotal !== undefined) {
+      result.exceeded = toleranceExceeded(tol, params.baselineTotal, params.currentTotal);
+      result.delta = params.currentTotal - params.baselineTotal;
+    }
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  },
+};
+
+const monographCrossReferenceFindingsTool: MCPTool = {
+  name: 'monograph_cross_reference_findings',
+  description: 'Cross-reference clone groups with dead code findings to identify duplicated code that is also unused — safe candidates for deletion.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      cloneGroups: { type: 'array', description: 'Array of {instances[]} clone groups', items: { type: 'object' } },
+      unusedFiles: { type: 'array', items: { type: 'string' }, description: 'Absolute paths of unused files' },
+      unusedExports: { type: 'array', items: { type: 'object' }, description: 'Array of {path, exportName, line}' },
+      unusedTypes: { type: 'array', items: { type: 'object' }, description: 'Array of {path, typeName, line}' },
+    },
+    required: ['root', 'cloneGroups'],
+  },
+  handler: async (params: { root: string; cloneGroups: unknown[]; unusedFiles?: string[]; unusedExports?: unknown[]; unusedTypes?: unknown[] }) => {
+    const { crossReference } = await import('@monoes/monograph');
+    const deadCode = {
+      unusedFiles: new Set(params.unusedFiles ?? []),
+      unusedExports: (params.unusedExports ?? []) as never,
+      unusedTypes: (params.unusedTypes ?? []) as never,
+    };
+    const result = crossReference({ cloneGroups: params.cloneGroups as never }, deadCode);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  },
+};
+
+const monographWatchRunnerTool: MCPTool = {
+  name: 'monograph_watch_runner',
+  description: 'Filter changed file paths to relevant source/config files for watch-mode analysis, or parse a list of raw paths into deduplicated relative paths.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      paths: { type: 'array', items: { type: 'string' }, description: 'Raw changed paths from the file watcher' },
+      action: { type: 'string', enum: ['collect', 'is-source', 'is-config'], description: 'Action' },
+      filePath: { type: 'string', description: 'Single file path for is-source/is-config check' },
+    },
+    required: ['root', 'action'],
+  },
+  handler: async (params: { root: string; paths?: string[]; action: string; filePath?: string }) => {
+    const { collectChangedPaths, isRelevantSource, isRelevantConfig } = await import('@monoes/monograph');
+    if (params.action === 'collect') return { content: [{ type: 'text', text: JSON.stringify(collectChangedPaths(params.paths ?? [], params.root)) }] };
+    if (params.action === 'is-source') return { content: [{ type: 'text', text: JSON.stringify({ isSource: isRelevantSource(params.filePath ?? '') }) }] };
+    return { content: [{ type: 'text', text: JSON.stringify({ isConfig: isRelevantConfig(params.filePath ?? '') }) }] };
+  },
+};
+
+const monographCodeownersExtendedTool: MCPTool = {
+  name: 'monograph_codeowners_extended',
+  description: 'Extended CODEOWNERS helpers: owner count, GitLab section name, and unowned/no-section labels for a given file path.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      relativePath: { type: 'string', description: 'Repo-relative file path to look up' },
+      action: { type: 'string', enum: ['owner-count', 'section', 'label', 'has-sections'], description: 'Action' },
+    },
+    required: ['root', 'action'],
+  },
+  handler: async (params: { root: string; relativePath?: string; action: string }) => {
+    const { UNOWNED_LABEL, NO_SECTION_LABEL } = await import('@monoes/monograph');
+    if (params.action === 'has-sections') return { content: [{ type: 'text', text: JSON.stringify({ hasSections: false, note: 'Requires a CodeOwnersLike instance at runtime' }) }] };
+    return { content: [{ type: 'text', text: JSON.stringify({ UNOWNED_LABEL, NO_SECTION_LABEL, note: 'Pass a CodeOwnersLike instance to ownerCountOf/sectionOf/ownerLabel at runtime' }) }] };
+  },
+};
+
+const monographHealthScoresTool: MCPTool = {
+  name: 'monograph_health_scores',
+  description: 'Compute health finding severity (moderate/high/critical) from cyclomatic, cognitive, and CRAP scores, or convert coverage percentage to a tier.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      action: { type: 'string', enum: ['severity', 'coverage-tier', 'exceeded-threshold'], description: 'Action' },
+      cognitive: { type: 'number' },
+      cyclomatic: { type: 'number' },
+      crap: { type: 'number' },
+      coveragePct: { type: 'number' },
+      cyclomaticExceeded: { type: 'boolean' },
+      cognitiveExceeded: { type: 'boolean' },
+      crapExceeded: { type: 'boolean' },
+    },
+    required: ['root', 'action'],
+  },
+  handler: async (params: { root: string; action: string; cognitive?: number; cyclomatic?: number; crap?: number; coveragePct?: number; cyclomaticExceeded?: boolean; cognitiveExceeded?: boolean; crapExceeded?: boolean }) => {
+    const { computeFindingSeverity, coverageTierFromPct, exceededThresholdFromBools } = await import('@monoes/monograph');
+    if (params.action === 'severity') {
+      const sev = computeFindingSeverity({ cognitive: params.cognitive ?? 0, cyclomatic: params.cyclomatic ?? 0, crap: params.crap });
+      return { content: [{ type: 'text', text: JSON.stringify({ severity: sev }) }] };
+    }
+    if (params.action === 'coverage-tier') {
+      return { content: [{ type: 'text', text: JSON.stringify({ tier: coverageTierFromPct(params.coveragePct ?? 0) }) }] };
+    }
+    const threshold = exceededThresholdFromBools(params.cyclomaticExceeded ?? false, params.cognitiveExceeded ?? false, params.crapExceeded ?? false);
+    return { content: [{ type: 'text', text: JSON.stringify({ exceededThreshold: threshold }) }] };
+  },
+};
+
+const monographHealthTrendTypesTool: MCPTool = {
+  name: 'monograph_health_trend_types',
+  description: 'Compute overall trend direction from a list of TrendMetric objects, or format a trend metric as a human-readable string with arrow indicator.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      metrics: { type: 'array', items: { type: 'object' }, description: 'Array of TrendMetric objects' },
+      action: { type: 'string', enum: ['overall-direction', 'format-metric', 'trend-arrow'], description: 'Action' },
+      metric: { type: 'object', description: 'Single TrendMetric to format' },
+      direction: { type: 'string', enum: ['improving', 'declining', 'stable'] },
+    },
+    required: ['root', 'action'],
+  },
+  handler: async (params: { root: string; metrics?: unknown[]; action: string; metric?: unknown; direction?: string }) => {
+    const { computeOverallDirection, formatTrendMetric, trendArrow } = await import('@monoes/monograph');
+    if (params.action === 'overall-direction') {
+      return { content: [{ type: 'text', text: JSON.stringify({ direction: computeOverallDirection((params.metrics ?? []) as never) }) }] };
+    }
+    if (params.action === 'format-metric' && params.metric) {
+      return { content: [{ type: 'text', text: formatTrendMetric(params.metric as never) }] };
+    }
+    return { content: [{ type: 'text', text: trendArrow((params.direction ?? 'stable') as never) }] };
+  },
+};
+
+const monographAnalysisProgressTool: MCPTool = {
+  name: 'monograph_analysis_progress',
+  description: 'Create an AnalysisProgress instance for TTY spinner output during multi-stage analysis pipelines. Returns metadata about the progress system.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      quiet: { type: 'boolean', description: 'When true, spinners are disabled' },
+    },
+    required: ['root'],
+  },
+  handler: async (params: { root: string; quiet?: boolean }) => {
+    const { AnalysisProgress } = await import('@monoes/monograph');
+    const p = new AnalysisProgress(!(params.quiet ?? false));
+    return { content: [{ type: 'text', text: JSON.stringify({ created: true, enabled: !(params.quiet ?? false), note: 'AnalysisProgress is a runtime TTY spinner; use createAnalysisProgress(quiet) in your code' }) }] };
+  },
+};
+
+const monographPipelinePerfTool: MCPTool = {
+  name: 'monograph_pipeline_perf',
+  description: 'Format pipeline performance timings as a box-drawing terminal table, or compute a one-line summary string.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      timings: { type: 'object', description: 'PipelineTimings object with per-stage millisecond values' },
+      action: { type: 'string', enum: ['lines', 'summary'], description: 'lines=full box, summary=one-liner' },
+    },
+    required: ['root', 'timings', 'action'],
+  },
+  handler: async (params: { root: string; timings: unknown; action: string }) => {
+    const { buildPipelinePerformanceLines, timingsSummary } = await import('@monoes/monograph');
+    if (params.action === 'summary') return { content: [{ type: 'text', text: timingsSummary(params.timings as never) }] };
+    return { content: [{ type: 'text', text: buildPipelinePerformanceLines(params.timings as never).join('\n') }] };
+  },
+};
+
+const monographTraceHumanTool: MCPTool = {
+  name: 'monograph_trace_human',
+  description: 'Print export, file, dependency, or clone trace results as ANSI-colored terminal output for human-readable investigation.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      kind: { type: 'string', enum: ['export', 'file', 'dependency', 'clone'], description: 'Trace kind' },
+      trace: { type: 'object', description: 'Trace data object' },
+    },
+    required: ['root', 'kind', 'trace'],
+  },
+  handler: async (params: { root: string; kind: string; trace: unknown }) => {
+    const { printExportTraceHuman, printFileTraceHuman, printDependencyTraceHuman, printCloneTraceHuman } = await import('@monoes/monograph');
+    if (params.kind === 'export') printExportTraceHuman(params.trace as never, params.root);
+    else if (params.kind === 'file') printFileTraceHuman(params.trace as never, params.root);
+    else if (params.kind === 'dependency') printDependencyTraceHuman(params.trace as never);
+    else if (params.kind === 'clone') printCloneTraceHuman(params.trace as never, params.root);
+    return { content: [{ type: 'text', text: `Printed ${params.kind} trace to stderr` }] };
+  },
+};
+
+const monographFixOrchestratorTool: MCPTool = {
+  name: 'monograph_fix_orchestrator',
+  description: 'Validate fix preconditions (TTY check, --yes flag, empty results) and summarize what runFix would do. Does not apply fixes itself — use monograph_fix_* tools for that.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      unusedExportsCount: { type: 'number' },
+      unusedDepsCount: { type: 'number' },
+      unusedEnumMembersCount: { type: 'number' },
+      dryRun: { type: 'boolean' },
+      yes: { type: 'boolean' },
+    },
+    required: ['root'],
+  },
+  handler: async (params: { root: string; unusedExportsCount?: number; unusedDepsCount?: number; unusedEnumMembersCount?: number; dryRun?: boolean; yes?: boolean }) => {
+    const total = (params.unusedExportsCount ?? 0) + (params.unusedDepsCount ?? 0) + (params.unusedEnumMembersCount ?? 0);
+    const needsYes = !params.dryRun && !params.yes;
+    return { content: [{ type: 'text', text: JSON.stringify({ total, needsYesFlag: needsYes, dryRun: params.dryRun ?? false, breakdown: { exports: params.unusedExportsCount ?? 0, deps: params.unusedDepsCount ?? 0, enumMembers: params.unusedEnumMembersCount ?? 0 } }) }] };
+  },
+};
+
+const monographSinceDurationTool: MCPTool = {
+  name: 'monograph_since_duration',
+  description: 'Parse a --since duration string (e.g. "6m", "90d", "2025-01-01") into a git-compatible --after value and human-readable display label.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      since: { type: 'string', description: 'Duration string: 6m, 90d, 2w, 1y, or YYYY-MM-DD' },
+    },
+    required: ['root', 'since'],
+  },
+  handler: async (params: { root: string; since: string }) => {
+    const { parseSince, sinceDurationToGitFlag } = await import('@monoes/monograph');
+    const parsed = parseSince(params.since);
+    return { content: [{ type: 'text', text: JSON.stringify({ ...parsed, gitFlag: sinceDurationToGitFlag(parsed) }) }] };
+  },
+};
+
+const monographCompactHealthTool: MCPTool = {
+  name: 'monograph_compact_health',
+  description: 'Serialize health report or duplication report as compact colon-delimited text lines for machine-readable output and CI parsing.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      kind: { type: 'string', enum: ['health', 'duplication'], description: 'Report kind' },
+      report: { type: 'object', description: 'CompactHealthReport or CompactDuplicationReport object' },
+    },
+    required: ['root', 'kind', 'report'],
+  },
+  handler: async (params: { root: string; kind: string; report: unknown }) => {
+    const { buildHealthCompactLines, buildDuplicationCompactLines } = await import('@monoes/monograph');
+    const lines = params.kind === 'duplication'
+      ? buildDuplicationCompactLines(params.report as never)
+      : buildHealthCompactLines(params.report as never);
+    return { content: [{ type: 'text', text: lines.join('\n') }] };
+  },
+};
+
+const monographCrossRefHumanTool: MCPTool = {
+  name: 'monograph_cross_ref_human',
+  description: 'Format cross-reference findings (duplicated + unused code) as human-readable terminal lines with file locations and dead-code reasons.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      findings: { type: 'array', items: { type: 'object' }, description: 'Array of CrossRefHumanFinding objects' },
+      clonesInUnusedFiles: { type: 'number', default: 0 },
+      clonesWithUnusedExports: { type: 'number', default: 0 },
+    },
+    required: ['root', 'findings'],
+  },
+  handler: async (params: { root: string; findings: unknown[]; clonesInUnusedFiles?: number; clonesWithUnusedExports?: number }) => {
+    const { buildCrossReferenceLines } = await import('@monoes/monograph');
+    const result = { findings: params.findings as never, clonesInUnusedFiles: params.clonesInUnusedFiles ?? 0, clonesWithUnusedExports: params.clonesWithUnusedExports ?? 0 };
+    const lines = buildCrossReferenceLines(result, params.root);
+    return { content: [{ type: 'text', text: lines.join('\n') }] };
+  },
+};
+
+const monographJsoncGenTool: MCPTool = {
+  name: 'monograph_jsonc_gen',
+  description: 'Generate a JSONC config file with schema header and migration comment, or strip JSONC comments from an existing config string.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      action: { type: 'string', enum: ['generate', 'strip-comments'], description: 'generate=produce JSONC, strip-comments=parse JSONC to JSON' },
+      config: { type: 'object', description: 'Config object for generate action' },
+      sources: { type: 'array', items: { type: 'string' }, description: 'Source file names for migration comment' },
+      input: { type: 'string', description: 'JSONC string for strip-comments action' },
+    },
+    required: ['root', 'action'],
+  },
+  handler: async (params: { root: string; action: string; config?: Record<string, unknown>; sources?: string[]; input?: string }) => {
+    const { generateJsonc, parseJsoncComments } = await import('@monoes/monograph');
+    if (params.action === 'generate') {
+      return { content: [{ type: 'text', text: generateJsonc(params.config ?? {}, params.sources ?? []) }] };
+    }
+    return { content: [{ type: 'text', text: JSON.stringify(parseJsoncComments(params.input ?? '{}'), null, 2) }] };
+  },
+};
+
+const monographTomlGenTool: MCPTool = {
+  name: 'monograph_toml_gen',
+  description: 'Generate a TOML config file from a monograph config object, with [rules] and [duplicates] section tables and a migration comment header.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      config: { type: 'object', description: 'Config object with entry, rules, duplicates etc.' },
+      sources: { type: 'array', items: { type: 'string' }, description: 'Source file names for migration comment' },
+    },
+    required: ['root', 'config'],
+  },
+  handler: async (params: { root: string; config: Record<string, unknown>; sources?: string[] }) => {
+    const { generateToml } = await import('@monoes/monograph');
+    return { content: [{ type: 'text', text: generateToml(params.config, params.sources ?? []) }] };
+  },
+};
+
+const monographWorkerPoolTool: MCPTool = {
+  name: 'monograph_worker_pool',
+  description: 'Configure the global worker thread pool for CPU-bound analysis tasks. Returns pool configuration metadata.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      threads: { type: 'number', description: 'Number of worker threads (default: CPU count)' },
+      stackSizeMb: { type: 'number', description: 'Stack size per worker in MB (default: 16)' },
+      action: { type: 'string', enum: ['configure', 'status', 'reset'], description: 'Action' },
+    },
+    required: ['root', 'action'],
+  },
+  handler: async (params: { root: string; threads?: number; stackSizeMb?: number; action: string }) => {
+    const { configureGlobalPool, getGlobalPool, resetGlobalPool } = await import('@monoes/monograph');
+    if (params.action === 'reset') { resetGlobalPool(); return { content: [{ type: 'text', text: 'Pool reset' }] }; }
+    if (params.action === 'configure') configureGlobalPool(params.threads, params.stackSizeMb);
+    const pool = getGlobalPool();
+    return { content: [{ type: 'text', text: JSON.stringify({ threads: pool.threads, stackSizeMb: pool.stackSizeMb }) }] };
+  },
+};
+
+const monographOwnershipMetricsTool: MCPTool = {
+  name: 'monograph_ownership_metrics',
+  description: 'Compute bus factor, suggest reviewers, and format ownership metrics from a list of contributor entries.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      contributors: { type: 'array', items: { type: 'object' }, description: 'Array of ContributorEntry objects with identifier, share, staleDays, commits, format' },
+      action: { type: 'string', enum: ['bus-factor', 'reviewers', 'format'], description: 'Action' },
+      topContributorIdentifier: { type: 'string', description: 'For reviewers: identifier of top contributor to exclude' },
+      metrics: { type: 'object', description: 'For format: OwnershipMetrics object' },
+    },
+    required: ['root', 'action'],
+  },
+  handler: async (params: { root: string; contributors?: unknown[]; action: string; topContributorIdentifier?: string; metrics?: unknown }) => {
+    const { computeBusFactor, filterSuggestedReviewers, formatOwnershipMetrics } = await import('@monoes/monograph');
+    if (params.action === 'bus-factor') {
+      return { content: [{ type: 'text', text: JSON.stringify({ busFactor: computeBusFactor((params.contributors ?? []) as never) }) }] };
+    }
+    if (params.action === 'reviewers') {
+      const top = (params.contributors ?? [])[0] as never ?? { identifier: params.topContributorIdentifier ?? '' };
+      const reviewers = filterSuggestedReviewers((params.contributors ?? []) as never, top);
+      return { content: [{ type: 'text', text: JSON.stringify(reviewers, null, 2) }] };
+    }
+    return { content: [{ type: 'text', text: formatOwnershipMetrics(params.metrics as never) }] };
+  },
+};
+
+const monographChurnTrendTool: MCPTool = {
+  name: 'monograph_churn_trend',
+  description: 'Classify churn trend direction (accelerating/stable/cooling) from commit timestamps using the temporal-midpoint split algorithm.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      timestamps: { type: 'array', items: { type: 'number' }, description: 'Array of epoch-second timestamps from git log' },
+      action: { type: 'string', enum: ['trend', 'label', 'multi-file'], description: 'trend=ChurnTrend, label=string, multi-file=aggregate across file series' },
+      fileSeries: { type: 'array', items: { type: 'array', items: { type: 'number' } }, description: 'For multi-file: array of timestamp arrays (one per file)' },
+    },
+    required: ['root', 'action'],
+  },
+  handler: async (params: { root: string; timestamps?: number[]; action: string; fileSeries?: number[][] }) => {
+    const { computeChurnTrend, churnTrendLabel, churnTrendFromFileSeries } = await import('@monoes/monograph');
+    if (params.action === 'multi-file') {
+      const trend = churnTrendFromFileSeries(params.fileSeries ?? []);
+      return { content: [{ type: 'text', text: JSON.stringify({ trend, label: churnTrendLabel(trend) }) }] };
+    }
+    const trend = computeChurnTrend(params.timestamps ?? []);
+    if (params.action === 'label') return { content: [{ type: 'text', text: churnTrendLabel(trend) }] };
+    return { content: [{ type: 'text', text: JSON.stringify({ trend, label: churnTrendLabel(trend) }) }] };
+  },
+};
+
 const monographHotPathsTool: MCPTool = {
   name: 'monograph_hot_paths',
   description: 'Build CLI args for monograph hot-paths, blast-radius, importance, and cleanup-candidates sub-commands.',
@@ -4362,4 +4816,24 @@ export const monographTools: MCPTool[] = [
   monographHealthMarkdownTool,
   monographMigrateKnipExtTool,
   monographHotPathsTool,
+  monographChurnCacheTool,
+  monographSuppressionContextTool,
+  monographToleranceTool,
+  monographCrossReferenceFindingsTool,
+  monographWatchRunnerTool,
+  monographCodeownersExtendedTool,
+  monographHealthScoresTool,
+  monographHealthTrendTypesTool,
+  monographAnalysisProgressTool,
+  monographPipelinePerfTool,
+  monographTraceHumanTool,
+  monographFixOrchestratorTool,
+  monographSinceDurationTool,
+  monographCompactHealthTool,
+  monographCrossRefHumanTool,
+  monographJsoncGenTool,
+  monographTomlGenTool,
+  monographWorkerPoolTool,
+  monographOwnershipMetricsTool,
+  monographChurnTrendTool,
 ];
