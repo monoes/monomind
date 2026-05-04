@@ -1,35 +1,18 @@
+---
+name: sparc:workflow-manager
+description: Workflow Manager - Process automation with TodoWrite planning and Task execution. Pipeline creation, event handling, and state management.
+---
+
 # SPARC Workflow Manager Mode
 
 ## Purpose
 Process automation with TodoWrite planning and Task execution.
 
-## Activation
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "workflow-manager",
-  task_description: "automate deployment",
-  options: {
-    pipeline: "ci-cd",
-    rollback_enabled: true
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run workflow-manager "automate deployment"
-
-# For alpha features
-npx monomind@alpha sparc run workflow-manager "automate deployment"
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run workflow-manager "automate deployment"
+Skill("sparc:workflow-manager")
 ```
 
 ## Core Capabilities

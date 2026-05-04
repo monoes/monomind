@@ -1,35 +1,18 @@
+---
+name: sparc:researcher
+description: Researcher - Deep research with parallel WebSearch/WebFetch and Memory coordination. Academic papers, industry reports, trend analysis, and competitive research.
+---
+
 # SPARC Researcher Mode
 
 ## Purpose
 Deep research with parallel WebSearch/WebFetch and Memory coordination.
 
-## Activation
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "researcher",
-  task_description: "research AI trends 2024",
-  options: {
-    depth: "comprehensive",
-    sources: ["academic", "industry", "news"]
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run researcher "research AI trends 2024"
-
-# For alpha features
-npx monomind@alpha sparc run researcher "research AI trends 2024"
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run researcher "research AI trends 2024"
+Skill("sparc:researcher")
 ```
 
 ## Core Capabilities

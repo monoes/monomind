@@ -12,19 +12,19 @@ Advanced multi-repository coordination system that combines swarm intelligence, 
 
 ## Core Capabilities
 
-### 🔄 Multi-Repository Swarm Coordination
+### Multi-Repository Swarm Coordination
 
 Cross-repository AI swarm orchestration for distributed development workflows.
 
-### 📦 Package Synchronization
+### Package Synchronization
 
 Intelligent dependency resolution and version alignment across multiple packages.
 
-### 🏗️ Repository Architecture
+### Repository Architecture
 
 Structure optimization and template management for scalable projects.
 
-### 🔗 Integration Management
+### Integration Management
 
 Cross-package integration testing and deployment coordination.
 
@@ -51,7 +51,7 @@ npx monomind skill run github-multi-repo init \
 ```bash
 # Synchronize package versions and dependencies
 npx monomind skill run github-multi-repo sync \
-  --packages "claude-code-flow,ruv-swarm" \
+  --packages "@monomind/cli,@monomind/memory" \
   --align-versions \
   --update-docs
 ```
@@ -151,8 +151,8 @@ mcp__monomind__swarm_init({
   Task("Integration Tester", "Validate synchronization", "tester")
 
   // Read package states
-  Read("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow/package.json")
-  Read("/workspaces/ruv-FANN/ruv-swarm/npm/package.json")
+  Read("packages/@monomind/cli/package.json")
+  Read("packages/@monomind/memory/package.json")
 
   // Align versions using gh CLI
   Bash(`gh api repos/:owner/:repo/git/refs \
@@ -167,14 +167,14 @@ mcp__monomind__swarm_init({
     -f content="$(cat aligned-package.json | base64)"`)
 
   // Store sync state
-  mcp__monomind__memory_usage({
-    action: "store",
+  // Store sync state via memory tool
+  mcp__monomind__memory_store({
     key: "sync/packages/status",
-    value: {
+    value: JSON.stringify({
       timestamp: Date.now(),
-      packages_synced: ["claude-code-flow", "ruv-swarm"],
+      packages_synced: ["@monomind/cli", "@monomind/memory"],
       status: "synchronized"
-    }
+    })
   })
 ```
 
@@ -184,21 +184,21 @@ mcp__monomind__swarm_init({
 // Synchronize CLAUDE.md files across packages
 [Documentation Sync]:
   // Get source documentation
-  Bash(`gh api repos/:owner/:repo/contents/ruv-swarm/docs/CLAUDE.md \
+  Bash(`gh api repos/:owner/:repo/contents/packages/%40monomind/memory/CLAUDE.md \
     --jq '.content' | base64 -d > /tmp/claude-source.md`)
 
   // Update target documentation
-  Bash(`gh api repos/:owner/:repo/contents/claude-code-flow/CLAUDE.md \
+  Bash(`gh api repos/:owner/:repo/contents/packages/%40monomind/cli/CLAUDE.md \
     --method PUT \
     -f message="docs: Synchronize CLAUDE.md" \
     -f branch="sync/documentation" \
     -f content="$(cat /tmp/claude-source.md | base64)"`)
 
   // Track sync status
-  mcp__monomind__memory_usage({
-    action: "store",
+  // Store sync status via memory tool
+  mcp__monomind__memory_store({
     key: "sync/documentation/status",
-    value: { status: "synchronized", files: ["CLAUDE.md"] }
+    value: JSON.stringify({ status: "synchronized", files: ["CLAUDE.md"] })
   })
 ```
 
@@ -212,11 +212,11 @@ mcp__monomind__swarm_init({
     branch: "feature/github-integration",
     files: [
       {
-        path: "claude-code-flow/.claude/commands/github/github-modes.md",
+        path: "packages/@monomind/cli/.claude/commands/github/github-modes.md",
         content: "[GitHub modes documentation]"
       },
       {
-        path: "ruv-swarm/src/github-coordinator/hooks.js",
+        path: "packages/@monomind/hooks/src/github-coordinator/hooks.js",
         content: "[GitHub coordination hooks]"
       }
     ],
@@ -226,12 +226,12 @@ mcp__monomind__swarm_init({
   // Create coordinated PR
   Bash(`gh pr create \
     --title "Feature: GitHub Workflow Integration" \
-    --body "## 🚀 GitHub Integration
+    --body "## GitHub Integration
 
 ### Features
-- ✅ Multi-repo coordination
-- ✅ Package synchronization
-- ✅ Architecture optimization
+- Multi-repo coordination
+- Package synchronization
+- Architecture optimization
 
 ### Testing
 - [x] Package dependency verification
@@ -256,8 +256,8 @@ mcp__monomind__swarm_init({
   Task("Best Practices Researcher", "Research architecture patterns", "researcher")
 
   // Analyze current structures
-  LS("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow")
-  LS("/workspaces/ruv-FANN/ruv-swarm/npm")
+  LS("packages/@monomind/cli")
+  LS("packages/@monomind/memory")
 
   // Search for best practices
   Bash(`gh search repos "language:javascript template architecture" \
@@ -267,14 +267,14 @@ mcp__monomind__swarm_init({
     --order desc`)
 
   // Store analysis results
-  mcp__monomind__memory_usage({
-    action: "store",
+  // Store analysis results via memory tool
+  mcp__monomind__memory_store({
     key: "architecture/analysis/results",
-    value: {
-      repositories_analyzed: ["claude-code-flow", "ruv-swarm"],
+    value: JSON.stringify({
+      repositories_analyzed: ["@monomind/cli", "@monomind/memory"],
       optimization_areas: ["structure", "workflows", "templates"],
       recommendations: ["standardize_structure", "improve_workflows"]
-    }
+    })
   })
 ```
 
@@ -304,9 +304,9 @@ mcp__monomind__swarm_init({
         content: JSON.stringify({
           version: "1.0",
           mcp_servers: {
-            "ruv-swarm": {
+            "monomind": {
               command: "npx",
-              args: ["ruv-swarm", "mcp", "start"]
+              args: ["monomind@latest", "mcp", "start"]
             }
           }
         })
@@ -320,7 +320,7 @@ mcp__monomind__swarm_init({
         content: JSON.stringify({
           name: "claude-project-template",
           engines: { node: ">=20.0.0" },
-          dependencies: { "ruv-swarm": "^1.0.11" }
+          dependencies: { "monomind": "^1.8.0" }
         })
       }
     ],
@@ -333,12 +333,12 @@ mcp__monomind__swarm_init({
 ```javascript
 // Synchronize structure across repositories
 [Structure Standardization]:
-  const repositories = ["claude-code-flow", "ruv-swarm", "claude-extensions"]
+  const repositories = ["@monomind/cli", "@monomind/memory", "@monomind/hooks"]
 
   // Update common files across all repositories
   repositories.forEach(repo => {
     mcp__github__create_or_update_file({
-      repo: "ruv-FANN",
+      repo: "monomind",
       path: `${repo}/.github/workflows/integration.yml`,
       content: `name: Integration Tests
 on: [push, pull_request]
@@ -400,7 +400,7 @@ Part of #$TRACKING_ISSUE"
         --label "dependencies"
     else
       gh issue comment $TRACKING_ISSUE \
-        --body "❌ Failed to update $repo - tests failing"
+        --body "Failed to update $repo - tests failing"
     fi
   done`)
 ```
@@ -421,11 +421,8 @@ Part of #$TRACKING_ISSUE"
   Task("Integration Tester", "Validate refactored code", "tester")
 
   // Execute refactoring
-  mcp__monomind__task_orchestrate({
-    task: "Rename OldAPI to NewAPI across all repositories",
-    strategy: "sequential",
-    priority: "high"
-  })
+  // Orchestrate via Task tool
+  Task("API Migration", "Rename OldAPI to NewAPI across all repositories", "coordinator")
 ```
 
 #### Security Updates
@@ -521,7 +518,7 @@ dependencies:
 ### 1. Webhook-Based Coordination
 
 ```javascript
-const { MultiRepoSwarm } = require("ruv-swarm");
+const { MultiRepoSwarm } = require("@monomind/cli");
 
 const swarm = new MultiRepoSwarm({
   webhook: {
@@ -636,15 +633,14 @@ npx monomind skill run github-multi-repo org-policy \
 ### Monorepo Structure
 
 ```
-ruv-FANN/
+monomind/
 ├── packages/
-│   ├── claude-code-flow/
+│   ├── @monomind/cli/
 │   │   ├── src/
 │   │   ├── .claude/
 │   │   └── package.json
-│   ├── ruv-swarm/
+│   ├── @monomind/memory/
 │   │   ├── src/
-│   │   ├── wasm/
 │   │   └── package.json
 │   └── shared/
 │       ├── types/

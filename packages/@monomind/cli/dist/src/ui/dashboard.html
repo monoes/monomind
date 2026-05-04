@@ -2047,64 +2047,61 @@
           <div class="mg-feature-card" style="border-color:rgba(123,97,255,0.4)"><div class="mg-card-name">Detect Changes</div><div class="mg-card-desc">Maps git diff changed files → graph nodes + 1-level dependents.</div><span class="mg-card-badge">monograph_detect_changes</span></div>
         </div>
 
-        <div class="mg-section-title" style="color:rgba(255,160,0,0.9);border-bottom-color:rgba(255,160,0,0.3);">⚡ Fallow Analysis Engine — Dead Code, Duplication &amp; Health (Rounds 1–17)</div>
-        <div style="font-size:9px;color:var(--muted);margin:-6px 0 10px;letter-spacing:0.04em;">480 Rust source files ported to TypeScript · 95+ new modules · 60+ MCP tools</div>
-
-        <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:rgba(255,160,0,0.6);margin-bottom:6px;text-transform:uppercase;">Dead Code Analysis</div>
-        <div class="mg-feature-grid" style="margin-bottom:12px;">
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Unused Exports</div><div class="mg-card-desc">Reference-set inversion over ModuleNode graph — finds every export not consumed by any reachable file. Handles re-exports, type-only guards, and CJS modules.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_unused_exports</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Unused Files</div><div class="mg-card-desc">Graph-reachability scan from all entry points — files with no reachable importer are flagged. Integrates with suppress rules and plugin-provided entry patterns.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">analyze/unused-files.ts</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Unused Dependencies</div><div class="mg-card-desc">Correlates npm package names against actual imports across the module graph. Finds unused, unresolved, and type-only dependencies.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">analyze/unused-deps.ts</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Boundary Violations</div><div class="mg-card-desc">Zone classification with caching + isImportAllowed edge checking. Supports 4 presets: layered, hexagonal, feature-sliced, bulletproof.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_boundary_analysis</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Graph Reachability</div><div class="mg-card-desc">Marks reachable/runtime-reachable/test-reachable flags on all ModuleNodes from entry points using BFS. collectUnreachable enumerates dead files.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_graph_reachability</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Cycle Detection (Tarjan)</div><div class="mg-card-desc">Iterative Tarjan SCC for circular dependency detection — no recursion stack overflow on large graphs. Returns CycleGroup arrays sorted by size.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_find_cycles</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Narrowing (Namespace Imports)</div><div class="mg-card-desc">Tracks member accesses on namespace imports, marks all-exports-referenced, and prunes unused import bindings from the symbol set.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">graph/narrowing.ts</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Suppression System</div><div class="mg-card-desc">FallowIssueKind (20 variants) with discriminant round-trip encoding for compact storage. Detects file-wide vs line-level suppression comments.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_fallow_suppression</span></div>
+        <div class="mg-section-title">Dead Code Analysis</div>
+        <div class="mg-feature-grid">
+          <div class="mg-feature-card"><div class="mg-card-name">Unused Exports</div><div class="mg-card-desc">Reference-set inversion over the module graph — finds every export not consumed by any reachable file. Handles re-exports, type-only guards, and CJS modules.</div><span class="mg-card-badge">monograph_unlinked_refs</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Unused Files</div><div class="mg-card-desc">Graph-reachability scan from all entry points — files with no reachable importer are flagged. Integrates with suppress rules and plugin-provided entry patterns.</div><span class="mg-card-badge">analyze/unused-files.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Unused Dependencies</div><div class="mg-card-desc">Correlates npm package names against actual imports across the module graph. Finds unused, unresolved, and type-only dependencies.</div><span class="mg-card-badge">analyze/unused-deps.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Boundary Violations</div><div class="mg-card-desc">Zone classification with caching + isImportAllowed edge checking. Supports 4 presets: layered, hexagonal, feature-sliced, bulletproof.</div><span class="mg-card-badge">monograph_boundary_check</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Graph Reachability</div><div class="mg-card-desc">Marks reachable/runtime-reachable/test-reachable flags on all module nodes from entry points using BFS. collectUnreachable enumerates dead files.</div><span class="mg-card-badge">monograph_reachability</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Cycle Detection (Tarjan)</div><div class="mg-card-desc">Iterative Tarjan SCC for circular dependency detection — no recursion stack overflow on large graphs. Returns cycle groups sorted by size.</div><span class="mg-card-badge">monograph_find_cycles</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Namespace Import Narrowing</div><div class="mg-card-desc">Tracks member accesses on namespace imports, marks all-exports-referenced, and prunes unused import bindings from the symbol set.</div><span class="mg-card-badge">graph/narrowing.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Suppression System</div><div class="mg-card-desc">IssueKind (20 variants) with discriminant round-trip encoding for compact storage. Detects file-wide vs line-level suppression comments.</div><span class="mg-card-badge">monograph_suppress</span></div>
         </div>
 
-        <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:rgba(255,160,0,0.6);margin-bottom:6px;text-transform:uppercase;">Duplication Detection Pipeline</div>
-        <div class="mg-feature-grid" style="margin-bottom:12px;">
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Suffix Array (O(N log N))</div><div class="mg-card-desc">Prefix-doubling suffix array construction for exact clone detection. Paired with Kasai's O(N) LCP array algorithm for longest common prefix.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_suffix_array_pipeline</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Shingle Filter</div><div class="mg-card-desc">MinHash-inspired k-shingle pre-filter that narrows candidate pairs before the expensive suffix-array pass. Configurable shingle size.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_shingle_filter</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Clone Group Extraction</div><div class="mg-card-desc">Extracts RawInstance/RawGroup pairs from LCP array using the suffix + threshold approach. Handles overlapping spans with IntervalIndex deduplication.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">duplicates/detect/extraction.ts</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Clone Families</div><div class="mg-card-desc">Groups clone instances by file-set key into families, generates refactoring suggestions: ExtractFunction / ExtractModule / MergeDirectories.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_clone_families</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Mirrored Directories</div><div class="mg-card-desc">Pairs directories whose file sets overlap (Jaccard ≥ 0.5) — identifies copy-paste directory structures that should be merged.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_mirrored_families</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Duplication Stats</div><div class="mg-card-desc">Per-file deduplicated line sets (no double-counting), duplicated token counting, and duplication % across the full pipeline.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">graph/duplication-stats.ts</span></div>
+        <div class="mg-section-title">Duplication Detection</div>
+        <div class="mg-feature-grid">
+          <div class="mg-feature-card"><div class="mg-card-name">Suffix Array (O(N log N))</div><div class="mg-card-desc">Prefix-doubling suffix array construction for exact clone detection. Paired with Kasai's O(N) LCP array algorithm for longest common prefix.</div><span class="mg-card-badge">monograph_clone_detect</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Shingle Filter</div><div class="mg-card-desc">MinHash-inspired k-shingle pre-filter that narrows candidate pairs before the expensive suffix-array pass. Configurable shingle size.</div><span class="mg-card-badge">duplicates/detect/filtering.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Clone Group Extraction</div><div class="mg-card-desc">Extracts raw instance/group pairs from LCP array using the suffix + threshold approach. Handles overlapping spans with interval deduplication.</div><span class="mg-card-badge">duplicates/detect/extraction.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Clone Families</div><div class="mg-card-desc">Groups clone instances by file-set key into families, generates refactoring suggestions: ExtractFunction / ExtractModule / MergeDirectories.</div><span class="mg-card-badge">monograph_similar_files</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Mirrored Directories</div><div class="mg-card-desc">Pairs directories whose file sets overlap (Jaccard ≥ 0.5) — identifies copy-paste directory structures that should be merged.</div><span class="mg-card-badge">monograph_mirrored_dirs</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Duplication Stats</div><div class="mg-card-desc">Per-file deduplicated line sets (no double-counting), duplicated token counting, and duplication % across the full pipeline.</div><span class="mg-card-badge">graph/duplication-stats.ts</span></div>
         </div>
 
-        <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:rgba(255,160,0,0.6);margin-bottom:6px;text-transform:uppercase;">Health Scoring</div>
-        <div class="mg-feature-grid" style="margin-bottom:12px;">
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Vital Signs</div><div class="mg-card-desc">0–100 health score from complexity, maintainability, duplication, dead-code penalties. JSONL snapshot persistence with trend detection (improving/degrading/stable).</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_vital_signs_score</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Hotspot Scoring</div><div class="mg-card-desc">Composite hotspot score from churn × complexity. NormalizationMaxima computation + normalizeHotspotScore for cross-project comparison.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_health_scoring</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Ownership Risk</div><div class="mg-card-desc">Bus factor computation with bot-pattern filtering. Identifies single-owner files and computes OwnershipRisk from git-blame contributor records.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_ownership_risk</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Effort Estimation</div><div class="mg-card-desc">Converts duplicated line count to effort (hours/days) and confidence level using log-scale calibrated thresholds from the Fallow model.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">health/target-types.ts</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Health Grouping</div><div class="mg-card-desc">Groups files by owner, computes per-group aggregate scores, and builds a HealthGrouping for team-level health dashboards.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">health/health-grouping.ts</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Scoring Types</div><div class="mg-card-desc">CRAP score density, dead-code ratio, and Maintainability Index (171 − 5.2·ln(V) − 0.23·G − 16.2·ln(L)) per file.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">health/scoring-types.ts</span></div>
+        <div class="mg-section-title">Health Scoring</div>
+        <div class="mg-feature-grid">
+          <div class="mg-feature-card"><div class="mg-card-name">Vital Signs</div><div class="mg-card-desc">0–100 health score from complexity, maintainability, duplication, dead-code penalties. JSONL snapshot persistence with trend detection (improving/degrading/stable).</div><span class="mg-card-badge">monograph_vital_signs_snapshot</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Hotspot Scoring</div><div class="mg-card-desc">Composite hotspot score from churn × complexity. Normalization maxima computation + normalizeHotspotScore for cross-project comparison.</div><span class="mg-card-badge">monograph_hotspots</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Ownership Risk</div><div class="mg-card-desc">Bus factor computation with bot-pattern filtering. Identifies single-owner files and computes ownership risk from git-blame contributor records.</div><span class="mg-card-badge">monograph_codeowners</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Effort Estimation</div><div class="mg-card-desc">Converts duplicated line count to effort (hours/days) and confidence level using log-scale calibrated thresholds.</div><span class="mg-card-badge">health/target-types.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Health Grouping</div><div class="mg-card-desc">Groups files by owner, computes per-group aggregate scores, and builds a health grouping for team-level health dashboards.</div><span class="mg-card-badge">health/health-grouping.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Scoring Types</div><div class="mg-card-desc">CRAP score density, dead-code ratio, and Maintainability Index (171 − 5.2·ln(V) − 0.23·G − 16.2·ln(L)) per file.</div><span class="mg-card-badge">monograph_maintainability</span></div>
         </div>
 
-        <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:rgba(255,160,0,0.6);margin-bottom:6px;text-transform:uppercase;">Terminal Formatters</div>
-        <div class="mg-feature-grid" style="margin-bottom:12px;">
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Check Report Formatter</div><div class="mg-card-desc">buildCheckHumanLines: grouped/truncated sections for unused files, exports, deps, members, unresolved imports. Category headers with item counts.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_check_human</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Duplication Formatter</div><div class="mg-card-desc">buildDuplicationFamilyLines: clone groups sorted by line count, instance listings with file:start-end format, stats summary, suggestions.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_dupes_human</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Health Report Formatter</div><div class="mg-card-desc">buildHealthHumanLines: vital signs with OK/WARNING/CRITICAL indicators, top N hotspot table, coverage gap listings, configurable limits.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_health_human</span></div>
+        <div class="mg-section-title">Report Formatters</div>
+        <div class="mg-feature-grid">
+          <div class="mg-feature-card"><div class="mg-card-name">Check Report Formatter</div><div class="mg-card-desc">buildCheckHumanLines: grouped/truncated sections for unused files, exports, deps, members, unresolved imports. Category headers with item counts.</div><span class="mg-card-badge">report/human-check.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Duplication Formatter</div><div class="mg-card-desc">buildDuplicationFamilyLines: clone groups sorted by line count, instance listings with file:start-end format, stats summary, suggestions.</div><span class="mg-card-badge">report/human-dupes.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Health Report Formatter</div><div class="mg-card-desc">buildHealthHumanLines: vital signs with OK/WARNING/CRITICAL indicators, top N hotspot table, coverage gap listings, configurable limits.</div><span class="mg-card-badge">report/human-health.ts</span></div>
         </div>
 
-        <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:rgba(255,160,0,0.6);margin-bottom:6px;text-transform:uppercase;">Config, Plugins &amp; Discover</div>
-        <div class="mg-feature-grid" style="margin-bottom:12px;">
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Built-in Plugin Registry</div><div class="mg-card-desc">30 built-in plugins (eslint, jest, vitest, prettier, vite, webpack, storybook, nx, turborepo, playwright, cypress, husky, docker, vercel, netlify, …). Prevents false positives on tool config files. 60 ALWAYS_DEV_TOOLING prefixes.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_plugin_registry</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Boundary Config</div><div class="mg-card-desc">4 architecture presets (layered, hexagonal, feature-sliced, bulletproof) with full zone/rule resolution. isImportAllowed checks any cross-file import against the active preset.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_boundary_config</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Config File Parser</div><div class="mg-card-desc">Walk-up VCS-stop config file discovery, JSON/JSONC/TOML format detection, JSONC comment stripping, sourceRoot auto-detection from src/lib/app.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_config_parsing</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Infrastructure Entry Points</div><div class="mg-card-desc">Scans Dockerfile, Procfile, fly.toml, render.yaml, railway.toml for CMD/ENTRYPOINT/command references to .js/.ts files. Prevents false unreachability reports.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_infra_entries</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Entry Point Categorization</div><div class="mg-card-desc">Classifies entry points as app/lib/bin/test/infra with formatSkippedEntryWarning and deduplication by canonical path.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">discover/entry-points.ts</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Output Format Parser</div><div class="mg-card-desc">Parses FallowOutputFormat strings with CLI alias normalisation (codeclimate → code-climate). isFallowOutputFormat for validation.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_output_format</span></div>
+        <div class="mg-section-title">Config, Plugins &amp; Discovery</div>
+        <div class="mg-feature-grid">
+          <div class="mg-feature-card"><div class="mg-card-name">Built-in Plugin Registry</div><div class="mg-card-desc">30 built-in plugins (eslint, jest, vitest, prettier, vite, webpack, storybook, nx, turborepo, playwright, cypress, husky, docker, vercel, netlify, …). Prevents false positives on tool config files. 60 always-dev-tooling prefixes.</div><span class="mg-card-badge">config/plugins/builtin.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Boundary Config</div><div class="mg-card-desc">4 architecture presets (layered, hexagonal, feature-sliced, bulletproof) with full zone/rule resolution. isImportAllowed checks any cross-file import against the active preset.</div><span class="mg-card-badge">monograph_boundary_check</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Config File Parser</div><div class="mg-card-desc">Walk-up VCS-stop config file discovery, JSON/JSONC/TOML format detection, JSONC comment stripping, sourceRoot auto-detection from src/lib/app.</div><span class="mg-card-badge">config/config-parsing.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Infrastructure Entry Points</div><div class="mg-card-desc">Scans Dockerfile, Procfile, fly.toml, render.yaml, railway.toml for CMD/ENTRYPOINT/command references to .js/.ts files. Prevents false unreachability reports.</div><span class="mg-card-badge">discover/infrastructure-entries.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Entry Point Categorization</div><div class="mg-card-desc">Classifies entry points as app/lib/bin/test/infra with formatSkippedEntryWarning and deduplication by canonical path.</div><span class="mg-card-badge">discover/entry-points.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Output Format Parser</div><div class="mg-card-desc">Parses output format strings with CLI alias normalisation (codeclimate → code-climate). Validates against all supported output format variants.</div><span class="mg-card-badge">config/output-format.ts</span></div>
         </div>
 
-        <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:rgba(255,160,0,0.6);margin-bottom:6px;text-transform:uppercase;">Fix, Actions &amp; Baseline</div>
-        <div class="mg-feature-grid" style="margin-bottom:12px;">
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Export Surgery</div><div class="mg-card-desc">Surgical removal of a specific name from export { a, b, unusedName } lists — without deleting the entire statement. Handles aliases, type exports, multi-line spans, and batched multi-surgery.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_export_surgery</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">JSON Action Specs</div><div class="mg-card-desc">Machine-readable action objects: delete-file, remove-export, export-type, remove-dependency, add-suppression. buildActionsFor* helpers produce the full action list per issue type.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_json_actions</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Baseline Deltas</div><div class="mg-card-desc">Unified cross-category issue diffing: CategoryDelta per issue type, filterNewIssues removes anything already in baseline, formatBaselineDeltas produces human-readable summary lines.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_baseline_deltas</span></div>
-          <div class="mg-feature-card" style="border-color:rgba(255,160,0,0.35)"><div class="mg-card-name">Fallow Analysis Results</div><div class="mg-card-desc">25-type complete result system: FallowAnalysisResults with 17 arrays. makeEmptyFallowResults, totalFallowIssues, hasFallowIssues, sortFallowResults.</div><span class="mg-card-badge" style="color:rgba(255,160,0,0.8);">monograph_fallow_results</span></div>
+        <div class="mg-section-title">Fix, Actions &amp; Baseline</div>
+        <div class="mg-feature-grid">
+          <div class="mg-feature-card"><div class="mg-card-name">Export Surgery</div><div class="mg-card-desc">Surgical removal of a specific name from export { a, b, unusedName } lists — without deleting the entire statement. Handles aliases, type exports, multi-line spans, and batched multi-surgery.</div><span class="mg-card-badge">fix/export-surgery.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">JSON Action Specs</div><div class="mg-card-desc">Machine-readable action objects: delete-file, remove-export, export-type, remove-dependency, add-suppression. buildActionsFor* helpers produce the full action list per issue type.</div><span class="mg-card-badge">report/json-actions.ts</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Baseline Deltas</div><div class="mg-card-desc">Unified cross-category issue diffing: CategoryDelta per issue type, filterNewIssues removes anything already in baseline, formatBaselineDeltas produces human-readable summary lines.</div><span class="mg-card-badge">monograph_baseline_compare</span></div>
+          <div class="mg-feature-card"><div class="mg-card-name">Analysis Result Set</div><div class="mg-card-desc">25-type complete result system with 17 issue arrays. makeEmptyResults, totalIssues, hasIssues, sortResults helpers for composing multi-pass analysis output.</div><span class="mg-card-badge">results/analysis-results.ts</span></div>
         </div>
 
         <div class="mg-section-title">Export Formats</div>
@@ -2202,6 +2199,26 @@
           <div style="font-family:'Azeret Mono',monospace;font-size:8px;letter-spacing:0.1em;color:var(--muted);padding:12px 6px 8px;text-transform:uppercase;border-top:1px solid var(--border);margin-top:8px;">Quality</div>
           <button class="mg-analyze-btn" onclick="runMonographAnalysis('cohesion')">Community Cohesion</button>
           <button class="mg-analyze-btn" onclick="runMonographAnalysis('bridges')">Bridge Nodes</button>
+          <div style="font-family:'Azeret Mono',monospace;font-size:8px;letter-spacing:0.1em;color:var(--muted);padding:12px 6px 8px;text-transform:uppercase;border-top:1px solid var(--border);margin-top:8px;">Dead Code</div>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('unlinked_refs')">Unlinked Refs</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('boundary_check')">Boundary Violations</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('reachability')">Reachability</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('regression_check')">Regression Check</button>
+          <div style="font-family:'Azeret Mono',monospace;font-size:8px;letter-spacing:0.1em;color:var(--muted);padding:12px 6px 8px;text-transform:uppercase;border-top:1px solid var(--border);margin-top:8px;">Duplication</div>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('clone_detect')">Clone Detection</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('similar_files')">Similar Files</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('mirrored_dirs')">Mirrored Dirs</button>
+          <div style="font-family:'Azeret Mono',monospace;font-size:8px;letter-spacing:0.1em;color:var(--muted);padding:12px 6px 8px;text-transform:uppercase;border-top:1px solid var(--border);margin-top:8px;">Health &amp; Quality</div>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('health_score')">Health Score</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('vital_signs')">Vital Signs</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('health_trend')">Health Trend</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('hotspots')">Hotspots</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('maintainability')">Maintainability Index</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('complexity')">Complexity</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('crap_score')">CRAP Score</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('risk_profile')">Risk Profile</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('baseline_compare')">Baseline Compare</button>
+          <button class="mg-analyze-btn" onclick="runMonographAnalysis('author_analytics')">Author Analytics</button>
         </div>
         <div id="mg-analyze-result"><span style="color:var(--border);">SELECT AN ANALYSIS →</span></div>
       </div>
@@ -6060,7 +6077,7 @@ function renderMonographTab(tab) {
 
 window.runMonographAnalysis = function(type) {
   document.querySelectorAll('.mg-analyze-btn').forEach(b => {
-    const m = (b.getAttribute('onclick') || '').match(/'(\w+)'/);
+    const m = (b.getAttribute('onclick') || '').match(/'([\w]+)'/);
     b.classList.toggle('active', !!(m && m[1] === type));
   });
   const result = document.getElementById('mg-analyze-result');
@@ -6250,6 +6267,148 @@ window.runMonographAnalysis = function(type) {
       .then(data => {
         const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
         result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+
+  // ── Dead Code Analysis ───────────────────────────────────────────────────
+  } else if (type === 'unlinked_refs') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Scanning for unlinked references…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_unlinked_refs', input:{ limit: 50 } }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'boundary_check') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Checking boundary violations…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_boundary_check', input:{} }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'reachability') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Analysing reachability from entry points…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_reachability', input:{} }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'regression_check') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Comparing against saved baseline…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_regression_check', input:{} }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+
+  // ── Duplication Detection ────────────────────────────────────────────────
+  } else if (type === 'clone_detect') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Running suffix-array clone detection…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_clone_detect', input:{ minLines: 6, limit: 30 } }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'similar_files') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Finding structurally similar files…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_similar_files', input:{ limit: 20 } }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'mirrored_dirs') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Detecting mirrored directory families…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_mirrored_dirs', input:{} }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+
+  // ── Health & Quality ─────────────────────────────────────────────────────
+  } else if (type === 'health_score') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Computing health score…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_health_score', input:{} }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'vital_signs') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Snapshotting vital signs…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_vital_signs_snapshot', input:{} }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'health_trend') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Loading health trend…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_health_trend', input:{ days: 30 } }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'hotspots') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Identifying churn hotspots…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_hotspots', input:{ limit: 20 } }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'maintainability') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Computing Maintainability Index (171 − 5.2·ln(V) − 0.23·G − 16.2·ln(L))…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_maintainability', input:{ limit: 25 } }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'complexity') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Computing cyclomatic complexity…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_complexity', input:{ limit: 25 } }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'crap_score') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Computing CRAP scores (Change Risk Anti-Patterns)…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_crap_score', input:{ limit: 25 } }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'risk_profile') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Building risk profile…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_risk_profile', input:{} }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'baseline_compare') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Comparing to saved baseline…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_baseline_compare', input:{} }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
+      }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
+  } else if (type === 'author_analytics') {
+    result.innerHTML = '<span style="color:rgba(255,160,0,0.6);">Loading author analytics…</span>';
+    fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_author_analytics', input:{ limit: 20 } }) })
+      .then(r => r.json())
+      .then(data => {
+        const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
+        result.innerHTML = `<div style="font-family:'Azeret Mono',monospace;font-size:10px;white-space:pre-wrap;line-height:1.6;color:var(--text);border-left:2px solid rgba(255,160,0,0.3);padding-left:10px;">${txt}</div>`;
       }).catch(e => { result.innerHTML = '<span style="color:var(--dim);">Error: ' + e.message + '</span>'; });
   }
 };

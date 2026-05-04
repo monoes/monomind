@@ -1,63 +1,89 @@
+---
+name: workflows:research
+description: Research workflow coordination pattern — mesh swarm for comprehensive exploration using real MCP tools and npx monomind workflow run -t research
+---
+
 # Research Workflow Coordination
 
-## Purpose
-Coordinate Claude Code's research activities for comprehensive, systematic exploration.
+Coordinate multi-agent research activities for comprehensive, systematic exploration.
 
-## Step-by-Step Coordination
+## How to Invoke
 
-### 1. Initialize Research Framework
 ```
-Tool: mcp__monomind__swarm_init
-Parameters: {"topology": "mesh", "maxAgents": 5, "strategy": "balanced"}
-```
-Creates a mesh topology for comprehensive exploration from multiple angles.
-
-### 2. Define Research Perspectives
-```
-Tool: mcp__monomind__agent_spawn
-Parameters: {"type": "researcher", "name": "Literature Review"}
-```
-```
-Tool: mcp__monomind__agent_spawn  
-Parameters: {"type": "analyst", "name": "Data Analysis"}
-```
-Sets up different analytical approaches for Claude Code to use.
-
-### 3. Execute Coordinated Research
-```
-Tool: mcp__monomind__task_orchestrate
-Parameters: {
-  "task": "Research modern web frameworks performance",
-  "strategy": "adaptive",
-  "priority": "medium"
-}
+Skill("workflows:research")
 ```
 
-### 4. Store Research Findings
+---
+
+## Quick Start
+
+```bash
+# Run the built-in research workflow
+npx monomind workflow run -t research --task "Analyze modern web framework performance"
+
+# Preview stages without executing
+npx monomind workflow run -t research --dry-run
+
+# Show template details
+npx monomind workflow template show research
 ```
-Tool: mcp__monomind__memory_usage
-Parameters: {
-  "action": "store",
-  "key": "research_findings",
-  "value": "framework performance analysis results",
-  "namespace": "research"
-}
+
+## Stages
+
+The `research` template runs these stages:
+1. **Discovery** — Identify sources, gather raw information
+2. **Analysis** — Evaluate and compare findings
+3. **Synthesis** — Combine into coherent conclusions
+4. **Documentation** — Write up findings
+
+Agents: `researcher`, `analyst` (mesh topology for broad coverage)
+
+## MCP Coordination
+
+For custom research coordination via MCP:
+
+```javascript
+// Initialize mesh swarm for broad exploration
+mcp__monomind__swarm_init({
+  topology: "mesh",
+  maxAgents: 5,
+  strategy: "balanced"
+})
+
+// Run the research workflow
+mcp__monomind__workflow_run({
+  template: "research",
+  task: "Research modern web frameworks performance",
+  options: { parallel: true, maxAgents: 4 }
+})
+
+// Store research findings in memory
+mcp__monomind__memory_store({
+  key: "research-web-frameworks-2026",
+  value: "React/Next.js leads for SSR; Astro for static; Svelte for performance",
+  namespace: "research"
+})
+
+// Search past research before starting
+mcp__monomind__memory_search({
+  query: "web framework performance analysis",
+  namespace: "research",
+  limit: 5
+})
 ```
 
 ## What Claude Code Actually Does
-1. Uses **WebSearch** tool for finding resources
-2. Uses **Read** tool for analyzing documentation
-3. Uses **Task** tool for parallel exploration
-4. Synthesizes findings using coordination patterns
-5. Stores insights in memory for future reference
 
-Remember: The swarm coordinates HOW Claude Code researches, not WHAT it finds.
+1. **WebSearch** tool — finds relevant resources
+2. **Read** tool — analyzes documentation and code
+3. **Task** tool — spawns parallel research agents for different angles
+4. Synthesizes findings in the conversation
+5. Stores insights in memory for future sessions
 
-## CLI Usage
-```bash
-# Start research workflow via CLI
-npx monomind workflow research "modern web frameworks"
+The workflow template coordinates the research strategy; Claude Code does the actual searching and reading.
 
-# Export research workflow
-npx monomind workflow export research --format json
-```
+## Related Skills
+
+- `workflows:workflow-execute` — Full workflow run reference
+- `swarm:research` — Direct swarm-based research coordination
+- `memory:memory-search` — Search past research findings

@@ -547,9 +547,9 @@ npx monomind bottleneck detect --fix
 
 ## See Also
 
-- [Bottleneck Detection Guide](/workspaces/claude-code-flow/.claude/commands/analysis/bottleneck-detect.md)
-- [Performance Report Guide](/workspaces/claude-code-flow/.claude/commands/analysis/performance-report.md)
-- [Performance Bottlenecks Overview](/workspaces/claude-code-flow/.claude/commands/analysis/performance-bottlenecks.md)
+- [Bottleneck Detection Guide](https://github.com/nokhodian/monomind/wiki/bottleneck-detect)
+- [Performance Report Guide](https://github.com/nokhodian/monomind/wiki/performance-report)
+- [Performance Bottlenecks Overview](https://github.com/nokhodian/monomind/wiki/performance-bottlenecks)
 - [Swarm Monitoring Documentation](../swarm-orchestration/SKILL.md)
 - [Memory Management Documentation](../memory-management/SKILL.md)
 

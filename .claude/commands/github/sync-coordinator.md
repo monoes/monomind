@@ -1,7 +1,11 @@
+---
+name: github:sync-coordinator
+---
+
 # GitHub Sync Coordinator
 
 ## Purpose
-Multi-package synchronization and version alignment with ruv-swarm coordination for seamless integration between claude-code-flow and ruv-swarm packages.
+Multi-package synchronization and version alignment with monomind swarm coordination for seamless integration across packages.
 
 ## Capabilities
 - **Package synchronization** with intelligent dependency resolution
@@ -31,26 +35,25 @@ mcp__monomind__agent_spawn { type: "coder", name: "Integration Developer" }
 mcp__monomind__agent_spawn { type: "tester", name: "Validation Engineer" }
 
 // Analyze current package states
-Read("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow/package.json")
-Read("/workspaces/ruv-FANN/ruv-swarm/npm/package.json")
+Read("package.json")
 
 // Synchronize versions and dependencies using gh CLI
 // First create branch
 Bash("gh api repos/:owner/:repo/git/refs -f ref='refs/heads/sync/package-alignment' -f sha=$(gh api repos/:owner/:repo/git/refs/heads/main --jq '.object.sha')")
 
 // Update file using gh CLI
-Bash(`gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/package.json \
+Bash(`gh api repos/:owner/:repo/contents/packages/@monomind/cli/package.json \
   --method PUT \
   -f message="feat: Align Node.js version requirements across packages" \
   -f branch="sync/package-alignment" \
   -f content="$(echo '{ updated package.json with aligned versions }' | base64)" \
-  -f sha="$(gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/package.json?ref=sync/package-alignment --jq '.sha')")`)
+  -f sha="$(gh api repos/:owner/:repo/contents/packages/@monomind/cli/package.json?ref=sync/package-alignment --jq '.sha')")`)
 
 // Orchestrate validation
-mcp__monomind__task_orchestrate {
+mcp__monomind__coordination_orchestrate {
   task: "Validate package synchronization and run integration tests",
-  strategy: "parallel",
-  priority: "high"
+  agents: ["coordinator", "analyst", "tester"],
+  strategy: "parallel"
 }
 ```
 
@@ -58,23 +61,22 @@ mcp__monomind__task_orchestrate {
 ```javascript
 // Synchronize CLAUDE.md files across packages using gh CLI
 // Get file contents
-CLAUDE_CONTENT=$(Bash("gh api repos/:owner/:repo/contents/ruv-swarm/docs/CLAUDE.md --jq '.content' | base64 -d"))
+CLAUDE_CONTENT=$(Bash("gh api repos/:owner/:repo/contents/CLAUDE.md --jq '.content' | base64 -d"))
 
-// Update claude-code-flow CLAUDE.md to match using gh CLI
+// Update package CLAUDE.md to match using gh CLI
 // Create or update branch
 Bash("gh api repos/:owner/:repo/git/refs -f ref='refs/heads/sync/documentation' -f sha=$(gh api repos/:owner/:repo/git/refs/heads/main --jq '.object.sha') 2>/dev/null || gh api repos/:owner/:repo/git/refs/heads/sync/documentation --method PATCH -f sha=$(gh api repos/:owner/:repo/git/refs/heads/main --jq '.object.sha')")
 
 // Update file
-Bash(`gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/CLAUDE.md \
+Bash(`gh api repos/:owner/:repo/contents/packages/@monomind/cli/CLAUDE.md \
   --method PUT \
-  -f message="docs: Synchronize CLAUDE.md with ruv-swarm integration patterns" \
+  -f message="docs: Synchronize CLAUDE.md with Monomind integration patterns" \
   -f branch="sync/documentation" \
-  -f content="$(echo '# Claude Code Configuration for ruv-swarm\n\n[synchronized content]' | base64)" \
-  -f sha="$(gh api repos/:owner/:repo/contents/claude-code-flow/claude-code-flow/CLAUDE.md?ref=sync/documentation --jq '.sha' 2>/dev/null || echo '')")`)
+  -f content="$(echo '# Claude Code Configuration for Monomind\n\n[synchronized content]' | base64)" \
+  -f sha="$(gh api repos/:owner/:repo/contents/packages/@monomind/cli/CLAUDE.md?ref=sync/documentation --jq '.sha' 2>/dev/null || echo '')")`)
 
 // Store sync state in memory
-mcp__monomind__memory_usage {
-  action: "store",
+mcp__monomind__memory_store {
   key: "sync/documentation/status",
   value: { timestamp: Date.now(), status: "synchronized", files: ["CLAUDE.md"] }
 }
@@ -85,19 +87,19 @@ mcp__monomind__memory_usage {
 // Coordinate feature implementation across packages
 mcp__github__push_files {
   owner: "nokhodian",
-  repo: "ruv-FANN",
+  repo: "monomind",
   branch: "feature/github-commands",
   files: [
     {
-      path: "claude-code-flow/claude-code-flow/.claude/commands/github/github-modes.md",
+      path: ".claude/commands/github/github-modes.md",
       content: "[GitHub modes documentation]"
     },
     {
-      path: "claude-code-flow/claude-code-flow/.claude/commands/github/pr-manager.md", 
+      path: ".claude/commands/github/pr-manager.md",
       content: "[PR manager documentation]"
     },
     {
-      path: "ruv-swarm/npm/src/github-coordinator/claude-hooks.js",
+      path: "packages/@monomind/hooks/src/github-coordinator/claude-hooks.js",
       content: "[GitHub coordination hooks]"
     }
   ],
@@ -110,17 +112,17 @@ Bash(`gh pr create \
   --title "Feature: GitHub Workflow Integration with Swarm Coordination" \
   --head "feature/github-commands" \
   --base "main" \
-  --body "## 🚀 GitHub Workflow Integration
+  --body "## GitHub Workflow Integration
 
 ### Features Added
-- ✅ Comprehensive GitHub command modes
-- ✅ Swarm-coordinated PR management  
-- ✅ Automated issue tracking
-- ✅ Cross-package synchronization
+- Comprehensive GitHub command modes
+- Swarm-coordinated PR management
+- Automated issue tracking
+- Cross-package synchronization
 
 ### Integration Points
-- Claude-code-flow: GitHub command modes in .claude/commands/github/
-- ruv-swarm: GitHub coordination hooks and utilities
+- Monomind CLI: GitHub command modes in .claude/commands/github/
+- Monomind Hooks: GitHub coordination hooks and utilities
 - Documentation: Synchronized CLAUDE.md instructions
 
 ### Testing
@@ -130,14 +132,14 @@ Bash(`gh pr create \
 - [x] Cross-package compatibility
 
 ### Swarm Coordination
-This integration uses ruv-swarm agents for:
+This integration uses Monomind swarm agents for:
 - Multi-agent GitHub workflow management
 - Automated testing and validation
 - Progress tracking and coordination
 - Memory-based state management
 
 ---
-🤖 Generated with Claude Code using ruv-swarm coordination`
+Generated with Claude Code using Monomind swarm coordination`
 }
 ```
 
@@ -154,27 +156,23 @@ This integration uses ruv-swarm agents for:
   mcp__monomind__agent_spawn { type: "tester", name: "Validation Tester" }
   mcp__monomind__agent_spawn { type: "reviewer", name: "Quality Reviewer" }
   
-  // Read current state of both packages
-  Read("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow/package.json")
-  Read("/workspaces/ruv-FANN/ruv-swarm/npm/package.json")
-  Read("/workspaces/ruv-FANN/claude-code-flow/claude-code-flow/CLAUDE.md")
-  Read("/workspaces/ruv-FANN/ruv-swarm/docs/CLAUDE.md")
+  // Read current state of packages
+  Read("package.json")
+  Read("CLAUDE.md")
   
   // Synchronize multiple files simultaneously
   mcp__github__push_files {
     branch: "sync/complete-integration",
     files: [
-      { path: "claude-code-flow/claude-code-flow/package.json", content: "[aligned package.json]" },
-      { path: "claude-code-flow/claude-code-flow/CLAUDE.md", content: "[synchronized CLAUDE.md]" },
-      { path: "claude-code-flow/claude-code-flow/.claude/commands/github/github-modes.md", content: "[GitHub modes]" }
+      { path: "packages/@monomind/cli/package.json", content: "[aligned package.json]" },
+      { path: "packages/@monomind/cli/CLAUDE.md", content: "[synchronized CLAUDE.md]" },
+      { path: ".claude/commands/github/github-modes.md", content: "[GitHub modes]" }
     ],
     message: "feat: Complete package synchronization with GitHub integration"
   }
   
   // Run validation tests
-  Bash("cd /workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm install")
-  Bash("cd /workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm test")
-  Bash("cd /workspaces/ruv-FANN/ruv-swarm/npm && npm test")
+  Bash("npm install && npm test")
   
   // Track synchronization progress
   TodoWrite { todos: [
@@ -186,12 +184,10 @@ This integration uses ruv-swarm agents for:
   ]}
   
   // Store comprehensive sync state
-  mcp__monomind__memory_usage {
-    action: "store",
+  mcp__monomind__memory_store {
     key: "sync/complete/status",
     value: {
       timestamp: Date.now(),
-      packages_synced: ["claude-code-flow", "ruv-swarm"],
       version_alignment: "completed",
       documentation_sync: "completed",
       github_integration: "completed",
@@ -222,14 +218,14 @@ const syncStrategy = {
 ```javascript
 // Keep documentation consistent across packages
 const docSyncPattern = {
-  sourceOfTruth: "ruv-swarm/docs/CLAUDE.md",
+  sourceOfTruth: "CLAUDE.md",
   targets: [
-    "claude-code-flow/claude-code-flow/CLAUDE.md",
-    "CLAUDE.md"  // Root level
+    "packages/@monomind/cli/CLAUDE.md",
+    "packages/@monomind/hooks/CLAUDE.md"
   ],
   customSections: {
-    "claude-code-flow": "GitHub Commands Integration",
-    "ruv-swarm": "MCP Tools Reference"
+    "@monomind/cli": "GitHub Commands Integration",
+    "@monomind/hooks": "MCP Tools Reference"
   }
 }
 ```
@@ -238,7 +234,7 @@ const docSyncPattern = {
 ```javascript
 // Comprehensive testing across synchronized packages
 const testMatrix = {
-  packages: ["claude-code-flow", "ruv-swarm"],
+  packages: ["@monomind/cli", "@monomind/hooks"],
   tests: [
     "unit_tests",
     "integration_tests", 

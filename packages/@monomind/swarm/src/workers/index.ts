@@ -1,6 +1,6 @@
 /**
  * @monomind/swarm/workers
- * Worker Dispatch Module (agentic-flow@alpha compatible)
+ * Worker Dispatch Module
  *
  * Provides background worker functionality with 12 trigger types
  * for analysis, optimization, and automation tasks.

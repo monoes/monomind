@@ -1,168 +1,103 @@
-# Examples Swarm Strategy
+---
+name: swarm-examples
+description: Swarm pattern examples — concrete recipes for research, development, analysis, and testing swarms with real MCP tool invocations
+---
 
-## Common Swarm Patterns
+# Common Swarm Patterns
 
-### Research Swarm
+Ready-to-use recipes for the most common swarm scenarios.
 
-#### Using MCP Tools
+## Research Swarm
+
 ```javascript
-// Initialize research swarm
-mcp__monomind__swarm_init({
-  "topology": "mesh",
-  "maxAgents": 6,
-  "strategy": "adaptive"
-})
+// 1. Initialize
+mcp__monomind__swarm_init({ topology: "mesh", maxAgents: 6, strategy: "adaptive" })
 
-// Spawn research agents
-mcp__monomind__agent_spawn({
-  "type": "researcher",
-  "name": "AI Trends Researcher",
-  "capabilities": ["web-search", "analysis", "synthesis"]
-})
+// 2. Spawn agents
+mcp__monomind__agent_spawn({ type: "researcher", capabilities: ["web-search", "analysis", "synthesis"] })
+mcp__monomind__agent_spawn({ type: "analyst", capabilities: ["data-processing", "reporting"] })
 
-// Orchestrate research
-mcp__monomind__task_orchestrate({
-  "task": "research AI trends",
-  "strategy": "parallel",
-  "priority": "medium"
-})
+// 3. Coordinate
+mcp__monomind__coordination_orchestrate({ task: "research AI trends", strategy: "parallel" })
 
-// Monitor progress
-mcp__monomind__swarm_status({
-  "swarmId": "research-swarm"
-})
+// 4. Monitor
+mcp__monomind__swarm_status({ swarmId: "current" })
 ```
 
-#### Using CLI (Fallback)
 ```bash
-npx monomind swarm "research AI trends" \
-  --strategy research \
-  --mode distributed \
-  --max-agents 6 \
-  --parallel
+npx monomind swarm init --topology mesh --max-agents 6 --strategy research
+npx monomind swarm start "research AI trends" --strategy research --parallel
 ```
 
-### Development Swarm
+---
 
-#### Using MCP Tools
+## Development Swarm
+
 ```javascript
-// Initialize development swarm
-mcp__monomind__swarm_init({
-  "topology": "hierarchical",
-  "maxAgents": 8,
-  "strategy": "balanced"
-})
+// 1. Initialize
+mcp__monomind__swarm_init({ topology: "hierarchical", maxAgents: 8, strategy: "specialized" })
 
-// Spawn development team
-const devAgents = [
-  { type: "architect", name: "API Designer" },
-  { type: "coder", name: "Backend Developer" },
-  { type: "tester", name: "API Tester" },
-  { type: "documenter", name: "API Documenter" }
-]
+// 2. Spawn team
+mcp__monomind__agent_spawn({ type: "architect", capabilities: ["system-design", "api-design"] })
+mcp__monomind__agent_spawn({ type: "coder", capabilities: ["typescript", "api", "backend"] })
+mcp__monomind__agent_spawn({ type: "tester", capabilities: ["integration", "e2e"] })
+mcp__monomind__agent_spawn({ type: "documenter", capabilities: ["api-docs", "readme"] })
 
-devAgents.forEach(agent => {
-  mcp__monomind__agent_spawn({
-    "type": agent.type,
-    "name": agent.name,
-    "swarmId": "dev-swarm"
-  })
-})
+// 3. Coordinate
+mcp__monomind__coordination_orchestrate({ task: "build REST API", strategy: "sequential" })
 
-// Orchestrate development
-mcp__monomind__task_orchestrate({
-  "task": "build REST API",
-  "strategy": "sequential",
-  "dependencies": ["design", "implement", "test", "document"]
-})
-
-// Enable monitoring
-mcp__monomind__swarm_monitor({
-  "swarmId": "dev-swarm",
-  "interval": 5000
-})
+// 4. Monitor
+mcp__monomind__swarm_status({ swarmId: "current" })
 ```
 
-#### Using CLI (Fallback)
 ```bash
-npx monomind swarm "build REST API" \
-  --strategy development \
-  --mode hierarchical \
-  --monitor \
-  --output sqlite
+npx monomind swarm start "build REST API" --strategy development --mode hierarchical
 ```
 
-### Analysis Swarm
+---
 
-#### Using MCP Tools
+## Analysis Swarm
+
 ```javascript
-// Initialize analysis swarm
-mcp__monomind__swarm_init({
-  "topology": "mesh",
-  "maxAgents": 5,
-  "strategy": "adaptive"
-})
+// 1. Initialize
+mcp__monomind__swarm_init({ topology: "mesh", maxAgents: 5, strategy: "adaptive" })
 
-// Spawn analysis agents
-mcp__monomind__agent_spawn({
-  "type": "analyst",
-  "name": "Code Analyzer",
-  "capabilities": ["static-analysis", "complexity-analysis"]
-})
+// 2. Spawn agents
+mcp__monomind__agent_spawn({ type: "analyst", capabilities: ["static-analysis", "complexity-analysis"] })
+mcp__monomind__agent_spawn({ type: "analyst", capabilities: ["security-scan", "vulnerability-detection"] })
+mcp__monomind__agent_spawn({ type: "analyst", capabilities: ["performance-analysis", "bottleneck-detection"] })
 
-mcp__monomind__agent_spawn({
-  "type": "analyst",
-  "name": "Security Analyzer",
-  "capabilities": ["security-scan", "vulnerability-detection"]
-})
+// 3. Coordinate
+mcp__monomind__coordination_orchestrate({ task: "analyze codebase", strategy: "parallel" })
 
-// Parallel analysis execution
-mcp__monomind__parallel_execute({
-  "tasks": [
-    { "id": "analyze-code", "command": "analyze codebase structure" },
-    { "id": "analyze-security", "command": "scan for vulnerabilities" },
-    { "id": "analyze-performance", "command": "identify bottlenecks" }
-  ]
-})
-
-// Generate comprehensive report
-mcp__monomind__performance_report({
-  "format": "detailed",
-  "timeframe": "current"
-})
+// 4. Report
+mcp__monomind__performance_report({ format: "detailed" })
 ```
 
-#### Using CLI (Fallback)
 ```bash
-npx monomind swarm "analyze codebase" \
-  --strategy analysis \
-  --mode mesh \
-  --parallel \
-  --timeout 300
+npx monomind swarm start "analyze codebase" --strategy analysis --mode mesh --parallel
 ```
 
-## Error Handling Examples
+---
+
+## Error Recovery
+
+When a swarm gets into a bad state:
 
 ```javascript
-// Setup fault tolerance
-mcp__monomind__daa_fault_tolerance({
-  "agentId": "all",
-  "strategy": "auto-recovery"
-})
+// Check status first
+mcp__monomind__swarm_status({ swarmId: "current" })
 
-// Handle errors gracefully
-try {
-  await mcp__monomind__task_orchestrate({
-    "task": "complex operation",
-    "strategy": "parallel"
-  })
-} catch (error) {
-  // Check swarm health
-  const status = await mcp__monomind__swarm_status({})
-  
-  // Log error patterns
-  await mcp__monomind__error_analysis({
-    "logs": [error.message]
-  })
-}
+// System health check
+mcp__monomind__system_health({})
+
+// Shut down and restart
+mcp__monomind__swarm_shutdown({ swarmId: "current" })
+mcp__monomind__swarm_init({ topology: "hierarchical", maxAgents: 6, strategy: "specialized" })
 ```
+
+## See Also
+
+- `swarm:swarm` — Main skill with strategy selection guide
+- `swarm:swarm-modes` — Topology reference
+- `swarm:swarm-strategies` — When to use each strategy

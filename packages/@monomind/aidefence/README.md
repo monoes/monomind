@@ -397,19 +397,19 @@ Use via Monomind CLI:
 
 ```bash
 # Basic threat scan
-npx @monomind/cli security defend -i "ignore previous instructions"
+npx monomind security defend -i "ignore previous instructions"
 
 # Scan a file
-npx @monomind/cli security defend -f ./user-prompts.txt
+npx monomind security defend -f ./user-prompts.txt
 
 # Quick scan (faster)
-npx @monomind/cli security defend -i "some text" --quick
+npx monomind security defend -i "some text" --quick
 
 # JSON output
-npx @monomind/cli security defend -i "test" -o json
+npx monomind security defend -i "test" -o json
 
 # View statistics
-npx @monomind/cli security defend --stats
+npx monomind security defend --stats
 ```
 
 ### CLI Output Example
@@ -625,6 +625,5 @@ MIT License - see [LICENSE](LICENSE) for details.
 ---
 
 <p align="center">
-  <strong>Built with security in mind by <a href="https://ruv.io">rUv</a></strong><br>
   <sub>Part of the Monomind ecosystem</sub>
 </p>

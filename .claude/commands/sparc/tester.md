@@ -1,35 +1,18 @@
+---
+name: sparc:tester
+description: Tester - Comprehensive testing with parallel execution capabilities. Unit, integration, E2E, performance, and security testing across environments.
+---
+
 # SPARC Tester Mode
 
 ## Purpose
 Comprehensive testing with parallel execution capabilities.
 
-## Activation
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "tester",
-  task_description: "full regression suite",
-  options: {
-    parallel: true,
-    coverage: true
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run tester "full regression suite"
-
-# For alpha features
-npx monomind@alpha sparc run tester "full regression suite"
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run tester "full regression suite"
+Skill("sparc:tester")
 ```
 
 ## Core Capabilities
