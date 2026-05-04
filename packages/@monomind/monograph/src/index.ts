@@ -142,3 +142,24 @@ export { buildDeadCodeHumanLines, buildHealthHumanLines, buildDuplicationHumanLi
 export { parseExtendsValue, resolveFileExtends, resolveNpmExtends, mergeConfigs, resolveConfigExtends, type ExtendsSource, type ResolvedInheritance } from './config/resolution.js';
 export { buildCliSchema, schemaToJsonString, type CliParam, type CliSubcommand, type CliSchema } from './config/cli-schema.js';
 export { isClassMemberSuppressed, summarizeUnusedMembers, groupUnusedMembersByFile, formatUnusedMembersReport, type MemberKind, type UnusedMember, type UnusedMembersResult, type ClassMemberAllowlistEntry } from './analysis/unused-class-members.js';
+// ── Round 11: Fallow feature ports ────────────────────────────────────────────
+export { analyzeChurnCached, type CachedCommitEvent, type CachedFileChurn, type ChurnCache, type CachedChurnResult } from './analysis/churn-cache.js';
+export { SuppressionContext, isSuppressed, isFileSuppressed, type IssueKind, type Suppression, type StaleSuppression } from './analysis/suppression-context.js';
+export { parseTolerance, toleranceExceeded, formatTolerance, ZERO_TOLERANCE, type ToleranceKind, type Tolerance } from './regression/tolerance.js';
+export { crossReference, affectedGroupIndices, type DeadCodeKind, type CloneInstanceRef, type CombinedFinding, type CrossReferenceResult, type CrossRefDeadCodeSummary, type CrossRefDuplicationReport } from './graph/cross-reference-findings.js';
+export { isRelevantSource, isRelevantConfig, collectChangedPaths, reloadConfigOrKeepPrevious, debounce, type WatchRunnerOptions } from './watch/watch-runner.js';
+export { ownerCountOf, sectionOf, sectionAndOwnersOf, hasGitLabSections, ownerLabel, UNOWNED_LABEL, NO_SECTION_LABEL, type CodeOwnerRuleMatch, type SectionMatch, type CodeOwnersLike } from './graph/codeowners-extended.js';
+export { coverageTierFromPct, exceededThresholdFromBools, includesCyclomatic, includesCognitive, includesCrap, computeFindingSeverity, HIGH_COVERAGE_WATERMARK, DEFAULT_CRAP_HIGH, DEFAULT_CRAP_CRITICAL, DEFAULT_COGNITIVE_HIGH, DEFAULT_COGNITIVE_CRITICAL, DEFAULT_CYCLOMATIC_HIGH, DEFAULT_CYCLOMATIC_CRITICAL, type CoverageTier, type ExceededThreshold, type FindingSeverity, type FindingSeverityOpts } from './health/scores.js';
+export { trendArrow, trendColor, computeOverallDirection, formatTrendMetric, type TrendDirection, type TrendCount, type TrendMetric, type TrendPoint, type HealthTrend } from './health/trend-types.js';
+export { AnalysisProgress, createAnalysisProgress, type Spinner } from './analysis/progress.js';
+export { buildPipelinePerformanceLines, timingsSummary, ZERO_PIPELINE_TIMINGS, type PipelineTimings } from './report/pipeline-perf.js';
+export { printExportTraceHuman, printFileTraceHuman, printDependencyTraceHuman, printCloneTraceHuman, type ExportTraceRef, type ReExportChain, type ExportTraceInput, type FileTraceExport, type FileTraceInput, type DependencyTraceInput, type CloneGroupTrace, type CloneTraceInput } from './report/trace-human.js';
+export { runFix, type FixerAnalysisResults, type FixOptions, type FixRecord, type FixApplier } from './fix/orchestrator.js';
+export { parseSince, sinceDurationToGitFlag, type SinceDuration } from './analysis/since-duration.js';
+export { buildHealthCompactLines, buildDuplicationCompactLines, type CompactHealthFinding, type CompactHotspot, type CompactHealthScore, type CompactVitalSigns, type CompactHealthTrend, type CompactHealthReport, type CompactCloneGroup, type CompactDuplicationReport } from './export/compact-health.js';
+export { buildCrossReferenceLines, printCrossReferenceFindings, type CrossRefDeadCodeKind, type CrossRefHumanFinding, type CrossRefHumanResult } from './report/cross-ref-human.js';
+export { generateJsonc, parseJsoncComments, indentJsonValue } from './migrate/jsonc-gen.js';
+export { generateToml } from './migrate/toml-gen.js';
+export { WorkerPool, configureGlobalPool, getGlobalPool, resetGlobalPool, type WorkerPoolOptions } from './analysis/worker-pool.js';
+export { computeBusFactor, filterSuggestedReviewers, formatOwnershipMetrics, type ContributorIdentifierFormat, type ContributorEntry, type OwnershipMetrics, type HotspotSummary } from './health/ownership-metrics.js';
+export { computeChurnTrend, churnTrendLabel, churnTrendFromFileSeries, type ChurnTrend } from './analysis/churn-trend.js';
