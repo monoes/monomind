@@ -5805,3 +5805,195 @@ monographTools.push(
   monographOwnershipRiskTool,
   monographHotspotNormalizeTool,
 );
+
+// ── Round 15: Fallow feature ports ──────────────────────────────────────────
+
+const monographBoundaryConfigTool: MCPTool = {
+  name: 'monograph_boundary_config',
+  description: 'Resolve boundary zone configuration from a preset or custom zones/rules, classify a file path into a zone, and check if an import is allowed.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['expand_preset', 'resolve', 'classify', 'check_import'], description: 'Operation to perform' },
+      preset: { type: 'string', enum: ['layered', 'hexagonal', 'feature-sliced', 'bulletproof'], description: 'Preset name for expand_preset/resolve' },
+      zones: { type: 'array', items: { type: 'object' }, description: 'Custom zone configs for resolve' },
+      rules: { type: 'array', items: { type: 'object' }, description: 'Custom rule configs for resolve' },
+      filePath: { type: 'string', description: 'File path to classify' },
+      fromFile: { type: 'string', description: 'Importing file for check_import' },
+      toFile: { type: 'string', description: 'Imported file for check_import' },
+      sourceRoot: { type: 'string', description: 'Project source root (default: "src")' },
+    },
+    required: ['action'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { expandPreset, resolveBoundaryConfig, classifyZone: classifyZoneFn, isImportAllowed } = await import('@monoes/monograph');
+    const action = args.action as string;
+    const sourceRoot = (args.sourceRoot as string) ?? 'src';
+    if (action === 'expand_preset') {
+      return expandPreset(args.preset as 'layered' | 'hexagonal' | 'feature-sliced' | 'bulletproof', sourceRoot);
+    }
+    const config = { preset: args.preset as string | undefined, zones: args.zones as unknown[] | undefined, rules: args.rules as unknown[] | undefined };
+    const resolved = resolveBoundaryConfig(config as Parameters<typeof resolveBoundaryConfig>[0], sourceRoot);
+    if (action === 'resolve') return resolved;
+    if (action === 'classify') return { zone: classifyZoneFn(args.filePath as string, resolved) };
+    if (action === 'check_import') return { allowed: isImportAllowed(args.fromFile as string, args.toFile as string, resolved) };
+    return { error: 'Unknown action' };
+  },
+};
+
+const monographOutputFormatTool: MCPTool = {
+  name: 'monograph_output_format',
+  description: 'Parse or validate a Fallow output format string (text, json, compact, code-climate, etc.).',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['parse', 'validate', 'default'], description: 'Operation' },
+      format: { type: 'string', description: 'Format string to parse or validate' },
+    },
+    required: ['action'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { parseFallowOutputFormat, isFallowOutputFormat, DEFAULT_OUTPUT_FORMAT } = await import('@monoes/monograph');
+    const action = args.action as string;
+    if (action === 'default') return { format: DEFAULT_OUTPUT_FORMAT };
+    if (action === 'validate') return { valid: isFallowOutputFormat(args.format as string) };
+    return { format: parseFallowOutputFormat(args.format as string) };
+  },
+};
+
+const monographHealthConfigTool: MCPTool = {
+  name: 'monograph_health_config',
+  description: 'Merge partial Fallow health config with defaults, returning a fully resolved health configuration.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      partial: { type: 'object', description: 'Partial FallowHealthConfig to merge with defaults' },
+    },
+    required: [],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { mergeFallowHealthConfig, DEFAULT_FALLOW_HEALTH_CONFIG } = await import('@monoes/monograph');
+    if (!args.partial) return DEFAULT_FALLOW_HEALTH_CONFIG;
+    return mergeFallowHealthConfig(args.partial as Parameters<typeof mergeFallowHealthConfig>[0]);
+  },
+};
+
+const monographConfigParsingTool: MCPTool = {
+  name: 'monograph_config_parsing',
+  description: 'Detect config format from file extension, find config file by walking up from a directory, detect source root, or load + parse config from a directory.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['detect_format', 'find_config', 'detect_source_root', 'load_config'], description: 'Operation' },
+      filePath: { type: 'string', description: 'File path for detect_format' },
+      startDir: { type: 'string', description: 'Directory to start walking from for find_config/load_config' },
+      projectRoot: { type: 'string', description: 'Project root for detect_source_root' },
+    },
+    required: ['action'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { detectConfigFormat, findConfigFile, detectSourceRoot, loadConfigFromDir } = await import('@monoes/monograph');
+    const action = args.action as string;
+    if (action === 'detect_format') return { format: detectConfigFormat(args.filePath as string) };
+    if (action === 'find_config') return { configPath: findConfigFile(args.startDir as string) ?? null };
+    if (action === 'detect_source_root') return { sourceRoot: detectSourceRoot(args.projectRoot as string) };
+    if (action === 'load_config') return loadConfigFromDir(args.startDir as string) ?? null;
+    return { error: 'Unknown action' };
+  },
+};
+
+const monographFallowResultsTool: MCPTool = {
+  name: 'monograph_fallow_results',
+  description: 'Create empty Fallow analysis results, count total issues, check if any issues exist, or sort results by file path and line.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['make_empty', 'total_issues', 'has_issues', 'sort'], description: 'Operation' },
+      results: { type: 'object', description: 'FallowAnalysisResults object for total_issues/has_issues/sort' },
+    },
+    required: ['action'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { makeEmptyFallowResults, totalFallowIssues, hasFallowIssues, sortFallowResults } = await import('@monoes/monograph');
+    const action = args.action as string;
+    if (action === 'make_empty') return makeEmptyFallowResults();
+    if (!args.results) return { error: 'results required' };
+    if (action === 'total_issues') return { total: totalFallowIssues(args.results as Parameters<typeof totalFallowIssues>[0]) };
+    if (action === 'has_issues') return { hasIssues: hasFallowIssues(args.results as Parameters<typeof hasFallowIssues>[0]) };
+    if (action === 'sort') return sortFallowResults(args.results as Parameters<typeof sortFallowResults>[0]);
+    return { error: 'Unknown action' };
+  },
+};
+
+const monographFallowSuppressionTool: MCPTool = {
+  name: 'monograph_fallow_suppression',
+  description: 'Parse a Fallow issue kind string, convert issue kind to/from discriminant integer, or check if a comment is a suppression.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['parse_kind', 'kind_to_discriminant', 'kind_from_discriminant', 'is_suppression', 'is_file_wide'], description: 'Operation' },
+      kind: { type: 'string', description: 'Issue kind string for parse_kind/kind_to_discriminant' },
+      discriminant: { type: 'number', description: 'Discriminant integer for kind_from_discriminant' },
+      comment: { type: 'string', description: 'Comment text for is_suppression/is_file_wide' },
+    },
+    required: ['action'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { parseFallowIssueKind, issueKindToDiscriminant, issueKindFromDiscriminant, isFallowSuppression, isFileWideSuppression } = await import('@monoes/monograph');
+    const action = args.action as string;
+    if (action === 'parse_kind') return { kind: parseFallowIssueKind(args.kind as string) };
+    if (action === 'kind_to_discriminant') return { discriminant: issueKindToDiscriminant(args.kind as Parameters<typeof issueKindToDiscriminant>[0]) };
+    if (action === 'kind_from_discriminant') return { kind: issueKindFromDiscriminant(args.discriminant as number) };
+    if (action === 'is_suppression') return { isSuppression: isFallowSuppression(args.comment as string) };
+    if (action === 'is_file_wide') return { isFileWide: isFileWideSuppression(args.comment as string) };
+    return { error: 'Unknown action' };
+  },
+};
+
+const monographDiscoverTypesTool: MCPTool = {
+  name: 'monograph_discover_types',
+  description: 'Create a branded FileId, format an EntryPointSource into a human-readable string, or describe a FallowDiscoveredFile structure.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['make_file_id', 'format_entry_source'], description: 'Operation' },
+      n: { type: 'number', description: 'Number for make_file_id' },
+      source: { type: 'object', description: 'EntryPointSource object for format_entry_source' },
+    },
+    required: ['action'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { fileId, formatEntryPointSource } = await import('@monoes/monograph');
+    const action = args.action as string;
+    if (action === 'make_file_id') return { fileId: fileId(args.n as number) };
+    if (action === 'format_entry_source') return { label: formatEntryPointSource(args.source as Parameters<typeof formatEntryPointSource>[0]) };
+    return { error: 'Unknown action' };
+  },
+};
+
+const monographMirroredFamiliesTool: MCPTool = {
+  name: 'monograph_mirrored_families',
+  description: 'Detect mirrored directory families from a set of clone families — groups families whose files all live in one directory and pairs directories with Jaccard similarity >= 0.5.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      families: { type: 'array', items: { type: 'object' }, description: 'Array of CloneFamily objects' },
+    },
+    required: ['families'],
+  },
+  handler: async (args: Record<string, unknown>) => {
+    const { detectMirroredFamilies } = await import('@monoes/monograph');
+    return detectMirroredFamilies(args.families as Parameters<typeof detectMirroredFamilies>[0]);
+  },
+};
+
+monographTools.push(
+  monographBoundaryConfigTool,
+  monographOutputFormatTool,
+  monographHealthConfigTool,
+  monographConfigParsingTool,
+  monographFallowResultsTool,
+  monographFallowSuppressionTool,
+  monographDiscoverTypesTool,
+  monographMirroredFamiliesTool,
+);
