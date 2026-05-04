@@ -5512,3 +5512,296 @@ monographTools.push(
   monographGroupedOutputTool,
   monographJsonSchemaTool,
 );
+
+// ── Round 14: Fallow feature ports ────────────────────────────────────────────
+
+const monographFilePredicatesTool: MCPTool = {
+  name: 'monograph_file_predicates',
+  description: 'Check whether a file path or import specifier matches various categories: declaration, HTML, config, test, virtual module, builtin Node.js module, implicit dependency, or framework lifecycle method',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      check: { type: 'string', enum: ['isDeclarationFile', 'isHtmlFile', 'isConfigFile', 'isTestFile', 'isVirtualModule', 'isBuiltinModule', 'isImplicitDependency', 'isFrameworkLifecycleMethod'], description: 'Predicate to evaluate' },
+      value: { type: 'string', description: 'File path or specifier to test' },
+    },
+    required: ['check', 'value'],
+  },
+  handler: async (args: { check: string; value: string }) => {
+    const m = await import('@monoes/monograph');
+    const { check, value } = args;
+    if (check === 'isDeclarationFile') return { result: m.isDeclarationFile(value) };
+    if (check === 'isHtmlFile') return { result: m.isHtmlFile(value) };
+    if (check === 'isConfigFile') return { result: m.isConfigFile(value) };
+    if (check === 'isTestFile') return { result: m.isTestFile(value) };
+    if (check === 'isVirtualModule') return { result: m.isVirtualModule(value) };
+    if (check === 'isBuiltinModule') return { result: m.isBuiltinModule(value) };
+    if (check === 'isImplicitDependency') return { result: m.isImplicitDependency(value) };
+    if (check === 'isFrameworkLifecycleMethod') return { result: m.isFrameworkLifecycleMethod(value) };
+    return { error: 'Unknown check' };
+  },
+};
+
+const monographUnusedFilesTool: MCPTool = {
+  name: 'monograph_unused_files',
+  description: 'Find files that have no reachable importers from any entry point. Returns list of unreferenced file paths with their reason.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      allFiles: { type: 'array', items: { type: 'string' }, description: 'All file paths in the project' },
+      entryPoints: { type: 'array', items: { type: 'string' }, description: 'Entry point file paths' },
+      importGraph: { type: 'object', description: 'Map of file -> array of imported file paths (adjacency list)' },
+      ignore: { type: 'array', items: { type: 'string' }, description: 'Glob patterns to ignore', default: [] },
+    },
+    required: ['allFiles', 'entryPoints', 'importGraph'],
+  },
+  handler: async (args: { allFiles: string[]; entryPoints: string[]; importGraph: Record<string, string[]>; ignore?: string[] }) => {
+    const { findUnusedFiles } = await import('@monoes/monograph');
+    const results = findUnusedFiles(args.allFiles, args.entryPoints, args.importGraph, args.ignore ?? []);
+    return { unusedFiles: results, count: results.length };
+  },
+};
+
+const monographUnusedDepsTool: MCPTool = {
+  name: 'monograph_unused_deps',
+  description: 'Find unused, unresolved, or type-only dependencies given a set of declared packages and actual import specifiers found in source files',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      operation: { type: 'string', enum: ['unused', 'unresolved', 'typeOnly'], description: 'Which analysis to run', default: 'unused' },
+      declaredDeps: { type: 'array', items: { type: 'string' }, description: 'Package names declared in package.json dependencies' },
+      usedSpecifiers: { type: 'array', items: { type: 'string' }, description: 'Import specifiers found in source files' },
+      devDeps: { type: 'array', items: { type: 'string' }, description: 'Package names in devDependencies', default: [] },
+    },
+    required: ['declaredDeps', 'usedSpecifiers'],
+  },
+  handler: async (args: { operation?: string; declaredDeps: string[]; usedSpecifiers: string[]; devDeps?: string[] }) => {
+    const { findUnusedDependencies, findUnresolvedImports, findTypeOnlyDependencies } = await import('@monoes/monograph');
+    const op = args.operation ?? 'unused';
+    if (op === 'unused') return { results: findUnusedDependencies(args.declaredDeps, args.usedSpecifiers, args.devDeps ?? []) };
+    if (op === 'unresolved') return { results: findUnresolvedImports(args.usedSpecifiers, args.declaredDeps) };
+    if (op === 'typeOnly') return { results: findTypeOnlyDependencies(args.declaredDeps, args.usedSpecifiers) };
+    return { error: 'Unknown operation' };
+  },
+};
+
+const monographEntryPointsTool: MCPTool = {
+  name: 'monograph_entry_points',
+  description: 'Categorize entry points into runtime vs test buckets, deduplicate, and generate warnings for skipped entries',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      operation: { type: 'string', enum: ['categorize', 'deduplicate', 'isTest'], description: 'Operation to perform', default: 'categorize' },
+      entryPoints: { type: 'array', items: { type: 'string' }, description: 'Array of file paths to process' },
+    },
+    required: ['entryPoints'],
+  },
+  handler: async (args: { operation?: string; entryPoints: string[] }) => {
+    const { categorizeEntryPoints, deduplicateEntryPoints, isTestEntryPoint } = await import('@monoes/monograph');
+    const op = args.operation ?? 'categorize';
+    if (op === 'categorize') return categorizeEntryPoints(args.entryPoints);
+    if (op === 'deduplicate') return { entryPoints: deduplicateEntryPoints(args.entryPoints) };
+    if (op === 'isTest') return { results: args.entryPoints.map(p => ({ path: p, isTest: isTestEntryPoint(p) })) };
+    return { error: 'Unknown operation' };
+  },
+};
+
+const monographGraphReachabilityTool: MCPTool = {
+  name: 'monograph_graph_reachability',
+  description: 'Mark nodes reachable/unreachable from entry points using BFS traversal. Returns sets of reachable and unreachable node IDs.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      operation: { type: 'string', enum: ['mark', 'collectReachable', 'collectUnreachable'], description: 'Operation to run', default: 'collectReachable' },
+      nodes: { type: 'array', description: 'Array of ModuleNode objects with id, flags, importedIds fields' },
+      entryIds: { type: 'array', items: { type: 'number' }, description: 'Entry point node IDs' },
+      includeRuntime: { type: 'boolean', description: 'Include runtime-reachable nodes', default: true },
+      includeTest: { type: 'boolean', description: 'Include test-reachable nodes', default: true },
+    },
+    required: ['nodes', 'entryIds'],
+  },
+  handler: async (args: { operation?: string; nodes: any[]; entryIds: number[]; includeRuntime?: boolean; includeTest?: boolean }) => {
+    const { markReachable, collectReachable, collectUnreachable } = await import('@monoes/monograph');
+    const nodeMap = new Map<number, any>(args.nodes.map((n: any) => [n.id, n]));
+    markReachable(nodeMap, args.entryIds, { runtime: args.includeRuntime ?? true, test: args.includeTest ?? true });
+    if (args.operation === 'collectUnreachable') {
+      return { unreachableIds: [...collectUnreachable(nodeMap)] };
+    }
+    return { reachableIds: [...collectReachable(nodeMap)] };
+  },
+};
+
+const monographFindCyclesTool: MCPTool = {
+  name: 'monograph_find_cycles',
+  description: "Detect circular dependency cycles using Tarjan's iterative SCC algorithm. Returns cycle groups with file paths and sizes.",
+  inputSchema: {
+    type: 'object',
+    properties: {
+      nodes: { type: 'array', description: 'Array of ModuleNode objects with id, filePath, importedIds' },
+      skipTypeOnly: { type: 'boolean', description: 'Skip type-only import edges when detecting cycles', default: false },
+      minSize: { type: 'number', description: 'Minimum cycle size to report', default: 2 },
+    },
+    required: ['nodes'],
+  },
+  handler: async (args: { nodes: any[]; skipTypeOnly?: boolean; minSize?: number }) => {
+    const { findCycles } = await import('@monoes/monograph');
+    const nodeMap = new Map<number, any>(args.nodes.map((n: any) => [n.id, n]));
+    const cycles = findCycles(nodeMap, { skipTypeOnly: args.skipTypeOnly ?? false, minSize: args.minSize ?? 2 });
+    return { cycles, cycleCount: cycles.length, totalFilesInCycles: cycles.reduce((s: number, c: any) => s + c.filePaths.length, 0) };
+  },
+};
+
+const monographSuffixArrayPipelineTool: MCPTool = {
+  name: 'monograph_suffix_array_pipeline',
+  description: 'Run the full suffix array clone detection pipeline: rank-reduce tokens, build suffix array + LCP, extract clone groups, filter by containment. Returns raw clone groups.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      files: { type: 'array', description: 'Array of { filePath, tokens } objects where tokens is number[]' },
+      minTokens: { type: 'number', description: 'Minimum clone length in tokens', default: 40 },
+      minLines: { type: 'number', description: 'Minimum clone length in lines', default: 5 },
+    },
+    required: ['files'],
+  },
+  handler: async (args: { files: Array<{ filePath: string; tokens: number[] }>; minTokens?: number; minLines?: number }) => {
+    const { rankReduce, concatenateWithSentinels, buildSuffixArray, buildLcp, extractCloneGroups, filterCloneGroups, computePipelineStats } = await import('@monoes/monograph');
+    const minTokens = args.minTokens ?? 40;
+    const minLines = args.minLines ?? 5;
+    const allTokens = args.files.flatMap(f => f.tokens);
+    const { ranked: _r, maxRank } = rankReduce(allTokens);
+    const filesWithRanked = args.files.map(f => ({ ...f, tokens: rankReduce(f.tokens).ranked }));
+    const { text, fileRanges } = concatenateWithSentinels(filesWithRanked);
+    const sa = buildSuffixArray(text, maxRank);
+    const lcp = buildLcp(text, sa);
+    const rawGroups = extractCloneGroups(sa, lcp, text, fileRanges, minTokens);
+    const filtered = filterCloneGroups(rawGroups, minLines);
+    const stats = computePipelineStats(filtered, args.files.length, text.length);
+    return { groups: filtered, stats };
+  },
+};
+
+const monographShingleFilterTool: MCPTool = {
+  name: 'monograph_shingle_filter',
+  description: 'Build a shingle (k-gram) fingerprint set for a token stream, and filter a set of files to those that share shingles with a focus file',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      operation: { type: 'string', enum: ['buildShingles', 'filter'], description: 'Operation to perform', default: 'buildShingles' },
+      tokens: { type: 'array', items: { type: 'number' }, description: 'Token array for buildShingles' },
+      focusTokens: { type: 'array', items: { type: 'number' }, description: 'Focus file token array for filter operation' },
+      candidateFiles: { type: 'array', description: 'Array of { filePath, tokens } for filter operation' },
+      shingleSize: { type: 'number', description: 'Shingle size k', default: 7 },
+    },
+  },
+  handler: async (args: { operation?: string; tokens?: number[]; focusTokens?: number[]; candidateFiles?: Array<{ filePath: string; tokens: number[] }>; shingleSize?: number }) => {
+    const { buildShingleSet, filterToFocusCandidates, SHINGLE_SIZE } = await import('@monoes/monograph');
+    const k = args.shingleSize ?? SHINGLE_SIZE;
+    if (args.operation === 'filter' && args.focusTokens && args.candidateFiles) {
+      const focusSet = buildShingleSet(args.focusTokens, k);
+      const result = filterToFocusCandidates(focusSet, args.candidateFiles, k);
+      return { candidates: result };
+    }
+    if (args.tokens) {
+      const set = buildShingleSet(args.tokens, k);
+      return { shingleCount: set.size, shingles: [...set].slice(0, 20) };
+    }
+    return { error: 'Provide tokens for buildShingles or focusTokens+candidateFiles for filter' };
+  },
+};
+
+const monographCloneFamiliesTool: MCPTool = {
+  name: 'monograph_clone_families',
+  description: 'Group raw clone groups by shared file sets into families and generate refactoring suggestions (ExtractFunction, ExtractModule, MergeDirectories)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      groups: { type: 'array', description: 'Array of RawGroup objects from suffix array pipeline' },
+    },
+    required: ['groups'],
+  },
+  handler: async (args: { groups: any[] }) => {
+    const { groupRawGroupsIntoFamilies } = await import('@monoes/monograph');
+    const families = groupRawGroupsIntoFamilies(args.groups);
+    return { families, totalFamilies: families.length, totalDuplicatedLines: families.reduce((s: number, f: any) => s + f.totalDuplicatedLines, 0) };
+  },
+};
+
+const monographHealthScoringTool: MCPTool = {
+  name: 'monograph_health_scoring',
+  description: 'Compute file health scoring metrics: maintainability index (MI formula), complexity density, and dead code ratio',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      operation: { type: 'string', enum: ['maintainabilityIndex', 'complexityDensity', 'deadCodeRatio'], description: 'Metric to compute', default: 'maintainabilityIndex' },
+      halsteadVolume: { type: 'number', description: 'Halstead volume (for maintainabilityIndex)' },
+      cyclomaticComplexity: { type: 'number', description: 'Cyclomatic complexity' },
+      lineCount: { type: 'number', description: 'Lines of code' },
+      unusedExports: { type: 'number', description: 'Number of unused exports (for deadCodeRatio)' },
+      totalExports: { type: 'number', description: 'Total exports (for deadCodeRatio)' },
+    },
+  },
+  handler: async (args: { operation?: string; halsteadVolume?: number; cyclomaticComplexity?: number; lineCount?: number; unusedExports?: number; totalExports?: number }) => {
+    const { computeMaintainabilityIndex, computeComplexityDensity, computeDeadCodeRatio } = await import('@monoes/monograph');
+    const op = args.operation ?? 'maintainabilityIndex';
+    if (op === 'maintainabilityIndex') return { maintainabilityIndex: computeMaintainabilityIndex(args.halsteadVolume ?? 0, args.cyclomaticComplexity ?? 1, args.lineCount ?? 1) };
+    if (op === 'complexityDensity') return { complexityDensity: computeComplexityDensity(args.cyclomaticComplexity ?? 0, args.lineCount ?? 1) };
+    if (op === 'deadCodeRatio') return { deadCodeRatio: computeDeadCodeRatio(args.unusedExports ?? 0, args.totalExports ?? 1) };
+    return { error: 'Unknown operation' };
+  },
+};
+
+const monographOwnershipRiskTool: MCPTool = {
+  name: 'monograph_ownership_risk',
+  description: 'Compute bus factor and ownership risk for a set of files given git contributor records. Identifies single-owner files and knowledge concentration risk.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      contributors: { type: 'array', description: 'Array of { email, name, commits, linesChanged } contributor records' },
+      filePath: { type: 'string', description: 'File path for ownership risk computation', default: '' },
+      totalCommits: { type: 'number', description: 'Total commits to the file' },
+    },
+    required: ['contributors'],
+  },
+  handler: async (args: { contributors: any[]; filePath?: string; totalCommits?: number }) => {
+    const { computeOwnershipRisk, isBot } = await import('@monoes/monograph');
+    const filtered = args.contributors.filter((c: any) => !isBot(c.email, c.name));
+    const total = args.totalCommits ?? filtered.reduce((s: number, c: any) => s + (c.commits ?? 0), 0);
+    return computeOwnershipRisk(filtered, args.filePath ?? '', total);
+  },
+};
+
+const monographHotspotNormalizeTool: MCPTool = {
+  name: 'monograph_hotspot_normalize',
+  description: 'Compute p95 normalization maxima from a set of file hotspot data, then normalize individual hotspot scores (60% churn + 40% complexity)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      operation: { type: 'string', enum: ['computeMaxima', 'normalizeScore'], description: 'Operation to run', default: 'normalizeScore' },
+      files: { type: 'array', description: 'Array of { churnScore, complexityScore } for computeMaxima' },
+      churnScore: { type: 'number', description: 'Raw churn score for normalizeScore' },
+      complexityScore: { type: 'number', description: 'Raw complexity score for normalizeScore' },
+      maxima: { type: 'object', description: 'NormalizationMaxima object from computeMaxima' },
+    },
+  },
+  handler: async (args: { operation?: string; files?: any[]; churnScore?: number; complexityScore?: number; maxima?: any }) => {
+    const { computeNormalizationMaxima, normalizeHotspotScore } = await import('@monoes/monograph');
+    const op = args.operation ?? 'normalizeScore';
+    if (op === 'computeMaxima' && args.files) return { maxima: computeNormalizationMaxima(args.files) };
+    if (op === 'normalizeScore' && args.maxima !== undefined) return { score: normalizeHotspotScore(args.churnScore ?? 0, args.complexityScore ?? 0, args.maxima) };
+    return { error: 'Provide files for computeMaxima or churnScore+complexityScore+maxima for normalizeScore' };
+  },
+};
+
+monographTools.push(
+  monographFilePredicatesTool,
+  monographUnusedFilesTool,
+  monographUnusedDepsTool,
+  monographEntryPointsTool,
+  monographGraphReachabilityTool,
+  monographFindCyclesTool,
+  monographSuffixArrayPipelineTool,
+  monographShingleFilterTool,
+  monographCloneFamiliesTool,
+  monographHealthScoringTool,
+  monographOwnershipRiskTool,
+  monographHotspotNormalizeTool,
+);
