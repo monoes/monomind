@@ -87,3 +87,51 @@ export function attributeCloneGroup(
     duplicatedLines: group.duplicatedLines,
   };
 }
+
+// ── Round 10: result group partitioning ───────────────────────────────────────
+
+export type OwnershipResolverKind = 'owner' | 'directory' | 'package' | 'section';
+
+export interface ResultGroup<T = unknown> {
+  key: string;
+  owners?: string[];
+  results: T[];
+  fileCount: number;
+}
+
+export function groupResultsByOwner<T extends { filePath?: string; path?: string }>(
+  items: T[],
+  resolver: (filePath: string) => string,
+): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const item of items) {
+    const fp = item.filePath ?? (item as Record<string, unknown>)['path'] as string ?? '';
+    const key = resolver(fp);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(item);
+  }
+  return map;
+}
+
+export function partitionByOwner<T extends { filePath?: string; path?: string }>(
+  items: T[],
+  resolver: (filePath: string) => string,
+): ResultGroup<T>[] {
+  const grouped = groupResultsByOwner(items, resolver);
+  const groups: ResultGroup<T>[] = [];
+  for (const [key, results] of grouped) {
+    const filePaths = new Set(results.map(r => r.filePath ?? (r as Record<string, unknown>)['path'] as string ?? ''));
+    groups.push({ key, results, fileCount: filePaths.size });
+  }
+  return groups.sort((a, b) => b.results.length - a.results.length);
+}
+
+export function resolveWithPattern(
+  filePath: string,
+  ownerMap: Map<string, string>,
+): { owner: string; pattern: string | null } {
+  for (const [pattern, owner] of ownerMap) {
+    if (filePath.includes(pattern)) return { owner, pattern };
+  }
+  return { owner: 'unowned', pattern: null };
+}
