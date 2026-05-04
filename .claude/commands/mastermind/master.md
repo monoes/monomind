@@ -27,7 +27,7 @@ Describe what you want to accomplish and I'll handle the rest — or pick a doma
 | Finance | `/mastermind:finance` | Invoicing, tracking, forecasting |
 | Brain | `/mastermind:brain` | Inspect and manage your business memory |
 
-> Flags: `--auto` (skip confirmation) · `--confirm` (always ask before spawning) · `--project <name>` (set project name)
+> Flags: `--auto` (skip confirmation) · `--confirm` (always ask before spawning) · `--project <name>` (set project name) · `--iterate <N>` (run N autonomous improvement cycles after initial execution)
 
 ---
 
@@ -43,6 +43,7 @@ Extract from `$ARGUMENTS`:
 - `--auto` → mode = auto
 - `--confirm` → mode = confirm
 - `--project <name>` → project_name = <name>
+- `--iterate <N>` → iterate = N (integer ≥ 1; default 0 = no iteration)
 - Remaining text = prompt
 
 ### Step 2 — Brain Load
@@ -205,3 +206,89 @@ Follow the Brain Write Procedure from `_protocol.md` for each domain that ran:
 
 Show the action summary (Step 9). If any compaction ran during Step 10, append:
 > "Brain updated: compacted <N> entries into <M> summaries."
+
+---
+
+### Step 12 — Iteration Loop (only if `--iterate <N>` was set and N ≥ 1)
+
+After Step 11, run N autonomous improvement cycles. Each cycle is a full self-directed run — no user input required.
+
+**For each cycle i = 1 … N:**
+
+#### 12a — Assess Current State
+
+Load fresh brain context (repeat Brain Load Procedure from `_protocol.md`). Then evaluate the project's current state by examining:
+- What was just completed (artifacts from the most recent run's output schema)
+- What the brain's `next_actions` entries suggest
+- What the `next_actions` from all domain outputs say
+- What the git diff shows (if applicable) — any test failures, TODOs, or incomplete work
+- What gaps exist relative to the original prompt's success criteria
+
+#### 12b — Decide Next Activity
+
+Choose the single highest-value activity for this cycle. Rank candidates by this priority:
+
+| Priority | Activity | Choose when |
+|---|---|---|
+| 1 | **Test** | New code exists with no test coverage, or tests failed |
+| 2 | **Debug / Fix** | Tests are failing or artifacts have known errors |
+| 3 | **Review** | Significant new code exists with no review pass |
+| 4 | **Improve / Refactor** | Code works but has quality issues surfaced by review or brain |
+| 5 | **Add feature** | Core is stable; next_actions suggest new capability aligned with project goal |
+| 6 | **Research** | Significant unknowns remain before next feature can be decided |
+| 7 | **Content / Docs** | Feature is complete and undocumented |
+| 8 | **Release** | Project is stable, tested, reviewed — ready to ship |
+
+State the decision explicitly:
+> "Cycle <i>/<N>: I'm choosing to **<activity>** because <one-sentence reason>. Confidence: <0.0–1.0>"
+
+Log this as a decision in the cycle's output schema with `confidence` set accordingly.
+
+#### 12c — Execute
+
+Execute the chosen activity by invoking the appropriate domain skill directly (Steps 4–10 of the main flow, condensed):
+
+- Test → `Skill("mastermind:build")` with a testing-focused prompt
+- Debug/Fix → `Skill("mastermind:build")` with the specific issue as prompt
+- Review → `Skill("mastermind:review")` with scope = artifacts from last run
+- Improve/Refactor → `Skill("mastermind:build")` with refactor prompt
+- Add feature → `Skill("mastermind:build")` with the next feature from next_actions
+- Research → `Skill("mastermind:research")` with the open question as prompt
+- Content/Docs → `Skill("mastermind:content")` with scope = new artifacts
+- Release → `Skill("mastermind:release")` with project scope
+
+Always pass: the current brain_context, project_name, the relevant board_id, and mode = auto (iteration cycles never pause for confirmation).
+
+#### 12d — Brain Write
+
+Follow Brain Write Procedure from `_protocol.md` for this cycle's domain. Score and append.
+
+#### 12e — Cycle Summary
+
+Output a compact progress line:
+
+```
+ITERATION <i>/<N> — <activity> — <status: complete|partial|blocked>
+  → <one-line summary of what was done>
+  → Next cycle will: <predicted next activity based on current state>
+```
+
+If the cycle returns `status: blocked`, skip remaining cycles and report:
+> "Iteration halted at cycle <i>: blocked on <reason>. Remaining <N-i> cycles skipped."
+
+---
+
+After all N cycles complete, output a final iteration summary:
+
+```
+ITERATION COMPLETE — <N> cycles — <project_name>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Cycle 1: test       → 12 tests added, all passing
+Cycle 2: review     → 3 issues found, 2 fixed inline
+Cycle 3: improve    → auth module refactored, 15% complexity reduction
+...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Brain updated: <total decisions scored and logged>
+Project state: <one-sentence assessment of where things stand>
+Suggested next: <what a human should do or approve next>
+```
