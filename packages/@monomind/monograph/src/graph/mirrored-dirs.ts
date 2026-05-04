@@ -1,4 +1,5 @@
 import type { MonographDb } from '../storage/db.js';
+import type { CloneFamily } from '../graph/clone-families.js';
 
 export interface MirroredDirPair {
   dirA: string;
@@ -87,5 +88,84 @@ export function detectMirroredDirs(db: MonographDb, minSimilarity = 0.7): Mirror
   return {
     pairs,
     totalDirsAnalyzed: dirs.length,
+  };
+}
+
+export interface MirroredDirResult {
+  mirrored: MirroredDirPair[];
+  remaining: CloneFamily[];
+}
+
+export function detectMirroredFamilies(
+  families: CloneFamily[],
+  root: string,
+): MirroredDirResult {
+  const normalizedRoot = root.replace(/\\/g, '/').replace(/\/$/, '');
+
+  function dirOf(filePath: string): string {
+    const normalized = filePath.replace(/\\/g, '/');
+    const rel = normalized.startsWith(normalizedRoot + '/')
+      ? normalized.slice(normalizedRoot.length + 1)
+      : normalized;
+    const lastSlash = rel.lastIndexOf('/');
+    return lastSlash === -1 ? '' : rel.slice(0, lastSlash);
+  }
+
+  function baseName(filePath: string): string {
+    const normalized = filePath.replace(/\\/g, '/');
+    return normalized.slice(normalized.lastIndexOf('/') + 1);
+  }
+
+  const mirrored: MirroredDirPair[] = [];
+  const remainingIndices = new Set<number>(families.map((_, i) => i));
+
+  for (let i = 0; i < families.length; i++) {
+    for (let j = i + 1; j < families.length; j++) {
+      if (!remainingIndices.has(i) || !remainingIndices.has(j)) continue;
+
+      const fa = families[i];
+      const fb = families[j];
+
+      const dirsA = new Set(fa.files.map(dirOf));
+      const dirsB = new Set(fb.files.map(dirOf));
+
+      if (dirsA.size !== 1 || dirsB.size !== 1) continue;
+
+      const [dirA] = dirsA;
+      const [dirB] = dirsB;
+
+      if (dirA === dirB) continue;
+
+      const namesA = new Set(fa.files.map(baseName));
+      const namesB = new Set(fb.files.map(baseName));
+
+      const shared: string[] = [];
+      for (const n of namesA) {
+        if (namesB.has(n)) shared.push(n);
+      }
+      const union = namesA.size + namesB.size - shared.length;
+      if (union === 0) continue;
+      const similarity = shared.length / union;
+
+      if (similarity >= 0.5) {
+        mirrored.push({
+          dirA,
+          dirB,
+          similarity,
+          sharedFileNames: shared.sort(),
+          uniqueToA: namesA.size - shared.length,
+          uniqueToB: namesB.size - shared.length,
+        });
+        remainingIndices.delete(i);
+        remainingIndices.delete(j);
+      }
+    }
+  }
+
+  mirrored.sort((a, b) => b.similarity - a.similarity);
+
+  return {
+    mirrored,
+    remaining: [...remainingIndices].map(i => families[i]),
   };
 }
