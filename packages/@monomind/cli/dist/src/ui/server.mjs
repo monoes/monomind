@@ -1543,7 +1543,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
 
     // -------------------------------------------------------- GET /mastermind
     if (req.method === 'GET' && url === '/mastermind') {
-      const htmlPath = path.join(__dirname, '..', '..', '..', '..', '..', '..', 'docs', 'mastermind-diagram.html');
+      const root = projectDir || process.cwd();
+      const htmlPath = path.join(root, 'docs', 'mastermind-diagram.html');
       try {
         const html = fs.readFileSync(htmlPath, 'utf8');
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
