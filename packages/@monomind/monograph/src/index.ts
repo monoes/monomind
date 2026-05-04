@@ -230,3 +230,10 @@ export { type FallowIssueKind, type FallowSuppression, parseFallowIssueKind, iss
 export { type EntryPointSource } from './discover/entry-points.js';
 export { fileId, type FallowEntryPoint, formatEntryPointSource, type FallowDiscoveredFile } from './graph/resolve/discover-types.js';
 export { type MirroredDirResult, detectMirroredFamilies } from './graph/mirrored-dirs.js';
+// ── Round 16: Fallow feature ports (final) ────────────────────────────────────
+export { type HumanCheckOptions, formatUnusedFiles, formatUnusedExports, formatUnusedDeps, formatUnusedMembers, formatUnresolvedImports, buildCheckHumanLines } from './report/human-check.js';
+export { type HumanDupesOptions, formatCloneGroup, buildDuplicationFamilyLines } from './report/human-dupes.js';
+export { type HumanHealthOptions, formatVitalSignsSection, formatHotspotSection, formatCoverageGapSection } from './report/human-health.js';
+export { type VitalSignsTrend, computeVitalSignsScore } from './health/vital-signs-compute.js';
+export { type UnusedExportsOptions, findUnusedExports, findDuplicateExports } from './analyze/unused-exports.js';
+export { type BoundaryAnalysisResult, findBoundaryViolations, analyzeBoundaries } from './analyze/boundary-analysis.js';
