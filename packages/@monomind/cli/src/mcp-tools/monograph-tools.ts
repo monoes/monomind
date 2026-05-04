@@ -5183,3 +5183,332 @@ const monographErrorTypesTool: MCPTool = {
     return { formatted: formatError(err, (args.format ?? 'text') as any), error: err };
   },
 };
+
+monographTools.push(
+  monographResolveImportsTool,
+  monographPathInfoTool,
+  monographResolveSpecifierTool,
+  monographResolveStaticImportsTool,
+  monographResolveRequireImportsTool,
+  monographResolveReExportsTool,
+  monographResolveFallbacksTool,
+  monographReactNativeTool,
+  monographSpecifierUpgradesTool,
+  monographTokenTypesTool,
+  monographNormalizeTool,
+  monographTokenizeTool,
+  monographCheckFilterTool,
+  monographCheckRulesTool,
+  monographCheckOutputTool,
+  monographFlagsTool,
+  monographErrorTypesTool,
+);
+
+// ── Round 13: Fallow feature ports ────────────────────────────────────────────
+
+const monographAnalysisResultsTool: MCPTool = {
+  name: 'monograph_analysis_results',
+  description: 'Create, merge, filter, and query AnalysisResults containers that aggregate all issue types (unused files, exports, members, deps, circular deps, boundary violations, stale suppressions, duplicate exports)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      operation: { type: 'string', enum: ['empty', 'total', 'hasIssues', 'merge', 'filterByFile'], description: 'Operation to perform', default: 'empty' },
+      results: { type: 'object', description: 'AnalysisResults object (for total/hasIssues/filterByFile)' },
+      resultsB: { type: 'object', description: 'Second AnalysisResults for merge' },
+      filePaths: { type: 'array', items: { type: 'string' }, description: 'File paths for filterByFile operation' },
+    },
+  },
+  handler: async (args: { operation?: string; results?: any; resultsB?: any; filePaths?: string[] }) => {
+    const { makeEmptyAnalysisResults, totalIssues, hasIssues, mergeAnalysisResults, filterResultsByFile } = await import('@monoes/monograph');
+    const op = args.operation ?? 'empty';
+    if (op === 'empty') return makeEmptyAnalysisResults();
+    if (op === 'total' && args.results) return { total: totalIssues(args.results) };
+    if (op === 'hasIssues' && args.results) return { hasIssues: hasIssues(args.results) };
+    if (op === 'merge' && args.results && args.resultsB) return mergeAnalysisResults(args.results, args.resultsB);
+    if (op === 'filterByFile' && args.results && args.filePaths) return filterResultsByFile(args.results, new Set(args.filePaths));
+    return { error: 'Invalid operation or missing arguments' };
+  },
+};
+
+const monographProjectStateTool: MCPTool = {
+  name: 'monograph_project_state',
+  description: 'Build and query ProjectState: a registry of files and workspace entries with ID-based lookup and longest-prefix package resolution',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      files: { type: 'array', description: 'Array of ProjectFile objects with id, path, workspaceId' },
+      workspaces: { type: 'array', description: 'Array of WorkspaceEntry objects with id, name, rootDir, packageName' },
+      operation: { type: 'string', enum: ['build', 'fileById', 'idForPath', 'workspaceForFile', 'filesInWorkspace', 'resolvePackage'], description: 'Operation', default: 'build' },
+      fileId: { type: 'number', description: 'File ID for fileById/workspaceForFile operations' },
+      filePath: { type: 'string', description: 'File path for idForPath operation' },
+      workspaceId: { type: 'number', description: 'Workspace ID for filesInWorkspace operation' },
+      packageSpec: { type: 'string', description: 'Package specifier for resolvePackage operation' },
+    },
+  },
+  handler: async (args: { files?: any[]; workspaces?: any[]; operation?: string; fileId?: number; filePath?: string; workspaceId?: number; packageSpec?: string }) => {
+    const { makeProjectState, fileById, idForPath, workspaceForFile, filesInWorkspace } = await import('@monoes/monograph');
+    const state = makeProjectState(args.files ?? [], args.workspaces ?? []);
+    const op = args.operation ?? 'build';
+    if (op === 'build') return { fileCount: state.files.size, workspaceCount: state.workspaces.length };
+    if (op === 'fileById' && args.fileId !== undefined) return { file: fileById(state, args.fileId) };
+    if (op === 'idForPath' && args.filePath) return { id: idForPath(state, args.filePath) };
+    if (op === 'workspaceForFile' && args.fileId !== undefined) return { workspace: workspaceForFile(state, args.fileId) };
+    if (op === 'filesInWorkspace' && args.workspaceId !== undefined) {
+      const ws = state.workspaces.find((w: any) => w.id === args.workspaceId);
+      return { files: ws ? filesInWorkspace(state, ws) : [] };
+    }
+    return { error: 'Invalid operation' };
+  },
+};
+
+const monographGitChangedFilesTool: MCPTool = {
+  name: 'monograph_git_changed_files',
+  description: 'Get files changed since a git ref (branch, tag, or commit SHA). Validates ref for security. Optionally returns changed file paths for incremental analysis.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string', description: 'Git repository root directory' },
+      since: { type: 'string', description: 'Git ref (branch, tag, SHA) to compare against' },
+    },
+    required: ['root', 'since'],
+  },
+  handler: async (args: { root: string; since: string }) => {
+    const { getChangedFilesSince } = await import('@monoes/monograph');
+    try {
+      const files = getChangedFilesSince(args.root, args.since);
+      return { changedFiles: files, count: files.length };
+    } catch (e: any) {
+      return { error: e.message };
+    }
+  },
+};
+
+const monographMigrationTypesTool: MCPTool = {
+  name: 'monograph_migration_types',
+  description: 'Detect migration source (knip/jscpd/fallow/auto), build migration warnings, and construct migration results for config migration pipelines',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      operation: { type: 'string', enum: ['detect', 'warning', 'success', 'constants'], description: 'Operation to perform', default: 'constants' },
+      dirPath: { type: 'string', description: 'Directory path for detect operation' },
+      files: { type: 'array', items: { type: 'string' }, description: 'File list for detect operation' },
+      field: { type: 'string', description: 'Field name for warning operation' },
+      message: { type: 'string', description: 'Warning message' },
+      config: { type: 'object', description: 'Migrated config for success operation' },
+      sources: { type: 'array', items: { type: 'string' }, description: 'Source files for success operation' },
+    },
+  },
+  handler: async (args: { operation?: string; dirPath?: string; files?: string[]; field?: string; message?: string; config?: any; sources?: string[] }) => {
+    const { detectMigrationSource, makeMigrationWarning, migrationSuccess, KNIP_CONFIG_FILENAMES, JSCPD_CONFIG_FILENAMES } = await import('@monoes/monograph');
+    const op = args.operation ?? 'constants';
+    if (op === 'constants') return { knipConfigFiles: KNIP_CONFIG_FILENAMES, jscpdConfigFiles: JSCPD_CONFIG_FILENAMES };
+    if (op === 'detect' && args.dirPath) return { source: detectMigrationSource(args.dirPath, args.files ?? []) };
+    if (op === 'warning' && args.field && args.message) return { warning: makeMigrationWarning(args.field, args.message) };
+    if (op === 'success' && args.config) return migrationSuccess(args.config, args.sources ?? []);
+    return { error: 'Invalid operation' };
+  },
+};
+
+const monographBadgeSvgTool: MCPTool = {
+  name: 'monograph_badge_svg',
+  description: 'Generate SVG badges for health scores and grades (Shields.io-compatible format with Verdana text width calculation)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      type: { type: 'string', enum: ['health', 'grade', 'custom'], description: 'Badge type', default: 'health' },
+      score: { type: 'number', description: 'Health score (0-100) for health/grade badges' },
+      grade: { type: 'string', description: 'Letter grade (A-F) for grade badge' },
+      label: { type: 'string', description: 'Label text for custom badge' },
+      message: { type: 'string', description: 'Message text for custom badge' },
+      color: { type: 'string', description: 'Badge color hex for custom badge' },
+    },
+  },
+  handler: async (args: { type?: string; score?: number; grade?: string; label?: string; message?: string; color?: string }) => {
+    const { renderHealthBadge, renderGradeBadge, renderBadge, textWidth, gradeColor } = await import('@monoes/monograph');
+    const type = args.type ?? 'health';
+    if (type === 'health' && args.score !== undefined) return { svg: renderHealthBadge(args.score, args.grade ?? 'A') };
+    if (type === 'grade' && args.grade) return { svg: renderGradeBadge(args.label ?? 'grade', args.grade) };
+    if (type === 'custom' && args.label && args.message) {
+      return { svg: renderBadge({ label: args.label, message: args.message, color: args.color ?? '#4c1', labelWidth: textWidth(args.label), messageWidth: textWidth(args.message) }) };
+    }
+    return { error: 'Invalid arguments' };
+  },
+};
+
+const monographAttributedDuplicationTool: MCPTool = {
+  name: 'monograph_attributed_duplication',
+  description: 'Attribute clone groups to directory owners and format duplication groups with ownership context',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      groups: { type: 'array', description: 'Array of CloneGroup objects with instances [{filePath, startLine, endLine}] and duplicatedLines' },
+      root: { type: 'string', description: 'Project root for relative path display', default: '' },
+      format: { type: 'string', enum: ['lines', 'json'], description: 'Output format', default: 'json' },
+    },
+    required: ['groups'],
+  },
+  handler: async (args: { groups: any[]; root?: string; format?: string }) => {
+    const { resolveOwnerFromDirectory, formatDuplicationGroup } = await import('@monoes/monograph');
+    const root = args.root ?? '';
+    if (args.format === 'lines') {
+      const lines = args.groups.flatMap((g: any) => formatDuplicationGroup(g, root));
+      return { lines };
+    }
+    const withOwners = args.groups.map((g: any) => ({
+      ...g,
+      primaryOwner: g.instances[0] ? resolveOwnerFromDirectory(g.instances[0].filePath, root) : 'unknown',
+    }));
+    return { groups: withOwners };
+  },
+};
+
+const monographNumberFormatTool: MCPTool = {
+  name: 'monograph_number_format',
+  description: 'Format numbers, file paths, durations, byte sizes, and issue lists for human-readable output with grouped-by-file summaries',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      operation: { type: 'string', enum: ['thousands', 'percent', 'path', 'duration', 'bytes', 'pluralize', 'groupByFile', 'circularCycle'], description: 'Format operation', default: 'thousands' },
+      value: { type: 'number', description: 'Numeric value for thousands/percent/duration/bytes' },
+      filePath: { type: 'string', description: 'File path for path operation' },
+      root: { type: 'string', description: 'Project root for relative paths', default: '' },
+      singular: { type: 'string', description: 'Singular noun for pluralize' },
+      plural: { type: 'string', description: 'Plural noun for pluralize' },
+      items: { type: 'array', description: 'Items with filePath field for groupByFile' },
+      cycle: { type: 'array', items: { type: 'string' }, description: 'Cycle paths for circularCycle' },
+    },
+  },
+  handler: async (args: { operation?: string; value?: number; filePath?: string; root?: string; singular?: string; plural?: string; items?: any[]; cycle?: string[] }) => {
+    const { thousands, formatPercent, formatPath, formatDuration, formatBytes, pluralize, buildGroupedByFile, formatCircularCycle } = await import('@monoes/monograph');
+    const op = args.operation ?? 'thousands';
+    const root = args.root ?? '';
+    if (op === 'thousands' && args.value !== undefined) return { formatted: thousands(args.value) };
+    if (op === 'percent' && args.value !== undefined) return { formatted: formatPercent(args.value) };
+    if (op === 'path' && args.filePath) return { formatted: formatPath(args.filePath, root) };
+    if (op === 'duration' && args.value !== undefined) return { formatted: formatDuration(args.value) };
+    if (op === 'bytes' && args.value !== undefined) return { formatted: formatBytes(args.value) };
+    if (op === 'pluralize' && args.value !== undefined && args.singular) return { formatted: pluralize(args.value, args.singular, args.plural) };
+    if (op === 'groupByFile' && args.items) return { groups: buildGroupedByFile(args.items, root) };
+    if (op === 'circularCycle' && args.cycle) return { formatted: formatCircularCycle(args.cycle, root) };
+    return { error: 'Invalid operation' };
+  },
+};
+
+const monographHealthReportTypesTool: MCPTool = {
+  name: 'monograph_health_report_types',
+  description: 'Compute health scores with penalty breakdown, vital signs, and format vital signs for display. Includes letter grading (A-F) and issue count aggregation.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      operation: { type: 'string', enum: ['makeScore', 'vitalSigns', 'formatVitalSigns', 'letterGrade'], description: 'Operation', default: 'makeScore' },
+      score: { type: 'number', description: 'Score value (0-100)' },
+      penalties: { type: 'object', description: 'Partial HealthScorePenalties (complexity, duplication, deadCode, coupling, maintainability)' },
+      vitalSigns: { type: 'object', description: 'Partial VitalSigns for computeVitalSigns/formatVitalSigns' },
+    },
+  },
+  handler: async (args: { operation?: string; score?: number; penalties?: any; vitalSigns?: any }) => {
+    const { makeHealthScore, computeVitalSigns, formatVitalSigns } = await import('@monoes/monograph');
+    const op = args.operation ?? 'makeScore';
+    if (op === 'makeScore' && args.score !== undefined) return makeHealthScore(args.score, args.penalties ?? {});
+    if (op === 'vitalSigns') return computeVitalSigns(args.vitalSigns ?? {});
+    if (op === 'formatVitalSigns') return { lines: formatVitalSigns(computeVitalSigns(args.vitalSigns ?? {})) };
+    if (op === 'letterGrade' && args.score !== undefined) {
+      const hs = makeHealthScore(args.score);
+      return { grade: hs.grade };
+    }
+    return { error: 'Invalid operation' };
+  },
+};
+
+const monographFallowErrorTool: MCPTool = {
+  name: 'monograph_fallow_error',
+  description: 'Create, format, and classify typed FallowError instances with error codes (E001-E006) for file-read, parse, resolve, config, git, and IO errors',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      operation: { type: 'string', enum: ['create', 'format', 'check'], description: 'Operation', default: 'create' },
+      kind: { type: 'string', enum: ['fileRead', 'parse', 'resolve', 'config', 'git', 'io'], description: 'Error kind for create', default: 'io' },
+      message: { type: 'string', description: 'Error message' },
+      path: { type: 'string', description: 'File path for fileRead/io errors' },
+      help: { type: 'string', description: 'Optional help text' },
+      err: { type: 'object', description: 'Error object for format/check operations' },
+    },
+  },
+  handler: async (args: { operation?: string; kind?: string; message?: string; path?: string; help?: string; err?: any }) => {
+    const { FallowError, isFallowError, formatFallowError } = await import('@monoes/monograph');
+    const op = args.operation ?? 'create';
+    if (op === 'format') return { formatted: formatFallowError(args.err) };
+    if (op === 'check') return { isFallowError: isFallowError(args.err) };
+    const kind = args.kind ?? 'io';
+    let err: any;
+    if (kind === 'fileRead') err = FallowError.fileRead(args.path ?? '', args.message ?? '');
+    else if (kind === 'parse') err = FallowError.parse(args.path ?? '', args.message ?? '');
+    else if (kind === 'resolve') err = FallowError.resolve(args.message ?? '');
+    else if (kind === 'config') err = FallowError.config(args.message ?? '');
+    else if (kind === 'git') err = FallowError.git(args.message ?? '');
+    else err = FallowError.io(args.message ?? '');
+    if (args.help) err = err.withHelp(args.help);
+    return { error: formatFallowError(err), kind: err.kind };
+  },
+};
+
+const monographGroupedOutputTool: MCPTool = {
+  name: 'monograph_grouped_output',
+  description: 'Format analysis result groups into JSON, text, or compact output, optionally partitioned by owner',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      groups: { type: 'array', description: 'Array of ResultGroup objects with name, issues, filePaths, ownerName' },
+      format: { type: 'string', enum: ['json', 'text', 'compact'], description: 'Output format', default: 'text' },
+      root: { type: 'string', description: 'Project root for relative paths', default: '' },
+      partitionByOwner: { type: 'boolean', description: 'Partition groups by owner', default: false },
+    },
+    required: ['groups'],
+  },
+  handler: async (args: { groups: any[]; format?: string; root?: string; partitionByOwner?: boolean }) => {
+    const { buildGroupedJsonOutput, buildGroupedTextLines, buildGroupedCompactLines, partitionGroupsByOwner } = await import('@monoes/monograph');
+    const root = args.root ?? '';
+    const groups = args.partitionByOwner ? [...partitionGroupsByOwner(args.groups).values()].flat() : args.groups;
+    const fmt = args.format ?? 'text';
+    if (fmt === 'json') return buildGroupedJsonOutput(groups, root);
+    if (fmt === 'compact') return { lines: buildGroupedCompactLines(groups, root) };
+    return { lines: buildGroupedTextLines(groups, root) };
+  },
+};
+
+const monographJsonSchemaTool: MCPTool = {
+  name: 'monograph_json_schema',
+  description: 'Build versioned JSON envelopes for analysis, health, and duplication results with schema version headers',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      operation: { type: 'string', enum: ['analysis', 'health', 'duplication', 'versions'], description: 'Envelope type to build', default: 'versions' },
+      payload: { type: 'object', description: 'Result payload to wrap in envelope' },
+      root: { type: 'string', description: 'Project root for path stripping', default: '' },
+    },
+  },
+  handler: async (args: { operation?: string; payload?: any; root?: string }) => {
+    const { buildAnalysisJsonEnvelope, buildHealthJsonEnvelope, buildDuplicationJsonEnvelope, ANALYSIS_SCHEMA_VERSION, HEALTH_SCHEMA_VERSION, DUPLICATION_SCHEMA_VERSION } = await import('@monoes/monograph');
+    const root = args.root ?? '';
+    const op = args.operation ?? 'versions';
+    if (op === 'versions') return { analysisVersion: ANALYSIS_SCHEMA_VERSION, healthVersion: HEALTH_SCHEMA_VERSION, duplicationVersion: DUPLICATION_SCHEMA_VERSION };
+    if (op === 'analysis' && args.payload) return buildAnalysisJsonEnvelope(args.payload, root);
+    if (op === 'health' && args.payload) return buildHealthJsonEnvelope(args.payload, root);
+    if (op === 'duplication' && args.payload) return buildDuplicationJsonEnvelope(args.payload, root);
+    return { error: 'Invalid operation or missing payload' };
+  },
+};
+
+monographTools.push(
+  monographAnalysisResultsTool,
+  monographProjectStateTool,
+  monographGitChangedFilesTool,
+  monographMigrationTypesTool,
+  monographBadgeSvgTool,
+  monographAttributedDuplicationTool,
+  monographNumberFormatTool,
+  monographHealthReportTypesTool,
+  monographFallowErrorTool,
+  monographGroupedOutputTool,
+  monographJsonSchemaTool,
+);
