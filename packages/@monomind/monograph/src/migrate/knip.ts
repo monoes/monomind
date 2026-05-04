@@ -74,3 +74,53 @@ export function migrateFromKnip(knipConfigPath: string): KnipMigrationResult {
 
   return { monographConfig, warnings, inputFile: knipConfigPath };
 }
+
+// ── Round 10: TOML migration output + JSONC reader ────────────────────────────
+
+export function stripJsoncComments(input: string): string {
+  const lines = input.split('\n');
+  const out: string[] = [];
+  let inBlock = false;
+  for (const line of lines) {
+    let result = '';
+    let i = 0;
+    while (i < line.length) {
+      if (inBlock) {
+        if (line[i] === '*' && line[i + 1] === '/') { inBlock = false; i += 2; } else { i++; }
+      } else if (line[i] === '/' && line[i + 1] === '/') {
+        break;
+      } else if (line[i] === '/' && line[i + 1] === '*') {
+        inBlock = true; i += 2;
+      } else {
+        result += line[i++];
+      }
+    }
+    out.push(result);
+  }
+  return out.join('\n');
+}
+
+export function parseJsoncString(input: string): Record<string, unknown> {
+  return JSON.parse(stripJsoncComments(input)) as Record<string, unknown>;
+}
+
+export function generateTomlFromMigration(config: Record<string, unknown>): string {
+  const lines: string[] = [];
+  for (const [key, val] of Object.entries(config)) {
+    if (Array.isArray(val)) {
+      const items = val.map(v => typeof v === 'string' ? `"${v}"` : String(v)).join(', ');
+      lines.push(`${key} = [${items}]`);
+    } else if (typeof val === 'boolean' || typeof val === 'number') {
+      lines.push(`${key} = ${val}`);
+    } else if (typeof val === 'string') {
+      lines.push(`${key} = "${val}"`);
+    } else if (typeof val === 'object' && val !== null) {
+      lines.push(`[${key}]`);
+      for (const [k2, v2] of Object.entries(val as Record<string, unknown>)) {
+        if (typeof v2 === 'string') lines.push(`${k2} = "${v2}"`);
+        else if (typeof v2 === 'boolean' || typeof v2 === 'number') lines.push(`${k2} = ${v2}`);
+      }
+    }
+  }
+  return lines.join('\n');
+}

@@ -104,3 +104,34 @@ export function parseTsconfigRootDir(tsconfigPath: string): string | null {
   const rootDir = co?.['rootDir'];
   return typeof rootDir === 'string' ? rootDir : null;
 }
+
+// ── Round 10: enhanced undeclared workspace detection ─────────────────────────
+
+export interface EnhancedWorkspaceDiagnostic extends WorkspaceDiagnostic {
+  suggestion: string;
+}
+
+export function findUndeclaredWorkspacesEnhanced(
+  root: string,
+  declared: WorkspaceInfo[],
+  ignores: string[] = [],
+): EnhancedWorkspaceDiagnostic[] {
+  const basic = findUndeclaredWorkspaces(root, declared, ignores);
+  return basic.map(d => ({
+    ...d,
+    suggestion: `Add "${d.path.replace(root, '').replace(/^\//, '')}" to the workspaces array in package.json`,
+  }));
+}
+
+export function validateWorkspaceDeclarations(
+  declared: WorkspaceInfo[],
+  root: string,
+): WorkspaceDiagnostic[] {
+  const diagnostics: WorkspaceDiagnostic[] = [];
+  for (const ws of declared) {
+    if (!ws.packageJson['name']) {
+      diagnostics.push({ kind: 'missingPackageJson', message: `Workspace at "${ws.rootPath.replace(root, '')}" has no name field`, path: ws.rootPath });
+    }
+  }
+  return diagnostics;
+}

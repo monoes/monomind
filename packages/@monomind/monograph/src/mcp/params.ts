@@ -120,3 +120,63 @@ export interface ExplainMcpParams {
 export function isValidFixMode(mode: unknown): mode is 'preview' | 'apply' {
   return mode === 'preview' || mode === 'apply';
 }
+
+// ── Round 10: extended MCP params ─────────────────────────────────────────────
+
+export interface ExtendedAnalyzeParams extends AnalyzeParams {
+  production?: boolean;
+  workspace?: string;
+  issueTypes?: string[];
+  boundaryViolations?: boolean;
+  baseline?: string;
+  saveBaseline?: boolean;
+  failOnRegression?: boolean;
+  tolerance?: number;
+  groupBy?: 'owner' | 'directory' | 'package' | 'section';
+  file?: string;
+  includeEntryExports?: boolean;
+}
+
+export interface ExtendedHealthParams extends HealthParams {
+  maxCyclomatic?: number;
+  maxCognitive?: number;
+  maxCrap?: number;
+  top?: number;
+  sort?: 'crap' | 'cyclomatic' | 'cognitive' | 'mi';
+  complexity?: boolean;
+  fileScores?: boolean;
+  hotspots?: boolean;
+  ownership?: boolean;
+  ownershipEmailMode?: 'fullEmail' | 'domainEmail' | 'displayName';
+  targets?: boolean;
+  coverageGaps?: boolean;
+  score?: boolean;
+  minScore?: number;
+  minSeverity?: 'moderate' | 'high' | 'critical';
+  since?: string;
+  minCommits?: number;
+  saveSnapshot?: boolean;
+  trend?: boolean;
+  summary?: boolean;
+  coverage?: string;
+  coverageRoot?: string;
+  groupBy?: 'owner' | 'directory' | 'package' | 'section';
+}
+
+export interface ExtendedFindDupesParams extends FindDupesParams {
+  threshold?: number;
+  skipLocal?: boolean;
+  crossLanguage?: boolean;
+  ignoreImports?: boolean;
+  explainSkipped?: boolean;
+  top?: number;
+  baseline?: string;
+  saveBaseline?: boolean;
+  changedSince?: string;
+  groupBy?: 'owner' | 'directory' | 'package' | 'section';
+}
+
+export interface GetHotPathsMcpParams { root: string; minRequestsPerDay?: number; limit?: number }
+export interface GetBlastRadiusMcpParams { root: string; filePath: string; limit?: number }
+export interface GetImportanceMcpParams { root: string; limit?: number; minScore?: number }
+export interface GetCleanupCandidatesMcpParams { root: string; maxCoveragePct?: number; limit?: number }

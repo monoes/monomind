@@ -125,3 +125,25 @@ export const DEFAULT_MONOGRAPH_CONFIG: ResolvedMonographConfig = {
   ownership: { emailMode: 'fullEmail' },
   plugins: [],
 };
+
+// ── Round 10: extended MonographConfig fields ──────────────────────────────────
+
+export interface ExtendedMonographConfig extends MonographConfig {
+  extends?: string[];
+  sealed?: boolean;
+  includeEntryExports?: boolean;
+  publicPackages?: string[];
+  dynamicallyLoaded?: string[];
+  codeowners?: string;
+  ignoreDependencies?: string[];
+  ignoreExportsUsedInFile?: boolean | { interface?: boolean; typeAlias?: boolean };
+  usedClassMembers?: Array<string | { extends?: string[]; implements?: string[]; members: string[] }>;
+  duplicates?: {
+    enabled?: boolean;
+    mode?: 'strict' | 'mild' | 'weak' | 'semantic';
+    minTokens?: number;
+    minLines?: number;
+    crossLanguage?: boolean;
+    ignoreImports?: boolean;
+  };
+}
