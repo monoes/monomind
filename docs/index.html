@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Monomind — Autonomous Business Brain</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #07071a;
+  color: #e0e0ff;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Stars */
+#stars {
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, #12123a 0%, #07071a 70%);
+  z-index: 0;
+}
+.star {
+  position: absolute; background: #fff; border-radius: 50%;
+  animation: twinkle var(--dur) ease-in-out infinite alternate;
+  animation-delay: var(--delay);
+}
+@keyframes twinkle { from { opacity: .08; } to { opacity: .85; } }
+
+/* Content */
+#content {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 0;
+  text-align: center;
+  padding: 40px 24px;
+}
+
+/* Logo / brain */
+#logo {
+  font-size: 88px; line-height: 1;
+  filter: drop-shadow(0 0 32px rgba(160,100,255,.9));
+  animation: pulse 2.6s ease-in-out infinite;
+  margin-bottom: 28px;
+}
+@keyframes pulse {
+  0%,100% { transform: scale(1);     filter: drop-shadow(0 0 28px rgba(160,100,255,.85)); }
+  50%      { transform: scale(1.06); filter: drop-shadow(0 0 52px rgba(200,140,255,1)); }
+}
+
+/* Wordmark */
+h1 {
+  font-size: 36px; font-weight: 900; letter-spacing: 12px;
+  background: linear-gradient(135deg, #c080ff 0%, #7040ff 50%, #ff60ff 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+.sub {
+  font-size: 10px; color: #5555aa; letter-spacing: 5px;
+  margin-bottom: 48px;
+}
+
+/* CTA button */
+#mastermind-btn {
+  display: flex; align-items: center; gap: 10px;
+  background: linear-gradient(135deg, rgba(100,50,220,.75), rgba(60,20,160,.75));
+  border: 1px solid rgba(160,100,255,.7);
+  color: #d0b0ff;
+  padding: 16px 38px;
+  border-radius: 50px;
+  font-size: 15px; font-weight: 800; letter-spacing: 2px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .25s cubic-bezier(.34,1.56,.64,1);
+  box-shadow: 0 0 30px rgba(120,60,255,.25), inset 0 1px 0 rgba(255,255,255,.1);
+  margin-bottom: 52px;
+}
+#mastermind-btn:hover {
+  transform: scale(1.08) translateY(-2px);
+  border-color: rgba(210,160,255,.9);
+  box-shadow: 0 0 55px rgba(140,80,255,.5), inset 0 1px 0 rgba(255,255,255,.15);
+  color: #fff;
+}
+#mastermind-btn span.arrow {
+  font-size: 18px; transition: transform .2s;
+}
+#mastermind-btn:hover span.arrow { transform: translateX(4px); }
+
+/* Domain grid */
+.grid-label {
+  font-size: 9px; color: #3a3a66; letter-spacing: 4px;
+  margin-bottom: 16px;
+}
+.domain-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  justify-content: center; max-width: 600px;
+  margin-bottom: 52px;
+}
+.chip {
+  display: flex; align-items: center; gap: 5px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 20px; padding: 5px 14px;
+  font-size: 11px; color: #888;
+  transition: all .2s;
+  cursor: default;
+}
+.chip:hover {
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.2);
+  color: #ccc;
+}
+
+/* Quick start */
+.qs-box {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px; padding: 18px 24px;
+  max-width: 400px; width: 100%;
+  text-align: left;
+}
+.qs-label {
+  font-size: 9px; color: #444; letter-spacing: 3px; margin-bottom: 10px;
+}
+.qs-box code {
+  display: block;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 11px; color: #8877cc;
+  line-height: 2.1;
+}
+.qs-box code span { color: #c0a0ff; }
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<div id="content">
+  <div id="logo">🧠</div>
+  <h1>MONOMIND</h1>
+  <p class="sub">AUTONOMOUS BUSINESS BRAIN &nbsp;·&nbsp; 10 DOMAINS &nbsp;·&nbsp; SELF-IMPROVING</p>
+
+  <a id="mastermind-btn" href="mastermind-diagram.html">
+    View Mastermind &nbsp;<span class="arrow">→</span>
+  </a>
+
+  <p class="grid-label">ACTIVE DOMAINS</p>
+  <div class="domain-chips">
+    <div class="chip">🔨 Build</div>
+    <div class="chip">💡 Idea</div>
+    <div class="chip">📣 Marketing</div>
+    <div class="chip">🔍 Review</div>
+    <div class="chip">🔬 Research</div>
+    <div class="chip">✍️ Content</div>
+    <div class="chip">🚀 Release</div>
+    <div class="chip">💼 Sales</div>
+    <div class="chip">⚙️ Ops</div>
+    <div class="chip">💰 Finance</div>
+  </div>
+
+  <div class="qs-box">
+    <div class="qs-label">QUICK START</div>
+    <code>
+      <span>/mastermind</span> build a SaaS MVP --auto<br>
+      <span>/mastermind</span> launch a marketing campaign<br>
+      <span>/mastermind:master</span> [prompt] --iterate 3<br>
+      <span>/mastermind:brain</span> status
+    </code>
+  </div>
+</div>
+
+<script>
+(function makeStars() {
+  const el = document.getElementById('stars');
+  for (let i = 0; i < 180; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = Math.random() * 2.2 + 0.4;
+    s.style.cssText =
+      `width:${sz}px;height:${sz}px;`+
+      `left:${Math.random()*100}%;top:${Math.random()*100}%;`+
+      `--dur:${(Math.random()*4+2).toFixed(1)}s;`+
+      `--delay:${(Math.random()*4).toFixed(1)}s;`+
+      `opacity:${(Math.random()*.4+.05).toFixed(2)};`;
+    el.appendChild(s);
+  }
+})();
+</script>
+</body>
+</html>
