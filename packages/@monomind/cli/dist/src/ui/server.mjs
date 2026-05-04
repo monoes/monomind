@@ -1541,6 +1541,20 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // -------------------------------------------------------- GET /mastermind
+    if (req.method === 'GET' && url === '/mastermind') {
+      const htmlPath = path.join(__dirname, '..', '..', '..', '..', '..', '..', 'docs', 'mastermind-diagram.html');
+      try {
+        const html = fs.readFileSync(htmlPath, 'utf8');
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(html);
+      } catch (err) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end(`mastermind-diagram.html not found at: ${htmlPath}`);
+      }
+      return;
+    }
+
     // ------------------------------------------------------------------ 404
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not found');
