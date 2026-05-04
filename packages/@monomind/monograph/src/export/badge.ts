@@ -63,3 +63,43 @@ export function generateBadge(options: BadgeOptions): string {
   </g>
 </svg>`;
 }
+
+// ── Round 10: health terminal badge ───────────────────────────────────────────
+
+export type HealthGradeLetter = 'A' | 'B' | 'C' | 'D' | 'F';
+
+export interface HealthBadgeOptions {
+  grade: HealthGradeLetter;
+  score: number;
+  label?: string;
+  ansiColors?: boolean;
+}
+
+const GRADE_ANSI_BG: Record<HealthGradeLetter, string> = {
+  A: '\x1b[42m', // green
+  B: '\x1b[32m', // dark green
+  C: '\x1b[43m', // yellow
+  D: '\x1b[33m', // dark yellow
+  F: '\x1b[41m', // red
+};
+
+const ANSI_RESET = '\x1b[0m';
+const ANSI_BOLD = '\x1b[1m';
+
+export function renderHealthTerminalBadge(opts: HealthBadgeOptions): string {
+  const label = opts.label ?? 'health';
+  const score = Math.round(opts.score);
+  if (!opts.ansiColors) {
+    return `[${label}: ${opts.grade} (${score}/100)]`;
+  }
+  const bg = GRADE_ANSI_BG[opts.grade];
+  return `${ANSI_BOLD}${bg} ${label.toUpperCase()}: ${opts.grade} (${score}/100) ${ANSI_RESET}`;
+}
+
+export function healthScoreToGrade(score: number): HealthGradeLetter {
+  if (score >= 90) return 'A';
+  if (score >= 75) return 'B';
+  if (score >= 60) return 'C';
+  if (score >= 45) return 'D';
+  return 'F';
+}

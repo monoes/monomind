@@ -141,3 +141,61 @@ export function exportCodeClimate(db: MonographDb, repoRoot?: string): CodeClima
 
   return issues;
 }
+
+// ── Round 10: health + duplication CodeClimate exports ────────────────────────
+
+export interface CodeClimateHealthIssue extends CodeClimateIssue {
+  categories: ['Complexity'];
+}
+
+export interface CodeClimateDuplicationIssue extends CodeClimateIssue {
+  categories: ['Duplication'];
+}
+
+export interface HealthFindingInput {
+  filePath: string;
+  functionName: string;
+  startLine: number;
+  endLine: number;
+  severity: 'major' | 'minor' | 'critical' | 'info';
+  crapScore: number;
+  cyclomatic: number;
+}
+
+export interface DuplicationFindingInput {
+  filePath: string;
+  startLine: number;
+  endLine: number;
+  groupId: number;
+  duplicatedLines: number;
+}
+
+function fingerprint(s: string): string {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) >>> 0;
+  return h.toString(16).padStart(8, '0');
+}
+
+export function exportHealthCodeClimate(findings: HealthFindingInput[]): CodeClimateIssue[] {
+  return findings.map(f => ({
+    type: 'issue',
+    check_name: 'complexity',
+    description: `${f.functionName}: cyclomatic=${f.cyclomatic}, CRAP=${f.crapScore.toFixed(1)}`,
+    categories: ['Complexity'],
+    severity: f.severity,
+    fingerprint: fingerprint(`${f.filePath}:${f.functionName}:${f.startLine}`),
+    location: { path: f.filePath, lines: { begin: f.startLine, end: f.endLine } },
+  }));
+}
+
+export function exportDuplicationCodeClimate(findings: DuplicationFindingInput[]): CodeClimateIssue[] {
+  return findings.map(f => ({
+    type: 'issue',
+    check_name: 'duplication',
+    description: `Code duplication: ${f.duplicatedLines} lines (group ${f.groupId})`,
+    categories: ['Duplication'],
+    severity: 'minor' as const,
+    fingerprint: fingerprint(`${f.filePath}:${f.groupId}:${f.startLine}`),
+    location: { path: f.filePath, lines: { begin: f.startLine, end: f.endLine } },
+  }));
+}

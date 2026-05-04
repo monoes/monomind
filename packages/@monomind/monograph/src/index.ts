@@ -11,7 +11,7 @@ export * from './pipeline/runner.js';
 export * from './pipeline/types.js';
 export * from './pipeline/orchestrator.js';
 export { classifyReachability, getNodesByReachabilityRole, type ReachabilityRole } from './pipeline/phases/reachability.js';
-export { exportSarif, type SarifDocument, type SarifResult, type SarifRule } from './export/sarif.js';
+export { exportSarif, type SarifDocument, type SarifResult, type SarifRule, type SarifHealthFinding, exportHealthSarif } from './export/sarif.js';
 export { detectBoundaryViolations, loadMonographConfig, classifyZone, type BoundaryViolation, type ZoneConfig, type MonographConfig } from './pipeline/phases/boundary.js';
 export * from './graph/loader.js';
 export * from './graph/analyzer.js';
@@ -19,7 +19,7 @@ export { computeCouplingProfile, computeGraphStats, type CouplingProfile, type R
 export { computeMaintainabilityIndex, type MaintainabilityResult, type MaintainabilityReport } from './graph/maintainability.js';
 export { hashFileContent, isFileCached, updateFileCache, getFileCacheStats, clearFileCache, type FileCacheEntry } from './storage/file-cache.js';
 export * from './graph/diff.js';
-export { explainRule, listRules, getRulesByFinding, CHECK_RULES, type RuleDef } from './graph/explain.js';
+export { explainRule, listRules, getRulesByFinding, CHECK_RULES, type RuleDef, HEALTH_RULES, DUPES_RULES, getRuleGuide, healthMeta, dupesMeta, type RuleGuide } from './graph/explain.js';
 export { computeDependencyClosure, type DepClosureResult, type DepClosureReport } from './graph/dependency-closure.js';
 export { computeHotspots, type HotspotResult } from './graph/hotspots.js';
 export { detectMirroredDirs, type MirroredDirPair, type MirroredDirsReport } from './graph/mirrored-dirs.js';
@@ -47,13 +47,13 @@ export { detectPrivateTypeLeaks, type PrivateTypeLeak, type PrivateTypeLeaksResu
 export { fixUnusedExports, type ExportFix, type FixResult } from './fix/exports.js';
 export { fixUnusedDeps, type DepFix, type DepFixResult } from './fix/deps.js';
 export { classifyDependencies, type PackageDepClassification, type DepClassificationResult } from './analysis/dep-classification.js';
-export { generateBadge, gradeToColor, type BadgeOptions } from './export/badge.js';
-export { exportCodeClimate, type CodeClimateIssue } from './export/codeclimate.js';
+export { generateBadge, gradeToColor, type BadgeOptions, renderHealthTerminalBadge, healthScoreToGrade, type HealthGradeLetter, type HealthBadgeOptions } from './export/badge.js';
+export { exportCodeClimate, type CodeClimateIssue, exportHealthCodeClimate, exportDuplicationCodeClimate, type HealthFindingInput, type DuplicationFindingInput } from './export/codeclimate.js';
 export { exportCompact } from './export/compact.js';
-export { exportMarkdown, type MarkdownReportOptions } from './export/markdown.js';
+export { exportMarkdown, type MarkdownReportOptions, exportHealthMarkdown, exportDuplicationMarkdown, type MarkdownHealthFinding, type MarkdownDuplicationGroup } from './export/markdown.js';
 export { analyzeRuntimeCoverage, type RuntimeClassification, type FunctionCoverageEntry, type RuntimeCoverageReport, type V8Coverage } from './coverage/runtime.js';
 export { generateCiTemplate, type CiProvider, type CiTemplateOptions, type CiTemplate } from './ci-template.js';
-export { migrateFromKnip, type KnipMigrationResult, type MigrationWarning } from './migrate/knip.js';
+export { migrateFromKnip, type KnipMigrationResult, type MigrationWarning, stripJsoncComments, parseJsoncString, generateTomlFromMigration } from './migrate/knip.js';
 export { migrateFromJscpd, type JscpdMigrationResult } from './migrate/jscpd.js';
 export { buildDiagnosticsFromDb, startLspServer, type LspDiagnostic } from './lsp/server.js';
 // ── Round 5: Fallow feature ports ─────────────────────────────────────────────
@@ -106,10 +106,10 @@ export { createRegressionBaseline, checkCountsDeltas, totalCheckCounts, ZERO_CHE
 export { regressionOutcomeToJson, printRegressionOutcome, makePassOutcome, makeExceededOutcome, makeSkippedOutcome, type RegressionOutcome, type RegressionOutcomePass, type RegressionOutcomeExceeded, type RegressionOutcomeSkipped, type RegressionOutcomeKind } from './regression/outcome.js';
 export { narrowNamespaceReferences, narrowCssModuleReferences, extractMemberAccesses, extractDestructuredMembers, isWholeObjectUse, type ReferenceKind, type NamespaceAccess, type NarrowingResult } from './graph/narrowing.js';
 export { parseDynamicImports, resolveSingleDynamicImport, templateToGlob, matchGlob, type DynamicImportPattern, type DynamicImportInfo, type ResolvedDynamicImport } from './graph/resolve/dynamic-imports.js';
-export { createPackageResolver, resolveDirectoryGroup, groupItemsByFile, largestOwner, attributeCloneGroup, type GroupByMode, type GroupEntry, type AttributedInstance, type AttributedCloneGroup, type PackageResolver } from './report/grouping.js';
+export { createPackageResolver, resolveDirectoryGroup, groupItemsByFile, largestOwner, attributeCloneGroup, type GroupByMode, type GroupEntry, type AttributedInstance, type AttributedCloneGroup, type PackageResolver, type ResultGroup, groupResultsByOwner, partitionByOwner, resolveWithPattern } from './report/grouping.js';
 export { createVitalSigns, formatVitalSignsSummary, VITAL_SIGNS_SCHEMA_VERSION, type VitalSigns, type VitalSignsCounts, type SizeBinProfile, type InterfacingProfile, type CoverageModel } from './health/vital-signs.js';
 export { computeTargetThresholds, labelForCategory, compactLabelForCategory, RECOMMENDATION_CATEGORIES, type ExtendedRecommendationCategory, type CategoryMeta, type TargetThresholds, type MetricSample } from './health/target-thresholds.js';
-export { isValidEmailMode, isValidAuditGate, type AnalyzeParams, type HealthParams, type CheckRuntimeCoverageParams, type AuditParams, type FindDupesParams, type TraceExportParams, type TraceFileParams, type TraceDependencyParams, type TraceCloneParams, type ProjectInfoParams, type FeatureFlagsParams, type ListBoundariesParams, type EmailModeParam, type AuditGate, type CheckChangedMcpParams, type FixMcpParams, type ExplainMcpParams, isValidFixMode } from './mcp/params.js';
+export { isValidEmailMode, isValidAuditGate, type AnalyzeParams, type HealthParams, type CheckRuntimeCoverageParams, type AuditParams, type FindDupesParams, type TraceExportParams, type TraceFileParams, type TraceDependencyParams, type TraceCloneParams, type ProjectInfoParams, type FeatureFlagsParams, type ListBoundariesParams, type EmailModeParam, type AuditGate, type CheckChangedMcpParams, type FixMcpParams, type ExplainMcpParams, isValidFixMode, type ExtendedAnalyzeParams, type ExtendedHealthParams, type ExtendedFindDupesParams, type GetHotPathsMcpParams, type GetBlastRadiusMcpParams, type GetImportanceMcpParams, type GetCleanupCandidatesMcpParams } from './mcp/params.js';
 export { resolveProductionMode, resolveAllProductionModes, buildBaselineAuditMeta, productionModeLabel, DEFAULT_PRODUCTION_MODE, type ProductionOverride, type ProductionModeConfig, type BaselineAuditMeta } from './api/production-override.js';
 // ── Round 8: Fallow feature ports ─────────────────────────────────────────────
 export { applyIssueFilters, activateExplicitOptIns, anyFiltersActive, parseIssueFilters, ALL_FILTERS_ON, ALL_FILTERS_OFF, type IssueFilters, type IssueFilterKey } from './analysis/issue-filters.js';
@@ -126,9 +126,19 @@ export { createRuntimeCoverageReport, buildRuntimeCoverageSummary, type RuntimeC
 export { buildDuplicationGrouping, defaultOwnerResolver, formatDuplicationGrouping, type DuplicationGroupEntry, type DuplicationGrouping, type OwnerResolver } from './report/duplication-grouping.js';
 export { buildGroupedHealthJson, buildGroupedDuplicationJson, buildBaselineDeltasJson, DEFAULT_HEALTH_ACTION_OPTIONS, type HealthActionOptions, type GroupedHealthResult, type GroupedDuplicationResult, type BaselineDelta } from './report/json-builders.js';
 export { saveRegressionBaseline, loadRegressionBaseline, compareWithRegressionBaseline, DEFAULT_REGRESSION_BASELINE_PATH, REGRESSION_BASELINE_VERSION, type RegressionBaselineFile, type SaveRegressionTarget, type RegressionBaselineOpts, type RegressionCompareResult } from './regression/baseline.js';
-export { buildAnalyzeArgs, buildHealthArgs, buildAuditArgs, buildFindDupesArgs, buildTraceExportArgs, buildTraceFileArgs, buildTraceDependencyArgs, buildTraceCloneArgs, buildProjectInfoArgs, buildFeatureFlagsArgs, buildListBoundariesArgs, buildCheckRuntimeCoverageArgs, buildCheckChangedArgs, buildFixPreviewArgs, buildFixApplyArgs, buildExplainArgs, type CheckChangedParams, type FixParams, type ExplainParams } from './mcp/tool-builders.js';
-export { discoverWorkspaces, findUndeclaredWorkspaces, parseTsconfigRootDir, type WorkspaceInfo, type WorkspaceDiagnostic, type WorkspaceConfig } from './config/workspace.js';
+export { buildAnalyzeArgs, buildHealthArgs, buildAuditArgs, buildFindDupesArgs, buildTraceExportArgs, buildTraceFileArgs, buildTraceDependencyArgs, buildTraceCloneArgs, buildProjectInfoArgs, buildFeatureFlagsArgs, buildListBoundariesArgs, buildCheckRuntimeCoverageArgs, buildCheckChangedArgs, buildFixPreviewArgs, buildFixApplyArgs, buildExplainArgs, type CheckChangedParams, type FixParams, type ExplainParams, buildGetHotPathsArgs, buildGetBlastRadiusArgs, buildGetImportanceArgs, buildGetCleanupCandidatesArgs, type GetHotPathsParams, type GetBlastRadiusParams, type GetImportanceParams, type GetCleanupCandidatesParams } from './mcp/tool-builders.js';
+export { discoverWorkspaces, findUndeclaredWorkspaces, parseTsconfigRootDir, type WorkspaceInfo, type WorkspaceDiagnostic, type WorkspaceConfig, findUndeclaredWorkspacesEnhanced, validateWorkspaceDeclarations, type EnhancedWorkspaceDiagnostic } from './config/workspace.js';
 export { discoverExternalPlugins, mergePluginSuppressPatterns, PLUGIN_MANIFEST_KEY, type EntryPointRole, type ExternalUsedExport, type ExternalEntryPoint, type ExternalPluginDef } from './config/external-plugin.js';
-export { DEFAULT_MONOGRAPH_CONFIG, type MonographConfig, type ResolvedMonographConfig, type ProductionAnalysis, type PerAnalysisProductionConfig, type ProductionConfigValue, type RegressionConfig, type AuditConfig, type DetectionMode, type NormalizationConfig, type BoundaryRule, type BoundaryZone, type BoundaryConfig, type ResolveConfig, type HealthConfig, type OwnershipConfig, type IgnoreExportRule, type ConfigOverride } from './config/types.js';
+export { DEFAULT_MONOGRAPH_CONFIG, type MonographConfig, type ResolvedMonographConfig, type ProductionAnalysis, type PerAnalysisProductionConfig, type ProductionConfigValue, type RegressionConfig, type AuditConfig, type DetectionMode, type NormalizationConfig, type BoundaryRule, type BoundaryZone, type BoundaryConfig, type ResolveConfig, type HealthConfig, type OwnershipConfig, type IgnoreExportRule, type ConfigOverride, type ExtendedMonographConfig } from './config/types.js';
 export { analyzeScripts, filterProductionScripts, parseScriptCommand, splitShellOperators, buildBinToPackageMap, analyzeCiFiles, type ScriptCommand, type ScriptAnalysis, type CiAnalysis } from './analysis/scripts.js';
 export { pushExportDiagnostics, pushFileDiagnostics, pushImportDiagnostics, pushDepDiagnostics, pushMemberDiagnostics, pushCircularDepDiagnostics, pushBoundaryViolationDiagnostics, pushDuplicateExportDiagnostics, pushDuplicationDiagnostics, pushStaleSuppressionDiagnostics, type DiagnosticSeverity, type LspRange, type LspDiagnosticEntry, type DiagnosticMap, type UnusedExportFinding, type UnusedFileFinding, type UnresolvedImportFinding, type UnusedDepFinding, type UnusedMemberFinding, type CircularDepFinding, type BoundaryViolFinding, type DupeExportFinding, type DuplicationFinding, type StaleSuppressionFinding } from './lsp/diagnostics-push.js';
+// ── Round 10: Fallow feature ports ────────────────────────────────────────────
+export { DEFAULT_RULES_CONFIG, mergeRulesConfig, severityToExitCode, issueSeverityFor, ALL_ISSUE_KINDS, type Severity, type RulesConfig, type PartialRulesConfig } from './config/rules.js';
+export { nameRule, scopedRule, matchesHeritage, isMemberSuppressed, type UsedClassMemberRuleKind, type ScopedUsedClassMemberRule, type UsedClassMemberRule } from './config/used-class-members.js';
+export { DEFAULT_DUPLICATES_CONFIG, mergeDuplicatesConfig, isDuplicationEnabled, type DuplicationDetectionMode, type DuplicationNormalizationConfig, type DuplicatesConfig } from './config/duplicates-config.js';
+export { IGNORE_EXPORTS_DISABLED, IGNORE_EXPORTS_ENABLED, ignoreExportsByKind, isIgnoreExportsEnabled, suppressesExport, parseIgnoreExportsConfig, type IgnoreExportsUsedInFileByKind, type IgnoreExportsUsedInFileConfig } from './config/ignore-exports-used-in-file.js';
+export { ANALYSIS_JSON_SCHEMA_VERSION, buildAnalysisResultsEnvelope, buildHealthResultsEnvelope, buildDuplicationResultsEnvelope, stripRootPrefix, type AnalysisEnvelopeOptions, type AnalysisResultsEnvelope, type HealthResultsEnvelope, type DuplicationResultsEnvelope } from './export/analysis-json.js';
+export { buildDeadCodeHumanLines, buildHealthHumanLines, buildDuplicationHumanLines, buildExportTraceHumanLines, buildFileTraceHumanLines, buildDependencyTraceHumanLines, type HumanDeadCodeFinding, type HumanHealthFinding, type HumanDuplicationGroup, type HumanTraceEntry } from './report/human.js';
+export { parseExtendsValue, resolveFileExtends, resolveNpmExtends, mergeConfigs, resolveConfigExtends, type ExtendsSource, type ResolvedInheritance } from './config/resolution.js';
+export { buildCliSchema, schemaToJsonString, type CliParam, type CliSubcommand, type CliSchema } from './config/cli-schema.js';
+export { isClassMemberSuppressed, summarizeUnusedMembers, groupUnusedMembersByFile, formatUnusedMembersReport, type MemberKind, type UnusedMember, type UnusedMembersResult, type ClassMemberAllowlistEntry } from './analysis/unused-class-members.js';

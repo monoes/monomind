@@ -3820,6 +3820,358 @@ const monographScriptsTool: MCPTool = {
   },
 };
 
+// ── Round 10: Fallow feature ports ───────────────────────────────────────────
+
+const monographRulesConfigTool: MCPTool = {
+  name: 'monograph_rules_config',
+  description: 'Inspect or merge monograph rules config. Returns default config, merges a partial override, or maps an issue kind to its configured severity.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string', description: 'Project root path' },
+      action: { type: 'string', enum: ['default', 'merge', 'severity'], description: 'Action to perform' },
+      partial: { type: 'object', description: 'Partial rules config to merge (for action=merge)' },
+      issueKind: { type: 'string', description: 'Issue kind to resolve severity for (for action=severity)' },
+    },
+    required: ['root', 'action'],
+  },
+  handler: async (params: { root: string; action: string; partial?: Record<string, string>; issueKind?: string }) => {
+    const { DEFAULT_RULES_CONFIG, mergeRulesConfig, issueSeverityFor } = await import('@monoes/monograph');
+    if (params.action === 'default') return { content: [{ type: 'text', text: JSON.stringify(DEFAULT_RULES_CONFIG, null, 2) }] };
+    if (params.action === 'merge' && params.partial) {
+      const merged = mergeRulesConfig(DEFAULT_RULES_CONFIG, params.partial as never);
+      return { content: [{ type: 'text', text: JSON.stringify(merged, null, 2) }] };
+    }
+    if (params.action === 'severity' && params.issueKind) {
+      const sev = issueSeverityFor(DEFAULT_RULES_CONFIG, params.issueKind as never);
+      return { content: [{ type: 'text', text: JSON.stringify({ issueKind: params.issueKind, severity: sev }) }] };
+    }
+    return { content: [{ type: 'text', text: 'Invalid action or missing params' }] };
+  },
+};
+
+const monographUsedClassMembersTool: MCPTool = {
+  name: 'monograph_used_class_members',
+  description: 'Check if a class member is suppressed by a UsedClassMemberRule list, or match heritage patterns.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      memberName: { type: 'string', description: 'Member name to check' },
+      className: { type: 'string', description: 'Class name' },
+      heritagePattern: { type: 'string', description: 'Heritage pattern to match' },
+    },
+    required: ['root', 'memberName'],
+  },
+  handler: async (params: { root: string; memberName: string; className?: string; heritagePattern?: string }) => {
+    const { isMemberSuppressed } = await import('@monoes/monograph');
+    const suppressed = isMemberSuppressed({ name: params.memberName, className: params.className ?? '' }, []);
+    return { content: [{ type: 'text', text: JSON.stringify({ member: params.memberName, suppressed }) }] };
+  },
+};
+
+const monographDuplicatesConfigTool: MCPTool = {
+  name: 'monograph_duplicates_config',
+  description: 'Return or merge the duplicates detection config (mode, thresholds, normalization settings).',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      action: { type: 'string', enum: ['default', 'merge'], description: 'Action' },
+      partial: { type: 'object', description: 'Partial config to merge' },
+    },
+    required: ['root', 'action'],
+  },
+  handler: async (params: { root: string; action: string; partial?: Record<string, unknown> }) => {
+    const { DEFAULT_DUPLICATES_CONFIG, mergeDuplicatesConfig } = await import('@monoes/monograph');
+    if (params.action === 'merge' && params.partial) {
+      const merged = mergeDuplicatesConfig(DEFAULT_DUPLICATES_CONFIG, params.partial as never);
+      return { content: [{ type: 'text', text: JSON.stringify(merged, null, 2) }] };
+    }
+    return { content: [{ type: 'text', text: JSON.stringify(DEFAULT_DUPLICATES_CONFIG, null, 2) }] };
+  },
+};
+
+const monographIgnoreExportsConfigTool: MCPTool = {
+  name: 'monograph_ignore_exports_config',
+  description: 'Parse or check an ignore-exports-used-in-file config: determines whether an export kind is suppressed.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      raw: { description: 'Raw config value (boolean, string, or object)' },
+      exportKind: { type: 'string', description: 'Export kind to test against the config' },
+    },
+    required: ['root', 'raw'],
+  },
+  handler: async (params: { root: string; raw: unknown; exportKind?: string }) => {
+    const { parseIgnoreExportsConfig, suppressesExport } = await import('@monoes/monograph');
+    const config = parseIgnoreExportsConfig(params.raw);
+    if (params.exportKind) {
+      const suppressed = suppressesExport(config, params.exportKind as never);
+      return { content: [{ type: 'text', text: JSON.stringify({ config, suppressed }) }] };
+    }
+    return { content: [{ type: 'text', text: JSON.stringify(config, null, 2) }] };
+  },
+};
+
+const monographAnalysisJsonTool: MCPTool = {
+  name: 'monograph_analysis_json',
+  description: 'Build a versioned JSON envelope for analysis, health, or duplication results with optional root-prefix stripping.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      kind: { type: 'string', enum: ['analysis', 'health', 'duplication'], description: 'Result type' },
+      data: { type: 'object', description: 'Result data to wrap' },
+      stripRoot: { type: 'string', description: 'Root prefix to strip from paths in data' },
+    },
+    required: ['root', 'kind', 'data'],
+  },
+  handler: async (params: { root: string; kind: string; data: unknown; stripRoot?: string }) => {
+    const { buildAnalysisResultsEnvelope, buildHealthResultsEnvelope, buildDuplicationResultsEnvelope, stripRootPrefix } = await import('@monoes/monograph');
+    let data = params.data;
+    if (params.stripRoot) data = stripRootPrefix(data, params.stripRoot);
+    let envelope: unknown;
+    if (params.kind === 'health') envelope = buildHealthResultsEnvelope({ root: params.root, findings: (data as never) });
+    else if (params.kind === 'duplication') envelope = buildDuplicationResultsEnvelope({ root: params.root, groups: (data as never) });
+    else envelope = buildAnalysisResultsEnvelope({ root: params.root, results: (data as never) });
+    return { content: [{ type: 'text', text: JSON.stringify(envelope, null, 2) }] };
+  },
+};
+
+const monographHumanReporterTool: MCPTool = {
+  name: 'monograph_human_reporter',
+  description: 'Format dead-code, health, duplication, or trace results as ANSI-colored terminal lines for human-readable output.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      kind: { type: 'string', enum: ['deadcode', 'health', 'duplication', 'export-trace', 'file-trace', 'dep-trace'], description: 'Report kind' },
+      data: { description: 'Findings or trace data' },
+    },
+    required: ['root', 'kind', 'data'],
+  },
+  handler: async (params: { root: string; kind: string; data: unknown }) => {
+    const { buildDeadCodeHumanLines, buildHealthHumanLines, buildDuplicationHumanLines, buildExportTraceHumanLines, buildFileTraceHumanLines, buildDependencyTraceHumanLines } = await import('@monoes/monograph');
+    let lines: string[] = [];
+    if (params.kind === 'deadcode') lines = buildDeadCodeHumanLines(params.data as never, params.root);
+    else if (params.kind === 'health') lines = buildHealthHumanLines(params.data as never, params.root);
+    else if (params.kind === 'duplication') lines = buildDuplicationHumanLines(params.data as never, params.root);
+    else if (params.kind === 'export-trace') lines = buildExportTraceHumanLines(params.data as never);
+    else if (params.kind === 'file-trace') lines = buildFileTraceHumanLines(params.data as never);
+    else if (params.kind === 'dep-trace') lines = buildDependencyTraceHumanLines(params.data as never);
+    return { content: [{ type: 'text', text: lines.join('\n') }] };
+  },
+};
+
+const monographConfigResolutionTool: MCPTool = {
+  name: 'monograph_config_resolution',
+  description: 'Resolve a monograph config chain (file/npm/url extends) and return the merged result.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      configPath: { type: 'string', description: 'Path to the monograph config file' },
+      extendsValue: { type: 'string', description: 'Parse a single extends string into source kind' },
+    },
+    required: ['root'],
+  },
+  handler: async (params: { root: string; configPath?: string; extendsValue?: string }) => {
+    const { parseExtendsValue, resolveConfigExtends } = await import('@monoes/monograph');
+    if (params.extendsValue) {
+      const src = parseExtendsValue(params.extendsValue);
+      return { content: [{ type: 'text', text: JSON.stringify(src, null, 2) }] };
+    }
+    if (params.configPath) {
+      const merged = await resolveConfigExtends(params.configPath, params.root);
+      return { content: [{ type: 'text', text: JSON.stringify(merged, null, 2) }] };
+    }
+    return { content: [{ type: 'text', text: 'Provide configPath or extendsValue' }] };
+  },
+};
+
+const monographCliSchemaTool: MCPTool = {
+  name: 'monograph_cli_schema',
+  description: 'Return the monograph CLI JSON schema describing all subcommands and their parameters.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      version: { type: 'string', description: 'Schema version string (default 1.0.0)' },
+      format: { type: 'string', enum: ['json', 'object'], description: 'Output format' },
+    },
+    required: ['root'],
+  },
+  handler: async (params: { root: string; version?: string; format?: string }) => {
+    const { buildCliSchema, schemaToJsonString } = await import('@monoes/monograph');
+    const schema = buildCliSchema(params.version ?? '1.0.0');
+    if (params.format === 'json') {
+      return { content: [{ type: 'text', text: schemaToJsonString(schema) }] };
+    }
+    return { content: [{ type: 'text', text: JSON.stringify(schema, null, 2) }] };
+  },
+};
+
+const monographUnusedClassMembersTool: MCPTool = {
+  name: 'monograph_unused_class_members',
+  description: 'Summarize, group, or format unused class member findings from static analysis.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      members: { type: 'array', description: 'Array of UnusedMember objects', items: { type: 'object' } },
+      action: { type: 'string', enum: ['summarize', 'group', 'format'], description: 'Action to perform' },
+    },
+    required: ['root', 'members', 'action'],
+  },
+  handler: async (params: { root: string; members: unknown[]; action: string }) => {
+    const { summarizeUnusedMembers, groupUnusedMembersByFile, formatUnusedMembersReport } = await import('@monoes/monograph');
+    if (params.action === 'summarize') {
+      const result = summarizeUnusedMembers(params.members as never);
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    }
+    if (params.action === 'group') {
+      const grouped = groupUnusedMembersByFile(params.members as never);
+      return { content: [{ type: 'text', text: JSON.stringify(Object.fromEntries(grouped), null, 2) }] };
+    }
+    const summary = summarizeUnusedMembers(params.members as never);
+    return { content: [{ type: 'text', text: formatUnusedMembersReport(summary) }] };
+  },
+};
+
+const monographHealthSarifTool: MCPTool = {
+  name: 'monograph_health_sarif',
+  description: 'Export health findings (complexity, maintainability) as a SARIF 2.1.0 document.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      findings: { type: 'array', description: 'Array of SarifHealthFinding objects', items: { type: 'object' } },
+    },
+    required: ['root', 'findings'],
+  },
+  handler: async (params: { root: string; findings: unknown[] }) => {
+    const { exportHealthSarif } = await import('@monoes/monograph');
+    const doc = exportHealthSarif(params.findings as never, params.root);
+    return { content: [{ type: 'text', text: JSON.stringify(doc, null, 2) }] };
+  },
+};
+
+const monographHealthBadgeTool: MCPTool = {
+  name: 'monograph_health_badge',
+  description: 'Render an ANSI-colored terminal badge for a health score, or convert a score to a letter grade.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      score: { type: 'number', description: 'Health score 0-100' },
+      action: { type: 'string', enum: ['badge', 'grade'], description: 'badge=render ANSI string, grade=letter only' },
+      label: { type: 'string', description: 'Badge label (default "Health")' },
+    },
+    required: ['root', 'score', 'action'],
+  },
+  handler: async (params: { root: string; score: number; action: string; label?: string }) => {
+    const { renderHealthTerminalBadge, healthScoreToGrade } = await import('@monoes/monograph');
+    if (params.action === 'grade') {
+      return { content: [{ type: 'text', text: healthScoreToGrade(params.score) }] };
+    }
+    const badge = renderHealthTerminalBadge({ score: params.score, label: params.label ?? 'Health' });
+    return { content: [{ type: 'text', text: badge }] };
+  },
+};
+
+const monographHealthCodeClimateTool: MCPTool = {
+  name: 'monograph_health_codeclimate',
+  description: 'Export health or duplication findings in Code Climate JSON format for CI/CD pipelines.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      kind: { type: 'string', enum: ['health', 'duplication'], description: 'Finding type' },
+      findings: { type: 'array', description: 'Array of finding objects', items: { type: 'object' } },
+    },
+    required: ['root', 'kind', 'findings'],
+  },
+  handler: async (params: { root: string; kind: string; findings: unknown[] }) => {
+    const { exportHealthCodeClimate, exportDuplicationCodeClimate } = await import('@monoes/monograph');
+    const issues = params.kind === 'duplication'
+      ? exportDuplicationCodeClimate(params.findings as never)
+      : exportHealthCodeClimate(params.findings as never);
+    return { content: [{ type: 'text', text: JSON.stringify(issues, null, 2) }] };
+  },
+};
+
+const monographHealthMarkdownTool: MCPTool = {
+  name: 'monograph_health_markdown',
+  description: 'Export health findings or duplication groups as a Markdown report.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      kind: { type: 'string', enum: ['health', 'duplication'], description: 'Report kind' },
+      findings: { type: 'array', description: 'Findings or groups array', items: { type: 'object' } },
+      title: { type: 'string', description: 'Report title' },
+    },
+    required: ['root', 'kind', 'findings'],
+  },
+  handler: async (params: { root: string; kind: string; findings: unknown[]; title?: string }) => {
+    const { exportHealthMarkdown, exportDuplicationMarkdown } = await import('@monoes/monograph');
+    const md = params.kind === 'duplication'
+      ? exportDuplicationMarkdown(params.findings as never, params.title)
+      : exportHealthMarkdown(params.findings as never, params.title);
+    return { content: [{ type: 'text', text: md }] };
+  },
+};
+
+const monographMigrateKnipExtTool: MCPTool = {
+  name: 'monograph_migrate_knip_ext',
+  description: 'Extended Knip migration helpers: strip JSONC comments, parse JSONC strings, or generate TOML from a migrated config.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      action: { type: 'string', enum: ['strip-jsonc', 'parse-jsonc', 'to-toml'], description: 'Action' },
+      input: { type: 'string', description: 'JSONC string or JSON string (for to-toml)' },
+    },
+    required: ['root', 'action', 'input'],
+  },
+  handler: async (params: { root: string; action: string; input: string }) => {
+    const { stripJsoncComments, parseJsoncString, generateTomlFromMigration } = await import('@monoes/monograph');
+    if (params.action === 'strip-jsonc') return { content: [{ type: 'text', text: stripJsoncComments(params.input) }] };
+    if (params.action === 'parse-jsonc') return { content: [{ type: 'text', text: JSON.stringify(parseJsoncString(params.input), null, 2) }] };
+    const parsed = parseJsoncString(params.input);
+    return { content: [{ type: 'text', text: generateTomlFromMigration(parsed) }] };
+  },
+};
+
+const monographHotPathsTool: MCPTool = {
+  name: 'monograph_hot_paths',
+  description: 'Build CLI args for monograph hot-paths, blast-radius, importance, and cleanup-candidates sub-commands.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      root: { type: 'string' },
+      action: { type: 'string', enum: ['hot-paths', 'blast-radius', 'importance', 'cleanup'], description: 'Which args builder to invoke' },
+      filePath: { type: 'string', description: 'File path (for blast-radius)' },
+      minRequestsPerDay: { type: 'number' },
+      limit: { type: 'number' },
+      minScore: { type: 'number' },
+      maxCoveragePct: { type: 'number' },
+    },
+    required: ['root', 'action'],
+  },
+  handler: async (params: { root: string; action: string; filePath?: string; minRequestsPerDay?: number; limit?: number; minScore?: number; maxCoveragePct?: number }) => {
+    const { buildGetHotPathsArgs, buildGetBlastRadiusArgs, buildGetImportanceArgs, buildGetCleanupCandidatesArgs } = await import('@monoes/monograph');
+    let args: string[] = [];
+    if (params.action === 'hot-paths') args = buildGetHotPathsArgs({ root: params.root, minRequestsPerDay: params.minRequestsPerDay, limit: params.limit });
+    else if (params.action === 'blast-radius') args = buildGetBlastRadiusArgs({ root: params.root, filePath: params.filePath ?? '', limit: params.limit });
+    else if (params.action === 'importance') args = buildGetImportanceArgs({ root: params.root, limit: params.limit, minScore: params.minScore });
+    else if (params.action === 'cleanup') args = buildGetCleanupCandidatesArgs({ root: params.root, maxCoveragePct: params.maxCoveragePct, limit: params.limit });
+    return { content: [{ type: 'text', text: JSON.stringify(args) }] };
+  },
+};
+
 // ── Round 9: LSP diagnostics push ────────────────────────────────────────────
 
 const monographDiagnosticsPushTool: MCPTool = {
@@ -3995,4 +4347,19 @@ export const monographTools: MCPTool[] = [
   monographConfigTypesTool,
   monographScriptsTool,
   monographDiagnosticsPushTool,
+  monographRulesConfigTool,
+  monographUsedClassMembersTool,
+  monographDuplicatesConfigTool,
+  monographIgnoreExportsConfigTool,
+  monographAnalysisJsonTool,
+  monographHumanReporterTool,
+  monographConfigResolutionTool,
+  monographCliSchemaTool,
+  monographUnusedClassMembersTool,
+  monographHealthSarifTool,
+  monographHealthBadgeTool,
+  monographHealthCodeClimateTool,
+  monographHealthMarkdownTool,
+  monographMigrateKnipExtTool,
+  monographHotPathsTool,
 ];
