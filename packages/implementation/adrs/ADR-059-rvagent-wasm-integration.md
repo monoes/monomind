@@ -1,3 +1,5 @@
+> **Note:** ADR-059-bug-triage-2026-03.md shares this number but is a bug triage document (misfiled). This file is the actual ADR-059.
+
 # ADR-059: @ruvector/rvagent-wasm Integration
 
 **Status**: Implemented (see ADR-070 for completion details)

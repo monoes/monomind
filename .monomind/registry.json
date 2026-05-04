@@ -1356,21 +1356,6 @@
       "lastUpdated": "2026-05-04T08:25:00.702Z"
     },
     {
-      "slug": "v3-integration-architect",
-      "name": "v3-integration-architect",
-      "version": "3.0.0",
-      "category": ".claude",
-      "capabilities": [],
-      "taskTypes": [],
-      "tools": [],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/agency-agents/.claude/agents/v3/v3-integration-architect.md",
-      "registeredAt": "2026-05-04T08:25:00.702Z",
-      "lastUpdated": "2026-05-04T08:25:00.702Z"
-    },
-    {
       "slug": "commandcompliancereport",
       "name": "commandcompliancereport",
       "version": "0.0.0",

@@ -1,3 +1,5 @@
+> **ADR numbering note:** This is a bug triage/tracking document, not an architectural decision record. It was filed under ADR-059 in error. The actual ADR-059 is ADR-059-rvagent-wasm-integration.md. This document should be moved to the /reports/ directory.
+
 # ADR-059: Bug Triage & Priority Matrix — March 2026
 
 **Status:** Accepted — Fixes Verified

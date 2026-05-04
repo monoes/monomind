@@ -1,3 +1,5 @@
+> **Note:** ADR-067-critical-issue-remediation-v3543.md shares this number but is an incident remediation log (misfiled). This file is the actual ADR-067.
+
 ---
 # ADR-067: RuVector WASM Utilization Improvement Plan
 

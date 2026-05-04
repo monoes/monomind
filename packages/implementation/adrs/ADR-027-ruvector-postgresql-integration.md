@@ -1,3 +1,5 @@
+> **ADR number conflict:** Three documents share this number. This file covers PostgreSQL storage integration. See also: ADR-027-GAPS.md (gap analysis) and ADR-027-teammate-tool-integration.md (TeammateTool).
+
 # ADR-027: RuVector PostgreSQL Integration for Monomind v1
 
 **Status:** Proposed
@@ -120,6 +122,10 @@ SELECT ruvector.enable_learning_optimizer(
 ### Plugin Structure
 
 ```
+# ⚠️ The packages/@monomind/plugins/src/bridges/ directory does not exist.
+# The @monomind/plugins package is real but the bridges/ruvector-postgres/
+# subdirectory described here was never created. This is a planned-but-unbuilt
+# extension to the plugin system.
 packages/@monomind/plugins/src/
 ├── bridges/
 │   └── ruvector-postgres/
@@ -142,6 +148,8 @@ packages/@monomind/plugins/src/
 ### Plugin Implementation
 
 ```typescript
+// ⚠️ packages/@monomind/plugins/src/bridges/ruvector-postgres/plugin.ts does not exist.
+// This file path is a planned artifact — the bridges/ directory was never created.
 // packages/@monomind/plugins/src/bridges/ruvector-postgres/plugin.ts
 
 import { IPlugin, PluginMetadata, PluginContext } from '../../core/plugin-interface.js';
@@ -240,6 +248,7 @@ export class RuVectorPostgresPlugin implements IPlugin {
 ### Connection Pooling
 
 ```typescript
+// ⚠️ packages/@monomind/plugins/src/bridges/ruvector-postgres/connection-manager.ts does not exist.
 // packages/@monomind/plugins/src/bridges/ruvector-postgres/connection-manager.ts
 
 import { Pool, PoolClient, PoolConfig } from 'pg';
@@ -408,6 +417,8 @@ export class ConnectionManager {
 ### MCP Tool Definitions
 
 ```typescript
+// ⚠️ packages/@monomind/plugins/src/mcp-tools/ruvector-postgres-tools.ts does not exist.
+// The mcp-tools/ directory under @monomind/plugins/src/ was never created for this integration.
 // packages/@monomind/plugins/src/mcp-tools/ruvector-postgres-tools.ts
 
 import type { MCPTool } from '../core/types.js';
@@ -637,6 +648,7 @@ export const ruvectorPostgresTools: MCPTool[] = [
 ### Async Operations with Batching
 
 ```typescript
+// ⚠️ packages/@monomind/plugins/src/bridges/ruvector-postgres/embedding-adapter.ts does not exist.
 // packages/@monomind/plugins/src/bridges/ruvector-postgres/embedding-adapter.ts
 
 export class EmbeddingAdapter {
@@ -949,6 +961,7 @@ async function withAudit<T>(
 The migration provides a backward-compatible layer that allows gradual transition:
 
 ```typescript
+// ⚠️ packages/@monomind/plugins/src/bridges/ruvector-postgres/migration-helper.ts does not exist.
 // packages/@monomind/plugins/src/bridges/ruvector-postgres/migration-helper.ts
 
 export class MigrationHelper {

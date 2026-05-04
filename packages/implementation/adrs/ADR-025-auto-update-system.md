@@ -22,7 +22,7 @@ The Monomind V1 ecosystem consists of multiple packages:
 - `@monomind/cli` - Main CLI tool
 - `@monomind/embeddings` - Vector embeddings
 - `@monomind/security` - Security utilities
-- `@monomind/integration` - agentic-flow integration
+- `@monomind/integration` - agentic-flow integration *(⚠️ planned package, never built — does not exist in the repository)*
 - `@monomind/testing` - Test utilities
 
 When one package is updated, dependent packages may need updates for compatibility. Currently, users must manually check for updates, leading to:
@@ -57,7 +57,7 @@ Implement an **auto-update system** that:
 |----------|----------|-------------|
 | Critical | `@monomind/security` | Always (patches) |
 | High | `@monomind/cli` | Minor + Patch |
-| Normal | `@monomind/embeddings`, `@monomind/integration` | Patch only |
+| Normal | `@monomind/embeddings`, `@monomind/integration` *(⚠️ phantom — never built)* | Patch only |
 | Low | `@monomind/testing` | Notify only |
 
 ## Implementation
@@ -221,7 +221,7 @@ CI=true
       "@monomind/security": "critical",
       "@monomind/cli": "high",
       "@monomind/embeddings": "normal",
-      "@monomind/integration": "normal",
+      "@monomind/integration": "normal", // ⚠️ @monomind/integration does not exist — planned but never built
       "@monomind/testing": "low"
     },
     "exclude": []

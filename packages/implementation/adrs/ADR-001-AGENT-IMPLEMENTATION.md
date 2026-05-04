@@ -1,5 +1,7 @@
 # ADR-001 Agent Implementation
 
+> **Status: SUPERSEDED** by ADR-057 (RVF native storage) and ADR-058 (self-contained appliance). The premise of adopting `agentic-flow` as the core foundation has been reversed. This document is retained for historical context only.
+
 ## Overview
 
 This document describes the implementation of **ADR-001: Adopt agentic-flow as Core Foundation** for agent lifecycle management in Monomind v1.
@@ -145,6 +147,10 @@ Comprehensive test suites included:
 ### Exports from Integration Module
 
 ```typescript
+// ⚠️ @monomind/integration was a planned package that was never built.
+// This functionality was intended to live in packages/@monomind/integration/src/
+// but that directory does not exist. Agent adapters are instead implemented
+// inside packages/@monomind/cli/src/services/ and packages/@monomind/swarm/.
 // From @monomind/integration
 import {
   // Agent classes
@@ -181,6 +187,8 @@ All adapters use:
 ## Files Created
 
 ```
+# ⚠️ packages/@monomind/integration does not exist — this was a planned package
+# that was never created. The paths below are fictional plan artifacts.
 packages/@monomind/integration/src/
 ├── agentic-flow-agent.ts          # 799 lines - Base agent class
 ├── agent-adapter.ts                # 625 lines - Adapter class
@@ -299,9 +307,9 @@ console.log(health.metrics.tasksCompleted); // Task count
 ## References
 
 - **ADR-001**: Adopt agentic-flow as Core Foundation
-- **SONAAdapter**: `/packages/@monomind/integration/src/sona-adapter.ts`
-- **AttentionCoordinator**: `/packages/@monomind/integration/src/attention-coordinator.ts`
-- **AgenticFlowBridge**: `/packages/@monomind/integration/src/agentic-flow-bridge.ts`
+- **SONAAdapter**: `/packages/@monomind/integration/src/sona-adapter.ts` *(⚠️ path is phantom — @monomind/integration was never built)*
+- **AttentionCoordinator**: `/packages/@monomind/integration/src/attention-coordinator.ts` *(⚠️ path is phantom)*
+- **AgenticFlowBridge**: `/packages/@monomind/integration/src/agentic-flow-bridge.ts` *(⚠️ path is phantom)*
 - **Shared Interfaces**: `/packages/@monomind/shared/src/core/interfaces/agent.interface.ts`
 
 ---

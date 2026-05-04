@@ -1,3 +1,5 @@
+> **Note:** This index covers ADR-016 onward. For earlier ADRs, see README.md.
+
 # Monomind v1 - Architecture Decision Records
 
 **Project:** Monomind v1 Reimagining
@@ -11,7 +13,7 @@
 
 | ADR | Title | Status | Date |
 |-----|-------|--------|------|
-| ADR-001 | Adopt agentic-flow as Core Foundation | In Progress | 2026-01-03 |
+| ADR-001 | Adopt agentic-flow as Core Foundation | Superseded | 2026-01-03 |
 | ADR-002 | Implement Domain-Driven Design Structure | **Implemented** ✅ | 2026-01-03 |
 | ADR-003 | Single Coordination Engine | **Implemented** ✅ | 2026-01-03 |
 | ADR-004 | Plugin-Based Architecture | **Implemented** ✅ | 2026-01-03 |

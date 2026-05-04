@@ -1,3 +1,5 @@
+> **Note:** This index covers ADR-001 through approximately ADR-015. For ADR-016 onward, see v3-adrs.md. The two files together form the complete ADR index.
+
 # Architecture Decision Records (ADRs)
 
 This directory contains all Architecture Decision Records for Monomind v1.
