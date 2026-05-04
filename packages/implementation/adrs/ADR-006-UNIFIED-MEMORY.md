@@ -1,5 +1,7 @@
 # ADR-006: Unified Memory Service
 
+> **Note:** The sql.js WASM storage decision in this ADR has been superseded by ADR-057, which replaces sql.js with the RVF native backend.
+
 **Status:** Implemented
 **Date:** 2026-01-03
 
