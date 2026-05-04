@@ -11,13 +11,13 @@ description: |
 ## When to Use This Skill
 
 Use **agentic-jujutsu** when you need:
-- ✅ Multiple AI agents modifying code simultaneously
-- ✅ Lock-free version control (23x faster than Git)
-- ✅ Self-learning AI that improves from experience
-- ✅ Quantum-resistant security for future-proof protection
-- ✅ Automatic conflict resolution (87% success rate)
-- ✅ Pattern recognition and intelligent suggestions
-- ✅ Multi-agent coordination without blocking
+- Multiple AI agents modifying code simultaneously
+- Lock-free version control (23x faster than Git)
+- Self-learning AI that improves from experience
+- Quantum-resistant security for future-proof protection
+- Automatic conflict resolution (87% success rate)
+- Pattern recognition and intelligent suggestions
+- Multi-agent coordination without blocking
 
 ## Quick Start
 
@@ -80,10 +80,10 @@ console.log('Expected Success:', (suggestion.expectedSuccessRate * 100).toFixed(
 ```
 
 **Validation (v2.3.1)**:
-- ✅ Tasks must be non-empty (max 10KB)
-- ✅ Success scores must be 0.0-1.0
-- ✅ Must have operations before finalizing
-- ✅ Contexts cannot be empty
+- Tasks must be non-empty (max 10KB)
+- Success scores must be 0.0-1.0
+- Must have operations before finalizing
+- Contexts cannot be empty
 
 ### 2. Pattern Discovery
 
@@ -498,21 +498,21 @@ try {
 ## Validation Rules (v2.3.1+)
 
 ### Task Description
-- ✅ Cannot be empty or whitespace-only
-- ✅ Maximum length: 10,000 bytes
-- ✅ Automatically trimmed
+- Cannot be empty or whitespace-only
+- Maximum length: 10,000 bytes
+- Automatically trimmed
 
 ### Success Score
-- ✅ Must be finite (not NaN or Infinity)
-- ✅ Must be between 0.0 and 1.0 (inclusive)
+- Must be finite (not NaN or Infinity)
+- Must be between 0.0 and 1.0 (inclusive)
 
 ### Operations
-- ✅ Must have at least one operation before finalizing
+- Must have at least one operation before finalizing
 
 ### Context
-- ✅ Cannot be empty
-- ✅ Keys cannot be empty or whitespace-only
-- ✅ Keys max 1,000 bytes, values max 10,000 bytes
+- Cannot be empty
+- Keys cannot be empty or whitespace-only
+- Keys max 1,000 bytes, values max 10,000 bytes
 
 ## Troubleshooting
 
@@ -625,7 +625,7 @@ async function agentSwarm(taskList) {
 ## Related Documentation
 
 - **NPM Package**: https://npmjs.com/package/agentic-jujutsu
-- **GitHub**: https://github.com/nokhodian/agentic-flow/tree/main/packages/agentic-jujutsu
+- **GitHub**: https://github.com/nokhodian/monomind
 - **Full README**: See package README.md
 - **Validation Guide**: docs/VALIDATION_FIXES_v2.3.1.md
 - **AgentDB Guide**: docs/AGENTDB_GUIDE.md
@@ -640,6 +640,6 @@ async function agentSwarm(taskList) {
 
 ---
 
-**Status**: ✅ Production Ready
+**Status**: Production Ready
 **License**: MIT
 **Maintained**: Active

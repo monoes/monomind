@@ -8,7 +8,7 @@
  * - HNSW-indexed threat pattern search (150x-12,500x faster)
  * - Pattern learning from successful detections
  * - Effectiveness tracking for adaptive mitigation
- * - Integration with agentic-flow attention mechanisms
+ * - Integration with Monomind attention mechanisms
  */
 
 import type {

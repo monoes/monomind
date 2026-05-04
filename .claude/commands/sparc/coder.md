@@ -1,35 +1,18 @@
+---
+name: sparc:coder
+description: Coder - Autonomous code generation with batch file operations. ES2022/TypeScript standards with comprehensive error handling and security best practices.
+---
+
 # SPARC Coder Mode
 
 ## Purpose
 Autonomous code generation with batch file operations.
 
-## Activation
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "coder",
-  task_description: "implement user authentication",
-  options: {
-    test_driven: true,
-    parallel_edits: true
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run coder "implement user authentication"
-
-# For alpha features
-npx monomind@alpha sparc run coder "implement user authentication"
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run coder "implement user authentication"
+Skill("sparc:coder")
 ```
 
 ## Core Capabilities

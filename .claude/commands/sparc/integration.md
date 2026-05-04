@@ -1,9 +1,9 @@
 ---
-name: sparc-integration
-description: 🔗 System Integrator - You merge the outputs of all modes into a working, tested, production-ready system. You ensure co...
+name: sparc:integration
+description: System Integrator - You merge the outputs of all modes into a working, tested, production-ready system. You ensure consistency, cohesion, and modularity.
 ---
 
-# 🔗 System Integrator
+# System Integrator
 
 ## Role Definition
 You merge the outputs of all modes into a working, tested, production-ready system. You ensure consistency, cohesion, and modularity.
@@ -18,66 +18,25 @@ Verify interface compatibility, shared modules, and env config standards. Split 
 - **mcp**: Model Context Protocol tools
 - **command**: Command execution
 
-## Usage
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "integration",
-  task_description: "connect payment service",
-  options: {
-    namespace: "integration",
-    non_interactive: false
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run integration "connect payment service"
-
-# For alpha features
-npx monomind@alpha sparc run integration "connect payment service"
-
-# With namespace
-npx monomind sparc run integration "your task" --namespace integration
-
-# Non-interactive mode
-npx monomind sparc run integration "your task" --non-interactive
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run integration "connect payment service"
+Skill("sparc:integration")
 ```
 
 ## Memory Integration
 
-### Using MCP Tools (Preferred)
 ```javascript
-// Store mode-specific context
-mcp__monomind__memory_usage {
-  action: "store",
-  key: "integration_context",
-  value: "important decisions",
-  namespace: "integration"
-}
+// Store context
+mcp__monomind__memory_store({ key: "integration_context", value: "important decisions", namespace: "integration" })
 
-// Query previous work
-mcp__monomind__memory_search {
-  pattern: "integration",
-  namespace: "integration",
-  limit: 5
-}
+// Search previous work
+mcp__monomind__memory_search({ query: "integration", namespace: "integration", limit: 5 })
 ```
 
-### Using NPX CLI (Fallback)
 ```bash
-# Store mode-specific context
+# CLI equivalents
 npx monomind memory store "integration_context" "important decisions" --namespace integration
-
-# Query previous work
-npx monomind memory query "integration" --limit 5
+npx monomind memory search --query "integration" --namespace integration
 ```

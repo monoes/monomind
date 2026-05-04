@@ -1,118 +1,82 @@
-# hook session-end
+---
+name: hooks:session-end
+---
 
-Cleanup and persist session state before ending work.
+# hooks session-end
+
+End the current session and persist state for later restoration.
 
 ## Usage
 
 ```bash
-npx monomind hook session-end [options]
+npx monomind hooks session-end [options]
 ```
 
 ## Options
 
-- `--session-id, -s <id>` - Session identifier to end
-- `--save-state` - Save current session state (default: true)
-- `--export-metrics` - Export session metrics
-- `--generate-summary` - Create session summary
-- `--cleanup-temp` - Remove temporary files
+| Flag | Short | Type | Default | Description |
+|---|---|---|---|---|
+| `--save-state` | `-s` | boolean | `true` | Save session state for restoration |
+| `--format` | — | string | — | Output format: `json` |
 
 ## Examples
 
-### Basic session end
-
 ```bash
-npx monomind hook session-end --session-id "dev-session-2024"
-```
+# End and save session (default)
+npx monomind hooks session-end
 
-### With full export
+# End without saving state
+npx monomind hooks session-end --save-state false
 
-```bash
-npx monomind hook session-end -s "feature-auth" --export-metrics --generate-summary
-```
-
-### Quick close
-
-```bash
-npx monomind hook session-end -s "quick-fix" --save-state false --cleanup-temp
-```
-
-### Complete persistence
-
-```bash
-npx monomind hook session-end -s "major-refactor" --save-state --export-metrics --generate-summary
-```
-
-## Features
-
-### State Persistence
-
-- Saves current context
-- Stores open files
-- Preserves task progress
-- Maintains decisions
-
-### Metric Export
-
-- Session duration
-- Commands executed
-- Files modified
-- Tokens consumed
-- Performance data
-
-### Summary Generation
-
-- Work accomplished
-- Key decisions made
-- Problems solved
-- Next steps identified
-
-### Cleanup Operations
-
-- Removes temp files
-- Clears caches
-- Frees resources
-- Optimizes storage
-
-## Integration
-
-This hook is automatically called by Claude Code when:
-
-- Ending a conversation
-- Closing work session
-- Before shutdown
-- Switching contexts
-
-Manual usage in agents:
-
-```bash
-# At session end
-npx monomind hook session-end --session-id "your-session" --generate-summary
+# JSON output
+npx monomind hooks session-end --format json
 ```
 
 ## Output
 
-Returns JSON with:
+Session summary including:
+- Session ID and duration
+- Tasks executed / succeeded / failed
+- Commands executed, files modified, agents spawned
+- State file path (if saved)
+
+## Restore Later
+
+```bash
+# Restore most recent session
+npx monomind hooks session-restore
+
+# Restore specific session
+npx monomind hooks session-restore -i session-12345
+```
+
+## Claude Code Integration
+
+Typically wired to run at conversation end:
 
 ```json
 {
-  "sessionId": "dev-session-2024",
-  "duration": 7200000,
-  "saved": true,
-  "metrics": {
-    "commandsRun": 145,
-    "filesModified": 23,
-    "tokensUsed": 85000,
-    "tasksCompleted": 8
-  },
-  "summaryPath": "/sessions/dev-session-2024-summary.md",
-  "cleanedUp": true,
-  "nextSession": "dev-session-2025"
+  "hooks": {
+    "Stop": [{
+      "hooks": [{
+        "type": "command",
+        "command": "npx monomind hooks session-end"
+      }]
+    }]
+  }
 }
+```
+
+## MCP Tool
+
+```javascript
+mcp__monomind__hooks_session_end({
+  saveState: true,
+  timestamp: Date.now()
+})
 ```
 
 ## See Also
 
-- `hook session-start` - Session initialization
-- `hook session-restore` - Session restoration
-- `performance report` - Detailed metrics
-- `memory backup` - State backup
+- `hooks session-restore` — restore a previous session
+- `hooks pre-task` / `hooks post-task` — task tracking within a session

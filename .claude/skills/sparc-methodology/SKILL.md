@@ -120,10 +120,7 @@ Multi-agent task orchestration with TodoWrite/Task/Memory coordination.
 
 **Usage**:
 ```javascript
-mcp__monomind__sparc_mode {
-  mode: "orchestrator",
-  task_description: "coordinate feature development",
-  options: { parallel: true, monitor: true }
+Task("coordinate feature development", "coordinate feature development", "sparc-orchestrator")
 }
 ```
 
@@ -180,14 +177,7 @@ Autonomous code generation with batch file operations.
 
 **Usage**:
 ```javascript
-mcp__monomind__sparc_mode {
-  mode: "coder",
-  task_description: "implement user authentication with JWT",
-  options: {
-    test_driven: true,
-    parallel_edits: true,
-    typescript: true
-  }
+Task("implement user authentication with JWT", "implement user authentication with JWT", "sparc-coder")
 }
 ```
 
@@ -216,14 +206,7 @@ System design with Memory-based coordination.
 
 **Usage**:
 ```javascript
-mcp__monomind__sparc_mode {
-  mode: "architect",
-  task_description: "design scalable e-commerce platform",
-  options: {
-    detailed: true,
-    memory_enabled: true,
-    patterns: ["microservices", "event-driven"]
-  }
+Task("design scalable e-commerce platform", "design scalable e-commerce platform", "sparc-architect")
 }
 ```
 
@@ -253,14 +236,7 @@ Test-driven development with comprehensive testing.
 
 **Usage**:
 ```javascript
-mcp__monomind__sparc_mode {
-  mode: "tdd",
-  task_description: "shopping cart feature with payment integration",
-  options: {
-    coverage_target: 90,
-    test_framework: "jest",
-    e2e_framework: "playwright"
-  }
+Task("shopping cart feature with payment integration", "shopping cart feature with payment integration", "sparc-tdd")
 }
 ```
 
@@ -292,14 +268,7 @@ Code review using batch file analysis.
 
 **Usage**:
 ```javascript
-mcp__monomind__sparc_mode {
-  mode: "reviewer",
-  task_description: "review authentication module PR #123",
-  options: {
-    security_check: true,
-    performance_check: true,
-    test_coverage_check: true
-  }
+Task("review authentication module PR #123", "review authentication module PR #123", "sparc-reviewer")
 }
 ```
 
@@ -333,14 +302,7 @@ Deep research with parallel WebSearch/WebFetch and Memory coordination.
 
 **Usage**:
 ```javascript
-mcp__monomind__sparc_mode {
-  mode: "researcher",
-  task_description: "research microservices best practices 2024",
-  options: {
-    depth: "comprehensive",
-    sources: ["academic", "industry", "news"],
-    citations: true
-  }
+Task("research microservices best practices 2024", "research microservices best practices 2024", "sparc-researcher")
 }
 ```
 
@@ -438,13 +400,7 @@ Knowledge management and context preservation.
 
 ```javascript
 // Basic mode execution
-mcp__monomind__sparc_mode {
-  mode: "<mode-name>",
-  task_description: "<task description>",
-  options: {
-    // mode-specific options
-  }
-}
+Task("<task description>", "<task description>", "sparc-<mode-name>")
 
 // Initialize swarm for complex tasks
 mcp__monomind__swarm_init {
@@ -502,7 +458,7 @@ npx monomind sparc pipeline "task description"
 
 ```bash
 # If monomind is installed locally
-./monomind sparc run <mode> "task description"
+npx monomind sparc run <mode> "task description"
 ```
 
 ---
@@ -568,16 +524,12 @@ mcp__monomind__workflow_create {
 **Best for**: Independent tasks that can run concurrently
 
 ```javascript
-mcp__monomind__task_orchestrate {
-  task: "build full-stack application",
-  strategy: "parallel",
-  dependencies: {
-    backend: [],
-    frontend: [],
-    database: [],
-    tests: ["backend", "frontend"]
-  }
-}
+// Use Task tool for parallel execution
+Task("build backend", "build backend API", "sparc-coder")
+Task("build frontend", "build frontend UI", "sparc-coder")
+Task("build database", "set up database schema", "sparc-coder")
+// tests depend on backend and frontend completing first
+Task("run integration tests", "run full-stack integration tests", "sparc-tdd")
 ```
 
 ### Pattern 5: Adaptive Strategy
@@ -606,68 +558,32 @@ mcp__monomind__swarm_init {
 }
 
 // Step 2: Research and planning
-mcp__monomind__sparc_mode {
-  mode: "researcher",
-  task_description: "research testing best practices for feature X"
-}
+Task("research testing best practices for feature X", "research testing best practices for feature X", "sparc-researcher")
 
 // Step 3: Architecture design
-mcp__monomind__sparc_mode {
-  mode: "architect",
-  task_description: "design testable architecture for feature X"
-}
+Task("design testable architecture for feature X", "design testable architecture for feature X", "sparc-architect")
 
 // Step 4: TDD implementation
-mcp__monomind__sparc_mode {
-  mode: "tdd",
-  task_description: "implement feature X with 90% coverage",
-  options: {
-    coverage_target: 90,
-    test_framework: "jest",
-    parallel_tests: true
-  }
-}
+Task("implement feature X with 90% coverage", "implement feature X with 90% coverage", "sparc-tdd")
 
 // Step 5: Code review
-mcp__monomind__sparc_mode {
-  mode: "reviewer",
-  task_description: "review feature X implementation",
-  options: {
-    test_coverage_check: true,
-    security_check: true
-  }
-}
+Task("review feature X implementation", "review feature X implementation", "sparc-reviewer")
 
 // Step 6: Optimization
-mcp__monomind__sparc_mode {
-  mode: "optimizer",
-  task_description: "optimize feature X performance"
-}
+Task("optimize feature X performance", "optimize feature X performance", "sparc-optimizer")
 ```
 
 ### Red-Green-Refactor Cycle
 
 ```javascript
 // RED: Write failing test
-mcp__monomind__sparc_mode {
-  mode: "tester",
-  task_description: "create failing test for shopping cart add item",
-  options: { expect_failure: true }
-}
+Task("create failing test for shopping cart add item", "create failing test for shopping cart add item", "sparc-tester")
 
 // GREEN: Minimal implementation
-mcp__monomind__sparc_mode {
-  mode: "coder",
-  task_description: "implement minimal code to pass test",
-  options: { minimal: true }
-}
+Task("implement minimal code to pass test", "implement minimal code to pass test", "sparc-coder")
 
 // REFACTOR: Improve code quality
-mcp__monomind__sparc_mode {
-  mode: "coder",
-  task_description: "refactor shopping cart implementation",
-  options: { maintain_tests: true }
-}
+Task("refactor shopping cart implementation", "refactor shopping cart implementation", "sparc-coder")
 ```
 
 ---
@@ -680,20 +596,13 @@ mcp__monomind__sparc_mode {
 
 ```javascript
 // Store architectural decisions
-mcp__monomind__memory_usage {
-  action: "store",
-  namespace: "architecture",
-  key: "api-design-v1",
-  value: JSON.stringify(apiDesign),
-  ttl: 86400000  // 24 hours
-}
+mcp__monomind__memory_store({
+  key: "architecture/api-design-v1",
+  value: JSON.stringify(apiDesign)
+})
 
 // Retrieve in subsequent agents
-mcp__monomind__memory_usage {
-  action: "retrieve",
-  namespace: "architecture",
-  key: "api-design-v1"
-}
+mcp__monomind__memory_search({ query: "api-design-v1" })
 ```
 
 ### 2. Parallel Operations
@@ -779,38 +688,19 @@ mcp__monomind__swarm_init {
 }
 
 // Architecture phase
-mcp__monomind__sparc_mode {
-  mode: "architect",
-  task_description: "design REST API with authentication",
-  options: { memory_enabled: true }
-}
+Task("design REST API with authentication", "design REST API with authentication", "sparc-architect")
 
 // Research phase
-mcp__monomind__sparc_mode {
-  mode: "researcher",
-  task_description: "research authentication best practices"
-}
+Task("research authentication best practices", "research authentication best practices", "sparc-researcher")
 
 // Implementation phase
-mcp__monomind__sparc_mode {
-  mode: "coder",
-  task_description: "implement Express API with JWT auth",
-  options: { test_driven: true }
-}
+Task("implement Express API with JWT auth", "implement Express API with JWT auth", "sparc-coder")
 
 // Testing phase
-mcp__monomind__sparc_mode {
-  mode: "tdd",
-  task_description: "comprehensive API tests",
-  options: { coverage_target: 90 }
-}
+Task("comprehensive API tests", "comprehensive API tests", "sparc-tdd")
 
 // Review phase
-mcp__monomind__sparc_mode {
-  mode: "reviewer",
-  task_description: "security and performance review",
-  options: { security_check: true }
-}
+Task("security and performance review", "security and performance review", "sparc-reviewer")
 
 // Batch todos
 TodoWrite {
@@ -831,76 +721,38 @@ TodoWrite {
 
 ```javascript
 // Research phase
-mcp__monomind__sparc_mode {
-  mode: "researcher",
-  task_description: "research AI-powered search implementations",
-  options: {
-    depth: "comprehensive",
-    sources: ["academic", "industry"]
-  }
-}
+Task("research AI-powered search implementations", "research AI-powered search implementations", "sparc-researcher")
 
 // Innovation phase
-mcp__monomind__sparc_mode {
-  mode: "innovator",
-  task_description: "propose novel search algorithm",
-  options: { memory_enabled: true }
-}
+Task("propose novel search algorithm", "propose novel search algorithm", "sparc-innovator")
 
 // Architecture phase
-mcp__monomind__sparc_mode {
-  mode: "architect",
-  task_description: "design scalable search system"
-}
+Task("design scalable search system", "design scalable search system", "sparc-architect")
 
 // Implementation phase
-mcp__monomind__sparc_mode {
-  mode: "coder",
-  task_description: "implement search algorithm",
-  options: { test_driven: true }
-}
+Task("implement search algorithm", "implement search algorithm", "sparc-coder")
 
 // Documentation phase
-mcp__monomind__sparc_mode {
-  mode: "documenter",
-  task_description: "document search system architecture and API"
-}
+Task("document search system architecture and API", "document search system architecture and API", "sparc-documenter")
 ```
 
 ### Example 3: Legacy Code Refactoring
 
 ```javascript
 // Analysis phase
-mcp__monomind__sparc_mode {
-  mode: "analyzer",
-  task_description: "analyze legacy codebase dependencies"
-}
+Task("analyze legacy codebase dependencies", "analyze legacy codebase dependencies", "sparc-analyzer")
 
 // Planning phase
-mcp__monomind__sparc_mode {
-  mode: "orchestrator",
-  task_description: "plan incremental refactoring strategy"
-}
+Task("plan incremental refactoring strategy", "plan incremental refactoring strategy", "sparc-orchestrator")
 
 // Testing phase (create safety net)
-mcp__monomind__sparc_mode {
-  mode: "tester",
-  task_description: "create comprehensive test suite for legacy code",
-  options: { coverage_target: 80 }
-}
+Task("create comprehensive test suite for legacy code", "create comprehensive test suite for legacy code", "sparc-tester")
 
 // Refactoring phase
-mcp__monomind__sparc_mode {
-  mode: "coder",
-  task_description: "refactor module X with modern patterns",
-  options: { maintain_tests: true }
-}
+Task("refactor module X with modern patterns", "refactor module X with modern patterns", "sparc-coder")
 
 // Review phase
-mcp__monomind__sparc_mode {
-  mode: "reviewer",
-  task_description: "validate refactoring maintains functionality"
-}
+Task("validate refactoring maintains functionality", "validate refactoring maintains functionality", "sparc-reviewer")
 ```
 
 ---
@@ -980,27 +832,19 @@ npx monomind sparc pipeline "e-commerce checkout feature"
 
 ### Neural Pattern Training
 
-```javascript
-// Train patterns from successful workflows
-mcp__monomind__neural_train {
-  pattern_type: "coordination",
-  training_data: "successful_tdd_workflow.json",
-  epochs: 50
-}
+```bash
+# Train patterns from successful workflows
+npx monomind neural train --pattern-type coordination --epochs 50
 ```
 
 ### Cross-Session Memory
 
-```javascript
-// Save session state
-mcp__monomind__memory_persist {
-  sessionId: "feature-auth-v1"
-}
+```bash
+# Save session state (stored in .monomind/sessions/)
+npx monomind session save feature-auth-v1
 
-// Restore in new session
-mcp__monomind__context_restore {
-  snapshotId: "feature-auth-v1"
-}
+# Restore in new session
+npx monomind session restore feature-auth-v1
 ```
 
 ### GitHub Integration
@@ -1089,16 +933,16 @@ npx monomind sparc batch <modes> "task"
 
 ```javascript
 // Initialize swarm
-mcp__monomind__swarm_init { topology: "hierarchical" }
+mcp__monomind__swarm_init({ topology: "hierarchical" })
 
-// Execute mode
-mcp__monomind__sparc_mode { mode: "coder", task_description: "..." }
+// Execute SPARC mode via Task tool
+Task("task description", "task description", "sparc-coder")
 
 // Monitor progress
-mcp__monomind__swarm_monitor { interval: 5000 }
+mcp__monomind__swarm_monitor({ interval: 5000 })
 
 // Store in memory
-mcp__monomind__memory_usage { action: "store", key: "...", value: "..." }
+mcp__monomind__memory_store({ key: "...", value: "..." })
 ```
 
 ---

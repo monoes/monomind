@@ -1,7 +1,7 @@
 /**
  * Attention Coordinator
  *
- * Implements attention-based coordination mechanisms from agentic-flow@alpha:
+ * Implements attention-based coordination mechanisms for Monomind:
  * - multi-head: Standard multi-head attention
  * - flash: 2.49x-7.47x speedup, 75% memory reduction
  * - linear: For long sequences

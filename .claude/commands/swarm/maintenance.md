@@ -1,102 +1,75 @@
+---
+name: swarm-maintenance
+description: Maintenance swarm strategy — sequential coordinated system maintenance for dependency updates, security audits, and documentation
+---
+
 # Maintenance Swarm Strategy
 
-## Purpose
 System maintenance and updates through coordinated agents.
 
-## Activation
+## How to Invoke
 
-### Using MCP Tools
+```
+Skill("swarm:maintenance")
+```
+
+Then describe the maintenance task:
+> "Run a maintenance swarm to update all dependencies safely."
+> "Start a maintenance swarm for the monthly security audit."
+
+---
+
+## Swarm Setup
+
 ```javascript
 // Initialize maintenance swarm
 mcp__monomind__swarm_init({
-  "topology": "star",
-  "maxAgents": 5,
-  "strategy": "sequential"
+  topology: "star",
+  maxAgents: 5,
+  strategy: "sequential"
 })
 
-// Orchestrate maintenance task
-mcp__monomind__task_orchestrate({
-  "task": "update dependencies",
-  "strategy": "sequential",
-  "priority": "medium",
-  "dependencies": ["backup", "test", "update", "verify"]
+// Coordinate maintenance
+mcp__monomind__coordination_orchestrate({
+  task: "update dependencies",
+  strategy: "sequential"
 })
 ```
 
-### Using CLI (Fallback)
-`npx monomind swarm "update dependencies" --strategy maintenance`
+```bash
+# CLI equivalent
+npx monomind swarm init --topology star --max-agents 5
+npx monomind swarm start "update dependencies" --strategy maintenance
+```
 
 ## Agent Roles
 
-### Agent Spawning with MCP
 ```javascript
-// Spawn maintenance agents
-mcp__monomind__agent_spawn({
-  "type": "analyst",
-  "name": "Dependency Analyzer",
-  "capabilities": ["dependency-analysis", "version-management"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "monitor",
-  "name": "Security Scanner",
-  "capabilities": ["security", "vulnerability-scan"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "tester",
-  "name": "Test Runner",
-  "capabilities": ["testing", "validation"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "documenter",
-  "name": "Documentation Updater",
-  "capabilities": ["documentation", "changelog"]
-})
+mcp__monomind__agent_spawn({ type: "analyst", capabilities: ["dependency-analysis", "version-management"] })
+mcp__monomind__agent_spawn({ type: "tester", capabilities: ["testing", "validation"] })
+mcp__monomind__agent_spawn({ type: "documenter", capabilities: ["documentation", "changelog"] })
 ```
 
-## Safety Features
+## Maintenance Sequence
 
-### Backup and Recovery
+Star topology runs sequentially — each agent completes before the next starts:
+
+1. **Analyzer agent** — audit outdated dependencies, find vulnerabilities
+2. **Tester agent** — verify tests pass on current state (baseline)
+3. **Analyst agent** — apply updates, verify no regressions
+4. **Tester agent** — rerun tests to confirm updates are safe
+5. **Documenter agent** — update CHANGELOG, document what changed
+
+## Security Scanning
+
 ```javascript
-// Create system backup
-mcp__monomind__backup_create({
-  "components": ["code", "config", "dependencies"],
-  "destination": "./backups/maintenance-" + Date.now()
-})
-
-// Create state snapshot
-mcp__monomind__state_snapshot({
-  "name": "pre-maintenance-" + Date.now()
-})
-
-// Enable fault tolerance
-mcp__monomind__daa_fault_tolerance({
-  "agentId": "all",
-  "strategy": "checkpoint-recovery"
-})
+// Run security scan via AI defence
+mcp__monomind__aidefence_scan({ target: "./" })
 ```
 
-### Security Scanning
-```javascript
-// Run security scan
-mcp__monomind__security_scan({
-  "target": "./",
-  "depth": "comprehensive"
-})
-```
+## Monitoring
 
-### Monitoring
 ```javascript
-// Health check before/after
-mcp__monomind__health_check({
-  "components": ["dependencies", "tests", "build"]
-})
-
-// Monitor maintenance progress
-mcp__monomind__swarm_monitor({
-  "swarmId": "maintenance-swarm",
-  "interval": 3000
-})
+mcp__monomind__swarm_status({ swarmId: "current" })
+mcp__monomind__system_health({})
 ```

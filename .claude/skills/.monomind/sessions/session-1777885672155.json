@@ -1,0 +1,15 @@
+{
+  "id": "session-1777885672155",
+  "startedAt": "2026-05-04T09:07:52.155Z",
+  "platform": "darwin",
+  "cwd": "/Users/morteza/Desktop/tools/monobrain/.claude/skills",
+  "context": {},
+  "metrics": {
+    "edits": 80,
+    "commands": 0,
+    "tasks": 2,
+    "errors": 0
+  },
+  "endedAt": "2026-05-04T09:25:58.814Z",
+  "duration": 1086660
+}

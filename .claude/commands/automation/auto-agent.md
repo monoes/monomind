@@ -1,122 +1,86 @@
-# auto agent
+---
+name: automation:auto-agent
+---
 
-Automatically spawn and manage agents based on task requirements.
+# auto-agent
+
+Automatically spawn agents based on task requirements.
 
 ## Usage
 
 ```bash
-npx monomind auto agent [options]
+npx monomind agent spawn [options]
 ```
 
 ## Options
 
-- `--task, -t <description>` - Task description for agent analysis
-- `--max-agents, -m <number>` - Maximum agents to spawn (default: auto)
-- `--min-agents <number>` - Minimum agents required (default: 1)
-- `--strategy, -s <type>` - Selection strategy: optimal, minimal, balanced
-- `--no-spawn` - Analyze only, don't spawn agents
+- `--type, -t <type>` - Agent type: `coder`, `tester`, `researcher`, `coordinator`, `architect`, `analyst`
+- `--name, -n <name>` - Agent name
+- `--task <description>` - Task description
+- `--timeout <ms>` - Timeout in milliseconds
+- `--auto-tools` - Enable automatic tool selection
 
 ## Examples
 
-### Basic auto-spawning
+### Spawn a coder agent for a task
 
 ```bash
-npx monomind auto agent --task "Build a REST API with authentication"
+npx monomind agent spawn --type coder --task "Build a REST API with authentication"
 ```
 
-### Constrained spawning
+### Spawn coordinator with auto tools
 
 ```bash
-npx monomind auto agent -t "Debug performance issue" --max-agents 3
+npx monomind agent spawn --type coordinator --auto-tools --task "Refactor codebase"
 ```
 
-### Analysis only
+### Check spawned agent status
 
 ```bash
-npx monomind auto agent -t "Refactor codebase" --no-spawn
-```
-
-### Minimal strategy
-
-```bash
-npx monomind auto agent -t "Fix bug in login" -s minimal
+npx monomind agent list
+npx monomind agent status --id <agent-id>
 ```
 
 ## How It Works
 
-1. **Task Analysis**
+1. **Task Analysis** — Parses task description and identifies required skills
+2. **Agent Selection** — Matches skills to agent type (`coder`, `architect`, `tester`, etc.)
+3. **Topology Selection** — Chooses swarm structure for multi-agent tasks
+4. **Spawning** — Creates agent with role, assigns subtasks, enables coordination
 
-   - Parses task description
-   - Identifies required skills
-   - Estimates complexity
-   - Determines parallelization opportunities
+## Agent Types
 
-2. **Agent Selection**
-
-   - Matches skills to agent types
-   - Considers task dependencies
-   - Optimizes for efficiency
-   - Respects constraints
-
-3. **Topology Selection**
-
-   - Chooses optimal swarm structure
-   - Configures communication patterns
-   - Sets up coordination rules
-   - Enables monitoring
-
-4. **Automatic Spawning**
-   - Creates selected agents
-   - Assigns specific roles
-   - Distributes subtasks
-   - Initiates coordination
-
-## Agent Types Selected
-
-- **Architect**: System design, architecture decisions
-- **Coder**: Implementation, code generation
-- **Tester**: Test creation, quality assurance
-- **Analyst**: Performance, optimization
-- **Researcher**: Documentation, best practices
-- **Coordinator**: Task management, progress tracking
-
-## Strategies
-
-### Optimal
-
-- Maximum efficiency
-- May spawn more agents
-- Best for complex tasks
-- Highest resource usage
-
-### Minimal
-
-- Minimum viable agents
-- Conservative approach
-- Good for simple tasks
-- Lowest resource usage
-
-### Balanced
-
-- Middle ground
-- Adaptive to complexity
-- Default strategy
-- Good performance/resource ratio
+| Type | Best For |
+|------|----------|
+| `architect` | System design, architecture decisions |
+| `coder` | Implementation, code generation |
+| `tester` | Test creation, quality assurance |
+| `analyst` | Performance, optimization |
+| `researcher` | Documentation, best practices |
+| `coordinator` | Task management, progress tracking |
 
 ## Integration with Claude Code
 
 ```javascript
-// In Claude Code after auto-spawning
-mcp__monomind__auto_agent {
+// Spawn a single specialized agent
+mcp__monomind__agent_spawn({
+  type: "coder",
+  name: "API Builder",
   task: "Build authentication system",
-  strategy: "balanced",
-  maxAgents: 6
-}
+  capabilities: ["typescript", "rest-api"]
+})
+
+// For multi-agent coordination, initialize a swarm first
+mcp__monomind__swarm_init({
+  topology: "hierarchical",
+  maxAgents: 6,
+  strategy: "specialized"
+})
 ```
 
 ## See Also
 
-- `agent spawn` - Manual agent creation
-- `swarm init` - Initialize swarm manually
-- `smart spawn` - Intelligent agent spawning
-- `workflow select` - Choose predefined workflows
+- `agent list` — list all active agents
+- `agent status` — check agent status
+- `swarm init` — initialize a multi-agent swarm
+- `workflow-select` — choose predefined workflows

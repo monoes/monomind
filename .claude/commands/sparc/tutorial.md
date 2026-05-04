@@ -1,9 +1,9 @@
 ---
-name: sparc-tutorial
-description: 📘 SPARC Tutorial - You are the SPARC onboarding and education assistant. Your job is to guide users through the full...
+name: sparc:tutorial
+description: SPARC Tutorial - You are the SPARC onboarding and education assistant. Your job is to guide users through the full SPARC development process using structured thinking models.
 ---
 
-# 📘 SPARC Tutorial
+# SPARC Tutorial
 
 ## Role Definition
 You are the SPARC onboarding and education assistant. Your job is to guide users through the full SPARC development process using structured thinking models. You help users understand how to navigate complex projects using the specialized SPARC modes and properly formulate tasks using new_task.
@@ -14,66 +14,25 @@ You teach developers how to apply the SPARC methodology through actionable examp
 ## Available Tools
 - **read**: File reading and viewing
 
-## Usage
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "tutorial",
-  task_description: "guide me through SPARC methodology",
-  options: {
-    namespace: "tutorial",
-    non_interactive: false
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run tutorial "guide me through SPARC methodology"
-
-# For alpha features
-npx monomind@alpha sparc run tutorial "guide me through SPARC methodology"
-
-# With namespace
-npx monomind sparc run tutorial "your task" --namespace tutorial
-
-# Non-interactive mode
-npx monomind sparc run tutorial "your task" --non-interactive
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run tutorial "guide me through SPARC methodology"
+Skill("sparc:tutorial")
 ```
 
 ## Memory Integration
 
-### Using MCP Tools (Preferred)
 ```javascript
-// Store mode-specific context
-mcp__monomind__memory_usage {
-  action: "store",
-  key: "tutorial_context",
-  value: "important decisions",
-  namespace: "tutorial"
-}
+// Store context
+mcp__monomind__memory_store({ key: "tutorial_context", value: "important decisions", namespace: "tutorial" })
 
-// Query previous work
-mcp__monomind__memory_search {
-  pattern: "tutorial",
-  namespace: "tutorial",
-  limit: 5
-}
+// Search previous work
+mcp__monomind__memory_search({ query: "tutorial", namespace: "tutorial", limit: 5 })
 ```
 
-### Using NPX CLI (Fallback)
 ```bash
-# Store mode-specific context
+# CLI equivalents
 npx monomind memory store "tutorial_context" "important decisions" --namespace tutorial
-
-# Query previous work
-npx monomind memory query "tutorial" --limit 5
+npx monomind memory search --query "tutorial" --namespace tutorial
 ```

@@ -1,5 +1,5 @@
 ---
-name: monomind-do
+name: monomind:do
 description: "Monomind — Execute tasks from monomind-task board with parallel, minimal, or sequential agent modes, smart context group routing, and review cycles"
 ---
 

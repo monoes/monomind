@@ -1,35 +1,18 @@
+---
+name: sparc:analyzer
+description: Analyzer - Deep code and data analysis with batch processing capabilities. Performs parallel file analysis, pattern recognition, and performance profiling.
+---
+
 # SPARC Analyzer Mode
 
 ## Purpose
 Deep code and data analysis with batch processing capabilities.
 
-## Activation
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "analyzer",
-  task_description: "analyze codebase performance",
-  options: {
-    parallel: true,
-    detailed: true
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run analyzer "analyze codebase performance"
-
-# For alpha features
-npx monomind@alpha sparc run analyzer "analyze codebase performance"
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run analyzer "analyze codebase performance"
+Skill("sparc:analyzer")
 ```
 
 ## Core Capabilities

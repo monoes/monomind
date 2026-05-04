@@ -6,7 +6,7 @@ All ADRs are located in [`/packages/implementation/adrs/`](../../implementation/
 
 | ADR                                                                         | Title                                 | Status   |
 | --------------------------------------------------------------------------- | ------------------------------------- | -------- |
-| [ADR-001](../../implementation/adrs/ADR-001-AGENT-IMPLEMENTATION.md)        | Adopt agentic-flow as Core Foundation | Complete |
+| [ADR-001](../../implementation/adrs/ADR-001-AGENT-IMPLEMENTATION.md)        | Adopt Monomind as Core Foundation     | Complete |
 | [ADR-002](../../implementation/adrs/ADR-002-DDD-STRUCTURE.md)               | Domain-Driven Design Structure        | Complete |
 | [ADR-003](../../implementation/adrs/ADR-003-CONSOLIDATION-COMPLETE.md)      | Single Coordination Engine            | Complete |
 | [ADR-004](../../implementation/adrs/ADR-004-PLUGIN-ARCHITECTURE.md)         | Plugin Architecture                   | Complete |

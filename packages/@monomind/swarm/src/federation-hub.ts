@@ -17,7 +17,7 @@
  * - Federation sync: <500ms
  * - Auto-cleanup: Background, non-blocking
  *
- * Implements ADR-001: agentic-flow@alpha compatibility
+ * Implements ADR-001: Monomind integration
  * Implements ADR-003: Unified coordination engine
  *
  * @module @monomind/swarm/federation-hub

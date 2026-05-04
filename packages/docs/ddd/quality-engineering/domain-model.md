@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document defines the domain entities, value objects, aggregates, and domain services for the Quality Engineering bounded contexts in the agentic-qe plugin.
+This document defines the domain entities, value objects, aggregates, and domain services for the Quality Engineering bounded contexts in the monomind quality-engineering plugin.
 
 ## Core Domain Entities
 
@@ -985,4 +985,4 @@ type ModelVersion = Branded<string, "ModelVersion">;
 
 - [README](./README.md) - Domain overview
 - [Integration Points](./integration-points.md) - v1 integration details
-- [ADR-030: Agentic-QE Integration](../../implementation/adrs/ADR-030-agentic-qe-integration.md)
+- [ADR-030: Quality Engineering Integration](../../implementation/adrs/ADR-030-agentic-qe-integration.md)

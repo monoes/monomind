@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Architecture Overhaul (10 ADRs)
 
-- **ADR-001**: Adopted agentic-flow@alpha as core foundation, eliminating 10,000+ duplicate lines
+- **ADR-001**: Adopted Monomind as core foundation, eliminating 10,000+ duplicate lines
 - **ADR-002**: Implemented Domain-Driven Design with bounded contexts and modular architecture
 - **ADR-003**: Unified to single SwarmCoordinator, removing 6 redundant implementations
 - **ADR-004**: Plugin-based microkernel architecture with dynamic extension points
@@ -83,9 +83,9 @@ Complete restructure into 10 independent @monomind modules:
 - GNN-enhanced retrieval
 - 4-32x quantization support
 
-#### 3. `@monomind/integration` - Agentic Flow Integration
+#### 3. `@monomind/integration` - Monomind Integration
 
-- Deep integration with agentic-flow@alpha
+- Deep integration with Monomind core
 - Eliminates 10,000+ duplicate lines
 - Extends rather than reimplements
 - Shared swarm coordination
@@ -162,7 +162,7 @@ Complete restructure into 10 independent @monomind modules:
 - **226,606 lines removed** from codebase
 - **24MB storage reclaimed**
 - Eliminated 6+ duplicate swarm implementations
-- Removed 10,000+ duplicate lines via agentic-flow integration
+- Removed 10,000+ duplicate lines via integration consolidation
 - Consolidated 6+ memory system fragments
 
 #### Dependency Consolidation
@@ -196,7 +196,7 @@ Complete restructure into 10 independent @monomind modules:
 
 ```json
 {
-  "agentic-flow": "2.0.1-alpha.74",
+  "monomind": "2.0.1-alpha.74",
   "agentdb": "2.0.0-alpha.3.4",
   "@ruvector/attention": "0.1.3",
   "@ruvector/sona": "0.1.5",
@@ -278,7 +278,7 @@ See [MIGRATION.md](./MIGRATION.md) for detailed upgrade instructions from v2 to 
 
 ### 🙏 Acknowledgments
 
-- Built on agentic-flow@alpha by the Anthropic community
+- Built on the Monomind platform
 - AgentDB integration for unified memory
 - RuVector for Flash Attention and SONA learning
 - Community feedback and testing
@@ -302,7 +302,7 @@ See [MIGRATION.md](./MIGRATION.md) for detailed upgrade instructions from v2 to 
 
 ```bash
 # Install v1 alpha
-npm install agentic-flow@3.0.0-alpha.1
+npm install monomind@3.0.0-alpha.1
 
 # Or specific modules
 npm install @monomind/security@latest
@@ -314,24 +314,24 @@ npm install @monomind/integration@latest
 
 ```bash
 # Initialize v1
-npx agentic-flow@3.0.0-alpha.1 init --v1
+npx monomind@3.0.0-alpha.1 init --v1
 
 # Run security audit
-npx @monomind/security audit
+npx monomind security audit
 
 # Start with unified memory
-npx @monomind/memory unify --backend agentdb
+npx monomind memory unify --backend agentdb
 
 # Spawn v1 swarm
-npx @monomind/swarm coordinate --agents 15
+npx monomind swarm coordinate --agents 15
 ```
 
 ### Support & Feedback
 
-- **GitHub Issues**: https://github.com/nokhodian/agentic-flow/issues
-- **Documentation**: https://github.com/nokhodian/agentic-flow/tree/v1/docs
+- **GitHub Issues**: https://github.com/nokhodian/monomind/issues
+- **Documentation**: https://github.com/nokhodian/monomind/tree/v1/docs
 - **Migration Guide**: [MIGRATION.md](./MIGRATION.md)
 
 ---
 
-**Full Changelog**: https://github.com/nokhodian/agentic-flow/compare/v2.0.1...V1.0.0-alpha.1
+**Full Changelog**: https://github.com/nokhodian/monomind/compare/v2.0.1...V1.0.0-alpha.1

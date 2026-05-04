@@ -1,5 +1,5 @@
 ---
-name: Hooks Automation
+name: hooks-automation
 description: Automated coordination, formatting, and learning from Claude Code operations using intelligent hooks with MCP integration. Includes pre/post task hooks, session management, Git integration, memory coordination, and neural pattern training for enhanced development workflows.
 ---
 
@@ -606,7 +606,7 @@ mcp__monomind__agent_spawn {
   capabilities: ["api", "database", "testing"]
 }
 
-mcp__monomind__memory_usage {
+mcp__monomind__memory_store {
   action: "store",
   key: "swarm/task/api-build/context",
   namespace: "coordination",
@@ -625,7 +625,7 @@ mcp__monomind__memory_usage {
 npx monomind hook post-edit --file "api/auth.js"
 
 // Internally calls MCP tools:
-mcp__monomind__memory_usage {
+mcp__monomind__memory_store {
   action: "store",
   key: "swarm/edits/api/auth.js",
   namespace: "coordination",
@@ -638,10 +638,8 @@ mcp__monomind__memory_usage {
   })
 }
 
-mcp__monomind__neural_train {
-  pattern_type: "coordination",
-  training_data: { /* edit patterns */ }
-}
+// Train neural patterns:
+// npx monomind neural train --pattern coordination --data edit-patterns
 ```
 
 #### Session End Hook with State Persistence
@@ -651,9 +649,7 @@ mcp__monomind__neural_train {
 npx monomind hook session-end --session-id "dev-2024"
 
 // Internally calls MCP tools:
-mcp__monomind__memory_persist {
-  sessionId: "dev-2024"
-}
+// npx monomind session save --session-id "dev-2024"
 
 mcp__monomind__swarm_status {
   swarmId: "current"
@@ -670,7 +666,7 @@ All hooks follow a standardized memory coordination pattern:
 
 **Phase 1: STATUS** - Hook starts
 ```javascript
-mcp__monomind__memory_usage {
+mcp__monomind__memory_store {
   action: "store",
   key: "swarm/hooks/pre-edit/status",
   namespace: "coordination",
@@ -685,7 +681,7 @@ mcp__monomind__memory_usage {
 
 **Phase 2: PROGRESS** - Hook processes
 ```javascript
-mcp__monomind__memory_usage {
+mcp__monomind__memory_store {
   action: "store",
   key: "swarm/hooks/pre-edit/progress",
   namespace: "coordination",
@@ -699,7 +695,7 @@ mcp__monomind__memory_usage {
 
 **Phase 3: COMPLETE** - Hook finishes
 ```javascript
-mcp__monomind__memory_usage {
+mcp__monomind__memory_store {
   action: "store",
   key: "swarm/hooks/pre-edit/complete",
   namespace: "coordination",

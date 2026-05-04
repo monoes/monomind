@@ -1,15 +1,15 @@
 ---
 name: release-manager
 description: |
-  Automated release coordination and deployment with ruv-swarm orchestration for seamless version management, testing, and deployment across multiple packages
-tools: Bash, Read, Write, Edit, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_pull_request, mcp__github__merge_pull_request, mcp__github__create_branch, mcp__github__push_files, mcp__github__create_issue, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_usage
+  Automated release coordination and deployment with Monomind swarm orchestration for seamless version management, testing, and deployment across multiple packages
+tools: Bash, Read, Write, Edit, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_pull_request, mcp__github__merge_pull_request, mcp__github__create_branch, mcp__github__push_files, mcp__github__create_issue, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_store
 ---
 
 # GitHub Release Manager
 
 ## Purpose
 
-Automated release coordination and deployment with ruv-swarm orchestration for seamless version management, testing, and deployment across multiple packages.
+Automated release coordination and deployment with Monomind swarm orchestration for seamless version management, testing, and deployment across multiple packages.
 
 ## Capabilities
 
@@ -35,14 +35,14 @@ mcp__monomind__agent_spawn { type: "analyst", name: "Deployment Analyst" }
 // Create release preparation branch
 mcp__github__create_branch {
   owner: "nokhodian",
-  repo: "ruv-FANN",
-  branch: "release/v1.0.72",
+  repo: "monomind",
+  branch: "release/v1.8.0",
   from_branch: "main"
 }
 
 // Orchestrate release preparation
 mcp__monomind__task_orchestrate {
-  task: "Prepare release v1.0.72 with comprehensive testing and validation",
+  task: "Prepare release v1.8.0 with comprehensive testing and validation",
   strategy: "sequential",
   priority: "critical"
 }
@@ -54,30 +54,21 @@ mcp__monomind__task_orchestrate {
 // Update versions across packages
 mcp__github__push_files {
   owner: "nokhodian",
-  repo: "ruv-FANN",
-  branch: "release/v1.0.72",
+  repo: "monomind",
+  branch: "release/v1.8.0",
   files: [
     {
-      path: "claude-code-flow/claude-code-flow/package.json",
+      path: "packages/@monomind/cli/package.json",
       content: JSON.stringify({
-        name: "monomind",
-        version: "1.0.72",
-        // ... rest of package.json
-      }, null, 2)
-    },
-    {
-      path: "ruv-swarm/npm/package.json",
-      content: JSON.stringify({
-        name: "ruv-swarm",
-        version: "1.0.12",
-        // ... rest of package.json
+        name: "@monomind/cli",
+        version: "1.8.0",
       }, null, 2)
     },
     {
       path: "CHANGELOG.md",
       content: `# Changelog
 
-## [1.0.72] - ${new Date().toISOString().split('T')[0]}
+## [1.8.0] - ${new Date().toISOString().split('T')[0]}
 
 ### Added
 - Comprehensive GitHub workflow integration
@@ -85,17 +76,15 @@ mcp__github__push_files {
 - Advanced MCP tools suite
 
 ### Changed
-- Aligned Node.js version requirements
 - Improved package synchronization
 - Enhanced documentation structure
 
 ### Fixed
 - Dependency resolution issues
-- Integration test reliability
 - Memory coordination optimization`
     }
   ],
-  message: "release: Prepare v1.0.72 with GitHub integration and swarm enhancements"
+  message: "release: Prepare v1.8.0 with GitHub integration and swarm enhancements"
 }
 ```
 
@@ -103,74 +92,45 @@ mcp__github__push_files {
 
 ```javascript
 // Comprehensive release testing
-Bash("cd /workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm install")
-Bash("cd /workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm run test")
-Bash("cd /workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm run lint")
-Bash("cd /workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm run build")
-
-Bash("cd /workspaces/ruv-FANN/ruv-swarm/npm && npm install")
-Bash("cd /workspaces/ruv-FANN/ruv-swarm/npm && npm run test:all")
-Bash("cd /workspaces/ruv-FANN/ruv-swarm/npm && npm run lint")
+Bash("cd packages/@monomind/cli && npm install")
+Bash("cd packages/@monomind/cli && npm run test")
+Bash("cd packages/@monomind/cli && npm run lint")
+Bash("cd packages/@monomind/cli && npm run build")
 
 // Create release PR with validation results
 mcp__github__create_pull_request {
   owner: "nokhodian",
-  repo: "ruv-FANN",
-  title: "Release v1.0.72: GitHub Integration and Swarm Enhancements",
-  head: "release/v1.0.72",
+  repo: "monomind",
+  title: "Release v1.8.0: GitHub Integration and Swarm Enhancements",
+  head: "release/v1.8.0",
   base: "main",
-  body: `## 🚀 Release v1.0.72
+  body: `## Release v1.8.0
 
-### 🎯 Release Highlights
+### Release Highlights
 - **GitHub Workflow Integration**: Complete GitHub command suite with swarm coordination
 - **Package Synchronization**: Aligned versions and dependencies across packages
 - **Enhanced Documentation**: Synchronized CLAUDE.md with comprehensive integration guides
-- **Improved Testing**: Comprehensive integration test suite with 89% success rate
 
-### 📦 Package Updates
-- **monomind**: v1.0.71 → v1.0.72
-- **ruv-swarm**: v1.0.11 → v1.0.12
+### Package Updates
+- **@monomind/cli**: v1.7.0 → v1.8.0
 
-### 🔧 Changes
+### Changes
 #### Added
 - GitHub command modes: pr-manager, issue-tracker, sync-coordinator, release-manager
 - Swarm-coordinated GitHub workflows
 - Advanced MCP tools integration
-- Cross-package synchronization utilities
-
-#### Changed
-- Node.js requirement aligned to >=20.0.0 across packages
-- Enhanced swarm coordination protocols
-- Improved package dependency management
-- Updated integration documentation
 
 #### Fixed
 - Dependency resolution issues between packages
-- Integration test reliability improvements
 - Memory coordination optimization
-- Documentation synchronization
 
-### ✅ Validation Results
+### Validation Results
 - [x] Unit tests: All passing
-- [x] Integration tests: 89% success rate
 - [x] Lint checks: Clean
 - [x] Build verification: Successful
-- [x] Cross-package compatibility: Verified
-- [x] Documentation: Updated and synchronized
-
-### 🐝 Swarm Coordination
-This release was coordinated using ruv-swarm agents:
-- **Release Coordinator**: Overall release management
-- **QA Engineer**: Comprehensive testing validation
-- **Release Reviewer**: Code quality and standards review
-- **Version Manager**: Package version coordination
-- **Deployment Analyst**: Release deployment validation
-
-### 🎁 Ready for Deployment
-This release is production-ready with comprehensive validation and testing.
 
 ---
-🤖 Generated with Claude Code using ruv-swarm coordination`
+🤖 Generated with Claude Code`
 }
 ```
 
@@ -187,34 +147,26 @@ This release is production-ready with comprehensive validation and testing.
   mcp__monomind__agent_spawn { type: "reviewer", name: "Senior Reviewer" }
   mcp__monomind__agent_spawn { type: "coder", name: "Version Controller" }
   mcp__monomind__agent_spawn { type: "analyst", name: "Performance Analyst" }
-  mcp__monomind__agent_spawn { type: "researcher", name: "Compatibility Checker" }
 
-  // Create release branch and prepare files using gh CLI
-  Bash("gh api repos/:owner/:repo/git/refs --method POST -f ref='refs/heads/release/v1.0.72' -f sha=$(gh api repos/:owner/:repo/git/refs/heads/main --jq '.object.sha')")
-
-  // Clone and update release files
-  Bash("gh repo clone :owner/:repo /tmp/release-v1.0.72 -- --branch release/v1.0.72 --depth=1")
+  // Create release branch
+  Bash("gh api repos/:owner/:repo/git/refs --method POST -f ref='refs/heads/release/v1.8.0' -f sha=$(gh api repos/:owner/:repo/git/refs/heads/main --jq '.object.sha')")
 
   // Update all release-related files
-  Write("/tmp/release-v1.0.72/claude-code-flow/claude-code-flow/package.json", "[updated package.json]")
-  Write("/tmp/release-v1.0.72/ruv-swarm/npm/package.json", "[updated package.json]")
-  Write("/tmp/release-v1.0.72/CHANGELOG.md", "[release changelog]")
-  Write("/tmp/release-v1.0.72/RELEASE_NOTES.md", "[detailed release notes]")
+  Write("packages/@monomind/cli/package.json", "[updated package.json]")
+  Write("CHANGELOG.md", "[release changelog]")
 
-  Bash("cd /tmp/release-v1.0.72 && git add -A && git commit -m 'release: Prepare v1.0.72 with comprehensive updates' && git push")
+  Bash("cd packages/@monomind/cli && git add -A && git commit -m 'release: Prepare v1.8.0' && git push")
 
   // Run comprehensive validation
-  Bash("cd /workspaces/ruv-FANN/claude-code-flow/claude-code-flow && npm install && npm test && npm run lint && npm run build")
-  Bash("cd /workspaces/ruv-FANN/ruv-swarm/npm && npm install && npm run test:all && npm run lint")
+  Bash("cd packages/@monomind/cli && npm install && npm test && npm run lint && npm run build")
 
   // Create release PR using gh CLI
   Bash(`gh pr create \
     --repo :owner/:repo \
-    --title "Release v1.0.72: GitHub Integration and Swarm Enhancements" \
-    --head "release/v1.0.72" \
+    --title "Release v1.8.0" \
+    --head "release/v1.8.0" \
     --base "main" \
     --body "[comprehensive release description]"`)
-
 
   // Track release progress
   TodoWrite { todos: [
@@ -226,14 +178,14 @@ This release is production-ready with comprehensive validation and testing.
   ]}
 
   // Store release state
-  mcp__monomind__memory_usage {
+  mcp__monomind__memory_store {
     action: "store",
-    key: "release/v1.0.72/status",
+    key: "release/v1.8.0/status",
     value: {
       timestamp: Date.now(),
-      version: "1.0.72",
+      version: "1.8.0",
       stage: "validation_complete",
-      packages: ["monomind", "ruv-swarm"],
+      packages: ["@monomind/cli"],
       validation_passed: true,
       ready_for_review: true
     }
@@ -257,12 +209,12 @@ const versionStrategy = {
 
 ```javascript
 const validationStages = [
-  "unit_tests", // Individual package testing
-  "integration_tests", // Cross-package integration
-  "performance_tests", // Performance regression detection
-  "compatibility_tests", // Version compatibility validation
-  "documentation_tests", // Documentation accuracy verification
-  "deployment_tests", // Deployment simulation
+  "unit_tests",
+  "integration_tests",
+  "performance_tests",
+  "compatibility_tests",
+  "documentation_tests",
+  "deployment_tests",
 ];
 ```
 
@@ -322,17 +274,16 @@ jobs:
   release-validation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
       - name: Setup Node.js
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v4
         with:
           node-version: "20"
       - name: Install and Test
         run: |
-          cd claude-code-flow/claude-code-flow && npm install && npm test
-          cd ../../ruv-swarm/npm && npm install && npm test:all
+          cd packages/@monomind/cli && npm install && npm test
       - name: Validate Release
-        run: npx monomind release validate
+        run: npx monomind@latest doctor
 ```
 
 ## Monitoring and Metrics
@@ -343,10 +294,3 @@ jobs:
 - Integration success rate
 - Deployment time metrics
 - Rollback frequency
-
-### Automated Monitoring:
-
-- Performance regression detection
-- Error rate monitoring
-- User adoption metrics
-- Feedback collection and analysis

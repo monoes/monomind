@@ -1,174 +1,120 @@
+---
+name: sparc:sparc-modes
+description: SPARC Modes Overview - All 32 SPARC methodology modes with purpose and invocation guide. Entry point for selecting the right specialist mode.
+---
+
 # SPARC Modes Overview
 
-SPARC (Specification, Planning, Architecture, Review, Code) is a comprehensive development methodology with 17 specialized modes, all integrated with MCP tools for enhanced coordination and execution.
+SPARC (Specification, Pseudocode, Architecture, Refinement, Completion) is a development methodology with 32 specialized Claude Code skill modes. Each mode is invoked via `Skill("sparc:<mode>")`.
+
+## How to Use SPARC Modes
+
+Load any mode in Claude Code:
+```
+Skill("sparc:<mode-name>")
+```
+
+For the SPARC orchestrator (main entry point):
+```
+Skill("sparc:sparc")
+```
+
 
 ## Available Modes
 
-### Core Orchestration Modes
-- **orchestrator**: Multi-agent task orchestration
-- **swarm-coordinator**: Specialized swarm management
-- **workflow-manager**: Process automation
-- **batch-executor**: Parallel task execution
+### Core Orchestration
+| Mode | Skill | Purpose |
+|------|-------|---------|
+| sparc | `sparc:sparc` | SPARC orchestrator — breaks tasks into delegated subtasks |
+| orchestrator | `sparc:orchestrator` | Multi-agent task coordination |
+| ask | `sparc:ask` | Task formulation guide — choose the right mode |
+| swarm-coordinator | `sparc:swarm-coordinator` | Specialized swarm management |
+| workflow-manager | `sparc:workflow-manager` | Process automation |
+| batch-executor | `sparc:batch-executor` | Parallel task execution |
 
-### Development Modes  
-- **coder**: Autonomous code generation
-- **architect**: System design
-- **reviewer**: Code review
-- **tdd**: Test-driven development
+### Development
+| Mode | Skill | Purpose |
+|------|-------|---------|
+| code | `sparc:code` | Auto-coder: clean modular implementation |
+| coder | `sparc:coder` | Batch file code generation |
+| architect | `sparc:architect` | System design and API contracts |
+| spec-pseudocode | `sparc:spec-pseudocode` | Requirements and pseudocode specs |
+| tdd | `sparc:tdd` | Test-driven development cycle |
+| integration | `sparc:integration` | Merge outputs into production system |
+| devops | `sparc:devops` | CI/CD, deployment, infrastructure |
+| supabase-admin | `sparc:supabase-admin` | Supabase DB, auth, storage management |
+| mcp | `sparc:mcp` | External API and MCP integration |
 
-### Analysis and Research Modes
-- **researcher**: Deep research capabilities
-- **analyzer**: Code and data analysis
-- **optimizer**: Performance optimization
+### Review and Quality
+| Mode | Skill | Purpose |
+|------|-------|---------|
+| reviewer | `sparc:reviewer` | Code review: correctness, security, patterns |
+| security-review | `sparc:security-review` | Security audit: secrets, exposure, CVEs |
+| tester | `sparc:tester` | Comprehensive testing (unit, E2E, perf) |
+| debugger | `sparc:debugger` | Systematic debugging with TodoWrite |
+| debug | `sparc:debug` | Runtime bug isolation and fix |
 
-### Creative and Support Modes
-- **designer**: UI/UX design
-- **innovator**: Creative problem solving
-- **documenter**: Documentation generation
-- **debugger**: Systematic debugging
-- **tester**: Comprehensive testing
-- **memory-manager**: Knowledge management
+### Analysis and Research
+| Mode | Skill | Purpose |
+|------|-------|---------|
+| researcher | `sparc:researcher` | Deep research with WebSearch/WebFetch |
+| analyzer | `sparc:analyzer` | Code and data analysis with batch ops |
+| optimizer | `sparc:optimizer` | Performance optimization cycle |
+| post-deployment-monitoring-mode | `sparc:post-deployment-monitoring-mode` | Production observability |
+| refinement-optimization-mode | `sparc:refinement-optimization-mode` | Refactor and optimize |
 
-## Usage
-
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-// Execute SPARC mode directly
-mcp__monomind__sparc_mode {
-  mode: "<mode>",
-  task_description: "<task>",
-  options: {
-    // mode-specific options
-  }
-}
-
-// Initialize swarm for advanced coordination
-mcp__monomind__swarm_init {
-  topology: "hierarchical",
-  strategy: "auto",
-  maxAgents: 8
-}
-
-// Spawn specialized agents
-mcp__monomind__agent_spawn {
-  type: "<agent-type>",
-  capabilities: ["<capability1>", "<capability2>"]
-}
-
-// Monitor execution
-mcp__monomind__swarm_monitor {
-  swarmId: "current",
-  interval: 5000
-}
-```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run <mode> "task description"
-
-# For alpha features
-npx monomind@alpha sparc run <mode> "task description"
-
-# List all modes
-npx monomind sparc modes
-
-# Get help for a mode
-npx monomind sparc help <mode>
-
-# Run with options
-npx monomind sparc run <mode> "task" --parallel --monitor
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run <mode> "task description"
-```
+### Creative and Support
+| Mode | Skill | Purpose |
+|------|-------|---------|
+| designer | `sparc:designer` | UI/UX design and component architecture |
+| innovator | `sparc:innovator` | Creative problem solving |
+| documenter | `sparc:documenter` | Batch documentation generation |
+| docs-writer | `sparc:docs-writer` | Markdown docs and guides |
+| memory-manager | `sparc:memory-manager` | Knowledge management |
+| tutorial | `sparc:tutorial` | SPARC onboarding and education |
 
 ## Common Workflows
 
 ### Full Development Cycle
-
-#### Using MCP Tools (Preferred)
-```javascript
-// 1. Initialize development swarm
-mcp__monomind__swarm_init {
-  topology: "hierarchical",
-  maxAgents: 12
-}
-
-// 2. Architecture design
-mcp__monomind__sparc_mode {
-  mode: "architect",
-  task_description: "design microservices"
-}
-
-// 3. Implementation
-mcp__monomind__sparc_mode {
-  mode: "coder",
-  task_description: "implement services"
-}
-
-// 4. Testing
-mcp__monomind__sparc_mode {
-  mode: "tdd",
-  task_description: "test all services"
-}
-
-// 5. Review
-mcp__monomind__sparc_mode {
-  mode: "reviewer",
-  task_description: "review implementation"
-}
 ```
-
-#### Using NPX CLI (Fallback)
-```bash
-# 1. Architecture design
-npx monomind sparc run architect "design microservices"
-
-# 2. Implementation
-npx monomind sparc run coder "implement services"
-
-# 3. Testing
-npx monomind sparc run tdd "test all services"
-
-# 4. Review
-npx monomind sparc run reviewer "review implementation"
+1. Skill("sparc:spec-pseudocode")  → define requirements
+2. Skill("sparc:architect")         → design system
+3. Skill("sparc:code")              → implement
+4. Skill("sparc:tdd")               → test-driven
+5. Skill("sparc:security-review")   → security audit
+6. Skill("sparc:integration")       → integrate
+7. Skill("sparc:docs-writer")       → document
+8. Skill("sparc:devops")            → deploy
+9. Skill("sparc:post-deployment-monitoring-mode") → monitor
 ```
 
 ### Research and Innovation
-
-#### Using MCP Tools (Preferred)
-```javascript
-// 1. Research phase
-mcp__monomind__sparc_mode {
-  mode: "researcher",
-  task_description: "research best practices"
-}
-
-// 2. Innovation
-mcp__monomind__sparc_mode {
-  mode: "innovator",
-  task_description: "propose novel solutions"
-}
-
-// 3. Documentation
-mcp__monomind__sparc_mode {
-  mode: "documenter",
-  task_description: "document findings"
-}
+```
+1. Skill("sparc:researcher")   → gather information
+2. Skill("sparc:innovator")    → propose solutions
+3. Skill("sparc:architect")    → design approach
+4. Skill("sparc:documenter")   → document findings
 ```
 
-#### Using NPX CLI (Fallback)
-```bash
-# 1. Research phase
-npx monomind sparc run researcher "research best practices"
+### Bug Fix
+```
+1. Skill("sparc:debug")        → isolate issue
+2. Skill("sparc:tdd")          → write failing test
+3. Skill("sparc:code")         → implement fix
+4. Skill("sparc:reviewer")     → review changes
+```
 
-# 2. Innovation
-npx monomind sparc run innovator "propose novel solutions"
+## Multi-Agent Coordination
 
-# 3. Documentation
-npx monomind sparc run documenter "document findings"
+For complex multi-agent orchestration, combine with real swarm tools:
+
+```javascript
+// Initialize swarm
+mcp__monomind__swarm_init({ topology: "hierarchical", maxAgents: 8, strategy: "specialized" })
+
+// Check status
+mcp__monomind__swarm_status({ swarmId: "current" })
+
+// Coordinate tasks
+mcp__monomind__coordination_orchestrate({ task: "feature development", strategy: "parallel" })
 ```

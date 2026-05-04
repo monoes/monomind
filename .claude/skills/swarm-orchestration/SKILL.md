@@ -1,17 +1,17 @@
 ---
-name: "Swarm Orchestration"
-description: "Orchestrate multi-agent swarms with agentic-flow for parallel task execution, dynamic topology, and intelligent coordination. Use when scaling beyond single agents, implementing complex workflows, or building distributed AI systems."
+name: swarm-orchestration
+description: "Orchestrate multi-agent swarms with monomind for parallel task execution, dynamic topology, and intelligent coordination. Use when scaling beyond single agents, implementing complex workflows, or building distributed AI systems."
 ---
 
 # Swarm Orchestration
 
 ## What This Skill Does
 
-Orchestrates multi-agent swarms using agentic-flow's advanced coordination system. Supports mesh, hierarchical, and adaptive topologies with automatic task distribution, load balancing, and fault tolerance.
+Orchestrates multi-agent swarms using monomind's advanced coordination system. Supports mesh, hierarchical, and adaptive topologies with automatic task distribution, load balancing, and fault tolerance.
 
 ## Prerequisites
 
-- agentic-flow v1.5.11+
+- monomind v1.8.0+
 - Node.js 18+
 - Understanding of distributed systems (helpful)
 
@@ -19,15 +19,15 @@ Orchestrates multi-agent swarms using agentic-flow's advanced coordination syste
 
 ```bash
 # Initialize swarm
-npx agentic-flow hooks swarm-init --topology mesh --max-agents 5
+npx monomind swarm init --topology mesh --max-agents 5
 
 # Spawn agents
-npx agentic-flow hooks agent-spawn --type coder
-npx agentic-flow hooks agent-spawn --type tester
-npx agentic-flow hooks agent-spawn --type reviewer
+npx monomind agent spawn --type coder
+npx monomind agent spawn --type tester
+npx monomind agent spawn --type reviewer
 
 # Orchestrate task
-npx agentic-flow hooks task-orchestrate \
+npx monomind task run \
   --task "Build REST API with tests" \
   --mode parallel
 ```
@@ -147,13 +147,13 @@ const metrics = await swarm.getMetrics();
 
 ```bash
 # Pre-task coordination
-npx agentic-flow hooks pre-task --description "Build API"
+npx monomind hooks pre-task --description "Build API"
 
 # Post-task synchronization
-npx agentic-flow hooks post-task --task-id "task-123"
+npx monomind hooks post-task --task-id "task-123"
 
 # Session restore
-npx agentic-flow hooks session-restore --session-id "swarm-001"
+npx monomind hooks session-restore --session-id "swarm-001"
 ```
 
 ## Best Practices

@@ -1,103 +1,118 @@
 ---
 name: monomind-help
-description: Show Monomind commands and usage
+description: Monomind commands reference — quick overview of all skills, CLI subcommands, and MCP tools available in this session
 ---
 
-# Monomind Commands
+# Monomind Help
 
-## 🌊 Monomind: Agent Orchestration Platform
+Quick reference for all Monomind skills and CLI commands available in this project.
 
-Monomind is the ultimate multi-terminal orchestration platform that revolutionizes how you work with Claude Code.
+## Monomind Skills (invoke via Skill tool)
 
-## Core Commands
+| Skill | Description |
+|-------|-------------|
+| `monomind:createtask` | Decompose a prompt, spec file, or folder into agent-optimized tasks on monotask |
+| `monomind:do` | Execute tasks from monotask board with parallel/minimal/sequential agent modes |
+| `monomind:idea` | Research ideas from a prompt and decompose them into subtasks on monotask |
+| `monomind:improve` | Deeply analyze a component, research improvements, create tasks |
+| `monomind:repeat` | Repeat a prompt on a schedule (default: 15 min, 10 times) |
+| `monomind:understand` | Run semantic enrichment on the monograph knowledge graph |
+| `monomind:specialagents` | Activate a specialist agent persona (browse categories or auto-select) |
+| `monomind:swarm` | Swarm coordination reference — topologies, strategies, init patterns |
+| `monomind:memory` | Memory CLI quick reference |
 
-### 🚀 System Management
-- `./monomind start` - Start orchestration system
-- `./monomind start --ui` - Start with interactive process management UI
-- `./monomind status` - Check system status
-- `./monomind monitor` - Real-time monitoring
-- `./monomind stop` - Stop orchestration
+## Core CLI Commands
 
-### 🤖 Agent Management
-- `./monomind agent spawn <type>` - Create new agent
-- `./monomind agent list` - List active agents
-- `./monomind agent info <id>` - Agent details
-- `./monomind agent terminate <id>` - Stop agent
-
-### 📋 Task Management
-- `./monomind task create <type> "description"` - Create task
-- `./monomind task list` - List all tasks
-- `./monomind task status <id>` - Task status
-- `./monomind task cancel <id>` - Cancel task
-- `./monomind task workflow <file>` - Execute workflow
-
-### 🧠 Memory Operations
-- `./monomind memory store "key" "value"` - Store data
-- `./monomind memory query "search"` - Search memory
-- `./monomind memory stats` - Memory statistics
-- `./monomind memory export <file>` - Export memory
-- `./monomind memory import <file>` - Import memory
-
-### ⚡ SPARC Development
-- `./monomind sparc "task"` - Run SPARC orchestrator
-- `./monomind sparc modes` - List all 17+ SPARC modes
-- `./monomind sparc run <mode> "task"` - Run specific mode
-- `./monomind sparc tdd "feature"` - TDD workflow
-- `./monomind sparc info <mode>` - Mode details
-
-### 🐝 Swarm Coordination
-- `./monomind swarm "task" --strategy <type>` - Start swarm
-- `./monomind swarm "task" --background` - Long-running swarm
-- `./monomind swarm "task" --monitor` - With monitoring
-- `./monomind swarm "task" --ui` - Interactive UI
-- `./monomind swarm "task" --distributed` - Distributed coordination
-
-### 🌍 MCP Integration
-- `./monomind mcp status` - MCP server status
-- `./monomind mcp tools` - List available tools
-- `./monomind mcp config` - Show configuration
-- `./monomind mcp logs` - View MCP logs
-
-### 🤖 Claude Integration
-- `./monomind claude spawn "task"` - Spawn Claude with enhanced guidance
-- `./monomind claude batch <file>` - Execute workflow configuration
-
-## 🌟 Quick Examples
-
-### Initialize with SPARC:
 ```bash
-npx -y monomind@latest init --sparc
+# Initialize project
+npx monomind init --wizard
+
+# Start background daemon
+npx monomind daemon start
+
+# System diagnostics
+npx monomind doctor --fix
+
+# Agent management
+npx monomind agent spawn -t coder --name my-coder
+npx monomind agent list
+npx monomind agent status --id <agent-id>
+npx monomind agent stop --id <agent-id>
+
+# Swarm management
+npx monomind swarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monomind swarm status
+npx monomind swarm stop
+
+# Memory operations
+npx monomind memory store --key "my-key" --value "my-value" --namespace patterns
+npx monomind memory search --query "search terms"
+npx monomind memory list --namespace patterns
+npx monomind memory retrieve --key "my-key"
+
+# Workflow management
+npx monomind workflow run -t development --task "Build feature"
+npx monomind workflow list
+
+# Knowledge graph
+npx monomind monograph build
+npx monomind monograph search -q "authentication"
+npx monomind monograph stats
+
+# Neural patterns
+npx monomind neural train --pattern coordination --epochs 50
+npx monomind neural status --verbose
+
+# Hooks
+npx monomind hooks pre-task --description "task description"
+npx monomind hooks post-task --task-id "id" --success true
+npx monomind hooks route --task "task description"
+
+# Session management
+npx monomind session restore --latest
+npx monomind session save
+
+# Security
+npx monomind security scan --depth full
+
+# Performance
+npx monomind performance benchmark --suite all
 ```
 
-### Start a development swarm:
-```bash
-./monomind swarm "Build REST API" --strategy development --monitor --review
+## Built-in Workflow Templates
+
+`development`, `research`, `testing`, `security-audit`, `code-review`, `refactoring`, `sparc`, `custom`
+
+## Swarm Topologies
+
+| Topology | Use When |
+|----------|----------|
+| `hierarchical` | Feature dev, bug fixes (anti-drift, tight control) |
+| `mesh` | Research, analysis (broad coverage) |
+| `star` | Parallel testing, parallel maintenance |
+| `hierarchical-mesh` | Large teams 10+ agents |
+
+## Key MCP Tools
+
+```javascript
+// Memory
+mcp__monomind__memory_store({ key: "...", value: "...", namespace: "..." })
+mcp__monomind__memory_search({ query: "...", namespace: "..." })
+
+// Knowledge graph
+mcp__monomind__graphify_suggest({ task: "..." })
+mcp__monomind__graphify_query({ query: "..." })
+
+// Swarm
+mcp__monomind__swarm_init({ topology: "hierarchical", maxAgents: 8, strategy: "specialized" })
+mcp__monomind__swarm_status({})
+
+// System
+mcp__monomind__system_health({})
+mcp__monomind__agent_health({})
 ```
 
-### Run TDD workflow:
-```bash
-./monomind sparc tdd "user authentication"
-```
+## Support
 
-### Store project context:
-```bash
-./monomind memory store "project_requirements" "e-commerce platform specs" --namespace project
-```
-
-### Spawn specialized agents:
-```bash
-./monomind agent spawn researcher --name "Senior Researcher" --priority 8
-./monomind agent spawn developer --name "Lead Developer" --priority 9
-```
-
-## 🎯 Best Practices
-- Use `./monomind` instead of `npx monomind` after initialization
-- Store important context in memory for cross-session persistence
-- Use swarm mode for complex tasks requiring multiple agents
-- Enable monitoring for real-time progress tracking
-- Use background mode for tasks > 30 minutes
-
-## 📚 Resources
-- Documentation: https://github.com/nokhodian/claude-code-flow/docs
-- Examples: https://github.com/nokhodian/claude-code-flow/examples
-- Issues: https://github.com/nokhodian/claude-code-flow/issues
+- Documentation: https://github.com/nokhodian/monomind
+- Issues: https://github.com/nokhodian/monomind/issues

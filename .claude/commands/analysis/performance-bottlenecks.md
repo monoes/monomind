@@ -1,3 +1,7 @@
+---
+name: analysis:performance-bottlenecks
+---
+
 # Performance Bottleneck Analysis
 
 ## Purpose
@@ -31,25 +35,21 @@ The post-task hook automatically analyzes:
 
 ### 3. Improvement Suggestions
 
-```
-Tool: mcp__monomind__task_results
-Parameters: {"taskId": "task-123", "format": "detailed"}
+```javascript
+mcp__monomind__performance_bottleneck({
+  component: "swarm",  // optional — omit to scan all
+  threshold: 20,       // alert threshold %
+  deep: true           // full analysis
+})
 
-Result includes:
+// Result includes:
 {
   "bottlenecks": [
     {
-      "type": "coordination",
+      "component": "cpu",
       "severity": "high",
-      "description": "Single agent used for complex task",
-      "recommendation": "Spawn specialized agents for parallel work"
-    }
-  ],
-  "improvements": [
-    {
-      "area": "execution_time",
-      "suggestion": "Use parallel task execution",
-      "expectedImprovement": "30-50% time reduction"
+      "message": "CPU load at 82%",
+      "threshold": 75
     }
   ]
 }

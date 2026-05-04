@@ -1,5 +1,5 @@
 ---
-name: "Verification & Quality Assurance"
+name: verification-quality
 description: |
   Comprehensive truth scoring, code quality verification, and automatic rollback system with 0.95 accuracy threshold for ensuring high-quality agent outputs and codebase reliability.
 ---
@@ -121,10 +121,10 @@ Recent Tasks:
 
 **Truth Scores (0.0-1.0):**
 
-- `1.0-0.95`: Excellent ⭐ (production-ready)
-- `0.94-0.85`: Good ✅ (acceptable quality)
-- `0.84-0.75`: Warning ⚠️ (needs attention)
-- `<0.75`: Critical ❌ (requires immediate action)
+- `1.0-0.95`: Excellent (production-ready)
+- `0.94-0.85`: Good (acceptable quality)
+- `0.84-0.75`: Warning (needs attention)
+- `<0.75`: Critical (requires immediate action)
 
 **Trend Indicators:**
 

@@ -53,7 +53,7 @@ V1 represents a complete architectural overhaul:
 
 | ADR     | Decision                                             |
 | ------- | ---------------------------------------------------- |
-| ADR-001 | Adopt agentic-flow as core foundation                |
+| ADR-001 | Adopt Monomind as core foundation                    |
 | ADR-002 | Domain-Driven Design structure                       |
 | ADR-003 | Single coordination engine (UnifiedSwarmCoordinator) |
 | ADR-004 | Plugin-based architecture (microkernel)              |
@@ -68,7 +68,7 @@ V1 represents a complete architectural overhaul:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     @monomind/v1-monorepo                    │
+│                       monomind-monorepo                      │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
@@ -79,8 +79,8 @@ V1 represents a complete architectural overhaul:
 │                                                                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
 │  │ integration  │  │  performance │  │    neural    │          │
-│  │ agentic-flow │  │ Flash Attn   │  │   SONA       │          │
-│  │  bridge      │  │ benchmarks   │  │  learning    │          │
+│  │   monomind   │  │ Flash Attn   │  │   SONA       │          │
+│  │   bridge     │  │ benchmarks   │  │  learning    │          │
 │  └──────────────┘  └──────────────┘  └──────────────┘          │
 │                                                                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
@@ -125,9 +125,9 @@ v1/
 │   │       ├── consensus/              # Consensus protocols
 │   │       └── domain/                 # DDD entities
 │   │
-│   ├── integration/                 # agentic-flow integration
+│   ├── integration/                 # monomind integration
 │   │   └── src/
-│   │       ├── agentic-flow-bridge.ts  # Core bridge
+│   │       ├── monomind-bridge.ts      # Core bridge
 │   │       ├── agent-adapter.ts        # Agent adaptation
 │   │       └── sona-adapter.ts         # SONA learning
 │   │
@@ -258,12 +258,12 @@ await coordinator.spawnAgent({ type: "queen-coordinator" });
 
 ### @monomind/integration
 
-Deep integration with agentic-flow@alpha per ADR-001.
+Deep integration with the Monomind core per ADR-001.
 
 ```typescript
-import { AgenticFlowBridge } from "@monomind/integration";
+import { MonomindBridge } from "@monomind/integration";
 
-const bridge = new AgenticFlowBridge();
+const bridge = new MonomindBridge();
 await bridge.initialize();
 const agent = await bridge.createAgent({ type: "coder" });
 ```
@@ -299,9 +299,9 @@ const prediction = await sona.predict(context);
 Modern CLI with interactive prompts and formatted output.
 
 ```bash
-npx @monomind/cli swarm init --topology hierarchical-mesh
-npx @monomind/cli agent spawn --type queen-coordinator
-npx @monomind/cli memory search "knowledge"
+npx monomind swarm init --topology hierarchical-mesh
+npx monomind agent spawn --type queen-coordinator
+npx monomind memory search "knowledge"
 ```
 
 ### @monomind/testing
@@ -340,7 +340,7 @@ await release.prepare({ version: "3.0.0", changelog: "..." });
 ### Quick Start
 
 ```typescript
-import { initializeSwarm } from "@monomind/v1";
+import { initializeSwarm } from "monomind";
 
 // Initialize the swarm
 const swarm = await initializeSwarm();
@@ -366,7 +366,7 @@ const result = await swarm.waitForTask(task.id);
 
 ```typescript
 // Import everything
-import * as monomind from "@monomind/v1";
+import * as monomind from "monomind";
 
 // Or import specific modules for tree-shaking
 import { UnifiedSwarmCoordinator } from "@monomind/swarm";
@@ -377,7 +377,7 @@ import { HNSWIndex } from "@monomind/memory";
 ### MCP Server
 
 ```typescript
-import { createMCPServer } from "@monomind/v1/mcp";
+import { createMCPServer } from "@monomind/mcp";
 
 const server = createMCPServer({
   transport: "stdio",
@@ -496,7 +496,6 @@ pnpm test:coverage
 ### External
 
 - [GitHub Repository](https://github.com/nokhodian/monomind)
-- [agentic-flow Integration](https://github.com/nokhodian/agentic-flow)
 - [AgentDB](https://github.com/nokhodian/agentdb)
 
 ## Requirements

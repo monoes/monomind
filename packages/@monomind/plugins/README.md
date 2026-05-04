@@ -76,7 +76,7 @@ const workerPlugin = createWorkerPlugin('my-workers', '1.0.0', [
 
 ## Features
 
-### 🔧 MCP Tool Builder
+### MCP Tool Builder
 
 ```typescript
 import { MCPToolBuilder } from '@monomind/plugins';
@@ -92,7 +92,7 @@ const tool = new MCPToolBuilder('calculate')
   .build();
 ```
 
-### 🎣 Hook System
+### Hook System
 
 ```typescript
 import { HookBuilder, HookFactory, HookRegistry, HookEvent, HookPriority } from '@monomind/plugins';
@@ -115,7 +115,7 @@ const rateLimiter = HookFactory.createRateLimiter(HookEvent.PreToolCall, { maxPe
 const validator = HookFactory.createValidator(HookEvent.PreAgentSpawn, (data) => data.type !== undefined);
 ```
 
-### 👷 Worker Pool
+### Worker Pool
 
 ```typescript
 import { WorkerPool, WorkerFactory } from '@monomind/plugins';
@@ -143,7 +143,7 @@ const result = await pool.submit({
 await pool.shutdown();
 ```
 
-### 🤖 LLM Provider Integration
+### LLM Provider Integration
 
 ```typescript
 import { ProviderRegistry, ProviderFactory, BaseLLMProvider } from '@monomind/plugins';
@@ -173,7 +173,7 @@ const response = await registry.execute({
 });
 ```
 
-### 🔗 Agentic Flow Integration
+### Agentic Flow Integration
 
 ```typescript
 import { AgenticFlowBridge, AgentDBBridge } from '@monomind/plugins';
@@ -201,7 +201,7 @@ await agentdb.store('doc-1', embeddings, { type: 'document' });
 const similar = await agentdb.search(queryVector, { limit: 10 });
 ```
 
-### 🔒 Security Utilities
+### Security Utilities
 
 ```typescript
 import { Security, createRateLimiter, createResourceLimiter } from '@monomind/plugins';

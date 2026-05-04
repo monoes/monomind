@@ -1,111 +1,76 @@
-# hook pre-task
+---
+name: hooks:pre-task
+---
 
-Execute pre-task preparations and context loading.
+# hooks pre-task
+
+Register task start, get agent suggestions, and receive model routing recommendations.
 
 ## Usage
 
 ```bash
-npx monomind hook pre-task [options]
+npx monomind hooks pre-task [options]
 ```
 
 ## Options
 
-- `--description, -d <text>` - Task description for context
-- `--auto-spawn-agents` - Automatically spawn required agents (default: true)
-- `--load-memory` - Load relevant memory from previous sessions
-- `--optimize-topology` - Select optimal swarm topology
-- `--estimate-complexity` - Analyze task complexity
+| Flag | Short | Type | Required | Description |
+|---|---|---|---|---|
+| `--description` | `-d` | string | yes | Task description |
+| `--task-id` | `-i` | string | no | Unique task ID (auto-generated if omitted) |
+| `--auto-spawn` | `-a` | boolean | no | Auto-spawn suggested agents (default: false) |
+| `--format` | — | string | no | Output format: `json` |
 
 ## Examples
 
-### Basic pre-task hook
-
 ```bash
-npx monomind hook pre-task --description "Implement user authentication"
-```
+# Register task start and get suggestions
+npx monomind hooks pre-task -d "Implement user authentication"
 
-### With memory loading
+# With explicit task ID
+npx monomind hooks pre-task -i task-123 -d "Fix auth bug"
 
-```bash
-npx monomind hook pre-task -d "Continue API development" --load-memory
-```
+# With auto-spawn of suggested agents
+npx monomind hooks pre-task -d "Implement feature" --auto-spawn
 
-### Manual agent control
-
-```bash
-npx monomind hook pre-task -d "Debug issue #123" --auto-spawn-agents false
-```
-
-### Full optimization
-
-```bash
-npx monomind hook pre-task -d "Refactor codebase" --optimize-topology --estimate-complexity
-```
-
-## Features
-
-### Auto Agent Assignment
-
-- Analyzes task requirements
-- Determines needed agent types
-- Spawns agents automatically
-- Configures agent parameters
-
-### Memory Loading
-
-- Retrieves relevant past decisions
-- Loads previous task contexts
-- Restores agent configurations
-- Maintains continuity
-
-### Topology Optimization
-
-- Analyzes task structure
-- Selects best swarm topology
-- Configures communication patterns
-- Optimizes for performance
-
-### Complexity Estimation
-
-- Evaluates task difficulty
-- Estimates time requirements
-- Suggests agent count
-- Identifies dependencies
-
-## Integration
-
-This hook is automatically called by Claude Code when:
-
-- Starting a new task
-- Resuming work after a break
-- Switching between projects
-- Beginning complex operations
-
-Manual usage in agents:
-
-```bash
-# In agent coordination
-npx monomind hook pre-task --description "Your task here"
+# JSON output for scripting
+npx monomind hooks pre-task -d "Refactor database layer" --format json
 ```
 
 ## Output
 
-Returns JSON with:
+The command outputs:
+- **Task registration** — task ID, complexity estimate, estimated duration
+- **Suggested agents** — agent type, confidence, reason
+- **Potential risks** — issues to watch for
+- **Recommendations** — approach suggestions
+- **Model routing** — one of:
+  - `[AGENT_BOOSTER_AVAILABLE]` — skip LLM, use Agent Booster (< 1ms, $0)
+  - `[TASK_MODEL_RECOMMENDATION] Use model="haiku|sonnet|opus"` — use that model
 
-```json
-{
-  "continue": true,
-  "topology": "hierarchical",
-  "agentsSpawned": 5,
-  "complexity": "medium",
-  "estimatedMinutes": 30,
-  "memoryLoaded": true
-}
+## Integration in Claude Code
+
+Run before starting any significant task:
+
+```bash
+npx monomind hooks pre-task -d "Your task description here"
+```
+
+Then use the model routing output to set the Task tool's `model` parameter.
+
+## MCP Tool
+
+```javascript
+mcp__monomind__hooks_pre_task({
+  taskId: "task-123",
+  description: "Implement authentication",
+  autoSpawn: false,
+  timestamp: Date.now()
+})
 ```
 
 ## See Also
 
-- `hook post-task` - Post-task cleanup
-- `agent spawn` - Manual agent creation
-- `memory usage` - Memory management
-- `swarm init` - Swarm initialization
+- `hooks post-task` — record task completion
+- `hooks route` — manual agent routing
+- `hooks explain` — explain routing decision

@@ -1,3 +1,7 @@
+---
+name: agents:agent-capabilities
+---
+
 # agent-capabilities
 
 Matrix of agent capabilities and their specializations.
@@ -14,8 +18,8 @@ Matrix of agent capabilities and their specializations.
 ## Querying Capabilities
 ```bash
 # List all capabilities
-npx monomind agents capabilities
+npx monomind agent capabilities
 
 # For specific agent
-npx monomind agents capabilities --type coder
+npx monomind agent capabilities --type coder
 ```

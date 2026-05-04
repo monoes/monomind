@@ -1,96 +1,72 @@
+---
+name: swarm-development
+description: Development swarm strategy — hierarchical team coordination for building features with architect → coder → tester flow
+---
+
 # Development Swarm Strategy
 
-## Purpose
 Coordinated development through specialized agent teams.
 
-## Activation
+## How to Invoke
 
-### Using MCP Tools
+```
+Skill("swarm:development")
+```
+
+Then describe the feature to build:
+> "Start a development swarm to build OAuth2 authentication."
+> "Coordinate agents to implement the payment processing module."
+
+---
+
+## Swarm Setup
+
 ```javascript
 // Initialize development swarm
 mcp__monomind__swarm_init({
-  "topology": "hierarchical",
-  "maxAgents": 8,
-  "strategy": "balanced"
+  topology: "hierarchical",
+  maxAgents: 8,
+  strategy: "specialized"
 })
 
-// Orchestrate development task
-mcp__monomind__task_orchestrate({
-  "task": "build feature X",
-  "strategy": "parallel",
-  "priority": "high"
+// Coordinate development
+mcp__monomind__coordination_orchestrate({
+  task: "build feature X",
+  strategy: "parallel"
 })
 ```
 
-### Using CLI (Fallback)
-`npx monomind swarm "build feature X" --strategy development`
+```bash
+# CLI equivalent
+npx monomind swarm init --topology hierarchical --max-agents 8 --strategy specialized
+npx monomind swarm start "build feature X" --strategy development --parallel
+```
 
 ## Agent Roles
 
-### Agent Spawning with MCP
 ```javascript
-// Spawn development agents
-mcp__monomind__agent_spawn({
-  "type": "architect",
-  "name": "System Designer",
-  "capabilities": ["system-design", "api-design"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "coder",
-  "name": "Frontend Developer",
-  "capabilities": ["react", "typescript", "ui"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "coder",
-  "name": "Backend Developer",
-  "capabilities": ["nodejs", "api", "database"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "specialist",
-  "name": "Database Expert",
-  "capabilities": ["sql", "nosql", "optimization"]
-})
-
-mcp__monomind__agent_spawn({
-  "type": "tester",
-  "name": "Integration Tester",
-  "capabilities": ["integration", "e2e", "api-testing"]
-})
+mcp__monomind__agent_spawn({ type: "architect", capabilities: ["system-design", "api-design"] })
+mcp__monomind__agent_spawn({ type: "coder", capabilities: ["react", "typescript", "ui"] })
+mcp__monomind__agent_spawn({ type: "coder", capabilities: ["nodejs", "api", "database"] })
+mcp__monomind__agent_spawn({ type: "tester", capabilities: ["integration", "e2e", "api-testing"] })
 ```
 
 ## Best Practices
-- Use hierarchical mode for large projects
-- Enable parallel execution
-- Implement continuous testing
-- Monitor swarm health regularly
 
-## Status Monitoring
+- Use hierarchical topology for large features (architect leads, coders implement, tester validates)
+- Enable parallel execution for independent modules
+- Run tester agent concurrently on completed units rather than waiting for all code
+
+## Monitoring
+
 ```javascript
 // Check swarm status
-mcp__monomind__swarm_status({
-  "swarmId": "development-swarm"
-})
+mcp__monomind__swarm_status({ swarmId: "current" })
 
-// Monitor agent performance
-mcp__monomind__agent_metrics({
-  "agentId": "architect-001"
-})
-
-// Real-time monitoring
-mcp__monomind__swarm_monitor({
-  "swarmId": "development-swarm",
-  "interval": 5000
-})
+// System health
+mcp__monomind__system_health({})
 ```
 
-## Error Handling
-```javascript
-// Enable fault tolerance
-mcp__monomind__daa_fault_tolerance({
-  "agentId": "all",
-  "strategy": "auto-recovery"
-})
+```bash
+npx monomind swarm status
 ```

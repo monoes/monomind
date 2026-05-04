@@ -1,5 +1,5 @@
 ---
-name: "AgentDB Performance Optimization"
+name: agentdb-optimization
 description: "Optimize AgentDB performance with quantization (4-32x memory reduction), HNSW indexing (150x faster search), caching, and batch operations. Use when optimizing memory usage, improving search speed, or scaling to millions of vectors."
 ---
 
@@ -14,7 +14,7 @@ Provides comprehensive performance optimization techniques for AgentDB vector da
 ## Prerequisites
 
 - Node.js 18+
-- AgentDB v1.0.7+ (via agentic-flow)
+- @monomind/memory package
 - Existing AgentDB database or application
 
 ---
@@ -25,19 +25,19 @@ Provides comprehensive performance optimization techniques for AgentDB vector da
 
 ```bash
 # Comprehensive performance benchmarking
-npx agentdb@latest benchmark
+npx monomind memory benchmark
 
 # Results show:
-# ✅ Pattern Search: 150x faster (100µs vs 15ms)
-# ✅ Batch Insert: 500x faster (2ms vs 1s for 100 vectors)
-# ✅ Large-scale Query: 12,500x faster (8ms vs 100s at 1M vectors)
-# ✅ Memory Efficiency: 4-32x reduction with quantization
+# Pattern Search: 150x faster (100µs vs 15ms)
+# Batch Insert: 500x faster (2ms vs 1s for 100 vectors)
+# Large-scale Query: 12,500x faster (8ms vs 100s at 1M vectors)
+# Memory Efficiency: 4-32x reduction with quantization
 ```
 
 ### Enable Optimizations
 
 ```typescript
-import { createAgentDBAdapter } from 'agentic-flow/reasoningbank';
+import { createAgentDBAdapter } from '@monomind/memory';
 
 // Optimized configuration
 const adapter = await createAgentDBAdapter({
@@ -316,7 +316,7 @@ await adapter.prune({
 
 ```bash
 # Get comprehensive stats
-npx agentdb@latest stats .agentdb/vectors.db
+npx monomind memory stats .agentdb/vectors.db
 
 # Output:
 # Total Patterns: 125,430
@@ -449,7 +449,7 @@ const adapter = await createAgentDBAdapter({
 
 ```bash
 # Check database size
-npx agentdb@latest stats .agentdb/vectors.db
+npx monomind memory stats .agentdb/vectors.db
 
 # Enable quantization
 # Use 'binary' for 32x reduction
@@ -499,8 +499,7 @@ const adapter = await createAgentDBAdapter({
 
 - **Quantization Paper**: docs/quantization-techniques.pdf
 - **HNSW Algorithm**: docs/hnsw-index.pdf
-- **GitHub**: https://github.com/nokhodian/agentic-flow/tree/main/packages/agentdb
-- **Website**: https://agentdb.ruv.io
+- **GitHub**: https://github.com/nokhodian/monomind
 
 ---
 

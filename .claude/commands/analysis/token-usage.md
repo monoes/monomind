@@ -1,25 +1,47 @@
+---
+name: analysis:token-usage
+---
+
 # token-usage
 
-Analyze token usage patterns and optimize for efficiency.
+Analyze token consumption and cost across sessions.
 
 ## Usage
+
 ```bash
-npx monomind analysis token-usage [options]
+npx monomind tokens summary [options]
 ```
 
-## Options
-- `--period <time>` - Analysis period (1h, 24h, 7d, 30d)
-- `--by-agent` - Break down by agent
-- `--by-operation` - Break down by operation type
+## Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `tokens summary` | Summary for a period |
+| `tokens today` | Quick today + month totals |
+| `tokens dashboard` | Interactive live dashboard |
+
+## Options for `tokens summary`
+
+- `--period, -p <range>` - Time period: `today` (default), `week`, `30days`, `month`
+- `--json` - Output raw JSON
 
 ## Examples
+
 ```bash
-# Last 24 hours token usage
-npx monomind analysis token-usage --period 24h
+# Today's usage
+npx monomind tokens today
 
-# By agent breakdown
-npx monomind analysis token-usage --by-agent
+# Full 30-day summary
+npx monomind tokens summary --period 30days
 
-# Export detailed report
-npx monomind analysis token-usage --period 7d --export tokens.csv
+# Machine-readable output
+npx monomind tokens summary --period week --json
+
+# Live interactive dashboard
+npx monomind tokens dashboard
 ```
+
+## See Also
+
+- `performance metrics` — CPU/memory/latency metrics
+- `performance bottleneck` — identify performance hotspots

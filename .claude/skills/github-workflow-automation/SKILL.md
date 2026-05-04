@@ -13,13 +13,13 @@ This skill provides comprehensive GitHub Actions automation with AI swarm coordi
 ## Quick Start
 
 <details>
-<summary>💡 Basic Usage - Click to expand</summary>
+<summary>Basic Usage - Click to expand</summary>
 
 ### Initialize GitHub Workflow Automation
 
 ```bash
 # Start with a simple workflow
-npx ruv-swarm actions generate-workflow \
+npx monomind actions generate-workflow \
   --analyze-codebase \
   --detect-languages \
   --create-optimal-pipeline
@@ -29,13 +29,13 @@ npx ruv-swarm actions generate-workflow \
 
 ```bash
 # Optimize existing workflow
-npx ruv-swarm actions optimize \
+npx monomind actions optimize \
   --workflow ".github/workflows/ci.yml" \
   --suggest-parallelization
 
 # Analyze failed runs
 gh run view <run-id> --json jobs,conclusion | \
-  npx ruv-swarm actions analyze-failure \
+  npx monomind actions analyze-failure \
     --suggest-fixes
 ```
 
@@ -43,7 +43,7 @@ gh run view <run-id> --json jobs,conclusion | \
 
 ## Core Capabilities
 
-### 🤖 Swarm-Powered GitHub Modes
+### Swarm-Powered GitHub Modes
 
 <details>
 <summary>Available GitHub Integration Modes</summary>
@@ -75,7 +75,7 @@ npx monomind@alpha github gh-coordinator \
 # Create PR with automated review
 gh pr create --title "Feature: New capability" \
   --body "Automated PR with swarm review" | \
-  npx ruv-swarm actions pr-validate \
+  npx monomind actions pr-validate \
     --spawn-agents "linter,tester,security,docs"
 ```
 
@@ -132,7 +132,7 @@ npx monomind@alpha github repo-architect \
 ```bash
 # Automated code review
 gh pr view 123 --json files | \
-  npx ruv-swarm actions pr-validate \
+  npx monomind actions pr-validate \
     --deep-review \
     --security-scan
 ```
@@ -161,7 +161,7 @@ npx monomind@alpha github ci-orchestrator \
 
 ```bash
 # Security audit
-npx ruv-swarm actions security \
+npx monomind actions security \
   --deep-scan \
   --compliance-check \
   --create-issues
@@ -169,7 +169,7 @@ npx ruv-swarm actions security \
 
 </details>
 
-### 🔧 Workflow Templates
+### Workflow Templates
 
 <details>
 <summary>Production-Ready GitHub Actions Templates</summary>
@@ -195,7 +195,7 @@ jobs:
 
       - name: Analyze Changes
         run: |
-          npx ruv-swarm actions analyze \
+          npx monomind actions analyze \
             --commit ${{ github.sha }} \
             --suggest-tests \
             --optimize-pipeline
@@ -217,12 +217,12 @@ jobs:
       - name: Detect Languages
         id: detect
         run: |
-          npx ruv-swarm actions detect-stack \
+          npx monomind actions detect-stack \
             --output json > stack.json
 
       - name: Dynamic Build Matrix
         run: |
-          npx ruv-swarm actions create-matrix \
+          npx monomind actions create-matrix \
             --from stack.json \
             --parallel-builds
 ```
@@ -243,7 +243,7 @@ jobs:
     steps:
       - name: Security Analysis Swarm
         run: |
-          SECURITY_ISSUES=$(npx ruv-swarm actions security \
+          SECURITY_ISSUES=$(npx monomind actions security \
             --deep-scan \
             --format json)
 
@@ -272,7 +272,7 @@ jobs:
     steps:
       - name: Diagnose and Fix
         run: |
-          npx ruv-swarm actions self-heal \
+          npx monomind actions self-heal \
             --run-id ${{ github.event.workflow_run.id }} \
             --auto-fix-common \
             --create-pr-complex
@@ -294,13 +294,13 @@ jobs:
       - name: Analyze Risk
         id: risk
         run: |
-          npx ruv-swarm actions deploy-risk \
+          npx monomind actions deploy-risk \
             --changes ${{ github.sha }} \
             --history 30d
 
       - name: Choose Strategy
         run: |
-          npx ruv-swarm actions deploy-strategy \
+          npx monomind actions deploy-strategy \
             --risk ${{ steps.risk.outputs.level }} \
             --auto-execute
 ```
@@ -318,7 +318,7 @@ jobs:
     steps:
       - name: Performance Analysis
         run: |
-          npx ruv-swarm actions perf-test \
+          npx monomind actions perf-test \
             --baseline main \
             --threshold 10% \
             --auto-profile-regression
@@ -339,7 +339,7 @@ jobs:
         run: |
           PR_DATA=$(gh pr view ${{ github.event.pull_request.number }} --json files,labels)
 
-          RESULTS=$(npx ruv-swarm actions pr-validate \
+          RESULTS=$(npx monomind actions pr-validate \
             --spawn-agents "linter,tester,security,docs" \
             --parallel \
             --pr-data "$PR_DATA")
@@ -363,7 +363,7 @@ jobs:
     steps:
       - name: Release Swarm
         run: |
-          npx ruv-swarm actions release \
+          npx monomind actions release \
             --analyze-changes \
             --generate-notes \
             --create-artifacts \
@@ -372,7 +372,7 @@ jobs:
 
 </details>
 
-### 📊 Monitoring & Analytics
+### Monitoring & Analytics
 
 <details>
 <summary>Workflow Analysis & Optimization</summary>
@@ -381,7 +381,7 @@ jobs:
 
 ```bash
 # Analyze workflow performance
-npx ruv-swarm actions analytics \
+npx monomind actions analytics \
   --workflow "ci.yml" \
   --period 30d \
   --identify-bottlenecks \
@@ -392,7 +392,7 @@ npx ruv-swarm actions analytics \
 
 ```bash
 # Optimize GitHub Actions costs
-npx ruv-swarm actions cost-optimize \
+npx monomind actions cost-optimize \
   --analyze-usage \
   --suggest-caching \
   --recommend-self-hosted
@@ -402,7 +402,7 @@ npx ruv-swarm actions cost-optimize \
 
 ```bash
 # Identify failure patterns
-npx ruv-swarm actions failure-patterns \
+npx monomind actions failure-patterns \
   --period 90d \
   --classify-failures \
   --suggest-preventions
@@ -412,7 +412,7 @@ npx ruv-swarm actions failure-patterns \
 
 ```bash
 # Optimize resource usage
-npx ruv-swarm actions resources \
+npx monomind actions resources \
   --analyze-usage \
   --suggest-runners \
   --cost-optimize
@@ -422,7 +422,7 @@ npx ruv-swarm actions resources \
 
 ## Advanced Features
 
-### 🧪 Dynamic Test Strategies
+### Dynamic Test Strategies
 
 <details>
 <summary>Intelligent Test Selection & Execution</summary>
@@ -433,7 +433,7 @@ npx ruv-swarm actions resources \
 # Automatically select relevant tests
 - name: Swarm Test Selection
   run: |
-    npx ruv-swarm actions smart-test \
+    npx monomind actions smart-test \
       --changed-files ${{ steps.files.outputs.all }} \
       --impact-analysis \
       --parallel-safe
@@ -450,7 +450,7 @@ jobs:
     steps:
       - id: set-matrix
         run: |
-          MATRIX=$(npx ruv-swarm actions test-matrix \
+          MATRIX=$(npx monomind actions test-matrix \
             --detect-frameworks \
             --optimize-coverage)
           echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
@@ -465,7 +465,7 @@ jobs:
 
 ```bash
 # Determine optimal parallelization
-npx ruv-swarm actions parallel-strategy \
+npx monomind actions parallel-strategy \
   --analyze-dependencies \
   --time-estimates \
   --cost-aware
@@ -473,7 +473,7 @@ npx ruv-swarm actions parallel-strategy \
 
 </details>
 
-### 🔮 Predictive Analysis
+### Predictive Analysis
 
 <details>
 <summary>AI-Powered Workflow Predictions</summary>
@@ -482,7 +482,7 @@ npx ruv-swarm actions parallel-strategy \
 
 ```bash
 # Predict potential failures
-npx ruv-swarm actions predict \
+npx monomind actions predict \
   --analyze-history \
   --identify-risks \
   --suggest-preventive
@@ -492,7 +492,7 @@ npx ruv-swarm actions predict \
 
 ```bash
 # Get workflow recommendations
-npx ruv-swarm actions recommend \
+npx monomind actions recommend \
   --analyze-repo \
   --suggest-workflows \
   --industry-best-practices
@@ -502,7 +502,7 @@ npx ruv-swarm actions recommend \
 
 ```bash
 # Continuously optimize workflows
-npx ruv-swarm actions auto-optimize \
+npx monomind actions auto-optimize \
   --monitor-performance \
   --apply-improvements \
   --track-savings
@@ -510,7 +510,7 @@ npx ruv-swarm actions auto-optimize \
 
 </details>
 
-### 🎯 Custom Actions Development
+### Custom Actions Development
 
 <details>
 <summary>Build Your Own Swarm Actions</summary>
@@ -527,7 +527,7 @@ runs: using: "node16";
 main: "dist/index.js";
 
 // index.js
-const { SwarmAction } = require("ruv-swarm");
+const { SwarmAction } = require("@monomind/cli");
 
 async function run() {
   const swarm = new SwarmAction({
@@ -545,7 +545,7 @@ run().catch((error) => core.setFailed(error.message));
 
 ## Integration with Monomind
 
-### 🔄 Swarm Coordination Patterns
+### Swarm Coordination Patterns
 
 <details>
 <summary>MCP-Based GitHub Workflow Coordination</summary>
@@ -565,12 +565,8 @@ mcp__monomind__agent_spawn { type: "reviewer", name: "Code Reviewer" }
 mcp__monomind__agent_spawn { type: "tester", name: "QA Agent" }
 mcp__monomind__agent_spawn { type: "analyst", name: "Security Analyst" }
 
-// Step 3: Orchestrate GitHub workflow
-mcp__monomind__task_orchestrate {
-  task: "Complete PR review and merge workflow",
-  strategy: "parallel",
-  priority: "high"
-}
+// Step 3: Orchestrate GitHub workflow via Task tool
+Task("PR Review Coordinator", "Complete PR review and merge workflow", "coordinator")
 ```
 
 #### GitHub Hooks Integration
@@ -594,7 +590,7 @@ npx monomind@alpha hooks post-task \
 
 </details>
 
-### 📦 Batch Operations
+### Batch Operations
 
 <details>
 <summary>Concurrent GitHub Operations</summary>
@@ -620,7 +616,7 @@ npx monomind@alpha hooks post-task \
 
 ## Best Practices
 
-### 🏗️ Workflow Organization
+### Workflow Organization
 
 <details>
 <summary>Structure Your GitHub Workflows</summary>
@@ -643,7 +639,7 @@ jobs:
     steps:
       - name: Initialize Swarm
         run: |
-          npx ruv-swarm init --topology ${{ inputs.topology }}
+          npx monomind swarm init --topology ${{ inputs.topology }}
 ```
 
 #### 2. Implement Proper Caching
@@ -685,7 +681,7 @@ jobs:
 
 </details>
 
-### 🔒 Security Best Practices
+### Security Best Practices
 
 <details>
 <summary>Secure Your GitHub Workflows</summary>
@@ -698,7 +694,7 @@ jobs:
     SWARM_CONFIG: ${{ secrets.SWARM_CONFIG }}
     API_KEY: ${{ secrets.API_KEY }}
   run: |
-    npx ruv-swarm init --config "$SWARM_CONFIG"
+    npx monomind swarm init --config "$SWARM_CONFIG"
 ```
 
 #### 2. Use OIDC Authentication
@@ -729,14 +725,14 @@ permissions:
 ```yaml
 - name: Audit Swarm Actions
   run: |
-    npx ruv-swarm actions audit \
+    npx monomind actions audit \
       --export-logs \
       --compliance-report
 ```
 
 </details>
 
-### ⚡ Performance Optimization
+### Performance Optimization
 
 <details>
 <summary>Maximize Workflow Performance</summary>
@@ -767,7 +763,7 @@ jobs:
 ```yaml
 - name: Quick Fail Check
   run: |
-    if ! npx ruv-swarm actions pre-check; then
+    if ! npx monomind actions pre-check; then
       echo "Pre-check failed, terminating early"
       exit 1
     fi
@@ -792,7 +788,7 @@ strategy:
 
 ## Debugging & Troubleshooting
 
-### 🐛 Debug Tools
+### Debug Tools
 
 <details>
 <summary>Debug GitHub Workflow Issues</summary>
@@ -802,7 +798,7 @@ strategy:
 ```yaml
 - name: Debug Swarm
   run: |
-    npx ruv-swarm actions debug \
+    npx monomind actions debug \
       --verbose \
       --trace-agents \
       --export-logs
@@ -814,7 +810,7 @@ strategy:
 
 ```bash
 # Profile workflow performance
-npx ruv-swarm actions profile \
+npx monomind actions profile \
   --workflow "ci.yml" \
   --identify-slow-steps \
   --suggest-optimizations
@@ -825,7 +821,7 @@ npx ruv-swarm actions profile \
 ```bash
 # Analyze failed runs
 gh run view <run-id> --json jobs,conclusion | \
-  npx ruv-swarm actions analyze-failure \
+  npx monomind actions analyze-failure \
     --suggest-fixes \
     --auto-retry-flaky
 ```
@@ -835,7 +831,7 @@ gh run view <run-id> --json jobs,conclusion | \
 ```bash
 # Download and analyze logs
 gh run download <run-id>
-npx ruv-swarm actions analyze-logs \
+npx monomind actions analyze-logs \
   --directory ./logs \
   --identify-errors
 ```
@@ -844,7 +840,7 @@ npx ruv-swarm actions analyze-logs \
 
 ## Real-World Examples
 
-### 🚀 Complete Workflows
+### Complete Workflows
 
 <details>
 <summary>Production-Ready Integration Examples</summary>
@@ -866,7 +862,7 @@ jobs:
     steps:
       - id: init
         run: |
-          SWARM_ID=$(npx ruv-swarm init --topology mesh --output json | jq -r '.id')
+          SWARM_ID=$(npx monomind swarm init --topology mesh --output json | jq -r '.id')
           echo "swarm-id=${SWARM_ID}" >> $GITHUB_OUTPUT
 
   backend:
@@ -876,7 +872,7 @@ jobs:
       - uses: actions/checkout@v1
       - name: Backend Tests
         run: |
-          npx ruv-swarm agents spawn --type tester \
+          npx monomind agent spawn --type tester \
             --task "Run backend test suite" \
             --swarm-id ${{ needs.initialize.outputs.swarm-id }}
 
@@ -887,7 +883,7 @@ jobs:
       - uses: actions/checkout@v1
       - name: Frontend Tests
         run: |
-          npx ruv-swarm agents spawn --type tester \
+          npx monomind agent spawn --type tester \
             --task "Run frontend test suite" \
             --swarm-id ${{ needs.initialize.outputs.swarm-id }}
 
@@ -898,7 +894,7 @@ jobs:
       - uses: actions/checkout@v1
       - name: Security Scan
         run: |
-          npx ruv-swarm agents spawn --type security \
+          npx monomind agent spawn --type security \
             --task "Security audit" \
             --swarm-id ${{ needs.initialize.outputs.swarm-id }}
 
@@ -909,7 +905,7 @@ jobs:
     steps:
       - name: Deploy
         run: |
-          npx ruv-swarm actions deploy \
+          npx monomind actions deploy \
             --strategy progressive \
             --swarm-id ${{ needs.initialize.outputs.swarm-id }}
 ```
@@ -932,7 +928,7 @@ jobs:
 
       - id: detect
         run: |
-          PACKAGES=$(npx ruv-swarm actions detect-changes \
+          PACKAGES=$(npx monomind actions detect-changes \
             --monorepo \
             --output json)
           echo "packages=${PACKAGES}" >> $GITHUB_OUTPUT
@@ -946,7 +942,7 @@ jobs:
     steps:
       - name: Build Package
         run: |
-          npx ruv-swarm actions build \
+          npx monomind actions build \
             --package ${{ matrix.package }} \
             --parallel-deps
 ```
@@ -968,7 +964,7 @@ npx monomind@alpha github sync-coordinator \
 
 ## Command Reference
 
-### 📚 Quick Command Guide
+### Quick Command Guide
 
 <details>
 <summary>All Available Commands</summary>
@@ -976,7 +972,7 @@ npx monomind@alpha github sync-coordinator \
 #### Workflow Generation
 
 ```bash
-npx ruv-swarm actions generate-workflow [options]
+npx monomind actions generate-workflow [options]
   --analyze-codebase       Analyze repository structure
   --detect-languages       Detect programming languages
   --create-optimal-pipeline Generate optimized workflow
@@ -985,7 +981,7 @@ npx ruv-swarm actions generate-workflow [options]
 #### Optimization
 
 ```bash
-npx ruv-swarm actions optimize [options]
+npx monomind actions optimize [options]
   --workflow <path>        Path to workflow file
   --suggest-parallelization Suggest parallel execution
   --reduce-redundancy      Remove redundant steps
@@ -995,7 +991,7 @@ npx ruv-swarm actions optimize [options]
 #### Analysis
 
 ```bash
-npx ruv-swarm actions analyze [options]
+npx monomind actions analyze [options]
   --commit <sha>           Analyze specific commit
   --suggest-tests          Suggest test improvements
   --optimize-pipeline      Optimize pipeline structure
@@ -1004,7 +1000,7 @@ npx ruv-swarm actions analyze [options]
 #### Testing
 
 ```bash
-npx ruv-swarm actions smart-test [options]
+npx monomind actions smart-test [options]
   --changed-files <files>  Files that changed
   --impact-analysis        Analyze test impact
   --parallel-safe          Only parallel-safe tests
@@ -1013,7 +1009,7 @@ npx ruv-swarm actions smart-test [options]
 #### Security
 
 ```bash
-npx ruv-swarm actions security [options]
+npx monomind actions security [options]
   --deep-scan             Deep security analysis
   --format <format>       Output format (json/text)
   --create-issues         Auto-create GitHub issues
@@ -1022,7 +1018,7 @@ npx ruv-swarm actions security [options]
 #### Deployment
 
 ```bash
-npx ruv-swarm actions deploy [options]
+npx monomind actions deploy [options]
   --strategy <type>       Deployment strategy
   --risk <level>          Risk assessment level
   --auto-execute          Execute automatically
@@ -1031,7 +1027,7 @@ npx ruv-swarm actions deploy [options]
 #### Monitoring
 
 ```bash
-npx ruv-swarm actions analytics [options]
+npx monomind actions analytics [options]
   --workflow <name>       Workflow to analyze
   --period <duration>     Analysis period
   --identify-bottlenecks  Find bottlenecks
@@ -1042,7 +1038,7 @@ npx ruv-swarm actions analytics [options]
 
 ## Integration Checklist
 
-### ✅ Setup Verification
+### Setup Verification
 
 <details>
 <summary>Verify Your Setup</summary>
@@ -1072,7 +1068,7 @@ gh auth status || gh auth login
 mkdir -p .github/workflows
 
 # Generate initial workflow
-npx ruv-swarm actions generate-workflow \
+npx monomind actions generate-workflow \
   --analyze-codebase \
   --create-optimal-pipeline > .github/workflows/ci.yml
 
@@ -1093,7 +1089,7 @@ echo "✅ GitHub workflow automation setup complete"
 - **GitHub CLI Docs**: https://cli.github.com/manual/
 - **GitHub Actions**: https://docs.github.com/en/actions
 - **Monomind**: https://github.com/nokhodian/monomind
-- **Ruv-Swarm**: https://github.com/nokhodian/ruv-swarm
+- **Monomind**: https://github.com/nokhodian/monomind
 
 ## Version History
 
@@ -1106,6 +1102,6 @@ echo "✅ GitHub workflow automation setup complete"
 
 ---
 
-**Skill Status**: ✅ Production Ready
+**Skill Status**: Production Ready
 **Last Updated**: 2025-01-19
 **Maintainer**: monomind team

@@ -1,3 +1,7 @@
+---
+name: agents:agent-coordination
+---
+
 # agent-coordination
 
 Coordination patterns for multi-agent collaboration.

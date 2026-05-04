@@ -1,35 +1,18 @@
+---
+name: sparc:swarm-coordinator
+description: Swarm Coordinator - Specialized swarm management with batch coordination capabilities. Hierarchical/mesh topologies, agent management, and fault recovery.
+---
+
 # SPARC Swarm Coordinator Mode
 
 ## Purpose
 Specialized swarm management with batch coordination capabilities.
 
-## Activation
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "swarm-coordinator",
-  task_description: "manage development swarm",
-  options: {
-    topology: "hierarchical",
-    max_agents: 10
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run swarm-coordinator "manage development swarm"
-
-# For alpha features
-npx monomind@alpha sparc run swarm-coordinator "manage development swarm"
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run swarm-coordinator "manage development swarm"
+Skill("sparc:swarm-coordinator")
 ```
 
 ## Core Capabilities
@@ -52,3 +35,16 @@ npx monomind@alpha sparc run swarm-coordinator "manage development swarm"
 - Failure recovery
 - Performance monitoring
 - Quality assurance
+
+## Real MCP Tools
+
+```javascript
+// Initialize a swarm
+mcp__monomind__swarm_init({ topology: "hierarchical", maxAgents: 8, strategy: "specialized" })
+
+// Check swarm status
+mcp__monomind__swarm_status({ swarmId: "current" })
+
+// Coordinate tasks
+mcp__monomind__coordination_orchestrate({ task: "...", strategy: "parallel" })
+```

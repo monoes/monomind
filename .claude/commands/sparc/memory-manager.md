@@ -1,35 +1,18 @@
+---
+name: sparc:memory-manager
+description: Memory Manager - Knowledge management with Memory tools for persistent insights. Organizes, retrieves, and maintains cross-session project context.
+---
+
 # SPARC Memory Manager Mode
 
 ## Purpose
 Knowledge management with Memory tools for persistent insights.
 
-## Activation
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "memory-manager",
-  task_description: "organize project knowledge",
-  options: {
-    namespace: "project",
-    auto_organize: true
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run memory-manager "organize project knowledge"
-
-# For alpha features
-npx monomind@alpha sparc run memory-manager "organize project knowledge"
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run memory-manager "organize project knowledge"
+Skill("sparc:memory-manager")
 ```
 
 ## Core Capabilities
@@ -52,3 +35,23 @@ npx monomind@alpha sparc run memory-manager "organize project knowledge"
 - Update knowledge base
 - Merge related information
 - Archive obsolete data
+
+## Real Memory Tools
+
+```javascript
+// Store context
+mcp__monomind__memory_store({ key: "...", value: "...", namespace: "..." })
+
+// Search stored knowledge
+mcp__monomind__memory_search({ query: "...", namespace: "...", limit: 10 })
+
+// List entries
+mcp__monomind__memory_list({ namespace: "..." })
+```
+
+```bash
+# CLI equivalents
+npx monomind memory store "key" "value" --namespace ns
+npx monomind memory search --query "term" --namespace ns
+npx monomind memory list --namespace ns
+```

@@ -1,9 +1,9 @@
 ---
-name: sparc-debug
-description: 🪲 Debugger - You troubleshoot runtime bugs, logic errors, or integration failures by tracing, inspecting, and ...
+name: sparc:debug
+description: Debugger - You troubleshoot runtime bugs, logic errors, or integration failures by tracing, inspecting, and analyzing behavior.
 ---
 
-# 🪲 Debugger
+# Debugger
 
 ## Role Definition
 You troubleshoot runtime bugs, logic errors, or integration failures by tracing, inspecting, and analyzing behavior.
@@ -18,66 +18,25 @@ Use logs, traces, and stack analysis to isolate bugs. Avoid changing env configu
 - **mcp**: Model Context Protocol tools
 - **command**: Command execution
 
-## Usage
+## How to Invoke
 
-### Option 1: Using MCP Tools (Preferred in Claude Code)
-```javascript
-mcp__monomind__sparc_mode {
-  mode: "debug",
-  task_description: "fix memory leak in service",
-  options: {
-    namespace: "debug",
-    non_interactive: false
-  }
-}
+In Claude Code, load this mode as a skill:
 ```
-
-### Option 2: Using NPX CLI (Fallback when MCP not available)
-```bash
-# Use when running from terminal or MCP tools unavailable
-npx monomind sparc run debug "fix memory leak in service"
-
-# For alpha features
-npx monomind@alpha sparc run debug "fix memory leak in service"
-
-# With namespace
-npx monomind sparc run debug "your task" --namespace debug
-
-# Non-interactive mode
-npx monomind sparc run debug "your task" --non-interactive
-```
-
-### Option 3: Local Installation
-```bash
-# If monomind is installed locally
-./monomind sparc run debug "fix memory leak in service"
+Skill("sparc:debug")
 ```
 
 ## Memory Integration
 
-### Using MCP Tools (Preferred)
 ```javascript
-// Store mode-specific context
-mcp__monomind__memory_usage {
-  action: "store",
-  key: "debug_context",
-  value: "important decisions",
-  namespace: "debug"
-}
+// Store context
+mcp__monomind__memory_store({ key: "debug_context", value: "important decisions", namespace: "debug" })
 
-// Query previous work
-mcp__monomind__memory_search {
-  pattern: "debug",
-  namespace: "debug",
-  limit: 5
-}
+// Search previous work
+mcp__monomind__memory_search({ query: "debug", namespace: "debug", limit: 5 })
 ```
 
-### Using NPX CLI (Fallback)
 ```bash
-# Store mode-specific context
+# CLI equivalents
 npx monomind memory store "debug_context" "important decisions" --namespace debug
-
-# Query previous work
-npx monomind memory query "debug" --limit 5
+npx monomind memory search --query "debug" --namespace debug
 ```
