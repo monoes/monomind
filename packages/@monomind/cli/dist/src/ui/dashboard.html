@@ -1136,6 +1136,39 @@
   }
   #palace-overlay.open { display: flex; }
 
+  /* ─── MASTERMIND OVERLAY ─────────────────────────────────────────── */
+  #mastermind-overlay {
+    position: fixed; inset: 0; z-index: 1002;
+    background: #07071a;
+    display: none; flex-direction: column;
+    overflow: hidden;
+  }
+  #mastermind-overlay.open { display: flex; }
+  #mm-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 16px; border-bottom: 1px solid rgba(200,120,255,0.18);
+    flex-shrink: 0; background: rgba(7,5,20,0.97);
+    backdrop-filter: blur(16px); z-index: 10; position: relative;
+  }
+  #mm-back {
+    background: none; border: 1px solid rgba(200,120,255,0.4); color: rgba(210,140,255,0.9);
+    font-family: 'Azeret Mono', monospace; font-size: 11px; letter-spacing: 0.08em;
+    padding: 4px 10px; cursor: pointer; border-radius: 3px; transition: background 0.15s;
+  }
+  #mm-back:hover { background: rgba(200,120,255,0.1); }
+  #mm-header-title {
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px;
+    color: rgba(210,140,255,0.9); letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  #mm-header-sub {
+    font-family: 'Azeret Mono', monospace; font-size: 9px;
+    color: rgba(150,100,200,0.5); letter-spacing: 0.12em;
+  }
+  #mm-frame {
+    flex: 1; border: none; width: 100%; display: block;
+    background: #07071a;
+  }
+
   /* ─── MONOGRAPH OVERLAY ──────────────────────────────────────────── */
   #monograph-overlay {
     position: fixed; inset: 0; z-index: 1001;
@@ -1983,6 +2016,16 @@
   </div>
 </div>
 
+<!-- ══════════════════════════ MASTERMIND OVERLAY ══════════════════ -->
+<div id="mastermind-overlay">
+  <div id="mm-header">
+    <button id="mm-back" onclick="closeMastermindOverlay()">← BACK</button>
+    <span id="mm-header-title">🧠 &nbsp;MASTERMIND</span>
+    <span id="mm-header-sub">AUTONOMOUS BUSINESS BRAIN · 10 DOMAINS · SELF-IMPROVING</span>
+  </div>
+  <iframe id="mm-frame" src="" title="Mastermind"></iframe>
+</div>
+
 <!-- ═══════════════════════════ MONOGRAPH OVERLAY ══════════════════ -->
 <div id="monograph-overlay">
   <div id="mg-header">
@@ -2433,7 +2476,7 @@
       <span><span id="conn-dot"></span><span id="conn-label">CONNECTING</span></span>
       <button onclick="openPalaceOverlay()" style="background:none;border:1px solid rgba(0,229,200,0.3);color:var(--teal);font-family:'Azeret Mono',monospace;font-size:9px;letter-spacing:0.1em;padding:3px 9px;cursor:pointer;border-radius:3px;transition:background 0.15s;" onmouseover="this.style.background='rgba(0,229,200,0.1)'" onmouseout="this.style.background='none'">⬡ MEMORY PALACE</button>
       <button onclick="openMonographOverlay()" style="background:none;border:1px solid rgba(123,97,255,0.4);color:rgba(123,97,255,0.9);font-family:'Azeret Mono',monospace;font-size:9px;letter-spacing:0.1em;padding:3px 9px;cursor:pointer;border-radius:3px;transition:background 0.15s;margin-left:4px;" onmouseover="this.style.background='rgba(123,97,255,0.12)'" onmouseout="this.style.background='none'">◈ MONOGRAPH</button>
-      <button onclick="window.open('/mastermind','_blank')" style="background:none;border:1px solid rgba(200,120,255,0.45);color:rgba(210,140,255,0.9);font-family:'Azeret Mono',monospace;font-size:9px;letter-spacing:0.1em;padding:3px 9px;cursor:pointer;border-radius:3px;transition:background 0.15s;margin-left:4px;" onmouseover="this.style.background='rgba(180,100,255,0.14)'" onmouseout="this.style.background='none'">🧠 MASTERMIND</button>
+      <button onclick="openMastermindOverlay()" style="background:none;border:1px solid rgba(200,120,255,0.45);color:rgba(210,140,255,0.9);font-family:'Azeret Mono',monospace;font-size:9px;letter-spacing:0.1em;padding:3px 9px;cursor:pointer;border-radius:3px;transition:background 0.15s;margin-left:4px;" onmouseover="this.style.background='rgba(180,100,255,0.14)'" onmouseout="this.style.background='none'">🧠 MASTERMIND</button>
     </div>
   </div>
   <div id="header-right">
@@ -6847,6 +6890,23 @@ async function loadDocStats() { /* replaced by loadWikiTab */ }
 // ═══════════════════════════════════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// MASTERMIND OVERLAY
+// ═══════════════════════════════════════════════════════════════════
+window.openMastermindOverlay = function() {
+  const overlay = document.getElementById('mastermind-overlay');
+  const frame   = document.getElementById('mm-frame');
+  overlay.classList.add('open');
+  // Lazy-load the iframe — only set src on first open
+  if (!frame.src || frame.src === window.location.href) {
+    frame.src = '/mastermind';
+  }
+};
+
+window.closeMastermindOverlay = function() {
+  document.getElementById('mastermind-overlay').classList.remove('open');
+};
+
 (function boot() {
   // Set conn dot initial state
   const dot = document.getElementById('conn-dot');
