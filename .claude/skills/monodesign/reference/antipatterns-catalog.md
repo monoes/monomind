@@ -4,10 +4,10 @@ All 27 known design antipatterns with detection rules and remediation. These are
 
 ## Categories
 
-- **slop** — AI tells that signal lack of intentional design
-- **quality** — Design principle violations (spacing, hierarchy, readability)
-- **accessibility** — WCAG failures
-- **performance** — Technical metrics
+These are the two categories the `impeccable detect` engine uses:
+
+- **slop** — AI tells that signal lack of intentional design (15 patterns)
+- **quality** — Design principle violations including contrast, motion, readability, and semantic structure (12 patterns)
 
 ---
 
@@ -136,7 +136,7 @@ All 27 known design antipatterns with detection rules and remediation. These are
 ## Typography / Structure
 
 ### `overused-font` — Overused font
-**Detect:** Font family is Inter, Roboto, or Open Sans, with no customization of weight, optical size, or pairing.  
+**Detect:** Font family is Inter, Roboto, Open Sans, Lato, Montserrat, Fraunces, Geist, Plus Jakarta Sans, Space Grotesk, or Instrument Sans, with no customization of weight, optical size, or pairing.  
 **Why it's wrong:** These are the most saturated AI-default fonts. Using them without a strong visual concept makes designs interchangeable.  
 **Fix:** Choose fonts with personality for the project. Inter is acceptable in product UIs when combined with a distinctive display font.
 
@@ -155,6 +155,11 @@ All 27 known design antipatterns with detection rules and remediation. These are
 **Why it's wrong:** Editorial serif-italic is powerful on brand/landing surfaces but reads as mismatched on product UIs (dashboards, apps, settings).  
 **Fix:** On product register surfaces, use a weight-contrast pair with a sans-serif. Italic serif display belongs in the brand register only.
 
+### `low-contrast` — Low contrast text
+**Detect:** Text color does not achieve 4.5:1 contrast ratio against its background for normal text, or 3:1 for large text (18px+ regular or 14px+ bold), as measured by the WCAG relative luminance formula.  
+**Why it's wrong:** Low contrast text fails WCAG AA requirements and creates genuine barriers for users with low vision, in bright ambient light, or on low-quality displays.  
+**Fix:** Increase the contrast between text and background. Use white or a high-lightness neutral on dark backgrounds; use Deep Graphite (`oklch(10% 0 0)`) or Soft Charcoal (`oklch(25% 0 0)`) on light ones. Tool: check with `npx impeccable detect` or the WebAIM contrast checker.
+
 ---
 
 ## Quick Reference Table
@@ -169,7 +174,7 @@ All 27 known design antipatterns with detection rules and remediation. These are
 | `hero-eyebrow-chip` | slop | Integrate into copy |
 | `dark-glow` | slop | Shadow lift + border |
 | `nested-cards` | slop | Flatten to list or section |
-| `flat-type-hierarchy` | quality | 1.25× scale minimum |
+| `flat-type-hierarchy` | slop | 1.25× scale minimum |
 | `monotonous-spacing` | quality | Vary rhythm deliberately |
 | `cramped-padding` | quality | 16px minimum |
 | `everything-centered` | quality | Mix alignment |
@@ -180,11 +185,11 @@ All 27 known design antipatterns with detection rules and remediation. These are
 | `line-length` | quality | max-width: 65ch |
 | `tight-leading` | quality | line-height: 1.6 |
 | `justified-text` | quality | text-align: left |
-| `tiny-text` | accessibility | 16px minimum body |
-| `all-caps-body` | accessibility | Capitalize only ≤3 word labels |
+| `tiny-text` | quality | 16px minimum body |
+| `all-caps-body` | quality | Capitalize only ≤3 word labels |
 | `wide-tracking` | quality | letter-spacing: 0 on body |
 | `overused-font` | slop | Choose fonts with personality |
-| `single-font` | quality | Pair display + text font |
-| `skipped-heading` | accessibility | Sequential h1→h2→h3 |
-| `italic-serif-display` | quality | Sans on product register |
-| `low-contrast` | accessibility | 4.5:1 normal, 3:1 large text |
+| `single-font` | slop | Pair display + text font |
+| `skipped-heading` | quality | Sequential h1→h2→h3 |
+| `italic-serif-display` | slop | Sans on product register |
+| `low-contrast` | quality | 4.5:1 normal, 3:1 large text |
