@@ -160,12 +160,10 @@ If someone could look at this interface and say "AI made that" without doubt, it
 
 ## Antipattern Detection
 
-Before finalizing any design, run the antipattern detector. It checks for 24 known design antipatterns across four categories:
+Before finalizing any design, run the antipattern detector. It checks for 27 known design antipatterns across two categories:
 
-- **slop** — AI tells (purple gradients, side-tabs, identical card grids)
-- **quality** — Design principles (spacing, hierarchy, readability)
-- **performance** — Technical metrics (touch targets, viewport units)
-- **accessibility** — WCAG compliance (contrast, semantic HTML)
+- **slop** — AI tells that signal lack of intentional design (purple palettes, side-tabs, identical card grids, italic-serif heroes, overused fonts)
+- **quality** — Design principle violations (spacing, hierarchy, readability, contrast, motion, typography)
 
 To run detection on HTML/CSS files:
 ```bash
