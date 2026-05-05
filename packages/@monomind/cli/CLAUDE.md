@@ -1,5 +1,10 @@
 # Claude Code Configuration - Monomind v1.5
 
+## Skill Auto-Invocation Rules
+
+- For ANY web animation, motion graphics, or animation request: ALWAYS invoke `Skill("monomotion")` FIRST — no exceptions.
+- For ANY UI testing, browser automation, or web navigation request: ALWAYS invoke `Skill("agent-browser-testing")` FIRST — no exceptions.
+
 ## 🚨 AUTOMATIC SWARM ORCHESTRATION
 
 **When starting work on complex tasks, Claude Code MUST automatically:**
