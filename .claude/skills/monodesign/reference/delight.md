@@ -37,7 +37,7 @@ Identify where delight would enhance (not distract from) the experience:
    - **Helpful surprises**: Anticipating needs before users ask (productivity tools)
    - **Sensory richness**: Satisfying sounds, smooth animations (creative tools)
 
-If any of these are unclear from the codebase, {{ask_instruction}}
+If any of these are unclear from the codebase, Ask the user for clarification before proceeding.
 
 **CRITICAL**: Delight should enhance usability, never obscure it. If users notice the delight more than accomplishing their goal, you've gone too far.
 

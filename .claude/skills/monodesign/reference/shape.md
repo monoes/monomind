@@ -12,7 +12,7 @@ Most AI-generated UIs fail not because of bad code, but because of skipped think
 
 **Do NOT write any code or make any design decisions during this phase.** Your only job is to understand the feature deeply enough to make excellent design decisions later.
 
-This is a required interaction, not optional guidance. Ask these questions in conversation, adapting based on answers. Don't dump them all at once; have a natural dialogue. {{ask_instruction}}
+This is a required interaction, not optional guidance. Ask these questions in conversation, adapting based on answers. Don't dump them all at once; have a natural dialogue. Ask the user for clarification before proceeding.
 
 ### Interview cadence
 
@@ -146,6 +146,6 @@ Anything unresolved that the implementer should resolve during build.
 
 ---
 
-{{ask_instruction}} Ask for explicit confirmation of the brief before finishing. If the user disagrees with any part, revisit the relevant discovery questions. A shape run is incomplete until the brief is confirmed.
+Ask the user for clarification before proceeding. Ask for explicit confirmation of the brief before finishing. If the user disagrees with any part, revisit the relevant discovery questions. A shape run is incomplete until the brief is confirmed.
 
 Once confirmed, the brief is complete. The user can now hand it to /monodesign, or use it to guide any other implementation approach. (If the user wants the full discovery-then-build flow in one step, they should use /monodesign craft instead, which runs this command internally.)
