@@ -1,0 +1,35 @@
+{
+  "name": "@monoes/monodesign",
+  "version": "1.0.0",
+  "description": "Frontend design intelligence for AI agents — design tokens, antipattern detection, and the monodesign skill",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens": "./src/tokens.css",
+    "./detect": "./src/detect.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "detect": "node src/cli.mjs"
+  },
+  "keywords": [
+    "design-system",
+    "design-tokens",
+    "antipattern",
+    "frontend",
+    "monomind",
+    "oklch",
+    "ui",
+    "ai-agent"
+  ],
+  "license": "Apache-2.0",
+  "peerDependencies": {
+    "impeccable": "*"
+  },
+  "peerDependenciesMeta": {
+    "impeccable": {
+      "optional": true
+    }
+  }
+}
