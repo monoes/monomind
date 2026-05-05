@@ -1,7 +1,7 @@
 ---
 name: monodesign
-description: "Use when the user wants to design, redesign, shape, critique, audit, polish, clarify, distill, harden, optimize, adapt, animate, colorize, extract, or otherwise improve a frontend interface. Covers websites, landing pages, dashboards, product UI, app shells, components, forms, settings, onboarding, and empty states. Handles UX review, visual hierarchy, information architecture, cognitive load, accessibility, performance, responsive behavior, theming, anti-patterns, typography, fonts, spacing, layout, alignment, color, motion, micro-interactions, UX copy, error states, edge cases, i18n, and reusable design systems or tokens. Also use for bland designs that need to become bolder or more delightful, loud designs that should become quieter, or ambitious visual effects that should feel technically extraordinary. Not for backend-only or non-UI tasks."
-version: 1.0.0
+description: "Use when the user wants to design, redesign, shape, critique, audit, polish, clarify, distill, harden, optimize, adapt, animate, colorize, extract, research users, build a component system, generate design images, or otherwise improve a frontend interface. Covers websites, landing pages, dashboards, product UI, app shells, components, forms, settings, onboarding, and empty states. Handles UX review, visual hierarchy, information architecture, cognitive load, accessibility, performance, responsive behavior, theming, anti-patterns, typography, fonts, spacing, layout, alignment, color, motion, micro-interactions, UX copy, error states, edge cases, i18n, reusable design systems, tokens, brand identity, visual storytelling, UX research, usability testing, image generation prompts, and inclusive representation. Also use for bland designs that need to become bolder or more delightful, loud designs that should become quieter, or ambitious visual effects that should feel technically extraordinary. Not for backend-only or non-UI tasks."
+version: 1.1.0
 argument-hint: "[command] [target]"
 user-invocable: true
 triggers:
@@ -20,12 +20,35 @@ triggers:
   - colorize this
   - typeset this
   - design system
+  - component system
+  - component library
   - ui tokens
   - antipattern
   - anti-pattern
   - design review
   - ux review
   - visual design
+  - brand identity
+  - brand strategy
+  - brand voice
+  - visual storytelling
+  - ux research
+  - user research
+  - usability testing
+  - user persona
+  - user journey
+  - image prompt
+  - generate image
+  - hero image
+  - design image
+  - inclusive design
+  - diverse imagery
+  - whimsy
+  - delight
+  - brand personality
+  - css architecture
+  - theme toggle
+  - dark mode
 allowed-tools:
   - Read
   - Write
@@ -242,6 +265,9 @@ Shadows max at 0.15 alpha. No heavy drop shadows.
 | `adapt [target]` | Fix | Adapt for different devices and screen sizes | [reference/adapt.md](reference/adapt.md) |
 | `optimize [target]` | Fix | Diagnose and fix UI performance | [reference/optimize.md](reference/optimize.md) |
 | `live` | Iterate | Visual variant mode: iterate on elements in the browser | [reference/live.md](reference/live.md) |
+| `components [target]` | Build | Build component systems, token foundations, theme toggles | [reference/component-system.md](reference/component-system.md) |
+| `research [target]` | Evaluate | UX research, usability testing, personas, journey mapping | [reference/ux-research.md](reference/ux-research.md) |
+| `images [target]` | Build | Generate design images, hero photography, inclusive prompts | [reference/image-prompts.md](reference/image-prompts.md) |
 
 ### Routing rules
 
