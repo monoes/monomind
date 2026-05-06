@@ -181,13 +181,17 @@ const monographGodNodesTool = {
             // Compute percentile thresholds from coupling profile
             const cp = computeCouplingProfile(db);
             const p95FanIn = cp.p95FanIn;
-            const p75FanOut = (() => {
-                const fanOutRows = db.prepare('SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id').all();
-                const sorted = fanOutRows.map(r => r.c).sort((a, b) => a - b);
-                if (sorted.length === 0) return 0;
-                const idx = Math.floor(0.75 * sorted.length);
-                return sorted[Math.min(idx, sorted.length - 1)];
-            })();
+            const p75FanOut = cp.fanOutProfile
+                ? (() => {
+                    // Recompute p75 fan-out from raw data
+                    const fanOutRows = db.prepare('SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id').all();
+                    const sorted = fanOutRows.map(r => r.c).sort((a, b) => a - b);
+                    if (sorted.length === 0)
+                        return 0;
+                    const idx = Math.floor(0.75 * sorted.length);
+                    return sorted[Math.min(idx, sorted.length - 1)];
+                })()
+                : 0;
             const rows = db.prepare(`
         SELECT n.id, n.label, n.name, n.file_path,
                COUNT(DISTINCT e1.id) + COUNT(DISTINCT e2.id) AS degree,
@@ -207,22 +211,24 @@ const monographGodNodesTool = {
                 p90FanIn: cp.p90FanIn,
                 p95FanIn: cp.p95FanIn,
                 p75FanOut,
-                p90FanOut: p75FanOut,
+                p90FanOut: p75FanOut, // approximate
             };
-            const lines = rows.map(r => {
+            const lines = rows.map((r) => {
                 const fanIn = r.in_degree;
                 const fanOut = r.out_degree;
                 const category = (fanIn > p95FanIn && fanOut > p75FanOut)
                     ? 'BRIDGE_NODE'
                     : 'HIGH_CENTRALITY';
                 const factors = [];
-                if (fanIn > p95FanIn) factors.push(`fanIn: ${fanIn} (threshold: p95=${p95FanIn})`);
-                if (fanOut > p75FanOut) factors.push(`fanOut: ${fanOut} (threshold: p75=${p75FanOut})`);
+                if (fanIn > p95FanIn)
+                    factors.push(`fanIn: ${fanIn} (threshold: p95=${p95FanIn})`);
+                if (fanOut > p75FanOut)
+                    factors.push(`fanOut: ${fanOut} (threshold: p75=${p75FanOut})`);
                 const factorStr = factors.length > 0 ? `  [${factors.join(', ')}]` : '';
                 return `[${r.label}] ${r.name}  degree=${r.degree} (↑${r.out_degree} ↓${r.in_degree})  category: ${category}${factorStr}  ${r.file_path ?? ''}`;
             });
             const thresholdsStr = `\nThresholds: p75FanIn=${thresholds.p75FanIn} p90FanIn=${thresholds.p90FanIn} p95FanIn=${thresholds.p95FanIn} p75FanOut=${thresholds.p75FanOut}`;
-            const actions = rows.map(r => ({
+            const actions = rows.map((r) => ({
                 type: 'refactor',
                 file: r.file_path ?? undefined,
                 symbol: r.name,
@@ -341,8 +347,8 @@ const monographSurprisesTool = {
       `).all(limit);
             if (rows.length === 0)
                 return text('No surprising connections found.');
-            const mainText = rows.map(r => `[${r.confidence}] ${r.src_name} --${r.relation}--> ${r.tgt_name} (score: ${r.confidence_score})`).join('\n');
-            const actions = rows.map(r => {
+            const mainText = rows.map((r) => `[${r.confidence}] ${r.src_name} --${r.relation}--> ${r.tgt_name} (score: ${r.confidence_score})`).join('\n');
+            const actions = rows.map((r) => {
                 if (r.confidence === 'AMBIGUOUS') {
                     return {
                         type: 'review',
@@ -954,7 +960,7 @@ const monographDiffTool = {
                     summary.push(`  ... and ${removedEdges.length - 20} more`);
             }
             // ── Trend table ────────────────────────────────────────────────────────
-            if (oldSnap.vitals) {
+            if (oldSnap.vitals && (useCurrent ? true : true)) {
                 try {
                     const { computeTrend } = await import('@monoes/monograph');
                     const beforeVitals = { ...oldSnap, ...(oldSnap.vitals ?? {}) };
@@ -967,10 +973,7 @@ const monographDiffTool = {
                             nodeCount: newNodes.length,
                             edgeCount: newEdges.length,
                         }
-                        : (() => {
-                            const s2 = JSON.parse(readFileSync(pathMod.join(getProjectCwd(), '.monomind', 'graph', 'snapshots', `${snap2Name}.json`), 'utf-8'));
-                            return { ...s2, ...(s2.vitals ?? {}) };
-                        })();
+                        : { ...JSON.parse(readFileSync(pathMod.join(snapshotsDir, `${input.snapshot2}.json`), 'utf-8')), ...(JSON.parse(readFileSync(pathMod.join(snapshotsDir, `${input.snapshot2}.json`), 'utf-8')).vitals ?? {}) };
                     const trend = computeTrend(beforeVitals, afterVitals);
                     summary.push('\nVital Signs Trend:');
                     summary.push('  Metric                  Before  After   Delta  Direction');
@@ -1789,6 +1792,31 @@ const monographBaselineCompareTool = {
         }
     },
 };
+// ── monograph_health_score ────────────────────────────────────────────────────
+const monographHealthScoreTool = {
+    name: 'monograph_health_score',
+    description: 'Compute a composite health score (0–100) with a letter grade (A–F) for the knowledge graph. Accounts for unreachable files, god nodes, circular edges, hotspot files, isolated nodes, and cross-community edges.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            path: { type: 'string', description: 'Project root path (defaults to project cwd)' },
+        },
+    },
+    handler: async (input) => {
+        const { openDb, closeDb, computeHealthScore } = await import('@monoes/monograph');
+        const { join } = await import('path');
+        const projectPath = input.path ?? getProjectCwd();
+        const dbPath = join(projectPath, '.monomind', 'monograph.db');
+        const db = openDb(dbPath);
+        try {
+            const result = computeHealthScore(db);
+            return text(result.summary);
+        }
+        finally {
+            closeDb(db);
+        }
+    },
+};
 // ── monograph_reachability ────────────────────────────────────────────────────
 const monographReachabilityTool = {
     name: 'monograph_reachability',
@@ -1808,6 +1836,7 @@ const monographReachabilityTool = {
         try {
             const role = input.role;
             const rerun = input.rerun ?? false;
+            // Check if classification already exists
             let hasCached = false;
             if (!rerun) {
                 const check = db.prepare(`
@@ -1835,7 +1864,9 @@ const monographReachabilityTool = {
                 ];
                 return text(lines.join('\n'));
             }
+            // Show summary counts
             if (!counts) {
+                // Pull counts from cached properties
                 const rows = db.prepare(`
           SELECT json_extract(properties, '$.reachabilityRole') as role, COUNT(*) as c
           FROM nodes WHERE label = 'File' AND properties IS NOT NULL
@@ -1873,31 +1904,6 @@ const monographReachabilityTool = {
         }
     },
 };
-// ── monograph_health_score ────────────────────────────────────────────────────
-const monographHealthScoreTool = {
-    name: 'monograph_health_score',
-    description: 'Compute a composite health score (0–100) with a letter grade (A–F) for the knowledge graph. Accounts for unreachable files, god nodes, circular edges, hotspot files, isolated nodes, and cross-community edges.',
-    inputSchema: {
-        type: 'object',
-        properties: {
-            path: { type: 'string', description: 'Project root path (defaults to project cwd)' },
-        },
-    },
-    handler: async (input) => {
-        const { openDb, closeDb, computeHealthScore } = await import('@monoes/monograph');
-        const { join } = await import('path');
-        const projectPath = input.path ?? getProjectCwd();
-        const dbPath = join(projectPath, '.monomind', 'monograph.db');
-        const db = openDb(dbPath);
-        try {
-            const result = computeHealthScore(db);
-            return text(result.summary);
-        }
-        finally {
-            closeDb(db);
-        }
-    },
-};
 // ── monograph_boundary_check ──────────────────────────────────────────────────
 const monographBoundaryCheckTool = {
     name: 'monograph_boundary_check',
@@ -1919,18 +1925,22 @@ const monographBoundaryCheckTool = {
         const db = openDb(getDbPath());
         try {
             const violations = detectBoundaryViolations(db, projectPath);
-            if (violations.length === 0) return text('No boundary violations found.');
+            if (violations.length === 0)
+                return text('No boundary violations found.');
+            // Group violations by fromZone → toZone
             const groups = new Map();
             for (const v of violations) {
                 const key = `${v.fromZone} → ${v.toZone}`;
-                if (!groups.has(key)) groups.set(key, []);
+                if (!groups.has(key))
+                    groups.set(key, []);
                 groups.get(key).push(v);
             }
             const lines = [`Boundary violations: ${violations.length} total\n`];
             for (const [key, vs] of groups) {
                 lines.push(`[${key}] — ${vs.length} violation(s)`);
                 vs.slice(0, 10).forEach(v => lines.push(`  ${v.fromPath}  --${v.edgeRelation}-->  ${v.toPath}`));
-                if (vs.length > 10) lines.push(`  ... and ${vs.length - 10} more`);
+                if (vs.length > 10)
+                    lines.push(`  ... and ${vs.length - 10} more`);
             }
             return text(lines.join('\n'));
         }
@@ -1960,7 +1970,8 @@ const monographCodeownersTool = {
             if (input.filePath) {
                 const filePath = input.filePath;
                 const owners = resolveOwner(entries, filePath);
-                if (owners.length === 0) return text(`${filePath}: unowned`);
+                if (owners.length === 0)
+                    return text(`${filePath}: unowned`);
                 return text(`${filePath}: ${owners.join(', ')}`);
             }
             if (input.unownedOnly) {
@@ -1973,9 +1984,11 @@ const monographCodeownersTool = {
                     const props = r.properties ? JSON.parse(r.properties) : {};
                     return !props.codeowners || props.codeowners.length === 0;
                 });
-                if (unownedFiles.length === 0) return text('All files have declared owners.');
+                if (unownedFiles.length === 0)
+                    return text('All files have declared owners.');
                 const lines = [`Unowned files (${unownedFiles.length}):`];
-                for (const f of unownedFiles) lines.push(`  ${f.file_path}`);
+                for (const f of unownedFiles)
+                    lines.push(`  ${f.file_path}`);
                 return text(lines.join('\n'));
             }
             // Summary mode
@@ -2038,7 +2051,8 @@ const monographSuppressTool = {
             if (action === 'add') {
                 const filePath = input.filePath;
                 const rule = input.rule;
-                if (!filePath || !rule) return text('add requires filePath and rule.');
+                if (!filePath || !rule)
+                    return text('add requires filePath and rule.');
                 const line = input.line ?? 0;
                 const sup = addSuppression(db, filePath, line, rule);
                 return text(`Suppression added:\n  id: ${sup.id}\n  file: ${sup.filePath}  line: ${sup.line}  rule: ${sup.rule}`);
@@ -2047,7 +2061,8 @@ const monographSuppressTool = {
                 const filePath = input.filePath;
                 const rule = input.rule;
                 const sups = listSuppressions(db, filePath, rule);
-                if (sups.length === 0) return text('No suppressions found.');
+                if (sups.length === 0)
+                    return text('No suppressions found.');
                 const lines = [`Suppressions (${sups.length}):`];
                 for (const s of sups) {
                     lines.push(`  [${s.id}] ${s.filePath}:${s.line}  rule=${s.rule}  added=${s.addedAt}`);
@@ -2056,7 +2071,8 @@ const monographSuppressTool = {
             }
             if (action === 'remove') {
                 const id = input.id;
-                if (!id) return text('remove requires id.');
+                if (!id)
+                    return text('remove requires id.');
                 removeSuppression(db, id);
                 return text(`Suppression ${id} removed.`);
             }
@@ -2064,7 +2080,8 @@ const monographSuppressTool = {
                 const findings = extractFindingsFromDb(db, projectPath);
                 const activeFindings = findings.map(f => ({ filePath: f.filePath ?? '', rule: f.type }));
                 const stale = findStaleSuppressions(db, activeFindings);
-                if (stale.length === 0) return text('No stale suppressions found.');
+                if (stale.length === 0)
+                    return text('No stale suppressions found.');
                 const lines = [`Stale suppressions (${stale.length}):`];
                 for (const s of stale) {
                     lines.push(`  [${s.id}] ${s.filePath}:${s.line}  rule=${s.rule}  reason=${s.reason}`);
@@ -2190,45 +2207,6 @@ const monographSimilarFilesTool = {
         }
     },
 };
-// ── monograph_mirrored_dirs ───────────────────────────────────────────────────
-const monographMirroredDirsTool = {
-    name: 'monograph_mirrored_dirs',
-    description: 'Detect directory subtrees that are structural mirrors of each other (same file basenames). Identifies copy-paste directory structures that could be consolidated.',
-    inputSchema: {
-        type: 'object',
-        properties: {
-            minSimilarity: { type: 'number', description: 'Minimum Jaccard similarity for basenames (default 0.7)' },
-        },
-    },
-    handler: async (input) => {
-        const { openDb, closeDb, detectMirroredDirs } = await import('@monoes/monograph');
-        const db = openDb(getDbPath());
-        try {
-            const report = detectMirroredDirs(db, input.minSimilarity ?? 0.7);
-            return { content: [{ type: 'text', text: JSON.stringify(report, null, 2) }] };
-        }
-        finally {
-            closeDb(db);
-        }
-    },
-};
-// ── monograph_cross_reference ─────────────────────────────────────────────────
-const monographCrossReferenceTool = {
-    name: 'monograph_cross_reference',
-    description: 'Cross-reference unreachable files with duplicated files. Files that are BOTH dead code AND structurally duplicated are the highest-confidence safe-delete candidates.',
-    inputSchema: { type: 'object', properties: {} },
-    handler: async () => {
-        const { openDb, closeDb, crossReferenceDuplicatesAndDeadCode } = await import('@monoes/monograph');
-        const db = openDb(getDbPath());
-        try {
-            const report = crossReferenceDuplicatesAndDeadCode(db);
-            return { content: [{ type: 'text', text: JSON.stringify(report, null, 2) }] };
-        }
-        finally {
-            closeDb(db);
-        }
-    },
-};
 // ── monograph_maintainability ─────────────────────────────────────────────────
 const monographMaintainabilityTool = {
     name: 'monograph_maintainability',
@@ -2272,22 +2250,21 @@ const monographCacheStatusTool = {
         }
     },
 };
-// ── monograph_author_analytics ────────────────────────────────────────────────
-const monographAuthorAnalyticsTool = {
-    name: 'monograph_author_analytics',
-    description: 'Per-author ownership analytics: commit counts, file ownership, bot detection, and ChurnTrend (accelerating/stable/declining). Requires a git repository.',
+// ── monograph_mirrored_dirs ───────────────────────────────────────────────────
+const monographMirroredDirsTool = {
+    name: 'monograph_mirrored_dirs',
+    description: 'Detect directory subtrees that are structural mirrors of each other (same file basenames). Identifies copy-paste directory structures that could be consolidated.',
     inputSchema: {
         type: 'object',
         properties: {
-            repoPath: { type: 'string', description: 'Repository root path (default: inferred from db location)' },
+            minSimilarity: { type: 'number', description: 'Minimum Jaccard similarity for basenames (default 0.7)' },
         },
     },
-    handler: async (args) => {
-        const { openDb, closeDb, computeAuthorAnalytics } = await import('@monoes/monograph');
+    handler: async (input) => {
+        const { openDb, closeDb, detectMirroredDirs } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
-            const rp = args.repoPath ?? getProjectCwd();
-            const report = computeAuthorAnalytics(rp, db);
+            const report = detectMirroredDirs(db, input.minSimilarity ?? 0.7);
             return { content: [{ type: 'text', text: JSON.stringify(report, null, 2) }] };
         }
         finally {
@@ -2295,16 +2272,16 @@ const monographAuthorAnalyticsTool = {
         }
     },
 };
-// ── monograph_risk_profile ────────────────────────────────────────────────────
-const monographRiskProfileTool = {
-    name: 'monograph_risk_profile',
-    description: 'Risk profile distribution: function size histogram (LOC bins) and parameter count histogram. Shows p50/p90/p95 function size and counts of oversized/high-param functions.',
+// ── monograph_cross_reference ─────────────────────────────────────────────────
+const monographCrossReferenceTool = {
+    name: 'monograph_cross_reference',
+    description: 'Cross-reference unreachable files with duplicated files. Files that are BOTH dead code AND structurally duplicated are the highest-confidence safe-delete candidates.',
     inputSchema: { type: 'object', properties: {} },
-    handler: async (_args) => {
-        const { openDb, closeDb, computeRiskProfile } = await import('@monoes/monograph');
+    handler: async () => {
+        const { openDb, closeDb, crossReferenceDuplicatesAndDeadCode } = await import('@monoes/monograph');
         const db = openDb(getDbPath());
         try {
-            const report = computeRiskProfile(db);
+            const report = crossReferenceDuplicatesAndDeadCode(db);
             return { content: [{ type: 'text', text: JSON.stringify(report, null, 2) }] };
         }
         finally {
@@ -2355,6 +2332,46 @@ const monographCrapScoreTool = {
         }
     },
 };
+// ── monograph_author_analytics ────────────────────────────────────────────────
+const monographAuthorAnalyticsTool = {
+    name: 'monograph_author_analytics',
+    description: 'Per-author ownership analytics: commit counts, file ownership, bot detection, and ChurnTrend (accelerating/stable/declining). Requires a git repository.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            repoPath: { type: 'string', description: 'Repository root path (default: inferred from db location)' },
+        },
+    },
+    handler: async (args) => {
+        const { openDb, closeDb, computeAuthorAnalytics } = await import('@monoes/monograph');
+        const db = openDb(getDbPath());
+        try {
+            const rp = args.repoPath ?? getProjectCwd();
+            const report = computeAuthorAnalytics(rp, db);
+            return { content: [{ type: 'text', text: JSON.stringify(report, null, 2) }] };
+        }
+        finally {
+            closeDb(db);
+        }
+    },
+};
+// ── monograph_risk_profile ────────────────────────────────────────────────────
+const monographRiskProfileTool = {
+    name: 'monograph_risk_profile',
+    description: 'Risk profile distribution: function size histogram (LOC bins) and parameter count histogram. Shows p50/p90/p95 function size and counts of oversized/high-param functions.',
+    inputSchema: { type: 'object', properties: {} },
+    handler: async (_args) => {
+        const { openDb, closeDb, computeRiskProfile } = await import('@monoes/monograph');
+        const db = openDb(getDbPath());
+        try {
+            const report = computeRiskProfile(db);
+            return { content: [{ type: 'text', text: JSON.stringify(report, null, 2) }] };
+        }
+        finally {
+            closeDb(db);
+        }
+    },
+};
 // ── monograph_explain ─────────────────────────────────────────────────────────
 const monographExplainTool = {
     name: 'monograph_explain',
@@ -2397,6 +2414,2124 @@ const monographDepClosureTool = {
         finally {
             closeDb(db);
         }
+    },
+};
+// ── Round 5 tools ─────────────────────────────────────────────────────────────
+const monographVitalSignsSnapshotTool = {
+    name: 'monograph_vital_signs_snapshot',
+    description: 'Save or load VitalSigns+HealthScore timestamped snapshots for trend tracking',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['save', 'load', 'latest'], description: 'save: write snapshot; load: list all; latest: most recent' },
+            dir: { type: 'string', description: 'Snapshot directory (default: .monograph/snapshots)' },
+            vitalSigns: { type: 'object', description: 'For save: VitalSigns data' },
+            healthScore: { type: 'object', description: 'For save: HealthScore data' },
+        },
+        required: ['action'],
+    },
+    handler: async (args) => {
+        const { buildSnapshot, saveSnapshot, loadSnapshots, latestSnapshot } = await import('@monoes/monograph');
+        const dir = args.dir ?? '.monograph/snapshots';
+        if (args.action === 'save') {
+            const snap = buildSnapshot(args.vitalSigns, args.healthScore);
+            const path = saveSnapshot(dir, snap);
+            return { content: [{ type: 'text', text: JSON.stringify({ saved: path, timestamp: snap.timestamp }) }] };
+        }
+        if (args.action === 'latest') {
+            const snap = latestSnapshot(dir);
+            return { content: [{ type: 'text', text: JSON.stringify(snap ?? null, null, 2) }] };
+        }
+        const snaps = loadSnapshots(dir);
+        return { content: [{ type: 'text', text: JSON.stringify({ count: snaps.length, snapshots: snaps.map(s => ({ timestamp: s.timestamp, healthScore: s.healthScore?.value })) }, null, 2) }] };
+    },
+};
+const monographHealthTrendTool = {
+    name: 'monograph_health_trend',
+    description: 'Compare current VitalSigns against the most recent snapshot to produce per-metric trend directions',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            current: { type: 'object', description: 'Current metrics (keyed numeric values)' },
+            snapshotDir: { type: 'string', description: 'Directory containing snapshots' },
+        },
+        required: ['current'],
+    },
+    handler: async (args) => {
+        const { computeTrend, latestSnapshot, trendArrow } = await import('@monoes/monograph');
+        const dir = args.snapshotDir ?? '.monograph/snapshots';
+        const prev = latestSnapshot(dir);
+        if (!prev)
+            return { content: [{ type: 'text', text: 'No previous snapshot found' }] };
+        const trend = computeTrend(args.current, prev);
+        const summary = Object.entries(trend).map(([k, v]) => {
+            const t = v;
+            return `${k}: ${trendArrow(t.direction)} ${t.delta >= 0 ? '+' : ''}${t.delta.toFixed(2)} (${t.previous.toFixed(1)} → ${t.current.toFixed(1)})`;
+        });
+        return { content: [{ type: 'text', text: summary.join('\n') }] };
+    },
+};
+const monographHealthScoreComputeTool = {
+    name: 'monograph_health_score_compute',
+    description: 'Compute a 0–100 health score from VitalSigns with 11 weighted penalty components',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            vitalSigns: { type: 'object', description: 'VitalSignsInput object with all metric fields' },
+            totalFiles: { type: 'number', description: 'Total file count in the project' },
+        },
+        required: ['vitalSigns'],
+    },
+    handler: async (args) => {
+        const { computeHealthScore } = await import('@monoes/monograph');
+        const score = computeHealthScore(args.vitalSigns, args.totalFiles ?? 1);
+        return { content: [{ type: 'text', text: JSON.stringify(score, null, 2) }] };
+    },
+};
+const monographRiskProfileTool = {
+    name: 'monograph_risk_profile',
+    description: 'Compute function size and parameter-count risk profiles (low/medium/high/veryHigh bins)',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            lineCounts: { type: 'array', items: { type: 'number' }, description: 'LOC per function for size profile' },
+            paramCounts: { type: 'array', items: { type: 'number' }, description: 'Param count per function for interfacing profile' },
+            fanInScores: { type: 'array', items: { type: 'number' }, description: 'Fan-in scores for coupling concentration' },
+        },
+    },
+    handler: async (args) => {
+        const { computeSizeRiskProfile, computeInterfacingRiskProfile, computeCouplingConcentration } = await import('@monoes/monograph');
+        const result = {};
+        if (args.lineCounts)
+            result['sizeRiskProfile'] = computeSizeRiskProfile(args.lineCounts);
+        if (args.paramCounts)
+            result['interfacingRiskProfile'] = computeInterfacingRiskProfile(args.paramCounts);
+        if (args.fanInScores)
+            result['couplingConcentration'] = computeCouplingConcentration(args.fanInScores);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    },
+};
+const monographLargeFunctionsTool = {
+    name: 'monograph_large_functions',
+    description: 'Detect functions exceeding LOC threshold; reports when ≥3% of functions are very large',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            threshold: { type: 'number', description: 'LOC threshold (default 60)' },
+        },
+    },
+    handler: async (args) => {
+        const { detectLargeFunctions } = await import('@monoes/monograph');
+        const { openDb, closeDb } = await import('@monoes/monograph');
+        const db = openDb(getDbPath());
+        try {
+            const entries = detectLargeFunctions(db, args.threshold ?? 60);
+            return { content: [{ type: 'text', text: JSON.stringify({ count: entries.length, entries: entries.slice(0, 50) }, null, 2) }] };
+        }
+        finally {
+            closeDb(db);
+        }
+    },
+};
+const monographOwnershipTool = {
+    name: 'monograph_ownership',
+    description: 'Compute bus factor and ownership metrics from git contributor data',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            contributors: { type: 'array', description: 'Array of ContributorEntry objects' },
+            driftedCount: { type: 'number', description: 'Number of drifted hotspot files' },
+        },
+        required: ['contributors'],
+    },
+    handler: async (args) => {
+        const { computeOwnershipMetrics } = await import('@monoes/monograph');
+        const metrics = computeOwnershipMetrics(args.contributors, args.driftedCount ?? 0);
+        return { content: [{ type: 'text', text: JSON.stringify(metrics, null, 2) }] };
+    },
+};
+const monographChurnTool = {
+    name: 'monograph_churn',
+    description: 'Analyze git churn per file with exponential recency decay (90-day half-life)',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            since: { type: 'string', description: 'Time range: 7d, 2w, 3m, 1y, or ISO date' },
+            root: { type: 'string', description: 'Project root directory' },
+        },
+    },
+    handler: async (args) => {
+        const { analyzeChurn, parseSince } = await import('@monoes/monograph');
+        const root = args.root ?? getProjectCwd();
+        const since = parseSince(args.since ?? '3m');
+        const result = analyzeChurn(root, since);
+        return { content: [{ type: 'text', text: JSON.stringify({ totalFiles: result.files.length, top20: result.files.slice(0, 20) }, null, 2) }] };
+    },
+};
+const monographHotspotsComputeTool = {
+    name: 'monograph_hotspots_compute',
+    description: 'Score files by churn × complexity density to identify hotspots',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            inputs: { type: 'array', description: 'Array of {filePath, weightedCommits, complexityDensity}' },
+            minCommits: { type: 'number', description: 'Minimum commits to include a file' },
+        },
+        required: ['inputs'],
+    },
+    handler: async (args) => {
+        const { computeHotspots } = await import('@monoes/monograph');
+        const { entries, summary } = computeHotspots(args.inputs, args.minCommits);
+        return { content: [{ type: 'text', text: JSON.stringify({ summary, top20: entries.slice(0, 20) }, null, 2) }] };
+    },
+};
+const monographRuntimeCoverageHealthTool = {
+    name: 'monograph_runtime_coverage_health',
+    description: 'Classify files by runtime coverage verdict + risk band + recommended action',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            files: { type: 'array', description: 'Array of {filePath, staticVerdict, runtimeVerdict}' },
+        },
+        required: ['files'],
+    },
+    handler: async (args) => {
+        const { classifyRuntimeCoverageHealth } = await import('@monoes/monograph');
+        const files = args.files;
+        const results = files.map(f => classifyRuntimeCoverageHealth(f.filePath, f.staticVerdict, f.runtimeVerdict));
+        return { content: [{ type: 'text', text: JSON.stringify(results, null, 2) }] };
+    },
+};
+const monographHealthGroupTool = {
+    name: 'monograph_health_group',
+    description: 'Group files by directory/owner/package/section for per-team health dashboards',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            grouping: { type: 'string', enum: ['directory', 'owner', 'package', 'section'], description: 'Grouping dimension' },
+        },
+        required: ['grouping'],
+    },
+    handler: async (args) => {
+        const { groupFilesByKey } = await import('@monoes/monograph');
+        const { openDb, closeDb } = await import('@monoes/monograph');
+        const db = openDb(getDbPath());
+        try {
+            const rows = db.prepare(`SELECT DISTINCT file_path FROM nodes WHERE file_path IS NOT NULL`).all();
+            const filePaths = rows.map(r => r.file_path);
+            const groups = groupFilesByKey(filePaths, args.grouping);
+            return { content: [{ type: 'text', text: JSON.stringify(groups.slice(0, 50), null, 2) }] };
+        }
+        finally {
+            closeDb(db);
+        }
+    },
+};
+const monographChurnTraceTool = {
+    name: 'monograph_trace',
+    description: 'Trace why an export is used/unused, show file import/export map, or trace a package dependency',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            kind: { type: 'string', enum: ['export', 'file', 'dependency'], description: 'Trace type' },
+            target: { type: 'string', description: 'File path (for export/file) or package name (for dependency)' },
+            exportName: { type: 'string', description: 'Export name (for export trace)' },
+        },
+        required: ['kind', 'target'],
+    },
+    handler: async (args) => {
+        const { traceExport, traceFile, traceDependency } = await import('@monoes/monograph');
+        const { openDb, closeDb } = await import('@monoes/monograph');
+        const db = openDb(getDbPath());
+        try {
+            let result;
+            if (args.kind === 'export')
+                result = traceExport(db, args.target, args.exportName ?? '');
+            else if (args.kind === 'file')
+                result = traceFile(db, args.target);
+            else
+                result = traceDependency(db, args.target);
+            return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+        }
+        finally {
+            closeDb(db);
+        }
+    },
+};
+const monographChangedFilesTool = {
+    name: 'monograph_changed_files',
+    description: 'Get files changed since a git ref (validates ref to prevent injection)',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            sinceRef: { type: 'string', description: 'Git ref (branch, tag, commit SHA)' },
+            root: { type: 'string', description: 'Project root directory' },
+        },
+        required: ['sinceRef'],
+    },
+    handler: async (args) => {
+        const { getChangedFiles } = await import('@monoes/monograph');
+        const root = args.root ?? getProjectCwd();
+        const files = getChangedFiles(root, args.sinceRef);
+        return { content: [{ type: 'text', text: JSON.stringify({ count: files.size, files: [...files].sort() }, null, 2) }] };
+    },
+};
+const monographSuppressionsCheckTool = {
+    name: 'monograph_suppressions_check',
+    description: 'Find stale suppression comments that no longer match any real finding',
+    inputSchema: {
+        type: 'object',
+        properties: {},
+    },
+    handler: async (_args) => {
+        return { content: [{ type: 'text', text: 'Stale suppression detection requires active analysis results. Pass suppressions via the API.' }] };
+    },
+};
+const monographHealthBaselineTool = {
+    name: 'monograph_health_baseline',
+    description: 'Save health findings baseline and filter to show only new regressions',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['save', 'filter'], description: 'save: build baseline from findings; filter: return only new findings' },
+            findings: { type: 'array', description: 'Array of HealthFinding objects' },
+            root: { type: 'string', description: 'Project root for relative path keys' },
+        },
+        required: ['action', 'findings'],
+    },
+    handler: async (args) => {
+        const { buildHealthBaseline } = await import('@monoes/monograph');
+        const root = args.root ?? getProjectCwd();
+        const baseline = buildHealthBaseline(args.findings, root);
+        return { content: [{ type: 'text', text: JSON.stringify({ fileCount: baseline.counts.size }, null, 2) }] };
+    },
+};
+const monographRegressionConfigTool = {
+    name: 'monograph_regression_config',
+    description: 'Parse tolerance strings (5 or 2%) and persist baseline counts to config file',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['parse', 'save', 'check'] },
+            tolerance: { type: 'string', description: 'For parse/check: tolerance string like "5" or "2%"' },
+            baseline: { type: 'number', description: 'For check: baseline count' },
+            current: { type: 'number', description: 'For check: current count' },
+            configPath: { type: 'string', description: 'For save: config file path' },
+            counts: { type: 'object', description: 'For save: counts to persist' },
+        },
+        required: ['action'],
+    },
+    handler: async (args) => {
+        const { parseTolerance, toleranceExceeded, saveBaselineToConfig } = await import('@monoes/monograph');
+        if (args.action === 'parse') {
+            return { content: [{ type: 'text', text: JSON.stringify(parseTolerance(args.tolerance)) }] };
+        }
+        if (args.action === 'check') {
+            const tol = parseTolerance(args.tolerance);
+            const exceeded = toleranceExceeded(tol, args.baseline, args.current);
+            return { content: [{ type: 'text', text: JSON.stringify({ exceeded, tolerance: tol }) }] };
+        }
+        saveBaselineToConfig(args.configPath, args.counts);
+        return { content: [{ type: 'text', text: 'Baseline saved to config' }] };
+    },
+};
+const monographEnumMemberFixTool = {
+    name: 'monograph_fix_enum_members',
+    description: 'Auto-remove unused enum members; promotes to whole-enum deletion when body becomes empty',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            fixes: { type: 'array', description: 'Array of {filePath, enumName, memberName} fix targets' },
+        },
+        required: ['fixes'],
+    },
+    handler: async (args) => {
+        const { fixEnumMembers } = await import('@monoes/monograph');
+        const result = fixEnumMembers(args.fixes);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    },
+};
+const monographCodeownersGitlabTool = {
+    name: 'monograph_codeowners_gitlab',
+    description: 'Parse GitLab-style CODEOWNERS with sections, optional sections, negation patterns, and per-section defaults',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            content: { type: 'string', description: 'CODEOWNERS file content' },
+            filePath: { type: 'string', description: 'File path to look up owner/section for' },
+        },
+        required: ['content'],
+    },
+    handler: async (args) => {
+        const { parseCodeownersWithSections, matchOwners, hasSections } = await import('@monoes/monograph');
+        const entries = parseCodeownersWithSections(args.content);
+        if (args.filePath) {
+            const { owners, section } = matchOwners(entries, args.filePath);
+            return { content: [{ type: 'text', text: JSON.stringify({ owners, section, hasSections: hasSections(entries) }, null, 2) }] };
+        }
+        return { content: [{ type: 'text', text: JSON.stringify({ entryCount: entries.length, hasSections: hasSections(entries) }, null, 2) }] };
+    },
+};
+const monographCodeLensTool = {
+    name: 'monograph_code_lens',
+    description: 'Build LSP CodeLens items showing reference counts above export declarations',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            usages: { type: 'array', description: 'Array of ExportUsage objects with line, col, exportName, referenceLocations' },
+            documentUri: { type: 'string', description: 'LSP document URI' },
+        },
+        required: ['usages', 'documentUri'],
+    },
+    handler: async (args) => {
+        const { buildCodeLenses } = await import('@monoes/monograph');
+        const lenses = buildCodeLenses(args.usages, args.documentUri);
+        return { content: [{ type: 'text', text: JSON.stringify(lenses, null, 2) }] };
+    },
+};
+const monographLspHoverTool = {
+    name: 'monograph_lsp_hover',
+    description: 'Build LSP Hover content for unused exports and duplication at a cursor position',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            unusedExports: { type: 'array', description: 'UnusedExportInfo array for the file' },
+            duplication: { type: 'array', description: 'DuplicationInfo array for the file' },
+            line: { type: 'number', description: 'Cursor line (0-based LSP)' },
+            character: { type: 'number', description: 'Cursor character (0-based LSP)' },
+            filePath: { type: 'string', description: 'File path' },
+        },
+        required: ['line', 'character', 'filePath'],
+    },
+    handler: async (args) => {
+        const { buildHover } = await import('@monoes/monograph');
+        const hover = buildHover(args.unusedExports ?? [], args.duplication ?? [], { line: args.line, character: args.character }, args.filePath);
+        return { content: [{ type: 'text', text: hover ? hover.contents : '(no hover)' }] };
+    },
+};
+const monographLspDiagnosticsExtTool = {
+    name: 'monograph_lsp_diagnostics_ext',
+    description: 'Build LSP diagnostics for duplicate exports (with relatedInformation) and stale suppressions (tagged Unnecessary)',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            duplicateExportGroups: { type: 'array', description: 'DuplicateExportGroup array' },
+            staleSuppressions: { type: 'array', description: 'StaleSuppressionInfo array' },
+        },
+    },
+    handler: async (args) => {
+        const { buildDuplicateExportDiagnostics, buildStaleSuppressionDiagnostics } = await import('@monoes/monograph');
+        const result = {};
+        if (args.duplicateExportGroups) {
+            const map = buildDuplicateExportDiagnostics(args.duplicateExportGroups);
+            result['duplicateExports'] = Object.fromEntries(map);
+        }
+        if (args.staleSuppressions) {
+            const map = buildStaleSuppressionDiagnostics(args.staleSuppressions);
+            result['staleSuppressions'] = Object.fromEntries(map);
+        }
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    },
+};
+// ── Round 7: cloud coverage ───────────────────────────────────────────────────
+const monographCloudCoverageTool = {
+    name: 'monograph_cloud_coverage',
+    description: 'Fetch production runtime coverage context from the Fallow Cloud API — hit counts, blast radius, importance scores',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            projectId: { type: 'string', description: 'Cloud project ID' },
+            environment: { type: 'string', description: 'Deployment environment (e.g. production)' },
+            period: { type: 'string', description: 'Observation window (e.g. 7d)' },
+            commitSha: { type: 'string', description: 'Git commit SHA to scope coverage' },
+            apiKey: { type: 'string', description: 'Cloud API key' },
+        },
+        required: ['projectId'],
+    },
+    handler: async (args) => {
+        const { fetchRuntimeContext, isCloudError } = await import('@monoes/monograph');
+        const result = await fetchRuntimeContext(args);
+        if (isCloudError(result)) {
+            return { content: [{ type: 'text', text: `Error (${result.kind}): ${result.message}` }] };
+        }
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    },
+};
+// ── Round 7: upload inventory ─────────────────────────────────────────────────
+const monographUploadInventoryTool = {
+    name: 'monograph_upload_inventory',
+    description: 'Extract function inventory from source text and upload it to the cloud for untracked-functions three-state coverage',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            projectId: { type: 'string', description: 'Cloud project ID' },
+            source: { type: 'string', description: 'Source file content to extract functions from' },
+            filePath: { type: 'string', description: 'File path for the source' },
+            apiKey: { type: 'string', description: 'Cloud API key' },
+        },
+        required: ['projectId', 'source', 'filePath'],
+    },
+    handler: async (args) => {
+        const { extractFunctionInventory, uploadInventory } = await import('@monoes/monograph');
+        const functions = extractFunctionInventory(args.source, args.filePath);
+        const result = await uploadInventory({ projectId: args.projectId, root: '.', apiKey: args.apiKey }, functions);
+        return { content: [{ type: 'text', text: JSON.stringify({ extracted: functions.length, ...result }, null, 2) }] };
+    },
+};
+// ── Round 7: license ──────────────────────────────────────────────────────────
+const monographLicenseTool = {
+    name: 'monograph_license',
+    description: 'Manage license lifecycle — parse/verify JWT, check status, activate trial, refresh',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['status', 'activate-trial', 'refresh'], description: 'License action' },
+            jwt: { type: 'string', description: 'License JWT (for status/refresh)' },
+            email: { type: 'string', description: 'Email address (for activate-trial)' },
+        },
+        required: ['action'],
+    },
+    handler: async (args) => {
+        const { parseLicenseJwt, licenseStatusFromPayload, activateTrial, refreshLicense, getFreeLicenseStatus } = await import('@monoes/monograph');
+        let result;
+        switch (args.action) {
+            case 'status':
+                result = args.jwt
+                    ? licenseStatusFromPayload(parseLicenseJwt(args.jwt))
+                    : getFreeLicenseStatus();
+                break;
+            case 'activate-trial':
+                result = { jwt: await activateTrial({ email: args.email }) };
+                break;
+            case 'refresh':
+                result = { jwt: await refreshLicense(args.jwt, {}) };
+                break;
+            default:
+                result = { error: 'Unknown action' };
+        }
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    },
+};
+// ── Round 7: programmatic API ─────────────────────────────────────────────────
+const monographProgrammaticTool = {
+    name: 'monograph_programmatic',
+    description: 'Validate AnalysisOptions and build a programmatic error envelope for library embedders',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            options: { type: 'object', description: 'AnalysisOptions to validate' },
+        },
+        required: ['options'],
+    },
+    handler: async (args) => {
+        const { validateAnalysisOptions, makeProgrammaticError } = await import('@monoes/monograph');
+        try {
+            validateAnalysisOptions(args.options);
+            return { content: [{ type: 'text', text: JSON.stringify({ valid: true }) }] };
+        }
+        catch (e) {
+            const err = e;
+            return { content: [{ type: 'text', text: JSON.stringify({ valid: false, error: err }) }] };
+        }
+    },
+};
+// ── Round 7: regression counts ────────────────────────────────────────────────
+const monographRegressionCountsTool = {
+    name: 'monograph_regression_counts',
+    description: 'Create a per-category regression baseline from CheckCounts and compute deltas against a previous baseline',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['create', 'delta'], description: 'create=build baseline, delta=compare two baselines' },
+            counts: { type: 'object', description: 'Current CheckCounts object' },
+            baseline: { type: 'object', description: 'Previous RegressionBaseline (for delta)' },
+            gitSha: { type: 'string', description: 'Git SHA to embed in baseline' },
+        },
+        required: ['action', 'counts'],
+    },
+    handler: async (args) => {
+        const { createRegressionBaseline, checkCountsDeltas, totalCheckCounts } = await import('@monoes/monograph');
+        if (args.action === 'create') {
+            const bl = createRegressionBaseline(args.counts, args.gitSha);
+            return { content: [{ type: 'text', text: JSON.stringify(bl, null, 2) }] };
+        }
+        const prev = args.baseline.checks;
+        const deltas = checkCountsDeltas(prev, args.counts);
+        const total = totalCheckCounts(args.counts);
+        return { content: [{ type: 'text', text: JSON.stringify({ total, deltas }, null, 2) }] };
+    },
+};
+// ── Round 7: regression outcome ───────────────────────────────────────────────
+const monographRegressionOutcomeTool = {
+    name: 'monograph_regression_outcome',
+    description: 'Build a pass/exceeded/skipped regression outcome and format it for display or machine consumption',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            kind: { type: 'string', enum: ['pass', 'exceeded', 'skipped'], description: 'Outcome kind' },
+            delta: { type: 'number', description: 'Numeric delta' },
+            tolerance: { type: 'number', description: 'Allowed tolerance' },
+            exceeded: { type: 'array', description: 'CountDelta array (for exceeded)' },
+            reason: { type: 'string', description: 'Reason (for skipped)' },
+        },
+        required: ['kind'],
+    },
+    handler: async (args) => {
+        const { makePassOutcome, makeExceededOutcome, makeSkippedOutcome, printRegressionOutcome, regressionOutcomeToJson } = await import('@monoes/monograph');
+        let outcome;
+        switch (args.kind) {
+            case 'exceeded':
+                outcome = makeExceededOutcome(args.delta ?? 0, args.tolerance ?? 0, args.exceeded ?? []);
+                break;
+            case 'skipped':
+                outcome = makeSkippedOutcome(args.reason ?? 'no baseline');
+                break;
+            default: outcome = makePassOutcome(args.delta ?? 0, args.tolerance ?? 0);
+        }
+        return { content: [{ type: 'text', text: printRegressionOutcome(outcome) + '\n\n' + regressionOutcomeToJson(outcome) }] };
+    },
+};
+// ── Round 7: namespace narrowing ──────────────────────────────────────────────
+const monographNarrowingTool = {
+    name: 'monograph_narrowing',
+    description: 'Narrow which exports are used from a namespace import (import * as ns) by analysing member accesses in source text',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            source: { type: 'string', description: 'Source file content' },
+            localName: { type: 'string', description: 'Namespace local name (the "ns" in import * as ns)' },
+            allExports: { type: 'array', items: { type: 'string' }, description: 'All export names from the target module' },
+            isEntryPoint: { type: 'boolean', description: 'Whether the target module is a public entry point' },
+        },
+        required: ['source', 'localName', 'allExports'],
+    },
+    handler: async (args) => {
+        const { narrowNamespaceReferences } = await import('@monoes/monograph');
+        const result = narrowNamespaceReferences(args.source, args.localName, args.allExports, args.isEntryPoint ?? false);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    },
+};
+// ── Round 7: dynamic imports ──────────────────────────────────────────────────
+const monographDynamicImportsTool = {
+    name: 'monograph_dynamic_imports',
+    description: 'Parse and resolve dynamic import() calls in source text, expanding template literals to glob patterns',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            source: { type: 'string', description: 'Source file content' },
+            currentDir: { type: 'string', description: 'Directory of the source file' },
+            allFiles: { type: 'array', items: { type: 'string' }, description: 'All known file paths in the project' },
+        },
+        required: ['source'],
+    },
+    handler: async (args) => {
+        const { parseDynamicImports, resolveSingleDynamicImport } = await import('@monoes/monograph');
+        const imports = parseDynamicImports(args.source);
+        const resolved = imports.map(imp => resolveSingleDynamicImport(imp, args.allFiles ?? [], args.currentDir ?? '.'));
+        return { content: [{ type: 'text', text: JSON.stringify({ parsed: imports.length, resolved }, null, 2) }] };
+    },
+};
+// ── Round 7: report grouping ──────────────────────────────────────────────────
+const monographGroupingTool = {
+    name: 'monograph_grouping',
+    description: 'Group analysis result items by owner, directory, or package with primary-owner attribution for clone groups',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            mode: { type: 'string', enum: ['directory', 'package'], description: 'Group-by mode' },
+            items: { type: 'array', description: 'Items with filePath property' },
+            packages: { type: 'array', description: 'Package roots [{root, name}] for package mode' },
+            directoryDepth: { type: 'number', description: 'Directory depth level (default 1)' },
+        },
+        required: ['mode', 'items'],
+    },
+    handler: async (args) => {
+        const { createPackageResolver, resolveDirectoryGroup, groupItemsByFile } = await import('@monoes/monograph');
+        const resolver = args.mode === 'package' && args.packages
+            ? createPackageResolver(args.packages)
+            : null;
+        const groups = groupItemsByFile(args.items, resolver
+            ? (f) => resolver.resolve(f)
+            : (f) => resolveDirectoryGroup(f, args.directoryDepth ?? 1));
+        return { content: [{ type: 'text', text: JSON.stringify(groups, null, 2) }] };
+    },
+};
+// ── Round 7: vital signs ──────────────────────────────────────────────────────
+const monographVitalSignsTool = {
+    name: 'monograph_vital_signs',
+    description: 'Create and format a comprehensive VitalSigns snapshot with size/interfacing risk profiles and coverage model',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            projectPath: { type: 'string', description: 'Project root path' },
+            partial: { type: 'object', description: 'Partial VitalSigns fields to merge' },
+        },
+        required: ['projectPath'],
+    },
+    handler: async (args) => {
+        const { createVitalSigns, formatVitalSignsSummary } = await import('@monoes/monograph');
+        const vs = createVitalSigns({
+            projectPath: args.projectPath,
+            ...(args.partial ?? {}),
+        });
+        return { content: [{ type: 'text', text: formatVitalSignsSummary(vs) + '\n\n' + JSON.stringify(vs, null, 2) }] };
+    },
+};
+// ── Round 7: target thresholds ────────────────────────────────────────────────
+const monographTargetThresholdsTool = {
+    name: 'monograph_target_thresholds',
+    description: 'Compute adaptive refactoring target thresholds from project metric distribution (percentile-based with floor)',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            sample: {
+                type: 'object',
+                description: 'MetricSample: { fanIn[], fanOut[], complexity[], loc[], churnScore[] }',
+            },
+        },
+        required: ['sample'],
+    },
+    handler: async (args) => {
+        const { computeTargetThresholds, RECOMMENDATION_CATEGORIES } = await import('@monoes/monograph');
+        const thresholds = computeTargetThresholds(args.sample);
+        return { content: [{ type: 'text', text: JSON.stringify({ thresholds, categories: RECOMMENDATION_CATEGORIES }, null, 2) }] };
+    },
+};
+// ── Round 7: production override ─────────────────────────────────────────────
+const monographProductionOverrideTool = {
+    name: 'monograph_production_override',
+    description: 'Resolve effective production mode for each analysis kind from per-analysis overrides and config defaults',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            overrides: { type: 'object', description: 'Partial<Record<deadCode|health|duplication|complexity, boolean|"config">>' },
+            configured: { type: 'object', description: 'ProductionModeConfig from project config' },
+        },
+    },
+    handler: async (args) => {
+        const { resolveAllProductionModes, DEFAULT_PRODUCTION_MODE, productionModeLabel } = await import('@monoes/monograph');
+        const resolved = resolveAllProductionModes(args.overrides ?? {}, args.configured ?? DEFAULT_PRODUCTION_MODE);
+        const labels = Object.fromEntries(Object.entries(resolved).map(([k, v]) => [k, productionModeLabel(v)]));
+        return { content: [{ type: 'text', text: JSON.stringify({ resolved, labels }, null, 2) }] };
+    },
+};
+// ── Round 7: MCP params validator ────────────────────────────────────────────
+const monographMcpParamsTool = {
+    name: 'monograph_mcp_params',
+    description: 'Validate and normalize typed MCP tool parameter objects (HealthParams, AuditParams, FindDupesParams, etc.)',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            paramsType: { type: 'string', description: 'Parameter type name (e.g. HealthParams, AuditParams)' },
+            params: { type: 'object', description: 'Parameter values to validate' },
+        },
+        required: ['paramsType', 'params'],
+    },
+    handler: async (args) => {
+        const { isValidEmailMode, isValidAuditGate } = await import('@monoes/monograph');
+        const p = args.params;
+        const issues = [];
+        if ('emailMode' in p && !isValidEmailMode(p.emailMode))
+            issues.push(`emailMode "${p.emailMode}" invalid; must be full|domain|name`);
+        if ('gate' in p && !isValidAuditGate(p.gate))
+            issues.push(`gate "${p.gate}" invalid; must be new-only|all`);
+        return { content: [{ type: 'text', text: JSON.stringify({ valid: issues.length === 0, issues, params: p }, null, 2) }] };
+    },
+};
+// ── Round 6: feature flags ────────────────────────────────────────────────────
+const monographFeatureFlagsTool = {
+    name: 'monograph_feature_flags',
+    description: 'Detect feature flags (env vars, SDK calls, config objects) in codebase and cross-reference with dead-code findings',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            projectPath: { type: 'string', description: 'Project root path' },
+            crossReference: { type: 'boolean', description: 'Cross-reference flags with dead-code analysis' },
+        },
+        required: ['projectPath'],
+    },
+    handler: async (args) => {
+        const { analyzeFeatureFlags, summarizeFlags } = await import('@monoes/monograph');
+        const flags = await analyzeFeatureFlags(args.projectPath);
+        const summary = summarizeFlags(flags);
+        return { content: [{ type: 'text', text: JSON.stringify({ flags, summary }, null, 2) }] };
+    },
+};
+// ── Round 6: clone families ───────────────────────────────────────────────────
+const monographCloneFamiliesTool = {
+    name: 'monograph_clone_families',
+    description: 'Group clone groups into file-set families and generate ExtractFunction/ExtractModule/MergeDirectories refactoring suggestions',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            groups: { type: 'array', description: 'CloneGroup array from monograph_clone_detect' },
+        },
+        required: ['groups'],
+    },
+    handler: async (args) => {
+        const { groupIntoFamilies, cloneFamilySummary } = await import('@monoes/monograph');
+        const families = groupIntoFamilies(args.groups);
+        const summary = cloneFamilySummary(families);
+        return { content: [{ type: 'text', text: JSON.stringify({ families, summary }, null, 2) }] };
+    },
+};
+// ── Round 6: duplication stats ────────────────────────────────────────────────
+const monographDuplicationStatsTool = {
+    name: 'monograph_duplication_stats',
+    description: 'Compute aggregate duplication statistics (% lines, % tokens) from clone groups with per-file deduplication',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            groups: { type: 'array', description: 'CloneGroupInput array' },
+            allFilePaths: { type: 'array', items: { type: 'string' }, description: 'All scanned file paths' },
+            totalLines: { type: 'number', description: 'Total lines across all files' },
+            totalTokens: { type: 'number', description: 'Total tokens across all files' },
+        },
+        required: ['groups', 'allFilePaths', 'totalLines', 'totalTokens'],
+    },
+    handler: async (args) => {
+        const { computeDuplicationStats, formatDuplicationStats } = await import('@monoes/monograph');
+        const stats = computeDuplicationStats(args.groups, args.allFilePaths, args.totalLines, args.totalTokens);
+        return { content: [{ type: 'text', text: formatDuplicationStats(stats) + '\n\n' + JSON.stringify(stats, null, 2) }] };
+    },
+};
+// ── Round 6: changed workspaces ───────────────────────────────────────────────
+const monographChangedWorkspacesTool = {
+    name: 'monograph_changed_workspaces',
+    description: 'Find which monorepo workspace packages are affected by changed files in a git diff',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            projectPath: { type: 'string', description: 'Monorepo root path' },
+            ref: { type: 'string', description: 'Git ref to compare against (default: HEAD~1)' },
+        },
+        required: ['projectPath'],
+    },
+    handler: async (args) => {
+        const { getChangedWorkspaces } = await import('@monoes/monograph');
+        const result = await getChangedWorkspaces(args.projectPath, args.ref ?? 'HEAD~1');
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    },
+};
+// ── Round 6: LSP code actions ─────────────────────────────────────────────────
+const monographLspCodeActionsTool = {
+    name: 'monograph_lsp_code_actions',
+    description: 'Build LSP CodeAction items to remove unused exports or add monograph-suppress comments',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            kind: { type: 'string', enum: ['remove-export', 'suppress'], description: 'Action kind' },
+            locations: { type: 'array', description: 'UnusedExportLocation array' },
+            filePath: { type: 'string', description: 'File path for suppress actions' },
+            suppressKind: { type: 'string', description: 'Suppression kind (e.g. unused-export)' },
+        },
+        required: ['kind', 'locations'],
+    },
+    handler: async (args) => {
+        const { buildRemoveExportActions, buildSuppressActions } = await import('@monoes/monograph');
+        const actions = args.kind === 'remove-export'
+            ? buildRemoveExportActions(args.locations)
+            : buildSuppressActions(args.locations, args.suppressKind);
+        return { content: [{ type: 'text', text: JSON.stringify(actions, null, 2) }] };
+    },
+};
+// ── Round 6: extended LSP diagnostics ────────────────────────────────────────
+const monographExtendedDiagnosticsTool = {
+    name: 'monograph_extended_diagnostics',
+    description: 'Build LSP diagnostics for unused symbols, circular deps, boundary violations, and high-complexity functions',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            kind: { type: 'string', enum: ['unused-symbol', 'circular', 'boundary', 'complexity'], description: 'Diagnostic kind' },
+            locations: { type: 'array', description: 'Location objects matching the chosen kind' },
+        },
+        required: ['kind', 'locations'],
+    },
+    handler: async (args) => {
+        const { buildUnusedSymbolDiagnostics, buildCircularDepDiagnostics, buildBoundaryViolationDiagnostics, buildComplexityDiagnostics } = await import('@monoes/monograph');
+        let result;
+        switch (args.kind) {
+            case 'unused-symbol':
+                result = Object.fromEntries(buildUnusedSymbolDiagnostics(args.locations));
+                break;
+            case 'circular':
+                result = Object.fromEntries(buildCircularDepDiagnostics(args.locations));
+                break;
+            case 'boundary':
+                result = Object.fromEntries(buildBoundaryViolationDiagnostics(args.locations));
+                break;
+            default: result = Object.fromEntries(buildComplexityDiagnostics(args.locations));
+        }
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    },
+};
+// ── Round 6: config validation ────────────────────────────────────────────────
+const monographConfigValidateTool = {
+    name: 'monograph_config_validate',
+    description: 'Validate a monograph.config.json file and report errors with line-level detail',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            configPath: { type: 'string', description: 'Path to monograph config file (default: ./monograph.config.json)' },
+        },
+    },
+    handler: async (args) => {
+        const { validateConfig } = await import('@monoes/monograph');
+        const result = validateConfig(args.configPath ?? 'monograph.config.json');
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    },
+};
+// ── Round 6: config schema generation ────────────────────────────────────────
+const monographConfigSchemaTool = {
+    name: 'monograph_config_schema',
+    description: 'Generate a JSON Schema for monograph.config.json to enable editor auto-complete and validation',
+    inputSchema: {
+        type: 'object',
+        properties: {},
+    },
+    handler: async () => {
+        const { generateConfigSchema, schemaToJson } = await import('@monoes/monograph');
+        const schema = generateConfigSchema();
+        return { content: [{ type: 'text', text: schemaToJson(schema) }] };
+    },
+};
+// ── Round 6: pipeline effort ──────────────────────────────────────────────────
+const monographEffortTool = {
+    name: 'monograph_effort',
+    description: 'Get an effort profile (low/medium/high) controlling which sub-analyses run for performance vs depth trade-off',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            effort: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Analysis effort level' },
+        },
+    },
+    handler: async (args) => {
+        const { getEffortProfile } = await import('@monoes/monograph');
+        const profile = getEffortProfile(args.effort);
+        return { content: [{ type: 'text', text: JSON.stringify(profile, null, 2) }] };
+    },
+};
+// ── Round 6: quality gate ─────────────────────────────────────────────────────
+const monographQualityGateTool = {
+    name: 'monograph_quality_gate',
+    description: 'Evaluate a health score against a quality gate config and return pass/warn/fail with per-metric details',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            score: { type: 'number', description: 'Computed health score (0-100)' },
+            config: { type: 'object', description: 'QualityGateConfig: { minScore, maxDuplication, maxComplexity, ... }' },
+            vitals: { type: 'object', description: 'Vitals object with duplication, complexity, etc.' },
+        },
+        required: ['score'],
+    },
+    handler: async (args) => {
+        const { evaluateQualityGate, formatQualityGateResult } = await import('@monoes/monograph');
+        const result = evaluateQualityGate(args.score, args.config ?? {}, args.vitals);
+        return { content: [{ type: 'text', text: formatQualityGateResult(result) + '\n\n' + JSON.stringify(result, null, 2) }] };
+    },
+};
+// ── Round 8: issue filters ────────────────────────────────────────────────────
+const monographIssueFiltersTool = {
+    name: 'monograph_issue_filters',
+    description: 'Apply selective issue filters to an analysis result — zero-out specific check categories so callers can run any subset of checks in one pass.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            checks: { type: 'array', items: { type: 'string' }, description: 'List of IssueFilterKey values to enable (all others disabled)' },
+            allOn: { type: 'boolean', description: 'Enable all filters (overrides checks)' },
+        },
+    },
+    handler: async (args) => {
+        const { applyIssueFilters, activateExplicitOptIns, ALL_FILTERS_ON, ALL_FILTERS_OFF } = await import('@monoes/monograph');
+        const filters = args.allOn ? ALL_FILTERS_ON
+            : activateExplicitOptIns(args.checks ?? []);
+        return { content: [{ type: 'text', text: JSON.stringify(filters, null, 2) }] };
+    },
+};
+// ── Round 8: external style usage ────────────────────────────────────────────
+const monographExternalStyleTool = {
+    name: 'monograph_external_style_usage',
+    description: 'Scan source files for external CSS/styling package imports and augment the graph with style-dependency edges.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            source: { type: 'string', description: 'Source file content to scan for style imports' },
+        },
+        required: ['source'],
+    },
+    handler: async (args) => {
+        const { scanStyleImports } = await import('@monoes/monograph');
+        const imports = scanStyleImports(args.source);
+        return { content: [{ type: 'text', text: JSON.stringify({ imports }, null, 2) }] };
+    },
+};
+// ── Round 8: project detection ────────────────────────────────────────────────
+const monographProjectDetectionTool = {
+    name: 'monograph_detect_project',
+    description: 'Detect project framework, test runner, package manager, and monorepo tool from package.json deps and root files. Returns a ProjectInfo object and rendered config strings.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            deps: { type: 'object', description: 'package.json dependencies + devDependencies merged' },
+            rootFiles: { type: 'array', items: { type: 'string' }, description: 'List of root directory file names' },
+            format: { type: 'string', enum: ['json', 'toml'], description: 'Config output format (default: json)' },
+        },
+        required: ['deps'],
+    },
+    handler: async (args) => {
+        const { detectProject, buildJsonConfig, buildTomlConfig } = await import('@monoes/monograph');
+        const info = detectProject(args.deps, args.rootFiles ?? []);
+        const config = args.format === 'toml' ? buildTomlConfig(info) : buildJsonConfig(info);
+        return { content: [{ type: 'text', text: JSON.stringify(info, null, 2) + '\n\n' + config }] };
+    },
+};
+// ── Round 8: git hooks ────────────────────────────────────────────────────────
+const monographGitHooksTool = {
+    name: 'monograph_git_hooks',
+    description: 'Detect the git hooks manager (husky/lefthook/raw/none) and render the monograph pre-commit gate script.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            rootFiles: { type: 'array', items: { type: 'string' }, description: 'List of root directory file names' },
+            command: { type: 'string', description: 'CLI command to embed in the hook script' },
+        },
+        required: ['rootFiles'],
+    },
+    handler: async (args) => {
+        const { detectHooksManager, renderedHookScript } = await import('@monoes/monograph');
+        const manager = detectHooksManager(args.rootFiles);
+        const script = renderedHookScript({ command: args.command ?? 'npx monograph check', manager });
+        return { content: [{ type: 'text', text: JSON.stringify({ manager, script }, null, 2) }] };
+    },
+};
+// ── Round 8: agent hooks ──────────────────────────────────────────────────────
+const monographAgentHooksTool = {
+    name: 'monograph_agent_hooks',
+    description: 'Build or merge a monograph quality-gate block for AGENTS.md / CLAUDE.md and Claude Code settings JSON.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            existing: { type: 'string', description: 'Existing AGENTS.md / CLAUDE.md content (empty string if new file)' },
+            command: { type: 'string', description: 'Gate command to embed (default: monograph check --since HEAD~1)' },
+        },
+        required: ['existing'],
+    },
+    handler: async (args) => {
+        const { mergeAgentsMdBlock, buildAgentsMdBlock } = await import('@monoes/monograph');
+        const cmd = args.command ?? 'npx monograph check --since HEAD~1';
+        const block = buildAgentsMdBlock(cmd);
+        const merged = mergeAgentsMdBlock(args.existing, block);
+        return { content: [{ type: 'text', text: merged }] };
+    },
+};
+// ── Round 8: distribution thresholds ─────────────────────────────────────────
+const monographDistributionThresholdsTool = {
+    name: 'monograph_distribution_thresholds',
+    description: 'Compute adaptive fan-in/fan-out percentile thresholds from per-file topology scores.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            scores: {
+                type: 'array',
+                items: { type: 'object', properties: { fanIn: { type: 'number' }, fanOut: { type: 'number' } }, required: ['fanIn', 'fanOut'] },
+                description: 'Array of {fanIn, fanOut} scores per file',
+            },
+        },
+        required: ['scores'],
+    },
+    handler: async (args) => {
+        const { computeDistributionThresholds, formatDistributionThresholds } = await import('@monoes/monograph');
+        const t = computeDistributionThresholds(args.scores);
+        return { content: [{ type: 'text', text: formatDistributionThresholds(t) + '\n\n' + JSON.stringify(t, null, 2) }] };
+    },
+};
+// ── Round 8: analysis counts ──────────────────────────────────────────────────
+const monographAnalysisCountsTool = {
+    name: 'monograph_analysis_counts',
+    description: 'Compute aggregate dead-code and unused-deps counts from analysis results, with dead-code% and unused-deps% helpers.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            results: { type: 'object', description: 'AnalysisResultsInput object with unusedFiles, unusedExports, unusedDeps arrays' },
+        },
+        required: ['results'],
+    },
+    handler: async (args) => {
+        const { computeAnalysisCounts, deadCodePct, unusedDepsPct, formatAnalysisCounts } = await import('@monoes/monograph');
+        const counts = computeAnalysisCounts(args.results);
+        return { content: [{ type: 'text', text: formatAnalysisCounts(counts) + '\n\n' + JSON.stringify({ counts, deadCodePct: deadCodePct(counts), unusedDepsPct: unusedDepsPct(counts) }, null, 2) }] };
+    },
+};
+// ── Round 8: health report ────────────────────────────────────────────────────
+const monographHealthReportTool = {
+    name: 'monograph_health_report',
+    description: 'Create a structured HealthReport from vital signs, analysis counts, hotspots, and ownership metrics. Returns JSON and a human-readable summary.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            vitals: { type: 'object', description: 'VitalSigns object' },
+            counts: { type: 'object', description: 'AnalysisCounts object' },
+            hotspots: { type: 'array', description: 'Array of HotspotEntry objects' },
+        },
+        required: ['vitals', 'counts'],
+    },
+    handler: async (args) => {
+        const { createHealthReport, createHealthReportSummary, formatHealthReportSummary, healthReportToJson } = await import('@monoes/monograph');
+        const report = createHealthReport(args.vitals, args.counts, args.hotspots ?? []);
+        const summary = createHealthReportSummary(report);
+        return { content: [{ type: 'text', text: formatHealthReportSummary(summary) + '\n\n' + healthReportToJson(report) }] };
+    },
+};
+// ── Round 9: complexity findings ─────────────────────────────────────────────
+const monographComplexityFindingsTool = {
+    name: 'monograph_complexity_findings',
+    description: 'Classify function-level severity and summarize health findings using CRAP score, cyclomatic/cognitive thresholds, and coverage tiering.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            findings: { type: 'array', description: 'Array of HealthFinding objects' },
+        },
+        required: ['findings'],
+    },
+    handler: async (args) => {
+        const { summarizeFindings } = await import('@monoes/monograph');
+        const summary = summarizeFindings(args.findings);
+        return { content: [{ type: 'text', text: JSON.stringify(summary, null, 2) }] };
+    },
+};
+// ── Round 9: runtime coverage report ─────────────────────────────────────────
+const monographRuntimeCoverageReportTool = {
+    name: 'monograph_runtime_coverage_report',
+    description: 'Create a structured RuntimeCoverageReport from an array of findings, computing the aggregate summary.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            findings: { type: 'array', description: 'Array of RuntimeCoverageFinding objects' },
+        },
+        required: ['findings'],
+    },
+    handler: async (args) => {
+        const { createRuntimeCoverageReport } = await import('@monoes/monograph');
+        const report = createRuntimeCoverageReport(args.findings);
+        return { content: [{ type: 'text', text: JSON.stringify(report, null, 2) }] };
+    },
+};
+// ── Round 9: duplication grouping ────────────────────────────────────────────
+const monographDuplicationGroupingTool = {
+    name: 'monograph_duplication_grouping',
+    description: 'Group raw clone-detection results by owner/directory for duplication reports.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            groups: { type: 'array', description: 'Array of CloneGroupInput objects with id, instances, duplicatedLines' },
+        },
+        required: ['groups'],
+    },
+    handler: async (args) => {
+        const { buildDuplicationGrouping, formatDuplicationGrouping } = await import('@monoes/monograph');
+        const grouping = buildDuplicationGrouping(args.groups);
+        return { content: [{ type: 'text', text: formatDuplicationGrouping(grouping) + '\n\n' + JSON.stringify(grouping, null, 2) }] };
+    },
+};
+// ── Round 9: grouped JSON builders ───────────────────────────────────────────
+const monographJsonBuildersTool = {
+    name: 'monograph_json_builders',
+    description: 'Build grouped health/duplication JSON or baseline-delta summaries.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            kind: { type: 'string', enum: ['health', 'duplication', 'baseline-delta'], description: 'Which builder to invoke' },
+            data: { type: 'object', description: 'Input data for the builder' },
+        },
+        required: ['kind', 'data'],
+    },
+    handler: async (args) => {
+        const { buildGroupedHealthJson, buildGroupedDuplicationJson, buildBaselineDeltasJson } = await import('@monoes/monograph');
+        const kind = args.kind;
+        const d = args.data;
+        let text;
+        if (kind === 'health')
+            text = buildGroupedHealthJson(d['groups'] ?? []);
+        else if (kind === 'duplication')
+            text = buildGroupedDuplicationJson(d['groups'] ?? []);
+        else
+            text = buildBaselineDeltasJson(d['current'] ?? {}, d['baseline'] ?? {});
+        return { content: [{ type: 'text', text }] };
+    },
+};
+// ── Round 9: regression baseline I/O ─────────────────────────────────────────
+const monographRegressionBaselineTool = {
+    name: 'monograph_regression_baseline',
+    description: 'Load a regression baseline file and compare against current counts.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            baselinePath: { type: 'string', description: 'Path to the baseline JSON file' },
+            current: { type: 'object', description: 'Current metric counts (Record<string, number>)' },
+            tolerance: { type: 'number', description: 'Allowed increase per metric (default 0)' },
+            root: { type: 'string', description: 'Project root (default: process.cwd())' },
+        },
+        required: ['current'],
+    },
+    handler: async (args) => {
+        const { loadRegressionBaseline, compareWithRegressionBaseline } = await import('@monoes/monograph');
+        const baseline = loadRegressionBaseline(args.baselinePath, args.root);
+        if (!baseline)
+            return { content: [{ type: 'text', text: 'No regression baseline found at specified path.' }] };
+        const result = compareWithRegressionBaseline(baseline, args.current, args.tolerance ?? 0);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    },
+};
+// ── Round 9: MCP tool builders ────────────────────────────────────────────────
+const monographToolBuildersTool = {
+    name: 'monograph_tool_builders',
+    description: 'Convert structured MCP params into CLI argv arrays for any monograph command.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            command: { type: 'string', description: 'CLI command name (analyze, health, audit, find-dupes, trace-export, trace-file, trace-dependency, trace-clone, project-info, feature-flags, list-boundaries, check-runtime-coverage, check-changed, fix-preview, fix-apply, explain)' },
+            params: { type: 'object', description: 'Params object for the chosen command' },
+        },
+        required: ['command', 'params'],
+    },
+    handler: async (args) => {
+        const builders = await import('@monoes/monograph');
+        const cmd = args.command;
+        const p = args.params;
+        const map = {
+            'analyze': builders.buildAnalyzeArgs,
+            'health': builders.buildHealthArgs,
+            'audit': builders.buildAuditArgs,
+            'find-dupes': builders.buildFindDupesArgs,
+            'trace-export': builders.buildTraceExportArgs,
+            'trace-file': builders.buildTraceFileArgs,
+            'trace-dependency': builders.buildTraceDependencyArgs,
+            'trace-clone': builders.buildTraceCloneArgs,
+            'project-info': builders.buildProjectInfoArgs,
+            'feature-flags': builders.buildFeatureFlagsArgs,
+            'list-boundaries': builders.buildListBoundariesArgs,
+            'check-runtime-coverage': builders.buildCheckRuntimeCoverageArgs,
+            'check-changed': builders.buildCheckChangedArgs,
+            'fix-preview': builders.buildFixPreviewArgs,
+            'fix-apply': builders.buildFixApplyArgs,
+            'explain': builders.buildExplainArgs,
+        };
+        const builder = map[cmd];
+        if (!builder)
+            return { content: [{ type: 'text', text: `Unknown command: ${cmd}` }] };
+        return { content: [{ type: 'text', text: JSON.stringify(builder(p), null, 2) }] };
+    },
+};
+// ── Round 9: workspace discovery ──────────────────────────────────────────────
+const monographWorkspaceDiscoveryTool = {
+    name: 'monograph_workspace_discovery',
+    description: 'Discover monorepo workspace packages from package.json workspaces field.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string', description: 'Project root directory' },
+            detectUndeclared: { type: 'boolean', description: 'Also report undeclared workspaces' },
+        },
+        required: ['root'],
+    },
+    handler: async (args) => {
+        const { discoverWorkspaces, findUndeclaredWorkspaces } = await import('@monoes/monograph');
+        const workspaces = discoverWorkspaces(args.root);
+        const diagnostics = args.detectUndeclared
+            ? findUndeclaredWorkspaces(args.root, workspaces)
+            : [];
+        return { content: [{ type: 'text', text: JSON.stringify({ workspaces, diagnostics }, null, 2) }] };
+    },
+};
+// ── Round 9: external plugins ─────────────────────────────────────────────────
+const monographExternalPluginsTool = {
+    name: 'monograph_external_plugins',
+    description: 'Discover monograph plugins declared in node_modules packages via the monograph-plugin package.json key.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string', description: 'Project root containing node_modules' },
+        },
+        required: ['root'],
+    },
+    handler: async (args) => {
+        const { discoverExternalPlugins, mergePluginSuppressPatterns } = await import('@monoes/monograph');
+        const plugins = discoverExternalPlugins(args.root);
+        const suppressPatterns = mergePluginSuppressPatterns(plugins);
+        return { content: [{ type: 'text', text: JSON.stringify({ plugins, suppressPatterns }, null, 2) }] };
+    },
+};
+// ── Round 9: config types ─────────────────────────────────────────────────────
+const monographConfigTypesTool = {
+    name: 'monograph_config_types',
+    description: 'Return the default resolved monograph configuration schema.',
+    inputSchema: { type: 'object', properties: {} },
+    handler: async (_args) => {
+        const { DEFAULT_MONOGRAPH_CONFIG } = await import('@monoes/monograph');
+        return { content: [{ type: 'text', text: JSON.stringify(DEFAULT_MONOGRAPH_CONFIG, null, 2) }] };
+    },
+};
+// ── Round 9: scripts analysis ─────────────────────────────────────────────────
+const monographScriptsTool = {
+    name: 'monograph_analyze_scripts',
+    description: 'Analyze npm package.json scripts to extract production entry-point commands and build a binary-to-package map.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            scripts: { type: 'object', description: 'The scripts field from package.json' },
+        },
+        required: ['scripts'],
+    },
+    handler: async (args) => {
+        const { analyzeScripts } = await import('@monoes/monograph');
+        const result = analyzeScripts(args.scripts);
+        return { content: [{ type: 'text', text: JSON.stringify({ entryPatterns: result.entryPatterns, commands: result.commands }, null, 2) }] };
+    },
+};
+// ── Round 10: Fallow feature ports ───────────────────────────────────────────
+const monographRulesConfigTool = {
+    name: 'monograph_rules_config',
+    description: 'Inspect or merge monograph rules config. Returns default config, merges a partial override, or maps an issue kind to its configured severity.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string', description: 'Project root path' },
+            action: { type: 'string', enum: ['default', 'merge', 'severity'], description: 'Action to perform' },
+            partial: { type: 'object', description: 'Partial rules config to merge (for action=merge)' },
+            issueKind: { type: 'string', description: 'Issue kind to resolve severity for (for action=severity)' },
+        },
+        required: ['root', 'action'],
+    },
+    handler: async (params) => {
+        const { DEFAULT_RULES_CONFIG, mergeRulesConfig, issueSeverityFor } = await import('@monoes/monograph');
+        if (params.action === 'default')
+            return { content: [{ type: 'text', text: JSON.stringify(DEFAULT_RULES_CONFIG, null, 2) }] };
+        if (params.action === 'merge' && params.partial) {
+            const merged = mergeRulesConfig(DEFAULT_RULES_CONFIG, params.partial);
+            return { content: [{ type: 'text', text: JSON.stringify(merged, null, 2) }] };
+        }
+        if (params.action === 'severity' && params.issueKind) {
+            const sev = issueSeverityFor(DEFAULT_RULES_CONFIG, params.issueKind);
+            return { content: [{ type: 'text', text: JSON.stringify({ issueKind: params.issueKind, severity: sev }) }] };
+        }
+        return { content: [{ type: 'text', text: 'Invalid action or missing params' }] };
+    },
+};
+const monographUsedClassMembersTool = {
+    name: 'monograph_used_class_members',
+    description: 'Check if a class member is suppressed by a UsedClassMemberRule list, or match heritage patterns.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            memberName: { type: 'string', description: 'Member name to check' },
+            className: { type: 'string', description: 'Class name' },
+            heritagePattern: { type: 'string', description: 'Heritage pattern to match' },
+        },
+        required: ['root', 'memberName'],
+    },
+    handler: async (params) => {
+        const { isMemberSuppressed } = await import('@monoes/monograph');
+        const suppressed = isMemberSuppressed({ name: params.memberName, className: params.className ?? '' }, []);
+        return { content: [{ type: 'text', text: JSON.stringify({ member: params.memberName, suppressed }) }] };
+    },
+};
+const monographDuplicatesConfigTool = {
+    name: 'monograph_duplicates_config',
+    description: 'Return or merge the duplicates detection config (mode, thresholds, normalization settings).',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            action: { type: 'string', enum: ['default', 'merge'], description: 'Action' },
+            partial: { type: 'object', description: 'Partial config to merge' },
+        },
+        required: ['root', 'action'],
+    },
+    handler: async (params) => {
+        const { DEFAULT_DUPLICATES_CONFIG, mergeDuplicatesConfig } = await import('@monoes/monograph');
+        if (params.action === 'merge' && params.partial) {
+            const merged = mergeDuplicatesConfig(DEFAULT_DUPLICATES_CONFIG, params.partial);
+            return { content: [{ type: 'text', text: JSON.stringify(merged, null, 2) }] };
+        }
+        return { content: [{ type: 'text', text: JSON.stringify(DEFAULT_DUPLICATES_CONFIG, null, 2) }] };
+    },
+};
+const monographIgnoreExportsConfigTool = {
+    name: 'monograph_ignore_exports_config',
+    description: 'Parse or check an ignore-exports-used-in-file config: determines whether an export kind is suppressed.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            raw: { description: 'Raw config value (boolean, string, or object)' },
+            exportKind: { type: 'string', description: 'Export kind to test against the config' },
+        },
+        required: ['root', 'raw'],
+    },
+    handler: async (params) => {
+        const { parseIgnoreExportsConfig, suppressesExport } = await import('@monoes/monograph');
+        const config = parseIgnoreExportsConfig(params.raw);
+        if (params.exportKind) {
+            const suppressed = suppressesExport(config, params.exportKind);
+            return { content: [{ type: 'text', text: JSON.stringify({ config, suppressed }) }] };
+        }
+        return { content: [{ type: 'text', text: JSON.stringify(config, null, 2) }] };
+    },
+};
+const monographAnalysisJsonTool = {
+    name: 'monograph_analysis_json',
+    description: 'Build a versioned JSON envelope for analysis, health, or duplication results with optional root-prefix stripping.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            kind: { type: 'string', enum: ['analysis', 'health', 'duplication'], description: 'Result type' },
+            data: { type: 'object', description: 'Result data to wrap' },
+            stripRoot: { type: 'string', description: 'Root prefix to strip from paths in data' },
+        },
+        required: ['root', 'kind', 'data'],
+    },
+    handler: async (params) => {
+        const { buildAnalysisResultsEnvelope, buildHealthResultsEnvelope, buildDuplicationResultsEnvelope, stripRootPrefix } = await import('@monoes/monograph');
+        let data = params.data;
+        if (params.stripRoot)
+            data = stripRootPrefix(data, params.stripRoot);
+        let envelope;
+        if (params.kind === 'health')
+            envelope = buildHealthResultsEnvelope({ root: params.root, findings: data });
+        else if (params.kind === 'duplication')
+            envelope = buildDuplicationResultsEnvelope({ root: params.root, groups: data });
+        else
+            envelope = buildAnalysisResultsEnvelope({ root: params.root, results: data });
+        return { content: [{ type: 'text', text: JSON.stringify(envelope, null, 2) }] };
+    },
+};
+const monographHumanReporterTool = {
+    name: 'monograph_human_reporter',
+    description: 'Format dead-code, health, duplication, or trace results as ANSI-colored terminal lines for human-readable output.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            kind: { type: 'string', enum: ['deadcode', 'health', 'duplication', 'export-trace', 'file-trace', 'dep-trace'], description: 'Report kind' },
+            data: { description: 'Findings or trace data' },
+        },
+        required: ['root', 'kind', 'data'],
+    },
+    handler: async (params) => {
+        const { buildDeadCodeHumanLines, buildHealthHumanLines, buildDuplicationHumanLines, buildExportTraceHumanLines, buildFileTraceHumanLines, buildDependencyTraceHumanLines } = await import('@monoes/monograph');
+        let lines = [];
+        if (params.kind === 'deadcode')
+            lines = buildDeadCodeHumanLines(params.data, params.root);
+        else if (params.kind === 'health')
+            lines = buildHealthHumanLines(params.data, params.root);
+        else if (params.kind === 'duplication')
+            lines = buildDuplicationHumanLines(params.data, params.root);
+        else if (params.kind === 'export-trace')
+            lines = buildExportTraceHumanLines(params.data);
+        else if (params.kind === 'file-trace')
+            lines = buildFileTraceHumanLines(params.data);
+        else if (params.kind === 'dep-trace')
+            lines = buildDependencyTraceHumanLines(params.data);
+        return { content: [{ type: 'text', text: lines.join('\n') }] };
+    },
+};
+const monographConfigResolutionTool = {
+    name: 'monograph_config_resolution',
+    description: 'Resolve a monograph config chain (file/npm/url extends) and return the merged result.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            configPath: { type: 'string', description: 'Path to the monograph config file' },
+            extendsValue: { type: 'string', description: 'Parse a single extends string into source kind' },
+        },
+        required: ['root'],
+    },
+    handler: async (params) => {
+        const { parseExtendsValue, resolveConfigExtends } = await import('@monoes/monograph');
+        if (params.extendsValue) {
+            const src = parseExtendsValue(params.extendsValue);
+            return { content: [{ type: 'text', text: JSON.stringify(src, null, 2) }] };
+        }
+        if (params.configPath) {
+            const merged = await resolveConfigExtends(params.configPath, params.root);
+            return { content: [{ type: 'text', text: JSON.stringify(merged, null, 2) }] };
+        }
+        return { content: [{ type: 'text', text: 'Provide configPath or extendsValue' }] };
+    },
+};
+const monographCliSchemaTool = {
+    name: 'monograph_cli_schema',
+    description: 'Return the monograph CLI JSON schema describing all subcommands and their parameters.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            version: { type: 'string', description: 'Schema version string (default 1.0.0)' },
+            format: { type: 'string', enum: ['json', 'object'], description: 'Output format' },
+        },
+        required: ['root'],
+    },
+    handler: async (params) => {
+        const { buildCliSchema, schemaToJsonString } = await import('@monoes/monograph');
+        const schema = buildCliSchema(params.version ?? '1.0.0');
+        if (params.format === 'json') {
+            return { content: [{ type: 'text', text: schemaToJsonString(schema) }] };
+        }
+        return { content: [{ type: 'text', text: JSON.stringify(schema, null, 2) }] };
+    },
+};
+const monographUnusedClassMembersTool = {
+    name: 'monograph_unused_class_members',
+    description: 'Summarize, group, or format unused class member findings from static analysis.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            members: { type: 'array', description: 'Array of UnusedMember objects', items: { type: 'object' } },
+            action: { type: 'string', enum: ['summarize', 'group', 'format'], description: 'Action to perform' },
+        },
+        required: ['root', 'members', 'action'],
+    },
+    handler: async (params) => {
+        const { summarizeUnusedMembers, groupUnusedMembersByFile, formatUnusedMembersReport } = await import('@monoes/monograph');
+        if (params.action === 'summarize') {
+            const result = summarizeUnusedMembers(params.members);
+            return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+        }
+        if (params.action === 'group') {
+            const grouped = groupUnusedMembersByFile(params.members);
+            return { content: [{ type: 'text', text: JSON.stringify(Object.fromEntries(grouped), null, 2) }] };
+        }
+        const summary = summarizeUnusedMembers(params.members);
+        return { content: [{ type: 'text', text: formatUnusedMembersReport(summary) }] };
+    },
+};
+const monographHealthSarifTool = {
+    name: 'monograph_health_sarif',
+    description: 'Export health findings (complexity, maintainability) as a SARIF 2.1.0 document.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            findings: { type: 'array', description: 'Array of SarifHealthFinding objects', items: { type: 'object' } },
+        },
+        required: ['root', 'findings'],
+    },
+    handler: async (params) => {
+        const { exportHealthSarif } = await import('@monoes/monograph');
+        const doc = exportHealthSarif(params.findings, params.root);
+        return { content: [{ type: 'text', text: JSON.stringify(doc, null, 2) }] };
+    },
+};
+const monographHealthBadgeTool = {
+    name: 'monograph_health_badge',
+    description: 'Render an ANSI-colored terminal badge for a health score, or convert a score to a letter grade.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            score: { type: 'number', description: 'Health score 0-100' },
+            action: { type: 'string', enum: ['badge', 'grade'], description: 'badge=render ANSI string, grade=letter only' },
+            label: { type: 'string', description: 'Badge label (default "Health")' },
+        },
+        required: ['root', 'score', 'action'],
+    },
+    handler: async (params) => {
+        const { renderHealthTerminalBadge, healthScoreToGrade } = await import('@monoes/monograph');
+        if (params.action === 'grade') {
+            return { content: [{ type: 'text', text: healthScoreToGrade(params.score) }] };
+        }
+        const badge = renderHealthTerminalBadge({ score: params.score, label: params.label ?? 'Health' });
+        return { content: [{ type: 'text', text: badge }] };
+    },
+};
+const monographHealthCodeClimateTool = {
+    name: 'monograph_health_codeclimate',
+    description: 'Export health or duplication findings in Code Climate JSON format for CI/CD pipelines.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            kind: { type: 'string', enum: ['health', 'duplication'], description: 'Finding type' },
+            findings: { type: 'array', description: 'Array of finding objects', items: { type: 'object' } },
+        },
+        required: ['root', 'kind', 'findings'],
+    },
+    handler: async (params) => {
+        const { exportHealthCodeClimate, exportDuplicationCodeClimate } = await import('@monoes/monograph');
+        const issues = params.kind === 'duplication'
+            ? exportDuplicationCodeClimate(params.findings)
+            : exportHealthCodeClimate(params.findings);
+        return { content: [{ type: 'text', text: JSON.stringify(issues, null, 2) }] };
+    },
+};
+const monographHealthMarkdownTool = {
+    name: 'monograph_health_markdown',
+    description: 'Export health findings or duplication groups as a Markdown report.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            kind: { type: 'string', enum: ['health', 'duplication'], description: 'Report kind' },
+            findings: { type: 'array', description: 'Findings or groups array', items: { type: 'object' } },
+            title: { type: 'string', description: 'Report title' },
+        },
+        required: ['root', 'kind', 'findings'],
+    },
+    handler: async (params) => {
+        const { exportHealthMarkdown, exportDuplicationMarkdown } = await import('@monoes/monograph');
+        const md = params.kind === 'duplication'
+            ? exportDuplicationMarkdown(params.findings, params.title)
+            : exportHealthMarkdown(params.findings, params.title);
+        return { content: [{ type: 'text', text: md }] };
+    },
+};
+const monographMigrateKnipExtTool = {
+    name: 'monograph_migrate_knip_ext',
+    description: 'Extended Knip migration helpers: strip JSONC comments, parse JSONC strings, or generate TOML from a migrated config.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            action: { type: 'string', enum: ['strip-jsonc', 'parse-jsonc', 'to-toml'], description: 'Action' },
+            input: { type: 'string', description: 'JSONC string or JSON string (for to-toml)' },
+        },
+        required: ['root', 'action', 'input'],
+    },
+    handler: async (params) => {
+        const { stripJsoncComments, parseJsoncString, generateTomlFromMigration } = await import('@monoes/monograph');
+        if (params.action === 'strip-jsonc')
+            return { content: [{ type: 'text', text: stripJsoncComments(params.input) }] };
+        if (params.action === 'parse-jsonc')
+            return { content: [{ type: 'text', text: JSON.stringify(parseJsoncString(params.input), null, 2) }] };
+        const parsed = parseJsoncString(params.input);
+        return { content: [{ type: 'text', text: generateTomlFromMigration(parsed) }] };
+    },
+};
+// ── Round 11: Fallow feature ports ───────────────────────────────────────────
+const monographChurnCacheTool = {
+    name: 'monograph_churn_cache',
+    description: 'Analyze git churn with incremental disk caching. Faster than full git log on large repos — reuses cached results and only processes new commits since the last run.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string', description: 'Project root path' },
+            gitAfter: { type: 'string', description: 'Git --after date or duration (e.g. "6 months ago")' },
+            cacheDir: { type: 'string', description: 'Directory to store churn.json cache (default: .monomind/cache)' },
+            noCache: { type: 'boolean', description: 'Force full re-analysis, ignoring cache' },
+        },
+        required: ['root', 'gitAfter'],
+    },
+    handler: async (params) => {
+        const { analyzeChurnCached } = await import('@monoes/monograph');
+        const cacheDir = params.cacheDir ?? `${params.root}/.monomind/cache`;
+        const result = analyzeChurnCached(params.root, params.gitAfter, cacheDir, params.noCache ?? false);
+        if (!result)
+            return { content: [{ type: 'text', text: 'Could not analyze churn (not a git repo?)' }] };
+        const top = [...result.files.entries()].sort((a, b) => b[1].weightedCommits - a[1].weightedCommits).slice(0, 20);
+        return { content: [{ type: 'text', text: JSON.stringify({ cacheHit: result.cacheHit, topFiles: top.map(([path, d]) => ({ path, ...d })) }, null, 2) }] };
+    },
+};
+const monographSuppressionContextTool = {
+    name: 'monograph_suppression_context',
+    description: 'Build a suppression context from module suppression data, check if an issue is suppressed, and find stale suppressions that no longer match any issue.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            modules: { type: 'array', description: 'Array of {filePath, suppressions[]} objects', items: { type: 'object' } },
+            action: { type: 'string', enum: ['find-stale', 'used-count'], description: 'Action to perform' },
+        },
+        required: ['root', 'modules', 'action'],
+    },
+    handler: async (params) => {
+        const { SuppressionContext } = await import('@monoes/monograph');
+        const ctx = new SuppressionContext(params.modules);
+        if (params.action === 'find-stale') {
+            const stale = ctx.findStale();
+            return { content: [{ type: 'text', text: JSON.stringify(stale, null, 2) }] };
+        }
+        return { content: [{ type: 'text', text: JSON.stringify({ usedCount: ctx.usedCount() }) }] };
+    },
+};
+const monographToleranceTool = {
+    name: 'monograph_tolerance',
+    description: 'Parse regression tolerance strings (e.g. "5%", "10") and check if a count increase exceeds the allowed tolerance.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            toleranceStr: { type: 'string', description: 'Tolerance string e.g. "5%" or "10"' },
+            baselineTotal: { type: 'number', description: 'Baseline count for exceeded check' },
+            currentTotal: { type: 'number', description: 'Current count for exceeded check' },
+        },
+        required: ['root', 'toleranceStr'],
+    },
+    handler: async (params) => {
+        const { parseTolerance, toleranceExceeded, formatTolerance } = await import('@monoes/monograph');
+        const tol = parseTolerance(params.toleranceStr);
+        const result = { tolerance: tol, formatted: formatTolerance(tol) };
+        if (params.baselineTotal !== undefined && params.currentTotal !== undefined) {
+            result.exceeded = toleranceExceeded(tol, params.baselineTotal, params.currentTotal);
+            result.delta = params.currentTotal - params.baselineTotal;
+        }
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    },
+};
+const monographCrossReferenceFindingsTool = {
+    name: 'monograph_cross_reference_findings',
+    description: 'Cross-reference clone groups with dead code findings to identify duplicated code that is also unused — safe candidates for deletion.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            cloneGroups: { type: 'array', description: 'Array of {instances[]} clone groups', items: { type: 'object' } },
+            unusedFiles: { type: 'array', items: { type: 'string' }, description: 'Absolute paths of unused files' },
+            unusedExports: { type: 'array', items: { type: 'object' }, description: 'Array of {path, exportName, line}' },
+            unusedTypes: { type: 'array', items: { type: 'object' }, description: 'Array of {path, typeName, line}' },
+        },
+        required: ['root', 'cloneGroups'],
+    },
+    handler: async (params) => {
+        const { crossReference } = await import('@monoes/monograph');
+        const deadCode = {
+            unusedFiles: new Set(params.unusedFiles ?? []),
+            unusedExports: (params.unusedExports ?? []),
+            unusedTypes: (params.unusedTypes ?? []),
+        };
+        const result = crossReference({ cloneGroups: params.cloneGroups }, deadCode);
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    },
+};
+const monographWatchRunnerTool = {
+    name: 'monograph_watch_runner',
+    description: 'Filter changed file paths to relevant source/config files for watch-mode analysis, or parse a list of raw paths into deduplicated relative paths.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            paths: { type: 'array', items: { type: 'string' }, description: 'Raw changed paths from the file watcher' },
+            action: { type: 'string', enum: ['collect', 'is-source', 'is-config'], description: 'Action' },
+            filePath: { type: 'string', description: 'Single file path for is-source/is-config check' },
+        },
+        required: ['root', 'action'],
+    },
+    handler: async (params) => {
+        const { collectChangedPaths, isRelevantSource, isRelevantConfig } = await import('@monoes/monograph');
+        if (params.action === 'collect')
+            return { content: [{ type: 'text', text: JSON.stringify(collectChangedPaths(params.paths ?? [], params.root)) }] };
+        if (params.action === 'is-source')
+            return { content: [{ type: 'text', text: JSON.stringify({ isSource: isRelevantSource(params.filePath ?? '') }) }] };
+        return { content: [{ type: 'text', text: JSON.stringify({ isConfig: isRelevantConfig(params.filePath ?? '') }) }] };
+    },
+};
+const monographCodeownersExtendedTool = {
+    name: 'monograph_codeowners_extended',
+    description: 'Extended CODEOWNERS helpers: owner count, GitLab section name, and unowned/no-section labels for a given file path.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            relativePath: { type: 'string', description: 'Repo-relative file path to look up' },
+            action: { type: 'string', enum: ['owner-count', 'section', 'label', 'has-sections'], description: 'Action' },
+        },
+        required: ['root', 'action'],
+    },
+    handler: async (params) => {
+        const { UNOWNED_LABEL, NO_SECTION_LABEL } = await import('@monoes/monograph');
+        if (params.action === 'has-sections')
+            return { content: [{ type: 'text', text: JSON.stringify({ hasSections: false, note: 'Requires a CodeOwnersLike instance at runtime' }) }] };
+        return { content: [{ type: 'text', text: JSON.stringify({ UNOWNED_LABEL, NO_SECTION_LABEL, note: 'Pass a CodeOwnersLike instance to ownerCountOf/sectionOf/ownerLabel at runtime' }) }] };
+    },
+};
+const monographHealthScoresTool = {
+    name: 'monograph_health_scores',
+    description: 'Compute health finding severity (moderate/high/critical) from cyclomatic, cognitive, and CRAP scores, or convert coverage percentage to a tier.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            action: { type: 'string', enum: ['severity', 'coverage-tier', 'exceeded-threshold'], description: 'Action' },
+            cognitive: { type: 'number' },
+            cyclomatic: { type: 'number' },
+            crap: { type: 'number' },
+            coveragePct: { type: 'number' },
+            cyclomaticExceeded: { type: 'boolean' },
+            cognitiveExceeded: { type: 'boolean' },
+            crapExceeded: { type: 'boolean' },
+        },
+        required: ['root', 'action'],
+    },
+    handler: async (params) => {
+        const { computeFindingSeverity, coverageTierFromPct, exceededThresholdFromBools } = await import('@monoes/monograph');
+        if (params.action === 'severity') {
+            const sev = computeFindingSeverity({ cognitive: params.cognitive ?? 0, cyclomatic: params.cyclomatic ?? 0, crap: params.crap });
+            return { content: [{ type: 'text', text: JSON.stringify({ severity: sev }) }] };
+        }
+        if (params.action === 'coverage-tier') {
+            return { content: [{ type: 'text', text: JSON.stringify({ tier: coverageTierFromPct(params.coveragePct ?? 0) }) }] };
+        }
+        const threshold = exceededThresholdFromBools(params.cyclomaticExceeded ?? false, params.cognitiveExceeded ?? false, params.crapExceeded ?? false);
+        return { content: [{ type: 'text', text: JSON.stringify({ exceededThreshold: threshold }) }] };
+    },
+};
+const monographHealthTrendTypesTool = {
+    name: 'monograph_health_trend_types',
+    description: 'Compute overall trend direction from a list of TrendMetric objects, or format a trend metric as a human-readable string with arrow indicator.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            metrics: { type: 'array', items: { type: 'object' }, description: 'Array of TrendMetric objects' },
+            action: { type: 'string', enum: ['overall-direction', 'format-metric', 'trend-arrow'], description: 'Action' },
+            metric: { type: 'object', description: 'Single TrendMetric to format' },
+            direction: { type: 'string', enum: ['improving', 'declining', 'stable'] },
+        },
+        required: ['root', 'action'],
+    },
+    handler: async (params) => {
+        const { computeOverallDirection, formatTrendMetric, trendArrow } = await import('@monoes/monograph');
+        if (params.action === 'overall-direction') {
+            return { content: [{ type: 'text', text: JSON.stringify({ direction: computeOverallDirection((params.metrics ?? [])) }) }] };
+        }
+        if (params.action === 'format-metric' && params.metric) {
+            return { content: [{ type: 'text', text: formatTrendMetric(params.metric) }] };
+        }
+        return { content: [{ type: 'text', text: trendArrow((params.direction ?? 'stable')) }] };
+    },
+};
+const monographAnalysisProgressTool = {
+    name: 'monograph_analysis_progress',
+    description: 'Create an AnalysisProgress instance for TTY spinner output during multi-stage analysis pipelines. Returns metadata about the progress system.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            quiet: { type: 'boolean', description: 'When true, spinners are disabled' },
+        },
+        required: ['root'],
+    },
+    handler: async (params) => {
+        const { AnalysisProgress } = await import('@monoes/monograph');
+        const p = new AnalysisProgress(!(params.quiet ?? false));
+        return { content: [{ type: 'text', text: JSON.stringify({ created: true, enabled: !(params.quiet ?? false), note: 'AnalysisProgress is a runtime TTY spinner; use createAnalysisProgress(quiet) in your code' }) }] };
+    },
+};
+const monographPipelinePerfTool = {
+    name: 'monograph_pipeline_perf',
+    description: 'Format pipeline performance timings as a box-drawing terminal table, or compute a one-line summary string.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            timings: { type: 'object', description: 'PipelineTimings object with per-stage millisecond values' },
+            action: { type: 'string', enum: ['lines', 'summary'], description: 'lines=full box, summary=one-liner' },
+        },
+        required: ['root', 'timings', 'action'],
+    },
+    handler: async (params) => {
+        const { buildPipelinePerformanceLines, timingsSummary } = await import('@monoes/monograph');
+        if (params.action === 'summary')
+            return { content: [{ type: 'text', text: timingsSummary(params.timings) }] };
+        return { content: [{ type: 'text', text: buildPipelinePerformanceLines(params.timings).join('\n') }] };
+    },
+};
+const monographTraceHumanTool = {
+    name: 'monograph_trace_human',
+    description: 'Print export, file, dependency, or clone trace results as ANSI-colored terminal output for human-readable investigation.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            kind: { type: 'string', enum: ['export', 'file', 'dependency', 'clone'], description: 'Trace kind' },
+            trace: { type: 'object', description: 'Trace data object' },
+        },
+        required: ['root', 'kind', 'trace'],
+    },
+    handler: async (params) => {
+        const { printExportTraceHuman, printFileTraceHuman, printDependencyTraceHuman, printCloneTraceHuman } = await import('@monoes/monograph');
+        if (params.kind === 'export')
+            printExportTraceHuman(params.trace, params.root);
+        else if (params.kind === 'file')
+            printFileTraceHuman(params.trace, params.root);
+        else if (params.kind === 'dependency')
+            printDependencyTraceHuman(params.trace);
+        else if (params.kind === 'clone')
+            printCloneTraceHuman(params.trace, params.root);
+        return { content: [{ type: 'text', text: `Printed ${params.kind} trace to stderr` }] };
+    },
+};
+const monographFixOrchestratorTool = {
+    name: 'monograph_fix_orchestrator',
+    description: 'Validate fix preconditions (TTY check, --yes flag, empty results) and summarize what runFix would do. Does not apply fixes itself — use monograph_fix_* tools for that.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            unusedExportsCount: { type: 'number' },
+            unusedDepsCount: { type: 'number' },
+            unusedEnumMembersCount: { type: 'number' },
+            dryRun: { type: 'boolean' },
+            yes: { type: 'boolean' },
+        },
+        required: ['root'],
+    },
+    handler: async (params) => {
+        const total = (params.unusedExportsCount ?? 0) + (params.unusedDepsCount ?? 0) + (params.unusedEnumMembersCount ?? 0);
+        const needsYes = !params.dryRun && !params.yes;
+        return { content: [{ type: 'text', text: JSON.stringify({ total, needsYesFlag: needsYes, dryRun: params.dryRun ?? false, breakdown: { exports: params.unusedExportsCount ?? 0, deps: params.unusedDepsCount ?? 0, enumMembers: params.unusedEnumMembersCount ?? 0 } }) }] };
+    },
+};
+const monographSinceDurationTool = {
+    name: 'monograph_since_duration',
+    description: 'Parse a --since duration string (e.g. "6m", "90d", "2025-01-01") into a git-compatible --after value and human-readable display label.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            since: { type: 'string', description: 'Duration string: 6m, 90d, 2w, 1y, or YYYY-MM-DD' },
+        },
+        required: ['root', 'since'],
+    },
+    handler: async (params) => {
+        const { parseSince, sinceDurationToGitFlag } = await import('@monoes/monograph');
+        const parsed = parseSince(params.since);
+        return { content: [{ type: 'text', text: JSON.stringify({ ...parsed, gitFlag: sinceDurationToGitFlag(parsed) }) }] };
+    },
+};
+const monographCompactHealthTool = {
+    name: 'monograph_compact_health',
+    description: 'Serialize health report or duplication report as compact colon-delimited text lines for machine-readable output and CI parsing.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            kind: { type: 'string', enum: ['health', 'duplication'], description: 'Report kind' },
+            report: { type: 'object', description: 'CompactHealthReport or CompactDuplicationReport object' },
+        },
+        required: ['root', 'kind', 'report'],
+    },
+    handler: async (params) => {
+        const { buildHealthCompactLines, buildDuplicationCompactLines } = await import('@monoes/monograph');
+        const lines = params.kind === 'duplication'
+            ? buildDuplicationCompactLines(params.report)
+            : buildHealthCompactLines(params.report);
+        return { content: [{ type: 'text', text: lines.join('\n') }] };
+    },
+};
+const monographCrossRefHumanTool = {
+    name: 'monograph_cross_ref_human',
+    description: 'Format cross-reference findings (duplicated + unused code) as human-readable terminal lines with file locations and dead-code reasons.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            findings: { type: 'array', items: { type: 'object' }, description: 'Array of CrossRefHumanFinding objects' },
+            clonesInUnusedFiles: { type: 'number', default: 0 },
+            clonesWithUnusedExports: { type: 'number', default: 0 },
+        },
+        required: ['root', 'findings'],
+    },
+    handler: async (params) => {
+        const { buildCrossReferenceLines } = await import('@monoes/monograph');
+        const result = { findings: params.findings, clonesInUnusedFiles: params.clonesInUnusedFiles ?? 0, clonesWithUnusedExports: params.clonesWithUnusedExports ?? 0 };
+        const lines = buildCrossReferenceLines(result, params.root);
+        return { content: [{ type: 'text', text: lines.join('\n') }] };
+    },
+};
+const monographJsoncGenTool = {
+    name: 'monograph_jsonc_gen',
+    description: 'Generate a JSONC config file with schema header and migration comment, or strip JSONC comments from an existing config string.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            action: { type: 'string', enum: ['generate', 'strip-comments'], description: 'generate=produce JSONC, strip-comments=parse JSONC to JSON' },
+            config: { type: 'object', description: 'Config object for generate action' },
+            sources: { type: 'array', items: { type: 'string' }, description: 'Source file names for migration comment' },
+            input: { type: 'string', description: 'JSONC string for strip-comments action' },
+        },
+        required: ['root', 'action'],
+    },
+    handler: async (params) => {
+        const { generateJsonc, parseJsoncComments } = await import('@monoes/monograph');
+        if (params.action === 'generate') {
+            return { content: [{ type: 'text', text: generateJsonc(params.config ?? {}, params.sources ?? []) }] };
+        }
+        return { content: [{ type: 'text', text: JSON.stringify(parseJsoncComments(params.input ?? '{}'), null, 2) }] };
+    },
+};
+const monographTomlGenTool = {
+    name: 'monograph_toml_gen',
+    description: 'Generate a TOML config file from a monograph config object, with [rules] and [duplicates] section tables and a migration comment header.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            config: { type: 'object', description: 'Config object with entry, rules, duplicates etc.' },
+            sources: { type: 'array', items: { type: 'string' }, description: 'Source file names for migration comment' },
+        },
+        required: ['root', 'config'],
+    },
+    handler: async (params) => {
+        const { generateToml } = await import('@monoes/monograph');
+        return { content: [{ type: 'text', text: generateToml(params.config, params.sources ?? []) }] };
+    },
+};
+const monographWorkerPoolTool = {
+    name: 'monograph_worker_pool',
+    description: 'Configure the global worker thread pool for CPU-bound analysis tasks. Returns pool configuration metadata.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            threads: { type: 'number', description: 'Number of worker threads (default: CPU count)' },
+            stackSizeMb: { type: 'number', description: 'Stack size per worker in MB (default: 16)' },
+            action: { type: 'string', enum: ['configure', 'status', 'reset'], description: 'Action' },
+        },
+        required: ['root', 'action'],
+    },
+    handler: async (params) => {
+        const { configureGlobalPool, getGlobalPool, resetGlobalPool } = await import('@monoes/monograph');
+        if (params.action === 'reset') {
+            resetGlobalPool();
+            return { content: [{ type: 'text', text: 'Pool reset' }] };
+        }
+        if (params.action === 'configure')
+            configureGlobalPool(params.threads, params.stackSizeMb);
+        const pool = getGlobalPool();
+        return { content: [{ type: 'text', text: JSON.stringify({ threads: pool.threads, stackSizeMb: pool.stackSizeMb }) }] };
+    },
+};
+const monographOwnershipMetricsTool = {
+    name: 'monograph_ownership_metrics',
+    description: 'Compute bus factor, suggest reviewers, and format ownership metrics from a list of contributor entries.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            contributors: { type: 'array', items: { type: 'object' }, description: 'Array of ContributorEntry objects with identifier, share, staleDays, commits, format' },
+            action: { type: 'string', enum: ['bus-factor', 'reviewers', 'format'], description: 'Action' },
+            topContributorIdentifier: { type: 'string', description: 'For reviewers: identifier of top contributor to exclude' },
+            metrics: { type: 'object', description: 'For format: OwnershipMetrics object' },
+        },
+        required: ['root', 'action'],
+    },
+    handler: async (params) => {
+        const { computeBusFactor, filterSuggestedReviewers, formatOwnershipMetrics } = await import('@monoes/monograph');
+        if (params.action === 'bus-factor') {
+            return { content: [{ type: 'text', text: JSON.stringify({ busFactor: computeBusFactor((params.contributors ?? [])) }) }] };
+        }
+        if (params.action === 'reviewers') {
+            const top = (params.contributors ?? [])[0] ?? { identifier: params.topContributorIdentifier ?? '' };
+            const reviewers = filterSuggestedReviewers((params.contributors ?? []), top);
+            return { content: [{ type: 'text', text: JSON.stringify(reviewers, null, 2) }] };
+        }
+        return { content: [{ type: 'text', text: formatOwnershipMetrics(params.metrics) }] };
+    },
+};
+const monographChurnTrendTool = {
+    name: 'monograph_churn_trend',
+    description: 'Classify churn trend direction (accelerating/stable/cooling) from commit timestamps using the temporal-midpoint split algorithm.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            timestamps: { type: 'array', items: { type: 'number' }, description: 'Array of epoch-second timestamps from git log' },
+            action: { type: 'string', enum: ['trend', 'label', 'multi-file'], description: 'trend=ChurnTrend, label=string, multi-file=aggregate across file series' },
+            fileSeries: { type: 'array', items: { type: 'array', items: { type: 'number' } }, description: 'For multi-file: array of timestamp arrays (one per file)' },
+        },
+        required: ['root', 'action'],
+    },
+    handler: async (params) => {
+        const { computeChurnTrend, churnTrendLabel, churnTrendFromFileSeries } = await import('@monoes/monograph');
+        if (params.action === 'multi-file') {
+            const trend = churnTrendFromFileSeries(params.fileSeries ?? []);
+            return { content: [{ type: 'text', text: JSON.stringify({ trend, label: churnTrendLabel(trend) }) }] };
+        }
+        const trend = computeChurnTrend(params.timestamps ?? []);
+        if (params.action === 'label')
+            return { content: [{ type: 'text', text: churnTrendLabel(trend) }] };
+        return { content: [{ type: 'text', text: JSON.stringify({ trend, label: churnTrendLabel(trend) }) }] };
+    },
+};
+const monographHotPathsTool = {
+    name: 'monograph_hot_paths',
+    description: 'Build CLI args for monograph hot-paths, blast-radius, importance, and cleanup-candidates sub-commands.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string' },
+            action: { type: 'string', enum: ['hot-paths', 'blast-radius', 'importance', 'cleanup'], description: 'Which args builder to invoke' },
+            filePath: { type: 'string', description: 'File path (for blast-radius)' },
+            minRequestsPerDay: { type: 'number' },
+            limit: { type: 'number' },
+            minScore: { type: 'number' },
+            maxCoveragePct: { type: 'number' },
+        },
+        required: ['root', 'action'],
+    },
+    handler: async (params) => {
+        const { buildGetHotPathsArgs, buildGetBlastRadiusArgs, buildGetImportanceArgs, buildGetCleanupCandidatesArgs } = await import('@monoes/monograph');
+        let args = [];
+        if (params.action === 'hot-paths')
+            args = buildGetHotPathsArgs({ root: params.root, minRequestsPerDay: params.minRequestsPerDay, limit: params.limit });
+        else if (params.action === 'blast-radius')
+            args = buildGetBlastRadiusArgs({ root: params.root, filePath: params.filePath ?? '', limit: params.limit });
+        else if (params.action === 'importance')
+            args = buildGetImportanceArgs({ root: params.root, limit: params.limit, minScore: params.minScore });
+        else if (params.action === 'cleanup')
+            args = buildGetCleanupCandidatesArgs({ root: params.root, maxCoveragePct: params.maxCoveragePct, limit: params.limit });
+        return { content: [{ type: 'text', text: JSON.stringify(args) }] };
+    },
+};
+// ── Round 9: LSP diagnostics push ────────────────────────────────────────────
+const monographDiagnosticsPushTool = {
+    name: 'monograph_diagnostics_push',
+    description: 'Build a flat list of LSP diagnostics from any combination of finding arrays (unused exports, files, imports, deps, members, cycles, boundaries, duplicate exports, duplication, stale suppressions).',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            unusedExports: { type: 'array', description: 'UnusedExportFinding[]' },
+            unusedFiles: { type: 'array', description: 'UnusedFileFinding[]' },
+            unresolvedImports: { type: 'array', description: 'UnresolvedImportFinding[]' },
+            unusedDeps: { type: 'array', description: 'UnusedDepFinding[]' },
+            unusedMembers: { type: 'array', description: 'UnusedMemberFinding[]' },
+            circularDeps: { type: 'array', description: 'CircularDepFinding[]' },
+            boundaryViolations: { type: 'array', description: 'BoundaryViolFinding[]' },
+            duplicateExports: { type: 'array', description: 'DupeExportFinding[]' },
+            duplication: { type: 'array', description: 'DuplicationFinding[]' },
+            staleSuppressions: { type: 'array', description: 'StaleSuppressionFinding[]' },
+        },
+    },
+    handler: async (args) => {
+        const { pushExportDiagnostics, pushFileDiagnostics, pushImportDiagnostics, pushDepDiagnostics, pushMemberDiagnostics, pushCircularDepDiagnostics, pushBoundaryViolationDiagnostics, pushDuplicateExportDiagnostics, pushDuplicationDiagnostics, pushStaleSuppressionDiagnostics, } = await import('@monoes/monograph');
+        const map = new Map();
+        if (args.unusedExports)
+            pushExportDiagnostics(map, args.unusedExports);
+        if (args.unusedFiles)
+            pushFileDiagnostics(map, args.unusedFiles);
+        if (args.unresolvedImports)
+            pushImportDiagnostics(map, args.unresolvedImports);
+        if (args.unusedDeps)
+            pushDepDiagnostics(map, args.unusedDeps);
+        if (args.unusedMembers)
+            pushMemberDiagnostics(map, args.unusedMembers);
+        if (args.circularDeps)
+            pushCircularDepDiagnostics(map, args.circularDeps);
+        if (args.boundaryViolations)
+            pushBoundaryViolationDiagnostics(map, args.boundaryViolations);
+        if (args.duplicateExports)
+            pushDuplicateExportDiagnostics(map, args.duplicateExports);
+        if (args.duplication)
+            pushDuplicationDiagnostics(map, args.duplication);
+        if (args.staleSuppressions)
+            pushStaleSuppressionDiagnostics(map, args.staleSuppressions);
+        const all = [...map.values()].flat();
+        return { content: [{ type: 'text', text: JSON.stringify(all, null, 2) }] };
     },
 };
 // ── Export all tools ──────────────────────────────────────────────────────────
@@ -2443,13 +4578,1529 @@ export const monographTools = [
     monographSimilarFilesTool,
     monographMaintainabilityTool,
     monographCacheStatusTool,
+    monographComplexityTool,
+    monographCrapScoreTool,
     monographMirroredDirsTool,
     monographCrossReferenceTool,
     monographAuthorAnalyticsTool,
     monographRiskProfileTool,
-    monographComplexityTool,
-    monographCrapScoreTool,
     monographExplainTool,
     monographDepClosureTool,
+    monographCyclesTool,
+    monographCoverageGapsTool,
+    monographDuplicateExportsTool,
+    monographRefactoringTargetsTool,
+    monographAuditTool,
+    monographPrivateTypeLeaksTool,
+    monographFixExportsTool,
+    monographFixDepsTool,
+    monographClassifyDepsTool,
+    monographBadgeTool,
+    monographCodeClimateTool,
+    monographCompactTool,
+    monographMarkdownTool,
+    monographRuntimeCoverageTool,
+    monographCiTemplateTool,
+    monographMigrateKnipTool,
+    monographMigrateJscpdTool,
+    monographLspDiagnosticsTool,
+    monographVitalSignsSnapshotTool,
+    monographHealthTrendTool,
+    monographHealthScoreComputeTool,
+    monographRiskProfileTool,
+    monographLargeFunctionsTool,
+    monographOwnershipTool,
+    monographChurnTool,
+    monographHotspotsComputeTool,
+    monographRuntimeCoverageHealthTool,
+    monographHealthGroupTool,
+    monographChurnTraceTool,
+    monographChangedFilesTool,
+    monographSuppressionsCheckTool,
+    monographHealthBaselineTool,
+    monographRegressionConfigTool,
+    monographEnumMemberFixTool,
+    monographCodeownersGitlabTool,
+    monographCodeLensTool,
+    monographLspHoverTool,
+    monographLspDiagnosticsExtTool,
+    monographCloudCoverageTool,
+    monographUploadInventoryTool,
+    monographLicenseTool,
+    monographProgrammaticTool,
+    monographRegressionCountsTool,
+    monographRegressionOutcomeTool,
+    monographNarrowingTool,
+    monographDynamicImportsTool,
+    monographGroupingTool,
+    monographVitalSignsTool,
+    monographTargetThresholdsTool,
+    monographProductionOverrideTool,
+    monographMcpParamsTool,
+    monographFeatureFlagsTool,
+    monographCloneFamiliesTool,
+    monographDuplicationStatsTool,
+    monographChangedWorkspacesTool,
+    monographLspCodeActionsTool,
+    monographExtendedDiagnosticsTool,
+    monographConfigValidateTool,
+    monographConfigSchemaTool,
+    monographEffortTool,
+    monographQualityGateTool,
+    monographIssueFiltersTool,
+    monographExternalStyleTool,
+    monographProjectDetectionTool,
+    monographGitHooksTool,
+    monographAgentHooksTool,
+    monographDistributionThresholdsTool,
+    monographAnalysisCountsTool,
+    monographHealthReportTool,
+    monographComplexityFindingsTool,
+    monographRuntimeCoverageReportTool,
+    monographDuplicationGroupingTool,
+    monographJsonBuildersTool,
+    monographRegressionBaselineTool,
+    monographToolBuildersTool,
+    monographWorkspaceDiscoveryTool,
+    monographExternalPluginsTool,
+    monographConfigTypesTool,
+    monographScriptsTool,
+    monographDiagnosticsPushTool,
+    monographRulesConfigTool,
+    monographUsedClassMembersTool,
+    monographDuplicatesConfigTool,
+    monographIgnoreExportsConfigTool,
+    monographAnalysisJsonTool,
+    monographHumanReporterTool,
+    monographConfigResolutionTool,
+    monographCliSchemaTool,
+    monographUnusedClassMembersTool,
+    monographHealthSarifTool,
+    monographHealthBadgeTool,
+    monographHealthCodeClimateTool,
+    monographHealthMarkdownTool,
+    monographMigrateKnipExtTool,
+    monographHotPathsTool,
+    monographChurnCacheTool,
+    monographSuppressionContextTool,
+    monographToleranceTool,
+    monographCrossReferenceFindingsTool,
+    monographWatchRunnerTool,
+    monographCodeownersExtendedTool,
+    monographHealthScoresTool,
+    monographHealthTrendTypesTool,
+    monographAnalysisProgressTool,
+    monographPipelinePerfTool,
+    monographTraceHumanTool,
+    monographFixOrchestratorTool,
+    monographSinceDurationTool,
+    monographCompactHealthTool,
+    monographCrossRefHumanTool,
+    monographJsoncGenTool,
+    monographTomlGenTool,
+    monographWorkerPoolTool,
+    monographOwnershipMetricsTool,
+    monographChurnTrendTool,
 ];
+// ── Round 12: Fallow feature ports ────────────────────────────────────────────
+const monographResolveImportsTool = {
+    name: 'monograph_resolve_imports',
+    description: 'Resolve all imports across modules using the monograph import resolution pipeline (static, dynamic, CommonJS, re-exports)',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            modules: { type: 'array', description: 'Array of module info objects with fileId, path, imports, reExports' },
+            root: { type: 'string', description: 'Project root directory' },
+            pathAliases: { type: 'array', description: 'Path alias pairs [[pattern, target]]', default: [] },
+            scssIncludePaths: { type: 'array', description: 'SCSS include paths', default: [] },
+            activePlugins: { type: 'array', description: 'Active plugin names for RN/Expo extension ordering', default: [] },
+        },
+        required: ['modules', 'root'],
+    },
+    handler: async (args) => {
+        const { resolveAllImports } = await import('@monoes/monograph');
+        const resolved = resolveAllImports(args.modules, [], [], args.activePlugins ?? [], args.pathAliases ?? [], args.scssIncludePaths ?? [], args.root, []);
+        return { resolved: resolved.map(m => ({ fileId: m.fileId, path: m.path, importCount: m.resolvedImports.length, reExportCount: m.resolvedReExports.length })) };
+    },
+};
+const monographPathInfoTool = {
+    name: 'monograph_path_info',
+    description: 'Classify an import specifier: isPathAlias, isBareSpecifier, extractPackageName',
+    inputSchema: {
+        type: 'object',
+        properties: { specifier: { type: 'string', description: 'Import specifier to classify' } },
+        required: ['specifier'],
+    },
+    handler: async (args) => {
+        const { isPathAlias, isBareSpecifier, isValidPackageName, extractPackageName } = await import('@monoes/monograph');
+        return {
+            specifier: args.specifier,
+            isPathAlias: isPathAlias(args.specifier),
+            isBareSpecifier: isBareSpecifier(args.specifier),
+            isValidPackageName: isValidPackageName(args.specifier),
+            packageName: isBareSpecifier(args.specifier) ? extractPackageName(args.specifier) : null,
+        };
+    },
+};
+const monographResolveSpecifierTool = {
+    name: 'monograph_resolve_specifier',
+    description: 'Resolve a single import specifier from a given file using monograph resolution logic',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            fromFile: { type: 'string', description: 'Absolute path of the file containing the import' },
+            specifier: { type: 'string', description: 'The import specifier to resolve' },
+            root: { type: 'string', description: 'Project root directory' },
+            fromStyle: { type: 'boolean', description: 'Whether the importing file is a style file', default: false },
+        },
+        required: ['fromFile', 'specifier', 'root'],
+    },
+    handler: async (args) => {
+        const { resolveSpecifier } = await import('@monoes/monograph');
+        const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
+        const result = resolveSpecifier(ctx, args.fromFile, args.specifier, args.fromStyle ?? false);
+        return { specifier: args.specifier, result };
+    },
+};
+const monographResolveStaticImportsTool = {
+    name: 'monograph_resolve_static_imports',
+    description: 'Resolve a list of static ES module imports for a given file',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            filePath: { type: 'string', description: 'Path of the file containing imports' },
+            imports: { type: 'array', description: 'Array of ImportInfo objects with specifier field' },
+            root: { type: 'string', description: 'Project root' },
+        },
+        required: ['filePath', 'imports', 'root'],
+    },
+    handler: async (args) => {
+        const { resolveStaticImports } = await import('@monoes/monograph');
+        const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
+        return { resolved: resolveStaticImports(ctx, args.filePath, args.imports) };
+    },
+};
+const monographResolveRequireImportsTool = {
+    name: 'monograph_resolve_require_imports',
+    description: 'Resolve CommonJS require() calls for a given file',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            filePath: { type: 'string', description: 'Path of the file containing require calls' },
+            requireCalls: { type: 'array', description: 'Array of RequireCallInfo objects with specifier field' },
+            root: { type: 'string', description: 'Project root' },
+        },
+        required: ['filePath', 'requireCalls', 'root'],
+    },
+    handler: async (args) => {
+        const { resolveRequireImports } = await import('@monoes/monograph');
+        const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
+        return { resolved: resolveRequireImports(ctx, args.filePath, args.requireCalls) };
+    },
+};
+const monographResolveReExportsTool = {
+    name: 'monograph_resolve_re_exports',
+    description: 'Resolve re-export specifiers (export { x } from "y") for a given file',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            filePath: { type: 'string', description: 'Path of the file containing re-exports' },
+            reExports: { type: 'array', description: 'Array of ReExportInfo objects with specifier field' },
+            root: { type: 'string', description: 'Project root' },
+        },
+        required: ['filePath', 'reExports', 'root'],
+    },
+    handler: async (args) => {
+        const { resolveReExports } = await import('@monoes/monograph');
+        const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
+        return { resolved: resolveReExports(ctx, args.filePath, args.reExports) };
+    },
+};
+const monographResolveFallbacksTool = {
+    name: 'monograph_resolve_fallbacks',
+    description: 'Apply resolution fallbacks: source dir mapping, pnpm workspace, workspace package, SCSS include paths',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            canonicalPath: { type: 'string', description: 'Canonical file path to resolve via fallback' },
+            strategy: { type: 'string', enum: ['source', 'pnpm', 'workspace', 'glob-pattern'], description: 'Fallback strategy to apply' },
+            pattern: { type: 'string', description: 'Dynamic import pattern (for glob-pattern strategy)' },
+        },
+        required: ['canonicalPath', 'strategy'],
+    },
+    handler: async (args) => {
+        const { trySourceFallback, makeGlobFromPattern } = await import('@monoes/monograph');
+        if (args.strategy === 'source') {
+            const fileId = trySourceFallback(args.canonicalPath, new Map());
+            return { strategy: 'source', fileId, found: fileId !== null };
+        }
+        if (args.strategy === 'glob-pattern' && args.pattern) {
+            const glob = makeGlobFromPattern({ pattern: args.pattern, fromFile: args.canonicalPath });
+            return { strategy: 'glob-pattern', glob };
+        }
+        return { strategy: args.strategy, note: 'Requires a live pathToId map — use resolveAllImports for full resolution' };
+    },
+};
+const monographReactNativeTool = {
+    name: 'monograph_react_native',
+    description: 'Get React Native / Expo aware resolver configuration: platform extensions and condition names',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            activePlugins: { type: 'array', items: { type: 'string' }, description: 'Active plugin names' },
+            extraConditions: { type: 'array', items: { type: 'string' }, description: 'Extra condition names', default: [] },
+        },
+        required: ['activePlugins'],
+    },
+    handler: async (args) => {
+        const { hasReactNativePlugin, buildExtensions, buildConditionNames } = await import('@monoes/monograph');
+        return {
+            hasReactNative: hasReactNativePlugin(args.activePlugins),
+            extensions: buildExtensions(args.activePlugins),
+            conditionNames: buildConditionNames(args.activePlugins, args.extraConditions ?? []),
+        };
+    },
+};
+const monographSpecifierUpgradesTool = {
+    name: 'monograph_specifier_upgrades',
+    description: 'Apply post-resolution upgrades: promote NpmPackage targets to InternalModule when specifier resolves internally in any context',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            summary: { type: 'string', description: 'Describe the modules to apply upgrades to' },
+        },
+    },
+    handler: async (_args) => {
+        return { note: 'applySpecifierUpgrades mutates ResolvedModule[] in-place. Use resolveAllImports which calls it automatically.' };
+    },
+};
+const monographTokenTypesTool = {
+    name: 'monograph_token_types',
+    description: 'Tokenize source code and return token type breakdown for clone detection analysis',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            source: { type: 'string', description: 'Source code to tokenize' },
+            filePath: { type: 'string', description: 'File path (used to determine language)', default: 'file.ts' },
+            skipImports: { type: 'boolean', description: 'Skip import/export statements', default: false },
+        },
+        required: ['source'],
+    },
+    handler: async (args) => {
+        const { tokenizeFile } = await import('@monoes/monograph');
+        const result = tokenizeFile(args.filePath ?? 'file.ts', args.source, args.skipImports ?? false);
+        const kindCounts = {};
+        for (const tok of result.tokens)
+            kindCounts[tok.kind.kind] = (kindCounts[tok.kind.kind] ?? 0) + 1;
+        return { tokenCount: result.tokens.length, lineCount: result.lineCount, kindCounts };
+    },
+};
+const monographNormalizeTool = {
+    name: 'monograph_normalize_tokens',
+    description: 'Normalize and hash token sequences for duplicate/clone detection using configurable detection mode',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            source: { type: 'string', description: 'Source code to tokenize and normalize' },
+            filePath: { type: 'string', description: 'File path', default: 'file.ts' },
+            mode: { type: 'string', enum: ['Exact', 'NormalizeIdentifiers', 'NormalizeLiterals', 'NormalizeAll'], description: 'Normalization mode', default: 'NormalizeAll' },
+        },
+        required: ['source'],
+    },
+    handler: async (args) => {
+        const { tokenizeFile, normalizeAndHash } = await import('@monoes/monograph');
+        const tokens = tokenizeFile(args.filePath ?? 'file.ts', args.source, false);
+        const hashed = normalizeAndHash(tokens.tokens, (args.mode ?? 'NormalizeAll'));
+        return { tokenCount: tokens.tokens.length, hashedCount: hashed.length, sample: hashed.slice(0, 10) };
+    },
+};
+const monographTokenizeTool = {
+    name: 'monograph_tokenize',
+    description: 'Tokenize source files including Vue SFCs, Svelte, Astro frontmatter, MDX, and JS/TS for clone detection',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            source: { type: 'string', description: 'Source code to tokenize' },
+            filePath: { type: 'string', description: 'File path with extension to determine file type' },
+            stripTypes: { type: 'boolean', description: 'Strip TypeScript type annotations for cross-language detection', default: false },
+            skipImports: { type: 'boolean', description: 'Skip import statements', default: false },
+        },
+        required: ['source', 'filePath'],
+    },
+    handler: async (args) => {
+        const { tokenizeFileCrossLanguage } = await import('@monoes/monograph');
+        const result = tokenizeFileCrossLanguage(args.filePath, args.source, args.stripTypes ?? false, args.skipImports ?? false);
+        return { tokenCount: result.tokens.length, lineCount: result.lineCount };
+    },
+};
+const monographCheckFilterTool = {
+    name: 'monograph_check_filter',
+    description: 'Filter analysis issues by rules, severity, issue kind flags, and workspace scope',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            issues: { type: 'array', description: 'Array of AnalysisIssue objects with kind, filePath, message' },
+            root: { type: 'string', description: 'Project root' },
+            workspacePatterns: { type: 'array', items: { type: 'string' }, description: 'Workspace filter patterns' },
+        },
+        required: ['issues', 'root'],
+    },
+    handler: async (args) => {
+        const { runCheckFilter, DEFAULT_ISSUE_FILTERS } = await import('@monoes/monograph');
+        const result = runCheckFilter(args.issues, { filters: DEFAULT_ISSUE_FILTERS, root: args.root, workspace: args.workspacePatterns });
+        return { filteredCount: result.issues.length, hasErrors: result.hasErrors, filteredByWorkspace: result.filteredByWorkspace };
+    },
+};
+const monographCheckRulesTool = {
+    name: 'monograph_check_rules',
+    description: 'Apply severity rules to analysis issues and check if error-level issues exist',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            issues: { type: 'array', description: 'Array of AnalysisIssue objects' },
+            rules: { type: 'object', description: 'RulesConfig overrides (partial)', default: {} },
+        },
+        required: ['issues'],
+    },
+    handler: async (args) => {
+        const { applyRules, hasErrorSeverityIssues, DEFAULT_RULES_CONFIG } = await import('@monoes/monograph');
+        const rules = { ...DEFAULT_RULES_CONFIG, ...(args.rules ?? {}) };
+        const filtered = applyRules(args.issues, rules);
+        return { filteredCount: filtered.length, hasErrors: hasErrorSeverityIssues(filtered, rules), issues: filtered };
+    },
+};
+const monographCheckOutputTool = {
+    name: 'monograph_check_output',
+    description: 'Format analysis issues as SARIF, JSON, or text output. Parse trace specs (FILE:EXPORT_NAME format)',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            issues: { type: 'array', description: 'Array of AnalysisIssue objects' },
+            format: { type: 'string', enum: ['sarif', 'json', 'text'], description: 'Output format', default: 'text' },
+            traceSpec: { type: 'string', description: 'Trace spec to parse (FILE:EXPORT_NAME format)' },
+            toolVersion: { type: 'string', description: 'Tool version for SARIF output', default: '1.0.0' },
+        },
+    },
+    handler: async (args) => {
+        const { buildSarifOutput, formatIssuesAsText, formatIssuesAsJson, parseTraceSpec } = await import('@monoes/monograph');
+        if (args.traceSpec)
+            return { parsed: parseTraceSpec(args.traceSpec) };
+        const issues = args.issues ?? [];
+        if (args.format === 'sarif')
+            return buildSarifOutput(issues, args.toolVersion ?? '1.0.0');
+        if (args.format === 'json')
+            return JSON.parse(formatIssuesAsJson(issues));
+        return { output: formatIssuesAsText(issues, false) };
+    },
+};
+const monographFlagsTool = {
+    name: 'monograph_flags',
+    description: 'Analyze and format feature flags found in source code across a project',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            flags: { type: 'array', description: 'Array of FeatureFlag objects with name, filePath, isEnabled, line' },
+            top: { type: 'number', description: 'Limit to top N most-used flags' },
+            format: { type: 'string', enum: ['text', 'grouped'], description: 'Output format', default: 'text' },
+        },
+        required: ['flags'],
+    },
+    handler: async (args) => {
+        const { groupFlagsByName, formatFlagsText } = await import('@monoes/monograph');
+        const result = { flags: args.flags, totalFiles: new Set(args.flags.map((f) => f.filePath)).size, totalFlags: args.flags.length };
+        if (args.format === 'grouped') {
+            const grouped = {};
+            for (const [name, uses] of groupFlagsByName(args.flags))
+                grouped[name] = uses;
+            return { grouped, totalFlags: args.flags.length };
+        }
+        return { output: formatFlagsText(result, args.top) };
+    },
+};
+const monographErrorTypesTool = {
+    name: 'monograph_error_types',
+    description: 'Format and emit monograph analysis errors with typed error classes (Config, Resolve, Analysis)',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            message: { type: 'string', description: 'Error message' },
+            errorType: { type: 'string', enum: ['config', 'resolve', 'analysis'], description: 'Error type', default: 'analysis' },
+            format: { type: 'string', enum: ['text', 'json'], description: 'Output format', default: 'text' },
+        },
+        required: ['message'],
+    },
+    handler: async (args) => {
+        const { formatError } = await import('@monoes/monograph');
+        const err = { code: args.errorType === 'config' ? 'CONFIG_ERROR' : args.errorType === 'resolve' ? 'RESOLVE_ERROR' : 'ANALYSIS_ERROR', message: args.message };
+        return { formatted: formatError(err, (args.format ?? 'text')), error: err };
+    },
+};
+monographTools.push(monographResolveImportsTool, monographPathInfoTool, monographResolveSpecifierTool, monographResolveStaticImportsTool, monographResolveRequireImportsTool, monographResolveReExportsTool, monographResolveFallbacksTool, monographReactNativeTool, monographSpecifierUpgradesTool, monographTokenTypesTool, monographNormalizeTool, monographTokenizeTool, monographCheckFilterTool, monographCheckRulesTool, monographCheckOutputTool, monographFlagsTool, monographErrorTypesTool);
+// ── Round 13: Fallow feature ports ────────────────────────────────────────────
+const monographAnalysisResultsTool = {
+    name: 'monograph_analysis_results',
+    description: 'Create, merge, filter, and query AnalysisResults containers that aggregate all issue types (unused files, exports, members, deps, circular deps, boundary violations, stale suppressions, duplicate exports)',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            operation: { type: 'string', enum: ['empty', 'total', 'hasIssues', 'merge', 'filterByFile'], description: 'Operation to perform', default: 'empty' },
+            results: { type: 'object', description: 'AnalysisResults object (for total/hasIssues/filterByFile)' },
+            resultsB: { type: 'object', description: 'Second AnalysisResults for merge' },
+            filePaths: { type: 'array', items: { type: 'string' }, description: 'File paths for filterByFile operation' },
+        },
+    },
+    handler: async (args) => {
+        const { makeEmptyAnalysisResults, totalIssues, hasIssues, mergeAnalysisResults, filterResultsByFile } = await import('@monoes/monograph');
+        const op = args.operation ?? 'empty';
+        if (op === 'empty')
+            return makeEmptyAnalysisResults();
+        if (op === 'total' && args.results)
+            return { total: totalIssues(args.results) };
+        if (op === 'hasIssues' && args.results)
+            return { hasIssues: hasIssues(args.results) };
+        if (op === 'merge' && args.results && args.resultsB)
+            return mergeAnalysisResults(args.results, args.resultsB);
+        if (op === 'filterByFile' && args.results && args.filePaths)
+            return filterResultsByFile(args.results, new Set(args.filePaths));
+        return { error: 'Invalid operation or missing arguments' };
+    },
+};
+const monographProjectStateTool = {
+    name: 'monograph_project_state',
+    description: 'Build and query ProjectState: a registry of files and workspace entries with ID-based lookup and longest-prefix package resolution',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            files: { type: 'array', description: 'Array of ProjectFile objects with id, path, workspaceId' },
+            workspaces: { type: 'array', description: 'Array of WorkspaceEntry objects with id, name, rootDir, packageName' },
+            operation: { type: 'string', enum: ['build', 'fileById', 'idForPath', 'workspaceForFile', 'filesInWorkspace', 'resolvePackage'], description: 'Operation', default: 'build' },
+            fileId: { type: 'number', description: 'File ID for fileById/workspaceForFile operations' },
+            filePath: { type: 'string', description: 'File path for idForPath operation' },
+            workspaceId: { type: 'number', description: 'Workspace ID for filesInWorkspace operation' },
+            packageSpec: { type: 'string', description: 'Package specifier for resolvePackage operation' },
+        },
+    },
+    handler: async (args) => {
+        const { makeProjectState, fileById, idForPath, workspaceForFile, filesInWorkspace } = await import('@monoes/monograph');
+        const state = makeProjectState(args.files ?? [], args.workspaces ?? []);
+        const op = args.operation ?? 'build';
+        if (op === 'build')
+            return { fileCount: state.files.size, workspaceCount: state.workspaces.length };
+        if (op === 'fileById' && args.fileId !== undefined)
+            return { file: fileById(state, args.fileId) };
+        if (op === 'idForPath' && args.filePath)
+            return { id: idForPath(state, args.filePath) };
+        if (op === 'workspaceForFile' && args.fileId !== undefined)
+            return { workspace: workspaceForFile(state, args.fileId) };
+        if (op === 'filesInWorkspace' && args.workspaceId !== undefined) {
+            const ws = state.workspaces.find((w) => w.id === args.workspaceId);
+            return { files: ws ? filesInWorkspace(state, ws) : [] };
+        }
+        return { error: 'Invalid operation' };
+    },
+};
+const monographGitChangedFilesTool = {
+    name: 'monograph_git_changed_files',
+    description: 'Get files changed since a git ref (branch, tag, or commit SHA). Validates ref for security. Optionally returns changed file paths for incremental analysis.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            root: { type: 'string', description: 'Git repository root directory' },
+            since: { type: 'string', description: 'Git ref (branch, tag, SHA) to compare against' },
+        },
+        required: ['root', 'since'],
+    },
+    handler: async (args) => {
+        const { getChangedFilesSince } = await import('@monoes/monograph');
+        try {
+            const files = getChangedFilesSince(args.root, args.since);
+            return { changedFiles: files, count: files.length };
+        }
+        catch (e) {
+            return { error: e.message };
+        }
+    },
+};
+const monographMigrationTypesTool = {
+    name: 'monograph_migration_types',
+    description: 'Detect migration source (knip/jscpd/fallow/auto), build migration warnings, and construct migration results for config migration pipelines',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            operation: { type: 'string', enum: ['detect', 'warning', 'success', 'constants'], description: 'Operation to perform', default: 'constants' },
+            dirPath: { type: 'string', description: 'Directory path for detect operation' },
+            files: { type: 'array', items: { type: 'string' }, description: 'File list for detect operation' },
+            field: { type: 'string', description: 'Field name for warning operation' },
+            message: { type: 'string', description: 'Warning message' },
+            config: { type: 'object', description: 'Migrated config for success operation' },
+            sources: { type: 'array', items: { type: 'string' }, description: 'Source files for success operation' },
+        },
+    },
+    handler: async (args) => {
+        const { detectMigrationSource, makeMigrationWarning, migrationSuccess, KNIP_CONFIG_FILENAMES, JSCPD_CONFIG_FILENAMES } = await import('@monoes/monograph');
+        const op = args.operation ?? 'constants';
+        if (op === 'constants')
+            return { knipConfigFiles: KNIP_CONFIG_FILENAMES, jscpdConfigFiles: JSCPD_CONFIG_FILENAMES };
+        if (op === 'detect' && args.dirPath)
+            return { source: detectMigrationSource(args.dirPath, args.files ?? []) };
+        if (op === 'warning' && args.field && args.message)
+            return { warning: makeMigrationWarning(args.field, args.message) };
+        if (op === 'success' && args.config)
+            return migrationSuccess(args.config, args.sources ?? []);
+        return { error: 'Invalid operation' };
+    },
+};
+const monographBadgeSvgTool = {
+    name: 'monograph_badge_svg',
+    description: 'Generate SVG badges for health scores and grades (Shields.io-compatible format with Verdana text width calculation)',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            type: { type: 'string', enum: ['health', 'grade', 'custom'], description: 'Badge type', default: 'health' },
+            score: { type: 'number', description: 'Health score (0-100) for health/grade badges' },
+            grade: { type: 'string', description: 'Letter grade (A-F) for grade badge' },
+            label: { type: 'string', description: 'Label text for custom badge' },
+            message: { type: 'string', description: 'Message text for custom badge' },
+            color: { type: 'string', description: 'Badge color hex for custom badge' },
+        },
+    },
+    handler: async (args) => {
+        const { renderHealthBadge, renderGradeBadge, renderBadge, textWidth, gradeColor } = await import('@monoes/monograph');
+        const type = args.type ?? 'health';
+        if (type === 'health' && args.score !== undefined)
+            return { svg: renderHealthBadge(args.score, args.grade ?? 'A') };
+        if (type === 'grade' && args.grade)
+            return { svg: renderGradeBadge(args.label ?? 'grade', args.grade) };
+        if (type === 'custom' && args.label && args.message) {
+            return { svg: renderBadge({ label: args.label, message: args.message, color: args.color ?? '#4c1', labelWidth: textWidth(args.label), messageWidth: textWidth(args.message) }) };
+        }
+        return { error: 'Invalid arguments' };
+    },
+};
+const monographAttributedDuplicationTool = {
+    name: 'monograph_attributed_duplication',
+    description: 'Attribute clone groups to directory owners and format duplication groups with ownership context',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            groups: { type: 'array', description: 'Array of CloneGroup objects with instances [{filePath, startLine, endLine}] and duplicatedLines' },
+            root: { type: 'string', description: 'Project root for relative path display', default: '' },
+            format: { type: 'string', enum: ['lines', 'json'], description: 'Output format', default: 'json' },
+        },
+        required: ['groups'],
+    },
+    handler: async (args) => {
+        const { resolveOwnerFromDirectory, formatDuplicationGroup } = await import('@monoes/monograph');
+        const root = args.root ?? '';
+        if (args.format === 'lines') {
+            const lines = args.groups.flatMap((g) => formatDuplicationGroup(g, root));
+            return { lines };
+        }
+        const withOwners = args.groups.map((g) => ({
+            ...g,
+            primaryOwner: g.instances[0] ? resolveOwnerFromDirectory(g.instances[0].filePath, root) : 'unknown',
+        }));
+        return { groups: withOwners };
+    },
+};
+const monographNumberFormatTool = {
+    name: 'monograph_number_format',
+    description: 'Format numbers, file paths, durations, byte sizes, and issue lists for human-readable output with grouped-by-file summaries',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            operation: { type: 'string', enum: ['thousands', 'percent', 'path', 'duration', 'bytes', 'pluralize', 'groupByFile', 'circularCycle'], description: 'Format operation', default: 'thousands' },
+            value: { type: 'number', description: 'Numeric value for thousands/percent/duration/bytes' },
+            filePath: { type: 'string', description: 'File path for path operation' },
+            root: { type: 'string', description: 'Project root for relative paths', default: '' },
+            singular: { type: 'string', description: 'Singular noun for pluralize' },
+            plural: { type: 'string', description: 'Plural noun for pluralize' },
+            items: { type: 'array', description: 'Items with filePath field for groupByFile' },
+            cycle: { type: 'array', items: { type: 'string' }, description: 'Cycle paths for circularCycle' },
+        },
+    },
+    handler: async (args) => {
+        const { thousands, formatPercent, formatPath, formatDuration, formatBytes, pluralize, buildGroupedByFile, formatCircularCycle } = await import('@monoes/monograph');
+        const op = args.operation ?? 'thousands';
+        const root = args.root ?? '';
+        if (op === 'thousands' && args.value !== undefined)
+            return { formatted: thousands(args.value) };
+        if (op === 'percent' && args.value !== undefined)
+            return { formatted: formatPercent(args.value) };
+        if (op === 'path' && args.filePath)
+            return { formatted: formatPath(args.filePath, root) };
+        if (op === 'duration' && args.value !== undefined)
+            return { formatted: formatDuration(args.value) };
+        if (op === 'bytes' && args.value !== undefined)
+            return { formatted: formatBytes(args.value) };
+        if (op === 'pluralize' && args.value !== undefined && args.singular)
+            return { formatted: pluralize(args.value, args.singular, args.plural) };
+        if (op === 'groupByFile' && args.items)
+            return { groups: buildGroupedByFile(args.items, root) };
+        if (op === 'circularCycle' && args.cycle)
+            return { formatted: formatCircularCycle(args.cycle, root) };
+        return { error: 'Invalid operation' };
+    },
+};
+const monographHealthReportTypesTool = {
+    name: 'monograph_health_report_types',
+    description: 'Compute health scores with penalty breakdown, vital signs, and format vital signs for display. Includes letter grading (A-F) and issue count aggregation.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            operation: { type: 'string', enum: ['makeScore', 'vitalSigns', 'formatVitalSigns', 'letterGrade'], description: 'Operation', default: 'makeScore' },
+            score: { type: 'number', description: 'Score value (0-100)' },
+            penalties: { type: 'object', description: 'Partial HealthScorePenalties (complexity, duplication, deadCode, coupling, maintainability)' },
+            vitalSigns: { type: 'object', description: 'Partial VitalSigns for computeVitalSigns/formatVitalSigns' },
+        },
+    },
+    handler: async (args) => {
+        const { makeHealthScore, computeVitalSigns, formatVitalSigns } = await import('@monoes/monograph');
+        const op = args.operation ?? 'makeScore';
+        if (op === 'makeScore' && args.score !== undefined)
+            return makeHealthScore(args.score, args.penalties ?? {});
+        if (op === 'vitalSigns')
+            return computeVitalSigns(args.vitalSigns ?? {});
+        if (op === 'formatVitalSigns')
+            return { lines: formatVitalSigns(computeVitalSigns(args.vitalSigns ?? {})) };
+        if (op === 'letterGrade' && args.score !== undefined) {
+            const hs = makeHealthScore(args.score);
+            return { grade: hs.grade };
+        }
+        return { error: 'Invalid operation' };
+    },
+};
+const monographFallowErrorTool = {
+    name: 'monograph_fallow_error',
+    description: 'Create, format, and classify typed FallowError instances with error codes (E001-E006) for file-read, parse, resolve, config, git, and IO errors',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            operation: { type: 'string', enum: ['create', 'format', 'check'], description: 'Operation', default: 'create' },
+            kind: { type: 'string', enum: ['fileRead', 'parse', 'resolve', 'config', 'git', 'io'], description: 'Error kind for create', default: 'io' },
+            message: { type: 'string', description: 'Error message' },
+            path: { type: 'string', description: 'File path for fileRead/io errors' },
+            help: { type: 'string', description: 'Optional help text' },
+            err: { type: 'object', description: 'Error object for format/check operations' },
+        },
+    },
+    handler: async (args) => {
+        const { FallowError, isFallowError, formatFallowError } = await import('@monoes/monograph');
+        const op = args.operation ?? 'create';
+        if (op === 'format')
+            return { formatted: formatFallowError(args.err) };
+        if (op === 'check')
+            return { isFallowError: isFallowError(args.err) };
+        const kind = args.kind ?? 'io';
+        let err;
+        if (kind === 'fileRead')
+            err = FallowError.fileRead(args.path ?? '', args.message ?? '');
+        else if (kind === 'parse')
+            err = FallowError.parse(args.path ?? '', args.message ?? '');
+        else if (kind === 'resolve')
+            err = FallowError.resolve(args.message ?? '');
+        else if (kind === 'config')
+            err = FallowError.config(args.message ?? '');
+        else if (kind === 'git')
+            err = FallowError.git(args.message ?? '');
+        else
+            err = FallowError.io(args.message ?? '');
+        if (args.help)
+            err = err.withHelp(args.help);
+        return { error: formatFallowError(err), kind: err.kind };
+    },
+};
+const monographGroupedOutputTool = {
+    name: 'monograph_grouped_output',
+    description: 'Format analysis result groups into JSON, text, or compact output, optionally partitioned by owner',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            groups: { type: 'array', description: 'Array of ResultGroup objects with name, issues, filePaths, ownerName' },
+            format: { type: 'string', enum: ['json', 'text', 'compact'], description: 'Output format', default: 'text' },
+            root: { type: 'string', description: 'Project root for relative paths', default: '' },
+            partitionByOwner: { type: 'boolean', description: 'Partition groups by owner', default: false },
+        },
+        required: ['groups'],
+    },
+    handler: async (args) => {
+        const { buildGroupedJsonOutput, buildGroupedTextLines, buildGroupedCompactLines, partitionGroupsByOwner } = await import('@monoes/monograph');
+        const root = args.root ?? '';
+        const groups = args.partitionByOwner ? [...partitionGroupsByOwner(args.groups).values()].flat() : args.groups;
+        const fmt = args.format ?? 'text';
+        if (fmt === 'json')
+            return buildGroupedJsonOutput(groups, root);
+        if (fmt === 'compact')
+            return { lines: buildGroupedCompactLines(groups, root) };
+        return { lines: buildGroupedTextLines(groups, root) };
+    },
+};
+const monographJsonSchemaTool = {
+    name: 'monograph_json_schema',
+    description: 'Build versioned JSON envelopes for analysis, health, and duplication results with schema version headers',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            operation: { type: 'string', enum: ['analysis', 'health', 'duplication', 'versions'], description: 'Envelope type to build', default: 'versions' },
+            payload: { type: 'object', description: 'Result payload to wrap in envelope' },
+            root: { type: 'string', description: 'Project root for path stripping', default: '' },
+        },
+    },
+    handler: async (args) => {
+        const { buildAnalysisJsonEnvelope, buildHealthJsonEnvelope, buildDuplicationJsonEnvelope, ANALYSIS_SCHEMA_VERSION, HEALTH_SCHEMA_VERSION, DUPLICATION_SCHEMA_VERSION } = await import('@monoes/monograph');
+        const root = args.root ?? '';
+        const op = args.operation ?? 'versions';
+        if (op === 'versions')
+            return { analysisVersion: ANALYSIS_SCHEMA_VERSION, healthVersion: HEALTH_SCHEMA_VERSION, duplicationVersion: DUPLICATION_SCHEMA_VERSION };
+        if (op === 'analysis' && args.payload)
+            return buildAnalysisJsonEnvelope(args.payload, root);
+        if (op === 'health' && args.payload)
+            return buildHealthJsonEnvelope(args.payload, root);
+        if (op === 'duplication' && args.payload)
+            return buildDuplicationJsonEnvelope(args.payload, root);
+        return { error: 'Invalid operation or missing payload' };
+    },
+};
+monographTools.push(monographAnalysisResultsTool, monographProjectStateTool, monographGitChangedFilesTool, monographMigrationTypesTool, monographBadgeSvgTool, monographAttributedDuplicationTool, monographNumberFormatTool, monographHealthReportTypesTool, monographFallowErrorTool, monographGroupedOutputTool, monographJsonSchemaTool);
+// ── Round 14: Fallow feature ports ────────────────────────────────────────────
+const monographFilePredicatesTool = {
+    name: 'monograph_file_predicates',
+    description: 'Check whether a file path or import specifier matches various categories: declaration, HTML, config, test, virtual module, builtin Node.js module, implicit dependency, or framework lifecycle method',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            check: { type: 'string', enum: ['isDeclarationFile', 'isHtmlFile', 'isConfigFile', 'isTestFile', 'isVirtualModule', 'isBuiltinModule', 'isImplicitDependency', 'isFrameworkLifecycleMethod'], description: 'Predicate to evaluate' },
+            value: { type: 'string', description: 'File path or specifier to test' },
+        },
+        required: ['check', 'value'],
+    },
+    handler: async (args) => {
+        const m = await import('@monoes/monograph');
+        const { check, value } = args;
+        if (check === 'isDeclarationFile')
+            return { result: m.isDeclarationFile(value) };
+        if (check === 'isHtmlFile')
+            return { result: m.isHtmlFile(value) };
+        if (check === 'isConfigFile')
+            return { result: m.isConfigFile(value) };
+        if (check === 'isTestFile')
+            return { result: m.isTestFile(value) };
+        if (check === 'isVirtualModule')
+            return { result: m.isVirtualModule(value) };
+        if (check === 'isBuiltinModule')
+            return { result: m.isBuiltinModule(value) };
+        if (check === 'isImplicitDependency')
+            return { result: m.isImplicitDependency(value) };
+        if (check === 'isFrameworkLifecycleMethod')
+            return { result: m.isFrameworkLifecycleMethod(value) };
+        return { error: 'Unknown check' };
+    },
+};
+const monographUnusedFilesTool = {
+    name: 'monograph_unused_files',
+    description: 'Find files that have no reachable importers from any entry point. Returns list of unreferenced file paths with their reason.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            allFiles: { type: 'array', items: { type: 'string' }, description: 'All file paths in the project' },
+            entryPoints: { type: 'array', items: { type: 'string' }, description: 'Entry point file paths' },
+            importGraph: { type: 'object', description: 'Map of file -> array of imported file paths (adjacency list)' },
+            ignore: { type: 'array', items: { type: 'string' }, description: 'Glob patterns to ignore', default: [] },
+        },
+        required: ['allFiles', 'entryPoints', 'importGraph'],
+    },
+    handler: async (args) => {
+        const { findUnusedFiles } = await import('@monoes/monograph');
+        const results = findUnusedFiles(args.allFiles, args.entryPoints, args.importGraph, args.ignore ?? []);
+        return { unusedFiles: results, count: results.length };
+    },
+};
+const monographUnusedDepsTool = {
+    name: 'monograph_unused_deps',
+    description: 'Find unused, unresolved, or type-only dependencies given a set of declared packages and actual import specifiers found in source files',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            operation: { type: 'string', enum: ['unused', 'unresolved', 'typeOnly'], description: 'Which analysis to run', default: 'unused' },
+            declaredDeps: { type: 'array', items: { type: 'string' }, description: 'Package names declared in package.json dependencies' },
+            usedSpecifiers: { type: 'array', items: { type: 'string' }, description: 'Import specifiers found in source files' },
+            devDeps: { type: 'array', items: { type: 'string' }, description: 'Package names in devDependencies', default: [] },
+        },
+        required: ['declaredDeps', 'usedSpecifiers'],
+    },
+    handler: async (args) => {
+        const { findUnusedDependencies, findUnresolvedImports, findTypeOnlyDependencies } = await import('@monoes/monograph');
+        const op = args.operation ?? 'unused';
+        if (op === 'unused')
+            return { results: findUnusedDependencies(args.declaredDeps, args.usedSpecifiers, args.devDeps ?? []) };
+        if (op === 'unresolved')
+            return { results: findUnresolvedImports(args.usedSpecifiers, args.declaredDeps) };
+        if (op === 'typeOnly')
+            return { results: findTypeOnlyDependencies(args.declaredDeps, args.usedSpecifiers) };
+        return { error: 'Unknown operation' };
+    },
+};
+const monographEntryPointsTool = {
+    name: 'monograph_entry_points',
+    description: 'Categorize entry points into runtime vs test buckets, deduplicate, and generate warnings for skipped entries',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            operation: { type: 'string', enum: ['categorize', 'deduplicate', 'isTest'], description: 'Operation to perform', default: 'categorize' },
+            entryPoints: { type: 'array', items: { type: 'string' }, description: 'Array of file paths to process' },
+        },
+        required: ['entryPoints'],
+    },
+    handler: async (args) => {
+        const { categorizeEntryPoints, deduplicateEntryPoints, isTestEntryPoint } = await import('@monoes/monograph');
+        const op = args.operation ?? 'categorize';
+        if (op === 'categorize')
+            return categorizeEntryPoints(args.entryPoints);
+        if (op === 'deduplicate')
+            return { entryPoints: deduplicateEntryPoints(args.entryPoints) };
+        if (op === 'isTest')
+            return { results: args.entryPoints.map(p => ({ path: p, isTest: isTestEntryPoint(p) })) };
+        return { error: 'Unknown operation' };
+    },
+};
+const monographGraphReachabilityTool = {
+    name: 'monograph_graph_reachability',
+    description: 'Mark nodes reachable/unreachable from entry points using BFS traversal. Returns sets of reachable and unreachable node IDs.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            operation: { type: 'string', enum: ['mark', 'collectReachable', 'collectUnreachable'], description: 'Operation to run', default: 'collectReachable' },
+            nodes: { type: 'array', description: 'Array of ModuleNode objects with id, flags, importedIds fields' },
+            entryIds: { type: 'array', items: { type: 'number' }, description: 'Entry point node IDs' },
+            includeRuntime: { type: 'boolean', description: 'Include runtime-reachable nodes', default: true },
+            includeTest: { type: 'boolean', description: 'Include test-reachable nodes', default: true },
+        },
+        required: ['nodes', 'entryIds'],
+    },
+    handler: async (args) => {
+        const { markReachable, collectReachable, collectUnreachable } = await import('@monoes/monograph');
+        const nodeMap = new Map(args.nodes.map((n) => [n.id, n]));
+        markReachable(nodeMap, args.entryIds, { runtime: args.includeRuntime ?? true, test: args.includeTest ?? true });
+        if (args.operation === 'collectUnreachable') {
+            return { unreachableIds: [...collectUnreachable(nodeMap)] };
+        }
+        return { reachableIds: [...collectReachable(nodeMap)] };
+    },
+};
+const monographFindCyclesTool = {
+    name: 'monograph_find_cycles',
+    description: "Detect circular dependency cycles using Tarjan's iterative SCC algorithm. Returns cycle groups with file paths and sizes.",
+    inputSchema: {
+        type: 'object',
+        properties: {
+            nodes: { type: 'array', description: 'Array of ModuleNode objects with id, filePath, importedIds' },
+            skipTypeOnly: { type: 'boolean', description: 'Skip type-only import edges when detecting cycles', default: false },
+            minSize: { type: 'number', description: 'Minimum cycle size to report', default: 2 },
+        },
+        required: ['nodes'],
+    },
+    handler: async (args) => {
+        const { findCycles } = await import('@monoes/monograph');
+        const nodeMap = new Map(args.nodes.map((n) => [n.id, n]));
+        const cycles = findCycles(nodeMap, { skipTypeOnly: args.skipTypeOnly ?? false, minSize: args.minSize ?? 2 });
+        return { cycles, cycleCount: cycles.length, totalFilesInCycles: cycles.reduce((s, c) => s + c.filePaths.length, 0) };
+    },
+};
+const monographSuffixArrayPipelineTool = {
+    name: 'monograph_suffix_array_pipeline',
+    description: 'Run the full suffix array clone detection pipeline: rank-reduce tokens, build suffix array + LCP, extract clone groups, filter by containment. Returns raw clone groups.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            files: { type: 'array', description: 'Array of { filePath, tokens } objects where tokens is number[]' },
+            minTokens: { type: 'number', description: 'Minimum clone length in tokens', default: 40 },
+            minLines: { type: 'number', description: 'Minimum clone length in lines', default: 5 },
+        },
+        required: ['files'],
+    },
+    handler: async (args) => {
+        const { rankReduce, concatenateWithSentinels, buildSuffixArray, buildLcp, extractCloneGroups, filterCloneGroups, computePipelineStats } = await import('@monoes/monograph');
+        const minTokens = args.minTokens ?? 40;
+        const minLines = args.minLines ?? 5;
+        const allTokens = args.files.flatMap(f => f.tokens);
+        const { ranked: _r, maxRank } = rankReduce(allTokens);
+        const filesWithRanked = args.files.map(f => ({ ...f, tokens: rankReduce(f.tokens).ranked }));
+        const { text, fileRanges } = concatenateWithSentinels(filesWithRanked);
+        const sa = buildSuffixArray(text, maxRank);
+        const lcp = buildLcp(text, sa);
+        const rawGroups = extractCloneGroups(sa, lcp, text, fileRanges, minTokens);
+        const filtered = filterCloneGroups(rawGroups, minLines);
+        const stats = computePipelineStats(filtered, args.files.length, text.length);
+        return { groups: filtered, stats };
+    },
+};
+const monographShingleFilterTool = {
+    name: 'monograph_shingle_filter',
+    description: 'Build a shingle (k-gram) fingerprint set for a token stream, and filter a set of files to those that share shingles with a focus file',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            operation: { type: 'string', enum: ['buildShingles', 'filter'], description: 'Operation to perform', default: 'buildShingles' },
+            tokens: { type: 'array', items: { type: 'number' }, description: 'Token array for buildShingles' },
+            focusTokens: { type: 'array', items: { type: 'number' }, description: 'Focus file token array for filter operation' },
+            candidateFiles: { type: 'array', description: 'Array of { filePath, tokens } for filter operation' },
+            shingleSize: { type: 'number', description: 'Shingle size k', default: 7 },
+        },
+    },
+    handler: async (args) => {
+        const { buildShingleSet, filterToFocusCandidates, SHINGLE_SIZE } = await import('@monoes/monograph');
+        const k = args.shingleSize ?? SHINGLE_SIZE;
+        if (args.operation === 'filter' && args.focusTokens && args.candidateFiles) {
+            const focusSet = buildShingleSet(args.focusTokens, k);
+            const result = filterToFocusCandidates(focusSet, args.candidateFiles, k);
+            return { candidates: result };
+        }
+        if (args.tokens) {
+            const set = buildShingleSet(args.tokens, k);
+            return { shingleCount: set.size, shingles: [...set].slice(0, 20) };
+        }
+        return { error: 'Provide tokens for buildShingles or focusTokens+candidateFiles for filter' };
+    },
+};
+const monographCloneFamiliesTool = {
+    name: 'monograph_clone_families',
+    description: 'Group raw clone groups by shared file sets into families and generate refactoring suggestions (ExtractFunction, ExtractModule, MergeDirectories)',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            groups: { type: 'array', description: 'Array of RawGroup objects from suffix array pipeline' },
+        },
+        required: ['groups'],
+    },
+    handler: async (args) => {
+        const { groupRawGroupsIntoFamilies } = await import('@monoes/monograph');
+        const families = groupRawGroupsIntoFamilies(args.groups);
+        return { families, totalFamilies: families.length, totalDuplicatedLines: families.reduce((s, f) => s + f.totalDuplicatedLines, 0) };
+    },
+};
+const monographHealthScoringTool = {
+    name: 'monograph_health_scoring',
+    description: 'Compute file health scoring metrics: maintainability index (MI formula), complexity density, and dead code ratio',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            operation: { type: 'string', enum: ['maintainabilityIndex', 'complexityDensity', 'deadCodeRatio'], description: 'Metric to compute', default: 'maintainabilityIndex' },
+            halsteadVolume: { type: 'number', description: 'Halstead volume (for maintainabilityIndex)' },
+            cyclomaticComplexity: { type: 'number', description: 'Cyclomatic complexity' },
+            lineCount: { type: 'number', description: 'Lines of code' },
+            unusedExports: { type: 'number', description: 'Number of unused exports (for deadCodeRatio)' },
+            totalExports: { type: 'number', description: 'Total exports (for deadCodeRatio)' },
+        },
+    },
+    handler: async (args) => {
+        const { computeMaintainabilityIndex, computeComplexityDensity, computeDeadCodeRatio } = await import('@monoes/monograph');
+        const op = args.operation ?? 'maintainabilityIndex';
+        if (op === 'maintainabilityIndex')
+            return { maintainabilityIndex: computeMaintainabilityIndex(args.halsteadVolume ?? 0, args.cyclomaticComplexity ?? 1, args.lineCount ?? 1) };
+        if (op === 'complexityDensity')
+            return { complexityDensity: computeComplexityDensity(args.cyclomaticComplexity ?? 0, args.lineCount ?? 1) };
+        if (op === 'deadCodeRatio')
+            return { deadCodeRatio: computeDeadCodeRatio(args.unusedExports ?? 0, args.totalExports ?? 1) };
+        return { error: 'Unknown operation' };
+    },
+};
+const monographOwnershipRiskTool = {
+    name: 'monograph_ownership_risk',
+    description: 'Compute bus factor and ownership risk for a set of files given git contributor records. Identifies single-owner files and knowledge concentration risk.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            contributors: { type: 'array', description: 'Array of { email, name, commits, linesChanged } contributor records' },
+            filePath: { type: 'string', description: 'File path for ownership risk computation', default: '' },
+            totalCommits: { type: 'number', description: 'Total commits to the file' },
+        },
+        required: ['contributors'],
+    },
+    handler: async (args) => {
+        const { computeOwnershipRisk, isBot } = await import('@monoes/monograph');
+        const filtered = args.contributors.filter((c) => !isBot(c.email, c.name));
+        const total = args.totalCommits ?? filtered.reduce((s, c) => s + (c.commits ?? 0), 0);
+        return computeOwnershipRisk(filtered, args.filePath ?? '', total);
+    },
+};
+const monographHotspotNormalizeTool = {
+    name: 'monograph_hotspot_normalize',
+    description: 'Compute p95 normalization maxima from a set of file hotspot data, then normalize individual hotspot scores (60% churn + 40% complexity)',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            operation: { type: 'string', enum: ['computeMaxima', 'normalizeScore'], description: 'Operation to run', default: 'normalizeScore' },
+            files: { type: 'array', description: 'Array of { churnScore, complexityScore } for computeMaxima' },
+            churnScore: { type: 'number', description: 'Raw churn score for normalizeScore' },
+            complexityScore: { type: 'number', description: 'Raw complexity score for normalizeScore' },
+            maxima: { type: 'object', description: 'NormalizationMaxima object from computeMaxima' },
+        },
+    },
+    handler: async (args) => {
+        const { computeNormalizationMaxima, normalizeHotspotScore } = await import('@monoes/monograph');
+        const op = args.operation ?? 'normalizeScore';
+        if (op === 'computeMaxima' && args.files)
+            return { maxima: computeNormalizationMaxima(args.files) };
+        if (op === 'normalizeScore' && args.maxima !== undefined)
+            return { score: normalizeHotspotScore(args.churnScore ?? 0, args.complexityScore ?? 0, args.maxima) };
+        return { error: 'Provide files for computeMaxima or churnScore+complexityScore+maxima for normalizeScore' };
+    },
+};
+monographTools.push(monographFilePredicatesTool, monographUnusedFilesTool, monographUnusedDepsTool, monographEntryPointsTool, monographGraphReachabilityTool, monographFindCyclesTool, monographSuffixArrayPipelineTool, monographShingleFilterTool, monographCloneFamiliesTool, monographHealthScoringTool, monographOwnershipRiskTool, monographHotspotNormalizeTool);
+// ── Round 15: Fallow feature ports ──────────────────────────────────────────
+const monographBoundaryConfigTool = {
+    name: 'monograph_boundary_config',
+    description: 'Resolve boundary zone configuration from a preset or custom zones/rules, classify a file path into a zone, and check if an import is allowed.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['expand_preset', 'resolve', 'classify', 'check_import'], description: 'Operation to perform' },
+            preset: { type: 'string', enum: ['layered', 'hexagonal', 'feature-sliced', 'bulletproof'], description: 'Preset name for expand_preset/resolve' },
+            zones: { type: 'array', items: { type: 'object' }, description: 'Custom zone configs for resolve' },
+            rules: { type: 'array', items: { type: 'object' }, description: 'Custom rule configs for resolve' },
+            filePath: { type: 'string', description: 'File path to classify' },
+            fromFile: { type: 'string', description: 'Importing file for check_import' },
+            toFile: { type: 'string', description: 'Imported file for check_import' },
+            sourceRoot: { type: 'string', description: 'Project source root (default: "src")' },
+        },
+        required: ['action'],
+    },
+    handler: async (args) => {
+        const { expandPreset, resolveBoundaryConfig, classifyZone: classifyZoneFn, isImportAllowed } = await import('@monoes/monograph');
+        const action = args.action;
+        const sourceRoot = args.sourceRoot ?? 'src';
+        if (action === 'expand_preset') {
+            return expandPreset(args.preset, sourceRoot);
+        }
+        const config = { preset: args.preset, zones: args.zones, rules: args.rules };
+        const resolved = resolveBoundaryConfig(config, sourceRoot);
+        if (action === 'resolve')
+            return resolved;
+        if (action === 'classify')
+            return { zone: classifyZoneFn(args.filePath, resolved) };
+        if (action === 'check_import')
+            return { allowed: isImportAllowed(args.fromFile, args.toFile, resolved) };
+        return { error: 'Unknown action' };
+    },
+};
+const monographOutputFormatTool = {
+    name: 'monograph_output_format',
+    description: 'Parse or validate a Fallow output format string (text, json, compact, code-climate, etc.).',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['parse', 'validate', 'default'], description: 'Operation' },
+            format: { type: 'string', description: 'Format string to parse or validate' },
+        },
+        required: ['action'],
+    },
+    handler: async (args) => {
+        const { parseFallowOutputFormat, isFallowOutputFormat, DEFAULT_OUTPUT_FORMAT } = await import('@monoes/monograph');
+        const action = args.action;
+        if (action === 'default')
+            return { format: DEFAULT_OUTPUT_FORMAT };
+        if (action === 'validate')
+            return { valid: isFallowOutputFormat(args.format) };
+        return { format: parseFallowOutputFormat(args.format) };
+    },
+};
+const monographHealthConfigTool = {
+    name: 'monograph_health_config',
+    description: 'Merge partial Fallow health config with defaults, returning a fully resolved health configuration.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            partial: { type: 'object', description: 'Partial FallowHealthConfig to merge with defaults' },
+        },
+        required: [],
+    },
+    handler: async (args) => {
+        const { mergeFallowHealthConfig, DEFAULT_FALLOW_HEALTH_CONFIG } = await import('@monoes/monograph');
+        if (!args.partial)
+            return DEFAULT_FALLOW_HEALTH_CONFIG;
+        return mergeFallowHealthConfig(args.partial);
+    },
+};
+const monographConfigParsingTool = {
+    name: 'monograph_config_parsing',
+    description: 'Detect config format from file extension, find config file by walking up from a directory, detect source root, or load + parse config from a directory.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['detect_format', 'find_config', 'detect_source_root', 'load_config'], description: 'Operation' },
+            filePath: { type: 'string', description: 'File path for detect_format' },
+            startDir: { type: 'string', description: 'Directory to start walking from for find_config/load_config' },
+            projectRoot: { type: 'string', description: 'Project root for detect_source_root' },
+        },
+        required: ['action'],
+    },
+    handler: async (args) => {
+        const { detectConfigFormat, findConfigFile, detectSourceRoot, loadConfigFromDir } = await import('@monoes/monograph');
+        const action = args.action;
+        if (action === 'detect_format')
+            return { format: detectConfigFormat(args.filePath) };
+        if (action === 'find_config')
+            return { configPath: findConfigFile(args.startDir) ?? null };
+        if (action === 'detect_source_root')
+            return { sourceRoot: detectSourceRoot(args.projectRoot) };
+        if (action === 'load_config')
+            return loadConfigFromDir(args.startDir) ?? null;
+        return { error: 'Unknown action' };
+    },
+};
+const monographFallowResultsTool = {
+    name: 'monograph_fallow_results',
+    description: 'Create empty Fallow analysis results, count total issues, check if any issues exist, or sort results by file path and line.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['make_empty', 'total_issues', 'has_issues', 'sort'], description: 'Operation' },
+            results: { type: 'object', description: 'FallowAnalysisResults object for total_issues/has_issues/sort' },
+        },
+        required: ['action'],
+    },
+    handler: async (args) => {
+        const { makeEmptyFallowResults, totalFallowIssues, hasFallowIssues, sortFallowResults } = await import('@monoes/monograph');
+        const action = args.action;
+        if (action === 'make_empty')
+            return makeEmptyFallowResults();
+        if (!args.results)
+            return { error: 'results required' };
+        if (action === 'total_issues')
+            return { total: totalFallowIssues(args.results) };
+        if (action === 'has_issues')
+            return { hasIssues: hasFallowIssues(args.results) };
+        if (action === 'sort')
+            return sortFallowResults(args.results);
+        return { error: 'Unknown action' };
+    },
+};
+const monographFallowSuppressionTool = {
+    name: 'monograph_fallow_suppression',
+    description: 'Parse a Fallow issue kind string, convert issue kind to/from discriminant integer, or check if a comment is a suppression.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['parse_kind', 'kind_to_discriminant', 'kind_from_discriminant', 'is_suppression', 'is_file_wide'], description: 'Operation' },
+            kind: { type: 'string', description: 'Issue kind string for parse_kind/kind_to_discriminant' },
+            discriminant: { type: 'number', description: 'Discriminant integer for kind_from_discriminant' },
+            comment: { type: 'string', description: 'Comment text for is_suppression/is_file_wide' },
+        },
+        required: ['action'],
+    },
+    handler: async (args) => {
+        const { parseFallowIssueKind, issueKindToDiscriminant, issueKindFromDiscriminant, isFallowSuppression, isFileWideSuppression } = await import('@monoes/monograph');
+        const action = args.action;
+        if (action === 'parse_kind')
+            return { kind: parseFallowIssueKind(args.kind) };
+        if (action === 'kind_to_discriminant')
+            return { discriminant: issueKindToDiscriminant(args.kind) };
+        if (action === 'kind_from_discriminant')
+            return { kind: issueKindFromDiscriminant(args.discriminant) };
+        if (action === 'is_suppression')
+            return { isSuppression: isFallowSuppression(args.comment) };
+        if (action === 'is_file_wide')
+            return { isFileWide: isFileWideSuppression(args.comment) };
+        return { error: 'Unknown action' };
+    },
+};
+const monographDiscoverTypesTool = {
+    name: 'monograph_discover_types',
+    description: 'Create a branded FileId, format an EntryPointSource into a human-readable string, or describe a FallowDiscoveredFile structure.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['make_file_id', 'format_entry_source'], description: 'Operation' },
+            n: { type: 'number', description: 'Number for make_file_id' },
+            source: { type: 'object', description: 'EntryPointSource object for format_entry_source' },
+        },
+        required: ['action'],
+    },
+    handler: async (args) => {
+        const { fileId, formatEntryPointSource } = await import('@monoes/monograph');
+        const action = args.action;
+        if (action === 'make_file_id')
+            return { fileId: fileId(args.n) };
+        if (action === 'format_entry_source')
+            return { label: formatEntryPointSource(args.source) };
+        return { error: 'Unknown action' };
+    },
+};
+const monographMirroredFamiliesTool = {
+    name: 'monograph_mirrored_families',
+    description: 'Detect mirrored directory families from a set of clone families — groups families whose files all live in one directory and pairs directories with Jaccard similarity >= 0.5.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            families: { type: 'array', items: { type: 'object' }, description: 'Array of CloneFamily objects' },
+        },
+        required: ['families'],
+    },
+    handler: async (args) => {
+        const { detectMirroredFamilies } = await import('@monoes/monograph');
+        return detectMirroredFamilies(args.families);
+    },
+};
+monographTools.push(monographBoundaryConfigTool, monographOutputFormatTool, monographHealthConfigTool, monographConfigParsingTool, monographFallowResultsTool, monographFallowSuppressionTool, monographDiscoverTypesTool, monographMirroredFamiliesTool);
+// ── Round 16: Fallow feature ports (final) ──────────────────────────────────
+const monographCheckHumanTool = {
+    name: 'monograph_check_human',
+    description: 'Format dead-code check results as human-readable terminal output lines. Sections for unused files, exports, deps, members, and unresolved imports.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            results: { type: 'object', description: 'FallowAnalysisResults object' },
+            opts: { type: 'object', description: 'HumanCheckOptions (maxFlatItems, maxGroupedFiles, maxItemsPerFile, top)' },
+        },
+        required: ['results'],
+    },
+    handler: async (args) => {
+        const { buildCheckHumanLines } = await import('@monoes/monograph');
+        return { lines: buildCheckHumanLines(args.results, args.opts) };
+    },
+};
+const monographDupesHumanTool = {
+    name: 'monograph_dupes_human',
+    description: 'Format duplication results as human-readable terminal output. Shows clone group listings and a stats summary.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            stats: { type: 'object', description: 'PipelineDuplicationStats object' },
+            groups: { type: 'array', items: { type: 'object' }, description: 'Array of CloneGroup objects' },
+            opts: { type: 'object', description: 'HumanDupesOptions (maxGroups, showSnippets)' },
+        },
+        required: ['stats', 'groups'],
+    },
+    handler: async (args) => {
+        const { buildDuplicationFamilyLines } = await import('@monoes/monograph');
+        return { lines: buildDuplicationFamilyLines(args.groups, args.opts) };
+    },
+};
+const monographHealthHumanTool = {
+    name: 'monograph_health_human',
+    description: 'Format health report results as human-readable terminal output. Shows vital signs, hotspots, and coverage gaps.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            scores: { type: 'array', items: { type: 'object' }, description: 'Array of FileScore objects' },
+            vitals: { type: 'object', description: 'VitalSigns object' },
+            opts: { type: 'object', description: 'HumanHealthOptions (hotspotLimit, coverageGapLimit, noColor)' },
+        },
+        required: ['scores', 'vitals'],
+    },
+    handler: async (args) => {
+        const { buildHealthHumanLines } = await import('@monoes/monograph');
+        return { lines: buildHealthHumanLines(args.scores, args.vitals, args.opts) };
+    },
+};
+const monographVitalSignsScoreTool = {
+    name: 'monograph_vital_signs_score',
+    description: 'Compute a 0-100 health score from a VitalSigns object, or compute trend direction from a list of snapshots.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['score', 'trend'], description: 'Operation' },
+            vitals: { type: 'object', description: 'VitalSigns object for score action' },
+            snapshots: { type: 'array', items: { type: 'object' }, description: 'Array of VitalSignsSnapshot for trend action' },
+        },
+        required: ['action'],
+    },
+    handler: async (args) => {
+        const { computeVitalSignsScore } = await import('@monoes/monograph');
+        if (args.action === 'score')
+            return { score: computeVitalSignsScore(args.vitals) };
+        return { error: 'Unknown action or missing snapshots' };
+    },
+};
+const monographUnusedExportsTool = {
+    name: 'monograph_unused_exports',
+    description: 'Find unused exports across all modules in the dependency graph, or find duplicate exports (same name in multiple files).',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['find_unused', 'find_duplicates'], description: 'Operation' },
+            modules: { type: 'array', items: { type: 'object' }, description: 'Array of ModuleNode objects' },
+            opts: { type: 'object', description: 'UnusedExportsOptions (isEntryPoint fn string, ignorePaths, includeTypeOnlyExports, maxDuplicates)' },
+        },
+        required: ['action', 'modules'],
+    },
+    handler: async (args) => {
+        const { findUnusedExports, findDuplicateExports } = await import('@monoes/monograph');
+        if (args.action === 'find_unused')
+            return findUnusedExports(args.modules, args.opts);
+        return findDuplicateExports(args.modules);
+    },
+};
+const monographBoundaryAnalysisTool = {
+    name: 'monograph_boundary_analysis',
+    description: 'Analyze boundary violations across all modules given a resolved boundary config. Returns violations list plus checked/unchecked counts.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            modules: { type: 'array', items: { type: 'object' }, description: 'Array of ModuleNode objects' },
+            config: { type: 'object', description: 'ResolvedBoundaryConfig (zones, rules)' },
+        },
+        required: ['modules', 'config'],
+    },
+    handler: async (args) => {
+        const { analyzeBoundaries } = await import('@monoes/monograph');
+        return analyzeBoundaries(args.modules, args.config);
+    },
+};
+monographTools.push(monographCheckHumanTool, monographDupesHumanTool, monographHealthHumanTool, monographVitalSignsScoreTool, monographUnusedExportsTool, monographBoundaryAnalysisTool);
+// ── Round 17: Plugin registry, infra discovery, baseline deltas, fix surgery ──
+const monographPluginRegistryTool = {
+    name: 'monograph_plugin_registry',
+    description: 'Query the built-in plugin registry: check if a file path is always considered used, get config patterns/tooling packages for installed packages, or list all built-in plugins.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['is_always_used', 'config_patterns', 'tooling_packages', 'entry_patterns', 'list_plugins'], description: 'Operation' },
+            filePath: { type: 'string', description: 'File path for is_always_used check' },
+            installedPackages: { type: 'array', items: { type: 'string' }, description: 'Installed npm package names to filter active plugins' },
+        },
+        required: ['action'],
+    },
+    handler: async (args) => {
+        const { DEFAULT_PLUGIN_REGISTRY, BUILTIN_PLUGINS, ALWAYS_DEV_TOOLING } = await import('@monoes/monograph');
+        const installed = args.installedPackages ?? [];
+        const action = args.action;
+        if (action === 'is_always_used')
+            return { alwaysUsed: DEFAULT_PLUGIN_REGISTRY.isAlwaysUsed(args.filePath, installed) };
+        if (action === 'config_patterns')
+            return { patterns: DEFAULT_PLUGIN_REGISTRY.getConfigPatterns(installed) };
+        if (action === 'tooling_packages')
+            return { packages: DEFAULT_PLUGIN_REGISTRY.getToolingPackages(installed) };
+        if (action === 'entry_patterns')
+            return { patterns: DEFAULT_PLUGIN_REGISTRY.getEntryPatterns(installed) };
+        if (action === 'list_plugins')
+            return { plugins: BUILTIN_PLUGINS.map(p => ({ name: p.name, configPatterns: p.configPatterns })), alwaysDevTooling: ALWAYS_DEV_TOOLING };
+        return { error: 'Unknown action' };
+    },
+};
+const monographInfraEntriesTool = {
+    name: 'monograph_infra_entries',
+    description: 'Discover infrastructure entry points (Dockerfile, Procfile, fly.toml, etc.) in a project root and extract JS/TS file references from them.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['detect', 'parse_dockerfile', 'parse_procfile'], description: 'Operation' },
+            projectRoot: { type: 'string', description: 'Project root directory for detect' },
+            content: { type: 'string', description: 'File content for parse_dockerfile/parse_procfile' },
+        },
+        required: ['action'],
+    },
+    handler: async (args) => {
+        const { detectInfraFiles, parseDockerfileEntries, parseProcfileEntries } = await import('@monoes/monograph');
+        const action = args.action;
+        if (action === 'detect')
+            return { entries: detectInfraFiles(args.projectRoot) };
+        if (action === 'parse_dockerfile')
+            return { files: parseDockerfileEntries(args.content) };
+        if (action === 'parse_procfile')
+            return { files: parseProcfileEntries(args.content) };
+        return { error: 'Unknown action' };
+    },
+};
+const monographBaselineDeltasTool = {
+    name: 'monograph_baseline_deltas',
+    description: 'Compare two FallowAnalysisResults snapshots (baseline vs current) to compute deltas, filter only new issues, or format a human-readable delta report.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['compute_deltas', 'filter_new', 'format_deltas'], description: 'Operation' },
+            baseline: { type: 'object', description: 'FallowAnalysisResults baseline snapshot' },
+            current: { type: 'object', description: 'FallowAnalysisResults current results' },
+            deltas: { type: 'object', description: 'BaselineDeltas object for format_deltas' },
+        },
+        required: ['action'],
+    },
+    handler: async (args) => {
+        const { computeBaselineDeltas, filterNewIssues, formatBaselineDeltas } = await import('@monoes/monograph');
+        const action = args.action;
+        if (action === 'compute_deltas')
+            return computeBaselineDeltas(args.baseline, args.current);
+        if (action === 'filter_new')
+            return filterNewIssues(args.baseline, args.current);
+        if (action === 'format_deltas')
+            return { lines: formatBaselineDeltas(args.deltas) };
+        return { error: 'Unknown action' };
+    },
+};
+const monographExportSurgeryTool = {
+    name: 'monograph_export_surgery',
+    description: 'Perform surgical removal of a specific name from an export list (e.g. remove "unusedName" from "export { a, unusedName, b }") without removing the entire export statement.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['remove_name', 'remove_type', 'promote_type', 'apply_all'], description: 'Operation' },
+            fileContent: { type: 'string', description: 'Full file content' },
+            exportName: { type: 'string', description: 'Export name to operate on (for single operations)' },
+            line: { type: 'number', description: '1-based line number of the export' },
+            surgeries: { type: 'array', items: { type: 'object' }, description: 'Array of {exportName, line, action} for apply_all' },
+        },
+        required: ['action', 'fileContent'],
+    },
+    handler: async (args) => {
+        const { removeNameFromExportList, removeTypeFromExportList, promoteToTypeExport, applyExportSurgeries } = await import('@monoes/monograph');
+        const action = args.action;
+        const content = args.fileContent;
+        if (action === 'remove_name')
+            return removeNameFromExportList(content, args.exportName, args.line);
+        if (action === 'remove_type')
+            return removeTypeFromExportList(content, args.exportName, args.line);
+        if (action === 'promote_type')
+            return promoteToTypeExport(content, args.exportName, args.line);
+        if (action === 'apply_all')
+            return applyExportSurgeries(content, args.surgeries);
+        return { error: 'Unknown action' };
+    },
+};
+const monographJsonActionsTool = {
+    name: 'monograph_json_actions',
+    description: 'Build machine-readable JSON action objects for Fallow issues (delete-file, remove-export, export-type, remove-dependency, add-suppression) or build the full actions list for a given issue type.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            action: { type: 'string', enum: ['unused_file_actions', 'unused_export_actions', 'unused_dep_actions', 'docs_url', 'make_action'], description: 'Operation' },
+            filePath: { type: 'string', description: 'File path' },
+            symbol: { type: 'string', description: 'Export name or member name' },
+            line: { type: 'number', description: 'Line number' },
+            col: { type: 'number', description: 'Column number' },
+            isTypeOnly: { type: 'boolean', description: 'Whether export is type-only' },
+            packageName: { type: 'string', description: 'npm package name for dependency actions' },
+            isDev: { type: 'boolean', description: 'Whether it is a devDependency' },
+            issueKind: { type: 'string', description: 'Issue kind string for docs_url' },
+            actionKind: { type: 'string', description: 'ActionKind for make_action' },
+        },
+        required: ['action'],
+    },
+    handler: async (args) => {
+        const { buildActionsForUnusedFile, buildActionsForUnusedExport, buildActionsForUnusedDep, buildDocsUrl, makeDeleteFileAction, makeRemoveExportAction, makeExportTypeAction, makeRemoveDependencyAction, makeAddSuppressionAction } = await import('@monoes/monograph');
+        const op = args.action;
+        if (op === 'unused_file_actions')
+            return { actions: buildActionsForUnusedFile(args.filePath) };
+        if (op === 'unused_export_actions')
+            return { actions: buildActionsForUnusedExport(args.filePath, args.symbol, args.line, args.col, Boolean(args.isTypeOnly)) };
+        if (op === 'unused_dep_actions')
+            return { actions: buildActionsForUnusedDep(args.packageName, Boolean(args.isDev)) };
+        if (op === 'docs_url')
+            return { url: buildDocsUrl(args.issueKind) };
+        if (op === 'make_action') {
+            const kind = args.actionKind;
+            if (kind === 'delete-file')
+                return makeDeleteFileAction(args.filePath);
+            if (kind === 'remove-export')
+                return makeRemoveExportAction(args.filePath, args.symbol, args.line, args.col);
+            if (kind === 'export-type')
+                return makeExportTypeAction(args.filePath, args.symbol, args.line, args.col);
+            if (kind === 'remove-dependency' || kind === 'remove-dev-dependency')
+                return makeRemoveDependencyAction(args.packageName, Boolean(args.isDev));
+            if (kind === 'add-suppression')
+                return makeAddSuppressionAction(args.filePath, args.line, args.symbol);
+        }
+        return { error: 'Unknown action' };
+    },
+};
+monographTools.push(monographPluginRegistryTool, monographInfraEntriesTool, monographBaselineDeltasTool, monographExportSurgeryTool, monographJsonActionsTool);
 //# sourceMappingURL=monograph-tools.js.map
