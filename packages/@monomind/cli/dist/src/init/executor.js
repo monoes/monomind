@@ -24,6 +24,7 @@ const SKILLS_MAP = {
     core: [
         'swarm-orchestration',
         'swarm-advanced',
+        'swarm-coordination',
         'sparc-methodology',
         'hooks-automation',
         'pair-programming',
@@ -31,8 +32,12 @@ const SKILLS_MAP = {
         'stream-chain',
         'skill-builder',
         'specialagent',
+        'mastermind',
+        'monodesign',
+        'monomotion',
+        'hive-mind-advanced',
     ],
-    browser: ['browser', 'agent-browser-testing'], // agent-browser integration
+    browser: ['agent-browser-testing'],
     agentdb: [
         'agentdb-advanced',
         'agentdb-learning',
@@ -49,16 +54,17 @@ const SKILLS_MAP = {
         'github-release-management',
         'github-workflow-automation',
     ],
-    v1: [
-        'v1-cli-modernization',
-        'v1-core-implementation',
-        'v1-ddd-architecture',
-        'v1-integration-deep',
-        'v1-mcp-optimization',
-        'v1-memory-unification',
-        'v1-performance-optimization',
-        'v1-security-overhaul',
-        'v1-swarm-coordination',
+    advanced: [
+        'agentic-integration',
+        'agentic-jujutsu',
+        'cli-modernization',
+        'core-implementation',
+        'ddd-architecture',
+        'mcp-optimization',
+        'memory-unification',
+        'performance-analysis',
+        'performance-optimization',
+        'security-hardening',
     ],
 };
 /**
@@ -66,47 +72,69 @@ const SKILLS_MAP = {
  */
 const COMMANDS_MAP = {
     core: [
-        'monomind-help.md', 'monomind-swarm.md', 'monomind-memory.md',
-        'monomind-do.md', 'monomind-idea.md', 'monomind-improve.md', 'monomind-createtask.md', 'monomind-repeat.md',
-        'mastermind.md', 'list-agents.md', 'use-agent.md',
-        'metrics.md', 'tokens.md', 'browse.md', 'sparc.md', 'ts.md',
+        'mastermind.md', 'tokens.md', 'browse.md', 'sparc.md', 'ts.md',
     ],
+    agents: ['agents'],
     analysis: ['analysis'],
     automation: ['automation'],
+    coordination: ['coordination'],
     github: ['github'],
+    hiveMind: ['hive-mind'],
     hooks: ['hooks'],
+    mastermind: ['mastermind'],
+    memory: ['memory'],
     monitoring: ['monitoring'],
+    monograph: ['monograph'],
+    monomind: ['monomind'],
     optimization: ['optimization'],
+    pair: ['pair'],
     sparc: ['sparc'],
+    streamChain: ['stream-chain'],
+    swarm: ['swarm'],
+    training: ['training'],
+    truth: ['truth'],
+    verify: ['verify'],
+    workflows: ['workflows'],
 };
 /**
  * Agents to copy based on configuration
  */
 const AGENTS_MAP = {
-    core: ['core'],
-    consensus: ['consensus'],
-    github: ['github'],
-    hiveMind: ['hive-mind'],
-    sparc: ['sparc'],
-    swarm: ['swarm'],
-    browser: ['browser'], // agent-browser integration
-    // V1-specific agents
-    v1: ['v1'],
-    optimization: ['optimization'],
-    templates: ['templates'],
-    testing: ['testing'],
-    sublinear: ['sublinear'],
+    academic: ['academic'],
     analysis: ['analysis'],
     architecture: ['architecture'],
+    consensus: ['consensus'],
+    core: ['core'],
+    data: ['data'],
+    design: ['design'],
     development: ['development'],
     devops: ['devops'],
     documentation: ['documentation'],
-    specialized: ['specialized'],
+    engineering: ['engineering'],
+    gameDevelopment: ['game-development'],
+    github: ['github'],
     goal: ['goal'],
-    sona: ['sona'],
+    hiveMind: ['hive-mind'],
+    marketing: ['marketing'],
+    neural: ['neural'],
+    optimization: ['optimization'],
+    paidMedia: ['paid-media'],
     payments: ['payments'],
-    data: ['data'],
-    custom: ['custom'],
+    product: ['product'],
+    projectManagement: ['project-management'],
+    reasoning: ['reasoning'],
+    sales: ['sales'],
+    schemas: ['schemas'],
+    sona: ['sona'],
+    sparc: ['sparc'],
+    spatialComputing: ['spatial-computing'],
+    specialists: ['specialists'],
+    specialized: ['specialized'],
+    sublinear: ['sublinear'],
+    support: ['support'],
+    swarm: ['swarm'],
+    templates: ['templates'],
+    testing: ['testing'],
 };
 /**
  * Directory structure to create
@@ -890,8 +918,8 @@ async function copySkills(targetDir, options, result) {
             skillsToCopy.push(...SKILLS_MAP.github);
         if (skillsConfig.browser)
             skillsToCopy.push(...SKILLS_MAP.browser);
-        if (skillsConfig.v1)
-            skillsToCopy.push(...SKILLS_MAP.v1);
+        if (skillsConfig.advanced)
+            skillsToCopy.push(...SKILLS_MAP.advanced);
     }
     // Find source skills directory
     const sourceSkillsDir = findSourceDir('skills', options.sourceBaseDir);
@@ -929,20 +957,48 @@ async function copyCommands(targetDir, options, result) {
     else {
         if (commandsConfig.core)
             commandsToCopy.push(...COMMANDS_MAP.core);
+        if (commandsConfig.agents)
+            commandsToCopy.push(...(COMMANDS_MAP.agents || []));
         if (commandsConfig.analysis)
             commandsToCopy.push(...COMMANDS_MAP.analysis);
         if (commandsConfig.automation)
             commandsToCopy.push(...COMMANDS_MAP.automation);
+        if (commandsConfig.coordination)
+            commandsToCopy.push(...(COMMANDS_MAP.coordination || []));
         if (commandsConfig.github)
             commandsToCopy.push(...COMMANDS_MAP.github);
+        if (commandsConfig.hiveMind)
+            commandsToCopy.push(...(COMMANDS_MAP.hiveMind || []));
         if (commandsConfig.hooks)
             commandsToCopy.push(...COMMANDS_MAP.hooks);
+        if (commandsConfig.mastermind)
+            commandsToCopy.push(...(COMMANDS_MAP.mastermind || []));
+        if (commandsConfig.memory)
+            commandsToCopy.push(...(COMMANDS_MAP.memory || []));
         if (commandsConfig.monitoring)
             commandsToCopy.push(...COMMANDS_MAP.monitoring);
+        if (commandsConfig.monograph)
+            commandsToCopy.push(...(COMMANDS_MAP.monograph || []));
+        if (commandsConfig.monomind)
+            commandsToCopy.push(...(COMMANDS_MAP.monomind || []));
         if (commandsConfig.optimization)
             commandsToCopy.push(...COMMANDS_MAP.optimization);
+        if (commandsConfig.pair)
+            commandsToCopy.push(...(COMMANDS_MAP.pair || []));
         if (commandsConfig.sparc)
             commandsToCopy.push(...COMMANDS_MAP.sparc);
+        if (commandsConfig.streamChain)
+            commandsToCopy.push(...(COMMANDS_MAP.streamChain || []));
+        if (commandsConfig.swarm)
+            commandsToCopy.push(...(COMMANDS_MAP.swarm || []));
+        if (commandsConfig.training)
+            commandsToCopy.push(...(COMMANDS_MAP.training || []));
+        if (commandsConfig.truth)
+            commandsToCopy.push(...(COMMANDS_MAP.truth || []));
+        if (commandsConfig.verify)
+            commandsToCopy.push(...(COMMANDS_MAP.verify || []));
+        if (commandsConfig.workflows)
+            commandsToCopy.push(...(COMMANDS_MAP.workflows || []));
     }
     // Find source commands directory
     const sourceCommandsDir = findSourceDir('commands', options.sourceBaseDir);
@@ -995,11 +1051,6 @@ async function copyAgents(targetDir, options, result) {
             agentsToCopy.push(...AGENTS_MAP.sparc);
         if (agentsConfig.swarm)
             agentsToCopy.push(...AGENTS_MAP.swarm);
-        if (agentsConfig.browser)
-            agentsToCopy.push(...AGENTS_MAP.browser);
-        // V1-specific agent categories
-        if (agentsConfig.v1)
-            agentsToCopy.push(...(AGENTS_MAP.v1 || []));
         if (agentsConfig.optimization)
             agentsToCopy.push(...(AGENTS_MAP.optimization || []));
         if (agentsConfig.testing)

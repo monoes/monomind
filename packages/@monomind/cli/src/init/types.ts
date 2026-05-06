@@ -70,16 +70,16 @@ export interface HooksConfig {
  * Skills configuration
  */
 export interface SkillsConfig {
-  /** Include core skills (swarm, memory, sparc) */
+  /** Include core skills (swarm, sparc, mastermind, monodesign, monomotion) */
   core: boolean;
   /** Include AgentDB skills */
   agentdb: boolean;
   /** Include GitHub integration skills */
   github: boolean;
-  /** Include browser automation skills (agent-browser) */
+  /** Include browser automation skills */
   browser: boolean;
-  /** Include V1 implementation skills */
-  v1: boolean;
+  /** Include advanced skills (agentic-jujutsu, security, performance, etc.) */
+  advanced: boolean;
   /** Include all available skills */
   all: boolean;
 }
@@ -88,22 +88,50 @@ export interface SkillsConfig {
  * Commands configuration
  */
 export interface CommandsConfig {
-  /** Include core commands */
+  /** Include core commands (mastermind.md, tokens.md, browse.md, sparc.md, ts.md) */
   core: boolean;
+  /** Include agents commands */
+  agents?: boolean;
   /** Include analysis commands */
   analysis: boolean;
   /** Include automation commands */
   automation: boolean;
+  /** Include coordination commands */
+  coordination?: boolean;
   /** Include github commands */
   github: boolean;
+  /** Include hive-mind commands */
+  hiveMind?: boolean;
   /** Include hooks commands */
   hooks: boolean;
+  /** Include mastermind commands */
+  mastermind?: boolean;
+  /** Include memory commands */
+  memory?: boolean;
   /** Include monitoring commands */
   monitoring: boolean;
+  /** Include monograph commands */
+  monograph?: boolean;
+  /** Include monomind commands */
+  monomind?: boolean;
   /** Include optimization commands */
   optimization: boolean;
+  /** Include pair commands */
+  pair?: boolean;
   /** Include SPARC commands */
   sparc: boolean;
+  /** Include stream-chain commands */
+  streamChain?: boolean;
+  /** Include swarm commands */
+  swarm?: boolean;
+  /** Include training commands */
+  training?: boolean;
+  /** Include truth commands */
+  truth?: boolean;
+  /** Include verify commands */
+  verify?: boolean;
+  /** Include workflows commands */
+  workflows?: boolean;
   /** Include all commands */
   all: boolean;
 }
@@ -124,10 +152,6 @@ export interface AgentsConfig {
   sparc: boolean;
   /** Include swarm coordinators */
   swarm: boolean;
-  /** Include browser automation agents (agent-browser) */
-  browser: boolean;
-  /** Include V1-specific agents (security, memory, performance, etc.) */
-  v1: boolean;
   /** Include optimization agents */
   optimization: boolean;
   /** Include testing agents */
@@ -345,9 +369,9 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     agentdb: true,
     github: true,
     browser: true,
-    v1: true,
+    advanced: true,
 
-    all: false,
+    all: true,
   },
   commands: {
     core: true,
@@ -358,7 +382,7 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     monitoring: true,
     optimization: true,
     sparc: true,
-    all: false,
+    all: true,
   },
   agents: {
     core: true,
@@ -367,8 +391,6 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     hiveMind: true,
     sparc: true,
     swarm: true,
-    browser: true,
-    v1: true,
     optimization: true,
     testing: true,
 
@@ -441,7 +463,7 @@ export const MINIMAL_INIT_OPTIONS: InitOptions = {
     agentdb: false,
     github: false,
     browser: false,
-    v1: false,
+    advanced: false,
 
     all: false,
   },
@@ -452,8 +474,6 @@ export const MINIMAL_INIT_OPTIONS: InitOptions = {
     hiveMind: false,
     sparc: false,
     swarm: false,
-    browser: false,
-    v1: false,
     optimization: false,
     testing: false,
 
@@ -502,7 +522,7 @@ export const FULL_INIT_OPTIONS: InitOptions = {
     agentdb: true,
     github: true,
     browser: true,
-    v1: true,
+    advanced: true,
 
     all: true,
   },
