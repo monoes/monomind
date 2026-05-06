@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-05-02T20:08:05.361Z",
-  "totalAgents": 226,
+  "generatedAt": "2026-05-06T11:40:29.427Z",
+  "totalAgents": 231,
   "agents": [
     {
       "slug": "academic-anthropologist",
@@ -3730,6 +3730,178 @@
       "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/v3/security-architect.md",
       "registeredAt": "2026-05-02T20:08:05.361Z",
       "lastUpdated": "2026-05-02T20:08:05.361Z"
+    },
+    {
+      "slug": "email-marketing-specialist",
+      "name": "Email Marketing Specialist",
+      "version": "1.0.0",
+      "category": "marketing",
+      "description": "Expert in email sequences, drip campaigns, lifecycle email programs, and cold outreach. Write and optimize welcome series, nurture sequences, re-engagement campaigns, onboarding flows, and B2B cold email.",
+      "capabilities": [
+        "email",
+        "sequences",
+        "drip",
+        "cold-outreach",
+        "lifecycle",
+        "copywriting"
+      ],
+      "taskTypes": [
+        "email-sequence",
+        "cold-email",
+        "nurture",
+        "onboarding-email"
+      ],
+      "tools": [
+        "WebFetch",
+        "WebSearch",
+        "Read",
+        "Write",
+        "Edit"
+      ],
+      "triggers": [],
+      "deprecated": false,
+      "dependencies": [],
+      "filePath": ".claude/agents/marketing/marketing-email-specialist.md",
+      "registeredAt": "2026-05-06T11:40:29.427Z",
+      "lastUpdated": "2026-05-06T11:40:29.427Z"
+    },
+    {
+      "slug": "cro-specialist",
+      "name": "CRO Specialist",
+      "version": "1.0.0",
+      "category": "marketing",
+      "description": "Expert in conversion rate optimization for marketing pages, signup flows, forms, popups, and onboarding. Analyzes why pages are not converting and delivers prioritized recommendations with test hypotheses.",
+      "capabilities": [
+        "cro",
+        "conversion",
+        "landing-page",
+        "form",
+        "popup",
+        "signup-flow",
+        "onboarding"
+      ],
+      "taskTypes": [
+        "page-cro",
+        "form-cro",
+        "popup-cro",
+        "signup-flow",
+        "onboarding-cro"
+      ],
+      "tools": [
+        "WebFetch",
+        "WebSearch",
+        "Read",
+        "Write",
+        "Edit"
+      ],
+      "triggers": [],
+      "deprecated": false,
+      "dependencies": [],
+      "filePath": ".claude/agents/marketing/marketing-cro-specialist.md",
+      "registeredAt": "2026-05-06T11:40:29.427Z",
+      "lastUpdated": "2026-05-06T11:40:29.427Z"
+    },
+    {
+      "slug": "pricing-strategist",
+      "name": "Pricing Strategist",
+      "version": "1.0.0",
+      "category": "marketing",
+      "description": "Expert in SaaS pricing strategy, packaging, tier structure, and monetization. Covers pricing decisions, plan restructuring, freemium vs trial, value metric selection, willingness-to-pay, and pricing page design.",
+      "capabilities": [
+        "pricing",
+        "packaging",
+        "monetization",
+        "saas",
+        "tier-design",
+        "freemium"
+      ],
+      "taskTypes": [
+        "pricing-strategy",
+        "tier-structure",
+        "pricing-page",
+        "monetization"
+      ],
+      "tools": [
+        "WebFetch",
+        "WebSearch",
+        "Read",
+        "Write",
+        "Edit"
+      ],
+      "triggers": [],
+      "deprecated": false,
+      "dependencies": [],
+      "filePath": ".claude/agents/marketing/marketing-pricing-strategist.md",
+      "registeredAt": "2026-05-06T11:40:29.427Z",
+      "lastUpdated": "2026-05-06T11:40:29.427Z"
+    },
+    {
+      "slug": "launch-strategist",
+      "name": "Launch Strategist",
+      "version": "1.0.0",
+      "category": "marketing",
+      "description": "Expert in product launches, feature announcements, and go-to-market strategy. Plans launches that build momentum using the ORB channel framework and five-phase launch sequence.",
+      "capabilities": [
+        "launch",
+        "gtm",
+        "product-hunt",
+        "waitlist",
+        "beta",
+        "announcement"
+      ],
+      "taskTypes": [
+        "product-launch",
+        "feature-announcement",
+        "gtm-strategy",
+        "launch-plan"
+      ],
+      "tools": [
+        "WebFetch",
+        "WebSearch",
+        "Read",
+        "Write",
+        "Edit"
+      ],
+      "triggers": [],
+      "deprecated": false,
+      "dependencies": [],
+      "filePath": ".claude/agents/marketing/marketing-launch-strategist.md",
+      "registeredAt": "2026-05-06T11:40:29.427Z",
+      "lastUpdated": "2026-05-06T11:40:29.427Z"
+    },
+    {
+      "slug": "competitive-content-strategist",
+      "name": "Competitive Content Strategist",
+      "version": "1.0.0",
+      "category": "marketing",
+      "description": "Expert in competitive positioning content, comparison pages, alternative pages, content strategy, and topic planning. Builds pages that rank for competitive search terms and content plans that drive organic growth.",
+      "capabilities": [
+        "competitive",
+        "comparison-pages",
+        "alternatives",
+        "content-strategy",
+        "seo-content",
+        "positioning"
+      ],
+      "taskTypes": [
+        "competitor-comparison",
+        "alternative-page",
+        "content-strategy",
+        "editorial-planning"
+      ],
+      "tools": [
+        "WebFetch",
+        "WebSearch",
+        "Read",
+        "Write",
+        "Edit"
+      ],
+      "triggers": [],
+      "deprecated": false,
+      "dependencies": [],
+      "filePath": ".claude/agents/marketing/marketing-competitive-content.md",
+      "registeredAt": "2026-05-06T11:40:29.427Z",
+      "lastUpdated": "2026-05-06T11:40:29.427Z"
     }
   ]
 }
