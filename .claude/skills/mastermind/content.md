@@ -21,6 +21,27 @@ This skill is invoked by `mastermind:master` or directly via `/mastermind:conten
 
 ---
 
+## Reference Library
+
+Before generating or editing any prose, identify which reference files apply and inject them into the agent briefing.
+
+| Reference | When to include |
+|---|---|
+| `.claude/skills/stop-slop/SKILL.md` | **Always** — all draft, edit, and review stages |
+| `.claude/skills/stop-slop/references/phrases.md` | Full edit pass — check for banned phrases |
+| `.claude/skills/stop-slop/references/structures.md` | Full edit pass — check structural patterns |
+| `.claude/skills/stop-slop/references/examples.md` | When the agent needs before/after context |
+
+In each Edit/Review stage briefing (Stage 3), add:
+```
+REFERENCE FILES: Read these before editing:
+- .claude/skills/stop-slop/SKILL.md
+- .claude/skills/stop-slop/references/phrases.md
+- .claude/skills/stop-slop/references/structures.md
+```
+
+---
+
 ## Complexity Assessment
 
 Assess the prompt to determine execution mode:

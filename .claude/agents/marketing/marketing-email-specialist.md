@@ -51,6 +51,19 @@ Expert in email marketing strategy, sequence design, and copywriting. Covers the
 4. Every sentence earns its place — if it doesn't move toward reply, cut it
 5. Write like a peer, not a vendor — read it aloud; if it sounds like copy, rewrite it
 
+## Writing Quality Standard
+
+Before delivering any email copy, run a stop-slop pass:
+
+```
+REFERENCE FILES: Read before finalizing any email draft:
+- .claude/skills/stop-slop/SKILL.md
+- .claude/skills/stop-slop/references/phrases.md
+- .claude/skills/stop-slop/references/structures.md
+```
+
+Score every piece ≥ 35/50 across Directness, Rhythm, Trust, Authenticity, Density before delivery.
+
 ## Decision Framework
 Use this agent when you need:
 - Multi-email sequences (welcome, nurture, onboarding, re-engagement, post-purchase)
