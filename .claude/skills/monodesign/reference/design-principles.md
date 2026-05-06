@@ -99,6 +99,11 @@ Neutral shadows (`rgba(0,0,0,...)`) for structure. Magenta-tinted shadows (`oklc
 - Use bounce or elastic easing
 - Animate layout properties (width, height, padding, margin)
 - Nest cards inside cards
+- Use identical card grids
+- Use the hero-metric layout template (big number, small label, gradient accent)
+- Extend the Command Category Tints vocabulary
+- Hedge in UI copy
+- Introduce a new spacing token outside the 8/16/24/32/48/80/120 scale
 
 ---
 

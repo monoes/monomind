@@ -96,7 +96,7 @@ Load the matching reference: [reference/brand.md](reference/brand.md) or [refere
 
 ## Shared design laws
 
-Apply to every design, both registers. Interpret creatively. Vary across projects; never converge on the same choices. Claude is capable of extraordinary work. Don't hold back.
+Apply to every design, both registers. Match implementation complexity to the aesthetic vision: maximalism needs elaborate code, minimalism needs precision. Interpret creatively. Vary across projects; never converge on the same choices. Claude is capable of extraordinary work. Don't hold back.
 
 ### Color
 
@@ -152,11 +152,11 @@ Match-and-refuse. If you're about to write any of these, rewrite the element wit
 
 ### The AI slop test
 
-If someone could look at this interface and say "AI made that" without doubt, it's failed.
+If someone could look at this interface and say "AI made that" without doubt, it's failed. Cross-register failures are the absolute bans above. Register-specific failures live in each reference.
 
 **Category-reflex check.** Run at two altitudes:
 - **First-order:** if someone could guess the theme + palette from the category alone ("observability → dark blue", "healthcare → white + teal"), it's the first training-data reflex. Rework.
-- **Second-order:** if someone could guess the aesthetic family from category-plus-anti-references, it's the trap one tier deeper. Rework until both answers are non-obvious.
+- **Second-order:** if someone could guess the aesthetic family from category-plus-anti-references ("AI workflow tool that's not SaaS-cream → editorial-typographic", "fintech that's not navy-and-gold → terminal-native dark mode"), it's the trap one tier deeper. The first reflex was avoided; the second wasn't. Rework until both answers are not obvious. The brand register's [reflex-reject aesthetic lanes](reference/brand.md) list catches the currently-saturated families.
 
 ## Antipattern Detection
 
