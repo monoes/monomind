@@ -129,6 +129,7 @@ For each workstream, call /monomind:createtask with this briefing format:
   GOAL: [specific marketing workstream goal]
   SCOPE: [channel, audience, tone, brand constraints]
   CONSTRAINTS: [brand voice, legal/compliance, budget limits, existing assets]
+  REFERENCE FILES: [for copy/content workstreams: .claude/skills/mastermind/references/persuasion-psychology.md; for copy tasks also: .claude/skills/mastermind/references/copywriting-frameworks.md; for copy review/edit: .claude/skills/stop-slop/SKILL.md, .claude/skills/stop-slop/references/phrases.md, .claude/skills/stop-slop/references/structures.md]
   SUCCESS CRITERIA:
   - [ ] [checkable item]
   AGENT: [Content Creator | Email Marketing Specialist | CRO Specialist | Pricing Strategist | Launch Strategist | Competitive Content Strategist | SEO Specialist | Social Media Strategist | Analytics Reporter | Ad Creative Strategist]
