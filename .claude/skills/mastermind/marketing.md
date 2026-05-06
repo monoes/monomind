@@ -28,8 +28,7 @@ Before building any task briefing, identify which reference files apply and incl
 | Reference | When to include |
 |---|---|
 | `references/persuasion-psychology.md` | **Always** — all marketing tasks |
-| `references/copywriting-frameworks.md` | Copy tasks: landing pages, headlines, CTAs, hero sections, any page copy |
-| `references/copywriting-frameworks.md` | Email copy: subject lines, cold outreach, nurture sequences |
+| `references/copywriting-frameworks.md` | Copy tasks: landing pages, headlines, CTAs, hero sections, any page copy; email copy: subject lines, cold outreach, nurture sequences |
 
 In each agent task briefing, add:
 ```
@@ -46,11 +45,11 @@ Use these agents instead of generic types when the task is domain-specific:
 
 | Task | Agent slug | When to use |
 |---|---|---|
-| Email sequences, drip campaigns, cold outreach | `email-marketing-specialist` | Any multi-email flow or cold email |
+| Email sequences, drip campaigns, cold outreach | `email-specialist` | Any multi-email flow or cold email |
 | Page CRO, signup flow, form, popup optimization | `cro-specialist` | Conversion analysis or optimization |
 | Pricing decisions, tier design, pricing pages | `pricing-strategist` | Any pricing or packaging task |
 | Product launch, feature announcement, GTM | `launch-strategist` | Any launch or release |
-| Competitor pages, content strategy, topic planning | `competitive-content-strategist` | Competitive content or editorial planning |
+| Competitor pages, content strategy, topic planning | `competitive-content` | Competitive content or editorial planning |
 | General copy and content | `content-creator` | Multi-platform content, brand storytelling |
 | SEO audits, keyword strategy | `seo-specialist` | Technical SEO, organic search |
 | Social media | `social-media-strategist` | Social content and calendars |
@@ -137,6 +136,11 @@ Spawn one Task agent per workstream (all in parallel — star topology, hub aggr
 - Social media: subagent_type "Social Media Strategist"
 - Analytics and measurement: subagent_type "Analytics Reporter"
 - Ad creative: subagent_type "Ad Creative Strategist"
+- Email sequences / drip campaigns: subagent_type "Email Marketing Specialist" (slug: email-specialist)
+- Page / flow CRO: subagent_type "CRO Specialist" (slug: cro-specialist)
+- Pricing strategy / packaging: subagent_type "Pricing Strategist" (slug: pricing-strategist)
+- Product launch / GTM: subagent_type "Launch Strategist" (slug: launch-strategist)
+- Competitive content / comparison pages: subagent_type "Competitive Content Strategist" (slug: competitive-content)
 
 Also run /monomind:do --board <board_id> to track execution.
 
