@@ -21,6 +21,45 @@ This skill is invoked by `mastermind:master` or directly via `/mastermind:market
 
 ---
 
+## Reference Library
+
+Before building any task briefing, identify which reference files apply and include their paths in the agent's instructions with a directive to Read them before starting work.
+
+| Reference | When to include |
+|---|---|
+| `references/persuasion-psychology.md` | **Always** — all marketing tasks |
+| `references/copywriting-frameworks.md` | Copy tasks: landing pages, headlines, CTAs, hero sections, any page copy |
+| `references/copywriting-frameworks.md` | Email copy: subject lines, cold outreach, nurture sequences |
+
+In each agent task briefing, add:
+```
+REFERENCE FILES: Read these before starting:
+- .claude/skills/mastermind/references/persuasion-psychology.md
+- .claude/skills/mastermind/references/[task-specific files above]
+```
+
+---
+
+## Specialist Agent Routing
+
+Use these agents instead of generic types when the task is domain-specific:
+
+| Task | Agent slug | When to use |
+|---|---|---|
+| Email sequences, drip campaigns, cold outreach | `email-marketing-specialist` | Any multi-email flow or cold email |
+| Page CRO, signup flow, form, popup optimization | `cro-specialist` | Conversion analysis or optimization |
+| Pricing decisions, tier design, pricing pages | `pricing-strategist` | Any pricing or packaging task |
+| Product launch, feature announcement, GTM | `launch-strategist` | Any launch or release |
+| Competitor pages, content strategy, topic planning | `competitive-content-strategist` | Competitive content or editorial planning |
+| General copy and content | `content-creator` | Multi-platform content, brand storytelling |
+| SEO audits, keyword strategy | `seo-specialist` | Technical SEO, organic search |
+| Social media | `social-media-strategist` | Social content and calendars |
+| Paid ads | `ad-creative-strategist` | Ad copy and paid creative |
+
+For tasks outside these domains (referral programs, schema markup, analytics tracking), name the appropriate specialist agent in the briefing and let it handle depth.
+
+---
+
 ## Complexity Assessment
 
 Assess the prompt to determine execution mode:
@@ -85,7 +124,7 @@ For each workstream, call /monomind:createtask with this briefing format:
   CONSTRAINTS: [brand voice, legal/compliance, budget limits, existing assets]
   SUCCESS CRITERIA:
   - [ ] [checkable item]
-  AGENT: [Content Creator | SEO Specialist | Social Media Strategist | Analytics Reporter | Ad Creative Strategist]
+  AGENT: [Content Creator | Email Marketing Specialist | CRO Specialist | Pricing Strategist | Launch Strategist | Competitive Content Strategist | SEO Specialist | Social Media Strategist | Analytics Reporter | Ad Creative Strategist]
   SWARM: star 5 parallel
   REPORTS TO: <board_id>
   DEPENDENCIES: [task IDs or "none"]
@@ -146,4 +185,10 @@ For simple tasks (single agent, single asset):
 | SEO strategy | SEO Specialist | hierarchical 3 raft specialized |
 | Social calendar | Social Media Strategist | hierarchical 3 raft specialized |
 | Copy production | Content Creator | single agent or hierarchical 3 |
+| Email sequence | Email Marketing Specialist | single agent |
+| Cold outreach | Email Marketing Specialist | single agent |
+| Page / flow CRO | CRO Specialist | single agent |
+| Pricing design | Pricing Strategist | single agent |
+| Product launch | Launch Strategist + Content Creator | hierarchical 3 |
+| Competitive content | Competitive Content Strategist | single agent |
 | Analytics review | Analytics Reporter | single agent |
