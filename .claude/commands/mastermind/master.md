@@ -16,6 +16,7 @@ Describe what you want to accomplish and I'll handle the rest — or pick a doma
 |---|---|---|
 | Full automation | *(you're here)* | Route to all needed domains automatically |
 | Development | `/mastermind:build` | Ship features, fix bugs, refactor |
+| Architecture | `/mastermind:architect` | Review structure, dedup files, DDD, design, migration, system design (`--scope review|design|deduplicate|migrate|all`) |
 | Ideas | `/mastermind:idea` | Brainstorm products, features, pivots |
 | Marketing | `/mastermind:marketing` | Campaigns, copy, SEO, social |
 | Review | `/mastermind:review` | Code, content, strategy, metrics |
@@ -65,6 +66,23 @@ Invoke the intake logic from `_intake.md`:
 - If user says "decide yourself": make explicit LLM decision, state it, log it with confidence 0.7
 - Resolve: mode (auto/confirm), project_name, domains_needed
 
+**After intake resolves:** Generate a session ID (`mm-<YYYYMMDDTHHmmss>`) and emit `session:start` to the live dashboard (see Real-Time Dashboard Event Logging in `_protocol.md`). If the server is unreachable, continue without blocking.
+
+```javascript
+WebFetch({
+  url: "http://localhost:4242/api/mastermind/event",
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    type: "session:start",
+    session: sessionId,        // store this ID for all subsequent events
+    prompt: resolvedPrompt,
+    mode: mode,
+    ts: Date.now()
+  })
+})
+```
+
 ### Step 4 — Decompose
 
 For each domain in `domains_needed`, assess complexity:
@@ -107,6 +125,24 @@ For each active domain:
 
 ### Step 7 — Spawn Domain Managers
 
+**Before spawning:** For EACH domain in `domains_needed`, emit a `domain:dispatch` event to the live dashboard:
+
+```javascript
+// Emit for each domain — use WebFetch for each (or batch them)
+WebFetch({
+  url: "http://localhost:4242/api/mastermind/event",
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    type: "domain:dispatch",
+    session: sessionId,
+    domain: "<domain-id>",    // e.g. "build", "marketing"
+    cmd: "<one-line goal for this domain>",
+    ts: Date.now()
+  })
+})
+```
+
 Spawn ALL domain manager agents in ONE message using the Task tool (parallel execution).
 
 Each Task call must include a complete briefing following the Monotask Task Briefing Standard from `_protocol.md`. Include:
@@ -134,6 +170,8 @@ YOUR BOARD: <board_id> (monotask://<project_name>/development)
 
 GOAL: <domain-specific goal extracted from prompt>
 
+SESSION ID: <sessionId>   ← use this in all dashboard events
+
 YOUR RESPONSIBILITIES:
 1. Break this goal into discrete tasks using /monomind:createtask
    Each task description MUST follow the Monotask Task Briefing Standard (full context, goal, scope, constraints, success criteria, agent, swarm, dependencies)
@@ -143,9 +181,25 @@ YOUR RESPONSIBILITIES:
    - Testing: subagent_type "tester"
    - Code review: subagent_type "reviewer"
    Default swarm: hierarchical 6 agents raft
-3. Execute tasks via /monomind:do --board <board_id>
-4. Collect all agent outputs
-5. Return unified output schema to master:
+3. BEFORE spawning each agent, emit agent:spawn to the live dashboard:
+   WebFetch({ url: "http://localhost:4242/api/mastermind/event", method: "POST",
+     headers: {"Content-Type":"application/json"},
+     body: JSON.stringify({ type:"agent:spawn", session:"<sessionId>",
+       domain:"build", agent:"<agent-slug>", task:"<task-description>", ts:Date.now() }) })
+4. If you hand off artifacts to another domain manager, emit intercom:
+   WebFetch({ url: "http://localhost:4242/api/mastermind/event", method: "POST",
+     headers: {"Content-Type":"application/json"},
+     body: JSON.stringify({ type:"intercom", session:"<sessionId>",
+       from:"build", to:"<other-domain>", msg:"<one-line summary>", ts:Date.now() }) })
+5. Execute tasks via /monomind:do --board <board_id>
+6. Collect all agent outputs
+7. BEFORE returning, emit domain:complete to the live dashboard:
+   WebFetch({ url: "http://localhost:4242/api/mastermind/event", method: "POST",
+     headers: {"Content-Type":"application/json"},
+     body: JSON.stringify({ type:"domain:complete", session:"<sessionId>",
+       domain:"build", status:"complete|partial|blocked",
+       artifacts:["/path/file1"], decisions:[{what:"...",confidence:0.9}], ts:Date.now() }) })
+8. Return unified output schema to master:
    domain: build
    status: complete|partial|blocked
    artifacts: [...]
@@ -167,7 +221,24 @@ Collect the unified output schema from each domain manager. If a manager reports
 1. Collect all domain output schemas
 2. Identify any cross-domain artifacts needed (e.g. a release that requires both build and review)
 3. Write cross-domain artifacts to disk if needed
-4. Compose the action summary for the user:
+4. **Emit `session:complete` to the live dashboard:**
+
+```javascript
+WebFetch({
+  url: "http://localhost:4242/api/mastermind/event",
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    type: "session:complete",
+    session: sessionId,
+    status: overallStatus,    // "complete" | "partial" | "blocked"
+    domains: completedDomains,
+    ts: Date.now()
+  })
+})
+```
+
+5. Compose the action summary for the user:
 
 ```
 MASTERMIND RUN COMPLETE — <project_name>

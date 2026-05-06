@@ -2,1040 +2,956 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>MASTERMIND — Autonomous Business Brain</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASTERMIND — Live Dashboard</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body {
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
   background: #07071a;
+  font-family: 'Courier New', Courier, monospace;
   color: #e0e0ff;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  height: 100vh;
-  overflow: hidden;
   user-select: none;
 }
-#canvas {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-/* Cinematic intro */
-#cinema {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #07071a;
-  pointer-events: none;
-  transition: opacity 0.9s ease;
-}
-#cinema-text {
-  font-size: 32px;
-  font-weight: 900;
-  letter-spacing: 16px;
-  background: linear-gradient(135deg, #c080ff, #7040ff, #ff60ff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  text-shadow: none;
-  opacity: 0;
-  transition: opacity 0.7s;
-}
-#cinema-sub {
-  font-size: 10px;
-  letter-spacing: 6px;
-  color: #5555aa;
-  margin-top: 14px;
-  opacity: 0;
-  transition: opacity 0.7s 0.3s;
-}
-#cinema-scan {
-  width: 220px;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, #7040ff, transparent);
-  margin-top: 30px;
-  opacity: 0;
-  animation: scan-move 1.4s ease-in-out infinite;
-  transition: opacity 0.5s 0.6s;
-}
-@keyframes scan-move {
-  0%   { transform: scaleX(0.3); opacity: 0.3; }
-  50%  { transform: scaleX(1);   opacity: 1; }
-  100% { transform: scaleX(0.3); opacity: 0.3; }
-}
-/* Title */
-#title {
-  position: fixed;
-  top: 18px;
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
-  z-index: 60;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.8s;
-}
-#title h1 {
-  font-size: 24px;
-  font-weight: 900;
-  letter-spacing: 10px;
-  background: linear-gradient(135deg, #c080ff, #7040ff, #ff60ff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-#title p { font-size: 10px; color: #5555aa; letter-spacing: 4px; margin-top: 3px; }
-/* Detail panel */
-#detail-panel {
-  position: fixed;
-  right: 22px;
-  top: 50%;
-  transform: translateY(-50%) translateX(30px);
-  width: 272px;
-  background: rgba(10,7,28,.97);
-  border: 1px solid rgba(140,90,255,.4);
-  border-radius: 18px;
-  padding: 22px;
-  z-index: 200;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .3s, transform .3s;
-  backdrop-filter: blur(16px);
-  box-shadow: 0 10px 50px rgba(0,0,0,.7), 0 0 40px rgba(100,50,255,.12);
-  max-height: 90vh;
-  overflow-y: auto;
-}
-#detail-panel.open {
-  opacity: 1;
-  pointer-events: all;
-  transform: translateY(-50%) translateX(0);
-}
-#close-btn {
-  position: absolute; top: 12px; right: 14px;
-  background: none; border: none;
-  color: #555; font-size: 16px; cursor: pointer;
-  transition: color .15s;
-}
-#close-btn:hover { color: #ccc; }
-.mode-pill {
-  display: inline-block;
-  padding: 2px 10px; border-radius: 10px;
-  font-size: 9px; font-weight: 700; letter-spacing: 1px;
-}
-.mode-auto { background: rgba(50,200,100,.2); border: 1px solid rgba(50,200,100,.5); color: #60ef90; }
-.mode-confirm { background: rgba(220,150,30,.2); border: 1px solid rgba(220,150,30,.5); color: #ffc040; }
-/* Controls */
-#controls {
-  position: fixed;
-  bottom: 18px;
-  right: 22px;
-  display: flex;
-  gap: 8px;
-  z-index: 150;
-  opacity: 0;
-  transition: opacity 0.6s;
-}
-#controls.visible { opacity: 1; }
-.ctrl-btn {
-  background: rgba(40,25,80,.75);
-  border: 1px solid rgba(130,80,255,.55);
-  color: #b090ff;
-  padding: 7px 16px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  letter-spacing: .5px;
-  transition: all .22s;
-}
-.ctrl-btn:hover {
-  background: rgba(100,60,200,.8);
-  box-shadow: 0 0 18px rgba(140,90,255,.5);
-  transform: scale(1.05);
-}
-/* Legend */
-#legend {
-  position: fixed;
-  bottom: 18px;
-  left: 20px;
-  font-size: 9px;
-  color: #3a3a66;
-  z-index: 50;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.6s;
-  line-height: 2;
-}
-#legend.visible { opacity: 1; }
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(150,100,255,.3); border-radius: 4px; }
 
-/* Live status strip */
-#live-strip {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  height: 28px;
-  background: rgba(6,5,18,0.92);
-  border-top: 1px solid rgba(255,255,255,0.06);
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  gap: 18px;
-  z-index: 80;
-  font-family: 'Azeret Mono', 'Cascadia Code', monospace;
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  opacity: 0;
-  transition: opacity 0.5s;
+/* ── Main layout ── */
+#app { display: flex; height: 100vh; }
+#sidebar {
+  width: 220px; flex-shrink: 0;
+  background: rgba(5,3,16,0.96);
+  border-right: 1px solid rgba(80,50,180,0.22);
+  display: flex; flex-direction: column;
+  overflow: hidden; z-index: 10;
 }
-#live-strip.visible { opacity: 1; }
-.ls-dot {
+#stage-wrap { flex: 1; position: relative; overflow: hidden; }
+#detail-panel {
+  width: 0; flex-shrink: 0; overflow: hidden;
+  background: rgba(5,3,16,0.97);
+  border-left: 1px solid rgba(80,50,180,0.22);
+  transition: width 0.3s ease;
+  display: flex; flex-direction: column;
+  z-index: 10;
+}
+#detail-panel.open { width: 280px; }
+#stage { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* ── Sidebar ── */
+#sb-header {
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid rgba(80,50,180,0.18);
+  flex-shrink: 0;
+}
+#sb-title {
+  font-size: 8px; letter-spacing: 4px; color: #3a3a80; margin-bottom: 4px;
+}
+.live-row { display: flex; align-items: center; gap: 6px; }
+.l-dot {
   width: 6px; height: 6px; border-radius: 50%;
-  background: #333; flex-shrink: 0;
-  transition: background 0.4s;
+  background: #252560; flex-shrink: 0;
+  transition: background 0.5s;
 }
-.ls-dot.active { background: #50ff80; box-shadow: 0 0 6px #50ff80; animation: dot-pulse 1.2s ease-in-out infinite; }
-@keyframes dot-pulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
-.ls-item { color: #444; white-space: nowrap; }
-.ls-item span { color: #888; }
-.ls-item.hi span { color: #c0a0ff; }
-.ls-sep { color: #222; }
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.l-dot.on { background: #28c068; animation: ldp 2s ease-in-out infinite; }
+@keyframes ldp { 0%,100%{opacity:1} 50%{opacity:0.4} }
+#l-status { font-size: 9px; letter-spacing: 2px; color: #303070; }
+#l-agents { font-size: 8px; color: #252558; margin-left: auto; }
+#sb-sessions {
+  flex: 1; overflow-y: auto; padding: 8px 0;
+  scrollbar-width: thin; scrollbar-color: rgba(80,50,180,0.3) transparent;
+}
+#sb-sessions::-webkit-scrollbar { width: 4px; }
+#sb-sessions::-webkit-scrollbar-thumb { background: rgba(80,50,180,0.3); border-radius: 2px; }
+.sess-item {
+  padding: 8px 14px; cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+.sess-item:hover { background: rgba(80,50,180,0.1); }
+.sess-item.active { border-left-color: #7050d0; background: rgba(80,50,180,0.12); }
+.sess-item.running { border-left-color: #28c068; }
+.sess-ts { font-size: 8px; color: #303060; margin-bottom: 3px; }
+.sess-prompt {
+  font-size: 9px; color: #5a5a90; line-height: 1.4;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px;
+}
+.sess-badges { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.sess-badge {
+  font-size: 7px; padding: 1px 5px; border-radius: 3px;
+  border: 1px solid rgba(80,50,180,0.3); color: #5050a0;
+  background: rgba(80,50,180,0.1);
+}
+.sess-badge.running-badge { border-color: rgba(40,192,104,0.4); color: #28c068; background: rgba(40,192,104,0.08); }
+.sess-trace-link {
+  font-size: 7px; color: #3a3a70; text-decoration: none; letter-spacing: 0.5px;
+  padding: 1px 5px; border: 1px solid rgba(80,50,180,0.2); border-radius: 3px;
+  margin-left: auto; flex-shrink: 0;
+}
+.sess-trace-link:hover { color: #8080cc; border-color: rgba(80,50,180,0.5); }
+.dp-export-btn {
+  font-size: 9px; font-family: inherit; color: #6070b0; text-decoration: none;
+  padding: 4px 8px; border: 1px solid rgba(80,50,180,0.25); border-radius: 4px;
+  background: rgba(80,50,180,0.07); cursor: pointer; letter-spacing: 0.3px;
+}
+.dp-export-btn:hover { color: #9090e0; border-color: rgba(80,50,180,0.5); background: rgba(80,50,180,0.15); }
+#sb-no-sessions {
+  padding: 20px 14px; font-size: 9px; color: #252558; line-height: 1.7;
+  text-align: center;
+}
+#sb-movie-btn {
+  margin: 10px 14px;
+  background: rgba(80,50,180,0.12);
+  border: 1px solid rgba(80,50,180,0.35);
+  color: #7050c0; font-size: 9px; letter-spacing: 2px;
+  border-radius: 6px; padding: 7px; cursor: pointer; width: calc(100% - 28px);
+  transition: background 0.15s, color 0.15s;
+  font-family: 'Courier New', monospace;
+}
+#sb-movie-btn:hover { background: rgba(80,50,180,0.25); color: #d0b0ff; }
+#sb-movie-btn.active { background: rgba(80,50,180,0.25); color: #d0b0ff; border-color: rgba(80,50,180,0.6); }
+
+/* ── SVG title overlay ── */
+#title-wrap {
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  text-align: center; pointer-events: none; z-index: 5;
+}
+#title-h1 {
+  font-size: 19px; font-weight: 900; letter-spacing: 12px;
+  background: linear-gradient(135deg, #c880ff, #7040ff, #ff60ff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+#title-sub { font-size: 8px; color: #38388a; letter-spacing: 3.5px; margin-top: 4px; }
+
+/* ── Prompt box ── */
+#prompt-box {
+  position: absolute; bottom: 76px; left: 50%; transform: translateX(-50%);
+  min-width: 340px; max-width: 500px;
+  background: rgba(6,4,22,0.96);
+  border: 1px solid rgba(130,80,255,0.5);
+  border-radius: 12px; padding: 10px 18px;
+  z-index: 50; opacity: 0;
+  box-shadow: 0 4px 28px rgba(100,50,255,0.16);
+  backdrop-filter: blur(18px);
+}
+#p-tag { font-size: 8px; letter-spacing: 3px; color: #48489a; margin-bottom: 4px; }
+#p-line { font-size: 12.5px; color: #90c8ff; display: flex; align-items: center; gap: 2px; min-height: 19px; }
+#p-cursor {
+  display: inline-block; width: 2px; height: 14px;
+  background: #90c8ff; flex-shrink: 0;
+  animation: blink 0.8s step-end infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ── Activity log ── */
+#activity-log {
+  position: absolute; left: 10px; bottom: 76px;
+  width: 240px;
+  background: rgba(5,3,18,0.93);
+  border: 1px solid rgba(70,45,165,0.35);
+  border-radius: 10px; padding: 9px 12px;
+  z-index: 50; opacity: 0;
+}
+#log-title { font-size: 7.5px; letter-spacing: 3px; color: #282870; margin-bottom: 6px;
+  padding-bottom: 5px; border-bottom: 1px solid rgba(70,45,165,0.18); }
+#log-entries { font-size: 9px; line-height: 1.95; max-height: 160px; overflow: hidden; }
+.log-row { display: flex; gap: 5px; opacity: 0; }
+.log-tag { font-weight: bold; min-width: 58px; flex-shrink: 0; }
+.log-msg { color: #525298; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+
+/* ── Mode banner ── */
+#mode-banner {
+  position: absolute; top: 14px; right: 10px;
+  font-size: 8px; letter-spacing: 3px; color: #303070;
+  z-index: 5; pointer-events: none;
+}
+#mode-banner.live-mode { color: #28c068; }
+
+/* ── Control bar ── */
+#ctrl {
+  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 7px;
+  background: rgba(8,6,26,0.95);
+  border: 1px solid rgba(100,60,220,0.35);
+  border-radius: 26px; padding: 6px 16px;
+  z-index: 100; backdrop-filter: blur(18px);
+  opacity: 0;
+}
+.c-btn {
+  background: none; border: 1px solid rgba(100,60,220,0.4);
+  color: #7858d0; width: 26px; height: 26px; border-radius: 50%;
+  cursor: pointer; font-size: 10px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.12s, color 0.12s; flex-shrink: 0; line-height: 1;
+}
+.c-btn:hover { background: rgba(100,60,220,0.2); color: #d0b0ff; }
+.c-btn.disabled { opacity: 0.3; pointer-events: none; }
+#scrubber {
+  width: 180px; height: 3px; cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+  background: rgba(100,60,220,0.2); border-radius: 2px; outline: none;
+}
+#scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 11px; height: 11px;
+  border-radius: 50%; background: #7858d0; cursor: pointer; border: none;
+}
+#t-disp { font-size: 9px; color: #484888; min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+#spd {
+  background: rgba(8,6,26,0.85); border: 1px solid rgba(100,60,220,0.3);
+  color: #6050b0; font-size: 9px; font-family: 'Courier New', monospace;
+  border-radius: 4px; padding: 2px 4px; cursor: pointer; outline: none;
+}
+#spd option { background: #0d0a20; }
+
+/* ── Detail panel ── */
+#dp-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(80,50,180,0.18); flex-shrink: 0;
+}
+#dp-close {
+  float: right; background: none; border: none; color: #404070;
+  cursor: pointer; font-size: 13px; padding: 0; line-height: 1;
+}
+#dp-close:hover { color: #a090e0; }
+#dp-title { font-size: 9px; letter-spacing: 3px; color: #5050a0; margin-top: 2px; }
+#dp-emoji { font-size: 22px; display: block; margin-bottom: 4px; }
+#dp-body { flex: 1; overflow-y: auto; padding: 12px 16px; scrollbar-width: thin; scrollbar-color: rgba(80,50,180,0.3) transparent; }
+#dp-body::-webkit-scrollbar { width: 4px; }
+#dp-body::-webkit-scrollbar-thumb { background: rgba(80,50,180,0.3); border-radius: 2px; }
+.dp-section { margin-bottom: 14px; }
+.dp-section-title { font-size: 7.5px; letter-spacing: 3px; color: #303068; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid rgba(80,50,180,0.15); }
+.dp-event { font-size: 9px; line-height: 1.6; color: #5060a0; margin-bottom: 4px; }
+.dp-event .ev-ts { color: #282855; }
+.dp-event .ev-type { color: inherit; font-weight: bold; }
+.dp-artifact { font-size: 9px; color: #6070a0; padding: 3px 6px; background: rgba(80,50,180,0.08); border-radius: 3px; margin-bottom: 3px; }
+.dp-agent { display: inline-block; font-size: 8px; padding: 2px 7px; border-radius: 10px; margin: 2px 3px 2px 0; border: 1px solid rgba(80,50,180,0.3); color: #6060a0; }
 </style>
 </head>
 <body>
+<div id="app">
+  <!-- ── Left sidebar: session history ── -->
+  <div id="sidebar">
+    <div id="sb-header">
+      <div id="sb-title">SESSIONS</div>
+      <div class="live-row">
+        <div class="l-dot" id="l-dot"></div>
+        <span id="l-status">OFFLINE</span>
+        <span id="l-agents">0 agents</span>
+      </div>
+    </div>
+    <div id="sb-sessions">
+      <div id="sb-no-sessions">No sessions yet.<br>Run <span style="color:#6060a0">/mastermind</span><br>to start.</div>
+    </div>
+    <button id="sb-movie-btn" onclick="toggleMovieMode()">▶ MOVIE MODE</button>
+  </div>
 
-<div id="cinema">
-  <div id="cinema-text">MASTERMIND</div>
-  <div id="cinema-sub">ASSEMBLING AGENTS...</div>
-  <div id="cinema-scan"></div>
+  <!-- ── Stage ── -->
+  <div id="stage-wrap">
+    <!-- SVG -->
+    <svg id="stage" viewBox="0 0 960 720" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <filter id="glow" x="-55%" y="-55%" width="210%" height="210%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="bloom" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <radialGradient id="tbl-g" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#180840" stop-opacity="0.7"/>
+          <stop offset="100%" stop-color="#07071a" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="brain-g" cx="40%" cy="35%" r="60%">
+          <stop offset="0%" stop-color="#2c1aaa"/>
+          <stop offset="100%" stop-color="#12083a"/>
+        </radialGradient>
+      </defs>
+      <g id="stars"></g>
+      <circle cx="480" cy="360" r="260" fill="url(#tbl-g)" id="tbl-bg"/>
+      <circle cx="480" cy="360" r="260" fill="none" stroke="#1c0d46" stroke-width="1.5" id="tbl-ring"/>
+      <circle cx="480" cy="360" r="205" fill="none" stroke="#110830" stroke-width="1" stroke-dasharray="5 10" id="orb-ring"/>
+      <g id="spokes"></g>
+      <g id="domains"></g>
+      <g id="packets"></g>
+      <g id="brain">
+        <circle cx="480" cy="360" r="75" fill="#170d4c" opacity="0.35" filter="url(#bloom)" id="brain-glow"/>
+        <circle cx="480" cy="360" r="46" fill="url(#brain-g)" id="brain-body"/>
+        <circle cx="480" cy="360" r="46" fill="none" stroke="#5c30b8" stroke-width="2.5" id="brain-ring"/>
+        <circle cx="480" cy="360" r="55" fill="none" stroke="#5c30b8" stroke-width="0.8" opacity="0.2" id="pulse-ring"/>
+        <text x="480" y="375" text-anchor="middle" font-size="34" id="brain-emoji">🧠</text>
+        <text x="480" y="394" text-anchor="middle" font-size="7" fill="#5c30b8" letter-spacing="2.5"
+          font-family="'Courier New',monospace" id="brain-lbl">MASTERMIND</text>
+      </g>
+    </svg>
+
+    <!-- Overlays -->
+    <div id="title-wrap">
+      <div id="title-h1">MASTERMIND</div>
+      <div id="title-sub">AUTONOMOUS BUSINESS BRAIN · 10 DOMAINS · SELF-IMPROVING</div>
+    </div>
+
+    <div id="mode-banner">LIVE</div>
+
+    <div id="prompt-box">
+      <div id="p-tag">USER PROMPT</div>
+      <div id="p-line"><span id="p-text"></span><span id="p-cursor"></span></div>
+    </div>
+
+    <div id="activity-log">
+      <div id="log-title">ACTIVITY LOG</div>
+      <div id="log-entries"></div>
+    </div>
+
+    <div id="ctrl">
+      <button class="c-btn disabled" id="btn-restart" title="Restart">↺</button>
+      <button class="c-btn disabled" id="btn-play" title="Play">▶</button>
+      <button class="c-btn disabled" id="btn-pause" title="Pause">⏸</button>
+      <input type="range" id="scrubber" min="0" max="100" value="0" step="0.1" disabled/>
+      <span id="t-disp">—</span>
+      <select id="spd">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="2">2×</option>
+        <option value="3">3×</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ── Right panel: session/domain detail ── -->
+  <div id="detail-panel">
+    <div id="dp-header">
+      <button id="dp-close" onclick="closeDetail()">✕</button>
+      <span id="dp-emoji"></span>
+      <div id="dp-title">SELECT A DOMAIN OR SESSION</div>
+    </div>
+    <div id="dp-body"></div>
+  </div>
 </div>
 
-<div id="title">
-  <h1>MASTERMIND</h1>
-  <p>AUTONOMOUS BUSINESS BRAIN &nbsp;·&nbsp; 10 DOMAINS &nbsp;·&nbsp; SELF-IMPROVING</p>
-</div>
-
-<svg id="canvas" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <radialGradient id="table-grad" cx="38%" cy="32%" r="65%">
-      <stop offset="0%"   stop-color="rgba(100,60,180,0.38)"/>
-      <stop offset="55%"  stop-color="rgba(25,15,60,0.55)"/>
-      <stop offset="100%" stop-color="rgba(8,5,22,0.92)"/>
-    </radialGradient>
-    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="5" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="glow-xl" x="-100%" y="-100%" width="300%" height="300%">
-      <feGaussianBlur stdDeviation="14" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="rgba(0,0,0,0.5)"/>
-    </filter>
-  </defs>
-
-  <!-- Stars -->
-  <g id="g-stars"></g>
-
-  <!-- Table -->
-  <circle id="table-ring" cx="0" cy="0" r="0"
-    fill="url(#table-grad)"
-    stroke="rgba(130,80,255,0.22)" stroke-width="2"/>
-
-  <!-- Decorative orbit ring -->
-  <circle id="orbit-ring" cx="0" cy="0" r="0"
-    fill="none" stroke="rgba(100,60,200,0.12)" stroke-width="1"
-    stroke-dasharray="4 18"/>
-
-  <!-- Connection lines -->
-  <g id="g-lines"></g>
-
-  <!-- Ripples -->
-  <g id="g-ripples"></g>
-
-  <!-- Agents -->
-  <g id="g-agents"></g>
-
-  <!-- Live glow rings (one per agent, shown when domain is active) -->
-  <g id="g-glow-rings"></g>
-
-  <!-- Brain center (rendered last = on top) -->
-  <g id="g-brain" opacity="0">
-    <!-- Outer halos -->
-    <circle cx="0" cy="0" r="72" fill="rgba(130,70,255,0.06)" stroke="none"/>
-    <circle cx="0" cy="0" r="55" fill="rgba(150,80,255,0.10)" stroke="none"/>
-    <circle id="brain-ring" cx="0" cy="0" r="42"
-      fill="rgba(100,50,220,0.15)"
-      stroke="rgba(160,100,255,0.3)" stroke-width="1.5"/>
-    <!-- Brain emoji -->
-    <text id="brain-emoji" x="0" y="2"
-      text-anchor="middle" dominant-baseline="middle"
-      font-size="68" filter="url(#glow-xl)">🧠</text>
-    <!-- Labels -->
-    <text x="0" y="52" text-anchor="middle"
-      font-size="12" font-weight="900" fill="#c0a0ff"
-      letter-spacing="4" filter="url(#glow)"
-      font-family="Segoe UI, system-ui, sans-serif">MASTERMIND</text>
-    <text x="0" y="66" text-anchor="middle"
-      font-size="7.5" fill="#6060a0" letter-spacing="2"
-      font-family="Segoe UI, system-ui, sans-serif">TOP-LEVEL ORCHESTRATOR</text>
-    <!-- Monograph button group -->
-    <g id="g-mono" cursor="pointer" opacity="0" onclick="showMonograph()">
-      <rect x="-58" y="78" width="116" height="24" rx="12"
-        fill="rgba(70,40,140,0.7)" stroke="rgba(150,100,255,0.65)" stroke-width="1"/>
-      <text x="0" y="90" text-anchor="middle" dominant-baseline="middle"
-        font-size="10" font-weight="700" fill="#c0a0ff" letter-spacing="0.5"
-        font-family="Segoe UI, system-ui, sans-serif">📊  Monograph</text>
-    </g>
-    <!-- Iterate badge -->
-    <g id="g-iter" opacity="0">
-      <rect x="-50" y="108" width="100" height="18" rx="9"
-        fill="rgba(30,120,70,0.4)" stroke="rgba(60,200,110,0.5)" stroke-width="1"/>
-      <text x="0" y="117" text-anchor="middle" dominant-baseline="middle"
-        font-size="8" font-weight="700" fill="#70ffaa" letter-spacing="1.5"
-        font-family="Segoe UI, system-ui, sans-serif">⚡  --iterate N</text>
-    </g>
-  </g>
-</svg>
-
-<div id="detail-panel">
-  <button id="close-btn" onclick="closePanel()">✕</button>
-  <div id="detail-body"></div>
-</div>
-
-<div id="controls">
-  <button class="ctrl-btn" onclick="replay()">↺ &nbsp;Replay</button>
-</div>
-
-<!-- Live status strip -->
-<div id="live-strip">
-  <div class="ls-dot" id="ls-dot"></div>
-  <div class="ls-item" id="ls-status"><span>IDLE</span></div>
-  <div class="ls-sep">·</div>
-  <div class="ls-item" id="ls-swarm">swarm <span id="ls-swarm-val">—</span></div>
-  <div class="ls-sep">·</div>
-  <div class="ls-item" id="ls-agents">agents <span id="ls-agents-val">—</span></div>
-  <div class="ls-sep">·</div>
-  <div class="ls-item" id="ls-route">last route <span id="ls-route-val">—</span></div>
-  <div class="ls-sep">·</div>
-  <div class="ls-item" id="ls-session">session <span id="ls-session-val">—</span></div>
-</div>
-
-<div id="legend">
-  click an agent to see details &nbsp;·&nbsp; 📊 for memory / brain info
-</div>
-
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
 <script>
-/* ── Data ── */
+'use strict';
+
+// ── Layout constants (SVG viewBox 0 0 960 720) ────────────────────────────────
+const CX = 480, CY = 360, R = 205;
+const PERIM = 2 * Math.PI * 34;
+const SCRAMBLE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*!';
+
+// ── Domain definitions ─────────────────────────────────────────────────────────
 const DOMAINS = [
-  { name:'Build',    emoji:'🔨', manager:'coordinator', mode:'auto',
-    swarm:'hierarchical · 6 · raft', color:'#4FC3F7', board:'development',
-    agents:['backend-dev','frontend-dev','tester','reviewer','sparc-coder'],
-    desc:'Ship features, fix bugs, refactor code. Development Manager decomposes goals into monotask briefings and coordinates a hierarchical raft swarm.' },
-  { name:'Idea',     emoji:'💡', manager:'coordinator', mode:'confirm',
-    swarm:'mesh · 6 · gossip', color:'#FFD54F', board:'ideation',
-    agents:['researcher','Trend Researcher','UX Researcher','Growth Hacker','Content Creator'],
-    desc:'Brainstorm products, features, pivots. A mesh of specialists explore multiple angles simultaneously, cross-pollinating insights via gossip protocol.' },
-  { name:'Marketing',emoji:'📣', manager:'coordinator', mode:'confirm',
-    swarm:'star · 5 · parallel', color:'#FF8A65', board:'marketing',
-    agents:['Content Creator','SEO Specialist','Social Media Strategist','Analytics Reporter','Ad Creative Strategist'],
-    desc:'Campaigns, copy, SEO, social media. Star topology runs all channel workstreams in parallel, then the hub synthesises outputs.' },
-  { name:'Review',   emoji:'🔍', manager:'reviewer',    mode:'auto',
-    swarm:'mesh · 4 · gossip', color:'#CE93D8', board:'review',
-    agents:['Code Reviewer','Security Engineer','Software Architect','Accessibility Auditor'],
-    desc:'Code, content, security, strategy review. Specialist reviewers share findings via gossip mesh for multi-angle assessment.' },
-  { name:'Research', emoji:'🔬', manager:'researcher',  mode:'auto',
-    swarm:'mesh · 4 · gossip', color:'#80DEEA', board:'research',
-    agents:['researcher','Trend Researcher','UX Researcher','Analytics Reporter'],
-    desc:'Market, competitor, user research. Intelligence streams cross-pollinate via mesh to build a comprehensive picture.' },
-  { name:'Content',  emoji:'✍️', manager:'coordinator', mode:'confirm',
-    swarm:'ring · 4 · pipeline', color:'#A5D6A7', board:'content',
-    agents:['researcher','Content Creator','Technical Writer','editor'],
-    desc:'Blog, docs, newsletters. Ring pipeline: research → draft → edit → format/publish. Each stage feeds the next.' },
-  { name:'Release',  emoji:'🚀', manager:'coordinator', mode:'auto',
-    swarm:'hierarchical · 5 · raft', color:'#EF9A9A', board:'release',
-    agents:['release-manager','tester','DevOps Automator','cicd-engineer'],
-    desc:'Version, changelog, deploy. Hierarchical raft keeps authoritative release state across environments with rollback plan.' },
-  { name:'Sales',    emoji:'💼', manager:'coordinator', mode:'confirm',
-    swarm:'hierarchical · 4 · raft', color:'#FFCC80', board:'sales',
-    agents:['Outbound Strategist','Proposal Strategist','Deal Strategist','Account Strategist'],
-    desc:'Outreach, proposals, pipeline. Coordinated sales motions from ICP definition through to proposal and close.' },
-  { name:'Ops',      emoji:'⚙️', manager:'coordinator', mode:'auto',
-    swarm:'star · 4 · parallel', color:'#90CAF9', board:'ops',
-    agents:['Workflow Optimizer','Analytics Reporter','DevOps Automator','cicd-engineer'],
-    desc:'Workflow automation, reporting, process optimisation. Star hub aggregates independent workstream outputs.' },
-  { name:'Finance',  emoji:'💰', manager:'coordinator', mode:'confirm',
-    swarm:'hierarchical · 3 · raft', color:'#C8E6C9', board:'finance',
-    agents:['Finance Tracker','Analytics Reporter'],
-    desc:'Invoicing, budget, forecasting. Small precise team with raft authority for numerical accuracy and auditability.' },
+  { id:'build',    emoji:'⚙️',  label:'BUILD',     color:'#60a5fa', tag:'[BUILD]',    msg:'Spawning architect + coder + tester', cmd:'/mastermind:build' },
+  { id:'idea',     emoji:'💡',  label:'IDEA',      color:'#fbbf24', tag:'[IDEA]',     msg:'Generating product concepts',          cmd:'/mastermind:idea' },
+  { id:'marketing',emoji:'📣',  label:'MARKETING', color:'#f472b6', tag:'[MARKET]',   msg:'Crafting launch campaign',             cmd:'/mastermind:marketing' },
+  { id:'review',   emoji:'🔍',  label:'REVIEW',    color:'#34d399', tag:'[REVIEW]',   msg:'Auditing code quality',                cmd:'/mastermind:review' },
+  { id:'research', emoji:'🔬',  label:'RESEARCH',  color:'#a78bfa', tag:'[RESEARCH]', msg:'Scraping competitor sites',            cmd:'/mastermind:research' },
+  { id:'content',  emoji:'✍️', label:'CONTENT',   color:'#fb923c', tag:'[CONTENT]',  msg:'Writing blog + social posts',          cmd:'/mastermind:content' },
+  { id:'release',  emoji:'🚀',  label:'RELEASE',   color:'#22d3ee', tag:'[RELEASE]',  msg:'Preparing deployment pipeline',        cmd:'/mastermind:release' },
+  { id:'sales',    emoji:'💼',  label:'SALES',     color:'#f87171', tag:'[SALES]',    msg:'Building outreach sequences',          cmd:'/mastermind:sales' },
+  { id:'ops',      emoji:'⚡',  label:'OPS',       color:'#4ade80', tag:'[OPS]',      msg:'Automating workflows',                 cmd:'/mastermind:ops' },
+  { id:'finance',  emoji:'💰',  label:'FINANCE',   color:'#fde68a', tag:'[FINANCE]',  msg:'Forecasting revenue model',            cmd:'/mastermind:finance' },
 ];
-
-/* ── Layout state ── */
-let cx = 0, cy = 0, r = 0;
-function updateLayout() {
-  cx = innerWidth / 2;
-  cy = innerHeight / 2;
-  r  = Math.min(innerWidth, innerHeight) * 0.308;
-}
-
-/* ── Easing functions ── */
-function easeOutBack(t) {
-  const c1 = 1.70158, c3 = c1 + 1;
-  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-}
-function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
-function easeInOutQuart(t) { return t < .5 ? 8*t*t*t*t : 1 - Math.pow(-2*t+2,4)/2; }
-
-/* ── SVG helpers ── */
-const NS = 'http://www.w3.org/2000/svg';
-function svgEl(tag, attrs) {
-  const el = document.createElementNS(NS, tag);
-  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-  return el;
-}
-function svgText(content, attrs) {
-  const el = svgEl('text', attrs);
-  el.textContent = content;
-  return el;
-}
-
-/* ── Agent character builder ── */
-function buildAgentChar(d, i) {
-  const g = svgEl('g', { id: `ag-${i}`, opacity: '0', cursor: 'pointer' });
-  const c = d.color;
-
-  // Ground shadow
-  g.appendChild(svgEl('ellipse', { cx:'0', cy:'36', rx:'15', ry:'5',
-    fill:'rgba(0,0,0,0.35)' }));
-
-  // Body / torso
-  g.appendChild(svgEl('ellipse', { cx:'0', cy:'24', rx:'14', ry:'13',
-    fill: c, opacity:'0.72' }));
-
-  // Ears
-  for (const ex of [-15, 15]) {
-    g.appendChild(svgEl('circle', { cx: ex, cy:'-4', r:'6', fill: c, opacity:'0.78' }));
-    g.appendChild(svgEl('circle', { cx: ex, cy:'-4', r:'3.5', fill:'#e87a7a', opacity:'0.5' }));
-  }
-
-  // Head
-  g.appendChild(svgEl('circle', { cx:'0', cy:'-5', r:'17',
-    fill:'#1a1230', stroke: c, 'stroke-width':'1.8', filter:'url(#shadow)' }));
-
-  // Domain emoji face
-  const face = svgEl('text', { x:'0', y:'-5',
-    'text-anchor':'middle', 'dominant-baseline':'middle',
-    'font-size':'16' });
-  face.textContent = d.emoji;
-  g.appendChild(face);
-
-  // Manager icon (small monkey above head left)
-  const mgr = svgEl('text', { x:'14', y:'-18',
-    'text-anchor':'middle', 'dominant-baseline':'middle',
-    'font-size':'10', opacity:'0.6' });
-  mgr.textContent = '🐒';
-  g.appendChild(mgr);
-
-  // Name label
-  const lbl = svgEl('text', { x:'0', y:'46',
-    'text-anchor':'middle', 'dominant-baseline':'middle',
-    'font-size':'8', 'font-weight':'bold',
-    fill: c, 'letter-spacing':'0.6',
-    'font-family':'Segoe UI, system-ui, sans-serif' });
-  lbl.textContent = d.name.toUpperCase();
-  g.appendChild(lbl);
-
-  return g;
-}
-
-/* ── Stars ── */
-function buildStars() {
-  const g = document.getElementById('g-stars');
-  g.innerHTML = '';
-  for (let i = 0; i < 200; i++) {
-    const sz = Math.random() * 2.2 + 0.3;
-    g.appendChild(svgEl('circle', {
-      cx: (Math.random() * innerWidth).toFixed(1),
-      cy: (Math.random() * innerHeight).toFixed(1),
-      r:  sz.toFixed(2),
-      fill: 'white',
-      opacity: (Math.random() * 0.65 + 0.1).toFixed(2)
-    }));
-  }
-}
-
-/* ── Animation tracking ── */
-let lineEls   = [];
-let agentEls  = [];
-let seats     = [];  // { x, y, ang }
-let origins   = [];  // far start positions
-let bobAnims  = [];  // per-agent requestAnimationFrame IDs
-let interactive = false;
-let activeIdx   = null;
-let dashOffset  = 0;
-
-/* ── Build scene ── */
-function buildScene() {
-  updateLayout();
-  buildStars();
-
-  // Table circle
-  const tc = document.getElementById('table-ring');
-  tc.setAttribute('cx', cx); tc.setAttribute('cy', cy);
-
-  // Orbit ring (seat circle)
-  const orbit = document.getElementById('orbit-ring');
-  orbit.setAttribute('cx', cx); orbit.setAttribute('cy', cy);
-  orbit.setAttribute('r', r);
-
-  // Brain center
-  const gb = document.getElementById('g-brain');
-  gb.setAttribute('transform', `translate(${cx},${cy})`);
-
-  // Lines + agents
-  const gLines  = document.getElementById('g-lines');
-  const gAgents = document.getElementById('g-agents');
-  gLines.innerHTML  = '';
-  gAgents.innerHTML = '';
-  lineEls  = [];
-  agentEls = [];
-  seats    = [];
-  origins  = [];
-
-  const n    = DOMAINS.length;
-  const farR = r * 2.7;
-
-  DOMAINS.forEach((d, i) => {
-    const ang = (i / n) * 2 * Math.PI - Math.PI / 2;
-    const tx = cx + r * Math.cos(ang);
-    const ty = cy + r * Math.sin(ang);
-    const sx = cx + farR * Math.cos(ang);
-    const sy = cy + farR * Math.sin(ang);
-    seats.push({ x: tx, y: ty, ang });
-    origins.push({ x: sx, y: sy });
-
-    // Connection line
-    const line = svgEl('line', {
-      x1: cx, y1: cy, x2: tx, y2: ty,
-      stroke: d.color, 'stroke-width':'1.5',
-      'stroke-dasharray':'7 14', opacity:'0'
-    });
-    lineEls.push(line);
-    gLines.appendChild(line);
-
-    // Agent character
-    const ag = buildAgentChar(d, i);
-    ag.setAttribute('transform', `translate(${sx},${sy})`);
-    ag.addEventListener('click', e => { e.stopPropagation(); if (interactive) showDomain(i); });
-    agentEls.push(ag);
-    gAgents.appendChild(ag);
-  });
-}
-
-/* ── Animate a single agent arriving ── */
-function animateArrival(i, onDone) {
-  const ag  = agentEls[i];
-  const ln  = lineEls[i];
-  const src = origins[i];
-  const dst = seats[i];
-  const dur = 1150; // ms per agent
-
-  ag.setAttribute('opacity', '1');
-  const t0 = performance.now();
-
-  function step(ts) {
-    const raw  = Math.min((ts - t0) / dur, 1);
-    const ease = easeOutCubic(raw);
-
-    const x = src.x + (dst.x - src.x) * ease;
-    const y = src.y + (dst.y - src.y) * ease;
-
-    // Walking bob: dampens as agent approaches
-    const bob = Math.sin(raw * Math.PI * 7) * 12 * (1 - raw);
-    const sc  = 1.5 - 0.5 * ease; // starts big, settles to 1
-
-    ag.setAttribute('transform', `translate(${x},${y + bob}) scale(${sc})`);
-    ln.setAttribute('opacity', (ease * 0.42).toFixed(2));
-
-    if (raw < 1) {
-      requestAnimationFrame(step);
-    } else {
-      ag.setAttribute('transform', `translate(${dst.x},${dst.y}) scale(1)`);
-      ln.setAttribute('opacity', '0.4');
-      ripple(dst.x, dst.y, DOMAINS[i].color);
-      startIdleBob(i);
-      onDone && onDone();
-    }
-  }
-  requestAnimationFrame(step);
-}
-
-/* ── Ripple on landing ── */
-function ripple(x, y, color) {
-  const g  = document.getElementById('g-ripples');
-  const c1 = svgEl('circle', { cx: x, cy: y, r:'4', fill:'none',
-    stroke: color, 'stroke-width':'2', opacity:'0.8' });
-  const c2 = svgEl('circle', { cx: x, cy: y, r:'4', fill:'none',
-    stroke: color, 'stroke-width':'1', opacity:'0.4' });
-  g.appendChild(c1);
-  g.appendChild(c2);
-  const t0 = performance.now();
-  function anim(ts) {
-    const p = Math.min((ts - t0) / 750, 1);
-    c1.setAttribute('r',  (4 + 44 * p).toFixed(1));
-    c1.setAttribute('opacity', (0.8 * (1 - p)).toFixed(2));
-    c2.setAttribute('r',  (4 + 28 * p * 0.7).toFixed(1));
-    c2.setAttribute('opacity', (0.4 * (1 - p)).toFixed(2));
-    if (p < 1) requestAnimationFrame(anim);
-    else { g.removeChild(c1); g.removeChild(c2); }
-  }
-  requestAnimationFrame(anim);
-}
-
-/* ── Idle bob per agent ── */
-function startIdleBob(i) {
-  const ag  = agentEls[i];
-  const dst = seats[i];
-  const ph  = (i / DOMAINS.length) * Math.PI * 2;
-  function bob(ts) {
-    const by = Math.sin(ts * 0.0012 + ph) * 2.8;
-    const sc = 1 + Math.sin(ts * 0.0009 + ph + 1) * 0.022;
-    ag.setAttribute('transform', `translate(${dst.x},${dst.y + by}) scale(${sc})`);
-    bobAnims[i] = requestAnimationFrame(bob);
-  }
-  bobAnims[i] = requestAnimationFrame(bob);
-}
-
-/* ── Line dash flow (runs continuously) ── */
-function startLineFlow() {
-  let offset = 0;
-  function tick(ts) {
-    offset = (ts / 1000 * 28) % 21; // period = 7+14 = 21
-    lineEls.forEach(l => {
-      if (parseFloat(l.getAttribute('opacity') || '0') > 0.01)
-        l.setAttribute('stroke-dashoffset', -offset);
-    });
-    requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
-}
-
-/* ── Brain pulse (runs continuously) ── */
-function startBrainPulse() {
-  const br = document.getElementById('brain-ring');
-  const be = document.getElementById('brain-emoji');
-  function tick(ts) {
-    const sc  = 1 + Math.sin(ts * 0.0026) * 0.055;
-    const rsc = 1 + Math.sin(ts * 0.0018) * 0.04;
-    be.setAttribute('transform', `scale(${sc.toFixed(3)})`);
-    const rr = 42 * rsc;
-    br.setAttribute('r', rr.toFixed(2));
-    requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
-}
-
-/* ── Table grow animation ── */
-function animateTable(targetR, onDone) {
-  const tc = document.getElementById('table-ring');
-  const t0 = performance.now();
-  const dur = 900;
-  function step(ts) {
-    const p = Math.min((ts - t0) / dur, 1);
-    const e = easeOutBack(p);
-    tc.setAttribute('r', Math.max(0, e * targetR).toFixed(1));
-    if (p < 1) requestAnimationFrame(step);
-    else { tc.setAttribute('r', targetR); onDone && onDone(); }
-  }
-  requestAnimationFrame(step);
-}
-
-/* ── Brain drop animation ── */
-function animateBrainDrop(onDone) {
-  const gb = document.getElementById('g-brain');
-  gb.setAttribute('opacity', '1');
-  const startY = cy - 220;
-  const t0  = performance.now();
-  const dur = 700;
-  function step(ts) {
-    const p = Math.min((ts - t0) / dur, 1);
-    const e = easeOutBack(p);
-    const curY = startY + (cy - startY) * e;
-    const sc   = 0.2 + 0.8 * e;
-    gb.setAttribute('transform', `translate(${cx},${curY}) scale(${sc})`);
-    if (p < 1) requestAnimationFrame(step);
-    else {
-      gb.setAttribute('transform', `translate(${cx},${cy})`);
-      onDone && onDone();
-    }
-  }
-  requestAnimationFrame(step);
-}
-
-/* ── Full animation sequence ── */
-function runAnimation() {
-  interactive = false;
-  activeIdx   = null;
-
-  const cinema = document.getElementById('cinema');
-  const ct = document.getElementById('cinema-text');
-  const cs = document.getElementById('cinema-sub');
-  const cs2 = document.getElementById('cinema-scan');
-
-  // Reset all
-  document.getElementById('g-brain').setAttribute('opacity', '0');
-  document.getElementById('g-mono').setAttribute('opacity', '0');
-  document.getElementById('g-iter').setAttribute('opacity', '0');
-  document.getElementById('table-ring').setAttribute('r', '0');
-  document.getElementById('title').style.opacity = '0';
-  document.getElementById('controls').classList.remove('visible');
-  document.getElementById('legend').classList.remove('visible');
-  lineEls.forEach(l => l.setAttribute('opacity', '0'));
-  agentEls.forEach((ag, i) => {
-    ag.setAttribute('opacity', '0');
-    ag.setAttribute('transform', `translate(${origins[i].x},${origins[i].y})`);
-  });
-  bobAnims.forEach(id => id && cancelAnimationFrame(id));
-  bobAnims = Array(DOMAINS.length).fill(null);
-
-  // Show cinema overlay
-  cinema.style.display = 'flex';
-  cinema.style.opacity = '1';
-  cinema.style.pointerEvents = 'none';
-  ct.style.opacity = '0';
-  cs.style.opacity = '0';
-  cs2.style.opacity = '0';
-
-  // Phase 1: cinema text fades in
-  setTimeout(() => {
-    ct.style.opacity = '1';
-    cs.style.opacity = '1';
-    cs2.style.opacity = '1';
-  }, 120);
-
-  // Phase 2: cinema fades out, table grows
-  setTimeout(() => {
-    cinema.style.opacity = '0';
-    setTimeout(() => { cinema.style.display = 'none'; }, 900);
-    document.getElementById('title').style.opacity = '1';
-    animateTable(r, () => {
-      // Phase 3: brain drops in
-      setTimeout(() => {
-        animateBrainDrop(() => {
-          // Show buttons
-          document.getElementById('g-mono').setAttribute('opacity', '1');
-          document.getElementById('g-iter').setAttribute('opacity', '1');
-
-          // Phase 4: stagger agent arrivals
-          let lastAgentDone = false;
-          DOMAINS.forEach((_, i) => {
-            setTimeout(() => {
-              animateArrival(i, i === DOMAINS.length - 1 ? () => {
-                // All arrived — go interactive
-                setTimeout(() => {
-                  interactive = true;
-                  document.getElementById('controls').classList.add('visible');
-                  document.getElementById('legend').classList.add('visible');
-                }, 600);
-              } : null);
-            }, i * 520);
-          });
-        });
-      }, 300);
-    });
-  }, 1900);
-}
-
-/* ── Replay ── */
-function replay() {
-  closePanel();
-  buildScene();
-  runAnimation();
-}
-
-/* ── Detail panel — Domain ── */
-function showDomain(i) {
-  if (!interactive) return;
-  const d = DOMAINS[i];
-  if (activeIdx === i) { closePanel(); return; }
-  activeIdx = i;
-
-  document.getElementById('detail-body').innerHTML = `
-    <div style="text-align:center;margin-bottom:14px;">
-      <div style="font-size:40px;line-height:1">${d.emoji}</div>
-      <div style="font-size:16px;font-weight:900;color:${d.color};letter-spacing:2px;margin-top:6px;">
-        mastermind:${d.name.toLowerCase()}
-      </div>
-      <div style="margin-top:6px;">
-        <span class="mode-pill mode-${d.mode}">default: ${d.mode}</span>
-      </div>
-    </div>
-    <p style="font-size:11px;color:#aaa;line-height:1.75;margin-bottom:14px;">${d.desc}</p>
-    <div style="font-size:9px;color:#555;letter-spacing:1.5px;margin-bottom:5px;">SWARM CONFIG</div>
-    <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
-        border-radius:9px;padding:9px 12px;font-size:11px;color:#bbb;margin-bottom:14px;
-        font-family:monospace;letter-spacing:.5px;">${d.swarm}</div>
-    <div style="font-size:9px;color:#555;letter-spacing:1.5px;margin-bottom:6px;">MANAGER AGENT</div>
-    <div style="font-size:12px;margin-bottom:14px;">🐒 <strong style="color:${d.color}">${d.manager}</strong>
-      <span style="font-size:10px;color:#555;margin-left:6px;">→ board: ${d.board}</span></div>
-    <div style="font-size:9px;color:#555;letter-spacing:1.5px;margin-bottom:7px;">SPECIALIST AGENTS</div>
-    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:16px;">
-      ${d.agents.map(a => `<span style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);
-        border-radius:7px;padding:3px 8px;font-size:9px;color:#bbb;">🐒 ${a}</span>`).join('')}
-    </div>
-    <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:13px;">
-      <div style="font-family:monospace;font-size:10px;color:#7766bb;line-height:2.1;">
-        /mastermind:${d.name.toLowerCase()} [prompt]<br>
-        /mastermind:${d.name.toLowerCase()} --auto<br>
-        /mastermind:master [prompt] --iterate 3
-      </div>
-    </div>`;
-  document.getElementById('detail-panel').classList.add('open');
-}
-
-/* ── Detail panel — Monograph ── */
-function showMonograph() {
-  if (activeIdx === 'mono') { closePanel(); return; }
-  activeIdx = 'mono';
-
-  document.getElementById('detail-body').innerHTML = `
-    <div style="text-align:center;margin-bottom:14px;">
-      <div style="font-size:42px;line-height:1">📊</div>
-      <div style="font-size:16px;font-weight:900;color:#b090ff;letter-spacing:2px;margin-top:6px;">MONOGRAPH</div>
-      <div style="font-size:9px;color:#555;letter-spacing:2px;margin-top:3px;">KNOWLEDGE GRAPH ENGINE</div>
-    </div>
-    <p style="font-size:11px;color:#aaa;line-height:1.75;margin-bottom:14px;">
-      Mastermind's long-term memory. Every run writes decisions, lessons, and patterns into a three-tier brain that self-compacts and improves over time.</p>
-    <div style="font-size:9px;color:#555;letter-spacing:1.5px;margin-bottom:8px;">THREE-TIER BRAIN</div>
-    <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px;">
-      ${[['📁 Tier 1 — Raw Logs','AgentDB · append-only · scored per run'],
-         ['📋 Tier 2 — Weekly Summaries','LLM-distilled per domain · auto-compacted'],
-         ['🌐 Tier 3 — Core Principles','Graph-consolidated · cross-domain · exceptions as edges']]
-        .map(([t,s]) => `<div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
-          border-radius:9px;padding:9px 12px;">
-          <div style="font-size:10px;color:#ccc;margin-bottom:2px;">${t}</div>
-          <div style="font-size:9px;color:#666;">${s}</div></div>`).join('')}
-    </div>
-    <div style="font-size:9px;color:#555;letter-spacing:1.5px;margin-bottom:7px;">MEMORY SCORE</div>
-    <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
-        border-radius:9px;padding:9px 12px;font-family:monospace;font-size:10px;color:#c0a0ff;
-        margin-bottom:14px;text-align:center;">score = conf × 1/(days+1) × log(uses+1)</div>
-    <div style="font-size:9px;color:#555;letter-spacing:1.5px;margin-bottom:7px;">BRAIN COMMANDS</div>
-    <div style="font-family:monospace;font-size:10px;color:#7766bb;line-height:2.1;">
-      /mastermind:brain status<br>
-      /mastermind:brain compact<br>
-      /mastermind:brain refresh --domain X<br>
-      /mastermind:brain inspect --tier 1<br>
-      /mastermind:brain forget --query "..."<br>
-      /mastermind:brain reset --domain X --confirm
-    </div>`;
-  document.getElementById('detail-panel').classList.add('open');
-}
-
-/* ── Close panel ── */
-function closePanel() {
-  activeIdx = null;
-  document.getElementById('detail-panel').classList.remove('open');
-}
-
-/* ── Click background to close ── */
-document.getElementById('canvas').addEventListener('click', e => {
-  if (e.target.closest('#g-brain')) return; // monograph btn / brain area
-  closePanel();
+DOMAINS.forEach((d, i) => {
+  const a = -Math.PI / 2 + (i / DOMAINS.length) * 2 * Math.PI;
+  d.x = Math.round(CX + R * Math.cos(a));
+  d.y = Math.round(CY + R * Math.sin(a));
+  d.events = []; // live event history per domain
 });
 
-/* ── Init ── */
-buildScene();
-startLineFlow();
-startBrainPulse();
-runAnimation();
+const IC = [
+  [0,3,'code→review'], [3,6,'LGTM→ship'], [1,2,'concepts→copy'],
+  [2,5,'brief→write'], [4,1,'data→ideate'], [7,8,'leads→ops'], [8,9,'metrics→model'],
+];
 
-window.addEventListener('resize', () => { buildScene(); if (glowRingEls.length) buildGlowRings(); });
+// ── SVG helpers ────────────────────────────────────────────────────────────────
+const NS = 'http://www.w3.org/2000/svg';
+const mk = (tag, a={}) => {
+  const el = document.createElementNS(NS, tag);
+  for (const [k,v] of Object.entries(a)) el.setAttribute(k, v);
+  return el;
+};
 
-/* ════════════════════════════════════════════════════════════
-   LIVE DATA LAYER
-   Polls /api/data every 3 s, maps swarm/agent state to domains,
-   lights up glow rings + status strip accordingly.
-   ════════════════════════════════════════════════════════════ */
+// ── Build star field ───────────────────────────────────────────────────────────
+const starsG = document.getElementById('stars');
+for (let i = 0; i < 170; i++) {
+  starsG.appendChild(mk('circle', {
+    cx: (Math.random()*960).toFixed(1), cy: (Math.random()*720).toFixed(1),
+    r: (Math.random() < 0.1 ? Math.random()*1.5+0.8 : Math.random()*0.8+0.15).toFixed(1),
+    fill: `rgba(160,150,255,${(Math.random()*0.35+0.08).toFixed(2)})`
+  }));
+}
 
-// Determine projectDir from URL query (?dir=...) or default to cwd
-const POLL_MS   = 3000;
-const API_DIR   = new URLSearchParams(location.search).get('dir') || '';
-const API_URL   = `/api/data${API_DIR ? '?dir=' + encodeURIComponent(API_DIR) : ''}`;
+// ── Build spokes ───────────────────────────────────────────────────────────────
+const spokesG = document.getElementById('spokes');
+const spokeEls = DOMAINS.map(d => {
+  const len = Math.hypot(d.x-CX, d.y-CY);
+  const el = mk('line', { x1:CX, y1:CY, x2:d.x, y2:d.y,
+    stroke:d.color, 'stroke-width':'1', opacity:'0.35',
+    'stroke-dasharray':len.toFixed(1), 'stroke-dashoffset':len.toFixed(1),
+    'stroke-linecap':'round' });
+  spokesG.appendChild(el);
+  return { el, len };
+});
 
-// Per-domain active state
-let domainActive = Array(DOMAINS.length).fill(false);
-let glowRingEls  = [];   // SVG circle per domain (glow ring around agent)
-let glowAnimIds  = [];   // rAF IDs for glow pulse
+// ── Build domain nodes ─────────────────────────────────────────────────────────
+const domainsG = document.getElementById('domains');
+const domEls = DOMAINS.map(d => {
+  const g = mk('g', { id:`dn-${d.id}`, transform:`translate(${d.x},${d.y})`, style:'cursor:pointer' });
+  g.appendChild(mk('circle', { r:'44', fill:'none', stroke:d.color, 'stroke-width':'1', opacity:'0', id:`gr-${d.id}` }));
+  g.appendChild(mk('circle', { r:'34', fill:'none', stroke:d.color, 'stroke-width':'2.8',
+    'stroke-dasharray':PERIM.toFixed(1), 'stroke-dashoffset':PERIM.toFixed(1),
+    'stroke-linecap':'round', transform:'rotate(-90)', id:`pr-${d.id}` }));
+  g.appendChild(mk('circle', { r:'28', fill:'#0b0920', stroke:d.color, 'stroke-width':'1.8' }));
+  const emj = mk('text', { x:'0', y:'9', 'text-anchor':'middle', 'font-size':'20' });
+  emj.textContent = d.emoji;
+  g.appendChild(emj);
+  const lbl = mk('text', { x:'0', y:'46', 'text-anchor':'middle', 'font-size':'7.5',
+    fill:d.color, 'letter-spacing':'1.5', 'font-family':"'Courier New',monospace" });
+  lbl.textContent = d.label;
+  g.appendChild(lbl);
+  g.appendChild(mk('circle', { r:'10', cx:'22', cy:'-22', fill:'#0b0920',
+    stroke:d.color, 'stroke-width':'1.5', opacity:'0', id:`cb-${d.id}` }));
+  const chk = mk('text', { x:'22', y:'-18', 'text-anchor':'middle', 'font-size':'10',
+    fill:d.color, opacity:'0', id:`ct-${d.id}` });
+  chk.textContent = '✓';
+  g.appendChild(chk);
+  // Invisible hit target (wider than visual)
+  const hit = mk('circle', { r:'50', fill:'transparent' });
+  hit.addEventListener('click', (e) => { e.stopPropagation(); openDomainDetail(d); });
+  g.appendChild(hit);
+  domainsG.appendChild(g);
+  return g;
+});
 
-// Build one glow ring per agent — initially hidden
-function buildGlowRings() {
-  const g = document.getElementById('g-glow-rings');
-  g.innerHTML = '';
-  glowRingEls = [];
-  seats.forEach((seat, i) => {
-    const c = svgEl('circle', {
-      cx: seat.x, cy: seat.y, r: '28',
-      fill: 'none',
-      stroke: DOMAINS[i].color,
-      'stroke-width': '2',
-      opacity: '0'
+// ── Initial GSAP states ────────────────────────────────────────────────────────
+gsap.set([...starsG.children], { opacity: 0 });
+gsap.set(['#tbl-bg','#tbl-ring','#orb-ring','#brain'], { opacity: 0 });
+gsap.set(domEls, { scale: 0, opacity: 0, transformOrigin: 'center center' });
+gsap.set(['#title-h1','#title-sub'], { opacity: 0 });
+gsap.set('#ctrl', { opacity: 0 });
+gsap.set('#activity-log', { opacity: 0 });
+gsap.set('#prompt-box', { opacity: 0 });
+
+// ── Ambient star twinkle ───────────────────────────────────────────────────────
+gsap.to([...starsG.children], {
+  opacity: 'random(0.06, 0.6)',
+  duration: 'random(2, 5)',
+  stagger: { amount: 16, from: 'random', repeat: -1, yoyo: true, ease: 'sine.inOut' },
+  delay: 1,
+});
+
+// ── Static table appears (always shown) ───────────────────────────────────────
+function buildStage() {
+  const tl = gsap.timeline();
+  tl.to([...starsG.children], { opacity: 1, stagger: { amount: 1.2, from: 'random' } }, 0)
+    .set('#title-h1', { opacity: 1 }, 0.5)
+    .to({}, {
+      duration: 1.4,
+      onUpdate() {
+        const p = this.progress();
+        const T = 'MASTERMIND';
+        document.getElementById('title-h1').textContent = T.split('').map((c,i) =>
+          i < Math.floor(p * T.length) ? c : SCRAMBLE[Math.floor(Math.random()*SCRAMBLE.length)]
+        ).join('');
+      },
+      onComplete() { document.getElementById('title-h1').textContent = 'MASTERMIND'; }
+    }, 0.5)
+    .to('#title-sub', { opacity: 1, duration: 0.7 }, 1.4)
+    .to(['#tbl-bg','#tbl-ring'], { opacity: 1, duration: 1.0 }, 2.2)
+    .to('#orb-ring', { opacity: 1, duration: 0.8 }, 2.6)
+    .fromTo('#brain', { opacity:0, scale:0, transformOrigin:'480px 360px' },
+      { opacity:1, scale:1, duration:0.9, ease:'back.out(1.9)' }, 3.2)
+    .fromTo('#pulse-ring', { attr:{r:48}, opacity:0.6 }, { attr:{r:70}, opacity:0, duration:1.0 }, 3.3);
+  DOMAINS.forEach((d,i) => {
+    tl.fromTo(domEls[i], { scale:0, opacity:0 },
+      { scale:1, opacity:1, duration:0.55, ease:'back.out(2.3)', transformOrigin:'center center' },
+      3.8 + i*0.28);
+    tl.to(spokeEls[i].el, { strokeDashoffset:0, duration:0.5, ease:'power2.in' }, 3.88 + i*0.28);
+  });
+  tl.to('#ctrl', { opacity:1, duration:0.5 }, 7.0)
+    .to('#activity-log', { opacity:1, duration:0.5 }, 7.2);
+  return tl;
+}
+
+// ── Movie mode GSAP timeline ───────────────────────────────────────────────────
+let movieTl = null;
+let isMovieMode = false;
+
+function buildMovieTl() {
+  const USER_PROMPT = '/mastermind "launch v2.0 — research, build, market, ship" --auto';
+  const tl = gsap.timeline({ paused: true, defaults: { ease:'power2.out' } });
+
+  tl.to('#prompt-box', { opacity:1, duration:0.4 }, 0);
+  tl.to({}, {
+    duration: USER_PROMPT.length * 0.033,
+    onStart() { document.getElementById('p-tag').textContent='USER PROMPT'; document.getElementById('p-text').textContent=''; },
+    onUpdate() { document.getElementById('p-text').textContent = USER_PROMPT.slice(0, Math.ceil(this.progress()*USER_PROMPT.length)); },
+    onComplete() { document.getElementById('p-text').textContent = USER_PROMPT; }
+  }, 0.3);
+
+  const fireAt = 0.3 + USER_PROMPT.length * 0.033 + 0.5;
+  tl.to('#prompt-box', { opacity:0, y:-10, duration:0.35 }, fireAt);
+  tl.set('#prompt-box', { y:0 }, fireAt+0.4);
+  tl.add(() => spawnPacket(480, 700, CX, CY, '#8855ee', 'PROMPT'), fireAt+0.2);
+  tl.to('#brain-ring', { attr:{stroke:'#cc70ff','stroke-width':5}, duration:0.3 }, fireAt+0.85);
+  tl.to('#brain-ring', { attr:{stroke:'#5c30b8','stroke-width':2.5}, duration:0.8 }, fireAt+1.15);
+  tl.to('#brain-glow', { attr:{r:100}, opacity:0.6, duration:0.4 }, fireAt+0.85);
+  tl.to('#brain-glow', { attr:{r:75}, opacity:0.35, duration:0.9 }, fireAt+1.25);
+  tl.add(() => { document.getElementById('brain-lbl').textContent='DISPATCHING'; addLog('[🧠]','Brain loaded. Decomposing...','#9070ff'); }, fireAt+0.9);
+
+  tl.to('#prompt-box', { opacity:1, duration:0.3 }, fireAt+1.8);
+  const activateAt = fireAt+2.2;
+
+  DOMAINS.forEach((d,i) => {
+    const t = activateAt + i*0.85;
+    tl.to({}, {
+      duration: d.cmd.length*0.025,
+      onStart() { document.getElementById('p-tag').textContent=`→ ${d.label}`; document.getElementById('p-text').textContent=''; },
+      onUpdate() { document.getElementById('p-text').textContent = d.cmd.slice(0, Math.ceil(this.progress()*d.cmd.length)); },
+      onComplete() { document.getElementById('p-text').textContent = d.cmd; }
+    }, t);
+    tl.add(() => spawnPacket(CX, CY, d.x, d.y, d.color), t + d.cmd.length*0.025 + 0.06);
+    tl.to(`#gr-${d.id}`, { opacity:0.85, attr:{r:52}, duration:0.3 }, t + d.cmd.length*0.025 + 0.6);
+    tl.to(`#gr-${d.id}`, { opacity:0.2, attr:{r:44}, duration:0.9 }, t + d.cmd.length*0.025 + 0.9);
+    tl.to(`#pr-${d.id}`, { strokeDashoffset:0, duration:2.2, ease:'power1.inOut' }, t + d.cmd.length*0.025 + 0.6);
+    tl.add(() => addLog(d.tag, d.msg, d.color), t + d.cmd.length*0.025 + 0.65);
+  });
+
+  const icAt = activateAt + DOMAINS.length*0.85 + 2.5;
+  tl.to('#prompt-box', { opacity:0, duration:0.3 }, icAt);
+  IC.forEach(([fi,ti,lbl],j) => {
+    const t = icAt + j*0.6;
+    tl.add(() => spawnPacket(DOMAINS[fi].x, DOMAINS[fi].y, DOMAINS[ti].x, DOMAINS[ti].y, DOMAINS[fi].color, lbl), t);
+    tl.to(`#gr-${DOMAINS[ti].id}`, { opacity:0.6, attr:{r:50}, duration:0.28 }, t+0.72);
+    tl.to(`#gr-${DOMAINS[ti].id}`, { opacity:0.2, attr:{r:44}, duration:0.8 }, t+1.0);
+    tl.add(() => addLog('[IC]', lbl, '#7080d8'), t+0.5);
+  });
+
+  const resAt = icAt + IC.length*0.6 + 0.9;
+  DOMAINS.forEach((d,i) => {
+    const t = resAt + i*0.26;
+    tl.add(() => spawnPacket(d.x, d.y, CX, CY, d.color), t);
+    tl.to(`#cb-${d.id}`, { opacity:1, duration:0.28 }, t+0.72);
+    tl.to(`#ct-${d.id}`, { opacity:1, duration:0.28 }, t+0.72);
+  });
+
+  const doneAt = resAt + DOMAINS.length*0.26 + 1.2;
+  tl.to('#brain-glow', { attr:{r:125}, opacity:0.9, duration:0.45 }, doneAt);
+  tl.to('#brain-glow', { attr:{r:78}, opacity:0.35, duration:1.5 }, doneAt+0.45);
+  tl.to('#brain-ring', { attr:{stroke:'#ff88ff','stroke-width':6}, duration:0.4 }, doneAt);
+  tl.to('#brain-ring', { attr:{stroke:'#5c30b8','stroke-width':2.5}, duration:1.5 }, doneAt+0.45);
+  tl.to('#brain-emoji', { scale:1.5, transformOrigin:'480px 360px', duration:0.45, ease:'back.out(2)' }, doneAt);
+  tl.to('#brain-emoji', { scale:1.0, duration:0.9 }, doneAt+0.45);
+  tl.add(() => { document.getElementById('brain-lbl').textContent='MASTERMIND'; addLog('[✓]','Run complete — 10 domains','#40e880'); }, doneAt+0.1);
+  const FINAL = 'RUN COMPLETE · 10 DOMAINS · ALL AGENTS DONE ✓';
+  tl.to('#prompt-box', { opacity:1, duration:0.4 }, doneAt+0.6);
+  tl.to({}, {
+    duration: FINAL.length*0.028,
+    onStart() { document.getElementById('p-tag').textContent='MASTERMIND'; document.getElementById('p-text').textContent=''; },
+    onUpdate() { document.getElementById('p-text').textContent = FINAL.slice(0, Math.ceil(this.progress()*FINAL.length)); },
+    onComplete() { document.getElementById('p-text').textContent = FINAL; }
+  }, doneAt+0.75);
+
+  return tl;
+}
+
+function toggleMovieMode() {
+  isMovieMode = !isMovieMode;
+  const btn = document.getElementById('sb-movie-btn');
+  const banner = document.getElementById('mode-banner');
+  const scrubEl = document.getElementById('scrubber');
+  const tDisp = document.getElementById('t-disp');
+
+  if (isMovieMode) {
+    btn.classList.add('active');
+    btn.textContent = '■ EXIT MOVIE';
+    banner.textContent = 'MOVIE';
+    banner.classList.remove('live-mode');
+    // Enable scrubber/play/pause
+    ['btn-restart','btn-play','btn-pause'].forEach(id => document.getElementById(id).classList.remove('disabled'));
+    scrubEl.disabled = false;
+    // Reset log & dynamic state
+    document.getElementById('log-entries').innerHTML = '';
+    document.getElementById('p-text').textContent = '';
+    document.getElementById('brain-lbl').textContent = 'MASTERMIND';
+    // Reset progress rings and badges
+    DOMAINS.forEach(d => {
+      gsap.set(`#pr-${d.id}`, { strokeDashoffset: PERIM });
+      gsap.set(`#cb-${d.id}`, { opacity: 0 });
+      gsap.set(`#ct-${d.id}`, { opacity: 0 });
+      gsap.set(`#gr-${d.id}`, { opacity: 0, attr: { r: 44 } });
     });
-    glowRingEls.push(c);
-    g.appendChild(c);
-  });
-}
-
-// Animate glow ring pulse for active domains
-function startGlowPulse(i) {
-  const c = glowRingEls[i];
-  if (!c) return;
-  const ph = (i / DOMAINS.length) * Math.PI * 2;
-  function tick(ts) {
-    if (!domainActive[i]) { c.setAttribute('opacity', '0'); return; }
-    const op = 0.35 + 0.45 * Math.sin(ts * 0.003 + ph);
-    const rr = 28 + 6 * Math.sin(ts * 0.0025 + ph + 1);
-    c.setAttribute('opacity', op.toFixed(2));
-    c.setAttribute('r', rr.toFixed(1));
-    glowAnimIds[i] = requestAnimationFrame(tick);
+    // Build and play
+    if (movieTl) { movieTl.kill(); }
+    movieTl = buildMovieTl();
+    // Wire controls
+    document.getElementById('btn-play').onclick  = () => movieTl.resume();
+    document.getElementById('btn-pause').onclick = () => movieTl.pause();
+    document.getElementById('btn-restart').onclick = () => {
+      document.getElementById('packets').innerHTML = '';
+      document.getElementById('log-entries').innerHTML = '';
+      document.getElementById('p-text').textContent = '';
+      document.getElementById('brain-lbl').textContent = 'MASTERMIND';
+      DOMAINS.forEach(d => {
+        gsap.set(`#pr-${d.id}`, { strokeDashoffset: PERIM });
+        gsap.set(`#cb-${d.id}`, { opacity: 0 });
+        gsap.set(`#ct-${d.id}`, { opacity: 0 });
+        gsap.set(`#gr-${d.id}`, { opacity: 0, attr: { r: 44 } });
+      });
+      movieTl.restart();
+    };
+    document.getElementById('spd').onchange = e => movieTl && movieTl.timeScale(Number(e.target.value));
+    let scrubbing = false;
+    scrubEl.addEventListener('mousedown', () => { scrubbing=true; movieTl&&movieTl.pause(); });
+    scrubEl.addEventListener('mouseup', () => { scrubbing=false; });
+    scrubEl.addEventListener('input', () => { if(movieTl) movieTl.progress(Number(scrubEl.value)/100); tDisp.textContent = (movieTl?movieTl.time():0).toFixed(1)+'s'; });
+    gsap.ticker.add(() => {
+      if(!scrubbing && movieTl && movieTl.totalDuration()>0) {
+        scrubEl.value = movieTl.progress()*100;
+        tDisp.textContent = movieTl.time().toFixed(1)+'s';
+      }
+    });
+    movieTl.play();
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = '▶ MOVIE MODE';
+    banner.textContent = 'LIVE';
+    banner.classList.add('live-mode');
+    ['btn-restart','btn-play','btn-pause'].forEach(id => document.getElementById(id).classList.add('disabled'));
+    scrubEl.disabled = true;
+    tDisp.textContent = '—';
+    document.getElementById('prompt-box').style.opacity = '0';
+    if (movieTl) { movieTl.kill(); movieTl = null; }
   }
-  glowAnimIds[i] = requestAnimationFrame(tick);
 }
 
-function stopGlowPulse(i) {
-  cancelAnimationFrame(glowAnimIds[i]);
-  if (glowRingEls[i]) glowRingEls[i].setAttribute('opacity', '0');
+// ── Packet animation utility ───────────────────────────────────────────────────
+function spawnPacket(fx, fy, tx, ty, color, lbl) {
+  const g = mk('g', {});
+  g.appendChild(mk('circle', { r:'7', fill:color, filter:'url(#glow)', opacity:'0.55' }));
+  g.appendChild(mk('circle', { r:'3.5', fill:'#fff' }));
+  if (lbl) {
+    const t = mk('text', { x:'10', y:'4', 'font-size':'7', fill:color, 'font-family':"'Courier New',monospace" });
+    t.textContent = lbl;
+    g.appendChild(t);
+  }
+  document.getElementById('packets').appendChild(g);
+  gsap.set(g, { x:fx, y:fy, opacity:0 });
+  gsap.timeline({ onComplete: ()=>g.remove() })
+    .to(g, { opacity:1, duration:0.12 })
+    .to(g, { x:tx, y:ty, duration:0.88, ease:'power2.inOut' }, '<')
+    .to(g, { opacity:0, scale:1.5, transformOrigin:'0 0', duration:0.2 });
 }
 
-// Determine which domains are active from API snapshot
-function computeActiveDomains(data) {
-  const active = Array(DOMAINS.length).fill(false);
+// ── Activity log ───────────────────────────────────────────────────────────────
+function addLog(tag, msg, color) {
+  const wrap = document.getElementById('log-entries');
+  const row = document.createElement('div');
+  row.className = 'log-row';
+  row.innerHTML = `<span class="log-tag" style="color:${color}">${tag}</span><span class="log-msg">${msg}</span>`;
+  wrap.appendChild(row);
+  gsap.fromTo(row, { opacity:0 }, { opacity:1, duration:0.3 });
+  const rows = wrap.querySelectorAll('.log-row');
+  if (rows.length > 10) {
+    gsap.to(rows[0], { opacity:0, height:0, duration:0.22, onComplete:()=>rows[0].remove() });
+  }
+}
 
-  // 1. Swarm agent plan: collect all agent types currently in swarm
-  const swarmAgentTypes = new Set();
-  const agentPlan = data?.swarm?.state?.agentPlan || [];
-  agentPlan.forEach(a => { if (a.type) swarmAgentTypes.add(a.type.toLowerCase()); });
+// ── Live event handler ─────────────────────────────────────────────────────────
+function handleLiveEvent(ev) {
+  if (isMovieMode) return; // live events suppressed in movie mode
 
-  // 2. Swarm active flag (with 90s recency window)
-  const swarmActivity  = data?.swarm?.activity?.swarm || {};
-  const swarmIsActive  = swarmActivity.active === true &&
-                         (swarmActivity.lastActive || 9999) < 90;
-
-  // 3. Last routed agent
-  const lastRouteAgent = (data?.hooks?.lastRoute?.agent || '').toLowerCase();
-  const routedAt       = data?.hooks?.lastRoute?.updatedAt
-                           ? (Date.now() - new Date(data.hooks.lastRoute.updatedAt).getTime()) / 1000
-                           : 9999;
-  const routeIsFresh   = routedAt < 120; // within 2 minutes
-
-  // 4. Score each domain
-  DOMAINS.forEach((d, i) => {
-    let score = 0;
-
-    // Manager type match (exact)
-    if (routeIsFresh && lastRouteAgent === d.manager.toLowerCase()) score += 3;
-
-    // Agent type overlap with swarm plan
-    if (swarmIsActive) {
-      const domAgents = [d.manager.toLowerCase(), ...d.agents.map(a => a.toLowerCase())];
-      domAgents.forEach(a => { if (swarmAgentTypes.has(a)) score += 1; });
+  if (ev.type === 'session:start') {
+    gsap.to('#brain-ring', { attr:{stroke:'#cc70ff','stroke-width':5}, duration:0.3 });
+    gsap.to('#brain-ring', { attr:{stroke:'#5c30b8','stroke-width':2.5}, duration:0.8, delay:0.3 });
+    gsap.to('#brain-glow', { attr:{r:100}, opacity:0.65, duration:0.4 });
+    gsap.to('#brain-glow', { attr:{r:75}, opacity:0.35, duration:0.9, delay:0.4 });
+    gsap.to('#brain-emoji', { scale:1.25, transformOrigin:'480px 360px', duration:0.32, ease:'back.out(2)' });
+    gsap.to('#brain-emoji', { scale:1.0, duration:0.5, delay:0.32 });
+    document.getElementById('brain-lbl').textContent = 'ANALYZING...';
+    addLog('[SESSION]', ev.prompt ? ev.prompt.slice(0,28)+'…' : 'started', '#9070ff');
+    // Show prompt
+    if (ev.prompt) {
+      const box = document.getElementById('prompt-box');
+      document.getElementById('p-tag').textContent = 'RUNNING';
+      document.getElementById('p-text').textContent = ev.prompt;
+      gsap.to(box, { opacity:1, duration:0.4 });
     }
-
-    // Keyword match between last route agent and domain agents
-    if (routeIsFresh) {
-      const domAgents = [d.manager.toLowerCase(), ...d.agents.map(a => a.toLowerCase())];
-      if (domAgents.some(a => a.includes(lastRouteAgent) || lastRouteAgent.includes(a.split(' ')[0]))) score += 2;
-    }
-
-    active[i] = score > 0;
-  });
-
-  return active;
-}
-
-// Apply active state to visuals
-function applyLiveState(newActive, data) {
-  const wasAnyActive = domainActive.some(Boolean);
-  const isAnyActive  = newActive.some(Boolean);
-
-  newActive.forEach((on, i) => {
-    const wasOn = domainActive[i];
-    if (on && !wasOn)  { domainActive[i] = true;  startGlowPulse(i); setLineBright(i, true);  }
-    if (!on && wasOn)  { domainActive[i] = false; stopGlowPulse(i);  setLineBright(i, false); }
-  });
-
-  // Brain ring: faster/brighter when any domain active
-  if (isAnyActive !== wasAnyActive) {
-    document.getElementById('brain-ring').setAttribute(
-      'stroke', isAnyActive ? 'rgba(180,120,255,0.7)' : 'rgba(160,100,255,0.3)'
-    );
+    refreshSessions();
   }
 
-  updateStrip(data, isAnyActive);
+  else if (ev.type === 'domain:dispatch') {
+    const d = DOMAINS.find(x => x.id === ev.domain);
+    if (!d) return;
+    spawnPacket(CX, CY, d.x, d.y, d.color);
+    gsap.to(`#gr-${d.id}`, { opacity:0.85, attr:{r:52}, duration:0.32 });
+    gsap.to(`#gr-${d.id}`, { opacity:0.25, attr:{r:44}, duration:1.0, delay:0.32 });
+    document.getElementById('brain-lbl').textContent = 'DISPATCHING';
+    addLog(d.tag, ev.cmd || d.cmd, d.color);
+    d.events.push(ev);
+  }
+
+  else if (ev.type === 'agent:spawn') {
+    const d = DOMAINS.find(x => x.id === ev.domain);
+    if (d) {
+      addLog(d.tag, `agents: ${(ev.agents||[]).join(', ')}`, d.color);
+      d.events.push(ev);
+    }
+  }
+
+  else if (ev.type === 'domain:complete') {
+    const d = DOMAINS.find(x => x.id === ev.domain);
+    if (!d) return;
+    gsap.to(`#pr-${d.id}`, { strokeDashoffset:0, duration:1.8, ease:'power1.inOut' });
+    gsap.to(`#cb-${d.id}`, { opacity:1, duration:0.3 });
+    gsap.to(`#ct-${d.id}`, { opacity:1, duration:0.3 });
+    spawnPacket(d.x, d.y, CX, CY, d.color);
+    addLog(d.tag, 'complete ✓', d.color);
+    d.events.push(ev);
+    refreshSessions();
+  }
+
+  else if (ev.type === 'intercom') {
+    const fi = DOMAINS.findIndex(x => x.id === ev.from);
+    const ti = DOMAINS.findIndex(x => x.id === ev.to);
+    if (fi >= 0 && ti >= 0) {
+      spawnPacket(DOMAINS[fi].x, DOMAINS[fi].y, DOMAINS[ti].x, DOMAINS[ti].y, DOMAINS[fi].color, ev.msg||'');
+      gsap.to(`#gr-${DOMAINS[ti].id}`, { opacity:0.6, attr:{r:50}, duration:0.28 });
+      gsap.to(`#gr-${DOMAINS[ti].id}`, { opacity:0.2, attr:{r:44}, duration:0.8, delay:0.28 });
+      addLog('[IC]', `${ev.from}→${ev.to}: ${ev.msg||''}`, '#7080d8');
+    }
+  }
+
+  else if (ev.type === 'session:complete') {
+    document.getElementById('brain-lbl').textContent = 'MASTERMIND';
+    gsap.to('#brain-glow', { attr:{r:120}, opacity:0.9, duration:0.45 });
+    gsap.to('#brain-glow', { attr:{r:75}, opacity:0.35, duration:1.5, delay:0.45 });
+    gsap.to('#brain-ring', { attr:{stroke:'#ff88ff','stroke-width':6}, duration:0.4 });
+    gsap.to('#brain-ring', { attr:{stroke:'#5c30b8','stroke-width':2.5}, duration:1.5, delay:0.4 });
+    addLog('[✓]', `run complete — ${ev.domains||'?'} domains`, '#40e880');
+    gsap.to('#prompt-box', { opacity:0, duration:0.5 });
+    refreshSessions();
+  }
 }
 
-// Brighten/dim connection line for a domain
-function setLineBright(i, on) {
-  const l = lineEls[i];
-  if (!l) return;
-  l.setAttribute('stroke-width', on ? '2.5' : '1.5');
-  // Opacity is animated by dash flow, but we nudge the base
-  l.style.filter = on ? `drop-shadow(0 0 4px ${DOMAINS[i].color})` : '';
+// ── SSE event stream ───────────────────────────────────────────────────────────
+let evtSource = null;
+function connectSSE() {
+  if (evtSource) evtSource.close();
+  evtSource = new EventSource('/api/mastermind-stream');
+  evtSource.onmessage = (e) => {
+    try {
+      const ev = JSON.parse(e.data);
+      handleLiveEvent(ev);
+    } catch (_) {}
+  };
+  evtSource.onerror = () => {
+    setTimeout(connectSSE, 4000);
+  };
 }
 
-// Update status strip
-function updateStrip(data, anyActive) {
-  const dot = document.getElementById('ls-dot');
-  dot.classList.toggle('active', anyActive);
+// ── Session sidebar ────────────────────────────────────────────────────────────
+let currentSessionId = null;
 
-  const swarmState = data?.swarm?.state || {};
-  const swarmAct   = data?.swarm?.activity?.swarm || {};
-  const routeAgent = data?.hooks?.lastRoute?.agent || '—';
-  const regCount   = data?.agents?.count ?? data?.agents?.registrations?.length ?? '—';
-  const sessCount  = data?.sessions?.count ?? '—';
-
-  document.getElementById('ls-status').querySelector('span').textContent =
-    anyActive ? 'ACTIVE' : (swarmState.status === 'running' ? 'RUNNING' : 'IDLE');
-  document.getElementById('ls-swarm-val').textContent =
-    swarmState.status || '—';
-  document.getElementById('ls-agents-val').textContent =
-    swarmAct.agent_count ? `${swarmAct.agent_count} active` : String(regCount);
-  document.getElementById('ls-route-val').textContent = routeAgent;
-  document.getElementById('ls-session-val').textContent =
-    typeof sessCount === 'number' ? `${sessCount} loaded` : '—';
-
-  // Highlight status item when active
-  document.getElementById('ls-status').classList.toggle('hi', anyActive);
-
-  document.getElementById('live-strip').classList.add('visible');
-}
-
-// Main poll loop
-async function pollLiveData() {
+async function refreshSessions() {
   try {
-    const res  = await fetch(API_URL, { cache: 'no-store' });
-    if (!res.ok) throw new Error(res.status);
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    const res = await fetch('/api/mastermind/sessions');
+    const sessions = await res.json();
+    renderSessions(sessions);
+  } catch (_) {}
+}
 
-    const newActive = computeActiveDomains(data);
-    applyLiveState(newActive, data);
-  } catch (e) {
-    // Server unreachable — dim all
-    applyLiveState(Array(DOMAINS.length).fill(false), {});
+function renderSessions(sessions) {
+  const wrap = document.getElementById('sb-sessions');
+  const noSess = document.getElementById('sb-no-sessions');
+  if (!sessions || !sessions.length) {
+    if (noSess) noSess.style.display = 'block';
+    const items = wrap.querySelectorAll('.sess-item');
+    items.forEach(i => i.remove());
+    return;
+  }
+  if (noSess) noSess.style.display = 'none';
+  // Remove old items
+  wrap.querySelectorAll('.sess-item').forEach(el => el.remove());
+  sessions.forEach(s => {
+    const item = document.createElement('div');
+    item.className = 'sess-item' + (s.status === 'running' ? ' running' : '') + (s.id === currentSessionId ? ' active' : '');
+    const ts = new Date(s.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const date = new Date(s.ts).toLocaleDateString([], {month:'short',day:'numeric'});
+    const elapsed = s.endTs ? ((s.endTs - s.ts)/1000).toFixed(0)+'s' : (s.status==='running'?'RUNNING…':'?');
+    item.innerHTML = `
+      <div class="sess-ts">${date} ${ts} · ${elapsed}</div>
+      <div class="sess-prompt">${s.prompt||'(no prompt)'}</div>
+      <div class="sess-badges">
+        <span class="sess-badge ${s.status==='running'?'running-badge':''}">${s.status||'?'}</span>
+        ${(s.domains||[]).slice(0,4).map(d=>`<span class="sess-badge">${d}</span>`).join('')}
+        ${(s.domains||[]).length>4?`<span class="sess-badge">+${s.domains.length-4}</span>`:''}
+        <a class="sess-trace-link" href="/api/mastermind/session/${s.id}/trace" target="_blank" title="View raw trace" onclick="event.stopPropagation()">trace↗</a>
+      </div>`;
+    item.addEventListener('click', () => {
+      wrap.querySelectorAll('.sess-item').forEach(x=>x.classList.remove('active'));
+      item.classList.add('active');
+      currentSessionId = s.id;
+      openSessionDetail(s);
+    });
+    wrap.appendChild(item);
+  });
+}
+
+// ── Detail panel ───────────────────────────────────────────────────────────────
+function openDomainDetail(d) {
+  const panel = document.getElementById('detail-panel');
+  document.getElementById('dp-emoji').textContent = d.emoji;
+  document.getElementById('dp-title').textContent = `DOMAIN · ${d.label}`;
+  const body = document.getElementById('dp-body');
+  // Count total events for this domain across all sessions
+  const evts = d.events;
+  body.innerHTML = `
+    <div class="dp-section">
+      <div class="dp-section-title">DOMAIN INFO</div>
+      <div class="dp-event"><span class="ev-type" style="color:${d.color}">${d.emoji} ${d.label}</span></div>
+      <div class="dp-event">Command: <span style="color:#7080c0">${d.cmd}</span></div>
+      <div class="dp-event">Events this session: <span style="color:${d.color}">${evts.length}</span></div>
+    </div>
+    ${evts.length > 0 ? `
+    <div class="dp-section">
+      <div class="dp-section-title">RECENT EVENTS</div>
+      ${evts.slice(-8).map(e => {
+        const ts = new Date(e.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+        return `<div class="dp-event"><span class="ev-ts">${ts}</span> <span class="ev-type" style="color:${d.color}">${e.type}</span>${e.cmd?' '+e.cmd:''}</div>`;
+      }).join('')}
+    </div>` : ''}
+    ${evts.some(e=>e.type==='agent:spawn') ? `
+    <div class="dp-section">
+      <div class="dp-section-title">AGENTS SPAWNED</div>
+      <div>${evts.filter(e=>e.type==='agent:spawn').flatMap(e=>e.agents||[]).map(a=>`<span class="dp-agent">${a}</span>`).join('')}</div>
+    </div>` : ''}
+    ${evts.some(e=>e.artifacts) ? `
+    <div class="dp-section">
+      <div class="dp-section-title">ARTIFACTS</div>
+      ${evts.flatMap(e=>e.artifacts||[]).map(a=>`<div class="dp-artifact">📄 ${a}</div>`).join('')}
+    </div>` : ''}
+  `;
+  panel.classList.add('open');
+}
+
+async function openSessionDetail(s) {
+  const panel = document.getElementById('detail-panel');
+  document.getElementById('dp-emoji').textContent = '📋';
+  document.getElementById('dp-title').textContent = 'SESSION DETAIL';
+  const body = document.getElementById('dp-body');
+  body.innerHTML = '<div style="color:#303060;font-size:9px;padding:8px">Loading…</div>';
+  panel.classList.add('open');
+  try {
+    const res = await fetch(`/api/mastermind/session/${s.id}`);
+    const full = await res.json();
+    if (!full) { body.innerHTML = '<div style="color:#303060;font-size:9px">Session not found.</div>'; return; }
+    const ts = new Date(full.ts).toLocaleString();
+    const elapsed = full.endTs ? ((full.endTs - full.ts)/1000).toFixed(1)+'s' : 'running';
+    const evts = full.events || [];
+    const domainSet = full.domains || [];
+    body.innerHTML = `
+      <div class="dp-section">
+        <div class="dp-section-title">OVERVIEW</div>
+        <div class="dp-event">Started: <span style="color:#6060a0">${ts}</span></div>
+        <div class="dp-event">Duration: <span style="color:#6060a0">${elapsed}</span></div>
+        <div class="dp-event">Status: <span style="color:${full.status==='complete'?'#40e880':full.status==='running'?'#28c068':'#f87171'}">${full.status||'?'}</span></div>
+        <div class="dp-event">Domains: <span style="color:#8080c0">${domainSet.join(', ')||'—'}</span></div>
+      </div>
+      <div class="dp-section">
+        <div class="dp-section-title">PROMPT</div>
+        <div class="dp-event" style="color:#6070b0;word-break:break-all;white-space:normal;line-height:1.6">${full.prompt||'—'}</div>
+      </div>
+      ${domainSet.length ? `
+      <div class="dp-section">
+        <div class="dp-section-title">ACTIVE DOMAINS</div>
+        ${domainSet.map(did => {
+          const d = DOMAINS.find(x=>x.id===did);
+          return d ? `<div class="dp-event"><span style="color:${d.color}">${d.emoji} ${d.label}</span></div>` : '';
+        }).join('')}
+      </div>` : ''}
+      <div class="dp-section">
+        <div class="dp-section-title">EVENT TIMELINE (${evts.length})</div>
+        ${evts.map(e => {
+          const et = new Date(e.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+          const d = e.domain ? DOMAINS.find(x=>x.id===e.domain) : null;
+          const color = d ? d.color : '#6060a0';
+          let detail = '';
+          if (e.type === 'session:start') detail = `<span style="color:#5050a0;font-size:8px;word-break:break-all">${e.prompt||''}</span>`;
+          else if (e.type === 'domain:dispatch') detail = `<span style="color:#5060a0;font-size:8px">${e.cmd||''}</span>`;
+          else if (e.type === 'agent:spawn') detail = `<span style="color:#507090;font-size:8px">agent: <b>${e.agent||''}</b> — ${(e.task||'').slice(0,50)}</span>`;
+          else if (e.type === 'intercom') detail = `<span style="color:#506070;font-size:8px">${e.from||'?'} → ${e.to||'?'}: ${e.msg||''}</span>`;
+          else if (e.type === 'domain:complete') {
+            const arts = (e.artifacts||[]).map(a=>`<span style="color:#407050;font-size:7px">📄 ${a}</span>`).join(' ');
+            detail = `<span style="color:#406050;font-size:8px">status: ${e.status||'?'}</span>${arts?' '+arts:''}`;
+          }
+          else if (e.type === 'session:complete') detail = `<span style="color:#405080;font-size:8px">domains: ${(e.domains||[]).join(', ')}</span>`;
+          return `<div class="dp-event" style="flex-direction:column;align-items:flex-start;gap:1px"><div><span class="ev-ts">${et}</span> <span class="ev-type" style="color:${color}">${e.type}</span>${e.domain?' <span style="color:#404060;font-size:8px">['+e.domain+']</span>':''}</div>${detail?'<div style="padding-left:4px">'+detail+'</div>':''}</div>`;
+        }).join('')}
+      </div>
+      <div class="dp-section">
+        <div class="dp-section-title">EXPORT</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <a class="dp-export-btn" href="/api/mastermind/session/${full.id}/trace" target="_blank">📄 View Trace</a>
+          <button class="dp-export-btn" onclick="downloadSession('${full.id}')">⬇ Download JSON</button>
+        </div>
+      </div>
+    `;
+  } catch(err) {
+    body.innerHTML = `<div style="color:#a03030;font-size:9px">${err.message}</div>`;
   }
 }
 
-// Start polling after animation settles
-setTimeout(() => {
-  buildGlowRings();
-  pollLiveData();
-  setInterval(pollLiveData, POLL_MS);
-}, 4000);
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('open');
+  currentSessionId = null;
+  document.querySelectorAll('.sess-item').forEach(x=>x.classList.remove('active'));
+}
+
+async function downloadSession(id) {
+  const res = await fetch(`/api/mastermind/session/${id}`);
+  const data = await res.json();
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${id}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── Live data polling for status bar ──────────────────────────────────────────
+async function pollStatus() {
+  try {
+    const res = await fetch('/api/data');
+    if (!res.ok) return;
+    const data = await res.json();
+    const active = !!data?.swarm?.activity?.swarm?.active;
+    const dot = document.getElementById('l-dot');
+    dot.classList.toggle('on', active);
+    document.getElementById('l-status').textContent = active ? 'LIVE' : 'IDLE';
+    const n = data?.swarm?.state?.agentPlan?.length || 0;
+    document.getElementById('l-agents').textContent = n + ' agent' + (n!==1?'s':'');
+    // Highlight last routed domain
+    const route = data?.hooks?.lastRoute || '';
+    if (route && !isMovieMode) {
+      const hit = DOMAINS.find(d => route.toLowerCase().includes(d.id));
+      if (hit) {
+        gsap.to(`#gr-${hit.id}`, { opacity:0.85, attr:{r:52}, duration:0.35 });
+        gsap.to(`#gr-${hit.id}`, { opacity:0.2, attr:{r:44}, duration:1.8, delay:0.35 });
+      }
+    }
+  } catch (_) {}
+}
+
+// ── Bootstrap ──────────────────────────────────────────────────────────────────
+buildStage().then ? null : null;  // fire-and-forget
+buildStage();
+connectSSE();
+refreshSessions();
+pollStatus();
+setInterval(pollStatus, 4000);
+setInterval(refreshSessions, 8000);
+
+// Set initial live mode banner
+document.getElementById('mode-banner').classList.add('live-mode');
 </script>
 </body>
 </html>

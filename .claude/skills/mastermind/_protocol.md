@@ -121,6 +121,119 @@ score = confidence × (1 / (days_since_run + 1)) × log(uses + 1)
 
 ---
 
+## Real-Time Dashboard Event Logging
+
+Every mastermind run MUST emit structured events to the live dashboard via WebFetch. The dashboard at `docs/mastermind-diagram.html` listens on SSE and animates each event in real time.
+
+**Dashboard endpoint:** `http://localhost:4242/api/mastermind/event`
+**Method:** POST, `Content-Type: application/json`
+
+### Event Types and When to Emit
+
+**1. session:start** — emit at the very start of Step 3 (Intake) once the prompt is resolved:
+```json
+{
+  "type": "session:start",
+  "session": "<uuid-v4>",
+  "prompt": "<resolved user prompt>",
+  "mode": "auto|confirm",
+  "ts": 1234567890000
+}
+```
+
+**2. domain:dispatch** — emit once per domain BEFORE spawning the domain manager agent:
+```json
+{
+  "type": "domain:dispatch",
+  "session": "<same-uuid>",
+  "domain": "build|marketing|review|research|content|release|sales|ops|finance|idea",
+  "cmd": "<one-line description of what this domain will do>",
+  "ts": 1234567890000
+}
+```
+
+**3. agent:spawn** — domain managers MUST emit this when they spawn each specialized agent:
+```json
+{
+  "type": "agent:spawn",
+  "session": "<same-uuid>",
+  "domain": "<domain-id>",
+  "agent": "<agent-slug, e.g. backend-dev>",
+  "task": "<task description>",
+  "ts": 1234567890000
+}
+```
+
+**4. intercom** — emit when a domain manager or agent sends output/context to another domain:
+```json
+{
+  "type": "intercom",
+  "session": "<same-uuid>",
+  "from": "<domain-id>",
+  "to": "<domain-id>",
+  "msg": "<one-line summary of what was transferred>",
+  "ts": 1234567890000
+}
+```
+
+**5. domain:complete** — emit when a domain manager returns its unified output schema:
+```json
+{
+  "type": "domain:complete",
+  "session": "<same-uuid>",
+  "domain": "<domain-id>",
+  "status": "complete|partial|blocked",
+  "artifacts": ["<path1>", "<path2>"],
+  "decisions": [{"what": "...", "confidence": 0.9}],
+  "ts": 1234567890000
+}
+```
+
+**6. session:complete** — emit at the end of Step 9 (Synthesize) after all domains have reported:
+```json
+{
+  "type": "session:complete",
+  "session": "<same-uuid>",
+  "status": "complete|partial|blocked",
+  "domains": ["build", "marketing"],
+  "ts": 1234567890000
+}
+```
+
+### How to Emit (WebFetch pattern)
+
+```javascript
+WebFetch({
+  url: "http://localhost:4242/api/mastermind/event",
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    type: "session:start",
+    session: crypto.randomUUID(),   // or generate a timestamp-based ID
+    prompt: resolvedPrompt,
+    mode: mode,
+    ts: Date.now()
+  })
+})
+```
+
+**If the server is not running** (WebFetch returns an error), log a warning and continue — event logging is non-blocking and MUST NOT abort the run.
+
+**Session ID:** Generate once at session:start and reuse across all subsequent events for this run. A simple ID format: `mm-<ISO8601-compact>` (e.g. `mm-20260505T142300`).
+
+### Where Each Role Emits
+
+| Role | Events to emit |
+|---|---|
+| **Master** (master.md Step 3) | `session:start` |
+| **Master** (master.md Step 7, per domain) | `domain:dispatch` × N |
+| **Master** (master.md Step 9) | `session:complete` |
+| **Domain Manager** (on agent spawn) | `agent:spawn` × M |
+| **Domain Manager** (on cross-domain handoff) | `intercom` |
+| **Domain Manager** (on return) | `domain:complete` |
+
+---
+
 ## Monotask Task Briefing Standard
 
 Every task created via `/monomind:createtask` MUST include ALL fields below. Agents read task descriptions cold — no back-channel context exists.
