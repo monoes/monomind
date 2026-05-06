@@ -141,6 +141,8 @@ function pathToSections(filename) {
 
 // SSE client registry
 const sseClients = new Set();
+// Mastermind real-time event stream clients
+const mmSseClients = new Set();
 
 // Server state
 let running = false;
@@ -1538,6 +1540,136 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
     if (req.method === 'GET' && url === '/favicon.ico') {
       res.writeHead(204);
       res.end();
+      return;
+    }
+
+    // ------------------------------------------------- Mastermind event system
+    // POST /api/mastermind/event — ingest event from mastermind skill
+    if (req.method === 'POST' && url === '/api/mastermind/event') {
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      let event = {};
+      try { event = JSON.parse(body); } catch (_) {}
+      event.ts = event.ts || Date.now();
+      const root = projectDir || process.cwd();
+      const dataDir = path.join(root, 'data');
+      try { fs.mkdirSync(dataDir, { recursive: true }); } catch (_) {}
+      try { fs.appendFileSync(path.join(dataDir, 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch (_) {}
+      // Persist session
+      try {
+        const sessFile = path.join(dataDir, 'mastermind-sessions.json');
+        let sessions = [];
+        try { sessions = JSON.parse(fs.readFileSync(sessFile, 'utf8')); } catch (_) {}
+        if (event.type === 'session:start') {
+          sessions.unshift({ id: event.session, ts: event.ts, prompt: event.prompt || '',
+            status: 'running', domains: [], events: [event] });
+        } else {
+          const s = sessions.find(s => s.id === event.session);
+          if (s) {
+            (s.events = s.events || []).push(event);
+            if (event.type === 'domain:dispatch' && event.domain && !s.domains.includes(event.domain))
+              s.domains.push(event.domain);
+            if (event.type === 'session:complete') { s.status = event.status || 'complete'; s.endTs = event.ts; }
+          }
+        }
+        fs.writeFileSync(sessFile, JSON.stringify(sessions.slice(0, 50), null, 2));
+        // Also write individual session file for direct traceability
+        const sessionObj = sessions.find(s => s.id === event.session);
+        if (sessionObj) {
+          const sessDir = path.join(dataDir, 'sessions');
+          try { fs.mkdirSync(sessDir, { recursive: true }); } catch (_) {}
+          try { fs.writeFileSync(path.join(sessDir, `${event.session}.json`), JSON.stringify(sessionObj, null, 2)); } catch (_) {}
+        }
+      } catch (_) {}
+      // Broadcast to all mastermind SSE clients
+      const msg = `data: ${JSON.stringify(event)}\n\n`;
+      for (const c of mmSseClients) { try { c.write(msg); } catch (_) { mmSseClients.delete(c); } }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end('{"ok":true}');
+      return;
+    }
+
+    // GET /api/mastermind-stream — SSE for real-time events
+    if (req.method === 'GET' && url === '/api/mastermind-stream') {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.write(': connected\n\n');
+      mmSseClients.add(res);
+      // Replay last 50 events from disk
+      try {
+        const root2 = projectDir || process.cwd();
+        const evFile = path.join(root2, 'data', 'mastermind-events.jsonl');
+        const lines = fs.readFileSync(evFile, 'utf8').trim().split('\n').filter(Boolean).slice(-50);
+        for (const l of lines) res.write(`data: ${l}\n\n`);
+      } catch (_) {}
+      const ka = setInterval(() => { try { res.write(': ping\n\n'); } catch (_) { clearInterval(ka); mmSseClients.delete(res); } }, 20000);
+      req.on('close', () => { mmSseClients.delete(res); clearInterval(ka); });
+      return;
+    }
+
+    // GET /api/mastermind/sessions
+    if (req.method === 'GET' && url === '/api/mastermind/sessions') {
+      try {
+        const f = path.join(projectDir || process.cwd(), 'data', 'mastermind-sessions.json');
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '[]');
+      } catch (_) { res.writeHead(200); res.end('[]'); }
+      return;
+    }
+
+    // GET /api/mastermind/session/:id/trace — human-readable markdown trace
+    if (req.method === 'GET' && url.match(/^\/api\/mastermind\/session\/[^/]+\/trace$/)) {
+      try {
+        const sid = url.split('/')[4];
+        const sessFile = path.join(projectDir || process.cwd(), 'data', 'sessions', `${sid}.json`);
+        let s = null;
+        if (fs.existsSync(sessFile)) {
+          s = JSON.parse(fs.readFileSync(sessFile, 'utf8'));
+        } else {
+          const f = path.join(projectDir || process.cwd(), 'data', 'mastermind-sessions.json');
+          const sessions = JSON.parse(fs.readFileSync(f, 'utf8'));
+          s = sessions.find(x => x.id === sid);
+        }
+        if (!s) { res.writeHead(404); res.end('Session not found'); return; }
+        const fmt = (ts) => new Date(ts).toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+        const lines = [`# Mastermind Session Trace: ${s.id}`, ``, `**Prompt:** ${s.prompt || '(none)'}`, `**Status:** ${s.status}`, `**Started:** ${fmt(s.ts)}`, s.endTs ? `**Ended:** ${fmt(s.endTs)}` : '', `**Domains:** ${(s.domains || []).join(', ') || '(none yet)'}`, ``];
+        for (const ev of (s.events || [])) {
+          const t = fmt(ev.ts);
+          if (ev.type === 'session:start')    lines.push(`\`${t}\` **SESSION START** — prompt: "${ev.prompt || ''}"`);
+          else if (ev.type === 'domain:dispatch') lines.push(`\`${t}\` **DOMAIN DISPATCH** → \`${ev.domain}\` — ${ev.cmd || ''}`);
+          else if (ev.type === 'agent:spawn')  lines.push(`\`${t}\` **AGENT SPAWN** [\`${ev.domain}\`] → agent: \`${ev.agent}\` — ${ev.task || ''}`);
+          else if (ev.type === 'intercom')     lines.push(`\`${t}\` **INTERCOM** \`${ev.from}\` → \`${ev.to}\`: ${ev.msg || ''}`);
+          else if (ev.type === 'domain:complete') lines.push(`\`${t}\` **DOMAIN COMPLETE** [\`${ev.domain}\`] status: ${ev.status}${ev.artifacts?.length ? ` — artifacts: ${ev.artifacts.join(', ')}` : ''}`);
+          else if (ev.type === 'session:complete') lines.push(`\`${t}\` **SESSION COMPLETE** — status: ${ev.status}, domains: ${(ev.domains || []).join(', ')}`);
+          else lines.push(`\`${t}\` ${ev.type} ${JSON.stringify(ev)}`);
+        }
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+        res.end(lines.join('\n'));
+      } catch (_) { res.writeHead(500); res.end('Error'); }
+      return;
+    }
+
+    // GET /api/mastermind/session/:id
+    if (req.method === 'GET' && url.startsWith('/api/mastermind/session/')) {
+      try {
+        const sid = url.slice('/api/mastermind/session/'.length);
+        // Check individual session file first
+        const sessFile = path.join(projectDir || process.cwd(), 'data', 'sessions', `${sid}.json`);
+        if (fs.existsSync(sessFile)) {
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(fs.readFileSync(sessFile, 'utf8'));
+          return;
+        }
+        const f = path.join(projectDir || process.cwd(), 'data', 'mastermind-sessions.json');
+        const sessions = JSON.parse(fs.readFileSync(f, 'utf8'));
+        const s = sessions.find(x => x.id === sid);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify(s || null));
+      } catch (_) { res.writeHead(200); res.end('null'); }
       return;
     }
 
