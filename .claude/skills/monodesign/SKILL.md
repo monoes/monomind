@@ -177,6 +177,22 @@ npm install -g impeccable
 npx impeccable@latest detect <file-or-dir>
 ```
 
+For the full antipattern catalog with detection rules and remediation, see [reference/antipatterns-catalog.md](reference/antipatterns-catalog.md).
+
+## UX Quality Gate
+
+Antipatterns catch aesthetic and visual issues. For implementation-level UX quality — accessibility, touch interaction, form feedback, navigation patterns, animation timing, performance — load:
+
+- [reference/ux-rules.md](reference/ux-rules.md) — 170+ rules across 10 categories, priority-ordered. Use during `audit`, `critique`, and `review` workflows.
+- [reference/pre-delivery-checklist.md](reference/pre-delivery-checklist.md) — final-gate checklist before shipping. Run before declaring any UI complete.
+
+## Design System & Brand
+
+For building or auditing token systems and brand identity:
+
+- [reference/token-architecture.md](reference/token-architecture.md) — three-layer token system (primitive → semantic → component). Load during `extract` and `document` workflows when building design systems.
+- [reference/brand-workflow.md](reference/brand-workflow.md) — brand → tokens → CSS pipeline, visual identity spec, and brand consistency audit. Load for brand identity work.
+
 ### Design Token System
 
 Use OKLCH-based tokens for every new design. Reference system:
