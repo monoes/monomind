@@ -53,10 +53,6 @@ These are the two categories the `impeccable detect` engine uses:
 **Why it's wrong:** Nested cards create a visual hierarchy that competes with itself and usually signals a structural decision that should be a section, list, or table instead.  
 **Fix:** Flatten the nesting. Use a list for similar items; use a section divider for grouped content; use a table for structured data.
 
----
-
-## Quality Antipatterns
-
 ### `flat-type-hierarchy` — Flat type hierarchy
 **Detect:** All heading levels within a page section are within 2px of the same size, or fewer than 2 distinct font-size steps across the visible viewport.  
 **Why it's wrong:** Flat type makes all content equal weight. Users can't scan. Every element shouts at the same volume.  
@@ -67,15 +63,39 @@ These are the two categories the `impeccable detect` engine uses:
 **Why it's wrong:** Same spacing everywhere is visual monotony. It removes cadence, making layouts feel like forms rather than compositions.  
 **Fix:** Vary vertical spacing deliberately. Sections deserve more breathing room than components. Components deserve more than inline elements.
 
-### `cramped-padding` — Cramped padding
-**Detect:** `padding` inside interactive or card elements is ≤ 8px on any axis.  
-**Why it's wrong:** Cramped elements are hard to read, harder to click, and communicate low quality. 8px is the absolute minimum; 16px is the default.  
-**Fix:** Minimum 12px padding inside cards. Minimum 10px vertical + 16px horizontal on buttons. Minimum 44×44px touch targets.
-
 ### `everything-centered` — Everything centered
 **Detect:** More than 3 consecutive sections all use `text-align: center` or centered flex/grid layout.  
 **Why it's wrong:** Center alignment works for short content (headings, CTAs) but becomes monotonous for long sections. It also reduces readability for multi-line copy.  
 **Fix:** Mix alignment. Left-align body copy. Center only headings and CTAs. Alternate center and left-aligned sections.
+
+### `bounce-easing` — Bounce or elastic easing
+**Detect:** `cubic-bezier` with overshoot (second Y control point > 1 or < 0, e.g., `cubic-bezier(0.34, 1.56, 0.64, 1)`), or `animate-bounce` Tailwind class, or `spring` easing.  
+**Why it's wrong:** Bounce easing is a 2013 trend that reads as playful-in-a-bad-way on professional interfaces. It also tends to cause layout shift.  
+**Fix:** Use expo-out (`cubic-bezier(0.16, 1, 0.3, 1)`) for snappy exits, quint-out for softer landings. No overshoot.
+
+### `overused-font` — Overused font
+**Detect:** Font family is Inter, Roboto, Open Sans, Lato, Montserrat, Arial, Helvetica, Fraunces, Geist, Geist Sans, Geist Mono, Mona Sans, Plus Jakarta Sans, Space Grotesk, Recoleta, or Instrument Sans, with no customization of weight, optical size, or pairing.  
+**Why it's wrong:** These are the most saturated AI-default and monoculture fonts. Using them without a strong visual concept makes designs interchangeable.  
+**Fix:** Choose fonts with personality for the project. Inter is acceptable in product UIs when combined with a distinctive display font.
+
+### `single-font` — Single font for everything
+**Detect:** Only one `font-family` used across all type scales — heading, body, and UI elements.  
+**Why it's wrong:** A single font at identical weights looks like a rough draft. Type contrast is one of the strongest design levers.  
+**Fix:** Pair a display font (headings) with a text font (body). At minimum, vary weight aggressively (300 vs 700) between heading and body.
+
+### `italic-serif-display` — Italic serif display headline
+**Detect:** A serif font in italic style used as the primary heading on a product UI (not brand/marketing surface).  
+**Why it's wrong:** Editorial serif-italic (Fraunces, Recoleta, Playfair, Newsreader-italic) is powerful on brand/landing surfaces but reads as mismatched on product UIs (dashboards, apps, settings). It has also become the universal AI-startup landing page hero.  
+**Fix:** On product register surfaces, use a weight-contrast pair with a sans-serif. If using italic serif on a brand surface, judge by context — editorial/magazine register may legitimately want this.
+
+---
+
+## Quality Antipatterns
+
+### `cramped-padding` — Cramped padding
+**Detect:** `padding` inside interactive or card elements is ≤ 8px on any axis.  
+**Why it's wrong:** Cramped elements are hard to read, harder to click, and communicate low quality. 8px is the absolute minimum; 16px is the default.  
+**Fix:** Minimum 12px padding inside cards. Minimum 10px vertical + 16px horizontal on buttons. Minimum 44×44px touch targets.
 
 ### `pure-black-white` — Pure black or white background
 **Detect:** `background: #000`, `background: #000000`, or `background: black` on any surface.  
@@ -87,19 +107,15 @@ These are the two categories the `impeccable detect` engine uses:
 **Why it's wrong:** Gray text on colored backgrounds almost always fails WCAG contrast requirements and looks muddy.  
 **Fix:** Use white or the appropriate neutral from the color ramp. Never use a generic gray on a tinted background.
 
-### `bounce-easing` — Bounce or elastic easing
-**Detect:** `cubic-bezier` with overshoot (second Y control point > 1 or < 0, e.g., `cubic-bezier(0.34, 1.56, 0.64, 1)`), or `animate-bounce` Tailwind class, or `spring` easing.  
-**Why it's wrong:** Bounce easing is a 2013 trend that reads as playful-in-a-bad-way on professional interfaces. It also tends to cause layout shift.  
-**Fix:** Use expo-out (`cubic-bezier(0.16, 1, 0.3, 1)`) for snappy exits, quint-out for softer landings. No overshoot.
-
 ### `layout-transition` — Layout property animation
 **Detect:** `transition: width`, `transition: height`, `transition: padding`, or `transition: margin` on any element.  
 **Why it's wrong:** Layout property animation triggers reflow on every frame, causing jank on low-powered devices.  
 **Fix:** Animate only `transform` and `opacity`. For expanding elements, use `max-height` + `opacity` with caution, or clip-path for reveal animations.
 
----
-
-## Typography Antipatterns
+### `low-contrast` — Low contrast text
+**Detect:** Text color does not achieve 4.5:1 contrast ratio against its background for normal text, or 3:1 for large text (18px+ regular or 14px+ bold), as measured by the WCAG relative luminance formula.  
+**Why it's wrong:** Low contrast text fails WCAG AA requirements and creates genuine barriers for users with low vision, in bright ambient light, or on low-quality displays.  
+**Fix:** Increase the contrast between text and background. Use white or a high-lightness neutral on dark backgrounds; use Deep Graphite (`oklch(10% 0 0)`) or Soft Charcoal (`oklch(25% 0 0)`) on light ones. Tool: check with `npx impeccable detect` or the WebAIM contrast checker.
 
 ### `line-length` — Line length too long
 **Detect:** `max-width` not set on `p` or body-copy containers, or line length exceeding ~80ch based on font-size and container width.  
@@ -131,34 +147,10 @@ These are the two categories the `impeccable detect` engine uses:
 **Why it's wrong:** Wide tracking on running text creates the "design-y" look at the cost of readability. Tracking belongs on display type and caps, not body.  
 **Fix:** Body copy `letter-spacing: 0` (default) or at most `0.01em`. Track only micro-labels, buttons, and uppercase elements.
 
----
-
-## Typography / Structure
-
-### `overused-font` — Overused font
-**Detect:** Font family is Inter, Roboto, Open Sans, Lato, Montserrat, Fraunces, Geist, Plus Jakarta Sans, Space Grotesk, or Instrument Sans, with no customization of weight, optical size, or pairing.  
-**Why it's wrong:** These are the most saturated AI-default fonts. Using them without a strong visual concept makes designs interchangeable.  
-**Fix:** Choose fonts with personality for the project. Inter is acceptable in product UIs when combined with a distinctive display font.
-
-### `single-font` — Single font for everything
-**Detect:** Only one `font-family` used across all type scales — heading, body, and UI elements.  
-**Why it's wrong:** A single font at identical weights looks like a rough draft. Type contrast is one of the strongest design levers.  
-**Fix:** Pair a display font (headings) with a text font (body). At minimum, vary weight aggressively (300 vs 700) between heading and body.
-
 ### `skipped-heading` — Skipped heading level
 **Detect:** An `h3` or deeper element that is not preceded by an `h2` in the same section, or an `h2` not preceded by an `h1`.  
 **Why it's wrong:** Skipped headings break screen reader navigation and document outline semantics.  
 **Fix:** Maintain sequential heading hierarchy. If you need the visual size of `h3` without the `h2` parent, use a `h2` with class-based styling.
-
-### `italic-serif-display` — Italic serif display headline
-**Detect:** A serif font in italic style used as the primary heading on a product UI (not brand/marketing surface).  
-**Why it's wrong:** Editorial serif-italic is powerful on brand/landing surfaces but reads as mismatched on product UIs (dashboards, apps, settings).  
-**Fix:** On product register surfaces, use a weight-contrast pair with a sans-serif. Italic serif display belongs in the brand register only.
-
-### `low-contrast` — Low contrast text
-**Detect:** Text color does not achieve 4.5:1 contrast ratio against its background for normal text, or 3:1 for large text (18px+ regular or 14px+ bold), as measured by the WCAG relative luminance formula.  
-**Why it's wrong:** Low contrast text fails WCAG AA requirements and creates genuine barriers for users with low vision, in bright ambient light, or on low-quality displays.  
-**Fix:** Increase the contrast between text and background. Use white or a high-lightness neutral on dark backgrounds; use Deep Graphite (`oklch(10% 0 0)`) or Soft Charcoal (`oklch(25% 0 0)`) on light ones. Tool: check with `npx impeccable detect` or the WebAIM contrast checker.
 
 ---
 
@@ -175,21 +167,21 @@ These are the two categories the `impeccable detect` engine uses:
 | `dark-glow` | slop | Shadow lift + border |
 | `nested-cards` | slop | Flatten to list or section |
 | `flat-type-hierarchy` | slop | 1.25× scale minimum |
-| `monotonous-spacing` | quality | Vary rhythm deliberately |
+| `monotonous-spacing` | slop | Vary rhythm deliberately |
+| `everything-centered` | slop | Mix alignment |
+| `bounce-easing` | slop | expo-out curve |
+| `overused-font` | slop | Choose fonts with personality |
+| `single-font` | slop | Pair display + text font |
+| `italic-serif-display` | slop | Sans on product register |
 | `cramped-padding` | quality | 16px minimum |
-| `everything-centered` | quality | Mix alignment |
 | `pure-black-white` | quality | Tinted neutral (chroma 0.005) |
 | `gray-on-color` | quality | White or appropriate ramp tone |
-| `bounce-easing` | quality | expo-out curve |
 | `layout-transition` | quality | transform + opacity only |
+| `low-contrast` | quality | 4.5:1 normal, 3:1 large text |
 | `line-length` | quality | max-width: 65ch |
 | `tight-leading` | quality | line-height: 1.6 |
 | `justified-text` | quality | text-align: left |
 | `tiny-text` | quality | 16px minimum body |
 | `all-caps-body` | quality | Capitalize only ≤3 word labels |
 | `wide-tracking` | quality | letter-spacing: 0 on body |
-| `overused-font` | slop | Choose fonts with personality |
-| `single-font` | slop | Pair display + text font |
 | `skipped-heading` | quality | Sequential h1→h2→h3 |
-| `italic-serif-display` | slop | Sans on product register |
-| `low-contrast` | quality | 4.5:1 normal, 3:1 large text |
