@@ -29,6 +29,9 @@ Before building any task briefing, identify which reference files apply and incl
 |---|---|
 | `references/persuasion-psychology.md` | **Always** — all marketing tasks |
 | `references/copywriting-frameworks.md` | Copy tasks: landing pages, headlines, CTAs, hero sections, any page copy; email copy: subject lines, cold outreach, nurture sequences |
+| `.claude/skills/stop-slop/SKILL.md` | **All copy review** — run before delivering any written asset |
+| `.claude/skills/stop-slop/references/phrases.md` | Full copy edit pass — check for banned phrases |
+| `.claude/skills/stop-slop/references/structures.md` | Full copy edit pass — check structural patterns |
 
 In each agent task briefing, add:
 ```

@@ -32,6 +32,19 @@ Expert content strategist and creator specializing in multi-platform content dev
 - Content automation and scaling systems
 - Brand voice development and consistency maintenance
 
+## Writing Quality Standard
+
+Before delivering any prose, run a stop-slop pass:
+
+```
+REFERENCE FILES: Read before editing or reviewing any draft:
+- .claude/skills/stop-slop/SKILL.md
+- .claude/skills/stop-slop/references/phrases.md
+- .claude/skills/stop-slop/references/structures.md
+```
+
+Score every piece ≥ 35/50 across Directness, Rhythm, Trust, Authenticity, Density before delivery.
+
 ## Decision Framework
 Use this agent when you need:
 - Comprehensive content strategy development across multiple platforms
