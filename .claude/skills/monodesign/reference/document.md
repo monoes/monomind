@@ -66,7 +66,7 @@ Optional evocative subtitles are allowed in the form `## 2. Colors: The [Name] P
 - An existing `DESIGN.md` is stale (the design has drifted).
 - Before a large redesign, to capture the current state as a reference.
 
-If a `DESIGN.md` already exists, **do not silently overwrite it**. Show the user the existing file and Ask the user for clarification before proceeding. whether to refresh, overwrite, or merge.
+If a `DESIGN.md` already exists, **do not silently overwrite it**. Show the user the existing file and ask whether to refresh, overwrite, or merge.
 
 ## Two paths
 
