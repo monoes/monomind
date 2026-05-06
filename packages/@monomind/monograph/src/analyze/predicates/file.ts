@@ -25,7 +25,6 @@ export function isConfigFile(filePath: string): boolean {
     "webpack.config.",
     "postcss.config.",
     "stencil.config.",
-    "remotion.config.",
     "metro.config.",
     "tsup.config.",
     "unbuild.config.",
