@@ -191,7 +191,15 @@ Antipatterns catch aesthetic and visual issues. For implementation-level UX qual
 For building or auditing token systems and brand identity:
 
 - [reference/token-architecture.md](reference/token-architecture.md) — three-layer token system (primitive → semantic → component). Load during `extract` and `document` workflows when building design systems.
+- [reference/component-specs.md](reference/component-specs.md) — Button, Input, Card, Badge, Alert, Dialog, and Table: variants, sizes, states, and anatomy.
+- [reference/component-states.md](reference/component-states.md) — interactive state system: state priority, focus ring CSS, disabled/loading/error patterns, and full ARIA attribute reference.
 - [reference/brand-workflow.md](reference/brand-workflow.md) — brand → tokens → CSS pipeline, visual identity spec, and brand consistency audit. Load for brand identity work.
+
+## Copy
+
+For UI copy, labels, and error messages:
+
+- [reference/copy-formulas.md](reference/copy-formulas.md) — PAS, AIDA, FAB, BAB, and Cost of Inaction frameworks mapped to UI surfaces (empty states, CTAs, error messages, confirmations, onboarding). Load during `clarify` and `harden` workflows.
 
 ### Design Token System
 
