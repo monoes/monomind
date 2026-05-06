@@ -116,6 +116,19 @@ Framed as: "We believe [change] will [outcome] because [reason]. We'll know it w
 ### Copy Alternatives
 For headlines and CTAs: 2-3 options with rationale per element.
 
+## Writing Quality Standard
+
+Before delivering headlines, CTAs, or copy alternatives, run a stop-slop pass:
+
+```
+REFERENCE FILES: Read before finalizing any copy:
+- .claude/skills/stop-slop/SKILL.md
+- .claude/skills/stop-slop/references/phrases.md
+- .claude/skills/stop-slop/references/structures.md
+```
+
+Score every piece ≥ 35/50 across Directness, Rhythm, Trust, Authenticity, Density before delivery.
+
 ## Decision Framework
 Use this agent when you need:
 - Page analysis and conversion recommendations

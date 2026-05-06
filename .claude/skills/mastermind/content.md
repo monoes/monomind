@@ -110,6 +110,7 @@ For each pipeline stage, call /monomind:createtask with this briefing format:
   GOAL: [this stage's specific production goal]
   SCOPE: [content type, target audience, platform, word count, tone]
   CONSTRAINTS: [brand voice, SEO requirements, factual accuracy standards, style guide]
+  REFERENCE FILES: [for Stage 3 edit only: .claude/skills/stop-slop/SKILL.md, .claude/skills/stop-slop/references/phrases.md, .claude/skills/stop-slop/references/structures.md]
   SUCCESS CRITERIA:
   - [ ] [checkable item]
   AGENT: [researcher | Content Creator | Technical Writer | Code Reviewer (as editor)]

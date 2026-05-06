@@ -125,6 +125,19 @@ High on all three = prioritize. High traffic + low business value = deprioritize
 ### Content Audit Framework
 For existing content: categorize by performance (traffic, conversions), intent match (does it rank for what it should?), and freshness. Update high-potential decayed pieces before creating new ones.
 
+## Writing Quality Standard
+
+Before delivering any written asset, run a stop-slop pass:
+
+```
+REFERENCE FILES: Read before finalizing any page or content draft:
+- .claude/skills/stop-slop/SKILL.md
+- .claude/skills/stop-slop/references/phrases.md
+- .claude/skills/stop-slop/references/structures.md
+```
+
+Score every piece ≥ 35/50 across Directness, Rhythm, Trust, Authenticity, Density before delivery.
+
 ## Decision Framework
 Use this agent when you need:
 - Competitor comparison or alternative page strategy and writing
