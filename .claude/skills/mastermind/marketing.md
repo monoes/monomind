@@ -39,6 +39,10 @@ REFERENCE FILES: Read these before starting:
 - .claude/skills/mastermind/references/persuasion-psychology.md
 [For copy tasks (landing pages, CTAs, email copy, headlines, subject lines), also read:]
 - .claude/skills/mastermind/references/copywriting-frameworks.md
+[For all copy review/edit passes, also read:]
+- .claude/skills/stop-slop/SKILL.md
+- .claude/skills/stop-slop/references/phrases.md
+- .claude/skills/stop-slop/references/structures.md
 ```
 
 ---
