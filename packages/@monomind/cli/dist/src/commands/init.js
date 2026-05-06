@@ -240,8 +240,8 @@ const initAction = async (ctx) => {
         output.writeln(output.bold('Tip: Enrich your knowledge graph with semantic summaries'));
         output.writeln(output.dim('  Run /monomind:understand in Claude Code to analyze your project'));
         output.writeln(output.dim('  and add LLM-generated summaries, tags, and architectural layers'));
-        output.writeln(output.dim('  to the monograph graph. This gives Claude Code a richer mental'));
-        output.writeln(output.dim('  model of your codebase from the very first session.'));
+        output.writeln(output.dim(`  to the monograph graph. This gives Claude Code a richer mental`));
+        output.writeln(output.dim(`  model of your codebase from the very first session.`));
         if (ctx.flags.format === 'json') {
             output.printJson(result);
         }
