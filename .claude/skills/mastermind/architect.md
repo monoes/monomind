@@ -20,6 +20,7 @@ This skill is invoked by `mastermind:master` or directly via `/mastermind:archit
 - `mode`: auto | confirm
 - `scope`: optional — `review` | `design` | `deduplicate` | `migrate` | `all` (default: inferred from prompt)
 - `stack`: optional — detected tech stack hint (e.g. `typescript`, `python`, `react`, `rails`, `go`)
+- `sessionId`: session ID for dashboard events — injected by master as `mm-<YYYYMMDDTHHmmss>`; generated locally for standalone runs (see Standalone Execution)
 
 ---
 
@@ -49,18 +50,19 @@ Assess the prompt to determine execution mode:
 
 If this skill is invoked directly (not by master):
 
-1. Load brain context following _protocol.md Brain Load Procedure (namespace: `architect`)
-2. Run intake from _intake.md if prompt is vague
-3. Detect stack from current directory:
+1. Generate session ID: `sessionId = "mm-" + new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,15)`
+2. Load brain context following _protocol.md Brain Load Procedure (namespace: `architect`)
+3. Run intake from _intake.md if prompt is vague
+4. Detect stack from current directory:
    ```bash
    # Detect tech stack
    ls package.json pyproject.toml go.mod Cargo.toml pom.xml build.gradle mix.exs Gemfile 2>/dev/null
    # Count file types
    find . \( -name "*.ts" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \) | head -5
    ```
-4. Create or find monotask space `<project_name>`, create board `architect`
-5. Proceed with complexity assessment below
-6. At end: follow _protocol.md Brain Write Procedure (namespace: `architect`)
+5. Create or find monotask space `<project_name>`, create board `architect`
+6. Proceed with complexity assessment below
+7. At end: follow _protocol.md Brain Write Procedure (namespace: `architect`)
 
 ---
 
@@ -164,11 +166,12 @@ find . \( -name "*.ts" -o -name "*.py" -o -name "*.js" \) \
 # 2. Find files with identical content (exact duplicates)
 find . -type f \( -name "*.ts" -o -name "*.py" -o -name "*.js" \) \
   | grep -v node_modules | grep -v dist | grep -v ".git" \
-  | xargs md5sum 2>/dev/null | sort | awk 'seen[$1]++ {print}' | head -20
+  | xargs openssl md5 2>/dev/null | sort | awk 'seen[$NF]++ {print}' | head -20
 
 # 3. Find very small files that may be consolidation candidates
 find . -type f \( -name "*.ts" -o -name "*.py" \) \
-  | grep -v node_modules | grep -v dist | grep -v test | grep -v spec \
+  | grep -v node_modules | grep -v dist \
+  | grep -Ev "(^|/)(test|spec)s?(/|$)" \
   | xargs wc -l 2>/dev/null | sort -n | awk '$1 < 20 {print}' | head -20
 
 # 4. Find oversized files that need splitting
@@ -184,7 +187,7 @@ npx madge --circular src/ 2>/dev/null | head -20
 # JS/TS: count how many files import each module name
 grep -rh "from ['\"]" . --include="*.ts" --include="*.js" \
   2>/dev/null | grep -v node_modules | grep -v dist \
-  | perl -ne 'print "$1\n" if /from\s+['"'"'"]\([^'"'"'")\t ]+\)/' \
+  | perl -ne 'if (/from\s+['"'"'"]([^'"'"'"\s]+)['"'"'"]/) { print "$1\n" }' \
   | sort | uniq -c | sort -rn | head -20
 # Python: count imports separately (no quotes in Python import syntax)
 grep -rh "^from \|^import " . --include="*.py" 2>/dev/null \
@@ -266,7 +269,15 @@ For each architecture stream, call /monomind:createtask with this briefing forma
   OUTPUT FORMAT: unified output schema
 
 STEP 4 — EXECUTE
-Spawn one Task agent per architecture stream in parallel. The list below is the default; override subagent_type for specialized stacks using the Stack Detection table (e.g. Mobile App Builder for React Native/Swift/Kotlin, Unity Architect for game projects):
+**For single-scope runs** (`review`, `deduplicate`, `design`, or `migrate`): spawn all relevant agents in parallel.
+
+**For `scope: all`**: execute streams sequentially in phases:
+- Phase 1 (parallel): review streams → wait for completion
+- Phase 2 (parallel, uses Phase 1 findings as input): deduplicate streams
+- Phase 3 (parallel, conditional on Phase 2 gaps): design streams
+- Phase 4 (spawn ONLY if Phase 3 identifies a migration target): migrate streams
+
+Default agent routing (applies to all scopes). **Stack overrides**: for specialized stacks, replace ALL "Software Architect" rows with the primary agent from the Stack Detection table (e.g. Mobile App Builder replaces Software Architect across all streams for React Native/Swift/Kotlin). Keep domain-specific agents (Database Optimizer, Security Engineer, SRE) unchanged regardless of stack.
 
 - Structure + dedup: subagent_type "Software Architect"
 - Coupling + god files: subagent_type "Software Architect"
@@ -281,6 +292,12 @@ WebFetch({ url: "http://localhost:4242/api/mastermind/event", method: "POST",
   headers: {"Content-Type":"application/json"},
   body: JSON.stringify({ type:"agent:spawn", session:"<sessionId>",
     domain:"architect", agent:"<agent-slug>", task:"<stream-description>", ts:Date.now() }) })
+
+If handing off artifacts to another domain (e.g. build for refactoring implementation, review for post-restructure check), emit intercom:
+WebFetch({ url: "http://localhost:4242/api/mastermind/event", method: "POST",
+  headers: {"Content-Type":"application/json"},
+  body: JSON.stringify({ type:"intercom", session:"<sessionId>",
+    from:"architect", to:"<domain>", msg:"<one-line summary of artifact being handed off>", ts:Date.now() }) })
 
 Also run /monomind:do --board <board_id> to track execution.
 

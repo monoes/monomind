@@ -19,6 +19,8 @@ Run intake if prompt is vague (follow _intake.md — stop at Q3, domain is alrea
 
 Default mode for this command: **confirm** (show architecture plan before executing, unless `--auto` flag present).
 
-Invoke `Skill("mastermind:architect")` passing: brain_context, prompt, project_name, board_id (create board named `architect` inside the `<project_name>` monotask space if not already present), mode, scope, stack.
+Generate a session ID: `sessionId = "mm-" + new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,15)`
+
+Invoke `Skill("mastermind:architect")` passing: brain_context, prompt, project_name, board_id (create board named `architect` inside the `<project_name>` monotask space if not already present), mode, scope, stack, sessionId.
 
 After skill returns: follow _protocol.md Brain Write Procedure for domain `architect`.
