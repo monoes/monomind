@@ -167,14 +167,10 @@ function isNonDevTask(taskLower) {
   return false;
 }
 
-// ─── Two-Stage LLM Router (for non-dev and ambiguous tasks) ─────────────────
-// Stage 1: LLM picks category from ~9 categories
-// Stage 2: LLM picks specific agent from agents in that category
-// Falls back to keyword scoring if API unavailable
-
-function getAnthropicKey() {
-  return process.env.ANTHROPIC_API_KEY || '';
-}
+// ─── Two-Stage Keyword Router (for non-dev and ambiguous tasks) ──────────────
+// Stage 1: pick best category by scoring task tokens against category keywords
+// Stage 2: pick best agent within that category by keyword overlap
+// Pure in-process — no external API calls, no API key required.
 
 function buildCategoryList() {
   const registry = loadExtrasRegistry();
@@ -197,76 +193,60 @@ function getAgentsInCategory(category) {
     .map(e => ({ slug: e.slug, name: e.name, description: (e.description || '').slice(0, 120) }));
 }
 
-async function llmPick(systemPrompt, userPrompt) {
-  const key = getAnthropicKey();
-  if (!key) return null;
-  try {
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), 2000);
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 60,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
-      signal: ac.signal,
-    });
-    clearTimeout(timer);
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    const text = (data.content && data.content[0] && data.content[0].text) || '';
-    return text.trim();
-  } catch { return null; }
+// Score a task string against an agent entry using keyword overlap
+function scoreAgainstEntry(taskTokens, entry) {
+  let score = 0;
+  const nameTokens = (entry.name || '').toLowerCase().split(/\W+/).filter(Boolean);
+  const descTokens = (entry.description || '').toLowerCase().split(/\W+/).filter(Boolean);
+  const kwTokens = Array.isArray(entry.keywords) ? entry.keywords.map(k => k.toLowerCase()) : [];
+  const allTokens = new Set([...nameTokens, ...descTokens, ...kwTokens]);
+  for (const t of taskTokens) {
+    if (allTokens.has(t)) score += 2;
+    else for (const s of allTokens) { if (s.includes(t) || t.includes(s)) { score += 1; break; } }
+  }
+  return score;
+}
+
+// Category-level score: sum agent scores within the category
+function scoreCategoryForTask(taskTokens, category, registry) {
+  const agents = registry.extras.filter(e => e.category === category);
+  return agents.reduce((sum, e) => sum + scoreAgainstEntry(taskTokens, e), 0);
 }
 
 async function routeTaskLLM(task) {
-  const categories = buildCategoryList();
-  if (!categories.length) return null;
+  const registry = loadExtrasRegistry();
+  if (!registry.extras.length) return null;
 
-  // Stage 1: pick category
-  const catList = categories.map((c, i) => `${i + 1}. ${c.name} (${c.count} agents, e.g. ${c.examples})`).join('\n');
-  const stage1System = 'You route tasks to agent categories. Reply with ONLY the category name, nothing else.';
-  const stage1User = `Task: "${task}"\n\nCategories:\n${catList}\n\nWhich category best fits this task? Reply with the category name only.`;
+  const taskLower = task.toLowerCase();
+  const STOP = new Set(['the','and','for','are','but','not','you','all','can','had','her','was','one','our','out','day','get','has','him','his','how','its','may','new','now','old','see','two','way','who','did','let','put','say','she','too','use','will','with','that','this','from','they','been','have','make','then','than','when','what','does','into','your']);
+  const taskTokens = taskLower.split(/\W+/).filter(w => w.length > 3 && !STOP.has(w));
 
-  const pickedCat = await llmPick(stage1System, stage1User);
-  if (!pickedCat) return null;
+  // Stage 1: pick best category by aggregate keyword score
+  const categories = [...new Set(registry.extras.map(e => e.category))];
+  const catScores = categories.map(cat => ({
+    cat,
+    score: scoreCategoryForTask(taskTokens, cat, registry),
+  })).sort((a, b) => b.score - a.score);
 
-  // Normalize — find closest category match
-  const catLower = pickedCat.toLowerCase().replace(/[^a-z-]/g, '');
-  const matchedCat = categories.find(c => c.name.toLowerCase().replace(/[^a-z-]/g, '') === catLower);
-  const categoryName = matchedCat ? matchedCat.name : categories.find(c => catLower.includes(c.name.toLowerCase().replace(/[^a-z-]/g, '')))?.name;
-  if (!categoryName) return null;
+  const bestCat = catScores[0];
+  if (!bestCat || bestCat.score === 0) return null;
 
-  // Stage 2: pick agent within category
-  const agents = getAgentsInCategory(categoryName);
-  if (!agents.length) return null;
+  // Stage 2: pick best agent within the category
+  const candidates = registry.extras.filter(e => e.category === bestCat.cat);
+  const scored = candidates.map(e => ({ e, score: scoreAgainstEntry(taskTokens, e) }))
+    .sort((a, b) => b.score - a.score);
 
-  const agentList = agents.map((a, i) => `${i + 1}. ${a.name} — ${a.description}`).join('\n');
-  const stage2System = 'You pick the best agent for a task. Reply with ONLY the agent name exactly as listed, nothing else.';
-  const stage2User = `Task: "${task}"\n\nAgents in ${categoryName}:\n${agentList}\n\nWhich agent is the best fit? Reply with the exact agent name only.`;
+  const top = scored[0];
+  if (!top || top.score === 0) return null;
 
-  const pickedAgent = await llmPick(stage2System, stage2User);
-  if (!pickedAgent) return null;
-
-  // Find the agent entry — exact match only, fall back to keyword routing
-  const agentLower = pickedAgent.toLowerCase().trim();
-  const matched = agents.find(a => a.name.toLowerCase() === agentLower);
-  if (!matched) return null;
-
+  const allInCat = candidates.map(e => ({ slug: e.slug, label: e.name, note: e.category }));
   return {
-    agent: matched.name,
-    agentSlug: matched.slug,
-    confidence: 0.9,
-    reason: `LLM 2-stage: ${categoryName} → ${matched.name}`,
-    category: categoryName,
-    allInCategory: agents.map(a => ({ slug: a.slug, label: a.name, note: categoryName })),
+    agent: top.e.name,
+    agentSlug: top.e.slug,
+    confidence: Math.min(0.85, 0.5 + top.score * 0.05),
+    reason: `Keyword 2-stage: ${bestCat.cat} → ${top.e.name}`,
+    category: bestCat.cat,
+    allInCategory: allInCat,
   };
 }
 
