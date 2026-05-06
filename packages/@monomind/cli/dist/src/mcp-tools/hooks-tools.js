@@ -2,17 +2,9 @@
  * Hooks MCP Tools
  * Provides intelligent hooks functionality via MCP protocol
  */
-import { mkdirSync, writeFileSync, existsSync, readFileSync, statSync, unlinkSync, readdirSync, appendFileSync } from 'fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync, statSync, unlinkSync, readdirSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { getProjectCwd } from './types.js';
-function logEvent(kind, data) {
-    try {
-        const dir = join(getProjectCwd(), '.monomind', 'swarm');
-        if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-        const event = { ts: new Date().toISOString(), source: 'hook', kind, ...data };
-        appendFileSync(join(dir, 'events.jsonl'), JSON.stringify(event) + '\n');
-    } catch { }
-}
 // Real vector search functions - lazy loaded to avoid circular imports
 let searchEntriesFn = null;
 async function getRealSearchFunction() {
@@ -1102,7 +1094,6 @@ export const hooksPreTask = {
             }
         }
         catch { /* non-critical */ }
-        logEvent('task.start', { taskId, description: description?.slice(0, 200), complexity, suggestedAgent: suggestion.agents[0], modelTier: modelRouting?.tier });
         return {
             taskId,
             description,
@@ -1265,7 +1256,6 @@ export const hooksPostTask = {
             storeAs: 'heuristics',
             note: 'Spawn agents sequentially: Diagnoser → Critics in parallel → Aggregator',
         } : { needed: false };
-        logEvent('task.end', { taskId, success, duration, agent, quality, task: taskText?.slice(0, 200) });
         return {
             taskId,
             success,
