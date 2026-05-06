@@ -34,7 +34,8 @@ In each agent task briefing, add:
 ```
 REFERENCE FILES: Read these before starting:
 - .claude/skills/mastermind/references/persuasion-psychology.md
-- .claude/skills/mastermind/references/[task-specific files above]
+[For copy tasks (landing pages, CTAs, email copy, headlines, subject lines), also read:]
+- .claude/skills/mastermind/references/copywriting-frameworks.md
 ```
 
 ---
