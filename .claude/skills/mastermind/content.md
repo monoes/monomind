@@ -27,7 +27,7 @@ Before generating or editing any prose, identify which reference files apply and
 
 | Reference | When to include |
 |---|---|
-| `.claude/skills/stop-slop/SKILL.md` | **Always** — all draft, edit, and review stages |
+| `.claude/skills/stop-slop/SKILL.md` | Stage 3 (Edit) and Stage 4 (Review) — not Draft |
 | `.claude/skills/stop-slop/references/phrases.md` | Full edit pass — check for banned phrases |
 | `.claude/skills/stop-slop/references/structures.md` | Full edit pass — check structural patterns |
 | `.claude/skills/stop-slop/references/examples.md` | When the agent needs before/after context |
