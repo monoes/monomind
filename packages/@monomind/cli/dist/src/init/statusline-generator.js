@@ -836,9 +836,10 @@ function generateStatusline() {
   const triggers  = getTriggerStats();
   const parts     = [];
 
-  // Brand + swarm dot
+  // Brand + swarm dot + cwd
   const swarmDot = swarm.coordinationActive ? \`\${x.green}●\${x.reset}\` : \`\${x.slate}○\${x.reset}\`;
-  parts.push(\`\${x.bold}\${x.purple}▊ Monomind\${x.reset} \${swarmDot}\`);
+  const cwdBase = path.basename(CWD);
+  parts.push(\`\${x.bold}\${x.purple}▊ Monomind\${x.reset} \${swarmDot}  \${x.dim}◎ \${cwdBase}\${x.reset}\`);
 
   // Git branch + changes (compact)
   if (git.gitBranch) {
@@ -911,7 +912,8 @@ function generateDashboard() {
 
   // ── Header: brand + git + model + session ────────────────────
   const swarmDot = swarm.coordinationActive ? \`\${x.green}● LIVE\${x.reset}\` : \`\${x.slate}○ IDLE\${x.reset}\`;
-  let hdr = \`\${x.bold}\${x.purple}▊ Monomind \${VERSION}\${x.reset}  \${swarmDot}  \${x.teal}\${x.bold}\${git.name}\${x.reset}\`;
+  const cwdName = path.basename(CWD);
+  let hdr = \`\${x.bold}\${x.purple}▊ Monomind \${VERSION}\${x.reset}  \${swarmDot}  \${x.teal}\${x.bold}\${git.name}\${x.reset}  \${DIV}  \${x.dim}◎ \${cwdName}\${x.reset}\`;
 
   if (git.gitBranch) {
     hdr += \`  \${DIV}  \${x.sky}⎇ \${x.bold}\${git.gitBranch}\${x.reset}\`;
