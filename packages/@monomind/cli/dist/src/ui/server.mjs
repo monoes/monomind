@@ -233,6 +233,22 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // --------------------------------------------------------- GET /api/git-user
+    if (req.method === 'GET' && url === '/api/git-user') {
+      try {
+        const { execSync: gitExec } = await import('child_process');
+        const cwd = projectDir || process.cwd();
+        const name = gitExec('git config user.name', { cwd, encoding: 'utf8' }).trim();
+        const email = gitExec('git config user.email', { cwd, encoding: 'utf8' }).trim();
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ name, email }));
+      } catch (_) {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ name: '', email: '' }));
+      }
+      return;
+    }
+
     // --------------------------------------------------------- GET /api/data
     if (req.method === 'GET' && url === '/api/data') {
       try {
