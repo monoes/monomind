@@ -32,7 +32,7 @@ Parse `$ARGUMENTS` as `TOTAL_ITERATIONS` (integer, min 1, max 10).
 
 Collect the following in parallel:
 
-1. **Git context**: Run `git diff --name-only HEAD~1 HEAD 2>/dev/null || git ls-files --modified` to get recently changed files. Store as `CHANGED_FILES`.
+1. **Git context**: Run `git diff --name-only HEAD~1 HEAD 2>/dev/null || git ls-files -m` to get recently changed files. If empty (clean tree), fall back to `git diff --name-only HEAD~5 HEAD 2>/dev/null` to get the last 5 commits' files. Store as `CHANGED_FILES`.
 2. **Repo structure**: Run `git ls-files | head -80` to get a representative file list. Store as `FILE_LIST`.
 3. **Branch info**: Run `git log --oneline -5` to get recent commit context. Store as `RECENT_COMMITS`.
 4. **Stack detection**: Run `ls package.json pyproject.toml go.mod Cargo.toml 2>/dev/null; find . -maxdepth 3 \( -name "*.swift" -o -name "*.kt" \) | head -3` to detect language/framework. Store detected stacks as `STACK`.
@@ -57,12 +57,12 @@ Based on `STACK`, determine which specialist agents to run beyond the always-on 
 - `Security Engineer` — injection, auth gaps, secrets exposure, CVE-prone patterns, OWASP Top 10
 - `Reality Checker` — evidence-based assessment: does the code actually do what it claims?
 
-**Run conditionally:**
-- `Accessibility Auditor` — if HTML, JSX, TSX, or Swift UI files are present
-- `API Tester` — if REST/GraphQL route handlers or OpenAPI specs are present
-- `Database Optimizer` — if ORM models, SQL queries, or migration files are present
-- `SRE` — if Dockerfile, CI/CD configs, or infrastructure-as-code files are present
-- `Mobile App Builder` — if React Native, Swift, or Kotlin files are present
+**Run conditionally** — detect by running these checks and adding the agent if exit 0:
+- `Accessibility Auditor` — `find . -maxdepth 5 \( -name "*.html" -o -name "*.jsx" -o -name "*.tsx" \) -not -path "*/node_modules/*" | head -1 | grep -q .`
+- `API Tester` — `find . -maxdepth 5 \( -name "*.route.*" -o -name "openapi.yml" -o -name "openapi.json" -o -name "swagger.*" \) -not -path "*/node_modules/*" | head -1 | grep -q . || grep -rql "express\(\|fastify\|hono\|koa\|router\." --include="*.ts" --include="*.js" . 2>/dev/null`
+- `Database Optimizer` — `find . -maxdepth 5 \( -name "*.sql" -o -name "*migration*" -o -name "*schema*" \) -not -path "*/node_modules/*" | head -1 | grep -q . || grep -rql "prisma\|typeorm\|sequelize\|drizzle\|knex" --include="*.ts" --include="*.js" . 2>/dev/null`
+- `SRE` — `find . -maxdepth 3 \( -name "Dockerfile" -o -name "docker-compose*" -o -name "*.yml" -path "*/.github/workflows/*" \) | head -1 | grep -q .`
+- `Mobile App Builder` — `find . -maxdepth 3 \( -name "*.swift" -o -name "*.kt" \) | head -1 | grep -q . || grep -q "react-native" package.json 2>/dev/null`
 
 Store the selected set as `ACTIVE_REVIEWERS`.
 
@@ -119,7 +119,7 @@ All agent prompts share this finding schema. `hil_reason` is only required when 
 
 ### Step 3: Merge and Deduplicate Findings
 
-Collect all agent outputs. Merge into a single `ITERATION_FINDINGS` list. Deduplicate by `(file, line, category)` — keep highest severity when duplicates exist. Exclude anything already in `ALL_FIXED` or `ALL_HIL`.
+Collect all agent outputs. Merge into a single `ITERATION_FINDINGS` list. Deduplicate by `(file, category, description[:60])` — keep highest severity when duplicates exist. Do NOT deduplicate by line number, as applied fixes shift line numbers across iterations. Exclude anything already in `ALL_FIXED` or `ALL_HIL` by matching on `(file, description[:60])`.
 
 Sort by severity: critical → high → medium → low.
 
@@ -130,18 +130,19 @@ Sort by severity: critical → high → medium → low.
 For each finding in `ITERATION_FINDINGS`:
 
 **If `auto_fixable: true`:**
-- Apply the fix using `Edit` (or `Write` for new files). Track the file path as `FIXED_FILE`.
-- Verify with whichever commands exist for the stack:
-  ```bash
-  npm run lint --if-present 2>&1 | tail -5
-  npm run typecheck --if-present 2>&1 | tail -5
-  npm test --if-present 2>&1 | tail -10
-  ```
-- If all checks pass (exit 0 or `--if-present` skipped): add to `ALL_FIXED`.
-- If any check fails: restore the file with `git restore FIXED_FILE`, then add to `ALL_HIL` with `hil_reason: "auto-fix caused verification failure: <error output>"`.
+- Apply the fix using `Edit` (or `Write` for new files). Add the file path to `ITERATION_FIXED_FILES` list. Add the finding to a staging list `PENDING_FIXED`.
 
 **If `auto_fixable: false` (HIL):**
 - Add to `ALL_HIL`. Do NOT attempt to fix.
+
+After processing all findings, run verification **once** for the whole batch:
+```bash
+npm run lint --if-present 2>&1 | tail -5
+npm run typecheck --if-present 2>&1 | tail -5
+npm test --if-present 2>&1 | tail -10
+```
+- If all checks pass: move all `PENDING_FIXED` entries into `ALL_FIXED`.
+- If any check fails: run `git restore` on each file in `ITERATION_FIXED_FILES` to undo all changes, move all `PENDING_FIXED` entries to `ALL_HIL` with `hil_reason: "batch auto-fix caused verification failure — apply individually"`. Print the error output.
 
 ---
 
@@ -239,7 +240,7 @@ After all iterations complete (or early exit), output:
 ```markdown
 ## monomind:review — Complete
 
-**Iterations run:** N / $TOTAL_ITERATIONS
+**Iterations run:** N / <TOTAL_ITERATIONS>
 **Reviewers active:** <list>
 
 ### Auto-Fixed (<N> total)
