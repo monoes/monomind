@@ -963,7 +963,8 @@ function generateStatusline() {
   // Brand + project + swarm dot
   const swarmDot = swarm.coordinationActive ? `${x.green}●${x.reset}` : `${x.slate}○${x.reset}`;
   const projName = getProjectName();
-  parts.push(`${x.bold}${x.purple}▊ MonoMind${x.reset} ${x.teal}${projName}${x.reset} ${swarmDot}`);
+  const cwdBase = path.basename(CWD);
+  parts.push(`${x.bold}${x.purple}▊ MonoMind${x.reset} ${x.teal}${projName}${x.reset} ${swarmDot}  ${x.dim}◎ ${cwdBase}${x.reset}`);
 
   // Git branch + changes (compact)
   if (git.gitBranch) {
@@ -1082,7 +1083,8 @@ function generateDashboard() {
   // ── Header: brand + git + model + session ────────────────────
   const swarmDot = swarm.coordinationActive ? `${x.green}● LIVE${x.reset}` : `${x.slate}○ IDLE${x.reset}`;
   const projName = getProjectName();
-  let hdr = `${x.bold}${x.purple}▊ MonoMind${x.reset} ${x.dim}${VERSION}${x.reset}  ${swarmDot}  ${x.teal}${x.bold}${projName}${x.reset}`;
+  const cwdName = path.basename(CWD);
+  let hdr = `${x.bold}${x.purple}▊ MonoMind${x.reset} ${x.dim}${VERSION}${x.reset}  ${swarmDot}  ${x.teal}${x.bold}${projName}${x.reset}  ${DIV}  ${x.dim}◎ ${cwdName}${x.reset}`;
 
   if (git.gitBranch) {
     hdr += `  ${DIV}  ${x.sky}⎇ ${x.bold}${git.gitBranch}${x.reset}`;
