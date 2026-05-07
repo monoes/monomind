@@ -3,7 +3,7 @@ name: monomind:review
 description: "Monomind — Multi-agent iterative review loop: runs Code Reviewer, Security Engineer, and domain specialists in parallel, auto-fixes findings each iteration, and captures human-in-loop items to a dated file."
 ---
 
-If `$ARGUMENTS` is empty or not a positive integer, output this and STOP:
+If `$ARGUMENTS` is empty, not a positive integer, or greater than 10, output this and STOP:
 
 > **Usage:** `/monomind:review <iterations>`
 >
@@ -98,9 +98,18 @@ Each agent receives:
 
 #### Agent Instructions by Role
 
-All agent prompts share this finding schema. `hil_reason` is only required when `auto_fixable: false`:
+All agent prompts share this finding schema. `hil_reason` and `context` are only required when `auto_fixable: false`:
 ```
-{ file, line, severity: critical|high|medium|low, category: "...", description, suggested_fix, auto_fixable: true|false, hil_reason?: "only if auto_fixable=false" }
+{
+  file, line,
+  severity: critical|high|medium|low,
+  category: "...",
+  description,
+  suggested_fix,
+  auto_fixable: true|false,
+  hil_reason?: "only if auto_fixable=false — why Claude cannot safely apply this",
+  context?: "only if auto_fixable=false — 2-4 sentences: what the code does, why this is a problem, what the risk is"
+}
 ```
 
 **Code Reviewer prompt:**
@@ -214,7 +223,7 @@ If any new HIL items were added this iteration, **append** to `HIL_FILE`. For ea
 **Reported by:** <agent name>
 
 **Context:**
-<2-4 sentences of full context: what the code does, why this is a problem, what the risk is>
+<context from agent finding, or derive from description if context field absent>
 
 **Suggested fix:**
 <suggested_fix from agent, verbatim>
