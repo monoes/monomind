@@ -41,9 +41,8 @@ Collect the following in parallel:
 Initialize tracking state:
 ```
 ITERATION = 1
-ALL_FINDINGS = []        # accumulated across iterations
-ALL_FIXED = []           # auto-fixed items
-ALL_HIL = []             # human-in-loop items
+ALL_FIXED = []           # auto-fixed items (across all iterations)
+ALL_HIL = []             # human-in-loop items (across all iterations)
 ```
 
 ---
@@ -135,11 +134,31 @@ For each finding in `ITERATION_FINDINGS`:
 **If `auto_fixable: false` (HIL):**
 - Add to `ALL_HIL`. Do NOT attempt to fix.
 
-After processing all findings, run verification **once** for the whole batch:
+After processing all findings, run verification **once** for the whole batch. Run only commands appropriate for `STACK`:
+
+**Node.js / TypeScript:**
 ```bash
 npm run lint --if-present 2>&1 | tail -5
 npm run typecheck --if-present 2>&1 | tail -5
 npm test --if-present 2>&1 | tail -10
+```
+
+**Python** (if `pyproject.toml` or `*.py` detected):
+```bash
+ruff check . 2>&1 | tail -5
+python -m pytest --tb=short -q 2>&1 | tail -10
+```
+
+**Go** (if `go.mod` detected):
+```bash
+go vet ./... 2>&1 | tail -5
+go test ./... 2>&1 | tail -10
+```
+
+**Rust** (if `Cargo.toml` detected):
+```bash
+cargo check 2>&1 | tail -5
+cargo test 2>&1 | tail -10
 ```
 - If all checks pass: move all `PENDING_FIXED` entries into `ALL_FIXED`.
 - If any check fails: run `git restore` on each file in `ITERATION_FIXED_FILES` to undo all changes, move all `PENDING_FIXED` entries to `ALL_HIL` with `hil_reason: "batch auto-fix caused verification failure — apply individually"`. Print the error output.
@@ -150,9 +169,9 @@ npm test --if-present 2>&1 | tail -10
 
 If `ALL_FIXED` gained any new entries this iteration:
 
-Stage only the files that were actually edited (tracked from `FIXED_FILE` values collected in Step 4):
+Stage only the files that were actually edited (tracked from `ITERATION_FIXED_FILES` collected in Step 4):
 ```bash
-git add <space-separated list of FIXED_FILE paths>
+git add <space-separated list of ITERATION_FIXED_FILES paths>
 ```
 
 Then commit with each fixed item on its own line in the body:
@@ -172,7 +191,7 @@ Co-Authored-By: nokhodian <nokhodian@gmail.com>"
 If any new HIL items were added this iteration, **append** to `HIL_FILE`:
 
 ```markdown
-## Review Iteration $ITERATION — <YYYY-MM-DD HH:MM>
+## Review Iteration <ITERATION> — <YYYY-MM-DD HH:MM>
 
 <!-- One block per HIL finding -->
 ### HIL-<N>: <description> [`<severity>`]
@@ -212,7 +231,7 @@ After writing, print:
 Print a table:
 
 ```
-### Iteration $ITERATION / $TOTAL_ITERATIONS
+### Iteration <ITERATION> / <TOTAL_ITERATIONS>
 
 | Reviewer            | Findings | Auto-Fixed | HIL |
 |---------------------|----------|------------|-----|
