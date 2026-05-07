@@ -90,6 +90,15 @@ html, body {
   font-size: 9px; letter-spacing: 0.5px; color: #4a4a90;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+#git-cwd-row {
+  display: flex; align-items: center; gap: 5px; margin-top: 4px;
+}
+#git-cwd-icon { font-size: 9px; color: #2a2a58; }
+#git-cwd-name {
+  font-size: 9px; letter-spacing: 0.3px; color: #38386a;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  direction: rtl; text-align: left;
+}
 .sess-trace-link {
   font-size: 7px; color: #3a3a70; text-decoration: none; letter-spacing: 0.5px;
   padding: 1px 5px; border: 1px solid rgba(80,50,180,0.2); border-radius: 3px;
@@ -249,6 +258,10 @@ html, body {
       <div id="git-user-row">
         <span id="git-user-icon">⬡</span>
         <span id="git-user-name">—</span>
+      </div>
+      <div id="git-cwd-row">
+        <span id="git-cwd-icon">◎</span>
+        <span id="git-cwd-name">—</span>
       </div>
     </div>
     <div id="sb-sessions">
@@ -963,6 +976,11 @@ refreshSessions();
 pollStatus();
 fetch('/api/git-user').then(r=>r.json()).then(u=>{
   if (u.name) document.getElementById('git-user-name').textContent = u.name;
+  if (u.cwd) {
+    const parts = u.cwd.replace(/\\/g, '/').split('/');
+    document.getElementById('git-cwd-name').textContent = parts.slice(-2).join('/');
+    document.getElementById('git-cwd-name').title = u.cwd;
+  }
 }).catch(()=>{});
 setInterval(pollStatus, 4000);
 setInterval(refreshSessions, 8000);
