@@ -241,10 +241,11 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const name = gitExec('git config user.name', { cwd, encoding: 'utf8' }).trim();
         const email = gitExec('git config user.email', { cwd, encoding: 'utf8' }).trim();
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ name, email }));
+        res.end(JSON.stringify({ name, email, cwd }));
       } catch (_) {
+        const cwd2 = projectDir || process.cwd();
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ name: '', email: '' }));
+        res.end(JSON.stringify({ name: '', email: '', cwd: cwd2 }));
       }
       return;
     }
