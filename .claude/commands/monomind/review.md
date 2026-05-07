@@ -32,7 +32,12 @@ Parse `$ARGUMENTS` as `TOTAL_ITERATIONS` (integer, min 1, max 10).
 
 Collect the following in parallel:
 
-1. **Git context**: Run `git diff --name-only HEAD~1 HEAD 2>/dev/null || git ls-files -m` to get recently changed files. If empty (clean tree), fall back to `git diff --name-only HEAD~5 HEAD 2>/dev/null` to get the last 5 commits' files. Store as `CHANGED_FILES`.
+1. **Git context**: Run the following to get recently changed files. Store result as `CHANGED_FILES`.
+   ```bash
+   CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null)
+   [ -z "$CHANGED_FILES" ] && CHANGED_FILES=$(git ls-files -m 2>/dev/null)
+   [ -z "$CHANGED_FILES" ] && CHANGED_FILES=$(git diff --name-only HEAD~5 HEAD 2>/dev/null)
+   ```
 2. **Repo structure**: Run `git ls-files | head -80` to get a representative file list. Store as `FILE_LIST`.
 3. **Branch info**: Run `git log --oneline -5` to get recent commit context. Store as `RECENT_COMMITS`.
 4. **Stack detection**: Run `ls package.json pyproject.toml go.mod Cargo.toml 2>/dev/null; find . -maxdepth 3 \( -name "*.swift" -o -name "*.kt" \) | head -3` to detect language/framework. Store detected stacks as `STACK`.
@@ -43,6 +48,9 @@ Initialize tracking state:
 ITERATION = 1
 ALL_FIXED = []           # auto-fixed items (across all iterations)
 ALL_HIL = []             # human-in-loop items (across all iterations)
+HIL_COUNT = 0            # global counter for HIL-N labels
+PENDING_FIXED = []       # staging: auto-fixed this batch, not yet verified
+ITERATION_FIXED_FILES = []  # file paths edited this iteration
 ```
 
 ---
@@ -69,7 +77,11 @@ Store the selected set as `ACTIVE_REVIEWERS`.
 
 ## Loop: Run `TOTAL_ITERATIONS` times
 
-For each iteration:
+For each iteration, first reset per-iteration state:
+```
+PENDING_FIXED = []
+ITERATION_FIXED_FILES = []
+```
 
 ---
 
@@ -176,7 +188,7 @@ git add <space-separated list of ITERATION_FIXED_FILES paths>
 
 Then commit with each fixed item on its own line in the body:
 ```bash
-git commit -m "fix(review): iteration N — M findings fixed by monomind:review
+git commit -m "fix(review): iteration <ITERATION> — <count> findings fixed by monomind:review
 
 <file>:<line> — <description>
 <file>:<line> — <description>
@@ -188,13 +200,13 @@ Co-Authored-By: nokhodian <nokhodian@gmail.com>"
 
 ### Step 6: Write HIL Items to File
 
-If any new HIL items were added this iteration, **append** to `HIL_FILE`:
+If any new HIL items were added this iteration, **append** to `HIL_FILE`. For each new HIL item, increment `HIL_COUNT` by 1 and use it as the label number:
 
 ```markdown
 ## Review Iteration <ITERATION> — <YYYY-MM-DD HH:MM>
 
-<!-- One block per HIL finding -->
-### HIL-<N>: <description> [`<severity>`]
+<!-- One block per HIL finding; HIL_COUNT increments globally across all iterations -->
+### HIL-<HIL_COUNT>: <description> [`<severity>`]
 
 **File:** `<file>:<line>`
 **Category:** <category>
