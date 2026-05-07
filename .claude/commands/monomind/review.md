@@ -35,7 +35,7 @@ Collect the following in parallel:
 1. **Git context**: Run `git diff --name-only HEAD~1 HEAD 2>/dev/null || git ls-files --modified` to get recently changed files. Store as `CHANGED_FILES`.
 2. **Repo structure**: Run `git ls-files | head -80` to get a representative file list. Store as `FILE_LIST`.
 3. **Branch info**: Run `git log --oneline -5` to get recent commit context. Store as `RECENT_COMMITS`.
-4. **Stack detection**: Check for `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `*.swift`, `*.kt` to determine language/framework. Store as `STACK`.
+4. **Stack detection**: Run `ls package.json pyproject.toml go.mod Cargo.toml 2>/dev/null; find . -maxdepth 3 \( -name "*.swift" -o -name "*.kt" \) | head -3` to detect language/framework. Store detected stacks as `STACK`.
 5. **HIL file path**: Compute `HIL_FILE=humaninloopreview-$(date +%Y-%m-%d).md` in the project root.
 
 Initialize tracking state:
@@ -86,29 +86,34 @@ Each agent receives:
 
 #### Agent Instructions by Role
 
+All agent prompts share this finding schema. `hil_reason` is only required when `auto_fixable: false`:
+```
+{ file, line, severity: critical|high|medium|low, category: "...", description, suggested_fix, auto_fixable: true|false, hil_reason?: "only if auto_fixable=false" }
+```
+
 **Code Reviewer prompt:**
-> Review the codebase for: logic errors, off-by-one bugs, null/undefined handling, dead code, overly complex functions (>50 lines or >3 nesting levels), naming inconsistencies, missing error propagation, and performance anti-patterns (N+1, blocking I/O, unnecessary allocations). Focus on `CHANGED_FILES` first, then related files. For each finding return: `{ file, line, severity: critical|high|medium|low, category: "logic|perf|naming|dead-code|error-handling", description, suggested_fix, auto_fixable: true|false, hil_reason: "..." }`.
+> Review the codebase for: logic errors, off-by-one bugs, null/undefined handling, dead code, overly complex functions (>50 lines or >3 nesting levels), naming inconsistencies, missing error propagation, and performance anti-patterns (N+1, blocking I/O, unnecessary allocations). Focus on `CHANGED_FILES` first, then related files. Return findings using the shared schema above.
 
 **Security Engineer prompt:**
-> Audit for: hardcoded secrets or API keys, SQL/command/path injection, missing input validation at system boundaries, insecure deserialization, broken auth/authz, sensitive data in logs, unpatched dependency versions with known CVEs, missing rate limiting on public endpoints, and CORS misconfigurations. For each finding return: `{ file, line, severity: critical|high|medium|low, category: "injection|secrets|auth|deps|logging|config", description, suggested_fix, auto_fixable: true|false, hil_reason: "..." }`.
+> Audit for: hardcoded secrets or API keys, SQL/command/path injection, missing input validation at system boundaries, insecure deserialization, broken auth/authz, sensitive data in logs, unpatched dependency versions with known CVEs, missing rate limiting on public endpoints, and CORS misconfigurations. Categories: injection|secrets|auth|deps|logging|config. Return findings using the shared schema above.
 
 **Reality Checker prompt:**
-> Check: does each function do what its name/docs claim? Are there missing test assertions? Are there commented-out code blocks, TODO/FIXME/HACK markers, or debug statements left in? Are there import cycles? Are env vars assumed to exist without validation? For each finding return: `{ file, line, severity: critical|high|medium|low, category: "correctness|tests|debt|env", description, suggested_fix, auto_fixable: true|false, hil_reason: "..." }`.
+> Check: does each function do what its name/docs claim? Are there missing test assertions? Are there commented-out code blocks, TODO/FIXME/HACK markers, or debug statements left in? Are there import cycles? Are env vars assumed to exist without validation? Categories: correctness|tests|debt|env. Return findings using the shared schema above.
 
 **Accessibility Auditor prompt (if applicable):**
-> Check: missing alt text, non-semantic HTML, keyboard-inaccessible interactive elements, insufficient color contrast (< 4.5:1 for text), missing ARIA labels, focus trap issues, and missing skip navigation. For each finding return: `{ file, line, severity: critical|high|medium|low, category: "a11y", description, suggested_fix, auto_fixable: true|false, hil_reason: "..." }`.
+> Check: missing alt text, non-semantic HTML, keyboard-inaccessible interactive elements, insufficient color contrast (< 4.5:1 for text), missing ARIA labels, focus trap issues, and missing skip navigation. Category: a11y. Return findings using the shared schema above.
 
 **API Tester prompt (if applicable):**
-> Check: endpoints missing auth middleware, routes with no input validation, missing HTTP status codes on error paths, inconsistent response shapes, pagination not implemented where expected, and missing rate-limit headers. For each finding return: `{ file, line, severity: critical|high|medium|low, category: "api", description, suggested_fix, auto_fixable: true|false, hil_reason: "..." }`.
+> Check: endpoints missing auth middleware, routes with no input validation, missing HTTP status codes on error paths, inconsistent response shapes, pagination not implemented where expected, and missing rate-limit headers. Category: api. Return findings using the shared schema above.
 
 **Database Optimizer prompt (if applicable):**
-> Check: missing indexes on foreign keys and frequently-queried columns, N+1 query patterns in ORM code, unparameterized queries, missing transactions around multi-step writes, and schema column type mismatches. For each finding return: `{ file, line, severity: critical|high|medium|low, category: "database", description, suggested_fix, auto_fixable: true|false, hil_reason: "..." }`.
+> Check: missing indexes on foreign keys and frequently-queried columns, N+1 query patterns in ORM code, unparameterized queries, missing transactions around multi-step writes, and schema column type mismatches. Category: database. Return findings using the shared schema above.
 
 **SRE prompt (if applicable):**
-> Check: Docker images without pinned versions, CI jobs with no timeout, missing health check endpoints, hardcoded environment assumptions (localhost, fixed ports), missing retry logic on external calls, and secrets in CI config files. For each finding return: `{ file, line, severity: critical|high|medium|low, category: "reliability|infra", description, suggested_fix, auto_fixable: true|false, hil_reason: "..." }`.
+> Check: Docker images without pinned versions, CI jobs with no timeout, missing health check endpoints, hardcoded environment assumptions (localhost, fixed ports), missing retry logic on external calls, and secrets in CI config files. Categories: reliability|infra. Return findings using the shared schema above.
 
 **Mobile App Builder prompt (if applicable):**
-> Check: missing permission explanations, sensitive data stored in plain UserDefaults/SharedPreferences, missing loading/error states, hard-coded URLs, deprecated API usage, and missing offline/degraded-mode handling. For each finding return: `{ file, line, severity: critical|high|medium|low, category: "mobile", description, suggested_fix, auto_fixable: true|false, hil_reason: "..." }`.
+> Check: missing permission explanations, sensitive data stored in plain UserDefaults/SharedPreferences, missing loading/error states, hard-coded URLs, deprecated API usage, and missing offline/degraded-mode handling. Category: mobile. Return findings using the shared schema above.
 
 ---
 
@@ -125,15 +130,15 @@ Sort by severity: critical → high → medium → low.
 For each finding in `ITERATION_FINDINGS`:
 
 **If `auto_fixable: true`:**
-- Apply the fix using `Edit` (or `Write` for new files).
-- Verify the fix compiles / passes lint if applicable:
+- Apply the fix using `Edit` (or `Write` for new files). Track the file path as `FIXED_FILE`.
+- Verify with whichever commands exist for the stack:
   ```bash
-  # Run whichever is relevant for the stack
   npm run lint --if-present 2>&1 | tail -5
   npm run typecheck --if-present 2>&1 | tail -5
+  npm test --if-present 2>&1 | tail -10
   ```
-- If verification passes: add to `ALL_FIXED`.
-- If verification fails: revert the change, downgrade to HIL with reason "auto-fix caused lint/type errors".
+- If all checks pass (exit 0 or `--if-present` skipped): add to `ALL_FIXED`.
+- If any check fails: restore the file with `git restore FIXED_FILE`, then add to `ALL_HIL` with `hil_reason: "auto-fix caused verification failure: <error output>"`.
 
 **If `auto_fixable: false` (HIL):**
 - Add to `ALL_HIL`. Do NOT attempt to fix.
@@ -144,14 +149,20 @@ For each finding in `ITERATION_FINDINGS`:
 
 If `ALL_FIXED` gained any new entries this iteration:
 
+Stage only the files that were actually edited (tracked from `FIXED_FILE` values collected in Step 4):
 ```bash
-git add -p  # stage only the review-fix changes
-git commit -m "fix(review): iteration $ITERATION — <N> findings fixed by monomind:review
+git add <space-separated list of FIXED_FILE paths>
+```
+
+Then commit with each fixed item on its own line in the body:
+```bash
+git commit -m "fix(review): iteration N — M findings fixed by monomind:review
+
+<file>:<line> — <description>
+<file>:<line> — <description>
 
 Co-Authored-By: nokhodian <nokhodian@gmail.com>"
 ```
-
-List fixed items in the commit body (file:line — description, one per line).
 
 ---
 
@@ -231,12 +242,12 @@ After all iterations complete (or early exit), output:
 **Iterations run:** N / $TOTAL_ITERATIONS
 **Reviewers active:** <list>
 
-### Auto-Fixed (${ ALL_FIXED.length } total)
+### Auto-Fixed (<N> total)
 | File | Line | Severity | Category | Description |
 |------|------|----------|----------|-------------|
 | ... | ... | ... | ... | ... |
 
-### Human-in-Loop (${ ALL_HIL.length } items)
+### Human-in-Loop (<N> items)
 Saved to: `humaninloopreview-<date>.md`
 
 | # | File | Severity | Category | Why HIL |
