@@ -140,7 +140,7 @@ All agent prompts share this finding schema. `hil_reason` and `context` are only
 
 ### Step 3: Merge and Deduplicate Findings
 
-Collect all agent outputs. Merge into a single `ITERATION_FINDINGS` list. Deduplicate by `(file, category, description[:60])` — keep highest severity when duplicates exist. Do NOT deduplicate by line number, as applied fixes shift line numbers across iterations. Exclude anything already in `ALL_FIXED` or `ALL_HIL` by matching on `(file, description[:60])`.
+Collect all agent outputs. As you collect each agent's findings, annotate each finding with `reporter: <agent role name>` (e.g., `"Code Reviewer"`, `"Security Engineer"`, `"Reality Checker"`). Merge into a single `ITERATION_FINDINGS` list. Deduplicate by `(file, category, description[:60])` — keep highest severity when duplicates exist. Do NOT deduplicate by line number, as applied fixes shift line numbers across iterations. Exclude anything already in `ALL_FIXED` or `ALL_HIL` by matching on `(file, description[:60])`.
 
 Sort by severity: critical → high → medium → low.
 
@@ -160,9 +160,9 @@ After processing all findings, if `PENDING_FIXED` is empty, skip verification an
 
 **Node.js / TypeScript:**
 ```bash
-npm run lint --if-present 2>&1 | tail -5
-npm run typecheck --if-present 2>&1 | tail -5
-npm test --if-present 2>&1 | tail -10
+npm run --if-present lint 2>&1 | tail -5
+npm run --if-present typecheck 2>&1 | tail -5
+npm run --if-present test 2>&1 | tail -10
 ```
 
 **Python** (if `pyproject.toml` or `*.py` detected):
