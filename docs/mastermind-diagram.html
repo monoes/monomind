@@ -80,6 +80,16 @@ html, body {
   background: rgba(80,50,180,0.1);
 }
 .sess-badge.running-badge { border-color: rgba(40,192,104,0.4); color: #28c068; background: rgba(40,192,104,0.08); }
+#git-user-row {
+  display: flex; align-items: center; gap: 5px;
+  margin-top: 7px; padding-top: 6px;
+  border-top: 1px solid rgba(80,50,180,0.12);
+}
+#git-user-icon { font-size: 9px; color: #3a3a70; }
+#git-user-name {
+  font-size: 9px; letter-spacing: 0.5px; color: #4a4a90;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .sess-trace-link {
   font-size: 7px; color: #3a3a70; text-decoration: none; letter-spacing: 0.5px;
   padding: 1px 5px; border: 1px solid rgba(80,50,180,0.2); border-radius: 3px;
@@ -235,6 +245,10 @@ html, body {
         <div class="l-dot" id="l-dot"></div>
         <span id="l-status">OFFLINE</span>
         <span id="l-agents">0 agents</span>
+      </div>
+      <div id="git-user-row">
+        <span id="git-user-icon">⬡</span>
+        <span id="git-user-name">—</span>
       </div>
     </div>
     <div id="sb-sessions">
@@ -947,6 +961,9 @@ buildStage();
 connectSSE();
 refreshSessions();
 pollStatus();
+fetch('/api/git-user').then(r=>r.json()).then(u=>{
+  if (u.name) document.getElementById('git-user-name').textContent = u.name;
+}).catch(()=>{});
 setInterval(pollStatus, 4000);
 setInterval(refreshSessions, 8000);
 
