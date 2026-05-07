@@ -46,6 +46,7 @@ Collect the following in parallel:
 Initialize tracking state:
 ```
 ITERATION = 1
+ITERATIONS_RUN = 0       # how many iterations actually executed (for final report)
 ALL_FIXED = []           # auto-fixed items (across all iterations)
 ALL_HIL = []             # human-in-loop items (across all iterations)
 HIL_COUNT = 0            # global counter for HIL-N labels
@@ -146,7 +147,7 @@ For each finding in `ITERATION_FINDINGS`:
 **If `auto_fixable: false` (HIL):**
 - Add to `ALL_HIL`. Do NOT attempt to fix.
 
-After processing all findings, run verification **once** for the whole batch. Run only commands appropriate for `STACK`:
+After processing all findings, if `PENDING_FIXED` is empty, skip verification and proceed to Step 5. Otherwise, run verification **once** for the whole batch. Run only commands appropriate for `STACK`:
 
 **Node.js / TypeScript:**
 ```bash
@@ -240,7 +241,7 @@ After writing, print:
 
 ### Step 7: Iteration Summary
 
-Print a table:
+Increment `ITERATIONS_RUN` by 1. Then print a table:
 
 ```
 ### Iteration <ITERATION> / <TOTAL_ITERATIONS>
@@ -271,7 +272,7 @@ After all iterations complete (or early exit), output:
 ```markdown
 ## monomind:review — Complete
 
-**Iterations run:** <ITERATION> / <TOTAL_ITERATIONS>
+**Iterations run:** <ITERATIONS_RUN> / <TOTAL_ITERATIONS>
 **Reviewers active:** <list>
 
 ### Auto-Fixed (<N> total)
