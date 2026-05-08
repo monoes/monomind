@@ -844,14 +844,18 @@ export class MCPServerManager extends EventEmitter {
       return false;
     }
 
-    // Verify it's actually a node process (guards against PID reuse)
+    // Verify it's actually our MCP server process (guards against PID reuse by
+    // an unrelated Node.js program that happened to get the same PID).
+    // We require the command line to mention both "node"/"npx" AND "monomind"/"mcp".
     try {
-      const cmdline = execSync(`cat /proc/${pid}/cmdline 2>/dev/null || ps -p ${pid} -o comm= 2>/dev/null`, {
+      const cmdline = execSync(`cat /proc/${pid}/cmdline 2>/dev/null || ps -p ${pid} -o args= 2>/dev/null`, {
         encoding: 'utf8',
         timeout: 1000,
       }).trim();
-      // Must be a node process to be our MCP server
-      return cmdline.includes('node') || cmdline.includes('monomind') || cmdline.includes('npx');
+      const isMonomindMcp =
+        (cmdline.includes('node') || cmdline.includes('npx')) &&
+        (cmdline.includes('monomind') || cmdline.includes('mcp'));
+      return isMonomindMcp;
     } catch {
       // If we can't inspect the process (macOS, Windows, permissions), fall back to kill check
       return true;
