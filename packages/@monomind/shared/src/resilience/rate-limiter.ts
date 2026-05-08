@@ -93,10 +93,10 @@ export class SlidingWindowRateLimiter implements RateLimiter {
       ...options,
     };
 
-    // Periodic cleanup of old entries
+    // Periodic cleanup of old entries — unref() so this doesn't keep the process alive
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
-    }, this.options.windowMs);
+    }, this.options.windowMs).unref();
   }
 
   /**
@@ -362,13 +362,10 @@ export class TokenBucketRateLimiter implements RateLimiter {
     const now = Date.now();
     const elapsed = now - bucket.lastRefill;
 
-    if (elapsed >= this.options.windowMs) {
-      // Full refill after window
-      const intervals = Math.floor(elapsed / this.options.windowMs);
-      bucket.tokens = Math.min(
-        this.options.maxRequests,
-        bucket.tokens + intervals * this.options.maxRequests
-      );
+    if (elapsed > 0) {
+      // Proportional refill: tokens accrue continuously, not in window-sized chunks
+      const tokensToAdd = (elapsed / this.options.windowMs) * this.options.maxRequests;
+      bucket.tokens = Math.min(this.options.maxRequests, bucket.tokens + tokensToAdd);
       bucket.lastRefill = now;
     }
   }

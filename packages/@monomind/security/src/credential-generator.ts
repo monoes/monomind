@@ -189,16 +189,15 @@ export class CredentialGenerator {
   generatePassword(length?: number): string {
     const len = length ?? this.config.passwordLength;
 
-    // Ensure password contains at least one of each required character type
-    const password = this.generateSecureString(len, this.config.passwordCharset);
-
-    // Validate the generated password meets requirements
-    if (!this.hasRequiredCharacterTypes(password)) {
-      // Regenerate if requirements not met (rare case)
-      return this.generatePassword(length);
+    // Loop with bounded retries instead of recursion to avoid stack overflow
+    // on pathological charsets. 100 attempts is astronomically more than needed.
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const password = this.generateSecureString(len, this.config.passwordCharset);
+      if (this.hasRequiredCharacterTypes(password)) {
+        return password;
+      }
     }
-
-    return password;
+    throw new Error('Unable to generate a password meeting character requirements after 100 attempts');
   }
 
   /**

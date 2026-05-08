@@ -133,7 +133,7 @@ export async function retry<T>(
 
       // Calculate delay with exponential backoff and jitter
       const baseDelay = opts.initialDelay * Math.pow(opts.backoffMultiplier, attempt - 1);
-      const jitter = baseDelay * opts.jitter * (Math.random() * 2 - 1);
+      const jitter = baseDelay * opts.jitter * Math.random(); // always non-negative
       const delay = Math.min(baseDelay + jitter, opts.maxDelay);
 
       // Callback before retry
@@ -174,13 +174,14 @@ export function withRetry<T extends (...args: unknown[]) => Promise<unknown>>(
  * Execute with timeout
  */
 async function withTimeout<T>(promise: Promise<T>, timeout: number, attempt: number): Promise<T> {
+  let handle: ReturnType<typeof setTimeout>;
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => {
+    handle = setTimeout(() => {
       reject(new Error(`Attempt ${attempt} timed out after ${timeout}ms`));
     }, timeout);
   });
 
-  return Promise.race([promise, timeoutPromise]);
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(handle));
 }
 
 /**

@@ -17,7 +17,7 @@ export class StateManager {
     if (initial) {
       for (const k of Object.keys(initial) as Array<keyof SwarmState>) {
         if (initial[k] !== undefined) {
-          (defaults as Record<string, unknown>)[k] = initial[k];
+          (defaults as unknown as Record<string, unknown>)[k] = initial[k];
         }
       }
     }
@@ -35,6 +35,8 @@ export class StateManager {
     _agentId: string,
   ): Promise<void> {
     const prev = this.locks.get(key) ?? Promise.resolve();
+    // Catch reducer errors so the per-key chain is never permanently poisoned.
+    // Without this, a single reducer throw makes all future writes to that key silently no-op.
     const next = prev.then(() => {
       const field = this.state[key];
       const reducerFn = REDUCERS[field.reducer];
@@ -42,8 +44,12 @@ export class StateManager {
         throw new Error(`No reducer registered for "${field.reducer}"`);
       }
       (field as { value: unknown }).value = reducerFn(field.value, value);
+    }).catch((err) => {
+      // Propagate to the caller but don't leave the chain broken.
+      throw err;
     });
-    this.locks.set(key, next);
+    // Store a recovered promise so the next write can still chain.
+    this.locks.set(key, next.catch(() => {}));
     await next;
   }
 

@@ -35,11 +35,17 @@ export class SchemaValidator {
    * Validate data against a JSON Schema file loaded from disk.
    * Caches the schema after the first load.
    */
+  private static readonly SCHEMA_CACHE_MAX = 200;
+
   validateWithJsonSchemaFile(data: unknown, schemaPath: string): ValidationResult {
     let schema = this.schemaCache.get(schemaPath);
     if (!schema) {
       const raw = readFileSync(schemaPath, 'utf-8');
       schema = JSON.parse(raw) as JsonSchema;
+      if (this.schemaCache.size >= SchemaValidator.SCHEMA_CACHE_MAX) {
+        // Evict oldest entry to cap memory growth
+        this.schemaCache.delete(this.schemaCache.keys().next().value as string);
+      }
       this.schemaCache.set(schemaPath, schema);
     }
     return this.validateAgainstSchema(data, schema, '');
@@ -89,10 +95,12 @@ export class SchemaValidator {
   private validateAgainstSchema(data: unknown, schema: JsonSchema, path: string): ValidationResult {
     const errors: ValidationError[] = [];
 
-    // Type check
+    // Type check — "number" also accepts integer values (JSON has one numeric type)
     if (schema.type) {
       const actualType = this.jsonType(data);
-      if (schema.type !== actualType) {
+      const typeMatches = schema.type === actualType ||
+        (schema.type === 'number' && actualType === 'integer');
+      if (!typeMatches) {
         errors.push({ path: path || '(root)', message: `Expected type "${schema.type}" but got "${actualType}"`, received: data });
         return { valid: false, errors };
       }
@@ -143,6 +151,15 @@ export class SchemaValidator {
             const propPath = path ? `${path}.${key}` : key;
             const result = this.validateAgainstSchema(obj[key], propSchema, propPath);
             errors.push(...result.errors);
+          }
+        }
+
+        // Additional properties check
+        if (schema.additionalProperties === false) {
+          for (const key of Object.keys(obj)) {
+            if (!(key in schema.properties)) {
+              errors.push({ path: path ? `${path}.${key}` : key, message: `Additional property "${key}" is not allowed` });
+            }
           }
         }
       }

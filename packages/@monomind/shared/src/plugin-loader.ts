@@ -597,6 +597,10 @@ export class PluginLoader {
    * Start periodic health checks
    */
   private startHealthChecks(): void {
+    // Clear any existing interval before starting a new one to prevent stacking
+    if (this.healthCheckIntervalId) {
+      clearInterval(this.healthCheckIntervalId);
+    }
     this.healthCheckIntervalId = setInterval(async () => {
       for (const [name, info] of Array.from(this.registry.getAllPlugins().entries())) {
         if (info.state === 'initialized' && info.plugin.healthCheck) {

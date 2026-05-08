@@ -95,9 +95,9 @@ export class SecurityDomainService {
       }
     }
 
-    // Check context permissions
+    // Check context permissions — don't include path in error to avoid leaking filesystem layout
     if (!context.canAccessPath(path)) {
-      errors.push(`Access denied to path: ${path}`);
+      errors.push('Access denied to path');
     }
 
     // Check for suspicious paths
@@ -138,7 +138,7 @@ export class SecurityDomainService {
 
     // Check for shell injection
     if (/[;&|`$(){}]/.test(command)) {
-      warnings.push('Command contains shell metacharacters');
+      errors.push('Command contains shell metacharacters');
     }
 
     return {

@@ -3,10 +3,16 @@
  * Includes rollback capability
  */
 
-import { execSync } from 'child_process';
+import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+
+function execFileAsync(cmd: string, args: string[]): Promise<void> {
+  return new Promise<void>((resolve, reject) =>
+    execFile(cmd, args, (err) => (err ? reject(err) : resolve()))
+  );
+}
 import { UpdateCheckResult } from './checker.js';
 import { validateUpdate, ValidationResult } from './validator.js';
 
@@ -54,7 +60,9 @@ function saveHistory(history: UpdateHistoryEntry[]): void {
   ensureDir();
   // Keep only last N entries
   const trimmed = history.slice(-MAX_HISTORY_ENTRIES);
-  fs.writeFileSync(HISTORY_FILE, JSON.stringify(trimmed, null, 2));
+  const tmp = HISTORY_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(trimmed, null, 2));
+  fs.renameSync(tmp, HISTORY_FILE);
 }
 
 function recordUpdate(entry: UpdateHistoryEntry): void {
@@ -96,14 +104,13 @@ export async function executeUpdate(
   }
 
   try {
-    // Execute npm install
-    const installCmd = `npm install ${update.package}@${update.latestVersion} --save-exact`;
-
-    execSync(installCmd, {
-      encoding: 'utf-8',
-      stdio: 'pipe',
-      timeout: 60000, // 1 minute timeout
-    });
+    // Execute npm install — use execFile to avoid shell injection
+    const pkg = update.package;
+    const version = update.latestVersion;
+    if (!/^\d+\.\d+\.\d+$/.test(version)) {
+      throw new Error(`Invalid version: ${version}`);
+    }
+    await execFileAsync('npm', ['install', `${pkg}@${version}`, '--save-exact']);
 
     // Record successful update
     recordUpdate({
@@ -181,11 +188,10 @@ export async function rollbackUpdate(
   }
 
   // Find the last successful update for this package (or any if not specified)
+  const reversed = [...history].reverse();
   const lastUpdate = packageName
-    ? history
-        .reverse()
-        .find((h) => h.package === packageName && h.success && h.rollbackAvailable)
-    : history.reverse().find((h) => h.success && h.rollbackAvailable);
+    ? reversed.find((h) => h.package === packageName && h.success && h.rollbackAvailable)
+    : reversed.find((h) => h.success && h.rollbackAvailable);
 
   if (!lastUpdate) {
     return {
@@ -197,14 +203,13 @@ export async function rollbackUpdate(
   }
 
   try {
-    // Install the previous version
-    const installCmd = `npm install ${lastUpdate.package}@${lastUpdate.fromVersion} --save-exact`;
-
-    execSync(installCmd, {
-      encoding: 'utf-8',
-      stdio: 'pipe',
-      timeout: 60000,
-    });
+    // Install the previous version — use execFile to avoid shell injection
+    const pkg = lastUpdate.package;
+    const version = lastUpdate.fromVersion;
+    if (!/^\d+\.\d+\.\d+$/.test(version)) {
+      throw new Error(`Invalid version: ${version}`);
+    }
+    await execFileAsync('npm', ['install', `${pkg}@${version}`, '--save-exact']);
 
     // Record the rollback
     recordUpdate({

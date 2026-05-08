@@ -2,8 +2,10 @@
  * DatasetManager - JSONL-based eval dataset management (Task 33)
  */
 import { randomUUID } from 'crypto';
-import { appendFileSync, readFileSync, writeFileSync, existsSync } from 'fs';
+import { appendFileSync, readFileSync, writeFileSync, renameSync, existsSync, statSync } from 'fs';
+import { resolve, sep } from 'path';
 import type { EvalDataset, EvalDatasetEntry, EvalTrace } from '../../../shared/src/types/eval.js';
+import { parseJsonl } from '../utils/parse-jsonl.js';
 
 export interface CreateFromTracesOpts {
   name: string;
@@ -57,9 +59,11 @@ export class DatasetManager {
    */
   listDatasets(): EvalDataset[] {
     if (!existsSync(this.datasetsPath)) return [];
-    const content = readFileSync(this.datasetsPath, 'utf-8').trim();
-    if (!content) return [];
-    return content.split('\n').map((line) => JSON.parse(line) as EvalDataset);
+    if (statSync(this.datasetsPath).size > 50 * 1024 * 1024) {
+      throw new Error('Dataset file exceeds 50MB — run cleanup');
+    }
+    const content = readFileSync(this.datasetsPath, 'utf-8');
+    return parseJsonl<EvalDataset>(content);
   }
 
   /**
@@ -67,12 +71,11 @@ export class DatasetManager {
    */
   getEntries(datasetId: string): EvalDatasetEntry[] {
     if (!existsSync(this.entriesPath)) return [];
-    const content = readFileSync(this.entriesPath, 'utf-8').trim();
-    if (!content) return [];
-    return content
-      .split('\n')
-      .map((line) => JSON.parse(line) as EvalDatasetEntry)
-      .filter((e) => e.datasetId === datasetId);
+    if (statSync(this.entriesPath).size > 50 * 1024 * 1024) {
+      throw new Error('Entries file exceeds 50MB — run cleanup');
+    }
+    const content = readFileSync(this.entriesPath, 'utf-8');
+    return parseJsonl<EvalDatasetEntry>(content).filter((e) => e.datasetId === datasetId);
   }
 
   /**
@@ -87,7 +90,7 @@ export class DatasetManager {
     };
     appendFileSync(this.entriesPath, JSON.stringify(entry) + '\n', 'utf-8');
 
-    // Update dataset entryCount
+    // Update dataset entryCount via atomic write
     const datasets = this.listDatasets();
     const updated = datasets.map((d) => {
       if (d.datasetId === datasetId) {
@@ -95,15 +98,24 @@ export class DatasetManager {
       }
       return d;
     });
-    writeFileSync(this.datasetsPath, updated.map((d) => JSON.stringify(d)).join('\n') + '\n', 'utf-8');
+    const tmp = `${this.datasetsPath}.${randomUUID()}.tmp`;
+    writeFileSync(tmp, updated.map((d) => JSON.stringify(d)).join('\n') + '\n', 'utf-8');
+    renameSync(tmp, this.datasetsPath);
 
     return entry;
   }
 
   /**
-   * Export a dataset to a JSON file.
+   * Export a dataset to a JSON file. Output path must be within `allowedRoot`.
    */
-  exportToFile(datasetId: string, outputPath: string): void {
+  exportToFile(datasetId: string, outputPath: string, allowedRoot?: string): void {
+    if (allowedRoot) {
+      const resolvedOut = resolve(outputPath);
+      const resolvedRoot = resolve(allowedRoot);
+      if (!resolvedOut.startsWith(resolvedRoot + sep) && resolvedOut !== resolvedRoot) {
+        throw new Error(`Export path escapes allowed root: ${resolvedOut}`);
+      }
+    }
     const datasets = this.listDatasets();
     const dataset = datasets.find((d) => d.datasetId === datasetId);
     const entries = this.getEntries(datasetId);

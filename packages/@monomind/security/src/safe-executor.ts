@@ -269,7 +269,7 @@ export class SafeExecutor {
       for (const pattern of this.blockedPatterns) {
         if (pattern.test(arg)) {
           throw new SafeExecutorError(
-            `Dangerous pattern detected in argument: ${arg}`,
+            'Dangerous pattern detected in argument',
             'DANGEROUS_PATTERN',
             undefined,
             args
@@ -280,7 +280,7 @@ export class SafeExecutor {
       // Check for command chaining attempts
       if (/^-.*[;&|]/.test(arg)) {
         throw new SafeExecutorError(
-          `Potential command chaining in argument: ${arg}`,
+          'Potential command chaining in argument',
           'COMMAND_CHAINING',
           undefined,
           args

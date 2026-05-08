@@ -381,13 +381,15 @@ export class TokenGenerator {
    * @returns True if equal
    */
   compare(a: string, b: string): boolean {
-    if (a.length !== b.length) {
-      return false;
-    }
-
     try {
       const bufferA = Buffer.from(a);
       const bufferB = Buffer.from(b);
+      if (bufferA.length !== bufferB.length) {
+        // Always run timingSafeEqual (on bufferA vs itself) to normalize timing,
+        // then return false — prevents timing oracle from revealing token length.
+        timingSafeEqual(bufferA, bufferA);
+        return false;
+      }
       return timingSafeEqual(bufferA, bufferB);
     } catch {
       return false;
