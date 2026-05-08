@@ -348,12 +348,19 @@ export const ExecutorConfigSchema = z.object({
  * Sanitizes a string by removing dangerous characters
  */
 export function sanitizeString(input: string): string {
-  return input
-    .replace(/\0/g, '')           // Remove null bytes
-    .replace(/[<>]/g, '')          // Remove HTML brackets
-    .replace(/javascript:/gi, '')  // Remove javascript: protocol
-    .replace(/data:/gi, '')        // Remove data: protocol
-    .trim();
+  let prev: string;
+  let current = input;
+  // Loop until stable — prevents bypass via nested patterns like "javasjavascript:cript:"
+  do {
+    prev = current;
+    current = prev
+      .replace(/\0/g, '')
+      .replace(/[<>]/g, '')
+      .replace(/javascript:/gi, '')
+      .replace(/data:/gi, '')
+      .trim();
+  } while (current !== prev);
+  return current;
 }
 
 /**
@@ -504,6 +511,7 @@ export async function validateExternalContent(
 
   // Optionally escalate to aidefence semantic scan (fire-and-forget safe path)
   try {
+    // @ts-expect-error — ai-defence is an optional sibling module; gracefully absent is fine
     const { aiDefenceModule } = await import('./ai-defence.js').catch(() => ({ aiDefenceModule: null }));
     if (aiDefenceModule && typeof (aiDefenceModule as any).isSafe === 'function') {
       const result = await (aiDefenceModule as any).isSafe(content);

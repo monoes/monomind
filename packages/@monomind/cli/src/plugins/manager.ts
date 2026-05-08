@@ -21,6 +21,16 @@ function validatePackageName(spec: string): void {
   }
 }
 
+/** Forbidden manifest keys (prototype pollution defense) */
+const FORBIDDEN_PLUGIN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+function isValidPluginKey(name: unknown): name is string {
+  return typeof name === 'string'
+    && name.length > 0
+    && name.length <= 214
+    && !FORBIDDEN_PLUGIN_KEYS.has(name)
+    && VALID_PACKAGE_RE.test(name);
+}
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -117,11 +127,10 @@ export class PluginManager {
     this.manifest.lastUpdated = new Date().toISOString();
 
     await this.ensureDirectory(path.dirname(this.config.manifestPath));
-    fs.writeFileSync(
-      this.config.manifestPath,
-      JSON.stringify(this.manifest, null, 2),
-      'utf-8'
-    );
+    // Atomic write to prevent corruption on crash
+    const tmp = this.config.manifestPath + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(this.manifest, null, 2), 'utf-8');
+    fs.renameSync(tmp, this.config.manifestPath);
   }
 
   // =========================================================================
@@ -139,11 +148,15 @@ export class PluginManager {
       await this.initialize();
     }
 
+    if (!isValidPluginKey(packageName)) {
+      return { success: false, error: `Invalid package name: ${packageName}` };
+    }
+
     const versionSpec = version ? `${packageName}@${version}` : packageName;
 
     try {
       // Check if already installed
-      if (this.manifest!.plugins[packageName]) {
+      if (Object.hasOwn(this.manifest!.plugins, packageName)) {
         return {
           success: false,
           error: `Plugin ${packageName} is already installed. Use upgrade to update.`,
@@ -157,11 +170,13 @@ export class PluginManager {
       // Validate package name to prevent injection (S-3)
       validatePackageName(versionSpec);
 
-      // Use npm to install (array form prevents shell injection)
+      // Use npm to install. --ignore-scripts blocks pre/post-install lifecycle hooks
+      // from the plugin package, which would otherwise execute arbitrary code at
+      // install time (the canonical npm supply-chain attack vector).
       console.log(`[PluginManager] Installing ${versionSpec}...`);
 
       await execFileAsync(
-        'npm', ['install', '--prefix', this.config.pluginsDir, versionSpec],
+        'npm', ['install', '--ignore-scripts', '--prefix', this.config.pluginsDir, versionSpec],
         { timeout: 120000 }
       );
 
@@ -177,8 +192,8 @@ export class PluginManager {
 
         // Check for monomind plugin metadata
         if (pkg['monomind']) {
-          commands = pkg['monomind'].commands || [];
-          hooks = pkg['monomind'].hooks || [];
+          commands = Array.isArray(pkg['monomind'].commands) ? pkg['monomind'].commands : [];
+          hooks = Array.isArray(pkg['monomind'].hooks) ? pkg['monomind'].hooks : [];
         }
       }
 
@@ -234,8 +249,12 @@ export class PluginManager {
       const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
       const packageName = pkg.name;
 
+      if (!isValidPluginKey(packageName)) {
+        return { success: false, error: `Invalid package.json: name is missing or invalid` };
+      }
+
       // Check if already installed
-      if (this.manifest!.plugins[packageName]) {
+      if (Object.hasOwn(this.manifest!.plugins, packageName)) {
         return {
           success: false,
           error: `Plugin ${packageName} is already installed`,
@@ -282,7 +301,13 @@ export class PluginManager {
       await this.initialize();
     }
 
-    const plugin = this.manifest!.plugins[packageName];
+    if (!isValidPluginKey(packageName)) {
+      return { success: false, error: `Invalid package name` };
+    }
+
+    const plugin = Object.hasOwn(this.manifest!.plugins, packageName)
+      ? this.manifest!.plugins[packageName]
+      : undefined;
     if (!plugin) {
       return { success: false, error: `Plugin ${packageName} is not installed` };
     }
@@ -292,7 +317,7 @@ export class PluginManager {
       if (plugin.source === 'npm') {
         validatePackageName(packageName);
         await execFileAsync(
-          'npm', ['uninstall', '--prefix', this.config.pluginsDir, packageName],
+          'npm', ['uninstall', '--ignore-scripts', '--prefix', this.config.pluginsDir, packageName],
           { timeout: 60000 }
         );
       }
@@ -323,7 +348,13 @@ export class PluginManager {
       await this.initialize();
     }
 
-    const plugin = this.manifest!.plugins[packageName];
+    if (!isValidPluginKey(packageName)) {
+      return { success: false, error: `Invalid package name` };
+    }
+
+    const plugin = Object.hasOwn(this.manifest!.plugins, packageName)
+      ? this.manifest!.plugins[packageName]
+      : undefined;
     if (!plugin) {
       return { success: false, error: `Plugin ${packageName} is not installed` };
     }
@@ -342,7 +373,13 @@ export class PluginManager {
       await this.initialize();
     }
 
-    const plugin = this.manifest!.plugins[packageName];
+    if (!isValidPluginKey(packageName)) {
+      return { success: false, error: `Invalid package name` };
+    }
+
+    const plugin = Object.hasOwn(this.manifest!.plugins, packageName)
+      ? this.manifest!.plugins[packageName]
+      : undefined;
     if (!plugin) {
       return { success: false, error: `Plugin ${packageName} is not installed` };
     }
@@ -361,7 +398,13 @@ export class PluginManager {
       await this.initialize();
     }
 
-    const plugin = this.manifest!.plugins[packageName];
+    if (!isValidPluginKey(packageName)) {
+      return { success: false, error: `Invalid package name` };
+    }
+
+    const plugin = Object.hasOwn(this.manifest!.plugins, packageName)
+      ? this.manifest!.plugins[packageName]
+      : undefined;
     if (!plugin) {
       return { success: false, error: `Plugin ${packageName} is not installed` };
     }
@@ -402,8 +445,8 @@ export class PluginManager {
     if (!this.manifest) {
       await this.initialize();
     }
-
-    return packageName in this.manifest!.plugins;
+    if (!isValidPluginKey(packageName)) return false;
+    return Object.hasOwn(this.manifest!.plugins, packageName);
   }
 
   /**
@@ -413,8 +456,10 @@ export class PluginManager {
     if (!this.manifest) {
       await this.initialize();
     }
-
-    return this.manifest!.plugins[packageName];
+    if (!isValidPluginKey(packageName)) return undefined;
+    return Object.hasOwn(this.manifest!.plugins, packageName)
+      ? this.manifest!.plugins[packageName]
+      : undefined;
   }
 
   // =========================================================================
@@ -432,7 +477,13 @@ export class PluginManager {
       await this.initialize();
     }
 
-    const existing = this.manifest!.plugins[packageName];
+    if (!isValidPluginKey(packageName)) {
+      return { success: false, error: `Invalid package name` };
+    }
+
+    const existing = Object.hasOwn(this.manifest!.plugins, packageName)
+      ? this.manifest!.plugins[packageName]
+      : undefined;
     if (!existing) {
       return { success: false, error: `Plugin ${packageName} is not installed` };
     }
@@ -447,9 +498,10 @@ export class PluginManager {
       // Validate package name to prevent injection (S-3)
       validatePackageName(versionSpec);
 
-      // Reinstall with new version (array form prevents shell injection)
+      // Reinstall with new version. --ignore-scripts blocks pre/post-install
+      // lifecycle hooks from the plugin package.
       await execFileAsync(
-        'npm', ['install', '--prefix', this.config.pluginsDir, versionSpec],
+        'npm', ['install', '--ignore-scripts', '--prefix', this.config.pluginsDir, versionSpec],
         { timeout: 120000 }
       );
 
@@ -490,7 +542,13 @@ export class PluginManager {
       await this.initialize();
     }
 
-    const plugin = this.manifest!.plugins[packageName];
+    if (!isValidPluginKey(packageName)) {
+      return { success: false, error: `Invalid package name` };
+    }
+
+    const plugin = Object.hasOwn(this.manifest!.plugins, packageName)
+      ? this.manifest!.plugins[packageName]
+      : undefined;
     if (!plugin) {
       return { success: false, error: `Plugin ${packageName} is not installed` };
     }
