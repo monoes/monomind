@@ -97,8 +97,10 @@ export class DAGExecutor {
     };
 
     let lastError: Error | undefined;
+    let actualAttempts = 0;
 
     for (let attempt = 0; attempt < policy.maxAttempts; attempt++) {
+      actualAttempts = attempt + 1;
       try {
         return await this.runner(task, context);
       } catch (err) {
@@ -127,7 +129,7 @@ export class DAGExecutor {
       output: null,
       outputRaw: '',
       latencyMs: 0,
-      retryCount: policy.maxAttempts,
+      retryCount: actualAttempts,
       completedAt: Date.now(),
       status: 'error',
       error: lastError?.message ?? 'Unknown error',

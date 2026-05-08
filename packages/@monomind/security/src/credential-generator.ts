@@ -219,10 +219,14 @@ export class CredentialGenerator {
    * @returns API key credential with metadata
    */
   generateApiKey(prefix = 'cf_'): ApiKeyCredential {
-    const keyBody = this.generateSecureString(
-      this.config.apiKeyLength - prefix.length,
-      this.config.apiKeyCharset
-    );
+    const bodyLength = this.config.apiKeyLength - prefix.length;
+    if (bodyLength <= 0) {
+      throw new CredentialGeneratorError(
+        `Prefix "${prefix}" is too long for apiKeyLength ${this.config.apiKeyLength}`,
+        'PREFIX_TOO_LONG'
+      );
+    }
+    const keyBody = this.generateSecureString(bodyLength, this.config.apiKeyCharset);
 
     const key = `${prefix}${keyBody}`;
     const keyId = randomUUID();

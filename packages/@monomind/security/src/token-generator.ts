@@ -270,12 +270,12 @@ export class TokenGenerator {
       );
     }
 
-    const parts = combined.split('.');
-    if (parts.length !== 2) {
+    const dotIndex = combined.lastIndexOf('.');
+    if (dotIndex <= 0 || dotIndex === combined.length - 1) {
       return null;
     }
-
-    const [token, signature] = parts;
+    const token = combined.slice(0, dotIndex);
+    const signature = combined.slice(dotIndex + 1);
 
     // Verify signature
     const expectedSignature = this.sign(token);

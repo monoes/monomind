@@ -236,6 +236,15 @@ export class PluginManager {
     try {
       const absolutePath = path.resolve(sourcePath);
 
+      // Restrict local installs to paths under cwd or $HOME to prevent path traversal
+      const cwd = process.cwd();
+      const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
+      const underCwd = absolutePath.startsWith(cwd + path.sep) || absolutePath === cwd;
+      const underHome = home && (absolutePath.startsWith(home + path.sep) || absolutePath === home);
+      if (!underCwd && !underHome) {
+        return { success: false, error: `Local path must be within the current directory or home: ${absolutePath}` };
+      }
+
       if (!fs.existsSync(absolutePath)) {
         return { success: false, error: `Path does not exist: ${absolutePath}` };
       }
