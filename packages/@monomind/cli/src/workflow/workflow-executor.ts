@@ -249,7 +249,7 @@ export class WorkflowExecutor {
       iteration++;
     }
 
-    context[`${step.id}_iterations`] = iteration;
+    safeContextWrite(context, `${step.id}_iterations`, iteration);
     return results;
   }
 }
