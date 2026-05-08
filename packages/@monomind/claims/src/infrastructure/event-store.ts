@@ -140,11 +140,11 @@ export class InMemoryClaimEventStore implements IClaimEventStore {
     }
 
     // Apply pagination
-    if (filter.offset) {
+    if (filter.offset !== undefined) {
       results = results.slice(filter.offset);
     }
 
-    if (filter.limit) {
+    if (filter.limit !== undefined) {
       results = results.slice(0, filter.limit);
     }
 

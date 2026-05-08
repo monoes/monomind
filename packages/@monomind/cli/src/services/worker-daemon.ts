@@ -11,9 +11,9 @@
  */
 
 import { EventEmitter } from 'events';
-import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync, unlinkSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, renameSync, readFileSync, appendFileSync, unlinkSync } from 'fs';
 import { cpus } from 'os';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import {
   HeadlessWorkerExecutor,
   HEADLESS_WORKER_TYPES,
@@ -130,10 +130,15 @@ export class WorkerDaemon extends EventEmitter {
 
   constructor(projectRoot: string, config?: Partial<DaemonConfig>) {
     super();
-    this.projectRoot = projectRoot;
+    // Resolve and validate projectRoot. Without this an attacker who can pass
+    // a crafted projectRoot (env var, untrusted CLI flag, MCP tool argument)
+    // gets arbitrary file write via the derived pidFile, logFile, stateFile,
+    // and metrics paths.
+    const resolved = resolve(projectRoot);
+    this.projectRoot = resolved;
     this.originalConfig = config;
 
-    const monomindDir = join(projectRoot, '.monomind');
+    const monomindDir = join(resolved, '.monomind');
 
     // Read daemon config from .monomind/config.json (Layer B)
     const fileConfig = this.readDaemonConfigFromFile(monomindDir);
@@ -318,9 +323,9 @@ export class WorkerDaemon extends EventEmitter {
       process.exit(0);
     };
 
-    process.on('SIGTERM', shutdown);
-    process.on('SIGINT', shutdown);
-    process.on('SIGHUP', shutdown);
+    process.once('SIGTERM', shutdown);
+    process.once('SIGINT', shutdown);
+    process.once('SIGHUP', shutdown);
   }
 
   /**
@@ -408,16 +413,26 @@ export class WorkerDaemon extends EventEmitter {
         }
 
         // Restore worker runtime states (runCount, successCount, etc.)
-        if (saved.workers) {
+        // Validate keys against an allowlist to defeat prototype-pollution
+        // attempts and reject unknown worker types injected into the file.
+        if (saved.workers && typeof saved.workers === 'object') {
+          const VALID_TYPES = new Set(this.config.workers.map(w => w.type));
+          const FORBIDDEN = new Set(['__proto__', 'constructor', 'prototype']);
+          const finiteNonNeg = (v: unknown): number => {
+            if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return 0;
+            return Math.floor(v);
+          };
           for (const [type, state] of Object.entries(saved.workers)) {
+            if (FORBIDDEN.has(type) || !VALID_TYPES.has(type as WorkerType)) continue;
             const savedState = state as Record<string, unknown>;
             const lastRunValue = savedState.lastRun;
+            const lastRunDate = typeof lastRunValue === 'string' ? new Date(lastRunValue) : undefined;
             this.workers.set(type as WorkerType, {
-              runCount: (savedState.runCount as number) || 0,
-              successCount: (savedState.successCount as number) || 0,
-              failureCount: (savedState.failureCount as number) || 0,
-              averageDurationMs: (savedState.averageDurationMs as number) || 0,
-              lastRun: lastRunValue ? new Date(lastRunValue as string) : undefined,
+              runCount: finiteNonNeg(savedState.runCount),
+              successCount: finiteNonNeg(savedState.successCount),
+              failureCount: finiteNonNeg(savedState.failureCount),
+              averageDurationMs: finiteNonNeg(savedState.averageDurationMs),
+              lastRun: lastRunDate && !isNaN(lastRunDate.getTime()) ? lastRunDate : undefined,
               nextRun: undefined,
               isRunning: false,
             });
@@ -469,12 +484,34 @@ export class WorkerDaemon extends EventEmitter {
   }
 
   /**
-   * Write PID file for singleton enforcement.
+   * Write PID file with O_EXCL for atomic singleton enforcement (closes the
+   * TOCTOU window between checkExistingDaemon and writePidFile that previously
+   * allowed two concurrent `daemon start` calls to both succeed).
+   * Returns true on success, false if another daemon raced us.
    */
-  private writePidFile(): void {
+  private writePidFile(): boolean {
     const dir = join(this.projectRoot, '.monomind');
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-    writeFileSync(this.pidFile, String(process.pid), 'utf-8');
+    try {
+      // wx flag = O_CREAT | O_EXCL — atomic create-or-fail
+      writeFileSync(this.pidFile, String(process.pid), { flag: 'wx' });
+      return true;
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === 'EEXIST') {
+        // Recheck liveness — file may belong to a dead daemon we missed
+        const racePid = this.checkExistingDaemon();
+        if (racePid === null) {
+          // Stale file was just removed by checkExistingDaemon, retry once
+          try {
+            writeFileSync(this.pidFile, String(process.pid), { flag: 'wx' });
+            return true;
+          } catch { return false; }
+        }
+        return false;
+      }
+      throw e;
+    }
   }
 
   /**
@@ -501,9 +538,16 @@ export class WorkerDaemon extends EventEmitter {
       return;
     }
 
+    // Atomic PID file write — fails if another daemon raced us past
+    // checkExistingDaemon. Without this two `daemon start` calls could both
+    // pass the existence check then both clobber the PID file.
+    if (!this.writePidFile()) {
+      this.log('info', 'Another daemon won the PID race — aborting start');
+      this.emit('warning', 'Another daemon instance is starting/running');
+      return;
+    }
     this.running = true;
     this.startedAt = new Date();
-    this.writePidFile();
     this.emit('started', { pid: process.pid, startedAt: this.startedAt });
 
     // Schedule all enabled workers
@@ -598,10 +642,18 @@ export class WorkerDaemon extends EventEmitter {
    * Execute a worker with concurrency control (P0 fix)
    */
   private async executeWorkerWithConcurrencyControl(workerConfig: WorkerConfig): Promise<WorkerResult | null> {
+    // Dedup: under sustained resource pressure each scheduler tick re-pushes
+    // the same WorkerType. Without dedup, high-priority workers (audit) crowd
+    // out low-priority ones (consolidate) — starvation. Skip the push if the
+    // type is already pending.
+    const pushPending = (type: WorkerType): void => {
+      if (!this.pendingWorkers.includes(type)) this.pendingWorkers.push(type);
+    };
+
     // Check concurrency limit
     if (this.runningWorkers.size >= this.config.maxConcurrent) {
       this.log('info', `Worker ${workerConfig.type} deferred: max concurrent (${this.config.maxConcurrent}) reached`);
-      this.pendingWorkers.push(workerConfig.type);
+      pushPending(workerConfig.type);
       this.emit('worker:deferred', { type: workerConfig.type, reason: 'max_concurrent' });
       return null;
     }
@@ -610,7 +662,7 @@ export class WorkerDaemon extends EventEmitter {
     const resourceCheck = await this.canRunWorker();
     if (!resourceCheck.allowed) {
       this.log('info', `Worker ${workerConfig.type} deferred: ${resourceCheck.reason}`);
-      this.pendingWorkers.push(workerConfig.type);
+      pushPending(workerConfig.type);
       this.emit('worker:deferred', { type: workerConfig.type, reason: resourceCheck.reason });
       return null;
     }
@@ -821,7 +873,9 @@ export class WorkerDaemon extends EventEmitter {
       scannedAt: Date.now(),
     };
 
-    writeFileSync(metricsFile, JSON.stringify(map, null, 2));
+    const metricsFileTmp1 = metricsFile + '.tmp';
+    writeFileSync(metricsFileTmp1, JSON.stringify(map, null, 2));
+    renameSync(metricsFileTmp1, metricsFile);
     return map;
   }
 
@@ -850,7 +904,9 @@ export class WorkerDaemon extends EventEmitter {
       note: 'Install Claude Code CLI for AI-powered security analysis',
     };
 
-    writeFileSync(auditFile, JSON.stringify(audit, null, 2));
+    const auditFileTmp = auditFile + '.tmp';
+    writeFileSync(auditFileTmp, JSON.stringify(audit, null, 2));
+    renameSync(auditFileTmp, auditFile);
     return audit;
   }
 
@@ -878,7 +934,9 @@ export class WorkerDaemon extends EventEmitter {
       note: 'Install Claude Code CLI for AI-powered optimization suggestions',
     };
 
-    writeFileSync(optimizeFile, JSON.stringify(perf, null, 2));
+    const optimizeFileTmp = optimizeFile + '.tmp';
+    writeFileSync(optimizeFileTmp, JSON.stringify(perf, null, 2));
+    renameSync(optimizeFileTmp, optimizeFile);
     return perf;
   }
 
@@ -942,7 +1000,9 @@ export class WorkerDaemon extends EventEmitter {
       mode: 'raptor',
     };
 
-    writeFileSync(consolidateFile, JSON.stringify(result, null, 2));
+    const consolidateFileTmp = consolidateFile + '.tmp';
+    writeFileSync(consolidateFileTmp, JSON.stringify(result, null, 2));
+    renameSync(consolidateFileTmp, consolidateFile);
     return result;
   }
 
@@ -967,7 +1027,9 @@ export class WorkerDaemon extends EventEmitter {
       note: 'Install Claude Code CLI for AI-powered test gap analysis',
     };
 
-    writeFileSync(testGapsFile, JSON.stringify(result, null, 2));
+    const testGapsFileTmp = testGapsFile + '.tmp';
+    writeFileSync(testGapsFileTmp, JSON.stringify(result, null, 2));
+    renameSync(testGapsFileTmp, testGapsFile);
     return result;
   }
 
@@ -1057,7 +1119,9 @@ export class WorkerDaemon extends EventEmitter {
       },
     };
 
-    writeFileSync(benchmarkFile, JSON.stringify(result, null, 2));
+    const benchmarkFileTmp = benchmarkFile + '.tmp';
+    writeFileSync(benchmarkFileTmp, JSON.stringify(result, null, 2));
+    renameSync(benchmarkFileTmp, benchmarkFile);
     return result;
   }
 
@@ -1081,6 +1145,9 @@ export class WorkerDaemon extends EventEmitter {
     if (!workerConfig) {
       throw new Error(`Unknown worker type: ${type}`);
     }
+    const result = await this.executeWorkerWithConcurrencyControl(workerConfig);
+    if (result !== null) return result;
+    // Concurrency limit reached — execute directly for explicit manual trigger
     return this.executeWorker(workerConfig);
   }
 
@@ -1131,7 +1198,9 @@ export class WorkerDaemon extends EventEmitter {
     };
 
     try {
-      writeFileSync(this.config.stateFile, JSON.stringify(state, null, 2));
+      const tmp = this.config.stateFile + '.tmp';
+      writeFileSync(tmp, JSON.stringify(state, null, 2));
+      renameSync(tmp, this.config.stateFile);
     } catch (error) {
       this.log('error', `Failed to save state: ${error}`);
     }
