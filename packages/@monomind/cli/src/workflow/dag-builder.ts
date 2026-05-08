@@ -52,29 +52,49 @@ export function detectCycles(dag: DAG): string[][] {
     parent.set(id, null);
   }
 
-  function dfs(u: string): void {
-    color.set(u, GRAY);
-    const neighbors = dag.edges.get(u) ?? new Set<string>();
+  // Iterative DFS to avoid call-stack overflow on deep linear DAGs
+  function dfs(start: string): void {
+    // Stack entries: [nodeId, iterator-over-neighbors, neighborsDone?]
+    // We use a frame-based approach mirroring the recursive version.
+    type Frame = { u: string; neighbors: Iterator<string>; entered: boolean };
+    const stack: Frame[] = [
+      { u: start, neighbors: (dag.edges.get(start) ?? new Set<string>()).values(), entered: false },
+    ];
 
-    for (const v of neighbors) {
-      if (color.get(v) === GRAY) {
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1];
+
+      if (!frame.entered) {
+        frame.entered = true;
+        color.set(frame.u, GRAY);
+      }
+
+      const { value: v, done } = frame.neighbors.next();
+      if (done) {
+        color.set(frame.u, BLACK);
+        stack.pop();
+        continue;
+      }
+
+      const vColor = color.get(v);
+      if (vColor === GRAY) {
         // Found a cycle — reconstruct it
         const cycle: string[] = [v];
-        let curr = u;
+        let curr = frame.u;
         while (curr !== v) {
           cycle.push(curr);
-          curr = parent.get(curr)!;
+          const next = parent.get(curr);
+          if (next == null) break;
+          curr = next;
         }
         cycle.push(v);
         cycle.reverse();
         cycles.push(cycle);
-      } else if (color.get(v) === WHITE) {
-        parent.set(v, u);
-        dfs(v);
+      } else if (vColor === WHITE) {
+        parent.set(v, frame.u);
+        stack.push({ u: v, neighbors: (dag.edges.get(v) ?? new Set<string>()).values(), entered: false });
       }
     }
-
-    color.set(u, BLACK);
   }
 
   for (const id of dag.tasks.keys()) {
