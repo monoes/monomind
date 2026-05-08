@@ -119,35 +119,35 @@ const DANGEROUS_PATTERNS: Array<{
 
   // High - Block but offer alternatives
   {
-    pattern: /rm\s+-rf\s+\*/,
+    pattern: /rm\s+(-[rRf]+\s+)*\*/,
     type: 'destructive',
     severity: 'high',
     description: 'Recursive deletion of all files in directory',
     block: true,
   },
   {
-    pattern: /rm\s+-rf\s+\.\//,
+    pattern: /rm\s+(-[rRf]+\s+)*\.\//,
     type: 'destructive',
     severity: 'high',
     description: 'Recursive deletion of current directory',
     block: true,
   },
   {
-    pattern: /rm\s+-rf\s+~/,
+    pattern: /rm\s+(-[rRf]+\s+)*~/,
     type: 'destructive',
     severity: 'high',
     description: 'Recursive deletion of home directory',
     block: true,
   },
   {
-    pattern: /curl.*\|\s*(bash|sh|zsh)/,
+    pattern: /curl.*\|\s*(bash|sh|dash|zsh|ksh|fish|python3?|node|perl)/,
     type: 'dangerous',
     severity: 'high',
     description: 'Piping remote content directly to shell',
     block: true,
   },
   {
-    pattern: /wget.*-O-\s*\|\s*(bash|sh|zsh)/,
+    pattern: /wget.*-O-?\s*\|\s*(bash|sh|dash|zsh|ksh|fish|python3?|node|perl)/,
     type: 'dangerous',
     severity: 'high',
     description: 'Piping remote content directly to shell',
@@ -305,7 +305,7 @@ const SAFE_ALTERNATIVES: Array<{
     ],
   },
   {
-    pattern: /curl.*\|\s*(bash|sh|zsh)/,
+    pattern: /curl.*\|\s*(bash|sh|dash|zsh|ksh|fish|python3?|node|perl)/,
     alternatives: [
       'Download script first, review, then execute',
       'Use package managers when available',

@@ -191,14 +191,14 @@ export class MonitoringHooks {
     this.requestCount++;
     const startTime = Date.now();
 
-    this.counter('request_started', 1, { requestId });
+    this.counter('request_started', 1, {});
 
     // Return end function
     return () => {
       this.activeRequests--;
       const duration = Date.now() - startTime;
       this.responseTimes.push(duration);
-      this.histogram('response_time_ms', duration, { requestId });
+      this.histogram('response_time_ms', duration, {});
 
       // Keep only last 1000 response times
       if (this.responseTimes.length > 1000) {
@@ -215,7 +215,6 @@ export class MonitoringHooks {
     this.counter('error', 1, {
       ...labels,
       errorType: error.name,
-      errorMessage: error.message.slice(0, 100),
     });
   }
 
@@ -459,6 +458,11 @@ export class MonitoringHooks {
     this.alerts = this.alerts.filter(
       a => !a.acknowledged || Date.now() - a.timestamp < 300000
     );
+    // Cap total alerts to prevent unbounded growth
+    const MAX_ALERTS = 500;
+    if (this.alerts.length > MAX_ALERTS) {
+      this.alerts = this.alerts.slice(-MAX_ALERTS);
+    }
   }
 }
 

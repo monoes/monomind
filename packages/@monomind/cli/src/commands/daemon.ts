@@ -210,12 +210,9 @@ function validatePath(path: string, label: string): void {
   }
 
   // Prevent path traversal outside expected directories
-  if (!resolved.includes('.monomind') && !resolved.includes('bin')) {
-    // Allow only paths within project structure
-    const cwd = process.cwd();
-    if (!resolved.startsWith(cwd)) {
-      throw new Error(`${label} escapes project directory`);
-    }
+  const cwd = process.cwd();
+  if (!resolved.startsWith(cwd + '/') && resolved !== cwd) {
+    throw new Error(`${label} escapes project directory`);
   }
 }
 
@@ -269,7 +266,7 @@ async function startBackgroundDaemon(projectRoot: string, quiet: boolean, maxCpu
       // Prevent macOS SIGHUP kill when terminal closes
       ...(process.platform === 'darwin' ? { NOHUP: '1' } : {}),
     },
-    ...(isWin ? { shell: true, windowsHide: true } : {}),
+    ...(isWin ? { windowsHide: true } : {}),
   };
 
   // Use spawn with explicit arguments instead of shell string interpolation
@@ -309,13 +306,17 @@ async function startBackgroundDaemon(projectRoot: string, quiet: boolean, maxCpu
   // Write PID file only if the child hasn't already written its own.
   // The foreground child calls writePidFile() internally, but on some platforms
   // it may not have started yet, so we write as a fallback.
-  if (!fs.existsSync(pidFile)) {
-    fs.writeFileSync(pidFile, String(pid));
+  // Use 'wx' flag for atomic exclusive create — avoids TOCTOU race.
+  try {
+    fs.writeFileSync(pidFile, String(pid), { flag: 'wx' });
+  } catch {
+    // File already exists (child wrote it first) — that's expected, ignore
   }
 
   if (!quiet) {
+    const actualLogPath = join(resolvedRoot, '.monomind', 'logs', 'daemon.log');
     output.printSuccess(`Daemon started in background (PID: ${pid})`);
-    output.printInfo(`Logs: ${logFile}`);
+    output.printInfo(`Logs: ${actualLogPath}`);
     output.printInfo(`Stop with: monomind daemon stop`);
   }
 

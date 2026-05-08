@@ -7,6 +7,7 @@ import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as semver from 'semver';
 
 function execFileAsync(cmd: string, args: string[]): Promise<void> {
   return new Promise<void>((resolve, reject) =>
@@ -107,7 +108,7 @@ export async function executeUpdate(
     // Execute npm install — use execFile to avoid shell injection
     const pkg = update.package;
     const version = update.latestVersion;
-    if (!/^\d+\.\d+\.\d+$/.test(version)) {
+    if (!semver.valid(version)) {
       throw new Error(`Invalid version: ${version}`);
     }
     await execFileAsync('npm', ['install', `${pkg}@${version}`, '--save-exact']);
@@ -206,7 +207,7 @@ export async function rollbackUpdate(
     // Install the previous version — use execFile to avoid shell injection
     const pkg = lastUpdate.package;
     const version = lastUpdate.fromVersion;
-    if (!/^\d+\.\d+\.\d+$/.test(version)) {
+    if (!semver.valid(version)) {
       throw new Error(`Invalid version: ${version}`);
     }
     await execFileAsync('npm', ['install', `${pkg}@${version}`, '--save-exact']);
