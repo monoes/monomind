@@ -136,10 +136,12 @@ export function anonymizeCFP(
 
   // Level: Standard
   if (['standard', 'strict', 'paranoid'].includes(level)) {
-    // Redact PII from all string fields
-    const jsonStr = JSON.stringify(anonymized.patterns);
+    // Redact PII from all string fields including metadata
+    const jsonStr = JSON.stringify({ patterns: anonymized.patterns, metadata: anonymized.metadata });
     const redacted = redactPII(jsonStr);
-    anonymized.patterns = JSON.parse(redacted);
+    const redactedObj = JSON.parse(redacted);
+    anonymized.patterns = redactedObj.patterns;
+    anonymized.metadata = redactedObj.metadata;
     transforms.push('pii-redacted');
 
     // Generalize timestamps

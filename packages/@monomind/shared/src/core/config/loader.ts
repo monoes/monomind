@@ -188,7 +188,9 @@ export class ConfigLoader {
             if (fileConfig && typeof fileConfig === 'object' && !Array.isArray(fileConfig)) {
               const partial = fileConfig as Record<string, unknown>;
               const merged = { ...defaultSystemConfig } as Record<string, unknown>;
+              const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
               for (const key of Object.keys(partial)) {
+                if (BLOCKED_KEYS.has(key)) continue;
                 if (partial[key] && typeof partial[key] === 'object' && !Array.isArray(partial[key])) {
                   merged[key] = { ...(merged[key] as Record<string, unknown> || {}), ...(partial[key] as Record<string, unknown>) };
                 }

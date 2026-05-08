@@ -1,6 +1,35 @@
 import { substitute } from './template-engine.js';
 
 /**
+ * Substitute context values into a condition expression, JSON-encoding string
+ * values to prevent quote injection via user-controlled context data.
+ */
+function substituteCondition(
+  expression: string,
+  context: Record<string, unknown>,
+): string {
+  return expression.replace(/\{\{([\w./-]+)\}\}/g, (_match, path: string) => {
+    const segments = path.split('.');
+    let current: unknown = context;
+    for (const seg of segments) {
+      if (current === null || current === undefined || typeof current !== 'object') {
+        current = undefined;
+        break;
+      }
+      if (seg === '__proto__' || seg === 'constructor' || seg === 'prototype') {
+        current = undefined;
+        break;
+      }
+      current = (current as Record<string, unknown>)[seg];
+    }
+    if (current === undefined) return `{{${path}}}`;
+    if (typeof current === 'string') return JSON.stringify(current);
+    if (typeof current === 'number' || typeof current === 'boolean') return String(current);
+    return JSON.stringify(current);
+  });
+}
+
+/**
  * Dangerous patterns that must never appear in condition expressions.
  */
 const DANGEROUS_PATTERNS = [
@@ -39,8 +68,8 @@ export function evaluateCondition(
     throw new Error('Condition expression too long (max 500 characters)');
   }
 
-  // Step 1: substitute variables
-  const resolved = substitute(expression, context);
+  // Step 1: substitute variables (string values JSON-encoded to prevent quote injection)
+  const resolved = substituteCondition(expression, context);
 
   // Re-check length after substitution — injected values can expand the expression
   if (resolved.length > 500) {

@@ -30,6 +30,23 @@ export type DownloadProgressCallback = (progress: {
  */
 const MAX_DOWNLOAD_CACHE = 500;
 
+const ALLOWED_GATEWAYS = new Set([
+  'https://w3s.link',
+  'https://dweb.link',
+  'https://ipfs.io',
+  'https://cloudflare-ipfs.com',
+  'https://gateway.pinata.cloud',
+]);
+
+function isAllowedGatewayUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && ALLOWED_GATEWAYS.has(`${parsed.protocol}//${parsed.host}`);
+  } catch {
+    return false;
+  }
+}
+
 export class PatternDownloader {
   private config: StoreConfig;
   private downloadCache: Map<string, { path: string; downloadedAt: number }>;
@@ -187,6 +204,10 @@ export class PatternDownloader {
       return this.fetchFromGCS(cid, onProgress);
     }
 
+    if (!isAllowedGatewayUrl(this.config.gateway)) {
+      console.error(`[Download] Gateway not in allowlist: ${this.config.gateway}`);
+      return null;
+    }
     const url = `${this.config.gateway}/ipfs/${cid}`;
     console.log(`[Download] Fetching: ${url}`);
 
