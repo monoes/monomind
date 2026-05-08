@@ -3,8 +3,11 @@
  * Queries npm registry and compares versions
  */
 
+import { createRequire } from 'module';
 import * as semver from 'semver';
-import { shouldCheckForUpdates, recordCheck, getCachedVersions } from './rate-limiter.js';
+import { reserveCheck, recordCheck, getCachedVersions } from './rate-limiter.js';
+
+const require = createRequire(import.meta.url);
 
 export interface UpdateCheckResult {
   package: string;
@@ -50,12 +53,21 @@ const MONOMIND_PACKAGES = [
   '@monomind/cli',
 ];
 
+// npm package name regex — covers plain names and @scope/name forms.
+// Validates before using the name in URLs or filesystem paths.
+const NPM_NAME_RE = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/i;
+
+function isValidNpmName(name: string): boolean {
+  return NPM_NAME_RE.test(name) && !name.includes('..') && name.length <= 214;
+}
+
 interface NpmPackageInfo {
   'dist-tags': { latest: string };
   versions: Record<string, unknown>;
 }
 
 async function fetchPackageInfo(packageName: string): Promise<NpmPackageInfo | null> {
+  if (!isValidNpmName(packageName)) return null;
   try {
     const response = await fetch(
       `https://registry.npmjs.org/${encodeURIComponent(packageName)}`,
@@ -123,6 +135,7 @@ function shouldAutoUpdate(
 }
 
 export function getInstalledVersion(packageName: string): string | null {
+  if (!isValidNpmName(packageName)) return null;
   try {
     // Try to find the package in node_modules
     const possiblePaths = [
@@ -135,7 +148,6 @@ export function getInstalledVersion(packageName: string): string | null {
       try {
         // Use dynamic import with require for package.json
         const resolved = require.resolve(modulePath, { paths: [process.cwd()] });
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const pkg = require(resolved);
         return pkg.version;
       } catch {
@@ -152,8 +164,8 @@ export function getInstalledVersion(packageName: string): string | null {
 export async function checkForUpdates(
   config: UpdateConfig = DEFAULT_CONFIG
 ): Promise<{ results: UpdateCheckResult[]; skipped: boolean; reason?: string }> {
-  // Check rate limit
-  const rateCheck = shouldCheckForUpdates(config.checkIntervalHours);
+  // Check rate limit and atomically reserve this check slot
+  const rateCheck = reserveCheck(config.checkIntervalHours);
   if (!rateCheck.allowed) {
     // Return cached results if available
     const cached = getCachedVersions();
@@ -230,6 +242,7 @@ export async function checkSinglePackage(
   packageName: string,
   config: UpdateConfig = DEFAULT_CONFIG
 ): Promise<UpdateCheckResult | null> {
+  if (!isValidNpmName(packageName)) return null;
   const currentVersion = getInstalledVersion(packageName);
   if (!currentVersion) {
     return null;
