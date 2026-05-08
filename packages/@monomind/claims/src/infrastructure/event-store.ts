@@ -82,8 +82,32 @@ export class InMemoryClaimEventStore implements IClaimEventStore {
   }
 
   async appendBatch(events: ClaimDomainEvent[]): Promise<void> {
+    if (events.length === 0) return;
+
+    // Validate all versions before mutating state so the batch is all-or-nothing
+    const versionsToCheck = events.map((e) => ({
+      id: e.aggregateId,
+      expected: this.aggregateVersions.get(e.aggregateId) ?? 0,
+      got: e.version,
+    }));
+    for (const { id, expected, got } of versionsToCheck) {
+      if (got !== expected + 1) {
+        throw new Error(
+          `Concurrency conflict for aggregate ${id}: expected version ${expected + 1}, got ${got}`
+        );
+      }
+    }
+
+    // Apply all events and advance versions atomically in a single synchronous pass
     for (const event of events) {
-      await this.append(event);
+      const newVersion = event.version;
+      this.events.push(event as AllExtendedClaimEvents);
+      this.aggregateVersions.set(event.aggregateId, newVersion);
+    }
+
+    // Notify subscribers after all events are committed
+    for (const event of events) {
+      await this.notifySubscribers(event as AllExtendedClaimEvents);
     }
   }
 
