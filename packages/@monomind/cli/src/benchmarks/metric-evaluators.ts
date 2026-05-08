@@ -3,7 +3,8 @@
  * Individual metric evaluation functions for quality assessment.
  */
 
-import type { MetricResult } from '@monomind/shared';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type MetricResult = any;
 
 /**
  * Checks whether the output contains the expected substring.
@@ -96,12 +97,35 @@ export function customRegex(
   output: string,
   config: { pattern: string },
 ): MetricResult {
+  // Reject overly long patterns and those with nested/repeated quantifiers
+  // (catastrophic backtracking — a malicious benchmark definition could
+  // pin CI runners with `^(a+)+$` against a long output string).
+  if (typeof config.pattern !== 'string' || config.pattern.length > 200) {
+    return {
+      type: 'custom_regex',
+      passed: false,
+      actual: null,
+      expected: config.pattern,
+      message: 'Pattern rejected: too long or invalid',
+    };
+  }
+  if (/(\(.*[+*?].*\)|[+*?]){2,}|\{[0-9,]+\}.*[+*?]|\([^)]*\|[^)]*\)[+*?{]/.test(config.pattern)) {
+    return {
+      type: 'custom_regex',
+      passed: false,
+      actual: null,
+      expected: config.pattern,
+      message: 'Pattern rejected: nested quantifiers risk catastrophic backtracking',
+    };
+  }
+  // Cap output length so even slow patterns can't burn unlimited CPU
+  const boundedOutput = output.length > 1024 * 1024 ? output.slice(0, 1024 * 1024) : output;
   const regex = new RegExp(config.pattern);
-  const match = regex.test(output);
+  const match = regex.test(boundedOutput);
   return {
     type: 'custom_regex',
     passed: match,
-    actual: match ? output.match(regex)?.[0] ?? null : null,
+    actual: match ? boundedOutput.match(regex)?.[0] ?? null : null,
     expected: config.pattern,
     message: match
       ? `Output matches pattern /${config.pattern}/`

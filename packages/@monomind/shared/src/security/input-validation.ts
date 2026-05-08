@@ -125,8 +125,9 @@ export function validatePath(
     .replace(/\\/g, '/') // Normalize Windows paths
     .replace(/\/+/g, '/'); // Remove duplicate slashes
 
-  // Check for dangerous patterns
-  if (normalized.includes('..') || normalized.includes('~')) {
+  // Check for dangerous patterns (decode percent-encoding first to catch %2e%2e attacks)
+  const decoded = (() => { try { return decodeURIComponent(normalized); } catch { return normalized; } })();
+  if (decoded.includes('..') || decoded.includes('~') || normalized.includes('..') || normalized.includes('~')) {
     return {
       valid: false,
       error: 'Path contains directory traversal characters',

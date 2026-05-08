@@ -345,9 +345,13 @@ export class BashSafetyHook {
   private registry: HookRegistry;
   private blockedCommands: Set<string> = new Set();
   private availableDependencies: Set<string> = new Set();
+  private instancePatterns: typeof DANGEROUS_PATTERNS;
 
   constructor(registry: HookRegistry) {
     this.registry = registry;
+    // Defensive copy so addDangerousPattern doesn't mutate the module-level array
+    // and cross-contaminate other BashSafetyHook instances in the same process.
+    this.instancePatterns = [...DANGEROUS_PATTERNS];
     this.registerHooks();
     this.detectAvailableDependencies();
   }
@@ -392,7 +396,7 @@ export class BashSafetyHook {
     let safeAlternatives: string[] | undefined;
 
     // Check for dangerous patterns
-    for (const pattern of DANGEROUS_PATTERNS) {
+    for (const pattern of this.instancePatterns) {
       if (pattern.pattern.test(command)) {
         risks.push({
           type: pattern.type,
@@ -573,7 +577,7 @@ export class BashSafetyHook {
     description: string,
     block = true
   ): void {
-    DANGEROUS_PATTERNS.push({ pattern, type, severity, description, block });
+    this.instancePatterns.push({ pattern, type, severity, description, block });
   }
 
   /**
@@ -587,7 +591,7 @@ export class BashSafetyHook {
    * Check if a command would be blocked
    */
   wouldBlock(command: string): boolean {
-    for (const pattern of DANGEROUS_PATTERNS) {
+    for (const pattern of this.instancePatterns) {
       if (pattern.block && pattern.pattern.test(command)) {
         return true;
       }

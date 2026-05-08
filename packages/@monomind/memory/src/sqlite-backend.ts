@@ -204,7 +204,8 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
 
     // Collaborative memory promotion: track per-agent reads for auto-promotion
     // Source: https://arxiv.org/abs/2505.18279
-    if (agentId) {
+    const AGENT_ID_RE = /^[a-zA-Z0-9_-]{1,128}$/;
+    if (agentId && AGENT_ID_RE.test(agentId)) {
       try {
         this.db!.prepare(
           'INSERT OR IGNORE INTO agent_reads (entry_id, agent_id, read_at) VALUES (?, ?, ?)'

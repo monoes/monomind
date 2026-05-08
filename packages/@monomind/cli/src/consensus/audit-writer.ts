@@ -140,7 +140,14 @@ export class AuditWriter {
       }
     }
 
-    return { valid: invalidVotes.length === 0, invalidVotes };
+    // Verify the outer record signature for tamper-evidence
+    const { recordSignature, ...recordWithoutSig } = record;
+    const expectedSig = createHmac('sha256', key)
+      .update(JSON.stringify(recordWithoutSig))
+      .digest('hex');
+    const recordTampered = recordSignature !== expectedSig;
+
+    return { valid: invalidVotes.length === 0 && !recordTampered, invalidVotes };
   }
 
   // ── helpers ──

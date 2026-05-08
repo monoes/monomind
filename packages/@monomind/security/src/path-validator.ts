@@ -233,13 +233,22 @@ export class PathValidator {
         try {
           resolvedPath = await fs.realpath(resolvedPath);
         } catch (error: any) {
-          // Path doesn't exist yet - use resolved path
-          if (error.code !== 'ENOENT' || !this.config.allowNonExistent) {
-            if (error.code === 'ENOENT') {
+          if (error.code === 'ENOENT') {
+            // Path doesn't exist yet — allowed only when allowNonExistent is set
+            if (!this.config.allowNonExistent) {
               errors.push('Path does not exist');
-            } else {
-              errors.push(`Failed to resolve path: ${error.message}`);
             }
+            // Fall through with the resolved (but unconfirmed) path
+          } else {
+            // Non-ENOENT errors (EACCES, ELOOP, etc.) — return immediately
+            // to avoid continuing with an unverified/unresolved path
+            return {
+              isValid: false,
+              resolvedPath: '',
+              relativePath: '',
+              matchedPrefix: '',
+              errors: [`Failed to resolve path: ${error.message}`],
+            };
           }
         }
       }

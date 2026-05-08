@@ -5,10 +5,12 @@
  * Enables monomind to prefer historically successful agents for specific task types.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, appendFileSync, statSync } from 'fs';
+import { randomBytes } from 'crypto';
 import { join, dirname } from 'path';
 import type { SpecializationScore, ScoreUpdate } from '../../../shared/src/types/specialization.js';
 import { calculateDecayFactor } from './score-decay.js';
+import { parseJsonl } from '../utils/parse-jsonl.js';
 
 /** Key used to identify a unique agent+taskType pair in the JSONL store. */
 function scoreKey(agentSlug: string, taskType: string): string {
@@ -41,17 +43,23 @@ export class SpecializationScorer {
     if (!existsSync(this.filePath)) {
       return [];
     }
-    const raw = readFileSync(this.filePath, 'utf-8').trim();
-    if (!raw) return [];
-    return raw
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => JSON.parse(line) as SpecializationScore);
+    // 10MB cap. readAll is on the routing hot path; without this cap a
+    // bloated scorer file (planted or grown via repeated recordOutcome calls
+    // with diverse agentSlug::taskType keys) crashes the CLI on every route.
+    const stat = statSync(this.filePath);
+    if (stat.size > 10 * 1024 * 1024) {
+      throw new Error('Scorer store exceeds 10MB; run compaction');
+    }
+    const raw = readFileSync(this.filePath, 'utf-8');
+    return parseJsonl<SpecializationScore>(raw);
   }
 
   private writeAll(records: SpecializationScore[]): void {
     const lines = records.map((r) => JSON.stringify(r));
-    writeFileSync(this.filePath, lines.join('\n') + '\n', 'utf-8');
+    // Unique tmp filename so concurrent recordOutcome calls don't collide.
+    const tmp = `${this.filePath}.${process.pid}.${randomBytes(8).toString('hex')}.tmp`;
+    writeFileSync(tmp, lines.join('\n') + '\n', 'utf-8');
+    renameSync(tmp, this.filePath);
   }
 
   // ---------------------------------------------------------------------------

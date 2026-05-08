@@ -5,7 +5,7 @@
  * Supports save, list, get, rollback, and diff operations.
  */
 
-import { createHash, randomUUID } from 'crypto';
+import { createHash, randomUUID, randomBytes } from 'crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, statSync } from 'fs';
 import { join } from 'path';
 import type { AgentVersionRecord, DiffResult } from '../../../shared/src/types/agent-version.js';
@@ -110,7 +110,7 @@ export class AgentVersionStore {
 
   private writeAll(records: AgentVersionRecord[]): void {
     const lines = records.map((r) => JSON.stringify(toStored(r)));
-    const tmp = this.filePath + '.tmp';
+    const tmp = `${this.filePath}.${process.pid}.${randomBytes(8).toString('hex')}.tmp`;
     writeFileSync(tmp, lines.join('\n') + '\n', 'utf-8');
     renameSync(tmp, this.filePath);
   }

@@ -3,6 +3,7 @@
  * Task 05: Typed Agent I/O Contracts
  */
 import { readFileSync } from 'fs';
+import { resolve, sep } from 'path';
 
 export interface ValidationError {
   path: string;
@@ -30,6 +31,11 @@ interface JsonSchema {
 
 export class SchemaValidator {
   private schemaCache: Map<string, JsonSchema> = new Map();
+  private readonly allowedSchemaDir: string | null;
+
+  constructor(allowedSchemaDir?: string) {
+    this.allowedSchemaDir = allowedSchemaDir ? resolve(allowedSchemaDir) : null;
+  }
 
   /**
    * Validate data against a JSON Schema file loaded from disk.
@@ -38,6 +44,12 @@ export class SchemaValidator {
   private static readonly SCHEMA_CACHE_MAX = 200;
 
   validateWithJsonSchemaFile(data: unknown, schemaPath: string): ValidationResult {
+    if (this.allowedSchemaDir) {
+      const resolved = resolve(schemaPath);
+      if (!resolved.startsWith(this.allowedSchemaDir + sep) && resolved !== this.allowedSchemaDir) {
+        throw new Error(`Schema path escapes allowed directory: ${schemaPath}`);
+      }
+    }
     let schema = this.schemaCache.get(schemaPath);
     if (!schema) {
       const raw = readFileSync(schemaPath, 'utf-8');
