@@ -4,7 +4,7 @@
  * Tool definitions for collective intelligence and swarm coordination.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { weightedTally } from '../consensus/vote-signer.js';
@@ -16,6 +16,7 @@ const HIVE_FILE = 'state.json';
 
 interface HiveState {
   initialized: boolean;
+  hiveId?: string;
   topology: 'mesh' | 'hierarchical' | 'ring' | 'star';
   queen?: {
     agentId: string;
@@ -200,14 +201,18 @@ function loadHiveState(): HiveState {
 function saveHiveState(state: HiveState): void {
   ensureHiveDir();
   state.updatedAt = new Date().toISOString();
-  writeFileSync(getHivePath(), JSON.stringify(state, null, 2), 'utf-8');
+  const dest = getHivePath();
+  const tmp = `${dest}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tmp, JSON.stringify(state, null, 2), 'utf-8');
+  renameSync(tmp, dest);
 }
 
 // Import agent store helpers for spawn functionality
 import { existsSync as agentStoreExists, readFileSync as readAgentStore, writeFileSync as writeAgentStore, mkdirSync as mkdirAgentStore } from 'node:fs';
 
+// Canonical agent store path matches agent-tools.ts: .monomind/agents/store.json
 function loadAgentStore(): { agents: Record<string, unknown> } {
-  const storePath = join(getProjectCwd(), '.monomind', 'agents.json');
+  const storePath = join(getProjectCwd(), '.monomind', 'agents', 'store.json');
   try {
     if (agentStoreExists(storePath)) {
       return JSON.parse(readAgentStore(storePath, 'utf-8'));
@@ -216,12 +221,17 @@ function loadAgentStore(): { agents: Record<string, unknown> } {
   return { agents: {} };
 }
 
+const HIVE_RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 function saveAgentStore(store: { agents: Record<string, unknown> }): void {
-  const storeDir = join(getProjectCwd(), '.monomind');
+  const storeDir = join(getProjectCwd(), '.monomind', 'agents');
   if (!agentStoreExists(storeDir)) {
     mkdirAgentStore(storeDir, { recursive: true });
   }
-  writeAgentStore(join(storeDir, 'agents.json'), JSON.stringify(store, null, 2), 'utf-8');
+  const dest = join(storeDir, 'store.json');
+  const tmp = `${dest}.${process.pid}.${Date.now()}.tmp`;
+  writeAgentStore(tmp, JSON.stringify(store, null, 2), 'utf-8');
+  renameSync(tmp, dest);
 }
 
 export const hiveMindTools: MCPTool[] = [
@@ -256,6 +266,7 @@ export const hiveMindTools: MCPTool[] = [
       for (let i = 0; i < count; i++) {
         const agentId = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
+        if (HIVE_RESERVED_KEYS.has(agentId)) continue;
         // Create agent record (like agent/spawn)
         agentStore.agents[agentId] = {
           agentId,
@@ -269,7 +280,11 @@ export const hiveMindTools: MCPTool[] = [
         };
 
         // Join to hive-mind (like hive-mind/join)
+        const MAX_HIVE_AGENTS = 100;
         if (!state.workers.includes(agentId)) {
+          if (state.workers.length >= MAX_HIVE_AGENTS) {
+            return { success: false, error: `Hive has reached max agent capacity (${MAX_HIVE_AGENTS})` };
+          }
           state.workers.push(agentId);
         }
 
@@ -305,17 +320,20 @@ export const hiveMindTools: MCPTool[] = [
       },
     },
     handler: async (input) => {
-      const state = loadHiveState();
       const hiveId = `hive-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const queenId = (input.queenId as string) || `queen-${Date.now()}`;
+      const now = new Date().toISOString();
 
-      state.initialized = true;
-      state.topology = (input.topology as HiveState['topology']) || 'mesh';
-      state.createdAt = new Date().toISOString();
-      state.queen = {
-        agentId: queenId,
-        electedAt: new Date().toISOString(),
-        term: 1,
+      const state: HiveState = {
+        initialized: true,
+        hiveId,
+        topology: (input.topology as HiveState['topology']) || 'mesh',
+        queen: { agentId: queenId, electedAt: now, term: 1 },
+        workers: [],
+        consensus: { pending: [], history: [] },
+        sharedMemory: {},
+        createdAt: now,
+        updatedAt: now,
       };
 
       saveHiveState(state);
@@ -377,7 +395,7 @@ export const hiveMindTools: MCPTool[] = [
 
       const status = {
         // CLI expected fields
-        hiveId: `hive-${state.createdAt ? new Date(state.createdAt).getTime() : Date.now()}`,
+        hiveId: state.hiveId ?? `hive-${state.createdAt ? new Date(state.createdAt).getTime() : Date.now()}`,
         status: state.initialized ? 'active' : 'offline',
         topology: state.topology,
         consensus: 'byzantine', // Default consensus type
@@ -417,7 +435,7 @@ export const hiveMindTools: MCPTool[] = [
           memory: 'healthy',
         },
         // Additional fields
-        id: `hive-${state.createdAt ? new Date(state.createdAt).getTime() : Date.now()}`,
+        id: state.hiveId ?? `hive-${state.createdAt ? new Date(state.createdAt).getTime() : Date.now()}`,
         initialized: state.initialized,
         workerCount: state.workers.length,
         pendingConsensus: state.consensus.pending.length,
@@ -455,11 +473,22 @@ export const hiveMindTools: MCPTool[] = [
       const state = loadHiveState();
       const agentId = input.agentId as string;
 
+      // Reject IDs that would mutate Object.prototype when used as a key on the
+      // JSON-loaded plain object `agentStore.agents` (read in hive-mind_status).
+      if (typeof agentId !== 'string' || agentId.length === 0 || agentId.length > 128 ||
+          HIVE_RESERVED_KEYS.has(agentId) || !/^[a-zA-Z0-9_-]+$/.test(agentId)) {
+        return { success: false, error: 'Invalid agentId' };
+      }
+
       if (!state.initialized) {
         return { success: false, error: 'Hive-mind not initialized' };
       }
 
+      const MAX_HIVE_AGENTS = 100;
       if (!state.workers.includes(agentId)) {
+        if (state.workers.length >= MAX_HIVE_AGENTS) {
+          return { success: false, error: `Hive has reached max agent capacity (${MAX_HIVE_AGENTS})` };
+        }
         state.workers.push(agentId);
         saveHiveState(state);
       }
@@ -487,6 +516,11 @@ export const hiveMindTools: MCPTool[] = [
     handler: async (input) => {
       const state = loadHiveState();
       const agentId = input.agentId as string;
+
+      if (typeof agentId !== 'string' || agentId.length === 0 || agentId.length > 128 ||
+          HIVE_RESERVED_KEYS.has(agentId) || !/^[a-zA-Z0-9_-]+$/.test(agentId)) {
+        return { success: false, error: 'Invalid agentId' };
+      }
 
       const index = state.workers.indexOf(agentId);
       if (index > -1) {
@@ -528,7 +562,7 @@ export const hiveMindTools: MCPTool[] = [
       const state = loadHiveState();
       const action = input.action as string;
       const strategy = (input.strategy as ConsensusStrategy) || 'raft';
-      const totalNodes = state.workers.length || 1;
+      const totalNodes = state.workers.length;
 
       if (action === 'propose') {
         const proposalId = `proposal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -601,6 +635,12 @@ export const hiveMindTools: MCPTool[] = [
         const voterId = input.voterId as string;
         if (!voterId) {
           return { action, error: 'voterId is required for voting' };
+        }
+        if (totalNodes === 0) {
+          return { action, error: 'No workers in hive — cannot vote' };
+        }
+        if (!state.workers.includes(voterId)) {
+          return { action, error: `Voter ${voterId} is not a member of this hive` };
         }
 
         const voteValue = input.vote as boolean;
@@ -731,6 +771,9 @@ export const hiveMindTools: MCPTool[] = [
             term: proposal.term,
             byzantineDetected: proposal.byzantineVoters?.length ? proposal.byzantineVoters : undefined,
           });
+          if (state.consensus.history.length > 1000) {
+            state.consensus.history = state.consensus.history.slice(-1000);
+          }
           state.consensus.pending = state.consensus.pending.filter(
             p => p.proposalId !== proposal.proposalId,
           );
@@ -756,6 +799,43 @@ export const hiveMindTools: MCPTool[] = [
               tags: [proposal.type, proposalStrategy || 'raft', proposal.status],
             });
           } catch { /* AgentDB not available — JSON store is primary */ }
+
+          // Persist consensus audit record
+          const sessionSecret = process.env.MONOMIND_SESSION_SECRET;
+          if (!sessionSecret) {
+            process.stderr.write('[hive-consensus] Audit write skipped: MONOMIND_SESSION_SECRET not set\n');
+          } else {
+            try {
+              const { AuditWriter } = await import('../consensus/audit-writer.js');
+              const auditDir = join(getProjectCwd(), STORAGE_DIR, 'consensus');
+              const writer = new AuditWriter(auditDir);
+              const now = new Date().toISOString();
+              const voteEntries = Object.entries(proposal.votes).map(([agentId, vote]) => ({
+                agentId,
+                agentSlug: agentId,
+                vote,
+                votedAt: now,
+              }));
+              writer.record({
+                decisionId: proposal.proposalId,
+                swarmId: `hive-${state.createdAt ? new Date(state.createdAt).getTime() : Date.now()}`,
+                protocol: (proposalStrategy === 'bft' ? 'byzantine' : proposalStrategy === 'raft' ? 'raft' : 'quorum') as import('../../../../@monomind/shared/src/types/consensus-audit.js').ConsensusProtocol,
+                topic: proposal.type,
+                decision: resolution,
+                votes: voteEntries,
+                quorumRequired: required,
+                quorumThreshold: required / Math.max(totalNodes, 1),
+                round: (proposal.divergenceRoundsSeen ?? 0) + 1,
+                startedAt: proposal.proposedAt,
+                completedAt: now,
+                sessionSecret,
+              });
+            } catch (e) {
+              if (process.env.MONOMIND_LOG_LEVEL === 'debug') {
+                process.stderr.write(`[hive-consensus] Audit write failed: ${(e as Error).message}\n`);
+              }
+            }
+          }
         }
 
         return {
@@ -995,6 +1075,7 @@ export const hiveMindTools: MCPTool[] = [
 
       if (action === 'set') {
         if (!key) return { action, error: 'Key required' };
+        if (HIVE_RESERVED_KEYS.has(key)) return { action, error: 'Forbidden key' };
         state.sharedMemory[key] = input.value;
         saveHiveState(state);
 

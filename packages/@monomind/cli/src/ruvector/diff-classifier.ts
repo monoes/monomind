@@ -2,6 +2,11 @@
  * Diff Classifier for Change Analysis
  */
 
+import { execFileSync, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
+
 export interface DiffClassifierConfig {
   maxDiffSize: number;
   classifyByImpact: boolean;
@@ -81,6 +86,7 @@ export class DiffClassifier {
   private ruvectorEngine: unknown = null;
   private useNative = false;
   private classificationCache: Map<string, DiffClassification> = new Map();
+  private static readonly MAX_CLASSIFICATION_CACHE = 100;
 
   constructor(config: Partial<DiffClassifierConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -179,6 +185,10 @@ export class DiffClassifier {
     const testingStrategy = this.determineTestingStrategy(path, primary, impactLevel);
     const riskFactors = this.identifyRiskFactors(path, hunks, impactLevel);
     const classification: DiffClassification = { primary, secondary, confidence, impactLevel, suggestedReviewers, testingStrategy, riskFactors };
+    if (this.classificationCache.size >= DiffClassifier.MAX_CLASSIFICATION_CACHE) {
+      const oldest = this.classificationCache.keys().next().value;
+      if (oldest !== undefined) this.classificationCache.delete(oldest);
+    }
     this.classificationCache.set(cacheKey, classification);
     return classification;
   }
@@ -356,9 +366,10 @@ export interface DiffAnalysisResult {
 // Optimized Git Diff Functions
 // ============================================================================
 
-// Cache for diff results (TTL-based)
+// Cache for diff results (TTL-based, bounded LRU)
 const diffCache = new Map<string, { files: DiffFile[]; timestamp: number }>();
 const CACHE_TTL_MS = 5000; // 5 seconds - short TTL since diffs change frequently
+const DIFF_CACHE_MAX_ENTRIES = 50;
 
 /**
  * Validate git ref to prevent command injection
@@ -368,6 +379,12 @@ function validateGitRef(ref: string): void {
   // Block shell metacharacters and dangerous patterns
   if (!/^[a-zA-Z0-9_\-./~^@]+$/.test(ref)) {
     throw new Error(`Invalid git ref: contains unsafe characters`);
+  }
+  // Reject leading dash — git interprets `-`-prefixed refs as flags (e.g. --output=...,
+  // -G<regex>, -S<string>). execFile defeats shell injection but does NOT prevent the
+  // git binary itself from treating an attacker-controlled ref as a flag.
+  if (ref.startsWith('-')) {
+    throw new Error(`Invalid git ref: must not start with '-'`);
   }
   // Block multiple dots (path traversal)
   if (ref.includes('..') && !ref.match(/^[a-zA-Z0-9_\-]+\.\.\.?[a-zA-Z0-9_\-]+$/)) {
@@ -396,7 +413,7 @@ export function getGitDiffNumstat(ref: string = 'HEAD'): DiffFile[] {
     return cached.files;
   }
 
-  const { execFileSync } = require('child_process');
+  // execFileSync imported at top of module
   try {
     // SECURITY: Use execFileSync with args array instead of shell string
     // This prevents command injection via the ref parameter
@@ -448,7 +465,12 @@ export function getGitDiffNumstat(ref: string = 'HEAD'): DiffFile[] {
       }
     }
 
-    // Cache the result
+    // Cache the result with FIFO eviction. Without a cap, an attacker calling
+    // analyze_diff with HEAD~0...HEAD~N (all valid refs) grew this Map to GBs.
+    if (diffCache.size >= DIFF_CACHE_MAX_ENTRIES) {
+      const oldestKey = diffCache.keys().next().value;
+      if (oldestKey !== undefined) diffCache.delete(oldestKey);
+    }
     diffCache.set(cacheKey, { files, timestamp: Date.now() });
 
     return files;
@@ -471,9 +493,7 @@ export async function getGitDiffNumstatAsync(ref: string = 'HEAD'): Promise<Diff
     return cached.files;
   }
 
-  const { execFile } = require('child_process');
-  const { promisify } = require('util');
-  const execFileAsync = promisify(execFile);
+  // execFileAsync declared at top of module
 
   try {
     // SECURITY: Use execFile with args array instead of shell string

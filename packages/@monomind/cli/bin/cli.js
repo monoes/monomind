@@ -4,35 +4,81 @@
  *
  * Monomind Command Line Interface
  *
- * Auto-detects MCP mode when stdin is piped and no args provided.
- * This allows: echo '{"jsonrpc":"2.0",...}' | npx @monomind/cli
+ * MCP mode requires explicit `mcp start` subcommand or MONOMIND_MCP_AUTODETECT=1.
+ * Usage: npx @monomind/cli mcp start
  */
 
 import { randomUUID } from 'crypto';
 
-// Check if we should run in MCP server mode
-// Conditions:
-//   1. stdin is being piped AND no CLI arguments provided (auto-detect)
-//   2. stdin is being piped AND args are "mcp start" (explicit, e.g. npx monomind@alpha mcp start)
+// Check if we should run in MCP server mode.
+// SECURITY: only accept explicit `mcp start` plus piped stdin, OR the explicit
+// `MONOMIND_MCP_AUTODETECT=1` opt-in for the legacy "no args + non-TTY" path.
+// Previously any `monomind` invocation with redirected stdin (CI pipes, xargs,
+// editor integrations) silently flipped into MCP server mode and accepted
+// JSON-RPC tools/call — privilege escalation by environment.
 const cliArgs = process.argv.slice(2);
 const isExplicitMCP = cliArgs.length >= 1 && cliArgs[0] === 'mcp' && (cliArgs.length === 1 || cliArgs[1] === 'start');
-const isMCPMode = !process.stdin.isTTY && (process.argv.length === 2 || isExplicitMCP);
+const allowAutoDetect = process.env.MONOMIND_MCP_AUTODETECT === '1';
+const isMCPMode = !process.stdin.isTTY && (isExplicitMCP || (allowAutoDetect && process.argv.length === 2));
 
 if (isMCPMode) {
   // Run MCP server mode
   const { listMCPTools, callMCPTool, hasTool } = await import('../dist/src/mcp-client.js');
 
-  const VERSION = '3.0.0';
+  // Read version from package.json instead of hardcoding (prevents stale
+  // version drift between bin entry and the published package).
+  let VERSION = '0.0.0';
+  try {
+    const { readFileSync } = await import('fs');
+    const { fileURLToPath } = await import('url');
+    const { dirname, join } = await import('path');
+    const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+    if (typeof pkg.version === 'string') VERSION = pkg.version;
+  } catch { /* fall back to 0.0.0 */ }
   const sessionId = `mcp-${Date.now()}-${randomUUID().slice(0, 8)}`;
 
-  console.error(
-    `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) Starting in stdio mode`
-  );
+  // Don't leak nodeVersion/platform/arch/pid to stderr by default; gate behind
+  // MONOMIND_LOG_LEVEL=debug to reduce fingerprinting in shared log aggregators.
+  if (process.env.MONOMIND_LOG_LEVEL === 'debug') {
+    console.error(
+      `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) Starting in stdio mode (node=${process.version} platform=${process.platform} arch=${process.arch})`
+    );
+  } else {
+    console.error(
+      `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) Starting in stdio mode`
+    );
+  }
 
+  // Top-level safety nets — without these, an unhandled async error in a tool
+  // handler crashes the process with no observable cleanup.
+  process.on('uncaughtException', (err) => {
+    console.error(`[${new Date().toISOString()}] FATAL [monomind-mcp] uncaughtException: ${err && err.message ? err.message : String(err)}`);
+    process.exit(1);
+  });
+  process.on('unhandledRejection', (reason) => {
+    const msg = reason instanceof Error ? reason.message : String(reason);
+    console.error(`[${new Date().toISOString()}] FATAL [monomind-mcp] unhandledRejection: ${msg}`);
+    process.exit(1);
+  });
+  const shutdown = (sig) => {
+    console.error(`[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) ${sig} received, shutting down`);
+    process.exit(0);
+  };
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+  // Cap on accumulated input buffer so a peer pumping a single multi-GB line
+  // (or a slow trickle without newlines) cannot OOM-kill the process.
+  const MAX_BUFFER_BYTES = 10 * 1024 * 1024;
   let buffer = '';
   process.stdin.setEncoding('utf8');
   process.stdin.on('data', async (chunk) => {
     buffer += chunk;
+    if (buffer.length > MAX_BUFFER_BYTES) {
+      console.error(`[${new Date().toISOString()}] FATAL [monomind-mcp] input exceeds ${MAX_BUFFER_BYTES} bytes`);
+      process.exit(1);
+    }
     let lines = buffer.split('\n');
     buffer = lines.pop() || '';
 
@@ -146,11 +192,30 @@ if (isMCPMode) {
     }
   }
 } else {
-  // Run normal CLI mode
+  // Run normal CLI mode.
+  // Install top-level handlers so an asynchronous error fired from an event-
+  // loop callback does not bypass the synchronous .catch below. Default Node
+  // handler prints the full stack to stderr — which on this codebase includes
+  // attacker-influenced bytes from registry/config error messages and full
+  // filesystem paths. Sanitize before logging and exit non-zero.
+  const safeMsg = (m) =>
+    String(m == null ? '' : m).replace(/[\x00-\x1f\x7f-\x9f]/g, '?').slice(0, 1000);
+  process.on('uncaughtException', (err) => {
+    console.error(`[${new Date().toISOString()}] FATAL [monomind] uncaughtException: ${safeMsg(err && err.message)}`);
+    if (process.env.DEBUG) console.error(err && err.stack);
+    process.exit(1);
+  });
+  process.on('unhandledRejection', (reason) => {
+    const msg = reason instanceof Error ? reason.message : String(reason);
+    console.error(`[${new Date().toISOString()}] FATAL [monomind] unhandledRejection: ${safeMsg(msg)}`);
+    if (process.env.DEBUG && reason instanceof Error) console.error(reason.stack);
+    process.exit(1);
+  });
+
   const { CLI } = await import('../dist/src/index.js');
   const cli = new CLI();
   cli.run().catch((error) => {
-    console.error('Fatal error:', error.message);
+    console.error('Fatal error:', safeMsg(error && error.message));
     process.exit(1);
   });
 }
