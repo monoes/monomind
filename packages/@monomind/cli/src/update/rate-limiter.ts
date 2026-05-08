@@ -57,7 +57,9 @@ export function loadState(): RateLimitState {
 
 export function saveState(state: RateLimitState): void {
   ensureDir();
-  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+  const tmp = STATE_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
+  fs.renameSync(tmp, STATE_FILE);
 }
 
 export function shouldCheckForUpdates(
@@ -103,10 +105,32 @@ export function shouldCheckForUpdates(
   return { allowed: true };
 }
 
-export function recordCheck(packageVersions: Record<string, string>): void {
+/**
+ * Atomically check the daily limit and pre-increment the counter.
+ * Returns false if already at the limit. Callers MUST call recordCheck
+ * only after a successful reserveCheck, so that limit enforcement and
+ * increment happen in the same synchronous turn (no await gap between
+ * them), preventing two concurrent callers both seeing "allowed".
+ */
+export function reserveCheck(
+  intervalHours: number = DEFAULT_INTERVAL_HOURS
+): { allowed: boolean; reason?: string } {
+  const decision = shouldCheckForUpdates(intervalHours);
+  if (!decision.allowed) return decision;
+
+  // Increment immediately, before any async work, so concurrent callers
+  // see an updated count on their next tick.
   const state = loadState();
-  state.lastCheck = new Date().toISOString();
   state.checksToday += 1;
+  state.lastCheck = new Date().toISOString();
+  saveState(state);
+
+  return { allowed: true };
+}
+
+export function recordCheck(packageVersions: Record<string, string>): void {
+  // Update only package versions; count/timestamp already incremented by reserveCheck
+  const state = loadState();
   state.packageVersions = { ...state.packageVersions, ...packageVersions };
   saveState(state);
 }

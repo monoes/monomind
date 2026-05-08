@@ -686,15 +686,19 @@ export class WorkerDaemon extends EventEmitter {
 
     try {
       // Execute worker logic with timeout (P1 fix)
-      // Pass cleanup callback to kill orphan child processes on timeout (#1117)
+      // Pass cleanup callback to kill only this worker's child process on timeout.
+      // cancelAll() was too broad — it would kill concurrent healthy workers.
       const output = await this.runWithTimeout(
         () => this.runWorkerLogic(workerConfig),
         this.config.workerTimeoutMs,
         `Worker ${workerConfig.type} timed out after ${this.config.workerTimeoutMs / 1000}s`,
         () => {
-          // On timeout, cancel any headless execution to prevent orphan processes
           if (this.headlessExecutor) {
-            this.headlessExecutor.cancelAll();
+            const cancelled = this.headlessExecutor.cancel(workerId);
+            if (!cancelled) {
+              // Execution may not have been tracked by ID — fall back to type-based cancel
+              this.headlessExecutor.cancel(workerConfig.type);
+            }
           }
         }
       );

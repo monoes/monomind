@@ -490,7 +490,8 @@ export class ModelRouter {
   recordOutcome(
     task: string,
     model: ClaudeModel,
-    outcome: 'success' | 'failure' | 'escalated'
+    outcome: 'success' | 'failure' | 'escalated',
+    complexity?: number
   ): void {
     // Update circuit breaker state
     if (outcome === 'failure') {
@@ -499,11 +500,15 @@ export class ModelRouter {
       this.consecutiveFailures[model] = 0;
     }
 
+    // Use per-task complexity when provided; fall back to running average so
+    // callers that don't have the routing result can still record outcomes.
+    const taskComplexity = complexity ?? this.state.avgComplexity;
+
     // Track in history
     this.state.learningHistory.push({
       task: task.slice(0, 100),
       model,
-      complexity: this.state.avgComplexity,
+      complexity: taskComplexity,
       outcome,
       timestamp: new Date().toISOString(),
     });
@@ -616,13 +621,24 @@ export class ModelRouter {
 // ============================================================================
 
 let modelRouterInstance: ModelRouter | null = null;
+let modelRouterInstanceConfig: Partial<ModelRouterConfig> | undefined;
 
 /**
- * Get or create the singleton ModelRouter instance
+ * Get or create the singleton ModelRouter instance.
+ * Throws if called with a config that differs from the one used to create
+ * the existing instance — silent config mismatch causes hard-to-debug routing bugs.
  */
 export function getModelRouter(config?: Partial<ModelRouterConfig>): ModelRouter {
   if (!modelRouterInstance) {
     modelRouterInstance = new ModelRouter(config);
+    modelRouterInstanceConfig = config;
+    return modelRouterInstance;
+  }
+  if (config !== undefined && JSON.stringify(config) !== JSON.stringify(modelRouterInstanceConfig)) {
+    throw new Error(
+      'ModelRouter singleton already initialized with different config. ' +
+      'Call resetModelRouter() first, or use createModelRouter() for a separate instance.'
+    );
   }
   return modelRouterInstance;
 }
@@ -632,6 +648,7 @@ export function getModelRouter(config?: Partial<ModelRouterConfig>): ModelRouter
  */
 export function resetModelRouter(): void {
   modelRouterInstance = null;
+  modelRouterInstanceConfig = undefined;
 }
 
 /**

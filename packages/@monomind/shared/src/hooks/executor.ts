@@ -347,12 +347,18 @@ export class HookExecutor {
     promise: Promise<T>,
     timeout: number
   ): Promise<T> {
-    return Promise.race([
-      promise,
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error(`Hook execution timeout after ${timeout}ms`)), timeout)
-      ),
-    ]);
+    let handle: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      handle = setTimeout(
+        () => reject(new Error(`Hook execution timeout after ${timeout}ms`)),
+        timeout
+      );
+    });
+    try {
+      return await Promise.race([promise, timeoutPromise]);
+    } finally {
+      clearTimeout(handle);
+    }
   }
 
   /**

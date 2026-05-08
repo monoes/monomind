@@ -7,17 +7,24 @@ const DEFAULT_MAP_CONCURRENCY = 10;
 async function mapWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
-  fn: (item: T, idx: number) => Promise<R>,
+  fn: (item: T, idx: number, signal: AbortSignal) => Promise<R>,
 ): Promise<R[]> {
   const results: R[] = new Array(items.length);
+  const controller = new AbortController();
   let next = 0;
   async function worker(): Promise<void> {
     while (next < items.length) {
+      if (controller.signal.aborted) return;
       const idx = next++;
-      results[idx] = await fn(items[idx], idx);
+      results[idx] = await fn(items[idx], idx, controller.signal);
     }
   }
-  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  try {
+    await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  } catch (err) {
+    controller.abort();
+    throw err;
+  }
   return results;
 }
 
@@ -120,16 +127,59 @@ export class WorkflowExecutor {
     context: Record<string, unknown>,
   ): Promise<StepResult> {
     const resolvedTask = substitute(step.task, context);
-    const output = await this.dispatcher.dispatch(step.agent, resolvedTask, context);
 
-    // Store output in context if output_key is set
-    if (step.output_key) {
-      safeContextWrite(context, step.output_key, output);
+    const maxAttempts = step.retry_policy?.maxAttempts ?? 1;
+    const initialDelayMs = step.retry_policy?.initialDelayMs ?? 500;
+    const backoffMultiplier = step.retry_policy?.backoffMultiplier ?? 2;
+    const jitterMs = step.retry_policy?.jitterMs ?? 0;
+    const retryOn = step.retry_policy?.retryOn;
+
+    let lastError: unknown;
+    let delayMs = initialDelayMs;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        let dispatchPromise = this.dispatcher.dispatch(step.agent, resolvedTask, context);
+
+        if (step.timeout_ms) {
+          dispatchPromise = Promise.race([
+            dispatchPromise,
+            new Promise<never>((_, reject) =>
+              setTimeout(
+                () => reject(new Error(`Agent step "${step.id}" timed out after ${step.timeout_ms}ms`)),
+                step.timeout_ms
+              )
+            ),
+          ]);
+        }
+
+        const output = await dispatchPromise;
+
+        if (step.output_key) {
+          safeContextWrite(context, step.output_key, output);
+        }
+        safeContextWrite(context, step.id, output);
+
+        return { stepId: step.id, output, status: 'success' };
+      } catch (err) {
+        lastError = err;
+
+        if (attempt >= maxAttempts) break;
+
+        // Only retry for configured error categories (default: retry all)
+        if (retryOn && retryOn.length > 0) {
+          const msg = err instanceof Error ? err.message.toUpperCase() : '';
+          const shouldRetry = retryOn.some((category) => msg.includes(category));
+          if (!shouldRetry) break;
+        }
+
+        const jitter = jitterMs > 0 ? Math.random() * jitterMs : 0;
+        await new Promise((r) => setTimeout(r, delayMs + jitter));
+        delayMs = Math.round(delayMs * backoffMultiplier);
+      }
     }
-    // Always store by step id
-    safeContextWrite(context, step.id, output);
 
-    return { stepId: step.id, output, status: 'success' };
+    throw lastError;
   }
 
   private async executeParallel(
@@ -198,7 +248,8 @@ export class WorkflowExecutor {
 
     // Map phase: fan-out to map_agent with concurrency cap (default 10, override via --concurrent)
     const concurrency = (step as any).concurrent ?? DEFAULT_MAP_CONCURRENCY;
-    const mapResults = await mapWithConcurrency(items, concurrency, async (item, idx) => {
+    const mapResults = await mapWithConcurrency(items, concurrency, async (item, idx, signal) => {
+      if (signal.aborted) throw new Error('Map phase aborted');
       const taskStr = substitute(step.map_task, { ...context, item });
       const output = await this.dispatcher.dispatch(step.map_agent, taskStr, {
         ...context,
