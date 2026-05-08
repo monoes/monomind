@@ -5,6 +5,13 @@
  * Blocks access to require, process, setTimeout, setInterval, and other
  * host environment globals.
  *
+ * ⚠️  SECURITY WARNING: vm.runInContext is NOT a true security sandbox.
+ * Code running inside can escape to the host process via the prototype chain
+ * (e.g. ({}).constructor.constructor('return process')()). This is documented
+ * Node.js behavior. Only use this sandbox for untrusted-but-cooperative code
+ * (linting, formatting, lightweight scripting). For genuine untrusted code,
+ * use the DockerSandbox or a real V8 isolate (isolated-vm package).
+ *
  * @module v1/security/sandbox/wasm-sandbox
  */
 
@@ -16,6 +23,11 @@ import type { SandboxConfig, SandboxExecResult, SandboxRuntime } from './types.j
  */
 export function create(agentId: string, config: SandboxConfig): SandboxRuntime {
   const defaultTimeout = config.timeout_ms ?? 5000;
+
+  console.warn(
+    '[WasmSandbox] vm.runInContext is not a security boundary — ' +
+    'prototype chain escapes are possible. Use DockerSandbox for untrusted code.'
+  );
 
   return {
     type: 'wasm',
