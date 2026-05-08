@@ -16,7 +16,7 @@
  * @module moe-router
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'fs';
 import { dirname, join } from 'path';
 
 // ============================================================================
@@ -616,7 +616,7 @@ export class MoERouter {
    * Load weights from persistence file
    */
   async loadWeights(path?: string): Promise<boolean> {
-    const weightsPath = path || this.config.weightsPath;
+    const weightsPath = path ? path : join(process.cwd(), this.config.weightsPath);
     try {
       if (!existsSync(weightsPath)) {
         return false;
@@ -631,11 +631,20 @@ export class MoERouter {
         return false;
       }
 
-      // Load weights
-      this.W1 = new Float32Array(model.weights.W1.flat());
-      this.b1 = new Float32Array(model.weights.b1);
-      this.W2 = new Float32Array(model.weights.W2.flat());
-      this.b2 = new Float32Array(model.weights.b2);
+      // Load weights with dimension validation
+      const w1 = new Float32Array(model.weights.W1.flat());
+      const b1 = new Float32Array(model.weights.b1);
+      const w2 = new Float32Array(model.weights.W2.flat());
+      const b2 = new Float32Array(model.weights.b2);
+      if (w1.length !== INPUT_DIM * HIDDEN_DIM || b1.length !== HIDDEN_DIM ||
+          w2.length !== HIDDEN_DIM * NUM_EXPERTS || b2.length !== NUM_EXPERTS) {
+        console.warn('[MoE] Weight dimensions mismatch — reinitializing');
+        return false;
+      }
+      this.W1 = w1;
+      this.b1 = b1;
+      this.W2 = w2;
+      this.b2 = b2;
 
       // Load stats
       this.updateCount = model.stats.updateCount || 0;
@@ -656,7 +665,7 @@ export class MoERouter {
    * Save weights to persistence file
    */
   async saveWeights(path?: string): Promise<boolean> {
-    const weightsPath = path || this.config.weightsPath;
+    const weightsPath = path ? path : join(process.cwd(), this.config.weightsPath);
     try {
       // Ensure directory exists
       const dir = dirname(weightsPath);
@@ -700,7 +709,9 @@ export class MoERouter {
         },
       };
 
-      writeFileSync(weightsPath, JSON.stringify(model, null, 2));
+      const tmp = weightsPath + '.tmp';
+      writeFileSync(tmp, JSON.stringify(model, null, 2));
+      renameSync(tmp, weightsPath);
       return true;
     } catch (err) {
       console.warn(`[MoE] Failed to save weights: ${err}`);
@@ -789,6 +800,7 @@ export class MoERouter {
 // ============================================================================
 
 let moeRouterInstance: MoERouter | null = null;
+let _moeInitPromise: Promise<void> | null = null;
 
 /**
  * Get singleton MoE router instance
@@ -799,12 +811,23 @@ let moeRouterInstance: MoERouter | null = null;
 export function getMoERouter(config?: Partial<MoERouterConfig>): MoERouter {
   if (!moeRouterInstance) {
     moeRouterInstance = new MoERouter(config);
-    // Initialize in background (load weights)
-    moeRouterInstance.initialize().catch((err) => {
+    _moeInitPromise = moeRouterInstance.initialize().catch((err) => {
       console.warn('[MoE] Failed to initialize router:', err);
     });
   }
   return moeRouterInstance;
+}
+
+/**
+ * Get singleton MoE router instance, waiting for initialization to complete
+ *
+ * @param config - Optional configuration (only used on first call)
+ * @returns Promise resolving to fully initialized MoE router instance
+ */
+export async function getMoERouterReady(config?: Partial<MoERouterConfig>): Promise<MoERouter> {
+  const router = getMoERouter(config);
+  if (_moeInitPromise) await _moeInitPromise;
+  return router;
 }
 
 /**

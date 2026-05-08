@@ -6,10 +6,11 @@
  */
 
 import { createHash, randomUUID } from 'crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, statSync } from 'fs';
 import { join } from 'path';
 import type { AgentVersionRecord, DiffResult } from '../../../shared/src/types/agent-version.js';
 import { computeUnifiedDiff } from './version-diff.js';
+import { parseJsonl } from '../utils/parse-jsonl.js';
 
 /** Internal JSON-serializable shape stored in JSONL */
 interface StoredRecord {
@@ -85,22 +86,33 @@ export class AgentVersionStore {
     if (!existsSync(this.filePath)) {
       return [];
     }
-    const raw = readFileSync(this.filePath, 'utf-8').trim();
-    if (!raw) return [];
-    return raw
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => fromStored(JSON.parse(line) as StoredRecord));
+    const stat = statSync(this.filePath);
+    if (stat.size > 10 * 1024 * 1024) {
+      throw new Error('Version store exceeds size limit; run compaction');
+    }
+    const raw = readFileSync(this.filePath, 'utf-8');
+    // Drop any record whose stored contentHash does not match the SHA-256 of
+    // its content. saveVersion advertises tamper-evidence by computing the
+    // hash; without this verification step, an attacker who can write the
+    // JSONL file can swap `content` with a poisoned agent prompt while
+    // leaving `contentHash` unchanged, and the next getCurrent() returns
+    // the tampered prompt verbatim into the LLM context.
+    const records = parseJsonl<StoredRecord>(raw);
+    const verified: StoredRecord[] = [];
+    for (const r of records) {
+      if (typeof r?.content !== 'string' || typeof r?.contentHash !== 'string') continue;
+      const actual = createHash('sha256').update(r.content).digest('hex');
+      if (actual !== r.contentHash) continue; // silently drop tampered record
+      verified.push(r);
+    }
+    return verified.map(fromStored);
   }
 
   private writeAll(records: AgentVersionRecord[]): void {
     const lines = records.map((r) => JSON.stringify(toStored(r)));
-    writeFileSync(this.filePath, lines.join('\n') + '\n', 'utf-8');
-  }
-
-  private appendRecord(record: AgentVersionRecord): void {
-    const line = JSON.stringify(toStored(record)) + '\n';
-    appendFileSync(this.filePath, line, 'utf-8');
+    const tmp = this.filePath + '.tmp';
+    writeFileSync(tmp, lines.join('\n') + '\n', 'utf-8');
+    renameSync(tmp, this.filePath);
   }
 
   // ---------------------------------------------------------------------------
@@ -126,17 +138,14 @@ export class AgentVersionStore {
   ): AgentVersionRecord {
     const contentHash = createHash('sha256').update(content).digest('hex');
 
-    // Mark previous versions as non-current (rewrite file)
+    // SINGLE-WRITER CONTRACT: version-store is written only by the daemon process.
+    // Concurrent saveVersion() calls from multiple processes would race on readAll/writeAll.
+    // If multi-writer access is needed in future, introduce an advisory lock here.
     const existing = this.readAll();
-    let changed = false;
     for (const rec of existing) {
       if (rec.slug === slug && rec.isCurrent) {
         rec.isCurrent = false;
-        changed = true;
       }
-    }
-    if (changed) {
-      this.writeAll(existing);
     }
 
     const record: AgentVersionRecord = {
@@ -153,7 +162,8 @@ export class AgentVersionStore {
       isCurrent: true,
     };
 
-    this.appendRecord(record);
+    existing.push(record);
+    this.writeAll(existing);
     return record;
   }
 
