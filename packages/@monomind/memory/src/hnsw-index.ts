@@ -811,7 +811,9 @@ export class HNSWIndex extends EventEmitter {
       normB += b[i] * b[i];
     }
 
-    const similarity = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    const denom = Math.sqrt(normA) * Math.sqrt(normB);
+    if (denom === 0) return 1; // zero vector has maximum distance
+    const similarity = dotProduct / denom;
     return 1 - similarity; // Convert to distance
   }
 
