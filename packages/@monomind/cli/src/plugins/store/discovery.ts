@@ -138,8 +138,8 @@ export class PluginDiscoveryService {
 
     console.log(`[PluginDiscovery] Resolving ${registry.name} via IPNS...`);
 
-    // Check cache first
-    const cached = this.cache.get(registry.ipnsName);
+    // Check cache first — key by registry.name (not ipnsName which can be shared)
+    const cached = this.cache.get(registry.name);
     if (cached && Date.now() - cached.timestamp < this.config.cacheExpiry) {
       console.log(`[PluginDiscovery] Cache hit for ${registry.name}`);
       return {
@@ -175,16 +175,18 @@ export class PluginDiscoveryService {
         return this.createDemoRegistryAsync(registry);
       }
 
-      // Verify registry signature if required
+      // Verify registry signature if required — treat failure as fatal to prevent
+      // a tampered registry from being served when requireVerification is enabled.
       if (this.config.requireVerification && registryData.registrySignature) {
-        const verified = this.verifyRegistrySignature(registryData, registry.publicKey);
+        const verified = await this.verifyRegistrySignature(registryData, registry.publicKey);
         if (!verified) {
-          console.warn(`[PluginDiscovery] Registry signature verification failed`);
+          console.error(`[PluginDiscovery] Registry signature verification failed — falling back to demo registry`);
+          return this.createDemoRegistryAsync(registry);
         }
       }
 
-      // Cache the result
-      this.cache.set(registry.ipnsName, {
+      // Cache the result — key by registry.name so separate registries don't share a slot
+      this.cache.set(registry.name, {
         registry: registryData,
         timestamp: Date.now(),
       });
@@ -836,14 +838,30 @@ export class PluginDiscoveryService {
   }
 
   /**
-   * Verify registry signature
+   * Verify registry signature using real Ed25519
    */
-  private verifyRegistrySignature(registry: PluginRegistry, expectedPublicKey: string): boolean {
-    if (!registry.registrySignature || !registry.registryPublicKey) {
+  private async verifyRegistrySignature(registry: PluginRegistry, expectedPublicKey: string): Promise<boolean> {
+    if (!registry.registrySignature || !registry.registryPublicKey) return false;
+    if (registry.registryPublicKey !== expectedPublicKey) return false;
+    const sigHex = registry.registrySignature.replace(/^ed25519:/, '');
+    const pubKeyHex = registry.registryPublicKey.replace(/^ed25519:/, '');
+    if (sigHex.length !== 128 || pubKeyHex.length !== 64) return false;
+    const content = JSON.stringify({
+      version: registry.version,
+      updatedAt: registry.updatedAt,
+      plugins: registry.plugins.map(p => p.id),
+      totalPlugins: registry.totalPlugins,
+    });
+    try {
+      const ed = await import('@noble/ed25519');
+      return await ed.verifyAsync(
+        Buffer.from(sigHex, 'hex'),
+        Buffer.from(content),
+        Buffer.from(pubKeyHex, 'hex'),
+      );
+    } catch {
       return false;
     }
-    // In production: Verify Ed25519 signature
-    return registry.registryPublicKey.startsWith(expectedPublicKey.split(':')[0]);
   }
 
   /**
