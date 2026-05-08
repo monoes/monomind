@@ -13,7 +13,7 @@
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Try to import real embeddings — prefer agentic-flow v1 ReasoningBank, then @monomind/embeddings
@@ -118,7 +118,10 @@ function loadNeuralStore(): NeuralStore {
 
 function saveNeuralStore(store: NeuralStore): void {
   ensureNeuralDir();
-  writeFileSync(getNeuralPath(), JSON.stringify(store, null, 2), 'utf-8');
+  const dest = getNeuralPath();
+  const tmp = `${dest}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf-8');
+  renameSync(tmp, dest);
 }
 
 // Generate embedding - uses real ML embeddings if available, falls back to deterministic hash
@@ -155,7 +158,9 @@ async function generateEmbedding(text?: string, dims: number = 384): Promise<num
 
 // Cosine similarity for pattern search
 function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length) return 0;
+  if (a.length !== b.length) {
+    throw new Error(`Embedding dimension mismatch: ${a.length} vs ${b.length}. Ensure all embeddings use the same provider and dims.`);
+  }
   let dotProduct = 0;
   let normA = 0;
   let normB = 0;
@@ -186,6 +191,22 @@ export const neuralTools: MCPTool[] = [
     handler: async (input) => {
       const store = loadNeuralStore();
       const modelId = (input.modelId as string) || `model-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+      const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+      if (RESERVED_KEYS.has(modelId)) {
+        return { success: false, error: 'Invalid modelId' };
+      }
+
+      const MAX_PATTERNS = 10000;
+      if (Object.keys(store.patterns ?? {}).length >= MAX_PATTERNS) {
+        return { success: false, error: `Pattern store full (max ${MAX_PATTERNS}). Run neural_compress first.` };
+      }
+
+      const MAX_MODELS = 100;
+      if (Object.keys(store.models ?? {}).length >= MAX_MODELS) {
+        return { success: false, error: `Model store full (max ${MAX_MODELS}). Delete old models first.` };
+      }
+
       const modelType = input.modelType as NeuralModel['type'];
       const epochs = (input.epochs as number) || 10;
 
@@ -205,20 +226,28 @@ export const neuralTools: MCPTool[] = [
       store.models[modelId] = model;
       saveNeuralStore(store);
 
-      // Real training: embed training data and store as searchable patterns
+      // Real training: embed training data and store as searchable patterns.
+      // Cap input array length and re-check the pattern cap inside the loop —
+      // the pre-loop check at line 199 alone allowed an attacker to bypass
+      // MAX_PATTERNS by passing a 100k-entry array.
+      const MAX_TRAINING_ENTRIES = 1000;
+      const MAX_TEXT_LENGTH = 64 * 1024;
       const trainingData = input.data as Record<string, unknown> | Array<unknown> | undefined;
       let patternsStored = 0;
 
       if (trainingData) {
-        const entries = Array.isArray(trainingData) ? trainingData : [trainingData];
+        const rawEntries = Array.isArray(trainingData) ? trainingData : [trainingData];
+        const entries = rawEntries.slice(0, MAX_TRAINING_ENTRIES);
         for (let i = 0; i < entries.length; i++) {
+          if (Object.keys(store.patterns ?? {}).length >= MAX_PATTERNS) break;
           const entry = entries[i];
-          const text = typeof entry === 'string' ? entry
+          let text = typeof entry === 'string' ? entry
             : (entry as Record<string, unknown>)?.text as string
             || (entry as Record<string, unknown>)?.content as string
             || (entry as Record<string, unknown>)?.label as string
             || JSON.stringify(entry);
-          if (!text) continue;
+          if (!text || typeof text !== 'string') continue;
+          if (text.length > MAX_TEXT_LENGTH) text = text.slice(0, MAX_TEXT_LENGTH);
 
           const embedding = await generateEmbedding(text, 384);
           const patternId = `${modelId}-train-${i}`;
@@ -270,11 +299,18 @@ export const neuralTools: MCPTool[] = [
     handler: async (input) => {
       const store = loadNeuralStore();
       const modelId = input.modelId as string;
-      const inputText = input.input as string;
-      const topK = (input.topK as number) || 3;
+      const inputText = typeof input.input === 'string' ? input.input.slice(0, 16 * 1024) : '';
+      const topK = Math.max(1, Math.min((input.topK as number) || 3, 50));
+
+      const RESERVED_KEYS_PRED = new Set(['__proto__', 'constructor', 'prototype']);
+      if (modelId && (RESERVED_KEYS_PRED.has(modelId) || typeof modelId !== 'string')) {
+        return { success: false, error: 'Invalid modelId' };
+      }
 
       // Find model or use default
-      const model = modelId ? store.models[modelId] : Object.values(store.models).find(m => m.status === 'ready');
+      const model = modelId
+        ? (Object.hasOwn(store.models, modelId) ? store.models[modelId] : undefined)
+        : Object.values(store.models).find(m => m.status === 'ready');
 
       if (model && model.status !== 'ready') {
         return { success: false, error: 'Model not ready' };
@@ -285,20 +321,24 @@ export const neuralTools: MCPTool[] = [
       const embedding = await generateEmbedding(inputText, 384);
       const latency = Math.round(performance.now() - startTime);
 
-      // Search stored patterns via real cosine similarity
-      const storedPatterns = Object.values(store.patterns);
+      // Search stored patterns via real cosine similarity.
+      // Cap at MAX_PATTERNS to prevent O(N) blowup if the store grew unbounded
+      // through some other path. Skip patterns below an early-exit threshold
+      // before sorting to avoid O(N log N) on irrelevant rows.
+      const MAX_SCAN = 10000;
+      const EARLY_EXIT_THRESHOLD = 0.1;
+      const storedPatterns = Object.values(store.patterns).slice(0, MAX_SCAN);
       let predictions;
 
       if (storedPatterns.length > 0) {
-        // Real nearest-neighbor prediction using stored pattern embeddings
-        predictions = storedPatterns
-          .map(p => ({
-            label: p.name || p.type || p.id,
-            confidence: Math.max(0, cosineSimilarity(embedding, p.embedding)),
-            patternId: p.id,
-          }))
-          .sort((a, b) => b.confidence - a.confidence)
-          .slice(0, topK);
+        const scored: { label: string; confidence: number; patternId: string }[] = [];
+        for (const p of storedPatterns) {
+          if (!Array.isArray(p.embedding) || p.embedding.length !== embedding.length) continue;
+          const conf = Math.max(0, cosineSimilarity(embedding, p.embedding));
+          if (conf < EARLY_EXIT_THRESHOLD) continue;
+          scored.push({ label: p.name || p.type || p.id, confidence: conf, patternId: p.id });
+        }
+        predictions = scored.sort((a, b) => b.confidence - a.confidence).slice(0, topK);
       } else {
         // No patterns stored — no predictions possible
         predictions = [];
@@ -362,6 +402,11 @@ export const neuralTools: MCPTool[] = [
       }
 
       if (action === 'store') {
+        const MAX_PATTERNS = 10000;
+        if (Object.keys(store.patterns ?? {}).length >= MAX_PATTERNS) {
+          return { success: false, error: `Pattern store full (max ${MAX_PATTERNS}). Run neural_compress first.` };
+        }
+
         const patternId = `pattern-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         const patternName = (input.name as string) || 'Unnamed pattern';
 
@@ -406,6 +451,14 @@ export const neuralTools: MCPTool[] = [
           }))
           .sort((a, b) => b.similarity - a.similarity)
           .slice(0, 10);
+
+        // Increment usageCount so prune can track retrieval frequency
+        for (const r of results) {
+          if (Object.hasOwn(store.patterns, r.id)) {
+            store.patterns[r.id].usageCount = (store.patterns[r.id].usageCount || 0) + 1;
+          }
+        }
+        saveNeuralStore(store);
 
         return {
           _realSimilarity: true,
@@ -480,9 +533,7 @@ export const neuralTools: MCPTool[] = [
           return {
             success: true, _real: true, method,
             patternsCompressed: totalCompressed,
-            compressionRatio: '3.92x (Int8)',
-            beforeBytes: beforeSize,
-            afterBytes: Math.round(beforeSize / 3.92),
+            note: 'Quantization metadata stored; original embeddings retained for search accuracy.',
           };
         } catch {
           return { success: false, error: 'Quantization requires memory-initializer. Run `memory init` first.' };
@@ -490,8 +541,13 @@ export const neuralTools: MCPTool[] = [
       }
 
       if (method === 'prune') {
-        // Prune patterns with low usage count below threshold (targetReduction as min usage)
-        const threshold = targetReduction;
+        // Prune the least-used fraction of patterns. targetReduction (0-1) is a percentile:
+        // 0.5 removes the bottom 50% by usageCount, 0.8 removes the bottom 80%, etc.
+        const counts = Object.values(store.patterns)
+          .map(p => p.usageCount || 0)
+          .sort((a, b) => a - b);
+        const cutoffIdx = Math.floor(targetReduction * counts.length);
+        const threshold = counts[cutoffIdx] ?? 0;
         const toRemove: string[] = [];
         for (const [id, pattern] of Object.entries(store.patterns)) {
           if ((pattern.usageCount || 0) < threshold) toRemove.push(id);

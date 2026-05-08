@@ -18,11 +18,32 @@
  */
 
 import { EventEmitter } from 'events';
-import { spawn, ChildProcess } from 'child_process';
-import { createServer, Server } from 'http';
+import { spawn, ChildProcess, execSync } from 'child_process';
+import * as http from 'http';
 import { randomUUID } from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs';
+
+/**
+ * Recursively strip prototype-pollution keys from a JSON-RPC message before
+ * downstream tool handlers consume it. Tool handlers commonly do shallow
+ * merges like `{ ...defaults, ...input }`, which would propagate
+ * `__proto__`/`constructor`/`prototype` payloads onto config objects.
+ */
+const FORBIDDEN_PROTO_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+function sanitizeJsonRpcMessage(value: unknown, depth = 0): unknown {
+  if (depth > 16) return null;
+  if (Array.isArray(value)) return value.map(v => sanitizeJsonRpcMessage(v, depth + 1));
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (FORBIDDEN_PROTO_KEYS.has(k)) continue;
+      out[k] = sanitizeJsonRpcMessage(v, depth + 1);
+    }
+    return out;
+  }
+  return value;
+}
 import * as os from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -68,12 +89,23 @@ export interface MCPServerStatus {
 /**
  * Default configuration
  */
+/**
+ * Resolve a per-user state directory under $HOME/.monomind. /tmp is shared and
+ * world-traversable; placing the PID/log files there made them symlink-
+ * attackable (a local attacker pre-creates /tmp/monomind-mcp.pid as a symlink
+ * to e.g. ~/.ssh/authorized_keys, then a writeFile clobbers the target).
+ */
+function getDefaultStateDir(): string {
+  const home = os.homedir();
+  return path.join(home, '.monomind');
+}
+
 const DEFAULT_OPTIONS: Required<MCPServerOptions> = {
   transport: 'stdio',
   host: 'localhost',
   port: 3000,
-  pidFile: path.join(os.tmpdir(), 'monomind-mcp.pid'),
-  logFile: path.join(os.tmpdir(), 'monomind-mcp.log'),
+  pidFile: path.join(getDefaultStateDir(), 'mcp.pid'),
+  logFile: path.join(getDefaultStateDir(), 'mcp.log'),
   tools: 'all',
   daemonize: false,
   timeout: 30000,
@@ -87,8 +119,9 @@ const DEFAULT_OPTIONS: Required<MCPServerOptions> = {
 export class MCPServerManager extends EventEmitter {
   private options: Required<MCPServerOptions>;
   private process?: ChildProcess;
-  private server?: Server;
+  private server?: http.Server;
   private startTime?: Date;
+  private _stdioServerStarted = false;
   private healthCheckInterval?: NodeJS.Timeout;
 
   constructor(options: MCPServerOptions = {}) {
@@ -185,6 +218,11 @@ export class MCPServerManager extends EventEmitter {
         this.server = undefined;
       }
 
+      if ((this as any)._mcpServer) {
+        try { await (this as any)._mcpServer.close(); } catch { /* ignore */ }
+        (this as any)._mcpServer = undefined;
+      }
+
       // Remove PID file
       await this.removePidFile();
 
@@ -208,7 +246,7 @@ export class MCPServerManager extends EventEmitter {
       // (e.g., launched by Claude Code via `claude mcp add`).
       const isStdio = !process.stdin.isTTY;
       const envTransport = process.env.MONOMIND_MCP_TRANSPORT;
-      if (isStdio || envTransport === 'stdio' || this.options.transport === 'stdio') {
+      if (isStdio || envTransport === 'stdio' || this._stdioServerStarted) {
         return {
           running: true,
           pid: process.pid,
@@ -309,6 +347,7 @@ export class MCPServerManager extends EventEmitter {
    * Handles stdin/stdout directly like V2 implementation
    */
   private async startStdioServer(): Promise<void> {
+    this._stdioServerStarted = true;
     // Import the tool registry
     const { listMCPTools, callMCPTool, hasTool } = await import('./mcp-client.js');
 
@@ -405,42 +444,53 @@ export class MCPServerManager extends EventEmitter {
       for (const line of lines) {
         if (line.trim()) {
           try {
-            const message = JSON.parse(line);
+            // Sanitize against prototype pollution. JSON.parse on its own does
+            // not pollute, but downstream tool handlers that shallow-merge
+            // input into option defaults would propagate `__proto__`,
+            // `constructor`, or `prototype` keys. Strip them at the boundary.
+            const message = sanitizeJsonRpcMessage(JSON.parse(line)) as {
+              jsonrpc: string; id?: string | number; method?: string; params?: unknown;
+            };
             const response = await this.handleMCPMessage(message, sessionId);
             if (response) {
               console.log(JSON.stringify(response));
             }
           } catch (error) {
+            // Log-injection defense: stringify message fragment instead of
+            // letting raw line content land in the log unescaped.
+            const safeMsg = (error instanceof Error ? error.message : String(error))
+              .replace(/[\r\n\x00-\x1f\x7f]/g, '?').slice(0, 500);
             console.error(
-              `[${new Date().toISOString()}] ERROR [monomind-mcp] Failed to parse message:`,
-              error instanceof Error ? error.message : String(error)
+              `[${new Date().toISOString()}] ERROR [monomind-mcp] Failed to parse message: ${safeMsg}`
             );
           }
         }
       }
     });
 
-    process.stdin.on('end', () => {
+    // Centralized graceful shutdown — clears the health-check interval and
+    // removes the PID file before exiting. Without this an abrupt
+    // `process.exit(0)` leaves a stale PID file plus a dangling interval and
+    // unflushed in-flight tool calls.
+    let shuttingDown = false;
+    const shutdown = async (reason: string) => {
+      if (shuttingDown) return;
+      shuttingDown = true;
       console.error(
-        `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) stdin closed, shutting down...`
+        `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) ${reason}, shutting down...`
       );
+      try {
+        if (this.healthCheckInterval) {
+          clearInterval(this.healthCheckInterval);
+          this.healthCheckInterval = undefined;
+        }
+      } catch { /* best-effort */ }
+      try { await this.removePidFile(); } catch { /* best-effort */ }
       process.exit(0);
-    });
-
-    // Handle process termination
-    process.on('SIGINT', () => {
-      console.error(
-        `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) Received SIGINT, shutting down...`
-      );
-      process.exit(0);
-    });
-
-    process.on('SIGTERM', () => {
-      console.error(
-        `[${new Date().toISOString()}] INFO [monomind-mcp] (${sessionId}) Received SIGTERM, shutting down...`
-      );
-      process.exit(0);
-    });
+    };
+    process.stdin.on('end', () => { void shutdown('stdin closed'); });
+    process.on('SIGINT',  () => { void shutdown('Received SIGINT'); });
+    process.on('SIGTERM', () => { void shutdown('Received SIGTERM'); });
 
     // Mark as ready immediately for stdio
     this.emit('ready');
@@ -495,9 +545,27 @@ export class MCPServerManager extends EventEmitter {
             },
           };
 
-        case 'tools/call':
-          const toolName = params.name as string;
-          const toolParams = (params.arguments || {}) as Record<string, unknown>;
+        case 'tools/call': {
+          // Strict boundary validation. Without this, `params.name` could be
+          // an array/object (silently coerced) and `params.arguments` could be
+          // an array (downstream `Object.keys` returns numeric indices).
+          if (typeof params.name !== 'string') {
+            return {
+              jsonrpc: '2.0',
+              id: message.id,
+              error: { code: -32602, message: 'Invalid params.name: must be a string' },
+            };
+          }
+          const rawArgs = (params as Record<string, unknown>).arguments;
+          if (rawArgs !== undefined && (typeof rawArgs !== 'object' || rawArgs === null || Array.isArray(rawArgs))) {
+            return {
+              jsonrpc: '2.0',
+              id: message.id,
+              error: { code: -32602, message: 'Invalid params.arguments: must be an object' },
+            };
+          }
+          const toolName = params.name;
+          const toolParams = (rawArgs || {}) as Record<string, unknown>;
 
           if (!hasTool(toolName)) {
             return {
@@ -526,6 +594,7 @@ export class MCPServerManager extends EventEmitter {
               },
             };
           }
+        }
 
         case 'notifications/initialized':
           // Client notification - no response needed
@@ -549,25 +618,57 @@ export class MCPServerManager extends EventEmitter {
           };
       }
     } catch (error) {
+      // Log-injection defense: caller-controlled `message.method` may contain
+      // newlines, ANSI escapes, or other control bytes that forge log lines.
+      // JSON.stringify quotes the string and escapes control chars.
+      const safeMethod = JSON.stringify(message.method);
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error(
-        `[${new Date().toISOString()}] ERROR [monomind-mcp] Error handling ${message.method}:`,
-        error
+        `[${new Date().toISOString()}] ERROR [monomind-mcp] Error handling ${safeMethod}: ${errMsg.replace(/[\r\n]/g, ' ')}`
       );
+      // Sanitize outgoing error messages — internal Error.message often
+      // contains absolute paths or partial secrets. In production return a
+      // generic message; in dev/debug return the full message for triage.
+      const isProd = process.env.NODE_ENV === 'production';
+      const outMessage = error instanceof Error
+        ? (isProd ? 'Internal error' : error.message)
+        : 'Internal error';
       return {
         jsonrpc: '2.0',
         id: message.id,
-        error: {
-          code: -32603,
-          message: error instanceof Error ? error.message : 'Internal error',
-        },
+        error: { code: -32603, message: outMessage },
       };
     }
   }
 
   /**
-   * Start HTTP server in-process
+   * Start HTTP server in-process.
+   *
+   * SECURITY: refuses to bind to non-loopback hosts unless the operator opts
+   * in via MONOMIND_MCP_ALLOW_REMOTE=1 AND provides a bearer token via
+   * MONOMIND_MCP_TOKEN. Without this gate, `--host 0.0.0.0` exposed every
+   * registered tool (including agent_spawn, terminal-tools, system tools) to
+   * any LAN attacker as unauthenticated RCE.
    */
   private async startHttpServer(): Promise<void> {
+    // Loopback gate
+    const host = this.options.host;
+    const isLoopback =
+      host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '::ffff:127.0.0.1';
+    const allowRemote = process.env.MONOMIND_MCP_ALLOW_REMOTE === '1';
+    const token = process.env.MONOMIND_MCP_TOKEN;
+    if (!isLoopback && !allowRemote) {
+      throw new Error(
+        `Refusing to bind MCP HTTP transport to non-loopback host "${host}". ` +
+        `Set MONOMIND_MCP_ALLOW_REMOTE=1 and MONOMIND_MCP_TOKEN=<secret> to enable remote access.`
+      );
+    }
+    if (!isLoopback && allowRemote && (!token || token.length < 32)) {
+      throw new Error(
+        'Remote MCP transport requires MONOMIND_MCP_TOKEN to be set to a strong secret (>= 32 chars).'
+      );
+    }
+
     // Dynamically import the MCP server package
     // FIX for issue #942: Use proper package import instead of broken relative path
     const { createMCPServer } = await import('@monomind/mcp');
@@ -579,6 +680,15 @@ export class MCPServerManager extends EventEmitter {
       error: (msg: string, data?: unknown) => this.emit('log', { level: 'error', msg, data }),
     };
 
+    // SECURITY: actually wire the token into the underlying server's auth
+    // config. The startup gate above only *validates* that a token was set —
+    // without passing it through here, the token was never enforced on
+    // requests. Operators believed their server was protected when it wasn't.
+    // For loopback we still configure auth when a token is set, so users who
+    // explicitly opt-in to bind 0.0.0.0 with a token get end-to-end protection.
+    const authConfig = token && token.length >= 32
+      ? { enabled: true, method: 'token' as const, tokens: [token] }
+      : (isLoopback ? undefined : { enabled: true, method: 'token' as const, tokens: [] });
     const mcpServer = createMCPServer(
       {
         name: 'Monomind MCP Server V1',
@@ -588,7 +698,8 @@ export class MCPServerManager extends EventEmitter {
         port: this.options.port,
         enableMetrics: true,
         enableCaching: true,
-      },
+        ...(authConfig ? { auth: authConfig } : {}),
+      } as Parameters<typeof createMCPServer>[0],
       logger
     );
 
@@ -662,7 +773,27 @@ export class MCPServerManager extends EventEmitter {
    */
   private async writePidFile(): Promise<void> {
     const pid = this.process?.pid || process.pid;
-    await fs.promises.writeFile(this.options.pidFile, String(pid), 'utf8');
+    // Ensure the state dir exists (user-private, not /tmp)
+    const dir = path.dirname(this.options.pidFile);
+    await fs.promises.mkdir(dir, { recursive: true, mode: 0o700 });
+    // wx flag = O_CREAT | O_EXCL: fails fast on a pre-existing path including
+    // a symlinked one, so we never follow an attacker-staged link to write
+    // PIDs into ~/.ssh/authorized_keys or similar.
+    try {
+      await fs.promises.writeFile(this.options.pidFile, String(pid), { flag: 'wx', mode: 0o600 });
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === 'EEXIST') {
+        // Stale PID file (the existence-check + isProcessRunning gate above
+        // already passed, so the file belongs to a dead daemon). Replace it
+        // by unlinking-then-creating with O_EXCL again — never write through
+        // an existing path that might be a symlink.
+        await fs.promises.unlink(this.options.pidFile);
+        await fs.promises.writeFile(this.options.pidFile, String(pid), { flag: 'wx', mode: 0o600 });
+      } else {
+        throw e;
+      }
+    }
   }
 
   /**
@@ -712,7 +843,6 @@ export class MCPServerManager extends EventEmitter {
 
     // Verify it's actually a node process (guards against PID reuse)
     try {
-      const { execSync } = require('child_process') as typeof import('child_process');
       const cmdline = execSync(`cat /proc/${pid}/cmdline 2>/dev/null || ps -p ${pid} -o comm= 2>/dev/null`, {
         encoding: 'utf8',
         timeout: 1000,
@@ -735,7 +865,6 @@ export class MCPServerManager extends EventEmitter {
   ): Promise<any> {
     return new Promise((resolve, reject) => {
       const urlObj = new URL(url);
-      const http = require('http');
 
       const req = http.request(
         {

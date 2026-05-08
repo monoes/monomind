@@ -19,7 +19,7 @@
  * @module model-router
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'fs';
 import { dirname, join } from 'path';
 
 // ============================================================================
@@ -559,7 +559,12 @@ export class ModelRouter {
       const fullPath = join(process.cwd(), this.config.statePath);
       if (existsSync(fullPath)) {
         const data = readFileSync(fullPath, 'utf-8');
-        return { ...defaultState, ...JSON.parse(data) };
+        const parsed = { ...defaultState, ...JSON.parse(data) };
+        if (!Number.isFinite(parsed.avgComplexity)) parsed.avgComplexity = defaultState.avgComplexity;
+        if (!Number.isFinite(parsed.avgConfidence)) parsed.avgConfidence = defaultState.avgConfidence;
+        if (!Number.isFinite(parsed.totalDecisions) || parsed.totalDecisions < 0) parsed.totalDecisions = defaultState.totalDecisions;
+        if (!Number.isFinite(parsed.circuitBreakerTrips) || parsed.circuitBreakerTrips < 0) parsed.circuitBreakerTrips = defaultState.circuitBreakerTrips;
+        return parsed;
       }
     } catch {
       // Ignore load errors
@@ -579,7 +584,9 @@ export class ModelRouter {
         mkdirSync(dir, { recursive: true });
       }
       this.state.lastUpdated = new Date().toISOString();
-      writeFileSync(fullPath, JSON.stringify(this.state, null, 2));
+      const tmp = fullPath + '.tmp';
+      writeFileSync(tmp, JSON.stringify(this.state, null, 2));
+      renameSync(tmp, fullPath);
     } catch {
       // Ignore save errors in non-critical scenarios
     }

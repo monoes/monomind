@@ -1,6 +1,15 @@
-import type { DAGTask, TaskResult, DAGLevel } from './dag-types.js';
+import type { DAGTask, TaskResult, DAGLevel, RetryPolicy } from './dag-types.js';
 import { buildDAG, detectCycles, topologicalSort } from './dag-builder.js';
 import { resolveContext } from './context-resolver.js';
+import { getMonitor } from '../production/monitoring.js';
+
+function classifyError(err: Error): RetryPolicy['retryOn'][number] {
+  const msg = err.message.toLowerCase();
+  if (msg.includes('rate limit') || msg.includes('429') || msg.includes('too many requests')) return 'RATE_LIMIT';
+  if (msg.includes('timed out') || msg.includes('timeout')) return 'TIMEOUT';
+  if (msg.includes('validation') || msg.includes('invalid') || msg.includes('schema')) return 'VALIDATION';
+  return 'UNKNOWN';
+}
 
 export type TaskRunner = (
   task: DAGTask,
@@ -29,21 +38,28 @@ export class DAGExecutor {
           const context = resolveContext(task, results);
           const timeoutMs = task.timeoutMs ?? 300_000;
 
+          let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+          const timeoutPromise = new Promise<TaskResult>((_, reject) => {
+            timeoutHandle = setTimeout(
+              () => reject(new Error(`Task "${task.id}" timed out after ${timeoutMs}ms`)),
+              timeoutMs,
+            );
+          });
           const result = await Promise.race([
             this.runWithRetry(task, context),
-            new Promise<TaskResult>((_, reject) =>
-              setTimeout(
-                () =>
-                  reject(
-                    new Error(
-                      `Task "${task.id}" timed out after ${timeoutMs}ms`
-                    )
-                  ),
-                timeoutMs
-              )
-            ),
-          ]).catch(
-            (err): TaskResult => ({
+            timeoutPromise,
+          ]).finally(() => {
+            if (timeoutHandle) clearTimeout(timeoutHandle);
+          }).catch((err): TaskResult => {
+            const isTimeout = String(err).includes('timed out');
+            if (isTimeout) {
+              // Visible in monomind control — leaked task still running in background
+              getMonitor().counter('dag.task.timeout_leak', 1, {
+                taskId: task.id,
+                agentSlug: task.agentSlug,
+              });
+            }
+            return {
               taskId: task.id,
               agentSlug: task.agentSlug,
               output: null,
@@ -51,10 +67,10 @@ export class DAGExecutor {
               latencyMs: 0,
               retryCount: 0,
               completedAt: Date.now(),
-              status: String(err).includes('timed out') ? 'timeout' : 'error',
+              status: isTimeout ? 'timeout' : 'error',
               error: String(err),
-            })
-          );
+            };
+          });
 
           return result;
         })
@@ -87,6 +103,14 @@ export class DAGExecutor {
         return await this.runner(task, context);
       } catch (err) {
         lastError = err as Error;
+        // If retryOn is non-empty, check whether this error category matches.
+        // Unmatched errors consume the attempt but do not get retried further.
+        if (policy.retryOn.length > 0) {
+          const category = classifyError(lastError);
+          if (!policy.retryOn.includes(category)) {
+            break;
+          }
+        }
         if (attempt < policy.maxAttempts - 1) {
           const delay =
             policy.initialDelayMs *

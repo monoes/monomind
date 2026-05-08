@@ -21,7 +21,7 @@
 
 import { spawn, execSync, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
-import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync, renameSync } from 'fs';
 import { join, relative } from 'path';
 import type { WorkerType } from './worker-daemon.js';
 
@@ -312,7 +312,7 @@ Provide a JSON report with:
       sandbox: 'strict',
       model: 'haiku',
       outputFormat: 'json',
-      contextPatterns: ['**/*.ts', '**/*.js', '**/.env*', '**/package.json'],
+      contextPatterns: ['**/*.ts', '**/*.js', '**/package.json'],
       timeoutMs: 5 * 60 * 1000,
     },
   },
@@ -604,6 +604,11 @@ export class HeadlessWorkerExecutor extends EventEmitter {
   private contextCache: Map<string, CacheEntry> = new Map();
   private claudeCodeAvailable: boolean | null = null;
   private claudeCodeVersion: string | null = null;
+  // SECURITY: synchronous reservation counter so processQueue() does not
+  // drain the entire pendingQueue before async pool insertions catch up.
+  // Without this, a single processQueue() iteration could spawn hundreds of
+  // claude child processes simultaneously (DoS amplifier: 1 dequeue → 500 spawns).
+  private activeReservations: number = 0;
 
   constructor(projectRoot: string, options?: HeadlessExecutorConfig) {
     super();
@@ -685,9 +690,14 @@ export class HeadlessWorkerExecutor extends EventEmitter {
       return result;
     }
 
-    // Check concurrent limit
-    if (this.processPool.size >= this.config.maxConcurrent) {
+    // Check concurrent limit using activeReservations (synchronous counter)
+    // rather than processPool.size (which is updated only after async setup).
+    if (this.activeReservations >= this.config.maxConcurrent) {
       // Queue the request
+      const MAX_PENDING = 500;
+      if (this.pendingQueue.length >= MAX_PENDING) {
+        return this.createErrorResult(workerType, 'Pending queue is full');
+      }
       return new Promise((resolve, reject) => {
         const entry: QueueEntry = {
           workerType,
@@ -704,8 +714,15 @@ export class HeadlessWorkerExecutor extends EventEmitter {
       });
     }
 
-    // Execute immediately
-    return this.executeInternal(workerType, configOverrides);
+    // Reserve the slot synchronously and release it (regardless of success
+    // or failure) so processQueue can pull the next pending item.
+    this.activeReservations++;
+    try {
+      return await this.executeInternal(workerType, configOverrides);
+    } finally {
+      this.activeReservations--;
+      this.processQueue();
+    }
   }
 
   /**
@@ -748,7 +765,15 @@ export class HeadlessWorkerExecutor extends EventEmitter {
     }
 
     clearTimeout(entry.timeout);
-    entry.process.kill('SIGTERM');
+    let exited = false;
+    entry.process.once('exit', () => { exited = true; });
+    try { entry.process.kill('SIGTERM'); } catch { /* may already be dead */ }
+    const killTimer = setTimeout(() => {
+      if (!exited) {
+        try { entry.process.kill('SIGKILL'); } catch { /* ignore */ }
+      }
+    }, 5000);
+    entry.process.once('exit', () => clearTimeout(killTimer));
     this.processPool.delete(executionId);
     this.emit('cancelled', { executionId });
 
@@ -768,11 +793,19 @@ export class HeadlessWorkerExecutor extends EventEmitter {
     const entries = Array.from(this.processPool.entries());
     for (const [executionId, entry] of entries) {
       clearTimeout(entry.timeout);
-      entry.process.kill('SIGTERM');
-      // SIGKILL fallback after 5s to prevent orphan processes (#1395 Bug 6)
-      setTimeout(() => {
-        try { if (!entry.process.killed) entry.process.kill('SIGKILL'); } catch { /* already dead */ }
-      }, 5000).unref();
+      // Track exit so the SIGKILL fallback can't be sent to a recycled PID.
+      // entry.process.killed is set by Node when .kill() was called, NOT when
+      // the OS process actually exited — without an explicit 'exit' listener,
+      // a recycled PID can receive our SIGKILL.
+      let exited = false;
+      entry.process.once('exit', () => { exited = true; });
+      try { entry.process.kill('SIGTERM'); } catch { /* may already be dead */ }
+      const killTimer: NodeJS.Timeout = setTimeout(() => {
+        if (exited) return;
+        try { entry.process.kill('SIGKILL'); } catch { /* already dead */ }
+      }, 5000);
+      killTimer.unref();
+      entry.process.once('exit', () => clearTimeout(killTimer));
       this.emit('cancelled', { executionId });
       cancelled++;
     }
@@ -915,16 +948,22 @@ export class HeadlessWorkerExecutor extends EventEmitter {
    * Process the pending queue
    */
   private processQueue(): void {
+    // Gate on activeReservations (synchronous counter) so we cannot
+    // accidentally drain the queue past maxConcurrent before async setup
+    // populates processPool.
     while (
       this.pendingQueue.length > 0 &&
-      this.processPool.size < this.config.maxConcurrent
+      this.activeReservations < this.config.maxConcurrent
     ) {
       const next = this.pendingQueue.shift();
       if (!next) break;
-
+      this.activeReservations++;
       this.executeInternal(next.workerType, next.config)
-        .then(next.resolve)
-        .catch(next.reject);
+        .then(next.resolve, next.reject)
+        .finally(() => {
+          this.activeReservations--;
+          this.processQueue();
+        });
     }
   }
 
@@ -974,8 +1013,12 @@ export class HeadlessWorkerExecutor extends EventEmitter {
 
     const contextContent = contextParts.join('\n\n');
 
-    // Cache the result
+    // Cache the result (evict oldest when at capacity)
     if (this.config.cacheContext) {
+      if (this.contextCache.size >= 50) {
+        const oldestKey = this.contextCache.keys().next().value;
+        if (oldestKey !== undefined) this.contextCache.delete(oldestKey);
+      }
       this.contextCache.set(cacheKey, {
         content: contextContent,
         timestamp: Date.now(),
@@ -1124,8 +1167,41 @@ Analyze the above codebase context and provide your response following the forma
     }
   ): Promise<{ success: boolean; output: string; tokensUsed?: number; error?: string }> {
     return new Promise((resolve) => {
+      // SECURITY: in strict sandbox mode, build a minimal env allowlist instead
+      // of forwarding the entire parent env. The previous spread also passed
+      // LD_PRELOAD, NODE_OPTIONS, DYLD_INSERT_LIBRARIES, PYTHONPATH, HTTP_PROXY,
+      // etc. — which means "strict" was a label, not a control. Now it actually
+      // strips dangerous loaders/proxies even when the parent has them set.
+      const STRICT_ENV_ALLOWLIST = new Set([
+        'PATH', 'HOME', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'TZ', 'TERM', 'SHELL',
+        'TMPDIR', 'TMP', 'TEMP',
+        'ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL', 'ANTHROPIC_BASE_URL',
+      ]);
+      const FORBIDDEN_ENV = new Set([
+        'LD_PRELOAD', 'LD_LIBRARY_PATH', 'LD_AUDIT',
+        'DYLD_INSERT_LIBRARIES', 'DYLD_LIBRARY_PATH', 'DYLD_FALLBACK_LIBRARY_PATH',
+        'NODE_OPTIONS', 'NODE_PATH',
+        'PYTHONPATH', 'PYTHONHOME', 'PYTHONSTARTUP',
+        'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY',
+        'BASH_ENV', 'ENV', 'CDPATH',
+        'PERL5OPT', 'RUBYOPT',
+        'JAVA_TOOL_OPTIONS', '_JAVA_OPTIONS', 'JDK_JAVA_OPTIONS',
+      ]);
+      const baseEnv: Record<string, string> = {};
+      if (options.sandbox === 'strict') {
+        for (const k of STRICT_ENV_ALLOWLIST) {
+          const v = process.env[k];
+          if (typeof v === 'string') baseEnv[k] = v;
+        }
+      } else {
+        for (const [k, v] of Object.entries(process.env)) {
+          if (typeof v !== 'string') continue;
+          if (FORBIDDEN_ENV.has(k)) continue; // always strip in any mode
+          baseEnv[k] = v;
+        }
+      }
       const env: Record<string, string> = {
-        ...(process.env as Record<string, string>),
+        ...baseEnv,
         CLAUDE_CODE_HEADLESS: 'true',
         CLAUDE_CODE_SANDBOX_MODE: options.sandbox,
         // Fix #1395 Bug 2: Workers fail inside active Claude Code session.
@@ -1142,24 +1218,30 @@ Analyze the above codebase context and provide your response following the forma
       // Resolve model: user env override > config override > default alias
       env.ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || MODEL_IDS[options.model];
 
-      // Spawn claude CLI process
-      const child = spawn('claude', ['--print', prompt], {
+      // Spawn claude CLI process — `--` terminates option parsing so prompt can't smuggle flags
+      const child = spawn('claude', ['--print', '--', prompt], {
         cwd: this.projectRoot,
         env,
         stdio: ['ignore', 'pipe', 'pipe'], // 'ignore' closes stdin at spawn — fixes #1395 where claude --print blocks on EOF
         windowsHide: true, // Prevent phantom console windows on Windows
       });
 
-      // Setup timeout
+      // Setup timeout — track real exit via 'exit' listener.
+      // child.killed is set by Node when .kill() is called (signal sent), NOT
+      // when the OS process exited. Without an explicit `exited` flag the
+      // SIGKILL fallback never fires for a process that ignores SIGTERM, and
+      // the slot leaks indefinitely.
+      let sigkillTimer: NodeJS.Timeout | undefined;
+      let childExited = false;
+      child.once('exit', () => { childExited = true; });
       const timeoutHandle = setTimeout(() => {
         if (this.processPool.has(options.executionId)) {
-          child.kill('SIGTERM');
-          // Give it a moment to terminate gracefully
-          setTimeout(() => {
-            if (!child.killed) {
-              child.kill('SIGKILL');
-            }
+          try { child.kill('SIGTERM'); } catch { /* may already be dead */ }
+          sigkillTimer = setTimeout(() => {
+            if (childExited) return;
+            try { child.kill('SIGKILL'); } catch { /* already dead */ }
           }, 5000);
+          sigkillTimer.unref();
         }
       }, options.timeoutMs);
 
@@ -1179,6 +1261,7 @@ Analyze the above codebase context and provide your response following the forma
 
       const cleanup = () => {
         clearTimeout(timeoutHandle);
+        clearTimeout(sigkillTimer);
         this.processPool.delete(options.executionId);
       };
 
@@ -1226,21 +1309,6 @@ Analyze the above codebase context and provide your response following the forma
         });
       });
 
-      // Handle timeout
-      setTimeout(() => {
-        if (resolved) return;
-        if (!this.processPool.has(options.executionId)) return;
-
-        resolved = true;
-        child.kill('SIGTERM');
-        cleanup();
-
-        resolve({
-          success: false,
-          output: stdout || stderr,
-          error: `Execution timed out after ${options.timeoutMs}ms`,
-        });
-      }, options.timeoutMs + 100); // Slightly after the kill timeout
     });
   }
 
@@ -1351,7 +1419,9 @@ Analyze the above codebase context and provide your response following the forma
       const timestamp = new Date().toISOString();
       const logFile = join(this.config.logDir, `${executionId}_${type}.log`);
       const logContent = `[${timestamp}] ${type.toUpperCase()}\n${'='.repeat(60)}\n${content}\n`;
-      writeFileSync(logFile, logContent);
+      const tmpLog = logFile + '.tmp';
+      writeFileSync(tmpLog, logContent);
+      renameSync(tmpLog, logFile);
     } catch {
       // Ignore log write errors
     }
