@@ -1151,7 +1151,10 @@ export class WorkerDaemon extends EventEmitter {
     }
     const result = await this.executeWorkerWithConcurrencyControl(workerConfig);
     if (result !== null) return result;
-    // Concurrency limit reached — execute directly for explicit manual trigger
+    // Concurrency limit reached — execute directly for explicit manual trigger.
+    // Remove from pendingWorkers to avoid double execution when finally fires.
+    const pendingIdx = this.pendingWorkers.indexOf(workerConfig.type);
+    if (pendingIdx !== -1) this.pendingWorkers.splice(pendingIdx, 1);
     return this.executeWorker(workerConfig);
   }
 
