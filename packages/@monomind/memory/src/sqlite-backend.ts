@@ -225,6 +225,10 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
   private checkAndPromoteEntry(entryId: string): void {
     if (!this.db) return;
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+
+    // Purge stale read records to keep table size bounded
+    this.db.prepare('DELETE FROM agent_reads WHERE read_at <= ?').run(cutoff);
+
     const countRow = this.db.prepare(
       'SELECT COUNT(DISTINCT agent_id) as cnt FROM agent_reads WHERE entry_id = ? AND read_at > ?'
     ).get(entryId, cutoff) as { cnt: number } | undefined;
@@ -396,12 +400,15 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
       params.push(...query.tags);
     }
 
-    // Pagination
+    // Pagination — always enforce a cap to prevent full-table scans
+    const MAX_QUERY_LIMIT = 10_000;
+    const effectiveLimit = Math.min(
+      Math.max(1, query.limit ?? MAX_QUERY_LIMIT),
+      MAX_QUERY_LIMIT
+    );
     sql += ' ORDER BY created_at DESC';
-    if (query.limit) {
-      sql += ' LIMIT ?';
-      params.push(query.limit);
-    }
+    sql += ' LIMIT ?';
+    params.push(effectiveLimit);
     if (query.offset) {
       sql += ' OFFSET ?';
       params.push(query.offset);
