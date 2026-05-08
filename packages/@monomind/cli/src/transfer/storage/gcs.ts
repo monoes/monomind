@@ -137,8 +137,9 @@ export async function uploadToGCS(
 
   // Write content to temp file
   const tempDir = process.env.TMPDIR || '/tmp';
-  const tempFile = path.join(tempDir, `monomind-upload-${Date.now()}.json`);
-  fs.writeFileSync(tempFile, content);
+  const tempFile = path.join(tempDir, `monomind-upload-${crypto.randomUUID()}.json`);
+  // wx flag = O_CREAT | O_EXCL — fails if path exists (symlink-attack defense)
+  fs.writeFileSync(tempFile, content, { flag: 'wx', mode: 0o600 });
 
   try {
     // Build gcloud args (array form prevents shell injection)
@@ -146,7 +147,7 @@ export async function uploadToGCS(
     if (config.projectId) uploadArgs.push(`--project=${config.projectId}`);
     uploadArgs.push(`--content-type=${options.contentType || 'application/json'}`);
 
-    execFileSync('gcloud', uploadArgs, { encoding: 'utf-8', stdio: 'pipe' });
+    execFileSync('gcloud', uploadArgs, { encoding: 'utf-8', stdio: 'pipe', timeout: 60000 });
 
     // Set metadata if provided
     if (options.metadata && Object.keys(options.metadata).length > 0) {
@@ -154,7 +155,7 @@ export async function uploadToGCS(
       try {
         const metaArgs = ['storage', 'objects', 'update', `gs://${config.bucket}/${objectPath}`, `--custom-metadata=${metadataJson}`];
         if (config.projectId) metaArgs.push(`--project=${config.projectId}`);
-        execFileSync('gcloud', metaArgs, { encoding: 'utf-8', stdio: 'pipe' });
+        execFileSync('gcloud', metaArgs, { encoding: 'utf-8', stdio: 'pipe', timeout: 60000 });
       } catch {
         // Metadata update failed, but upload succeeded
       }
@@ -205,11 +206,16 @@ export async function downloadFromGCS(
 
   // Write to temp file first
   const tempDir = process.env.TMPDIR || '/tmp';
-  const tempFile = path.join(tempDir, `monomind-download-${Date.now()}.json`);
+  const tempFile = path.join(tempDir, `monomind-download-${crypto.randomUUID()}.json`);
+
+  if (!uri.startsWith('gs://')) {
+    console.error('[GCS] Invalid URI: must start with gs://');
+    return null;
+  }
 
   try {
-    // Download using gcloud storage cp (array form prevents shell injection)
-    const downloadArgs = ['storage', 'cp', uri, tempFile];
+    // Download using gcloud storage cp; '--' prevents URI from being parsed as a flag
+    const downloadArgs = ['storage', 'cp', '--', uri, tempFile];
     if (cfg?.projectId) downloadArgs.push(`--project=${cfg.projectId}`);
     execFileSync('gcloud', downloadArgs, { encoding: 'utf-8', stdio: 'pipe' });
 
@@ -243,8 +249,10 @@ export async function existsInGCS(
 ): Promise<boolean> {
   const cfg = config || getGCSConfig();
 
+  if (!uri.startsWith('gs://')) return false;
+
   try {
-    const lsArgs = ['storage', 'ls', uri];
+    const lsArgs = ['storage', 'ls', '--', uri];
     if (cfg?.projectId) lsArgs.push(`--project=${cfg.projectId}`);
     execFileSync('gcloud', lsArgs, { encoding: 'utf-8', stdio: 'pipe' });
     return true;
@@ -291,8 +299,10 @@ export async function deleteFromGCS(
 ): Promise<boolean> {
   const cfg = config || getGCSConfig();
 
+  if (!uri.startsWith('gs://')) return false;
+
   try {
-    const rmArgs = ['storage', 'rm', uri];
+    const rmArgs = ['storage', 'rm', '--', uri];
     if (cfg?.projectId) rmArgs.push(`--project=${cfg.projectId}`);
     execFileSync('gcloud', rmArgs, { encoding: 'utf-8', stdio: 'pipe' });
     return true;
