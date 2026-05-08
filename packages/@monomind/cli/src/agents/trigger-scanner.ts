@@ -10,8 +10,8 @@
  * - Invalid regex patterns are silently skipped.
  */
 
-import { readFileSync, readdirSync, statSync } from 'fs';
-import { join, extname } from 'path';
+import { readFileSync, readdirSync, lstatSync } from 'fs';
+import { join, extname, resolve, sep } from 'path';
 import type {
   TriggerPattern,
   TriggerMatch,
@@ -28,6 +28,7 @@ export class TriggerScanner {
   private compiled: CompiledPattern[] = [];
   private patterns: TriggerPattern[] = [];
   private totalAgentsScanned = 0;
+  private buildingIndex = false;
 
   constructor(patterns: TriggerPattern[] = []) {
     for (const p of patterns) {
@@ -80,7 +81,26 @@ export class TriggerScanner {
    * Reads each `.md` file, extracts YAML frontmatter, and looks for
    * `triggers:` entries with `pattern`, `mode`, and optional `priority`.
    */
-  buildIndex(agentDir: string): TriggerIndex {
+  buildIndex(agentDir: string, allowedRoot?: string): TriggerIndex {
+    if (this.buildingIndex) {
+      throw new Error('buildIndex is already running; concurrent invocations are not safe');
+    }
+    this.buildingIndex = true;
+    try {
+      return this._buildIndex(agentDir, allowedRoot);
+    } finally {
+      this.buildingIndex = false;
+    }
+  }
+
+  private _buildIndex(agentDir: string, allowedRoot?: string): TriggerIndex {
+    if (allowedRoot) {
+      const resolvedDir = resolve(agentDir);
+      const resolvedRoot = resolve(allowedRoot);
+      if (!resolvedDir.startsWith(resolvedRoot + sep) && resolvedDir !== resolvedRoot) {
+        throw new Error(`Agent directory escapes workspace: ${resolvedDir}`);
+      }
+    }
     const mdFiles = this.collectMdFiles(agentDir);
     this.patterns = [];
     this.compiled = [];
@@ -150,6 +170,12 @@ export class TriggerScanner {
   // ---------------------------------------------------------------------------
 
   private compileAndAdd(pattern: TriggerPattern): void {
+    if (pattern.pattern.length > 200) return;
+    // Reject patterns with nested/repeated quantifiers (ReDoS vectors)
+    // Covers: (a+)+, (a|b+)+, (a?){n}, ((a)+)+, [a-z]+{n}
+    if (/(\(.*[+*?].*\)|[+*?]){2,}|\{[0-9,]+\}.*[+*?]|(\[[^\]]*\]|\.)[+*?][+*?]/.test(pattern.pattern)) return;
+    if (/\([^)]*([+*][^)]*){2,}\)/.test(pattern.pattern)) return;
+
     try {
       const regex = new RegExp(pattern.pattern, 'i');
       this.patterns.push(pattern);
@@ -167,8 +193,8 @@ export class TriggerScanner {
     this.compiled = indexed.map((x) => x.c);
   }
 
-  /** Recursively collect `.md` files. */
-  private collectMdFiles(dir: string): string[] {
+  /** Recursively collect `.md` files (symlinks skipped, visited inodes tracked). */
+  private collectMdFiles(dir: string, visited = new Set<number>()): string[] {
     const results: string[] = [];
     let entries: string[];
     try {
@@ -178,15 +204,18 @@ export class TriggerScanner {
     }
     for (const entry of entries) {
       const full = join(dir, entry);
-      let stat;
+      let lstat;
       try {
-        stat = statSync(full);
+        lstat = lstatSync(full);
       } catch {
         continue;
       }
-      if (stat.isDirectory()) {
-        results.push(...this.collectMdFiles(full));
-      } else if (stat.isFile() && extname(entry) === '.md') {
+      if (lstat.isSymbolicLink()) continue;
+      if (lstat.isDirectory()) {
+        if (visited.has(lstat.ino)) continue;
+        visited.add(lstat.ino);
+        results.push(...this.collectMdFiles(full, visited));
+      } else if (lstat.isFile() && extname(entry) === '.md') {
         results.push(full);
       }
     }

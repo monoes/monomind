@@ -129,12 +129,17 @@ export function create(
         };
       }
 
-      // Execute command inside container
+      // Execute command inside container without shell to prevent injection.
+      // Split on whitespace; commands requiring shell features must not use this API.
+      const cmdTokens = command.trim().split(/\s+/).filter(Boolean);
+      if (cmdTokens.length === 0) {
+        return { code: 1, stdout: '', stderr: 'Empty command', timedOut: false };
+      }
       try {
         const result = await run([
           'exec', containerName,
           'timeout', String(timeoutSec),
-          'sh', '-c', command,
+          ...cmdTokens,
         ]);
         return {
           code: 0,
