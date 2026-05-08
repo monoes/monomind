@@ -42,7 +42,7 @@ interface ClaimsStore {
 }
 
 // File-based persistence
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 
 const CLAIMS_DIR = '.monomind/claims';
@@ -73,7 +73,10 @@ function loadClaims(): ClaimsStore {
 
 function saveClaims(store: ClaimsStore): void {
   ensureClaimsDir();
-  writeFileSync(getClaimsPath(), JSON.stringify(store, null, 2), 'utf-8');
+  const dest = getClaimsPath();
+  const tmp = `${dest}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf-8');
+  renameSync(tmp, dest);
 }
 
 function formatClaimant(claimant: Claimant): string {
@@ -120,6 +123,11 @@ export const claimsTools: MCPTool[] = [
       const claimantStr = input.claimant as string;
       const context = input.context as string | undefined;
 
+      const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+      if (!issueId || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
+        return { success: false, error: 'Invalid issueId' };
+      }
+
       const claimant = parseClaimant(claimantStr);
       if (!claimant) {
         return { success: false, error: 'Invalid claimant format. Use "human:userId:name" or "agent:agentId:agentType"' };
@@ -127,8 +135,14 @@ export const claimsTools: MCPTool[] = [
 
       const store = loadClaims();
 
-      // Check if already claimed
-      if (store.claims[issueId]) {
+      const MAX_CLAIMS = 10000;
+      if (Object.keys(store.claims).length >= MAX_CLAIMS) {
+        return { success: false, error: 'Claims store at capacity' };
+      }
+
+      // Check if already claimed (Object.hasOwn defends against bracket access
+      // resolving to inherited Object.prototype methods like `toString`)
+      if (Object.hasOwn(store.claims, issueId)) {
         const existing = store.claims[issueId];
         return {
           success: false,
@@ -186,17 +200,21 @@ export const claimsTools: MCPTool[] = [
       const claimantStr = input.claimant as string;
       const reason = input.reason as string | undefined;
 
+      const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+      if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
+        return { success: false, error: 'Invalid issueId' };
+      }
+
       const claimant = parseClaimant(claimantStr);
       if (!claimant) {
         return { success: false, error: 'Invalid claimant format' };
       }
 
       const store = loadClaims();
-      const claim = store.claims[issueId];
-
-      if (!claim) {
+      if (!Object.hasOwn(store.claims, issueId)) {
         return { success: false, error: 'Issue is not claimed' };
       }
+      const claim = store.claims[issueId];
 
       // Verify ownership
       if (formatClaimant(claim.claimant) !== formatClaimant(claimant)) {
@@ -253,6 +271,11 @@ export const claimsTools: MCPTool[] = [
       const reason = input.reason as string | undefined;
       const progress = (input.progress as number) || 0;
 
+      const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+      if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
+        return { success: false, error: 'Invalid issueId' };
+      }
+
       const from = parseClaimant(fromStr);
       const to = parseClaimant(toStr);
 
@@ -261,11 +284,10 @@ export const claimsTools: MCPTool[] = [
       }
 
       const store = loadClaims();
-      const claim = store.claims[issueId];
-
-      if (!claim) {
+      if (!Object.hasOwn(store.claims, issueId)) {
         return { success: false, error: 'Issue is not claimed' };
       }
+      const claim = store.claims[issueId];
 
       if (formatClaimant(claim.claimant) !== formatClaimant(from)) {
         return { success: false, error: 'Only the current claimant can request handoff' };
@@ -311,17 +333,21 @@ export const claimsTools: MCPTool[] = [
       const issueId = input.issueId as string;
       const claimantStr = input.claimant as string;
 
+      const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+      if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
+        return { success: false, error: 'Invalid issueId' };
+      }
+
       const claimant = parseClaimant(claimantStr);
       if (!claimant) {
         return { success: false, error: 'Invalid claimant format' };
       }
 
       const store = loadClaims();
-      const claim = store.claims[issueId];
-
-      if (!claim) {
+      if (!Object.hasOwn(store.claims, issueId)) {
         return { success: false, error: 'Issue is not claimed' };
       }
+      const claim = store.claims[issueId];
 
       if (claim.status !== 'handoff-pending') {
         return { success: false, error: 'No pending handoff for this issue' };
@@ -368,6 +394,10 @@ export const claimsTools: MCPTool[] = [
           description: 'New status',
           enum: ['active', 'paused', 'blocked', 'review-requested', 'completed'],
         },
+        claimant: {
+          type: 'string',
+          description: 'Claimant identifier (must match current owner)',
+        },
         note: {
           type: 'string',
           description: 'Status note or reason',
@@ -382,14 +412,29 @@ export const claimsTools: MCPTool[] = [
     handler: async (input) => {
       const issueId = input.issueId as string;
       const status = input.status as ClaimStatus;
+      const claimantStr = input.claimant as string | undefined;
       const note = input.note as string | undefined;
       const progress = input.progress as number | undefined;
 
+      const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+      if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
+        return { success: false, error: 'Invalid issueId' };
+      }
+
       const store = loadClaims();
+      if (!Object.hasOwn(store.claims, issueId)) {
+        return { success: false, error: 'Issue is not claimed' };
+      }
       const claim = store.claims[issueId];
 
-      if (!claim) {
-        return { success: false, error: 'Issue is not claimed' };
+      if (claimantStr) {
+        const claimant = parseClaimant(claimantStr);
+        if (!claimant) {
+          return { success: false, error: 'Invalid claimant format' };
+        }
+        if (formatClaimant(claim.claimant) !== formatClaimant(claimant)) {
+          return { success: false, error: 'Only the current claimant can update status' };
+        }
       }
 
       const now = new Date().toISOString();
@@ -500,12 +545,16 @@ export const claimsTools: MCPTool[] = [
       const preferredTypes = input.preferredTypes as string[] | undefined;
       const context = input.context as string | undefined;
 
-      const store = loadClaims();
-      const claim = store.claims[issueId];
+      const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+      if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
+        return { success: false, error: 'Invalid issueId' };
+      }
 
-      if (!claim) {
+      const store = loadClaims();
+      if (!Object.hasOwn(store.claims, issueId)) {
         return { success: false, error: 'Issue is not claimed' };
       }
+      const claim = store.claims[issueId];
 
       const now = new Date().toISOString();
       claim.status = 'stealable';
@@ -553,18 +602,22 @@ export const claimsTools: MCPTool[] = [
       const issueId = input.issueId as string;
       const stealerStr = input.stealer as string;
 
+      const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+      if (!issueId || typeof issueId !== 'string' || issueId.length > 256 || RESERVED_KEYS.has(issueId)) {
+        return { success: false, error: 'Invalid issueId' };
+      }
+
       const stealer = parseClaimant(stealerStr);
       if (!stealer) {
         return { success: false, error: 'Invalid claimant format' };
       }
 
       const store = loadClaims();
-      const claim = store.claims[issueId];
-      const stealableInfo = store.stealable[issueId];
-
-      if (!claim) {
+      if (!Object.hasOwn(store.claims, issueId)) {
         return { success: false, error: 'Issue is not claimed' };
       }
+      const claim = store.claims[issueId];
+      const stealableInfo = Object.hasOwn(store.stealable, issueId) ? store.stealable[issueId] : undefined;
 
       if (!stealableInfo) {
         return { success: false, error: 'Issue is not stealable' };

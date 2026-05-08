@@ -17,13 +17,22 @@
  */
 
 import { EventEmitter } from 'events';
-import { spawn, exec, type ChildProcess } from 'child_process';
+import { spawn, exec, execFile, type ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import type { HeadlessWorkerType, HeadlessExecutionResult, SandboxMode } from './headless-worker-executor.js';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+/** Allowlist: registry/name:tag with optional digest — no shell metacharacters */
+const DOCKER_IMAGE_RE = /^[a-zA-Z0-9][a-zA-Z0-9.\-_/:@]*$/;
+function validateDockerImage(image: string): void {
+  if (!DOCKER_IMAGE_RE.test(image)) {
+    throw new Error(`Invalid Docker image name: "${image}"`);
+  }
+}
 
 // ============================================
 // Type Definitions
@@ -258,6 +267,10 @@ export class ContainerWorkerPool extends EventEmitter {
     }
 
     // Queue the task
+    const MAX_TASK_QUEUE = 500;
+    if (this.taskQueue.length >= MAX_TASK_QUEUE) {
+      return this.createErrorResult(options.workerType, 'Task queue is full');
+    }
     return new Promise((resolve, reject) => {
       this.taskQueue.push({
         options,
@@ -374,12 +387,13 @@ export class ContainerWorkerPool extends EventEmitter {
    */
   private async ensureImage(): Promise<void> {
     try {
-      await execAsync(`docker image inspect ${this.config.image}`, { timeout: 10000 });
+      validateDockerImage(this.config.image);
+      await execFileAsync('docker', ['image', 'inspect', this.config.image], { timeout: 10000 });
     } catch {
       // Image not found, try to pull
       this.emit('imagePull', { image: this.config.image });
       try {
-        await execAsync(`docker pull ${this.config.image}`, { timeout: 300000 });
+        await execFileAsync('docker', ['pull', this.config.image], { timeout: 300000 });
       } catch (error) {
         this.emit('warning', { message: `Failed to pull image: ${error}` });
         // Continue anyway - might work with local image
@@ -407,24 +421,49 @@ export class ContainerWorkerPool extends EventEmitter {
     this.emit('containerCreating', { id, name });
 
     try {
-      // Build docker run command
+      // Build docker run command with hardening flags.
+      // Without these flags the container ran with default capabilities and
+      // privilege escalation enabled — combined with a writable host mount
+      // that is JSON-parsed by the daemon, this was a container-to-host RCE
+      // chain (claims.json/daemon-state.json could be rewritten from inside).
+      const stateMount = join(this.projectRoot, this.config.statePath);
       const args = [
         'run', '-d',
         '--name', name,
+        // Resource limits
         '--cpus', this.config.resources.cpus,
         '--memory', this.config.resources.memory,
+        '--pids-limit', '256',
+        // Privilege & capability hardening
+        '--security-opt', 'no-new-privileges:true',
+        '--cap-drop', 'ALL',
+        '--user', '1000:1000',
+        '--ipc', 'none',
+        // Mounts: workspace read-only, state read-only by default with a
+        // narrow rw output channel for the worker to write back results.
         '-v', `${this.projectRoot}:${this.config.workspacePath}:ro`,
-        '-v', `${join(this.projectRoot, this.config.statePath)}:/root/.monomind`,
+        '-v', `${stateMount}:/root/.monomind:ro`,
+        '-v', `${join(stateMount, 'output')}:/output:rw`,
+        // tmpfs for /tmp without exec
+        '--tmpfs', '/tmp:rw,noexec,nosuid,size=64m',
         '-w', this.config.workspacePath,
       ];
 
-      // Add environment variables
-      const env = {
+      // Add environment variables.
+      // SECURITY: ANTHROPIC_API_KEY is intentionally NOT injected via -e here.
+      // Visible via `docker inspect` and process listings on the host, and
+      // exfiltrable by indirect prompt injection via process.env. Containers
+      // that need API access must use a host-side proxy. Set
+      // MONOMIND_CONTAINER_PASS_ANTHROPIC_KEY=1 to opt back in for trusted
+      // single-tenant deployments.
+      const env: Record<string, string> = {
         ...this.config.env,
-        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
         CLAUDE_CODE_HEADLESS: 'true',
         CLAUDE_CODE_SANDBOX_MODE: this.config.defaultSandbox,
       };
+      if (process.env.MONOMIND_CONTAINER_PASS_ANTHROPIC_KEY === '1' && process.env.ANTHROPIC_API_KEY) {
+        env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+      }
 
       for (const [key, value] of Object.entries(env)) {
         if (value) {
@@ -441,7 +480,7 @@ export class ContainerWorkerPool extends EventEmitter {
       args.push(this.config.image, 'tail', '-f', '/dev/null');
 
       // Create the container (async)
-      const { stdout } = await execAsync(`docker ${args.join(' ')}`, { timeout: 60000 });
+      const { stdout } = await execFileAsync('docker', args, { timeout: 60000 });
       const containerId = stdout.trim();
 
       containerInfo.state = 'ready';
@@ -465,7 +504,7 @@ export class ContainerWorkerPool extends EventEmitter {
     container.state = 'terminated';
 
     try {
-      await execAsync(`docker rm -f ${container.name}`, { timeout: 30000 });
+      await execFileAsync('docker', ['rm', '-f', container.name], { timeout: 30000 });
     } catch {
       // Ignore removal errors
     }
@@ -589,11 +628,14 @@ export class ContainerWorkerPool extends EventEmitter {
       let stderr = '';
       let timedOut = false;
 
+      let exited = false;
+      child.once('exit', () => { exited = true; });
+
       const timeout = setTimeout(() => {
         timedOut = true;
         child.kill('SIGTERM');
         setTimeout(() => {
-          if (!child.killed) {
+          if (!exited) {
             child.kill('SIGKILL');
           }
         }, 5000);
@@ -683,8 +725,9 @@ export class ContainerWorkerPool extends EventEmitter {
 
       try {
         // Check if container is running (async)
-        const { stdout } = await execAsync(
-          `docker inspect -f '{{.State.Running}}' ${container.name}`,
+        const { stdout } = await execFileAsync(
+          'docker',
+          ['inspect', '-f', '{{.State.Running}}', container.name],
           { timeout: 10000 }
         );
         const output = stdout.trim();

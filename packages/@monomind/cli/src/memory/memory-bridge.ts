@@ -20,11 +20,47 @@
 import * as path from 'path';
 import * as crypto from 'crypto';
 
+/**
+ * Validate a deserialized embedding before use in cosineSim/HNSW math.
+ *
+ * SECURITY: stored embeddings come from the same write path that any agent or
+ * imported pattern bundle can use. Without validation, an attacker can store an
+ * embedding of `[1e9 numbers]` (50 MB JSON parse cost), inject NaN values that
+ * poison ranking via NaN-comparison undefined behavior, or pass huge dimensions
+ * that make cosineSim O(N) per row blow up. The 1000-row search cap then
+ * amplifies a single poisoned row into multi-GB allocations on every search.
+ *
+ * Returns the parsed embedding when valid, or null when the JSON should be
+ * skipped (caller treats it like "no embedding stored").
+ */
+const MAX_EMBEDDING_DIMS = 8192;
+const MAX_EMBEDDING_JSON_BYTES = MAX_EMBEDDING_DIMS * 32; // ~256KB ceiling
+
+export function safeParseEmbedding(raw: string | null | undefined): number[] | null {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  if (raw.length > MAX_EMBEDDING_JSON_BYTES) return null;
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { return null; }
+  if (!Array.isArray(parsed)) return null;
+  if (parsed.length === 0 || parsed.length > MAX_EMBEDDING_DIMS) return null;
+  for (let i = 0; i < parsed.length; i++) {
+    const v = parsed[i];
+    if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+  }
+  return parsed as number[];
+}
+
 // ===== Lazy singleton =====
+// registryInstance is typed as `any` because ControllerRegistry lives in @monomind/memory
+// and cross-package type resolution is currently broken. When that is fixed, replace with
+// the real import: import type { ControllerRegistry } from '@monomind/memory'.
 
 let registryPromise: Promise<any> | null = null;
 let registryInstance: any = null;
 let bridgeAvailable: boolean | null = null;
+
+/** Backpressure flag for A-MEM Zettelkasten linking — see bridgeStoreEntry. */
+let _amemInFlight = false;
 
 /**
  * Resolve database path with path traversal protection.
@@ -36,9 +72,10 @@ function getDbPath(customPath?: string): string {
   if (!customPath) return path.join(swarmDir, 'memory.db');
   if (customPath === ':memory:') return ':memory:';
   const resolved = path.resolve(customPath);
-  // Ensure the path doesn't escape the working directory
+  // Ensure the path doesn't escape the working directory (path-separator-aware check)
   const cwd = process.cwd();
-  if (!resolved.startsWith(cwd)) {
+  const rel = path.relative(cwd, resolved);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
     return path.join(swarmDir, 'memory.db'); // fallback to safe default
   }
   return resolved;
@@ -63,7 +100,7 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
   if (!registryPromise) {
     registryPromise = (async () => {
       try {
-        const { ControllerRegistry } = await import('@monomind/memory');
+        const { ControllerRegistry } = await import('@monomind/memory' as string);
         const registry = new ControllerRegistry();
 
         // Suppress noisy console.log during init
@@ -131,7 +168,7 @@ function bm25Score(
 
   let score = 0;
   for (const term of queryTerms) {
-    const tf = docWords.filter(w => w === term || w.includes(term)).length;
+    const tf = docWords.filter(w => w === term).length;
     if (tf === 0) continue;
 
     const df = termDocFreqs.get(term) || 1;
@@ -262,6 +299,8 @@ async function logAttestation(
   }
 }
 
+const _dbInitialized = new WeakSet<object>();
+
 /**
  * Get the AgentDB database handle and ensure memory_entries table exists.
  * Returns null if not available.
@@ -271,6 +310,8 @@ function getDb(registry: any): any | null {
   if (!agentdb?.database) return null;
 
   const db = agentdb.database;
+
+  if (_dbInitialized.has(db)) return { db, agentdb };
 
   // Ensure memory_entries table exists (idempotent)
   try {
@@ -313,6 +354,7 @@ function getDb(registry: any): any | null {
   } catch {
     // Table already exists or db is read-only — that's fine
   }
+  _dbInitialized.add(db);
 
   return { db, agentdb };
 }
@@ -349,7 +391,16 @@ export async function bridgeStoreEntry(options: {
   if (!ctx) return null;
 
   try {
-    const { key, value, namespace = 'default', tags = [], ttl } = options;
+    const { key, value, namespace = 'default', tags: rawTags = [], ttl } = options;
+    // SECURITY: cap tags array length and per-tag length. Without these, any
+    // memory_store caller (every spawned agent) could submit
+    // tags: new Array(1e5).fill("x".repeat(1e4)) → ~1GB persisted blob,
+    // re-parsed on every bridgeGetEntry. Mirrors the embedding/BM25 caps.
+    const MAX_TAGS = 32;
+    const MAX_TAG_LEN = 64;
+    const tags = Array.isArray(rawTags)
+      ? rawTags.filter(t => typeof t === 'string' && t.length > 0 && t.length <= MAX_TAG_LEN).slice(0, MAX_TAGS)
+      : [];
     const id = generateId('entry');
     const now = Date.now();
 
@@ -403,11 +454,7 @@ export async function bridgeStoreEntry(options: {
       ttl ? now + (ttl * 1000) : null
     );
 
-    // Phase 2: Write-through to TieredCache
-    const safeNs = String(namespace).replace(/:/g, '_');
-    const safeKey = String(key).replace(/:/g, '_');
-    const cacheKey = `entry:${safeNs}:${safeKey}`;
-    await cacheSet(registry, cacheKey, { id, key, namespace, content: value, embedding: embeddingJson });
+    // Phase 2: Write-through to TieredCache deferred — full entry populated on first read
 
     // Phase 4: AttestationLog write audit
     await logAttestation(registry, 'store', id, { key, namespace, hasEmbedding: !!embeddingJson });
@@ -423,30 +470,40 @@ export async function bridgeStoreEntry(options: {
 
     // A-MEM: Post-write Zettelkasten linking — find top-3 semantic neighbors and create causal edges
     // Source: https://arxiv.org/abs/2502.12110
-    void (async () => {
-      try {
-        const neighbors = await bridgeSearchEntries({
-          query: options.value,  // A-MEM: search by content, not key string
-          namespace: options.namespace,
-          limit: 3,
-          threshold: 0.7,
-          dbPath: options.dbPath,
-        });
-        if (neighbors?.results) {
-          for (const neighbor of neighbors.results) {
-            if (neighbor.id !== id) {
-              await bridgeRecordCausalEdge({
-                sourceId: id,
-                targetId: neighbor.id,
-                relation: 'similar',
-                weight: neighbor.score,
-                dbPath: options.dbPath,
-              });
+    //
+    // Backpressure: limit concurrent A-MEM linking to 1 per process. Without this
+    // a burst of N concurrent stores triggers N full-corpus searches in flight,
+    // each O(rows × dims) on cosineSim, which combined with poisoned embeddings
+    // can wedge the process. We drop new linking work if one is already running.
+    if (!_amemInFlight) {
+      _amemInFlight = true;
+      void (async () => {
+        try {
+          const neighbors = await bridgeSearchEntries({
+            query: options.value,
+            namespace: options.namespace,
+            limit: 3,
+            threshold: 0.7,
+            dbPath: options.dbPath,
+          });
+          if (neighbors?.results) {
+            for (const neighbor of neighbors.results) {
+              if (neighbor.id !== id) {
+                await bridgeRecordCausalEdge({
+                  sourceId: id,
+                  targetId: neighbor.id,
+                  relation: 'similar',
+                  weight: neighbor.score,
+                  dbPath: options.dbPath,
+                });
+              }
             }
           }
+        } catch { /* non-critical background operation */ } finally {
+          _amemInFlight = false;
         }
-      } catch { /* non-critical background operation */ }
-    })();
+      })();
+    }
 
     return storeResult;
   } catch {
@@ -520,8 +577,14 @@ export async function bridgeSearchEntries(options: {
       return null;
     }
 
-    // Phase 2: Compute BM25 term stats for the corpus
-    const queryTerms = queryStr.toLowerCase().split(/\s+/).filter(t => t.length > 1);
+    // Phase 2: Compute BM25 term stats for the corpus.
+    // Cap query terms to 32 — bm25Score is O(terms × rows × words/row), so an
+    // attacker passing "x ".repeat(10000) would otherwise burn multi-second CPU per
+    // search, and the post-store fan-out (bridgeStoreEntry IIFE) amplifies this.
+    const MAX_QUERY_TERMS = 32;
+    const queryTerms = Array.from(new Set(
+      queryStr.toLowerCase().split(/\s+/).filter(t => t.length > 1)
+    )).slice(0, MAX_QUERY_TERMS);
     const { termDocFreqs, avgDocLength } = computeTermDocFreqs(queryTerms, rows);
     const docCount = rows.length;
 
@@ -531,13 +594,12 @@ export async function bridgeSearchEntries(options: {
       let semanticScore = 0;
       let bm25ScoreVal = 0;
 
-      // Semantic scoring via cosine similarity
+      // Semantic scoring via cosine similarity (validated to reject oversized,
+      // NaN-poisoned, or non-array embeddings — see safeParseEmbedding above).
       if (queryEmbedding && row.embedding) {
-        try {
-          const embedding = JSON.parse(row.embedding) as number[];
+        const embedding = safeParseEmbedding(row.embedding);
+        if (embedding && embedding.length === queryEmbedding.length) {
           semanticScore = cosineSim(queryEmbedding, embedding);
-        } catch {
-          // Invalid embedding
         }
       }
 
@@ -561,7 +623,7 @@ export async function bridgeSearchEntries(options: {
           : `bm25:${bm25ScoreVal.toFixed(3)}`;
 
         results.push({
-          id: String(row.id).substring(0, 12),
+          id: String(row.id),
           key: row.key || String(row.id).substring(0, 15),
           content: (row.content || '').substring(0, 60) + ((row.content || '').length > 60 ? '...' : ''),
           score,
@@ -644,13 +706,13 @@ export async function bridgeListEntries(options: {
       const rows = stmt.all(...nsParams, limit, offset);
       for (const row of rows) {
         entries.push({
-          id: String(row.id).substring(0, 20),
+          id: String(row.id),
           key: row.key || String(row.id).substring(0, 15),
           namespace: row.namespace || 'default',
           size: (row.content || '').length,
           accessCount: row.access_count ?? 0,
-          createdAt: row.created_at || new Date().toISOString(),
-          updatedAt: row.updated_at || new Date().toISOString(),
+          createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+          updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString(),
           hasEmbedding: !!(row.embedding && String(row.embedding).length > 10),
         });
       }
@@ -770,9 +832,17 @@ export async function bridgeGetEntry(options: {
       } catch { /* non-critical */ }
     }
 
+    // Bounded tags read — refuse to JSON.parse a multi-MB tags blob that an
+    // older write may have persisted before the write-side cap was added.
+    const MAX_TAGS_JSON_BYTES = 32 * 64 + 256;
     let tags: string[] = [];
-    if (row.tags) {
-      try { tags = JSON.parse(row.tags); } catch { /* invalid */ }
+    if (row.tags && typeof row.tags === 'string' && row.tags.length <= MAX_TAGS_JSON_BYTES) {
+      try {
+        const parsed = JSON.parse(row.tags);
+        if (Array.isArray(parsed)) {
+          tags = parsed.filter((t: unknown): t is string => typeof t === 'string' && t.length <= 64).slice(0, 32);
+        }
+      } catch { /* invalid */ }
     }
 
     const entry = {
@@ -781,8 +851,8 @@ export async function bridgeGetEntry(options: {
       namespace: row.namespace || 'default',
       content: row.content || '',
       accessCount: (row.access_count ?? 0) + 1,
-      createdAt: row.created_at || new Date().toISOString(),
-      updatedAt: row.updated_at || new Date().toISOString(),
+      createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+      updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString(),
       hasEmbedding: !!(row.embedding && String(row.embedding).length > 10),
       tags,
     };
@@ -1033,11 +1103,12 @@ export async function bridgeSearchHNSW(
     for (const row of rows) {
       if (!row.embedding) continue;
       try {
-        const emb = JSON.parse(row.embedding) as number[];
+        const emb = safeParseEmbedding(row.embedding);
+        if (!emb || emb.length !== queryEmbedding.length) continue;
         const score = cosineSim(queryEmbedding, emb);
         if (score >= threshold) {
           results.push({
-            id: String(row.id).substring(0, 12),
+            id: String(row.id),
             key: row.key || String(row.id).substring(0, 15),
             content: (row.content || '').substring(0, 60) +
               ((row.content || '').length > 60 ? '...' : ''),
