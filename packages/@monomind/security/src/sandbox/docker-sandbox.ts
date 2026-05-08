@@ -2,16 +2,22 @@
  * Docker Sandbox - Container-based agent isolation
  *
  * Wraps Docker CLI to provide per-agent container sandboxing.
- * Tests should mock the exec function rather than running Docker.
+ * Tests should mock the execFn rather than running Docker.
  *
  * @module v1/security/sandbox/docker-sandbox
  */
 
-import { exec as execCb } from 'node:child_process';
+import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { SandboxConfig, SandboxExecResult, SandboxRuntime } from './types.js';
 
-const execAsync = promisify(execCb);
+const execFileAsync = promisify(execFileCb);
+
+/** Allowlist pattern for agentId values used in container names */
+const AGENT_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
+
+/** Allowlist pattern for Docker image references */
+const IMAGE_RE = /^[a-zA-Z0-9][a-zA-Z0-9.\-_/:@]{0,255}$/;
 
 /**
  * Builds Docker CLI arguments from a SandboxConfig.
@@ -75,17 +81,30 @@ export function buildDockerArgs(agentId: string, config: SandboxConfig): string[
 /**
  * Creates a DockerSandbox runtime for an agent.
  *
- * @param agentId - Unique agent identifier
+ * All Docker invocations use execFile (no shell) to prevent command injection.
+ *
+ * @param agentId - Unique agent identifier (must match /^[a-zA-Z0-9_-]{1,64}$/)
  * @param config - Sandbox configuration
- * @param execFn - Optional exec override for testing
+ * @param execFn - Optional exec override for testing (receives ['docker', ...args])
  */
 export function create(
   agentId: string,
   config: SandboxConfig,
-  execFn?: (cmd: string) => Promise<{ stdout: string; stderr: string }>,
+  execFn?: (args: string[]) => Promise<{ stdout: string; stderr: string }>,
 ): SandboxRuntime {
-  const run = execFn ?? ((cmd: string) => execAsync(cmd));
+  // Validate agentId and image at the boundary to prevent injection via container names
+  if (!AGENT_ID_RE.test(agentId)) {
+    throw new Error(`Invalid agentId "${agentId}" — must match ${AGENT_ID_RE.source}`);
+  }
   const image = config.image ?? 'node:20-slim';
+  if (!IMAGE_RE.test(image)) {
+    throw new Error(`Invalid Docker image reference "${image}"`);
+  }
+
+  const run = execFn ?? ((args: string[]) =>
+    execFileAsync('docker', args, { encoding: 'utf-8' }) as Promise<{ stdout: string; stderr: string }>
+  );
+
   const containerName = `monomind-sandbox-${agentId}`;
   const defaultTimeout = config.timeout_ms ?? 30000;
 
@@ -98,11 +117,9 @@ export function create(
       const timeoutSec = Math.ceil(timeout / 1000);
       const dockerArgs = buildDockerArgs(agentId, config);
 
-      // Start container in detached mode
-      const runCmd = `docker run -d ${dockerArgs.join(' ')} ${image} sleep ${timeoutSec + 10}`;
-
+      // Start container in detached mode — no shell, args array prevents injection
       try {
-        await run(runCmd);
+        await run(['run', '-d', ...dockerArgs, image, 'sleep', String(timeoutSec + 10)]);
       } catch {
         return {
           code: 1,
@@ -114,8 +131,11 @@ export function create(
 
       // Execute command inside container
       try {
-        const execCmd = `docker exec ${containerName} timeout ${timeoutSec} sh -c ${JSON.stringify(command)}`;
-        const result = await run(execCmd);
+        const result = await run([
+          'exec', containerName,
+          'timeout', String(timeoutSec),
+          'sh', '-c', command,
+        ]);
         return {
           code: 0,
           stdout: result.stdout,
@@ -143,16 +163,16 @@ export function create(
 
     async destroy(): Promise<void> {
       try {
-        await run(`docker stop ${containerName}`);
-        await run(`docker rm -f ${containerName}`);
+        await run(['stop', containerName]);
+        await run(['rm', '-f', containerName]);
       } catch {
-        // Container may already be stopped/removed
+        // Container may already be stopped/removed; force-rm is best-effort
       }
     },
 
     async getStats(): Promise<Record<string, unknown>> {
       try {
-        const result = await run(`docker stats ${containerName} --no-stream --format "{{json .}}"`);
+        const result = await run(['stats', containerName, '--no-stream', '--format', '{{json .}}']);
         return JSON.parse(result.stdout) as Record<string, unknown>;
       } catch {
         return { type: 'docker', agentId, status: 'unavailable' };

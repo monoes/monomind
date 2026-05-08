@@ -5,7 +5,9 @@
  */
 
 import { appendFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
+import { createHmac } from 'crypto';
 import { dirname, join } from 'path';
+import { parseJsonl } from '../utils/parse-jsonl.js';
 import { deriveSigningKey, signVote, verifyVote } from './vote-signer.js';
 import type {
   ConsensusAuditRecord,
@@ -67,11 +69,12 @@ export class AuditWriter {
       satisfied: achieved >= input.quorumRequired,
     };
 
-    // Compute duration
-    const durationMs =
-      new Date(input.completedAt).getTime() - new Date(input.startedAt).getTime();
+    // Compute duration (guard against invalid date strings)
+    const startMs = new Date(input.startedAt).getTime();
+    const endMs = new Date(input.completedAt).getTime();
+    const durationMs: number | null = isNaN(startMs) || isNaN(endMs) ? null : endMs - startMs;
 
-    const record: ConsensusAuditRecord = {
+    const recordWithoutSig: Omit<ConsensusAuditRecord, 'recordSignature'> = {
       decisionId: input.decisionId,
       swarmId: input.swarmId,
       protocol: input.protocol,
@@ -85,6 +88,14 @@ export class AuditWriter {
       completedAt: input.completedAt,
       durationMs,
     };
+
+    // Sign the full outer record so decision, quorumProof, and metadata are tamper-evident.
+    // Previously only individual votes were signed; this extends coverage to all fields.
+    const recordSignature = createHmac('sha256', key)
+      .update(JSON.stringify(recordWithoutSig))
+      .digest('hex');
+
+    const record: ConsensusAuditRecord = { ...recordWithoutSig, recordSignature };
 
     // Persist audit record
     this.appendLine(this.auditPath, record);
@@ -135,6 +146,8 @@ export class AuditWriter {
   // ── helpers ──
 
   private appendLine(filePath: string, data: unknown): void {
+    // Audit writes must be reliable — propagate errors so callers know the audit trail
+    // is incomplete (silent failure defeats tamper-evidence)
     const dir = dirname(filePath);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
@@ -144,8 +157,11 @@ export class AuditWriter {
 
   private readLines<T>(filePath: string): T[] {
     if (!existsSync(filePath)) return [];
-    const content = readFileSync(filePath, 'utf-8').trim();
-    if (!content) return [];
-    return content.split('\n').map((line) => JSON.parse(line) as T);
+    try {
+      const content = readFileSync(filePath, 'utf-8');
+      return parseJsonl<T>(content);
+    } catch {
+      return [];
+    }
   }
 }
