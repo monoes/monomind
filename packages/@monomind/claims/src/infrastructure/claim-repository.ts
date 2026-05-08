@@ -169,7 +169,14 @@ export class InMemoryClaimRepository implements IClaimRepository, IIssueClaimRep
   }
 
   async countByClaimant(claimantId: string): Promise<number> {
-    return this.claimantIndex.get(claimantId)?.size ?? 0;
+    const ids = this.claimantIndex.get(claimantId);
+    if (!ids) return 0;
+    let count = 0;
+    for (const id of ids) {
+      const claim = this.claims.get(id);
+      if (claim && this.isActiveStatus(claim.status)) count++;
+    }
+    return count;
   }
 
   async countByAgentId(agentId: string): Promise<number> {

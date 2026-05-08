@@ -251,7 +251,7 @@ export class PluginDiscoveryService {
     };
 
     // Cache the demo registry
-    this.cache.set(registry.ipnsName, {
+    this.cache.set(registry.name, {
       registry: demoRegistry,
       timestamp: Date.now(),
     });
@@ -849,7 +849,7 @@ export class PluginDiscoveryService {
     const content = JSON.stringify({
       version: registry.version,
       updatedAt: registry.updatedAt,
-      plugins: registry.plugins.map(p => p.id),
+      plugins: registry.plugins.map(p => ({ id: p.id, cid: p.cid, checksum: p.checksum, version: p.version })),
       totalPlugins: registry.totalPlugins,
     });
     try {

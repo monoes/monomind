@@ -4,6 +4,14 @@ import { evaluateCondition } from './condition-evaluator.js';
 
 const DEFAULT_MAP_CONCURRENCY = 10;
 
+function classifyWorkflowError(err: Error): 'RATE_LIMIT' | 'TIMEOUT' | 'VALIDATION' | 'UNKNOWN' {
+  const msg = err.message.toLowerCase();
+  if (msg.includes('rate limit') || msg.includes('429') || msg.includes('too many requests')) return 'RATE_LIMIT';
+  if (msg.includes('timed out') || msg.includes('timeout')) return 'TIMEOUT';
+  if (msg.includes('validation') || msg.includes('invalid') || msg.includes('schema')) return 'VALIDATION';
+  return 'UNKNOWN';
+}
+
 async function mapWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
@@ -168,9 +176,8 @@ export class WorkflowExecutor {
 
         // Only retry for configured error categories (default: retry all)
         if (retryOn && retryOn.length > 0) {
-          const msg = err instanceof Error ? err.message.toUpperCase() : '';
-          const shouldRetry = retryOn.some((category) => msg.includes(category));
-          if (!shouldRetry) break;
+          const category = classifyWorkflowError(err instanceof Error ? err : new Error(String(err)));
+          if (!retryOn.includes(category)) break;
         }
 
         const jitter = jitterMs > 0 ? Math.random() * jitterMs : 0;
