@@ -1084,7 +1084,7 @@ function generateDashboard() {
   const swarmDot = swarm.coordinationActive ? `${x.green}● LIVE${x.reset}` : `${x.slate}○ IDLE${x.reset}`;
   const projName = getProjectName();
   const cwdName = path.basename(CWD);
-  let hdr = `${x.bold}${x.purple}▊ MonoMind${x.reset} ${x.dim}${VERSION}${x.reset}  ${swarmDot}  ${x.teal}${x.bold}${projName}${x.reset}  ${DIV}  ${x.dim}◎ ${cwdName}${x.reset}`;
+  let hdr = `${x.bold}${x.purple}▊ MonoMind${x.reset} ${x.dim}${VERSION}${x.reset}  ${swarmDot}  ${x.teal}${x.bold}${projName}${x.reset}  ${DIV}  ${x.dim}◎ ${cwdName}${x.reset}  ${DIV}  ${x.violet}⬡ ${git.name}${x.reset}`;
 
   if (git.gitBranch) {
     hdr += `  ${DIV}  ${x.sky}⎇ ${x.bold}${git.gitBranch}${x.reset}`;
