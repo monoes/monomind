@@ -96,7 +96,8 @@ export class SecurityContext {
 
     // Check blocked paths first
     for (const blocked of this._blockedPaths) {
-      if (path.startsWith(blocked) || this.matchGlob(path, blocked)) {
+      const sep = blocked.endsWith('/') ? '' : '/';
+      if (path === blocked || path.startsWith(blocked + sep) || this.matchGlob(path, blocked)) {
         return false;
       }
     }
@@ -106,7 +107,8 @@ export class SecurityContext {
 
     // Check allowed paths
     for (const allowed of this._allowedPaths) {
-      if (path.startsWith(allowed) || this.matchGlob(path, allowed)) {
+      const sep = allowed.endsWith('/') ? '' : '/';
+      if (path === allowed || path.startsWith(allowed + sep) || this.matchGlob(path, allowed)) {
         return true;
       }
     }
@@ -132,9 +134,11 @@ export class SecurityContext {
   }
 
   private matchGlob(path: string, pattern: string): boolean {
-    const regex = pattern
-      .replace(/\*\*/g, '.*')
-      .replace(/\*/g, '[^/]*')
+    // Escape regex metacharacters before expanding glob wildcards
+    const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    const regex = escaped
+      .replace(/\\\*\\\*/g, '.*')
+      .replace(/\\\*/g, '[^/]*')
       .replace(/\?/g, '.');
     return new RegExp(`^${regex}$`).test(path);
   }
