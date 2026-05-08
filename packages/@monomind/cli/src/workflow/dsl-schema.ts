@@ -31,7 +31,7 @@ export const agentStepSchema = z.object({
 export const parallelStepSchema = z.object({
   id: z.string().min(1),
   type: z.literal('parallel'),
-  steps: z.array(lazyStep).min(2),
+  steps: z.array(lazyStep).min(2).max(50),
 });
 
 export const sequenceStepSchema = z.object({
@@ -56,6 +56,7 @@ export const mapReduceStepSchema = z.object({
   map_task: z.string().min(1),
   reduce_agent: z.string().min(1),
   reduce_task: z.string().min(1),
+  concurrent: z.number().int().min(1).max(500).optional(),
 });
 
 export const loopStepSchema = z.object({

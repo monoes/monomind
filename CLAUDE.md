@@ -236,6 +236,8 @@ Topology: hierarchical | Max Agents: 8 | Strategy: specialized | Consensus: raft
 ## Quick Setup
 
 ```bash
+# MCP mode requires explicit `mcp start` subcommand (auto-detect disabled by default)
+# Set MONOMIND_MCP_AUTODETECT=1 to restore legacy piped-stdin auto-detect behavior
 claude mcp add monomind npx monomind@latest mcp start
 npx monomind@latest daemon start
 npx monomind@latest doctor --fix

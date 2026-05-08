@@ -2,6 +2,34 @@ import type { WorkflowDefinition, WorkflowStep } from './dsl-schema.js';
 import { substitute } from './template-engine.js';
 import { evaluateCondition } from './condition-evaluator.js';
 
+const DEFAULT_MAP_CONCURRENCY = 10;
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T, idx: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  async function worker(): Promise<void> {
+    while (next < items.length) {
+      const idx = next++;
+      results[idx] = await fn(items[idx], idx);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return results;
+}
+
+const BLOCKED_CONTEXT_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const SAFE_KEY_RE = /^[a-zA-Z_$][a-zA-Z0-9_$.\-]*$/;
+function safeContextWrite(context: Record<string, unknown>, key: string, value: unknown): void {
+  if (!SAFE_KEY_RE.test(key) || BLOCKED_CONTEXT_KEYS.has(key)) {
+    throw new Error(`Unsafe workflow context key rejected: "${key}"`);
+  }
+  context[key] = value;
+}
+
 // ---------- Public types ----------
 
 export interface AgentDispatcher {
@@ -96,10 +124,10 @@ export class WorkflowExecutor {
 
     // Store output in context if output_key is set
     if (step.output_key) {
-      context[step.output_key] = output;
+      safeContextWrite(context, step.output_key, output);
     }
     // Always store by step id
-    context[step.id] = output;
+    safeContextWrite(context, step.id, output);
 
     return { stepId: step.id, output, status: 'success' };
   }
@@ -147,31 +175,41 @@ export class WorkflowExecutor {
   ): Promise<StepResult[]> {
     // Resolve items from context
     const resolvedItems = substitute(step.items, context);
+    if (resolvedItems.length > 1_000_000) {
+      throw new Error(
+        `map_reduce step "${step.id}": items string exceeds 1MB size limit`,
+      );
+    }
     let items: unknown[];
     try {
       items = JSON.parse(resolvedItems);
       if (!Array.isArray(items)) throw new Error('not an array');
     } catch {
       throw new Error(
-        `map_reduce step "${step.id}": items must resolve to a JSON array, got: ${resolvedItems}`,
+        `map_reduce step "${step.id}": items must resolve to a JSON array, got: ${resolvedItems.slice(0, 200)}`,
+      );
+    }
+    const MAX_MAP_ITEMS = 500;
+    if (items.length > MAX_MAP_ITEMS) {
+      throw new Error(
+        `map_reduce step "${step.id}": ${items.length} items exceeds limit of ${MAX_MAP_ITEMS}`,
       );
     }
 
-    // Map phase: fan-out to map_agent
-    const mapResults = await Promise.all(
-      items.map(async (item, idx) => {
-        const taskStr = substitute(step.map_task, { ...context, item });
-        const output = await this.dispatcher.dispatch(step.map_agent, taskStr, {
-          ...context,
-          item,
-        });
-        return { stepId: `${step.id}.map[${idx}]`, output, status: 'success' as const };
-      }),
-    );
+    // Map phase: fan-out to map_agent with concurrency cap (default 10, override via --concurrent)
+    const concurrency = (step as any).concurrent ?? DEFAULT_MAP_CONCURRENCY;
+    const mapResults = await mapWithConcurrency(items, concurrency, async (item, idx) => {
+      const taskStr = substitute(step.map_task, { ...context, item });
+      const output = await this.dispatcher.dispatch(step.map_agent, taskStr, {
+        ...context,
+        item,
+      });
+      return { stepId: `${step.id}.map[${idx}]`, output, status: 'success' as const };
+    });
 
     // Store mapped outputs for reduce
     const mapOutputs = mapResults.map((r) => r.output);
-    context[`${step.id}_map_results`] = mapOutputs;
+    safeContextWrite(context, `${step.id}_map_results`, mapOutputs);
 
     // Reduce phase
     const reduceTask = substitute(step.reduce_task, {
@@ -184,7 +222,7 @@ export class WorkflowExecutor {
       { ...context, map_results: mapOutputs },
     );
 
-    context[step.id] = reduceOutput;
+    safeContextWrite(context, step.id, reduceOutput);
 
     return [
       ...mapResults,

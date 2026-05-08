@@ -11,7 +11,7 @@
  * @module v1/cli/intelligence
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -458,8 +458,24 @@ class LocalReasoningBank {
       if (existsSync(path)) {
         const data = JSON.parse(readFileSync(path, 'utf-8'));
         if (Array.isArray(data)) {
+          // Validate each persisted pattern. The patterns file is part of the
+          // IPFS-distributed pattern transfer flow — without bounds checks, a
+          // malicious bundle can inject `confidence: 1e9` (deterministically wins
+          // every routing decision) or `keywords: [10000 strings]` (DoS on every
+          // findBestPatternMatch call).
           for (const pattern of data) {
-            this.patterns.set(pattern.id, pattern);
+            if (!pattern || typeof pattern !== 'object') continue;
+            const id = (pattern as Record<string, unknown>).id;
+            if (typeof id !== 'string' || id.length === 0 || id.length > 256) continue;
+            const conf = (pattern as Record<string, unknown>).confidence;
+            if (conf !== undefined && (typeof conf !== 'number' || !Number.isFinite(conf) || conf < 0 || conf > 1)) {
+              continue;
+            }
+            const keywords = (pattern as Record<string, unknown>).keywords;
+            if (keywords !== undefined && (!Array.isArray(keywords) || keywords.length > 64)) {
+              continue;
+            }
+            this.patterns.set(id, pattern);
             this.patternList.push(pattern);
           }
         }
@@ -496,7 +512,9 @@ class LocalReasoningBank {
     try {
       ensureDataDir();
       const path = getPatternsPath();
-      writeFileSync(path, JSON.stringify(this.patternList, null, 2), 'utf-8');
+      const tmp = `${path}.${process.pid}.${Date.now()}.tmp`;
+      writeFileSync(tmp, JSON.stringify(this.patternList, null, 2), 'utf-8');
+      renameSync(tmp, path);
       this.dirty = false;
     } catch (error) {
       // Log but don't throw - persistence failures shouldn't break training
@@ -662,6 +680,7 @@ class LocalReasoningBank {
 let sonaCoordinator: LocalSonaCoordinator | null = null;
 let reasoningBank: LocalReasoningBank | null = null;
 let intelligenceInitialized = false;
+let initPromise: Promise<{ success: boolean; sonaEnabled: boolean; reasoningBankEnabled: boolean; error?: string }> | null = null;
 let globalStats = {
   trajectoriesRecorded: 0,
   lastAdaptation: null as number | null
@@ -710,20 +729,12 @@ function savePersistedStats(): void {
  * Initialize the intelligence system (SONA + ReasoningBank)
  * Uses optimized local implementations
  */
-export async function initializeIntelligence(config?: Partial<SonaConfig>): Promise<{
+async function _doInitializeIntelligence(config?: Partial<SonaConfig>): Promise<{
   success: boolean;
   sonaEnabled: boolean;
   reasoningBankEnabled: boolean;
   error?: string;
 }> {
-  if (intelligenceInitialized) {
-    return {
-      success: true,
-      sonaEnabled: !!sonaCoordinator,
-      reasoningBankEnabled: !!reasoningBank
-    };
-  }
-
   try {
     // Merge config with defaults
     const finalConfig: SonaConfig = {
@@ -758,6 +769,25 @@ export async function initializeIntelligence(config?: Partial<SonaConfig>): Prom
       error: error instanceof Error ? error.message : String(error)
     };
   }
+}
+
+/**
+ * Initialize the intelligence system (SONA + ReasoningBank).
+ * Promise-based singleton: concurrent callers share a single init flight.
+ */
+export async function initializeIntelligence(config?: Partial<SonaConfig>): Promise<{
+  success: boolean;
+  sonaEnabled: boolean;
+  reasoningBankEnabled: boolean;
+  error?: string;
+}> {
+  if (intelligenceInitialized) {
+    return { success: true, sonaEnabled: !!sonaCoordinator, reasoningBankEnabled: !!reasoningBank };
+  }
+  if (!initPromise) {
+    initPromise = _doInitializeIntelligence(config);
+  }
+  return initPromise;
 }
 
 /**
@@ -829,7 +859,6 @@ export async function recordStep(step: TrajectoryStep): Promise<boolean> {
     }
 
     globalStats.trajectoriesRecorded++;
-    savePersistedStats();
     return true;
   } catch {
     return false;
@@ -1041,7 +1070,7 @@ export function benchmarkAdaptation(iterations: number = 1000): {
   targetMet: boolean;
 } {
   if (!sonaCoordinator) {
-    initializeIntelligence();
+    return { totalMs: 0, avgMs: 0, minMs: 0, maxMs: 0, targetMet: false };
   }
 
   const times: number[] = [];
@@ -1049,7 +1078,7 @@ export function benchmarkAdaptation(iterations: number = 1000): {
 
   for (let i = 0; i < iterations; i++) {
     const start = performance.now();
-    sonaCoordinator!.recordSignal({
+    sonaCoordinator.recordSignal({
       type: 'test',
       content: `benchmark_${i}`,
       embedding: testEmbedding,

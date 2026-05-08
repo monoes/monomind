@@ -69,10 +69,14 @@ export class ConfigFileManager {
         return candidate;
       }
     }
-    // Check env var
+    // Check env var — must resolve within project root
     const envPath = process.env.MONOMIND_CONFIG;
-    if (envPath && fs.existsSync(envPath)) {
-      return path.resolve(envPath);
+    if (envPath) {
+      const resolved = path.resolve(envPath);
+      const projectRoot = path.resolve(cwd);
+      if ((resolved.startsWith(projectRoot + path.sep) || resolved === projectRoot) && fs.existsSync(resolved)) {
+        return resolved;
+      }
     }
     return null;
   }
@@ -86,7 +90,8 @@ export class ConfigFileManager {
     }
     try {
       const content = fs.readFileSync(this.configPath, 'utf-8');
-      this.config = JSON.parse(content);
+      const parsed = JSON.parse(content);
+      this.config = sanitizeConfigObject(parsed) as Record<string, unknown>;
       return this.config;
     } catch {
       this.config = null;
@@ -108,13 +113,40 @@ export class ConfigFileManager {
     return getNestedValue(config, key);
   }
 
-  /** Set a nested config value by dot-separated key */
+  /** Set a nested config value by dot-separated key.
+   * Enforces top-level section allowlist (mirroring importFrom) and recursively
+   * sanitises the value to strip prototype-pollution keys before persistence.
+   *
+   * Re-reads the file from disk inside the write to guard against the
+   * read-modify-write credential-clobber race. Without the re-read, two
+   * concurrent `monomind providers configure` calls would each see the
+   * original config, mutate locally, and the second writer would silently
+   * drop the first writer's API key.
+   */
   set(cwd: string, key: string, value: unknown): void {
-    const config = this.getConfig(cwd);
-    setNestedValue(config, key, value);
-    this.config = config;
-    const targetPath = this.configPath ?? path.resolve(cwd, CONFIG_FILENAMES[0]);
-    this.writeAtomic(targetPath, config);
+    const KNOWN_SET_SECTIONS = new Set(['version', 'agents', 'swarm', 'memory', 'mcp', 'cli', 'hooks']);
+    const topSection = String(key).split('.')[0];
+    if (!KNOWN_SET_SECTIONS.has(topSection)) {
+      throw new Error(`Unknown config section: "${topSection}". Allowed: ${[...KNOWN_SET_SECTIONS].join(', ')}`);
+    }
+    const sanitisedValue = sanitizeConfigObject(value);
+    const targetPath = this.configPath ?? this.findConfig(cwd) ?? path.resolve(cwd, CONFIG_FILENAMES[0]);
+
+    // Re-read from disk inside the write window so we operate on the latest
+    // bytes, not on a possibly-stale this.config cache. This still isn't
+    // cross-process atomic without an OS-level flock, but combined with the
+    // O_EXCL atomic rename it prevents the most common credential-clobber
+    // window where two CLIs interleave their getConfig→set→write cycles.
+    let onDisk: Record<string, unknown> = { ...DEFAULT_CONFIG };
+    if (fs.existsSync(targetPath)) {
+      try {
+        const parsed = JSON.parse(fs.readFileSync(targetPath, 'utf-8'));
+        onDisk = sanitizeConfigObject(parsed) as Record<string, unknown>;
+      } catch { /* fall through to defaults */ }
+    }
+    setNestedValue(onDisk, key, sanitisedValue);
+    this.writeAtomic(targetPath, onDisk);
+    this.config = onDisk;
     this.configPath = targetPath;
   }
 
@@ -124,7 +156,7 @@ export class ConfigFileManager {
     if (fs.existsSync(targetPath) && !force) {
       throw new Error(`Config file already exists: ${targetPath}. Use --force to overwrite.`);
     }
-    const config = { ...DEFAULT_CONFIG, ...overrides };
+    const config = { ...DEFAULT_CONFIG, ...(overrides ? sanitizeConfigObject(overrides) as Record<string, unknown> : {}) };
     this.writeAtomic(targetPath, config);
     this.config = config;
     this.configPath = targetPath;
@@ -144,6 +176,10 @@ export class ConfigFileManager {
   exportTo(cwd: string, exportPath: string): void {
     const config = this.getConfig(cwd);
     const resolved = path.resolve(cwd, exportPath);
+    const projectRoot = path.resolve(cwd);
+    if (!resolved.startsWith(projectRoot + path.sep) && resolved !== projectRoot) {
+      throw new Error('Export path must be within the project directory');
+    }
     this.writeAtomic(resolved, config);
   }
 
@@ -154,14 +190,24 @@ export class ConfigFileManager {
       throw new Error(`Import file not found: ${resolved}`);
     }
     const content = fs.readFileSync(resolved, 'utf-8');
-    let imported: Record<string, unknown>;
+    let importedRaw: unknown;
     try {
-      imported = JSON.parse(content);
+      importedRaw = JSON.parse(content);
     } catch {
       throw new Error(`Invalid JSON in import file: ${resolved}`);
     }
-    if (typeof imported !== 'object' || imported === null || Array.isArray(imported)) {
+    if (typeof importedRaw !== 'object' || importedRaw === null || Array.isArray(importedRaw)) {
       throw new Error('Import file must contain a JSON object');
+    }
+    // Recursively strip prototype-pollution keys at every nesting level —
+    // KNOWN_SECTIONS only validates top-level keys, leaving nested
+    // {agents:{providers:[{__proto__:{...}}]}} unsanitized.
+    const imported = sanitizeConfigObject(importedRaw) as Record<string, unknown>;
+    const KNOWN_SECTIONS = new Set(['version', 'agents', 'swarm', 'memory', 'mcp', 'cli', 'hooks']);
+    for (const key of Object.keys(imported)) {
+      if (!KNOWN_SECTIONS.has(key)) {
+        throw new Error(`Unknown config section: "${key}"`);
+      }
     }
     const targetPath = this.configPath ?? path.resolve(cwd, CONFIG_FILENAMES[0]);
     this.writeAtomic(targetPath, imported);
@@ -179,21 +225,53 @@ export class ConfigFileManager {
     return { ...DEFAULT_CONFIG };
   }
 
-  /** Atomic write: write to .tmp then rename */
+  /** Atomic write with restrictive 0o600 mode.
+   * SECURITY: this config file may contain API keys (per `commands/providers.ts`).
+   * Without explicit mode the file inherits the umask (typically 0o644 →
+   * world-readable). Set 0o600 on tmp file BEFORE rename, then re-chmod after
+   * rename in case the rename target had a more permissive mode.
+   */
   private writeAtomic(filePath: string, data: Record<string, unknown>): void {
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    const tmpPath = filePath + '.tmp';
-    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2) + '\n');
+    const tmpPath = `${filePath}.${process.pid}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2) + '\n', { mode: 0o600 });
     fs.renameSync(tmpPath, filePath);
+    try { fs.chmodSync(filePath, 0o600); } catch { /* best effort */ }
   }
+}
+
+const FORBIDDEN_KEY_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/**
+ * Recursively strip prototype-pollution keys from a parsed JSON object before
+ * it lands in this.config or is persisted back to disk. JSON.parse alone does
+ * not pollute, but downstream consumers that shallow-merge config values
+ * (Object.assign, spread) would propagate poisoned keys; persisting them back
+ * to disk also makes the pollution survive restarts.
+ */
+function sanitizeConfigObject(value: unknown, depth = 0): unknown {
+  if (depth > 32) return null;
+  if (Array.isArray(value)) return value.map(v => sanitizeConfigObject(v, depth + 1));
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (FORBIDDEN_KEY_SEGMENTS.has(k)) continue;
+      out[k] = sanitizeConfigObject(v, depth + 1);
+    }
+    return out;
+  }
+  return value;
 }
 
 /** Get a nested value by dot-separated key */
 function getNestedValue(obj: Record<string, unknown>, key: string): unknown {
   const parts = key.split('.');
+  for (const part of parts) {
+    if (FORBIDDEN_KEY_SEGMENTS.has(part)) return undefined;
+  }
   let current: unknown = obj;
   for (const part of parts) {
     if (current === null || current === undefined || typeof current !== 'object') {
@@ -207,6 +285,11 @@ function getNestedValue(obj: Record<string, unknown>, key: string): unknown {
 /** Set a nested value by dot-separated key */
 function setNestedValue(obj: Record<string, unknown>, key: string, value: unknown): void {
   const parts = key.split('.');
+  for (const part of parts) {
+    if (FORBIDDEN_KEY_SEGMENTS.has(part)) {
+      throw new Error(`Forbidden config key segment: "${part}"`);
+    }
+  }
   let current: Record<string, unknown> = obj;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];

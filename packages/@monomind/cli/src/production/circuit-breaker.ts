@@ -176,6 +176,9 @@ export class CircuitBreaker {
     // If half-open and we fail, go back to open
     if (this.state === 'half-open') {
       this.transitionTo('open');
+      if (this.config.onOpen) {
+        this.config.onOpen(this.failures.length);
+      }
     }
   }
 
@@ -285,6 +288,7 @@ export class CircuitBreaker {
 // ============================================================================
 
 const circuitBreakers = new Map<string, CircuitBreaker>();
+const MAX_CIRCUIT_BREAKERS = 1000;
 
 /**
  * Get or create a circuit breaker by name
@@ -294,6 +298,9 @@ export function getCircuitBreaker(
   config?: Partial<CircuitBreakerConfig>
 ): CircuitBreaker {
   if (!circuitBreakers.has(name)) {
+    if (circuitBreakers.size >= MAX_CIRCUIT_BREAKERS) {
+      throw new Error(`Circuit breaker registry full (max ${MAX_CIRCUIT_BREAKERS})`);
+    }
     circuitBreakers.set(name, new CircuitBreaker(config));
   }
   return circuitBreakers.get(name)!;

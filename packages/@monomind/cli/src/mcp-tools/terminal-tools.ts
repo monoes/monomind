@@ -5,7 +5,7 @@
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 
@@ -59,7 +59,11 @@ function loadTerminalStore(): TerminalStore {
 
 function saveTerminalStore(store: TerminalStore): void {
   ensureTerminalDir();
-  writeFileSync(getTerminalPath(), JSON.stringify(store, null, 2), 'utf-8');
+  // Unique tmp filename so concurrent handler invocations cannot clobber each
+  // other's .tmp mid-write (which would produce a partial JSON on rename).
+  const tmpPath = `${getTerminalPath()}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tmpPath, JSON.stringify(store, null, 2), 'utf-8');
+  renameSync(tmpPath, getTerminalPath());
 }
 
 export const terminalTools: MCPTool[] = [
@@ -77,6 +81,21 @@ export const terminalTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadTerminalStore();
+
+      const MAX_SESSIONS = 1000;
+      if (Object.keys(store.sessions).length >= MAX_SESSIONS) {
+        return { success: false, error: 'Session limit reached' };
+      }
+
+      const FORBIDDEN_ENV_KEYS = new Set(['PATH', 'LD_PRELOAD', 'LD_LIBRARY_PATH', 'NODE_OPTIONS', 'NODE_PATH', 'DYLD_INSERT_LIBRARIES', 'DYLD_LIBRARY_PATH']);
+      const rawEnv = (input.env as Record<string, string>) || {};
+      const safeEnv: Record<string, string> = {};
+      for (const [k, v] of Object.entries(rawEnv)) {
+        if (!FORBIDDEN_ENV_KEYS.has(k) && /^[A-Z_][A-Z0-9_]*$/i.test(k)) {
+          safeEnv[k] = String(v);
+        }
+      }
+
       const id = `term-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
       const session: TerminalSession = {
@@ -87,7 +106,7 @@ export const terminalTools: MCPTool[] = [
         lastActivity: new Date().toISOString(),
         workingDir: (input.workingDir as string) || getProjectCwd(),
         history: [],
-        env: (input.env as Record<string, string>) || {},
+        env: safeEnv,
       };
 
       store.sessions[id] = session;
@@ -121,6 +140,12 @@ export const terminalTools: MCPTool[] = [
       const store = loadTerminalStore();
       const sessionId = input.sessionId as string;
       const command = input.command as string;
+      const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+      // Reject inherited keys (incl. toString/hasOwnProperty/etc.) so a tampered
+      // store.json can't redirect bracket access into Object.prototype.
+      if (sessionId && (typeof sessionId !== 'string' || FORBIDDEN_KEYS.has(sessionId) || !Object.hasOwn(store.sessions, sessionId))) {
+        return { success: false, error: 'Invalid sessionId' };
+      }
 
       // Find or create default session
       let session = sessionId ? store.sessions[sessionId] : Object.values(store.sessions).find(s => s.status === 'active');
@@ -141,7 +166,23 @@ export const terminalTools: MCPTool[] = [
         store.sessions[id] = session;
       }
 
-      const timeout = (input.timeout as number) || 30_000;
+      // Reject shell metacharacters AND env-prefix syntax. The previous regex
+      // allowed `=`, which `/bin/sh` interprets as a per-command env override
+      // (`PATH=/tmp/evil ls`, `LD_PRELOAD=/tmp/x.so cmd`) — turning the
+      // metacharacter denylist into RCE. Also reject leading-dash so the
+      // first arg can't be misinterpreted by the spawned binary as a flag,
+      // and reject glob/expansion characters that may evaluate paths.
+      if (/[|;&`$\n\r<>=*?~(){}[\]#!\\"']/.test(command)) {
+        return { error: 'Command contains disallowed shell metacharacters', allowed: false };
+      }
+      if (/^\s*-/.test(command)) {
+        return { error: 'Command must not start with "-"', allowed: false };
+      }
+
+      const rawTimeout = Number(input.timeout);
+      const timeout = Number.isFinite(rawTimeout) && rawTimeout > 0
+        ? Math.min(rawTimeout, 5 * 60_000)
+        : 30_000;
       const cwd = session.workingDir || getProjectCwd();
       const startTime = Date.now();
       let output: string;
@@ -165,13 +206,16 @@ export const terminalTools: MCPTool[] = [
       const duration = Date.now() - startTime;
       const timestamp = new Date().toISOString();
 
-      // Record in history
-      session.history.push({
-        command,
-        output,
-        timestamp,
-        exitCode,
-      });
+      // Record in history (cap output size and total entries to prevent unbounded growth)
+      const MAX_OUTPUT_BYTES = 64 * 1024;
+      const MAX_HISTORY = 200;
+      const truncatedOutput = output.length > MAX_OUTPUT_BYTES
+        ? output.slice(0, MAX_OUTPUT_BYTES) + '\n[... truncated ...]'
+        : output;
+      session.history.push({ command, output: truncatedOutput, timestamp, exitCode });
+      if (session.history.length > MAX_HISTORY) {
+        session.history.splice(0, session.history.length - MAX_HISTORY);
+      }
       session.lastActivity = timestamp;
       session.status = 'active';
 
@@ -238,7 +282,12 @@ export const terminalTools: MCPTool[] = [
     handler: async (input) => {
       const store = loadTerminalStore();
       const sessionId = input.sessionId as string;
-      const session = store.sessions[sessionId];
+
+      const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+      if (!sessionId || FORBIDDEN_KEYS.has(sessionId)) {
+        return { success: false, error: 'Invalid sessionId' };
+      }
+      const session = Object.hasOwn(store.sessions, sessionId) ? store.sessions[sessionId] : undefined;
 
       if (!session) {
         return { success: false, error: 'Session not found' };
@@ -271,8 +320,12 @@ export const terminalTools: MCPTool[] = [
       const sessionId = input.sessionId as string;
       const limit = (input.limit as number) || 50;
       const offset = (input.offset as number) || 0;
+      const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
       if (sessionId) {
+        if (typeof sessionId !== 'string' || FORBIDDEN_KEYS.has(sessionId) || !Object.hasOwn(store.sessions, sessionId)) {
+          return { success: false, error: 'Invalid sessionId' };
+        }
         const session = store.sessions[sessionId];
         if (!session) {
           return { success: false, error: 'Session not found' };

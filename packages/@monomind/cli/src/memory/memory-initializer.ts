@@ -12,6 +12,27 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+/**
+ * Local validator for stored embeddings — rejects oversized JSON, NaN/Infinity
+ * values, non-arrays, and out-of-bound dimensions before they reach cosineSim
+ * or HNSW math (which would otherwise OOM or poison ranking with NaN).
+ */
+const _MAX_EMBEDDING_DIMS = 8192;
+const _MAX_EMBEDDING_JSON_BYTES = _MAX_EMBEDDING_DIMS * 32;
+function safeParseEmbeddingLocal(raw: string | null | undefined): number[] | null {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  if (raw.length > _MAX_EMBEDDING_JSON_BYTES) return null;
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { return null; }
+  if (!Array.isArray(parsed)) return null;
+  if (parsed.length === 0 || parsed.length > _MAX_EMBEDDING_DIMS) return null;
+  for (let i = 0; i < parsed.length; i++) {
+    const v = parsed[i];
+    if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+  }
+  return parsed as number[];
+}
+
 // ADR-053: Lazy import of AgentDB v1 bridge
 let _bridge: typeof import('./memory-bridge.js') | null | undefined;
 async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> {
@@ -361,9 +382,14 @@ export async function getHNSWIndex(options?: {
 
   // Prevent concurrent initialization
   if (hnswInitializing) {
-    // Wait for initialization to complete
-    while (hnswInitializing) {
+    // Wait for initialization to complete (max 5s)
+    let waitIterations = 0;
+    while (hnswInitializing && waitIterations < 500) {
       await new Promise(resolve => setTimeout(resolve, 10));
+      waitIterations++;
+    }
+    if (hnswInitializing) {
+      throw new Error('HNSW initialization timed out after 5s');
     }
     return hnswIndex;
   }
@@ -437,6 +463,13 @@ export async function getHNSWIndex(options?: {
 
     if (fs.existsSync(dbPath)) {
       try {
+        // Reject symlinks and oversized DB files. Without this a symlink at the
+        // dbPath pointing at /dev/zero or a 100GB sparse file would OOM the CLI
+        // on the next memory operation.
+        const stat = fs.lstatSync(dbPath);
+        if (stat.isSymbolicLink() || stat.size > 256 * 1024 * 1024) {
+          return null;
+        }
         const initSqlJs = (await import('sql.js')).default;
         const SQL = await initSqlJs();
         const fileBuffer = fs.readFileSync(dbPath);
@@ -455,7 +488,8 @@ export async function getHNSWIndex(options?: {
             const [id, key, ns, content, embeddingJson] = row as [string, string, string, string, string];
             if (embeddingJson) {
               try {
-                const embedding = JSON.parse(embeddingJson) as number[];
+                const embedding = safeParseEmbeddingLocal(embeddingJson);
+                if (!embedding) continue;
                 const vector = new Float32Array(embedding);
 
                 await db.insert({
@@ -501,7 +535,9 @@ function saveHNSWMetadata(): void {
     const swarmDir = path.join(process.cwd(), '.swarm');
     const metadataPath = path.join(swarmDir, 'hnsw.metadata.json');
     const metadata = Array.from(hnswIndex.entries.entries());
-    fs.writeFileSync(metadataPath, JSON.stringify(metadata));
+    const tmp = metadataPath + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(metadata));
+    fs.renameSync(tmp, metadataPath);
   } catch {
     // Silently fail - metadata save is best-effort
   }
@@ -916,10 +952,11 @@ export function flashAttentionSearch(
  * Initial metadata to insert after schema creation
  */
 export function getInitialMetadata(backend: string): string {
+  const safeBackend = backend.replace(/'/g, "''");
   return `
 INSERT OR REPLACE INTO metadata (key, value) VALUES
   ('schema_version', '3.0.0'),
-  ('backend', '${backend}'),
+  ('backend', '${safeBackend}'),
   ('created_at', '${new Date().toISOString()}'),
   ('sql_js', 'true'),
   ('vector_embeddings', 'enabled'),
@@ -1019,9 +1056,11 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
     }
 
     if (modified) {
-      // Save updated database
+      // Save updated database (atomic to avoid corruption on crash)
       const data = db.export();
-      fs.writeFileSync(dbPath, Buffer.from(data));
+      const tmp = dbPath + '.tmp';
+      fs.writeFileSync(tmp, Buffer.from(data));
+      fs.renameSync(tmp, dbPath);
     }
 
     db.close();
@@ -1234,17 +1273,22 @@ export async function initializeMemoryDatabase(options: {
       // Insert initial metadata
       db.run(getInitialMetadata(backend));
 
-      // Save to file
+      // Save to file atomically — direct writeFileSync to dbPath would corrupt
+      // the SQLite file if the process crashes mid-write. tmp+rename is atomic on POSIX.
       const data = db.export();
       const buffer = Buffer.from(data);
-      fs.writeFileSync(dbPath, buffer);
+      const dbTmp = dbPath + '.tmp';
+      fs.writeFileSync(dbTmp, buffer);
+      fs.renameSync(dbTmp, dbPath);
 
       // Close database
       db.close();
 
-      // Also create schema file for reference
+      // Also create schema file for reference (atomic)
       const schemaPath = path.join(dbDir, 'schema.sql');
-      fs.writeFileSync(schemaPath, MEMORY_SCHEMA + '\n' + getInitialMetadata(backend));
+      const schemaTmp = schemaPath + '.tmp';
+      fs.writeFileSync(schemaTmp, MEMORY_SCHEMA + '\n' + getInitialMetadata(backend));
+      fs.renameSync(schemaTmp, schemaPath);
 
       // ADR-053: Activate ControllerRegistry so controllers (ReasoningBank,
       // SkillLibrary, ExplainableRecall, etc.) are instantiated during init
@@ -1291,9 +1335,11 @@ export async function initializeMemoryDatabase(options: {
         controllers: controllerResult,
       };
     } else {
-      // Fall back to schema file approach
+      // Fall back to schema file approach (atomic writes)
       const schemaPath = path.join(dbDir, 'schema.sql');
-      fs.writeFileSync(schemaPath, MEMORY_SCHEMA + '\n' + getInitialMetadata(backend));
+      const schemaTmpFb = schemaPath + '.tmp';
+      fs.writeFileSync(schemaTmpFb, MEMORY_SCHEMA + '\n' + getInitialMetadata(backend));
+      fs.renameSync(schemaTmpFb, schemaPath);
 
       // Create minimal valid SQLite file
       const sqliteHeader = Buffer.alloc(4096, 0);
@@ -1308,7 +1354,9 @@ export async function initializeMemoryDatabase(options: {
       sqliteHeader[26] = 0x20; // min embedded payload
       sqliteHeader[27] = 0x20; // leaf payload
 
-      fs.writeFileSync(dbPath, sqliteHeader);
+      const dbTmpFb = dbPath + '.tmp';
+      fs.writeFileSync(dbTmpFb, sqliteHeader);
+      fs.renameSync(dbTmpFb, dbPath);
 
       // ADR-053: Activate ControllerRegistry even on fallback path
       const controllerResult = await activateControllerRegistry(dbPath, verbose);
@@ -1460,9 +1508,11 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
 
     const changes = db.getRowsModified();
 
-    // Save
+    // Save atomically
     const data = db.export();
-    fs.writeFileSync(path_, Buffer.from(data));
+    const dbTmpDecay = path_ + '.tmp';
+    fs.writeFileSync(dbTmpDecay, Buffer.from(data));
+    fs.renameSync(dbTmpDecay, path_);
     db.close();
 
     return {
@@ -1679,6 +1729,12 @@ export async function generateEmbedding(text: string): Promise<{
   dimensions: number;
   model: string;
 }> {
+  // Cap input text — caller may pass arbitrarily large content. Without this
+  // cap, the hash-fallback below burns O(text.length × dimension) sin() calls
+  // per call, and ONNX tokenization can saturate memory on multi-MB inputs.
+  if (typeof text !== 'string') text = String(text ?? '');
+  if (text.length > 16 * 1024) text = text.slice(0, 16 * 1024);
+
   // ADR-053: Try AgentDB v1 bridge first
   const bridge = await getBridge();
   if (bridge) {
@@ -1990,9 +2046,11 @@ export async function verifyMemoryInit(dbPath: string, options?: {
     // Cleanup test entry
     db.run(`DELETE FROM memory_entries WHERE id = ?`, [testId]);
 
-    // Save changes
+    // Save changes atomically
     const data = db.export();
-    fs.writeFileSync(dbPath, Buffer.from(data));
+    const dbTmpHealth = dbPath + '.tmp';
+    fs.writeFileSync(dbTmpHealth, Buffer.from(data));
+    fs.renameSync(dbTmpHealth, dbPath);
     db.close();
 
     const passed = tests.filter(t => t.passed).length;
@@ -2118,14 +2176,17 @@ export async function storeEntry(options: {
       ttl ? now + (ttl * 1000) : null
     ]);
 
-    // Save
+    // Save atomically
     const data = db.export();
-    fs.writeFileSync(dbPath, Buffer.from(data));
+    const dbTmpStore = dbPath + '.tmp';
+    fs.writeFileSync(dbTmpStore, Buffer.from(data));
+    fs.renameSync(dbTmpStore, dbPath);
     db.close();
 
-    // Add to HNSW index for faster future searches
+    // Add to HNSW index for faster future searches (validated to reject malformed embeddings)
     if (embeddingJson) {
-      const embResult = JSON.parse(embeddingJson) as number[];
+      const embResult = safeParseEmbeddingLocal(embeddingJson);
+      if (embResult)
       await addToHNSWIndex(id, embResult, {
         id,
         key,
@@ -2247,11 +2308,9 @@ export async function searchEntries(options: {
         let score = 0;
 
         if (embeddingJson) {
-          try {
-            const embedding = JSON.parse(embeddingJson) as number[];
+          const embedding = safeParseEmbeddingLocal(embeddingJson);
+          if (embedding && embedding.length === queryEmbedding.length) {
             score = cosineSim(queryEmbedding, embedding);
-          } catch {
-            // Invalid embedding, use keyword score
           }
         }
 
@@ -2533,17 +2592,6 @@ export async function getEntry(options: {
       string, string, string, string, string | null, number, string, string, string | null
     ];
 
-    // Update access count
-    db.run(`
-      UPDATE memory_entries
-      SET access_count = access_count + 1, last_accessed_at = strftime('%s', 'now') * 1000
-      WHERE id = ?
-    `, [String(id)]);
-
-    // Save updated database
-    const data = db.export();
-    fs.writeFileSync(dbPath, Buffer.from(data));
-
     db.close();
 
     let tags: string[] = [];
@@ -2698,9 +2746,11 @@ export async function deleteEntry(options: {
     const countResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE status = 'active'`);
     const remainingEntries = countResult[0]?.values?.[0]?.[0] as number || 0;
 
-    // Save updated database
+    // Save updated database atomically
     const data = db.export();
-    fs.writeFileSync(dbPath, Buffer.from(data));
+    const dbTmpDelete = dbPath + '.tmp';
+    fs.writeFileSync(dbTmpDelete, Buffer.from(data));
+    fs.renameSync(dbTmpDelete, dbPath);
 
     db.close();
 

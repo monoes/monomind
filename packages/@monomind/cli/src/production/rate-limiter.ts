@@ -99,9 +99,8 @@ export class RateLimiter {
     // Clean old requests from sliding window
     bucket.requests = bucket.requests.filter(t => t > now - limits.windowMs);
 
-    // Calculate remaining
-    const maxWithBurst = Math.floor(limits.maxRequests * this.config.burstMultiplier);
-    const remaining = maxWithBurst - bucket.requests.length;
+    // Calculate remaining — uses base maxRequests (consistent with getStatus())
+    const remaining = limits.maxRequests - bucket.requests.length;
 
     if (remaining <= 0) {
       // Rate limited
@@ -205,7 +204,11 @@ export class RateLimiter {
     const users = new Set<string>();
 
     for (const [key, bucket] of this.buckets) {
-      const [operation, userId] = key.split(':');
+      const colonIdx = key.indexOf(':');
+      const prefix = colonIdx >= 0 ? key.slice(0, colonIdx) : key;
+      const suffix = colonIdx >= 0 ? key.slice(colonIdx + 1) : undefined;
+      const operation = prefix === 'global' ? (suffix ?? prefix) : prefix;
+      const userId = prefix === 'global' ? undefined : suffix;
       if (userId) users.add(userId);
 
       const current = operationCounts.get(operation) || 0;
@@ -244,26 +247,28 @@ export class RateLimiter {
   }
 
   private cleanupBuckets(): void {
-    // Limit number of tracked buckets
-    if (this.buckets.size > this.config.maxTrackedUsers) {
-      const now = Date.now();
-      const toDelete: string[] = [];
+    if (this.buckets.size <= this.config.maxTrackedUsers) return;
+    const now = Date.now();
+    const target = Math.floor(this.config.maxTrackedUsers * 0.8);
 
-      // Find buckets with no recent requests
-      for (const [key, bucket] of this.buckets) {
-        const recent = bucket.requests.filter(t => t > now - this.config.windowMs * 2);
-        if (recent.length === 0) {
-          toDelete.push(key);
-        }
-      }
+    // First pass: delete buckets with no recent activity (cheap LRU)
+    for (const [key, bucket] of this.buckets) {
+      if (this.buckets.size <= target) break;
+      const recent = bucket.requests.filter(t => t > now - this.config.windowMs * 2);
+      if (recent.length === 0) this.buckets.delete(key);
+    }
 
-      // Delete stale buckets
-      for (const key of toDelete) {
-        this.buckets.delete(key);
-        if (this.buckets.size <= this.config.maxTrackedUsers * 0.8) {
-          break;
-        }
-      }
+    if (this.buckets.size <= target) return;
+
+    // Second pass: even active buckets get evicted if we are still over the cap.
+    // Eviction order: oldest first-request timestamp wins (true LRU on activity).
+    const entries = Array.from(this.buckets.entries())
+      .map(([key, bucket]) => ({ key, oldest: bucket.requests[0] ?? 0 }))
+      .sort((a, b) => a.oldest - b.oldest);
+
+    for (const { key } of entries) {
+      if (this.buckets.size <= target) break;
+      this.buckets.delete(key);
     }
   }
 }

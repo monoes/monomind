@@ -346,6 +346,9 @@ export class EWCConsolidator {
         penalty: result.totalPenalty,
         patterns: result.patternsConsolidated
       });
+      if (this.consolidationHistory.length > 100) {
+        this.consolidationHistory = this.consolidationHistory.slice(-100);
+      }
 
       // Persist to disk
       this.saveToDisk();
@@ -693,7 +696,9 @@ export class EWCConsolidator {
         savedAt: Date.now()
       };
 
-      fs.writeFileSync(this.config.storagePath, JSON.stringify(state, null, 2));
+      const tmp = this.config.storagePath + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
+      fs.renameSync(tmp, this.config.storagePath);
     } catch {
       // Silently fail - persistence is best-effort
     }
@@ -715,23 +720,44 @@ export class EWCConsolidator {
       throw new Error(`Unsupported state version: ${state.version}`);
     }
 
-    // Restore state
-    this.globalFisher = state.globalFisher || new Array(this.config.dimensions).fill(0);
+    // Validate globalFisher — must be a finite-numeric vector matching dim.
+    // An attacker who can write the persisted file could otherwise inject
+    // [Infinity, ...] (freezes learning via the penalty>lambda damping branch)
+    // or NaN values that poison ranking unpredictably.
+    if (Array.isArray(state.globalFisher)
+      && state.globalFisher.length === this.config.dimensions
+      && state.globalFisher.every((v: unknown) => typeof v === 'number' && Number.isFinite(v))) {
+      this.globalFisher = state.globalFisher;
+    } else {
+      this.globalFisher = new Array(this.config.dimensions).fill(0);
+    }
 
-    // Restore patterns
+    // Restore patterns — drop any whose weights/fisherDiagonal are invalid.
     this.patterns.clear();
-    if (state.patterns) {
-      for (const [id, pattern] of state.patterns) {
+    if (Array.isArray(state.patterns)) {
+      const isFiniteNumberArray = (a: unknown, dim: number): boolean =>
+        Array.isArray(a) && a.length === dim && a.every(v => typeof v === 'number' && Number.isFinite(v));
+      for (const entry of state.patterns) {
+        if (!Array.isArray(entry) || entry.length !== 2) continue;
+        const [id, pattern] = entry;
+        if (typeof id !== 'string' || id.length > 256) continue;
+        const p = pattern as Record<string, unknown> | undefined;
+        if (!p || typeof p !== 'object') continue;
+        if (p.weights !== undefined && !isFiniteNumberArray(p.weights, this.config.dimensions)) continue;
+        if (p.fisherDiagonal !== undefined && !isFiniteNumberArray(p.fisherDiagonal, this.config.dimensions)) continue;
         this.patterns.set(id, pattern);
       }
     }
 
     // Restore history
-    this.consolidationHistory = state.consolidationHistory || [];
+    this.consolidationHistory = Array.isArray(state.consolidationHistory) ? state.consolidationHistory : [];
 
-    // Update config from persisted values
-    if (state.config) {
-      this.config.lambda = state.config.lambda ?? this.config.lambda;
+    // Update config from persisted values, clamped to a sensible range to
+    // prevent negative/NaN lambda from inverting the regularization sign.
+    if (state.config && typeof state.config.lambda === 'number'
+      && Number.isFinite(state.config.lambda)
+      && state.config.lambda >= 0 && state.config.lambda <= 1000) {
+      this.config.lambda = state.config.lambda;
     }
   }
 }

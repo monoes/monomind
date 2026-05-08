@@ -147,16 +147,17 @@ const monographHealthTool: MCPTool = {
   inputSchema: { type: 'object', properties: {} },
   handler: async () => {
     const { openDb, closeDb } = await import('@monoes/monograph');
-    const { execSync } = await import('child_process');
+    const { execFileSync } = await import('child_process');
     const db = openDb(getDbPath());
     try {
       const meta = db.prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get() as { value: string } | undefined;
       const lastCommit = meta?.value ?? null;
       if (!lastCommit) return text('Index has never been built. Run monograph_build first.');
+      if (!/^[0-9a-f]{7,40}$/.test(lastCommit)) return text('Invalid commit SHA in index — rebuild the index.');
 
       let commitsBehind = 0;
       try {
-        const out = execSync(`git rev-list --count ${lastCommit}..HEAD`, {
+        const out = execFileSync('git', ['rev-list', '--count', `${lastCommit}..HEAD`], {
           cwd: getProjectCwd(), encoding: 'utf-8'
         }).trim();
         commitsBehind = parseInt(out, 10);
@@ -516,6 +517,9 @@ const monographVisualizeTool: MCPTool = {
 
 // ── monograph_watch ───────────────────────────────────────────────────────────
 
+// Track active watchers to prevent leaks and allow stopping
+const activeWatchers = new Map<string, { stop(): Promise<void> | void }>();
+
 const monographWatchTool: MCPTool = {
   name: 'monograph_watch',
   description: 'Start incremental file watcher. Rebuilds index on file changes (3s debounce).',
@@ -528,11 +532,27 @@ const monographWatchTool: MCPTool = {
   handler: async (input) => {
     const { MonographWatcher } = await import('@monoes/monograph');
     const repoPath = (input.path as string | undefined) ?? getProjectCwd();
+
+    // Stop any existing watcher for this path before starting a new one
+    const existing = activeWatchers.get(repoPath);
+    if (existing) {
+      try { await existing.stop(); } catch { /* ignore */ }
+      activeWatchers.delete(repoPath);
+    }
+
     const watcher = new MonographWatcher(repoPath);
+    let buildTimer: ReturnType<typeof setTimeout> | undefined;
+    let building = false;
     watcher.on('monograph:updated', (_paths: string[]) => {
-      import('@monoes/monograph').then(({ buildAsync }) => buildAsync(repoPath)).catch(() => {});
+      if (buildTimer) clearTimeout(buildTimer);
+      buildTimer = setTimeout(() => {
+        if (building) return;
+        building = true;
+        import('@monoes/monograph').then(({ buildAsync }) => buildAsync(repoPath)).catch(() => {}).finally(() => { building = false; });
+      }, 400);
     });
     await watcher.start();
+    activeWatchers.set(repoPath, watcher);
     return text(`Monograph watcher started for ${repoPath}. Watching for file changes...`);
   },
 };
@@ -542,9 +562,21 @@ const monographWatchTool: MCPTool = {
 const monographWatchStopTool: MCPTool = {
   name: 'monograph_watch_stop',
   description: 'Stop the Monograph file watcher.',
-  inputSchema: { type: 'object', properties: {} },
-  handler: async () => {
-    return text('Watcher stop requested. (Restart MCP server to fully clear watchers.)');
+  inputSchema: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: 'Repo path to stop watching (defaults to project cwd)' },
+    },
+  },
+  handler: async (input) => {
+    const repoPath = (input.path as string | undefined) ?? getProjectCwd();
+    const watcher = activeWatchers.get(repoPath);
+    if (watcher) {
+      try { await watcher.stop(); } catch { /* ignore */ }
+      activeWatchers.delete(repoPath);
+      return text(`Monograph watcher stopped for ${repoPath}.`);
+    }
+    return text('No active watcher found for this path.');
   },
 };
 
@@ -562,6 +594,7 @@ const monographReportTool: MCPTool = {
   handler: async (input) => {
     const { openDb, closeDb, countNodes, countEdges } = await import('@monoes/monograph');
     const { writeFileSync, mkdirSync } = await import('fs');
+    const pathMod = await import('path');
     const db = openDb(getDbPath());
     try {
       const nodeCount = countNodes(db);
@@ -584,7 +617,11 @@ const monographReportTool: MCPTool = {
         ...topNodes.map((n: any, i: number) => `${i + 1}. **${n.name}** (${n.label}) — degree ${n.degree}  \`${n.file_path ?? ''}\``),
       ].join('\n');
 
-      const outPath = (input.path as string | undefined) ?? join(getProjectCwd(), '.monomind', 'GRAPH_REPORT.md');
+      const rawReportPath = (input.path as string | undefined) ?? join(getProjectCwd(), '.monomind', 'GRAPH_REPORT.md');
+      const outPath = pathMod.resolve(rawReportPath);
+      if (!outPath.startsWith(getProjectCwd() + pathMod.sep) && outPath !== getProjectCwd()) {
+        return text('Invalid path: output must be within the project directory.');
+      }
       mkdirSync(join(outPath, '..'), { recursive: true });
       writeFileSync(outPath, report);
       return text(`Report written to ${outPath}`);
@@ -759,7 +796,7 @@ const monographDetectChangesTool: MCPTool = {
   },
   handler: async (input) => {
     const { openDb, closeDb } = await import('@monoes/monograph');
-    const { execSync } = await import('child_process');
+    const { execFileSync } = await import('child_process');
     const db = openDb(getDbPath());
     try {
       const scope = (input.scope as string | undefined) ?? 'unstaged';
@@ -769,16 +806,17 @@ const monographDetectChangesTool: MCPTool = {
       if (scope === 'since-indexed') {
         const meta = db.prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get() as { value: string } | undefined;
         if (!meta?.value) return text('No indexed commit found. Run monograph_build first.');
+        if (!/^[0-9a-f]{7,40}$/.test(meta.value)) return text('Invalid commit SHA in index — rebuild the index.');
         try {
-          const out = execSync(`git diff --name-only ${meta.value}..HEAD`, { cwd, encoding: 'utf-8' });
+          const out = execFileSync('git', ['diff', '--name-only', `${meta.value}..HEAD`], { cwd, encoding: 'utf-8' });
           changedFiles = out.trim().split('\n').filter(Boolean);
         } catch { return text('git error while listing changes'); }
       } else {
-        const gitFlag = scope === 'staged' ? '--cached' : scope === 'all' ? '' : '';
-        const extra = scope === 'all' ? 'HEAD' : '';
         try {
-          const cmd = scope === 'all' ? 'git diff HEAD --name-only' : `git diff ${scope === 'staged' ? '--cached' : ''} --name-only`;
-          changedFiles = execSync(cmd, { cwd, encoding: 'utf-8' }).trim().split('\n').filter(Boolean);
+          const args = scope === 'all'
+            ? ['diff', 'HEAD', '--name-only']
+            : ['diff', ...(scope === 'staged' ? ['--cached'] : []), '--name-only'];
+          changedFiles = execFileSync('git', args, { cwd, encoding: 'utf-8' }).trim().split('\n').filter(Boolean);
         } catch { return text('git error while listing changes'); }
       }
 
@@ -833,8 +871,8 @@ const monographSnapshotTool: MCPTool = {
   },
   handler: async (input) => {
     const { openDb, closeDb } = await import('@monoes/monograph');
-    const { writeFileSync, mkdirSync } = await import('fs');
-    const { execSync } = await import('child_process');
+    const { writeFileSync, mkdirSync, renameSync: renameSnap } = await import('fs');
+    const { execFileSync } = await import('child_process');
     const pathMod = await import('path');
     const db = openDb(getDbPath());
     try {
@@ -842,7 +880,7 @@ const monographSnapshotTool: MCPTool = {
       let snapshotName = input.name as string | undefined;
       if (!snapshotName) {
         try {
-          snapshotName = execSync('git rev-parse --short HEAD', { cwd: getProjectCwd(), encoding: 'utf-8' }).trim();
+          snapshotName = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: getProjectCwd(), encoding: 'utf-8' }).trim();
         } catch {
           snapshotName = `snap-${Date.now()}`;
         }
@@ -866,8 +904,14 @@ const monographSnapshotTool: MCPTool = {
 
       const snapshotsDir = pathMod.join(getProjectCwd(), '.monomind', 'graph', 'snapshots');
       mkdirSync(snapshotsDir, { recursive: true });
-      const outPath = (input.path as string | undefined) ?? pathMod.join(snapshotsDir, `${snapshotName}.json`);
-      writeFileSync(outPath, JSON.stringify(snapshot, null, 2));
+      const rawOutPath = (input.path as string | undefined) ?? pathMod.join(snapshotsDir, `${snapshotName}.json`);
+      const outPath = pathMod.resolve(rawOutPath);
+      if (!outPath.startsWith(getProjectCwd() + pathMod.sep) && outPath !== getProjectCwd()) {
+        return text('Invalid path: output must be within the project directory.');
+      }
+      const tmpOut = outPath + '.tmp';
+      writeFileSync(tmpOut, JSON.stringify(snapshot, null, 2));
+      renameSnap(tmpOut, outPath);
 
       return text(`Snapshot "${snapshotName}" saved to ${outPath}\n  nodes: ${nodes.length}  edges: ${edges.length}`);
     } finally { closeDb(db); }
@@ -896,7 +940,10 @@ const monographDiffTool: MCPTool = {
     try {
       const snapshotsDir = pathMod.join(getProjectCwd(), '.monomind', 'graph', 'snapshots');
       const snapshotName = input.snapshot as string;
-      const snapshotPath = pathMod.join(snapshotsDir, `${snapshotName}.json`);
+      const snapshotPath = pathMod.resolve(snapshotsDir, `${snapshotName}.json`);
+      if (!snapshotPath.startsWith(snapshotsDir + pathMod.sep)) {
+        return text(`Invalid snapshot name: "${snapshotName}"`);
+      }
 
       let oldSnap: any;
       try {
@@ -918,7 +965,10 @@ const monographDiffTool: MCPTool = {
       } else {
         const snap2Name = input.snapshot2 as string | undefined;
         if (!snap2Name) return text('Provide snapshot2 when current=false for snapshot-to-snapshot comparison.');
-        const snap2Path = pathMod.join(snapshotsDir, `${snap2Name}.json`);
+        const snap2Path = pathMod.resolve(snapshotsDir, `${snap2Name}.json`);
+        if (!snap2Path.startsWith(snapshotsDir + pathMod.sep)) {
+          return text(`Invalid snapshot name: "${snap2Name}"`);
+        }
         let snap2: any;
         try {
           snap2 = JSON.parse(readFileSync(snap2Path, 'utf-8'));
@@ -1025,11 +1075,16 @@ const monographExportTool: MCPTool = {
   handler: async (input) => {
     const { openDb, closeDb, toJson, toSvg, toGraphml, toCypher, exportSarif } = await import('@monoes/monograph');
     const { writeFileSync, mkdirSync } = await import('fs');
+    const pathMod = await import('path');
     const db = openDb(getDbPath());
     try {
       const fmt = input.format as string;
       const projectPath = getProjectCwd();
-      const outDir = (input.outputPath as string | undefined) ?? join(projectPath, '.monomind', 'export');
+      const rawOutDir = (input.outputPath as string | undefined) ?? join(projectPath, '.monomind', 'export');
+      const outDir = pathMod.resolve(rawOutDir);
+      if (!outDir.startsWith(projectPath + pathMod.sep) && outDir !== projectPath) {
+        return text('Invalid outputPath: must be within the project directory.');
+      }
       mkdirSync(outDir, { recursive: true });
 
       if (fmt === 'sarif') {
@@ -1083,7 +1138,8 @@ const monographRenameTool: MCPTool = {
   },
   handler: async (input) => {
     const { openDb, closeDb } = await import('@monoes/monograph');
-    const { readFileSync, writeFileSync } = await import('fs');
+    const { readFileSync, writeFileSync, renameSync: renameRename } = await import('fs');
+    const pathMod = await import('path');
     const db = openDb(getDbPath());
     try {
       const symbolName = input.symbolName as string;
@@ -1125,12 +1181,17 @@ const monographRenameTool: MCPTool = {
       if (editPlan.length === 0) return text(`No occurrences of "${symbolName}" found in the indexed codebase.`);
 
       if (!dryRun) {
+        const projectRoot = getProjectCwd();
         let applied = 0;
         for (const { file } of editPlan) {
           try {
-            const content = readFileSync(file, 'utf-8');
+            const absFile = pathMod.resolve(file);
+            if (!absFile.startsWith(projectRoot + pathMod.sep) && absFile !== projectRoot) continue;
+            const content = readFileSync(absFile, 'utf-8');
             const updated = content.replace(regex, newName);
-            writeFileSync(file, updated, 'utf-8');
+            const tmpRename = absFile + '.tmp';
+            writeFileSync(tmpRename, updated, 'utf-8');
+            renameRename(tmpRename, absFile);
             applied++;
           } catch { /* skip */ }
         }
@@ -1304,26 +1365,38 @@ const monographCypherTool: MCPTool = {
       const returnMatch = query.match(/RETURN\s+(.*?)(?:\s+LIMIT|$)/is);
       const returnRaw = returnMatch?.[1]?.trim() ?? '*';
 
-      function buildWhereSql(alias: string, raw: string): string {
-        if (!raw) return '';
-        // n.name CONTAINS 'x' → n.name LIKE '%x%'
-        let sql = raw.replace(/(\w+)\.name\s+CONTAINS\s+"([^"]+)"/gi, `${alias}.name LIKE '%$2%'`);
-        sql = sql.replace(/(\w+)\.name\s+CONTAINS\s+'([^']+)'/gi, `${alias}.name LIKE '%$2%'`);
-        // n.name = 'x'
-        sql = sql.replace(/(\w+)\.name\s*=\s*"([^"]+)"/gi, `${alias}.name = '$2'`);
-        sql = sql.replace(/(\w+)\.name\s*=\s*'([^']+)'/gi, `${alias}.name = '$2'`);
-        // n.file_path CONTAINS 'x'
-        sql = sql.replace(/(\w+)\.file_path\s+CONTAINS\s+"([^"]+)"/gi, `${alias}.file_path LIKE '%$2%'`);
-        sql = sql.replace(/(\w+)\.file_path\s+CONTAINS\s+'([^']+)'/gi, `${alias}.file_path LIKE '%$2%'`);
-        // n.label = 'x'
-        sql = sql.replace(/(\w+)\.label\s*=\s*"([^"]+)"/gi, `${alias}.label = '$2'`);
-        sql = sql.replace(/(\w+)\.label\s*=\s*'([^']+)'/gi, `${alias}.label = '$2'`);
-        return sql;
+      function buildWhereSql(alias: string, raw: string): { sql: string; params: unknown[] } | null {
+        if (!raw) return { sql: '', params: [] };
+        const params: unknown[] = [];
+        const parts: string[] = [];
+        // Only recognize CONTAINS and = patterns; strip them and reject anything else
+        let remaining = raw;
+        remaining = remaining.replace(/\w+\.(name|file_path)\s+CONTAINS\s+(['"])(.*?)\2/gi, (_m, field, _q, val) => {
+          params.push(`%${val}%`);
+          parts.push(`${alias}.${field} LIKE ?`);
+          return '';
+        });
+        remaining = remaining.replace(/\w+\.(name|label|file_path)\s*=\s*(['"])(.*?)\2/gi, (_m, field, _q, val) => {
+          params.push(val);
+          parts.push(`${alias}.${field} = ?`);
+          return '';
+        });
+        // After substitution, only AND/OR/whitespace may remain; anything else is unrecognized SQL
+        if (remaining.replace(/\b(AND|OR)\b/gi, '').trim()) {
+          return null;
+        }
+        return { sql: parts.join(' AND '), params };
       }
 
+      const ALLOWED_NODE_COLS = new Set(['id', 'label', 'name', 'file_path', 'meta']);
       function resolveReturn(alias: string, raw: string): string {
         if (raw === '*') return `${alias}.id, ${alias}.label, ${alias}.name, ${alias}.file_path`;
-        return raw.replace(/\b(\w+)\.([\w_]+)/g, `${alias}.$2`);
+        const safe = raw.split(',').map(c => {
+          const m = c.trim().match(/^(?:\w+\.)?([\w_]+)$/);
+          const col = m?.[1];
+          return col && ALLOWED_NODE_COLS.has(col) ? `${alias}.${col}` : null;
+        }).filter(Boolean) as string[];
+        return safe.length > 0 ? safe.join(', ') : `${alias}.id, ${alias}.label, ${alias}.name, ${alias}.file_path`;
       }
 
       let rows: any[];
@@ -1333,8 +1406,9 @@ const monographCypherTool: MCPTool = {
         const params: any[] = [relation.toUpperCase()];
         if (srcLabel) { whereParts.push(`src.label = ?`); params.push(srcLabel); }
         if (tgtLabel) { whereParts.push(`tgt.label = ?`); params.push(tgtLabel); }
-        const w = buildWhereSql('src', whereRaw);
-        if (w) { whereParts.push(w); }
+        const whereResult = buildWhereSql('src', whereRaw);
+        if (!whereResult) return text('Invalid WHERE clause: only CONTAINS and = operators on name, label, or file_path are supported.');
+        if (whereResult.sql) { whereParts.push(whereResult.sql); params.push(...whereResult.params); }
         const sql = `SELECT src.name as src_name, src.file_path as src_file, tgt.name as tgt_name, tgt.file_path as tgt_file, e.relation
           FROM edges e
           JOIN nodes src ON src.id = e.source_id
@@ -1347,8 +1421,9 @@ const monographCypherTool: MCPTool = {
         const whereParts: string[] = [];
         const params: any[] = [];
         if (label) { whereParts.push(`n.label = ?`); params.push(label); }
-        const w = buildWhereSql('n', whereRaw);
-        if (w) whereParts.push(w);
+        const whereResult2 = buildWhereSql('n', whereRaw);
+        if (!whereResult2) return text('Invalid WHERE clause: only CONTAINS and = operators on name, label, or file_path are supported.');
+        if (whereResult2.sql) { whereParts.push(whereResult2.sql); params.push(...whereResult2.params); }
         const where = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
         const ret = resolveReturn('n', returnRaw);
         const sql = `SELECT ${ret} FROM nodes n ${where} LIMIT ?`;
@@ -1384,9 +1459,14 @@ const monographNeighborsTool: MCPTool = {
     const { openDb, closeDb } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
+      const VALID_RELATIONS = new Set(['IMPORTS', 'CONTAINS', 'CALLS', 'EXTENDS', 'IMPLEMENTS', 'DEPENDS_ON']);
       const target = input.id as string;
       const maxHops = Math.min((input.hops as number | undefined) ?? 2, 5);
-      const relation = (input.relation as string | undefined) ?? 'all';
+      const relationRaw = (input.relation as string | undefined) ?? 'all';
+      const relation = relationRaw === 'all' ? 'all' : relationRaw.toUpperCase();
+      if (relation !== 'all' && !VALID_RELATIONS.has(relation)) {
+        return text(`Invalid relation filter: "${relationRaw}". Valid values: ${[...VALID_RELATIONS].join(', ')}, all`);
+      }
 
       // Resolve starting node
       const startNode: any = db.prepare("SELECT * FROM nodes WHERE file_path = ? OR name = ? LIMIT 1").get(target, target)
@@ -1401,17 +1481,16 @@ const monographNeighborsTool: MCPTool = {
       for (let hop = 1; hop <= maxHops && frontier.length > 0; hop++) {
         const next: string[] = [];
         for (const nodeId of frontier) {
-          const relFilter = relation === 'all' ? '' : `AND e.relation = '${relation}'`;
           // Outgoing edges
-          const outgoing = db.prepare(`
-            SELECT e.target_id as neighbor_id FROM edges e
-            WHERE e.source_id = ? ${relFilter}
-          `).all(nodeId) as any[];
+          const outgoing = (relation === 'all'
+            ? db.prepare('SELECT e.target_id as neighbor_id FROM edges e WHERE e.source_id = ?').all(nodeId)
+            : db.prepare('SELECT e.target_id as neighbor_id FROM edges e WHERE e.source_id = ? AND e.relation = ?').all(nodeId, relation)
+          ) as any[];
           // Incoming edges
-          const incoming = db.prepare(`
-            SELECT e.source_id as neighbor_id FROM edges e
-            WHERE e.target_id = ? ${relFilter}
-          `).all(nodeId) as any[];
+          const incoming = (relation === 'all'
+            ? db.prepare('SELECT e.source_id as neighbor_id FROM edges e WHERE e.target_id = ?').all(nodeId)
+            : db.prepare('SELECT e.source_id as neighbor_id FROM edges e WHERE e.target_id = ? AND e.relation = ?').all(nodeId, relation)
+          ) as any[];
 
           for (const row of [...outgoing, ...incoming]) {
             if (!discovered.has(row.neighbor_id)) {
@@ -1733,10 +1812,14 @@ const monographBaselineSaveTool: MCPTool = {
   handler: async (input) => {
     const { openDb, closeDb, extractFindingsFromDb, saveBaseline, defaultBaselinePath } = await import('@monoes/monograph');
     const { mkdirSync } = await import('fs');
-    const { dirname, join } = await import('path');
+    const { dirname, join, resolve, sep } = await import('path');
     const projectPath = (input.path as string | undefined) ?? getProjectCwd();
     const dbPath = join(projectPath, '.monomind', 'monograph.db');
-    const outPath = (input.baselinePath as string | undefined) ?? defaultBaselinePath(projectPath);
+    const rawOutPath = (input.baselinePath as string | undefined) ?? defaultBaselinePath(projectPath);
+    const outPath = resolve(rawOutPath);
+    if (!outPath.startsWith(getProjectCwd() + sep) && outPath !== getProjectCwd()) {
+      return text('Invalid baselinePath: must be within the project directory.');
+    }
     mkdirSync(dirname(outPath), { recursive: true });
     const db = openDb(dbPath);
     try {
@@ -2459,7 +2542,7 @@ const monographVitalSignsSnapshotTool: MCPTool = {
     const { buildSnapshot, saveSnapshot, loadSnapshots, latestSnapshot } = await import('@monoes/monograph');
     const dir = (args.dir as string | undefined) ?? '.monograph/snapshots';
     if (args.action === 'save') {
-      const snap = buildSnapshot(args.vitalSigns as Record<string, unknown>, args.healthScore as { value: number; grade: string; penalties: Record<string, number> });
+      const snap = buildSnapshot(args.vitalSigns as unknown as Parameters<typeof buildSnapshot>[0], args.healthScore as unknown as Parameters<typeof buildSnapshot>[1]);
       const path = saveSnapshot(dir, snap);
       return { content: [{ type: 'text' as const, text: JSON.stringify({ saved: path, timestamp: snap.timestamp }) }] };
     }
@@ -2488,7 +2571,11 @@ const monographHealthTrendTool: MCPTool = {
     const dir = (args.snapshotDir as string | undefined) ?? '.monograph/snapshots';
     const prev = latestSnapshot(dir);
     if (!prev) return { content: [{ type: 'text' as const, text: 'No previous snapshot found' }] };
-    const trend = computeTrend(args.current as Record<string, number>, prev);
+    const trend = (computeTrend as (...a: unknown[]) => unknown)(
+      args.current,
+      prev.healthScore,
+      prev,
+    ) as Record<string, unknown>;
     const summary = Object.entries(trend).map(([k, v]: [string, unknown]) => {
       const t = v as { direction: string; delta: number; current: number; previous: number };
       return `${k}: ${trendArrow(t.direction as 'improving' | 'declining' | 'stable')} ${t.delta >= 0 ? '+' : ''}${t.delta.toFixed(2)} (${t.previous.toFixed(1)} → ${t.current.toFixed(1)})`;
@@ -2510,13 +2597,14 @@ const monographHealthScoreComputeTool: MCPTool = {
   },
   handler: async (args) => {
     const { computeHealthScore } = await import('@monoes/monograph');
-    const score = computeHealthScore(args.vitalSigns as Parameters<typeof computeHealthScore>[0], (args.totalFiles as number | undefined) ?? 1);
+    // @ts-expect-error — dual export: last (health/health-score.js) overload takes (vs, totalFiles)
+    const score = computeHealthScore(args.vitalSigns, (args.totalFiles as number | undefined) ?? 1);
     return { content: [{ type: 'text' as const, text: JSON.stringify(score, null, 2) }] };
   },
 };
 
-const monographRiskProfileTool: MCPTool = {
-  name: 'monograph_risk_profile',
+const monographRiskProfileRawTool: MCPTool = {
+  name: 'monograph_risk_profile_raw',
   description: 'Compute function size and parameter-count risk profiles (low/medium/high/veryHigh bins)',
   inputSchema: {
     type: 'object' as const,
@@ -2550,7 +2638,10 @@ const monographLargeFunctionsTool: MCPTool = {
     const { openDb, closeDb } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
-      const entries = detectLargeFunctions(db, (args.threshold as number | undefined) ?? 60);
+      const rows = db.prepare(
+        `SELECT file_path as path, function_name as name, loc, start_line as startLine FROM complexity ORDER BY loc DESC`
+      ).all() as Array<{ path: string; name: string; loc: number; startLine: number }>;
+      const entries = detectLargeFunctions(rows, (args.threshold as number | undefined) ?? 60);
       return { content: [{ type: 'text' as const, text: JSON.stringify({ count: entries.length, entries: entries.slice(0, 50) }, null, 2) }] };
     } finally { closeDb(db); }
   },
@@ -2571,7 +2662,9 @@ const monographOwnershipTool: MCPTool = {
     const { computeOwnershipMetrics } = await import('@monoes/monograph');
     const metrics = computeOwnershipMetrics(
       args.contributors as Parameters<typeof computeOwnershipMetrics>[0],
-      (args.driftedCount as number | undefined) ?? 0,
+      [],                // hotspotPaths
+      new Map(),         // originalAuthors
+      new Map(),         // fileAgeDays
     );
     return { content: [{ type: 'text' as const, text: JSON.stringify(metrics, null, 2) }] };
   },
@@ -2591,26 +2684,32 @@ const monographChurnTool: MCPTool = {
     const { analyzeChurn, parseSince } = await import('@monoes/monograph');
     const root = (args.root as string | undefined) ?? getProjectCwd();
     const since = parseSince((args.since as string | undefined) ?? '3m');
-    const result = analyzeChurn(root, since);
+    const result = await analyzeChurn(root, since as Parameters<typeof analyzeChurn>[1]);
     return { content: [{ type: 'text' as const, text: JSON.stringify({ totalFiles: result.files.length, top20: result.files.slice(0, 20) }, null, 2) }] };
   },
 };
 
 const monographHotspotsComputeTool: MCPTool = {
   name: 'monograph_hotspots_compute',
-  description: 'Score files by churn × complexity density to identify hotspots',
+  description: 'Score files by churn × complexity density to identify hotspots. Pass a ChurnResult and optional complexity entries.',
   inputSchema: {
     type: 'object' as const,
     properties: {
-      inputs: { type: 'array', description: 'Array of {filePath, weightedCommits, complexityDensity}' },
-      minCommits: { type: 'number', description: 'Minimum commits to include a file' },
+      churnResult: { type: 'object', description: 'ChurnResult from monograph_churn' },
+      complexityEntries: { type: 'array', description: 'Array of [filePath, complexityDensity] tuples' },
+      minCommits: { type: 'number', description: 'Minimum commits to include a file (default 3)' },
     },
-    required: ['inputs'],
+    required: ['churnResult'],
   },
   handler: async (args) => {
     const { computeHotspots } = await import('@monoes/monograph');
-    const { entries, summary } = computeHotspots(
-      args.inputs as Parameters<typeof computeHotspots>[0],
+    const complexityMap = new Map<string, number>(
+      ((args.complexityEntries as Array<[string, number]> | undefined) ?? [])
+    );
+    // @ts-expect-error — dual export: health/hotspots.js version takes (churnResult, complexityMap, minCommits)
+    const { entries, summary } = (computeHotspots as (...a: unknown[]) => { entries: unknown[]; summary: unknown })(
+      args.churnResult,
+      complexityMap,
       args.minCommits as number | undefined,
     );
     return { content: [{ type: 'text' as const, text: JSON.stringify({ summary, top20: entries.slice(0, 20) }, null, 2) }] };
@@ -2671,14 +2770,21 @@ const monographChurnTraceTool: MCPTool = {
     required: ['kind', 'target'],
   },
   handler: async (args) => {
-    const { traceExport, traceFile, traceDependency } = await import('@monoes/monograph');
+    const { traceExport, traceFile, traceDependency, loadGraphFromDb } = await import('@monoes/monograph');
     const { openDb, closeDb } = await import('@monoes/monograph');
     const db = openDb(getDbPath());
     try {
       let result: unknown;
-      if (args.kind === 'export') result = traceExport(db, args.target as string, (args.exportName as string | undefined) ?? '');
-      else if (args.kind === 'file') result = traceFile(db, args.target as string);
-      else result = traceDependency(db, args.target as string);
+      if (args.kind === 'export') {
+        const graph = loadGraphFromDb(db) as unknown as Parameters<typeof traceExport>[0];
+        result = traceExport(graph, args.target as string, (args.exportName as string | undefined) ?? '');
+      } else if (args.kind === 'file') {
+        const graph = loadGraphFromDb(db) as unknown as Parameters<typeof traceFile>[0];
+        result = traceFile(graph, args.target as string);
+      } else {
+        const edges = db.prepare(`SELECT source_file as sourceFile, target_package as targetPackage FROM edges WHERE target_package IS NOT NULL`).all() as Array<{ sourceFile: string; targetPackage: string }>;
+        result = traceDependency(edges, args.target as string);
+      }
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     } finally { closeDb(db); }
   },
@@ -2698,7 +2804,7 @@ const monographChangedFilesTool: MCPTool = {
   handler: async (args) => {
     const { getChangedFiles } = await import('@monoes/monograph');
     const root = (args.root as string | undefined) ?? getProjectCwd();
-    const files = getChangedFiles(root, args.sinceRef as string);
+    const files = await getChangedFiles(root, args.sinceRef as string);
     return { content: [{ type: 'text' as const, text: JSON.stringify({ count: files.size, files: [...files].sort() }, null, 2) }] };
   },
 };
@@ -2891,7 +2997,7 @@ const monographCloudCoverageTool: MCPTool = {
   },
   handler: async (args) => {
     const { fetchRuntimeContext, isCloudError } = await import('@monoes/monograph');
-    const result = await fetchRuntimeContext(args as Parameters<typeof fetchRuntimeContext>[0]);
+    const result = await fetchRuntimeContext(args as unknown as Parameters<typeof fetchRuntimeContext>[0]);
     if (isCloudError(result)) {
       return { content: [{ type: 'text' as const, text: `Error (${result.kind}): ${result.message}` }] };
     }
@@ -3322,8 +3428,8 @@ const monographLspCodeActionsTool: MCPTool = {
   handler: async (args) => {
     const { buildRemoveExportActions, buildSuppressActions } = await import('@monoes/monograph');
     const actions = args.kind === 'remove-export'
-      ? buildRemoveExportActions(args.locations as Parameters<typeof buildRemoveExportActions>[0])
-      : buildSuppressActions(args.locations as Parameters<typeof buildSuppressActions>[0], args.suppressKind as string);
+      ? buildRemoveExportActions(args.locations as Parameters<typeof buildRemoveExportActions>[0], 0, [])
+      : buildSuppressActions(args.locations as Parameters<typeof buildSuppressActions>[0], 0, []);
     return { content: [{ type: 'text' as const, text: JSON.stringify(actions, null, 2) }] };
   },
 };
@@ -3446,7 +3552,7 @@ const monographIssueFiltersTool: MCPTool = {
   handler: async (args) => {
     const { applyIssueFilters, activateExplicitOptIns, ALL_FILTERS_ON, ALL_FILTERS_OFF } = await import('@monoes/monograph');
     const filters = (args.allOn as boolean) ? ALL_FILTERS_ON
-      : activateExplicitOptIns((args.checks as string[] | undefined) ?? []);
+      : activateExplicitOptIns((args.checks as Parameters<typeof activateExplicitOptIns>[0] | undefined) ?? []);
     return { content: [{ type: 'text' as const, text: JSON.stringify(filters, null, 2) }] };
   },
 };
@@ -3486,7 +3592,11 @@ const monographProjectDetectionTool: MCPTool = {
   },
   handler: async (args) => {
     const { detectProject, buildJsonConfig, buildTomlConfig } = await import('@monoes/monograph');
-    const info = detectProject(args.deps as Record<string, string>, (args.rootFiles as string[] | undefined) ?? []);
+    const info = detectProject(
+      (args.rootFiles as string[] | undefined) ?? [],
+      { dependencies: args.deps as Record<string, string> },
+      false,
+    );
     const config = (args.format as string) === 'toml' ? buildTomlConfig(info) : buildJsonConfig(info);
     return { content: [{ type: 'text' as const, text: JSON.stringify(info, null, 2) + '\n\n' + config }] };
   },
@@ -3508,7 +3618,7 @@ const monographGitHooksTool: MCPTool = {
   handler: async (args) => {
     const { detectHooksManager, renderedHookScript } = await import('@monoes/monograph');
     const manager = detectHooksManager(args.rootFiles as string[]);
-    const script = renderedHookScript({ command: (args.command as string) ?? 'npx monograph check', manager });
+    const script = renderedHookScript({ command: (args.command as string) ?? 'npx monograph check', root: getProjectCwd() });
     return { content: [{ type: 'text' as const, text: JSON.stringify({ manager, script }, null, 2) }] };
   },
 };
@@ -3593,8 +3703,14 @@ const monographHealthReportTool: MCPTool = {
   },
   handler: async (args) => {
     const { createHealthReport, createHealthReportSummary, formatHealthReportSummary, healthReportToJson } = await import('@monoes/monograph');
-    const report = createHealthReport(args.vitals as Parameters<typeof createHealthReport>[0], args.counts as Parameters<typeof createHealthReport>[1], (args.hotspots as Parameters<typeof createHealthReport>[2]) ?? []);
-    const summary = createHealthReportSummary(report);
+    // createHealthReport(summary, partials?) — build summary first from vitals data
+    const vitals = args.vitals as Record<string, unknown>;
+    const counts = args.counts as Record<string, unknown>;
+    const healthScore = (vitals?.healthScore ?? 0) as number;
+    const totalFiles = (counts?.totalFiles ?? 0) as number;
+    const totalLoc = (counts?.totalLoc ?? 0) as number;
+    const summary = createHealthReportSummary(healthScore, totalFiles, totalLoc);
+    const report = createHealthReport(summary, { hotspots: (args.hotspots as unknown[]) ?? [] });
     return { content: [{ type: 'text' as const, text: formatHealthReportSummary(summary) + '\n\n' + healthReportToJson(report) }] };
   },
 };
@@ -3722,7 +3838,7 @@ const monographToolBuildersTool: MCPTool = {
     const builders = await import('@monoes/monograph');
     const cmd = args.command as string;
     const p = args.params as Record<string, unknown>;
-    const map: Record<string, (p: unknown) => string[]> = {
+    const map: Record<string, (p: never) => string[]> = {
       'analyze': builders.buildAnalyzeArgs,
       'health': builders.buildHealthArgs,
       'audit': builders.buildAuditArgs,
@@ -3742,7 +3858,7 @@ const monographToolBuildersTool: MCPTool = {
     };
     const builder = map[cmd];
     if (!builder) return { content: [{ type: 'text' as const, text: `Unknown command: ${cmd}` }] };
-    return { content: [{ type: 'text' as const, text: JSON.stringify(builder(p), null, 2) }] };
+    return { content: [{ type: 'text' as const, text: JSON.stringify(builder(p as never), null, 2) }] };
   },
 };
 
@@ -3835,7 +3951,7 @@ const monographRulesConfigTool: MCPTool = {
     },
     required: ['root', 'action'],
   },
-  handler: async (params: { root: string; action: string; partial?: Record<string, string>; issueKind?: string }) => {
+  handler: async (params) => {
     const { DEFAULT_RULES_CONFIG, mergeRulesConfig, issueSeverityFor } = await import('@monoes/monograph');
     if (params.action === 'default') return { content: [{ type: 'text', text: JSON.stringify(DEFAULT_RULES_CONFIG, null, 2) }] };
     if (params.action === 'merge' && params.partial) {
@@ -3863,9 +3979,9 @@ const monographUsedClassMembersTool: MCPTool = {
     },
     required: ['root', 'memberName'],
   },
-  handler: async (params: { root: string; memberName: string; className?: string; heritagePattern?: string }) => {
+  handler: async (params) => {
     const { isMemberSuppressed } = await import('@monoes/monograph');
-    const suppressed = isMemberSuppressed({ name: params.memberName, className: params.className ?? '' }, []);
+    const suppressed = isMemberSuppressed([], params.memberName as string);
     return { content: [{ type: 'text', text: JSON.stringify({ member: params.memberName, suppressed }) }] };
   },
 };
@@ -3882,7 +3998,7 @@ const monographDuplicatesConfigTool: MCPTool = {
     },
     required: ['root', 'action'],
   },
-  handler: async (params: { root: string; action: string; partial?: Record<string, unknown> }) => {
+  handler: async (params) => {
     const { DEFAULT_DUPLICATES_CONFIG, mergeDuplicatesConfig } = await import('@monoes/monograph');
     if (params.action === 'merge' && params.partial) {
       const merged = mergeDuplicatesConfig(DEFAULT_DUPLICATES_CONFIG, params.partial as never);
@@ -3904,7 +4020,7 @@ const monographIgnoreExportsConfigTool: MCPTool = {
     },
     required: ['root', 'raw'],
   },
-  handler: async (params: { root: string; raw: unknown; exportKind?: string }) => {
+  handler: async (params) => {
     const { parseIgnoreExportsConfig, suppressesExport } = await import('@monoes/monograph');
     const config = parseIgnoreExportsConfig(params.raw);
     if (params.exportKind) {
@@ -3928,14 +4044,14 @@ const monographAnalysisJsonTool: MCPTool = {
     },
     required: ['root', 'kind', 'data'],
   },
-  handler: async (params: { root: string; kind: string; data: unknown; stripRoot?: string }) => {
+  handler: async (params) => {
     const { buildAnalysisResultsEnvelope, buildHealthResultsEnvelope, buildDuplicationResultsEnvelope, stripRootPrefix } = await import('@monoes/monograph');
     let data = params.data;
-    if (params.stripRoot) data = stripRootPrefix(data, params.stripRoot);
+    if (params.stripRoot) data = stripRootPrefix(data, params.stripRoot as string);
     let envelope: unknown;
-    if (params.kind === 'health') envelope = buildHealthResultsEnvelope({ root: params.root, findings: (data as never) });
-    else if (params.kind === 'duplication') envelope = buildDuplicationResultsEnvelope({ root: params.root, groups: (data as never) });
-    else envelope = buildAnalysisResultsEnvelope({ root: params.root, results: (data as never) });
+    if (params.kind === 'health') envelope = buildHealthResultsEnvelope(data as never, 0);
+    else if (params.kind === 'duplication') envelope = buildDuplicationResultsEnvelope(data as never, 0);
+    else envelope = buildAnalysisResultsEnvelope(data as never, 0);
     return { content: [{ type: 'text', text: JSON.stringify(envelope, null, 2) }] };
   },
 };
@@ -3952,12 +4068,12 @@ const monographHumanReporterTool: MCPTool = {
     },
     required: ['root', 'kind', 'data'],
   },
-  handler: async (params: { root: string; kind: string; data: unknown }) => {
+  handler: async (params) => {
     const { buildDeadCodeHumanLines, buildHealthHumanLines, buildDuplicationHumanLines, buildExportTraceHumanLines, buildFileTraceHumanLines, buildDependencyTraceHumanLines } = await import('@monoes/monograph');
     let lines: string[] = [];
-    if (params.kind === 'deadcode') lines = buildDeadCodeHumanLines(params.data as never, params.root);
-    else if (params.kind === 'health') lines = buildHealthHumanLines(params.data as never, params.root);
-    else if (params.kind === 'duplication') lines = buildDuplicationHumanLines(params.data as never, params.root);
+    if (params.kind === 'deadcode') lines = buildDeadCodeHumanLines(params.data as never, params.root as string);
+    else if (params.kind === 'health') lines = buildHealthHumanLines(params.data as never, params.root as string);
+    else if (params.kind === 'duplication') lines = buildDuplicationHumanLines(params.data as never, params.root as string);
     else if (params.kind === 'export-trace') lines = buildExportTraceHumanLines(params.data as never);
     else if (params.kind === 'file-trace') lines = buildFileTraceHumanLines(params.data as never);
     else if (params.kind === 'dep-trace') lines = buildDependencyTraceHumanLines(params.data as never);
@@ -3977,14 +4093,14 @@ const monographConfigResolutionTool: MCPTool = {
     },
     required: ['root'],
   },
-  handler: async (params: { root: string; configPath?: string; extendsValue?: string }) => {
+  handler: async (params) => {
     const { parseExtendsValue, resolveConfigExtends } = await import('@monoes/monograph');
     if (params.extendsValue) {
-      const src = parseExtendsValue(params.extendsValue);
+      const src = parseExtendsValue(params.extendsValue as string);
       return { content: [{ type: 'text', text: JSON.stringify(src, null, 2) }] };
     }
     if (params.configPath) {
-      const merged = await resolveConfigExtends(params.configPath, params.root);
+      const merged = await resolveConfigExtends({}, params.configPath as string, params.root as string);
       return { content: [{ type: 'text', text: JSON.stringify(merged, null, 2) }] };
     }
     return { content: [{ type: 'text', text: 'Provide configPath or extendsValue' }] };
@@ -4003,9 +4119,9 @@ const monographCliSchemaTool: MCPTool = {
     },
     required: ['root'],
   },
-  handler: async (params: { root: string; version?: string; format?: string }) => {
+  handler: async (params) => {
     const { buildCliSchema, schemaToJsonString } = await import('@monoes/monograph');
-    const schema = buildCliSchema(params.version ?? '1.0.0');
+    const schema = buildCliSchema((params.version as string | undefined) ?? '1.0.0');
     if (params.format === 'json') {
       return { content: [{ type: 'text', text: schemaToJsonString(schema) }] };
     }
@@ -4025,7 +4141,7 @@ const monographUnusedClassMembersTool: MCPTool = {
     },
     required: ['root', 'members', 'action'],
   },
-  handler: async (params: { root: string; members: unknown[]; action: string }) => {
+  handler: async (params) => {
     const { summarizeUnusedMembers, groupUnusedMembersByFile, formatUnusedMembersReport } = await import('@monoes/monograph');
     if (params.action === 'summarize') {
       const result = summarizeUnusedMembers(params.members as never);
@@ -4051,9 +4167,9 @@ const monographHealthSarifTool: MCPTool = {
     },
     required: ['root', 'findings'],
   },
-  handler: async (params: { root: string; findings: unknown[] }) => {
+  handler: async (params) => {
     const { exportHealthSarif } = await import('@monoes/monograph');
-    const doc = exportHealthSarif(params.findings as never, params.root);
+    const doc = exportHealthSarif(params.findings as never, params.root as string);
     return { content: [{ type: 'text', text: JSON.stringify(doc, null, 2) }] };
   },
 };
@@ -4071,12 +4187,13 @@ const monographHealthBadgeTool: MCPTool = {
     },
     required: ['root', 'score', 'action'],
   },
-  handler: async (params: { root: string; score: number; action: string; label?: string }) => {
+  handler: async (params) => {
     const { renderHealthTerminalBadge, healthScoreToGrade } = await import('@monoes/monograph');
     if (params.action === 'grade') {
-      return { content: [{ type: 'text', text: healthScoreToGrade(params.score) }] };
+      return { content: [{ type: 'text', text: healthScoreToGrade(params.score as number) }] };
     }
-    const badge = renderHealthTerminalBadge({ score: params.score, label: params.label ?? 'Health' });
+    const grade = healthScoreToGrade(params.score as number);
+    const badge = renderHealthTerminalBadge({ score: params.score as number, grade, label: (params.label as string | undefined) ?? 'Health' });
     return { content: [{ type: 'text', text: badge }] };
   },
 };
@@ -4093,7 +4210,7 @@ const monographHealthCodeClimateTool: MCPTool = {
     },
     required: ['root', 'kind', 'findings'],
   },
-  handler: async (params: { root: string; kind: string; findings: unknown[] }) => {
+  handler: async (params) => {
     const { exportHealthCodeClimate, exportDuplicationCodeClimate } = await import('@monoes/monograph');
     const issues = params.kind === 'duplication'
       ? exportDuplicationCodeClimate(params.findings as never)
@@ -4115,11 +4232,11 @@ const monographHealthMarkdownTool: MCPTool = {
     },
     required: ['root', 'kind', 'findings'],
   },
-  handler: async (params: { root: string; kind: string; findings: unknown[]; title?: string }) => {
+  handler: async (params) => {
     const { exportHealthMarkdown, exportDuplicationMarkdown } = await import('@monoes/monograph');
     const md = params.kind === 'duplication'
-      ? exportDuplicationMarkdown(params.findings as never, params.title)
-      : exportHealthMarkdown(params.findings as never, params.title);
+      ? exportDuplicationMarkdown(params.findings as never, params.title as string | undefined)
+      : exportHealthMarkdown(params.findings as never, params.title as string | undefined);
     return { content: [{ type: 'text', text: md }] };
   },
 };
@@ -4136,11 +4253,11 @@ const monographMigrateKnipExtTool: MCPTool = {
     },
     required: ['root', 'action', 'input'],
   },
-  handler: async (params: { root: string; action: string; input: string }) => {
+  handler: async (params) => {
     const { stripJsoncComments, parseJsoncString, generateTomlFromMigration } = await import('@monoes/monograph');
-    if (params.action === 'strip-jsonc') return { content: [{ type: 'text', text: stripJsoncComments(params.input) }] };
-    if (params.action === 'parse-jsonc') return { content: [{ type: 'text', text: JSON.stringify(parseJsoncString(params.input), null, 2) }] };
-    const parsed = parseJsoncString(params.input);
+    if (params.action === 'strip-jsonc') return { content: [{ type: 'text', text: stripJsoncComments(params.input as string) }] };
+    if (params.action === 'parse-jsonc') return { content: [{ type: 'text', text: JSON.stringify(parseJsoncString(params.input as string), null, 2) }] };
+    const parsed = parseJsoncString(params.input as string);
     return { content: [{ type: 'text', text: generateTomlFromMigration(parsed) }] };
   },
 };
@@ -4160,10 +4277,10 @@ const monographChurnCacheTool: MCPTool = {
     },
     required: ['root', 'gitAfter'],
   },
-  handler: async (params: { root: string; gitAfter: string; cacheDir?: string; noCache?: boolean }) => {
+  handler: async (params) => {
     const { analyzeChurnCached } = await import('@monoes/monograph');
-    const cacheDir = params.cacheDir ?? `${params.root}/.monomind/cache`;
-    const result = analyzeChurnCached(params.root, params.gitAfter, cacheDir, params.noCache ?? false);
+    const cacheDir = (params.cacheDir as string | undefined) ?? `${params.root as string}/.monomind/cache`;
+    const result = analyzeChurnCached(params.root as string, params.gitAfter as string, cacheDir, (params.noCache as boolean | undefined) ?? false);
     if (!result) return { content: [{ type: 'text', text: 'Could not analyze churn (not a git repo?)' }] };
     const top = [...result.files.entries()].sort((a, b) => b[1].weightedCommits - a[1].weightedCommits).slice(0, 20);
     return { content: [{ type: 'text', text: JSON.stringify({ cacheHit: result.cacheHit, topFiles: top.map(([path, d]) => ({ path, ...d })) }, null, 2) }] };
@@ -4182,9 +4299,9 @@ const monographSuppressionContextTool: MCPTool = {
     },
     required: ['root', 'modules', 'action'],
   },
-  handler: async (params: { root: string; modules: unknown[]; action: string }) => {
-    const { SuppressionContext } = await import('@monoes/monograph');
-    const ctx = new SuppressionContext(params.modules as never);
+  handler: async (params) => {
+    const m = await import('@monoes/monograph') as never as Record<string, new (modules: never) => { findStale(): unknown; usedCount(): number }>;
+    const ctx = new m.SuppressionContext(params.modules as never);
     if (params.action === 'find-stale') {
       const stale = ctx.findStale();
       return { content: [{ type: 'text', text: JSON.stringify(stale, null, 2) }] };
@@ -4206,13 +4323,13 @@ const monographToleranceTool: MCPTool = {
     },
     required: ['root', 'toleranceStr'],
   },
-  handler: async (params: { root: string; toleranceStr: string; baselineTotal?: number; currentTotal?: number }) => {
+  handler: async (params) => {
     const { parseTolerance, toleranceExceeded, formatTolerance } = await import('@monoes/monograph');
-    const tol = parseTolerance(params.toleranceStr);
-    const result: Record<string, unknown> = { tolerance: tol, formatted: formatTolerance(tol) };
+    const tol = parseTolerance(params.toleranceStr as string);
+    const result: Record<string, unknown> = { tolerance: tol, formatted: formatTolerance(tol as never) };
     if (params.baselineTotal !== undefined && params.currentTotal !== undefined) {
-      result.exceeded = toleranceExceeded(tol, params.baselineTotal, params.currentTotal);
-      result.delta = params.currentTotal - params.baselineTotal;
+      result.exceeded = toleranceExceeded(tol as never, params.baselineTotal as number, params.currentTotal as number);
+      result.delta = (params.currentTotal as number) - (params.baselineTotal as number);
     }
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
   },
@@ -4232,14 +4349,14 @@ const monographCrossReferenceFindingsTool: MCPTool = {
     },
     required: ['root', 'cloneGroups'],
   },
-  handler: async (params: { root: string; cloneGroups: unknown[]; unusedFiles?: string[]; unusedExports?: unknown[]; unusedTypes?: unknown[] }) => {
+  handler: async (params) => {
     const { crossReference } = await import('@monoes/monograph');
     const deadCode = {
-      unusedFiles: new Set(params.unusedFiles ?? []),
+      unusedFiles: new Set((params.unusedFiles ?? []) as string[]),
       unusedExports: (params.unusedExports ?? []) as never,
       unusedTypes: (params.unusedTypes ?? []) as never,
     };
-    const result = crossReference({ cloneGroups: params.cloneGroups as never }, deadCode);
+    const result = crossReference({ cloneGroups: params.cloneGroups as never }, deadCode as never);
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
   },
 };
@@ -4257,11 +4374,11 @@ const monographWatchRunnerTool: MCPTool = {
     },
     required: ['root', 'action'],
   },
-  handler: async (params: { root: string; paths?: string[]; action: string; filePath?: string }) => {
+  handler: async (params) => {
     const { collectChangedPaths, isRelevantSource, isRelevantConfig } = await import('@monoes/monograph');
-    if (params.action === 'collect') return { content: [{ type: 'text', text: JSON.stringify(collectChangedPaths(params.paths ?? [], params.root)) }] };
-    if (params.action === 'is-source') return { content: [{ type: 'text', text: JSON.stringify({ isSource: isRelevantSource(params.filePath ?? '') }) }] };
-    return { content: [{ type: 'text', text: JSON.stringify({ isConfig: isRelevantConfig(params.filePath ?? '') }) }] };
+    if (params.action === 'collect') return { content: [{ type: 'text', text: JSON.stringify(collectChangedPaths((params.paths as string[] | undefined) ?? [], params.root as string)) }] };
+    if (params.action === 'is-source') return { content: [{ type: 'text', text: JSON.stringify({ isSource: isRelevantSource((params.filePath as string | undefined) ?? '') }) }] };
+    return { content: [{ type: 'text', text: JSON.stringify({ isConfig: isRelevantConfig((params.filePath as string | undefined) ?? '') }) }] };
   },
 };
 
@@ -4277,7 +4394,7 @@ const monographCodeownersExtendedTool: MCPTool = {
     },
     required: ['root', 'action'],
   },
-  handler: async (params: { root: string; relativePath?: string; action: string }) => {
+  handler: async (params) => {
     const { UNOWNED_LABEL, NO_SECTION_LABEL } = await import('@monoes/monograph');
     if (params.action === 'has-sections') return { content: [{ type: 'text', text: JSON.stringify({ hasSections: false, note: 'Requires a CodeOwnersLike instance at runtime' }) }] };
     return { content: [{ type: 'text', text: JSON.stringify({ UNOWNED_LABEL, NO_SECTION_LABEL, note: 'Pass a CodeOwnersLike instance to ownerCountOf/sectionOf/ownerLabel at runtime' }) }] };
@@ -4302,16 +4419,16 @@ const monographHealthScoresTool: MCPTool = {
     },
     required: ['root', 'action'],
   },
-  handler: async (params: { root: string; action: string; cognitive?: number; cyclomatic?: number; crap?: number; coveragePct?: number; cyclomaticExceeded?: boolean; cognitiveExceeded?: boolean; crapExceeded?: boolean }) => {
+  handler: async (params) => {
     const { computeFindingSeverity, coverageTierFromPct, exceededThresholdFromBools } = await import('@monoes/monograph');
     if (params.action === 'severity') {
-      const sev = computeFindingSeverity({ cognitive: params.cognitive ?? 0, cyclomatic: params.cyclomatic ?? 0, crap: params.crap });
+      const sev = computeFindingSeverity({ cognitive: (params.cognitive as number | undefined) ?? 0, cyclomatic: (params.cyclomatic as number | undefined) ?? 0, crap: params.crap as number | undefined });
       return { content: [{ type: 'text', text: JSON.stringify({ severity: sev }) }] };
     }
     if (params.action === 'coverage-tier') {
-      return { content: [{ type: 'text', text: JSON.stringify({ tier: coverageTierFromPct(params.coveragePct ?? 0) }) }] };
+      return { content: [{ type: 'text', text: JSON.stringify({ tier: coverageTierFromPct((params.coveragePct as number | undefined) ?? 0) }) }] };
     }
-    const threshold = exceededThresholdFromBools(params.cyclomaticExceeded ?? false, params.cognitiveExceeded ?? false, params.crapExceeded ?? false);
+    const threshold = exceededThresholdFromBools((params.cyclomaticExceeded as boolean | undefined) ?? false, (params.cognitiveExceeded as boolean | undefined) ?? false, (params.crapExceeded as boolean | undefined) ?? false);
     return { content: [{ type: 'text', text: JSON.stringify({ exceededThreshold: threshold }) }] };
   },
 };
@@ -4330,7 +4447,7 @@ const monographHealthTrendTypesTool: MCPTool = {
     },
     required: ['root', 'action'],
   },
-  handler: async (params: { root: string; metrics?: unknown[]; action: string; metric?: unknown; direction?: string }) => {
+  handler: async (params) => {
     const { computeOverallDirection, formatTrendMetric, trendArrow } = await import('@monoes/monograph');
     if (params.action === 'overall-direction') {
       return { content: [{ type: 'text', text: JSON.stringify({ direction: computeOverallDirection((params.metrics ?? []) as never) }) }] };
@@ -4353,7 +4470,7 @@ const monographAnalysisProgressTool: MCPTool = {
     },
     required: ['root'],
   },
-  handler: async (params: { root: string; quiet?: boolean }) => {
+  handler: async (params) => {
     const { AnalysisProgress } = await import('@monoes/monograph');
     const p = new AnalysisProgress(!(params.quiet ?? false));
     return { content: [{ type: 'text', text: JSON.stringify({ created: true, enabled: !(params.quiet ?? false), note: 'AnalysisProgress is a runtime TTY spinner; use createAnalysisProgress(quiet) in your code' }) }] };
@@ -4372,7 +4489,7 @@ const monographPipelinePerfTool: MCPTool = {
     },
     required: ['root', 'timings', 'action'],
   },
-  handler: async (params: { root: string; timings: unknown; action: string }) => {
+  handler: async (params) => {
     const { buildPipelinePerformanceLines, timingsSummary } = await import('@monoes/monograph');
     if (params.action === 'summary') return { content: [{ type: 'text', text: timingsSummary(params.timings as never) }] };
     return { content: [{ type: 'text', text: buildPipelinePerformanceLines(params.timings as never).join('\n') }] };
@@ -4391,12 +4508,12 @@ const monographTraceHumanTool: MCPTool = {
     },
     required: ['root', 'kind', 'trace'],
   },
-  handler: async (params: { root: string; kind: string; trace: unknown }) => {
+  handler: async (params) => {
     const { printExportTraceHuman, printFileTraceHuman, printDependencyTraceHuman, printCloneTraceHuman } = await import('@monoes/monograph');
-    if (params.kind === 'export') printExportTraceHuman(params.trace as never, params.root);
-    else if (params.kind === 'file') printFileTraceHuman(params.trace as never, params.root);
+    if (params.kind === 'export') printExportTraceHuman(params.trace as never, params.root as string);
+    else if (params.kind === 'file') printFileTraceHuman(params.trace as never, params.root as string);
     else if (params.kind === 'dependency') printDependencyTraceHuman(params.trace as never);
-    else if (params.kind === 'clone') printCloneTraceHuman(params.trace as never, params.root);
+    else if (params.kind === 'clone') printCloneTraceHuman(params.trace as never, params.root as string);
     return { content: [{ type: 'text', text: `Printed ${params.kind} trace to stderr` }] };
   },
 };
@@ -4416,8 +4533,8 @@ const monographFixOrchestratorTool: MCPTool = {
     },
     required: ['root'],
   },
-  handler: async (params: { root: string; unusedExportsCount?: number; unusedDepsCount?: number; unusedEnumMembersCount?: number; dryRun?: boolean; yes?: boolean }) => {
-    const total = (params.unusedExportsCount ?? 0) + (params.unusedDepsCount ?? 0) + (params.unusedEnumMembersCount ?? 0);
+  handler: async (params) => {
+    const total = ((params.unusedExportsCount as number | undefined) ?? 0) + ((params.unusedDepsCount as number | undefined) ?? 0) + ((params.unusedEnumMembersCount as number | undefined) ?? 0);
     const needsYes = !params.dryRun && !params.yes;
     return { content: [{ type: 'text', text: JSON.stringify({ total, needsYesFlag: needsYes, dryRun: params.dryRun ?? false, breakdown: { exports: params.unusedExportsCount ?? 0, deps: params.unusedDepsCount ?? 0, enumMembers: params.unusedEnumMembersCount ?? 0 } }) }] };
   },
@@ -4434,10 +4551,10 @@ const monographSinceDurationTool: MCPTool = {
     },
     required: ['root', 'since'],
   },
-  handler: async (params: { root: string; since: string }) => {
+  handler: async (params) => {
     const { parseSince, sinceDurationToGitFlag } = await import('@monoes/monograph');
-    const parsed = parseSince(params.since);
-    return { content: [{ type: 'text', text: JSON.stringify({ ...parsed, gitFlag: sinceDurationToGitFlag(parsed) }) }] };
+    const parsed = parseSince(params.since as string);
+    return { content: [{ type: 'text', text: JSON.stringify({ ...parsed, gitFlag: sinceDurationToGitFlag(parsed as never) }) }] };
   },
 };
 
@@ -4453,7 +4570,7 @@ const monographCompactHealthTool: MCPTool = {
     },
     required: ['root', 'kind', 'report'],
   },
-  handler: async (params: { root: string; kind: string; report: unknown }) => {
+  handler: async (params) => {
     const { buildHealthCompactLines, buildDuplicationCompactLines } = await import('@monoes/monograph');
     const lines = params.kind === 'duplication'
       ? buildDuplicationCompactLines(params.report as never)
@@ -4475,10 +4592,10 @@ const monographCrossRefHumanTool: MCPTool = {
     },
     required: ['root', 'findings'],
   },
-  handler: async (params: { root: string; findings: unknown[]; clonesInUnusedFiles?: number; clonesWithUnusedExports?: number }) => {
+  handler: async (params) => {
     const { buildCrossReferenceLines } = await import('@monoes/monograph');
-    const result = { findings: params.findings as never, clonesInUnusedFiles: params.clonesInUnusedFiles ?? 0, clonesWithUnusedExports: params.clonesWithUnusedExports ?? 0 };
-    const lines = buildCrossReferenceLines(result, params.root);
+    const result = { findings: params.findings as never, clonesInUnusedFiles: (params.clonesInUnusedFiles as number | undefined) ?? 0, clonesWithUnusedExports: (params.clonesWithUnusedExports as number | undefined) ?? 0 };
+    const lines = buildCrossReferenceLines(result as never, params.root as string);
     return { content: [{ type: 'text', text: lines.join('\n') }] };
   },
 };
@@ -4497,12 +4614,12 @@ const monographJsoncGenTool: MCPTool = {
     },
     required: ['root', 'action'],
   },
-  handler: async (params: { root: string; action: string; config?: Record<string, unknown>; sources?: string[]; input?: string }) => {
+  handler: async (params) => {
     const { generateJsonc, parseJsoncComments } = await import('@monoes/monograph');
     if (params.action === 'generate') {
-      return { content: [{ type: 'text', text: generateJsonc(params.config ?? {}, params.sources ?? []) }] };
+      return { content: [{ type: 'text', text: generateJsonc((params.config as Record<string, unknown> | undefined) ?? {}, (params.sources as string[] | undefined) ?? []) }] };
     }
-    return { content: [{ type: 'text', text: JSON.stringify(parseJsoncComments(params.input ?? '{}'), null, 2) }] };
+    return { content: [{ type: 'text', text: JSON.stringify(parseJsoncComments((params.input as string | undefined) ?? '{}'), null, 2) }] };
   },
 };
 
@@ -4518,9 +4635,9 @@ const monographTomlGenTool: MCPTool = {
     },
     required: ['root', 'config'],
   },
-  handler: async (params: { root: string; config: Record<string, unknown>; sources?: string[] }) => {
+  handler: async (params) => {
     const { generateToml } = await import('@monoes/monograph');
-    return { content: [{ type: 'text', text: generateToml(params.config, params.sources ?? []) }] };
+    return { content: [{ type: 'text', text: generateToml(params.config as Record<string, unknown>, (params.sources as string[] | undefined) ?? []) }] };
   },
 };
 
@@ -4537,10 +4654,10 @@ const monographWorkerPoolTool: MCPTool = {
     },
     required: ['root', 'action'],
   },
-  handler: async (params: { root: string; threads?: number; stackSizeMb?: number; action: string }) => {
+  handler: async (params) => {
     const { configureGlobalPool, getGlobalPool, resetGlobalPool } = await import('@monoes/monograph');
     if (params.action === 'reset') { resetGlobalPool(); return { content: [{ type: 'text', text: 'Pool reset' }] }; }
-    if (params.action === 'configure') configureGlobalPool(params.threads, params.stackSizeMb);
+    if (params.action === 'configure') configureGlobalPool(params.threads as number | undefined, params.stackSizeMb as number | undefined);
     const pool = getGlobalPool();
     return { content: [{ type: 'text', text: JSON.stringify({ threads: pool.threads, stackSizeMb: pool.stackSizeMb }) }] };
   },
@@ -4560,7 +4677,7 @@ const monographOwnershipMetricsTool: MCPTool = {
     },
     required: ['root', 'action'],
   },
-  handler: async (params: { root: string; contributors?: unknown[]; action: string; topContributorIdentifier?: string; metrics?: unknown }) => {
+  handler: async (params) => {
     const { computeBusFactor, filterSuggestedReviewers, formatOwnershipMetrics } = await import('@monoes/monograph');
     if (params.action === 'bus-factor') {
       return { content: [{ type: 'text', text: JSON.stringify({ busFactor: computeBusFactor((params.contributors ?? []) as never) }) }] };
@@ -4587,13 +4704,13 @@ const monographChurnTrendTool: MCPTool = {
     },
     required: ['root', 'action'],
   },
-  handler: async (params: { root: string; timestamps?: number[]; action: string; fileSeries?: number[][] }) => {
+  handler: async (params) => {
     const { computeChurnTrend, churnTrendLabel, churnTrendFromFileSeries } = await import('@monoes/monograph');
     if (params.action === 'multi-file') {
-      const trend = churnTrendFromFileSeries(params.fileSeries ?? []);
+      const trend = churnTrendFromFileSeries((params.fileSeries as number[][] | undefined) ?? []);
       return { content: [{ type: 'text', text: JSON.stringify({ trend, label: churnTrendLabel(trend) }) }] };
     }
-    const trend = computeChurnTrend(params.timestamps ?? []);
+    const trend = computeChurnTrend((params.timestamps as number[] | undefined) ?? []);
     if (params.action === 'label') return { content: [{ type: 'text', text: churnTrendLabel(trend) }] };
     return { content: [{ type: 'text', text: JSON.stringify({ trend, label: churnTrendLabel(trend) }) }] };
   },
@@ -4615,13 +4732,13 @@ const monographHotPathsTool: MCPTool = {
     },
     required: ['root', 'action'],
   },
-  handler: async (params: { root: string; action: string; filePath?: string; minRequestsPerDay?: number; limit?: number; minScore?: number; maxCoveragePct?: number }) => {
+  handler: async (params) => {
     const { buildGetHotPathsArgs, buildGetBlastRadiusArgs, buildGetImportanceArgs, buildGetCleanupCandidatesArgs } = await import('@monoes/monograph');
     let args: string[] = [];
-    if (params.action === 'hot-paths') args = buildGetHotPathsArgs({ root: params.root, minRequestsPerDay: params.minRequestsPerDay, limit: params.limit });
-    else if (params.action === 'blast-radius') args = buildGetBlastRadiusArgs({ root: params.root, filePath: params.filePath ?? '', limit: params.limit });
-    else if (params.action === 'importance') args = buildGetImportanceArgs({ root: params.root, limit: params.limit, minScore: params.minScore });
-    else if (params.action === 'cleanup') args = buildGetCleanupCandidatesArgs({ root: params.root, maxCoveragePct: params.maxCoveragePct, limit: params.limit });
+    if (params.action === 'hot-paths') args = buildGetHotPathsArgs({ root: params.root as string, minRequestsPerDay: params.minRequestsPerDay as number | undefined, limit: params.limit as number | undefined });
+    else if (params.action === 'blast-radius') args = buildGetBlastRadiusArgs({ root: params.root as string, filePath: (params.filePath as string | undefined) ?? '', limit: params.limit as number | undefined });
+    else if (params.action === 'importance') args = buildGetImportanceArgs({ root: params.root as string, limit: params.limit as number | undefined, minScore: params.minScore as number | undefined });
+    else if (params.action === 'cleanup') args = buildGetCleanupCandidatesArgs({ root: params.root as string, maxCoveragePct: params.maxCoveragePct as number | undefined, limit: params.limit as number | undefined });
     return { content: [{ type: 'text', text: JSON.stringify(args) }] };
   },
 };
@@ -4721,28 +4838,10 @@ export const monographTools: MCPTool[] = [
   monographRiskProfileTool,
   monographExplainTool,
   monographDepClosureTool,
-  monographCyclesTool,
-  monographCoverageGapsTool,
-  monographDuplicateExportsTool,
-  monographRefactoringTargetsTool,
-  monographAuditTool,
-  monographPrivateTypeLeaksTool,
-  monographFixExportsTool,
-  monographFixDepsTool,
-  monographClassifyDepsTool,
-  monographBadgeTool,
-  monographCodeClimateTool,
-  monographCompactTool,
-  monographMarkdownTool,
-  monographRuntimeCoverageTool,
-  monographCiTemplateTool,
-  monographMigrateKnipTool,
-  monographMigrateJscpdTool,
-  monographLspDiagnosticsTool,
   monographVitalSignsSnapshotTool,
   monographHealthTrendTool,
   monographHealthScoreComputeTool,
-  monographRiskProfileTool,
+  monographRiskProfileRawTool,
   monographLargeFunctionsTool,
   monographOwnershipTool,
   monographChurnTool,
@@ -4854,9 +4953,9 @@ const monographResolveImportsTool: MCPTool = {
     },
     required: ['modules', 'root'],
   },
-  handler: async (args: { modules: any[]; root: string; pathAliases?: [string, string][]; scssIncludePaths?: string[]; activePlugins?: string[] }) => {
+  handler: async (args) => {
     const { resolveAllImports } = await import('@monoes/monograph');
-    const resolved = resolveAllImports(args.modules, [], [], args.activePlugins ?? [], args.pathAliases ?? [], args.scssIncludePaths ?? [], args.root, []);
+    const resolved = resolveAllImports(args.modules as never, [], [], (args.activePlugins as string[] | undefined) ?? [], (args.pathAliases as [string,string][] | undefined) ?? [], (args.scssIncludePaths as string[] | undefined) ?? [], args.root as string, []);
     return { resolved: resolved.map(m => ({ fileId: m.fileId, path: m.path, importCount: m.resolvedImports.length, reExportCount: m.resolvedReExports.length })) };
   },
 };
@@ -4869,14 +4968,14 @@ const monographPathInfoTool: MCPTool = {
     properties: { specifier: { type: 'string', description: 'Import specifier to classify' } },
     required: ['specifier'],
   },
-  handler: async (args: { specifier: string }) => {
+  handler: async (args) => {
     const { isPathAlias, isBareSpecifier, isValidPackageName, extractPackageName } = await import('@monoes/monograph');
     return {
-      specifier: args.specifier,
-      isPathAlias: isPathAlias(args.specifier),
-      isBareSpecifier: isBareSpecifier(args.specifier),
-      isValidPackageName: isValidPackageName(args.specifier),
-      packageName: isBareSpecifier(args.specifier) ? extractPackageName(args.specifier) : null,
+      specifier: args.specifier as string,
+      isPathAlias: isPathAlias(args.specifier as string),
+      isBareSpecifier: isBareSpecifier(args.specifier as string),
+      isValidPackageName: isValidPackageName(args.specifier as string),
+      packageName: isBareSpecifier(args.specifier as string) ? extractPackageName(args.specifier as string) : null,
     };
   },
 };
@@ -4894,11 +4993,11 @@ const monographResolveSpecifierTool: MCPTool = {
     },
     required: ['fromFile', 'specifier', 'root'],
   },
-  handler: async (args: { fromFile: string; specifier: string; root: string; fromStyle?: boolean }) => {
+  handler: async (args) => {
     const { resolveSpecifier } = await import('@monoes/monograph');
-    const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
-    const result = resolveSpecifier(ctx as any, args.fromFile, args.specifier, args.fromStyle ?? false);
-    return { specifier: args.specifier, result };
+    const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root as string, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
+    const result = resolveSpecifier(ctx as any, args.fromFile as string, args.specifier as string, (args.fromStyle as boolean | undefined) ?? false);
+    return { specifier: args.specifier as string, result };
   },
 };
 
@@ -4914,10 +5013,10 @@ const monographResolveStaticImportsTool: MCPTool = {
     },
     required: ['filePath', 'imports', 'root'],
   },
-  handler: async (args: { filePath: string; imports: any[]; root: string }) => {
+  handler: async (args) => {
     const { resolveStaticImports } = await import('@monoes/monograph');
-    const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
-    return { resolved: resolveStaticImports(ctx as any, args.filePath, args.imports) };
+    const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root as string, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
+    return { resolved: resolveStaticImports(ctx as any, args.filePath as string, args.imports as never) };
   },
 };
 
@@ -4933,10 +5032,10 @@ const monographResolveRequireImportsTool: MCPTool = {
     },
     required: ['filePath', 'requireCalls', 'root'],
   },
-  handler: async (args: { filePath: string; requireCalls: any[]; root: string }) => {
+  handler: async (args) => {
     const { resolveRequireImports } = await import('@monoes/monograph');
-    const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
-    return { resolved: resolveRequireImports(ctx as any, args.filePath, args.requireCalls) };
+    const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root as string, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
+    return { resolved: resolveRequireImports(ctx as any, args.filePath as string, args.requireCalls as never) };
   },
 };
 
@@ -4952,10 +5051,10 @@ const monographResolveReExportsTool: MCPTool = {
     },
     required: ['filePath', 'reExports', 'root'],
   },
-  handler: async (args: { filePath: string; reExports: any[]; root: string }) => {
+  handler: async (args) => {
     const { resolveReExports } = await import('@monoes/monograph');
-    const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
-    return { resolved: resolveReExports(ctx as any, args.filePath, args.reExports) };
+    const ctx = { pathToId: new Map(), rawPathToId: new Map(), workspaceRoots: new Map(), pathAliases: [], scssIncludePaths: [], root: args.root as string, tsconfigWarned: new Set(), activePlugins: [], extraConditions: [] };
+    return { resolved: resolveReExports(ctx as any, args.filePath as string, args.reExports as never) };
   },
 };
 
@@ -4971,14 +5070,14 @@ const monographResolveFallbacksTool: MCPTool = {
     },
     required: ['canonicalPath', 'strategy'],
   },
-  handler: async (args: { canonicalPath: string; strategy: string; pattern?: string }) => {
+  handler: async (args) => {
     const { trySourceFallback, makeGlobFromPattern } = await import('@monoes/monograph');
     if (args.strategy === 'source') {
-      const fileId = trySourceFallback(args.canonicalPath, new Map());
+      const fileId = trySourceFallback(args.canonicalPath as string, new Map());
       return { strategy: 'source', fileId, found: fileId !== null };
     }
     if (args.strategy === 'glob-pattern' && args.pattern) {
-      const glob = makeGlobFromPattern({ pattern: args.pattern, fromFile: args.canonicalPath });
+      const glob = makeGlobFromPattern({ pattern: args.pattern as string, fromFile: args.canonicalPath as string });
       return { strategy: 'glob-pattern', glob };
     }
     return { strategy: args.strategy, note: 'Requires a live pathToId map — use resolveAllImports for full resolution' };
@@ -4996,12 +5095,12 @@ const monographReactNativeTool: MCPTool = {
     },
     required: ['activePlugins'],
   },
-  handler: async (args: { activePlugins: string[]; extraConditions?: string[] }) => {
+  handler: async (args) => {
     const { hasReactNativePlugin, buildExtensions, buildConditionNames } = await import('@monoes/monograph');
     return {
-      hasReactNative: hasReactNativePlugin(args.activePlugins),
-      extensions: buildExtensions(args.activePlugins),
-      conditionNames: buildConditionNames(args.activePlugins, args.extraConditions ?? []),
+      hasReactNative: hasReactNativePlugin(args.activePlugins as string[]),
+      extensions: buildExtensions(args.activePlugins as string[]),
+      conditionNames: buildConditionNames(args.activePlugins as string[], (args.extraConditions as string[] | undefined) ?? []),
     };
   },
 };
@@ -5032,9 +5131,9 @@ const monographTokenTypesTool: MCPTool = {
     },
     required: ['source'],
   },
-  handler: async (args: { source: string; filePath?: string; skipImports?: boolean }) => {
+  handler: async (args) => {
     const { tokenizeFile } = await import('@monoes/monograph');
-    const result = tokenizeFile(args.filePath ?? 'file.ts', args.source, args.skipImports ?? false);
+    const result = tokenizeFile((args.filePath as string | undefined) ?? 'file.ts', args.source as string, (args.skipImports as boolean | undefined) ?? false);
     const kindCounts: Record<string, number> = {};
     for (const tok of result.tokens) kindCounts[tok.kind.kind] = (kindCounts[tok.kind.kind] ?? 0) + 1;
     return { tokenCount: result.tokens.length, lineCount: result.lineCount, kindCounts };
@@ -5053,9 +5152,9 @@ const monographNormalizeTool: MCPTool = {
     },
     required: ['source'],
   },
-  handler: async (args: { source: string; filePath?: string; mode?: string }) => {
+  handler: async (args) => {
     const { tokenizeFile, normalizeAndHash } = await import('@monoes/monograph');
-    const tokens = tokenizeFile(args.filePath ?? 'file.ts', args.source, false);
+    const tokens = tokenizeFile((args.filePath as string | undefined) ?? 'file.ts', args.source as string, false);
     const hashed = normalizeAndHash(tokens.tokens, (args.mode ?? 'NormalizeAll') as any);
     return { tokenCount: tokens.tokens.length, hashedCount: hashed.length, sample: hashed.slice(0, 10) };
   },
@@ -5074,9 +5173,9 @@ const monographTokenizeTool: MCPTool = {
     },
     required: ['source', 'filePath'],
   },
-  handler: async (args: { source: string; filePath: string; stripTypes?: boolean; skipImports?: boolean }) => {
+  handler: async (args) => {
     const { tokenizeFileCrossLanguage } = await import('@monoes/monograph');
-    const result = tokenizeFileCrossLanguage(args.filePath, args.source, args.stripTypes ?? false, args.skipImports ?? false);
+    const result = tokenizeFileCrossLanguage(args.filePath as string, args.source as string, (args.stripTypes as boolean | undefined) ?? false, (args.skipImports as boolean | undefined) ?? false);
     return { tokenCount: result.tokens.length, lineCount: result.lineCount };
   },
 };
@@ -5093,9 +5192,9 @@ const monographCheckFilterTool: MCPTool = {
     },
     required: ['issues', 'root'],
   },
-  handler: async (args: { issues: any[]; root: string; workspacePatterns?: string[] }) => {
+  handler: async (args) => {
     const { runCheckFilter, DEFAULT_ISSUE_FILTERS } = await import('@monoes/monograph');
-    const result = runCheckFilter(args.issues, { filters: DEFAULT_ISSUE_FILTERS, root: args.root, workspace: args.workspacePatterns });
+    const result = runCheckFilter(args.issues as never, { filters: DEFAULT_ISSUE_FILTERS, root: args.root as string, workspace: args.workspacePatterns as string[] | undefined });
     return { filteredCount: result.issues.length, hasErrors: result.hasErrors, filteredByWorkspace: result.filteredByWorkspace };
   },
 };
@@ -5111,11 +5210,11 @@ const monographCheckRulesTool: MCPTool = {
     },
     required: ['issues'],
   },
-  handler: async (args: { issues: any[]; rules?: any }) => {
+  handler: async (args) => {
     const { applyRules, hasErrorSeverityIssues, DEFAULT_RULES_CONFIG } = await import('@monoes/monograph');
-    const rules = { ...DEFAULT_RULES_CONFIG, ...(args.rules ?? {}) };
-    const filtered = applyRules(args.issues, rules);
-    return { filteredCount: filtered.length, hasErrors: hasErrorSeverityIssues(filtered, rules), issues: filtered };
+    const rules = { ...DEFAULT_RULES_CONFIG, ...(args.rules as Record<string, unknown> | undefined ?? {}) };
+    const filtered = (applyRules as never as (a: never, b: never) => never[])(args.issues as never, rules as never);
+    return { filteredCount: filtered.length, hasErrors: (hasErrorSeverityIssues as never as (a: never, b: never) => boolean)(filtered as never, rules as never), issues: filtered };
   },
 };
 
@@ -5131,13 +5230,13 @@ const monographCheckOutputTool: MCPTool = {
       toolVersion: { type: 'string', description: 'Tool version for SARIF output', default: '1.0.0' },
     },
   },
-  handler: async (args: { issues?: any[]; format?: string; traceSpec?: string; toolVersion?: string }) => {
+  handler: async (args) => {
     const { buildSarifOutput, formatIssuesAsText, formatIssuesAsJson, parseTraceSpec } = await import('@monoes/monograph');
-    if (args.traceSpec) return { parsed: parseTraceSpec(args.traceSpec) };
-    const issues = args.issues ?? [];
-    if (args.format === 'sarif') return buildSarifOutput(issues, args.toolVersion ?? '1.0.0');
-    if (args.format === 'json') return JSON.parse(formatIssuesAsJson(issues));
-    return { output: formatIssuesAsText(issues, false) };
+    if (args.traceSpec) return { parsed: parseTraceSpec(args.traceSpec as string) };
+    const issues = (args.issues as never[] | undefined) ?? [];
+    if (args.format === 'sarif') return buildSarifOutput(issues as never, (args.toolVersion as string | undefined) ?? '1.0.0');
+    if (args.format === 'json') return JSON.parse(formatIssuesAsJson(issues as never));
+    return { output: formatIssuesAsText(issues as never, false) };
   },
 };
 
@@ -5153,15 +5252,16 @@ const monographFlagsTool: MCPTool = {
     },
     required: ['flags'],
   },
-  handler: async (args: { flags: any[]; top?: number; format?: string }) => {
+  handler: async (args) => {
     const { groupFlagsByName, formatFlagsText } = await import('@monoes/monograph');
-    const result = { flags: args.flags, totalFiles: new Set(args.flags.map((f: any) => f.filePath)).size, totalFlags: args.flags.length };
+    const flags = (args.flags as any[]) ?? [];
+    const result = { flags, totalFiles: new Set(flags.map((f: any) => f.filePath)).size, totalFlags: flags.length };
     if (args.format === 'grouped') {
       const grouped: Record<string, any[]> = {};
-      for (const [name, uses] of groupFlagsByName(args.flags)) grouped[name] = uses;
-      return { grouped, totalFlags: args.flags.length };
+      for (const [name, uses] of groupFlagsByName(flags as never)) grouped[name] = uses;
+      return { grouped, totalFlags: flags.length };
     }
-    return { output: formatFlagsText(result, args.top) };
+    return { output: formatFlagsText(result as never, args.top as number | undefined) };
   },
 };
 
@@ -5177,10 +5277,10 @@ const monographErrorTypesTool: MCPTool = {
     },
     required: ['message'],
   },
-  handler: async (args: { message: string; errorType?: string; format?: string }) => {
+  handler: async (args) => {
     const { formatError } = await import('@monoes/monograph');
-    const err = { code: args.errorType === 'config' ? 'CONFIG_ERROR' : args.errorType === 'resolve' ? 'RESOLVE_ERROR' : 'ANALYSIS_ERROR', message: args.message };
-    return { formatted: formatError(err, (args.format ?? 'text') as any), error: err };
+    const err = { code: args.errorType === 'config' ? 'CONFIG_ERROR' : args.errorType === 'resolve' ? 'RESOLVE_ERROR' : 'ANALYSIS_ERROR', message: args.message as string };
+    return { formatted: formatError(err as never, ((args.format as string | undefined) ?? 'text') as never), error: err };
   },
 };
 
@@ -5218,14 +5318,14 @@ const monographAnalysisResultsTool: MCPTool = {
       filePaths: { type: 'array', items: { type: 'string' }, description: 'File paths for filterByFile operation' },
     },
   },
-  handler: async (args: { operation?: string; results?: any; resultsB?: any; filePaths?: string[] }) => {
+  handler: async (args) => {
     const { makeEmptyAnalysisResults, totalIssues, hasIssues, mergeAnalysisResults, filterResultsByFile } = await import('@monoes/monograph');
     const op = args.operation ?? 'empty';
     if (op === 'empty') return makeEmptyAnalysisResults();
-    if (op === 'total' && args.results) return { total: totalIssues(args.results) };
-    if (op === 'hasIssues' && args.results) return { hasIssues: hasIssues(args.results) };
-    if (op === 'merge' && args.results && args.resultsB) return mergeAnalysisResults(args.results, args.resultsB);
-    if (op === 'filterByFile' && args.results && args.filePaths) return filterResultsByFile(args.results, new Set(args.filePaths));
+    if (op === 'total' && args.results) return { total: totalIssues(args.results as never) };
+    if (op === 'hasIssues' && args.results) return { hasIssues: hasIssues(args.results as never) };
+    if (op === 'merge' && args.results && args.resultsB) return mergeAnalysisResults(args.results as never, args.resultsB as never);
+    if (op === 'filterByFile' && args.results && args.filePaths) return filterResultsByFile(args.results as never, new Set(args.filePaths as string[]));
     return { error: 'Invalid operation or missing arguments' };
   },
 };
@@ -5245,16 +5345,16 @@ const monographProjectStateTool: MCPTool = {
       packageSpec: { type: 'string', description: 'Package specifier for resolvePackage operation' },
     },
   },
-  handler: async (args: { files?: any[]; workspaces?: any[]; operation?: string; fileId?: number; filePath?: string; workspaceId?: number; packageSpec?: string }) => {
+  handler: async (args) => {
     const { makeProjectState, fileById, idForPath, workspaceForFile, filesInWorkspace } = await import('@monoes/monograph');
-    const state = makeProjectState(args.files ?? [], args.workspaces ?? []);
-    const op = args.operation ?? 'build';
-    if (op === 'build') return { fileCount: state.files.size, workspaceCount: state.workspaces.length };
-    if (op === 'fileById' && args.fileId !== undefined) return { file: fileById(state, args.fileId) };
-    if (op === 'idForPath' && args.filePath) return { id: idForPath(state, args.filePath) };
-    if (op === 'workspaceForFile' && args.fileId !== undefined) return { workspace: workspaceForFile(state, args.fileId) };
+    const state = makeProjectState((args.files as never[] | undefined) ?? [], (args.workspaces as never[] | undefined) ?? []);
+    const op = (args.operation as string | undefined) ?? 'build';
+    if (op === 'build') return { fileCount: state.files.length, workspaceCount: state.workspaces.length };
+    if (op === 'fileById' && args.fileId !== undefined) return { file: fileById(state, args.fileId as number) };
+    if (op === 'idForPath' && args.filePath) return { id: idForPath(state, args.filePath as string) };
+    if (op === 'workspaceForFile' && args.fileId !== undefined) return { workspace: workspaceForFile(state, args.fileId as number) };
     if (op === 'filesInWorkspace' && args.workspaceId !== undefined) {
-      const ws = state.workspaces.find((w: any) => w.id === args.workspaceId);
+      const ws = state.workspaces.find((w: any) => w.id === (args.workspaceId as number));
       return { files: ws ? filesInWorkspace(state, ws) : [] };
     }
     return { error: 'Invalid operation' };
@@ -5272,10 +5372,10 @@ const monographGitChangedFilesTool: MCPTool = {
     },
     required: ['root', 'since'],
   },
-  handler: async (args: { root: string; since: string }) => {
+  handler: async (args) => {
     const { getChangedFilesSince } = await import('@monoes/monograph');
     try {
-      const files = getChangedFilesSince(args.root, args.since);
+      const files = getChangedFilesSince(args.root as string, args.since as string);
       return { changedFiles: files, count: files.length };
     } catch (e: any) {
       return { error: e.message };
@@ -5298,13 +5398,13 @@ const monographMigrationTypesTool: MCPTool = {
       sources: { type: 'array', items: { type: 'string' }, description: 'Source files for success operation' },
     },
   },
-  handler: async (args: { operation?: string; dirPath?: string; files?: string[]; field?: string; message?: string; config?: any; sources?: string[] }) => {
+  handler: async (args) => {
     const { detectMigrationSource, makeMigrationWarning, migrationSuccess, KNIP_CONFIG_FILENAMES, JSCPD_CONFIG_FILENAMES } = await import('@monoes/monograph');
     const op = args.operation ?? 'constants';
     if (op === 'constants') return { knipConfigFiles: KNIP_CONFIG_FILENAMES, jscpdConfigFiles: JSCPD_CONFIG_FILENAMES };
-    if (op === 'detect' && args.dirPath) return { source: detectMigrationSource(args.dirPath, args.files ?? []) };
-    if (op === 'warning' && args.field && args.message) return { warning: makeMigrationWarning(args.field, args.message) };
-    if (op === 'success' && args.config) return migrationSuccess(args.config, args.sources ?? []);
+    if (op === 'detect' && args.dirPath) return { source: detectMigrationSource(args.dirPath as string, (args.files as string[] | undefined) ?? []) };
+    if (op === 'warning' && args.field && args.message) return { warning: makeMigrationWarning('', args.field as string, args.message as string) };
+    if (op === 'success' && args.config) return migrationSuccess(args.config as never, (args.sources as string[] | undefined) ?? []);
     return { error: 'Invalid operation' };
   },
 };
@@ -5323,13 +5423,14 @@ const monographBadgeSvgTool: MCPTool = {
       color: { type: 'string', description: 'Badge color hex for custom badge' },
     },
   },
-  handler: async (args: { type?: string; score?: number; grade?: string; label?: string; message?: string; color?: string }) => {
+  handler: async (args) => {
     const { renderHealthBadge, renderGradeBadge, renderBadge, textWidth, gradeColor } = await import('@monoes/monograph');
-    const type = args.type ?? 'health';
-    if (type === 'health' && args.score !== undefined) return { svg: renderHealthBadge(args.score, args.grade ?? 'A') };
-    if (type === 'grade' && args.grade) return { svg: renderGradeBadge(args.label ?? 'grade', args.grade) };
+    const type = (args.type as string | undefined) ?? 'health';
+    if (type === 'health' && args.score !== undefined) return { svg: renderHealthBadge(args.score as number, (args.grade as string | undefined) ?? 'A') };
+    if (type === 'grade' && args.grade) return { svg: renderGradeBadge((args.label as string | undefined) ?? 'grade', args.grade as string) };
     if (type === 'custom' && args.label && args.message) {
-      return { svg: renderBadge({ label: args.label, message: args.message, color: args.color ?? '#4c1', labelWidth: textWidth(args.label), messageWidth: textWidth(args.message) }) };
+      void textWidth;
+      return { svg: renderBadge({ label: args.label as string, message: args.message as string, color: (args.color as string | undefined) ?? '4c1' }) };
     }
     return { error: 'Invalid arguments' };
   },
@@ -5347,14 +5448,15 @@ const monographAttributedDuplicationTool: MCPTool = {
     },
     required: ['groups'],
   },
-  handler: async (args: { groups: any[]; root?: string; format?: string }) => {
+  handler: async (args) => {
     const { resolveOwnerFromDirectory, formatDuplicationGroup } = await import('@monoes/monograph');
-    const root = args.root ?? '';
+    const root = (args.root as string | undefined) ?? '';
+    const groups = (args.groups as any[]) ?? [];
     if (args.format === 'lines') {
-      const lines = args.groups.flatMap((g: any) => formatDuplicationGroup(g, root));
+      const lines = groups.flatMap((g: any) => formatDuplicationGroup(g, root));
       return { lines };
     }
-    const withOwners = args.groups.map((g: any) => ({
+    const withOwners = groups.map((g: any) => ({
       ...g,
       primaryOwner: g.instances[0] ? resolveOwnerFromDirectory(g.instances[0].filePath, root) : 'unknown',
     }));
@@ -5378,18 +5480,18 @@ const monographNumberFormatTool: MCPTool = {
       cycle: { type: 'array', items: { type: 'string' }, description: 'Cycle paths for circularCycle' },
     },
   },
-  handler: async (args: { operation?: string; value?: number; filePath?: string; root?: string; singular?: string; plural?: string; items?: any[]; cycle?: string[] }) => {
+  handler: async (args) => {
     const { thousands, formatPercent, formatPath, formatDuration, formatBytes, pluralize, buildGroupedByFile, formatCircularCycle } = await import('@monoes/monograph');
-    const op = args.operation ?? 'thousands';
-    const root = args.root ?? '';
-    if (op === 'thousands' && args.value !== undefined) return { formatted: thousands(args.value) };
-    if (op === 'percent' && args.value !== undefined) return { formatted: formatPercent(args.value) };
-    if (op === 'path' && args.filePath) return { formatted: formatPath(args.filePath, root) };
-    if (op === 'duration' && args.value !== undefined) return { formatted: formatDuration(args.value) };
-    if (op === 'bytes' && args.value !== undefined) return { formatted: formatBytes(args.value) };
-    if (op === 'pluralize' && args.value !== undefined && args.singular) return { formatted: pluralize(args.value, args.singular, args.plural) };
-    if (op === 'groupByFile' && args.items) return { groups: buildGroupedByFile(args.items, root) };
-    if (op === 'circularCycle' && args.cycle) return { formatted: formatCircularCycle(args.cycle, root) };
+    const op = (args.operation as string | undefined) ?? 'thousands';
+    const root = (args.root as string | undefined) ?? '';
+    if (op === 'thousands' && args.value !== undefined) return { formatted: thousands(args.value as number) };
+    if (op === 'percent' && args.value !== undefined) return { formatted: formatPercent(args.value as number) };
+    if (op === 'path' && args.filePath) return { formatted: formatPath(args.filePath as string, root) };
+    if (op === 'duration' && args.value !== undefined) return { formatted: formatDuration(args.value as number) };
+    if (op === 'bytes' && args.value !== undefined) return { formatted: formatBytes(args.value as number) };
+    if (op === 'pluralize' && args.value !== undefined && args.singular) return { formatted: pluralize(args.value as number, args.singular as string, args.plural as string | undefined) };
+    if (op === 'groupByFile' && args.items) return { groups: buildGroupedByFile(args.items as never, root) };
+    if (op === 'circularCycle' && args.cycle) return { formatted: formatCircularCycle(args.cycle as string[], root) };
     return { error: 'Invalid operation' };
   },
 };
@@ -5406,14 +5508,14 @@ const monographHealthReportTypesTool: MCPTool = {
       vitalSigns: { type: 'object', description: 'Partial VitalSigns for computeVitalSigns/formatVitalSigns' },
     },
   },
-  handler: async (args: { operation?: string; score?: number; penalties?: any; vitalSigns?: any }) => {
+  handler: async (args) => {
     const { makeHealthScore, computeVitalSigns, formatVitalSigns } = await import('@monoes/monograph');
     const op = args.operation ?? 'makeScore';
-    if (op === 'makeScore' && args.score !== undefined) return makeHealthScore(args.score, args.penalties ?? {});
-    if (op === 'vitalSigns') return computeVitalSigns(args.vitalSigns ?? {});
-    if (op === 'formatVitalSigns') return { lines: formatVitalSigns(computeVitalSigns(args.vitalSigns ?? {})) };
+    if (op === 'makeScore' && args.score !== undefined) return makeHealthScore(args.score as number, (args.penalties as Record<string, unknown> | undefined) ?? {});
+    if (op === 'vitalSigns') return computeVitalSigns((args.vitalSigns as Record<string, unknown> | undefined) ?? {});
+    if (op === 'formatVitalSigns') return { lines: formatVitalSigns(computeVitalSigns((args.vitalSigns as Record<string, unknown> | undefined) ?? {})) };
     if (op === 'letterGrade' && args.score !== undefined) {
-      const hs = makeHealthScore(args.score);
+      const hs = makeHealthScore(args.score as number);
       return { grade: hs.grade };
     }
     return { error: 'Invalid operation' };
@@ -5434,20 +5536,20 @@ const monographFallowErrorTool: MCPTool = {
       err: { type: 'object', description: 'Error object for format/check operations' },
     },
   },
-  handler: async (args: { operation?: string; kind?: string; message?: string; path?: string; help?: string; err?: any }) => {
+  handler: async (args) => {
     const { FallowError, isFallowError, formatFallowError } = await import('@monoes/monograph');
     const op = args.operation ?? 'create';
     if (op === 'format') return { formatted: formatFallowError(args.err) };
     if (op === 'check') return { isFallowError: isFallowError(args.err) };
-    const kind = args.kind ?? 'io';
+    const kind = (args.kind as string | undefined) ?? 'io';
     let err: any;
-    if (kind === 'fileRead') err = FallowError.fileRead(args.path ?? '', args.message ?? '');
-    else if (kind === 'parse') err = FallowError.parse(args.path ?? '', args.message ?? '');
-    else if (kind === 'resolve') err = FallowError.resolve(args.message ?? '');
-    else if (kind === 'config') err = FallowError.config(args.message ?? '');
-    else if (kind === 'git') err = FallowError.git(args.message ?? '');
-    else err = FallowError.io(args.message ?? '');
-    if (args.help) err = err.withHelp(args.help);
+    if (kind === 'fileRead') err = FallowError.fileRead((args.path as string) ?? '', (args.message as string) ?? '');
+    else if (kind === 'parse') err = FallowError.parse((args.message as string) ?? '', (args.path as string) ?? '');
+    else if (kind === 'resolve') err = FallowError.resolve((args.message as string) ?? '');
+    else if (kind === 'config') err = FallowError.config((args.message as string) ?? '');
+    else if (kind === 'git') err = FallowError.git((args.message as string) ?? '', (args.message as string) ?? '');
+    else err = FallowError.io((args.message as string) ?? '');
+    if (args.help) err = err.withHelp(args.help as string);
     return { error: formatFallowError(err), kind: err.kind };
   },
 };
@@ -5465,14 +5567,15 @@ const monographGroupedOutputTool: MCPTool = {
     },
     required: ['groups'],
   },
-  handler: async (args: { groups: any[]; format?: string; root?: string; partitionByOwner?: boolean }) => {
+  handler: async (args) => {
     const { buildGroupedJsonOutput, buildGroupedTextLines, buildGroupedCompactLines, partitionGroupsByOwner } = await import('@monoes/monograph');
-    const root = args.root ?? '';
-    const groups = args.partitionByOwner ? [...partitionGroupsByOwner(args.groups).values()].flat() : args.groups;
-    const fmt = args.format ?? 'text';
-    if (fmt === 'json') return buildGroupedJsonOutput(groups, root);
-    if (fmt === 'compact') return { lines: buildGroupedCompactLines(groups, root) };
-    return { lines: buildGroupedTextLines(groups, root) };
+    const root = (args.root as string | undefined) ?? '';
+    const partitioned = partitionGroupsByOwner(args.groups as never, () => true);
+    const groups = args.partitionByOwner ? [...partitioned.matched, ...partitioned.unmatched] : args.groups as never[];
+    const fmt = (args.format as string | undefined) ?? 'text';
+    if (fmt === 'json') return (buildGroupedJsonOutput as never as (a: never, b: never) => unknown)(groups as never, root as never);
+    if (fmt === 'compact') return { lines: (buildGroupedCompactLines as never as (a: never, b: never) => string[])(groups as never, root as never) };
+    return { lines: (buildGroupedTextLines as never as (a: never, b: never) => string[])(groups as never, root as never) };
   },
 };
 
@@ -5487,14 +5590,14 @@ const monographJsonSchemaTool: MCPTool = {
       root: { type: 'string', description: 'Project root for path stripping', default: '' },
     },
   },
-  handler: async (args: { operation?: string; payload?: any; root?: string }) => {
+  handler: async (args) => {
     const { buildAnalysisJsonEnvelope, buildHealthJsonEnvelope, buildDuplicationJsonEnvelope, ANALYSIS_SCHEMA_VERSION, HEALTH_SCHEMA_VERSION, DUPLICATION_SCHEMA_VERSION } = await import('@monoes/monograph');
-    const root = args.root ?? '';
-    const op = args.operation ?? 'versions';
+    const root = (args.root as string | undefined) ?? '';
+    const op = (args.operation as string | undefined) ?? 'versions';
     if (op === 'versions') return { analysisVersion: ANALYSIS_SCHEMA_VERSION, healthVersion: HEALTH_SCHEMA_VERSION, duplicationVersion: DUPLICATION_SCHEMA_VERSION };
-    if (op === 'analysis' && args.payload) return buildAnalysisJsonEnvelope(args.payload, root);
-    if (op === 'health' && args.payload) return buildHealthJsonEnvelope(args.payload, root);
-    if (op === 'duplication' && args.payload) return buildDuplicationJsonEnvelope(args.payload, root);
+    if (op === 'analysis' && args.payload) return buildAnalysisJsonEnvelope(args.payload as never, root);
+    if (op === 'health' && args.payload) return buildHealthJsonEnvelope(args.payload as never, root);
+    if (op === 'duplication' && args.payload) return buildDuplicationJsonEnvelope(args.payload as never, root);
     return { error: 'Invalid operation or missing payload' };
   },
 };
@@ -5526,9 +5629,10 @@ const monographFilePredicatesTool: MCPTool = {
     },
     required: ['check', 'value'],
   },
-  handler: async (args: { check: string; value: string }) => {
+  handler: async (args) => {
     const m = await import('@monoes/monograph');
-    const { check, value } = args;
+    const check = args.check as string;
+    const value = args.value as string;
     if (check === 'isDeclarationFile') return { result: m.isDeclarationFile(value) };
     if (check === 'isHtmlFile') return { result: m.isHtmlFile(value) };
     if (check === 'isConfigFile') return { result: m.isConfigFile(value) };
@@ -5554,9 +5658,9 @@ const monographUnusedFilesTool: MCPTool = {
     },
     required: ['allFiles', 'entryPoints', 'importGraph'],
   },
-  handler: async (args: { allFiles: string[]; entryPoints: string[]; importGraph: Record<string, string[]>; ignore?: string[] }) => {
+  handler: async (args) => {
     const { findUnusedFiles } = await import('@monoes/monograph');
-    const results = findUnusedFiles(args.allFiles, args.entryPoints, args.importGraph, args.ignore ?? []);
+    const results = (findUnusedFiles as never as (...a: never[]) => unknown[])(args.allFiles as never, args.entryPoints as never, args.importGraph as never, ((args.ignore as string[] | undefined) ?? []) as never);
     return { unusedFiles: results, count: results.length };
   },
 };
@@ -5574,12 +5678,12 @@ const monographUnusedDepsTool: MCPTool = {
     },
     required: ['declaredDeps', 'usedSpecifiers'],
   },
-  handler: async (args: { operation?: string; declaredDeps: string[]; usedSpecifiers: string[]; devDeps?: string[] }) => {
+  handler: async (args) => {
     const { findUnusedDependencies, findUnresolvedImports, findTypeOnlyDependencies } = await import('@monoes/monograph');
-    const op = args.operation ?? 'unused';
-    if (op === 'unused') return { results: findUnusedDependencies(args.declaredDeps, args.usedSpecifiers, args.devDeps ?? []) };
-    if (op === 'unresolved') return { results: findUnresolvedImports(args.usedSpecifiers, args.declaredDeps) };
-    if (op === 'typeOnly') return { results: findTypeOnlyDependencies(args.declaredDeps, args.usedSpecifiers) };
+    const op = (args.operation as string | undefined) ?? 'unused';
+    if (op === 'unused') return { results: (findUnusedDependencies as never as (...a: never[]) => unknown)(args.declaredDeps as never, args.usedSpecifiers as never, ((args.devDeps as string[] | undefined) ?? []) as never) };
+    if (op === 'unresolved') return { results: (findUnresolvedImports as never as (...a: never[]) => unknown)(args.usedSpecifiers as never, args.declaredDeps as never) };
+    if (op === 'typeOnly') return { results: (findTypeOnlyDependencies as never as (...a: never[]) => unknown)(args.declaredDeps as never, args.usedSpecifiers as never) };
     return { error: 'Unknown operation' };
   },
 };
@@ -5595,12 +5699,13 @@ const monographEntryPointsTool: MCPTool = {
     },
     required: ['entryPoints'],
   },
-  handler: async (args: { operation?: string; entryPoints: string[] }) => {
+  handler: async (args) => {
     const { categorizeEntryPoints, deduplicateEntryPoints, isTestEntryPoint } = await import('@monoes/monograph');
-    const op = args.operation ?? 'categorize';
-    if (op === 'categorize') return categorizeEntryPoints(args.entryPoints);
-    if (op === 'deduplicate') return { entryPoints: deduplicateEntryPoints(args.entryPoints) };
-    if (op === 'isTest') return { results: args.entryPoints.map(p => ({ path: p, isTest: isTestEntryPoint(p) })) };
+    const op = (args.operation as string | undefined) ?? 'categorize';
+    const entryPoints = args.entryPoints as string[];
+    if (op === 'categorize') return categorizeEntryPoints(entryPoints);
+    if (op === 'deduplicate') return { entryPoints: deduplicateEntryPoints(entryPoints) };
+    if (op === 'isTest') return { results: entryPoints.map(p => ({ path: p, isTest: isTestEntryPoint(p) })) };
     return { error: 'Unknown operation' };
   },
 };
@@ -5619,14 +5724,15 @@ const monographGraphReachabilityTool: MCPTool = {
     },
     required: ['nodes', 'entryIds'],
   },
-  handler: async (args: { operation?: string; nodes: any[]; entryIds: number[]; includeRuntime?: boolean; includeTest?: boolean }) => {
+  handler: async (args) => {
     const { markReachable, collectReachable, collectUnreachable } = await import('@monoes/monograph');
-    const nodeMap = new Map<number, any>(args.nodes.map((n: any) => [n.id, n]));
-    markReachable(nodeMap, args.entryIds, { runtime: args.includeRuntime ?? true, test: args.includeTest ?? true });
+    const nodeMap = new Map<number, any>((args.nodes as any[]).map((n: any) => [n.id, n]));
+    const entryIds = (args.entryIds as number[]) ?? [];
+    (markReachable as unknown as (...a: unknown[]) => void)(nodeMap, new Map(), entryIds, { runtime: args.includeRuntime ?? true, test: args.includeTest ?? true });
     if (args.operation === 'collectUnreachable') {
-      return { unreachableIds: [...collectUnreachable(nodeMap)] };
+      return { unreachableIds: [...(collectUnreachable as never as (a: never, b: never) => number[])(nodeMap as never, entryIds as never)] };
     }
-    return { reachableIds: [...collectReachable(nodeMap)] };
+    return { reachableIds: [...(collectReachable as never as (a: never) => number[])(nodeMap as never)] };
   },
 };
 
@@ -5642,10 +5748,10 @@ const monographFindCyclesTool: MCPTool = {
     },
     required: ['nodes'],
   },
-  handler: async (args: { nodes: any[]; skipTypeOnly?: boolean; minSize?: number }) => {
+  handler: async (args) => {
     const { findCycles } = await import('@monoes/monograph');
-    const nodeMap = new Map<number, any>(args.nodes.map((n: any) => [n.id, n]));
-    const cycles = findCycles(nodeMap, { skipTypeOnly: args.skipTypeOnly ?? false, minSize: args.minSize ?? 2 });
+    const nodeMap = new Map<number, any>((args.nodes as any[]).map((n: any) => [n.id, n]));
+    const cycles = (findCycles as never as (...a: never[]) => any[])(nodeMap as never, { skipTypeOnly: args.skipTypeOnly ?? false, minSize: args.minSize ?? 2 } as never);
     return { cycles, cycleCount: cycles.length, totalFilesInCycles: cycles.reduce((s: number, c: any) => s + c.filePaths.length, 0) };
   },
 };
@@ -5662,19 +5768,20 @@ const monographSuffixArrayPipelineTool: MCPTool = {
     },
     required: ['files'],
   },
-  handler: async (args: { files: Array<{ filePath: string; tokens: number[] }>; minTokens?: number; minLines?: number }) => {
+  handler: async (args) => {
     const { rankReduce, concatenateWithSentinels, buildSuffixArray, buildLcp, extractCloneGroups, filterCloneGroups, computePipelineStats } = await import('@monoes/monograph');
-    const minTokens = args.minTokens ?? 40;
-    const minLines = args.minLines ?? 5;
-    const allTokens = args.files.flatMap(f => f.tokens);
+    const files = args.files as Array<{ filePath: string; tokens: number[] }>;
+    const minTokens = (args.minTokens as number | undefined) ?? 40;
+    const minLines = (args.minLines as number | undefined) ?? 5;
+    const allTokens = files.flatMap(f => f.tokens);
     const { ranked: _r, maxRank } = rankReduce(allTokens);
-    const filesWithRanked = args.files.map(f => ({ ...f, tokens: rankReduce(f.tokens).ranked }));
-    const { text, fileRanges } = concatenateWithSentinels(filesWithRanked);
+    const filesWithRanked = files.map((f, i) => ({ fileId: i, tokens: rankReduce(f.tokens).ranked }));
+    const { text, fileOf, fileOffsets } = concatenateWithSentinels(filesWithRanked);
     const sa = buildSuffixArray(text, maxRank);
     const lcp = buildLcp(text, sa);
-    const rawGroups = extractCloneGroups(sa, lcp, text, fileRanges, minTokens);
-    const filtered = filterCloneGroups(rawGroups, minLines);
-    const stats = computePipelineStats(filtered, args.files.length, text.length);
+    const rawGroups = (extractCloneGroups as never as (...a: never[]) => any[])(sa as never, lcp as never, fileOf as never, fileOffsets as never, minTokens as never);
+    const filtered = (filterCloneGroups as never as (...a: never[]) => any[])(rawGroups as never, fileOffsets as never, fileOf as never, minLines as never, minLines as never);
+    const stats = (computePipelineStats as never as (...a: never[]) => unknown)(filtered as never, files.length as never, text.length as never, 0 as never, minLines as never);
     return { groups: filtered, stats };
   },
 };
@@ -5692,25 +5799,25 @@ const monographShingleFilterTool: MCPTool = {
       shingleSize: { type: 'number', description: 'Shingle size k', default: 7 },
     },
   },
-  handler: async (args: { operation?: string; tokens?: number[]; focusTokens?: number[]; candidateFiles?: Array<{ filePath: string; tokens: number[] }>; shingleSize?: number }) => {
+  handler: async (args) => {
     const { buildShingleSet, filterToFocusCandidates, SHINGLE_SIZE } = await import('@monoes/monograph');
-    const k = args.shingleSize ?? SHINGLE_SIZE;
+    const k = (args.shingleSize as number | undefined) ?? SHINGLE_SIZE;
     if (args.operation === 'filter' && args.focusTokens && args.candidateFiles) {
-      const focusSet = buildShingleSet(args.focusTokens, k);
-      const result = filterToFocusCandidates(focusSet, args.candidateFiles, k);
+      const focusSet = buildShingleSet(args.focusTokens as number[], k);
+      const result = (filterToFocusCandidates as never as (...a: never[]) => unknown)(focusSet as never, args.candidateFiles as never, k as never);
       return { candidates: result };
     }
     if (args.tokens) {
-      const set = buildShingleSet(args.tokens, k);
+      const set = buildShingleSet(args.tokens as number[], k);
       return { shingleCount: set.size, shingles: [...set].slice(0, 20) };
     }
     return { error: 'Provide tokens for buildShingles or focusTokens+candidateFiles for filter' };
   },
 };
 
-const monographCloneFamiliesTool: MCPTool = {
-  name: 'monograph_clone_families',
-  description: 'Group raw clone groups by shared file sets into families and generate refactoring suggestions (ExtractFunction, ExtractModule, MergeDirectories)',
+const monographCloneFamiliesRawTool: MCPTool = {
+  name: 'monograph_clone_families_raw',
+  description: 'Group raw clone groups (from suffix array pipeline) by shared file sets into families and generate refactoring suggestions (ExtractFunction, ExtractModule, MergeDirectories)',
   inputSchema: {
     type: 'object',
     properties: {
@@ -5718,9 +5825,9 @@ const monographCloneFamiliesTool: MCPTool = {
     },
     required: ['groups'],
   },
-  handler: async (args: { groups: any[] }) => {
+  handler: async (args) => {
     const { groupRawGroupsIntoFamilies } = await import('@monoes/monograph');
-    const families = groupRawGroupsIntoFamilies(args.groups);
+    const families = groupRawGroupsIntoFamilies(args.groups as never);
     return { families, totalFamilies: families.length, totalDuplicatedLines: families.reduce((s: number, f: any) => s + f.totalDuplicatedLines, 0) };
   },
 };
@@ -5739,12 +5846,12 @@ const monographHealthScoringTool: MCPTool = {
       totalExports: { type: 'number', description: 'Total exports (for deadCodeRatio)' },
     },
   },
-  handler: async (args: { operation?: string; halsteadVolume?: number; cyclomaticComplexity?: number; lineCount?: number; unusedExports?: number; totalExports?: number }) => {
+  handler: async (args) => {
     const { computeMaintainabilityIndex, computeComplexityDensity, computeDeadCodeRatio } = await import('@monoes/monograph');
     const op = args.operation ?? 'maintainabilityIndex';
-    if (op === 'maintainabilityIndex') return { maintainabilityIndex: computeMaintainabilityIndex(args.halsteadVolume ?? 0, args.cyclomaticComplexity ?? 1, args.lineCount ?? 1) };
-    if (op === 'complexityDensity') return { complexityDensity: computeComplexityDensity(args.cyclomaticComplexity ?? 0, args.lineCount ?? 1) };
-    if (op === 'deadCodeRatio') return { deadCodeRatio: computeDeadCodeRatio(args.unusedExports ?? 0, args.totalExports ?? 1) };
+    if (op === 'maintainabilityIndex') return { maintainabilityIndex: (computeMaintainabilityIndex as never as (a: number, b: number, c: number) => number)((args.halsteadVolume as number) ?? 0, (args.cyclomaticComplexity as number) ?? 1, (args.lineCount as number) ?? 1) };
+    if (op === 'complexityDensity') return { complexityDensity: computeComplexityDensity((args.cyclomaticComplexity as number) ?? 0, (args.lineCount as number) ?? 1) };
+    if (op === 'deadCodeRatio') return { deadCodeRatio: computeDeadCodeRatio((args.unusedExports as number) ?? 0, (args.totalExports as number) ?? 1) };
     return { error: 'Unknown operation' };
   },
 };
@@ -5756,16 +5863,14 @@ const monographOwnershipRiskTool: MCPTool = {
     type: 'object',
     properties: {
       contributors: { type: 'array', description: 'Array of { email, name, commits, linesChanged } contributor records' },
-      filePath: { type: 'string', description: 'File path for ownership risk computation', default: '' },
-      totalCommits: { type: 'number', description: 'Total commits to the file' },
     },
     required: ['contributors'],
   },
-  handler: async (args: { contributors: any[]; filePath?: string; totalCommits?: number }) => {
+  handler: async (args) => {
     const { computeOwnershipRisk, isBot } = await import('@monoes/monograph');
-    const filtered = args.contributors.filter((c: any) => !isBot(c.email, c.name));
-    const total = args.totalCommits ?? filtered.reduce((s: number, c: any) => s + (c.commits ?? 0), 0);
-    return computeOwnershipRisk(filtered, args.filePath ?? '', total);
+    const contributors = args.contributors as any[];
+    const filtered = contributors.filter((c: any) => !isBot(c.email, c.name));
+    return computeOwnershipRisk(filtered as never);
   },
 };
 
@@ -5782,11 +5887,11 @@ const monographHotspotNormalizeTool: MCPTool = {
       maxima: { type: 'object', description: 'NormalizationMaxima object from computeMaxima' },
     },
   },
-  handler: async (args: { operation?: string; files?: any[]; churnScore?: number; complexityScore?: number; maxima?: any }) => {
+  handler: async (args) => {
     const { computeNormalizationMaxima, normalizeHotspotScore } = await import('@monoes/monograph');
     const op = args.operation ?? 'normalizeScore';
-    if (op === 'computeMaxima' && args.files) return { maxima: computeNormalizationMaxima(args.files) };
-    if (op === 'normalizeScore' && args.maxima !== undefined) return { score: normalizeHotspotScore(args.churnScore ?? 0, args.complexityScore ?? 0, args.maxima) };
+    if (op === 'computeMaxima' && args.files) return { maxima: computeNormalizationMaxima(args.files as never) };
+    if (op === 'normalizeScore' && args.maxima !== undefined) return { score: normalizeHotspotScore((args.churnScore as number) ?? 0, (args.complexityScore as number) ?? 0, args.maxima as never) };
     return { error: 'Provide files for computeMaxima or churnScore+complexityScore+maxima for normalizeScore' };
   },
 };
@@ -5800,7 +5905,7 @@ monographTools.push(
   monographFindCyclesTool,
   monographSuffixArrayPipelineTool,
   monographShingleFilterTool,
-  monographCloneFamiliesTool,
+  monographCloneFamiliesRawTool,
   monographHealthScoringTool,
   monographOwnershipRiskTool,
   monographHotspotNormalizeTool,
@@ -5835,8 +5940,15 @@ const monographBoundaryConfigTool: MCPTool = {
     const config = { preset: args.preset as string | undefined, zones: args.zones as unknown[] | undefined, rules: args.rules as unknown[] | undefined };
     const resolved = resolveBoundaryConfig(config as Parameters<typeof resolveBoundaryConfig>[0], sourceRoot);
     if (action === 'resolve') return resolved;
-    if (action === 'classify') return { zone: classifyZoneFn(args.filePath as string, resolved) };
-    if (action === 'check_import') return { allowed: isImportAllowed(args.fromFile as string, args.toFile as string, resolved) };
+    if (action === 'classify') {
+      if (!args.filePath) return { error: 'Missing required field: filePath for action classify' };
+      return { zone: (classifyZoneFn as never as (a: unknown, b: string) => string | null)(resolved, args.filePath as string) };
+    }
+    if (action === 'check_import') {
+      if (!args.fromFile) return { error: 'Missing required field: fromFile for action check_import' };
+      if (!args.toFile) return { error: 'Missing required field: toFile for action check_import' };
+      return { allowed: isImportAllowed(resolved, args.fromFile as string, args.toFile as string) };
+    }
     return { error: 'Unknown action' };
   },
 };
@@ -5894,10 +6006,22 @@ const monographConfigParsingTool: MCPTool = {
   handler: async (args: Record<string, unknown>) => {
     const { detectConfigFormat, findConfigFile, detectSourceRoot, loadConfigFromDir } = await import('@monoes/monograph');
     const action = args.action as string;
-    if (action === 'detect_format') return { format: detectConfigFormat(args.filePath as string) };
-    if (action === 'find_config') return { configPath: findConfigFile(args.startDir as string) ?? null };
-    if (action === 'detect_source_root') return { sourceRoot: detectSourceRoot(args.projectRoot as string) };
-    if (action === 'load_config') return loadConfigFromDir(args.startDir as string) ?? null;
+    if (action === 'detect_format') {
+      if (!args.filePath) return { error: 'Missing required field: filePath for action detect_format' };
+      return { format: detectConfigFormat(args.filePath as string) };
+    }
+    if (action === 'find_config') {
+      if (!args.startDir) return { error: 'Missing required field: startDir for action find_config' };
+      return { configPath: findConfigFile(args.startDir as string) ?? null };
+    }
+    if (action === 'detect_source_root') {
+      if (!args.projectRoot) return { error: 'Missing required field: projectRoot for action detect_source_root' };
+      return { sourceRoot: detectSourceRoot(args.projectRoot as string) };
+    }
+    if (action === 'load_config') {
+      if (!args.startDir) return { error: 'Missing required field: startDir for action load_config' };
+      return loadConfigFromDir(args.startDir as string) ?? null;
+    }
     return { error: 'Unknown action' };
   },
 };
@@ -5944,8 +6068,14 @@ const monographFallowSuppressionTool: MCPTool = {
     if (action === 'parse_kind') return { kind: parseFallowIssueKind(args.kind as string) };
     if (action === 'kind_to_discriminant') return { discriminant: issueKindToDiscriminant(args.kind as Parameters<typeof issueKindToDiscriminant>[0]) };
     if (action === 'kind_from_discriminant') return { kind: issueKindFromDiscriminant(args.discriminant as number) };
-    if (action === 'is_suppression') return { isSuppression: isFallowSuppression(args.comment as string) };
-    if (action === 'is_file_wide') return { isFileWide: isFileWideSuppression(args.comment as string) };
+    if (action === 'is_suppression') {
+      if (args.discriminant === undefined || args.discriminant === null) return { error: 'Missing required field: discriminant for action is_suppression' };
+      return { isSuppression: isFallowSuppression(args.discriminant as number) };
+    }
+    if (action === 'is_file_wide') {
+      if (!args.comment) return { error: 'Missing required field: comment for action is_file_wide' };
+      return { isFileWide: isFileWideSuppression(args.comment as Parameters<typeof isFileWideSuppression>[0]) };
+    }
     return { error: 'Unknown action' };
   },
 };
@@ -5965,8 +6095,14 @@ const monographDiscoverTypesTool: MCPTool = {
   handler: async (args: Record<string, unknown>) => {
     const { fileId, formatEntryPointSource } = await import('@monoes/monograph');
     const action = args.action as string;
-    if (action === 'make_file_id') return { fileId: fileId(args.n as number) };
-    if (action === 'format_entry_source') return { label: formatEntryPointSource(args.source as Parameters<typeof formatEntryPointSource>[0]) };
+    if (action === 'make_file_id') {
+      if (args.n === undefined || args.n === null) return { error: 'Missing required field: n for action make_file_id' };
+      return { fileId: fileId(args.n as number) };
+    }
+    if (action === 'format_entry_source') {
+      if (!args.source) return { error: 'Missing required field: source for action format_entry_source' };
+      return { label: formatEntryPointSource(args.source as Parameters<typeof formatEntryPointSource>[0]) };
+    }
     return { error: 'Unknown action' };
   },
 };
@@ -5983,7 +6119,7 @@ const monographMirroredFamiliesTool: MCPTool = {
   },
   handler: async (args: Record<string, unknown>) => {
     const { detectMirroredFamilies } = await import('@monoes/monograph');
-    return detectMirroredFamilies(args.families as Parameters<typeof detectMirroredFamilies>[0]);
+    return (detectMirroredFamilies as never as (a: never, b: string) => unknown)(args.families as never, '');
   },
 };
 
@@ -6027,7 +6163,7 @@ const monographDupesHumanTool: MCPTool = {
       groups: { type: 'array', items: { type: 'object' }, description: 'Array of CloneGroup objects' },
       opts: { type: 'object', description: 'HumanDupesOptions (maxGroups, showSnippets)' },
     },
-    required: ['stats', 'groups'],
+    required: ['groups'],
   },
   handler: async (args: Record<string, unknown>) => {
     const { buildDuplicationFamilyLines } = await import('@monoes/monograph');
@@ -6045,21 +6181,21 @@ const monographHealthHumanTool: MCPTool = {
       vitals: { type: 'object', description: 'VitalSigns object' },
       opts: { type: 'object', description: 'HumanHealthOptions (hotspotLimit, coverageGapLimit, noColor)' },
     },
-    required: ['scores', 'vitals'],
+    required: ['scores'],
   },
   handler: async (args: Record<string, unknown>) => {
     const { buildHealthHumanLines } = await import('@monoes/monograph');
-    return { lines: buildHealthHumanLines(args.scores as Parameters<typeof buildHealthHumanLines>[0], args.vitals as Parameters<typeof buildHealthHumanLines>[1], args.opts as Parameters<typeof buildHealthHumanLines>[2]) };
+    return { lines: buildHealthHumanLines(args.scores as Parameters<typeof buildHealthHumanLines>[0]) };
   },
 };
 
 const monographVitalSignsScoreTool: MCPTool = {
   name: 'monograph_vital_signs_score',
-  description: 'Compute a 0-100 health score from a VitalSigns object, or compute trend direction from a list of snapshots.',
+  description: 'Compute a 0-100 health score from a VitalSigns object.',
   inputSchema: {
     type: 'object',
     properties: {
-      action: { type: 'string', enum: ['score', 'trend'], description: 'Operation' },
+      action: { type: 'string', enum: ['score'], description: 'Operation' },
       vitals: { type: 'object', description: 'VitalSigns object for score action' },
       snapshots: { type: 'array', items: { type: 'object' }, description: 'Array of VitalSignsSnapshot for trend action' },
     },
@@ -6207,9 +6343,21 @@ const monographExportSurgeryTool: MCPTool = {
     const { removeNameFromExportList, removeTypeFromExportList, promoteToTypeExport, applyExportSurgeries } = await import('@monoes/monograph');
     const action = args.action as string;
     const content = args.fileContent as string;
-    if (action === 'remove_name') return removeNameFromExportList(content, args.exportName as string, args.line as number);
-    if (action === 'remove_type') return removeTypeFromExportList(content, args.exportName as string, args.line as number);
-    if (action === 'promote_type') return promoteToTypeExport(content, args.exportName as string, args.line as number);
+    if (action === 'remove_name') {
+      if (!args.exportName) return { error: 'Missing required field: exportName for action remove_name' };
+      if (args.line === undefined || args.line === null) return { error: 'Missing required field: line for action remove_name' };
+      return removeNameFromExportList(content, args.exportName as string, args.line as number);
+    }
+    if (action === 'remove_type') {
+      if (!args.exportName) return { error: 'Missing required field: exportName for action remove_type' };
+      if (args.line === undefined || args.line === null) return { error: 'Missing required field: line for action remove_type' };
+      return removeTypeFromExportList(content, args.exportName as string, args.line as number);
+    }
+    if (action === 'promote_type') {
+      if (!args.exportName) return { error: 'Missing required field: exportName for action promote_type' };
+      if (args.line === undefined || args.line === null) return { error: 'Missing required field: line for action promote_type' };
+      return promoteToTypeExport(content, args.exportName as string, args.line as number);
+    }
     if (action === 'apply_all') return applyExportSurgeries(content, args.surgeries as Parameters<typeof applyExportSurgeries>[1]);
     return { error: 'Unknown action' };
   },
@@ -6237,17 +6385,56 @@ const monographJsonActionsTool: MCPTool = {
   handler: async (args: Record<string, unknown>) => {
     const { buildActionsForUnusedFile, buildActionsForUnusedExport, buildActionsForUnusedDep, buildDocsUrl, makeDeleteFileAction, makeRemoveExportAction, makeExportTypeAction, makeRemoveDependencyAction, makeAddSuppressionAction } = await import('@monoes/monograph');
     const op = args.action as string;
-    if (op === 'unused_file_actions') return { actions: buildActionsForUnusedFile(args.filePath as string) };
-    if (op === 'unused_export_actions') return { actions: buildActionsForUnusedExport(args.filePath as string, args.symbol as string, args.line as number, args.col as number, Boolean(args.isTypeOnly)) };
-    if (op === 'unused_dep_actions') return { actions: buildActionsForUnusedDep(args.packageName as string, Boolean(args.isDev)) };
-    if (op === 'docs_url') return { url: buildDocsUrl(args.issueKind as string) };
+    if (op === 'unused_file_actions') {
+      if (!args.filePath) return { error: 'Missing required field: filePath for action unused_file_actions' };
+      return { actions: buildActionsForUnusedFile(args.filePath as string) };
+    }
+    if (op === 'unused_export_actions') {
+      if (!args.filePath) return { error: 'Missing required field: filePath for action unused_export_actions' };
+      if (!args.symbol) return { error: 'Missing required field: symbol for action unused_export_actions' };
+      if (args.line === undefined || args.line === null) return { error: 'Missing required field: line for action unused_export_actions' };
+      if (args.col === undefined || args.col === null) return { error: 'Missing required field: col for action unused_export_actions' };
+      return { actions: buildActionsForUnusedExport(args.filePath as string, args.symbol as string, args.line as number, args.col as number, Boolean(args.isTypeOnly)) };
+    }
+    if (op === 'unused_dep_actions') {
+      if (!args.packageName) return { error: 'Missing required field: packageName for action unused_dep_actions' };
+      return { actions: buildActionsForUnusedDep(args.packageName as string, Boolean(args.isDev)) };
+    }
+    if (op === 'docs_url') {
+      if (!args.issueKind) return { error: 'Missing required field: issueKind for action docs_url' };
+      return { url: buildDocsUrl(args.issueKind as string) };
+    }
     if (op === 'make_action') {
+      if (!args.actionKind) return { error: 'Missing required field: actionKind for action make_action' };
       const kind = args.actionKind as string;
-      if (kind === 'delete-file') return makeDeleteFileAction(args.filePath as string);
-      if (kind === 'remove-export') return makeRemoveExportAction(args.filePath as string, args.symbol as string, args.line as number, args.col as number);
-      if (kind === 'export-type') return makeExportTypeAction(args.filePath as string, args.symbol as string, args.line as number, args.col as number);
-      if (kind === 'remove-dependency' || kind === 'remove-dev-dependency') return makeRemoveDependencyAction(args.packageName as string, Boolean(args.isDev));
-      if (kind === 'add-suppression') return makeAddSuppressionAction(args.filePath as string, args.line as number, args.symbol as string);
+      if (kind === 'delete-file') {
+        if (!args.filePath) return { error: 'Missing required field: filePath for make_action delete-file' };
+        return makeDeleteFileAction(args.filePath as string);
+      }
+      if (kind === 'remove-export') {
+        if (!args.filePath) return { error: 'Missing required field: filePath for make_action remove-export' };
+        if (!args.symbol) return { error: 'Missing required field: symbol for make_action remove-export' };
+        if (args.line === undefined || args.line === null) return { error: 'Missing required field: line for make_action remove-export' };
+        if (args.col === undefined || args.col === null) return { error: 'Missing required field: col for make_action remove-export' };
+        return makeRemoveExportAction(args.filePath as string, args.symbol as string, args.line as number, args.col as number);
+      }
+      if (kind === 'export-type') {
+        if (!args.filePath) return { error: 'Missing required field: filePath for make_action export-type' };
+        if (!args.symbol) return { error: 'Missing required field: symbol for make_action export-type' };
+        if (args.line === undefined || args.line === null) return { error: 'Missing required field: line for make_action export-type' };
+        if (args.col === undefined || args.col === null) return { error: 'Missing required field: col for make_action export-type' };
+        return makeExportTypeAction(args.filePath as string, args.symbol as string, args.line as number, args.col as number);
+      }
+      if (kind === 'remove-dependency' || kind === 'remove-dev-dependency') {
+        if (!args.packageName) return { error: 'Missing required field: packageName for make_action remove-dependency' };
+        return makeRemoveDependencyAction(args.packageName as string, Boolean(args.isDev));
+      }
+      if (kind === 'add-suppression') {
+        if (!args.filePath) return { error: 'Missing required field: filePath for make_action add-suppression' };
+        if (args.line === undefined || args.line === null) return { error: 'Missing required field: line for make_action add-suppression' };
+        if (!args.symbol) return { error: 'Missing required field: symbol for make_action add-suppression' };
+        return makeAddSuppressionAction(args.filePath as string, args.line as number, args.symbol as string);
+      }
     }
     return { error: 'Unknown action' };
   },
