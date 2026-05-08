@@ -91,6 +91,12 @@ export const workflowDefinitionSchema = z.object({
   description: z.string().optional(),
   variables: z.record(z.string(), z.unknown()).optional(),
   steps: z.array(workflowStepSchema).min(1),
-});
+}).refine(
+  (def) => {
+    const ids = def.steps.map((s) => s.id);
+    return ids.length === new Set(ids).size;
+  },
+  { message: 'Workflow step IDs must be unique', path: ['steps'] }
+);
 
 export type WorkflowDefinition = z.infer<typeof workflowDefinitionSchema>;

@@ -35,8 +35,17 @@ export function evaluateCondition(
   expression: string,
   context: Record<string, unknown>,
 ): boolean {
+  if (expression.length > 500) {
+    throw new Error('Condition expression too long (max 500 characters)');
+  }
+
   // Step 1: substitute variables
   const resolved = substitute(expression, context);
+
+  // Re-check length after substitution — injected values can expand the expression
+  if (resolved.length > 500) {
+    throw new Error('Condition expression too long after variable substitution (max 500 characters)');
+  }
 
   // Step 2: reject dangerous patterns
   for (const pattern of DANGEROUS_PATTERNS) {

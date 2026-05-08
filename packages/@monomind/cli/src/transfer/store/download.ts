@@ -28,6 +28,8 @@ export type DownloadProgressCallback = (progress: {
  * Pattern Downloader
  * Handles secure download and verification of patterns
  */
+const MAX_DOWNLOAD_CACHE = 500;
+
 export class PatternDownloader {
   private config: StoreConfig;
   private downloadCache: Map<string, { path: string; downloadedAt: number }>;
@@ -105,21 +107,44 @@ export class PatternDownloader {
         }
       }
 
-      // Verify signature if available
+      // Verify signature if available — fail closed when requireVerification is set
       if (pattern.signature && pattern.publicKey) {
-        const sigVerified = this.verifySignature(content, pattern.signature, pattern.publicKey);
+        const sigVerified = await this.verifySignature(content, pattern.signature, pattern.publicKey);
         if (!sigVerified) {
           console.warn(`[Download] Warning: Signature verification failed!`);
+          if (this.config.requireVerification) {
+            return {
+              success: false,
+              pattern,
+              verified: false,
+              size: content.length,
+            };
+          }
         } else {
           console.log(`[Download] Signature verified!`);
         }
+      } else if (this.config.requireVerification) {
+        // No signature/key fields supplied while strict verification is on — fail closed
+        console.warn(`[Download] Pattern lacks signature; requireVerification rejected`);
+        return {
+          success: false,
+          pattern,
+          verified: false,
+          size: content.length,
+        };
       }
 
-      // Write to file
-      fs.writeFileSync(outputPath, content);
+      // Write to file atomically
+      const tmp = outputPath + '.tmp';
+      fs.writeFileSync(tmp, content);
+      fs.renameSync(tmp, outputPath);
       console.log(`[Download] Written to: ${outputPath}`);
 
-      // Update cache
+      // Update cache (evict oldest when at capacity)
+      if (this.downloadCache.size >= MAX_DOWNLOAD_CACHE) {
+        const oldestKey = this.downloadCache.keys().next().value;
+        if (oldestKey !== undefined) this.downloadCache.delete(oldestKey);
+      }
       this.downloadCache.set(pattern.cid, {
         path: outputPath,
         downloadedAt: Date.now(),
@@ -165,9 +190,11 @@ export class PatternDownloader {
     const url = `${this.config.gateway}/ipfs/${cid}`;
     console.log(`[Download] Fetching: ${url}`);
 
+    const MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024; // match client.ts MAX_IPFS_RESPONSE_BYTES
+
     try {
       // Real HTTP fetch with progress
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
 
       if (!response.ok) {
         console.error(`[Download] HTTP ${response.status}: ${response.statusText}`);
@@ -188,6 +215,10 @@ export class PatternDownloader {
 
           chunks.push(value);
           downloaded += value.length;
+          if (downloaded > MAX_DOWNLOAD_BYTES) {
+            await reader.cancel();
+            throw new Error(`Response too large: exceeded ${MAX_DOWNLOAD_BYTES} bytes`);
+          }
           onProgress({
             bytesDownloaded: downloaded,
             totalBytes: contentLength,
@@ -201,7 +232,14 @@ export class PatternDownloader {
       }
 
       // Fallback for responses without content-length or progress
+      const cl = parseInt(response.headers.get('content-length') ?? '0', 10);
+      if (Number.isFinite(cl) && cl > MAX_DOWNLOAD_BYTES) {
+        throw new Error(`Response too large: ${cl} bytes`);
+      }
       const arrayBuffer = await response.arrayBuffer();
+      if (arrayBuffer.byteLength > MAX_DOWNLOAD_BYTES) {
+        throw new Error(`Response too large: ${arrayBuffer.byteLength} bytes`);
+      }
       const buffer = Buffer.from(arrayBuffer);
       console.log(`[Download] Downloaded ${buffer.length} bytes from IPFS gateway`);
       return buffer;
@@ -220,9 +258,16 @@ export class PatternDownloader {
         if (gateway === this.config.gateway) continue;
         try {
           console.log(`[Download] Trying alternative gateway: ${gateway}`);
-          const altResponse = await fetch(`${gateway}/ipfs/${cid}`);
+          const altResponse = await fetch(`${gateway}/ipfs/${cid}`, { signal: AbortSignal.timeout(15000) });
           if (altResponse.ok) {
+            const altCl = parseInt(altResponse.headers.get('content-length') ?? '0', 10);
+            if (Number.isFinite(altCl) && altCl > MAX_DOWNLOAD_BYTES) {
+              throw new Error(`Response too large: ${altCl} bytes`);
+            }
             const arrayBuffer = await altResponse.arrayBuffer();
+            if (arrayBuffer.byteLength > MAX_DOWNLOAD_BYTES) {
+              throw new Error(`Response too large: ${arrayBuffer.byteLength} bytes`);
+            }
             const buffer = Buffer.from(arrayBuffer);
             console.log(`[Download] Downloaded ${buffer.length} bytes from ${gateway}`);
             return buffer;
@@ -282,55 +327,80 @@ export class PatternDownloader {
   }
 
   /**
-   * Verify content signature using crypto
+   * Verify content signature using real Ed25519.
+   *
+   * CRITICAL FIX: Previously this used HMAC-SHA256 keyed with the *public* key —
+   * which is a no-op for security since the key is, by definition, public.
+   * Anyone reading the registry could recompute a valid "signature".
+   * The fallback at the bottom returned true for length>20, which made the
+   * function effectively a length check rather than a signature check.
+   * Now uses @noble/ed25519 verifyAsync, the same library used in publish.ts,
+   * and fails closed on any error.
    */
-  private verifySignature(
+  private async verifySignature(
     content: Buffer,
     signature: string,
     publicKey: string
-  ): boolean {
+  ): Promise<boolean> {
     // Check signature format
     if (!signature.startsWith('ed25519:') || !publicKey.startsWith('ed25519:')) {
       return false;
     }
 
     try {
-      // For HMAC-based signatures (used in publish.ts)
+      const ed = await import('@noble/ed25519');
       const sigHex = signature.replace('ed25519:', '');
       const keyHex = publicKey.replace('ed25519:', '');
 
-      // Verify HMAC signature
-      const expectedSig = crypto
-        .createHmac('sha256', keyHex)
-        .update(content)
-        .digest('hex');
-
-      // Constant-time comparison to prevent timing attacks
-      return crypto.timingSafeEqual(
+      // Real Ed25519 signature verification — fail-closed on any mismatch
+      const isValid = await ed.verifyAsync(
         Buffer.from(sigHex, 'hex'),
-        Buffer.from(expectedSig, 'hex')
+        content,
+        Buffer.from(keyHex, 'hex')
       );
+      return isValid === true;
     } catch {
-      // If crypto verification fails, check basic format
-      return signature.length > 20 && publicKey.length > 20;
+      return false;
     }
   }
 
   /**
-   * Resolve output path for pattern
+   * Resolve output path for pattern.
+   *
+   * CRITICAL: pattern.name and pattern.version come from registry data fetched
+   * over the network. Without strict validation, an attacker who controls the
+   * registry response can write to arbitrary paths (e.g. ~/.claude/helpers/
+   * hook-handler.cjs) via traversal sequences in pattern.name.
    */
   private resolveOutputPath(pattern: PatternEntry, options: DownloadOptions): string {
+    // Strict allowlist — no slashes, no dots-only, no traversal
+    if (!/^[a-zA-Z0-9_-][a-zA-Z0-9._-]{0,63}$/.test(pattern.name) || pattern.name.includes('..')) {
+      throw new Error(`Invalid pattern name: ${pattern.name}`);
+    }
+    if (!/^[a-zA-Z0-9._-]{1,32}$/.test(pattern.version) || pattern.version.includes('..')) {
+      throw new Error(`Invalid pattern version: ${pattern.version}`);
+    }
+
     if (options.output) {
       // If output is a directory, append filename
       if (fs.existsSync(options.output) && fs.statSync(options.output).isDirectory()) {
-        return path.join(options.output, `${pattern.name}.cfp.json`);
+        const candidate = path.resolve(path.join(options.output, `${pattern.name}.cfp.json`));
+        const root = path.resolve(options.output);
+        if (!candidate.startsWith(root + path.sep)) {
+          throw new Error('Output path escapes target directory');
+        }
+        return candidate;
       }
-      return options.output;
+      return path.resolve(options.output);
     }
 
-    // Default: cache directory
+    // Default: cache directory — must remain within cacheDir
     const cacheDir = path.resolve(this.config.cacheDir);
-    return path.join(cacheDir, `${pattern.name}-${pattern.version}.cfp.json`);
+    const candidate = path.resolve(path.join(cacheDir, `${pattern.name}-${pattern.version}.cfp.json`));
+    if (!candidate.startsWith(cacheDir + path.sep)) {
+      throw new Error('Output path escapes cache directory');
+    }
+    return candidate;
   }
 
   /**

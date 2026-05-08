@@ -376,7 +376,7 @@ export class SessionManager extends EventEmitter {
   private startCleanupTimer(): void {
     this.cleanupTimer = setInterval(() => {
       this.cleanupExpiredSessions();
-    }, this.config.cleanupInterval);
+    }, this.config.cleanupInterval).unref();
   }
 
   /**

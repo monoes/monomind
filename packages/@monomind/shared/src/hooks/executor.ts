@@ -71,6 +71,8 @@ export class HookExecutor {
     const results: HookResult[] = [];
     let aborted = false;
     let finalContext: Partial<HookContext> = {};
+    // Shallow-clone so mutations from hook results don't escape to caller
+    context = { ...context };
 
     // Get enabled hooks for this event
     const hooks = this.registry.getHandlers(event, false);

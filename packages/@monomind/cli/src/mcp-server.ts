@@ -585,12 +585,15 @@ export class MCPServerManager extends EventEmitter {
             };
           } catch (error) {
             trackRequest(toolName, false);
+            const errMsg = process.env.NODE_ENV === 'production'
+              ? 'Tool execution failed'
+              : (error instanceof Error ? error.message : 'Tool execution failed');
             return {
               jsonrpc: '2.0',
               id: message.id,
               error: {
                 code: -32603,
-                message: error instanceof Error ? error.message : 'Tool execution failed',
+                message: errMsg,
               },
             };
           }
