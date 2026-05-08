@@ -37,5 +37,7 @@ export interface ConsensusAuditRecord {
   round: number;
   startedAt: string;
   completedAt: string;
-  durationMs: number;
+  durationMs: number | null;
+  /** HMAC-SHA256 over the full record (all fields above), keyed by the session secret */
+  recordSignature?: string;
 }

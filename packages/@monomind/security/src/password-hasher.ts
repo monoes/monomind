@@ -31,7 +31,9 @@ export interface PasswordHasherConfig {
 
   /**
    * Maximum password length.
-   * Default: 128 characters (bcrypt limit is 72 bytes)
+   * Default: 72 characters — bcrypt silently truncates at 72 bytes, so passwords
+   * longer than this produce identical hashes regardless of the extra characters.
+   * Accepting passwords up to 128 would allow authentication bypass.
    */
   maxLength?: number;
 
@@ -95,7 +97,7 @@ export class PasswordHasher {
     this.config = {
       rounds: config.rounds ?? 12,
       minLength: config.minLength ?? 8,
-      maxLength: config.maxLength ?? 128,
+      maxLength: config.maxLength ?? 72,
       requireUppercase: config.requireUppercase ?? true,
       requireLowercase: config.requireLowercase ?? true,
       requireDigit: config.requireDigit ?? true,
