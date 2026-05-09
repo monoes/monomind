@@ -10,9 +10,10 @@
  * @module v1/cli/mcp-tools/memory-tools
  */
 
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
-import { join, resolve } from 'path';
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import type { MCPTool } from './types.js';
+import { getProjectCwd } from './types.js';
 
 // Legacy JSON store interface (for migration)
 interface LegacyMemoryEntry {
@@ -35,15 +36,15 @@ const LEGACY_MEMORY_FILE = 'store.json';
 const MIGRATION_MARKER = '.migrated-to-sqlite';
 
 function getMemoryDir(): string {
-  return resolve(MEMORY_DIR);
+  return join(getProjectCwd(), MEMORY_DIR);
 }
 
 function getLegacyPath(): string {
-  return resolve(join(MEMORY_DIR, LEGACY_MEMORY_FILE));
+  return join(getProjectCwd(), MEMORY_DIR, LEGACY_MEMORY_FILE);
 }
 
 function getMigrationMarkerPath(): string {
-  return resolve(join(MEMORY_DIR, MIGRATION_MARKER));
+  return join(getProjectCwd(), MEMORY_DIR, MIGRATION_MARKER);
 }
 
 function ensureMemoryDir(): void {
@@ -100,10 +101,13 @@ function loadLegacyStore(): LegacyMemoryStore | null {
  */
 function markMigrationComplete(): void {
   ensureMemoryDir();
-  writeFileSync(getMigrationMarkerPath(), JSON.stringify({
+  const dest = getMigrationMarkerPath();
+  const tmp = dest + '.tmp';
+  writeFileSync(tmp, JSON.stringify({
     migratedAt: new Date().toISOString(),
     version: '3.0.0',
   }), 'utf-8');
+  renameSync(tmp, dest);
 }
 
 /**
@@ -339,7 +343,7 @@ export const memoryTools: MCPTool[] = [
 
       const query = input.query as string;
       const namespace = (input.namespace as string) || 'default';
-      const limit = (input.limit as number) || 10;
+      const limit = Math.min(Math.max((input.limit as number) || 10, 1), 1000);
       const threshold = (input.threshold as number) || 0.3;
 
       validateMemoryInput(undefined, undefined, query);
@@ -450,7 +454,7 @@ export const memoryTools: MCPTool[] = [
       const { listEntries } = await getMemoryFunctions();
 
       const namespace = input.namespace as string | undefined;
-      const limit = (input.limit as number) || 50;
+      const limit = Math.min(Math.max((input.limit as number) || 50, 1), 1000);
       const offset = (input.offset as number) || 0;
 
       try {
@@ -502,9 +506,13 @@ export const memoryTools: MCPTool[] = [
 
       try {
         const status = await checkMemoryInitialization();
-        const allEntries = await listEntries({ limit: 100000 });
+        // Cap stats sample at 1000 entries — the previous 100000 limit could
+        // load up to 100 GB of resident memory (each entry value capped at 1 MB)
+        // just to compute aggregate counts. Counts above 1000 are reported as
+        // approximate via the dedicated `total` field.
+        const allEntries = await listEntries({ limit: 1000 });
 
-        // Count by namespace
+        // Count by namespace (sample-based for large stores)
         const namespaces: Record<string, number> = {};
         let withEmbeddings = 0;
 
@@ -558,6 +566,9 @@ export const memoryTools: MCPTool[] = [
         }
       }
 
+      // Check if migration was already completed before running it
+      const alreadyMigrated = existsSync(getMigrationMarkerPath());
+
       // Check for legacy data
       const legacyStore = loadLegacyStore();
       if (!legacyStore || Object.keys(legacyStore.entries).length === 0) {
@@ -573,8 +584,8 @@ export const memoryTools: MCPTool[] = [
 
       return {
         success: true,
-        message: 'Migration completed',
-        migrated: Object.keys(legacyStore.entries).length,
+        message: alreadyMigrated ? 'Already migrated — use force=true to re-run' : 'Migration completed',
+        migrated: alreadyMigrated ? 0 : Object.keys(legacyStore.entries).length,
         backend: 'sql.js + HNSW',
       };
     },
