@@ -12,8 +12,9 @@ import {
   mkdirSync,
   readdirSync,
   statSync,
+  lstatSync,
 } from 'fs';
-import { join, dirname, extname } from 'path';
+import { join, dirname, extname, resolve, sep } from 'path';
 import type {
   VersionedMCPTool,
   ToolVersionEntry,
@@ -34,7 +35,14 @@ export class ToolRegistry {
   private readonly storagePath: string;
 
   constructor(storagePath: string = DEFAULT_STORAGE_PATH) {
-    this.storagePath = storagePath;
+    const resolvedPath = resolve(storagePath);
+    const allowedRoot = process.env.MONOMIND_DATA_DIR
+      ? resolve(process.env.MONOMIND_DATA_DIR)
+      : resolve(process.cwd());
+    if (resolvedPath !== allowedRoot && !resolvedPath.startsWith(allowedRoot + sep)) {
+      throw new Error(`Tool registry storagePath escapes allowed root: ${resolvedPath}`);
+    }
+    this.storagePath = resolvedPath;
     this.loadFromDisk();
   }
 
@@ -127,6 +135,11 @@ export class ToolRegistry {
     toolName: string,
     agentsDir: string = 'agents',
   ): string[] {
+    // Reject empty or short tool names — `content.includes('')` returns true
+    // for every file, turning the registry into a directory enumerator.
+    if (typeof toolName !== 'string' || toolName.length < 2 || !/^[a-zA-Z0-9_.-]+$/.test(toolName)) {
+      return [];
+    }
     const impacted: string[] = [];
     const mdFiles = collectMdFiles(agentsDir);
 
@@ -184,14 +197,25 @@ export class ToolRegistry {
       return;
     }
 
+    const NAME_RE = /^[a-zA-Z0-9_.-]{1,128}$/;
+    const STR_MAX = 500;
     for (const line of raw.split('\n')) {
       const trimmed = line.trim();
       if (!trimmed) continue;
       try {
         const record = JSON.parse(trimmed);
+        if (!record || typeof record !== 'object') continue;
+        // Validate fields before storage. The JSONL file lives on disk; an
+        // attacker with local write access could otherwise plant attacker-controlled
+        // strings (e.g. malicious deprecationMessage with markup) that reach
+        // downstream renderers (DOT visualizer, deprecation-injector warnings).
         if (record._type === 'tool') {
+          if (typeof record.toolName !== 'string' || !NAME_RE.test(record.toolName)) continue;
+          if (record.successor !== undefined && (typeof record.successor !== 'string' || !NAME_RE.test(record.successor))) continue;
+          if (record.deprecationMessage !== undefined && (typeof record.deprecationMessage !== 'string' || record.deprecationMessage.length > STR_MAX)) continue;
           this.tools.set(record.toolName, record as VersionedMCPTool);
         } else if (record._type === 'history') {
+          if (typeof record.toolName !== 'string' || !NAME_RE.test(record.toolName)) continue;
           this.history.push(record as ToolVersionEntry);
         }
       } catch {
@@ -236,10 +260,15 @@ function collectMdFiles(root: string): string[] {
     const full = join(root, entry);
     let stat;
     try {
-      stat = statSync(full);
+      // Use lstatSync so symlinks aren't followed — otherwise a symlink under
+      // `agentsDir` could redirect this scan into arbitrary filesystem
+      // locations, which combined with `getImpactedAgents` becomes a content
+      // oracle that fingerprints arbitrary text files outside the project.
+      stat = lstatSync(full);
     } catch {
       continue;
     }
+    if (stat.isSymbolicLink()) continue;
     if (stat.isDirectory()) {
       results.push(...collectMdFiles(full));
     } else if (stat.isFile() && extname(entry) === '.md') {
