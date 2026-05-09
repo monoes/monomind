@@ -13,8 +13,11 @@
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+
+const MAX_NEURAL_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
+const NEURAL_RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 // Try to import real embeddings — prefer agentic-flow v1 ReasoningBank, then @monomind/embeddings
 let realEmbeddings: { embed: (text: string) => Promise<number[]> } | null = null;
@@ -108,7 +111,24 @@ function loadNeuralStore(): NeuralStore {
   try {
     const path = getNeuralPath();
     if (existsSync(path)) {
-      return JSON.parse(readFileSync(path, 'utf-8'));
+      if (statSync(path).size > MAX_NEURAL_STORE_BYTES) {
+        return { models: {}, patterns: {}, version: '3.0.0' };
+      }
+      const raw = JSON.parse(readFileSync(path, 'utf-8')) as NeuralStore;
+      // Strip proto-polluting keys from top-level containers
+      const models: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(raw.models ?? {})) {
+        if (!NEURAL_RESERVED_KEYS.has(k)) models[k] = v;
+      }
+      const patterns: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(raw.patterns ?? {})) {
+        if (!NEURAL_RESERVED_KEYS.has(k)) patterns[k] = v;
+      }
+      return {
+        models: models as NeuralStore['models'],
+        patterns: patterns as NeuralStore['patterns'],
+        version: typeof raw.version === 'string' ? raw.version : '3.0.0',
+      };
     }
   } catch {
     // Return empty store
@@ -394,7 +414,11 @@ export const neuralTools: MCPTool[] = [
       }
 
       if (action === 'get') {
-        const pattern = store.patterns[input.patternId as string];
+        const patternId = input.patternId as string;
+        if (!patternId || NEURAL_RESERVED_KEYS.has(patternId)) {
+          return { success: false, error: 'Invalid patternId' };
+        }
+        const pattern = Object.hasOwn(store.patterns, patternId) ? store.patterns[patternId] : undefined;
         if (!pattern) {
           return { success: false, error: 'Pattern not found' };
         }
@@ -476,7 +500,10 @@ export const neuralTools: MCPTool[] = [
 
       if (action === 'delete') {
         const patternId = input.patternId as string;
-        if (!store.patterns[patternId]) {
+        if (!patternId || NEURAL_RESERVED_KEYS.has(patternId)) {
+          return { success: false, error: 'Invalid patternId' };
+        }
+        if (!Object.hasOwn(store.patterns, patternId)) {
           return { success: false, error: 'Pattern not found' };
         }
         delete store.patterns[patternId];
@@ -612,7 +639,11 @@ export const neuralTools: MCPTool[] = [
       const store = loadNeuralStore();
 
       if (input.modelId) {
-        const model = store.models[input.modelId as string];
+        const modelId = input.modelId as string;
+        if (NEURAL_RESERVED_KEYS.has(modelId)) {
+          return { success: false, error: 'Invalid modelId' };
+        }
+        const model = Object.hasOwn(store.models, modelId) ? store.models[modelId] : undefined;
         if (!model) {
           return { success: false, error: 'Model not found' };
         }

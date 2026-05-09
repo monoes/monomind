@@ -574,25 +574,26 @@ const exportCommand: Command = {
       }
 
       // Path traversal protection: resolved path must stay within CWD
+      const effectiveCwd = ctx.cwd || process.cwd();
       const absolutePath = path.isAbsolute(outputPath)
         ? outputPath
-        : path.join(ctx.cwd, outputPath);
+        : path.join(effectiveCwd, outputPath);
       const resolvedOutputPath = path.resolve(absolutePath);
-      const resolvedCwd = path.resolve(ctx.cwd);
+      const resolvedCwd = path.resolve(effectiveCwd);
       if (!resolvedOutputPath.startsWith(resolvedCwd + path.sep) && resolvedOutputPath !== resolvedCwd) {
         output.printError(`Output path must be within the working directory.`);
         return { success: false, exitCode: 1 };
       }
 
-      // Write atomically (tmp + rename) to avoid partial writes
-      const tmpPath = absolutePath + '.tmp';
+      // Write atomically (tmp + rename) to avoid partial writes — use resolvedOutputPath
+      const tmpPath = `${resolvedOutputPath}.${process.pid}.${Date.now()}.tmp`;
       if (compress) {
         const compressed = gzipSync(Buffer.from(content, 'utf-8'));
         fs.writeFileSync(tmpPath, compressed);
       } else {
         fs.writeFileSync(tmpPath, content, 'utf-8');
       }
-      fs.renameSync(tmpPath, absolutePath);
+      fs.renameSync(tmpPath, resolvedOutputPath);
 
       spinner.succeed('Session exported');
       output.writeln();
@@ -701,7 +702,10 @@ const importCommand: Command = {
         spinner.fail('Import failed');
         return { success: false, exitCode: 1 };
       } else {
-        data = JSON.parse(content);
+        data = JSON.parse(content, (key, value) => {
+          if (key === '__proto__' || key === 'constructor' || key === 'prototype') return undefined;
+          return value;
+        });
       }
 
       const result = await callMCPTool<{
