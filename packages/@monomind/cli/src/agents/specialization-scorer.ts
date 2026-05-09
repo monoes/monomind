@@ -51,7 +51,10 @@ export class SpecializationScorer {
       throw new Error('Scorer store exceeds 10MB; run compaction');
     }
     const raw = readFileSync(this.filePath, 'utf-8');
-    return parseJsonl<SpecializationScore>(raw);
+    return parseJsonl<SpecializationScore>(raw).filter(
+      (r) => r !== null && typeof r === 'object' && !Array.isArray(r) &&
+             Object.getPrototypeOf(r) === Object.prototype,
+    );
   }
 
   private writeAll(records: SpecializationScore[]): void {

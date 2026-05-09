@@ -56,6 +56,18 @@ export interface AgentDispatcher {
 // Abstract executor
 // ---------------------------------------------------------------------------
 
+const SLUG_RE = /^[a-z0-9][a-z0-9\-]{0,63}$/;
+const MAX_TASK_BYTES = 64 * 1024;
+
+function assertSlug(value: string, name: string): void {
+  if (!SLUG_RE.test(value)) throw new Error(`Invalid agent slug for ${name}: ${JSON.stringify(value)}`);
+}
+
+function assertTask(task: string): void {
+  if (!task || task.trim().length === 0) throw new Error('task must not be empty');
+  if (task.length > MAX_TASK_BYTES) throw new Error(`task exceeds maximum length (${MAX_TASK_BYTES} bytes)`);
+}
+
 export abstract class ModeExecutor<TConfig> {
   constructor(protected readonly dispatcher: AgentDispatcher) {}
   abstract execute(config: TConfig): Promise<ModeResult>;
@@ -67,6 +79,8 @@ export abstract class ModeExecutor<TConfig> {
 
 export class RouteModeExecutor extends ModeExecutor<RouteModeConfig> {
   async execute(config: RouteModeConfig): Promise<ModeResult> {
+    assertSlug(config.agentSlug, 'agentSlug');
+    assertTask(config.task);
     const start = Date.now();
     const result = await this.dispatcher.dispatch(config.agentSlug, config.task);
     return {
@@ -104,9 +118,12 @@ export function parsePlan(output: unknown): string[] {
 
 export class CoordinateModeExecutor extends ModeExecutor<CoordinateModeConfig> {
   async execute(config: CoordinateModeConfig): Promise<ModeResult> {
+    assertTask(config.task);
     const start = Date.now();
     const plannerSlug = config.plannerSlug ?? 'planner';
     const synthesizerSlug = config.synthesizerSlug ?? 'hierarchical-coordinator';
+    assertSlug(plannerSlug, 'plannerSlug');
+    assertSlug(synthesizerSlug, 'synthesizerSlug');
     const maxSubtasks = config.maxSubtasks ?? 8;
 
     const totalTokens = { input: 0, output: 0 };
@@ -166,6 +183,9 @@ export class CoordinateModeExecutor extends ModeExecutor<CoordinateModeConfig> {
 
 export class CollaborateModeExecutor extends ModeExecutor<CollaborateModeConfig> {
   async execute(config: CollaborateModeConfig): Promise<ModeResult> {
+    assertTask(config.task);
+    assertSlug(config.agentA, 'agentA');
+    assertSlug(config.agentB, 'agentB');
     const start = Date.now();
     // Cap iterations: each iteration costs 2 LLM dispatches; an unbounded value
     // turns this into an unbounded token-cost / OOM vector.

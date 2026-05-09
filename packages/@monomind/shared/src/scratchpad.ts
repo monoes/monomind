@@ -29,13 +29,19 @@ export class SharedScratchpad {
    * Return a human-readable transcript of all entries,
    * separated by `---` dividers.
    */
+  private static readonly MAX_READ_BYTES = 128 * 1024;
+
   read(): string {
-    return this.entries
+    const full = this.entries
       .map(
         (e) =>
           `[${e.agentId} @ ${e.timestamp.toISOString()}]\n${e.content}`,
       )
       .join('\n---\n');
+    if (full.length <= SharedScratchpad.MAX_READ_BYTES) return full;
+    const suffix = full.slice(full.length - SharedScratchpad.MAX_READ_BYTES);
+    const cutIdx = suffix.indexOf('\n---\n');
+    return cutIdx === -1 ? suffix : suffix.slice(cutIdx + 5);
   }
 
   readEntries(): Readonly<ScratchpadEntry[]> {

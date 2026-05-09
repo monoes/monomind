@@ -10,7 +10,7 @@
  * - Invalid regex patterns are silently skipped.
  */
 
-import { readFileSync, readdirSync, lstatSync } from 'fs';
+import { readFileSync, readdirSync, lstatSync, statSync, realpathSync } from 'fs';
 import { join, extname, resolve, sep } from 'path';
 import type {
   TriggerPattern,
@@ -95,8 +95,10 @@ export class TriggerScanner {
 
   private _buildIndex(agentDir: string, allowedRoot?: string): TriggerIndex {
     if (allowedRoot) {
-      const resolvedDir = resolve(agentDir);
-      const resolvedRoot = resolve(allowedRoot);
+      let resolvedDir: string;
+      let resolvedRoot: string;
+      try { resolvedDir = realpathSync(resolve(agentDir)); } catch { resolvedDir = resolve(agentDir); }
+      try { resolvedRoot = realpathSync(resolve(allowedRoot)); } catch { resolvedRoot = resolve(allowedRoot); }
       if (!resolvedDir.startsWith(resolvedRoot + sep) && resolvedDir !== resolvedRoot) {
         throw new Error(`Agent directory escapes workspace: ${resolvedDir}`);
       }
@@ -106,9 +108,11 @@ export class TriggerScanner {
     this.compiled = [];
     this.totalAgentsScanned = mdFiles.length;
 
+    const MAX_AGENT_FILE_BYTES = 1 * 1024 * 1024;
     for (const filePath of mdFiles) {
       let content: string;
       try {
+        if (statSync(filePath).size > MAX_AGENT_FILE_BYTES) continue;
         content = readFileSync(filePath, 'utf-8');
       } catch {
         continue;

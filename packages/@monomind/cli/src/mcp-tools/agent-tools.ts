@@ -5,8 +5,9 @@
  * Includes model routing integration for intelligent model selection.
  */
 
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { type MCPTool, getProjectCwd } from './types.js';
 
 // Storage paths
@@ -51,12 +52,17 @@ function ensureAgentDir(): void {
   }
 }
 
+const MAX_AGENT_STORE_BYTES = 50 * 1024 * 1024;
+
 function loadAgentStore(): AgentStore {
   try {
     const path = getAgentPath();
     if (existsSync(path)) {
+      if (statSync(path).size > MAX_AGENT_STORE_BYTES) return { agents: {}, version: '3.0.0' };
       const data = readFileSync(path, 'utf-8');
-      return JSON.parse(data);
+      const parsed = JSON.parse(data) as AgentStore;
+      if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, '__proto__')) return { agents: {}, version: '3.0.0' };
+      return parsed;
     }
   } catch {
     // Return empty store on error
@@ -77,7 +83,7 @@ function saveAgentStore(store: AgentStore): void {
   }
   ensureAgentDir();
   const dest = getAgentPath();
-  const tmp = dest + '.tmp';
+  const tmp = `${dest}.${process.pid}.${Date.now()}.tmp`;
   writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf-8');
   renameSync(tmp, dest);
 }
@@ -211,7 +217,7 @@ export const agentTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadAgentStore();
-      const agentId = (input.agentId as string) || `agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const agentId = (input.agentId as string) || `agent-${Date.now()}-${randomBytes(4).toString('hex')}`;
       const agentType = input.agentType as string;
 
       if (['__proto__', 'constructor', 'prototype'].includes(agentId)) {
@@ -482,7 +488,7 @@ export const agentTools: MCPTool[] = [
 
         if (delta > 0) {
           for (let i = 0; i < delta; i++) {
-            const agentId = `agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            const agentId = `agent-${Date.now()}-${randomBytes(4).toString('hex')}`;
             store.agents[agentId] = {
               agentId,
               agentType,

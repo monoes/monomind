@@ -4,8 +4,9 @@
  * Tool definitions for task management with file persistence.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { type MCPTool, getProjectCwd } from './types.js';
 
 // Storage paths
@@ -48,12 +49,17 @@ function ensureTaskDir(): void {
   }
 }
 
+const MAX_TASK_STORE_BYTES = 50 * 1024 * 1024;
+
 function loadTaskStore(): TaskStore {
   try {
     const path = getTaskPath();
     if (existsSync(path)) {
+      if (statSync(path).size > MAX_TASK_STORE_BYTES) return { tasks: {}, version: '3.0.0' };
       const data = readFileSync(path, 'utf-8');
-      return JSON.parse(data);
+      const parsed = JSON.parse(data) as TaskStore;
+      if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, '__proto__')) return { tasks: {}, version: '3.0.0' };
+      return parsed;
     }
   } catch {
     // Return empty store on error
@@ -63,8 +69,15 @@ function loadTaskStore(): TaskStore {
 
 function saveTaskStore(store: TaskStore): void {
   ensureTaskDir();
-  writeFileSync(getTaskPath(), JSON.stringify(store, null, 2), 'utf-8');
+  const taskPath = getTaskPath();
+  // Unique tmp filename — concurrent task_assign/complete calls would
+  // otherwise race on the same .tmp file.
+  const tmpPath = `${taskPath}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tmpPath, JSON.stringify(store, null, 2), 'utf-8');
+  renameSync(tmpPath, taskPath);
 }
+
+const FORBIDDEN_TASK_IDS = new Set(['__proto__', 'constructor', 'prototype']);
 
 export const taskTools: MCPTool[] = [
   {
@@ -84,7 +97,7 @@ export const taskTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadTaskStore();
-      const taskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const taskId = `task-${Date.now()}-${randomBytes(4).toString('hex')}`;
 
       const task: TaskRecord = {
         taskId,
@@ -129,6 +142,7 @@ export const taskTools: MCPTool[] = [
     handler: async (input) => {
       const store = loadTaskStore();
       const taskId = input.taskId as string;
+      if (FORBIDDEN_TASK_IDS.has(taskId)) return { taskId, status: 'not_found', error: 'Task not found' };
       const task = store.tasks[taskId];
 
       if (task) {
@@ -232,6 +246,7 @@ export const taskTools: MCPTool[] = [
     handler: async (input) => {
       const store = loadTaskStore();
       const taskId = input.taskId as string;
+      if (FORBIDDEN_TASK_IDS.has(taskId)) return { taskId, status: 'not_found', error: 'Task not found' };
       const task = store.tasks[taskId];
 
       if (task) {
@@ -247,17 +262,26 @@ export const taskTools: MCPTool[] = [
           try {
             let agentStore: { agents: Record<string, Record<string, unknown>> } = { agents: {} };
             if (existsSync(agentStorePath)) {
-              agentStore = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
+              const agentRaw = JSON.parse(readFileSync(agentStorePath, 'utf-8'));
+              if (agentRaw && typeof agentRaw === 'object' && !Object.prototype.hasOwnProperty.call(agentRaw, '__proto__')) {
+                agentStore = agentRaw;
+              }
             }
             for (const agentId of task.assignedTo) {
-              if (agentStore.agents[agentId]) {
+              const FORBIDDEN_AGENT_IDS_TC = new Set(['__proto__', 'constructor', 'prototype']);
+              if (typeof agentId === 'string' && agentId.length > 0 && agentId.length <= 128 &&
+                  !FORBIDDEN_AGENT_IDS_TC.has(agentId) && Object.hasOwn(agentStore.agents, agentId)) {
                 agentStore.agents[agentId].status = 'idle';
                 agentStore.agents[agentId].currentTask = null;
                 agentStore.agents[agentId].taskCount =
                   ((agentStore.agents[agentId].taskCount as number) || 0) + 1;
               }
             }
-            writeFileSync(agentStorePath, JSON.stringify(agentStore, null, 2), 'utf-8');
+            const agentDir = join(getProjectCwd(), STORAGE_DIR, 'agents');
+            if (!existsSync(agentDir)) mkdirSync(agentDir, { recursive: true });
+            const tmpAgent1 = `${agentStorePath}.${process.pid}.${Date.now()}.tmp`;
+            writeFileSync(tmpAgent1, JSON.stringify(agentStore, null, 2), 'utf-8');
+            renameSync(tmpAgent1, agentStorePath);
           } catch {
             // Best-effort agent sync
           }
@@ -295,6 +319,7 @@ export const taskTools: MCPTool[] = [
     handler: async (input) => {
       const store = loadTaskStore();
       const taskId = input.taskId as string;
+      if (FORBIDDEN_TASK_IDS.has(taskId)) return { success: false, taskId, error: 'Task not found' };
       const task = store.tasks[taskId];
 
       if (task) {
@@ -345,6 +370,7 @@ export const taskTools: MCPTool[] = [
     handler: async (input) => {
       const store = loadTaskStore();
       const taskId = input.taskId as string;
+      if (FORBIDDEN_TASK_IDS.has(taskId)) return { taskId, error: 'Task not found' };
       const task = store.tasks[taskId];
 
       if (!task) {
@@ -362,28 +388,35 @@ export const taskTools: MCPTool[] = [
         }
       } catch { /* ignore */ }
 
+      // Reject IDs that would mutate Object.prototype when used as a key in
+      // the JSON-loaded plain object `agentStore.agents`.
+      const FORBIDDEN_AGENT_IDS = new Set(['__proto__', 'constructor', 'prototype']);
+      const isValidAgentId = (id: unknown): id is string =>
+        typeof id === 'string' && id.length > 0 && id.length <= 128 && !FORBIDDEN_AGENT_IDS.has(id);
+
       if (input.unassign) {
         // Revert previously assigned agents to idle
         for (const agentId of previouslyAssigned) {
-          if (agentStore.agents[agentId]) {
+          if (isValidAgentId(agentId) && Object.hasOwn(agentStore.agents, agentId)) {
             agentStore.agents[agentId].status = 'idle';
             agentStore.agents[agentId].currentTask = null;
           }
         }
         task.assignedTo = [];
       } else {
-        const agentIds = (input.agentIds as string[]) || [];
+        const rawIds = (input.agentIds as string[]) || [];
+        const agentIds = rawIds.filter(isValidAgentId);
         // Revert old agents to idle
         for (const agentId of previouslyAssigned) {
-          if (!agentIds.includes(agentId) && agentStore.agents[agentId]) {
+          if (isValidAgentId(agentId) && !agentIds.includes(agentId) && Object.hasOwn(agentStore.agents, agentId)) {
             agentStore.agents[agentId].status = 'idle';
             agentStore.agents[agentId].currentTask = null;
           }
         }
         // Set new agents to active
         for (const agentId of agentIds) {
-          if (agentStore.agents[agentId]) {
-            agentStore.agents[agentId].status = 'active';
+          if (Object.hasOwn(agentStore.agents, agentId)) {
+            agentStore.agents[agentId].status = 'busy';
             agentStore.agents[agentId].currentTask = taskId;
           }
         }
@@ -403,7 +436,9 @@ export const taskTools: MCPTool[] = [
       if (!existsSync(agentDir)) {
         mkdirSync(agentDir, { recursive: true });
       }
-      writeFileSync(agentStorePath, JSON.stringify(agentStore, null, 2), 'utf-8');
+      const tmpAgent2 = `${agentStorePath}.${process.pid}.${Date.now()}.tmp`;
+      writeFileSync(tmpAgent2, JSON.stringify(agentStore, null, 2), 'utf-8');
+      renameSync(tmpAgent2, agentStorePath);
 
       return {
         taskId: task.taskId,
@@ -428,6 +463,7 @@ export const taskTools: MCPTool[] = [
     handler: async (input) => {
       const store = loadTaskStore();
       const taskId = input.taskId as string;
+      if (FORBIDDEN_TASK_IDS.has(taskId)) return { success: false, taskId, error: 'Task not found' };
       const task = store.tasks[taskId];
 
       if (task) {
