@@ -21,6 +21,13 @@ function validatePackageName(spec: string): void {
   }
 }
 
+const VALID_VERSION_RE = /^[a-zA-Z0-9._\-^~>=<*]+$/;
+function validateVersion(version: string): void {
+  if (!VALID_VERSION_RE.test(version) || version.length > 50) {
+    throw new Error(`Invalid version specifier: ${version}`);
+  }
+}
+
 /** Forbidden manifest keys (prototype pollution defense) */
 const FORBIDDEN_PLUGIN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 function isValidPluginKey(name: unknown): name is string {
@@ -108,7 +115,15 @@ export class PluginManager {
     try {
       if (fs.existsSync(this.config.manifestPath)) {
         const content = fs.readFileSync(this.config.manifestPath, 'utf-8');
-        return JSON.parse(content) as InstalledPluginsManifest;
+        const parsed = JSON.parse(content) as Record<string, unknown>;
+        if (
+          Object.prototype.hasOwnProperty.call(parsed, '__proto__') ||
+          Object.prototype.hasOwnProperty.call(parsed, 'constructor') ||
+          Object.prototype.hasOwnProperty.call(parsed, 'prototype')
+        ) {
+          throw new Error('Manifest contains forbidden keys');
+        }
+        return parsed as unknown as InstalledPluginsManifest;
       }
     } catch (error) {
       console.warn('[PluginManager] Failed to load manifest, creating new one');
@@ -150,6 +165,12 @@ export class PluginManager {
 
     if (!isValidPluginKey(packageName)) {
       return { success: false, error: `Invalid package name: ${packageName}` };
+    }
+
+    if (version) {
+      try { validateVersion(version); } catch {
+        return { success: false, error: `Invalid version specifier: ${version}` };
+      }
     }
 
     const versionSpec = version ? `${packageName}@${version}` : packageName;
@@ -488,6 +509,12 @@ export class PluginManager {
 
     if (!isValidPluginKey(packageName)) {
       return { success: false, error: `Invalid package name` };
+    }
+
+    if (version) {
+      try { validateVersion(version); } catch {
+        return { success: false, error: `Invalid version specifier: ${version}` };
+      }
     }
 
     const existing = Object.hasOwn(this.manifest!.plugins, packageName)

@@ -7,6 +7,9 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import * as fs from 'fs';
+import * as path from 'path';
+import { homedir } from 'os';
 
 interface ClaimsConfig {
   roles?: Record<string, string[]>;
@@ -20,24 +23,33 @@ const CLAIMS_CONFIG_PATHS = [
 ];
 
 function getClaimsConfigPaths(): string[] {
-  // Lazy import to keep top-level synchronous
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const path = require('path') as typeof import('path');
   return [
     path.resolve(CLAIMS_CONFIG_PATHS[0]),
     path.resolve(CLAIMS_CONFIG_PATHS[1]),
-    path.resolve(process.env.HOME || '~', '.config/monomind/claims.json'),
+    path.resolve(homedir(), '.config/monomind/claims.json'),
   ];
 }
 
+function safeParseJson(content: string): Record<string, unknown> {
+  const parsed = JSON.parse(content);
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Claims config must be a JSON object');
+  }
+  const safe = Object.create(null) as Record<string, unknown>;
+  for (const key of Object.keys(parsed)) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+    safe[key] = (parsed as Record<string, unknown>)[key];
+  }
+  return safe;
+}
+
 function loadClaimsConfig(): { config: ClaimsConfig; path: string } {
-  const fs = require('fs') as typeof import('fs');
   const configPaths = getClaimsConfigPaths();
 
   for (const configPath of configPaths) {
     if (fs.existsSync(configPath)) {
       const content = fs.readFileSync(configPath, 'utf-8');
-      return { config: JSON.parse(content) as ClaimsConfig, path: configPath };
+      return { config: safeParseJson(content) as ClaimsConfig, path: configPath };
     }
   }
 
@@ -55,9 +67,6 @@ function loadClaimsConfig(): { config: ClaimsConfig; path: string } {
 }
 
 function saveClaimsConfig(config: ClaimsConfig, configPath: string): void {
-  const fs = require('fs') as typeof import('fs');
-  const path = require('path') as typeof import('path');
-
   const dir = path.dirname(configPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -195,7 +204,7 @@ const checkCommand: Command = {
       const claimsConfigPaths = [
         path.resolve('.monomind/claims.json'),
         path.resolve('monomind.claims.json'),
-        path.resolve(process.env.HOME || '~', '.config/monomind/claims.json'),
+        path.resolve(homedir(), '.config/monomind/claims.json'),
       ];
 
       let claimsConfig: {
@@ -216,7 +225,7 @@ const checkCommand: Command = {
       for (const configPath of claimsConfigPaths) {
         if (fs.existsSync(configPath)) {
           const content = fs.readFileSync(configPath, 'utf-8');
-          claimsConfig = { ...claimsConfig, ...JSON.parse(content) };
+          claimsConfig = { ...claimsConfig, ...safeParseJson(content) };
           policySource = configPath;
           break;
         }
@@ -269,10 +278,8 @@ const checkCommand: Command = {
       spinner.stop();
     } catch (error) {
       spinner.stop();
-      // On error, fall back to permissive default
-      isGranted = !claim.startsWith('admin:');
-      reason = isGranted ? 'Granted (default permissive policy)' : 'Admin claims require explicit grant';
-      policySource = 'fallback';
+      output.printError(`Failed to evaluate claim: ${error instanceof Error ? error.message : String(error)}`);
+      return { success: false, exitCode: 1 };
     }
 
     if (isGranted) {

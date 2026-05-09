@@ -24,8 +24,12 @@ const benchmarkCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const suite = ctx.flags.suite as string || 'all';
-    const iterations = parseInt(ctx.flags.iterations as string || '100', 10);
-    const warmup = parseInt(ctx.flags.warmup as string || '10', 10);
+    const MAX_ITERATIONS = 10_000;
+    const MAX_WARMUP = 500;
+    const iterationsRaw = parseInt(ctx.flags.iterations as string || '100', 10);
+    const warmupRaw = parseInt(ctx.flags.warmup as string || '10', 10);
+    const iterations = Number.isFinite(iterationsRaw) ? Math.min(Math.max(1, iterationsRaw), MAX_ITERATIONS) : 100;
+    const warmup = Number.isFinite(warmupRaw) ? Math.min(Math.max(0, warmupRaw), MAX_WARMUP) : 10;
     const outputFormat = ctx.flags.output as string || 'text';
 
     output.writeln();
@@ -46,7 +50,7 @@ const benchmarkCommand: Command = {
     } = await import('../memory/memory-initializer.js');
     const { benchmarkAdaptation, initializeIntelligence } = await import('../memory/intelligence.js');
 
-    const results: { operation: string; mean: string; p95: string; p99: string; improvement: string }[] = [];
+    const results: { operation: string; mean: string; p95: string; p99: string; improvement: string; targetMet: boolean }[] = [];
     const startTotal = Date.now();
 
     // Helper to compute percentiles
@@ -74,12 +78,14 @@ const benchmarkCommand: Command = {
       }
 
       const mean = embedTimes.reduce((a, b) => a + b, 0) / embedTimes.length;
+      const embedTargetMet = mean < 10;
       results.push({
         operation: 'Embedding Gen',
         mean: `${mean.toFixed(2)}ms`,
         p95: `${percentile(embedTimes, 95).toFixed(2)}ms`,
         p99: `${percentile(embedTimes, 99).toFixed(2)}ms`,
-        improvement: mean < 10 ? output.success('Target met') : output.warning('Below target'),
+        improvement: embedTargetMet ? output.success('Target met') : output.warning('Below target'),
+        targetMet: embedTargetMet,
       });
     }
 
@@ -110,12 +116,14 @@ const benchmarkCommand: Command = {
       // Compare to baseline (single-vector comparison takes ~0.5μs, so 100 vectors baseline ~0.05ms)
       const baselineMs = 0.05;
       const speedup = baselineMs / mean;
+      const flashTargetMet = speedup > 1;
       results.push({
         operation: 'Flash Attention',
         mean: `${mean.toFixed(3)}ms`,
         p95: `${percentile(flashTimes, 95).toFixed(3)}ms`,
         p99: `${percentile(flashTimes, 99).toFixed(3)}ms`,
-        improvement: speedup > 1 ? output.success(`${speedup.toFixed(2)}x`) : output.dim(`${speedup.toFixed(2)}x`),
+        improvement: flashTargetMet ? output.success(`${speedup.toFixed(2)}x`) : output.dim(`${speedup.toFixed(2)}x`),
+        targetMet: flashTargetMet,
       });
     }
 
@@ -152,12 +160,14 @@ const benchmarkCommand: Command = {
         // HNSW should be O(log n) ~150x faster
         const baselineBruteForce = hnswStatus.entryCount * 0.0005;
         const speedup = baselineBruteForce / (mean / 1000);
+        const hnswTargetMet = speedup > 10;
         results.push({
           operation: `HNSW Search (n=${hnswStatus.entryCount})`,
           mean: `${mean.toFixed(2)}ms`,
           p95: `${percentile(searchTimes, 95).toFixed(2)}ms`,
           p99: `${percentile(searchTimes, 99).toFixed(2)}ms`,
-          improvement: speedup > 10 ? output.success(`~${Math.round(speedup)}x`) : output.dim(`${speedup.toFixed(1)}x`),
+          improvement: hnswTargetMet ? output.success(`~${Math.round(speedup)}x`) : output.dim(`${speedup.toFixed(1)}x`),
+          targetMet: hnswTargetMet,
         });
       } else {
         results.push({
@@ -166,6 +176,7 @@ const benchmarkCommand: Command = {
           p95: 'N/A',
           p99: 'N/A',
           improvement: output.warning('No index'),
+          targetMet: false,
         });
       }
     }
@@ -182,6 +193,7 @@ const benchmarkCommand: Command = {
         p95: `${(sonaResult.maxMs * 1000).toFixed(2)}μs`,
         p99: `${(sonaResult.maxMs * 1000).toFixed(2)}μs`,
         improvement: sonaResult.targetMet ? output.success('<0.05ms ✓') : output.warning('Above target'),
+        targetMet: sonaResult.targetMet,
       });
     }
 
@@ -203,12 +215,14 @@ const benchmarkCommand: Command = {
       }
 
       const mean = storeTimes.reduce((a, b) => a + b, 0) / storeTimes.length;
+      const storeTargetMet = mean < 50;
       results.push({
         operation: 'Memory Store+Embed',
         mean: `${mean.toFixed(1)}ms`,
         p95: `${percentile(storeTimes, 95).toFixed(1)}ms`,
         p99: `${percentile(storeTimes, 99).toFixed(1)}ms`,
-        improvement: mean < 50 ? output.success('Target met') : output.warning('Slow'),
+        improvement: storeTargetMet ? output.success('Target met') : output.warning('Slow'),
+        targetMet: storeTargetMet,
       });
     }
 
@@ -232,7 +246,7 @@ const benchmarkCommand: Command = {
       });
 
       output.writeln();
-      const allTargetsMet = results.every(r => !r.improvement.includes('warning') && !r.improvement.includes('Slow'));
+      const allTargetsMet = results.every(r => r.targetMet);
       output.printBox([
         `Suite: ${suite}`,
         `Iterations: ${iterations}`,
@@ -276,7 +290,7 @@ const profileCommand: Command = {
     const startTime = process.hrtime.bigint();
 
     // Sample for a brief period
-    await new Promise(r => setTimeout(r, Math.min(duration * 100, 2000)));
+    await new Promise(r => setTimeout(r, Math.min(duration * 1000, 30_000)));
 
     const endCpu = process.cpuUsage(startCpu);
     const endMem = process.memoryUsage();
@@ -323,6 +337,11 @@ const profileCommand: Command = {
 
     output.writeln();
     output.writeln(output.dim(`Profile duration: ${elapsedMs.toFixed(0)}ms`));
+
+    const outputFile = ctx.flags.output as string | undefined;
+    if (outputFile) {
+      output.printWarning(`--output flag is not yet implemented. Profile data was not saved to ${outputFile}.`);
+    }
 
     return { success: true };
   },
@@ -537,6 +556,10 @@ const optimizeCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const target = ctx.flags.target as string || 'all';
 
+    if (ctx.flags.apply) {
+      output.printWarning('Optimization application is not yet implemented. Showing recommendations only.');
+    }
+
     output.writeln();
     output.writeln(output.bold('Performance Optimization'));
     output.writeln(output.dim('─'.repeat(50)));
@@ -583,6 +606,7 @@ const bottleneckCommand: Command = {
     { command: 'monomind performance bottleneck -d full', description: 'Full analysis' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
+    output.printWarning('Bottleneck analysis is using static sample data. Dynamic analysis coming soon.');
     output.writeln();
     output.writeln(output.bold('Bottleneck Analysis'));
     output.writeln(output.dim('─'.repeat(50)));

@@ -146,11 +146,33 @@ const searchCommand: Command = {
       const path = await import('path');
       const fullDbPath = path.resolve(process.cwd(), dbPath);
 
+      // Containment + sanity checks. Without these, --db-path /etc/shadow,
+      // /proc/self/environ, or /dev/zero would all be loaded into memory and
+      // handed to the sql.js parser — info disclosure / parser-CVE surface /
+      // OOM hang.
+      const projectRoot = path.resolve(process.cwd());
+      if (!fullDbPath.startsWith(projectRoot + path.sep) && fullDbPath !== projectRoot) {
+        spinner.fail('Invalid db-path');
+        output.printError(`db-path must resolve within the project directory: ${projectRoot}`);
+        return { success: false, exitCode: 1 };
+      }
+      if (!/\.(db|sqlite)$/i.test(fullDbPath)) {
+        spinner.fail('Invalid db-path');
+        output.printError('db-path must end in .db or .sqlite');
+        return { success: false, exitCode: 1 };
+      }
+
       // Check if database exists
       if (!fs.existsSync(fullDbPath)) {
         spinner.fail('Database not found');
         output.printWarning(`No database at ${fullDbPath}`);
         output.printInfo('Run: monomind memory init');
+        return { success: false, exitCode: 1 };
+      }
+      const stat = fs.statSync(fullDbPath);
+      if (stat.size > 500 * 1024 * 1024) {
+        spinner.fail('Database too large');
+        output.printError(`Database exceeds 500MB cap: ${stat.size} bytes`);
         return { success: false, exitCode: 1 };
       }
 
@@ -169,14 +191,17 @@ const searchCommand: Command = {
       const queryEmbedding = queryResult.embedding;
 
       // Get all entries with embeddings from database
-      const entries = db.exec(`
-        SELECT id, key, namespace, content, embedding, embedding_dimensions
-        FROM memory_entries
-        WHERE status = 'active'
-          AND embedding IS NOT NULL
-          ${namespace !== 'all' ? `AND namespace = '${namespace}'` : ''}
-        LIMIT 1000
-      `);
+      let entries;
+      if (namespace !== 'all') {
+        entries = db.exec(
+          'SELECT id, key, namespace, content, embedding, embedding_dimensions FROM memory_entries WHERE status = \'active\' AND embedding IS NOT NULL AND namespace = ? LIMIT 1000',
+          [namespace]
+        );
+      } else {
+        entries = db.exec(
+          'SELECT id, key, namespace, content, embedding, embedding_dimensions FROM memory_entries WHERE status = \'active\' AND embedding IS NOT NULL LIMIT 1000'
+        );
+      }
 
       const results: { score: number; id: string; key: string; content: string; namespace: string }[] = [];
 
@@ -187,7 +212,11 @@ const searchCommand: Command = {
           if (!embeddingJson) continue;
 
           try {
-            const embedding = JSON.parse(embeddingJson) as number[];
+            const parsed = JSON.parse(embeddingJson);
+            if (!Array.isArray(parsed) || parsed.some((v) => typeof v !== 'number')) {
+              continue;
+            }
+            const embedding = parsed as number[];
 
             // Calculate cosine similarity
             const similarity = cosineSimilarity(queryEmbedding, embedding);
@@ -209,29 +238,33 @@ const searchCommand: Command = {
 
       // Also search entries without embeddings using keyword match
       if (results.length < limit) {
-        const keywordEntries = db.exec(`
-          SELECT id, key, namespace, content
-          FROM memory_entries
-          WHERE status = 'active'
-            AND (content LIKE '%${query.replace(/'/g, "''")}%' OR key LIKE '%${query.replace(/'/g, "''")}%')
-            ${namespace !== 'all' ? `AND namespace = '${namespace}'` : ''}
-          LIMIT ${limit - results.length}
-        `);
+        const remaining = limit - results.length;
+        let keywordResult: any[];
+        if (namespace !== 'all') {
+          keywordResult = db.exec(
+            "SELECT id, key, namespace, content FROM memory_entries WHERE status = 'active' AND (content LIKE ? OR key LIKE ?) AND namespace = ? LIMIT ?",
+            [`%${query}%`, `%${query}%`, namespace, remaining]
+          );
+        } else {
+          keywordResult = db.exec(
+            "SELECT id, key, namespace, content FROM memory_entries WHERE status = 'active' AND (content LIKE ? OR key LIKE ?) LIMIT ?",
+            [`%${query}%`, `%${query}%`, remaining]
+          );
+        }
+        const keywordRows: any[][] = keywordResult[0]?.values ?? [];
 
-        if (keywordEntries[0]?.values) {
-          for (const row of keywordEntries[0].values) {
-            const [id, key, ns, content] = row as [string, string, string, string];
+        for (const row of keywordRows) {
+          const [id, key, ns, content] = row as [string, string, string, string];
 
-            // Avoid duplicates
-            if (!results.some(r => r.id === id.substring(0, 10))) {
-              results.push({
-                score: 0.5, // Keyword match base score
-                id: id.substring(0, 10),
-                key: key || id.substring(0, 15),
-                content: (content || '').substring(0, 45) + ((content || '').length > 45 ? '...' : ''),
-                namespace: ns || 'default'
-              });
-            }
+          // Avoid duplicates (keyword fallback is unconditional — threshold applies to semantic results)
+          if (!results.some(r => r.id === id.substring(0, 10))) {
+            results.push({
+              score: 0.5,
+              id: id.substring(0, 10),
+              key: key || id.substring(0, 15),
+              content: (content || '').substring(0, 45) + ((content || '').length > 45 ? '...' : ''),
+              namespace: ns || 'default'
+            });
           }
         }
       }
@@ -285,7 +318,8 @@ const searchCommand: Command = {
  * V8 JIT-friendly - ~0.5μs per 384-dim vector comparison
  */
 function cosineSimilarity(a: number[], b: number[]): number {
-  const len = Math.min(a.length, b.length);
+  if (a.length !== b.length) return 0;
+  const len = a.length;
   if (len === 0) return 0;
 
   let dot = 0, normA = 0, normB = 0;
@@ -424,6 +458,17 @@ const collectionsCommand: Command = {
       const path = await import('path');
       const fullDbPath = path.resolve(process.cwd(), dbPath);
 
+      // Containment check (mirrors the search handler above).
+      const projectRoot = path.resolve(process.cwd());
+      if (!fullDbPath.startsWith(projectRoot + path.sep) && fullDbPath !== projectRoot) {
+        output.printError(`db-path must resolve within the project directory: ${projectRoot}`);
+        return { success: false, exitCode: 1 };
+      }
+      if (!/\.(db|sqlite)$/i.test(fullDbPath)) {
+        output.printError('db-path must end in .db or .sqlite');
+        return { success: false, exitCode: 1 };
+      }
+
       // Check if database exists
       if (!fs.existsSync(fullDbPath)) {
         output.printWarning('No database found');
@@ -431,6 +476,11 @@ const collectionsCommand: Command = {
         output.writeln();
         output.writeln(output.dim('No collections yet - initialize memory first'));
         return { success: true, data: [] };
+      }
+      const stat2 = fs.statSync(fullDbPath);
+      if (stat2.size > 500 * 1024 * 1024) {
+        output.printError(`Database exceeds 500MB cap: ${stat2.size} bytes`);
+        return { success: false, exitCode: 1 };
       }
 
       // Load sql.js and query real data
@@ -706,6 +756,15 @@ const initCommand: Command = {
         return { success: false, exitCode: 1 };
       }
 
+      // Validate model id against HuggingFace-style shape before any path-derived
+      // operation. Without this, `--model "Xenova/../../etc/foo"` could collapse
+      // into a path-traversal sink inside the embeddings package's downloader.
+      const MODEL_ID_RE = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
+      if (!MODEL_ID_RE.test(model)) {
+        output.printError(`Invalid model id: must match ${MODEL_ID_RE} (HuggingFace org/name)`);
+        return { success: false, exitCode: 1 };
+      }
+
       const spinner = output.createSpinner({ text: 'Initializing...', spinner: 'dots' });
       spinner.start();
 
@@ -754,7 +813,14 @@ const initCommand: Command = {
         initialized: new Date().toISOString(),
       };
 
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      // Atomic write with restrictive mode — embeddings.json content is not
+      // secret today but the helper pattern guards against partial writes from
+      // SIGINT during init.
+      {
+        const tmp = `${configPath}.${process.pid}.tmp`;
+        fs.writeFileSync(tmp, JSON.stringify(config, null, 2), { mode: 0o644 });
+        fs.renameSync(tmp, configPath);
+      }
 
       spinner.succeed('Embedding subsystem initialized');
 
@@ -1133,7 +1199,14 @@ const neuralCommand: Command = {
         initializedAt: new Date().toISOString(),
       };
 
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      // Atomic write with restrictive mode — embeddings.json content is not
+      // secret today but the helper pattern guards against partial writes from
+      // SIGINT during init.
+      {
+        const tmp = `${configPath}.${process.pid}.tmp`;
+        fs.writeFileSync(tmp, JSON.stringify(config, null, 2), { mode: 0o644 });
+        fs.renameSync(tmp, configPath);
+      }
       output.printSuccess('Neural substrate initialized');
       output.writeln();
     }
@@ -1322,6 +1395,17 @@ const cacheCommand: Command = {
 
     // Get real cache stats
     const resolvedDbPath = path.resolve(dbPath);
+
+    const projectRoot = path.resolve(process.cwd());
+    if (!resolvedDbPath.startsWith(projectRoot + path.sep) && resolvedDbPath !== projectRoot) {
+      output.printError(`db-path must resolve within the project directory: ${projectRoot}`);
+      return { success: false, exitCode: 1 };
+    }
+    if (!/\.(db|sqlite)$/i.test(resolvedDbPath)) {
+      output.printError('db-path must end in .db or .sqlite');
+      return { success: false, exitCode: 1 };
+    }
+
     let sqliteEntries = 0;
     let sqliteSize = '0 B';
     let sqliteExists = false;
@@ -1343,15 +1427,19 @@ const cacheCommand: Command = {
 
         // Try to count real entries via sql.js
         try {
-          const initSqlJs = (await import('sql.js')).default;
-          const SQL = await initSqlJs();
-          const fileBuffer = fs.readFileSync(resolvedDbPath);
-          const db = new SQL.Database(fileBuffer);
-          const result = db.exec('SELECT COUNT(*) as count FROM embeddings');
-          if (result.length > 0 && result[0].values.length > 0) {
-            sqliteEntries = result[0].values[0][0] as number;
+          if (stats.size > 500 * 1024 * 1024) {
+            sqliteEntries = Math.floor(stats.size / 1600);
+          } else {
+            const initSqlJs = (await import('sql.js')).default;
+            const SQL = await initSqlJs();
+            const fileBuffer = fs.readFileSync(resolvedDbPath);
+            const db = new SQL.Database(fileBuffer);
+            const result = db.exec('SELECT COUNT(*) as count FROM embeddings');
+            if (result.length > 0 && result[0].values.length > 0) {
+              sqliteEntries = result[0].values[0][0] as number;
+            }
+            db.close();
           }
-          db.close();
         } catch {
           // Estimate entries from file size (~1600 bytes per entry for 384-dim embeddings)
           sqliteEntries = Math.floor(stats.size / 1600);
