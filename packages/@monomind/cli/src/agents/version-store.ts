@@ -100,7 +100,16 @@ export class AgentVersionStore {
     const records = parseJsonl<StoredRecord>(raw);
     const verified: StoredRecord[] = [];
     for (const r of records) {
-      if (typeof r?.content !== 'string' || typeof r?.contentHash !== 'string') continue;
+      if (
+        typeof r?.content !== 'string' ||
+        typeof r?.contentHash !== 'string' ||
+        typeof r?.id !== 'string' ||
+        typeof r?.slug !== 'string' ||
+        typeof r?.version !== 'string' ||
+        typeof r?.changelog !== 'string' ||
+        typeof r?.capturedBy !== 'string' ||
+        typeof r?.capturedAt !== 'string'
+      ) continue;
       const actual = createHash('sha256').update(r.content).digest('hex');
       if (actual !== r.contentHash) continue; // silently drop tampered record
       verified.push(r);
@@ -136,6 +145,10 @@ export class AgentVersionStore {
       capturedBy?: string;
     } = {},
   ): AgentVersionRecord {
+    const MAX_CONTENT_BYTES = 512 * 1024;
+    if (Buffer.byteLength(content, 'utf-8') > MAX_CONTENT_BYTES) {
+      throw new Error(`content exceeds maximum allowed size (${MAX_CONTENT_BYTES} bytes)`);
+    }
     const contentHash = createHash('sha256').update(content).digest('hex');
 
     // SINGLE-WRITER CONTRACT: version-store is written only by the daemon process.

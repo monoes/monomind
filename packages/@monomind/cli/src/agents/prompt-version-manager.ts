@@ -8,11 +8,13 @@
  */
 
 import * as fs from 'node:fs';
-import type {
-  PromptVersionStore,
-  PromptVersion,
-  PromptExperiment,
-} from '../../../memory/src/prompt-version-store.js';
+import * as path from 'node:path';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PromptVersionStore = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PromptVersion = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PromptExperiment = any;
 
 export class PromptVersionManager {
   constructor(private readonly store: PromptVersionStore) {}
@@ -23,7 +25,29 @@ export class PromptVersionManager {
     newVersion: string,
     changelog: string,
   ): PromptVersion {
-    const prompt = fs.readFileSync(filePath, 'utf-8');
+    // Symlink-aware containment: path.resolve does NOT follow symlinks, so
+    // a symlink under cwd pointing at /etc/shadow would have passed the
+    // prefix-check below. Use realpathSync on both sides and reject symlinks
+    // at the leaf so the resolved file is provably inside the project.
+    const allowedRoot = fs.realpathSync(process.cwd());
+    const requested = path.resolve(filePath);
+    if (!fs.existsSync(requested)) {
+      throw new Error(`filePath does not exist: ${requested}`);
+    }
+    if (fs.lstatSync(requested).isSymbolicLink()) {
+      throw new Error('filePath must not be a symlink');
+    }
+    const resolved = fs.realpathSync(requested);
+    const rel = path.relative(allowedRoot, resolved);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+      throw new Error(`filePath must be inside the project directory: ${allowedRoot}`);
+    }
+    const MAX_PROMPT_BYTES = 1 * 1024 * 1024;
+    const fileSize = fs.statSync(resolved).size;
+    if (fileSize > MAX_PROMPT_BYTES) {
+      throw new Error(`filePath exceeds maximum allowed size (${MAX_PROMPT_BYTES} bytes): ${resolved}`);
+    }
+    const prompt = fs.readFileSync(resolved, 'utf-8');
     const version: PromptVersion = {
       agentSlug,
       version: newVersion,
@@ -63,8 +87,7 @@ export class PromptVersionManager {
     if (!experiment) {
       throw new Error(`No active experiment for "${agentSlug}"`);
     }
-    // Default winner is control
-    const winnerId = experiment.control;
+    const winnerId = (experiment.winner ?? experiment.control) as string;
     this.store.concludeExperiment(agentSlug, winnerId);
     if (promoteWinner) {
       this.store.setActive(agentSlug, winnerId);
