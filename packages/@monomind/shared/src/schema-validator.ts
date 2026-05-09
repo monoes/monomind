@@ -2,7 +2,7 @@
  * SchemaValidator - JSON Schema and Zod validation for agent I/O contracts
  * Task 05: Typed Agent I/O Contracts
  */
-import { readFileSync } from 'fs';
+import { readFileSync, realpathSync } from 'fs';
 import { resolve, sep } from 'path';
 
 export interface ValidationError {
@@ -48,6 +48,14 @@ export class SchemaValidator {
       const resolved = resolve(schemaPath);
       if (!resolved.startsWith(this.allowedSchemaDir + sep) && resolved !== this.allowedSchemaDir) {
         throw new Error(`Schema path escapes allowed directory: ${schemaPath}`);
+      }
+      try {
+        const real = realpathSync(resolved);
+        if (!real.startsWith(this.allowedSchemaDir + sep) && real !== this.allowedSchemaDir) {
+          throw new Error(`Schema path resolves via symlink outside allowed directory: ${schemaPath}`);
+        }
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
       }
     }
     let schema = this.schemaCache.get(schemaPath);
@@ -150,7 +158,7 @@ export class SchemaValidator {
       // Required fields
       if (schema.required) {
         for (const field of schema.required) {
-          if (!(field in obj)) {
+          if (!Object.prototype.hasOwnProperty.call(obj, field)) {
             errors.push({ path: path ? `${path}.${field}` : field, message: `Required field "${field}" is missing` });
           }
         }
@@ -159,7 +167,7 @@ export class SchemaValidator {
       // Property validation
       if (schema.properties) {
         for (const [key, propSchema] of Object.entries(schema.properties)) {
-          if (key in obj) {
+          if (Object.prototype.hasOwnProperty.call(obj, key)) {
             const propPath = path ? `${path}.${key}` : key;
             const result = this.validateAgainstSchema(obj[key], propSchema, propPath);
             errors.push(...result.errors);
@@ -169,7 +177,7 @@ export class SchemaValidator {
         // Additional properties check
         if (schema.additionalProperties === false) {
           for (const key of Object.keys(obj)) {
-            if (!(key in schema.properties)) {
+            if (!Object.prototype.hasOwnProperty.call(schema.properties, key)) {
               errors.push({ path: path ? `${path}.${key}` : key, message: `Additional property "${key}" is not allowed` });
             }
           }
