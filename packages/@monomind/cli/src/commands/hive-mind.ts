@@ -226,7 +226,8 @@ async function spawnClaudeCodeInstance(
     const sessionsDir = join('.hive-mind', 'sessions');
     await mkdir(sessionsDir, { recursive: true });
 
-    const promptFile = join(sessionsDir, `hive-mind-prompt-${swarmId}.txt`);
+    const safeSwarmId = swarmId.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const promptFile = join(sessionsDir, `hive-mind-prompt-${safeSwarmId}.txt`);
     await writeFile(promptFile, hiveMindPrompt, 'utf8');
     output.writeln();
     output.printSuccess(`Hive Mind prompt saved to: ${promptFile}`);
@@ -258,16 +259,15 @@ async function spawnClaudeCodeInstance(
         output.printInfo('Running in non-interactive mode');
       }
 
-      // Add auto-permission flag unless explicitly disabled
-      const skipPermissions = flags['dangerously-skip-permissions'] !== false && !flags['no-auto-permissions'];
+      // Add auto-permission flag only when explicitly requested
+      const skipPermissions = flags['dangerously-skip-permissions'] === true && !flags['no-auto-permissions'];
       if (skipPermissions) {
         claudeArgs.push('--dangerously-skip-permissions');
-        if (!isNonInteractive) {
-          output.printWarning('Using --dangerously-skip-permissions for seamless hive-mind execution');
-        }
+        output.writeln(output.warning('WARNING: Running with --dangerously-skip-permissions: all file and shell operations will execute without prompts.'));
       }
 
-      // Add the prompt as the LAST argument
+      // '--' ends option parsing so the prompt cannot be interpreted as a flag
+      claudeArgs.push('--');
       claudeArgs.push(hiveMindPrompt);
 
       output.writeln();
@@ -358,7 +358,8 @@ async function spawnClaudeCodeInstance(
 
     // Try to save prompt as fallback
     try {
-      const promptFile = `hive-mind-prompt-${swarmId}-fallback.txt`;
+      const safeSwarmIdFallback = swarmId.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const promptFile = `hive-mind-prompt-${safeSwarmIdFallback}-fallback.txt`;
       const workerGroups = groupWorkersByType(workers);
       const hiveMindPrompt = generateHiveMindPrompt(swarmId, swarmName, objective, workers, workerGroups, flags);
       await writeFile(promptFile, hiveMindPrompt, 'utf8');
@@ -441,9 +442,9 @@ const initCommand: Command = {
     const config = {
       topology: topology || 'hierarchical-mesh',
       consensus: consensus || 'byzantine',
-      maxAgents: ctx.flags.maxAgents as number || 15,
+      maxAgents: ctx.flags['max-agents'] as number || 15,
       persist: ctx.flags.persist as boolean,
-      memoryBackend: ctx.flags.memoryBackend as string || 'hybrid'
+      memoryBackend: ctx.flags['memory-backend'] as string || 'hybrid'
     };
 
     output.writeln();
@@ -552,7 +553,7 @@ const spawnCommand: Command = {
       name: 'dangerously-skip-permissions',
       description: 'Skip permission prompts in Claude Code (use with caution)',
       type: 'boolean',
-      default: true
+      default: false
     },
     {
       name: 'no-auto-permissions',
@@ -942,7 +943,7 @@ const taskCommand: Command = {
     }
 
     const priority = ctx.flags.priority as string;
-    const requireConsensus = ctx.flags.requireConsensus as boolean;
+    const requireConsensus = ctx.flags['require-consensus'] as boolean;
     const timeout = ctx.flags.timeout as number;
 
     output.printInfo('Submitting task to hive...');
@@ -1133,7 +1134,7 @@ const consensusCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const action = ctx.flags.action as string || 'list';
     try {
-      const result = await callMCPTool<Record<string, unknown>>('hive-mind_consensus', { action, proposalId: ctx.flags.proposalId, type: ctx.flags.type, value: ctx.flags.value, vote: ctx.flags.vote === 'yes', voterId: ctx.flags.voterId });
+      const result = await callMCPTool<Record<string, unknown>>('hive-mind_consensus', { action, proposalId: ctx.flags['proposal-id'], type: ctx.flags.type, value: ctx.flags.value, vote: ctx.flags.vote === 'yes', voterId: ctx.flags['voter-id'] });
       if (ctx.flags.format === 'json') { output.printJson(result); return { success: true, data: result }; }
       if (action === 'list') {
         output.writeln(output.bold('\nPending Proposals'));
@@ -1223,7 +1224,7 @@ const shutdownCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const force = ctx.flags.force as boolean;
-    const saveState = ctx.flags.saveState as boolean;
+    const saveState = ctx.flags['save-state'] as boolean;
 
     if (!force && ctx.interactive) {
       const confirmed = await confirm({
