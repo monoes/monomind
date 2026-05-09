@@ -4,8 +4,9 @@
  * Tool definitions for session management with file persistence.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, readdirSync, unlinkSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { type MCPTool, getProjectCwd } from './types.js';
 
 // Storage paths
@@ -47,10 +48,13 @@ function ensureSessionDir(): void {
   }
 }
 
+const MAX_SESSION_BYTES = 50 * 1024 * 1024;
+
 function loadSession(sessionId: string): SessionRecord | null {
   try {
     const path = getSessionPath(sessionId);
     if (existsSync(path)) {
+      if (statSync(path).size > MAX_SESSION_BYTES) return null;
       const data = readFileSync(path, 'utf-8');
       return JSON.parse(data);
     }
@@ -62,18 +66,35 @@ function loadSession(sessionId: string): SessionRecord | null {
 
 function saveSession(session: SessionRecord): void {
   ensureSessionDir();
-  writeFileSync(getSessionPath(session.sessionId), JSON.stringify(session, null, 2), 'utf-8');
+  const sessionPath = getSessionPath(session.sessionId);
+  // Unique tmp filename so concurrent session_save calls cannot collide on
+  // the same .tmp path (which would corrupt the rename target).
+  const tmpPath = `${sessionPath}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tmpPath, JSON.stringify(session, null, 2), 'utf-8');
+  renameSync(tmpPath, sessionPath);
 }
 
-function listSessions(): SessionRecord[] {
+function listSessions(limit = 200): SessionRecord[] {
   ensureSessionDir();
   const dir = getSessionDir();
-  const files = readdirSync(dir).filter(f => f.endsWith('.json'));
+  // Sort by mtime DESC, then bound reads to `limit` files to prevent DoS
+  const files = readdirSync(dir)
+    .filter(f => f.endsWith('.json'))
+    .map(f => {
+      try {
+        const stat = statSync(join(dir, f));
+        return { name: f, mtimeMs: stat.mtimeMs };
+      } catch {
+        return { name: f, mtimeMs: 0 };
+      }
+    })
+    .sort((a, b) => b.mtimeMs - a.mtimeMs)
+    .slice(0, Math.max(1, Math.min(limit, 1000)));
 
   const sessions: SessionRecord[] = [];
   for (const file of files) {
     try {
-      const data = readFileSync(join(dir, file), 'utf-8');
+      const data = readFileSync(join(dir, file.name), 'utf-8');
       sessions.push(JSON.parse(data));
     } catch {
       // Skip invalid files
@@ -134,7 +155,7 @@ export const sessionTools: MCPTool[] = [
       required: ['name'],
     },
     handler: async (input) => {
-      const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const sessionId = `session-${Date.now()}-${randomBytes(6).toString('hex')}`;
 
       // Load related data based on options
       const data = loadRelatedStores({
@@ -171,7 +192,6 @@ export const sessionTools: MCPTool[] = [
         name: session.name,
         savedAt: session.savedAt,
         stats: session.stats,
-        path: getSessionPath(sessionId),
       };
     },
   },
@@ -214,7 +234,12 @@ export const sessionTools: MCPTool[] = [
         if (session.data?.memory) {
           const memoryDir = join(getProjectCwd(), STORAGE_DIR, 'memory');
           if (!existsSync(memoryDir)) mkdirSync(memoryDir, { recursive: true });
-          writeFileSync(join(memoryDir, 'store.json'), JSON.stringify(session.data.memory, null, 2), 'utf-8');
+          const memoryStorePath = join(memoryDir, 'store.json');
+          {
+            const tmp = `${memoryStorePath}.${process.pid}.${Date.now()}.tmp`;
+            writeFileSync(tmp, JSON.stringify(session.data.memory, null, 2), 'utf-8');
+            renameSync(tmp, memoryStorePath);
+          }
 
           // Also populate active sql.js SQLite database so memory-tools can find entries
           try {
@@ -241,12 +266,22 @@ export const sessionTools: MCPTool[] = [
         if (session.data?.tasks) {
           const taskDir = join(getProjectCwd(), STORAGE_DIR, 'tasks');
           if (!existsSync(taskDir)) mkdirSync(taskDir, { recursive: true });
-          writeFileSync(join(taskDir, 'store.json'), JSON.stringify(session.data.tasks, null, 2), 'utf-8');
+          const taskStorePath = join(taskDir, 'store.json');
+          {
+            const tmp = `${taskStorePath}.${process.pid}.${Date.now()}.tmp`;
+            writeFileSync(tmp, JSON.stringify(session.data.tasks, null, 2), 'utf-8');
+            renameSync(tmp, taskStorePath);
+          }
         }
         if (session.data?.agents) {
           const agentDir = join(getProjectCwd(), STORAGE_DIR, 'agents');
           if (!existsSync(agentDir)) mkdirSync(agentDir, { recursive: true });
-          writeFileSync(join(agentDir, 'store.json'), JSON.stringify(session.data.agents, null, 2), 'utf-8');
+          const agentStorePath = join(agentDir, 'store.json');
+          {
+            const tmp = `${agentStorePath}.${process.pid}.${Date.now()}.tmp`;
+            writeFileSync(tmp, JSON.stringify(session.data.agents, null, 2), 'utf-8');
+            renameSync(tmp, agentStorePath);
+          }
         }
 
         return {
@@ -289,8 +324,10 @@ export const sessionTools: MCPTool[] = [
         sessions.sort((a, b) => b.stats.totalSize - a.stats.totalSize);
       }
 
-      // Apply limit
-      const limit = (input.limit as number) || 10;
+      // Apply limit — clamp to [1, 200] to prevent negative-slice and OOM
+      const rawLimit = typeof input.limit === 'number' ? input.limit : 10;
+      const limit = Math.max(1, Math.min(rawLimit, 200));
+      const totalCount = sessions.length;
       sessions = sessions.slice(0, limit);
 
       return {
@@ -301,7 +338,7 @@ export const sessionTools: MCPTool[] = [
           savedAt: s.savedAt,
           stats: s.stats,
         })),
-        total: sessions.length,
+        total: totalCount,
         limit,
       };
     },
@@ -363,7 +400,6 @@ export const sessionTools: MCPTool[] = [
           savedAt: session.savedAt,
           stats: session.stats,
           fileSize: stat.size,
-          path,
           hasData: {
             memory: !!session.data?.memory,
             tasks: !!session.data?.tasks,

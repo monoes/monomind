@@ -4,9 +4,9 @@
  * Append-only JSONL storage for consensus audit records and individual votes.
  */
 
-import { appendFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
+import { appendFileSync, readFileSync, existsSync, mkdirSync, statSync } from 'fs';
 import { createHmac, timingSafeEqual } from 'crypto';
-import { dirname, join } from 'path';
+import { dirname, join, resolve, relative } from 'path';
 import { parseJsonl } from '../utils/parse-jsonl.js';
 import { deriveSigningKey, signVote, verifyVote } from './vote-signer.js';
 import type {
@@ -37,11 +37,17 @@ export class AuditWriter {
   private readonly votesPath: string;
 
   constructor(dataDir: string) {
-    if (!existsSync(dataDir)) {
-      mkdirSync(dataDir, { recursive: true });
+    const resolved = resolve(dataDir);
+    const cwd = process.cwd();
+    const rel = relative(cwd, resolved);
+    if (rel.startsWith('..') || resolve(rel) === resolve('/')) {
+      throw new Error(`AuditWriter: dataDir must be within the working directory: ${dataDir}`);
     }
-    this.auditPath = join(dataDir, 'consensus-audit.jsonl');
-    this.votesPath = join(dataDir, 'consensus-votes.jsonl');
+    if (!existsSync(resolved)) {
+      mkdirSync(resolved, { recursive: true });
+    }
+    this.auditPath = join(resolved, 'consensus-audit.jsonl');
+    this.votesPath = join(resolved, 'consensus-votes.jsonl');
   }
 
   /**
@@ -167,6 +173,10 @@ export class AuditWriter {
   private readLines<T>(filePath: string): T[] {
     if (!existsSync(filePath)) return [];
     try {
+      const MAX_BYTES = 50 * 1024 * 1024;
+      if (statSync(filePath).size > MAX_BYTES) {
+        throw new Error(`Audit log ${filePath} exceeds 50MB — run rotation/cleanup`);
+      }
       const content = readFileSync(filePath, 'utf-8');
       return parseJsonl<T>(content);
     } catch {
