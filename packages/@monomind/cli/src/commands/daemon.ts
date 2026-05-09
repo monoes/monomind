@@ -8,7 +8,7 @@ import { output } from '../output.js';
 import { WorkerDaemon, getDaemon, startDaemon, stopDaemon, type WorkerType, type DaemonConfig } from '../services/worker-daemon.js';
 import { spawn, execFile } from 'child_process';
 import { fileURLToPath } from 'url';
-import { dirname, join, resolve, isAbsolute } from 'path';
+import { dirname, join, resolve, isAbsolute, sep } from 'path';
 import * as fs from 'fs';
 
 // Start daemon subcommand
@@ -211,7 +211,7 @@ function validatePath(path: string, label: string): void {
 
   // Prevent path traversal outside expected directories
   const cwd = process.cwd();
-  if (!resolved.startsWith(cwd + '/') && resolved !== cwd) {
+  if (!resolved.startsWith(cwd + sep) && !resolved.startsWith(cwd + '/') && resolved !== cwd) {
     throw new Error(`${label} escapes project directory`);
   }
 }

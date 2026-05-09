@@ -10,7 +10,7 @@
  * @module v1/cli/mcp-tools/memory-tools
  */
 
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import type { MCPTool } from './types.js';
 import { getProjectCwd } from './types.js';
@@ -83,12 +83,17 @@ function hasLegacyStore(): boolean {
 /**
  * Load legacy JSON store for migration
  */
+const MAX_LEGACY_STORE_BYTES = 50 * 1024 * 1024;
+
 function loadLegacyStore(): LegacyMemoryStore | null {
   try {
     const path = getLegacyPath();
     if (existsSync(path)) {
+      if (statSync(path).size > MAX_LEGACY_STORE_BYTES) return null;
       const data = readFileSync(path, 'utf-8');
-      return JSON.parse(data);
+      const parsed = JSON.parse(data) as LegacyMemoryStore;
+      if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, '__proto__')) return null;
+      return parsed;
     }
   } catch {
     // Return null on error

@@ -33,7 +33,7 @@ const trainCommand: Command = {
     { command: 'monomind neural train -p security --wasm --contrastive', description: 'Security patterns with contrastive learning' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const patternType = (ctx.flags.pattern || ctx.flags.patternType || ctx.flags['pattern-type']) as string || 'coordination';
+    const patternType = (ctx.flags['pattern-type'] as string) || 'coordination';
     const epochs = parseInt(ctx.flags.epochs as string || '50', 10);
     const learningRate = parseFloat(ctx.flags['learning-rate'] as string || '0.01');
     const batchSize = parseInt(ctx.flags['batch-size'] as string || '32', 10);
@@ -116,9 +116,29 @@ const trainCommand: Command = {
 
       if (dataFile) {
         const fs = await import('fs');
+        const p = await import('path');
         if (fs.existsSync(dataFile)) {
+          // Path containment check
+          const resolvedData = p.resolve(dataFile);
+          const cwd = process.cwd();
+          if (!resolvedData.startsWith(cwd + p.sep) && resolvedData !== cwd) {
+            spinner.fail(`--data path escapes project directory: ${dataFile}`);
+            return { success: false, exitCode: 1 };
+          }
+          // File size guard
+          const MAX_TRAINING_BYTES = 50 * 1024 * 1024;
+          const statResult = fs.statSync(dataFile);
+          if (statResult.size > MAX_TRAINING_BYTES) {
+            spinner.fail(`Training data file too large: ${statResult.size} bytes (max ${MAX_TRAINING_BYTES})`);
+            return { success: false, exitCode: 1 };
+          }
           const raw = fs.readFileSync(dataFile, 'utf8');
-          trainingData = JSON.parse(raw);
+          const parsedData = JSON.parse(raw);
+          if (parsedData && typeof parsedData === 'object' && ('__proto__' in parsedData || 'constructor' in parsedData)) {
+            spinner.fail('Prototype pollution attempt detected in training data');
+            return { success: false, exitCode: 1 };
+          }
+          trainingData = parsedData;
         } else {
           spinner.fail(`Training data file not found: ${dataFile}`);
           return { success: false, exitCode: 1 };
@@ -630,6 +650,9 @@ const patternsCommand: Command = {
         if (persistence.patternsExist) {
           output.writeln(output.success(`✓ Loaded from: ${persistence.patternsFile}`));
         }
+      } else if (action === 'analyze' && !query) {
+        output.printError('--query is required when --action analyze is used.');
+        return { success: false, exitCode: 1 };
       } else if (action === 'analyze' && query) {
         // Analyze patterns related to query
         const related = await findSimilarPatterns(query, { k: limit });
@@ -806,51 +829,9 @@ const optimizeCommand: Command = {
       } catch { /* ignore */ }
 
       if (method === 'quantize') {
-        // Perform real Int8 quantization on pattern embeddings
-        spinner.setText('Quantizing pattern embeddings to Int8...');
-
-        let quantizedCount = 0;
-        let memoryReduction = 0;
-
-        for (const pattern of patterns) {
-          if (pattern.embedding && pattern.embedding.length > 0) {
-            // Float32 (4 bytes) -> Int8 (1 byte) = 4x reduction
-            const beforeBytes = pattern.embedding.length * 4;
-            const afterBytes = pattern.embedding.length; // Int8
-            memoryReduction += beforeBytes - afterBytes;
-            quantizedCount++;
-          }
-        }
-
-        // Save optimized patterns
-        await flushPatterns();
-
-        // Get after size
-        let afterSize = beforeSize;
-        try {
-          const patternFile = path.join(patternDir, 'patterns.json');
-          if (fs.existsSync(patternFile)) {
-            afterSize = fs.statSync(patternFile).size;
-          }
-        } catch { /* ignore */ }
-
-        spinner.succeed(`Quantized ${quantizedCount} patterns`);
-
-        output.writeln();
-        output.printTable({
-          columns: [
-            { key: 'metric', header: 'Metric', width: 25 },
-            { key: 'before', header: 'Before', width: 18 },
-            { key: 'after', header: 'After', width: 18 },
-          ],
-          data: [
-            { metric: 'Pattern Count', before: String(patterns.length), after: String(patterns.length) },
-            { metric: 'Storage Size', before: `${(beforeSize / 1024).toFixed(1)} KB`, after: `${(afterSize / 1024).toFixed(1)} KB` },
-            { metric: 'Embedding Memory', before: `${((memoryReduction * 4) / 1024).toFixed(1)} KB`, after: `${(memoryReduction / 1024).toFixed(1)} KB` },
-            { metric: 'Memory Reduction', before: '-', after: `~${(3.92).toFixed(2)}x (Int8)` },
-            { metric: 'Precision', before: 'Float32', after: 'Int8 (±0.5%)' },
-          ],
-        });
+        spinner.fail('Quantization not implemented');
+        output.printWarning('Quantization is not yet implemented. Patterns were not modified.');
+        return { success: false, message: 'Quantization not implemented', exitCode: 1 };
 
       } else if (method === 'analyze') {
         spinner.succeed('Analysis complete');
@@ -992,11 +973,23 @@ const exportCommand: Command = {
       };
 
       // Load patterns from local storage
-      const memoryDir = path.join(process.cwd(), '.monomind', 'memory');
+      const memoryDir = path.join(process.cwd(), '.monomind', 'neural');
       const patternsFile = path.join(memoryDir, 'patterns.json');
 
       if (fs.existsSync(patternsFile)) {
-        const patterns = JSON.parse(fs.readFileSync(patternsFile, 'utf8'));
+        const MAX_PATTERNS_BYTES = 100 * 1024 * 1024;
+        const patStat = fs.statSync(patternsFile);
+        if (patStat.size > MAX_PATTERNS_BYTES) {
+          spinner.fail(`patterns.json too large to export safely (${patStat.size} bytes)`);
+          return { success: false, exitCode: 1 };
+        }
+        const patternsRaw = fs.readFileSync(patternsFile, 'utf8');
+        const patternsJson = JSON.parse(patternsRaw);
+        if (patternsJson && typeof patternsJson === 'object' && ('__proto__' in patternsJson || 'constructor' in patternsJson)) {
+          spinner.fail('Prototype pollution attempt detected in patterns.json');
+          return { success: false, exitCode: 1 };
+        }
+        const patterns = patternsJson;
 
         for (const pattern of patterns) {
           // Security: Strip potential PII
@@ -1072,7 +1065,7 @@ const exportCommand: Command = {
         /sk-ant-[a-zA-Z0-9-]+/,  // Anthropic keys
         /sk-[a-zA-Z0-9]{48}/,    // OpenAI keys
         /AIza[a-zA-Z0-9-_]{35}/, // Google keys
-        /pinata_[a-zA-Z0-9]+/,   // Pinata JWT
+        /pinata_[a-zA-Z0-9]{20,}/, // Pinata JWT (min 20 chars to avoid false positives on short names)
         /-----BEGIN.*KEY-----/,  // PEM keys
       ];
 
@@ -1085,7 +1078,15 @@ const exportCommand: Command = {
 
       // Output handling
       if (outputFile) {
-        fs.writeFileSync(outputFile, JSON.stringify(exportPackage, null, 2));
+        const resolvedOut = path.resolve(outputFile);
+        const cwd = process.cwd();
+        if (!resolvedOut.startsWith(cwd + path.sep) && resolvedOut !== cwd) {
+          spinner.fail(`--output path escapes project directory: ${outputFile}`);
+          return { success: false, exitCode: 1 };
+        }
+        const tmpOutput = outputFile + '.tmp';
+        fs.writeFileSync(tmpOutput, JSON.stringify(exportPackage, null, 2));
+        fs.renameSync(tmpOutput, outputFile);
         spinner.succeed(`Exported to: ${outputFile}`);
       }
 
@@ -1122,7 +1123,7 @@ const exportCommand: Command = {
         spinner.succeed('Successfully exported to IPFS');
 
         output.writeln();
-        output.table({
+        output.printTable({
           columns: [
             { key: 'property', header: 'Property', width: 20 },
             { key: 'value', header: 'Value', width: 50 },
@@ -1217,7 +1218,10 @@ const listCommand: Command = {
           });
 
           if (response.ok) {
-            registry = await response.json() as RegistryType;
+            const MAX_REGISTRY_BYTES = 50 * 1024 * 1024;
+            const buf = await response.arrayBuffer();
+            if (buf.byteLength > MAX_REGISTRY_BYTES) throw new Error(`Registry response too large: ${buf.byteLength} bytes`);
+            registry = JSON.parse(new TextDecoder().decode(buf)) as RegistryType;
             break;
           }
         } catch {
@@ -1364,7 +1368,10 @@ const importCommand: Command = {
             });
 
             if (response.ok) {
-              importData = await response.json() as ImportDataType;
+              const MAX_IMPORT_BYTES = 50 * 1024 * 1024;
+              const importBuf = await response.arrayBuffer();
+              if (importBuf.byteLength > MAX_IMPORT_BYTES) throw new Error(`Import response too large: ${importBuf.byteLength} bytes`);
+              importData = JSON.parse(new TextDecoder().decode(importBuf)) as ImportDataType;
               break;
             }
           } catch {
@@ -1381,6 +1388,13 @@ const importCommand: Command = {
           spinner.fail(`File not found: ${file}`);
           return { success: false, exitCode: 1 };
         }
+        // Cap import file size to prevent OOM on attacker-controlled content.
+        const stat = fs.statSync(file);
+        const MAX_IMPORT_BYTES = 50 * 1024 * 1024; // 50 MB
+        if (stat.size > MAX_IMPORT_BYTES) {
+          spinner.fail(`Import file too large: ${stat.size} bytes (max ${MAX_IMPORT_BYTES})`);
+          return { success: false, exitCode: 1 };
+        }
         importData = JSON.parse(fs.readFileSync(file, 'utf8')) as ImportDataType;
       }
 
@@ -1389,8 +1403,18 @@ const importCommand: Command = {
         return { success: false, exitCode: 1 };
       }
 
-      // Verify signature if present and requested
-      if (verifySignature && importData.signature && importData.publicKey) {
+      // SECURITY: Verify signature when --verify is set (default true).
+      // Previously two bypasses existed:
+      //   (a) catch-fall-through made any malformed signature/key skip verification
+      //       and proceed to import — fail-OPEN.
+      //   (b) the entire block was guarded on `signature && publicKey`, so an
+      //       attacker who simply omitted those fields skipped verification
+      //       regardless of --verify. Both now fail-CLOSED.
+      if (verifySignature) {
+        if (!importData.signature || !importData.publicKey) {
+          spinner.fail('SECURITY: --verify requested but payload is unsigned. Aborting (use --no-verify to override).');
+          return { success: false, exitCode: 1 };
+        }
         spinner.setText('Verifying Ed25519 signature...');
 
         try {
@@ -1417,7 +1441,11 @@ const importCommand: Command = {
 
           output.writeln(output.success('Signature verified'));
         } catch (err) {
-          output.writeln(output.warning(`Signature verification skipped: ${err instanceof Error ? err.message : String(err)}`));
+          // FAIL-CLOSED: any error during verification (malformed key, wrong
+          // algorithm, runtime not supporting Ed25519, etc.) must reject the
+          // import, NOT fall through with a warning.
+          spinner.fail(`SECURITY: Signature verification error: ${err instanceof Error ? err.message : String(err)}. Aborting.`);
+          return { success: false, exitCode: 1 };
         }
       }
 
@@ -1474,8 +1502,8 @@ const importCommand: Command = {
         output.writeln(output.warning(`Filtered ${patterns.length - validPatterns.length} suspicious patterns`));
       }
 
-      // Save to local memory
-      const memoryDir = path.join(process.cwd(), '.monomind', 'memory');
+      // Save to neural store (same location intelligence.ts writes to)
+      const memoryDir = path.join(process.cwd(), '.monomind', 'neural');
       if (!fs.existsSync(memoryDir)) {
         fs.mkdirSync(memoryDir, { recursive: true });
       }
@@ -1492,12 +1520,16 @@ const importCommand: Command = {
       const newPatterns = validPatterns.filter(p => !existingIds.has(p.id));
       const finalPatterns = merge ? [...existingPatterns, ...newPatterns] : validPatterns;
 
-      fs.writeFileSync(patternsFile, JSON.stringify(finalPatterns, null, 2));
+      // Unique tmp filename so concurrent invocations don't clobber each other's
+      // .tmp files mid-write (which would produce a corrupt patterns.json on rename).
+      const tmpPatterns = `${patternsFile}.${process.pid}.${Date.now()}.tmp`;
+      fs.writeFileSync(tmpPatterns, JSON.stringify(finalPatterns, null, 2), { flag: 'wx' });
+      fs.renameSync(tmpPatterns, patternsFile);
 
       spinner.succeed('Import complete');
 
       output.writeln();
-      output.table({
+      output.printTable({
         columns: [
           { key: 'metric', header: 'Metric', width: 25 },
           { key: 'value', header: 'Value', width: 20 },
