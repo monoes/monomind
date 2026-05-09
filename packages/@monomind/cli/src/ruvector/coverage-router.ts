@@ -11,11 +11,16 @@
 // Caching for Performance
 // ============================================================================
 
+import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { resolve, normalize, isAbsolute, join } from 'node:path';
+
 /**
  * Cache for coverage data (1 minute TTL)
  */
 const coverageDataCache = new Map<string, { report: CoverageReport; timestamp: number }>();
 const COVERAGE_CACHE_TTL_MS = 60 * 1000; // 1 minute
+const COVERAGE_CACHE_MAX = 50;
 
 /**
  * Clear coverage cache
@@ -488,7 +493,7 @@ export async function coverageGaps(
  * Returns null if path is invalid or attempts traversal
  */
 function validateProjectPath(inputPath: string | undefined): string | null {
-  const { resolve, normalize, isAbsolute } = require('path');
+  // resolve, normalize, isAbsolute imported at top of module
 
   // Default to cwd if not provided
   const basePath = inputPath || process.cwd();
@@ -497,10 +502,8 @@ function validateProjectPath(inputPath: string | undefined): string | null {
   const normalizedPath = normalize(basePath);
   const resolvedPath = isAbsolute(normalizedPath) ? normalizedPath : resolve(process.cwd(), normalizedPath);
 
-  // Check for path traversal attempts
-  if (normalizedPath.includes('..') && !resolvedPath.startsWith(process.cwd())) {
-    // Only allow .. if it resolves within or above cwd
-    // For safety, reject any path with .. that goes outside project
+  // Enforce containment: resolved path must stay within cwd regardless of how it was expressed
+  if (!resolvedPath.startsWith(process.cwd())) {
     return null;
   }
 
@@ -536,9 +539,7 @@ async function loadProjectCoverage(projectRoot?: string, skipCache?: boolean): P
     }
   }
 
-  const { existsSync } = require('fs');
-  const { readFile } = require('fs/promises');
-  const { join, normalize } = require('path');
+  // existsSync, readFile, join, normalize imported at top of module
 
   // Try common coverage locations (all relative to validated root)
   const coverageLocations = [
@@ -559,6 +560,10 @@ async function loadProjectCoverage(projectRoot?: string, skipCache?: boolean): P
 
     if (existsSync(coveragePath)) {
       try {
+        const { stat } = await import('node:fs/promises');
+        const MAX_COVERAGE_SIZE = 50 * 1024 * 1024; // 50 MB
+        const fileStats = await stat(coveragePath);
+        if (fileStats.size > MAX_COVERAGE_SIZE) continue;
         // Use async file read for non-blocking I/O
         const content = await readFile(coveragePath, 'utf-8');
         const router = new CoverageRouter();
@@ -570,8 +575,12 @@ async function loadProjectCoverage(projectRoot?: string, skipCache?: boolean): P
           report = router.parseCoverage(content, 'lcov');
         }
 
-        // Cache the result
+        // Cache the result (evict oldest entry if at capacity)
         if (report) {
+          if (coverageDataCache.size >= COVERAGE_CACHE_MAX) {
+            const firstKey = coverageDataCache.keys().next().value;
+            if (firstKey !== undefined) coverageDataCache.delete(firstKey);
+          }
           coverageDataCache.set(root, { report, timestamp: Date.now() });
           return report;
         }

@@ -228,8 +228,12 @@ export class SessionManager extends EventEmitter {
       return false;
     }
 
+    const FORBIDDEN_META_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+    if (FORBIDDEN_META_KEYS.has(key)) {
+      return false;
+    }
     if (!session.metadata) {
-      session.metadata = {};
+      session.metadata = Object.create(null) as Record<string, unknown>;
     }
     session.metadata[key] = value;
     session.lastActivityAt = new Date();

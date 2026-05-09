@@ -14,7 +14,7 @@
  * @module q-learning-router
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, statSync } from 'fs';
 import { dirname, join } from 'path';
 
 /**
@@ -241,11 +241,14 @@ export class QLearningRouter {
    * Load model from persistence file
    */
   async loadModel(path?: string): Promise<boolean> {
-    const modelPath = path || this.config.modelPath;
+    const modelPath = path ? path : join(process.cwd(), this.config.modelPath);
     try {
       if (!existsSync(modelPath)) {
         return false;
       }
+      const MAX_MODEL_SIZE = 20 * 1024 * 1024; // 20 MB
+      const st = statSync(modelPath, { throwIfNoEntry: false });
+      if (!st || st.size > MAX_MODEL_SIZE) return false;
       const data = readFileSync(modelPath, 'utf-8');
       const model: PersistedModel = JSON.parse(data);
 
@@ -276,7 +279,7 @@ export class QLearningRouter {
    * Save model to persistence file
    */
   async saveModel(path?: string): Promise<boolean> {
-    const modelPath = path || this.config.modelPath;
+    const modelPath = path ? path : join(process.cwd(), this.config.modelPath);
     try {
       // Ensure directory exists
       const dir = dirname(modelPath);
@@ -305,7 +308,9 @@ export class QLearningRouter {
         },
       };
 
-      writeFileSync(modelPath, JSON.stringify(model, null, 2));
+      const tmp = modelPath + '.tmp';
+      writeFileSync(tmp, JSON.stringify(model, null, 2));
+      renameSync(tmp, modelPath);
       return true;
     } catch (err) {
       console.warn(`[Q-Learning] Failed to save model: ${err}`);
@@ -320,8 +325,11 @@ export class QLearningRouter {
   route(taskContext: string, explore: boolean = true): RouteDecision {
     const stateKey = this.hashStateOptimized(taskContext);
 
+    // Check if we should explore using decayed epsilon
+    const shouldExplore = explore && Math.random() < this.epsilon;
+
     // Check cache first (only for exploitation, not exploration)
-    if (!explore) {
+    if (!shouldExplore) {
       const cached = this.getCachedRoute(stateKey);
       if (cached) {
         this.cacheHits++;
@@ -329,9 +337,6 @@ export class QLearningRouter {
       }
       this.cacheMisses++;
     }
-
-    // Check if we should explore using decayed epsilon
-    const shouldExplore = explore && Math.random() < this.epsilon;
 
     let actionIdx: number;
     let qValues: number[];
@@ -558,6 +563,7 @@ export class QLearningRouter {
       let threshold = Math.random() * totalPriority;
       let cumSum = 0;
 
+      const prevLen = batch.length;
       for (let i = 0; i < this.replayBuffer.length; i++) {
         if (selected.has(i)) continue;
 
@@ -568,6 +574,7 @@ export class QLearningRouter {
           break;
         }
       }
+      if (batch.length === prevLen) break; // nothing was selectable, exit
     }
 
     return batch;
@@ -666,16 +673,31 @@ export class QLearningRouter {
   }
 
   /**
-   * Import Q-table from persistence
+   * Import Q-table from persistence with strict validation.
+   * SECURITY: a poisoned `.swarm/q-table.json` (co-located process write,
+   * malicious test fixture) with `qValues: [Infinity, ...]` would otherwise
+   * propagate NaN/Infinity through every argmax + Q-update — the attacker
+   * deterministically chooses every routing decision. Mirror the
+   * ewc-consolidation.ts:loadFromDisk pattern: per-field shape + finite-numeric
+   * + dimension check, drop bad records silently.
    */
   import(data: Record<string, { qValues: number[]; visits: number }>): void {
     this.qTable.clear();
+    if (!data || typeof data !== 'object') return;
+    let imported = 0;
     for (const [key, entry] of Object.entries(data)) {
+      if (imported >= this.config.maxStates) break;
+      if (typeof key !== 'string' || key.length === 0 || key.length > 256) continue;
+      if (!entry || typeof entry !== 'object' || !Array.isArray(entry.qValues)) continue;
+      if (entry.qValues.length !== this.config.numActions) continue;
+      if (!entry.qValues.every(v => typeof v === 'number' && Number.isFinite(v))) continue;
+      if (typeof entry.visits !== 'number' || !Number.isFinite(entry.visits) || entry.visits < 0) continue;
       this.qTable.set(key, {
         qValues: new Float32Array(entry.qValues),
         visits: entry.visits,
         lastUpdate: Date.now(),
       });
+      imported++;
     }
   }
 
