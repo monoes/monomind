@@ -9,6 +9,7 @@ import { confirm, input, select } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { gzipSync } from 'node:zlib';
 
 // Format date for display
 function formatDate(dateStr: string): string {
@@ -572,12 +573,26 @@ const exportCommand: Command = {
         content = JSON.stringify(result.data, null, 2);
       }
 
-      // Write to file
+      // Path traversal protection: resolved path must stay within CWD
       const absolutePath = path.isAbsolute(outputPath)
         ? outputPath
         : path.join(ctx.cwd, outputPath);
+      const resolvedOutputPath = path.resolve(absolutePath);
+      const resolvedCwd = path.resolve(ctx.cwd);
+      if (!resolvedOutputPath.startsWith(resolvedCwd + path.sep) && resolvedOutputPath !== resolvedCwd) {
+        output.printError(`Output path must be within the working directory.`);
+        return { success: false, exitCode: 1 };
+      }
 
-      fs.writeFileSync(absolutePath, content, 'utf-8');
+      // Write atomically (tmp + rename) to avoid partial writes
+      const tmpPath = absolutePath + '.tmp';
+      if (compress) {
+        const compressed = gzipSync(Buffer.from(content, 'utf-8'));
+        fs.writeFileSync(tmpPath, compressed);
+      } else {
+        fs.writeFileSync(tmpPath, content, 'utf-8');
+      }
+      fs.renameSync(tmpPath, absolutePath);
 
       spinner.succeed('Session exported');
       output.writeln();
@@ -649,8 +664,27 @@ const importCommand: Command = {
       ? filePath
       : path.join(ctx.cwd, filePath);
 
+    // Path traversal protection: resolved path must stay within cwd or home
+    const resolvedPath = path.resolve(absolutePath);
+    const cwd = process.cwd();
+    const home = process.env.HOME || '';
+    const underCwd = resolvedPath === cwd || resolvedPath.startsWith(cwd + path.sep);
+    const underHome = home && (resolvedPath === home || resolvedPath.startsWith(home + path.sep));
+    if (!underCwd && !underHome) {
+      output.printError(`Path '${filePath}' escapes the allowed directories.`);
+      return { success: false, exitCode: 1 };
+    }
+
     if (!fs.existsSync(absolutePath)) {
       output.printError(`File not found: ${absolutePath}`);
+      return { success: false, exitCode: 1 };
+    }
+
+    // Reject oversized files before reading into memory
+    const MAX_IMPORT_BYTES = 50 * 1024 * 1024; // 50 MB
+    const stat = fs.statSync(absolutePath);
+    if (stat.size > MAX_IMPORT_BYTES) {
+      output.printError(`File too large: ${absolutePath} (${(stat.size / 1024 / 1024).toFixed(1)} MB > 50 MB limit)`);
       return { success: false, exitCode: 1 };
     }
 
@@ -663,8 +697,9 @@ const importCommand: Command = {
 
       // Parse based on extension
       if (absolutePath.endsWith('.yaml') || absolutePath.endsWith('.yml')) {
-        // Simple YAML parsing (basic implementation)
-        data = JSON.parse(content); // Would need proper YAML parser
+        output.printError('YAML import is not supported. Please convert to JSON first.');
+        spinner.fail('Import failed');
+        return { success: false, exitCode: 1 };
       } else {
         data = JSON.parse(content);
       }
@@ -815,7 +850,11 @@ function toSimpleYaml(obj: unknown, indent: number = 0): string {
   if (obj === null) return 'null';
   if (typeof obj === 'boolean') return String(obj);
   if (typeof obj === 'number') return String(obj);
-  if (typeof obj === 'string') return obj.includes(':') ? `"${obj}"` : obj;
+  if (typeof obj === 'string') {
+    const needsQuoting = /[:"'\n\r\\]|^(true|false|null|yes|no|on|off)$/i.test(obj) || /^\s|\s$/.test(obj) || /^[!&|>{\[]/.test(obj);
+    if (needsQuoting) return `"${obj.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+    return obj;
+  }
 
   const spaces = '  '.repeat(indent);
   let result = '';
