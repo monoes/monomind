@@ -889,10 +889,12 @@ export class TeammateBridge extends EventEmitter {
     });
 
     // Auto-approve if configured
-    const teamDir = path.join(this.teamsDir, teamName);
+    const validatedJoinTeam = validateName(teamName, 'team');
+    const teamDir = path.join(this.teamsDir, validatedJoinTeam);
+    validatePath(teamDir, this.teamsDir);
     const configPath = path.join(teamDir, 'config.json');
     if (fs.existsSync(configPath)) {
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as TeamConfig;
+      const config = safeJSONParse<TeamConfig>(fs.readFileSync(configPath, 'utf-8'));
       if (config.autoApproveJoin) {
         await this.approveJoin(teamName, agentInfo.id);
       }
@@ -981,7 +983,7 @@ export class TeammateBridge extends EventEmitter {
         const teamDir = path.join(this.teamsDir, teamName);
         const configPath = path.join(teamDir, 'config.json');
         if (fs.existsSync(configPath)) {
-          const teamConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as TeamConfig;
+          const teamConfig = safeJSONParse<TeamConfig>(fs.readFileSync(configPath, 'utf-8'));
           if (team.teammates.length >= teamConfig.maxTeammates) {
             throw new TeammateError(
               `Team ${teamName} has reached maximum teammates (${teamConfig.maxTeammates})`,
@@ -1727,7 +1729,7 @@ export class TeammateBridge extends EventEmitter {
     // Read mailbox messages as transcript
     const mailboxPath = this.getMailboxPath(teamName, teammateId);
     if (fs.existsSync(mailboxPath)) {
-      const messages = JSON.parse(fs.readFileSync(mailboxPath, 'utf-8')) as MailboxMessage[];
+      const messages = safeJSONParse<MailboxMessage[]>(fs.readFileSync(mailboxPath, 'utf-8'));
       memory.transcript.push(...messages);
     }
 
@@ -1757,7 +1759,9 @@ export class TeammateBridge extends EventEmitter {
   async loadTeammateMemory(teamName: string, teammateId: string): Promise<TeammateMemory | null> {
     this.ensureAvailable();
 
-    const memoryPath = path.join(this.teamsDir, teamName, 'memory', `${teammateId}.json`);
+    const validatedTeamName = validateName(teamName, 'team');
+    const validatedTeammateId = validateName(teammateId, 'teammate');
+    const memoryPath = path.join(this.teamsDir, validatedTeamName, 'memory', `${validatedTeammateId}.json`);
 
     if (!fs.existsSync(memoryPath)) {
       return null;
@@ -2199,7 +2203,7 @@ export class TeammateBridge extends EventEmitter {
           const mailboxPath = this.getMailboxPath(teamName, teammate.id);
           if (fs.existsSync(mailboxPath)) {
             const content = fs.readFileSync(mailboxPath, 'utf-8');
-            const messages: MailboxMessage[] = JSON.parse(content);
+            const messages: MailboxMessage[] = safeJSONParse<MailboxMessage[]>(content);
 
             if (messages.length > 0) {
               this.emit('mailbox:messages', {

@@ -5,8 +5,9 @@
  * Replaces previous stub implementations with real state tracking.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { type MCPTool, getProjectCwd } from './types.js';
 
 // Swarm state persistence
@@ -45,10 +46,13 @@ function ensureSwarmDir(): void {
   }
 }
 
+const MAX_SWARM_STORE_BYTES = 10 * 1024 * 1024;
+
 function loadSwarmStore(): SwarmStore {
   try {
     const path = getSwarmStatePath();
     if (existsSync(path)) {
+      if (statSync(path).size > MAX_SWARM_STORE_BYTES) return { swarms: {}, version: '3.0.0' };
       return JSON.parse(readFileSync(path, 'utf-8'));
     }
   } catch { /* return default */ }
@@ -57,7 +61,10 @@ function loadSwarmStore(): SwarmStore {
 
 function saveSwarmStore(store: SwarmStore): void {
   ensureSwarmDir();
-  writeFileSync(getSwarmStatePath(), JSON.stringify(store, null, 2), 'utf-8');
+  const dest = getSwarmStatePath();
+  const tmp = `${dest}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf-8');
+  renameSync(tmp, dest);
 }
 
 // Input validation
@@ -81,7 +88,7 @@ export const swarmTools: MCPTool[] = [
     },
     handler: async (input) => {
       const topology = (input.topology as string) || 'hierarchical-mesh';
-      const maxAgents = Math.min(Math.max((input.maxAgents as number) || 15, 1), 50);
+      const maxAgents = Math.min(Math.max((input.maxAgents as number) || 8, 1), 50);
       const strategy = (input.strategy as string) || 'specialized';
       const config = (input.config || {}) as Record<string, unknown>;
 
@@ -92,7 +99,7 @@ export const swarmTools: MCPTool[] = [
         };
       }
 
-      const swarmId = `swarm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const swarmId = `swarm-${Date.now()}-${randomBytes(6).toString('hex')}`;
       const now = new Date().toISOString();
 
       const swarmState: SwarmState = {
@@ -115,6 +122,16 @@ export const swarmTools: MCPTool[] = [
       };
 
       const store = loadSwarmStore();
+
+      const MAX_SWARMS = 500;
+      // Evict terminated swarms first to free space
+      for (const [id, s] of Object.entries(store.swarms)) {
+        if (s.status === 'terminated') delete store.swarms[id];
+      }
+      if (Object.keys(store.swarms).length >= MAX_SWARMS) {
+        return { success: false, error: 'Swarm limit reached' };
+      }
+
       store.swarms[swarmId] = swarmState;
       saveSwarmStore(store);
 
@@ -144,7 +161,12 @@ export const swarmTools: MCPTool[] = [
       const store = loadSwarmStore();
       const swarmId = input.swarmId as string;
 
-      if (swarmId && store.swarms[swarmId]) {
+      const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+      if (swarmId && FORBIDDEN_KEYS.has(swarmId)) {
+        return { status: 'not_found', message: `Swarm ${swarmId} not found` };
+      }
+
+      if (swarmId && Object.hasOwn(store.swarms, swarmId)) {
         const swarm = store.swarms[swarmId];
         return {
           swarmId: swarm.swarmId,
@@ -202,9 +224,14 @@ export const swarmTools: MCPTool[] = [
       const store = loadSwarmStore();
       const swarmId = input.swarmId as string;
 
+      const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+      if (swarmId && FORBIDDEN_KEYS.has(swarmId)) {
+        return { success: false, error: `Swarm ${swarmId} not found` };
+      }
+
       // Find the swarm
       let target: SwarmState | undefined;
-      if (swarmId && store.swarms[swarmId]) {
+      if (swarmId && Object.hasOwn(store.swarms, swarmId)) {
         target = store.swarms[swarmId];
       } else {
         // Shutdown most recent running swarm
@@ -257,10 +284,15 @@ export const swarmTools: MCPTool[] = [
       const store = loadSwarmStore();
       const swarmId = input.swarmId as string;
 
+      const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+      if (swarmId && FORBIDDEN_KEYS.has(swarmId)) {
+        return { status: 'not_found', healthy: false, checks: [{ name: 'swarm_exists', status: 'fail', message: `Swarm ${swarmId} not found` }], checkedAt: new Date().toISOString() };
+      }
+
       // Find the swarm
       let target: SwarmState | undefined;
       if (swarmId) {
-        target = store.swarms[swarmId];
+        target = Object.hasOwn(store.swarms, swarmId) ? store.swarms[swarmId] : undefined;
         if (!target) {
           return {
             status: 'not_found',

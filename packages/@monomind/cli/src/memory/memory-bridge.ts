@@ -676,7 +676,11 @@ export async function bridgeListEntries(options: {
   if (!ctx) return null;
 
   try {
-    const { namespace, limit = 20, offset = 0 } = options;
+    const rawLimit = options.limit ?? 20;
+    const rawOffset = options.offset ?? 0;
+    const limit = Math.max(1, Math.min(Number.isFinite(rawLimit) ? rawLimit : 20, 500));
+    const offset = Math.max(0, Number.isFinite(rawOffset) ? rawOffset : 0);
+    const { namespace } = options;
 
     const nsFilter = namespace ? `AND namespace = ?` : '';
     const nsParams = namespace ? [namespace] : [];
@@ -1145,6 +1149,12 @@ export async function bridgeAddToHNSW(
   if (!ctx) return null;
 
   try {
+    if (!Array.isArray(embedding) || embedding.length === 0 || embedding.length > MAX_EMBEDDING_DIMS) {
+      return null;
+    }
+    for (const v of embedding) {
+      if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+    }
     const now = Date.now();
     const embeddingJson = JSON.stringify(embedding);
     ctx.db.prepare(`
@@ -1803,6 +1813,11 @@ export async function bridgeConsolidate(params: { minAge?: number; maxEntries?: 
  * - update: calls bulkUpdate(table, updates, conditions) on episodes table
  */
 export async function bridgeBatchOperation(params: { operation: string; entries: any[] }): Promise<any> {
+  const MAX_BATCH_ENTRIES = 500;
+  const MAX_ENTRY_CONTENT_BYTES = 1 * 1024 * 1024;
+  if (!Array.isArray(params.entries) || params.entries.length > MAX_BATCH_ENTRIES) {
+    return { success: false, error: 'Batch too large or entries not an array' };
+  }
   const registry = await getRegistry();
   if (!registry) return null;
   try {
@@ -1812,10 +1827,13 @@ export async function bridgeBatchOperation(params: { operation: string; entries:
     switch (params.operation) {
       case 'insert': {
         // insertEpisodes expects [{content, metadata?, embedding?}]
-        const episodes = params.entries.map((e: any) => ({
-          content: e.value || e.content || JSON.stringify(e),
-          metadata: e.metadata || { key: e.key },
-        }));
+        const episodes = params.entries.map((e: any) => {
+          const rawContent = e.value || e.content || JSON.stringify(e);
+          const content = typeof rawContent === 'string' && rawContent.length <= MAX_ENTRY_CONTENT_BYTES
+            ? rawContent
+            : typeof rawContent === 'string' ? rawContent.slice(0, MAX_ENTRY_CONTENT_BYTES) : '';
+          return { content, metadata: e.metadata || { key: e.key } };
+        });
         result = await batch.insertEpisodes(episodes);
         break;
       }
