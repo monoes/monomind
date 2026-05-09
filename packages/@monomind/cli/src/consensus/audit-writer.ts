@@ -5,7 +5,7 @@
  */
 
 import { appendFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { dirname, join } from 'path';
 import { parseJsonl } from '../utils/parse-jsonl.js';
 import { deriveSigningKey, signVote, verifyVote } from './vote-signer.js';
@@ -145,7 +145,9 @@ export class AuditWriter {
     const expectedSig = createHmac('sha256', key)
       .update(JSON.stringify(recordWithoutSig))
       .digest('hex');
-    const recordTampered = recordSignature !== expectedSig;
+    const expBuf = Buffer.from(expectedSig, 'hex');
+    const gotBuf = Buffer.from(typeof recordSignature === 'string' ? recordSignature : '', 'hex');
+    const recordTampered = gotBuf.length !== expBuf.length || !timingSafeEqual(gotBuf, expBuf);
 
     return { valid: invalidVotes.length === 0 && !recordTampered, invalidVotes };
   }
