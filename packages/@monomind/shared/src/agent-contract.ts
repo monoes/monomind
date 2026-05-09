@@ -2,8 +2,33 @@
  * AgentContract - Compatibility checking between upstream/downstream agent schemas
  * Task 05: Typed Agent I/O Contracts
  */
-import { readFileSync } from 'fs';
+import { readFileSync, realpathSync, existsSync } from 'fs';
+import { resolve, relative, sep } from 'path';
 import { SchemaValidator } from './schema-validator.js';
+
+const FORBIDDEN_SCHEMA_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function containsProtoKeys(obj: unknown, depth = 0): boolean {
+  if (depth > 10 || obj === null || typeof obj !== 'object') return false;
+  for (const k of Object.keys(obj as object)) {
+    if (FORBIDDEN_SCHEMA_KEYS.has(k)) return true;
+    if (containsProtoKeys((obj as Record<string, unknown>)[k], depth + 1)) return true;
+  }
+  return false;
+}
+
+function isSchemaPathSafe(filePath: string): boolean {
+  try {
+    const real = realpathSync(filePath);
+    const cwd = process.cwd();
+    return real === cwd || real.startsWith(cwd + sep);
+  } catch {
+    const abs = resolve(filePath);
+    const cwd = process.cwd();
+    const rel = relative(cwd, abs);
+    return !rel.startsWith('..') && !rel.startsWith('/');
+  }
+}
 
 export interface AgentContractConfig {
   upstreamSlug: string;
@@ -38,15 +63,27 @@ export class AgentContract {
     let upstreamSchema: JsonSchemaShape;
     let downstreamSchema: JsonSchemaShape;
 
+    if (!isSchemaPathSafe(config.upstreamOutputSchema)) {
+      issues.push(`Unsafe upstream output schema path: ${config.upstreamOutputSchema}`);
+      return { compatible: false, upstreamSlug: config.upstreamSlug, downstreamSlug: config.downstreamSlug, issues };
+    }
     try {
-      upstreamSchema = JSON.parse(readFileSync(config.upstreamOutputSchema, 'utf-8')) as JsonSchemaShape;
+      const parsed = JSON.parse(readFileSync(config.upstreamOutputSchema, 'utf-8'));
+      if (containsProtoKeys(parsed)) throw new Error('Proto-pollution detected in upstream schema');
+      upstreamSchema = parsed as JsonSchemaShape;
     } catch {
       issues.push(`Cannot read upstream output schema: ${config.upstreamOutputSchema}`);
       return { compatible: false, upstreamSlug: config.upstreamSlug, downstreamSlug: config.downstreamSlug, issues };
     }
 
+    if (!isSchemaPathSafe(config.downstreamInputSchema)) {
+      issues.push(`Unsafe downstream input schema path: ${config.downstreamInputSchema}`);
+      return { compatible: false, upstreamSlug: config.upstreamSlug, downstreamSlug: config.downstreamSlug, issues };
+    }
     try {
-      downstreamSchema = JSON.parse(readFileSync(config.downstreamInputSchema, 'utf-8')) as JsonSchemaShape;
+      const parsed = JSON.parse(readFileSync(config.downstreamInputSchema, 'utf-8'));
+      if (containsProtoKeys(parsed)) throw new Error('Proto-pollution detected in downstream schema');
+      downstreamSchema = parsed as JsonSchemaShape;
     } catch {
       issues.push(`Cannot read downstream input schema: ${config.downstreamInputSchema}`);
       return { compatible: false, upstreamSlug: config.upstreamSlug, downstreamSlug: config.downstreamSlug, issues };
@@ -57,7 +94,7 @@ export class AgentContract {
     const downstreamRequired = downstreamSchema.required ?? [];
 
     for (const field of downstreamRequired) {
-      if (!(field in upstreamProps)) {
+      if (!Object.prototype.hasOwnProperty.call(upstreamProps, field)) {
         issues.push(`Downstream "${config.downstreamSlug}" requires field "${field}" which upstream "${config.upstreamSlug}" does not provide`);
       }
     }

@@ -10,11 +10,18 @@ export interface ScratchpadEntry {
 }
 
 export class SharedScratchpad {
+  private static readonly MAX_ENTRIES = 1_000;
+  private static readonly MAX_CONTENT_BYTES = 64 * 1024;
+
   public entries: ScratchpadEntry[] = [];
   public iteration = 0;
 
   append(agentId: string, content: string): void {
-    this.entries.push({ agentId, content, timestamp: new Date() });
+    if (this.entries.length >= SharedScratchpad.MAX_ENTRIES) return;
+    const safeContent = content.length > SharedScratchpad.MAX_CONTENT_BYTES
+      ? content.slice(0, SharedScratchpad.MAX_CONTENT_BYTES)
+      : content;
+    this.entries.push({ agentId, content: safeContent, timestamp: new Date() });
     this.iteration++;
   }
 

@@ -9,14 +9,19 @@
  * @module enhanced-model-router
  */
 
-import { existsSync, readFileSync, statSync } from 'fs';
+import { existsSync, readFileSync, realpathSync, statSync } from 'fs';
 import { extname, resolve, sep } from 'path';
 
 const MAX_ROUTE_FILE_SIZE = 1 * 1024 * 1024; // 1 MB
 function isPathSafe(filePath: string): boolean {
-  const resolved = resolve(filePath);
   const root = process.cwd();
-  return resolved === root || resolved.startsWith(root + sep);
+  try {
+    const real = realpathSync(filePath);
+    return real === root || real.startsWith(root + sep);
+  } catch {
+    const resolved = resolve(filePath);
+    return resolved === root || resolved.startsWith(root + sep);
+  }
 }
 import { ClaudeModel, getModelRouter, ModelRouter, ModelRoutingResult } from './model-router.js';
 

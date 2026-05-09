@@ -13,7 +13,7 @@
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync, readdirSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import * as os from 'node:os';
 
@@ -80,7 +80,10 @@ function loadPerfStore(): PerfStore {
 
 function savePerfStore(store: PerfStore): void {
   ensurePerfDir();
-  writeFileSync(getPerfPath(), JSON.stringify(store, null, 2), 'utf-8');
+  const dest = getPerfPath();
+  const tmpPath = `${dest}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tmpPath, JSON.stringify(store, null, 2), 'utf-8');
+  renameSync(tmpPath, dest);
 }
 
 export const performanceTools: MCPTool[] = [
@@ -220,7 +223,7 @@ export const performanceTools: MCPTool[] = [
         writeFileSync(probeFile, payload);
         readFileSync(probeFile);
         diskLatencyMs = Math.round((performance.now() - t0) * 100) / 100;
-        try { const { unlinkSync } = require('node:fs'); unlinkSync(probeFile); } catch { /* best-effort */ }
+        try { unlinkSync(probeFile); } catch { /* best-effort */ }
       } catch { /* disk probe failed, leave -1 */ }
 
       // Check stored benchmark history for slow operations
@@ -355,6 +358,14 @@ export const performanceTools: MCPTool[] = [
 
           store.benchmarks[id] = result;
 
+          // Evict oldest entries if over limit
+          const MAX_BENCHMARKS = 200;
+          const benchEntries = Object.entries(store.benchmarks)
+            .sort(([, a], [, b]) => (a.createdAt < b.createdAt ? -1 : 1));
+          if (benchEntries.length > MAX_BENCHMARKS) {
+            store.benchmarks = Object.fromEntries(benchEntries.slice(-MAX_BENCHMARKS)) as typeof store.benchmarks;
+          }
+
           results.push({
             name: suiteName,
             opsPerSec,
@@ -368,9 +379,10 @@ export const performanceTools: MCPTool[] = [
       savePerfStore(store);
 
       // Calculate comparison vs previous benchmarks
+      const runStart = new Date().toISOString();
       const allBenchmarks = Object.values(store.benchmarks);
       const previousBenchmarks = allBenchmarks
-        .filter(b => suitesToRun.includes(b.name) && b.createdAt < results[0]?.name)
+        .filter(b => suitesToRun.includes(b.name) && b.createdAt < runStart)
         .slice(-suitesToRun.length);
 
       const comparison = previousBenchmarks.length > 0
@@ -425,6 +437,9 @@ export const performanceTools: MCPTool[] = [
 
       const targets = target === 'all' ? ['memory', 'io', 'cpu'] : [target];
       const deadline = wallStart + durationMs;
+      // Cap I/O operations to prevent the io target from saturating disk/event loop
+      const MAX_IO_OPS = 1000;
+      let ioOps = 0;
 
       while (performance.now() < deadline) {
         for (const t of targets) {
@@ -434,8 +449,10 @@ export const performanceTools: MCPTool[] = [
             runOp('json-parse', () => { JSON.parse(JSON.stringify({ a: 1, b: [2, 3], c: { d: 4 } })); });
             runOp('array-sort', () => { const a = Array.from({ length: 500 }, () => Math.random()); a.sort(); });
           } else if (t === 'io') {
+            if (ioOps >= MAX_IO_OPS) continue;
             runOp('file-write', () => { ensurePerfDir(); writeFileSync(join(getPerfDir(), '.profile-probe'), 'x'.repeat(1024)); });
             runOp('file-read', () => { try { readFileSync(join(getPerfDir(), '.profile-probe')); } catch { /* ok */ } });
+            ioOps += 2;
           } else if (t === 'cpu') {
             runOp('matrix-mult', () => { const s = 32; const a = Array.from({ length: s }, () => Array.from({ length: s }, () => Math.random())); for (let i = 0; i < s; i++) for (let j = 0; j < s; j++) { let sum = 0; for (let k = 0; k < s; k++) sum += a[i][k] * a[k][j]; } });
             runOp('hash-compute', () => { let h = 0; for (let i = 0; i < 10000; i++) h = ((h << 5) - h + i) | 0; });
@@ -459,7 +476,7 @@ export const performanceTools: MCPTool[] = [
         .sort((a, b) => b.percentOfTotal - a.percentOfTotal);
 
       // Cleanup probe file
-      try { const { unlinkSync } = require('node:fs'); unlinkSync(join(getPerfDir(), '.profile-probe')); } catch { /* ok */ }
+      try { unlinkSync(join(getPerfDir(), '.profile-probe')); } catch { /* ok */ }
 
       return {
         success: true,
@@ -509,7 +526,7 @@ export const performanceTools: MCPTool[] = [
         writeFileSync(probe, Buffer.alloc(4096, 0x42));
         readFileSync(probe);
         diskLatencyBefore = Math.round((performance.now() - t0) * 100) / 100;
-        try { const { unlinkSync } = require('node:fs'); unlinkSync(probe); } catch { /* ok */ }
+        try { unlinkSync(probe); } catch { /* ok */ }
       } catch { /* ok */ }
 
       const optimizations: Array<{ action: string; applied: boolean; effect?: string; recommendation?: string }> = [];
@@ -554,9 +571,8 @@ export const performanceTools: MCPTool[] = [
       if (aggressive) {
         try {
           const dir = getPerfDir();
-          const { readdirSync, unlinkSync: ul } = require('node:fs');
           const probes = readdirSync(dir).filter((f: string) => f.startsWith('.'));
-          probes.forEach((f: string) => { try { ul(join(dir, f)); } catch { /* ok */ } });
+          probes.forEach((f: string) => { try { unlinkSync(join(dir, f)); } catch { /* ok */ } });
           if (probes.length > 0) optimizations.push({ action: 'clear-probe-files', applied: true, effect: `Removed ${probes.length} probe file(s)` });
         } catch { /* ok */ }
       }

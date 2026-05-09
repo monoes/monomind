@@ -386,7 +386,9 @@ export class AutoMemoryBridge extends EventEmitter {
     let skipped = 0;
     const processedFiles: string[] = [];
 
-    const files = readdirSync(memoryDir).filter(f => f.endsWith('.md'));
+    const MAX_MD_FILE_COUNT = 500;
+    const MAX_MD_FILE_BYTES = 5 * 1024 * 1024;
+    const files = readdirSync(memoryDir).filter(f => f.endsWith('.md')).slice(0, MAX_MD_FILE_COUNT);
 
     // Pre-fetch existing content hashes to avoid N queries
     const existingHashes = await this.fetchExistingContentHashes();
@@ -396,6 +398,8 @@ export class AutoMemoryBridge extends EventEmitter {
 
     for (const file of files) {
       const filePath = path.join(memoryDir, file);
+      const stat = await fs.stat(filePath);
+      if (stat.size > MAX_MD_FILE_BYTES) continue;
       const content = await fs.readFile(filePath, 'utf-8');
       const entries = parseMarkdownEntries(content);
 

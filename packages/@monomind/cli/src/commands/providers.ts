@@ -93,7 +93,10 @@ const configureCommand: Command = {
         providers.push(entry);
       }
 
-      // Apply supplied settings
+      // Warn when key is supplied via CLI flag (visible in process table and shell history)
+      if (apiKey !== undefined) {
+        output.writeln(output.warning('  Warning: passing API keys via --key exposes them in process listings and shell history. Prefer setting the environment variable instead.'));
+      }
       if (apiKey !== undefined) entry.apiKey = apiKey;
       if (model !== undefined) entry.model = model;
       if (endpoint !== undefined) entry.baseUrl = endpoint;
@@ -194,15 +197,43 @@ const testCommand: Command = {
               (p) => typeof p.name === 'string' && p.name.toLowerCase() === 'ollama',
             );
             const baseUrl = (entry?.baseUrl as string) || 'http://localhost:11434';
+            let parsedBaseUrl: URL;
+            try {
+              parsedBaseUrl = new URL(baseUrl);
+            } catch {
+              return { pass: false, reason: 'Invalid URL in Ollama config' };
+            }
+            if (!['http:', 'https:'].includes(parsedBaseUrl.protocol)) {
+              return { pass: false, reason: 'Only http/https URLs are permitted for Ollama endpoint' };
+            }
+            // SSRF defense: block cloud-metadata + RFC1918 private ranges by default.
+            // Ollama is conventionally local, so allow loopback by default but
+            // refuse metadata IPs and link-local. Set MONOMIND_OLLAMA_ALLOW_REMOTE=1
+            // to opt into hitting non-loopback hosts (useful for dev clusters).
+            const host = parsedBaseUrl.hostname;
+            const isLoopback = host === 'localhost' || host === '127.0.0.1' || host === '::1' ||
+              host === '0.0.0.0' || /^127\./.test(host);
+            const isMetadata = host === '169.254.169.254' || /^169\.254\./.test(host) ||
+              /^fe80:/i.test(host);
+            const isPrivateV4 = /^10\./.test(host) ||
+              /^192\.168\./.test(host) ||
+              /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+            if (isMetadata) {
+              return { pass: false, reason: `Refusing to fetch metadata IP ${host}` };
+            }
+            const allowRemote = process.env.MONOMIND_OLLAMA_ALLOW_REMOTE === '1';
+            if (!isLoopback && (isPrivateV4 || !allowRemote)) {
+              return { pass: false, reason: `Refusing non-loopback Ollama host ${host}. Set MONOMIND_OLLAMA_ALLOW_REMOTE=1 to override.` };
+            }
             try {
               const controller = new AbortController();
               const timeout = setTimeout(() => controller.abort(), 3000);
-              const res = await fetch(baseUrl, { signal: controller.signal });
+              const res = await fetch(parsedBaseUrl.href, { signal: controller.signal });
               clearTimeout(timeout);
-              if (res.ok) return { pass: true, reason: `Reachable at ${baseUrl}` };
-              return { pass: false, reason: `HTTP ${res.status} from ${baseUrl}` };
+              if (res.ok) return { pass: true, reason: `Reachable at ${parsedBaseUrl.href}` };
+              return { pass: false, reason: `HTTP ${res.status} from ${parsedBaseUrl.href}` };
             } catch {
-              return { pass: false, reason: `Unreachable at ${baseUrl}` };
+              return { pass: false, reason: `Unreachable at ${parsedBaseUrl.href}` };
             }
           },
         },

@@ -3,8 +3,8 @@
  * Provides intelligent hooks functionality via MCP protocol
  */
 
-import { mkdirSync, writeFileSync, existsSync, readFileSync, statSync, unlinkSync, readdirSync, rmSync } from 'fs';
-import { dirname, join, resolve } from 'path';
+import { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, statSync, unlinkSync, readdirSync, rmSync } from 'fs';
+import { dirname, join, resolve, sep } from 'path';
 import { type MCPTool, getProjectCwd } from './types.js';
 
 // Real vector search functions - lazy loaded to avoid circular imports
@@ -112,7 +112,8 @@ let nativeVectorDb: unknown = null;
 let semanticRouterInitialized = false;
 let routerBackend: 'native' | 'pure-js' | 'none' = 'none';
 
-// Pre-computed embeddings for common task patterns (cached)
+// Pre-computed embeddings for common task patterns (cached, capped to prevent unbounded growth)
+const MAX_PATTERN_EMBEDDINGS = 2000;
 const TASK_PATTERN_EMBEDDINGS: Map<string, Float32Array> = new Map();
 
 function generateSimpleEmbedding(text: string, dimension: number = 384): Float32Array {
@@ -207,7 +208,9 @@ function saveRoutingOutcomes(outcomes: RoutingOutcome[]): void {
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     // Cap at 500 entries to bound file size
     const capped = outcomes.slice(-500);
-    writeFileSync(ROUTING_OUTCOMES_PATH, JSON.stringify({ outcomes: capped }, null, 2));
+    const tmp = ROUTING_OUTCOMES_PATH + '.tmp';
+    writeFileSync(tmp, JSON.stringify({ outcomes: capped }, null, 2));
+    renameSync(tmp, ROUTING_OUTCOMES_PATH);
   } catch { /* non-critical */ }
 }
 
@@ -336,7 +339,9 @@ async function getSemanticRouter() {
         for (const keyword of keywords) {
           const embedding = generateSimpleEmbedding(keyword);
           db.insert(`${patternName}:${keyword}`, embedding);
-          TASK_PATTERN_EMBEDDINGS.set(`${patternName}:${keyword}`, embedding);
+          if (TASK_PATTERN_EMBEDDINGS.size < MAX_PATTERN_EMBEDDINGS) {
+            TASK_PATTERN_EMBEDDINGS.set(`${patternName}:${keyword}`, embedding);
+          }
         }
       }
 
@@ -359,9 +364,11 @@ async function getSemanticRouter() {
       const embeddings = keywords.map(kw => generateSimpleEmbedding(kw));
       semanticRouter.addIntentWithEmbeddings(patternName, embeddings, { agents, keywords });
 
-      // Cache embeddings for keywords
+      // Cache embeddings for keywords (capped)
       keywords.forEach((kw, i) => {
-        TASK_PATTERN_EMBEDDINGS.set(kw, embeddings[i]);
+        if (TASK_PATTERN_EMBEDDINGS.size < MAX_PATTERN_EMBEDDINGS) {
+          TASK_PATTERN_EMBEDDINGS.set(kw, embeddings[i]);
+        }
       });
     }
 
@@ -402,17 +409,10 @@ async function getFlashAttention() {
   return flashAttention;
 }
 
-// LoRA Adapter - lazy loaded
-let loraAdapter: Awaited<ReturnType<typeof import('../ruvector/lora-adapter.js').getLoRAAdapter>> | null = null;
+// LoRA Adapter removed — superseded by SONA instant adaptation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let loraAdapter: any = null;
 async function getLoRAAdapter() {
-  if (!loraAdapter) {
-    try {
-      const { getLoRAAdapter: getLora } = await import('../ruvector/lora-adapter.js');
-      loraAdapter = await getLora();
-    } catch {
-      loraAdapter = null;
-    }
-  }
   return loraAdapter;
 }
 
@@ -456,7 +456,7 @@ const MEMORY_DIR = '.monomind/memory';
 const MEMORY_FILE = 'store.json';
 
 function getMemoryPath(): string {
-  return resolve(join(MEMORY_DIR, MEMORY_FILE));
+  return join(getProjectCwd(), MEMORY_DIR, MEMORY_FILE);
 }
 
 function loadMemoryStore(): MemoryStore {
@@ -848,9 +848,12 @@ export const hooksPostCommand: MCPTool = {
         const store = loadMemoryStore();
         const key = `cmd-${Date.now()}`;
         store.entries[key] = { key, value: JSON.stringify({ command, exitCode, success }), namespace: 'commands', createdAt: new Date().toISOString() } as any;
-        const memDir = resolve(MEMORY_DIR);
+        const memDir = join(getProjectCwd(), MEMORY_DIR);
         if (!existsSync(memDir)) mkdirSync(memDir, { recursive: true });
-        writeFileSync(getMemoryPath(), JSON.stringify(store, null, 2), 'utf-8');
+        const _mp = getMemoryPath();
+        const _mptmp = _mp + '.tmp';
+        writeFileSync(_mptmp, JSON.stringify(store, null, 2), 'utf-8');
+        renameSync(_mptmp, _mp);
         _storedIn = 'json-store';
       } catch { /* non-critical */ }
     }
@@ -1225,7 +1228,7 @@ export const hooksPreTask: MCPTool = {
         });
         for (const r of (heuristicResults?.results ?? [])) {
           try {
-            const h = JSON.parse(r.content ?? r.value ?? '{}') as { condition?: string; action?: string; confidence?: number };
+            const h = JSON.parse(r.content ?? '{}') as { condition?: string; action?: string; confidence?: number };
             if (h.action && h.confidence !== undefined && h.confidence >= 0.6) {
               erlHints.push(`ERL hint (conf=${h.confidence.toFixed(2)}): use "${h.action}" for tasks involving "${h.condition ?? 'similar context'}"`);
             }
@@ -1241,7 +1244,7 @@ export const hooksPreTask: MCPTool = {
           threshold: 0.55,
         });
         for (const r of (gradientResults?.results ?? [])) {
-          const critique = r.content ?? r.value ?? '';
+          const critique = r.content ?? '';
           if (critique && critique.length > 10) {
             erlHints.push(`TextGrad warning: ${critique.slice(0, 120)}`);
           }
@@ -1395,7 +1398,7 @@ export const hooksPostTask: MCPTool = {
             key: `textual_gradient:${taskId}`,
             value: critique,
             namespace: 'gradients',
-            tags: ['textual_gradient', agent, 'failure'],
+            tags: ['textual_gradient', agent ?? 'unknown', 'failure'],
           });
         }
       } catch { /* non-critical */ }
@@ -1528,6 +1531,10 @@ export const hooksPretrain: MCPTool = {
   },
   handler: async (params: Record<string, unknown>) => {
     const repoPath = resolve((params.path as string) || '.');
+    const projectRoot = getProjectCwd();
+    if (repoPath !== projectRoot && !repoPath.startsWith(projectRoot + sep)) {
+      return { error: 'Invalid path: must be within the project directory.' };
+    }
     const depth = (params.depth as string) || 'medium';
     const startTime = performance.now();
 
@@ -1622,9 +1629,20 @@ export const hooksBuildAgents: MCPTool = {
     },
   },
   handler: async (params: Record<string, unknown>) => {
-    const outputDir = resolve((params.outputDir as string) || './agents');
+    const rawOutputDir = resolve((params.outputDir as string) || './agents');
+    const outputDir = rawOutputDir;
+    if (!outputDir.startsWith(getProjectCwd() + sep) && outputDir !== getProjectCwd()) {
+      return { error: 'Invalid outputDir: must be within the project directory.' };
+    }
     const focus = (params.focus as string) || 'all';
-    const format = (params.format as string) || 'yaml';
+    // Strict allowlist on `format` — without this, `format = "yaml/../../../etc/cron.d/x"`
+    // collapses through `join` and lets writes escape the validated outputDir.
+    const ALLOWED_FORMATS = new Set(['yaml', 'json']);
+    const formatRaw = (params.format as string) || 'yaml';
+    if (!ALLOWED_FORMATS.has(formatRaw)) {
+      return { error: 'Invalid format: must be yaml or json' };
+    }
+    const format = formatRaw;
     const persist = params.persist !== false; // Default to true
 
     const agents = [
@@ -1661,7 +1679,9 @@ export const hooksBuildAgents: MCPTool = {
           ? JSON.stringify(config, null, 2)
           : `# ${agent.type} agent configuration\ntype: ${agent.type}\nversion: "3.0.0"\ncapabilities:\n${agent.capabilities.map(c => `  - ${c}`).join('\n')}\noptimizations:\n${agent.optimizations.map(o => `  - ${o}`).join('\n')}\ncreatedAt: "${config.createdAt}"\n`;
 
-        writeFileSync(agent.configFile, content, 'utf-8');
+        const _cftmp = agent.configFile + '.tmp';
+        writeFileSync(_cftmp, content, 'utf-8');
+        renameSync(_cftmp, agent.configFile);
       }
     }
 
@@ -1697,8 +1717,25 @@ export const hooksTransfer: MCPTool = {
     const minConfidence = (params.minConfidence as number) || 0.7;
     const filter = params.filter as string;
 
+    // Validate sourcePath is an existing directory before reading from it
+    const resolvedSource = resolve(sourcePath);
+    const { statSync } = await import('fs');
+    const { homedir } = await import('os');
+    const home = homedir();
+    if (resolvedSource !== home && !resolvedSource.startsWith(home + sep)) {
+      return { error: 'sourcePath must be within the home directory.' };
+    }
+    try {
+      const st = statSync(resolvedSource);
+      if (!st.isDirectory()) {
+        return { error: 'sourcePath must be a directory' };
+      }
+    } catch {
+      return { error: 'sourcePath does not exist' };
+    }
+
     // Try to load patterns from source project's memory store
-    const sourceMemoryPath = join(resolve(sourcePath), MEMORY_DIR, MEMORY_FILE);
+    const sourceMemoryPath = join(resolvedSource, MEMORY_DIR, MEMORY_FILE);
     let sourceStore: MemoryStore = { entries: {}, version: '3.0.0' };
 
     try {
@@ -2240,6 +2277,12 @@ export const hooksTrajectoryStart: MCPTool = {
       startedAt,
     };
 
+    const MAX_TRAJECTORIES = 10000;
+    if (activeTrajectories.size >= MAX_TRAJECTORIES) {
+      // Evict the oldest trajectory
+      const oldest = activeTrajectories.keys().next().value;
+      if (oldest) activeTrajectories.delete(oldest);
+    }
     activeTrajectories.set(trajectoryId, trajectory);
 
     return {
