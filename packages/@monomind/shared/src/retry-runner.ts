@@ -75,7 +75,9 @@ export async function runAgentWithRetry<T>(
     }
 
     if (policy.appendErrorsToReprompt && attempt < policy.maxAttempts - 1) {
-      const errorContext = validator.formatErrorsForReprompt(lastValidationErrors);
+      const MAX_ERROR_CONTEXT = 4_000;
+      let errorContext = validator.formatErrorsForReprompt(lastValidationErrors);
+      if (errorContext.length > MAX_ERROR_CONTEXT) errorContext = errorContext.slice(0, MAX_ERROR_CONTEXT);
       currentTask = `${config.task}\n\n${errorContext}`;
     }
   }

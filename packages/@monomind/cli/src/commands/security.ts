@@ -832,6 +832,12 @@ const defendCommand: Command = {
     if (filePath) {
       try {
         const fs = await import('fs/promises');
+        const MAX_DEFEND_FILE_BYTES = 10 * 1024 * 1024;
+        const { size } = await fs.stat(filePath);
+        if (size > MAX_DEFEND_FILE_BYTES) {
+          output.printError(`File too large (${(size / 1024 / 1024).toFixed(1)} MB). Maximum is 10 MB.`);
+          return { success: false, message: 'File too large' };
+        }
         textToScan = await fs.readFile(filePath, 'utf-8');
         output.writeln(output.dim(`Reading file: ${filePath}`));
       } catch (err) {
