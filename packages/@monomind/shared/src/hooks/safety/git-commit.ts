@@ -15,6 +15,9 @@ import {
   HookPriority,
 } from '../types.js';
 import { HookRegistry } from '../registry.js';
+import { mkdtempSync, writeFileSync, rmSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
 /**
  * Git commit hook result
@@ -562,21 +565,22 @@ export class GitCommitHook {
   }
 
   /**
-   * Format a commit message with heredoc-style for git
+   * Write message to a secure temp file for use with git commit -F.
    */
-  formatForGit(message: string): string {
-    // Escape for heredoc usage
-    return `$(cat <<'EOF'
-${message}
-EOF
-)`;
+  private writeTempCommitMessage(message: string): { tmpDir: string; msgPath: string } {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'monomind-commit-'));
+    const msgPath = join(tmpDir, 'COMMIT_EDITMSG');
+    writeFileSync(msgPath, message, { encoding: 'utf-8', mode: 0o600 });
+    return { tmpDir, msgPath };
   }
 
   /**
-   * Generate a commit command with formatted message
+   * Generate a commit command using a temp file to avoid heredoc injection.
    */
   generateCommitCommand(message: string): string {
-    return `git commit -m "${this.formatForGit(message)}"`;
+    const { tmpDir, msgPath } = this.writeTempCommitMessage(message);
+    const safePath = msgPath.replace(/'/g, "'\\''");
+    return `git commit -F '${safePath}'; _ec=$?; rm -rf '${tmpDir}'; exit $_ec`;
   }
 
   /**

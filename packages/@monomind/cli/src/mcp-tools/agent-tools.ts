@@ -5,7 +5,7 @@
  * Includes model routing integration for intelligent model selection.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 
@@ -65,8 +65,21 @@ function loadAgentStore(): AgentStore {
 }
 
 function saveAgentStore(store: AgentStore): void {
+  // Cap terminated agents to prevent unbounded growth
+  const MAX_TERMINATED = 500;
+  const terminated = Object.entries(store.agents)
+    .filter(([, a]) => a.status === 'terminated')
+    .sort(([, a], [, b]) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
+  if (terminated.length > MAX_TERMINATED) {
+    for (const [id] of terminated.slice(0, terminated.length - MAX_TERMINATED)) {
+      delete store.agents[id];
+    }
+  }
   ensureAgentDir();
-  writeFileSync(getAgentPath(), JSON.stringify(store, null, 2), 'utf-8');
+  const dest = getAgentPath();
+  const tmp = dest + '.tmp';
+  writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf-8');
+  renameSync(tmp, dest);
 }
 
 // Default model mappings for agent types (can be overridden)
@@ -147,7 +160,7 @@ async function determineAgentModel(
       }
 
       return {
-        model: routeResult.model!,
+        model: (routeResult.model ?? 'sonnet') as ClaudeModel,
         routedBy: 'router',
         tier: routeResult.tier,
       };
@@ -200,6 +213,18 @@ export const agentTools: MCPTool[] = [
       const store = loadAgentStore();
       const agentId = (input.agentId as string) || `agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const agentType = input.agentType as string;
+
+      if (['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+        return { success: false, agentId, error: 'Forbidden agent ID' };
+      }
+
+      if (input.agentId && store.agents[agentId]) {
+        return {
+          success: false,
+          agentId,
+          error: `Agent ${agentId} already exists. Terminate it first or omit agentId to auto-generate.`,
+        };
+      }
       const config = (input.config as Record<string, unknown>) || {};
 
       // Add explicit model to config if provided
@@ -235,7 +260,7 @@ export const agentTools: MCPTool[] = [
 
       // Task 46: AgentSandboxing — register sandbox for isolated agent execution
       try {
-        const { WasmSandbox, DockerSandbox, register } = await import('@monomind/security');
+        const { WasmSandbox, DockerSandbox, register } = await import('@monomind/security' as string);
         const sandboxType = (config.sandbox as Record<string, unknown>)?.type ?? 'wasm';
         const sandboxConfig = (config.sandbox as Record<string, unknown>) ?? {};
         const sandbox = sandboxType === 'docker'
@@ -281,16 +306,19 @@ export const agentTools: MCPTool[] = [
       required: ['agentId'],
     },
     handler: async (input) => {
-      const store = loadAgentStore();
       const agentId = input.agentId as string;
+      if (!agentId || typeof agentId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+        return { success: false, agentId, error: 'Invalid agent ID' };
+      }
+      const store = loadAgentStore();
 
-      if (store.agents[agentId]) {
+      if (Object.hasOwn(store.agents, agentId)) {
         store.agents[agentId].status = 'terminated';
         saveAgentStore(store);
 
         // Task 46: AgentSandboxing — clean up sandbox on termination
         try {
-          const { cleanup } = await import('@monomind/security');
+          const { cleanup } = await import('@monomind/security' as string);
           cleanup(agentId);
         } catch { /* optional */ }
 
@@ -321,9 +349,12 @@ export const agentTools: MCPTool[] = [
       required: ['agentId'],
     },
     handler: async (input) => {
-      const store = loadAgentStore();
       const agentId = input.agentId as string;
-      const agent = store.agents[agentId];
+      if (!agentId || typeof agentId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+        return { agentId, error: 'Invalid agent ID' };
+      }
+      const store = loadAgentStore();
+      const agent = Object.hasOwn(store.agents, agentId) ? store.agents[agentId] : undefined;
 
       if (agent) {
         return {
@@ -399,7 +430,7 @@ export const agentTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['status', 'scale', 'drain', 'fill'], description: 'Pool action' },
+        action: { type: 'string', enum: ['status', 'scale', 'drain'], description: 'Pool action' },
         targetSize: { type: 'number', description: 'Target pool size (for scale action)' },
         agentType: { type: 'string', description: 'Agent type filter' },
       },
@@ -425,9 +456,6 @@ export const agentTools: MCPTool[] = [
           // CLI expected fields
           poolId: 'agent-pool-default',
           currentSize: agents.length,
-          minSize: (input.min as number) || 0,
-          maxSize: (input.max as number) || 100,
-          autoScale: (input.autoScale as boolean) ?? false,
           utilization,
           agents: agents.map(a => ({
             id: a.agentId,
@@ -445,7 +473,7 @@ export const agentTools: MCPTool[] = [
       }
 
       if (action === 'scale') {
-        const targetSize = (input.targetSize as number) || 5;
+        const targetSize = Math.min(Math.max((input.targetSize as number) || 5, 1), 50);
         const agentType = (input.agentType as string) || 'worker';
         const currentSize = agents.filter(a => a.agentType === agentType).length;
         const delta = targetSize - currentSize;
@@ -525,8 +553,15 @@ export const agentTools: MCPTool[] = [
       const agents = Object.values(store.agents).filter(a => a.status !== 'terminated');
       const threshold = (input.threshold as number) || 0.5;
 
-      if (input.agentId) {
-        const agent = store.agents[input.agentId as string];
+      if (input.agentId !== undefined) {
+        const agentId = input.agentId as string;
+        if (typeof agentId !== 'string' ||
+            ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+          return { agentId, error: 'Invalid agent ID' };
+        }
+        const agent = Object.hasOwn(store.agents, agentId)
+          ? store.agents[agentId]
+          : undefined;
         if (agent) {
           return {
             agentId: agent.agentId,
@@ -537,7 +572,7 @@ export const agentTools: MCPTool[] = [
             uptime: Date.now() - new Date(agent.createdAt).getTime(),
           };
         }
-        return { agentId: input.agentId, error: 'Agent not found' };
+        return { agentId, error: 'Agent not found' };
       }
 
       const healthyAgents = agents.filter(a => a.health >= threshold);
@@ -598,9 +633,12 @@ export const agentTools: MCPTool[] = [
       required: ['agentId'],
     },
     handler: async (input) => {
-      const store = loadAgentStore();
       const agentId = input.agentId as string;
-      const agent = store.agents[agentId];
+      if (!agentId || typeof agentId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+        return { success: false, agentId, error: 'Invalid agent ID' };
+      }
+      const store = loadAgentStore();
+      const agent = Object.hasOwn(store.agents, agentId) ? store.agents[agentId] : undefined;
 
       if (agent) {
         if (input.status) agent.status = input.status as AgentRecord['status'];

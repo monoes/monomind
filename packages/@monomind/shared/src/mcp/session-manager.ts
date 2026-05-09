@@ -15,6 +15,7 @@
  */
 
 import { EventEmitter } from 'events';
+import { randomBytes } from 'crypto';
 import {
   MCPSession,
   SessionState,
@@ -155,7 +156,15 @@ export class SessionManager extends EventEmitter {
    * Get a session by ID
    */
   getSession(sessionId: string): MCPSession | undefined {
-    return this.sessions.get(sessionId);
+    const session = this.sessions.get(sessionId);
+    if (session && this.config?.sessionTimeout) {
+      const idleMs = Date.now() - session.lastActivityAt.getTime();
+      if (idleMs > this.config.sessionTimeout) {
+        this.closeSession(sessionId, 'Session expired');
+        return undefined;
+      }
+    }
+    return session;
   }
 
   /**
@@ -393,7 +402,7 @@ export class SessionManager extends EventEmitter {
    * Generate a unique session ID
    */
   private generateSessionId(): string {
-    return `session-${++this.sessionCounter}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    return `session-${randomBytes(16).toString('hex')}`;
   }
 
   /**

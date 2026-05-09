@@ -8,6 +8,7 @@ import { type MCPTool, getProjectCwd } from './types.js';
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 
 // Storage paths
 const STORAGE_DIR = '.monomind';
@@ -96,7 +97,7 @@ export const terminalTools: MCPTool[] = [
         }
       }
 
-      const id = `term-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const id = `term-${Date.now()}-${randomBytes(4).toString('hex')}`;
 
       const session: TerminalSession = {
         id,
@@ -152,7 +153,7 @@ export const terminalTools: MCPTool[] = [
 
       if (!session) {
         // Create default session
-        const id = `term-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const id = `term-${Date.now()}-${randomBytes(4).toString('hex')}`;
         session = {
           id,
           name: 'Default Terminal',

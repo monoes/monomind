@@ -694,10 +694,10 @@ export class WorkerDaemon extends EventEmitter {
         `Worker ${workerConfig.type} timed out after ${this.config.workerTimeoutMs / 1000}s`,
         () => {
           if (this.headlessExecutor) {
-            const cancelled = this.headlessExecutor.cancel(workerId);
-            if (!cancelled) {
-              // Execution may not have been tracked by ID — fall back to type-based cancel
-              this.headlessExecutor.cancel(workerConfig.type);
+            // Try exact-ID cancel first; fall back to type-based cancel which
+            // avoids killing unrelated concurrent workers (cancelByType).
+            if (!this.headlessExecutor.cancel(workerId)) {
+              this.headlessExecutor.cancelByType(workerConfig.type);
             }
           }
         }

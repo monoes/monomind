@@ -603,6 +603,7 @@ export class HeadlessWorkerExecutor extends EventEmitter {
   private pendingQueue: QueueEntry[] = [];
   private contextCache: Map<string, CacheEntry> = new Map();
   private claudeCodeAvailable: boolean | null = null;
+  private claudeCodeAvailableCheckedAt: number | null = null;
   private claudeCodeVersion: string | null = null;
   // SECURITY: synchronous reservation counter so processQueue() does not
   // drain the entire pendingQueue before async pool insertions catch up.
@@ -637,8 +638,14 @@ export class HeadlessWorkerExecutor extends EventEmitter {
    * Check if Claude Code CLI is available
    */
   async isAvailable(): Promise<boolean> {
-    if (this.claudeCodeAvailable !== null) {
-      return this.claudeCodeAvailable;
+    const NEGATIVE_CACHE_TTL_MS = 60_000; // re-check after 1 min on negative result
+    if (this.claudeCodeAvailable === true) {
+      return true;
+    }
+    if (this.claudeCodeAvailable === false && this.claudeCodeAvailableCheckedAt !== null) {
+      if (Date.now() - this.claudeCodeAvailableCheckedAt < NEGATIVE_CACHE_TTL_MS) {
+        return false;
+      }
     }
 
     try {
@@ -649,11 +656,13 @@ export class HeadlessWorkerExecutor extends EventEmitter {
         windowsHide: true, // Prevent phantom console windows on Windows
       });
       this.claudeCodeAvailable = true;
+      this.claudeCodeAvailableCheckedAt = Date.now();
       this.claudeCodeVersion = output.trim();
       this.emit('status', { available: true, version: this.claudeCodeVersion });
       return true;
     } catch {
       this.claudeCodeAvailable = false;
+      this.claudeCodeAvailableCheckedAt = Date.now();
       this.emit('status', { available: false });
       return false;
     }
@@ -773,6 +782,7 @@ export class HeadlessWorkerExecutor extends EventEmitter {
         try { entry.process.kill('SIGKILL'); } catch { /* ignore */ }
       }
     }, 5000);
+    killTimer.unref();
     entry.process.once('exit', () => clearTimeout(killTimer));
     this.processPool.delete(executionId);
     this.emit('cancelled', { executionId });
@@ -781,6 +791,34 @@ export class HeadlessWorkerExecutor extends EventEmitter {
     this.processQueue();
 
     return true;
+  }
+
+  /**
+   * Cancel all running executions for a specific worker type.
+   * Used by the timeout handler in worker-daemon to avoid killing unrelated workers.
+   */
+  cancelByType(workerType: string): boolean {
+    let cancelled = false;
+    const entries = Array.from(this.processPool.entries());
+    for (const [executionId, entry] of entries) {
+      if (entry.workerType !== workerType) continue;
+      clearTimeout(entry.timeout);
+      let exited = false;
+      entry.process.once('exit', () => { exited = true; });
+      try { entry.process.kill('SIGTERM'); } catch { /* may already be dead */ }
+      const killTimer = setTimeout(() => {
+        if (!exited) {
+          try { entry.process.kill('SIGKILL'); } catch { /* ignore */ }
+        }
+      }, 5000);
+      killTimer.unref();
+      entry.process.once('exit', () => clearTimeout(killTimer));
+      this.processPool.delete(executionId);
+      this.emit('cancelled', { executionId });
+      cancelled = true;
+    }
+    if (cancelled) this.processQueue();
+    return cancelled;
   }
 
   /**
@@ -993,13 +1031,17 @@ export class HeadlessWorkerExecutor extends EventEmitter {
     const uniqueFiles = Array.from(new Set(files)).slice(0, this.config.maxContextFiles);
 
     // Build context
+    const { resolve: resolvePath, sep } = await import('path');
     const contextParts: string[] = [];
     for (const file of uniqueFiles) {
       try {
         const fullPath = join(this.projectRoot, file);
-        if (!existsSync(fullPath)) continue;
+        const resolvedFull = resolvePath(fullPath);
+        const resolvedRoot = resolvePath(this.projectRoot);
+        if (!resolvedFull.startsWith(resolvedRoot + sep) && resolvedFull !== resolvedRoot) continue;
+        if (!existsSync(resolvedFull)) continue;
 
-        const content = readFileSync(fullPath, 'utf-8');
+        const content = readFileSync(resolvedFull, 'utf-8');
         const truncated = content.slice(0, this.config.maxCharsPerFile);
         const wasTruncated = content.length > this.config.maxCharsPerFile;
 
