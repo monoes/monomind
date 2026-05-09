@@ -838,17 +838,18 @@ export class HNSWIndex extends EventEmitter {
   private normalizeVector(vector: Float32Array): Float32Array {
     let norm = 0;
     for (let i = 0; i < vector.length; i++) {
-      norm += vector[i] * vector[i];
+      const v = isFinite(vector[i]) ? vector[i] : 0;
+      norm += v * v;
     }
     norm = Math.sqrt(norm);
 
-    if (norm === 0) {
-      return vector; // Return as-is if zero vector
+    if (norm === 0 || !isFinite(norm)) {
+      return new Float32Array(vector.length); // safe zero vector for non-finite input
     }
 
     const normalized = new Float32Array(vector.length);
     for (let i = 0; i < vector.length; i++) {
-      normalized[i] = vector[i] / norm;
+      normalized[i] = (isFinite(vector[i]) ? vector[i] : 0) / norm;
     }
     return normalized;
   }

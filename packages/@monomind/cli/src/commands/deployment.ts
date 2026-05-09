@@ -59,13 +59,25 @@ function loadDeploymentState(cwd: string): DeploymentState {
   }
   try {
     const raw = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(raw) as DeploymentState;
+    const parsed = JSON.parse(raw);
+    // Strip proto-pollution keys before casting
+    const DANGEROUS = new Set(['__proto__', 'constructor', 'prototype']);
+    if (parsed !== null && typeof parsed === 'object') {
+      for (const k of DANGEROUS) { if (Object.prototype.hasOwnProperty.call(parsed, k)) delete (parsed as Record<string, unknown>)[k]; }
+    }
+    return parsed as DeploymentState;
   } catch {
     return emptyState();
   }
 }
 
+const MAX_DEPLOYMENT_HISTORY = 1000;
+
 function saveDeploymentState(cwd: string, state: DeploymentState): void {
+  // Cap history to prevent unbounded file growth
+  if (state.history.length > MAX_DEPLOYMENT_HISTORY) {
+    state.history = state.history.slice(-MAX_DEPLOYMENT_HISTORY);
+  }
   const dir = getStateDir(cwd);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -264,10 +276,11 @@ const statusCommand: Command = {
       }
 
       // Recent history (last 5)
-      let recent = [...state.history].reverse().slice(0, 5);
+      let recent = [...state.history].reverse();
       if (filterEnv) {
         recent = recent.filter(r => r.environment === filterEnv);
       }
+      recent = recent.slice(0, 5);
       if (recent.length > 0) {
         output.writeln();
         output.writeln(output.bold('Recent Deployments'));
@@ -317,6 +330,10 @@ const rollbackCommand: Command = {
       }
 
       const targetVersion = ctx.flags['version'] ? String(ctx.flags['version']) : null;
+      const steps = parseInt(ctx.flags.steps as string || '1', 10);
+      if (steps > 1) {
+        output.printWarning(`Multi-step rollback (--steps ${steps}) is not yet implemented. Rolling back 1 step only.`);
+      }
       const state = loadDeploymentState(ctx.cwd);
 
       // Find deployments for this environment in reverse chronological order
