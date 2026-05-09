@@ -4,7 +4,7 @@
  * Tool definitions for workflow automation and orchestration.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 
@@ -29,7 +29,7 @@ interface WorkflowRecord {
   name: string;
   description?: string;
   steps: WorkflowStep[];
-  status: 'draft' | 'ready' | 'running' | 'paused' | 'completed' | 'failed';
+  status: 'draft' | 'ready' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
   currentStep: number;
   variables: Record<string, unknown>;
   createdAt: string;
@@ -73,9 +73,38 @@ function loadWorkflowStore(): WorkflowStore {
 }
 
 function saveWorkflowStore(store: WorkflowStore): void {
+  // Cap completed/failed/cancelled workflows so the file doesn't grow without
+  // bound. Each save serializes the entire store to disk; without eviction
+  // a long-running daemon would blow up to GBs of JSON.
+  const MAX_WORKFLOWS = 500;
+  const MAX_TEMPLATES = 200;
+  const TERMINAL = new Set(['completed', 'failed', 'cancelled']);
+  const finished = Object.entries(store.workflows ?? {})
+    .filter(([, w]) => TERMINAL.has((w as { status?: string }).status ?? ''))
+    .sort(([, a], [, b]) => {
+      const aw = a as { completedAt?: string; createdAt?: string };
+      const bw = b as { completedAt?: string; createdAt?: string };
+      return (aw.completedAt ?? aw.createdAt ?? '').localeCompare(bw.completedAt ?? bw.createdAt ?? '');
+    });
+  if (finished.length > MAX_WORKFLOWS) {
+    for (const [id] of finished.slice(0, finished.length - MAX_WORKFLOWS)) {
+      delete store.workflows[id];
+    }
+  }
+  const templates = Object.keys(store.templates ?? {});
+  if (templates.length > MAX_TEMPLATES) {
+    for (const id of templates.slice(0, templates.length - MAX_TEMPLATES)) {
+      delete store.templates[id];
+    }
+  }
   ensureWorkflowDir();
-  writeFileSync(getWorkflowPath(), JSON.stringify(store, null, 2), 'utf-8');
+  const dest = getWorkflowPath();
+  const tmp = `${dest}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf-8');
+  renameSync(tmp, dest);
 }
+
+const FORBIDDEN_WORKFLOW_IDS = new Set(['__proto__', 'constructor', 'prototype']);
 
 export const workflowTools: MCPTool[] = [
   {
@@ -250,9 +279,17 @@ export const workflowTools: MCPTool[] = [
       required: ['workflowId'],
     },
     handler: async (input) => {
-      const store = loadWorkflowStore();
       const workflowId = input.workflowId as string;
-      const workflow = store.workflows[workflowId];
+      if (!workflowId || typeof workflowId !== 'string' || FORBIDDEN_WORKFLOW_IDS.has(workflowId)) {
+        return { workflowId, error: 'Workflow not found' };
+      }
+      const store = loadWorkflowStore();
+      // Object.hasOwn defends against bracket-access into Object.prototype
+      // members (toString, hasOwnProperty, etc.) — the FORBIDDEN_WORKFLOW_IDS
+      // blocklist alone misses these inherited names.
+      const workflow = Object.hasOwn(store.workflows, workflowId)
+        ? store.workflows[workflowId]
+        : undefined;
 
       if (!workflow) {
         return { workflowId, error: 'Workflow not found' };
@@ -309,9 +346,12 @@ export const workflowTools: MCPTool[] = [
       required: ['workflowId'],
     },
     handler: async (input) => {
-      const store = loadWorkflowStore();
       const workflowId = input.workflowId as string;
-      const workflow = store.workflows[workflowId];
+      if (!workflowId || typeof workflowId !== 'string' || FORBIDDEN_WORKFLOW_IDS.has(workflowId)) {
+        return { workflowId, error: 'Workflow not found' };
+      }
+      const store = loadWorkflowStore();
+      const workflow = Object.hasOwn(store.workflows, workflowId) ? store.workflows[workflowId] : undefined;
 
       if (!workflow) {
         return { workflowId, error: 'Workflow not found' };
@@ -378,6 +418,7 @@ export const workflowTools: MCPTool[] = [
 
       // Apply limit
       const limit = (input.limit as number) || 20;
+      const totalCount = workflows.length;
       workflows = workflows.slice(0, limit);
 
       return {
@@ -389,7 +430,7 @@ export const workflowTools: MCPTool[] = [
           createdAt: w.createdAt,
           completedAt: w.completedAt,
         })),
-        total: workflows.length,
+        total: totalCount,
         filters: { status: input.status },
       };
     },
@@ -406,9 +447,12 @@ export const workflowTools: MCPTool[] = [
       required: ['workflowId'],
     },
     handler: async (input) => {
-      const store = loadWorkflowStore();
       const workflowId = input.workflowId as string;
-      const workflow = store.workflows[workflowId];
+      if (!workflowId || typeof workflowId !== 'string' || FORBIDDEN_WORKFLOW_IDS.has(workflowId)) {
+        return { workflowId, error: 'Workflow not found' };
+      }
+      const store = loadWorkflowStore();
+      const workflow = Object.hasOwn(store.workflows, workflowId) ? store.workflows[workflowId] : undefined;
 
       if (!workflow) {
         return { workflowId, error: 'Workflow not found' };
@@ -441,9 +485,12 @@ export const workflowTools: MCPTool[] = [
       required: ['workflowId'],
     },
     handler: async (input) => {
-      const store = loadWorkflowStore();
       const workflowId = input.workflowId as string;
-      const workflow = store.workflows[workflowId];
+      if (!workflowId || typeof workflowId !== 'string' || FORBIDDEN_WORKFLOW_IDS.has(workflowId)) {
+        return { workflowId, error: 'Workflow not found' };
+      }
+      const store = loadWorkflowStore();
+      const workflow = Object.hasOwn(store.workflows, workflowId) ? store.workflows[workflowId] : undefined;
 
       if (!workflow) {
         return { workflowId, error: 'Workflow not found' };
@@ -489,19 +536,24 @@ export const workflowTools: MCPTool[] = [
       required: ['workflowId'],
     },
     handler: async (input) => {
-      const store = loadWorkflowStore();
       const workflowId = input.workflowId as string;
-      const workflow = store.workflows[workflowId];
+      if (!workflowId || typeof workflowId !== 'string' || FORBIDDEN_WORKFLOW_IDS.has(workflowId)) {
+        return { workflowId, error: 'Workflow not found' };
+      }
+      const store = loadWorkflowStore();
+      const workflow = Object.hasOwn(store.workflows, workflowId)
+        ? store.workflows[workflowId]
+        : undefined;
 
       if (!workflow) {
         return { workflowId, error: 'Workflow not found' };
       }
 
-      if (workflow.status === 'completed' || workflow.status === 'failed') {
+      if (workflow.status === 'completed' || workflow.status === 'failed' || workflow.status === 'cancelled') {
         return { workflowId, error: 'Workflow already finished' };
       }
 
-      workflow.status = 'failed';
+      workflow.status = 'cancelled';
       workflow.error = (input.reason as string) || 'Cancelled by user';
       workflow.completedAt = new Date().toISOString();
 
@@ -533,10 +585,12 @@ export const workflowTools: MCPTool[] = [
       required: ['workflowId'],
     },
     handler: async (input) => {
-      const store = loadWorkflowStore();
       const workflowId = input.workflowId as string;
-
-      if (!store.workflows[workflowId]) {
+      if (!workflowId || typeof workflowId !== 'string' || FORBIDDEN_WORKFLOW_IDS.has(workflowId)) {
+        return { workflowId, error: 'Workflow not found' };
+      }
+      const store = loadWorkflowStore();
+      if (!Object.hasOwn(store.workflows, workflowId)) {
         return { workflowId, error: 'Workflow not found' };
       }
 
@@ -575,7 +629,11 @@ export const workflowTools: MCPTool[] = [
       const action = input.action as string;
 
       if (action === 'save') {
-        const workflow = store.workflows[input.workflowId as string];
+        const rawWorkflowId = input.workflowId as string;
+        if (!rawWorkflowId || typeof rawWorkflowId !== 'string' || FORBIDDEN_WORKFLOW_IDS.has(rawWorkflowId) || !Object.hasOwn(store.workflows, rawWorkflowId)) {
+          return { action, error: 'Workflow not found' };
+        }
+        const workflow = store.workflows[rawWorkflowId];
         if (!workflow) {
           return { action, error: 'Workflow not found' };
         }
@@ -613,7 +671,11 @@ export const workflowTools: MCPTool[] = [
       }
 
       if (action === 'create') {
-        const template = store.templates[input.templateId as string];
+        const rawTemplateId = input.templateId as string;
+        if (!rawTemplateId || typeof rawTemplateId !== 'string' || FORBIDDEN_WORKFLOW_IDS.has(rawTemplateId) || !Object.hasOwn(store.templates, rawTemplateId)) {
+          return { action, error: 'Template not found' };
+        }
+        const template = store.templates[rawTemplateId];
         if (!template) {
           return { action, error: 'Template not found' };
         }
@@ -625,6 +687,8 @@ export const workflowTools: MCPTool[] = [
           name: (input.newName as string) || template.name.replace(' Template', ''),
           status: 'ready',
           createdAt: new Date().toISOString(),
+          steps: template.steps.map(s => ({ ...s, status: 'pending' as const, result: undefined })),
+          variables: { ...template.variables },
         };
 
         store.workflows[workflowId] = workflow;

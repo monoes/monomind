@@ -187,9 +187,18 @@ export class ErrorHandler {
 
   /**
    * Sanitize input to remove sensitive data
+   * Cycle-safe and depth-bounded — circular references and deeply nested objects
+   * will not cause stack overflow.
    */
-  sanitize(input: Record<string, unknown>): Record<string, unknown> {
+  sanitize(
+    input: Record<string, unknown>,
+    _seen: WeakSet<object> = new WeakSet(),
+    _depth = 0,
+  ): Record<string, unknown> {
     if (!this.config.sanitize) return input;
+    if (_depth > 20) return { '[MAX_DEPTH]': true };
+    if (_seen.has(input)) return { '[CIRCULAR]': true };
+    _seen.add(input);
 
     const sanitized: Record<string, unknown> = {};
 
@@ -200,7 +209,7 @@ export class ErrorHandler {
       if (isSensitive) {
         sanitized[key] = '[REDACTED]';
       } else if (typeof value === 'object' && value !== null) {
-        sanitized[key] = this.sanitize(value as Record<string, unknown>);
+        sanitized[key] = this.sanitize(value as Record<string, unknown>, _seen, _depth + 1);
       } else {
         sanitized[key] = value;
       }
@@ -221,8 +230,22 @@ export class ErrorHandler {
     const retryable = this.isRetryable(category);
     const now = new Date().toISOString();
 
-    // Track error counts for rate limiting
+    // Track error counts for rate limiting and enforce cap
     this.trackError(category);
+    const rateEntry = this.errorCounts.get(category);
+    if (rateEntry && rateEntry.count > this.config.maxErrorsPerMinute) {
+      return {
+        success: false,
+        error: {
+          code: 'ERR_RATE_LIMITED',
+          message: 'Error rate limit exceeded',
+          category,
+          retryable: false,
+        },
+        context,
+        timestamp: new Date().toISOString(),
+      } as StructuredError;
+    }
 
     // Build structured error
     const structured: StructuredError = {
@@ -351,7 +374,8 @@ export class ErrorHandler {
     // Remove potential sensitive data from message
     let sanitized = message;
     for (const key of SENSITIVE_KEYS) {
-      const pattern = new RegExp(`${key}[=:]?\\s*["']?[^\\s"']+["']?`, 'gi');
+      // Use a non-backtracking pattern: key followed by = or : then non-whitespace
+      const pattern = new RegExp(`${key}[=:]\\S+`, 'gi');
       sanitized = sanitized.replace(pattern, `${key}=[REDACTED]`);
     }
     return sanitized;

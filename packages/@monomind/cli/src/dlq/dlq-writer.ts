@@ -6,7 +6,7 @@
 
 import { randomUUID } from 'crypto';
 import { existsSync, mkdirSync, appendFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, resolve, sep } from 'path';
 import type { DLQEntry, DeliveryAttempt } from '../../../shared/src/types/dlq.js';
 
 /** Input for enqueue — caller provides these fields */
@@ -23,10 +23,15 @@ export class DLQWriter {
   private readonly filePath: string;
 
   constructor(dataDir: string) {
-    if (!existsSync(dataDir)) {
-      mkdirSync(dataDir, { recursive: true });
+    const resolvedDataDir = resolve(dataDir);
+    const allowedRoot = resolve(process.env.MONOMIND_DATA_DIR ?? process.cwd());
+    if (resolvedDataDir !== allowedRoot && !resolvedDataDir.startsWith(allowedRoot + sep)) {
+      throw new Error(`DLQ dataDir escapes allowed root: ${resolvedDataDir}`);
     }
-    this.filePath = join(dataDir, 'dead-letter-queue.jsonl');
+    if (!existsSync(resolvedDataDir)) {
+      mkdirSync(resolvedDataDir, { recursive: true });
+    }
+    this.filePath = join(resolvedDataDir, 'dead-letter-queue.jsonl');
   }
 
   /** Enqueue a failed message into the DLQ */
@@ -49,7 +54,23 @@ export class DLQWriter {
       tags: input.tags ?? [],
     };
 
-    appendFileSync(this.filePath, JSON.stringify(entry) + '\n', 'utf-8');
+    // JSON.stringify can throw on circular references, BigInt, and non-serializable
+    // values. originalPayload is `unknown` (caller-controlled), so a malicious or
+    // malformed input could otherwise crash the writer mid-flight. Fall back to
+    // a sanitized record so the audit trail is preserved.
+    let serialized: string;
+    try {
+      serialized = JSON.stringify(entry);
+    } catch {
+      serialized = JSON.stringify({
+        messageId: entry.messageId,
+        toolName: entry.toolName,
+        archivedAt: entry.archivedAt,
+        status: 'pending',
+        finalError: 'serialize_failed',
+      });
+    }
+    appendFileSync(this.filePath, serialized + '\n', 'utf-8');
     return entry;
   }
 

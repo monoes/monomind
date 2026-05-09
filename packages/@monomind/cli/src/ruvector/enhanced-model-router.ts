@@ -9,8 +9,15 @@
  * @module enhanced-model-router
  */
 
-import { existsSync, readFileSync } from 'fs';
-import { extname } from 'path';
+import { existsSync, readFileSync, statSync } from 'fs';
+import { extname, resolve, sep } from 'path';
+
+const MAX_ROUTE_FILE_SIZE = 1 * 1024 * 1024; // 1 MB
+function isPathSafe(filePath: string): boolean {
+  const resolved = resolve(filePath);
+  const root = process.cwd();
+  return resolved === root || resolved.startsWith(root + sep);
+}
 import { ClaudeModel, getModelRouter, ModelRouter, ModelRoutingResult } from './model-router.js';
 
 // ============================================================================
@@ -458,6 +465,9 @@ export class EnhancedModelRouter {
    */
   private async analyzeASTComplexity(filePath: string): Promise<number> {
     try {
+      if (!isPathSafe(filePath)) return 0.5;
+      const st = statSync(filePath, { throwIfNoEntry: false });
+      if (!st || st.size > MAX_ROUTE_FILE_SIZE) return 0.5;
       const content = readFileSync(filePath, 'utf-8');
       const lines = content.split('\n');
 
@@ -536,6 +546,9 @@ export class EnhancedModelRouter {
       if (!filePath || !existsSync(filePath)) {
         return { success: false, confidence: 0 };
       }
+      if (!isPathSafe(filePath)) return { success: false, confidence: 0 };
+      const fst = statSync(filePath, { throwIfNoEntry: false });
+      if (!fst || fst.size > MAX_ROUTE_FILE_SIZE) return { success: false, confidence: 0 };
 
       const originalCode = context?.originalCode || readFileSync(filePath, 'utf-8');
 
