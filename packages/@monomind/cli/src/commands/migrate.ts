@@ -8,6 +8,26 @@ import { output } from '../output.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
+const MAX_MIGRATE_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+function sanitizeJsonObject(raw: unknown): Record<string, unknown> {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {};
+  const safe: Record<string, unknown> = Object.create(null);
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+    safe[k] = v;
+  }
+  return safe;
+}
+
+function safeFileCopy(src: string, dest: string): void {
+  const lstat = fs.lstatSync(src);
+  if (lstat.isSymbolicLink()) {
+    throw new Error(`Symlink not allowed in backup path: ${src}`);
+  }
+  fs.copyFileSync(src, dest);
+}
+
 // Migration targets
 const MIGRATION_TARGETS = [
   { value: 'config', label: 'Configuration', hint: 'Migrate configuration files' },
@@ -192,6 +212,7 @@ const runCommand: Command = {
     const backupDir = path.join(v1Dir, 'backup', `v2-${timestamp}`);
     const migrationStatePath = path.join(v1Dir, 'migration-state.json');
 
+    const target = ctx.flags.target as string | undefined;
     const migrated: string[] = [];
     const skipped: string[] = [];
 
@@ -214,140 +235,148 @@ const runCommand: Command = {
     }
 
     // --- Config migration ---
-    const v2ConfigPath = path.join(cwd, 'monomind.config.json');
-    try {
-      if (fs.existsSync(v2ConfigPath)) {
-        const raw = fs.readFileSync(v2ConfigPath, 'utf-8');
-        const parsed = JSON.parse(raw);
-        if (parsed.version === '2' || parsed.version === 2 || !parsed.version) {
-          if (dryRun) {
-            output.printInfo(`Would migrate config: ${v2ConfigPath}`);
+    if (!target || target === 'config') {
+      const v2ConfigPath = path.join(cwd, 'monomind.config.json');
+      try {
+        if (fs.existsSync(v2ConfigPath)) {
+          const raw = fs.readFileSync(v2ConfigPath, 'utf-8');
+          const parsed = JSON.parse(raw);
+          if (parsed.version === '2' || parsed.version === 2 || !parsed.version) {
+            if (dryRun) {
+              output.printInfo(`Would migrate config: ${v2ConfigPath}`);
+            } else {
+              // Backup
+              if (!skipBackup) {
+                fs.copyFileSync(v2ConfigPath, path.join(backupDir, 'monomind.config.json'));
+              }
+              // Transform to v1 format
+              const v1Config: Record<string, unknown> = { ...sanitizeJsonObject(parsed), version: '3' };
+              // Rename swarm.mode -> swarm.topology if present
+              if (v1Config.swarm && typeof v1Config.swarm === 'object') {
+                const swarm = v1Config.swarm as Record<string, unknown>;
+                if ('mode' in swarm && !('topology' in swarm)) {
+                  swarm.topology = swarm.mode;
+                  delete swarm.mode;
+                }
+              }
+              // Rename memory.type -> memory.backend if present
+              if (v1Config.memory && typeof v1Config.memory === 'object') {
+                const mem = v1Config.memory as Record<string, unknown>;
+                if ('type' in mem && !('backend' in mem)) {
+                  mem.backend = mem.type;
+                  delete mem.type;
+                }
+              }
+              const v1ConfigPath = path.join(v1Dir, 'config.json');
+              const tmpV1 = `${v1ConfigPath}.${process.pid}.${Date.now()}.tmp`;
+              fs.writeFileSync(tmpV1, JSON.stringify(v1Config, null, 2), { flag: 'wx' });
+              fs.renameSync(tmpV1, v1ConfigPath);
+              output.printSuccess(`Config migrated to ${v1ConfigPath}`);
+            }
+            migrated.push('config');
           } else {
-            // Backup
-            if (!skipBackup) {
-              fs.copyFileSync(v2ConfigPath, path.join(backupDir, 'monomind.config.json'));
-            }
-            // Transform to v1 format
-            const v1Config: Record<string, unknown> = { ...parsed, version: '3' };
-            // Rename swarm.mode -> swarm.topology if present
-            if (v1Config.swarm && typeof v1Config.swarm === 'object') {
-              const swarm = v1Config.swarm as Record<string, unknown>;
-              if ('mode' in swarm && !('topology' in swarm)) {
-                swarm.topology = swarm.mode;
-                delete swarm.mode;
-              }
-            }
-            // Rename memory.type -> memory.backend if present
-            if (v1Config.memory && typeof v1Config.memory === 'object') {
-              const mem = v1Config.memory as Record<string, unknown>;
-              if ('type' in mem && !('backend' in mem)) {
-                mem.backend = mem.type;
-                delete mem.type;
-              }
-            }
-            const v1ConfigPath = path.join(v1Dir, 'config.json');
-            fs.writeFileSync(v1ConfigPath, JSON.stringify(v1Config, null, 2));
-            output.printSuccess(`Config migrated to ${v1ConfigPath}`);
+            output.printInfo('Config already at v1 — skipping.');
+            skipped.push('config');
           }
-          migrated.push('config');
         } else {
-          output.printInfo('Config already at v1 — skipping.');
+          output.writeln(output.dim('No v2 config found — skipping config migration.'));
           skipped.push('config');
         }
-      } else {
-        output.writeln(output.dim('No v2 config found — skipping config migration.'));
+      } catch (err) {
+        output.printError('Config migration failed', String(err));
         skipped.push('config');
       }
-    } catch (err) {
-      output.printError('Config migration failed', String(err));
-      skipped.push('config');
     }
 
     // --- Memory migration ---
-    const v2MemoryDir = path.join(cwd, 'data', 'memory');
-    try {
-      if (fs.existsSync(v2MemoryDir)) {
-        const files = fs.readdirSync(v2MemoryDir);
-        const jsonFiles = files.filter(f => f.endsWith('.json'));
-        const hasDb = files.includes('memory.db');
+    if (!target || target === 'memory') {
+      const v2MemoryDir = path.join(cwd, 'data', 'memory');
+      try {
+        if (fs.existsSync(v2MemoryDir)) {
+          const files = fs.readdirSync(v2MemoryDir);
+          const jsonFiles = files.filter(f => f.endsWith('.json'));
+          const hasDb = files.includes('memory.db');
 
-        if (jsonFiles.length > 0 || hasDb) {
-          if (dryRun) {
-            output.printInfo(`Would migrate memory: ${jsonFiles.length} JSON files, ${hasDb ? '1 DB' : 'no DB'}`);
-          } else {
-            // Backup memory files
-            if (!skipBackup) {
-              const memBackup = path.join(backupDir, 'data', 'memory');
-              fs.mkdirSync(memBackup, { recursive: true });
-              for (const f of files) {
-                const src = path.join(v2MemoryDir, f);
-                if (fs.statSync(src).isFile()) {
-                  fs.copyFileSync(src, path.join(memBackup, f));
+          if (jsonFiles.length > 0 || hasDb) {
+            if (dryRun) {
+              output.printInfo(`Would migrate memory: ${jsonFiles.length} JSON files, ${hasDb ? '1 DB' : 'no DB'}`);
+            } else {
+              // Backup memory files
+              if (!skipBackup) {
+                const memBackup = path.join(backupDir, 'data', 'memory');
+                fs.mkdirSync(memBackup, { recursive: true });
+                for (const f of files) {
+                  const src = path.join(v2MemoryDir, f);
+                  if (fs.statSync(src).isFile()) {
+                    fs.copyFileSync(src, path.join(memBackup, f));
+                  }
                 }
               }
+              output.printSuccess(`Memory files backed up (${jsonFiles.length} JSON, ${hasDb ? '1 DB' : '0 DB'}).`);
+              output.printInfo('Run "monomind memory init --force" to import v2 memory into v1 AgentDB.');
             }
-            output.printSuccess(`Memory files backed up (${jsonFiles.length} JSON, ${hasDb ? '1 DB' : '0 DB'}).`);
-            output.printInfo('Run "monomind memory init --force" to import v2 memory into v1 AgentDB.');
+            migrated.push('memory');
+          } else {
+            output.writeln(output.dim('No v2 memory files found — skipping.'));
+            skipped.push('memory');
           }
-          migrated.push('memory');
         } else {
-          output.writeln(output.dim('No v2 memory files found — skipping.'));
+          output.writeln(output.dim('No v2 memory directory found — skipping.'));
           skipped.push('memory');
         }
-      } else {
-        output.writeln(output.dim('No v2 memory directory found — skipping.'));
+      } catch (err) {
+        output.printError('Memory migration failed', String(err));
         skipped.push('memory');
       }
-    } catch (err) {
-      output.printError('Memory migration failed', String(err));
-      skipped.push('memory');
     }
 
     // --- Session migration ---
-    const v2SessionsDir = path.join(cwd, 'data', 'sessions');
-    try {
-      if (fs.existsSync(v2SessionsDir)) {
-        const files = fs.readdirSync(v2SessionsDir);
-        if (files.length > 0) {
-          if (dryRun) {
-            output.printInfo(`Would migrate sessions: ${files.length} files from ${v2SessionsDir}`);
-          } else {
-            const v1SessionsDir = path.join(v1Dir, 'sessions');
-            fs.mkdirSync(v1SessionsDir, { recursive: true });
+    if (!target || target === 'sessions') {
+      const v2SessionsDir = path.join(cwd, 'data', 'sessions');
+      try {
+        if (fs.existsSync(v2SessionsDir)) {
+          const files = fs.readdirSync(v2SessionsDir);
+          if (files.length > 0) {
+            if (dryRun) {
+              output.printInfo(`Would migrate sessions: ${files.length} files from ${v2SessionsDir}`);
+            } else {
+              const v1SessionsDir = path.join(v1Dir, 'sessions');
+              fs.mkdirSync(v1SessionsDir, { recursive: true });
 
-            // Backup
-            if (!skipBackup) {
-              const sessBackup = path.join(backupDir, 'data', 'sessions');
-              fs.mkdirSync(sessBackup, { recursive: true });
+              // Backup
+              if (!skipBackup) {
+                const sessBackup = path.join(backupDir, 'data', 'sessions');
+                fs.mkdirSync(sessBackup, { recursive: true });
+                for (const f of files) {
+                  const src = path.join(v2SessionsDir, f);
+                  if (fs.statSync(src).isFile()) {
+                    fs.copyFileSync(src, path.join(sessBackup, f));
+                  }
+                }
+              }
+
+              // Copy to v1 location
               for (const f of files) {
                 const src = path.join(v2SessionsDir, f);
                 if (fs.statSync(src).isFile()) {
-                  fs.copyFileSync(src, path.join(sessBackup, f));
+                  fs.copyFileSync(src, path.join(v1SessionsDir, f));
                 }
               }
+              output.printSuccess(`Sessions migrated: ${files.length} files to ${v1SessionsDir}`);
             }
-
-            // Copy to v1 location
-            for (const f of files) {
-              const src = path.join(v2SessionsDir, f);
-              if (fs.statSync(src).isFile()) {
-                fs.copyFileSync(src, path.join(v1SessionsDir, f));
-              }
-            }
-            output.printSuccess(`Sessions migrated: ${files.length} files to ${v1SessionsDir}`);
+            migrated.push('sessions');
+          } else {
+            output.writeln(output.dim('No v2 session files found — skipping.'));
+            skipped.push('sessions');
           }
-          migrated.push('sessions');
         } else {
-          output.writeln(output.dim('No v2 session files found — skipping.'));
+          output.writeln(output.dim('No v2 sessions directory found — skipping.'));
           skipped.push('sessions');
         }
-      } else {
-        output.writeln(output.dim('No v2 sessions directory found — skipping.'));
+      } catch (err) {
+        output.printError('Session migration failed', String(err));
         skipped.push('sessions');
       }
-    } catch (err) {
-      output.printError('Session migration failed', String(err));
-      skipped.push('sessions');
     }
 
     // --- Save migration state ---
@@ -359,7 +388,9 @@ const runCommand: Command = {
         migrated,
         skipped
       };
-      fs.writeFileSync(migrationStatePath, JSON.stringify(state, null, 2));
+      const tmpMig = `${migrationStatePath}.${process.pid}.${Date.now()}.tmp`;
+      fs.writeFileSync(tmpMig, JSON.stringify(state, null, 2), { flag: 'wx' });
+      fs.renameSync(tmpMig, migrationStatePath);
       output.writeln();
       output.printSuccess(`Migration state saved to ${migrationStatePath}`);
     }
@@ -551,18 +582,38 @@ const rollbackCommand: Command = {
         output.printError('No migration state found.', 'Run "migrate run" first before attempting rollback.');
         return { success: false, exitCode: 1 };
       }
+      if (fs.statSync(migrationStatePath).size > MAX_MIGRATE_FILE_BYTES) {
+        output.printError('Migration state file too large.');
+        return { success: false, exitCode: 1 };
+      }
       const raw = fs.readFileSync(migrationStatePath, 'utf-8');
-      migrationState = JSON.parse(raw);
+      migrationState = sanitizeJsonObject(JSON.parse(raw));
     } catch (err) {
       output.printError('Failed to read migration state', String(err));
       return { success: false, exitCode: 1 };
     }
 
-    const backupPath = migrationState.backupPath as string | null;
-    if (!backupPath) {
-      output.printError('No backup path in migration state.', 'Migration was run with --no-backup. Cannot rollback.');
+    const backupId = ctx.flags['backup-id'] as string | undefined;
+    if (backupId && (backupId.includes('/') || backupId.includes('\\') || backupId.includes('..'))) {
+      output.printError('Invalid backup ID: must not contain path separators.');
       return { success: false, exitCode: 1 };
     }
+    const rawBackupPath = backupId
+      ? path.join(cwd, '.monomind', 'backups', backupId)
+      : (migrationState.backupPath as string | null);
+
+    if (!rawBackupPath) {
+      output.printError('No backup path found. Provide --backup-id or run migration first.');
+      return { success: false, exitCode: 1 };
+    }
+
+    const resolvedBackup = path.resolve(rawBackupPath);
+    const allowedRoot = path.resolve(path.join(cwd, '.monomind'));
+    if (!resolvedBackup.startsWith(allowedRoot + path.sep) && resolvedBackup !== allowedRoot) {
+      output.printError('Backup path must be within the .monomind directory.');
+      return { success: false, exitCode: 1 };
+    }
+    const backupPath = resolvedBackup;
 
     if (!fs.existsSync(backupPath)) {
       output.printError('Backup directory not found.', `Expected: ${backupPath}`);
@@ -576,7 +627,7 @@ const rollbackCommand: Command = {
       const backupConfig = path.join(backupPath, 'monomind.config.json');
       if (fs.existsSync(backupConfig)) {
         const destConfig = path.join(cwd, 'monomind.config.json');
-        fs.copyFileSync(backupConfig, destConfig);
+        safeFileCopy(backupConfig, destConfig);
         // Remove v1 config
         const v1Config = path.join(v1Dir, 'config.json');
         if (fs.existsSync(v1Config)) {
@@ -593,7 +644,7 @@ const rollbackCommand: Command = {
         fs.mkdirSync(destMemory, { recursive: true });
         const files = fs.readdirSync(backupMemory);
         for (const f of files) {
-          fs.copyFileSync(path.join(backupMemory, f), path.join(destMemory, f));
+          safeFileCopy(path.join(backupMemory, f), path.join(destMemory, f));
         }
         output.printSuccess(`Restored: memory (${files.length} files)`);
         restored.push('memory');
@@ -606,7 +657,7 @@ const rollbackCommand: Command = {
         fs.mkdirSync(destSessions, { recursive: true });
         const files = fs.readdirSync(backupSessions);
         for (const f of files) {
-          fs.copyFileSync(path.join(backupSessions, f), path.join(destSessions, f));
+          safeFileCopy(path.join(backupSessions, f), path.join(destSessions, f));
         }
         // Remove v1 sessions
         const v1Sessions = path.join(v1Dir, 'sessions');

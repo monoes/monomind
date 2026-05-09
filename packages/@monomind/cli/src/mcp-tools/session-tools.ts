@@ -94,7 +94,9 @@ function listSessions(limit = 200): SessionRecord[] {
   const sessions: SessionRecord[] = [];
   for (const file of files) {
     try {
-      const data = readFileSync(join(dir, file.name), 'utf-8');
+      const filePath = join(dir, file.name);
+      if (statSync(filePath).size > MAX_SESSION_BYTES) continue;
+      const data = readFileSync(filePath, 'utf-8');
       sessions.push(JSON.parse(data));
     } catch {
       // Skip invalid files
@@ -111,7 +113,7 @@ function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: bo
   if (options.includeMemory) {
     try {
       const memoryPath = join(getProjectCwd(), STORAGE_DIR, 'memory', 'store.json');
-      if (existsSync(memoryPath)) {
+      if (existsSync(memoryPath) && statSync(memoryPath).size <= MAX_SESSION_BYTES) {
         data.memory = JSON.parse(readFileSync(memoryPath, 'utf-8'));
       }
     } catch { /* ignore */ }
@@ -120,7 +122,7 @@ function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: bo
   if (options.includeTasks) {
     try {
       const taskPath = join(getProjectCwd(), STORAGE_DIR, 'tasks', 'store.json');
-      if (existsSync(taskPath)) {
+      if (existsSync(taskPath) && statSync(taskPath).size <= MAX_SESSION_BYTES) {
         data.tasks = JSON.parse(readFileSync(taskPath, 'utf-8'));
       }
     } catch { /* ignore */ }
@@ -129,7 +131,7 @@ function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: bo
   if (options.includeAgents) {
     try {
       const agentPath = join(getProjectCwd(), STORAGE_DIR, 'agents', 'store.json');
-      if (existsSync(agentPath)) {
+      if (existsSync(agentPath) && statSync(agentPath).size <= MAX_SESSION_BYTES) {
         data.agents = JSON.parse(readFileSync(agentPath, 'utf-8'));
       }
     } catch { /* ignore */ }

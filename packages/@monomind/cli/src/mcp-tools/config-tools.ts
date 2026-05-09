@@ -4,7 +4,7 @@
  * Tool definitions for configuration management with file persistence.
  */
 
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 
@@ -48,10 +48,15 @@ function ensureConfigDir(): void {
   }
 }
 
+const MAX_CONFIG_STORE_BYTES = 5 * 1024 * 1024; // 5 MB
+
 function loadConfigStore(): ConfigStore {
   try {
     const path = getConfigPath();
     if (existsSync(path)) {
+      if (statSync(path).size > MAX_CONFIG_STORE_BYTES) {
+        return { values: { ...DEFAULT_CONFIG }, scopes: {}, version: '3.0.0', updatedAt: new Date().toISOString() };
+      }
       const data = readFileSync(path, 'utf-8');
       const parsed = JSON.parse(data) as ConfigStore;
       return {
@@ -75,9 +80,10 @@ function loadConfigStore(): ConfigStore {
 function saveConfigStore(store: ConfigStore): void {
   ensureConfigDir();
   store.updatedAt = new Date().toISOString();
-  const tmpPath = getConfigPath() + '.tmp';
+  const dest = getConfigPath();
+  const tmpPath = `${dest}.${process.pid}.${Date.now()}.tmp`;
   writeFileSync(tmpPath, JSON.stringify(store, null, 2), 'utf-8');
-  renameSync(tmpPath, getConfigPath());
+  renameSync(tmpPath, dest);
 }
 
 function getNestedValue(obj: Record<string, unknown>, key: string): unknown {

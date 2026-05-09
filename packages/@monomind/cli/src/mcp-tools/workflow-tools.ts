@@ -4,9 +4,12 @@
  * Tool definitions for workflow automation and orchestration.
  */
 
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { type MCPTool, getProjectCwd } from './types.js';
+
+const MAX_WORKFLOW_STORE_BYTES = 50 * 1024 * 1024; // 50 MB
 
 // Storage paths
 const STORAGE_DIR = '.monomind';
@@ -63,6 +66,9 @@ function loadWorkflowStore(): WorkflowStore {
   try {
     const path = getWorkflowPath();
     if (existsSync(path)) {
+      if (statSync(path).size > MAX_WORKFLOW_STORE_BYTES) {
+        return { workflows: {}, templates: {}, version: '3.0.0' };
+      }
       const data = readFileSync(path, 'utf-8');
       return JSON.parse(data);
     }
@@ -137,7 +143,7 @@ export const workflowTools: MCPTool[] = [
       const dryRun = options.dryRun as boolean | undefined;
 
       // Build workflow from template or inline
-      const workflowId = `workflow-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const workflowId = `workflow-${Date.now()}-${randomBytes(6).toString('hex')}`;
       const stages: Array<{ name: string; status: string; agents: string[]; duration?: number }> = [];
 
       // Generate stages based on template
@@ -232,7 +238,7 @@ export const workflowTools: MCPTool[] = [
     },
     handler: async (input) => {
       const store = loadWorkflowStore();
-      const workflowId = `workflow-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const workflowId = `workflow-${Date.now()}-${randomBytes(6).toString('hex')}`;
 
       const steps: WorkflowStep[] = ((input.steps as Array<{name?: string; type?: string; config?: Record<string, unknown>}>) || []).map((s, i) => ({
         stepId: `step-${i + 1}`,
@@ -638,7 +644,7 @@ export const workflowTools: MCPTool[] = [
           return { action, error: 'Workflow not found' };
         }
 
-        const templateId = `template-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const templateId = `template-${Date.now()}-${randomBytes(6).toString('hex')}`;
         const template: WorkflowRecord = {
           ...workflow,
           workflowId: templateId,
@@ -680,7 +686,7 @@ export const workflowTools: MCPTool[] = [
           return { action, error: 'Template not found' };
         }
 
-        const workflowId = `workflow-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const workflowId = `workflow-${Date.now()}-${randomBytes(6).toString('hex')}`;
         const workflow: WorkflowRecord = {
           ...template,
           workflowId,

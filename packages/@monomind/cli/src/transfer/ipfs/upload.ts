@@ -115,7 +115,9 @@ async function uploadToWeb3Storage(
     throw new Error(`Web3.storage upload failed: ${response.status} ${error}`);
   }
 
-  const result = await response.json() as { cid: string };
+  const rawText = await response.arrayBuffer();
+  if (rawText.byteLength > 64 * 1024) throw new Error('Web3.storage response too large');
+  const result = JSON.parse(new TextDecoder().decode(rawText)) as { cid: string };
   const cid = result.cid;
   const gateway = options.gateway || 'https://w3s.link';
 
@@ -180,7 +182,9 @@ async function uploadToPinata(
     throw new Error(`Pinata upload failed: ${response.status} ${error}`);
   }
 
-  const result = await response.json() as { IpfsHash: string; PinSize: number };
+  const rawText2 = await response.arrayBuffer();
+  if (rawText2.byteLength > 64 * 1024) throw new Error('Pinata response too large');
+  const result = JSON.parse(new TextDecoder().decode(rawText2)) as { IpfsHash: string; PinSize: number };
   const cid = result.IpfsHash;
   const gateway = options.gateway || 'https://gateway.pinata.cloud';
 
@@ -444,7 +448,9 @@ async function uploadToLocalIPFS(
     throw new Error(`Local IPFS upload failed: ${response.status} ${error}`);
   }
 
-  const result = await response.json() as { Hash: string; Size: string; Name: string };
+  const rawText3 = await response.arrayBuffer();
+  if (rawText3.byteLength > 64 * 1024) throw new Error('Local IPFS response too large');
+  const result = JSON.parse(new TextDecoder().decode(rawText3)) as { Hash: string; Size: string; Name: string };
   const cid = result.Hash;
 
   // Try to get external gateway URL if configured
