@@ -4,7 +4,7 @@
  * Tool definitions for configuration management with file persistence.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 
@@ -53,7 +53,13 @@ function loadConfigStore(): ConfigStore {
     const path = getConfigPath();
     if (existsSync(path)) {
       const data = readFileSync(path, 'utf-8');
-      return JSON.parse(data);
+      const parsed = JSON.parse(data) as ConfigStore;
+      return {
+        values: filterDangerousKeys(parsed.values ?? {}),
+        scopes: filterDangerousKeys(parsed.scopes ?? {}) as Record<string, Record<string, unknown>>,
+        version: typeof parsed.version === 'string' ? parsed.version : '3.0.0',
+        updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString(),
+      };
     }
   } catch {
     // Return default store on error
@@ -69,7 +75,9 @@ function loadConfigStore(): ConfigStore {
 function saveConfigStore(store: ConfigStore): void {
   ensureConfigDir();
   store.updatedAt = new Date().toISOString();
-  writeFileSync(getConfigPath(), JSON.stringify(store, null, 2), 'utf-8');
+  const tmpPath = getConfigPath() + '.tmp';
+  writeFileSync(tmpPath, JSON.stringify(store, null, 2), 'utf-8');
+  renameSync(tmpPath, getConfigPath());
 }
 
 function getNestedValue(obj: Record<string, unknown>, key: string): unknown {
@@ -87,11 +95,16 @@ function getNestedValue(obj: Record<string, unknown>, key: string): unknown {
 
 const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
-function filterDangerousKeys(obj: Record<string, unknown>): Record<string, unknown> {
+function filterDangerousKeys(obj: Record<string, unknown>, depth = 0): Record<string, unknown> {
   const filtered: Record<string, unknown> = {};
+  if (depth > 20) return filtered;
   for (const [key, value] of Object.entries(obj)) {
     if (!DANGEROUS_KEYS.has(key)) {
-      filtered[key] = value;
+      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+        filtered[key] = filterDangerousKeys(value as Record<string, unknown>, depth + 1);
+      } else {
+        filtered[key] = value;
+      }
     }
   }
   return filtered;
@@ -177,6 +190,15 @@ export const configTools: MCPTool[] = [
       const key = input.key as string;
       const value = input.value;
       const scope = (input.scope as string) || 'default';
+
+      for (const seg of key.split('.')) {
+        if (DANGEROUS_KEYS.has(seg)) {
+          return { success: false, error: `Forbidden key segment: "${seg}"` };
+        }
+      }
+      if (DANGEROUS_KEYS.has(scope)) {
+        return { success: false, error: `Forbidden scope: "${scope}"` };
+      }
 
       const previousValue = store.values[key];
 

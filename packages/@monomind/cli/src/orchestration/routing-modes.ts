@@ -95,7 +95,7 @@ export function parsePlan(output: unknown): string[] {
   try {
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) return parsed.map(String);
-    if (Array.isArray(parsed.subtasks)) return parsed.subtasks.map(String);
+    if (parsed !== null && typeof parsed === 'object' && Array.isArray(parsed.subtasks)) return parsed.subtasks.map(String);
   } catch {
     // not JSON — treat the whole string as a single subtask
   }
@@ -167,8 +167,14 @@ export class CoordinateModeExecutor extends ModeExecutor<CoordinateModeConfig> {
 export class CollaborateModeExecutor extends ModeExecutor<CollaborateModeConfig> {
   async execute(config: CollaborateModeConfig): Promise<ModeResult> {
     const start = Date.now();
-    const maxIterations = config.maxIterations ?? 5;
-    const convergencePhrase = config.convergencePhrase ?? 'APPROVED';
+    // Cap iterations: each iteration costs 2 LLM dispatches; an unbounded value
+    // turns this into an unbounded token-cost / OOM vector.
+    const maxIterations = Math.max(1, Math.min(config.maxIterations ?? 5, 20));
+    // Reject empty/short convergence phrase — empty string would make
+    // String(bResult.output).includes('') return true on iteration 1, bypassing
+    // the entire iterative review and locking in whatever Agent B produced.
+    const rawPhrase = (config.convergencePhrase ?? 'APPROVED').trim();
+    const convergencePhrase = rawPhrase.length >= 3 ? rawPhrase : 'APPROVED';
 
     const pad = new SharedScratchpad();
     const totalTokens = { input: 0, output: 0 };
@@ -194,8 +200,12 @@ export class CollaborateModeExecutor extends ModeExecutor<CollaborateModeConfig>
       this.addTokens(totalTokens, bResult.tokenUsage);
       lastOutput = bResult.output;
 
-      // Convergence check
-      if (String(bResult.output).includes(convergencePhrase)) {
+      // Convergence check — require the phrase as a stand-alone token so that
+      // an attacker who controls Agent A's output cannot embed `APPROVED` in
+      // prose and force premature convergence on iteration 1.
+      const escaped = convergencePhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const convergenceRe = new RegExp(`(^|\\W)${escaped}(\\W|$)`);
+      if (convergenceRe.test(String(bResult.output))) {
         return {
           mode: 'collaborate',
           output: lastOutput,

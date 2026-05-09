@@ -249,13 +249,38 @@ export class ClaimService extends EventEmitter {
     }
   }
 
+  // Single-flight save lock: serializes concurrent saveClaims() calls so that
+  // two writers cannot collide on the .tmp file or interleave their renames.
+  // Combined with the unique tmp suffix below, this defends against in-process
+  // corruption of claims.json. Cross-process safety still requires fcntl/flock
+  // around the read-modify-write at higher level.
+  private _saveQueue: Promise<void> = Promise.resolve();
   private async saveClaims(): Promise<void> {
+    // CRITICAL: do NOT let a single rejection (ENOSPC / EROFS / EACCES)
+    // poison the entire chain. Previously every subsequent saveClaims would
+    // inherit the rejection and silently skip _doSaveClaims, causing the
+    // in-memory Map to drift from disk indefinitely — a permanent
+    // authorization-state desync. Catch the chain link so the next link runs;
+    // re-expose the real rejection to the caller via a separate promise.
+    const next = this._saveQueue
+      .catch(() => undefined)
+      .then(() => this._doSaveClaims());
+    this._saveQueue = next.catch(() => undefined);
+    return next;
+  }
+
+  private async _doSaveClaims(): Promise<void> {
     const claimsFile = path.join(this.storagePath, 'claims.json');
     const data = {
       claims: Array.from(this.claims.values()),
       savedAt: new Date().toISOString(),
     };
-    fs.writeFileSync(claimsFile, JSON.stringify(data, null, 2));
+    // Unique tmp filename so a previous in-flight write cannot be clobbered
+    // by a concurrent fs.writeFileSync truncating the same .tmp path.
+    const { randomBytes } = await import('crypto');
+    const tmp = `${claimsFile}.${process.pid}.${Date.now()}.${randomBytes(4).toString('hex')}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+    fs.renameSync(tmp, claimsFile);
   }
 
   // ==========================================================================
@@ -423,6 +448,10 @@ export class ClaimService extends EventEmitter {
     }
     if (status === 'completed') {
       claim.progress = 100;
+      // Evict completed claims after saving to prevent unbounded Map growth
+      await this.saveClaims();
+      this.claims.delete(issueId);
+      return;
     }
 
     await this.saveClaims();
@@ -468,10 +497,14 @@ export class ClaimService extends EventEmitter {
   // Work Stealing
   // ==========================================================================
 
-  async markStealable(issueId: string, info: StealableInfo): Promise<void> {
+  async markStealable(issueId: string, info: StealableInfo, claimant?: Claimant): Promise<void> {
     const claim = this.claims.get(issueId);
     if (!claim) {
       throw new Error(`Issue ${issueId} is not claimed`);
+    }
+
+    if (claimant !== undefined && !this.isSameClaimant(claim.claimant, claimant)) {
+      throw new Error(`Issue ${issueId} is not owned by ${this.formatClaimant(claimant)}`);
     }
 
     claim.status = 'stealable';

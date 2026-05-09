@@ -16,8 +16,9 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
+import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
+import initSqlJs from 'sql.js';
+import type { Database as SqlJsDatabase } from 'sql.js';
 import { DomainEvent, AllDomainEvents } from './domain-events.js';
 
 // =============================================================================
@@ -491,8 +492,9 @@ export class EventStore extends EventEmitter {
 
     const data = this.db.export();
     const buffer = Buffer.from(data);
-
-    writeFileSync(this.config.databasePath, buffer);
+    const tmpPath = `${this.config.databasePath}.tmp`;
+    writeFileSync(tmpPath, buffer);
+    renameSync(tmpPath, this.config.databasePath);
 
     if (this.config.verbose) {
       console.log(`[EventStore] Persisted ${buffer.length} bytes to ${this.config.databasePath}`);
