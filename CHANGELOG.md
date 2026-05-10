@@ -4,6 +4,13 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.0] — 2026-05-10
+
+### Changed
+- Version bump to 1.9.0 across `@monomind/cli`, `monomind`, and root package
+
+---
+
 ## [1.8.0] — 2026-05-10
 
 ### Major Features
