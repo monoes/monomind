@@ -633,9 +633,16 @@ SESSION_ID=$(jq -r '.sessionId // empty' "$REPO_ROOT/.monomind/sessions/current.
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID not found in current.json — cannot continue iteration."; exit 1; }
 
 SESSION_FILE="$REPO_ROOT/.monomind/sessions/${SESSION_ID}.json"
+SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
 # Echo to stdout — bash variables don't survive tool call boundaries; only stdout is visible to the LLM
-jq '{artifacts:.artifacts,next_actions:.next_actions}' "$SESSION_FILE" 2>/dev/null \
-  || echo '{"artifacts":[],"next_actions":[]}'
+# Emit run summary (artifacts, next_actions, project_name) from the session file
+jq '{artifacts:.artifacts,next_actions:.next_actions,project_name:.project_name}' "$SESSION_FILE" 2>/dev/null \
+  || echo '{"artifacts":[],"next_actions":[],"project_name":""}'
+
+# Emit board_ids from current.json (not carried in SESSION_FILE) so Step 12c can look up board UUIDs
+echo "--- board_ids (from current.json) ---"
+jq '{board_ids:(.board_ids // {})}' "$SESSION_STATE" 2>/dev/null \
+  || echo '{"board_ids":{}}'
 ```
 
 Then evaluate the project's current state by examining:
@@ -678,7 +685,9 @@ Execute the chosen activity by invoking the appropriate domain skill directly (S
 - Content/Docs → invoke `/mastermind:content` with scope = new artifacts
 - Release → invoke `/mastermind:release` with project scope
 
-Always pass: the current brain_context, project_name, the relevant board_id, and mode = auto (iteration cycles never pause for confirmation).
+Always pass: the current brain_context, project_name (from the `project_name` field above), the relevant board_id (look up `.board_ids[<chosen_domain>]` from the `board_ids` map printed above), and mode = auto (iteration cycles never pause for confirmation).
+
+**Constraint:** Only invoke domains whose board_id already exists in the `board_ids` map. If the chosen activity maps to a domain not in `board_ids` (e.g. `release` was not activated in Step 6), choose the next highest-priority activity whose domain IS in `board_ids`, or invoke `build` as the safe fallback — its board is almost always present.
 
 #### 12d — Brain Write
 
