@@ -4,6 +4,14 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.3] — 2026-05-10
+
+### Fixed
+
+- **`monomind init` knowledge graph hook**: `graphify-freshen.cjs` and `control-start.cjs` were missing from the generated `SessionStart` hooks in `.claude/settings.json`. The knowledge graph was built once during init but never refreshed on subsequent Claude Code sessions. The `settings-generator.ts` now adds both hooks to `SessionStart` — `graphify-freshen.cjs` when `graphify: true` (the default), `control-start.cjs` always.
+
+---
+
 ## [1.9.2] — 2026-05-10
 
 ### Fixed
