@@ -2567,7 +2567,7 @@ const monographHealthTrendTool: MCPTool = {
     required: ['current'],
   },
   handler: async (args) => {
-    const { computeTrend, latestSnapshot, trendArrow } = await import('@monoes/monograph');
+    const { computeTrend, latestSnapshot, trendArrowHealth: trendArrow } = await import('@monoes/monograph');
     const dir = (args.snapshotDir as string | undefined) ?? '.monograph/snapshots';
     const prev = latestSnapshot(dir);
     if (!prev) return { content: [{ type: 'text' as const, text: 'No previous snapshot found' }] };
@@ -2681,7 +2681,7 @@ const monographChurnTool: MCPTool = {
     },
   },
   handler: async (args) => {
-    const { analyzeChurn, parseSince } = await import('@monoes/monograph');
+    const { analyzeChurn, parseSinceChurn: parseSince } = await import('@monoes/monograph');
     const root = (args.root as string | undefined) ?? getProjectCwd();
     const since = parseSince((args.since as string | undefined) ?? '3m');
     const result = await analyzeChurn(root, since as Parameters<typeof analyzeChurn>[1]);
@@ -4448,7 +4448,7 @@ const monographHealthTrendTypesTool: MCPTool = {
     required: ['root', 'action'],
   },
   handler: async (params) => {
-    const { computeOverallDirection, formatTrendMetric, trendArrow } = await import('@monoes/monograph');
+    const { computeOverallDirection, formatTrendMetric, trendArrowTypes: trendArrow } = await import('@monoes/monograph');
     if (params.action === 'overall-direction') {
       return { content: [{ type: 'text', text: JSON.stringify({ direction: computeOverallDirection((params.metrics ?? []) as never) }) }] };
     }
@@ -4552,7 +4552,7 @@ const monographSinceDurationTool: MCPTool = {
     required: ['root', 'since'],
   },
   handler: async (params) => {
-    const { parseSince, sinceDurationToGitFlag } = await import('@monoes/monograph');
+    const { parseSinceDuration: parseSince, sinceDurationToGitFlag } = await import('@monoes/monograph');
     const parsed = parseSince(params.since as string);
     return { content: [{ type: 'text', text: JSON.stringify({ ...parsed, gitFlag: sinceDurationToGitFlag(parsed as never) }) }] };
   },
