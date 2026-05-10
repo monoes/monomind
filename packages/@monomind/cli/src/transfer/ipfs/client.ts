@@ -22,6 +22,66 @@ export const IPFS_GATEWAYS = [
   'https://w3s.link', // web3.storage gateway
 ];
 
+/** Maximum response size for IPFS fetches — prevents OOM on attacker-controlled response bodies */
+const MAX_IPFS_RESPONSE_BYTES = 50 * 1024 * 1024; // 50 MB
+
+/**
+ * Allowlist gateway hosts to prevent SSRF when user-supplied gateways are passed in.
+ * Any preferredGateway must match this allowlist.
+ */
+const ALLOWED_GATEWAY_HOSTS = new Set([
+  'gateway.pinata.cloud',
+  'cloudflare-ipfs.com',
+  'ipfs.io',
+  'dweb.link',
+  'w3s.link',
+]);
+
+function isAllowedGatewayUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && ALLOWED_GATEWAY_HOSTS.has(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fetch a response body with a hard byte cap. Aborts the stream if the limit is exceeded
+ * to prevent OOM from attacker-controlled response bodies.
+ */
+async function readBodyWithLimit(response: Response, maxBytes: number): Promise<string> {
+  // Fast-path: trust Content-Length when present
+  const lengthHeader = response.headers.get('content-length');
+  if (lengthHeader) {
+    const declared = parseInt(lengthHeader, 10);
+    if (Number.isFinite(declared) && declared > maxBytes) {
+      throw new Error(`Response too large: ${declared} bytes (max ${maxBytes})`);
+    }
+  }
+  const reader = response.body?.getReader();
+  if (!reader) return '';
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        throw new Error(`Response too large: exceeded ${maxBytes} bytes`);
+      }
+      chunks.push(value);
+    }
+  }
+  // Concatenate and decode as UTF-8
+  const combined = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) { combined.set(c, offset); offset += c.byteLength; }
+  return new TextDecoder('utf-8').decode(combined);
+}
+
 /**
  * IPNS resolvers
  */
@@ -63,6 +123,8 @@ export async function resolveIPNS(
   ipnsName: string,
   preferredGateway?: string
 ): Promise<string | null> {
+  if (!isValidIPNS(ipnsName)) return null;
+  if (preferredGateway && !isAllowedGatewayUrl(preferredGateway)) return null;
   const resolvers = preferredGateway
     ? [preferredGateway, ...IPNS_RESOLVERS.filter(r => r !== preferredGateway)]
     : IPNS_RESOLVERS;
@@ -84,12 +146,15 @@ export async function resolveIPNS(
           }
         );
         if (response.ok) {
-          const data = await response.json() as { Path?: string };
+          const text = await readBodyWithLimit(response, 64 * 1024); // IPNS resolve is tiny
+          const data = JSON.parse(text) as { Path?: string };
           cid = data.Path?.replace('/ipfs/', '') || null;
         }
       }
 
-      // Method 2: Direct IPNS key resolution via gateway redirect
+      // Method 2: Direct IPNS key resolution via gateway redirect.
+      // Final URL must still be on a trusted gateway host (SSRF / open-redirect defense)
+      // and the extracted CID must pass `isValidCID` to prevent injection.
       if (!cid) {
         const response = await fetch(`${gateway}/ipns/${ipnsName}`, {
           method: 'HEAD',
@@ -97,11 +162,10 @@ export async function resolveIPNS(
           redirect: 'follow',
         });
 
-        if (response.ok) {
-          // Extract CID from the final URL after redirects
+        if (response.ok && isAllowedGatewayUrl(response.url)) {
           const finalUrl = response.url;
           const cidMatch = finalUrl.match(/\/ipfs\/([a-zA-Z0-9]+)/);
-          if (cidMatch) {
+          if (cidMatch && isValidCID(cidMatch[1])) {
             cid = cidMatch[1];
           }
         }
@@ -135,6 +199,8 @@ export async function fetchFromIPFS<T>(
   preferredGateway?: string
 ): Promise<T | null> {
   if (!isValidCID(cid)) return null;
+  // Reject preferred gateways outside the allowlist (SSRF defense)
+  if (preferredGateway && !isAllowedGatewayUrl(preferredGateway)) return null;
   const gateways = preferredGateway
     ? [preferredGateway, ...IPFS_GATEWAYS.filter(g => g !== preferredGateway)]
     : IPFS_GATEWAYS;
@@ -155,7 +221,8 @@ export async function fetchFromIPFS<T>(
       });
 
       if (response.ok) {
-        const data = await response.json() as T;
+        const text = await readBodyWithLimit(response, MAX_IPFS_RESPONSE_BYTES);
+        const data = JSON.parse(text) as T;
         const latency = Date.now() - startTime;
         console.log(`[IPFS] Fetched ${cid} from ${gateway} (${latency}ms)`);
         return data;
@@ -186,6 +253,7 @@ export async function fetchFromIPFSWithMetadata<T>(
   preferredGateway?: string
 ): Promise<FetchResult<T> | null> {
   if (!isValidCID(cid)) return null;
+  if (preferredGateway && !isAllowedGatewayUrl(preferredGateway)) return null;
   const gateways = preferredGateway
     ? [preferredGateway, ...IPFS_GATEWAYS.filter(g => g !== preferredGateway)]
     : IPFS_GATEWAYS;
@@ -203,7 +271,8 @@ export async function fetchFromIPFSWithMetadata<T>(
       });
 
       if (response.ok) {
-        const data = await response.json() as T;
+        const text = await readBodyWithLimit(response, MAX_IPFS_RESPONSE_BYTES);
+        const data = JSON.parse(text) as T;
         const latencyMs = Date.now() - startTime;
         const cached = response.headers.get('X-Cache')?.includes('HIT') ||
                        response.headers.get('CF-Cache-Status') === 'HIT';
@@ -232,6 +301,7 @@ export async function isPinned(
   gateway: string = 'https://ipfs.io'
 ): Promise<boolean> {
   if (!isValidCID(cid)) return false;
+  if (!isAllowedGatewayUrl(gateway)) return false;
   try {
     const response = await fetch(`${gateway}/ipfs/${cid}`, {
       method: 'HEAD',

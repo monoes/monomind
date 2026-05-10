@@ -1,0 +1,16 @@
+{"type":"loop:tick","loopId":"repeat-1778276065659-11559-66009","command":"/monomind:repeat","completedRep":1,"nextRep":2,"nextAt":1778277445650,"ts":1778277385000}
+{"type":"session:start","session":"mm-20260508T215834","domain":"architect","ts":1778277514000}
+{"type":"loop:tick","loopId":"repeat-1778276065659-11559-66009","command":"/monomind:repeat","completedRep":2,"nextRep":3,"nextAt":1778278027577,"ts":1778277967000}
+{"type":"session:complete","session":"mm-20260508T215834","domain":"architect","ts":1778277967000}
+{"type":"loop:tick","loopId":"repeat-1778276065659-11559-66009","command":"/monomind:repeat","completedRep":3,"nextRep":4,"nextAt":1778295236107,"ts":1778295176000}
+{"type":"session:start","session":"mm-20260509T025517","domain":"architect","ts":1778295328000}
+{"type":"session:complete","session":"mm-20260509T025517","domain":"architect","ts":1778295685000}
+{"type":"loop:tick","loopId":"repeat-1778276065659-11559-66009","command":"/monomind:repeat","completedRep":4,"nextRep":5,"nextAt":1778295753976,"ts":1778295693000}
+{"type":"loop:tick","loopId":"repeat-1778276065659-11559-66009","command":"/monomind:repeat","completedRep":5,"nextRep":6,"nextAt":1778296338986,"ts":1778296279000}
+{"type":"session:start","session":"mm-20260509T031318","domain":"architect","ts":1778296410000}
+{"type":"loop:tick","loopId":"repeat-1778276065659-11559-66009","command":"/monomind:repeat","completedRep":6,"nextRep":7,"nextAt":1778296782568,"ts":1778296722000}
+{"type":"session:start","session":"mm-20260509T032100","domain":"architect","ts":1778296809000}
+{"type":"loop:tick","loopId":"repeat-1778276065659-11559-66009","command":"/monomind:repeat","completedRep":7,"nextRep":8,"nextAt":1778297312046,"ts":1778297252000}
+{"type":"loop:tick","loopId":"repeat-1778276065659-11559-66009","command":"/monomind:repeat","completedRep":8,"nextRep":9,"nextAt":1778297750157,"ts":1778297690000}
+{"type":"loop:tick","loopId":"repeat-1778276065659-11559-66009","command":"/monomind:repeat","completedRep":9,"nextRep":10,"nextAt":1778298231074,"ts":1778298171000}
+{"type":"loop:complete","loopId":"repeat-1778276065659-11559-66009","command":"/monomind:repeat","ranReps":10,"ts":1778298622000}

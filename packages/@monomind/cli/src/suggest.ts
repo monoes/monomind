@@ -16,6 +16,16 @@ export function levenshteinDistance(a: string, b: string): number {
   if (m === 0) return n;
   if (n === 0) return m;
 
+  // Bound input length — the Wagner-Fischer matrix is O(m × n) memory.
+  // Without this cap, any caller that passes a long stdin-derived string
+  // (shell completion of a malformed command, untrusted CLI arg) can OOM
+  // the process. For ranking purposes the worst-case distance is `max(m,n)`,
+  // so returning that is safe.
+  const MAX_LEN = 256;
+  if (m > MAX_LEN || n > MAX_LEN || Math.abs(m - n) > 64) {
+    return Math.max(m, n);
+  }
+
   // Create distance matrix
   const d: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
 

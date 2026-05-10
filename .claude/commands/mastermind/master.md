@@ -7,28 +7,36 @@ description: Mastermind top-level orchestrator — receives any business prompt,
 
 ---
 
-**MASTERMIND**
-*Your autonomous business brain.*
+**MASTERMIND** — autonomous business execution across specialist domains.
 
-Describe what you want to accomplish and I'll handle the rest — or pick a domain directly.
+Describe your goal. Mastermind identifies the relevant domains, spawns specialist agents in parallel, and synthesizes results. Or invoke a domain directly.
 
-| Domain | Command | What it does |
-|---|---|---|
-| Full automation | *(you're here)* | Route to all needed domains automatically |
-| Development | `/mastermind:build` | Ship features, fix bugs, refactor |
-| Architecture | `/mastermind:architect` | Review structure, dedup files, DDD, design, migration, system design (`--scope review|design|deduplicate|migrate|all`) |
-| Ideas | `/mastermind:idea` | Brainstorm products, features, pivots |
-| Marketing | `/mastermind:marketing` | Campaigns, copy, SEO, social |
-| Review | `/mastermind:review` | Code, content, strategy, metrics |
-| Research | `/mastermind:research` | Market, competitor, user research |
-| Content | `/mastermind:content` | Blog, threads, docs, newsletters |
-| Release | `/mastermind:release` | Version, changelog, deploy |
-| Sales | `/mastermind:sales` | Outreach, proposals, pipeline |
-| Operations | `/mastermind:ops` | Workflow automation, reporting |
-| Finance | `/mastermind:finance` | Invoicing, tracking, forecasting |
-| Brain | `/mastermind:brain` | Inspect and manage your business memory |
+---
 
-> Flags: `--auto` (skip confirmation) · `--confirm` (always ask before spawning) · `--project <name>` (set project name) · `--iterate <N>` (run N autonomous improvement cycles after initial execution)
+**Build & ship**
+`/mastermind:build` — code, features, bug fixes, test suites
+`/mastermind:architect` — system structure, DDD, deduplication, migration (`--scope review|design|deduplicate|migrate|all`)
+`/mastermind:idea` — products, features, pivots, opportunity framing
+`/mastermind:content` — blog, threads, documentation, newsletters
+
+**Understand & decide**
+`/mastermind:research` — market intelligence, competitors, user insights
+`/mastermind:review` — code quality, content critique, strategy audit
+`/mastermind:brain` — inspect and manage business memory
+
+**Go to market & operate**
+`/mastermind:marketing` — campaigns, copy, SEO, social strategy
+`/mastermind:sales` — outreach, proposals, pipeline management
+`/mastermind:release` — versioning, changelogs, deployment
+`/mastermind:ops` — workflow automation, process reporting
+`/mastermind:finance` — invoicing, forecasting, cost tracking
+
+**Persistent agent orgs** — named teams that coordinate across sessions
+`/mastermind:createorg` — define an org: roles, hierarchy, goal
+`/mastermind:runorg` — start a saved org; boss agent assigns work to all roles
+
+---
+Flags: `--auto` · `--confirm` · `--project <name>` · `--iterate <N>`
 
 ---
 
@@ -150,7 +158,7 @@ Each Task call must include a complete briefing following the Monotask Task Brie
 - The board ID
 - The specific goal for this domain
 - The project name and run context
-- Instruction to use `/monomind:createtask` for all sub-tasks
+- Instruction to create monotask cards directly using `monotask card create $BOARD_ID $COL_TODO_ID "<title>" --json` for all sub-tasks
 - Instruction to use `/monomind:do` to execute
 - Instruction to spawn specialized agents using the domain-appropriate swarm topology
 - Instruction to return the unified output schema when done
@@ -173,7 +181,13 @@ GOAL: <domain-specific goal extracted from prompt>
 SESSION ID: <sessionId>   ← use this in all dashboard events
 
 YOUR RESPONSIBILITIES:
-1. Break this goal into discrete tasks using /monomind:createtask
+1. Resolve column IDs first:
+   ```bash
+   columns=$(monotask column list "$BOARD_ID" --json)
+   COL_TODO_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Todo" or .name == "Backlog") | .id' | head -1)
+   COL_DONE_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Done") | .id' | head -1)
+   ```
+   Then break this goal into discrete tasks by creating monotask cards: `monotask card create "$BOARD_ID" "$COL_TODO_ID" "<title>" --json`
    Each task description MUST follow the Monotask Task Briefing Standard (full context, goal, scope, constraints, success criteria, agent, swarm, dependencies)
 2. Spawn specialized agents for each task using the Task tool:
    - Backend work: subagent_type "backend-dev"

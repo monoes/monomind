@@ -89,8 +89,8 @@ function loadConfig(cwd: string): Record<string, unknown> | null {
 // Main start action
 const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const daemon = ctx.flags.daemon as boolean;
-  const port = (ctx.flags.port as number) || DEFAULT_PORT;
-  const topology = (ctx.flags.topology as string) || DEFAULT_TOPOLOGY;
+  const port = ctx.flags.port as number | undefined;
+  const topology = ctx.flags.topology as string | undefined;
   const skipMcp = ctx.flags['skip-mcp'] as boolean;
   const cwd = ctx.cwd;
 
@@ -215,9 +215,21 @@ const startAction = async (ctx: CommandContext): Promise<CommandResult> => {
       output.writeln();
       output.printInfo('Running in daemon mode. Use "monomind stop" to stop.');
 
-      // Store PID for daemon management
+      // Store PID for daemon management.
+      // wx flag refuses to follow a pre-staged symlink at the path; mode 0o600
+      // keeps the file from being world-readable on multi-user systems.
       const daemonPidPath = path.join(cwd, '.monomind', 'daemon.pid');
-      fs.writeFileSync(daemonPidPath, String(process.pid));
+      try {
+        fs.writeFileSync(daemonPidPath, String(process.pid), { flag: 'wx', mode: 0o600 });
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code === 'EEXIST') {
+          // Stale PID file — caller should have verified the prior daemon is dead
+          fs.unlinkSync(daemonPidPath);
+          fs.writeFileSync(daemonPidPath, String(process.pid), { flag: 'wx', mode: 0o600 });
+        } else {
+          throw e;
+        }
+      }
 
       // Detach from parent process for true daemon behavior
       if (process.platform !== 'win32') {

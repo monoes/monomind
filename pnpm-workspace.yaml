@@ -1,2 +1,4 @@
 packages:
   - 'packages/@monomind/*'
+  - 'packages/@monoes/*'
+  - 'packages/plugins/*'

@@ -122,6 +122,22 @@ export class CommandParser {
     });
   }
 
+  /**
+   * Reserved keys that would either pollute the prototype chain (`__proto__`,
+   * `constructor`, `prototype`) or shadow `Object.prototype` methods that
+   * downstream consumers commonly call (`hasOwnProperty`, `toString`,
+   * `valueOf`, `isPrototypeOf`, `propertyIsEnumerable`). All are rejected.
+   */
+  private static readonly RESERVED_FLAG_KEYS = new Set([
+    '__proto__', 'constructor', 'prototype',
+    'hasOwnProperty', 'toString', 'valueOf', 'isPrototypeOf', 'propertyIsEnumerable',
+  ]);
+
+  private setFlagSafe(flags: ParsedFlags, key: string, value: string | number | boolean): void {
+    if (CommandParser.RESERVED_FLAG_KEYS.has(key)) return;
+    flags[key] = value;
+  }
+
   parse(args: string[]): ParseResult {
     const result: ParseResult = {
       command: [],
@@ -238,22 +254,33 @@ export class CommandParser {
         // --flag=value
         const key = arg.slice(2, equalIndex);
         const value = arg.slice(equalIndex + 1);
-        flags[this.normalizeKey(key)] = this.parseValue(value);
+        this.setFlagSafe(flags, this.normalizeKey(key), this.parseValue(value));
       } else if (arg.startsWith('--no-')) {
-        // --no-flag (boolean negation)
+        // --no-flag (boolean negation) — only accept for declared boolean flags
+        // so attackers can't covertly toggle off arbitrary security controls
+        // (--no-verify-signature, --no-confirm, etc.) when the underlying flag
+        // doesn't exist as a boolean option. Unknown --no-X is treated as a
+        // string flag passed verbatim, which validation can then reject.
         const key = arg.slice(5);
-        flags[this.normalizeKey(key)] = false;
+        const normalizedKey = this.normalizeKey(key);
+        if (booleanFlags.has(normalizedKey)) {
+          this.setFlagSafe(flags, normalizedKey, false);
+        } else {
+          // Record under the prefixed name so it surfaces as unknown rather
+          // than silently downgrading any flag the user happens to spell.
+          this.setFlagSafe(flags, this.normalizeKey('no-' + key), true);
+        }
       } else {
         const key = arg.slice(2);
         const normalizedKey = this.normalizeKey(key);
 
         if (booleanFlags.has(normalizedKey)) {
-          flags[normalizedKey] = true;
+          this.setFlagSafe(flags, normalizedKey, true);
         } else if (nextIndex < args.length && !args[nextIndex].startsWith('-')) {
-          flags[normalizedKey] = this.parseValue(args[nextIndex]);
+          this.setFlagSafe(flags, normalizedKey, this.parseValue(args[nextIndex]));
           nextIndex++;
         } else {
-          flags[normalizedKey] = true;
+          this.setFlagSafe(flags, normalizedKey, true);
         }
       }
     } else if (arg.startsWith('-')) {
@@ -266,18 +293,18 @@ export class CommandParser {
         const normalizedKey = this.normalizeKey(key);
 
         if (booleanFlags.has(normalizedKey)) {
-          flags[normalizedKey] = true;
+          this.setFlagSafe(flags, normalizedKey, true);
         } else if (nextIndex < args.length && !args[nextIndex].startsWith('-')) {
-          flags[normalizedKey] = this.parseValue(args[nextIndex]);
+          this.setFlagSafe(flags, normalizedKey, this.parseValue(args[nextIndex]));
           nextIndex++;
         } else {
-          flags[normalizedKey] = true;
+          this.setFlagSafe(flags, normalizedKey, true);
         }
       } else {
         // Multiple short flags combined (e.g., -abc)
         for (const char of chars) {
           const key = aliases[char] || char;
-          flags[this.normalizeKey(key)] = true;
+          this.setFlagSafe(flags, this.normalizeKey(key), true);
         }
       }
     }
@@ -290,9 +317,17 @@ export class CommandParser {
     if (value.toLowerCase() === 'true') return true;
     if (value.toLowerCase() === 'false') return false;
 
-    // Number
-    const num = Number(value);
-    if (!isNaN(num) && value.trim() !== '') return num;
+    // Number — only coerce if the string is unambiguously a canonical number.
+    // The previous code coerced any numeric-looking string, which silently
+    // dropped leading zeros ("00042" → 42), mangled IDs/tokens above
+    // Number.MAX_SAFE_INTEGER, and could cause tenant/identity mix-ups when
+    // downstream consumers strict-equal-compared against stored strings.
+    if (value.trim() !== '' && /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/.test(value)) {
+      const num = Number(value);
+      if (Number.isFinite(num) && Number.isSafeInteger(num) || (!Number.isInteger(num) && Number.isFinite(num))) {
+        return num;
+      }
+    }
 
     // String
     return value;

@@ -3,7 +3,8 @@
  * Converts between SystemConfig and MonomindConfig types
  */
 
-import type { SystemConfig } from '@monomind/shared';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SystemConfig = any;
 import type { MonomindConfig } from './types.js';
 
 /**

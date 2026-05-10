@@ -1,0 +1,15 @@
+{
+  "id": "mm-20260509T032100",
+  "ts": 1778296809000,
+  "prompt": "",
+  "status": "running",
+  "domains": [],
+  "events": [
+    {
+      "type": "session:start",
+      "session": "mm-20260509T032100",
+      "domain": "architect",
+      "ts": 1778296809000
+    }
+  ]
+}

@@ -56,11 +56,18 @@ export class InterruptController {
       output: process.stdout,
     });
 
+    // Strip control characters from interpolated fields. ANSI escape sequences
+    // in any of these fields would let a malicious agent or LLM-generated task
+    // description redraw the screen and trick the user into approving an
+    // entirely different action than the one shown — defeating this very gate.
+    const safe = (s: unknown): string =>
+      String(s ?? '').replace(/[\x00-\x1f\x7f-\x9f]/g, '?').slice(0, 500);
+
     console.log('\n' + '='.repeat(60));
     console.log('[MONOMIND] Interrupt — Human approval required');
-    console.log(`  Agent:      ${agentSlug}`);
-    console.log(`  Task:       ${taskDescription}`);
-    console.log(`  Checkpoint: ${checkpointId}`);
+    console.log(`  Agent:      ${safe(agentSlug)}`);
+    console.log(`  Task:       ${safe(taskDescription)}`);
+    console.log(`  Checkpoint: ${safe(checkpointId)}`);
     console.log('='.repeat(60));
     console.log('  Options: [y] approve  [n] reject  [e] edit task');
 
