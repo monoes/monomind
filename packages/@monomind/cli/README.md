@@ -57,7 +57,7 @@ cd your-project
 monomind init
 
 # Add MCP server to Claude Code
-claude mcp add monomind npx monomind@latest mcp start
+claude mcp add monomind npx monomind mcp start
 ```
 
 That's it. Monomind is now active in your Claude Code sessions.
@@ -161,7 +161,7 @@ Coordinate multiple agents working on the same problem:
 /mastermind
 
 # Or configure manually
-monomind swarm init --topology hierarchical --max-agents 8 --strategy specialized
+monomind swarm init --topology hierarchical --agents 8 --strategy specialized
 ```
 
 ### Self-Learning Memory

@@ -4,6 +4,38 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.2] — 2026-05-10
+
+### Fixed
+
+#### mastermind:master command — comprehensive hardening (12 fixes across 5 review rounds)
+
+- **Atomic writes**: Step 3 `current.json` initial write and Step 11 session file write now use `tmp+mv` pattern; prevents zero-byte corruption on interrupted writes
+- **Bash version guards**: Steps 9 and 11 aligned to `(( BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] < 400 ))` arithmetic form; Step 11 guard fixed from weak `[ -z "$BASH_VERSION" ]` check
+- **Step 12a context**: bash block now emits `project_name` and full `board_ids` map to stdout; iteration cycles can now look up board UUIDs for any domain
+- **Step 12c board constraint**: iteration cycles now only invoke domains already present in `board_ids`; prevents spawning domain managers with no board to write to
+- **Session-scoped goals file**: `GOALS_FILE` changed from `domain_goals.json` to `${SESSION_ID}_goals.json` to prevent cross-session collision
+- **Goal hydration safety**: `@tsv` deserialization replaced with NUL-delimited pairs (`jq -j` + `read -r -d ''`) to prevent backslash/tab corruption; null goal values default to `""` via `// ""`
+- **Zero-domain detection**: Steps 9 and 11 now track `found_domain_files`; reports `status: blocked` instead of false-success when no domain output files exist
+- **`monotask space boards add` visibility**: changed from silent `|| true` to emit WARN on failure
+- **Phase C substitution guidance**: clarified that `<status>`, `<path1>`, `<action1>` are runtime placeholders filled by spawned agents, not pre-substitution targets
+- **Step 12a invisible variables**: replaced bash variable assignment with `jq` stdout emit so LLM sees artifacts/next_actions across tool call boundaries
+- **`domain_managers_json` guard**: empty-string guard added before `jq --argjson` to prevent invalid JSON argument
+- **`project_name` guard**: abort with error in Step 6 if `project_name` is empty after reload
+
+#### mastermind domain skills — board column lookup
+
+- Added column-ID lookup bash blocks to `build`, `content`, `createorg`, `finance`, `marketing`, `ops`, `release`, `research`, `review`, and `sales` skills
+
+---
+
+## [1.9.1] — 2026-05-10
+
+### Changed
+- Version bump to 1.9.1
+
+---
+
 ## [1.9.0] — 2026-05-10
 
 ### Changed
