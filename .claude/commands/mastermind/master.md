@@ -106,7 +106,21 @@ Complexity threshold for manager agent: any of these is true:
 - Has external dependencies (APIs, services)
 - Is estimated to take more than one conversation turn
 
-**Per-domain goal extraction:** For each activated domain, extract a one-sentence goal from the prompt describing what that domain must accomplish. If no domain-specific goal can be extracted (vague prompt), default that domain's goal to the full resolved prompt. Store as `domain_goals[<domain>]` in the associative array initialized in Step 6 below.
+**Per-domain goal extraction:** For each activated domain, extract a one-sentence goal from the prompt describing what that domain must accomplish. Then **run the following Bash block**, substituting `<domain_goals_json>` with a JSON object mapping each domain name to its one-sentence goal (use the full `resolved_prompt` as the value for any domain where no specific goal is extractable):
+
+```bash
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
+[ -f "$SESSION_STATE" ] || { echo "ERROR: current.json not found"; exit 1; }
+
+# LLM: substitute <domain_goals_json> with the extracted goals object before running.
+# Example: {"build":"Ship the auth module with tests","marketing":"Draft launch email series"}
+GOALS_JSON='<domain_goals_json>'
+
+jq --argjson goals "$GOALS_JSON" '. + {domain_goals:$goals}' \
+  "$SESSION_STATE" > "$SESSION_STATE.tmp" && mv "$SESSION_STATE.tmp" "$SESSION_STATE"
+echo "Domain goals written to current.json"
+```
 
 ### Step 5 — Plan Output
 
@@ -119,8 +133,8 @@ Prompt: <prompt>
 Mode: <auto|confirm>
 
 Domains activated:
-  ✦ build → Development Manager agent → board: <project>/development
-  ✦ marketing → Marketing Manager agent → board: <project>/marketing
+  ✦ build → Development Manager agent → board: <project>/development (will be created in Step 6)
+  ✦ marketing → Marketing Manager agent → board: <project>/marketing (will be created in Step 6)
 
 Monotask space: <project_name>
 Brain loaded: <N> principles, <M> domain summaries
@@ -184,13 +198,29 @@ for domain in $domains_needed; do
   [ -z "${domain_goals[$domain]}" ] && domain_goals[$domain]="$resolved_prompt"
 done
 
-# Persist domains_needed and per-domain goals so Step 7 Phase A/B can reload them
-# (each Bash tool call runs in a fresh shell — associative arrays don't survive)
-domains_goals_json=$(for d in $domains_needed; do
-  jq -n --arg k "$d" --arg v "${domain_goals[$d]}" '{key:$k,value:$v}'
-done | jq -s 'from_entries // {}')
-jq --arg domains "$domains_needed" --argjson goals "$domains_goals_json" \
-  '. + {domains_needed:($domains | split(" ") | map(select(length>0))), domain_goals:$goals}' \
+# Persist all session state needed by later shells — board/col IDs, goals, domain list
+# (each Bash tool call is a fresh shell — associative arrays don't survive)
+_to_json_map() {
+  local -n _arr=$1
+  for k in "${!_arr[@]}"; do
+    jq -n --arg k "$k" --arg v "${_arr[$k]}" '{key:$k,value:$v}'
+  done | jq -s 'from_entries // {}'
+}
+domains_goals_json=$(_to_json_map domain_goals)
+board_ids_json=$(_to_json_map board_ids)
+todo_cols_json=$(_to_json_map todo_cols)
+doing_cols_json=$(_to_json_map doing_cols)
+done_cols_json=$(_to_json_map done_cols)
+
+jq --arg domains "$domains_needed" \
+   --argjson goals "$domains_goals_json" \
+   --argjson boards "$board_ids_json" \
+   --argjson todos "$todo_cols_json" \
+   --argjson doings "$doing_cols_json" \
+   --argjson dones "$done_cols_json" \
+  '. + {domains_needed:($domains | split(" ") | map(select(length>0))),
+         domain_goals:$goals, board_ids:$boards,
+         todo_cols:$todos, doing_cols:$doings, done_cols:$dones}' \
   "$REPO_ROOT/.monomind/sessions/current.json" > "$REPO_ROOT/.monomind/sessions/current.json.tmp" \
   && mv "$REPO_ROOT/.monomind/sessions/current.json.tmp" "$REPO_ROOT/.monomind/sessions/current.json"
 ```
@@ -266,6 +296,24 @@ for domain in $domains_needed; do
   domain_managers[$domain]="$manager"
   echo "Domain manager for $domain: $manager"
 done
+
+# Persist domain_managers so Phase C can reload them without stdout parsing
+domain_managers_json=$(for k in "${!domain_managers[@]}"; do
+  jq -n --arg k "$k" --arg v "${domain_managers[$k]}" '{key:$k,value:$v}'
+done | jq -s 'from_entries // {}')
+jq --argjson mgrs "$domain_managers_json" '. + {domain_managers:$mgrs}' \
+  "$SESSION_STATE" > "$SESSION_STATE.tmp" && mv "$SESSION_STATE.tmp" "$SESSION_STATE"
+
+# Emit board/column lookup for LLM use in Phase C Task construction:
+echo "--- Phase C board/col IDs (loaded from current.json) ---"
+for domain in $domains_needed; do
+  board=$(jq -r --arg d "$domain" '.board_ids[$d] // ""' "$SESSION_STATE")
+  todo=$(jq -r --arg d "$domain" '.todo_cols[$d] // ""' "$SESSION_STATE")
+  doing=$(jq -r --arg d "$domain" '.doing_cols[$d] // ""' "$SESSION_STATE")
+  done_c=$(jq -r --arg d "$domain" '.done_cols[$d] // ""' "$SESSION_STATE")
+  mgr=$(jq -r --arg d "$domain" '.domain_managers[$d] // "coordinator"' "$SESSION_STATE")
+  echo "DOMAIN=$domain MANAGER=$mgr BOARD=$board TODO=$todo DOING=$doing DONE=$done_c"
+done
 ```
 
 **Phase B — Dashboard dispatch** + **Phase C — Task spawning** (run in one message — B is a Bash call, C is the Task tool calls; they are independent of each other):
@@ -289,9 +337,11 @@ done
 
 Spawn ALL domain manager agents in ONE message using the Task tool (parallel execution).
 
+**Before constructing the Task calls:** read the `DOMAIN=... MANAGER=... BOARD=... TODO=... DOING=... DONE=...` lines echoed by Phase A to get the actual UUID values for each domain. Use `MANAGER` as `subagent_type`, `BOARD`/`TODO`/`DOING`/`DONE` as the board and column IDs in the prompt. Do NOT use placeholder strings — these are real UUIDs from Phase A output.
+
 Each Task call must include a complete briefing following the Monotask Task Briefing Standard from `_protocol.md`. Include:
 - The full BRAIN CONTEXT block
-- The board ID
+- The board ID (from Phase A output above)
 - The specific goal for this domain
 - The project name and run context
 - Instruction to create monotask cards directly using `monotask card create $BOARD_ID $COL_TODO_ID "<title>" --json` for all sub-tasks
@@ -363,7 +413,7 @@ Task({
 
 ### Step 8 — Collect Reports
 
-Domain managers run in foreground (no `run_in_background`), so their unified output schemas are returned synchronously as each Task call completes. Collect each schema as it arrives. If a manager reports `status: blocked`, record it but continue collecting from all others — do not abort the run.
+Domain managers run in foreground (no `run_in_background`), so their unified output schemas are returned synchronously as each Task call completes. Each domain manager writes its canonical output schema to `.monomind/sessions/<SESSION_ID>/<domain>.json` before returning — that file is the source of truth for Step 9 aggregation. The Task tool's text return value is informational only; do not attempt to parse it as JSON. If a manager reports `status: blocked`, record it but continue collecting from all others — do not abort the run.
 
 ### Step 9 — Synthesize
 
