@@ -5,7 +5,7 @@
  * Implements ADR-024: Embeddings MCP Tools
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 import type { MCPTool } from './types.js';
 
@@ -13,6 +13,30 @@ import type { MCPTool } from './types.js';
 const CONFIG_DIR = '.monomind';
 const EMBEDDINGS_CONFIG = 'embeddings.json';
 const MODELS_DIR = 'models';
+
+// Input validation caps — embeddings handlers operate on caller-supplied text and
+// vectors. Without these caps an attacker can pass a 100M-entry array and OOM the
+// process, or a 50MB string and saturate the hash-fallback embedding loop.
+const MAX_TEXT_LENGTH = 64 * 1024;
+const MAX_VECTOR_DIM = 8192;
+
+function validateText(t: unknown, field: string): string {
+  if (typeof t !== 'string') throw new Error(`${field}: must be a string`);
+  if (t.length > MAX_TEXT_LENGTH) throw new Error(`${field}: text too long (max ${MAX_TEXT_LENGTH})`);
+  return t;
+}
+
+function validateVector(v: unknown, field: string): number[] {
+  if (!Array.isArray(v)) throw new Error(`${field}: must be a number[]`);
+  if (v.length === 0) throw new Error(`${field}: empty vector`);
+  if (v.length > MAX_VECTOR_DIM) throw new Error(`${field}: vector too large (max ${MAX_VECTOR_DIM})`);
+  for (let i = 0; i < v.length; i++) {
+    if (typeof v[i] !== 'number' || !Number.isFinite(v[i])) {
+      throw new Error(`${field}: contains non-finite value at index ${i}`);
+    }
+  }
+  return v as number[];
+}
 
 interface EmbeddingsConfig {
   model: string;
@@ -71,7 +95,10 @@ function loadConfig(): EmbeddingsConfig | null {
 
 function saveConfig(config: EmbeddingsConfig): void {
   ensureConfigDir();
-  writeFileSync(getConfigPath(), JSON.stringify(config, null, 2), 'utf-8');
+  const dest = getConfigPath();
+  const tmp = dest + '.tmp';
+  writeFileSync(tmp, JSON.stringify(config, null, 2), 'utf-8');
+  renameSync(tmp, dest);
 }
 
 // Real ONNX embedding generation via memory-initializer
@@ -288,7 +315,9 @@ export const embeddingsTools: MCPTool[] = [
         };
       }
 
-      const text = input.text as string;
+      let text: string;
+      try { text = validateText(input.text, 'text'); }
+      catch (e) { return { success: false, error: (e as Error).message }; }
       const useHyperbolic = input.hyperbolic === true && config.hyperbolic.enabled;
 
       // Generate real ONNX embedding
@@ -353,8 +382,11 @@ export const embeddingsTools: MCPTool[] = [
         };
       }
 
-      const text1 = input.text1 as string;
-      const text2 = input.text2 as string;
+      let text1: string, text2: string;
+      try {
+        text1 = validateText(input.text1, 'text1');
+        text2 = validateText(input.text2, 'text2');
+      } catch (e) { return { success: false, error: (e as Error).message }; }
       const metric = (input.metric as string) || 'cosine';
 
       // Generate real ONNX embeddings for both texts

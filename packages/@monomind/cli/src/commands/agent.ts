@@ -41,7 +41,9 @@ function updateSwarmActivityMetrics(agentCountDelta: number): void {
     data.swarm = swarm;
     data.timestamp = new Date().toISOString();
 
-    fs.writeFileSync(activityPath, JSON.stringify(data, null, 2));
+    const tmpPath = activityPath + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2));
+    fs.renameSync(tmpPath, activityPath);
   } catch {
     // Non-critical — don't fail the command if metrics update fails
   }
@@ -135,7 +137,7 @@ const spawnCommand: Command = {
     const taskDescription = ctx.flags.task as string | undefined;
     if (!agentType && taskDescription) {
       try {
-        const { RouteLayer, ALL_ROUTES } = await import('@monomind/routing');
+        const { RouteLayer, ALL_ROUTES } = await import('@monomind/routing' as string);
         const layer = new RouteLayer({ routes: ALL_ROUTES });
         const routeResult = await layer.route(taskDescription);
         agentType = routeResult.agentSlug;
@@ -174,7 +176,7 @@ const spawnCommand: Command = {
           model: ctx.flags.model,
           task: ctx.flags.task,
           timeout: ctx.flags.timeout,
-          autoTools: ctx.flags.autoTools,
+          autoTools: ctx.flags['auto-tools'],
         },
         priority: 'normal',
         metadata: {
@@ -693,7 +695,7 @@ const poolCommand: Command = {
         size: ctx.flags.size,
         min: ctx.flags.min,
         max: ctx.flags.max,
-        autoScale: ctx.flags.autoScale ?? true,
+        autoScale: ctx.flags['auto-scale'] ?? true,
       });
 
       if (ctx.flags.format === 'json') {

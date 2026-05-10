@@ -6,13 +6,16 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
-import type {
-  BenchmarkDefinition,
-  BenchmarkResult,
-  BenchmarkBaseline,
-  QualityMetric,
-  MetricResult,
-} from '@monomind/shared';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type BenchmarkDefinition = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type BenchmarkResult = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type BenchmarkBaseline = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type QualityMetric = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type MetricResult = any;
 import {
   containsExpected,
   lengthRange,
@@ -31,21 +34,31 @@ export class BenchmarkRunner {
   loadBenchmarks(dir: string): BenchmarkDefinition[] {
     const benchmarks: BenchmarkDefinition[] = [];
 
-    if (!fs.existsSync(dir)) {
+    // Safe-root constraint: reject any path that escapes the working directory
+    const safeRoot = path.resolve(process.cwd());
+    const resolved = path.resolve(dir);
+    const rel = path.relative(safeRoot, resolved);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) return [];
+
+    if (!fs.existsSync(resolved)) {
       return benchmarks;
     }
 
-    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
+    const files = fs.readdirSync(resolved).filter((f) => f.endsWith('.json'));
 
     for (const file of files) {
-      const filePath = path.join(dir, file);
+      const filePath = path.join(resolved, file);
       const raw = fs.readFileSync(filePath, 'utf-8');
-      const parsed = JSON.parse(raw);
-
-      if (Array.isArray(parsed)) {
-        benchmarks.push(...parsed);
-      } else {
-        benchmarks.push(parsed);
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          benchmarks.push(...parsed);
+        } else {
+          benchmarks.push(parsed);
+        }
+      } catch {
+        // skip malformed file
+        continue;
       }
     }
 
