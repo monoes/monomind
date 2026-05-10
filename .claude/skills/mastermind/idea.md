@@ -313,7 +313,55 @@ monotask card move "$BOARD_ID" "$CARD_ID" "$COL_ICED" --json
 monotask card comment add "$BOARD_ID" "$CARD_ID" "Blocked during elaboration: <issue>"
 ```
 
-#### 6b. Task Decomposition
+#### 6b. User Confirmation Gate
+
+Before generating any tasks, present a review table of all elaborated ideas to the user.
+
+Print this exact format:
+
+```
+╔══════════════════════════════════════════════════════════════════════╗
+║  IDEA REVIEW — Please confirm before task generation                ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+#  | Title                          | Category          | Impact | Effort | Track
+---|--------------------------------|-------------------|--------|--------|-------
+1  | <title>                        | <category>        | <N>/10 | <N>/10 | dev / ops
+2  | <title>                        | <category>        | <N>/10 | <N>/10 | dev / ops
+...
+
+To proceed: reply with one of:
+  • "go" — generate tasks for all ideas above
+  • "remove 2,4" — drop ideas by number, generate tasks for the rest
+  • "remove 3 | add detail to 1: <your notes>" — remove some, annotate others
+  • "add detail to 2: <your notes>" — annotate an idea before decomposing
+  • "stop" — cancel task generation
+
+Waiting for your confirmation.
+```
+
+Wait for the user's response before continuing. Do not spawn any agents until a reply is received.
+
+**Process the user's reply:**
+
+- **"go"**: proceed with all elaborated ideas.
+- **"remove N[,N...]"**: remove those ideas from the elaboration list. Move their ideation cards to `Iced`:
+  ```bash
+  monotask card comment add "$BOARD_ID" "$CARD_ID" "Removed by user before task generation"
+  monotask card move "$BOARD_ID" "$CARD_ID" "$COL_ICED" --json
+  ```
+- **"add detail to N: <notes>"**: append the notes as a card comment before decomposing:
+  ```bash
+  monotask card comment add "$BOARD_ID" "$CARD_ID" "User notes: <notes>"
+  ```
+- **"stop"**: skip Step 6c and Step 7. Print a summary of ideas in Elaborated/Iced/Rejected and return `status: partial`.
+- Combined instructions ("remove 2,4 | add detail to 1: ...") are processed together.
+
+After applying all user instructions, proceed to Step 6c with the remaining ideas.
+
+---
+
+#### 6c. Task Decomposition
 
 **Spawn decomposition agents by track** — run both in parallel if both tracks have elaborated ideas:
 
@@ -347,7 +395,7 @@ FLAGGED
 END_TASKS_OUTPUT
 ```
 
-**After both decomposition agents return**, the outer skill creates task cards on the appropriate board for each task's category.
+**After both decomposition agents return**, the outer skill creates task cards on the appropriate board for each task's category. Each task card inherits the parent idea's `impact` and `effort` scores from the VERDICTS_OUTPUT parsed in Step 5 — look up by `parent_card_id`.
 
 ---
 
@@ -415,10 +463,14 @@ else
 fi
 
 TASK_CARD_ID=$(monotask card create "$TARGET_BOARD" "$COL_TARGET" "<task title>" --json | jq -r '.id')
+# Inherit impact and effort from parent idea (looked up from VERDICTS_OUTPUT by parent_card_id)
+monotask card set-impact "$TARGET_BOARD" "$TASK_CARD_ID" <parent_impact>
+monotask card set-effort "$TARGET_BOARD" "$TASK_CARD_ID" <parent_effort>
 monotask card comment add "$TARGET_BOARD" "$TASK_CARD_ID" \
   "SOURCE: mastermind:idea | <first 100 chars of prompt>
 AGENT: <agent>
-EFFORT: <effort>/10
+TASK EFFORT: <task_effort>/10
+PARENT IDEA IMPACT: <parent_impact>/10  PARENT IDEA EFFORT: <parent_effort>/10
 CATEGORY: <category>
 PARENT IDEA: <idea title> (card: <parent_card_id> on ideation board)"
 monotask card label add "$TARGET_BOARD" "$TASK_CARD_ID" "mastermind:idea"
