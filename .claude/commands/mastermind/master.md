@@ -197,7 +197,7 @@ declare -A board_ids todo_cols doing_cols done_cols domain_goals
 # Use NUL-delimited pairs (not @tsv) to safely handle backslashes, tabs, and other special chars in goals
 while IFS= read -r -d '' k && IFS= read -r -d '' v; do
   [[ -n "$k" ]] && domain_goals[$k]="$v"
-done < <(jq -j '.domain_goals // {} | to_entries[] | (.key + "\u0000" + .value + "\u0000")' "$SESSION_STATE" 2>/dev/null)
+done < <(jq -j '.domain_goals // {} | to_entries[] | (.key + "\u0000" + (.value // "") + "\u0000")' "$SESSION_STATE" 2>/dev/null)
 
 # Loop over every active domain — LLM: replace DOMAINS_LIST_HERE with the resolved domain list
 domains_needed="DOMAINS_LIST_HERE"
