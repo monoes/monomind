@@ -45,7 +45,19 @@ If this skill is invoked directly (not by master):
 
 1. Load brain context following _protocol.md Brain Load Procedure (namespace: `release`)
 2. Run intake from _intake.md if prompt is vague
-3. Create or find monotask space `<project_name>`, create board `release`
+3. Follow _protocol.md Monotask Space+Board Setup Procedure:
+   ```bash
+   project_name="${project_name:-$(basename "$PWD")}"
+   space_id=$(monotask space list 2>/dev/null | awk -F' \| ' -v n="$project_name" '$2==n{print $1}' | head -1)
+   [ -z "$space_id" ] && space_id=$(monotask space create "$project_name" 2>&1 | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+   [ -z "$space_id" ] && { echo "ERROR: Could not find or create space '$project_name'"; exit 1; }
+   board_id=$(monotask board create "release" --json | jq -r '.id // empty')
+   [ -z "$board_id" ] && { echo "ERROR: Failed to create release board"; exit 1; }
+   monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
+   todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id')
+   doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id')
+   done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id')
+   ```
 4. Proceed with complexity assessment below
 5. At end: follow _protocol.md Brain Write Procedure (namespace: `release`)
 
@@ -79,8 +91,8 @@ STEP 2 — CREATE TASKS
 For each release stage, create a monotask card on the project board. First look up column IDs and assign shell variables:
 ```bash
 columns=$(monotask column list "$BOARD_ID" --json)
-COL_TODO_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Todo" or .name == "Backlog") | .id' | head -1)
-COL_DONE_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Done") | .id' | head -1)
+COL_TODO_ID=$(echo "$columns" | jq -r '.[] | select(.title == "Todo" or .title == "Backlog") | .id' | head -1)
+COL_DONE_ID=$(echo "$columns" | jq -r '.[] | select(.title == "Done") | .id' | head -1)
 ```
 Then create the card:
 ```bash
