@@ -117,7 +117,9 @@ SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
 # Use a file (not a shell variable) to avoid quoting issues with apostrophes in goal text.
 # Example content: {"build":"Ship the auth module","marketing":"Draft launch email series"}
 # One JSON object, keys = domain names, values = one-sentence goals.
-GOALS_FILE="$REPO_ROOT/.monomind/sessions/domain_goals.json"
+SESSION_ID=$(jq -r '.sessionId // empty' "$SESSION_STATE" 2>/dev/null)
+[ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID missing in current.json — run Step 3 first"; exit 1; }
+GOALS_FILE="$REPO_ROOT/.monomind/sessions/${SESSION_ID}_goals.json"
 cat > "$GOALS_FILE" << 'GOALS_EOF'
 <domain_goals_json>
 GOALS_EOF
@@ -173,6 +175,7 @@ SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
 SESSION_ID=$(jq -r '.sessionId // empty' "$SESSION_STATE" 2>/dev/null)
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID missing in current.json — run Step 3 first"; exit 1; }
 project_name=$(jq -r '.project_name // ""' "$SESSION_STATE")
+[ -z "$project_name" ] && { echo "ERROR: project_name is empty in current.json — run Step 3 first"; exit 1; }
 resolved_prompt=$(jq -r '.prompt // ""' "$SESSION_STATE")
 
 # domains_needed: NOT yet in current.json at this point — must be LLM-substituted inline.
@@ -319,6 +322,7 @@ done
 domain_managers_json=$(for k in "${!domain_managers[@]}"; do
   jq -n --arg k "$k" --arg v "${domain_managers[$k]}" '{key:$k,value:$v}'
 done | jq -s 'from_entries // {}')
+[ -z "$domain_managers_json" ] && domain_managers_json="{}"
 jq --argjson mgrs "$domain_managers_json" '. + {domain_managers:$mgrs}' \
   "$SESSION_STATE" > "$SESSION_STATE.tmp" && mv "$SESSION_STATE.tmp" "$SESSION_STATE"
 
@@ -371,7 +375,7 @@ BOARD=$(jq -r --arg d "$domain" '.board_ids[$d] // ""' "$SESSION_STATE") \
 TODO=$(jq -r --arg d "$domain" '.todo_cols[$d] // ""' "$SESSION_STATE") \
 DOING=$(jq -r --arg d "$domain" '.doing_cols[$d] // ""' "$SESSION_STATE") \
 DONE=$(jq -r --arg d "$domain" '.done_cols[$d] // ""' "$SESSION_STATE") \
-GOAL=$(jq -r --arg d "$domain" '.domain_goals[$d] // .prompt' "$SESSION_STATE")"
+GOAL=$(jq -r --arg d "$domain" '.domain_goals[$d] // .prompt' "$SESSION_STATE" | tr -d '\n')"
 done
 ```
 
@@ -389,7 +393,15 @@ Each Task call must include a complete briefing following the Monotask Task Brie
 
 Example Task call for Development Manager. Substitute every `<…>` placeholder with its resolved value before calling Task. `subagent_type` is the **string value** of `$domain_manager_build` (e.g. `"Backend Architect"`), not a variable reference.
 
-**IMPORTANT — `<SESSION_ID>` appears 4 times in the template below (lines with `sid`, `SESSION_ID`, and the output file path). ALL occurrences must be replaced with the resolved value — including those inside the nested curl/jq strings. Missing any one of them will emit events with the literal string `<SESSION_ID>` as the session identifier, breaking dashboard correlation.**
+**IMPORTANT — `<SESSION_ID>` appears 6 times in the template below. ALL must be replaced with the resolved value:**
+1. `SESSION ID: <SESSION_ID>` — the header line in the prompt
+2. `--arg sid '<SESSION_ID>'` in the agent:spawn curl call
+3. `--arg sid '<SESSION_ID>'` in the intercom curl call
+4. `mkdir -p "…/sessions/<SESSION_ID>"` — the output directory
+5. `> "…/sessions/<SESSION_ID>/build.json"` — the output file path
+6. `--arg sid '<SESSION_ID>'` in the domain:complete curl call
+
+Missing any one causes silent failures (output files written to a literal `<SESSION_ID>` directory that doesn't exist; Step 9 finds nothing and reports `complete` with zero domains).
 
 ```javascript
 Task({
@@ -537,7 +549,7 @@ Show the action summary (Step 9). If any compaction ran during Step 10, append:
 **Persist session state for iteration cycles:** Aggregate artifacts from per-domain output files written by each domain manager, then persist to disk so Step 12 can load it:
 
 ```bash
-[ -z "$BASH_VERSION" ] && { echo "ERROR: this block requires bash"; exit 1; }
+[ "${BASH_VERSINFO[0]:-0}" -lt 4 ] && { echo "ERROR: bash 4+ required (current: ${BASH_VERSION:-unknown}). Install: brew install bash"; exit 1; }
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
 
