@@ -139,10 +139,21 @@ If mode = auto: proceed immediately.
 Follow the Monotask Space+Board Setup Procedure from `_protocol.md`. Resolve the space **once**, then create one board per active domain. Use `project_name` as the space name so all boards across repos and domains share the same space.
 
 ```bash
-# Require bash for associative arrays — fail fast if running in sh/zsh
-[ -z "$BASH_VERSION" ] && { echo "ERROR: this block requires bash"; exit 1; }
+# Require bash 4+ for associative arrays (macOS ships bash 3.2; use brew bash)
+[ "${BASH_VERSINFO[0]:-0}" -lt 4 ] && { echo "ERROR: bash 4+ required (current: $BASH_VERSION). Install: brew install bash"; exit 1; }
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
+
+# Reload persisted context (this is a fresh shell; Step 3 wrote these)
+SESSION_ID=$(jq -r '.sessionId // empty' "$SESSION_STATE" 2>/dev/null)
+[ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID missing in current.json — run Step 3 first"; exit 1; }
+project_name=$(jq -r '.project_name // ""' "$SESSION_STATE")
+resolved_prompt=$(jq -r '.prompt // ""' "$SESSION_STATE")
+
+# domains_needed: NOT yet in current.json at this point — must be LLM-substituted inline.
+# Replace the literal "$domains_needed" below with the space-separated domain list
+# resolved in Step 4 (e.g. "build marketing sales"). Domain names must be single words.
 
 # Resolve space once for all domains
 # Use awk with literal pipe to avoid BSD awk \| regex fragility
@@ -154,6 +165,7 @@ space_id=$(monotask space list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$2); 
 declare -A board_ids todo_cols doing_cols done_cols domain_goals
 
 # Loop over every active domain — substitute $domains_needed with the resolved list
+[ -z "$domains_needed" ] && { echo "ERROR: domains_needed is empty — nothing to do"; exit 1; }
 for domain in $domains_needed; do
   board_id=$(monotask board create "$domain" --json | jq -r '.id // empty')
   [ -z "$board_id" ] && { echo "ERROR: Failed to create $domain board"; exit 1; }
@@ -176,7 +188,7 @@ done
 # (each Bash tool call runs in a fresh shell — associative arrays don't survive)
 domains_goals_json=$(for d in $domains_needed; do
   jq -n --arg k "$d" --arg v "${domain_goals[$d]}" '{key:$k,value:$v}'
-done | jq -s 'from_entries')
+done | jq -s 'from_entries // {}')
 jq --arg domains "$domains_needed" --argjson goals "$domains_goals_json" \
   '. + {domains_needed:($domains | split(" ") | map(select(length>0))), domain_goals:$goals}' \
   "$REPO_ROOT/.monomind/sessions/current.json" > "$REPO_ROOT/.monomind/sessions/current.json.tmp" \
@@ -190,6 +202,9 @@ jq --arg domains "$domains_needed" --argjson goals "$domains_goals_json" \
 **Phase A — Registry selection** (run as one Bash call; must complete before Phase C):
 
 ```bash
+# Require bash 4+ for associative arrays (macOS ships bash 3.2; use brew bash)
+[ "${BASH_VERSINFO[0]:-0}" -lt 4 ] && { echo "ERROR: bash 4+ required (current: $BASH_VERSION). Install: brew install bash"; exit 1; }
+
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 REGISTRY="$REPO_ROOT/.monomind/registry.json"
 
@@ -286,6 +301,8 @@ Each Task call must include a complete briefing following the Monotask Task Brie
 
 Example Task call for Development Manager. Substitute every `<…>` placeholder with its resolved value before calling Task. `subagent_type` is the **string value** of `$domain_manager_build` (e.g. `"Backend Architect"`), not a variable reference.
 
+**IMPORTANT — `<SESSION_ID>` appears 4 times in the template below (lines with `sid`, `SESSION_ID`, and the output file path). ALL occurrences must be replaced with the resolved value — including those inside the nested curl/jq strings. Missing any one of them will emit events with the literal string `<SESSION_ID>` as the session identifier, breaking dashboard correlation.**
+
 ```javascript
 Task({
   subagent_type: "<value of domain_manager_build, e.g. Backend Architect>",
@@ -364,13 +381,14 @@ overall_status="complete"
 completed_domains=()
 for domain_file in "$REPO_ROOT/.monomind/sessions/${SESSION_ID}"/*.json; do
   [ -f "$domain_file" ] || continue
-  status=$(jq -r '.status // "blocked"' "$domain_file")
   domain=$(jq -r '.domain // ""' "$domain_file")
+  [ -z "$domain" ] && continue  # skip auxiliary files that aren't domain output schemas
+  status=$(jq -r '.status // "blocked"' "$domain_file")
   case "$status" in
     blocked) overall_status="blocked" ;;
     partial) [ "$overall_status" != "blocked" ] && overall_status="partial" ;;
   esac
-  [ "$status" = "complete" ] && [ -n "$domain" ] && completed_domains+=("$domain")
+  [ "$status" = "complete" ] && completed_domains+=("$domain")
 done
 echo "overall_status=$overall_status completed_domains=${completed_domains[*]}"
 
@@ -448,13 +466,14 @@ completed_domains=()
 overall_status="complete"
 for domain_file in "$REPO_ROOT/.monomind/sessions/${SESSION_ID}"/*.json; do
   [ -f "$domain_file" ] || continue
-  status=$(jq -r '.status // "blocked"' "$domain_file")
   domain=$(jq -r '.domain // ""' "$domain_file")
+  [ -z "$domain" ] && continue  # skip auxiliary files that aren't domain output schemas
+  status=$(jq -r '.status // "blocked"' "$domain_file")
   case "$status" in
     blocked) overall_status="blocked" ;;
     partial) [ "$overall_status" != "blocked" ] && overall_status="partial" ;;
   esac
-  [ "$status" = "complete" ] && [ -n "$domain" ] && completed_domains+=("$domain")
+  [ "$status" = "complete" ] && completed_domains+=("$domain")
   while IFS= read -r art; do all_artifacts+=("$art"); done \
     < <(jq -r '.artifacts[]? // empty' "$domain_file" 2>/dev/null)
   while IFS= read -r act; do all_next_actions+=("$act"); done \
@@ -498,9 +517,10 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SESSION_ID=$(jq -r '.sessionId // empty' "$REPO_ROOT/.monomind/sessions/current.json" 2>/dev/null)
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID not found in current.json — cannot continue iteration."; exit 1; }
 
-session_state=$(cat "$REPO_ROOT/.monomind/sessions/${SESSION_ID}.json" 2>/dev/null || echo '{}')
-last_artifacts=$(echo "$session_state" | jq -r '.artifacts[]?' 2>/dev/null)
-last_next_actions=$(echo "$session_state" | jq -r '.next_actions[]?' 2>/dev/null)
+SESSION_FILE="$REPO_ROOT/.monomind/sessions/${SESSION_ID}.json"
+# Read directly from file — avoids newline stripping and echo metacharacter issues
+last_artifacts=$(jq -r '.artifacts[]? // empty' "$SESSION_FILE" 2>/dev/null)
+last_next_actions=$(jq -r '.next_actions[]? // empty' "$SESSION_FILE" 2>/dev/null)
 ```
 
 Then evaluate the project's current state by examining:
