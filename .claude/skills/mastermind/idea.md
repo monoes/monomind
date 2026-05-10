@@ -57,7 +57,8 @@ For simple prompts (single agent, single output):
 
 1. Spawn one Task agent with the ideation request as a self-contained briefing
 2. Collect output
-3. Return unified output schema with `status: complete`
+3. If called standalone (not from master): follow _protocol.md Brain Write Procedure (namespace: `idea`)
+4. Return unified output schema with `status: complete`
 
 ---
 
@@ -69,6 +70,7 @@ Set up the space and ideation board. The ideation board has a dedicated pipeline
 
 ```bash
 project_name="${project_name:-$(basename "$PWD")}"
+date=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 # Find or create space
 space_id=$(monotask space list 2>/dev/null | awk -F' \| ' -v n="$project_name" '$2==n{print $1}' | head -1)
@@ -130,43 +132,45 @@ COL_NEW: ${COL_NEW}
 YOUR GOAL: ${prompt}
 
 STEP 1 — PLAN
-Decompose the ideation goal into distinct angles of exploration. For each angle, identify:
+Decompose the ideation goal into distinct exploration angles. For each angle, identify:
 - Perspective (market, user, technical, competitive)
 - Which specialist to assign
 - Expected output format
-- Dependencies between angles
 
-STEP 2 — CREATE IDEA CARDS
-For each angle, create a card in the New column:
+STEP 2 — SPAWN SPECIALISTS
+Spawn one Task agent per angle (all in parallel, mesh topology). Each agent receives the
+angle description, brain context, and project context, and must return a JSON array of ideas:
+- Market research:    subagent_type "researcher"
+- Trend analysis:     subagent_type "Trend Researcher"
+- User perspective:   subagent_type "UX Researcher"
+- Growth angle:       subagent_type "Growth Hacker"
+- Content/narrative:  subagent_type "Content Creator"
 
-  result=$(monotask card create "${BOARD_ID}" "${COL_NEW}" "<angle summary ≤80 chars>" --json)
+Each specialist must return ideas in this format:
+[
+  { "title": "...", "description": "...", "category": "feature | technical-baseline" }
+]
+
+STEP 3 — DEDUPLICATE
+Collect all ideas from all specialists. Drop any idea whose title is more than 80% similar
+to an already-kept idea (fuzzy match). Keep the richer description when deduplicating.
+
+STEP 4 — CREATE CARDS AND RETURN
+For each unique idea, create one card in the New column (COL_NEW = ${COL_NEW}):
+
+  result=$(monotask card create "${BOARD_ID}" "${COL_NEW}" "<idea title ≤80 chars>" --json)
   CARD_ID=$(echo "$result" | jq -r '.id // empty')
-  monotask card set-description "${BOARD_ID}" "$CARD_ID" "<angle description>"
-  monotask card comment add "${BOARD_ID}" "$CARD_ID" "CONTEXT: ${date} | Project: ${project_name}
-SCOPE: <market | users | technology | competitors>
-CONSTRAINTS: <product constraints, brand voice, strategic limits>
-AGENT: <researcher | Trend Researcher | Product Manager | Growth Hacker | Content Creator>"
+  monotask card comment add "${BOARD_ID}" "$CARD_ID" "DESCRIPTION: <2-3 sentence description>
+CATEGORY: <feature | technical-baseline>
+SOURCE: <which specialist angle produced this>"
   monotask card label add "${BOARD_ID}" "$CARD_ID" "mastermind-idea"
 
-STEP 3 — EXECUTE
-Spawn one Task agent per angle (all in parallel, mesh topology):
-- Market research:     subagent_type "researcher"
-- Trend analysis:      subagent_type "Trend Researcher"
-- User perspective:    subagent_type "UX Researcher"
-- Growth angle:        subagent_type "Growth Hacker"
-- Content/narrative:   subagent_type "Content Creator"
-
-Each agent receives: the angle description, brain context, and the project context.
-
-STEP 4 — DEDUPLICATE AND RETURN
-Collect all ideas from the specialist agents. Deduplicate by title similarity — drop any idea whose title is more than 80% similar to an already-kept idea.
-
-For each unique idea, return a structured entry in a JSON block labelled IDEAS_OUTPUT:
+Then output a JSON block labelled IDEAS_OUTPUT with one entry per unique idea:
 
 IDEAS_OUTPUT
 [
   {
-    "card_id": "<monotask card ID created in Step 2>",
+    "card_id": "<monotask card ID just created>",
     "title": "<idea title>",
     "description": "<2-3 sentence description>",
     "category": "feature | technical-baseline",
@@ -183,20 +187,22 @@ Parse the `IDEAS_OUTPUT` JSON block from the agent's response. If zero ideas wer
 
 ### Step 5 — Validation (Product Manager Evaluation)
 
-Spawn a single `Product Manager` agent via the Task tool. Provide it with:
-- All ideas from Step 4 (titles, descriptions, card IDs)
+Spawn a single `Product Manager` agent via the Task tool. The PM agent has Bash tool access and is responsible for both producing verdicts and executing all board updates directly.
+
+Provide the PM agent with:
+- All ideas from Step 4 (titles, descriptions, card IDs, BOARD_ID, and all COL_* variables)
 - The `brain_context`
 - The original `prompt`
 
-For **each idea**, the agent must return one verdict plus **impact** (0–10) and **effort** (0–10) scores:
+The PM agent must, for **each idea**, determine one verdict plus **impact** (0–10) and **effort** (0–10) scores:
 
 | Verdict | Criteria |
 |---------|----------|
-| **evaluated** | Worth pursuing. Include a `skipElaboration` boolean (`true` = straightforward, `false` = needs deeper research) and a 1-2 sentence value statement. |
+| **evaluated** | Worth pursuing. Set a `skipElaboration` boolean (`true` = straightforward, no deep research needed; `false` = edge cases should be explored). Include a 1-2 sentence value statement. |
 | **iced** | Good potential but needs a question answered first. Include the blocking question. |
 | **rejected** | Out of scope, infeasible, or low value. Include a 1-sentence reason. |
 
-Execute board updates for each verdict:
+The PM agent must run these board updates directly using Bash tool:
 
 ```bash
 # evaluated
@@ -216,7 +222,24 @@ monotask card move "$BOARD_ID" "$CARD_ID" "$COL_REJECTED" --json
 monotask card comment add "$BOARD_ID" "$CARD_ID" "Rejected: <reason>"
 ```
 
-If **all** ideas were iced or rejected, output a summary table and STOP — skip Steps 6–7.
+The PM agent must also output a structured block so the outer skill can proceed:
+
+```
+VERDICTS_OUTPUT
+[
+  {
+    "card_id": "<card ID>",
+    "title": "<idea title>",
+    "verdict": "evaluated | iced | rejected",
+    "skipElaboration": true | false,
+    "impact": <0-10>,
+    "effort": <0-10>
+  }
+]
+END_VERDICTS_OUTPUT
+```
+
+After the PM agent completes, parse `VERDICTS_OUTPUT`. If **all** ideas are iced or rejected, output a summary table and STOP — skip Steps 6–7.
 
 ---
 
@@ -231,22 +254,35 @@ monotask card move "$BOARD_ID" "$CARD_ID" "$COL_ELABORATED" --json
 
 For ideas with `skipElaboration: false`, spawn two agents in parallel via the Task tool:
 
-1. `feature-dev:code-explorer` — traces execution paths, maps dependencies, surfaces codebase constraints for each idea.
-2. `researcher` (with WebSearch) — finds prior art, edge cases, implementation pitfalls.
+1. `feature-dev:code-explorer` — traces execution paths, maps dependencies, surfaces codebase constraints relevant to each idea. Must return findings keyed by idea title.
+2. `researcher` (with WebSearch) — finds prior art, edge cases, implementation pitfalls for each idea. Must return findings keyed by idea title.
 
 Provide both with: the list of `skipElaboration: false` ideas (titles, descriptions, card IDs) + `brain_context`.
 
-After both complete, for each idea they processed:
+Each agent must output their findings in this format:
+```
+ELABORATION_OUTPUT
+[
+  {
+    "card_id": "<idea card ID>",
+    "findings": "<detailed findings for this idea>",
+    "blocking_issue": "<blocking issue if any, or null>"
+  }
+]
+END_ELABORATION_OUTPUT
+```
+
+After both agents complete, merge their outputs per idea (same card_id → concatenate findings). For each idea:
 
 ```bash
-monotask card comment add "$BOARD_ID" "$CARD_ID" "Edge cases: <findings>"
-monotask card comment add "$BOARD_ID" "$CARD_ID" "Technical notes: <codebase constraints, implementation path>"
-monotask card comment add "$BOARD_ID" "$CARD_ID" "Prior art: <references found>"
+# Write merged findings as card comments
+monotask card comment add "$BOARD_ID" "$CARD_ID" "Edge cases & prior art: <researcher findings>"
+monotask card comment add "$BOARD_ID" "$CARD_ID" "Codebase constraints: <code-explorer findings>"
 
-# If no blocking issue found:
+# If neither agent found a blocking issue:
 monotask card move "$BOARD_ID" "$CARD_ID" "$COL_ELABORATED" --json
 
-# If a blocking issue IS found (mutually exclusive with the above):
+# If either agent found a blocking issue (mutually exclusive with the above):
 monotask card move "$BOARD_ID" "$CARD_ID" "$COL_ICED" --json
 monotask card comment add "$BOARD_ID" "$CARD_ID" "Blocked during elaboration: <issue>"
 ```
@@ -258,18 +294,25 @@ Spawn a single `Software Architect` agent via the Task tool. Provide it with:
 - The `brain_context`
 - The original `prompt`
 
-The architect must return a `TASKS` array. For each elaborated idea, produce 2–6 subtasks. If an idea's scope is unclear, the architect should flag it (no subtasks for that idea) and include the card_id + a clarifying question.
+The architect must output a `TASKS_OUTPUT` block. For each elaborated idea, produce 2–6 subtasks. If an idea's scope is unclear, flag it instead of decomposing — include the card_id and a clarifying question in a `FLAGGED` entry.
 
-Each task entry in the TASKS array must include:
-```json
-{
-  "parent_card_id": "<ideation board card ID>",
-  "title": "<subtask title ≤80 chars>",
-  "description": "<what to build/do>",
-  "agent": "<recommended subagent_type>",
-  "effort": <1-10>,
-  "has_prerequisites": false
-}
+```
+TASKS_OUTPUT
+[
+  {
+    "parent_card_id": "<ideation board card ID>",
+    "title": "<subtask title ≤80 chars>",
+    "description": "<what to build/do>",
+    "agent": "<recommended subagent_type>",
+    "effort": <1-10>,
+    "has_prerequisites": <true | false>
+  }
+]
+FLAGGED
+[
+  { "card_id": "<ideation card ID>", "question": "<what needs clarifying>" }
+]
+END_TASKS_OUTPUT
 ```
 
 **After the Architect returns**, the outer skill creates cards on the `monomind-task` board:
@@ -280,7 +323,7 @@ Each task entry in the TASKS array must include:
 TASK_BOARD_ID=$(monotask board create "monomind-task" --json | jq -r '.id // empty')
 monotask space boards add "$space_id" "$TASK_BOARD_ID" >/dev/null 2>&1 || true
 npx monomind@latest memory store --key "monomind-task board_id" --value "$TASK_BOARD_ID" --namespace monomind
-# Create columns matching createtask standard
+# Columns matching createtask standard
 monotask column create "$TASK_BOARD_ID" "Backlog"       --json >/dev/null
 monotask column create "$TASK_BOARD_ID" "Todo"          --json >/dev/null
 monotask column create "$TASK_BOARD_ID" "In Progress"   --json >/dev/null
@@ -289,18 +332,17 @@ monotask column create "$TASK_BOARD_ID" "Human in Loop" --json >/dev/null
 monotask column create "$TASK_BOARD_ID" "Done"          --json >/dev/null
 ```
 
-Look up the column ID for card placement:
+Look up column IDs:
 ```bash
 task_columns=$(monotask column list "$TASK_BOARD_ID" --json)
-# Cards with prerequisites → Backlog; cards without → Todo
 TASK_COL_TODO=$(echo "$task_columns"    | jq -r '.[] | select(.title == "Todo")    | .id' | head -1)
 TASK_COL_BACKLOG=$(echo "$task_columns" | jq -r '.[] | select(.title == "Backlog") | .id' | head -1)
 ```
 
-For each task in the TASKS array:
+For each task in TASKS_OUTPUT (iterate the JSON array):
 ```bash
-# Choose column based on has_prerequisites
-COL_TARGET=$( [ "$has_prerequisites" = "true" ] && echo "$TASK_COL_BACKLOG" || echo "$TASK_COL_TODO" )
+# has_prerequisites true → Backlog, false → Todo
+COL_TARGET=$([ "$has_prerequisites" = "true" ] && echo "$TASK_COL_BACKLOG" || echo "$TASK_COL_TODO")
 
 TASK_CARD_ID=$(monotask card create "$TASK_BOARD_ID" "$COL_TARGET" "<task title>" --json | jq -r '.id')
 monotask card comment add "$TASK_BOARD_ID" "$TASK_CARD_ID" \
@@ -311,18 +353,17 @@ PARENT IDEA: <idea title> (card: <parent_card_id> on ideation board)"
 monotask card label add "$TASK_BOARD_ID" "$TASK_CARD_ID" "mastermind:idea"
 ```
 
-For each **parent idea card** (grouped by `parent_card_id`), annotate and move to `Tasked`:
+Group tasks by `parent_card_id`. For each parent idea, annotate and move to `Tasked`:
 ```bash
-# $IDEA_CARD_ID = parent_card_id from the TASKS group
-monotask card comment add "$BOARD_ID" "$IDEA_CARD_ID" \
+monotask card comment add "$BOARD_ID" "$parent_card_id" \
   "Subtasks created: <list of titles with agent and effort>"
-monotask card move "$BOARD_ID" "$IDEA_CARD_ID" "$COL_TASKED" --json
+monotask card move "$BOARD_ID" "$parent_card_id" "$COL_TASKED" --json
 ```
 
-For any idea the Architect flagged as unclear, move to `Iced`:
+For each entry in FLAGGED, move the idea to `Iced`:
 ```bash
-monotask card comment add "$BOARD_ID" "$IDEA_CARD_ID" "Needs clarification: <question>"
-monotask card move "$BOARD_ID" "$IDEA_CARD_ID" "$COL_ICED" --json
+monotask card comment add "$BOARD_ID" "$flagged_card_id" "Needs clarification: <question>"
+monotask card move "$BOARD_ID" "$flagged_card_id" "$COL_ICED" --json
 ```
 
 ---
