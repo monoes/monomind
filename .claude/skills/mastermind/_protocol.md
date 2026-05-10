@@ -137,6 +137,7 @@ Every mastermind run MUST emit structured events to the live dashboard via WebFe
   "session": "<uuid-v4>",
   "prompt": "<resolved user prompt>",
   "mode": "auto|confirm",
+  "project": "<absolute path of current working directory>",
   "ts": 1234567890000
 }
 ```
@@ -212,6 +213,7 @@ WebFetch({
     session: crypto.randomUUID(),   // or generate a timestamp-based ID
     prompt: resolvedPrompt,
     mode: mode,
+    project: process.cwd(),         // REQUIRED: absolute path for multi-project support
     ts: Date.now()
   })
 })
@@ -234,6 +236,61 @@ WebFetch({
 
 ---
 
+## Monotask Space+Board Setup Procedure
+
+**Always follow this exact order — never create a board without first ensuring a space exists.**
+
+Every mastermind run that needs a task board MUST:
+1. Resolve the space (find existing or create new) — space name = `project_name`
+2. Create the board within that space
+3. Link the board to the space immediately after creation
+4. Create columns (Todo → Doing → Done)
+5. Create cards within those columns
+
+If the user is running across multiple repos for the same project, they MUST use the same `project_name` so all boards land in one space.
+
+### Canonical bash block (substitute `<domain>` with: build, marketing, ops, content, etc.)
+
+```bash
+# Step 1 — Resolve space (required; abort if it cannot be created)
+project_name="${project_name:-$(basename "$PWD")}"
+space_id=$(monotask space list 2>/dev/null | awk -F' \| ' -v n="$project_name" '$2==n{print $1}' | head -1)
+[ -z "$space_id" ] && space_id=$(monotask space create "$project_name" 2>&1 | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+[ -z "$space_id" ] && { echo "ERROR: Could not find or create space '$project_name' — verify monotask is installed (monotask --version)"; exit 1; }
+
+# Step 2 — Create board
+board_id=$(monotask board create "<domain>" --json | jq -r '.id // empty')
+[ -z "$board_id" ] && { echo "ERROR: Failed to create board '<domain>'"; exit 1; }
+
+# Step 3 — Link board to space immediately
+monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
+
+# Step 4 — Create columns
+todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id')
+doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id')
+done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id')
+```
+
+When master.md runs multiple domains, resolve the space **once** before the loop, then repeat steps 2–4 per domain:
+
+```bash
+# Resolve space once
+project_name="<resolved project_name>"
+space_id=$(monotask space list 2>/dev/null | awk -F' \| ' -v n="$project_name" '$2==n{print $1}' | head -1)
+[ -z "$space_id" ] && space_id=$(monotask space create "$project_name" 2>&1 | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+[ -z "$space_id" ] && { echo "ERROR: Could not find or create space '$project_name'"; exit 1; }
+
+# Repeat per active domain (e.g. build, marketing, ops):
+board_<domain>=$(monotask board create "<domain>" --json | jq -r '.id // empty')
+[ -z "$board_<domain>" ] && { echo "ERROR: Failed to create <domain> board"; exit 1; }
+monotask space boards add "$space_id" "$board_<domain>" >/dev/null 2>&1 || true
+todo_<domain>=$(monotask column create "$board_<domain>" "Todo"  --json | jq -r '.id')
+doing_<domain>=$(monotask column create "$board_<domain>" "Doing" --json | jq -r '.id')
+done_<domain>=$(monotask column create "$board_<domain>" "Done"  --json | jq -r '.id')
+```
+
+---
+
 ## Monotask Task Briefing Standard
 
 Every monotask card MUST include ALL fields below in its description and comment. Agents read task cards cold — no back-channel context exists.
@@ -241,8 +298,8 @@ Every monotask card MUST include ALL fields below in its description and comment
 Create each card using `monotask card create`, then populate it. First resolve column IDs:
 ```bash
 columns=$(monotask column list "$BOARD_ID" --json)
-COL_TODO_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Todo" or .name == "Backlog") | .id' | head -1)
-COL_DONE_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Done") | .id' | head -1)
+COL_TODO_ID=$(echo "$columns" | jq -r '.[] | select(.title == "Todo" or .title == "Backlog") | .id' | head -1)
+COL_DONE_ID=$(echo "$columns" | jq -r '.[] | select(.title == "Done") | .id' | head -1)
 ```
 Then create the card:
 ```bash

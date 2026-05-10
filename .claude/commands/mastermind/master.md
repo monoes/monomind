@@ -90,8 +90,8 @@ jq -n --arg sid "$SESSION_ID" --arg proj "$project_name" --arg prompt "$resolved
   > "$REPO_ROOT/.monomind/sessions/current.json"
 curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
   -H "Content-Type: application/json" \
-  -d "$(jq -cn --arg sid "$SESSION_ID" --arg prompt "$resolved_prompt" --arg mode "$mode" \
-    '{type:"session:start",session:$sid,prompt:$prompt,mode:$mode,ts:(now*1000|floor)}')" || true
+  -d "$(jq -cn --arg sid "$SESSION_ID" --arg prompt "$resolved_prompt" --arg mode "$mode" --arg proj "$(pwd)" \
+    '{type:"session:start",session:$sid,prompt:$prompt,mode:$mode,project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
 ### Step 4 — Decompose
@@ -113,11 +113,19 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
 [ -f "$SESSION_STATE" ] || { echo "ERROR: current.json not found"; exit 1; }
 
-# LLM: substitute <domain_goals_json> with the extracted goals object before running.
-# Example: {"build":"Ship the auth module with tests","marketing":"Draft launch email series"}
-GOALS_JSON='<domain_goals_json>'
+# LLM: write the extracted goals JSON object to the temp file below.
+# Use a file (not a shell variable) to avoid quoting issues with apostrophes in goal text.
+# Example content: {"build":"Ship the auth module","marketing":"Draft launch email series"}
+# One JSON object, keys = domain names, values = one-sentence goals.
+GOALS_FILE="$REPO_ROOT/.monomind/sessions/domain_goals.json"
+cat > "$GOALS_FILE" << 'GOALS_EOF'
+<domain_goals_json>
+GOALS_EOF
 
-jq --argjson goals "$GOALS_JSON" '. + {domain_goals:$goals}' \
+# Validate it's real JSON before merging
+jq . "$GOALS_FILE" > /dev/null 2>&1 || { echo "ERROR: domain_goals_json is not valid JSON — check LLM substitution"; exit 1; }
+
+jq --slurpfile goals "$GOALS_FILE" '. + {domain_goals:$goals[0]}' \
   "$SESSION_STATE" > "$SESSION_STATE.tmp" && mv "$SESSION_STATE.tmp" "$SESSION_STATE"
 echo "Domain goals written to current.json"
 ```
@@ -153,8 +161,10 @@ If mode = auto: proceed immediately.
 Follow the Monotask Space+Board Setup Procedure from `_protocol.md`. Resolve the space **once**, then create one board per active domain. Use `project_name` as the space name so all boards across repos and domains share the same space.
 
 ```bash
-# Require bash 4+ for associative arrays (macOS ships bash 3.2; use brew bash)
-[ "${BASH_VERSINFO[0]:-0}" -lt 4 ] && { echo "ERROR: bash 4+ required (current: $BASH_VERSION). Install: brew install bash"; exit 1; }
+# Require bash 4.3+ for associative arrays and namerefs (local -n introduced in 4.3)
+# macOS ships bash 3.2; install via: brew install bash
+(( BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] < 403 )) && \
+  { echo "ERROR: bash 4.3+ required for namerefs (current: $BASH_VERSION). Install: brew install bash"; exit 1; }
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
@@ -166,8 +176,8 @@ project_name=$(jq -r '.project_name // ""' "$SESSION_STATE")
 resolved_prompt=$(jq -r '.prompt // ""' "$SESSION_STATE")
 
 # domains_needed: NOT yet in current.json at this point — must be LLM-substituted inline.
-# Replace the literal "$domains_needed" below with the space-separated domain list
-# resolved in Step 4 (e.g. "build marketing sales"). Domain names must be single words.
+# LLM: replace DOMAINS_LIST_HERE with space-separated domain names, e.g.: build marketing sales
+# Domain names must be single words (no spaces). Example: "build marketing sales"
 
 # Resolve space once for all domains
 # Use awk with literal pipe to avoid BSD awk \| regex fragility
@@ -178,7 +188,14 @@ space_id=$(monotask space list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$2); 
 # Associative arrays — no eval, no injection risk
 declare -A board_ids todo_cols doing_cols done_cols domain_goals
 
-# Loop over every active domain — substitute $domains_needed with the resolved list
+# Hydrate domain_goals from Step 4's current.json write — prevents Step 4 extraction being clobbered
+while IFS=$'\t' read -r k v; do
+  [[ -n "$k" ]] && domain_goals[$k]="$v"
+done < <(jq -r '.domain_goals // {} | to_entries[] | [.key,.value] | @tsv' "$SESSION_STATE" 2>/dev/null)
+
+# Loop over every active domain — LLM: replace DOMAINS_LIST_HERE with the resolved domain list
+domains_needed="DOMAINS_LIST_HERE"
+[ "$domains_needed" = "DOMAINS_LIST_HERE" ] && { echo "ERROR: LLM did not substitute DOMAINS_LIST_HERE with domain names"; exit 1; }
 [ -z "$domains_needed" ] && { echo "ERROR: domains_needed is empty — nothing to do"; exit 1; }
 for domain in $domains_needed; do
   board_id=$(monotask board create "$domain" --json | jq -r '.id // empty')
@@ -194,7 +211,7 @@ for domain in $domains_needed; do
   todo_cols[$domain]=$todo_col
   doing_cols[$domain]=$doing_col
   done_cols[$domain]=$done_col
-  # domain_goals set by Step 4 extraction; fall back to full prompt if missing
+  # Fall back to full prompt only for domains not extracted by Step 4
   [ -z "${domain_goals[$domain]}" ] && domain_goals[$domain]="$resolved_prompt"
 done
 
@@ -232,8 +249,9 @@ jq --arg domains "$domains_needed" \
 **Phase A — Registry selection** (run as one Bash call; must complete before Phase C):
 
 ```bash
-# Require bash 4+ for associative arrays (macOS ships bash 3.2; use brew bash)
-[ "${BASH_VERSINFO[0]:-0}" -lt 4 ] && { echo "ERROR: bash 4+ required (current: $BASH_VERSION). Install: brew install bash"; exit 1; }
+# Require bash 4.3+ for associative arrays and namerefs
+(( BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] < 403 )) && \
+  { echo "ERROR: bash 4.3+ required (current: $BASH_VERSION). Install: brew install bash"; exit 1; }
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 REGISTRY="$REPO_ROOT/.monomind/registry.json"
@@ -337,11 +355,31 @@ done
 
 Spawn ALL domain manager agents in ONE message using the Task tool (parallel execution).
 
-**Before constructing the Task calls:** read the `DOMAIN=... MANAGER=... BOARD=... TODO=... DOING=... DONE=...` lines echoed by Phase A to get the actual UUID values for each domain. Use `MANAGER` as `subagent_type`, `BOARD`/`TODO`/`DOING`/`DONE` as the board and column IDs in the prompt. Do NOT use placeholder strings — these are real UUIDs from Phase A output.
+**Before constructing the Task calls:** load board/column UUIDs and domain manager names from `current.json` — that is the authoritative source. The Phase A echo lines are a human-readable diagnostic only; do not parse them as the primary data source.
+
+```bash
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
+SESSION_ID=$(jq -r '.sessionId // empty' "$SESSION_STATE" 2>/dev/null)
+[ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID missing"; exit 1; }
+
+# Emit one line per domain for LLM to read before constructing Task calls
+for domain in $(jq -r '.domains_needed[]? // empty' "$SESSION_STATE"); do
+  echo "DOMAIN=$domain \
+MANAGER=$(jq -r --arg d "$domain" '.domain_managers[$d] // "coordinator"' "$SESSION_STATE") \
+BOARD=$(jq -r --arg d "$domain" '.board_ids[$d] // ""' "$SESSION_STATE") \
+TODO=$(jq -r --arg d "$domain" '.todo_cols[$d] // ""' "$SESSION_STATE") \
+DOING=$(jq -r --arg d "$domain" '.doing_cols[$d] // ""' "$SESSION_STATE") \
+DONE=$(jq -r --arg d "$domain" '.done_cols[$d] // ""' "$SESSION_STATE") \
+GOAL=$(jq -r --arg d "$domain" '.domain_goals[$d] // .prompt' "$SESSION_STATE")"
+done
+```
+
+Use each `MANAGER` value as `subagent_type`, `BOARD`/`TODO`/`DOING`/`DONE` as board and column IDs. Do NOT use placeholder strings.
 
 Each Task call must include a complete briefing following the Monotask Task Briefing Standard from `_protocol.md`. Include:
 - The full BRAIN CONTEXT block
-- The board ID (from Phase A output above)
+- The board ID (from `current.json` above)
 - The specific goal for this domain
 - The project name and run context
 - Instruction to create monotask cards directly using `monotask card create $BOARD_ID $COL_TODO_ID "<title>" --json` for all sub-tasks
@@ -423,6 +461,7 @@ Domain managers run in foreground (no `run_in_background`), so their unified out
 ```bash
 # Single bash block: aggregate status + emit dashboard event
 # (variables don't persist between Bash tool calls — keep aggregation and curl together)
+[ "${BASH_VERSINFO[0]:-0}" -lt 4 ] && { echo "ERROR: bash 4+ required"; exit 1; }
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SESSION_ID=$(jq -r '.sessionId // empty' "$REPO_ROOT/.monomind/sessions/current.json" 2>/dev/null)
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID missing"; exit 1; }

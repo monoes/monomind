@@ -67,7 +67,8 @@ curl -s -X POST "http://localhost:4242/api/mastermind/event" \
     --arg session "$session_id" \
     --arg prompt "$prompt" \
     --arg mode "$mode" \
-    '{type:"session:start",session:$session,domain:"ops",prompt:$prompt,mode:$mode,ts:(now*1000|floor)}')" || true
+    --arg proj "$(pwd)" \
+    '{type:"session:start",session:$session,domain:"ops",prompt:$prompt,mode:$mode,project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
 Emit `domain:dispatch`:

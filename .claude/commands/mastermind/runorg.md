@@ -78,7 +78,8 @@ curl -s -X POST "http://localhost:4242/api/mastermind/event" \
   -d "$(jq -cn \
     --arg session "$session_id" \
     --arg org "$org_name" \
-    '{type:"session:start",session:$session,domain:"ops",prompt:("Running org: "+$org),mode:"auto",ts:(now*1000|floor)}')" || true
+    --arg proj "$(pwd)" \
+    '{type:"session:start",session:$session,domain:"ops",prompt:("Running org: "+$org),mode:"auto",project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
 Emit `domain:dispatch`:
