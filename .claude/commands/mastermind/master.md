@@ -74,10 +74,20 @@ Invoke the intake logic from `_intake.md`:
 - If user says "decide yourself": make explicit LLM decision, state it, log it with confidence 0.7
 - Resolve: mode (auto/confirm), project_name, domains_needed
 
-**After intake resolves:** Generate a session ID (`mm-<YYYYMMDDTHHmmss>`) and emit `session:start` to the live dashboard (see Real-Time Dashboard Event Logging in `_protocol.md`). If the server is unreachable, continue without blocking.
+**After intake resolves:** Assign shell variables from the intake outputs (these are LLM-resolved values that must be echoed into the bash environment before the curl block runs):
+- `resolved_prompt` = the full cleaned prompt string
+- `mode` = `"auto"` or `"confirm"`
+
+Then generate `SESSION_ID` and persist it so iteration cycles can retrieve it across separate Bash calls:
 
 ```bash
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SESSION_ID="mm-$(date -u +%Y%m%dT%H%M%S)"
+mkdir -p "$REPO_ROOT/.monomind/sessions"
+# Persist SESSION_ID and project context so Step 12 can restore it in a new shell
+jq -n --arg sid "$SESSION_ID" --arg proj "$project_name" --arg prompt "$resolved_prompt" \
+  '{sessionId:$sid,project_name:$proj,prompt:$prompt}' \
+  > "$REPO_ROOT/.monomind/sessions/current.json"
 curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn --arg sid "$SESSION_ID" --arg prompt "$resolved_prompt" --arg mode "$mode" \
@@ -96,7 +106,7 @@ Complexity threshold for manager agent: any of these is true:
 - Has external dependencies (APIs, services)
 - Is estimated to take more than one conversation turn
 
-**Per-domain goal extraction:** For each activated domain, extract a one-sentence goal from the prompt describing what that domain must accomplish. Store as `<domain>_goal` (e.g., `build_goal`, `marketing_goal`). These are passed to the registry-aware agent selector in Step 7 and into each domain manager's briefing.
+**Per-domain goal extraction:** For each activated domain, extract a one-sentence goal from the prompt describing what that domain must accomplish. If no domain-specific goal can be extracted (vague prompt), default that domain's goal to the full resolved prompt. Store as `domain_goals[<domain>]` in the associative array initialized in Step 6 below.
 
 ### Step 5 — Plan Output
 
@@ -129,10 +139,19 @@ If mode = auto: proceed immediately.
 Follow the Monotask Space+Board Setup Procedure from `_protocol.md`. Resolve the space **once**, then create one board per active domain. Use `project_name` as the space name so all boards across repos and domains share the same space.
 
 ```bash
+# Require bash for associative arrays — fail fast if running in sh/zsh
+[ -z "$BASH_VERSION" ] && { echo "ERROR: this block requires bash"; exit 1; }
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+
 # Resolve space once for all domains
-space_id=$(monotask space list 2>/dev/null | awk -F' \| ' -v n="$project_name" '$2==n{print $1}' | head -1)
+# Use awk with literal pipe to avoid BSD awk \| regex fragility
+space_id=$(monotask space list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$2); if($2==n) gsub(/^ +| +$/,"",$1); if($2==n) print $1}' n="$project_name" | head -1)
 [ -z "$space_id" ] && space_id=$(monotask space create "$project_name" 2>/dev/null | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 [ -z "$space_id" ] && { echo "ERROR: Could not find or create space '$project_name'"; exit 1; }
+
+# Associative arrays — no eval, no injection risk
+declare -A board_ids todo_cols doing_cols done_cols domain_goals
 
 # Loop over every active domain — substitute $domains_needed with the resolved list
 for domain in $domains_needed; do
@@ -145,11 +164,12 @@ for domain in $domains_needed; do
   [ -z "$doing_col" ] && { echo "ERROR: Failed to create Doing column for $domain"; exit 1; }
   done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id // empty')
   [ -z "$done_col" ] && { echo "ERROR: Failed to create Done column for $domain"; exit 1; }
-  # Save board and column IDs as named variables for use in Step 7 briefings
-  eval "board_${domain}=$board_id"
-  eval "todo_col_${domain}=$todo_col"
-  eval "doing_col_${domain}=$doing_col"
-  eval "done_col_${domain}=$done_col"
+  board_ids[$domain]=$board_id
+  todo_cols[$domain]=$todo_col
+  doing_cols[$domain]=$doing_col
+  done_cols[$domain]=$done_col
+  # domain_goals set by Step 4 extraction; fall back to full prompt if missing
+  [ -z "${domain_goals[$domain]}" ] && domain_goals[$domain]="$resolved_prompt"
 done
 ```
 
@@ -157,15 +177,17 @@ done
 
 **Before spawning**, select the best domain manager agent type from the registry for each active domain. Do not hardcode `coordinator` — pick the agent whose expertise best fits the domain goal.
 
-```bash
-REGISTRY="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.monomind/registry.json"
+**Phase A — Registry selection** (run as one Bash call; must complete before Phase C):
 
-# Domain-to-category mapping — adjust per active domain
+```bash
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+REGISTRY="$REPO_ROOT/.monomind/registry.json"
+
 # Returns: best agent name from registry for the given domain+goal
 pick_domain_manager() {
   local domain="$1"
   local goal="$2"
-  local kw cats
+  local kw cats result
   kw=$(echo "$goal" | tr '[:upper:]' '[:lower:]' | grep -oE '[a-z]{5,}' | sort -u | tr '\n' ' ')
   case "$domain" in
     build)     cats="engineering development architecture" ;;
@@ -181,7 +203,6 @@ pick_domain_manager() {
     idea)      cats="product strategy marketing" ;;
     *)         cats="core strategy" ;;
   esac
-  local result
   result=$(jq -r \
     --arg cats "$cats" \
     --arg kw "$kw" \
@@ -190,7 +211,10 @@ pick_domain_manager() {
        | {name: .name,
           score: (
             (.name | ascii_downcase) as $n |
-            (if ($kw | length) > 0 and ($n | contains(($kw | split(" ") | .[0]))) then 2 else 0 end) +
+            # Score on ANY keyword match, not just the first
+            (if ($kw | length) > 0
+             then ([$kw | split(" ")[] | select(length > 0) | if ($n | contains(.)) then 1 else 0 end] | add // 0)
+             else 0 end) +
             (if $n | test("manager|director|coordinator") then 1 else 0 end)
           )}
      ] | sort_by(-.score) | .[0].name // empty' \
@@ -203,26 +227,24 @@ pick_domain_manager() {
   fi
 }
 
-# Run selection for each active domain (using per-domain goals from Step 4):
+declare -A domain_managers
 for domain in $domains_needed; do
-  goal_var="${domain}_goal"
-  manager=$(pick_domain_manager "$domain" "${!goal_var}")
-  eval "domain_manager_${domain}=\"$manager\""
+  manager=$(pick_domain_manager "$domain" "${domain_goals[$domain]}")
+  domain_managers[$domain]="$manager"
   echo "Domain manager for $domain: $manager"
 done
 ```
 
-Use `$domain_manager_<domain>` (e.g., `$domain_manager_build`) as the `subagent_type` string in each Task call below. These are shell variables — resolve each one to its string value before constructing the Task call.
+**Phase B — Dashboard dispatch** + **Phase C — Task spawning** (run in one message — B is a Bash call, C is the Task tool calls; they are independent of each other):
 
-**Before spawning:** For EACH domain in `domains_needed`, emit a `domain:dispatch` event to the live dashboard:
-
+Phase B:
 ```bash
-# Emit once per domain (substitute $SESSION_ID, $domain, and the domain goal)
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SESSION_ID=$(jq -r .sessionId "$REPO_ROOT/.monomind/sessions/current.json" 2>/dev/null)
 for domain in $domains_needed; do
-  goal_var="${domain}_goal"
   curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
     -H "Content-Type: application/json" \
-    -d "$(jq -cn --arg sid "$SESSION_ID" --arg d "$domain" --arg cmd "${!goal_var}" \
+    -d "$(jq -cn --arg sid "$SESSION_ID" --arg d "$domain" --arg cmd "${domain_goals[$domain]}" \
       '{type:"domain:dispatch",session:$sid,domain:$d,cmd:$cmd,ts:(now*1000|floor)}')" || true
 done
 ```
@@ -263,20 +285,30 @@ Task({
     "   - Testing: subagent_type 'tester'\n" +
     "   - Code review: subagent_type 'reviewer'\n" +
     "   Default swarm: hierarchical 6 agents raft\n\n" +
-    "3. BEFORE spawning each agent, emit agent:spawn via curl (NOT WebFetch):\n" +
+    "3. BEFORE spawning each agent, emit agent:spawn via curl (NOT WebFetch — use jq for correct ms timestamps):\n" +
     "   curl -s -o /dev/null -X POST http://localhost:4242/api/mastermind/event \\\n" +
     "     -H 'Content-Type: application/json' \\\n" +
-    "     -d '{\"type\":\"agent:spawn\",\"session\":\"<SESSION_ID>\",\"domain\":\"build\",\"agent\":\"<slug>\",\"task\":\"<title>\",\"ts\":'$(date +%s000)'}' || true\n\n" +
+    "     -d \"$(jq -cn --arg sid '<SESSION_ID>' --arg agent '<slug>' --arg task '<title>' \\\n" +
+    "       '{type:\"agent:spawn\",session:$sid,domain:\"build\",agent:$agent,task:$task,ts:(now*1000|floor)}')\" || true\n\n" +
     "4. If handing off artifacts to another domain, emit intercom via curl:\n" +
     "   curl -s -o /dev/null -X POST http://localhost:4242/api/mastermind/event \\\n" +
     "     -H 'Content-Type: application/json' \\\n" +
-    "     -d '{\"type\":\"intercom\",\"session\":\"<SESSION_ID>\",\"from\":\"build\",\"to\":\"<domain>\",\"msg\":\"<summary>\",\"ts\":'$(date +%s000)'}' || true\n\n" +
+    "     -d \"$(jq -cn --arg sid '<SESSION_ID>' --arg to '<domain>' --arg msg '<summary>' \\\n" +
+    "       '{type:\"intercom\",session:$sid,from:\"build\",to:$to,msg:$msg,ts:(now*1000|floor)}')\" || true\n\n" +
     "5. Execute tasks via /monomind:do --board <board_build>\n" +
     "6. Collect all agent outputs\n\n" +
-    "7. BEFORE returning, emit domain:complete via curl:\n" +
+    "7. BEFORE returning, write your output schema to disk AND emit domain:complete:\n" +
+    "   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)\n" +
+    "   mkdir -p \"$REPO_ROOT/.monomind/sessions/<SESSION_ID>\"\n" +
+    "   jq -n --arg domain 'build' --arg status '<status>' \\\n" +
+    "     --argjson artifacts '[\"<path1>\",\"<path2>\"]' \\\n" +
+    "     --argjson next_actions '[\"<action1>\"]' \\\n" +
+    "     '{domain:$domain,status:$status,artifacts:$artifacts,next_actions:$next_actions}' \\\n" +
+    "     > \"$REPO_ROOT/.monomind/sessions/<SESSION_ID>/build.json\"\n" +
     "   curl -s -o /dev/null -X POST http://localhost:4242/api/mastermind/event \\\n" +
     "     -H 'Content-Type: application/json' \\\n" +
-    "     -d '{\"type\":\"domain:complete\",\"session\":\"<SESSION_ID>\",\"domain\":\"build\",\"status\":\"complete\",\"ts\":'$(date +%s000)'}' || true\n\n" +
+    "     -d \"$(jq -cn --arg sid '<SESSION_ID>' --arg status '<status>' \\\n" +
+    "       '{type:\"domain:complete\",session:$sid,domain:\"build\",status:$status,ts:(now*1000|floor)}')\" || true\n\n" +
     "8. Return unified output schema:\n" +
     "   domain: build\n" +
     "   status: complete|partial|blocked\n" +
@@ -296,26 +328,29 @@ Domain managers run in foreground (no `run_in_background`), so their unified out
 ### Step 9 — Synthesize
 
 1. Collect all domain output schemas from Step 8
-2. Compute aggregate status:
-   - `overallStatus = "complete"` if ALL domains report complete
-   - `overallStatus = "partial"` if ANY domain reports partial
-   - `overallStatus = "blocked"` if ANY domain reports blocked (and none complete)
+2. Compute aggregate status (precedence: blocked > partial > complete):
+   - `overallStatus = "blocked"` if ANY domain reports blocked
+   - else `overallStatus = "partial"` if ANY domain reports partial
+   - else `overallStatus = "complete"` (all domains complete)
    - `completedDomains` = list of domain names whose status is "complete"
 3. Identify any cross-domain artifacts needed (e.g. a release that requires both build and review)
 4. Write cross-domain artifacts to disk if needed
 5. **Emit `session:complete` to the live dashboard:**
 
 ```bash
+# Build completed_domains JSON array safely (handles empty array)
+completed_domains_json=$(jq -n '$ARGS.positional' --args "${completed_domains[@]}")
+
 curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg sid "$SESSION_ID" \
     --arg status "$overall_status" \
-    --argjson domains "$(printf '%s\n' "${completed_domains[@]}" | jq -R . | jq -s .)" \
+    --argjson domains "$completed_domains_json" \
     '{type:"session:complete",session:$sid,status:$status,domains:$domains,ts:(now*1000|floor)}')" || true
 ```
 
-5. Compose the action summary for the user:
+6. Compose the action summary for the user:
 
 ```
 MASTERMIND RUN COMPLETE — <project_name>
@@ -355,22 +390,40 @@ Follow the Brain Write Procedure from `_protocol.md` for each domain that ran:
 Show the action summary (Step 9). If any compaction ran during Step 10, append:
 > "Brain updated: compacted <N> entries into <M> summaries."
 
-**Persist session state for iteration cycles:** Write the session output to disk so Step 12 can load it without relying on in-context memory:
+**Persist session state for iteration cycles:** Aggregate artifacts from per-domain output files written by each domain manager, then persist to disk so Step 12 can load it:
 
 ```bash
-mkdir -p .monomind/sessions
-cat > ".monomind/sessions/${SESSION_ID}.json" << EOF
-{
-  "sessionId": "$SESSION_ID",
-  "prompt": "$resolved_prompt",
-  "project_name": "$project_name",
-  "status": "$overall_status",
-  "completed_domains": $(printf '%s\n' "${completed_domains[@]}" | jq -R . | jq -s .),
-  "artifacts": $(jq -n '$ARGS.positional' --args "${all_artifacts[@]}"),
-  "next_actions": $(jq -n '$ARGS.positional' --args "${all_next_actions[@]}"),
-  "run_id": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-}
-EOF
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SESSION_ID=$(jq -r '.sessionId // empty' "$REPO_ROOT/.monomind/sessions/current.json" 2>/dev/null)
+
+# Aggregate artifacts and next_actions from per-domain output files
+all_artifacts=()
+all_next_actions=()
+for domain_file in "$REPO_ROOT/.monomind/sessions/${SESSION_ID}"/*.json; do
+  [ -f "$domain_file" ] || continue
+  while IFS= read -r art; do all_artifacts+=("$art"); done \
+    < <(jq -r '.artifacts[]? // empty' "$domain_file" 2>/dev/null)
+  while IFS= read -r act; do all_next_actions+=("$act"); done \
+    < <(jq -r '.next_actions[]? // empty' "$domain_file" 2>/dev/null)
+done
+
+artifacts_json=$(jq -n '$ARGS.positional' --args "${all_artifacts[@]}")
+next_actions_json=$(jq -n '$ARGS.positional' --args "${all_next_actions[@]}")
+completed_domains_json=$(jq -n '$ARGS.positional' --args "${completed_domains[@]}")
+
+jq -n \
+  --arg sessionId "$SESSION_ID" \
+  --arg prompt "$resolved_prompt" \
+  --arg project_name "$project_name" \
+  --arg status "$overall_status" \
+  --argjson completed_domains "$completed_domains_json" \
+  --argjson artifacts "$artifacts_json" \
+  --argjson next_actions "$next_actions_json" \
+  --arg run_id "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  '{sessionId:$sessionId,prompt:$prompt,project_name:$project_name,status:$status,
+    completed_domains:$completed_domains,artifacts:$artifacts,next_actions:$next_actions,
+    run_id:$run_id}' \
+  > "$REPO_ROOT/.monomind/sessions/${SESSION_ID}.json"
 ```
 
 ---
@@ -386,7 +439,12 @@ After Step 11, run N autonomous improvement cycles. Each cycle is a full self-di
 Load fresh brain context (repeat Brain Load Procedure from `_protocol.md`). Load the persisted session state:
 
 ```bash
-session_state=$(cat ".monomind/sessions/${SESSION_ID}.json" 2>/dev/null || echo '{}')
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+# Restore SESSION_ID — may be in a new shell context
+SESSION_ID=$(jq -r '.sessionId // empty' "$REPO_ROOT/.monomind/sessions/current.json" 2>/dev/null)
+[ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID not found in current.json — cannot continue iteration."; exit 1; }
+
+session_state=$(cat "$REPO_ROOT/.monomind/sessions/${SESSION_ID}.json" 2>/dev/null || echo '{}')
 last_artifacts=$(echo "$session_state" | jq -r '.artifacts[]?' 2>/dev/null)
 last_next_actions=$(echo "$session_state" | jq -r '.next_actions[]?' 2>/dev/null)
 ```
