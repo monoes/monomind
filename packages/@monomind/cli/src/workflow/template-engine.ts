@@ -20,6 +20,8 @@ export function substitute(
   });
 }
 
+const BLOCKED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 function resolvePath(obj: unknown, path: string): unknown {
   const segments = path.split('.');
   let current: unknown = obj;
@@ -29,6 +31,12 @@ function resolvePath(obj: unknown, path: string): unknown {
       return undefined;
     }
     if (typeof current !== 'object') {
+      return undefined;
+    }
+    if (BLOCKED_KEYS.has(segment)) {
+      return undefined;
+    }
+    if (!Object.prototype.hasOwnProperty.call(current, segment)) {
       return undefined;
     }
     current = (current as Record<string, unknown>)[segment];

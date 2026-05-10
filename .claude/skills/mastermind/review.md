@@ -76,20 +76,28 @@ Decompose the review scope into distinct assessment angles. For each angle, iden
 - Whether angles have dependencies (e.g. architecture review before security)
 
 STEP 2 — CREATE TASKS
-For each review angle, call /monomind:createtask with this briefing format:
-
-  CONTEXT: <date> | Project: <project_name> | Created by: Review Manager
-  BRAIN MEMORY: [paste most relevant 3-5 brain context excerpts]
-  GOAL: [specific review scope and assessment criteria]
-  SCOPE: [exact files, URLs, documents, or system surfaces in scope]
-  CONSTRAINTS: [known acceptable risks, existing decisions not to revisit, standards to apply]
-  SUCCESS CRITERIA:
-  - [ ] [checkable item — e.g. "all critical issues documented"]
-  AGENT: [Code Reviewer | Security Engineer | analyst | Accessibility Auditor | UX Researcher]
-  SWARM: mesh 4 gossip
-  REPORTS TO: <board_id>
-  DEPENDENCIES: [task IDs or "none"]
-  OUTPUT FORMAT: unified output schema
+For each review angle, create a monotask card on the project board. First look up column IDs and assign shell variables:
+```bash
+columns=$(monotask column list "$BOARD_ID" --json)
+COL_TODO_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Todo" or .name == "Backlog") | .id' | head -1)
+COL_DONE_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Done") | .id' | head -1)
+```
+Then create the card:
+```bash
+result=$(monotask card create "$BOARD_ID" "$COL_TODO_ID" "<short summary of review scope, ≤80 chars>" --json)
+CARD_ID=$(echo "$result" | jq -r '.id // empty')
+monotask card set-description "$BOARD_ID" "$CARD_ID" "[specific review scope and assessment criteria]"
+monotask card comment add "$BOARD_ID" "$CARD_ID" "CONTEXT: <date> | Project: <project_name> | Created by: Review Manager
+BRAIN MEMORY: [paste most relevant 3-5 brain context excerpts]
+SCOPE: [exact files, URLs, documents, or system surfaces in scope]
+CONSTRAINTS: [known acceptable risks, existing decisions not to revisit, standards to apply]
+SUCCESS CRITERIA:
+- [ ] [checkable item — e.g. \"all critical issues documented\"]
+AGENT: [Code Reviewer | Security Engineer | analyst | Accessibility Auditor | UX Researcher]
+SWARM: mesh 4 gossip
+DEPENDENCIES: [task IDs or \"none\"]
+OUTPUT FORMAT: unified output schema"
+```
 
 STEP 3 — EXECUTE
 Spawn one Task agent per review angle (mesh topology — reviewers share findings):

@@ -19,14 +19,14 @@ const showSubcommand: Command = {
       return { success: false, message: 'Missing session ID' };
     }
     try {
-      const { ReplayReader } = await import('../observability/replay-reader.js');
+      const { ReplayReader } = await import('../observability/replay-reader.js' as string);
       const reader = new ReplayReader();
       const data = await reader.show(sessionId);
       const asJson = ctx.flags['json'] as boolean;
-      output.log(asJson ? JSON.stringify(data, null, 2) : `Replay for session ${sessionId}`);
+      output.writeln(asJson ? JSON.stringify(data, null, 2) : `Replay for session ${sessionId}`);
       return { success: true, data };
     } catch {
-      output.log(`No replay data for session ${sessionId}`);
+      output.writeln(`No replay data for session ${sessionId}`);
       return { success: true, message: 'No replay data' };
     }
   },
@@ -41,14 +41,14 @@ const listSubcommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
-      const { ReplayReader } = await import('../observability/replay-reader.js');
+      const { ReplayReader } = await import('../observability/replay-reader.js' as string);
       const reader = new ReplayReader();
       const data = await reader.list(ctx.flags['limit'] as number);
       const asJson = ctx.flags['json'] as boolean;
-      output.log(asJson ? JSON.stringify(data, null, 2) : 'Available replays listed');
+      output.writeln(asJson ? JSON.stringify(data, null, 2) : 'Available replays listed');
       return { success: true, data };
     } catch {
-      output.log('No replay sessions available');
+      output.writeln('No replay sessions available');
       return { success: true, message: 'No sessions' };
     }
   },

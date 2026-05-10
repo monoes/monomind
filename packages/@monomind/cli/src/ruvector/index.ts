@@ -111,23 +111,7 @@ export {
   type AttentionResult,
   type BenchmarkResult,
 } from './flash-attention.js';
-export {
-  LoRAAdapter,
-  getLoRAAdapter,
-  resetLoRAAdapter,
-  createLoRAAdapter,
-  adaptEmbedding,
-  trainLoRA,
-  getLoRAStats,
-  DEFAULT_RANK,
-  DEFAULT_ALPHA,
-  INPUT_DIM as LORA_INPUT_DIM,
-  OUTPUT_DIM as LORA_OUTPUT_DIM,
-  type LoRAConfig,
-  type LoRAWeights,
-  type AdaptationResult,
-  type LoRAStats,
-} from './lora-adapter.js';
+// lora-adapter removed — superseded by SONA instant adaptation
 export {
   ModelRouter,
   getModelRouter,

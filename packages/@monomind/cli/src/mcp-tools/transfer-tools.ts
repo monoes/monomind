@@ -24,6 +24,21 @@ function createResult(data: unknown, isError = false): MCPToolResult {
 }
 
 /**
+ * Cached PatternStore — initialize() may open IPFS connections, sql.js/WASM,
+ * or download registry data. Re-creating on every handler call wastes work
+ * and risks file-descriptor / socket-pool leaks on rapid invocations.
+ */
+let cachedPatternStore: { initialize: () => Promise<unknown> } | null = null;
+async function getPatternStore(): Promise<{ initialize: () => Promise<unknown>; [k: string]: unknown }> {
+  if (cachedPatternStore) return cachedPatternStore as { initialize: () => Promise<unknown>; [k: string]: unknown };
+  const { PatternStore } = await import('../transfer/store/index.js');
+  const store = new PatternStore();
+  await store.initialize();
+  cachedPatternStore = store as unknown as { initialize: () => Promise<unknown> };
+  return cachedPatternStore as { initialize: () => Promise<unknown>; [k: string]: unknown };
+}
+
+/**
  * Transfer MCP tools for pattern export, import, anonymization, and sharing
  */
 export const transferTools: MCPTool[] = [
@@ -120,9 +135,7 @@ export const transferTools: MCPTool[] = [
     },
     handler: async (input): Promise<MCPToolResult> => {
       try {
-        const { PatternStore } = await import('../transfer/store/index.js');
-        const store = new PatternStore();
-        await store.initialize();
+        const store = await getPatternStore() as unknown as InstanceType<typeof import('../transfer/store/index.js').PatternStore>;
         const results = store.search(input as Parameters<typeof store.search>[0]);
         return createResult(results);
       } catch (error) {
@@ -148,9 +161,7 @@ export const transferTools: MCPTool[] = [
     },
     handler: async (input): Promise<MCPToolResult> => {
       try {
-        const { PatternStore } = await import('../transfer/store/index.js');
-        const store = new PatternStore();
-        await store.initialize();
+        const store = await getPatternStore() as unknown as InstanceType<typeof import('../transfer/store/index.js').PatternStore>;
         const pattern = store.getPattern((input as { id: string }).id);
         if (!pattern) {
           return createResult({ error: 'Pattern not found' }, true);
@@ -183,9 +194,7 @@ export const transferTools: MCPTool[] = [
     },
     handler: async (input): Promise<MCPToolResult> => {
       try {
-        const { PatternStore } = await import('../transfer/store/index.js');
-        const store = new PatternStore();
-        await store.initialize();
+        const store = await getPatternStore() as unknown as InstanceType<typeof import('../transfer/store/index.js').PatternStore>;
         const result = await store.download(
           (input as { id: string }).id,
           { verify: (input as { verify?: boolean }).verify }
@@ -213,9 +222,7 @@ export const transferTools: MCPTool[] = [
     },
     handler: async (input): Promise<MCPToolResult> => {
       try {
-        const { PatternStore } = await import('../transfer/store/index.js');
-        const store = new PatternStore();
-        await store.initialize();
+        const store = await getPatternStore() as unknown as InstanceType<typeof import('../transfer/store/index.js').PatternStore>;
         const featured = store.getFeatured();
         const limit = (input as { limit?: number }).limit || 10;
         return createResult(featured.slice(0, limit));
@@ -241,9 +248,7 @@ export const transferTools: MCPTool[] = [
     },
     handler: async (input): Promise<MCPToolResult> => {
       try {
-        const { PatternStore } = await import('../transfer/store/index.js');
-        const store = new PatternStore();
-        await store.initialize();
+        const store = await getPatternStore() as unknown as InstanceType<typeof import('../transfer/store/index.js').PatternStore>;
         const trending = store.getTrending();
         const limit = (input as { limit?: number }).limit || 10;
         return createResult(trending.slice(0, limit));

@@ -76,20 +76,28 @@ Decompose the research goal into parallel intelligence streams. For each stream,
 - How outputs from different streams combine into a final answer
 
 STEP 2 — CREATE TASKS
-For each research stream, call /monomind:createtask with this briefing format:
-
-  CONTEXT: <date> | Project: <project_name> | Created by: Research Manager
-  BRAIN MEMORY: [paste most relevant 3-5 brain context excerpts]
-  GOAL: [specific research question this stream answers]
-  SCOPE: [sources to consult, search queries to run, depth of analysis]
-  CONSTRAINTS: [recency requirements, geographic scope, data reliability thresholds]
-  SUCCESS CRITERIA:
-  - [ ] [checkable item — e.g. "top 5 competitors identified with pricing"]
-  AGENT: [researcher | Trend Researcher | UX Researcher | Analytics Reporter]
-  SWARM: mesh 4 gossip
-  REPORTS TO: <board_id>
-  DEPENDENCIES: [task IDs or "none"]
-  OUTPUT FORMAT: unified output schema
+For each research stream, create a monotask card on the project board. First look up column IDs and assign shell variables:
+```bash
+columns=$(monotask column list "$BOARD_ID" --json)
+COL_TODO_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Todo" or .name == "Backlog") | .id' | head -1)
+COL_DONE_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Done") | .id' | head -1)
+```
+Then create the card:
+```bash
+result=$(monotask card create "$BOARD_ID" "$COL_TODO_ID" "<short summary of research question, ≤80 chars>" --json)
+CARD_ID=$(echo "$result" | jq -r '.id // empty')
+monotask card set-description "$BOARD_ID" "$CARD_ID" "[specific research question this stream answers]"
+monotask card comment add "$BOARD_ID" "$CARD_ID" "CONTEXT: <date> | Project: <project_name> | Created by: Research Manager
+BRAIN MEMORY: [paste most relevant 3-5 brain context excerpts]
+SCOPE: [sources to consult, search queries to run, depth of analysis]
+CONSTRAINTS: [recency requirements, geographic scope, data reliability thresholds]
+SUCCESS CRITERIA:
+- [ ] [checkable item — e.g. \"top 5 competitors identified with pricing\"]
+AGENT: [researcher | Trend Researcher | UX Researcher | Analytics Reporter]
+SWARM: mesh 4 gossip
+DEPENDENCIES: [task IDs or \"none\"]
+OUTPUT FORMAT: unified output schema"
+```
 
 STEP 3 — EXECUTE
 Spawn one Task agent per research stream (mesh topology — findings cross-pollinate):

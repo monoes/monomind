@@ -76,20 +76,28 @@ Decompose the finance goal into discrete workstreams. For each workstream, ident
 - Dependencies between workstreams
 
 STEP 2 — CREATE TASKS
-For each workstream, call /monomind:createtask with this briefing format:
-
-  CONTEXT: <date> | Project: <project_name> | Created by: Finance Manager
-  BRAIN MEMORY: [paste most relevant 3-5 brain context excerpts]
-  GOAL: [specific financial workstream goal]
-  SCOPE: [time period, accounts, cost centers, currencies in scope]
-  CONSTRAINTS: [accounting standards, tax requirements, rounding rules, approval thresholds]
-  SUCCESS CRITERIA:
-  - [ ] [checkable item — e.g. "forecast covers 12-month runway"]
-  AGENT: [Finance Tracker | Analytics Reporter]
-  SWARM: hierarchical 3 raft
-  REPORTS TO: <board_id>
-  DEPENDENCIES: [task IDs or "none"]
-  OUTPUT FORMAT: unified output schema
+For each workstream, create a monotask card on the project board. First look up column IDs and assign shell variables:
+```bash
+columns=$(monotask column list "$BOARD_ID" --json)
+COL_TODO_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Todo" or .name == "Backlog") | .id' | head -1)
+COL_DONE_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Done") | .id' | head -1)
+```
+Then create the card:
+```bash
+result=$(monotask card create "$BOARD_ID" "$COL_TODO_ID" "<short summary of workstream goal, ≤80 chars>" --json)
+CARD_ID=$(echo "$result" | jq -r '.id // empty')
+monotask card set-description "$BOARD_ID" "$CARD_ID" "[specific financial workstream goal]"
+monotask card comment add "$BOARD_ID" "$CARD_ID" "CONTEXT: <date> | Project: <project_name> | Created by: Finance Manager
+BRAIN MEMORY: [paste most relevant 3-5 brain context excerpts]
+SCOPE: [time period, accounts, cost centers, currencies in scope]
+CONSTRAINTS: [accounting standards, tax requirements, rounding rules, approval thresholds]
+SUCCESS CRITERIA:
+- [ ] [checkable item — e.g. \"forecast covers 12-month runway\"]
+AGENT: [Finance Tracker | Analytics Reporter]
+SWARM: hierarchical 3 raft
+DEPENDENCIES: [task IDs or \"none\"]
+OUTPUT FORMAT: unified output schema"
+```
 
 STEP 3 — EXECUTE
 Spawn one Task agent per workstream:

@@ -81,9 +81,9 @@ const runCommand: Command = {
     const file = ctx.flags.file as string;
     const task = ctx.flags.task as string || ctx.args[0];
     const parallel = ctx.flags.parallel as boolean;
-    const maxAgents = ctx.flags.maxAgents as number;
+    const maxAgents = ctx.flags['max-agents'] as number;
     const timeout = ctx.flags.timeout as number;
-    const dryRun = ctx.flags.dryRun as boolean;
+    const dryRun = ctx.flags['dry-run'] as boolean;
 
     if (!template && !file && ctx.interactive) {
       template = await select({
@@ -620,8 +620,40 @@ const templateCommand: Command = {
           return { success: false, exitCode: 1 };
         }
 
-        output.printSuccess(`Template "${name}" created`);
-        output.writeln(output.dim('  Use with: monomind workflow run -t ' + name));
+        if (!/^[a-zA-Z0-9_-]{1,64}$/.test(name)) {
+          output.printError('Template name must be 1-64 alphanumeric, underscore, or dash characters.');
+          return { success: false, exitCode: 1 };
+        }
+
+        const { writeFileSync, renameSync: renameTemplate, mkdirSync, existsSync } = await import('fs');
+        const { join, resolve: resolvePath, sep } = await import('path');
+
+        const templatesDir = join(ctx.cwd, '.monomind', 'workflows', 'templates');
+        if (!existsSync(templatesDir)) {
+          mkdirSync(templatesDir, { recursive: true });
+        }
+
+        const templatePath = join(templatesDir, `${name}.json`);
+        if (!resolvePath(templatePath).startsWith(resolvePath(templatesDir) + sep)) {
+          output.printError('Template name attempts path traversal.');
+          return { success: false, exitCode: 1 };
+        }
+        if (existsSync(templatePath) && !ctx.flags.force) {
+          output.writeln(output.error(`Template "${name}" already exists. Use --force to overwrite.`));
+          return { success: false, exitCode: 1 };
+        }
+
+        const template = {
+          name,
+          description: ctx.flags.description as string || '',
+          steps: [],
+          variables: {},
+          createdAt: new Date().toISOString(),
+        };
+
+        writeFileSync(templatePath + '.tmp', JSON.stringify(template, null, 2));
+        renameTemplate(templatePath + '.tmp', templatePath);
+        output.writeln(output.success(`✓ Template "${name}" created at ${templatePath.replace(ctx.cwd, '.')}`));
 
         return { success: true, data: { name, created: true } };
       }

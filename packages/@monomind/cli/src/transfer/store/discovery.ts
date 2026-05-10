@@ -112,11 +112,41 @@ export class PatternDiscovery {
       };
     }
 
-    // Verify registry if trusted
-    if (knownRegistry.trusted && registry.registrySignature) {
-      const verified = this.verifyRegistry(registry, knownRegistry.publicKey);
+    // Verify registry — fail closed for trusted registries.
+    // Previously this only warn-and-continued, and the `&& registry.registrySignature`
+    // guard meant an attacker could simply omit the signature to bypass verification entirely.
+    if (knownRegistry.trusted) {
+      // Use the real Ed25519 verifier from registry.ts, not the stub length-check below
+      const { verifyRegistrySignature } = await import('./registry.js');
+      const expected = knownRegistry.publicKey;
+      if (!registry.registrySignature || !registry.registryPublicKey) {
+        return {
+          success: false,
+          source: knownRegistry.name,
+          fromCache: false,
+          cid: resolution.cid,
+          error: 'Trusted registry response is missing required signature/publicKey fields',
+        };
+      }
+      // Pin the public key to the known registry's expected key
+      if (registry.registryPublicKey !== expected) {
+        return {
+          success: false,
+          source: knownRegistry.name,
+          fromCache: false,
+          cid: resolution.cid,
+          error: 'Registry public key does not match pinned trusted key',
+        };
+      }
+      const verified = await verifyRegistrySignature(registry);
       if (!verified) {
-        console.warn(`[Discovery] Warning: Registry signature verification failed`);
+        return {
+          success: false,
+          source: knownRegistry.name,
+          fromCache: false,
+          cid: resolution.cid,
+          error: 'Registry signature verification failed',
+        };
       }
     }
 
@@ -170,6 +200,10 @@ export class PatternDiscovery {
               expiresAt: new Date(Date.now() + 3600000).toISOString(), // 1 hour
             };
 
+            if (this.ipnsCache.size >= PatternDiscovery.MAX_IPNS_CACHE && !this.ipnsCache.has(ipnsName)) {
+              const oldest = this.ipnsCache.keys().next().value;
+              if (oldest !== undefined) this.ipnsCache.delete(oldest);
+            }
             this.ipnsCache.set(ipnsName, resolution);
             console.log(`[Discovery] Resolved IPNS to CID: ${cid}`);
             return resolution;
@@ -196,6 +230,10 @@ export class PatternDiscovery {
               expiresAt: new Date(Date.now() + 3600000).toISOString(),
             };
 
+            if (this.ipnsCache.size >= PatternDiscovery.MAX_IPNS_CACHE && !this.ipnsCache.has(ipnsName)) {
+              const oldest = this.ipnsCache.keys().next().value;
+              if (oldest !== undefined) this.ipnsCache.delete(oldest);
+            }
             this.ipnsCache.set(ipnsName, resolution);
             console.log(`[Discovery] Resolved IPNS via redirect to CID: ${cid}`);
             return resolution;
@@ -384,22 +422,29 @@ export class PatternDiscovery {
       trending: ['seraphine-genesis-v1'],
       newest: ['seraphine-genesis-v1'],
 
-      registrySignature: crypto.randomBytes(32).toString('hex'),
+      // No signature on the genesis fallback. Previously this slot used
+      // `crypto.randomBytes(32)` which is meaningless by construction — every
+      // call would produce a different "valid" signature that no real key
+      // signed. Trusted-registry callers must reject this fallback (the
+      // verification path requires `registrySignature` to be present and
+      // verified against a pinned public key).
       registryPublicKey: 'ed25519:monomind-registry-key',
     };
   }
 
   /**
-   * Verify registry signature
+   * Verify registry signature.
+   *
+   * DEPRECATED: Do not use this method. It was a length-only stub. Real
+   * verification must use `verifyRegistrySignature` from registry.ts which
+   * performs Ed25519 verification. This stub is preserved only to avoid
+   * breaking callers that imported it; it now always returns false.
    */
-  verifyRegistry(registry: PatternRegistry, expectedPublicKey: string): boolean {
-    if (!registry.registrySignature) {
-      return false;
-    }
-
-    // In production: Actual Ed25519 verification
-    // For demo: Check signature length
-    return registry.registrySignature.length === 64;
+  verifyRegistry(_registry: PatternRegistry, _expectedPublicKey: string): boolean {
+    // Always return false — the call site at line 117 was already migrated to
+    // the real verifier. Any other caller using this stub is treated as a
+    // verification failure (fail-closed).
+    return false;
   }
 
   /**
@@ -416,7 +461,14 @@ export class PatternDiscovery {
   /**
    * Cache registry
    */
+  private static readonly MAX_REGISTRY_CACHE = 50;
+  private static readonly MAX_IPNS_CACHE = 200;
+
   cacheRegistry(ipnsName: string, registry: PatternRegistry): void {
+    if (this.cache.size >= PatternDiscovery.MAX_REGISTRY_CACHE && !this.cache.has(ipnsName)) {
+      const oldest = this.cache.keys().next().value;
+      if (oldest !== undefined) this.cache.delete(oldest);
+    }
     this.cache.set(ipnsName, {
       registry,
       expiresAt: Date.now() + this.config.cacheExpiry,
