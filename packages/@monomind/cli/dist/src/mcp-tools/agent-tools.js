@@ -4,17 +4,10 @@
  * Tool definitions for agent lifecycle management with file persistence.
  * Includes model routing integration for intelligent model selection.
  */
-import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { getProjectCwd } from './types.js';
-function logEvent(kind, data) {
-    try {
-        const dir = join(getProjectCwd(), '.monomind', 'swarm');
-        if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-        const event = { ts: new Date().toISOString(), source: 'mcp', kind, ...data };
-        appendFileSync(join(dir, 'events.jsonl'), JSON.stringify(event) + '\n');
-    } catch { }
-}
 // Storage paths
 const STORAGE_DIR = '.monomind';
 const AGENT_DIR = 'agents';
@@ -31,12 +24,18 @@ function ensureAgentDir() {
         mkdirSync(dir, { recursive: true });
     }
 }
+const MAX_AGENT_STORE_BYTES = 50 * 1024 * 1024;
 function loadAgentStore() {
     try {
         const path = getAgentPath();
         if (existsSync(path)) {
+            if (statSync(path).size > MAX_AGENT_STORE_BYTES)
+                return { agents: {}, version: '3.0.0' };
             const data = readFileSync(path, 'utf-8');
-            return JSON.parse(data);
+            const parsed = JSON.parse(data);
+            if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, '__proto__'))
+                return { agents: {}, version: '3.0.0' };
+            return parsed;
         }
     }
     catch {
@@ -45,8 +44,21 @@ function loadAgentStore() {
     return { agents: {}, version: '3.0.0' };
 }
 function saveAgentStore(store) {
+    // Cap terminated agents to prevent unbounded growth
+    const MAX_TERMINATED = 500;
+    const terminated = Object.entries(store.agents)
+        .filter(([, a]) => a.status === 'terminated')
+        .sort(([, a], [, b]) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
+    if (terminated.length > MAX_TERMINATED) {
+        for (const [id] of terminated.slice(0, terminated.length - MAX_TERMINATED)) {
+            delete store.agents[id];
+        }
+    }
     ensureAgentDir();
-    writeFileSync(getAgentPath(), JSON.stringify(store, null, 2), 'utf-8');
+    const dest = getAgentPath();
+    const tmp = `${dest}.${process.pid}.${Date.now()}.tmp`;
+    writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf-8');
+    renameSync(tmp, dest);
 }
 // Default model mappings for agent types (can be overridden)
 const AGENT_TYPE_MODEL_DEFAULTS = {
@@ -111,7 +123,7 @@ async function determineAgentModel(agentType, config, task) {
                 };
             }
             return {
-                model: routeResult.model,
+                model: (routeResult.model ?? 'sonnet'),
                 routedBy: 'router',
                 tier: routeResult.tier,
             };
@@ -161,8 +173,18 @@ export const agentTools = [
         },
         handler: async (input) => {
             const store = loadAgentStore();
-            const agentId = input.agentId || `agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            const agentId = input.agentId || `agent-${Date.now()}-${randomBytes(4).toString('hex')}`;
             const agentType = input.agentType;
+            if (['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+                return { success: false, agentId, error: 'Forbidden agent ID' };
+            }
+            if (input.agentId && store.agents[agentId]) {
+                return {
+                    success: false,
+                    agentId,
+                    error: `Agent ${agentId} already exists. Terminate it first or omit agentId to auto-generate.`,
+                };
+            }
             const config = input.config || {};
             // Add explicit model to config if provided
             if (input.model) {
@@ -188,7 +210,7 @@ export const agentTools = [
             saveAgentStore(store);
             // Task 46: AgentSandboxing — register sandbox for isolated agent execution
             try {
-                const { WasmSandbox, DockerSandbox, register } = await import('@monoes/security');
+                const { WasmSandbox, DockerSandbox, register } = await import('@monomind/security');
                 const sandboxType = config.sandbox?.type ?? 'wasm';
                 const sandboxConfig = config.sandbox ?? {};
                 const sandbox = sandboxType === 'docker'
@@ -196,8 +218,7 @@ export const agentTools = [
                     : WasmSandbox.create(agentId, sandboxConfig);
                 register(agentId, sandbox);
             }
-            catch { /* optional — @monoes/security may not be installed */ }
-            logEvent('agent.spawn', { agentId, agentType, model: routingResult.model, routedBy: routingResult.routedBy, domain: input.domain, task });
+            catch { /* optional — @monomind/security may not be installed */ }
             // Include Agent Booster routing info if applicable
             const response = {
                 success: true,
@@ -234,16 +255,17 @@ export const agentTools = [
             required: ['agentId'],
         },
         handler: async (input) => {
-            const store = loadAgentStore();
             const agentId = input.agentId;
-            if (store.agents[agentId]) {
-                const agentType = store.agents[agentId].agentType;
+            if (!agentId || typeof agentId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+                return { success: false, agentId, error: 'Invalid agent ID' };
+            }
+            const store = loadAgentStore();
+            if (Object.hasOwn(store.agents, agentId)) {
                 store.agents[agentId].status = 'terminated';
                 saveAgentStore(store);
-                logEvent('agent.terminate', { agentId, agentType });
                 // Task 46: AgentSandboxing — clean up sandbox on termination
                 try {
-                    const { cleanup } = await import('@monoes/security');
+                    const { cleanup } = await import('@monomind/security');
                     cleanup(agentId);
                 }
                 catch { /* optional */ }
@@ -273,9 +295,12 @@ export const agentTools = [
             required: ['agentId'],
         },
         handler: async (input) => {
-            const store = loadAgentStore();
             const agentId = input.agentId;
-            const agent = store.agents[agentId];
+            if (!agentId || typeof agentId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+                return { agentId, error: 'Invalid agent ID' };
+            }
+            const store = loadAgentStore();
+            const agent = Object.hasOwn(store.agents, agentId) ? store.agents[agentId] : undefined;
             if (agent) {
                 return {
                     agentId: agent.agentId,
@@ -347,7 +372,7 @@ export const agentTools = [
         inputSchema: {
             type: 'object',
             properties: {
-                action: { type: 'string', enum: ['status', 'scale', 'drain', 'fill'], description: 'Pool action' },
+                action: { type: 'string', enum: ['status', 'scale', 'drain'], description: 'Pool action' },
                 targetSize: { type: 'number', description: 'Target pool size (for scale action)' },
                 agentType: { type: 'string', description: 'Agent type filter' },
             },
@@ -372,9 +397,6 @@ export const agentTools = [
                     // CLI expected fields
                     poolId: 'agent-pool-default',
                     currentSize: agents.length,
-                    minSize: input.min || 0,
-                    maxSize: input.max || 100,
-                    autoScale: input.autoScale ?? false,
                     utilization,
                     agents: agents.map(a => ({
                         id: a.agentId,
@@ -391,7 +413,7 @@ export const agentTools = [
                 };
             }
             if (action === 'scale') {
-                const targetSize = input.targetSize || 5;
+                const targetSize = Math.min(Math.max(input.targetSize || 5, 1), 50);
                 const agentType = input.agentType || 'worker';
                 const currentSize = agents.filter(a => a.agentType === agentType).length;
                 const delta = targetSize - currentSize;
@@ -399,7 +421,7 @@ export const agentTools = [
                 const removed = [];
                 if (delta > 0) {
                     for (let i = 0; i < delta; i++) {
-                        const agentId = `agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                        const agentId = `agent-${Date.now()}-${randomBytes(4).toString('hex')}`;
                         store.agents[agentId] = {
                             agentId,
                             agentType,
@@ -467,8 +489,15 @@ export const agentTools = [
             const store = loadAgentStore();
             const agents = Object.values(store.agents).filter(a => a.status !== 'terminated');
             const threshold = input.threshold || 0.5;
-            if (input.agentId) {
-                const agent = store.agents[input.agentId];
+            if (input.agentId !== undefined) {
+                const agentId = input.agentId;
+                if (typeof agentId !== 'string' ||
+                    ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+                    return { agentId, error: 'Invalid agent ID' };
+                }
+                const agent = Object.hasOwn(store.agents, agentId)
+                    ? store.agents[agentId]
+                    : undefined;
                 if (agent) {
                     return {
                         agentId: agent.agentId,
@@ -479,7 +508,7 @@ export const agentTools = [
                         uptime: Date.now() - new Date(agent.createdAt).getTime(),
                     };
                 }
-                return { agentId: input.agentId, error: 'Agent not found' };
+                return { agentId, error: 'Agent not found' };
             }
             const healthyAgents = agents.filter(a => a.health >= threshold);
             const degradedAgents = agents.filter(a => a.health >= 0.3 && a.health < threshold);
@@ -538,9 +567,12 @@ export const agentTools = [
             required: ['agentId'],
         },
         handler: async (input) => {
-            const store = loadAgentStore();
             const agentId = input.agentId;
-            const agent = store.agents[agentId];
+            if (!agentId || typeof agentId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+                return { success: false, agentId, error: 'Invalid agent ID' };
+            }
+            const store = loadAgentStore();
+            const agent = Object.hasOwn(store.agents, agentId) ? store.agents[agentId] : undefined;
             if (agent) {
                 if (input.status)
                     agent.status = input.status;
