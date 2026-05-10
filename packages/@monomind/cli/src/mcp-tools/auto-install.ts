@@ -104,11 +104,9 @@ export async function tryImportOrInstall<T = unknown>(
     const installed = await autoInstallPackage(packageName, options);
     if (installed) {
       try {
-        // ESM caches failed imports, so we need to bust the cache
-        // Add a timestamp query parameter to force a fresh import
-        const cacheBuster = `?t=${Date.now()}`;
-        return await import(`${packageName}${cacheBuster}`) as T;
+        return await import(packageName) as T;
       } catch {
+        // ESM module cache cannot be busted programmatically; a server restart is required
         console.error(`[monomind] ${packageName} installed but failed to load. Restart MCP server.`);
         return null;
       }

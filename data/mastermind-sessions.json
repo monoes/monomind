@@ -1,0 +1,76 @@
+[
+  {
+    "id": "mm-20260509T032100",
+    "ts": 1778296809000,
+    "prompt": "",
+    "status": "running",
+    "domains": [],
+    "events": [
+      {
+        "type": "session:start",
+        "session": "mm-20260509T032100",
+        "domain": "architect",
+        "ts": 1778296809000
+      }
+    ]
+  },
+  {
+    "id": "mm-20260509T031318",
+    "ts": 1778296410000,
+    "prompt": "",
+    "status": "running",
+    "domains": [],
+    "events": [
+      {
+        "type": "session:start",
+        "session": "mm-20260509T031318",
+        "domain": "architect",
+        "ts": 1778296410000
+      }
+    ]
+  },
+  {
+    "id": "mm-20260509T025517",
+    "ts": 1778295328000,
+    "prompt": "",
+    "status": "complete",
+    "domains": [],
+    "events": [
+      {
+        "type": "session:start",
+        "session": "mm-20260509T025517",
+        "domain": "architect",
+        "ts": 1778295328000
+      },
+      {
+        "type": "session:complete",
+        "session": "mm-20260509T025517",
+        "domain": "architect",
+        "ts": 1778295685000
+      }
+    ],
+    "endTs": 1778295685000
+  },
+  {
+    "id": "mm-20260508T215834",
+    "ts": 1778277514000,
+    "prompt": "",
+    "status": "complete",
+    "domains": [],
+    "events": [
+      {
+        "type": "session:start",
+        "session": "mm-20260508T215834",
+        "domain": "architect",
+        "ts": 1778277514000
+      },
+      {
+        "type": "session:complete",
+        "session": "mm-20260508T215834",
+        "domain": "architect",
+        "ts": 1778277967000
+      }
+    ],
+    "endTs": 1778277967000
+  }
+]

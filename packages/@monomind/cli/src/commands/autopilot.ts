@@ -12,6 +12,8 @@ import {
   getProgress, calculateReward, tryLoadLearning, validateNumber,
   validateTaskSources, LOG_FILE,
 } from '../autopilot-state.js';
+import { writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 // ── Check Handler (for Stop hook) ─────────────────────────────
 
@@ -212,9 +214,7 @@ const logCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     if (ctx.flags?.clear) {
-      const fs = require('fs') as typeof import('fs');
-      const path = require('path') as typeof import('path');
-      try { fs.writeFileSync(path.resolve(LOG_FILE), '[]'); } catch { /* ignore */ }
+      try { writeFileSync(resolve(LOG_FILE), '[]'); } catch { /* ignore */ }
       output.writeln('Autopilot log cleared');
       return { success: true };
     }

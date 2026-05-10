@@ -14,7 +14,7 @@
  * @module v1/cli/memory/sona-optimizer
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 
 // ============================================================================
@@ -667,18 +667,25 @@ export class SONAOptimizer {
   }
 
   /**
-   * Validate pattern structure
+   * Validate pattern structure with strict bounds.
+   * SECURITY: confidence/keywords/agent fields must be bounds-checked to
+   * defeat poisoning. typeof NaN === 'number' and typeof Infinity === 'number'
+   * pass the loose typeof check; without bounds, an attacker who writes
+   * sona-patterns.json (poisoned bundle, malicious test fixture, co-located
+   * compromise) can inject `confidence: 1e308` to deterministically win
+   * every routing decision via findBestPatternMatch's `score = matchRatio *
+   * confidence`. Mirrors the pattern in intelligence.ts:loadFromDisk.
    */
   private validatePattern(pattern: unknown): pattern is LearnedPattern {
     if (!pattern || typeof pattern !== 'object') return false;
     const p = pattern as Record<string, unknown>;
-    return (
-      Array.isArray(p.keywords) &&
-      typeof p.agent === 'string' &&
-      typeof p.confidence === 'number' &&
-      typeof p.successCount === 'number' &&
-      typeof p.failureCount === 'number'
-    );
+    if (!Array.isArray(p.keywords) || p.keywords.length > 64) return false;
+    if (!p.keywords.every(k => typeof k === 'string' && k.length > 0 && k.length <= 128)) return false;
+    if (typeof p.agent !== 'string' || p.agent.length === 0 || p.agent.length > 128) return false;
+    if (typeof p.confidence !== 'number' || !Number.isFinite(p.confidence) || p.confidence < 0 || p.confidence > 1) return false;
+    if (typeof p.successCount !== 'number' || !Number.isFinite(p.successCount) || p.successCount < 0 || p.successCount > 1e9) return false;
+    if (typeof p.failureCount !== 'number' || !Number.isFinite(p.failureCount) || p.failureCount < 0 || p.failureCount > 1e9) return false;
+    return true;
   }
 
   /**
@@ -751,7 +758,9 @@ export class SONAOptimizer {
         },
       };
 
-      writeFileSync(fullPath, JSON.stringify(state, null, 2));
+      const tmp = fullPath + '.tmp';
+      writeFileSync(tmp, JSON.stringify(state, null, 2));
+      renameSync(tmp, fullPath);
       return true;
     } catch (err) {
       console.error(`[SONA] Failed to save state: ${err}`);

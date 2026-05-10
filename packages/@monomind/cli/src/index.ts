@@ -246,7 +246,7 @@ export class CLI {
         }
       } else {
         // No action - show command help
-        this.showCommandHelp(commandName);
+        await this.showCommandHelp(commandName);
       }
     } catch (error) {
       // Don't re-handle if this is a process.exit error (from mocked tests)
@@ -447,7 +447,7 @@ export class CLI {
   private async loadConfig(configPath?: string): Promise<MonomindConfig | undefined> {
     try {
       // Import config utilities
-      const { loadConfig: loadSystemConfig } = await import('@monomind/shared');
+      const { loadConfig: loadSystemConfig } = await import('@monomind/shared' as string);
       const { systemConfigToMonomindConfig } = await import('./config-adapter.js');
 
       // Load configuration
@@ -486,25 +486,27 @@ export class CLI {
   private async initSubsystems(): Promise<void> {
     // GAP-003: TierManager
     try {
-      const { TierManager, createPersistentService } = await import('@monomind/memory');
+      const { TierManager, createPersistentService } = await import('@monomind/memory' as string);
       const backend = createPersistentService('.monomind/memory');
-      new TierManager(backend, { shortTermCapacity: 1000 });
+      const _tierManager = new TierManager(backend, { shortTermCapacity: 1000 });
+      void _tierManager;
     } catch { /* optional — monomind/memory may not be installed */ }
 
     // GAP-004/005/006: Register background workers (EntityExtractor, EpisodeBinner, TraceCollector)
     try {
-      const { initDefaultWorkers } = await import('@monomind/hooks');
+      const { initDefaultWorkers } = await import('@monomind/hooks' as string);
       await initDefaultWorkers();
     } catch { /* optional */ }
 
     // GAP-007: SwarmCheckpointer — write checkpoint files so crashed swarms can resume
     try {
-      const { SwarmCheckpointer } = await import('@monomind/memory');
-      new SwarmCheckpointer({
+      const { SwarmCheckpointer } = await import('@monomind/memory' as string);
+      const _swarmCheckpointer = new SwarmCheckpointer({
         dbPath: '.monomind/checkpoints/swarm.jsonl',
         swarmId: 'default',
         sessionId: `session-${Date.now()}`,
       });
+      void _swarmCheckpointer;
     } catch { /* optional — monomind/memory may not be installed */ }
 
     // Task 30: Build unified agent registry — extras (canonical) first, dev copies second.
@@ -557,13 +559,13 @@ export class CLI {
 
     // Task 01-03: SemanticRouteLayer + LLMFallbackRouting + KeywordRouting
     try {
-      const { RouteLayer, ALL_ROUTES } = await import('@monomind/routing');
+      const { RouteLayer, ALL_ROUTES } = await import('@monomind/routing' as string);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const routerConfig: any = { routes: ALL_ROUTES, enableKeywordFilter: true };
 
       // Task 02: LLMFallback — wire Anthropic Haiku when API key is present
       if (process.env.ANTHROPIC_API_KEY) {
-        const { default: Anthropic } = await import('@anthropic-ai/sdk');
+        const { default: Anthropic } = await import('@anthropic-ai/sdk' as string);
         const anthropic = new Anthropic();
         routerConfig.llmFallback = {
           llmCaller: async (prompt: string) => {

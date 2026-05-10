@@ -8,7 +8,8 @@
  * @module @monomind/cli/agents/prompt-experiment
  */
 
-import type { PromptVersionStore } from '../../../memory/src/prompt-version-store.js';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PromptVersionStore = any;
 
 export interface ResolvedPrompt {
   prompt: string;
