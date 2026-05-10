@@ -126,12 +126,72 @@ If mode = confirm: show plan and wait for user to say "go" or modify. If mode = 
 
 ### Step 6 — Monotask Setup
 
-For each active domain:
-1. Find or create monotask space named `<project_name>`
-2. Create a board named `<domain>` within that space
-3. Note the board ID for the domain manager's task briefing
+Follow the Monotask Space+Board Setup Procedure from `_protocol.md`. Resolve the space **once**, then create one board per active domain. Use `project_name` as the space name so all boards across repos and domains share the same space.
+
+```bash
+# Resolve space once for all domains
+space_id=$(monotask space list 2>/dev/null | awk -F' \| ' -v n="$project_name" '$2==n{print $1}' | head -1)
+[ -z "$space_id" ] && space_id=$(monotask space create "$project_name" 2>&1 | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+[ -z "$space_id" ] && { echo "ERROR: Could not find or create space '$project_name'"; exit 1; }
+
+# Repeat per active domain (substitute <domain> with: build, marketing, ops, content, etc.)
+board_id=$(monotask board create "<domain>" --json | jq -r '.id // empty')
+[ -z "$board_id" ] && { echo "ERROR: Failed to create <domain> board"; exit 1; }
+monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
+todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id')
+doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id')
+done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id')
+# Save board_id as board_<domain> (e.g. board_build, board_marketing) for Step 7 briefings
+```
 
 ### Step 7 — Spawn Domain Managers
+
+**Before spawning**, select the best domain manager agent type from the registry for each active domain. Do not hardcode `coordinator` — pick the agent whose expertise best fits the domain goal.
+
+```bash
+REGISTRY=".monomind/registry.json"
+
+# Domain-to-category mapping — adjust per active domain
+# Returns: name of best agent for each domain
+pick_domain_manager() {
+  local domain="$1"
+  local goal="$2"
+  local kw
+  kw=$(echo "$goal" | tr '[:upper:]' '[:lower:]' | grep -oE '[a-z]{5,}' | sort -u | tr '\n' ' ')
+  case "$domain" in
+    build)     cats="engineering development architecture" ;;
+    marketing) cats="marketing paid-media strategy" ;;
+    sales)     cats="sales strategy" ;;
+    research)  cats="academic specialized strategy" ;;
+    content)   cats="marketing specialized" ;;
+    ops)       cats="project-management strategy support" ;;
+    release)   cats="devops github engineering" ;;
+    review)    cats="engineering testing analysis" ;;
+    finance)   cats="strategy specialized" ;;
+    architect) cats="architecture engineering" ;;
+    idea)      cats="product strategy marketing" ;;
+    *)         cats="core strategy" ;;
+  esac
+  jq -r \
+    --arg cats "$cats" \
+    --arg kw "$kw" \
+    '[ .agents[] | select(.deprecated != true)
+       | select(.category as $c | ($cats | split(" ") | any(. == $c)))
+       | {name: .name,
+          score: (.name | ascii_downcase |
+                  (if contains($kw | split(" ") | .[0]) then 2 else 0 end) +
+                  (if contains("manager") or contains("director") or contains("coordinator") then 1 else 0 end)
+                 )}
+     ] | sort_by(-.score) | .[0].name // "coordinator"' \
+    "$REGISTRY" 2>/dev/null
+}
+
+# Call once per domain before spawning — e.g.:
+# DOMAIN_MANAGER_BUILD=$(pick_domain_manager "build" "$build_goal")
+# DOMAIN_MANAGER_MARKETING=$(pick_domain_manager "marketing" "$marketing_goal")
+```
+
+Pass the selected `$DOMAIN_MANAGER_<domain>` name as the `subagent_type` in each Task call below.
 
 **Before spawning:** For EACH domain in `domains_needed`, emit a `domain:dispatch` event to the live dashboard:
 
@@ -163,10 +223,10 @@ Each Task call must include a complete briefing following the Monotask Task Brie
 - Instruction to spawn specialized agents using the domain-appropriate swarm topology
 - Instruction to return the unified output schema when done
 
-Example Task call for Development Manager:
+Example Task call for Development Manager (subagent_type comes from registry selection above — e.g. `$DOMAIN_MANAGER_BUILD`):
 ```javascript
 Task({
-  subagent_type: "coordinator",
+  subagent_type: DOMAIN_MANAGER_BUILD,  // registry-selected, e.g. "Backend Architect" or "Software Architect"
   description: `You are the Development Manager for project <project_name>.
 
 CONTEXT: Mastermind run <date> | Project: <project_name> | Master spawned you.
@@ -184,8 +244,8 @@ YOUR RESPONSIBILITIES:
 1. Resolve column IDs first:
    ```bash
    columns=$(monotask column list "$BOARD_ID" --json)
-   COL_TODO_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Todo" or .name == "Backlog") | .id' | head -1)
-   COL_DONE_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Done") | .id' | head -1)
+   COL_TODO_ID=$(echo "$columns" | jq -r '.[] | select(.title == "Todo" or .title == "Backlog") | .id' | head -1)
+   COL_DONE_ID=$(echo "$columns" | jq -r '.[] | select(.title == "Done") | .id' | head -1)
    ```
    Then break this goal into discrete tasks by creating monotask cards: `monotask card create "$BOARD_ID" "$COL_TODO_ID" "<title>" --json`
    Each task description MUST follow the Monotask Task Briefing Standard (full context, goal, scope, constraints, success criteria, agent, swarm, dependencies)
