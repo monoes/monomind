@@ -87,7 +87,9 @@ mkdir -p "$REPO_ROOT/.monomind/sessions"
 # Persist SESSION_ID and project context so Step 12 can restore it in a new shell
 jq -n --arg sid "$SESSION_ID" --arg proj "$project_name" --arg prompt "$resolved_prompt" \
   '{sessionId:$sid,project_name:$proj,prompt:$prompt}' \
-  > "$REPO_ROOT/.monomind/sessions/current.json"
+  > "$REPO_ROOT/.monomind/sessions/current.json.tmp" \
+  && mv "$REPO_ROOT/.monomind/sessions/current.json.tmp" \
+        "$REPO_ROOT/.monomind/sessions/current.json"
 curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn --arg sid "$SESSION_ID" --arg prompt "$resolved_prompt" --arg mode "$mode" --arg proj "$(pwd)" \
@@ -473,7 +475,8 @@ Domain managers run in foreground (no `run_in_background`), so their unified out
 ```bash
 # Single bash block: aggregate status + emit dashboard event
 # (variables don't persist between Bash tool calls — keep aggregation and curl together)
-[ "${BASH_VERSINFO[0]:-0}" -lt 4 ] && { echo "ERROR: bash 4+ required"; exit 1; }
+(( BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] < 400 )) && \
+  { echo "ERROR: bash 4+ required (current: $BASH_VERSION). Install: brew install bash"; exit 1; }
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SESSION_ID=$(jq -r '.sessionId // empty' "$REPO_ROOT/.monomind/sessions/current.json" 2>/dev/null)
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID missing"; exit 1; }
@@ -549,7 +552,8 @@ Show the action summary (Step 9). If any compaction ran during Step 10, append:
 **Persist session state for iteration cycles:** Aggregate artifacts from per-domain output files written by each domain manager, then persist to disk so Step 12 can load it:
 
 ```bash
-[ "${BASH_VERSINFO[0]:-0}" -lt 4 ] && { echo "ERROR: bash 4+ required (current: ${BASH_VERSION:-unknown}). Install: brew install bash"; exit 1; }
+(( BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] < 400 )) && \
+  { echo "ERROR: bash 4+ required (current: $BASH_VERSION). Install: brew install bash"; exit 1; }
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
 
@@ -619,14 +623,14 @@ SESSION_ID=$(jq -r '.sessionId // empty' "$REPO_ROOT/.monomind/sessions/current.
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID not found in current.json — cannot continue iteration."; exit 1; }
 
 SESSION_FILE="$REPO_ROOT/.monomind/sessions/${SESSION_ID}.json"
-# Read directly from file — avoids newline stripping and echo metacharacter issues
-last_artifacts=$(jq -r '.artifacts[]? // empty' "$SESSION_FILE" 2>/dev/null)
-last_next_actions=$(jq -r '.next_actions[]? // empty' "$SESSION_FILE" 2>/dev/null)
+# Echo to stdout — bash variables don't survive tool call boundaries; only stdout is visible to the LLM
+jq '{artifacts:.artifacts,next_actions:.next_actions}' "$SESSION_FILE" 2>/dev/null \
+  || echo '{"artifacts":[],"next_actions":[]}'
 ```
 
 Then evaluate the project's current state by examining:
-- What was just completed (artifacts from `$last_artifacts`)
-- What `$last_next_actions` entries suggest
+- What was just completed (artifacts from the `artifacts` array printed above)
+- What `next_actions` entries printed above suggest
 - What the `next_actions` from all domain outputs say
 - What the git diff shows (if applicable) — any test failures, TODOs, or incomplete work
 - What gaps exist relative to the original prompt's success criteria
