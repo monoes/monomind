@@ -52,7 +52,7 @@ Extract from `$ARGUMENTS`:
 - `--auto` → mode = auto
 - `--confirm` → mode = confirm
 - `--project <name>` → project_name = <name>
-- `--iterate <N>` → iterate = N (integer ≥ 1; default 0 = no iteration)
+- `--iterate <N>` → iterate = N (integer ≥ 1; when flag is absent, no iteration runs)
 - Remaining text = prompt
 
 ### Step 2 — Brain Load
@@ -76,19 +76,12 @@ Invoke the intake logic from `_intake.md`:
 
 **After intake resolves:** Generate a session ID (`mm-<YYYYMMDDTHHmmss>`) and emit `session:start` to the live dashboard (see Real-Time Dashboard Event Logging in `_protocol.md`). If the server is unreachable, continue without blocking.
 
-```javascript
-WebFetch({
-  url: "http://localhost:4242/api/mastermind/event",
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    type: "session:start",
-    session: sessionId,        // store this ID for all subsequent events
-    prompt: resolvedPrompt,
-    mode: mode,
-    ts: Date.now()
-  })
-})
+```bash
+SESSION_ID="mm-$(date -u +%Y%m%dT%H%M%S)"
+curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -cn --arg sid "$SESSION_ID" --arg prompt "$resolved_prompt" --arg mode "$mode" \
+    '{type:"session:start",session:$sid,prompt:$prompt,mode:$mode,ts:(now*1000|floor)}')" || true
 ```
 
 ### Step 4 — Decompose
@@ -102,6 +95,8 @@ Complexity threshold for manager agent: any of these is true:
 - Requires 2+ specialized agent types
 - Has external dependencies (APIs, services)
 - Is estimated to take more than one conversation turn
+
+**Per-domain goal extraction:** For each activated domain, extract a one-sentence goal from the prompt describing what that domain must accomplish. Store as `<domain>_goal` (e.g., `build_goal`, `marketing_goal`). These are passed to the registry-aware agent selector in Step 7 and into each domain manager's briefing.
 
 ### Step 5 — Plan Output
 
@@ -122,7 +117,12 @@ Brain loaded: <N> principles, <M> domain summaries
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-If mode = confirm: show plan and wait for user to say "go" or modify. If mode = auto: proceed immediately.
+If mode = confirm: show plan and wait for user response. Valid responses:
+- "go" or "proceed" — continue immediately
+- Any modification (e.g. "add sales domain", "remove marketing") — apply the change, re-show the plan, wait again
+- "cancel" or "stop" — emit `session:complete` with `status: blocked`, reason "cancelled by user", then STOP
+
+If mode = auto: proceed immediately.
 
 ### Step 6 — Monotask Setup
 
@@ -131,17 +131,26 @@ Follow the Monotask Space+Board Setup Procedure from `_protocol.md`. Resolve the
 ```bash
 # Resolve space once for all domains
 space_id=$(monotask space list 2>/dev/null | awk -F' \| ' -v n="$project_name" '$2==n{print $1}' | head -1)
-[ -z "$space_id" ] && space_id=$(monotask space create "$project_name" 2>&1 | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+[ -z "$space_id" ] && space_id=$(monotask space create "$project_name" 2>/dev/null | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 [ -z "$space_id" ] && { echo "ERROR: Could not find or create space '$project_name'"; exit 1; }
 
-# Repeat per active domain (substitute <domain> with: build, marketing, ops, content, etc.)
-board_id=$(monotask board create "<domain>" --json | jq -r '.id // empty')
-[ -z "$board_id" ] && { echo "ERROR: Failed to create <domain> board"; exit 1; }
-monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
-todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id')
-doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id')
-done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id')
-# Save board_id as board_<domain> (e.g. board_build, board_marketing) for Step 7 briefings
+# Loop over every active domain — substitute $domains_needed with the resolved list
+for domain in $domains_needed; do
+  board_id=$(monotask board create "$domain" --json | jq -r '.id // empty')
+  [ -z "$board_id" ] && { echo "ERROR: Failed to create $domain board"; exit 1; }
+  monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
+  todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id // empty')
+  [ -z "$todo_col" ] && { echo "ERROR: Failed to create Todo column for $domain"; exit 1; }
+  doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id // empty')
+  [ -z "$doing_col" ] && { echo "ERROR: Failed to create Doing column for $domain"; exit 1; }
+  done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id // empty')
+  [ -z "$done_col" ] && { echo "ERROR: Failed to create Done column for $domain"; exit 1; }
+  # Save board and column IDs as named variables for use in Step 7 briefings
+  eval "board_${domain}=$board_id"
+  eval "todo_col_${domain}=$todo_col"
+  eval "doing_col_${domain}=$doing_col"
+  eval "done_col_${domain}=$done_col"
+done
 ```
 
 ### Step 7 — Spawn Domain Managers
@@ -149,14 +158,14 @@ done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id')
 **Before spawning**, select the best domain manager agent type from the registry for each active domain. Do not hardcode `coordinator` — pick the agent whose expertise best fits the domain goal.
 
 ```bash
-REGISTRY=".monomind/registry.json"
+REGISTRY="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.monomind/registry.json"
 
 # Domain-to-category mapping — adjust per active domain
-# Returns: name of best agent for each domain
+# Returns: best agent name from registry for the given domain+goal
 pick_domain_manager() {
   local domain="$1"
   local goal="$2"
-  local kw
+  local kw cats
   kw=$(echo "$goal" | tr '[:upper:]' '[:lower:]' | grep -oE '[a-z]{5,}' | sort -u | tr '\n' ' ')
   case "$domain" in
     build)     cats="engineering development architecture" ;;
@@ -172,43 +181,50 @@ pick_domain_manager() {
     idea)      cats="product strategy marketing" ;;
     *)         cats="core strategy" ;;
   esac
-  jq -r \
+  local result
+  result=$(jq -r \
     --arg cats "$cats" \
     --arg kw "$kw" \
     '[ .agents[] | select(.deprecated != true)
        | select(.category as $c | ($cats | split(" ") | any(. == $c)))
        | {name: .name,
-          score: (.name | ascii_downcase |
-                  (if contains($kw | split(" ") | .[0]) then 2 else 0 end) +
-                  (if contains("manager") or contains("director") or contains("coordinator") then 1 else 0 end)
-                 )}
-     ] | sort_by(-.score) | .[0].name // "coordinator"' \
-    "$REGISTRY" 2>/dev/null
+          score: (
+            (.name | ascii_downcase) as $n |
+            (if ($kw | length) > 0 and ($n | contains(($kw | split(" ") | .[0]))) then 2 else 0 end) +
+            (if $n | test("manager|director|coordinator") then 1 else 0 end)
+          )}
+     ] | sort_by(-.score) | .[0].name // empty' \
+    "$REGISTRY" 2>/dev/null)
+  if [ -z "$result" ]; then
+    echo "WARN: registry lookup failed for domain=$domain, using coordinator fallback" >&2
+    echo "coordinator"
+  else
+    echo "$result"
+  fi
 }
 
-# Call once per domain before spawning — e.g.:
-# DOMAIN_MANAGER_BUILD=$(pick_domain_manager "build" "$build_goal")
-# DOMAIN_MANAGER_MARKETING=$(pick_domain_manager "marketing" "$marketing_goal")
+# Run selection for each active domain (using per-domain goals from Step 4):
+for domain in $domains_needed; do
+  goal_var="${domain}_goal"
+  manager=$(pick_domain_manager "$domain" "${!goal_var}")
+  eval "domain_manager_${domain}=\"$manager\""
+  echo "Domain manager for $domain: $manager"
+done
 ```
 
-Pass the selected `$DOMAIN_MANAGER_<domain>` name as the `subagent_type` in each Task call below.
+Use `$domain_manager_<domain>` (e.g., `$domain_manager_build`) as the `subagent_type` string in each Task call below. These are shell variables — resolve each one to its string value before constructing the Task call.
 
 **Before spawning:** For EACH domain in `domains_needed`, emit a `domain:dispatch` event to the live dashboard:
 
-```javascript
-// Emit for each domain — use WebFetch for each (or batch them)
-WebFetch({
-  url: "http://localhost:4242/api/mastermind/event",
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    type: "domain:dispatch",
-    session: sessionId,
-    domain: "<domain-id>",    // e.g. "build", "marketing"
-    cmd: "<one-line goal for this domain>",
-    ts: Date.now()
-  })
-})
+```bash
+# Emit once per domain (substitute $SESSION_ID, $domain, and the domain goal)
+for domain in $domains_needed; do
+  goal_var="${domain}_goal"
+  curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
+    -H "Content-Type: application/json" \
+    -d "$(jq -cn --arg sid "$SESSION_ID" --arg d "$domain" --arg cmd "${!goal_var}" \
+      '{type:"domain:dispatch",session:$sid,domain:$d,cmd:$cmd,ts:(now*1000|floor)}')" || true
+done
 ```
 
 Spawn ALL domain manager agents in ONE message using the Task tool (parallel execution).
@@ -223,93 +239,80 @@ Each Task call must include a complete briefing following the Monotask Task Brie
 - Instruction to spawn specialized agents using the domain-appropriate swarm topology
 - Instruction to return the unified output schema when done
 
-Example Task call for Development Manager (subagent_type comes from registry selection above — e.g. `$DOMAIN_MANAGER_BUILD`):
+Example Task call for Development Manager. Substitute every `<…>` placeholder with its resolved value before calling Task. `subagent_type` is the **string value** of `$domain_manager_build` (e.g. `"Backend Architect"`), not a variable reference.
+
 ```javascript
 Task({
-  subagent_type: DOMAIN_MANAGER_BUILD,  // registry-selected, e.g. "Backend Architect" or "Software Architect"
-  description: `You are the Development Manager for project <project_name>.
-
-CONTEXT: Mastermind run <date> | Project: <project_name> | Master spawned you.
-
-BRAIN CONTEXT:
-<paste brain context here>
-
-YOUR BOARD: <board_id> (monotask://<project_name>/development)
-
-GOAL: <domain-specific goal extracted from prompt>
-
-SESSION ID: <sessionId>   ← use this in all dashboard events
-
-YOUR RESPONSIBILITIES:
-1. Resolve column IDs first:
-   ```bash
-   columns=$(monotask column list "$BOARD_ID" --json)
-   COL_TODO_ID=$(echo "$columns" | jq -r '.[] | select(.title == "Todo" or .title == "Backlog") | .id' | head -1)
-   COL_DONE_ID=$(echo "$columns" | jq -r '.[] | select(.title == "Done") | .id' | head -1)
-   ```
-   Then break this goal into discrete tasks by creating monotask cards: `monotask card create "$BOARD_ID" "$COL_TODO_ID" "<title>" --json`
-   Each task description MUST follow the Monotask Task Briefing Standard (full context, goal, scope, constraints, success criteria, agent, swarm, dependencies)
-2. Spawn specialized agents for each task using the Task tool:
-   - Backend work: subagent_type "backend-dev"
-   - Frontend work: subagent_type "frontend-dev"
-   - Testing: subagent_type "tester"
-   - Code review: subagent_type "reviewer"
-   Default swarm: hierarchical 6 agents raft
-3. BEFORE spawning each agent, emit agent:spawn to the live dashboard:
-   WebFetch({ url: "http://localhost:4242/api/mastermind/event", method: "POST",
-     headers: {"Content-Type":"application/json"},
-     body: JSON.stringify({ type:"agent:spawn", session:"<sessionId>",
-       domain:"build", agent:"<agent-slug>", task:"<task-description>", ts:Date.now() }) })
-4. If you hand off artifacts to another domain manager, emit intercom:
-   WebFetch({ url: "http://localhost:4242/api/mastermind/event", method: "POST",
-     headers: {"Content-Type":"application/json"},
-     body: JSON.stringify({ type:"intercom", session:"<sessionId>",
-       from:"build", to:"<other-domain>", msg:"<one-line summary>", ts:Date.now() }) })
-5. Execute tasks via /monomind:do --board <board_id>
-6. Collect all agent outputs
-7. BEFORE returning, emit domain:complete to the live dashboard:
-   WebFetch({ url: "http://localhost:4242/api/mastermind/event", method: "POST",
-     headers: {"Content-Type":"application/json"},
-     body: JSON.stringify({ type:"domain:complete", session:"<sessionId>",
-       domain:"build", status:"complete|partial|blocked",
-       artifacts:["/path/file1"], decisions:[{what:"...",confidence:0.9}], ts:Date.now() }) })
-8. Return unified output schema to master:
-   domain: build
-   status: complete|partial|blocked
-   artifacts: [...]
-   decisions: [...]
-   lessons: [...]
-   next_actions: [...]
-   board_url: monotask://<project_name>/development
-   run_id: <ISO8601-timestamp>`,
-  run_in_background: true
+  subagent_type: "<value of domain_manager_build, e.g. Backend Architect>",
+  description: "Development Manager for project <project_name>",
+  run_in_background: false,   // foreground so Step 8 can collect output synchronously
+  prompt: "You are the Development Manager for project <project_name>.\n\n" +
+    "CONTEXT: Mastermind run <date> | Project: <project_name> | Master spawned you.\n\n" +
+    "SESSION ID: <SESSION_ID> — use in all dashboard events below.\n\n" +
+    "BRAIN CONTEXT:\n<paste brain context here>\n\n" +
+    "YOUR BOARD: <board_build> (monotask://<project_name>/build)\n" +
+    "TODO COL: <todo_col_build> | DOING COL: <doing_col_build> | DONE COL: <done_col_build>\n\n" +
+    "GOAL: <build_goal>\n\n" +
+    "YOUR RESPONSIBILITIES:\n" +
+    "1. Break this goal into discrete tasks using:\n" +
+    "   monotask card create <board_build> <todo_col_build> '<title>' --json\n" +
+    "   Each card description MUST include: context, goal, scope, constraints, success criteria, agent, dependencies.\n\n" +
+    "2. Spawn specialized agents for each task using the Task tool:\n" +
+    "   - Backend work: subagent_type 'backend-dev'\n" +
+    "   - Frontend work: subagent_type 'frontend-dev'\n" +
+    "   - Testing: subagent_type 'tester'\n" +
+    "   - Code review: subagent_type 'reviewer'\n" +
+    "   Default swarm: hierarchical 6 agents raft\n\n" +
+    "3. BEFORE spawning each agent, emit agent:spawn via curl (NOT WebFetch):\n" +
+    "   curl -s -o /dev/null -X POST http://localhost:4242/api/mastermind/event \\\n" +
+    "     -H 'Content-Type: application/json' \\\n" +
+    "     -d '{\"type\":\"agent:spawn\",\"session\":\"<SESSION_ID>\",\"domain\":\"build\",\"agent\":\"<slug>\",\"task\":\"<title>\",\"ts\":'$(date +%s000)'}' || true\n\n" +
+    "4. If handing off artifacts to another domain, emit intercom via curl:\n" +
+    "   curl -s -o /dev/null -X POST http://localhost:4242/api/mastermind/event \\\n" +
+    "     -H 'Content-Type: application/json' \\\n" +
+    "     -d '{\"type\":\"intercom\",\"session\":\"<SESSION_ID>\",\"from\":\"build\",\"to\":\"<domain>\",\"msg\":\"<summary>\",\"ts\":'$(date +%s000)'}' || true\n\n" +
+    "5. Execute tasks via /monomind:do --board <board_build>\n" +
+    "6. Collect all agent outputs\n\n" +
+    "7. BEFORE returning, emit domain:complete via curl:\n" +
+    "   curl -s -o /dev/null -X POST http://localhost:4242/api/mastermind/event \\\n" +
+    "     -H 'Content-Type: application/json' \\\n" +
+    "     -d '{\"type\":\"domain:complete\",\"session\":\"<SESSION_ID>\",\"domain\":\"build\",\"status\":\"complete\",\"ts\":'$(date +%s000)'}' || true\n\n" +
+    "8. Return unified output schema:\n" +
+    "   domain: build\n" +
+    "   status: complete|partial|blocked\n" +
+    "   artifacts: [...]\n" +
+    "   decisions: [...]\n" +
+    "   lessons: [...]\n" +
+    "   next_actions: [...]\n" +
+    "   board_url: monotask://<project_name>/build\n" +
+    "   run_id: <ISO8601-timestamp>"
 })
 ```
 
-### Step 8 — Wait for Reports
+### Step 8 — Collect Reports
 
-Collect the unified output schema from each domain manager. If a manager reports `status: blocked`, note the blocker but continue collecting from others — do not abort.
+Domain managers run in foreground (no `run_in_background`), so their unified output schemas are returned synchronously as each Task call completes. Collect each schema as it arrives. If a manager reports `status: blocked`, record it but continue collecting from all others — do not abort the run.
 
 ### Step 9 — Synthesize
 
-1. Collect all domain output schemas
-2. Identify any cross-domain artifacts needed (e.g. a release that requires both build and review)
-3. Write cross-domain artifacts to disk if needed
-4. **Emit `session:complete` to the live dashboard:**
+1. Collect all domain output schemas from Step 8
+2. Compute aggregate status:
+   - `overallStatus = "complete"` if ALL domains report complete
+   - `overallStatus = "partial"` if ANY domain reports partial
+   - `overallStatus = "blocked"` if ANY domain reports blocked (and none complete)
+   - `completedDomains` = list of domain names whose status is "complete"
+3. Identify any cross-domain artifacts needed (e.g. a release that requires both build and review)
+4. Write cross-domain artifacts to disk if needed
+5. **Emit `session:complete` to the live dashboard:**
 
-```javascript
-WebFetch({
-  url: "http://localhost:4242/api/mastermind/event",
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    type: "session:complete",
-    session: sessionId,
-    status: overallStatus,    // "complete" | "partial" | "blocked"
-    domains: completedDomains,
-    ts: Date.now()
-  })
-})
+```bash
+curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -cn \
+    --arg sid "$SESSION_ID" \
+    --arg status "$overall_status" \
+    --argjson domains "$(printf '%s\n' "${completed_domains[@]}" | jq -R . | jq -s .)" \
+    '{type:"session:complete",session:$sid,status:$status,domains:$domains,ts:(now*1000|floor)}')" || true
 ```
 
 5. Compose the action summary for the user:
@@ -352,6 +355,24 @@ Follow the Brain Write Procedure from `_protocol.md` for each domain that ran:
 Show the action summary (Step 9). If any compaction ran during Step 10, append:
 > "Brain updated: compacted <N> entries into <M> summaries."
 
+**Persist session state for iteration cycles:** Write the session output to disk so Step 12 can load it without relying on in-context memory:
+
+```bash
+mkdir -p .monomind/sessions
+cat > ".monomind/sessions/${SESSION_ID}.json" << EOF
+{
+  "sessionId": "$SESSION_ID",
+  "prompt": "$resolved_prompt",
+  "project_name": "$project_name",
+  "status": "$overall_status",
+  "completed_domains": $(printf '%s\n' "${completed_domains[@]}" | jq -R . | jq -s .),
+  "artifacts": $(jq -n '$ARGS.positional' --args "${all_artifacts[@]}"),
+  "next_actions": $(jq -n '$ARGS.positional' --args "${all_next_actions[@]}"),
+  "run_id": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+EOF
+```
+
 ---
 
 ### Step 12 — Iteration Loop (only if `--iterate <N>` was set and N ≥ 1)
@@ -362,9 +383,17 @@ After Step 11, run N autonomous improvement cycles. Each cycle is a full self-di
 
 #### 12a — Assess Current State
 
-Load fresh brain context (repeat Brain Load Procedure from `_protocol.md`). Then evaluate the project's current state by examining:
-- What was just completed (artifacts from the most recent run's output schema)
-- What the brain's `next_actions` entries suggest
+Load fresh brain context (repeat Brain Load Procedure from `_protocol.md`). Load the persisted session state:
+
+```bash
+session_state=$(cat ".monomind/sessions/${SESSION_ID}.json" 2>/dev/null || echo '{}')
+last_artifacts=$(echo "$session_state" | jq -r '.artifacts[]?' 2>/dev/null)
+last_next_actions=$(echo "$session_state" | jq -r '.next_actions[]?' 2>/dev/null)
+```
+
+Then evaluate the project's current state by examining:
+- What was just completed (artifacts from `$last_artifacts`)
+- What `$last_next_actions` entries suggest
 - What the `next_actions` from all domain outputs say
 - What the git diff shows (if applicable) — any test failures, TODOs, or incomplete work
 - What gaps exist relative to the original prompt's success criteria
@@ -393,14 +422,14 @@ Log this as a decision in the cycle's output schema with `confidence` set accord
 
 Execute the chosen activity by invoking the appropriate domain skill directly (Steps 4–10 of the main flow, condensed):
 
-- Test → `Skill("mastermind:build")` with a testing-focused prompt
-- Debug/Fix → `Skill("mastermind:build")` with the specific issue as prompt
-- Review → `Skill("mastermind:review")` with scope = artifacts from last run
-- Improve/Refactor → `Skill("mastermind:build")` with refactor prompt
-- Add feature → `Skill("mastermind:build")` with the next feature from next_actions
-- Research → `Skill("mastermind:research")` with the open question as prompt
-- Content/Docs → `Skill("mastermind:content")` with scope = new artifacts
-- Release → `Skill("mastermind:release")` with project scope
+- Test → invoke `/mastermind:build` with a testing-focused prompt
+- Debug/Fix → invoke `/mastermind:build` with the specific failing test or error as prompt
+- Review → invoke `/mastermind:review` with scope = artifacts from last run
+- Improve/Refactor → invoke `/mastermind:build` with refactor prompt
+- Add feature → invoke `/mastermind:build` with the next feature from `$last_next_actions`
+- Research → invoke `/mastermind:research` with the open question as prompt
+- Content/Docs → invoke `/mastermind:content` with scope = new artifacts
+- Release → invoke `/mastermind:release` with project scope
 
 Always pass: the current brain_context, project_name, the relevant board_id, and mode = auto (iteration cycles never pause for confirmation).
 
