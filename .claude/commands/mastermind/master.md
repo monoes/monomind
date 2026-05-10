@@ -205,7 +205,8 @@ domains_needed="DOMAINS_LIST_HERE"
 for domain in $domains_needed; do
   board_id=$(monotask board create "$domain" --json | jq -r '.id // empty')
   [ -z "$board_id" ] && { echo "ERROR: Failed to create $domain board"; exit 1; }
-  monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
+  monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 \
+    || echo "WARN: could not attach $domain board to space $space_id (non-fatal)"
   todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id // empty')
   [ -z "$todo_col" ] && { echo "ERROR: Failed to create Todo column for $domain"; exit 1; }
   doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id // empty')
@@ -483,10 +484,12 @@ SESSION_ID=$(jq -r '.sessionId // empty' "$REPO_ROOT/.monomind/sessions/current.
 
 overall_status="complete"
 completed_domains=()
+found_domain_files=0
 for domain_file in "$REPO_ROOT/.monomind/sessions/${SESSION_ID}"/*.json; do
   [ -f "$domain_file" ] || continue
   domain=$(jq -r '.domain // ""' "$domain_file")
   [ -z "$domain" ] && continue  # skip auxiliary files that aren't domain output schemas
+  found_domain_files=$(( found_domain_files + 1 ))
   status=$(jq -r '.status // "blocked"' "$domain_file")
   case "$status" in
     blocked) overall_status="blocked" ;;
@@ -494,6 +497,7 @@ for domain_file in "$REPO_ROOT/.monomind/sessions/${SESSION_ID}"/*.json; do
   esac
   [ "$status" = "complete" ] && completed_domains+=("$domain")
 done
+(( found_domain_files == 0 )) && { overall_status="blocked"; echo "WARN: no domain output files found for session $SESSION_ID — all domain managers may have failed"; }
 echo "overall_status=$overall_status completed_domains=${completed_domains[*]}"
 
 completed_domains_json=$(jq -n '$ARGS.positional' --args "${completed_domains[@]}")
@@ -569,10 +573,12 @@ all_artifacts=()
 all_next_actions=()
 completed_domains=()
 overall_status="complete"
+found_domain_files=0
 for domain_file in "$REPO_ROOT/.monomind/sessions/${SESSION_ID}"/*.json; do
   [ -f "$domain_file" ] || continue
   domain=$(jq -r '.domain // ""' "$domain_file")
   [ -z "$domain" ] && continue  # skip auxiliary files that aren't domain output schemas
+  found_domain_files=$(( found_domain_files + 1 ))
   status=$(jq -r '.status // "blocked"' "$domain_file")
   case "$status" in
     blocked) overall_status="blocked" ;;
@@ -584,6 +590,7 @@ for domain_file in "$REPO_ROOT/.monomind/sessions/${SESSION_ID}"/*.json; do
   while IFS= read -r act; do all_next_actions+=("$act"); done \
     < <(jq -r '.next_actions[]? // empty' "$domain_file" 2>/dev/null)
 done
+(( found_domain_files == 0 )) && { overall_status="blocked"; echo "WARN: no domain output files found for session $SESSION_ID"; }
 
 artifacts_json=$(jq -n '$ARGS.positional' --args "${all_artifacts[@]}")
 next_actions_json=$(jq -n '$ARGS.positional' --args "${all_next_actions[@]}")
@@ -601,7 +608,9 @@ jq -n \
   '{sessionId:$sessionId,prompt:$prompt,project_name:$project_name,status:$status,
     completed_domains:$completed_domains,artifacts:$artifacts,next_actions:$next_actions,
     run_id:$run_id}' \
-  > "$REPO_ROOT/.monomind/sessions/${SESSION_ID}.json"
+  > "$REPO_ROOT/.monomind/sessions/${SESSION_ID}.json.tmp" \
+  && mv "$REPO_ROOT/.monomind/sessions/${SESSION_ID}.json.tmp" \
+        "$REPO_ROOT/.monomind/sessions/${SESSION_ID}.json"
 ```
 
 ---
