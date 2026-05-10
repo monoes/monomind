@@ -4,6 +4,118 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.8.0] — 2026-05-10
+
+### Major Features
+
+#### Monograph — Knowledge Graph Engine
+A complete static-analysis knowledge graph built into the CLI. Monomind now understands your codebase structurally before any agent starts work.
+
+- **Multi-language parsers**: TypeScript/JavaScript, Python, Go, Rust, Java — extracts classes, functions, imports, and exports
+- **Pipeline DAG runner** with Kahn topological sort and cycle detection — scan → parse → cross-file resolution → communities → god-nodes → surprises → suggest
+- **Graph intelligence**: shortest path, degree analysis, community detection, god-node identification, surprise edge discovery
+- **File watcher**: 3-second debounce with macOS polling — graph stays fresh as you code
+- **16 MCP tools** (`monograph_suggest`, `monograph_query`, `monograph_impact`, `monograph_context`, `monograph_bridge`, `monograph_rename`, `monograph_cypher`, `monograph_snapshot`, `monograph_diff`, `monograph_neighbors`, `monograph_community`, `monograph_cohesion`, `monograph_surprises`, `monograph_god_nodes`, `monograph_report`, `monograph_export`)
+- **7 export formats**: JSON, HTML, Obsidian, Canvas, Cypher, GraphML, SVG
+- **Fallow integration** (17 feature rounds): config rules, human reporter, explain catalog, duplicate detection, health report, coverage, regression, programmatic API, LSP actions, feature flags, cloud coverage, issue filters, init detection, distribution thresholds
+
+#### Mastermind — Autonomous Business Brain
+A complete business automation orchestrator. Describe a goal; Mastermind routes it across domains, spawns agent swarms, and synthesizes results.
+
+- **Master command** (`/mastermind`) — 11-step orchestration: brain load → intake → decompose → plan → monotask setup → spawn domain managers → synthesize → brain write
+- **11 domain skills**: build, marketing, research, review, release, sales, ops, finance, content, architect, idea — each with full agent swarms and board integration
+- **Real-time dashboard** event pipeline — every session, domain dispatch, agent spawn, and intercom emitted to live panel via SSE
+- **Session traceability** — prompt, domains, status, and all events persisted in `data/sessions/`
+- **Cinematic agent animation** — SVG round-table animation on Mastermind panel open
+- **Brain load/write** procedures via AgentDB hierarchical recall and context synthesis
+- **Autonomous iteration** (`--iterate N`) — N self-directed improvement cycles after initial run
+- **monotask CLI integration** — all domain skills now use `monotask card create/move/comment` with proper column-ID lookup; internal task engine removed
+
+#### createorg / runorg — Autonomous Organizations
+Define multi-agent organizations as JSON; run them persistently until stopped.
+
+- **`/mastermind:createorg`** — wizard to define roles, communication topology, and checkpoint intervals
+- **`/mastermind:runorg`** — spawn boss agent that runs a persistent operating loop, dispatches tasks to team agents via memory namespace, emits org events to dashboard
+
+#### Monodesign — Frontend Design Intelligence
+All design capability consolidated into a single expert agent.
+
+- Component specs with interactive states, copy formulas, spacing math
+- UX rules, token architecture, and brand workflow
+- Design antipattern detection, inclusive representation
+- Replaces all previous separate design agents (UI Designer, UX Architect, etc.)
+
+#### /monomind:review — Iterative Multi-Agent Code Review
+- Spawns parallel reviewer agents across correctness, security, tests, and patterns
+- Iterates up to 5 rounds of review + fix cycles per session
+- Persists findings and annotations on monotask cards
+
+#### /monomind:improve — Component Improvement Pipeline
+- Deep code-explorer + web-researcher swarm per component
+- Product Manager evaluation → Software Architect decomposition
+- Full monotask card creation with DOD, testing criteria, and TDD checklists
+
+### Security Hardening (Passes 9–20)
+
+12 consecutive security passes hardening the full CLI surface:
+
+- **Proto-chain pollution guards** — all dynamic property access uses `Object.create(null)` or explicit `hasOwn` checks
+- **Path traversal prevention** — `path.resolve` + containment assertions on all file operations
+- **CSPRNG IDs** — `crypto.randomBytes` everywhere; no `Math.random()` for security-sensitive values
+- **Atomic writes** — temp-file + rename pattern on all state persistence; no partial-write corruption
+- **Size gates** — file and payload size caps on all upload/download/store operations
+- **Shell injection guards** — all shell exec uses array form or explicit escaping; no template-literal interpolation into shell strings
+- **Session ID entropy** — session IDs generated with `crypto.randomBytes(16).toString('hex')`
+- **Rate limiting** — per-agent and per-endpoint request caps with backoff
+- **Timing attack resistance** — constant-time comparison for HMAC verification
+- **Memory unboundedness fixes** — LRU caps on all caches; no unbounded array accumulation
+- **ReDoS guards** — regex complexity analysis on all user-supplied patterns
+- **Tamper-evidence** — HMAC signatures on persisted session and memory state
+
+### Dashboard Improvements
+- **Mastermind full-screen overlay** embedded in the control panel
+- **Live domain glow** — domains animate when their swarm agents are active
+- **Statusline** shows git author and current working directory
+- **Mastermind panel** traces every session with prompt, domains, events, and completion status
+
+### New Skills
+- **Monomotion** (`/monomotion`) — motion graphics and animation skill (GSAP, CSS, Three.js)
+- **Stop-slop** — writing quality gate integrated into content and marketing domain skills
+- **Marketing specialists** — 5 new agents (Xiaohongshu, Douyin, Weibo, Kuaishou, Bilibili)
+
+### Routing
+- In-process keyword routing replaces external Anthropic API call — faster, no network dependency, no cost
+- Extras registry restructured with correct `{extras:[]}` envelope
+
+### monomind:createtask Improvements
+- Professional task cards with Definition of Done, testing criteria, and TDD step checklists
+- Checklist item IDs stored in card comments for autonomous completion tracking
+- Memory-first board lookup across all monomind commands
+
+### Init
+- Expanded skills, commands, and agents maps in generated `CLAUDE.md`
+- Coding principles section added to generated project instructions
+- Shared instructions generator refactored for monorepo layout
+
+### Changed
+- `@monomind/monograph` scope moved to `@monoes/monograph` for npm publishing
+- All `graphify_*` tools renamed to `monograph_*` in MCP and Claude commands
+- `lora-adapter.ts` and `vector-db.ts` removed from ruvector (replaced by HNSW + SONA)
+- `in-memory-repositories.ts` removed from infrastructure layer
+
+### Fixed
+- monotask `card tag add` → `card label add` in idea.md and improve.md
+- `$COL_TODO_ID` / `$COL_DONE_ID` undefined in 8 of 11 domain skills — column lookup bash blocks added
+- Board lookup ordering corrected to memory-first across all monomind commands
+- `$PRIORITY` unset before case block in createtask.md
+- `<ITEM_ID>` placeholder in do.md replaced with stored-IDs retrieval loop
+- `monotask task list/create` (nonexistent subcommand) in runorg.md replaced with memory-based tracking
+- Mastermind session prompt showing "(none)" — `prompt` field now populated on `session:start` event
+- Mastermind domains showing "(none yet)" — domain array populated before dispatch
+- `monograph` path predicates no longer match `remotion.config`
+
+---
+
 ## [1.4.0] — 2026-04-14
 
 ### Added
@@ -30,17 +142,6 @@ All notable changes to Monomind are documented here.
 
 ### Changed
 - `hook-handler.cjs` — three new try/catch blocks wiring Memory Palace at session-restore, post-task, and session-end; all non-fatal (palace failure never blocks hooks)
-
-### Technical Details
-
-| Component | File | Size |
-|-----------|------|------|
-| Memory Palace core | `.claude/helpers/memory-palace.cjs` | 340 lines |
-| Feature reference | `features/mempalace.md` | full technical doc |
-| L0 identity seed | `.monomind/palace/identity.md` | project context |
-| Storage | `.monomind/palace/{drawers,closets}.jsonl`, `kg.json` | append-only, gitignored |
-
-Exports: `wakeUp`, `storeVerbatim`, `buildClosets`, `search`, `recall`, `bm25`, `kgAdd`, `kgQuery`, `kgTimeline`
 
 ---
 
