@@ -153,12 +153,12 @@ const initAction = async (ctx) => {
         if (startDaemon || startAll) {
             output.writeln();
             output.printInfo('Starting services...');
-            const { execSync } = await import('child_process');
+            const { execSync, spawn: spawnChild } = await import('child_process');
             // Initialize memory database
             if (startAll) {
                 try {
                     output.writeln(output.dim('  Initializing memory database...'));
-                    execSync('npx @monomind/cli@latest memory init 2>/dev/null', {
+                    execSync('npx @monomind/cli@latest memory init', {
                         stdio: 'pipe',
                         cwd: ctx.cwd,
                         timeout: 30000
@@ -173,11 +173,8 @@ const initAction = async (ctx) => {
             if (startDaemon) {
                 try {
                     output.writeln(output.dim('  Starting daemon...'));
-                    execSync('npx @monomind/cli@latest daemon start 2>/dev/null &', {
-                        stdio: 'pipe',
-                        cwd: ctx.cwd,
-                        timeout: 10000
-                    });
+                    const daemonProc = spawnChild(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['@monomind/cli@latest', 'daemon', 'start'], { stdio: 'ignore', detached: true, cwd: ctx.cwd });
+                    daemonProc.unref();
                     output.writeln(output.success('  ✓ Daemon started'));
                 }
                 catch {
@@ -188,7 +185,7 @@ const initAction = async (ctx) => {
             if (startAll) {
                 try {
                     output.writeln(output.dim('  Initializing swarm...'));
-                    execSync('npx @monomind/cli@latest swarm init --topology hierarchical 2>/dev/null', {
+                    execSync('npx @monomind/cli@latest swarm init --topology hierarchical', {
                         stdio: 'pipe',
                         cwd: ctx.cwd,
                         timeout: 30000
@@ -208,11 +205,16 @@ const initAction = async (ctx) => {
         if (withEmbeddings) {
             output.writeln();
             output.printInfo('Initializing ONNX embedding subsystem...');
-            const { execSync } = await import('child_process');
+            const ALLOWED_MODELS = /^[\w\-./]+$/;
+            if (!ALLOWED_MODELS.test(embeddingModel)) {
+                output.writeln(output.error('Invalid model identifier. Only alphanumeric characters, hyphens, dots, and slashes are allowed.'));
+                return { success: false, exitCode: 1 };
+            }
+            const { execFileSync } = await import('child_process');
             try {
                 output.writeln(output.dim(`  Model: ${embeddingModel}`));
                 output.writeln(output.dim('  Hyperbolic: Enabled (Poincaré ball)'));
-                execSync(`npx @monomind/cli@latest embeddings init --model ${embeddingModel} --no-download --force 2>/dev/null`, {
+                execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['@monomind/cli@latest', 'embeddings', 'init', '--model', embeddingModel, '--no-download', '--force'], {
                     stdio: 'pipe',
                     cwd: ctx.cwd,
                     timeout: 30000
@@ -316,13 +318,11 @@ const wizardCommand = {
                             { value: 'core', label: 'Core', hint: 'Swarm, memory, SPARC skills', selected: true },
                             { value: 'agentdb', label: 'AgentDB', hint: 'Vector database skills', selected: true },
                             { value: 'github', label: 'GitHub', hint: 'GitHub integration skills', selected: true },
-                            { value: 'v1', label: 'v1', hint: 'v1 implementation skills', selected: true },
                         ],
                     });
                     options.skills.core = skillSets.includes('core');
                     options.skills.agentdb = skillSets.includes('agentdb');
                     options.skills.github = skillSets.includes('github');
-                    options.skills.v1 = skillSets.includes('v1');
                 }
                 // Hooks selection
                 if (options.components.settings) {
@@ -440,9 +440,14 @@ const wizardCommand = {
             if (enableEmbeddings) {
                 output.writeln();
                 output.printInfo('Initializing ONNX embedding subsystem...');
-                const { execSync } = await import('child_process');
+                const ALLOWED_MODELS = /^[\w\-./]+$/;
+                if (!ALLOWED_MODELS.test(embeddingModel)) {
+                    output.writeln(output.error('Invalid model identifier. Only alphanumeric characters, hyphens, dots, and slashes are allowed.'));
+                    return { success: false, exitCode: 1 };
+                }
+                const { execFileSync } = await import('child_process');
                 try {
-                    execSync(`npx @monomind/cli@latest embeddings init --model ${embeddingModel} --no-download --force 2>/dev/null`, {
+                    execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['@monomind/cli@latest', 'embeddings', 'init', '--model', embeddingModel, '--no-download', '--force'], {
                         stdio: 'pipe',
                         cwd: ctx.cwd,
                         timeout: 30000
@@ -531,7 +536,6 @@ const skillsCommand = {
         { name: 'core', description: 'Install core skills', type: 'boolean', default: true },
         { name: 'agentdb', description: 'Install AgentDB skills', type: 'boolean', default: false },
         { name: 'github', description: 'Install GitHub skills', type: 'boolean', default: false },
-        { name: 'v1', description: 'Install v1 skills', type: 'boolean', default: false },
     ],
     action: async (ctx) => {
         const options = {
@@ -556,8 +560,7 @@ const skillsCommand = {
                 agentdb: ctx.flags.agentdb,
                 github: ctx.flags.github,
                 browser: false,
-                v1: ctx.flags.v1,
-                dualMode: false,
+                advanced: false,
             },
         };
         const spinner = output.createSpinner({ text: 'Installing skills...' });

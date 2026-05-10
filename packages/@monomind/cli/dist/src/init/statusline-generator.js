@@ -836,10 +836,9 @@ function generateStatusline() {
   const triggers  = getTriggerStats();
   const parts     = [];
 
-  // Brand + swarm dot + cwd
+  // Brand + swarm dot
   const swarmDot = swarm.coordinationActive ? \`\${x.green}●\${x.reset}\` : \`\${x.slate}○\${x.reset}\`;
-  const cwdBase = path.basename(CWD);
-  parts.push(\`\${x.bold}\${x.purple}▊ Monomind\${x.reset} \${swarmDot}  \${x.dim}◎ \${cwdBase}\${x.reset}\`);
+  parts.push(\`\${x.bold}\${x.purple}▊ Monomind\${x.reset} \${swarmDot}\`);
 
   // Git branch + changes (compact)
   if (git.gitBranch) {
