@@ -1,6 +1,6 @@
 ---
 name: mastermind-idea
-description: Mastermind idea domain — product ideation, feature brainstorming, pivot exploration. Spawns an Idea Manager agent for divergent thinking, then validates, elaborates, and decomposes approved ideas into actionable subtasks.
+description: Mastermind idea domain — product ideation, feature brainstorming, pivot exploration. Spawns an Idea Manager agent for divergent thinking, then validates, elaborates, and decomposes approved ideas into actionable subtasks on separate dev and ops task boards.
 type: domain-skill
 default_mode: confirm
 ---
@@ -133,22 +133,34 @@ YOUR GOAL: ${prompt}
 
 STEP 1 — PLAN
 Decompose the ideation goal into distinct exploration angles. For each angle, identify:
-- Perspective (market, user, technical, competitive)
+- Perspective (market, user, technical, competitive, business operations)
 - Which specialist to assign
 - Expected output format
 
 STEP 2 — SPAWN SPECIALISTS
 Spawn one Task agent per angle (all in parallel, mesh topology). Each agent receives the
-angle description, brain context, and project context, and must return a JSON array of ideas:
-- Market research:    subagent_type "researcher"
-- Trend analysis:     subagent_type "Trend Researcher"
-- User perspective:   subagent_type "UX Researcher"
-- Growth angle:       subagent_type "Growth Hacker"
-- Content/narrative:  subagent_type "Content Creator"
+angle description, brain context, and project context, and must return a JSON array of ideas.
 
-Each specialist must return ideas in this format:
+Specialists to spawn for EVERY run:
+- Market research:       subagent_type "researcher"
+- Trend analysis:        subagent_type "Trend Researcher"
+- User perspective:      subagent_type "UX Researcher"
+- Growth angle:          subagent_type "Growth Hacker"
+- Content/narrative:     subagent_type "Content Creator"
+- Business operations:   subagent_type "Account Strategist"
+
+Each specialist must classify every idea with one of these categories:
+  feature             — new product capability for end users
+  technical-baseline  — infrastructure, tooling, or technical debt (not user-visible)
+  business-operation  — internal process, workflow, marketing, sales, ops, or org change
+
+Each specialist returns ideas in this format:
 [
-  { "title": "...", "description": "...", "category": "feature | technical-baseline" }
+  {
+    "title": "...",
+    "description": "...",
+    "category": "feature | technical-baseline | business-operation"
+  }
 ]
 
 STEP 3 — DEDUPLICATE
@@ -161,9 +173,10 @@ For each unique idea, create one card in the New column (COL_NEW = ${COL_NEW}):
   result=$(monotask card create "${BOARD_ID}" "${COL_NEW}" "<idea title ≤80 chars>" --json)
   CARD_ID=$(echo "$result" | jq -r '.id // empty')
   monotask card comment add "${BOARD_ID}" "$CARD_ID" "DESCRIPTION: <2-3 sentence description>
-CATEGORY: <feature | technical-baseline>
+CATEGORY: <feature | technical-baseline | business-operation>
 SOURCE: <which specialist angle produced this>"
   monotask card label add "${BOARD_ID}" "$CARD_ID" "mastermind-idea"
+  monotask card label add "${BOARD_ID}" "$CARD_ID" "category:<category>"
 
 Then output a JSON block labelled IDEAS_OUTPUT with one entry per unique idea:
 
@@ -173,7 +186,7 @@ IDEAS_OUTPUT
     "card_id": "<monotask card ID just created>",
     "title": "<idea title>",
     "description": "<2-3 sentence description>",
-    "category": "feature | technical-baseline",
+    "category": "feature | technical-baseline | business-operation",
     "source_angle": "<which specialist produced this>"
   }
 ]
@@ -190,7 +203,7 @@ Parse the `IDEAS_OUTPUT` JSON block from the agent's response. If zero ideas wer
 Spawn a single `Product Manager` agent via the Task tool. The PM agent has Bash tool access and is responsible for both producing verdicts and executing all board updates directly.
 
 Provide the PM agent with:
-- All ideas from Step 4 (titles, descriptions, card IDs, BOARD_ID, and all COL_* variables)
+- All ideas from Step 4 (titles, descriptions, categories, card IDs, BOARD_ID, and all COL_* variables)
 - The `brain_context`
 - The original `prompt`
 
@@ -230,6 +243,7 @@ VERDICTS_OUTPUT
   {
     "card_id": "<card ID>",
     "title": "<idea title>",
+    "category": "feature | technical-baseline | business-operation",
     "verdict": "evaluated | iced | rejected",
     "skipElaboration": true | false,
     "impact": <0-10>,
@@ -252,12 +266,19 @@ For any evaluated idea with `skipElaboration: true`, move it directly to `Elabor
 monotask card move "$BOARD_ID" "$CARD_ID" "$COL_ELABORATED" --json
 ```
 
-For ideas with `skipElaboration: false`, spawn two agents in parallel via the Task tool:
+For ideas with `skipElaboration: false`, **split by category** before spawning agents:
 
-1. `feature-dev:code-explorer` — traces execution paths, maps dependencies, surfaces codebase constraints relevant to each idea. Must return findings keyed by idea title.
-2. `researcher` (with WebSearch) — finds prior art, edge cases, implementation pitfalls for each idea. Must return findings keyed by idea title.
+**Dev ideas** (`feature` or `technical-baseline`):
+Spawn two agents in parallel:
+1. `feature-dev:code-explorer` — traces execution paths, maps dependencies, surfaces codebase constraints relevant to each idea.
+2. `researcher` (with WebSearch) — finds prior art, edge cases, implementation pitfalls for each idea.
 
-Provide both with: the list of `skipElaboration: false` ideas (titles, descriptions, card IDs) + `brain_context`.
+**Business-operation ideas** (`business-operation`):
+Spawn two agents in parallel:
+1. `researcher` (with WebSearch) — finds industry benchmarks, comparable operational processes, known pitfalls, and market context.
+2. `Product Manager` — assesses process feasibility, stakeholder impact, alignment with existing workflows, and resource requirements.
+
+Provide all agents with: their subset of ideas (titles, descriptions, card IDs) + `brain_context`.
 
 Each agent must output their findings in this format:
 ```
@@ -272,12 +293,17 @@ ELABORATION_OUTPUT
 END_ELABORATION_OUTPUT
 ```
 
-After both agents complete, merge their outputs per idea (same card_id → concatenate findings). For each idea:
+After all agents complete, merge their outputs per idea (same card_id → concatenate findings). For each idea:
 
 ```bash
 # Write merged findings as card comments
+# Dev ideas:
 monotask card comment add "$BOARD_ID" "$CARD_ID" "Edge cases & prior art: <researcher findings>"
 monotask card comment add "$BOARD_ID" "$CARD_ID" "Codebase constraints: <code-explorer findings>"
+
+# Business-operation ideas:
+monotask card comment add "$BOARD_ID" "$CARD_ID" "Industry context & benchmarks: <researcher findings>"
+monotask card comment add "$BOARD_ID" "$CARD_ID" "Feasibility & stakeholder impact: <PM findings>"
 
 # If neither agent found a blocking issue:
 monotask card move "$BOARD_ID" "$CARD_ID" "$COL_ELABORATED" --json
@@ -289,12 +315,17 @@ monotask card comment add "$BOARD_ID" "$CARD_ID" "Blocked during elaboration: <i
 
 #### 6b. Task Decomposition
 
-Spawn a single `Software Architect` agent via the Task tool. Provide it with:
-- All ideas now in the `Elaborated` column — titles, descriptions, all card comments, and card IDs
+**Spawn decomposition agents by track** — run both in parallel if both tracks have elaborated ideas:
+
+- For **dev ideas** (`feature` or `technical-baseline`): spawn a `Software Architect` agent.
+- For **business-operation ideas**: spawn a `Product Manager` agent.
+
+Provide each agent with:
+- Their subset of elaborated ideas (titles, descriptions, all card comments, card IDs, and category)
 - The `brain_context`
 - The original `prompt`
 
-The architect must output a `TASKS_OUTPUT` block. For each elaborated idea, produce 2–6 subtasks. If an idea's scope is unclear, flag it instead of decomposing — include the card_id and a clarifying question in a `FLAGGED` entry.
+Each agent must output a `TASKS_OUTPUT` block. For each elaborated idea, produce 2–6 subtasks. If an idea's scope is unclear, flag it instead of decomposing.
 
 ```
 TASKS_OUTPUT
@@ -303,6 +334,7 @@ TASKS_OUTPUT
     "parent_card_id": "<ideation board card ID>",
     "title": "<subtask title ≤80 chars>",
     "description": "<what to build/do>",
+    "category": "feature | technical-baseline | business-operation",
     "agent": "<recommended subagent_type>",
     "effort": <1-10>,
     "has_prerequisites": <true | false>
@@ -315,15 +347,18 @@ FLAGGED
 END_TASKS_OUTPUT
 ```
 
-**After the Architect returns**, the outer skill creates cards on the `monomind-task` board:
+**After both decomposition agents return**, the outer skill creates task cards on the appropriate board for each task's category.
 
-**Look up or create the monomind-task board** — check memory for `"monomind-task board_id"` in namespace `monomind`. If found, use it as `TASK_BOARD_ID`. Otherwise:
+---
+
+**Dev task board** (`feature` / `technical-baseline` → `monomind-task`):
+
+Check memory for `"monomind-task board_id"` in namespace `monomind`. If found, use it as `TASK_BOARD_ID`. Otherwise create it:
 
 ```bash
 TASK_BOARD_ID=$(monotask board create "monomind-task" --json | jq -r '.id // empty')
 monotask space boards add "$space_id" "$TASK_BOARD_ID" >/dev/null 2>&1 || true
 npx monomind@latest memory store --key "monomind-task board_id" --value "$TASK_BOARD_ID" --namespace monomind
-# Columns matching createtask standard
 monotask column create "$TASK_BOARD_ID" "Backlog"       --json >/dev/null
 monotask column create "$TASK_BOARD_ID" "Todo"          --json >/dev/null
 monotask column create "$TASK_BOARD_ID" "In Progress"   --json >/dev/null
@@ -339,24 +374,61 @@ TASK_COL_TODO=$(echo "$task_columns"    | jq -r '.[] | select(.title == "Todo") 
 TASK_COL_BACKLOG=$(echo "$task_columns" | jq -r '.[] | select(.title == "Backlog") | .id' | head -1)
 ```
 
-For each task in TASKS_OUTPUT (iterate the JSON array):
-```bash
-# has_prerequisites true → Backlog, false → Todo
-COL_TARGET=$([ "$has_prerequisites" = "true" ] && echo "$TASK_COL_BACKLOG" || echo "$TASK_COL_TODO")
+---
 
-TASK_CARD_ID=$(monotask card create "$TASK_BOARD_ID" "$COL_TARGET" "<task title>" --json | jq -r '.id')
-monotask card comment add "$TASK_BOARD_ID" "$TASK_CARD_ID" \
+**Ops task board** (`business-operation` → `monomind-ops-task`):
+
+Check memory for `"monomind-ops-task board_id"` in namespace `monomind`. If found, use it as `OPS_BOARD_ID`. Otherwise create it:
+
+```bash
+OPS_BOARD_ID=$(monotask board create "monomind-ops-task" --json | jq -r '.id // empty')
+monotask space boards add "$space_id" "$OPS_BOARD_ID" >/dev/null 2>&1 || true
+npx monomind@latest memory store --key "monomind-ops-task board_id" --value "$OPS_BOARD_ID" --namespace monomind
+monotask column create "$OPS_BOARD_ID" "Backlog"       --json >/dev/null
+monotask column create "$OPS_BOARD_ID" "Todo"          --json >/dev/null
+monotask column create "$OPS_BOARD_ID" "In Progress"   --json >/dev/null
+monotask column create "$OPS_BOARD_ID" "Review"        --json >/dev/null
+monotask column create "$OPS_BOARD_ID" "Human in Loop" --json >/dev/null
+monotask column create "$OPS_BOARD_ID" "Done"          --json >/dev/null
+```
+
+Look up column IDs:
+```bash
+ops_columns=$(monotask column list "$OPS_BOARD_ID" --json)
+OPS_COL_TODO=$(echo "$ops_columns"    | jq -r '.[] | select(.title == "Todo")    | .id' | head -1)
+OPS_COL_BACKLOG=$(echo "$ops_columns" | jq -r '.[] | select(.title == "Backlog") | .id' | head -1)
+```
+
+---
+
+**Create task cards** — for each task in the merged TASKS_OUTPUT:
+
+```bash
+if [ "$category" = "business-operation" ]; then
+  TARGET_BOARD="$OPS_BOARD_ID"
+  COL_TARGET=$([ "$has_prerequisites" = "true" ] && echo "$OPS_COL_BACKLOG" || echo "$OPS_COL_TODO")
+  BOARD_LABEL="monomind-ops-task"
+else
+  TARGET_BOARD="$TASK_BOARD_ID"
+  COL_TARGET=$([ "$has_prerequisites" = "true" ] && echo "$TASK_COL_BACKLOG" || echo "$TASK_COL_TODO")
+  BOARD_LABEL="monomind-task"
+fi
+
+TASK_CARD_ID=$(monotask card create "$TARGET_BOARD" "$COL_TARGET" "<task title>" --json | jq -r '.id')
+monotask card comment add "$TARGET_BOARD" "$TASK_CARD_ID" \
   "SOURCE: mastermind:idea | <first 100 chars of prompt>
 AGENT: <agent>
 EFFORT: <effort>/10
+CATEGORY: <category>
 PARENT IDEA: <idea title> (card: <parent_card_id> on ideation board)"
-monotask card label add "$TASK_BOARD_ID" "$TASK_CARD_ID" "mastermind:idea"
+monotask card label add "$TARGET_BOARD" "$TASK_CARD_ID" "mastermind:idea"
+monotask card label add "$TARGET_BOARD" "$TASK_CARD_ID" "category:<category>"
 ```
 
 Group tasks by `parent_card_id`. For each parent idea, annotate and move to `Tasked`:
 ```bash
 monotask card comment add "$BOARD_ID" "$parent_card_id" \
-  "Subtasks created: <list of titles with agent and effort>"
+  "Subtasks created on <board_label>: <list of titles with agent and effort>"
 monotask card move "$BOARD_ID" "$parent_card_id" "$COL_TASKED" --json
 ```
 
@@ -391,12 +463,16 @@ next_actions:
   - <e.g. "run mastermind:research to validate top idea">
 board_url: "monotask://<project_name>/ideation"
 task_board_url: "monotask://<project_name>/monomind-task"
+ops_task_board_url: "monotask://<project_name>/monomind-ops-task"
 run_id: <ISO8601-timestamp>
 summary:
   ideas_generated: N
+  ideas_dev: N
+  ideas_ops: N
   ideas_evaluated: N
   ideas_tasked: N
-  total_subtasks: N
+  total_dev_subtasks: N
+  total_ops_subtasks: N
   ideas_iced: N
   ideas_rejected: N
 ```
