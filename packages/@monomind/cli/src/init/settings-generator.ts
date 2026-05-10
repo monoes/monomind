@@ -14,7 +14,7 @@ export function generateSettings(options: InitOptions): object {
 
   // Add hooks if enabled
   if (options.components.settings) {
-    settings.hooks = generateHooksConfig(options.hooks);
+    settings.hooks = generateHooksConfig(options.hooks, options.components.graphify);
   }
 
   // Add statusLine configuration if enabled
@@ -191,6 +191,16 @@ function autoMemoryCmd(subcommand: string): string {
   return hookCmd('.claude/helpers/auto-memory-hook.mjs', subcommand);
 }
 
+/** Shorthand for standalone CJS helper scripts (no subcommand) */
+function standaloneHelperCmd(script: string): string {
+  if (IS_WINDOWS) {
+    return `cmd /c node %CLAUDE_PROJECT_DIR%/.claude/helpers/${script}`;
+  }
+  // eslint-disable-next-line no-template-curly-in-string
+  const dir = '${CLAUDE_PROJECT_DIR:-.}';
+  return `sh -c 'exec node "${dir}/.claude/helpers/${script}"'`;
+}
+
 /**
  * Generate statusLine configuration for Claude Code
  * Uses local helper script for cross-platform compatibility (no npx cold-start)
@@ -215,7 +225,7 @@ function generateStatusLineConfig(_options: InitOptions): object {
  * All hooks invoke scripts directly via `node <script> <subcommand>`,
  * working identically on Windows, macOS, and Linux.
  */
-function generateHooksConfig(config: HooksConfig): object {
+function generateHooksConfig(config: HooksConfig, graphify = true): object {
   const hooks: Record<string, unknown[]> = {};
 
   // Node.js scripts handle errors internally via try/catch.
@@ -288,24 +298,36 @@ function generateHooksConfig(config: HooksConfig): object {
     ];
   }
 
-  // SessionStart — restore session state + import auto memory
+  // SessionStart — restore session state + import auto memory + build knowledge graph
   if (config.sessionStart) {
-    hooks.SessionStart = [
+    const sessionStartHooks: object[] = [
       {
-        hooks: [
-          {
-            type: 'command',
-            command: hookHandlerCmd('session-restore'),
-            timeout: 15000,
-          },
-          {
-            type: 'command',
-            command: autoMemoryCmd('import'),
-            timeout: 8000,
-          },
-        ],
+        type: 'command',
+        command: hookHandlerCmd('session-restore'),
+        timeout: 15000,
+      },
+      {
+        type: 'command',
+        command: autoMemoryCmd('import'),
+        timeout: 8000,
       },
     ];
+
+    if (graphify) {
+      sessionStartHooks.push({
+        type: 'command',
+        command: standaloneHelperCmd('graphify-freshen.cjs'),
+        timeout: 5000,
+      });
+    }
+
+    sessionStartHooks.push({
+      type: 'command',
+      command: standaloneHelperCmd('control-start.cjs'),
+      timeout: 5000,
+    });
+
+    hooks.SessionStart = [{ hooks: sessionStartHooks }];
   }
 
   // SessionEnd — persist session state
