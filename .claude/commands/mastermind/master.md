@@ -194,9 +194,10 @@ space_id=$(monotask space list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$2); 
 declare -A board_ids todo_cols doing_cols done_cols domain_goals
 
 # Hydrate domain_goals from Step 4's current.json write — prevents Step 4 extraction being clobbered
-while IFS=$'\t' read -r k v; do
+# Use NUL-delimited pairs (not @tsv) to safely handle backslashes, tabs, and other special chars in goals
+while IFS= read -r -d '' k && IFS= read -r -d '' v; do
   [[ -n "$k" ]] && domain_goals[$k]="$v"
-done < <(jq -r '.domain_goals // {} | to_entries[] | [.key,.value] | @tsv' "$SESSION_STATE" 2>/dev/null)
+done < <(jq -j '.domain_goals // {} | to_entries[] | (.key + "\u0000" + .value + "\u0000")' "$SESSION_STATE" 2>/dev/null)
 
 # Loop over every active domain — LLM: replace DOMAINS_LIST_HERE with the resolved domain list
 domains_needed="DOMAINS_LIST_HERE"
@@ -394,7 +395,7 @@ Each Task call must include a complete briefing following the Monotask Task Brie
 - Instruction to spawn specialized agents using the domain-appropriate swarm topology
 - Instruction to return the unified output schema when done
 
-Example Task call for Development Manager. Substitute every `<…>` placeholder with its resolved value before calling Task. `subagent_type` is the **string value** of `$domain_manager_build` (e.g. `"Backend Architect"`), not a variable reference.
+Example Task call for Development Manager. Substitute all **pre-known** `<…>` placeholders (project_name, SESSION_ID, board/col IDs, goals, manager name) before calling Task. Placeholders like `<status>`, `<path1>`, `<action1>` are filled at runtime by the spawned agent — do not attempt to substitute them. `subagent_type` is the **string value** of `$domain_manager_build` (e.g. `"Backend Architect"`), not a variable reference.
 
 **IMPORTANT — `<SESSION_ID>` appears 6 times in the template below. ALL must be replaced with the resolved value:**
 1. `SESSION ID: <SESSION_ID>` — the header line in the prompt
@@ -672,7 +673,7 @@ Execute the chosen activity by invoking the appropriate domain skill directly (S
 - Debug/Fix → invoke `/mastermind:build` with the specific failing test or error as prompt
 - Review → invoke `/mastermind:review` with scope = artifacts from last run
 - Improve/Refactor → invoke `/mastermind:build` with refactor prompt
-- Add feature → invoke `/mastermind:build` with the next feature from `$last_next_actions`
+- Add feature → invoke `/mastermind:build` with the next feature from the `next_actions` array printed by the Step 12a output above
 - Research → invoke `/mastermind:research` with the open question as prompt
 - Content/Docs → invoke `/mastermind:content` with scope = new artifacts
 - Release → invoke `/mastermind:release` with project scope
