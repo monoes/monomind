@@ -1068,19 +1068,30 @@ async function copySkills(
     return;
   }
 
-  // Copy each skill
-  for (const skillName of [...new Set(skillsToCopy)]) {
+  // Remove stale skill directories no longer in the current version's map
+  const knownSkills = new Set([...new Set(skillsToCopy)]);
+  if (fs.existsSync(targetSkillsDir)) {
+    for (const existing of fs.readdirSync(targetSkillsDir)) {
+      if (!knownSkills.has(existing)) {
+        const stalePath = path.join(targetSkillsDir, existing);
+        fs.rmSync(stalePath, { recursive: true, force: true });
+        result.created.files.push(`[cleaned] .claude/skills/${existing} (stale)`);
+      }
+    }
+  }
+
+  // Always copy/overwrite skills (never skip — ensures new version content lands)
+  for (const skillName of knownSkills) {
     const sourcePath = path.join(sourceSkillsDir, skillName);
     const targetPath = path.join(targetSkillsDir, skillName);
 
     if (fs.existsSync(sourcePath)) {
-      if (!fs.existsSync(targetPath) || options.force) {
-        copyDirRecursive(sourcePath, targetPath);
-        result.created.files.push(`.claude/skills/${skillName}`);
-        result.summary.skillsCount++;
-      } else {
-        result.skipped.push(`.claude/skills/${skillName}`);
+      if (fs.existsSync(targetPath)) {
+        fs.rmSync(targetPath, { recursive: true, force: true });
       }
+      copyDirRecursive(sourcePath, targetPath);
+      result.created.files.push(`.claude/skills/${skillName}`);
+      result.summary.skillsCount++;
     }
   }
 }
@@ -1133,23 +1144,34 @@ async function copyCommands(
     return;
   }
 
-  // Copy each command/directory
-  for (const cmdName of [...new Set(commandsToCopy)]) {
+  // Remove stale command files/directories no longer in the current version's map
+  const knownCommands = new Set([...new Set(commandsToCopy)]);
+  if (fs.existsSync(targetCommandsDir)) {
+    for (const existing of fs.readdirSync(targetCommandsDir)) {
+      if (!knownCommands.has(existing)) {
+        const stalePath = path.join(targetCommandsDir, existing);
+        fs.rmSync(stalePath, { recursive: true, force: true });
+        result.created.files.push(`[cleaned] .claude/commands/${existing} (stale)`);
+      }
+    }
+  }
+
+  // Always copy/overwrite commands (never skip — ensures new version content lands)
+  for (const cmdName of knownCommands) {
     const sourcePath = path.join(sourceCommandsDir, cmdName);
     const targetPath = path.join(targetCommandsDir, cmdName);
 
     if (fs.existsSync(sourcePath)) {
-      if (!fs.existsSync(targetPath) || options.force) {
-        if (fs.statSync(sourcePath).isDirectory()) {
-          copyDirRecursive(sourcePath, targetPath);
-        } else {
-          fs.copyFileSync(sourcePath, targetPath);
-        }
-        result.created.files.push(`.claude/commands/${cmdName}`);
-        result.summary.commandsCount++;
-      } else {
-        result.skipped.push(`.claude/commands/${cmdName}`);
+      if (fs.existsSync(targetPath)) {
+        fs.rmSync(targetPath, { recursive: true, force: true });
       }
+      if (fs.statSync(sourcePath).isDirectory()) {
+        copyDirRecursive(sourcePath, targetPath);
+      } else {
+        fs.copyFileSync(sourcePath, targetPath);
+      }
+      result.created.files.push(`.claude/commands/${cmdName}`);
+      result.summary.commandsCount++;
     }
   }
 }
@@ -1188,21 +1210,32 @@ async function copyAgents(
     return;
   }
 
-  // Copy each agent category
-  for (const agentCategory of [...new Set(agentsToCopy)]) {
+  // Remove stale agent category directories no longer in the current version's map
+  const knownAgents = new Set([...new Set(agentsToCopy)]);
+  if (fs.existsSync(targetAgentsDir)) {
+    for (const existing of fs.readdirSync(targetAgentsDir)) {
+      if (!knownAgents.has(existing)) {
+        const stalePath = path.join(targetAgentsDir, existing);
+        fs.rmSync(stalePath, { recursive: true, force: true });
+        result.created.files.push(`[cleaned] .claude/agents/${existing} (stale)`);
+      }
+    }
+  }
+
+  // Always copy/overwrite agents (never skip — ensures new version content lands)
+  for (const agentCategory of knownAgents) {
     const sourcePath = path.join(sourceAgentsDir, agentCategory);
     const targetPath = path.join(targetAgentsDir, agentCategory);
 
     if (fs.existsSync(sourcePath)) {
-      if (!fs.existsSync(targetPath) || options.force) {
-        copyDirRecursive(sourcePath, targetPath);
-        // Count agent files (.md only — .yaml agents were migrated to .md)
-        const mdFiles = countFiles(sourcePath, '.md');
-        result.summary.agentsCount += mdFiles;
-        result.created.files.push(`.claude/agents/${agentCategory}`);
-      } else {
-        result.skipped.push(`.claude/agents/${agentCategory}`);
+      if (fs.existsSync(targetPath)) {
+        fs.rmSync(targetPath, { recursive: true, force: true });
       }
+      copyDirRecursive(sourcePath, targetPath);
+      // Count agent files (.md only — .yaml agents were migrated to .md)
+      const mdFiles = countFiles(sourcePath, '.md');
+      result.summary.agentsCount += mdFiles;
+      result.created.files.push(`.claude/agents/${agentCategory}`);
     }
   }
 }

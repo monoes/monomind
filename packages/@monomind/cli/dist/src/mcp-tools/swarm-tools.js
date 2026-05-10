@@ -4,17 +4,10 @@
  * Tool definitions for swarm coordination with file-based state persistence.
  * Replaces previous stub implementations with real state tracking.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { getProjectCwd } from './types.js';
-function logEvent(kind, data) {
-    try {
-        const dir = join(getProjectCwd(), '.monomind', 'swarm');
-        if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-        const event = { ts: new Date().toISOString(), source: 'mcp', kind, ...data };
-        appendFileSync(join(dir, 'events.jsonl'), JSON.stringify(event) + '\n');
-    } catch { }
-}
 // Swarm state persistence
 const SWARM_DIR = '.monomind/swarm';
 const SWARM_STATE_FILE = 'swarm-state.json';
@@ -30,10 +23,13 @@ function ensureSwarmDir() {
         mkdirSync(dir, { recursive: true, mode: 0o700 });
     }
 }
+const MAX_SWARM_STORE_BYTES = 10 * 1024 * 1024;
 function loadSwarmStore() {
     try {
         const path = getSwarmStatePath();
         if (existsSync(path)) {
+            if (statSync(path).size > MAX_SWARM_STORE_BYTES)
+                return { swarms: {}, version: '3.0.0' };
             return JSON.parse(readFileSync(path, 'utf-8'));
         }
     }
@@ -42,7 +38,10 @@ function loadSwarmStore() {
 }
 function saveSwarmStore(store) {
     ensureSwarmDir();
-    writeFileSync(getSwarmStatePath(), JSON.stringify(store, null, 2), 'utf-8');
+    const dest = getSwarmStatePath();
+    const tmp = `${dest}.${process.pid}.${Date.now()}.tmp`;
+    writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf-8');
+    renameSync(tmp, dest);
 }
 // Input validation
 const VALID_TOPOLOGIES = new Set([
@@ -64,7 +63,7 @@ export const swarmTools = [
         },
         handler: async (input) => {
             const topology = input.topology || 'hierarchical-mesh';
-            const maxAgents = Math.min(Math.max(input.maxAgents || 15, 1), 50);
+            const maxAgents = Math.min(Math.max(input.maxAgents || 8, 1), 50);
             const strategy = input.strategy || 'specialized';
             const config = (input.config || {});
             if (!VALID_TOPOLOGIES.has(topology)) {
@@ -73,7 +72,7 @@ export const swarmTools = [
                     error: `Invalid topology: ${topology}. Valid: ${[...VALID_TOPOLOGIES].join(', ')}`,
                 };
             }
-            const swarmId = `swarm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            const swarmId = `swarm-${Date.now()}-${randomBytes(6).toString('hex')}`;
             const now = new Date().toISOString();
             const swarmState = {
                 swarmId,
@@ -94,9 +93,17 @@ export const swarmTools = [
                 updatedAt: now,
             };
             const store = loadSwarmStore();
+            const MAX_SWARMS = 500;
+            // Evict terminated swarms first to free space
+            for (const [id, s] of Object.entries(store.swarms)) {
+                if (s.status === 'terminated')
+                    delete store.swarms[id];
+            }
+            if (Object.keys(store.swarms).length >= MAX_SWARMS) {
+                return { success: false, error: 'Swarm limit reached' };
+            }
             store.swarms[swarmId] = swarmState;
             saveSwarmStore(store);
-            logEvent('swarm.init', { swarmId, topology, strategy, maxAgents, config: swarmState.config });
             return {
                 success: true,
                 swarmId,
@@ -122,7 +129,11 @@ export const swarmTools = [
         handler: async (input) => {
             const store = loadSwarmStore();
             const swarmId = input.swarmId;
-            if (swarmId && store.swarms[swarmId]) {
+            const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+            if (swarmId && FORBIDDEN_KEYS.has(swarmId)) {
+                return { status: 'not_found', message: `Swarm ${swarmId} not found` };
+            }
+            if (swarmId && Object.hasOwn(store.swarms, swarmId)) {
                 const swarm = store.swarms[swarmId];
                 return {
                     swarmId: swarm.swarmId,
@@ -176,9 +187,13 @@ export const swarmTools = [
         handler: async (input) => {
             const store = loadSwarmStore();
             const swarmId = input.swarmId;
+            const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+            if (swarmId && FORBIDDEN_KEYS.has(swarmId)) {
+                return { success: false, error: `Swarm ${swarmId} not found` };
+            }
             // Find the swarm
             let target;
-            if (swarmId && store.swarms[swarmId]) {
+            if (swarmId && Object.hasOwn(store.swarms, swarmId)) {
                 target = store.swarms[swarmId];
             }
             else {
@@ -204,7 +219,6 @@ export const swarmTools = [
             target.status = 'terminated';
             target.updatedAt = new Date().toISOString();
             saveSwarmStore(store);
-            logEvent('swarm.shutdown', { swarmId: target.swarmId, topology: target.topology, agentCount: target.agents.length, graceful: input.graceful ?? true });
             return {
                 success: true,
                 swarmId: target.swarmId,
@@ -228,10 +242,14 @@ export const swarmTools = [
         handler: async (input) => {
             const store = loadSwarmStore();
             const swarmId = input.swarmId;
+            const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+            if (swarmId && FORBIDDEN_KEYS.has(swarmId)) {
+                return { status: 'not_found', healthy: false, checks: [{ name: 'swarm_exists', status: 'fail', message: `Swarm ${swarmId} not found` }], checkedAt: new Date().toISOString() };
+            }
             // Find the swarm
             let target;
             if (swarmId) {
-                target = store.swarms[swarmId];
+                target = Object.hasOwn(store.swarms, swarmId) ? store.swarms[swarmId] : undefined;
                 if (!target) {
                     return {
                         status: 'not_found',

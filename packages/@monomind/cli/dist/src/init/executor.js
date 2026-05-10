@@ -10,6 +10,26 @@ import { dirname } from 'path';
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+/**
+ * Atomic write helper — writes to a sibling .tmp file then renames into place.
+ * SIGINT or crash during a partial write would otherwise corrupt user-critical
+ * files (.claude/settings.json, .mcp.json, helper scripts that Claude Code
+ * executes on every hook). Without atomicity a half-written settings.json or
+ * a zero-byte hook-handler.cjs disables Claude Code's protections silently.
+ */
+function atomicWriteFile(target, content, encoding) {
+    const tmp = `${target}.${process.pid}.tmp`;
+    if (encoding && typeof content === 'string') {
+        fs.writeFileSync(tmp, content, encoding);
+    }
+    else if (typeof content === 'string') {
+        fs.writeFileSync(tmp, content, 'utf-8');
+    }
+    else {
+        fs.writeFileSync(tmp, content);
+    }
+    fs.renameSync(tmp, target);
+}
 import { detectPlatform, DEFAULT_INIT_OPTIONS } from './types.js';
 import { writeSharedInstructions } from './shared-instructions-generator.js';
 import { generateSettingsJson, generateSettings } from './settings-generator.js';
@@ -199,7 +219,7 @@ function cleanupLegacyTools(targetDir) {
                 cleaned.push('.mcp.json: updated MCP package name to monomind@latest');
             }
             if (mcpChanged) {
-                fs.writeFileSync(mcpJsonPath, JSON.stringify(mcp, null, 2));
+                atomicWriteFile(mcpJsonPath, JSON.stringify(mcp, null, 2));
             }
         }
         catch { /* non-fatal */ }
@@ -235,7 +255,7 @@ function cleanupLegacyTools(targetDir) {
                 cleaned.push('.claude/settings.json: updated MCP package name to monomind@latest');
             }
             if (settingsChanged) {
-                fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+                atomicWriteFile(settingsPath, JSON.stringify(settings, null, 2));
             }
         }
         catch { /* non-fatal */ }
@@ -565,11 +585,18 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                     else {
                         result.created.push(`.claude/helpers/${helperName}`);
                     }
-                    fs.copyFileSync(sourcePath, targetPath);
-                    try {
-                        fs.chmodSync(targetPath, '755');
+                    // Atomic copy-via-rename: a SIGINT/crash during copy would leave a
+                    // half-written hook-handler.cjs which Claude Code executes on every
+                    // hook event — partial JS could disable security checks silently.
+                    {
+                        const tmp = targetPath + '.tmp';
+                        fs.copyFileSync(sourcePath, tmp);
+                        try {
+                            fs.chmodSync(tmp, 0o755);
+                        }
+                        catch { }
+                        fs.renameSync(tmp, targetPath);
                     }
-                    catch { }
                 }
             }
         }
@@ -588,11 +615,16 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                 else {
                     result.created.push(`.claude/helpers/${helperName}`);
                 }
-                fs.writeFileSync(targetPath, content, 'utf-8');
+                // Atomic write (PID-suffixed) so a partial hook-handler.cjs cannot
+                // ship if init is interrupted, and concurrent inits don't collide on
+                // the same .tmp filename.
+                const tmp = `${targetPath}.${process.pid}.tmp`;
+                fs.writeFileSync(tmp, content, 'utf-8');
                 try {
-                    fs.chmodSync(targetPath, '755');
+                    fs.chmodSync(tmp, 0o755);
                 }
                 catch { }
+                fs.renameSync(tmp, targetPath);
             }
         }
         // 1. ALWAYS update statusline helper (force overwrite)
@@ -614,7 +646,7 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
         else {
             result.created.push('.claude/helpers/statusline.cjs');
         }
-        fs.writeFileSync(statuslinePath, statuslineContent, 'utf-8');
+        atomicWriteFile(statuslinePath, statuslineContent);
         // 2. Create MISSING metrics files only (preserve existing data)
         const metricsDir = path.join(targetDir, '.monomind', 'metrics');
         const securityDir = path.join(targetDir, '.monomind', 'security');
@@ -630,7 +662,7 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                 learning: { status: 'READY', patternsLearned: 0, sessionsCompleted: 0 },
                 _note: 'Metrics will update as you use Monomind'
             };
-            fs.writeFileSync(progressPath, JSON.stringify(progress, null, 2), 'utf-8');
+            atomicWriteFile(progressPath, JSON.stringify(progress, null, 2));
             result.created.push('.monomind/metrics/v1-progress.json');
         }
         else {
@@ -646,7 +678,7 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                 integration: { agentic_flow_active: false, mcp_active: false },
                 _initialized: true
             };
-            fs.writeFileSync(activityPath, JSON.stringify(activity, null, 2), 'utf-8');
+            atomicWriteFile(activityPath, JSON.stringify(activity, null, 2));
             result.created.push('.monomind/metrics/swarm-activity.json');
         }
         else {
@@ -662,7 +694,7 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                 sessions: { total: 0, current: null },
                 _note: 'Intelligence grows as you use Monomind'
             };
-            fs.writeFileSync(learningPath, JSON.stringify(learning, null, 2), 'utf-8');
+            atomicWriteFile(learningPath, JSON.stringify(learning, null, 2));
             result.created.push('.monomind/metrics/learning.json');
         }
         else {
@@ -679,7 +711,7 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                 lastScan: null,
                 _note: 'Run: npx monomind@latest security scan'
             };
-            fs.writeFileSync(auditPath, JSON.stringify(audit, null, 2), 'utf-8');
+            atomicWriteFile(auditPath, JSON.stringify(audit, null, 2));
             result.created.push('.monomind/security/audit-status.json');
         }
         else {
@@ -692,7 +724,7 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                 try {
                     const existingSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
                     const mergedSettings = mergeSettingsForUpgrade(existingSettings);
-                    fs.writeFileSync(settingsPath, JSON.stringify(mergedSettings, null, 2), 'utf-8');
+                    atomicWriteFile(settingsPath, JSON.stringify(mergedSettings, null, 2));
                     result.updated.push('.claude/settings.json');
                     result.settingsUpdated = [
                         'env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS',
@@ -711,7 +743,7 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
             else {
                 // Create new settings.json with defaults
                 const defaultSettings = generateSettings(DEFAULT_INIT_OPTIONS);
-                fs.writeFileSync(settingsPath, JSON.stringify(defaultSettings, null, 2), 'utf-8');
+                atomicWriteFile(settingsPath, JSON.stringify(defaultSettings, null, 2));
                 result.created.push('.claude/settings.json');
                 result.settingsUpdated = ['Created new settings.json with Agent Teams'];
             }
@@ -867,7 +899,7 @@ async function writeSettings(targetDir, options, result) {
                 }
             }
             if (merged) {
-                fs.writeFileSync(settingsPath, JSON.stringify(existing, null, 2), 'utf-8');
+                atomicWriteFile(settingsPath, JSON.stringify(existing, null, 2));
                 result.created.files.push('.claude/settings.json (merged hooks)');
             }
             else {
@@ -876,12 +908,12 @@ async function writeSettings(targetDir, options, result) {
         }
         catch {
             // Existing file is corrupt — overwrite
-            fs.writeFileSync(settingsPath, JSON.stringify(generated, null, 2), 'utf-8');
+            atomicWriteFile(settingsPath, JSON.stringify(generated, null, 2));
             result.created.files.push('.claude/settings.json');
         }
         return;
     }
-    fs.writeFileSync(settingsPath, JSON.stringify(generated, null, 2), 'utf-8');
+    atomicWriteFile(settingsPath, JSON.stringify(generated, null, 2));
     result.created.files.push('.claude/settings.json');
 }
 /**
@@ -894,7 +926,7 @@ async function writeMCPConfig(targetDir, options, result) {
         return;
     }
     const content = generateMCPJson(options);
-    fs.writeFileSync(mcpPath, content, 'utf-8');
+    atomicWriteFile(mcpPath, content);
     result.created.files.push('.mcp.json');
 }
 /**
@@ -927,19 +959,28 @@ async function copySkills(targetDir, options, result) {
         result.errors.push('Could not find source skills directory');
         return;
     }
-    // Copy each skill
-    for (const skillName of [...new Set(skillsToCopy)]) {
+    // Remove stale skill directories no longer in the current version's map
+    const knownSkills = new Set([...new Set(skillsToCopy)]);
+    if (fs.existsSync(targetSkillsDir)) {
+        for (const existing of fs.readdirSync(targetSkillsDir)) {
+            if (!knownSkills.has(existing)) {
+                const stalePath = path.join(targetSkillsDir, existing);
+                fs.rmSync(stalePath, { recursive: true, force: true });
+                result.created.files.push(`[cleaned] .claude/skills/${existing} (stale)`);
+            }
+        }
+    }
+    // Always copy/overwrite skills (never skip — ensures new version content lands)
+    for (const skillName of knownSkills) {
         const sourcePath = path.join(sourceSkillsDir, skillName);
         const targetPath = path.join(targetSkillsDir, skillName);
         if (fs.existsSync(sourcePath)) {
-            if (!fs.existsSync(targetPath) || options.force) {
-                copyDirRecursive(sourcePath, targetPath);
-                result.created.files.push(`.claude/skills/${skillName}`);
-                result.summary.skillsCount++;
+            if (fs.existsSync(targetPath)) {
+                fs.rmSync(targetPath, { recursive: true, force: true });
             }
-            else {
-                result.skipped.push(`.claude/skills/${skillName}`);
-            }
+            copyDirRecursive(sourcePath, targetPath);
+            result.created.files.push(`.claude/skills/${skillName}`);
+            result.summary.skillsCount++;
         }
     }
 }
@@ -1006,24 +1047,33 @@ async function copyCommands(targetDir, options, result) {
         result.errors.push('Could not find source commands directory');
         return;
     }
-    // Copy each command/directory
-    for (const cmdName of [...new Set(commandsToCopy)]) {
+    // Remove stale command files/directories no longer in the current version's map
+    const knownCommands = new Set([...new Set(commandsToCopy)]);
+    if (fs.existsSync(targetCommandsDir)) {
+        for (const existing of fs.readdirSync(targetCommandsDir)) {
+            if (!knownCommands.has(existing)) {
+                const stalePath = path.join(targetCommandsDir, existing);
+                fs.rmSync(stalePath, { recursive: true, force: true });
+                result.created.files.push(`[cleaned] .claude/commands/${existing} (stale)`);
+            }
+        }
+    }
+    // Always copy/overwrite commands (never skip — ensures new version content lands)
+    for (const cmdName of knownCommands) {
         const sourcePath = path.join(sourceCommandsDir, cmdName);
         const targetPath = path.join(targetCommandsDir, cmdName);
         if (fs.existsSync(sourcePath)) {
-            if (!fs.existsSync(targetPath) || options.force) {
-                if (fs.statSync(sourcePath).isDirectory()) {
-                    copyDirRecursive(sourcePath, targetPath);
-                }
-                else {
-                    fs.copyFileSync(sourcePath, targetPath);
-                }
-                result.created.files.push(`.claude/commands/${cmdName}`);
-                result.summary.commandsCount++;
+            if (fs.existsSync(targetPath)) {
+                fs.rmSync(targetPath, { recursive: true, force: true });
+            }
+            if (fs.statSync(sourcePath).isDirectory()) {
+                copyDirRecursive(sourcePath, targetPath);
             }
             else {
-                result.skipped.push(`.claude/commands/${cmdName}`);
+                fs.copyFileSync(sourcePath, targetPath);
             }
+            result.created.files.push(`.claude/commands/${cmdName}`);
+            result.summary.commandsCount++;
         }
     }
 }
@@ -1062,21 +1112,30 @@ async function copyAgents(targetDir, options, result) {
         result.errors.push('Could not find source agents directory');
         return;
     }
-    // Copy each agent category
-    for (const agentCategory of [...new Set(agentsToCopy)]) {
+    // Remove stale agent category directories no longer in the current version's map
+    const knownAgents = new Set([...new Set(agentsToCopy)]);
+    if (fs.existsSync(targetAgentsDir)) {
+        for (const existing of fs.readdirSync(targetAgentsDir)) {
+            if (!knownAgents.has(existing)) {
+                const stalePath = path.join(targetAgentsDir, existing);
+                fs.rmSync(stalePath, { recursive: true, force: true });
+                result.created.files.push(`[cleaned] .claude/agents/${existing} (stale)`);
+            }
+        }
+    }
+    // Always copy/overwrite agents (never skip — ensures new version content lands)
+    for (const agentCategory of knownAgents) {
         const sourcePath = path.join(sourceAgentsDir, agentCategory);
         const targetPath = path.join(targetAgentsDir, agentCategory);
         if (fs.existsSync(sourcePath)) {
-            if (!fs.existsSync(targetPath) || options.force) {
-                copyDirRecursive(sourcePath, targetPath);
-                // Count agent files (.md only — .yaml agents were migrated to .md)
-                const mdFiles = countFiles(sourcePath, '.md');
-                result.summary.agentsCount += mdFiles;
-                result.created.files.push(`.claude/agents/${agentCategory}`);
+            if (fs.existsSync(targetPath)) {
+                fs.rmSync(targetPath, { recursive: true, force: true });
             }
-            else {
-                result.skipped.push(`.claude/agents/${agentCategory}`);
-            }
+            copyDirRecursive(sourcePath, targetPath);
+            // Count agent files (.md only — .yaml agents were migrated to .md)
+            const mdFiles = countFiles(sourcePath, '.md');
+            result.summary.agentsCount += mdFiles;
+            result.created.files.push(`.claude/agents/${agentCategory}`);
         }
     }
 }
@@ -1179,7 +1238,7 @@ async function writeHelpers(targetDir, options, result) {
     for (const [name, content] of Object.entries(helpers)) {
         const filePath = path.join(helpersDir, name);
         if (!fs.existsSync(filePath) || options.force) {
-            fs.writeFileSync(filePath, content, 'utf-8');
+            atomicWriteFile(filePath, content);
             // Make shell scripts executable
             if (!name.endsWith('.js')) {
                 fs.chmodSync(filePath, '755');
@@ -1262,7 +1321,7 @@ async function writeStatusline(targetDir, options, result) {
     // This must overwrite any copy from writeHelpers() which copies the legacy file.
     const statuslineScript = generateStatuslineScript(options);
     const statuslinePath = path.join(helpersDir, 'statusline.cjs');
-    fs.writeFileSync(statuslinePath, statuslineScript, 'utf-8');
+    atomicWriteFile(statuslinePath, statuslineScript);
     result.created.files.push('.claude/helpers/statusline.cjs');
 }
 /**
@@ -1318,7 +1377,7 @@ mcp:
   autoStart: ${options.mcp.autoStart}
   port: ${options.mcp.port}
 `;
-    fs.writeFileSync(configPath, config, 'utf-8');
+    atomicWriteFile(configPath, config);
     result.created.files.push('.monomind/config.yaml');
     // Write .gitignore
     const gitignorePath = path.join(targetDir, '.monomind', '.gitignore');
@@ -1331,7 +1390,7 @@ neural/
 *.tmp
 `;
     if (!fs.existsSync(gitignorePath) || options.force) {
-        fs.writeFileSync(gitignorePath, gitignore, 'utf-8');
+        atomicWriteFile(gitignorePath, gitignore);
         result.created.files.push('.monomind/.gitignore');
     }
     // Write CAPABILITIES.md with full system overview
@@ -1380,7 +1439,7 @@ async function writeInitialMetrics(targetDir, options, result) {
             },
             _note: 'Metrics will update as you use Monomind. Run: npx monomind@latest daemon start'
         };
-        fs.writeFileSync(progressPath, JSON.stringify(progress, null, 2), 'utf-8');
+        atomicWriteFile(progressPath, JSON.stringify(progress, null, 2));
         result.created.files.push('.monomind/metrics/v1-progress.json');
     }
     // Create initial swarm-activity.json
@@ -1404,7 +1463,7 @@ async function writeInitialMetrics(targetDir, options, result) {
             },
             _initialized: true
         };
-        fs.writeFileSync(activityPath, JSON.stringify(activity, null, 2), 'utf-8');
+        atomicWriteFile(activityPath, JSON.stringify(activity, null, 2));
         result.created.files.push('.monomind/metrics/swarm-activity.json');
     }
     // Create initial learning.json
@@ -1427,7 +1486,7 @@ async function writeInitialMetrics(targetDir, options, result) {
             },
             _note: 'Intelligence grows as you use Monomind'
         };
-        fs.writeFileSync(learningPath, JSON.stringify(learning, null, 2), 'utf-8');
+        atomicWriteFile(learningPath, JSON.stringify(learning, null, 2));
         result.created.files.push('.monomind/metrics/learning.json');
     }
     // Create initial audit-status.json
@@ -1441,7 +1500,7 @@ async function writeInitialMetrics(targetDir, options, result) {
             lastScan: null,
             _note: 'Run: npx monomind@latest security scan'
         };
-        fs.writeFileSync(auditPath, JSON.stringify(audit, null, 2), 'utf-8');
+        atomicWriteFile(auditPath, JSON.stringify(audit, null, 2));
         result.created.files.push('.monomind/security/audit-status.json');
     }
 }
@@ -1852,7 +1911,7 @@ npx monomind@latest hooks worker dispatch --trigger optimize
 **Full Documentation**: https://github.com/nokhodian/monomind
 **Issues**: https://github.com/nokhodian/monomind/issues
 `;
-    fs.writeFileSync(capabilitiesPath, capabilities, 'utf-8');
+    atomicWriteFile(capabilitiesPath, capabilities);
     result.created.files.push('.monomind/CAPABILITIES.md');
 }
 /**
@@ -1867,7 +1926,7 @@ async function writeClaudeMd(targetDir, options, result) {
         // Determine template: explicit option > infer from components > 'standard'
         const inferredTemplate = (!options.components.commands && !options.components.agents) ? 'minimal' : undefined;
         const content = generateClaudeMd(options, inferredTemplate);
-        fs.writeFileSync(claudeMdPath, content, 'utf-8');
+        atomicWriteFile(claudeMdPath, content);
         result.created.files.push('CLAUDE.md');
     }
     // Also write/append global ~/.claude/CLAUDE.md so monomind tools are used automatically (#1497)
@@ -1895,7 +1954,7 @@ async function writeClaudeMd(targetDir, options, result) {
                 }
             }
             else {
-                fs.writeFileSync(globalClaudeMd, monomindBlock.trimStart(), 'utf-8');
+                atomicWriteFile(globalClaudeMd, monomindBlock.trimStart());
                 result.created.files.push('~/.claude/CLAUDE.md');
             }
         }
@@ -1926,7 +1985,7 @@ async function writeClaudeMd(targetDir, options, result) {
                 });
                 hooks['SessionStart'] = sessionStartHooks;
                 globalSettings.hooks = hooks;
-                fs.writeFileSync(globalSettingsPath, JSON.stringify(globalSettings, null, 2), 'utf-8');
+                atomicWriteFile(globalSettingsPath, JSON.stringify(globalSettings, null, 2));
                 result.created.files.push('~/.claude/settings.json (added token hook)');
             }
         }
