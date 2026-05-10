@@ -225,16 +225,24 @@ jq -n \
   > "${orgJson}.tmp" && mv "${orgJson}.tmp" "$orgJson"
 ```
 
-Create the monotask space, board, and default columns:
+Create the monotask space, board, and default columns (space is required — abort before creating board if space fails):
 ```bash
+# Step 1 — Space (required first)
 space_id=$(monotask space list 2>/dev/null | awk -F' \| ' -v n="$org_name" '$2==n{print $1}' | head -1)
 [ -z "$space_id" ] && space_id=$(monotask space create "$org_name" 2>&1 | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
-board_id=$(monotask board create "org-tasks" --json | jq -r '.id')
-[ -z "$board_id" ] && { echo "ERROR: Failed to create monotask board — verify monotask is installed (run: monotask --version)"; exit 1; }
-todo_col_id=$(monotask column create "$board_id" "Todo" --json | jq -r '.id')
+[ -z "$space_id" ] && { echo "ERROR: Could not find or create space '$org_name' — verify monotask is installed (run: monotask --version)"; exit 1; }
+
+# Step 2 — Board (created only after space is confirmed)
+board_id=$(monotask board create "org-tasks" --json | jq -r '.id // empty')
+[ -z "$board_id" ] && { echo "ERROR: Failed to create monotask board"; exit 1; }
+
+# Step 3 — Link board to space immediately
+monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
+
+# Step 4 — Columns
+todo_col_id=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id')
 doing_col_id=$(monotask column create "$board_id" "Doing" --json | jq -r '.id')
-done_col_id=$(monotask column create "$board_id" "Done" --json | jq -r '.id')
-[ -n "$space_id" ] && monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
+done_col_id=$(monotask column create "$board_id" "Done"  --json | jq -r '.id')
 ```
 
 Patch the saved org config with the board and column IDs:
