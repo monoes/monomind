@@ -171,6 +171,16 @@ for domain in $domains_needed; do
   # domain_goals set by Step 4 extraction; fall back to full prompt if missing
   [ -z "${domain_goals[$domain]}" ] && domain_goals[$domain]="$resolved_prompt"
 done
+
+# Persist domains_needed and per-domain goals so Step 7 Phase A/B can reload them
+# (each Bash tool call runs in a fresh shell — associative arrays don't survive)
+domains_goals_json=$(for d in $domains_needed; do
+  jq -n --arg k "$d" --arg v "${domain_goals[$d]}" '{key:$k,value:$v}'
+done | jq -s 'from_entries')
+jq --arg domains "$domains_needed" --argjson goals "$domains_goals_json" \
+  '. + {domains_needed:($domains | split(" ") | map(select(length>0))), domain_goals:$goals}' \
+  "$REPO_ROOT/.monomind/sessions/current.json" > "$REPO_ROOT/.monomind/sessions/current.json.tmp" \
+  && mv "$REPO_ROOT/.monomind/sessions/current.json.tmp" "$REPO_ROOT/.monomind/sessions/current.json"
 ```
 
 ### Step 7 — Spawn Domain Managers
@@ -182,6 +192,12 @@ done
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 REGISTRY="$REPO_ROOT/.monomind/registry.json"
+
+# Reload state from current.json — this is a new shell; no inherited variables
+SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
+[ -f "$SESSION_STATE" ] || { echo "ERROR: current.json not found — run from Step 3"; exit 1; }
+domains_needed=$(jq -r '.domains_needed[]? // empty' "$SESSION_STATE" | tr '\n' ' ')
+[ -z "$domains_needed" ] && { echo "ERROR: domains_needed is empty in current.json"; exit 1; }
 
 # Returns: best agent name from registry for the given domain+goal
 pick_domain_manager() {
@@ -229,7 +245,9 @@ pick_domain_manager() {
 
 declare -A domain_managers
 for domain in $domains_needed; do
-  manager=$(pick_domain_manager "$domain" "${domain_goals[$domain]}")
+  goal=$(jq -r --arg d "$domain" '.domain_goals[$d] // empty' "$SESSION_STATE")
+  [ -z "$goal" ] && goal=$(jq -r '.prompt // ""' "$SESSION_STATE")
+  manager=$(pick_domain_manager "$domain" "$goal")
   domain_managers[$domain]="$manager"
   echo "Domain manager for $domain: $manager"
 done
@@ -240,11 +258,16 @@ done
 Phase B:
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-SESSION_ID=$(jq -r .sessionId "$REPO_ROOT/.monomind/sessions/current.json" 2>/dev/null)
+SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
+SESSION_ID=$(jq -r '.sessionId // empty' "$SESSION_STATE" 2>/dev/null)
+[ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID not found in current.json"; exit 1; }
+domains_needed=$(jq -r '.domains_needed[]? // empty' "$SESSION_STATE" | tr '\n' ' ')
 for domain in $domains_needed; do
+  goal=$(jq -r --arg d "$domain" '.domain_goals[$d] // empty' "$SESSION_STATE")
+  [ -z "$goal" ] && goal=$(jq -r '.prompt // ""' "$SESSION_STATE")
   curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
     -H "Content-Type: application/json" \
-    -d "$(jq -cn --arg sid "$SESSION_ID" --arg d "$domain" --arg cmd "${domain_goals[$domain]}" \
+    -d "$(jq -cn --arg sid "$SESSION_ID" --arg d "$domain" --arg cmd "$goal" \
       '{type:"domain:dispatch",session:$sid,domain:$d,cmd:$cmd,ts:(now*1000|floor)}')" || true
 done
 ```
@@ -328,17 +351,29 @@ Domain managers run in foreground (no `run_in_background`), so their unified out
 ### Step 9 — Synthesize
 
 1. Collect all domain output schemas from Step 8
-2. Compute aggregate status (precedence: blocked > partial > complete):
-   - `overallStatus = "blocked"` if ANY domain reports blocked
-   - else `overallStatus = "partial"` if ANY domain reports partial
-   - else `overallStatus = "complete"` (all domains complete)
-   - `completedDomains` = list of domain names whose status is "complete"
-3. Identify any cross-domain artifacts needed (e.g. a release that requires both build and review)
-4. Write cross-domain artifacts to disk if needed
-5. **Emit `session:complete` to the live dashboard:**
+2. Compute aggregate status — read from per-domain output files (precedence: blocked > partial > complete):
 
 ```bash
-# Build completed_domains JSON array safely (handles empty array)
+# Single bash block: aggregate status + emit dashboard event
+# (variables don't persist between Bash tool calls — keep aggregation and curl together)
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SESSION_ID=$(jq -r '.sessionId // empty' "$REPO_ROOT/.monomind/sessions/current.json" 2>/dev/null)
+[ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID missing"; exit 1; }
+
+overall_status="complete"
+completed_domains=()
+for domain_file in "$REPO_ROOT/.monomind/sessions/${SESSION_ID}"/*.json; do
+  [ -f "$domain_file" ] || continue
+  status=$(jq -r '.status // "blocked"' "$domain_file")
+  domain=$(jq -r '.domain // ""' "$domain_file")
+  case "$status" in
+    blocked) overall_status="blocked" ;;
+    partial) [ "$overall_status" != "blocked" ] && overall_status="partial" ;;
+  esac
+  [ "$status" = "complete" ] && [ -n "$domain" ] && completed_domains+=("$domain")
+done
+echo "overall_status=$overall_status completed_domains=${completed_domains[*]}"
+
 completed_domains_json=$(jq -n '$ARGS.positional' --args "${completed_domains[@]}")
 
 curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
@@ -350,7 +385,9 @@ curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
     '{type:"session:complete",session:$sid,status:$status,domains:$domains,ts:(now*1000|floor)}')" || true
 ```
 
-6. Compose the action summary for the user:
+3. Identify any cross-domain artifacts needed (e.g. a release that requires both build and review)
+4. Write cross-domain artifacts to disk if needed
+5. Compose the action summary for the user:
 
 ```
 MASTERMIND RUN COMPLETE — <project_name>
@@ -393,14 +430,31 @@ Show the action summary (Step 9). If any compaction ran during Step 10, append:
 **Persist session state for iteration cycles:** Aggregate artifacts from per-domain output files written by each domain manager, then persist to disk so Step 12 can load it:
 
 ```bash
+[ -z "$BASH_VERSION" ] && { echo "ERROR: this block requires bash"; exit 1; }
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-SESSION_ID=$(jq -r '.sessionId // empty' "$REPO_ROOT/.monomind/sessions/current.json" 2>/dev/null)
+SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
 
-# Aggregate artifacts and next_actions from per-domain output files
+# Restore variables from current.json (this is a fresh shell)
+SESSION_ID=$(jq -r '.sessionId // empty' "$SESSION_STATE" 2>/dev/null)
+[ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID not found"; exit 1; }
+resolved_prompt=$(jq -r '.prompt // ""' "$SESSION_STATE")
+project_name=$(jq -r '.project_name // ""' "$SESSION_STATE")
+
+# Aggregate artifacts, next_actions, completed_domains, and overall_status
+# from per-domain output files (single source of truth — Step 9 shell is gone)
 all_artifacts=()
 all_next_actions=()
+completed_domains=()
+overall_status="complete"
 for domain_file in "$REPO_ROOT/.monomind/sessions/${SESSION_ID}"/*.json; do
   [ -f "$domain_file" ] || continue
+  status=$(jq -r '.status // "blocked"' "$domain_file")
+  domain=$(jq -r '.domain // ""' "$domain_file")
+  case "$status" in
+    blocked) overall_status="blocked" ;;
+    partial) [ "$overall_status" != "blocked" ] && overall_status="partial" ;;
+  esac
+  [ "$status" = "complete" ] && [ -n "$domain" ] && completed_domains+=("$domain")
   while IFS= read -r art; do all_artifacts+=("$art"); done \
     < <(jq -r '.artifacts[]? // empty' "$domain_file" 2>/dev/null)
   while IFS= read -r act; do all_next_actions+=("$act"); done \
