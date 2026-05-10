@@ -50,7 +50,9 @@ export const DEFAULT_STORE_CONFIG: StoreConfig = {
   timeout: 30000,
   cacheDir: '.monomind/patterns/cache',
   cacheExpiry: 3600000, // 1 hour
-  requireVerification: false,
+  // Default to true: tampered downloads must be rejected, not warned about.
+  // Override with --allow-unverified flag for explicit developer-only use.
+  requireVerification: true,
   minTrustLevel: 'unverified',
   trustedAuthors: [],
   blockedPatterns: [],
@@ -168,7 +170,7 @@ export function addPatternToRegistry(
   registry: PatternRegistry,
   entry: PatternEntry
 ): PatternRegistry {
-  const updated = { ...registry };
+  const updated = { ...registry, patterns: [...registry.patterns], authors: [...registry.authors], categories: registry.categories.map(c => ({ ...c })) };
 
   // Check for existing pattern with same name
   const existingIndex = updated.patterns.findIndex(p => p.name === entry.name);
@@ -251,7 +253,7 @@ export function deserializeRegistry(json: string): PatternRegistry {
 /**
  * Sign registry with private key
  */
-export function signRegistry(registry: PatternRegistry, privateKey: string): PatternRegistry {
+export async function signRegistry(registry: PatternRegistry, privateKey: string): Promise<PatternRegistry> {
   const content = JSON.stringify({
     version: registry.version,
     updatedAt: registry.updatedAt,
@@ -259,30 +261,44 @@ export function signRegistry(registry: PatternRegistry, privateKey: string): Pat
     totalPatterns: registry.totalPatterns,
   });
 
-  // In production: Use actual Ed25519 signing
-  const signature = crypto
-    .createHmac('sha256', privateKey)
-    .update(content)
-    .digest('hex');
+  const ed = await import('@noble/ed25519');
+  const privKeyBytes = privateKey.length === 64
+    ? Buffer.from(privateKey, 'hex')
+    : crypto.createHash('sha256').update(privateKey).digest();
+  const pubKeyBytes = await ed.getPublicKeyAsync(privKeyBytes);
+  const sigBytes = await ed.signAsync(Buffer.from(content), privKeyBytes);
 
   return {
     ...registry,
-    registrySignature: signature,
-    registryPublicKey: 'ed25519:' + crypto.createHash('sha256').update(privateKey).digest('hex').slice(0, 32),
+    registrySignature: 'ed25519:' + Buffer.from(sigBytes).toString('hex'),
+    registryPublicKey: 'ed25519:' + Buffer.from(pubKeyBytes).toString('hex'),
   };
 }
 
 /**
- * Verify registry signature
+ * Verify registry signature using real Ed25519
  */
-export function verifyRegistrySignature(registry: PatternRegistry): boolean {
-  if (!registry.registrySignature || !registry.registryPublicKey) {
+export async function verifyRegistrySignature(registry: PatternRegistry): Promise<boolean> {
+  if (!registry.registrySignature || !registry.registryPublicKey) return false;
+  const sigHex = registry.registrySignature.replace(/^ed25519:/, '');
+  const pubKeyHex = registry.registryPublicKey.replace(/^ed25519:/, '');
+  if (sigHex.length !== 128 || pubKeyHex.length !== 64) return false;
+  const content = JSON.stringify({
+    version: registry.version,
+    updatedAt: registry.updatedAt,
+    patterns: registry.patterns.map(p => p.cid),
+    totalPatterns: registry.totalPatterns,
+  });
+  try {
+    const ed = await import('@noble/ed25519');
+    return await ed.verifyAsync(
+      Buffer.from(sigHex, 'hex'),
+      Buffer.from(content),
+      Buffer.from(pubKeyHex, 'hex'),
+    );
+  } catch {
     return false;
   }
-
-  // In production: Use actual Ed25519 verification
-  // For now, just check signature exists
-  return registry.registrySignature.length === 64;
 }
 
 /**

@@ -100,7 +100,7 @@ export {
 } from './types.js';
 
 // Export namespace
-export { RuVector } from './types.js';
+export type { RuVector } from './types.js';
 
 // Export GNN module classes and utilities
 export {

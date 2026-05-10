@@ -11,6 +11,57 @@
 
 const REGISTRY_API_URL = 'https://us-central1-monomind.cloudfunctions.net/publish-registry';
 
+/**
+ * Read a fetch response body with a hard byte cap. AbortSignal.timeout bounds
+ * time, NOT bytes — a hijacked endpoint or MITM (TLS without pinning) can
+ * stream a multi-GB body that the CLI buffers into memory and OOMs. Cap the
+ * read here so all downstream JSON.parse / .text() calls are bounded.
+ */
+async function readBoundedText(response: Response, maxBytes: number): Promise<string> {
+  const lenHdr = response.headers.get('content-length');
+  if (lenHdr) {
+    const declared = parseInt(lenHdr, 10);
+    if (Number.isFinite(declared) && declared > maxBytes) {
+      throw new Error(`Response too large: ${declared} bytes (max ${maxBytes})`);
+    }
+  }
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        throw new Error(`Response too large: exceeded ${maxBytes} bytes`);
+      }
+      chunks.push(value);
+    }
+  }
+  const buf = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) { buf.set(c, off); off += c.byteLength; }
+  return new TextDecoder('utf-8').decode(buf);
+}
+
+async function readBoundedJson<T>(response: Response, maxBytes = 1_048_576): Promise<T> {
+  const text = await readBoundedText(response, maxBytes);
+  return JSON.parse(text) as T;
+}
+
+/**
+ * Strip control chars and cap length on attacker-controlled error body before
+ * inlining into a thrown Error.message. Without this, a malicious or
+ * compromised endpoint can deliver multi-MB error bodies that flow into log
+ * aggregators via unhandled-rejection traces.
+ */
+function safeErrText(s: string): string {
+  return s.replace(/[\x00-\x1f\x7f]/g, '?').slice(0, 512);
+}
+
 export interface RatingResponse {
   success: boolean;
   itemId: string;
@@ -37,8 +88,8 @@ export interface AnalyticsResponse {
  * Validate item ID to prevent injection
  */
 function validateItemId(itemId: string): boolean {
-  // Only allow alphanumeric, @, /, -, _
-  return /^[@a-zA-Z0-9\/_-]+$/.test(itemId) && itemId.length < 100;
+  // Scoped packages (@scope/name) or plain identifiers — no other slashes allowed
+  return /^(@[a-zA-Z0-9][a-zA-Z0-9_-]*\/[a-zA-Z0-9][a-zA-Z0-9_-]*|[a-zA-Z0-9][a-zA-Z0-9_-]*)$/.test(itemId) && itemId.length < 100;
 }
 
 /**
@@ -77,11 +128,11 @@ export async function rateItem(
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Rating failed: ${error}`);
+    const error = await readBoundedText(response, 64 * 1024).catch(() => 'unreadable');
+    throw new Error(`Rating failed: ${safeErrText(error)}`);
   }
 
-  return response.json() as Promise<RatingResponse>;
+  return readBoundedJson<RatingResponse>(response);
 }
 
 /**
@@ -109,7 +160,7 @@ export async function getRating(
     throw new Error('Failed to get ratings');
   }
 
-  return response.json() as Promise<RatingResponse>;
+  return readBoundedJson<RatingResponse>(response);
 }
 
 /**
@@ -143,7 +194,7 @@ export async function getBulkRatings(
     throw new Error('Failed to get bulk ratings');
   }
 
-  return response.json() as Promise<BulkRatingsResponse>;
+  return readBoundedJson<BulkRatingsResponse>(response, 4 * 1024 * 1024);
 }
 
 /**
@@ -158,7 +209,7 @@ export async function getAnalytics(): Promise<AnalyticsResponse> {
     throw new Error('Failed to get analytics');
   }
 
-  return response.json() as Promise<AnalyticsResponse>;
+  return readBoundedJson<AnalyticsResponse>(response);
 }
 
 /**
@@ -193,7 +244,7 @@ export async function checkHealth(): Promise<{
     const response = await fetch(`${REGISTRY_API_URL}?action=status`, {
       signal: AbortSignal.timeout(5000),
     });
-    return response.json() as Promise<{ healthy: boolean; latestCid?: string; error?: string }>;
+    return readBoundedJson<{ healthy: boolean; latestCid?: string; error?: string }>(response, 64 * 1024);
   } catch (error) {
     return {
       healthy: false,

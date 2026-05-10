@@ -56,11 +56,17 @@ import { a2aTools } from './mcp-tools/a2a-tools.js';
  */
 const TOOL_REGISTRY = new Map<string, MCPTool>();
 
-// Register all tools
-function registerTools(tools: MCPTool[]): void {
-  tools.forEach(tool => {
+// Register all tools — refuse silent overrides so a future plugin/IPFS-loaded
+// tool cannot shadow a built-in handler (e.g. `agent_spawn`, `memory_store`)
+// without an explicit override flag. Logical-name collision is a real concern
+// when the plugin system goes live.
+function registerTools(tools: MCPTool[], options: { override?: boolean } = {}): void {
+  for (const tool of tools) {
+    if (TOOL_REGISTRY.has(tool.name) && !options.override) {
+      throw new Error(`Tool name collision: ${tool.name} already registered`);
+    }
     TOOL_REGISTRY.set(tool.name, tool);
-  });
+  }
 }
 
 // Initialize registry with all available tools

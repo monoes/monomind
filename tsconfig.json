@@ -33,6 +33,8 @@
     "dist",
     "**/*.test.ts",
     "**/*.bench.ts",
-    "packages/__tests__/**/*.ts"
+    "packages/__tests__/**/*.ts",
+    "packages/*/examples/**/*.ts",
+    "packages/@monomind/*/examples/**/*.ts"
   ]
 }

@@ -6,9 +6,9 @@
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 // Storage paths
 const STORAGE_DIR = '.monomind';
@@ -65,13 +65,24 @@ function loadGitHubStore(): GitHubStore {
 
 function saveGitHubStore(store: GitHubStore): void {
   ensureGitHubDir();
-  writeFileSync(getGitHubPath(), JSON.stringify(store, null, 2), 'utf-8');
+  const tmpPath = getGitHubPath() + '.tmp';
+  writeFileSync(tmpPath, JSON.stringify(store, null, 2), 'utf-8');
+  renameSync(tmpPath, getGitHubPath());
 }
 
-/** Run a shell command, return stdout or null on failure */
+/** Run a trusted static shell command (no user input), return stdout or null on failure */
 function run(cmd: string, cwd?: string): string | null {
   try {
-    return execSync(cmd, { encoding: 'utf-8', timeout: 15000, cwd: cwd || getProjectCwd(), stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    return execFileSync(cmd.split(' ')[0], cmd.split(' ').slice(1), { encoding: 'utf-8', timeout: 15000, cwd: cwd || getProjectCwd(), stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+  } catch {
+    return null;
+  }
+}
+
+/** Run a command with user-provided args as separate array elements (no shell injection) */
+function runSafe(cmd: string, args: string[], cwd?: string): string | null {
+  try {
+    return execFileSync(cmd, args, { encoding: 'utf-8', timeout: 15000, cwd: cwd || getProjectCwd(), stdio: ['pipe', 'pipe', 'pipe'] }).trim();
   } catch {
     return null;
   }
@@ -205,7 +216,7 @@ export const githubTools: MCPTool[] = [
           const headBranch = (input.branch as string) || run('git rev-parse --abbrev-ref HEAD') || 'feature';
           const baseBranch = (input.baseBranch as string) || 'main';
           const body = (input.body as string) || '';
-          const result = run(`gh pr create --title "${title.replace(/"/g, '\\"')}" --base "${baseBranch}" --head "${headBranch}" --body "${body.replace(/"/g, '\\"')}"`);
+          const result = runSafe('gh', ['pr', 'create', '--title', title, '--base', baseBranch, '--head', headBranch, '--body', body]);
           if (result) {
             return { success: true, _real: true, action: 'created', url: result };
           }
@@ -302,8 +313,9 @@ export const githubTools: MCPTool[] = [
         const body = (input.body as string) || '';
         const labels = (input.labels as string[]) || [];
         if (gh) {
-          const labelArg = labels.length > 0 ? ` --label "${labels.join(',')}"` : '';
-          const result = run(`gh issue create --title "${title.replace(/"/g, '\\"')}" --body "${body.replace(/"/g, '\\"')}"${labelArg}`);
+          const issueArgs = ['issue', 'create', '--title', title, '--body', body];
+          if (labels.length > 0) issueArgs.push('--label', labels.join(','));
+          const result = runSafe('gh', issueArgs);
           if (result) {
             return { success: true, _real: true, action: 'created', url: result };
           }
@@ -318,11 +330,11 @@ export const githubTools: MCPTool[] = [
       if (action === 'update') {
         const issueNumber = input.issueNumber as number;
         if (gh && issueNumber) {
-          const parts: string[] = [];
-          if (input.title) parts.push(`--title "${(input.title as string).replace(/"/g, '\\"')}"`);
-          if (input.labels) parts.push(`--add-label "${(input.labels as string[]).join(',')}"`);
-          if (parts.length > 0) {
-            const result = run(`gh issue edit ${issueNumber} ${parts.join(' ')}`);
+          const editArgs = ['issue', 'edit', String(issueNumber)];
+          if (input.title) editArgs.push('--title', input.title as string);
+          if (input.labels) editArgs.push('--add-label', (input.labels as string[]).join(','));
+          if (editArgs.length > 3) {
+            const result = runSafe('gh', editArgs);
             if (result !== null) return { success: true, _real: true, action: 'updated', issueNumber };
           }
         }
@@ -389,7 +401,7 @@ export const githubTools: MCPTool[] = [
       if (action === 'status') {
         const workflowId = input.workflowId as string;
         if (workflowId) {
-          const raw = run(`gh run view ${workflowId} --json databaseId,displayTitle,status,conclusion,jobs`);
+          const raw = runSafe('gh', ['run', 'view', workflowId, '--json', 'databaseId,displayTitle,status,conclusion,jobs']);
           if (raw) {
             try { return { success: true, _real: true, run: JSON.parse(raw) }; } catch { /* fall through */ }
           }
@@ -405,7 +417,7 @@ export const githubTools: MCPTool[] = [
         const workflowId = input.workflowId as string;
         const ref = (input.ref as string) || 'main';
         if (workflowId) {
-          const result = run(`gh workflow run "${workflowId}" --ref "${ref}"`);
+          const result = runSafe('gh', ['workflow', 'run', workflowId, '--ref', ref]);
           if (result !== null) return { success: true, _real: true, action: 'triggered', workflowId, ref };
         }
         return { success: false, error: 'workflowId is required to trigger a workflow.' };
@@ -414,7 +426,7 @@ export const githubTools: MCPTool[] = [
       if (action === 'cancel') {
         const workflowId = input.workflowId as string;
         if (workflowId) {
-          const result = run(`gh run cancel ${workflowId}`);
+          const result = runSafe('gh', ['run', 'cancel', workflowId]);
           if (result !== null) return { success: true, _real: true, action: 'cancelled', runId: workflowId };
         }
         return { success: false, error: 'workflowId (run ID) is required to cancel.' };

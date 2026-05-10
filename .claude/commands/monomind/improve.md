@@ -134,10 +134,12 @@ After both agents complete, merge their outputs into `COMPONENT_ANALYSIS`.
 - Store the `SPACE_ID`.
 
 ### Improve Board
-- List boards via `monotask board list --json`. For each board ID, run `monotask column list <BOARD_ID> --json` to find one whose title is `monomind-improve`. (There is no "board view" command -- column list reveals the board structure.)
+- First check memory: `npx monomind@latest memory search "monomind-improve board_id"`. If a board ID is returned, use it as `BOARD_ID` and skip the search below.
+- Otherwise, list boards in the space via `monotask space boards list $SPACE_ID` (one board ID per line) and check each via `monotask column list <ID> --json` for a `Discovered` column — if found, that is the `monomind-improve` board.
 - If the `monomind-improve` board does not exist:
   1. Create it: `monotask board create "monomind-improve" --json` — store the returned `BOARD_ID`.
   2. Add it to the space: `monotask space boards add $SPACE_ID $BOARD_ID`.
+  3. Persist the ID: `npx monomind@latest memory store --key "monomind-improve board_id" --value "$BOARD_ID" --namespace monomind`.
   3. Create these columns in order:
      - `Discovered`
      - `Evaluated`
@@ -180,7 +182,7 @@ For each idea, create a card in the `Discovered` column:
 monotask card create $BOARD_ID $COL_DISCOVERED "<title>" --json
 monotask card comment add $BOARD_ID $CARD_ID "<description>"
 monotask card comment add $BOARD_ID $CARD_ID "Category: <category>\nEvidence: <evidence>\nExpected impact: <estimated_impact>"
-monotask card tag add $BOARD_ID $CARD_ID "monomind-improve"
+monotask card label add $BOARD_ID $CARD_ID "monomind-improve"
 ```
 
 If zero ideas were generated, report "No improvement opportunities found for this component." and STOP.
@@ -340,3 +342,5 @@ If there are tasks in Todo, offer:
 ```
 Skill("monomind:do", "--space $SPACE_ID --board $TASK_BOARD_ID --mode <parallel|minimal|sequential>")
 ```
+
+To repeat this command on a schedule, wrap it with `/monomind:repeat`.

@@ -7,7 +7,7 @@
  */
 
 import type { MCPTool } from './types.js';
-import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'fs';
 import { join, basename, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -221,7 +221,8 @@ async function syncProgress(): Promise<ProgressMetrics> {
   }
 
   const outputPath = join(metricsDir, 'v1-progress.json');
-  writeFileSync(outputPath, JSON.stringify({
+  const outputTmp = outputPath + '.tmp';
+  writeFileSync(outputTmp, JSON.stringify({
     domains: { completed: Math.floor(metrics.packages.withDDD / 3), total: 5 },
     ddd: {
       progress: metrics.ddd.progress,
@@ -233,6 +234,7 @@ async function syncProgress(): Promise<ProgressMetrics> {
     lastUpdated: metrics.lastUpdated,
     source: 'ProgressService',
   }, null, 2));
+  renameSync(outputTmp, outputPath);
 
   return metrics;
 }

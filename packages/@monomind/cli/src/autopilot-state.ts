@@ -8,6 +8,11 @@
  * Security: Addresses prototype pollution, NaN bypass, input validation
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+import { randomUUID } from 'crypto';
+
 // ── Constants ─────────────────────────────────────────────────
 
 export const STATE_DIR = '.monomind/data';
@@ -113,9 +118,8 @@ export function validateTaskSources(sources: unknown): string[] {
 // ── State Management ──────────────────────────────────────────
 
 export function getDefaultState(): AutopilotState {
-  const crypto = require('crypto') as typeof import('crypto');
   return {
-    sessionId: crypto.randomUUID(),
+    sessionId: randomUUID(),
     enabled: false,
     startTime: Date.now(),
     iterations: 0,
@@ -128,8 +132,6 @@ export function getDefaultState(): AutopilotState {
 }
 
 export function loadState(): AutopilotState {
-  const fs = require('fs') as typeof import('fs');
-  const path = require('path') as typeof import('path');
   const filePath = path.resolve(STATE_FILE);
   const defaults = getDefaultState();
   try {
@@ -154,49 +156,97 @@ export function loadState(): AutopilotState {
 }
 
 export function saveState(state: AutopilotState): void {
-  const fs = require('fs') as typeof import('fs');
-  const path = require('path') as typeof import('path');
   const dir = path.resolve(STATE_DIR);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   // Cap history before saving
   if (state.history.length > MAX_HISTORY_ENTRIES) {
     state.history = state.history.slice(-MAX_HISTORY_ENTRIES);
   }
-  const tmpFile = path.resolve(STATE_FILE) + '.tmp';
+  // Unique tmp filename — concurrent autopilot_enable/disable/reset calls
+  // must not collide on the same .tmp path.
+  const tmpFile = `${path.resolve(STATE_FILE)}.${process.pid}.${Date.now()}.tmp`;
   fs.writeFileSync(tmpFile, JSON.stringify(state, null, 2));
   fs.renameSync(tmpFile, path.resolve(STATE_FILE));
 }
 
 export function appendLog(entry: AutopilotLogEntry): void {
-  const fs = require('fs') as typeof import('fs');
-  const path = require('path') as typeof import('path');
   const filePath = path.resolve(LOG_FILE);
   const dir = path.resolve(STATE_DIR);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  let log: AutopilotLogEntry[] = [];
+
+  // Append-only NDJSON: atomic at the OS level for individual lines, no
+  // read-modify-write race between concurrent MCP tool calls. Compaction is
+  // handled lazily by `compactLog()` which the daemon can call periodically.
+  // Previously this function did read → push → tmp-write → rename, which
+  // under concurrent autopilot_enable/disable/reset calls silently lost
+  // entries (last writer wins) and could truncate the log to a single entry
+  // if a peer crashed mid-write and the next caller's safeJsonParse threw.
   try {
-    if (fs.existsSync(filePath)) {
-      log = safeJsonParse<AutopilotLogEntry[]>(fs.readFileSync(filePath, 'utf-8'));
-      if (!Array.isArray(log)) log = [];
-    }
+    fs.appendFileSync(filePath, JSON.stringify(entry) + '\n', { flag: 'a' });
   } catch {
-    log = [];
+    // Best-effort logging; do not throw from a non-critical observability path.
   }
-  log.push(entry);
-  if (log.length > MAX_LOG_ENTRIES) log = log.slice(-MAX_LOG_ENTRIES);
-  const tmpFile = filePath + '.tmp';
-  fs.writeFileSync(tmpFile, JSON.stringify(log, null, 2));
-  fs.renameSync(tmpFile, filePath);
+
+  // Opportunistic compaction so the file doesn't grow without bound.
+  try {
+    const stat = fs.statSync(filePath);
+    if (stat.size > 4 * 1024 * 1024) {
+      compactLog(filePath);
+    }
+  } catch { /* ignore */ }
+}
+
+/**
+ * Compact NDJSON log down to MAX_LOG_ENTRIES. On parse failure for any line,
+ * preserve the corrupt file aside (do not silently destroy data).
+ */
+function compactLog(filePath: string): void {
+  let lines: string[];
+  try {
+    lines = fs.readFileSync(filePath, 'utf-8').split('\n').filter(l => l.trim().length > 0);
+  } catch {
+    return;
+  }
+  const entries: AutopilotLogEntry[] = [];
+  let corrupt = 0;
+  for (const line of lines) {
+    try {
+      const e = safeJsonParse<AutopilotLogEntry>(line);
+      if (e && typeof e === 'object') entries.push(e);
+    } catch { corrupt++; }
+  }
+  if (corrupt > 0) {
+    try {
+      fs.copyFileSync(filePath, `${filePath}.corrupt-${Date.now()}`);
+    } catch { /* ignore */ }
+  }
+  const trimmed = entries.length > MAX_LOG_ENTRIES ? entries.slice(-MAX_LOG_ENTRIES) : entries;
+  const tmp = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tmp, trimmed.map(e => JSON.stringify(e)).join('\n') + '\n');
+  fs.renameSync(tmp, filePath);
 }
 
 export function loadLog(): AutopilotLogEntry[] {
-  const fs = require('fs') as typeof import('fs');
-  const path = require('path') as typeof import('path');
   const filePath = path.resolve(LOG_FILE);
   try {
     if (fs.existsSync(filePath)) {
-      const result = safeJsonParse<AutopilotLogEntry[]>(fs.readFileSync(filePath, 'utf-8'));
-      return Array.isArray(result) ? result : [];
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      // Backward compatible: support both old JSON-array form and the new
+      // append-only NDJSON form. Prefer NDJSON if the file looks line-based.
+      const trimmed = raw.trim();
+      if (trimmed.startsWith('[')) {
+        const result = safeJsonParse<AutopilotLogEntry[]>(raw);
+        return Array.isArray(result) ? result : [];
+      }
+      const out: AutopilotLogEntry[] = [];
+      for (const line of trimmed.split('\n')) {
+        if (!line) continue;
+        try {
+          const entry = safeJsonParse<AutopilotLogEntry>(line);
+          if (entry && typeof entry === 'object') out.push(entry);
+        } catch { /* skip corrupt line */ }
+      }
+      return out;
     }
   } catch {
     // Corrupted log — return empty
@@ -207,9 +257,6 @@ export function loadLog(): AutopilotLogEntry[] {
 // ── Task Discovery ────────────────────────────────────────────
 
 export function discoverTasks(sources: string[]): TaskInfo[] {
-  const fs = require('fs') as typeof import('fs');
-  const path = require('path') as typeof import('path');
-  const os = require('os') as typeof import('os');
   const tasks: TaskInfo[] = [];
 
   // Only process valid sources

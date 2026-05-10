@@ -23,11 +23,18 @@ export function generateSettings(options: InitOptions): object {
   }
 
   // Add permissions
+  // SECURITY: tightened allowlist patterns.
+  //   `Bash(npx monomind*)` previously matched any package starting with
+  //   "monomind" (including a hypothetical future typosquat). Anchor to the
+  //   official scope/namespaces only, with an explicit space between command
+  //   tokens so partial-prefix matches are rejected.
   settings.permissions = {
     allow: [
-      'Bash(npx @monomind*)',
-      'Bash(npx monomind*)',
-      'Bash(node .claude/*)',
+      'Bash(npx @monomind/*)',
+      'Bash(npx monomind *)',
+      'Bash(npx -y monomind *)',
+      'Bash(npx monomind@*)',
+      'Bash(node .claude/helpers/*)',
       'mcp__monomind__:*',
     ],
     deny: [

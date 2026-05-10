@@ -51,7 +51,7 @@ If `cargo` is also missing, output this and STOP:
 
 2. **Find space**: Run `monotask space list` and find the space named `$REPO_NAME`. If no space exists, output "No monotask space found. Run `/monomind:idea` first." and STOP. Store `SPACE_ID`.
 
-3. **Find task board**: List boards via `monotask board list --json`. For each board ID, run `monotask column list <BOARD_ID> --json` to find one whose title is `monomind-task`. If not found, output "No monomind-task board found. Run `/monomind:idea` first." and STOP. Store `TASK_BOARD_ID`.
+3. **Find task board**: Retrieve the stored board ID via `npx monomind@latest memory search "monomind-task board_id"`. If found, use it as `TASK_BOARD_ID`. Otherwise, list boards in the space via `monotask space boards list $SPACE_ID` and try each ID with `monotask column list <BOARD_ID> --json` to find the one containing a `Backlog` column. If no board is found, output "No monomind-task board found. Run `/monomind:idea` or `/monomind:createtask` first." and STOP. Store `TASK_BOARD_ID`.
 
 4. **Store column IDs**: Run `monotask column list $TASK_BOARD_ID --json` and map all columns by name: `COL_BACKLOG`, `COL_TODO`, `COL_IN_PROGRESS`, `COL_REVIEW`, `COL_HUMAN_IN_LOOP`, `COL_DONE`.
 
@@ -126,10 +126,12 @@ Store chosen mode as `EXEC_MODE`.
 Generate a loop ID and write the initial state file:
 ```bash
 mkdir -p .monomind/loops
-export DO_LOOP_ID="do-$(date +%s%3N)"
+NOW_MS=$(python3 -c 'import time;print(int(time.time()*1000))' 2>/dev/null || echo "$(date +%s)000")
+export DO_LOOP_ID="do-${NOW_MS}"
 cat > ".monomind/loops/${DO_LOOP_ID}.json" << EOF
 {
   "id": "${DO_LOOP_ID}",
+  "sessionId": "${DO_LOOP_ID}",
   "type": "do",
   "prompt": "/monomind:do $ARGUMENTS",
   "mode": "${EXEC_MODE}",
@@ -137,8 +139,8 @@ cat > ".monomind/loops/${DO_LOOP_ID}.json" << EOF
   "spaceId": "${SPACE_ID:-}",
   "boardId": "${TASK_BOARD_ID:-}",
   "filter": "${FILTER:-}",
-  "startedAt": $(date +%s%3N),
-  "lastRunAt": $(date +%s%3N),
+  "startedAt": ${NOW_MS},
+  "lastRunAt": ${NOW_MS},
   "nextRunAt": 0,
   "status": "running"
 }
@@ -277,7 +279,12 @@ For each task being assigned to an agent, gather:
    - Acceptance criteria
    - Additional notes
 
-3. **Checklist**: Run `monotask card checklist list $TASK_BOARD_ID $CARD_ID --json`. If a checklist exists, include as step-by-step guide.
+3. **Checklist**: Cards created by `/monomind:createtask` store their checklist ID in a card comment (line starting with `CHECKLIST_ID:`). Retrieve it:
+   ```bash
+   CHECKLIST_ID=$(monotask card comment list $TASK_BOARD_ID $CARD_ID --json \
+     | jq -r '.[].text' | grep '^CHECKLIST_ID:' | head -1 | cut -d: -f2 | tr -d ' ')
+   ```
+   If a checklist ID is found, retrieve steps via `monotask card view $TASK_BOARD_ID $CARD_ID` and include as step-by-step guide.
 
 Bundle into `TASK_CONTEXT` for that task.
 
@@ -352,9 +359,13 @@ Proceed to Step 9.
    ```bash
    monotask card comment add $TASK_BOARD_ID $CARD_ID "Completed and reviewed: <summary>"
    ```
-2. If there's a checklist, mark completed items:
+2. If there's a checklist, retrieve and mark all item IDs as complete:
    ```bash
-   monotask card checklist check $TASK_BOARD_ID $CARD_ID <ITEM_ID>
+   ITEM_IDS=$(monotask card comment list $TASK_BOARD_ID $CARD_ID --json \
+     | jq -r '.[].text' | grep '^ITEM_IDS:' | head -1 | sed 's/^ITEM_IDS: //')
+   for ITEM_ID in $(echo "$ITEM_IDS" | tr ',' '\n'); do
+     [ -n "$ITEM_ID" ] && monotask checklist item-check $TASK_BOARD_ID $CARD_ID $CHECKLIST_ID "$ITEM_ID"
+   done
    ```
 3. If DONE_WITH_CONCERNS, add concerns:
    ```bash
@@ -401,6 +412,8 @@ If no tasks remain, output:
 ```
 [monomind:do] All tasks processed. Queue empty.
 ```
+
+To repeat this command on a schedule, wrap it with `/monomind:repeat`.
 
 ### Store execution outcome in session memory
 

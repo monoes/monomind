@@ -314,8 +314,14 @@ const commands = {
       console.error('Key required');
       return;
     }
+    // Reject prototype-pollution keys: \`memory[key] = value\` with key='__proto__'
+    // performs a prototype-set, polluting Object.prototype for the process.
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      console.error('Forbidden key');
+      process.exit(2);
+    }
     const memory = loadMemory();
-    memory[key] = value;
+    Object.defineProperty(memory, key, { value, enumerable: true, configurable: true, writable: true });
     memory._updated = new Date().toISOString();
     saveMemory(memory);
     console.log(\`Set: \${key}\`);
@@ -325,6 +331,10 @@ const commands = {
     if (!key) {
       console.error('Key required');
       return;
+    }
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      console.error('Forbidden key');
+      process.exit(2);
     }
     const memory = loadMemory();
     delete memory[key];
@@ -485,15 +495,11 @@ export function generateHookHandler(): string {
     '  },',
     '',
     "  'pre-bash': () => {",
-    '    var cmd = prompt.toLowerCase();',
-    "    var dangerous = ['rm -rf /', 'format c:', 'del /s /q c:\\\\', ':(){:|:&};:'];",
-    '    for (var i = 0; i < dangerous.length; i++) {',
-    '      if (cmd.includes(dangerous[i])) {',
-    "        console.error('[BLOCKED] Dangerous command detected: ' + dangerous[i]);",
-    '        process.exit(1);',
-    '      }',
-    '    }',
-    "    console.log('[OK] Command validated');",
+    "    // NOTE: This hook is intentionally NOT a security filter. A 4-substring",
+    "    // check is trivially bypassed (extra spaces, find -delete, dd, bash -c, etc.)",
+    "    // and shipping a fake check creates false confidence. Real safety lives in",
+    "    // Claude Code's permission prompt and sandboxing. Hook is observability-only.",
+    "    console.log('[OK] Command validation delegated to Claude Code permissions');",
     '  },',
     '',
     "  'post-edit': () => {",
@@ -694,11 +700,13 @@ export function generateIntelligenceStub(): string {
     '  return text.toLowerCase().replace(/[^a-z0-9\\s]/g, " ").split(/\\s+/).filter(function(w) { return w.length > 2; });',
     '}',
     '',
-    '// Bootstrap entries from MEMORY.md files when store is empty',
+    '// Bootstrap entries from MEMORY.md files when store is empty.',
+    '// SECURITY: ONLY walk the current project. Walking ~/.claude/projects',
+    '// previously caused cross-project memory leakage — entries from project A',
+    '// (potentially containing secrets) would surface in prompts in project B.',
     'function bootstrapFromMemoryFiles() {',
     '  var entries = [];',
     '  var candidates = [',
-    '    path.join(os.homedir(), ".claude", "projects"),',
     '    path.join(process.cwd(), ".monomind", "memory"),',
     '    path.join(process.cwd(), ".claude", "memory"),',
     '  ];',
@@ -945,11 +953,15 @@ function doStatus() {
   console.log('');
 }
 
-// Suppress unhandled rejection warnings from optional dynamic import() failures only
+// Suppress unhandled rejection warnings ONLY for genuine module-not-found from
+// optional dynamic imports. Previously this swallowed any error whose message
+// contained "Cannot find" (e.g. "Cannot find user with id ..."), masking real
+// failures and security regressions.
 process.on('unhandledRejection', (reason) => {
-  // Re-throw anything that isn't a module-not-found error from optional imports
-  if (reason instanceof Error && reason.message.includes('Cannot find')) return;
+  const code = reason && typeof reason === 'object' ? reason.code : undefined;
+  if (code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND') return;
   if (reason instanceof Error) throw reason;
+  throw new Error(String(reason));
 });
 
 const command = process.argv[2] || 'status';

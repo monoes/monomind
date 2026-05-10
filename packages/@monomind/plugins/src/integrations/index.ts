@@ -32,6 +32,7 @@ export {
 
 // RuVector PostgreSQL Bridge
 export * as RuVectorTypes from './ruvector/index.js';
+export type { RuVector } from './ruvector/index.js';
 export {
   // Main Bridge Plugin
   RuVectorBridge,
@@ -45,9 +46,6 @@ export {
   isVectorIndexType,
   isSuccess,
   isError,
-
-  // Namespace
-  RuVector,
 
   // Attention Mechanisms
   AttentionRegistry,

@@ -76,20 +76,28 @@ Decompose the release into ordered stages. Identify for each stage:
 - Rollback plan: what triggers a rollback and how to execute it
 
 STEP 2 — CREATE TASKS
-For each release stage, call /monomind:createtask with this briefing format:
-
-  CONTEXT: <date> | Project: <project_name> | Created by: Release Manager
-  BRAIN MEMORY: [paste most relevant 3-5 brain context excerpts]
-  GOAL: [specific release stage goal]
-  SCOPE: [packages, environments, services in scope]
-  CONSTRAINTS: [breaking change rules, downtime windows, rollback triggers, compliance gates]
-  SUCCESS CRITERIA:
-  - [ ] [checkable item — e.g. "all tests green before deploy"]
-  AGENT: [release-manager | tester | DevOps Automator | cicd-engineer]
-  SWARM: hierarchical 5 raft
-  REPORTS TO: <board_id>
-  DEPENDENCIES: [prior stage task ID — release pipeline is sequential]
-  OUTPUT FORMAT: unified output schema
+For each release stage, create a monotask card on the project board. First look up column IDs and assign shell variables:
+```bash
+columns=$(monotask column list "$BOARD_ID" --json)
+COL_TODO_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Todo" or .name == "Backlog") | .id' | head -1)
+COL_DONE_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Done") | .id' | head -1)
+```
+Then create the card:
+```bash
+result=$(monotask card create "$BOARD_ID" "$COL_TODO_ID" "<short summary of release stage goal, ≤80 chars>" --json)
+CARD_ID=$(echo "$result" | jq -r '.id // empty')
+monotask card set-description "$BOARD_ID" "$CARD_ID" "[specific release stage goal]"
+monotask card comment add "$BOARD_ID" "$CARD_ID" "CONTEXT: <date> | Project: <project_name> | Created by: Release Manager
+BRAIN MEMORY: [paste most relevant 3-5 brain context excerpts]
+SCOPE: [packages, environments, services in scope]
+CONSTRAINTS: [breaking change rules, downtime windows, rollback triggers, compliance gates]
+SUCCESS CRITERIA:
+- [ ] [checkable item — e.g. \"all tests green before deploy\"]
+AGENT: [release-manager | tester | DevOps Automator | cicd-engineer]
+SWARM: hierarchical 5 raft
+DEPENDENCIES: [prior stage task ID — release pipeline is sequential]
+OUTPUT FORMAT: unified output schema"
+```
 
 STEP 3 — EXECUTE
 Spawn Task agents in release order (hierarchical raft — coordinator maintains authoritative release state):

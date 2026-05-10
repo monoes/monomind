@@ -30,12 +30,13 @@ export async function spawnAndAwait(
   const taskId = `managed-${Date.now().toString(36)}-${randomBytes(4).toString('hex')}`;
 
   try {
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     const output = await Promise.race([
       runner(agentSlug, taskId, task),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs)
-      ),
-    ]);
+      new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]).finally(() => clearTimeout(timeoutHandle));
     return {
       agentSlug, taskId, output, status: 'success',
       durationMs: Date.now() - startedAt,

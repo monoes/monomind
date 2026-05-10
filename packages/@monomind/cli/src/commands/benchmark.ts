@@ -7,8 +7,9 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { writeFileSync, renameSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { BenchmarkRunner } from '../benchmarks/benchmark-runner.js';
 
 // ============================================================================
 // Pretrain Benchmark Subcommand
@@ -58,7 +59,9 @@ const pretrainCommand: Command = {
           mkdirSync(resultsDir, { recursive: true });
         }
         const savePath = saveFile.startsWith('/') ? saveFile : join(resultsDir, saveFile);
-        writeFileSync(savePath, JSON.stringify(results, null, 2));
+        const saveTmp = savePath + '.tmp';
+        writeFileSync(saveTmp, JSON.stringify(results, null, 2));
+        renameSync(saveTmp, savePath);
         output.writeln(output.success(`Results saved to ${savePath}`));
       }
 
@@ -459,15 +462,130 @@ const allCommand: Command = {
         mkdirSync(resultsDir, { recursive: true });
       }
       const savePath = saveFile.startsWith('/') ? saveFile : join(resultsDir, saveFile);
-      writeFileSync(savePath, JSON.stringify({
+      const saveTmp2 = savePath + '.tmp';
+      writeFileSync(saveTmp2, JSON.stringify({
         timestamp: new Date().toISOString(),
         duration: totalDuration,
         results: allResults,
       }, null, 2));
+      renameSync(saveTmp2, savePath);
       output.writeln(output.success(`Results saved to ${savePath}`));
     }
 
     return { success: true, message: 'All benchmarks complete' };
+  },
+};
+
+// ============================================================================
+// Regression Benchmark Subcommand
+// ============================================================================
+
+const regressionCommand: Command = {
+  name: 'regression',
+  description: 'Quality regression testing using benchmark definitions and baselines',
+  options: [
+    { name: 'suite', short: 's', type: 'string', description: 'Path to benchmark definitions directory', default: '.monomind/benchmarks/definitions' },
+    { name: 'benchmark-id', short: 'b', type: 'string', description: 'Run a specific benchmark by ID' },
+    { name: 'agent-output', short: 'a', type: 'string', description: 'Path to file containing agent output to evaluate' },
+    { name: 'pin-baseline', type: 'boolean', description: 'Save current results as the new baseline', default: 'false' },
+    { name: 'output', short: 'o', type: 'string', description: 'Output format: text, json', default: 'text' },
+  ],
+  examples: [
+    { command: 'monomind benchmark regression', description: 'List all benchmark definitions' },
+    { command: 'monomind benchmark regression -b agent-spawn -a output.txt', description: 'Evaluate agent output against a benchmark' },
+    { command: 'monomind benchmark regression -b agent-spawn -a output.txt --pin-baseline', description: 'Evaluate and pin results as new baseline' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    const suiteDir = ctx.flags.suite as string || '.monomind/benchmarks/definitions';
+    const benchmarkId = ctx.flags['benchmark-id'] as string | undefined;
+    const agentOutputFile = ctx.flags['agent-output'] as string | undefined;
+    const pinBaseline = ctx.flags['pin-baseline'] === true;
+    const outputFormat = ctx.flags.output as string || 'text';
+
+    const runner = new BenchmarkRunner();
+    const baselinesDir = join(process.cwd(), '.monomind', 'benchmarks', 'baselines');
+
+    const definitions = runner.loadBenchmarks(join(process.cwd(), suiteDir));
+
+    if (definitions.length === 0) {
+      output.writeln(output.dim(`No benchmark definitions found in ${suiteDir}`));
+      output.writeln(output.dim('Create JSON files there to define quality benchmarks.'));
+      return { success: true, message: 'No benchmarks defined' };
+    }
+
+    // List mode — no agent output provided
+    if (!agentOutputFile) {
+      output.writeln();
+      output.writeln(output.bold('Benchmark Definitions'));
+      output.writeln(output.dim('─'.repeat(50)));
+      for (const def of definitions) {
+        output.writeln(`  ${output.highlight(def.benchmarkId)}  ${output.dim(def.agentSlug)}  — ${def.qualityMetrics?.length ?? 0} metrics`);
+      }
+      output.writeln();
+      output.writeln(output.dim('Use --agent-output <file> to evaluate against a benchmark.'));
+      return { success: true, message: `${definitions.length} benchmarks loaded` };
+    }
+
+    // Evaluation mode
+    if (!existsSync(agentOutputFile)) {
+      output.writeln(output.error(`Agent output file not found: ${agentOutputFile}`));
+      return { success: false, message: 'Agent output file not found' };
+    }
+
+    const agentOutput = readFileSync(agentOutputFile, 'utf-8');
+    const targetDefs = benchmarkId
+      ? definitions.filter((d) => d.benchmarkId === benchmarkId)
+      : definitions;
+
+    if (targetDefs.length === 0) {
+      output.writeln(output.error(`No benchmark found with id: ${benchmarkId}`));
+      return { success: false, message: 'Benchmark not found' };
+    }
+
+    const results = targetDefs.map((def) => runner.runBenchmark(def, agentOutput));
+
+    if (outputFormat === 'json') {
+      output.writeln(JSON.stringify(results, null, 2));
+    } else {
+      output.writeln();
+      output.writeln(output.bold('Regression Results'));
+      output.writeln(output.dim('─'.repeat(50)));
+      for (const result of results) {
+        const status = result.passed ? output.success('PASS') : output.error('FAIL');
+        output.writeln(`  ${status}  ${result.benchmarkId}  ${output.dim(`${result.durationMs}ms`)}`);
+        for (const m of result.metricResults) {
+          const mStatus = m.passed ? '  ✓' : '  ✗';
+          output.writeln(`    ${mStatus}  ${m.type}`);
+        }
+      }
+      output.writeln();
+    }
+
+    // Baseline comparison
+    const baselinePath = join(baselinesDir, `${benchmarkId ?? 'all'}.json`);
+    if (existsSync(baselinePath)) {
+      const baseline = JSON.parse(readFileSync(baselinePath, 'utf-8'));
+      const hasRegression = runner.detectRegression(results, baseline);
+      if (hasRegression) {
+        output.writeln(output.error(`Regression detected — pass rate dropped below baseline (${(baseline.passRate * 100).toFixed(0)}%)`));
+      } else {
+        output.writeln(output.success('No regression detected vs baseline'));
+      }
+    }
+
+    // Pin baseline
+    if (pinBaseline) {
+      if (!existsSync(baselinesDir)) mkdirSync(baselinesDir, { recursive: true });
+      const id = benchmarkId ?? 'all';
+      const baseline = runner.pinBaseline(id, results);
+      const baselineTmp = baselinePath + '.tmp';
+      writeFileSync(baselineTmp, JSON.stringify(baseline, null, 2));
+      renameSync(baselineTmp, baselinePath);
+      output.writeln(output.success(`Baseline pinned: ${(baseline.passRate * 100).toFixed(0)}% pass rate`));
+    }
+
+    const allPassed = results.every((r) => r.passed);
+    return { success: allPassed, message: allPassed ? 'All metrics passed' : 'Some metrics failed' };
   },
 };
 
@@ -483,12 +601,15 @@ export const benchmarkCommand: Command = {
     neuralCommand,
     memoryCommand,
     allCommand,
+    regressionCommand,
   ],
   examples: [
     { command: 'monomind benchmark pretrain', description: 'Benchmark pre-training system' },
     { command: 'monomind benchmark neural', description: 'Benchmark neural operations' },
     { command: 'monomind benchmark memory', description: 'Benchmark memory operations' },
     { command: 'monomind benchmark all', description: 'Run all benchmarks' },
+    { command: 'monomind benchmark regression', description: 'List quality regression benchmarks' },
+    { command: 'monomind benchmark regression -b my-bench -a output.txt', description: 'Evaluate agent output against a benchmark' },
   ],
   action: async (_ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
@@ -496,10 +617,11 @@ export const benchmarkCommand: Command = {
     output.writeln(output.dim('─'.repeat(50)));
     output.writeln();
     output.writeln('Available subcommands:');
-    output.writeln(`  ${output.highlight('pretrain')}  - Benchmark self-learning pre-training (SONA, EWC++, MoE)`);
-    output.writeln(`  ${output.highlight('neural')}    - Benchmark neural operations (embeddings, WASM)`);
-    output.writeln(`  ${output.highlight('memory')}    - Benchmark memory operations (HNSW, store, search)`);
-    output.writeln(`  ${output.highlight('all')}       - Run all benchmark suites`);
+    output.writeln(`  ${output.highlight('pretrain')}    - Benchmark self-learning pre-training (SONA, EWC++, MoE)`);
+    output.writeln(`  ${output.highlight('neural')}      - Benchmark neural operations (embeddings, WASM)`);
+    output.writeln(`  ${output.highlight('memory')}      - Benchmark memory operations (HNSW, store, search)`);
+    output.writeln(`  ${output.highlight('all')}         - Run all benchmark suites`);
+    output.writeln(`  ${output.highlight('regression')}  - Quality regression testing with baselines`);
     output.writeln();
     output.writeln('Examples:');
     output.writeln('  monomind benchmark pretrain -i 200');

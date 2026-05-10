@@ -16,13 +16,22 @@ export function deriveSigningKey(swarmId: string, sessionSecret: string): Buffer
 /**
  * Sign a vote, producing a hex-encoded HMAC-SHA256 signature.
  */
+function canonicalize(val: unknown): string {
+  if (val === null || typeof val !== 'object') return JSON.stringify(val);
+  if (Array.isArray(val)) return '[' + val.map(canonicalize).join(',') + ']';
+  const sorted = Object.keys(val as object).sort().map(
+    k => JSON.stringify(k) + ':' + canonicalize((val as Record<string, unknown>)[k])
+  );
+  return '{' + sorted.join(',') + '}';
+}
+
 export function signVote(
   agentId: string,
   vote: unknown,
   decisionId: string,
   key: Buffer,
 ): string {
-  const payload = JSON.stringify({ agentId, vote, decisionId });
+  const payload = JSON.stringify({ agentId, vote: canonicalize(vote), decisionId });
   return createHmac('sha256', key).update(payload).digest('hex');
 }
 

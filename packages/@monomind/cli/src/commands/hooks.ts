@@ -103,7 +103,7 @@ function parseCoverageSummaryJson(data: Record<string, unknown>, source: string)
     const m = metrics as Record<string, { total?: number; covered?: number; pct?: number }>;
     if (!m || typeof m !== 'object') continue;
 
-    const linePct = m.lines?.pct ?? m.lines?.covered != null ? ((m.lines?.covered ?? 0) / Math.max(m.lines?.total ?? 1, 1)) * 100 : 0;
+    const linePct = m.lines?.pct ?? (m.lines?.covered != null ? ((m.lines?.covered ?? 0) / Math.max(m.lines?.total ?? 1, 1)) * 100 : 0);
     const branchPct = m.branches?.pct ?? (m.branches?.total ? ((m.branches?.covered ?? 0) / m.branches.total) * 100 : 100);
     const funcPct = m.functions?.pct ?? (m.functions?.total ? ((m.functions?.covered ?? 0) / m.functions.total) * 100 : 100);
     const stmtPct = m.statements?.pct ?? (m.statements?.total ? ((m.statements?.covered ?? 0) / m.statements.total) * 100 : 100);
@@ -150,6 +150,10 @@ function parseLcovInfo(raw: string, source: string): CoverageData {
   let linesHit = 0, linesFound = 0;
   let branchesHit = 0, branchesFound = 0;
   let functionsHit = 0, functionsFound = 0;
+  let totalLines = 0, coveredLines = 0;
+  let totalBranches = 0, coveredBranches = 0;
+  let totalFunctions = 0, coveredFunctions = 0;
+  let totalStatements = 0, coveredStatements = 0;
 
   const flushRecord = () => {
     if (currentFile) {
@@ -160,6 +164,14 @@ function parseLcovInfo(raw: string, source: string): CoverageData {
         functions: functionsFound > 0 ? (functionsHit / functionsFound) * 100 : 100,
         statements: linesFound > 0 ? (linesHit / linesFound) * 100 : 0,
       });
+      totalLines += linesFound;
+      coveredLines += linesHit;
+      totalBranches += branchesFound;
+      coveredBranches += branchesHit;
+      totalFunctions += functionsFound;
+      coveredFunctions += functionsHit;
+      totalStatements += linesFound;
+      coveredStatements += linesHit;
     }
   };
 
@@ -191,26 +203,16 @@ function parseLcovInfo(raw: string, source: string): CoverageData {
 
   entries.sort((a, b) => a.lines - b.lines);
 
-  let totalLH = 0, totalLF = 0, totalBH = 0, totalBF = 0;
-  for (const e of entries) {
-    // Approximate from percentages (we lost exact counts after flush, but summaries are okay)
-    totalLH += e.lines;
-    totalLF += 100;
-    totalBH += e.branches;
-    totalBF += 100;
-  }
-  const n = entries.length || 1;
-
   return {
     found: true,
     source,
     entries,
     summary: {
       totalFiles: entries.length,
-      overallLineCoverage: totalLH / n,
-      overallBranchCoverage: totalBH / n,
-      overallFunctionCoverage: 0,
-      overallStatementCoverage: totalLH / n,
+      overallLineCoverage: totalLines > 0 ? (coveredLines / totalLines) * 100 : 0,
+      overallBranchCoverage: totalBranches > 0 ? (coveredBranches / totalBranches) * 100 : 100,
+      overallFunctionCoverage: totalFunctions > 0 ? (coveredFunctions / totalFunctions) * 100 : 0,
+      overallStatementCoverage: totalStatements > 0 ? (coveredStatements / totalStatements) * 100 : 0,
     },
   };
 }
@@ -669,7 +671,7 @@ const postCommandCommand: Command = {
       }>('hooks_post-command', {
         command,
         success,
-        exitCode: ctx.flags.exitCode || 0,
+        exitCode: ctx.flags['exit-code'] || 0,
         duration: ctx.flags.duration,
         timestamp: Date.now(),
       });
@@ -732,7 +734,7 @@ const routeCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const task = ctx.args[0] || ctx.flags.task as string;
-    const topK = ctx.flags.topK as number || 3;
+    const topK = ctx.flags['top-k'] as number || 3;
 
     if (!task) {
       output.printError('Task description is required. Use --task or -t flag.');
@@ -1089,7 +1091,7 @@ const pretrainCommand: Command = {
       }>('hooks_pretrain', {
         path: repoPath,
         depth,
-        skipCache: ctx.flags.skipCache || false,
+        skipCache: ctx.flags['skip-cache'] || false,
         withEmbeddings,
         embeddingModel,
         fileTypes: fileTypes.split(',').map((t: string) => t.trim()),
@@ -1445,7 +1447,7 @@ const transferFromProjectCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const sourcePath = ctx.args[0] || ctx.flags.source as string;
-    const minConfidence = ctx.flags.minConfidence as number || 0.7;
+    const minConfidence = ctx.flags['min-confidence'] as number || 0.7;
 
     if (!sourcePath) {
       output.printError('Source project path is required. Use --source or -s flag.');
@@ -1682,7 +1684,7 @@ const preTaskCommand: Command = {
     { command: 'monomind hooks pre-task -i task-456 -d "Implement feature" --auto-spawn', description: 'With auto-spawn' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const taskId = (ctx.flags.taskId as string) || `task-${Date.now().toString(36)}`;
+    const taskId = (ctx.flags['task-id'] as string) || `task-${Date.now().toString(36)}`;
     const description = ctx.args[0] || ctx.flags.description as string;
 
     if (!description) {
@@ -1708,7 +1710,7 @@ const preTaskCommand: Command = {
       }>('hooks_pre-task', {
         taskId,
         description,
-        autoSpawn: ctx.flags.autoSpawn || false,
+        autoSpawn: ctx.flags['auto-spawn'] || false,
         timestamp: Date.now(),
       });
 
@@ -1853,7 +1855,7 @@ const postTaskCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     // Auto-generate task ID if not provided
-    const taskId = (ctx.flags.taskId as string) || `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const taskId = (ctx.flags['task-id'] as string) || `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     // Default success to true for backward compatibility
     const success = ctx.flags.success !== undefined ? (ctx.flags.success as boolean) : true;
 
@@ -1946,7 +1948,7 @@ const sessionEndCommand: Command = {
           agentsSpawned: number;
         };
       }>('hooks_session-end', {
-        saveState: ctx.flags.saveState ?? true,
+        saveState: ctx.flags['save-state'] ?? true,
         timestamp: Date.now(),
       });
 
@@ -2025,7 +2027,7 @@ const sessionRestoreCommand: Command = {
     { command: 'monomind hooks session-restore -i session-12345', description: 'Restore specific session' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const sessionId = ctx.args[0] || ctx.flags.sessionId as string || 'latest';
+    const sessionId = ctx.args[0] || ctx.flags['session-id'] as string || 'latest';
 
     output.printInfo(`Restoring session: ${output.highlight(sessionId)}`);
 
@@ -2041,8 +2043,8 @@ const sessionRestoreCommand: Command = {
         warnings?: string[];
       }>('hooks_session-restore', {
         sessionId,
-        restoreAgents: ctx.flags.restoreAgents ?? true,
-        restoreTasks: ctx.flags.restoreTasks ?? true,
+        restoreAgents: ctx.flags['restore-agents'] ?? true,
+        restoreTasks: ctx.flags['restore-tasks'] ?? true,
         timestamp: Date.now(),
       });
 
@@ -2157,10 +2159,10 @@ const intelligenceCommand: Command = {
     const showStatus = ctx.flags.status as boolean;
     const forceTraining = ctx.flags.train as boolean;
     const reset = ctx.flags.reset as boolean;
-    const enableSona = ctx.flags.enableSona as boolean ?? true;
-    const enableMoe = ctx.flags.enableMoe as boolean ?? true;
-    const enableHnsw = ctx.flags.enableHnsw as boolean ?? true;
-    const embeddingProvider = ctx.flags.embeddingProvider as string || 'transformers';
+    const enableSona = ctx.flags['enable-sona'] as boolean ?? true;
+    const enableMoe = ctx.flags['enable-moe'] as boolean ?? true;
+    const enableHnsw = ctx.flags['enable-hnsw'] as boolean ?? true;
+    const embeddingProvider = ctx.flags['embedding-provider'] as string || 'transformers';
 
     output.writeln();
     output.writeln(output.bold('RuVector Intelligence System'));
@@ -2315,9 +2317,9 @@ const intelligenceCommand: Command = {
       };
 
       if (forceTraining) {
-        spinner.setText('Running training cycle...');
-        await new Promise(resolve => setTimeout(resolve, 500));
-        spinner.succeed('Training cycle completed');
+        output.printWarning('Training cycle is not yet wired to the intelligence system. No patterns were updated.');
+        spinner.fail('Training not implemented');
+        return { success: false, message: 'Training not implemented', exitCode: 1 };
       } else {
         spinner.succeed(hasLocalData ? 'Intelligence system active (local data loaded)' : 'Intelligence system active');
       }
@@ -4052,7 +4054,8 @@ const statuslineCommand: Command = {
           ? 'tasklist /FI "IMAGENAME eq node.exe" 2>NUL | findstr /I /C:"node" >NUL && echo 1 || echo 0'
           : 'ps aux 2>/dev/null | grep -c agentic-flow || echo "0"';
         const ps = execSync(psCmd, { encoding: 'utf-8' });
-        activeAgents = Math.max(0, parseInt(ps.trim()) - 1);
+        const raw = parseInt(ps.trim());
+        activeAgents = Math.max(0, isWindows ? raw : raw - 1);
         coordinationActive = activeAgents > 0;
       } catch {
         // Ignore
@@ -4889,10 +4892,10 @@ const teammateIdleCommand: Command = {
     { command: 'monomind hooks teammate-idle -t worker-1 --check-task-list', description: 'Check tasks for specific teammate' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const autoAssign = ctx.flags.autoAssign !== false;
-    const checkTaskList = ctx.flags.checkTaskList !== false;
-    const teammateId = ctx.flags.teammateId as string;
-    const teamName = ctx.flags.teamName as string;
+    const autoAssign = ctx.flags['auto-assign'] !== false;
+    const checkTaskList = ctx.flags['check-task-list'] !== false;
+    const teammateId = ctx.flags['teammate-id'] as string;
+    const teamName = ctx.flags['team-name'] as string;
 
     if (ctx.flags.format !== 'json') {
       output.printInfo(`Teammate idle hook triggered${teammateId ? ` for: ${output.highlight(teammateId)}` : ''}`);
@@ -5001,12 +5004,12 @@ const taskCompletedCommand: Command = {
     { command: 'monomind hooks task-completed -i task-456 --notify-lead --quality 0.95', description: 'Complete with quality score' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const taskId = ctx.args[0] || ctx.flags.taskId as string;
-    const trainPatterns = ctx.flags.trainPatterns !== false;
-    const notifyLead = ctx.flags.notifyLead !== false;
+    const taskId = ctx.args[0] || ctx.flags['task-id'] as string;
+    const trainPatterns = ctx.flags['train-patterns'] !== false;
+    const notifyLead = ctx.flags['notify-lead'] !== false;
     const success = ctx.flags.success !== false;
     const quality = ctx.flags.quality as number;
-    const teammateId = ctx.flags.teammateId as string;
+    const teammateId = ctx.flags['teammate-id'] as string;
 
     if (!taskId) {
       output.printError('Task ID is required. Use --task-id or -i flag.');

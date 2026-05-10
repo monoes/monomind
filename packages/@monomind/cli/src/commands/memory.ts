@@ -7,6 +7,7 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { select, confirm, input } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
+import { configManager } from '../services/config-file-manager.js';
 
 // Memory backends
 const BACKENDS = [
@@ -549,6 +550,10 @@ const editCommand: Command = {
       output.printError('Entry ID is required for palace/knowledge edit. Use --id');
       return { success: false, exitCode: 1 };
     }
+    if (!/^[a-zA-Z0-9_\-]{1,128}$/.test(id)) {
+      output.printError('ID must be 1-128 chars: alphanumeric, underscore, or hyphen only');
+      return { success: false, exitCode: 1 };
+    }
     const filePath = source === 'palace'
       ? path.join(process.cwd(), '.monomind', 'palace', 'drawers.jsonl')
       : path.join(process.cwd(), '.monomind', 'knowledge', 'chunks.jsonl');
@@ -561,7 +566,15 @@ const editCommand: Command = {
     let entries: any[];
     try {
       const raw = fs.readFileSync(filePath, 'utf8');
-      entries = raw.split('\n').filter(Boolean).map(l => JSON.parse(l));
+      entries = [];
+      for (const line of raw.split('\n').filter(Boolean)) {
+        try {
+          entries.push(JSON.parse(line));
+        } catch {
+          output.printError(`Malformed JSONL entry in ${source} file`);
+          return { success: false, exitCode: 1 };
+        }
+      }
     } catch (err) {
       output.printError(`Failed to read ${source} file: ${err instanceof Error ? err.message : 'Unknown error'}`);
       return { success: false, exitCode: 1 };
@@ -586,7 +599,9 @@ const editCommand: Command = {
 
     entries[idx] = { ...entries[idx], content: value, ts: new Date().toISOString() };
     try {
-      fs.writeFileSync(filePath, entries.map(e => JSON.stringify(e)).join('\n') + '\n');
+      const tmpPath = filePath + '.tmp';
+      fs.writeFileSync(tmpPath, entries.map(e => JSON.stringify(e)).join('\n') + '\n');
+      fs.renameSync(tmpPath, filePath);
       output.printSuccess(`Updated ${source} entry "${id}"`);
       return { success: true, data: entries[idx] };
     } catch (err) {
@@ -792,6 +807,10 @@ const deleteCommand: Command = {
       output.printError('Entry ID is required for palace/knowledge delete. Use --id');
       return { success: false, exitCode: 1 };
     }
+    if (!/^[a-zA-Z0-9_\-]{1,128}$/.test(id)) {
+      output.printError('ID must be 1-128 chars: alphanumeric, underscore, or hyphen only');
+      return { success: false, exitCode: 1 };
+    }
     const fs = await import('fs');
     const path = await import('path');
     const filePath = source === 'palace'
@@ -806,7 +825,15 @@ const deleteCommand: Command = {
     let entries: any[];
     try {
       const raw = fs.readFileSync(filePath, 'utf8');
-      entries = raw.split('\n').filter(Boolean).map(l => JSON.parse(l));
+      entries = [];
+      for (const line of raw.split('\n').filter(Boolean)) {
+        try {
+          entries.push(JSON.parse(line));
+        } catch {
+          output.printError(`Malformed JSONL entry in ${source} file`);
+          return { success: false, exitCode: 1 };
+        }
+      }
     } catch (err) {
       output.printError(`Failed to read ${source} file: ${err instanceof Error ? err.message : 'Unknown error'}`);
       return { success: false, exitCode: 1 };
@@ -831,7 +858,9 @@ const deleteCommand: Command = {
 
     entries.splice(idx, 1);
     try {
-      fs.writeFileSync(filePath, entries.map(e => JSON.stringify(e)).join('\n') + (entries.length ? '\n' : ''));
+      const tmpPath = filePath + '.tmp';
+      fs.writeFileSync(tmpPath, entries.map(e => JSON.stringify(e)).join('\n') + (entries.length ? '\n' : ''));
+      fs.renameSync(tmpPath, filePath);
       output.printSuccess(`Deleted ${source} entry "${id}"`);
       output.printInfo(`Remaining entries: ${entries.length}`);
       return { success: true, data: { id, deleted: true, remainingEntries: entries.length } };
@@ -973,10 +1002,10 @@ const configureCommand: Command = {
     const config = {
       backend: backend || 'hybrid',
       path: ctx.flags.path || './data/memory',
-      cacheSize: ctx.flags.cacheSize || 256,
+      cacheSize: ctx.flags['cache-size'] || 256,
       hnsw: {
-        m: ctx.flags.hnswM || 16,
-        ef: ctx.flags.hnswEf || 200
+        m: ctx.flags['hnsw-m'] || 16,
+        ef: ctx.flags['hnsw-ef'] || 200
       }
     };
 
@@ -999,6 +1028,7 @@ const configureCommand: Command = {
     });
 
     output.writeln();
+    configManager.set(ctx.cwd, 'memory', config);
     output.printSuccess('Memory configuration updated');
 
     return { success: true, data: config };
@@ -1056,7 +1086,7 @@ const cleanupCommand: Command = {
     { command: 'monomind memory cleanup --expired-only', description: 'Clean expired entries' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const dryRun = ctx.flags.dryRun as boolean;
+    const dryRun = ctx.flags['dry-run'] as boolean;
     const force = ctx.flags.force as boolean;
 
     if (dryRun) {
@@ -1086,9 +1116,9 @@ const cleanupCommand: Command = {
         duration: number;
       }>('memory_cleanup', {
         dryRun,
-        olderThan: ctx.flags.olderThan,
-        expiredOnly: ctx.flags.expiredOnly,
-        lowQualityThreshold: ctx.flags.lowQuality,
+        olderThan: ctx.flags['older-than'],
+        expiredOnly: ctx.flags['expired-only'],
+        lowQualityThreshold: ctx.flags['low-quality'],
         namespace: ctx.flags.namespace,
       });
 
@@ -1523,7 +1553,7 @@ const initMemoryCommand: Command = {
     const force = ctx.flags.force as boolean;
     const verbose = ctx.flags.verbose as boolean;
     const verify = ctx.flags.verify !== false; // Default true
-    const loadEmbeddings = ctx.flags.loadEmbeddings as boolean;
+    const loadEmbeddings = ctx.flags['load-embeddings'] as boolean;
 
     output.writeln();
     output.writeln(output.bold('Initializing Memory Database'));
@@ -1717,11 +1747,11 @@ const initMemoryCommand: Command = {
       }
 
       // Fix #1428: ONNX worker threads keep the event loop alive after init.
-      // Force-exit after a short delay to allow final I/O to flush.
-      if (typeof globalThis !== 'undefined') {
+      // Only force-exit when embeddings were actually loaded (ONNX threads spun up).
+      if (loadEmbeddings && typeof globalThis !== 'undefined') {
         setTimeout(() => {
           process.exit(0);
-        }, 500).unref();
+        }, 500);
       }
 
       return {

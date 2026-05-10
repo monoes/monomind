@@ -164,7 +164,7 @@ export const storeSearchCommand: Command = {
         language: ctx.flags.language as string,
         framework: ctx.flags.framework as string,
         tags: ctx.flags.tags ? (ctx.flags.tags as string).split(',') : undefined,
-        minRating: ctx.flags.minRating as number,
+        minRating: ctx.flags['min-rating'] as number,
         verified: ctx.flags.verified as boolean,
         limit: (ctx.flags.limit as number) || 20,
       };

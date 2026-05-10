@@ -42,11 +42,20 @@ interface SonaEngineInstance {
 }
 
 
+const ALLOWED_RUVECTOR_PACKAGES = new Set([
+  '@ruvector/learning-wasm',
+  '@ruvector/attention',
+  '@ruvector/sona',
+]);
+
 /**
  * ESM/CJS interop helper — handles `.default` for CJS modules.
  * Uses `'default' in mod` check which is safer than `mod.default || mod`.
  */
 async function importWithInterop<T = any>(packageName: string): Promise<T> {
+  if (!ALLOWED_RUVECTOR_PACKAGES.has(packageName)) {
+    throw new Error(`Disallowed dynamic import: ${packageName}`);
+  }
   const mod = await import(packageName);
   return ('default' in mod) ? (mod as any).default : mod;
 }

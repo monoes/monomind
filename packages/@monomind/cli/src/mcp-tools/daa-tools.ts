@@ -10,7 +10,7 @@
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Storage paths
@@ -71,6 +71,12 @@ function loadDAAStore(): DAAStore {
   try {
     const path = getDAAPath();
     if (existsSync(path)) {
+      // Cap on disk read so a planted multi-GB store.json can't OOM the daemon
+      // on first MCP call.
+      const stat = statSync(path);
+      if (stat.size > 25 * 1024 * 1024) {
+        return { agents: {}, workflows: {}, knowledge: {}, version: '3.0.0' };
+      }
       return JSON.parse(readFileSync(path, 'utf-8'));
     }
   } catch {
@@ -81,7 +87,11 @@ function loadDAAStore(): DAAStore {
 
 function saveDAAStore(store: DAAStore): void {
   ensureDAADir();
-  writeFileSync(getDAAPath(), JSON.stringify(store, null, 2), 'utf-8');
+  // Unique tmp filename so concurrent daa_* MCP calls cannot collide on the
+  // same .tmp path mid-write.
+  const tmpPath = `${getDAAPath()}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tmpPath, JSON.stringify(store, null, 2), 'utf-8');
+  renameSync(tmpPath, getDAAPath());
 }
 
 export const daaTools: MCPTool[] = [
@@ -124,6 +134,9 @@ export const daaTools: MCPTool[] = [
         lastActivity: new Date().toISOString(),
       };
 
+      if (['__proto__', 'constructor', 'prototype'].includes(id)) {
+        return { success: false, error: 'Forbidden agent ID' };
+      }
       store.agents[id] = agent;
       saveDAAStore(store);
 
@@ -167,9 +180,12 @@ export const daaTools: MCPTool[] = [
       required: ['agentId'],
     },
     handler: async (input) => {
-      const store = loadDAAStore();
       const agentId = input.agentId as string;
-      const agent = store.agents[agentId];
+      if (typeof agentId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+        return { success: false, error: 'Invalid agent id' };
+      }
+      const store = loadDAAStore();
+      const agent = Object.hasOwn(store.agents, agentId) ? store.agents[agentId] : undefined;
 
       if (!agent) {
         return { success: false, error: 'Agent not found' };
@@ -227,8 +243,14 @@ export const daaTools: MCPTool[] = [
       required: ['id', 'name'],
     },
     handler: async (input) => {
-      const store = loadDAAStore();
       const id = input.id as string;
+      // Reject prototype-pollution keys: writing to store.workflows['__proto__']
+      // mutates Object.prototype for the process.
+      if (typeof id !== 'string' || id.length === 0 || id.length > 256 ||
+          ['__proto__', 'constructor', 'prototype'].includes(id)) {
+        return { success: false, error: 'Invalid workflow id' };
+      }
+      const store = loadDAAStore();
 
       const workflow: DAAWorkflow = {
         id,
@@ -269,9 +291,12 @@ export const daaTools: MCPTool[] = [
       required: ['workflowId'],
     },
     handler: async (input) => {
-      const store = loadDAAStore();
       const workflowId = input.workflowId as string;
-      const workflow = store.workflows[workflowId];
+      if (typeof workflowId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(workflowId)) {
+        return { success: false, error: 'Invalid workflow id' };
+      }
+      const store = loadDAAStore();
+      const workflow = Object.hasOwn(store.workflows, workflowId) ? store.workflows[workflowId] : undefined;
 
       if (!workflow) {
         return { success: false, error: 'Workflow not found' };
@@ -346,7 +371,11 @@ export const daaTools: MCPTool[] = [
         _storedIn = 'agentdb';
       } catch { /* AgentDB not available */ }
 
-      // Backward compat: always persist in JSON store
+      // Backward compat: always persist in JSON store (cap at 1000 entries)
+      if (Object.keys(store.knowledge).length >= 1000) {
+        const oldest = Object.keys(store.knowledge)[0];
+        if (oldest) delete store.knowledge[oldest];
+      }
       store.knowledge[knowledgeId] = knowledgeEntry;
       saveDAAStore(store);
 
@@ -380,7 +409,10 @@ export const daaTools: MCPTool[] = [
       const agentId = input.agentId as string;
 
       if (agentId) {
-        const agent = store.agents[agentId];
+        if (typeof agentId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+          return { success: false, error: 'Invalid agent id' };
+        }
+        const agent = Object.hasOwn(store.agents, agentId) ? store.agents[agentId] : undefined;
         if (!agent) {
           return { success: false, error: 'Agent not found' };
         }
@@ -437,7 +469,10 @@ export const daaTools: MCPTool[] = [
       const action = (input.action as string) || 'analyze';
 
       if (agentId) {
-        const agent = store.agents[agentId];
+        if (typeof agentId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(agentId)) {
+          return { success: false, error: 'Invalid agent id' };
+        }
+        const agent = Object.hasOwn(store.agents, agentId) ? store.agents[agentId] : undefined;
         if (!agent) {
           return { success: false, error: 'Agent not found' };
         }

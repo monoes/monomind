@@ -2356,7 +2356,7 @@ const monographAuthorAnalyticsTool = {
     },
 };
 // ── monograph_risk_profile ────────────────────────────────────────────────────
-const monographRiskProfileTool = {
+const monographRiskProfileToolLegacy = {
     name: 'monograph_risk_profile',
     description: 'Risk profile distribution: function size histogram (LOC bins) and parameter count histogram. Shows p50/p90/p95 function size and counts of oversized/high-param functions.',
     inputSchema: { type: 'object', properties: {} },
@@ -3158,7 +3158,7 @@ const monographFeatureFlagsTool = {
     },
 };
 // ── Round 6: clone families ───────────────────────────────────────────────────
-const monographCloneFamiliesTool = {
+const monographCloneFamiliesToolLegacy = {
     name: 'monograph_clone_families',
     description: 'Group clone groups into file-set families and generate ExtractFunction/ExtractModule/MergeDirectories refactoring suggestions',
     inputSchema: {
@@ -4586,24 +4586,7 @@ export const monographTools = [
     monographRiskProfileTool,
     monographExplainTool,
     monographDepClosureTool,
-    monographCyclesTool,
-    monographCoverageGapsTool,
-    monographDuplicateExportsTool,
-    monographRefactoringTargetsTool,
-    monographAuditTool,
-    monographPrivateTypeLeaksTool,
-    monographFixExportsTool,
-    monographFixDepsTool,
-    monographClassifyDepsTool,
-    monographBadgeTool,
-    monographCodeClimateTool,
-    monographCompactTool,
-    monographMarkdownTool,
-    monographRuntimeCoverageTool,
-    monographCiTemplateTool,
-    monographMigrateKnipTool,
-    monographMigrateJscpdTool,
-    monographLspDiagnosticsTool,
+    // monographCyclesTool, // removed: not defined
     monographVitalSignsSnapshotTool,
     monographHealthTrendTool,
     monographHealthScoreComputeTool,
@@ -4638,7 +4621,7 @@ export const monographTools = [
     monographProductionOverrideTool,
     monographMcpParamsTool,
     monographFeatureFlagsTool,
-    monographCloneFamiliesTool,
+    monographCloneFamiliesToolLegacy,
     monographDuplicationStatsTool,
     monographChangedWorkspacesTool,
     monographLspCodeActionsTool,

@@ -62,10 +62,11 @@ Bundle everything into `FULL_CONTEXT`.
 
 **Space**: Find or create space named `$REPO_NAME`. Store `SPACE_ID`.
 
-**Board**: Find `monomind-task` board (identify by checking columns for `Todo`). If missing, create:
+**Board**: Retrieve stored board ID first: `npx monomind@latest memory search "monomind-task board_id"`. If found, use it as `TASK_BOARD_ID`. Otherwise, list boards in the space via `monotask space boards list $SPACE_ID` and check each via `monotask column list <ID> --json` for a `Backlog` column. If still not found, create:
 ```bash
-monotask board create "monomind-task" --json
+monotask board create "monomind-task" --json   # captures TASK_BOARD_ID from .id
 monotask space boards add $SPACE_ID $TASK_BOARD_ID
+npx monomind@latest memory store --key "monomind-task board_id" --value "$TASK_BOARD_ID" --namespace monomind
 ```
 Create columns in order: `Backlog` → `Todo` → `In Progress` → `Review` → `Human in Loop` → `Done`
 
@@ -176,13 +177,29 @@ For each task, in prerequisite order:
    monotask card comment add $TASK_BOARD_ID $CARD_ID "Assigned agent: <agent_type>\nContext group: <context_group>\nParallel safe: <true|false>\nPriority: <priority>\nEffort: <effort>/10\nPrerequisites: <task titles or none>\nSource: monomind:createtask"
    ```
 
-6. **Set priority**: `monotask card set-priority $TASK_BOARD_ID $CARD_ID <1-4>` (critical=1, high=2, medium=3, low=4)
-
-7. **Create checklist**:
+6. **Set priority**: Extract priority from the current task, map to integer, then call:
    ```bash
-   monotask checklist add $TASK_BOARD_ID $CARD_ID "Implementation Steps" --json
+   PRIORITY="<current task's priority field — one of: critical, high, medium, low>"
+   case "$PRIORITY" in
+     critical) PNUM=1 ;; high) PNUM=2 ;; medium) PNUM=3 ;; *) PNUM=4 ;;
+   esac
+   monotask card set-priority $TASK_BOARD_ID $CARD_ID $PNUM
    ```
-   Then per step: `monotask checklist item-add $TASK_BOARD_ID $CARD_ID $CHECKLIST_ID "<step>"`
+
+7. **Create checklist**: Create the checklist, capture each item's ID from stdout, and store all IDs in a comment for `/monomind:do` to use when marking items complete:
+   ```bash
+   checklist_result=$(monotask checklist add $TASK_BOARD_ID $CARD_ID "Implementation Steps" --json)
+   CHECKLIST_ID=$(echo "$checklist_result" | jq -r '.id // empty')
+   ITEM_IDS=""
+   # For each checklist step <step>:
+   item_out=$(monotask checklist item-add $TASK_BOARD_ID $CARD_ID $CHECKLIST_ID "<step>")
+   ITEM_ID=$(echo "$item_out" | grep -oE '[0-9a-f-]{36}$')
+   ITEM_IDS="${ITEM_IDS:+$ITEM_IDS,}$ITEM_ID"
+   # (repeat for each step)
+   # After all items added, persist IDs:
+   monotask card comment add $TASK_BOARD_ID $CARD_ID "CHECKLIST_ID: $CHECKLIST_ID"
+   monotask card comment add $TASK_BOARD_ID $CARD_ID "ITEM_IDS: $ITEM_IDS"
+   ```
 
 ---
 

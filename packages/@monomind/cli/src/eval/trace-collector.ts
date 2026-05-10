@@ -2,8 +2,9 @@
  * TraceCollector - JSONL-based production trace collection (Task 33)
  */
 import { randomUUID } from 'crypto';
-import { appendFileSync, readFileSync, existsSync } from 'fs';
+import { appendFileSync, readFileSync, existsSync, statSync } from 'fs';
 import type { EvalTrace } from '../../../shared/src/types/eval.js';
+import { parseJsonl } from '../utils/parse-jsonl.js';
 
 export interface RecordTraceInput {
   agentSlug: string;
@@ -71,7 +72,21 @@ export class TraceCollector {
       tags: this.autoTag(input),
     };
 
-    appendFileSync(this.filePath, JSON.stringify(trace) + '\n', 'utf-8');
+    // Defensive serialization — agent outputs may contain circular references
+    // or BigInt; without this guard the writer crashes mid-trace.
+    let serialized: string;
+    try {
+      serialized = JSON.stringify(trace);
+    } catch {
+      serialized = JSON.stringify({
+        traceId: trace.traceId,
+        agentSlug: trace.agentSlug,
+        capturedAt: trace.capturedAt,
+        reviewStatus: trace.reviewStatus,
+        outcome: 'serialize_failed',
+      });
+    }
+    appendFileSync(this.filePath, serialized + '\n', 'utf-8');
     return trace;
   }
 
@@ -80,9 +95,13 @@ export class TraceCollector {
    */
   readAll(): EvalTrace[] {
     if (!existsSync(this.filePath)) return [];
+    const stat = statSync(this.filePath);
+    if (stat.size > 256 * 1024 * 1024) {
+      throw new Error(`Trace file exceeds 256MB (${stat.size} bytes). Run rotation/cleanup.`);
+    }
     const content = readFileSync(this.filePath, 'utf-8').trim();
     if (!content) return [];
-    return content.split('\n').map((line) => JSON.parse(line) as EvalTrace);
+    return parseJsonl<EvalTrace>(content);
   }
 
   /**

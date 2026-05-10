@@ -19,9 +19,15 @@ const MAX_STRING_LENGTH = 100_000; // 100KB max for any string input
 const MAX_BATCH_SIZE = 500;        // Max entries per batch operation
 const MAX_TOP_K = 100;             // Max results per query
 
+// Reject NUL and C0 control chars except \t \n \r. NUL truncates strings at
+// the C-API boundary in some bridge backends (key collision); ANSI/control
+// chars enable terminal injection when values are echoed back; \r/\n in
+// values fed to log files breaks log-line integrity.
+const CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F]/;
 function validateString(value: unknown, name: string, maxLen = MAX_STRING_LENGTH): string | null {
   if (typeof value !== 'string' || value.length === 0) return null;
   if (value.length > maxLen) return null;
+  if (CONTROL_CHAR_RE.test(value)) return null;
   return value;
 }
 
@@ -38,8 +44,11 @@ function validateScore(value: unknown, defaultVal: number): number {
 
 function sanitizeError(error: unknown): string {
   if (error instanceof Error) {
-    // Strip filesystem paths from error messages
-    return error.message.replace(/\/[^\s:]+\//g, '<path>/').substring(0, 500);
+    // Strip filesystem paths from error messages — match path components even
+    // when no trailing slash (path at end of message before whitespace, colon, EOL)
+    return error.message
+      .replace(/\/[^\s:]+(\/|(?=\s|:|$))/g, '<path>/')
+      .substring(0, 500);
   }
   return 'Internal error';
 }
@@ -409,9 +418,17 @@ export const agentdbConsolidate: MCPTool = {
   handler: async (params: Record<string, unknown>) => {
     try {
       const bridge = await getBridge();
+      // Reject NaN and Infinity. typeof === 'number' returns true for both.
+      // NaN propagates through arithmetic and corrupts consolidation accounting;
+      // Infinity makes `entry.age >= minAge` always false, silently no-op.
+      const minAge = typeof params.minAge === 'number' && Number.isFinite(params.minAge)
+        ? Math.max(0, Math.min(params.minAge, 24 * 365 * 10))
+        : undefined;
       const result = await bridge.bridgeConsolidate({
-        minAge: typeof params.minAge === 'number' ? Math.max(0, params.minAge) : undefined,
-        maxEntries: validatePositiveInt(params.maxEntries, 1000, 10_000),
+        minAge,
+        maxEntries: params.maxEntries !== undefined
+          ? validatePositiveInt(params.maxEntries, 1000, 10_000)
+          : undefined,
       });
       return result ?? { success: false, error: 'AgentDB bridge not available. Use memory_store/memory_search instead.' };
     } catch (error) {
@@ -461,7 +478,11 @@ export const agentdbBatch: MCPTool = {
       if (params.entries.length > MAX_BATCH_SIZE) {
         return { success: false, error: `Too many entries: ${params.entries.length}. Max is ${MAX_BATCH_SIZE}` };
       }
-      // Validate each entry
+      // Validate each entry. Aggregate-byte cap prevents 500 entries × 100KB
+      // values = 50MB single-call payloads from spiking Node heap to ~200MB
+      // (UTF-16 doubling + downstream copies in the bridge layer).
+      const MAX_BATCH_BYTES = 1_048_576; // 1 MiB total
+      let totalBytes = 0;
       const validatedEntries: Array<{ key: string; value?: string; metadata?: Record<string, unknown> }> = [];
       for (let i = 0; i < params.entries.length; i++) {
         const entry = params.entries[i];
@@ -471,6 +492,10 @@ export const agentdbBatch: MCPTool = {
         const key = validateString((entry as any).key, `entries[${i}].key`, 1000);
         if (!key) return { success: false, error: `entries[${i}].key is required (non-empty string)` };
         const value = validateString((entry as any).value, `entries[${i}].value`);
+        totalBytes += key.length + (value?.length ?? 0);
+        if (totalBytes > MAX_BATCH_BYTES) {
+          return { success: false, error: `Batch payload exceeds ${MAX_BATCH_BYTES} bytes` };
+        }
         validatedEntries.push({ key, value: value ?? undefined });
       }
       const bridge = await getBridge();
@@ -506,9 +531,8 @@ export const agentdbContextSynthesize: MCPTool = {
       // validateExternalContent: guard against prompt injection in synthesized context
       // Source: https://arxiv.org/abs/2302.12173, https://arxiv.org/abs/2310.12815
       try {
-        const { validateExternalContent } = await import('../../security/src/input-validator.js').catch(
-          () => import('@monomind/security' as string).catch(() => null) as any
-        );
+        const secMod = await import('@monomind/security' as string).catch(() => null);
+        const validateExternalContent = secMod?.validateExternalContent;
         if (validateExternalContent) {
           const check = await validateExternalContent(query, 'agentdb_context-synthesize query');
           if (!check.safe) {

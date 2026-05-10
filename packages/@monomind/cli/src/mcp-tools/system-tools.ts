@@ -10,7 +10,7 @@
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as os from 'node:os';
@@ -86,7 +86,9 @@ function loadMetrics(): SystemMetrics {
 function saveMetrics(metrics: SystemMetrics): void {
   ensureSystemDir();
   metrics.lastCheck = new Date().toISOString();
-  writeFileSync(getMetricsPath(), JSON.stringify(metrics, null, 2), 'utf-8');
+  const tmpPath = getMetricsPath() + '.tmp';
+  writeFileSync(tmpPath, JSON.stringify(metrics, null, 2), 'utf-8');
+  renameSync(tmpPath, getMetricsPath());
 }
 
 export const systemTools: MCPTool[] = [
@@ -435,7 +437,6 @@ export const systemTools: MCPTool[] = [
         platform: process.platform,
         arch: process.arch,
         pid: process.pid,
-        cwd: getProjectCwd(),
         env: process.env.NODE_ENV || 'development',
         features: {
           swarm: true,

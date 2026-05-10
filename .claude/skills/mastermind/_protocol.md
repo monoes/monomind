@@ -236,15 +236,23 @@ WebFetch({
 
 ## Monotask Task Briefing Standard
 
-Every task created via `/monomind:createtask` MUST include ALL fields below. Agents read task descriptions cold — no back-channel context exists.
+Every monotask card MUST include ALL fields below in its description and comment. Agents read task cards cold — no back-channel context exists.
 
+Create each card using `monotask card create`, then populate it. First resolve column IDs:
+```bash
+columns=$(monotask column list "$BOARD_ID" --json)
+COL_TODO_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Todo" or .name == "Backlog") | .id' | head -1)
+COL_DONE_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Done") | .id' | head -1)
 ```
-CONTEXT: [ISO date] | Project: [name] | Created by: [domain] Manager
+Then create the card:
+```bash
+result=$(monotask card create "$BOARD_ID" "$COL_TODO_ID" "<short title ≤80 chars: summary of GOAL>" --json)
+CARD_ID=$(echo "$result" | jq -r '.id // empty')
+monotask card set-description "$BOARD_ID" "$CARD_ID" "[One measurable objective — what success looks like]"
+monotask card comment add "$BOARD_ID" "$CARD_ID" "CONTEXT: [ISO date] | Project: [name] | Created by: [domain] Manager
 
 BRAIN MEMORY:
 [Paste the most relevant 3-5 excerpts from the loaded BRAIN CONTEXT block]
-
-GOAL: [One measurable objective — what success looks like]
 
 SCOPE:
 - Files/dirs in scope: [explicit paths]
@@ -260,9 +268,8 @@ SUCCESS CRITERIA:
 - [ ] [Concrete checkable item 2]
 
 AGENT: [agent slug, e.g. backend-dev | sparc-coder | frontend-dev]
-SWARM: [topology agent-count consensus, e.g. "hierarchical 4 raft"]
-REPORTS TO: [board name, e.g. PaymentSaaS/development]
+SWARM: [topology agent-count consensus, e.g. \"hierarchical 4 raft\"]
 
-DEPENDENCIES: [task IDs, or "none"]
-OUTPUT FORMAT: Unified output schema (see mastermind _protocol.md)
+DEPENDENCIES: [task IDs, or \"none\"]
+OUTPUT FORMAT: Unified output schema (see mastermind _protocol.md)"
 ```

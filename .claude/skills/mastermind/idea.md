@@ -76,20 +76,29 @@ Decompose the ideation goal into distinct angles of exploration. For each angle,
 - Dependencies between angles
 
 STEP 2 — CREATE TASKS
-For each angle, call /monomind:createtask with this briefing format:
-
-  CONTEXT: <date> | Project: <project_name> | Created by: Idea Manager
-  BRAIN MEMORY: [paste most relevant 3-5 brain context excerpts]
-  GOAL: [specific ideation angle and output]
-  SCOPE: [domain of exploration — market, users, technology, competitors]
-  CONSTRAINTS: [existing product constraints, brand voice, strategic limits]
-  SUCCESS CRITERIA:
-  - [ ] [checkable item]
-  AGENT: [researcher | Trend Researcher | Product Manager | Growth Hacker | Content Creator]
-  SWARM: mesh 6 gossip
-  REPORTS TO: <board_id>
-  DEPENDENCIES: [task IDs or "none"]
-  OUTPUT FORMAT: unified output schema
+For each angle, create a monotask card on the project board.
+First look up column IDs and assign shell variables:
+```bash
+columns=$(monotask column list "$BOARD_ID" --json)
+COL_TODO_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Todo" or .name == "Backlog") | .id' | head -1)
+COL_DONE_ID=$(echo "$columns" | jq -r '.[] | select(.name == "Done") | .id' | head -1)
+```
+Then create the card:
+```bash
+result=$(monotask card create "$BOARD_ID" "$COL_TODO_ID" "<short summary of ideation angle, ≤80 chars>" --json)
+CARD_ID=$(echo "$result" | jq -r '.id // empty')
+monotask card set-description "$BOARD_ID" "$CARD_ID" "[specific ideation angle and output]"
+monotask card comment add "$BOARD_ID" "$CARD_ID" "CONTEXT: <date> | Project: <project_name> | Created by: Idea Manager
+BRAIN MEMORY: [paste most relevant 3-5 brain context excerpts]
+SCOPE: [domain of exploration — market, users, technology, competitors]
+CONSTRAINTS: [existing product constraints, brand voice, strategic limits]
+SUCCESS CRITERIA:
+- [ ] [checkable item]
+AGENT: [researcher | Trend Researcher | Product Manager | Growth Hacker | Content Creator]
+SWARM: mesh 6 gossip
+DEPENDENCIES: [task IDs or \"none\"]
+OUTPUT FORMAT: unified output schema"
+```
 
 STEP 3 — EXECUTE
 Spawn one Task agent per angle (all in parallel — mesh topology means all perspectives feed each other):

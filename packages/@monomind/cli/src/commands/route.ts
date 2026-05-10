@@ -524,9 +524,22 @@ const exportCommand: Command = {
       const data = router.export();
 
       if (filePath) {
+        // Containment check — without it, --file /etc/cron.d/x writes
+        // attacker-controlled JSON anywhere the CLI can write.
+        const path = await import('node:path');
+        const projectRoot = path.resolve(process.cwd());
+        const fullPath = path.resolve(process.cwd(), filePath);
+        if (!fullPath.startsWith(projectRoot + path.sep) && fullPath !== projectRoot) {
+          output.printError(`File path must resolve within the project directory: ${projectRoot}`);
+          return { success: false, exitCode: 1 };
+        }
+        if (!/\.json$/i.test(fullPath)) {
+          output.printError('File must end in .json');
+          return { success: false, exitCode: 1 };
+        }
         const fs = await import('node:fs/promises');
-        await fs.writeFile(filePath, JSON.stringify(data, null, 2));
-        output.printSuccess(`Q-table exported to ${filePath}`);
+        await fs.writeFile(fullPath, JSON.stringify(data, null, 2));
+        output.printSuccess(`Q-table exported to ${fullPath}`);
       } else {
         output.printJson(data);
       }
@@ -563,14 +576,33 @@ const importCommand: Command = {
     }
 
     try {
+      // Containment + extension whitelist + size cap. Without these,
+      // --file /proc/self/environ leaks process env into the Q-table import,
+      // and a planted multi-GB JSON OOM-kills the process on readFile.
+      const path = await import('node:path');
+      const projectRoot = path.resolve(process.cwd());
+      const fullPath = path.resolve(process.cwd(), filePath);
+      if (!fullPath.startsWith(projectRoot + path.sep) && fullPath !== projectRoot) {
+        output.printError(`File path must resolve within the project directory: ${projectRoot}`);
+        return { success: false, exitCode: 1 };
+      }
+      if (!/\.json$/i.test(fullPath)) {
+        output.printError('File must end in .json');
+        return { success: false, exitCode: 1 };
+      }
       const fs = await import('node:fs/promises');
-      const content = await fs.readFile(filePath, 'utf-8');
+      const stat = await fs.stat(fullPath);
+      if (stat.size > 50 * 1024 * 1024) {
+        output.printError(`File too large: ${stat.size} bytes (max 50MB)`);
+        return { success: false, exitCode: 1 };
+      }
+      const content = await fs.readFile(fullPath, 'utf-8');
       const data = JSON.parse(content);
 
       const router = await getRouter();
       router.import(data);
 
-      output.printSuccess(`Q-table imported from ${filePath}`);
+      output.printSuccess(`Q-table imported from ${fullPath}`);
       output.writeln(output.dim(`Loaded ${Object.keys(data).length} state entries`));
 
       return { success: true };
@@ -857,7 +889,7 @@ const semanticRouteCommand: Command = {
     spinner.start();
 
     try {
-      const { RouteLayer, ALL_ROUTES } = await import('@monomind/routing');
+      const { RouteLayer, ALL_ROUTES } = await import('@monomind/routing' as string);
       const layer = new RouteLayer({ routes: ALL_ROUTES, debug });
       const result = await layer.route(taskDescription);
 

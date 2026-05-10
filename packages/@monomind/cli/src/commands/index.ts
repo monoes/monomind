@@ -76,6 +76,7 @@ const commandLoaders: Record<string, CommandLoader> = {
   autopilot: () => import('./autopilot.js'),
   tokens: () => import('./tokens.js'),
   monograph: () => import('./monograph.js'),
+  replay: () => import('./replay.js'),
 };
 
 // Cache for loaded commands
@@ -155,6 +156,10 @@ import { applianceCommand } from './appliance.js';
 import { cleanupCommand } from './cleanup.js';
 import { autopilotCommand } from './autopilot.js';
 import { monographCommand } from './monograph.js';
+import replayCommand from './replay.js';
+import { benchmarkCommand } from './benchmark.js';
+import storeCommand from './transfer-store.js';
+import tokensCommand from './tokens.js';
 
 // Pre-populate cache with core commands
 loadedCommands.set('init', initCommand);
@@ -179,6 +184,10 @@ loadedCommands.set('guidance', guidanceCommand);
 loadedCommands.set('cleanup', cleanupCommand);
 loadedCommands.set('autopilot', autopilotCommand);
 loadedCommands.set('monograph', monographCommand);
+loadedCommands.set('replay', replayCommand);
+loadedCommands.set('benchmark', benchmarkCommand);
+loadedCommands.set('transfer-store', storeCommand);
+loadedCommands.set('tokens', tokensCommand);
 
 // =============================================================================
 // Exports (maintain backwards compatibility)
@@ -292,6 +301,7 @@ export const commandsByCategory = {
     ruvectorCommand,
     guidanceCommand,
     autopilotCommand,
+    benchmarkCommand,
   ],
   utility: [
     configCommand,
@@ -306,6 +316,8 @@ export const commandsByCategory = {
     routeCommand,
     progressCommand,
     monographCommand,
+    replayCommand,
+    tokensCommand,
   ],
   management: [
     providersCommand,
@@ -316,7 +328,7 @@ export const commandsByCategory = {
     updateCommand,
     processCommand,
     applianceCommand,
-    cleanupCommand,
+    storeCommand,
   ],
 };
 

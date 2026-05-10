@@ -224,7 +224,7 @@ const initCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     let topology = ctx.flags.topology as string;
-    const maxAgents = ctx.flags.maxAgents as number || 15;
+    const maxAgents = ctx.flags['max-agents'] as number || 15;
     const v1Mode = ctx.flags.v1Mode as boolean;
 
     // mode enables hierarchical-mesh hybrid
@@ -266,7 +266,7 @@ const initCommand: Command = {
           consensusMechanism: 'majority',
           failureHandling: 'retry',
           loadBalancing: true,
-          autoScaling: ctx.flags.autoScale ?? true,
+          autoScaling: ctx.flags['auto-scale'] ?? true,
         },
         metadata: {
           v1Mode,
@@ -311,7 +311,8 @@ const initCommand: Command = {
           fs.mkdirSync(swarmDir, { recursive: true });
         }
         const stateFile = path.join(swarmDir, 'state.json');
-        fs.writeFileSync(stateFile, JSON.stringify({
+        const tmpStateFile1 = stateFile + '.tmp';
+        fs.writeFileSync(tmpStateFile1, JSON.stringify({
           id: result.swarmId,
           topology: result.topology,
           maxAgents: result.config.maxAgents,
@@ -320,6 +321,7 @@ const initCommand: Command = {
           initializedAt: result.initializedAt,
           status: 'ready'
         }, null, 2));
+        fs.renameSync(tmpStateFile1, stateFile);
       } catch {
         // Ignore errors writing state file
       }
@@ -436,6 +438,7 @@ const startCommand: Command = {
     const spinner = output.createSpinner({ text: 'Initializing swarm via MCP...', spinner: 'dots' });
     spinner.start();
 
+    let resolvedSwarmId = swarmId;
     try {
       // Actually call MCP to initialize the swarm
       const initResult = await callMCPTool('swarm_init', {
@@ -443,6 +446,9 @@ const startCommand: Command = {
         maxAgents: totalAgents,
         strategy: strategy === 'development' ? 'specialized' : strategy,
       });
+      const mcpData = typeof initResult === 'string' ? JSON.parse(initResult) : initResult;
+      // Prefer the canonical ID assigned by the MCP server over the locally generated one
+      resolvedSwarmId = mcpData?.swarmId ?? mcpData?.id ?? swarmId;
       spinner.succeed('Swarm initialized via MCP');
     } catch (err) {
       spinner.fail('MCP swarm_init failed — swarm metadata saved locally only');
@@ -455,7 +461,7 @@ const startCommand: Command = {
     if (!fs.existsSync(swarmDir)) fs.mkdirSync(swarmDir, { recursive: true });
 
     const executionState = {
-      swarmId,
+      swarmId: resolvedSwarmId,
       objective,
       strategy,
       status: 'initialized',
@@ -465,16 +471,16 @@ const startCommand: Command = {
       parallel: ctx.flags.parallel ?? true
     };
 
-    fs.writeFileSync(
-      path.join(swarmDir, 'state.json'),
-      JSON.stringify(executionState, null, 2)
-    );
+    const stateFile2 = path.join(swarmDir, 'state.json');
+    const tmpStateFile2 = stateFile2 + '.tmp';
+    fs.writeFileSync(tmpStateFile2, JSON.stringify(executionState, null, 2));
+    fs.renameSync(tmpStateFile2, stateFile2);
 
     output.writeln();
-    output.printSuccess(`Swarm ${swarmId} initialized with ${totalAgents} agent slots`);
+    output.printSuccess(`Swarm ${resolvedSwarmId} initialized with ${totalAgents} agent slots`);
     output.writeln(output.dim('  Note: Agents are registered but actual task execution requires'));
     output.writeln(output.dim('  Claude Code Task tool or hive-mind spawn --claude to drive work.'));
-    output.writeln(output.dim(`  Monitor: monomind swarm status ${swarmId}`));
+    output.writeln(output.dim(`  Monitor: monomind swarm status ${resolvedSwarmId}`));
 
     return { success: true, data: executionState };
   }
@@ -614,26 +620,33 @@ const stopCommand: Command = {
 
     output.printInfo(`Stopping swarm ${swarmId}...`);
 
-    // Update persisted swarm state if it exists (#1423)
-    const swarmStateFile = path.join(process.cwd(), '.swarm', 'state.json');
-    if (fs.existsSync(swarmStateFile)) {
-      try {
-        const state = JSON.parse(fs.readFileSync(swarmStateFile, 'utf-8'));
-        state.status = 'stopped';
-        state.stoppedAt = new Date().toISOString();
-        fs.writeFileSync(swarmStateFile, JSON.stringify(state, null, 2));
-        output.writeln(output.dim('  Swarm state updated'));
-      } catch {
-        output.writeln(output.dim('  Could not update swarm state file'));
-      }
-    }
-
-    // Attempt MCP cleanup
+    // Attempt MCP cleanup first — only persist 'stopped' state if it succeeds
+    let mcpStopped = false;
     try {
       await callMCPTool('swarm_stop', { swarmId, force });
       output.writeln(output.dim('  MCP swarm stopped'));
-    } catch {
-      // MCP may not be available
+      mcpStopped = true;
+    } catch (err) {
+      output.printWarning(`MCP stop failed: ${String(err)}`);
+      return { success: false, message: `MCP stop failed: ${String(err)}`, exitCode: 1 };
+    }
+
+    // Only update persisted swarm state if the MCP call succeeded (#1423)
+    if (mcpStopped) {
+      const swarmStateFile = path.join(process.cwd(), '.swarm', 'state.json');
+      if (fs.existsSync(swarmStateFile)) {
+        try {
+          const state = JSON.parse(fs.readFileSync(swarmStateFile, 'utf-8'));
+          state.status = 'stopped';
+          state.stoppedAt = new Date().toISOString();
+          const tmpSwarmStop = swarmStateFile + '.tmp';
+          fs.writeFileSync(tmpSwarmStop, JSON.stringify(state, null, 2));
+          fs.renameSync(tmpSwarmStop, swarmStateFile);
+          output.writeln(output.dim('  Swarm state updated'));
+        } catch {
+          output.writeln(output.dim('  Could not update swarm state file'));
+        }
+      }
     }
 
     output.printSuccess(`Swarm ${swarmId} stopped`);
@@ -681,7 +694,7 @@ const scaleCommand: Command = {
     // Calculate scaling delta — fetch actual count instead of hardcoded 8 (#1425)
     let currentAgents = 0;
     try {
-      const statusResult = await callMCPTool('swarm_status', {});
+      const statusResult = await callMCPTool('swarm_status', { swarmId });
       const statusData = typeof statusResult === 'string' ? JSON.parse(statusResult) : statusResult;
       currentAgents = statusData?.agentCount ?? statusData?.agents?.length ?? 0;
     } catch {
@@ -690,18 +703,14 @@ const scaleCommand: Command = {
     }
     const delta = targetAgents - currentAgents;
 
-    if (delta > 0) {
-      output.writeln(output.dim(`  Spawning ${delta} new agents...`));
-    } else if (delta < 0) {
-      output.writeln(output.dim(`  Gracefully stopping ${-delta} agents...`));
-    } else {
+    if (delta === 0) {
       output.printInfo('Swarm already at target size');
       return { success: true };
     }
 
-    output.printSuccess(`Swarm scaled to ${targetAgents} agents`);
-
-    return { success: true, data: { swarmId, agents: targetAgents, delta } };
+    // No swarm_scale MCP tool is available — report the computed delta but do not pretend to act
+    output.printWarning('Swarm scaling is not yet implemented. The target count was computed but no agents were spawned or stopped.');
+    return { success: false, message: 'Scaling not implemented', exitCode: 1 };
   }
 };
 

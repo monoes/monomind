@@ -103,21 +103,30 @@ Identify for each stage:
 - Which specialist handles it
 
 STEP 2 — CREATE TASKS
-For each pipeline stage, call /monomind:createtask with this briefing format:
-
-  CONTEXT: <date> | Project: <project_name> | Created by: Content Manager
-  BRAIN MEMORY: [paste most relevant 3-5 brain context excerpts]
-  GOAL: [this stage's specific production goal]
-  SCOPE: [content type, target audience, platform, word count, tone]
-  CONSTRAINTS: [brand voice, SEO requirements, factual accuracy standards, style guide]
-  REFERENCE FILES: [for Stage 3 edit only: .claude/skills/stop-slop/SKILL.md, .claude/skills/stop-slop/references/phrases.md, .claude/skills/stop-slop/references/structures.md]
-  SUCCESS CRITERIA:
-  - [ ] [checkable item]
-  AGENT: [researcher | Content Creator | Technical Writer | Code Reviewer (as editor)]
-  SWARM: ring 4 raft pipeline
-  REPORTS TO: <board_id>
-  DEPENDENCIES: [prior stage task ID — pipeline is sequential]
-  OUTPUT FORMAT: unified output schema
+For each pipeline stage, create a monotask card on the project board.
+First look up column IDs and assign shell variables:
+```bash
+columns=$(monotask column list "$BOARD_ID" --json)
+COL_TODO_ID=$(echo "$columns" | jq -r '.[] | select(.title == "Todo" or .title == "Backlog") | .id' | head -1)
+COL_DONE_ID=$(echo "$columns" | jq -r '.[] | select(.title == "Done") | .id' | head -1)
+```
+Then create the card:
+```bash
+result=$(monotask card create "$BOARD_ID" "$COL_TODO_ID" "<short summary of pipeline stage goal, ≤80 chars>" --json)
+CARD_ID=$(echo "$result" | jq -r '.id // empty')
+monotask card set-description "$BOARD_ID" "$CARD_ID" "[this stage's specific production goal]"
+monotask card comment add "$BOARD_ID" "$CARD_ID" "CONTEXT: <date> | Project: <project_name> | Created by: Content Manager
+BRAIN MEMORY: [paste most relevant 3-5 brain context excerpts]
+SCOPE: [content type, target audience, platform, word count, tone]
+CONSTRAINTS: [brand voice, SEO requirements, factual accuracy standards, style guide]
+REFERENCE FILES: [for Stage 3 edit only: .claude/skills/stop-slop/SKILL.md, .claude/skills/stop-slop/references/phrases.md, .claude/skills/stop-slop/references/structures.md]
+SUCCESS CRITERIA:
+- [ ] [checkable item]
+AGENT: [researcher | Content Creator | Technical Writer | Code Reviewer (as editor)]
+SWARM: ring 4 raft pipeline
+DEPENDENCIES: [prior stage task ID — pipeline is sequential]
+OUTPUT FORMAT: unified output schema"
+```
 
 STEP 3 — EXECUTE
 Spawn Task agents in pipeline order (ring topology — each must complete before next starts):

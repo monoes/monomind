@@ -88,12 +88,14 @@ export async function exportPatterns(
       fs.mkdirSync(dir, { recursive: true });
     }
 
-    // Write file
+    // Write file atomically
+    const tmp = outputPath + '.tmp';
     if (typeof serialized === 'string') {
-      fs.writeFileSync(outputPath, serialized, 'utf-8');
+      fs.writeFileSync(tmp, serialized, 'utf-8');
     } else {
-      fs.writeFileSync(outputPath, serialized);
+      fs.writeFileSync(tmp, serialized);
     }
+    fs.renameSync(tmp, outputPath);
 
     console.log(`Exported to: ${outputPath}`);
   }

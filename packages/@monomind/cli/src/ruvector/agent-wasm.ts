@@ -85,7 +85,7 @@ export async function initAgentWasm(): Promise<void> {
     const require_ = createRequire(import.meta.url);
     const wasmPath = require_.resolve('@ruvector/rvagent-wasm/rvagent_wasm_bg.wasm');
     const wasmBytes = readFileSync(wasmPath);
-    mod.initSync(wasmBytes);
+    mod.initSync({ module: wasmBytes });
     _wasmReady = true;
   } catch (err) {
     throw new Error(`Failed to initialize @ruvector/rvagent-wasm: ${err}`);

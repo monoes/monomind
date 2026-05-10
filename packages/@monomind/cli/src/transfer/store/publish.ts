@@ -59,7 +59,7 @@ export class PatternPublisher {
       let publicKey: string | undefined;
 
       if (options.privateKeyPath && fs.existsSync(options.privateKeyPath)) {
-        const signResult = this.signContent(contentBuffer, options.privateKeyPath);
+        const signResult = await this.signContent(contentBuffer, options.privateKeyPath);
         signature = signResult.signature;
         publicKey = signResult.publicKey;
         console.log(`[Publish] Content signed`);
@@ -178,27 +178,23 @@ export class PatternPublisher {
   }
 
   /**
-   * Sign content with private key
+   * Sign content with Ed25519 private key
    */
-  private signContent(
+  private async signContent(
     content: Buffer,
     privateKeyPath: string
-  ): { signature: string; publicKey: string } {
-    // In production: Use actual Ed25519 signing
-    // For demo: Generate mock signature
-    const privateKey = fs.readFileSync(privateKeyPath, 'utf-8').trim();
-    const signature = crypto
-      .createHmac('sha256', privateKey)
-      .update(content)
-      .digest('hex');
-
-    const publicKey =
-      'ed25519:' +
-      crypto.createHash('sha256').update(privateKey).digest('hex').slice(0, 32);
-
+  ): Promise<{ signature: string; publicKey: string }> {
+    const ed = await import('@noble/ed25519');
+    const keyHex = fs.readFileSync(privateKeyPath, 'utf-8').trim();
+    // Accept 64-char hex (32-byte seed) directly; otherwise derive via SHA-256
+    const privKeyBytes = keyHex.length === 64
+      ? Buffer.from(keyHex, 'hex')
+      : crypto.createHash('sha256').update(keyHex).digest();
+    const pubKeyBytes = await ed.getPublicKeyAsync(privKeyBytes);
+    const sigBytes = await ed.signAsync(content, privKeyBytes);
     return {
-      signature: `ed25519:${signature}`,
-      publicKey,
+      signature: 'ed25519:' + Buffer.from(sigBytes).toString('hex'),
+      publicKey: 'ed25519:' + Buffer.from(pubKeyBytes).toString('hex'),
     };
   }
 

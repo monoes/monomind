@@ -21,22 +21,37 @@ const CLI_ROOT = join(__dirname, '../../..');
  * Tries CWD first (most common), then walks up from the CLI package location.
  */
 function findProjectRoot(): string {
+  // Allow operator override; trusted when set.
+  const envRoot = process.env.MONOMIND_PROJECT_ROOT;
+  if (envRoot && existsSync(join(envRoot, '.claude'))) {
+    return envRoot;
+  }
+
   // Strategy 1: CWD (most reliable when invoked by user)
   if (existsSync(join(getProjectCwd(), '.claude'))) {
     return getProjectCwd();
   }
 
-  // Strategy 2: Walk up from CLI package location
-  // CLI is at packages/@monomind/cli/ — project root is 4 levels up
+  // Strategy 2: Walk up from CLI package location.
+  // CLI is at packages/@monomind/cli/ — project root is 4 levels up.
   const fromPackage = join(CLI_ROOT, '../../../..');
   if (existsSync(join(fromPackage, '.claude'))) {
     return fromPackage;
   }
 
-  // Strategy 3: Walk up from CWD
+  // Strategy 3: Walk up from CWD, but stop at the first ancestor that ALSO
+  // contains a project-marker the user owns (`.git` or `package.json`). This
+  // closes a confused-deputy: previously, dropping `.claude/agents/x.md` in
+  // any of 10 ancestor directories (e.g., `/tmp`) would have been consumed
+  // as authoritative agent data. Requiring a marker means an attacker also
+  // needs control over a `.git` repo or `package.json` at the same level —
+  // which means they already control the project.
   let dir = getProjectCwd();
   for (let i = 0; i < 10; i++) {
-    if (existsSync(join(dir, '.claude'))) return dir;
+    if (existsSync(join(dir, '.claude')) &&
+        (existsSync(join(dir, '.git')) || existsSync(join(dir, 'package.json')))) {
+      return dir;
+    }
     const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;
@@ -318,21 +333,31 @@ function discoverAgents(): string[] {
   if (!existsSync(agentsDir)) return [];
 
   const agents: string[] = [];
-  function walk(dir: string) {
+  const visited = new Set<string>();
+  // Symlink-aware walk with depth cap. `entry.isDirectory()` returns true for
+  // symlinks pointing at directories, so a careless `agents/loop -> ..`
+  // symlink would otherwise traverse outside the agents tree (or loop
+  // forever). Using lstat + skipping symlinks closes both vectors.
+  function walk(dir: string, depth: number): void {
+    if (depth > 8) return;
+    if (visited.has(dir)) return;
+    visited.add(dir);
     try {
       const entries = readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
+        if (entry.isSymbolicLink()) continue;
+        const full = join(dir, entry.name);
         if (entry.isDirectory()) {
-          walk(join(dir, entry.name));
-        } else if (entry.name.endsWith('.md') && entry.name !== 'MIGRATION_SUMMARY.md') {
-          const content = readFileSync(join(dir, entry.name), 'utf-8');
+          walk(full, depth + 1);
+        } else if (entry.isFile() && entry.name.endsWith('.md') && entry.name !== 'MIGRATION_SUMMARY.md') {
+          const content = readFileSync(full, 'utf-8');
           const nameMatch = content.match(/^name:\s*(.+)$/m);
           if (nameMatch) agents.push(nameMatch[1].trim().replace(/^["']|["']$/g, ''));
         }
       }
     } catch { /* ignore */ }
   }
-  walk(agentsDir);
+  walk(agentsDir, 0);
   return [...new Set(agents)].sort();
 }
 
@@ -344,6 +369,7 @@ function discoverSkills(): string[] {
   try {
     const entries = readdirSync(skillsDir, { withFileTypes: true });
     for (const entry of entries) {
+      if (entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) {
         const skillFile = join(skillsDir, entry.name, 'SKILL.md');
         if (existsSync(skillFile)) {

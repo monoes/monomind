@@ -5,7 +5,7 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { select, input } from '../prompt.js';
+import { select, input, confirm } from '../prompt.js';
 import { configManager, parseConfigValue } from '../services/config-file-manager.js';
 import * as path from 'path';
 
@@ -158,6 +158,14 @@ const setCommand: Command = {
     if (!key || value === undefined) {
       output.printError('Both key and value are required');
       return { success: false, exitCode: 1 };
+    }
+
+    const FORBIDDEN_KEY_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
+    for (const seg of key.split('.')) {
+      if (FORBIDDEN_KEY_SEGMENTS.has(seg)) {
+        output.printError(`Forbidden config key segment: "${seg}"`);
+        return { success: false, exitCode: 1 };
+      }
     }
 
     try {
@@ -321,6 +329,25 @@ const resetCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
+      if (!ctx.flags.force && ctx.interactive) {
+        const confirmed = await confirm({ message: 'This will reset all configuration to defaults. Continue?', default: false });
+        if (!confirmed) return { success: true, message: 'Reset cancelled' };
+      }
+
+      const section = ctx.flags.section as string | undefined;
+      if (section && section !== 'all') {
+        // Scoped reset: remove only the specified section key from the config.
+        // Setting to undefined causes JSON serialization to omit the key, effectively removing it.
+        const current = configManager.getConfig(ctx.cwd);
+        if (section in current) {
+          configManager.set(ctx.cwd, section, configManager.getDefaults()[section]);
+          output.writeln(`Section "${section}" reset to defaults`);
+        } else {
+          output.printWarning(`Section "${section}" not found in configuration`);
+        }
+        return { success: true };
+      }
+
       const configPath = configManager.reset(ctx.cwd);
       output.writeln(`Configuration reset to defaults: ${configPath}`);
       return { success: true };
@@ -354,6 +381,13 @@ const exportCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
+      const format = (ctx.flags.format as string) || 'json';
+
+      if (format === 'yaml') {
+        // configManager.exportTo does not support YAML serialization; export as JSON instead
+        output.printWarning('YAML export is not supported. Exporting as JSON.');
+      }
+
       const exportPath = (ctx.flags.output as string) || ctx.args[0] || 'monomind.config.export.json';
       configManager.exportTo(ctx.cwd, exportPath);
       const resolved = path.resolve(ctx.cwd, exportPath);

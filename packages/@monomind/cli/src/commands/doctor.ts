@@ -11,6 +11,7 @@ import { existsSync, readFileSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync, exec } from 'child_process';
+import { homedir } from 'os';
 import { promisify } from 'util';
 
 // Promisified exec with proper shell and env inheritance for cross-platform support
@@ -195,8 +196,8 @@ async function checkGitRepo(): Promise<HealthCheck> {
 // Check MCP servers
 async function checkMcpServers(): Promise<HealthCheck> {
   const mcpConfigPaths = [
-    join(process.env.HOME || '', '.claude/claude_desktop_config.json'),
-    join(process.env.HOME || '', '.config/claude/mcp.json'),
+    join(homedir(), '.claude/claude_desktop_config.json'),
+    join(homedir(), '.config/claude/mcp.json'),
     '.mcp.json'
   ];
 
@@ -206,7 +207,7 @@ async function checkMcpServers(): Promise<HealthCheck> {
         const content = JSON.parse(readFileSync(configPath, 'utf8'));
         const servers = content.mcpServers || content.servers || {};
         const count = Object.keys(servers).length;
-        const hasMonomind = 'monomind' in servers || 'monomind_alpha' in servers || 'monomind' in servers || 'monomind_alpha' in servers;
+        const hasMonomind = 'monomind' in servers || 'monomind_alpha' in servers;
         if (hasMonomind) {
           return { name: 'MCP Servers', status: 'pass', message: `${count} servers (monomind configured)` };
         } else {
@@ -283,7 +284,7 @@ async function checkVersionFreshness(): Promise<HealthCheck> {
             if (
               pkg.version &&
               typeof pkg.name === 'string' &&
-              (pkg.name === '@monomind/cli' || pkg.name === 'monomind' || pkg.name === 'monomind')
+              (pkg.name === '@monomind/cli' || pkg.name === 'monomind')
             ) {
               currentVersion = pkg.version;
               break;

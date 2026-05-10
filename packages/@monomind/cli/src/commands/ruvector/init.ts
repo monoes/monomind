@@ -30,6 +30,12 @@ function getConnectionConfig(ctx: CommandContext): {
   };
 }
 
+const IDENTIFIER_RE = /^[a-zA-Z_][a-zA-Z0-9_]{0,63}$/;
+function validateIdentifier(name: string, label: string): string | null {
+  if (!IDENTIFIER_RE.test(name)) return `Invalid ${label}: "${name}" (must match [a-zA-Z_][a-zA-Z0-9_]{0,63})`;
+  return null;
+}
+
 /**
  * Initialize RuVector in PostgreSQL
  */
@@ -162,8 +168,18 @@ export const initCommand: Command = {
       return { success: false, exitCode: 1 };
     }
 
+    const schemaErr = validateIdentifier(config.schema, 'schema');
+    if (schemaErr) {
+      output.printError(schemaErr);
+      return { success: false, exitCode: 1 };
+    }
+
     const force = ctx.flags.force as boolean;
     const dimensions = parseInt((ctx.flags.dimensions as string) || '1536', 10);
+    if (isNaN(dimensions) || dimensions < 1 || dimensions > 65535) {
+      output.printError('--dimensions must be a positive integer up to 65535');
+      return { success: false, exitCode: 1 };
+    }
     const indexType = (ctx.flags['index-type'] as string) || 'hnsw';
 
     // Show configuration

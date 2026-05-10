@@ -5,6 +5,7 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
+import * as path from 'node:path';
 
 function fmtSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -15,6 +16,17 @@ function fmtSize(bytes: number): string {
 
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+function checkRelativePath(userPath: string): string | null {
+  if (!path.isAbsolute(userPath)) {
+    const resolved = path.resolve(userPath);
+    const rel = path.relative(process.cwd(), resolved);
+    if (rel.startsWith('..')) {
+      return `Relative path '${userPath}' escapes the working directory.`;
+    }
+  }
+  return null;
 }
 
 const fail = (msg: string, detail?: string): CommandResult => {
@@ -58,7 +70,7 @@ export const signCommand: Command = {
     if (!file) return fail('--file is required');
 
     try {
-      const signing = await import('../appliance/rvfa-signing.js');
+      const signing = await import('../appliance/rvfa-signing.js' as string);
 
       if (genKeys) {
         hdr('Generating Ed25519 Key Pair');
@@ -76,6 +88,8 @@ export const signCommand: Command = {
 
       let privateKey: Buffer;
       if (keyPath) {
+        const pathErr = checkRelativePath(keyPath);
+        if (pathErr) return fail(pathErr);
         const fs = await import('fs');
         privateKey = fs.readFileSync(keyPath);
       } else {
@@ -113,7 +127,7 @@ export const publishCommand: Command = {
     if (!(await requireFile(file))) return { success: false, exitCode: 1 };
 
     try {
-      const dist = await import('../appliance/rvfa-distribution.js');
+      const dist = await import('../appliance/rvfa-distribution.js' as string);
 
       hdr('Publishing RVFA to IPFS');
       output.printInfo(`File: ${file}`);
@@ -159,8 +173,8 @@ export const updateAppCommand: Command = {
     if (!(await requireFile(file))) return { success: false, exitCode: 1 };
 
     try {
-      const dist = await import('../appliance/rvfa-distribution.js');
-      const { RvfaReader } = await import('../appliance/rvfa-format.js');
+      const dist = await import('../appliance/rvfa-distribution.js' as string);
+      const { RvfaReader } = await import('../appliance/rvfa-format.js' as string);
       const fs = await import('fs');
 
       hdr('RVFA Hot-Patch Update');
@@ -171,10 +185,14 @@ export const updateAppCommand: Command = {
       let patchBuf: Buffer;
 
       if (patchPath) {
+        const patchPathErr = checkRelativePath(patchPath);
+        if (patchPathErr) return fail(patchPathErr);
         if (!(await requireFile(patchPath))) return { success: false, exitCode: 1 };
         patchBuf = fs.readFileSync(patchPath);
         output.printInfo(`Patch file: ${patchPath} (${fmtSize(patchBuf.length)})`);
       } else {
+        const dataPathErr = checkRelativePath(dataPath!);
+        if (dataPathErr) return fail(dataPathErr);
         if (!(await requireFile(dataPath!))) return { success: false, exitCode: 1 };
         const newData = fs.readFileSync(dataPath!);
         const reader = await RvfaReader.fromFile(file);
@@ -193,6 +211,8 @@ export const updateAppCommand: Command = {
       let pubKey: Buffer | undefined;
       if (ctx.flags['public-key']) {
         const pkPath = ctx.flags['public-key'] as string;
+        const pkPathErr = checkRelativePath(pkPath);
+        if (pkPathErr) return fail(pkPathErr);
         if (!(await requireFile(pkPath))) return { success: false, exitCode: 1 };
         pubKey = fs.readFileSync(pkPath);
       }

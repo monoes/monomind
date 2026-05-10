@@ -8,6 +8,8 @@ description: "Monomind — Run semantic enrichment on the current project's mono
 Enriches the current project's monograph knowledge graph with LLM-generated summaries,
 architectural layers, and semantic relationships.
 
+Parse `$ARGUMENTS` for the flags below.
+
 ## Parse Arguments
 
 Parse `$ARGUMENTS` for these optional flags:
@@ -134,6 +136,8 @@ Then tell the user:
 > Each color now represents an architectural layer (API, Service, Data, UI, etc.).
 
 If any nodes were skipped (unresolved edges), report the count but do NOT treat it as an error.
+
+To repeat this command on a schedule, wrap it with `/monomind:repeat`.
 
 ---
 

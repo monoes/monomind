@@ -632,37 +632,9 @@ const createCommand: Command = {
     output.writeln(output.bold('Creating Plugin'));
     output.writeln(output.dim('─'.repeat(40)));
 
-    const spinner = output.createSpinner({ text: 'Scaffolding project...', spinner: 'dots' });
-    spinner.start();
-
-    const files = ['package.json', 'src/index.ts', 'src/hooks.ts', 'README.md', 'tsconfig.json'];
-    for (const file of files) {
-      spinner.setText(`Creating ${file}...`);
-      await new Promise(r => setTimeout(r, 150));
-    }
-
-    spinner.succeed('Plugin scaffolded');
-
-    output.writeln();
-    output.printBox([
-      `Plugin: ${name}`,
-      `Template: ${template}`,
-      `Location: ./${name}/`,
-      ``,
-      `Files created:`,
-      `  - package.json`,
-      `  - src/index.ts`,
-      `  - src/hooks.ts`,
-      `  - README.md`,
-      `  - tsconfig.json`,
-      ``,
-      `Next steps:`,
-      `  cd ${name}`,
-      `  npm install`,
-      `  npm run build`,
-    ].join('\n'), 'Success');
-
-    return { success: true };
+    output.printWarning('Plugin scaffolding is not yet implemented.');
+    output.writeln(output.dim('Use --name to specify your plugin name. File generation coming soon.'));
+    return { success: false, message: 'Not yet implemented', exitCode: 1 };
   },
 };
 

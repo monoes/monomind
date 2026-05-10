@@ -9,12 +9,32 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 
 // Helper functions for PID file management
 function writePidFile(pidFile: string, pid: number, port: number): void {
-  const dir = dirname(resolve(pidFile));
+  const resolved = resolve(pidFile);
+  const dir = dirname(resolved);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
   const data = JSON.stringify({ pid, port, startedAt: new Date().toISOString() });
-  writeFileSync(resolve(pidFile), data, 'utf-8');
+  // wx flag = O_CREAT | O_EXCL — refuses to follow a pre-staged symlink that
+  // could redirect this write to ~/.ssh/authorized_keys or similar.
+  // mode 0o600 — pid file shouldn't be world-readable.
+  try {
+    writeFileSync(resolved, data, { encoding: 'utf-8', flag: 'wx', mode: 0o600 });
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'EEXIST') {
+      // Stale PID file — caller is expected to have already verified the
+      // referenced process is dead. Unlink and retry once.
+      try {
+        const fs = require('fs') as typeof import('fs');
+        fs.unlinkSync(resolved);
+        writeFileSync(resolved, data, { encoding: 'utf-8', flag: 'wx', mode: 0o600 });
+      } catch (retryErr) {
+        throw retryErr;
+      }
+    } else {
+      throw e;
+    }
+  }
 }
 
 function readPidFile(pidFile: string): { pid: number; port: number; startedAt: string } | null {

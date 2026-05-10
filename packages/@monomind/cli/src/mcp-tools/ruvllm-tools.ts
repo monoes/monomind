@@ -12,6 +12,25 @@ async function loadRuvllmWasm() {
   return import('../ruvector/ruvllm-wasm.js');
 }
 
+// ── Instance Registries ──────────────────────────────────────
+
+const hnswRouters = new Map<string, Awaited<ReturnType<typeof import('../ruvector/ruvllm-wasm.js').createHnswRouter>>>();
+const sonaInstances = new Map<string, Awaited<ReturnType<typeof import('../ruvector/ruvllm-wasm.js').createSonaInstant>>>();
+const loraInstances = new Map<string, Awaited<ReturnType<typeof import('../ruvector/ruvllm-wasm.js').createMicroLora>>>();
+
+// ── Map eviction (prevents WASM object leaks in long-running MCP servers) ────
+
+const MAX_MAP_SIZE = 50;
+
+function setWithEviction<K, V>(map: Map<K, V>, key: K, value: V): void {
+  if (map.size >= MAX_MAP_SIZE) {
+    // Evict the oldest entry (first inserted)
+    const firstKey = map.keys().next().value as K;
+    map.delete(firstKey);
+  }
+  map.set(key, value);
+}
+
 export const ruvllmWasmTools: MCPTool[] = [
   {
     name: 'ruvllm_status',
@@ -49,7 +68,7 @@ export const ruvllmWasmTools: MCPTool[] = [
         });
         // Store router in module-level registry
         const id = `hnsw-${Date.now().toString(36)}`;
-        hnswRouters.set(id, router);
+        setWithEviction(hnswRouters, id, router);
         return { content: [{ type: 'text', text: JSON.stringify({ success: true, routerId: id, dimensions: args.dimensions, maxPatterns: args.maxPatterns }) }] };
       } catch (err) {
         return { content: [{ type: 'text', text: JSON.stringify({ error: String(err) }) }], isError: true };
@@ -102,7 +121,8 @@ export const ruvllmWasmTools: MCPTool[] = [
         const router = hnswRouters.get(args.routerId as string);
         if (!router) return { content: [{ type: 'text', text: JSON.stringify({ error: `Router not found: ${args.routerId}` }) }], isError: true };
         const query = new Float32Array(args.query as number[]);
-        const results = router.route(query, (args.k as number) ?? 3);
+        const k = typeof args.k === 'number' && args.k > 0 ? Math.floor(args.k) : 3;
+        const results = router.route(query, k);
         return { content: [{ type: 'text', text: JSON.stringify({ results }) }] };
       } catch (err) {
         return { content: [{ type: 'text', text: JSON.stringify({ error: String(err) }) }], isError: true };
@@ -129,7 +149,7 @@ export const ruvllmWasmTools: MCPTool[] = [
           patternCapacity: args.patternCapacity as number | undefined,
         });
         const id = `sona-${Date.now().toString(36)}`;
-        sonaInstances.set(id, sona);
+        setWithEviction(sonaInstances, id, sona);
         return { content: [{ type: 'text', text: JSON.stringify({ success: true, sonaId: id }) }] };
       } catch (err) {
         return { content: [{ type: 'text', text: JSON.stringify({ error: String(err) }) }], isError: true };
@@ -181,7 +201,7 @@ export const ruvllmWasmTools: MCPTool[] = [
           alpha: args.alpha as number | undefined,
         });
         const id = `lora-${Date.now().toString(36)}`;
-        loraInstances.set(id, lora);
+        setWithEviction(loraInstances, id, lora);
         return { content: [{ type: 'text', text: JSON.stringify({ success: true, loraId: id }) }] };
       } catch (err) {
         return { content: [{ type: 'text', text: JSON.stringify({ error: String(err) }) }], isError: true };
@@ -274,9 +294,3 @@ export const ruvllmWasmTools: MCPTool[] = [
     },
   },
 ];
-
-// ── Instance Registries ──────────────────────────────────────
-
-const hnswRouters = new Map<string, Awaited<ReturnType<typeof import('../ruvector/ruvllm-wasm.js').createHnswRouter>>>();
-const sonaInstances = new Map<string, Awaited<ReturnType<typeof import('../ruvector/ruvllm-wasm.js').createSonaInstant>>>();
-const loraInstances = new Map<string, Awaited<ReturnType<typeof import('../ruvector/ruvllm-wasm.js').createMicroLora>>>();

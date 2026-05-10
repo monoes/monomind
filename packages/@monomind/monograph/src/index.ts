@@ -58,17 +58,17 @@ export { migrateFromJscpd, type JscpdMigrationResult } from './migrate/jscpd.js'
 export { buildDiagnosticsFromDb, startLspServer, type LspDiagnostic } from './lsp/server.js';
 // ── Round 5: Fallow feature ports ─────────────────────────────────────────────
 export { buildSnapshot, saveSnapshot, loadSnapshots, latestSnapshot, SNAPSHOT_SCHEMA_VERSION, type VitalSignsSnapshot } from './health/vital-signs-snapshot.js';
-export { computeTrend, trendArrow, STABLE_BAND, type HealthTrend, type TrendMetric, type TrendCount, type TrendDirection } from './health/trends.js';
-export { computeHealthScore, letterGradeFromScore, HOTSPOT_SCORE_THRESHOLD, MI_DENSITY_MIN_LINES, type HealthScore, type HealthScorePenalties, type VitalSignsInput, type HealthGrade } from './health/health-score.js';
+export { computeTrend as computeTrendHealth, trendArrow as trendArrowHealth, STABLE_BAND, type HealthTrend, type TrendMetric, type TrendCount, type TrendDirection } from './health/trends.js';
+export { computeHealthScore as computeHealthScoreV2, letterGradeFromScore, HOTSPOT_SCORE_THRESHOLD, MI_DENSITY_MIN_LINES, type HealthScore, type HealthScorePenalties, type VitalSignsInput, type HealthGrade } from './health/health-score.js';
 export { computeSizeRiskProfile, computeInterfacingRiskProfile, computeCouplingConcentration, type RiskProfile } from './health/risk-profile.js';
 export { detectLargeFunctions, shouldReportLargeFunctions, LARGE_FUNCTION_LOC_THRESHOLD, LARGE_FUNCTION_REPORT_THRESHOLD_PCT, type LargeFunctionEntry } from './health/large-functions.js';
 export { formatPerformanceTable, startTimer, type HealthTimings, type HealthPipelineTimings, ZERO_HEALTH_PIPELINE_TIMINGS, formatHealthPipelineTimings, sumHealthPipelineTimings } from './health/timings.js';
-export { computeOwnershipMetrics, computeBusFactor, detectDrift, normalizeEmail, DRIFT_MIN_FILE_AGE_DAYS, DRIFT_MAX_ORIGINAL_SHARE, type EmailMode, type ContributorEntry, type OwnershipMetrics, type ContributorIdentifierFormat, normalizeContributorId } from './health/ownership.js';
-export { computeHotspots, isTestPath, type HotspotInput, type HotspotEntry, type HotspotSummary } from './health/hotspots.js';
+export { computeOwnershipMetrics, computeBusFactor as computeBusFactorOwnership, detectDrift, normalizeEmail, DRIFT_MIN_FILE_AGE_DAYS, DRIFT_MAX_ORIGINAL_SHARE, type EmailMode, type ContributorEntry, type OwnershipMetrics, type ContributorIdentifierFormat, normalizeContributorId } from './health/ownership.js';
+export { computeHotspots as computeHotspotsHealth, isTestPath, type HotspotInput, type HotspotEntry, type HotspotSummary } from './health/hotspots.js';
 export { classifyRuntimeCoverageHealth, type RuntimeCoverageVerdict, type RuntimeCoverageRiskBand, type RuntimeCoverageAction, type RuntimeCoverageReportVerdict } from './health/runtime-coverage.js';
 export { groupFilesByKey, type HealthGrouping, type HealthGroup } from './health/grouping.js';
 export { buildAnalysisCountsSnapshot, countsFor, aggregateCounts, type AnalysisCountsSnapshot, type FileScoreOutput } from './health/analysis-counts-snapshot.js';
-export { analyzeChurn, parseSince, computeRecencyWeight, type ChurnTrend, type SinceDuration, type FileChurn, type ChurnResult, type AuthorContribution } from './analysis/churn.js';
+export { analyzeChurn, parseSince as parseSinceChurn, computeRecencyWeight, type ChurnTrend, type SinceDuration, type FileChurn, type ChurnResult, type AuthorContribution } from './analysis/churn.js';
 export { traceExport, traceFile, traceDependency, type ExportTrace, type FileTrace, type DependencyTrace, type CloneTrace, type TraceReason, type ReferenceLocation } from './analysis/trace.js';
 export { getChangedFiles, validateGitRef, filterResultsByChangedFiles, ChangedFilesError } from './analysis/changed-files.js';
 export { resolveAnalyses, runCombined, type AnalysisKind, type CombinedOptions, type CombinedResult } from './analysis/combined.js';
@@ -144,18 +144,18 @@ export { buildCliSchema, schemaToJsonString, type CliParam, type CliSubcommand, 
 export { isClassMemberSuppressed, summarizeUnusedMembers, groupUnusedMembersByFile, formatUnusedMembersReport, type MemberKind, type UnusedMember, type UnusedMembersResult, type ClassMemberAllowlistEntry } from './analysis/unused-class-members.js';
 // ── Round 11: Fallow feature ports ────────────────────────────────────────────
 export { analyzeChurnCached, type CachedCommitEvent, type CachedFileChurn, type ChurnCache, type CachedChurnResult } from './analysis/churn-cache.js';
-export { SuppressionContext, isSuppressed, isFileSuppressed, type IssueKind, type Suppression, type StaleSuppression } from './analysis/suppression-context.js';
-export { parseTolerance, toleranceExceeded, formatTolerance, ZERO_TOLERANCE, type ToleranceKind, type Tolerance } from './regression/tolerance.js';
+export { SuppressionContext, isSuppressed as isIssueSuppressed, isFileSuppressed, type IssueKind, type Suppression, type StaleSuppression } from './analysis/suppression-context.js';
+export { parseTolerance as parseToleranceRegression, toleranceExceeded as toleranceExceededRegression, formatTolerance, ZERO_TOLERANCE, type ToleranceKind, type Tolerance } from './regression/tolerance.js';
 export { crossReference, affectedGroupIndices, type DeadCodeKind, type CloneInstanceRef, type CombinedFinding, type CrossReferenceResult, type CrossRefDeadCodeSummary, type CrossRefDuplicationReport } from './graph/cross-reference-findings.js';
 export { isRelevantSource, isRelevantConfig, collectChangedPaths, reloadConfigOrKeepPrevious, debounce, type WatchRunnerOptions } from './watch/watch-runner.js';
-export { ownerCountOf, sectionOf, sectionAndOwnersOf, hasGitLabSections, ownerLabel, UNOWNED_LABEL, NO_SECTION_LABEL, type CodeOwnerRuleMatch, type SectionMatch, type CodeOwnersLike } from './graph/codeowners-extended.js';
-export { coverageTierFromPct, exceededThresholdFromBools, includesCyclomatic, includesCognitive, includesCrap, computeFindingSeverity, HIGH_COVERAGE_WATERMARK, DEFAULT_CRAP_HIGH, DEFAULT_CRAP_CRITICAL, DEFAULT_COGNITIVE_HIGH, DEFAULT_COGNITIVE_CRITICAL, DEFAULT_CYCLOMATIC_HIGH, DEFAULT_CYCLOMATIC_CRITICAL, type CoverageTier, type ExceededThreshold, type FindingSeverity, type FindingSeverityOpts } from './health/scores.js';
-export { trendArrow, trendColor, computeOverallDirection, formatTrendMetric, type TrendDirection, type TrendCount, type TrendMetric, type TrendPoint, type HealthTrend } from './health/trend-types.js';
+export { ownerCountOf as ownerCountOfExtended, sectionOf as sectionOfExtended, sectionAndOwnersOf as sectionAndOwnersOfExtended, hasGitLabSections, ownerLabel, UNOWNED_LABEL as UNOWNED_LABEL_EXTENDED, NO_SECTION_LABEL as NO_SECTION_LABEL_EXTENDED, type CodeOwnerRuleMatch, type SectionMatch, type CodeOwnersLike } from './graph/codeowners-extended.js';
+export { coverageTierFromPct as coverageTierFromPctScores, exceededThresholdFromBools, includesCyclomatic, includesCognitive, includesCrap, computeFindingSeverity, HIGH_COVERAGE_WATERMARK, DEFAULT_CRAP_HIGH as DEFAULT_CRAP_HIGH_SCORES, DEFAULT_CRAP_CRITICAL as DEFAULT_CRAP_CRITICAL_SCORES, DEFAULT_COGNITIVE_HIGH as DEFAULT_COGNITIVE_HIGH_SCORES, DEFAULT_COGNITIVE_CRITICAL as DEFAULT_COGNITIVE_CRITICAL_SCORES, DEFAULT_CYCLOMATIC_HIGH as DEFAULT_CYCLOMATIC_HIGH_SCORES, DEFAULT_CYCLOMATIC_CRITICAL as DEFAULT_CYCLOMATIC_CRITICAL_SCORES, type CoverageTier, type ExceededThreshold, type FindingSeverity, type FindingSeverityOpts } from './health/scores.js';
+export { trendArrow as trendArrowTypes, trendColor, computeOverallDirection, formatTrendMetric, type TrendDirection, type TrendCount, type TrendMetric, type TrendPoint, type HealthTrend } from './health/trend-types.js';
 export { AnalysisProgress, createAnalysisProgress, type Spinner } from './analysis/progress.js';
 export { buildPipelinePerformanceLines, timingsSummary, ZERO_PIPELINE_TIMINGS, type PipelineTimings } from './report/pipeline-perf.js';
 export { printExportTraceHuman, printFileTraceHuman, printDependencyTraceHuman, printCloneTraceHuman, type ExportTraceRef, type ReExportChain, type ExportTraceInput, type FileTraceExport, type FileTraceInput, type DependencyTraceInput, type CloneGroupTrace, type CloneTraceInput } from './report/trace-human.js';
 export { runFix, type FixerAnalysisResults, type FixOptions, type FixRecord, type FixApplier } from './fix/orchestrator.js';
-export { parseSince, sinceDurationToGitFlag, type SinceDuration } from './analysis/since-duration.js';
+export { parseSince as parseSinceDuration, sinceDurationToGitFlag, type SinceDuration } from './analysis/since-duration.js';
 export { buildHealthCompactLines, buildDuplicationCompactLines, type CompactHealthFinding, type CompactHotspot, type CompactHealthScore, type CompactVitalSigns, type CompactHealthTrend, type CompactHealthReport, type CompactCloneGroup, type CompactDuplicationReport } from './export/compact-health.js';
 export { buildCrossReferenceLines, printCrossReferenceFindings, type CrossRefDeadCodeKind, type CrossRefHumanFinding, type CrossRefHumanResult } from './report/cross-ref-human.js';
 export { generateJsonc, parseJsoncComments, indentJsonValue } from './migrate/jsonc-gen.js';
@@ -177,8 +177,8 @@ export { type KeywordType, type OperatorType, type PunctuationType, type TokenKi
 export { type DetectionMode, type ResolvedNormalization, type HashedToken, resolveNormalization, normalizeAndHash, normalizeAndHashResolved, hashTokenResolved } from './duplicates/normalize.js';
 export { tokenizeFile, tokenizeFileCrossLanguage, tokenizeSfc, tokenizeAstro, tokenizeMdx, tokenizeJsTs } from './duplicates/tokenize/index.js';
 export { type IssueFilters, type CheckOptions, type CheckResult, DEFAULT_ISSUE_FILTERS, runCheckFilter } from './check/index.js';
-export { type IssueSeverity, type RuleEntry, type RulesConfig, type AnalysisIssue, effectiveSeverity, applyRules, hasErrorSeverityIssues, DEFAULT_RULES_CONFIG } from './check/rules.js';
-export { filterToWorkspaces, resolveWorkspaceFilters, resolveWorkspaceScope, getChangedFiles } from './check/filtering.js';
+export { type IssueSeverity, type RuleEntry, type RulesConfig, type AnalysisIssue, effectiveSeverity, applyRules as applyCheckRules, hasErrorSeverityIssues as hasCheckErrorSeverityIssues, DEFAULT_RULES_CONFIG as DEFAULT_CHECK_RULES_CONFIG } from './check/rules.js';
+export { filterToWorkspaces, resolveWorkspaceFilters, resolveWorkspaceScope, getChangedFiles as getChangedFilesForWorkspace } from './check/filtering.js';
 export { type OutputFormat, type TraceOptions, type SarifOutput, type SarifRun, type SarifRule, type SarifResult, parseTraceSpec, buildSarifOutput, formatIssuesAsText, formatIssuesAsJson } from './check/output.js';
 export { type FlagsOptions, type FeatureFlag, type FlagUse, type FlagsResult, flagUseToFeatureFlag, groupFlagsByName, formatFlagsText } from './commands/flags.js';
 export { type MonographError, type OutputFormat as ErrorOutputFormat, emitError, formatError, MonographAnalysisError, MonographConfigError, MonographResolveError } from './error.js';

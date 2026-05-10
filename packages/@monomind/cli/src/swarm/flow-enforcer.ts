@@ -14,6 +14,7 @@ export class FlowEnforcer {
   private readonly swarmId: string;
   private readonly enforce: boolean;
   private readonly violations: FlowViolation[] = [];
+  private static readonly MAX_VIOLATIONS = 1000;
 
   constructor(graph: CommunicationGraph, swarmId: string, enforceMode: boolean) {
     this.graph = graph;
@@ -24,17 +25,17 @@ export class FlowEnforcer {
   /**
    * Check whether a message is authorized and record any violation.
    *
-   * - Authorized: returns { authorized: true }
-   * - Unauthorized + enforce=true: returns { authorized: false, violation } (blocked)
-   * - Unauthorized + enforce=false: returns { authorized: true, violation } (logged)
+   * Returns BOTH `authorized` (the policy decision) and `enforced` (whether the
+   * decision is actually applied). Callers must read both — taking action based
+   * solely on `authorized` would let `enforce=false` silently bypass the policy.
    */
   checkAndRecord(
     fromSlug: string,
     toSlug: string,
     messageContent: string,
-  ): { authorized: boolean; violation?: FlowViolation } {
+  ): { authorized: boolean; enforced: boolean; violation?: FlowViolation } {
     if (this.graph.isAuthorized(fromSlug, toSlug)) {
-      return { authorized: true };
+      return { authorized: true, enforced: this.enforce };
     }
 
     const violation: FlowViolation = {
@@ -42,15 +43,26 @@ export class FlowEnforcer {
       swarmId: this.swarmId,
       fromAgentSlug: fromSlug,
       toAgentSlug: toSlug,
+      // Truncated preview only; for sensitive traffic, redact via a hook before
+      // it reaches this enforcer. Cap means an attacker can't fill memory with
+      // long messages either.
       messagePreview: messageContent.slice(0, 120),
       detectedAt: new Date().toISOString(),
       action: this.enforce ? 'blocked' : 'logged',
     };
 
+    // FIFO eviction so a sustained attack can't grow violations to GB-scale.
+    if (this.violations.length >= FlowEnforcer.MAX_VIOLATIONS) {
+      this.violations.shift();
+    }
     this.violations.push(violation);
 
     return {
-      authorized: !this.enforce,
+      // Policy decision: NOT authorized. Whether the caller blocks the send is
+      // governed by `enforced`, which is exposed separately so callers cannot
+      // accidentally treat audit-mode as "permitted".
+      authorized: false,
+      enforced: this.enforce,
       violation,
     };
   }

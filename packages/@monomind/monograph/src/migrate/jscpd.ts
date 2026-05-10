@@ -1,5 +1,5 @@
 import { readFileSync, existsSync } from 'fs';
-export { MigrationWarning } from './knip.js';
+export type { MigrationWarning } from './knip.js';
 import type { MigrationWarning } from './knip.js';
 
 export interface JscpdMigrationResult {

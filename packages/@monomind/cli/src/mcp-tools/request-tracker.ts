@@ -4,6 +4,8 @@
  * Used by system_metrics to report real request counts.
  */
 
+const MAX_TRACKED_TOOLS = 500;
+
 interface RequestCounts {
   total: number;
   success: number;
@@ -24,7 +26,9 @@ export function trackRequest(toolName: string, success: boolean): void {
   counts.total++;
   if (success) counts.success++;
   else counts.errors++;
-  counts.byTool[toolName] = (counts.byTool[toolName] || 0) + 1;
+  if (Object.keys(counts.byTool).length < MAX_TRACKED_TOOLS || toolName in counts.byTool) {
+    counts.byTool[toolName] = (counts.byTool[toolName] || 0) + 1;
+  }
 }
 
 export function getRequestCounts(): RequestCounts {

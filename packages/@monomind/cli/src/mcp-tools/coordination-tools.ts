@@ -10,7 +10,7 @@
  */
 
 import { type MCPTool, getProjectCwd } from './types.js';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Storage paths
@@ -125,7 +125,10 @@ function loadCoordStore(): CoordinationStore {
 
 function saveCoordStore(store: CoordinationStore): void {
   ensureCoordDir();
-  writeFileSync(getCoordPath(), JSON.stringify(store, null, 2), 'utf-8');
+  const dest = getCoordPath();
+  const tmp = dest + '.tmp';
+  writeFileSync(tmp, JSON.stringify(store, null, 2), 'utf-8');
+  renameSync(tmp, dest);
 }
 
 export const coordinationTools: MCPTool[] = [
@@ -391,8 +394,23 @@ export const coordinationTools: MCPTool[] = [
         };
       }
 
+      const FORBIDDEN_NODE_IDS = new Set(['__proto__', 'constructor', 'prototype']);
+      const MAX_NODES = 1000;
+      const MAX_NODE_ID_LEN = 200;
+
       if (action === 'add') {
         const nodeId = (input.nodeId as string) || `node-${Date.now()}`;
+        if (typeof nodeId !== 'string' || nodeId.length === 0 || nodeId.length > MAX_NODE_ID_LEN) {
+          return { success: false, error: 'Invalid nodeId' };
+        }
+        if (FORBIDDEN_NODE_IDS.has(nodeId)) {
+          return { success: false, error: 'Forbidden node ID' };
+        }
+        // Cap to prevent unbounded growth → disk exhaustion DoS via repeated
+        // add calls. Allow re-add of existing node (no growth in that case).
+        if (Object.keys(store.nodes).length >= MAX_NODES && !Object.hasOwn(store.nodes, nodeId)) {
+          return { success: false, error: `Node limit reached (${MAX_NODES})` };
+        }
 
         store.nodes[nodeId] = {
           id: nodeId,
@@ -413,8 +431,13 @@ export const coordinationTools: MCPTool[] = [
 
       if (action === 'remove') {
         const nodeId = input.nodeId as string;
-
-        if (!store.nodes[nodeId]) {
+        // Match the `add` denylist + Object.hasOwn so a tampered store.json
+        // can't have its inherited Object.prototype slots exposed via remove.
+        if (typeof nodeId !== 'string' || nodeId.length === 0 || nodeId.length > MAX_NODE_ID_LEN ||
+            FORBIDDEN_NODE_IDS.has(nodeId)) {
+          return { success: false, error: 'Invalid nodeId' };
+        }
+        if (!Object.hasOwn(store.nodes, nodeId)) {
           return { success: false, error: 'Node not found' };
         }
 
@@ -431,8 +454,16 @@ export const coordinationTools: MCPTool[] = [
 
       if (action === 'heartbeat') {
         const nodeId = input.nodeId as string;
+        if (!nodeId || typeof nodeId !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(nodeId)) {
+          return {
+            success: false,
+            action: 'heartbeat',
+            nodeId,
+            error: 'Invalid node ID',
+          };
+        }
 
-        if (store.nodes[nodeId]) {
+        if (Object.hasOwn(store.nodes, nodeId)) {
           store.nodes[nodeId].lastHeartbeat = new Date().toISOString();
           store.nodes[nodeId].status = 'active';
           saveCoordStore(store);
@@ -543,6 +574,26 @@ export const coordinationTools: MCPTool[] = [
           }
         }
 
+        if (consensus.pending.length >= 200) {
+          return { success: false, error: 'Pending proposals limit (200) reached. Resolve existing proposals first.' };
+        }
+
+        // Validate proposal size and shape — schema only declares object,
+        // so without these checks an attacker could submit a 10MB blob 200x
+        // and inflate store.json to 2GB on every saveCoordStore.
+        if (input.proposal === null || typeof input.proposal !== 'object' || Array.isArray(input.proposal)) {
+          return { success: false, error: 'proposal must be a plain object' };
+        }
+        let proposalSerialized: string;
+        try {
+          proposalSerialized = JSON.stringify(input.proposal);
+        } catch {
+          return { success: false, error: 'proposal contains non-serializable values' };
+        }
+        if (proposalSerialized.length > 64 * 1024) {
+          return { success: false, error: 'proposal exceeds 64KB limit' };
+        }
+
         consensus.pending.push({
           proposalId,
           type: 'coordination',
@@ -649,6 +700,11 @@ export const coordinationTools: MCPTool[] = [
             term: p.term,
             byzantineDetected: p.byzantineVoters?.length ? p.byzantineVoters : undefined,
           });
+          // Cap consensus history to prevent unbounded growth
+          const MAX_CONSENSUS_HISTORY = 1000;
+          if (consensus.history.length > MAX_CONSENSUS_HISTORY) {
+            consensus.history = consensus.history.slice(-MAX_CONSENSUS_HISTORY);
+          }
           consensus.pending = consensus.pending.filter(x => x.proposalId !== p.proposalId);
         }
 

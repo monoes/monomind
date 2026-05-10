@@ -154,6 +154,9 @@
   /* Row 3: activity (full width) */
   #panel-activity  { grid-column: 1 / 5; grid-row: 4; }
 
+  /* Row 4: orgs (full width) */
+  #panel-orgs      { grid-column: 1 / 5; grid-row: 5; }
+
   /* All grid children must not overflow their columns */
   #grid > * { min-width: 0; }
 
@@ -903,6 +906,78 @@
   .loop-status-dot.stopped { background: rgba(220,60,60,0.7); }
   .loops-empty { font-size: 10px; color: var(--dim); text-align: center; padding: 18px 0; letter-spacing: 0.08em; }
 
+  /* ─── ORGS PANEL ─────────────────────────────────────────────────── */
+  #orgs-body { display: flex; flex-direction: column; gap: 0; }
+  .orgs-empty {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 22px 16px 18px; gap: 6px; text-align: center;
+  }
+  .orgs-empty-icon {
+    font-size: 22px; line-height: 1;
+    animation: orgs-breathe 3.5s ease-in-out infinite;
+    opacity: 0.55;
+  }
+  .orgs-empty-label {
+    font-size: 9px; letter-spacing: 0.15em; color: rgba(210,140,255,0.55);
+    margin-top: 2px;
+  }
+  .orgs-empty-sub {
+    font-size: 9px; color: var(--dim); line-height: 1.6; max-width: 190px;
+    opacity: 0.65;
+  }
+  .orgs-empty-cmd {
+    margin-top: 4px; font-size: 8px; letter-spacing: 0.06em;
+    color: rgba(200,120,255,0.6);
+    border: 1px solid rgba(200,120,255,0.18);
+    border-radius: 4px; padding: 3px 8px;
+    background: rgba(200,120,255,0.05);
+    animation: orgs-cmd-shimmer 4s ease-in-out infinite;
+    cursor: default;
+  }
+  @keyframes orgs-breathe {
+    0%, 100% { opacity: 0.45; transform: scale(1); }
+    50% { opacity: 0.75; transform: scale(1.08); }
+  }
+  @keyframes orgs-cmd-shimmer {
+    0%, 100% { color: rgba(200,120,255,0.5); border-color: rgba(200,120,255,0.15); }
+    50% { color: rgba(210,150,255,0.8); border-color: rgba(210,150,255,0.3); }
+  }
+  .org-row {
+    display: grid;
+    grid-template-columns: 16px 1fr 80px 56px 80px 90px;
+    gap: 0;
+    font-size: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    align-items: center;
+  }
+  .org-row:hover { background: rgba(0,229,200,0.04); }
+  .org-cell { padding: 5px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .org-name { color: var(--text); font-weight: 500; font-size: 11px; }
+  .org-goal { color: var(--muted); font-size: 9px; }
+  .org-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); margin: 0 5px; flex-shrink: 0; }
+  .org-status-dot.running { background: var(--green); box-shadow: 0 0 5px var(--green); animation: ldp 2s ease-in-out infinite; }
+  .org-header { color: var(--dim); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; padding: 4px 8px; border-bottom: 1px solid rgba(0,229,200,0.10); }
+  .org-btn {
+    font-size: 9px; font-family: inherit; letter-spacing: 0.06em;
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    padding: 2px 8px; border-radius: 3px; cursor: pointer; text-transform: uppercase;
+    transition: all 0.15s;
+  }
+  .org-btn:hover { border-color: var(--teal); color: var(--teal); background: var(--glow); }
+  .org-btn.stop { border-color: rgba(255,85,119,0.4); color: var(--red); }
+  .org-btn.stop:hover { background: rgba(255,85,119,0.08); }
+  .org-live-badge {
+    font-size: 8px; letter-spacing: 0.1em; font-family: inherit;
+    background: rgba(0,229,135,0.12); color: var(--green); border: 1px solid rgba(0,229,135,0.25);
+    padding: 1px 6px; border-radius: 2px; text-transform: uppercase;
+  }
+  .org-event-log {
+    font-size: 9px; color: var(--muted); padding: 4px 8px 4px 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.03); font-family: inherit; line-height: 1.5;
+  }
+  .org-event-time { color: var(--dim); margin-right: 6px; }
+  .org-event-type { color: var(--teal); margin-right: 6px; font-weight: 500; }
+
   /* ─── METRICS PANEL ─────────────────────────────────────────────── */
   .metric-block {
     background: rgba(0,0,0,0.25);
@@ -1314,6 +1389,63 @@
   .wiki-edge-name { font-size: 10px; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .wiki-edge-type { font-size: 8px; color: var(--muted); flex-shrink: 0; }
   .wiki-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--border); font-size: 11px; letter-spacing: 0.1em; flex-direction: column; gap: 8px; }
+  /* Content preview */
+  .wiki-content-block {
+    background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 4px;
+    padding: 10px 12px; font-size: 9px; line-height: 1.7; color: rgba(200,220,255,0.7);
+    overflow: auto; max-height: 220px; white-space: pre-wrap; word-break: break-all;
+    font-family: 'Azeret Mono', monospace;
+  }
+  .wiki-content-block.collapsed { max-height: 80px; overflow: hidden; position: relative; }
+  .wiki-content-block.collapsed::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 30px;
+    background: linear-gradient(transparent, rgba(10,12,20,0.95));
+  }
+  /* Action buttons row */
+  .wiki-action-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+  .wiki-action-btn {
+    font-family: 'Azeret Mono', monospace; font-size: 8px; letter-spacing: 0.08em;
+    padding: 4px 10px; border-radius: 3px; cursor: pointer; border: 1px solid;
+    text-transform: uppercase; transition: all 0.12s;
+  }
+  .wiki-action-btn.copy { color: rgba(0,229,135,0.8); border-color: rgba(0,229,135,0.3); background: rgba(0,229,135,0.06); }
+  .wiki-action-btn.copy:hover { background: rgba(0,229,135,0.14); border-color: rgba(0,229,135,0.6); }
+  .wiki-action-btn.explain { color: rgba(123,97,255,0.9); border-color: rgba(123,97,255,0.3); background: rgba(123,97,255,0.06); }
+  .wiki-action-btn.explain:hover { background: rgba(123,97,255,0.15); border-color: rgba(123,97,255,0.6); }
+  .wiki-action-btn.related { color: rgba(251,191,36,0.85); border-color: rgba(251,191,36,0.3); background: rgba(251,191,36,0.06); }
+  .wiki-action-btn.related:hover { background: rgba(251,191,36,0.14); border-color: rgba(251,191,36,0.6); }
+  /* Explain modal */
+  #wiki-explain-modal {
+    display: none; position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
+    align-items: center; justify-content: center;
+  }
+  #wiki-explain-modal.open { display: flex; }
+  .wiki-modal-box {
+    background: #0d0f1a; border: 1px solid rgba(123,97,255,0.4); border-radius: 8px;
+    padding: 20px 24px; max-width: 640px; width: 90%; max-height: 80vh;
+    display: flex; flex-direction: column; gap: 12px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  }
+  .wiki-modal-title { font-size: 9px; letter-spacing: 0.15em; color: rgba(123,97,255,0.8); text-transform: uppercase; }
+  .wiki-modal-body {
+    font-size: 10px; line-height: 1.7; color: rgba(180,200,240,0.85);
+    background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 4px;
+    padding: 12px; overflow-y: auto; flex: 1; white-space: pre-wrap; word-break: break-word;
+    font-family: 'Azeret Mono', monospace;
+  }
+  .wiki-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  /* FTS search mode indicator */
+  .wiki-search-mode {
+    font-size: 7px; color: var(--muted); letter-spacing: 0.1em; text-align: right;
+    padding: 2px 10px 0; min-height: 14px;
+  }
+  /* Related distance badge */
+  .wiki-dist-badge {
+    font-size: 7px; padding: 1px 5px; border-radius: 2px; margin-left: auto;
+    background: rgba(251,191,36,0.12); color: rgba(251,191,36,0.8);
+    font-family: 'Azeret Mono', monospace; flex-shrink: 0;
+  }
   #mg-wiki-statsbar {
     display: flex; gap: 0; flex-shrink: 0; border-bottom: 1px solid var(--border);
     font-family: 'Azeret Mono', monospace;
@@ -1783,6 +1915,14 @@
   .kg-node-name { font-size: 10px; color: var(--teal); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kg-node-meta { font-size: 8px; color: var(--muted); flex-shrink: 0; }
 
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -2046,7 +2186,15 @@
 
     <!-- OVERVIEW -->
     <div id="mg-pane-overview" class="mg-pane active">
-      <div id="mg-overview">
+      <div id="mg-overview-live" style="padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(0,0,0,0.2);flex-shrink:0;">
+        <div style="font-size:8px;letter-spacing:0.12em;color:var(--muted);margin-bottom:8px;text-transform:uppercase;">Project Snapshot</div>
+        <div id="mg-overview-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div><div style="font-size:8px;letter-spacing:0.1em;color:var(--muted);margin-bottom:5px;text-transform:uppercase;">Top Nodes by Degree</div><div id="mg-overview-top-nodes"></div></div>
+          <div><div style="font-size:8px;letter-spacing:0.1em;color:var(--muted);margin-bottom:5px;text-transform:uppercase;">Node Type Distribution</div><div id="mg-overview-types" style="font-size:9px;color:#c0c0ff;line-height:2;"></div></div>
+        </div>
+      </div>
+      <div id="mg-overview" style="overflow:auto;flex:1;padding:16px;">
         <div class="mg-section-title">Parse &amp; Pipeline</div>
         <div class="mg-feature-grid">
           <div class="mg-feature-card"><div class="mg-card-name">Arrow Function Extractor</div><div class="mg-card-desc">Extracts const/let arrow functions from TS/JS source with export detection.</div><span class="mg-card-badge">parse.ts</span></div>
@@ -2431,9 +2579,11 @@
             <div class="wiki-stat-cell"><div class="wiki-stat-cell-label">Sections</div><div class="wiki-stat-cell-val" id="wstat-sections">—</div></div>
             <div class="wiki-stat-cell"><div class="wiki-stat-cell-label">Functions</div><div class="wiki-stat-cell-val" id="wstat-fns">—</div></div>
             <div class="wiki-stat-cell" style="cursor:pointer;flex:0;padding:7px 10px;" onclick="wikiRefresh()" title="Refresh graph data"><div class="wiki-stat-cell-label">↺</div><div class="wiki-stat-cell-val" style="font-size:9px;">SYNC</div></div>
+            <div class="wiki-stat-cell" style="cursor:pointer;flex:0;padding:7px 10px;" id="wstat-build-docs" onclick="wikiBuildDocs()" title="Parse .md/.mdx/.txt/.rst files into Section nodes"><div class="wiki-stat-cell-label">📄</div><div class="wiki-stat-cell-val" style="font-size:9px;">BUILD DOCS</div></div>
           </div>
           <div id="mg-wiki-search-bar">
-            <input id="mg-wiki-q" placeholder="Search nodes… (name, file, type)" oninput="wikiOnSearch(this.value)" autocomplete="off">
+            <input id="mg-wiki-q" placeholder="Search nodes… (name, type, content)" oninput="wikiOnSearch(this.value)" autocomplete="off">
+            <div class="wiki-search-mode" id="wiki-search-mode"></div>
           </div>
           <div id="mg-wiki-mode-bar" style="display:flex;gap:3px;padding:6px 10px 0;flex-shrink:0;">
             <button class="wiki-pill active" data-mode="all" onclick="wikiSetMode(this,'all')" style="flex:1;text-align:center;">ALL</button>
@@ -2539,6 +2689,21 @@
     </div>
   </div>
 
+  <!-- ─── MASTERMIND ORGS ──────────────────────────────────────── -->
+  <div class="panel open" id="panel-orgs">
+    <div class="panel-header" onclick="togglePanel('panel-orgs')">
+      <div class="panel-title"><span class="live-dot" id="orgs-live-dot"></span>MASTERMIND ORGS</div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:9px;color:var(--dim);letter-spacing:0.08em;" id="orgs-running-label"></span>
+        <span class="panel-badge" id="orgs-badge">0</span>
+        <span class="panel-chevron">›</span>
+      </div>
+    </div>
+    <div class="panel-body" id="orgs-body">
+      <div class="orgs-empty" id="orgs-empty">Loading orgs…</div>
+    </div>
+  </div>
+
   <!-- ─── SESSION JOURNAL ────────────────────────────────────────── -->
   <div class="panel open" id="panel-activity">
     <div class="panel-header" onclick="togglePanel('panel-activity')">
@@ -2571,7 +2736,7 @@ const MAX_ACTIVITY = 80;
 // Track which panels are currently open (match initial HTML .open classes)
 const expandedPanels = new Set([
   'panel-projects',
-  'panel-tokens', 'panel-activity'
+  'panel-tokens', 'panel-activity', 'panel-orgs'
 ]);
 
 // Section name → panel id mapping
@@ -2602,9 +2767,10 @@ window.togglePanel = function(panelId) {
 };
 
 function renderPanelById(panelId) {
-  if (!appData) return;
   switch (panelId) {
-    case 'panel-tokens':    renderTokens(appData); break;
+    case 'panel-tokens':    if (appData) renderTokens(appData); break;
+    case 'panel-orgs':      renderOrgs(); break;
+    case 'panel-loops':     renderLoops(); break;
   }
 }
 
@@ -2774,7 +2940,7 @@ async function selectProject(dir) {
   selectedProjectDir = dir;
   _codeGraphLoaded = false; kgCodeGraph.reset();
   // Reset monograph caches so next open reloads data for the new project
-  mgGraphData = null; mgReportData = null; _wikiData = null;
+  mgGraphData = null; mgReportData = null; _wikiData = null; _monographIframeLoaded = false;
   renderJournal();
   try {
     const res = await fetch(`/api/data?dir=${encodeURIComponent(dir)}`);
@@ -3632,6 +3798,154 @@ function renderMemory(data) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// MASTERMIND ORGS PANEL
+// ═══════════════════════════════════════════════════════════════════
+const orgEventLog = {}; // org name → array of recent events
+
+function fmtOrgEventType(type) {
+  const map = {
+    'org:start': 'STARTED', 'org:stop': 'STOPPED', 'org:complete': 'COMPLETE',
+    'org:agent:online': 'AGENT ON', 'org:comms': 'COMMS', 'org:checkpoint': 'CHECK',
+    'org:create': 'CREATED',
+  };
+  return map[type] || (typeof type === 'string' ? type.toUpperCase() : 'UNKNOWN');
+}
+
+let _orgRenderInFlight = false;
+async function renderOrgs() {
+  if (_orgRenderInFlight) return;
+  _orgRenderInFlight = true;
+  try {
+    const _orgCtrl = new AbortController();
+    const _orgTimeout = setTimeout(() => _orgCtrl.abort(), 10000);
+    let orgs;
+    try {
+      const r = await fetch('/api/orgs', { signal: _orgCtrl.signal });
+      orgs = await r.json();
+    } finally {
+      clearTimeout(_orgTimeout);
+    }
+    if (!Array.isArray(orgs)) return;
+    const body = document.getElementById('orgs-body');
+    const badge = document.getElementById('orgs-badge');
+    const dot = document.getElementById('orgs-live-dot');
+    const runLabel = document.getElementById('orgs-running-label');
+    if (!body) return;
+
+    badge.textContent = orgs.length;
+    const runningCount = orgs.filter(o => o.running).length;
+    if (runningCount > 0) {
+      dot.classList.add('live');
+      runLabel.textContent = `${runningCount} RUNNING`;
+      runLabel.style.color = 'var(--green)';
+    } else {
+      dot.classList.remove('live');
+      runLabel.textContent = '';
+    }
+
+    if (!orgs.length) {
+      body.innerHTML = `<div class="orgs-empty">
+        <div class="orgs-empty-icon">⬡</div>
+        <div class="orgs-empty-label">NO PERSISTENT ORGS</div>
+        <div class="orgs-empty-sub">Orgs are named agent teams that coordinate across sessions — boss assigns work, specialists execute in parallel.</div>
+        <div class="orgs-empty-cmd">/mastermind:createorg</div>
+      </div>`;
+      return;
+    }
+
+    let html = `<div class="org-row" style="background:rgba(0,0,0,0.2);">
+      <div class="org-header" style="grid-column:1/3">ORG</div>
+      <div class="org-header">ROLES</div>
+      <div class="org-header">TOPOLOGY</div>
+      <div class="org-header">STATUS</div>
+      <div class="org-header">ACTION</div>
+    </div>`;
+
+    for (const org of orgs) {
+      const events = (orgEventLog[org.name] || []).slice(-3);
+      const statusHtml = org.running
+        ? `<span class="org-live-badge">LIVE</span>`
+        : `<span style="font-size:9px;color:var(--dim);">IDLE</span>`;
+      // Use data- attributes for org name to avoid JS string injection via onclick
+      const actionHtml = org.running
+        ? `<button class="org-btn stop" data-org-stop="${escHtml(org.name)}">STOP</button>`
+        : `<button class="org-btn" data-org-view="${escHtml(org.name)}">VIEW</button>`;
+
+      html += `<div class="org-row" data-org="${escHtml(org.name)}">
+        <div class="org-cell" style="padding-left:10px;">
+          <div class="org-status-dot ${org.running ? 'running' : ''}"></div>
+        </div>
+        <div class="org-cell">
+          <div class="org-name">${escHtml(org.name)}</div>
+          <div class="org-goal">${escHtml((org.goal || '').slice(0, 70))}${(org.goal || '').length > 70 ? '…' : ''}</div>
+        </div>
+        <div class="org-cell" style="color:var(--teal)">${org.roles || 0}</div>
+        <div class="org-cell" style="color:var(--muted)">${escHtml(org.topology || 'hierarchical')}</div>
+        <div class="org-cell">${statusHtml}</div>
+        <div class="org-cell">${actionHtml}</div>
+      </div>`;
+
+      if (events.length) {
+        for (const ev of events) {
+          const t = new Date(ev.ts).toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          const rawDetail = ev.role ? ` (${ev.role})` : ev.msg ? ` — ${ev.msg}` : ev.agent ? ` → ${ev.agent}` : '';
+          html += `<div class="org-event-log">
+            <span class="org-event-time">${t}</span>
+            <span class="org-event-type">${escHtml(fmtOrgEventType(ev.type))}</span>
+            <span>${escHtml(rawDetail)}</span>
+          </div>`;
+        }
+      }
+    }
+
+    body.innerHTML = html;
+
+    // Attach event handlers via addEventListener (avoids onclick JS injection)
+    body.querySelectorAll('[data-org-stop]').forEach(btn => {
+      btn.addEventListener('click', () => stopOrg(btn.dataset.orgStop));
+    });
+    body.querySelectorAll('[data-org-view]').forEach(btn => {
+      btn.addEventListener('click', () => openMastermindForOrg(btn.dataset.orgView));
+    });
+  } catch { /* server may not be ready yet */ } finally { _orgRenderInFlight = false; }
+}
+
+async function stopOrg(name) {
+  try {
+    await fetch(`/api/orgs/${encodeURIComponent(name)}/stop`, { method: 'POST' });
+    setTimeout(renderOrgs, 500);
+  } catch {}
+}
+
+function openMastermindForOrg(name) {
+  // Open the mastermind overlay; the org name is stored as a custom event
+  // for any future mastermind panel that wants to filter by org
+  document.dispatchEvent(new CustomEvent('mastermind:open-org', { detail: { org: name } }));
+  const btn = document.getElementById('mastermind-btn');
+  if (btn) btn.click();
+}
+
+// Debounce timer for SSE-triggered renders (avoid one HTTP fetch per event)
+let _orgRenderDebounce = null;
+
+// Listen for org events from the SSE stream and update the event log
+function handleOrgEvent(ev) {
+  const orgName = ev.org;
+  if (!orgName || typeof orgName !== 'string') return;
+  // Guard against prototype-polluting keys from attacker-controlled SSE payloads
+  if (orgName === '__proto__' || orgName === 'constructor' || orgName === 'prototype') return;
+  if (!Object.prototype.hasOwnProperty.call(orgEventLog, orgName)) orgEventLog[orgName] = [];
+  orgEventLog[orgName].push(ev);
+  if (orgEventLog[orgName].length > 20) orgEventLog[orgName].shift();
+  // Debounce: re-render at most once per 500ms on SSE bursts
+  const panel = document.getElementById('panel-orgs');
+  if (panel && panel.classList.contains('open')) {
+    clearTimeout(_orgRenderDebounce);
+    _orgRenderDebounce = setTimeout(renderOrgs, 500);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // SCHEDULED LOOPS PANEL
 // ═══════════════════════════════════════════════════════════════════
 let _loopCountdownTimers = [];
@@ -4198,6 +4512,34 @@ async function fetchInitial() {
 // ═══════════════════════════════════════════════════════════════════
 renderLoops();
 setInterval(renderLoops, 10000);
+
+// ═══════════════════════════════════════════════════════════════════
+// ORGS POLLING + MASTERMIND SSE FOR LIVE ORG EVENTS
+// ═══════════════════════════════════════════════════════════════════
+renderOrgs();
+setInterval(renderOrgs, 15000);
+
+(function connectMastermindStream() {
+  let mmSse = null;
+  function connect() {
+    // Guard against duplicate open connections
+    if (mmSse && mmSse.readyState !== EventSource.CLOSED) return;
+    try {
+      mmSse = new EventSource('/api/mastermind-stream');
+      mmSse.onmessage = function(e) {
+        try {
+          const ev = JSON.parse(e.data);
+          if (ev.type && ev.type.startsWith('org:')) handleOrgEvent(ev);
+        } catch(_) {}
+      };
+      mmSse.onerror = function() {
+        try { mmSse.close(); } catch(_) {}
+        setTimeout(connect, 10000);
+      };
+    } catch(_) { setTimeout(connect, 10000); }
+  }
+  connect();
+})();
 
 // ═══════════════════════════════════════════════════════════════════
 // LIVE BORDER REFRESH TIMER
@@ -6103,13 +6445,10 @@ async function loadMonographData() {
 }
 
 function renderMonographTab(tab) {
-  if (tab === 'graph') {
-    const iframe = document.getElementById('mg-graph-iframe');
-    if (iframe && !iframe.src) {
-      const dir = selectedProjectDir || '';
-      const qs = dir ? '?dir=' + encodeURIComponent(dir) : '';
-      iframe.src = '/api/monograph-html' + qs;
-    }
+  if (tab === 'overview') {
+    renderMonographOverview();
+  } else if (tab === 'graph') {
+    loadMonographIframe(false);
   } else if (tab === 'analyze') {
     runMonographAnalysis('stats');
   } else if (tab === 'report') {
@@ -6521,7 +6860,7 @@ window.runMonographRename = async function() {
   if (!from || !to) { box.textContent = 'Enter both current and new name.'; return; }
   box.textContent = 'Scanning…';
   try {
-    const res = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_rename', input:{ symbolName: from, newName: to, dryRun: true } }) });
+    const res = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_rename', input:{ symbolName: from, newName: to, dryRun: true, projectDir: selectedProjectDir || undefined } }) });
     const data = await res.json();
     box.textContent = (data.content && data.content[0] && data.content[0].text) || data.error || JSON.stringify(data);
   } catch(e) { box.textContent = 'Error: ' + e.message; }
@@ -6533,7 +6872,7 @@ window.runMonographCypher = async function() {
   if (!input) return;
   box.textContent = 'Running…';
   try {
-    const res = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_cypher', input:{ query: input } }) });
+    const res = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_cypher', input:{ query: input, projectDir: selectedProjectDir || undefined } }) });
     const data = await res.json();
     const txt = (data.content && data.content[0] && data.content[0].text) || data.error || 'No response';
     box.innerHTML = `<pre style="margin:0;font-size:9px;line-height:1.5;">${txt.replace(/</g,'&lt;')}</pre>`;
@@ -6547,7 +6886,7 @@ window.runMonographImpact = async function() {
   if (!input) return;
   box.textContent = 'Analyzing…';
   try {
-    const res = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_impact', input:{ target: input, direction: dir, maxDepth: 4 } }) });
+    const res = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_impact', input:{ target: input, direction: dir, maxDepth: 4, projectDir: selectedProjectDir || undefined } }) });
     const data = await res.json();
     box.textContent = (data.content && data.content[0] && data.content[0].text) || data.error || JSON.stringify(data);
   } catch(e) { box.textContent = 'Error: ' + e.message; }
@@ -6559,7 +6898,7 @@ window.runMonographContext = async function() {
   if (!input) return;
   box.textContent = 'Loading…';
   try {
-    const res = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_context', input:{ id: input } }) });
+    const res = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_context', input:{ id: input, projectDir: selectedProjectDir || undefined } }) });
     const data = await res.json();
     box.textContent = (data.content && data.content[0] && data.content[0].text) || data.error || JSON.stringify(data);
   } catch(e) { box.textContent = 'Error: ' + e.message; }
@@ -6642,12 +6981,63 @@ function renderMonographReport() {
   box.innerHTML = parseMonographReport(mgReportData);
 }
 
+function renderMonographOverview() {
+  const statsEl = document.getElementById('mg-overview-stats');
+  const topEl = document.getElementById('mg-overview-top-nodes');
+  const typesEl = document.getElementById('mg-overview-types');
+  if (!statsEl) return;
+
+  const nodes = mgGraphData?.nodes || [];
+  const edges = mgGraphData?.edges || [];
+
+  if (!nodes.length && !edges.length) {
+    statsEl.innerHTML = '<div style="color:var(--muted);font-size:9px;grid-column:1/-1;">No graph data — build the graph first.</div>';
+    if (topEl) topEl.innerHTML = '';
+    if (typesEl) typesEl.innerHTML = '';
+    return;
+  }
+
+  const statCard = (label, val) =>
+    `<div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);padding:8px 10px;border-radius:3px;">` +
+    `<div style="font-size:15px;font-weight:600;color:#e2e2e2;font-family:'Azeret Mono',monospace;">${val}</div>` +
+    `<div style="font-size:8px;letter-spacing:0.1em;color:var(--muted);margin-top:2px;text-transform:uppercase;">${label}</div></div>`;
+
+  const typeCounts = {};
+  nodes.forEach(n => { const t = n.type || 'unknown'; typeCounts[t] = (typeCounts[t] || 0) + 1; });
+  const avgDeg = nodes.length ? (edges.length * 2 / nodes.length).toFixed(1) : '–';
+
+  statsEl.innerHTML =
+    statCard('Nodes', nodes.length.toLocaleString()) +
+    statCard('Edges', edges.length.toLocaleString()) +
+    statCard('Node Types', Object.keys(typeCounts).length) +
+    statCard('Avg Degree', avgDeg);
+
+  if (topEl) {
+    const top = [...nodes].sort((a, b) => (b.degree || 0) - (a.degree || 0)).slice(0, 6);
+    topEl.innerHTML = top.length
+      ? top.map(n =>
+          `<div style="display:flex;justify-content:space-between;font-size:9px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.04);">` +
+          `<span style="color:#c0c0ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;" title="${(n.label||n.id).replace(/"/g,'&quot;')}">${n.label||n.id}</span>` +
+          `<span style="color:var(--muted);flex-shrink:0;margin-left:8px;">${n.degree||0}</span></div>`).join('')
+      : '<div style="color:var(--muted);font-size:9px;">–</div>';
+  }
+
+  if (typesEl) {
+    typesEl.innerHTML = Object.entries(typeCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([t, c]) =>
+        `<div style="display:flex;justify-content:space-between;font-size:9px;padding:1px 0;">` +
+        `<span style="color:#c0c0ff;">${t}</span><span style="color:var(--muted);">${c}</span></div>`)
+      .join('') || '<div style="color:var(--muted);font-size:9px;">–</div>';
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // WIKI — Code Knowledge Explorer
 // ═══════════════════════════════════════════════════════════════════
 
 const TYPE_COLORS = {
-  File: '#7B61FF', Function: '#00E5C8', Class: '#f59e0b', Interface: '#06b6d4',
+  File: '#a78bfa', Function: '#00E5C8', Class: '#f59e0b', Interface: '#06b6d4',
   Method: '#00E5C8', Variable: '#94a3b8', Module: '#ec4899', Concept: '#22c55e',
   Section: '#22c55e', Default: '#64748b',
 };
@@ -6665,6 +7055,13 @@ let _wikiTypeFilter = '';
 let _wikiModeFilter = 'all';  // 'all' | 'docs' | 'code'
 let _wikiSearchTimer = null;
 let _wikiSelectedId = null;
+let _wikiFtsMode = false;     // true when search results come from FTS endpoint
+let _wikiFtsNodes = null;     // FTS result nodes (override normal list)
+let _wikiRelatedIds = null;   // Map of id→distance from "Find Related" BFS
+let _wikiRelatedSeq = 0;     // Monotonic counter — guards against stale "Find Related" responses
+let _wikiFtsSeq = 0;         // Monotonic counter — guards against stale FTS responses
+let _wikiModalContent = '';   // current modal content for copy
+let _wikiNodeContent = new Map(); // nodeId → raw content string (avoids onclick injection)
 
 function _wikiDirQs(extra) {
   const base = selectedProjectDir ? 'dir=' + encodeURIComponent(selectedProjectDir) : '';
@@ -6672,19 +7069,23 @@ function _wikiDirQs(extra) {
 }
 
 async function loadWikiTab(force) {
-  // Load code/all data — re-fetch if forced or cache is empty
-  if (!_wikiCodeData || force) {
-    try {
-      const r = await fetch('/api/monograph-graph' + _wikiDirQs('limit=500'));
-      if (r.ok) _wikiCodeData = await r.json();
-    } catch {}
-  }
-  // Load doc data — re-fetch if forced OR previously cached empty (stale pre-rebuild state)
-  if (!_wikiDocData || force || (_wikiDocData.nodes || []).length === 0) {
-    try {
-      const r = await fetch('/api/monograph-graph' + _wikiDirQs('labels=Section%2CConcept'));
-      if (r.ok) _wikiDocData = await r.json();
-    } catch {}
+  const needCode = !_wikiCodeData || force;
+  const needDoc  = !_wikiDocData  || force || (_wikiDocData.nodes || []).length === 0;
+  // Fetch both datasets in parallel when both are needed
+  if (needCode && needDoc) {
+    const [codeRes, docRes] = await Promise.allSettled([
+      fetch('/api/monograph-graph' + _wikiDirQs('limit=500')),
+      fetch('/api/monograph-graph' + _wikiDirQs('labels=Section%2CConcept')),
+    ]);
+    if (codeRes.status === 'fulfilled' && codeRes.value.ok) { try { _wikiCodeData = await codeRes.value.json(); } catch {} }
+    if (docRes.status  === 'fulfilled' && docRes.value.ok)  { try { _wikiDocData  = await docRes.value.json();  } catch {} }
+  } else {
+    if (needCode) {
+      try { const r = await fetch('/api/monograph-graph' + _wikiDirQs('limit=500')); if (r.ok) _wikiCodeData = await r.json(); } catch {}
+    }
+    if (needDoc) {
+      try { const r = await fetch('/api/monograph-graph' + _wikiDirQs('labels=Section%2CConcept')); if (r.ok) _wikiDocData = await r.json(); } catch {}
+    }
   }
 
   if (!_wikiCodeData && !_wikiDocData) {
@@ -6699,7 +7100,6 @@ async function loadWikiTab(force) {
   const typeCounts = {};
   uniqueNodes.forEach(n => { typeCounts[n.type] = (typeCounts[n.type] || 0) + 1; });
   document.getElementById('wstat-nodes').textContent = uniqueNodes.length.toLocaleString();
-  document.getElementById('wstat-edges').textContent = ((_wikiCodeData?.edges || []).length).toLocaleString();
   document.getElementById('wstat-sections').textContent = ((typeCounts['Section'] || 0) + (typeCounts['Concept'] || 0)).toLocaleString();
   document.getElementById('wstat-fns').textContent = ((typeCounts['Function'] || 0) + (typeCounts['Method'] || 0)).toLocaleString();
 
@@ -6707,13 +7107,84 @@ async function loadWikiTab(force) {
 }
 
 window.wikiRefresh = async function() {
-  _wikiCodeData = null;
-  _wikiDocData = null;
+  clearTimeout(_wikiSearchTimer);
+  _wikiCodeData = null; _wikiDocData = null;
+  _wikiFtsNodes = null; _wikiFtsMode = false; _wikiFtsSeq++;
+  _wikiRelatedIds = null; _wikiRelatedSeq++;
+  _wikiNodeContent.clear();
+  const modeEl = document.getElementById('wiki-search-mode');
+  if (modeEl) modeEl.textContent = '';
   document.getElementById('mg-wiki-list').innerHTML = '<div class="wiki-empty" style="height:80px;font-size:9px;">Refreshing…</div>';
   await loadWikiTab(true);
 };
 
-function wikiRenderList(nodes) {
+window.wikiBuildDocs = async function() {
+  const btn = document.getElementById('wstat-build-docs');
+  if (btn) btn.style.opacity = '0.4';
+  const list = document.getElementById('mg-wiki-list');
+  list.innerHTML = '<div class="wiki-empty" style="height:80px;font-size:9px;color:rgba(0,229,135,0.7);">Scanning .md/.mdx/.txt/.rst files…</div>';
+  const dir = selectedProjectDir || '';
+  const qs = dir ? '?dir=' + encodeURIComponent(dir) : '';
+  try {
+    const res = await fetch('/api/monograph-build-docs' + qs, { method: 'POST' });
+    const data = await res.json();
+    if (data.error) {
+      list.innerHTML = `<div class="wiki-empty" style="height:80px;font-size:9px;color:var(--red);">${String(data.error).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>`;
+      if (btn) btn.style.opacity = '1';
+      return;
+    }
+  } catch(e) {
+    list.innerHTML = `<div class="wiki-empty" style="height:80px;font-size:9px;color:var(--red);">Error: ${String(e.message).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>`;
+    if (btn) btn.style.opacity = '1';
+    return;
+  }
+
+  // Poll status endpoint until done (max 90s)
+  list.innerHTML = '<div class="wiki-empty" style="height:80px;font-size:9px;color:rgba(0,229,135,0.7);">Building docs index…</div>';
+  let attempts = 0;
+  const maxAttempts = 45; // 45 × 2s = 90s
+  const poll = async () => {
+    try {
+      const sr = await fetch('/api/monograph-build-docs-status' + qs);
+      const state = await sr.json();
+      if (state.status === 'done') {
+        const newFiles = state.files || 0;
+        const cached = state.cached || 0;
+        const msg = newFiles > 0
+          ? `Indexed ${newFiles} docs → ${state.sections || 0} sections${cached ? ' (' + cached + ' cached)' : ''}`
+          : (cached > 0 ? `Up to date — ${cached} docs unchanged` : 'No doc files found');
+        list.innerHTML = `<div class="wiki-empty" style="height:60px;font-size:9px;color:rgba(0,229,135,0.9);">${msg}</div>`;
+        _wikiDocData = null;
+        await loadWikiTab(true);
+        if (btn) btn.style.opacity = '1';
+        return;
+      }
+      if (state.status === 'error') {
+        list.innerHTML = `<div class="wiki-empty" style="height:80px;font-size:9px;color:var(--red);">Error: ${String(state.error || 'unknown').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>`;
+        if (btn) btn.style.opacity = '1';
+        return;
+      }
+      attempts++;
+      if (attempts < maxAttempts) {
+        const elapsed = Math.round(attempts * 2);
+        list.innerHTML = `<div class="wiki-empty" style="height:80px;font-size:9px;color:rgba(0,229,135,0.7);">Building docs… ${elapsed}s</div>`;
+        setTimeout(poll, 2000);
+      } else {
+        // Timeout — refresh anyway
+        _wikiDocData = null;
+        await loadWikiTab(true);
+        if (btn) btn.style.opacity = '1';
+      }
+    } catch {
+      attempts++;
+      if (attempts < maxAttempts) setTimeout(poll, 2000);
+      else { if (btn) btn.style.opacity = '1'; }
+    }
+  };
+  setTimeout(poll, 2000);
+};
+
+function wikiRenderList(nodes, relatedMap) {
   const list = document.getElementById('mg-wiki-list');
   if (!nodes || !nodes.length) {
     list.innerHTML = '<div class="wiki-empty" style="height:80px;font-size:9px;">No results</div>';
@@ -6722,23 +7193,36 @@ function wikiRenderList(nodes) {
   list.innerHTML = nodes.map(n => {
     const color = TYPE_COLORS[n.type] || TYPE_COLORS.Default;
     const icon = TYPE_ICONS[n.type] || TYPE_ICONS.Default;
-    const shortPath = (n.id || '').split('/').slice(-2).join('/');
-    return `<div class="wiki-card${n.id === _wikiSelectedId ? ' selected' : ''}" onclick="wikiSelectNode('${n.id.replace(/'/g,"\\'")}')">
+    const shortPath = (n.filePath || n.id || '').split('/').slice(-2).join('/');
+    const dist = relatedMap ? relatedMap.get(n.id) : undefined;
+    const distBadge = dist !== undefined ? `<span class="wiki-dist-badge">d${dist}</span>` : '';
+    const snippet = n.snippet ? `<div class="wiki-card-path" style="color:rgba(180,200,240,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n.snippet.slice(0,80).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>` : '';
+    const safeId = n.id.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,"\\'");
+    return `<div class="wiki-card${n.id === _wikiSelectedId ? ' selected' : ''}" onclick="wikiSelectNode('${safeId}')">
       <div class="wiki-card-header">
-        <span class="wiki-type-badge" style="background:${color}22;color:${color}">${icon} ${n.type || '?'}</span>
-        <span class="wiki-card-name">${(n.label || n.id).replace(/</g,'&lt;')}</span>
-        <span class="wiki-deg">${n.degree || 0}</span>
+        <span class="wiki-type-badge" style="background:${color}22;color:${color}">${icon} ${(n.type || '?').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>
+        <span class="wiki-card-name">${(n.label || n.id).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>
+        ${distBadge || `<span class="wiki-deg">${n.degree || 0}</span>`}
       </div>
-      <div class="wiki-card-path">${shortPath}</div>
+      <div class="wiki-card-path">${shortPath.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
+      ${snippet}
     </div>`;
   }).join('');
 }
 
 window.wikiSetMode = function(btn, mode) {
+  clearTimeout(_wikiSearchTimer);
   document.querySelectorAll('#mg-wiki-mode-bar .wiki-pill').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   _wikiModeFilter = mode;
-  // Reset type pill to ALL when switching modes
+  // Reset FTS and type pill when switching modes
+  if (_wikiFtsMode) {
+    _wikiFtsNodes = null; _wikiFtsMode = false; _wikiFtsSeq++;
+    const modeEl = document.getElementById('wiki-search-mode');
+    if (modeEl) modeEl.textContent = '';
+    const searchEl = document.getElementById('mg-wiki-q');
+    if (searchEl) searchEl.value = '';
+  }
   _wikiTypeFilter = '';
   document.querySelectorAll('#mg-wiki-pills .wiki-pill').forEach(b => b.classList.remove('active'));
   document.querySelector('#mg-wiki-pills .wiki-pill[data-type=""]').classList.add('active');
@@ -6754,6 +7238,7 @@ window.wikiSetMode = function(btn, mode) {
 };
 
 window.wikiSetType = function(btn, type) {
+  clearTimeout(_wikiSearchTimer);
   document.querySelectorAll('#mg-wiki-pills .wiki-pill').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   _wikiTypeFilter = type;
@@ -6761,72 +7246,126 @@ window.wikiSetType = function(btn, type) {
 };
 
 function wikiApplyFilter() {
-  // Pick the right dataset for the current mode
-  let nodes;
+  // FTS mode overrides normal node list
+  if (_wikiFtsMode && _wikiFtsNodes) {
+    let nodes = _wikiFtsNodes;
+    if (_wikiTypeFilter) nodes = nodes.filter(n => n.type === _wikiTypeFilter);
+    wikiRenderList(nodes.slice(0, 300));
+    return;
+  }
+
+  // Related re-ranking mode: sort cached nodes by graph distance
+  let baseNodes;
   if (_wikiModeFilter === 'docs') {
-    nodes = (_wikiDocData?.nodes || []);
+    baseNodes = (_wikiDocData?.nodes || []);
   } else if (_wikiModeFilter === 'code') {
-    nodes = (_wikiCodeData?.nodes || []).filter(n => CODE_LABELS.has(n.type));
+    baseNodes = (_wikiCodeData?.nodes || []).filter(n => CODE_LABELS.has(n.type));
   } else {
-    // ALL: merge both, deduplicate
     const seen = new Set();
-    nodes = [...(_wikiCodeData?.nodes || []), ...(_wikiDocData?.nodes || [])].filter(n => {
+    baseNodes = [...(_wikiCodeData?.nodes || []), ...(_wikiDocData?.nodes || [])].filter(n => {
       if (seen.has(n.id)) return false; seen.add(n.id); return true;
     });
   }
+
+  let nodes = baseNodes;
+  if (_wikiRelatedIds) {
+    // Sort by graph distance — nodes not in the map go to the end
+    nodes = [...nodes].sort((a, b) => {
+      const da = _wikiRelatedIds.get(a.id) ?? 999;
+      const db2 = _wikiRelatedIds.get(b.id) ?? 999;
+      return da - db2;
+    });
+  }
+
   const q = (document.getElementById('mg-wiki-q').value || '').trim().toLowerCase();
   if (_wikiTypeFilter) nodes = nodes.filter(n => n.type === _wikiTypeFilter);
   if (q) nodes = nodes.filter(n => (n.label || n.id || '').toLowerCase().includes(q));
   if (!q && !_wikiTypeFilter && _wikiModeFilter === 'all') nodes = nodes.slice(0, 200);
-  wikiRenderList(nodes.slice(0, 300));
+  wikiRenderList(nodes.slice(0, 300), _wikiRelatedIds);
 }
 
 window.wikiOnSearch = function(val) {
   clearTimeout(_wikiSearchTimer);
-  _wikiSearchTimer = setTimeout(wikiApplyFilter, 150);
+  const q = (val || '').trim();
+  const modeEl = document.getElementById('wiki-search-mode');
+  if (q.length >= 3) {
+    // Use FTS endpoint for meaningful queries
+    const ftsSeq = ++_wikiFtsSeq; // capture before setTimeout so closure sees correct value
+    _wikiSearchTimer = setTimeout(async () => {
+      if (modeEl) modeEl.textContent = 'searching…';
+      try {
+        const qs2 = _wikiDirQs('q=' + encodeURIComponent(q) + '&limit=80');
+        const r = await fetch('/api/monograph-fts' + qs2);
+        if (ftsSeq !== _wikiFtsSeq) return; // a newer search superseded this one
+        if (r.ok) {
+          const data = await r.json();
+          if (ftsSeq !== _wikiFtsSeq) return; // superseded while parsing JSON
+          _wikiFtsNodes = data.nodes || [];
+          _wikiFtsMode = true;
+          if (modeEl) modeEl.textContent = `FTS — ${_wikiFtsNodes.length} matches`;
+        }
+      } catch { if (ftsSeq === _wikiFtsSeq) { _wikiFtsNodes = null; _wikiFtsMode = false; if (modeEl) modeEl.textContent = ''; } }
+      if (ftsSeq === _wikiFtsSeq) wikiApplyFilter();
+    }, 280);
+  } else {
+    _wikiFtsSeq++; // immediately invalidate any in-flight FTS fetch
+    _wikiSearchTimer = setTimeout(() => {
+      // Always clear FTS state and indicator for sub-3-char queries
+      _wikiFtsNodes = null; _wikiFtsMode = false;
+      if (modeEl) modeEl.textContent = '';
+      wikiApplyFilter();
+    }, 150);
+  }
 };
 
 window.wikiSelectNode = async function(nodeId) {
   _wikiSelectedId = nodeId;
-  // Update selected state in list
+  const _escapedId = "'" + nodeId.replace(/'/g,"\\'") + "'";
   document.querySelectorAll('.wiki-card').forEach(c => {
-    c.classList.toggle('selected', c.getAttribute('onclick') && c.getAttribute('onclick').includes(nodeId.replace(/'/g,"\\'")));
+    c.classList.toggle('selected', c.getAttribute('onclick') && c.getAttribute('onclick').includes(_escapedId));
   });
 
   const detail = document.getElementById('mg-wiki-detail');
   detail.innerHTML = '<div class="wiki-empty" style="height:80px;font-size:9px;">Loading…</div>';
 
   try {
-    const qs = selectedProjectDir ? '?dir=' + encodeURIComponent(selectedProjectDir) : '';
-    const r = await fetch('/api/mcp/call' + (qs ? qs : ''), {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tool: 'monograph_context', input: { id: nodeId } }),
-    });
-    const data = await r.json();
-    const txt = (data.content && data.content[0] && data.content[0].text) || '';
+    const dirParam = selectedProjectDir ? '&dir=' + encodeURIComponent(selectedProjectDir) : '';
+    // Fetch both context (edges) and content in parallel
+    const [ctxRes, contentRes] = await Promise.all([
+      fetch('/api/mcp/call' + (selectedProjectDir ? '?dir=' + encodeURIComponent(selectedProjectDir) : ''), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tool: 'monograph_context', input: { id: nodeId } }),
+      }),
+      fetch('/api/monograph-content?id=' + encodeURIComponent(nodeId) + dirParam),
+    ]);
+    // Bail if the user already clicked a different card while fetches were in flight
+    if (_wikiSelectedId !== nodeId) return;
+    const ctxData = await ctxRes.json();
+    const contentData = contentRes.ok ? await contentRes.json() : {};
+    const txt = (ctxData.content && ctxData.content[0] && ctxData.content[0].text) || '';
 
-    // Parse the markdown text from monograph_context
     const nameMatch = txt.match(/^# (.+?) \((\w+)\)/m);
     const fileMatch = txt.match(/File: (.+)/);
     const outSection = txt.match(/\*\*Imports \/ depends on \((\d+)\):\*\*\n([\s\S]*?)(?=\*\*Used by|$)/);
     const inSection = txt.match(/\*\*Used by \/ depended on by \((\d+)\):\*\*\n([\s\S]*?)$/);
 
-    const name = nameMatch ? nameMatch[1] : nodeId;
-    const type = nameMatch ? nameMatch[2] : 'Unknown';
-    const filePath = fileMatch ? fileMatch[1] : '';
+    const name = contentData.name || (nameMatch ? nameMatch[1] : nodeId);
+    const type = contentData.type || (nameMatch ? nameMatch[2] : 'Unknown');
+    const filePath = contentData.filePath || (fileMatch ? fileMatch[1] : '');
+    const startLine = contentData.startLine || 0;
+    const language = contentData.language || '';
     const color = TYPE_COLORS[type] || TYPE_COLORS.Default;
     const icon = TYPE_ICONS[type] || TYPE_ICONS.Default;
+    const content = contentData.content || '';
 
     const parseEdges = (section) => {
       if (!section) return [];
-      return section.trim().split('\n')
-        .filter(l => l.trim() && l.trim() !== '(none)')
-        .map(l => {
-          const m = l.match(/→\s+(.+?)\s+\[(\w+)\]/);
-          const m2 = l.match(/←\s+(.+?)\s+\[(\w+)\]/);
-          const matched = m || m2;
-          return matched ? { name: matched[1], rel: matched[2] } : null;
-        }).filter(Boolean);
+      return section.trim().split('\n').filter(l => l.trim() && l.trim() !== '(none)').map(l => {
+        const m = l.match(/→\s+(.+?)\s+\[(\w+)\]/);
+        const m2 = l.match(/←\s+(.+?)\s+\[(\w+)\]/);
+        const matched = m || m2;
+        return matched ? { name: matched[1], rel: matched[2] } : null;
+      }).filter(Boolean);
     };
 
     const outEdges = parseEdges(outSection ? outSection[2] : '');
@@ -6836,10 +7375,11 @@ window.wikiSelectNode = async function(nodeId) {
 
     const edgeItem = (e, dir) => {
       const rel = e.rel || 'REF';
-      const relColor = { IMPORTS:'#3b82f6',CALLS:'#8b5cf6',EXTENDS:'#ef4444',IMPLEMENTS:'#f97316',DEFINES:'#22c55e',CONTAINS:'#64748b',REF:'#475569' }[rel] || '#475569';
-      return `<div class="wiki-edge-item" onclick="wikiSelectNode('${e.name.replace(/'/g,"\\'")}')">
+      const relColor = { IMPORTS:'#3b82f6',CALLS:'#8b5cf6',EXTENDS:'#ef4444',IMPLEMENTS:'#f97316',DEFINES:'#22c55e',CONTAINS:'#64748b',REFERENCES:'#a78bfa',TAGGED_AS:'#22c55e',PARENT_SECTION:'#94a3b8',REF:'#475569' }[rel] || '#475569';
+      const safeName = e.name.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,"\\'");
+      return `<div class="wiki-edge-item" onclick="wikiSelectNode('${safeName}')">
         <span class="wiki-edge-rel" style="color:${relColor}">${dir === 'out' ? '→' : '←'} ${rel}</span>
-        <span class="wiki-edge-name">${e.name.replace(/</g,'&lt;')}</span>
+        <span class="wiki-edge-name">${e.name.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>
       </div>`;
     };
 
@@ -6847,29 +7387,54 @@ window.wikiSelectNode = async function(nodeId) {
     const fileName = pathParts.pop() || filePath;
     const dirPath = pathParts.join('/');
 
+    if (content) _wikiNodeContent.set(nodeId, content);
+    // Helper: escape for HTML text content and attributes
+    const hEsc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    // Helper: escape for single-quoted JS string inside a double-quoted HTML attribute
+    const attrEsc = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,"\\'");
+    const safeNodeId = attrEsc(nodeId);
+    const contentHtml = content ? `
+      <div class="wiki-section-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>Content${startLine ? ' · line ' + startLine : ''}${language ? ' · ' + hEsc(language) : ''}</span>
+        <button class="wiki-action-btn copy" data-copy-node="${String(nodeId).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" style="font-size:7px;padding:2px 7px;margin:0;" onclick="wikiCopyNodeContent('${safeNodeId}')">COPY</button>
+      </div>
+      <div class="wiki-content-block collapsed" id="wiki-content-${nodeId.replace(/[^a-z0-9]/gi,'_')}" onclick="this.classList.toggle('collapsed')" title="Click to expand/collapse">${content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    ` : '';
+
     detail.innerHTML = `
       <div class="wiki-detail-header">
-        <div class="wiki-detail-type" style="color:${color}">${icon} ${type}</div>
-        <div class="wiki-detail-name">${name.replace(/</g,'&lt;')}</div>
-        ${filePath ? `<div class="wiki-detail-path">${dirPath ? dirPath + '/' : ''}<span>${fileName}</span></div>` : ''}
+        <div class="wiki-detail-type" style="color:${color}">${icon} ${hEsc(type)}</div>
+        <div class="wiki-detail-name">${hEsc(name)}</div>
+        ${filePath ? `<div class="wiki-detail-path">${dirPath ? hEsc(dirPath) + '/' : ''}<span>${hEsc(fileName)}</span></div>` : ''}
       </div>
+
+      <div class="wiki-action-row">
+        <button class="wiki-action-btn copy" onclick="wikiCopyContext('${safeNodeId}')">📋 COPY CONTEXT</button>
+        <button class="wiki-action-btn explain" onclick="wikiExplainThis('${safeNodeId}')">🤖 EXPLAIN THIS</button>
+        <button class="wiki-action-btn related" onclick="wikiFindRelated('${safeNodeId}')">🔍 FIND RELATED</button>
+      </div>
+
       <div class="wiki-stat-row">
         <div class="wiki-stat"><div class="wiki-stat-label">Outgoing</div><div class="wiki-stat-val" style="color:rgba(0,229,135,0.9)">${outCount}</div></div>
         <div class="wiki-stat"><div class="wiki-stat-label">Incoming</div><div class="wiki-stat-val" style="color:rgba(123,97,255,0.9)">${inCount}</div></div>
-        <div class="wiki-stat"><div class="wiki-stat-label">Total Degree</div><div class="wiki-stat-val">${+outCount + +inCount}</div></div>
+        <div class="wiki-stat"><div class="wiki-stat-label">Degree</div><div class="wiki-stat-val">${+outCount + +inCount}</div></div>
       </div>
+
+      ${contentHtml}
+
       ${outEdges.length ? `<div class="wiki-section-title">Depends on (${outEdges.length})</div><div class="wiki-edge-list">${outEdges.map(e => edgeItem(e,'out')).join('')}</div>` : ''}
       ${inEdges.length ? `<div class="wiki-section-title">Used by (${inEdges.length})</div><div class="wiki-edge-list">${inEdges.map(e => edgeItem(e,'in')).join('')}</div>` : ''}
       ${!outEdges.length && !inEdges.length ? '<div style="color:var(--dim);font-size:10px;margin-top:12px;">No connections found</div>' : ''}
+
       <div class="wiki-section-title">Find path from here</div>
       <div style="display:flex;gap:6px;align-items:center;">
-        <input class="mg-input" id="wpath-to" placeholder="Target node name…" style="flex:1;" onkeydown="if(event.key==='Enter')wikiPath('${nodeId.replace(/'/g,"\\'")}')">
-        <button class="mg-action-btn" onclick="wikiPath('${nodeId.replace(/'/g,"\\'")}')">PATH →</button>
+        <input class="mg-input" id="wpath-to" placeholder="Target node name…" style="flex:1;" onkeydown="if(event.key==='Enter')wikiPath('${safeNodeId}')">
+        <button class="mg-action-btn" onclick="wikiPath('${safeNodeId}')">PATH →</button>
       </div>
       <div id="wpath-result" style="margin-top:8px;font-size:10px;color:var(--muted);"></div>
     `;
   } catch(e) {
-    detail.innerHTML = `<div style="color:var(--red);padding:20px;font-size:10px;">Error: ${e.message}</div>`;
+    detail.innerHTML = `<div style="color:var(--red);padding:20px;font-size:10px;">Error: ${String(e.message).replace(/</g,'&lt;')}</div>`;
   }
 };
 
@@ -6883,6 +7448,74 @@ window.wikiPath = async function(fromId) {
     const d = await r.json();
     box.textContent = d.path || d.error || 'No path found';
   } catch(e) { box.textContent = 'Error: ' + e.message; }
+};
+
+// ── Copy Context ── Build markdown and copy to clipboard
+window.wikiCopyNodeContent = async function(nodeId) {
+  const content = _wikiNodeContent.get(nodeId) || '';
+  try {
+    await navigator.clipboard.writeText(content);
+    const btn = document.querySelector('[data-copy-node="' + CSS.escape(nodeId) + '"]');
+    if (btn) { btn.textContent = 'COPIED!'; setTimeout(() => btn.textContent = 'COPY', 1200); }
+  } catch(e) { console.error('wikiCopyNodeContent:', e); }
+};
+
+window.wikiCopyContext = async function(nodeId) {
+  const dirParam = selectedProjectDir ? '&dir=' + encodeURIComponent(selectedProjectDir) : '';
+  try {
+    const r = await fetch('/api/monograph-ai-context?id=' + encodeURIComponent(nodeId) + dirParam);
+    if (!r.ok) { alert('Could not load context'); return; }
+    const data = await r.json();
+    await navigator.clipboard.writeText(data.markdown || '');
+    // Flash button
+    const btn = document.querySelector('.wiki-action-btn.copy');
+    if (btn) { const orig = btn.textContent; btn.textContent = '✓ COPIED!'; setTimeout(() => btn.textContent = orig, 1800); }
+  } catch(e) { console.error('wikiCopyContext:', e); }
+};
+
+// ── Explain This ── Fetch AI context, build prompt, show in modal
+window.wikiExplainThis = async function(nodeId) {
+  const modal = document.getElementById('wiki-explain-modal');
+  const body = document.getElementById('wiki-modal-body');
+  modal.classList.add('open');
+  body.textContent = 'Loading context…';
+  const dirParam = selectedProjectDir ? '&dir=' + encodeURIComponent(selectedProjectDir) : '';
+  try {
+    const r = await fetch('/api/monograph-ai-context?id=' + encodeURIComponent(nodeId) + dirParam);
+    if (!r.ok) { body.textContent = 'Error loading context.'; return; }
+    const data = await r.json();
+    const prompt = `You are a senior software engineer reviewing this code/documentation node. Explain what it does, its purpose, how it fits into the larger system, and any notable patterns or concerns.\n\n---\n\n${data.markdown}`;
+    _wikiModalContent = prompt;
+    body.textContent = prompt;
+  } catch(e) { body.textContent = 'Error: ' + e.message; }
+};
+
+// ── Find Related ── BFS the graph and re-rank wiki list by distance
+window.wikiFindRelated = async function(nodeId) {
+  const seq = ++_wikiRelatedSeq; // capture sequence number before await
+  const dirParam = selectedProjectDir ? '&dir=' + encodeURIComponent(selectedProjectDir) : '';
+  const modeEl = document.getElementById('wiki-search-mode');
+  if (modeEl) modeEl.textContent = 'finding related…';
+  try {
+    const r = await fetch('/api/monograph-related?id=' + encodeURIComponent(nodeId) + dirParam + '&depth=3&limit=120');
+    if (seq !== _wikiRelatedSeq) return; // a newer request already landed
+    if (!r.ok) { if (modeEl) modeEl.textContent = ''; return; }
+    const data = await r.json();
+    if (seq !== _wikiRelatedSeq) return; // a newer request landed while we were parsing JSON
+    _wikiRelatedIds = new Map((data.related || []).map(x => [x.id, x.distance]));
+    if (modeEl) modeEl.textContent = `Related — sorted by graph distance from ${nodeId.split(':').pop().slice(0,20)}`;
+    wikiApplyFilter();
+  } catch(e) { if (modeEl) modeEl.textContent = ''; console.error('wikiFindRelated:', e); }
+};
+
+// ── Modal helpers ──
+window.wikiCloseModal = function() {
+  document.getElementById('wiki-explain-modal').classList.remove('open');
+};
+window.wikiCopyModal = async function() {
+  await navigator.clipboard.writeText(_wikiModalContent);
+  const btn = document.querySelector('#wiki-explain-modal .wiki-action-btn.copy');
+  if (btn) { const orig = btn.textContent; btn.textContent = '✓ COPIED!'; setTimeout(() => btn.textContent = orig, 1800); }
 };
 
 async function loadDocStats() { /* replaced by loadWikiTab */ }
@@ -6916,5 +7549,17 @@ window.closeMastermindOverlay = function() {
   connectSSE();
 })();
 </script>
+
+<!-- ═══ Wiki: Explain This modal ══════════════════════════════════════════ -->
+<div id="wiki-explain-modal" onclick="if(event.target===this)wikiCloseModal()">
+  <div class="wiki-modal-box">
+    <div class="wiki-modal-title">AI CONTEXT — COPY & PASTE INTO YOUR AI CHAT</div>
+    <div class="wiki-modal-body" id="wiki-modal-body"></div>
+    <div class="wiki-modal-actions">
+      <button class="wiki-action-btn copy" onclick="wikiCopyModal()">COPY ALL</button>
+      <button class="wiki-action-btn" style="color:var(--muted);border-color:var(--border);" onclick="wikiCloseModal()">CLOSE</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

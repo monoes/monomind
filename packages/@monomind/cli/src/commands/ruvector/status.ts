@@ -21,6 +21,12 @@ function getConnectionConfig(ctx: CommandContext) {
   };
 }
 
+const IDENTIFIER_RE = /^[a-zA-Z_][a-zA-Z0-9_]{0,63}$/;
+function validateIdentifier(name: string, label: string): string | null {
+  if (!IDENTIFIER_RE.test(name)) return `Invalid ${label}: "${name}" (must match [a-zA-Z_][a-zA-Z0-9_]{0,63})`;
+  return null;
+}
+
 /**
  * Format bytes to human readable
  */
@@ -120,6 +126,13 @@ export const statusCommand: Command = {
       } else {
         output.printError('Database name is required. Use --database or -d flag, or set PGDATABASE env.');
       }
+      return { success: false, exitCode: 1 };
+    }
+
+    const schemaErr = validateIdentifier(config.schema, 'schema');
+    if (schemaErr) {
+      if (jsonOutput) output.printJson({ error: schemaErr });
+      else output.printError(schemaErr);
       return { success: false, exitCode: 1 };
     }
 
@@ -290,9 +303,10 @@ export const statusCommand: Command = {
         // Get row count for each table
         let rowCount = 0;
         try {
-          const countResult = await client.query(`
-            SELECT count(*) as cnt FROM ${config.schema}.${row.table_name}
-          `);
+          const countResult = await client.query(
+            `SELECT count(*) as cnt FROM ${config.schema}.` +
+            `${String(row.table_name).replace(/[^a-zA-Z0-9_]/g, '')}`
+          );
           rowCount = parseInt(countResult.rows[0].cnt, 10);
         } catch {
           // Skip if can't count

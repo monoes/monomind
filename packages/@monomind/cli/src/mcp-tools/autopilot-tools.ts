@@ -194,7 +194,17 @@ const autopilotHistory: MCPTool = {
     required: ['query'],
   },
   handler: async (params: Record<string, unknown>) => {
-    const query = String(params.query || '');
+    // Reject non-string queries and cap length so embedding/regex on the
+    // input cannot become a CPU/memory amplifier. Without this an attacker
+    // could pass an object whose toString() returns multi-MB content.
+    if (params.query !== undefined && typeof params.query !== 'string') {
+      return ok({ query: '', results: [], error: 'query must be a string' });
+    }
+    const raw = (params.query as string | undefined) ?? '';
+    if (raw.length > 1024) {
+      return ok({ query: '', results: [], error: 'query too long (max 1024 chars)' });
+    }
+    const query = raw;
     const limit = validateNumber(params.limit, 1, 100, 10);
     const learning = await tryLoadLearning();
     if (learning) {

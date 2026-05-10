@@ -51,7 +51,7 @@ export const analyzeDiffTool: MCPTool = {
   },
   handler: async (params: Record<string, unknown>) => {
     const ref = (params.ref as string) || 'HEAD';
-    const includeFileRisks = params.includeFileRisks !== false;
+    const includeFileRisks = params.includeFileRisks === true;
     const includeReviewers = params.includeReviewers !== false;
     const useRuVector = params.useRuVector !== false;
 
@@ -256,23 +256,31 @@ export const fileRiskTool: MCPTool = {
     required: ['path'],
   },
   handler: async (params: Record<string, unknown>) => {
-    const file: DiffFile = {
-      path: params.path as string,
-      status: (params.status as DiffFile['status']) || 'modified',
-      additions: (params.additions as number) || 0,
-      deletions: (params.deletions as number) || 0,
-      hunks: 1,
-      binary: false,
-    };
+    try {
+      const file: DiffFile = {
+        path: params.path as string,
+        status: (params.status as DiffFile['status']) || 'modified',
+        additions: (params.additions as number) || 0,
+        deletions: (params.deletions as number) || 0,
+        hunks: 1,
+        binary: false,
+      };
 
-    const risk = assessFileRisk(file);
+      const risk = assessFileRisk(file);
 
-    return {
-      file: file.path,
-      risk: risk.risk,
-      score: risk.score,
-      reasons: risk.reasons,
-    };
+      return {
+        file: file.path,
+        risk: risk.risk,
+        score: risk.score,
+        reasons: risk.reasons,
+      };
+    } catch (error) {
+      return {
+        error: true,
+        message: error instanceof Error ? error.message : String(error),
+        path: params.path,
+      };
+    }
   },
 };
 

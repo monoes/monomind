@@ -515,27 +515,10 @@ const toggleCommand: Command = {
     }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const toEnable = ctx.flags.enable as string;
-    const toDisable = ctx.flags.disable as string;
-
-    if (toEnable) {
-      const tools = toEnable.split(',');
-      output.printInfo(`Enabling tools: ${tools.join(', ')}`);
-      output.printSuccess(`Enabled ${tools.length} tools`);
-    }
-
-    if (toDisable) {
-      const tools = toDisable.split(',');
-      output.printInfo(`Disabling tools: ${tools.join(', ')}`);
-      output.printSuccess(`Disabled ${tools.length} tools`);
-    }
-
-    if (!toEnable && !toDisable) {
-      output.printError('Use --enable or --disable with comma-separated tool names');
-      return { success: false, exitCode: 1 };
-    }
-
-    return { success: true };
+    output.writeln();
+    output.writeln(output.warning('⚠  Tool toggling not yet implemented.'));
+    output.writeln(output.dim('Tool enable/disable state is not currently persisted. This feature requires MCP server reload support.'));
+    return { success: false, exitCode: 1 };
   }
 };
 
@@ -693,40 +676,44 @@ const logsCommand: Command = {
     }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const lines = ctx.flags.lines as number;
+    const lines = (ctx.flags.lines as number) || 50;
 
-    // Default logs (loaded from actual log file when available)
-    const logs = [
-      { time: new Date().toISOString(), level: 'info', message: 'MCP Server started on stdio' },
-      { time: new Date().toISOString(), level: 'info', message: 'Registered 27 tools' },
-      { time: new Date().toISOString(), level: 'debug', message: 'Received request: tools/list' },
-      { time: new Date().toISOString(), level: 'info', message: 'Session initialized' },
-    ].slice(-lines);
+    // Try to find and read the actual log file
+    const { existsSync, readFileSync } = await import('fs');
+    const { join } = await import('path');
+
+    const logPaths = [
+      join(ctx.cwd, '.monomind', 'logs', 'mcp-server.log'),
+      join(ctx.cwd, '.monomind', 'logs', 'daemon.log'),
+      join(ctx.cwd, '.monomind', 'mcp.log'),
+    ];
+
+    const logFile = logPaths.find(p => existsSync(p));
 
     output.writeln();
     output.writeln(output.bold('MCP Server Logs'));
-    output.writeln();
+    output.writeln(output.dim('─'.repeat(50)));
 
-    for (const log of logs) {
-      let levelStr: string;
-      switch (log.level) {
-        case 'error':
-          levelStr = output.error(log.level.toUpperCase().padEnd(5));
-          break;
-        case 'warn':
-          levelStr = output.warning(log.level.toUpperCase().padEnd(5));
-          break;
-        case 'debug':
-          levelStr = output.dim(log.level.toUpperCase().padEnd(5));
-          break;
-        default:
-          levelStr = output.info(log.level.toUpperCase().padEnd(5));
-      }
-
-      output.writeln(`${output.dim(log.time)} ${levelStr} ${log.message}`);
+    if (!logFile) {
+      output.writeln(output.dim('No log files found. Start the MCP server to generate logs.'));
+      output.writeln(output.dim(`Checked: ${logPaths.map(p => p.replace(ctx.cwd, '.')).join(', ')}`));
+      return { success: true };
     }
 
-    return { success: true, data: logs };
+    const content = readFileSync(logFile, 'utf8');
+    const logLines = content.trim().split('\n').filter(Boolean);
+    const tail = logLines.slice(-lines);
+
+    if (tail.length === 0) {
+      output.writeln(output.dim('Log file is empty.'));
+      return { success: true };
+    }
+
+    output.writeln(output.dim(`Showing last ${tail.length} lines from ${logFile.replace(ctx.cwd, '.')}`));
+    output.writeln();
+    tail.forEach(line => output.writeln(line));
+
+    return { success: true };
   }
 };
 

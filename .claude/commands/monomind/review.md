@@ -3,6 +3,8 @@ name: monomind:review
 description: "Monomind — Multi-agent iterative review loop: runs Code Reviewer, Security Engineer, and domain specialists in parallel, auto-fixes findings each iteration, and captures human-in-loop items to a dated file."
 ---
 
+Parse `$ARGUMENTS` as `TOTAL_ITERATIONS` (integer, min 1, max 10).
+
 If `$ARGUMENTS` is empty, not a positive integer, or greater than 10, output this and STOP:
 
 > **Usage:** `/monomind:review <iterations>`
@@ -307,3 +309,5 @@ Saved to: `humaninloopreview-<date>.md`
 
 If `ALL_HIL` is empty, omit the HIL section and congratulate:
 > All findings were auto-fixed. No human decisions required.
+
+To repeat this command on a schedule, wrap it with `/monomind:repeat`.

@@ -275,7 +275,16 @@ export class WorkerQueue extends EventEmitter {
   private store: InMemoryStore;
   private workerId: string;
   private heartbeatTimer?: NodeJS.Timeout;
+  private visibilityTimer?: NodeJS.Timeout;
+  private retryTimers: Set<NodeJS.Timeout> = new Set();
   private processingTasks: Set<string> = new Set();
+  // Per-task lease generation. When the visibility reaper requeues a task
+  // because of timeout, the generation is bumped. The original (still-running)
+  // handler's complete()/fail() call carries the old generation and is
+  // rejected — first-finisher wins, the loser drops. This prevents
+  // double-execution side effects on non-idempotent workers (audit reports,
+  // GitHub posts, memory writes).
+  private taskGenerations: Map<string, number> = new Map();
   private isShuttingDown = false;
   private maxConcurrent = 1;
   private initialized = false;
@@ -293,8 +302,49 @@ export class WorkerQueue extends EventEmitter {
   async initialize(): Promise<void> {
     if (this.initialized) return;
     this.store.startCleanup();
+    this.startVisibilityReaper();
     this.initialized = true;
     this.emit('initialized', { workerId: this.workerId });
+  }
+
+  /**
+   * Requeue processing tasks that exceeded the visibility timeout (crashed workers).
+   */
+  private startVisibilityReaper(): void {
+    this.visibilityTimer = setInterval(() => {
+      // Skip running the reaper while we're shutting down so it can't requeue
+      // tasks back into a queue that is about to be torn down.
+      if (this.isShuttingDown) return;
+      const now = Date.now();
+      for (const taskId of this.processingTasks) {
+        const task = this.store.getTask(taskId);
+        if (!task) {
+          this.processingTasks.delete(taskId);
+          continue;
+        }
+        const startedMs = task.startedAt ? task.startedAt.getTime() : 0;
+        if (now - startedMs > this.config.visibilityTimeoutMs) {
+          this.processingTasks.delete(taskId);
+          if (task.retryCount < task.maxRetries) {
+            task.retryCount++;
+            task.status = 'pending';
+            task.startedAt = undefined;
+            task.workerId = undefined;
+            this.store.setTask(taskId, task);
+            const queueName = this.getQueueName(task.workerType);
+            this.store.pushToQueue(queueName, taskId, PRIORITY_SCORES[task.priority]);
+            this.emit('taskRetrying', { taskId, retryCount: task.retryCount, delay: 0 });
+          } else {
+            task.status = 'failed';
+            task.completedAt = new Date();
+            task.error = 'Visibility timeout exceeded';
+            this.store.setTask(taskId, task);
+            this.emit('taskFailed', { taskId, error: task.error });
+          }
+        }
+      }
+    }, Math.max(5000, this.config.visibilityTimeoutMs / 4));
+    this.visibilityTimer.unref();
   }
 
   // ============================================
@@ -376,6 +426,12 @@ export class WorkerQueue extends EventEmitter {
           task.workerId = this.workerId;
           this.store.setTask(taskId, task);
           this.processingTasks.add(taskId);
+          // Bump lease generation. Stamp on the in-memory task so the
+          // handler's later complete()/fail() can compare and detect a
+          // reap-and-redequeue cycle.
+          const gen = (this.taskGenerations.get(taskId) ?? 0) + 1;
+          this.taskGenerations.set(taskId, gen);
+          (task as unknown as Record<string, unknown>).__leaseGen = gen;
 
           this.emit('taskDequeued', { taskId, workerType });
           return task;
@@ -389,10 +445,16 @@ export class WorkerQueue extends EventEmitter {
   /**
    * Complete a task with result
    */
-  async complete(taskId: string, result: HeadlessExecutionResult): Promise<void> {
+  async complete(taskId: string, result: HeadlessExecutionResult, leaseGen?: number): Promise<void> {
     const task = this.store.getTask(taskId);
     if (!task) {
       this.emit('warning', { message: `Task ${taskId} not found for completion` });
+      return;
+    }
+    // Reject stale leases: if the reaper requeued this task and another
+    // worker has already taken it (bumping the generation), drop our result.
+    if (leaseGen !== undefined && this.taskGenerations.get(taskId) !== leaseGen) {
+      this.emit('warning', { message: `Task ${taskId} complete() rejected: lease expired` });
       return;
     }
 
@@ -411,10 +473,14 @@ export class WorkerQueue extends EventEmitter {
   /**
    * Fail a task with error
    */
-  async fail(taskId: string, error: string, retryable = true): Promise<void> {
+  async fail(taskId: string, error: string, retryable = true, leaseGen?: number): Promise<void> {
     const task = this.store.getTask(taskId);
     if (!task) {
       this.emit('warning', { message: `Task ${taskId} not found for failure` });
+      return;
+    }
+    if (leaseGen !== undefined && this.taskGenerations.get(taskId) !== leaseGen) {
+      this.emit('warning', { message: `Task ${taskId} fail() rejected: lease expired` });
       return;
     }
 
@@ -429,12 +495,18 @@ export class WorkerQueue extends EventEmitter {
       task.error = error;
       this.store.setTask(taskId, task);
 
-      // Re-queue with delay (exponential backoff)
+      // Re-queue with delay (exponential backoff). Track the timer so shutdown
+      // can clear it — otherwise pending retries fire after shutdown and push
+      // tasks back into a torn-down queue.
       const delay = Math.min(30000, 1000 * Math.pow(2, task.retryCount));
-      setTimeout(() => {
+      const retryTimer: NodeJS.Timeout = setTimeout(() => {
+        this.retryTimers.delete(retryTimer);
+        if (this.isShuttingDown) return;
         const queueName = this.getQueueName(task.workerType);
         this.store.pushToQueue(queueName, taskId, PRIORITY_SCORES[task.priority]);
       }, delay);
+      retryTimer.unref();
+      this.retryTimers.add(retryTimer);
 
       this.emit('taskRetrying', { taskId, retryCount: task.retryCount, delay });
     } else {
@@ -653,8 +725,14 @@ export class WorkerQueue extends EventEmitter {
       await this.fail(taskId, 'Worker shutdown', false);
     }
 
-    // Stop store cleanup
+    // Stop store cleanup and timers
     this.store.stopCleanup();
+    if (this.visibilityTimer) {
+      clearInterval(this.visibilityTimer);
+      this.visibilityTimer = undefined;
+    }
+    for (const t of this.retryTimers) clearTimeout(t);
+    this.retryTimers.clear();
 
     await this.unregisterWorker();
     this.initialized = false;
