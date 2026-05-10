@@ -111,7 +111,48 @@ COL_REJECTED=$(echo "$columns"  | jq -r '.[] | select(.title == "Rejected")   | 
 
 ### Step 4 — Idea Manager Agent (Divergent Thinking)
 
-Substitute all template variables (`BOARD_ID`, `COL_NEW`, `project_name`, `brain_context`, `prompt`, `date`) with their actual values before calling Task.
+**Before spawning the Idea Manager**, run the registry-aware specialist selection to determine which agents to use. This replaces hardcoded agent types with the best available specialists for the prompt.
+
+```bash
+REGISTRY=".monomind/registry.json"
+PROMPT="$prompt"
+TOP_N=6
+
+# Select user/market/ops angle specialists
+CATEGORIES="marketing strategy product academic specialized"
+user_market_agents=$(jq -r \
+  --arg cats "$CATEGORIES" \
+  --arg kw "$(echo "$PROMPT" | tr '[:upper:]' '[:lower:]' | grep -oE '[a-z]{5,}' | sort -u | tr '\n' ' ')" \
+  --argjson n "$TOP_N" \
+  '[ .agents[] | select(.deprecated != true)
+     | select(.category as $c | ($cats | split(" ") | any(. == $c)))
+     | {name: .name, slug: .slug, category: .category,
+        score: (.name | ascii_downcase | if contains($kw | split(" ") | .[0]) then 2 else 0 end)}
+   ] | sort_by(-.score) | unique_by(.slug) | .[0:$n] | [.[].name]' \
+  "$REGISTRY" 2>/dev/null)
+
+# Select technical angle specialists
+CATEGORIES="engineering development architecture"
+tech_agents=$(jq -r \
+  --arg cats "$CATEGORIES" \
+  --argjson n 3 \
+  '[ .agents[] | select(.deprecated != true)
+     | select(.category as $c | ($cats | split(" ") | any(. == $c)))
+     | {name: .name, slug: .slug}
+   ] | unique_by(.slug) | .[0:$n] | [.[].name]' \
+  "$REGISTRY" 2>/dev/null)
+
+# Merge: take top 6 from market/ops + top 2 from tech (cap at 8 total)
+specialist_list=$(echo "$user_market_agents $tech_agents" | jq -Rs \
+  'split("\n") | map(select(length>0)) | unique | .[0:8]' 2>/dev/null)
+
+# Fallback if registry missing
+[ -z "$specialist_list" ] && specialist_list='["researcher","Trend Researcher","Growth Hacker","UX Researcher","Content Creator","Account Strategist"]'
+
+echo "Selected specialists: $specialist_list"
+```
+
+Substitute all template variables (`BOARD_ID`, `COL_NEW`, `project_name`, `brain_context`, `prompt`, `date`, `specialist_list`) with their actual values before calling Task.
 
 Spawn the Idea Manager with `run_in_background: false` so its output is available for Step 5.
 
@@ -141,13 +182,19 @@ STEP 2 — SPAWN SPECIALISTS
 Spawn one Task agent per angle (all in parallel, mesh topology). Each agent receives the
 angle description, brain context, and project context, and must return a JSON array of ideas.
 
-Specialists to spawn for EVERY run:
-- Market research:       subagent_type "researcher"
-- Trend analysis:        subagent_type "Trend Researcher"
-- User perspective:      subagent_type "UX Researcher"
-- Growth angle:          subagent_type "Growth Hacker"
-- Content/narrative:     subagent_type "Content Creator"
-- Business operations:   subagent_type "Account Strategist"
+The following specialist agents have been pre-selected from the registry as best-fit for this prompt.
+Spawn ALL of them in one message, assigning each a distinct angle:
+
+SPECIALISTS: ${specialist_list}
+
+Assign each specialist the angle that best matches their domain expertise.
+For any specialist you don't recognize, assign them the closest research or analysis angle.
+Always ensure at minimum these angles are covered even if the same agent covers multiple:
+- Market / competitive landscape
+- User / UX perspective
+- Growth / acquisition
+- Business operations / process
+- Technical feasibility (at least one engineering-category agent)
 
 Each specialist must classify every idea with one of these categories:
   feature             — new product capability for end users
@@ -363,10 +410,59 @@ After applying all user instructions, proceed to Step 6c with the remaining idea
 
 #### 6c. Task Decomposition
 
+**Select decomposition agents from the registry** before spawning. Run this selection once per track:
+
+```bash
+REGISTRY=".monomind/registry.json"
+
+# Dev decomposition agent — pick the most relevant engineering/architecture specialist
+# Use the idea titles and descriptions as the keyword signal
+DEV_IDEA_CONTEXT="<concatenated titles+descriptions of all dev ideas>"
+dev_decomp_agent=$(jq -r \
+  --arg kw "$(echo "$DEV_IDEA_CONTEXT" | tr '[:upper:]' '[:lower:]' | grep -oE '[a-z]{5,}' | sort -u | tr '\n' ' ')" \
+  '[ .agents[] | select(.deprecated != true)
+     | select(.category == "engineering" or .category == "architecture")
+     | {name: .name,
+        score: (.name | ascii_downcase |
+                if contains("architect") then 3
+                elif contains("backend") then 2
+                elif contains("mobile") then 2
+                elif contains("frontend") then 2
+                elif contains("security") then 2
+                elif contains("data") then 2
+                else 1 end
+               )}
+   ] | sort_by(-.score) | .[0].name // "Software Architect"' \
+  "$REGISTRY" 2>/dev/null)
+dev_decomp_agent="${dev_decomp_agent:-Software Architect}"
+
+# Ops decomposition agent — pick the most relevant strategy/sales/product specialist
+OPS_IDEA_CONTEXT="<concatenated titles+descriptions of all ops ideas>"
+ops_decomp_agent=$(jq -r \
+  --arg kw "$(echo "$OPS_IDEA_CONTEXT" | tr '[:upper:]' '[:lower:]' | grep -oE '[a-z]{5,}' | sort -u | tr '\n' ' ')" \
+  '[ .agents[] | select(.deprecated != true)
+     | select(.category == "strategy" or .category == "sales" or .category == "product" or .category == "marketing")
+     | {name: .name,
+        score: (.name | ascii_downcase |
+                if contains("product manager") then 4
+                elif contains("launch") then 3
+                elif contains("outbound") then 3
+                elif contains("deal") then 3
+                elif contains("pricing") then 3
+                elif contains("growth") then 2
+                else 1 end
+               )}
+   ] | sort_by(-.score) | .[0].name // "Product Manager"' \
+  "$REGISTRY" 2>/dev/null)
+ops_decomp_agent="${ops_decomp_agent:-Product Manager}"
+
+echo "Dev decomp: $dev_decomp_agent | Ops decomp: $ops_decomp_agent"
+```
+
 **Spawn decomposition agents by track** — run both in parallel if both tracks have elaborated ideas:
 
-- For **dev ideas** (`feature` or `technical-baseline`): spawn a `Software Architect` agent.
-- For **business-operation ideas**: spawn a `Product Manager` agent.
+- For **dev ideas** (`feature` or `technical-baseline`): spawn the agent selected as `$dev_decomp_agent`.
+- For **business-operation ideas**: spawn the agent selected as `$ops_decomp_agent`.
 
 Provide each agent with:
 - Their subset of elaborated ideas (titles, descriptions, all card comments, card IDs, and category)
