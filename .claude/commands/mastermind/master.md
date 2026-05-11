@@ -166,89 +166,77 @@ If mode = auto: proceed immediately.
 
 Follow the Monotask Space+Board Setup Procedure from `_protocol.md`. Resolve the space **once**, then create one board per active domain. Use `project_name` as the space name so all boards across repos and domains share the same space.
 
-```bash
-# Require bash 4.3+ for associative arrays and namerefs (local -n introduced in 4.3)
-# macOS ships bash 3.2; install via: brew install bash
-(( BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] < 403 )) && \
-  { echo "ERROR: bash 4.3+ required for namerefs (current: $BASH_VERSION). Install: brew install bash"; exit 1; }
+**Board naming convention:** Every board is named `<project_name>-<domain>` (e.g. `factory-idea`, `factory-build`). This canonical name is stable across runs — mastermind finds the existing board instead of creating a new one every time.
 
+```bash
+# Compatible with macOS bash 3.2 — no associative arrays, uses jq accumulation instead
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
 
-# Reload persisted context (this is a fresh shell; Step 3 wrote these)
 SESSION_ID=$(jq -r '.sessionId // empty' "$SESSION_STATE" 2>/dev/null)
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID missing in current.json — run Step 3 first"; exit 1; }
 project_name=$(jq -r '.project_name // ""' "$SESSION_STATE")
 [ -z "$project_name" ] && { echo "ERROR: project_name is empty in current.json — run Step 3 first"; exit 1; }
 resolved_prompt=$(jq -r '.prompt // ""' "$SESSION_STATE")
 
-# domains_needed: NOT yet in current.json at this point — must be LLM-substituted inline.
 # LLM: replace DOMAINS_LIST_HERE with space-separated domain names, e.g.: build marketing sales
-# Domain names must be single words (no spaces). Example: "build marketing sales"
+domains_needed="DOMAINS_LIST_HERE"
+[ "$domains_needed" = "DOMAINS_LIST_HERE" ] && { echo "ERROR: LLM did not substitute DOMAINS_LIST_HERE"; exit 1; }
+[ -z "$domains_needed" ] && { echo "ERROR: domains_needed is empty — nothing to do"; exit 1; }
 
-# Resolve space once for all domains
-# Use awk with literal pipe to avoid BSD awk \| regex fragility
-space_id=$(monotask space list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$2); if($2==n) gsub(/^ +| +$/,"",$1); if($2==n) print $1}' n="$project_name" | head -1)
+# Resolve space once — find existing by exact name or create
+space_id=$(monotask space list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$project_name" | head -1)
 [ -z "$space_id" ] && space_id=$(monotask space create "$project_name" 2>/dev/null | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 [ -z "$space_id" ] && { echo "ERROR: Could not find or create space '$project_name'"; exit 1; }
+echo "Space: $space_id ($project_name)"
 
-# Associative arrays — no eval, no injection risk
-declare -A board_ids todo_cols doing_cols done_cols domain_goals
+# jq accumulation state (replaces bash 4.3+ associative arrays)
+state_patch='{}'
 
-# Hydrate domain_goals from Step 4's current.json write — prevents Step 4 extraction being clobbered
-# Use NUL-delimited pairs (not @tsv) to safely handle backslashes, tabs, and other special chars in goals
-while IFS= read -r -d '' k && IFS= read -r -d '' v; do
-  [[ -n "$k" ]] && domain_goals[$k]="$v"
-done < <(jq -j '.domain_goals // {} | to_entries[] | (.key + "\u0000" + (.value // "") + "\u0000")' "$SESSION_STATE" 2>/dev/null)
-
-# Loop over every active domain — LLM: replace DOMAINS_LIST_HERE with the resolved domain list
-domains_needed="DOMAINS_LIST_HERE"
-[ "$domains_needed" = "DOMAINS_LIST_HERE" ] && { echo "ERROR: LLM did not substitute DOMAINS_LIST_HERE with domain names"; exit 1; }
-[ -z "$domains_needed" ] && { echo "ERROR: domains_needed is empty — nothing to do"; exit 1; }
 for domain in $domains_needed; do
-  board_id=$(monotask board create "$domain" --json | jq -r '.id // empty')
-  [ -z "$board_id" ] && { echo "ERROR: Failed to create $domain board"; exit 1; }
-  monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 \
-    || echo "WARN: could not attach $domain board to space $space_id (non-fatal)"
-  todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id // empty')
-  [ -z "$todo_col" ] && { echo "ERROR: Failed to create Todo column for $domain"; exit 1; }
-  doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id // empty')
-  [ -z "$doing_col" ] && { echo "ERROR: Failed to create Doing column for $domain"; exit 1; }
-  done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id // empty')
-  [ -z "$done_col" ] && { echo "ERROR: Failed to create Done column for $domain"; exit 1; }
-  board_ids[$domain]=$board_id
-  todo_cols[$domain]=$todo_col
-  doing_cols[$domain]=$doing_col
-  done_cols[$domain]=$done_col
-  # Fall back to full prompt only for domains not extracted by Step 4
-  [ -z "${domain_goals[$domain]}" ] && domain_goals[$domain]="$resolved_prompt"
+  canonical="${project_name}-${domain}"
+
+  # Find existing board by canonical name — reuse across runs
+  board_id=$(monotask board list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$canonical" | head -1)
+
+  if [ -n "$board_id" ]; then
+    echo "Reusing board: $board_id ($canonical)"
+    # Fetch existing column IDs
+    cols_json=$(monotask column list "$board_id" --json 2>/dev/null || echo '[]')
+    todo_col=$(echo "$cols_json" | jq -r '[.[] | select(.title=="Todo" or .title=="Backlog")] | .[0].id // empty')
+    doing_col=$(echo "$cols_json" | jq -r '[.[] | select(.title=="Doing" or .title=="In Progress")] | .[0].id // empty')
+    done_col=$(echo "$cols_json" | jq -r '[.[] | select(.title=="Done")] | .[0].id // empty')
+  else
+    echo "Creating board: $canonical"
+    board_id=$(monotask board create --space "$space_id" "$canonical" --json 2>/dev/null | jq -r '.id // empty')
+    [ -z "$board_id" ] && { echo "ERROR: Failed to create board '$canonical'"; exit 1; }
+    monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
+    todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id // empty')
+    [ -z "$todo_col" ] && { echo "ERROR: Failed to create Todo column for $domain"; exit 1; }
+    doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id // empty')
+    [ -z "$doing_col" ] && { echo "ERROR: Failed to create Doing column for $domain"; exit 1; }
+    done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id // empty')
+    [ -z "$done_col" ] && { echo "ERROR: Failed to create Done column for $domain"; exit 1; }
+  fi
+
+  domain_goal=$(jq -r --arg d "$domain" '.domain_goals[$d] // empty' "$SESSION_STATE")
+  [ -z "$domain_goal" ] && domain_goal="$resolved_prompt"
+
+  state_patch=$(echo "$state_patch" | jq \
+    --arg d "$domain" --arg b "$board_id" \
+    --arg t "$todo_col" --arg g "$doing_col" --arg e "$done_col" \
+    --arg goal "$domain_goal" \
+    '.board_ids[$d]=$b | .todo_cols[$d]=$t | .doing_cols[$d]=$g | .done_cols[$d]=$e | .domain_goals[$d]=$goal')
+
+  echo "DOMAIN=$domain BOARD=$board_id TODO=$todo_col DOING=$doing_col DONE=$done_col"
 done
 
-# Persist all session state needed by later shells — board/col IDs, goals, domain list
-# (each Bash tool call is a fresh shell — associative arrays don't survive)
-_to_json_map() {
-  local -n _arr=$1
-  for k in "${!_arr[@]}"; do
-    jq -n --arg k "$k" --arg v "${_arr[$k]}" '{key:$k,value:$v}'
-  done | jq -s 'from_entries // {}'
-}
-domains_goals_json=$(_to_json_map domain_goals)
-board_ids_json=$(_to_json_map board_ids)
-todo_cols_json=$(_to_json_map todo_cols)
-doing_cols_json=$(_to_json_map doing_cols)
-done_cols_json=$(_to_json_map done_cols)
-
+# Persist to current.json — one atomic merge
 jq --arg domains "$domains_needed" \
-   --argjson goals "$domains_goals_json" \
-   --argjson boards "$board_ids_json" \
-   --argjson todos "$todo_cols_json" \
-   --argjson doings "$doing_cols_json" \
-   --argjson dones "$done_cols_json" \
-  '. + {domains_needed:($domains | split(" ") | map(select(length>0))),
-         domain_goals:$goals, board_ids:$boards,
-         todo_cols:$todos, doing_cols:$doings, done_cols:$dones}' \
-  "$REPO_ROOT/.monomind/sessions/current.json" > "$REPO_ROOT/.monomind/sessions/current.json.tmp" \
-  && mv "$REPO_ROOT/.monomind/sessions/current.json.tmp" "$REPO_ROOT/.monomind/sessions/current.json"
+   --argjson patch "$state_patch" \
+  '. + $patch + {domains_needed:($domains | split(" ") | map(select(length>0)))}' \
+  "$SESSION_STATE" > "$SESSION_STATE.tmp" && mv "$SESSION_STATE.tmp" "$SESSION_STATE"
+echo "Session state saved to current.json"
 ```
 
 ### Step 7 — Spawn Domain Managers
