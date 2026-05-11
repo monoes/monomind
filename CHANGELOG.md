@@ -4,6 +4,14 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.4] — 2026-05-10
+
+### Fixed
+
+- **`monomind init` SQLite BUSY error on knowledge graph build**: Three concurrent writes were racing to the same `monograph.db` — an in-process `buildAsync` call in `initKnowledgeGraph`, a spawned `monograph build --code-only` process, and the session-start hook's `graphify-freshen.cjs` build. Fixed by: (1) removing the in-process `buildAsync` call from `initKnowledgeGraph` — the directory is created, build is delegated to the spawned process; (2) removing the redundant `monograph build --code-only` spawn from `init.ts` — `monograph watch` already does an initial build; (3) adding a `build.lock` file guard to `graphify-freshen.cjs` so it skips if a build started within the last 5 minutes.
+
+---
+
 ## [1.9.3] — 2026-05-10
 
 ### Fixed

@@ -52,8 +52,29 @@ if (!entryPoint) {
   process.exit(0);
 }
 
+// Skip if another build is already in progress (avoids SQLite BUSY on concurrent init + session-start)
+const lockPath = path.join(graphDir, 'build.lock');
+const now = Date.now();
+try {
+  const stat = fs.statSync(lockPath);
+  // Stale lock older than 5 minutes — remove it and proceed
+  if (now - stat.mtimeMs < 5 * 60 * 1000) {
+    console.log('[graph] build already in progress — skipping');
+    process.exit(0);
+  }
+  fs.unlinkSync(lockPath);
+} catch { /* lock does not exist — proceed */ }
+
+// Write lock file; the build process removes it on completion
+try { fs.writeFileSync(lockPath, String(process.pid)); } catch { /* non-fatal */ }
+
 // Spawn a detached node process to run buildAsync from @monoes/monograph (ESM)
-const script = `import { buildAsync } from ${JSON.stringify('file://' + entryPoint)}; await buildAsync(${JSON.stringify(projectDir)});`;
+const script = `
+import { buildAsync } from ${JSON.stringify('file://' + entryPoint)};
+import { unlinkSync } from 'fs';
+try { await buildAsync(${JSON.stringify(projectDir)}); } finally {
+  try { unlinkSync(${JSON.stringify(lockPath)}); } catch {}
+}`;
 const child = spawn(process.execPath, ['--input-type=module', '--eval', script], {
   detached: true,
   stdio: ['ignore', logFd, logFd],
