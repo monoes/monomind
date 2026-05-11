@@ -108,6 +108,8 @@ Complexity threshold for manager agent: any of these is true:
 - Has external dependencies (APIs, services)
 - Is estimated to take more than one conversation turn
 
+**DOMAIN EXCEPTION — `idea`:** The `idea` domain MUST always be handled by the master invoking `Skill("mastermind:idea")` directly — NEVER by spawning a Task agent. Spawned agents do not have Skill tool access, so delegating `idea` to a Task agent silently degrades to raw analysis with no pipeline execution. After `mastermind:idea` returns, treat its output as the `idea` domain's unified output schema and proceed to the next domain.
+
 **Per-domain goal extraction:** For each activated domain, extract a one-sentence goal from the prompt describing what that domain must accomplish. Then **run the following Bash block**, substituting `<domain_goals_json>` with a JSON object mapping each domain name to its one-sentence goal (use the full `resolved_prompt` as the value for any domain where no specific goal is extractable):
 
 ```bash
@@ -251,7 +253,11 @@ jq --arg domains "$domains_needed" \
 
 ### Step 7 — Spawn Domain Managers
 
+**BEFORE THIS STEP:** If `idea` is in `domains_needed`, invoke `Skill("mastermind:idea")` directly now (master context has Skill tool access). Pass the resolved prompt, project path, and mode. Write the result to `.monomind/sessions/<SESSION_ID>/idea.json` and mark the `idea` domain as handled. Do NOT include `idea` in the Task spawning below.
+
 **Before spawning**, select the best domain manager agent type from the registry for each active domain. Do not hardcode `coordinator` — pick the agent whose expertise best fits the domain goal.
+
+**BASH TOOL REQUIREMENT:** Domain managers must run `monotask` CLI commands. Only use subagent_types that include Bash in their tool list. If the registry returns an agent without Bash (e.g. `Product Manager`, `Backend Architect`), override it with `general-purpose` (which has all tools). Agents without Bash cannot create cards, emit curl events, or write session files — they will silently produce degraded output.
 
 **Phase A — Registry selection** (run as one Bash call; must complete before Phase C):
 

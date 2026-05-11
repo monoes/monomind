@@ -4,6 +4,17 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.15] — 2026-05-11
+
+### Fixed
+
+- **mastermind:master — `idea` domain degraded silently when delegated to Task agent**: Spawned Task agents do not have Skill tool access, so `Skill("mastermind:idea")` invocations inside domain manager agents silently fell back to raw PM analysis with no pipeline execution. Fixed by adding a hard rule in `master.md` Step 4/7: the `idea` domain must always be invoked directly by the master (which has Skill tool) — never delegated to a Task agent.
+- **mastermind:master — domain managers without Bash produced degraded output**: Agent types like `Product Manager` and `Backend Architect` do not include Bash in their tool set. Without Bash, domain managers cannot run `monotask` CLI commands, emit `curl` dashboard events, or write session files. Added explicit guidance in `master.md` Step 7: only use subagent_types with Bash; override to `general-purpose` (all tools) if the registry match lacks Bash.
+- **mastermind _protocol.md — Brain Load/Write silently skipped when AgentDB bridge offline**: `agentdb_hierarchical-recall` and `agentdb_hierarchical-store` return "AgentDB bridge not available" in environments where the bridge isn't running. Both procedures now fall back to `memory_search` (brain load) and `memory_store` (brain write) when AgentDB is unavailable, ensuring run context is always loaded and decisions are always persisted.
+- **mastermind _protocol.md — dashboard events used WebFetch which is blocked for localhost**: WebFetch is restricted for `localhost` URLs in Claude Code agent runtimes, causing ECONNREFUSED on all dashboard event emissions. Replaced the `WebFetch` emit pattern with `curl` in `_protocol.md`. Added explicit note that agents without Bash should skip dashboard events (they are observability-only; the master emits the critical session-level events).
+
+---
+
 ## [1.9.14] — 2026-05-11
 
 ### Fixed
