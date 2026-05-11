@@ -4,6 +4,15 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.14] — 2026-05-11
+
+### Fixed
+
+- **Knowledge graph auto-installs `@monoes/monograph` if missing**: `initKnowledgeGraph` now attempts `npm install @monoes/monograph` in the target directory when the package cannot be resolved via the normal lookup, then retries resolution. The graph will build even in environments where the package was not installed. Only if auto-install also fails does init fall back to `result.skipped`.
+- **`/monomind:understand` suggestion now prominent**: The post-init output box for running `/monomind:understand` is now rendered as a bold bordered callout instead of dim text, making it impossible to miss after `monomind init`.
+
+---
+
 ## [1.9.13] — 2026-05-11
 
 ### Fixed
