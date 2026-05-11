@@ -392,16 +392,62 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
 }
 
 /**
- * Initialize the Monograph knowledge graph output directory.
- * The actual build is kicked off by init.ts after executeInit returns,
- * as a detached child process — keeping it out-of-process avoids SQLite
- * lock contention with any concurrently-running session-start hooks.
+ * Initialize the Monograph knowledge graph.
+ * Spawns buildAsync as a detached child process to avoid SQLite lock contention.
+ * Uses the same build.lock file as graphify-freshen.cjs — if a session-start
+ * hook build is already running, we skip to avoid SQLITE_BUSY.
  */
 async function initKnowledgeGraph(targetDir: string, result: InitResult): Promise<void> {
-  const { mkdirSync } = await import('fs');
+  const { mkdirSync, statSync, unlinkSync, writeFileSync, existsSync } = await import('fs');
   const outputDir = path.join(targetDir, '.monomind', 'graph');
   mkdirSync(outputDir, { recursive: true });
-  result.created.files.push('.monomind/graph/ (knowledge graph directory, build starts after init)');
+
+  const lockPath = path.join(outputDir, 'build.lock');
+  const now = Date.now();
+
+  // If graphify-freshen.cjs (session-start hook) already holds a fresh lock, skip.
+  try {
+    const stat = statSync(lockPath);
+    if (now - stat.mtimeMs < 5 * 60 * 1000) {
+      result.skipped.push('knowledge graph build: already in progress (session-start hook running)');
+      return;
+    }
+    unlinkSync(lockPath);
+  } catch { /* no lock — proceed */ }
+
+  // Resolve @monoes/monograph from the CLI package's own node_modules first
+  // (correct for npm/npx installs), then fall back to user project node_modules.
+  let entryPoint: string | null = null;
+  try {
+    const cliRequire = createRequire(import.meta.url);
+    entryPoint = cliRequire.resolve('@monoes/monograph/dist/src/index.js');
+  } catch {
+    const fallback = path.join(targetDir, 'node_modules', '@monoes', 'monograph', 'dist', 'src', 'index.js');
+    if (existsSync(fallback)) entryPoint = fallback;
+  }
+  if (!entryPoint) {
+    result.skipped.push('knowledge graph: @monoes/monograph not found');
+    return;
+  }
+
+  // Acquire lock before spawning so graphify-freshen.cjs sees it and skips
+  try { writeFileSync(lockPath, String(process.pid)); } catch { /* non-fatal */ }
+
+  const { spawn } = await import('child_process');
+  const script = `
+import { buildAsync } from ${JSON.stringify('file://' + entryPoint)};
+import { unlinkSync } from 'fs';
+try { await buildAsync(${JSON.stringify(targetDir)}); } finally {
+  try { unlinkSync(${JSON.stringify(lockPath)}); } catch {}
+}`;
+  const child = spawn(process.execPath, ['--input-type=module', '--eval', script], {
+    detached: true,
+    stdio: 'ignore',
+    cwd: targetDir,
+  });
+  child.unref();
+
+  result.created.files.push('.monomind/graph/ (knowledge graph building in background)');
 }
 
 /**
