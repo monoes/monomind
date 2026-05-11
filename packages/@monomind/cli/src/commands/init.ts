@@ -283,13 +283,18 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       ].filter(Boolean));
     }
 
-    // Recommend UA semantic enrichment
+    // Recommend semantic enrichment — prominent callout, not buried tip
     output.writeln('');
-    output.writeln(output.bold('Tip: Enrich your knowledge graph with semantic summaries'));
-    output.writeln(output.dim('  Run /monomind:understand in Claude Code to analyze your project'));
-    output.writeln(output.dim('  and add LLM-generated summaries, tags, and architectural layers'));
-    output.writeln(output.dim(`  to the monograph graph. This gives Claude Code a richer mental`));
-    output.writeln(output.dim(`  model of your codebase from the very first session.`));
+    output.writeln(output.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+    output.writeln(output.bold('  Run /monomind:understand next'));
+    output.writeln('');
+    output.writeln('  In Claude Code, type:  /monomind:understand');
+    output.writeln('');
+    output.writeln('  This analyzes your project with an LLM and enriches the');
+    output.writeln('  knowledge graph with semantic summaries, tags, and layers.');
+    output.writeln('  Claude Code will have a much richer mental model of your');
+    output.writeln('  codebase from the very first session.');
+    output.writeln(output.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
 
     if (ctx.flags.format === 'json') {
       output.printJson(result);
