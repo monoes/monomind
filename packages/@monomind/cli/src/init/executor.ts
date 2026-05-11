@@ -425,8 +425,23 @@ async function initKnowledgeGraph(targetDir: string, result: InitResult): Promis
     if (fs.existsSync(fallback)) entryPoint = fallback;
   }
   if (!entryPoint) {
-    result.skipped.push('knowledge graph: @monoes/monograph not found');
-    return;
+    // Auto-install @monoes/monograph and retry before giving up
+    try {
+      const { execSync } = await import('child_process');
+      execSync('npm install @monoes/monograph', { cwd: targetDir, stdio: 'ignore', timeout: 60000 });
+      try {
+        const cliRequire2 = createRequire(import.meta.url);
+        entryPoint = cliRequire2.resolve('@monoes/monograph/dist/src/index.js');
+      } catch {
+        const fallback2 = path.join(targetDir, 'node_modules', '@monoes', 'monograph', 'dist', 'src', 'index.js');
+        if (fs.existsSync(fallback2)) entryPoint = fallback2;
+      }
+    } catch { /* install failed, fall through */ }
+    if (!entryPoint) {
+      result.skipped.push('knowledge graph: @monoes/monograph not found (auto-install failed)');
+      return;
+    }
+    result.created.files.push('@monoes/monograph (auto-installed for knowledge graph)');
   }
 
   // Acquire lock before spawning so graphify-freshen.cjs sees it and skips
