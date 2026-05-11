@@ -4,6 +4,15 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.7] — 2026-05-11
+
+### Fixed
+
+- **`initKnowledgeGraph` fd leak**: Parent process held the log file descriptor open after spawning the detached build child. Added `fs.closeSync(logFd)` after `child.unref()` so the parent releases its copy; the child retains its own inherited copy.
+- **Redundant dynamic `import('fs')` in `initKnowledgeGraph`**: Function was doing two separate `await import('fs')` calls to destructure individual functions despite a top-level `import * as fs` being available. Unified to use the top-level `fs.*` namespace, consistent with the rest of the file.
+
+---
+
 ## [1.9.6] — 2026-05-11
 
 ### Fixed

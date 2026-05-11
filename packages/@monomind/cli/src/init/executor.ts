@@ -398,21 +398,20 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
  * hook build is already running, we skip to avoid SQLITE_BUSY.
  */
 async function initKnowledgeGraph(targetDir: string, result: InitResult): Promise<void> {
-  const { mkdirSync, statSync, unlinkSync, writeFileSync, existsSync } = await import('fs');
   const outputDir = path.join(targetDir, '.monomind', 'graph');
-  mkdirSync(outputDir, { recursive: true });
+  fs.mkdirSync(outputDir, { recursive: true });
 
   const lockPath = path.join(outputDir, 'build.lock');
   const now = Date.now();
 
   // If graphify-freshen.cjs (session-start hook) already holds a fresh lock, skip.
   try {
-    const stat = statSync(lockPath);
+    const stat = fs.statSync(lockPath);
     if (now - stat.mtimeMs < 5 * 60 * 1000) {
       result.skipped.push('knowledge graph build: already in progress (session-start hook running)');
       return;
     }
-    unlinkSync(lockPath);
+    fs.unlinkSync(lockPath);
   } catch { /* no lock — proceed */ }
 
   // Resolve @monoes/monograph from the CLI package's own node_modules first
@@ -423,7 +422,7 @@ async function initKnowledgeGraph(targetDir: string, result: InitResult): Promis
     entryPoint = cliRequire.resolve('@monoes/monograph/dist/src/index.js');
   } catch {
     const fallback = path.join(targetDir, 'node_modules', '@monoes', 'monograph', 'dist', 'src', 'index.js');
-    if (existsSync(fallback)) entryPoint = fallback;
+    if (fs.existsSync(fallback)) entryPoint = fallback;
   }
   if (!entryPoint) {
     result.skipped.push('knowledge graph: @monoes/monograph not found');
@@ -431,13 +430,12 @@ async function initKnowledgeGraph(targetDir: string, result: InitResult): Promis
   }
 
   // Acquire lock before spawning so graphify-freshen.cjs sees it and skips
-  try { writeFileSync(lockPath, String(process.pid)); } catch { /* non-fatal */ }
+  try { fs.writeFileSync(lockPath, String(process.pid)); } catch { /* non-fatal */ }
 
   const { spawn } = await import('child_process');
-  const { openSync } = await import('fs');
   const logPath = path.join(outputDir, 'build.log');
   let logFd: number | 'ignore' = 'ignore';
-  try { logFd = openSync(logPath, 'a'); } catch { /* non-fatal */ }
+  try { logFd = fs.openSync(logPath, 'a'); } catch { /* non-fatal */ }
 
   const script = `
 import { buildAsync } from ${JSON.stringify('file://' + entryPoint)};
@@ -451,6 +449,10 @@ try { await buildAsync(${JSON.stringify(targetDir)}); } finally {
     cwd: targetDir,
   });
   child.unref();
+  // Close the parent's copy of the fd — the child has its own inherited copy
+  if (typeof logFd === 'number') {
+    try { fs.closeSync(logFd); } catch { /* non-fatal */ }
+  }
 
   result.created.files.push('.monomind/graph/ (knowledge graph building in background)');
 }
