@@ -81,8 +81,8 @@ space_id=$(monotask space list 2>/dev/null | awk -F' \| ' -v n="$project_name" '
 **Memory-first board lookup:** Check memory for `"mastermind-idea board_id"` in namespace `monomind`. If a board ID is returned, use it as `BOARD_ID` and look up the existing column IDs. Otherwise, create the board:
 
 ```bash
-BOARD_ID=$(monotask board create "ideation" --json | jq -r '.id // empty')
-[ -z "$BOARD_ID" ] && { echo "ERROR: Failed to create ideation board"; exit 1; }
+BOARD_ID=$(monotask board create "Ideas & Innovation" --json | jq -r '.id // empty')
+[ -z "$BOARD_ID" ] && { echo "ERROR: Failed to create Ideas & Innovation board"; exit 1; }
 monotask space boards add "$space_id" "$BOARD_ID" >/dev/null 2>&1 || true
 npx monomind@latest memory store --key "mastermind-idea board_id" --value "$BOARD_ID" --namespace monomind
 
@@ -105,6 +105,26 @@ COL_ELABORATED=$(echo "$columns"| jq -r '.[] | select(.title == "Elaborated") | 
 COL_TASKED=$(echo "$columns"    | jq -r '.[] | select(.title == "Tasked")     | .id' | head -1)
 COL_ICED=$(echo "$columns"      | jq -r '.[] | select(.title == "Iced")       | .id' | head -1)
 COL_REJECTED=$(echo "$columns"  | jq -r '.[] | select(.title == "Rejected")   | .id' | head -1)
+```
+
+**After either branch above, validate and echo all values.** This is the canonical source for Step 4 Task construction.
+
+```bash
+# Validate BOARD_ID looks like a UUID before proceeding
+[[ ! "$BOARD_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] && \
+  { echo "ERROR: BOARD_ID '$BOARD_ID' is not a valid UUID — aborting to prevent board name corruption"; exit 1; }
+
+# Echo literal values — READ THESE and embed them as string literals in the Step 4 Task prompt.
+# These are shell variables; they DO NOT survive into the Task agent's context.
+echo "=== IDEA BOARD LITERAL VALUES ==="
+echo "BOARD_ID=$BOARD_ID"
+echo "COL_NEW=$COL_NEW"
+echo "COL_EVALUATED=$COL_EVALUATED"
+echo "COL_ELABORATED=$COL_ELABORATED"
+echo "COL_TASKED=$COL_TASKED"
+echo "COL_ICED=$COL_ICED"
+echo "COL_REJECTED=$COL_REJECTED"
+echo "==================================="
 ```
 
 ---
@@ -152,7 +172,8 @@ specialist_list=$(echo "$user_market_agents $tech_agents" | jq -Rs \
 echo "Selected specialists: $specialist_list"
 ```
 
-Substitute all template variables (`BOARD_ID`, `COL_NEW`, `project_name`, `brain_context`, `prompt`, `date`, `specialist_list`) with their actual values before calling Task.
+**CRITICAL — Variable substitution required before constructing the Task call:**
+The Task agent runs in an isolated context and cannot inherit shell variables. Before writing the Task prompt below, read the literal UUID values from the `=== IDEA BOARD LITERAL VALUES ===` echo block above and embed them as **hard-coded strings** in the prompt. Do NOT write `${BOARD_ID}`, `${COL_NEW}`, etc. in the prompt — the agent will receive those as literal dollar-sign strings and its `monotask card create` calls will fail, causing it to improvise with `monotask board create` and corrupt board names. Replace every `${BOARD_ID}`, `${COL_NEW}`, `${project_name}`, `${brain_context}`, `${prompt}`, `${date}`, and `${specialist_list}` with the actual value before calling Task.
 
 Spawn the Idea Manager with `run_in_background: false` so its output is available for Step 5.
 
@@ -161,7 +182,9 @@ Task({
   subagent_type: "coordinator",
   description: "Idea Manager for project " + project_name,
   run_in_background: false,
-  prompt: `You are the Idea Manager for project "${project_name}".
+  prompt: `SAFETY CHECK: Before doing anything else, verify that the BOARD_ID you received matches UUID format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (8-4-4-4-12 hex chars). If it does not, STOP immediately and report "ERROR: BOARD_ID was not substituted — received: <value>". Do NOT call monotask board create, monotask space create, or any board/space/column creation commands. Your only job is creating CARDS on the board you were given.
+
+You are the Idea Manager for project "${project_name}".
 
 CONTEXT: ${date} | Project: ${project_name} | Spawned by: mastermind:idea
 
@@ -495,14 +518,14 @@ END_TASKS_OUTPUT
 
 ---
 
-**Dev task board** (`feature` / `technical-baseline` → `monomind-task`):
+**Dev task board** (`feature` / `technical-baseline` → `Implementation Tasks`):
 
-Check memory for `"monomind-task board_id"` in namespace `monomind`. If found, use it as `TASK_BOARD_ID`. Otherwise create it:
+Check memory for `"implementation-tasks board_id"` in namespace `monomind`. If found, use it as `TASK_BOARD_ID`. Otherwise create it:
 
 ```bash
-TASK_BOARD_ID=$(monotask board create "monomind-task" --json | jq -r '.id // empty')
+TASK_BOARD_ID=$(monotask board create "Implementation Tasks" --json | jq -r '.id // empty')
 monotask space boards add "$space_id" "$TASK_BOARD_ID" >/dev/null 2>&1 || true
-npx monomind@latest memory store --key "monomind-task board_id" --value "$TASK_BOARD_ID" --namespace monomind
+npx monomind@latest memory store --key "implementation-tasks board_id" --value "$TASK_BOARD_ID" --namespace monomind
 monotask column create "$TASK_BOARD_ID" "Backlog"       --json >/dev/null
 monotask column create "$TASK_BOARD_ID" "Todo"          --json >/dev/null
 monotask column create "$TASK_BOARD_ID" "In Progress"   --json >/dev/null
@@ -520,14 +543,14 @@ TASK_COL_BACKLOG=$(echo "$task_columns" | jq -r '.[] | select(.title == "Backlog
 
 ---
 
-**Ops task board** (`business-operation` → `monomind-ops-task`):
+**Ops task board** (`business-operation` → `Operations Tasks`):
 
-Check memory for `"monomind-ops-task board_id"` in namespace `monomind`. If found, use it as `OPS_BOARD_ID`. Otherwise create it:
+Check memory for `"operations-tasks board_id"` in namespace `monomind`. If found, use it as `OPS_BOARD_ID`. Otherwise create it:
 
 ```bash
-OPS_BOARD_ID=$(monotask board create "monomind-ops-task" --json | jq -r '.id // empty')
+OPS_BOARD_ID=$(monotask board create "Operations Tasks" --json | jq -r '.id // empty')
 monotask space boards add "$space_id" "$OPS_BOARD_ID" >/dev/null 2>&1 || true
-npx monomind@latest memory store --key "monomind-ops-task board_id" --value "$OPS_BOARD_ID" --namespace monomind
+npx monomind@latest memory store --key "operations-tasks board_id" --value "$OPS_BOARD_ID" --namespace monomind
 monotask column create "$OPS_BOARD_ID" "Backlog"       --json >/dev/null
 monotask column create "$OPS_BOARD_ID" "Todo"          --json >/dev/null
 monotask column create "$OPS_BOARD_ID" "In Progress"   --json >/dev/null
@@ -551,11 +574,11 @@ OPS_COL_BACKLOG=$(echo "$ops_columns" | jq -r '.[] | select(.title == "Backlog")
 if [ "$category" = "business-operation" ]; then
   TARGET_BOARD="$OPS_BOARD_ID"
   COL_TARGET=$([ "$has_prerequisites" = "true" ] && echo "$OPS_COL_BACKLOG" || echo "$OPS_COL_TODO")
-  BOARD_LABEL="monomind-ops-task"
+  BOARD_LABEL="Operations Tasks"
 else
   TARGET_BOARD="$TASK_BOARD_ID"
   COL_TARGET=$([ "$has_prerequisites" = "true" ] && echo "$TASK_COL_BACKLOG" || echo "$TASK_COL_TODO")
-  BOARD_LABEL="monomind-task"
+  BOARD_LABEL="Implementation Tasks"
 fi
 
 TASK_CARD_ID=$(monotask card create "$TARGET_BOARD" "$COL_TARGET" "<task title>" --json | jq -r '.id')
@@ -609,9 +632,9 @@ lessons:
 next_actions:
   - <e.g. "run mastermind:build to prototype chosen direction">
   - <e.g. "run mastermind:research to validate top idea">
-board_url: "monotask://<project_name>/ideation"
-task_board_url: "monotask://<project_name>/monomind-task"
-ops_task_board_url: "monotask://<project_name>/monomind-ops-task"
+board_url: "monotask://<project_name>/Ideas & Innovation"
+task_board_url: "monotask://<project_name>/Implementation Tasks"
+ops_task_board_url: "monotask://<project_name>/Operations Tasks"
 run_id: <ISO8601-timestamp>
 summary:
   ideas_generated: N
