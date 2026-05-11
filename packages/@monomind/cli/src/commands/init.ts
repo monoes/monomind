@@ -110,18 +110,14 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
     spinner.succeed('Monomind initialized successfully!');
 
-    // Trigger background monograph build + continuous watch
+    // Trigger background monograph watch (includes initial build on start).
+    // Only one spawn — avoids SQLite BUSY from concurrent build + watch + session-start hook.
     try {
       const { spawn } = await import('child_process');
-      for (const args of [
-        ['monograph', 'build', '--code-only'],
-        ['monograph', 'watch'],
-      ]) {
-        const proc = spawn(process.execPath, [process.argv[1], ...args], {
-          detached: true, stdio: 'ignore', cwd: ctx.cwd, env: process.env,
-        });
-        proc.unref();
-      }
+      const proc = spawn(process.execPath, [process.argv[1], 'monograph', 'watch'], {
+        detached: true, stdio: 'ignore', cwd: ctx.cwd, env: process.env,
+      });
+      proc.unref();
       output.printInfo('◈ Building knowledge graph in background… (watch mode active)');
     } catch {
       // non-critical
