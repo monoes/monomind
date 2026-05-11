@@ -4,6 +4,17 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.16] — 2026-05-11
+
+### Fixed
+
+- **mastermind — boards multiplied on every run**: Step 6 created a new board on every mastermind run using a generic domain name (e.g. `idea`, `build`). Now boards are named `<project_name>-<domain>` (e.g. `factory-idea`, `factory-build`) and are found-or-created: if a board with that canonical name already exists, it is reused and its column IDs are fetched from the existing board. Boards no longer accumulate across runs.
+- **mastermind — Step 6 required bash 4.3+ (unavailable on macOS)**: The bash block used `declare -A` associative arrays, which require bash 4.3+. macOS ships bash 3.2, causing Step 6 to abort immediately. Replaced all associative arrays with jq accumulation via a `state_patch` JSON variable, fully compatible with bash 3.2.
+- **mastermind — `monotask board create` missing `--space` flag**: Board creation did not pass `--space <space_id>`, which is required by the monotask CLI. Boards are now created with `monotask board create --space "$space_id" "$canonical" --json`.
+- **mastermind `_protocol.md` Monotask Space+Board Setup Procedure**: Updated canonical bash blocks in `_protocol.md` to match the new find-or-create, canonical naming, and bash 3.2 compatible patterns.
+
+---
+
 ## [1.9.15] — 2026-05-11
 
 ### Fixed

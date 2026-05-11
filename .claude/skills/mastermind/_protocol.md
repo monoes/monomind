@@ -247,53 +247,78 @@ curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
 
 **Always follow this exact order — never create a board without first ensuring a space exists.**
 
+**Board naming convention:** Boards are named `<project_name>-<domain>` (e.g. `factory-idea`, `factory-build`). This canonical name is stable across runs — find the existing board first, create only if it does not exist.
+
 Every mastermind run that needs a task board MUST:
 1. Resolve the space (find existing or create new) — space name = `project_name`
-2. Create the board within that space
-3. Link the board to the space immediately after creation
-4. Create columns (Todo → Doing → Done)
-5. Create cards within those columns
+2. Find existing board by canonical name `<project_name>-<domain>` or create it with `--space`
+3. Fetch column IDs from existing board OR create columns for new board
+4. Create cards within those columns
 
 If the user is running across multiple repos for the same project, they MUST use the same `project_name` so all boards land in one space.
 
 ### Canonical bash block (substitute `<domain>` with: build, marketing, ops, content, etc.)
 
 ```bash
-# Step 1 — Resolve space (required; abort if it cannot be created)
+# Compatible with macOS bash 3.2
 project_name="${project_name:-$(basename "$PWD")}"
-space_id=$(monotask space list 2>/dev/null | awk -F' \| ' -v n="$project_name" '$2==n{print $1}' | head -1)
-[ -z "$space_id" ] && space_id=$(monotask space create "$project_name" 2>&1 | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+canonical="${project_name}-<domain>"
+
+# Step 1 — Resolve space
+space_id=$(monotask space list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$project_name" | head -1)
+[ -z "$space_id" ] && space_id=$(monotask space create "$project_name" 2>/dev/null | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 [ -z "$space_id" ] && { echo "ERROR: Could not find or create space '$project_name' — verify monotask is installed (monotask --version)"; exit 1; }
 
-# Step 2 — Create board
-board_id=$(monotask board create "<domain>" --json | jq -r '.id // empty')
-[ -z "$board_id" ] && { echo "ERROR: Failed to create board '<domain>'"; exit 1; }
-
-# Step 3 — Link board to space immediately
-monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
-
-# Step 4 — Create columns
-todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id')
-doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id')
-done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id')
+# Step 2 — Find existing board by canonical name or create
+board_id=$(monotask board list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$canonical" | head -1)
+if [ -n "$board_id" ]; then
+  # Step 3a — Fetch column IDs from existing board
+  cols_json=$(monotask column list "$board_id" --json 2>/dev/null || echo '[]')
+  todo_col=$(echo "$cols_json" | jq -r '[.[] | select(.title=="Todo" or .title=="Backlog")] | .[0].id // empty')
+  doing_col=$(echo "$cols_json" | jq -r '[.[] | select(.title=="Doing" or .title=="In Progress")] | .[0].id // empty')
+  done_col=$(echo "$cols_json" | jq -r '[.[] | select(.title=="Done")] | .[0].id // empty')
+else
+  # Step 3b — Create board and columns
+  board_id=$(monotask board create --space "$space_id" "$canonical" --json | jq -r '.id // empty')
+  [ -z "$board_id" ] && { echo "ERROR: Failed to create board '$canonical'"; exit 1; }
+  monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
+  todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id')
+  doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id')
+  done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id')
+fi
 ```
 
-When master.md runs multiple domains, resolve the space **once** before the loop, then repeat steps 2–4 per domain:
+When master.md runs multiple domains, resolve the space **once** before the loop, then repeat steps 2–3 per domain using jq accumulation (no bash 4.3+ needed):
 
 ```bash
-# Resolve space once
+# Compatible with macOS bash 3.2 — jq accumulation instead of declare -A
 project_name="<resolved project_name>"
-space_id=$(monotask space list 2>/dev/null | awk -F' \| ' -v n="$project_name" '$2==n{print $1}' | head -1)
-[ -z "$space_id" ] && space_id=$(monotask space create "$project_name" 2>&1 | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+space_id=$(monotask space list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$project_name" | head -1)
+[ -z "$space_id" ] && space_id=$(monotask space create "$project_name" 2>/dev/null | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 [ -z "$space_id" ] && { echo "ERROR: Could not find or create space '$project_name'"; exit 1; }
 
-# Repeat per active domain (e.g. build, marketing, ops):
-board_<domain>=$(monotask board create "<domain>" --json | jq -r '.id // empty')
-[ -z "$board_<domain>" ] && { echo "ERROR: Failed to create <domain> board"; exit 1; }
-monotask space boards add "$space_id" "$board_<domain>" >/dev/null 2>&1 || true
-todo_<domain>=$(monotask column create "$board_<domain>" "Todo"  --json | jq -r '.id')
-doing_<domain>=$(monotask column create "$board_<domain>" "Doing" --json | jq -r '.id')
-done_<domain>=$(monotask column create "$board_<domain>" "Done"  --json | jq -r '.id')
+state_patch='{}'
+for domain in build marketing ops; do   # substitute actual domain list
+  canonical="${project_name}-${domain}"
+  board_id=$(monotask board list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$canonical" | head -1)
+  if [ -n "$board_id" ]; then
+    cols_json=$(monotask column list "$board_id" --json 2>/dev/null || echo '[]')
+    todo_col=$(echo "$cols_json" | jq -r '[.[] | select(.title=="Todo" or .title=="Backlog")] | .[0].id // empty')
+    doing_col=$(echo "$cols_json" | jq -r '[.[] | select(.title=="Doing" or .title=="In Progress")] | .[0].id // empty')
+    done_col=$(echo "$cols_json" | jq -r '[.[] | select(.title=="Done")] | .[0].id // empty')
+  else
+    board_id=$(monotask board create --space "$space_id" "$canonical" --json | jq -r '.id // empty')
+    [ -z "$board_id" ] && { echo "ERROR: Failed to create $canonical board"; exit 1; }
+    monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
+    todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id')
+    doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id')
+    done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id')
+  fi
+  state_patch=$(echo "$state_patch" | jq \
+    --arg d "$domain" --arg b "$board_id" \
+    --arg t "$todo_col" --arg g "$doing_col" --arg e "$done_col" \
+    '.board_ids[$d]=$b | .todo_cols[$d]=$t | .doing_cols[$d]=$g | .done_cols[$d]=$e')
+done
 ```
 
 ---
