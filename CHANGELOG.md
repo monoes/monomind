@@ -4,6 +4,14 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.11] — 2026-05-11
+
+### Fixed
+
+- **Mastermind idea: sync root .claude source-of-truth** — v1.9.10 published the idea.md fixes from the package-level copy but the root `.claude/skills/mastermind/idea.md` (source of truth synced at session start) had not been updated. This patch applies all the same fixes to the root file and syncs them into the package before publishing.
+
+---
+
 ## [1.9.10] — 2026-05-11
 
 ### Fixed
