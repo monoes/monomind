@@ -4,6 +4,7 @@
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
+const { pathToFileURL } = require('url');
 
 const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const graphDir = path.join(projectDir, '.monomind', 'graph');
@@ -70,7 +71,7 @@ try { fs.writeFileSync(lockPath, String(process.pid)); } catch { /* non-fatal */
 
 // Spawn a detached node process to run buildAsync from @monoes/monograph (ESM)
 const script = `
-import { buildAsync } from ${JSON.stringify('file://' + entryPoint)};
+import { buildAsync } from ${JSON.stringify(pathToFileURL(entryPoint).href)};
 import { unlinkSync } from 'fs';
 try { await buildAsync(${JSON.stringify(projectDir)}); } finally {
   try { unlinkSync(${JSON.stringify(lockPath)}); } catch {}
