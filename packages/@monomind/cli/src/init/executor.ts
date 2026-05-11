@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { createRequire } from 'module';
 import { dirname } from 'path';
 
@@ -438,7 +438,7 @@ async function initKnowledgeGraph(targetDir: string, result: InitResult): Promis
   try { logFd = fs.openSync(logPath, 'a'); } catch { /* non-fatal */ }
 
   const script = `
-import { buildAsync } from ${JSON.stringify('file://' + entryPoint)};
+import { buildAsync } from ${JSON.stringify(pathToFileURL(entryPoint).href)};
 import { unlinkSync } from 'fs';
 try { await buildAsync(${JSON.stringify(targetDir)}); } finally {
   try { unlinkSync(${JSON.stringify(lockPath)}); } catch {}

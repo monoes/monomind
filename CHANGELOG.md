@@ -4,6 +4,14 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.8] — 2026-05-11
+
+### Fixed
+
+- **Windows `file://` URL construction in inline ESM scripts**: Both `initKnowledgeGraph` (executor.ts) and `graphify-freshen.cjs` built the dynamic `import()` specifier via string concatenation (`'file://' + entryPoint`), which produces an invalid URL on Windows (`file://C:\path\to\index.js` instead of `file:///C:/path/to/index.js`). Fixed by using `pathToFileURL(entryPoint).href` from Node.js's built-in `url` module, which correctly constructs the URL on all platforms.
+
+---
+
 ## [1.9.7] — 2026-05-11
 
 ### Fixed
