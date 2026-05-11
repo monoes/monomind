@@ -4,6 +4,15 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.6] — 2026-05-11
+
+### Fixed
+
+- **`init.ts` misleading comment**: Comment on `monograph watch` spawn claimed "includes initial build on start" — false, `watchAsync` uses `ignoreInitial: true` and never does an initial build. A future dev reading this could have removed `initKnowledgeGraph`'s build logic, recreating the v1.9.4 regression. Comment now correctly documents that the initial build is handled by `initKnowledgeGraph`.
+- **Silent build failure in `initKnowledgeGraph`**: Detached spawn used `stdio: 'ignore'`, so any build error was silently lost. Now redirects stdout/stderr to `.monomind/graph/build.log`, consistent with `graphify-freshen.cjs`.
+
+---
+
 ## [1.9.5] — 2026-05-10
 
 ### Fixed
