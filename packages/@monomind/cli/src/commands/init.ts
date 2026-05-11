@@ -110,8 +110,9 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
 
     spinner.succeed('Monomind initialized successfully!');
 
-    // Trigger background monograph watch (includes initial build on start).
-    // Only one spawn — avoids SQLite BUSY from concurrent build + watch + session-start hook.
+    // Start monograph watch for ongoing file-change rebuilds.
+    // NOTE: watchAsync uses ignoreInitial:true — it does NOT do an initial build.
+    // The initial build is handled by initKnowledgeGraph() above via a detached spawn.
     try {
       const { spawn } = await import('child_process');
       const proc = spawn(process.execPath, [process.argv[1], 'monograph', 'watch'], {
