@@ -4,6 +4,19 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.10] — 2026-05-11
+
+### Fixed
+
+- **Mastermind idea: Idea Manager board name corruption**: When `mastermind:idea` spawned the Idea Manager Task agent, shell variables (`${BOARD_ID}`, `${COL_NEW}`, etc.) were passed as literal template strings rather than substituted values. The agent's `monotask card create "${BOARD_ID}"` calls failed, causing it to improvise with `monotask board create "<idea title>"` — creating boards named after idea titles (e.g. `[#6 · P0 · S] Live ROI Calculator in Blueprint…`).
+  - Added UUID format validation guard after Step 3 board setup: aborts with a clear error if `$BOARD_ID` is not a valid UUID before the Task call is constructed.
+  - Added mandatory `=== IDEA BOARD LITERAL VALUES ===` echo block so all variable values are visible for copy-paste into the Task prompt.
+  - Added explicit **CRITICAL** warning before Step 4 Task call explaining that shell variables do not survive into Task agent context and must be embedded as literal strings.
+  - Added safety check at the top of the Idea Manager Task prompt: agent must verify BOARD_ID is a valid UUID and stop — not create boards or spaces — if it is not.
+  - Corrected remaining board name references: `"ideation"` → `"Ideas & Innovation"`, `"monomind-task"` → `"Implementation Tasks"`, `"monomind-ops-task"` → `"Operations Tasks"`. Memory keys updated to match: `"implementation-tasks board_id"` and `"operations-tasks board_id"`.
+
+---
+
 ## [1.9.9] — 2026-05-11
 
 ### Fixed
