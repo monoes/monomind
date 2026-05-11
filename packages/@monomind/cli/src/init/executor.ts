@@ -434,6 +434,11 @@ async function initKnowledgeGraph(targetDir: string, result: InitResult): Promis
   try { writeFileSync(lockPath, String(process.pid)); } catch { /* non-fatal */ }
 
   const { spawn } = await import('child_process');
+  const { openSync } = await import('fs');
+  const logPath = path.join(outputDir, 'build.log');
+  let logFd: number | 'ignore' = 'ignore';
+  try { logFd = openSync(logPath, 'a'); } catch { /* non-fatal */ }
+
   const script = `
 import { buildAsync } from ${JSON.stringify('file://' + entryPoint)};
 import { unlinkSync } from 'fs';
@@ -442,7 +447,7 @@ try { await buildAsync(${JSON.stringify(targetDir)}); } finally {
 }`;
   const child = spawn(process.execPath, ['--input-type=module', '--eval', script], {
     detached: true,
-    stdio: 'ignore',
+    stdio: ['ignore', logFd, logFd],
     cwd: targetDir,
   });
   child.unref();
