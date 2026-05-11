@@ -4,6 +4,30 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.9] — 2026-05-11
+
+### Fixed
+
+- **Mastermind: boards named with bare identifiers**: Boards created by `/mastermind`, all 11 domain skills (`build`, `marketing`, `sales`, `research`, `content`, `ops`, `release`, `review`, `finance`, `architect`, `idea`), and `/monomind:createtask` were named with terse lowercase slugs (`build`, `marketing`, `ops`, etc.) or internal IDs. All board create calls now use human-readable titles:
+  - `build` → `Development Tasks`
+  - `marketing` → `Marketing Campaigns`
+  - `sales` → `Sales Pipeline`
+  - `research` → `Research & Insights`
+  - `content` → `Content Production`
+  - `ops` → `Operations`
+  - `release` → `Release Management`
+  - `review` → `Code Review`
+  - `finance` → `Finance & Budget`
+  - `architect` → `System Architecture`
+  - `idea` → `Ideas & Innovation`
+  - `ideation` (idea skill secondary) → `Ideas & Innovation`
+  - `monomind-task` (idea + createtask) → `Implementation Tasks`
+  - `monomind-ops-task` (idea) → `Operations Tasks`
+- **`master.md` domain label lookup table**: Step 6 now declares a `domain_labels` associative array mapping every domain identifier to its human-readable board title; boards are created with `${domain_labels[$domain]:-"$domain"}` so any unknown future domain still gets a reasonable name.
+- **`_protocol.md` canonical template**: Updated to use `<board_title>` placeholder and added the full domain→title reference table so all skill authors use consistent names.
+
+---
+
 ## [1.9.8] — 2026-05-11
 
 ### Fixed
