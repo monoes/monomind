@@ -4,6 +4,14 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.5] — 2026-05-10
+
+### Fixed
+
+- **`initKnowledgeGraph` regression**: v1.9.4 removed the initial `buildAsync` call and relied on `monograph watch` for the build, but `watchAsync` uses `ignoreInitial: true` so it never builds on startup — only on file changes. Running `monomind init` in a plain terminal (outside Claude Code) would leave the graph permanently unbuilt. Restored the initial build as a lock-aware detached spawn using `createRequire(import.meta.url)` to resolve `@monoes/monograph` from the CLI's own node_modules (correct for npm/npx installs), falling back to the user project's node_modules.
+
+---
+
 ## [1.9.4] — 2026-05-10
 
 ### Fixed
