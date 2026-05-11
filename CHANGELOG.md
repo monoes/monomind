@@ -4,6 +4,16 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.13] — 2026-05-11
+
+### Fixed
+
+- **Knowledge graph never built after `monomind init`**: The published `@monoes/monomindcli` package had `"@monoes/monograph": "workspace:*"` and `"@monomind/routing": "workspace:*"` in dependencies. `workspace:*` is a pnpm monorepo protocol that npm does not resolve — npm installed neither package, so `cliRequire.resolve('@monoes/monograph/…')` always threw, `initKnowledgeGraph` always hit the `result.skipped` branch, and the knowledge graph was never built. `monomind:understand` and any other skill relying on `monograph.db` then failed with "monograph.db not found".
+  - `@monoes/monograph` is now declared as `"^1.1.0"` (the published version), so npm installs it as a real dependency.
+  - `@monomind/routing` is removed from dependencies entirely — every usage in the CLI is inside a `try/catch` with an explicit "optional — may not be installed" comment, so removing it is safe.
+
+---
+
 ## [1.9.12] — 2026-05-11
 
 ### Fixed
