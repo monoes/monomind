@@ -270,10 +270,16 @@ Parse the `IDEAS_OUTPUT` JSON block from the agent's response. If zero ideas wer
 
 ### Step 5 — Validation (Product Manager Evaluation)
 
+**CRITICAL — Variable substitution required for Step 5 Task call:**
+The PM agent runs in an isolated Task context and cannot inherit shell variables. Read the literal UUID values from the `=== IDEA BOARD LITERAL VALUES ===` echo block (Step 3) and embed them as hard-coded strings in the Task prompt. Do NOT pass `${BOARD_ID}`, `${COL_EVALUATED}`, `${COL_ICED}`, `${COL_REJECTED}` etc. — the agent will receive them as literal dollar-sign strings and its `monotask card move` / `monotask card set-impact` calls will silently fail.
+
+Begin the PM agent's Task prompt with this safety check:
+> `SAFETY CHECK: Verify that the BOARD_ID you received matches UUID format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx. If it does not, STOP and report "ERROR: BOARD_ID not substituted — received: <value>". Do NOT call monotask board create, space create, or any board/space management commands. Your job is updating existing CARDS only.`
+
 Spawn a single `Product Manager` agent via the Task tool. The PM agent has Bash tool access and is responsible for both producing verdicts and executing all board updates directly.
 
 Provide the PM agent with:
-- All ideas from Step 4 (titles, descriptions, categories, card IDs, BOARD_ID, and all COL_* variables)
+- All ideas from Step 4 (titles, descriptions, categories, card IDs, and the literal UUID values for BOARD_ID, COL_EVALUATED, COL_ICED, COL_REJECTED from the Step 3 echo block)
 - The `brain_context`
 - The original `prompt`
 
@@ -316,6 +322,7 @@ VERDICTS_OUTPUT
     "category": "feature | technical-baseline | business-operation",
     "verdict": "evaluated | iced | rejected",
     "skipElaboration": true | false,
+    "rationale": "<value statement (if evaluated) | blocking question (if iced) | rejection reason (if rejected)>",
     "impact": <0-10>,
     "effort": <0-10>
   }
@@ -331,9 +338,10 @@ After the PM agent completes, parse `VERDICTS_OUTPUT`. If **all** ideas are iced
 
 #### 6a. Elaboration (conditional)
 
-For any evaluated idea with `skipElaboration: true`, move it directly to `Elaborated`:
+For any evaluated idea with `skipElaboration: true`, move it directly to `Elaborated` and write a rationale comment so future readers understand why no deep elaboration was needed:
 ```bash
 monotask card move "$BOARD_ID" "$CARD_ID" "$COL_ELABORATED" --json
+monotask card comment add "$BOARD_ID" "$CARD_ID" "Elaboration skipped: PM assessed this idea as straightforward with no significant unknowns. Rationale: <rationale from VERDICTS_OUTPUT for this card_id>"
 ```
 
 For ideas with `skipElaboration: false`, **split by category** before spawning agents:
@@ -385,7 +393,9 @@ monotask card comment add "$BOARD_ID" "$CARD_ID" "Blocked during elaboration: <i
 
 #### 6b. User Confirmation Gate
 
-Before generating any tasks, present a review table of all elaborated ideas to the user.
+**Auto-mode bypass:** If `mode` is `auto` (set by mastermind:master or caller), skip this gate entirely and proceed directly to Step 6c with all elaborated ideas.
+
+**Confirm mode only:** If `mode` is `confirm` (default), present a review table of all elaborated ideas to the user.
 
 Print this exact format:
 
@@ -482,15 +492,20 @@ ops_decomp_agent="${ops_decomp_agent:-Product Manager}"
 echo "Dev decomp: $dev_decomp_agent | Ops decomp: $ops_decomp_agent"
 ```
 
+**CRITICAL — Variable substitution required for Step 6c Task calls:**
+Decomposition agents also run in isolated Task contexts. Before constructing each Task prompt, embed the literal card IDs (from the elaborated ideas list), `brain_context`, and `prompt` as hard-coded strings. Do NOT write `${card_id}`, `${brain_context}`, etc. as template placeholders.
+
+Each decomposition agent's Task prompt should begin with:
+> `SAFETY CHECK: You are a decomposition agent. You must NOT call monotask board create, space create, or column create. Your only job is producing a TASKS_OUTPUT block — the outer skill creates the cards. If you are unsure of any card ID, list it as "UNKNOWN" rather than inventing a value.`
+
 **Spawn decomposition agents by track** — run both in parallel if both tracks have elaborated ideas:
 
 - For **dev ideas** (`feature` or `technical-baseline`): spawn the agent selected as `$dev_decomp_agent`.
 - For **business-operation ideas**: spawn the agent selected as `$ops_decomp_agent`.
 
 Provide each agent with:
-- Their subset of elaborated ideas (titles, descriptions, all card comments, card IDs, and category)
-- The `brain_context`
-- The original `prompt`
+- Their subset of elaborated ideas (titles, descriptions, all card comments, literal card IDs, and category)
+- The literal `brain_context` and `prompt` values
 
 Each agent must output a `TASKS_OUTPUT` block. For each elaborated idea, produce 2–6 subtasks. If an idea's scope is unclear, flag it instead of decomposing.
 

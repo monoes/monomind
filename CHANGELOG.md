@@ -4,6 +4,17 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.12] — 2026-05-11
+
+### Fixed
+
+- **mastermind:idea — variable substitution not protected in Steps 5 and 6c**: Added CRITICAL warnings and SAFETY CHECK instructions before the PM agent (Step 5) and decomposition agents (Step 6c) Task calls, matching the protection added to the Idea Manager (Step 4) in v1.9.11. PM agent and decomposition agents now verify BOARD_ID UUID format and refuse to call `board create`.
+- **mastermind:idea — `skipElaboration: true` ideas got no context**: Added a rationale comment written to the card when elaboration is skipped, pulled from the PM's value statement (now included as `rationale` field in `VERDICTS_OUTPUT`).
+- **mastermind:idea — `mode: auto` still showed confirmation gate**: Step 6b now explicitly checks `mode` — if `auto`, it bypasses the review table entirely and proceeds directly to Step 6c.
+- **mastermind:idea — VERDICTS_OUTPUT schema extended**: Added `rationale` field (value statement / blocking question / rejection reason) so the outer skill can propagate PM reasoning to card comments without re-parsing prose.
+
+---
+
 ## [1.9.11] — 2026-05-11
 
 ### Fixed
