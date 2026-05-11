@@ -249,6 +249,15 @@ curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
 
 **Board naming convention:** Boards are named `<project_name>-<domain>` (e.g. `factory-idea`, `factory-build`). This canonical name is stable across runs — find the existing board first, create only if it does not exist.
 
+**Column schemas by domain — use these exact column names, in this order:**
+
+| Domain | Columns (left → right) | Intake column |
+|---|---|---|
+| `idea` | New → Evaluated → Elaborated → Tasked → Iced → Rejected | New |
+| `build`, `release`, `architect`, `review` | Todo → In Progress → Human in Loop → Review → Done → Cancelled | Todo |
+| `marketing`, `content`, `sales`, `ops`, `finance`, `research` | Todo → In Progress → Human in Loop → Review → Done → Cancelled | Todo |
+| Task boards (`<proj>-tasks-dev`, `<proj>-tasks-ops`) | Backlog → Todo → In Progress → Human in Loop → Review → Done → Cancelled | Todo |
+
 Every mastermind run that needs a task board MUST:
 1. Resolve the space (find existing or create new) — space name = `project_name`
 2. Find existing board by canonical name `<project_name>-<domain>` or create it with `--space`

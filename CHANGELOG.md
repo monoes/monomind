@@ -4,6 +4,18 @@ All notable changes to Monomind are documented here.
 
 ---
 
+## [1.9.17] — 2026-05-11
+
+### Fixed
+
+- **mastermind — idea board created with wrong columns**: Step 6 used generic `Todo/Doing/Done` for every domain, so `factory-idea` was created with the wrong schema. The idea board now gets `New → Evaluated → Elaborated → Tasked → Iced → Rejected` and all other domains get `Todo → In Progress → Human in Loop → Review → Done → Cancelled`. Column schemas are documented in `_protocol.md`.
+- **mastermind — ideation pipeline bypassed**: When `mastermind:idea` was invoked from master, the full 6-step pipeline (Idea Manager → PM evaluation → elaboration → task decomposition) was being skipped in favour of manual card creation. Added an explicit IDEA PIPELINE REQUIREMENT block in master.md Step 7 forbidding shortcuts and listing each required pipeline step.
+- **mastermind:idea — non-canonical board name broke find-or-create**: `idea.md` Step 3 used `"Ideas & Innovation"` + a memory-store key as the lookup mechanism, which diverged from master's canonical naming. Replaced with `${project_name}-idea` using the same `monotask board list` awk find-or-create pattern as master Step 6.
+- **mastermind:idea — task boards missing Cancelled column and non-canonical names**: `Implementation Tasks` and `Operations Tasks` boards had no `Cancelled` column. Renamed to canonical `${project_name}-tasks-dev` and `${project_name}-tasks-ops`. Both now have: `Backlog → Todo → In Progress → Human in Loop → Review → Done → Cancelled`.
+- **mastermind:idea — tasks not linked as subtasks**: Task decomposition in Step 6c uses `monotask card subtask add` to link each generated task card to its parent idea card as a proper subtask (cross-board link), not a standalone card.
+
+---
+
 ## [1.9.16] — 2026-05-11
 
 ### Fixed

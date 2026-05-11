@@ -199,24 +199,42 @@ for domain in $domains_needed; do
   # Find existing board by canonical name — reuse across runs
   board_id=$(monotask board list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$canonical" | head -1)
 
+  # Domain-specific column schema:
+  #   idea    → New | Evaluated | Elaborated | Tasked | Iced | Rejected   (intake = "New")
+  #   all others → Todo | In Progress | Human in Loop | Review | Done | Cancelled (intake = "Todo")
+  if [ "$domain" = "idea" ]; then
+    intake_col_name="New"
+  else
+    intake_col_name="Todo"
+  fi
+
   if [ -n "$board_id" ]; then
     echo "Reusing board: $board_id ($canonical)"
-    # Fetch existing column IDs
     cols_json=$(monotask column list "$board_id" --json 2>/dev/null || echo '[]')
-    todo_col=$(echo "$cols_json" | jq -r '[.[] | select(.title=="Todo" or .title=="Backlog")] | .[0].id // empty')
-    doing_col=$(echo "$cols_json" | jq -r '[.[] | select(.title=="Doing" or .title=="In Progress")] | .[0].id // empty')
+    todo_col=$(echo "$cols_json" | jq -r --arg n "$intake_col_name" '[.[] | select(.title==$n)] | .[0].id // empty')
+    doing_col=$(echo "$cols_json" | jq -r '[.[] | select(.title=="In Progress" or .title=="Doing")] | .[0].id // empty')
     done_col=$(echo "$cols_json" | jq -r '[.[] | select(.title=="Done")] | .[0].id // empty')
   else
     echo "Creating board: $canonical"
     board_id=$(monotask board create --space "$space_id" "$canonical" --json 2>/dev/null | jq -r '.id // empty')
     [ -z "$board_id" ] && { echo "ERROR: Failed to create board '$canonical'"; exit 1; }
     monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
-    todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id // empty')
-    [ -z "$todo_col" ] && { echo "ERROR: Failed to create Todo column for $domain"; exit 1; }
-    doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id // empty')
-    [ -z "$doing_col" ] && { echo "ERROR: Failed to create Doing column for $domain"; exit 1; }
-    done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id // empty')
-    [ -z "$done_col" ] && { echo "ERROR: Failed to create Done column for $domain"; exit 1; }
+    if [ "$domain" = "idea" ]; then
+      todo_col=$(monotask column create "$board_id" "New"        --json | jq -r '.id // empty')
+      doing_col=$(monotask column create "$board_id" "Evaluated" --json | jq -r '.id // empty')
+      monotask column create "$board_id" "Elaborated" --json >/dev/null
+      monotask column create "$board_id" "Tasked"     --json >/dev/null
+      monotask column create "$board_id" "Iced"       --json >/dev/null
+      done_col=$(monotask column create "$board_id" "Rejected" --json | jq -r '.id // empty')
+    else
+      todo_col=$(monotask column create "$board_id" "Todo"           --json | jq -r '.id // empty')
+      doing_col=$(monotask column create "$board_id" "In Progress"   --json | jq -r '.id // empty')
+      monotask column create "$board_id" "Human in Loop" --json >/dev/null
+      monotask column create "$board_id" "Review"        --json >/dev/null
+      done_col=$(monotask column create "$board_id" "Done" --json | jq -r '.id // empty')
+      monotask column create "$board_id" "Cancelled"     --json >/dev/null
+    fi
+    [ -z "$todo_col" ] && { echo "ERROR: Failed to create intake column for $domain"; exit 1; }
   fi
 
   domain_goal=$(jq -r --arg d "$domain" '.domain_goals[$d] // empty' "$SESSION_STATE")
@@ -242,6 +260,16 @@ echo "Session state saved to current.json"
 ### Step 7 — Spawn Domain Managers
 
 **BEFORE THIS STEP:** If `idea` is in `domains_needed`, invoke `Skill("mastermind:idea")` directly now (master context has Skill tool access). Pass the resolved prompt, project path, and mode. Write the result to `.monomind/sessions/<SESSION_ID>/idea.json` and mark the `idea` domain as handled. Do NOT include `idea` in the Task spawning below.
+
+**IDEA PIPELINE REQUIREMENT:** `mastermind:idea` runs a multi-step pipeline (Steps 3–6 inside idea.md). You MUST follow all of those steps — do NOT shortcut to manually creating cards. The full pipeline is:
+- Step 3: Board setup — find-or-create `<project_name>-idea` board (master's Step 6 already created it with correct columns: New → Evaluated → Elaborated → Tasked → Iced → Rejected). Load column IDs from existing board.
+- Step 4: Spawn Idea Manager agent (coordinator) with specialist sub-agents per angle — generates ideas as cards in the `New` column.
+- Step 5: Spawn PM agent for validation — moves each card to `Evaluated`, `Iced`, or `Rejected`, sets impact/effort.
+- Step 6a: Elaboration agents enrich each `Evaluated` card and move it to `Elaborated`.
+- Step 6b: User gate (skip in auto mode).
+- Step 6c: Task decomposition — creates subtask cards on `<project_name>-tasks-dev` and `<project_name>-tasks-ops` boards, linked as subtasks of their parent idea card. Moves parent idea cards to `Tasked`.
+
+Skipping any of these steps produces an incomplete pipeline run — card content is generated but no evaluation, elaboration, or task breakdown occurs.
 
 **Before spawning**, select the best domain manager agent type from the registry for each active domain. Do not hardcode `coordinator` — pick the agent whose expertise best fits the domain goal.
 
