@@ -392,25 +392,16 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
 }
 
 /**
- * Initialize the Monograph knowledge graph (native TypeScript, no Python required).
- * Fire-and-forget build — init does not wait for it to complete.
+ * Initialize the Monograph knowledge graph output directory.
+ * The actual build is kicked off by init.ts after executeInit returns,
+ * as a detached child process — keeping it out-of-process avoids SQLite
+ * lock contention with any concurrently-running session-start hooks.
  */
 async function initKnowledgeGraph(targetDir: string, result: InitResult): Promise<void> {
   const { mkdirSync } = await import('fs');
   const outputDir = path.join(targetDir, '.monomind', 'graph');
   mkdirSync(outputDir, { recursive: true });
-
-  try {
-    const { buildAsync } = await import('@monoes/monograph');
-    buildAsync(targetDir, { codeOnly: false })
-      .then(() => { /* success — silent */ })
-      .catch((err: unknown) => {
-        console.warn('[monograph] Background build failed:', err);
-      });
-    result.created.files.push('.monomind/monograph.db (knowledge graph building in background)');
-  } catch (err) {
-    result.skipped.push('knowledge graph: monograph package unavailable');
-  }
+  result.created.files.push('.monomind/graph/ (knowledge graph directory, build starts after init)');
 }
 
 /**
