@@ -15,18 +15,18 @@ This file is a reference loaded by mastermind domain skills and master. It is NE
 Execute at the START of every mastermind run (master or standalone domain command). Load in this order:
 
 **Step A — Tier 3 core principles (all domains):**
-Call `mcp__monomind__agentdb_hierarchical-recall` with:
-- namespace: `mastermind:principles`
-- limit: 20
+Try `mcp__monobrain__agentdb_hierarchical-recall` with query `"mastermind principles"`, topK 20.
+If it returns `"AgentDB bridge not available"` or any error, fall back to:
+`mcp__monobrain__memory_search` with query `"mastermind principles"`, namespace `"mastermind:principles"`, limit 20.
 
 **Step B — Tier 2 weekly summary for this domain:**
-Call `mcp__monomind__agentdb_context-synthesize` with:
-- namespace: `mastermind:<domain>:weekly`
-- query: [current prompt keywords]
+Try `mcp__monobrain__agentdb_context-synthesize` with query `[current prompt keywords]`, maxEntries 10.
+If it fails, fall back to:
+`mcp__monobrain__memory_search` with query `[current prompt keywords]`, namespace `"mastermind:<domain>:weekly"`, limit 10.
 
 **Step C — Relevant graph nodes:**
-Call `mcp__monomind__monograph_query` with:
-- query: [3-5 keywords extracted from current prompt]
+Call `mcp__monobrain__graphify_query` with question `[3-5 keywords extracted from current prompt]`, depth 2.
+If the graph is not built yet (error: "No graph found"), skip this tier — continue without graph context.
 
 Combine all results into a **BRAIN CONTEXT** block. Insert this block before any planning, decomposition, or agent spawning step. Format:
 
@@ -55,13 +55,20 @@ score = confidence × (1 / (days_since_run + 1)) × log(uses + 1)
 - `uses`: 1 (first write)
 
 **Step 2 — Append to Tier 1 raw log:**
-Call `mcp__monomind__agentdb_hierarchical-store` with:
+Try `mcp__monobrain__agentdb_hierarchical-store` with:
 - namespace: `mastermind:<domain>:raw`
 - content: [full unified output schema YAML from this run, as a string]
 - metadata: `{ score, project, run_id, date: ISO8601, domain }`
 
+If AgentDB is unavailable, fall back to `mcp__monobrain__memory_store`:
+- key: `mastermind:<domain>:run:<run_id>`
+- value: [JSON-encoded unified output schema]
+- namespace: `mastermind:<domain>:raw`
+- tags: `["mastermind", "<domain>", "run"]`
+
 **Step 3 — Check weekly compaction trigger:**
-Call `mcp__monomind__agentdb_health` on namespace `mastermind:<domain>:raw`.
+Try `mcp__monobrain__agentdb_health` on namespace `mastermind:<domain>:raw`.
+If unavailable, call `mcp__monobrain__memory_stats` and check entry count manually.
 If `entry_count >= 20` OR `days_since_last_compaction >= 7`:
 1. Retrieve all Tier 1 entries since last compaction
 2. Produce a per-domain weekly summary (use LLM synthesis: "Summarize the key decisions, patterns, and lessons from these run logs in under 300 words")
@@ -201,25 +208,25 @@ Every mastermind run MUST emit structured events to the live dashboard via WebFe
 }
 ```
 
-### How to Emit (WebFetch pattern)
+### How to Emit (curl-first — WebFetch is blocked for localhost in Claude Code runtimes)
 
-```javascript
-WebFetch({
-  url: "http://localhost:4242/api/mastermind/event",
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    type: "session:start",
-    session: crypto.randomUUID(),   // or generate a timestamp-based ID
-    prompt: resolvedPrompt,
-    mode: mode,
-    project: process.cwd(),         // REQUIRED: absolute path for multi-project support
-    ts: Date.now()
-  })
-})
+**Always use curl via Bash.** WebFetch is restricted for `localhost` URLs in Claude Code agent runtimes and will return ECONNREFUSED even when the server is running. Use this pattern:
+
+```bash
+curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -cn \
+    --arg sid "$SESSION_ID" \
+    --arg type "session:start" \
+    --arg prompt "$resolved_prompt" \
+    --arg mode "$mode" \
+    --arg proj "$(pwd)" \
+    '{type:$type,session:$sid,prompt:$prompt,mode:$mode,project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
-**If the server is not running** (WebFetch returns an error), log a warning and continue — event logging is non-blocking and MUST NOT abort the run.
+**Always append `|| true`** — event emission is non-blocking and MUST NOT abort the run.
+
+**If Bash is unavailable** (e.g. the agent type has no Bash tool): skip dashboard events entirely. They are observability-only and do not affect pipeline correctness. The master context always has Bash and emits session:start, domain:dispatch, and session:complete on behalf of the run.
 
 **Session ID:** Generate once at session:start and reuse across all subsequent events for this run. A simple ID format: `mm-<ISO8601-compact>` (e.g. `mm-20260505T142300`).
 
