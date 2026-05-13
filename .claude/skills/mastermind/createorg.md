@@ -107,7 +107,12 @@ Adjust for the actual roles in this run. Assign `reports_to` on each role using 
 
 ## Step 4 — Build Org Config
 
-Produce an org config object using the resolved topology (not hardcoded to `hierarchical`):
+Produce an org config object using the resolved topology (not hardcoded to `hierarchical`).
+
+Ask the user (or infer from prompt) for the optional Paperclip-style fields:
+- **Budget**: max token budget for this org run (e.g. 500000 tokens). Use `unlimited` if not specified.
+- **Governance**: approval policy — `auto` (agents act freely) | `board` (sensitive actions require `/mastermind:approve`) | `strict` (all external actions need approval)
+- **Adapter**: which AI model/adapter the CEO agent should use (e.g. `claude-sonnet-4-6`, `claude-opus-4-7`). Default: `claude-sonnet-4-6`.
 
 ```json
 {
@@ -122,7 +127,11 @@ Produce an org config object using the resolved topology (not hardcoded to `hier
       "title": "<display title>",
       "agent_type": "<subagent_type slug from mapping table>",
       "responsibilities": ["<1-3 bullet responsibilities>"],
-      "reports_to": "<role id or null>"
+      "reports_to": "<role id or null>",
+      "adapter_config": {
+        "model": "<claude model id>",
+        "max_tokens": 8192
+      }
     }
   ],
   "communication": [
@@ -133,6 +142,10 @@ Produce an org config object using the resolved topology (not hardcoded to `hier
       "protocol": "direct"
     }
   ],
+  "governance": {
+    "policy": "auto | board | strict",
+    "approvals_file": ".monomind/orgs/<org_name>-approvals.json"
+  },
   "board_id": "<uuid — filled in Step 6 after board creation>",
   "todo_col_id": "<uuid — filled in Step 6>",
   "doing_col_id": "<uuid — filled in Step 6>",
@@ -142,7 +155,10 @@ Produce an org config object using the resolved topology (not hardcoded to `hier
   "run_config": {
     "checkpoint_interval_min": 30,
     "max_concurrent_agents": 6,
-    "memory_namespace": "org:<org_name>"
+    "memory_namespace": "org:<org_name>",
+    "budget_tokens": "<number or 0 for unlimited>",
+    "alert_threshold": 0.8,
+    "ceo_adapter": "<model id>"
   }
 }
 ```
@@ -263,12 +279,14 @@ jq --arg board_id "$board_id" \
 Read values from the saved JSON file and emit two events: `domain:complete` (for the session stream) and `org:create` (so the dashboard Orgs panel registers the new org immediately):
 
 ```bash
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
 orgName=$(jq -r '.name' "$orgJson")
 goal_val=$(jq -r '.goal' "$orgJson")
 rolesCount=$(jq '.roles | length // 0' "$orgJson")
 
 # domain:complete — for session correlation
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$session_id" \
@@ -279,7 +297,7 @@ curl -s -X POST "http://localhost:4242/api/mastermind/event" \
       org:$orgName,goal:$goal,roles_count:$rolesCount,ts:(now*1000|floor)}')" || true
 
 # org:create — so handleOrgEvent routes it to the Orgs panel event log
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$session_id" \

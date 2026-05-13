@@ -114,14 +114,39 @@ The board and column IDs were written into the org config by `createorg`. If mis
 [ -z "$todo_col" ]  && { echo "ERROR: org config missing todo_col_id — re-run /mastermind:createorg --name ${orgName}."; exit 1; }
 ```
 
-**Create stop-file directory** (boss agent writes here; must exist before it runs):
+**Create stop-file and state directories:**
 ```bash
 mkdir -p .monomind/orgs/.stops
 ```
 
+**Initialize org state file** (tracks per-agent status, heartbeat timestamps, token usage):
+```bash
+stateFile=".monomind/orgs/${orgName}-state.json"
+if [ ! -f "$stateFile" ]; then
+  jq -n \
+    --arg org "$orgName" \
+    --arg runId "$runId" \
+    '{org:$org,run_id:$runId,started_at:(now|todate),agents:{}}' \
+    > "$stateFile"
+else
+  # Update run_id and started_at for this run
+  tmp="${stateFile}.tmp"
+  jq --arg runId "$runId" \
+     '.run_id = $runId | .started_at = (now|todate)' \
+     "$stateFile" > "$tmp" && mv "$tmp" "$stateFile"
+fi
+```
+
+**Remove any stale stop file:**
+```bash
+rm -f "$stopFile"
+```
+
 **Emit `org:start` to dashboard:**
 ```bash
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$sessionId" \
@@ -158,7 +183,7 @@ SHARED INFRASTRUCTURE:
 - Task board (monotask): board_id=${board_id}
   Columns: Todo=${todo_col}  Doing=${doing_col}  Done=${done_col}
 - Memory namespace: ${memNs} (use: npx monomind@latest memory store/search --namespace ${memNs})
-- Dashboard events: POST http://localhost:4242/api/mastermind/event via curl (see below)
+- Dashboard events: POST to mastermind control server via curl — see CTRL_URL resolution in DASHBOARD EVENTS section below
 - Session ID for all events: ${sessionId}
 
 TASK BOARD COMMANDS (use these for all task management):
@@ -191,6 +216,42 @@ TASK BOARD COMMANDS (use these for all task management):
   # Complete a task:
   monotask card move ${board_id} $CARD_ID ${done_col}
 
+ORG STATE FILE (update per agent per cycle for dashboard visibility):
+  stateFile=".monomind/orgs/${orgName}-state.json"
+  # Mark agent as running:
+  jq --arg id "<role_id>" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+     '.agents[$id].status = "running" | .agents[$id].last_heartbeat = $ts' \
+     "$stateFile" > "${stateFile}.tmp" && mv "${stateFile}.tmp" "$stateFile"
+  # Mark agent as idle after completing:
+  jq --arg id "<role_id>" \
+     '.agents[$id].status = "idle" | .agents[$id].last_heartbeat_complete = (now|todate)' \
+     "$stateFile" > "${stateFile}.tmp" && mv "${stateFile}.tmp" "$stateFile"
+  # Add token counts when known:
+  jq --arg id "<role_id>" --argjson in <tokens_in> --argjson out <tokens_out> \
+     '.agents[$id].tokens_in = ((.agents[$id].tokens_in // 0) + $in) | .agents[$id].tokens_out = ((.agents[$id].tokens_out // 0) + $out)' \
+     "$stateFile" > "${stateFile}.tmp" && mv "${stateFile}.tmp" "$stateFile"
+
+APPROVAL GATE (when governance.policy is "board" or "strict"):
+  Before any external action (sending emails, posting content, making purchases, modifying infrastructure):
+  approvalsFile=".monomind/orgs/${orgName}-approvals.json"
+  [ ! -f "$approvalsFile" ] && echo '{"approvals":[]}' > "$approvalsFile"
+  approval_id="req-$(date +%s)"
+  jq --arg id "$approval_id" --arg agent "<role_id>" --arg title "<action summary>" \
+     --arg action "<full action description>" --arg risk "medium" \
+     '.approvals += [{"id":$id,"agent_id":$agent,"title":$title,"action":$action,"risk_level":$risk,"status":"pending","requested_at":(now|todate)}]' \
+     "$approvalsFile" > "${approvalsFile}.tmp" && mv "${approvalsFile}.tmp" "$approvalsFile"
+  # Emit approval request event so human sees it in dashboard
+  curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
+    -d "$(jq -cn --arg org "${orgName}" --arg id "$approval_id" --arg title "<title>" \
+      '{type:"org:approval:requested",org:$org,approval_id:$id,title:$title,ts:(now*1000|floor)}')" || true
+  # Poll until approved or rejected (max 30 min):
+  for i in $(seq 1 60); do
+    status=$(npx monomind@latest memory search --query "approval:${approval_id}" --namespace "${memNs}" 2>/dev/null | jq -r '.[0].value.status // ""' 2>/dev/null)
+    [ "$status" = "approved" ] && break
+    [ "$status" = "rejected" ] && { echo "Action rejected by governance policy — skip this action"; break; }
+    sleep 30
+  done
+
 STOP DETECTION (check this FIRST in every loop iteration):
   ls ${stopFile} 2>/dev/null && echo STOP_REQUESTED
 If the file exists: emit org:complete event, clean up with "rm -f ${stopFile}", then exit.
@@ -218,7 +279,9 @@ ${orgConfig.roles.filter(r => r.id !== bossRole.id).map(r =>
 ).join('\n')}
 
 DASHBOARD EVENTS — emit via curl (NOT WebFetch — WebFetch does not support POST):
-  curl -s -X POST http://localhost:4242/api/mastermind/event \
+  REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+  curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     -H "Content-Type: application/json" \
     -d "$(jq -cn --arg type TYPE --arg session SESSION --arg org ORG '{type:$type,session:$session,org:$org,ts:(now*1000|floor)}')"
 Payloads:
@@ -238,7 +301,9 @@ START NOW: check for stop signal, assess the board, create initial tasks if none
 Emit `org:agent:online` for the boss role (team member events are emitted by the boss itself):
 
 ```bash
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$sessionId" \
@@ -272,10 +337,10 @@ ACTIVE ROLES
 
 BOARD: <orgName>/org-tasks
 MEMORY: org:<orgName>
-DASHBOARD: http://localhost:4242
+DASHBOARD: see .monomind/control.json for URL (default http://localhost:4242)
 
 To stop: click STOP in the dashboard Orgs panel
-         or run: curl -X POST http://localhost:4242/api/orgs/<orgName>/stop
+         or run: CTRL_URL=$(jq -r '.url // "http://localhost:4242"' .monomind/control.json 2>/dev/null || echo "http://localhost:4242"); curl -X POST "${CTRL_URL}/api/orgs/<orgName>/stop"
 ```
 
 ---
@@ -295,8 +360,8 @@ lessons:
   - what_worked: "Boss agent spawned and org loop started"
   - what_didnt: ""
 next_actions:
-  - "Monitor at http://localhost:4242 — Mastermind Orgs panel"
-  - "To stop: click STOP in dashboard or POST to /api/orgs/<orgName>/stop"
+  - "Monitor in Mastermind Orgs panel (CTRL_URL from .monomind/control.json, default http://localhost:4242)"
+  - "To stop: click STOP in dashboard or: CTRL_URL=$(jq -r '.url // \"http://localhost:4242\"' .monomind/control.json); curl -X POST \"${CTRL_URL}/api/orgs/<orgName>/stop\""
 board_url: "monotask://<orgName>/org-tasks"
 run_id: "<runId>"
 ```

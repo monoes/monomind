@@ -4,7 +4,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { createRequire } from 'module';
 import { dirname } from 'path';
 // ESM-compatible __dirname
@@ -181,7 +181,7 @@ const DIRECTORIES = {
  * Execute initialization
  */
 /**
- * Remove legacy ruflo/ruv-swarm configuration from existing project files.
+ * Remove legacy ruv-swarm configuration from existing project files.
  * Safe to call even if no legacy config exists.
  */
 function cleanupLegacyTools(targetDir) {
@@ -224,29 +224,29 @@ function cleanupLegacyTools(targetDir) {
         }
         catch { /* non-fatal */ }
     }
-    // Clean ruflo / ruv-swarm from .claude/settings.json hooks and fix MCP package name
+    // Clean ruv-swarm from .claude/settings.json hooks and fix MCP package name
     const settingsPath = path.join(targetDir, '.claude', 'settings.json');
     if (fs.existsSync(settingsPath)) {
         try {
             const raw = fs.readFileSync(settingsPath, 'utf-8');
             const settings = JSON.parse(raw);
             let settingsChanged = false;
-            if (raw.includes('ruflo') || raw.includes('ruv-swarm')) {
-                // Remove ruflo-referencing hook entries from all hook arrays
+            if (raw.includes('ruv-swarm')) {
+                // Remove legacy ruv-swarm hook entries from all hook arrays
                 const hookKeys = ['PreToolUse', 'PostToolUse', 'UserPromptSubmit', 'SessionStart', 'SessionEnd', 'Stop', 'SubagentStart', 'SubagentStop', 'PreCompact'];
                 for (const key of hookKeys) {
                     if (Array.isArray(settings.hooks?.[key])) {
                         const before = settings.hooks[key].length;
                         settings.hooks[key] = settings.hooks[key].filter((entry) => {
                             const str = JSON.stringify(entry);
-                            return !str.includes('ruflo') && !str.includes('ruv-swarm');
+                            return !str.includes('ruv-swarm');
                         });
                         if (settings.hooks[key].length !== before)
                             settingsChanged = true;
                     }
                 }
                 if (settingsChanged) {
-                    cleaned.push('.claude/settings.json: removed ruflo/ruv-swarm hooks');
+                    cleaned.push('.claude/settings.json: removed ruv-swarm hooks');
                 }
             }
             // Fix wrong MCP package name in mcpServers
@@ -283,7 +283,7 @@ export async function executeInit(options) {
     };
     const targetDir = options.targetDir;
     try {
-        // Remove legacy ruflo/ruv-swarm configs before writing new ones
+        // Remove legacy ruv-swarm configs before writing new ones
         const legacyCleaned = cleanupLegacyTools(targetDir);
         for (const msg of legacyCleaned) {
             result.created.files.push(`[cleaned] ${msg}`);
@@ -350,25 +350,92 @@ export async function executeInit(options) {
     return result;
 }
 /**
- * Initialize the Monograph knowledge graph (native TypeScript, no Python required).
- * Fire-and-forget build — init does not wait for it to complete.
+ * Initialize the Monograph knowledge graph.
+ * Spawns buildAsync as a detached child process to avoid SQLite lock contention.
+ * Uses the same build.lock file as graphify-freshen.cjs — if a session-start
+ * hook build is already running, we skip to avoid SQLITE_BUSY.
  */
 async function initKnowledgeGraph(targetDir, result) {
-    const { mkdirSync } = await import('fs');
     const outputDir = path.join(targetDir, '.monomind', 'graph');
-    mkdirSync(outputDir, { recursive: true });
+    fs.mkdirSync(outputDir, { recursive: true });
+    const lockPath = path.join(outputDir, 'build.lock');
+    const now = Date.now();
+    // If graphify-freshen.cjs (session-start hook) already holds a fresh lock, skip.
     try {
-        const { buildAsync } = await import('@monoes/monograph');
-        buildAsync(targetDir, { codeOnly: false })
-            .then(() => { })
-            .catch((err) => {
-            console.warn('[monograph] Background build failed:', err);
-        });
-        result.created.files.push('.monomind/monograph.db (knowledge graph building in background)');
+        const stat = fs.statSync(lockPath);
+        if (now - stat.mtimeMs < 5 * 60 * 1000) {
+            result.skipped.push('knowledge graph build: already in progress (session-start hook running)');
+            return;
+        }
+        fs.unlinkSync(lockPath);
     }
-    catch (err) {
-        result.skipped.push('knowledge graph: monograph package unavailable');
+    catch { /* no lock — proceed */ }
+    // Resolve @monoes/monograph from the CLI package's own node_modules first
+    // (correct for npm/npx installs), then fall back to user project node_modules.
+    let entryPoint = null;
+    try {
+        const cliRequire = createRequire(import.meta.url);
+        entryPoint = cliRequire.resolve('@monoes/monograph/dist/src/index.js');
     }
+    catch {
+        const fallback = path.join(targetDir, 'node_modules', '@monoes', 'monograph', 'dist', 'src', 'index.js');
+        if (fs.existsSync(fallback))
+            entryPoint = fallback;
+    }
+    if (!entryPoint) {
+        // Auto-install @monoes/monograph and retry before giving up
+        try {
+            const { execSync } = await import('child_process');
+            execSync('npm install @monoes/monograph', { cwd: targetDir, stdio: 'ignore', timeout: 60000 });
+            try {
+                const cliRequire2 = createRequire(import.meta.url);
+                entryPoint = cliRequire2.resolve('@monoes/monograph/dist/src/index.js');
+            }
+            catch {
+                const fallback2 = path.join(targetDir, 'node_modules', '@monoes', 'monograph', 'dist', 'src', 'index.js');
+                if (fs.existsSync(fallback2))
+                    entryPoint = fallback2;
+            }
+        }
+        catch { /* install failed, fall through */ }
+        if (!entryPoint) {
+            result.skipped.push('knowledge graph: @monoes/monograph not found (auto-install failed)');
+            return;
+        }
+        result.created.files.push('@monoes/monograph (auto-installed for knowledge graph)');
+    }
+    // Acquire lock before spawning so graphify-freshen.cjs sees it and skips
+    try {
+        fs.writeFileSync(lockPath, String(process.pid));
+    }
+    catch { /* non-fatal */ }
+    const { spawn } = await import('child_process');
+    const logPath = path.join(outputDir, 'build.log');
+    let logFd = 'ignore';
+    try {
+        logFd = fs.openSync(logPath, 'a');
+    }
+    catch { /* non-fatal */ }
+    const script = `
+import { buildAsync } from ${JSON.stringify(pathToFileURL(entryPoint).href)};
+import { unlinkSync } from 'fs';
+try { await buildAsync(${JSON.stringify(targetDir)}); } finally {
+  try { unlinkSync(${JSON.stringify(lockPath)}); } catch {}
+}`;
+    const child = spawn(process.execPath, ['--input-type=module', '--eval', script], {
+        detached: true,
+        stdio: ['ignore', logFd, logFd],
+        cwd: targetDir,
+    });
+    child.unref();
+    // Close the parent's copy of the fd — the child has its own inherited copy
+    if (typeof logFd === 'number') {
+        try {
+            fs.closeSync(logFd);
+        }
+        catch { /* non-fatal */ }
+    }
+    result.created.files.push('.monomind/graph/ (knowledge graph building in background)');
 }
 /**
  * Start the monomind daemon with background workers.
@@ -553,7 +620,7 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
         settingsUpdated: [],
     };
     try {
-        // Fix legacy ruflo/ruv-swarm configs and old MCP package names
+        // Fix legacy ruv-swarm configs and old MCP package names
         const legacyCleaned = cleanupLegacyTools(targetDir);
         for (const msg of legacyCleaned) {
             result.updated.push(`[cleaned] ${msg}`);
