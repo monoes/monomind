@@ -65,7 +65,9 @@ If this skill is invoked directly (not by master):
 
 1. If `sessionId` was not provided by the caller: generate it by taking the current UTC datetime formatted as `YYYYMMDDTHHmmss` and prefixing with `mm-` (e.g. `mm-20260506T142345`). Then emit `session:start` (if `caller` is `standalone` — skip if `command` or `master`, as the caller emits it). Before executing the curl below, substitute the generated sessionId for `<sessionId>`:
    ```bash
-   curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
      -H "Content-Type: application/json" \
      -d '{"type":"session:start","session":"<sessionId>","domain":"architect","ts":'"$(date +%s)"'000}' || true
    ```
@@ -100,7 +102,9 @@ If this skill is invoked directly (not by master):
 6. Proceed with complexity assessment below
 7. At end: emit `session:complete` (if `caller` is `standalone`). Before executing the curl below, substitute the resolved sessionId for `<sessionId>`:
    ```bash
-   curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
      -H "Content-Type: application/json" \
      -d '{"type":"session:complete","session":"<sessionId>","domain":"architect","ts":'"$(date +%s)"'000}' || true
    ```
@@ -289,7 +293,9 @@ Before spawning, resolve two values:
 Then emit `agent:spawn` for the manager and spawn it. Before executing the curl below, substitute the resolved sessionId for `<sessionId>`:
 
 ```bash
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d '{"type":"agent:spawn","session":"<sessionId>","domain":"architect","agent":"<manager_agent_type lowercased and hyphenated, e.g. software-architect>","task":"coordinate architecture analysis","ts":'"$(date +%s)"'000}'
 ```
@@ -437,14 +443,18 @@ The `description` must be the complete briefing, including CONTEXT, BRAIN MEMORY
 
 BEFORE spawning each agent, emit agent:spawn to the live dashboard. Before each of the following curl commands executes, `<sessionId>` must already be substituted with the session ID from the CONTEXT header Session field above. When substituting `<stream-description>` and other free-text fields into the JSON payload, strip any double-quotes and backslashes from the value to keep the JSON well-formed:
 \`\`\`bash
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d '{"type":"agent:spawn","session":"<sessionId>","domain":"architect","agent":"<subagent_type lowercased and hyphenated, e.g. software-architect>","task":"<stream-description>","ts":'"$(date +%s)"'000}'
 \`\`\`
 
 If handing off artifacts to another domain (e.g. build for refactoring implementation, review for post-restructure check), emit intercom. When substituting `<msg>` and other free-text fields, strip any double-quotes and backslashes from the value to keep the JSON well-formed:
 \`\`\`bash
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d '{"type":"intercom","session":"<sessionId>","from":"architect","to":"<domain>","msg":"<msg>","ts":'"$(date +%s)"'000}'
 \`\`\`
@@ -453,7 +463,9 @@ To track task execution, log progress via \`monotask card comment add "$BOARD_ID
 
 BEFORE returning, emit domain:complete to the live dashboard:
 \`\`\`bash
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d '{"type":"domain:complete","session":"<sessionId>","domain":"architect","status":"<choose: complete | partial | blocked>","artifacts":[],"decisions":[],"ts":'"$(date +%s)"'000}'
 \`\`\`
@@ -539,7 +551,9 @@ Before executing the curl blocks below and when constructing the Task() descript
 
 1. Emit `agent:spawn` to the dashboard (use the resolved agent slug):
    ```bash
-   curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
      -H "Content-Type: application/json" \
      -d '{"type":"agent:spawn","session":"<sessionId>","domain":"architect","agent":"<resolved agent slug, e.g. software-architect>","task":"<prompt>","ts":'"$(date +%s)"'000}'
    ```
@@ -553,7 +567,9 @@ Before executing the curl blocks below and when constructing the Task() descript
 3. Include current directory structure context (`find . -maxdepth 3 -type d | grep -Ev "(^|/)(node_modules|dist|\.git)(/|$)"`)
 4. Collect output, then emit `domain:complete`:
    ```bash
-   curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
      -H "Content-Type: application/json" \
      -d '{"type":"domain:complete","session":"<sessionId>","domain":"architect","status":"complete","artifacts":[],"decisions":[],"ts":'"$(date +%s)"'000}'
    ```

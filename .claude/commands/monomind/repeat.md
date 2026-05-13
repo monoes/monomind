@@ -8,7 +8,9 @@ description: "Monomind — Repeat any prompt or slash command on a schedule — 
 Parse `$ARGUMENTS` for the following flags. **Everything after the first `--` (double dash) is the prompt — no further flag parsing, even if subsequent `--` tokens appear.** If no `--` is present, extract known flags in any order and treat the remainder as the prompt:
 
 - `--every <minutes>` — interval between repetitions in minutes (default: `15`). Minimum 1.
-- `--times <count>` — total number of repetitions (default: `10`)
+- `--times <count>` — total number of repetitions (default: `10`). Ignored when `--tillend` is present.
+- `--tillend` — run until a complete round produces no findings and no actions. Overrides `--times`.
+- `--maxruns <N>` — safety cap for `--tillend` (default: `50`). Stops the loop even if the AI hasn't signaled done.
 - `--rep <N>` — (internal continuation flag injected by ScheduleWakeup; do not expose to user). Must be a positive integer ≤ MAX_REPS+1; reject otherwise.
 - `--loop <id>` — (internal continuation flag; preserves loop identity across runs). Must match format `repeat-[digits]-[digits]-[digits]`; reject otherwise.
 - `--` — end of flags; everything after this is the prompt verbatim
@@ -33,13 +35,17 @@ If `--loop` is present but does not match the pattern `repeat-<digits>-<digits>-
 ```
 
 If `$ARGUMENTS` is empty or contains only flags with no prompt, output this and STOP:
-> **Usage:** `/monomind:repeat [--every <minutes>] [--times <count>] <prompt>`
+> **Usage:** `/monomind:repeat [--every <minutes>] [--times <count>] [--tillend [--maxruns <N>]] <prompt>`
 >
 > Defaults: every 15 minutes, 10 times.
+>
+> **Fixed-count mode** (default): runs the prompt N times, then stops.
+> **Tillend mode** (`--tillend`): runs until a complete round produces no findings and no actions. Safety cap: `--maxruns N` (default 50).
 >
 > This is the universal loop wrapper. Wrap any slash command to repeat it:
 > - `/monomind:repeat --every 5 --times 9 /mastermind:architect review this project`
 > - `/monomind:repeat --every 1 --times 20 /mastermind:review check for security issues`
+> - `/monomind:repeat --tillend /mastermind:review 1` ← runs until clean pass
 > - `/monomind:repeat --every 30 /monomind:do --space abc --board def`
 > - `/monomind:repeat check deployment status`
 
@@ -53,9 +59,8 @@ When `--rep <N>` is present in arguments, this is a continuation from a previous
 - Set `LOOP_ID` from `--loop <id>`
 - Skip Step 1 initialization entirely
 - Go directly to Step 2 (execute) with output:
-  ```
-  [monomind:repeat] Run N/MAX_REPS starting...
-  ```
+  - **If `--tillend` active:** `[monomind:repeat] Tillend run N (cap: MAXRUNS) starting...`
+  - **Otherwise:** `[monomind:repeat] Run N/MAX_REPS starting...`
 
 ---
 
@@ -67,7 +72,7 @@ Extract:
 - `PROMPT` — everything remaining after flags are removed
 - `CURRENT_REP` — starts at `1`
 
-Write the initial loop state file so the dashboard can track this run. **You MUST run this bash block now via the Bash tool.** Before running, substitute `<INTERVAL>` and `<MAX_REPS>` with the parsed integer values. For `<PROMPT>`, substitute the raw prompt text inside the heredoc below — the single-quoted delimiter (`'MONOMIND_PROMPT_7x9k2m'`) prevents all bash expansion, and python3 handles JSON encoding. **If the prompt text contains the literal string `MONOMIND_PROMPT_7x9k2m`, replace that string in the prompt with `MONOMIND_PROMPT` before substitution** (this prevents heredoc delimiter collision):
+Write the initial loop state file so the dashboard can track this run. **You MUST run this bash block now via the Bash tool.** Before running, substitute `<INTERVAL>` and `<MAX_REPS>` with the parsed integer values, `<TILLEND_ACTIVE>` with `true` or `false` based on whether `--tillend` was provided, and `<MAXRUNS>` with the safety cap value. For `<PROMPT>`, substitute the raw prompt text inside the heredoc below — the single-quoted delimiter (`'MONOMIND_PROMPT_7x9k2m'`) prevents all bash expansion, and python3 handles JSON encoding. **If the prompt text contains the literal string `MONOMIND_PROMPT_7x9k2m`, replace that string in the prompt with `MONOMIND_PROMPT` before substitution** (this prevents heredoc delimiter collision):
 
 ```bash
 mkdir -p .monomind/loops
@@ -78,16 +83,18 @@ PROMPT_JSON=$(python3 -c "import sys,json; sys.stdout.write(json.dumps(sys.stdin
 MONOMIND_PROMPT_7x9k2m
 )
 if [ -z "$PROMPT_JSON" ]; then PROMPT_JSON='"(prompt unavailable)"'; fi
+LOOP_TYPE=$( [ '<TILLEND_ACTIVE>' = 'true' ] && echo 'tillend' || echo 'repeat' )
+LOOP_MAXREPS=$( [ '<TILLEND_ACTIVE>' = 'true' ] && echo '<MAXRUNS>' || echo '<MAX_REPS>' )
 cat > ".monomind/loops/${LOOP_ID}.json" << EOF
 {
   "id": "${LOOP_ID}",
   "sessionId": "${LOOP_ID}",
-  "type": "repeat",
+  "type": "${LOOP_TYPE}",
   "command": "/monomind:repeat",
   "prompt": ${PROMPT_JSON},
   "interval": <INTERVAL>,
   "currentRep": 1,
-  "maxReps": <MAX_REPS>,
+  "maxReps": ${LOOP_MAXREPS},
   "startedAt": ${NOW_MS},
   "lastRunAt": ${NOW_MS},
   "nextRunAt": ${NOW_MS},
@@ -95,20 +102,30 @@ cat > ".monomind/loops/${LOOP_ID}.json" << EOF
 }
 EOF
 echo "LOOP_ID=${LOOP_ID}"
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
-  -d "{\"type\":\"loop:start\",\"loopId\":\"${LOOP_ID}\",\"command\":\"/monomind:repeat\",\"maxReps\":<MAX_REPS>,\"interval\":<INTERVAL>,\"ts\":$(date +%s)000}" || true
+  -d "{\"type\":\"loop:start\",\"loopId\":\"${LOOP_ID}\",\"command\":\"/monomind:repeat\",\"mode\":\"${LOOP_TYPE}\",\"maxReps\":${LOOP_MAXREPS},\"interval\":<INTERVAL>,\"ts\":$(date +%s)000}" || true
 ```
 
 Capture the `LOOP_ID` value echoed by the script — you will need it for all subsequent bash blocks.
 
 Output:
-```
-[monomind:repeat] Starting: "<PROMPT>"
-  Interval: every INTERVAL minutes
-  Repetitions: MAX_REPS total
-  Run 1/MAX_REPS starting now...
-```
+- **If `--tillend` active:**
+  ```
+  [monomind:repeat] Starting tillend loop: "<PROMPT>"
+    Interval: every INTERVAL minutes
+    Safety cap: MAXRUNS runs
+    Run 1 starting now...
+  ```
+- **Otherwise:**
+  ```
+  [monomind:repeat] Starting: "<PROMPT>"
+    Interval: every INTERVAL minutes
+    Repetitions: MAX_REPS total
+    Run 1/MAX_REPS starting now...
+  ```
 
 ---
 
@@ -135,24 +152,57 @@ rm -f ".monomind/loops/<LOOP_ID>.json" ".monomind/loops/<LOOP_ID>.stop"
 Then STOP.
 
 After execution completes, save the current rep as `PREV_REP`, then increment `CURRENT_REP`. Output:
-```
-[monomind:repeat] Run PREV_REP/MAX_REPS complete.
-```
+- **If `--tillend` active:** `[monomind:repeat] Tillend run PREV_REP complete.`
+- **Otherwise:** `[monomind:repeat] Run PREV_REP/MAX_REPS complete.`
 
-If `CURRENT_REP > MAX_REPS` (all runs done), output:
+**If `--tillend` was active:** evaluate whether this round produced **zero findings AND zero actions**. Answer these two questions:
+1. Were any findings produced? (issues, problems, errors, tasks, items flagged, anything detected)
+2. Were any actions taken? (files edited, tasks created, commits made, content written, anything changed)
+
+Set `TILLEND_EMPTY=true` only if both answers are "no". **If the round found things and fixed them, `TILLEND_EMPTY=false` — run again to verify.** Only an actually empty round (nothing found, nothing done) stops the loop.
+
+If `TILLEND_EMPTY=true`:
+- Output: `[monomind:repeat] Empty round — nothing found and nothing changed. Tillend loop complete after PREV_REP run(s).`
+- Remove state file and emit loop:complete:
+  ```bash
+  rm -f ".monomind/loops/<LOOP_ID>.json" ".monomind/loops/<LOOP_ID>.stop"
+  REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+  curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+    -H "Content-Type: application/json" \
+    -d "{\"type\":\"loop:complete\",\"loopId\":\"<LOOP_ID>\",\"command\":\"/monomind:repeat\",\"mode\":\"tillend\",\"ranReps\":<PREV_REP>,\"reason\":\"empty-round\",\"ts\":$(date +%s)000}" || true
+  ```
+- STOP. Do NOT schedule another wake-up.
+
+If `--tillend` is active AND `CURRENT_REP > MAXRUNS` (safety cap reached):
+- Output: `[monomind:repeat] Safety cap reached (MAXRUNS runs). Stopping tillend loop. If work remains, re-run with a higher --maxruns.`
+- Remove state file and emit loop:complete:
+  ```bash
+  rm -f ".monomind/loops/<LOOP_ID>.json" ".monomind/loops/<LOOP_ID>.stop"
+  REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+  curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+    -H "Content-Type: application/json" \
+    -d "{\"type\":\"loop:complete\",\"loopId\":\"<LOOP_ID>\",\"command\":\"/monomind:repeat\",\"mode\":\"tillend\",\"ranReps\":<PREV_REP>,\"reason\":\"safety-cap\",\"ts\":$(date +%s)000}" || true
+  ```
+- STOP.
+
+If `CURRENT_REP > MAX_REPS` (fixed-count: all runs done), output:
 ```
 [monomind:repeat] All MAX_REPS repetitions complete.
 ```
 Remove the state file and emit loop:complete:
 ```bash
 rm -f ".monomind/loops/<LOOP_ID>.json" ".monomind/loops/<LOOP_ID>.stop"
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "{\"type\":\"loop:complete\",\"loopId\":\"<LOOP_ID>\",\"command\":\"/monomind:repeat\",\"ranReps\":<MAX_REPS>,\"ts\":$(date +%s)000}" || true
 ```
 STOP. Do NOT schedule another wake-up.
 
-Otherwise, update the loop state before scheduling. **Run this bash block** (substitute `<LOOP_ID>`, `<INTERVAL>`, `<CURRENT_REP>`, `<MAX_REPS>`, and `<PREV_REP>` with their literal values):
+Otherwise, update the loop state before scheduling. **Run this bash block** (substitute `<LOOP_ID>`, `<INTERVAL>`, `<CURRENT_REP>`, `<MAX_REPS>`, `<PREV_REP>`, `<TILLEND_ACTIVE>`, and `<MAXRUNS>` with their literal values):
 ```bash
 NOW_MS=$(python3 -c 'import time;print(int(time.time()*1000))' 2>/dev/null || echo "$(date +%s)000")
 NEXT_AT=$(( NOW_MS + <INTERVAL> * 60 * 1000 ))
@@ -162,33 +212,39 @@ PROMPT_JSON=$(jq '.prompt' ".monomind/loops/<LOOP_ID>.json" 2>/dev/null \
 STARTED_AT=$(jq '.startedAt' ".monomind/loops/<LOOP_ID>.json" 2>/dev/null \
   || python3 -c "import json; print(json.load(open('.monomind/loops/<LOOP_ID>.json'))['startedAt'])" 2>/dev/null \
   || echo "${NOW_MS}")
+LOOP_TYPE=$( [ '<TILLEND_ACTIVE>' = 'true' ] && echo 'tillend' || echo 'repeat' )
+LOOP_MAXREPS=$( [ '<TILLEND_ACTIVE>' = 'true' ] && echo '<MAXRUNS>' || echo '<MAX_REPS>' )
 cat > ".monomind/loops/<LOOP_ID>.json" << EOF
 {
   "id": "<LOOP_ID>",
   "sessionId": "<LOOP_ID>",
-  "type": "repeat",
+  "type": "${LOOP_TYPE}",
   "command": "/monomind:repeat",
   "prompt": ${PROMPT_JSON},
   "interval": <INTERVAL>,
   "currentRep": <CURRENT_REP>,
-  "maxReps": <MAX_REPS>,
+  "maxReps": ${LOOP_MAXREPS},
   "startedAt": ${STARTED_AT},
   "lastRunAt": ${NOW_MS},
   "nextRunAt": ${NEXT_AT},
   "status": "running"
 }
 EOF
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
-  -d "{\"type\":\"loop:tick\",\"loopId\":\"<LOOP_ID>\",\"command\":\"/monomind:repeat\",\"completedRep\":<PREV_REP>,\"nextRep\":<CURRENT_REP>,\"nextAt\":${NEXT_AT},\"ts\":$(date +%s)000}" || true
+  -d "{\"type\":\"loop:tick\",\"loopId\":\"<LOOP_ID>\",\"command\":\"/monomind:repeat\",\"mode\":\"${LOOP_TYPE}\",\"completedRep\":<PREV_REP>,\"nextRep\":<CURRENT_REP>,\"nextAt\":${NEXT_AT},\"ts\":$(date +%s)000}" || true
 ```
 
-Output: `[monomind:repeat] Next run in INTERVAL minutes (run CURRENT_REP/MAX_REPS)...`
+Output:
+- **If `--tillend` active:** `[monomind:repeat] Next tillend run in INTERVAL minutes (run CURRENT_REP, cap: MAXRUNS)...`
+- **Otherwise:** `[monomind:repeat] Next run in INTERVAL minutes (run CURRENT_REP/MAX_REPS)...`
 
 Use `ScheduleWakeup` with:
 - `delaySeconds`: `INTERVAL * 60`
-- `prompt`: `/monomind:repeat --every <INTERVAL> --times <MAX_REPS> --rep <CURRENT_REP> --loop <LOOP_ID> -- <PROMPT>`
-- `reason`: `"repeat run <CURRENT_REP>/<MAX_REPS> of /monomind:repeat"`
+- **If `--tillend` active:** `prompt`: `/monomind:repeat --tillend --maxruns <MAXRUNS> --every <INTERVAL> --rep <CURRENT_REP> --loop <LOOP_ID> -- <PROMPT>`; `reason`: `"tillend run <CURRENT_REP> (cap: <MAXRUNS>) of /monomind:repeat"`
+- **Otherwise:** `prompt`: `/monomind:repeat --every <INTERVAL> --times <MAX_REPS> --rep <CURRENT_REP> --loop <LOOP_ID> -- <PROMPT>`; `reason`: `"repeat run <CURRENT_REP>/<MAX_REPS> of /monomind:repeat"`
 
 The `--` before `<PROMPT>` ensures the prompt text is never parsed as flags, even if it contains `--every` or `--times`. Substitute all angle-bracket values with their literals.
 
