@@ -3,9 +3,9 @@
     {
       "slug": "anthropologist",
       "name": "Anthropologist",
-      "description": "Expert in cultural systems, rituals, kinship, belief systems, and ethnographic method — builds culturally coherent societies that feel lived-in rather than invented",
+      "description": "Expert in cultural systems, rituals, kinship, belief systems, and ethnographic method \u2014 builds culturally coherent societies that feel lived-in rather than invented",
       "category": "academic",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/academic/academic-anthropologist.md",
+      "filePath": "../agents/academic/academic-anthropologist.md",
       "keywords": [
         "expert",
         "cultural",
@@ -29,9 +29,9 @@
     {
       "slug": "geographer",
       "name": "Geographer",
-      "description": "Expert in physical and human geography, climate systems, cartography, and spatial analysis — builds geographically coherent worlds where terrain, climate, resources, and settlement patterns make scientific sense",
+      "description": "Expert in physical and human geography, climate systems, cartography, and spatial analysis \u2014 builds geographically coherent worlds where terrain, climate, resources, and settlement patterns make scientific sense",
       "category": "academic",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/academic/academic-geographer.md",
+      "filePath": "../agents/academic/academic-geographer.md",
       "keywords": [
         "expert",
         "physical",
@@ -58,9 +58,9 @@
     {
       "slug": "historian",
       "name": "Historian",
-      "description": "Expert in historical analysis, periodization, material culture, and historiography — validates historical coherence and enriches settings with authentic period detail grounded in primary and secondary sources",
+      "description": "Expert in historical analysis, periodization, material culture, and historiography \u2014 validates historical coherence and enriches settings with authentic period detail grounded in primary and secondary sources",
       "category": "academic",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/academic/academic-historian.md",
+      "filePath": "../agents/academic/academic-historian.md",
       "keywords": [
         "expert",
         "historical",
@@ -85,9 +85,9 @@
     {
       "slug": "narratologist",
       "name": "Narratologist",
-      "description": "Expert in narrative theory, story structure, character arcs, and literary analysis — grounds advice in established frameworks from Propp to Campbell to modern narratology",
+      "description": "Expert in narrative theory, story structure, character arcs, and literary analysis \u2014 grounds advice in established frameworks from Propp to Campbell to modern narratology",
       "category": "academic",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/academic/academic-narratologist.md",
+      "filePath": "../agents/academic/academic-narratologist.md",
       "keywords": [
         "expert",
         "narrative",
@@ -111,9 +111,9 @@
     {
       "slug": "psychologist",
       "name": "Psychologist",
-      "description": "Expert in human behavior, personality theory, motivation, and cognitive patterns — builds psychologically credible characters and interactions grounded in clinical and research frameworks",
+      "description": "Expert in human behavior, personality theory, motivation, and cognitive patterns \u2014 builds psychologically credible characters and interactions grounded in clinical and research frameworks",
       "category": "academic",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/academic/academic-psychologist.md",
+      "filePath": "../agents/academic/academic-psychologist.md",
       "keywords": [
         "expert",
         "human",
@@ -139,7 +139,7 @@
       "name": "code-analyzer",
       "description": "Advanced code quality analysis agent for comprehensive code reviews and improvements",
       "category": "analysis",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/analysis/analyze-code-quality.md",
+      "filePath": "../agents/analysis/analyze-code-quality.md",
       "keywords": [
         "advanced",
         "code",
@@ -156,7 +156,7 @@
       "name": "analyst",
       "description": "Advanced code quality analysis agent for comprehensive code reviews and improvements",
       "category": "analysis",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/analysis/code-analyzer.md",
+      "filePath": "../agents/analysis/code-analyzer.md",
       "keywords": [
         "advanced",
         "code",
@@ -173,7 +173,7 @@
       "name": "code-analyzer",
       "description": "Advanced code quality analysis agent for comprehensive code reviews and improvements",
       "category": "analysis",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/analysis/code-review/analyze-code-quality.md",
+      "filePath": "../agents/analysis/code-review/analyze-code-quality.md",
       "keywords": [
         "advanced",
         "code",
@@ -190,7 +190,7 @@
       "name": "system-architect",
       "description": "Expert agent for system architecture design, patterns, and high-level technical decisions",
       "category": "architecture",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/architecture/system-design/arch-system-design.md",
+      "filePath": "../agents/architecture/system-design/arch-system-design.md",
       "keywords": [
         "expert",
         "agent",
@@ -209,7 +209,7 @@
       "name": "crdt-synchronizer",
       "description": "Implements Conflict-free Replicated Data Types for eventually consistent state synchronization",
       "category": "consensus",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/consensus/crdt-synchronizer.md",
+      "filePath": "../agents/consensus/crdt-synchronizer.md",
       "keywords": [
         "implements",
         "conflict",
@@ -228,7 +228,7 @@
       "name": "performance-benchmarker",
       "description": "Implements comprehensive performance benchmarking for distributed consensus protocols",
       "category": "consensus",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/consensus/performance-benchmarker.md",
+      "filePath": "../agents/consensus/performance-benchmarker.md",
       "keywords": [
         "implements",
         "comprehensive",
@@ -244,7 +244,7 @@
       "name": "quorum-manager",
       "description": "Implements dynamic quorum adjustment and intelligent membership management",
       "category": "consensus",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/consensus/quorum-manager.md",
+      "filePath": "../agents/consensus/quorum-manager.md",
       "keywords": [
         "implements",
         "dynamic",
@@ -260,7 +260,7 @@
       "name": "security-manager",
       "description": "Implements comprehensive security mechanisms for distributed consensus protocols",
       "category": "consensus",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/consensus/security-manager.md",
+      "filePath": "../agents/consensus/security-manager.md",
       "keywords": [
         "implements",
         "comprehensive",
@@ -276,7 +276,7 @@
       "name": "coder",
       "description": "Implementation specialist for writing clean, efficient code",
       "category": "core",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/core/coder.md",
+      "filePath": "../agents/core/coder.md",
       "keywords": [
         "implementation",
         "specialist",
@@ -291,7 +291,7 @@
       "name": "planner",
       "description": "Strategic planning and task orchestration agent",
       "category": "core",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/core/planner.md",
+      "filePath": "../agents/core/planner.md",
       "keywords": [
         "strategic",
         "planning",
@@ -305,7 +305,7 @@
       "name": "researcher",
       "description": "Deep research and information gathering specialist",
       "category": "core",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/core/researcher.md",
+      "filePath": "../agents/core/researcher.md",
       "keywords": [
         "deep",
         "research",
@@ -319,7 +319,7 @@
       "name": "reviewer",
       "description": "Code review and quality assurance specialist",
       "category": "core",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/core/reviewer.md",
+      "filePath": "../agents/core/reviewer.md",
       "keywords": [
         "code",
         "review",
@@ -333,7 +333,7 @@
       "name": "tester",
       "description": "Comprehensive testing and quality assurance specialist",
       "category": "core",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/core/tester.md",
+      "filePath": "../agents/core/tester.md",
       "keywords": [
         "comprehensive",
         "testing",
@@ -347,7 +347,7 @@
       "name": "ml-developer",
       "description": "Specialized agent for machine learning model development, training, and deployment",
       "category": "data",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/data/ml/data-ml-model.md",
+      "filePath": "../agents/data/ml/data-ml-model.md",
       "keywords": [
         "specialized",
         "agent",
@@ -364,7 +364,7 @@
       "name": "Brand Guardian",
       "description": "Expert brand strategist and guardian specializing in brand identity development, consistency maintenance, and strategic brand positioning",
       "category": "design",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/design/design-brand-guardian.md",
+      "filePath": "../agents/design/design-brand-guardian.md",
       "keywords": [
         "expert",
         "brand",
@@ -384,7 +384,7 @@
       "name": "Image Prompt Engineer",
       "description": "Expert photography prompt engineer specializing in crafting detailed, evocative prompts for AI image generation. Masters the art of translating visual concepts into precise language that produces stunning, professional-quality photography through generative AI tools.",
       "category": "design",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/design/design-image-prompt-engineer.md",
+      "filePath": "../agents/design/design-image-prompt-engineer.md",
       "keywords": [
         "expert",
         "photography",
@@ -413,7 +413,7 @@
       "name": "Inclusive Visuals Specialist",
       "description": "Representation expert who defeats systemic AI biases to generate culturally accurate, affirming, and non-stereotypical images and video.",
       "category": "design",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/design/design-inclusive-visuals-specialist.md",
+      "filePath": "../agents/design/design-inclusive-visuals-specialist.md",
       "keywords": [
         "representation",
         "expert",
@@ -434,7 +434,7 @@
       "name": "UI Designer",
       "description": "Expert UI designer specializing in visual design systems, component libraries, and pixel-perfect interface creation. Creates beautiful, consistent, accessible user interfaces that enhance UX and reflect brand identity",
       "category": "design",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/design/design-ui-designer.md",
+      "filePath": "../agents/design/design-ui-designer.md",
       "keywords": [
         "expert",
         "designer",
@@ -463,7 +463,7 @@
       "name": "UX Architect",
       "description": "Technical architecture and UX specialist who provides developers with solid foundations, CSS systems, and clear implementation guidance",
       "category": "design",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/design/design-ux-architect.md",
+      "filePath": "../agents/design/design-ux-architect.md",
       "keywords": [
         "technical",
         "architecture",
@@ -483,7 +483,7 @@
       "name": "UX Researcher",
       "description": "Expert user experience researcher specializing in user behavior analysis, usability testing, and data-driven design insights. Provides actionable research findings that improve product usability and user satisfaction",
       "category": "design",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/design/design-ux-researcher.md",
+      "filePath": "../agents/design/design-ux-researcher.md",
       "keywords": [
         "expert",
         "user",
@@ -512,7 +512,7 @@
       "name": "Visual Storyteller",
       "description": "Expert visual communication specialist focused on creating compelling visual narratives, multimedia content, and brand storytelling through design. Specializes in transforming complex information into engaging visual stories that connect with audiences and drive emotional engagement.",
       "category": "design",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/design/design-visual-storyteller.md",
+      "filePath": "../agents/design/design-visual-storyteller.md",
       "keywords": [
         "expert",
         "visual",
@@ -541,7 +541,7 @@
       "name": "Whimsy Injector",
       "description": "Expert creative specialist focused on adding personality, delight, and playful elements to brand experiences. Creates memorable, joyful interactions that differentiate brands through unexpected moments of whimsy",
       "category": "design",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/design/design-whimsy-injector.md",
+      "filePath": "../agents/design/design-whimsy-injector.md",
       "keywords": [
         "expert",
         "creative",
@@ -570,7 +570,7 @@
       "name": "backend-dev",
       "description": "Specialized agent for backend API development with self-learning and pattern recognition",
       "category": "development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/development/dev-backend-api.md",
+      "filePath": "../agents/development/dev-backend-api.md",
       "keywords": [
         "specialized",
         "agent",
@@ -587,7 +587,7 @@
       "name": "cicd-engineer",
       "description": "Specialized agent for GitHub Actions CI/CD pipeline creation and optimization",
       "category": "devops",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/devops/ci-cd/ops-cicd-github.md",
+      "filePath": "../agents/devops/ci-cd/ops-cicd-github.md",
       "keywords": [
         "specialized",
         "agent",
@@ -603,7 +603,7 @@
       "name": "api-docs",
       "description": "Expert agent for creating and maintaining OpenAPI/Swagger documentation",
       "category": "documentation",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/documentation/api-docs/docs-api-openapi.md",
+      "filePath": "../agents/documentation/api-docs/docs-api-openapi.md",
       "keywords": [
         "expert",
         "agent",
@@ -617,9 +617,9 @@
     {
       "slug": "ai-data-remediation-engineer",
       "name": "AI Data Remediation Engineer",
-      "description": "\"Specialist in self-healing data pipelines — uses air-gapped local SLMs and semantic clustering to automatically detect, classify, and fix data anomalies at scale. Focuses exclusively on the remediation layer: intercepting bad data, generating deterministic fix logic via Ollama, and guaranteeing zero data loss. Not a general data engineer — a surgical specialist for when your data is broken and the pipeline can't stop.\"",
+      "description": "\"Specialist in self-healing data pipelines \u2014 uses air-gapped local SLMs and semantic clustering to automatically detect, classify, and fix data anomalies at scale. Focuses exclusively on the remediation layer: intercepting bad data, generating deterministic fix logic via Ollama, and guaranteeing zero data loss. Not a general data engineer \u2014 a surgical specialist for when your data is broken and the pipeline can't stop.\"",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-ai-data-remediation-engineer.md",
+      "filePath": "../agents/engineering/engineering-ai-data-remediation-engineer.md",
       "keywords": [
         "specialist",
         "self",
@@ -648,7 +648,7 @@
       "name": "AI Engineer",
       "description": "Expert AI/ML engineer specializing in machine learning model development, deployment, and integration into production systems. Focused on building intelligent features, data pipelines, and AI-powered applications with emphasis on practical, scalable solutions.",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-ai-engineer.md",
+      "filePath": "../agents/engineering/engineering-ai-engineer.md",
       "keywords": [
         "expert",
         "engineer",
@@ -677,7 +677,7 @@
       "name": "Autonomous Optimization Architect",
       "description": "Intelligent system governor that continuously shadow-tests APIs for performance while enforcing strict financial and security guardrails against runaway costs.",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-autonomous-optimization-architect.md",
+      "filePath": "../agents/engineering/engineering-autonomous-optimization-architect.md",
       "keywords": [
         "intelligent",
         "system",
@@ -703,7 +703,7 @@
       "name": "Backend Architect",
       "description": "Senior backend architect specializing in scalable system design, database architecture, API development, and cloud infrastructure. Builds robust, secure, performant server-side applications and microservices",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-backend-architect.md",
+      "filePath": "../agents/engineering/engineering-backend-architect.md",
       "keywords": [
         "senior",
         "backend",
@@ -730,9 +730,9 @@
     {
       "slug": "code-reviewer",
       "name": "Code Reviewer",
-      "description": "Expert code reviewer who provides constructive, actionable feedback focused on correctness, maintainability, security, and performance — not style preferences.",
+      "description": "Expert code reviewer who provides constructive, actionable feedback focused on correctness, maintainability, security, and performance \u2014 not style preferences.",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-code-reviewer.md",
+      "filePath": "../agents/engineering/engineering-code-reviewer.md",
       "keywords": [
         "expert",
         "code",
@@ -755,7 +755,7 @@
       "name": "Data Engineer",
       "description": "Expert data engineer specializing in building reliable data pipelines, lakehouse architectures, and scalable data infrastructure. Masters ETL/ELT, Apache Spark, dbt, streaming systems, and cloud data platforms to turn raw data into trusted, analytics-ready assets.",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-data-engineer.md",
+      "filePath": "../agents/engineering/engineering-data-engineer.md",
       "keywords": [
         "expert",
         "data",
@@ -784,7 +784,7 @@
       "name": "Database Optimizer",
       "description": "Expert database specialist focusing on schema design, query optimization, indexing strategies, and performance tuning for PostgreSQL, MySQL, and modern databases like Supabase and PlanetScale.",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-database-optimizer.md",
+      "filePath": "../agents/engineering/engineering-database-optimizer.md",
       "keywords": [
         "expert",
         "database",
@@ -812,7 +812,7 @@
       "name": "DevOps Automator",
       "description": "Expert DevOps engineer specializing in infrastructure automation, CI/CD pipeline development, and cloud operations",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-devops-automator.md",
+      "filePath": "../agents/engineering/engineering-devops-automator.md",
       "keywords": [
         "expert",
         "devops",
@@ -831,7 +831,7 @@
       "name": "Embedded Firmware Engineer",
       "description": "Specialist in bare-metal and RTOS firmware - ESP32/ESP-IDF, PlatformIO, Arduino, ARM Cortex-M, STM32 HAL/LL, Nordic nRF5/nRF Connect SDK, FreeRTOS, Zephyr",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-embedded-firmware-engineer.md",
+      "filePath": "../agents/engineering/engineering-embedded-firmware-engineer.md",
       "keywords": [
         "specialist",
         "bare",
@@ -853,9 +853,9 @@
     {
       "slug": "feishu-integration-developer",
       "name": "Feishu Integration Developer",
-      "description": "Full-stack integration expert specializing in the Feishu (Lark) Open Platform — proficient in Feishu bots, mini programs, approval workflows, Bitable (multidimensional spreadsheets), interactive message cards, Webhooks, SSO authentication, and workflow automation, building enterprise-grade collaboration and automation solutions within the Feishu ecosystem.",
+      "description": "Full-stack integration expert specializing in the Feishu (Lark) Open Platform \u2014 proficient in Feishu bots, mini programs, approval workflows, Bitable (multidimensional spreadsheets), interactive message cards, Webhooks, SSO authentication, and workflow automation, building enterprise-grade collaboration and automation solutions within the Feishu ecosystem.",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-feishu-integration-developer.md",
+      "filePath": "../agents/engineering/engineering-feishu-integration-developer.md",
       "keywords": [
         "full",
         "stack",
@@ -884,7 +884,7 @@
       "name": "Frontend Developer",
       "description": "Expert frontend developer specializing in modern web technologies, React/Vue/Angular frameworks, UI implementation, and performance optimization",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-frontend-developer.md",
+      "filePath": "../agents/engineering/engineering-frontend-developer.md",
       "keywords": [
         "expert",
         "frontend",
@@ -905,7 +905,7 @@
       "name": "Git Workflow Master",
       "description": "Expert in Git workflows, branching strategies, and version control best practices including conventional commits, rebasing, worktrees, and CI-friendly branch management.",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-git-workflow-master.md",
+      "filePath": "../agents/engineering/engineering-git-workflow-master.md",
       "keywords": [
         "expert",
         "workflows",
@@ -930,7 +930,7 @@
       "name": "Incident Response Commander",
       "description": "Expert incident commander specializing in production incident management, structured response coordination, post-mortem facilitation, SLO/SLI tracking, and on-call process design for reliable engineering organizations.",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-incident-response-commander.md",
+      "filePath": "../agents/engineering/engineering-incident-response-commander.md",
       "keywords": [
         "expert",
         "incident",
@@ -958,7 +958,7 @@
       "name": "Mobile App Builder",
       "description": "Specialized mobile application developer with expertise in native iOS/Android development and cross-platform frameworks",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-mobile-app-builder.md",
+      "filePath": "../agents/engineering/engineering-mobile-app-builder.md",
       "keywords": [
         "specialized",
         "mobile",
@@ -978,7 +978,7 @@
       "name": "Rapid Prototyper",
       "description": "Specialized in ultra-fast proof-of-concept development and MVP creation using efficient tools and frameworks",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-rapid-prototyper.md",
+      "filePath": "../agents/engineering/engineering-rapid-prototyper.md",
       "keywords": [
         "specialized",
         "ultra",
@@ -998,7 +998,7 @@
       "name": "Security Engineer",
       "description": "Expert application security engineer specializing in threat modeling, vulnerability assessment, secure code review, and security architecture design for modern web and cloud-native applications.",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-security-engineer.md",
+      "filePath": "../agents/engineering/engineering-security-engineer.md",
       "keywords": [
         "expert",
         "application",
@@ -1025,7 +1025,7 @@
       "name": "Senior Developer",
       "description": "Premium implementation specialist - Masters Laravel/Livewire/FluxUI, advanced CSS, Three.js integration",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-senior-developer.md",
+      "filePath": "../agents/engineering/engineering-senior-developer.md",
       "keywords": [
         "premium",
         "implementation",
@@ -1043,7 +1043,7 @@
       "name": "Software Architect",
       "description": "Expert software architect specializing in system design, domain-driven design, architectural patterns, and technical decision-making for scalable, maintainable systems.",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-software-architect.md",
+      "filePath": "../agents/engineering/engineering-software-architect.md",
       "keywords": [
         "expert",
         "software",
@@ -1068,7 +1068,7 @@
       "name": "Solidity Smart Contract Engineer",
       "description": "Expert Solidity developer specializing in EVM smart contract architecture, gas optimization, upgradeable proxy patterns, DeFi protocol development, and security-first contract design across Ethereum and L2 chains.",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-solidity-smart-contract-engineer.md",
+      "filePath": "../agents/engineering/engineering-solidity-smart-contract-engineer.md",
       "keywords": [
         "expert",
         "solidity",
@@ -1097,7 +1097,7 @@
       "name": "SRE (Site Reliability Engineer)",
       "description": "Expert site reliability engineer specializing in SLOs, error budgets, observability, chaos engineering, and toil reduction for production systems at scale.",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-sre.md",
+      "filePath": "../agents/engineering/engineering-sre.md",
       "keywords": [
         "expert",
         "site",
@@ -1122,7 +1122,7 @@
       "name": "Technical Writer",
       "description": "Expert technical writer specializing in developer documentation, API references, README files, and tutorials. Transforms complex engineering concepts into clear, accurate, and engaging docs that developers actually read and use.",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-technical-writer.md",
+      "filePath": "../agents/engineering/engineering-technical-writer.md",
       "keywords": [
         "expert",
         "technical",
@@ -1151,7 +1151,7 @@
       "name": "Threat Detection Engineer",
       "description": "Expert detection engineer specializing in SIEM rule development, MITRE ATT&CK coverage mapping, threat hunting, alert tuning, and detection-as-code pipelines for security operations teams.",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-threat-detection-engineer.md",
+      "filePath": "../agents/engineering/engineering-threat-detection-engineer.md",
       "keywords": [
         "expert",
         "detection",
@@ -1177,9 +1177,9 @@
     {
       "slug": "wechat-mini-program-developer",
       "name": "WeChat Mini Program Developer",
-      "description": "Expert WeChat Mini Program developer specializing in 小程序 development with WXML/WXSS/WXS, WeChat API integration, payment systems, subscription messaging, and the full WeChat ecosystem.",
+      "description": "Expert WeChat Mini Program developer specializing in \u5c0f\u7a0b\u5e8f development with WXML/WXSS/WXS, WeChat API integration, payment systems, subscription messaging, and the full WeChat ecosystem.",
       "category": "engineering",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/engineering/engineering-wechat-mini-program-developer.md",
+      "filePath": "../agents/engineering/engineering-wechat-mini-program-developer.md",
       "keywords": [
         "expert",
         "wechat",
@@ -1204,7 +1204,7 @@
       "name": "Blender Add-on Engineer",
       "description": "Blender tooling specialist - Builds Python add-ons, asset validators, exporters, and pipeline automations that turn repetitive DCC work into reliable one-click workflows",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/blender/blender-addon-engineer.md",
+      "filePath": "../agents/game-development/blender/blender-addon-engineer.md",
       "keywords": [
         "blender",
         "tooling",
@@ -1230,7 +1230,7 @@
       "name": "Game Audio Engineer",
       "description": "Interactive audio specialist - Masters FMOD/Wwise integration, adaptive music systems, spatial audio, and audio performance budgeting across all game engines",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/game-audio-engineer.md",
+      "filePath": "../agents/game-development/game-audio-engineer.md",
       "keywords": [
         "interactive",
         "audio",
@@ -1255,7 +1255,7 @@
       "name": "Game Designer",
       "description": "Systems and mechanics architect - Masters GDD authorship, player psychology, economy balancing, and gameplay loop design across all engines and genres",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/game-designer.md",
+      "filePath": "../agents/game-development/game-designer.md",
       "keywords": [
         "systems",
         "mechanics",
@@ -1279,7 +1279,7 @@
       "name": "Godot Gameplay Scripter",
       "description": "Composition and signal integrity specialist - Masters GDScript 2.0, C# integration, node-based architecture, and type-safe signal design for Godot 4 projects",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/godot/godot-gameplay-scripter.md",
+      "filePath": "../agents/game-development/godot/godot-gameplay-scripter.md",
       "keywords": [
         "composition",
         "signal",
@@ -1303,7 +1303,7 @@
       "name": "Godot Multiplayer Engineer",
       "description": "Godot 4 networking specialist - Masters the MultiplayerAPI, scene replication, ENet/WebRTC transport, RPCs, and authority models for real-time multiplayer games",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/godot/godot-multiplayer-engineer.md",
+      "filePath": "../agents/game-development/godot/godot-multiplayer-engineer.md",
       "keywords": [
         "godot",
         "networking",
@@ -1329,7 +1329,7 @@
       "name": "Godot Shader Developer",
       "description": "Godot 4 visual effects specialist - Masters the Godot Shading Language (GLSL-like), VisualShader editor, CanvasItem and Spatial shaders, post-processing, and performance optimization for 2D/3D effects",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/godot/godot-shader-developer.md",
+      "filePath": "../agents/game-development/godot/godot-shader-developer.md",
       "keywords": [
         "godot",
         "visual",
@@ -1356,7 +1356,7 @@
       "name": "Level Designer",
       "description": "Spatial storytelling and flow specialist - Masters layout theory, pacing architecture, encounter design, and environmental narrative across all game engines",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/level-designer.md",
+      "filePath": "../agents/game-development/level-designer.md",
       "keywords": [
         "spatial",
         "storytelling",
@@ -1381,7 +1381,7 @@
       "name": "Narrative Designer",
       "description": "Story systems and dialogue architect - Masters GDD-aligned narrative design, branching dialogue, lore architecture, and environmental storytelling across all game engines",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/narrative-designer.md",
+      "filePath": "../agents/game-development/narrative-designer.md",
       "keywords": [
         "story",
         "systems",
@@ -1406,7 +1406,7 @@
       "name": "Roblox Avatar Creator",
       "description": "Roblox UGC and avatar pipeline specialist - Masters Roblox's avatar system, UGC item creation, accessory rigging, texture standards, and the Creator Marketplace submission pipeline",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/roblox-studio/roblox-avatar-creator.md",
+      "filePath": "../agents/game-development/roblox-studio/roblox-avatar-creator.md",
       "keywords": [
         "roblox",
         "avatar",
@@ -1430,7 +1430,7 @@
       "name": "Roblox Experience Designer",
       "description": "Roblox platform UX and monetization specialist - Masters engagement loop design, DataStore-driven progression, Roblox monetization systems (Passes, Developer Products, UGC), and player retention for Roblox experiences",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/roblox-studio/roblox-experience-designer.md",
+      "filePath": "../agents/game-development/roblox-studio/roblox-experience-designer.md",
       "keywords": [
         "roblox",
         "platform",
@@ -1457,7 +1457,7 @@
       "name": "Roblox Systems Scripter",
       "description": "Roblox platform engineering specialist - Masters Luau, the client-server security model, RemoteEvents/RemoteFunctions, DataStore, and module architecture for scalable Roblox experiences",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/roblox-studio/roblox-systems-scripter.md",
+      "filePath": "../agents/game-development/roblox-studio/roblox-systems-scripter.md",
       "keywords": [
         "roblox",
         "platform",
@@ -1483,7 +1483,7 @@
       "name": "Technical Artist",
       "description": "Art-to-engine pipeline specialist - Masters shaders, VFX systems, LOD pipelines, performance budgeting, and cross-engine asset optimization",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/technical-artist.md",
+      "filePath": "../agents/game-development/technical-artist.md",
       "keywords": [
         "engine",
         "pipeline",
@@ -1504,7 +1504,7 @@
       "name": "Unity Architect",
       "description": "Data-driven modularity specialist - Masters ScriptableObjects, decoupled systems, and single-responsibility component design for scalable Unity projects",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/unity/unity-architect.md",
+      "filePath": "../agents/game-development/unity/unity-architect.md",
       "keywords": [
         "data",
         "driven",
@@ -1528,7 +1528,7 @@
       "name": "Unity Editor Tool Developer",
       "description": "Unity editor automation specialist - Masters custom EditorWindows, PropertyDrawers, AssetPostprocessors, ScriptedImporters, and pipeline automation that saves teams hours per week",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/unity/unity-editor-tool-developer.md",
+      "filePath": "../agents/game-development/unity/unity-editor-tool-developer.md",
       "keywords": [
         "unity",
         "editor",
@@ -1552,7 +1552,7 @@
       "name": "Unity Multiplayer Engineer",
       "description": "Networked gameplay specialist - Masters Netcode for GameObjects, Unity Gaming Services (Relay/Lobby), client-server authority, lag compensation, and state synchronization",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/unity/unity-multiplayer-engineer.md",
+      "filePath": "../agents/game-development/unity/unity-multiplayer-engineer.md",
       "keywords": [
         "networked",
         "gameplay",
@@ -1578,7 +1578,7 @@
       "name": "Unity Shader Graph Artist",
       "description": "Visual effects and material specialist - Masters Unity Shader Graph, HLSL, URP/HDRP rendering pipelines, and custom pass authoring for real-time visual effects",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/unity/unity-shader-graph-artist.md",
+      "filePath": "../agents/game-development/unity/unity-shader-graph-artist.md",
       "keywords": [
         "visual",
         "effects",
@@ -1604,7 +1604,7 @@
       "name": "Unreal Multiplayer Architect",
       "description": "Unreal Engine networking specialist - Masters Actor replication, GameMode/GameState architecture, server-authoritative gameplay, network prediction, and dedicated server setup for UE5",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/unreal-engine/unreal-multiplayer-architect.md",
+      "filePath": "../agents/game-development/unreal-engine/unreal-multiplayer-architect.md",
       "keywords": [
         "unreal",
         "engine",
@@ -1630,7 +1630,7 @@
       "name": "Unreal Systems Engineer",
       "description": "Performance and hybrid architecture specialist - Masters C++/Blueprint continuum, Nanite geometry, Lumen GI, and Gameplay Ability System for AAA-grade Unreal Engine projects",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/unreal-engine/unreal-systems-engineer.md",
+      "filePath": "../agents/game-development/unreal-engine/unreal-systems-engineer.md",
       "keywords": [
         "performance",
         "hybrid",
@@ -1656,7 +1656,7 @@
       "name": "Unreal Technical Artist",
       "description": "Unreal Engine visual pipeline specialist - Masters the Material Editor, Niagara VFX, Procedural Content Generation, and the art-to-engine pipeline for UE5 projects",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/unreal-engine/unreal-technical-artist.md",
+      "filePath": "../agents/game-development/unreal-engine/unreal-technical-artist.md",
       "keywords": [
         "unreal",
         "engine",
@@ -1678,7 +1678,7 @@
       "name": "Unreal World Builder",
       "description": "Open-world and environment specialist - Masters UE5 World Partition, Landscape, procedural foliage, HLOD, and large-scale level streaming for seamless open-world experiences",
       "category": "game-development",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/game-development/unreal-engine/unreal-world-builder.md",
+      "filePath": "../agents/game-development/unreal-engine/unreal-world-builder.md",
       "keywords": [
         "open",
         "world",
@@ -1703,7 +1703,7 @@
       "name": "sublinear-goal-planner",
       "description": "Goal-Oriented Action Planning (GOAP) specialist that dynamically creates intelligent plans to achieve complex objectives. Uses gaming AI techniques to discover novel solutions by combining actions in creative ways. Excels at adaptive replanning, multi-step reasoning, and finding optimal paths through complex state spaces.",
       "category": "goal",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/goal/agent.md",
+      "filePath": "../agents/goal/agent.md",
       "keywords": [
         "goal",
         "oriented",
@@ -1732,7 +1732,7 @@
       "name": "code-goal-planner",
       "description": "Code-centric Goal-Oriented Action Planning specialist that creates intelligent plans for software development objectives. Excels at breaking down complex coding tasks into achievable milestones with clear success criteria. Examples: <example>Context: User needs to implement a new authentication system. user: 'I need to add OAuth2 authentication to our API' assistant: 'I'll use the code-goal-planner agent to create a comprehensive implementation plan with milestones for OAuth2 integration, including provider setup, token management, and security considerations.' <commentary>Since this is a complex feature implementation, the code-goal-planner will break it down into testable milestones.</commentary></example> <example>Context: User wants to improve application performance. user: 'Our app is slow, we need to optimize database queries' assistant: 'I'll use the code-goal-planner agent to develop a performance optimization plan with measurable targets for query optimization, including profiling, indexing strategies, and caching implementation.' <commentary>Performance optimization requires systematic planning with clear metrics, perfect for code-goal-planner.</commentary></example>",
       "category": "goal",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/goal/code-goal-planner.md",
+      "filePath": "../agents/goal/code-goal-planner.md",
       "keywords": [
         "code",
         "centric",
@@ -1761,7 +1761,7 @@
       "name": "goal-planner",
       "description": "Goal-Oriented Action Planning (GOAP) specialist that dynamically creates intelligent plans to achieve complex objectives. Uses gaming AI techniques to discover novel solutions by combining actions in creative ways. Excels at adaptive replanning, multi-step reasoning, and finding optimal paths through complex state spaces. Examples: <example>Context: User needs to optimize a complex workflow with many dependencies. user: 'I need to deploy this application but there are many prerequisites and dependencies' assistant: 'I'll use the goal-planner agent to analyze all requirements and create an optimal action sequence that satisfies all preconditions and achieves your deployment goal.' <commentary>Complex multi-step planning with dependencies requires the goal-planner agent's GOAP algorithm to find the optimal path.</commentary></example> <example>Context: User has a high-level goal but isn't sure of the steps. user: 'Make my application production-ready' assistant: 'I'll use the goal-planner agent to break down this goal into concrete actions, analyze preconditions, and create an adaptive plan that achieves production readiness.' <commentary>High-level goals that need intelligent decomposition and planning benefit from the goal-planner agent's capabilities.</commentary></example>",
       "category": "goal",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/goal/goal-planner.md",
+      "filePath": "../agents/goal/goal-planner.md",
       "keywords": [
         "goal",
         "oriented",
@@ -1790,7 +1790,7 @@
       "name": "collective-intelligence-coordinator",
       "description": "Orchestrates distributed cognitive processes across the hive mind, ensuring coherent collective decision-making through memory synchronization and consensus protocols",
       "category": "hive-mind",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/hive-mind/collective-intelligence-coordinator.md",
+      "filePath": "../agents/hive-mind/collective-intelligence-coordinator.md",
       "keywords": [
         "orchestrates",
         "distributed",
@@ -1816,7 +1816,7 @@
       "name": "queen-coordinator",
       "description": "The sovereign orchestrator of hierarchical hive operations, managing strategic decisions, resource allocation, and maintaining hive coherence through centralized-decentralized hybrid control",
       "category": "hive-mind",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/hive-mind/queen-coordinator.md",
+      "filePath": "../agents/hive-mind/queen-coordinator.md",
       "keywords": [
         "sovereign",
         "orchestrator",
@@ -1842,7 +1842,7 @@
       "name": "scout-explorer",
       "description": "Information reconnaissance specialist that explores unknown territories, gathers intelligence, and reports findings to the hive mind through continuous memory updates",
       "category": "hive-mind",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/hive-mind/scout-explorer.md",
+      "filePath": "../agents/hive-mind/scout-explorer.md",
       "keywords": [
         "information",
         "reconnaissance",
@@ -1867,7 +1867,7 @@
       "name": "swarm-memory-manager",
       "description": "Manages distributed memory across the hive mind, ensuring data consistency, persistence, and efficient retrieval through advanced caching and synchronization protocols",
       "category": "hive-mind",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/hive-mind/swarm-memory-manager.md",
+      "filePath": "../agents/hive-mind/swarm-memory-manager.md",
       "keywords": [
         "manages",
         "distributed",
@@ -1893,7 +1893,7 @@
       "name": "worker-specialist",
       "description": "Dedicated task execution specialist that carries out assigned work with precision, continuously reporting progress through memory coordination",
       "category": "hive-mind",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/hive-mind/worker-specialist.md",
+      "filePath": "../agents/hive-mind/worker-specialist.md",
       "keywords": [
         "dedicated",
         "task",
@@ -1914,9 +1914,9 @@
     {
       "slug": "ai-citation-strategist",
       "name": "AI Citation Strategist",
-      "description": "Expert in AI recommendation engine optimization (AEO/GEO) — audits brand visibility across ChatGPT, Claude, Gemini, and Perplexity, identifies why competitors get cited instead, and delivers content fixes that improve AI citations",
+      "description": "Expert in AI recommendation engine optimization (AEO/GEO) \u2014 audits brand visibility across ChatGPT, Claude, Gemini, and Perplexity, identifies why competitors get cited instead, and delivers content fixes that improve AI citations",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-ai-citation-strategist.md",
+      "filePath": "../agents/marketing/marketing-ai-citation-strategist.md",
       "keywords": [
         "expert",
         "recommendation",
@@ -1945,7 +1945,7 @@
       "name": "App Store Optimizer",
       "description": "Expert app store marketing specialist focused on App Store Optimization (ASO), conversion rate optimization, and app discoverability",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-app-store-optimizer.md",
+      "filePath": "../agents/marketing/marketing-app-store-optimizer.md",
       "keywords": [
         "expert",
         "store",
@@ -1963,7 +1963,7 @@
       "name": "Baidu SEO Specialist",
       "description": "Expert Baidu search optimization specialist focused on Chinese search engine ranking, Baidu ecosystem integration, ICP compliance, Chinese keyword research, and mobile-first indexing for the China market.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-baidu-seo-specialist.md",
+      "filePath": "../agents/marketing/marketing-baidu-seo-specialist.md",
       "keywords": [
         "expert",
         "baidu",
@@ -1989,9 +1989,9 @@
     {
       "slug": "bilibili-content-strategist",
       "name": "Bilibili Content Strategist",
-      "description": "Expert Bilibili marketing specialist focused on UP主 growth, danmaku culture mastery, B站 algorithm optimization, community building, and branded content strategy for China's leading video community platform.",
+      "description": "Expert Bilibili marketing specialist focused on UP\u4e3b growth, danmaku culture mastery, B\u7ad9 algorithm optimization, community building, and branded content strategy for China's leading video community platform.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-bilibili-content-strategist.md",
+      "filePath": "../agents/marketing/marketing-bilibili-content-strategist.md",
       "keywords": [
         "expert",
         "bilibili",
@@ -2020,7 +2020,7 @@
       "name": "Book Co-Author",
       "description": "Strategic thought-leadership book collaborator for founders, experts, and operators turning voice notes, fragments, and positioning into structured first-person chapters.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-book-co-author.md",
+      "filePath": "../agents/marketing/marketing-book-co-author.md",
       "keywords": [
         "strategic",
         "thought",
@@ -2047,7 +2047,7 @@
       "name": "Carousel Growth Engine",
       "description": "Autonomous TikTok and Instagram carousel generation specialist. Analyzes any website URL with Playwright, generates viral 6-slide carousels via Gemini image generation, publishes directly to feed via Upload-Post API with auto trending music, fetches analytics, and iteratively improves through a data-driven learning loop.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-carousel-growth-engine.md",
+      "filePath": "../agents/marketing/marketing-carousel-growth-engine.md",
       "keywords": [
         "autonomous",
         "tiktok",
@@ -2076,7 +2076,7 @@
       "name": "China E-Commerce Operator",
       "description": "Expert China e-commerce operations specialist covering Taobao, Tmall, Pinduoduo, and JD ecosystems with deep expertise in product listing optimization, live commerce, store operations, 618/Double 11 campaigns, and cross-platform strategy.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-china-ecommerce-operator.md",
+      "filePath": "../agents/marketing/marketing-china-ecommerce-operator.md",
       "keywords": [
         "expert",
         "china",
@@ -2105,7 +2105,7 @@
       "name": "Content Creator",
       "description": "Expert content strategist and creator for multi-platform campaigns. Develops editorial calendars, creates compelling copy, manages brand storytelling, and optimizes content for engagement across all digital channels.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-content-creator.md",
+      "filePath": "../agents/marketing/marketing-content-creator.md",
       "keywords": [
         "expert",
         "content",
@@ -2134,7 +2134,7 @@
       "name": "Cross-Border E-Commerce Specialist",
       "description": "Full-funnel cross-border e-commerce strategist covering Amazon, Shopee, Lazada, AliExpress, Temu, and TikTok Shop operations, international logistics and overseas warehousing, compliance and taxation, multilingual listing optimization, brand globalization, and DTC independent site development.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-cross-border-ecommerce.md",
+      "filePath": "../agents/marketing/marketing-cross-border-ecommerce.md",
       "keywords": [
         "full",
         "funnel",
@@ -2163,7 +2163,7 @@
       "name": "Douyin Strategist",
       "description": "Short-video marketing expert specializing in the Douyin platform, with deep expertise in recommendation algorithm mechanics, viral video planning, livestream commerce workflows, and full-funnel brand growth through content matrix strategies.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-douyin-strategist.md",
+      "filePath": "../agents/marketing/marketing-douyin-strategist.md",
       "keywords": [
         "short",
         "video",
@@ -2192,7 +2192,7 @@
       "name": "Growth Hacker",
       "description": "Expert growth strategist specializing in rapid user acquisition through data-driven experimentation. Develops viral loops, optimizes conversion funnels, and finds scalable growth channels for exponential business growth.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-growth-hacker.md",
+      "filePath": "../agents/marketing/marketing-growth-hacker.md",
       "keywords": [
         "expert",
         "growth",
@@ -2221,7 +2221,7 @@
       "name": "Instagram Curator",
       "description": "Expert Instagram marketing specialist focused on visual storytelling, community building, and multi-format content optimization. Masters aesthetic development and drives meaningful engagement.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-instagram-curator.md",
+      "filePath": "../agents/marketing/marketing-instagram-curator.md",
       "keywords": [
         "expert",
         "instagram",
@@ -2247,9 +2247,9 @@
     {
       "slug": "kuaishou-strategist",
       "name": "Kuaishou Strategist",
-      "description": "Expert Kuaishou marketing strategist specializing in short-video content for China's lower-tier city markets, live commerce operations, community trust building, and grassroots audience growth on 快手.",
+      "description": "Expert Kuaishou marketing strategist specializing in short-video content for China's lower-tier city markets, live commerce operations, community trust building, and grassroots audience growth on \u5feb\u624b.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-kuaishou-strategist.md",
+      "filePath": "../agents/marketing/marketing-kuaishou-strategist.md",
       "keywords": [
         "expert",
         "kuaishou",
@@ -2278,7 +2278,7 @@
       "name": "LinkedIn Content Creator",
       "description": "Expert LinkedIn content strategist focused on thought leadership, personal brand building, and high-engagement professional content. Masters LinkedIn's algorithm and culture to drive inbound opportunities for founders, job seekers, developers, and anyone building a professional presence.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-linkedin-content-creator.md",
+      "filePath": "../agents/marketing/marketing-linkedin-content-creator.md",
       "keywords": [
         "expert",
         "linkedin",
@@ -2307,7 +2307,7 @@
       "name": "Livestream Commerce Coach",
       "description": "Veteran livestream e-commerce coach specializing in host training and live room operations across Douyin, Kuaishou, Taobao Live, and Channels, covering script design, product sequencing, paid-vs-organic traffic balancing, conversion closing techniques, and real-time data-driven optimization.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-livestream-commerce-coach.md",
+      "filePath": "../agents/marketing/marketing-livestream-commerce-coach.md",
       "keywords": [
         "veteran",
         "livestream",
@@ -2336,7 +2336,7 @@
       "name": "Podcast Strategist",
       "description": "Content strategy and operations expert for the Chinese podcast market, with deep expertise in Xiaoyuzhou, Ximalaya, and other major audio platforms, covering show positioning, audio production, audience growth, multi-platform distribution, and monetization to help podcast creators build sticky audio content brands.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-podcast-strategist.md",
+      "filePath": "../agents/marketing/marketing-podcast-strategist.md",
       "keywords": [
         "content",
         "strategy",
@@ -2365,7 +2365,7 @@
       "name": "Private Domain Operator",
       "description": "Expert in building enterprise WeChat (WeCom) private domain ecosystems, with deep expertise in SCRM systems, segmented community operations, Mini Program commerce integration, user lifecycle management, and full-funnel conversion optimization.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-private-domain-operator.md",
+      "filePath": "../agents/marketing/marketing-private-domain-operator.md",
       "keywords": [
         "expert",
         "building",
@@ -2394,7 +2394,7 @@
       "name": "Reddit Community Builder",
       "description": "Expert Reddit marketing specialist focused on authentic community engagement, value-driven content creation, and long-term relationship building. Masters Reddit culture navigation.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-reddit-community-builder.md",
+      "filePath": "../agents/marketing/marketing-reddit-community-builder.md",
       "keywords": [
         "expert",
         "reddit",
@@ -2422,7 +2422,7 @@
       "name": "SEO Specialist",
       "description": "Expert search engine optimization strategist specializing in technical SEO, content optimization, link authority building, and organic search growth. Drives sustainable traffic through data-driven search strategies.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-seo-specialist.md",
+      "filePath": "../agents/marketing/marketing-seo-specialist.md",
       "keywords": [
         "expert",
         "search",
@@ -2451,7 +2451,7 @@
       "name": "Short-Video Editing Coach",
       "description": "Hands-on short-video editing coach covering the full post-production pipeline, with mastery of CapCut Pro, Premiere Pro, DaVinci Resolve, and Final Cut Pro across composition and camera language, color grading, audio engineering, motion graphics and VFX, subtitle design, multi-platform export optimization, editing workflow efficiency, and AI-assisted editing.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-short-video-editing-coach.md",
+      "filePath": "../agents/marketing/marketing-short-video-editing-coach.md",
       "keywords": [
         "hands",
         "short",
@@ -2480,7 +2480,7 @@
       "name": "Social Media Strategist",
       "description": "Expert social media strategist for LinkedIn, Twitter, and professional platforms. Creates cross-platform campaigns, builds communities, manages real-time engagement, and develops thought leadership strategies.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-social-media-strategist.md",
+      "filePath": "../agents/marketing/marketing-social-media-strategist.md",
       "keywords": [
         "expert",
         "social",
@@ -2509,7 +2509,7 @@
       "name": "TikTok Strategist",
       "description": "Expert TikTok marketing specialist focused on viral content creation, algorithm optimization, and community building. Masters TikTok's unique culture and features for brand growth.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-tiktok-strategist.md",
+      "filePath": "../agents/marketing/marketing-tiktok-strategist.md",
       "keywords": [
         "expert",
         "tiktok",
@@ -2536,7 +2536,7 @@
       "name": "Twitter Engager",
       "description": "Expert Twitter marketing specialist focused on real-time engagement, thought leadership building, and community-driven growth. Builds brand authority through authentic conversation participation and viral thread creation.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-twitter-engager.md",
+      "filePath": "../agents/marketing/marketing-twitter-engager.md",
       "keywords": [
         "expert",
         "twitter",
@@ -2565,7 +2565,7 @@
       "name": "WeChat Official Account Manager",
       "description": "Expert WeChat Official Account (OA) strategist specializing in content marketing, subscriber engagement, and conversion optimization. Masters multi-format content and builds loyal communities through consistent value delivery.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-wechat-official-account.md",
+      "filePath": "../agents/marketing/marketing-wechat-official-account.md",
       "keywords": [
         "expert",
         "wechat",
@@ -2594,7 +2594,7 @@
       "name": "Weibo Strategist",
       "description": "Full-spectrum operations expert for Sina Weibo, with deep expertise in trending topic mechanics, Super Topic community management, public sentiment monitoring, fan economy strategies, and Weibo advertising, helping brands achieve viral reach and sustained growth on China's leading public discourse platform.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-weibo-strategist.md",
+      "filePath": "../agents/marketing/marketing-weibo-strategist.md",
       "keywords": [
         "full",
         "spectrum",
@@ -2623,7 +2623,7 @@
       "name": "Xiaohongshu Specialist",
       "description": "Expert Xiaohongshu marketing specialist focused on lifestyle content, trend-driven strategies, and authentic community engagement. Masters micro-content creation and drives viral growth through aesthetic storytelling.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-xiaohongshu-specialist.md",
+      "filePath": "../agents/marketing/marketing-xiaohongshu-specialist.md",
       "keywords": [
         "expert",
         "xiaohongshu",
@@ -2652,7 +2652,7 @@
       "name": "Zhihu Strategist",
       "description": "Expert Zhihu marketing specialist focused on thought leadership, community credibility, and knowledge-driven engagement. Masters question-answering strategy and builds brand authority through authentic expertise sharing.",
       "category": "marketing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/marketing/marketing-zhihu-strategist.md",
+      "filePath": "../agents/marketing/marketing-zhihu-strategist.md",
       "keywords": [
         "expert",
         "zhihu",
@@ -2681,7 +2681,7 @@
       "name": "safla-neural",
       "description": "Self-Aware Feedback Loop Algorithm (SAFLA) neural specialist that creates intelligent, memory-persistent AI systems with self-learning capabilities. Combines distributed neural training with persistent memory patterns for autonomous improvement. Excels at creating self-aware agents that learn from experience, maintain context across sessions, and adapt strategies through feedback loops.",
       "category": "neural",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/neural/safla-neural.md",
+      "filePath": "../agents/neural/safla-neural.md",
       "keywords": [
         "self",
         "aware",
@@ -2710,7 +2710,7 @@
       "name": "Benchmark Suite",
       "description": "Comprehensive performance benchmarking, regression detection and performance validation",
       "category": "optimization",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/optimization/benchmark-suite.md",
+      "filePath": "../agents/optimization/benchmark-suite.md",
       "keywords": [
         "comprehensive",
         "performance",
@@ -2725,7 +2725,7 @@
       "name": "Load Balancing Coordinator",
       "description": "Dynamic task distribution, work-stealing algorithms and adaptive load balancing",
       "category": "optimization",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/optimization/load-balancer.md",
+      "filePath": "../agents/optimization/load-balancer.md",
       "keywords": [
         "dynamic",
         "task",
@@ -2743,7 +2743,7 @@
       "name": "Performance Monitor",
       "description": "Real-time metrics collection, bottleneck analysis, SLA monitoring and anomaly detection",
       "category": "optimization",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/optimization/performance-monitor.md",
+      "filePath": "../agents/optimization/performance-monitor.md",
       "keywords": [
         "real",
         "time",
@@ -2761,7 +2761,7 @@
       "name": "Resource Allocator",
       "description": "Adaptive resource allocation, predictive scaling and intelligent capacity planning",
       "category": "optimization",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/optimization/resource-allocator.md",
+      "filePath": "../agents/optimization/resource-allocator.md",
       "keywords": [
         "adaptive",
         "resource",
@@ -2778,7 +2778,7 @@
       "name": "Topology Optimizer",
       "description": "Dynamic swarm topology reconfiguration and communication pattern optimization",
       "category": "optimization",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/optimization/topology-optimizer.md",
+      "filePath": "../agents/optimization/topology-optimizer.md",
       "keywords": [
         "dynamic",
         "swarm",
@@ -2794,7 +2794,7 @@
       "name": "Paid Media Auditor",
       "description": "Comprehensive paid media auditor who systematically evaluates Google Ads, Microsoft Ads, and Meta accounts across 200+ checkpoints spanning account structure, tracking, bidding, creative, audiences, and competitive positioning. Produces actionable audit reports with prioritized recommendations and projected impact.",
       "category": "paid-media",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/paid-media/paid-media-auditor.md",
+      "filePath": "../agents/paid-media/paid-media-auditor.md",
       "keywords": [
         "comprehensive",
         "paid",
@@ -2823,7 +2823,7 @@
       "name": "Ad Creative Strategist",
       "description": "Paid media creative specialist focused on ad copywriting, RSA optimization, asset group design, and creative testing frameworks across Google, Meta, Microsoft, and programmatic platforms. Bridges the gap between performance data and persuasive messaging.",
       "category": "paid-media",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/paid-media/paid-media-creative-strategist.md",
+      "filePath": "../agents/paid-media/paid-media-creative-strategist.md",
       "keywords": [
         "paid",
         "media",
@@ -2852,7 +2852,7 @@
       "name": "Paid Social Strategist",
       "description": "Cross-platform paid social advertising specialist covering Meta (Facebook/Instagram), LinkedIn, TikTok, Pinterest, X, and Snapchat. Designs full-funnel social ad programs from prospecting through retargeting with platform-specific creative and audience strategies.",
       "category": "paid-media",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/paid-media/paid-media-paid-social-strategist.md",
+      "filePath": "../agents/paid-media/paid-media-paid-social-strategist.md",
       "keywords": [
         "cross",
         "platform",
@@ -2881,7 +2881,7 @@
       "name": "PPC Campaign Strategist",
       "description": "Senior paid media strategist specializing in large-scale search, shopping, and performance max campaign architecture across Google, Microsoft, and Amazon ad platforms. Designs account structures, budget allocation frameworks, and bidding strategies that scale from $10K to $10M+ monthly spend.",
       "category": "paid-media",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/paid-media/paid-media-ppc-strategist.md",
+      "filePath": "../agents/paid-media/paid-media-ppc-strategist.md",
       "keywords": [
         "senior",
         "paid",
@@ -2910,7 +2910,7 @@
       "name": "Programmatic & Display Buyer",
       "description": "Display advertising and programmatic media buying specialist covering managed placements, Google Display Network, Dv160, trade desk platforms, partner media (newsletters, sponsored content), and ABM display strategies via platforms like Demandbase and 6Sense.",
       "category": "paid-media",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/paid-media/paid-media-programmatic-buyer.md",
+      "filePath": "../agents/paid-media/paid-media-programmatic-buyer.md",
       "keywords": [
         "display",
         "advertising",
@@ -2939,7 +2939,7 @@
       "name": "Search Query Analyst",
       "description": "Specialist in search term analysis, negative keyword architecture, and query-to-intent mapping. Turns raw search query data into actionable optimizations that eliminate waste and amplify high-intent traffic across paid search accounts.",
       "category": "paid-media",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/paid-media/paid-media-search-query-analyst.md",
+      "filePath": "../agents/paid-media/paid-media-search-query-analyst.md",
       "keywords": [
         "specialist",
         "search",
@@ -2968,7 +2968,7 @@
       "name": "Tracking & Measurement Specialist",
       "description": "Expert in conversion tracking architecture, tag management, and attribution modeling across Google Tag Manager, GA4, Google Ads, Meta CAPI, LinkedIn Insight Tag, and server-side implementations. Ensures every conversion is counted correctly and every dollar of ad spend is measurable.",
       "category": "paid-media",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/paid-media/paid-media-tracking-specialist.md",
+      "filePath": "../agents/paid-media/paid-media-tracking-specialist.md",
       "keywords": [
         "expert",
         "conversion",
@@ -2997,7 +2997,7 @@
       "name": "agentic-payments",
       "description": "Multi-agent payment authorization specialist for autonomous AI commerce with cryptographic verification and Byzantine consensus",
       "category": "payments",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/payments/agentic-payments.md",
+      "filePath": "../agents/payments/agentic-payments.md",
       "keywords": [
         "multi",
         "agent",
@@ -3017,7 +3017,7 @@
       "name": "Behavioral Nudge Engine",
       "description": "Behavioral psychology specialist that adapts software interaction cadences and styles to maximize user motivation and success.",
       "category": "product",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/product/product-behavioral-nudge-engine.md",
+      "filePath": "../agents/product/product-behavioral-nudge-engine.md",
       "keywords": [
         "behavioral",
         "psychology",
@@ -3038,7 +3038,7 @@
       "name": "Feedback Synthesizer",
       "description": "Expert in collecting, analyzing, and synthesizing user feedback from multiple channels to extract actionable product insights. Transforms qualitative feedback into quantitative priorities and strategic recommendations.",
       "category": "product",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/product/product-feedback-synthesizer.md",
+      "filePath": "../agents/product/product-feedback-synthesizer.md",
       "keywords": [
         "expert",
         "collecting",
@@ -3064,9 +3064,9 @@
     {
       "slug": "product-manager",
       "name": "Product Manager",
-      "description": "Holistic product leader who owns the full product lifecycle — from discovery and strategy through roadmap, stakeholder alignment, go-to-market, and outcome measurement. Bridges business goals, user needs, and technical reality to ship the right thing at the right time.",
+      "description": "Holistic product leader who owns the full product lifecycle \u2014 from discovery and strategy through roadmap, stakeholder alignment, go-to-market, and outcome measurement. Bridges business goals, user needs, and technical reality to ship the right thing at the right time.",
       "category": "product",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/product/product-manager.md",
+      "filePath": "../agents/product/product-manager.md",
       "keywords": [
         "holistic",
         "product",
@@ -3095,7 +3095,7 @@
       "name": "Sprint Prioritizer",
       "description": "Expert product manager specializing in agile sprint planning, feature prioritization, and resource allocation. Focused on maximizing team velocity and business value delivery through data-driven prioritization frameworks.",
       "category": "product",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/product/product-sprint-prioritizer.md",
+      "filePath": "../agents/product/product-sprint-prioritizer.md",
       "keywords": [
         "expert",
         "product",
@@ -3124,7 +3124,7 @@
       "name": "Trend Researcher",
       "description": "Expert market intelligence analyst specializing in identifying emerging trends, competitive analysis, and opportunity assessment. Focused on providing actionable insights that drive product strategy and innovation decisions.",
       "category": "product",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/product/product-trend-researcher.md",
+      "filePath": "../agents/product/product-trend-researcher.md",
       "keywords": [
         "expert",
         "market",
@@ -3153,7 +3153,7 @@
       "name": "Experiment Tracker",
       "description": "Expert project manager specializing in experiment design, execution tracking, and data-driven decision making. Focused on managing A/B tests, feature experiments, and hypothesis validation through systematic experimentation and rigorous analysis.",
       "category": "project-management",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/project-management/project-management-experiment-tracker.md",
+      "filePath": "../agents/project-management/project-management-experiment-tracker.md",
       "keywords": [
         "expert",
         "project",
@@ -3182,7 +3182,7 @@
       "name": "Jira Workflow Steward",
       "description": "Expert delivery operations specialist who enforces Jira-linked Git workflows, traceable commits, structured pull requests, and release-safe branch strategy across software teams.",
       "category": "project-management",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/project-management/project-management-jira-workflow-steward.md",
+      "filePath": "../agents/project-management/project-management-jira-workflow-steward.md",
       "keywords": [
         "expert",
         "delivery",
@@ -3211,7 +3211,7 @@
       "name": "Project Shepherd",
       "description": "Expert project manager specializing in cross-functional project coordination, timeline management, and stakeholder alignment. Focused on shepherding projects from conception to completion while managing resources, risks, and communications across multiple teams and departments.",
       "category": "project-management",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/project-management/project-management-project-shepherd.md",
+      "filePath": "../agents/project-management/project-management-project-shepherd.md",
       "keywords": [
         "expert",
         "project",
@@ -3240,7 +3240,7 @@
       "name": "Studio Operations",
       "description": "Expert operations manager specializing in day-to-day studio efficiency, process optimization, and resource coordination. Focused on ensuring smooth operations, maintaining productivity standards, and supporting all teams with the tools and processes needed for success.",
       "category": "project-management",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/project-management/project-management-studio-operations.md",
+      "filePath": "../agents/project-management/project-management-studio-operations.md",
       "keywords": [
         "expert",
         "operations",
@@ -3269,7 +3269,7 @@
       "name": "Studio Producer",
       "description": "Senior strategic leader specializing in high-level creative and technical project orchestration, resource allocation, and multi-project portfolio management. Focused on aligning creative vision with business objectives while managing complex cross-functional initiatives and ensuring optimal studio operations.",
       "category": "project-management",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/project-management/project-management-studio-producer.md",
+      "filePath": "../agents/project-management/project-management-studio-producer.md",
       "keywords": [
         "senior",
         "strategic",
@@ -3298,7 +3298,7 @@
       "name": "Senior Project Manager",
       "description": "Converts specs to tasks and remembers previous projects. Focused on realistic scope, no background processes, exact spec requirements",
       "category": "project-management",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/project-management/project-manager-senior.md",
+      "filePath": "../agents/project-management/project-manager-senior.md",
       "keywords": [
         "converts",
         "specs",
@@ -3321,7 +3321,7 @@
       "name": "sublinear-goal-planner",
       "description": "Goal-Oriented Action Planning (GOAP) specialist that dynamically creates intelligent plans to achieve complex objectives. Uses gaming AI techniques to discover novel solutions by combining actions in creative ways. Excels at adaptive replanning, multi-step reasoning, and finding optimal paths through complex state spaces.",
       "category": "reasoning",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/reasoning/agent.md",
+      "filePath": "../agents/reasoning/agent.md",
       "keywords": [
         "goal",
         "oriented",
@@ -3350,7 +3350,7 @@
       "name": "goal-planner",
       "description": "Goal-Oriented Action Planning (GOAP) specialist that dynamically creates intelligent plans to achieve complex objectives. Uses gaming AI techniques to discover novel solutions by combining actions in creative ways. Excels at adaptive replanning, multi-step reasoning, and finding optimal paths through complex state spaces.",
       "category": "reasoning",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/reasoning/goal-planner.md",
+      "filePath": "../agents/reasoning/goal-planner.md",
       "keywords": [
         "goal",
         "oriented",
@@ -3379,7 +3379,7 @@
       "name": "Account Strategist",
       "description": "Expert post-sale account strategist specializing in land-and-expand execution, stakeholder mapping, QBR facilitation, and net revenue retention. Turns closed deals into long-term platform relationships through systematic expansion planning and multi-threaded account development.",
       "category": "sales",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/sales/sales-account-strategist.md",
+      "filePath": "../agents/sales/sales-account-strategist.md",
       "keywords": [
         "expert",
         "post",
@@ -3408,7 +3408,7 @@
       "name": "Sales Coach",
       "description": "Expert sales coaching specialist focused on rep development, pipeline review facilitation, call coaching, deal strategy, and forecast accuracy. Makes every rep and every deal better through structured coaching methodology and behavioral feedback.",
       "category": "sales",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/sales/sales-coach.md",
+      "filePath": "../agents/sales/sales-coach.md",
       "keywords": [
         "expert",
         "sales",
@@ -3437,7 +3437,7 @@
       "name": "Deal Strategist",
       "description": "Senior deal strategist specializing in MEDDPICC qualification, competitive positioning, and win planning for complex B2B sales cycles. Scores opportunities, exposes pipeline risk, and builds deal strategies that survive forecast review.",
       "category": "sales",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/sales/sales-deal-strategist.md",
+      "filePath": "../agents/sales/sales-deal-strategist.md",
       "keywords": [
         "senior",
         "deal",
@@ -3464,9 +3464,9 @@
     {
       "slug": "discovery-coach",
       "name": "Discovery Coach",
-      "description": "Coaches sales teams on elite discovery methodology — question design, current-state mapping, gap quantification, and call structure that surfaces real buying motivation.",
+      "description": "Coaches sales teams on elite discovery methodology \u2014 question design, current-state mapping, gap quantification, and call structure that surfaces real buying motivation.",
       "category": "sales",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/sales/sales-discovery-coach.md",
+      "filePath": "../agents/sales/sales-discovery-coach.md",
       "keywords": [
         "coaches",
         "sales",
@@ -3493,7 +3493,7 @@
       "name": "Sales Engineer",
       "description": "Senior pre-sales engineer specializing in technical discovery, demo engineering, POC scoping, competitive battlecards, and bridging product capabilities to business outcomes. Wins the technical decision so the deal can close.",
       "category": "sales",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/sales/sales-engineer.md",
+      "filePath": "../agents/sales/sales-engineer.md",
       "keywords": [
         "senior",
         "sales",
@@ -3520,9 +3520,9 @@
     {
       "slug": "outbound-strategist",
       "name": "Outbound Strategist",
-      "description": "Signal-based outbound specialist who designs multi-channel prospecting sequences, defines ICPs, and builds pipeline through research-driven personalization — not volume.",
+      "description": "Signal-based outbound specialist who designs multi-channel prospecting sequences, defines ICPs, and builds pipeline through research-driven personalization \u2014 not volume.",
       "category": "sales",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/sales/sales-outbound-strategist.md",
+      "filePath": "../agents/sales/sales-outbound-strategist.md",
       "keywords": [
         "signal",
         "based",
@@ -3549,7 +3549,7 @@
       "name": "Pipeline Analyst",
       "description": "Revenue operations analyst specializing in pipeline health diagnostics, deal velocity analysis, forecast accuracy, and data-driven sales coaching. Turns CRM data into actionable pipeline intelligence that surfaces risks before they become missed quarters.",
       "category": "sales",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/sales/sales-pipeline-analyst.md",
+      "filePath": "../agents/sales/sales-pipeline-analyst.md",
       "keywords": [
         "revenue",
         "operations",
@@ -3578,7 +3578,7 @@
       "name": "Proposal Strategist",
       "description": "Strategic proposal architect who transforms RFPs and sales opportunities into compelling win narratives. Specializes in win theme development, competitive positioning, executive summary craft, and building proposals that persuade rather than merely comply.",
       "category": "sales",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/sales/sales-proposal-strategist.md",
+      "filePath": "../agents/sales/sales-proposal-strategist.md",
       "keywords": [
         "strategic",
         "proposal",
@@ -3607,7 +3607,7 @@
       "name": "sona-learning-optimizer",
       "description": "SONA-powered self-optimizing agent with LoRA fine-tuning and EWC++ memory preservation",
       "category": "sona",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/sona/sona-learning-optimizer.md",
+      "filePath": "../agents/sona/sona-learning-optimizer.md",
       "keywords": [
         "sona",
         "powered",
@@ -3626,7 +3626,7 @@
       "name": "macOS Spatial/Metal Engineer",
       "description": "Native Swift and Metal specialist building high-performance 3D rendering systems and spatial computing experiences for macOS and Vision Pro",
       "category": "spatial-computing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/spatial-computing/macos-spatial-metal-engineer.md",
+      "filePath": "../agents/spatial-computing/macos-spatial-metal-engineer.md",
       "keywords": [
         "native",
         "swift",
@@ -3649,7 +3649,7 @@
       "name": "Terminal Integration Specialist",
       "description": "Terminal emulation, text rendering optimization, and SwiftTerm integration for modern Swift applications",
       "category": "spatial-computing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/spatial-computing/terminal-integration-specialist.md",
+      "filePath": "../agents/spatial-computing/terminal-integration-specialist.md",
       "keywords": [
         "terminal",
         "emulation",
@@ -3668,7 +3668,7 @@
       "name": "visionOS Spatial Engineer",
       "description": "Native visionOS spatial computing, SwiftUI volumetric interfaces, and Liquid Glass design implementation",
       "category": "spatial-computing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/spatial-computing/visionos-spatial-engineer.md",
+      "filePath": "../agents/spatial-computing/visionos-spatial-engineer.md",
       "keywords": [
         "native",
         "visionos",
@@ -3686,9 +3686,9 @@
     {
       "slug": "v1-integration-architect",
       "name": "v1-integration-architect",
-      "description": "v1 Integration Architect for cross-package integration work within the Monomind monorepo. Owns the wiring between @monomind/cli, @monomind/hooks, @monomind/memory, @monomind/security, and @monoes/monograph — ensuring MCP tool contracts, hook event flows, and inter-package APIs stay coherent as each package evolves.",
+      "description": "v1 Integration Architect for cross-package integration work within the Monomind monorepo. Owns the wiring between @monomind/cli, @monomind/hooks, @monomind/memory, @monomind/security, and @monoes/monograph \u2014 ensuring MCP tool contracts, hook event flows, and inter-package APIs stay coherent as each package evolves.",
       "category": "specialists",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialists/integration-architect.md",
+      "filePath": "../agents/specialists/integration-architect.md",
       "keywords": [
         "integration",
         "architect",
@@ -3717,7 +3717,7 @@
       "name": "v1-memory-specialist",
       "description": "v1 Memory Specialist for unifying 6+ memory systems into AgentDB with HNSW indexing. Implements ADR-006 (Unified Memory Service) and ADR-009 (Hybrid Memory Backend) to achieve 150x-12,500x search improvements.",
       "category": "specialists",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialists/memory-specialist.md",
+      "filePath": "../agents/specialists/memory-specialist.md",
       "keywords": [
         "memory",
         "specialist",
@@ -3744,7 +3744,7 @@
       "name": "v1-performance-engineer",
       "description": "v1 Performance Engineer for achieving aggressive performance targets. Responsible for 2.49x-7.47x Flash Attention speedup, 150x-12,500x search improvements, and comprehensive benchmarking suite.",
       "category": "specialists",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialists/performance-engineer.md",
+      "filePath": "../agents/specialists/performance-engineer.md",
       "keywords": [
         "performance",
         "engineer",
@@ -3769,7 +3769,7 @@
       "name": "v1-queen-coordinator",
       "description": "v1 Queen Coordinator for 15-agent concurrent swarm orchestration, GitHub issue management, and cross-agent coordination. Implements ADR-001 through ADR-010 with hierarchical mesh topology for 14-week v1 delivery.",
       "category": "specialists",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialists/queen-coordinator.md",
+      "filePath": "../agents/specialists/queen-coordinator.md",
       "keywords": [
         "queen",
         "coordinator",
@@ -3796,7 +3796,7 @@
       "name": "v1-security-architect",
       "description": "v1 Security Architect responsible for complete security overhaul, threat modeling, and CVE remediation planning. Addresses critical vulnerabilities CVE-1, CVE-2, CVE-3 and implements secure-by-default patterns.",
       "category": "specialists",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialists/security-architect.md",
+      "filePath": "../agents/specialists/security-architect.md",
       "keywords": [
         "security",
         "architect",
@@ -3819,9 +3819,9 @@
     {
       "slug": "accounts-payable-agent",
       "name": "Accounts Payable Agent",
-      "description": "Autonomous payment processing specialist that executes vendor payments, contractor invoices, and recurring bills across any payment rail — crypto, fiat, stablecoins. Integrates with AI agent workflows via tool calls.",
+      "description": "Autonomous payment processing specialist that executes vendor payments, contractor invoices, and recurring bills across any payment rail \u2014 crypto, fiat, stablecoins. Integrates with AI agent workflows via tool calls.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/accounts-payable-agent.md",
+      "filePath": "../agents/specialized/accounts-payable-agent.md",
       "keywords": [
         "autonomous",
         "payment",
@@ -3850,7 +3850,7 @@
       "name": "Agentic Identity & Trust Architect",
       "description": "Designs identity, authentication, and trust verification systems for autonomous AI agents operating in multi-agent environments. Ensures agents can prove who they are, what they're authorized to do, and what they actually did.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/agentic-identity-trust.md",
+      "filePath": "../agents/specialized/agentic-identity-trust.md",
       "keywords": [
         "designs",
         "identity",
@@ -3877,7 +3877,7 @@
       "name": "Agents Orchestrator",
       "description": "Autonomous pipeline manager that orchestrates the entire development workflow. You are the leader of this process.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/agents-orchestrator.md",
+      "filePath": "../agents/specialized/agents-orchestrator.md",
       "keywords": [
         "autonomous",
         "pipeline",
@@ -3895,7 +3895,7 @@
       "name": "Automation Governance Architect",
       "description": "Governance-first architect for business automations (n8n-first) who audits value, risk, and maintainability before implementation.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/automation-governance-architect.md",
+      "filePath": "../agents/specialized/automation-governance-architect.md",
       "keywords": [
         "governance",
         "first",
@@ -3915,7 +3915,7 @@
       "name": "Blockchain Security Auditor",
       "description": "Expert smart contract security auditor specializing in vulnerability detection, formal verification, exploit analysis, and comprehensive audit report writing for DeFi protocols and blockchain applications.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/blockchain-security-auditor.md",
+      "filePath": "../agents/specialized/blockchain-security-auditor.md",
       "keywords": [
         "expert",
         "smart",
@@ -3942,9 +3942,9 @@
     {
       "slug": "compliance-auditor",
       "name": "Compliance Auditor",
-      "description": "Expert technical compliance auditor specializing in SOC 2, ISO 27001, HIPAA, and PCI-DSS audits — from readiness assessment through evidence collection to certification.",
+      "description": "Expert technical compliance auditor specializing in SOC 2, ISO 27001, HIPAA, and PCI-DSS audits \u2014 from readiness assessment through evidence collection to certification.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/compliance-auditor.md",
+      "filePath": "../agents/specialized/compliance-auditor.md",
       "keywords": [
         "expert",
         "technical",
@@ -3965,9 +3965,9 @@
     {
       "slug": "corporate-training-designer",
       "name": "Corporate Training Designer",
-      "description": "Expert in enterprise training system design and curriculum development — proficient in training needs analysis, instructional design methodology, blended learning program design, internal trainer development, leadership programs, and training effectiveness evaluation and continuous optimization.",
+      "description": "Expert in enterprise training system design and curriculum development \u2014 proficient in training needs analysis, instructional design methodology, blended learning program design, internal trainer development, leadership programs, and training effectiveness evaluation and continuous optimization.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/corporate-training-designer.md",
+      "filePath": "../agents/specialized/corporate-training-designer.md",
       "keywords": [
         "expert",
         "enterprise",
@@ -3996,7 +3996,7 @@
       "name": "Data Consolidation Agent",
       "description": "AI agent that consolidates extracted sales data into live reporting dashboards with territory, rep, and pipeline summaries",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/data-consolidation-agent.md",
+      "filePath": "../agents/specialized/data-consolidation-agent.md",
       "keywords": [
         "agent",
         "consolidates",
@@ -4015,9 +4015,9 @@
     {
       "slug": "government-digital-presales-consultant",
       "name": "Government Digital Presales Consultant",
-      "description": "Presales expert for China's government digital transformation market (ToG), proficient in policy interpretation, solution design, bid document preparation, POC validation, compliance requirements (classified protection/cryptographic assessment/Xinchuang domestic IT), and stakeholder management — helping technical teams efficiently win government IT projects.",
+      "description": "Presales expert for China's government digital transformation market (ToG), proficient in policy interpretation, solution design, bid document preparation, POC validation, compliance requirements (classified protection/cryptographic assessment/Xinchuang domestic IT), and stakeholder management \u2014 helping technical teams efficiently win government IT projects.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/government-digital-presales-consultant.md",
+      "filePath": "../agents/specialized/government-digital-presales-consultant.md",
       "keywords": [
         "presales",
         "expert",
@@ -4044,9 +4044,9 @@
     {
       "slug": "healthcare-marketing-compliance-specialist",
       "name": "Healthcare Marketing Compliance Specialist",
-      "description": "Expert in healthcare marketing compliance in China, proficient in the Advertising Law, Medical Advertisement Management Measures, Drug Administration Law, and related regulations — covering pharmaceuticals, medical devices, medical aesthetics, health supplements, and internet healthcare across content review, risk control, platform rule interpretation, and patient privacy protection, helping enterprises conduct effective health marketing within legal boundaries.",
+      "description": "Expert in healthcare marketing compliance in China, proficient in the Advertising Law, Medical Advertisement Management Measures, Drug Administration Law, and related regulations \u2014 covering pharmaceuticals, medical devices, medical aesthetics, health supplements, and internet healthcare across content review, risk control, platform rule interpretation, and patient privacy protection, helping enterprises conduct effective health marketing within legal boundaries.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/healthcare-marketing-compliance.md",
+      "filePath": "../agents/specialized/healthcare-marketing-compliance.md",
       "keywords": [
         "expert",
         "healthcare",
@@ -4075,7 +4075,7 @@
       "name": "Identity Graph Operator",
       "description": "Operates a shared identity graph that multiple AI agents resolve against. Ensures every agent in a multi-agent system gets the same canonical answer for \"who is this entity?\" - deterministically, even under concurrent writes.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/identity-graph-operator.md",
+      "filePath": "../agents/specialized/identity-graph-operator.md",
       "keywords": [
         "operates",
         "shared",
@@ -4104,7 +4104,7 @@
       "name": "LSP/Index Engineer",
       "description": "Language Server Protocol specialist building unified code intelligence systems through LSP client orchestration and semantic indexing",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/lsp-index-engineer.md",
+      "filePath": "../agents/specialized/lsp-index-engineer.md",
       "keywords": [
         "language",
         "server",
@@ -4127,7 +4127,7 @@
       "name": "mobile-dev",
       "description": "Expert agent for React Native mobile application development across iOS and Android",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/mobile/spec-mobile-react-native.md",
+      "filePath": "../agents/specialized/mobile/spec-mobile-react-native.md",
       "keywords": [
         "expert",
         "agent",
@@ -4143,9 +4143,9 @@
     {
       "slug": "recruitment-specialist",
       "name": "Recruitment Specialist",
-      "description": "Expert recruitment operations and talent acquisition specialist — skilled in China's major hiring platforms, talent assessment frameworks, and labor law compliance. Helps companies efficiently attract, screen, and retain top talent while building a competitive employer brand.",
+      "description": "Expert recruitment operations and talent acquisition specialist \u2014 skilled in China's major hiring platforms, talent assessment frameworks, and labor law compliance. Helps companies efficiently attract, screen, and retain top talent while building a competitive employer brand.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/recruitment-specialist.md",
+      "filePath": "../agents/specialized/recruitment-specialist.md",
       "keywords": [
         "expert",
         "recruitment",
@@ -4174,7 +4174,7 @@
       "name": "Report Distribution Agent",
       "description": "AI agent that automates distribution of consolidated sales reports to representatives based on territorial parameters",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/report-distribution-agent.md",
+      "filePath": "../agents/specialized/report-distribution-agent.md",
       "keywords": [
         "agent",
         "automates",
@@ -4193,7 +4193,7 @@
       "name": "Sales Data Extraction Agent",
       "description": "AI agent specialized in monitoring Excel files and extracting key sales metrics (MTD, YTD, Year End) for internal live reporting",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/sales-data-extraction-agent.md",
+      "filePath": "../agents/specialized/sales-data-extraction-agent.md",
       "keywords": [
         "agent",
         "specialized",
@@ -4214,7 +4214,7 @@
       "name": "Cultural Intelligence Strategist",
       "description": "CQ specialist that detects invisible exclusion, researches global context, and ensures software resonates authentically across intersectional identities.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/specialized-cultural-intelligence-strategist.md",
+      "filePath": "../agents/specialized/specialized-cultural-intelligence-strategist.md",
       "keywords": [
         "specialist",
         "detects",
@@ -4237,7 +4237,7 @@
       "name": "Developer Advocate",
       "description": "Expert developer advocate specializing in building developer communities, creating compelling technical content, optimizing developer experience (DX), and driving platform adoption through authentic engineering engagement. Bridges product and engineering teams with external developers.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/specialized-developer-advocate.md",
+      "filePath": "../agents/specialized/specialized-developer-advocate.md",
       "keywords": [
         "expert",
         "developer",
@@ -4266,7 +4266,7 @@
       "name": "Document Generator",
       "description": "Expert document creation specialist who generates professional PDF, PPTX, DOCX, and XLSX files using code-based approaches with proper formatting, charts, and data visualization.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/specialized-document-generator.md",
+      "filePath": "../agents/specialized/specialized-document-generator.md",
       "keywords": [
         "expert",
         "document",
@@ -4292,9 +4292,9 @@
     {
       "slug": "french-consulting-market-navigator",
       "name": "French Consulting Market Navigator",
-      "description": "Navigate the French ESN/SI freelance ecosystem — margin models, platform mechanics (Malt, collective.work), portage salarial, rate positioning, and payment cycle realities",
+      "description": "Navigate the French ESN/SI freelance ecosystem \u2014 margin models, platform mechanics (Malt, collective.work), portage salarial, rate positioning, and payment cycle realities",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/specialized-french-consulting-market.md",
+      "filePath": "../agents/specialized/specialized-french-consulting-market.md",
       "keywords": [
         "navigate",
         "french",
@@ -4319,9 +4319,9 @@
     {
       "slug": "korean-business-navigator",
       "name": "Korean Business Navigator",
-      "description": "Korean business culture for foreign professionals — 품의 decision process, nunchi reading, KakaoTalk business etiquette, hierarchy navigation, and relationship-first deal mechanics",
+      "description": "Korean business culture for foreign professionals \u2014 \ud488\uc758 decision process, nunchi reading, KakaoTalk business etiquette, hierarchy navigation, and relationship-first deal mechanics",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/specialized-korean-business-navigator.md",
+      "filePath": "../agents/specialized/specialized-korean-business-navigator.md",
       "keywords": [
         "korean",
         "business",
@@ -4347,7 +4347,7 @@
       "name": "MCP Builder",
       "description": "Expert Model Context Protocol developer who designs, builds, and tests MCP servers that extend AI agent capabilities with custom tools, resources, and prompts.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/specialized-mcp-builder.md",
+      "filePath": "../agents/specialized/specialized-mcp-builder.md",
       "keywords": [
         "expert",
         "model",
@@ -4372,7 +4372,7 @@
       "name": "Model QA Specialist",
       "description": "Independent model QA expert who audits ML and statistical models end-to-end - from documentation review and data reconstruction to replication, calibration testing, interpretability analysis, performance monitoring, and audit-grade reporting.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/specialized-model-qa.md",
+      "filePath": "../agents/specialized/specialized-model-qa.md",
       "keywords": [
         "independent",
         "model",
@@ -4399,9 +4399,9 @@
     {
       "slug": "salesforce-architect",
       "name": "Salesforce Architect",
-      "description": "Solution architecture for Salesforce platform — multi-cloud design, integration patterns, governor limits, deployment strategy, and data model governance for enterprise-scale orgs",
+      "description": "Solution architecture for Salesforce platform \u2014 multi-cloud design, integration patterns, governor limits, deployment strategy, and data model governance for enterprise-scale orgs",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/specialized-salesforce-architect.md",
+      "filePath": "../agents/specialized/specialized-salesforce-architect.md",
       "keywords": [
         "solution",
         "architecture",
@@ -4427,9 +4427,9 @@
     {
       "slug": "workflow-architect",
       "name": "Workflow Architect",
-      "description": "Workflow design specialist who maps complete workflow trees for every system, user journey, and agent interaction — covering happy paths, all branch conditions, failure modes, recovery paths, handoff contracts, and observable states to produce build-ready specs that agents can implement against and QA can test against.",
+      "description": "Workflow design specialist who maps complete workflow trees for every system, user journey, and agent interaction \u2014 covering happy paths, all branch conditions, failure modes, recovery paths, handoff contracts, and observable states to produce build-ready specs that agents can implement against and QA can test against.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/specialized-workflow-architect.md",
+      "filePath": "../agents/specialized/specialized-workflow-architect.md",
       "keywords": [
         "workflow",
         "design",
@@ -4456,9 +4456,9 @@
     {
       "slug": "study-abroad-advisor",
       "name": "Study Abroad Advisor",
-      "description": "Full-spectrum study abroad planning expert covering the US, UK, Canada, Australia, Europe, Hong Kong, and Singapore — proficient in undergraduate, master's, and PhD application strategy, school selection, essay coaching, profile enhancement, standardized test planning, visa preparation, and overseas life adaptation, helping Chinese students craft personalized end-to-end study abroad plans.",
+      "description": "Full-spectrum study abroad planning expert covering the US, UK, Canada, Australia, Europe, Hong Kong, and Singapore \u2014 proficient in undergraduate, master's, and PhD application strategy, school selection, essay coaching, profile enhancement, standardized test planning, visa preparation, and overseas life adaptation, helping Chinese students craft personalized end-to-end study abroad plans.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/study-abroad-advisor.md",
+      "filePath": "../agents/specialized/study-abroad-advisor.md",
       "keywords": [
         "full",
         "spectrum",
@@ -4485,9 +4485,9 @@
     {
       "slug": "supply-chain-strategist",
       "name": "Supply Chain Strategist",
-      "description": "Expert supply chain management and procurement strategy specialist — skilled in supplier development, strategic sourcing, quality control, and supply chain digitalization. Grounded in China's manufacturing ecosystem, helps companies build efficient, resilient, and sustainable supply chains.",
+      "description": "Expert supply chain management and procurement strategy specialist \u2014 skilled in supplier development, strategic sourcing, quality control, and supply chain digitalization. Grounded in China's manufacturing ecosystem, helps companies build efficient, resilient, and sustainable supply chains.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/supply-chain-strategist.md",
+      "filePath": "../agents/specialized/supply-chain-strategist.md",
       "keywords": [
         "expert",
         "supply",
@@ -4514,9 +4514,9 @@
     {
       "slug": "zk-steward",
       "name": "ZK Steward",
-      "description": "Zettelkasten knowledge-base steward (note-taking system, NOT zero-knowledge cryptography). Manages interconnected atomic notes in Luhmann's slip-box style; switches perspective to domain experts (Feynman, Munger, Ogilvy) by task. Use for personal knowledge management, note linking, complex task breakdown, and cross-domain decision support. For zero-knowledge proofs or ZK cryptography, use zk-steward is WRONG — use security-architect instead.",
+      "description": "Zettelkasten knowledge-base steward (note-taking system, NOT zero-knowledge cryptography). Manages interconnected atomic notes in Luhmann's slip-box style; switches perspective to domain experts (Feynman, Munger, Ogilvy) by task. Use for personal knowledge management, note linking, complex task breakdown, and cross-domain decision support. For zero-knowledge proofs or ZK cryptography, use zk-steward is WRONG \u2014 use security-architect instead.",
       "category": "specialized",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/specialized/zk-steward.md",
+      "filePath": "../agents/specialized/zk-steward.md",
       "keywords": [
         "zettelkasten",
         "knowledge",
@@ -4545,7 +4545,7 @@
       "name": "consensus-coordinator",
       "description": "Distributed consensus agent that uses sublinear solvers for fast agreement protocols in multi-agent systems. Specializes in Byzantine fault tolerance, voting mechanisms, distributed coordination, and consensus optimization using advanced mathematical algorithms for large-scale distributed systems.",
       "category": "sublinear",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/sublinear/consensus-coordinator.md",
+      "filePath": "../agents/sublinear/consensus-coordinator.md",
       "keywords": [
         "distributed",
         "consensus",
@@ -4574,7 +4574,7 @@
       "name": "matrix-optimizer",
       "description": "Expert agent for matrix analysis and optimization using sublinear algorithms. Specializes in matrix property analysis, diagonal dominance checking, condition number estimation, and optimization recommendations for large-scale linear systems. Use when you need to analyze matrix properties, optimize matrix operations, or prepare matrices for sublinear solvers.",
       "category": "sublinear",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/sublinear/matrix-optimizer.md",
+      "filePath": "../agents/sublinear/matrix-optimizer.md",
       "keywords": [
         "expert",
         "agent",
@@ -4603,7 +4603,7 @@
       "name": "pagerank-analyzer",
       "description": "Expert agent for graph analysis and PageRank calculations using sublinear algorithms. Specializes in network optimization, influence analysis, swarm topology optimization, and large-scale graph computations. Use for social network analysis, web graph analysis, recommendation systems, and distributed system topology design.",
       "category": "sublinear",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/sublinear/pagerank-analyzer.md",
+      "filePath": "../agents/sublinear/pagerank-analyzer.md",
       "keywords": [
         "expert",
         "agent",
@@ -4632,7 +4632,7 @@
       "name": "performance-optimizer",
       "description": "System performance optimization agent that identifies bottlenecks and optimizes resource allocation using sublinear algorithms. Specializes in computational performance analysis, system optimization, resource management, and efficiency maximization across distributed systems and cloud infrastructure.",
       "category": "sublinear",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/sublinear/performance-optimizer.md",
+      "filePath": "../agents/sublinear/performance-optimizer.md",
       "keywords": [
         "system",
         "performance",
@@ -4661,7 +4661,7 @@
       "name": "trading-predictor",
       "description": "Advanced financial trading agent that leverages temporal advantage calculations to predict and execute trades before market data arrives. Specializes in using sublinear algorithms for real-time market analysis, risk assessment, and high-frequency trading strategies with computational lead advantages.",
       "category": "sublinear",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/sublinear/trading-predictor.md",
+      "filePath": "../agents/sublinear/trading-predictor.md",
       "keywords": [
         "advanced",
         "financial",
@@ -4690,7 +4690,7 @@
       "name": "Analytics Reporter",
       "description": "Expert data analyst transforming raw data into actionable business insights. Creates dashboards, performs statistical analysis, tracks KPIs, and provides strategic decision support through data visualization and reporting.",
       "category": "support",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/support/support-analytics-reporter.md",
+      "filePath": "../agents/support/support-analytics-reporter.md",
       "keywords": [
         "expert",
         "data",
@@ -4719,7 +4719,7 @@
       "name": "Executive Summary Generator",
       "description": "Consultant-grade AI specialist trained to think and communicate like a senior strategy consultant. Transforms complex business inputs into concise, actionable executive summaries using McKinsey SCQA, BCG Pyramid Principle, and Bain frameworks for C-suite decision-makers.",
       "category": "support",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/support/support-executive-summary-generator.md",
+      "filePath": "../agents/support/support-executive-summary-generator.md",
       "keywords": [
         "consultant",
         "grade",
@@ -4748,7 +4748,7 @@
       "name": "Finance Tracker",
       "description": "Expert financial analyst and controller specializing in financial planning, budget management, and business performance analysis. Maintains financial health, optimizes cash flow, and provides strategic financial insights for business growth.",
       "category": "support",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/support/support-finance-tracker.md",
+      "filePath": "../agents/support/support-finance-tracker.md",
       "keywords": [
         "expert",
         "financial",
@@ -4777,7 +4777,7 @@
       "name": "Infrastructure Maintainer",
       "description": "Expert infrastructure specialist focused on system reliability, performance optimization, and technical operations management. Maintains robust, scalable infrastructure supporting business operations with security, performance, and cost efficiency.",
       "category": "support",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/support/support-infrastructure-maintainer.md",
+      "filePath": "../agents/support/support-infrastructure-maintainer.md",
       "keywords": [
         "expert",
         "infrastructure",
@@ -4805,7 +4805,7 @@
       "name": "Legal Compliance Checker",
       "description": "Expert legal and compliance specialist ensuring business operations, data handling, and content creation comply with relevant laws, regulations, and industry standards across multiple jurisdictions.",
       "category": "support",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/support/support-legal-compliance-checker.md",
+      "filePath": "../agents/support/support-legal-compliance-checker.md",
       "keywords": [
         "expert",
         "legal",
@@ -4834,7 +4834,7 @@
       "name": "Support Responder",
       "description": "Expert customer support specialist delivering exceptional customer service, issue resolution, and user experience optimization. Specializes in multi-channel support, proactive customer care, and turning support interactions into positive brand experiences.",
       "category": "support",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/support/support-support-responder.md",
+      "filePath": "../agents/support/support-support-responder.md",
       "keywords": [
         "expert",
         "customer",
@@ -4863,7 +4863,7 @@
       "name": "adaptive-coordinator",
       "description": "Dynamic topology switching coordinator with self-organizing swarm patterns and real-time optimization",
       "category": "swarm",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/swarm/adaptive-coordinator.md",
+      "filePath": "../agents/swarm/adaptive-coordinator.md",
       "keywords": [
         "dynamic",
         "topology",
@@ -4883,7 +4883,7 @@
       "name": "hierarchical-coordinator",
       "description": "Queen-led hierarchical swarm coordination with specialized worker delegation",
       "category": "swarm",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/swarm/hierarchical-coordinator.md",
+      "filePath": "../agents/swarm/hierarchical-coordinator.md",
       "keywords": [
         "queen",
         "hierarchical",
@@ -4899,7 +4899,7 @@
       "name": "mesh-coordinator",
       "description": "Peer-to-peer mesh network swarm with distributed decision making and fault tolerance",
       "category": "swarm",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/swarm/mesh-coordinator.md",
+      "filePath": "../agents/swarm/mesh-coordinator.md",
       "keywords": [
         "peer",
         "mesh",
@@ -4917,7 +4917,7 @@
       "name": "production-validator",
       "description": "Production validation specialist ensuring applications are fully implemented and deployment-ready",
       "category": "testing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/testing/production-validator.md",
+      "filePath": "../agents/testing/production-validator.md",
       "keywords": [
         "production",
         "validation",
@@ -4935,7 +4935,7 @@
       "name": "tdd-london-swarm",
       "description": "TDD London School specialist for mock-driven development within swarm coordination",
       "category": "testing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/testing/tdd-london-swarm.md",
+      "filePath": "../agents/testing/tdd-london-swarm.md",
       "keywords": [
         "london",
         "school",
@@ -4951,9 +4951,9 @@
     {
       "slug": "accessibility-auditor",
       "name": "Accessibility Auditor",
-      "description": "Expert accessibility specialist who audits interfaces against WCAG standards, tests with assistive technologies, and ensures inclusive design. Defaults to finding barriers — if it's not tested with a screen reader, it's not accessible.",
+      "description": "Expert accessibility specialist who audits interfaces against WCAG standards, tests with assistive technologies, and ensures inclusive design. Defaults to finding barriers \u2014 if it's not tested with a screen reader, it's not accessible.",
       "category": "testing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/testing/testing-accessibility-auditor.md",
+      "filePath": "../agents/testing/testing-accessibility-auditor.md",
       "keywords": [
         "expert",
         "accessibility",
@@ -4982,7 +4982,7 @@
       "name": "API Tester",
       "description": "Expert API testing specialist focused on comprehensive API validation, performance testing, and quality assurance across all systems and third-party integrations",
       "category": "testing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/testing/testing-api-tester.md",
+      "filePath": "../agents/testing/testing-api-tester.md",
       "keywords": [
         "expert",
         "testing",
@@ -5005,7 +5005,7 @@
       "name": "Evidence Collector",
       "description": "Screenshot-obsessed, fantasy-allergic QA specialist - Default to finding 3-5 issues, requires visual proof for everything",
       "category": "testing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/testing/testing-evidence-collector.md",
+      "filePath": "../agents/testing/testing-evidence-collector.md",
       "keywords": [
         "screenshot",
         "obsessed",
@@ -5026,7 +5026,7 @@
       "name": "Performance Benchmarker",
       "description": "Expert performance testing and optimization specialist focused on measuring, analyzing, and improving system performance across all applications and infrastructure",
       "category": "testing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/testing/testing-performance-benchmarker.md",
+      "filePath": "../agents/testing/testing-performance-benchmarker.md",
       "keywords": [
         "expert",
         "performance",
@@ -5048,7 +5048,7 @@
       "name": "Reality Checker",
       "description": "Stops fantasy approvals, evidence-based certification - Default to \"NEEDS WORK\", requires overwhelming proof for production readiness",
       "category": "testing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/testing/testing-reality-checker.md",
+      "filePath": "../agents/testing/testing-reality-checker.md",
       "keywords": [
         "stops",
         "fantasy",
@@ -5071,7 +5071,7 @@
       "name": "Test Results Analyzer",
       "description": "Expert test analysis specialist focused on comprehensive test result evaluation, quality metrics analysis, and actionable insight generation from testing activities",
       "category": "testing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/testing/testing-test-results-analyzer.md",
+      "filePath": "../agents/testing/testing-test-results-analyzer.md",
       "keywords": [
         "expert",
         "test",
@@ -5095,7 +5095,7 @@
       "name": "Tool Evaluator",
       "description": "Expert technology assessment specialist focused on evaluating, testing, and recommending tools, software, and platforms for business use and productivity optimization",
       "category": "testing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/testing/testing-tool-evaluator.md",
+      "filePath": "../agents/testing/testing-tool-evaluator.md",
       "keywords": [
         "expert",
         "technology",
@@ -5118,7 +5118,7 @@
       "name": "Workflow Optimizer",
       "description": "Expert process improvement specialist focused on analyzing, optimizing, and automating workflows across all business functions for maximum productivity and efficiency",
       "category": "testing",
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/.claude/agents/testing/testing-workflow-optimizer.md",
+      "filePath": "../agents/testing/testing-workflow-optimizer.md",
       "keywords": [
         "expert",
         "process",

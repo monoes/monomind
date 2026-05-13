@@ -3,6 +3,8 @@ name: monomind:idea
 description: "Monomind — Research ideas from a prompt, evaluate them, and decompose into subtasks on monotask boards"
 ---
 
+**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-arguments check below.
+
 If `$ARGUMENTS` is empty, output this and STOP:
 
 > **Usage:** `/monomind:idea <prompt>`
@@ -266,4 +268,6 @@ If there are tasks in Todo, offer:
 Skill("monomind:do", "--space $SPACE_ID --board $TASK_BOARD_ID --mode <parallel|minimal|sequential>")
 ```
 
-To repeat this command on a schedule, wrap it with `/monomind:repeat`.
+To repeat this command on a schedule, wrap it with `/monomind:repeat` or use `--repeat N` / `--tillend` directly.
+
+Follow the REPEAT POSTAMBLE from `_repeat.md`.

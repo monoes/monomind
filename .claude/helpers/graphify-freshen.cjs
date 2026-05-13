@@ -30,10 +30,22 @@ function resolveMonographEntry(dir) {
     return null;
   })();
 
+  // Global npm installation (covers `npm install -g @monomind/cli` and homebrew installs)
+  const globalNpmMonograph = (() => {
+    try {
+      const { execSync } = require('child_process');
+      const globalRoot = execSync('npm root -g', { encoding: 'utf-8', timeout: 5000 }).trim();
+      const p = path.join(globalRoot, '@monoes', 'monograph', 'dist', 'src', 'index.js');
+      return p;
+    } catch { return null; }
+  })();
+
   const candidates = [
     // pnpm store version (most reliable — pre-built, isolated from workspace source changes)
     pnpmStore,
-    // Monorepo: monobrain root is the monograph package
+    // Global npm / homebrew install of @monomind/cli (most common for npx/global users)
+    globalNpmMonograph,
+    // Monorepo: monomind root is the monograph package
     path.join(dir, 'dist', 'src', 'index.js'),
     // Monorepo: monograph lives under packages/@monomind/monograph (pnpm workspace)
     path.join(dir, 'packages', '@monomind', 'monograph', 'dist', 'src', 'index.js'),

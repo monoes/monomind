@@ -3,6 +3,8 @@ name: mastermind-architect
 description: Mastermind architect domain — architecture review, file structure deduplication, coupling analysis, design pattern audit, DDD mapping, and system design. Default mode: confirm.
 ---
 
+**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
+
 Parse `$ARGUMENTS` for:
 - `--auto` flag → mode = auto
 - `--confirm` flag → mode = confirm (default)
@@ -20,21 +22,23 @@ Run intake if prompt is vague (follow _intake.md — stop at Q3, domain is alrea
 
 Default mode for this command: **confirm** (show architecture plan before executing, unless `--auto` flag present).
 
-Generate a session ID: take the current UTC datetime formatted as `YYYYMMDDTHHmmss` and prefix with `mm-` (e.g. `mm-20260506T142345`)
+Generate a session ID and resolve the dashboard URL:
+```bash
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+sessionId="mm-$(date -u +%Y%m%dT%H%M%S)"
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+```
 
-Emit `session:start` before invoking the skill using WebFetch (handles prompt encoding safely for any characters):
-```javascript
-WebFetch({
-  url: "http://localhost:4242/api/mastermind/event",
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ type: "session:start", session: sessionId, domain: "architect", prompt: prompt, ts: Date.now() })
-})
+Emit `session:start` before invoking the skill (use curl — WebFetch is blocked for localhost in Claude Code runtimes). Before executing the curl below, substitute the generated sessionId for `<sessionId>`:
+```bash
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+  -H "Content-Type: application/json" \
+  -d '{"type":"session:start","session":"<sessionId>","domain":"architect","prompt":'"$(jq -Rn --arg p "$prompt" '$p')"',"ts":'"$(date +%s)"'000}' || true
 ```
 
 Emit `domain:dispatch` immediately after session:start. Before executing the curl below, substitute the generated sessionId for `<sessionId>`:
 ```bash
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d '{"type":"domain:dispatch","session":"<sessionId>","domain":"architect","ts":'"$(date +%s)"'000}' || true
 ```
@@ -43,7 +47,9 @@ Invoke `Skill("mastermind:architect")` passing: brain_context, prompt, project_n
 
 After skill returns: note the status from the skill's output (`complete`, `partial`, or `blocked`). Emit `session:complete` using that status, then follow _protocol.md Brain Write Procedure for domain `architect`. Before executing the curl below, substitute the generated sessionId for `<sessionId>` and the skill's actual status for `<status>`:
 ```bash
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d '{"type":"session:complete","session":"<sessionId>","domain":"architect","status":"<status>","domains":["architect"],"ts":'"$(date +%s)"'000}' || true
 ```
+
+Follow the REPEAT POSTAMBLE from `_repeat.md`.

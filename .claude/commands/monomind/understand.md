@@ -67,15 +67,16 @@ Proceed to **Step 3: Run understand analysis**.
 ## Step 3: Run understand analysis
 
 Locate the understand plugin. Check these paths in order:
-1. `/Users/morteza/Desktop/tools/knowledgegraph/Understand-Anything/understand-anything-plugin`
-2. `$HOME/Desktop/tools/knowledgegraph/Understand-Anything/understand-anything-plugin`
-3. `$UA_PLUGIN_DIR` (if set)
+1. `$UA_PLUGIN_DIR` (if set)
+2. `$HOME/tools/understand-anything/understand-anything-plugin`
+3. Sibling directory: `../understand-anything/understand-anything-plugin` relative to the project root
 
 If the plugin is NOT found, tell the user:
-> understand plugin not found.
-> Clone it to a sibling of this project or set `UA_PLUGIN_DIR`:
+> understand plugin not found. Set `UA_PLUGIN_DIR` to its location, or clone it:
 > ```bash
-> git clone https://github.com/nicholasgasior/understand-anything ~/Desktop/tools/knowledgegraph/Understand-Anything
+> git clone https://github.com/nicholasgasior/understand-anything \
+>   ~/tools/understand-anything
+> export UA_PLUGIN_DIR=~/tools/understand-anything/understand-anything-plugin
 > ```
 And STOP.
 
@@ -99,7 +100,8 @@ Wait for completion before proceeding.
 Run the import script:
 
 ```bash
-node /path/to/monobrain/scripts/ua-import.mjs "$GRAPH_JSON" "$DB"
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+node "$REPO_ROOT/scripts/ua-import.mjs" "$GRAPH_JSON" "$DB"
 ```
 
 Where:
@@ -143,6 +145,6 @@ To repeat this command on a schedule, wrap it with `/monomind:repeat`.
 
 ## Error Handling
 
-- If `ua-import.mjs` exits non-zero, show stderr and suggest running `pnpm install` from the monobrain root.
+- If `ua-import.mjs` exits non-zero, show stderr and suggest running `pnpm install` from the monomind root.
 - If graph.json is malformed JSON, report the parse error and suggest re-running `/understand`.
 - All errors are non-fatal to the main session — report and return cleanly.

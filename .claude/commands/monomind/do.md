@@ -3,9 +3,13 @@ name: monomind:do
 description: "Monomind — Execute tasks from monomind-task board with parallel, minimal, or sequential agent modes, smart context group routing, and review cycles"
 ---
 
+## Repeat Flag Extraction
+
+**Before all other parsing:** Extract and discard `--repeat`, `--tillend`, `--maxruns`, `--wait` from `$ARGUMENTS` so they don't interfere with the command's own argument parser. `monomind:do` manages its own task-board-driven loop internally (see end of command) — the REPEAT POSTAMBLE is NOT used. To wrap this command with an external loop, use `/monomind:repeat -- /monomind:do ...`.
+
 ## Argument Parsing
 
-Parse `$ARGUMENTS` for the following flags (in any order):
+Parse remaining `$ARGUMENTS` for the following flags (in any order):
 
 - `--space <SPACE_ID>` — use this space directly (skip space discovery)
 - `--board <BOARD_ID>` — use this task board directly (skip board discovery)

@@ -197,7 +197,7 @@ const DIRECTORIES = {
  * Execute initialization
  */
 /**
- * Remove legacy ruflo/ruv-swarm configuration from existing project files.
+ * Remove legacy ruv-swarm configuration from existing project files.
  * Safe to call even if no legacy config exists.
  */
 function cleanupLegacyTools(targetDir: string): string[] {
@@ -242,7 +242,7 @@ function cleanupLegacyTools(targetDir: string): string[] {
     } catch { /* non-fatal */ }
   }
 
-  // Clean ruflo / ruv-swarm from .claude/settings.json hooks and fix MCP package name
+  // Clean ruv-swarm from .claude/settings.json hooks and fix MCP package name
   const settingsPath = path.join(targetDir, '.claude', 'settings.json');
   if (fs.existsSync(settingsPath)) {
     try {
@@ -250,21 +250,21 @@ function cleanupLegacyTools(targetDir: string): string[] {
       const settings = JSON.parse(raw);
       let settingsChanged = false;
 
-      if (raw.includes('ruflo') || raw.includes('ruv-swarm')) {
-        // Remove ruflo-referencing hook entries from all hook arrays
+      if (raw.includes('ruv-swarm')) {
+        // Remove legacy ruv-swarm hook entries from all hook arrays
         const hookKeys = ['PreToolUse', 'PostToolUse', 'UserPromptSubmit', 'SessionStart', 'SessionEnd', 'Stop', 'SubagentStart', 'SubagentStop', 'PreCompact'];
         for (const key of hookKeys) {
           if (Array.isArray(settings.hooks?.[key])) {
             const before = settings.hooks[key].length;
             settings.hooks[key] = settings.hooks[key].filter((entry: any) => {
               const str = JSON.stringify(entry);
-              return !str.includes('ruflo') && !str.includes('ruv-swarm');
+              return !str.includes('ruv-swarm');
             });
             if (settings.hooks[key].length !== before) settingsChanged = true;
           }
         }
         if (settingsChanged) {
-          cleaned.push('.claude/settings.json: removed ruflo/ruv-swarm hooks');
+          cleaned.push('.claude/settings.json: removed ruv-swarm hooks');
         }
       }
 
@@ -307,7 +307,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
   const targetDir = options.targetDir;
 
   try {
-    // Remove legacy ruflo/ruv-swarm configs before writing new ones
+    // Remove legacy ruv-swarm configs before writing new ones
     const legacyCleaned = cleanupLegacyTools(targetDir);
     for (const msg of legacyCleaned) {
       result.created.files.push(`[cleaned] ${msg}`);
@@ -684,7 +684,7 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
   };
 
   try {
-    // Fix legacy ruflo/ruv-swarm configs and old MCP package names
+    // Fix legacy ruv-swarm configs and old MCP package names
     const legacyCleaned = cleanupLegacyTools(targetDir);
     for (const msg of legacyCleaned) {
       result.updated.push(`[cleaned] ${msg}`);

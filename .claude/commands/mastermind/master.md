@@ -55,6 +55,11 @@ Extract from `$ARGUMENTS`:
 - `--iterate <N>` → iterate = N (integer ≥ 1; when flag is absent, no iteration runs)
 - Remaining text = prompt
 
+If `--project` was not provided, default `project_name` to the current directory name:
+```bash
+project_name="${project_name:-$(basename "$PWD")}"
+```
+
 ### Step 2 — Brain Load
 
 Follow the Brain Load Procedure from `_protocol.md`:
@@ -90,7 +95,8 @@ jq -n --arg sid "$SESSION_ID" --arg proj "$project_name" --arg prompt "$resolved
   > "$REPO_ROOT/.monomind/sessions/current.json.tmp" \
   && mv "$REPO_ROOT/.monomind/sessions/current.json.tmp" \
         "$REPO_ROOT/.monomind/sessions/current.json"
-curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn --arg sid "$SESSION_ID" --arg prompt "$resolved_prompt" --arg mode "$mode" --arg proj "$(pwd)" \
     '{type:"session:start",session:$sid,prompt:$prompt,mode:$mode,project:$proj,ts:(now*1000|floor)}')" || true
@@ -173,6 +179,17 @@ Follow the Monotask Space+Board Setup Procedure from `_protocol.md`. Resolve the
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
 
+# monotask availability guard — all card/board operations below require it
+if ! command -v monotask >/dev/null 2>&1; then
+  echo "WARN: monotask CLI not found — board and card creation will be skipped."
+  echo "Install via: npm install -g monotask"
+  echo "Domain managers will run without board IDs (text-only output)."
+  # Write marker to current.json so Step 7 Phase C skips Task spawning with empty boards
+  jq '. + {monotask_available: false}' "$SESSION_STATE" > "$SESSION_STATE.tmp" \
+    && mv "$SESSION_STATE.tmp" "$SESSION_STATE" 2>/dev/null || true
+  exit 0
+fi
+
 SESSION_ID=$(jq -r '.sessionId // empty' "$SESSION_STATE" 2>/dev/null)
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID missing in current.json — run Step 3 first"; exit 1; }
 project_name=$(jq -r '.project_name // ""' "$SESSION_STATE")
@@ -197,7 +214,8 @@ for domain in $domains_needed; do
   canonical="${project_name}-${domain}"
 
   # Find existing board by canonical name — reuse across runs
-  board_id=$(monotask board list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$canonical" | head -1)
+  # board list format is "uuid: name" (colon-space separator, NOT pipe)
+  board_id=$(monotask board list 2>/dev/null | awk -F': ' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$canonical" | head -1)
 
   # Domain-specific column schema:
   #   idea    → New | Evaluated | Elaborated | Tasked | Iced | Rejected   (intake = "New")
@@ -259,7 +277,7 @@ echo "Session state saved to current.json"
 
 ### Step 7 — Spawn Domain Managers
 
-**BEFORE THIS STEP:** If `idea` is in `domains_needed`, invoke `Skill("mastermind:idea")` directly now (master context has Skill tool access). Pass the resolved prompt, project path, and mode. Write the result to `.monomind/sessions/<SESSION_ID>/idea.json` and mark the `idea` domain as handled. Do NOT include `idea` in the Task spawning below.
+**BEFORE THIS STEP:** If `idea` is in `domains_needed`, invoke `Skill("mastermind:idea")` directly now (master context has Skill tool access). Pass the resolved prompt, project path, and mode. The idea skill's Step 7 writes its output to `.monomind/sessions/<SESSION_ID>/idea.json` automatically — do not write it again. Mark the `idea` domain as handled. Do NOT include `idea` in the Task spawning below.
 
 **IDEA PIPELINE REQUIREMENT:** `mastermind:idea` runs a multi-step pipeline (Steps 3–6 inside idea.md). You MUST follow all of those steps — do NOT shortcut to manually creating cards. The full pipeline is:
 - Step 3: Board setup — find-or-create `<project_name>-idea` board (master's Step 6 already created it with correct columns: New → Evaluated → Elaborated → Tasked → Iced → Rejected). Load column IDs from existing board.
@@ -278,18 +296,20 @@ Skipping any of these steps produces an incomplete pipeline run — card content
 **Phase A — Registry selection** (run as one Bash call; must complete before Phase C):
 
 ```bash
-# Require bash 4.3+ for associative arrays and namerefs
-(( BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] < 403 )) && \
-  { echo "ERROR: bash 4.3+ required (current: $BASH_VERSION). Install: brew install bash"; exit 1; }
-
+# Compatible with macOS bash 3.2 — uses jq accumulation instead of declare -A
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 REGISTRY="$REPO_ROOT/.monomind/registry.json"
 
 # Reload state from current.json — this is a new shell; no inherited variables
 SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
 [ -f "$SESSION_STATE" ] || { echo "ERROR: current.json not found — run from Step 3"; exit 1; }
-domains_needed=$(jq -r '.domains_needed[]? // empty' "$SESSION_STATE" | tr '\n' ' ')
-[ -z "$domains_needed" ] && { echo "ERROR: domains_needed is empty in current.json"; exit 1; }
+# If Step 6 skipped due to missing monotask, board_ids are empty — skip Task agent spawning
+if [ "$(jq -r '.monotask_available // true' "$SESSION_STATE")" = "false" ]; then
+  echo "INFO: monotask_available=false — domain managers will be spawned in text-only mode (no board IDs)"
+  echo "      Install monotask (npm install -g monotask) and re-run to enable board tracking."
+fi
+domains_needed=$(jq -r '.domains_needed[]? // empty' "$SESSION_STATE" | grep -v '^idea$' | tr '\n' ' ')
+[ -z "$domains_needed" ] && { echo "INFO: no non-idea domains to spawn as Task agents"; }  # idea-only runs are valid
 
 # Returns: best agent name from registry for the given domain+goal
 pick_domain_manager() {
@@ -335,19 +355,17 @@ pick_domain_manager() {
   fi
 }
 
-declare -A domain_managers
+# jq accumulation (replaces bash 4.3+ declare -A — compatible with macOS bash 3.2)
+domain_managers_json='{}'
 for domain in $domains_needed; do
   goal=$(jq -r --arg d "$domain" '.domain_goals[$d] // empty' "$SESSION_STATE")
   [ -z "$goal" ] && goal=$(jq -r '.prompt // ""' "$SESSION_STATE")
   manager=$(pick_domain_manager "$domain" "$goal")
-  domain_managers[$domain]="$manager"
+  domain_managers_json=$(echo "$domain_managers_json" | jq --arg d "$domain" --arg m "$manager" '. + {($d): $m}')
   echo "Domain manager for $domain: $manager"
 done
 
 # Persist domain_managers so Phase C can reload them without stdout parsing
-domain_managers_json=$(for k in "${!domain_managers[@]}"; do
-  jq -n --arg k "$k" --arg v "${domain_managers[$k]}" '{key:$k,value:$v}'
-done | jq -s 'from_entries // {}')
 [ -z "$domain_managers_json" ] && domain_managers_json="{}"
 jq --argjson mgrs "$domain_managers_json" '. + {domain_managers:$mgrs}' \
   "$SESSION_STATE" > "$SESSION_STATE.tmp" && mv "$SESSION_STATE.tmp" "$SESSION_STATE"
@@ -372,11 +390,13 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
 SESSION_ID=$(jq -r '.sessionId // empty' "$SESSION_STATE" 2>/dev/null)
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID not found in current.json"; exit 1; }
-domains_needed=$(jq -r '.domains_needed[]? // empty' "$SESSION_STATE" | tr '\n' ' ')
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+# Filter idea — it was already handled by Skill tool before Phase A, not dispatched as a Task agent
+domains_needed=$(jq -r '.domains_needed[]? // empty' "$SESSION_STATE" | grep -v '^idea$' | tr '\n' ' ')
 for domain in $domains_needed; do
   goal=$(jq -r --arg d "$domain" '.domain_goals[$d] // empty' "$SESSION_STATE")
   [ -z "$goal" ] && goal=$(jq -r '.prompt // ""' "$SESSION_STATE")
-  curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
+  curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" \
     -H "Content-Type: application/json" \
     -d "$(jq -cn --arg sid "$SESSION_ID" --arg d "$domain" --arg cmd "$goal" \
       '{type:"domain:dispatch",session:$sid,domain:$d,cmd:$cmd,ts:(now*1000|floor)}')" || true
@@ -394,10 +414,14 @@ SESSION_ID=$(jq -r '.sessionId // empty' "$SESSION_STATE" 2>/dev/null)
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID missing"; exit 1; }
 
 # Emit one line per domain for LLM to read before constructing Task calls
-for domain in $(jq -r '.domains_needed[]? // empty' "$SESSION_STATE"); do
+for domain in $(jq -r '.domains_needed[]? // empty' "$SESSION_STATE" | grep -v '^idea$'); do
+  board_id=$(jq -r --arg d "$domain" '.board_ids[$d] // ""' "$SESSION_STATE")
+  if [ -z "$board_id" ]; then
+    echo "WARN: DOMAIN=$domain has no board_id — Step 6 may not have run or monotask is missing. Task agent will run without board tracking."
+  fi
   echo "DOMAIN=$domain \
 MANAGER=$(jq -r --arg d "$domain" '.domain_managers[$d] // "coordinator"' "$SESSION_STATE") \
-BOARD=$(jq -r --arg d "$domain" '.board_ids[$d] // ""' "$SESSION_STATE") \
+BOARD=$board_id \
 TODO=$(jq -r --arg d "$domain" '.todo_cols[$d] // ""' "$SESSION_STATE") \
 DOING=$(jq -r --arg d "$domain" '.doing_cols[$d] // ""' "$SESSION_STATE") \
 DONE=$(jq -r --arg d "$domain" '.done_cols[$d] // ""' "$SESSION_STATE") \
@@ -413,7 +437,7 @@ Each Task call must include a complete briefing following the Monotask Task Brie
 - The specific goal for this domain
 - The project name and run context
 - Instruction to create monotask cards directly using `monotask card create $BOARD_ID $COL_TODO_ID "<title>" --json` for all sub-tasks
-- Instruction to use `/monomind:do` to execute
+- Instruction to use `Skill("monomind:do")` to execute tasks (Task agents have Skill tool access — do NOT use slash command syntax)
 - Instruction to spawn specialized agents using the domain-appropriate swarm topology
 - Instruction to return the unified output schema when done
 
@@ -452,26 +476,29 @@ Task({
     "   - Code review: subagent_type 'reviewer'\n" +
     "   Default swarm: hierarchical 6 agents raft\n\n" +
     "3. BEFORE spawning each agent, emit agent:spawn via curl (NOT WebFetch — use jq for correct ms timestamps):\n" +
-    "   curl -s -o /dev/null -X POST http://localhost:4242/api/mastermind/event \\\n" +
+    "   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)\n" +
+    "   CTRL_URL=$(jq -r '.url // \"http://localhost:4242\"' \"$REPO_ROOT/.monomind/control.json\" 2>/dev/null || echo \"http://localhost:4242\")\n" +
+    "   curl -s -o /dev/null -X POST ${CTRL_URL}/api/mastermind/event \\\n" +
     "     -H 'Content-Type: application/json' \\\n" +
     "     -d \"$(jq -cn --arg sid '<SESSION_ID>' --arg agent '<slug>' --arg task '<title>' \\\n" +
     "       '{type:\"agent:spawn\",session:$sid,domain:\"build\",agent:$agent,task:$task,ts:(now*1000|floor)}')\" || true\n\n" +
     "4. If handing off artifacts to another domain, emit intercom via curl:\n" +
-    "   curl -s -o /dev/null -X POST http://localhost:4242/api/mastermind/event \\\n" +
+    "   curl -s -o /dev/null -X POST ${CTRL_URL}/api/mastermind/event \\\n" +
     "     -H 'Content-Type: application/json' \\\n" +
     "     -d \"$(jq -cn --arg sid '<SESSION_ID>' --arg to '<domain>' --arg msg '<summary>' \\\n" +
     "       '{type:\"intercom\",session:$sid,from:\"build\",to:$to,msg:$msg,ts:(now*1000|floor)}')\" || true\n\n" +
-    "5. Execute tasks via /monomind:do --board <board_build>\n" +
+    "5. Execute tasks via Skill(\"monomind:do\") --board <board_build>  (use Skill tool — slash command syntax does not work inside a Task agent)\n" +
     "6. Collect all agent outputs\n\n" +
     "7. BEFORE returning, write your output schema to disk AND emit domain:complete:\n" +
     "   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)\n" +
+    "   CTRL_URL=$(jq -r '.url // \"http://localhost:4242\"' \"$REPO_ROOT/.monomind/control.json\" 2>/dev/null || echo \"http://localhost:4242\")\n" +
     "   mkdir -p \"$REPO_ROOT/.monomind/sessions/<SESSION_ID>\"\n" +
     "   jq -n --arg domain 'build' --arg status '<status>' \\\n" +
     "     --argjson artifacts '[\"<path1>\",\"<path2>\"]' \\\n" +
     "     --argjson next_actions '[\"<action1>\"]' \\\n" +
     "     '{domain:$domain,status:$status,artifacts:$artifacts,next_actions:$next_actions}' \\\n" +
     "     > \"$REPO_ROOT/.monomind/sessions/<SESSION_ID>/build.json\"\n" +
-    "   curl -s -o /dev/null -X POST http://localhost:4242/api/mastermind/event \\\n" +
+    "   curl -s -o /dev/null -X POST ${CTRL_URL}/api/mastermind/event \\\n" +
     "     -H 'Content-Type: application/json' \\\n" +
     "     -d \"$(jq -cn --arg sid '<SESSION_ID>' --arg status '<status>' \\\n" +
     "       '{type:\"domain:complete\",session:$sid,domain:\"build\",status:$status,ts:(now*1000|floor)}')\" || true\n\n" +
@@ -499,11 +526,11 @@ Domain managers run in foreground (no `run_in_background`), so their unified out
 ```bash
 # Single bash block: aggregate status + emit dashboard event
 # (variables don't persist between Bash tool calls — keep aggregation and curl together)
-(( BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] < 400 )) && \
-  { echo "ERROR: bash 4+ required (current: $BASH_VERSION). Install: brew install bash"; exit 1; }
+# Compatible with macOS bash 3.2 — only uses indexed arrays
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SESSION_ID=$(jq -r '.sessionId // empty' "$REPO_ROOT/.monomind/sessions/current.json" 2>/dev/null)
 [ -z "$SESSION_ID" ] && { echo "ERROR: SESSION_ID missing"; exit 1; }
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
 
 overall_status="complete"
 completed_domains=()
@@ -525,7 +552,7 @@ echo "overall_status=$overall_status completed_domains=${completed_domains[*]}"
 
 completed_domains_json=$(jq -n '$ARGS.positional' --args "${completed_domains[@]}")
 
-curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
+curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg sid "$SESSION_ID" \
@@ -579,8 +606,7 @@ Show the action summary (Step 9). If any compaction ran during Step 10, append:
 **Persist session state for iteration cycles:** Aggregate artifacts from per-domain output files written by each domain manager, then persist to disk so Step 12 can load it:
 
 ```bash
-(( BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] < 400 )) && \
-  { echo "ERROR: bash 4+ required (current: $BASH_VERSION). Install: brew install bash"; exit 1; }
+# Compatible with macOS bash 3.2 — only uses indexed arrays
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SESSION_STATE="$REPO_ROOT/.monomind/sessions/current.json"
 
@@ -696,16 +722,16 @@ Log this as a decision in the cycle's output schema with `confidence` set accord
 
 #### 12c — Execute
 
-Execute the chosen activity by invoking the appropriate domain skill directly (Steps 4–10 of the main flow, condensed):
+Execute the chosen activity by invoking the appropriate domain skill via the `Skill` tool (Steps 4–10 of the main flow, condensed). Use `Skill("mastermind:<domain>")` — do NOT use slash command syntax (`/<name>`), which only works in the Claude Code CLI prompt and not inside a running skill:
 
-- Test → invoke `/mastermind:build` with a testing-focused prompt
-- Debug/Fix → invoke `/mastermind:build` with the specific failing test or error as prompt
-- Review → invoke `/mastermind:review` with scope = artifacts from last run
-- Improve/Refactor → invoke `/mastermind:build` with refactor prompt
-- Add feature → invoke `/mastermind:build` with the next feature from the `next_actions` array printed by the Step 12a output above
-- Research → invoke `/mastermind:research` with the open question as prompt
-- Content/Docs → invoke `/mastermind:content` with scope = new artifacts
-- Release → invoke `/mastermind:release` with project scope
+- Test → `Skill("mastermind:build")` with a testing-focused prompt
+- Debug/Fix → `Skill("mastermind:build")` with the specific failing test or error as prompt
+- Review → `Skill("mastermind:review")` with scope = artifacts from last run
+- Improve/Refactor → `Skill("mastermind:build")` with refactor prompt
+- Add feature → `Skill("mastermind:build")` with the next feature from the `next_actions` array printed by the Step 12a output above
+- Research → `Skill("mastermind:research")` with the open question as prompt
+- Content/Docs → `Skill("mastermind:content")` with scope = new artifacts
+- Release → `Skill("mastermind:release")` with project scope
 
 Always pass: the current brain_context, project_name (from the `project_name` field above), the relevant board_id (look up `.board_ids[<chosen_domain>]` from the `board_ids` map printed above), and mode = auto (iteration cycles never pause for confirmation).
 

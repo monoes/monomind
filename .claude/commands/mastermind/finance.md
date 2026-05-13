@@ -3,6 +3,8 @@ name: mastermind-finance
 description: Mastermind finance domain — invoicing, budget tracking, financial forecasting. Default mode: confirm.
 ---
 
+**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
+
 Parse `$ARGUMENTS` for:
 - `--auto` flag → mode = auto
 - `--confirm` flag → mode = confirm
@@ -20,3 +22,5 @@ Default mode for this command: **confirm** (unless `--auto` flag present or inta
 Invoke `Skill("mastermind:finance")` passing: brain_context, prompt, project_name, board_id (create if needed), mode.
 
 After skill returns: follow _protocol.md Brain Write Procedure for domain `finance`.
+
+Follow the REPEAT POSTAMBLE from `_repeat.md`.

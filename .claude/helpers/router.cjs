@@ -425,7 +425,10 @@ function loadExtrasAgent(slug) {
   );
   if (!entry) return null;
   try {
-    return { ...entry, content: fs.readFileSync(entry.filePath, 'utf8') };
+    const resolvedPath = path.isAbsolute(entry.filePath)
+      ? entry.filePath
+      : path.resolve(__dirname, entry.filePath);
+    return { ...entry, content: fs.readFileSync(resolvedPath, 'utf8') };
   } catch (e) { return null; }
 }
 

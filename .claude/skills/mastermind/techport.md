@@ -67,7 +67,7 @@ HINT_TERMS="{focus_hint}"
 # If HINT_TERMS is empty or unset (no focus_hint provided), default to: core architecture skills commands hooks agents
 [ -z "$HINT_TERMS" ] && HINT_TERMS="core architecture skills commands hooks agents"
 HINT_PATTERN=$(echo "$HINT_TERMS" | tr ' ' '|')
-find /Users/morteza/Desktop/tools/monobrain/.claude -name "*.md" \
+find .claude -name "*.md" \
   | xargs grep -liE "$HINT_PATTERN" 2>/dev/null | head -20
 ```
 
@@ -78,7 +78,7 @@ find /Users/morteza/Desktop/tools/monobrain/.claude -name "*.md" \
 Extract the real conventions — not the stated ones — from the codebase itself:
 
 ```bash
-BASE=/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/src
+BASE=packages/@monomind/cli/src
 
 # File name convention
 find "$BASE" -name "*.ts" | grep -v dist | sed 's|.*/||' | \
@@ -144,7 +144,7 @@ Domain vocab:       Agent, Memory, Swarm, Config, Node, Graph, Session, Task, Wo
 ### 0C — Dependency Direction Constraints
 
 ```bash
-BASE=/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/src
+BASE=packages/@monomind/cli/src
 
 # Map import directions by directory layer
 for dir in types utils core commands services; do
@@ -161,7 +161,7 @@ Extract the implied layering from the import ratio. High `imported_by` → leaf/
 ### 0D — Build Monomind Vocabulary Name Set (for collision detection)
 
 ```bash
-grep -rhn "^export" /Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/src \
+grep -rhn "^export" packages/@monomind/cli/src \
   --include="*.ts" | grep -v dist | \
   grep -oE "(class|interface|function|const|type|enum) [A-Z][A-Za-z0-9]+" | awk '{print $2}' | sort -u \
   > /tmp/monomind_names.txt
@@ -655,7 +655,7 @@ else
 fi
 
 # 2. TypeScript validity
-cd /Users/morteza/Desktop/tools/monobrain && npx tsc --noEmit --project packages/@monomind/cli/tsconfig.json 2>&1 | tail -10
+npx tsc --noEmit --project packages/@monomind/cli/tsconfig.json 2>&1 | tail -10
 
 # 3. Convention spot check
 cat {written_file} | grep -E "^export class|^export interface|^export function" | head -20

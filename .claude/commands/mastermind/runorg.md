@@ -68,12 +68,14 @@ Load brain context for the `ops` domain (follow _protocol.md Brain Load Procedur
 
 Generate a session ID as a real shell variable:
 ```bash
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 session_id="mm-$(date -u +%Y%m%dT%H%M%S)"
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
 ```
 
 Emit `session:start` to dashboard:
 ```bash
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$session_id" \
@@ -84,7 +86,7 @@ curl -s -X POST "http://localhost:4242/api/mastermind/event" \
 
 Emit `domain:dispatch`:
 ```bash
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$session_id" \
@@ -96,7 +98,7 @@ Invoke `Skill("mastermind:runorg")` passing: brain_context, org_name: `$org_name
 
 After the skill spawns the boss agent and returns: note the status. Emit `session:complete`:
 ```bash
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$session_id" \
