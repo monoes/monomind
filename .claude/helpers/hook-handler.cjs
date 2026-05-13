@@ -1581,7 +1581,7 @@ const handlers = {
         var isArchitectLevel = ['architect', 'system-architect', 'software-architect'].includes(taskAgent)
           || /\b(architecture|design decision|adr|trade-?off|migration strategy)\b/.test(taskDescAdr);
         if (isArchitectLevel && taskDescAdr.length > 30) {
-          var adrDir = path.join(CWD, adrCfg.directory || 'docs/adr');
+          var adrDir = path.join(CWD, adrCfg.directory || 'docs/adrs');
           fs.mkdirSync(adrDir, { recursive: true });
           var adrNum = (fs.readdirSync(adrDir).filter(function(f) { return f.endsWith('.md'); }).length + 1)
             .toString().padStart(4, '0');

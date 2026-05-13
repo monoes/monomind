@@ -388,6 +388,56 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // ------------------------------------------------------- GET /api/adrs
+    if (req.method === 'GET' && url.startsWith('/api/adrs')) {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir || process.cwd();
+        const d = path.resolve(dir || process.cwd());
+
+        const adrDirs = [
+          { path: path.join(d, 'docs', 'adrs'), group: 'all' },
+        ];
+
+        const adrs = [];
+        for (const { path: adrDir, group } of adrDirs) {
+          if (!fs.existsSync(adrDir)) continue;
+          const files = fs.readdirSync(adrDir).filter(f => f.endsWith('.md') && f !== 'README.md' && f !== 'v3-adrs.md' && f !== 'SECURITY-REVIEW-SUMMARY.md');
+          for (const fname of files.sort()) {
+            const resolvedGroup = /^ADR-G/i.test(fname) ? 'guidance' : 'implementation';
+            try {
+              const raw = fs.readFileSync(path.join(adrDir, fname), 'utf8');
+              const titleMatch = raw.match(/^#\s+(.+)$/m);
+              const header = raw.split('\n').slice(0, 20).join('\n');
+              const statusTableMatch = header.match(/^\|\s*\*{0,2}Status\*{0,2}\s*\|\s*\*{0,2}([^|*\n]{2,40}?)\*{0,2}\s*\|/im);
+              const statusInlineMatch = header.match(/\*\*Status[:\s]+\*?\*?\s*(Accepted|Implemented|Proposed|Superseded|Deprecated|Draft|Rejected|Complete|Active|Retired)[^*]*/i);
+              const statusMatch = statusTableMatch || statusInlineMatch;
+              const dateInlineMatch = header.match(/\*\*Date[:\s]+\*?\*?\s*([0-9]{4}-[0-9]{2}-[0-9]{2})/i);
+              const dateMatch = raw.match(/\|\s*\*{0,2}Date\*{0,2}\s*\|\s*\*{0,2}([^|*\n]+?)\*{0,2}\s*\|/i) || dateInlineMatch || raw.match(/Date[:\s]+([0-9]{4}-[0-9]{2}-[0-9]{2})/);
+              const numMatch = fname.match(/ADR-([A-Z]*[0-9]+)/i);
+              const summaryMatch = raw.match(/##\s+(?:Context|Summary|Problem Statement)[^\n]*\n+([\s\S]{20,300})/i);
+              adrs.push({
+                number: numMatch ? 'ADR-' + numMatch[1] : fname.replace('.md', ''),
+                title: titleMatch ? titleMatch[1].replace(/^ADR-[A-Z0-9-]+[:\s]+/i, '').trim() : fname.replace('.md', ''),
+                status: statusMatch ? statusMatch[1].trim() : 'Unknown',
+                date: dateMatch ? dateMatch[1].trim() : null,
+                summary: summaryMatch ? summaryMatch[1].replace(/\n/g, ' ').replace(/\s+/g, ' ').trim() : null,
+                group: resolvedGroup,
+                file: fname,
+              });
+            } catch { /* skip unreadable */ }
+          }
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ adrs }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
     // ------------------------------------------------------- GET /api/memory-files
     if (req.method === 'GET' && url === '/api/memory-files') {
       try {
@@ -2138,6 +2188,655 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // GET /api/org/:name — ORG ROOM: rich org data (config + state + tasks + routines + goals)
+    if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}$/i.test(url)) {
+      try {
+        const orgName = decodeURIComponent(url.slice('/api/org/'.length));
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const d = projectDir || process.cwd();
+        const orgsDir = path.join(d, '.monomind', 'orgs');
+
+        const readJsonSafe = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch(_) { return null; } };
+
+        const configFile = path.join(orgsDir, `${orgName}.json`);
+        if (!fs.existsSync(configFile)) { res.writeHead(404); res.end('{"error":"org not found"}'); return; }
+        const config = readJsonSafe(configFile);
+
+        const state = readJsonSafe(path.join(orgsDir, `${orgName}-state.json`)) || { agents: {} };
+        const goalsData = readJsonSafe(path.join(orgsDir, `${orgName}-goals.json`)) || { goals: [] };
+        const routinesData = readJsonSafe(path.join(orgsDir, `${orgName}-routines.json`)) || { routines: [] };
+        const approvalsData = readJsonSafe(path.join(orgsDir, `${orgName}-approvals.json`)) || { approvals: [] };
+
+        // Check running status from stop file absence + state
+        const stopFile = path.join(orgsDir, '.stops', `${orgName}.stop`);
+        const running = !fs.existsSync(stopFile) && Object.values(state.agents || {}).some(a => a.status === 'running');
+
+        const result = { config, state, goals: goalsData.goals, routines: routinesData.routines,
+          approvals: approvalsData.approvals, running, tasks: { todo: [], doing: [], done: [] } };
+
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify(result));
+      } catch(_) { res.writeHead(500); res.end('{}'); }
+      return;
+    }
+
+    // GET /api/org/:name/activity — recent org events from mastermind-events.jsonl
+    if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/activity$/i.test(url)) {
+      try {
+        const parts = url.split('/');
+        const orgName = decodeURIComponent(parts[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('[]'); return; }
+        const d = projectDir || process.cwd();
+        const eventsFile = path.join(d, 'data', 'mastermind-events.jsonl');
+        let events = [];
+        if (fs.existsSync(eventsFile)) {
+          const lines = fs.readFileSync(eventsFile, 'utf8').split('\n').filter(Boolean);
+          events = lines.slice(-200).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean)
+            .filter(e => e.org === orgName || e.session && typeof e.org === 'undefined')
+            .filter(e => e.org === orgName)
+            .reverse().slice(0, 100);
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify(events));
+      } catch(_) { res.writeHead(500); res.end('[]'); }
+      return;
+    }
+
+    // GET /api/org/:name/projects — org projects from projects json file
+    if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/projects$/i.test(url)) {
+      try {
+        const parts = url.split('/');
+        const orgName = decodeURIComponent(parts[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('[]'); return; }
+        const d = projectDir || process.cwd();
+        const projFile = path.join(d, '.monomind', 'orgs', `${orgName}-projects.json`);
+        if (!fs.existsSync(projFile)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end('[]'); return; }
+        const data = JSON.parse(fs.readFileSync(projFile, 'utf8'));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify(data.projects || []));
+      } catch(_) { res.writeHead(500); res.end('[]'); }
+      return;
+    }
+
+    // GET /api/org/:name/members — org member list and join requests
+    if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/members$/i.test(url)) {
+      try {
+        const parts = url.split('/');
+        const orgName = decodeURIComponent(parts[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('{}'); return; }
+        const d = projectDir || process.cwd();
+        const membersFile = path.join(d, '.monomind', 'orgs', `${orgName}-members.json`);
+        if (!fs.existsSync(membersFile)) {
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end('{"members":[],"join_requests":[]}');
+          return;
+        }
+        const data = JSON.parse(fs.readFileSync(membersFile, 'utf8'));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify(data));
+      } catch(_) { res.writeHead(500); res.end('{}'); }
+      return;
+    }
+
+    // GET /api/org/:name/adapters — org adapter registry
+    if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/adapters$/i.test(url)) {
+      try {
+        const parts = url.split('/');
+        const orgName = decodeURIComponent(parts[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('{}'); return; }
+        const d = projectDir || process.cwd();
+        const adaptersFile = path.join(d, '.monomind', 'orgs', `${orgName}-adapters.json`);
+        if (!fs.existsSync(adaptersFile)) {
+          // Return defaults derived from org config if available
+          const orgFile = path.join(d, '.monomind', 'orgs', `${orgName}.json`);
+          let defaultAdapter = 'claude-sonnet-4-6';
+          try { defaultAdapter = JSON.parse(fs.readFileSync(orgFile, 'utf8'))?.run_config?.ceo_adapter || defaultAdapter; } catch(_) {}
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ default_adapter: defaultAdapter, adapters: [
+            { type: 'claude-local', label: 'Claude (local CLI)', source: 'built-in', disabled: false, modelsCount: 3 },
+            { type: 'gemini-local', label: 'Gemini (local)', source: 'built-in', disabled: false, modelsCount: 1 },
+            { type: 'http', label: 'HTTP Adapter', source: 'built-in', disabled: true, modelsCount: 0 },
+          ]}));
+          return;
+        }
+        const data = JSON.parse(fs.readFileSync(adaptersFile, 'utf8'));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify(data));
+      } catch(_) { res.writeHead(500); res.end('{}'); }
+      return;
+    }
+
+    // GET /api/org/:name/skills — list skills from .claude/skills/ mapped to org roles
+    if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/skills$/i.test(url)) {
+      try {
+        const parts = url.split('/');
+        const orgName = decodeURIComponent(parts[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('{}'); return; }
+        const d = projectDir || process.cwd();
+        const skillsDir = path.join(d, '.claude', 'skills');
+        const orgFile = path.join(d, '.monomind', 'orgs', `${orgName}.json`);
+
+        // Scan skills directory
+        const skills = [];
+        if (fs.existsSync(skillsDir)) {
+          const scanDir = (dir, prefix) => {
+            try {
+              for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                if (entry.isDirectory()) { scanDir(path.join(dir, entry.name), `${entry.name}:`); }
+                else if (entry.name.endsWith('.md') && !entry.name.startsWith('_')) {
+                  const slug = entry.name.replace(/\.md$/, '');
+                  const content = fs.readFileSync(path.join(dir, entry.name), 'utf8').slice(0, 500);
+                  const typeMatch = content.match(/^type:\s*(.+)$/m);
+                  const modeMatch = content.match(/^default_mode:\s*(.+)$/m);
+                  const descMatch = content.match(/^description:\s*(.+)$/m);
+                  skills.push({
+                    name: `${prefix}${slug}`,
+                    slug,
+                    type: typeMatch ? typeMatch[1].trim() : 'skill',
+                    default_mode: modeMatch ? modeMatch[1].trim() : 'auto',
+                    description: descMatch ? descMatch[1].trim() : '',
+                  });
+                }
+              }
+            } catch(_) {}
+          };
+          scanDir(skillsDir, '');
+        }
+
+        // Map skills enabled per role from org config
+        let roleSkillMap = {};
+        if (fs.existsSync(orgFile)) {
+          try {
+            const config = JSON.parse(fs.readFileSync(orgFile, 'utf8'));
+            for (const role of (config.roles || [])) {
+              roleSkillMap[role.id] = role.skills || [];
+            }
+          } catch(_) {}
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ skills, role_skill_map: roleSkillMap }));
+      } catch(_) { res.writeHead(500); res.end('{}'); }
+      return;
+    }
+
+    // GET /api/org/:name/search?q=<query> — fuzzy search across org data
+    if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/search(\?.*)?$/i.test(url)) {
+      try {
+        const urlObj = new URL(`http://x${url}`);
+        const orgName = decodeURIComponent(urlObj.pathname.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('{}'); return; }
+        const q = (urlObj.searchParams.get('q') || '').toLowerCase().trim();
+        if (!q || q.length < 2) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end('{"hits":[]}'); return; }
+
+        const d = projectDir || process.cwd();
+        const orgsDir = path.join(d, '.monomind', 'orgs');
+        const readJ = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch(_) { return null; } };
+
+        const hits = [];
+        const match = (str) => str && str.toLowerCase().includes(q);
+
+        // Agents
+        const config = readJ(path.join(orgsDir, `${orgName}.json`));
+        for (const role of (config?.roles || [])) {
+          if (match(role.id) || match(role.title) || (role.responsibilities || []).some(r => match(r))) {
+            hits.push({ type: 'agent', id: role.id, title: role.title, meta: role.agent_type });
+          }
+        }
+
+        // Goals
+        const goals = readJ(path.join(orgsDir, `${orgName}-goals.json`));
+        for (const g of (goals?.goals || [])) {
+          if (match(g.title) || match(g.description)) {
+            hits.push({ type: 'goal', id: g.id, title: g.title, meta: g.status || 'open' });
+          }
+        }
+
+        // Routines
+        const routines = readJ(path.join(orgsDir, `${orgName}-routines.json`));
+        for (const r of (routines?.routines || [])) {
+          if (match(r.name) || match(r.description)) {
+            hits.push({ type: 'routine', id: r.name, title: r.name, meta: r.schedule || '' });
+          }
+        }
+
+        // Approvals
+        const approvals = readJ(path.join(orgsDir, `${orgName}-approvals.json`));
+        for (const a of (approvals?.approvals || [])) {
+          if (match(a.title) || match(a.action) || match(a.agent_id)) {
+            hits.push({ type: 'approval', id: a.id, title: a.title, meta: a.status });
+          }
+        }
+
+        // Projects
+        const projects = readJ(path.join(orgsDir, `${orgName}-projects.json`));
+        for (const p of (projects?.projects || [])) {
+          if (match(p.name) || match(p.description)) {
+            hits.push({ type: 'project', id: p.id || p.name, title: p.name, meta: p.status || 'active' });
+          }
+        }
+
+        // Recent activity events
+        const eventsFile = path.join(d, 'data', 'mastermind-events.jsonl');
+        if (fs.existsSync(eventsFile)) {
+          const lines = fs.readFileSync(eventsFile, 'utf8').split('\n').filter(Boolean).slice(-500);
+          for (const l of lines) {
+            try {
+              const e = JSON.parse(l);
+              if (e.org === orgName && match(JSON.stringify(e))) {
+                hits.push({ type: 'event', id: String(e.ts), title: e.type, meta: e.role || e.task || '' });
+                if (hits.length >= 50) break;
+              }
+            } catch(_) {}
+          }
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ q, hits: hits.slice(0, 50) }));
+      } catch(_) { res.writeHead(500); res.end('{}'); }
+      return;
+    }
+
+    // GET /api/org/:name/issues — org task/issue list from issues file
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/issues$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const issuesPath = path.join(projectDir || process.cwd(), '.monomind', 'orgs', `${orgName}-issues.json`);
+        let payload = { issues: [] };
+        try {
+          const raw = JSON.parse(fs.readFileSync(issuesPath, 'utf8'));
+          payload.issues = (raw.issues || []).map(i => ({
+            id: i.id, slug: i.slug, title: i.title, status: i.status || 'open',
+            priority: i.priority || 'medium', assignee_id: i.assignee_id || null,
+            project_id: i.project_id || null, parent_id: i.parent_id || null,
+            created_at: i.created_at, updated_at: i.updated_at
+          }));
+        } catch(_) { /* file missing is fine */ }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(payload));
+      } catch(_) { res.writeHead(500); res.end('{}'); }
+      return;
+    }
+
+    // GET /api/org/:name/health — aggregate org health metrics
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/health$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+
+        let agentsRunning = 0, agentsIdle = 0, openIssues = 0, inProgressIssues = 0;
+        let budgetUsedTokens = 0, budgetMaxTokens = 0;
+        let successRuns = 0, totalRuns = 0;
+
+        // State: agent statuses
+        try {
+          const state = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-state.json`), 'utf8'));
+          const agents = state.agents || {};
+          Object.values(agents).forEach(a => {
+            if (a.status === 'running') agentsRunning++;
+            else agentsIdle++;
+            budgetUsedTokens += (a.tokens_used || 0);
+          });
+        } catch(_) {}
+
+        // Budget cap from org config
+        try {
+          const cfg = JSON.parse(fs.readFileSync(path.join(base, `${orgName}.json`), 'utf8'));
+          budgetMaxTokens = cfg.run_config?.budget_tokens || cfg.budget_tokens || 0;
+        } catch(_) {}
+
+        // Issues: open count
+        try {
+          const iss = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-issues.json`), 'utf8'));
+          openIssues = (iss.issues || []).filter(i => i.status === 'open').length;
+          inProgressIssues = (iss.issues || []).filter(i => i.status === 'in_progress').length;
+        } catch(_) {}
+
+        // Activity: 7-day success rate
+        try {
+          const actPath = path.join(base, `${orgName}-activity.jsonl`);
+          const lines = fs.readFileSync(actPath, 'utf8').split('\n').filter(Boolean);
+          const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          lines.forEach(line => {
+            try {
+              const ev = JSON.parse(line);
+              if (!ev.ts || ev.ts < cutoff) return;
+              totalRuns++;
+              if (ev.type && ev.type.includes('complete')) successRuns++;
+            } catch(_) {}
+          });
+        } catch(_) {}
+
+        const budgetUsedPct = budgetMaxTokens > 0 ? Math.round((budgetUsedTokens / budgetMaxTokens) * 100) : null;
+        const successRate = totalRuns > 0 ? Math.round((successRuns / totalRuns) * 100) : null;
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          agents_running: agentsRunning,
+          agents_idle: agentsIdle,
+          open_issues: openIssues,
+          in_progress_issues: inProgressIssues,
+          budget_used_tokens: budgetUsedTokens,
+          budget_max_tokens: budgetMaxTokens,
+          budget_used_pct: budgetUsedPct,
+          run_success_rate_7d: successRate,
+          total_runs_7d: totalRuns,
+        }));
+      } catch(_) { res.writeHead(500); res.end('{}'); }
+      return;
+    }
+
+    // GET /api/org/:name/environments — org execution environments (strips key material)
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/environments$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const envsPath = path.join(projectDir || process.cwd(), '.monomind', 'orgs', `${orgName}-environments.json`);
+        let payload = { environments: [], default_env: null };
+        try {
+          const raw = JSON.parse(fs.readFileSync(envsPath, 'utf8'));
+          // Strip any accidental key_material or private_key fields — never send to browser
+          payload.default_env = raw.default_env || null;
+          payload.environments = (raw.environments || []).map(e => {
+            const safe = { ...e };
+            delete safe.key_material;
+            delete safe.private_key;
+            delete safe.ssh_key;
+            delete safe.password;
+            return safe;
+          });
+        } catch(_) { /* file missing is fine — return empty */ }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(payload));
+      } catch(_) { res.writeHead(500); res.end('{}'); }
+      return;
+    }
+
+    // GET /api/org/:name/workspaces — org workspaces cross-referenced with worktree registry
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/workspaces$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        let payload = { workspaces: [] };
+        try {
+          const wsRaw = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-workspaces.json`), 'utf8'));
+          const workspaces = wsRaw.workspaces || [];
+          // Optionally cross-reference worktree registry for branch/status enrichment
+          let worktreeMap = {};
+          try {
+            const wtRaw = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-worktrees.json`), 'utf8'));
+            (wtRaw.worktrees || []).forEach(wt => { worktreeMap[wt.path] = wt; });
+          } catch(_) { /* no worktree registry, that's fine */ }
+          payload.workspaces = workspaces.map(w => {
+            const wt = w.worktree_path ? worktreeMap[w.worktree_path] : null;
+            return wt ? { ...w, branch: w.branch || wt.branch || w.branch } : w;
+          });
+        } catch(_) { /* file missing is fine */ }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(payload));
+      } catch(_) { res.writeHead(500); res.end('{}'); }
+      return;
+    }
+
+    // GET /api/org/:name/invites — active invites + pending join requests
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/invites$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        let payload = { invites: [], join_requests: [] };
+        try {
+          const raw = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-members.json`), 'utf8'));
+          const all = raw.join_requests || [];
+          payload.invites = all.filter(r => r.type === 'invite' && r.status === 'pending')
+            .map(r => ({ id: r.id, token: r.token ? r.token.slice(0, 8) + '…' : r.id, role: r.role || 'operator', createdAt: r.createdAt || null, status: r.status }));
+          payload.join_requests = all.filter(r => r.type !== 'invite' && r.status === 'pending_approval')
+            .map(r => ({ id: r.id, requestType: r.requestType || 'human', role: r.role || 'viewer', createdAt: r.createdAt || null, message: r.message || '' }));
+        } catch(_) { /* members file missing */ }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(payload));
+      } catch(_) { res.writeHead(500); res.end('{}'); }
+      return;
+    }
+
+    // GET /api/org/:name/plugins — plugins from registry filtered/merged with org overrides
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/plugins$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const base = path.join(projectDir || process.cwd(), '.monomind');
+        let plugins = [];
+        try {
+          const reg = JSON.parse(fs.readFileSync(path.join(base, 'plugins', 'registry.json'), 'utf8'));
+          plugins = reg.plugins || [];
+          // Strip sensitive config fields from output
+          plugins = plugins.map(p => {
+            const safe = { ...p };
+            if (safe.config) {
+              safe.config = Object.fromEntries(
+                Object.entries(safe.config).map(([k, v]) =>
+                  (/key|token|secret|password|api/i.test(k) ? [k, '***'] : [k, v])
+                )
+              );
+            }
+            return safe;
+          });
+        } catch(_) { /* no global registry */ }
+        // Merge org-level overrides
+        try {
+          const orgPlugins = JSON.parse(fs.readFileSync(path.join(base, 'orgs', `${orgName}-plugins.json`), 'utf8'));
+          const overrideMap = {};
+          (orgPlugins.plugins || []).forEach(p => { overrideMap[p.id] = p; });
+          if (Object.keys(overrideMap).length) {
+            plugins = plugins.map(p => overrideMap[p.id] ? { ...p, ...overrideMap[p.id], _orgOverride: true } : p);
+          }
+        } catch(_) { /* no org-level overrides */ }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ plugins }));
+      } catch(_) { res.writeHead(500); res.end('{}'); }
+      return;
+    }
+
+    // GET /api/org/:name/my-issues — open + in_progress issues (self-assignable queue)
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/my-issues$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        let payload = { issues: [] };
+        try {
+          const raw = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-issues.json`), 'utf8'));
+          // Return open + in_progress issues — the "my issues" queue for the operator
+          payload.issues = (raw.issues || [])
+            .filter(i => i.status === 'open' || i.status === 'in_progress')
+            .map(i => ({
+              id: i.id,
+              title: i.title || null,
+              status: i.status || 'open',
+              priority: i.priority || 'medium',
+              assigneeId: i.assigneeId || i.assigned_to || null,
+              projectId: i.projectId || i.project_id || null,
+              createdAt: i.createdAt || null,
+              lastActivityAt: i.lastActivityAt || null,
+            }));
+        } catch(_) { /* issues file missing */ }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(payload));
+      } catch(_) { res.writeHead(500); res.end('{}'); }
+      return;
+    }
+
+    // GET /api/org/:name/agents — agents from roles + merged heartbeat state
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/agents$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        const readJsonSafe = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch(_) { return null; } };
+        const config = readJsonSafe(path.join(base, `${orgName}.json`)) || {};
+        const stateData = readJsonSafe(path.join(base, `${orgName}-state.json`)) || {};
+        const agentState = stateData.agents || stateData.roles
+          ? (stateData.agents || Object.fromEntries((stateData.roles||[]).map(r => [r.id, r])))
+          : {};
+        const roles = config.roles || [];
+        const agents = roles.map(r => {
+          const s = agentState[r.id] || {};
+          return {
+            id: r.id,
+            title: r.title || r.id,
+            adapterType: (r.adapter && r.adapter.type) || null,
+            adapterModel: (r.adapter && r.adapter.model) || null,
+            governance: r.governance || null,
+            reportsTo: r.reports_to || null,
+            status: s.status || 'idle',
+            lastHeartbeat: s.last_heartbeat || s.lastHeartbeat || null,
+            tokensIn: s.tokens_in || 0,
+            tokensOut: s.tokens_out || 0,
+            skills: r.skills || [],
+          };
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ agents }));
+      } catch(_) { res.writeHead(500); res.end('{"agents":[]}'); }
+      return;
+    }
+
+    // GET /api/org/:name/approvals — full approvals list with status filter support
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/approvals(\?.*)?$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3].split('?')[0]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        const readJsonSafe = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch(_) { return null; } };
+        const data = readJsonSafe(path.join(base, `${orgName}-approvals.json`)) || { approvals: [] };
+        const approvals = (data.approvals || [])
+          .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+          .map(a => ({
+            id: a.id,
+            title: a.title || a.action || null,
+            status: a.status || 'pending',
+            agentId: a.agentId || a.agent_id || null,
+            agentTitle: a.agentTitle || null,
+            payload: a.payload || null,
+            createdAt: a.createdAt || null,
+            updatedAt: a.updatedAt || null,
+            resolvedAt: a.resolvedAt || null,
+            resolvedBy: a.resolvedBy || null,
+          }));
+        const pending = approvals.filter(a => a.status === 'pending' || a.status === 'revision_requested').length;
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ approvals, pending }));
+      } catch(_) { res.writeHead(500); res.end('{"approvals":[],"pending":0}'); }
+      return;
+    }
+
+    // GET /api/org/:name/secrets — masked secrets list (NEVER exposes values)
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/secrets$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        const secretsDir = path.join(base, '.secrets');
+        const readJsonSafe = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch(_) { return null; } };
+        // Read secrets index — NEVER expose actual values
+        const indexFile = path.join(secretsDir, `${orgName}-index.json`);
+        const data = readJsonSafe(indexFile) || { secrets: [] };
+        const secrets = (data.secrets || []).map(s => ({
+          name: s.name,
+          maskedRef: s.maskedRef || `${(s.name||'').substring(0,4)}***`,
+          status: s.status || 'active',
+          createdAt: s.createdAt || null,
+          rotatedAt: s.rotatedAt || null,
+          lastUsedAt: s.lastUsedAt || null,
+          usageCount: s.usageCount || 0,
+        }));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ secrets }));
+      } catch(_) { res.writeHead(500); res.end('{"secrets":[]}'); }
+      return;
+    }
+
+    // GET /api/org/:name/budgets — org and per-agent budget data
+    // Returns: { org_budget: {limit_tokens, limit_usd}, agent_budgets: {agentId: {limit_usd}}, agents: [{id, title, tokens_in, tokens_out, total_cost_usd}] }
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/budgets$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        let budgetData = { org_budget: {}, agent_budgets: {}, period: 'monthly', currency: 'USD' };
+        try { budgetData = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-budgets.json`), 'utf8')); } catch(_) {}
+        // Enrich with per-agent spend from state file
+        let agents = [];
+        try {
+          const state = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-state.json`), 'utf8'));
+          agents = (state.roles || []).map(r => ({
+            id: r.id, title: r.title,
+            tokens_in: r.tokens_in || 0, tokens_out: r.tokens_out || 0, total_cost_usd: r.total_cost_usd || 0
+          }));
+        } catch(_) {}
+        // Also include roles from org config if state is empty
+        if (!agents.length) {
+          try {
+            const org = JSON.parse(fs.readFileSync(path.join(base, `${orgName}.json`), 'utf8'));
+            agents = (org.roles || []).map(r => ({ id: r.id, title: r.title, tokens_in: 0, tokens_out: 0, total_cost_usd: 0 }));
+          } catch(_) {}
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ...budgetData, agents }));
+      } catch(_) { res.writeHead(500); res.end('{"org_budget":{},"agent_budgets":{},"agents":[]}'); }
+      return;
+    }
+
+    // GET /api/org/:name/threads — conversation threads from threads.jsonl
+    // Returns: { threads: [{id, subject, authorId, authorName, issueId, createdAt, messages:[]}] }
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/threads$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const threadsFile = path.join(projectDir || process.cwd(), '.monomind', 'orgs', `${orgName}-threads.jsonl`);
+        let threads = [];
+        try {
+          const lines = fs.readFileSync(threadsFile, 'utf8').split('\n').filter(l => l.trim());
+          threads = lines.map(l => { try { return JSON.parse(l); } catch(_) { return null; } }).filter(Boolean);
+          threads = threads.filter(t => t.type === 'thread' || !t.type);
+        } catch(_) {}
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ threads }));
+      } catch(_) { res.writeHead(500); res.end('{"threads":[]}'); }
+      return;
+    }
+
+    // GET /api/org/:name/join-requests — pending join requests for this org
+    // Returns: { requests: [{id, requesterId, requesterName, type, status, createdAt, resolvedAt}], pending: N }
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/join-requests(\?.*)?$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3].split('?')[0]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const joinFile = path.join(projectDir || process.cwd(), '.monomind', 'orgs', `${orgName}-join-requests.json`);
+        let requests = [];
+        try {
+          const raw = fs.readFileSync(joinFile, 'utf8');
+          const data = JSON.parse(raw);
+          requests = (data.requests || []).map(r => ({
+            id: r.id,
+            requesterId: r.requesterId,
+            requesterName: r.requesterName || r.requesterId,
+            type: r.type || 'human',
+            status: r.status || 'pending_approval',
+            createdAt: r.createdAt,
+            resolvedAt: r.resolvedAt || null,
+          }));
+        } catch(_) {}
+        const pending = requests.filter(r => r.status === 'pending_approval').length;
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ requests, pending }));
+      } catch(_) { res.writeHead(500); res.end('{"requests":[],"pending":0}'); }
+      return;
+    }
+
     // POST /api/orgs/:name/stop — send stop signal to a running org
     if (req.method === 'POST' && url.match(/^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}\/stop$/i)) {
       try {
@@ -2346,6 +3045,45 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       try { html = fs.readFileSync(htmlPath, 'utf8'); } catch (_) {}
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(html);
+      return;
+    }
+
+    // GET /api/mastermind/loops — list all active loop state files
+    if (req.method === 'GET' && url === '/api/mastermind/loops') {
+      try {
+        const loopsDir = path.join(projectDir || process.cwd(), '.monomind', 'loops');
+        const loops = [];
+        if (fs.existsSync(loopsDir)) {
+          const files = fs.readdirSync(loopsDir).filter(f => f.endsWith('.json') && !f.includes('-hil'));
+          for (const f of files) {
+            try {
+              const d = JSON.parse(fs.readFileSync(path.join(loopsDir, f), 'utf8'));
+              loops.push(d);
+            } catch(_) {}
+          }
+        }
+        loops.sort((a, b) => (b.lastRunAt || 0) - (a.lastRunAt || 0));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ loops }));
+      } catch(_) { res.writeHead(500); res.end('{"loops":[]}'); }
+      return;
+    }
+
+    // GET /api/mastermind/metrics — aggregate system metrics from token-summary and swarm-activity
+    if (req.method === 'GET' && url === '/api/mastermind/metrics') {
+      try {
+        const base = path.join(projectDir || process.cwd(), '.monomind', 'metrics');
+        let tokens = {}, swarm = {}, events = [];
+        try { tokens = JSON.parse(fs.readFileSync(path.join(base, 'token-summary.json'), 'utf8')); } catch(_) {}
+        try { swarm  = JSON.parse(fs.readFileSync(path.join(base, 'swarm-activity.json'), 'utf8')); } catch(_) {}
+        try {
+          const evPath = path.join(projectDir || process.cwd(), 'data', 'mastermind-events.jsonl');
+          const lines = fs.readFileSync(evPath, 'utf8').split('\n').filter(l => l.trim()).slice(-20);
+          events = lines.map(l => { try { return JSON.parse(l); } catch(_) { return null; } }).filter(Boolean);
+        } catch(_) {}
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ tokens, swarm, recentEvents: events }));
+      } catch(_) { res.writeHead(500); res.end('{"tokens":{},"swarm":{},"recentEvents":[]}'); }
       return;
     }
 

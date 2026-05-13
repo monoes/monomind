@@ -80,7 +80,8 @@ space_id=$(monotask space list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);g
 [ -z "$space_id" ] && { echo "ERROR: Could not find or create space '$project_name'"; exit 1; }
 
 # Find existing idea board by canonical name — reuse across runs (same pattern as master Step 6)
-BOARD_ID=$(monotask board list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$idea_canonical" | head -1)
+# board list format is "uuid: name" (colon-space separator, NOT pipe)
+BOARD_ID=$(monotask board list 2>/dev/null | awk -F': ' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$idea_canonical" | head -1)
 
 if [ -n "$BOARD_ID" ]; then
   echo "Reusing idea board: $BOARD_ID ($idea_canonical)"
@@ -102,18 +103,26 @@ else
   BOARD_ID=$(monotask board create --space "$space_id" "$idea_canonical" --json 2>/dev/null | jq -r '.id // empty')
   [ -z "$BOARD_ID" ] && { echo "ERROR: Failed to create idea board '$idea_canonical'"; exit 1; }
   monotask space boards add "$space_id" "$BOARD_ID" >/dev/null 2>&1 || true
-  COL_NEW=$(monotask column create "$BOARD_ID"       "New"        --json | jq -r '.id')
-  COL_EVALUATED=$(monotask column create "$BOARD_ID" "Evaluated"  --json | jq -r '.id')
-  COL_ELABORATED=$(monotask column create "$BOARD_ID" "Elaborated" --json | jq -r '.id')
-  COL_TASKED=$(monotask column create "$BOARD_ID"    "Tasked"     --json | jq -r '.id')
-  COL_ICED=$(monotask column create "$BOARD_ID"      "Iced"       --json | jq -r '.id')
-  COL_REJECTED=$(monotask column create "$BOARD_ID"  "Rejected"   --json | jq -r '.id')
+  COL_NEW=$(monotask column create "$BOARD_ID"       "New"        --json | jq -r '.id // empty')
+  COL_EVALUATED=$(monotask column create "$BOARD_ID" "Evaluated"  --json | jq -r '.id // empty')
+  COL_ELABORATED=$(monotask column create "$BOARD_ID" "Elaborated" --json | jq -r '.id // empty')
+  COL_TASKED=$(monotask column create "$BOARD_ID"    "Tasked"     --json | jq -r '.id // empty')
+  COL_ICED=$(monotask column create "$BOARD_ID"      "Iced"       --json | jq -r '.id // empty')
+  COL_REJECTED=$(monotask column create "$BOARD_ID"  "Rejected"   --json | jq -r '.id // empty')
 fi
 ```
 
 **After either branch above, validate and echo all values.** This is the canonical source for Step 4 Task construction.
 
 ```bash
+# Guard all column IDs — catches silent jq failures in the create branch
+[ -z "$COL_NEW" ]        && { echo "ERROR: COL_NEW empty after board setup"; exit 1; }
+[ -z "$COL_EVALUATED" ]  && { echo "ERROR: COL_EVALUATED empty after board setup"; exit 1; }
+[ -z "$COL_ELABORATED" ] && { echo "ERROR: COL_ELABORATED empty after board setup"; exit 1; }
+[ -z "$COL_TASKED" ]     && { echo "ERROR: COL_TASKED empty after board setup"; exit 1; }
+[ -z "$COL_ICED" ]       && { echo "ERROR: COL_ICED empty after board setup"; exit 1; }
+[ -z "$COL_REJECTED" ]   && { echo "ERROR: COL_REJECTED empty after board setup"; exit 1; }
+
 # Validate BOARD_ID looks like a UUID before proceeding
 [[ ! "$BOARD_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] && \
   { echo "ERROR: BOARD_ID '$BOARD_ID' is not a valid UUID — aborting to prevent board name corruption"; exit 1; }
@@ -144,20 +153,26 @@ TOP_N=6
 
 # Select user/market/ops angle specialists
 CATEGORIES="marketing strategy product academic specialized"
-user_market_agents=$(jq -r \
+user_market_agents=$(jq \
   --arg cats "$CATEGORIES" \
   --arg kw "$(echo "$PROMPT" | tr '[:upper:]' '[:lower:]' | grep -oE '[a-z]{5,}' | sort -u | tr '\n' ' ')" \
   --argjson n "$TOP_N" \
   '[ .agents[] | select(.deprecated != true)
      | select(.category as $c | ($cats | split(" ") | any(. == $c)))
      | {name: .name, slug: .slug, category: .category,
-        score: (.name | ascii_downcase | if contains($kw | split(" ") | .[0]) then 2 else 0 end)}
+        score: (
+          (.name | ascii_downcase) as $n |
+          # Score on ANY keyword match (mirrors master.md pick_domain_manager scoring)
+          (if ($kw | length) > 0
+           then ([$kw | split(" ")[] | select(length > 0) | if ($n | contains(.)) then 1 else 0 end] | add // 0)
+           else 0 end)
+        )}
    ] | sort_by(-.score) | unique_by(.slug) | .[0:$n] | [.[].name]' \
   "$REGISTRY" 2>/dev/null)
 
 # Select technical angle specialists
 CATEGORIES="engineering development architecture"
-tech_agents=$(jq -r \
+tech_agents=$(jq \
   --arg cats "$CATEGORIES" \
   --argjson n 3 \
   '[ .agents[] | select(.deprecated != true)
@@ -167,11 +182,14 @@ tech_agents=$(jq -r \
   "$REGISTRY" 2>/dev/null)
 
 # Merge: take top 6 from market/ops + top 2 from tech (cap at 8 total)
-specialist_list=$(echo "$user_market_agents $tech_agents" | jq -Rs \
-  'split("\n") | map(select(length>0)) | unique | .[0:8]' 2>/dev/null)
+# Both variables hold JSON arrays (no -r flag) — use jq -s add to merge properly
+specialist_list=$(jq -s 'add // [] | unique | .[0:8]' \
+  <(printf '%s' "$user_market_agents") \
+  <(printf '%s' "$tech_agents") 2>/dev/null)
 
-# Fallback if registry missing
-[ -z "$specialist_list" ] && specialist_list='["researcher","Trend Researcher","Growth Hacker","UX Researcher","Content Creator","Account Strategist"]'
+# Fallback if registry missing or returned an empty array — need at least 2 specialists
+specialist_count=$(echo "$specialist_list" | jq 'length // 0' 2>/dev/null || echo 0)
+[ "$specialist_count" -lt 2 ] && specialist_list='["researcher","Trend Researcher","Growth Hacker","UX Researcher","Content Creator","Account Strategist"]'
 
 echo "Selected specialists: $specialist_list"
 ```
@@ -246,6 +264,7 @@ For each unique idea, create one card in the New column (COL_NEW = ${COL_NEW}):
 
   result=$(monotask card create "${BOARD_ID}" "${COL_NEW}" "<idea title ≤80 chars>" --json)
   CARD_ID=$(echo "$result" | jq -r '.id // empty')
+  [ -z "$CARD_ID" ] && { echo "WARN: card creation failed for '<idea title>', skipping"; continue; }
   monotask card set-description "${BOARD_ID}" "$CARD_ID" "<2-3 sentence description>"
   monotask card comment add "${BOARD_ID}" "$CARD_ID" "CATEGORY: <feature | technical-baseline | business-operation>
 SOURCE: <which specialist angle produced this>"
@@ -272,7 +291,8 @@ Parse the `IDEAS_OUTPUT` JSON block from the agent's response and assign it:
 ```bash
 ideas_output_json='<paste the JSON array from IDEAS_OUTPUT here>'
 ```
-If zero ideas were returned, report "Idea Manager produced no ideas." and STOP.
+If the `IDEAS_OUTPUT` block is absent from the agent's response (agent error, timeout, or unrecoverable failure), set `ideas_output_json='[]'` and treat as zero ideas.
+If zero ideas were returned, report "Idea Manager produced no ideas." — skip Steps 5–6 and proceed to Step 7 (Brain Write).
 
 ---
 
@@ -289,11 +309,11 @@ ideas_list=$(echo "$ideas_output_json" | jq -r \
 **CRITICAL — Variable substitution required for Step 5 Task call:**
 Before constructing the Task prompt below, read the literal UUID values from the `=== IDEA BOARD LITERAL VALUES ===` echo block (Step 3) and embed them as hard-coded strings. Also embed the full `brain_context`, `prompt`, and `ideas_list` (built above) as literal text. Replace every `${BOARD_ID}`, `${COL_EVALUATED}`, `${COL_ICED}`, `${COL_REJECTED}`, `${brain_context}`, `${prompt}`, `${project_name}`, `${date}`, and `${ideas_list}` with its actual value before calling Task — the agent receives unsubstituted `${...}` strings verbatim and silently skips every board update.
 
-Spawn a single `Product Manager` agent via the Task tool. The PM agent has Bash tool access and is responsible for both producing verdicts and executing all board updates directly.
+Spawn a single `general-purpose` agent via the Task tool. Do NOT use `Product Manager` — that agent type lacks Bash tool access and cannot execute `monotask` CLI commands. The evaluator agent produces verdicts and executes all board updates directly via Bash.
 
 ```javascript
 Task({
-  subagent_type: "Product Manager",
+  subagent_type: "general-purpose",
   description: "PM validation for project " + project_name,
   run_in_background: false,
   prompt: `SAFETY CHECK: Verify that the BOARD_ID you received matches UUID format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (8-4-4-4-12 hex chars). If it does not, STOP and report "ERROR: BOARD_ID not substituted — received: <value>". Do NOT call monotask board create, space create, or column create. Your only job is evaluating cards and running impact/effort updates on existing cards.
@@ -321,23 +341,31 @@ For EVERY idea above, determine:
 - skipElaboration: true (simple, no deep research needed) | false (edge cases should be explored) — only for evaluated
 - rationale: 1-2 sentence value statement (evaluated), blocking question (iced), or rejection reason (rejected)
 
-MANDATORY BOARD UPDATES — run these bash commands for EVERY idea, no exceptions:
+MANDATORY BOARD UPDATES — after determining all verdicts, build your verdicts as a JSON array and iterate over it:
 
-For evaluated ideas:
-  monotask card move "${BOARD_ID}" "<CARD_ID>" "${COL_EVALUATED}" --json
-  monotask card set-impact "${BOARD_ID}" "<CARD_ID>" <impact>
-  monotask card set-effort "${BOARD_ID}" "<CARD_ID>" <effort>
-  monotask card comment add "${BOARD_ID}" "<CARD_ID>" "Value: <rationale>"
-
-For iced ideas:
-  monotask card move "${BOARD_ID}" "<CARD_ID>" "${COL_ICED}" --json
-  monotask card set-impact "${BOARD_ID}" "<CARD_ID>" <impact>
-  monotask card set-effort "${BOARD_ID}" "<CARD_ID>" <effort>
-  monotask card comment add "${BOARD_ID}" "<CARD_ID>" "Blocked: <blocking question>"
-
-For rejected ideas:
-  monotask card move "${BOARD_ID}" "<CARD_ID>" "${COL_REJECTED}" --json
-  monotask card comment add "${BOARD_ID}" "<CARD_ID>" "Rejected: <reason>"
+  # Paste your full VERDICTS_OUTPUT array here as verdicts_json (before outputting the block)
+  verdicts_json='[ ... your verdict objects ... ]'
+  while IFS= read -r row; do
+    CARD_ID=$(echo "$row" | jq -r '.card_id')
+    verdict=$(echo "$row"   | jq -r '.verdict')
+    impact=$(echo "$row"    | jq -r '.impact')
+    effort=$(echo "$row"    | jq -r '.effort')
+    rationale=$(echo "$row" | jq -r '.rationale')
+    if [ "$verdict" = "evaluated" ]; then
+      monotask card move "${BOARD_ID}" "$CARD_ID" "${COL_EVALUATED}" --json
+      monotask card set-impact "${BOARD_ID}" "$CARD_ID" "$impact"
+      monotask card set-effort "${BOARD_ID}" "$CARD_ID" "$effort"
+      monotask card comment add "${BOARD_ID}" "$CARD_ID" "Value: $rationale"
+    elif [ "$verdict" = "iced" ]; then
+      monotask card move "${BOARD_ID}" "$CARD_ID" "${COL_ICED}" --json
+      monotask card set-impact "${BOARD_ID}" "$CARD_ID" "$impact"
+      monotask card set-effort "${BOARD_ID}" "$CARD_ID" "$effort"
+      monotask card comment add "${BOARD_ID}" "$CARD_ID" "Blocked: $rationale"
+    elif [ "$verdict" = "rejected" ]; then
+      monotask card move "${BOARD_ID}" "$CARD_ID" "${COL_REJECTED}" --json
+      monotask card comment add "${BOARD_ID}" "$CARD_ID" "Rejected: $rationale"
+    fi
+  done < <(echo "$verdicts_json" | jq -c '.[]')
 
 IMPORTANT: set-impact and set-effort MUST be called for every evaluated and iced idea. Do not skip them.
 
@@ -364,7 +392,8 @@ After the PM agent completes, parse the `VERDICTS_OUTPUT` block from the agent's
 ```bash
 verdicts_output_json='<paste the JSON array from VERDICTS_OUTPUT here>'
 ```
-This variable is used throughout Steps 6a and 6c to build idea lists, registry keywords, and inherit impact/effort scores — it must be set before proceeding. If **all** ideas are iced or rejected, output a summary table and STOP — skip Steps 6–7.
+If the `VERDICTS_OUTPUT` block is absent (agent error or malformed output), set `verdicts_output_json='[]'` — all ideas will be treated as iced and Step 6 will be skipped.
+This variable is used throughout Steps 6a and 6c to build idea lists, registry keywords, and inherit impact/effort scores — it must be set before proceeding. If **all** ideas are iced or rejected, output a summary table — skip Step 6 and proceed to Step 7 (Brain Write).
 
 ---
 
@@ -374,9 +403,20 @@ This variable is used throughout Steps 6a and 6c to build idea lists, registry k
 
 For any evaluated idea with `skipElaboration: true`, move it directly to `Elaborated`, set a description, and write a rationale comment so future readers understand why no deep elaboration was needed:
 ```bash
-monotask card set-description "$BOARD_ID" "$CARD_ID" "Elaboration skipped — PM assessed this as straightforward.\n\nRationale: <rationale from VERDICTS_OUTPUT for this card_id>\n\nImpact: <impact>/10 | Effort: <effort>/10"
-monotask card move "$BOARD_ID" "$CARD_ID" "$COL_ELABORATED" --json
-monotask card comment add "$BOARD_ID" "$CARD_ID" "Elaboration skipped: PM assessed this idea as straightforward with no significant unknowns. Rationale: <rationale from VERDICTS_OUTPUT for this card_id>"
+while IFS= read -r skip_idea; do
+  CARD_ID=$(echo "$skip_idea"  | jq -r '.card_id')
+  skip_title=$(echo "$skip_idea"   | jq -r '.title')
+  skip_rationale=$(echo "$skip_idea" | jq -r '.rationale // "No rationale provided"')
+  skip_impact=$(echo "$skip_idea"  | jq -r '.impact // 5')
+  skip_effort=$(echo "$skip_idea"  | jq -r '.effort // 5')
+  monotask card set-description "$BOARD_ID" "$CARD_ID" "Elaboration skipped — PM assessed this as straightforward.
+
+Rationale: $skip_rationale
+
+Impact: $skip_impact/10 | Effort: $skip_effort/10"
+  monotask card move "$BOARD_ID" "$CARD_ID" "$COL_ELABORATED" --json
+  monotask card comment add "$BOARD_ID" "$CARD_ID" "Elaboration skipped: PM assessed this idea as straightforward with no significant unknowns. Rationale: $skip_rationale"
+done < <(echo "$verdicts_output_json" | jq -c '[.[] | select(.verdict == "evaluated") | select(.skipElaboration == true)] | .[]')
 ```
 
 For ideas with `skipElaboration: false`, **split by category** before spawning agents:
@@ -384,19 +424,23 @@ For ideas with `skipElaboration: false`, **split by category** before spawning a
 **Build `dev_ideas_list` and `ops_ideas_list` before constructing the Step 6a Task prompts:**
 ```bash
 # Filter VERDICTS_OUTPUT (parsed in Step 5) by category and format as literal text.
+# IMPORTANT: exclude skipElaboration:true ideas — they were already moved to Elaborated above
+# and must not be sent to elaboration agents again.
 dev_ideas_list=$(echo "$verdicts_output_json" | jq -r \
-  '.[] | select(.verdict == "evaluated") | select(.category == "feature" or .category == "technical-baseline") |
+  '.[] | select(.verdict == "evaluated") | select(.skipElaboration != true)
+       | select(.category == "feature" or .category == "technical-baseline") |
    "- card_id: \(.card_id)\n  title: \(.title)\n  category: \(.category)\n  rationale: \(.rationale)\n"')
 
 ops_ideas_list=$(echo "$verdicts_output_json" | jq -r \
-  '.[] | select(.verdict == "evaluated") | select(.category == "business-operation") |
+  '.[] | select(.verdict == "evaluated") | select(.skipElaboration != true)
+       | select(.category == "business-operation") |
    "- card_id: \(.card_id)\n  title: \(.title)\n  category: \(.category)\n  rationale: \(.rationale)\n"')
 ```
 
 **CRITICAL — Variable substitution required for Step 6a Task calls:**
 Elaboration agents run in isolated Task contexts. Before constructing each Task prompt, replace every `${brain_context}`, `${dev_ideas_list}`, and `${ops_ideas_list}` with the actual literal text — `brain_context` from the brain load, `dev_ideas_list` and `ops_ideas_list` built above. Do NOT leave any `${...}` placeholders in the prompt — the agent receives them as literal dollar-sign strings and produces empty ELABORATION_OUTPUT blocks.
 
-**Dev ideas** (`feature` or `technical-baseline`):
+**Dev ideas** (`feature` or `technical-baseline`) — **skip if `dev_ideas_list` is empty** (no evaluated feature/technical-baseline ideas without skipElaboration; set `dev_researcher_json='[]'` and `dev_codebase_json='[]'` instead and do not spawn these agents):
 Spawn two agents in parallel via Task tool:
 
 ```javascript
@@ -455,7 +499,7 @@ END_ELABORATION_OUTPUT`
 })
 ```
 
-**Business-operation ideas** (`business-operation`):
+**Business-operation ideas** (`business-operation`) — **skip if `ops_ideas_list` is empty** (no evaluated business-operation ideas without skipElaboration; set `ops_researcher_json='[]'` and `ops_pm_json='[]'` instead and do not spawn these agents):
 Spawn two agents in parallel via Task tool:
 
 ```javascript
@@ -514,7 +558,7 @@ END_ELABORATION_OUTPUT`
 })
 ```
 
-Wait for all background agents to complete (do not proceed until all — or two, if only one category — return ELABORATION_OUTPUT blocks). Then build `merged_elaboration_json` by merging agent outputs per `card_id` and injecting `category` from `verdicts_output_json`:
+Wait for all spawned background elaboration agents to complete before proceeding (0, 2, or 4 agents depending on which lists were non-empty — see guards above). Then build `merged_elaboration_json` by merging agent outputs per `card_id` and injecting `category` from `verdicts_output_json`:
 
 ```bash
 # Assign each agent's ELABORATION_OUTPUT JSON array from its output block:
@@ -523,29 +567,45 @@ dev_codebase_json='<ELABORATION_OUTPUT array from the dev code-explorer agent>'
 ops_researcher_json='<ELABORATION_OUTPUT array from the ops researcher agent>'
 ops_pm_json='<ELABORATION_OUTPUT array from the ops PM agent>'
 # Use '[]' for any track that had no ideas (e.g. if all ideas were dev, set ops_* to '[]')
+# If an ELABORATION_OUTPUT block is absent from an agent's response (error/timeout), set that variable to '[]'
 
-# Merge dev track: join researcher + codebase findings by card_id, inject category from verdicts
+# Merge dev track: full outer join researcher + codebase by card_id, inject category from verdicts.
+# Use union of card_ids from both agents — if one agent skips a card the other covers, it's preserved.
+# blocking_issue: take from whichever agent found one (researcher OR codebase).
 dev_merged=$(jq -n \
   --argjson r "$dev_researcher_json" \
   --argjson c "$dev_codebase_json" \
   --argjson v "$verdicts_output_json" \
-  '[$r[] | {card_id: .card_id, blocking_issue: .blocking_issue,
-     researcher_findings: .findings,
-     codebase_findings: ([$c[] | select(.card_id == .card_id)] | first | .findings // ""),
-     category: ([$v[] | select(.card_id == .card_id)] | first | .category // "feature")}]')
+  '([$r[], $c[]] | map(.card_id) | unique) as $ids |
+   [$ids[] | . as $id |
+    { card_id: $id,
+      blocking_issue: (
+        ([$r[] | select(.card_id == $id)] | first | .blocking_issue // null) //
+        ([$c[] | select(.card_id == $id)] | first | .blocking_issue // null)
+      ),
+      researcher_findings: ([$r[] | select(.card_id == $id)] | first | .findings // ""),
+      codebase_findings:   ([$c[] | select(.card_id == $id)] | first | .findings // ""),
+      category: ([$v[] | select(.card_id == $id)] | first | .category // "feature") }]')
 
-# Merge ops track: join researcher + PM findings by card_id, inject category
+# Merge ops track: full outer join researcher + PM findings by card_id, inject category.
+# blocking_issue: take from whichever agent found one (researcher OR PM).
 ops_merged=$(jq -n \
   --argjson r "$ops_researcher_json" \
   --argjson p "$ops_pm_json" \
   --argjson v "$verdicts_output_json" \
-  '[$r[] | {card_id: .card_id, blocking_issue: .blocking_issue,
-     researcher_findings: .findings,
-     pm_findings: ([$p[] | select(.card_id == .card_id)] | first | .findings // ""),
-     category: ([$v[] | select(.card_id == .card_id)] | first | .category // "business-operation")}]')
+  '([$r[], $p[]] | map(.card_id) | unique) as $ids |
+   [$ids[] | . as $id |
+    { card_id: $id,
+      blocking_issue: (
+        ([$r[] | select(.card_id == $id)] | first | .blocking_issue // null) //
+        ([$p[] | select(.card_id == $id)] | first | .blocking_issue // null)
+      ),
+      researcher_findings: ([$r[] | select(.card_id == $id)] | first | .findings // ""),
+      pm_findings:         ([$p[] | select(.card_id == $id)] | first | .findings // ""),
+      category: ([$v[] | select(.card_id == $id)] | first | .category // "business-operation") }]')
 
 # Combine both tracks
-merged_elaboration_json=$(jq -s 'add' <(echo "$dev_merged") <(echo "$ops_merged"))
+merged_elaboration_json=$(jq -s 'add // []' <(echo "$dev_merged") <(echo "$ops_merged"))
 ```
 
 Use process substitution (not a pipeline) so the while loop runs in the main shell and variables remain in scope after `done`:
@@ -554,7 +614,8 @@ Use process substitution (not a pipeline) so the while loop runs in the main she
 while IFS= read -r idea; do
   CARD_ID=$(echo "$idea"        | jq -r '.card_id')
   category=$(echo "$idea"       | jq -r '.category')
-  blocking_issue=$(echo "$idea" | jq -r '.blocking_issue // empty')
+  blocking_issue=$(echo "$idea" | jq -r '.blocking_issue // ""')
+  [ "$blocking_issue" = "null" ] && blocking_issue=""  # guard against agents outputting the string "null"
 
   if [ "$category" = "business-operation" ]; then
     researcher_findings=$(echo "$idea" | jq -r '.researcher_findings')
@@ -597,7 +658,7 @@ done < <(echo "$merged_elaboration_json" | jq -c '.[]')
 
 **Confirm mode only:** If `mode` is `confirm` (default), present a review table of all elaborated ideas to the user.
 
-Build the table from `verdicts_output_json` (filtered to `verdict == "evaluated"`). For each row:
+Build the table from `verdicts_output_json` (filtered to `verdict == "evaluated"` AND `card_id` not in the set of ideas with a non-null `blocking_issue` in `merged_elaboration_json`). Exclude ideas iced during elaboration — they are already in the `Iced` column and must not appear in this review. For each row:
 - **Impact** and **Effort** come from `.impact` and `.effort` fields in `verdicts_output_json`
 - **Track**: `feature` or `technical-baseline` → `dev`; `business-operation` → `ops`
 
@@ -638,7 +699,7 @@ Wait for the user's response before continuing. Do not spawn any agents until a 
   ```bash
   monotask card comment add "$BOARD_ID" "$CARD_ID" "User notes: <notes>"
   ```
-- **"stop"**: skip Step 6c and Step 7. Print a summary of ideas in Elaborated/Iced/Rejected and return `status: partial`.
+- **"stop"**: skip Step 6c. Proceed directly to Step 7 (Brain Write). Print a summary of ideas in Elaborated/Iced/Rejected and return `status: partial`.
 - Combined instructions ("remove 2,4 | add detail to 1: ...") are processed together.
 
 After applying all user instructions, proceed to Step 6c with the remaining ideas.
@@ -653,11 +714,7 @@ After applying all user instructions, proceed to Step 6c with the remaining idea
 REGISTRY=".monomind/registry.json"
 
 # Dev decomposition agent — pick the most relevant engineering/architecture specialist
-# Build keyword signal from elaborated dev idea titles (from VERDICTS_OUTPUT filtered above)
-DEV_IDEA_CONTEXT=$(echo "$verdicts_output_json" | jq -r \
-  '[.[] | select(.verdict=="evaluated") | select(.category=="feature" or .category=="technical-baseline") | .title] | join(" ")')
 dev_decomp_agent=$(jq -r \
-  --arg kw "$(echo "$DEV_IDEA_CONTEXT" | tr '[:upper:]' '[:lower:]' | grep -oE '[a-z]{5,}' | sort -u | tr '\n' ' ')" \
   '[ .agents[] | select(.deprecated != true)
      | select(.category == "engineering" or .category == "architecture")
      | {name: .name,
@@ -675,10 +732,7 @@ dev_decomp_agent=$(jq -r \
 dev_decomp_agent="${dev_decomp_agent:-Software Architect}"
 
 # Ops decomposition agent — pick the most relevant strategy/sales/product specialist
-OPS_IDEA_CONTEXT=$(echo "$verdicts_output_json" | jq -r \
-  '[.[] | select(.verdict=="evaluated") | select(.category=="business-operation") | .title] | join(" ")')
 ops_decomp_agent=$(jq -r \
-  --arg kw "$(echo "$OPS_IDEA_CONTEXT" | tr '[:upper:]' '[:lower:]' | grep -oE '[a-z]{5,}' | sort -u | tr '\n' ' ')" \
   '[ .agents[] | select(.deprecated != true)
      | select(.category == "strategy" or .category == "sales" or .category == "product" or .category == "marketing")
      | {name: .name,
@@ -702,13 +756,29 @@ echo "Dev decomp: $dev_decomp_agent | Ops decomp: $ops_decomp_agent"
 Before constructing each Task prompt, replace `${brain_context}`, `${prompt}`, `${project_name}`, `${dev_ideas_elaborated}`, and `${ops_ideas_elaborated}` with actual literal text. Also substitute the `subagent_type` values: replace `dev_decomp_agent` and `ops_decomp_agent` with the string values echoed by the registry selection above (e.g. `"Software Architect"`). Build those lists from the VERDICTS_OUTPUT and ELABORATION_OUTPUT results:
 
 ```bash
-# Build elaborated idea lists including card comments (full context for decomposition agents)
+# Collect IDs of cards iced during elaboration (blocking_issue was set) — exclude from decomposition.
+# merged_elaboration_json covers agent-elaborated ideas only (not skipElaboration:true ones).
+elaboration_blocked=$(echo "$merged_elaboration_json" | jq \
+  '[.[] | select(.blocking_issue != null and .blocking_issue != "" and .blocking_issue != "null") | .card_id]')
+# Safeguard: if jq failed (e.g. null input), default to empty array so decomp proceeds safely
+[ -z "$elaboration_blocked" ] && elaboration_blocked='[]'
+
+# Build elaborated idea lists for decomposition agents.
+# Include: evaluated ideas (PM verdict) that were NOT iced during elaboration.
+# This covers both skipElaboration:true ideas and agent-elaborated ideas in the Elaborated column.
+# Use `any(. == $id)` not `contains([$id])` — contains does substring matching on strings (wrong for UUIDs).
 dev_ideas_elaborated=$(echo "$verdicts_output_json" | jq -r \
-  '[.[] | select(.verdict=="evaluated") | select(.category=="feature" or .category=="technical-baseline") |
+  --argjson blocked "$elaboration_blocked" \
+  '[.[] | select(.verdict=="evaluated")
+         | select(.card_id as $id | ($blocked | any(. == $id)) | not)
+         | select(.category=="feature" or .category=="technical-baseline") |
    "card_id: \(.card_id)\ntitle: \(.title)\ncategory: \(.category)\nrationale: \(.rationale)\nimpact: \(.impact) effort: \(.effort)"] | join("\n\n")')
 
 ops_ideas_elaborated=$(echo "$verdicts_output_json" | jq -r \
-  '[.[] | select(.verdict=="evaluated") | select(.category=="business-operation") |
+  --argjson blocked "$elaboration_blocked" \
+  '[.[] | select(.verdict=="evaluated")
+         | select(.card_id as $id | ($blocked | any(. == $id)) | not)
+         | select(.category=="business-operation") |
    "card_id: \(.card_id)\ntitle: \(.title)\ncategory: \(.category)\nrationale: \(.rationale)\nimpact: \(.impact) effort: \(.effort)"] | join("\n\n")')
 ```
 
@@ -803,8 +873,15 @@ END_TASKS_OUTPUT`
 Canonical board name: `${project_name}-tasks-dev`. Find-or-create:
 
 ```bash
+# space_id from Step 3 is gone (each Bash tool call is a new shell).
+# Re-derive from project_name so board creation works correctly on first run.
+if [ -z "$space_id" ]; then
+  space_id=$(monotask space list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$project_name" | head -1)
+  [ -z "$space_id" ] && { echo "ERROR: space '$project_name' not found — run Step 3 first"; exit 1; }
+fi
 dev_task_canonical="${project_name}-tasks-dev"
-TASK_BOARD_ID=$(monotask board list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$dev_task_canonical" | head -1)
+# board list format is "uuid: name" (colon-space separator, NOT pipe)
+TASK_BOARD_ID=$(monotask board list 2>/dev/null | awk -F': ' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$dev_task_canonical" | head -1)
 if [ -n "$TASK_BOARD_ID" ]; then
   echo "Reusing dev task board: $TASK_BOARD_ID ($dev_task_canonical)"
   task_columns=$(monotask column list "$TASK_BOARD_ID" --json)
@@ -815,8 +892,8 @@ else
   TASK_BOARD_ID=$(monotask board create --space "$space_id" "$dev_task_canonical" --json 2>/dev/null | jq -r '.id // empty')
   [ -z "$TASK_BOARD_ID" ] && { echo "ERROR: Failed to create dev task board"; exit 1; }
   monotask space boards add "$space_id" "$TASK_BOARD_ID" >/dev/null 2>&1 || true
-  TASK_COL_BACKLOG=$(monotask column create "$TASK_BOARD_ID" "Backlog"       --json | jq -r '.id')
-  TASK_COL_TODO=$(monotask column create "$TASK_BOARD_ID"    "Todo"          --json | jq -r '.id')
+  TASK_COL_BACKLOG=$(monotask column create "$TASK_BOARD_ID" "Backlog"       --json | jq -r '.id // empty')
+  TASK_COL_TODO=$(monotask column create "$TASK_BOARD_ID"    "Todo"          --json | jq -r '.id // empty')
   monotask column create "$TASK_BOARD_ID" "In Progress"   --json >/dev/null
   monotask column create "$TASK_BOARD_ID" "Human in Loop" --json >/dev/null
   monotask column create "$TASK_BOARD_ID" "Review"        --json >/dev/null
@@ -825,6 +902,7 @@ else
 fi
 [ -z "$TASK_BOARD_ID" ]    && { echo "ERROR: TASK_BOARD_ID empty — aborting"; exit 1; }
 [ -z "$TASK_COL_TODO" ]    && { echo "ERROR: Could not find Todo column on dev task board"; exit 1; }
+[ -z "$TASK_COL_BACKLOG" ] && { echo "ERROR: Could not find Backlog column on dev task board"; exit 1; }
 ```
 
 ---
@@ -834,8 +912,14 @@ fi
 Canonical board name: `${project_name}-tasks-ops`. Find-or-create:
 
 ```bash
+# Restore space_id if not available (same pattern as dev task board block above).
+if [ -z "$space_id" ]; then
+  space_id=$(monotask space list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$project_name" | head -1)
+  [ -z "$space_id" ] && { echo "ERROR: space '$project_name' not found"; exit 1; }
+fi
 ops_task_canonical="${project_name}-tasks-ops"
-OPS_BOARD_ID=$(monotask board list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$ops_task_canonical" | head -1)
+# board list format is "uuid: name" (colon-space separator, NOT pipe)
+OPS_BOARD_ID=$(monotask board list 2>/dev/null | awk -F': ' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$ops_task_canonical" | head -1)
 if [ -n "$OPS_BOARD_ID" ]; then
   echo "Reusing ops task board: $OPS_BOARD_ID ($ops_task_canonical)"
   ops_columns=$(monotask column list "$OPS_BOARD_ID" --json)
@@ -846,8 +930,8 @@ else
   OPS_BOARD_ID=$(monotask board create --space "$space_id" "$ops_task_canonical" --json 2>/dev/null | jq -r '.id // empty')
   [ -z "$OPS_BOARD_ID" ] && { echo "ERROR: Failed to create ops task board"; exit 1; }
   monotask space boards add "$space_id" "$OPS_BOARD_ID" >/dev/null 2>&1 || true
-  OPS_COL_BACKLOG=$(monotask column create "$OPS_BOARD_ID" "Backlog"       --json | jq -r '.id')
-  OPS_COL_TODO=$(monotask column create "$OPS_BOARD_ID"    "Todo"          --json | jq -r '.id')
+  OPS_COL_BACKLOG=$(monotask column create "$OPS_BOARD_ID" "Backlog"       --json | jq -r '.id // empty')
+  OPS_COL_TODO=$(monotask column create "$OPS_BOARD_ID"    "Todo"          --json | jq -r '.id // empty')
   monotask column create "$OPS_BOARD_ID" "In Progress"   --json >/dev/null
   monotask column create "$OPS_BOARD_ID" "Human in Loop" --json >/dev/null
   monotask column create "$OPS_BOARD_ID" "Review"        --json >/dev/null
@@ -856,6 +940,7 @@ else
 fi
 [ -z "$OPS_BOARD_ID" ]    && { echo "ERROR: OPS_BOARD_ID empty — aborting"; exit 1; }
 [ -z "$OPS_COL_TODO" ]    && { echo "ERROR: Could not find Todo column on ops task board"; exit 1; }
+[ -z "$OPS_COL_BACKLOG" ] && { echo "ERROR: Could not find Backlog column on ops task board"; exit 1; }
 ```
 
 ---
@@ -867,13 +952,13 @@ fi
 dev_tasks_json='<TASKS_OUTPUT JSON array from dev decomp agent, or [] if no dev ideas>'
 # Parse the TASKS_OUTPUT block from the ops decomp agent's response and assign:
 ops_tasks_json='<TASKS_OUTPUT JSON array from ops decomp agent, or [] if no ops ideas>'
+# If TASKS_OUTPUT block is absent from an agent's response (error/timeout), set that variable to '[]'
 
-merged_tasks_json=$(jq -s 'add' <(echo "$dev_tasks_json") <(echo "$ops_tasks_json"))
+merged_tasks_json=$(jq -s 'add // []' <(echo "$dev_tasks_json") <(echo "$ops_tasks_json"))
 
-# Use process substitution (not a pipeline) so variables set inside the loop
-# remain in scope after done — needed for the parent-annotation step below.
-# Also initialise the subtask-accumulator map before the loop.
-declare -A parent_subtask_summaries  # parent_card_id -> newline-separated task summary lines
+# Use a temp directory to accumulate per-parent subtask summaries (bash 3.2 compatible —
+# avoids declare -A associative arrays which require bash 4.3+)
+SUBTASK_TMPDIR=$(mktemp -d)
 
 while IFS= read -r task; do
   parent_card_id=$(echo "$task"    | jq -r '.parent_card_id')
@@ -885,59 +970,78 @@ while IFS= read -r task; do
   has_prerequisites=$(echo "$task" | jq -r '.has_prerequisites')
 
   if [ "$category" = "business-operation" ]; then
-  TARGET_BOARD="$OPS_BOARD_ID"
-  COL_TARGET=$([ "$has_prerequisites" = "true" ] && echo "$OPS_COL_BACKLOG" || echo "$OPS_COL_TODO")
-  BOARD_LABEL="Operations Tasks"
-else
-  TARGET_BOARD="$TASK_BOARD_ID"
-  COL_TARGET=$([ "$has_prerequisites" = "true" ] && echo "$TASK_COL_BACKLOG" || echo "$TASK_COL_TODO")
-  BOARD_LABEL="Implementation Tasks"
-fi
+    TARGET_BOARD="$OPS_BOARD_ID"
+    COL_TARGET=$([ "$has_prerequisites" = "true" ] && echo "$OPS_COL_BACKLOG" || echo "$OPS_COL_TODO")
+    BOARD_LABEL="Operations Tasks"
+  else
+    TARGET_BOARD="$TASK_BOARD_ID"
+    COL_TARGET=$([ "$has_prerequisites" = "true" ] && echo "$TASK_COL_BACKLOG" || echo "$TASK_COL_TODO")
+    BOARD_LABEL="Implementation Tasks"
+  fi
 
-# Inherit impact and effort from parent idea — look up from verdicts_output_json by parent_card_id
-parent_impact=$(echo "$verdicts_output_json" | jq -r --arg id "$parent_card_id" '.[] | select(.card_id == $id) | .impact // 5')
-parent_effort=$(echo "$verdicts_output_json" | jq -r --arg id "$parent_card_id" '.[] | select(.card_id == $id) | .effort // 5')
-# Default to 5 if lookup returned empty (e.g. parent_card_id was "UNKNOWN")
-[ -z "$parent_impact" ] && parent_impact=5
-[ -z "$parent_effort" ] && parent_effort=5
+  # Inherit impact and effort from parent idea — look up from verdicts_output_json by parent_card_id
+  parent_impact=$(echo "$verdicts_output_json" | jq -r --arg id "$parent_card_id" '.[] | select(.card_id == $id) | .impact // 5')
+  parent_effort=$(echo "$verdicts_output_json" | jq -r --arg id "$parent_card_id" '.[] | select(.card_id == $id) | .effort // 5')
+  # Default to 5 if lookup returned empty (e.g. parent_card_id was "UNKNOWN")
+  [ -z "$parent_impact" ] && parent_impact=5
+  [ -z "$parent_effort" ] && parent_effort=5
 
-# Create task card as a proper subtask of the parent idea card (cross-board link)
-# Signature: subtask add <PARENT_BOARD_ID> <PARENT_CARD_ID> <CHILD_BOARD_ID> <COL_ID> <TITLE>
-TASK_CARD_ID=$(monotask card subtask add "$BOARD_ID" "$parent_card_id" "$TARGET_BOARD" "$COL_TARGET" "<task title>" --json | jq -r '.id')
-# Set the task description as the primary content field
-monotask card set-description "$TARGET_BOARD" "$TASK_CARD_ID" "<what to build/do — from TASKS_OUTPUT description>"
-monotask card set-impact "$TARGET_BOARD" "$TASK_CARD_ID" "$parent_impact"
-monotask card set-effort "$TARGET_BOARD" "$TASK_CARD_ID" "$parent_effort"
-monotask card comment add "$TARGET_BOARD" "$TASK_CARD_ID" \
-  "SOURCE: mastermind:idea | <first 100 chars of prompt>
-AGENT: <agent>
-TASK EFFORT: <task_effort>/10
-PARENT IDEA IMPACT: <parent_impact>/10  PARENT IDEA EFFORT: <parent_effort>/10
-CATEGORY: <category>
-PARENT IDEA: <idea title> (card: <parent_card_id> on ideation board)"
-monotask card label add "$TARGET_BOARD" "$TASK_CARD_ID" "mastermind:idea"
-monotask card label add "$TARGET_BOARD" "$TASK_CARD_ID" "category:$category"
+  # Create task card as a proper subtask of the parent idea card (cross-board link)
+  # Signature: subtask add <PARENT_BOARD_ID> <PARENT_CARD_ID> <CHILD_BOARD_ID> <COL_ID> <TITLE>
+  TASK_CARD_ID=$(monotask card subtask add "$BOARD_ID" "$parent_card_id" "$TARGET_BOARD" "$COL_TARGET" "$title" --json | jq -r '.id // empty')
+  [ -z "$TASK_CARD_ID" ] && { echo "WARN: subtask creation failed for '$title' (parent: $parent_card_id), skipping"; continue; }
+  # Set the task description as the primary content field
+  monotask card set-description "$TARGET_BOARD" "$TASK_CARD_ID" "$description"
+  monotask card set-impact "$TARGET_BOARD" "$TASK_CARD_ID" "$parent_impact"
+  monotask card set-effort "$TARGET_BOARD" "$TASK_CARD_ID" "$parent_effort"
+  # Derive parent idea title for the comment
+  parent_idea_title=$(echo "$verdicts_output_json" | jq -r --arg id "$parent_card_id" '.[] | select(.card_id == $id) | .title // "unknown"')
+  prompt_prefix=$(echo "$prompt" | cut -c1-100)
+  monotask card comment add "$TARGET_BOARD" "$TASK_CARD_ID" \
+    "SOURCE: mastermind:idea | $prompt_prefix
+AGENT: $agent
+TASK EFFORT: $task_effort/10
+PARENT IDEA IMPACT: $parent_impact/10  PARENT IDEA EFFORT: $parent_effort/10
+CATEGORY: $category
+PARENT IDEA: $parent_idea_title (card: $parent_card_id on ideation board)"
+  monotask card label add "$TARGET_BOARD" "$TASK_CARD_ID" "mastermind:idea"
+  monotask card label add "$TARGET_BOARD" "$TASK_CARD_ID" "category:$category"
 
-# Accumulate subtask summary for this parent (used in the post-loop annotation step)
-parent_subtask_summaries[$parent_card_id]+="  - $title (agent: $agent, effort: $task_effort/10, board: $BOARD_LABEL)\n"
+  # Append subtask summary line to per-parent file (replaces declare -A accumulation)
+  printf '  - %s (agent: %s, effort: %s/10, board: %s)\n' \
+    "$title" "$agent" "$task_effort" "$BOARD_LABEL" >> "$SUBTASK_TMPDIR/$parent_card_id"
 
 done < <(echo "$merged_tasks_json" | jq -c '.[]')
 ```
 
 After the loop, annotate each parent idea card and move it to `Tasked`:
 ```bash
-for parent_card_id in "${!parent_subtask_summaries[@]}"; do
-  subtask_list="${parent_subtask_summaries[$parent_card_id]}"
+for summary_file in "$SUBTASK_TMPDIR"/*; do
+  [ -f "$summary_file" ] || continue
+  parent_card_id=$(basename "$summary_file")
+  subtask_list=$(cat "$summary_file")
   monotask card comment add "$BOARD_ID" "$parent_card_id" \
-    "Subtasks created:\n${subtask_list}"
+    "Subtasks created:
+${subtask_list}"
   monotask card move "$BOARD_ID" "$parent_card_id" "$COL_TASKED" --json
 done
+rm -rf "$SUBTASK_TMPDIR"
 ```
 
-For each entry in FLAGGED, move the idea to `Iced`:
+For each entry in FLAGGED, parse the flagged JSON from both decomp agents' FLAGGED blocks and iterate:
 ```bash
-monotask card comment add "$BOARD_ID" "$flagged_card_id" "Needs clarification: <question>"
-monotask card move "$BOARD_ID" "$flagged_card_id" "$COL_ICED" --json
+# Collect flagged entries from both decomp agents
+dev_flagged_json='<FLAGGED array from dev decomp agent, or [] if none>'
+ops_flagged_json='<FLAGGED array from ops decomp agent, or [] if none>'
+# If FLAGGED block is absent from an agent's response, set that variable to '[]'
+merged_flagged_json=$(jq -s 'add // []' <(echo "$dev_flagged_json") <(echo "$ops_flagged_json"))
+
+while IFS= read -r flagged; do
+  flagged_card_id=$(echo "$flagged" | jq -r '.card_id')
+  flagged_question=$(echo "$flagged" | jq -r '.question // "Needs clarification before decomposition"')
+  monotask card comment add "$BOARD_ID" "$flagged_card_id" "Needs clarification: $flagged_question"
+  monotask card move "$BOARD_ID" "$flagged_card_id" "$COL_ICED" --json
+done < <(echo "$merged_flagged_json" | jq -c '.[]')
 ```
 
 ---
@@ -945,6 +1049,30 @@ monotask card move "$BOARD_ID" "$flagged_card_id" "$COL_ICED" --json
 ### Step 7 — Brain Write + Return
 
 Follow _protocol.md Brain Write Procedure (namespace: `idea`).
+
+**Write domain output to session file** so master Step 9 aggregation can include this domain. Skip silently if running standalone (no SESSION_ID in current.json):
+
+```bash
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SESSION_ID=$(jq -r '.sessionId // empty' "$REPO_ROOT/.monomind/sessions/current.json" 2>/dev/null)
+if [ -n "$SESSION_ID" ]; then
+  mkdir -p "$REPO_ROOT/.monomind/sessions/${SESSION_ID}"
+  CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+  # LLM: substitute <status>: complete (all steps ran), partial (some skipped), blocked (critical error)
+  # LLM: substitute next_actions with actual suggestions derived from this run's top ideas
+  jq -n \
+    --arg domain "idea" \
+    --arg status "<status>" \
+    --argjson artifacts '[]' \
+    --argjson next_actions '["<next_action_1>","<next_action_2>"]' \
+    '{domain:$domain,status:$status,artifacts:$artifacts,next_actions:$next_actions}' \
+    > "$REPO_ROOT/.monomind/sessions/${SESSION_ID}/idea.json"
+  curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" \
+    -H "Content-Type: application/json" \
+    -d "$(jq -cn --arg sid "$SESSION_ID" --arg status "<status>" \
+      '{type:"domain:complete",session:$sid,domain:"idea",status:$status,ts:(now*1000|floor)}')" || true
+fi
+```
 
 Return unified output schema to caller:
 
@@ -963,9 +1091,9 @@ lessons:
 next_actions:
   - <e.g. "run mastermind:build to prototype chosen direction">
   - <e.g. "run mastermind:research to validate top idea">
-board_url: "monotask://<project_name>/Ideas & Innovation"
-task_board_url: "monotask://<project_name>/Implementation Tasks"
-ops_task_board_url: "monotask://<project_name>/Operations Tasks"
+board_url: "monotask://<project_name>/${project_name}-idea"
+task_board_url: "monotask://<project_name>/${project_name}-tasks-dev"
+ops_task_board_url: "monotask://<project_name>/${project_name}-tasks-ops"
 run_id: <ISO8601-timestamp>
 summary:
   ideas_generated: N

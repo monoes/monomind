@@ -3,6 +3,8 @@ name: mastermind-build
 description: Mastermind build domain — ship features, fix bugs, refactor code. Spawns a Development Manager who creates monotask tasks and coordinates specialized dev agents. Default mode: auto.
 ---
 
+**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing. If `is_continuation = true`, skip the empty-prompt check and intake below.
+
 Parse `$ARGUMENTS` for:
 - `--auto` flag → mode = auto
 - `--confirm` flag → mode = confirm
@@ -20,3 +22,5 @@ Default mode for this command: **auto** (unless `--confirm` flag present or inta
 Invoke `Skill("mastermind:build")` passing: brain_context, prompt, project_name, board_id (create if needed), mode.
 
 After skill returns: follow _protocol.md Brain Write Procedure for domain `build`.
+
+Follow the REPEAT POSTAMBLE from `_repeat.md`.

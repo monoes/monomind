@@ -280,7 +280,7 @@
     },
     "adr": {
       "autoGenerate": true,
-      "directory": "/docs/adr",
+      "directory": "docs/adrs",
       "template": "madr"
     },
     "security": {
@@ -304,9 +304,9 @@
   },
   "mcpServers": {
     "monomind": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/bin/cli.js",
+        "monomind@latest",
         "mcp",
         "start"
       ]
