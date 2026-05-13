@@ -5,7 +5,7 @@ description: Shared inter-session repeat protocol. Referenced by mastermind and 
 
 ## Shared Repeat Protocol
 
-Adds `--repeat <N> --wait <seconds>` inter-session looping to any command. Uses `ScheduleWakeup` to pause between runs and `.monomind/loops/<id>.json` for dashboard tracking.
+Adds `--repeat <N> --wait <seconds>` and `--tillend --wait <seconds>` inter-session looping to any command. Uses `ScheduleWakeup` to pause between runs and `.monomind/loops/<id>.json` for dashboard tracking.
 
 ---
 
@@ -20,9 +20,13 @@ Extract and remove these flags from `$ARGUMENTS` before passing the remainder to
 | Flag | Variable | Default | Notes |
 |---|---|---|---|
 | `--repeat <N>` | `repeat_count` | `0` | N ≥ 2 activates repeat; N < 2 = disabled |
+| `--tillend` | `tillend_mode` | `false` | Run until empty round (no findings, no actions). Overrides --repeat. |
+| `--maxruns <N>` | `tillend_maxruns` | `50` | Safety cap for --tillend; stops after N runs even if AI hasn't signaled done |
 | `--wait <seconds>` | `wait_seconds` | `60` | Minimum 60 (enforced by ScheduleWakeup) |
 | `--rep <N>` | `current_rep` | absent | Internal; injected by ScheduleWakeup on continuation runs |
 | `--loop <id>` | `loop_id` | absent | Internal; preserves loop identity across runs |
+
+If both `--tillend` and `--repeat <N>` are present, `--tillend` takes precedence.
 
 ### 2. If `--rep N` is present (continuation run)
 
@@ -47,7 +51,8 @@ fi
 ```
 
 **If `LOOP_HIL_PENDING=true` (HIL file exists but unanswered):**
-- Output: `[repeat] Loop paused before run <current_rep>/<repeat_count>: waiting for human responses in ${HIL_FILE}.`
+- Output (tillend mode): `[tillend] Loop paused before run <current_rep>: waiting for human responses in ${HIL_FILE}.`
+- Output (fixed-count mode): `[repeat] Loop paused before run <current_rep>/<repeat_count>: waiting for human responses in ${HIL_FILE}.`
 - Update state file:
   ```bash
   python3 -c "import json; f='.monomind/loops/${LOOP_ID}.json'; d=json.load(open(f)); d['status']='hil:pending'; open(f,'w').write(json.dumps(d,indent=2))" 2>/dev/null \
@@ -55,14 +60,16 @@ fi
   ```
 - Emit `loop:hil:waiting`:
   ```bash
-  curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+  REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+  curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     -H "Content-Type: application/json" \
     -d "{\"type\":\"loop:hil:waiting\",\"loopId\":\"${LOOP_ID}\",\"hilFile\":\"${HIL_FILE}\",\"rep\":<current_rep>,\"ts\":$(date +%s)000}" || true
   ```
 - Re-schedule a check (not a full run) using ScheduleWakeup:
   - `delaySeconds`: `min(wait_seconds, 300)` — check at most every 5 minutes
   - `prompt`: same full continuation prompt (same `--rep <N>`)
-  - `reason`: `"HIL pending for /<command> run <current_rep>/<repeat_count> — re-checking"`
+  - `reason`: tillend mode: `"HIL pending for /<command> tillend run <current_rep> — re-checking"` / fixed-count: `"HIL pending for /<command> run <current_rep>/<repeat_count> — re-checking"`
 - STOP. Do not execute the command yet.
 
 **If `LOOP_HIL_ANSWERED=true` (human responded):**
@@ -70,7 +77,9 @@ fi
 - Archive: `mv "$HIL_FILE" ".monomind/loops/${LOOP_ID}-hil-resolved-$(date +%s).md"`
 - Emit `loop:hil:resolved`:
   ```bash
-  curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+  REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+  curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     -H "Content-Type: application/json" \
     -d "{\"type\":\"loop:hil:resolved\",\"loopId\":\"${LOOP_ID}\",\"rep\":<current_rep>,\"ts\":$(date +%s)000}" || true
   ```
@@ -79,11 +88,21 @@ fi
   python3 -c "import json; f='.monomind/loops/${LOOP_ID}.json'; d=json.load(open(f)); d['status']='running'; open(f,'w').write(json.dumps(d,indent=2))" 2>/dev/null \
     || jq '.status="running"' ".monomind/loops/${LOOP_ID}.json" > ".monomind/loops/${LOOP_ID}.json.tmp" && mv ".monomind/loops/${LOOP_ID}.json.tmp" ".monomind/loops/${LOOP_ID}.json" 2>/dev/null || true
   ```
-- Proceed to execute the command (output: `[repeat] Run <current_rep>/<repeat_count> of /<command> starting...`)
+- Proceed to execute the command:
+  - Tillend mode: `[tillend] Run <current_rep> of /<command> starting...`
+  - Fixed-count: `[repeat] Run <current_rep>/<repeat_count> of /<command> starting...`
 
-**If no HIL file:** Output: `[repeat] Run <current_rep>/<repeat_count> of /<command> starting...` and proceed to the command's core logic.
+**If no HIL file:**
+- Tillend mode: `[tillend] Run <current_rep> of /<command> starting...`
+- Fixed-count: `[repeat] Run <current_rep>/<repeat_count> of /<command> starting...`
 
-### 3. If `--rep` is absent and `repeat_count ≥ 2` (first run)
+Proceed to the command's core logic.
+
+### 3. If `--rep` is absent — first run
+
+**Branch A: `tillend_mode = true`** OR **Branch B: `repeat_count ≥ 2`**
+
+If neither condition is true, skip to Section 4.
 
 1. Generate loop ID and write state file:
    ```bash
@@ -91,11 +110,37 @@ fi
    # Portable millisecond timestamp (BSD date has no %N; GNU date has %3N)
    NOW_MS=$(python3 -c 'import time;print(int(time.time()*1000))' 2>/dev/null || echo "$(date +%s)000")
    LOOP_ID="<command_slug>-${NOW_MS}"
-   # Dashboard expects interval in MINUTES (rounded), maxReps as the total run count
+   # Dashboard expects interval in MINUTES (rounded)
    INTERVAL_MIN=$(( (<wait_seconds> + 30) / 60 ))
    PROMPT_JSON=$(printf '%s' "<prompt>" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
      || printf '%s' "<prompt>" | node -e "process.stdout.write(JSON.stringify(require('fs').readFileSync('/dev/stdin','utf8')))" 2>/dev/null \
      || printf '"%s"' "$(printf '%s' "<prompt>" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/g' | tr -d '\n' | sed 's/\\n$//')")
+   ```
+
+   **If `tillend_mode = true`:**
+   ```bash
+   cat > ".monomind/loops/${LOOP_ID}.json" << EOF
+   {
+     "id": "${LOOP_ID}",
+     "sessionId": "${LOOP_ID}",
+     "type": "tillend",
+     "command": "/<command>",
+     "prompt": ${PROMPT_JSON},
+     "maxReps": <tillend_maxruns>,
+     "interval": ${INTERVAL_MIN},
+     "wait": <wait_seconds>,
+     "currentRep": 1,
+     "startedAt": ${NOW_MS},
+     "lastRunAt": ${NOW_MS},
+     "nextRunAt": ${NOW_MS},
+     "status": "running",
+     "source": "_repeat.md"
+   }
+   EOF
+   ```
+
+   **If `repeat_count ≥ 2` (fixed-count mode):**
+   ```bash
    cat > ".monomind/loops/${LOOP_ID}.json" << EOF
    {
      "id": "${LOOP_ID}",
@@ -118,15 +163,21 @@ fi
 
 2. Emit `loop:start` to dashboard (failure is non-fatal):
    ```bash
-   curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+   # For tillend mode, repeat field is the safety cap
+   REPEAT_VAL=$( [ "<tillend_mode>" = "true" ] && echo "<tillend_maxruns>(cap)" || echo "<repeat_count>" )
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
      -H "Content-Type: application/json" \
-     -d "{\"type\":\"loop:start\",\"loopId\":\"${LOOP_ID}\",\"command\":\"/<command>\",\"repeat\":<repeat_count>,\"wait\":<wait_seconds>,\"ts\":$(date +%s)000}" || true
+     -d "{\"type\":\"loop:start\",\"loopId\":\"${LOOP_ID}\",\"command\":\"/<command>\",\"mode\":\"$( [ '<tillend_mode>' = 'true' ] && echo 'tillend' || echo 'repeat' )\",\"repeat\":\"${REPEAT_VAL}\",\"wait\":<wait_seconds>,\"ts\":$(date +%s)000}" || true
    ```
 
 3. Set `current_rep` = 1, `is_continuation` = false
-4. Output: `[repeat] Starting <repeat_count> runs of /<command> (<wait_seconds>s between each). Run 1/<repeat_count>...`
+4. Output:
+   - **tillend mode**: `[tillend] Starting tillend loop for /<command> (runs until empty round, safety cap: <tillend_maxruns>, <wait_seconds>s between runs). Run 1...`
+   - **fixed-count mode**: `[repeat] Starting <repeat_count> runs of /<command> (<wait_seconds>s between each). Run 1/<repeat_count>...`
 
-### 4. If `repeat_count < 2`
+### 4. If neither `tillend_mode` nor `repeat_count ≥ 2`
 
 No repeat behavior. Proceed normally. The REPEAT POSTAMBLE is a no-op.
 
@@ -136,7 +187,7 @@ No repeat behavior. Proceed normally. The REPEAT POSTAMBLE is a no-op.
 
 Apply after the command's core logic fully completes (after skill returns, after final step, etc.).
 
-**If `repeat_count < 2`:** skip this section entirely.
+**If neither `tillend_mode` nor `repeat_count ≥ 2`:** skip this section entirely.
 
 **Otherwise:**
 
@@ -153,7 +204,9 @@ If `REPEAT_STOP=true`:
 
 ### 2. Report this run complete
 
-Output: `[repeat] Run <current_rep>/<repeat_count> complete.`
+Output:
+- Tillend mode: `[tillend] Run <current_rep> complete.`
+- Fixed-count: `[repeat] Run <current_rep>/<repeat_count> complete.`
 
 ### 3. Detect HIL items from this run
 
@@ -170,8 +223,10 @@ RECENT_HIL=$(find . -maxdepth 3 \( -name "humaninloop*.md" -o -name "humaninloop
 1. Write a loop HIL file aggregating all items:
    ```bash
    HIL_FILE=".monomind/loops/${LOOP_ID}-hil.md"
+   # Use run label appropriate to mode
+   RUN_LABEL=$( [ "<tillend_mode>" = "true" ] && echo "run <current_rep> (tillend)" || echo "run <current_rep>/<repeat_count>" )
    cat > "$HIL_FILE" << EOF
-   # Human-in-Loop — /<command> run <current_rep>/<repeat_count>
+   # Human-in-Loop — /<command> ${RUN_LABEL}
    Loop: ${LOOP_ID}
    Created: $(date -u +"%Y-%m-%d %H:%M UTC")
    Status: pending
@@ -183,7 +238,7 @@ RECENT_HIL=$(find . -maxdepth 3 \( -name "humaninloop*.md" -o -name "humaninloop
    ## Instructions
 
    1. Open each file listed above and fill in **Your response** for each item.
-   2. Any non-empty response after a `> ` line is treated as "answered".
+   2. Any non-empty response after a \`> \` line is treated as "answered".
    3. Once you have filled in at least one response, the loop will auto-resume on the next check.
 
    **Your answer (fill in to resume):**
@@ -199,52 +254,124 @@ RECENT_HIL=$(find . -maxdepth 3 \( -name "humaninloop*.md" -o -name "humaninloop
 
 3. Emit `loop:hil` to dashboard:
    ```bash
-   curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
      -H "Content-Type: application/json" \
      -d "{\"type\":\"loop:hil\",\"loopId\":\"${LOOP_ID}\",\"command\":\"/<command>\",\"hilFile\":\"${HIL_FILE}\",\"rep\":<current_rep>,\"files\":$(echo "$RECENT_HIL" | grep -v '^$' | jq -R . | jq -cs .),\"ts\":$(date +%s)000}" || true
    ```
 
 4. Output:
    ```
-   [repeat] Human-in-loop items detected from run <current_rep>/<repeat_count>.
+   [repeat] Human-in-loop items detected from run <current_rep>.
    Action required: open the files listed in ${HIL_FILE} and fill in responses.
    ```
 
-5. Compute `next_rep = current_rep + 1`. Then branch on whether this was the last run:
+5. Compute `next_rep = current_rep + 1`. Build the HIL poll continuation prompt:
 
-   **If `current_rep >= repeat_count`** (HIL detected on the final run — do not schedule another execution):
+   **If `tillend_mode = true`:**
+   - HIL continuation prompt: `/<command> --tillend --maxruns <tillend_maxruns> --wait <wait_seconds> --rep <next_rep> --loop ${LOOP_ID} <original prompt>`
+   - Output: `Loop will resume automatically once responses are provided.`
+   - `delaySeconds`: `min(wait_seconds, 300)`
+   - `reason`: `"HIL pending for /<command> tillend run <current_rep> — waiting for human response"`
+   - Schedule via `ScheduleWakeup` and STOP.
+
+   **If `current_rep >= repeat_count`** (HIL detected on the final fixed-count run):
    - Output: `[repeat] All <repeat_count> runs of /<command> complete (HIL items pending in ${HIL_FILE}).`
    - Emit `loop:complete`:
      ```bash
-     curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+     REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+     CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+     curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
        -H "Content-Type: application/json" \
        -d "{\"type\":\"loop:complete\",\"loopId\":\"${LOOP_ID}\",\"command\":\"/<command>\",\"ranReps\":<repeat_count>,\"hilPending\":true,\"ts\":$(date +%s)000}" || true
      ```
    - `rm -f ".monomind/loops/${LOOP_ID}.json"`
    - STOP. (HIL file remains for human review; loop is done.)
 
-   **Otherwise** (HIL on an intermediate run — schedule a poll check):
+   **Otherwise** (HIL on an intermediate fixed-count run):
    - Output: `Loop will resume automatically at run <next_rep>/<repeat_count> once responses are provided.`
-   - `delaySeconds`: `min(wait_seconds, 300)` — re-check every 5 min max while waiting
+   - `delaySeconds`: `min(wait_seconds, 300)`
    - `prompt`: `/<command> --repeat <repeat_count> --wait <wait_seconds> --rep <next_rep> --loop ${LOOP_ID} <original flags and prompt>`
    - `reason`: `"HIL pending for /<command> run <current_rep>/<repeat_count> — waiting for human response"`
-   - Schedule via `ScheduleWakeup` and STOP. Do not proceed to "Schedule next run" below.
+   - Schedule via `ScheduleWakeup` and STOP.
 
-**If `RECENT_HIL` is empty:** proceed to step 4 (schedule next run normally).
+**If `RECENT_HIL` is empty:** proceed to section 4.
 
-### 4. If all runs done (`current_rep ≥ repeat_count`)
+---
+
+### 4. Tillend completion check (tillend mode only)
+
+**Skip this section if `tillend_mode` is not true.** Proceed to section 5.
+
+After each run in tillend mode, evaluate whether this run produced **zero findings and zero actions**. The loop stops only when a complete round finds nothing new and makes no changes — not when the AI predicts there is nothing left.
+
+**You (the AI running the loop) must now assess your own output from this run.** Answer these two questions:
+
+1. **Were any findings produced?** — issues found, problems detected, items identified, things flagged, errors reported, tasks discovered, security vulnerabilities found, etc.
+2. **Were any actions taken?** — files edited, code fixed, tasks created, cards moved, commits made, content written, configs changed, etc.
+
+**Set `TILLEND_EMPTY=true` only if BOTH answers are "no" — zero findings AND zero actions this round.**
+
+**Important:** If this round found things AND fixed them all, `TILLEND_EMPTY=false`. The loop must run once more to verify the fixes didn't introduce new issues. A "clean" prediction after a productive round is not enough — only an actually empty round stops the loop.
+
+**If `TILLEND_EMPTY=true` (round produced nothing):**
+- Output:
+  ```
+  [tillend] Empty round — nothing found, nothing changed in run <current_rep>.
+  /<command> tillend loop complete (ran <current_rep> run(s)).
+  ```
+- Emit `loop:complete`:
+  ```bash
+  REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+  curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+    -H "Content-Type: application/json" \
+    -d "{\"type\":\"loop:complete\",\"loopId\":\"${LOOP_ID}\",\"command\":\"/<command>\",\"mode\":\"tillend\",\"ranReps\":<current_rep>,\"reason\":\"empty-round\",\"ts\":$(date +%s)000}" || true
+  ```
+- `rm -f ".monomind/loops/${LOOP_ID}.json"`
+- STOP.
+
+**If `current_rep >= tillend_maxruns` (safety cap reached):**
+- Output:
+  ```
+  [tillend] Safety cap reached (<tillend_maxruns> runs). Stopping loop.
+  If work is still incomplete, re-run: /<command> --tillend --maxruns <N> --wait <wait_seconds> <prompt>
+  ```
+- Emit `loop:complete`:
+  ```bash
+  REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+  curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
+    -H "Content-Type: application/json" \
+    -d "{\"type\":\"loop:complete\",\"loopId\":\"${LOOP_ID}\",\"command\":\"/<command>\",\"mode\":\"tillend\",\"ranReps\":<current_rep>,\"reason\":\"safety-cap\",\"ts\":$(date +%s)000}" || true
+  ```
+- `rm -f ".monomind/loops/${LOOP_ID}.json"`
+- STOP.
+
+**Otherwise (`TILLEND_EMPTY=false` and cap not reached):**
+- Output: `[tillend] Run <current_rep> produced work (findings or actions). Continuing...`
+- Proceed to section 5 to schedule the next run.
+
+---
+
+### 5. Fixed-count: check if all runs done (`current_rep ≥ repeat_count`)
+
+**Skip this section if `tillend_mode = true`** (tillend has no fixed count; section 4 handles its termination).
 
 - Output: `[repeat] All <repeat_count> runs of /<command> complete.`
 - `rm -f ".monomind/loops/${LOOP_ID}.json"`
 - Emit `loop:complete`:
   ```bash
-  curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+  REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+  curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     -H "Content-Type: application/json" \
     -d "{\"type\":\"loop:complete\",\"loopId\":\"${LOOP_ID}\",\"command\":\"/<command>\",\"ranReps\":<repeat_count>,\"ts\":$(date +%s)000}" || true
   ```
 - STOP (do not schedule another run).
 
-### 5. Schedule next run
+### 6. Schedule next run
 
 Set `next_rep` = current_rep + 1.
 
@@ -254,6 +381,8 @@ Update state file (read `prompt` and `startedAt` from the existing file to prese
 NOW_MS=$(python3 -c 'import time;print(int(time.time()*1000))' 2>/dev/null || echo "$(date +%s)000")
 NEXT_AT=$(( NOW_MS + <wait_seconds> * 1000 ))
 INTERVAL_MIN=$(( (<wait_seconds> + 30) / 60 ))
+LOOP_TYPE=$( [ "<tillend_mode>" = "true" ] && echo "tillend" || echo "repeat" )
+MAX_REPS=$( [ "<tillend_mode>" = "true" ] && echo "<tillend_maxruns>" || echo "<repeat_count>" )
 PROMPT_JSON=$(jq '.prompt' ".monomind/loops/${LOOP_ID}.json" 2>/dev/null \
   || python3 -c "import json,sys; json.dump(json.load(open('.monomind/loops/${LOOP_ID}.json'))['prompt'], sys.stdout)" 2>/dev/null \
   || echo '"<prompt>"')
@@ -264,10 +393,10 @@ cat > ".monomind/loops/${LOOP_ID}.json" << EOF
 {
   "id": "${LOOP_ID}",
   "sessionId": "${LOOP_ID}",
-  "type": "repeat",
+  "type": "${LOOP_TYPE}",
   "command": "/<command>",
   "prompt": ${PROMPT_JSON},
-  "maxReps": <repeat_count>,
+  "maxReps": ${MAX_REPS},
   "interval": ${INTERVAL_MIN},
   "wait": <wait_seconds>,
   "currentRep": <next_rep>,
@@ -282,27 +411,41 @@ EOF
 
 Emit `loop:tick`:
 ```bash
-curl -s -X POST "http://localhost:4242/api/mastermind/event" \
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
-  -d "{\"type\":\"loop:tick\",\"loopId\":\"${LOOP_ID}\",\"command\":\"/<command>\",\"completedRep\":<current_rep>,\"nextRep\":<next_rep>,\"nextAt\":${NEXT_AT},\"ts\":$(date +%s)000}" || true
+  -d "{\"type\":\"loop:tick\",\"loopId\":\"${LOOP_ID}\",\"command\":\"/<command>\",\"mode\":\"${LOOP_TYPE}\",\"completedRep\":<current_rep>,\"nextRep\":<next_rep>,\"nextAt\":${NEXT_AT},\"ts\":$(date +%s)000}" || true
 ```
 
-Output: `[repeat] Next run in <wait_seconds>s (run <next_rep>/<repeat_count>)...`
+**Output and ScheduleWakeup:**
 
-Call `ScheduleWakeup`:
-- `delaySeconds`: `<wait_seconds>` (runtime clamps to minimum 60)
-- `prompt`: `/<command> --repeat <repeat_count> --wait <wait_seconds> --rep <next_rep> --loop ${LOOP_ID} <all original flags and prompt text, minus --rep and --loop>`
-- `reason`: `"repeat run <next_rep>/<repeat_count> of /<command>"`
+**If `tillend_mode = true`:**
+- Output: `[tillend] Work remains. Next run in <wait_seconds>s (run <next_rep>, cap: <tillend_maxruns>)...`
+- `ScheduleWakeup`:
+  - `delaySeconds`: `<wait_seconds>`
+  - `prompt`: `/<command> --tillend --maxruns <tillend_maxruns> --wait <wait_seconds> --rep <next_rep> --loop ${LOOP_ID} <all original flags and prompt text, minus --rep and --loop>`
+  - `reason`: `"tillend run <next_rep> of /<command> (cap: <tillend_maxruns>)"`
+
+**If fixed-count mode:**
+- Output: `[repeat] Next run in <wait_seconds>s (run <next_rep>/<repeat_count>)...`
+- `ScheduleWakeup`:
+  - `delaySeconds`: `<wait_seconds>`
+  - `prompt`: `/<command> --repeat <repeat_count> --wait <wait_seconds> --rep <next_rep> --loop ${LOOP_ID} <all original flags and prompt text, minus --rep and --loop>`
+  - `reason`: `"repeat run <next_rep>/<repeat_count> of /<command>"`
 
 ---
 
 ## Notes for Calling Commands
 
 - **`<command_slug>`**: lowercase command name without namespace (`build` for `/mastermind:build`, `monomind-idea` for `/monomind:idea`)
-- **Dashboard**: the monomind panel reads `.monomind/loops/*.json` to show active repeat loops; HIL status shows as `"hil:pending"` in the status field
+- **Dashboard**: the monomind panel reads `.monomind/loops/*.json`; `type` field is `"repeat"` or `"tillend"`; HIL status shows as `"hil:pending"`
 - **Stopping a loop**: create `.monomind/loops/${LOOP_ID}.stop` or delete the `.json` file; the next wake-up detects it
 - **`wait_seconds` < 60**: ScheduleWakeup clamps to 60; the state file may reflect the user's requested value
 - **Continuation runs skip intake**: calling commands check `is_continuation` and bypass empty-prompt checks and vague-prompt intake
 - **HIL file naming**: commands write `humaninloop*.md` or `humaninloopreview*.md`; the repeat protocol detects these automatically via `find` — no changes needed in individual commands
 - **HIL resume**: the human fills in any `> ` answer line in the HIL files; the next check detects this via `grep -cE "^[[:space:]]*>[[:space:]]+[^[:space:]]"` and resumes the loop
 - **HIL check interval**: while HIL is pending, ScheduleWakeup fires every `min(wait_seconds, 300)` seconds to poll; this is transparent to the user
+- **`--tillend` termination**: the loop stops only when a complete round produces ZERO findings AND ZERO actions. If the round found+fixed things, it continues — even if the AI predicts "all done". Only a genuinely empty verification round stops the loop. `reason: "empty-round"` in the `loop:complete` event.
+- **`--tillend` safety cap**: default 50 runs. Override with `--maxruns <N>`. Always emit a warning when stopping on cap so user knows to re-run if needed
+- **Combining flags**: `--tillend` overrides `--repeat N` if both are present. `--maxruns` only applies to `--tillend`

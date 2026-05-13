@@ -3,6 +3,8 @@ name: mastermind-brain
 description: Mastermind brain management — inspect, compact, refresh, and control the three-tier business memory (AgentDB + Monograph)
 ---
 
+**First — extract repeat flags:** Follow the REPEAT PREAMBLE from `_repeat.md`. Extracts `--repeat`, `--tillend`, `--maxruns`, `--wait`, `--rep`, `--loop` from `$ARGUMENTS` before all other parsing.
+
 Parse `$ARGUMENTS` to determine the sub-command and flags.
 
 ## Sub-Commands
@@ -96,3 +98,5 @@ If `--confirm` is present:
 
 If `--confirm` is missing:
 > "This will permanently delete all brain memory for domain '<name>'. To confirm, run: `/mastermind:brain reset --domain <name> --confirm`"
+
+Follow the REPEAT POSTAMBLE from `_repeat.md`.

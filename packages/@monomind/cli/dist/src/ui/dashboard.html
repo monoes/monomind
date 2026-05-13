@@ -1243,6 +1243,405 @@
     flex: 1; border: none; width: 100%; display: block;
     background: #07071a;
   }
+  #mm-hub { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  #mm-tabs {
+    display: flex; gap: 0; border-bottom: 1px solid rgba(200,120,255,0.18);
+    flex-shrink: 0; overflow-x: auto;
+  }
+  .mm-tab {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: rgba(150,100,200,0.55); font-family: 'Azeret Mono', monospace;
+    font-size: 9px; letter-spacing: 0.1em; padding: 8px 16px;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .mm-tab:hover { color: rgba(210,140,255,0.8); background: rgba(200,120,255,0.06); }
+  .mm-tab.active { color: rgba(210,140,255,1); border-bottom-color: rgba(200,120,255,0.7); }
+  #mm-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .mm-pane { display: none; }
+  .mm-pane.active { display: block; }
+  .mm-section-title {
+    font-family: 'Azeret Mono', monospace; font-size: 9px;
+    color: rgba(200,120,255,0.5); letter-spacing: 0.14em; text-transform: uppercase;
+    margin-bottom: 10px; padding-bottom: 4px;
+    border-bottom: 1px solid rgba(200,120,255,0.12);
+  }
+  .mm-skill-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 6px; margin-bottom: 16px;
+  }
+  .mm-skill-card {
+    background: rgba(200,120,255,0.05); border: 1px solid rgba(200,120,255,0.15);
+    border-radius: 4px; padding: 8px 10px; font-size: 9px;
+    font-family: 'Azeret Mono', monospace; cursor: default;
+    transition: border-color 0.15s;
+  }
+  .mm-skill-card:hover { border-color: rgba(200,120,255,0.4); }
+  .mm-skill-name { color: rgba(210,140,255,0.9); margin-bottom: 3px; font-size: 10px; }
+  .mm-skill-desc { color: rgba(150,100,200,0.6); font-size: 8px; line-height: 1.4; }
+  .mm-loop-row {
+    display: flex; align-items: center; gap: 12px; padding: 8px 10px;
+    border: 1px solid rgba(200,120,255,0.12); border-radius: 4px;
+    margin-bottom: 6px; background: rgba(200,120,255,0.03);
+  }
+  .mm-org-card {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border: 1px solid rgba(200,120,255,0.15); border-radius: 4px;
+    margin-bottom: 6px; background: rgba(200,120,255,0.04); cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .mm-org-card:hover { border-color: rgba(200,120,255,0.4); background: rgba(200,120,255,0.08); }
+  .mm-org-name { color: rgba(210,140,255,0.9); font-size: 11px; font-family: 'Azeret Mono', monospace; }
+  .mm-org-meta { color: rgba(150,100,200,0.5); font-size: 9px; font-family: 'Azeret Mono', monospace; }
+  .mm-btn {
+    background: none; border: 1px solid rgba(200,120,255,0.4); color: rgba(210,140,255,0.85);
+    font-family: 'Azeret Mono', monospace; font-size: 9px; letter-spacing: 0.08em;
+    padding: 4px 12px; cursor: pointer; border-radius: 3px; transition: background 0.15s;
+  }
+  .mm-btn:hover { background: rgba(200,120,255,0.12); }
+  .mm-metric-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-bottom: 16px;
+  }
+  .mm-metric-card {
+    background: rgba(200,120,255,0.05); border: 1px solid rgba(200,120,255,0.15);
+    border-radius: 4px; padding: 12px 14px; text-align: center;
+  }
+  .mm-metric-val { color: rgba(210,140,255,0.95); font-size: 22px; font-family: 'Syne', sans-serif; font-weight: 700; }
+  .mm-metric-label { color: rgba(150,100,200,0.5); font-size: 8px; letter-spacing: 0.1em; margin-top: 2px; }
+
+  /* ─── ORG ROOM OVERLAY ──────────────────────────────────────────── */
+  #orgroom-overlay {
+    position: fixed; inset: 0; z-index: 1003;
+    background: #060810;
+    display: none; flex-direction: column;
+    overflow: hidden;
+  }
+  #orgroom-overlay.open { display: flex; }
+  #orgroom-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 16px; border-bottom: 1px solid rgba(0,230,180,0.18);
+    flex-shrink: 0; background: rgba(6,8,16,0.97);
+    backdrop-filter: blur(16px); z-index: 10; position: relative;
+  }
+  #orgroom-back {
+    background: none; border: 1px solid rgba(0,200,160,0.4); color: rgba(0,230,180,0.9);
+    font-family: 'Azeret Mono', monospace; font-size: 11px; letter-spacing: 0.08em;
+    padding: 4px 10px; cursor: pointer; border-radius: 3px; transition: background 0.15s;
+  }
+  #orgroom-back:hover { background: rgba(0,200,160,0.1); }
+  #orgroom-title {
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px;
+    color: rgba(0,230,180,0.9); letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  #orgroom-sub {
+    font-family: 'Azeret Mono', monospace; font-size: 9px;
+    color: rgba(0,160,120,0.6); letter-spacing: 0.12em;
+  }
+  #orgroom-tabs {
+    display: flex; gap: 2px; padding: 8px 16px 0;
+    border-bottom: 1px solid rgba(0,230,180,0.12);
+    flex-shrink: 0;
+  }
+  .orgroom-tab {
+    font-family: 'Azeret Mono', monospace; font-size: 10px; letter-spacing: 0.1em;
+    padding: 5px 14px; cursor: pointer; border: none; background: none;
+    color: rgba(0,200,160,0.5); border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .orgroom-tab:hover { color: rgba(0,230,180,0.8); }
+  .orgroom-tab.active { color: rgba(0,230,180,1); border-bottom-color: rgba(0,230,180,0.8); }
+  #orgroom-body {
+    flex: 1; overflow: auto; padding: 16px;
+    font-family: 'Azeret Mono', monospace; font-size: 11px; color: var(--text);
+  }
+  .orgroom-pane { display: none; }
+  .orgroom-pane.active { display: block; }
+
+  /* ORG CHART canvas area */
+  #orgroom-chart-svg {
+    width: 100%; overflow: auto;
+    background: rgba(0,0,0,0.3); border-radius: 4px; padding: 12px;
+    min-height: 200px;
+  }
+  .oc-card {
+    fill: rgba(0,40,30,0.9); stroke: rgba(0,200,160,0.5); stroke-width: 1;
+    rx: 4; cursor: default;
+  }
+  .oc-card-boss { stroke: rgba(0,230,180,0.9); stroke-width: 2; }
+  .oc-label { font-size: 11px; fill: rgba(0,230,180,0.9); font-family: monospace; }
+  .oc-sub { font-size: 9px; fill: rgba(0,160,120,0.7); font-family: monospace; }
+  .oc-edge { stroke: rgba(0,200,160,0.3); stroke-width: 1; fill: none; }
+
+  /* Heartbeats table */
+  .orgroom-table { width: 100%; border-collapse: collapse; }
+  .orgroom-table th { text-align: left; font-size: 9px; color: var(--dim); letter-spacing: 0.1em;
+    padding: 4px 8px; border-bottom: 1px solid rgba(0,200,160,0.15); }
+  .orgroom-table td { padding: 5px 8px; font-size: 10px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .orgroom-status-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--dim); margin-right: 5px; vertical-align: middle;
+  }
+  .orgroom-status-dot.running { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse-dot 1.5s infinite; }
+  .orgroom-status-dot.idle { background: rgba(0,200,160,0.4); }
+  .orgroom-status-dot.paused { background: rgba(255,180,0,0.7); }
+  .orgroom-status-dot.error { background: rgba(255,80,80,0.8); }
+
+  /* Cost bars */
+  .cost-bar-wrap { background: rgba(0,0,0,0.4); border-radius: 2px; height: 6px; width: 100%; margin-top: 3px; }
+  .cost-bar { height: 6px; border-radius: 2px; background: linear-gradient(90deg, rgba(0,200,160,0.6), rgba(0,230,180,0.9)); transition: width 0.3s; }
+  .cost-bar.warn { background: linear-gradient(90deg, rgba(255,180,0,0.6), rgba(255,200,50,0.9)); }
+  .cost-bar.danger { background: linear-gradient(90deg, rgba(255,80,60,0.6), rgba(255,100,80,0.9)); }
+
+  /* Live stream pane */
+  #orgroom-live-stream {
+    font-size: 10px; font-family: 'Azeret Mono', monospace;
+    background: rgba(0,0,0,0.4); border-radius: 4px; padding: 10px;
+    height: calc(100vh - 200px); overflow-y: auto; display: flex; flex-direction: column-reverse;
+  }
+  .live-event-row { padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+  .live-event-row .live-ts { color: var(--dim); font-size: 9px; margin-right: 8px; }
+  .live-event-row .live-type { color: rgba(0,200,160,0.8); margin-right: 6px; }
+  .live-event-row.type-heartbeat .live-type { color: rgba(0,229,135,0.8); }
+  .live-event-row.type-approval .live-type { color: rgba(255,180,0,0.8); }
+  .live-event-row.type-error .live-type { color: rgba(255,80,80,0.8); }
+
+  /* Skills pane */
+  .skill-card {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 10px; border: 1px solid rgba(0,200,160,0.1); border-radius: 4px;
+    margin-bottom: 6px; background: rgba(0,20,15,0.5);
+  }
+  .skill-card-name { color: rgba(0,230,180,0.9); font-size: 10px; font-weight: 600; margin-bottom: 2px; }
+  .skill-card-desc { color: var(--muted); font-size: 9px; }
+  .skill-badge { font-size: 8px; padding: 1px 5px; border-radius: 2px; background: rgba(0,200,160,0.15); color: rgba(0,200,160,0.7); white-space: nowrap; }
+  .skill-search { width: 100%; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,200,160,0.2);
+    color: var(--text); font-family: 'Azeret Mono', monospace; font-size: 10px;
+    padding: 5px 8px; border-radius: 3px; margin-bottom: 10px; outline: none; }
+
+  /* Settings pane */
+  .settings-section { margin-bottom: 20px; }
+  .settings-section-title { font-size: 9px; letter-spacing: 0.12em; color: var(--dim); margin-bottom: 8px; text-transform: uppercase; }
+  .settings-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .settings-label { font-size: 10px; color: var(--muted); min-width: 140px; }
+  .settings-input {
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(0,200,160,0.2);
+    color: var(--text); font-family: 'Azeret Mono', monospace; font-size: 10px;
+    padding: 4px 8px; border-radius: 3px; flex: 1; outline: none; max-width: 320px;
+  }
+  .settings-input:focus { border-color: rgba(0,200,160,0.5); }
+  .settings-select {
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(0,200,160,0.2);
+    color: var(--text); font-family: 'Azeret Mono', monospace; font-size: 10px;
+    padding: 4px 8px; border-radius: 3px; outline: none;
+  }
+  .settings-btn {
+    background: rgba(0,180,140,0.15); border: 1px solid rgba(0,200,160,0.4);
+    color: rgba(0,230,180,0.9); font-family: 'Azeret Mono', monospace; font-size: 10px;
+    padding: 4px 12px; border-radius: 3px; cursor: pointer; transition: background 0.15s;
+  }
+  .settings-btn:hover { background: rgba(0,200,160,0.25); }
+  .settings-btn.danger { border-color: rgba(255,80,80,0.4); color: rgba(255,80,80,0.9); background: rgba(255,40,40,0.08); }
+  .settings-btn.danger:hover { background: rgba(255,40,40,0.18); }
+  .settings-divider { border: none; border-top: 1px solid rgba(0,200,160,0.1); margin: 12px 0; }
+  .settings-note { font-size: 9px; color: var(--dim); margin-top: 4px; }
+
+  /* Charts pane */
+  .chart-grid-wrap { display: flex; flex-direction: column; gap: 18px; }
+  .chart-section-title { font-size: 9px; color: var(--dim); letter-spacing: 0.1em; margin-bottom: 8px; text-transform: uppercase; }
+  .activity-heatmap { display: grid; grid-template-rows: repeat(7, 10px); grid-auto-flow: column; gap: 2px; }
+  .heatmap-cell { width: 10px; height: 10px; border-radius: 2px; background: rgba(0,200,160,0.08); }
+  .heatmap-cell.l1 { background: rgba(0,200,160,0.2); }
+  .heatmap-cell.l2 { background: rgba(0,200,160,0.45); }
+  .heatmap-cell.l3 { background: rgba(0,200,160,0.7); }
+  .heatmap-cell.l4 { background: rgba(0,230,180,0.95); }
+  .heatmap-cell.fail { background: rgba(255,80,60,0.6); }
+  .heatmap-day-labels { display: flex; gap: 2px; margin-top: 3px; }
+  .heatmap-day-label { width: 10px; font-size: 7px; color: var(--dim); text-align: center; }
+  .run-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .run-bar-label { font-size: 10px; color: var(--muted); min-width: 120px; }
+  .run-bar-track { flex: 1; height: 6px; background: rgba(0,0,0,0.4); border-radius: 2px; overflow: hidden; }
+  .run-bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, rgba(0,200,160,0.5), rgba(0,230,180,0.8)); }
+  .run-bar-count { font-size: 9px; color: var(--dim); min-width: 30px; text-align: right; }
+
+  /* Members pane */
+  .member-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    border: 1px solid rgba(0,200,160,0.1); border-radius: 4px; margin-bottom: 5px;
+    background: rgba(0,20,15,0.4); }
+  .member-avatar { width: 28px; height: 28px; border-radius: 50%; background: rgba(0,200,160,0.2);
+    display: flex; align-items: center; justify-content: center; font-size: 11px; color: rgba(0,200,160,0.9); flex-shrink: 0; }
+  .member-id { color: rgba(0,230,180,0.9); font-size: 10px; flex: 1; }
+  .member-role-badge { font-size: 8px; padding: 2px 6px; border-radius: 2px; }
+  .role-owner { background: rgba(255,180,0,0.2); color: rgba(255,200,60,0.9); }
+  .role-admin { background: rgba(0,200,160,0.2); color: rgba(0,230,180,0.9); }
+  .role-operator { background: rgba(100,140,255,0.2); color: rgba(120,160,255,0.9); }
+  .role-viewer { background: rgba(100,100,100,0.2); color: rgba(160,160,160,0.9); }
+  .member-status-suspended { color: rgba(255,80,80,0.7); font-size: 9px; }
+  .member-grants { font-size: 8px; color: var(--dim); }
+  .invite-form { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .invite-select { background: rgba(0,0,0,0.4); border: 1px solid rgba(0,200,160,0.2); color: var(--text);
+    font-family: 'Azeret Mono', monospace; font-size: 10px; padding: 4px 8px; border-radius: 3px; outline: none; }
+  .invite-btn { background: rgba(0,180,140,0.15); border: 1px solid rgba(0,200,160,0.4);
+    color: rgba(0,230,180,0.9); font-family: 'Azeret Mono', monospace; font-size: 10px;
+    padding: 4px 12px; border-radius: 3px; cursor: pointer; }
+  .invite-url-box { background: rgba(0,0,0,0.4); border: 1px solid rgba(0,200,160,0.2);
+    border-radius: 3px; padding: 6px 10px; font-size: 9px; color: rgba(0,200,160,0.8); word-break: break-all; margin-top: 8px; }
+
+  /* Goals pane */
+  .goal-tree-root { margin-bottom: 6px; }
+  .goal-node { padding: 7px 10px; border: 1px solid rgba(0,200,160,0.12); border-radius: 4px;
+    background: rgba(0,20,15,0.4); margin-bottom: 4px; display: flex; align-items: flex-start; gap: 8px; }
+  .goal-node-children { padding-left: 22px; border-left: 1px solid rgba(0,200,160,0.15); margin-left: 10px; margin-bottom: 4px; }
+  .goal-title { color: rgba(0,230,180,0.9); font-size: 10px; flex: 1; }
+  .goal-desc { font-size: 9px; color: var(--muted); margin-top: 2px; }
+  .goal-status-badge { font-size: 8px; padding: 2px 6px; border-radius: 2px; flex-shrink: 0; white-space: nowrap; }
+  .goal-open { background: rgba(100,120,255,0.2); color: rgba(140,160,255,0.9); }
+  .goal-in_progress { background: rgba(0,200,160,0.2); color: rgba(0,230,180,0.9); }
+  .goal-done { background: rgba(60,200,100,0.2); color: rgba(80,220,120,0.9); }
+  .goal-progress-bar { height: 3px; background: rgba(0,200,160,0.15); border-radius: 2px; margin-top: 4px; }
+  .goal-progress-fill { height: 100%; background: rgba(0,200,160,0.7); border-radius: 2px; transition: width 0.3s; }
+  .goal-meta { font-size: 8px; color: var(--dim); margin-top: 3px; }
+
+  /* Workspaces pane */
+  .ws-project-group { margin-bottom: 18px; }
+  .ws-project-label { font-size: 9px; color: rgba(0,200,160,0.7); letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid rgba(0,200,160,0.1); }
+  .ws-card { padding: 9px 12px; border: 1px solid rgba(0,200,160,0.12); border-radius: 4px;
+    background: rgba(0,15,12,0.5); margin-bottom: 6px; display: flex; align-items: flex-start; gap: 10px; }
+  .ws-card-info { flex: 1; min-width: 0; }
+  .ws-id { color: rgba(0,230,180,0.8); font-size: 10px; font-weight: 500; }
+  .ws-branch { font-size: 9px; color: rgba(150,200,180,0.7); margin-top: 2px; }
+  .ws-path { font-size: 8px; color: var(--dim); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ws-agent { font-size: 9px; color: rgba(255,183,0,0.8); margin-top: 2px; }
+  .ws-status-badge { font-size: 8px; padding: 2px 7px; border-radius: 2px; flex-shrink: 0; }
+  .ws-active { background: rgba(0,200,160,0.18); color: rgba(0,230,180,0.9); }
+  .ws-stopped { background: rgba(255,80,80,0.15); color: rgba(255,100,100,0.7); }
+  .ws-detached { background: rgba(120,120,120,0.2); color: rgba(160,160,160,0.7); }
+  .ws-svc-count { font-size: 8px; color: var(--dim); margin-top: 3px; }
+  .ws-stop-btn { font-size: 8px; background: rgba(255,80,80,0.12); border: 1px solid rgba(255,80,80,0.2);
+    color: rgba(255,100,100,0.7); padding: 3px 8px; border-radius: 2px; cursor: pointer; flex-shrink: 0; }
+  .ws-stop-btn:hover { background: rgba(255,80,80,0.22); }
+
+  /* Board pane */
+  .board-columns { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; min-height: 200px; }
+  .board-col { flex: 0 0 200px; min-width: 180px; }
+  .board-col-header { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 8px;
+    border-radius: 3px 3px 0 0; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+  .board-col-open .board-col-header { background: rgba(100,120,255,0.15); color: rgba(140,160,255,0.9); }
+  .board-col-in_progress .board-col-header { background: rgba(0,200,160,0.15); color: rgba(0,230,180,0.9); }
+  .board-col-done .board-col-header { background: rgba(60,200,100,0.12); color: rgba(80,220,120,0.8); }
+  .board-col-cancelled .board-col-header { background: rgba(100,100,100,0.15); color: rgba(160,160,160,0.7); }
+  .board-col-blocked .board-col-header { background: rgba(255,80,80,0.12); color: rgba(255,100,100,0.7); }
+  .board-count-badge { font-size: 8px; background: rgba(255,255,255,0.1); padding: 1px 5px; border-radius: 8px; }
+  .board-card { padding: 7px 9px; border: 1px solid rgba(255,255,255,0.07); border-radius: 3px;
+    background: rgba(0,10,20,0.5); margin-bottom: 5px; cursor: default; }
+  .board-card:hover { border-color: rgba(0,200,160,0.2); background: rgba(0,15,25,0.6); }
+  .board-card-title { font-size: 10px; color: var(--text); margin-bottom: 3px; line-height: 1.3; }
+  .board-card-meta { font-size: 8px; color: var(--dim); display: flex; gap: 6px; flex-wrap: wrap; }
+  .board-priority-critical { color: rgba(255,60,60,0.8); }
+  .board-priority-high { color: rgba(255,150,50,0.8); }
+  .board-priority-medium { color: rgba(255,220,80,0.7); }
+  .board-priority-low { color: rgba(120,180,120,0.7); }
+  .board-empty { font-size: 9px; color: var(--dim); padding: 10px 8px; }
+
+  /* Health pane */
+  .health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .health-metric-card { padding: 12px 14px; border: 1px solid rgba(0,200,160,0.12); border-radius: 4px;
+    background: rgba(0,12,10,0.5); }
+  .health-metric-label { font-size: 8px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+  .health-metric-value { font-size: 22px; font-family: 'Syne', sans-serif; font-weight: 800; color: rgba(0,230,180,0.9); }
+  .health-metric-unit { font-size: 9px; color: var(--muted); margin-left: 3px; }
+  .health-metric-sub { font-size: 9px; color: var(--muted); margin-top: 3px; }
+  .health-ok { color: rgba(0,230,180,0.9); }
+  .health-warn { color: rgba(255,183,0,0.9); }
+  .health-crit { color: rgba(255,80,80,0.9); }
+  .health-bar { height: 4px; background: rgba(0,200,160,0.12); border-radius: 2px; margin-top: 8px; }
+  .health-bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s; }
+  .health-bar-ok { background: rgba(0,200,160,0.7); }
+  .health-bar-warn { background: rgba(255,183,0,0.7); }
+  .health-bar-crit { background: rgba(255,80,80,0.7); }
+  .health-section-title { font-size: 9px; color: rgba(0,200,160,0.7); letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 10px; margin-top: 18px; padding-bottom: 4px;
+    border-bottom: 1px solid rgba(0,200,160,0.1); }
+
+  /* Invites tab */
+  .invite-section-title { font-size: 9px; color: rgba(0,200,160,0.7); letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 8px; margin-top: 18px; padding-bottom: 4px;
+    border-bottom: 1px solid rgba(0,200,160,0.1); }
+  .invite-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 10px; }
+  .invite-row:last-child { border-bottom: none; }
+  .invite-token { font-family: monospace; font-size: 9px; color: rgba(200,200,255,0.6); flex: 1; }
+  .invite-role { font-size: 8px; padding: 2px 6px; border-radius: 2px;
+    background: rgba(0,200,160,0.12); color: rgba(0,200,160,0.8); }
+  .invite-meta { font-size: 8px; color: var(--dim); }
+  .join-row { padding: 8px; border: 1px solid rgba(255,255,255,0.06); border-radius: 3px;
+    margin-bottom: 6px; font-size: 10px; }
+  .join-row-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .join-type-badge { font-size: 8px; padding: 2px 6px; border-radius: 2px;
+    background: rgba(100,100,200,0.18); color: rgba(150,150,255,0.9); }
+  .join-msg { font-size: 9px; color: rgba(200,200,220,0.6); margin-top: 3px; }
+  .join-hint { font-size: 8px; color: var(--dim); margin-top: 4px; font-family: monospace; }
+
+  /* Plugins tab */
+  .plugin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; padding: 4px 0; }
+  .plugin-card { border: 1px solid rgba(255,255,255,0.08); border-radius: 4px;
+    padding: 10px 12px; background: rgba(255,255,255,0.02); }
+  .plugin-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .plugin-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .plugin-status-installed { background: rgba(0,200,160,0.8); }
+  .plugin-status-error { background: rgba(255,80,80,0.8); }
+  .plugin-status-disabled { background: rgba(150,150,150,0.5); }
+  .plugin-name { font-size: 10px; font-weight: 600; flex: 1; }
+  .plugin-version { font-size: 8px; color: var(--dim); }
+  .plugin-category { font-size: 8px; color: rgba(0,200,160,0.6); margin-bottom: 4px;
+    text-transform: uppercase; letter-spacing: 0.08em; }
+  .plugin-pkg { font-size: 8px; color: var(--dim); font-family: monospace; margin-bottom: 4px; }
+  .plugin-error { font-size: 8px; color: rgba(255,100,100,0.8); margin-top: 4px;
+    padding: 3px 6px; background: rgba(255,80,80,0.08); border-radius: 2px; }
+  .plugin-override { font-size: 8px; color: rgba(255,183,0,0.7); margin-top: 3px; }
+
+  /* My Issues tab */
+  .myissues-empty { color: var(--dim); font-size: 10px; padding: 12px 0; }
+  .myissues-priority-high { color: rgba(255,120,80,0.9); }
+  .myissues-priority-medium { color: rgba(255,183,0,0.85); }
+  .myissues-priority-low { color: rgba(100,200,160,0.7); }
+  .myissues-status-open { color: rgba(150,150,255,0.8); }
+  .myissues-status-in_progress { color: rgba(0,200,160,0.9); }
+  .myissues-hint { font-size: 8px; color: var(--dim); margin-top: 10px; font-family: monospace; }
+
+  /* Command Palette */
+  #cmd-palette-overlay {
+    position: fixed; inset: 0; z-index: 2000; display: none;
+    align-items: flex-start; justify-content: center;
+    padding-top: 80px;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+  }
+  #cmd-palette-overlay.open { display: flex; }
+  #cmd-palette-box {
+    width: 560px; max-width: 95vw; max-height: 420px;
+    background: rgba(8,10,22,0.98); border: 1px solid rgba(0,229,200,0.25);
+    border-radius: 8px; overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 16px 64px rgba(0,0,0,0.8);
+  }
+  #cmd-palette-input {
+    width: 100%; background: none; border: none; border-bottom: 1px solid rgba(0,229,200,0.15);
+    color: var(--text); font-family: 'Azeret Mono', monospace; font-size: 13px;
+    padding: 14px 16px; outline: none;
+  }
+  #cmd-palette-input::placeholder { color: var(--dim); }
+  #cmd-palette-results { flex: 1; overflow-y: auto; padding: 6px 0; }
+  .cp-group-label { font-size: 8px; letter-spacing: 0.14em; color: var(--dim); padding: 6px 14px 2px; text-transform: uppercase; }
+  .cp-item {
+    display: flex; align-items: center; gap: 10px; padding: 7px 14px;
+    cursor: pointer; transition: background 0.1s;
+  }
+  .cp-item:hover, .cp-item.selected { background: rgba(0,229,200,0.08); }
+  .cp-item-icon { font-size: 12px; width: 20px; text-align: center; color: var(--dim); flex-shrink: 0; }
+  .cp-item-label { font-size: 11px; color: var(--text); flex: 1; }
+  .cp-item-hint { font-size: 9px; color: var(--dim); }
+  .cp-empty { padding: 24px; text-align: center; color: var(--dim); font-size: 11px; }
+  #cmd-palette-footer { padding: 5px 14px; border-top: 1px solid rgba(0,229,200,0.08);
+    display: flex; gap: 14px; font-size: 9px; color: var(--dim); }
+  #cmd-palette-footer kbd { background: rgba(255,255,255,0.06); border-radius: 2px; padding: 1px 4px; }
 
   /* ─── MONOGRAPH OVERLAY ──────────────────────────────────────────── */
   #monograph-overlay {
@@ -1972,6 +2371,7 @@
       <button class="po-tab" onclick="switchPalaceTab('swarm')">SWARM</button>
       <button class="po-tab" onclick="switchPalaceTab('graph')">AGENT GRAPH</button>
       <button class="po-tab" onclick="switchPalaceTab('usage')">USAGE</button>
+      <button class="po-tab" onclick="switchPalaceTab('adrs')">ADRs</button>
     </div>
     <div id="po-stats"></div>
   </div>
@@ -2112,6 +2512,20 @@
       </div>
       <div id="po-usage-body" style="flex:1;overflow-y:auto;"></div>
     </div>
+    <div id="po-adrs-tab" class="po-tab-pane" style="flex-direction:column;overflow:hidden;">
+      <div id="po-adrs-header" style="display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <div style="display:flex;gap:20px;">
+          <div class="know-stat"><div class="know-stat-label">TOTAL</div><div class="know-stat-val" id="po-adrs-count">—</div></div>
+          <div class="know-stat"><div class="know-stat-label">IMPL</div><div class="know-stat-val" id="po-adrs-impl-count">—</div></div>
+          <div class="know-stat"><div class="know-stat-label">GUIDANCE</div><div class="know-stat-val" id="po-adrs-guidance-count">—</div></div>
+        </div>
+        <input id="po-adrs-search" type="text" placeholder="Filter ADRs…" oninput="filterAdrs(this.value)"
+          style="flex:1;max-width:320px;background:rgba(0,0,0,0.3);border:1px solid var(--border);color:var(--text);font-family:'Azeret Mono',monospace;font-size:10px;padding:4px 8px;border-radius:3px;outline:none;">
+      </div>
+      <div id="po-adrs-body" style="flex:1;overflow-y:auto;padding:16px 20px;">
+        <div style="color:var(--muted);font-size:10px;">Loading…</div>
+      </div>
+    </div>
   </div>
   <!-- Edit memory modal -->
   <div id="po-edit-modal">
@@ -2161,9 +2575,196 @@
   <div id="mm-header">
     <button id="mm-back" onclick="closeMastermindOverlay()">← BACK</button>
     <span id="mm-header-title">🧠 &nbsp;MASTERMIND</span>
-    <span id="mm-header-sub">AUTONOMOUS BUSINESS BRAIN · 10 DOMAINS · SELF-IMPROVING</span>
+    <span id="mm-header-sub">AUTONOMOUS BUSINESS BRAIN · ORGS · SKILLS · LOOPS</span>
   </div>
-  <iframe id="mm-frame" src="" title="Mastermind"></iframe>
+  <div id="mm-hub">
+    <div id="mm-tabs">
+      <button class="mm-tab active" onclick="switchMmTab('orgs')">ORGS</button>
+      <button class="mm-tab" onclick="switchMmTab('skills')">SKILLS</button>
+      <button class="mm-tab" onclick="switchMmTab('loops')">LOOPS</button>
+      <button class="mm-tab" onclick="switchMmTab('create')">CREATE ORG</button>
+      <button class="mm-tab" onclick="switchMmTab('metrics')">METRICS</button>
+    </div>
+    <div id="mm-body">
+      <div class="mm-pane active" id="mm-pane-orgs">
+        <div class="mm-section-title">Organizations</div>
+        <div id="mm-orgs-list"><span style="color:rgba(150,100,200,0.4)">Loading orgs…</span></div>
+      </div>
+      <div class="mm-pane" id="mm-pane-skills">
+        <div class="mm-section-title">Mastermind Slash Commands</div>
+        <input id="mm-skills-search" placeholder="search skills…" style="width:100%;max-width:320px;background:rgba(200,120,255,0.06);border:1px solid rgba(200,120,255,0.25);color:rgba(210,140,255,0.9);font-family:'Azeret Mono',monospace;font-size:9px;padding:5px 8px;border-radius:3px;outline:none;margin-bottom:12px;display:block" oninput="filterMmSkills(this.value)" />
+        <div id="mm-skills-grid" class="mm-skill-grid"></div>
+      </div>
+      <div class="mm-pane" id="mm-pane-loops">
+        <div class="mm-section-title">Active Loops</div>
+        <div id="mm-loops-list"><span style="color:rgba(150,100,200,0.4)">Loading loops…</span></div>
+      </div>
+      <div class="mm-pane" id="mm-pane-create">
+        <div class="mm-section-title">Create a New Org</div>
+        <div style="max-width:480px">
+          <div style="margin-bottom:10px;font-size:9px;color:rgba(150,100,200,0.5)">Define an autonomous agent organization. Run <code style="color:rgba(210,140,255,0.7)">/mastermind:createorg</code> in Claude Code for the full wizard.</div>
+          <div style="margin-bottom:8px">
+            <label style="display:block;font-size:9px;color:rgba(150,100,200,0.7);margin-bottom:3px;letter-spacing:0.08em">ORG NAME (slug)</label>
+            <input id="mm-create-name" placeholder="e.g. content-team" style="width:100%;background:rgba(200,120,255,0.06);border:1px solid rgba(200,120,255,0.25);color:rgba(210,140,255,0.9);font-family:'Azeret Mono',monospace;font-size:10px;padding:6px 8px;border-radius:3px;outline:none;box-sizing:border-box" />
+          </div>
+          <div style="margin-bottom:8px">
+            <label style="display:block;font-size:9px;color:rgba(150,100,200,0.7);margin-bottom:3px;letter-spacing:0.08em">GOAL / DESCRIPTION</label>
+            <textarea id="mm-create-goal" rows="3" placeholder="What is this org trying to achieve?" style="width:100%;background:rgba(200,120,255,0.06);border:1px solid rgba(200,120,255,0.25);color:rgba(210,140,255,0.9);font-family:'Azeret Mono',monospace;font-size:9px;padding:6px 8px;border-radius:3px;outline:none;resize:vertical;box-sizing:border-box"></textarea>
+          </div>
+          <div style="margin-bottom:8px">
+            <label style="display:block;font-size:9px;color:rgba(150,100,200,0.7);margin-bottom:3px;letter-spacing:0.08em">GOVERNANCE</label>
+            <select id="mm-create-gov" style="background:rgba(200,120,255,0.06);border:1px solid rgba(200,120,255,0.25);color:rgba(210,140,255,0.9);font-family:'Azeret Mono',monospace;font-size:9px;padding:5px 8px;border-radius:3px;outline:none">
+              <option value="democratic">democratic</option>
+              <option value="autocratic">autocratic</option>
+              <option value="consensus">consensus</option>
+              <option value="meritocratic">meritocratic</option>
+            </select>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+            <button class="mm-btn" onclick="mmCreateOrgCmd()">GENERATE COMMAND</button>
+            <span id="mm-create-output" style="font-size:9px;color:rgba(150,100,200,0.5)"></span>
+          </div>
+          <div id="mm-create-cmd-box" style="display:none;margin-top:12px;background:rgba(0,0,0,0.4);border:1px solid rgba(200,120,255,0.2);border-radius:4px;padding:10px;font-family:'Azeret Mono',monospace;font-size:9px;color:rgba(210,140,255,0.85);word-break:break-all"></div>
+        </div>
+      </div>
+      <div class="mm-pane" id="mm-pane-metrics">
+        <div class="mm-section-title">System Metrics</div>
+        <div id="mm-metrics-grid" class="mm-metric-grid"></div>
+        <div class="mm-section-title" style="margin-top:16px">Recent Events</div>
+        <div id="mm-metrics-events" style="font-size:9px;color:rgba(150,100,200,0.6);font-family:'Azeret Mono',monospace"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════ ORG ROOM OVERLAY ══════════════════ -->
+<div id="orgroom-overlay">
+  <div id="orgroom-header">
+    <button id="orgroom-back" onclick="closeOrgRoom()">← BACK</button>
+    <span id="orgroom-title">⬡ ORG ROOM</span>
+    <span id="orgroom-sub">AUTONOMOUS ORGANIZATION CONTROL CENTER</span>
+    <span style="margin-left:auto;font-size:9px;color:rgba(0,200,160,0.5);" id="orgroom-org-label"></span>
+  </div>
+  <div id="orgroom-tabs">
+    <button class="orgroom-tab active" onclick="switchOrgTab('chart')">ORG CHART</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('heartbeats')">HEARTBEATS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('tasks')">TASK BOARD</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('costs')">COSTS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('routines')">ROUTINES</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('inbox')">INBOX</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('projects')">PROJECTS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('activity')">ACTIVITY</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('live')" style="color:rgba(0,229,135,0.6);">● LIVE</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('charts')">CHARTS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('members')">MEMBERS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('skills')">SKILLS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('goals')">GOALS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('workspaces')">WORKSPACES</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('board')">BOARD</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('health')">HEALTH</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('invites')">INVITES</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('plugins')">PLUGINS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('myissues')">MY ISSUES</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('agents')">AGENTS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('approvals')">APPROVALS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('secrets')">SECRETS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('envs')">ENVIRONMENTS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('access')">ACCESS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('issues')">ISSUES</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('joinqueue')">JOIN REQUESTS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('budgets')">BUDGETS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('threads')">THREADS</button>
+    <button class="orgroom-tab" onclick="switchOrgTab('settings')">SETTINGS</button>
+  </div>
+  <div id="orgroom-body">
+    <div class="orgroom-pane active" id="orgroom-pane-chart">
+      <div id="orgroom-chart-svg"><span style="color:var(--dim)">Loading org chart…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-heartbeats">
+      <div id="orgroom-heartbeats-body"><span style="color:var(--dim)">Loading heartbeats…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-tasks">
+      <div id="orgroom-tasks-body"><span style="color:var(--dim)">Loading task board…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-costs">
+      <div id="orgroom-costs-body"><span style="color:var(--dim)">Loading cost data…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-routines">
+      <div id="orgroom-routines-body"><span style="color:var(--dim)">Loading routines…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-inbox">
+      <div id="orgroom-inbox-body"><span style="color:var(--dim)">Loading inbox…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-projects">
+      <div id="orgroom-projects-body"><span style="color:var(--dim)">Loading projects…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-activity">
+      <div id="orgroom-activity-body"><span style="color:var(--dim)">Loading activity…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-live">
+      <div id="orgroom-live-body"><span style="color:var(--dim)">Connecting to live stream…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-charts">
+      <div id="orgroom-charts-body"><span style="color:var(--dim)">Loading charts…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-members">
+      <div id="orgroom-members-body"><span style="color:var(--dim)">Loading members…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-skills">
+      <div id="orgroom-skills-body"><span style="color:var(--dim)">Loading skills…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-goals">
+      <div id="orgroom-goals-body"><span style="color:var(--dim)">Loading goals…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-workspaces">
+      <div id="orgroom-workspaces-body"><span style="color:var(--dim)">Loading workspaces…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-board">
+      <div id="orgroom-board-body"><span style="color:var(--dim)">Loading board…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-health">
+      <div id="orgroom-health-body"><span style="color:var(--dim)">Loading health…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-invites">
+      <div id="orgroom-invites-body"><span style="color:var(--dim)">Loading invites…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-plugins">
+      <div id="orgroom-plugins-body"><span style="color:var(--dim)">Loading plugins…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-myissues">
+      <div id="orgroom-myissues-body"><span style="color:var(--dim)">Loading issues…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-agents">
+      <div id="orgroom-agents-body"><span style="color:var(--dim)">Loading agents…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-approvals">
+      <div id="orgroom-approvals-body"><span style="color:var(--dim)">Loading approvals…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-secrets">
+      <div id="orgroom-secrets-body"><span style="color:var(--dim)">Loading secrets…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-envs">
+      <div id="orgroom-envs-body"><span style="color:var(--dim)">Loading environments…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-access">
+      <div id="orgroom-access-body"><span style="color:var(--dim)">Loading access…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-issues">
+      <div id="orgroom-issues-body"><span style="color:var(--dim)">Loading issues…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-joinqueue">
+      <div id="orgroom-joinqueue-body"><span style="color:var(--dim)">Loading join requests…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-budgets">
+      <div id="orgroom-budgets-body"><span style="color:var(--dim)">Loading budgets…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-threads">
+      <div id="orgroom-threads-body"><span style="color:var(--dim)">Loading threads…</span></div>
+    </div>
+    <div class="orgroom-pane" id="orgroom-pane-settings">
+      <div id="orgroom-settings-body"><span style="color:var(--dim)">Loading settings…</span></div>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════ MONOGRAPH OVERLAY ══════════════════ -->
@@ -3869,7 +4470,7 @@ async function renderOrgs() {
       // Use data- attributes for org name to avoid JS string injection via onclick
       const actionHtml = org.running
         ? `<button class="org-btn stop" data-org-stop="${escHtml(org.name)}">STOP</button>`
-        : `<button class="org-btn" data-org-view="${escHtml(org.name)}">VIEW</button>`;
+        : `<button class="org-btn" data-org-view="${escHtml(org.name)}">ORG ROOM</button>`;
 
       html += `<div class="org-row" data-org="${escHtml(org.name)}">
         <div class="org-cell" style="padding-left:10px;">
@@ -3918,11 +4519,7 @@ async function stopOrg(name) {
 }
 
 function openMastermindForOrg(name) {
-  // Open the mastermind overlay; the org name is stored as a custom event
-  // for any future mastermind panel that wants to filter by org
-  document.dispatchEvent(new CustomEvent('mastermind:open-org', { detail: { org: name } }));
-  const btn = document.getElementById('mastermind-btn');
-  if (btn) btn.click();
+  openOrgRoom(name);
 }
 
 // Debounce timer for SSE-triggered renders (avoid one HTTP fetch per event)
@@ -3944,6 +4541,2045 @@ function handleOrgEvent(ev) {
     _orgRenderDebounce = setTimeout(renderOrgs, 500);
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// ORG ROOM OVERLAY
+// ═══════════════════════════════════════════════════════════════════
+let _orgroomCurrentOrg = null;
+let _orgroomCurrentTab = 'chart';
+let _orgroomData = null;
+
+window.openOrgRoom = function(orgName) {
+  _orgroomCurrentOrg = orgName;
+  _orgroomCurrentTab = 'chart';
+  document.getElementById('orgroom-org-label').textContent = orgName.toUpperCase();
+  document.getElementById('orgroom-overlay').classList.add('open');
+  document.querySelectorAll('.orgroom-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.querySelectorAll('.orgroom-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('orgroom-pane-chart').classList.add('active');
+  loadOrgRoomData(orgName);
+};
+
+window.closeOrgRoom = function() {
+  document.getElementById('orgroom-overlay').classList.remove('open');
+  _orgroomCurrentOrg = null;
+  _orgroomData = null;
+};
+
+const _orgroomTabLabels = {
+  chart: 'ORG CHART', heartbeats: 'HEARTBEATS', tasks: 'TASK BOARD',
+  costs: 'COSTS', routines: 'ROUTINES', inbox: 'INBOX', projects: 'PROJECTS', activity: 'ACTIVITY'
+};
+
+window.switchOrgTab = function(tab) {
+  _orgroomCurrentTab = tab;
+  document.querySelectorAll('.orgroom-tab').forEach(t => {
+    t.classList.toggle('active', t.textContent === (_orgroomTabLabels[tab] || tab.toUpperCase()));
+  });
+  document.querySelectorAll('.orgroom-pane').forEach(p => p.classList.remove('active'));
+  const pane = document.getElementById(`orgroom-pane-${tab}`);
+  if (pane) pane.classList.add('active');
+  if (_orgroomData) renderOrgRoomTab(tab, _orgroomData);
+};
+
+async function loadOrgRoomData(orgName) {
+  try {
+    const [mainR, actR, projR, skillsR, membersR, adaptersR, envsR, wsR, issuesR, healthR, invitesR, pluginsR, myIssuesR, agentsR, approvalsR, secretsR, joinQueueR, budgetsR, threadsR] = await Promise.all([
+      fetch(`/api/org/${encodeURIComponent(orgName)}`),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/activity`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/projects`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/skills`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/members`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/adapters`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/environments`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/workspaces`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/issues`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/health`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/invites`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/plugins`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/my-issues`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/agents`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/approvals`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/secrets`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/join-requests`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/budgets`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(orgName)}/threads`).catch(() => null),
+    ]);
+    if (!mainR.ok) throw new Error('not found');
+    _orgroomData = await mainR.json();
+    _orgroomData._activity = actR && actR.ok ? await actR.json() : [];
+    _orgroomData._projects = projR && projR.ok ? await projR.json() : [];
+    _orgroomData._skills = skillsR && skillsR.ok ? await skillsR.json() : { skills: [], role_skill_map: {} };
+    _orgroomData._members = membersR && membersR.ok ? await membersR.json() : { members: [], join_requests: [] };
+    _orgroomData._adapters = adaptersR && adaptersR.ok ? await adaptersR.json() : { adapters: [], default_adapter: '' };
+    _orgroomData._environments = envsR && envsR.ok ? await envsR.json() : { environments: [], default_env: null };
+    _orgroomData._workspaces = wsR && wsR.ok ? await wsR.json() : { workspaces: [] };
+    _orgroomData._issues = issuesR && issuesR.ok ? await issuesR.json() : { issues: [] };
+    _orgroomData._health = healthR && healthR.ok ? await healthR.json() : null;
+    _orgroomData._invites = invitesR && invitesR.ok ? await invitesR.json() : { invites: [], join_requests: [] };
+    _orgroomData._plugins = pluginsR && pluginsR.ok ? await pluginsR.json() : { plugins: [] };
+    _orgroomData._myissues = myIssuesR && myIssuesR.ok ? await myIssuesR.json() : { issues: [] };
+    _orgroomData._agents = agentsR && agentsR.ok ? await agentsR.json() : { agents: [] };
+    _orgroomData._approvals = approvalsR && approvalsR.ok ? await approvalsR.json() : { approvals: [], pending: 0 };
+    _orgroomData._secrets = secretsR && secretsR.ok ? await secretsR.json() : { secrets: [] };
+    _orgroomData._joinRequests = joinQueueR && joinQueueR.ok ? await joinQueueR.json() : { requests: [], pending: 0 };
+    _orgroomData._budgets = budgetsR && budgetsR.ok ? await budgetsR.json() : { org_budget: {}, agent_budgets: {}, agents: [] };
+    _orgroomData._threads = threadsR && threadsR.ok ? await threadsR.json() : { threads: [] };
+    renderOrgRoomTab(_orgroomCurrentTab, _orgroomData);
+  } catch(e) {
+    const body = document.getElementById('orgroom-body');
+    if (body) body.innerHTML = `<div style="color:var(--dim);padding:20px;">Could not load org data for "${escHtml(orgName)}". Is the org created?</div>`;
+  }
+}
+
+function renderOrgRoomTab(tab, data) {
+  if (tab === 'chart') renderOrgChart(data);
+  else if (tab === 'heartbeats') renderOrgHeartbeats(data);
+  else if (tab === 'tasks') renderOrgTasks(data);
+  else if (tab === 'costs') renderOrgCosts(data);
+  else if (tab === 'routines') renderOrgRoutines(data);
+  else if (tab === 'inbox') renderOrgInbox(data);
+  else if (tab === 'projects') renderOrgProjects(data);
+  else if (tab === 'activity') renderOrgActivity(data);
+  else if (tab === 'live') renderOrgLive(data);
+  else if (tab === 'charts') renderOrgCharts(data);
+  else if (tab === 'members') renderOrgMembers(data);
+  else if (tab === 'skills') renderOrgSkills(data);
+  else if (tab === 'goals') renderOrgGoals(data);
+  else if (tab === 'workspaces') renderOrgWorkspaces(data);
+  else if (tab === 'board') renderOrgBoard(data);
+  else if (tab === 'health') renderOrgHealth(data);
+  else if (tab === 'invites') renderOrgInvites(data);
+  else if (tab === 'plugins') renderOrgPlugins(data);
+  else if (tab === 'myissues') renderOrgMyIssues(data);
+  else if (tab === 'agents') renderOrgAgents(data);
+  else if (tab === 'approvals') renderOrgApprovals(data);
+  else if (tab === 'secrets') renderOrgSecrets(data);
+  else if (tab === 'envs') renderOrgEnvs(data);
+  else if (tab === 'access') renderOrgAccess(data);
+  else if (tab === 'issues') renderOrgIssues(data);
+  else if (tab === 'joinqueue') renderOrgJoinQueue(data);
+  else if (tab === 'budgets') renderOrgBudgets(data);
+  else if (tab === 'threads') renderOrgThreads(data);
+  else if (tab === 'settings') renderOrgSettings(data);
+}
+
+function renderOrgChart(data) {
+  const el = document.getElementById('orgroom-chart-svg');
+  if (!el) return;
+  const roles = (data.config && data.config.roles) || [];
+  if (!roles.length) { el.innerHTML = '<span style="color:var(--dim)">No roles defined in this org.</span>'; return; }
+
+  // Build adjacency: parent → children
+  const children = {};
+  const rootRoles = [];
+  roles.forEach(r => {
+    if (!r.reports_to) rootRoles.push(r);
+    else {
+      if (!children[r.reports_to]) children[r.reports_to] = [];
+      children[r.reports_to].push(r);
+    }
+  });
+
+  const CARD_W = 160, CARD_H = 56, GAP_X = 24, GAP_Y = 60, PAD = 20;
+  const positions = {};
+  let maxX = 0, maxY = 0;
+
+  function subtreeWidth(roleId) {
+    const kids = children[roleId] || [];
+    if (!kids.length) return CARD_W;
+    const total = kids.reduce((s, k) => s + subtreeWidth(k.id), 0) + (kids.length - 1) * GAP_X;
+    return Math.max(CARD_W, total);
+  }
+
+  function layout(roleId, x, y) {
+    positions[roleId] = { x, y };
+    maxX = Math.max(maxX, x + CARD_W);
+    maxY = Math.max(maxY, y + CARD_H);
+    const kids = children[roleId] || [];
+    if (!kids.length) return;
+    const totalW = kids.reduce((s, k) => s + subtreeWidth(k.id), 0) + (kids.length - 1) * GAP_X;
+    let cx = x + CARD_W / 2 - totalW / 2;
+    kids.forEach(k => {
+      const kw = subtreeWidth(k.id);
+      layout(k.id, cx, y + CARD_H + GAP_Y);
+      cx += kw + GAP_X;
+    });
+  }
+
+  // Layout each root
+  let rootX = PAD;
+  rootRoles.forEach(r => {
+    const sw = subtreeWidth(r.id);
+    layout(r.id, rootX, PAD);
+    rootX += sw + GAP_X;
+  });
+
+  const state = (data.state && data.state.agents) || {};
+  const svgW = maxX + PAD, svgH = maxY + PAD;
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" style="min-width:${svgW}px">`;
+
+  // Draw edges
+  roles.forEach(r => {
+    if (!r.reports_to || !positions[r.id] || !positions[r.reports_to]) return;
+    const from = positions[r.reports_to];
+    const to = positions[r.id];
+    const fx = from.x + CARD_W / 2, fy = from.y + CARD_H;
+    const tx = to.x + CARD_W / 2, ty = to.y;
+    const my = (fy + ty) / 2;
+    svg += `<path class="oc-edge" d="M${fx},${fy} C${fx},${my} ${tx},${my} ${tx},${ty}"/>`;
+  });
+
+  // Draw cards
+  roles.forEach(r => {
+    const p = positions[r.id];
+    if (!p) return;
+    const isRoot = !r.reports_to;
+    const agentState = state[r.id] || {};
+    const status = agentState.status || 'idle';
+    const statusColor = status === 'running' ? '#00e6b4' : status === 'paused' ? '#ffb400' : status === 'error' ? '#ff5050' : '#334';
+    svg += `<rect x="${p.x}" y="${p.y}" width="${CARD_W}" height="${CARD_H}" rx="4"
+      fill="rgba(0,40,30,0.9)" stroke="${isRoot ? 'rgba(0,230,180,0.9)' : 'rgba(0,200,160,0.4)'}" stroke-width="${isRoot ? 2 : 1}"/>`;
+    svg += `<circle cx="${p.x + CARD_W - 12}" cy="${p.y + 12}" r="5" fill="${statusColor}"/>`;
+    svg += `<text x="${p.x + 10}" y="${p.y + 20}" class="oc-label">${escHtml(r.title)}</text>`;
+    svg += `<text x="${p.x + 10}" y="${p.y + 34}" class="oc-sub">${escHtml(r.agent_type || '')}</text>`;
+    svg += `<text x="${p.x + 10}" y="${p.y + 47}" class="oc-sub" fill="rgba(0,200,160,0.5)">${escHtml(status)}</text>`;
+  });
+
+  svg += '</svg>';
+  el.innerHTML = svg;
+}
+
+function renderOrgHeartbeats(data) {
+  const el = document.getElementById('orgroom-heartbeats-body');
+  if (!el) return;
+  const agents = (data.state && data.state.agents) || {};
+  const roles = (data.config && data.config.roles) || [];
+
+  const statusDot = s => `<span class="orgroom-status-dot ${s || 'idle'}"></span>`;
+  const fmtTime = t => { if (!t) return '—'; const d = new Date(t); return d.toLocaleTimeString('en', { hour12: false }); };
+
+  let html = `<table class="orgroom-table">
+    <tr><th>ROLE</th><th>AGENT TYPE</th><th>STATUS</th><th>LAST HEARTBEAT</th><th>SOURCE</th><th>TOKENS IN</th><th>TOKENS OUT</th></tr>`;
+
+  roles.forEach(r => {
+    const s = agents[r.id] || {};
+    const status = s.status || 'idle';
+    html += `<tr>
+      <td>${statusDot(status)}<span style="color:rgba(0,230,180,0.9)">${escHtml(r.id)}</span><div style="font-size:9px;color:var(--dim)">${escHtml(r.title)}</div></td>
+      <td style="color:var(--muted)">${escHtml(r.agent_type || '')}</td>
+      <td>${escHtml(status)}</td>
+      <td style="color:var(--dim)">${fmtTime(s.last_heartbeat)}</td>
+      <td style="color:var(--dim)">${escHtml(s.heartbeat_source || '—')}</td>
+      <td style="color:rgba(0,200,160,0.7)">${(s.tokens_in || 0).toLocaleString()}</td>
+      <td style="color:rgba(0,200,160,0.7)">${(s.tokens_out || 0).toLocaleString()}</td>
+    </tr>`;
+  });
+
+  if (!roles.length) html += `<tr><td colspan="7" style="color:var(--dim);text-align:center;padding:16px">No agents defined in this org.</td></tr>`;
+  html += '</table>';
+
+  // Recent heartbeat events from orgEventLog
+  const orgName = _orgroomCurrentOrg;
+  const recentEvents = ((orgEventLog[orgName] || []).filter(e => e.type && e.type.startsWith('org:heartbeat'))).slice(-10);
+  if (recentEvents.length) {
+    html += `<div style="margin-top:16px;font-size:9px;color:var(--dim);letter-spacing:0.1em">RECENT HEARTBEAT EVENTS</div>`;
+    html += `<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">`;
+    recentEvents.slice().reverse().forEach(ev => {
+      const t = new Date(ev.ts).toLocaleTimeString('en', { hour12: false });
+      html += `<div style="display:flex;gap:8px;font-size:10px"><span style="color:var(--dim)">${t}</span><span style="color:rgba(0,200,160,0.7)">${escHtml(ev.type)}</span><span>${escHtml(ev.role || '')} ${escHtml(ev.title ? '· ' + ev.title : '')}</span></div>`;
+    });
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
+function renderOrgTasks(data) {
+  const el = document.getElementById('orgroom-tasks-body');
+  if (!el) return;
+  const tasks = data.tasks || { todo: [], doing: [], done: [] };
+
+  const renderCol = (title, cards, color) => {
+    if (!cards.length) return `<div style="color:var(--dim);font-size:10px;padding:8px">— empty —</div>`;
+    return cards.map(c => `<div style="background:rgba(0,0,0,0.3);border-left:3px solid ${color};padding:6px 10px;margin-bottom:4px;border-radius:2px">
+      <div style="font-size:10px;color:rgba(255,255,255,0.85)">${escHtml(c.title || c.id)}</div>
+      ${c.role ? `<div style="font-size:9px;color:var(--dim)">${escHtml(c.role)}</div>` : ''}
+    </div>`).join('');
+  };
+
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+    <div>
+      <div style="font-size:9px;color:var(--dim);letter-spacing:0.1em;margin-bottom:8px">TODO (${tasks.todo.length})</div>
+      ${renderCol('todo', tasks.todo, 'rgba(100,100,150,0.8)')}
+    </div>
+    <div>
+      <div style="font-size:9px;color:rgba(0,200,160,0.7);letter-spacing:0.1em;margin-bottom:8px">DOING (${tasks.doing.length})</div>
+      ${renderCol('doing', tasks.doing, 'rgba(0,200,160,0.8)')}
+    </div>
+    <div>
+      <div style="font-size:9px;color:rgba(100,200,100,0.7);letter-spacing:0.1em;margin-bottom:8px">DONE (${tasks.done.length})</div>
+      ${renderCol('done', tasks.done, 'rgba(100,200,100,0.6)')}
+    </div>
+  </div>`;
+}
+
+function renderOrgCosts(data) {
+  const el = document.getElementById('orgroom-costs-body');
+  if (!el) return;
+  const state = (data.state && data.state.agents) || {};
+  const roles = (data.config && data.config.roles) || [];
+  const budget = (data.config && data.config.run_config && data.config.run_config.budget_tokens) || 0;
+  const alertThreshold = (data.config && data.config.run_config && data.config.run_config.alert_threshold) || 0.8;
+
+  let totalIn = 0, totalOut = 0;
+  const rows = roles.map(r => {
+    const s = state[r.id] || {};
+    const tokIn = s.tokens_in || 0;
+    const tokOut = s.tokens_out || 0;
+    totalIn += tokIn; totalOut += tokOut;
+    // Approximate cost: $3/1M input, $15/1M output (Sonnet-class)
+    const cost = (tokIn * 3 + tokOut * 15) / 1_000_000;
+    return { id: r.id, title: r.title, tokIn, tokOut, cost };
+  });
+
+  const totalCost = (totalIn * 3 + totalOut * 15) / 1_000_000;
+  const totalTok = totalIn + totalOut;
+  const usedPct = budget > 0 ? Math.min(100, (totalTok / budget) * 100) : 0;
+  const barClass = usedPct > 90 ? 'danger' : usedPct > (alertThreshold * 100) ? 'warn' : '';
+
+  let html = '';
+
+  if (budget > 0) {
+    html += `<div style="margin-bottom:16px;background:rgba(0,0,0,0.3);border-radius:4px;padding:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:9px;color:var(--dim);letter-spacing:0.1em">BUDGET UTILIZATION</span>
+        <span style="font-size:10px;color:rgba(0,230,180,0.9)">${usedPct.toFixed(1)}%</span>
+      </div>
+      <div class="cost-bar-wrap"><div class="cost-bar ${barClass}" style="width:${usedPct}%"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:var(--dim)">
+        <span>${totalTok.toLocaleString()} tokens used</span>
+        <span>${budget.toLocaleString()} token budget</span>
+      </div>
+    </div>`;
+  }
+
+  html += `<table class="orgroom-table">
+    <tr><th>AGENT</th><th>TOKENS IN</th><th>TOKENS OUT</th><th>EST. COST</th></tr>`;
+
+  rows.forEach(r => {
+    const agentTok = r.tokIn + r.tokOut;
+    const agentPct = totalTok > 0 ? (agentTok / totalTok) * 100 : 0;
+    html += `<tr>
+      <td><div style="color:rgba(0,230,180,0.9)">${escHtml(r.id)}</div><div style="font-size:9px;color:var(--dim)">${escHtml(r.title)}</div></td>
+      <td style="color:var(--muted)">${r.tokIn.toLocaleString()}</td>
+      <td style="color:var(--muted)">${r.tokOut.toLocaleString()}</td>
+      <td style="color:rgba(0,200,160,0.8)">$${r.cost.toFixed(4)}</td>
+    </tr>
+    <tr><td colspan="4" style="padding:2px 8px 8px"><div class="cost-bar-wrap"><div class="cost-bar" style="width:${agentPct}%"></div></div></td></tr>`;
+  });
+
+  html += `<tr style="border-top:1px solid rgba(0,200,160,0.2)">
+    <td style="color:rgba(0,230,180,0.9);font-weight:bold">TOTAL</td>
+    <td>${totalIn.toLocaleString()}</td>
+    <td>${totalOut.toLocaleString()}</td>
+    <td style="color:rgba(0,200,160,0.9);font-weight:bold">$${totalCost.toFixed(4)}</td>
+  </tr>`;
+  html += '</table>';
+
+  if (!roles.length) html = '<div style="color:var(--dim);padding:16px">No agents defined in this org.</div>';
+  el.innerHTML = html;
+}
+
+function renderOrgRoutines(data) {
+  const el = document.getElementById('orgroom-routines-body');
+  if (!el) return;
+  const routines = data.routines || [];
+
+  if (!routines.length) {
+    el.innerHTML = `<div style="color:var(--dim);padding:20px;text-align:center">
+      <div style="font-size:24px;margin-bottom:8px">⟳</div>
+      <div>No routines configured for this org.</div>
+      <div style="font-size:10px;margin-top:8px;color:rgba(0,200,160,0.5)">Add one with /mastermind:routines --org ${escHtml(_orgroomCurrentOrg)}</div>
+    </div>`;
+    return;
+  }
+
+  const fmtStatus = s => {
+    const colors = { active: 'rgba(0,230,180,0.9)', paused: 'rgba(255,180,0,0.8)', stopped: 'rgba(255,80,80,0.7)' };
+    return `<span style="color:${colors[s] || 'var(--dim)'}">● ${s || 'unknown'}</span>`;
+  };
+
+  let html = `<div style="display:flex;flex-direction:column;gap:10px">`;
+  routines.forEach(r => {
+    html += `<div style="background:rgba(0,0,0,0.3);border:1px solid rgba(0,200,160,0.15);border-radius:4px;padding:12px">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
+        <div>
+          <div style="color:rgba(0,230,180,0.9);font-size:11px">${escHtml(r.name || r.id)}</div>
+          <div style="font-size:9px;color:var(--dim)">${escHtml(r.id)}</div>
+        </div>
+        ${fmtStatus(r.status)}
+      </div>
+      <div style="font-size:10px;margin-bottom:4px;color:rgba(255,255,255,0.7)">${escHtml(r.task_title || '')}</div>
+      <div style="display:flex;gap:16px;font-size:9px;color:var(--dim)">
+        <span>agent: <span style="color:rgba(0,200,160,0.7)">${escHtml(r.agent_id || '')}</span></span>
+        <span>schedule: <span style="color:rgba(0,200,160,0.7)">${escHtml(r.schedule || '')}</span></span>
+        <span>last: ${escHtml(r.last_run ? new Date(r.last_run).toLocaleDateString() : 'never')}</span>
+      </div>
+      <div style="display:flex;gap:16px;font-size:9px;color:var(--dim);margin-top:2px">
+        <span>concurrency: ${escHtml(r.concurrency || 'coalesce_if_active')}</span>
+        <span>catchup: ${escHtml(r.catchup || 'skip_missed')}</span>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function renderOrgInbox(data) {
+  const el = document.getElementById('orgroom-inbox-body');
+  if (!el) return;
+  const approvals = (data.approvals || []).filter(a => a.status === 'pending');
+  const agents = (data.state && data.state.agents) || {};
+  const runningAgents = Object.entries(agents).filter(([, s]) => s.status === 'running');
+  const roles = (data.config && data.config.roles) || [];
+  const budget = (data.config && data.config.run_config && data.config.run_config.budget_tokens) || 0;
+  const alertThreshold = (data.config && data.config.run_config && data.config.run_config.alert_threshold) || 0.8;
+  const orgName = _orgroomCurrentOrg;
+
+  // Budget alert check
+  let budgetAlert = null;
+  if (budget > 0) {
+    const totalIn = Object.values(agents).reduce((s, a) => s + (a.tokens_in || 0), 0);
+    const totalOut = Object.values(agents).reduce((s, a) => s + (a.tokens_out || 0), 0);
+    const pct = (totalIn + totalOut) / budget;
+    if (pct >= alertThreshold) budgetAlert = `${(pct * 100).toFixed(1)}% of ${budget.toLocaleString()} token budget used`;
+  }
+
+  const total = approvals.length + runningAgents.length + (budgetAlert ? 1 : 0);
+
+  let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+    <div style="background:rgba(${approvals.length > 0 ? '255,80,60' : '0,0,0'},0.2);border:1px solid rgba(${approvals.length > 0 ? '255,80,60' : '0,200,160'},0.2);border-radius:4px;padding:12px;text-align:center">
+      <div style="font-size:24px;font-weight:bold;color:${approvals.length > 0 ? 'rgba(255,100,80,0.9)' : 'var(--dim)'}">${approvals.length}</div>
+      <div style="font-size:9px;color:var(--dim);letter-spacing:0.1em;margin-top:4px">PENDING APPROVALS</div>
+    </div>
+    <div style="background:rgba(0,0,0,0.2);border:1px solid rgba(0,200,160,0.15);border-radius:4px;padding:12px;text-align:center">
+      <div style="font-size:24px;font-weight:bold;color:${runningAgents.length > 0 ? 'rgba(0,230,180,0.9)' : 'var(--dim)'}">${runningAgents.length}</div>
+      <div style="font-size:9px;color:var(--dim);letter-spacing:0.1em;margin-top:4px">AGENTS RUNNING</div>
+    </div>
+    <div style="background:rgba(${budgetAlert ? '255,180,0' : '0,0,0'},0.15);border:1px solid rgba(${budgetAlert ? '255,180,0' : '0,200,160'},0.15);border-radius:4px;padding:12px;text-align:center">
+      <div style="font-size:24px;font-weight:bold;color:${budgetAlert ? 'rgba(255,180,0,0.9)' : 'var(--dim)'}">${budgetAlert ? '!' : '✓'}</div>
+      <div style="font-size:9px;color:var(--dim);letter-spacing:0.1em;margin-top:4px">BUDGET STATUS</div>
+    </div>
+  </div>`;
+
+  if (total === 0) {
+    html += `<div style="text-align:center;padding:32px;color:var(--dim)">
+      <div style="font-size:20px;margin-bottom:8px">✓</div>
+      <div>Inbox clear — no items need attention.</div>
+    </div>`;
+    el.innerHTML = html; return;
+  }
+
+  if (budgetAlert) {
+    html += `<div style="background:rgba(255,180,0,0.1);border:1px solid rgba(255,180,0,0.3);border-radius:4px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
+      <span style="color:rgba(255,180,0,0.9);font-size:14px">⚠</span>
+      <div><div style="font-size:10px;color:rgba(255,180,0,0.9);letter-spacing:0.08em">BUDGET ALERT</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:2px">${escHtml(budgetAlert)}</div></div>
+      <div style="margin-left:auto;font-size:9px;color:var(--dim)">/mastermind:costs --org ${escHtml(orgName)}</div>
+    </div>`;
+  }
+
+  if (approvals.length > 0) {
+    html += `<div style="font-size:9px;color:rgba(255,80,60,0.8);letter-spacing:0.1em;margin-bottom:8px">PENDING APPROVALS (${approvals.length})</div>`;
+    approvals.forEach(a => {
+      const risk = a.risk_level || 'low';
+      const riskColor = risk === 'high' ? 'rgba(255,80,60,0.9)' : risk === 'medium' ? 'rgba(255,180,0,0.8)' : 'rgba(0,200,160,0.6)';
+      const role = roles.find(r => r.id === a.agent_id);
+      html += `<div style="background:rgba(255,80,60,0.08);border:1px solid rgba(255,80,60,0.2);border-radius:4px;padding:10px 14px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:start">
+          <div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.85)">${escHtml(a.title || '')}</div>
+            <div style="font-size:9px;color:var(--dim);margin-top:2px">agent: ${escHtml(a.agent_id)} ${role ? '· ' + escHtml(role.title) : ''}</div>
+          </div>
+          <span style="font-size:9px;color:${riskColor};border:1px solid ${riskColor};padding:2px 6px;border-radius:2px">${risk.toUpperCase()}</span>
+        </div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:6px">${escHtml((a.action || '').slice(0, 120))}</div>
+        <div style="margin-top:8px;font-size:9px;color:rgba(0,200,160,0.6)">/mastermind:approve --org ${escHtml(orgName)} --action approve --approval-id ${escHtml(a.id)}</div>
+      </div>`;
+    });
+  }
+
+  if (runningAgents.length > 0) {
+    html += `<div style="font-size:9px;color:rgba(0,230,180,0.7);letter-spacing:0.1em;margin-top:16px;margin-bottom:8px">ACTIVE AGENTS (${runningAgents.length})</div>`;
+    runningAgents.forEach(([roleId, state]) => {
+      const role = roles.find(r => r.id === roleId);
+      const since = state.last_heartbeat ? new Date(state.last_heartbeat).toLocaleTimeString('en', { hour12: false }) : '?';
+      html += `<div style="background:rgba(0,0,0,0.3);border:1px solid rgba(0,200,160,0.2);border-radius:4px;padding:8px 14px;margin-bottom:6px;display:flex;align-items:center;gap:12px">
+        <span class="orgroom-status-dot running"></span>
+        <div>
+          <span style="color:rgba(0,230,180,0.9)">${escHtml(roleId)}</span>
+          ${role ? `<span style="color:var(--dim);font-size:9px"> · ${escHtml(role.title)}</span>` : ''}
+        </div>
+        <div style="margin-left:auto;font-size:9px;color:var(--dim)">since ${since}</div>
+      </div>`;
+    });
+  }
+
+  el.innerHTML = html;
+}
+
+function renderOrgProjects(data) {
+  const el = document.getElementById('orgroom-projects-body');
+  if (!el) return;
+  const projects = data._projects || [];
+  const orgName = _orgroomCurrentOrg;
+
+  if (!projects.length) {
+    el.innerHTML = `<div style="text-align:center;padding:32px;color:var(--dim)">
+      <div style="font-size:24px;margin-bottom:8px">⬡</div>
+      <div>No projects yet.</div>
+      <div style="font-size:10px;margin-top:8px;color:rgba(0,200,160,0.5)">/mastermind:projects --org ${escHtml(orgName)} --action add --project-name "My Project"</div>
+    </div>`;
+    return;
+  }
+
+  const statusColor = s => ({ active: 'rgba(0,230,180,0.9)', archived: 'rgba(100,100,100,0.5)', paused: 'rgba(255,180,0,0.7)' }[s] || 'var(--dim)');
+
+  let html = `<div style="display:flex;flex-direction:column;gap:10px">`;
+  projects.forEach(p => {
+    html += `<div style="background:rgba(0,0,0,0.3);border:1px solid rgba(0,200,160,0.15);border-radius:4px;padding:12px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div>
+          <div style="font-size:12px;color:rgba(0,230,180,0.9)">${escHtml(p.name || p.id)}</div>
+          <div style="font-size:9px;color:var(--dim);margin-top:2px">${escHtml(p.id)}</div>
+        </div>
+        <span style="font-size:9px;color:${statusColor(p.status)}">${(p.status || 'active').toUpperCase()}</span>
+      </div>
+      ${p.description ? `<div style="font-size:10px;color:rgba(255,255,255,0.6);margin-top:6px">${escHtml(p.description)}</div>` : ''}
+      <div style="display:flex;gap:16px;font-size:9px;color:var(--dim);margin-top:8px">
+        ${p.lead_agent ? `<span>lead: <span style="color:rgba(0,200,160,0.7)">${escHtml(p.lead_agent)}</span></span>` : ''}
+        ${p.task_count !== undefined ? `<span>tasks: <span style="color:rgba(0,200,160,0.7)">${p.task_count}</span></span>` : ''}
+        <span>created: ${p.created_at ? new Date(p.created_at).toLocaleDateString() : '?'}</span>
+      </div>
+    </div>`;
+  });
+  html += `</div>
+  <div style="margin-top:14px;font-size:9px;color:rgba(0,200,160,0.4)">/mastermind:projects --org ${escHtml(orgName)} --action add</div>`;
+  el.innerHTML = html;
+}
+
+function renderOrgActivity(data) {
+  const el = document.getElementById('orgroom-activity-body');
+  if (!el) return;
+  const orgName = _orgroomCurrentOrg;
+
+  // Merge server-fetched activity with live SSE events from orgEventLog
+  const liveEvents = (orgEventLog[orgName] || []).slice().reverse();
+  const serverEvents = (data._activity || []);
+  const allEvents = [...liveEvents, ...serverEvents.filter(se => !liveEvents.some(le => le.ts === se.ts && le.type === se.type))];
+  allEvents.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+  if (!allEvents.length) {
+    el.innerHTML = `<div style="text-align:center;padding:32px;color:var(--dim)">
+      <div style="font-size:24px;margin-bottom:8px">◌</div>
+      <div>No activity yet. Start the org to see events.</div>
+    </div>`;
+    return;
+  }
+
+  const eventTypeColor = t => {
+    if (t.includes('start')) return 'rgba(0,230,180,0.8)';
+    if (t.includes('complete') || t.includes('done')) return 'rgba(100,200,100,0.8)';
+    if (t.includes('error') || t.includes('alert')) return 'rgba(255,80,60,0.8)';
+    if (t.includes('approval')) return 'rgba(255,180,0,0.8)';
+    if (t.includes('checkpoint') || t.includes('comms')) return 'rgba(150,150,200,0.8)';
+    return 'rgba(0,200,160,0.6)';
+  };
+
+  const fmtEventDetail = ev => {
+    const parts = [];
+    if (ev.role) parts.push(`role:${ev.role}`);
+    if (ev.title) parts.push(ev.title);
+    if (ev.msg) parts.push(ev.msg);
+    if (ev.goal) parts.push(`goal:${ev.goal}`);
+    if (ev.approval_id) parts.push(`#${ev.approval_id}`);
+    return parts.join(' · ');
+  };
+
+  let html = `<div style="display:flex;flex-direction:column;gap:3px">`;
+  allEvents.slice(0, 80).forEach(ev => {
+    const t = ev.ts ? new Date(ev.ts).toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '?';
+    const detail = fmtEventDetail(ev);
+    html += `<div style="display:grid;grid-template-columns:80px 180px 1fr;gap:8px;padding:4px 8px;border-radius:2px;background:rgba(0,0,0,0.15);align-items:baseline">
+      <span style="font-size:9px;color:var(--dim);font-variant-numeric:tabular-nums">${t}</span>
+      <span style="font-size:9px;color:${eventTypeColor(ev.type || '')};letter-spacing:0.05em">${escHtml(fmtOrgEventType(ev.type))}</span>
+      <span style="font-size:10px;color:rgba(255,255,255,0.6)">${escHtml(detail)}</span>
+    </div>`;
+  });
+  html += `</div>`;
+  if (allEvents.length > 80) html += `<div style="text-align:center;margin-top:8px;font-size:9px;color:var(--dim)">${allEvents.length - 80} older events not shown</div>`;
+  el.innerHTML = html;
+}
+
+// ─── LIVE TAB ──────────────────────────────────────────────────────
+let _orgroomLiveSse = null;
+function renderOrgLive(data) {
+  const el = document.getElementById('orgroom-live-body');
+  if (!el) return;
+  const orgName = _orgroomCurrentOrg;
+  const agents = data && data.state && data.state.agents ? data.state.agents : {};
+  const runningAgents = Object.entries(agents).filter(([,a]) => a.status === 'running');
+
+  // Close any previous SSE for a different org
+  if (_orgroomLiveSse && _orgroomLiveSse._org !== orgName) {
+    _orgroomLiveSse.close();
+    _orgroomLiveSse = null;
+  }
+
+  let html = `<div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap">`;
+  html += `<div style="background:rgba(0,0,0,0.35);border:1px solid rgba(0,200,160,0.15);border-radius:4px;padding:8px 14px;min-width:120px">
+    <div style="font-size:9px;color:var(--dim);margin-bottom:3px">RUNNING</div>
+    <div style="font-size:18px;color:${runningAgents.length ? 'var(--green)' : 'var(--dim)'}">${runningAgents.length}</div>
+  </div>`;
+  const totalTok = Object.values(agents).reduce((s,a) => s + (a.tokens_in||0) + (a.tokens_out||0), 0);
+  html += `<div style="background:rgba(0,0,0,0.35);border:1px solid rgba(0,200,160,0.15);border-radius:4px;padding:8px 14px;min-width:120px">
+    <div style="font-size:9px;color:var(--dim);margin-bottom:3px">TOKENS USED</div>
+    <div style="font-size:18px;color:rgba(0,200,160,0.9)">${totalTok >= 1000 ? (totalTok/1000).toFixed(1)+'K' : totalTok}</div>
+  </div>`;
+  html += `</div>`;
+
+  // Running agent cards
+  if (runningAgents.length) {
+    html += `<div style="font-size:9px;color:var(--dim);letter-spacing:0.1em;margin-bottom:8px">ACTIVE AGENTS</div>`;
+    html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">`;
+    runningAgents.forEach(([id, a]) => {
+      const beat = a.last_heartbeat ? new Date(a.last_heartbeat).toLocaleTimeString('en', {hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '?';
+      html += `<div style="background:rgba(0,30,20,0.7);border:1px solid rgba(0,229,135,0.3);border-radius:4px;padding:8px 12px;min-width:160px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <span class="orgroom-status-dot running"></span>
+          <span style="color:rgba(0,229,135,0.9);font-size:10px">${escHtml(id)}</span>
+        </div>
+        <div style="font-size:9px;color:var(--dim)">last beat: ${beat}</div>
+        <div style="font-size:9px;color:var(--dim)">in:${a.tokens_in||0} out:${a.tokens_out||0}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  } else {
+    html += `<div style="text-align:center;padding:20px;color:var(--dim)">No agents currently running. Start the org to see live activity.</div>`;
+  }
+
+  // Live event stream
+  html += `<div style="font-size:9px;color:var(--dim);letter-spacing:0.1em;margin-bottom:6px">LIVE EVENT STREAM</div>`;
+  html += `<div id="orgroom-live-stream">`;
+  const liveEvents = (orgEventLog[orgName] || []).slice().reverse();
+  if (liveEvents.length) {
+    liveEvents.slice(0, 100).forEach(ev => {
+      const t = ev.ts ? new Date(ev.ts).toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+      const cat = (ev.type||'').includes('heartbeat') ? 'type-heartbeat' : (ev.type||'').includes('approval') ? 'type-approval' : (ev.type||'').includes('error') ? 'type-error' : '';
+      html += `<div class="live-event-row ${cat}">
+        <span class="live-ts">${t}</span>
+        <span class="live-type">${escHtml(fmtOrgEventType(ev.type))}</span>
+        <span style="color:rgba(255,255,255,0.5);font-size:9px">${escHtml(ev.role||ev.msg||ev.title||'')}</span>
+      </div>`;
+    });
+  } else {
+    html += `<div style="text-align:center;padding:20px;color:var(--dim)">No live events yet.</div>`;
+  }
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+// ─── SKILLS TAB ────────────────────────────────────────────────────
+function renderOrgSkills(data) {
+  const el = document.getElementById('orgroom-skills-body');
+  if (!el) return;
+  const skillsData = (data && data._skills) || { skills: [], role_skill_map: {} };
+  const skills = skillsData.skills || [];
+  const roleMap = skillsData.role_skill_map || {};
+  const roles = (data && data.config && data.config.roles) || [];
+
+  let html = `<input class="skill-search" id="orgroom-skill-filter" placeholder="Filter skills…" oninput="filterOrgSkills(this.value)" />`;
+
+  if (!skills.length) {
+    html += `<div style="color:var(--dim);padding:20px;text-align:center">No skills found in .claude/skills/</div>`;
+    el.innerHTML = html;
+    return;
+  }
+
+  // Role skill map section
+  if (roles.length) {
+    html += `<div style="font-size:9px;color:var(--dim);letter-spacing:0.1em;margin-bottom:8px">ROLE SKILL ASSIGNMENTS</div>`;
+    html += `<table class="orgroom-table" style="margin-bottom:16px"><thead><tr>
+      <th>ROLE</th><th>ASSIGNED SKILLS</th>
+    </tr></thead><tbody>`;
+    roles.forEach(r => {
+      const assigned = roleMap[r.id] || [];
+      html += `<tr>
+        <td style="color:rgba(0,200,160,0.8)">${escHtml(r.id)}</td>
+        <td>${assigned.length ? assigned.map(s=>`<span class="skill-badge">${escHtml(s)}</span>`).join(' ') : '<span style="color:var(--dim)">inherited</span>'}</td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+
+  html += `<div style="font-size:9px;color:var(--dim);letter-spacing:0.1em;margin-bottom:8px">ALL SKILLS (${skills.length})</div>`;
+  html += `<div id="orgroom-skills-list">`;
+  skills.forEach(s => {
+    const modeColor = s.default_mode === 'auto' ? 'rgba(0,200,160,0.7)' : s.default_mode === 'confirm' ? 'rgba(255,180,0,0.7)' : 'rgba(150,150,200,0.7)';
+    html += `<div class="skill-card" data-name="${escHtml(s.name)}">
+      <div style="flex:1">
+        <div class="skill-card-name">${escHtml(s.name)}</div>
+        <div class="skill-card-desc">${escHtml(s.description || '')}</div>
+      </div>
+      <span class="skill-badge" style="color:${modeColor}">${escHtml(s.default_mode || 'auto')}</span>
+      <span class="skill-badge">${escHtml(s.type || 'skill')}</span>
+    </div>`;
+  });
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function filterOrgSkills(q) {
+  const container = document.getElementById('orgroom-skills-list');
+  if (!container) return;
+  const ql = q.toLowerCase();
+  container.querySelectorAll('.skill-card').forEach(card => {
+    card.style.display = !ql || card.dataset.name.toLowerCase().includes(ql) ? '' : 'none';
+  });
+}
+
+// ─── GOALS TAB ─────────────────────────────────────────────────────
+function renderOrgGoals(data) {
+  const el = document.getElementById('orgroom-goals-body');
+  if (!el) return;
+  const goals = (data && data.goals) || [];
+
+  if (!goals.length) {
+    el.innerHTML = `<div style="color:var(--dim);padding:20px;">No goals defined. Run <code>/mastermind:goals --org ${escHtml(_orgroomCurrentOrg)} --action add</code> to create goals.</div>`;
+    return;
+  }
+
+  // Build hierarchy
+  const byId = {};
+  goals.forEach(g => { byId[g.id] = g; });
+  const roots = [];
+  const children = {};
+  goals.forEach(g => {
+    if (!g.parent_id) { roots.push(g); }
+    else {
+      if (!children[g.parent_id]) children[g.parent_id] = [];
+      children[g.parent_id].push(g);
+    }
+  });
+
+  function goalProgress(goal) {
+    const kids = children[goal.id] || [];
+    if (!kids.length) return goal.status === 'done' ? 100 : (goal.status === 'in_progress' ? 50 : 0);
+    const doneKids = kids.filter(k => k.status === 'done').length;
+    return Math.round((doneKids / kids.length) * 100);
+  }
+
+  function renderGoalNode(goal, depth) {
+    const kids = children[goal.id] || [];
+    const statusCls = 'goal-' + (goal.status || 'open').replace(/[^a-z_]/g, '_');
+    const pct = goalProgress(goal);
+    const projCount = (goal.linked_projects || []).length;
+    let html = `<div class="goal-node">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="goal-title">${escHtml(goal.title || goal.id)}</span>
+          <span class="goal-status-badge ${statusCls}">${goal.status || 'open'}</span>
+        </div>
+        ${goal.description ? `<div class="goal-desc">${escHtml(goal.description)}</div>` : ''}
+        ${pct > 0 ? `<div class="goal-progress-bar"><div class="goal-progress-fill" style="width:${pct}%"></div></div>` : ''}
+        <div class="goal-meta">${kids.length ? `${kids.length} sub-goal(s) · ${pct}% done · ` : ''}${projCount ? `${projCount} project(s) · ` : ''}${goal.id}</div>
+      </div>
+    </div>`;
+    if (kids.length) {
+      html += `<div class="goal-node-children">`;
+      kids.forEach(k => { html += renderGoalNode(k, depth + 1); });
+      html += `</div>`;
+    }
+    return html;
+  }
+
+  let html = `<div style="padding:8px 0">`;
+  html += `<div style="font-size:9px;color:var(--dim);margin-bottom:12px;">${goals.length} goal(s) total</div>`;
+  roots.forEach(g => {
+    html += `<div class="goal-tree-root">${renderGoalNode(g, 0)}</div>`;
+  });
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+// ─── WORKSPACES TAB ────────────────────────────────────────────────
+function renderOrgWorkspaces(data) {
+  const el = document.getElementById('orgroom-workspaces-body');
+  if (!el) return;
+  const ws = (data && data._workspaces && data._workspaces.workspaces) || [];
+  const projects = (data && data._projects && data._projects.projects) || [];
+
+  if (!ws.length) {
+    el.innerHTML = `<div style="color:var(--dim);padding:20px;">No workspaces registered. Run <code>/mastermind:workspaces --org ${escHtml(_orgroomCurrentOrg)} --action attach</code> to register one.</div>`;
+    return;
+  }
+
+  const projMap = {};
+  projects.forEach(p => { projMap[p.id] = p.name || p.id; });
+
+  // Group by project
+  const byProject = {};
+  ws.forEach(w => {
+    const pid = w.project_id || '_ungrouped';
+    if (!byProject[pid]) byProject[pid] = [];
+    byProject[pid].push(w);
+  });
+
+  const orgName = _orgroomCurrentOrg;
+  let html = `<div style="padding:8px 0">`;
+  html += `<div style="font-size:9px;color:var(--dim);margin-bottom:12px;">${ws.length} workspace(s) · ${Object.keys(byProject).length} project(s)</div>`;
+
+  Object.entries(byProject).forEach(([pid, workspaces]) => {
+    const projName = projMap[pid] || pid;
+    html += `<div class="ws-project-group">
+      <div class="ws-project-label">◈ ${escHtml(projName)}</div>`;
+
+    workspaces.forEach(w => {
+      const stCls = 'ws-' + (w.status || 'unknown');
+      const svcCount = (w.services || []).length;
+      html += `<div class="ws-card">
+        <div class="ws-card-info">
+          <div class="ws-id">${escHtml(w.id)}</div>
+          <div class="ws-branch">⎇ ${escHtml(w.branch || '?')}</div>
+          ${w.agent_id ? `<div class="ws-agent">↳ ${escHtml(w.agent_id)}</div>` : ''}
+          ${w.worktree_path ? `<div class="ws-path">${escHtml(w.worktree_path)}</div>` : ''}
+          <div class="ws-svc-count">${svcCount ? `${svcCount} service(s) running` : 'no services'}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+          <span class="ws-status-badge ${stCls}">${w.status || 'unknown'}</span>
+          ${w.status === 'active' ? `<button class="ws-stop-btn" onclick="stopWsHint('${escHtml(orgName)}','${escHtml(w.id)}')">STOP</button>` : ''}
+        </div>
+      </div>`;
+    });
+
+    html += `</div>`;
+  });
+
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+window.stopWsHint = function(orgName, wsId) {
+  alert(`Run in Claude Code:\n/mastermind:workspaces --org ${orgName} --action stop --workspace-id ${wsId}`);
+};
+
+// ─── BOARD TAB ─────────────────────────────────────────────────────
+function renderOrgBoard(data) {
+  const el = document.getElementById('orgroom-board-body');
+  if (!el) return;
+
+  const issues = (data && data._issues && data._issues.issues) || [];
+  const statuses = ['open', 'in_progress', 'blocked', 'done', 'cancelled'];
+  const statusLabels = { open: 'OPEN', in_progress: 'IN PROGRESS', blocked: 'BLOCKED', done: 'DONE', cancelled: 'CANCELLED' };
+  const orgName = _orgroomCurrentOrg;
+
+  if (!issues.length) {
+    el.innerHTML = `<div style="color:var(--dim);padding:20px;">No tasks found. Run <code>/mastermind:tasks --org ${escHtml(orgName)} --action list</code> to see tasks.</div>`;
+    return;
+  }
+
+  const byStatus = {};
+  statuses.forEach(s => { byStatus[s] = []; });
+  issues.forEach(issue => {
+    const s = issue.status || 'open';
+    if (!byStatus[s]) byStatus[s] = [];
+    byStatus[s].push(issue);
+  });
+
+  const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+  Object.values(byStatus).forEach(arr => {
+    arr.sort((a, b) => (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2));
+  });
+
+  let html = `<div style="padding:8px 0">`;
+  html += `<div style="font-size:9px;color:var(--dim);margin-bottom:12px;">${issues.length} task(s) total</div>`;
+  html += `<div class="board-columns">`;
+
+  statuses.forEach(status => {
+    const cards = byStatus[status] || [];
+    html += `<div class="board-col board-col-${status.replace('_','-')}">
+      <div class="board-col-header">${statusLabels[status] || status}
+        <span class="board-count-badge">${cards.length}</span>
+      </div>`;
+
+    if (!cards.length) {
+      html += `<div class="board-empty">Empty</div>`;
+    } else {
+      cards.forEach(issue => {
+        const priCls = 'board-priority-' + (issue.priority || 'medium');
+        html += `<div class="board-card">
+          <div class="board-card-title">${escHtml((issue.title || issue.id || '').slice(0, 60))}</div>
+          <div class="board-card-meta">
+            <span class="${priCls}">${issue.priority || 'medium'}</span>
+            ${issue.assignee_id ? `<span>↳ ${escHtml(issue.assignee_id)}</span>` : ''}
+            ${issue.project_id ? `<span>◈ ${escHtml(issue.project_id)}</span>` : ''}
+          </div>
+        </div>`;
+      });
+    }
+    html += `</div>`;
+  });
+
+  html += `</div></div>`;
+  el.innerHTML = html;
+}
+
+// ─── HEALTH TAB ────────────────────────────────────────────────────
+function renderOrgHealth(data) {
+  const el = document.getElementById('orgroom-health-body');
+  if (!el) return;
+  const orgName = _orgroomCurrentOrg;
+  const health = data && data._health;
+  const state = (data && data.state && data.state.agents) || {};
+  const roles = (data && data.config && data.config.roles) || [];
+  const issues = (data && data._issues && data._issues.issues) || [];
+  const activity = (data && data._activity) || [];
+
+  // Compute local fallbacks if health endpoint returns nothing
+  const agentList = Object.entries(state);
+  const running = agentList.filter(([,v]) => v.status === 'running').length;
+  const idle = agentList.filter(([,v]) => v.status !== 'running').length;
+  const totalAgents = roles.length || agentList.length;
+
+  const openIssues = issues.filter(i => i.status === 'open').length;
+  const inProgIssues = issues.filter(i => i.status === 'in_progress').length;
+  const doneIssues = issues.filter(i => i.status === 'done').length;
+
+  // 7-day run success rate
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
+  const recentRuns = activity.filter(e => e.ts && new Date(e.ts) >= cutoff);
+  const successRuns = recentRuns.filter(e => e.type && e.type.includes('complete')).length;
+  const successRate = recentRuns.length > 0 ? Math.round((successRuns / recentRuns.length) * 100) : null;
+
+  // Budget from health endpoint or fallback
+  const budgetPct = health ? (health.budget_used_pct ?? null) : null;
+  const budgetCls = budgetPct === null ? '' : budgetPct >= 90 ? 'health-crit' : budgetPct >= 70 ? 'health-warn' : 'health-ok';
+  const barCls = budgetPct === null ? 'health-bar-ok' : budgetPct >= 90 ? 'health-bar-crit' : budgetPct >= 70 ? 'health-bar-warn' : 'health-bar-ok';
+
+  const srCls = successRate === null ? '' : successRate >= 80 ? 'health-ok' : successRate >= 50 ? 'health-warn' : 'health-crit';
+
+  let html = `<div style="padding:8px 0">`;
+
+  // Metrics grid
+  html += `<div class="health-grid">
+    <div class="health-metric-card">
+      <div class="health-metric-label">Agents</div>
+      <div class="health-metric-value health-ok">${totalAgents}</div>
+      <div class="health-metric-sub">${running} running · ${idle} idle</div>
+    </div>
+    <div class="health-metric-card">
+      <div class="health-metric-label">Open Issues</div>
+      <div class="health-metric-value ${openIssues > 0 ? 'health-warn' : 'health-ok'}">${openIssues}</div>
+      <div class="health-metric-sub">${inProgIssues} in progress · ${doneIssues} done</div>
+    </div>`;
+
+  if (successRate !== null) {
+    html += `<div class="health-metric-card">
+      <div class="health-metric-label">Success Rate (7d)</div>
+      <div class="health-metric-value ${srCls}">${successRate}<span class="health-metric-unit">%</span></div>
+      <div class="health-metric-sub">${successRuns} of ${recentRuns.length} runs</div>
+    </div>`;
+  }
+
+  if (budgetPct !== null) {
+    html += `<div class="health-metric-card">
+      <div class="health-metric-label">Budget Used</div>
+      <div class="health-metric-value ${budgetCls}">${budgetPct}<span class="health-metric-unit">%</span></div>
+      <div class="health-bar"><div class="health-bar-fill ${barCls}" style="width:${Math.min(100,budgetPct)}%"></div></div>
+    </div>`;
+  }
+
+  html += `</div>`;
+
+  // Agent status section
+  if (agentList.length) {
+    html += `<div class="health-section-title">Agent Status</div>`;
+    html += `<table class="orgroom-table"><thead><tr>
+      <th>AGENT</th><th>STATUS</th><th>LAST RUN</th><th>TOKENS USED</th>
+    </tr></thead><tbody>`;
+    agentList.forEach(([id, info]) => {
+      const stCls = info.status === 'running' ? 'health-ok' : info.status === 'error' ? 'health-crit' : '';
+      html += `<tr>
+        <td>${escHtml(id)}</td>
+        <td class="${stCls}">${info.status || 'unknown'}</td>
+        <td>${info.last_run || '-'}</td>
+        <td>${info.tokens_used || '-'}</td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+
+  // Commands hint
+  html += `<div style="margin-top:16px;font-size:9px;color:var(--dim);">
+    <div>View details: <code>/mastermind:agent-detail --org ${escHtml(orgName)} --agent-id &lt;id&gt;</code></div>
+    <div style="margin-top:4px;">Full health: <code>/mastermind:instance --action health</code></div>
+  </div>`;
+
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+// ─── INVITES TAB ──────────────────────────────────────────────────
+function renderOrgInvites(data) {
+  const el = document.getElementById('orgroom-invites-body');
+  if (!el) return;
+  const inv = (data && data._invites) || { invites: [], join_requests: [] };
+  const orgName = data && (data.name || data.org_name || '');
+  let html = '';
+
+  // Active invites section
+  html += `<div class="invite-section-title">Active Invites (${inv.invites.length})</div>`;
+  if (!inv.invites.length) {
+    html += `<div style="color:var(--dim);font-size:10px;padding:8px 0;">No pending invites. To create one: /mastermind:invites --org ${escHtml(orgName)} --action create --role operator</div>`;
+  } else {
+    html += `<table class="orgroom-table"><thead><tr>
+      <th>TOKEN</th><th>ROLE</th><th>CREATED</th>
+    </tr></thead><tbody>`;
+    inv.invites.forEach(i => {
+      html += `<tr>
+        <td><span class="invite-token">${escHtml(i.token || i.id)}</span></td>
+        <td><span class="invite-role">${escHtml(i.role || 'operator')}</span></td>
+        <td class="invite-meta">${escHtml(i.createdAt ? i.createdAt.slice(0,10) : '—')}</td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+
+  // Join requests section
+  html += `<div class="invite-section-title">Pending Join Requests (${inv.join_requests.length})</div>`;
+  if (!inv.join_requests.length) {
+    html += `<div style="color:var(--dim);font-size:10px;padding:8px 0;">No pending join requests.</div>`;
+  } else {
+    inv.join_requests.forEach(r => {
+      html += `<div class="join-row">
+        <div class="join-row-header">
+          <span style="font-size:10px;font-weight:600;">${escHtml(r.id)}</span>
+          <span class="join-type-badge">${escHtml(r.requestType || 'human')}</span>
+          <span class="invite-role">${escHtml(r.role || 'viewer')}</span>
+          <span class="invite-meta">${escHtml(r.createdAt ? r.createdAt.slice(0,10) : '—')}</span>
+        </div>
+        ${r.message ? `<div class="join-msg">${escHtml(r.message)}</div>` : ''}
+        <div class="join-hint">→ approve: /mastermind:invites --org ${escHtml(orgName)} --action approve-join --request-id ${escHtml(r.id)}</div>
+        <div class="join-hint">→ reject:  /mastermind:invites --org ${escHtml(orgName)} --action reject-join  --request-id ${escHtml(r.id)}</div>
+      </div>`;
+    });
+  }
+
+  el.innerHTML = html;
+}
+
+// ─── PLUGINS TAB ──────────────────────────────────────────────────
+function renderOrgPlugins(data) {
+  const el = document.getElementById('orgroom-plugins-body');
+  if (!el) return;
+  const pluginData = (data && data._plugins) || { plugins: [] };
+  const plugins = pluginData.plugins || [];
+  const orgName = data && (data.name || data.org_name || '');
+  let html = '';
+
+  const installed = plugins.filter(p => p.status === 'installed' || !p.status);
+  const errored   = plugins.filter(p => p.status === 'error');
+  const disabled  = plugins.filter(p => p.status === 'disabled');
+
+  html += `<div style="font-size:9px;color:var(--dim);margin-bottom:12px;">
+    ${installed.length} installed &nbsp;·&nbsp; ${errored.length} error &nbsp;·&nbsp; ${disabled.length} disabled
+    &nbsp;&nbsp;<span style="font-family:monospace;color:rgba(0,200,160,0.5);">/mastermind:plugin-settings --plugin-id &lt;id&gt;</span>
+  </div>`;
+
+  if (!plugins.length) {
+    html += `<div style="color:var(--dim);font-size:10px;padding:8px 0;">No plugins installed. Browse plugins via /mastermind:plugins --action list.</div>`;
+    el.innerHTML = html;
+    return;
+  }
+
+  html += `<div class="plugin-grid">`;
+  plugins.forEach(p => {
+    const statusCls = p.status === 'error' ? 'plugin-status-error'
+      : p.status === 'disabled' ? 'plugin-status-disabled' : 'plugin-status-installed';
+    const healthOk = !p.health || p.health.status === 'ok';
+    html += `<div class="plugin-card">
+      <div class="plugin-card-header">
+        <div class="plugin-status-dot ${statusCls}"></div>
+        <div class="plugin-name">${escHtml(p.id)}</div>
+        <div class="plugin-version">${escHtml(p.version || '')}</div>
+      </div>
+      ${p.category ? `<div class="plugin-category">${escHtml(p.category)}</div>` : ''}
+      ${p.packageName ? `<div class="plugin-pkg">${escHtml(p.packageName)}</div>` : ''}
+      ${p._orgOverride ? `<div class="plugin-override">⚠ org override</div>` : ''}
+      ${!healthOk ? `<div class="plugin-error">${escHtml(p.health.message || 'health error')}</div>` : ''}
+      ${p.lastError ? `<div class="plugin-error">${escHtml(p.lastError)}</div>` : ''}
+    </div>`;
+  });
+  html += `</div>`;
+
+  el.innerHTML = html;
+}
+
+// ─── MY ISSUES TAB ──────────────────────────────────────────────────
+function renderOrgMyIssues(data) {
+  const el = document.getElementById('orgroom-myissues-body');
+  if (!el) return;
+  const issueData = (data && data._myissues) || { issues: [] };
+  const issues = issueData.issues || [];
+  const orgName = data && (data.name || data.org_name || '');
+  let html = '';
+
+  const prioClass = p => p === 'high' || p === 'urgent' ? 'myissues-priority-high'
+    : p === 'low' ? 'myissues-priority-low' : 'myissues-priority-medium';
+  const stClass = s => s === 'in_progress' ? 'myissues-status-in_progress' : 'myissues-status-open';
+
+  const open = issues.filter(i => i.status === 'open' || i.status === 'in_progress');
+  const done  = issues.filter(i => i.status === 'done' || i.status === 'cancelled');
+
+  html += `<div style="font-size:9px;color:var(--dim);margin-bottom:10px;">
+    ${open.length} open / in-progress &nbsp;·&nbsp; ${done.length} closed
+    &nbsp;&nbsp;<span style="font-family:monospace;color:rgba(0,200,160,0.5);">/mastermind:my-issues --org ${escHtml(orgName)}</span>
+  </div>`;
+
+  if (!open.length && !done.length) {
+    html += `<div class="myissues-empty">No issues found. Assign issues via: /mastermind:my-issues --org ${escHtml(orgName)} --action assign-self --issue-id &lt;id&gt;</div>`;
+    el.innerHTML = html;
+    return;
+  }
+
+  html += `<table class="orgroom-table"><thead><tr>
+    <th>ID</th><th>STATUS</th><th>PRIORITY</th><th>TITLE</th><th>ASSIGNEE</th>
+  </tr></thead><tbody>`;
+
+  [...open, ...done].slice(0, 50).forEach(i => {
+    const pri = (i.priority || 'medium').toLowerCase();
+    const st = (i.status || 'open').toLowerCase();
+    html += `<tr>
+      <td style="font-family:monospace;font-size:9px;">${escHtml(i.id || '')}</td>
+      <td><span class="${stClass(st)}">${escHtml(st)}</span></td>
+      <td><span class="${prioClass(pri)}">${escHtml(pri)}</span></td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(i.title || '(no title)')}</td>
+      <td style="font-size:9px;color:var(--dim);">${escHtml(i.assigneeId || i.assigned_to || '—')}</td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+
+  if (issues.length > 50) {
+    html += `<div class="myissues-hint">Showing 50 of ${issues.length} issues.</div>`;
+  }
+  html += `<div class="myissues-hint">Assign to self: /mastermind:my-issues --org ${escHtml(orgName)} --action assign-self --issue-id &lt;id&gt;</div>`;
+
+  el.innerHTML = html;
+}
+
+// ─── AGENTS TAB ─────────────────────────────────────────────────────
+function renderOrgAgents(data) {
+  const el = document.getElementById('orgroom-agents-body');
+  if (!el) return;
+  const agents = (data._agents && data._agents.agents) || (data.config && data.config.roles) || [];
+  const stateMap = (data.state && data.state.agents) || {};
+
+  if (!agents.length) {
+    el.innerHTML = '<div style="color:var(--dim);padding:16px">No agents defined. Add one: /mastermind:new-agent</div>';
+    return;
+  }
+
+  const statusColor = s => s === 'running' ? '#00e6b4' : s === 'paused' ? '#ffb400' : s === 'error' ? '#ff5050' : s === 'idle' ? 'rgba(0,200,160,0.4)' : 'var(--dim)';
+
+  let html = `<table class="orgroom-table">
+    <tr><th>ID</th><th>TITLE</th><th>ADAPTER</th><th>STATUS</th><th>HEARTBEAT</th><th>TOKENS</th></tr>`;
+
+  agents.forEach(a => {
+    const id = a.id || a.id;
+    const title = a.title || id;
+    const adapterType = a.adapterType || (a.adapter && a.adapter.type) || '-';
+    const adapterModel = a.adapterModel || (a.adapter && a.adapter.model) || '';
+    const s = stateMap[id] || {};
+    const status = a.status || s.status || 'idle';
+    const hb = a.lastHeartbeat || s.last_heartbeat || s.lastHeartbeat || null;
+    const hbStr = hb ? new Date(hb).toLocaleTimeString() : '—';
+    const tokIn = a.tokensIn || s.tokens_in || 0;
+    const tokOut = a.tokensOut || s.tokens_out || 0;
+    const tok = tokIn + tokOut;
+    html += `<tr>
+      <td style="color:rgba(0,230,180,0.7);font-size:9px">${escHtml(id)}</td>
+      <td style="color:rgba(0,230,180,0.9)">${escHtml(title)}</td>
+      <td><div style="font-size:9px">${escHtml(adapterType)}</div>${adapterModel ? `<div style="font-size:8px;color:var(--dim)">${escHtml(adapterModel)}</div>` : ''}</td>
+      <td><span style="color:${statusColor(status)};font-size:9px">● ${escHtml(status)}</span></td>
+      <td style="font-size:9px;color:var(--muted)">${hbStr}</td>
+      <td style="font-size:9px;color:var(--muted)">${tok > 0 ? tok.toLocaleString() : '—'}</td>
+    </tr>`;
+  });
+
+  html += `</table>`;
+  html += `<div style="margin-top:8px;font-size:9px;color:var(--dim)">${agents.length} agent(s) · /mastermind:agents --org <org> · /mastermind:agent-detail --org <org> --agent-id <id></div>`;
+  el.innerHTML = html;
+}
+
+// ─── APPROVALS TAB ──────────────────────────────────────────────────
+function renderOrgApprovals(data) {
+  const el = document.getElementById('orgroom-approvals-body');
+  if (!el) return;
+  const approvalsData = data._approvals || {};
+  const approvals = approvalsData.approvals || data.approvals || [];
+  const pending = approvalsData.pending || approvals.filter(a => a.status === 'pending' || a.status === 'revision_requested').length;
+
+  if (!approvals.length) {
+    el.innerHTML = '<div style="color:var(--dim);padding:16px">No approvals found. Agents will post here when they need human sign-off.</div>';
+    return;
+  }
+
+  const statusColor = s => s === 'pending' ? '#ffb400' : s === 'approved' ? '#00e6b4' : s === 'rejected' ? '#ff5050' : s === 'revision_requested' ? '#ff9800' : 'var(--dim)';
+
+  let html = `<div style="margin-bottom:8px;font-size:9px;color:var(--dim)">${pending} pending · ${approvals.length} total · /mastermind:approve --org <org></div>`;
+  html += `<table class="orgroom-table">
+    <tr><th>ID</th><th>TITLE / ACTION</th><th>AGENT</th><th>STATUS</th><th>CREATED</th></tr>`;
+
+  approvals.forEach(a => {
+    const title = a.title || a.action || a.id;
+    const ts = a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—';
+    html += `<tr>
+      <td style="font-size:9px;color:var(--dim)">${escHtml(a.id || '')}</td>
+      <td style="color:rgba(0,230,180,0.9)">${escHtml(title)}</td>
+      <td style="font-size:9px;color:var(--muted)">${escHtml(a.agentId || a.agentTitle || '—')}</td>
+      <td><span style="color:${statusColor(a.status)};font-size:9px">● ${escHtml(a.status || 'pending')}</span></td>
+      <td style="font-size:9px;color:var(--dim)">${ts}</td>
+    </tr>`;
+  });
+
+  html += `</table>`;
+  el.innerHTML = html;
+}
+
+// ─── SECRETS TAB ─────────────────────────────────────────────────────
+function renderOrgSecrets(data) {
+  const el = document.getElementById('orgroom-secrets-body');
+  if (!el) return;
+  const secrets = (data._secrets && data._secrets.secrets) || [];
+
+  if (!secrets.length) {
+    el.innerHTML = `<div style="color:var(--dim);padding:16px">No secrets stored.
+      <div style="margin-top:8px;font-size:9px">/mastermind:secrets --org &lt;org&gt; --action set --secret-name MY_KEY --secret-value \$MY_ENV_VAR</div>
+    </div>`;
+    return;
+  }
+
+  const statusColor = s => s === 'active' ? '#00e6b4' : s === 'rotated' ? '#ffb400' : '#ff5050';
+
+  let html = `<div style="margin-bottom:8px;font-size:9px;color:var(--dim)">⚠ Values are never displayed · ${secrets.length} secret(s) stored</div>`;
+  html += `<table class="orgroom-table">
+    <tr><th>NAME</th><th>MASKED REF</th><th>STATUS</th><th>LAST USED</th><th>USES</th></tr>`;
+
+  secrets.forEach(s => {
+    const lastUsed = s.lastUsedAt ? new Date(s.lastUsedAt).toLocaleDateString() : '—';
+    html += `<tr>
+      <td style="color:rgba(0,230,180,0.9)">${escHtml(s.name || '')}</td>
+      <td style="font-size:9px;color:var(--dim);font-family:monospace">${escHtml(s.maskedRef || '***')}</td>
+      <td><span style="color:${statusColor(s.status)};font-size:9px">● ${escHtml(s.status || 'active')}</span></td>
+      <td style="font-size:9px;color:var(--muted)">${lastUsed}</td>
+      <td style="font-size:9px;color:var(--muted)">${s.usageCount || 0}</td>
+    </tr>`;
+  });
+
+  html += `</table>`;
+  html += `<div style="margin-top:8px;font-size:9px;color:var(--dim)">/mastermind:secrets --org &lt;org&gt; --action list/set/rotate/revoke</div>`;
+  el.innerHTML = html;
+}
+
+// ─── ENVIRONMENTS TAB ────────────────────────────────────────────────
+function renderOrgEnvs(data) {
+  const el = document.getElementById('orgroom-envs-body');
+  if (!el) return;
+  const envsData = data._environments || {};
+  const envs = envsData.environments || [];
+
+  if (!envs.length) {
+    el.innerHTML = `<div style="color:var(--dim);padding:16px">No environments configured.
+      <div style="margin-top:8px;font-size:9px">/mastermind:environments --org &lt;org&gt; --action create --name prod --driver ssh</div>
+    </div>`;
+    return;
+  }
+
+  const driverColor = d => d === 'local' ? 'rgba(0,230,180,0.7)' : d === 'ssh' ? '#4fc3f7' : d === 'sandbox' ? '#ffb400' : 'var(--dim)';
+
+  let html = `<table class="orgroom-table">
+    <tr><th>NAME</th><th>DRIVER</th><th>HOST / PATH</th><th>STATUS</th><th>DEFAULT</th></tr>`;
+
+  envs.forEach(env => {
+    const host = env.config && (env.config.host || env.config.remoteWorkspacePath || env.config.provider || '—');
+    const isDefault = envsData.default_env === env.id ? '★' : '';
+    html += `<tr>
+      <td style="color:rgba(0,230,180,0.9)">${escHtml(env.name || env.id || '')}</td>
+      <td><span style="color:${driverColor(env.driver)};font-size:9px">${escHtml(env.driver || '—')}</span></td>
+      <td style="font-size:9px;color:var(--muted)">${escHtml(host ? String(host) : '—')}</td>
+      <td><span style="color:${env.probeStatus === 'ok' ? '#00e6b4' : env.probeStatus === 'error' ? '#ff5050' : 'var(--dim)'};font-size:9px">● ${escHtml(env.probeStatus || 'unknown')}</span></td>
+      <td style="color:rgba(0,230,180,0.9);text-align:center">${isDefault}</td>
+    </tr>`;
+  });
+
+  html += `</table>`;
+  html += `<div style="margin-top:8px;font-size:9px;color:var(--dim)">/mastermind:environments --org &lt;org&gt; · /mastermind:env --org &lt;org&gt;</div>`;
+  el.innerHTML = html;
+}
+
+// ─── ACCESS TAB ──────────────────────────────────────────────────────
+function renderOrgAccess(data) {
+  const el = document.getElementById('orgroom-access-body');
+  if (!el) return;
+  const membersData = data._members || {};
+  const members = membersData.members || [];
+
+  if (!members.length) {
+    el.innerHTML = `<div style="color:var(--dim);padding:16px">No members found.
+      <div style="margin-top:8px;font-size:9px">/mastermind:invites --org &lt;org&gt; --action create · /mastermind:access --org &lt;org&gt;</div>
+    </div>`;
+    return;
+  }
+
+  const roleColor = r => r === 'owner' ? 'rgba(0,230,180,1)' : r === 'admin' ? 'rgba(0,230,180,0.7)' : r === 'operator' ? '#4fc3f7' : 'var(--muted)';
+  const PERMISSION_KEYS = ['agents:create','users:invite','users:manage_permissions','tasks:assign','joins:approve','environments:manage'];
+
+  let html = `<div style="margin-bottom:8px;font-size:9px;color:var(--dim)">${members.length} member(s) · /mastermind:access --org &lt;org&gt;</div>`;
+  html += `<table class="orgroom-table">
+    <tr><th>MEMBER</th><th>TYPE</th><th>ROLE</th><th>STATUS</th><th>GRANTS</th></tr>`;
+
+  members.forEach(m => {
+    const name = m.displayName || m.name || m.id;
+    const role = m.membershipRole || m.role || '-';
+    const grants = (m.grants || []).map(g => g.permissionKey || g).join(', ') || '—';
+    const typeLabel = m.memberType === 'agent' ? '🤖' : '👤';
+    html += `<tr>
+      <td style="color:rgba(0,230,180,0.9)">${typeLabel} ${escHtml(name)}</td>
+      <td style="font-size:9px;color:var(--dim)">${escHtml(m.memberType || 'human')}</td>
+      <td><span style="color:${roleColor(role)};font-size:9px">${escHtml(role)}</span></td>
+      <td><span style="color:${m.status === 'active' ? '#00e6b4' : '#ff5050'};font-size:9px">● ${escHtml(m.status || 'active')}</span></td>
+      <td style="font-size:9px;color:var(--dim);max-width:200px;overflow:hidden;text-overflow:ellipsis">${escHtml(grants)}</td>
+    </tr>`;
+  });
+
+  html += `</table>`;
+  el.innerHTML = html;
+}
+
+// ─── BUDGETS TAB ──────────────────────────────────────────────────
+function renderOrgBudgets(data) {
+  const el = document.getElementById('orgroom-budgets-body');
+  if (!el) return;
+  const bd = data._budgets || {};
+  const orgBudget = bd.org_budget || {};
+  const agentBudgets = bd.agent_budgets || {};
+  const agents = (bd.agents || (data.config && data.config.roles) || []);
+  const stateRoles = ((data._state || {}).roles || []);
+  const orgName = _orgroomCurrentOrg;
+
+  const agentSpend = {};
+  stateRoles.forEach(r => {
+    agentSpend[r.id] = {
+      tokensIn: r.tokens_in || 0,
+      tokensOut: r.tokens_out || 0,
+      cost: r.total_cost_usd || 0,
+    };
+  });
+
+  let orgTokensSpent = 0, orgCostSpent = 0;
+  Object.values(agentSpend).forEach(a => { orgTokensSpent += a.tokensIn + a.tokensOut; orgCostSpent += a.cost; });
+
+  const fmtUsd = v => `$${Number(v || 0).toFixed(4)}`;
+  const pctBar = (spent, lim) => {
+    if (!lim) return '';
+    const pct = Math.min(100, spent / lim * 100);
+    const filled = Math.round(pct / 5);
+    const bar = '█'.repeat(filled) + '░'.repeat(20 - filled);
+    const color = pct > 90 ? '#ff5050' : pct > 70 ? '#ffd54f' : '#00e6b4';
+    return `<span style="color:${color};font-family:monospace;font-size:9px">[${bar}] ${pct.toFixed(0)}%</span>`;
+  };
+
+  let html = `<div style="margin-bottom:12px">
+    <div style="font-size:9px;color:var(--dim);margin-bottom:4px">ORG-WIDE</div>
+    <table class="orgroom-table">
+      <tr><th>METRIC</th><th>SPENT</th><th>LIMIT</th><th>USAGE</th></tr>
+      <tr>
+        <td>Tokens</td>
+        <td>${orgTokensSpent.toLocaleString()}</td>
+        <td>${orgBudget.limit_tokens ? orgBudget.limit_tokens.toLocaleString() : '—'}</td>
+        <td>${pctBar(orgTokensSpent, orgBudget.limit_tokens)}</td>
+      </tr>
+      <tr>
+        <td>Cost (USD)</td>
+        <td>${fmtUsd(orgCostSpent)}</td>
+        <td>${orgBudget.limit_usd ? '$' + Number(orgBudget.limit_usd).toFixed(2) : '—'}</td>
+        <td>${pctBar(orgCostSpent, orgBudget.limit_usd)}</td>
+      </tr>
+    </table>
+  </div>`;
+
+  html += `<div style="font-size:9px;color:var(--dim);margin-bottom:4px">PER AGENT</div>`;
+  html += `<table class="orgroom-table">
+    <tr><th>AGENT</th><th>TOKENS IN</th><th>TOKENS OUT</th><th>COST</th><th>LIMIT</th></tr>`;
+
+  agents.slice(0, 30).forEach(a => {
+    const rid = a.id;
+    const title = a.title || rid;
+    const sp = agentSpend[rid] || { tokensIn: 0, tokensOut: 0, cost: 0 };
+    const ab = agentBudgets[rid] || {};
+    const lim = ab.limit_usd ? '$' + Number(ab.limit_usd).toFixed(2) : '—';
+    const over = ab.limit_usd && sp.cost > ab.limit_usd;
+    html += `<tr ${over ? 'style="color:#ff5050"' : ''}>
+      <td>${escHtml(title)}${over ? ' ⚠' : ''}</td>
+      <td>${sp.tokensIn.toLocaleString()}</td>
+      <td>${sp.tokensOut.toLocaleString()}</td>
+      <td>${fmtUsd(sp.cost)}</td>
+      <td style="font-size:9px;color:var(--dim)">${lim}</td>
+    </tr>`;
+  });
+
+  html += `</table>
+  <div style="margin-top:8px;font-size:9px;color:var(--dim)">/mastermind:budgets --org &lt;org&gt; · /mastermind:budgets --org &lt;org&gt; --action set --agent-id &lt;id&gt; --limit-usd 5.00</div>`;
+  el.innerHTML = html;
+}
+
+// ─── THREADS TAB ──────────────────────────────────────────────────
+function renderOrgThreads(data) {
+  const el = document.getElementById('orgroom-threads-body');
+  if (!el) return;
+  const td = data._threads || {};
+  const threads = td.threads || [];
+  const orgName = _orgroomCurrentOrg;
+
+  if (!threads.length) {
+    el.innerHTML = `<div style="color:var(--dim);padding:16px">No threads found.
+      <div style="margin-top:8px;font-size:9px">/mastermind:threads --org ${escHtml(orgName)} --action create --message 'Hello team'</div>
+    </div>`;
+    return;
+  }
+
+  let html = `<div style="margin-bottom:8px;font-size:9px;color:var(--dim)">${threads.length} thread(s) · /mastermind:threads --org &lt;org&gt;</div>`;
+  html += `<table class="orgroom-table">
+    <tr><th>SUBJECT</th><th>AUTHOR</th><th>MSGS</th><th>ISSUE</th><th>CREATED</th></tr>`;
+
+  threads.slice(0, 50).forEach(t => {
+    const subj    = (t.subject || '(no subject)').slice(0, 40);
+    const author  = (t.authorName || t.authorId || '—').slice(0, 20);
+    const msgs    = (t.messages || []).length;
+    const issue   = t.issueId || '—';
+    const created = (t.createdAt || '-').slice(0, 10);
+    html += `<tr>
+      <td style="color:rgba(0,230,180,0.9)">${escHtml(subj)}</td>
+      <td style="font-size:9px;color:var(--dim)">${escHtml(author)}</td>
+      <td>${msgs}</td>
+      <td style="font-size:9px;color:var(--dim)">${escHtml(issue)}</td>
+      <td style="font-size:9px;color:var(--dim)">${escHtml(created)}</td>
+    </tr>`;
+  });
+
+  html += `</table>`;
+  el.innerHTML = html;
+}
+
+// ─── ISSUES TAB ──────────────────────────────────────────────────
+function renderOrgIssues(data) {
+  const el = document.getElementById('orgroom-issues-body');
+  if (!el) return;
+  const issuesData = data._issues || {};
+  const issues = issuesData.issues || [];
+  const orgName = _orgroomCurrentOrg;
+
+  if (!issues.length) {
+    el.innerHTML = `<div style="color:var(--dim);padding:16px">No issues found.
+      <div style="margin-top:8px;font-size:9px">/mastermind:issues --org ${escHtml(orgName)} --action create --title 'My Issue'</div>
+    </div>`;
+    return;
+  }
+
+  const statusColor = s => s === 'done' ? '#00e6b4' : s === 'in_progress' ? '#4fc3f7' : s === 'in_review' ? '#ffd54f' : s === 'cancelled' ? '#ff5050' : 'var(--muted)';
+  const priBadge = p => p === 'urgent' ? '🔴' : p === 'high' ? '🟠' : p === 'medium' ? '🟡' : '⚪';
+
+  let html = `<div style="margin-bottom:8px;font-size:9px;color:var(--dim)">${issues.length} issue(s) · /mastermind:issues --org &lt;org&gt;</div>`;
+  html += `<table class="orgroom-table">
+    <tr><th>TITLE</th><th>STATUS</th><th>PRI</th><th>ASSIGNEE</th><th>UPDATED</th></tr>`;
+
+  issues.slice(0, 100).forEach(iss => {
+    const title = iss.title || iss.id || '-';
+    const st = iss.status || 'open';
+    const pri = iss.priority || 'medium';
+    const asgn = iss.assigneeTitle || iss.assigneeId || '—';
+    const upd = (iss.updatedAt || iss.createdAt || '-').slice(0, 10);
+    html += `<tr>
+      <td style="color:rgba(0,230,180,0.9);max-width:220px;overflow:hidden;text-overflow:ellipsis">${escHtml(title)}</td>
+      <td><span style="color:${statusColor(st)};font-size:9px">● ${escHtml(st)}</span></td>
+      <td style="font-size:11px">${priBadge(pri)}</td>
+      <td style="font-size:9px;color:var(--dim)">${escHtml(asgn)}</td>
+      <td style="font-size:9px;color:var(--dim)">${escHtml(upd)}</td>
+    </tr>`;
+  });
+
+  html += `</table>`;
+  if (issues.length > 100) html += `<div style="font-size:9px;color:var(--dim);margin-top:6px">Showing 100 of ${issues.length} issues.</div>`;
+  el.innerHTML = html;
+}
+
+// ─── JOIN REQUESTS TAB ──────────────────────────────────────────────────
+function renderOrgJoinQueue(data) {
+  const el = document.getElementById('orgroom-joinqueue-body');
+  if (!el) return;
+  const jqData = data._joinRequests || {};
+  const requests = jqData.requests || [];
+  const orgName = _orgroomCurrentOrg;
+
+  const pending = requests.filter(r => r.status === 'pending_approval');
+
+  if (!requests.length) {
+    el.innerHTML = `<div style="color:var(--dim);padding:16px">No join requests.
+      <div style="margin-top:8px;font-size:9px">/mastermind:join-queue --org ${escHtml(orgName)}</div>
+    </div>`;
+    return;
+  }
+
+  const stColor = s => s === 'approved' ? '#00e6b4' : s === 'rejected' ? '#ff5050' : '#ffd54f';
+
+  let html = `<div style="margin-bottom:8px;font-size:9px;color:var(--dim)">${requests.length} request(s) · ${pending.length} pending · /mastermind:join-queue --org &lt;org&gt;</div>`;
+  html += `<table class="orgroom-table">
+    <tr><th>REQUESTER</th><th>TYPE</th><th>STATUS</th><th>CREATED</th></tr>`;
+
+  requests.slice(0, 50).forEach(r => {
+    const name = r.requesterName || r.requesterId || r.id || '-';
+    const type = r.type || 'human';
+    const st = r.status || 'pending_approval';
+    const created = (r.createdAt || '-').slice(0, 10);
+    html += `<tr>
+      <td style="color:rgba(0,230,180,0.9)">${escHtml(name)}</td>
+      <td style="font-size:9px;color:var(--dim)">${type === 'agent' ? '🤖' : '👤'} ${escHtml(type)}</td>
+      <td><span style="color:${stColor(st)};font-size:9px">● ${escHtml(st)}</span></td>
+      <td style="font-size:9px;color:var(--dim)">${escHtml(created)}</td>
+    </tr>`;
+  });
+
+  html += `</table>`;
+  el.innerHTML = html;
+}
+
+// ─── SETTINGS TAB ──────────────────────────────────────────────────
+function renderOrgSettings(data) {
+  const el = document.getElementById('orgroom-settings-body');
+  if (!el) return;
+  const config = (data && data.config) || {};
+  const gov = config.governance || {};
+  const runCfg = config.run_config || {};
+  const orgName = _orgroomCurrentOrg;
+
+  let html = `<div style="max-width:520px">`;
+
+  // General
+  html += `<div class="settings-section">
+    <div class="settings-section-title">General</div>
+    <div class="settings-row">
+      <span class="settings-label">Org Name</span>
+      <input class="settings-input" id="os-name" value="${escHtml(config.name || orgName)}" />
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">Goal</span>
+      <input class="settings-input" id="os-goal" value="${escHtml(config.goal || '')}" />
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">Topology</span>
+      <select class="settings-select" id="os-topology">
+        ${['hierarchical','mesh','hierarchical-mesh','adaptive','star','ring'].map(t =>
+          `<option value="${t}" ${(config.topology||'hierarchical')===t?'selected':''}>${t}</option>`
+        ).join('')}
+      </select>
+    </div>
+  </div>`;
+
+  // Governance
+  html += `<hr class="settings-divider">
+  <div class="settings-section">
+    <div class="settings-section-title">Governance</div>
+    <div class="settings-row">
+      <span class="settings-label">Policy</span>
+      <select class="settings-select" id="os-governance">
+        ${['auto','board','strict'].map(p =>
+          `<option value="${p}" ${(gov.policy||'auto')===p?'selected':''}>${p}</option>`
+        ).join('')}
+      </select>
+    </div>
+    <div class="settings-note" style="margin-left:140px">auto: agents act freely · board: human approves high-risk · strict: all actions need approval</div>
+  </div>`;
+
+  // Budget
+  html += `<hr class="settings-divider">
+  <div class="settings-section">
+    <div class="settings-section-title">Budget</div>
+    <div class="settings-row">
+      <span class="settings-label">Budget Tokens</span>
+      <input class="settings-input" id="os-budget" type="number" min="0" value="${runCfg.budget_tokens || 0}" style="max-width:140px" />
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">Alert Threshold</span>
+      <input class="settings-input" id="os-threshold" type="number" min="0" max="100" value="${Math.round((runCfg.alert_threshold||0.8)*100)}" style="max-width:80px" />
+      <span style="font-size:10px;color:var(--dim)">%</span>
+    </div>
+    <div class="settings-row">
+      <span class="settings-label">CEO Adapter</span>
+      <select class="settings-select" id="os-ceo-adapter">
+        ${['claude-sonnet-4-6','claude-opus-4-7','claude-haiku-4-5'].map(m =>
+          `<option value="${m}" ${(runCfg.ceo_adapter||'claude-sonnet-4-6')===m?'selected':''}>${m}</option>`
+        ).join('')}
+      </select>
+    </div>
+  </div>`;
+
+  // Save / Export / Import
+  html += `<hr class="settings-divider">
+  <div class="settings-row" style="gap:8px;flex-wrap:wrap">
+    <button class="settings-btn" onclick="saveOrgSettings('${escHtml(orgName)}')">Save Changes</button>
+    <button class="settings-btn" onclick="exportOrgSettings('${escHtml(orgName)}')">Export JSON</button>
+    <label class="settings-btn" style="cursor:pointer">
+      Import JSON<input type="file" accept=".json" style="display:none" onchange="importOrgSettings('${escHtml(orgName)}', this)" />
+    </label>
+  </div>
+  <div id="os-save-msg" style="margin-top:8px;font-size:10px;color:rgba(0,200,160,0.8)"></div>`;
+
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function saveOrgSettings(orgName) {
+  const fields = {
+    name: document.getElementById('os-name')?.value,
+    goal: document.getElementById('os-goal')?.value,
+    topology: document.getElementById('os-topology')?.value,
+    governance: document.getElementById('os-governance')?.value,
+    budget_tokens: parseInt(document.getElementById('os-budget')?.value || '0', 10),
+    alert_threshold: (parseFloat(document.getElementById('os-threshold')?.value || '80') / 100).toFixed(2),
+    ceo_adapter: document.getElementById('os-ceo-adapter')?.value,
+  };
+  // Post via CLI command hint (no direct write endpoint — use mastermind:org-settings)
+  const msg = document.getElementById('os-save-msg');
+  if (msg) {
+    const cmds = Object.entries(fields).filter(([k,v]) => v !== undefined && v !== '').map(([k,v]) =>
+      `/mastermind:org-settings --org ${orgName} --action edit --field ${k} --value "${v}"`
+    ).join('\n');
+    msg.innerHTML = `<div style="background:rgba(0,0,0,0.3);border:1px solid rgba(0,200,160,0.2);border-radius:3px;padding:8px;font-size:9px;white-space:pre;color:rgba(0,200,160,0.8)">${escHtml(cmds)}</div>
+    <div style="margin-top:4px;color:var(--dim)">Run these commands in Claude Code to apply changes.</div>`;
+  }
+}
+
+function exportOrgSettings(orgName) {
+  fetch(`/api/org/${encodeURIComponent(orgName)}`)
+    .then(r => r.json())
+    .then(data => {
+      const blob = new Blob([JSON.stringify(data.config, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${orgName}-export.json`;
+      a.click();
+    });
+}
+
+function importOrgSettings(orgName, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const msg = document.getElementById('os-save-msg');
+  if (msg) msg.textContent = `To import: /mastermind:org-settings --org ${orgName} --action import --import-path /path/to/${escHtml(file.name)}`;
+}
+
+// ─── CHARTS TAB ────────────────────────────────────────────────────
+function renderOrgCharts(data) {
+  const el = document.getElementById('orgroom-charts-body');
+  if (!el) return;
+  const agents = data && data.state && data.state.agents ? data.state.agents : {};
+  const activity = (data && data._activity) || [];
+  const roles = (data && data.config && data.config.roles) || [];
+
+  // Build 14-day heatmap from activity events
+  const days = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const eventsByDay = {};
+  days.forEach(d => { eventsByDay[d] = { success: 0, fail: 0, total: 0 }; });
+  activity.forEach(ev => {
+    if (!ev.ts) return;
+    const day = new Date(ev.ts).toISOString().slice(0, 10);
+    if (!eventsByDay[day]) return;
+    eventsByDay[day].total++;
+    if (ev.type && ev.type.includes('complete')) eventsByDay[day].success++;
+    if (ev.type && (ev.type.includes('error') || ev.type.includes('fail'))) eventsByDay[day].fail++;
+  });
+
+  const maxTotal = Math.max(1, ...Object.values(eventsByDay).map(d => d.total));
+
+  let html = `<div class="chart-grid-wrap">`;
+
+  // 14-day activity heatmap
+  html += `<div>
+    <div class="chart-section-title">14-Day Activity Heatmap</div>
+    <div style="display:flex;gap:2px;align-items:flex-end">`;
+  days.forEach(day => {
+    const d = eventsByDay[day];
+    const pct = d.total / maxTotal;
+    const cls = d.fail > 0 ? 'fail' : pct === 0 ? '' : pct < 0.25 ? 'l1' : pct < 0.5 ? 'l2' : pct < 0.75 ? 'l3' : 'l4';
+    const dt = new Date(day + 'T12:00:00');
+    const label = `${dt.getMonth()+1}/${dt.getDate()}`;
+    html += `<div title="${label}: ${d.total} events${d.fail ? `, ${d.fail} errors` : ''}"
+      style="flex:1;min-width:10px;height:${Math.max(4, Math.round(pct*60)+4)}px;border-radius:2px;
+      background:${cls==='fail'?'rgba(255,80,60,0.6)':cls===''?'rgba(0,200,160,0.08)':
+      cls==='l1'?'rgba(0,200,160,0.2)':cls==='l2'?'rgba(0,200,160,0.45)':
+      cls==='l3'?'rgba(0,200,160,0.7)':'rgba(0,230,180,0.95)'}"></div>`;
+  });
+  html += `</div>
+    <div style="display:flex;gap:2px;margin-top:3px">`;
+  days.forEach((day, i) => {
+    const dt = new Date(day + 'T12:00:00');
+    const lbl = (i === 0 || i === 6 || i === 13) ? `${dt.getMonth()+1}/${dt.getDate()}` : '';
+    html += `<div style="flex:1;font-size:7px;color:var(--dim);text-align:center">${lbl}</div>`;
+  });
+  html += `</div>
+    <div style="display:flex;gap:12px;margin-top:6px;font-size:9px;color:var(--dim)">
+      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:rgba(0,200,160,0.08)"></span>none</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:rgba(0,200,160,0.45)"></span>medium</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:rgba(0,230,180,0.95)"></span>high</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:rgba(255,80,60,0.6)"></span>errors</span>
+    </div>
+  </div>`;
+
+  // Per-agent run bars
+  html += `<div>
+    <div class="chart-section-title">Agent Activity (14 days)</div>`;
+  if (roles.length) {
+    roles.forEach(r => {
+      const agentEvents = activity.filter(ev => ev.role === r.id || ev.agent_id === r.id);
+      const count = agentEvents.length;
+      const errors = agentEvents.filter(ev => ev.type && (ev.type.includes('error') || ev.type.includes('fail'))).length;
+      const maxCount = Math.max(1, activity.length / roles.length * 2);
+      const pct = Math.min(100, Math.round(count / maxCount * 100));
+      const agentState = agents[r.id] || {};
+      const statusCls = agentState.status === 'running' ? 'running' : agentState.status || '';
+      html += `<div class="run-bar-row">
+        <div class="run-bar-label">
+          <span class="orgroom-status-dot ${statusCls}"></span>
+          ${escHtml(r.id)}
+        </div>
+        <div class="run-bar-track">
+          <div class="run-bar-fill" style="width:${pct}%;${errors>0?'background:linear-gradient(90deg,rgba(200,80,60,0.5),rgba(255,100,80,0.7))':''}"></div>
+        </div>
+        <span class="run-bar-count">${count}${errors ? ` <span style="color:rgba(255,80,60,0.8)">(${errors}err)</span>` : ''}</span>
+      </div>`;
+    });
+  } else {
+    html += `<div style="color:var(--dim)">No agent data yet.</div>`;
+  }
+  html += `</div>`;
+
+  // Summary stats
+  const totalEvents = activity.length;
+  const totalErrors = activity.filter(ev => ev.type && (ev.type.includes('error') || ev.type.includes('fail'))).length;
+  const successRate = totalEvents > 0 ? Math.round((1 - totalErrors/totalEvents)*100) : 100;
+  html += `<div style="display:flex;gap:12px;flex-wrap:wrap">
+    ${[
+      ['TOTAL EVENTS', totalEvents, 'rgba(0,200,160,0.9)'],
+      ['ERRORS', totalErrors, totalErrors > 0 ? 'rgba(255,80,60,0.9)' : 'var(--dim)'],
+      ['SUCCESS RATE', successRate+'%', successRate >= 90 ? 'rgba(0,229,135,0.9)' : 'rgba(255,180,0,0.9)'],
+      ['ACTIVE AGENTS', Object.values(agents).filter(a => a.status === 'running').length, 'rgba(0,229,135,0.9)'],
+    ].map(([label, val, color]) => `<div style="background:rgba(0,0,0,0.35);border:1px solid rgba(0,200,160,0.12);border-radius:4px;padding:8px 14px;min-width:110px">
+      <div style="font-size:8px;color:var(--dim);margin-bottom:3px">${label}</div>
+      <div style="font-size:16px;color:${color}">${val}</div>
+    </div>`).join('')}
+  </div>`;
+
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+// ─── MEMBERS TAB ───────────────────────────────────────────────────
+function renderOrgMembers(data) {
+  const el = document.getElementById('orgroom-members-body');
+  if (!el) return;
+  const orgName = _orgroomCurrentOrg;
+  const membersData = (data && data._members) || { members: [], join_requests: [] };
+  const members = membersData.members || [];
+  const joinReqs = (membersData.join_requests || []).filter(r => r.status === 'pending');
+
+  let html = ``;
+
+  // Invite form
+  html += `<div style="margin-bottom:14px">
+    <div class="chart-section-title">Invite New Member</div>
+    <div class="invite-form">
+      <select class="invite-select" id="invite-role-select">
+        <option value="viewer">Viewer — read only</option>
+        <option value="operator" selected>Operator — assign tasks</option>
+        <option value="admin">Admin — create agents, invite</option>
+        <option value="owner">Owner — full access</option>
+      </select>
+      <button class="invite-btn" onclick="generateOrgInvite('${escHtml(orgName)}')">Generate Invite</button>
+    </div>
+    <div id="invite-url-output"></div>
+  </div>`;
+
+  // Pending join requests
+  if (joinReqs.length) {
+    html += `<div style="margin-bottom:14px">
+      <div class="chart-section-title" style="color:rgba(255,180,0,0.7)">Pending Join Requests (${joinReqs.length})</div>`;
+    joinReqs.forEach(r => {
+      html += `<div class="member-row" style="border-color:rgba(255,180,0,0.2)">
+        <div class="member-avatar" style="background:rgba(255,180,0,0.15);color:rgba(255,200,60,0.9)">?</div>
+        <div style="flex:1">
+          <div class="member-id">${escHtml(r.id)}</div>
+          <div style="font-size:9px;color:var(--dim)">requested role: ${escHtml(r.role || 'viewer')} · ${escHtml(r.createdAt || '')}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="invite-btn" style="font-size:9px;padding:2px 8px" onclick="orgAccessCmd('${escHtml(orgName)}','approve-join','${escHtml(r.id)}')">Approve</button>
+          <button class="invite-btn" style="font-size:9px;padding:2px 8px;border-color:rgba(255,80,80,0.4);color:rgba(255,80,80,0.8)" onclick="orgAccessCmd('${escHtml(orgName)}','reject-join','${escHtml(r.id)}')">Reject</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Member list
+  html += `<div class="chart-section-title">Members (${members.length})</div>`;
+  if (!members.length) {
+    html += `<div style="color:var(--dim);padding:20px;text-align:center">No members yet. Use the invite form above to add the first member.</div>`;
+  } else {
+    members.forEach(m => {
+      const roleClass = `role-${m.role || 'viewer'}`;
+      const initials = (m.id || '?').slice(0, 2).toUpperCase();
+      const grants = (m.grants || []);
+      html += `<div class="member-row ${m.status === 'suspended' ? 'member-status-suspended' : ''}">
+        <div class="member-avatar">${initials}</div>
+        <div style="flex:1">
+          <div class="member-id">${escHtml(m.id)}${m.status === 'suspended' ? ' <span style="color:rgba(255,80,80,0.7);font-size:8px">SUSPENDED</span>' : ''}</div>
+          ${grants.length ? `<div class="member-grants">${grants.map(g => escHtml(g)).join(' · ')}</div>` : ''}
+        </div>
+        <span class="member-role-badge ${roleClass}">${m.role || 'viewer'}</span>
+      </div>`;
+    });
+  }
+
+  html += `<div style="margin-top:10px;font-size:9px;color:var(--dim)">
+    Manage roles via: <code style="color:rgba(0,200,160,0.7)">/mastermind:access --org ${escHtml(orgName)} --action set-role --member-id &lt;id&gt; --role &lt;owner|admin|operator|viewer&gt;</code>
+  </div>`;
+
+  el.innerHTML = html;
+}
+
+function generateOrgInvite(orgName) {
+  const role = document.getElementById('invite-role-select')?.value || 'operator';
+  const out = document.getElementById('invite-url-output');
+  if (out) {
+    const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    out.innerHTML = `<div class="invite-url-box">
+      <div style="margin-bottom:4px">Token: <strong>${token}</strong></div>
+      <div style="font-size:9px;color:var(--dim)">Run in Claude Code:</div>
+      <div>/mastermind:access --org ${escHtml(orgName)} --action invite --role ${escHtml(role)}</div>
+    </div>`;
+  }
+}
+
+function orgAccessCmd(orgName, action, reqId) {
+  const msg = document.getElementById('invite-url-output');
+  if (msg) msg.innerHTML = `<div class="invite-url-box">/mastermind:access --org ${escHtml(orgName)} --action ${action} --request-id ${escHtml(reqId)}</div>`;
+}
+
+// ─── ORG ROOM SEARCH ───────────────────────────────────────────────
+async function orgRoomSearch(orgName, q) {
+  if (!q || q.length < 2) return;
+  try {
+    const r = await fetch(`/api/org/${encodeURIComponent(orgName)}/search?q=${encodeURIComponent(q)}`);
+    if (!r.ok) return;
+    const data = await r.json();
+    return data.hits || [];
+  } catch(_) { return []; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// COMMAND PALETTE (Cmd+K / Ctrl+K)
+// ═══════════════════════════════════════════════════════════════════
+let _cpSelectedIndex = 0;
+let _cpItems = [];
+
+const ORG_ROOM_TABS = [
+  { id: 'chart', label: 'ORG CHART', icon: '◉' },
+  { id: 'heartbeats', label: 'HEARTBEATS', icon: '♡' },
+  { id: 'tasks', label: 'TASK BOARD', icon: '☑' },
+  { id: 'costs', label: 'COSTS', icon: '$' },
+  { id: 'routines', label: 'ROUTINES', icon: '⏱' },
+  { id: 'inbox', label: 'INBOX', icon: '✉' },
+  { id: 'projects', label: 'PROJECTS', icon: '◈' },
+  { id: 'activity', label: 'ACTIVITY', icon: '◎' },
+  { id: 'live', label: '● LIVE', icon: '●' },
+  { id: 'charts', label: 'CHARTS', icon: '▤' },
+  { id: 'members', label: 'MEMBERS', icon: '◌' },
+  { id: 'skills', label: 'SKILLS', icon: '⚡' },
+  { id: 'goals', label: 'GOALS', icon: '◎' },
+  { id: 'workspaces', label: 'WORKSPACES', icon: '⊡' },
+  { id: 'board', label: 'BOARD', icon: '▦' },
+  { id: 'health', label: 'HEALTH', icon: '♥' },
+  { id: 'invites', label: 'INVITES', icon: '✉' },
+  { id: 'plugins', label: 'PLUGINS', icon: '⬡' },
+  { id: 'myissues', label: 'MY ISSUES', icon: '◎' },
+  { id: 'agents', label: 'AGENTS', icon: '◈' },
+  { id: 'approvals', label: 'APPROVALS', icon: '✓' },
+  { id: 'secrets', label: 'SECRETS', icon: '⚿' },
+  { id: 'envs', label: 'ENVIRONMENTS', icon: '⊞' },
+  { id: 'access', label: 'ACCESS', icon: '◐' },
+  { id: 'issues', label: 'ISSUES', icon: '◎' },
+  { id: 'joinqueue', label: 'JOIN REQUESTS', icon: '↗' },
+  { id: 'budgets', label: 'BUDGETS', icon: '$' },
+  { id: 'threads', label: 'THREADS', icon: '◈' },
+  { id: 'settings', label: 'SETTINGS', icon: '⚙' },
+];
+
+const MASTERMIND_SKILLS = [
+  'mastermind:createorg','mastermind:runorg','mastermind:agents','mastermind:tasks',
+  'mastermind:goals','mastermind:costs','mastermind:heartbeat','mastermind:approve',
+  'mastermind:routines','mastermind:projects','mastermind:secrets','mastermind:env',
+  'mastermind:worktree','mastermind:inbox','mastermind:org-settings','mastermind:skills',
+  'mastermind:search','mastermind:bootstrap','mastermind:backup','mastermind:adapters',
+  'mastermind:plugins','mastermind:access','mastermind:instance',
+  'mastermind:environments','mastermind:agent-detail','mastermind:routine-detail','mastermind:workspaces',
+  'mastermind:issue-detail','mastermind:goal-detail','mastermind:project-detail','mastermind:export',
+  'mastermind:workspace-detail','mastermind:new-agent','mastermind:plugin-settings','mastermind:invites',
+  'mastermind:approval-detail','mastermind:instance-settings','mastermind:profile','mastermind:my-issues',
+  'mastermind:project-workspace','mastermind:activity',
+  'mastermind:adapter-manager','mastermind:plugin-manager','mastermind:companies',
+  'mastermind:invite-landing','mastermind:org-chart',
+  'mastermind:import',
+  'mastermind:issues','mastermind:join-queue','mastermind:plan-to-tasks','mastermind:diagnose',
+  'mastermind:tree-control','mastermind:threads','mastermind:budgets',
+  'mastermind:memory','mastermind:wiki','mastermind:liveness',
+];
+
+function openCmdPalette() {
+  const overlay = document.getElementById('cmd-palette-overlay');
+  if (!overlay) return;
+  overlay.classList.add('open');
+  const input = document.getElementById('cmd-palette-input');
+  if (input) { input.value = ''; input.focus(); }
+  cmdPaletteSearch('');
+}
+
+function closeCmdPalette() {
+  document.getElementById('cmd-palette-overlay')?.classList.remove('open');
+  _cpItems = [];
+  _cpSelectedIndex = 0;
+}
+
+function buildCpItems(q) {
+  const ql = (q || '').toLowerCase().trim();
+  const items = [];
+
+  // Orgs
+  const orgs = _orgsData || [];
+  const matchedOrgs = orgs.filter(o => !ql || (o.name || o.org_name || '').toLowerCase().includes(ql) || (o.org_name || '').toLowerCase().includes(ql));
+  matchedOrgs.slice(0, 4).forEach(o => {
+    const name = o.name || o.org_name;
+    items.push({ group: 'ORGS', icon: '⬡', label: name, hint: 'open org room', action: () => { closeCmdPalette(); openOrgRoom(name); } });
+  });
+
+  // ORG ROOM tabs (if org room is open)
+  if (_orgroomCurrentOrg) {
+    const matchedTabs = ORG_ROOM_TABS.filter(t => !ql || t.label.toLowerCase().includes(ql));
+    matchedTabs.slice(0, 5).forEach(t => {
+      items.push({ group: 'TABS', icon: t.icon, label: t.label, hint: _orgroomCurrentOrg, action: () => { closeCmdPalette(); switchOrgTab(t.id); } });
+    });
+  }
+
+  // Skills
+  const matchedSkills = MASTERMIND_SKILLS.filter(s => !ql || s.includes(ql));
+  matchedSkills.slice(0, 5).forEach(s => {
+    items.push({ group: 'SKILLS', icon: '/', label: s, hint: 'copy slash command', action: () => { closeCmdPalette(); copyText(s); } });
+  });
+
+  // Quick actions
+  const actions = [
+    { label: 'Open Mastermind Panel', icon: '🧠', action: () => { closeCmdPalette(); openMastermindOverlay(); } },
+    { label: 'Open Monograph', icon: '◈', action: () => { closeCmdPalette(); openMonographOverlay(); } },
+    { label: 'Refresh Dashboard', icon: '↺', action: () => { closeCmdPalette(); location.reload(); } },
+  ];
+  actions.filter(a => !ql || a.label.toLowerCase().includes(ql)).slice(0, 3).forEach(a => {
+    items.push({ group: 'ACTIONS', icon: a.icon, label: a.label, hint: '', action: a.action });
+  });
+
+  return items;
+}
+
+function cmdPaletteSearch(q) {
+  _cpItems = buildCpItems(q);
+  _cpSelectedIndex = 0;
+  renderCpResults();
+}
+
+function renderCpResults() {
+  const container = document.getElementById('cmd-palette-results');
+  if (!container) return;
+  if (!_cpItems.length) {
+    container.innerHTML = `<div class="cp-empty">No results</div>`;
+    return;
+  }
+
+  let html = '';
+  let lastGroup = null;
+  _cpItems.forEach((item, i) => {
+    if (item.group !== lastGroup) {
+      html += `<div class="cp-group-label">${escHtml(item.group)}</div>`;
+      lastGroup = item.group;
+    }
+    html += `<div class="cp-item${i === _cpSelectedIndex ? ' selected' : ''}" onclick="cpSelect(${i})">
+      <span class="cp-item-icon">${escHtml(item.icon || '')}</span>
+      <span class="cp-item-label">${escHtml(item.label)}</span>
+      ${item.hint ? `<span class="cp-item-hint">${escHtml(item.hint)}</span>` : ''}
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
+function cpSelect(idx) {
+  const item = _cpItems[idx];
+  if (item && item.action) item.action();
+}
+
+function cmdPaletteKeydown(e) {
+  if (e.key === 'Escape') { closeCmdPalette(); return; }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _cpSelectedIndex = Math.min(_cpSelectedIndex + 1, _cpItems.length - 1);
+    renderCpResults();
+    return;
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _cpSelectedIndex = Math.max(_cpSelectedIndex - 1, 0);
+    renderCpResults();
+    return;
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    cpSelect(_cpSelectedIndex);
+    return;
+  }
+}
+
+// Global Cmd+K / Ctrl+K listener
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    const overlay = document.getElementById('cmd-palette-overlay');
+    if (overlay && overlay.classList.contains('open')) closeCmdPalette();
+    else openCmdPalette();
+  }
+  if (e.key === 'Escape') {
+    const overlay = document.getElementById('cmd-palette-overlay');
+    if (overlay && overlay.classList.contains('open')) closeCmdPalette();
+  }
+});
 
 // ═══════════════════════════════════════════════════════════════════
 // SCHEDULED LOOPS PANEL
@@ -4609,7 +7245,7 @@ window.switchPalaceTab = function(tab) {
     b.classList.toggle('active', !!(btnTab && btnTab[1] === tab));
   });
   document.querySelectorAll('.po-tab-pane').forEach(p => p.classList.remove('active'));
-  const paneIds = { drawers: 'po-drawers-tab', sessions: 'po-sessions-tab', chunks: 'po-chunks-tab', routing: 'po-routing-tab', swarm: 'po-swarm-tab', graph: 'po-graph-tab', usage: 'po-usage-tab' };
+  const paneIds = { drawers: 'po-drawers-tab', sessions: 'po-sessions-tab', chunks: 'po-chunks-tab', routing: 'po-routing-tab', swarm: 'po-swarm-tab', graph: 'po-graph-tab', usage: 'po-usage-tab', adrs: 'po-adrs-tab' };
   const pane = document.getElementById(paneIds[tab]);
   if (pane) pane.classList.add('active');
   if (typeof kgCodeGraph !== 'undefined' && kgCodeGraph.stop) kgCodeGraph.stop();
@@ -4627,13 +7263,15 @@ async function loadPalaceData() {
 
   const knowUrl = `/api/section?name=knowledge${dir ? '&dir=' + encodeURIComponent(dir) : ''}`;
   const swarmUrl = `/api/section?name=swarm${dir ? '&dir=' + encodeURIComponent(dir) : ''}`;
-  const [palaceRes, graphRes, memRes, sessRes, knowRes, swarmRes] = await Promise.all([
+  const adrsUrl = `/api/adrs${dir ? '?dir=' + encodeURIComponent(dir) : ''}`;
+  const [palaceRes, graphRes, memRes, sessRes, knowRes, swarmRes, adrsRes] = await Promise.all([
     fetch(palaceUrl).catch(() => ({ ok: false })),
     fetch(graphUrl).catch(() => ({ ok: false })),
     fetch(memUrl).catch(() => ({ ok: false })),
     fetch(sectionUrl).catch(() => ({ ok: false })),
     fetch(knowUrl).catch(() => ({ ok: false })),
-    fetch(swarmUrl).catch(() => ({ ok: false }))
+    fetch(swarmUrl).catch(() => ({ ok: false })),
+    fetch(adrsUrl).catch(() => ({ ok: false }))
   ]);
 
   palaceData = await safeJson(palaceRes, { drawers: [], identity: null, kg: [] });
@@ -4647,6 +7285,8 @@ async function loadPalaceData() {
   palaceData.knowledge = knowData.knowledge || {};
   const swarmSectionData = await safeJson(swarmRes, {});
   palaceData.swarmSection = swarmSectionData.swarm || swarmSectionData || {};
+  const adrsData = await safeJson(adrsRes, { adrs: [] });
+  palaceData.adrs = adrsData.adrs || [];
   // Update stats bar
   const stats = document.getElementById('po-stats');
   if (stats && palaceData) {
@@ -4711,6 +7351,56 @@ function renderPalaceTab(tab) {
   else if (tab === 'swarm') renderPalaceSwarm();
   else if (tab === 'graph') { renderAgentGraph(palaceData.graph || { nodes: [], edges: [] }); }
   else if (tab === 'usage') renderPalaceUsage();
+  else if (tab === 'adrs') renderAdrs();
+}
+
+// ── ADR TAB ──────────────────────────────────────────────────────────────────
+let _adrFilter = '';
+window.filterAdrs = function(val) { _adrFilter = val.toLowerCase(); renderAdrs(); };
+
+function renderAdrs(adrs) {
+  const body = document.getElementById('po-adrs-body');
+  if (!body) return;
+  const list = adrs || (palaceData && palaceData.adrs) || [];
+  const filtered = _adrFilter ? list.filter(a =>
+    (a.number + ' ' + a.title + ' ' + (a.status || '') + ' ' + (a.group || '')).toLowerCase().includes(_adrFilter)
+  ) : list;
+
+  const impl = list.filter(a => a.group === 'implementation');
+  const guidance = list.filter(a => a.group === 'guidance');
+  document.getElementById('po-adrs-count').textContent = list.length;
+  document.getElementById('po-adrs-impl-count').textContent = impl.length;
+  document.getElementById('po-adrs-guidance-count').textContent = guidance.length;
+
+  if (!filtered.length) {
+    body.innerHTML = `<div style="color:var(--muted);font-size:10px;padding:20px 0;">${list.length ? 'No ADRs match filter.' : 'No ADRs found.'}</div>`;
+    return;
+  }
+
+  const statusColor = s => s === 'Accepted' || s === 'Implemented' ? 'var(--teal)' : s === 'Proposed' ? '#f5a623' : s === 'Superseded' || s === 'Deprecated' ? 'var(--muted)' : 'var(--text)';
+  const grouped = {};
+  for (const a of filtered) { (grouped[a.group] = grouped[a.group] || []).push(a); }
+
+  let html = '';
+  for (const [group, items] of Object.entries(grouped)) {
+    html += `<div style="font-size:9px;letter-spacing:0.12em;color:var(--muted);padding:12px 0 6px;text-transform:uppercase;border-bottom:1px solid var(--border);margin-bottom:8px;">${group}</div>`;
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin-bottom:16px;">';
+    for (const a of items) {
+      html += `<div class="chunk-card" style="cursor:default;">
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
+          <span style="font-size:9px;font-weight:700;color:var(--teal);font-family:'Azeret Mono',monospace;flex-shrink:0;">${escHtml(a.number)}</span>
+          <span style="font-size:10px;font-weight:600;color:var(--text);line-height:1.3;">${escHtml(a.title)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+          <span style="font-size:8px;letter-spacing:0.1em;color:${statusColor(a.status)};border:1px solid currentColor;padding:1px 5px;border-radius:2px;">${escHtml(a.status || 'UNKNOWN')}</span>
+          ${a.date ? `<span style="font-size:8px;color:var(--muted);">${escHtml(a.date)}</span>` : ''}
+        </div>
+        ${a.summary ? `<div style="font-size:9px;color:var(--muted);margin-top:6px;line-height:1.5;">${escHtml(a.summary.substring(0, 120))}${a.summary.length > 120 ? '…' : ''}</div>` : ''}
+      </div>`;
+    }
+    html += '</div>';
+  }
+  body.innerHTML = html;
 }
 
 // ── USAGE TAB ────────────────────────────────────────────────────────────────
@@ -7526,14 +10216,156 @@ async function loadDocStats() { /* replaced by loadWikiTab */ }
 // ═══════════════════════════════════════════════════════════════════
 // MASTERMIND OVERLAY
 // ═══════════════════════════════════════════════════════════════════
+// ─── Mastermind Hub ──────────────────────────────────────────────────────────
+
+const _MM_SKILLS_DEFS = (typeof MASTERMIND_SKILLS !== 'undefined' ? MASTERMIND_SKILLS : []).map(s => ({
+  name: s,
+  desc: {
+    'mastermind:createorg':   'Create a new autonomous agent organization',
+    'mastermind:runorg':      'Run a live heartbeat cycle for an org',
+    'mastermind:status':      'Show org status, roles, goals, and health',
+    'mastermind:issues':      'List, create, update, and search org issues',
+    'mastermind:join-queue':  'Manage pending join requests for an org',
+    'mastermind:plan-to-tasks': 'Convert a plan into assigned org issues',
+    'mastermind:diagnose':    'Diagnose why work has stalled in an org',
+    'mastermind:tree-control':'Pause, hold, release, or cancel issue trees',
+    'mastermind:threads':     'List, view, create, and reply to threads',
+    'mastermind:budgets':     'View and set token/cost budgets',
+    'mastermind:goals':       'Manage org goals and progress tracking',
+    'mastermind:projects':    'Manage org projects and milestones',
+    'mastermind:members':     'Manage org member roster and roles',
+    'mastermind:routines':    'Schedule recurring agent tasks',
+    'mastermind:approvals':   'Review pending approval gates',
+    'mastermind:adapters':    'Manage third-party adapter connections',
+    'mastermind:environments':'Manage deployment environments',
+    'mastermind:workspaces':  'Manage org workspaces and assignments',
+    'mastermind:plugins':     'Manage org plugin configuration',
+    'mastermind:secrets':     'Store and reference org secrets safely',
+    'mastermind:export':      'Export org configuration and state',
+    'mastermind:import':      'Import org configuration from file',
+    'mastermind:compliance':  'Run compliance and audit checks',
+    'mastermind:activity':    'View org activity log',
+    'mastermind:liveness':    'Check issue liveness and auto-recovery',
+    'mastermind:memory':      'Org-scoped PARA memory: ingest facts, recall context, synthesize',
+    'mastermind:wiki':        'Org knowledge base: query, ingest, distill, and maintain pages',
+    'mastermind:liveness':    'Enforce issue liveness contract: checkout, release, wakeup, recover',
+  }[s] || ''
+}));
+
+let _mmCurrentTab = 'orgs';
+
+window.switchMmTab = function(tab) {
+  _mmCurrentTab = tab;
+  document.querySelectorAll('.mm-tab').forEach(b => b.classList.toggle('active', b.textContent.trim().toLowerCase().replace(' org','').replace('create','create') === tab || b.getAttribute('onclick') === `switchMmTab('${tab}')`));
+  document.querySelectorAll('.mm-pane').forEach(p => p.classList.remove('active'));
+  const pane = document.getElementById(`mm-pane-${tab}`);
+  if (pane) pane.classList.add('active');
+  if (tab === 'orgs')    loadMmOrgs();
+  if (tab === 'loops')   loadMmLoops();
+  if (tab === 'metrics') loadMmMetrics();
+  if (tab === 'skills')  renderMmSkills('');
+};
+
+window.filterMmSkills = function(q) { renderMmSkills(q); };
+
+function renderMmSkills(q) {
+  const grid = document.getElementById('mm-skills-grid');
+  if (!grid) return;
+  const lower = (q || '').toLowerCase();
+  const filtered = _MM_SKILLS_DEFS.filter(s => !lower || s.name.includes(lower) || s.desc.toLowerCase().includes(lower));
+  grid.innerHTML = filtered.map(s => `
+    <div class="mm-skill-card" onclick="navigator.clipboard&&navigator.clipboard.writeText('/${s.name}')">
+      <div class="mm-skill-name">/${s.name.replace('mastermind:','')}</div>
+      <div class="mm-skill-desc">${s.desc || ''}</div>
+    </div>`).join('') || '<span style="color:rgba(150,100,200,0.4)">No skills match.</span>';
+}
+
+window.loadMmOrgs = async function() {
+  const el = document.getElementById('mm-orgs-list');
+  if (!el) return;
+  try {
+    const r = await fetch('/api/orgs');
+    const data = r.ok ? await r.json() : { orgs: [] };
+    const orgs = data.orgs || [];
+    if (!orgs.length) { el.innerHTML = '<span style="color:rgba(150,100,200,0.4)">No orgs found. Use /mastermind:createorg to create one.</span>'; return; }
+    el.innerHTML = orgs.map(o => `
+      <div class="mm-org-card" onclick="openOrgRoom('${o.name||o.id||''}')">
+        <div class="mm-org-name">${o.name||o.id||'?'}</div>
+        <div class="mm-org-meta">${(o.goal||'').slice(0,80)||'—'}</div>
+        <div class="mm-org-meta" style="margin-top:3px;opacity:0.6">${o.roles&&o.roles.length?o.roles.length+' agent(s)':''} ${o.status?'· '+o.status:''}</div>
+      </div>`).join('');
+  } catch(_) { el.innerHTML = '<span style="color:rgba(200,80,80,0.6)">Failed to load orgs.</span>'; }
+};
+
+window.loadMmLoops = async function() {
+  const el = document.getElementById('mm-loops-list');
+  if (!el) return;
+  try {
+    const r = await fetch('/api/mastermind/loops');
+    const data = r.ok ? await r.json() : { loops: [] };
+    const loops = data.loops || [];
+    if (!loops.length) { el.innerHTML = '<span style="color:rgba(150,100,200,0.4)">No active loops.</span>'; return; }
+    el.innerHTML = loops.map(l => {
+      const pct = l.maxReps ? Math.round((l.currentRep||1)/l.maxReps*100) : 0;
+      const bar = '█'.repeat(Math.round(pct/5)) + '░'.repeat(20-Math.round(pct/5));
+      return `<div class="mm-loop-row">
+        <span style="color:rgba(210,140,255,0.85);font-size:9px">${l.command||'?'}</span>
+        <span style="color:rgba(150,100,200,0.5);font-size:8px;margin-left:8px">${l.type||''}</span>
+        <span style="color:rgba(0,200,160,0.7);font-size:8px;margin-left:8px">run ${l.currentRep||1}${l.maxReps?' / '+l.maxReps:''}</span>
+        <span style="color:rgba(150,100,200,0.35);font-size:8px;margin-left:8px;font-family:monospace">[${bar}] ${pct}%</span>
+        <span style="color:rgba(150,100,200,0.4);font-size:8px;margin-left:auto">${l.status||''}</span>
+      </div>`;
+    }).join('');
+  } catch(_) { el.innerHTML = '<span style="color:rgba(200,80,80,0.6)">Failed to load loops.</span>'; }
+};
+
+window.loadMmMetrics = async function() {
+  const grid = document.getElementById('mm-metrics-grid');
+  const evEl = document.getElementById('mm-metrics-events');
+  if (!grid) return;
+  try {
+    const r = await fetch('/api/mastermind/metrics');
+    const data = r.ok ? await r.json() : {};
+    const t = data.tokens || {};
+    const s = data.swarm  || {};
+    const metrics = [
+      { label: 'TODAY COST',    value: t.today_usd    != null ? '$'+Number(t.today_usd).toFixed(4)    : '—' },
+      { label: 'MONTH COST',   value: t.month_usd    != null ? '$'+Number(t.month_usd).toFixed(2)    : '—' },
+      { label: 'TOTAL CALLS',  value: t.total_calls  != null ? Number(t.total_calls).toLocaleString() : '—' },
+      { label: 'ACTIVE AGENTS',value: s.active_agents != null ? s.active_agents : '—' },
+      { label: 'TASKS DONE',   value: s.tasks_done   != null ? s.tasks_done   : '—' },
+      { label: 'SWARM RUNS',   value: s.swarm_runs   != null ? s.swarm_runs   : '—' },
+    ];
+    grid.innerHTML = metrics.map(m => `
+      <div class="mm-metric-card">
+        <div class="mm-metric-label" style="font-size:8px;letter-spacing:0.1em;color:rgba(150,100,200,0.55);margin-bottom:4px">${m.label}</div>
+        <div class="mm-metric-value" style="font-size:18px;color:rgba(210,140,255,0.9)">${m.value}</div>
+      </div>`).join('');
+    const events = data.recentEvents || [];
+    if (evEl) evEl.innerHTML = events.slice().reverse().map(e => {
+      const ts = e.ts ? new Date(e.ts).toISOString().slice(11,19) : '';
+      return `<div style="padding:3px 0;border-bottom:1px solid rgba(200,120,255,0.06)">[${ts}] <span style="color:rgba(210,140,255,0.75)">${e.type||''}</span> ${e.loopId||e.org||''}</div>`;
+    }).join('') || '<span style="color:rgba(150,100,200,0.4)">No recent events.</span>';
+  } catch(_) { grid.innerHTML = '<span style="color:rgba(200,80,80,0.6)">Failed to load metrics.</span>'; }
+};
+
+window.mmCreateOrgCmd = function() {
+  const name = (document.getElementById('mm-create-name')||{}).value || '';
+  const goal = (document.getElementById('mm-create-goal')||{}).value || '';
+  const gov  = (document.getElementById('mm-create-gov')||{}).value  || 'democratic';
+  const out  = document.getElementById('mm-create-output');
+  const box  = document.getElementById('mm-create-cmd-box');
+  if (!name) { if (out) out.textContent = 'Org name is required.'; return; }
+  const cmd = `/mastermind:createorg --name ${name}${goal?' --goal "'+goal.replace(/"/g,"'")+'"':''}${gov?' --governance '+gov:''}`;
+  if (out) out.textContent = 'Command ready — copy and run in Claude Code:';
+  if (box) { box.style.display='block'; box.textContent = cmd; }
+  navigator.clipboard && navigator.clipboard.writeText(cmd).catch(()=>{});
+};
+
 window.openMastermindOverlay = function() {
-  const overlay = document.getElementById('mastermind-overlay');
-  const frame   = document.getElementById('mm-frame');
-  overlay.classList.add('open');
-  // Lazy-load the iframe — only set src on first open
-  if (!frame.src || frame.src === window.location.href) {
-    frame.src = '/mastermind';
-  }
+  document.getElementById('mastermind-overlay').classList.add('open');
+  // Load initial tab data
+  switchMmTab(_mmCurrentTab || 'orgs');
 };
 
 window.closeMastermindOverlay = function() {
@@ -7558,6 +10390,23 @@ window.closeMastermindOverlay = function() {
     <div class="wiki-modal-actions">
       <button class="wiki-action-btn copy" onclick="wikiCopyModal()">COPY ALL</button>
       <button class="wiki-action-btn" style="color:var(--muted);border-color:var(--border);" onclick="wikiCloseModal()">CLOSE</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ COMMAND PALETTE ═══════════════════ -->
+<div id="cmd-palette-overlay" onclick="if(event.target===this)closeCmdPalette()">
+  <div id="cmd-palette-box">
+    <input id="cmd-palette-input" placeholder="Search orgs, tabs, actions, skills…"
+      autocomplete="off" spellcheck="false"
+      oninput="cmdPaletteSearch(this.value)"
+      onkeydown="cmdPaletteKeydown(event)" />
+    <div id="cmd-palette-results"></div>
+    <div id="cmd-palette-footer">
+      <span><kbd>↑↓</kbd> navigate</span>
+      <span><kbd>↵</kbd> select</span>
+      <span><kbd>Esc</kbd> close</span>
+      <span><kbd>⌘K</kbd> toggle</span>
     </div>
   </div>
 </div>

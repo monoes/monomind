@@ -15,17 +15,17 @@ This file is a reference loaded by mastermind domain skills and master. It is NE
 Execute at the START of every mastermind run (master or standalone domain command). Load in this order:
 
 **Step A — Tier 3 core principles (all domains):**
-Try `mcp__monobrain__agentdb_hierarchical-recall` with query `"mastermind principles"`, topK 20.
+Try `mcp__monomind__agentdb_hierarchical-recall` with query `"mastermind principles"`, topK 20.
 If it returns `"AgentDB bridge not available"` or any error, fall back to:
-`mcp__monobrain__memory_search` with query `"mastermind principles"`, namespace `"mastermind:principles"`, limit 20.
+`mcp__monomind__memory_search` with query `"mastermind principles"`, namespace `"mastermind:principles"`, limit 20.
 
 **Step B — Tier 2 weekly summary for this domain:**
-Try `mcp__monobrain__agentdb_context-synthesize` with query `[current prompt keywords]`, maxEntries 10.
+Try `mcp__monomind__agentdb_context-synthesize` with query `[current prompt keywords]`, maxEntries 10.
 If it fails, fall back to:
-`mcp__monobrain__memory_search` with query `[current prompt keywords]`, namespace `"mastermind:<domain>:weekly"`, limit 10.
+`mcp__monomind__memory_search` with query `[current prompt keywords]`, namespace `"mastermind:<domain>:weekly"`, limit 10.
 
 **Step C — Relevant graph nodes:**
-Call `mcp__monobrain__graphify_query` with question `[3-5 keywords extracted from current prompt]`, depth 2.
+Call `mcp__monomind__monograph_query` with question `[3-5 keywords extracted from current prompt]`, depth 2.
 If the graph is not built yet (error: "No graph found"), skip this tier — continue without graph context.
 
 Combine all results into a **BRAIN CONTEXT** block. Insert this block before any planning, decomposition, or agent spawning step. Format:
@@ -55,20 +55,20 @@ score = confidence × (1 / (days_since_run + 1)) × log(uses + 1)
 - `uses`: 1 (first write)
 
 **Step 2 — Append to Tier 1 raw log:**
-Try `mcp__monobrain__agentdb_hierarchical-store` with:
+Try `mcp__monomind__agentdb_hierarchical-store` with:
 - namespace: `mastermind:<domain>:raw`
 - content: [full unified output schema YAML from this run, as a string]
 - metadata: `{ score, project, run_id, date: ISO8601, domain }`
 
-If AgentDB is unavailable, fall back to `mcp__monobrain__memory_store`:
+If AgentDB is unavailable, fall back to `mcp__monomind__memory_store`:
 - key: `mastermind:<domain>:run:<run_id>`
 - value: [JSON-encoded unified output schema]
 - namespace: `mastermind:<domain>:raw`
 - tags: `["mastermind", "<domain>", "run"]`
 
 **Step 3 — Check weekly compaction trigger:**
-Try `mcp__monobrain__agentdb_health` on namespace `mastermind:<domain>:raw`.
-If unavailable, call `mcp__monobrain__memory_stats` and check entry count manually.
+Try `mcp__monomind__agentdb_health` on namespace `mastermind:<domain>:raw`.
+If unavailable, call `mcp__monomind__memory_stats` and check entry count manually.
 If `entry_count >= 20` OR `days_since_last_compaction >= 7`:
 1. Retrieve all Tier 1 entries since last compaction
 2. Produce a per-domain weekly summary (use LLM synthesis: "Summarize the key decisions, patterns, and lessons from these run logs in under 300 words")
@@ -130,9 +130,10 @@ score = confidence × (1 / (days_since_run + 1)) × log(uses + 1)
 
 ## Real-Time Dashboard Event Logging
 
-Every mastermind run MUST emit structured events to the live dashboard via WebFetch. The dashboard at `docs/mastermind-diagram.html` listens on SSE and animates each event in real time.
+Every mastermind run MUST emit structured events to the live dashboard via curl (NOT WebFetch — WebFetch is blocked for localhost in Claude Code runtimes). The dashboard at `docs/mastermind-diagram.html` listens on SSE and animates each event in real time.
 
-**Dashboard endpoint:** `http://localhost:4242/api/mastermind/event`
+**Dashboard endpoint:** `<CTRL_URL>/api/mastermind/event`
+Resolve `CTRL_URL` at runtime: `jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242"` — the control server port auto-increments on collision and writes the actual URL to `.monomind/control.json`.
 **Method:** POST, `Content-Type: application/json`
 
 ### Event Types and When to Emit
@@ -210,10 +211,12 @@ Every mastermind run MUST emit structured events to the live dashboard via WebFe
 
 ### How to Emit (curl-first — WebFetch is blocked for localhost in Claude Code runtimes)
 
-**Always use curl via Bash.** WebFetch is restricted for `localhost` URLs in Claude Code agent runtimes and will return ECONNREFUSED even when the server is running. Use this pattern:
+**Always use curl via Bash.** WebFetch is restricted for `localhost` URLs in Claude Code agent runtimes and will return ECONNREFUSED even when the server is running. **Always resolve the control URL dynamically** — the server auto-increments the port on collision. Use this pattern:
 
 ```bash
-curl -s -o /dev/null -X POST "http://localhost:4242/api/mastermind/event" \
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+curl -s -o /dev/null -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg sid "$SESSION_ID" \
@@ -279,7 +282,8 @@ space_id=$(monotask space list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);g
 [ -z "$space_id" ] && { echo "ERROR: Could not find or create space '$project_name' — verify monotask is installed (monotask --version)"; exit 1; }
 
 # Step 2 — Find existing board by canonical name or create
-board_id=$(monotask board list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$canonical" | head -1)
+# board list format is "uuid: name" (colon-space separator, NOT pipe)
+board_id=$(monotask board list 2>/dev/null | awk -F': ' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$canonical" | head -1)
 if [ -n "$board_id" ]; then
   # Step 3a — Fetch column IDs from existing board
   cols_json=$(monotask column list "$board_id" --json 2>/dev/null || echo '[]')
@@ -291,9 +295,10 @@ else
   board_id=$(monotask board create --space "$space_id" "$canonical" --json | jq -r '.id // empty')
   [ -z "$board_id" ] && { echo "ERROR: Failed to create board '$canonical'"; exit 1; }
   monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
-  todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id')
-  doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id')
-  done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id')
+  todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id // empty')
+  doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id // empty')
+  done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id // empty')
+  [ -z "$todo_col" ] && { echo "ERROR: Failed to create Todo column for $canonical"; exit 1; }
 fi
 ```
 
@@ -309,7 +314,8 @@ space_id=$(monotask space list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);g
 state_patch='{}'
 for domain in build marketing ops; do   # substitute actual domain list
   canonical="${project_name}-${domain}"
-  board_id=$(monotask board list 2>/dev/null | awk -F'|' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$canonical" | head -1)
+  # board list format is "uuid: name" (colon-space separator, NOT pipe)
+board_id=$(monotask board list 2>/dev/null | awk -F': ' '{gsub(/^ +| +$/,"",$1);gsub(/^ +| +$/,"",$2);if($2==n)print $1}' n="$canonical" | head -1)
   if [ -n "$board_id" ]; then
     cols_json=$(monotask column list "$board_id" --json 2>/dev/null || echo '[]')
     todo_col=$(echo "$cols_json" | jq -r '[.[] | select(.title=="Todo" or .title=="Backlog")] | .[0].id // empty')
@@ -319,9 +325,10 @@ for domain in build marketing ops; do   # substitute actual domain list
     board_id=$(monotask board create --space "$space_id" "$canonical" --json | jq -r '.id // empty')
     [ -z "$board_id" ] && { echo "ERROR: Failed to create $canonical board"; exit 1; }
     monotask space boards add "$space_id" "$board_id" >/dev/null 2>&1 || true
-    todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id')
-    doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id')
-    done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id')
+    todo_col=$(monotask column create "$board_id" "Todo"  --json | jq -r '.id // empty')
+    doing_col=$(monotask column create "$board_id" "Doing" --json | jq -r '.id // empty')
+    done_col=$(monotask column create "$board_id" "Done"  --json | jq -r '.id // empty')
+    [ -z "$todo_col" ] && { echo "ERROR: Failed to create Todo column for $canonical"; exit 1; }
   fi
   state_patch=$(echo "$state_patch" | jq \
     --arg d "$domain" --arg b "$board_id" \
