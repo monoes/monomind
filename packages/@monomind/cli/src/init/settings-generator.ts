@@ -254,6 +254,17 @@ function generateHooksConfig(config: HooksConfig, graphify = true): object {
           },
         ],
       },
+      // Grep/Glob → monograph_query intercept (saves tokens vs full scan)
+      {
+        matcher: 'Grep|Glob',
+        hooks: [
+          {
+            type: 'command',
+            command: hookHandlerCmd('pre-search'),
+            timeout: 4000,
+          },
+        ],
+      },
     ];
   }
 
@@ -277,6 +288,28 @@ function generateHooksConfig(config: HooksConfig, graphify = true): object {
             type: 'command',
             command: hookHandlerCmd('post-bash'),
             timeout: config.timeout,
+          },
+        ],
+      },
+      // Read → graph neighbor footer
+      {
+        matcher: 'Read',
+        hooks: [
+          {
+            type: 'command',
+            command: hookHandlerCmd('post-read'),
+            timeout: 4000,
+          },
+        ],
+      },
+      // monograph_* tool calls → telemetry counter
+      {
+        matcher: 'mcp__monomind__monograph_.*',
+        hooks: [
+          {
+            type: 'command',
+            command: hookHandlerCmd('post-graph-tool'),
+            timeout: 2000,
           },
         ],
       },
