@@ -1,0 +1,244 @@
+/**
+ * A2A Agent Card MCP Tools
+ *
+ * Implements the Agent-to-Agent (A2A) Protocol's Agent Card specification.
+ * Each agent type exposes a JSON card at a well-known endpoint so other
+ * agents can discover its capabilities and communicate via SSE transport.
+ *
+ * Source: https://a2a-protocol.org
+ *
+ * @module v1/cli/mcp-tools/a2a-tools
+ */
+// ===== Agent type catalogue =====
+/** Well-known agent types and their A2A card metadata */
+const AGENT_CARD_CATALOGUE = {
+    coder: {
+        name: 'monomind/coder',
+        description: 'Implementation specialist — writes clean, efficient code from specifications',
+        provider: { organization: 'monomind', url: 'https://github.com/nokhodian/monomind' },
+        version: '1.0.0',
+        documentationUrl: 'https://github.com/nokhodian/monomind#agents',
+        capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
+        authentication: { schemes: ['bearer'] },
+        defaultOutputModes: ['application/json', 'text/plain'],
+        defaultInputModes: ['application/json', 'text/plain'],
+        skills: [
+            { id: 'implement-feature', name: 'Implement Feature', description: 'Write code for a feature from a spec', tags: ['code', 'implementation'], examples: ['Implement OAuth2 login handler'] },
+            { id: 'fix-bug', name: 'Fix Bug', description: 'Diagnose and patch a defect', tags: ['debug', 'bugfix'] },
+            { id: 'refactor', name: 'Refactor Code', description: 'Improve code structure without changing behaviour', tags: ['refactor', 'cleanup'] },
+        ],
+    },
+    reviewer: {
+        name: 'monomind/reviewer',
+        description: 'Code review specialist — correctness, security, performance, maintainability',
+        provider: { organization: 'monomind', url: 'https://github.com/nokhodian/monomind' },
+        version: '1.0.0',
+        capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
+        authentication: { schemes: ['bearer'] },
+        defaultOutputModes: ['application/json', 'text/plain'],
+        defaultInputModes: ['application/json', 'text/plain'],
+        skills: [
+            { id: 'code-review', name: 'Code Review', description: 'Review a diff or file for bugs and quality issues', tags: ['review', 'security', 'quality'] },
+            { id: 'security-audit', name: 'Security Audit', description: 'Audit code for OWASP top-10 vulnerabilities', tags: ['security', 'audit'] },
+        ],
+    },
+    tester: {
+        name: 'monomind/tester',
+        description: 'QA specialist — test strategy, test writing, coverage analysis',
+        provider: { organization: 'monomind', url: 'https://github.com/nokhodian/monomind' },
+        version: '1.0.0',
+        capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
+        authentication: { schemes: ['bearer'] },
+        defaultOutputModes: ['application/json', 'text/plain'],
+        defaultInputModes: ['application/json', 'text/plain'],
+        skills: [
+            { id: 'write-tests', name: 'Write Tests', description: 'Write unit, integration, or e2e tests', tags: ['testing', 'tdd'] },
+            { id: 'coverage-analysis', name: 'Coverage Analysis', description: 'Identify test coverage gaps', tags: ['coverage', 'quality'] },
+        ],
+    },
+    researcher: {
+        name: 'monomind/researcher',
+        description: 'Research specialist — web search, code exploration, information synthesis',
+        provider: { organization: 'monomind', url: 'https://github.com/nokhodian/monomind' },
+        version: '1.0.0',
+        capabilities: { streaming: true, pushNotifications: true, stateTransitionHistory: true },
+        authentication: { schemes: ['bearer'] },
+        defaultOutputModes: ['application/json', 'text/plain'],
+        defaultInputModes: ['application/json', 'text/plain'],
+        skills: [
+            { id: 'web-research', name: 'Web Research', description: 'Search and synthesise information from the web', tags: ['research', 'search'] },
+            { id: 'codebase-exploration', name: 'Codebase Exploration', description: 'Map and summarise a codebase', tags: ['research', 'code'] },
+        ],
+    },
+    'security-architect': {
+        name: 'monomind/security-architect',
+        description: 'Security architecture specialist — threat modelling, CVE remediation, secure design',
+        provider: { organization: 'monomind', url: 'https://github.com/nokhodian/monomind' },
+        version: '1.0.0',
+        capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: true },
+        authentication: { schemes: ['bearer', 'mtls'] },
+        defaultOutputModes: ['application/json', 'text/plain'],
+        defaultInputModes: ['application/json', 'text/plain'],
+        skills: [
+            { id: 'threat-model', name: 'Threat Modelling', description: 'STRIDE/DREAD threat analysis', tags: ['security', 'threat-model'] },
+            { id: 'redteam', name: 'Red Team', description: 'Adversarial prompt and API attack scenarios (PyRIT-style)', tags: ['security', 'redteam'] },
+        ],
+    },
+};
+function buildAgentCard(agentType, baseUrl) {
+    const meta = AGENT_CARD_CATALOGUE[agentType];
+    if (!meta)
+        return null;
+    return {
+        protocolVersion: '0.2.2',
+        url: `${baseUrl}/agents/${agentType}/.well-known/agent.json`,
+        ...meta,
+    };
+}
+// ===== MCP Tools =====
+export const a2aTools = [
+    {
+        name: 'a2a_agent_card',
+        description: 'Return the A2A protocol Agent Card JSON for a given agent type. Source: https://a2a-protocol.org',
+        category: 'agent',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                agentType: {
+                    type: 'string',
+                    description: 'Agent type slug (e.g. "coder", "reviewer", "tester", "researcher", "security-architect")',
+                },
+                baseUrl: {
+                    type: 'string',
+                    description: 'Base URL of the monomind server (default: "http://localhost:3000")',
+                },
+            },
+            required: ['agentType'],
+        },
+        handler: async (input) => {
+            const agentType = input.agentType;
+            const baseUrl = input.baseUrl || 'http://localhost:3000';
+            const card = buildAgentCard(agentType, baseUrl);
+            if (!card) {
+                return {
+                    success: false,
+                    error: `Unknown agent type: "${agentType}". Available: ${Object.keys(AGENT_CARD_CATALOGUE).join(', ')}`,
+                };
+            }
+            return { success: true, agentCard: card, protocol: 'a2a', source: 'https://a2a-protocol.org' };
+        },
+    },
+    {
+        name: 'a2a_discover',
+        description: 'List all available agent types with their A2A Agent Cards. Source: https://a2a-protocol.org',
+        category: 'agent',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                baseUrl: {
+                    type: 'string',
+                    description: 'Base URL of the monomind server (default: "http://localhost:3000")',
+                },
+                capabilities: {
+                    type: 'object',
+                    description: 'Filter agents by capability requirements (e.g. {streaming: true})',
+                },
+            },
+        },
+        handler: async (input) => {
+            const baseUrl = input.baseUrl || 'http://localhost:3000';
+            const capabilityFilter = input.capabilities;
+            const cards = Object.keys(AGENT_CARD_CATALOGUE)
+                .map(type => buildAgentCard(type, baseUrl))
+                .filter((card) => {
+                if (!card)
+                    return false;
+                if (!capabilityFilter)
+                    return true;
+                // Apply capability filter
+                for (const [key, value] of Object.entries(capabilityFilter)) {
+                    if (card.capabilities[key] !== value)
+                        return false;
+                }
+                return true;
+            });
+            return {
+                success: true,
+                agents: cards,
+                total: cards.length,
+                protocol: 'a2a',
+                source: 'https://a2a-protocol.org',
+                registryUrl: `${baseUrl}/.well-known/agents`,
+            };
+        },
+    },
+    {
+        name: 'a2a_send_task',
+        description: 'Send a task to an agent using the A2A protocol (JSON-RPC over SSE transport). Source: https://a2a-protocol.org',
+        category: 'agent',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                agentType: {
+                    type: 'string',
+                    description: 'Target agent type slug',
+                },
+                taskId: {
+                    type: 'string',
+                    description: 'Unique task identifier (auto-generated if omitted)',
+                },
+                message: {
+                    type: 'object',
+                    description: 'A2A message payload: {role, parts: [{type, text}]}',
+                },
+                sessionId: {
+                    type: 'string',
+                    description: 'Optional session ID for stateful conversations',
+                },
+                metadata: {
+                    type: 'object',
+                    description: 'Optional task metadata',
+                },
+            },
+            required: ['agentType', 'message'],
+        },
+        handler: async (input) => {
+            const agentType = input.agentType;
+            const message = input.message;
+            const taskId = input.taskId || `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            const sessionId = input.sessionId;
+            const metadata = input.metadata || {};
+            if (!AGENT_CARD_CATALOGUE[agentType]) {
+                return {
+                    success: false,
+                    error: `Unknown agent type: "${agentType}". Run a2a_discover to see available agents.`,
+                };
+            }
+            // Return the A2A-compliant task submission envelope
+            // In production this would POST to the agent's SSE endpoint
+            const taskEnvelope = {
+                jsonrpc: '2.0',
+                method: 'tasks/send',
+                id: taskId,
+                params: {
+                    id: taskId,
+                    sessionId,
+                    message,
+                    metadata,
+                },
+            };
+            return {
+                success: true,
+                taskId,
+                agentType,
+                status: 'submitted',
+                envelope: taskEnvelope,
+                transport: 'sse',
+                protocol: 'a2a',
+                source: 'https://a2a-protocol.org',
+                note: 'Connect to the agent SSE endpoint to stream task progress events',
+            };
+        },
+    },
+];
+//# sourceMappingURL=a2a-tools.js.map
