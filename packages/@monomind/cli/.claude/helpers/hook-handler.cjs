@@ -25,6 +25,103 @@ function _requireMonograph() {
   return null;
 }
 
+// ── Monograph LLM-context helpers ──────────────────────────────────────────────
+// Used by route (pre-resolve), pre-search (Grep/Glob redirect), and post-read
+// (neighbor footer). All calls are best-effort; failures are silent.
+
+function _openMonographDb() {
+  try {
+    var dbPath = path.join(CWD, '.monomind', 'monograph.db');
+    if (!fs.existsSync(dbPath)) return null;
+    var mod = _requireMonograph();
+    if (!mod || !mod.openDb) return null;
+    return mod.openDb(dbPath);
+  } catch (e) { return null; }
+}
+
+function getMonographSuggestions(taskText, limit) {
+  if (!taskText || typeof taskText !== "string") return [];
+  var db = _openMonographDb();
+  if (!db) return [];
+  try {
+    var words = String(taskText).toLowerCase().match(/[a-z][a-z0-9_-]{3,}/g) || [];
+    var stop = { "this":1,"that":1,"with":1,"from":1,"have":1,"into":1,"their":1,"what":1,"when":1,"where":1,"which":1,"should":1,"would":1,"could":1,"make":1,"just":1,"also":1,"them":1,"they":1,"will":1,"been":1,"were":1,"because":1,"about":1,"does":1,"work":1 };
+    var uniq = {};
+    for (var i = 0; i < words.length; i++) if (!stop[words[i]]) uniq[words[i]] = 1;
+    var keys = Object.keys(uniq).slice(0, 8);
+    if (keys.length === 0) return [];
+
+    var ftsQuery = keys.map(function(k){ return '"' + k.replace(/"/g, "") + '"'; }).join(" OR ");
+    var lim = Math.max(1, limit || 5);
+    var rows = [];
+    try {
+      rows = db.prepare(
+        "SELECT n.id, n.name, n.label, n.file_path AS file, " +
+        "(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg " +
+        "FROM nodes_fts f JOIN nodes n ON f.rowid = n.rowid " +
+        "WHERE nodes_fts MATCH ? AND n.file_path IS NOT NULL AND n.file_path != '' " +
+        "AND n.label NOT IN ('Concept') " +
+        "ORDER BY deg DESC LIMIT ?"
+      ).all(ftsQuery, lim);
+    } catch (e) {
+      var likeFrag = keys.map(function(){ return "lower(n.name) LIKE ?"; }).join(" OR ");
+      var likeArgs = keys.map(function(k){ return "%" + k + "%"; });
+      var stmt = db.prepare(
+        "SELECT n.id, n.name, n.label, n.file_path AS file, " +
+        "(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg " +
+        "FROM nodes n WHERE (" + likeFrag + ") AND n.file_path IS NOT NULL AND n.file_path != '' " +
+        "AND n.label NOT IN ('Concept') " +
+        "ORDER BY deg DESC LIMIT ?"
+      );
+      rows = stmt.all.apply(stmt, likeArgs.concat([lim]));
+    }
+    return rows || [];
+  } catch (e) { return []; }
+  finally { try { db.close(); } catch (_) {} }
+}
+
+function getMonographNeighbors(filePath) {
+  if (!filePath) return null;
+  var db = _openMonographDb();
+  if (!db) return null;
+  try {
+    var rel = filePath;
+    if (filePath.indexOf(CWD) === 0) rel = filePath.slice(CWD.length + 1);
+    var node = db.prepare(
+      "SELECT id, name FROM nodes WHERE label='File' AND (file_path=? OR file_path=? OR name=? OR name=?) LIMIT 1"
+    ).get(filePath, rel, filePath, rel);
+    if (!node) return null;
+
+    var imports = db.prepare(
+      "SELECT DISTINCT n.name FROM edges e JOIN nodes n ON e.target_id = n.id " +
+      "WHERE e.source_id=? AND e.relation IN ('IMPORTS','CALLS','DEPENDS_ON','CONTAINS','DEFINES') " +
+      "AND n.file_path IS NOT NULL AND n.file_path != '' LIMIT 6"
+    ).all(node.id).map(function(r){ return r.name; });
+    var importedBy = db.prepare(
+      "SELECT DISTINCT n.name FROM edges e JOIN nodes n ON e.source_id = n.id " +
+      "WHERE e.target_id=? AND e.relation IN ('IMPORTS','CALLS','DEPENDS_ON','CONTAINS','DEFINES') " +
+      "AND n.file_path IS NOT NULL AND n.file_path != '' LIMIT 6"
+    ).all(node.id).map(function(r){ return r.name; });
+
+    return { imports: imports, importedBy: importedBy };
+  } catch (e) { return null; }
+  finally { try { db.close(); } catch (_) {} }
+}
+
+function _recordGraphTelemetry(event) {
+  try {
+    var metricsDir = path.join(CWD, ".monomind", "metrics");
+    var f = path.join(metricsDir, "graph-usage.json");
+    fs.mkdirSync(metricsDir, { recursive: true });
+    var d = {};
+    try { d = JSON.parse(fs.readFileSync(f, "utf-8")); } catch (e) {}
+    if (typeof d !== "object" || d === null) d = {};
+    d[event] = (d[event] || 0) + 1;
+    d.lastUpdated = Date.now();
+    fs.writeFileSync(f, JSON.stringify(d));
+  } catch (e) { /* non-fatal */ }
+}
+
 function safeRequire(modulePath) {
   try {
     if (fs.existsSync(modulePath)) {
@@ -691,7 +788,21 @@ const handlers = {
           } catch (e) { /* ignore */ }
         }
         if (nodeCount > 100) {
-          console.log('\n[MONOGRAPH] ' + nodeCount + ' nodes indexed. For this task, call mcp__monomind__monograph_suggest first to find the right files without grepping.');
+          // Pre-resolve top-5 relevant files for the user's prompt — the LLM
+          // sees the answer inline instead of being told to call a tool.
+          var suggestions = getMonographSuggestions(prompt, 5);
+          if (suggestions.length > 0) {
+            console.log('\n[MONOGRAPH] ' + nodeCount + ' nodes indexed. Top files for this task (pre-resolved from graph):');
+            for (var si = 0; si < suggestions.length; si++) {
+              var s = suggestions[si];
+              console.log('  · ' + s.name + ' [' + s.label + '] — ' + (s.file || '') + ' (deg ' + s.deg + ')');
+            }
+            console.log('  Use mcp__monomind__monograph_query / monograph_impact for deeper drill-down.');
+            _recordGraphTelemetry('preresolve_hit');
+          } else {
+            console.log('\n[MONOGRAPH] ' + nodeCount + ' nodes indexed. Call mcp__monomind__monograph_suggest first to find relevant files without grepping.');
+            _recordGraphTelemetry('preresolve_miss');
+          }
         }
       } catch(e) {}
 
@@ -786,6 +897,52 @@ const handlers = {
       }
     }
     console.log('[OK] Command validated');
+  },
+
+  // Intercept Grep/Glob: run monograph_query on the same pattern first and
+  // surface graph hits so the LLM can read file:line directly without paying
+  // for a full Grep scan when the graph already knows the answer.
+  'pre-search': () => {
+    try {
+      _recordGraphTelemetry(toolName === 'Grep' ? 'grep_call' : 'glob_call');
+      var pattern = toolInput.pattern || toolInput.path || '';
+      if (typeof pattern !== 'string' || pattern.length < 3) return;
+      var clean = pattern.replace(/[\\^$.*+?()\[\]{}|]/g, ' ').trim();
+      if (clean.length < 3) return;
+      var suggestions = getMonographSuggestions(clean, 5);
+      if (suggestions.length === 0) return;
+      console.log('[MONOGRAPH_HIT] Graph already knows ' + suggestions.length + ' file(s) matching "' + clean.slice(0, 40) + '":');
+      for (var i = 0; i < suggestions.length; i++) {
+        var s = suggestions[i];
+        console.log('  · ' + s.name + ' [' + s.label + '] — ' + (s.file || '') + ' (deg ' + s.deg + ')');
+      }
+      console.log('  Prefer mcp__monomind__monograph_query for symbol lookup (file:line, no scan).');
+    } catch (e) { /* non-fatal */ }
+  },
+
+  // After Read: append a graph neighbor footer so the LLM gets free
+  // architectural context — what imports this file and what it imports.
+  'post-read': () => {
+    try {
+      var filePath = toolInput.file_path || toolInput.path || '';
+      if (!filePath || typeof filePath !== 'string') return;
+      var n = getMonographNeighbors(filePath);
+      if (!n) return;
+      var parts = [];
+      if (n.importedBy.length > 0) parts.push('imported-by: ' + n.importedBy.slice(0, 4).join(', '));
+      if (n.imports.length > 0)    parts.push('imports: '    + n.imports.slice(0, 4).join(', '));
+      if (parts.length === 0) return;
+      console.log('[MONOGRAPH_NEIGHBORS] ' + parts.join(' · '));
+    } catch (e) { /* non-fatal */ }
+  },
+
+  // PostToolUse for monograph_* — increment graph usage counter for telemetry.
+  'post-graph-tool': () => {
+    try {
+      if (toolName && toolName.indexOf('monograph_') !== -1) {
+        _recordGraphTelemetry('monograph_call');
+      }
+    } catch (e) {}
   },
 
   'post-edit': async () => {
@@ -998,9 +1155,12 @@ const handlers = {
             var mgNodeCount = mgDb.prepare('SELECT COUNT(*) AS c FROM nodes').get().c;
             var mgEdgeCount = mgDb.prepare('SELECT COUNT(*) AS c FROM edges').get().c;
             var mgGodNodes = mgDb.prepare(
-              'SELECT n.name, n.label, n.file_path, ' +
-              '(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg ' +
-              'FROM nodes n ORDER BY deg DESC LIMIT 12'
+              "SELECT n.name, n.label, n.file_path, " +
+              "(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg " +
+              "FROM nodes n " +
+              "WHERE n.label NOT IN ('Concept') " +
+              "AND n.file_path IS NOT NULL AND n.file_path != '' " +
+              "ORDER BY deg DESC LIMIT 12"
             ).all();
             if (mgGodNodes.length > 0) {
               var mgGodStr = mgGodNodes.slice(0, 8).map(function(n) {

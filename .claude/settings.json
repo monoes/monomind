@@ -45,6 +45,16 @@
             "timeout": 5000
           }
         ]
+      },
+      {
+        "matcher": "Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" pre-search",
+            "timeout": 4000
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -65,6 +75,26 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/loop-tracker.cjs\"",
             "timeout": 3000
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" post-read",
+            "timeout": 4000
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__monomind__monograph_.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" post-graph-tool",
+            "timeout": 2000
           }
         ]
       }
