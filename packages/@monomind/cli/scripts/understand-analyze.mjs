@@ -134,26 +134,42 @@ const ANTHROPIC_URL     = 'https://api.anthropic.com/v1/messages';
 const MODEL             = 'claude-haiku-4-5-20251001'; // cheapest for bulk analysis
 
 async function callClaude(systemPrompt, userPrompt, maxTokens = 1024) {
-  const resp = await fetch(ANTHROPIC_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    }),
+  const body = JSON.stringify({
+    model: MODEL,
+    max_tokens: maxTokens,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }],
   });
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Anthropic API ${resp.status}: ${text.slice(0, 200)}`);
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-api-key': ANTHROPIC_API_KEY,
+    'anthropic-version': '2023-06-01',
+  };
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const resp = await fetch(ANTHROPIC_URL, { method: 'POST', headers, body });
+      if (resp.ok) {
+        const data = await resp.json();
+        return data.content?.[0]?.text ?? '';
+      }
+      // Retry on 429 (rate limit) and 5xx; fail fast on 4xx
+      if (resp.status === 429 || resp.status >= 500) {
+        const retryAfter = parseInt(resp.headers.get('retry-after') || '0', 10);
+        const backoff = retryAfter > 0 ? retryAfter * 1000 : Math.min(2 ** attempt * 1000, 8000);
+        await new Promise(r => setTimeout(r, backoff));
+        lastError = new Error(`Anthropic API ${resp.status} (attempt ${attempt + 1}/3)`);
+        continue;
+      }
+      const text = await resp.text();
+      throw new Error(`Anthropic API ${resp.status}: ${text.slice(0, 200)}`);
+    } catch (e) {
+      lastError = e;
+      if (attempt === 2) break;
+      await new Promise(r => setTimeout(r, Math.min(2 ** attempt * 1000, 4000)));
+    }
   }
-  const data = await resp.json();
-  return data.content?.[0]?.text ?? '';
+  throw lastError || new Error('Anthropic API failed after 3 attempts');
 }
 
 function parseJson(text) {
@@ -285,14 +301,25 @@ const isIgnoredByUser = makeIgnoreMatcher(_ignorePatterns);
 
 // ── Incremental mode helpers (ported from staleness.ts) ──────────────────────
 function getChangedFiles(dir, lastHash) {
-  try {
-    const out = execFileSync('git', ['diff', `${lastHash}..HEAD`, '--name-only'], {
-      cwd: dir, encoding: 'utf-8',
-    });
-    return out.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  } catch {
-    return [];
+  const files = new Set();
+  function runGit(args) {
+    try {
+      const out = execFileSync('git', args, { cwd: dir, encoding: 'utf-8' });
+      for (const line of out.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        // `git status --porcelain` lines look like " M path/to/file" or "?? path"
+        // Strip the leading status code if present
+        const path = trimmed.length > 3 && trimmed[2] === ' ' ? trimmed.slice(3) : trimmed;
+        files.add(path);
+      }
+    } catch { /* git not available or no diff */ }
   }
+  // Committed changes since last run
+  runGit(['diff', `${lastHash}..HEAD`, '--name-only']);
+  // Uncommitted working tree changes (staged + unstaged + untracked)
+  runGit(['status', '--porcelain']);
+  return [...files];
 }
 
 function getCurrentCommitHash(dir) {
@@ -463,13 +490,20 @@ function buildOnboardingGuide(graphJson) {
     }
   }
 
+  const FILE_MAP_LIMIT = 50;
+  const HOTSPOT_LIMIT = 20;
+
   const fileNodes = nodes.filter(n => n.type === 'file' && n.filePath && n.summary);
   if (fileNodes.length > 0) {
     lines.push('## File Map');
     lines.push('');
+    if (fileNodes.length > FILE_MAP_LIMIT) {
+      lines.push(`Showing ${FILE_MAP_LIMIT} of ${fileNodes.length} analyzed files. See \`.understand/knowledge-graph.json\` for the full list.`);
+      lines.push('');
+    }
     lines.push('| File | Purpose | Complexity |');
     lines.push('|------|---------|------------|');
-    for (const node of fileNodes) {
+    for (const node of fileNodes.slice(0, FILE_MAP_LIMIT)) {
       const summary = (node.summary || '').replace(/\|/g, '\\|');
       lines.push(`| \`${node.filePath}\` | ${summary} | ${node.complexity || 'moderate'} |`);
     }
@@ -481,8 +515,12 @@ function buildOnboardingGuide(graphJson) {
     lines.push('## Complexity Hotspots');
     lines.push('');
     lines.push('These components are the most complex and deserve extra attention:');
+    if (complexNodes.length > HOTSPOT_LIMIT) {
+      lines.push('');
+      lines.push(`Showing top ${HOTSPOT_LIMIT} of ${complexNodes.length} complex components.`);
+    }
     lines.push('');
-    for (const node of complexNodes) {
+    for (const node of complexNodes.slice(0, HOTSPOT_LIMIT)) {
       lines.push(`- **${node.name}** (${node.type}): ${node.summary || ''}`);
     }
     lines.push('');
@@ -535,7 +573,18 @@ async function main() {
     process.exit(1);
   }
 
-  const db = mg.openDb(dbPathArg);
+  // Retry openDb against SQLite BUSY when monograph is building in the background
+  let db;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try { db = mg.openDb(dbPathArg); break; }
+    catch (e) {
+      if (attempt === 4) throw e;
+      const msg = String(e?.message || e);
+      if (!/busy|locked/i.test(msg)) throw e;
+      console.log(`[understand] monograph.db busy, retrying in ${(attempt + 1) * 2}s...`);
+      await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
+    }
+  }
 
   // Ensure properties column exists
   try { db.prepare(`ALTER TABLE nodes ADD COLUMN properties TEXT`).run(); } catch {}
