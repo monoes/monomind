@@ -828,6 +828,43 @@ function getTriggerStats() {
   } catch { return { triggers: 0, agents: 0 }; }
 }
 
+// Monograph knowledge graph stats
+// Sources, in priority order:
+//   1. .monomind/graph/stats.json     — explicit cached stats
+//   2. .monomind/monograph.db         — live SQLite (read counts via sqlite3)
+//   3. .monomind/graph/graph.json     — legacy JSON dump
+function getGraphifyStats() {
+  const statsPath = path.join(CWD, '.monomind', 'graph', 'stats.json');
+  const dbPath    = path.join(CWD, '.monomind', 'monograph.db');
+  const graphPath = path.join(CWD, '.monomind', 'graph', 'graph.json');
+
+  try {
+    const s = readJSON(statsPath);
+    if (s && s.nodes !== undefined) return { nodes: s.nodes, edges: s.edges || 0, exists: true };
+  } catch { /* ignore */ }
+
+  try {
+    if (fs.existsSync(dbPath)) {
+      const out = safeExec(\`sqlite3 "\${dbPath}" "SELECT (SELECT COUNT(*) FROM nodes), (SELECT COUNT(*) FROM edges);"\`, 1000);
+      if (out) {
+        const [n, e] = out.split('|').map(v => parseInt(v, 10) || 0);
+        if (n > 0) return { nodes: n, edges: e, exists: true };
+      }
+    }
+  } catch { /* ignore */ }
+
+  try {
+    const stat = safeStat(graphPath);
+    if (stat && stat.size < 10 * 1024 * 1024) {
+      const g = JSON.parse(fs.readFileSync(graphPath, 'utf-8'));
+      const nodes = Array.isArray(g.nodes) ? g.nodes.length : 0;
+      const edges = (Array.isArray(g.edges) ? g.edges : (Array.isArray(g.links) ? g.links : [])).length;
+      return { nodes, edges, exists: true };
+    }
+  } catch { /* ignore */ }
+  return { nodes: 0, edges: 0, exists: false };
+}
+
 function getSIBudget() {
   const SI_LIMIT = 1500;
   const siPath = path.join(CWD, '.agents', 'shared_instructions.md');
@@ -961,11 +998,18 @@ function generateDashboard() {
     ? \`\${x.gold}\${progress.patternsLearned >= 1000 ? (progress.patternsLearned / 1000).toFixed(1) + 'k' : progress.patternsLearned} patterns\${x.reset}\`
     : \`\${x.slate}0 patterns\${x.reset}\`;
 
+  // Graph (monograph)
+  const graph = getGraphifyStats();
+  const graphStr = graph.exists
+    ? \`\${x.sky}🔗 \${x.bold}\${graph.nodes}\${x.reset}\${x.slate} nodes · \${x.reset}\${x.sky}\${x.bold}\${graph.edges}\${x.reset}\${x.slate} edges\${x.reset}\`
+    : \`\${x.slate}🔗 no graph\${x.reset}\`;
+
   lines.push(
     \`\${x.purple}💡  INTEL\${x.reset}    \` +
     \`\${intellCol}\${intellBar} \${x.bold}\${system.intelligencePct}%\${x.reset}   \${DIV}   \` +
     \`\${knowStr}\${skillStr}   \${DIV}   \` +
-    patStr
+    \`\${patStr}   \${DIV}   \` +
+    graphStr
   );
   lines.push(SEP);
 
