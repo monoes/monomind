@@ -696,6 +696,78 @@ function getGraphifyStats() {
   return { nodes: 0, edges: 0, exists: false };
 }
 
+// Graph freshness — compare graph build time against most recent commit
+// Returns: { commitsBehind, stale } where stale = >5 commits or never built
+function getGraphFreshness() {
+  const lockPath = path.join(CWD, '.monomind', 'graph', '.rebuild-lock');
+  const dbPath   = path.join(CWD, '.monomind', 'monograph.db');
+
+  let buildMs = 0;
+  try {
+    const lockStat = safeStat(lockPath);
+    const dbStat   = safeStat(dbPath);
+    buildMs = Math.max(lockStat?.mtimeMs || 0, dbStat?.mtimeMs || 0);
+  } catch { /* ignore */ }
+  if (!buildMs) return { commitsBehind: -1, stale: true, fresh: false };
+
+  // Count commits since the graph was last built
+  const buildIso = new Date(buildMs).toISOString();
+  const out = safeExec(`git rev-list --count --since='${buildIso}' HEAD 2>/dev/null`, 1500);
+  const commitsBehind = parseInt(out, 10) || 0;
+  return {
+    commitsBehind,
+    stale: commitsBehind > 5,
+    fresh: commitsBehind === 0,
+  };
+}
+
+// Active loops — scan .monomind/loops/*.json
+// Filters: skip *-hil*.json, skip stale (>6h since lastRunAt)
+function getLoopStatus() {
+  const loopsDir = path.join(CWD, '.monomind', 'loops');
+  if (!fs.existsSync(loopsDir)) return { count: 0, loops: [] };
+  const STALE_MS = 6 * 60 * 60 * 1000;
+  const now = Date.now();
+  let loops = [];
+  try {
+    const files = fs.readdirSync(loopsDir).filter(f =>
+      f.endsWith('.json') && !f.includes('-hil') && !f.endsWith('.stop'));
+    for (const f of files) {
+      const d = readJSON(path.join(loopsDir, f));
+      if (!d || !d.command) continue;
+      const last = d.lastRunAt || d.nextRunAt || d.startedAt || 0;
+      if (last && (now - last) > STALE_MS) continue;
+      loops.push({
+        cmd: d.command.replace(/^\//,''),
+        type: d.type || 'repeat',
+        rep: d.currentRep || 0,
+        max: d.maxReps || 0,
+        status: d.status || 'running',
+      });
+    }
+  } catch { /* ignore */ }
+  return { count: loops.length, loops };
+}
+
+// HIL pending — count <id>-hil.md files with no human response yet
+function getHILPending() {
+  const loopsDir = path.join(CWD, '.monomind', 'loops');
+  if (!fs.existsSync(loopsDir)) return { pending: 0 };
+  let pending = 0;
+  try {
+    const files = fs.readdirSync(loopsDir).filter(f => f.endsWith('-hil.md'));
+    for (const f of files) {
+      try {
+        const txt = fs.readFileSync(path.join(loopsDir, f), 'utf-8');
+        // A response is a line starting with "> " followed by non-whitespace
+        const answered = /^[ \t]*>[ \t]+\S/m.test(txt);
+        if (!answered) pending++;
+      } catch { /* ignore */ }
+    }
+  } catch { /* ignore */ }
+  return { pending };
+}
+
 // Memory Palace stats — drawers.jsonl + kg.json (the real persistent memory)
 function getMemoryPalaceStats() {
   const palaceDir = path.join(CWD, '.monomind', 'palace');
@@ -1130,158 +1202,68 @@ function generateDashboard() {
   lines.push(hdr);
   lines.push(SEP);
 
-  // ── Row 1: Knowledge & Graphify ──────────────────────────────
-  const knowStr = knowledge.chunks > 0
-    ? `${x.teal}📚 ${x.bold}${knowledge.chunks}${x.reset}${x.slate} chunks${x.reset}`
-    : `${x.slate}📚 no chunks${x.reset}`;
-
-  const skillStr = knowledge.skills > 0
-    ? `  ${x.mint}✦ ${knowledge.skills} skills${x.reset}`
-    : '';
-
-  const patStr = progress.patternsLearned > 0
-    ? `${x.gold}${progress.patternsLearned >= 1000 ? (progress.patternsLearned / 1000).toFixed(1) + 'k' : progress.patternsLearned} patterns${x.reset}`
-    : `${x.slate}0 patterns${x.reset}`;
-
-  const gf = getGraphifyStats();
-  const gfStr = gf.exists
-    ? `${x.sky}🔗 ${x.bold}${gf.nodes}${x.reset}${x.slate} nodes · ${x.reset}${x.sky}${x.bold}${gf.edges}${x.reset}${x.slate} edges${x.reset}`
-    : `${x.slate}🔗 no graph${x.reset}`;
-
-  lines.push(
-    `${x.purple}💡  INTEL${x.reset}    ` +
-    `${knowStr}${skillStr}   ${DIV}   ` +
-    `${patStr}   ${DIV}   ` +
-    gfStr
-  );
-  lines.push(SEP);
-
-  // ── Row 2: Agents & Triggers ──────────────────────────────────
-  const agentCol  = swarm.activeAgents > 0 ? x.green : x.slate;
-  const hookCol   = hooks.enabled > 0      ? x.mint  : x.slate;
-
-  // Triggers (Task 32)
-  const trigStr = triggers.triggers > 0
-    ? `${x.mint}🎯 ${x.bold}${triggers.triggers}${x.reset}${x.slate} triggers · ${triggers.agents} agents${x.reset}`
-    : `${x.slate}🎯 no triggers${x.reset}`;
-
-  // Active agent badge
-  let agentBadge;
+  // ── Row 1: Active agent + Loop status ────────────────────────
+  let agentStr;
   if (activeAgent) {
     const isExtras = activeAgent.slug === 'extras' || activeAgent.name === 'Extras';
     if (isExtras && activeAgent.extrasMatches && activeAgent.extrasMatches.length > 0) {
-      // Show specific specialist names instead of generic "Extras"
-      const specialists = activeAgent.extrasMatches.slice(0, 3);
-      const badgeParts = specialists.map(s => `${x.sky}👤 ${x.bold}${s.name}${x.reset}`);
-      agentBadge = badgeParts.join(`${x.slate}  ${x.reset}`);
+      const specialists = activeAgent.extrasMatches.slice(0, 3).map(s => s.name).join(', ');
+      agentStr = `${x.sky}👤 ${x.bold}${specialists}${x.reset}`;
     } else if (isExtras) {
-      // "extras" with no specific matches — suppress
-      agentBadge = `${x.slate}👤 no agent routed${x.reset}`;
+      agentStr = `${x.slate}👤 no agent routed${x.reset}`;
     } else {
       const col  = activeAgent.activated ? x.green : x.sky;
-      const mark = activeAgent.activated ? '● ACTIVE' : '';
+      const mark = activeAgent.activated ? `${col}${x.bold}● ACTIVE${x.reset}  ` : '';
       const conf = activeAgent.activated ? '' : `  ${x.slate}${(activeAgent.confidence * 100).toFixed(0)}%${x.reset}`;
-      const cat  = activeAgent.category  ? `  ${x.slate}[${activeAgent.category}]${x.reset}` : '';
-      agentBadge = mark
-        ? `${col}${x.bold}${mark}${x.reset}  ${col}👤 ${x.bold}${activeAgent.name}${x.reset}${cat}${conf}`
-        : `${col}👤 ${x.bold}${activeAgent.name}${x.reset}${cat}${conf}`;
+      agentStr = `${mark}${col}👤 ${x.bold}${activeAgent.name}${x.reset}${conf}`;
     }
   } else {
-    agentBadge = `${x.slate}👤 no agent routed${x.reset}`;
+    agentStr = `${x.slate}👤 no agent routed${x.reset}`;
   }
 
-  // Swarm line: show active count, or "N ✓ idle" when recently used, or "idle" when never used
-  const swarmCountStr = swarm.activeAgents > 0
-    ? `${agentCol}${x.bold}${swarm.activeAgents}${x.reset}${x.slate}/${x.reset}${x.white}${swarm.maxAgents}${x.reset} agents`
-    : (swarm.lastActive || 0) > 0
-      ? `${x.slate}${swarm.lastActive}${x.reset}${x.slate}/${swarm.maxAgents} (${x.reset}${x.green}✓ done${x.slate})${x.reset}`
-      : `${x.slate}idle${x.reset}          `;
-  lines.push(
-    `${x.gold}🐝  SWARM${x.reset}    ` +
-    `${swarmCountStr}   ` +
-    `${hookCol}⚡ ${hooks.enabled}/${hooks.total} hooks${x.reset}   ${DIV}   ` +
-    `${trigStr}   ${DIV}   ` +
-    agentBadge
-  );
-  lines.push(SEP);
-
-  // ── Row 3: Security ──────────────────────────────────────────
-  const cveStatus = security.totalCves === 0
-    ? (security.status === 'NONE' ? `${x.slate}not scanned${x.reset}` : `${x.green}✔ clean${x.reset}`)
-    : `${x.coral}${security.cvesFixed}/${security.totalCves} fixed${x.reset}`;
-
-  lines.push(
-    `${x.purple}🛡️  SECURITY${x.reset}  ` +
-    `${sec.col}${sec.label}${x.reset}   ${DIV}   ` +
-    `CVE ${cveStatus}`
-  );
-  lines.push(SEP);
-
-  // ── Row 4: Memory & Tests ─────────────────────────────────────
-  const testCol  = tests.testFiles > 0 ? x.green : x.slate;
-  const memCol   = system.memoryMB > 200 ? x.orange : x.sky;
-
-  // Auto-memory files display
-  const memFileCol = autoMem.count > 0 ? x.purple : x.slate;
-  const memFileStr = autoMem.count > 0
-    ? `${memFileCol}${x.bold}${autoMem.count}${x.reset}${x.slate} memories${x.reset}`
-    : `${x.slate}no memories${x.reset}`;
-  const memTypeOrder = ['handoff', 'user', 'feedback', 'project', 'reference'];
-  const typeColors = { user: x.sky, feedback: x.gold, project: x.teal, reference: x.violet, handoff: x.coral };
-  const typeParts = memTypeOrder
-    .filter(t => autoMem.byType[t] > 0)
-    .map(t => `${typeColors[t] || x.slate}${autoMem.byType[t]}${t.slice(0,1)}${x.reset}`);
-  const kgStr = typeParts.length > 0 ? `  ${typeParts.join(' ')}` : '';
-
-  // Total memory size (palace + agentdb)
-  const totalSizeKB = agentdb.dbSizeKB + palace.palaceSizeKB;
-  const sizeDisp = totalSizeKB >= 1024
-    ? `${(totalSizeKB / 1024).toFixed(1)} MB` : `${totalSizeKB} KB`;
-
-  // HNSW tag only meaningful if vectors exist
-  const vecTotal = agentdb.vectorCount;
-  const hnswTag  = agentdb.hasHnsw ? `  ${x.green}⚡ HNSW${x.reset}` : '';
-
-  const chips = [];
-  if (integration.mcpServers.total > 0) {
-    const mc = integration.mcpServers.enabled === integration.mcpServers.total ? x.green
-             : integration.mcpServers.enabled > 0 ? x.gold : x.coral;
-    chips.push(`${mc}MCP ${integration.mcpServers.enabled}/${integration.mcpServers.total}${x.reset}`);
-  }
-  if (integration.hasDatabase) chips.push(`${x.green}DB ✔${x.reset}`);
-  if (integration.hasApi)      chips.push(`${x.green}API ✔${x.reset}`);
-  const integStr = chips.length ? chips.join('  ') : `${x.slate}none${x.reset}`;
-
-  lines.push(
-    `${x.teal}🗄️  MEMORY${x.reset}   ` +
-    `${memFileStr}${kgStr}${hnswTag}   ${DIV}   ` +
-    `${x.white}${sizeDisp}${x.reset}   ${DIV}   ` +
-    `${testCol}🧪 ${tests.testFiles} test files${x.reset}   ${DIV}   ` +
-    integStr
-  );
-  lines.push(SEP);
-
-  // ── Row 5: Context budget ─────────────────────────────────────
-  // SI budget (Task 23 monitor)
-  let siStr;
-  if (si) {
-    const siCol = si.pct > 100 ? x.coral : si.pct > 80 ? x.gold : x.green;
-    siStr = `${siCol}📄 SI ${si.pct}% budget${x.reset} ${x.dim}(${si.len}/${si.limit} chars)${x.reset}`;
+  const loopState = getLoopStatus();
+  let loopStr;
+  if (loopState.count > 0) {
+    const parts = loopState.loops.slice(0, 2).map(l => {
+      const status = l.status === 'hil:pending'
+        ? `${x.coral}⏳ HIL${x.reset}`
+        : `${x.green}⟳${x.reset}`;
+      const tag = l.type === 'tillend'
+        ? `${x.bold}${l.cmd}${x.reset}${x.slate} run ${l.rep}${x.reset}`
+        : `${x.bold}${l.cmd}${x.reset}${x.slate} ${l.rep}/${l.max}${x.reset}`;
+      return `${status} ${tag}`;
+    });
+    loopStr = `${x.gold}🔄${x.reset} ${parts.join(`${x.slate}  ·  ${x.reset}`)}`;
+    if (loopState.count > 2) loopStr += `${x.slate}  +${loopState.count - 2} more${x.reset}`;
   } else {
-    siStr = `${x.slate}📄 no shared instructions${x.reset}`;
+    loopStr = `${x.slate}🔄 no active loops${x.reset}`;
   }
 
-  let monthStr = '';
-  if (tokens) {
-    const mFmt = tokens.monthCost >= 100 ? `$${tokens.monthCost.toFixed(2)}` : tokens.monthCost >= 1 ? `$${tokens.monthCost.toFixed(3)}` : `$${tokens.monthCost.toFixed(4)}`;
-    monthStr = `   ${DIV}   ${x.gold}📈 ${x.bold}${mFmt}${x.reset}${x.slate} month · ${tokens.monthCalls} calls${x.reset}`;
+  lines.push(`${x.purple}🤖  AGENT${x.reset}    ${agentStr}   ${DIV}   ${loopStr}`);
+  lines.push(SEP);
+
+  // ── Row 2: Graph freshness + Pending HIL ─────────────────────
+  const gf = getGraphifyStats();
+  const freshness = getGraphFreshness();
+  let graphStr;
+  if (gf.exists) {
+    const nodesFmt = gf.nodes >= 1000 ? `${(gf.nodes / 1000).toFixed(0)}k` : `${gf.nodes}`;
+    const freshTag = freshness.fresh
+      ? `${x.green}● fresh${x.reset}`
+      : freshness.stale
+        ? `${x.coral}● ${freshness.commitsBehind} commits stale${x.reset}`
+        : `${x.gold}● ${freshness.commitsBehind} behind${x.reset}`;
+    graphStr = `${x.sky}🔗 ${x.bold}${nodesFmt}${x.reset}${x.slate} nodes${x.reset}  ${freshTag}`;
+  } else {
+    graphStr = `${x.slate}🔗 no graph${x.reset}`;
   }
-  lines.push(
-    `${x.slate}📋  CONTEXT${x.reset}  ` +
-    `${siStr}   ${DIV}   ` +
-    `${x.dim}💾 ${system.memoryMB} MB RAM${x.reset}` +
-    monthStr
-  );
+
+  const hil = getHILPending();
+  const hilStr = hil.pending > 0
+    ? `${x.coral}✨ ${x.bold}${hil.pending}${x.reset}${x.coral} HIL pending${x.reset}`
+    : `${x.slate}✨ no pending HIL${x.reset}`;
+
+  lines.push(`${x.teal}🧠  CONTEXT${x.reset}  ${graphStr}   ${DIV}   ${hilStr}`);
 
   return lines.join('\n');
 }
