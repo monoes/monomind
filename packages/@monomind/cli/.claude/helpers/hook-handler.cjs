@@ -45,23 +45,33 @@ function getMonographSuggestions(taskText, limit) {
   if (!db) return [];
   try {
     var words = String(taskText).toLowerCase().match(/[a-z][a-z0-9_-]{3,}/g) || [];
-    var stop = { "this":1,"that":1,"with":1,"from":1,"have":1,"into":1,"their":1,"what":1,"when":1,"where":1,"which":1,"should":1,"would":1,"could":1,"make":1,"just":1,"also":1,"them":1,"they":1,"will":1,"been":1,"were":1,"because":1,"about":1,"does":1,"work":1 };
+    var stop = { "this":1,"that":1,"with":1,"from":1,"have":1,"into":1,"their":1,"what":1,"when":1,"where":1,"which":1,"should":1,"would":1,"could":1,"make":1,"just":1,"also":1,"them":1,"they":1,"will":1,"been":1,"were":1,"because":1,"about":1,"does":1,"work":1,"else":1,"more":1,"some":1,"like":1,"need":1,"want":1,"used":1,"using":1,"please":1,"thanks":1,"good":1,"great":1,"nice":1,"thing":1,"things":1,"better":1,"again":1,"first":1,"then":1,"only":1,"even":1 };
     var uniq = {};
     for (var i = 0; i < words.length; i++) if (!stop[words[i]]) uniq[words[i]] = 1;
     var keys = Object.keys(uniq).slice(0, 8);
+    // Smart filter: free-form prompts need ≥2 content words to avoid noise.
+    // Single-word inputs are allowed only when they look like a symbol/search
+    // (entire string is ≤30 chars and contains letters+separators only).
+    var isSymbolLookup = taskText.length <= 30 && /^[a-zA-Z0-9_\-./:]+$/.test(taskText.trim());
     if (keys.length === 0) return [];
+    if (keys.length < 2 && !isSymbolLookup) return [];
 
     var ftsQuery = keys.map(function(k){ return '"' + k.replace(/"/g, "") + '"'; }).join(" OR ");
     var lim = Math.max(1, limit || 5);
     var rows = [];
     try {
+      // BM25 ranks better than degree for keyword relevance; tie-break by deg.
+      // File/Function/Class outrank Section so navigable nodes win.
       rows = db.prepare(
         "SELECT n.id, n.name, n.label, n.file_path AS file, " +
-        "(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg " +
+        "bm25(nodes_fts) AS bm25_score, " +
+        "(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg, " +
+        "CASE n.label WHEN 'File' THEN 3 WHEN 'Function' THEN 3 WHEN 'Class' THEN 3 " +
+        "             WHEN 'Method' THEN 2 WHEN 'Interface' THEN 2 ELSE 1 END AS label_rank " +
         "FROM nodes_fts f JOIN nodes n ON f.rowid = n.rowid " +
         "WHERE nodes_fts MATCH ? AND n.file_path IS NOT NULL AND n.file_path != '' " +
         "AND n.label NOT IN ('Concept') " +
-        "ORDER BY deg DESC LIMIT ?"
+        "ORDER BY label_rank DESC, bm25_score ASC, deg DESC LIMIT ?"
       ).all(ftsQuery, lim);
     } catch (e) {
       var likeFrag = keys.map(function(){ return "lower(n.name) LIKE ?"; }).join(" OR ");
@@ -108,6 +118,17 @@ function getMonographNeighbors(filePath) {
   finally { try { db.close(); } catch (_) {} }
 }
 
+// Rough per-event token + USD cost estimates. Tuned to Sonnet input pricing
+// ($3/M tokens) — adjust if needed. Used by the statusline to surface savings.
+var _TOKEN_PER_EVENT = {
+  monograph_call:  300,   // typical monograph_query result size
+  grep_call:      2000,   // typical Grep tool output across many files
+  glob_call:       800,
+  bash_grep_call: 2000,
+  bash_find_call:  800,
+};
+var _DOLLAR_PER_1M_TOKENS = 3.0;
+
 function _recordGraphTelemetry(event) {
   try {
     var metricsDir = path.join(CWD, ".monomind", "metrics");
@@ -117,8 +138,62 @@ function _recordGraphTelemetry(event) {
     try { d = JSON.parse(fs.readFileSync(f, "utf-8")); } catch (e) {}
     if (typeof d !== "object" || d === null) d = {};
     d[event] = (d[event] || 0) + 1;
+
+    // Token-saved estimator: each monograph_call avoids a grep equivalent
+    // (~2000 tokens) at a cost of ~300 tokens — net ~1700 saved.
+    if (event === 'monograph_call') {
+      var saved = (_TOKEN_PER_EVENT.grep_call - _TOKEN_PER_EVENT.monograph_call);
+      d.tokens_saved = (d.tokens_saved || 0) + saved;
+      d.dollars_saved = ((d.tokens_saved / 1000000) * _DOLLAR_PER_1M_TOKENS);
+    }
+    // Each unprompted grep/bash_grep "wastes" the same amount vs the graph alternative.
+    if (event === 'grep_call' || event === 'bash_grep_call') {
+      var wasted = (_TOKEN_PER_EVENT.grep_call - _TOKEN_PER_EVENT.monograph_call);
+      d.tokens_wasted = (d.tokens_wasted || 0) + wasted;
+    }
+
     d.lastUpdated = Date.now();
     fs.writeFileSync(f, JSON.stringify(d));
+  } catch (e) { /* non-fatal */ }
+}
+
+// Auto-rebuild the monograph after N writes — graph staleness during heavy
+// editing is the main reason suggestions go cold. Triggered by post-edit.
+function _maybeRebuildMonograph() {
+  try {
+    var metricsDir = path.join(CWD, ".monomind", "metrics");
+    fs.mkdirSync(metricsDir, { recursive: true });
+    var f = path.join(metricsDir, "graph-rebuild.json");
+    var d = {};
+    try { d = JSON.parse(fs.readFileSync(f, "utf-8")); } catch (_) {}
+    if (typeof d !== "object" || d === null) d = {};
+    d.writesSinceRebuild = (d.writesSinceRebuild || 0) + 1;
+    d.lastWriteAt = Date.now();
+    var THRESHOLD = 20;
+    var MIN_INTERVAL_MS = 5 * 60 * 1000; // never more often than every 5 min
+    var dueByCount = d.writesSinceRebuild >= THRESHOLD;
+    var dueByTime  = !d.lastRebuildAt || (Date.now() - d.lastRebuildAt) > MIN_INTERVAL_MS;
+    if (dueByCount && dueByTime) {
+      // Reset counter immediately so concurrent post-edits don't all fire.
+      d.writesSinceRebuild = 0;
+      d.lastRebuildAt = Date.now();
+      fs.writeFileSync(f, JSON.stringify(d));
+      // Fire-and-forget background freshen script (same one used by SessionStart).
+      try {
+        var freshenScript = path.join(CWD, '.claude', 'helpers', 'graphify-freshen.cjs');
+        if (fs.existsSync(freshenScript)) {
+          var spawn = require('child_process').spawn;
+          var child = spawn(process.execPath, [freshenScript], {
+            detached: true,
+            stdio: 'ignore',
+            cwd: CWD,
+          });
+          child.unref();
+        }
+      } catch (_) {}
+    } else {
+      fs.writeFileSync(f, JSON.stringify(d));
+    }
   } catch (e) { /* non-fatal */ }
 }
 
@@ -888,7 +963,8 @@ const handlers = {
 
   'pre-bash': () => {
     var _rawCmd = hookInput.command || prompt;
-    var cmd = (typeof _rawCmd === 'string' ? _rawCmd : String(_rawCmd || '')).toLowerCase();
+    var rawCmdStr = (typeof _rawCmd === 'string' ? _rawCmd : String(_rawCmd || ''));
+    var cmd = rawCmdStr.toLowerCase();
     var dangerous = ['rm -rf /', 'rm -rf/', 'format c:', 'del /s /q c:\\', ':(){:|:&};:'];
     for (var i = 0; i < dangerous.length; i++) {
       if (cmd.includes(dangerous[i])) {
@@ -896,6 +972,36 @@ const handlers = {
         process.exit(1);
       }
     }
+
+    // Intercept Bash-side grep/rg/find/ag — close the loophole where LLM
+    // bypasses the Grep tool by shelling out. Same monograph hint shape as pre-search.
+    try {
+      // Match: grep <flags> <pattern>, rg <flags> <pattern>, ag <pattern>, find . -name <pattern>
+      var grepMatch = rawCmdStr.match(/\b(?:grep|rg|ag)\b(?:\s+-[a-zA-Z]+)*\s+(?:"([^"]+)"|'([^']+)'|([^\s|;&<>]+))/);
+      var findMatch = rawCmdStr.match(/\bfind\b.*?-name\s+(?:"([^"]+)"|'([^']+)'|([^\s|;&<>]+))/);
+      var pattern = '';
+      if (grepMatch) {
+        pattern = grepMatch[1] || grepMatch[2] || grepMatch[3] || '';
+        _recordGraphTelemetry('bash_grep_call');
+      } else if (findMatch) {
+        pattern = findMatch[1] || findMatch[2] || findMatch[3] || '';
+        _recordGraphTelemetry('bash_find_call');
+      }
+      if (pattern && pattern.length >= 3) {
+        var clean = pattern.replace(/[\\^$.*+?()\[\]{}|]/g, ' ').trim();
+        if (clean.length >= 3) {
+          var hits = getMonographSuggestions(clean, 5);
+          if (hits.length > 0) {
+            console.log('[MONOGRAPH_HIT] Graph has ' + hits.length + ' file(s) for "' + clean.slice(0, 40) + '" — consider monograph_query instead of shell grep:');
+            for (var j = 0; j < hits.length; j++) {
+              var h = hits[j];
+              console.log('  · ' + h.name + ' [' + h.label + '] — ' + (h.file || ''));
+            }
+          }
+        }
+      }
+    } catch (e) { /* non-fatal */ }
+
     console.log('[OK] Command validated');
   },
 
@@ -956,6 +1062,8 @@ const handlers = {
         intelligence.recordEdit(file);
       } catch (e) { /* non-fatal */ }
     }
+    // Increment write counter and rebuild monograph when threshold hit.
+    _maybeRebuildMonograph();
     // ── Security-Sensitive File Auto-Alert ────────────────────────────────
     // When editing auth, security, crypto, or env-related files, flag it
     try {
@@ -1886,6 +1994,47 @@ const handlers = {
         'utf-8'
       );
     } catch (e) { /* non-fatal — never block a subagent from starting */ }
+
+    // Subagent context inheritance — inject graph god nodes + parent's last
+    // pre-resolved suggestions so the spawned agent inherits spatial map
+    // instead of starting blind.
+    try {
+      var subDb = _openMonographDb();
+      if (subDb) {
+        try {
+          var godRows = subDb.prepare(
+            "SELECT n.name, n.label, n.file_path AS file, " +
+            "(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg " +
+            "FROM nodes n " +
+            "WHERE n.label NOT IN ('Concept') AND n.file_path IS NOT NULL AND n.file_path != '' " +
+            "ORDER BY deg DESC LIMIT 5"
+          ).all();
+          if (godRows.length > 0) {
+            console.log('[MONOGRAPH_SUBAGENT_CTX] Graph map inherited from parent:');
+            for (var gi = 0; gi < godRows.length; gi++) {
+              var gr = godRows[gi];
+              console.log('  · ' + gr.name + ' [' + gr.label + '] — ' + (gr.file || '') + ' (deg ' + gr.deg + ')');
+            }
+            // Also forward parent's last routing suggestion text if any
+            try {
+              var subAgentDesc = hookInput.description || hookInput.prompt_description || '';
+              if (subAgentDesc && subAgentDesc.length > 8) {
+                var subHints = getMonographSuggestions(subAgentDesc, 3);
+                if (subHints.length > 0) {
+                  console.log('  Top files for this subagent task:');
+                  for (var si2 = 0; si2 < subHints.length; si2++) {
+                    var sh = subHints[si2];
+                    console.log('    · ' + sh.name + ' [' + sh.label + '] — ' + (sh.file || ''));
+                  }
+                }
+              }
+            } catch (_) {}
+            console.log('  Use mcp__monomind__monograph_suggest / monograph_query in this subagent before grepping.');
+          }
+        } finally { try { subDb.close(); } catch (_) {} }
+      }
+    } catch (e) { /* non-fatal */ }
+
     console.log('[OK] Agent registered');
   },
 

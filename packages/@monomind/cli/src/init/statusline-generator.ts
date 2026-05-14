@@ -831,17 +831,18 @@ function getTriggerStats() {
   } catch { return { triggers: 0, agents: 0 }; }
 }
 
-// Graph usage telemetry — ratio of monograph_* tool calls vs Grep/Glob
+// Graph usage telemetry — ratio of monograph_* vs Grep/Glob/Bash-grep, + $ saved
 function getGraphUsage() {
   const usagePath = path.join(CWD, '.monomind', 'metrics', 'graph-usage.json');
   try {
     if (!fs.existsSync(usagePath)) return null;
     const d = JSON.parse(fs.readFileSync(usagePath, 'utf-8'));
     const monograph = d.monograph_call || 0;
-    const search = (d.grep_call || 0) + (d.glob_call || 0);
+    const search = (d.grep_call || 0) + (d.glob_call || 0)
+                 + (d.bash_grep_call || 0) + (d.bash_find_call || 0);
     const total = monograph + search;
     if (total === 0) return null;
-    return { monograph: monograph, search: search, pct: Math.round((monograph / total) * 100) };
+    return { monograph: monograph, search: search, pct: Math.round((monograph / total) * 100), dollarsSaved: d.dollars_saved || 0 };
   } catch { return null; }
 }
 
@@ -1087,12 +1088,15 @@ function generateDashboard() {
     loopStr = \`\${x.slate}🔄 no active loops\${x.reset}\`;
   }
 
-  // Graph usage ratio — show only when there's data
+  // Graph usage ratio + $ saved — show only when there's data
   const usage = getGraphUsage();
   let usageStr = '';
   if (usage) {
     const col = usage.pct >= 40 ? x.green : usage.pct >= 15 ? x.gold : x.coral;
-    usageStr = \`   \${DIV}   \${col}📊 graph \${usage.pct}%\${x.reset}\${x.slate} · grep \${100 - usage.pct}%\${x.reset}\`;
+    const saved = usage.dollarsSaved > 0
+      ? \`   \${x.green}💰 +$\${usage.dollarsSaved.toFixed(2)}\${x.reset}\`
+      : '';
+    usageStr = \`   \${DIV}   \${col}📊 graph \${usage.pct}%\${x.reset}\${x.slate} · grep \${100 - usage.pct}%\${x.reset}\${saved}\`;
   }
 
   lines.push(\`\${x.purple}🤖  AGENT\${x.reset}    \${agentStr}   \${DIV}   \${loopStr}\${usageStr}\`);
