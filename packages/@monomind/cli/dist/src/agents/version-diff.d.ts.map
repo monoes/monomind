@@ -1,0 +1,1 @@
+{"version":3,"file":"version-diff.d.ts","sourceRoot":"","sources":["../../../src/agents/version-diff.ts"],"names":[],"mappings":"AAAA;;;;GAIG;AAEH,MAAM,WAAW,cAAc;IAC7B,SAAS,EAAE,MAAM,CAAC;IAClB,SAAS,EAAE,MAAM,CAAC;IAClB,KAAK,EAAE,MAAM,CAAC;CACf;AAED;;;;;GAKG;AACH,wBAAgB,kBAAkB,CAChC,UAAU,EAAE,MAAM,EAClB,UAAU,EAAE,MAAM,GACjB,cAAc,CA0DhB"}

@@ -1,0 +1,530 @@
+/**
+ * Memory MCP Tools for CLI - V1 with sql.js/HNSW Backend
+ *
+ * UPGRADED: Now uses the advanced sql.js + HNSW backend for:
+ * - 150x-12,500x faster semantic search
+ * - Vector embeddings with cosine similarity
+ * - Persistent SQLite storage (WASM)
+ * - Backward compatible with legacy JSON storage (auto-migrates)
+ *
+ * @module v1/cli/mcp-tools/memory-tools
+ */
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import { getProjectCwd } from './types.js';
+// Paths
+const MEMORY_DIR = '.monomind/memory';
+const LEGACY_MEMORY_FILE = 'store.json';
+const MIGRATION_MARKER = '.migrated-to-sqlite';
+function getMemoryDir() {
+    return join(getProjectCwd(), MEMORY_DIR);
+}
+function getLegacyPath() {
+    return join(getProjectCwd(), MEMORY_DIR, LEGACY_MEMORY_FILE);
+}
+function getMigrationMarkerPath() {
+    return join(getProjectCwd(), MEMORY_DIR, MIGRATION_MARKER);
+}
+function ensureMemoryDir() {
+    const dir = getMemoryDir();
+    if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+    }
+}
+// D-2: Input bounds for memory parameters
+const MAX_KEY_LENGTH = 1024;
+const MAX_VALUE_SIZE = 1024 * 1024; // 1MB
+const MAX_QUERY_LENGTH = 4096;
+function validateMemoryInput(key, value, query) {
+    if (key && key.length > MAX_KEY_LENGTH) {
+        throw new Error(`Key exceeds maximum length of ${MAX_KEY_LENGTH} characters`);
+    }
+    if (value && value.length > MAX_VALUE_SIZE) {
+        throw new Error(`Value exceeds maximum size of ${MAX_VALUE_SIZE} bytes`);
+    }
+    if (query && query.length > MAX_QUERY_LENGTH) {
+        throw new Error(`Query exceeds maximum length of ${MAX_QUERY_LENGTH} characters`);
+    }
+}
+/**
+ * Check if legacy JSON store exists and needs migration
+ */
+function hasLegacyStore() {
+    const legacyPath = getLegacyPath();
+    const migrationMarker = getMigrationMarkerPath();
+    return existsSync(legacyPath) && !existsSync(migrationMarker);
+}
+/**
+ * Load legacy JSON store for migration
+ */
+const MAX_LEGACY_STORE_BYTES = 50 * 1024 * 1024;
+function loadLegacyStore() {
+    try {
+        const path = getLegacyPath();
+        if (existsSync(path)) {
+            if (statSync(path).size > MAX_LEGACY_STORE_BYTES)
+                return null;
+            const data = readFileSync(path, 'utf-8');
+            const parsed = JSON.parse(data);
+            if (parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, '__proto__'))
+                return null;
+            return parsed;
+        }
+    }
+    catch {
+        // Return null on error
+    }
+    return null;
+}
+/**
+ * Mark migration as complete
+ */
+function markMigrationComplete() {
+    ensureMemoryDir();
+    const dest = getMigrationMarkerPath();
+    const tmp = dest + '.tmp';
+    writeFileSync(tmp, JSON.stringify({
+        migratedAt: new Date().toISOString(),
+        version: '3.0.0',
+    }), 'utf-8');
+    renameSync(tmp, dest);
+}
+/**
+ * Lazy-load memory initializer functions to avoid circular deps
+ */
+async function getMemoryFunctions() {
+    const { storeEntry, searchEntries, listEntries, getEntry, deleteEntry, initializeMemoryDatabase, checkMemoryInitialization, } = await import('../memory/memory-initializer.js');
+    return {
+        storeEntry,
+        searchEntries,
+        listEntries,
+        getEntry,
+        deleteEntry,
+        initializeMemoryDatabase,
+        checkMemoryInitialization,
+    };
+}
+/**
+ * Ensure memory database is initialized and migrate legacy data if needed
+ */
+async function ensureInitialized() {
+    const { initializeMemoryDatabase, checkMemoryInitialization, storeEntry } = await getMemoryFunctions();
+    // Check if already initialized
+    const status = await checkMemoryInitialization();
+    if (!status.initialized) {
+        await initializeMemoryDatabase({ force: false, verbose: false });
+    }
+    // Migrate legacy JSON data if exists
+    if (hasLegacyStore()) {
+        const legacyStore = loadLegacyStore();
+        if (legacyStore && Object.keys(legacyStore.entries).length > 0) {
+            console.error('[MCP Memory] Migrating legacy JSON store to sql.js...');
+            let migrated = 0;
+            for (const [key, entry] of Object.entries(legacyStore.entries)) {
+                try {
+                    // Convert value to string for storage
+                    const value = typeof entry.value === 'string' ? entry.value : JSON.stringify(entry.value);
+                    await storeEntry({
+                        key,
+                        value,
+                        namespace: 'default',
+                        generateEmbeddingFlag: true,
+                    });
+                    migrated++;
+                }
+                catch (e) {
+                    console.error(`[MCP Memory] Failed to migrate key "${key}":`, e);
+                }
+            }
+            console.error(`[MCP Memory] Migrated ${migrated}/${Object.keys(legacyStore.entries).length} entries`);
+            markMigrationComplete();
+        }
+    }
+}
+export const memoryTools = [
+    {
+        name: 'memory_store',
+        description: 'Store a value in memory with vector embedding for semantic search (sql.js + HNSW backend). Use upsert=true to update existing keys.',
+        category: 'memory',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                key: { type: 'string', description: 'Memory key (unique within namespace)' },
+                value: { description: 'Value to store (string or object)' },
+                namespace: { type: 'string', description: 'Namespace for organization (default: "default")' },
+                tags: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Optional tags for filtering',
+                },
+                ttl: { type: 'number', description: 'Time-to-live in seconds (optional)' },
+                upsert: { type: 'boolean', description: 'If true, update existing key instead of failing (default: false)' },
+            },
+            required: ['key', 'value'],
+        },
+        handler: async (input) => {
+            await ensureInitialized();
+            const { storeEntry } = await getMemoryFunctions();
+            const key = input.key;
+            const namespace = input.namespace || 'default';
+            const rawValue = input.value;
+            const value = typeof rawValue === 'string' ? rawValue : (rawValue !== undefined ? JSON.stringify(rawValue) : '');
+            const tags = input.tags || [];
+            const ttl = input.ttl;
+            const upsert = input.upsert || false;
+            if (!value) {
+                return {
+                    success: false,
+                    key,
+                    stored: false,
+                    hasEmbedding: false,
+                    error: 'Value is required and cannot be empty',
+                };
+            }
+            validateMemoryInput(key, value);
+            const startTime = performance.now();
+            try {
+                const result = await storeEntry({
+                    key,
+                    value,
+                    namespace,
+                    generateEmbeddingFlag: true,
+                    tags,
+                    ttl,
+                    upsert,
+                });
+                const duration = performance.now() - startTime;
+                return {
+                    success: result.success,
+                    key,
+                    namespace,
+                    stored: result.success,
+                    storedAt: new Date().toISOString(),
+                    hasEmbedding: !!result.embedding,
+                    embeddingDimensions: result.embedding?.dimensions || null,
+                    backend: 'sql.js + HNSW',
+                    storeTime: `${duration.toFixed(2)}ms`,
+                    error: result.error,
+                };
+            }
+            catch (error) {
+                return {
+                    success: false,
+                    key,
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                };
+            }
+        },
+    },
+    {
+        name: 'memory_retrieve',
+        description: 'Retrieve a value from memory by key',
+        category: 'memory',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                key: { type: 'string', description: 'Memory key' },
+                namespace: { type: 'string', description: 'Namespace (default: "default")' },
+                agentId: { type: 'string', description: 'Caller agent ID (enables collaborative memory promotion)' },
+            },
+            required: ['key'],
+        },
+        handler: async (input) => {
+            await ensureInitialized();
+            const { getEntry } = await getMemoryFunctions();
+            const key = input.key;
+            const namespace = input.namespace || 'default';
+            const agentId = input.agentId;
+            validateMemoryInput(key);
+            try {
+                const result = await getEntry({ key, namespace, agentId });
+                if (result.found && result.entry) {
+                    // Try to parse JSON value
+                    let value = result.entry.content;
+                    try {
+                        value = JSON.parse(result.entry.content);
+                    }
+                    catch {
+                        // Keep as string
+                    }
+                    return {
+                        key,
+                        namespace,
+                        value,
+                        tags: result.entry.tags,
+                        storedAt: result.entry.createdAt,
+                        updatedAt: result.entry.updatedAt,
+                        accessCount: result.entry.accessCount,
+                        hasEmbedding: result.entry.hasEmbedding,
+                        found: true,
+                        backend: 'sql.js + HNSW',
+                    };
+                }
+                return {
+                    key,
+                    namespace,
+                    value: null,
+                    found: false,
+                };
+            }
+            catch (error) {
+                return {
+                    key,
+                    namespace,
+                    value: null,
+                    found: false,
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                };
+            }
+        },
+    },
+    {
+        name: 'memory_search',
+        description: 'Semantic vector search using HNSW index (150x-12,500x faster than keyword search)',
+        category: 'memory',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                query: { type: 'string', description: 'Search query (semantic similarity)' },
+                namespace: { type: 'string', description: 'Namespace to search (default: "default")' },
+                limit: { type: 'number', description: 'Maximum results (default: 10)' },
+                threshold: { type: 'number', description: 'Minimum similarity threshold 0-1 (default: 0.3)' },
+            },
+            required: ['query'],
+        },
+        handler: async (input) => {
+            await ensureInitialized();
+            const { searchEntries } = await getMemoryFunctions();
+            const query = input.query;
+            const namespace = input.namespace || 'default';
+            const limit = Math.min(Math.max(input.limit || 10, 1), 1000);
+            const threshold = input.threshold || 0.3;
+            validateMemoryInput(undefined, undefined, query);
+            const startTime = performance.now();
+            try {
+                const result = await searchEntries({
+                    query,
+                    namespace,
+                    limit,
+                    threshold,
+                });
+                const duration = performance.now() - startTime;
+                // Parse JSON values in results
+                const results = result.results.map(r => {
+                    let value = r.content;
+                    try {
+                        value = JSON.parse(r.content);
+                    }
+                    catch {
+                        // Keep as string
+                    }
+                    return {
+                        key: r.key,
+                        namespace: r.namespace,
+                        value,
+                        similarity: r.score,
+                    };
+                });
+                return {
+                    query,
+                    results,
+                    total: results.length,
+                    searchTime: `${duration.toFixed(2)}ms`,
+                    backend: 'HNSW + sql.js',
+                };
+            }
+            catch (error) {
+                return {
+                    query,
+                    results: [],
+                    total: 0,
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                };
+            }
+        },
+    },
+    {
+        name: 'memory_delete',
+        description: 'Delete a memory entry by key',
+        category: 'memory',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                key: { type: 'string', description: 'Memory key' },
+                namespace: { type: 'string', description: 'Namespace (default: "default")' },
+            },
+            required: ['key'],
+        },
+        handler: async (input) => {
+            await ensureInitialized();
+            const { deleteEntry } = await getMemoryFunctions();
+            const key = input.key;
+            const namespace = input.namespace || 'default';
+            validateMemoryInput(key);
+            try {
+                const result = await deleteEntry({ key, namespace });
+                return {
+                    success: result.deleted,
+                    key,
+                    namespace,
+                    deleted: result.deleted,
+                    hnswIndexInvalidated: result.deleted,
+                    backend: 'sql.js + HNSW',
+                };
+            }
+            catch (error) {
+                return {
+                    success: false,
+                    key,
+                    namespace,
+                    deleted: false,
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                };
+            }
+        },
+    },
+    {
+        name: 'memory_list',
+        description: 'List memory entries with optional filtering',
+        category: 'memory',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                namespace: { type: 'string', description: 'Filter by namespace' },
+                limit: { type: 'number', description: 'Maximum results (default: 50)' },
+                offset: { type: 'number', description: 'Offset for pagination (default: 0)' },
+            },
+        },
+        handler: async (input) => {
+            await ensureInitialized();
+            const { listEntries } = await getMemoryFunctions();
+            const namespace = input.namespace;
+            const limit = Math.min(Math.max(input.limit || 50, 1), 1000);
+            const offset = input.offset || 0;
+            try {
+                const result = await listEntries({
+                    namespace,
+                    limit,
+                    offset,
+                });
+                const entries = result.entries.map(e => ({
+                    key: e.key,
+                    namespace: e.namespace,
+                    storedAt: e.createdAt,
+                    updatedAt: e.updatedAt,
+                    accessCount: e.accessCount,
+                    hasEmbedding: e.hasEmbedding,
+                    size: e.size,
+                }));
+                return {
+                    entries,
+                    total: result.total,
+                    limit,
+                    offset,
+                    backend: 'sql.js + HNSW',
+                };
+            }
+            catch (error) {
+                return {
+                    entries: [],
+                    total: 0,
+                    limit,
+                    offset,
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                };
+            }
+        },
+    },
+    {
+        name: 'memory_stats',
+        description: 'Get memory storage statistics including HNSW index status',
+        category: 'memory',
+        inputSchema: {
+            type: 'object',
+            properties: {},
+        },
+        handler: async () => {
+            await ensureInitialized();
+            const { checkMemoryInitialization, listEntries } = await getMemoryFunctions();
+            try {
+                const status = await checkMemoryInitialization();
+                // Cap stats sample at 1000 entries — the previous 100000 limit could
+                // load up to 100 GB of resident memory (each entry value capped at 1 MB)
+                // just to compute aggregate counts. Counts above 1000 are reported as
+                // approximate via the dedicated `total` field.
+                const allEntries = await listEntries({ limit: 1000 });
+                // Count by namespace (sample-based for large stores)
+                const namespaces = {};
+                let withEmbeddings = 0;
+                for (const entry of allEntries.entries) {
+                    namespaces[entry.namespace] = (namespaces[entry.namespace] || 0) + 1;
+                    if (entry.hasEmbedding)
+                        withEmbeddings++;
+                }
+                return {
+                    initialized: status.initialized,
+                    totalEntries: allEntries.total,
+                    entriesWithEmbeddings: withEmbeddings,
+                    embeddingCoverage: allEntries.total > 0
+                        ? `${((withEmbeddings / allEntries.total) * 100).toFixed(1)}%`
+                        : '0%',
+                    namespaces,
+                    backend: 'sql.js + HNSW',
+                    version: status.version || '3.0.0',
+                    features: status.features || {
+                        vectorEmbeddings: true,
+                        hnswIndex: true,
+                        semanticSearch: true,
+                    },
+                };
+            }
+            catch (error) {
+                return {
+                    initialized: false,
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                };
+            }
+        },
+    },
+    {
+        name: 'memory_migrate',
+        description: 'Manually trigger migration from legacy JSON store to sql.js',
+        category: 'memory',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                force: { type: 'boolean', description: 'Force re-migration even if already done' },
+            },
+        },
+        handler: async (input) => {
+            const force = input.force;
+            // Remove migration marker if forcing
+            if (force) {
+                const markerPath = getMigrationMarkerPath();
+                if (existsSync(markerPath)) {
+                    unlinkSync(markerPath);
+                }
+            }
+            // Check if migration was already completed before running it
+            const alreadyMigrated = existsSync(getMigrationMarkerPath());
+            // Check for legacy data
+            const legacyStore = loadLegacyStore();
+            if (!legacyStore || Object.keys(legacyStore.entries).length === 0) {
+                return {
+                    success: true,
+                    message: 'No legacy data to migrate',
+                    migrated: 0,
+                };
+            }
+            // Run migration via ensureInitialized
+            await ensureInitialized();
+            return {
+                success: true,
+                message: alreadyMigrated ? 'Already migrated — use force=true to re-run' : 'Migration completed',
+                migrated: alreadyMigrated ? 0 : Object.keys(legacyStore.entries).length,
+                backend: 'sql.js + HNSW',
+            };
+        },
+    },
+];
+//# sourceMappingURL=memory-tools.js.map

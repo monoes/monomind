@@ -1,0 +1,107 @@
+/**
+ * Monomind Tokens Command
+ * Token usage tracking and visualization — powered by token-tracker.cjs
+ */
+import { output } from '../output.js';
+import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+function getTrackerPath() {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    // From dist/src/commands/ -> back to project root -> .claude/helpers/
+    return join(__dirname, '..', '..', '..', '..', '..', '..', '.claude', 'helpers', 'token-tracker.cjs');
+}
+function loadTracker() {
+    const require = createRequire(import.meta.url);
+    return require(getTrackerPath());
+}
+const dashboardSubcommand = {
+    name: 'dashboard',
+    description: 'Launch interactive token usage dashboard',
+    options: [
+        { name: 'period', short: 'p', type: 'string', description: 'Time period: today|week|30days|month', default: 'today' },
+        { name: 'no-interactive', type: 'boolean', description: 'Render once and exit', default: false },
+    ],
+    action: async (ctx) => {
+        const period = ctx.flags['period'] || 'today';
+        const noInteractive = ctx.flags['no-interactive'];
+        try {
+            const tracker = loadTracker();
+            if (noInteractive) {
+                tracker.renderDashboard(period);
+            }
+            else {
+                tracker.runInteractive();
+            }
+            return { success: true };
+        }
+        catch (err) {
+            output.error('Token tracker not available: ' + (err instanceof Error ? err.message : String(err)));
+            return { success: false, message: 'Token tracker unavailable' };
+        }
+    },
+};
+const summarySubcommand = {
+    name: 'summary',
+    description: 'Show token usage summary for a period',
+    options: [
+        { name: 'period', short: 'p', type: 'string', description: 'Time period: today|week|30days|month', default: 'today' },
+        { name: 'json', type: 'boolean', description: 'Output as JSON', default: false },
+    ],
+    action: async (ctx) => {
+        const period = ctx.flags['period'] || 'today';
+        const asJson = ctx.flags['json'];
+        try {
+            const tracker = loadTracker();
+            const range = tracker.getDateRange(period);
+            const projects = tracker.parseAllSessions(range.start, range.end);
+            if (asJson) {
+                output.writeln(JSON.stringify(projects, null, 2));
+                return { success: true, data: projects };
+            }
+            const totalCost = projects.reduce((s, p) => s + p.totalCost, 0);
+            const totalCalls = projects.reduce((s, p) => s + p.totalApiCalls, 0);
+            output.writeln('');
+            output.writeln(`Token Usage — ${period}`);
+            output.writeln('─'.repeat(50));
+            output.writeln(`Total Cost:  ${tracker.fmt$(totalCost)}`);
+            output.writeln(`API Calls:   ${totalCalls}`);
+            output.writeln(`Projects:    ${projects.length}`);
+            output.writeln('');
+            for (const p of projects.slice(0, 10)) {
+                const name = p.projectPath.split('/').pop() || p.projectPath;
+                output.writeln(`  ${name.padEnd(30)} ${tracker.fmt$(p.totalCost).padStart(10)}  ${p.totalApiCalls} calls`);
+            }
+            output.writeln('');
+            return { success: true, data: { totalCost, totalCalls, projects } };
+        }
+        catch (err) {
+            output.error('Token tracker not available: ' + (err instanceof Error ? err.message : String(err)));
+            return { success: false, message: 'Token tracker unavailable' };
+        }
+    },
+};
+const todaySubcommand = {
+    name: 'today',
+    description: 'Quick today/month token usage summary',
+    options: [],
+    action: async (_ctx) => {
+        try {
+            const tracker = loadTracker();
+            const summary = tracker.quickSummary();
+            output.writeln(summary || 'No token data available for today.');
+            return { success: true };
+        }
+        catch (err) {
+            output.error('Token tracker not available: ' + (err instanceof Error ? err.message : String(err)));
+            return { success: false };
+        }
+    },
+};
+export const tokensCommand = {
+    name: 'tokens',
+    description: 'Token usage tracking and cost visualization',
+    subcommands: [dashboardSubcommand, summarySubcommand, todaySubcommand],
+};
+export default tokensCommand;
+//# sourceMappingURL=tokens.js.map

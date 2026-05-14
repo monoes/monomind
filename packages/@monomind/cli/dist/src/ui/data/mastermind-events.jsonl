@@ -1,0 +1,8 @@
+{"type":"loop:tick","loopId":"mastermind-techport-1778659658234","command":"/mastermind:techport","mode":"tillend","completedRep":4,"nextRep":5,"nextAt":1778662072090,"ts":1778662012090}
+{"type":"loop:tick","loopId":"mastermind-techport-1778659658234","command":"/mastermind:techport","mode":"tillend","completedRep":5,"nextRep":6,"nextAt":1778662506804,"ts":1778662446804}
+{"type":"loop:tick","loopId":"mastermind-techport-1778659658234","command":"/mastermind:techport","mode":"tillend","completedRep":6,"nextRep":7,"nextAt":1778662834322,"ts":1778662774322}
+{"type":"loop:complete","loopId":"mastermind-techport-1778659658234","command":"/mastermind:techport","mode":"tillend","ranReps":7,"reason":"empty-round","ts":1778662897160}
+{"type":"loop:start","loopId":"mastermind-review-1778664132789","command":"/mastermind:review","mode":"tillend","repeat":"50(cap)","wait":60,"ts":1778664132789}
+{"type":"loop:complete","loopId":"mastermind-review-1778664132789","command":"/mastermind:review","mode":"tillend","ranReps":1,"reason":"empty-round","ts":1778664527000}
+{"type":"loop:start","loopId":"mastermind-review-1778664861043","command":"/mastermind:review","mode":"tillend","repeat":"50(cap)","wait":60,"ts":1778664861000}
+{"type":"loop:complete","loopId":"mastermind-review-1778664861043","command":"/mastermind:review","mode":"tillend","ranReps":1,"reason":"empty-round","ts":1778664950000}

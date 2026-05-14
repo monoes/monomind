@@ -1,0 +1,142 @@
+/**
+ * AuditWriter (Task 36)
+ *
+ * Append-only JSONL storage for consensus audit records and individual votes.
+ */
+import { appendFileSync, readFileSync, existsSync, mkdirSync, statSync } from 'fs';
+import { createHmac, timingSafeEqual } from 'crypto';
+import { dirname, join, resolve, relative } from 'path';
+import { parseJsonl } from '../utils/parse-jsonl.js';
+import { deriveSigningKey, signVote, verifyVote } from './vote-signer.js';
+export class AuditWriter {
+    auditPath;
+    votesPath;
+    constructor(dataDir) {
+        const resolved = resolve(dataDir);
+        const cwd = process.cwd();
+        const rel = relative(cwd, resolved);
+        if (rel.startsWith('..') || resolve(rel) === resolve('/')) {
+            throw new Error(`AuditWriter: dataDir must be within the working directory: ${dataDir}`);
+        }
+        if (!existsSync(resolved)) {
+            mkdirSync(resolved, { recursive: true });
+        }
+        this.auditPath = join(resolved, 'consensus-audit.jsonl');
+        this.votesPath = join(resolved, 'consensus-votes.jsonl');
+    }
+    /**
+     * Record a consensus decision: sign all votes, compute quorum proof,
+     * and persist both the audit record and individual votes to JSONL.
+     */
+    record(input) {
+        const key = deriveSigningKey(input.swarmId, input.sessionSecret);
+        // Sign each vote
+        const signedVotes = input.votes.map((v) => ({
+            agentId: v.agentId,
+            agentSlug: v.agentSlug,
+            vote: v.vote,
+            signature: signVote(v.agentId, v.vote, input.decisionId, key),
+            votedAt: v.votedAt,
+        }));
+        // Compute quorum proof
+        const achieved = signedVotes.length;
+        const quorumProof = {
+            required: input.quorumRequired,
+            achieved,
+            threshold: input.quorumThreshold,
+            satisfied: achieved >= input.quorumRequired,
+        };
+        // Compute duration (guard against invalid date strings)
+        const startMs = new Date(input.startedAt).getTime();
+        const endMs = new Date(input.completedAt).getTime();
+        const durationMs = isNaN(startMs) || isNaN(endMs) ? null : endMs - startMs;
+        const recordWithoutSig = {
+            decisionId: input.decisionId,
+            swarmId: input.swarmId,
+            protocol: input.protocol,
+            topic: input.topic,
+            decision: input.decision,
+            votes: signedVotes,
+            quorumProof,
+            quorumAchieved: quorumProof.satisfied,
+            round: input.round,
+            startedAt: input.startedAt,
+            completedAt: input.completedAt,
+            durationMs,
+        };
+        // Sign the full outer record so decision, quorumProof, and metadata are tamper-evident.
+        // Previously only individual votes were signed; this extends coverage to all fields.
+        const recordSignature = createHmac('sha256', key)
+            .update(JSON.stringify(recordWithoutSig))
+            .digest('hex');
+        const record = { ...recordWithoutSig, recordSignature };
+        // Persist audit record
+        this.appendLine(this.auditPath, record);
+        // Persist individual votes
+        for (const vote of signedVotes) {
+            this.appendLine(this.votesPath, { decisionId: input.decisionId, ...vote });
+        }
+        return record;
+    }
+    /**
+     * List consensus decisions, optionally filtered by swarmId.
+     */
+    listDecisions(swarmId, limit) {
+        const records = this.readLines(this.auditPath);
+        const filtered = swarmId ? records.filter((r) => r.swarmId === swarmId) : records;
+        return limit !== undefined ? filtered.slice(0, limit) : filtered;
+    }
+    /**
+     * Re-verify all vote signatures in a decision.
+     */
+    verifyDecision(decisionId, sessionSecret) {
+        const records = this.readLines(this.auditPath);
+        const record = records.find((r) => r.decisionId === decisionId);
+        if (!record) {
+            return { valid: false, invalidVotes: [] };
+        }
+        const key = deriveSigningKey(record.swarmId, sessionSecret);
+        const invalidVotes = [];
+        for (const vote of record.votes) {
+            const ok = verifyVote(vote.agentId, vote.vote, decisionId, vote.signature, key);
+            if (!ok) {
+                invalidVotes.push(vote.agentId);
+            }
+        }
+        // Verify the outer record signature for tamper-evidence
+        const { recordSignature, ...recordWithoutSig } = record;
+        const expectedSig = createHmac('sha256', key)
+            .update(JSON.stringify(recordWithoutSig))
+            .digest('hex');
+        const expBuf = Buffer.from(expectedSig, 'hex');
+        const gotBuf = Buffer.from(typeof recordSignature === 'string' ? recordSignature : '', 'hex');
+        const recordTampered = gotBuf.length !== expBuf.length || !timingSafeEqual(gotBuf, expBuf);
+        return { valid: invalidVotes.length === 0 && !recordTampered, invalidVotes };
+    }
+    // ── helpers ──
+    appendLine(filePath, data) {
+        // Audit writes must be reliable — propagate errors so callers know the audit trail
+        // is incomplete (silent failure defeats tamper-evidence)
+        const dir = dirname(filePath);
+        if (!existsSync(dir)) {
+            mkdirSync(dir, { recursive: true });
+        }
+        appendFileSync(filePath, JSON.stringify(data) + '\n', 'utf-8');
+    }
+    readLines(filePath) {
+        if (!existsSync(filePath))
+            return [];
+        try {
+            const MAX_BYTES = 50 * 1024 * 1024;
+            if (statSync(filePath).size > MAX_BYTES) {
+                throw new Error(`Audit log ${filePath} exceeds 50MB — run rotation/cleanup`);
+            }
+            const content = readFileSync(filePath, 'utf-8');
+            return parseJsonl(content);
+        }
+        catch {
+            return [];
+        }
+    }
+}
+//# sourceMappingURL=audit-writer.js.map
