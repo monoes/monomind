@@ -245,29 +245,25 @@ npx monomind@latest doctor --fix
 
 ## Publishing to npm
 
-MUST publish ALL THREE packages: `@monomind/cli`, `monomind` (umbrella), `monomind` (alias).
+Publish two packages: `@monoes/monomindcli` (scoped CLI) and `monomind` (umbrella from repo root).
 
 ```bash
-# 1. Build and publish CLI
-cd packages/@monomind/cli && npm version 3.0.0-alpha.XXX --no-git-tag-version && npm run build
-npm publish --tag alpha && npm dist-tag add @monomind/cli@3.0.0-alpha.XXX latest
+# 1. Bump version in BOTH package.json files (root + packages/@monomind/cli)
+#    Direct edit — `npm version` chokes on workspace:* protocol entries
 
-# 2. Publish monomind umbrella
-cd /workspaces/monomind && npm version 3.0.0-alpha.XXX --no-git-tag-version && npm publish --tag latest
-npm dist-tag add monomind@3.0.0-alpha.XXX latest && npm dist-tag add monomind@3.0.0-alpha.XXX alpha
+# 2. Build CLI
+cd packages/@monomind/cli && npm run build
 
-# 3. Publish monomind alias umbrella
-cd /workspaces/monomind/monomind && npm version 3.0.0-alpha.XXX --no-git-tag-version
-npm publish --tag alpha && npm dist-tag add monomind@3.0.0-alpha.XXX latest
+# 3. Publish scoped CLI
+npm publish --tag latest
 
-# Verify ALL THREE
-npm view @monomind/cli dist-tags --json
-npm view monomind dist-tags --json
+# 4. Publish umbrella from repo root
+cd ../../.. && npm publish --tag latest
+
+# Verify
+npm view @monoes/monomindcli dist-tags --json
 npm view monomind dist-tags --json
 ```
-
-- Never forget the `monomind` package (thin wrapper, `npx monomind@alpha`)
-- `monomind` source is in `/monomind/` -- depends on `@monomind/cli`
 
 ## Plugins
 
