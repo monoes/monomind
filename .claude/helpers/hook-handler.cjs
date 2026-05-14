@@ -157,6 +157,122 @@ function _recordGraphTelemetry(event) {
   } catch (e) { /* non-fatal */ }
 }
 
+// ── Loop drift detection ───────────────────────────────────────────────────────
+// Record tool call signatures per session, warn when the same call recurs ≥3×.
+function _recordToolCall(signature) {
+  try {
+    var f = path.join(CWD, '.monomind', 'metrics', 'tool-calls.json');
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    var d = {};
+    try { d = JSON.parse(fs.readFileSync(f, 'utf-8')); } catch (_) {}
+    if (typeof d !== 'object' || d === null) d = {};
+    // Roll over every 4 hours (new session)
+    if (!d.startedAt || (Date.now() - d.startedAt) > 4 * 60 * 60 * 1000) {
+      d = { startedAt: Date.now(), calls: {} };
+    }
+    d.calls[signature] = (d.calls[signature] || 0) + 1;
+    fs.writeFileSync(f, JSON.stringify(d));
+    return d.calls[signature];
+  } catch (e) { return 0; }
+}
+
+// ── Cost budget ────────────────────────────────────────────────────────────────
+// Read today's cost from token-summary and compare against budget ceiling.
+function _getBudgetStatus() {
+  try {
+    var budgetFile = path.join(CWD, '.monomind', 'budget.json');
+    var summaryFile = path.join(CWD, '.monomind', 'metrics', 'token-summary.json');
+    if (!fs.existsSync(summaryFile)) return null;
+    var summary = JSON.parse(fs.readFileSync(summaryFile, 'utf-8'));
+    // Support both shapes: { todayCost, monthCost } and { today: { cost }, month: { cost } }
+    var todayCost = summary.todayCost || (summary.today && summary.today.cost) || 0;
+    var monthCost = summary.monthCost || (summary.month && summary.month.cost) || 0;
+    var dailyLimit = 50, monthlyLimit = 1500; // defaults
+    try {
+      if (fs.existsSync(budgetFile)) {
+        var b = JSON.parse(fs.readFileSync(budgetFile, 'utf-8'));
+        dailyLimit = b.dailyLimit || dailyLimit;
+        monthlyLimit = b.monthlyLimit || monthlyLimit;
+      }
+    } catch (_) {}
+    var dailyPct = Math.round((todayCost / dailyLimit) * 100);
+    var monthlyPct = Math.round((monthCost / monthlyLimit) * 100);
+    return {
+      todayCost: todayCost, monthCost: monthCost,
+      dailyLimit: dailyLimit, monthlyLimit: monthlyLimit,
+      dailyPct: dailyPct, monthlyPct: monthlyPct,
+      alert: dailyPct >= 80 || monthlyPct >= 80,
+      breached: dailyPct >= 100 || monthlyPct >= 100,
+    };
+  } catch (e) { return null; }
+}
+
+// ── Test feedback (detection only — do not auto-run) ──────────────────────────
+// When LLM edits a source file, find tests that import it via monograph and
+// surface the list so the LLM (or user) knows what to verify.
+function _findAffectedTests(filePath) {
+  if (!filePath) return [];
+  var db = _openMonographDb();
+  if (!db) return [];
+  try {
+    var rel = filePath;
+    if (filePath.indexOf(CWD) === 0) rel = filePath.slice(CWD.length + 1);
+    // Find tests that IMPORTS any symbol whose target file_path matches our file.
+    // The graph stores IMPORTS edges to symbol nodes, not file nodes — so we
+    // match on the target node's file_path field instead of target_id directly.
+    var rows = db.prepare(
+      "SELECT DISTINCT src.file_path FROM edges e " +
+      "JOIN nodes src ON e.source_id = src.id " +
+      "JOIN nodes tgt ON e.target_id = tgt.id " +
+      "WHERE e.relation IN ('IMPORTS','CALLS','DEPENDS_ON') " +
+      "AND (tgt.file_path = ? OR tgt.file_path = ?) " +
+      "AND src.file_path IS NOT NULL AND src.file_path != '' " +
+      "AND (src.file_path LIKE '%test%' OR src.file_path LIKE '%.spec.%' OR src.file_path LIKE '%__tests__%') " +
+      "AND src.file_path NOT LIKE '%.worktrees%' " +
+      "LIMIT 5"
+    ).all(filePath, rel);
+    return rows.map(function(r) { return r.file_path; });
+  } catch (e) { return []; }
+  finally { try { db.close(); } catch (_) {} }
+}
+
+// ── Hook latency tracking ─────────────────────────────────────────────────────
+function _recordHookLatency(handlerName, durationMs) {
+  try {
+    var f = path.join(CWD, '.monomind', 'metrics', 'hook-latency.json');
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    var d = {};
+    try { d = JSON.parse(fs.readFileSync(f, 'utf-8')); } catch (_) {}
+    if (typeof d !== 'object' || d === null) d = {};
+    var entry = d[handlerName] || { count: 0, total: 0, max: 0 };
+    entry.count++;
+    entry.total += durationMs;
+    entry.max = Math.max(entry.max, durationMs);
+    entry.mean = Math.round(entry.total / entry.count);
+    d[handlerName] = entry;
+    d.lastUpdated = Date.now();
+    fs.writeFileSync(f, JSON.stringify(d));
+  } catch (e) {}
+}
+
+// ── Auto-ADR decision detection ───────────────────────────────────────────────
+// Record sentence-level decision markers from user prompts to .monomind/decisions.jsonl
+function _recordDecisionMarkers(promptText) {
+  if (!promptText || typeof promptText !== 'string') return;
+  var markers = /\b(let's go with|we (?:chose|decided|picked|will go with)|decision[:\s]|choosing|going with|prefer to|let's use)\b[^\.\n]{0,200}/gi;
+  var matches = promptText.match(markers);
+  if (!matches || matches.length === 0) return;
+  try {
+    var f = path.join(CWD, '.monomind', 'decisions.jsonl');
+    var entry = JSON.stringify({
+      ts: Date.now(),
+      excerpts: matches.slice(0, 3),
+      prompt: promptText.slice(0, 400),
+    });
+    fs.appendFileSync(f, entry + '\n');
+  } catch (e) {}
+}
+
 // Auto-rebuild the monograph after N writes — graph staleness during heavy
 // editing is the main reason suggestions go cold. Triggered by post-edit.
 function _maybeRebuildMonograph() {
@@ -836,6 +952,21 @@ const handlers = {
 
       console.log(output.join('\n'));
 
+      // Record any decision markers in this prompt (auto-ADR pipeline).
+      try { _recordDecisionMarkers(prompt); } catch (e) {}
+
+      // Cost budget — emit amber/red banner when approaching limit.
+      try {
+        var budget = _getBudgetStatus();
+        if (budget && budget.alert) {
+          if (budget.breached) {
+            console.log('[BUDGET_BREACHED] Daily $' + budget.todayCost.toFixed(2) + '/$' + budget.dailyLimit + ' (' + budget.dailyPct + '%) · Monthly $' + budget.monthCost.toFixed(2) + '/$' + budget.monthlyLimit + ' (' + budget.monthlyPct + '%). Switch to Haiku with /model haiku or raise limits in .monomind/budget.json.');
+          } else {
+            console.log('[BUDGET_ALERT] Daily ' + budget.dailyPct + '% of $' + budget.dailyLimit + ' · Monthly ' + budget.monthlyPct + '% of $' + budget.monthlyLimit + '. Adjust .monomind/budget.json if needed.');
+          }
+        }
+      } catch (e) {}
+
       // Inject monograph hint for complex tasks.
       // Source of truth is .monomind/monograph.db (SQLite). Legacy stats.json
       // is no longer written by the build, so it is checked only as a fallback.
@@ -988,6 +1119,13 @@ const handlers = {
         _recordGraphTelemetry('bash_find_call');
       }
       if (pattern && pattern.length >= 3) {
+        var sigB = 'Bash-grep:' + pattern.slice(0, 60);
+        var countB = _recordToolCall(sigB);
+        if (countB >= 3) {
+          console.log('[LOOP_DRIFT] You\'ve grepped "' + pattern.slice(0, 40) + '" ' + countB + 'x — switch to monograph_query.');
+        }
+      }
+      if (pattern && pattern.length >= 3) {
         var clean = pattern.replace(/[\\^$.*+?()\[\]{}|]/g, ' ').trim();
         if (clean.length >= 3) {
           var hits = getMonographSuggestions(clean, 5);
@@ -1015,6 +1153,13 @@ const handlers = {
       if (typeof pattern !== 'string' || pattern.length < 3) return;
       var clean = pattern.replace(/[\\^$.*+?()\[\]{}|]/g, ' ').trim();
       if (clean.length < 3) return;
+
+      // Loop drift detection
+      var sig = (toolName || 'Search') + ':' + clean.slice(0, 60);
+      var count = _recordToolCall(sig);
+      if (count >= 3) {
+        console.log('[LOOP_DRIFT] You\'ve searched "' + clean.slice(0, 40) + '" ' + count + 'x this session — try monograph_query or monograph_impact for a structural answer.');
+      }
       var suggestions = getMonographSuggestions(clean, 5);
       if (suggestions.length === 0) return;
       console.log('[MONOGRAPH_HIT] Graph already knows ' + suggestions.length + ' file(s) matching "' + clean.slice(0, 40) + '":');
@@ -1064,6 +1209,22 @@ const handlers = {
     }
     // Increment write counter and rebuild monograph when threshold hit.
     _maybeRebuildMonograph();
+
+    // Test feedback (detection-only): when editing a source file, list tests
+    // that import it so the LLM/user knows what to verify next.
+    try {
+      var editedFile = hookInput.file_path || toolInput.file_path
+        || process.env.TOOL_INPUT_file_path || args[0] || '';
+      if (editedFile && !editedFile.match(/\.(test|spec)\./) && !editedFile.includes('__tests__')) {
+        var affectedTests = _findAffectedTests(editedFile);
+        if (affectedTests.length > 0) {
+          console.log('[AFFECTED_TESTS] ' + affectedTests.length + ' test(s) cover this file:');
+          for (var ti = 0; ti < Math.min(5, affectedTests.length); ti++) {
+            console.log('  · ' + affectedTests[ti]);
+          }
+        }
+      }
+    } catch (e) {}
     // ── Security-Sensitive File Auto-Alert ────────────────────────────────
     // When editing auth, security, crypto, or env-related files, flag it
     try {
@@ -2052,15 +2213,18 @@ const handlers = {
 };
 
 if (command && handlers[command]) {
+    var _hookStart = Date.now();
     try {
       await Promise.resolve(handlers[command]());
     } catch (e) {
       console.log('[WARN] Hook ' + command + ' encountered an error: ' + e.message);
+    } finally {
+      try { _recordHookLatency(command, Date.now() - _hookStart); } catch (_) {}
     }
   } else if (command) {
     console.log('[OK] Hook: ' + command);
   } else {
-    console.log('Usage: hook-handler.cjs <route|pre-bash|post-edit|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto|status|stats>');
+    console.log('Usage: hook-handler.cjs <route|pre-bash|pre-search|post-edit|post-read|post-graph-tool|session-restore|session-end|pre-task|post-task|compact-manual|compact-auto|status|stats>');
   }
 }
 
