@@ -828,6 +828,27 @@ function getTriggerStats() {
   } catch { return { triggers: 0, agents: 0 }; }
 }
 
+// Hook latency — surface slow per-prompt hooks in the statusline.
+function getHookLatency() {
+  const p = path.join(CWD, '.monomind', 'metrics', 'hook-latency.json');
+  try {
+    if (!fs.existsSync(p)) return null;
+    const d = JSON.parse(fs.readFileSync(p, 'utf-8'));
+    const perPrompt = ['route'];
+    let totalMs = 0; let count = 0;
+    for (const h of perPrompt) {
+      if (d[h] && d[h].mean) { totalMs += d[h].mean; count++; }
+    }
+    if (count === 0) return null;
+    let slowest = null;
+    for (const k of Object.keys(d)) {
+      if (k === 'lastUpdated' || !d[k] || typeof d[k] !== 'object') continue;
+      if (!slowest || d[k].mean > slowest.mean) slowest = { name: k, mean: d[k].mean };
+    }
+    return { perPromptMs: totalMs, slowest: slowest };
+  } catch { return null; }
+}
+
 // Graph usage telemetry — ratio of monograph_* vs Grep/Glob/Bash-grep, + $ saved
 function getGraphUsage() {
   const usagePath = path.join(CWD, '.monomind', 'metrics', 'graph-usage.json');
@@ -1096,7 +1117,16 @@ function generateDashboard() {
     usageStr = \`   \${DIV}   \${col}📊 graph \${usage.pct}%\${x.reset}\${x.slate} · grep \${100 - usage.pct}%\${x.reset}\${saved}\`;
   }
 
-  lines.push(\`\${x.purple}🤖  AGENT\${x.reset}    \${agentStr}   \${DIV}   \${loopStr}\${usageStr}\`);
+  // Hook latency — surface when slow (>500ms per prompt)
+  const lat = getHookLatency();
+  let latStr = '';
+  if (lat && lat.perPromptMs > 500) {
+    latStr = \`   \${DIV}   \${x.coral}⚡ hooks \${lat.perPromptMs}ms\${x.reset}\`;
+  } else if (lat && lat.perPromptMs > 0) {
+    latStr = \`   \${DIV}   \${x.dim}⚡ \${lat.perPromptMs}ms\${x.reset}\`;
+  }
+
+  lines.push(\`\${x.purple}🤖  AGENT\${x.reset}    \${agentStr}   \${DIV}   \${loopStr}\${usageStr}\${latStr}\`);
   lines.push(SEP);
 
   // ── Row 2: Graph freshness + Pending HIL ─────────────────────
