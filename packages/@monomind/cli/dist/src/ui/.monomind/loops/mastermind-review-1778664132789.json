@@ -1,0 +1,16 @@
+{
+  "id": "mastermind-review-1778664132789",
+  "sessionId": "mastermind-review-1778664132789",
+  "type": "tillend",
+  "command": "/mastermind:review",
+  "prompt": "review everything ported from paperclip if everything wired and all working great",
+  "maxReps": 50,
+  "interval": 1,
+  "wait": 60,
+  "currentRep": 1,
+  "startedAt": 1778664132789,
+  "lastRunAt": 1778664132789,
+  "nextRunAt": 1778664132789,
+  "status": "running",
+  "source": "_repeat.md"
+}

@@ -1,0 +1,6 @@
+# Runtime data — never ship in the tarball
+.claude/**/.monomind/
+.claude/**/.monomind/**
+/src/
+*.test.ts
+*.spec.ts
