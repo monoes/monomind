@@ -148,7 +148,7 @@ function getProjectName() {
   try {
     const remote = safeExec('git remote get-url origin 2>/dev/null', 2000).trim();
     if (remote) {
-      const m = remote.match(/[/:]([\w.-]+)\/([\w.-]+?)(?:\.git)?$/);
+      const m = remote.match(/[/:]([\\w.-]+)\\/([\\w.-]+?)(?:\\.git)?$/);
       if (m) return \`\${m[1]}/\${m[2]}\`;
     }
   } catch { /* ignore */ }
