@@ -1,0 +1,1 @@
+{"version":3,"file":"dsl-parser.d.ts","sourceRoot":"","sources":["../../../src/workflow/dsl-parser.ts"],"names":[],"mappings":"AAEA,OAAO,EAEL,KAAK,kBAAkB,EACxB,MAAM,iBAAiB,CAAC;AAEzB,qBAAa,SAAS;IACpB;;OAEG;IACH,MAAM,CAAC,YAAY,CAAC,QAAQ,EAAE,MAAM,GAAG,kBAAkB;IAMzD;;OAEG;IACH,MAAM,CAAC,cAAc,CAAC,GAAG,EAAE,OAAO,GAAG,kBAAkB;CAGxD"}

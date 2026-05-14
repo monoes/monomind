@@ -1,0 +1,315 @@
+/**
+ * V1 Init System Types
+ * Configuration options for initializing Claude Code integration
+ */
+/**
+ * Components that can be initialized
+ */
+export interface InitComponents {
+    /** Create .claude/settings.json with hooks */
+    settings: boolean;
+    /** Copy skills to .claude/skills/ */
+    skills: boolean;
+    /** Copy commands to .claude/commands/ */
+    commands: boolean;
+    /** Copy agents to .claude/agents/ */
+    agents: boolean;
+    /** Create helper scripts in .claude/helpers/ */
+    helpers: boolean;
+    /** Configure statusline */
+    statusline: boolean;
+    /** Create MCP configuration */
+    mcp: boolean;
+    /** Create .monomind/ directory (V1 runtime) */
+    runtime: boolean;
+    /** Create CLAUDE.md with swarm guidance */
+    claudeMd: boolean;
+    /** Build knowledge graph on init using monograph (TypeScript) */
+    graphify: boolean;
+}
+/**
+ * Hook configuration options
+ * Valid Claude Code hook events (23 total):
+ *   PreToolUse, PostToolUse, PostToolUseFailure, UserPromptSubmit,
+ *   SessionStart, SessionEnd, Stop, SubagentStart, SubagentStop,
+ *   PreCompact, PostCompact, Notification, ConfigChange,
+ *   InstructionsLoaded, PermissionRequest, WorktreeCreate, WorktreeRemove,
+ *   TeammateIdle, TaskCompleted, Elicitation, ElicitationResult
+ */
+export interface HooksConfig {
+    /** Enable PreToolUse hooks */
+    preToolUse: boolean;
+    /** Enable PostToolUse hooks */
+    postToolUse: boolean;
+    /** Enable UserPromptSubmit for routing */
+    userPromptSubmit: boolean;
+    /** Enable SessionStart hooks */
+    sessionStart: boolean;
+    /** Enable Stop hooks */
+    stop: boolean;
+    /** Enable PreCompact hooks (context preservation before compaction) */
+    preCompact: boolean;
+    /** Enable Notification hooks */
+    notification: boolean;
+    /** Enable TeammateIdle hooks (agent teams auto-assign) */
+    teammateIdle: boolean;
+    /** Enable TaskCompleted hooks (agent teams pattern learning) */
+    taskCompleted: boolean;
+    /** Hook timeout in milliseconds */
+    timeout: number;
+    /** Continue on hook error */
+    continueOnError: boolean;
+}
+/**
+ * Skills configuration
+ */
+export interface SkillsConfig {
+    /** Include core skills (swarm, sparc, mastermind, monodesign, monomotion) */
+    core: boolean;
+    /** Include AgentDB skills */
+    agentdb: boolean;
+    /** Include GitHub integration skills */
+    github: boolean;
+    /** Include browser automation skills */
+    browser: boolean;
+    /** Include advanced skills (agentic-jujutsu, security, performance, etc.) */
+    advanced: boolean;
+    /** Include all available skills */
+    all: boolean;
+}
+/**
+ * Commands configuration
+ */
+export interface CommandsConfig {
+    /** Include core commands (mastermind.md, tokens.md, browse.md, sparc.md, ts.md) */
+    core: boolean;
+    /** Include agents commands */
+    agents?: boolean;
+    /** Include analysis commands */
+    analysis: boolean;
+    /** Include automation commands */
+    automation: boolean;
+    /** Include coordination commands */
+    coordination?: boolean;
+    /** Include github commands */
+    github: boolean;
+    /** Include hive-mind commands */
+    hiveMind?: boolean;
+    /** Include hooks commands */
+    hooks: boolean;
+    /** Include mastermind commands */
+    mastermind?: boolean;
+    /** Include memory commands */
+    memory?: boolean;
+    /** Include monitoring commands */
+    monitoring: boolean;
+    /** Include monograph commands */
+    monograph?: boolean;
+    /** Include monomind commands */
+    monomind?: boolean;
+    /** Include optimization commands */
+    optimization: boolean;
+    /** Include pair commands */
+    pair?: boolean;
+    /** Include SPARC commands */
+    sparc: boolean;
+    /** Include stream-chain commands */
+    streamChain?: boolean;
+    /** Include swarm commands */
+    swarm?: boolean;
+    /** Include training commands */
+    training?: boolean;
+    /** Include truth commands */
+    truth?: boolean;
+    /** Include verify commands */
+    verify?: boolean;
+    /** Include workflows commands */
+    workflows?: boolean;
+    /** Include all commands */
+    all: boolean;
+}
+/**
+ * Agents configuration
+ */
+export interface AgentsConfig {
+    /** Include core agents (coder, tester, reviewer) */
+    core: boolean;
+    /** Include consensus agents */
+    consensus: boolean;
+    /** Include GitHub agents */
+    github: boolean;
+    /** Include hive-mind agents */
+    hiveMind: boolean;
+    /** Include SPARC agents */
+    sparc: boolean;
+    /** Include swarm coordinators */
+    swarm: boolean;
+    /** Include optimization agents */
+    optimization: boolean;
+    /** Include testing agents */
+    testing: boolean;
+    /** Include all agents */
+    all: boolean;
+}
+/**
+ * Statusline configuration
+ */
+export interface StatuslineConfig {
+    /** Enable statusline */
+    enabled: boolean;
+    /** Show V1 progress */
+    showProgress: boolean;
+    /** Show security status */
+    showSecurity: boolean;
+    /** Show swarm activity */
+    showSwarm: boolean;
+    /** Show hooks metrics */
+    showHooks: boolean;
+    /** Show performance targets */
+    showPerformance: boolean;
+    /** Refresh interval in milliseconds */
+    refreshInterval: number;
+}
+/**
+ * MCP configuration
+ */
+export interface MCPConfig {
+    /** Include monomind MCP server */
+    monomind: boolean;
+    /** Include ruv-swarm MCP server */
+    ruvSwarm: boolean;
+    /** Include monograph knowledge graph MCP server */
+    graphify: boolean;
+    /** Auto-start MCP server */
+    autoStart: boolean;
+    /** Server port */
+    port: number;
+}
+/**
+ * Runtime configuration (.monomind/)
+ */
+export interface RuntimeConfig {
+    /** Swarm topology */
+    topology: 'mesh' | 'hierarchical' | 'hierarchical-mesh' | 'adaptive';
+    /** Maximum agents */
+    maxAgents: number;
+    /** Memory backend */
+    memoryBackend: 'memory' | 'sqlite' | 'agentdb' | 'hybrid';
+    /** Enable HNSW indexing */
+    enableHNSW: boolean;
+    /** Enable neural learning */
+    enableNeural: boolean;
+    /** Enable LearningBridge (ADR-049) - connects insights to SONA/ReasoningBank */
+    enableLearningBridge?: boolean;
+    /** Enable MemoryGraph (ADR-049) - PageRank knowledge graph */
+    enableMemoryGraph?: boolean;
+    /** Enable AgentMemoryScope (ADR-049) - 3-scope agent memory */
+    enableAgentScopes?: boolean;
+    /** CLAUDE.md template variant */
+    claudeMdTemplate?: ClaudeMdTemplate;
+}
+/** Template variants for generated CLAUDE.md files */
+export type ClaudeMdTemplate = 'minimal' | 'standard' | 'full' | 'security' | 'performance' | 'solo';
+/**
+ * Embeddings configuration
+ */
+export interface EmbeddingsConfig {
+    /** Enable embedding subsystem */
+    enabled: boolean;
+    /** ONNX model ID */
+    model: 'Xenova/all-MiniLM-L6-v2' | 'Xenova/all-mpnet-base-v2' | 'Xenova/bge-small-en-v1.5' | string;
+    /** Enable hyperbolic (Poincaré ball) embeddings */
+    hyperbolic: boolean;
+    /** Poincaré ball curvature (negative value, typically -1) */
+    curvature: number;
+    /** Pre-download model during init */
+    predownload: boolean;
+    /** LRU cache size (number of embeddings) */
+    cacheSize: number;
+    /** Enable neural substrate integration */
+    neuralSubstrate: boolean;
+}
+/**
+ * Detected platform information
+ */
+export interface PlatformInfo {
+    /** Operating system */
+    os: 'windows' | 'darwin' | 'linux';
+    /** Architecture */
+    arch: 'x64' | 'arm64' | 'arm' | 'ia32';
+    /** Node.js version */
+    nodeVersion: string;
+    /** Shell type */
+    shell: 'powershell' | 'cmd' | 'bash' | 'zsh' | 'sh';
+    /** Home directory */
+    homeDir: string;
+    /** Config directory (platform-specific) */
+    configDir: string;
+}
+/**
+ * Detect current platform
+ */
+export declare function detectPlatform(): PlatformInfo;
+/**
+ * Complete init options
+ */
+export interface InitOptions {
+    /** Target directory */
+    targetDir: string;
+    /** Source base directory for skills/commands/agents (optional) */
+    sourceBaseDir?: string;
+    /** Force overwrite existing files */
+    force: boolean;
+    /** Run in interactive mode */
+    interactive: boolean;
+    /** Components to initialize */
+    components: InitComponents;
+    /** Hooks configuration */
+    hooks: HooksConfig;
+    /** Skills configuration */
+    skills: SkillsConfig;
+    /** Commands configuration */
+    commands: CommandsConfig;
+    /** Agents configuration */
+    agents: AgentsConfig;
+    /** Statusline configuration */
+    statusline: StatuslineConfig;
+    /** MCP configuration */
+    mcp: MCPConfig;
+    /** Runtime configuration */
+    runtime: RuntimeConfig;
+    /** Embeddings configuration */
+    embeddings: EmbeddingsConfig;
+}
+/**
+ * Default init options - full V1 setup
+ */
+export declare const DEFAULT_INIT_OPTIONS: InitOptions;
+/**
+ * Minimal init options
+ */
+export declare const MINIMAL_INIT_OPTIONS: InitOptions;
+/**
+ * Full init options (everything enabled)
+ */
+export declare const FULL_INIT_OPTIONS: InitOptions;
+/**
+ * Init result
+ */
+export interface InitResult {
+    success: boolean;
+    platform: PlatformInfo;
+    created: {
+        directories: string[];
+        files: string[];
+    };
+    skipped: string[];
+    errors: string[];
+    summary: {
+        skillsCount: number;
+        commandsCount: number;
+        agentsCount: number;
+        hooksEnabled: number;
+    };
+}
+//# sourceMappingURL=types.d.ts.map
