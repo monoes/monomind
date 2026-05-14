@@ -659,13 +659,31 @@ function getAgentDBStats() {
 }
 
 // Graphify knowledge graph stats
+// Sources, in priority order:
+//   1. .monomind/graph/stats.json        — explicit cached stats
+//   2. .monomind/monograph.db            — live SQLite (read counts via sqlite3)
+//   3. .monomind/graph/graph.json        — legacy JSON dump
 function getGraphifyStats() {
   const statsPath = path.join(CWD, '.monomind', 'graph', 'stats.json');
+  const dbPath    = path.join(CWD, '.monomind', 'monograph.db');
   const graphPath = path.join(CWD, '.monomind', 'graph', 'graph.json');
+
   try {
     const s = readJSON(statsPath);
     if (s && s.nodes !== undefined) return { nodes: s.nodes, edges: s.edges || 0, exists: true };
   } catch { /* ignore */ }
+
+  // Live monograph.db — single SQLite call, strict 1s timeout
+  try {
+    if (fs.existsSync(dbPath)) {
+      const out = safeExec(`sqlite3 "${dbPath}" "SELECT (SELECT COUNT(*) FROM nodes), (SELECT COUNT(*) FROM edges);"`, 1000);
+      if (out) {
+        const [n, e] = out.split('|').map(v => parseInt(v, 10) || 0);
+        if (n > 0) return { nodes: n, edges: e, exists: true };
+      }
+    }
+  } catch { /* ignore */ }
+
   try {
     const stat = safeStat(graphPath);
     if (stat && stat.size < 10 * 1024 * 1024) {
