@@ -62,6 +62,8 @@ function getMonographSuggestions(taskText, limit) {
     try {
       // BM25 ranks better than degree for keyword relevance; tie-break by deg.
       // File/Function/Class outrank Section so navigable nodes win.
+      // Filter out anonymous lambdas, arrow expressions, and other unnamed
+      // garbage that the AST extraction picks up but isn't navigable.
       rows = db.prepare(
         "SELECT n.id, n.name, n.label, n.file_path AS file, " +
         "bm25(nodes_fts) AS bm25_score, " +
@@ -71,6 +73,8 @@ function getMonographSuggestions(taskText, limit) {
         "FROM nodes_fts f JOIN nodes n ON f.rowid = n.rowid " +
         "WHERE nodes_fts MATCH ? AND n.file_path IS NOT NULL AND n.file_path != '' " +
         "AND n.label NOT IN ('Concept') " +
+        "AND n.name NOT LIKE '(%' AND n.name NOT LIKE '%=>%' AND n.name != 'function' " +
+        "AND length(n.name) >= 3 " +
         "ORDER BY label_rank DESC, bm25_score ASC, deg DESC LIMIT ?"
       ).all(ftsQuery, lim);
     } catch (e) {
@@ -155,6 +159,33 @@ function _recordGraphTelemetry(event) {
     d.lastUpdated = Date.now();
     fs.writeFileSync(f, JSON.stringify(d));
   } catch (e) { /* non-fatal */ }
+}
+
+// Re-inject graph god nodes after compaction so the LLM doesn't lose its spatial map.
+function _injectCompactGraphMap() {
+  try {
+    var db = _openMonographDb();
+    if (!db) return;
+    try {
+      var nodeC = db.prepare("SELECT COUNT(*) AS c FROM nodes").get().c;
+      var gods = db.prepare(
+        "SELECT n.name, n.label, n.file_path, " +
+        "(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg " +
+        "FROM nodes n " +
+        "WHERE n.label NOT IN ('Concept') AND n.file_path IS NOT NULL AND n.file_path != '' " +
+        "AND n.name NOT LIKE '(%' AND n.name NOT LIKE '%=>%' AND length(n.name) >= 3 " +
+        "ORDER BY deg DESC LIMIT 8"
+      ).all();
+      if (gods.length > 0) {
+        console.log('[COMPACT_GRAPH] ' + nodeC + ' nodes available. Top spatial anchors:');
+        for (var ci = 0; ci < gods.length; ci++) {
+          var g = gods[ci];
+          console.log('  · ' + g.name + ' [' + g.label + '] — ' + g.file_path + ' (deg ' + g.deg + ')');
+        }
+        console.log('  Use mcp__monomind__monograph_suggest first when navigating.');
+      }
+    } finally { try { db.close(); } catch (_) {} }
+  } catch (e) {}
 }
 
 // ── Loop drift detection ───────────────────────────────────────────────────────
@@ -2080,11 +2111,9 @@ const handlers = {
   },
 
   'compact-manual': async () => {
-    // Consolidate intelligence before compaction so patterns survive
     if (intelligence && intelligence.consolidate) {
       try { await runWithTimeout(function() { return intelligence.consolidate(); }, 'intelligence.consolidate()'); } catch (e) { /* non-fatal */ }
     }
-    // Save current routing context for post-compact restore
     try {
       var lastRoute = path.join(CWD, '.monomind', 'last-route.json');
       if (fs.existsSync(lastRoute)) {
@@ -2092,11 +2121,11 @@ const handlers = {
         console.log('[COMPACT_CONTEXT] Last route: ' + route.agent + ' (' + (route.confidence != null ? (route.confidence * 100).toFixed(0) : '?') + '%)');
       }
     } catch (e) { /* non-fatal */ }
+    _injectCompactGraphMap();
     console.log('[COMPACT] Manual compaction — intelligence consolidated, context preserved');
   },
 
   'compact-auto': async () => {
-    // Same consolidation for auto-compact
     if (intelligence && intelligence.consolidate) {
       try { await runWithTimeout(function() { return intelligence.consolidate(); }, 'intelligence.consolidate()'); } catch (e) { /* non-fatal */ }
     }
@@ -2107,6 +2136,7 @@ const handlers = {
         console.log('[COMPACT_CONTEXT] Last route: ' + route.agent + ' (' + (route.confidence != null ? (route.confidence * 100).toFixed(0) : '?') + '%)');
       }
     } catch (e) { /* non-fatal */ }
+    _injectCompactGraphMap();
     console.log('[COMPACT] Auto compaction — intelligence consolidated, context preserved');
     console.log('GOLDEN RULE: 1 message = all parallel operations');
   },
@@ -2197,6 +2227,62 @@ const handlers = {
     } catch (e) { /* non-fatal */ }
 
     console.log('[OK] Agent registered');
+  },
+
+  // Draft an ADR from accumulated decision markers in .monomind/decisions.jsonl.
+  // Usage: node hook-handler.cjs adr-draft   (or via /adr slash command)
+  'adr-draft': () => {
+    var jsonl = path.join(CWD, '.monomind', 'decisions.jsonl');
+    if (!fs.existsSync(jsonl)) {
+      console.log('[ADR] No decisions recorded yet. Type prompts containing markers like "let\'s go with X", "we chose Y", "decision: Z" to populate the log.');
+      return;
+    }
+    var lines = fs.readFileSync(jsonl, 'utf-8').trim().split('\n').filter(Boolean);
+    if (lines.length === 0) {
+      console.log('[ADR] decisions.jsonl is empty.');
+      return;
+    }
+    // Group decisions captured in the last 7 days
+    var cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    var recent = lines.map(function(l) { try { return JSON.parse(l); } catch (_) { return null; } })
+                       .filter(function(d) { return d && d.ts >= cutoff; });
+    if (recent.length === 0) {
+      console.log('[ADR] No decisions in the last 7 days. Older entries: ' + lines.length + '.');
+      return;
+    }
+
+    var adrsDir = path.join(CWD, 'docs', 'adrs');
+    try { fs.mkdirSync(adrsDir, { recursive: true }); } catch (_) {}
+    // Pick next ADR number
+    var existing = [];
+    try { existing = fs.readdirSync(adrsDir).filter(function(f) { return /^ADR-\d{4}/.test(f); }); } catch (_) {}
+    var nextNum = existing.length + 1;
+    var num = String(nextNum).padStart(4, '0');
+    var stamp = new Date().toISOString().slice(0,10);
+    var slug = 'session-decisions';
+    var fname = 'ADR-' + num + '-' + stamp + '-' + slug + '.md';
+    var outPath = path.join(adrsDir, fname);
+
+    var body = '# ADR-' + num + ': Session decisions (' + stamp + ')\n\n' +
+               '**Status:** Proposed\n**Date:** ' + stamp + '\n\n' +
+               '## Context\n\n' +
+               'During recent sessions, the following decision markers were captured ' +
+               'from user prompts. Each excerpt is the surrounding sentence at the time.\n\n' +
+               '## Decisions\n\n';
+    for (var i = 0; i < recent.length; i++) {
+      var d = recent[i];
+      var date = new Date(d.ts).toISOString().slice(0,16).replace('T',' ');
+      body += '### ' + (i + 1) + '. ' + date + '\n\n';
+      for (var j = 0; j < d.excerpts.length; j++) {
+        body += '> ' + d.excerpts[j].trim() + '\n\n';
+      }
+      if (d.prompt) body += '_Prompt:_ ' + d.prompt.slice(0, 200) + (d.prompt.length > 200 ? '…' : '') + '\n\n';
+    }
+    body += '## Consequences\n\n_(fill in after review)_\n\n' +
+            '## Status\n\nProposed — awaiting human review and refinement.\n';
+    fs.writeFileSync(outPath, body);
+    console.log('[ADR_DRAFT] Wrote ' + recent.length + ' decision(s) to ' + outPath);
+    console.log('  Edit the file to fill in Context and Consequences, then change Status to Accepted/Rejected.');
   },
 
   'status': () => {
