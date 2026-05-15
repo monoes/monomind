@@ -29,14 +29,20 @@ function _requireMonograph() {
 // Used by route (pre-resolve), pre-search (Grep/Glob redirect), and post-read
 // (neighbor footer). All calls are best-effort; failures are silent.
 
+// Memoized at module scope — opening a multi-GB monograph.db can take 7-10s,
+// and we call this 3+ times per route hook. Cache for the lifetime of this
+// hook process. Callers should NOT close the returned handle.
+var _cachedMonographDb = undefined;
 function _openMonographDb() {
+  if (_cachedMonographDb !== undefined) return _cachedMonographDb;
   try {
     var dbPath = path.join(CWD, '.monomind', 'monograph.db');
-    if (!fs.existsSync(dbPath)) return null;
+    if (!fs.existsSync(dbPath)) { _cachedMonographDb = null; return null; }
     var mod = _requireMonograph();
-    if (!mod || !mod.openDb) return null;
-    return mod.openDb(dbPath);
-  } catch (e) { return null; }
+    if (!mod || !mod.openDb) { _cachedMonographDb = null; return null; }
+    _cachedMonographDb = mod.openDb(dbPath);
+    return _cachedMonographDb;
+  } catch (e) { _cachedMonographDb = null; return null; }
 }
 
 function getMonographSuggestions(taskText, limit) {
@@ -91,7 +97,7 @@ function getMonographSuggestions(taskText, limit) {
     }
     return rows || [];
   } catch (e) { return []; }
-  finally { try { db.close(); } catch (_) {} }
+  finally { /* db is shared/cached; do not close */ }
 }
 
 function getMonographNeighbors(filePath) {
@@ -119,7 +125,7 @@ function getMonographNeighbors(filePath) {
 
     return { imports: imports, importedBy: importedBy };
   } catch (e) { return null; }
-  finally { try { db.close(); } catch (_) {} }
+  finally { /* db is shared/cached; do not close */ }
 }
 
 // Rough per-event token + USD cost estimates. Tuned to Sonnet input pricing
@@ -184,7 +190,7 @@ function _injectCompactGraphMap() {
         }
         console.log('  Use mcp__monomind__monograph_suggest first when navigating.');
       }
-    } finally { try { db.close(); } catch (_) {} }
+    } finally { /* db is shared/cached; do not close */ }
   } catch (e) {}
 }
 
@@ -264,7 +270,7 @@ function _findAffectedTests(filePath) {
     ).all(filePath, rel);
     return rows.map(function(r) { return r.file_path; });
   } catch (e) { return []; }
-  finally { try { db.close(); } catch (_) {} }
+  finally { /* db is shared/cached; do not close */ }
 }
 
 // ── Hook latency tracking ─────────────────────────────────────────────────────
@@ -629,9 +635,8 @@ function _autoIndexKnowledge(knowledgeDir) {
 
     if (fs.existsSync(mgDbPath2)) {
       try {
-        var mgMod2 = _requireMonograph();
-        if (mgMod2 && mgMod2.openDb) {
-          var sumDb = mgMod2.openDb(mgDbPath2);
+        var sumDb = _openMonographDb();
+        if (sumDb) {
           try {
             var nodeC = sumDb.prepare('SELECT COUNT(*) AS c FROM nodes').get().c;
             var edgeC = sumDb.prepare('SELECT COUNT(*) AS c FROM edges').get().c;
@@ -661,9 +666,7 @@ function _autoIndexKnowledge(knowledgeDir) {
               '  mcp__monomind__monograph_impact({ name: "<file>" }) — upstream + downstream blast radius',
             ].join('\n');
             summaryMeta = { label: 'monograph-graph-summary', source: 'monograph.db', nodes: nodeC, edges: edgeC };
-          } finally {
-            try { sumDb.close(); } catch (_) {}
-          }
+          } catch (e) { /* keep summaryText if partial */ }
         }
       } catch (e) { /* fall through to legacy */ }
     }
@@ -830,11 +833,22 @@ const handlers = {
       var output = [];
       output.push('[INFO] Routing task: ' + (prompt.substring(0, 80) || '(no prompt)'));
       output.push('');
-      output.push('+------------- monomind | Primary Recommendation --------------+');
-      output.push('| Agent: ' + (result.agent || 'unknown').substring(0, 54).padEnd(54) + '|');
-      output.push('| Confidence: ' + ((result.confidence != null ? (result.confidence * 100).toFixed(1) : '?') + '%').padEnd(49) + '|');
-      output.push('| Reason: ' + (result.reason || '').substring(0, 53).padEnd(53) + '|');
-      output.push('+--------------------------------------------------------------+');
+      // Suppress the agent recommendation panel for low-confidence routes on
+      // short prompts — the recommendation is almost always wrong (e.g.
+      // "what else can we do" → marketing → China E-Commerce). Saves ~150
+      // tokens per prompt. Skill matches and specific agents still render
+      // below when confidence is decent.
+      var conf = result.confidence != null ? result.confidence : 0;
+      var promptShort = (prompt || '').trim().length < 60;
+      var lowConf = conf < 0.70;
+      var suppressPanel = lowConf && promptShort;
+      if (!suppressPanel) {
+        output.push('+------------- monomind | Primary Recommendation --------------+');
+        output.push('| Agent: ' + (result.agent || 'unknown').substring(0, 54).padEnd(54) + '|');
+        output.push('| Confidence: ' + ((result.confidence != null ? (result.confidence * 100).toFixed(1) : '?') + '%').padEnd(49) + '|');
+        output.push('| Reason: ' + (result.reason || '').substring(0, 53).padEnd(53) + '|');
+        output.push('+--------------------------------------------------------------+');
+      }
 
       // ── Persist routing result for statusline display ─────────────
       try {
@@ -913,8 +927,9 @@ const handlers = {
       }
 
       // ── Specific agent panel ──────────────────────────────────────────────────
+      // Skip entirely on suppressed (low-confidence + short) prompts.
       var specificAgents = result.specificAgents || [];
-      if (specificAgents.length > 0) {
+      if (specificAgents.length > 0 && !suppressPanel) {
         output.push('');
         var saHdr = '------- Specific Agents (' + specificAgents.length + ' available) ';
         output.push('+' + saHdr + '-'.repeat(Math.max(1, 62 - saHdr.length)) + '+');
@@ -934,7 +949,7 @@ const handlers = {
       // ── Specialist agents (non-dev domain) — only shown when specificAgents panel wasn't shown ──
       var extras = result.extrasMatches || [];
       var specificAgentsShown = (result.specificAgents || []).length > 0;
-      if (extras.length > 0 && !specificAgentsShown) {
+      if (extras.length > 0 && !specificAgentsShown && !suppressPanel) {
         output.push('');
         var spHdr = '------- Specialist Agents (' + extras.length + ' matched) ';
         output.push('+' + spHdr + '-'.repeat(Math.max(1, 62 - spHdr.length)) + '+');
@@ -1007,14 +1022,9 @@ const handlers = {
         var nodeCount = 0;
         if (fs.existsSync(monographDb)) {
           try {
-            var mgMod = _requireMonograph();
-            if (mgMod && mgMod.openDb) {
-              var hintDb = mgMod.openDb(monographDb);
-              try {
-                nodeCount = hintDb.prepare('SELECT COUNT(*) AS c FROM nodes').get().c;
-              } finally {
-                try { hintDb.close(); } catch (_) {}
-              }
+            var hintDb = _openMonographDb();
+            if (hintDb) {
+              nodeCount = hintDb.prepare('SELECT COUNT(*) AS c FROM nodes').get().c;
             }
           } catch (e) { /* ignore — fall back to legacy */ }
         }
@@ -1451,10 +1461,8 @@ const handlers = {
     try {
       var mgDbPath = path.join(CWD, '.monomind', 'monograph.db');
       if (fs.existsSync(mgDbPath)) {
-        var mgMod = null;
-        mgMod = _requireMonograph();
-        if (mgMod && mgMod.openDb) {
-          var mgDb = mgMod.openDb(mgDbPath);
+        var mgDb = _openMonographDb();
+        if (mgDb) {
           try {
             var mgNodeCount = mgDb.prepare('SELECT COUNT(*) AS c FROM nodes').get().c;
             var mgEdgeCount = mgDb.prepare('SELECT COUNT(*) AS c FROM edges').get().c;
@@ -1493,7 +1501,7 @@ const handlers = {
                 fs.writeFileSync(mgChunksFile, mgExisting.join('\n') + '\n');
               } catch(e) {}
             }
-          } finally { if (mgMod.closeDb) mgMod.closeDb(mgDb); }
+          } catch(e) { /* non-fatal */ }
         }
       }
     } catch(e) { /* non-fatal */ }
@@ -2226,7 +2234,7 @@ const handlers = {
             } catch (_) {}
             console.log('  Use mcp__monomind__monograph_suggest / monograph_query in this subagent before grepping.');
           }
-        } finally { try { subDb.close(); } catch (_) {} }
+        } catch (e) { /* non-fatal */ }
       }
     } catch (e) { /* non-fatal */ }
 
