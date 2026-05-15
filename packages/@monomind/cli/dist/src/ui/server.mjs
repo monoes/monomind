@@ -2128,6 +2128,70 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // ------------------------------------------------- Monograph
+    // GET /api/monograph — node/edge counts, top god nodes, type distribution.
+    // (Distinct from /api/graph which serves session/journal graph data.)
+    // Reads .monomind/monograph.db via sqlite3 CLI to avoid bundling better-sqlite3.
+    if (req.method === 'GET' && url === '/api/monograph') {
+      try {
+        const dbPath = path.join(projectDir || process.cwd(), '.monomind', 'monograph.db');
+        if (!fs.existsSync(dbPath)) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ exists: false }));
+          return;
+        }
+        const { execSync } = await import('child_process');
+        // Pipe SQL via stdin to avoid shell quoting issues with single-quoted SQL strings.
+        const runSql = (sql, timeout = 5000) => {
+          try {
+            return execSync(`sqlite3 -json "${dbPath}"`,
+              { encoding: 'utf-8', timeout: timeout, input: sql + ';' });
+          } catch (e) { return '[]'; }
+        };
+        const counts = JSON.parse(runSql(
+          "SELECT (SELECT COUNT(*) FROM nodes) AS nodes, (SELECT COUNT(*) FROM edges) AS edges;"
+        ) || '[{}]')[0] || { nodes: 0, edges: 0 };
+        // Compute degree in one pass via GROUP BY (much faster than per-row subquery).
+        const gods = JSON.parse(runSql(
+          "WITH deg(node_id, d) AS (" +
+          "  SELECT source_id, COUNT(*) FROM edges GROUP BY source_id " +
+          "  UNION ALL " +
+          "  SELECT target_id, COUNT(*) FROM edges GROUP BY target_id" +
+          "), totals AS (" +
+          "  SELECT node_id, SUM(d) AS deg FROM deg GROUP BY node_id" +
+          ") " +
+          "SELECT n.name, n.label, n.file_path, t.deg " +
+          "FROM nodes n JOIN totals t ON t.node_id = n.id " +
+          "WHERE n.label NOT IN ('Concept') " +
+          "AND n.file_path IS NOT NULL AND n.file_path != '' " +
+          "AND n.name NOT LIKE '(%' AND length(n.name) >= 3 " +
+          "ORDER BY t.deg DESC LIMIT 20",
+          10000
+        ) || '[]');
+        const types = JSON.parse(runSql(
+          "SELECT label, COUNT(*) AS count FROM nodes GROUP BY label ORDER BY count DESC LIMIT 12"
+        ) || '[]');
+        const relations = JSON.parse(runSql(
+          "SELECT relation, COUNT(*) AS count FROM edges GROUP BY relation ORDER BY count DESC"
+        ) || '[]');
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          exists: true,
+          nodes: counts.nodes,
+          edges: counts.edges,
+          godNodes: gods,
+          typeDistribution: types,
+          relationDistribution: relations,
+          updatedAt: fs.statSync(dbPath).mtime,
+        }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(err) }));
+      }
+      return;
+    }
+
     // ------------------------------------------------- Org management
     // GET /api/orgs — list all saved org configs
     if (req.method === 'GET' && url === '/api/orgs') {
