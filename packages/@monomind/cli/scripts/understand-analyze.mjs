@@ -30,7 +30,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { resolve, join, dirname, basename, relative } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execSync, spawn } from 'node:child_process';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const CWD   = process.cwd();
@@ -128,12 +128,60 @@ function detectLayersHeuristic(fileNodes) {
   return layers;
 }
 
-// ── Anthropic API helpers (raw fetch — no SDK needed) ────────────────────────
+// ── Anthropic API helpers ─────────────────────────────────────────────────────
+// Two paths:
+//   1. Direct API via ANTHROPIC_API_KEY (fastest, parallel-safe, requires key)
+//   2. `claude -p` CLI passthrough (reuses Claude Code's auth — no key needed)
+//      Slower (CLI cold-start per call), but works inside any Claude Code
+//      session without extra setup.
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const ANTHROPIC_URL     = 'https://api.anthropic.com/v1/messages';
 const MODEL             = 'claude-haiku-4-5-20251001'; // cheapest for bulk analysis
 
-async function callClaude(systemPrompt, userPrompt, maxTokens = 1024) {
+// Detect `claude` CLI once at startup.
+let _claudeCliPath = null;
+function _detectClaudeCli() {
+  if (_claudeCliPath !== null) return _claudeCliPath;
+  try {
+    const out = execSync('command -v claude 2>/dev/null', { encoding: 'utf-8' }).trim();
+    _claudeCliPath = out || '';
+  } catch { _claudeCliPath = ''; }
+  return _claudeCliPath;
+}
+
+const USE_CLAUDE_CLI = !ANTHROPIC_API_KEY && !!_detectClaudeCli();
+
+async function callClaudeViaCli(systemPrompt, userPrompt, maxTokens = 1024) {
+  return new Promise((resolveP, reject) => {
+    const args = [
+      '-p',
+      '--model', 'haiku',
+      '--output-format', 'text',
+      '--bare', // skip hooks/skills/auto-memory — we want a fast, clean call
+      // Combine system + user into a single prompt argument
+      `${systemPrompt}\n\n---\n\n${userPrompt}`,
+    ];
+    const child = spawn(_claudeCliPath, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env },
+    });
+    let out = '', err = '';
+    child.stdout.on('data', d => out += d.toString());
+    child.stderr.on('data', d => err += d.toString());
+    const timeout = setTimeout(() => {
+      child.kill('SIGKILL');
+      reject(new Error('claude -p timed out after 60s'));
+    }, 60000);
+    child.on('close', code => {
+      clearTimeout(timeout);
+      if (code !== 0) return reject(new Error(`claude -p exited ${code}: ${err.slice(0, 200)}`));
+      resolveP(out.trim());
+    });
+    child.on('error', e => { clearTimeout(timeout); reject(e); });
+  });
+}
+
+async function callClaudeViaApi(systemPrompt, userPrompt, maxTokens = 1024) {
   const body = JSON.stringify({
     model: MODEL,
     max_tokens: maxTokens,
@@ -153,7 +201,6 @@ async function callClaude(systemPrompt, userPrompt, maxTokens = 1024) {
         const data = await resp.json();
         return data.content?.[0]?.text ?? '';
       }
-      // Retry on 429 (rate limit) and 5xx; fail fast on 4xx
       if (resp.status === 429 || resp.status >= 500) {
         const retryAfter = parseInt(resp.headers.get('retry-after') || '0', 10);
         const backoff = retryAfter > 0 ? retryAfter * 1000 : Math.min(2 ** attempt * 1000, 8000);
@@ -170,6 +217,16 @@ async function callClaude(systemPrompt, userPrompt, maxTokens = 1024) {
     }
   }
   throw lastError || new Error('Anthropic API failed after 3 attempts');
+}
+
+async function callClaude(systemPrompt, userPrompt, maxTokens = 1024) {
+  if (ANTHROPIC_API_KEY) {
+    return callClaudeViaApi(systemPrompt, userPrompt, maxTokens);
+  }
+  if (USE_CLAUDE_CLI) {
+    return callClaudeViaCli(systemPrompt, userPrompt, maxTokens);
+  }
+  throw new Error('No LLM path available: set ANTHROPIC_API_KEY or install `claude` CLI');
 }
 
 function parseJson(text) {
@@ -640,12 +697,13 @@ async function main() {
   const batch = toAnalyze.slice(0, limit);
   console.log(`[understand] Analyzing ${batch.length} files (${toAnalyze.length - batch.length} skipped/already enriched)`);
 
-  if (!ANTHROPIC_API_KEY && !noLlm) {
-    console.warn('[understand] ANTHROPIC_API_KEY not set — falling back to --no-llm heuristic mode');
-    // Fall through to heuristic only
+  const llmPath = ANTHROPIC_API_KEY ? 'api' : (USE_CLAUDE_CLI ? 'claude-cli' : 'none');
+  if (llmPath === 'none' && !noLlm) {
+    console.warn('[understand] No LLM path available (no ANTHROPIC_API_KEY and no `claude` CLI) — falling back to --no-llm heuristic mode');
+  } else if (llmPath === 'claude-cli' && !noLlm) {
+    console.log('[understand] Using `claude -p` CLI passthrough (no API key needed; reusing Claude Code auth)');
   }
-
-  const useLlm = !noLlm && !!ANTHROPIC_API_KEY;
+  const useLlm = !noLlm && llmPath !== 'none';
 
   // ── Get project context for better prompts ────────────────────────────────
   let projectContext = `Project directory: ${basename(projectDir)}`;
@@ -798,7 +856,7 @@ async function main() {
 async function detectAndWriteLayers(db, fileNodes, forceHeuristic, dryRun, dir) {
   let layers;
 
-  if (!forceHeuristic && ANTHROPIC_API_KEY) {
+  if (!forceHeuristic && (ANTHROPIC_API_KEY || USE_CLAUDE_CLI)) {
     console.log('[understand] Detecting architectural layers via LLM...');
     const filePaths = fileNodes.map(n => n.file_path).filter(Boolean);
     try {
