@@ -22,8 +22,9 @@
  *   --no-llm              Heuristic-only mode (layers + tags from paths, no API calls)
  *   --layers-only         Skip per-file analysis, only (re-)detect layers
  *
- * Env:
- *   ANTHROPIC_API_KEY     Required unless --no-llm is set
+ * Designed to be invoked by the /monomind:understand slash command. The
+ * slash command runs the script in --no-llm mode and orchestrates the
+ * per-file summarization through the active Claude Code session.
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -181,7 +182,7 @@ async function callClaude(systemPrompt, userPrompt, maxTokens = 1024) {
   if (ANTHROPIC_API_KEY) {
     return callClaudeViaApi(systemPrompt, userPrompt, maxTokens);
   }
-  throw new Error('No LLM path available: set ANTHROPIC_API_KEY (or use the /monomind:understand slash command, which orchestrates LLM work via the active Claude Code session)');
+  throw new Error('No LLM path available. Use /monomind:understand from inside Claude Code — the slash command orchestrates LLM work through the active session.');
 }
 
 function parseJson(text) {
@@ -678,19 +679,13 @@ async function main() {
   const batch = toAnalyze.slice(0, limit);
   console.log(`[understand] Analyzing ${batch.length} files (${toAnalyze.length - batch.length} skipped/already enriched)`);
 
-  // LLM path: direct Anthropic API only. The script does NOT try to spawn
-  // `claude -p` from within Claude Code subprocesses — that hangs because
-  // nested CLI sessions aren't supported. For LLM enrichment without an API
-  // key, use the /monomind:understand slash command which orchestrates LLM
-  // work via the active Claude Code session inline.
+  // LLM path determined automatically. The script does NOT advise on
+  // credentials — orchestration is the slash command's job.
   const llmPath = ANTHROPIC_API_KEY ? 'api' : 'none';
   if (llmPath === 'none' && !noLlm) {
-    console.log('[understand] No ANTHROPIC_API_KEY — running in heuristic mode for layer detection.');
-    console.log('[understand] For per-file summaries: either set ANTHROPIC_API_KEY for direct API,');
-    console.log('[understand] or use the /monomind:understand slash command from inside Claude Code');
-    console.log('[understand] (the slash command does inline analysis via the active session, no key needed).');
-  } else if (llmPath === 'api' && !noLlm) {
-    console.log('[understand] LLM path: direct Anthropic API');
+    console.log('[understand] Running in heuristic mode. For per-file summaries,');
+    console.log('[understand] use /monomind:understand from inside Claude Code — the slash');
+    console.log('[understand] command orchestrates summarization through the active session.');
   }
   const useLlm = !noLlm && llmPath !== 'none';
 
