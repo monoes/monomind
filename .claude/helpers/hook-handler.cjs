@@ -1470,6 +1470,60 @@ const handlers = {
         console.log('[OK] Session restored: session-' + Date.now());
       }
     } catch (e) { console.log('[WARN] Session restore failed: ' + e.message); }
+
+    // Stale helper detection — compare local helper hashes against the
+    // bundled (npm-installed) monomind copy and warn if they drift. This
+    // is what alerts the user that 'monomind init upgrade' would pick up
+    // new features (graph fallback routing, telemetry counters, etc).
+    try {
+      var crypto = require('crypto');
+      // Walk up from this file to find the monomind package root (looks for
+      // package.json with name === 'monomind' or '@monomind/cli').
+      function _findBundledHelpers() {
+        var helperPaths = [
+          path.join(__dirname),
+          path.join(CWD, 'node_modules', 'monomind', '.claude', 'helpers'),
+          path.join(CWD, 'node_modules', '@monoes', 'monomindcli', '.claude', 'helpers'),
+        ];
+        try {
+          var globalRoot = require('child_process')
+            .execSync('npm root -g 2>/dev/null', { encoding: 'utf-8', timeout: 2000 })
+            .trim();
+          if (globalRoot) {
+            helperPaths.push(path.join(globalRoot, 'monomind', '.claude', 'helpers'));
+            helperPaths.push(path.join(globalRoot, '@monoes', 'monomindcli', '.claude', 'helpers'));
+          }
+        } catch (_) {}
+        for (var i = 0; i < helperPaths.length; i++) {
+          if (fs.existsSync(path.join(helperPaths[i], 'hook-handler.cjs')) &&
+              helperPaths[i] !== path.join(CWD, '.claude', 'helpers')) {
+            return helperPaths[i];
+          }
+        }
+        return null;
+      }
+
+      var bundledDir = _findBundledHelpers();
+      if (bundledDir) {
+        var helpersToCheck = ['hook-handler.cjs', 'statusline.cjs'];
+        var stale = [];
+        for (var hi = 0; hi < helpersToCheck.length; hi++) {
+          var hName = helpersToCheck[hi];
+          var localF   = path.join(CWD, '.claude', 'helpers', hName);
+          var bundledF = path.join(bundledDir, hName);
+          if (!fs.existsSync(localF) || !fs.existsSync(bundledF)) continue;
+          try {
+            var hashL = crypto.createHash('sha256').update(fs.readFileSync(localF)).digest('hex');
+            var hashB = crypto.createHash('sha256').update(fs.readFileSync(bundledF)).digest('hex');
+            if (hashL !== hashB) stale.push(hName);
+          } catch (_) {}
+        }
+        if (stale.length > 0) {
+          console.log('[STALE_HELPERS] Project helpers differ from bundled version: ' + stale.join(', '));
+          console.log('  Run `npx monomind@latest init upgrade` to refresh and pick up the latest features.');
+        }
+      }
+    } catch (e) { /* non-fatal */ }
     // Initialize intelligence (with timeout — #1530)
     // Respects monomind.neural.enabled kill switch from settings.json
     var neuralEnabled = true;
