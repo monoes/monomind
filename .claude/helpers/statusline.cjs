@@ -720,21 +720,27 @@ function getHookLatency() {
   } catch { return null; }
 }
 
-// Graph usage telemetry — ratio of monograph_* vs Grep/Glob, plus $ saved
+// Graph usage telemetry — counts ALL graph wins (MCP calls + silent assists)
+// vs greps that got no graph help. "graph %" reflects how often the graph
+// actually touched the LLM's flow, not just how often the LLM invoked MCP.
 function getGraphUsage() {
   const usagePath = path.join(CWD, '.monomind', 'metrics', 'graph-usage.json');
   try {
     if (!fs.existsSync(usagePath)) return null;
     const d = JSON.parse(fs.readFileSync(usagePath, 'utf-8'));
-    const monograph = d.monograph_call || 0;
-    const search = (d.grep_call || 0) + (d.glob_call || 0)
-                 + (d.bash_grep_call || 0) + (d.bash_find_call || 0);
-    const total = monograph + search;
+    const graphWins =
+        (d.monograph_call || 0)           // LLM-initiated MCP monograph tool call
+      + (d.preresolve_hit || 0)           // route hook injected pre-resolved files
+      + (d.graph_assist_search || 0)      // pre-search / pre-bash injected hits
+      + (d.graph_assist_neighbors || 0);  // post-read neighbor footer
+    const searches = (d.grep_call || 0) + (d.glob_call || 0)
+                   + (d.bash_grep_call || 0) + (d.bash_find_call || 0);
+    const total = graphWins + searches;
     if (total === 0) return null;
     return {
-      monograph,
-      search,
-      pct: Math.round((monograph / total) * 100),
+      graphWins,
+      searches,
+      pct: Math.round((graphWins / total) * 100),
       dollarsSaved: d.dollars_saved || 0,
     };
   } catch { return null; }

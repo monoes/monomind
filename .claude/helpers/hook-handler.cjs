@@ -1161,6 +1161,7 @@ const handlers = {
         if (clean.length >= 3) {
           var hits = getMonographSuggestions(clean, 5);
           if (hits.length > 0) {
+            _recordGraphTelemetry('graph_assist_search');
             console.log('[MONOGRAPH_HIT] Graph has ' + hits.length + ' file(s) for "' + clean.slice(0, 40) + '" — consider monograph_query instead of shell grep:');
             for (var j = 0; j < hits.length; j++) {
               var h = hits[j];
@@ -1185,7 +1186,6 @@ const handlers = {
       var clean = pattern.replace(/[\\^$.*+?()\[\]{}|]/g, ' ').trim();
       if (clean.length < 3) return;
 
-      // Loop drift detection
       var sig = (toolName || 'Search') + ':' + clean.slice(0, 60);
       var count = _recordToolCall(sig);
       if (count >= 3) {
@@ -1193,6 +1193,9 @@ const handlers = {
       }
       var suggestions = getMonographSuggestions(clean, 5);
       if (suggestions.length === 0) return;
+      // Successful intercept — count as a "graph assist" so the ratio reflects
+      // server-side wins, not just LLM-initiated MCP calls.
+      _recordGraphTelemetry('graph_assist_search');
       console.log('[MONOGRAPH_HIT] Graph already knows ' + suggestions.length + ' file(s) matching "' + clean.slice(0, 40) + '":');
       for (var i = 0; i < suggestions.length; i++) {
         var s = suggestions[i];
@@ -1214,6 +1217,7 @@ const handlers = {
       if (n.importedBy.length > 0) parts.push('imported-by: ' + n.importedBy.slice(0, 4).join(', '));
       if (n.imports.length > 0)    parts.push('imports: '    + n.imports.slice(0, 4).join(', '));
       if (parts.length === 0) return;
+      _recordGraphTelemetry('graph_assist_neighbors');
       console.log('[MONOGRAPH_NEIGHBORS] ' + parts.join(' · '));
     } catch (e) { /* non-fatal */ }
   },
