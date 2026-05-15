@@ -1,197 +1,139 @@
 ---
 name: monomind:understand
-description: "Monomind — Run semantic enrichment on the current project's monograph knowledge graph. No external plugin needed — the analysis engine ships with monomind."
+description: "Monomind — Run semantic enrichment on the current project's monograph knowledge graph. Uses the active Claude Code session for LLM work — no API key needed."
 ---
 
 # /monomind:understand — Semantic Enrichment
 
-Enriches the current project's monograph knowledge graph with LLM-generated summaries,
-architectural layers, and semantic relationships.
+Enriches the current project's monograph knowledge graph with summaries, architectural
+layers, and semantic relationships.
 
-The analysis engine is built into monomind — no external plugin installation required.
+**Designed to run inside Claude Code** — uses YOUR current session for LLM work via
+the Task tool. No `ANTHROPIC_API_KEY` required. The script handles layer detection
+and DB writes; you (Claude) handle per-file summarization.
 
 ## Parse Arguments
 
-Parse `$ARGUMENTS` for these optional flags:
+Parse `$ARGUMENTS` for these flags:
 
-- `--dir <path>`      — project directory to analyze (default: current working directory)
-- `--db <path>`       — path to monograph.db (default: `<dir>/.monomind/monograph.db`)
-- `--import`          — import an existing graph.json only (skip analysis, run ua-import.mjs)
-- `--graph <path>`    — explicit path to a graph.json to import (implies `--import`)
-- `--full`            — force full re-analysis even if graph.json is recent
-- `--no-llm`          — heuristic-only mode: detect layers from file paths, no API calls
-- `--layers-only`     — skip per-file analysis, only (re-)detect architectural layers
-- `--incremental`     — re-analyze only files changed since the last run (uses git diff)
-- `--onboard`         — generate an ONBOARDING.md guide from the enriched graph
-- `--onboard-out <path>` — where to write the onboarding guide (default: `<dir>/ONBOARDING.md`)
-- `--batch-size <N>`  — files per LLM batch (default: 5, increase for faster analysis)
+- `--dir <path>`      — project directory (default: cwd)
+- `--db <path>`       — monograph.db path (default: `<dir>/.monomind/monograph.db`)
+- `--full`            — force full re-analysis
+- `--no-llm`          — heuristic-only mode (no per-file summaries)
+- `--layers-only`     — skip per-file analysis, only re-detect layers
 - `--max-files <N>`   — stop after N files (0 = all)
-- `--dry-run`         — show what would happen without writing to DB
+- `--dry-run`         — show what would happen, don't write
 
-If no flags, treat any bare path argument as `--dir`.
+Bare path argument → `--dir`.
 
 ---
 
-## Step 1: Locate project and monograph DB
+## Step 1: Locate project, DB, and script
 
 ```bash
 DIR="${ARGUMENTS_dir:-$(pwd)}"
 DB="${ARGUMENTS_db:-$DIR/.monomind/monograph.db}"
-```
 
-1. Resolve `DIR` to an absolute path.
-2. Check that `$DB` exists. If not, tell the user:
-   > monograph.db not found at `$DB`. Build the graph first:
-   > ```bash
-   > npx monomind monograph build
-   > ```
-   > Then re-run `/monomind:understand`.
-   And STOP.
-
----
-
-## Step 2: Locate the built-in analysis engine
-
-The `understand-analyze.mjs` script ships with `@monomind/cli`. Find it:
-
-```bash
-# Try npm root (global install / homebrew)
+# Find understand-analyze.mjs (ships with monomind globally)
 GLOBAL_ROOT=$(npm root -g 2>/dev/null)
-SCRIPT="$GLOBAL_ROOT/@monomind/cli/scripts/understand-analyze.mjs"
-
-# If not found globally, try npx resolve
-if [ ! -f "$SCRIPT" ]; then
-  SCRIPT=$(node -e "try{console.log(require.resolve('@monomind/cli/scripts/understand-analyze.mjs'))}catch{}" 2>/dev/null)
-fi
-
-# Fallback: walk up from the running CLI's __dirname
-if [ ! -f "$SCRIPT" ]; then
-  SCRIPT=$(node -e "
-    const {createRequire} = require('module');
-    const r = createRequire(require.resolve('monomind'));
-    try { console.log(r.resolve('@monomind/cli/scripts/understand-analyze.mjs')); } catch {}
-  " 2>/dev/null)
-fi
+SCRIPT="$GLOBAL_ROOT/monomind/packages/@monomind/cli/scripts/understand-analyze.mjs"
+[ ! -f "$SCRIPT" ] && SCRIPT="$GLOBAL_ROOT/@monoes/monomindcli/scripts/understand-analyze.mjs"
 ```
 
-If the script is still not found:
-> The built-in understand engine (understand-analyze.mjs) was not found.
-> Update monomind: `npm install -g monomind@latest`
+If `$DB` does not exist:
+> monograph.db not found at `$DB`. Build it first: `npx monomind monograph build`
 
-And STOP.
+If `$SCRIPT` does not exist:
+> understand engine missing. Update: `npm install -g monomind@latest`
+
+In either case, STOP.
 
 ---
 
-## Step 3: Check for existing graph.json (unless `--full`)
+## Step 2: Run the script in heuristic mode (always — fast and deterministic)
 
-Look for (in order):
-- `$DIR/.understand/knowledge-graph.json`
-- `$DIR/.understand/graph.json`
-- `$DIR/.ua/graph.json`
-
-If `--graph <path>` was supplied, use that path directly.
-
-**If a recent graph.json is found AND `--full` was NOT set:**
-
-Report the file age and jump to **Step 5: Import**:
-```
-Found graph.json (X hours old) — importing into monograph…
-```
-
-**If `--import` or `--graph` was set:**
-Jump directly to **Step 5: Import**.
-
-**Otherwise:**
-Proceed to **Step 4: Run analysis**.
-
----
-
-## Step 4: Run built-in analysis
-
-Run the built-in engine. Build the command from parsed flags:
+This step is non-negotiable. The script handles:
+- File node discovery from monograph.db
+- Heuristic layer detection from file paths
+- DB writes (community_id + properties)
+- graph.json emission to `.understand/knowledge-graph.json`
+- Auto-shadowing the DB to `/tmp` when it lives on a network FS
 
 ```bash
-node "$SCRIPT" \
-  --dir "$DIR" \
-  --db "$DB" \
-  [--no-llm]           # if --no-llm was set
-  [--layers-only]      # if --layers-only was set
-  [--incremental]      # if --incremental was set
-  [--onboard]          # if --onboard was set
-  [--onboard-out PATH] # if --onboard-out was set
-  [--dry-run]          # if --dry-run was set
-  [--batch-size N]     # if --batch-size was set
-  [--max-files N]      # if --max-files was set
+node "$SCRIPT" --dir "$DIR" --db "$DB" --no-llm
 ```
 
-The script will:
-1. Read all file nodes from the monograph DB
-2. Pick the best available LLM path automatically (no env vars to set):
-   - `claude -p` CLI passthrough — reuses the active Claude Code authentication
-   - direct Anthropic API — if `ANTHROPIC_API_KEY` happens to be set (faster for bulk runs)
-   - heuristic-only fallback — if neither is reachable
-3. For each file, generate summaries, tags, and complexity
-4. Detect architectural layers
-5. Write enrichment data back to `monograph.db` (community_id + properties JSON)
-6. Emit a `graph.json` to `$DIR/.understand/knowledge-graph.json`
-
-Wait for the script to complete before proceeding. Do NOT pre-check or advise about
-`ANTHROPIC_API_KEY` — the script picks its path silently and prints the chosen mode
-on stdout. Report only what the script actually reports.
+Wait for completion. Capture stdout. Note how many file nodes were found and how
+many layers were detected. Do NOT advise the user about API keys.
 
 ---
 
-## Step 5: Import (only when using an existing graph.json)
+## Step 3: Per-file summarization (ONLY if `--no-llm` and `--layers-only` are both UNSET)
 
-If jumping here from Step 3 (existing graph.json found):
+This is where YOU (the current Claude session) do the LLM work. The script left
+behind a fresh `.understand/knowledge-graph.json` with placeholder summaries.
+
+1. Read `.understand/knowledge-graph.json`. For each node where `properties.fileSummary`
+   is empty or marked `[heuristic]`, do the following:
+   - Use the `Read` tool on `node.file_path` (relative to `$DIR`).
+   - Produce a JSON object: `{ id, fileSummary, tags, complexity, functionSummaries, classSummaries }`
+     where:
+     - `fileSummary`: 1-2 sentences explaining what the file does
+     - `tags`: array of 2-5 short tags
+     - `complexity`: "simple" | "moderate" | "complex"
+     - `functionSummaries`: top-5 functions → 1-sentence each
+     - `classSummaries`: classes → 1-sentence each
+2. Process files in batches of 5 for efficiency. Use `--max-files` to cap if set.
+3. Collect all analyses into an `analyses` array.
+
+If `$ARGUMENTS` includes `--no-llm` or `--layers-only`, SKIP this step entirely.
+
+---
+
+## Step 4: Write analyses back to the DB
+
+Pipe the collected analyses to a small re-import:
 
 ```bash
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-IMPORT_SCRIPT="$REPO_ROOT/scripts/ua-import.mjs"
-# fallback: alongside understand-analyze.mjs
-[ ! -f "$IMPORT_SCRIPT" ] && IMPORT_SCRIPT="$(dirname $SCRIPT)/../../../scripts/ua-import.mjs"
-node "$IMPORT_SCRIPT" "$GRAPH_JSON" "$DB"
+echo "$ANALYSES_JSON" | node "$SCRIPT" --dir "$DIR" --db "$DB" --import-analyses-stdin
 ```
 
-If `--dry-run` was set, report what would be imported without writing to the DB.
+(If your `analyses` array is empty, skip this step.)
 
 ---
 
-## Step 6: Report results
-
-After the analysis or import completes, show a summary:
+## Step 5: Report
 
 ```
 ╔══════════════════════════════════════════════════╗
 ║  /monomind:understand — Enrichment Done           ║
 ╠══════════════════════════════════════════════════╣
 ║  DB:              .monomind/monograph.db          ║
-║  Nodes enriched:  <N>                             ║
-║  Communities:     <N> (layers detected)           ║
+║  Files analyzed:  <N>                             ║
+║  LLM summaries:   <N> (via active session)        ║
+║  Layers:          <N>                             ║
 ║  graph.json:      .understand/knowledge-graph.json║
 ╚══════════════════════════════════════════════════╝
 ```
 
-Then tell the user:
-> The monograph graph is now enriched with semantic summaries and architectural layers.
-> Open the Monomind control panel and click **Monograph → GRAPH** to see multi-color layers.
-> Each color represents an architectural layer (API, Service, Data, UI, etc.).
+If LLM summaries = 0 (because `--no-llm` was set), say "heuristic-only mode — no per-file summaries written".
+
+Then:
+> Open the Monomind control panel and click **Monograph → GRAPH** to see layers.
+> Each color = one architectural layer (API, Service, Data, UI, etc.).
 >
-> Common follow-ups:
-> - `/monomind:understand --full` — full re-analysis from scratch
-> - `/monomind:understand --layers-only` — refresh only layer detection
-> - `/monomind:understand --incremental` — re-analyze only changed files
-> - `/monomind:understand --onboard` — generate an onboarding guide
+> Follow-ups:
+> - `/monomind:understand --full` — re-run from scratch
+> - `/monomind:understand --layers-only` — refresh only layers
+> - `/monomind:understand --no-llm` — heuristic-only mode
 
 ---
 
 ## Error Handling
 
-- The script auto-selects an LLM path (`claude -p` CLI → API key → heuristic). Do not
-  prompt the user to set `ANTHROPIC_API_KEY`. Monomind is designed to run inside an
-  authenticated Claude Code session — the CLI passthrough is the default path.
-- If the script exits non-zero, show stderr and suggest `npm install -g monomind@latest`.
-- If monograph.db has no file nodes, tell the user to run `npx monomind monograph build` first.
-- All errors are non-fatal to the main session — report and return cleanly.
+- Do NOT prompt the user to set `ANTHROPIC_API_KEY`. LLM work happens in this session.
+- If the script exits non-zero: show stderr and suggest `npm install -g monomind@latest`.
+- If monograph.db has no file nodes: tell the user to run `npx monomind monograph build` first.
+- All errors are non-fatal — report and return cleanly.
 
-To repeat this command on a schedule, wrap it with `/monomind:repeat`.
+To re-run on a schedule: wrap with `/monomind:repeat`.
