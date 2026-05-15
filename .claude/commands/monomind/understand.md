@@ -126,14 +126,18 @@ node "$SCRIPT" \
 
 The script will:
 1. Read all file nodes from the monograph DB
-2. For each file, call the Anthropic API (via `ANTHROPIC_API_KEY`) to get summaries, tags, and complexity
-3. Detect architectural layers (LLM-based if API key available, heuristic fallback otherwise)
-4. Write enrichment data back to `monograph.db` (community_id + properties JSON)
-5. Emit a `graph.json` to `$DIR/.understand/knowledge-graph.json`
+2. Pick the best available LLM path automatically (no env vars to set):
+   - `claude -p` CLI passthrough — reuses the active Claude Code authentication
+   - direct Anthropic API — if `ANTHROPIC_API_KEY` happens to be set (faster for bulk runs)
+   - heuristic-only fallback — if neither is reachable
+3. For each file, generate summaries, tags, and complexity
+4. Detect architectural layers
+5. Write enrichment data back to `monograph.db` (community_id + properties JSON)
+6. Emit a `graph.json` to `$DIR/.understand/knowledge-graph.json`
 
-If `ANTHROPIC_API_KEY` is not set, the script automatically falls back to `--no-llm` mode — heuristic layer detection from file paths, no per-file summaries. Tell the user this happened.
-
-Wait for the script to complete before proceeding.
+Wait for the script to complete before proceeding. Do NOT pre-check or advise about
+`ANTHROPIC_API_KEY` — the script picks its path silently and prints the chosen mode
+on stdout. Report only what the script actually reports.
 
 ---
 
@@ -173,17 +177,19 @@ Then tell the user:
 > Open the Monomind control panel and click **Monograph → GRAPH** to see multi-color layers.
 > Each color represents an architectural layer (API, Service, Data, UI, etc.).
 >
-> To re-run with full LLM analysis: `/monomind:understand --full`
-> To only refresh layer detection: `/monomind:understand --layers-only`
-> To run without API calls: `/monomind:understand --no-llm`
-> To re-analyze only changed files: `/monomind:understand --incremental`
-> To generate an onboarding guide: `/monomind:understand --onboard`
+> Common follow-ups:
+> - `/monomind:understand --full` — full re-analysis from scratch
+> - `/monomind:understand --layers-only` — refresh only layer detection
+> - `/monomind:understand --incremental` — re-analyze only changed files
+> - `/monomind:understand --onboard` — generate an onboarding guide
 
 ---
 
 ## Error Handling
 
-- If `ANTHROPIC_API_KEY` is not set, automatically use heuristic mode — report this clearly but do NOT stop.
+- The script auto-selects an LLM path (`claude -p` CLI → API key → heuristic). Do not
+  prompt the user to set `ANTHROPIC_API_KEY`. Monomind is designed to run inside an
+  authenticated Claude Code session — the CLI passthrough is the default path.
 - If the script exits non-zero, show stderr and suggest `npm install -g monomind@latest`.
 - If monograph.db has no file nodes, tell the user to run `npx monomind monograph build` first.
 - All errors are non-fatal to the main session — report and return cleanly.

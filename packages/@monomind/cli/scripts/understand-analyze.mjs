@@ -153,12 +153,14 @@ const USE_CLAUDE_CLI = !ANTHROPIC_API_KEY && !!_detectClaudeCli();
 
 async function callClaudeViaCli(systemPrompt, userPrompt, maxTokens = 1024) {
   return new Promise((resolveP, reject) => {
+    // NOTE: do NOT pass --bare here. --bare disables OAuth/keychain reads
+    // and forces ANTHROPIC_API_KEY — which is exactly what we're avoiding.
+    // We want the CLI to use the user's logged-in Claude Code session.
     const args = [
       '-p',
       '--model', 'haiku',
       '--output-format', 'text',
-      '--bare', // skip hooks/skills/auto-memory — we want a fast, clean call
-      // Combine system + user into a single prompt argument
+      '--disable-slash-commands', // skip skill auto-resolution overhead
       `${systemPrompt}\n\n---\n\n${userPrompt}`,
     ];
     const child = spawn(_claudeCliPath, args, {
@@ -170,8 +172,8 @@ async function callClaudeViaCli(systemPrompt, userPrompt, maxTokens = 1024) {
     child.stderr.on('data', d => err += d.toString());
     const timeout = setTimeout(() => {
       child.kill('SIGKILL');
-      reject(new Error('claude -p timed out after 60s'));
-    }, 60000);
+      reject(new Error('claude -p timed out after 120s'));
+    }, 120000);
     child.on('close', code => {
       clearTimeout(timeout);
       if (code !== 0) return reject(new Error(`claude -p exited ${code}: ${err.slice(0, 200)}`));
@@ -697,11 +699,22 @@ async function main() {
   const batch = toAnalyze.slice(0, limit);
   console.log(`[understand] Analyzing ${batch.length} files (${toAnalyze.length - batch.length} skipped/already enriched)`);
 
-  const llmPath = ANTHROPIC_API_KEY ? 'api' : (USE_CLAUDE_CLI ? 'claude-cli' : 'none');
+  // Prefer the CLI passthrough when available — monomind is designed to run
+  // inside an authenticated Claude Code session and the CLI reuses that auth
+  // without prompting for an API key. Direct API only takes precedence when
+  // explicitly opted into (MONOMIND_PREFER_API=1).
+  const preferApi = process.env.MONOMIND_PREFER_API === '1';
+  const llmPath = (preferApi && ANTHROPIC_API_KEY) ? 'api'
+                : USE_CLAUDE_CLI ? 'claude-cli'
+                : ANTHROPIC_API_KEY ? 'api'
+                : 'none';
   if (llmPath === 'none' && !noLlm) {
-    console.warn('[understand] No LLM path available (no ANTHROPIC_API_KEY and no `claude` CLI) — falling back to --no-llm heuristic mode');
+    console.warn('[understand] No LLM path available — `claude` CLI not found on PATH and ANTHROPIC_API_KEY not set. Running in heuristic mode.');
+    console.warn('[understand] Tip: install Claude Code or set ANTHROPIC_API_KEY to enable per-file summaries.');
   } else if (llmPath === 'claude-cli' && !noLlm) {
-    console.log('[understand] Using `claude -p` CLI passthrough (no API key needed; reusing Claude Code auth)');
+    console.log('[understand] LLM path: `claude -p` CLI passthrough (reusing Claude Code session, no key needed)');
+  } else if (llmPath === 'api' && !noLlm) {
+    console.log('[understand] LLM path: direct Anthropic API (ANTHROPIC_API_KEY set)');
   }
   const useLlm = !noLlm && llmPath !== 'none';
 
