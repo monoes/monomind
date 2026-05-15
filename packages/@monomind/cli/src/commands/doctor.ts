@@ -437,6 +437,77 @@ async function checkMonograph(): Promise<HealthCheck> {
 }
 
 // Check agentic-flow v1 integration (filesystem-based to avoid slow WASM/DB init)
+// Resolve the path to the bundled (npm-installed) copy of a helper file.
+// Walks up from this module's location to find the package root, then joins
+// the relative path. Returns null if not found.
+function _resolveBundledHelper(relativePath: string): string | null {
+  try {
+    const thisFile = fileURLToPath(import.meta.url);
+    let dir = dirname(thisFile);
+    for (;;) {
+      const candidate = join(dir, 'package.json');
+      if (existsSync(candidate)) {
+        try {
+          const pkg = JSON.parse(readFileSync(candidate, 'utf8'));
+          if (pkg.name === '@monomind/cli' || pkg.name === 'monomind') {
+            const helperPath = join(dir, relativePath);
+            return existsSync(helperPath) ? helperPath : null;
+          }
+        } catch { /* keep walking */ }
+      }
+      const parent = dirname(dir);
+      if (parent === dir) return null;
+      dir = parent;
+    }
+  } catch { return null; }
+}
+
+// Compare per-project helper file content vs the bundled (npm) version.
+// Returns the list of files that drifted.
+async function _detectStaleHelpers(): Promise<{ stale: string[]; missing: string[]; }> {
+  const stale: string[] = [];
+  const missing: string[] = [];
+  const helpers = ['hook-handler.cjs', 'statusline.cjs', 'router.cjs', 'graphify-freshen.cjs'];
+  const crypto = await import('node:crypto');
+  for (const name of helpers) {
+    const local = join(process.cwd(), '.claude', 'helpers', name);
+    if (!existsSync(local)) continue;
+    const bundled = _resolveBundledHelper(join('.claude', 'helpers', name));
+    if (!bundled) { missing.push(name); continue; }
+    try {
+      const hashLocal   = crypto.createHash('sha256').update(readFileSync(local)).digest('hex');
+      const hashBundled = crypto.createHash('sha256').update(readFileSync(bundled)).digest('hex');
+      if (hashLocal !== hashBundled) stale.push(name);
+    } catch { /* skip */ }
+  }
+  return { stale, missing };
+}
+
+async function checkHelpersFresh(): Promise<HealthCheck> {
+  try {
+    const { stale, missing } = await _detectStaleHelpers();
+    if (stale.length === 0 && missing.length === 0) {
+      return { name: 'Helper Files', status: 'pass', message: 'Project helpers match bundled version' };
+    }
+    if (stale.length > 0) {
+      return {
+        name: 'Helper Files',
+        status: 'warn',
+        message: `${stale.length} stale helper(s) in .claude/helpers/: ${stale.join(', ')}`,
+        fix: 'monomind init upgrade',
+      };
+    }
+    return {
+      name: 'Helper Files',
+      status: 'warn',
+      message: `Could not locate bundled copies of: ${missing.join(', ')}`,
+      fix: 'Reinstall monomind or run `monomind init upgrade`',
+    };
+  } catch (e) {
+    return { name: 'Helper Files', status: 'warn', message: `check failed: ${e instanceof Error ? e.message : 'unknown'}` };
+  }
+}
+
 async function checkAgenticFlow(): Promise<HealthCheck> {
   try {
     // Walk common node_modules paths to find agentic-flow/package.json
@@ -549,6 +620,7 @@ export const doctorCommand: Command = {
       checkDiskSpace,
       checkBuildTools,
       checkMonograph,
+      checkHelpersFresh,
       checkAgenticFlow
     ];
 
@@ -567,6 +639,7 @@ export const doctorCommand: Command = {
       'disk': checkDiskSpace,
       'typescript': checkBuildTools,
       'monograph': checkMonograph,
+      'helpers': checkHelpersFresh,
       'agentic-flow': checkAgenticFlow
     };
 
