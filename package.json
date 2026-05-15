@@ -1,6 +1,6 @@
 {
   "name": "monomind",
-  "version": "1.10.18",
+  "version": "1.10.19",
   "description": "Monomind - Enterprise AI agent orchestration for Claude Code. Deploy 60+ specialized agents in coordinated swarms with self-learning, fault-tolerant consensus, vector memory, and MCP integration",
   "main": "dist/index.js",
   "type": "module",
@@ -27,6 +27,8 @@
     "packages/@monomind/cli/scripts/**/*.js",
     "packages/@monomind/cli/scripts/**/*.sh",
     "packages/@monomind/cli/package.json",
+    "scripts/*.mjs",
+    "scripts/*.sh",
     "packages/@monomind/shared/dist/**/*.js",
     "packages/@monomind/shared/dist/**/*.d.ts",
     "!packages/@monomind/shared/dist/**/*.map",
