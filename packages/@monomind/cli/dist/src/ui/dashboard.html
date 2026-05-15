@@ -2584,6 +2584,7 @@
       <button class="mm-tab" onclick="switchMmTab('loops')">LOOPS</button>
       <button class="mm-tab" onclick="switchMmTab('create')">CREATE ORG</button>
       <button class="mm-tab" onclick="switchMmTab('metrics')">METRICS</button>
+      <button class="mm-tab" onclick="switchMmTab('graph')">GRAPH</button>
     </div>
     <div id="mm-body">
       <div class="mm-pane active" id="mm-pane-orgs">
@@ -2632,6 +2633,18 @@
         <div id="mm-metrics-grid" class="mm-metric-grid"></div>
         <div class="mm-section-title" style="margin-top:16px">Recent Events</div>
         <div id="mm-metrics-events" style="font-size:9px;color:rgba(150,100,200,0.6);font-family:'Azeret Mono',monospace"></div>
+      </div>
+      <div class="mm-pane" id="mm-pane-graph">
+        <div class="mm-section-title">Monograph Knowledge Graph</div>
+        <div id="mm-graph-summary" style="display:flex;gap:24px;margin-bottom:16px;font-size:11px">
+          <span style="color:rgba(150,100,200,0.4)">Loading graph stats…</span>
+        </div>
+        <div class="mm-section-title" style="margin-top:8px">Top God Nodes (highest centrality)</div>
+        <div id="mm-graph-gods" style="font-size:9px;color:rgba(180,140,220,0.85);font-family:'Azeret Mono',monospace;line-height:1.6"></div>
+        <div class="mm-section-title" style="margin-top:16px">Node Types</div>
+        <div id="mm-graph-types" style="font-size:9px;color:rgba(180,140,220,0.85);font-family:'Azeret Mono',monospace"></div>
+        <div class="mm-section-title" style="margin-top:16px">Edge Relations</div>
+        <div id="mm-graph-relations" style="font-size:9px;color:rgba(180,140,220,0.85);font-family:'Azeret Mono',monospace"></div>
       </div>
     </div>
   </div>
@@ -10264,6 +10277,50 @@ window.switchMmTab = function(tab) {
   if (tab === 'loops')   loadMmLoops();
   if (tab === 'metrics') loadMmMetrics();
   if (tab === 'skills')  renderMmSkills('');
+  if (tab === 'graph')   loadMmGraph();
+};
+
+window.loadMmGraph = async function() {
+  const summary = document.getElementById('mm-graph-summary');
+  const gods = document.getElementById('mm-graph-gods');
+  const types = document.getElementById('mm-graph-types');
+  const relations = document.getElementById('mm-graph-relations');
+  if (!summary) return;
+  try {
+    const r = await fetch('/api/monograph');
+    const d = await r.json();
+    if (!d.exists) {
+      summary.innerHTML = '<span style="color:rgba(220,120,120,0.7)">No monograph.db found. Run /monomind:understand or wait for SessionStart to build the graph.</span>';
+      gods.textContent = ''; types.textContent = ''; relations.textContent = '';
+      return;
+    }
+    summary.innerHTML = `
+      <div><div style="color:rgba(150,100,200,0.5);font-size:8px;letter-spacing:0.1em">NODES</div>
+        <div style="font-size:18px;color:rgba(120,200,160,1);font-weight:bold">${d.nodes.toLocaleString()}</div></div>
+      <div><div style="color:rgba(150,100,200,0.5);font-size:8px;letter-spacing:0.1em">EDGES</div>
+        <div style="font-size:18px;color:rgba(120,200,160,1);font-weight:bold">${d.edges.toLocaleString()}</div></div>
+      <div><div style="color:rgba(150,100,200,0.5);font-size:8px;letter-spacing:0.1em">UPDATED</div>
+        <div style="font-size:11px;color:rgba(210,140,255,0.8)">${new Date(d.updatedAt).toLocaleString()}</div></div>
+    `;
+    gods.innerHTML = (d.godNodes || []).map(n =>
+      `<div>· <span style="color:rgba(255,200,100,0.9)">${(n.deg||0).toString().padStart(4,' ')}</span> &nbsp;
+         <span style="color:rgba(210,140,255,1)">${n.name||''}</span>
+         <span style="color:rgba(150,100,200,0.5)">[${n.label||''}]</span>
+         &nbsp; <span style="color:rgba(120,200,160,0.7)">${n.file_path||''}</span></div>`
+    ).join('') || '<span style="color:rgba(150,100,200,0.4)">none</span>';
+    types.innerHTML = (d.typeDistribution || []).map(t =>
+      `<span style="display:inline-block;padding:2px 8px;margin:2px;background:rgba(200,120,255,0.08);border:1px solid rgba(200,120,255,0.2);border-radius:3px">
+        ${t.label}: <strong style="color:rgba(120,200,160,1)">${t.count.toLocaleString()}</strong>
+       </span>`
+    ).join('');
+    relations.innerHTML = (d.relationDistribution || []).map(r =>
+      `<span style="display:inline-block;padding:2px 8px;margin:2px;background:rgba(200,120,255,0.08);border:1px solid rgba(200,120,255,0.2);border-radius:3px">
+        ${r.relation}: <strong style="color:rgba(255,200,100,1)">${r.count.toLocaleString()}</strong>
+       </span>`
+    ).join('');
+  } catch (err) {
+    summary.innerHTML = `<span style="color:rgba(220,120,120,0.7)">Failed to load graph: ${err.message}</span>`;
+  }
 };
 
 window.filterMmSkills = function(q) { renderMmSkills(q); };

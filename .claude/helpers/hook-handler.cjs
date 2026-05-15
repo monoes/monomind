@@ -215,30 +215,70 @@ function _recordToolCall(signature) {
 
 // ── Cost budget ────────────────────────────────────────────────────────────────
 // Read today's cost from token-summary and compare against budget ceiling.
+// If no budget.json exists, auto-tune from 30-day rolling mean (1.5x) so we
+// don't shout BUDGET_BREACHED at users whose normal spend is above the default.
 function _getBudgetStatus() {
   try {
     var budgetFile = path.join(CWD, '.monomind', 'budget.json');
     var summaryFile = path.join(CWD, '.monomind', 'metrics', 'token-summary.json');
     if (!fs.existsSync(summaryFile)) return null;
     var summary = JSON.parse(fs.readFileSync(summaryFile, 'utf-8'));
-    // Support both shapes: { todayCost, monthCost } and { today: { cost }, month: { cost } }
     var todayCost = summary.todayCost || (summary.today && summary.today.cost) || 0;
     var monthCost = summary.monthCost || (summary.month && summary.month.cost) || 0;
-    var dailyLimit = 50, monthlyLimit = 1500; // defaults
-    try {
-      if (fs.existsSync(budgetFile)) {
+
+    var dailyLimit, monthlyLimit, autoTuned = false;
+    if (fs.existsSync(budgetFile)) {
+      try {
         var b = JSON.parse(fs.readFileSync(budgetFile, 'utf-8'));
-        dailyLimit = b.dailyLimit || dailyLimit;
-        monthlyLimit = b.monthlyLimit || monthlyLimit;
+        dailyLimit = b.dailyLimit;
+        monthlyLimit = b.monthlyLimit;
+      } catch (_) {}
+    }
+
+    // Auto-tune: monthCost / daysSoFar = avg daily; 1.5x that = limit.
+    // Only auto-tune when we actually have 7+ days of data and no manual budget.
+    if (!dailyLimit || !monthlyLimit) {
+      var now = new Date();
+      var daysIntoMonth = now.getUTCDate();
+      var dailyAvg = daysIntoMonth >= 1 ? monthCost / daysIntoMonth : 0;
+      if (dailyAvg > 5 && daysIntoMonth >= 7) {
+        dailyLimit  = Math.max(dailyLimit  || 0, Math.ceil(dailyAvg * 1.5));
+        monthlyLimit = Math.max(monthlyLimit || 0, Math.ceil(dailyAvg * 1.5 * 30));
+        autoTuned = true;
+        // Persist so future runs are stable and the user can edit.
+        try {
+          fs.mkdirSync(path.dirname(budgetFile), { recursive: true });
+          fs.writeFileSync(budgetFile, JSON.stringify({
+            dailyLimit: dailyLimit,
+            monthlyLimit: monthlyLimit,
+            autoTuned: true,
+            tunedAt: now.toISOString(),
+            basis: 'rolling avg $' + dailyAvg.toFixed(2) + '/day × 1.5',
+            note: 'Edit these values to set a hard ceiling. Delete the file to re-tune.',
+          }, null, 2));
+        } catch (_) {}
+      } else {
+        // Fall back to sensible defaults when there's not enough history.
+        dailyLimit = dailyLimit || 50;
+        monthlyLimit = monthlyLimit || 1500;
       }
-    } catch (_) {}
+    }
+
     var dailyPct = Math.round((todayCost / dailyLimit) * 100);
     var monthlyPct = Math.round((monthCost / monthlyLimit) * 100);
+
+    // Spike detection: today is >2x the rolling daily avg (suspicious activity)
+    var rollingDaily = (new Date()).getUTCDate() >= 1 ? monthCost / (new Date()).getUTCDate() : 0;
+    var spike = rollingDaily > 0 && todayCost > rollingDaily * 2.0 && todayCost > 5;
+
     return {
       todayCost: todayCost, monthCost: monthCost,
       dailyLimit: dailyLimit, monthlyLimit: monthlyLimit,
       dailyPct: dailyPct, monthlyPct: monthlyPct,
-      alert: dailyPct >= 80 || monthlyPct >= 80,
+      autoTuned: autoTuned,
+      spike: spike,
+      // Alert only when either the limit is breached OR there's a real spike
+      alert: dailyPct >= 80 || monthlyPct >= 80 || spike,
       breached: dailyPct >= 100 || monthlyPct >= 100,
     };
   } catch (e) { return null; }
@@ -829,7 +869,59 @@ const handlers = {
     }
     if (router && (router.routeTaskSemantic || router.routeTask)) {
       const routeFn = router.routeTaskSemantic || router.routeTask;
-      const result = await Promise.resolve(routeFn(prompt));
+      var result = await Promise.resolve(routeFn(prompt));
+
+      // Graph-fallback override: when the router picked a low-confidence
+      // non-dev specialist (marketing slugs etc) but monograph has a strong
+      // graph match for the prompt, derive the agent from the top file's
+      // label instead. Stops "improve the system" → China E-Commerce.
+      try {
+        // Don't override when the prompt has obvious non-dev keywords —
+        // marketing/sales/finance asks SHOULD route to those specialists.
+        var nonDevPrompt = /\b(marketing|advertis|seo|tiktok|instagram|linkedin|sales|customer|brand|blog post|content strategy|copy(?:writ|writing)|pitch|investor|hr|recruit|legal|compliance|tax|invoice|accounting|onboarding|design syst|figma|user research|persona)\b/i.test(prompt);
+
+        var devAgents = /^(coder|tester|reviewer|planner|researcher|system-architect|backend-dev|backend-architect|mobile-dev|ml-developer|cicd-engineer|api-docs|code-analyzer|production-validator|Technical Writer)$/i;
+        var pickedDev = devAgents.test(String(result.agent || '').trim()) ||
+                        devAgents.test(String(result.agentSlug || '').trim());
+
+        var resConf = (result.confidence != null ? result.confidence : 0);
+        var resReason = String(result.reason || '');
+        var fromKeywordStage = resReason.indexOf('Keyword 2-stage') !== -1;
+        var promptIsDevish = /\b(improve|refactor|fix|bug|optimi[sz]e|implement|build|debug|deploy|test|feature|system|performance|architecture|memory|hook|graph|statusline|monograph|api|cli|skill|hooks|agent|workflow|init|module|package|registry|server|client|route|handler)\b/i.test(prompt);
+
+        var shouldOverride = !nonDevPrompt && (
+          (!pickedDev && resConf < 0.85) ||
+          (fromKeywordStage && promptIsDevish)
+        );
+        if (shouldOverride) {
+          var topGraph = getMonographSuggestions(prompt, 1)[0];
+          if (topGraph) {
+            var agent = 'coder';
+            var file = (topGraph.file || '').toLowerCase();
+            // Test files
+            if (/\.(test|spec)\./.test(file) || file.includes('__tests__')) agent = 'tester';
+            // Architecture/system docs → architect
+            else if (/(architect|adr-|design-doc|rfc-)/.test(file))         agent = 'system-architect';
+            // Pure docs → tech writer
+            else if (file.endsWith('readme.md') || file.startsWith('docs/') || /\/docs\//.test(file)) agent = 'Technical Writer';
+            // Other .md (skills, agents, configs) → coder (they're code-adjacent)
+            else if (file.endsWith('.md'))                                  agent = 'coder';
+            // Class/Interface → architect
+            else if (topGraph.label === 'Class' || topGraph.label === 'Interface') agent = 'system-architect';
+            // Functions, files, methods → coder
+            else                                                             agent = 'coder';
+            result = Object.assign({}, result, {
+              agent: agent,
+              agentSlug: agent,
+              confidence: 0.70,
+              reason: 'Graph fallback: top file ' + (topGraph.name || '').substring(0, 30) + ' [' + topGraph.label + ']',
+              specificAgents: [],
+              extrasMatches: [],
+            });
+          }
+        }
+      } catch (e) {}
+
       var output = [];
       output.push('[INFO] Routing task: ' + (prompt.substring(0, 80) || '(no prompt)'));
       output.push('');
@@ -1005,10 +1097,13 @@ const handlers = {
       try {
         var budget = _getBudgetStatus();
         if (budget && budget.alert) {
-          if (budget.breached) {
-            console.log('[BUDGET_BREACHED] Daily $' + budget.todayCost.toFixed(2) + '/$' + budget.dailyLimit + ' (' + budget.dailyPct + '%) · Monthly $' + budget.monthCost.toFixed(2) + '/$' + budget.monthlyLimit + ' (' + budget.monthlyPct + '%). Switch to Haiku with /model haiku or raise limits in .monomind/budget.json.');
+          var tunedNote = budget.autoTuned ? ' (auto-tuned)' : '';
+          if (budget.spike && !budget.breached) {
+            console.log('[BUDGET_SPIKE] Today $' + budget.todayCost.toFixed(2) + ' is >2x your rolling daily avg. Unusual spend — review .monomind/metrics/token-summary.json.');
+          } else if (budget.breached) {
+            console.log('[BUDGET_BREACHED] Daily $' + budget.todayCost.toFixed(2) + '/$' + budget.dailyLimit + ' (' + budget.dailyPct + '%) · Monthly $' + budget.monthCost.toFixed(2) + '/$' + budget.monthlyLimit + ' (' + budget.monthlyPct + '%)' + tunedNote + '. Switch to Haiku with /model haiku or edit .monomind/budget.json.');
           } else {
-            console.log('[BUDGET_ALERT] Daily ' + budget.dailyPct + '% of $' + budget.dailyLimit + ' · Monthly ' + budget.monthlyPct + '% of $' + budget.monthlyLimit + '. Adjust .monomind/budget.json if needed.');
+            console.log('[BUDGET_ALERT] Daily ' + budget.dailyPct + '% of $' + budget.dailyLimit + ' · Monthly ' + budget.monthlyPct + '% of $' + budget.monthlyLimit + tunedNote + '.');
           }
         }
       } catch (e) {}
@@ -2295,6 +2390,75 @@ const handlers = {
     fs.writeFileSync(outPath, body);
     console.log('[ADR_DRAFT] Wrote ' + recent.length + ' decision(s) to ' + outPath);
     console.log('  Edit the file to fill in Context and Consequences, then change Status to Accepted/Rejected.');
+  },
+
+  'graph-status': () => {
+    var db = _openMonographDb();
+    if (!db) { console.log('No monograph.db found. Run /monomind:understand to build.'); return; }
+    try {
+      var n = db.prepare("SELECT COUNT(*) AS c FROM nodes").get().c;
+      var e = db.prepare("SELECT COUNT(*) AS c FROM edges").get().c;
+      var usage = (function() {
+        try { return JSON.parse(fs.readFileSync(path.join(CWD, '.monomind', 'metrics', 'graph-usage.json'), 'utf-8')); }
+        catch (_) { return {}; }
+      })();
+      var wins = (usage.monograph_call || 0) + (usage.preresolve_hit || 0)
+               + (usage.graph_assist_search || 0) + (usage.graph_assist_neighbors || 0);
+      var search = (usage.grep_call || 0) + (usage.glob_call || 0)
+                 + (usage.bash_grep_call || 0) + (usage.bash_find_call || 0);
+      var pct = (wins + search) > 0 ? Math.round((wins / (wins + search)) * 100) : 0;
+      var saved = usage.dollars_saved || 0;
+      console.log('Monograph: ' + n.toLocaleString() + ' nodes · ' + e.toLocaleString() + ' edges');
+      console.log('Usage: ' + pct + '% graph · ' + (100 - pct) + '% grep · ' +
+                  'wins=' + wins + ' search=' + search +
+                  (saved > 0 ? ' · saved $' + saved.toFixed(2) : ''));
+    } catch (err) { console.log('Error: ' + err.message); }
+  },
+
+  'budget-status': () => {
+    var b = _getBudgetStatus();
+    if (!b) { console.log('No budget data yet — token tracking not initialized.'); return; }
+    console.log('Today:   $' + b.todayCost.toFixed(2) + ' / $' + b.dailyLimit  + ' (' + b.dailyPct  + '%)' + (b.autoTuned ? ' [auto-tuned]' : ''));
+    console.log('Month:   $' + b.monthCost.toFixed(2) + ' / $' + b.monthlyLimit + ' (' + b.monthlyPct + '%)');
+    console.log('Status:  ' + (b.breached ? 'BREACHED' : b.spike ? 'SPIKE' : b.alert ? 'ALERT' : 'OK'));
+    console.log('Edit .monomind/budget.json to adjust. Delete to re-tune.');
+  },
+
+  'loops-status': () => {
+    var loopsDir = path.join(CWD, '.monomind', 'loops');
+    if (!fs.existsSync(loopsDir)) { console.log('No loops directory.'); return; }
+    var files = fs.readdirSync(loopsDir).filter(function(f) {
+      return f.endsWith('.json') && !f.includes('-hil') && !f.endsWith('.stop');
+    });
+    var STALE_MS = 6 * 60 * 60 * 1000;
+    var now = Date.now();
+    var active = [], stale = [];
+    files.forEach(function(f) {
+      try {
+        var d = JSON.parse(fs.readFileSync(path.join(loopsDir, f), 'utf-8'));
+        var last = d.lastRunAt || d.startedAt || 0;
+        var ageMs = last ? (now - last) : Infinity;
+        if (ageMs > STALE_MS) stale.push({ d: d, ageH: Math.round(ageMs / 3600000) });
+        else active.push(d);
+      } catch (_) {}
+    });
+    if (active.length === 0 && stale.length === 0) {
+      console.log('No loops.'); return;
+    }
+    if (active.length > 0) {
+      console.log('Active (' + active.length + '):');
+      active.forEach(function(d) {
+        console.log('  · ' + (d.command || '?') + ' [' + (d.type || '?') + '] run ' + (d.currentRep || 0) +
+                    (d.maxReps ? '/' + d.maxReps : '') + ' · ' + (d.status || '?'));
+      });
+    }
+    if (stale.length > 0) {
+      console.log('Stale (' + stale.length + ' >6h):');
+      stale.forEach(function(s) {
+        console.log('  · ' + (s.d.command || '?') + ' run ' + (s.d.currentRep || 0) +
+                    ' · ' + s.ageH + 'h ago · ' + (s.d.status || '?'));
+      });
+    }
   },
 
   'status': () => {
