@@ -129,59 +129,15 @@ function detectLayersHeuristic(fileNodes) {
 }
 
 // ── Anthropic API helpers ─────────────────────────────────────────────────────
-// Two paths:
-//   1. Direct API via ANTHROPIC_API_KEY (fastest, parallel-safe, requires key)
-//   2. `claude -p` CLI passthrough (reuses Claude Code's auth — no key needed)
-//      Slower (CLI cold-start per call), but works inside any Claude Code
-//      session without extra setup.
+// LLM enrichment requires ANTHROPIC_API_KEY. When the script is invoked from
+// inside a Claude Code session via /monomind:understand, the slash command
+// orchestrates the LLM work inline (using the active session) — the script
+// itself runs in --no-llm heuristic mode in that flow. Attempting to spawn
+// `claude -p` from a nested subprocess does NOT work (the nested CLI hangs
+// indefinitely), so we no longer try that path.
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const ANTHROPIC_URL     = 'https://api.anthropic.com/v1/messages';
 const MODEL             = 'claude-haiku-4-5-20251001'; // cheapest for bulk analysis
-
-// Detect `claude` CLI once at startup.
-let _claudeCliPath = null;
-function _detectClaudeCli() {
-  if (_claudeCliPath !== null) return _claudeCliPath;
-  try {
-    const out = execSync('command -v claude 2>/dev/null', { encoding: 'utf-8' }).trim();
-    _claudeCliPath = out || '';
-  } catch { _claudeCliPath = ''; }
-  return _claudeCliPath;
-}
-
-const USE_CLAUDE_CLI = !ANTHROPIC_API_KEY && !!_detectClaudeCli();
-
-async function callClaudeViaCli(systemPrompt, userPrompt, maxTokens = 1024) {
-  return new Promise((resolveP, reject) => {
-    // NOTE: do NOT pass --bare here. --bare disables OAuth/keychain reads
-    // and forces ANTHROPIC_API_KEY — which is exactly what we're avoiding.
-    // We want the CLI to use the user's logged-in Claude Code session.
-    const args = [
-      '-p',
-      '--model', 'haiku',
-      '--output-format', 'text',
-      '--disable-slash-commands', // skip skill auto-resolution overhead
-      `${systemPrompt}\n\n---\n\n${userPrompt}`,
-    ];
-    const child = spawn(_claudeCliPath, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env },
-    });
-    let out = '', err = '';
-    child.stdout.on('data', d => out += d.toString());
-    child.stderr.on('data', d => err += d.toString());
-    const timeout = setTimeout(() => {
-      child.kill('SIGKILL');
-      reject(new Error('claude -p timed out after 120s'));
-    }, 120000);
-    child.on('close', code => {
-      clearTimeout(timeout);
-      if (code !== 0) return reject(new Error(`claude -p exited ${code}: ${err.slice(0, 200)}`));
-      resolveP(out.trim());
-    });
-    child.on('error', e => { clearTimeout(timeout); reject(e); });
-  });
-}
 
 async function callClaudeViaApi(systemPrompt, userPrompt, maxTokens = 1024) {
   const body = JSON.stringify({
@@ -225,10 +181,7 @@ async function callClaude(systemPrompt, userPrompt, maxTokens = 1024) {
   if (ANTHROPIC_API_KEY) {
     return callClaudeViaApi(systemPrompt, userPrompt, maxTokens);
   }
-  if (USE_CLAUDE_CLI) {
-    return callClaudeViaCli(systemPrompt, userPrompt, maxTokens);
-  }
-  throw new Error('No LLM path available: set ANTHROPIC_API_KEY or install `claude` CLI');
+  throw new Error('No LLM path available: set ANTHROPIC_API_KEY (or use the /monomind:understand slash command, which orchestrates LLM work via the active Claude Code session)');
 }
 
 function parseJson(text) {
@@ -632,10 +585,36 @@ async function main() {
     process.exit(1);
   }
 
+  // Detect non-local filesystems where better-sqlite3 can't acquire file locks
+  // (NFS, SMB, FUSE volumes — typically /Volumes/* on macOS or /mnt/* on Linux).
+  // When detected, copy the DB to /tmp, work there, copy back atomically at end.
+  let workingDbPath = dbPathArg;
+  let dbWasShadowed = false;
+  let originalDbPath = dbPathArg;
+  const isNetworkFs = /^\/Volumes\//.test(dbPathArg) ||
+                       /^\/mnt\//.test(dbPathArg) ||
+                       /^\/media\//.test(dbPathArg) ||
+                       /^\\\\/.test(dbPathArg);  // UNC paths on Windows
+  if (isNetworkFs && !dryRun) {
+    const os = await import('node:os');
+    const crypto = await import('node:crypto');
+    const tmpName = 'monograph-work-' + crypto.randomBytes(6).toString('hex') + '.db';
+    workingDbPath = join(os.tmpdir(), tmpName);
+    try {
+      console.log(`[understand] DB is on a non-local filesystem (${dbPathArg}). Copying to ${workingDbPath} to avoid SQLite lock issues...`);
+      const { copyFileSync } = await import('node:fs');
+      copyFileSync(originalDbPath, workingDbPath);
+      dbWasShadowed = true;
+    } catch (e) {
+      console.warn(`[understand] Could not copy to /tmp (${e.message}). Trying in place...`);
+      workingDbPath = dbPathArg;
+    }
+  }
+
   // Retry openDb against SQLite BUSY when monograph is building in the background
   let db;
   for (let attempt = 0; attempt < 5; attempt++) {
-    try { db = mg.openDb(dbPathArg); break; }
+    try { db = mg.openDb(workingDbPath); break; }
     catch (e) {
       if (attempt === 4) throw e;
       const msg = String(e?.message || e);
@@ -699,22 +678,19 @@ async function main() {
   const batch = toAnalyze.slice(0, limit);
   console.log(`[understand] Analyzing ${batch.length} files (${toAnalyze.length - batch.length} skipped/already enriched)`);
 
-  // Prefer the CLI passthrough when available — monomind is designed to run
-  // inside an authenticated Claude Code session and the CLI reuses that auth
-  // without prompting for an API key. Direct API only takes precedence when
-  // explicitly opted into (MONOMIND_PREFER_API=1).
-  const preferApi = process.env.MONOMIND_PREFER_API === '1';
-  const llmPath = (preferApi && ANTHROPIC_API_KEY) ? 'api'
-                : USE_CLAUDE_CLI ? 'claude-cli'
-                : ANTHROPIC_API_KEY ? 'api'
-                : 'none';
+  // LLM path: direct Anthropic API only. The script does NOT try to spawn
+  // `claude -p` from within Claude Code subprocesses — that hangs because
+  // nested CLI sessions aren't supported. For LLM enrichment without an API
+  // key, use the /monomind:understand slash command which orchestrates LLM
+  // work via the active Claude Code session inline.
+  const llmPath = ANTHROPIC_API_KEY ? 'api' : 'none';
   if (llmPath === 'none' && !noLlm) {
-    console.warn('[understand] No LLM path available — `claude` CLI not found on PATH and ANTHROPIC_API_KEY not set. Running in heuristic mode.');
-    console.warn('[understand] Tip: install Claude Code or set ANTHROPIC_API_KEY to enable per-file summaries.');
-  } else if (llmPath === 'claude-cli' && !noLlm) {
-    console.log('[understand] LLM path: `claude -p` CLI passthrough (reusing Claude Code session, no key needed)');
+    console.log('[understand] No ANTHROPIC_API_KEY — running in heuristic mode for layer detection.');
+    console.log('[understand] For per-file summaries: either set ANTHROPIC_API_KEY for direct API,');
+    console.log('[understand] or use the /monomind:understand slash command from inside Claude Code');
+    console.log('[understand] (the slash command does inline analysis via the active session, no key needed).');
   } else if (llmPath === 'api' && !noLlm) {
-    console.log('[understand] LLM path: direct Anthropic API (ANTHROPIC_API_KEY set)');
+    console.log('[understand] LLM path: direct Anthropic API');
   }
   const useLlm = !noLlm && llmPath !== 'none';
 
@@ -863,13 +839,27 @@ async function main() {
     console.log(`║  ONBOARDING.md:   ${relative(CWD, onboardOut).padEnd(31)}║`);
   }
   console.log('╚══════════════════════════════════════════════════╝');
+
+  // Copy DB back if we shadowed it on /tmp due to network FS
+  if (dbWasShadowed && !dryRun) {
+    try {
+      const { copyFileSync, unlinkSync } = await import('node:fs');
+      try { db.close(); } catch {}
+      console.log(`[understand] Copying enriched DB back to ${originalDbPath}...`);
+      copyFileSync(workingDbPath, originalDbPath);
+      try { unlinkSync(workingDbPath); } catch {}
+    } catch (e) {
+      console.error(`[understand] Failed to copy DB back: ${e.message}`);
+      console.error(`[understand] Enriched DB is at ${workingDbPath} — copy manually if needed.`);
+    }
+  }
 }
 
 // ── Detect layers and write communities to DB ────────────────────────────────
 async function detectAndWriteLayers(db, fileNodes, forceHeuristic, dryRun, dir) {
   let layers;
 
-  if (!forceHeuristic && (ANTHROPIC_API_KEY || USE_CLAUDE_CLI)) {
+  if (!forceHeuristic && ANTHROPIC_API_KEY) {
     console.log('[understand] Detecting architectural layers via LLM...');
     const filePaths = fileNodes.map(n => n.file_path).filter(Boolean);
     try {
