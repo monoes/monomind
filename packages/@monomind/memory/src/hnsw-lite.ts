@@ -13,8 +13,9 @@ export interface HnswSearchResult {
 }
 
 export class HnswLite {
-  private vectors = new Map<string, Float32Array>();
-  private neighbors = new Map<string, Set<string>>();
+  vectors = new Map<string, Float32Array>();
+  neighbors = new Map<string, Set<string>>();
+  tombstones = new Set<string>();
   private readonly dimensions: number;
   private readonly maxNeighbors: number;
   private readonly efConstruction: number;
@@ -28,7 +29,11 @@ export class HnswLite {
   }
 
   get size(): number {
-    return this.vectors.size;
+    return this.vectors.size - this.tombstones.size;
+  }
+
+  get tombstoneCount(): number {
+    return this.tombstones.size;
   }
 
   add(id: string, vector: Float32Array): void {
@@ -57,14 +62,25 @@ export class HnswLite {
   }
 
   remove(id: string): void {
-    this.vectors.delete(id);
-    const myNeighbors = this.neighbors.get(id);
-    if (myNeighbors) {
-      for (const nId of myNeighbors) {
-        this.neighbors.get(nId)?.delete(id);
-      }
+    this.tombstones.add(id);
+    // Rebuild if dead-node ratio exceeds 12%
+    if (this.vectors.size > 0 && this.tombstones.size / this.vectors.size > 0.12) {
+      this._rebuildIndex();
     }
-    this.neighbors.delete(id);
+  }
+
+  private _rebuildIndex(): void {
+    for (const id of this.tombstones) {
+      this.vectors.delete(id);
+      const myNeighbors = this.neighbors.get(id);
+      if (myNeighbors) {
+        for (const nId of myNeighbors) {
+          this.neighbors.get(nId)?.delete(id);
+        }
+      }
+      this.neighbors.delete(id);
+    }
+    this.tombstones.clear();
   }
 
   search(query: Float32Array, k: number, threshold?: number): HnswSearchResult[] {
@@ -79,6 +95,7 @@ export class HnswLite {
     let entryId: string | undefined;
     let bestScore = -1;
     for (const [id] of this.vectors) {
+      if (this.tombstones.has(id)) continue;
       const score = this.similarity(query, this.vectors.get(id)!);
       if (score > bestScore) {
         bestScore = score;
@@ -100,6 +117,7 @@ export class HnswLite {
 
         for (const nId of currentNeighbors) {
           if (visited.has(nId)) continue;
+          if (this.tombstones.has(nId)) continue;
           visited.add(nId);
 
           const vec = this.vectors.get(nId);
@@ -125,6 +143,7 @@ export class HnswLite {
   private bruteForce(query: Float32Array, k: number, threshold?: number): HnswSearchResult[] {
     const results: HnswSearchResult[] = [];
     for (const [id, vec] of this.vectors) {
+      if (this.tombstones.has(id)) continue;
       const score = this.similarity(query, vec);
       if (threshold !== undefined && score < threshold) continue;
       results.push({ id, score });
