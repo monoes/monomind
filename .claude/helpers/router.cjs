@@ -395,6 +395,78 @@ async function routeTaskSemantic(task) {
   return keywordResult;
 }
 
+// ─── Feedback weight loader ───────────────────────────────────────────────────
+// Reads .monomind/routing-feedback.jsonl to compute per-agent success-rate
+// weights. Weights are memoized with a 60-second TTL.
+//
+// Signal source: routing-feedback.jsonl entries where intelligenceFeedback is
+// non-null. Currently most entries have intelligenceFeedback: null (the field
+// is written by hook-handler but real outcomes are not yet propagated from
+// intelligence.feedback()/post-task hooks back to this file).
+//
+// TODO: wire the post-task outcome from intelligence.cjs::feedback() into
+// routing-feedback.jsonl to activate real signal. Until then, weights stay at
+// 1.0 for agents with no non-null feedback entries.
+//
+// To verify: copy .monomind/test-fixtures/routing-feedback-seeded.jsonl to
+// .monomind/routing-feedback.jsonl, then call loadFeedbackWeights() in a REPL.
+
+var _feedbackWeightsCache = null;
+var _feedbackWeightsCacheTime = 0;
+var FEEDBACK_CACHE_TTL_MS = 60000;
+var MIN_FEEDBACK_SAMPLES = 10;
+
+function loadFeedbackWeights() {
+  var now = Date.now();
+  if (_feedbackWeightsCache && now - _feedbackWeightsCacheTime < FEEDBACK_CACHE_TTL_MS) {
+    return _feedbackWeightsCache;
+  }
+  var feedbackPath = path.join(process.cwd(), '.monomind', 'routing-feedback.jsonl');
+  if (!fs.existsSync(feedbackPath)) {
+    _feedbackWeightsCache = new Map();
+    _feedbackWeightsCacheTime = now;
+    return _feedbackWeightsCache;
+  }
+  var lines;
+  try {
+    lines = fs.readFileSync(feedbackPath, 'utf8').trim().split('\n').filter(Boolean);
+  } catch {
+    _feedbackWeightsCache = new Map();
+    _feedbackWeightsCacheTime = now;
+    return _feedbackWeightsCache;
+  }
+  var agentStats = {};
+  for (var i = 0; i < lines.length; i++) {
+    try {
+      var entry = JSON.parse(lines[i]);
+      var agent = entry.suggestedAgent || entry.agent;
+      if (!agent) continue;
+      if (!agentStats[agent]) agentStats[agent] = { total: 0, successTotal: 0, withSignal: 0 };
+      agentStats[agent].total++;
+      // Only count entries where intelligenceFeedback is non-null as having signal
+      var fb = entry.intelligenceFeedback;
+      if (fb !== null && fb !== undefined) {
+        agentStats[agent].withSignal++;
+        var success = fb === true || (fb && fb.success === true);
+        if (success) agentStats[agent].successTotal++;
+      }
+    } catch { /* skip malformed lines */ }
+  }
+  var weights = new Map();
+  for (var agentName in agentStats) {
+    var stats = agentStats[agentName];
+    // Only activate weight when we have enough non-null signal entries
+    if (stats.withSignal >= MIN_FEEDBACK_SAMPLES) {
+      var rate = stats.successTotal / stats.withSignal;
+      // Clamp to [0.5, 1.5]: bad agents get penalized, good agents boosted slightly
+      weights.set(agentName, Math.max(0.5, Math.min(1.5, rate * 2)));
+    }
+  }
+  _feedbackWeightsCache = weights;
+  _feedbackWeightsCacheTime = now;
+  return weights;
+}
+
 // ─── Main routing ─────────────────────────────────────────────────────────────
 function routeTask(task) {
   if (typeof task !== 'string' || !task) {
@@ -419,14 +491,19 @@ function routeTask(task) {
     };
   }
 
+  var feedbackWeights = loadFeedbackWeights();
+
   // Dev task pattern matching
   for (const [pattern, agent] of Object.entries(TASK_PATTERNS)) {
     const regex = new RegExp(pattern, 'i');
     if (regex.test(taskLower)) {
+      // Apply feedback weight to confidence (defaults to 1.0 = no change)
+      var baseConfidence = 0.8;
+      var weight = feedbackWeights.get(agent) || 1.0;
       return {
         agent,
         agentSlug: agent,
-        confidence: 0.8,
+        confidence: Math.min(1.0, baseConfidence * weight),
         reason: `Matched pattern: ${pattern}`,
         skillMatches: matchSkills(task),
         extrasMatches: [],
@@ -436,14 +513,16 @@ function routeTask(task) {
   }
 
   // Default — low confidence, show both skill and extras suggestions
+  var defaultAgent = 'coder';
+  var defaultWeight = feedbackWeights.get(defaultAgent) || 1.0;
   return {
-    agent: 'coder',
-    agentSlug: 'coder',
-    confidence: 0.5,
+    agent: defaultAgent,
+    agentSlug: defaultAgent,
+    confidence: Math.min(1.0, 0.5 * defaultWeight),
     reason: 'Default routing - no specific pattern matched',
     skillMatches: matchSkills(task),
     extrasMatches: matchExtras(task),
-    specificAgents: SPECIFIC_AGENTS_MAP['coder'] || [],
+    specificAgents: SPECIFIC_AGENTS_MAP[defaultAgent] || [],
   };
 }
 
