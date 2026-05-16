@@ -25,6 +25,30 @@ function _requireMonograph() {
   return null;
 }
 
+// ── LearningService module-level singleton ─────────────────────────────────────
+// Singleton contract: one LearningService instance is created per hook-handler
+// process. initialize() opens the SQLite DB; consolidate() is called at
+// session-end. Hoisting to module scope ensures the DB is not reopened on every
+// session-end invocation (which would create a fresh in-memory-only instance
+// each time, discarding any state accumulated during the session).
+var _learningService = null;
+async function getLearningService() {
+  if (!_learningService) {
+    try {
+      var lsMod = await import('file://' + path.join(__dirname, 'learning-service.mjs'));
+      var LearningService = lsMod.LearningService || (lsMod.default && lsMod.default.LearningService);
+      if (LearningService) {
+        _learningService = new LearningService();
+        await _learningService.initialize();
+      }
+    } catch (e) {
+      _learningService = null; // reset so next call retries
+      throw e;
+    }
+  }
+  return _learningService;
+}
+
 // ── Monograph LLM-context helpers ──────────────────────────────────────────────
 // Used by route (pre-resolve), pre-search (Grep/Glob redirect), and post-read
 // (neighbor footer). All calls are best-effort; failures are silent.
@@ -199,12 +223,14 @@ function _injectCompactGraphMap() {
       }
 
       // 2. Fill remaining slots (up to 8 total) with god nodes (high centrality).
+      // Exclude node_modules paths (external typings like `Path [Interface]` skew rankings).
       if (anchors.length < 8) {
         var gods = db.prepare(
           "SELECT n.name, n.label, n.file_path, " +
           "(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg " +
           "FROM nodes n " +
           "WHERE n.label NOT IN ('Concept') AND n.file_path IS NOT NULL AND n.file_path != '' " +
+          "AND n.file_path NOT LIKE '%/node_modules/%' AND n.file_path NOT LIKE '%node_modules%' " +
           "AND n.name NOT LIKE '(%' AND n.name NOT LIKE '%=>%' AND length(n.name) >= 3 " +
           "ORDER BY deg DESC LIMIT 15"
         ).all();
@@ -1730,13 +1756,37 @@ const handlers = {
               "FROM nodes n " +
               "WHERE n.label NOT IN ('Concept') " +
               "AND n.file_path IS NOT NULL AND n.file_path != '' " +
+              "AND n.file_path NOT LIKE '%/node_modules/%' AND n.file_path NOT LIKE '%node_modules%' " +
               "ORDER BY deg DESC LIMIT 12"
             ).all();
+
+            // Check graph staleness: compare stored commit hash with current HEAD.
+            var mgStaleIndicator = '';
+            try {
+              var mgLastCommitRow = null;
+              try { mgLastCommitRow = mgDb.prepare("SELECT value FROM index_meta WHERE key='ua_last_commit'").get(); } catch (_) {}
+              if (mgLastCommitRow && mgLastCommitRow.value) {
+                var { execFileSync: mgExec } = require('child_process');
+                var currentHead = '';
+                try { currentHead = mgExec('git', ['rev-parse', 'HEAD'], { cwd: CWD, encoding: 'utf-8' }).trim(); } catch (_) {}
+                if (currentHead && currentHead !== mgLastCommitRow.value) {
+                  var commitsBehind = 0;
+                  try {
+                    var revList = mgExec('git', ['rev-list', '--count', mgLastCommitRow.value + '..' + currentHead], { cwd: CWD, encoding: 'utf-8' }).trim();
+                    commitsBehind = parseInt(revList, 10) || 0;
+                  } catch (_) {}
+                  if (commitsBehind > 0) {
+                    mgStaleIndicator = ' [⚡ graph ' + commitsBehind + ' commit' + (commitsBehind === 1 ? '' : 's') + ' behind — run: npx monomind monograph build]';
+                  }
+                }
+              }
+            } catch (_) {}
+
             if (mgGodNodes.length > 0) {
               var mgGodStr = mgGodNodes.slice(0, 8).map(function(n) {
                 return n.name + ' (' + n.label + ', ' + n.deg + ' links)';
               }).join(', ');
-              console.log('[MONOGRAPH_CONTEXT] ' + mgNodeCount + ' nodes · ' + mgEdgeCount + ' edges. Key nodes: ' + mgGodStr);
+              console.log('[MONOGRAPH_CONTEXT] ' + mgNodeCount + ' nodes · ' + mgEdgeCount + ' edges. Key nodes: ' + mgGodStr + mgStaleIndicator);
               // Write god nodes into knowledge chunks so semantic search finds them
               var mgKnowledgeDir = path.join(CWD, '.monomind', 'knowledge');
               var mgChunksFile = path.join(mgKnowledgeDir, 'chunks.jsonl');
@@ -2013,18 +2063,16 @@ const handlers = {
     // Memory Palace tombstone writes removed — redundant with raw session JSONL
 
     // ── Learning Service Auto-Consolidation ─────────────────────────────
-    // Consolidate learned patterns from short-term to long-term storage
+    // Consolidate learned patterns from short-term to long-term storage.
+    // Uses module-level singleton (getLearningService) so the DB is not
+    // reopened on every session-end — state accumulated during the session
+    // is preserved and consolidated in a single pass.
     try {
-      var learningService = await import('file://' + path.join(__dirname, 'learning-service.mjs'));
-      if (learningService && learningService.consolidate) {
-        var lResult = await runWithTimeout(function() { return learningService.consolidate(); }, 'learning.consolidate()');
+      var ls = await getLearningService();
+      if (ls && ls.consolidate) {
+        var lResult = await runWithTimeout(function() { return ls.consolidate(); }, 'learning.consolidate()');
         if (lResult && lResult.promoted > 0) {
           console.log('[LEARNING] Consolidated: ' + lResult.promoted + ' patterns promoted to long-term');
-        }
-      } else if (learningService && learningService.default && learningService.default.consolidate) {
-        var lResult2 = await runWithTimeout(function() { return learningService.default.consolidate(); }, 'learning.consolidate()');
-        if (lResult2 && lResult2.promoted > 0) {
-          console.log('[LEARNING] Consolidated: ' + lResult2.promoted + ' patterns promoted to long-term');
         }
       }
     } catch (e) { /* non-fatal — learning-service may need better-sqlite3 */ }
