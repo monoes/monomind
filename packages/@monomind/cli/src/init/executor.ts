@@ -2355,4 +2355,55 @@ function countEnabledHooks(options: InitOptions): number {
   return count;
 }
 
+/**
+ * Scan common locations for directories that have monomind installed
+ * (presence of .claude/helpers/hook-handler.cjs is the definitive signal).
+ * Searches up to maxDepth directory levels below each search root.
+ */
+export function findMonomindProjects(maxDepth = 3): string[] {
+  const os = require('os');
+  const home = os.homedir();
+  const searchRoots = [
+    path.join(home, 'Desktop'),
+    path.join(home, 'projects'),
+    path.join(home, 'code'),
+    path.join(home, 'work'),
+    path.join(home, 'dev'),
+    path.join(home, 'repos'),
+    path.join(home, 'src'),
+  ].filter(r => fs.existsSync(r));
+
+  // Also check known-projects registry if it exists
+  const registryPath = path.join(home, '.monomind-projects.json');
+  if (fs.existsSync(registryPath)) {
+    try {
+      const reg = JSON.parse(fs.readFileSync(registryPath, 'utf-8'));
+      if (Array.isArray(reg.projects)) {
+        for (const p of reg.projects) {
+          if (!searchRoots.includes(p) && fs.existsSync(p)) searchRoots.push(p);
+        }
+      }
+    } catch {}
+  }
+
+  const found: Set<string> = new Set();
+
+  function walk(dir: string, depth: number): void {
+    if (depth > maxDepth) return;
+    const marker = path.join(dir, '.claude', 'helpers', 'hook-handler.cjs');
+    if (fs.existsSync(marker)) { found.add(dir); return; } // don't recurse into a monomind project
+    let entries: fs.Dirent[];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
+    catch { return; }
+    for (const e of entries) {
+      if (!e.isDirectory()) continue;
+      if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+      walk(path.join(dir, e.name), depth + 1);
+    }
+  }
+
+  for (const root of searchRoots) { walk(root, 0); }
+  return [...found];
+}
+
 export default executeInit;
