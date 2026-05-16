@@ -180,6 +180,35 @@ export class HnswLite {
     }
   }
 
+  serialize(): object {
+    return {
+      dimensions: this.dimensions,
+      maxNeighbors: this.maxNeighbors,
+      efConstruction: this.efConstruction,
+      metric: this.metric,
+      vectors: Array.from(this.vectors.entries()).map(([id, vec]) => [id, Array.from(vec)]),
+      neighbors: Array.from(this.neighbors.entries()).map(([id, nbrs]) => [id, Array.from(nbrs)]),
+      tombstones: Array.from(this.tombstones),
+    };
+  }
+
+  static deserialize(data: ReturnType<HnswLite['serialize']>): HnswLite {
+    const index = new HnswLite(
+      (data as any).dimensions,
+      (data as any).maxNeighbors,
+      (data as any).efConstruction,
+      (data as any).metric ?? 'cosine'
+    );
+    index.vectors = new Map(
+      ((data as any).vectors as [string, number[]][]).map(([id, vec]) => [id, new Float32Array(vec)])
+    );
+    index.neighbors = new Map(
+      ((data as any).neighbors as [string, string[]][]).map(([id, nbrs]) => [id, new Set(nbrs)])
+    );
+    index.tombstones = new Set((data as any).tombstones ?? []);
+    return index;
+  }
+
   private similarity(a: Float32Array, b: Float32Array): number {
     if (this.metric === 'dot') return dotProduct(a, b);
     if (this.metric === 'euclidean') return 1 / (1 + euclideanDistance(a, b));
