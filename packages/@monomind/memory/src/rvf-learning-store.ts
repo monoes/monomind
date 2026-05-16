@@ -289,6 +289,11 @@ export class RvfLearningStore {
     await fs.promises.writeFile(tmpPath, content, 'utf-8');
     await fs.promises.rename(tmpPath, this.config.storePath);
 
+    // The sidecar is now subsumed by the main file — delete it to prevent
+    // duplicate trajectory entries on the next loadFromDisk() call.
+    const sidecarPath = this.config.storePath.replace(/\.rvls$/, '') + '.trajectories.jsonl';
+    await fs.promises.unlink(sidecarPath).catch(() => {});
+
     this.dirty = false;
     this.log(`Persisted: ${this.patterns.size} patterns, ${this.loraAdapters.size} LoRA, ${this.trajectories.length} trajectories`);
   }
