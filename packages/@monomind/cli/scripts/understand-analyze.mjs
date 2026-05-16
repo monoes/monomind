@@ -48,11 +48,12 @@ const dbPathArg   = argVal('db')   ? resolve(argVal('db'))   : join(projectDir, 
 const outputArg   = argVal('output')? resolve(argVal('output')) : join(projectDir, '.understand', 'knowledge-graph.json');
 const batchSize      = parseInt(argVal('batch-size') || '5',  10);
 const maxFiles       = parseInt(argVal('max-files')  || '0',  10);
-const dryRun         = hasFlag('dry-run');
-const noLlm          = hasFlag('no-llm');
-const layersOnly     = hasFlag('layers-only');
-const incremental    = hasFlag('incremental');
-const onboard        = hasFlag('onboard');
+const dryRun               = hasFlag('dry-run');
+const noLlm                = hasFlag('no-llm');
+const layersOnly           = hasFlag('layers-only');
+const incremental          = hasFlag('incremental');
+const importAnalysesStdin  = hasFlag('import-analyses-stdin');
+const onboard              = hasFlag('onboard');
 const onboardOut     = argVal('onboard-out') ? resolve(argVal('onboard-out')) : join(projectDir, 'ONBOARDING.md');
 
 // ── Resolve @monoes/monograph for DB access ──────────────────────────────────
@@ -628,6 +629,59 @@ async function main() {
   // Ensure properties column exists
   try { db.prepare(`ALTER TABLE nodes ADD COLUMN properties TEXT`).run(); } catch {}
   try { db.prepare(`CREATE TABLE IF NOT EXISTS communities (id INTEGER PRIMARY KEY, label TEXT, size INTEGER NOT NULL DEFAULT 0, cohesion_score REAL NOT NULL DEFAULT 0.0)`).run(); } catch {}
+
+  // ── Import analyses from stdin (slash-command write-back path) ───────────
+  // When Claude Code's /monomind:understand has collected per-file summaries
+  // through the active session, it pipes them back via:
+  //   echo "$ANALYSES_JSON" | node understand-analyze.mjs --import-analyses-stdin
+  // The JSON shape: { "analyses": [{ "id": <nodeId>, "fileSummary": "...", "tags": [...], ... }] }
+  if (importAnalysesStdin) {
+    const stdinText = await new Promise((resolve) => {
+      let buf = '';
+      process.stdin.setEncoding('utf-8');
+      process.stdin.on('data', c => { buf += c; });
+      process.stdin.on('end', () => resolve(buf));
+      process.stdin.on('error', () => resolve(buf));
+      // Bail out after 30 s so the slash command never hangs
+      setTimeout(() => resolve(buf), 30000);
+      process.stdin.resume();
+    });
+    let parsed = null;
+    try { parsed = JSON.parse(stdinText); } catch {}
+    const analyses = (parsed && Array.isArray(parsed.analyses)) ? parsed.analyses : [];
+    if (analyses.length === 0) {
+      console.error('[understand] --import-analyses-stdin: no analyses found in stdin JSON');
+      mg.closeDb(db);
+      process.exit(1);
+    }
+    const updateNode = db.prepare(`UPDATE nodes SET properties = ? WHERE id = ?`);
+    let written = 0;
+    const tx = db.transaction(() => {
+      for (const analysis of analyses) {
+        if (!analysis || !analysis.id) continue;
+        const existing = (() => {
+          try { const row = db.prepare('SELECT properties FROM nodes WHERE id=?').get(analysis.id); return row?.properties ? JSON.parse(row.properties) : {}; } catch { return {}; }
+        })();
+        const merged = {
+          ...existing,
+          ...(analysis.fileSummary   ? { summary:             analysis.fileSummary }            : {}),
+          ...(analysis.tags          ? { tags:                 analysis.tags }                   : {}),
+          ...(analysis.complexity    ? { complexity:           analysis.complexity }              : {}),
+          ...(analysis.functionSummaries ? { functionSummaries: analysis.functionSummaries }     : {}),
+          ...(analysis.classSummaries    ? { classSummaries:    analysis.classSummaries }        : {}),
+          ua_analyzed_at: new Date().toISOString(),
+        };
+        updateNode.run(JSON.stringify(merged), analysis.id);
+        written++;
+      }
+    });
+    tx();
+    // Rebuild FTS so summaries are immediately searchable
+    try { db.prepare(`INSERT INTO nodes_fts(nodes_fts) VALUES('rebuild')`).run(); } catch {}
+    mg.closeDb(db);
+    console.log(`[understand] Imported ${written} analyses from stdin. FTS rebuilt.`);
+    return;
+  }
 
   // ── Load all file nodes ──────────────────────────────────────────────────
   let fileNodes = db.prepare(`SELECT id, name, file_path, properties FROM nodes WHERE label = 'File' AND file_path IS NOT NULL`).all();
