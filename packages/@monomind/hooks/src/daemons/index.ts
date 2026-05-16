@@ -8,6 +8,8 @@
  * - Statusline updates
  */
 
+import os from 'os';
+
 import type {
   DaemonConfig,
   DaemonState,
@@ -415,6 +417,7 @@ export class HooksLearningDaemon {
   private routingAccuracy = 0;
   private reasoningBank: any = null;
   private lastConsolidation: Date | null = null;
+  private readonly idleLoadThreshold: number = 2.0;
   private consolidationStats = {
     totalRuns: 0,
     patternsPromoted: 0,
@@ -463,6 +466,12 @@ export class HooksLearningDaemon {
    * Consolidate learned patterns using ReasoningBank
    */
   private async consolidate(): Promise<void> {
+    // Only consolidate when system is idle (low load average)
+    const loadAvg = os.loadavg()[0]; // 1-minute load average
+    if (loadAvg > this.idleLoadThreshold) {
+      return; // Defer to next timer tick
+    }
+
     if (!this.reasoningBank) {
       return;
     }
