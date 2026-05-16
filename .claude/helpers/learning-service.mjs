@@ -168,6 +168,20 @@ function initializeDatabase(db) {
 // HNSW Index (In-Memory with SQLite persistence)
 // =============================================================================
 
+// TODO: Replace HNSWIndex with shared HnswLite from @monomind/memory once
+// API differences are resolved. Migration notes:
+//   - HnswLite constructor: (dimensions: number, m: number, efConstruction: number, metric: string)
+//     vs HNSWIndex constructor: (config: { embedding: { dimension }, hnsw: { m, efConstruction } })
+//   - HnswLite.add(id: string, vector: Float32Array): void
+//     vs HNSWIndex.add(patternId, embedding): vectorId (numeric)
+//   - HnswLite.search(query: Float32Array, k: number, threshold?): { id, score }[]
+//     vs HNSWIndex.search(queryEmbedding, k): { results: { patternId, similarity, vectorId }[], searchTimeMs }
+//   - HnswLite.remove(id: string): void (no return)
+//     vs HNSWIndex.remove(patternId): boolean
+//   - dist/hnsw-lite.js exists at packages/@monomind/memory/dist/hnsw-lite.js
+//   - Import: import { HnswLite } from '../../packages/@monomind/memory/dist/hnsw-lite.js'
+// Distance metric: HNSWIndex uses cosine similarity (1 - distance) in _searchGraph;
+//                  HnswLite defaults to cosineSimilarity — compatible. See D3 comment in hnsw-lite.ts.
 class HNSWIndex {
   constructor(config) {
     this.config = config;
