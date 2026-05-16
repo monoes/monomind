@@ -199,23 +199,83 @@ function storeVerbatim(cwd, content, meta) {
 // ── score persistence ─────────────────────────────────────────────────────────
 /**
  * _bumpScores(drawersFile, ids)
- * Rewrite drawers.jsonl with score += 1 for the given drawer ids.
+ * Appends score bumps to a sidecar .score-diffs.jsonl instead of rewriting
+ * the full drawers.jsonl on every search. Compacts when sidecar reaches 100 entries.
  * Called after search/recall so frequently-retrieved drawers rise to L1.
  */
 function _bumpScores(drawersFile, ids) {
   if (!ids || ids.length === 0) return;
-  var idSet = {};
-  ids.forEach(function(id) { idSet[id] = true; });
+  var diffPath = drawersFile.replace('.jsonl', '-score-diffs.jsonl');
+  try {
+    var entry = JSON.stringify({ ts: Date.now(), bumpIds: ids, delta: 1 });
+    fs.appendFileSync(diffPath, entry + '\n', 'utf-8');
+    _maybeCompactScoreDiffs(drawersFile, diffPath);
+  } catch (e) { /* non-fatal */ }
+}
+
+/**
+ * _maybeCompactScoreDiffs(drawersFile, diffPath)
+ * When the sidecar accumulates >= 100 entries, apply all diffs to the drawers
+ * file atomically and delete the sidecar.
+ */
+function _maybeCompactScoreDiffs(drawersFile, diffPath) {
+  var lines;
+  try {
+    lines = fs.readFileSync(diffPath, 'utf-8').split('\n').filter(Boolean);
+  } catch { return; }
+  if (lines.length < 100) return;
+  _applyScoreDiffs(drawersFile, diffPath, lines);
+}
+
+/**
+ * _applyScoreDiffs(drawersFile, diffPath, lines)
+ * Apply accumulated score diffs to drawers.jsonl atomically, then remove sidecar.
+ */
+function _applyScoreDiffs(drawersFile, diffPath, lines) {
   try {
     var drawers = readJsonl(drawersFile);
-    var changed = false;
-    drawers.forEach(function(d) {
-      if (idSet[d.id]) { d.score = (d.score || 1.0) + 1; changed = true; }
-    });
-    if (changed) {
-      fs.writeFileSync(drawersFile, drawers.map(function(d) { return JSON.stringify(d); }).join('\n') + '\n', 'utf-8');
+    var diffs = (lines || fs.readFileSync(diffPath, 'utf-8').split('\n').filter(Boolean))
+      .map(function(l) { try { return JSON.parse(l); } catch { return null; } })
+      .filter(Boolean);
+    for (var i = 0; i < diffs.length; i++) {
+      var diff = diffs[i];
+      var delta = diff.delta || 1;
+      (diff.bumpIds || []).forEach(function(id) {
+        var d = drawers.find(function(x) { return x.id === id; });
+        if (d) d.score = (d.score || 1.0) + delta;
+      });
     }
-  } catch (e) { /* non-fatal */ }
+    var tmpPath = drawersFile + '.tmp';
+    fs.writeFileSync(tmpPath, drawers.map(function(d) { return JSON.stringify(d); }).join('\n') + '\n', 'utf-8');
+    fs.renameSync(tmpPath, drawersFile);
+    try { fs.unlinkSync(diffPath); } catch {}
+  } catch (e) { /* non-fatal — leave sidecar intact for next attempt */ }
+}
+
+/**
+ * _getEffectiveDrawers(drawersFile)
+ * Read drawers.jsonl and apply any pending score diffs from the sidecar,
+ * returning the merged result without compacting. Used by wakeUp/recall/search
+ * to get accurate scores without triggering a full compact.
+ */
+function _getEffectiveDrawers(drawersFile) {
+  var drawers = readJsonl(drawersFile);
+  var diffPath = drawersFile.replace('.jsonl', '-score-diffs.jsonl');
+  try {
+    var lines = fs.readFileSync(diffPath, 'utf-8').split('\n').filter(Boolean);
+    var diffs = lines.map(function(l) { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+    // Build score bump totals per id
+    var bumps = {};
+    diffs.forEach(function(diff) {
+      (diff.bumpIds || []).forEach(function(id) {
+        bumps[id] = (bumps[id] || 0) + (diff.delta || 1);
+      });
+    });
+    drawers.forEach(function(d) {
+      if (bumps[d.id]) d.score = (d.score || 1.0) + bumps[d.id];
+    });
+  } catch { /* sidecar absent — use raw drawers */ }
+  return drawers;
 }
 
 // ── search (L3 deep) ──────────────────────────────────────────────────────────
@@ -229,7 +289,7 @@ function search(cwd, query, opts) {
   var limit       = opts.limit || 5;
   var pDir        = palaceDir(cwd);
   var drawersFile = path.join(pDir, 'drawers.jsonl');
-  var drawers     = readJsonl(drawersFile);
+  var drawers     = _getEffectiveDrawers(drawersFile);
 
   if (opts.wing) drawers = drawers.filter(function(d) { return d.wing === opts.wing; });
   if (opts.room) drawers = drawers.filter(function(d) { return d.room === opts.room; });
@@ -273,7 +333,7 @@ function recall(cwd, opts) {
   opts = opts || {};
   var limit       = opts.limit || 10;
   var drawersFile = path.join(palaceDir(cwd), 'drawers.jsonl');
-  var drawers     = readJsonl(drawersFile);
+  var drawers     = _getEffectiveDrawers(drawersFile);
   if (opts.wing) drawers = drawers.filter(function(d) { return d.wing === opts.wing; });
   if (opts.room) drawers = drawers.filter(function(d) { return d.room === opts.room; });
   var top = drawers
@@ -363,7 +423,7 @@ function wakeUp(cwd) {
   var drawersFile = path.join(pDir, 'drawers.jsonl');
   if (fs.existsSync(drawersFile)) {
     try {
-      var drawers = readJsonl(drawersFile);
+      var drawers = _getEffectiveDrawers(drawersFile);
       var cutoff  = Date.now() - L1_DAYS * 24 * 60 * 60 * 1000;
       var recent  = drawers.filter(function(d) {
         return d.ts && new Date(d.ts).getTime() > cutoff;
