@@ -199,8 +199,7 @@ function _injectCompactGraphMap() {
       }
 
       // 2. Fill remaining slots (up to 8 total) with god nodes (high centrality).
-      var slotsLeft = 8 - anchors.length;
-      if (slotsLeft > 0) {
+      if (anchors.length < 8) {
         var gods = db.prepare(
           "SELECT n.name, n.label, n.file_path, " +
           "(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg " +
