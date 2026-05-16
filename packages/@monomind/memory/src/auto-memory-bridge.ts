@@ -761,13 +761,23 @@ export function resolveAutoMemoryDir(workingDir: string): string {
   const normalized = basePath.split(path.sep).join('/');
   const projectKey = normalized.replace(/\//g, '-');
 
-  return path.join(
-    process.env.HOME || process.env.USERPROFILE || '~',
-    '.claude',
-    'projects',
-    projectKey,
-    'memory',
-  );
+  // Reject path traversal attempts in the derived key
+  const segments = projectKey.split('-');
+  for (const seg of segments) {
+    if (seg === '..' || seg === '.') {
+      throw new Error(`Invalid project path: traversal attempt detected in '${projectKey}'`);
+    }
+  }
+
+  const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
+  const expectedBase = path.resolve(homeDir, '.claude', 'projects');
+  const resolved = path.resolve(homeDir, '.claude', 'projects', projectKey, 'memory');
+
+  if (!resolved.startsWith(expectedBase + path.sep) && resolved !== expectedBase) {
+    throw new Error(`Path traversal detected: resolved path '${resolved}' escapes expected base '${expectedBase}'`);
+  }
+
+  return resolved;
 }
 
 /**
