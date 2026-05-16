@@ -2077,6 +2077,11 @@ const handlers = {
   },
 
   'session-end': async () => {
+    const h = require('./handlers/session-handler.cjs');
+    await h.handleEnd(hCtx);
+  },
+
+  'session-end_ORIGINAL_BACKUP': async () => {
     // Consolidate intelligence (with timeout — #1530)
     if (intelligence && intelligence.consolidate) {
       var consResult = await runWithTimeout(function() { return intelligence.consolidate(); }, 'intelligence.consolidate()');
@@ -2194,6 +2199,11 @@ const handlers = {
   },
 
   'pre-task': async () => {
+    const h = require('./handlers/task-handler.cjs');
+    await h.handlePreTask(hCtx);
+  },
+
+  'pre-task_ORIGINAL_BACKUP': async () => {
     if (session && session.metric) {
       try { session.metric('tasks'); } catch (e) { /* no active session */ }
     }
@@ -2316,6 +2326,11 @@ const handlers = {
   },
 
   'post-task': async () => {
+    const h = require('./handlers/task-handler.cjs');
+    await h.handlePostTask(hCtx);
+  },
+
+  'post-task_ORIGINAL_BACKUP': async () => {
     var taskSuccess = hookInput.success !== false && hookInput.status !== 'failed';
     if (intelligence && intelligence.feedback) {
       try {
