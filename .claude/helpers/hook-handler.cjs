@@ -31,22 +31,29 @@ function _requireMonograph() {
 // session-end. Hoisting to module scope ensures the DB is not reopened on every
 // session-end invocation (which would create a fresh in-memory-only instance
 // each time, discarding any state accumulated during the session).
-var _learningService = null;
+//
+// We cache the Promise (not the resolved value) so that concurrent callers all
+// await the same initialization. Caching only the resolved value allowed two
+// concurrent callers to both enter the `if (!_learningService)` branch and
+// construct separate LearningService instances, leaving an orphaned DB handle.
+var _learningServicePromise = null;
 async function getLearningService() {
-  if (!_learningService) {
-    try {
-      var lsMod = await import('file://' + path.join(__dirname, 'learning-service.mjs'));
-      var LearningService = lsMod.LearningService || (lsMod.default && lsMod.default.LearningService);
-      if (LearningService) {
-        _learningService = new LearningService();
-        await _learningService.initialize();
+  if (!_learningServicePromise) {
+    _learningServicePromise = (async function() {
+      try {
+        var lsMod = await import('file://' + path.join(__dirname, 'learning-service.mjs'));
+        var LearningService = lsMod.LearningService || (lsMod.default && lsMod.default.LearningService);
+        if (!LearningService) return null;
+        var svc = new LearningService();
+        if (typeof svc.initialize === 'function') await svc.initialize();
+        return svc;
+      } catch (e) {
+        _learningServicePromise = null; // allow retry on error
+        return null;
       }
-    } catch (e) {
-      _learningService = null; // reset so next call retries
-      throw e;
-    }
+    })();
   }
-  return _learningService;
+  return _learningServicePromise;
 }
 
 // ── Monograph LLM-context helpers ──────────────────────────────────────────────
