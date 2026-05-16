@@ -681,6 +681,9 @@ class LearningService {
     // Check if we need to prune
     this._pruneShortTerm();
 
+    // Persist index snapshot non-blocking
+    this._saveIndexes().catch(e => console.error('[LearningService] saveIndexes error:', e));
+
     return { id, action: 'created', embedding: Array.from(embedding).slice(0, 5) };
   }
 
@@ -874,6 +877,9 @@ class LearningService {
 
     this.metrics.consolidations++;
 
+    // Persist updated index snapshot non-blocking
+    this._saveIndexes().catch(e => console.error('[LearningService] saveIndexes error:', e));
+
     const duration = Date.now() - startTime;
     console.log(`[Learning] Consolidation complete in ${duration}ms:`, stats);
 
@@ -926,9 +932,39 @@ class LearningService {
     };
   }
 
-  // Load indexes from database
+  // Save indexes to session_state for fast restore across process restarts
+  async _saveIndexes() {
+    try {
+      const shortTermData = JSON.stringify(this.shortTermIndex.serialize());
+      const longTermData = JSON.stringify(this.longTermIndex.serialize());
+      this.db.prepare(`
+        INSERT OR REPLACE INTO session_state (key, value, updated_at)
+        VALUES ('hnsw_short_term', ?, ?)
+      `).run(shortTermData, Date.now());
+      this.db.prepare(`
+        INSERT OR REPLACE INTO session_state (key, value, updated_at)
+        VALUES ('hnsw_long_term', ?, ?)
+      `).run(longTermData, Date.now());
+    } catch (e) {
+      console.error('[LearningService] Failed to save HNSW indexes:', e.message);
+    }
+  }
+
+  // Load indexes from database — try serialized snapshot first, fall back to rebuild
   async _loadIndexes() {
-    // Load short-term patterns
+    try {
+      const shortRow = this.db.prepare("SELECT value FROM session_state WHERE key = 'hnsw_short_term'").get();
+      const longRow = this.db.prepare("SELECT value FROM session_state WHERE key = 'hnsw_long_term'").get();
+      if (shortRow && longRow) {
+        this.shortTermIndex = HNSWIndex.deserialize(JSON.parse(shortRow.value), CONFIG);
+        this.longTermIndex = HNSWIndex.deserialize(JSON.parse(longRow.value), CONFIG);
+        return;
+      }
+    } catch (e) {
+      console.error('[LearningService] Failed to restore HNSW snapshots, rebuilding:', e.message);
+    }
+
+    // Rebuild from patterns tables (fallback)
     this.shortTermIndex = new HNSWIndex(CONFIG);
     const shortTermPatterns = this.db.prepare('SELECT id, embedding FROM short_term_patterns').all();
     for (const row of shortTermPatterns) {
@@ -938,7 +974,6 @@ class LearningService {
       }
     }
 
-    // Load long-term patterns
     this.longTermIndex = new HNSWIndex(CONFIG);
     const longTermPatterns = this.db.prepare('SELECT id, embedding FROM long_term_patterns').all();
     for (const row of longTermPatterns) {
