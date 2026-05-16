@@ -9,6 +9,8 @@
  */
 
 import os from 'os';
+import { openSync, writeSync, closeSync, unlinkSync, statSync } from 'fs';
+import { join } from 'path';
 
 import type {
   DaemonConfig,
@@ -472,11 +474,13 @@ export class HooksLearningDaemon {
       return; // Defer to next timer tick
     }
 
-    if (!this.reasoningBank) {
-      return;
-    }
+    if (!this.acquireLock()) return; // Another process holds the lock
 
     try {
+      if (!this.reasoningBank) {
+        return;
+      }
+
       const result = await this.reasoningBank.consolidate();
 
       // Update stats
@@ -499,6 +503,8 @@ export class HooksLearningDaemon {
       }
     } catch (error) {
       console.error('[HooksLearningDaemon] Consolidation failed:', error);
+    } finally {
+      this.releaseLock();
     }
   }
 
@@ -553,6 +559,34 @@ export class HooksLearningDaemon {
    */
   async forceConsolidate(): Promise<void> {
     await this.consolidate();
+  }
+
+  private get lockPath(): string {
+    return join(process.cwd(), '.monomind', 'consolidation.lock');
+  }
+
+  private acquireLock(): boolean {
+    try {
+      // O_EXCL — fails atomically if file already exists
+      const fd = openSync(this.lockPath, 'wx');
+      writeSync(fd, JSON.stringify({ pid: process.pid, ts: Date.now() }));
+      closeSync(fd);
+      return true;
+    } catch {
+      // Check if lock is stale (> 5 minutes old)
+      try {
+        const stat = statSync(this.lockPath);
+        if (Date.now() - stat.mtimeMs > 5 * 60 * 1000) {
+          unlinkSync(this.lockPath); // Stale lock — remove
+          return this.acquireLock(); // Retry once
+        }
+      } catch { /* lock file disappeared between check and stat */ }
+      return false;
+    }
+  }
+
+  private releaseLock(): void {
+    try { unlinkSync(this.lockPath); } catch { /* already gone */ }
   }
 }
 
