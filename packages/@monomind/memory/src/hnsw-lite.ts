@@ -1,3 +1,12 @@
+// Distance metric: defaults to cosine similarity (cosineSimilarity function below).
+// Configurable via the `metric` constructor parameter: 'cosine' (default), 'dot', 'euclidean'.
+// Compatible with learning-service.mjs HNSWIndex which uses cosine similarity exclusively
+// via _cosineSimilarity() in _searchGraph() (distance = 1 - cosineSimilarity).
+// Both return higher-is-better scores in [0, 1] for cosine; HnswLite search() returns
+// { id, score } where score = similarity (not distance), matching HNSWIndex's
+// { patternId, similarity } shape.
+// Verified: 2026-05-17
+
 export interface HnswSearchResult {
   id: string;
   score: number;
