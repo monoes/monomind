@@ -167,31 +167,97 @@ function _recordGraphTelemetry(event) {
   } catch (e) { /* non-fatal */ }
 }
 
-// Re-inject graph god nodes after compaction so the LLM doesn't lose its spatial map.
+// Re-inject graph context after compaction so the LLM doesn't lose its spatial map.
+// Prefers recently-edited files (session context) over pure degree centrality so
+// the injected anchors match what the LLM was actually working on.
 function _injectCompactGraphMap() {
   try {
     var db = _openMonographDb();
     if (!db) return;
     try {
       var nodeC = db.prepare("SELECT COUNT(*) AS c FROM nodes").get().c;
-      var gods = db.prepare(
-        "SELECT n.name, n.label, n.file_path, " +
-        "(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg " +
-        "FROM nodes n " +
-        "WHERE n.label NOT IN ('Concept') AND n.file_path IS NOT NULL AND n.file_path != '' " +
-        "AND n.name NOT LIKE '(%' AND n.name NOT LIKE '%=>%' AND length(n.name) >= 3 " +
-        "ORDER BY deg DESC LIMIT 8"
-      ).all();
-      if (gods.length > 0) {
-        console.log('[COMPACT_GRAPH] ' + nodeC + ' nodes available. Top spatial anchors:');
-        for (var ci = 0; ci < gods.length; ci++) {
-          var g = gods[ci];
-          console.log('  · ' + g.name + ' [' + g.label + '] — ' + g.file_path + ' (deg ' + g.deg + ')');
+      var anchors = [];
+      var seenPaths = {};
+
+      // 1. Prefer recently-edited files (up to 5) — these are what matters NOW.
+      var recentEdits = _getRecentEdits();
+      for (var ri = 0; ri < Math.min(recentEdits.length, 5); ri++) {
+        var rfile = recentEdits[ri].file;
+        // Normalise to relative path for DB lookup
+        var rrel = (rfile.indexOf(CWD) === 0) ? rfile.slice(CWD.length + 1) : rfile;
+        try {
+          var rnode = db.prepare(
+            "SELECT n.name, n.label, n.file_path, " +
+            "(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg " +
+            "FROM nodes n WHERE n.label='File' AND (n.file_path=? OR n.file_path=?) LIMIT 1"
+          ).get(rfile, rrel);
+          if (rnode && !seenPaths[rnode.file_path]) {
+            seenPaths[rnode.file_path] = 1;
+            anchors.push({ name: rnode.name, label: rnode.label, file_path: rnode.file_path, deg: rnode.deg, tag: '✎' });
+          }
+        } catch (e) { /* ignore — file may not be in graph yet */ }
+      }
+
+      // 2. Fill remaining slots (up to 8 total) with god nodes (high centrality).
+      var slotsLeft = 8 - anchors.length;
+      if (slotsLeft > 0) {
+        var gods = db.prepare(
+          "SELECT n.name, n.label, n.file_path, " +
+          "(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg " +
+          "FROM nodes n " +
+          "WHERE n.label NOT IN ('Concept') AND n.file_path IS NOT NULL AND n.file_path != '' " +
+          "AND n.name NOT LIKE '(%' AND n.name NOT LIKE '%=>%' AND length(n.name) >= 3 " +
+          "ORDER BY deg DESC LIMIT 15"
+        ).all();
+        for (var gi = 0; gi < gods.length && anchors.length < 8; gi++) {
+          if (!seenPaths[gods[gi].file_path]) {
+            seenPaths[gods[gi].file_path] = 1;
+            anchors.push({ name: gods[gi].name, label: gods[gi].label, file_path: gods[gi].file_path, deg: gods[gi].deg, tag: '' });
+          }
+        }
+      }
+
+      if (anchors.length > 0) {
+        console.log('[COMPACT_GRAPH] ' + nodeC + ' nodes. Session context (✎ = recently edited):');
+        for (var ci = 0; ci < anchors.length; ci++) {
+          var g = anchors[ci];
+          console.log('  ' + (g.tag || ' ') + ' ' + g.name + ' [' + g.label + '] — ' + g.file_path + ' (deg ' + g.deg + ')');
         }
         console.log('  Use mcp__monomind__monograph_suggest first when navigating.');
       }
     } finally { /* db is shared/cached; do not close */ }
   } catch (e) {}
+}
+
+// ── Recent edit history ────────────────────────────────────────────────────────
+// Track last N edited file paths so compact injection and pre-resolve can surface
+// the files the LLM was actively working on instead of pure centrality anchors.
+function _recordRecentEdit(filePath) {
+  if (!filePath) return;
+  try {
+    var f = path.join(CWD, '.monomind', 'metrics', 'recent-edits.json');
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    var d = { edits: [] };
+    try { d = JSON.parse(fs.readFileSync(f, 'utf-8')); } catch (_) {}
+    if (!Array.isArray(d.edits)) d.edits = [];
+    // Remove stale entry for same file, then prepend fresh one
+    d.edits = d.edits.filter(function(e) { return e.file !== filePath; });
+    d.edits.unshift({ file: filePath, editedAt: Date.now() });
+    if (d.edits.length > 10) d.edits = d.edits.slice(0, 10);
+    fs.writeFileSync(f, JSON.stringify(d));
+  } catch (e) { /* non-fatal */ }
+}
+
+function _getRecentEdits() {
+  try {
+    var f = path.join(CWD, '.monomind', 'metrics', 'recent-edits.json');
+    if (!fs.existsSync(f)) return [];
+    var d = JSON.parse(fs.readFileSync(f, 'utf-8'));
+    if (!Array.isArray(d.edits)) return [];
+    // Only return edits from the last 2 hours (session-scoped)
+    var cutoff = Date.now() - 2 * 60 * 60 * 1000;
+    return d.edits.filter(function(e) { return e.editedAt > cutoff; });
+  } catch (e) { return []; }
 }
 
 // ── Loop drift detection ───────────────────────────────────────────────────────
@@ -910,11 +976,14 @@ const handlers = {
             else if (topGraph.label === 'Class' || topGraph.label === 'Interface') agent = 'system-architect';
             // Functions, files, methods → coder
             else                                                             agent = 'coder';
+            // Scale confidence by graph degree: well-connected nodes are stronger anchors.
+            var topDeg = topGraph.deg || 0;
+            var graphConf = topDeg > 30 ? 0.80 : (topDeg > 10 ? 0.75 : 0.70);
             result = Object.assign({}, result, {
               agent: agent,
               agentSlug: agent,
-              confidence: 0.70,
-              reason: 'Graph fallback: top file ' + (topGraph.name || '').substring(0, 30) + ' [' + topGraph.label + ']',
+              confidence: graphConf,
+              reason: 'Graph fallback: top file ' + (topGraph.name || '').substring(0, 30) + ' [' + topGraph.label + '] deg=' + topDeg,
               specificAgents: [],
               extrasMatches: [],
             });
@@ -1133,11 +1202,46 @@ const handlers = {
           // Pre-resolve top-5 relevant files for the user's prompt — the LLM
           // sees the answer inline instead of being told to call a tool.
           var suggestions = getMonographSuggestions(prompt, 5);
+
+          // Boost recently-edited files to the top of pre-resolve suggestions.
+          // Even when the FTS index hasn't caught up to the latest edits, the
+          // LLM should see the files it just modified as the primary context.
+          try {
+            var recentEditsForRoute = _getRecentEdits();
+            if (recentEditsForRoute.length > 0) {
+              // Extract prompt keywords for relevance gating
+              var promptWords = (prompt || '').toLowerCase().match(/[a-z][a-z0-9_-]{2,}/g) || [];
+              var promptWordSet = {};
+              for (var pw = 0; pw < promptWords.length; pw++) promptWordSet[promptWords[pw]] = 1;
+
+              var existingFiles = {};
+              for (var se = 0; se < suggestions.length; se++) existingFiles[suggestions[se].file || ''] = 1;
+
+              var editBoosts = [];
+              for (var re = 0; re < recentEditsForRoute.length && editBoosts.length < 2; re++) {
+                var reFile = recentEditsForRoute[re].file;
+                // Skip if already in suggestions
+                if (existingFiles[reFile]) continue;
+                var reName = path.basename(reFile, path.extname(reFile)).toLowerCase();
+                // Only boost if filename shares a keyword with the prompt OR the edit is very recent (<3 min)
+                var veryRecent = (Date.now() - recentEditsForRoute[re].editedAt) < 3 * 60 * 1000;
+                var matches = promptWordSet[reName] || veryRecent;
+                if (matches) {
+                  editBoosts.push({ name: path.basename(reFile), label: 'File', file: reFile, deg: 0, _editBoost: true });
+                }
+              }
+              if (editBoosts.length > 0) {
+                suggestions = editBoosts.concat(suggestions).slice(0, 5);
+              }
+            }
+          } catch (e) { /* non-fatal */ }
+
           if (suggestions.length > 0) {
             console.log('\n[MONOGRAPH] ' + nodeCount + ' nodes indexed. Top files for this task (pre-resolved from graph):');
             for (var si = 0; si < suggestions.length; si++) {
               var s = suggestions[si];
-              console.log('  · ' + s.name + ' [' + s.label + '] — ' + (s.file || '') + ' (deg ' + s.deg + ')');
+              var editTag = s._editBoost ? ' ✎' : '';
+              console.log('  · ' + s.name + ' [' + s.label + '] — ' + (s.file || '') + (s.deg ? ' (deg ' + s.deg + ')' : '') + editTag);
             }
             console.log('  Use mcp__monomind__monograph_query / monograph_impact for deeper drill-down.');
             _recordGraphTelemetry('preresolve_hit');
@@ -1347,6 +1451,12 @@ const handlers = {
         intelligence.recordEdit(file);
       } catch (e) { /* non-fatal */ }
     }
+    // Track recently-edited files for compact injection and pre-resolve boosting.
+    try {
+      var editedForRecent = hookInput.file_path || toolInput.file_path
+        || process.env.TOOL_INPUT_file_path || args[0] || '';
+      if (editedForRecent) _recordRecentEdit(editedForRecent);
+    } catch (e) { /* non-fatal */ }
     // Increment write counter and rebuild monograph when threshold hit.
     _maybeRebuildMonograph();
 
