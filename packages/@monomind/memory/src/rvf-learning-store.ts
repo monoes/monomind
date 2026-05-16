@@ -261,6 +261,17 @@ export class RvfLearningStore {
 
     ensureDirectory(this.config.storePath);
 
+    // Delete the sidecar BEFORE building lines[] / writing the tmp file.
+    // This closes the race window where appendTrajectory() could write a new
+    // entry to the sidecar after we snapshot this.trajectories but before we
+    // unlink — which would cause the entry to exist only in memory and be lost
+    // on process crash. Because trajectories are already in this.trajectories
+    // at this point, the sidecar is redundant; any entry appended concurrently
+    // after this unlink will still be captured by this.trajectories (the
+    // in-memory array is updated synchronously in appendTrajectory()).
+    const sidecarPath = this.config.storePath.replace(/\.rvls$/, '') + '.trajectories.jsonl';
+    try { fs.unlinkSync(sidecarPath); } catch { /* may not exist */ }
+
     const lines: string[] = [MAGIC_HEADER];
 
     // Patterns
@@ -288,11 +299,6 @@ export class RvfLearningStore {
 
     await fs.promises.writeFile(tmpPath, content, 'utf-8');
     await fs.promises.rename(tmpPath, this.config.storePath);
-
-    // The sidecar is now subsumed by the main file — delete it to prevent
-    // duplicate trajectory entries on the next loadFromDisk() call.
-    const sidecarPath = this.config.storePath.replace(/\.rvls$/, '') + '.trajectories.jsonl';
-    await fs.promises.unlink(sidecarPath).catch(() => {});
 
     this.dirty = false;
     this.log(`Persisted: ${this.patterns.size} patterns, ${this.loraAdapters.size} LoRA, ${this.trajectories.length} trajectories`);
