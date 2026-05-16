@@ -81,6 +81,14 @@ module.exports = {
           console.log('[LEARNING] Consolidated: ' + lResult.promoted + ' patterns promoted to long-term');
         }
       }
+      if (ls && ls.promoteEpisodic) {
+        try {
+          var promResult = await hCtx.runWithTimeout(function() { return ls.promoteEpisodic(); }, 'learning.promoteEpisodic()');
+          if (promResult && promResult.promoted > 0) {
+            console.log('[LEARNING] Promoted ' + promResult.promoted + ' episodic patterns to semantic memory');
+          }
+        } catch (e) { /* non-fatal */ }
+      }
     } catch (e) { /* non-fatal — learning-service may need better-sqlite3 */ }
 
     // ── Context Persistence Auto-Archive ─────────────────────────────────
