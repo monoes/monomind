@@ -572,7 +572,14 @@ export class HooksLearningDaemon {
       writeSync(fd, JSON.stringify({ pid: process.pid, ts: Date.now() }));
       closeSync(fd);
       return true;
-    } catch {
+    } catch (err: unknown) {
+      // Only treat EEXIST as "lock held by another process" — other errors (EACCES, EMFILE)
+      // are real I/O problems and should not silently fall through as "lock held".
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== 'EEXIST') {
+        console.error('[daemon] acquireLock I/O error:', code, (err as Error).message);
+        return false;
+      }
       // Check if lock is stale (> 5 minutes old)
       try {
         const stat = statSync(this.lockPath);
