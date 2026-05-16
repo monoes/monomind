@@ -224,11 +224,14 @@ export class RvfLearningStore {
 
   // ===== Trajectory operations =====
 
-  /** Append a trajectory record (append-only, never overwritten) */
+  /** Append a trajectory record to a sidecar .jsonl file (avoids full-file rewrite). */
   async appendTrajectory(record: TrajectoryRecord): Promise<void> {
     this.ensureInitialized();
-    this.trajectories.push({ ...record });
-    this.dirty = true;
+    const entry = { ...record };
+    this.trajectories.push(entry);
+    // Write directly to sidecar — eliminates full-store rewrite on every append.
+    const sidecarPath = this.config.storePath.replace(/\.rvls$/, '') + '.trajectories.jsonl';
+    await fs.promises.appendFile(sidecarPath, JSON.stringify({ type: 'trajectory', data: entry }) + '\n', 'utf-8');
   }
 
   /**
@@ -368,6 +371,26 @@ export class RvfLearningStore {
     }
 
     this.log(`Loaded from disk: ${parsed} records, ${errors} errors`);
+
+    // Merge trajectory sidecar (append-only companion to the main store)
+    const sidecarPath = this.config.storePath.replace(/\.rvls$/, '') + '.trajectories.jsonl';
+    try {
+      const sidecar = await fs.promises.readFile(sidecarPath, 'utf-8');
+      const sidecarLines = sidecar.split('\n').filter((l) => l.trim().length > 0);
+      for (const line of sidecarLines) {
+        try {
+          const record = JSON.parse(line) as StoreLine;
+          if (record.type === 'trajectory') {
+            this.trajectories.push(record.data as TrajectoryRecord);
+          }
+        } catch {
+          this.log('Warning: failed to parse trajectory sidecar line');
+        }
+      }
+      this.log(`Merged ${sidecarLines.length} trajectory sidecar entries`);
+    } catch {
+      // Sidecar doesn't exist yet — that's fine
+    }
   }
 
   private applyRecord(record: StoreLine): void {
