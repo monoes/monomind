@@ -11,7 +11,7 @@
  *   node auto-memory-hook.mjs status   # Show bridge status
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, openSync, closeSync, unlinkSync, readFileSync, writeFileSync, renameSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -33,6 +33,37 @@ const dim = (msg) => console.log(`  ${DIM}${msg}${RESET}`);
 
 // Ensure data dir
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+
+// ============================================================================
+// File-lock helper for concurrent hook coordination
+// Uses O_EXCL exclusive-create as a spin lock.
+// A 10ms synchronous wait (via Atomics.wait) is used between retries to avoid
+// pegging the CPU. Acceptable for low-contention hook processes.
+// ============================================================================
+
+function withFileLock(lockPath, fn, timeoutMs = 5000) {
+  const start = Date.now();
+  const sharedBuf = new Int32Array(new SharedArrayBuffer(4));
+  while (true) {
+    try {
+      // O_EXCL: exclusive create — fails atomically if file already exists
+      const fd = openSync(lockPath, 'wx');
+      closeSync(fd);
+      break; // acquired lock
+    } catch {
+      if (Date.now() - start > timeoutMs) {
+        // Timeout: proceed without lock rather than deadlocking hook processes
+        try { fn(); } catch { /* best effort */ }
+        return;
+      }
+      // Synchronous 10ms sleep via Atomics.wait (avoids busy-spin CPU peg)
+      Atomics.wait(sharedBuf, 0, 0, 10);
+    }
+  }
+  try { fn(); } finally {
+    try { unlinkSync(lockPath); } catch { /* ignore */ }
+  }
+}
 
 // ============================================================================
 // Simple JSON File Backend (implements IMemoryBackend interface)
@@ -120,9 +151,13 @@ class JsonFileBackend {
   }
 
   _persist() {
-    try {
-      writeFileSync(this.filePath, JSON.stringify([...this.entries.values()], null, 2), 'utf-8');
-    } catch { /* best effort */ }
+    const lockPath = this.filePath + '.lock';
+    withFileLock(lockPath, () => {
+      const data = JSON.stringify([...this.entries.values()], null, 2);
+      const tmpPath = this.filePath + '.tmp';
+      writeFileSync(tmpPath, data, 'utf-8');
+      renameSync(tmpPath, this.filePath);
+    });
   }
 }
 
