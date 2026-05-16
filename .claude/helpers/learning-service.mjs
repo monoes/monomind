@@ -843,21 +843,32 @@ class LearningService {
     // 2. Rebuild indexes
     await this._loadIndexes();
 
-    // 3. Remove duplicates in long-term
+    // 3. Remove duplicates in long-term (simhash-bucketed to avoid O(n²) cosine)
     const longTermPatterns = this.db.prepare('SELECT * FROM long_term_patterns').all();
+
+    // Build simhash fingerprints for all patterns
+    const fingerprints = new Map();
+    for (const p of longTermPatterns) {
+      fingerprints.set(p.id, this._simhash(p.content || p.strategy || ''));
+    }
+
+    // Near-dup detection: only compare pairs with Hamming distance < 4
     for (let i = 0; i < longTermPatterns.length; i++) {
       for (let j = i + 1; j < longTermPatterns.length; j++) {
+        const hammingDist = this._hammingDistance(
+          fingerprints.get(longTermPatterns[i].id),
+          fingerprints.get(longTermPatterns[j].id)
+        );
+        if (hammingDist >= 4) continue; // Skip dissimilar pairs (fast path)
         const sim = this._cosineSimilarity(
           this._bufferToFloat32Array(longTermPatterns[i].embedding),
           this._bufferToFloat32Array(longTermPatterns[j].embedding)
         );
-
         if (sim > CONFIG.patterns.dedupThreshold) {
           // Keep the higher quality one
           const toRemove = longTermPatterns[i].quality >= longTermPatterns[j].quality
             ? longTermPatterns[j].id
             : longTermPatterns[i].id;
-
           this.db.prepare('DELETE FROM long_term_patterns WHERE id = ?').run(toRemove);
           stats.duplicatesRemoved++;
         }
@@ -1015,6 +1026,30 @@ class LearningService {
       INSERT OR REPLACE INTO session_state (key, value, updated_at)
       VALUES (?, ?, ?)
     `).run(key, value, Date.now());
+  }
+
+  // 32-bit simhash via bit-weighting of character bigrams
+  _simhash(text) {
+    const bits = new Int32Array(32);
+    const chars = text.toLowerCase().replace(/\s+/g, ' ');
+    for (let i = 0; i < chars.length - 1; i++) {
+      const bigram = chars.charCodeAt(i) * 31 + chars.charCodeAt(i + 1);
+      for (let b = 0; b < 32; b++) {
+        bits[b] += (bigram >> b) & 1 ? 1 : -1;
+      }
+    }
+    let hash = 0;
+    for (let b = 0; b < 32; b++) {
+      if (bits[b] > 0) hash |= (1 << b);
+    }
+    return hash >>> 0; // unsigned
+  }
+
+  _hammingDistance(a, b) {
+    let x = a ^ b;
+    let count = 0;
+    while (x) { count += x & 1; x >>>= 1; }
+    return count;
   }
 
   // Cosine similarity helper
