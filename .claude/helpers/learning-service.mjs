@@ -888,13 +888,74 @@ class LearningService {
 
     this.metrics.consolidations++;
 
+    // 5. Promote eligible episodic patterns to semantic long-term memory
+    const promResult = await this.promoteEpisodic();
+    if (promResult.promoted > 0) {
+      console.log(`[Learning] Promoted ${promResult.promoted} episodic pattern(s) to semantic memory`);
+    }
+
     // Persist updated index snapshot non-blocking
     this._saveIndexes().catch(e => console.error('[LearningService] saveIndexes error:', e));
 
     const duration = Date.now() - startTime;
     console.log(`[Learning] Consolidation complete in ${duration}ms:`, stats);
 
-    return { ...stats, durationMs: duration };
+    return { ...stats, promoted: promResult.promoted, durationMs: duration };
+  }
+
+  // Promote short-term episodic patterns to long-term semantic memory
+  async promoteEpisodic() {
+    const threshold = CONFIG.patterns.promotionThreshold;
+    const candidates = this.db.prepare(`
+      SELECT * FROM short_term_patterns
+      WHERE usage_count >= ?
+      ORDER BY quality DESC
+    `).all(threshold);
+
+    let promoted = 0;
+    for (const pattern of candidates) {
+      try {
+        // Check if already in long-term (using source_pattern_id link)
+        const exists = this.db.prepare('SELECT id FROM long_term_patterns WHERE source_pattern_id = ? OR id = ?').get(pattern.id, `lt_${pattern.id}`);
+        if (exists) {
+          // Remove from short-term since it was already promoted
+          this.db.prepare('DELETE FROM short_term_patterns WHERE id = ?').run(pattern.id);
+          this.shortTermIndex.remove(pattern.id);
+          continue;
+        }
+
+        const now = Date.now();
+        const ltId = `lt_${pattern.id}`;
+
+        // Promote to long-term
+        this.db.prepare(`
+          INSERT OR IGNORE INTO long_term_patterns
+          (id, strategy, domain, embedding, quality, usage_count, success_count,
+           created_at, updated_at, promoted_at, source_pattern_id, metadata)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          ltId, pattern.strategy, pattern.domain, pattern.embedding,
+          pattern.quality, pattern.usage_count, pattern.success_count || 0,
+          pattern.created_at, now, now, pattern.id, pattern.metadata
+        );
+
+        // Add to long-term HNSW index
+        const embedding = this._bufferToFloat32Array(pattern.embedding);
+        if (embedding) this.longTermIndex.add(ltId, embedding);
+
+        // Remove from short-term
+        this.db.prepare('DELETE FROM short_term_patterns WHERE id = ?').run(pattern.id);
+        this.shortTermIndex.remove(pattern.id);
+        promoted++;
+      } catch (e) { /* skip individual failures */ }
+    }
+
+    if (promoted > 0) {
+      this.metrics.promotions += promoted;
+      this._saveIndexes().catch(e => console.error('[LearningService] saveIndexes error:', e));
+    }
+
+    return { promoted };
   }
 
   // Export learning data for session end
