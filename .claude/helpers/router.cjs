@@ -435,6 +435,11 @@ function loadFeedbackWeights() {
     _feedbackWeightsCacheTime = now;
     return _feedbackWeightsCache;
   }
+  // SCAFFOLD: feedback weights are scaffolded and inactive.
+  // intelligenceFeedback in routing-feedback.jsonl is not yet written with real signal.
+  // Activation path: hook-handler.cjs session-end must write intelligenceFeedback from
+  // intelligence-outcomes.jsonl to the current session's routing-feedback.jsonl entry.
+  // Until then, weights Map is always empty and routing is unaffected.
   var agentStats = {};
   for (var i = 0; i < lines.length; i++) {
     try {
