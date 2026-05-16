@@ -158,6 +158,9 @@ function matchScore(promptWords, entryWords) {
 }
 
 var cachedEntries = null;
+// Module-level state for feedback correlation
+var _lastContext = null;  // stores last prompt string from getContext() calls
+var _recentEdits = [];    // ring buffer of recent file edits (max 50)
 
 module.exports = {
   init: function() {
@@ -192,15 +195,32 @@ module.exports = {
       var summary = (e.entry.summary || e.entry.content || "").substring(0, 80);
       lines.push("  * (" + conf.toFixed(2) + ") " + summary);
     }
+    _lastContext = prompt; // capture for feedback() correlation
     return lines.join("\n");
   },
 
   recordEdit: function(file) {
-    // pending-insights staging removed — consolidate() was a no-op that just cleared this file
+    // Track recent edits for context relevance adjustment (ring buffer, max 50)
+    _recentEdits.push({ filePath: file, ts: Date.now() });
+    if (_recentEdits.length > 50) _recentEdits.shift();
   },
 
   feedback: function(success) {
-    // Stub: no-op in minimal version
+    // Append outcome to intelligence-outcomes.jsonl for confidence adjustment.
+    // This is separate from routing-feedback.jsonl (written by hook-handler).
+    // TODO: wire this outcome back into routing-feedback.jsonl entries so that
+    // loadFeedbackWeights() in router.cjs can pick up real signal.
+    try {
+      var outPath = path.join(DATA_DIR, 'intelligence-outcomes.jsonl');
+      ensureDir(DATA_DIR);
+      var entry = JSON.stringify({
+        ts: Date.now(),
+        success: success,
+        context: _lastContext ? _lastContext.substring(0, 200) : null,
+        recentEdits: _recentEdits.slice(-5).map(function(e) { return e.filePath; }),
+      });
+      fs.appendFileSync(outPath, entry + '\n', 'utf-8');
+    } catch (e) { /* non-critical — must not break session-end hook */ }
   },
 
   consolidate: function() {
