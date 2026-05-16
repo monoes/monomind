@@ -13,8 +13,17 @@ module.exports = {
     var session = hCtx.session;
     var CWD = hCtx.CWD;
 
+    // Check if daemon is holding the consolidation lock — if so, skip synchronous consolidation
+    // to avoid duplicate work and potential index corruption
+    var consolidationLockPath = path.join(CWD, '.monomind', 'consolidation.lock');
+    var daemonHoldsLock = fs.existsSync(consolidationLockPath);
+
+    if (daemonHoldsLock) {
+      console.log('[SESSION] Skipping consolidation — daemon holds lock');
+    }
+
     // Consolidate intelligence (with timeout — #1530)
-    if (intelligence && intelligence.consolidate) {
+    if (!daemonHoldsLock && intelligence && intelligence.consolidate) {
       var consResult = await hCtx.runWithTimeout(function() { return intelligence.consolidate(); }, 'intelligence.consolidate()');
       if (consResult && consResult.entries > 0) {
         var msg = '[INTELLIGENCE] Consolidated: ' + consResult.entries + ' entries, ' + consResult.edges + ' edges';
@@ -73,23 +82,25 @@ module.exports = {
     // Uses module-level singleton (getLearningService) so the DB is not
     // reopened on every session-end — state accumulated during the session
     // is preserved and consolidated in a single pass.
-    try {
-      var ls = await hCtx.getLearningService();
-      if (ls && ls.consolidate) {
-        var lResult = await hCtx.runWithTimeout(function() { return ls.consolidate(); }, 'learning.consolidate()');
-        if (lResult && lResult.promoted > 0) {
-          console.log('[LEARNING] Consolidated: ' + lResult.promoted + ' patterns promoted to long-term');
-        }
-      }
-      if (ls && ls.promoteEpisodic) {
-        try {
-          var promResult = await hCtx.runWithTimeout(function() { return ls.promoteEpisodic(); }, 'learning.promoteEpisodic()');
-          if (promResult && promResult.promoted > 0) {
-            console.log('[LEARNING] Promoted ' + promResult.promoted + ' episodic patterns to semantic memory');
+    if (!daemonHoldsLock) {
+      try {
+        var ls = await hCtx.getLearningService();
+        if (ls && ls.consolidate) {
+          var lResult = await hCtx.runWithTimeout(function() { return ls.consolidate(); }, 'learning.consolidate()');
+          if (lResult && lResult.promoted > 0) {
+            console.log('[LEARNING] Consolidated: ' + lResult.promoted + ' patterns promoted to long-term');
           }
-        } catch (e) { /* non-fatal */ }
-      }
-    } catch (e) { /* non-fatal — learning-service may need better-sqlite3 */ }
+        }
+        if (ls && ls.promoteEpisodic) {
+          try {
+            var promResult = await hCtx.runWithTimeout(function() { return ls.promoteEpisodic(); }, 'learning.promoteEpisodic()');
+            if (promResult && promResult.promoted > 0) {
+              console.log('[LEARNING] Promoted ' + promResult.promoted + ' episodic patterns to semantic memory');
+            }
+          } catch (e) { /* non-fatal */ }
+        }
+      } catch (e) { /* non-fatal — learning-service may need better-sqlite3 */ }
+    }
 
     // ── Context Persistence Auto-Archive ─────────────────────────────────
     // Archive conversation context so it survives compaction and new sessions
