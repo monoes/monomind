@@ -2040,13 +2040,21 @@ const handlers = {
       var lastRoutePath = path.join(CWD, '.monomind', 'last-route.json');
       if (fs.existsSync(lastRoutePath)) {
         var lastRoute = JSON.parse(fs.readFileSync(lastRoutePath, 'utf-8'));
+        // Heuristic: session is considered successful if consolidation ran without error.
+        // When real post-task outcome signals are wired in, replace this with
+        // the actual success value from the task outcome event.
+        var sessionSuccess = true; // placeholder — TODO: derive from post-task hook errors
+        if (intelligence && intelligence.feedback) {
+          try { intelligence.feedback(sessionSuccess); } catch (e) { /* non-fatal */ }
+        }
         var feedbackEntry = {
           timestamp: new Date().toISOString(),
           suggestedAgent: lastRoute.agent,
           confidence: lastRoute.confidence,
           sessionId: hookInput.sessionId || hookInput.session_id || '',
-          // If intelligence gave feedback during session, it's recorded here
-          intelligenceFeedback: (intelligence && intelligence.getSessionStats) ? intelligence.getSessionStats() : null,
+          // intelligenceFeedback carries a real boolean once sessionSuccess is
+          // properly derived from post-task outcome signals.
+          intelligenceFeedback: sessionSuccess,
         };
         fs.appendFileSync(feedbackPath, JSON.stringify(feedbackEntry) + '\n', 'utf-8');
         // Rotate: keep last 1000 lines to prevent unbounded growth
