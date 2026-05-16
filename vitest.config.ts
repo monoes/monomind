@@ -17,5 +17,10 @@ export default defineConfig({
     restoreMocks: true,
     pool: 'threads',
     reporters: ['default'],
+    server: {
+      deps: {
+        external: ['better-sqlite3'],
+      },
+    },
   },
 });
