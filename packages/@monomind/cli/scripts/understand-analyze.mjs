@@ -654,24 +654,44 @@ async function main() {
       mg.closeDb(db);
       process.exit(1);
     }
-    const updateNode = db.prepare(`UPDATE nodes SET properties = ? WHERE id = ?`);
+    // Resolve each analysis item to a DB integer node id.
+    // graph.json nodes have id='file:<path>' (synthetic); the real PK is an integer.
+    // Accept: analysis.dbId (integer), analysis.filePath, or derive path from analysis.id.
+    const lookupByPath = db.prepare(`SELECT id, properties FROM nodes WHERE file_path=? OR file_path=? LIMIT 1`);
+    const lookupById   = db.prepare(`SELECT id, properties FROM nodes WHERE id=? LIMIT 1`);
+    const updateNode   = db.prepare(`UPDATE nodes SET properties = ? WHERE id = ?`);
     let written = 0;
     const tx = db.transaction(() => {
       for (const analysis of analyses) {
-        if (!analysis || !analysis.id) continue;
-        const existing = (() => {
-          try { const row = db.prepare('SELECT properties FROM nodes WHERE id=?').get(analysis.id); return row?.properties ? JSON.parse(row.properties) : {}; } catch { return {}; }
-        })();
+        if (!analysis) continue;
+        let nodeRow = null;
+        // 1. Prefer explicit integer dbId (added by newer graph.json emitter)
+        if (analysis.dbId != null) {
+          nodeRow = lookupById.get(analysis.dbId);
+        }
+        // 2. Fall back to filePath from graph.json node
+        if (!nodeRow && analysis.filePath) {
+          const rel = analysis.filePath.startsWith('/') ? relative(projectDir, analysis.filePath) : analysis.filePath;
+          nodeRow = lookupByPath.get(analysis.filePath, rel);
+        }
+        // 3. Derive path from synthetic id ('file:<path>')
+        if (!nodeRow && analysis.id && String(analysis.id).startsWith('file:')) {
+          const derivedPath = String(analysis.id).slice(5);
+          const rel = derivedPath.startsWith('/') ? relative(projectDir, derivedPath) : derivedPath;
+          nodeRow = lookupByPath.get(derivedPath, rel);
+        }
+        if (!nodeRow) continue;
+        const existing = (() => { try { return nodeRow.properties ? JSON.parse(nodeRow.properties) : {}; } catch { return {}; } })();
         const merged = {
           ...existing,
-          ...(analysis.fileSummary   ? { summary:             analysis.fileSummary }            : {}),
-          ...(analysis.tags          ? { tags:                 analysis.tags }                   : {}),
-          ...(analysis.complexity    ? { complexity:           analysis.complexity }              : {}),
-          ...(analysis.functionSummaries ? { functionSummaries: analysis.functionSummaries }     : {}),
-          ...(analysis.classSummaries    ? { classSummaries:    analysis.classSummaries }        : {}),
+          ...(analysis.fileSummary       ? { summary:             analysis.fileSummary }            : {}),
+          ...(analysis.tags              ? { tags:                 analysis.tags }                   : {}),
+          ...(analysis.complexity        ? { complexity:           analysis.complexity }              : {}),
+          ...(analysis.functionSummaries ? { functionSummaries:    analysis.functionSummaries }     : {}),
+          ...(analysis.classSummaries    ? { classSummaries:       analysis.classSummaries }        : {}),
           ua_analyzed_at: new Date().toISOString(),
         };
-        updateNode.run(JSON.stringify(merged), analysis.id);
+        updateNode.run(JSON.stringify(merged), nodeRow.id);
         written++;
       }
     });
@@ -1001,6 +1021,7 @@ function buildGraphJson(dir, fileNodes, analysisMap, layers) {
     const a = analysisMap[n.file_path] || {};
     return {
       id: 'file:' + (n.file_path || n.name),
+      dbId: n.id,          // integer PK — use this in --import-analyses-stdin payloads
       type: 'file',
       name: n.name,
       filePath: n.file_path,

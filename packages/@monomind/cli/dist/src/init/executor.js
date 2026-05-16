@@ -2174,7 +2174,8 @@ function countEnabledHooks(options) {
  * Searches up to maxDepth directory levels below each search root.
  */
 export function findMonomindProjects(maxDepth = 3) {
-    const os = require('os');
+    const esmReq = createRequire(import.meta.url);
+    const os = esmReq('os');
     const home = os.homedir();
     const searchRoots = [
         path.join(home, 'Desktop'),
