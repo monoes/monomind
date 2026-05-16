@@ -92,8 +92,11 @@ export class HnswLite {
     const visited = new Set<string>();
     const candidates: HnswSearchResult[] = [];
 
+    // Entry-point scan: find best starting node without polluting visited/candidates.
+    // Mixing entry-point selection with BFS initialization blocks graph traversal.
     let entryId: string | undefined;
     let bestScore = -1;
+    let scanned = 0;
     for (const [id] of this.vectors) {
       if (this.tombstones.has(id)) continue;
       const score = this.similarity(query, this.vectors.get(id)!);
@@ -101,9 +104,7 @@ export class HnswLite {
         bestScore = score;
         entryId = id;
       }
-      if (visited.size >= Math.min(this.efConstruction, this.vectors.size)) break;
-      visited.add(id);
-      candidates.push({ id, score });
+      if (++scanned >= Math.min(this.efConstruction, this.vectors.size)) break;
     }
 
     if (entryId) {

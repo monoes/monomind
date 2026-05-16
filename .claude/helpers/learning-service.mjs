@@ -113,7 +113,9 @@ function initializeDatabase(db) {
       metadata TEXT
     );
 
-    -- HNSW index metadata
+    -- HNSW index per-pattern mapping (unused: full index snapshots are stored in
+    -- session_state under keys hnsw_short_term/hnsw_long_term as JSON blobs.
+    -- This table exists for future per-vector indexing if needed.)
     CREATE TABLE IF NOT EXISTS hnsw_index (
       id INTEGER PRIMARY KEY,
       pattern_type TEXT NOT NULL,  -- 'short_term' or 'long_term'
@@ -849,7 +851,7 @@ class LearningService {
     // Build simhash fingerprints for all patterns
     const fingerprints = new Map();
     for (const p of longTermPatterns) {
-      fingerprints.set(p.id, this._simhash(p.content || p.strategy || ''));
+      fingerprints.set(p.id, this._simhash(p.strategy || ''));
     }
 
     // Near-dup detection: only compare pairs with Hamming distance < 4
@@ -1004,7 +1006,9 @@ class LearningService {
     };
   }
 
-  // Save indexes to session_state for fast restore across process restarts
+  // Save full HNSW index snapshots to session_state (key-value TEXT store).
+  // Using session_state (not hnsw_index) because session_state stores arbitrary blobs;
+  // hnsw_index stores per-pattern mappings and is not designed for full snapshots.
   async _saveIndexes() {
     try {
       const shortTermData = JSON.stringify(this.shortTermIndex.serialize());
