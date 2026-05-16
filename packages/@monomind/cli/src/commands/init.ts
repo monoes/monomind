@@ -12,6 +12,7 @@ import {
   executeInit,
   executeUpgrade,
   executeUpgradeWithMissing,
+  findMonomindProjects,
   DEFAULT_INIT_OPTIONS,
   MINIMAL_INIT_OPTIONS,
   FULL_INIT_OPTIONS,
@@ -749,10 +750,55 @@ const upgradeCommand: Command = {
       type: 'boolean',
       default: false,
     },
+    {
+      name: 'all',
+      description: 'Upgrade all known monomind projects on this machine (scans ~/Desktop, ~/projects, etc.)',
+      type: 'boolean',
+      default: false,
+    },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const addMissing = (ctx.flags['add-missing'] || ctx.flags.addMissing) as boolean;
     const upgradeSettings = (ctx.flags.settings) as boolean;
+    const upgradeAll = (ctx.flags.all) as boolean;
+
+    // ── --all: scan for every monomind project and upgrade each ──────────────
+    if (upgradeAll) {
+      output.writeln();
+      output.writeln(output.bold('Upgrading all monomind projects'));
+      output.writeln(output.dim('Scanning ~/Desktop, ~/projects, ~/code… (this may take a moment)'));
+      output.writeln();
+      const projects = findMonomindProjects();
+      if (projects.length === 0) {
+        output.printInfo('No monomind projects found. Install monomind in a project first: npx monomind init');
+        return { success: true, exitCode: 0 };
+      }
+      output.printInfo(`Found ${projects.length} project(s). Upgrading…`);
+      output.writeln();
+      let succeeded = 0; let failed = 0;
+      for (const projDir of projects) {
+        const spinner = output.createSpinner({ text: projDir });
+        spinner.start();
+        try {
+          const res = addMissing
+            ? await executeUpgradeWithMissing(projDir, upgradeSettings)
+            : await executeUpgrade(projDir, upgradeSettings);
+          if (res.success) {
+            spinner.succeed(projDir + ' (' + res.updated.length + ' updated)');
+            succeeded++;
+          } else {
+            spinner.fail(projDir + ' — ' + (res.errors[0] || 'unknown error'));
+            failed++;
+          }
+        } catch (e: unknown) {
+          spinner.fail(projDir + ' — ' + (e instanceof Error ? e.message : String(e)));
+          failed++;
+        }
+      }
+      output.writeln();
+      output.printInfo(`Done: ${succeeded} upgraded, ${failed} failed out of ${projects.length} projects.`);
+      return { success: failed === 0, exitCode: failed > 0 ? 1 : 0 };
+    }
 
     output.writeln();
     output.writeln(output.bold('Upgrading MonoMind'));
