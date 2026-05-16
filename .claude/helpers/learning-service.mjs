@@ -565,6 +565,15 @@ class EmbeddingService {
 
 // =============================================================================
 // Learning Service
+//
+// Singleton contract (enforced by hook-handler.cjs::getLearningService()):
+//   - One LearningService instance is created per hook-handler process.
+//   - initialize() opens the SQLite DB at DB_PATH and loads HNSW indexes;
+//     it must be called exactly once after construction.
+//   - consolidate() is called at session-end to prune + promote patterns;
+//     it operates on the already-open DB — no re-initialization needed.
+//   - The constructor intentionally leaves all fields null until initialize()
+//     is called; callers must not invoke other methods before initialize().
 // =============================================================================
 
 class LearningService {
