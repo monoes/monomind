@@ -933,8 +933,58 @@ async function main() {
     return false;
   }
 
+// Build shared hook context — passed to extracted handler modules so they
+// don't need to capture main()-scoped or module-scoped variables via closure.
+var hCtx = {
+  hookInput: hookInput,
+  toolInput: toolInput,
+  toolName: toolName,
+  prompt: prompt,
+  args: args,
+  CWD: CWD,
+  session: session,
+  router: router,
+  intelligence: intelligence,
+  getLearningService: getLearningService,
+  isSimpleCommand: isSimpleCommand,
+  // Module-level singleton (populated by session-restore handler)
+  get _hooksModule() { return _hooksModule; },
+  set _hooksModule(v) { _hooksModule = v; },
+  // Utility functions
+  _recordRecentEdit: _recordRecentEdit,
+  _getRecentEdits: _getRecentEdits,
+  _findAffectedTests: _findAffectedTests,
+  _recordHookLatency: _recordHookLatency,
+  _getBudgetStatus: _getBudgetStatus,
+  _injectCompactGraphMap: _injectCompactGraphMap,
+  _maybeRebuildMonograph: _maybeRebuildMonograph,
+  _buildKnowledgeSearchFn: _buildKnowledgeSearchFn,
+  getMonographSuggestions: getMonographSuggestions,
+  getMonographNeighbors: getMonographNeighbors,
+  runWithTimeout: runWithTimeout,
+  safeRequire: safeRequire,
+  scanMicroAgentTriggers: scanMicroAgentTriggers,
+  _recordGraphTelemetry: _recordGraphTelemetry,
+  _recordDecisionMarkers: _recordDecisionMarkers,
+  _recordToolCall: _recordToolCall,
+  _openMonographDb: _openMonographDb,
+  _requireMonograph: _requireMonograph,
+  _triggerExtractYamlValue: _triggerExtractYamlValue,
+  _triggerFinalize: _triggerFinalize,
+  _triggerExtractFromFrontmatter: _triggerExtractFromFrontmatter,
+  _triggerCollectMdFiles: _triggerCollectMdFiles,
+  _triggerBuildIndex: _triggerBuildIndex,
+  _autoIndexKnowledge: _autoIndexKnowledge,
+  fs: fs,
+  path: path,
+};
+
 const handlers = {
   'route': async () => {
+    const h = require('./handlers/route-handler.cjs');
+    await h.handle(hCtx);
+  },
+  'route_ORIGINAL_BACKUP': async () => {
     // For slash commands and single-action invocations: skip routing panel output
     // but still write last-route.json so the statusline reflects the current action.
     if (isSimpleCommand(prompt)) {
@@ -1473,6 +1523,11 @@ const handlers = {
   },
 
   'post-edit': async () => {
+    const h = require('./handlers/edit-handler.cjs');
+    await h.handle(hCtx);
+  },
+
+  'post-edit_ORIGINAL_BACKUP': async () => {
     if (session && session.metric) {
       try { session.metric('edits'); } catch (e) { /* no active session */ }
     }
