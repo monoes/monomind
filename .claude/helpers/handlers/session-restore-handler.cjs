@@ -318,21 +318,27 @@ module.exports = {
       }
     } catch (e) { /* non-fatal */ }
 
-    // Monomind Control UI Status.
-    try {
-      var http = require('http');
-      var controlPort = 4242;
-      var req = http.get('http://localhost:' + controlPort + '/', function(res) {
-        if (res.statusCode === 200) {
-          console.log('[CONTROL_UI] UP — http://localhost:' + controlPort);
-        }
-        res.resume();
-      });
-      req.on('error', function() {
-        console.log('[CONTROL_UI] offline — run: npx monomind mcp start');
-      });
-      req.setTimeout(800, function() { req.destroy(); });
-    } catch (e) { /* non-fatal */ }
+    // Monomind Control UI Status — only probe when a daemon has previously run
+    // (indicated by daemon.pid or monomind.config.json). Skips silently in fresh
+    // environments and test fixtures that have no daemon history.
+    var _controlUiShouldProbe = fs.existsSync(path.join(CWD, '.monomind', 'daemon.pid'))
+      || fs.existsSync(path.join(CWD, 'monomind.config.json'));
+    if (_controlUiShouldProbe) {
+      try {
+        var http = require('http');
+        var controlPort = 4242;
+        var req = http.get('http://localhost:' + controlPort + '/', function(res) {
+          if (res.statusCode === 200) {
+            console.log('[CONTROL_UI] UP — http://localhost:' + controlPort);
+          }
+          res.resume();
+        });
+        req.on('error', function() {
+          console.log('[CONTROL_UI] offline — run: npx monomind mcp start');
+        });
+        req.setTimeout(800, function() { req.destroy(); });
+      } catch (e) { /* non-fatal */ }
+    }
 
     // Worker Queue Resume (SR-003).
     try {
