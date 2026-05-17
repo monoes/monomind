@@ -206,12 +206,9 @@ module.exports = {
   },
 
   feedback: function(success) {
-    // Append outcome to intelligence-outcomes.jsonl for confidence adjustment.
-    // This is separate from routing-feedback.jsonl (written by hook-handler).
-    //
-    // SCAFFOLD: This outcome is recorded to intelligence-outcomes.jsonl but NOT yet
-    // bridged back to routing-feedback.jsonl's intelligenceFeedback field.
-    // See router.cjs loadFeedbackWeights() for the activation path.
+    // Append outcome to intelligence-outcomes.jsonl. At session-end,
+    // session-handler.cjs reads this file (30-minute window, majority-vote)
+    // to derive intelligenceFeedback for routing-feedback.jsonl.
     try {
       var outPath = path.join(DATA_DIR, 'intelligence-outcomes.jsonl');
       ensureDir(DATA_DIR);

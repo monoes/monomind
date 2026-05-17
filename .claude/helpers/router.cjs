@@ -399,14 +399,9 @@ async function routeTaskSemantic(task) {
 // Reads .monomind/routing-feedback.jsonl to compute per-agent success-rate
 // weights. Weights are memoized with a 60-second TTL.
 //
-// Signal source: routing-feedback.jsonl entries where intelligenceFeedback is
-// non-null. Currently most entries have intelligenceFeedback: null (the field
-// is written by hook-handler but real outcomes are not yet propagated from
-// intelligence.feedback()/post-task hooks back to this file).
-//
-// TODO: wire the post-task outcome from intelligence.cjs::feedback() into
-// routing-feedback.jsonl to activate real signal. Until then, weights stay at
-// 1.0 for agents with no non-null feedback entries.
+// Signal source: routing-feedback.jsonl entries with a non-null intelligenceFeedback
+// boolean. Derived at session-end from intelligence-outcomes.jsonl (30-minute window,
+// majority-vote). Requires MIN_FEEDBACK_SAMPLES entries per agent to activate.
 //
 // To verify: copy .monomind/test-fixtures/routing-feedback-seeded.jsonl to
 // .monomind/routing-feedback.jsonl, then call loadFeedbackWeights() in a REPL.
@@ -435,11 +430,6 @@ function loadFeedbackWeights() {
     _feedbackWeightsCacheTime = now;
     return _feedbackWeightsCache;
   }
-  // SCAFFOLD: feedback weights are scaffolded and inactive.
-  // intelligenceFeedback in routing-feedback.jsonl is not yet written with real signal.
-  // Activation path: hook-handler.cjs session-end must write intelligenceFeedback from
-  // intelligence-outcomes.jsonl to the current session's routing-feedback.jsonl entry.
-  // Until then, weights Map is always empty and routing is unaffected.
   var agentStats = {};
   for (var i = 0; i < lines.length; i++) {
     try {
