@@ -31,50 +31,55 @@ module.exports = {
     } catch (e) { console.log('[WARN] Session restore failed: ' + e.message); }
 
     // Stale helper detection — warn when project helpers drift from the bundled npm copy.
+    // Skip when running inside the monomind dev repo itself: local helpers ARE the
+    // source of truth there, so any diff vs. the npm global install is expected.
     try {
-      var crypto = require('crypto');
-      function _findBundledHelpers() {
-        var helperPaths = [
-          path.join(helpersDir),
-          path.join(CWD, 'node_modules', 'monomind', '.claude', 'helpers'),
-          path.join(CWD, 'node_modules', '@monoes', 'monomindcli', '.claude', 'helpers'),
-        ];
-        try {
-          var globalRoot = require('child_process')
-            .execSync('npm root -g 2>/dev/null', { encoding: 'utf-8', timeout: 2000 })
-            .trim();
-          if (globalRoot) {
-            helperPaths.push(path.join(globalRoot, 'monomind', '.claude', 'helpers'));
-            helperPaths.push(path.join(globalRoot, '@monoes', 'monomindcli', '.claude', 'helpers'));
-          }
-        } catch (_) {}
-        for (var i = 0; i < helperPaths.length; i++) {
-          if (fs.existsSync(path.join(helperPaths[i], 'hook-handler.cjs')) &&
-              helperPaths[i] !== path.join(CWD, '.claude', 'helpers')) {
-            return helperPaths[i];
-          }
-        }
-        return null;
-      }
-
-      var bundledDir = _findBundledHelpers();
-      if (bundledDir) {
-        var helpersToCheck = ['hook-handler.cjs', 'statusline.cjs'];
-        var stale = [];
-        for (var hi = 0; hi < helpersToCheck.length; hi++) {
-          var hName = helpersToCheck[hi];
-          var localF   = path.join(CWD, '.claude', 'helpers', hName);
-          var bundledF = path.join(bundledDir, hName);
-          if (!fs.existsSync(localF) || !fs.existsSync(bundledF)) continue;
+      var _isDevRepo = fs.existsSync(path.join(CWD, 'packages', '@monomind', 'cli', 'package.json'));
+      if (!_isDevRepo) {
+        var crypto = require('crypto');
+        function _findBundledHelpers() {
+          var helperPaths = [
+            path.join(helpersDir),
+            path.join(CWD, 'node_modules', 'monomind', '.claude', 'helpers'),
+            path.join(CWD, 'node_modules', '@monoes', 'monomindcli', '.claude', 'helpers'),
+          ];
           try {
-            var hashL = crypto.createHash('sha256').update(fs.readFileSync(localF)).digest('hex');
-            var hashB = crypto.createHash('sha256').update(fs.readFileSync(bundledF)).digest('hex');
-            if (hashL !== hashB) stale.push(hName);
+            var globalRoot = require('child_process')
+              .execSync('npm root -g 2>/dev/null', { encoding: 'utf-8', timeout: 2000 })
+              .trim();
+            if (globalRoot) {
+              helperPaths.push(path.join(globalRoot, 'monomind', '.claude', 'helpers'));
+              helperPaths.push(path.join(globalRoot, '@monoes', 'monomindcli', '.claude', 'helpers'));
+            }
           } catch (_) {}
+          for (var i = 0; i < helperPaths.length; i++) {
+            if (fs.existsSync(path.join(helperPaths[i], 'hook-handler.cjs')) &&
+                helperPaths[i] !== path.join(CWD, '.claude', 'helpers')) {
+              return helperPaths[i];
+            }
+          }
+          return null;
         }
-        if (stale.length > 0) {
-          console.log('[STALE_HELPERS] Project helpers differ from bundled version: ' + stale.join(', '));
-          console.log('  Run `npx monomind@latest init upgrade` to refresh and pick up the latest features.');
+
+        var bundledDir = _findBundledHelpers();
+        if (bundledDir) {
+          var helpersToCheck = ['hook-handler.cjs', 'statusline.cjs'];
+          var stale = [];
+          for (var hi = 0; hi < helpersToCheck.length; hi++) {
+            var hName = helpersToCheck[hi];
+            var localF   = path.join(CWD, '.claude', 'helpers', hName);
+            var bundledF = path.join(bundledDir, hName);
+            if (!fs.existsSync(localF) || !fs.existsSync(bundledF)) continue;
+            try {
+              var hashL = crypto.createHash('sha256').update(fs.readFileSync(localF)).digest('hex');
+              var hashB = crypto.createHash('sha256').update(fs.readFileSync(bundledF)).digest('hex');
+              if (hashL !== hashB) stale.push(hName);
+            } catch (_) {}
+          }
+          if (stale.length > 0) {
+            console.log('[STALE_HELPERS] Project helpers differ from bundled version: ' + stale.join(', '));
+            console.log('  Run `npx monomind@latest init upgrade` to refresh and pick up the latest features.');
+          }
         }
       }
     } catch (e) { /* non-fatal */ }
