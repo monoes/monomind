@@ -279,170 +279,18 @@ const handlers = {
   },
 
   'agent-start': () => {
-    // Called by SubagentStart hook — register this agent so the statusline can count it
-    const regDir = path.join(CWD, '.monomind', 'agents', 'registrations');
-    try {
-      fs.mkdirSync(regDir, { recursive: true });
-      const id = Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-      const regFile = path.join(regDir, 'agent-' + id + '.json');
-      fs.writeFileSync(regFile, JSON.stringify({
-        agentId: id,
-        startedAt: new Date().toISOString(),
-        pid: process.pid,
-      }));
-      // Also refresh swarm-activity.json so it's within the 5-min staleness window
-      const activityDir = path.join(CWD, '.monomind', 'metrics');
-      fs.mkdirSync(activityDir, { recursive: true });
-      const activityPath = path.join(activityDir, 'swarm-activity.json');
-      const active = fs.readdirSync(regDir).filter(f => f.endsWith('.json')).length;
-      // Preserve lastActive (peak) across agent lifecycle so statusline shows non-zero after completion
-      let prevLastActive = 0;
-      try { prevLastActive = (JSON.parse(fs.readFileSync(activityPath, 'utf-8'))?.swarm?.lastActive) || 0; } catch { /* ignore */ }
-      fs.writeFileSync(activityPath, JSON.stringify({
-        timestamp: new Date().toISOString(),
-        swarm: {
-          active: active > 0,
-          agent_count: active,
-          coordination_active: active > 0,
-          lastActive: Math.max(active, prevLastActive),
-        },
-      }));
-
-      // Write last-dispatch.json so the route handler can suppress redundant suggestions
-      // on the next turn when the same type of agent is recommended.
-      const agentType = hookInput.subagent_type || hookInput.agentType || hookInput.agent_type || hookInput.agentSlug || 'unknown';
-      const agentDesc = hookInput.description || hookInput.prompt_description || '';
-      fs.writeFileSync(
-        path.join(CWD, '.monomind', 'last-dispatch.json'),
-        JSON.stringify({
-          agentType: agentType,
-          description: agentDesc.substring(0, 120),
-          dispatchedAt: new Date().toISOString(),
-        }),
-        'utf-8'
-      );
-    } catch (e) { /* non-fatal — never block a subagent from starting */ }
-
-    // Subagent context inheritance — inject graph god nodes + parent's last
-    // pre-resolved suggestions so the spawned agent inherits spatial map
-    // instead of starting blind.
-    try {
-      var subDb = _openMonographDb();
-      if (subDb) {
-        try {
-          var godRows = subDb.prepare(
-            "SELECT n.name, n.label, n.file_path AS file, " +
-            "(SELECT COUNT(*) FROM edges WHERE source_id=n.id OR target_id=n.id) AS deg " +
-            "FROM nodes n " +
-            "WHERE n.label NOT IN ('Concept') AND n.file_path IS NOT NULL AND n.file_path != '' " +
-            "ORDER BY deg DESC LIMIT 5"
-          ).all();
-          if (godRows.length > 0) {
-            console.log('[MONOGRAPH_SUBAGENT_CTX] Graph map inherited from parent:');
-            for (var gi = 0; gi < godRows.length; gi++) {
-              var gr = godRows[gi];
-              console.log('  · ' + gr.name + ' [' + gr.label + '] — ' + (gr.file || '') + ' (deg ' + gr.deg + ')');
-            }
-            // Also forward parent's last routing suggestion text if any
-            try {
-              var subAgentDesc = hookInput.description || hookInput.prompt_description || '';
-              if (subAgentDesc && subAgentDesc.length > 8) {
-                var subHints = getMonographSuggestions(subAgentDesc, 3);
-                if (subHints.length > 0) {
-                  console.log('  Top files for this subagent task:');
-                  for (var si2 = 0; si2 < subHints.length; si2++) {
-                    var sh = subHints[si2];
-                    console.log('    · ' + sh.name + ' [' + sh.label + '] — ' + (sh.file || ''));
-                  }
-                }
-              }
-            } catch (_) {}
-            console.log('  Use mcp__monomind__monograph_suggest / monograph_query in this subagent before grepping.');
-          }
-        } catch (e) { /* non-fatal */ }
-      }
-    } catch (e) { /* non-fatal */ }
-
-    console.log('[OK] Agent registered');
+    const h = require('./handlers/agent-start-handler.cjs');
+    h.handle(hCtx);
   },
 
-  // Draft an ADR from accumulated decision markers in .monomind/decisions.jsonl.
-  // Usage: node hook-handler.cjs adr-draft   (or via /adr slash command)
   'adr-draft': () => {
-    var jsonl = path.join(CWD, '.monomind', 'decisions.jsonl');
-    if (!fs.existsSync(jsonl)) {
-      console.log('[ADR] No decisions recorded yet. Type prompts containing markers like "let\'s go with X", "we chose Y", "decision: Z" to populate the log.');
-      return;
-    }
-    var lines = fs.readFileSync(jsonl, 'utf-8').trim().split('\n').filter(Boolean);
-    if (lines.length === 0) {
-      console.log('[ADR] decisions.jsonl is empty.');
-      return;
-    }
-    // Group decisions captured in the last 7 days
-    var cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    var recent = lines.map(function(l) { try { return JSON.parse(l); } catch (_) { return null; } })
-                       .filter(function(d) { return d && d.ts >= cutoff; });
-    if (recent.length === 0) {
-      console.log('[ADR] No decisions in the last 7 days. Older entries: ' + lines.length + '.');
-      return;
-    }
-
-    var adrsDir = path.join(CWD, 'docs', 'adrs');
-    try { fs.mkdirSync(adrsDir, { recursive: true }); } catch (_) {}
-    // Pick next ADR number
-    var existing = [];
-    try { existing = fs.readdirSync(adrsDir).filter(function(f) { return /^ADR-\d{4}/.test(f); }); } catch (_) {}
-    var nextNum = existing.length + 1;
-    var num = String(nextNum).padStart(4, '0');
-    var stamp = new Date().toISOString().slice(0,10);
-    var slug = 'session-decisions';
-    var fname = 'ADR-' + num + '-' + stamp + '-' + slug + '.md';
-    var outPath = path.join(adrsDir, fname);
-
-    var body = '# ADR-' + num + ': Session decisions (' + stamp + ')\n\n' +
-               '**Status:** Proposed\n**Date:** ' + stamp + '\n\n' +
-               '## Context\n\n' +
-               'During recent sessions, the following decision markers were captured ' +
-               'from user prompts. Each excerpt is the surrounding sentence at the time.\n\n' +
-               '## Decisions\n\n';
-    for (var i = 0; i < recent.length; i++) {
-      var d = recent[i];
-      var date = new Date(d.ts).toISOString().slice(0,16).replace('T',' ');
-      body += '### ' + (i + 1) + '. ' + date + '\n\n';
-      for (var j = 0; j < d.excerpts.length; j++) {
-        body += '> ' + d.excerpts[j].trim() + '\n\n';
-      }
-      if (d.prompt) body += '_Prompt:_ ' + d.prompt.slice(0, 200) + (d.prompt.length > 200 ? '…' : '') + '\n\n';
-    }
-    body += '## Consequences\n\n_(fill in after review)_\n\n' +
-            '## Status\n\nProposed — awaiting human review and refinement.\n';
-    fs.writeFileSync(outPath, body);
-    console.log('[ADR_DRAFT] Wrote ' + recent.length + ' decision(s) to ' + outPath);
-    console.log('  Edit the file to fill in Context and Consequences, then change Status to Accepted/Rejected.');
+    const h = require('./handlers/adr-draft-handler.cjs');
+    h.handle(hCtx);
   },
 
   'graph-status': () => {
-    var db = _openMonographDb();
-    if (!db) { console.log('No monograph.db found. Run /monomind:understand to build.'); return; }
-    try {
-      var n = db.prepare("SELECT COUNT(*) AS c FROM nodes").get().c;
-      var e = db.prepare("SELECT COUNT(*) AS c FROM edges").get().c;
-      var usage = (function() {
-        try { return JSON.parse(fs.readFileSync(path.join(CWD, '.monomind', 'metrics', 'graph-usage.json'), 'utf-8')); }
-        catch (_) { return {}; }
-      })();
-      var wins = (usage.monograph_call || 0) + (usage.preresolve_hit || 0)
-               + (usage.graph_assist_search || 0) + (usage.graph_assist_neighbors || 0);
-      var search = (usage.grep_call || 0) + (usage.glob_call || 0)
-                 + (usage.bash_grep_call || 0) + (usage.bash_find_call || 0);
-      var pct = (wins + search) > 0 ? Math.round((wins / (wins + search)) * 100) : 0;
-      var saved = usage.dollars_saved || 0;
-      console.log('Monograph: ' + n.toLocaleString() + ' nodes · ' + e.toLocaleString() + ' edges');
-      console.log('Usage: ' + pct + '% graph · ' + (100 - pct) + '% grep · ' +
-                  'wins=' + wins + ' search=' + search +
-                  (saved > 0 ? ' · saved $' + saved.toFixed(2) : ''));
-    } catch (err) { console.log('Error: ' + err.message); }
+    const h = require('./handlers/graph-status-handler.cjs');
+    h.handle(hCtx);
   },
 
   'budget-status': () => {
