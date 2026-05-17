@@ -10,11 +10,12 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const DATA_DIR = path.join(process.cwd(), '.monomind', 'data');
+const _CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+const DATA_DIR = path.join(_CWD, '.monomind', 'data');
 const STORE_PATH = path.join(DATA_DIR, 'auto-memory-store.json');
 const RANKED_PATH = path.join(DATA_DIR, 'ranked-context.json');
 const PENDING_PATH = path.join(DATA_DIR, 'pending-insights.jsonl');
-const SESSION_DIR = path.join(process.cwd(), '.monomind', 'sessions');
+const SESSION_DIR = path.join(_CWD, '.monomind', 'sessions');
 const SESSION_FILE = path.join(SESSION_DIR, 'current.json');
 
 // ── Safety limits (fixes #1530, #1531) ─────────────────────────────────────
