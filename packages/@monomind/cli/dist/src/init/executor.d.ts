@@ -34,5 +34,11 @@ export declare function executeUpgrade(targetDir: string, upgradeSettings?: bool
  * @param upgradeSettings - If true, merge new settings into existing settings.json
  */
 export declare function executeUpgradeWithMissing(targetDir: string, upgradeSettings?: boolean): Promise<UpgradeResult>;
+/**
+ * Scan common locations for directories that have monomind installed
+ * (presence of .claude/helpers/hook-handler.cjs is the definitive signal).
+ * Searches up to maxDepth directory levels below each search root.
+ */
+export declare function findMonomindProjects(maxDepth?: number): string[];
 export default executeInit;
 //# sourceMappingURL=executor.d.ts.map
