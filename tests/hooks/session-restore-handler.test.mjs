@@ -233,4 +233,13 @@ describe('session-restore-handler', () => {
     // File should not have been rewritten (mtime unchanged)
     expect(fs.statSync(checkPath).mtimeMs).toBe(mtime);
   });
+
+  it('suppresses [STALE_HELPERS] when running inside the monomind dev repo', async () => {
+    // Create the dev-repo sentinel: packages/@monomind/cli/package.json
+    fs.mkdirSync(path.join(tmpDir, 'packages', '@monomind', 'cli'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'packages', '@monomind', 'cli', 'package.json'), '{"version":"1.0.0"}');
+    const hCtx = makeHCtx({ CWD: tmpDir });
+    const lines = await runCapture(hCtx);
+    expect(lines.find(l => l.includes('[STALE_HELPERS]'))).toBeUndefined();
+  });
 });
