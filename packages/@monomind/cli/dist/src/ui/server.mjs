@@ -236,6 +236,20 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
+    // ----------------------------------------------------------------- GET /v2
+    if (req.method === 'GET' && url === '/v2') {
+      const htmlPath = path.join(__dirname, 'dashboard-v2.html');
+      try {
+        const html = fs.readFileSync(htmlPath, 'utf8');
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(html);
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end(`Failed to load dashboard-v2.html: ${err.message}`);
+      }
+      return;
+    }
+
     // --------------------------------------------------------- GET /api/git-user
     if (req.method === 'GET' && url === '/api/git-user') {
       try {
@@ -348,7 +362,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               }
             }
           } catch {}
-          sessions.push({ id, mtime, firstTs, lastTs, lastPrompt, summaries, totalDurationMs, totalMessages });
+          sessions.push({ id, mtime, firstTs, lastTs, lastPrompt, summaries, totalDurationMs, totalMessages, file: fp });
         }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ sessions }));

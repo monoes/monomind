@@ -8,6 +8,6 @@ export { generateMCPConfig, generateMCPJson, } from './mcp-generator.js';
 export { generateStatuslineScript, generateStatuslineHook, } from './statusline-generator.js';
 export { generatePreCommitHook, generatePostCommitHook, generateSessionManager, generateAgentRouter, generateMemoryHelper, generateHookHandler, generateIntelligenceStub, generateAutoMemoryHook, } from './helpers-generator.js';
 export { generateClaudeMd, generateMinimalClaudeMd, CLAUDE_MD_TEMPLATES, } from './claudemd-generator.js';
-export { executeInit, executeUpgrade, executeUpgradeWithMissing, default } from './executor.js';
+export { executeInit, executeUpgrade, executeUpgradeWithMissing, findMonomindProjects, default } from './executor.js';
 export type { UpgradeResult } from './executor.js';
 //# sourceMappingURL=index.d.ts.map

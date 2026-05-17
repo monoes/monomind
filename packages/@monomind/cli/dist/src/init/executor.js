@@ -342,6 +342,8 @@ export async function executeInit(options) {
         await startDaemonBackground(targetDir, result);
         // Run doctor auto-fix (non-blocking, best-effort)
         await runDoctorFix(targetDir, result);
+        // Register this project in ~/.monomind-projects.json so upgrade --all finds it
+        _registerMonomindProject(targetDir);
     }
     catch (error) {
         result.success = false;
@@ -2167,6 +2169,31 @@ function countEnabledHooks(options) {
     if (hooks.notification)
         count++;
     return count;
+}
+/**
+ * Register a project directory in ~/.monomind-projects.json so that
+ * `monomind init upgrade --all` can find it without doing a directory scan.
+ * Best-effort: failures are silently swallowed.
+ */
+function _registerMonomindProject(dir) {
+    try {
+        const esmReq = createRequire(import.meta.url);
+        const os = esmReq('os');
+        const registryPath = path.join(os.homedir(), '.monomind-projects.json');
+        let reg = { projects: [] };
+        try {
+            reg = JSON.parse(fs.readFileSync(registryPath, 'utf-8'));
+        }
+        catch { }
+        if (!Array.isArray(reg.projects))
+            reg.projects = [];
+        const abs = path.resolve(dir);
+        if (!reg.projects.includes(abs)) {
+            reg.projects.push(abs);
+            fs.writeFileSync(registryPath, JSON.stringify(reg, null, 2), 'utf-8');
+        }
+    }
+    catch { /* non-fatal */ }
 }
 /**
  * Scan common locations for directories that have monomind installed

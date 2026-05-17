@@ -11,5 +11,5 @@ export { generateStatuslineScript, generateStatuslineHook, } from './statusline-
 export { generatePreCommitHook, generatePostCommitHook, generateSessionManager, generateAgentRouter, generateMemoryHelper, generateHookHandler, generateIntelligenceStub, generateAutoMemoryHook, } from './helpers-generator.js';
 export { generateClaudeMd, generateMinimalClaudeMd, CLAUDE_MD_TEMPLATES, } from './claudemd-generator.js';
 // Main executor
-export { executeInit, executeUpgrade, executeUpgradeWithMissing, default } from './executor.js';
+export { executeInit, executeUpgrade, executeUpgradeWithMissing, findMonomindProjects, default } from './executor.js';
 //# sourceMappingURL=index.js.map
