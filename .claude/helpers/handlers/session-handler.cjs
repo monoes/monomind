@@ -41,16 +41,35 @@ module.exports = {
     } catch (e) { console.log('[WARN] Session end failed: ' + e.message); }
 
     // ── Routing Feedback Loop (SE-001) ────────────────────────────────────
-    // Persist routing accuracy feedback so the router improves over sessions
+    // Persist routing accuracy feedback so the router improves over sessions.
+    // sessionSuccess is derived from intelligence-outcomes.jsonl entries written
+    // during this session (last 30 minutes). A session is marked failed when the
+    // majority of feedback() calls carried success=false in that window.
     try {
       var feedbackPath = path.join(CWD, '.monomind', 'routing-feedback.jsonl');
       var lastRoutePath = path.join(CWD, '.monomind', 'last-route.json');
       if (fs.existsSync(lastRoutePath)) {
         var lastRoute = JSON.parse(fs.readFileSync(lastRoutePath, 'utf-8'));
-        // Heuristic: session is considered successful if consolidation ran without error.
-        // When real post-task outcome signals are wired in, replace this with
-        // the actual success value from the task outcome event.
-        var sessionSuccess = true; // placeholder — TODO: derive from post-task hook errors
+
+        // Derive sessionSuccess from intelligence-outcomes.jsonl
+        var sessionSuccess = true; // optimistic default when no signal exists
+        try {
+          var outcomesPath = path.join(CWD, '.monomind', 'intelligence-outcomes.jsonl');
+          if (fs.existsSync(outcomesPath)) {
+            var windowMs = 30 * 60 * 1000; // 30-minute session window
+            var cutoff = Date.now() - windowMs;
+            var outcomeLines = fs.readFileSync(outcomesPath, 'utf-8').trim().split('\n').filter(Boolean);
+            var recent = outcomeLines.map(function(l) {
+              try { return JSON.parse(l); } catch { return null; }
+            }).filter(function(e) { return e && e.ts && e.ts >= cutoff; });
+            if (recent.length > 0) {
+              var failures = recent.filter(function(e) { return e.success === false; }).length;
+              // Majority-vote: session fails only if more than half the recent signals are failures
+              sessionSuccess = failures / recent.length < 0.5;
+            }
+          }
+        } catch (e) { /* non-critical — keep optimistic default */ }
+
         if (intelligence && intelligence.feedback) {
           try { intelligence.feedback(sessionSuccess); } catch (e) { /* non-fatal */ }
         }
@@ -59,8 +78,6 @@ module.exports = {
           suggestedAgent: lastRoute.agent,
           confidence: lastRoute.confidence,
           sessionId: hookInput.sessionId || hookInput.session_id || '',
-          // intelligenceFeedback carries a real boolean once sessionSuccess is
-          // properly derived from post-task outcome signals.
           intelligenceFeedback: sessionSuccess,
         };
         fs.appendFileSync(feedbackPath, JSON.stringify(feedbackEntry) + '\n', 'utf-8');
