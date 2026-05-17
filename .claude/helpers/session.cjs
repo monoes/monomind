@@ -12,7 +12,8 @@ const platform = os.platform();
 const homeDir = os.homedir();
 
 function getDataDir() {
-  const localDir = path.join(process.cwd(), '.monomind', 'sessions');
+  const baseDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const localDir = path.join(baseDir, '.monomind', 'sessions');
   if (fs.existsSync(path.dirname(localDir))) {
     return localDir;
   }
