@@ -248,34 +248,13 @@ const handlers = {
 
 
   'compact-manual': async () => {
-    if (intelligence && intelligence.consolidate) {
-      try { await runWithTimeout(function() { return intelligence.consolidate(); }, 'intelligence.consolidate()'); } catch (e) { /* non-fatal */ }
-    }
-    try {
-      var lastRoute = path.join(CWD, '.monomind', 'last-route.json');
-      if (fs.existsSync(lastRoute)) {
-        var route = JSON.parse(fs.readFileSync(lastRoute, 'utf-8'));
-        console.log('[COMPACT_CONTEXT] Last route: ' + route.agent + ' (' + (route.confidence != null ? (route.confidence * 100).toFixed(0) : '?') + '%)');
-      }
-    } catch (e) { /* non-fatal */ }
-    _injectCompactGraphMap();
-    console.log('[COMPACT] Manual compaction — intelligence consolidated, context preserved');
+    const h = require('./handlers/compact-handler.cjs');
+    await h.handle(hCtx, 'manual');
   },
 
   'compact-auto': async () => {
-    if (intelligence && intelligence.consolidate) {
-      try { await runWithTimeout(function() { return intelligence.consolidate(); }, 'intelligence.consolidate()'); } catch (e) { /* non-fatal */ }
-    }
-    try {
-      var lastRoute = path.join(CWD, '.monomind', 'last-route.json');
-      if (fs.existsSync(lastRoute)) {
-        var route = JSON.parse(fs.readFileSync(lastRoute, 'utf-8'));
-        console.log('[COMPACT_CONTEXT] Last route: ' + route.agent + ' (' + (route.confidence != null ? (route.confidence * 100).toFixed(0) : '?') + '%)');
-      }
-    } catch (e) { /* non-fatal */ }
-    _injectCompactGraphMap();
-    console.log('[COMPACT] Auto compaction — intelligence consolidated, context preserved');
-    console.log('GOLDEN RULE: 1 message = all parallel operations');
+    const h = require('./handlers/compact-handler.cjs');
+    await h.handle(hCtx, 'auto');
   },
 
   'agent-start': () => {
@@ -294,49 +273,13 @@ const handlers = {
   },
 
   'budget-status': () => {
-    var b = _getBudgetStatus();
-    if (!b) { console.log('No budget data yet — token tracking not initialized.'); return; }
-    console.log('Today:   $' + b.todayCost.toFixed(2) + ' / $' + b.dailyLimit  + ' (' + b.dailyPct  + '%)' + (b.autoTuned ? ' [auto-tuned]' : ''));
-    console.log('Month:   $' + b.monthCost.toFixed(2) + ' / $' + b.monthlyLimit + ' (' + b.monthlyPct + '%)');
-    console.log('Status:  ' + (b.breached ? 'BREACHED' : b.spike ? 'SPIKE' : b.alert ? 'ALERT' : 'OK'));
-    console.log('Edit .monomind/budget.json to adjust. Delete to re-tune.');
+    const h = require('./handlers/budget-status-handler.cjs');
+    h.handle(hCtx);
   },
 
   'loops-status': () => {
-    var loopsDir = path.join(CWD, '.monomind', 'loops');
-    if (!fs.existsSync(loopsDir)) { console.log('No loops directory.'); return; }
-    var files = fs.readdirSync(loopsDir).filter(function(f) {
-      return f.endsWith('.json') && !f.includes('-hil') && !f.endsWith('.stop');
-    });
-    var STALE_MS = 6 * 60 * 60 * 1000;
-    var now = Date.now();
-    var active = [], stale = [];
-    files.forEach(function(f) {
-      try {
-        var d = JSON.parse(fs.readFileSync(path.join(loopsDir, f), 'utf-8'));
-        var last = d.lastRunAt || d.startedAt || 0;
-        var ageMs = last ? (now - last) : Infinity;
-        if (ageMs > STALE_MS) stale.push({ d: d, ageH: Math.round(ageMs / 3600000) });
-        else active.push(d);
-      } catch (_) {}
-    });
-    if (active.length === 0 && stale.length === 0) {
-      console.log('No loops.'); return;
-    }
-    if (active.length > 0) {
-      console.log('Active (' + active.length + '):');
-      active.forEach(function(d) {
-        console.log('  · ' + (d.command || '?') + ' [' + (d.type || '?') + '] run ' + (d.currentRep || 0) +
-                    (d.maxReps ? '/' + d.maxReps : '') + ' · ' + (d.status || '?'));
-      });
-    }
-    if (stale.length > 0) {
-      console.log('Stale (' + stale.length + ' >6h):');
-      stale.forEach(function(s) {
-        console.log('  · ' + (s.d.command || '?') + ' run ' + (s.d.currentRep || 0) +
-                    ' · ' + s.ageH + 'h ago · ' + (s.d.status || '?'));
-      });
-    }
+    const h = require('./handlers/loops-status-handler.cjs');
+    h.handle(hCtx);
   },
 
   'status': () => {
@@ -344,11 +287,8 @@ const handlers = {
   },
 
   'stats': async () => {
-    if (intelligence && intelligence.stats) {
-      await Promise.resolve(intelligence.stats(args.includes('--json')));
-    } else {
-      console.log('[WARN] Intelligence module not available. Run session-restore first.');
-    }
+    const h = require('./handlers/stats-handler.cjs');
+    await h.handle(hCtx);
   },
 };
 
