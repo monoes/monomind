@@ -242,4 +242,17 @@ describe('session-restore-handler', () => {
     const lines = await runCapture(hCtx);
     expect(lines.find(l => l.includes('[STALE_HELPERS]'))).toBeUndefined();
   });
+
+  it('does not probe [CONTROL_UI] when daemon.pid and monomind.config.json are both absent', async () => {
+    const hCtx = makeHCtx({ CWD: tmpDir });
+    const lines = await runCapture(hCtx);
+    expect(lines.find(l => l.includes('[CONTROL_UI]'))).toBeUndefined();
+  });
+
+  it('completes without error when monomind.config.json exists (probe condition)', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'monomind.config.json'), JSON.stringify({ daemon: {} }));
+    const hCtx = makeHCtx({ CWD: tmpDir });
+    // The http probe is async fire-and-forget; handler must not throw synchronously
+    await expect(runCapture(hCtx)).resolves.toBeInstanceOf(Array);
+  });
 });
