@@ -28,11 +28,13 @@ const CWD = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
 // Read monomind version — check global install first, then CWD package.json
 function getVersion() {
-  // 1. Walk up from script location to find monomind package.json
+  // 1. Monomind global install: script lives at <install>/packages/@monomind/cli/dist/src/init/
+  //    or user project:           .claude/helpers/statusline.cjs
+  //    Walk up to find a monomind package.json (has "name":"monomind" or "@monomind/cli")
   const scriptDir = path.dirname(__filename);
   const walkCandidates = [
-    path.join(scriptDir, '..', '..', 'package.json'),
-    path.join(scriptDir, '..', '..', '..', 'package.json'),
+    path.join(scriptDir, '..', '..', 'package.json'),          // dist/src -> @monomind/cli
+    path.join(scriptDir, '..', '..', '..', 'package.json'),    // -> monomind umbrella
     path.join(scriptDir, '..', '..', '..', '..', 'package.json'),
   ];
   for (const p of walkCandidates) {
@@ -45,6 +47,7 @@ function getVersion() {
   }
   // 2. Fallback: npm global prefix
   try {
+    const { execSync } = require('child_process');
     const prefix = execSync('npm config get prefix', { encoding: 'utf-8', timeout: 2000 }).trim();
     const pkg = JSON.parse(fs.readFileSync(path.join(prefix, 'lib', 'node_modules', 'monomind', 'package.json'), 'utf-8'));
     if (pkg.version) return `v${pkg.version}`;
@@ -104,6 +107,16 @@ function safeStat(filePath) {
   return null;
 }
 
+// Shared settings cache — read once, used by multiple functions
+let _settingsCache = undefined;
+function getSettings() {
+  if (_settingsCache !== undefined) return _settingsCache;
+  _settingsCache = readJSON(path.join(CWD, '.claude', 'settings.json'))
+                || readJSON(path.join(CWD, '.claude', 'settings.local.json'))
+                || null;
+  return _settingsCache;
+}
+
 // Project identifier — github owner/repo from git remote, else folder name
 function getProjectName() {
   try {
@@ -114,16 +127,6 @@ function getProjectName() {
     }
   } catch { /* ignore */ }
   return path.basename(CWD);
-}
-
-// Shared settings cache — read once, used by multiple functions
-let _settingsCache = undefined;
-function getSettings() {
-  if (_settingsCache !== undefined) return _settingsCache;
-  _settingsCache = readJSON(path.join(CWD, '.claude', 'settings.json'))
-                || readJSON(path.join(CWD, '.claude', 'settings.local.json'))
-                || null;
-  return _settingsCache;
 }
 
 // ─── Data Collection (all pure-Node.js or single-exec) ──────────
@@ -385,7 +388,6 @@ function getSwarmStatus() {
           activeAgents: liveCount,
           maxAgents: CONFIG.maxAgents,
           coordinationActive: true,
-          lastActive: liveCount,
         };
       }
     } catch { /* fall through */ }
@@ -398,12 +400,10 @@ function getSwarmStatus() {
     const updatedAt = swarmState.updatedAt || swarmState.startedAt;
     const age = updatedAt ? now - new Date(updatedAt).getTime() : Infinity;
     if (age < staleThresholdMs) {
-      const sc = swarmState.agents?.length || swarmState.agentCount || 0;
       return {
-        activeAgents: sc,
+        activeAgents: swarmState.agents?.length || swarmState.agentCount || 0,
         maxAgents: swarmState.maxAgents || CONFIG.maxAgents,
         coordinationActive: true,
-        lastActive: sc,
       };
     }
   }
@@ -418,23 +418,11 @@ function getSwarmStatus() {
         activeAgents: activityData.swarm.agent_count || 0,
         maxAgents: CONFIG.maxAgents,
         coordinationActive: activityData.swarm.coordination_active || activityData.swarm.active || false,
-        lastActive: activityData.swarm.lastActive || 0,
       };
     }
-    // Only show lastActive if data is recent enough (< 1 hour) and plausible (≤ maxAgents)
-    const displayTtlMs = 60 * 60 * 1000;
-    const lastActive = (age < displayTtlMs)
-      ? Math.min(activityData.swarm.lastActive || 0, CONFIG.maxAgents)
-      : 0;
-    return {
-      activeAgents: 0,
-      maxAgents: CONFIG.maxAgents,
-      coordinationActive: false,
-      lastActive,
-    };
   }
 
-  return { activeAgents: 0, maxAgents: CONFIG.maxAgents, coordinationActive: false, lastActive: 0 };
+  return { activeAgents: 0, maxAgents: CONFIG.maxAgents, coordinationActive: false };
 }
 
 // System metrics (uses process.memoryUsage() — no shell spawn)
@@ -565,7 +553,6 @@ function getActiveAgent() {
       category: data.category || null,
       confidence: data.confidence || 0,
       activated: data.activated || false,   // true = manually loaded extras agent
-      extrasMatches: data.extrasMatches || [],
     };
   } catch { return null; }
 }
@@ -577,56 +564,26 @@ function getAgentDBStats() {
   let namespaces = 0;
   let hasHnsw = false;
 
-  // Count all memory entries across sources (sum, not max)
-  // 0. Palace drawers
-  const drawersPath = path.join(CWD, '.monomind', 'palace', 'drawers.jsonl');
-  const drawersStat = safeStat(drawersPath);
-  if (drawersStat) {
-    dbSizeKB += drawersStat.size / 1024;
-    try {
-      vectorCount += fs.readFileSync(drawersPath, 'utf-8').split('\n').filter(Boolean).length;
-    } catch { /* ignore */ }
-  }
-
-  // 1. Palace closets
-  const closetsPath = path.join(CWD, '.monomind', 'palace', 'closets.jsonl');
-  const closetsStat = safeStat(closetsPath);
-  if (closetsStat) {
-    dbSizeKB += closetsStat.size / 1024;
-    try {
-      vectorCount += fs.readFileSync(closetsPath, 'utf-8').split('\n').filter(Boolean).length;
-    } catch { /* ignore */ }
-  }
-
-  // 2. Knowledge chunks
-  const chunksPath = path.join(CWD, '.monomind', 'knowledge', 'chunks.jsonl');
-  const chunksStat = safeStat(chunksPath);
-  if (chunksStat) {
-    dbSizeKB += chunksStat.size / 1024;
-    try {
-      vectorCount += fs.readFileSync(chunksPath, 'utf-8').split('\n').filter(Boolean).length;
-    } catch { /* ignore */ }
-  }
-
-  // 3. Auto-memory store (intelligence layer)
+  // 1. Count real entries from auto-memory-store.json
   const storePath = path.join(CWD, '.monomind', 'data', 'auto-memory-store.json');
   const storeStat = safeStat(storePath);
   if (storeStat) {
     dbSizeKB += storeStat.size / 1024;
     try {
       const store = JSON.parse(fs.readFileSync(storePath, 'utf-8'));
-      vectorCount += Array.isArray(store) ? store.length : (store?.entries?.length || 0);
-    } catch { /* ignore */ }
+      if (Array.isArray(store)) vectorCount += store.length;
+      else if (store?.entries) vectorCount += store.entries.length;
+    } catch { /* fall back to size estimate */ }
   }
 
-  // 4. Ranked context
+  // 2. Count entries from ranked-context.json
   const rankedPath = path.join(CWD, '.monomind', 'data', 'ranked-context.json');
   try {
     const ranked = readJSON(rankedPath);
-    if (ranked?.entries?.length) vectorCount += ranked.entries.length;
+    if (ranked?.entries?.length > vectorCount) vectorCount = ranked.entries.length;
   } catch { /* ignore */ }
 
-  // 5. DB file sizes
+  // 3. Add DB file sizes
   const dbFiles = [
     path.join(CWD, 'data', 'memory.db'),
     path.join(CWD, '.monomind', 'memory.db'),
@@ -634,17 +591,31 @@ function getAgentDBStats() {
   ];
   for (const f of dbFiles) {
     const stat = safeStat(f);
-    if (stat) { dbSizeKB += stat.size / 1024; namespaces++; }
+    if (stat) {
+      dbSizeKB += stat.size / 1024;
+      namespaces++;
+    }
   }
 
-  // 6. HNSW index
+  // 4. Check for graph data
+  const graphPath = path.join(CWD, 'data', 'memory.graph');
+  const graphStat = safeStat(graphPath);
+  if (graphStat) dbSizeKB += graphStat.size / 1024;
+
+  // 5. HNSW index
   const hnswPaths = [
     path.join(CWD, '.swarm', 'hnsw.index'),
     path.join(CWD, '.monomind', 'hnsw.index'),
   ];
   for (const p of hnswPaths) {
-    if (safeStat(p)) { hasHnsw = true; break; }
+    const stat = safeStat(p);
+    if (stat) {
+      hasHnsw = true;
+      break;
+    }
   }
+
+  // HNSW is available if memory package is present
   if (!hasHnsw) {
     const memPkgPaths = [
       path.join(CWD, 'packages', '@monomind', 'memory', 'dist'),
@@ -656,234 +627,6 @@ function getAgentDBStats() {
   }
 
   return { vectorCount, dbSizeKB: Math.floor(dbSizeKB), namespaces, hasHnsw };
-}
-
-// Graphify knowledge graph stats
-// Sources, in priority order:
-//   1. .monomind/graph/stats.json        — explicit cached stats
-//   2. .monomind/monograph.db            — live SQLite (read counts via sqlite3)
-//   3. .monomind/graph/graph.json        — legacy JSON dump
-function getGraphifyStats() {
-  const statsPath = path.join(CWD, '.monomind', 'graph', 'stats.json');
-  const dbPath    = path.join(CWD, '.monomind', 'monograph.db');
-  const graphPath = path.join(CWD, '.monomind', 'graph', 'graph.json');
-
-  try {
-    const s = readJSON(statsPath);
-    if (s && s.nodes !== undefined) return { nodes: s.nodes, edges: s.edges || 0, exists: true };
-  } catch { /* ignore */ }
-
-  // Live monograph.db — single SQLite call, strict 1s timeout
-  try {
-    if (fs.existsSync(dbPath)) {
-      const out = safeExec(`sqlite3 "${dbPath}" "SELECT (SELECT COUNT(*) FROM nodes), (SELECT COUNT(*) FROM edges);"`, 1000);
-      if (out) {
-        const [n, e] = out.split('|').map(v => parseInt(v, 10) || 0);
-        if (n > 0) return { nodes: n, edges: e, exists: true };
-      }
-    }
-  } catch { /* ignore */ }
-
-  try {
-    const stat = safeStat(graphPath);
-    if (stat && stat.size < 10 * 1024 * 1024) {
-      const g = JSON.parse(fs.readFileSync(graphPath, 'utf-8'));
-      const nodes = Array.isArray(g.nodes) ? g.nodes.length : 0;
-      const edges = (Array.isArray(g.edges) ? g.edges : (Array.isArray(g.links) ? g.links : [])).length;
-      return { nodes, edges, exists: true };
-    }
-  } catch { /* ignore */ }
-  return { nodes: 0, edges: 0, exists: false };
-}
-
-// Hook latency — sum of mean times for hooks that fire on every prompt.
-function getHookLatency() {
-  const p = path.join(CWD, '.monomind', 'metrics', 'hook-latency.json');
-  try {
-    if (!fs.existsSync(p)) return null;
-    const d = JSON.parse(fs.readFileSync(p, 'utf-8'));
-    // Hooks that run per-prompt: route, pre-search, post-read, post-edit
-    const perPrompt = ['route'];
-    let totalMs = 0;
-    let count = 0;
-    for (const h of perPrompt) {
-      if (d[h] && d[h].mean) { totalMs += d[h].mean; count++; }
-    }
-    if (count === 0) return null;
-    // Find slowest hook
-    let slowest = null;
-    for (const k of Object.keys(d)) {
-      if (k === 'lastUpdated' || !d[k] || typeof d[k] !== 'object') continue;
-      if (!slowest || d[k].mean > slowest.mean) slowest = { name: k, mean: d[k].mean };
-    }
-    return { perPromptMs: totalMs, slowest };
-  } catch { return null; }
-}
-
-// Graph usage telemetry — counts ALL graph wins (MCP calls + silent assists)
-// vs greps that got no graph help. "graph %" reflects how often the graph
-// actually touched the LLM's flow, not just how often the LLM invoked MCP.
-function getGraphUsage() {
-  const usagePath = path.join(CWD, '.monomind', 'metrics', 'graph-usage.json');
-  try {
-    if (!fs.existsSync(usagePath)) return null;
-    const d = JSON.parse(fs.readFileSync(usagePath, 'utf-8'));
-    const graphWins =
-        (d.monograph_call || 0)           // LLM-initiated MCP monograph tool call
-      + (d.preresolve_hit || 0)           // route hook injected pre-resolved files
-      + (d.graph_assist_search || 0)      // pre-search / pre-bash injected hits
-      + (d.graph_assist_neighbors || 0);  // post-read neighbor footer
-    const searches = (d.grep_call || 0) + (d.glob_call || 0)
-                   + (d.bash_grep_call || 0) + (d.bash_find_call || 0);
-    const total = graphWins + searches;
-    if (total === 0) return null;
-    return {
-      graphWins,
-      searches,
-      pct: Math.round((graphWins / total) * 100),
-      dollarsSaved: d.dollars_saved || 0,
-    };
-  } catch { return null; }
-}
-
-// Graph freshness — compare graph build time against most recent commit
-// Returns: { commitsBehind, stale } where stale = >5 commits or never built
-function getGraphFreshness() {
-  const lockPath = path.join(CWD, '.monomind', 'graph', '.rebuild-lock');
-  const dbPath   = path.join(CWD, '.monomind', 'monograph.db');
-
-  let buildMs = 0;
-  try {
-    const lockStat = safeStat(lockPath);
-    const dbStat   = safeStat(dbPath);
-    buildMs = Math.max(lockStat?.mtimeMs || 0, dbStat?.mtimeMs || 0);
-  } catch { /* ignore */ }
-  if (!buildMs) return { commitsBehind: -1, stale: true, fresh: false };
-
-  // Count commits since the graph was last built
-  const buildIso = new Date(buildMs).toISOString();
-  const out = safeExec(`git rev-list --count --since='${buildIso}' HEAD 2>/dev/null`, 1500);
-  const commitsBehind = parseInt(out, 10) || 0;
-  return {
-    commitsBehind,
-    stale: commitsBehind > 5,
-    fresh: commitsBehind === 0,
-  };
-}
-
-// Active loops — scan .monomind/loops/*.json
-// Filters: skip *-hil*.json, skip stale (>6h since lastRunAt)
-function getLoopStatus() {
-  const loopsDir = path.join(CWD, '.monomind', 'loops');
-  if (!fs.existsSync(loopsDir)) return { count: 0, loops: [] };
-  const STALE_MS = 6 * 60 * 60 * 1000;
-  const now = Date.now();
-  let loops = [];
-  try {
-    const files = fs.readdirSync(loopsDir).filter(f =>
-      f.endsWith('.json') && !f.includes('-hil') && !f.endsWith('.stop'));
-    for (const f of files) {
-      const d = readJSON(path.join(loopsDir, f));
-      if (!d || !d.command) continue;
-      const last = d.lastRunAt || d.nextRunAt || d.startedAt || 0;
-      if (last && (now - last) > STALE_MS) continue;
-      loops.push({
-        cmd: d.command.replace(/^\//,''),
-        type: d.type || 'repeat',
-        rep: d.currentRep || 0,
-        max: d.maxReps || 0,
-        status: d.status || 'running',
-      });
-    }
-  } catch { /* ignore */ }
-  return { count: loops.length, loops };
-}
-
-// HIL pending — count <id>-hil.md files with no human response yet
-function getHILPending() {
-  const loopsDir = path.join(CWD, '.monomind', 'loops');
-  if (!fs.existsSync(loopsDir)) return { pending: 0 };
-  let pending = 0;
-  try {
-    const files = fs.readdirSync(loopsDir).filter(f => f.endsWith('-hil.md'));
-    for (const f of files) {
-      try {
-        const txt = fs.readFileSync(path.join(loopsDir, f), 'utf-8');
-        // A response is a line starting with "> " followed by non-whitespace
-        const answered = /^[ \t]*>[ \t]+\S/m.test(txt);
-        if (!answered) pending++;
-      } catch { /* ignore */ }
-    }
-  } catch { /* ignore */ }
-  return { pending };
-}
-
-// Memory Palace stats — drawers.jsonl + kg.json (the real persistent memory)
-function getMemoryPalaceStats() {
-  const palaceDir = path.join(CWD, '.monomind', 'palace');
-  let drawers = 0, triples = 0, palaceSizeKB = 0;
-
-  try {
-    const drawersPath = path.join(palaceDir, 'drawers.jsonl');
-    if (fs.existsSync(drawersPath)) {
-      const stat = safeStat(drawersPath);
-      if (stat) palaceSizeKB += stat.size / 1024;
-      drawers = fs.readFileSync(drawersPath, 'utf-8').split('\n').filter(Boolean).length;
-    }
-  } catch { /* ignore */ }
-
-  try {
-    const kgPath = path.join(palaceDir, 'kg.json');
-    const kg = readJSON(kgPath);
-    if (kg?.triples) {
-      triples = kg.triples.length;
-      const kgStat = safeStat(kgPath);
-      if (kgStat) palaceSizeKB += kgStat.size / 1024;
-    }
-  } catch { /* ignore */ }
-
-  return { drawers, triples, palaceSizeKB: Math.floor(palaceSizeKB) };
-}
-
-// Auto-memory file stats — reads ~/.claude/projects/<slug>/memory/*.md
-function getAutoMemoryStats() {
-  const homeDir = os.homedir();
-  const slug = path.resolve(CWD).replace(/\//g, '-');
-  const memDir = path.join(homeDir, '.claude', 'projects', slug, 'memory');
-  let files = [];
-  try {
-    files = fs.readdirSync(memDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md');
-  } catch { /* dir may not exist */ }
-
-  const byType = {};
-  for (const fname of files) {
-    let type = 'project';
-    try {
-      const raw = fs.readFileSync(path.join(memDir, fname), 'utf-8').replace(/\r\n/g, '\n');
-      const m = raw.match(/^---\n[\s\S]*?type:\s*(\S+)/);
-      if (m) type = m[1].trim();
-    } catch { /* ignore */ }
-    byType[type] = (byType[type] || 0) + 1;
-  }
-  return { count: files.length, byType };
-}
-
-// Token summary — reads cache written by session-restore hook.
-// Valid for the entire UTC day it was written; expires at midnight UTC.
-function getTokenStats() {
-  const cachePath = path.join(CWD, '.monomind', 'metrics', 'token-summary.json');
-  const data = readJSON(cachePath);
-  if (!data) return null;
-  // Reject only if cache is from a different UTC day (midnight boundary)
-  const cachedDay = (data.cachedAt || '').slice(0, 10); // "2026-04-15"
-  const todayUTC  = new Date().toISOString().slice(0, 10);
-  if (cachedDay && cachedDay !== todayUTC) return null;
-  return {
-    todayCost:  data.todayCost  || 0,
-    todayCalls: data.todayCalls || 0,
-    monthCost:  data.monthCost  || 0,
-    monthCalls: data.monthCalls || 0,
-  };
 }
 
 // Test stats (count files only — NO reading file contents)
@@ -1062,6 +805,143 @@ function getTriggerStats() {
   } catch { return { triggers: 0, agents: 0 }; }
 }
 
+// Hook latency — surface slow per-prompt hooks in the statusline.
+function getHookLatency() {
+  const p = path.join(CWD, '.monomind', 'metrics', 'hook-latency.json');
+  try {
+    if (!fs.existsSync(p)) return null;
+    const d = JSON.parse(fs.readFileSync(p, 'utf-8'));
+    const perPrompt = ['route'];
+    let totalMs = 0; let count = 0;
+    for (const h of perPrompt) {
+      if (d[h] && d[h].mean) { totalMs += d[h].mean; count++; }
+    }
+    if (count === 0) return null;
+    let slowest = null;
+    for (const k of Object.keys(d)) {
+      if (k === 'lastUpdated' || !d[k] || typeof d[k] !== 'object') continue;
+      if (!slowest || d[k].mean > slowest.mean) slowest = { name: k, mean: d[k].mean };
+    }
+    return { perPromptMs: totalMs, slowest: slowest };
+  } catch { return null; }
+}
+
+// Graph usage telemetry — counts ALL graph wins (MCP calls + silent assists)
+// vs greps that got no graph help.
+function getGraphUsage() {
+  const usagePath = path.join(CWD, '.monomind', 'metrics', 'graph-usage.json');
+  try {
+    if (!fs.existsSync(usagePath)) return null;
+    const d = JSON.parse(fs.readFileSync(usagePath, 'utf-8'));
+    const graphWins = (d.monograph_call || 0) + (d.preresolve_hit || 0)
+                    + (d.graph_assist_search || 0) + (d.graph_assist_neighbors || 0);
+    const searches = (d.grep_call || 0) + (d.glob_call || 0)
+                   + (d.bash_grep_call || 0) + (d.bash_find_call || 0);
+    const total = graphWins + searches;
+    if (total === 0) return null;
+    return { graphWins: graphWins, searches: searches, pct: Math.round((graphWins / total) * 100), dollarsSaved: d.dollars_saved || 0 };
+  } catch { return null; }
+}
+
+// Graph freshness — compare last build time vs commits since
+function getGraphFreshness() {
+  const lockPath = path.join(CWD, '.monomind', 'graph', '.rebuild-lock');
+  const dbPath   = path.join(CWD, '.monomind', 'monograph.db');
+  let buildMs = 0;
+  try {
+    const lockStat = safeStat(lockPath);
+    const dbStat   = safeStat(dbPath);
+    buildMs = Math.max(lockStat?.mtimeMs || 0, dbStat?.mtimeMs || 0);
+  } catch { /* ignore */ }
+  if (!buildMs) return { commitsBehind: -1, stale: true, fresh: false };
+  const buildIso = new Date(buildMs).toISOString();
+  const out = safeExec(`git rev-list --count --since='${buildIso}' HEAD 2>/dev/null`, 1500);
+  const commitsBehind = parseInt(out, 10) || 0;
+  return { commitsBehind, stale: commitsBehind > 5, fresh: commitsBehind === 0 };
+}
+
+// Active loops — scan .monomind/loops/*.json, skip stale (>6h)
+function getLoopStatus() {
+  const loopsDir = path.join(CWD, '.monomind', 'loops');
+  if (!fs.existsSync(loopsDir)) return { count: 0, loops: [] };
+  const STALE_MS = 6 * 60 * 60 * 1000;
+  const now = Date.now();
+  const loops = [];
+  try {
+    const files = fs.readdirSync(loopsDir).filter(f =>
+      f.endsWith('.json') && !f.includes('-hil') && !f.endsWith('.stop'));
+    for (const f of files) {
+      const d = readJSON(path.join(loopsDir, f));
+      if (!d || !d.command) continue;
+      const last = d.lastRunAt || d.nextRunAt || d.startedAt || 0;
+      if (last && (now - last) > STALE_MS) continue;
+      loops.push({
+        cmd: String(d.command).replace(/^\//,''),
+        type: d.type || 'repeat',
+        rep: d.currentRep || 0,
+        max: d.maxReps || 0,
+        status: d.status || 'running',
+      });
+    }
+  } catch { /* ignore */ }
+  return { count: loops.length, loops };
+}
+
+// HIL pending — count <id>-hil.md files with no human response yet
+function getHILPending() {
+  const loopsDir = path.join(CWD, '.monomind', 'loops');
+  if (!fs.existsSync(loopsDir)) return { pending: 0 };
+  let pending = 0;
+  try {
+    const files = fs.readdirSync(loopsDir).filter(f => f.endsWith('-hil.md'));
+    for (const f of files) {
+      try {
+        const txt = fs.readFileSync(path.join(loopsDir, f), 'utf-8');
+        const answered = /^[ \t]*>[ \t]+\S/m.test(txt);
+        if (!answered) pending++;
+      } catch { /* ignore */ }
+    }
+  } catch { /* ignore */ }
+  return { pending };
+}
+
+// Monograph knowledge graph stats
+// Sources, in priority order:
+//   1. .monomind/graph/stats.json     — explicit cached stats
+//   2. .monomind/monograph.db         — live SQLite (read counts via sqlite3)
+//   3. .monomind/graph/graph.json     — legacy JSON dump
+function getGraphifyStats() {
+  const statsPath = path.join(CWD, '.monomind', 'graph', 'stats.json');
+  const dbPath    = path.join(CWD, '.monomind', 'monograph.db');
+  const graphPath = path.join(CWD, '.monomind', 'graph', 'graph.json');
+
+  try {
+    const s = readJSON(statsPath);
+    if (s && s.nodes !== undefined) return { nodes: s.nodes, edges: s.edges || 0, exists: true };
+  } catch { /* ignore */ }
+
+  try {
+    if (fs.existsSync(dbPath)) {
+      const out = safeExec(`sqlite3 "${dbPath}" "SELECT (SELECT COUNT(*) FROM nodes), (SELECT COUNT(*) FROM edges);"`, 1000);
+      if (out) {
+        const [n, e] = out.split('|').map(v => parseInt(v, 10) || 0);
+        if (n > 0) return { nodes: n, edges: e, exists: true };
+      }
+    }
+  } catch { /* ignore */ }
+
+  try {
+    const stat = safeStat(graphPath);
+    if (stat && stat.size < 10 * 1024 * 1024) {
+      const g = JSON.parse(fs.readFileSync(graphPath, 'utf-8'));
+      const nodes = Array.isArray(g.nodes) ? g.nodes.length : 0;
+      const edges = (Array.isArray(g.edges) ? g.edges : (Array.isArray(g.links) ? g.links : [])).length;
+      return { nodes, edges, exists: true };
+    }
+  } catch { /* ignore */ }
+  return { nodes: 0, edges: 0, exists: false };
+}
+
 function getSIBudget() {
   const SI_LIMIT = 1500;
   const siPath = path.join(CWD, '.agents', 'shared_instructions.md');
@@ -1072,22 +952,6 @@ function getSIBudget() {
   } catch { return null; }
 }
 
-// Control server status (Neural Control Room web UI)
-function getControlStatus() {
-  const statusPath = path.join(CWD, '.monomind', 'control.json');
-  try {
-    if (!fs.existsSync(statusPath)) return { running: false, port: null };
-    const data = JSON.parse(fs.readFileSync(statusPath, 'utf-8'));
-    if (!data || !data.pid) return { running: false, port: null };
-    try {
-      process.kill(data.pid, 0);
-      return { running: true, port: data.port || 4242, url: data.url };
-    } catch {
-      return { running: false, port: null };
-    }
-  } catch { return { running: false, port: null }; }
-}
-
 // ── Single-line statusline (compact) ─────────────────────────────
 function generateStatusline() {
   const git       = getGitInfo();
@@ -1096,15 +960,11 @@ function generateStatusline() {
   const hooks     = getHooksStatus();
   const knowledge = getKnowledgeStats();
   const triggers  = getTriggerStats();
-  const palace    = getMemoryPalaceStats();
-  const tokens    = getTokenStats();
   const parts     = [];
 
-  // Brand + project + swarm dot
+  // Brand + swarm dot
   const swarmDot = swarm.coordinationActive ? `${x.green}●${x.reset}` : `${x.slate}○${x.reset}`;
-  const projName = getProjectName();
-  const cwdBase = path.basename(CWD);
-  parts.push(`${x.bold}${x.purple}▊ MonoMind${x.reset} ${x.teal}${projName}${x.reset} ${swarmDot}  ${x.dim}◎ ${cwdBase}${x.reset}`);
+  parts.push(`${x.bold}${x.purple}▊ Monomind${x.reset} ${swarmDot}`);
 
   // Git branch + changes (compact)
   if (git.gitBranch) {
@@ -1122,75 +982,33 @@ function generateStatusline() {
   // Active agent
   const activeAgent = getActiveAgent();
   if (activeAgent) {
-    const isExtras = activeAgent.slug === 'extras' || activeAgent.name === 'Extras';
-    if (isExtras && activeAgent.extrasMatches && activeAgent.extrasMatches.length > 0) {
-      // Show first specialist name in compact mode
-      const first = activeAgent.extrasMatches[0];
-      parts.push(`${x.sky}👤 ${x.bold}${first.name}${x.reset}`);
-    } else if (!isExtras) {
-      const col  = activeAgent.activated ? x.green : x.sky;
-      const icon = activeAgent.activated ? '●' : '';
-      parts.push(icon
-        ? `${col}${icon} ${x.bold}${activeAgent.name}${x.reset}`
-        : `${col}👤 ${x.bold}${activeAgent.name}${x.reset}`);
-    }
-    // else: suppress extras with no matches
+    const col  = activeAgent.activated ? x.green : x.sky;
+    const icon = activeAgent.activated ? '●' : '→';
+    parts.push(`${col}${icon} ${x.bold}${activeAgent.name}${x.reset}`);
   }
 
   // Intelligence
   const ic = pctColor(system.intelligencePct);
   parts.push(`${ic}💡 ${system.intelligencePct}%${x.reset}`);
 
-  // Auto-memory files
-  const autoMemCompact = getAutoMemoryStats();
-  if (autoMemCompact.count > 0) {
-    const typeOrder = ['handoff', 'user', 'feedback', 'project', 'reference'];
-    const typeColors = { user: x.sky, feedback: x.gold, project: x.teal, reference: x.violet, handoff: x.coral };
-    const typeParts = typeOrder
-      .filter(t => autoMemCompact.byType[t] > 0)
-      .map(t => `${typeColors[t] || x.slate}${autoMemCompact.byType[t]}${t.slice(0,1)}${x.reset}`);
-    const typeSuffix = typeParts.length > 0 ? ` ${typeParts.join(' ')}` : '';
-    parts.push(`${x.purple}🧠 ${autoMemCompact.count}m${x.reset}${typeSuffix}`);
-  }
-
-  // Knowledge chunks — show when populated
+  // Knowledge chunks (Task 28) — show when populated
   if (knowledge.chunks > 0) {
     parts.push(`${x.teal}📚 ${knowledge.chunks}k${x.reset}`);
   }
 
-  // Graphify code graph
-  const gfCompact = getGraphifyStats();
-  if (gfCompact.exists) {
-    parts.push(`${x.sky}🔗 ${gfCompact.nodes}n ${gfCompact.edges}e${x.reset}`);
-  }
-
-  // Triggers — show when populated
+  // Triggers (Task 32) — show when populated
   if (triggers.triggers > 0) {
     parts.push(`${x.mint}🎯 ${triggers.triggers}t${x.reset}`);
   }
 
-  // Swarm agents — show active count, or dim recent count when idle
+  // Swarm agents (only when active)
   if (swarm.activeAgents > 0) {
     parts.push(`${x.gold}🐝 ${swarm.activeAgents}/${swarm.maxAgents}${x.reset}`);
-  } else if ((swarm.lastActive || 0) > 0) {
-    parts.push(`${x.slate}🐝 ${swarm.lastActive}✓${x.reset}`);
   }
 
   // Hooks
   if (hooks.enabled > 0) {
     parts.push(`${x.mint}⚡ ${hooks.enabled}h${x.reset}`);
-  }
-
-  // Token cost today (from cache)
-  if (tokens && tokens.todayCost > 0) {
-    const todayFmt = tokens.todayCost >= 100 ? `$${tokens.todayCost.toFixed(2)}` : tokens.todayCost >= 1 ? `$${tokens.todayCost.toFixed(3)}` : `$${tokens.todayCost.toFixed(4)}`;
-    parts.push(`${x.gold}💰 ${todayFmt}${x.reset}`);
-  }
-
-  // Control server (Neural Control Room)
-  const ctrl = getControlStatus();
-  if (ctrl.running) {
-    parts.push(`${x.teal}🎛️ :${ctrl.port}${x.reset}`);
   }
 
   return parts.join(`  ${DIV}  `);
@@ -1204,7 +1022,7 @@ function generateDashboard() {
   const security    = getSecurityStatus();
   const swarm       = getSwarmStatus();
   const system      = getSystemMetrics();
-  // adrs removed — internal dev metric
+  const adrs        = getADRStatus();
   const hooks       = getHooksStatus();
   const agentdb     = getAgentDBStats();
   const tests       = getTestStats();
@@ -1213,9 +1031,6 @@ function generateDashboard() {
   const knowledge   = getKnowledgeStats();
   const triggers    = getTriggerStats();
   const si          = getSIBudget();
-  const palace      = getMemoryPalaceStats();
-  const autoMem     = getAutoMemoryStats();
-  const tokens      = getTokenStats();
   const sec         = secBadge(security.status);
   const activeAgent = getActiveAgent();
   const lines       = [];
@@ -1224,7 +1039,7 @@ function generateDashboard() {
   const swarmDot = swarm.coordinationActive ? `${x.green}● LIVE${x.reset}` : `${x.slate}○ IDLE${x.reset}`;
   const projName = getProjectName();
   const cwdName = path.basename(CWD);
-  let hdr = `${x.bold}${x.purple}▊ MonoMind${x.reset} ${x.dim}${VERSION}${x.reset}  ${swarmDot}  ${x.teal}${x.bold}${projName}${x.reset}  ${DIV}  ${x.dim}◎ ${cwdName}${x.reset}  ${DIV}  ${x.violet}⬡ ${git.name}${x.reset}`;
+  let hdr = `${x.bold}${x.purple}▊ Monomind ${VERSION}${x.reset}  ${swarmDot}  ${x.teal}${x.bold}${projName}${x.reset}  ${DIV}  ${x.dim}◎ ${cwdName}${x.reset}  ${DIV}  ${x.violet}⬡ ${git.name}${x.reset}`;
 
   if (git.gitBranch) {
     hdr += `  ${DIV}  ${x.sky}⎇ ${x.bold}${git.gitBranch}${x.reset}`;
@@ -1238,35 +1053,16 @@ function generateDashboard() {
   hdr += `  ${DIV}  🤖 ${x.violet}${x.bold}${modelName}${x.reset}`;
   if (session.duration) hdr += `  ${x.dim}⏱ ${session.duration}${x.reset}`;
 
-  // Control server (Neural Control Room)
-  const ctrl = getControlStatus();
-  if (ctrl.running) {
-    hdr += `  ${DIV}  ${x.teal}${x.bold}🎛️  CTRL${x.reset}${x.teal} :${ctrl.port}${x.reset}`;
-  }
-
-  if (tokens) {
-    const todayFmt = tokens.todayCost >= 100 ? `$${tokens.todayCost.toFixed(2)}` : tokens.todayCost >= 1 ? `$${tokens.todayCost.toFixed(3)}` : `$${tokens.todayCost.toFixed(4)}`;
-    hdr += `  ${DIV}  ${x.gold}💰 ${x.bold}${todayFmt}${x.reset}${x.slate} today · ${tokens.todayCalls} calls${x.reset}`;
-  }
-
   lines.push(hdr);
   lines.push(SEP);
 
   // ── Row 1: Active agent + Loop status ────────────────────────
   let agentStr;
   if (activeAgent) {
-    const isExtras = activeAgent.slug === 'extras' || activeAgent.name === 'Extras';
-    if (isExtras && activeAgent.extrasMatches && activeAgent.extrasMatches.length > 0) {
-      const specialists = activeAgent.extrasMatches.slice(0, 3).map(s => s.name).join(', ');
-      agentStr = `${x.sky}👤 ${x.bold}${specialists}${x.reset}`;
-    } else if (isExtras) {
-      agentStr = `${x.slate}👤 no agent routed${x.reset}`;
-    } else {
-      const col  = activeAgent.activated ? x.green : x.sky;
-      const mark = activeAgent.activated ? `${col}${x.bold}● ACTIVE${x.reset}  ` : '';
-      const conf = activeAgent.activated ? '' : `  ${x.slate}${(activeAgent.confidence * 100).toFixed(0)}%${x.reset}`;
-      agentStr = `${mark}${col}👤 ${x.bold}${activeAgent.name}${x.reset}${conf}`;
-    }
+    const col  = activeAgent.activated ? x.green : x.sky;
+    const mark = activeAgent.activated ? `${col}${x.bold}● ACTIVE${x.reset}  ` : '';
+    const conf = activeAgent.activated ? '' : `  ${x.slate}${(activeAgent.confidence * 100).toFixed(0)}%${x.reset}`;
+    agentStr = `${mark}${col}👤 ${x.bold}${activeAgent.name}${x.reset}${conf}`;
   } else {
     agentStr = `${x.slate}👤 no agent routed${x.reset}`;
   }
@@ -1350,8 +1146,6 @@ function generateJSON() {
     adrs:       getADRStatus(),
     hooks:      getHooksStatus(),
     agentdb:    getAgentDBStats(),
-    palace:     getMemoryPalaceStats(),
-    tokens:     getTokenStats(),
     tests:      getTestStats(),
     git:        { modified: git.modified, untracked: git.untracked, staged: git.staged, ahead: git.ahead, behind: git.behind },
     lastUpdated: new Date().toISOString(),
@@ -1370,14 +1164,25 @@ function readMode() {
   return 'full'; // default
 }
 
+// ─── Testability export (when required as a module, not run as CLI) ──────────
+if (require.main !== module) {
+  module.exports = {
+    readJSON, safeStat, modelLabel,
+    getSecurityStatus, getSwarmStatus, getADRStatus,
+    getHooksStatus, getActiveAgent, getAgentDBStats,
+    getLearningStats, getTestStats, getIntegrationStatus,
+    generateJSON,
+  };
+}
+
 // ─── Main ───────────────────────────────────────────────────────
-if (process.argv.includes('--json')) {
+if (require.main === module && process.argv.includes('--json')) {
   console.log(JSON.stringify(generateJSON(), null, 2));
-} else if (process.argv.includes('--compact')) {
+} else if (require.main === module && process.argv.includes('--compact')) {
   console.log(JSON.stringify(generateJSON()));
-} else if (process.argv.includes('--single-line')) {
+} else if (require.main === module && process.argv.includes('--single-line')) {
   console.log(generateStatusline());
-} else if (process.argv.includes('--toggle')) {
+} else if (require.main === module && process.argv.includes('--toggle')) {
   // Toggle mode and print the new view
   const current = readMode();
   const next = current === 'compact' ? 'full' : 'compact';
@@ -1390,7 +1195,7 @@ if (process.argv.includes('--json')) {
   } else {
     console.log(generateDashboard());
   }
-} else {
+} else if (require.main === module) {
   // Default: respect mode state file
   const mode = readMode();
   if (mode === 'compact') {
