@@ -689,8 +689,29 @@ const upgradeCommand = {
             output.writeln();
             let succeeded = 0;
             let failed = 0;
+            // Try to read control URL for dashboard progress events (best-effort)
+            let controlUrl = 'http://localhost:4242';
+            try {
+                const ctrlCfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.monomind', 'control.json'), 'utf-8'));
+                if (ctrlCfg.url)
+                    controlUrl = ctrlCfg.url;
+            }
+            catch { }
+            const emitUpgradeProgress = async (projDir, status, current, total) => {
+                try {
+                    const { default: http } = await import('http');
+                    const payload = JSON.stringify({ type: 'upgrade:progress', project: projDir, status, current, total, ts: Date.now() });
+                    const url = new URL(controlUrl + '/api/mastermind/event');
+                    const req = http.request({ hostname: url.hostname, port: parseInt(url.port || '4242'), path: url.pathname, method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } });
+                    req.write(payload);
+                    req.end();
+                    req.on('error', () => { });
+                }
+                catch { }
+            };
             for (const projDir of projects) {
-                const spinner = output.createSpinner({ text: projDir });
+                const projIdx = projects.indexOf(projDir) + 1;
+                const spinner = output.createSpinner({ text: `[${projIdx}/${projects.length}] ${projDir}` });
                 spinner.start();
                 try {
                     const res = addMissing
@@ -699,15 +720,18 @@ const upgradeCommand = {
                     if (res.success) {
                         spinner.succeed(projDir + ' (' + res.updated.length + ' updated)');
                         succeeded++;
+                        emitUpgradeProgress(projDir, 'success', projIdx, projects.length);
                     }
                     else {
                         spinner.fail(projDir + ' — ' + (res.errors[0] || 'unknown error'));
                         failed++;
+                        emitUpgradeProgress(projDir, 'failed', projIdx, projects.length);
                     }
                 }
                 catch (e) {
                     spinner.fail(projDir + ' — ' + (e instanceof Error ? e.message : String(e)));
                     failed++;
+                    emitUpgradeProgress(projDir, 'failed', projIdx, projects.length);
                 }
             }
             output.writeln();
