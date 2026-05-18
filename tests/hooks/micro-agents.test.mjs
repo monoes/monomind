@@ -272,6 +272,22 @@ describe('micro-agents.scanMicroAgentTriggers', () => {
     expect(result.matches.some(m => m.agentSlug === 'fresh-agent')).toBe(true);
     expect(result.matches.some(m => m.agentSlug === 'stale-agent')).toBe(false);
   });
+
+  it('sorts matches so higher-priority agents appear first', () => {
+    const agentDir = path.join(tmpDir, '.claude', 'agents');
+    fs.mkdirSync(agentDir, { recursive: true });
+    fs.writeFileSync(path.join(agentDir, 'low-prio.md'),
+      '---\ntriggers:\n  - pattern: "common-keyword"\n    mode: inject\n    priority: 1\n---\n# Low Priority Agent');
+    fs.writeFileSync(path.join(agentDir, 'high-prio.md'),
+      '---\ntriggers:\n  - pattern: "common-keyword"\n    mode: inject\n    priority: 10\n---\n# High Priority Agent');
+    const ma = loadMicroAgents(tmpDir);
+    const result = ma.scanMicroAgentTriggers('common-keyword task');
+    expect(result.matches.length).toBeGreaterThanOrEqual(2);
+    const priorities = result.matches.map(m => m.priority || 0);
+    for (let i = 0; i < priorities.length - 1; i++) {
+      expect(priorities[i]).toBeGreaterThanOrEqual(priorities[i + 1]);
+    }
+  });
 });
 
 // ── _buildKnowledgeSearchFn ───────────────────────────────────────────────────
