@@ -328,6 +328,17 @@ describe('context-persistence chunkTranscript', () => {
     expect(chunks.length).toBe(2);
   });
 
+  it('treats empty content array as synthetic (vacuous every) and skips it', () => {
+    const messages = [
+      { role: 'user', content: [] },            // [].every(...) === true → synthetic
+      { role: 'user', content: 'real question' },
+      { role: 'assistant', content: 'answer' },
+    ];
+    const chunks = chunkTranscript(messages);
+    expect(chunks.length).toBe(1);
+    expect(extractTextContent(chunks[0].userMessage)).toContain('real question');
+  });
+
   it('skips a synthetic user message that arrives first (no prior chunk)', () => {
     const messages = [
       { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'x', content: 'result' }] }, // synthetic, first
