@@ -282,6 +282,19 @@ describe('context-persistence parseTranscript', () => {
     const msgs = parseTranscript(transcriptPath);
     expect(msgs.length).toBe(1);
   });
+
+  it('skips non-message entries like progress and file-history-snapshot', () => {
+    const lines = [
+      JSON.stringify({ type: 'progress', value: 50 }),
+      JSON.stringify({ type: 'file-history-snapshot', files: [] }),
+      JSON.stringify({ type: 'user', message: { role: 'user', content: 'real message' } }),
+    ].join('\n');
+    const transcriptPath = path.join(tmpDir, 'with-meta.jsonl');
+    fs.writeFileSync(transcriptPath, lines + '\n');
+    const msgs = parseTranscript(transcriptPath);
+    expect(msgs.length).toBe(1);
+    expect(msgs[0].role).toBe('user');
+  });
 });
 
 // ── chunkTranscript ───────────────────────────────────────────────────────────
@@ -521,6 +534,18 @@ describe('context-persistence estimateContextTokens', () => {
     fs.writeFileSync(transcriptPath, line + '\n');
     const result = estimateContextTokens(transcriptPath);
     expect(result.tokens).toBe(6500);
+    expect(result.method).toBe('api-usage');
+  });
+
+  it('uses API usage from SDK-wrapped assistant message (message.usage shape)', () => {
+    const transcriptPath = path.join(tmpDir, 'sdk-usage.jsonl');
+    const line = JSON.stringify({
+      type: 'assistant',
+      message: { role: 'assistant', content: 'reply', usage: { input_tokens: 8000, cache_read_input_tokens: 2000, cache_creation_input_tokens: 0 } },
+    });
+    fs.writeFileSync(transcriptPath, line + '\n');
+    const result = estimateContextTokens(transcriptPath);
+    expect(result.tokens).toBe(10000);
     expect(result.method).toBe('api-usage');
   });
 });
