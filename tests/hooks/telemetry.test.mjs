@@ -21,14 +21,17 @@ function loadTelemetry(cwd) {
 }
 
 let tmpDir;
+let _origDate;
 
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tele-test-'));
+  _origDate = global.Date;
 });
 
 afterEach(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
   delete process.env.CLAUDE_PROJECT_DIR;
+  global.Date = _origDate;
 });
 
 // ── _recordRecentEdit ────────────────────────────────────────────────────────
@@ -198,25 +201,15 @@ describe('telemetry._getBudgetStatus', () => {
     const t = loadTelemetry(tmpDir);
     const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
     fs.mkdirSync(metricsDir, { recursive: true });
-    // Simulate: 8 days into month, $80 total → $10/day avg > 5
-    const daysIntoMonth = 8;
-    const monthCost = 80;
-    const todayCost = 12;
-    fs.writeFileSync(path.join(metricsDir, 'token-summary.json'), JSON.stringify({ todayCost, monthCost }));
-    // Patch the date so getUTCDate() returns 8
-    const origDate = global.Date;
-    global.Date = class extends origDate {
-      getUTCDate() { return daysIntoMonth; }
+    // 8 days into month, $80 total → $10/day avg > 5
+    fs.writeFileSync(path.join(metricsDir, 'token-summary.json'), JSON.stringify({ todayCost: 12, monthCost: 80 }));
+    global.Date = class extends _origDate {
+      getUTCDate() { return 8; }
     };
-    try {
-      const result = t._getBudgetStatus();
-      expect(result.autoTuned).toBe(true);
-      expect(result.dailyLimit).toBeGreaterThan(10);
-      // budget.json should have been written
-      expect(fs.existsSync(path.join(tmpDir, '.monomind', 'budget.json'))).toBe(true);
-    } finally {
-      global.Date = origDate;
-    }
+    const result = t._getBudgetStatus();
+    expect(result.autoTuned).toBe(true);
+    expect(result.dailyLimit).toBeGreaterThan(10);
+    expect(fs.existsSync(path.join(tmpDir, '.monomind', 'budget.json'))).toBe(true);
   });
 
   it('spike=true when todayCost > 2x rolling daily average and > $5', () => {
@@ -224,19 +217,29 @@ describe('telemetry._getBudgetStatus', () => {
     const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
     fs.mkdirSync(metricsDir, { recursive: true });
     fs.writeFileSync(path.join(tmpDir, '.monomind', 'budget.json'), JSON.stringify({ dailyLimit: 100, monthlyLimit: 3000 }));
-    // rollingDaily = 30/15 = $2/day; todayCost = $7 > 2*2=4 and > 5
+    // rollingDaily = 30/15 = $2/day; todayCost = $7 > 2×2=4 and > $5
     fs.writeFileSync(path.join(metricsDir, 'token-summary.json'), JSON.stringify({ todayCost: 7, monthCost: 30 }));
-    const origDate = global.Date;
-    global.Date = class extends origDate {
+    global.Date = class extends _origDate {
       getUTCDate() { return 15; }
     };
-    try {
-      const result = t._getBudgetStatus();
-      expect(result.spike).toBe(true);
-      expect(result.alert).toBe(true);
-    } finally {
-      global.Date = origDate;
-    }
+    const result = t._getBudgetStatus();
+    expect(result.spike).toBe(true);
+    expect(result.alert).toBe(true);
+  });
+
+  it('uses default limits (50/1500) when no budget.json and dailyAvg does not trigger auto-tune', () => {
+    const t = loadTelemetry(tmpDir);
+    const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
+    fs.mkdirSync(metricsDir, { recursive: true });
+    // 3 days into month, $6 total → $2/day avg < 5 → no auto-tune
+    fs.writeFileSync(path.join(metricsDir, 'token-summary.json'), JSON.stringify({ todayCost: 2, monthCost: 6 }));
+    global.Date = class extends _origDate {
+      getUTCDate() { return 3; }
+    };
+    const result = t._getBudgetStatus();
+    expect(result.autoTuned).toBe(false);
+    expect(result.dailyLimit).toBe(50);
+    expect(result.monthlyLimit).toBe(1500);
   });
 });
 
