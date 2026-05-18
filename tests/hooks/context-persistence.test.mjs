@@ -150,11 +150,11 @@ describe('context-persistence buildProgressBar', () => {
 
 describe('context-persistence getRuVectorConfig', () => {
   it('returns null when RUVECTOR_HOST, PGHOST, etc. are not set', () => {
-    const saved = { RUVECTOR_HOST: process.env.RUVECTOR_HOST, PGHOST: process.env.PGHOST };
-    delete process.env.RUVECTOR_HOST;
-    delete process.env.PGHOST;
+    const ALL_KEYS = ['RUVECTOR_HOST', 'PGHOST', 'RUVECTOR_DATABASE', 'PGDATABASE', 'RUVECTOR_USER', 'PGUSER'];
+    const saved = {};
+    for (const k of ALL_KEYS) { saved[k] = process.env[k]; delete process.env[k]; }
     expect(getRuVectorConfig()).toBeNull();
-    Object.assign(process.env, saved);
+    for (const k of ALL_KEYS) { if (saved[k] !== undefined) process.env[k] = saved[k]; }
   });
 });
 
@@ -237,6 +237,11 @@ describe('context-persistence extractFilePaths', () => {
     expect(paths.length).toBe(1);
     expect(paths[0]).toBe('/src/a.ts');
   });
+
+  it('extracts notebook_path from tool call inputs', () => {
+    const paths = extractFilePaths([{ name: 'NotebookEdit', input: { notebook_path: '/notebooks/analysis.ipynb' } }]);
+    expect(paths).toContain('/notebooks/analysis.ipynb');
+  });
 });
 
 // ── parseTranscript ───────────────────────────────────────────────────────────
@@ -311,7 +316,7 @@ describe('context-persistence chunkTranscript', () => {
     expect(Array.isArray(chunk.toolCalls)).toBe(true);
   });
 
-  it('skips synthetic user messages (all tool_result blocks)', () => {
+  it('skips synthetic user messages (all tool_result blocks) mid-stream', () => {
     const messages = [
       { role: 'user', content: 'first question' },
       { role: 'assistant', content: 'first answer' },
@@ -321,6 +326,17 @@ describe('context-persistence chunkTranscript', () => {
     ];
     const chunks = chunkTranscript(messages);
     expect(chunks.length).toBe(2);
+  });
+
+  it('skips a synthetic user message that arrives first (no prior chunk)', () => {
+    const messages = [
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'x', content: 'result' }] }, // synthetic, first
+      { role: 'user', content: 'real question' },
+      { role: 'assistant', content: 'real answer' },
+    ];
+    const chunks = chunkTranscript(messages);
+    expect(chunks.length).toBe(1);
+    expect(extractTextContent(chunks[0].userMessage)).toContain('real question');
   });
 });
 
@@ -395,7 +411,7 @@ describe('context-persistence buildEntry', () => {
   it('key includes session ID and turn index', () => {
     const entry = buildEntry(makeChunk(), 'sess-abc', 'pre-compact', '2024-01-01');
     expect(entry.key).toContain('sess-abc');
-    expect(entry.key).toContain('3');
+    expect(entry.key).toMatch(/:3:/);
   });
 
   it('content includes both user and assistant text', () => {
@@ -439,7 +455,7 @@ describe('context-persistence buildCompactInstructions', () => {
   it('is capped at COMPACT_INSTRUCTION_BUDGET (default 2000)', () => {
     const manyChunks = makeChunks(50);
     const result = buildCompactInstructions(manyChunks, 'sess', { stored: 50, deduped: 0 });
-    expect(result.length).toBeLessThanOrEqual(2003); // 2000 + '...'
+    expect(result.length).toBeLessThanOrEqual(2000);
   });
 });
 
