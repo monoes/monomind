@@ -117,11 +117,11 @@ describe('telemetry._recordToolCall', () => {
     expect(data.calls['Read:foo']).toBe(2);
   });
 
-  it('returns current call count', () => {
+  it('returns exact call count (2 on second call)', () => {
     const t = loadTelemetry(tmpDir);
+    t._recordToolCall('Edit:file');
     const count = t._recordToolCall('Edit:file');
-    expect(typeof count).toBe('number');
-    expect(count).toBeGreaterThanOrEqual(1);
+    expect(count).toBe(2);
   });
 
   it('tracks multiple different signatures independently', () => {
@@ -132,6 +132,18 @@ describe('telemetry._recordToolCall', () => {
     const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'tool-calls.json'), 'utf-8'));
     expect(data.calls['Read:a']).toBe(2);
     expect(data.calls['Write:b']).toBe(1);
+  });
+
+  it('resets count when startedAt is more than 4 hours ago', () => {
+    const t = loadTelemetry(tmpDir);
+    const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
+    fs.mkdirSync(metricsDir, { recursive: true });
+    const stale = { startedAt: Date.now() - 5 * 60 * 60 * 1000, calls: { 'Read:x': 10 } };
+    fs.writeFileSync(path.join(metricsDir, 'tool-calls.json'), JSON.stringify(stale));
+    const count = t._recordToolCall('Read:x');
+    expect(count).toBe(1);
+    const data = JSON.parse(fs.readFileSync(path.join(metricsDir, 'tool-calls.json'), 'utf-8'));
+    expect(data.calls['Read:x']).toBe(1);
   });
 });
 
@@ -164,7 +176,7 @@ describe('telemetry._getBudgetStatus', () => {
     const t = loadTelemetry(tmpDir);
     const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
     fs.mkdirSync(metricsDir, { recursive: true });
-    fs.mkdirSync(tmpDir + '/.monomind', { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.monomind'), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, '.monomind', 'budget.json'), JSON.stringify({ dailyLimit: 10, monthlyLimit: 300 }));
     fs.writeFileSync(path.join(metricsDir, 'token-summary.json'), JSON.stringify({ todayCost: 9, monthCost: 30 }));
     const result = t._getBudgetStatus();
@@ -180,6 +192,51 @@ describe('telemetry._getBudgetStatus', () => {
     fs.writeFileSync(path.join(metricsDir, 'token-summary.json'), JSON.stringify({ todayCost: 11, monthCost: 30 }));
     const result = t._getBudgetStatus();
     expect(result.breached).toBe(true);
+  });
+
+  it('auto-tunes dailyLimit when no budget.json and dailyAvg > 5 for >= 7 days', () => {
+    const t = loadTelemetry(tmpDir);
+    const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
+    fs.mkdirSync(metricsDir, { recursive: true });
+    // Simulate: 8 days into month, $80 total → $10/day avg > 5
+    const daysIntoMonth = 8;
+    const monthCost = 80;
+    const todayCost = 12;
+    fs.writeFileSync(path.join(metricsDir, 'token-summary.json'), JSON.stringify({ todayCost, monthCost }));
+    // Patch the date so getUTCDate() returns 8
+    const origDate = global.Date;
+    global.Date = class extends origDate {
+      getUTCDate() { return daysIntoMonth; }
+    };
+    try {
+      const result = t._getBudgetStatus();
+      expect(result.autoTuned).toBe(true);
+      expect(result.dailyLimit).toBeGreaterThan(10);
+      // budget.json should have been written
+      expect(fs.existsSync(path.join(tmpDir, '.monomind', 'budget.json'))).toBe(true);
+    } finally {
+      global.Date = origDate;
+    }
+  });
+
+  it('spike=true when todayCost > 2x rolling daily average and > $5', () => {
+    const t = loadTelemetry(tmpDir);
+    const metricsDir = path.join(tmpDir, '.monomind', 'metrics');
+    fs.mkdirSync(metricsDir, { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, '.monomind', 'budget.json'), JSON.stringify({ dailyLimit: 100, monthlyLimit: 3000 }));
+    // rollingDaily = 30/15 = $2/day; todayCost = $7 > 2*2=4 and > 5
+    fs.writeFileSync(path.join(metricsDir, 'token-summary.json'), JSON.stringify({ todayCost: 7, monthCost: 30 }));
+    const origDate = global.Date;
+    global.Date = class extends origDate {
+      getUTCDate() { return 15; }
+    };
+    try {
+      const result = t._getBudgetStatus();
+      expect(result.spike).toBe(true);
+      expect(result.alert).toBe(true);
+    } finally {
+      global.Date = origDate;
+    }
   });
 });
 
@@ -201,6 +258,14 @@ describe('telemetry._recordHookLatency', () => {
     expect(data['post-task'].total).toBe(40);
     expect(data['post-task'].max).toBe(30);
     expect(data['post-task'].mean).toBe(20);
+  });
+
+  it('max does not decrease when a smaller value is recorded after a larger one', () => {
+    const t = loadTelemetry(tmpDir);
+    t._recordHookLatency('post-task', 30);
+    t._recordHookLatency('post-task', 10);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, '.monomind', 'metrics', 'hook-latency.json'), 'utf-8'));
+    expect(data['post-task'].max).toBe(30);
   });
 
   it('tracks multiple handlers independently', () => {
@@ -231,9 +296,9 @@ describe('telemetry._recordDecisionMarkers', () => {
     expect(fs.existsSync(decisionsFile)).toBe(false);
   });
 
-  it('appends to decisions.jsonl when prompt contains decision keywords', () => {
+  it('creates .monomind dir and appends to decisions.jsonl without pre-existing dir', () => {
     const t = loadTelemetry(tmpDir);
-    fs.mkdirSync(path.join(tmpDir, '.monomind'), { recursive: true });
+    // No manual mkdirSync — the function must create the dir itself
     t._recordDecisionMarkers("Let's go with the functional approach for the component design.");
     const decisionsFile = path.join(tmpDir, '.monomind', 'decisions.jsonl');
     expect(fs.existsSync(decisionsFile)).toBe(true);
@@ -246,7 +311,6 @@ describe('telemetry._recordDecisionMarkers', () => {
 
   it('detects "we decided" as a decision marker', () => {
     const t = loadTelemetry(tmpDir);
-    fs.mkdirSync(path.join(tmpDir, '.monomind'), { recursive: true });
     t._recordDecisionMarkers('We decided to use TypeScript for the new module.');
     const decisionsFile = path.join(tmpDir, '.monomind', 'decisions.jsonl');
     expect(fs.existsSync(decisionsFile)).toBe(true);
