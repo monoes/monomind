@@ -99,4 +99,4 @@ If `--confirm` is present:
 If `--confirm` is missing:
 > "This will permanently delete all brain memory for domain '<name>'. To confirm, run: `/mastermind:brain reset --domain <name> --confirm`"
 
-Follow the REPEAT POSTAMBLE from `_repeat.md`.
+Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

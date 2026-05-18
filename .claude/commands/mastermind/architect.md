@@ -52,4 +52,4 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -d '{"type":"session:complete","session":"<sessionId>","domain":"architect","status":"<status>","domains":["architect"],"ts":'"$(date +%s)"'000}' || true
 ```
 
-Follow the REPEAT POSTAMBLE from `_repeat.md`.
+Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
