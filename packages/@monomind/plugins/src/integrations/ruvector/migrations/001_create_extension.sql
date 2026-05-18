@@ -1,8 +1,8 @@
 -- ============================================================================
 -- Migration 001: Create Extensions and Schema
--- RuVector PostgreSQL Bridge - Monobrain V1
+-- RuVector PostgreSQL Bridge - Monomind V1
 --
--- Enables required PostgreSQL extensions and creates the monobrain schema.
+-- Enables required PostgreSQL extensions and creates the monomind schema.
 -- Compatible with PostgreSQL 14+ and pgvector 0.5+
 -- ============================================================================
 
@@ -65,26 +65,26 @@ BEGIN
 END $$;
 
 -- ----------------------------------------------------------------------------
--- Schema: monobrain
--- Namespace for all Monobrain tables and functions
+-- Schema: monomind
+-- Namespace for all Monomind tables and functions
 -- ----------------------------------------------------------------------------
-CREATE SCHEMA IF NOT EXISTS monobrain;
+CREATE SCHEMA IF NOT EXISTS monomind;
 
--- Set search path to include monobrain schema
-COMMENT ON SCHEMA monobrain IS 'Monobrain V1 - RuVector PostgreSQL Bridge schema';
+-- Set search path to include monomind schema
+COMMENT ON SCHEMA monomind IS 'Monomind V1 - RuVector PostgreSQL Bridge schema';
 
 -- Grant usage on schema
 DO $$
 BEGIN
     -- Grant to PUBLIC for general access (modify as needed for security)
-    GRANT USAGE ON SCHEMA monobrain TO PUBLIC;
-    GRANT CREATE ON SCHEMA monobrain TO PUBLIC;
+    GRANT USAGE ON SCHEMA monomind TO PUBLIC;
+    GRANT CREATE ON SCHEMA monomind TO PUBLIC;
 END $$;
 
 -- ----------------------------------------------------------------------------
 -- Configuration table for RuVector settings
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS monobrain.config (
+CREATE TABLE IF NOT EXISTS monomind.config (
     key TEXT PRIMARY KEY,
     value JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS monobrain.config (
 );
 
 -- Insert default configuration
-INSERT INTO monobrain.config (key, value) VALUES
+INSERT INTO monomind.config (key, value) VALUES
     ('version', '"1.0.0"'),
     ('default_dimensions', '1536'),
     ('default_metric', '"cosine"'),
@@ -104,7 +104,7 @@ ON CONFLICT (key) DO NOTHING;
 -- ----------------------------------------------------------------------------
 -- Migration tracking table
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS monobrain.migrations (
+CREATE TABLE IF NOT EXISTS monomind.migrations (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS monobrain.migrations (
 );
 
 -- Record this migration
-INSERT INTO monobrain.migrations (name, checksum)
+INSERT INTO monomind.migrations (name, checksum)
 VALUES ('001_create_extension', md5('001_create_extension'))
 ON CONFLICT (name) DO NOTHING;
 
@@ -124,9 +124,9 @@ COMMIT;
 -- Rollback Script (run separately if needed)
 -- ============================================================================
 -- BEGIN;
--- DROP TABLE IF EXISTS monobrain.migrations;
--- DROP TABLE IF EXISTS monobrain.config;
--- DROP SCHEMA IF EXISTS monobrain CASCADE;
+-- DROP TABLE IF EXISTS monomind.migrations;
+-- DROP TABLE IF EXISTS monomind.config;
+-- DROP SCHEMA IF EXISTS monomind CASCADE;
 -- DROP EXTENSION IF EXISTS ruvector;
 -- DROP EXTENSION IF EXISTS "uuid-ossp";
 -- DROP EXTENSION IF EXISTS btree_gin;

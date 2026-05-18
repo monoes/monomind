@@ -32,7 +32,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/aidefence':
+  '@monomind/aidefence':
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -44,7 +44,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/browser':
+  '@monomind/browser':
     dependencies:
       agent-browser:
         specifier: ^0.6.0
@@ -66,7 +66,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/claims':
+  '@monomind/claims':
     dependencies:
       zod:
         specifier: ^3.22.4
@@ -88,12 +88,12 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/cli':
+  '@monomind/cli':
     dependencies:
-      '@monobrain/mcp':
+      '@monomind/mcp':
         specifier: workspace:*
         version: link:../mcp
-      '@monobrain/shared':
+      '@monomind/shared':
         specifier: workspace:*
         version: link:../shared
       '@noble/ed25519':
@@ -103,22 +103,22 @@ importers:
         specifier: ^7.6.0
         version: 7.7.3
     optionalDependencies:
-      '@monobrain/aidefence':
+      '@monomind/aidefence':
         specifier: workspace:*
         version: link:../aidefence
-      '@monobrain/codex':
+      '@monomind/codex':
         specifier: workspace:*
         version: link:../codex
-      '@monobrain/embeddings':
+      '@monomind/embeddings':
         specifier: workspace:*
         version: link:../embeddings
-      '@monobrain/guidance':
+      '@monomind/guidance':
         specifier: workspace:*
         version: link:../guidance
-      '@monobrain/memory':
+      '@monomind/memory':
         specifier: workspace:*
         version: link:../memory
-      '@monobrain/plugin-gastown-bridge':
+      '@monomind/plugin-gastown-bridge':
         specifier: ^0.1.3
         version: link:../../plugins/gastown-bridge
       '@ruvector/attention':
@@ -150,7 +150,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/codex':
+  '@monomind/codex':
     dependencies:
       '@iarna/toml':
         specifier: ^2.2.5
@@ -190,9 +190,9 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(yaml@2.8.3)
 
-  '@monobrain/deployment':
+  '@monomind/deployment':
     dependencies:
-      '@monobrain/shared':
+      '@monomind/shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:
@@ -203,7 +203,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/embeddings':
+  '@monomind/embeddings':
     dependencies:
       '@xenova/transformers':
         specifier: ^2.17.0
@@ -222,15 +222,15 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/guidance':
+  '@monomind/guidance':
     dependencies:
-      '@monobrain/hooks':
+      '@monomind/hooks':
         specifier: workspace:*
         version: link:../hooks
-      '@monobrain/memory':
+      '@monomind/memory':
         specifier: workspace:*
         version: link:../memory
-      '@monobrain/shared':
+      '@monomind/shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:
@@ -244,15 +244,15 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/hooks':
+  '@monomind/hooks':
     dependencies:
-      '@monobrain/memory':
+      '@monomind/memory':
         specifier: workspace:*
         version: link:../memory
-      '@monobrain/neural':
+      '@monomind/neural':
         specifier: workspace:*
         version: link:../neural
-      '@monobrain/shared':
+      '@monomind/shared':
         specifier: workspace:*
         version: link:../shared
       zod:
@@ -276,7 +276,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/integration':
+  '@monomind/integration':
     optionalDependencies:
       agent-booster:
         specifier: ^0.2.2
@@ -286,7 +286,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/mcp':
+  '@monomind/mcp':
     dependencies:
       ajv:
         specifier: ^8.12.0
@@ -317,7 +317,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/memory':
+  '@monomind/memory':
     dependencies:
       agentdb:
         specifier: ^3.0.0-alpha.11
@@ -339,9 +339,9 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/neural':
+  '@monomind/neural':
     dependencies:
-      '@monobrain/memory':
+      '@monomind/memory':
         specifier: workspace:*
         version: link:../memory
       '@ruvector/sona':
@@ -352,7 +352,7 @@ importers:
         specifier: ^2.0.0 || ^3.0.0-alpha.11
         version: 3.0.0-alpha.11(@types/node@20.19.27)
 
-  '@monobrain/performance':
+  '@monomind/performance':
     dependencies:
       '@ruvector/attention':
         specifier: latest
@@ -365,7 +365,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/plugins':
+  '@monomind/plugins':
     dependencies:
       events:
         specifier: ^3.3.0
@@ -381,7 +381,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/providers':
+  '@monomind/providers':
     dependencies:
       events:
         specifier: ^3.3.0
@@ -403,7 +403,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/routing':
+  '@monomind/routing':
     dependencies:
       zod:
         specifier: ^3.22.0
@@ -419,7 +419,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/security':
+  '@monomind/security':
     dependencies:
       bcrypt:
         specifier: ^5.1.1
@@ -435,7 +435,7 @@ importers:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/shared':
+  '@monomind/shared':
     dependencies:
       sql.js:
         specifier: ^1.10.3
@@ -475,21 +475,21 @@ importers:
         specifier: ^3.22.4
         version: 3.25.76
 
-  '@monobrain/swarm':
+  '@monomind/swarm':
     devDependencies:
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@20.19.27)(@vitest/coverage-v8@4.1.4)(tsx@4.21.0)
 
-  '@monobrain/testing':
+  '@monomind/testing':
     devDependencies:
-      '@monobrain/memory':
+      '@monomind/memory':
         specifier: workspace:*
         version: link:../memory
-      '@monobrain/shared':
+      '@monomind/shared':
         specifier: workspace:*
         version: link:../shared
-      '@monobrain/swarm':
+      '@monomind/swarm':
         specifier: workspace:*
         version: link:../swarm
       typescript:
@@ -517,7 +517,7 @@ importers:
 
   plugins/code-intelligence:
     dependencies:
-      '@monobrain/ruvector-upstream':
+      '@monomind/ruvector-upstream':
         specifier: workspace:*
         version: link:../ruvector-upstream
       zod:
@@ -653,7 +653,7 @@ importers:
 
   plugins/legal-contracts:
     dependencies:
-      '@monobrain/ruvector-upstream':
+      '@monomind/ruvector-upstream':
         specifier: workspace:*
         version: link:../ruvector-upstream
       zod:
