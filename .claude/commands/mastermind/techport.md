@@ -23,4 +23,4 @@ Default mode: **confirm** (show analysis + port plan, wait before executing anyt
 
 Invoke `Skill("mastermind:techport")` passing: source_path, focus_hint, mode.
 
-Follow the REPEAT POSTAMBLE from `_repeat.md`.
+Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

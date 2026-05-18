@@ -314,4 +314,4 @@ If `ALL_HIL` is empty, omit the HIL section and congratulate:
 
 To repeat this command on a schedule, wrap it with `/monomind:repeat` or use `--repeat N` / `--tillend` directly.
 
-Follow the REPEAT POSTAMBLE from `_repeat.md`.
+Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

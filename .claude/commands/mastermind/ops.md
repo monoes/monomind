@@ -23,4 +23,4 @@ Invoke `Skill("mastermind:ops")` passing: brain_context, prompt, project_name, b
 
 After skill returns: follow _protocol.md Brain Write Procedure for domain `ops`.
 
-Follow the REPEAT POSTAMBLE from `_repeat.md`.
+Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
