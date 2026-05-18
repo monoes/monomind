@@ -7,7 +7,40 @@ import { createRequire } from 'module';
 import { collectAll, getWatchPaths, collectProject, collectSessions, collectSwarm, collectSwarmHistory, appendSwarmHistory, collectSwarmEvents, getSwarmDataSize, cleanSwarmData, collectAgents, collectTokens, collectHooks, collectKnowledge, collectMetrics, collectMemory, collectMemoryFiles, collectSystem } from './collector.mjs';
 
 const JSONL_SIZE_CAP = 10 * 1024 * 1024; // 10 MB — skip files larger than this in /api/graph
-const buildDocsState = new Map(); // key: resolved dir → { status, sections, files, error, startedAt, completedAt }
+const buildDocsState = new Map();
+
+// Pricing per token (mirrors token-tracker.cjs FALLBACK_PRICING)
+const _SJ_PRICING = {
+  'claude-opus-4-6':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6  },
+  'claude-opus-4-5':   { in: 5e-6,    out: 25e-6,   cw: 6.25e-6,  cr: 0.5e-6  },
+  'claude-opus-4':     { in: 15e-6,   out: 75e-6,   cw: 18.75e-6, cr: 1.5e-6  },
+  'claude-sonnet-4-6': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
+  'claude-sonnet-4-5': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
+  'claude-sonnet-4':   { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
+  'claude-3-7-sonnet': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
+  'claude-3-5-sonnet': { in: 3e-6,    out: 15e-6,   cw: 3.75e-6,  cr: 0.3e-6  },
+  'claude-haiku-4-5':  { in: 1e-6,    out: 5e-6,    cw: 1.25e-6,  cr: 0.1e-6  },
+  'claude-3-5-haiku':  { in: 0.8e-6,  out: 4e-6,    cw: 1e-6,     cr: 0.08e-6 },
+  'gpt-4o':            { in: 2.5e-6,  out: 10e-6,   cw: 2.5e-6,   cr: 1.25e-6 },
+  'gpt-4o-mini':       { in: 0.15e-6, out: 0.6e-6,  cw: 0.15e-6,  cr: 0.075e-6 },
+  'gemini-2.5-pro':    { in: 1.25e-6, out: 10e-6,   cw: 1.25e-6,  cr: 0.315e-6 },
+};
+function _sjGetPricing(model) {
+  const canonical = (model || '').replace(/@.*$/, '').replace(/-\d{8}$/, '');
+  if (_SJ_PRICING[canonical]) return _SJ_PRICING[canonical];
+  for (const k of Object.keys(_SJ_PRICING)) { if (canonical.startsWith(k) || canonical.includes(k)) return _SJ_PRICING[k]; }
+  return null;
+}
+function _sjCalcCost(model, usage) {
+  const p = _sjGetPricing(model);
+  if (!p || !usage) return 0;
+  const webSearch = ((usage.server_tool_use || {}).web_search_requests || 0) * 0.01;
+  return (usage.input_tokens || 0) * p.in
+       + (usage.output_tokens || 0) * p.out
+       + (usage.cache_creation_input_tokens || 0) * p.cw
+       + (usage.cache_read_input_tokens || 0) * p.cr
+       + webSearch;
+} // key: resolved dir → { status, sections, files, error, startedAt, completedAt }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MASTERMIND_DIAGRAM_HTML = "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<title>MASTERMIND — Live Dashboard</title>\n<style>\n* { box-sizing: border-box; margin: 0; padding: 0; }\nhtml, body {\n  width: 100%; height: 100%; overflow: hidden;\n  background: #07071a;\n  font-family: 'Azeret Mono', 'Space Mono', 'Courier New', monospace;\n  color: #e0e0ff;\n  user-select: none;\n}\n\n/* ── Main layout ── */\n#app { display: flex; height: 100vh; }\n#sidebar {\n  width: 220px; flex-shrink: 0;\n  background: oklch(9% 0.012 186);\n  border-right: 1px solid oklch(62% 0.2 186 / 0.18);\n  display: flex; flex-direction: column;\n  overflow: hidden; z-index: 10;\n}\n#stage-wrap { flex: 1; position: relative; overflow: hidden; }\n#detail-panel {\n  width: 0; flex-shrink: 0; overflow: hidden;\n  background: oklch(9% 0.012 186);\n  border-left: 1px solid oklch(62% 0.2 186 / 0.18);\n  transition: width 0.3s ease;\n  display: flex; flex-direction: column;\n  z-index: 10;\n}\n#detail-panel.open { width: 280px; }\n#stage { position: absolute; inset: 0; width: 100%; height: 100%; }\n\n/* ── Sidebar ── */\n#sb-header {\n  padding: 14px 14px 10px;\n  border-bottom: 1px solid oklch(62% 0.2 186 / 0.18);\n  flex-shrink: 0;\n}\n#sb-title {\n  font-size: 8px; letter-spacing: 4px; color: oklch(52% 0.1 186); margin-bottom: 4px;\n}\n.live-row { display: flex; align-items: center; gap: 6px; }\n.l-dot {\n  width: 6px; height: 6px; border-radius: 50%;\n  background: #252560; flex-shrink: 0;\n  transition: background 0.5s;\n}\n.l-dot.on { background: #28c068; }\n@media (prefers-reduced-motion: no-preference) { .l-dot.on { animation: ldp 2s ease-in-out infinite; } }\n@keyframes ldp { 0%,100%{opacity:1} 50%{opacity:0.4} }\n#l-status { font-size: 9px; letter-spacing: 2px; color: oklch(44% 0.08 186); }\n#l-agents { font-size: 8px; color: oklch(40% 0.07 186); margin-left: auto; }\n#sb-sessions {\n  flex: 1; overflow-y: auto; padding: 8px 0;\n  scrollbar-width: thin; scrollbar-color: oklch(62% 0.2 186 / 0.3) transparent;\n}\n#sb-sessions::-webkit-scrollbar { width: 4px; }\n#sb-sessions::-webkit-scrollbar-thumb { background: oklch(62% 0.2 186 / 0.3); border-radius: 2px; }\n.sess-item {\n  padding: 8px 14px; cursor: pointer;\n  border-left: 2px solid transparent;\n  transition: background 0.15s, border-color 0.15s;\n}\n.sess-item:hover { background: oklch(62% 0.2 186 / 0.09); }\n.sess-item.active { border-left-color: transparent; background: oklch(62% 0.2 186 / 0.14); box-shadow: inset 0 0 0 1px oklch(62% 0.2 186 / 0.32); }\n.sess-item.running { border-left-color: #28c068; }\n.sess-ts { font-size: 10px; color: oklch(42% 0.05 186); margin-bottom: 3px; }\n.sess-prompt {\n  font-size: 12px; color: oklch(70% 0.05 186); line-height: 1.4;\n  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 188px;\n}\n.sess-badges { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }\n.sess-project { font-size: 7px; color: oklch(40% 0.1 186); letter-spacing: 1px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n.sess-badge {\n  font-size: 8px; padding: 2px 6px; border-radius: 3px;\n  border: 1px solid oklch(62% 0.2 186 / 0.25); color: oklch(62% 0.09 186);\n  background: oklch(62% 0.2 186 / 0.08);\n}\n.sess-badge.running-badge { border-color: rgba(40,192,104,0.4); color: #28c068; background: rgba(40,192,104,0.08); }\n#git-user-row {\n  display: flex; align-items: center; gap: 5px;\n  margin-top: 7px; padding-top: 6px;\n  border-top: 1px solid oklch(62% 0.2 186 / 0.12);\n}\n#git-user-icon { font-size: 9px; color: #3a3a70; }\n#git-user-name {\n  font-size: 9px; letter-spacing: 0.5px; color: #4a4a90;\n  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;\n}\n#git-cwd-row {\n  display: flex; align-items: center; gap: 5px; margin-top: 4px;\n}\n#git-cwd-icon { font-size: 9px; color: #2a2a58; }\n#git-cwd-name {\n  font-size: 9px; letter-spacing: 0.3px; color: #38386a;\n  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;\n  direction: rtl; text-align: left;\n}\n.sess-trace-link {\n  font-size: 7px; color: #3a3a70; text-decoration: none; letter-spacing: 0.5px;\n  padding: 1px 5px; border: 1px solid oklch(62% 0.2 186 / 0.2); border-radius: 3px;\n  margin-left: auto; flex-shrink: 0;\n}\n.sess-trace-link:hover { color: oklch(66% 0.11 186); border-color: oklch(62% 0.2 186 / 0.5); }\n.dp-export-btn {\n  font-size: 9px; font-family: inherit; color: oklch(58% 0.09 186); text-decoration: none;\n  padding: 4px 8px; border: 1px solid oklch(62% 0.2 186 / 0.25); border-radius: 4px;\n  background: oklch(62% 0.2 186 / 0.07); cursor: pointer; letter-spacing: 0.3px;\n}\n.dp-export-btn:hover { color: oklch(72% 0.12 186); border-color: oklch(62% 0.2 186 / 0.5); background: oklch(62% 0.2 186 / 0.15); }\n#sb-no-sessions {\n  padding: 20px 14px; font-size: 9px; color: oklch(42% 0.06 186); line-height: 1.7;\n  text-align: center;\n}\n#sb-movie-btn {\n  margin: 10px 14px;\n  background: oklch(62% 0.2 186 / 0.12);\n  border: 1px solid oklch(62% 0.2 186 / 0.35);\n  color: oklch(56% 0.16 186); font-size: 9px; letter-spacing: 2px;\n  border-radius: 6px; padding: 7px; cursor: pointer; width: calc(100% - 28px);\n  transition: background 0.15s, color 0.15s;\n  font-family: 'Azeret Mono', 'Space Mono', 'Courier New', monospace;\n}\n#sb-movie-btn:hover { background: oklch(62% 0.2 186 / 0.25); color: #d0b0ff; }\n#sb-movie-btn.active { background: oklch(62% 0.2 186 / 0.25); color: #d0b0ff; border-color: oklch(62% 0.2 186 / 0.6); }\n\n/* ── SVG title overlay ── */\n#title-wrap {\n  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);\n  text-align: center; pointer-events: none; z-index: 5;\n}\n#title-h1 {\n  font-size: 22px; font-weight: 900; letter-spacing: 0.38em;\n  color: oklch(84% 0.14 186);\n}\n#title-sub { font-size: 9px; color: oklch(38% 0.06 186); letter-spacing: 3px; margin-top: 6px; }\n\n/* ── Prompt box ── */\n#prompt-box {\n  position: absolute; bottom: 76px; left: 50%; transform: translateX(-50%);\n  min-width: 340px; max-width: 500px;\n  background: rgba(6,4,22,0.96);\n  border: 1px solid rgba(130,80,255,0.5);\n  border-radius: 12px; padding: 10px 18px;\n  z-index: 50; opacity: 0;\n  box-shadow: 0 4px 28px rgba(100,50,255,0.16);\n  backdrop-filter: blur(18px);\n}\n#p-tag { font-size: 8px; letter-spacing: 3px; color: #48489a; margin-bottom: 4px; }\n#p-line { font-size: 12.5px; color: #90c8ff; display: flex; align-items: center; gap: 2px; min-height: 19px; }\n#p-cursor {\n  display: inline-block; width: 2px; height: 14px;\n  background: #90c8ff; flex-shrink: 0;\n  animation: blink 0.8s step-end infinite;\n}\n@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }\n\n/* ── Activity log ── */\n#activity-log {\n  position: absolute; left: 10px; bottom: 76px;\n  width: 240px;\n  background: rgba(5,3,18,0.93);\n  border: 1px solid rgba(70,45,165,0.35);\n  border-radius: 10px; padding: 9px 12px;\n  z-index: 50; opacity: 0;\n}\n#log-title { font-size: 7.5px; letter-spacing: 3px; color: #282870; margin-bottom: 6px;\n  padding-bottom: 5px; border-bottom: 1px solid rgba(70,45,165,0.18); }\n#log-entries { font-size: 9px; line-height: 1.95; max-height: 160px; overflow: hidden; }\n.log-row { display: flex; gap: 5px; opacity: 0; }\n.log-tag { font-weight: bold; min-width: 58px; flex-shrink: 0; }\n.log-msg { color: #525298; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }\n\n/* ── Mode banner ── */\n#mode-banner {\n  position: absolute; top: 14px; right: 10px;\n  font-size: 8px; letter-spacing: 3px; color: #303070;\n  z-index: 5; pointer-events: none;\n}\n#mode-banner.live-mode { color: #28c068; }\n\n/* ── Control bar ── */\n#ctrl {\n  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);\n  display: flex; align-items: center; gap: 7px;\n  background: rgba(8,6,26,0.95);\n  border: 1px solid rgba(100,60,220,0.35);\n  border-radius: 26px; padding: 6px 16px;\n  z-index: 100; backdrop-filter: blur(18px);\n  opacity: 0;\n}\n.c-btn {\n  background: none; border: 1px solid rgba(100,60,220,0.4);\n  color: #7858d0; width: 26px; height: 26px; border-radius: 50%;\n  cursor: pointer; font-size: 10px;\n  display: flex; align-items: center; justify-content: center;\n  transition: background 0.12s, color 0.12s; flex-shrink: 0; line-height: 1;\n}\n.c-btn:hover { background: rgba(100,60,220,0.2); color: #d0b0ff; }\n.c-btn.disabled { opacity: 0.3; pointer-events: none; }\n#scrubber {\n  width: 180px; height: 3px; cursor: pointer;\n  -webkit-appearance: none; appearance: none;\n  background: rgba(100,60,220,0.2); border-radius: 2px; outline: none;\n}\n#scrubber::-webkit-slider-thumb {\n  -webkit-appearance: none; width: 11px; height: 11px;\n  border-radius: 50%; background: #7858d0; cursor: pointer; border: none;\n}\n#t-disp { font-size: 9px; color: #484888; min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; }\n#spd {\n  background: rgba(8,6,26,0.85); border: 1px solid rgba(100,60,220,0.3);\n  color: oklch(55% 0.12 186); font-size: 9px; font-family: 'Azeret Mono', 'Space Mono', monospace;\n  border-radius: 4px; padding: 2px 4px; cursor: pointer; outline: none;\n}\n#spd option { background: #0d0a20; }\n\n/* ── Detail panel ── */\n#dp-header {\n  padding: 14px 16px 10px;\n  border-bottom: 1px solid oklch(62% 0.2 186 / 0.18); flex-shrink: 0;\n}\n#dp-close {\n  float: right; background: none; border: none; color: #404070;\n  cursor: pointer; font-size: 13px; padding: 0; line-height: 1;\n}\n#dp-close:hover { color: #a090e0; }\n#dp-title { font-size: 9px; letter-spacing: 3px; color: #5050a0; margin-top: 2px; }\n#dp-emoji { font-size: 22px; display: block; margin-bottom: 4px; }\n#dp-body { flex: 1; overflow-y: auto; padding: 12px 16px; scrollbar-width: thin; scrollbar-color: oklch(62% 0.2 186 / 0.3) transparent; }\n#dp-body::-webkit-scrollbar { width: 4px; }\n#dp-body::-webkit-scrollbar-thumb { background: oklch(62% 0.2 186 / 0.3); border-radius: 2px; }\n.dp-section { margin-bottom: 14px; }\n.dp-section-title { font-size: 7.5px; letter-spacing: 3px; color: oklch(38% 0.07 186); margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid oklch(62% 0.2 186 / 0.15); }\n.dp-event { font-size: 9px; line-height: 1.6; color: #5060a0; margin-bottom: 4px; }\n.dp-event .ev-ts { color: #282855; }\n.dp-event .ev-type { color: inherit; font-weight: bold; }\n.dp-artifact { font-size: 9px; color: #6070a0; padding: 3px 6px; background: oklch(62% 0.2 186 / 0.08); border-radius: 3px; margin-bottom: 3px; }\n.dp-agent { display: inline-block; font-size: 8px; padding: 2px 7px; border-radius: 10px; margin: 2px 3px 2px 0; border: 1px solid oklch(62% 0.2 186 / 0.3); color: oklch(55% 0.09 186); }\n@media (prefers-reduced-motion: reduce) {\n  *, *::before, *::after {\n    animation-duration: 0.01ms !important;\n    animation-iteration-count: 1 !important;\n    transition-duration: 0.01ms !important;\n  }\n}\n</style>\n</head>\n<body>\n<div id=\"app\">\n  <!-- ── Left sidebar: session history ── -->\n  <div id=\"sidebar\">\n    <div id=\"sb-header\">\n      <div id=\"sb-title\">SESSIONS</div>\n      <select id=\"proj-filter\" onchange=\"applyProjectFilter(this.value)\" style=\"width:100%;margin-top:6px;background:oklch(12% 0.015 186);color:oklch(52% 0.1 186);border:1px solid oklch(62% 0.2 186 / 0.18);border-radius:3px;font-size:8px;letter-spacing:1px;padding:3px 4px;cursor:pointer\"><option value=\"\">ALL PROJECTS</option></select>\n      <div class=\"live-row\">\n        <div class=\"l-dot\" id=\"l-dot\"></div>\n        <span id=\"l-status\">OFFLINE</span>\n        <span id=\"l-agents\">0 agents</span>\n      </div>\n      <div id=\"git-user-row\">\n        <span id=\"git-user-icon\">⬡</span>\n        <span id=\"git-user-name\">—</span>\n      </div>\n      <div id=\"git-cwd-row\">\n        <span id=\"git-cwd-icon\">◎</span>\n        <span id=\"git-cwd-name\">—</span>\n      </div>\n    </div>\n    <div id=\"sb-sessions\">\n      <div id=\"sb-no-sessions\">No sessions yet.<br><br>Describe a goal and<br>Mastermind routes it<br>across specialist agents.<br><br><span style=\"color:oklch(56% 0.16 186);letter-spacing:1px\">/mastermind</span></div>\n    </div>\n    <button id=\"sb-movie-btn\" onclick=\"toggleMovieMode(currentSessionObj)\">▶ MOVIE MODE</button>\n  </div>\n\n  <!-- ── Stage ── -->\n  <div id=\"stage-wrap\">\n    <!-- SVG -->\n    <svg id=\"stage\" viewBox=\"0 0 960 720\" preserveAspectRatio=\"xMidYMid meet\">\n      <defs>\n        <filter id=\"glow\" x=\"-55%\" y=\"-55%\" width=\"210%\" height=\"210%\">\n          <feGaussianBlur in=\"SourceGraphic\" stdDeviation=\"5\" result=\"b\"/>\n          <feMerge><feMergeNode in=\"b\"/><feMergeNode in=\"SourceGraphic\"/></feMerge>\n        </filter>\n        <filter id=\"bloom\" x=\"-100%\" y=\"-100%\" width=\"300%\" height=\"300%\">\n          <feGaussianBlur in=\"SourceGraphic\" stdDeviation=\"15\" result=\"b\"/>\n          <feMerge><feMergeNode in=\"b\"/><feMergeNode in=\"SourceGraphic\"/></feMerge>\n        </filter>\n      </defs>\n      <rect width=\"960\" height=\"720\" fill=\"#07071a\"/>\n      <g id=\"stars\"></g>\n      <g id=\"net-edges\"></g>\n      <g id=\"net-particles\"></g>\n      <g id=\"net-nodes\"></g>\n    </svg>\n\n    <!-- Overlays -->\n    <div id=\"title-wrap\">\n      <div id=\"title-h1\">MASTERMIND</div>\n      <div id=\"title-sub\">AUTONOMOUS EXECUTION · 12 DOMAINS · PERSISTENT ORGS</div>\n    </div>\n\n    <div id=\"mode-banner\">LIVE</div>\n\n    <div id=\"prompt-box\">\n      <div id=\"p-tag\">USER PROMPT</div>\n      <div id=\"p-line\"><span id=\"p-text\"></span><span id=\"p-cursor\"></span></div>\n    </div>\n\n    <div id=\"activity-log\">\n      <div id=\"log-title\">ACTIVITY LOG</div>\n      <div id=\"log-entries\"></div>\n    </div>\n\n    <div id=\"ctrl\">\n      <button class=\"c-btn disabled\" id=\"btn-restart\" title=\"Restart\">↺</button>\n      <button class=\"c-btn disabled\" id=\"btn-play\" title=\"Play\">▶</button>\n      <button class=\"c-btn disabled\" id=\"btn-pause\" title=\"Pause\">⏸</button>\n      <input type=\"range\" id=\"scrubber\" min=\"0\" max=\"100\" value=\"0\" step=\"0.1\" disabled/>\n      <span id=\"t-disp\">—</span>\n      <select id=\"spd\">\n        <option value=\"0.5\">0.5×</option>\n        <option value=\"1\" selected>1×</option>\n        <option value=\"2\">2×</option>\n        <option value=\"3\">3×</option>\n      </select>\n    </div>\n  </div>\n\n  <!-- ── Right panel: session/domain detail ── -->\n  <div id=\"detail-panel\">\n    <div id=\"dp-header\">\n      <button id=\"dp-close\" onclick=\"closeDetail()\">✕</button>\n      <span id=\"dp-emoji\"></span>\n      <div id=\"dp-title\">SELECT A DOMAIN OR SESSION</div>\n    </div>\n    <div id=\"dp-body\"></div>\n  </div>\n</div>\n\n<script src=\"https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js\"></script>\n<script>\n'use strict';\n\n// ── Graph constants ──────────────────────────────────────────────────────────\nconst CX = 480, CY = 360;\nconst DOMAIN_COLORS = {\n  build:'#60a5fa', idea:'#fbbf24', marketing:'#f472b6', review:'#34d399',\n  research:'#a78bfa', content:'#fb923c', release:'#22d3ee', sales:'#f87171',\n  ops:'#4ade80', finance:'#fde68a', orgs:'#c084fc', default:'#00E5C8'\n};\nconst DOMAIN_EMOJIS = {\n  build:'⚙️', idea:'💡', marketing:'📣', review:'🔍', research:'🔬',\n  content:'✍️', release:'🚀', sales:'💼', ops:'⚡', finance:'💰', orgs:'🏛'\n};\nconst AGENT_EMOJIS = {\n  'coder':'⚙', 'architect':'🏗', 'tester':'🧪', 'reviewer':'🔍',\n  'researcher':'🔬', 'frontend-dev':'🎨', 'backend-dev':'⚡',\n  'coordinator':'🎯', 'planner':'📋', 'general-purpose':'🤖',\n  'frontend':'🎨', 'backend':'⚡', 'ml-developer':'🧠',\n  'security-architect':'🔒', 'sparc-coder':'💻', 'default':'◈'\n};\n\n// ── Node/edge model ───────────────────────────────────────────────────────────\nconst nodes = new Map();\nconst edges  = [];\nlet   rootId = null;\nlet   simActive = false;\n\n// ── SVG helpers ───────────────────────────────────────────────────────────────\nconst NS  = 'http://www.w3.org/2000/svg';\nconst mkN = (tag, a) => {\n  const el = document.createElementNS(NS, tag);\n  if (a) for (const [k,v] of Object.entries(a)) el.setAttribute(k, v);\n  return el;\n};\nconst starsG    = document.getElementById('stars');\nconst edgesG    = document.getElementById('net-edges');\nconst particlesG= document.getElementById('net-particles');\nconst nodesG    = document.getElementById('net-nodes');\n\n// ── Star field ────────────────────────────────────────────────────────────────\n(function buildStars() {\n  for (let i = 0; i < 170; i++) {\n    starsG.appendChild(mkN('circle', {\n      cx: (Math.random()*960).toFixed(1),\n      cy: (Math.random()*720).toFixed(1),\n      r:  (Math.random()<0.1 ? Math.random()*1.5+0.8 : Math.random()*0.8+0.15).toFixed(2),\n      fill: `rgba(160,150,255,${(Math.random()*0.35+0.08).toFixed(2)})`\n    }));\n  }\n  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {\n    gsap.to([...starsG.children], {\n      opacity: 'random(0.06,0.6)', duration: 'random(2,5)',\n      stagger:{ amount:16, from:'random', repeat:-1, yoyo:true, ease:'sine.inOut' }, delay:1\n    });\n  }\n})();\n\n// ── Hex helper ────────────────────────────────────────────────────────────────\nfunction hexPts(r) {\n  return Array.from({length:6},(_,i)=>{\n    const a=i*Math.PI/3-Math.PI/6;\n    return `${(r*Math.cos(a)).toFixed(1)},${(r*Math.sin(a)).toFixed(1)}`;\n  }).join(' ');\n}\n\n// ── Force simulation (Verlet) ─────────────────────────────────────────────────\nconst SPRING_K  = 0.030;\nconst REPULSION = 6000;\nconst DAMPING   = 0.78;\nconst REST_DIST = { root:0, domain:185, agent:68, org:160 };\n\nfunction forceStep() {\n  const arr = [...nodes.values()];\n  for (const n of arr) { n.ax=0; n.ay=0; }\n  for (let i=0; i<arr.length; i++) {\n    for (let j=i+1; j<arr.length; j++) {\n      const a=arr[i], b=arr[j];\n      const dx=b.x-a.x, dy=b.y-a.y;\n      const d2=dx*dx+dy*dy+1, d=Math.sqrt(d2);\n      const f=REPULSION/(d2*d);\n      if (!a.fixed){a.ax-=dx*f; a.ay-=dy*f;}\n      if (!b.fixed){b.ax+=dx*f; b.ay+=dy*f;}\n    }\n  }\n  for (const e of edges) {\n    const a=nodes.get(e.fromId), b=nodes.get(e.toId);\n    if (!a||!b) continue;\n    const dx=b.x-a.x, dy=b.y-a.y;\n    const d=Math.sqrt(dx*dx+dy*dy)+0.001;\n    const rest=REST_DIST[b.type]??110;\n    const f=(d-rest)*SPRING_K;\n    if (!a.fixed){a.ax+=dx/d*f; a.ay+=dy/d*f;}\n    if (!b.fixed){b.ax-=dx/d*f; b.ay-=dy/d*f;}\n  }\n  for (const n of arr) {\n    if (n.fixed) continue;\n    n.vx=(n.vx+n.ax)*DAMPING;\n    n.vy=(n.vy+n.ay)*DAMPING;\n    n.x=Math.max(60,Math.min(900,n.x+n.vx));\n    n.y=Math.max(60,Math.min(660,n.y+n.vy));\n  }\n}\n\n// ── Node renderer ─────────────────────────────────────────────────────────────\nfunction buildNodeEl(n) {\n  const g=mkN('g',{transform:`translate(${n.x.toFixed(1)},${n.y.toFixed(1)})`});\n  g.style.opacity='0'; g.style.cursor='pointer';\n  if (n.type==='root') {\n    g.appendChild(mkN('circle',{r:'58',fill:'none',stroke:n.color,'stroke-width':'0.5',opacity:'0.15'}));\n    g.appendChild(mkN('circle',{r:'38',fill:'#070620',stroke:n.color,'stroke-width':'2.8',filter:'url(#glow)'}));\n    g.appendChild(mkN('circle',{r:'30',fill:'none',stroke:n.color,'stroke-width':'0.8',opacity:'0.35'}));\n    const hex=mkN('polygon',{points:hexPts(16),fill:'none',stroke:n.color,'stroke-width':'1.8',opacity:'0.75'});\n    g.appendChild(hex);\n    gsap.to(hex,{rotate:360,transformOrigin:'0 0',duration:24,repeat:-1,ease:'none'});\n    const lbl=mkN('text',{x:'0',y:'58','text-anchor':'middle','font-size':'6.5',fill:n.color,'letter-spacing':'2',\n      'font-family':\"'Azeret Mono','Space Mono',monospace\"});\n    lbl.textContent='MASTERMIND'; g.appendChild(lbl);\n  } else if (n.type==='domain') {\n    g.appendChild(mkN('circle',{r:'44',fill:'none',stroke:n.color,'stroke-width':'0.5',opacity:'0.2'}));\n    g.appendChild(mkN('circle',{r:'30',fill:'#09071e',stroke:n.color,'stroke-width':'2.5',filter:'url(#glow)'}));\n    const emj=mkN('text',{x:'0',y:'9','text-anchor':'middle','font-size':'17'});\n    emj.textContent=n.emoji||'◈'; g.appendChild(emj);\n    const lbl=mkN('text',{x:'0',y:'45','text-anchor':'middle','font-size':'7',fill:n.color,'letter-spacing':'1.5',\n      'font-family':\"'Azeret Mono','Space Mono',monospace\"});\n    lbl.textContent=n.label; g.appendChild(lbl);\n    const ring=mkN('circle',{r:'34',fill:'none',stroke:'#fbbf24','stroke-width':'2',opacity:'0',\n      transform:'rotate(-90)','stroke-dasharray':'213.6','stroke-dashoffset':'213.6','stroke-linecap':'round'});\n    ring.dataset.cring=n.id;\n    g.appendChild(ring);\n  } else if (n.type==='agent') {\n    g.appendChild(mkN('circle',{r:'20',fill:'#08061a',stroke:n.color,'stroke-width':'1.8',filter:'url(#glow)'}));\n    const emj=mkN('text',{x:'0',y:'5','text-anchor':'middle','font-size':'12'});\n    emj.textContent=n.emoji||'◈'; g.appendChild(emj);\n    const sl=n.label.length>11?n.label.slice(0,10)+'…':n.label;\n    const lbl=mkN('text',{x:'0',y:'31','text-anchor':'middle','font-size':'6',fill:n.color,'letter-spacing':'0.6',\n      'font-family':\"'Azeret Mono','Space Mono',monospace\"});\n    lbl.textContent=sl; g.appendChild(lbl);\n  } else if (n.type==='org') {\n    g.appendChild(mkN('polygon',{points:'0,-38 32,0 0,38 -32,0',fill:'#09071e',stroke:n.color,'stroke-width':'2.5',filter:'url(#glow)'}));\n    const emj=mkN('text',{x:'0',y:'7','text-anchor':'middle','font-size':'16'});\n    emj.textContent='🏛'; g.appendChild(emj);\n    const lbl=mkN('text',{x:'0',y:'53','text-anchor':'middle','font-size':'6.5',fill:n.color,'letter-spacing':'1.5',\n      'font-family':\"'Azeret Mono','Space Mono',monospace\"});\n    lbl.textContent=n.label; g.appendChild(lbl);\n  }\n  g.appendChild(mkN('circle',{r:n.type==='agent'?'22':'50',fill:'transparent'}));\n  nodesG.appendChild(g);\n  n.el=g;\n  gsap.to(g,{opacity:1,duration:0.4,ease:'power2.out'});\n  gsap.from(g,{scale:0.15,transformOrigin:'0 0',duration:0.55,ease:'back.out(1.7)'});\n}\n\n// ── Edge renderer ─────────────────────────────────────────────────────────────\nfunction buildEdgeEl(e) {\n  const a=nodes.get(e.fromId), b=nodes.get(e.toId);\n  if (!a||!b) return;\n  const g=mkN('g'); g.style.opacity='0';\n  const isIC=e.type==='intercom';\n  const path=mkN('path',{fill:'none',stroke:a.color,opacity:isIC?'0.75':'0.4',\n    'stroke-width':isIC?'1.5':'0.9','stroke-dasharray':isIC?'5 3':'none'});\n  g.appendChild(path);\n  if (isIC&&e.msg) {\n    const txt=mkN('text',{'font-size':'6.5',fill:a.color,\n      'font-family':\"'Azeret Mono','Space Mono',monospace\",'letter-spacing':'0.4',opacity:'0.8'});\n    txt.textContent=e.msg.length>24?e.msg.slice(0,23)+'…':e.msg;\n    g.appendChild(txt); e.msgEl=txt;\n  }\n  edgesG.insertBefore(g,edgesG.firstChild);\n  e.el=g; e.pathEl=path;\n  gsap.to(g,{opacity:1,duration:0.6,delay:0.12});\n  updateEdge(e);\n}\n\nfunction updateEdge(e) {\n  const a=nodes.get(e.fromId), b=nodes.get(e.toId);\n  if (!a||!b||!e.pathEl) return;\n  if (e.type==='intercom') {\n    const mx=(a.x+b.x)/2, my=(a.y+b.y)/2-65;\n    e.pathEl.setAttribute('d',`M${a.x.toFixed(1)},${a.y.toFixed(1)} Q${mx.toFixed(1)},${my.toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}`);\n    if (e.msgEl){e.msgEl.setAttribute('x',(mx-22).toFixed(1));e.msgEl.setAttribute('y',(my-9).toFixed(1));}\n  } else {\n    e.pathEl.setAttribute('d',`M${a.x.toFixed(1)},${a.y.toFixed(1)} L${b.x.toFixed(1)},${b.y.toFixed(1)}`);\n  }\n}\n\n// ── Particle system ───────────────────────────────────────────────────────────\nconst PPC = 7;\nfunction spawnParticles(e) {\n  const col=(nodes.get(e.fromId)||{color:'#00E5C8'}).color;\n  e.ptcls=Array.from({length:PPC},(_,i)=>{\n    const dot=mkN('circle',{r:'2',fill:col,opacity:'0'});\n    particlesG.appendChild(dot);\n    return {el:dot, t:i/PPC};\n  });\n}\nfunction tickParticles() {\n  for (const e of edges) {\n    if (!e.ptcls) continue;\n    const a=nodes.get(e.fromId), b=nodes.get(e.toId);\n    if (!a||!b) continue;\n    for (const p of e.ptcls) {\n      p.t=(p.t+0.0045)%1;\n      const t=p.t;\n      let px,py;\n      if (e.type==='intercom') {\n        const mx=(a.x+b.x)/2, my=(a.y+b.y)/2-65;\n        px=(1-t)*(1-t)*a.x+2*(1-t)*t*mx+t*t*b.x;\n        py=(1-t)*(1-t)*a.y+2*(1-t)*t*my+t*t*b.y;\n      } else {\n        px=a.x+(b.x-a.x)*t; py=a.y+(b.y-a.y)*t;\n      }\n      p.el.setAttribute('cx',px.toFixed(1));\n      p.el.setAttribute('cy',py.toFixed(1));\n      p.el.setAttribute('opacity',(Math.sin(t*Math.PI)*0.85).toFixed(2));\n    }\n  }\n}\n\n// ── RAF render loop ───────────────────────────────────────────────────────────\nlet rafLast=0;\nfunction rafLoop(ts) {\n  if (ts-rafLast>=16) {\n    if (simActive) forceStep();\n    for (const n of nodes.values()) {\n      if (n.el) n.el.setAttribute('transform',`translate(${n.x.toFixed(1)},${n.y.toFixed(1)})`);\n    }\n    for (const e of edges) updateEdge(e);\n    tickParticles();\n    rafLast=ts;\n  }\n  requestAnimationFrame(rafLoop);\n}\nrequestAnimationFrame(rafLoop);\n\n// ── Graph mutation API ────────────────────────────────────────────────────────\nfunction gAddNode({id,type,domain,agentSlug,label,emoji,color,parentId,cmd}) {\n  if (nodes.has(id)) return nodes.get(id);\n  const par=parentId?nodes.get(parentId):null;\n  const px=par?par.x:CX, py=par?par.y:CY;\n  const ang=Math.random()*Math.PI*2;\n  const dist={root:0,domain:175,agent:75,org:155}[type]??120;\n  const n={\n    id,type,domain,agentSlug,\n    label:label||id,\n    emoji:emoji||(agentSlug?(AGENT_EMOJIS[agentSlug]||AGENT_EMOJIS.default):'◈'),\n    color:color||(domain?(DOMAIN_COLORS[domain]||DOMAIN_COLORS.default):DOMAIN_COLORS.default),\n    x:type==='root'?CX:px+Math.cos(ang)*dist+(Math.random()-.5)*28,\n    y:type==='root'?CY:py+Math.sin(ang)*dist+(Math.random()-.5)*28,\n    vx:0,vy:0,ax:0,ay:0,\n    fixed:type==='root',\n    parentId:parentId||null,\n    cmd:cmd||null,\n    done:false,\n    state:'active',ts:Date.now()\n  };\n  nodes.set(id,n);\n  simActive=nodes.size>1;\n  buildNodeEl(n);\n  return n;\n}\nfunction gAddEdge({id,fromId,toId,type,msg}) {\n  const eid=id||`${fromId}→${toId}`;\n  if (edges.find(e=>e.id===eid)) return;\n  const e={id:eid,fromId,toId,type:type||'activation',msg};\n  edges.push(e);\n  buildEdgeEl(e);\n  spawnParticles(e);\n}\nfunction gComplete(id) {\n  const cn = nodes.get(id); if (cn) cn.done = true;\n  const n=nodes.get(id);\n  if (!n||!n.el) return;\n  n.state='complete';\n  const circ=n.el.querySelector('circle[r=\"30\"]')||n.el.querySelector('circle');\n  if (circ) gsap.to(circ,{attr:{stroke:'#fbbf24'},duration:0.3,yoyo:true,repeat:2,\n    onComplete:()=>gsap.to(n.el,{opacity:0.65,duration:1.5})});\n  const ring=n.el.querySelector('[data-cring]');\n  if (ring) gsap.to(ring,{opacity:1,'stroke-dashoffset':0,duration:1.6,ease:'power1.inOut'});\n}\nfunction gClear() {\n  nodes.clear(); edges.length=0; rootId=null; simActive=false;\n  nodesG.innerHTML=''; edgesG.innerHTML=''; particlesG.innerHTML='';\n}\nfunction pulseRoot() {\n  const n=nodes.get(rootId);\n  if (!n||!n.el) return;\n  const c=n.el.querySelector('circle[r=\"38\"]');\n  if (c) gsap.to(c,{attr:{'stroke-width':6},duration:0.25,yoyo:true,repeat:1});\n}\n\n// ── Activity log ──────────────────────────────────────────────────────────────\nfunction addLog(tag,msg,color) {\n  const wrap=document.getElementById('log-entries');\n  const row=document.createElement('div');\n  row.className='log-row';\n  row.innerHTML=`<span class=\"log-tag\" style=\"color:${color}\">${tag}</span><span class=\"log-msg\">${msg}</span>`;\n  wrap.appendChild(row);\n  gsap.fromTo(row,{opacity:0},{opacity:1,duration:0.3});\n  const rows=wrap.querySelectorAll('.log-row');\n  if (rows.length>10) gsap.to(rows[0],{opacity:0,height:0,duration:0.22,onComplete:()=>rows[0].remove()});\n}\n\n// ── Movie mode ────────────────────────────────────────────────────────────────\nlet isMovieMode=false;\nlet movieTl=null;\n\nfunction buildMovieTl(sessionData) {\n  gClear();\n  document.getElementById('log-entries').innerHTML='';\n  document.getElementById('p-text').textContent='';\n  const evts=[...(sessionData&&sessionData.events?sessionData.events:[])].sort((a,b)=>(a.ts||0)-(b.ts||0));\n  const tl=gsap.timeline({paused:true,defaults:{ease:'power2.out'}});\n  if (!evts.length) {\n    tl.add(()=>addLog('[DEMO]','Select a session from the sidebar','#00E5C8'),0.2);\n    return tl;\n  }\n  evts.forEach((ev,i)=>{\n    const ev2=Object.assign({},ev);\n    tl.add(()=>handleGraphEvent(ev2), 0.3+i*0.75);\n  });\n  tl.duration(0.3+evts.length*0.75+1.5);\n  return tl;\n}\n\nfunction toggleMovieMode(sessionData) {\n  isMovieMode=!isMovieMode;\n  const btn=document.getElementById('sb-movie-btn');\n  const banner=document.getElementById('mode-banner');\n  const scrubEl=document.getElementById('scrubber');\n  const tDisp=document.getElementById('t-disp');\n  if (isMovieMode) {\n    btn.classList.add('active'); btn.textContent='■ EXIT MOVIE';\n    banner.textContent='MOVIE'; banner.classList.remove('live-mode');\n    ['btn-restart','btn-play','btn-pause'].forEach(id=>document.getElementById(id).classList.remove('disabled'));\n    scrubEl.disabled=false;\n    if (movieTl) movieTl.kill();\n    movieTl=buildMovieTl(sessionData);\n    document.getElementById('btn-play').onclick=()=>movieTl.resume();\n    document.getElementById('btn-pause').onclick=()=>movieTl.pause();\n    document.getElementById('btn-restart').onclick=()=>{\n      gClear(); document.getElementById('log-entries').innerHTML='';\n      movieTl=buildMovieTl(sessionData); movieTl.play();\n    };\n    document.getElementById('spd').onchange=e=>movieTl&&movieTl.timeScale(Number(e.target.value));\n    let scrubbing=false;\n    scrubEl.addEventListener('mousedown',()=>{scrubbing=true;movieTl&&movieTl.pause();});\n    scrubEl.addEventListener('mouseup',()=>{scrubbing=false;});\n    scrubEl.addEventListener('input',()=>{if(movieTl)movieTl.progress(Number(scrubEl.value)/100);tDisp.textContent=(movieTl?movieTl.time():0).toFixed(1)+'s';});\n    gsap.ticker.add(()=>{\n      if (!scrubbing&&movieTl&&movieTl.totalDuration()>0) {\n        scrubEl.value=movieTl.progress()*100;\n        tDisp.textContent=movieTl.time().toFixed(1)+'s';\n      }\n    });\n    gsap.to('#ctrl',{opacity:1,duration:0.35});\n    movieTl.play();\n  } else {\n    btn.classList.remove('active'); btn.textContent='▶ MOVIE MODE';\n    banner.textContent='LIVE'; banner.classList.add('live-mode');\n    ['btn-restart','btn-play','btn-pause'].forEach(id=>document.getElementById(id).classList.add('disabled'));\n    scrubEl.disabled=true; tDisp.textContent='—';\n    if (movieTl){movieTl.kill();movieTl=null;}\n    gsap.to('#ctrl',{opacity:0,duration:0.25});\n  }\n}\n\n// ── Core event dispatcher ─────────────────────────────────────────────────────\nfunction handleGraphEvent(ev) {\n  const {type,session,domain,agent,from,to,msg,cmd,prompt,status} = ev;\n  if (type==='session:start') {\n    gClear(); rootId=session;\n    gAddNode({id:session,type:'root',label:'MASTERMIND',color:DOMAIN_COLORS.default});\n    if (prompt) {\n      document.getElementById('p-tag').textContent='RUNNING';\n      document.getElementById('p-text').textContent=prompt;\n      gsap.to('#prompt-box',{opacity:1,duration:0.4});\n    }\n    gsap.to('#activity-log',{opacity:1,duration:0.4,delay:0.2});\n    gsap.to('#ctrl',{opacity:1,duration:0.4,delay:0.4});\n    addLog('[SESSION]',(prompt||session).slice(0,32),'#00E5C8');\n    refreshSessions();\n  } else if (type==='domain:dispatch') {\n    if (!domain||!rootId) return;\n    const domId=`${session}:${domain}`;\n    gAddNode({id:domId,type:'domain',domain,parentId:rootId,cmd:cmd||null,\n      label:domain.toUpperCase(),emoji:DOMAIN_EMOJIS[domain]||'◈'});\n    gAddEdge({fromId:rootId,toId:domId,type:'activation'});\n    pulseRoot();\n    addLog(`[${domain.toUpperCase()}]`,cmd||domain,DOMAIN_COLORS[domain]||'#00E5C8');\n  } else if (type==='agent:spawn') {\n    if (!domain||!rootId) return;\n    const domId=`${session}:${domain}`;\n    const agId=`${session}:${domain}:${agent||'agent'}:${ev._replayIdx!==undefined?ev._replayIdx:Date.now()}`;\n    gAddNode({id:agId,type:'agent',domain,agentSlug:agent,parentId:domId,\n      label:agent||'agent',emoji:AGENT_EMOJIS[agent]||AGENT_EMOJIS.default});\n    gAddEdge({fromId:domId,toId:agId,type:'spawn'});\n    addLog(`[${(agent||'agent').slice(0,9)}]`,ev.task||agent||'',DOMAIN_COLORS[domain]||'#00E5C8');\n  } else if (type==='intercom') {\n    if (!from||!to||!rootId) return;\n    gAddEdge({id:`ic-${from}-${to}-${Date.now()}`,fromId:`${session}:${from}`,\n      toId:`${session}:${to}`,type:'intercom',msg});\n    addLog('[IC]',`${from}→${to}: ${msg||''}`,'#c084fc');\n  } else if (type==='domain:complete') {\n    gComplete(`${session}:${domain}`);\n    pulseRoot();\n    addLog(`[${(domain||'').toUpperCase()}]`,`done · ${status||'✓'}`,'#34d399');\n    refreshSessions();\n  } else if (type==='session:complete') {\n    for (const n of nodes.values()) {\n      if (n.el) gsap.to(n.el,{opacity:1,duration:0.3,yoyo:true,repeat:2,ease:'power1.inOut'});\n    }\n    addLog('[✓]',`complete — ${(ev.domains||[]).length||'all'} domains`,'#34d399');\n    setTimeout(()=>gsap.to('#prompt-box',{opacity:0,duration:1}),4000);\n    refreshSessions();\n  }\n}\n\n// ── Live event handler ────────────────────────────────────────────────────────\nfunction handleLiveEvent(ev) {\n  if (isMovieMode) return;\n  handleGraphEvent(ev);\n}\n\n\n// ── Session graph replay ───────────────────────────────────────────────\nfunction replaySessionGraph(events) {\n  if (!events || !events.length) return;\n  gClear();\n  let skipRefresh = true;\n  const origRefresh = window.refreshSessions;\n  window.refreshSessions = () => {};  // suppress during replay\n  events.forEach((ev, idx) => handleGraphEvent({...ev, _replayIdx: idx}));\n  window.refreshSessions = origRefresh;\n  gsap.to('#activity-log', {opacity:1, duration:0.4});\n  gsap.to('#ctrl', {opacity:1, duration:0.4, delay:0.2});\n}\n\n// ── SSE event stream ───────────────────────────────────────────────────────────\nlet evtSource = null;\nfunction connectSSE() {\n  if (evtSource) evtSource.close();\n  evtSource = new EventSource('/api/mastermind-stream');\n  evtSource.onmessage = (e) => {\n    try {\n      const ev = JSON.parse(e.data);\n      handleLiveEvent(ev);\n    } catch (_) {}\n  };\n  evtSource.onerror = () => {\n    const dot = document.getElementById('l-dot');\n    if (dot) dot.classList.remove('on');\n    const st = document.getElementById('l-status');\n    if (st) st.textContent = 'RECONNECTING';\n    showStatusBanner('SSE disconnected — reconnecting in 4s');\n    setTimeout(connectSSE, 4000);\n  };\n}\n\n// ── Session sidebar ────────────────────────────────────────────────────────────\nlet currentSessionId = null;\n    let currentSessionObj = null;\n\nlet activeProjectFilter = '';\n\nfunction applyProjectFilter(val) {\n  activeProjectFilter = val;\n  refreshSessions();\n}\n\nasync function refreshSessions() {\n  try {\n    const url = activeProjectFilter\n      ? `/api/mastermind/sessions?project=${encodeURIComponent(activeProjectFilter)}`\n      : '/api/mastermind/sessions';\n    const res = await fetch(url);\n    const sessions = await res.json();\n    // Populate project filter options\n    const sel = document.getElementById('proj-filter');\n    if (sel) {\n      const projects = [...new Set(sessions.map(s => s.project).filter(Boolean))];\n      const current = sel.value;\n      sel.innerHTML = '<option value=\"\">ALL PROJECTS</option>' +\n        projects.map(p => {\n          const name = p.split('/').pop();\n          return `<option value=\"${p}\" ${p===current?'selected':''}>${name}</option>`;\n        }).join('');\n    }\n    renderSessions(sessions);\n  } catch (_) {}\n}\n\nfunction renderSessions(sessions) {\n  const wrap = document.getElementById('sb-sessions');\n  const noSess = document.getElementById('sb-no-sessions');\n  if (!sessions || !sessions.length) {\n    if (noSess) noSess.style.display = 'block';\n    const items = wrap.querySelectorAll('.sess-item');\n    items.forEach(i => i.remove());\n    return;\n  }\n  if (noSess) noSess.style.display = 'none';\n  // Remove old items\n  wrap.querySelectorAll('.sess-item').forEach(el => el.remove());\n  sessions.forEach(s => {\n    const item = document.createElement('div');\n    item.className = 'sess-item' + (s.status === 'running' ? ' running' : '') + (s.id === currentSessionId ? ' active' : '');\n    const ts = new Date(s.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});\n    const date = new Date(s.ts).toLocaleDateString([], {month:'short',day:'numeric'});\n    const elapsed = s.endTs ? ((s.endTs - s.ts)/1000).toFixed(0)+'s' : (s.status==='running'?'RUNNING…':'?');\n    const projName = s.project ? s.project.split('/').pop() : '';\n    item.innerHTML = `\n      ${projName ? `<div class=\"sess-project\">◈ ${projName}</div>` : ''}\n      <div class=\"sess-ts\">${date} ${ts} · ${elapsed}</div>\n      <div class=\"sess-prompt\">${s.prompt||'(no prompt)'}</div>\n      <div class=\"sess-badges\">\n        <span class=\"sess-badge ${s.status==='running'?'running-badge':''}\">${s.status||'?'}</span>\n        ${(s.domains||[]).slice(0,4).map(d=>`<span class=\"sess-badge\">${d}</span>`).join('')}\n        ${(s.domains||[]).length>4?`<span class=\"sess-badge\">+${s.domains.length-4}</span>`:''}\n        <a class=\"sess-trace-link\" href=\"/api/mastermind/session/${s.id}/trace\" target=\"_blank\" title=\"View raw trace\" onclick=\"event.stopPropagation()\">trace↗</a>\n      </div>`;\n    item.addEventListener('click', () => {\n      wrap.querySelectorAll('.sess-item').forEach(x=>x.classList.remove('active'));\n      item.classList.add('active');\n      currentSessionId = s.id;\n      currentSessionObj = s;\n      openSessionDetail(s);\n      replaySessionGraph(s.events||[]);\n    });\n    wrap.appendChild(item);\n  });\n}\n\n// ── Detail panel ───────────────────────────────────────────────────────────────\nfunction openDomainDetail(d) {\n  const panel = document.getElementById('detail-panel');\n  document.getElementById('dp-emoji').textContent = d.emoji || '◈';\n  document.getElementById('dp-title').textContent = `DOMAIN · ${d.label}`;\n  const body = document.getElementById('dp-body');\n  // Gather events from current session for this domain\n  const sessEvts = (currentSessionObj && currentSessionObj.events) ? currentSessionObj.events : [];\n  const domEvts = sessEvts.filter(e => e.domain === d.domain || e.domain === (d.label||'').toLowerCase());\n  const spawnEvts = domEvts.filter(e => e.type === 'agent:spawn');\n  const artifacts = domEvts.flatMap(e => e.artifacts || []);\n  // Also collect child agent nodes\n  const agentNodes = [];\n  nodes.forEach(n => { if (n.parentId === d.id) agentNodes.push(n); });\n  body.innerHTML = `\n    <div class=\"dp-section\">\n      <div class=\"dp-section-title\">DOMAIN INFO</div>\n      <div class=\"dp-event\"><span class=\"ev-type\" style=\"color:${d.color}\">${d.emoji||'◈'} ${d.label}</span></div>\n      ${d.cmd ? `<div class=\"dp-event\">Command: <span style=\"color:#7080c0\">${d.cmd}</span></div>` : ''}\n      <div class=\"dp-event\">Status: <span style=\"color:${d.done?'#40e880':'#28c068'}\">${d.done?'COMPLETE':'RUNNING'}</span></div>\n      <div class=\"dp-event\">Agents spawned: <span style=\"color:${d.color}\">${agentNodes.length}</span></div>\n    </div>\n    ${agentNodes.length > 0 ? `\n    <div class=\"dp-section\">\n      <div class=\"dp-section-title\">AGENTS</div>\n      ${agentNodes.map(a => `<div class=\"dp-event\"><span class=\"ev-type\" style=\"color:${a.color||d.color}\">${a.emoji||'◈'} ${a.label}</span></div>`).join('')}\n    </div>` : ''}\n    ${spawnEvts.length > 0 ? `\n    <div class=\"dp-section\">\n      <div class=\"dp-section-title\">TASKS</div>\n      ${spawnEvts.map(e => `<div class=\"dp-event\" style=\"color:#506080;font-size:8px;white-space:normal;word-break:break-word;line-height:1.5\">${e.agent ? '<b>'+e.agent+'</b>: ' : ''}${(e.task||'').slice(0,120)}</div>`).join('')}\n    </div>` : ''}\n    ${artifacts.length > 0 ? `\n    <div class=\"dp-section\">\n      <div class=\"dp-section-title\">ARTIFACTS</div>\n      ${artifacts.map(a => `<div class=\"dp-artifact\">📄 ${a}</div>`).join('')}\n    </div>` : ''}\n    ${domEvts.length > 0 ? `\n    <div class=\"dp-section\">\n      <div class=\"dp-section-title\">RECENT EVENTS</div>\n      ${domEvts.slice(-8).map(e => {\n        const ts = new Date(e.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});\n        return `<div class=\"dp-event\"><span class=\"ev-ts\">${ts}</span> <span class=\"ev-type\" style=\"color:${d.color}\">${e.type}</span>${e.cmd?' '+e.cmd:e.agent?' '+e.agent:''}</div>`;\n      }).join('')}\n    </div>` : ''}\n  `;\n  panel.classList.add('open');\n}\n\nasync function openSessionDetail(s) {\n  const panel = document.getElementById('detail-panel');\n  document.getElementById('dp-emoji').textContent = '📋';\n  document.getElementById('dp-title').textContent = 'SESSION DETAIL';\n  const body = document.getElementById('dp-body');\n  body.innerHTML = '<div style=\"color:#303060;font-size:9px;padding:8px\">Loading…</div>';\n  panel.classList.add('open');\n  try {\n    const res = await fetch(`/api/mastermind/session/${s.id}`);\n    const full = await res.json();\n    if (!full) { body.innerHTML = '<div style=\"color:#303060;font-size:9px\">Session not found.</div>'; return; }\n    const ts = new Date(full.ts).toLocaleString();\n    const elapsed = full.endTs ? ((full.endTs - full.ts)/1000).toFixed(1)+'s' : 'running';\n    const evts = full.events || [];\n    const domainSet = full.domains || [];\n    body.innerHTML = `\n      <div class=\"dp-section\">\n        <div class=\"dp-section-title\">OVERVIEW</div>\n        <div class=\"dp-event\">Started: <span style=\"color:#6060a0\">${ts}</span></div>\n        <div class=\"dp-event\">Duration: <span style=\"color:#6060a0\">${elapsed}</span></div>\n        <div class=\"dp-event\">Status: <span style=\"color:${full.status==='complete'?'#40e880':full.status==='running'?'#28c068':'#f87171'}\">${full.status||'?'}</span></div>\n        <div class=\"dp-event\">Domains: <span style=\"color:#8080c0\">${domainSet.join(', ')||'—'}</span></div>\n      </div>\n      <div class=\"dp-section\">\n        <div class=\"dp-section-title\">PROMPT</div>\n        <div class=\"dp-event\" style=\"color:oklch(58% 0.09 186);word-break:break-all;white-space:normal;line-height:1.6\">${full.prompt||'—'}</div>\n      </div>\n      ${domainSet.length ? `\n      <div class=\"dp-section\">\n        <div class=\"dp-section-title\">ACTIVE DOMAINS</div>\n        ${domainSet.map(did => {\n          const color = DOMAIN_COLORS[did] || '#8080c0';\n          const emoji = DOMAIN_EMOJIS[did] || '◈';\n          const label = (did||'').toUpperCase();\n          return `<div class=\"dp-event\"><span style=\"color:${color}\">${emoji} ${label}</span></div>`;\n        }).join('')}\n      </div>` : ''}\n      <div class=\"dp-section\">\n        <div class=\"dp-section-title\">EVENT TIMELINE (${evts.length})</div>\n        ${evts.map(e => {\n          const et = new Date(e.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});\n          const color = e.domain ? (DOMAIN_COLORS[e.domain] || '#6060a0') : '#6060a0';\n          let detail = '';\n          if (e.type === 'session:start') detail = `<span style=\"color:#5050a0;font-size:8px;word-break:break-all\">${e.prompt||''}</span>`;\n          else if (e.type === 'domain:dispatch') detail = `<span style=\"color:#5060a0;font-size:8px\">${e.cmd||''}</span>`;\n          else if (e.type === 'agent:spawn') detail = `<span style=\"color:#507090;font-size:8px\">agent: <b>${e.agent||''}</b> — ${(e.task||'').slice(0,50)}</span>`;\n          else if (e.type === 'intercom') detail = `<span style=\"color:#506070;font-size:8px\">${e.from||'?'} → ${e.to||'?'}: ${e.msg||''}</span>`;\n          else if (e.type === 'domain:complete') {\n            const arts = (e.artifacts||[]).map(a=>`<span style=\"color:#407050;font-size:7px\">📄 ${a}</span>`).join(' ');\n            detail = `<span style=\"color:#406050;font-size:8px\">status: ${e.status||'?'}</span>${arts?' '+arts:''}`;\n          }\n          else if (e.type === 'session:complete') detail = `<span style=\"color:#405080;font-size:8px\">domains: ${(e.domains||[]).join(', ')}</span>`;\n          return `<div class=\"dp-event\" style=\"flex-direction:column;align-items:flex-start;gap:1px\"><div><span class=\"ev-ts\">${et}</span> <span class=\"ev-type\" style=\"color:${color}\">${e.type}</span>${e.domain?' <span style=\"color:#404060;font-size:8px\">['+e.domain+']</span>':''}</div>${detail?'<div style=\"padding-left:4px\">'+detail+'</div>':''}</div>`;\n        }).join('')}\n      </div>\n      <div class=\"dp-section\">\n        <div class=\"dp-section-title\">EXPORT</div>\n        <div style=\"display:flex;gap:6px;flex-wrap:wrap\">\n          <a class=\"dp-export-btn\" href=\"/api/mastermind/session/${full.id}/trace\" target=\"_blank\">📄 View Trace</a>\n          <button class=\"dp-export-btn\" onclick=\"downloadSession('${full.id}')\">⬇ Download JSON</button>\n        </div>\n      </div>\n    `;\n  } catch(err) {\n    body.innerHTML = `<div style=\"color:#a03030;font-size:9px\">${err.message}</div>`;\n  }\n}\n\nfunction closeDetail() {\n  document.getElementById('detail-panel').classList.remove('open');\n  currentSessionId = null;\n  document.querySelectorAll('.sess-item').forEach(x=>x.classList.remove('active'));\n}\n\nasync function downloadSession(id) {\n  const res = await fetch(`/api/mastermind/session/${id}`);\n  const data = await res.json();\n  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});\n  const a = document.createElement('a');\n  a.href = URL.createObjectURL(blob);\n  a.download = `${id}.json`;\n  a.click();\n  URL.revokeObjectURL(a.href);\n}\n\n// ── Live data polling for status bar ──────────────────────────────────────────\nasync function pollStatus() {\n  try {\n    const res = await fetch('/api/data');\n    if (!res.ok) return;\n    const data = await res.json();\n    const active = !!data?.swarm?.activity?.swarm?.active;\n    const dot = document.getElementById('l-dot');\n    dot.classList.toggle('on', active);\n    document.getElementById('l-status').textContent = active ? 'LIVE' : 'IDLE';\n    const n = data?.swarm?.state?.agentPlan?.length || 0;\n    document.getElementById('l-agents').textContent = n + ' agent' + (n!==1?'s':'');\n    // Highlight last routed domain\n    const route = data?.hooks?.lastRoute || '';\n    if (route && !isMovieMode) {\n      const hit = DOMAINS.find(d => route.toLowerCase().includes(d.id));\n      if (hit) {\n        gsap.to(`#gr-${hit.id}`, { opacity:0.85, attr:{r:52}, duration:0.35 });\n        gsap.to(`#gr-${hit.id}`, { opacity:0.2, attr:{r:44}, duration:1.8, delay:0.35 });\n      }\n    }\n  } catch (_) {}\n}\n\n\nfunction showStatusBanner(msg) {\n  let b = document.getElementById('status-banner');\n  if (!b) {\n    b = document.createElement('div'); b.id = 'status-banner';\n    b.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:5px 14px;background:oklch(24% 0.05 186);border-bottom:1px solid oklch(68% 0.18 186 / 0.35);color:oklch(70% 0.05 186);font-size:9px;letter-spacing:1.5px;text-align:center;z-index:9999;transition:opacity 0.5s;pointer-events:none;';\n    document.body.appendChild(b);\n  }\n  b.textContent = msg; b.style.opacity = '1';\n  clearTimeout(b._t); b._t = setTimeout(() => { b.style.opacity = '0'; }, 5000);\n}\n\n// ── Bootstrap ──────────────────────────────────────────────────────────────────\nconnectSSE();\nrefreshSessions();\npollStatus();\nfetch('/api/git-user').then(r=>r.json()).then(u=>{\n  if (u.name) document.getElementById('git-user-name').textContent = u.name;\n  if (u.cwd) {\n    const parts = u.cwd.replace(/\\\\/g, '/').split('/');\n    document.getElementById('git-cwd-name').textContent = parts.slice(-2).join('/');\n    document.getElementById('git-cwd-name').title = u.cwd;\n  }\n}).catch(()=>{});\nsetInterval(pollStatus, 4000);\nsetInterval(refreshSessions, 8000);\n\n// Set initial live mode banner\ndocument.getElementById('mode-banner').classList.add('live-mode');\n</script>\n</body>\n</html>\n";
@@ -337,7 +370,9 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         for (const { f, mtime } of sessionFiles) {
           const fp = path.join(projectClaudeDir, f);
           const id = f.replace('.jsonl', '');
-          let lastPrompt = '', summaries = [], totalDurationMs = 0, totalMessages = 0, firstTs = null, lastTs = null;
+          let lastPrompt = '', summaries = [], totalDurationMs = 0, totalMessages = 0, firstTs = null, lastTs = null, totalCost = 0, toolCalls = 0, userMessages = 0, cacheReadTokens = 0, totalInputTokens = 0;
+          const modelBreakdown = {};
+          const filesTouchedSet = new Set();
           try {
             const lines = fs.readFileSync(fp, 'utf8').split('\n').filter(Boolean);
             let pendingCompact = false;
@@ -345,6 +380,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               let e; try { e = JSON.parse(line); } catch { continue; }
               if (e.timestamp) { if (!firstTs) firstTs = e.timestamp; lastTs = e.timestamp; }
               if (e.type === 'last-prompt' && e.lastPrompt) lastPrompt = e.lastPrompt;
+              if (e.type === 'user') userMessages++;
               if (e.type === 'system' && e.subtype === 'compact_boundary') pendingCompact = true;
               if (pendingCompact && e.type === 'user') {
                 const msg = e.message || {};
@@ -356,16 +392,268 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
                 if (m) summaries.push({ ts: e.timestamp, text: m[1].trim() });
                 pendingCompact = false;
               }
+              if (e.type === 'assistant') {
+                const msg = e.message || {};
+                for (const block of (msg.content || [])) {
+                  if (block && block.type === 'tool_use') {
+                    toolCalls++;
+                    if (['Write','Edit','Read','MultiEdit'].includes(block.name) && block.input?.file_path) {
+                      filesTouchedSet.add(path.basename(block.input.file_path));
+                    }
+                  }
+                }
+                if (msg.usage && msg.model) {
+                  const c = _sjCalcCost(msg.model, msg.usage);
+                  totalCost += c;
+                  const mk = msg.model.replace(/@.*$/, '').replace(/-\d{8}$/, '');
+                  if (!modelBreakdown[mk]) modelBreakdown[mk] = { calls: 0, cost: 0 };
+                  modelBreakdown[mk].calls++;
+                  modelBreakdown[mk].cost += c;
+                  cacheReadTokens += (msg.usage.cache_read_input_tokens || 0);
+                  totalInputTokens += (msg.usage.input_tokens || 0)
+                                    + (msg.usage.cache_creation_input_tokens || 0)
+                                    + (msg.usage.cache_read_input_tokens || 0);
+                }
+              }
               if (e.type === 'system' && e.subtype === 'turn_duration') {
                 totalDurationMs += e.durationMs || 0;
                 if ((e.messageCount || 0) > totalMessages) totalMessages = e.messageCount;
               }
             }
           } catch {}
-          sessions.push({ id, mtime, firstTs, lastTs, lastPrompt, summaries, totalDurationMs, totalMessages, file: fp });
+          const filesTouched = [...filesTouchedSet].slice(0, 20);
+          sessions.push({ id, mtime, firstTs, lastTs, lastPrompt, summaries, totalDurationMs, totalMessages, totalCost, toolCalls, userMessages, cacheReadTokens, totalInputTokens, modelBreakdown, filesTouched, file: fp });
         }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
         res.end(JSON.stringify({ sessions }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // ------------------------------------------------------- GET /api/search-sessions
+    if (req.method === 'GET' && url === '/api/search-sessions') {
+      const qs = new URL(req.url, 'http://localhost').searchParams;
+      const dir = qs.get('dir') || '';
+      const q = (qs.get('q') || '').toLowerCase().trim();
+      if (!q || q.length < 2) {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ results: [] }));
+        return;
+      }
+      try {
+        const d = path.resolve(dir || process.cwd());
+        const slug = d.replace(/\//g, '-');
+        const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
+        let sessionFiles = [];
+        try {
+          sessionFiles = fs.readdirSync(projectClaudeDir)
+            .filter(f => f.endsWith('.jsonl'))
+            .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
+            .filter(Boolean)
+            .sort((a, b) => b.mtime - a.mtime)
+            .slice(0, 20);
+        } catch {}
+        const results = [];
+        for (const { f, mtime } of sessionFiles) {
+          const fp = path.join(projectClaudeDir, f);
+          const id = f.replace('.jsonl', '');
+          let lastPrompt = '';
+          const matches = [];
+          try {
+            const lines = fs.readFileSync(fp, 'utf8').split('\n').filter(Boolean);
+            for (const line of lines) {
+              let e; try { e = JSON.parse(line); } catch { continue; }
+              if (e.type === 'last-prompt' && e.lastPrompt) lastPrompt = e.lastPrompt;
+              if (e.type === 'user') {
+                const msg = e.message || {};
+                const ct = msg.content || [];
+                let text = '';
+                if (Array.isArray(ct)) { for (const b of ct) { if (b && b.type === 'text') { text = b.text; break; } } }
+                else if (typeof ct === 'string') text = ct;
+                if (text.toLowerCase().includes(q)) matches.push({ text: text.slice(0, 150), ts: e.timestamp });
+              }
+              if (matches.length >= 3) break;
+            }
+          } catch {}
+          if (matches.length) results.push({ id, file: fp, lastPrompt, mtime, matches });
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ results, q }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // ------------------------------------------------------- GET /api/tool-errors
+    if (req.method === 'GET' && url === '/api/tool-errors') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir || process.cwd();
+        const d = path.resolve(dir || process.cwd());
+        const slug = d.replace(/\//g, '-');
+        const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
+        let sessionFiles = [];
+        try {
+          sessionFiles = fs.readdirSync(projectClaudeDir)
+            .filter(f => f.endsWith('.jsonl'))
+            .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
+            .filter(Boolean).sort((a,b) => b.mtime - a.mtime).slice(0, 10);
+        } catch {}
+        // tool_use id → name map, then count is_error:true tool_result per tool name
+        const errorCounts = {}, totalCounts = {};
+        for (const { f } of sessionFiles) {
+          const fp = path.join(projectClaudeDir, f);
+          try {
+            const lines = fs.readFileSync(fp, 'utf8').split('\n').filter(Boolean);
+            const toolIdMap = {};
+            for (const line of lines) {
+              let e; try { e = JSON.parse(line); } catch { continue; }
+              if (e.type === 'assistant') {
+                for (const b of (e.message?.content || [])) {
+                  if (b && b.type === 'tool_use') { toolIdMap[b.id] = b.name; totalCounts[b.name] = (totalCounts[b.name] || 0) + 1; }
+                }
+              }
+              if (e.type === 'user') {
+                for (const b of (e.message?.content || [])) {
+                  if (b && b.type === 'tool_result' && b.is_error) {
+                    const name = toolIdMap[b.tool_use_id] || '?';
+                    errorCounts[name] = (errorCounts[name] || 0) + 1;
+                  }
+                }
+              }
+            }
+          } catch {}
+        }
+        const errors = Object.entries(errorCounts)
+          .map(([tool, count]) => ({ tool, count, total: totalCounts[tool] || count }))
+          .sort((a,b) => b.count - a.count);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ errors }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // ------------------------------------------------------- GET /api/tool-ranking
+    if (req.method === 'GET' && url === '/api/tool-ranking') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const dir = qs.get('dir') || projectDir || process.cwd();
+        const d = path.resolve(dir || process.cwd());
+        const slug = d.replace(/\//g, '-');
+        const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
+        let sessionFiles = [];
+        try {
+          sessionFiles = fs.readdirSync(projectClaudeDir)
+            .filter(f => f.endsWith('.jsonl'))
+            .map(f => { try { return { f, mtime: fs.statSync(path.join(projectClaudeDir, f)).mtimeMs }; } catch { return null; } })
+            .filter(Boolean).sort((a,b) => b.mtime - a.mtime).slice(0, 30);
+        } catch {}
+        const toolCounts = {}, errorCounts = {};
+        for (const { f } of sessionFiles) {
+          const fp = path.join(projectClaudeDir, f);
+          try {
+            const lines = fs.readFileSync(fp, 'utf8').split('\n').filter(Boolean);
+            const toolIdMap = {};
+            for (const line of lines) {
+              let e; try { e = JSON.parse(line); } catch { continue; }
+              if (e.type === 'assistant') {
+                for (const b of (e.message?.content || [])) {
+                  if (b && b.type === 'tool_use') { toolIdMap[b.id] = b.name; toolCounts[b.name] = (toolCounts[b.name] || 0) + 1; }
+                }
+              }
+              if (e.type === 'user') {
+                for (const b of (e.message?.content || [])) {
+                  if (b && b.type === 'tool_result' && b.is_error) {
+                    const name = toolIdMap[b.tool_use_id] || '?';
+                    errorCounts[name] = (errorCounts[name] || 0) + 1;
+                  }
+                }
+              }
+            }
+          } catch {}
+        }
+        const tools = Object.entries(toolCounts)
+          .map(([tool, count]) => ({ tool, count, errors: errorCounts[tool] || 0 }))
+          .sort((a,b) => b.count - a.count);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ tools }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // ------------------------------------------------------- GET /api/project-costs
+    if (req.method === 'GET' && url === '/api/project-costs') {
+      try {
+        const projectsBase = path.join(os.homedir(), '.claude', 'projects');
+        let slugDirs = [];
+        try { slugDirs = fs.readdirSync(projectsBase, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name); } catch {}
+        const projectCosts = [];
+        for (const slug of slugDirs) {
+          const projDir = path.join(projectsBase, slug);
+          const projPath = '/' + slug.replace(/^-/, '').replace(/-/g, '/');
+          let sessionFiles = [];
+          try { sessionFiles = fs.readdirSync(projDir).filter(f => f.endsWith('.jsonl')).map(f => path.join(projDir, f)); } catch {}
+          if (!sessionFiles.length) continue;
+          let totalCost = 0;
+          for (const fp of sessionFiles) {
+            try {
+              const lines = fs.readFileSync(fp, 'utf8').split('\n').filter(Boolean);
+              for (const line of lines) {
+                let e; try { e = JSON.parse(line); } catch { continue; }
+                if (e.type === 'assistant' && e.message?.usage) { totalCost += _sjCalcCost(e.message.model || '', e.message.usage); }
+              }
+            } catch {}
+          }
+          if (totalCost > 0) projectCosts.push({ path: projPath, cost: totalCost, sessions: sessionFiles.length });
+        }
+        projectCosts.sort((a, b) => b.cost - a.cost);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ projects: projectCosts }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // ------------------------------------------------------- GET /api/projects
+    if (req.method === 'GET' && url === '/api/projects') {
+      try {
+        const projectsBase = path.join(os.homedir(), '.claude', 'projects');
+        let slugDirs = [];
+        try { slugDirs = fs.readdirSync(projectsBase, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name); } catch {}
+        const projects = slugDirs.map(slug => {
+          const projDir = path.join(projectsBase, slug);
+          // convert slug back to path: replace leading - and then each - that was /
+          const projPath = slug.replace(/-/g, '/');
+          const name = slug.split('-').filter(Boolean).pop() || slug;
+          let sessionCount = 0; let lastActivity = 0; let memoryCount = 0;
+          try {
+            const files = fs.readdirSync(projDir).filter(f => f.endsWith('.jsonl'));
+            sessionCount = files.length;
+            for (const f of files) {
+              try { const st = fs.statSync(path.join(projDir, f)); if (st.mtimeMs > lastActivity) lastActivity = st.mtimeMs; } catch {}
+            }
+          } catch {}
+          try {
+            const memDir = path.join(projDir, 'memory');
+            memoryCount = fs.readdirSync(memDir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md').length;
+          } catch {}
+          return { slug, path: projPath, name, sessionCount, memoryCount, lastActivity: lastActivity || null };
+        }).filter(p => p.sessionCount > 0).sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ projects }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
@@ -694,6 +982,98 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           res.end(JSON.stringify({ ok: true }));
         } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
       });
+      return;
+    }
+
+    // ---------------------------------------------------------- POST /api/loops/create
+    if (req.method === 'POST' && url === '/api/loops/create') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const { name, prompt, interval, maxReps } = JSON.parse(body);
+          if (!prompt) { res.writeHead(400); res.end(JSON.stringify({ error: 'prompt required' })); return; }
+          const loopsDir = path.join(projectDir || process.cwd(), '.monomind', 'loops');
+          fs.mkdirSync(loopsDir, { recursive: true });
+          const id = `loop-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+          const loop = { id, name: name || prompt.slice(0, 40), prompt, interval: interval || '1h', maxReps: maxReps || null, status: 'active', currentRep: 0, startedAt: new Date().toISOString(), lastRunAt: null };
+          fs.writeFileSync(path.join(loopsDir, `${id}.json`), JSON.stringify(loop, null, 2));
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ ok: true, id }));
+        } catch (err) { res.writeHead(500); res.end(JSON.stringify({ error: err.message })); }
+      });
+      return;
+    }
+
+    // ---------------------------------------------------------- GET /api/session-errors
+    if (req.method === 'GET' && url === '/api/session-errors') {
+      const qs = new URL(req.url, 'http://localhost').searchParams;
+      const d = path.resolve(qs.get('dir') || projectDir || process.cwd());
+      const sessionId = qs.get('id') || '';
+      const slug = d.replace(/\//g, '-');
+      const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
+      try {
+        const files = fs.readdirSync(projectClaudeDir).filter(f => f.endsWith('.jsonl'));
+        let fp = null;
+        // Find the file matching sessionId
+        for (const f of files) {
+          if (f.includes(sessionId) || sessionId === f.replace('.jsonl', '')) { fp = path.join(projectClaudeDir, f); break; }
+        }
+        if (!fp) {
+          // fallback: find by scanning
+          for (const f of files) {
+            const raw = fs.readFileSync(path.join(projectClaudeDir, f), 'utf8');
+            const lines = raw.trim().split('\n').filter(Boolean);
+            if (lines.length > 0) {
+              try { const first = JSON.parse(lines[0]); if (first.sessionId === sessionId) { fp = path.join(projectClaudeDir, f); break; } } catch {}
+            }
+          }
+        }
+        if (!fp) { res.writeHead(404); res.end(JSON.stringify({ errors: [] })); return; }
+        const raw = fs.readFileSync(fp, 'utf8');
+        const lines = raw.trim().split('\n').filter(Boolean);
+        const errors = [];
+        for (const line of lines) {
+          try {
+            const obj = JSON.parse(line);
+            const content = obj.message?.content;
+            if (!Array.isArray(content)) continue;
+            for (const block of content) {
+              if (block.type === 'tool_result' && block.is_error) {
+                const errText = Array.isArray(block.content) ? block.content.map(c => c.text || '').join('') : String(block.content || '');
+                if (errText) errors.push({ toolUseId: block.tool_use_id || '', text: errText.slice(0, 500) });
+              }
+            }
+          } catch {}
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ errors: errors.slice(0, 50) }));
+      } catch (err) { res.writeHead(500); res.end(JSON.stringify({ errors: [], error: err.message })); }
+      return;
+    }
+
+    // ---------------------------------------------------------- GET /api/events-stream (SSE)
+    if (req.method === 'GET' && url.startsWith('/api/events-stream')) {
+      const qs = new URL(req.url, 'http://localhost').searchParams;
+      const d = path.resolve(qs.get('dir') || projectDir || process.cwd());
+      const slug = d.replace(/\//g, '-');
+      const projectClaudeDir = path.join(os.homedir(), '.claude', 'projects', slug);
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+      });
+      const send = (ev, data) => { try { res.write(`event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`); } catch {} };
+      send('connected', { ts: Date.now() });
+      let watcher = null;
+      try {
+        watcher = fs.watch(projectClaudeDir, { persistent: false }, (evtype) => {
+          if (evtype === 'change' || evtype === 'rename') send('update', { ts: Date.now() });
+        });
+      } catch {}
+      const pingInterval = setInterval(() => { try { res.write(': ping\n\n'); } catch {} }, 20000);
+      req.on('close', () => { clearInterval(pingInterval); try { watcher?.close(); } catch {} });
       return;
     }
 
