@@ -43,6 +43,12 @@ describe('micro-agents._triggerExtractYamlValue', () => {
     expect(ma._triggerExtractYamlValue('"hello world"')).toBe('hello world');
   });
 
+  it('unescapes double-backslash inside double quotes', () => {
+    const ma = loadMicroAgents(tmpDir);
+    // YAML double-quoted "\\bauth\\b" → JS string \\bauth\\b → unescaped to \bauth\b
+    expect(ma._triggerExtractYamlValue('"\\\\bauth\\\\b"')).toBe('\\bauth\\b');
+  });
+
   it('strips single quotes', () => {
     const ma = loadMicroAgents(tmpDir);
     expect(ma._triggerExtractYamlValue("'hello world'")).toBe('hello world');
@@ -246,15 +252,25 @@ describe('micro-agents.scanMicroAgentTriggers', () => {
     expect(slugs.filter(s => s === 'auth-agent').length).toBe(1);
   });
 
-  it('uses stale index (>1 hour) by rebuilding from agents dir', () => {
+  it('ignores stale index and rebuilds from agents dir when index is > 1 hour old', () => {
     const ma = loadMicroAgents(tmpDir);
     const indexPath = path.join(tmpDir, '.monomind', 'trigger-index.json');
     fs.mkdirSync(path.dirname(indexPath), { recursive: true });
+    // Stale index has a "security" pattern
     const staleTime = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-    fs.writeFileSync(indexPath, JSON.stringify({ builtAt: staleTime, patterns: [] }));
-    // No agents dir → rebuild yields []
-    const result = ma.scanMicroAgentTriggers('any prompt');
-    expect(Array.isArray(result.matches)).toBe(true);
+    fs.writeFileSync(indexPath, JSON.stringify({
+      builtAt: staleTime,
+      patterns: [{ pattern: 'stale-pattern', mode: 'inject', priority: 1, agentSlug: 'stale-agent' }],
+    }));
+    // Agents dir has a fresh agent with a different pattern
+    const agentDir = path.join(tmpDir, '.claude', 'agents');
+    fs.mkdirSync(agentDir, { recursive: true });
+    fs.writeFileSync(path.join(agentDir, 'fresh-agent.md'),
+      '---\ntriggers:\n  - pattern: "fresh-pattern"\n    mode: inject\n---\n# Fresh Agent');
+    const result = ma.scanMicroAgentTriggers('fresh-pattern trigger');
+    // Must match fresh-agent, not stale-agent
+    expect(result.matches.some(m => m.agentSlug === 'fresh-agent')).toBe(true);
+    expect(result.matches.some(m => m.agentSlug === 'stale-agent')).toBe(false);
   });
 });
 
@@ -297,8 +313,10 @@ describe('micro-agents._buildKnowledgeSearchFn', () => {
     fs.writeFileSync(path.join(knowledgeDir, 'chunks.jsonl'), c1 + '\n' + c2 + '\n');
     const searchFn = ma._buildKnowledgeSearchFn(knowledgeDir);
     const result = await searchFn('authentication', { namespace: 'knowledge:shared' });
-    expect(result.every(r => r.metadata?.namespace === undefined)).toBe(true); // namespace is on chunk, not in result
-    expect(result.length).toBe(1); // only the knowledge:shared chunk
+    // Only the knowledge:shared chunk should match
+    expect(result.length).toBe(1);
+    // All results should come from c1 (the knowledge:shared chunk)
+    expect(result[0].key).toContain('c1');
   });
 
   it('returns empty for query with only stopwords', async () => {
