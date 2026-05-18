@@ -1,6 +1,6 @@
 # Codeburn — AI Token Usage Tracker
 
-**Source:** /Users/morteza/Desktop/tools/codeburn  
+**Source:** local development tool (not published)  
 **Category:** Developer Tool  
 **Role in Monomind:** Token usage tracking and cost visualization via `token-tracker.cjs` + `monomind tokens` CLI
 

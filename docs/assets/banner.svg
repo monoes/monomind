@@ -133,7 +133,7 @@
 
   <!-- Title -->
   <text x="215" y="88" font-family="'SF Pro Display', 'Inter', 'Segoe UI', system-ui, sans-serif"
-        font-size="42" font-weight="700" letter-spacing="-1" fill="url(#titleGrad)">monobrain</text>
+        font-size="42" font-weight="700" letter-spacing="-1" fill="url(#titleGrad)">monomind</text>
 
   <!-- Subtitle -->
   <text x="216" y="116" font-family="'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif"

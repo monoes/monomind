@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Migration 002: Create Vector Tables
--- RuVector PostgreSQL Bridge - Monobrain V1
+-- RuVector PostgreSQL Bridge - Monomind V1
 --
 -- Creates core vector storage tables for embeddings, attention, and GNN cache.
 -- Compatible with PostgreSQL 14+ and pgvector 0.5+
@@ -12,7 +12,7 @@ BEGIN;
 -- Table: vectors
 -- Primary vector storage table with metadata support
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS monobrain.vectors (
+CREATE TABLE IF NOT EXISTS monomind.vectors (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     embedding vector(1536),  -- Default dimension, will be cast dynamically
     metadata JSONB NOT NULL DEFAULT '{}',
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS monobrain.vectors (
 );
 
 -- Trigger to update updated_at timestamp
-CREATE OR REPLACE FUNCTION monobrain.update_updated_at()
+CREATE OR REPLACE FUNCTION monomind.update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
@@ -40,15 +40,15 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER vectors_updated_at
-    BEFORE UPDATE ON monobrain.vectors
+    BEFORE UPDATE ON monomind.vectors
     FOR EACH ROW
-    EXECUTE FUNCTION monobrain.update_updated_at();
+    EXECUTE FUNCTION monomind.update_updated_at();
 
 -- ----------------------------------------------------------------------------
 -- Table: embeddings
 -- Namespace-aware embeddings storage with dimension flexibility
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS monobrain.embeddings (
+CREATE TABLE IF NOT EXISTS monomind.embeddings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     namespace TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -68,15 +68,15 @@ CREATE TABLE IF NOT EXISTS monobrain.embeddings (
 );
 
 CREATE TRIGGER embeddings_updated_at
-    BEFORE UPDATE ON monobrain.embeddings
+    BEFORE UPDATE ON monomind.embeddings
     FOR EACH ROW
-    EXECUTE FUNCTION monobrain.update_updated_at();
+    EXECUTE FUNCTION monomind.update_updated_at();
 
 -- ----------------------------------------------------------------------------
 -- Table: attention_cache
 -- Caches attention computation results for performance
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS monobrain.attention_cache (
+CREATE TABLE IF NOT EXISTS monomind.attention_cache (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     cache_key TEXT NOT NULL UNIQUE,  -- Hash of input parameters
     query_hash TEXT NOT NULL,
@@ -106,15 +106,15 @@ CREATE TABLE IF NOT EXISTS monobrain.attention_cache (
 );
 
 -- Index for cache lookups
-CREATE INDEX IF NOT EXISTS idx_attention_cache_key ON monobrain.attention_cache (cache_key);
-CREATE INDEX IF NOT EXISTS idx_attention_cache_type ON monobrain.attention_cache (attention_type);
-CREATE INDEX IF NOT EXISTS idx_attention_cache_expires ON monobrain.attention_cache (expires_at) WHERE expires_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_attention_cache_key ON monomind.attention_cache (cache_key);
+CREATE INDEX IF NOT EXISTS idx_attention_cache_type ON monomind.attention_cache (attention_type);
+CREATE INDEX IF NOT EXISTS idx_attention_cache_expires ON monomind.attention_cache (expires_at) WHERE expires_at IS NOT NULL;
 
 -- ----------------------------------------------------------------------------
 -- Table: gnn_cache
 -- Caches Graph Neural Network computation results
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS monobrain.gnn_cache (
+CREATE TABLE IF NOT EXISTS monomind.gnn_cache (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     cache_key TEXT NOT NULL UNIQUE,
     graph_hash TEXT NOT NULL,  -- Hash of graph structure
@@ -153,16 +153,16 @@ CREATE TABLE IF NOT EXISTS monobrain.gnn_cache (
 );
 
 -- Indexes for GNN cache
-CREATE INDEX IF NOT EXISTS idx_gnn_cache_key ON monobrain.gnn_cache (cache_key);
-CREATE INDEX IF NOT EXISTS idx_gnn_cache_type ON monobrain.gnn_cache (layer_type);
-CREATE INDEX IF NOT EXISTS idx_gnn_cache_graph ON monobrain.gnn_cache (graph_hash);
-CREATE INDEX IF NOT EXISTS idx_gnn_cache_expires ON monobrain.gnn_cache (expires_at) WHERE expires_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_gnn_cache_key ON monomind.gnn_cache (cache_key);
+CREATE INDEX IF NOT EXISTS idx_gnn_cache_type ON monomind.gnn_cache (layer_type);
+CREATE INDEX IF NOT EXISTS idx_gnn_cache_graph ON monomind.gnn_cache (graph_hash);
+CREATE INDEX IF NOT EXISTS idx_gnn_cache_expires ON monomind.gnn_cache (expires_at) WHERE expires_at IS NOT NULL;
 
 -- ----------------------------------------------------------------------------
 -- Table: hyperbolic_embeddings
 -- Stores hyperbolic (Poincare/Lorentz) embeddings for hierarchical data
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS monobrain.hyperbolic_embeddings (
+CREATE TABLE IF NOT EXISTS monomind.hyperbolic_embeddings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     namespace TEXT NOT NULL DEFAULT 'default',
     name TEXT NOT NULL,
@@ -175,7 +175,7 @@ CREATE TABLE IF NOT EXISTS monobrain.hyperbolic_embeddings (
 
     -- Hierarchy information
     depth INTEGER DEFAULT 0,
-    parent_id UUID REFERENCES monobrain.hyperbolic_embeddings(id),
+    parent_id UUID REFERENCES monomind.hyperbolic_embeddings(id),
     children_count INTEGER DEFAULT 0,
 
     -- Metadata
@@ -189,15 +189,15 @@ CREATE TABLE IF NOT EXISTS monobrain.hyperbolic_embeddings (
 );
 
 CREATE TRIGGER hyperbolic_embeddings_updated_at
-    BEFORE UPDATE ON monobrain.hyperbolic_embeddings
+    BEFORE UPDATE ON monomind.hyperbolic_embeddings
     FOR EACH ROW
-    EXECUTE FUNCTION monobrain.update_updated_at();
+    EXECUTE FUNCTION monomind.update_updated_at();
 
 -- ----------------------------------------------------------------------------
 -- Table: collections
 -- Manages vector collections with configuration
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS monobrain.collections (
+CREATE TABLE IF NOT EXISTS monomind.collections (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL UNIQUE,
     namespace TEXT NOT NULL DEFAULT 'default',
@@ -226,19 +226,19 @@ CREATE TABLE IF NOT EXISTS monobrain.collections (
 );
 
 CREATE TRIGGER collections_updated_at
-    BEFORE UPDATE ON monobrain.collections
+    BEFORE UPDATE ON monomind.collections
     FOR EACH ROW
-    EXECUTE FUNCTION monobrain.update_updated_at();
+    EXECUTE FUNCTION monomind.update_updated_at();
 
 -- Insert default collection
-INSERT INTO monobrain.collections (name, namespace, dimensions, metric)
+INSERT INTO monomind.collections (name, namespace, dimensions, metric)
 VALUES ('default', 'default', 1536, 'cosine')
 ON CONFLICT (name) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
 -- Record migration
 -- ----------------------------------------------------------------------------
-INSERT INTO monobrain.migrations (name, checksum)
+INSERT INTO monomind.migrations (name, checksum)
 VALUES ('002_create_vector_tables', md5('002_create_vector_tables'))
 ON CONFLICT (name) DO NOTHING;
 
@@ -248,12 +248,12 @@ COMMIT;
 -- Rollback Script
 -- ============================================================================
 -- BEGIN;
--- DROP TABLE IF EXISTS monobrain.collections CASCADE;
--- DROP TABLE IF EXISTS monobrain.hyperbolic_embeddings CASCADE;
--- DROP TABLE IF EXISTS monobrain.gnn_cache CASCADE;
--- DROP TABLE IF EXISTS monobrain.attention_cache CASCADE;
--- DROP TABLE IF EXISTS monobrain.embeddings CASCADE;
--- DROP TABLE IF EXISTS monobrain.vectors CASCADE;
--- DROP FUNCTION IF EXISTS monobrain.update_updated_at();
--- DELETE FROM monobrain.migrations WHERE name = '002_create_vector_tables';
+-- DROP TABLE IF EXISTS monomind.collections CASCADE;
+-- DROP TABLE IF EXISTS monomind.hyperbolic_embeddings CASCADE;
+-- DROP TABLE IF EXISTS monomind.gnn_cache CASCADE;
+-- DROP TABLE IF EXISTS monomind.attention_cache CASCADE;
+-- DROP TABLE IF EXISTS monomind.embeddings CASCADE;
+-- DROP TABLE IF EXISTS monomind.vectors CASCADE;
+-- DROP FUNCTION IF EXISTS monomind.update_updated_at();
+-- DELETE FROM monomind.migrations WHERE name = '002_create_vector_tables';
 -- COMMIT;
