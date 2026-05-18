@@ -941,6 +941,32 @@
       ],
       "category": "swarm",
       "primaryAgent": "architect"
+    },
+    {
+      "skill": "mastermind:monitor",
+      "invoke": "Skill(\"mastermind:monitor\")",
+      "description": "Forever-running task executor that watches Linear, GitHub, Monotask boards, and filesystem folders for new tasks, claims them, executes with the right agent, posts progress comments, and advances status at every stage. Supports per-user/per-state filtering, auto-retry (3x), 1-concurrent safe default, and ScheduleWakeup self-rescheduling.",
+      "keywords": [
+        "monitor",
+        "watch",
+        "task executor",
+        "autonomous",
+        "linear",
+        "github",
+        "monotask",
+        "filesystem",
+        "forever",
+        "loop",
+        "polling",
+        "task watcher",
+        "task doer",
+        "continuous",
+        "agent loop",
+        "claim task",
+        "auto-execute"
+      ],
+      "category": "ops",
+      "primaryAgent": "coder"
     }
   ]
 }
