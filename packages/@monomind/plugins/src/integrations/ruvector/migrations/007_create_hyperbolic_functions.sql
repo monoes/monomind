@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Migration 007: Create Hyperbolic Geometry Functions
--- RuVector PostgreSQL Bridge - Monobrain V1
+-- RuVector PostgreSQL Bridge - Monomind V1
 --
 -- Creates SQL functions for hyperbolic embeddings including Poincare ball
 -- and Lorentz model operations for hierarchical data representation.
@@ -14,7 +14,7 @@ BEGIN;
 -- ----------------------------------------------------------------------------
 
 -- Clamp value to valid Poincare ball radius (|x| < 1)
-CREATE OR REPLACE FUNCTION monobrain.clamp_to_poincare(
+CREATE OR REPLACE FUNCTION monomind.clamp_to_poincare(
     x REAL,
     epsilon REAL DEFAULT 1e-5
 ) RETURNS REAL AS $$
@@ -30,7 +30,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Clamp vector to valid Poincare ball
-CREATE OR REPLACE FUNCTION monobrain.clamp_vector_to_poincare(
+CREATE OR REPLACE FUNCTION monomind.clamp_vector_to_poincare(
     v REAL[],
     epsilon REAL DEFAULT 1e-5
 ) RETURNS REAL[] AS $$
@@ -40,7 +40,7 @@ DECLARE
     i INTEGER;
     result REAL[];
 BEGIN
-    norm := monobrain.vector_magnitude(v);
+    norm := monomind.vector_magnitude(v);
     max_norm := 1.0 - epsilon;
 
     IF norm >= max_norm THEN
@@ -56,7 +56,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Hyperbolic arctanh (inverse hyperbolic tangent)
-CREATE OR REPLACE FUNCTION monobrain.arctanh(
+CREATE OR REPLACE FUNCTION monomind.arctanh(
     x REAL
 ) RETURNS REAL AS $$
 BEGIN
@@ -67,7 +67,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Hyperbolic arcsinh (inverse hyperbolic sine)
-CREATE OR REPLACE FUNCTION monobrain.arcsinh(
+CREATE OR REPLACE FUNCTION monomind.arcsinh(
     x REAL
 ) RETURNS REAL AS $$
 BEGIN
@@ -76,7 +76,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Hyperbolic arccosh (inverse hyperbolic cosh)
-CREATE OR REPLACE FUNCTION monobrain.arccosh(
+CREATE OR REPLACE FUNCTION monomind.arccosh(
     x REAL
 ) RETURNS REAL AS $$
 BEGIN
@@ -95,7 +95,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Poincare distance between two points
 -- d(x, y) = arcosh(1 + 2 * ||x - y||^2 / ((1 - ||x||^2)(1 - ||y||^2)))
-CREATE OR REPLACE FUNCTION monobrain.poincare_distance(
+CREATE OR REPLACE FUNCTION monomind.poincare_distance(
     v1 REAL[],
     v2 REAL[],
     curvature REAL DEFAULT -1.0
@@ -129,7 +129,7 @@ BEGIN
     END IF;
 
     arg := 1.0 + numerator / denominator;
-    RETURN (1.0 / sqrt(c)) * monobrain.arccosh(arg);
+    RETURN (1.0 / sqrt(c)) * monomind.arccosh(arg);
 END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -141,7 +141,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 -- ----------------------------------------------------------------------------
 
 -- Lorentz inner product (Minkowski inner product)
-CREATE OR REPLACE FUNCTION monobrain.lorentz_inner_product(
+CREATE OR REPLACE FUNCTION monomind.lorentz_inner_product(
     v1 REAL[],
     v2 REAL[]
 ) RETURNS REAL AS $$
@@ -167,16 +167,16 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Lorentz distance
 -- d(x, y) = arccosh(-<x, y>_L)
-CREATE OR REPLACE FUNCTION monobrain.lorentz_distance(
+CREATE OR REPLACE FUNCTION monomind.lorentz_distance(
     v1 REAL[],
     v2 REAL[]
 ) RETURNS REAL AS $$
 DECLARE
     inner REAL;
 BEGIN
-    inner := monobrain.lorentz_inner_product(v1, v2);
+    inner := monomind.lorentz_inner_product(v1, v2);
     -- The inner product should be <= -1 for valid hyperboloid points
-    RETURN monobrain.arccosh(-inner);
+    RETURN monomind.arccosh(-inner);
 END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -186,7 +186,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 -- ----------------------------------------------------------------------------
 
 -- Exponential map in Poincare ball
-CREATE OR REPLACE FUNCTION monobrain.exp_map(
+CREATE OR REPLACE FUNCTION monomind.exp_map(
     base REAL[],          -- Base point on the manifold
     tangent REAL[],       -- Tangent vector at base
     curvature REAL DEFAULT -1.0
@@ -214,7 +214,7 @@ BEGIN
     lambda_x := 2.0 / (1.0 - c * base_norm_sq);
 
     -- Compute ||tangent||
-    tangent_norm := monobrain.vector_magnitude(tangent);
+    tangent_norm := monomind.vector_magnitude(tangent);
 
     IF tangent_norm < 1e-10 THEN
         RETURN base;  -- No movement
@@ -233,10 +233,10 @@ BEGIN
             scaled_tangent := array_append(scaled_tangent, coeff * tangent[i]);
         END LOOP;
 
-        result := monobrain.mobius_add(base, scaled_tangent, curvature);
+        result := monomind.mobius_add(base, scaled_tangent, curvature);
     END;
 
-    RETURN monobrain.clamp_vector_to_poincare(result);
+    RETURN monomind.clamp_vector_to_poincare(result);
 END;
 $$ LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE;
 
@@ -246,7 +246,7 @@ $$ LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE;
 -- ----------------------------------------------------------------------------
 
 -- Logarithmic map in Poincare ball
-CREATE OR REPLACE FUNCTION monobrain.log_map(
+CREATE OR REPLACE FUNCTION monomind.log_map(
     base REAL[],          -- Base point on the manifold
     point REAL[]          -- Target point on the manifold
 ) RETURNS REAL[] AS $$
@@ -277,8 +277,8 @@ BEGIN
         neg_base := array_append(neg_base, -base[i]);
     END LOOP;
 
-    mobius_result := monobrain.mobius_add(neg_base, point, -c);
-    mobius_norm := monobrain.vector_magnitude(mobius_result);
+    mobius_result := monomind.mobius_add(neg_base, point, -c);
+    mobius_norm := monomind.vector_magnitude(mobius_result);
 
     IF mobius_norm < 1e-10 THEN
         -- Points are the same, return zero tangent
@@ -291,7 +291,7 @@ BEGIN
 
     -- arctanh(sqrt(c) * ||..||) * 2 / (sqrt(c) * lambda_x)
     arctanh_arg := sqrt_c * mobius_norm;
-    coeff := (2.0 / (sqrt_c * lambda_x)) * monobrain.arctanh(arctanh_arg) / mobius_norm;
+    coeff := (2.0 / (sqrt_c * lambda_x)) * monomind.arctanh(arctanh_arg) / mobius_norm;
 
     result := ARRAY[]::REAL[];
     FOR i IN 1..array_length(mobius_result, 1) LOOP
@@ -308,7 +308,7 @@ $$ LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE;
 --           (1 + 2c<x,y> + c^2||x||^2||y||^2)
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.mobius_add(
+CREATE OR REPLACE FUNCTION monomind.mobius_add(
     v1 REAL[],
     v2 REAL[],
     curvature REAL DEFAULT -1.0
@@ -349,7 +349,7 @@ BEGIN
         );
     END LOOP;
 
-    RETURN monobrain.clamp_vector_to_poincare(result);
+    RETURN monomind.clamp_vector_to_poincare(result);
 END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -358,7 +358,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 -- r ⊗_c x = (1/sqrt(c)) * tanh(r * arctanh(sqrt(c) * ||x||)) * (x / ||x||)
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.mobius_scalar_mul(
+CREATE OR REPLACE FUNCTION monomind.mobius_scalar_mul(
     r REAL,
     v REAL[],
     curvature REAL DEFAULT -1.0
@@ -376,7 +376,7 @@ BEGIN
     c := abs(curvature);
     sqrt_c := sqrt(c);
 
-    v_norm := monobrain.vector_magnitude(v);
+    v_norm := monomind.vector_magnitude(v);
 
     IF v_norm < 1e-10 THEN
         -- Return zero vector
@@ -388,7 +388,7 @@ BEGIN
     END IF;
 
     arctanh_arg := sqrt_c * v_norm;
-    tanh_result := tanh(r * monobrain.arctanh(arctanh_arg));
+    tanh_result := tanh(r * monomind.arctanh(arctanh_arg));
     coeff := (1.0 / sqrt_c) * tanh_result / v_norm;
 
     result := ARRAY[]::REAL[];
@@ -396,7 +396,7 @@ BEGIN
         result := array_append(result, coeff * v[i]);
     END LOOP;
 
-    RETURN monobrain.clamp_vector_to_poincare(result);
+    RETURN monomind.clamp_vector_to_poincare(result);
 END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -404,7 +404,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 -- Parallel Transport (Move tangent vector from one point to another)
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.parallel_transport(
+CREATE OR REPLACE FUNCTION monomind.parallel_transport(
     v REAL[],             -- Tangent vector to transport
     from_point REAL[],    -- Source point
     to_point REAL[],      -- Destination point
@@ -450,7 +450,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 -- Einstein midpoint for two points in Poincare ball
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.hyperbolic_centroid(
+CREATE OR REPLACE FUNCTION monomind.hyperbolic_centroid(
     points REAL[][],
     curvature REAL DEFAULT -1.0,
     max_iterations INTEGER DEFAULT 100,
@@ -489,7 +489,7 @@ BEGIN
         END LOOP;
 
         FOR i IN 1..n LOOP
-            tangent := monobrain.log_map(centroid, points[i]);
+            tangent := monomind.log_map(centroid, points[i]);
             FOR j IN 1..dim LOOP
                 tangent_sum[j] := tangent_sum[j] + tangent[j];
             END LOOP;
@@ -501,10 +501,10 @@ BEGIN
         END LOOP;
 
         -- Move centroid in direction of average tangent
-        new_centroid := monobrain.exp_map(centroid, tangent_sum, curvature);
+        new_centroid := monomind.exp_map(centroid, tangent_sum, curvature);
 
         -- Check convergence
-        diff := monobrain.poincare_distance(centroid, new_centroid, curvature);
+        diff := monomind.poincare_distance(centroid, new_centroid, curvature);
         centroid := new_centroid;
 
         IF diff < tolerance THEN
@@ -520,7 +520,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- Poincare to Lorentz Conversion
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.poincare_to_lorentz(
+CREATE OR REPLACE FUNCTION monomind.poincare_to_lorentz(
     poincare REAL[],
     curvature REAL DEFAULT -1.0
 ) RETURNS REAL[] AS $$
@@ -562,7 +562,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 -- Lorentz to Poincare Conversion
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.lorentz_to_poincare(
+CREATE OR REPLACE FUNCTION monomind.lorentz_to_poincare(
     lorentz REAL[],
     curvature REAL DEFAULT -1.0
 ) RETURNS REAL[] AS $$
@@ -589,7 +589,7 @@ BEGIN
         poincare := array_append(poincare, lorentz[i] / (sqrt_c * denominator));
     END LOOP;
 
-    RETURN monobrain.clamp_vector_to_poincare(poincare);
+    RETURN monomind.clamp_vector_to_poincare(poincare);
 END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -598,7 +598,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 -- ----------------------------------------------------------------------------
 
 -- Store hyperbolic embedding
-CREATE OR REPLACE FUNCTION monobrain.store_hyperbolic_embedding(
+CREATE OR REPLACE FUNCTION monomind.store_hyperbolic_embedding(
     p_namespace TEXT,
     p_name TEXT,
     p_poincare_embedding REAL[],
@@ -612,9 +612,9 @@ DECLARE
     v_lorentz REAL[];
 BEGIN
     -- Convert to Lorentz representation
-    v_lorentz := monobrain.poincare_to_lorentz(p_poincare_embedding, p_curvature);
+    v_lorentz := monomind.poincare_to_lorentz(p_poincare_embedding, p_curvature);
 
-    INSERT INTO monobrain.hyperbolic_embeddings (
+    INSERT INTO monomind.hyperbolic_embeddings (
         namespace,
         name,
         poincare_embedding,
@@ -647,7 +647,7 @@ BEGIN
 
     -- Update parent's children count
     IF p_parent_id IS NOT NULL THEN
-        UPDATE monobrain.hyperbolic_embeddings
+        UPDATE monomind.hyperbolic_embeddings
         SET children_count = children_count + 1
         WHERE id = p_parent_id;
     END IF;
@@ -657,7 +657,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Find nearest neighbors in hyperbolic space
-CREATE OR REPLACE FUNCTION monobrain.hyperbolic_knn(
+CREATE OR REPLACE FUNCTION monomind.hyperbolic_knn(
     p_query REAL[],
     p_k INTEGER DEFAULT 10,
     p_namespace TEXT DEFAULT NULL,
@@ -674,18 +674,18 @@ BEGIN
     SELECT
         h.id,
         h.name,
-        monobrain.poincare_distance(p_query, h.poincare_embedding, p_curvature) AS distance,
+        monomind.poincare_distance(p_query, h.poincare_embedding, p_curvature) AS distance,
         h.depth,
         h.metadata
-    FROM monobrain.hyperbolic_embeddings h
+    FROM monomind.hyperbolic_embeddings h
     WHERE (p_namespace IS NULL OR h.namespace = p_namespace)
-    ORDER BY monobrain.poincare_distance(p_query, h.poincare_embedding, p_curvature)
+    ORDER BY monomind.poincare_distance(p_query, h.poincare_embedding, p_curvature)
     LIMIT p_k;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- Get subtree rooted at a node
-CREATE OR REPLACE FUNCTION monobrain.get_hyperbolic_subtree(
+CREATE OR REPLACE FUNCTION monomind.get_hyperbolic_subtree(
     p_root_id UUID,
     p_max_depth INTEGER DEFAULT 10
 ) RETURNS TABLE (
@@ -706,7 +706,7 @@ BEGIN
             0 AS level,
             h.poincare_embedding,
             h.metadata
-        FROM monobrain.hyperbolic_embeddings h
+        FROM monomind.hyperbolic_embeddings h
         WHERE h.id = p_root_id
 
         UNION ALL
@@ -718,7 +718,7 @@ BEGIN
             s.level + 1,
             c.poincare_embedding,
             c.metadata
-        FROM monobrain.hyperbolic_embeddings c
+        FROM monomind.hyperbolic_embeddings c
         JOIN subtree s ON c.parent_id = s.id
         WHERE s.level < p_max_depth
     )
@@ -729,7 +729,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- ----------------------------------------------------------------------------
 -- Record migration
 -- ----------------------------------------------------------------------------
-INSERT INTO monobrain.migrations (name, checksum)
+INSERT INTO monomind.migrations (name, checksum)
 VALUES ('007_create_hyperbolic_functions', md5('007_create_hyperbolic_functions'))
 ON CONFLICT (name) DO NOTHING;
 
@@ -739,24 +739,24 @@ COMMIT;
 -- Rollback Script
 -- ============================================================================
 -- BEGIN;
--- DROP FUNCTION IF EXISTS monobrain.get_hyperbolic_subtree(UUID, INTEGER);
--- DROP FUNCTION IF EXISTS monobrain.hyperbolic_knn(REAL[], INTEGER, TEXT, REAL);
--- DROP FUNCTION IF EXISTS monobrain.store_hyperbolic_embedding(TEXT, TEXT, REAL[], REAL, INTEGER, UUID, JSONB);
--- DROP FUNCTION IF EXISTS monobrain.lorentz_to_poincare(REAL[], REAL);
--- DROP FUNCTION IF EXISTS monobrain.poincare_to_lorentz(REAL[], REAL);
--- DROP FUNCTION IF EXISTS monobrain.hyperbolic_centroid(REAL[][], REAL, INTEGER, REAL);
--- DROP FUNCTION IF EXISTS monobrain.parallel_transport(REAL[], REAL[], REAL[], REAL);
--- DROP FUNCTION IF EXISTS monobrain.mobius_scalar_mul(REAL, REAL[], REAL);
--- DROP FUNCTION IF EXISTS monobrain.mobius_add(REAL[], REAL[], REAL);
--- DROP FUNCTION IF EXISTS monobrain.log_map(REAL[], REAL[]);
--- DROP FUNCTION IF EXISTS monobrain.exp_map(REAL[], REAL[], REAL);
--- DROP FUNCTION IF EXISTS monobrain.lorentz_distance(REAL[], REAL[]);
--- DROP FUNCTION IF EXISTS monobrain.lorentz_inner_product(REAL[], REAL[]);
--- DROP FUNCTION IF EXISTS monobrain.poincare_distance(REAL[], REAL[], REAL);
--- DROP FUNCTION IF EXISTS monobrain.arccosh(REAL);
--- DROP FUNCTION IF EXISTS monobrain.arcsinh(REAL);
--- DROP FUNCTION IF EXISTS monobrain.arctanh(REAL);
--- DROP FUNCTION IF EXISTS monobrain.clamp_vector_to_poincare(REAL[], REAL);
--- DROP FUNCTION IF EXISTS monobrain.clamp_to_poincare(REAL, REAL);
--- DELETE FROM monobrain.migrations WHERE name = '007_create_hyperbolic_functions';
+-- DROP FUNCTION IF EXISTS monomind.get_hyperbolic_subtree(UUID, INTEGER);
+-- DROP FUNCTION IF EXISTS monomind.hyperbolic_knn(REAL[], INTEGER, TEXT, REAL);
+-- DROP FUNCTION IF EXISTS monomind.store_hyperbolic_embedding(TEXT, TEXT, REAL[], REAL, INTEGER, UUID, JSONB);
+-- DROP FUNCTION IF EXISTS monomind.lorentz_to_poincare(REAL[], REAL);
+-- DROP FUNCTION IF EXISTS monomind.poincare_to_lorentz(REAL[], REAL);
+-- DROP FUNCTION IF EXISTS monomind.hyperbolic_centroid(REAL[][], REAL, INTEGER, REAL);
+-- DROP FUNCTION IF EXISTS monomind.parallel_transport(REAL[], REAL[], REAL[], REAL);
+-- DROP FUNCTION IF EXISTS monomind.mobius_scalar_mul(REAL, REAL[], REAL);
+-- DROP FUNCTION IF EXISTS monomind.mobius_add(REAL[], REAL[], REAL);
+-- DROP FUNCTION IF EXISTS monomind.log_map(REAL[], REAL[]);
+-- DROP FUNCTION IF EXISTS monomind.exp_map(REAL[], REAL[], REAL);
+-- DROP FUNCTION IF EXISTS monomind.lorentz_distance(REAL[], REAL[]);
+-- DROP FUNCTION IF EXISTS monomind.lorentz_inner_product(REAL[], REAL[]);
+-- DROP FUNCTION IF EXISTS monomind.poincare_distance(REAL[], REAL[], REAL);
+-- DROP FUNCTION IF EXISTS monomind.arccosh(REAL);
+-- DROP FUNCTION IF EXISTS monomind.arcsinh(REAL);
+-- DROP FUNCTION IF EXISTS monomind.arctanh(REAL);
+-- DROP FUNCTION IF EXISTS monomind.clamp_vector_to_poincare(REAL[], REAL);
+-- DROP FUNCTION IF EXISTS monomind.clamp_to_poincare(REAL, REAL);
+-- DELETE FROM monomind.migrations WHERE name = '007_create_hyperbolic_functions';
 -- COMMIT;

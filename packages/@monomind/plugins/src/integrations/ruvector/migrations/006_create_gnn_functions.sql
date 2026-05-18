@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Migration 006: Create Graph Neural Network Functions
--- RuVector PostgreSQL Bridge - Monobrain V1
+-- RuVector PostgreSQL Bridge - Monomind V1
 --
 -- Creates SQL functions for GNN operations including GCN, GAT, and GraphSAGE
 -- layer implementations.
@@ -13,7 +13,7 @@ BEGIN;
 -- Helper: ReLU Activation
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.relu(
+CREATE OR REPLACE FUNCTION monomind.relu(
     x REAL[]
 ) RETURNS REAL[] AS $$
 DECLARE
@@ -32,7 +32,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 -- Helper: LeakyReLU Activation
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.leaky_relu(
+CREATE OR REPLACE FUNCTION monomind.leaky_relu(
     x REAL[],
     negative_slope REAL DEFAULT 0.2
 ) RETURNS REAL[] AS $$
@@ -56,7 +56,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 -- Helper: Matrix-Vector Multiplication
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.matmul(
+CREATE OR REPLACE FUNCTION monomind.matmul(
     matrix REAL[][],
     vec REAL[]
 ) RETURNS REAL[] AS $$
@@ -94,7 +94,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 -- Simplified: H' = σ(Σ_j (1/sqrt(d_i * d_j)) * h_j * W)
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.gcn_layer(
+CREATE OR REPLACE FUNCTION monomind.gcn_layer(
     nodes REAL[][],       -- Node feature matrix [num_nodes, in_features]
     edges INTEGER[][],    -- Edge list [[src, dst], ...] (0-indexed)
     weights REAL[][]      -- Weight matrix [in_features, out_features]
@@ -176,8 +176,8 @@ BEGIN
         DECLARE
             node_output REAL[];
         BEGIN
-            node_output := monobrain.matmul(weights, aggregated[i]);
-            node_output := monobrain.relu(node_output);
+            node_output := monomind.matmul(weights, aggregated[i]);
+            node_output := monomind.relu(node_output);
             transformed := array_cat(transformed, ARRAY[node_output]);
         END;
     END LOOP;
@@ -194,7 +194,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- H' = σ(Σ_j α_ij * W * h_j)
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.gat_layer(
+CREATE OR REPLACE FUNCTION monomind.gat_layer(
     nodes REAL[][],         -- Node feature matrix [num_nodes, in_features]
     edges INTEGER[][],      -- Edge list [[src, dst], ...] (0-indexed)
     num_heads INTEGER DEFAULT 4,
@@ -275,8 +275,8 @@ BEGIN
                     END LOOP;
 
                     -- Apply LeakyReLU and softmax
-                    attention_scores := monobrain.leaky_relu(attention_scores, 0.2);
-                    attention_weights := monobrain.softmax(attention_scores);
+                    attention_scores := monomind.leaky_relu(attention_scores, 0.2);
+                    attention_weights := monomind.softmax(attention_scores);
 
                     -- Store attention for debugging
                     all_attention := array_cat(all_attention, ARRAY[attention_weights]);
@@ -296,7 +296,7 @@ BEGIN
                     END LOOP;
 
                     -- Apply activation
-                    weighted_sum := monobrain.relu(weighted_sum);
+                    weighted_sum := monomind.relu(weighted_sum);
                     head_result := array_cat(head_result, ARRAY[weighted_sum]);
                 END LOOP;
 
@@ -332,7 +332,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- Aggregation: mean, max, or LSTM
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.graph_sage(
+CREATE OR REPLACE FUNCTION monomind.graph_sage(
     nodes REAL[][],           -- Node feature matrix [num_nodes, in_features]
     edges INTEGER[][],        -- Edge list [[src, dst], ...] (0-indexed)
     aggregation TEXT DEFAULT 'mean'  -- Aggregation: mean, max, pool
@@ -465,9 +465,9 @@ BEGIN
             -- Concatenate: [self || aggregated]
             concat_features := nodes[i] || aggregated[i];
             -- Apply ReLU activation
-            concat_features := monobrain.relu(concat_features);
+            concat_features := monomind.relu(concat_features);
             -- Normalize
-            concat_features := monobrain.l2_normalize(concat_features);
+            concat_features := monomind.l2_normalize(concat_features);
             final_output := array_cat(final_output, ARRAY[concat_features]);
         END;
     END LOOP;
@@ -482,7 +482,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- Message Passing Neural Network (MPNN) - Generic Framework
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.mpnn_layer(
+CREATE OR REPLACE FUNCTION monomind.mpnn_layer(
     nodes REAL[][],           -- Node features
     edges INTEGER[][],        -- Edge list
     edge_features REAL[][] DEFAULT NULL,  -- Optional edge features
@@ -592,7 +592,7 @@ BEGIN
         FOR j IN 1..in_features LOOP
             aggregated[i][j] := aggregated[i][j] + nodes[i][j];
         END LOOP;
-        aggregated[i] := monobrain.relu(aggregated[i]);
+        aggregated[i] := monomind.relu(aggregated[i]);
     END LOOP;
 
     RETURN aggregated;
@@ -604,7 +604,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- ----------------------------------------------------------------------------
 
 -- Cache GNN layer output
-CREATE OR REPLACE FUNCTION monobrain.cache_gnn_result(
+CREATE OR REPLACE FUNCTION monomind.cache_gnn_result(
     p_graph_hash TEXT,
     p_layer_type TEXT,
     p_layer_index INTEGER,
@@ -623,7 +623,7 @@ DECLARE
 BEGIN
     v_cache_key := md5(p_graph_hash || p_layer_type || p_layer_index::TEXT);
 
-    INSERT INTO monobrain.gnn_cache (
+    INSERT INTO monomind.gnn_cache (
         cache_key,
         graph_hash,
         layer_type,
@@ -652,7 +652,7 @@ BEGIN
     )
     ON CONFLICT (cache_key) DO UPDATE
     SET node_embeddings = EXCLUDED.node_embeddings,
-        hit_count = monobrain.gnn_cache.hit_count + 1,
+        hit_count = monomind.gnn_cache.hit_count + 1,
         last_accessed_at = NOW(),
         expires_at = EXCLUDED.expires_at
     RETURNING id INTO v_id;
@@ -662,7 +662,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Retrieve cached GNN result
-CREATE OR REPLACE FUNCTION monobrain.get_cached_gnn(
+CREATE OR REPLACE FUNCTION monomind.get_cached_gnn(
     p_graph_hash TEXT,
     p_layer_type TEXT,
     p_layer_index INTEGER
@@ -679,12 +679,12 @@ BEGIN
 
     SELECT gc.node_embeddings, gc.output_dim
     INTO v_record
-    FROM monobrain.gnn_cache gc
+    FROM monomind.gnn_cache gc
     WHERE gc.cache_key = v_cache_key
       AND (gc.expires_at IS NULL OR gc.expires_at > NOW());
 
     IF FOUND THEN
-        UPDATE monobrain.gnn_cache
+        UPDATE monomind.gnn_cache
         SET hit_count = hit_count + 1,
             last_accessed_at = NOW()
         WHERE cache_key = v_cache_key;
@@ -705,7 +705,7 @@ $$ LANGUAGE plpgsql;
 -- ----------------------------------------------------------------------------
 -- Record migration
 -- ----------------------------------------------------------------------------
-INSERT INTO monobrain.migrations (name, checksum)
+INSERT INTO monomind.migrations (name, checksum)
 VALUES ('006_create_gnn_functions', md5('006_create_gnn_functions'))
 ON CONFLICT (name) DO NOTHING;
 
@@ -715,14 +715,14 @@ COMMIT;
 -- Rollback Script
 -- ============================================================================
 -- BEGIN;
--- DROP FUNCTION IF EXISTS monobrain.get_cached_gnn(TEXT, TEXT, INTEGER);
--- DROP FUNCTION IF EXISTS monobrain.cache_gnn_result(TEXT, TEXT, INTEGER, INTEGER, INTEGER, INTEGER, REAL[], INTEGER, TEXT, INTEGER, INTEGER);
--- DROP FUNCTION IF EXISTS monobrain.mpnn_layer(REAL[][], INTEGER[][], REAL[][], TEXT, TEXT);
--- DROP FUNCTION IF EXISTS monobrain.graph_sage(REAL[][], INTEGER[][], TEXT);
--- DROP FUNCTION IF EXISTS monobrain.gat_layer(REAL[][], INTEGER[][], INTEGER, INTEGER);
--- DROP FUNCTION IF EXISTS monobrain.gcn_layer(REAL[][], INTEGER[][], REAL[][]);
--- DROP FUNCTION IF EXISTS monobrain.matmul(REAL[][], REAL[]);
--- DROP FUNCTION IF EXISTS monobrain.leaky_relu(REAL[], REAL);
--- DROP FUNCTION IF EXISTS monobrain.relu(REAL[]);
--- DELETE FROM monobrain.migrations WHERE name = '006_create_gnn_functions';
+-- DROP FUNCTION IF EXISTS monomind.get_cached_gnn(TEXT, TEXT, INTEGER);
+-- DROP FUNCTION IF EXISTS monomind.cache_gnn_result(TEXT, TEXT, INTEGER, INTEGER, INTEGER, INTEGER, REAL[], INTEGER, TEXT, INTEGER, INTEGER);
+-- DROP FUNCTION IF EXISTS monomind.mpnn_layer(REAL[][], INTEGER[][], REAL[][], TEXT, TEXT);
+-- DROP FUNCTION IF EXISTS monomind.graph_sage(REAL[][], INTEGER[][], TEXT);
+-- DROP FUNCTION IF EXISTS monomind.gat_layer(REAL[][], INTEGER[][], INTEGER, INTEGER);
+-- DROP FUNCTION IF EXISTS monomind.gcn_layer(REAL[][], INTEGER[][], REAL[][]);
+-- DROP FUNCTION IF EXISTS monomind.matmul(REAL[][], REAL[]);
+-- DROP FUNCTION IF EXISTS monomind.leaky_relu(REAL[], REAL);
+-- DROP FUNCTION IF EXISTS monomind.relu(REAL[]);
+-- DELETE FROM monomind.migrations WHERE name = '006_create_gnn_functions';
 -- COMMIT;
