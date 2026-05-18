@@ -77,6 +77,8 @@ const commandLoaders: Record<string, CommandLoader> = {
   tokens: () => import('./tokens.js'),
   monograph: () => import('./monograph.js'),
   replay: () => import('./replay.js'),
+  // Native browser automation (TypeScript CDP client)
+  browse: () => import('./browse.js'),
 };
 
 // Cache for loaded commands

@@ -1,17 +1,17 @@
 
 !/memory/agents/README.md
 !/memory/sessions/README.md
-!bin/monobrain
-!packages/@monobrain/
+!bin/monomind
+!packages/@monomind/
 # Binaries
 # Build outputs
 
-# monobrain specific
+# monomind specific
 # Dependencies
 # Development
 # Dot folders to ignore (except .claude, .claude-plugin, .git, .github, .githooks)
 # Environment
-# Exclude @monobrain module directories from ignore patterns
+# Exclude @monomind module directories from ignore patterns
 # IDE
 # Logs
 # MCP/Swarm
@@ -50,13 +50,13 @@
 *.tmp
 *.tsbuildinfo
 *~
-.monobrain/
+.monomind/
 ./claude/checkpoints/
 .DS_Store
 .Python
 .agentic-flow/
 .cache/
-.monobrain/
+.monomind/
 .claude/settings.local.json
 .deno/
 .env
@@ -80,18 +80,18 @@
 /coordination/
 /memory/
 /memory/agents/*
-/memory/monobrain-data.json
+/memory/monomind-data.json
 /memory/sessions/*
 Thumbs.db
 __pycache__/
 analyzing
 api-project/
-bin/monobrain-*
+bin/monomind-*
 build/
-monobrain
-monobrain-mcp-wrapper
-monobrain.config.json
-monobrain.db
+monomind
+monomind-mcp-wrapper
+monomind.config.json
+monomind.db
 coordination/memory_bank/*
 coordination/orchestration/*
 coordination/subtasks/*
@@ -124,16 +124,16 @@ ui_*.log
 yarn-debug.log*
 yarn-error.log*
 
-# monobrain generated files
+# monomind generated files
 .claude/settings.local.json
 .mcp.json
-monobrain.config.json
+monomind.config.json
 .swarm/
 .hive-mind/
-.monobrain/
+.monomind/
 /memory/
 /coordination/
-/memory/monobrain-data.json
+/memory/monomind-data.json
 /memory/sessions/*
 !/memory/sessions/README.md
 /memory/agents/*
@@ -147,7 +147,7 @@ monobrain.config.json
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
-monobrain
+monomind
 docs/*.md
 docs/adr/
 docs/superpowers/
@@ -157,9 +157,17 @@ hive-mind-prompt-*.txt
 # Codex local configuration
 .codex/
 
-# monobrain runtime data
-.monobrain/data/
-.monobrain/logs/
+# monomind runtime data — never commit, contain machine-specific paths
+.monomind/
+**/.monomind/
+.claude-flow/
+**/.claude-flow/
+data/mastermind-*.json
+data/mastermind-*.jsonl
+data/known-projects.json
+data/memory.db
+data/memory.graph
+data/sessions/
 
 # Environment variables
 .env
