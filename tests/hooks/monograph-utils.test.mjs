@@ -44,13 +44,12 @@ describe('monograph._openMonographDb', () => {
     expect(db).toBeNull();
   });
 
-  it('caches null result: second call returns null and does not create a db file', () => {
+  it('second call also returns null and produces no db file (safe-default verification)', () => {
     const mg = loadMonograph(tmpDir);
     const db1 = mg._openMonographDb();
     const db2 = mg._openMonographDb();
     expect(db1).toBeNull();
     expect(db2).toBeNull();
-    // The db path must still not exist — caching means no side-effect on second call
     expect(fs.existsSync(path.join(tmpDir, '.monomind', 'monograph.db'))).toBe(false);
   });
 });
