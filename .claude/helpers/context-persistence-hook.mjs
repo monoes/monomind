@@ -942,7 +942,7 @@ function chunkTranscript(messages) {
     if (msg.role === 'user') {
       const isSynthetic = Array.isArray(msg.content) &&
         msg.content.every(b => b.type === 'tool_result');
-      if (isSynthetic && currentChunk) continue;
+      if (isSynthetic) continue;
       if (currentChunk) chunks.push(currentChunk);
       currentChunk = {
         userMessage: msg,
