@@ -44,12 +44,14 @@ describe('monograph._openMonographDb', () => {
     expect(db).toBeNull();
   });
 
-  it('caches null result: second call returns same null without re-checking', () => {
+  it('caches null result: second call returns null and does not create a db file', () => {
     const mg = loadMonograph(tmpDir);
     const db1 = mg._openMonographDb();
     const db2 = mg._openMonographDb();
     expect(db1).toBeNull();
     expect(db2).toBeNull();
+    // The db path must still not exist — caching means no side-effect on second call
+    expect(fs.existsSync(path.join(tmpDir, '.monomind', 'monograph.db'))).toBe(false);
   });
 });
 
@@ -67,8 +69,9 @@ describe('monograph.getMonographSuggestions', () => {
     expect(mg.getMonographSuggestions('implement authentication module', 5)).toEqual([]);
   });
 
-  it('returns [] for single-word non-symbol task (requires >= 2 keywords)', () => {
+  it('returns [] when no monograph.db exists (single-word path also returns [])', () => {
     const mg = loadMonograph(tmpDir);
+    // Returns [] due to missing DB — the 2-keyword guard is a DB-dependent check
     expect(mg.getMonographSuggestions('hello', 5)).toEqual([]);
   });
 });
@@ -187,7 +190,12 @@ describe('monograph._findAffectedTests', () => {
 describe('monograph.injectGodNodesContext', () => {
   it('does nothing when no monograph.db file exists', () => {
     const mg = loadMonograph(tmpDir);
-    // Should not throw even with no db
     expect(() => mg.injectGodNodesContext(tmpDir)).not.toThrow();
+  });
+
+  it('does not create knowledge/chunks.jsonl when no monograph.db exists', () => {
+    const mg = loadMonograph(tmpDir);
+    mg.injectGodNodesContext(tmpDir);
+    expect(fs.existsSync(path.join(tmpDir, 'knowledge', 'chunks.jsonl'))).toBe(false);
   });
 });
