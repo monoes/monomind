@@ -1,4 +1,4 @@
-# Monobrain Deep Regression Test Suite
+# Monomind Deep Regression Test Suite
 # Makefile for easy test execution
 
 .PHONY: all build test clean unit integration security benchmark help
@@ -84,7 +84,7 @@ logs:
 
 # Help
 help:
-	@echo "Monobrain Deep Regression Test Suite"
+	@echo "Monomind Deep Regression Test Suite"
 	@echo ""
 	@echo "Usage: make [target]"
 	@echo ""

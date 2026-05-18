@@ -698,8 +698,21 @@ async function main() {
     tx();
     // Rebuild FTS so summaries are immediately searchable
     try { db.prepare(`INSERT INTO nodes_fts(nodes_fts) VALUES('rebuild')`).run(); } catch {}
-    mg.closeDb(db);
+
+    // Validate write-back: count nodes that now have a readable summary in properties
+    let enrichedCount = 0;
+    try {
+      const row = db.prepare(
+        `SELECT COUNT(*) AS c FROM nodes WHERE json_extract(properties, '$.summary') IS NOT NULL AND length(json_extract(properties, '$.summary')) > 5`
+      ).get();
+      enrichedCount = row ? row.c : 0;
+    } catch (_) {}
     console.log(`[understand] Imported ${written} analyses from stdin. FTS rebuilt.`);
+    console.log(`[understand] Validation: ${enrichedCount} node(s) now have LLM summaries readable via json_extract.`);
+    if (written > 0 && enrichedCount < written) {
+      console.warn(`[understand] WARNING: only ${enrichedCount} of ${written} imported analyses are queryable. Some properties may not have committed — check if properties column is TEXT.`);
+    }
+    mg.closeDb(db);
     return;
   }
 

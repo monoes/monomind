@@ -1,5 +1,5 @@
-# Monobrain V1 Master Helper (Windows PowerShell)
-# Cross-platform development automation for monobrain v1
+# Monomind V1 Master Helper (Windows PowerShell)
+# Cross-platform development automation for monomind v1
 
 param(
     [Parameter(Position=0)]
@@ -20,8 +20,8 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
 $ClaudeDir = Join-Path $ProjectRoot ".claude"
 $HelpersDir = Join-Path $ClaudeDir "helpers"
-$MetricsDir = Join-Path $ProjectRoot ".monobrain\metrics"
-$SecurityDir = Join-Path $ProjectRoot ".monobrain\security"
+$MetricsDir = Join-Path $ProjectRoot ".monomind\metrics"
+$SecurityDir = Join-Path $ProjectRoot ".monomind\security"
 
 # Color functions for PowerShell
 function Write-ColoredOutput {
@@ -61,7 +61,7 @@ function Setup-Directories {
 
 # Initialize V1 project
 function Initialize-V1Project {
-    Log-Header "🚀 Initializing Monobrain V1 Project"
+    Log-Header "🚀 Initializing Monomind V1 Project"
 
     Setup-Directories
 
@@ -85,13 +85,13 @@ function Initialize-V1Project {
             Log-Success "V1 project initialized successfully"
             Log-Info "Platform: Windows (PowerShell $($PSVersionTable.PSVersion))"
             Log-Info "Project root: $ProjectRoot"
-            Log-Info "Run 'monobrain-v1.ps1 status' to see current progress"
+            Log-Info "Run 'monomind-v1.ps1 status' to see current progress"
         } else {
             Log-Warning "Validator not found, but basic setup complete"
         }
     }
     catch {
-        Log-Error "Initialization completed with warnings. Run 'monobrain-v1.ps1 validate' for details"
+        Log-Error "Initialization completed with warnings. Run 'monomind-v1.ps1 validate' for details"
     }
 }
 
@@ -163,7 +163,7 @@ function Show-Status {
     if (Test-Path $statusScript) {
         & $statusScript
     } else {
-        Log-Info "Status display not available. Run 'monobrain-v1.ps1 init' to set up helpers."
+        Log-Info "Status display not available. Run 'monomind-v1.ps1 init' to set up helpers."
     }
 }
 
@@ -181,7 +181,7 @@ function Update-Progress {
     if (Test-Path $progressScript) {
         & $progressScript $Metric $Value
     } else {
-        Log-Error "Progress manager not available. Run 'monobrain-v1.ps1 init' first."
+        Log-Error "Progress manager not available. Run 'monomind-v1.ps1 init' first."
         exit 1
     }
 }
@@ -192,7 +192,7 @@ function Validate-Config {
     if (Test-Path $validatorScript) {
         & $validatorScript
     } else {
-        Log-Error "Config validator not available. Run 'monobrain-v1.ps1 init' first."
+        Log-Error "Config validator not available. Run 'monomind-v1.ps1 init' first."
         exit 1
     }
 }
@@ -288,10 +288,10 @@ switch ($Command.ToLower()) {
 
     { $_ -in @("help", "--help", "-h", "") } {
         Write-Host @"
-Monobrain V1 Master Helper (Windows PowerShell)
+Monomind V1 Master Helper (Windows PowerShell)
 ================================================
 
-Usage: .\monobrain-v1.ps1 <command> [options]
+Usage: .\monomind-v1.ps1 <command> [options]
 
 Core Commands:
   init                     Initialize V1 project with helpers
@@ -311,12 +311,12 @@ Utility Commands:
   help                     Show this help message
 
 Examples:
-  .\monobrain-v1.ps1 init                  # Set up V1 project
-  .\monobrain-v1.ps1 status                # Show current progress
-  .\monobrain-v1.ps1 update domain 3       # Mark 3 domains complete
-  .\monobrain-v1.ps1 update agent 8        # Set 8 agents active
-  .\monobrain-v1.ps1 checkpoint "Feature complete"
-  .\monobrain-v1.ps1 github status         # GitHub integration status
+  .\monomind-v1.ps1 init                  # Set up V1 project
+  .\monomind-v1.ps1 status                # Show current progress
+  .\monomind-v1.ps1 update domain 3       # Mark 3 domains complete
+  .\monomind-v1.ps1 update agent 8        # Set 8 agents active
+  .\monomind-v1.ps1 checkpoint "Feature complete"
+  .\monomind-v1.ps1 github status         # GitHub integration status
 
 Platform: Windows (PowerShell $($PSVersionTable.PSVersion))
 Claude Directory: $ClaudeDir
@@ -328,7 +328,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
     default {
         Log-Error "Unknown command: $Command"
-        Log-Info "Run '.\monobrain-v1.ps1 help' for usage information"
+        Log-Info "Run '.\monomind-v1.ps1 help' for usage information"
         exit 1
     }
 }

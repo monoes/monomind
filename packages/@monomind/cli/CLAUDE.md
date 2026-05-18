@@ -4,6 +4,7 @@
 
 - For ANY web animation, motion graphics, or animation request: ALWAYS invoke `Skill("monomotion")` FIRST — no exceptions.
 - For ANY UI testing, browser automation, or web navigation request: ALWAYS invoke `Skill("agent-browser-testing")` FIRST — no exceptions.
+- NEVER use `mcp__claude-in-chrome__*`, `mcp__plugin_playwright__*`, `mcp__playwright__*`, Playwright, Puppeteer, Selenium, or any external browser tool. ALWAYS use `npx monomind browse`. This rule has no exceptions.
 
 ## 🚨 AUTOMATIC SWARM ORCHESTRATION
 

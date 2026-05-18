@@ -37,7 +37,7 @@ function requireBetterSqlite() {
     try { if (existsSync(c)) return require(c); } catch {}
   }
   try { return require('@monoes/monograph'); } catch {}
-  throw new Error('Cannot find @monoes/monograph — run pnpm install from the monobrain root');
+  throw new Error('Cannot find @monoes/monograph — run pnpm install from the monomind root');
 }
 
 // ── CLI args ────────────────────────────────────────────────────────────────

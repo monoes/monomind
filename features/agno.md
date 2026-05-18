@@ -18,7 +18,7 @@ Agno's `AgentMemory` separates three distinct concerns:
 - **Agent memories**: What the agent has learned about its own performance and capabilities  
 - **Run memories**: Context from the current execution
 
-Monomind's AgentDB implements this three-way separation via memory namespaces. The `auto-memory` system (writing to `/Users/morteza/.claude/projects/.../memory/`) stores user-level facts, while agent-level patterns go to the `patterns` namespace and run-level context is held in the session's active working set.
+Monomind's AgentDB implements this three-way separation via memory namespaces. The `auto-memory` system (writing to `~/.claude/projects/<project-hash>/memory/`) stores user-level facts, while agent-level patterns go to the `patterns` namespace and run-level context is held in the session's active working set.
 
 ### 2. Team-Level Agent Coordination Class
 Agno's `Team` class manages a group of agents with a shared task context, distributing work and synthesizing results. Monomind's swarm coordination — particularly the `hierarchical-coordinator` agent type and the `swarm_init` + `agent_spawn` MCP tools — maps directly onto this pattern. The Team Lead (main Claude instance) maintains the shared task context while teammates work in parallel.
@@ -30,6 +30,6 @@ Agno's clean separation of user / agent / run memories is what led Monomind to u
 ## Key Files Influenced
 
 - `packages/@monomind/memory/` — AgentDB namespace model
-- `/Users/morteza/.claude/projects/.../memory/` — auto-memory user facts
+- `~/.claude/projects/<project-hash>/memory/` — auto-memory user facts
 - `packages/@monomind/cli/src/swarm/` — Team-level coordination
 - `hook-handler.cjs` `post-task` — agent memory storage

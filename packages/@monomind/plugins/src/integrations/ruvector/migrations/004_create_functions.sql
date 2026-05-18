@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Migration 004: Create Helper Functions
--- RuVector PostgreSQL Bridge - Monobrain V1
+-- RuVector PostgreSQL Bridge - Monomind V1
 --
 -- Creates helper functions for vector operations, distance calculations,
 -- batch inserts, and upserts.
@@ -14,7 +14,7 @@ BEGIN;
 -- ----------------------------------------------------------------------------
 
 -- Cosine distance (returns distance, not similarity)
-CREATE OR REPLACE FUNCTION monobrain.cosine_distance(
+CREATE OR REPLACE FUNCTION monomind.cosine_distance(
     v1 vector,
     v2 vector
 ) RETURNS REAL AS $$
@@ -24,7 +24,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Cosine similarity (1 - distance)
-CREATE OR REPLACE FUNCTION monobrain.cosine_similarity(
+CREATE OR REPLACE FUNCTION monomind.cosine_similarity(
     v1 vector,
     v2 vector
 ) RETURNS REAL AS $$
@@ -34,7 +34,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Euclidean distance (L2)
-CREATE OR REPLACE FUNCTION monobrain.euclidean_distance(
+CREATE OR REPLACE FUNCTION monomind.euclidean_distance(
     v1 vector,
     v2 vector
 ) RETURNS REAL AS $$
@@ -44,7 +44,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Inner product (dot product)
-CREATE OR REPLACE FUNCTION monobrain.inner_product(
+CREATE OR REPLACE FUNCTION monomind.inner_product(
     v1 vector,
     v2 vector
 ) RETURNS REAL AS $$
@@ -54,7 +54,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Manhattan distance (L1)
-CREATE OR REPLACE FUNCTION monobrain.manhattan_distance(
+CREATE OR REPLACE FUNCTION monomind.manhattan_distance(
     v1 REAL[],
     v2 REAL[]
 ) RETURNS REAL AS $$
@@ -75,7 +75,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Chebyshev distance (L-infinity)
-CREATE OR REPLACE FUNCTION monobrain.chebyshev_distance(
+CREATE OR REPLACE FUNCTION monomind.chebyshev_distance(
     v1 REAL[],
     v2 REAL[]
 ) RETURNS REAL AS $$
@@ -100,7 +100,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Minkowski distance (generalized)
-CREATE OR REPLACE FUNCTION monobrain.minkowski_distance(
+CREATE OR REPLACE FUNCTION monomind.minkowski_distance(
     v1 REAL[],
     v2 REAL[],
     p REAL DEFAULT 2.0
@@ -130,7 +130,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 -- ----------------------------------------------------------------------------
 
 -- L2 normalize a vector
-CREATE OR REPLACE FUNCTION monobrain.l2_normalize(
+CREATE OR REPLACE FUNCTION monomind.l2_normalize(
     v REAL[]
 ) RETURNS REAL[] AS $$
 DECLARE
@@ -158,7 +158,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Get vector magnitude (L2 norm)
-CREATE OR REPLACE FUNCTION monobrain.vector_magnitude(
+CREATE OR REPLACE FUNCTION monomind.vector_magnitude(
     v REAL[]
 ) RETURNS REAL AS $$
 DECLARE
@@ -178,7 +178,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 -- ----------------------------------------------------------------------------
 
 -- Add two vectors
-CREATE OR REPLACE FUNCTION monobrain.vector_add(
+CREATE OR REPLACE FUNCTION monomind.vector_add(
     v1 REAL[],
     v2 REAL[]
 ) RETURNS REAL[] AS $$
@@ -200,7 +200,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Subtract two vectors
-CREATE OR REPLACE FUNCTION monobrain.vector_subtract(
+CREATE OR REPLACE FUNCTION monomind.vector_subtract(
     v1 REAL[],
     v2 REAL[]
 ) RETURNS REAL[] AS $$
@@ -222,7 +222,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Scale a vector
-CREATE OR REPLACE FUNCTION monobrain.vector_scale(
+CREATE OR REPLACE FUNCTION monomind.vector_scale(
     v REAL[],
     scalar REAL
 ) RETURNS REAL[] AS $$
@@ -240,7 +240,7 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 -- Dot product of two vectors (as arrays)
-CREATE OR REPLACE FUNCTION monobrain.dot_product(
+CREATE OR REPLACE FUNCTION monomind.dot_product(
     v1 REAL[],
     v2 REAL[]
 ) RETURNS REAL AS $$
@@ -265,7 +265,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 -- ----------------------------------------------------------------------------
 
 -- Batch insert vectors with automatic deduplication
-CREATE OR REPLACE FUNCTION monobrain.batch_insert_vectors(
+CREATE OR REPLACE FUNCTION monomind.batch_insert_vectors(
     p_vectors JSONB  -- Array of {embedding, metadata, namespace, collection, content, source}
 ) RETURNS TABLE (
     id UUID,
@@ -285,7 +285,7 @@ BEGIN
             v_hash := md5(v_record->>'embedding');
 
             -- Try to insert
-            INSERT INTO monobrain.vectors (
+            INSERT INTO monomind.vectors (
                 embedding,
                 metadata,
                 namespace,
@@ -312,7 +312,7 @@ BEGIN
             ELSE
                 -- Get existing ID
                 SELECT vectors.id INTO v_id
-                FROM monobrain.vectors
+                FROM monomind.vectors
                 WHERE vectors.namespace = COALESCE(v_record->>'namespace', 'default')
                   AND vectors.collection = COALESCE(v_record->>'collection', 'default')
                   AND vectors.hash = v_hash;
@@ -339,7 +339,7 @@ $$ LANGUAGE plpgsql;
 -- ----------------------------------------------------------------------------
 
 -- Upsert a single vector
-CREATE OR REPLACE FUNCTION monobrain.upsert_vector(
+CREATE OR REPLACE FUNCTION monomind.upsert_vector(
     p_embedding vector,
     p_metadata JSONB DEFAULT '{}',
     p_namespace TEXT DEFAULT 'default',
@@ -357,7 +357,7 @@ BEGIN
 
     IF p_id IS NOT NULL THEN
         -- Update by ID
-        UPDATE monobrain.vectors
+        UPDATE monomind.vectors
         SET embedding = p_embedding,
             metadata = p_metadata,
             content = p_content,
@@ -369,20 +369,20 @@ BEGIN
 
         IF v_id IS NULL THEN
             -- ID not found, insert new
-            INSERT INTO monobrain.vectors (id, embedding, metadata, namespace, collection, content, source, hash)
+            INSERT INTO monomind.vectors (id, embedding, metadata, namespace, collection, content, source, hash)
             VALUES (p_id, p_embedding, p_metadata, p_namespace, p_collection, p_content, p_source, v_hash)
             RETURNING id INTO v_id;
         END IF;
     ELSE
         -- Upsert by hash
-        INSERT INTO monobrain.vectors (embedding, metadata, namespace, collection, content, source, hash)
+        INSERT INTO monomind.vectors (embedding, metadata, namespace, collection, content, source, hash)
         VALUES (p_embedding, p_metadata, p_namespace, p_collection, p_content, p_source, v_hash)
         ON CONFLICT (namespace, collection, hash) DO UPDATE
         SET embedding = EXCLUDED.embedding,
             metadata = EXCLUDED.metadata,
             content = EXCLUDED.content,
             source = EXCLUDED.source,
-            version = monobrain.vectors.version + 1
+            version = monomind.vectors.version + 1
         RETURNING id INTO v_id;
     END IF;
 
@@ -391,7 +391,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Upsert embedding by namespace and name
-CREATE OR REPLACE FUNCTION monobrain.upsert_embedding(
+CREATE OR REPLACE FUNCTION monomind.upsert_embedding(
     p_namespace TEXT,
     p_name TEXT,
     p_embedding vector,
@@ -403,7 +403,7 @@ CREATE OR REPLACE FUNCTION monobrain.upsert_embedding(
 DECLARE
     v_id UUID;
 BEGIN
-    INSERT INTO monobrain.embeddings (namespace, name, embedding, dimensions, metadata, model, tags, importance)
+    INSERT INTO monomind.embeddings (namespace, name, embedding, dimensions, metadata, model, tags, importance)
     VALUES (p_namespace, p_name, p_embedding, array_length((p_embedding::real[]), 1), p_metadata, p_model, p_tags, p_importance)
     ON CONFLICT (namespace, name) DO UPDATE
     SET embedding = EXCLUDED.embedding,
@@ -423,7 +423,7 @@ $$ LANGUAGE plpgsql;
 -- ----------------------------------------------------------------------------
 
 -- K-nearest neighbors search with filters
-CREATE OR REPLACE FUNCTION monobrain.knn_search(
+CREATE OR REPLACE FUNCTION monomind.knn_search(
     p_query vector,
     p_k INTEGER DEFAULT 10,
     p_namespace TEXT DEFAULT NULL,
@@ -458,7 +458,7 @@ BEGIN
             WHEN 'dot' THEN -(v.embedding <#> p_query)
             ELSE 1.0 - (v.embedding <=> p_query)
         END AS similarity
-    FROM monobrain.vectors v
+    FROM monomind.vectors v
     WHERE (p_namespace IS NULL OR v.namespace = p_namespace)
       AND (p_collection IS NULL OR v.collection = p_collection)
       AND (p_metadata_filter IS NULL OR v.metadata @> p_metadata_filter)
@@ -486,12 +486,12 @@ $$ LANGUAGE plpgsql STABLE;
 -- ----------------------------------------------------------------------------
 
 -- Delete expired vectors
-CREATE OR REPLACE FUNCTION monobrain.cleanup_expired_vectors()
+CREATE OR REPLACE FUNCTION monomind.cleanup_expired_vectors()
 RETURNS INTEGER AS $$
 DECLARE
     deleted_count INTEGER;
 BEGIN
-    DELETE FROM monobrain.vectors
+    DELETE FROM monomind.vectors
     WHERE expires_at IS NOT NULL AND expires_at < NOW();
 
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
@@ -500,7 +500,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Cleanup old cache entries
-CREATE OR REPLACE FUNCTION monobrain.cleanup_caches(
+CREATE OR REPLACE FUNCTION monomind.cleanup_caches(
     p_max_age_hours INTEGER DEFAULT 24
 ) RETURNS TABLE (
     attention_deleted INTEGER,
@@ -511,13 +511,13 @@ DECLARE
     v_gnn_deleted INTEGER;
 BEGIN
     -- Cleanup attention cache
-    DELETE FROM monobrain.attention_cache
+    DELETE FROM monomind.attention_cache
     WHERE (expires_at IS NOT NULL AND expires_at < NOW())
        OR (last_accessed_at < NOW() - (p_max_age_hours || ' hours')::INTERVAL);
     GET DIAGNOSTICS v_attention_deleted = ROW_COUNT;
 
     -- Cleanup GNN cache
-    DELETE FROM monobrain.gnn_cache
+    DELETE FROM monomind.gnn_cache
     WHERE (expires_at IS NOT NULL AND expires_at < NOW())
        OR (last_accessed_at < NOW() - (p_max_age_hours || ' hours')::INTERVAL);
     GET DIAGNOSTICS v_gnn_deleted = ROW_COUNT;
@@ -533,7 +533,7 @@ $$ LANGUAGE plpgsql;
 -- ----------------------------------------------------------------------------
 
 -- Get collection statistics
-CREATE OR REPLACE FUNCTION monobrain.get_collection_stats(
+CREATE OR REPLACE FUNCTION monomind.get_collection_stats(
     p_collection_name TEXT DEFAULT NULL
 ) RETURNS TABLE (
     collection_name TEXT,
@@ -551,11 +551,11 @@ BEGIN
         c.namespace,
         COUNT(v.id) AS vector_count,
         AVG(array_length((v.embedding::real[]), 1))::REAL AS avg_embedding_size,
-        (pg_total_relation_size('monobrain.vectors') / 1024.0 / 1024.0)::REAL AS total_size_mb,
+        (pg_total_relation_size('monomind.vectors') / 1024.0 / 1024.0)::REAL AS total_size_mb,
         MIN(v.created_at) AS oldest_entry,
         MAX(v.created_at) AS newest_entry
-    FROM monobrain.collections c
-    LEFT JOIN monobrain.vectors v ON v.collection = c.name AND v.namespace = c.namespace
+    FROM monomind.collections c
+    LEFT JOIN monomind.vectors v ON v.collection = c.name AND v.namespace = c.namespace
     WHERE p_collection_name IS NULL OR c.name = p_collection_name
     GROUP BY c.name, c.namespace;
 END;
@@ -564,7 +564,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- ----------------------------------------------------------------------------
 -- Record migration
 -- ----------------------------------------------------------------------------
-INSERT INTO monobrain.migrations (name, checksum)
+INSERT INTO monomind.migrations (name, checksum)
 VALUES ('004_create_functions', md5('004_create_functions'))
 ON CONFLICT (name) DO NOTHING;
 
@@ -574,25 +574,25 @@ COMMIT;
 -- Rollback Script
 -- ============================================================================
 -- BEGIN;
--- DROP FUNCTION IF EXISTS monobrain.get_collection_stats(TEXT);
--- DROP FUNCTION IF EXISTS monobrain.cleanup_caches(INTEGER);
--- DROP FUNCTION IF EXISTS monobrain.cleanup_expired_vectors();
--- DROP FUNCTION IF EXISTS monobrain.knn_search(vector, INTEGER, TEXT, TEXT, TEXT, REAL, JSONB);
--- DROP FUNCTION IF EXISTS monobrain.upsert_embedding(TEXT, TEXT, vector, JSONB, TEXT, TEXT[], REAL);
--- DROP FUNCTION IF EXISTS monobrain.upsert_vector(vector, JSONB, TEXT, TEXT, TEXT, TEXT, UUID);
--- DROP FUNCTION IF EXISTS monobrain.batch_insert_vectors(JSONB);
--- DROP FUNCTION IF EXISTS monobrain.dot_product(REAL[], REAL[]);
--- DROP FUNCTION IF EXISTS monobrain.vector_scale(REAL[], REAL);
--- DROP FUNCTION IF EXISTS monobrain.vector_subtract(REAL[], REAL[]);
--- DROP FUNCTION IF EXISTS monobrain.vector_add(REAL[], REAL[]);
--- DROP FUNCTION IF EXISTS monobrain.vector_magnitude(REAL[]);
--- DROP FUNCTION IF EXISTS monobrain.l2_normalize(REAL[]);
--- DROP FUNCTION IF EXISTS monobrain.minkowski_distance(REAL[], REAL[], REAL);
--- DROP FUNCTION IF EXISTS monobrain.chebyshev_distance(REAL[], REAL[]);
--- DROP FUNCTION IF EXISTS monobrain.manhattan_distance(REAL[], REAL[]);
--- DROP FUNCTION IF EXISTS monobrain.inner_product(vector, vector);
--- DROP FUNCTION IF EXISTS monobrain.euclidean_distance(vector, vector);
--- DROP FUNCTION IF EXISTS monobrain.cosine_similarity(vector, vector);
--- DROP FUNCTION IF EXISTS monobrain.cosine_distance(vector, vector);
--- DELETE FROM monobrain.migrations WHERE name = '004_create_functions';
+-- DROP FUNCTION IF EXISTS monomind.get_collection_stats(TEXT);
+-- DROP FUNCTION IF EXISTS monomind.cleanup_caches(INTEGER);
+-- DROP FUNCTION IF EXISTS monomind.cleanup_expired_vectors();
+-- DROP FUNCTION IF EXISTS monomind.knn_search(vector, INTEGER, TEXT, TEXT, TEXT, REAL, JSONB);
+-- DROP FUNCTION IF EXISTS monomind.upsert_embedding(TEXT, TEXT, vector, JSONB, TEXT, TEXT[], REAL);
+-- DROP FUNCTION IF EXISTS monomind.upsert_vector(vector, JSONB, TEXT, TEXT, TEXT, TEXT, UUID);
+-- DROP FUNCTION IF EXISTS monomind.batch_insert_vectors(JSONB);
+-- DROP FUNCTION IF EXISTS monomind.dot_product(REAL[], REAL[]);
+-- DROP FUNCTION IF EXISTS monomind.vector_scale(REAL[], REAL);
+-- DROP FUNCTION IF EXISTS monomind.vector_subtract(REAL[], REAL[]);
+-- DROP FUNCTION IF EXISTS monomind.vector_add(REAL[], REAL[]);
+-- DROP FUNCTION IF EXISTS monomind.vector_magnitude(REAL[]);
+-- DROP FUNCTION IF EXISTS monomind.l2_normalize(REAL[]);
+-- DROP FUNCTION IF EXISTS monomind.minkowski_distance(REAL[], REAL[], REAL);
+-- DROP FUNCTION IF EXISTS monomind.chebyshev_distance(REAL[], REAL[]);
+-- DROP FUNCTION IF EXISTS monomind.manhattan_distance(REAL[], REAL[]);
+-- DROP FUNCTION IF EXISTS monomind.inner_product(vector, vector);
+-- DROP FUNCTION IF EXISTS monomind.euclidean_distance(vector, vector);
+-- DROP FUNCTION IF EXISTS monomind.cosine_similarity(vector, vector);
+-- DROP FUNCTION IF EXISTS monomind.cosine_distance(vector, vector);
+-- DELETE FROM monomind.migrations WHERE name = '004_create_functions';
 -- COMMIT;

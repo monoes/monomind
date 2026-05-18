@@ -54,11 +54,10 @@ function findUAPlugin() {
   const envPath = process.env.UA_PLUGIN_DIR;
   if (envPath && existsSync(envPath)) return resolve(envPath);
 
-  // Common sibling locations relative to the monobrain root
+  // Common sibling locations relative to the monomind root
   const candidates = [
     join(__dir, '..', '..', 'knowledgegraph', 'Understand-Anything', 'understand-anything-plugin'),
     join(dirname(__dir), '..', 'knowledgegraph', 'Understand-Anything', 'understand-anything-plugin'),
-    '/Users/morteza/Desktop/tools/knowledgegraph/Understand-Anything/understand-anything-plugin',
   ];
   for (const c of candidates) {
     if (existsSync(c)) return c;
@@ -189,7 +188,7 @@ async function main() {
     }
   } else if (!extractScript) {
     console.log('[UA-ENRICH] UA extract script not found — skipping deterministic extraction');
-    console.log('[UA-ENRICH] Set UA_PLUGIN_DIR env var or place Understand-Anything beside monobrain');
+    console.log('[UA-ENRICH] Set UA_PLUGIN_DIR env var or place Understand-Anything beside monomind');
   }
 
   // ── Phase 3: Propagate existing UA summaries to FTS ───────────────────────

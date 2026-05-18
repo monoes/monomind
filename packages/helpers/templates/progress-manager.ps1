@@ -1,4 +1,4 @@
-# Monobrain V1 Progress Manager Template (Windows PowerShell)
+# Monomind V1 Progress Manager Template (Windows PowerShell)
 
 param(
     [Parameter(Mandatory=$true, Position=0)]
@@ -8,13 +8,13 @@ param(
     [string]$Value
 )
 
-$MetricsDir = Join-Path ${env:PROJECT_ROOT} ".monobrain\metrics"
-$SecurityDir = Join-Path ${env:PROJECT_ROOT} ".monobrain\security"
+$MetricsDir = Join-Path ${env:PROJECT_ROOT} ".monomind\metrics"
+$SecurityDir = Join-Path ${env:PROJECT_ROOT} ".monomind\security"
 
 # Fallback if PROJECT_ROOT not set
 if ([string]::IsNullOrEmpty(${env:PROJECT_ROOT})) {
-    $MetricsDir = ".monobrain\metrics"
-    $SecurityDir = ".monobrain\security"
+    $MetricsDir = ".monomind\metrics"
+    $SecurityDir = ".monomind\security"
 }
 
 function Log-Success { param([string]$Message) Write-Host "✅ $Message" -ForegroundColor Green }

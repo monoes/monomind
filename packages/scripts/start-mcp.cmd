@@ -1,5 +1,5 @@
 @echo off
-REM Monobrain MCP Server V1 Startup Script (Windows)
+REM Monomind MCP Server V1 Startup Script (Windows)
 REM
 REM Usage:
 REM   start-mcp.cmd [options]
@@ -25,8 +25,8 @@ set "PORT=3000"
 set "LOG_LEVEL=info"
 
 REM PID file location
-set "PID_FILE=%TEMP%\monobrain-mcp.pid"
-set "LOG_FILE=%TEMP%\monobrain-mcp.log"
+set "PID_FILE=%TEMP%\monomind-mcp.pid"
+set "LOG_FILE=%TEMP%\monomind-mcp.log"
 
 REM Override from environment variables
 if defined MCP_TRANSPORT set "TRANSPORT=%MCP_TRANSPORT%"
@@ -87,7 +87,7 @@ goto :show_help
 
 :show_help
 echo.
-echo Monobrain MCP Server V1 Startup Script (Windows)
+echo Monomind MCP Server V1 Startup Script (Windows)
 echo.
 echo Usage:
 echo   start-mcp.cmd [options]
@@ -127,7 +127,7 @@ if not exist "%SERVER_ENTRY%" (
     exit /b 1
 )
 
-echo [INFO] Starting Monobrain MCP Server V1...
+echo [INFO] Starting Monomind MCP Server V1...
 echo [INFO]   Transport: %TRANSPORT%
 echo [INFO]   Host: %HOST%
 echo [INFO]   Port: %PORT%

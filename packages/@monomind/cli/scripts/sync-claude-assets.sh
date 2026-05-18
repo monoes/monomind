@@ -14,7 +14,8 @@ mkdir -p "$DEST"
 for dir in skills commands agents helpers; do
   if [ -d "$SRC/$dir" ]; then
     rm -rf "$DEST/$dir"
-    cp -r "$SRC/$dir" "$DEST/$dir"
+    # Copy while excluding runtime .monomind subdirectories
+    rsync -a --exclude='.monomind/' "$SRC/$dir/" "$DEST/$dir/"
     echo "  synced .claude/$dir"
   fi
 done

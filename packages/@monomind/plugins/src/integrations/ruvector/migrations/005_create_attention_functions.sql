@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Migration 005: Create Attention Mechanism Functions
--- RuVector PostgreSQL Bridge - Monobrain V1
+-- RuVector PostgreSQL Bridge - Monomind V1
 --
 -- Creates SQL functions for attention mechanisms including multi-head attention,
 -- flash attention, and sparse attention patterns.
@@ -13,7 +13,7 @@ BEGIN;
 -- Softmax Function (used by attention mechanisms)
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.softmax(
+CREATE OR REPLACE FUNCTION monomind.softmax(
     scores REAL[]
 ) RETURNS REAL[] AS $$
 DECLARE
@@ -50,7 +50,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 -- attention(Q, K, V) = softmax(QK^T / sqrt(d_k)) * V
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.scaled_dot_product_attention(
+CREATE OR REPLACE FUNCTION monomind.scaled_dot_product_attention(
     query REAL[],      -- Query vector [d_k]
     keys REAL[][],     -- Key matrix [seq_len, d_k]
     values REAL[][],   -- Value matrix [seq_len, d_v]
@@ -85,7 +85,7 @@ BEGIN
     END LOOP;
 
     -- Apply softmax
-    attention_weights := monobrain.softmax(scores);
+    attention_weights := monomind.softmax(scores);
 
     -- Compute weighted sum of values
     output := ARRAY[]::REAL[];
@@ -106,7 +106,7 @@ $$ LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE;
 -- MultiHead(Q, K, V) = Concat(head_1, ..., head_h) * W_O
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.multi_head_attention(
+CREATE OR REPLACE FUNCTION monomind.multi_head_attention(
     query REAL[],        -- Query vector [d_model]
     keys REAL[][],       -- Key matrix [seq_len, d_model]
     values REAL[][],     -- Value matrix [seq_len, d_model]
@@ -174,7 +174,7 @@ BEGIN
         END LOOP;
 
         -- Compute attention for this head
-        head_output := monobrain.scaled_dot_product_attention(head_query, head_keys, head_values);
+        head_output := monomind.scaled_dot_product_attention(head_query, head_keys, head_values);
         head_outputs := array_cat(head_outputs, ARRAY[head_output]);
     END LOOP;
 
@@ -197,7 +197,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- Processes attention in blocks to reduce memory usage
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.flash_attention(
+CREATE OR REPLACE FUNCTION monomind.flash_attention(
     query REAL[],        -- Query vector
     keys REAL[][],       -- Key matrix
     values REAL[][],     -- Value matrix
@@ -303,7 +303,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- Supports: local, strided, fixed, and custom patterns
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.sparse_attention(
+CREATE OR REPLACE FUNCTION monomind.sparse_attention(
     query REAL[],        -- Query vector
     keys REAL[][],       -- Key matrix
     values REAL[][],     -- Value matrix
@@ -381,7 +381,7 @@ BEGIN
     END LOOP;
 
     -- Apply softmax
-    attention_weights := monobrain.softmax(scores);
+    attention_weights := monomind.softmax(scores);
 
     -- Compute weighted sum
     final_output := ARRAY[]::REAL[];
@@ -405,7 +405,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- Uses kernel approximation for efficient attention
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.linear_attention(
+CREATE OR REPLACE FUNCTION monomind.linear_attention(
     query REAL[],        -- Query vector
     keys REAL[][],       -- Key matrix
     values REAL[][],     -- Value matrix
@@ -501,7 +501,7 @@ $$ LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE;
 -- Cross Attention (for encoder-decoder architectures)
 -- ----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION monobrain.cross_attention(
+CREATE OR REPLACE FUNCTION monomind.cross_attention(
     decoder_query REAL[],    -- Query from decoder
     encoder_keys REAL[][],   -- Keys from encoder
     encoder_values REAL[][], -- Values from encoder
@@ -510,7 +510,7 @@ CREATE OR REPLACE FUNCTION monobrain.cross_attention(
 DECLARE
     result RECORD;
 BEGIN
-    SELECT * INTO result FROM monobrain.multi_head_attention(
+    SELECT * INTO result FROM monomind.multi_head_attention(
         decoder_query,
         encoder_keys,
         encoder_values,
@@ -526,7 +526,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- ----------------------------------------------------------------------------
 
 -- Store attention result in cache
-CREATE OR REPLACE FUNCTION monobrain.cache_attention_result(
+CREATE OR REPLACE FUNCTION monomind.cache_attention_result(
     p_query_hash TEXT,
     p_keys_hash TEXT,
     p_values_hash TEXT,
@@ -544,7 +544,7 @@ DECLARE
 BEGIN
     v_cache_key := md5(p_query_hash || p_keys_hash || p_values_hash || p_num_heads::TEXT || p_attention_type);
 
-    INSERT INTO monobrain.attention_cache (
+    INSERT INTO monomind.attention_cache (
         cache_key,
         query_hash,
         keys_hash,
@@ -572,7 +572,7 @@ BEGIN
     ON CONFLICT (cache_key) DO UPDATE
     SET attention_weights = EXCLUDED.attention_weights,
         attention_output = EXCLUDED.attention_output,
-        hit_count = monobrain.attention_cache.hit_count + 1,
+        hit_count = monomind.attention_cache.hit_count + 1,
         last_accessed_at = NOW(),
         expires_at = EXCLUDED.expires_at
     RETURNING id INTO v_id;
@@ -582,7 +582,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Retrieve cached attention result
-CREATE OR REPLACE FUNCTION monobrain.get_cached_attention(
+CREATE OR REPLACE FUNCTION monomind.get_cached_attention(
     p_query_hash TEXT,
     p_keys_hash TEXT,
     p_values_hash TEXT,
@@ -602,13 +602,13 @@ BEGIN
 
     SELECT ac.attention_weights, ac.attention_output, ac.output_dimensions
     INTO v_record
-    FROM monobrain.attention_cache ac
+    FROM monomind.attention_cache ac
     WHERE ac.cache_key = v_cache_key
       AND (ac.expires_at IS NULL OR ac.expires_at > NOW());
 
     IF FOUND THEN
         -- Update access stats
-        UPDATE monobrain.attention_cache
+        UPDATE monomind.attention_cache
         SET hit_count = hit_count + 1,
             last_accessed_at = NOW()
         WHERE cache_key = v_cache_key;
@@ -631,7 +631,7 @@ $$ LANGUAGE plpgsql;
 -- ----------------------------------------------------------------------------
 -- Record migration
 -- ----------------------------------------------------------------------------
-INSERT INTO monobrain.migrations (name, checksum)
+INSERT INTO monomind.migrations (name, checksum)
 VALUES ('005_create_attention_functions', md5('005_create_attention_functions'))
 ON CONFLICT (name) DO NOTHING;
 
@@ -641,14 +641,14 @@ COMMIT;
 -- Rollback Script
 -- ============================================================================
 -- BEGIN;
--- DROP FUNCTION IF EXISTS monobrain.get_cached_attention(TEXT, TEXT, TEXT, INTEGER, TEXT);
--- DROP FUNCTION IF EXISTS monobrain.cache_attention_result(TEXT, TEXT, TEXT, INTEGER, TEXT, REAL[], REAL[], INTEGER[], REAL, INTEGER);
--- DROP FUNCTION IF EXISTS monobrain.cross_attention(REAL[], REAL[][], REAL[][], INTEGER);
--- DROP FUNCTION IF EXISTS monobrain.linear_attention(REAL[], REAL[][], REAL[][], TEXT);
--- DROP FUNCTION IF EXISTS monobrain.sparse_attention(REAL[], REAL[][], REAL[][], TEXT, INTEGER, INTEGER);
--- DROP FUNCTION IF EXISTS monobrain.flash_attention(REAL[], REAL[][], REAL[][], INTEGER);
--- DROP FUNCTION IF EXISTS monobrain.multi_head_attention(REAL[], REAL[][], REAL[][], INTEGER);
--- DROP FUNCTION IF EXISTS monobrain.scaled_dot_product_attention(REAL[], REAL[][], REAL[][], REAL);
--- DROP FUNCTION IF EXISTS monobrain.softmax(REAL[]);
--- DELETE FROM monobrain.migrations WHERE name = '005_create_attention_functions';
+-- DROP FUNCTION IF EXISTS monomind.get_cached_attention(TEXT, TEXT, TEXT, INTEGER, TEXT);
+-- DROP FUNCTION IF EXISTS monomind.cache_attention_result(TEXT, TEXT, TEXT, INTEGER, TEXT, REAL[], REAL[], INTEGER[], REAL, INTEGER);
+-- DROP FUNCTION IF EXISTS monomind.cross_attention(REAL[], REAL[][], REAL[][], INTEGER);
+-- DROP FUNCTION IF EXISTS monomind.linear_attention(REAL[], REAL[][], REAL[][], TEXT);
+-- DROP FUNCTION IF EXISTS monomind.sparse_attention(REAL[], REAL[][], REAL[][], TEXT, INTEGER, INTEGER);
+-- DROP FUNCTION IF EXISTS monomind.flash_attention(REAL[], REAL[][], REAL[][], INTEGER);
+-- DROP FUNCTION IF EXISTS monomind.multi_head_attention(REAL[], REAL[][], REAL[][], INTEGER);
+-- DROP FUNCTION IF EXISTS monomind.scaled_dot_product_attention(REAL[], REAL[][], REAL[][], REAL);
+-- DROP FUNCTION IF EXISTS monomind.softmax(REAL[]);
+-- DELETE FROM monomind.migrations WHERE name = '005_create_attention_functions';
 -- COMMIT;
