@@ -129,6 +129,7 @@ function _recordDecisionMarkers(promptText) {
   if (!matches || matches.length === 0) return;
   try {
     var f = path.join(CWD, '.monomind', 'decisions.jsonl');
+    fs.mkdirSync(path.dirname(f), { recursive: true });
     var entry = JSON.stringify({ ts: Date.now(), excerpts: matches.slice(0, 3), prompt: promptText.slice(0, 400) });
     fs.appendFileSync(f, entry + '\n');
   } catch (e) {}
