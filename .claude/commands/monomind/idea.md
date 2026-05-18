@@ -270,4 +270,4 @@ Skill("monomind:do", "--space $SPACE_ID --board $TASK_BOARD_ID --mode <parallel|
 
 To repeat this command on a schedule, wrap it with `/monomind:repeat` or use `--repeat N` / `--tillend` directly.
 
-Follow the REPEAT POSTAMBLE from `_repeat.md`.
+Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.
