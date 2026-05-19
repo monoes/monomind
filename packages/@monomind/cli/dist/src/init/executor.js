@@ -640,12 +640,14 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                 fs.mkdirSync(fullPath, { recursive: true });
             }
         }
-        // 0. ALWAYS update critical helpers (force overwrite)
+        // 0. ALWAYS update critical helpers + subdirectories (force overwrite)
         const sourceHelpersForUpgrade = findSourceHelpersDir();
         if (sourceHelpersForUpgrade) {
+            const destHelpersDir = path.join(targetDir, '.claude', 'helpers');
+            // Copy top-level critical files atomically
             const criticalHelpers = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs'];
             for (const helperName of criticalHelpers) {
-                const targetPath = path.join(targetDir, '.claude', 'helpers', helperName);
+                const targetPath = path.join(destHelpersDir, helperName);
                 const sourcePath = path.join(sourceHelpersForUpgrade, helperName);
                 if (fs.existsSync(sourcePath)) {
                     if (fs.existsSync(targetPath)) {
@@ -654,18 +656,32 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                     else {
                         result.created.push(`.claude/helpers/${helperName}`);
                     }
-                    // Atomic copy-via-rename: a SIGINT/crash during copy would leave a
-                    // half-written hook-handler.cjs which Claude Code executes on every
-                    // hook event — partial JS could disable security checks silently.
-                    {
-                        const tmp = targetPath + '.tmp';
-                        fs.copyFileSync(sourcePath, tmp);
-                        try {
-                            fs.chmodSync(tmp, 0o755);
-                        }
-                        catch { }
-                        fs.renameSync(tmp, targetPath);
+                    // Atomic copy-via-rename so a partial write can't leave a broken hook
+                    const tmp = targetPath + '.tmp';
+                    fs.copyFileSync(sourcePath, tmp);
+                    try {
+                        fs.chmodSync(tmp, 0o755);
                     }
+                    catch { }
+                    fs.renameSync(tmp, targetPath);
+                }
+            }
+            // Always sync subdirectories (utils/, handlers/) — these are required by hook-handler.cjs
+            for (const subdir of ['utils', 'handlers']) {
+                const srcSubdir = path.join(sourceHelpersForUpgrade, subdir);
+                const destSubdir = path.join(destHelpersDir, subdir);
+                if (fs.existsSync(srcSubdir)) {
+                    fs.mkdirSync(destSubdir, { recursive: true });
+                    for (const entry of fs.readdirSync(srcSubdir, { withFileTypes: true })) {
+                        if (!entry.isFile())
+                            continue;
+                        const src = path.join(srcSubdir, entry.name);
+                        const dest = path.join(destSubdir, entry.name);
+                        const tmp = dest + '.tmp';
+                        fs.copyFileSync(src, tmp);
+                        fs.renameSync(tmp, dest);
+                    }
+                    result.updated.push(`.claude/helpers/${subdir}/`);
                 }
             }
         }
@@ -1266,29 +1282,34 @@ async function writeHelpers(targetDir, options, result) {
     const helpersDir = path.join(targetDir, '.claude', 'helpers');
     // Find source helpers directory (works for npm package and local dev)
     const sourceHelpersDir = findSourceHelpersDir(options.sourceBaseDir);
-    // Try to copy existing helpers from source first
+    // Try to copy existing helpers from source first (recursive — includes utils/ and handlers/)
     if (sourceHelpersDir && fs.existsSync(sourceHelpersDir)) {
-        const helperFiles = fs.readdirSync(sourceHelpersDir);
         let copiedCount = 0;
-        for (const file of helperFiles) {
-            const sourcePath = path.join(sourceHelpersDir, file);
-            const destPath = path.join(helpersDir, file);
-            // Skip directories and only copy files
-            if (!fs.statSync(sourcePath).isFile())
-                continue;
-            if (!fs.existsSync(destPath) || options.force) {
-                fs.copyFileSync(sourcePath, destPath);
-                // Make shell scripts and mjs files executable
-                if (file.endsWith('.sh') || file.endsWith('.mjs')) {
-                    fs.chmodSync(destPath, '755');
+        const copyRecursive = (srcDir, destDir, relBase) => {
+            fs.mkdirSync(destDir, { recursive: true });
+            for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+                const srcPath = path.join(srcDir, entry.name);
+                const destPath = path.join(destDir, entry.name);
+                const relPath = relBase ? `${relBase}/${entry.name}` : entry.name;
+                if (entry.isDirectory()) {
+                    copyRecursive(srcPath, destPath, relPath);
                 }
-                result.created.files.push(`.claude/helpers/${file}`);
-                copiedCount++;
+                else {
+                    if (!fs.existsSync(destPath) || options.force) {
+                        fs.copyFileSync(srcPath, destPath);
+                        if (entry.name.endsWith('.sh') || entry.name.endsWith('.mjs')) {
+                            fs.chmodSync(destPath, '755');
+                        }
+                        result.created.files.push(`.claude/helpers/${relPath}`);
+                        copiedCount++;
+                    }
+                    else {
+                        result.skipped.push(`.claude/helpers/${relPath}`);
+                    }
+                }
             }
-            else {
-                result.skipped.push(`.claude/helpers/${file}`);
-            }
-        }
+        };
+        copyRecursive(sourceHelpersDir, helpersDir, '');
         if (copiedCount > 0) {
             return; // Skip generating if we copied from source
         }
