@@ -48,7 +48,8 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     if (initialized.monomind) output.printInfo('  Found: .monomind/config.yaml');
     output.printInfo('Use --force to reinitialize');
 
-    if (ctx.interactive) {
+    const yes = ctx.flags.yes as boolean || process.env.CI === 'true';
+    if (ctx.interactive && !yes) {
       const proceed = await confirm({
         message: 'Do you want to reinitialize? This will overwrite existing configuration.',
         default: false,
@@ -57,8 +58,8 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
       if (!proceed) {
         return { success: true, message: 'Initialization cancelled' };
       }
-    } else {
-      return { success: false, exitCode: 1, message: 'Already initialized' };
+    } else if (!yes) {
+      return { success: false, exitCode: 1, message: 'Already initialized. Use --force or --yes to reinitialize.' };
     }
   }
 
@@ -962,6 +963,13 @@ export const initCommand: Command = {
       name: 'force',
       short: 'f',
       description: 'Overwrite existing configuration',
+      type: 'boolean',
+      default: false,
+    },
+    {
+      name: 'yes',
+      short: 'y',
+      description: 'Skip confirmation prompts (also honoured via CI=true env var)',
       type: 'boolean',
       default: false,
     },
