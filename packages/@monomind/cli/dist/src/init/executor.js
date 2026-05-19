@@ -666,21 +666,13 @@ export async function executeUpgrade(targetDir, upgradeSettings = false) {
                     fs.renameSync(tmp, targetPath);
                 }
             }
-            // Always sync subdirectories (utils/, handlers/) — these are required by hook-handler.cjs
+            // Always recursively sync subdirectories (utils/, handlers/) — required by hook-handler.cjs.
+            // Uses recursive copy so any future nested subdirs are also covered.
             for (const subdir of ['utils', 'handlers']) {
                 const srcSubdir = path.join(sourceHelpersForUpgrade, subdir);
                 const destSubdir = path.join(destHelpersDir, subdir);
                 if (fs.existsSync(srcSubdir)) {
-                    fs.mkdirSync(destSubdir, { recursive: true });
-                    for (const entry of fs.readdirSync(srcSubdir, { withFileTypes: true })) {
-                        if (!entry.isFile())
-                            continue;
-                        const src = path.join(srcSubdir, entry.name);
-                        const dest = path.join(destSubdir, entry.name);
-                        const tmp = dest + '.tmp';
-                        fs.copyFileSync(src, tmp);
-                        fs.renameSync(tmp, dest);
-                    }
+                    copyDirRecursive(srcSubdir, destSubdir);
                     result.updated.push(`.claude/helpers/${subdir}/`);
                 }
             }
@@ -1226,12 +1218,19 @@ async function copyAgents(targetDir, options, result) {
 }
 /**
  * Find source helpers directory.
- * Validates that the directory contains hook-handler.cjs to avoid
- * returning the target directory or an incomplete source.
+ * Validates that the directory contains hook-handler.cjs AND its required
+ * subdirectory files (utils/telemetry.cjs etc.) to avoid accepting a partial
+ * or corrupted source that would reproduce the missing-utils/ bug class.
  */
 function findSourceHelpersDir(sourceBaseDir) {
     const possiblePaths = [];
-    const SENTINEL_FILE = 'hook-handler.cjs'; // Must exist in valid source
+    // All sentinel files must exist — hook-handler.cjs requires these at startup
+    const SENTINEL_FILES = [
+        'hook-handler.cjs',
+        path.join('utils', 'telemetry.cjs'),
+        path.join('utils', 'monograph.cjs'),
+        path.join('utils', 'micro-agents.cjs'),
+    ];
     // If explicit source base directory is provided, check it first
     if (sourceBaseDir) {
         possiblePaths.push(path.join(sourceBaseDir, '.claude', 'helpers'));
@@ -1267,9 +1266,9 @@ function findSourceHelpersDir(sourceBaseDir) {
         path.join(process.cwd(), '..', '..', '.claude', 'helpers'),
     ];
     possiblePaths.push(...cwdBased);
-    // Return first path that exists AND contains the sentinel file
+    // Return first path that exists AND contains ALL sentinel files
     for (const p of possiblePaths) {
-        if (fs.existsSync(p) && fs.existsSync(path.join(p, SENTINEL_FILE))) {
+        if (fs.existsSync(p) && SENTINEL_FILES.every(f => fs.existsSync(path.join(p, f)))) {
             return p;
         }
     }
@@ -1318,9 +1317,9 @@ async function writeHelpers(targetDir, options, result) {
     const helpers = {
         'pre-commit': generatePreCommitHook(),
         'post-commit': generatePostCommitHook(),
-        'session.js': generateSessionManager(),
-        'router.js': generateAgentRouter(),
-        'memory.js': generateMemoryHelper(),
+        'session.cjs': generateSessionManager(),
+        'router.cjs': generateAgentRouter(),
+        'memory.cjs': generateMemoryHelper(),
         'hook-handler.cjs': generateHookHandler(),
         'intelligence.cjs': generateIntelligenceStub(),
         'auto-memory-hook.mjs': generateAutoMemoryHook(),
