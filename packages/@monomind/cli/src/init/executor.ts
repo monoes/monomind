@@ -1587,20 +1587,29 @@ mcp:
   atomicWriteFile(configPath, config);
   result.created.files.push('.monomind/config.yaml');
 
-  // Write .gitignore
+  // Write .monomind/.gitignore — ignore all runtime files inside the folder
   const gitignorePath = path.join(targetDir, '.monomind', '.gitignore');
-  const gitignore = `# Monomind runtime files
-data/
-logs/
-sessions/
-neural/
-*.log
-*.tmp
+  const gitignore = `# Monomind runtime files — do not commit
+*
+!.gitignore
+!config.yaml
+!CAPABILITIES.md
 `;
 
   if (!fs.existsSync(gitignorePath) || options.force) {
     atomicWriteFile(gitignorePath, gitignore);
     result.created.files.push('.monomind/.gitignore');
+  }
+
+  // Add .monomind/ to the project root .gitignore so git never tracks new files
+  const rootGitignorePath = path.join(targetDir, '.gitignore');
+  const monomindEntry = '\n# Monomind runtime data\n.monomind/\n!.monomind/.gitignore\n!.monomind/config.yaml\n!.monomind/CAPABILITIES.md\n';
+  let rootGitignore = fs.existsSync(rootGitignorePath)
+    ? fs.readFileSync(rootGitignorePath, 'utf-8')
+    : '';
+  if (!rootGitignore.includes('.monomind/')) {
+    atomicWriteFile(rootGitignorePath, rootGitignore + monomindEntry);
+    result.created.files.push('.gitignore (added .monomind/ entry)');
   }
 
   // Write CAPABILITIES.md with full system overview
