@@ -51,8 +51,6 @@
 *.tsbuildinfo
 *~
 .monomind/sessions/
-.monomind/data/pending-insights.jsonl
-.monomind/routing-feedback.jsonl
 .monomind/security/
 .monomind/*.tmp
 .monomind/*.log
