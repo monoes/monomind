@@ -1592,10 +1592,6 @@ mcp:
   const gitignore = `# Monomind — exclude files that may contain secrets or sensitive prompt data
 # Sessions contain conversation history (prompts, code snippets, user data)
 sessions/
-# Pending insights may contain raw prompt text
-data/pending-insights.jsonl
-# Routing feedback contains user prompt text
-routing-feedback.jsonl
 # Security scan results may expose vulnerability details
 security/
 # Temporary and machine-specific files
