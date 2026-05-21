@@ -154,7 +154,7 @@ module.exports = {
         output.push('+--------------------------------------------------------------+');
       } else if (!suppressPanel) {
         output.push('+------- monomind | Agent Category Picker ---------------------+');
-        output.push('| ' + ('Conf: ' + (conf * 100).toFixed(0) + '% — pick category + agent, or skip.').padEnd(60) + ' |');
+        output.push('| ' + ('Conf: ' + (conf * 100).toFixed(0) + '% — router uncertain. YOU choose using context.').padEnd(60) + ' |');
         output.push('+--------------------------------------------------------------+');
         AGENT_CATEGORIES.forEach(function(cat) {
           if (cat.divider) {
@@ -165,7 +165,10 @@ module.exports = {
           }
         });
         output.push('+--------------------------------------------------------------+');
-        output.push('| ' + 'Use: Task({ subagent_type: "name" }) — or skip (no agent).'.padEnd(60) + ' |');
+        output.push('| INSTRUCTION: Read your conversation context. Identify the    |');
+        output.push('| best-fit category above, then pick one agent from it and     |');
+        output.push('| spawn it via Task({ subagent_type: "name" }). If no agent    |');
+        output.push('| fits the task, skip and proceed directly. Do this now.       |');
         output.push('+--------------------------------------------------------------+');
       }
 
