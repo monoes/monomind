@@ -129,14 +129,21 @@ module.exports = {
 
       // Agent category menu — shown when conf < 0.90 so Claude picks with context.
       var AGENT_CATEGORIES = [
-        { label: 'CORE',     agents: 'coder · reviewer · tester · planner · researcher' },
-        { label: 'BACKEND',  agents: 'backend-dev · Backend Architect · DB Optimizer' },
-        { label: 'FRONTEND', agents: 'Frontend Developer · mobile-dev' },
-        { label: 'ARCH',     agents: 'Software Architect · system-architect' },
-        { label: 'SECURITY', agents: 'Security Engineer · security-architect' },
-        { label: 'AI/ML',    agents: 'AI Engineer · ml-developer · Data Engineer' },
-        { label: 'DEVOPS',   agents: 'DevOps Automator · SRE · cicd-engineer' },
-        { label: 'DOCS',     agents: 'Technical Writer · api-docs' },
+        { label: 'CORE',      agents: 'coder · reviewer · tester · planner · researcher' },
+        { label: 'BACKEND',   agents: 'backend-dev · Backend Architect · DB Optimizer' },
+        { label: 'FRONTEND',  agents: 'Frontend Developer · mobile-dev' },
+        { label: 'ARCH',      agents: 'Software Architect · system-architect' },
+        { label: 'SECURITY',  agents: 'Security Engineer · security-architect' },
+        { label: 'AI/ML',     agents: 'AI Engineer · ml-developer · Data Engineer' },
+        { label: 'DEVOPS',    agents: 'DevOps Automator · SRE · cicd-engineer' },
+        { label: 'DOCS',      agents: 'Technical Writer · api-docs' },
+        { divider: 'Non-Coding Agents' },
+        { label: 'PRODUCT',   agents: 'Product Manager · Launch Strategist · CRO Spec.' },
+        { label: 'MARKETING', agents: 'Content Creator · SEO Specialist · Growth Hacker' },
+        { label: 'SOCIAL',    agents: 'TikTok · LinkedIn · Twitter · Instagram Strat.' },
+        { label: 'SALES',     agents: 'Deal Strategist · Sales Coach · Outbound Strat.' },
+        { label: 'BUSINESS',  agents: 'Finance Tracker · Legal Compliance · Analytics' },
+        { label: 'DESIGN',    agents: 'Monodesign (UI/UX · brand · CSS · animation)' },
       ];
 
       if (conf >= 0.90) {
@@ -150,7 +157,12 @@ module.exports = {
         output.push('| ' + ('Conf: ' + (conf * 100).toFixed(0) + '% — pick category + agent, or skip.').padEnd(60) + ' |');
         output.push('+--------------------------------------------------------------+');
         AGENT_CATEGORIES.forEach(function(cat) {
-          output.push('| ' + cat.label.padEnd(10) + cat.agents.substring(0, 50).padEnd(50) + ' |');
+          if (cat.divider) {
+            var d = '- ' + cat.divider + ' ';
+            output.push('|' + d.padEnd(31, '-') + ''.padEnd(31, '-') + '|');
+          } else {
+            output.push('| ' + cat.label.padEnd(10) + cat.agents.substring(0, 50).padEnd(50) + ' |');
+          }
         });
         output.push('+--------------------------------------------------------------+');
         output.push('| ' + 'Use: Task({ subagent_type: "name" }) — or skip (no agent).'.padEnd(60) + ' |');
