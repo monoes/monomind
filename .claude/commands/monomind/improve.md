@@ -61,6 +61,8 @@ Collect ALL of the following in parallel (skip any that error):
 
 Bundle all gathered information into a single `PROJECT_CONTEXT` string for downstream agents.
 
+**DELEGATION RULE:** Every agent spawned in this command MUST include the `== AGENT DELEGATION CAPABILITY ==` block (from `mastermind/_delegation.md`) in its prompt, immediately before `YOUR GOAL:`. This lets each agent spawn its own sub-agents when needed — delegation is recursive.
+
 ---
 
 ## Step 2: Deep Component Analysis
