@@ -117,21 +117,43 @@ module.exports = {
       var output = [];
       output.push('[INFO] Routing task: ' + (prompt.substring(0, 80) || '(no prompt)'));
       output.push('');
-      // Suppress the agent recommendation panel for low-confidence routes on
-      // short prompts — the recommendation is almost always wrong (e.g.
-      // "what else can we do" → marketing → China E-Commerce). Saves ~150
-      // tokens per prompt. Skill matches and specific agents still render
-      // below when confidence is decent.
+      // Routing panel strategy:
+      //   conf >= 0.90 → show primary recommendation (router is confident, trust it)
+      //   conf  < 0.90 → show category picker so Claude uses its own context to
+      //                   pick the right agent category + agent from a menu.
+      //                   Specific-agent panel is suppressed (category menu replaces it).
       var conf = result.confidence != null ? result.confidence : 0;
       var promptShort = (prompt || '').trim().length < 60;
       var lowConf = conf < 0.70;
-      var suppressPrimary = conf < 0.75;
       var suppressPanel = lowConf && promptShort;
-      if (!suppressPrimary) {
+
+      // Agent category menu — shown when conf < 0.90 so Claude picks with context.
+      var AGENT_CATEGORIES = [
+        { label: 'CORE',     agents: 'coder · reviewer · tester · planner · researcher' },
+        { label: 'BACKEND',  agents: 'backend-dev · Backend Architect · DB Optimizer' },
+        { label: 'FRONTEND', agents: 'Frontend Developer · mobile-dev' },
+        { label: 'ARCH',     agents: 'Software Architect · system-architect' },
+        { label: 'SECURITY', agents: 'Security Engineer · security-architect' },
+        { label: 'AI/ML',    agents: 'AI Engineer · ml-developer · Data Engineer' },
+        { label: 'DEVOPS',   agents: 'DevOps Automator · SRE · cicd-engineer' },
+        { label: 'DOCS',     agents: 'Technical Writer · api-docs' },
+      ];
+
+      if (conf >= 0.90) {
         output.push('+------------- monomind | Primary Recommendation --------------+');
         output.push('| Agent: ' + (result.agent || 'unknown').substring(0, 54).padEnd(54) + '|');
         output.push('| Confidence: ' + ((result.confidence != null ? (result.confidence * 100).toFixed(1) : '?') + '%').padEnd(49) + '|');
         output.push('| Reason: ' + (result.reason || '').substring(0, 53).padEnd(53) + '|');
+        output.push('+--------------------------------------------------------------+');
+      } else if (!suppressPanel) {
+        output.push('+------- monomind | Agent Category Picker ---------------------+');
+        output.push('| ' + ('Conf: ' + (conf * 100).toFixed(0) + '% — pick category + agent, or skip.').padEnd(60) + ' |');
+        output.push('+--------------------------------------------------------------+');
+        AGENT_CATEGORIES.forEach(function(cat) {
+          output.push('| ' + cat.label.padEnd(10) + cat.agents.substring(0, 50).padEnd(50) + ' |');
+        });
+        output.push('+--------------------------------------------------------------+');
+        output.push('| ' + 'Use: Task({ subagent_type: "name" }) — or skip (no agent).'.padEnd(60) + ' |');
         output.push('+--------------------------------------------------------------+');
       }
 
@@ -214,7 +236,7 @@ module.exports = {
       // ── Specific agent panel ──────────────────────────────────────────────────
       // Skip entirely on suppressed (low-confidence + short) prompts.
       var specificAgents = result.specificAgents || [];
-      if (specificAgents.length > 0 && !suppressPanel) {
+      if (specificAgents.length > 0 && !suppressPanel && conf >= 0.90) {
         output.push('');
         var saHdr = '------- Specific Agents (' + specificAgents.length + ' available) ';
         output.push('+' + saHdr + '-'.repeat(Math.max(1, 62 - saHdr.length)) + '+');
@@ -233,7 +255,7 @@ module.exports = {
 
       // ── Specialist agents (non-dev domain) — only shown when specificAgents panel wasn't shown ──
       var extras = result.extrasMatches || [];
-      var specificAgentsShown = (result.specificAgents || []).length > 0;
+      var specificAgentsShown = (result.specificAgents || []).length > 0 && conf >= 0.90;
       if (extras.length > 0 && !specificAgentsShown && !suppressPanel) {
         output.push('');
         var spHdr = '------- Specialist Agents (' + extras.length + ' matched) ';
