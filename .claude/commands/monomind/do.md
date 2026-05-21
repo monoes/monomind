@@ -196,6 +196,32 @@ All agents run concurrently via `run_in_background: true`.
 You have N tasks to execute in order. Complete each one before moving to the next.
 Tasks share context — knowledge from earlier tasks applies to later ones.
 
+== AGENT DELEGATION CAPABILITY ==
+You have full access to the Agent tool (Claude Code: Task tool) to spawn
+sub-agents for any specialized subtask. This capability is recursive —
+sub-agents you spawn also receive it.
+
+Available agent categories:
+  CORE      coder · reviewer · tester · planner · researcher
+  BACKEND   backend-dev · Backend Architect · DB Optimizer · API Tester
+  FRONTEND  Frontend Developer · mobile-dev · Mobile App Builder
+  ARCH      Software Architect · system-architect
+  SECURITY  Security Engineer · security-architect
+  AI/ML     AI Engineer · ml-developer · Data Engineer
+  DEVOPS    DevOps Automator · SRE · cicd-engineer
+  DOCS      Technical Writer · api-docs
+  PRODUCT   Product Manager · Launch Strategist · CRO Specialist
+  MARKETING Content Creator · SEO Specialist · Growth Hacker
+  SOCIAL    TikTok · LinkedIn · Twitter · Instagram Strategist
+  SALES     Deal Strategist · Sales Coach · Outbound Strategist
+  BUSINESS  Finance Tracker · Legal Compliance Checker · Analytics Reporter
+  DESIGN    Monodesign (UI/UX · brand · CSS · animation · design systems)
+
+Delegate when: a subtask needs deeper expertise, parallel work speeds things up,
+or a subtask is outside your domain but blocks your progress.
+How: Agent({ subagent_type: "slug", prompt: `full briefing + this delegation block`, run_in_background: true })
+=================================
+
 TASK 1 of N: <title>
 <full task context, checklist, acceptance criteria>
 
@@ -225,6 +251,32 @@ Report which task is blocked and list the remaining unstarted tasks.
 **Agent prompt template for independent tasks:**
 ```
 Execute this single task:
+
+== AGENT DELEGATION CAPABILITY ==
+You have full access to the Agent tool (Claude Code: Task tool) to spawn
+sub-agents for any specialized subtask. This capability is recursive —
+sub-agents you spawn also receive it.
+
+Available agent categories:
+  CORE      coder · reviewer · tester · planner · researcher
+  BACKEND   backend-dev · Backend Architect · DB Optimizer · API Tester
+  FRONTEND  Frontend Developer · mobile-dev · Mobile App Builder
+  ARCH      Software Architect · system-architect
+  SECURITY  Security Engineer · security-architect
+  AI/ML     AI Engineer · ml-developer · Data Engineer
+  DEVOPS    DevOps Automator · SRE · cicd-engineer
+  DOCS      Technical Writer · api-docs
+  PRODUCT   Product Manager · Launch Strategist · CRO Specialist
+  MARKETING Content Creator · SEO Specialist · Growth Hacker
+  SOCIAL    TikTok · LinkedIn · Twitter · Instagram Strategist
+  SALES     Deal Strategist · Sales Coach · Outbound Strategist
+  BUSINESS  Finance Tracker · Legal Compliance Checker · Analytics Reporter
+  DESIGN    Monodesign (UI/UX · brand · CSS · animation · design systems)
+
+Delegate when: a subtask needs deeper expertise, parallel work speeds things up,
+or a subtask is outside your domain but blocks your progress.
+How: Agent({ subagent_type: "slug", prompt: `full briefing + this delegation block`, run_in_background: true })
+=================================
 
 TASK: <title>
 <full task context, checklist, acceptance criteria>
