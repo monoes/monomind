@@ -125,8 +125,9 @@ module.exports = {
       var conf = result.confidence != null ? result.confidence : 0;
       var promptShort = (prompt || '').trim().length < 60;
       var lowConf = conf < 0.70;
+      var suppressPrimary = conf < 0.75;
       var suppressPanel = lowConf && promptShort;
-      if (!suppressPanel) {
+      if (!suppressPrimary) {
         output.push('+------------- monomind | Primary Recommendation --------------+');
         output.push('| Agent: ' + (result.agent || 'unknown').substring(0, 54).padEnd(54) + '|');
         output.push('| Confidence: ' + ((result.confidence != null ? (result.confidence * 100).toFixed(1) : '?') + '%').padEnd(49) + '|');
