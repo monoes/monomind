@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MASTERMIND ORGS</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        oklch(7%  0.010 186);
+  --bg-panel:  oklch(9%  0.012 186);
+  --bg-hover:  oklch(62% 0.20 186 / 0.06);
+  --bg-active: oklch(62% 0.20 186 / 0.11);
+  --teal:      oklch(62% 0.20 186);
+  --teal-dim:  oklch(62% 0.20 186 / 0.18);
+  --teal-glow: oklch(62% 0.20 186 / 0.08);
+  --indigo:    oklch(68% 0.18 252);
+  --green:     oklch(68% 0.20 150);
+  --green-glow:oklch(68% 0.20 150 / 0.25);
+  --amber:     oklch(78% 0.18 80);
+  --red:       oklch(62% 0.22 25);
+  --text:      oklch(80% 0.012 186);
+  --muted:     oklch(52% 0.010 186);
+  --dim:       oklch(36% 0.008 186);
+  --border:    oklch(62% 0.20 186 / 0.12);
+  --border-hi: oklch(62% 0.20 186 / 0.35);
+  --mono: 'Azeret Mono', 'Space Mono', 'Courier New', monospace;
+}
+
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: var(--bg);
+  font-family: var(--mono);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+  user-select: none;
+}
+
+/* ── Layout ─────────────────────────────────────────────────── */
+#app { display: flex; height: 100vh; }
+
+#sidebar {
+  width: 260px; flex-shrink: 0;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+#main {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; min-width: 0;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+#sb-header {
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+#sb-wordmark {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+
+#sb-back {
+  font-size: 9px; letter-spacing: 1px; color: var(--dim);
+  text-decoration: none; padding: 3px 7px;
+  border: 1px solid var(--border); border-radius: 3px;
+  transition: color 0.12s, border-color 0.12s;
+}
+#sb-back:hover { color: var(--teal); border-color: var(--teal-dim); }
+
+#sb-title {
+  font-size: 9px; letter-spacing: 4px; color: var(--teal);
+  opacity: 0.8;
+}
+
+#sb-status-row {
+  display: flex; align-items: center; gap: 6px;
+}
+
+.live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--dim); flex-shrink: 0;
+  transition: background 0.4s, box-shadow 0.4s;
+}
+.live-dot.on {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green-glow);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .live-dot.on { animation: livepulse 2.2s ease-in-out infinite; }
+}
+@keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:0.45} }
+
+#sb-status-text { font-size: 9px; letter-spacing: 2px; color: var(--dim); }
+#sb-running-count { font-size: 8px; color: var(--green); margin-left: auto; letter-spacing: 1px; }
+
+#sb-list {
+  flex: 1; overflow-y: auto;
+  padding: 6px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--teal-dim) transparent;
+}
+#sb-list::-webkit-scrollbar { width: 3px; }
+#sb-list::-webkit-scrollbar-thumb { background: var(--teal-dim); border-radius: 2px; }
+
+.org-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+  position: relative;
+}
+.org-item:hover { background: var(--bg-hover); }
+.org-item.active {
+  background: var(--bg-active);
+  border-left-color: var(--teal);
+}
+.org-item.running { border-left-color: var(--green); }
+.org-item.active.running { border-left-color: var(--teal); }
+
+.oi-header { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
+
+.oi-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--dim); flex-shrink: 0;
+}
+.oi-dot.running {
+  background: var(--green);
+  box-shadow: 0 0 4px var(--green);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .oi-dot.running { animation: livepulse 2s ease-in-out infinite; }
+}
+
+.oi-name {
+  font-size: 11px; color: var(--text); font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 1;
+}
+
+.oi-badge {
+  font-size: 7px; padding: 1px 6px; border-radius: 2px; flex-shrink: 0;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.oi-badge.running {
+  background: oklch(68% 0.20 150 / 0.12);
+  color: var(--green);
+  border: 1px solid oklch(68% 0.20 150 / 0.28);
+}
+.oi-badge.idle {
+  background: transparent; color: var(--dim);
+  border: 1px solid var(--border);
+}
+
+.oi-goal {
+  font-size: 9px; color: var(--muted); line-height: 1.5;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  padding-left: 12px;
+}
+
+.oi-meta {
+  display: flex; gap: 8px; padding-left: 12px; margin-top: 3px;
+}
+.oi-chip {
+  font-size: 8px; color: var(--dim); letter-spacing: 0.5px;
+}
+.oi-chip span { color: var(--muted); }
+
+#sb-empty {
+  padding: 28px 16px; text-align: center;
+  color: var(--dim); font-size: 9px; line-height: 1.8; letter-spacing: 0.5px;
+}
+#sb-empty .empty-icon {
+  font-size: 24px; display: block; margin-bottom: 10px; opacity: 0.35;
+}
+#sb-empty .empty-cmd {
+  display: inline-block; margin-top: 10px;
+  color: var(--teal); border: 1px solid var(--teal-dim);
+  padding: 3px 10px; border-radius: 3px; font-size: 8px; letter-spacing: 1px;
+}
+
+/* ── Main area ─────────────────────────────────────────────────── */
+#main-header {
+  padding: 12px 20px 11px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+  flex-shrink: 0;
+}
+
+#org-label {
+  font-size: 9px; letter-spacing: 4px; color: var(--teal);
+  opacity: 0.7; text-transform: uppercase;
+}
+
+#org-name {
+  font-size: 15px; letter-spacing: 2px; color: var(--text);
+  font-weight: 600; text-transform: uppercase;
+}
+
+#org-status-badge {
+  font-size: 8px; padding: 2px 8px; border-radius: 2px;
+  text-transform: uppercase; letter-spacing: 0.1em; margin-left: 4px;
+}
+#org-status-badge.running {
+  background: oklch(68% 0.20 150 / 0.12);
+  color: var(--green); border: 1px solid oklch(68% 0.20 150 / 0.25);
+}
+#org-status-badge.idle {
+  background: transparent; color: var(--dim);
+  border: 1px solid var(--border);
+}
+
+.hdr-chip {
+  font-size: 8px; color: var(--dim); letter-spacing: 0.5px;
+  padding: 2px 8px; border: 1px solid var(--border); border-radius: 2px;
+}
+.hdr-chip span { color: var(--muted); }
+
+#main-tabs {
+  display: flex; gap: 0; border-bottom: 1px solid var(--border);
+  flex-shrink: 0; padding: 0 20px;
+}
+
+.tab-btn {
+  font-size: 9px; letter-spacing: 2px; color: var(--dim);
+  padding: 8px 14px; background: none; border: none; cursor: pointer;
+  font-family: var(--mono); text-transform: uppercase;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color 0.12s, border-color 0.12s;
+}
+.tab-btn:hover { color: var(--muted); }
+.tab-btn.active { color: var(--teal); border-bottom-color: var(--teal); }
+
+#main-body { flex: 1; overflow-y: auto; overflow-x: hidden; }
+#main-body::-webkit-scrollbar { width: 4px; }
+#main-body::-webkit-scrollbar-thumb { background: var(--teal-dim); border-radius: 2px; }
+
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── Empty / no-selection state ─────────────────────────────────── */
+#no-org-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 100%; gap: 10px; opacity: 0.5;
+  padding: 40px;
+}
+#no-org-state .ns-icon { font-size: 48px; opacity: 0.25; }
+#no-org-state .ns-text {
+  font-size: 9px; letter-spacing: 3px; color: var(--dim);
+  text-align: center;
+}
+
+/* ── Org Chart ──────────────────────────────────────────────────── */
+#chart-pane {
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+#chart-svg-wrap {
+  background: oklch(8% 0.01 186);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden; position: relative;
+}
+
+#org-chart-svg {
+  width: 100%; display: block;
+}
+
+/* ── Info grid (goal / topology / created) ─────────────────────── */
+#org-meta-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px;
+  background: var(--border); border: 1px solid var(--border);
+  border-radius: 3px; overflow: hidden;
+}
+.meta-cell {
+  background: var(--bg-panel);
+  padding: 10px 14px;
+}
+.meta-cell-label { font-size: 8px; letter-spacing: 2px; color: var(--dim); margin-bottom: 4px; }
+.meta-cell-value { font-size: 11px; color: var(--text); }
+
+/* ── Roles list ─────────────────────────────────────────────────── */
+#roles-pane { padding: 20px; }
+
+.roles-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.role-block {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 3px; padding: 12px 14px;
+  transition: border-color 0.12s;
+}
+.role-block:hover { border-color: var(--teal-dim); }
+
+.rb-header { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.rb-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px;
+}
+.rb-title { font-size: 12px; color: var(--text); font-weight: 500; line-height: 1.3; }
+.rb-agent {
+  margin-left: auto; flex-shrink: 0;
+  font-size: 8px; padding: 1px 7px; border-radius: 2px;
+  border: 1px solid var(--teal-dim); color: var(--teal); opacity: 0.85;
+  letter-spacing: 0.5px;
+}
+.rb-id { font-size: 9px; color: var(--dim); margin-bottom: 5px; padding-left: 15px; }
+.rb-reports { font-size: 9px; color: var(--muted); padding-left: 15px; margin-bottom: 6px; }
+.rb-reports span { color: var(--indigo); }
+
+.rb-resps { padding-left: 15px; }
+.rb-resp-item {
+  font-size: 9px; color: var(--dim); line-height: 1.6;
+  display: flex; gap: 6px; align-items: flex-start;
+}
+.rb-resp-item::before {
+  content: '—'; color: oklch(36% 0.008 186 / 0.5); flex-shrink: 0; margin-top: 1px;
+}
+
+/* ── Activity / event log ───────────────────────────────────────── */
+#activity-pane { padding: 20px; }
+#activity-log { display: flex; flex-direction: column; gap: 0; }
+
+.act-row {
+  display: grid;
+  grid-template-columns: 60px 90px 1fr;
+  gap: 8px; padding: 5px 0;
+  border-bottom: 1px solid oklch(62% 0.20 186 / 0.05);
+  align-items: baseline; font-size: 10px;
+}
+.act-row:last-child { border-bottom: none; }
+
+.act-time { color: var(--dim); font-variant-numeric: tabular-nums; font-size: 9px; }
+.act-type { color: var(--teal); font-weight: 500; letter-spacing: 0.5px; }
+.act-msg  { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.act-empty { color: var(--dim); font-size: 9px; padding: 16px 0; letter-spacing: 1px; }
+
+/* ── Health pane ─────────────────────────────────────────────────── */
+#health-pane { padding: 20px; }
+
+.health-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px; margin-bottom: 16px;
+}
+
+.health-cell {
+  background: var(--bg-panel);
+  border: 1px solid var(--border); border-radius: 3px;
+  padding: 12px 14px;
+}
+.hc-label { font-size: 8px; letter-spacing: 2px; color: var(--dim); margin-bottom: 4px; }
+.hc-value { font-size: 18px; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.hc-sub { font-size: 9px; color: var(--muted); margin-top: 2px; }
+.hc-value.green  { color: var(--green); }
+.hc-value.amber  { color: var(--amber); }
+.hc-value.red    { color: var(--red); }
+
+/* ── Communication edges (SVG in chart) ─────────────────────────── */
+.oc-edge { stroke: var(--teal); stroke-opacity: 0.25; stroke-width: 1; fill: none; }
+.oc-edge.command  { stroke: var(--teal); stroke-opacity: 0.4; }
+.oc-edge.report   { stroke: var(--indigo); stroke-opacity: 0.35; stroke-dasharray: 4 3; }
+.oc-edge.feedback { stroke: var(--amber); stroke-opacity: 0.25; stroke-dasharray: 2 4; }
+.oc-edge.handoff  { stroke: var(--green); stroke-opacity: 0.3; }
+
+.oc-node-bg  { fill: oklch(8% 0.01 186); stroke-width: 1.5; }
+.oc-node-bg.boss { stroke: var(--teal); }
+.oc-node-bg.peer { stroke: oklch(68% 0.18 252); }
+.oc-node-text {
+  fill: var(--text); font-size: 10px;
+  font-family: 'Azeret Mono', 'Space Mono', monospace;
+  text-anchor: middle; dominant-baseline: middle;
+  pointer-events: none;
+}
+.oc-node-sub {
+  fill: var(--muted); font-size: 8px;
+  font-family: 'Azeret Mono', 'Space Mono', monospace;
+  text-anchor: middle; dominant-baseline: middle;
+  pointer-events: none;
+}
+.oc-node-pulse { fill: none; stroke-width: 1; opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .oc-node-pulse.running {
+    animation: nodepulse 2.5s ease-in-out infinite;
+    stroke: var(--green); opacity: 0.35;
+  }
+}
+@keyframes nodepulse { 0%,100%{r:26;opacity:0.2} 50%{r:30;opacity:0.55} }
+
+/* Arrow markers are inline in the SVG */
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Sidebar: org list ── -->
+  <div id="sidebar">
+    <div id="sb-header">
+      <div id="sb-wordmark">
+        <a id="sb-back" href="/">← CONTROL</a>
+        <span id="sb-title">ORGS</span>
+      </div>
+      <div id="sb-status-row">
+        <div class="live-dot" id="sb-live-dot"></div>
+        <span id="sb-status-text">LOADING</span>
+        <span id="sb-running-count"></span>
+      </div>
+    </div>
+    <div id="sb-list">
+      <div id="sb-empty" style="display:none">
+        <span class="empty-icon">⬡</span>
+        NO ORGS FOUND<br><br>
+        Create a named agent team<br>that coordinates across sessions.
+        <span class="empty-cmd">/mastermind:createorg</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main content ── -->
+  <div id="main">
+
+    <!-- No-selection splash -->
+    <div id="no-org-state">
+      <div class="ns-icon">⬡</div>
+      <div class="ns-text">SELECT AN ORG</div>
+    </div>
+
+    <!-- Org detail (hidden until org selected) -->
+    <div id="org-detail" style="display:none; height:100%; flex-direction:column; overflow:hidden;">
+
+      <div id="main-header">
+        <div>
+          <div id="org-label">MASTERMIND ORG</div>
+          <div style="display:flex; align-items:center; gap:8px; margin-top:2px;">
+            <div id="org-name">—</div>
+            <span id="org-status-badge" class="idle">IDLE</span>
+          </div>
+        </div>
+        <div style="margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+          <div class="hdr-chip">ROLES <span id="hdr-roles">0</span></div>
+          <div class="hdr-chip">TOPOLOGY <span id="hdr-topology">—</span></div>
+          <div class="hdr-chip" id="hdr-created-wrap" style="display:none">SINCE <span id="hdr-created">—</span></div>
+        </div>
+        <button id="stop-btn" onclick="stopCurrentOrg()" style="display:none;
+          font-size:9px; font-family:var(--mono); letter-spacing:1px; color:var(--red);
+          border:1px solid oklch(62% 0.22 25 / 0.35); background:none; padding:4px 12px;
+          border-radius:3px; cursor:pointer; text-transform:uppercase; transition:background 0.12s;"
+          onmouseover="this.style.background='oklch(62% 0.22 25 / 0.08)'"
+          onmouseout="this.style.background='none'">STOP</button>
+      </div>
+
+      <div id="main-tabs">
+        <button class="tab-btn active" onclick="switchTab('chart')">ORG CHART</button>
+        <button class="tab-btn" onclick="switchTab('roles')">ROLES</button>
+        <button class="tab-btn" onclick="switchTab('activity')">ACTIVITY</button>
+        <button class="tab-btn" onclick="switchTab('health')">HEALTH</button>
+      </div>
+
+      <div id="main-body">
+
+        <!-- Chart tab -->
+        <div class="tab-pane active" id="tab-chart">
+          <div id="chart-pane">
+            <div id="org-meta-grid">
+              <div class="meta-cell">
+                <div class="meta-cell-label">GOAL</div>
+                <div class="meta-cell-value" id="meta-goal" style="font-size:10px;line-height:1.5;white-space:normal;color:var(--muted)">—</div>
+              </div>
+              <div class="meta-cell">
+                <div class="meta-cell-label">TOPOLOGY</div>
+                <div class="meta-cell-value" id="meta-topology">—</div>
+              </div>
+              <div class="meta-cell">
+                <div class="meta-cell-label">CREATED</div>
+                <div class="meta-cell-value" id="meta-created" style="font-size:10px;color:var(--muted)">—</div>
+              </div>
+            </div>
+            <div id="chart-svg-wrap">
+              <svg id="org-chart-svg" viewBox="0 0 720 320">
+                <defs>
+                  <marker id="arr-teal" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                    <path d="M0,0 L0,6 L6,3 z" fill="oklch(62% 0.20 186 / 0.5)"/>
+                  </marker>
+                  <marker id="arr-indigo" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                    <path d="M0,0 L0,6 L6,3 z" fill="oklch(68% 0.18 252 / 0.45)"/>
+                  </marker>
+                  <marker id="arr-amber" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                    <path d="M0,0 L0,6 L6,3 z" fill="oklch(78% 0.18 80 / 0.35)"/>
+                  </marker>
+                  <marker id="arr-green" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                    <path d="M0,0 L0,6 L6,3 z" fill="oklch(68% 0.20 150 / 0.4)"/>
+                  </marker>
+                  <filter id="node-glow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/>
+                    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                  </filter>
+                </defs>
+                <rect width="720" height="320" fill="oklch(7% 0.008 186)"/>
+                <g id="oc-edges"></g>
+                <g id="oc-nodes"></g>
+              </svg>
+            </div>
+
+            <!-- Legend -->
+            <div style="display:flex; gap:16px; flex-wrap:wrap; padding:0 2px;">
+              <div style="display:flex; align-items:center; gap:5px; font-size:8px; color:var(--dim);">
+                <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="oklch(62% 0.20 186)" stroke-opacity="0.5" stroke-width="1.5" marker-end="url(#arr-teal)"/></svg>
+                COMMAND
+              </div>
+              <div style="display:flex; align-items:center; gap:5px; font-size:8px; color:var(--dim);">
+                <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="oklch(68% 0.18 252)" stroke-opacity="0.45" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr-indigo)"/></svg>
+                REPORT
+              </div>
+              <div style="display:flex; align-items:center; gap:5px; font-size:8px; color:var(--dim);">
+                <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="oklch(78% 0.18 80)" stroke-opacity="0.35" stroke-width="1" stroke-dasharray="2 4" marker-end="url(#arr-amber)"/></svg>
+                FEEDBACK
+              </div>
+              <div style="display:flex; align-items:center; gap:5px; font-size:8px; color:var(--dim);">
+                <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="oklch(68% 0.20 150)" stroke-opacity="0.4" stroke-width="1.5" marker-end="url(#arr-green)"/></svg>
+                HANDOFF
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Roles tab -->
+        <div class="tab-pane" id="tab-roles">
+          <div id="roles-pane">
+            <div id="roles-grid" class="roles-grid"></div>
+          </div>
+        </div>
+
+        <!-- Activity tab -->
+        <div class="tab-pane" id="tab-activity">
+          <div id="activity-pane">
+            <div id="activity-log"></div>
+          </div>
+        </div>
+
+        <!-- Health tab -->
+        <div class="tab-pane" id="tab-health">
+          <div id="health-pane">
+            <div id="health-grid" class="health-grid"></div>
+            <div id="health-detail"></div>
+          </div>
+        </div>
+
+      </div><!-- end main-body -->
+    </div><!-- end org-detail -->
+  </div><!-- end main -->
+</div><!-- end app -->
+
+<script>
+'use strict';
+
+// ── State ─────────────────────────────────────────────────────────
+let allOrgs = [];
+let selectedOrg = null;
+let orgDetailData = null;
+let currentTab = 'chart';
+
+// ── Utilities ──────────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function fmtDate(ts) {
+  if (!ts) return '—';
+  const d = new Date(typeof ts === 'number' ? ts : Date.parse(ts));
+  if (isNaN(d)) return ts;
+  return d.toLocaleDateString('en', {month:'short', day:'numeric', year:'numeric'});
+}
+function fmtTime(ts) {
+  if (!ts) return '';
+  const d = new Date(typeof ts === 'number' ? ts : Date.parse(ts));
+  if (isNaN(d)) return '';
+  return d.toLocaleTimeString('en', {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+function fmtEventType(t) {
+  const m = {
+    'org:start':'START','org:stop':'STOP','org:complete':'COMPLETE',
+    'org:create':'CREATE','org:heartbeat':'HB','org:agent:online':'AGENT ON',
+    'org:comms':'COMMS','org:checkpoint':'CHECKPOINT',
+  };
+  return m[t] || (t || '').replace(/^org:/,'').toUpperCase();
+}
+
+// Role colors cycle
+const ROLE_COLORS = [
+  'oklch(62% 0.20 186)',
+  'oklch(68% 0.18 252)',
+  'oklch(68% 0.20 150)',
+  'oklch(78% 0.18 80)',
+  'oklch(62% 0.22 25)',
+  'oklch(74% 0.16 310)',
+];
+function roleColor(i) { return ROLE_COLORS[i % ROLE_COLORS.length]; }
+
+// ── Tab switching ─────────────────────────────────────────────────
+window.switchTab = function(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase().includes(tab) ||
+      (tab === 'chart' && b.textContent === 'ORG CHART') ||
+      (tab === 'roles' && b.textContent === 'ROLES') ||
+      (tab === 'activity' && b.textContent === 'ACTIVITY') ||
+      (tab === 'health' && b.textContent === 'HEALTH'));
+  });
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  const pane = document.getElementById('tab-' + tab);
+  if (pane) pane.classList.add('active');
+  if (orgDetailData) renderTab(tab);
+};
+
+// ── Render all orgs in sidebar ────────────────────────────────────
+function renderSidebar() {
+  const list = document.getElementById('sb-list');
+  const empty = document.getElementById('sb-empty');
+  const dot = document.getElementById('sb-live-dot');
+  const statusText = document.getElementById('sb-status-text');
+  const runCount = document.getElementById('sb-running-count');
+
+  // Clear existing items
+  list.querySelectorAll('.org-item').forEach(el => el.remove());
+
+  const running = allOrgs.filter(o => o.running).length;
+  if (running > 0) {
+    dot.classList.add('on');
+    statusText.textContent = 'LIVE';
+    runCount.textContent = running + ' RUNNING';
+  } else {
+    dot.classList.remove('on');
+    statusText.textContent = allOrgs.length ? 'IDLE' : 'EMPTY';
+    runCount.textContent = '';
+  }
+
+  if (!allOrgs.length) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  allOrgs.forEach(org => {
+    const item = document.createElement('div');
+    item.className = 'org-item' +
+      (org.running ? ' running' : '') +
+      (selectedOrg === org.name ? ' active' : '');
+    item.dataset.orgName = org.name;
+
+    const rolesCount = Array.isArray(org.roles) ? org.roles.length : (org.roles || 0);
+    const topo = org.topology || 'hierarchical';
+    const goalText = (org.goal || '').slice(0, 55) + ((org.goal || '').length > 55 ? '…' : '');
+
+    item.innerHTML = `
+      <div class="oi-header">
+        <div class="oi-dot ${org.running ? 'running' : ''}"></div>
+        <div class="oi-name">${esc(org.name)}</div>
+        <span class="oi-badge ${org.running ? 'running' : 'idle'}">${org.running ? 'LIVE' : 'IDLE'}</span>
+      </div>
+      ${goalText ? `<div class="oi-goal">${esc(goalText)}</div>` : ''}
+      <div class="oi-meta">
+        <span class="oi-chip">${rolesCount} <span>roles</span></span>
+        <span class="oi-chip">${esc(topo)}</span>
+      </div>`;
+
+    item.addEventListener('click', () => selectOrg(org.name));
+    list.appendChild(item);
+  });
+}
+
+// ── Select and load an org ────────────────────────────────────────
+async function selectOrg(name) {
+  selectedOrg = name;
+
+  // Update sidebar active state
+  document.querySelectorAll('.org-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.orgName === name);
+  });
+
+  // Show detail area
+  document.getElementById('no-org-state').style.display = 'none';
+  const detail = document.getElementById('org-detail');
+  detail.style.display = 'flex';
+
+  // Basic data from list
+  const listOrg = allOrgs.find(o => o.name === name) || {};
+  updateHeader(listOrg, null);
+
+  // Fetch full data
+  orgDetailData = null;
+  try {
+    const [mainR, actR, healthR] = await Promise.all([
+      fetch(`/api/org/${encodeURIComponent(name)}`),
+      fetch(`/api/org/${encodeURIComponent(name)}/activity`).catch(() => null),
+      fetch(`/api/org/${encodeURIComponent(name)}/health`).catch(() => null),
+    ]);
+    if (!mainR.ok) throw new Error('not found');
+    const raw = await mainR.json();
+    // API returns {config, state, goals, routines, approvals, running, tasks} — flatten config to top level
+    orgDetailData = raw.config ? { ...raw.config, ...raw, running: raw.running } : raw;
+    orgDetailData._activity = actR && actR.ok ? await actR.json() : [];
+    orgDetailData._health = healthR && healthR.ok ? await healthR.json() : null;
+  } catch (e) {
+    orgDetailData = { ...listOrg, roles: listOrg.roles || [], communication: [] };
+    orgDetailData._activity = [];
+    orgDetailData._health = null;
+  }
+
+  updateHeader(listOrg, orgDetailData);
+  renderTab(currentTab);
+}
+
+function updateHeader(listOrg, data) {
+  const name = listOrg.name || selectedOrg || '—';
+  document.getElementById('org-name').textContent = name.toUpperCase();
+
+  const running = listOrg.running;
+  const badge = document.getElementById('org-status-badge');
+  badge.textContent = running ? 'LIVE' : 'IDLE';
+  badge.className = 'oi-badge ' + (running ? 'running' : 'idle');
+
+  const rolesArr = data ? (data.roles || []) : [];
+  const rolesCount = Array.isArray(rolesArr) ? rolesArr.length : (listOrg.roles || 0);
+  document.getElementById('hdr-roles').textContent = rolesCount;
+  document.getElementById('hdr-topology').textContent = (data?.topology || listOrg.topology || '—').toUpperCase();
+
+  const created = data?.created_at || listOrg.created_at;
+  if (created) {
+    document.getElementById('hdr-created').textContent = fmtDate(created);
+    document.getElementById('hdr-created-wrap').style.display = '';
+  }
+
+  document.getElementById('stop-btn').style.display = running ? '' : 'none';
+}
+
+// ── Tab renderers ─────────────────────────────────────────────────
+function renderTab(tab) {
+  if (!orgDetailData) return;
+  if (tab === 'chart') renderChart();
+  else if (tab === 'roles') renderRoles();
+  else if (tab === 'activity') renderActivity();
+  else if (tab === 'health') renderHealth();
+}
+
+// ── CHART TAB ─────────────────────────────────────────────────────
+function renderChart() {
+  const d = orgDetailData;
+  const roles = Array.isArray(d.roles) ? d.roles : [];
+  const comms = Array.isArray(d.communication) ? d.communication : [];
+  const running = !!(allOrgs.find(o => o.name === selectedOrg) || {}).running;
+
+  // Meta bar
+  document.getElementById('meta-goal').textContent = d.goal || '—';
+  document.getElementById('meta-topology').textContent = (d.topology || '—').toUpperCase();
+  document.getElementById('meta-created').textContent = fmtDate(d.created_at);
+
+  // Build SVG chart
+  const svgEl = document.getElementById('org-chart-svg');
+  const edgesG = document.getElementById('oc-edges');
+  const nodesG = document.getElementById('oc-nodes');
+  edgesG.innerHTML = '';
+  nodesG.innerHTML = '';
+
+  if (!roles.length) {
+    // Empty chart placeholder
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', '360');
+    text.setAttribute('y', '160');
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('fill', 'oklch(36% 0.008 186)');
+    text.setAttribute('font-size', '11');
+    text.setAttribute('font-family', "'Azeret Mono','Space Mono',monospace");
+    text.setAttribute('letter-spacing', '2');
+    text.textContent = 'NO ROLES DEFINED';
+    nodesG.appendChild(text);
+    return;
+  }
+
+  // Layout: compute node positions
+  const W = 720, H = 320;
+  const topo = (d.topology || 'hierarchical').toLowerCase();
+  const positions = computeLayout(roles, comms, topo, W, H);
+
+  const NS = 'http://www.w3.org/2000/svg';
+
+  // Draw edges first
+  const markerMap = {
+    command: 'arr-teal', report: 'arr-indigo', feedback: 'arr-amber', handoff: 'arr-green'
+  };
+  const strokeMap = {
+    command:  { color: 'oklch(62% 0.20 186)',  opacity: 0.5,  width: 1.5, dash: '' },
+    report:   { color: 'oklch(68% 0.18 252)',  opacity: 0.4,  width: 1,   dash: '4 3' },
+    feedback: { color: 'oklch(78% 0.18 80)',   opacity: 0.3,  width: 1,   dash: '2 4' },
+    handoff:  { color: 'oklch(68% 0.20 150)',  opacity: 0.45, width: 1.5, dash: '' },
+  };
+
+  // Build set of edge pairs to detect anti-parallel edges (A→B + B→A)
+  const edgePairSet = new Set(comms.map(c => `${c.from}|${c.to}`));
+
+  comms.forEach(edge => {
+    const fromPos = positions[edge.from];
+    const toPos   = positions[edge.to];
+    if (!fromPos || !toPos || edge.from === edge.to) return;
+
+    const style = strokeMap[edge.type] || strokeMap.command;
+    const marker = markerMap[edge.type] || 'arr-teal';
+
+    // Nudge endpoints toward each edge center to avoid overlap with nodes
+    const dx = toPos.x - fromPos.x, dy = toPos.y - fromPos.y;
+    const len = Math.sqrt(dx*dx + dy*dy) || 1;
+    const R = 24; // node radius to clear
+
+    // Perpendicular offset for anti-parallel pairs so both edges remain visible
+    let px = 0, py = 0;
+    if (edgePairSet.has(`${edge.to}|${edge.from}`)) {
+      const [canonFrom, canonTo] = edge.from < edge.to ? [edge.from, edge.to] : [edge.to, edge.from];
+      const cp = positions[canonFrom], ct = positions[canonTo];
+      const cdx = ct.x - cp.x, cdy = ct.y - cp.y;
+      const clen = Math.sqrt(cdx*cdx + cdy*cdy) || 1;
+      const sign = edge.from === canonFrom ? 1 : -1;
+      px = sign * (-cdy / clen) * 6;
+      py = sign * ( cdx / clen) * 6;
+    }
+
+    const x1 = fromPos.x + (dx/len)*R + px;
+    const y1 = fromPos.y + (dy/len)*R + py;
+    const x2 = toPos.x   - (dx/len)*(R + 4) + px;
+    const y2 = toPos.y   - (dy/len)*(R + 4) + py;
+
+    const line = document.createElementNS(NS, 'line');
+    line.setAttribute('x1', x1.toFixed(1));
+    line.setAttribute('y1', y1.toFixed(1));
+    line.setAttribute('x2', x2.toFixed(1));
+    line.setAttribute('y2', y2.toFixed(1));
+    line.setAttribute('stroke', style.color);
+    line.setAttribute('stroke-opacity', style.opacity);
+    line.setAttribute('stroke-width', style.width);
+    if (style.dash) line.setAttribute('stroke-dasharray', style.dash);
+    line.setAttribute('marker-end', `url(#${marker})`);
+    edgesG.appendChild(line);
+  });
+
+  // Draw nodes
+  roles.forEach((role, i) => {
+    const pos = positions[role.id];
+    if (!pos) return;
+    const isBoss = !role.reports_to || role.reports_to === role.id;
+    const color = roleColor(i);
+
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('transform', `translate(${pos.x.toFixed(1)},${pos.y.toFixed(1)})`);
+
+    // Pulse ring (running state)
+    if (running) {
+      const pulse = document.createElementNS(NS, 'circle');
+      pulse.setAttribute('r', '26');
+      pulse.setAttribute('class', 'oc-node-pulse running');
+      pulse.setAttribute('stroke', isBoss ? 'oklch(62% 0.20 186)' : 'oklch(68% 0.20 150)');
+      g.appendChild(pulse);
+    }
+
+    // Node circle
+    const circle = document.createElementNS(NS, 'circle');
+    circle.setAttribute('r', '22');
+    circle.setAttribute('class', `oc-node-bg ${isBoss ? 'boss' : 'peer'}`);
+    circle.setAttribute('stroke', color);
+    circle.setAttribute('filter', 'url(#node-glow)');
+    g.appendChild(circle);
+
+    // Role title — abbreviated to fit circle
+    const titleText = document.createElementNS(NS, 'text');
+    titleText.setAttribute('class', 'oc-node-text');
+    titleText.setAttribute('y', '-4');
+    const title = role.title || role.id;
+    const shortTitle = title.length > 10 ? title.slice(0, 9) + '…' : title;
+    titleText.textContent = shortTitle;
+    titleText.style.fill = color;
+    g.appendChild(titleText);
+
+    // Agent type
+    if (role.agent_type) {
+      const subText = document.createElementNS(NS, 'text');
+      subText.setAttribute('class', 'oc-node-sub');
+      subText.setAttribute('y', '10');
+      const agent = role.agent_type.length > 12 ? role.agent_type.slice(0, 11) + '…' : role.agent_type;
+      subText.textContent = agent;
+      g.appendChild(subText);
+    }
+
+    nodesG.appendChild(g);
+  });
+}
+
+function computeLayout(roles, comms, topology, W, H) {
+  const positions = {};
+  const n = roles.length;
+  if (n === 0) return positions;
+
+  const cx = W / 2, cy = H / 2;
+  const PAD = 60;
+
+  if (topology === 'mesh') {
+    // All nodes in a circle
+    roles.forEach((role, i) => {
+      const angle = (2 * Math.PI * i / n) - Math.PI / 2;
+      const r = Math.min((W - PAD*2) / 2, (H - PAD*2) / 2) * 0.8;
+      positions[role.id] = {
+        x: cx + r * Math.cos(angle),
+        y: cy + r * Math.sin(angle),
+      };
+    });
+
+  } else if (topology === 'star') {
+    // Boss in center, others around edge
+    const boss = roles.find(r => !r.reports_to) || roles[0];
+    const rest = roles.filter(r => r.id !== boss.id);
+    positions[boss.id] = { x: cx, y: cy };
+    const r2 = Math.min((W - PAD*2) / 2, (H - PAD*2) / 2) * 0.75;
+    rest.forEach((role, i) => {
+      const angle = (2 * Math.PI * i / rest.length) - Math.PI / 2;
+      positions[role.id] = {
+        x: cx + r2 * Math.cos(angle),
+        y: cy + r2 * Math.sin(angle),
+      };
+    });
+
+  } else {
+    // Hierarchical: layer by reports_to depth
+    const depthMap = {};
+    const childMap = {};
+    roles.forEach(r => {
+      if (!r.reports_to || r.reports_to === r.id) { depthMap[r.id] = 0; }
+      const parent = r.reports_to;
+      if (parent && parent !== r.id) {
+        if (!childMap[parent]) childMap[parent] = [];
+        childMap[parent].push(r.id);
+      }
+    });
+    // BFS to assign depths
+    let changed = true, iter = 0;
+    while (changed && iter < 20) {
+      changed = false; iter++;
+      roles.forEach(r => {
+        if (r.reports_to && r.reports_to !== r.id && depthMap[r.reports_to] !== undefined) {
+          const newDepth = (depthMap[r.reports_to] || 0) + 1;
+          if (depthMap[r.id] !== newDepth) { depthMap[r.id] = newDepth; changed = true; }
+        }
+      });
+    }
+    // Assign depth 0 to any unresolved
+    roles.forEach(r => { if (depthMap[r.id] === undefined) depthMap[r.id] = 1; });
+
+    const maxDepth = Math.max(...Object.values(depthMap));
+    const layerMap = {};
+    Object.entries(depthMap).forEach(([id, depth]) => {
+      if (!layerMap[depth]) layerMap[depth] = [];
+      layerMap[depth].push(id);
+    });
+
+    const rowH = maxDepth > 0 ? (H - PAD * 2) / (maxDepth + 1) : H - PAD * 2;
+    Object.entries(layerMap).forEach(([depth, ids]) => {
+      const y = PAD + Number(depth) * rowH + (maxDepth > 0 ? rowH / 2 : H / 2);
+      ids.forEach((id, i) => {
+        const colW = (W - PAD * 2) / ids.length;
+        const x = PAD + colW * i + colW / 2;
+        positions[id] = { x, y };
+      });
+    });
+  }
+
+  return positions;
+}
+
+// ── ROLES TAB ─────────────────────────────────────────────────────
+function renderRoles() {
+  const d = orgDetailData;
+  const roles = Array.isArray(d.roles) ? d.roles : [];
+  const grid = document.getElementById('roles-grid');
+  grid.innerHTML = '';
+
+  if (!roles.length) {
+    grid.innerHTML = '<div style="color:var(--dim);font-size:9px;letter-spacing:1px;">NO ROLES DEFINED</div>';
+    return;
+  }
+
+  roles.forEach((role, i) => {
+    const color = roleColor(i);
+    const isBoss = !role.reports_to || role.reports_to === role.id;
+    const resps = Array.isArray(role.responsibilities) ? role.responsibilities : [];
+
+    const block = document.createElement('div');
+    block.className = 'role-block';
+
+    block.innerHTML = `
+      <div class="rb-header">
+        <div class="rb-dot" style="background:${color}; box-shadow:0 0 4px ${color}50;"></div>
+        <div class="rb-title">${esc(role.title || role.id)}</div>
+        ${role.agent_type ? `<span class="rb-agent">${esc(role.agent_type)}</span>` : ''}
+      </div>
+      <div class="rb-id">id: <span style="color:var(--muted)">${esc(role.id)}</span>${isBoss ? ' <span style="color:var(--teal);font-size:8px;margin-left:4px">BOSS</span>' : ''}</div>
+      ${role.reports_to && !isBoss ? `<div class="rb-reports">reports to: <span>${esc(role.reports_to)}</span></div>` : ''}
+      ${resps.length ? `<div class="rb-resps">${resps.map(r => `<div class="rb-resp-item">${esc(r)}</div>`).join('')}</div>` : ''}
+    `;
+
+    grid.appendChild(block);
+  });
+}
+
+// ── ACTIVITY TAB ─────────────────────────────────────────────────
+function renderActivity() {
+  const log = document.getElementById('activity-log');
+  const activity = orgDetailData._activity;
+
+  // Also inject org event log from SSE-captured events
+  const orgEvents = orgEventLog[selectedOrg] || [];
+
+  // Merge and sort
+  let events = [];
+  if (Array.isArray(activity)) events = [...activity];
+  events.push(...orgEvents);
+  events.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+  if (!events.length) {
+    log.innerHTML = '<div class="act-empty">NO ACTIVITY RECORDED</div>';
+    return;
+  }
+
+  log.innerHTML = events.slice(0, 80).map(ev => {
+    const t = fmtTime(ev.ts);
+    const type = fmtEventType(ev.type);
+    const detail = ev.role ? ev.role : ev.msg ? ev.msg : ev.agent ? ev.agent : '';
+    return `<div class="act-row">
+      <span class="act-time">${esc(t)}</span>
+      <span class="act-type">${esc(type)}</span>
+      <span class="act-msg">${esc(detail)}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── HEALTH TAB ─────────────────────────────────────────────────────
+function renderHealth() {
+  const health = orgDetailData._health;
+  const listOrg = allOrgs.find(o => o.name === selectedOrg) || {};
+  const roles = Array.isArray(orgDetailData.roles) ? orgDetailData.roles : [];
+  const running = listOrg.running;
+
+  const grid = document.getElementById('health-grid');
+  const detail = document.getElementById('health-detail');
+
+  grid.innerHTML = `
+    <div class="health-cell">
+      <div class="hc-label">STATUS</div>
+      <div class="hc-value ${running ? 'green' : ''}">${running ? 'LIVE' : 'IDLE'}</div>
+    </div>
+    <div class="health-cell">
+      <div class="hc-label">ROLES</div>
+      <div class="hc-value">${roles.length}</div>
+    </div>
+    <div class="health-cell">
+      <div class="hc-label">TOPOLOGY</div>
+      <div class="hc-value" style="font-size:13px">${esc((orgDetailData.topology || '—').toUpperCase())}</div>
+    </div>
+    ${health?.agents_active !== undefined ? `
+    <div class="health-cell">
+      <div class="hc-label">AGENTS</div>
+      <div class="hc-value ${health.agents_active > 0 ? 'green' : ''}">${health.agents_active}</div>
+      <div class="hc-sub">active</div>
+    </div>` : ''}
+    ${health?.tasks_pending !== undefined ? `
+    <div class="health-cell">
+      <div class="hc-label">TASKS</div>
+      <div class="hc-value ${health.tasks_pending > 5 ? 'amber' : ''}">${health.tasks_pending}</div>
+      <div class="hc-sub">pending</div>
+    </div>` : ''}
+  `;
+
+  if (health?.errors && health.errors.length) {
+    detail.innerHTML = `
+      <div style="margin-top:16px">
+        <div style="font-size:8px;letter-spacing:2px;color:var(--dim);margin-bottom:8px">RECENT ERRORS</div>
+        ${health.errors.slice(0,5).map(e => `
+          <div style="font-size:9px;color:var(--red);padding:5px 0;border-bottom:1px solid oklch(62% 0.22 25 / 0.1)">
+            ${esc(e)}
+          </div>`).join('')}
+      </div>`;
+  } else {
+    detail.innerHTML = health ? `
+      <div style="margin-top:16px;font-size:9px;color:var(--dim);letter-spacing:1px;">
+        ${running ? 'ORG IS RUNNING — NO ERRORS DETECTED' : 'ORG IS IDLE'}
+      </div>` : `
+      <div style="margin-top:16px;font-size:9px;color:var(--dim);letter-spacing:1px;">
+        HEALTH DATA UNAVAILABLE
+      </div>`;
+  }
+}
+
+// ── Stop org action ────────────────────────────────────────────────
+window.stopCurrentOrg = async function() {
+  if (!selectedOrg) return;
+  try {
+    await fetch(`/api/orgs/${encodeURIComponent(selectedOrg)}/stop`, { method: 'POST' });
+    setTimeout(loadOrgs, 600);
+  } catch (_) {}
+};
+
+// ── SSE org events ────────────────────────────────────────────────
+const orgEventLog = {};
+
+let evtSource = null;
+function connectSSE() {
+  if (evtSource) evtSource.close();
+  evtSource = new EventSource('/api/events');
+  evtSource.onmessage = e => {
+    try {
+      const ev = JSON.parse(e.data);
+      if (ev && typeof ev.org === 'string' && ev.type && ev.type.startsWith('org:')) {
+        const name = ev.org;
+        if (!orgEventLog[name]) orgEventLog[name] = [];
+        orgEventLog[name].push(ev);
+        if (orgEventLog[name].length > 50) orgEventLog[name].shift();
+
+        // Refresh if this org is selected
+        if (name === selectedOrg && currentTab === 'activity') {
+          renderActivity();
+        }
+        // Reload org list if start/stop event
+        if (ev.type === 'org:start' || ev.type === 'org:stop') {
+          setTimeout(loadOrgs, 400);
+        }
+      }
+    } catch (_) {}
+  };
+  evtSource.onerror = () => {
+    setTimeout(connectSSE, 5000);
+  };
+}
+
+// ── Data loading ──────────────────────────────────────────────────
+async function loadOrgs() {
+  try {
+    const r = await fetch('/api/orgs');
+    allOrgs = await r.json();
+    if (!Array.isArray(allOrgs)) allOrgs = [];
+  } catch (_) {
+    allOrgs = [];
+  }
+  renderSidebar();
+
+  // Re-render detail if selected org changed running state
+  if (selectedOrg && orgDetailData) {
+    const listOrg = allOrgs.find(o => o.name === selectedOrg);
+    if (listOrg) updateHeader(listOrg, orgDetailData);
+  }
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────
+connectSSE();
+loadOrgs();
+setInterval(loadOrgs, 8000);
+</script>
+</body>
+</html>
