@@ -76,10 +76,13 @@ module.exports = {
         var resConf = (result.confidence != null ? result.confidence : 0);
         var resReason = String(result.reason || '');
         var fromKeywordStage = resReason.indexOf('Keyword 2-stage') !== -1;
-        var promptIsDevish = /\b(improve|refactor|fix|bug|optimi[sz]e|implement|build|debug|deploy|test|feature|system|performance|architecture|memory|hook|graph|statusline|monograph|api|cli|skill|hooks|agent|workflow|init|module|package|registry|server|client|route|handler)\b/i.test(prompt);
+        var promptIsDevish = /\b(develop(?:ment|er)?|routing|improve|refactor|fix|bug|optimi[sz]e|implement|build|debug|deploy|test|feature|system|performance|architecture|memory|hook|graph|statusline|monograph|api|cli|skill|hooks|agent|workflow|init|module|package|registry|server|client|route|handler|localhost|dashboard|sidebar|layout|component|function|class|config|port|script|parse|compile|lint|build)\b/i.test(prompt);
 
+        // Align with the 90% primary-panel threshold: any non-dev pick below
+        // 90% confidence gets overridden via the graph, unless the prompt
+        // explicitly uses non-dev domain language (nonDevPrompt guard).
         var shouldOverride = !nonDevPrompt && (
-          (!pickedDev && resConf < 0.85) ||
+          (!pickedDev && resConf < 0.90) ||
           (fromKeywordStage && promptIsDevish)
         );
         if (shouldOverride) {
@@ -176,11 +179,20 @@ module.exports = {
       try {
         var routeDir = path.join(CWD, '.monomind');
         fs.mkdirSync(routeDir, { recursive: true });
-        // Always use the resolved agent name — never persist "extras"
+        // When confidence < 90% and the router picked a non-dev agent without
+        // a graph override, don't persist the wrong specialist — show "AI" instead.
+        var confForPersist = result.confidence != null ? result.confidence : 0;
+        var devAgentsForPersist = /^(coder|tester|reviewer|planner|researcher|system-architect|backend-dev|backend-architect|mobile-dev|ml-developer|cicd-engineer|api-docs|code-analyzer|production-validator|Technical Writer|Software Architect|Frontend Developer|AI Engineer|Data Engineer|Security Engineer|DevOps Automator|SRE)$/i;
+        var persistedIsNonDev = !devAgentsForPersist.test(String(result.agent || '').trim());
         var resolvedAgent = result.agent;
         if (!resolvedAgent || resolvedAgent === 'extras') {
           var topExtra = result.extrasMatches && result.extrasMatches[0];
           resolvedAgent = topExtra ? topExtra.name : 'Specialist Agent';
+        }
+        // If router was uncertain (< 90%) and picked a non-dev specialist,
+        // show "AI selecting" in statusline rather than the wrong agent.
+        if (confForPersist < 0.90 && persistedIsNonDev && !String(result.reason || '').startsWith('Graph fallback')) {
+          resolvedAgent = 'AI selecting';
         }
         var routePayload = {
           agent: resolvedAgent,
