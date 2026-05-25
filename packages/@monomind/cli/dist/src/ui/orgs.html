@@ -1002,7 +1002,7 @@ function renderRoles() {
 
     block.innerHTML = `
       <div class="rb-header">
-        <div class="rb-dot" style="background:${color}; box-shadow:0 0 4px ${color}50;"></div>
+        <div class="rb-dot" style="background:${color}; box-shadow:0 0 4px ${color.replace(')', ' / 0.31)')};"></div>
         <div class="rb-title">${esc(role.title || role.id)}</div>
         ${role.agent_type ? `<span class="rb-agent">${esc(role.agent_type)}</span>` : ''}
       </div>
