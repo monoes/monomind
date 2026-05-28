@@ -860,7 +860,7 @@ function getGraphUsage() {
                     + (d.graph_assist_search || 0) + (d.graph_assist_neighbors || 0);
     const searches = (d.grep_call || 0) + (d.glob_call || 0)
                    + (d.bash_grep_call || 0) + (d.bash_find_call || 0);
-    const total = graphWins + searches;
+    const total = graphWins + searches + (d.preresolve_miss || 0);
     if (total === 0) return null;
     return { graphWins: graphWins, searches: searches, pct: Math.round((graphWins / total) * 100), dollarsSaved: d.dollars_saved || 0 };
   } catch { return null; }

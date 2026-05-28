@@ -11,17 +11,19 @@ import { unlinkSync, existsSync } from 'node:fs';
 
 describe('DatabaseProvider', () => {
   const testDbPath = './test-database-provider.db';
+  // createDatabase() transforms .db → .rvf for the RVF provider; clean both paths
+  const testRvfPath = './test-database-provider.rvf';
 
-  afterEach(() => {
-    // Cleanup test database
-    if (existsSync(testDbPath)) {
-      try {
-        unlinkSync(testDbPath);
-      } catch (error) {
-        // Ignore cleanup errors
+  function cleanupDb() {
+    for (const p of [testDbPath, testRvfPath]) {
+      if (existsSync(p)) {
+        try { unlinkSync(p); } catch { /* ignore */ }
       }
     }
-  });
+  }
+
+  beforeEach(cleanupDb);
+  afterEach(cleanupDb);
 
   describe('Platform Detection', () => {
     it('should detect platform information', () => {

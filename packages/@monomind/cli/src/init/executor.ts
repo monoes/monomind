@@ -1628,6 +1628,34 @@ daemon.pid
     result.created.files.push('.monomind/.gitignore');
   }
 
+  // Ensure the project-level .gitignore does NOT blanket-ignore .monomind/
+  // A blanket ignore prevents config, metrics, and knowledge graph from being committed.
+  // We remove any bare `.monomind/` or `**/.monomind/` lines and add specific excludes instead.
+  const projectGitignorePath = path.join(targetDir, '.gitignore');
+  if (fs.existsSync(projectGitignorePath)) {
+    const existing = fs.readFileSync(projectGitignorePath, 'utf-8');
+    const blanketPattern = /^(\*\*\/)?\.monomind\/?\s*$/gm;
+    if (blanketPattern.test(existing)) {
+      const fixed = existing
+        .split('\n')
+        .filter(line => !/^(\*\*\/)?\.monomind\/?\s*$/.test(line))
+        .join('\n');
+      const specificExcludes = [
+        '# monomind runtime — exclude sensitive and machine-specific data',
+        '.monomind/sessions/',
+        '.monomind/security/',
+        '.monomind/*.tmp',
+        '.monomind/*.log',
+        '.monomind/daemon.pid',
+        '.monomind/*.db',
+        '.monomind/*.db-wal',
+        '.monomind/*.db-shm',
+      ].join('\n');
+      atomicWriteFile(projectGitignorePath, fixed.trimEnd() + '\n' + specificExcludes + '\n');
+      result.updated.push('.gitignore (replaced blanket .monomind/ ignore with specific excludes)');
+    }
+  }
+
   // Write CAPABILITIES.md with full system overview
   await writeCapabilitiesDoc(targetDir, options, result);
 }

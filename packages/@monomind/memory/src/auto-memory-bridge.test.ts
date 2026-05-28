@@ -104,20 +104,25 @@ describe('resolveAutoMemoryDir', () => {
 });
 
 describe('findGitRoot', () => {
+  // Derive the actual repo root at runtime so the test is environment-independent
+  const thisFile = new URL(import.meta.url).pathname;
+  // thisFile is <repoRoot>/packages/@monomind/memory/src/auto-memory-bridge.test.ts
+  const repoRoot = path.resolve(thisFile, '../../../../..');
+
   it('should find git root for a directory inside a repo', () => {
-    // We know /workspaces/monomind is a git repo
-    const root = findGitRoot('/workspaces/monomind/packages/@monomind/memory');
-    expect(root).toBe('/workspaces/monomind');
+    const root = findGitRoot(path.join(repoRoot, 'packages', '@monomind', 'memory'));
+    expect(root).toBe(repoRoot);
   });
 
   it('should return the directory itself if it is the git root', () => {
-    const root = findGitRoot('/workspaces/monomind');
-    expect(root).toBe('/workspaces/monomind');
+    const root = findGitRoot(repoRoot);
+    expect(root).toBe(repoRoot);
   });
 
-  it('should return null for root filesystem', () => {
-    // /proc is almost certainly not in a git repo
-    const result = findGitRoot('/proc');
+  it('should return null for a non-git directory', async () => {
+    // Use os.tmpdir which is virtually never inside a git repo
+    const os = await import('node:os');
+    const result = findGitRoot(os.tmpdir());
     expect(result).toBeNull();
   });
 });

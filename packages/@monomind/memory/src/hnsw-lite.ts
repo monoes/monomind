@@ -20,6 +20,8 @@ export class HnswLite {
   private readonly maxNeighbors: number;
   private readonly efConstruction: number;
   private readonly metric: string;
+  // Maintained entry point — updated on add/rebuild so search avoids an O(n) scan
+  private entryPoint: string | undefined;
 
   constructor(dimensions: number, m: number, efConstruction: number, metric: string) {
     this.dimensions = dimensions;
@@ -37,10 +39,14 @@ export class HnswLite {
   }
 
   add(id: string, vector: Float32Array): void {
+    if (vector.length !== this.dimensions) {
+      throw new RangeError(`Vector dimension mismatch: expected ${this.dimensions}, got ${vector.length}`);
+    }
     this.vectors.set(id, vector);
 
     if (this.vectors.size === 1) {
       this.neighbors.set(id, new Set());
+      this.entryPoint = id;
       return;
     }
 
@@ -81,6 +87,10 @@ export class HnswLite {
       this.neighbors.delete(id);
     }
     this.tombstones.clear();
+    // Re-anchor entry point to a live node after pruning
+    if (this.entryPoint === undefined || !this.vectors.has(this.entryPoint)) {
+      this.entryPoint = this.vectors.keys().next().value;
+    }
   }
 
   search(query: Float32Array, k: number, threshold?: number): HnswSearchResult[] {
@@ -92,22 +102,29 @@ export class HnswLite {
     const visited = new Set<string>();
     const candidates: HnswSearchResult[] = [];
 
-    // Entry-point scan: find best starting node without polluting visited/candidates.
-    // Mixing entry-point selection with BFS initialization blocks graph traversal.
-    let entryId: string | undefined;
-    let bestScore = -1;
-    let scanned = 0;
-    for (const [id] of this.vectors) {
-      if (this.tombstones.has(id)) continue;
-      const score = this.similarity(query, this.vectors.get(id)!);
-      if (score > bestScore) {
-        bestScore = score;
-        entryId = id;
+    // Use the maintained entry point (O(1)), falling back to a linear scan only if
+    // the stored entry point has been tombstoned since the last rebuild.
+    let entryId: string | undefined = this.entryPoint && !this.tombstones.has(this.entryPoint)
+      ? this.entryPoint
+      : undefined;
+
+    if (!entryId) {
+      // Fallback: pick the first live node and update entryPoint
+      for (const [id] of this.vectors) {
+        if (!this.tombstones.has(id)) { entryId = id; break; }
       }
-      if (++scanned >= Math.min(this.efConstruction, this.vectors.size)) break;
+      this.entryPoint = entryId;
     }
 
     if (entryId) {
+      // Include the entry point itself in the candidate set — it may be the closest node
+      const entryVec = this.vectors.get(entryId);
+      if (entryVec) {
+        const entryScore = this.similarity(query, entryVec);
+        candidates.push({ id: entryId, score: entryScore });
+        visited.add(entryId);
+      }
+
       const queue = [entryId];
       let idx = 0;
 
@@ -187,6 +204,7 @@ export class HnswLite {
       maxNeighbors: this.maxNeighbors,
       efConstruction: this.efConstruction,
       metric: this.metric,
+      entryPoint: this.entryPoint,
       vectors: Array.from(this.vectors.entries()).map(([id, vec]) => [id, Array.from(vec)]),
       neighbors: Array.from(this.neighbors.entries()).map(([id, nbrs]) => [id, Array.from(nbrs)]),
       tombstones: Array.from(this.tombstones),
@@ -207,6 +225,7 @@ export class HnswLite {
       ((data as any).neighbors as [string, string[]][]).map(([id, nbrs]) => [id, new Set(nbrs)])
     );
     index.tombstones = new Set((data as any).tombstones ?? []);
+    index.entryPoint = (data as any).entryPoint ?? index.vectors.keys().next().value;
     return index;
   }
 

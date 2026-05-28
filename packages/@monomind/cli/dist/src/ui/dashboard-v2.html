@@ -34,7 +34,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #sb-logo { padding: 18px 16px 14px; border-bottom: 1px solid var(--border); }
 #sb-logo .mark { font-size: 13px; font-weight: 600; letter-spacing: 0.05em; color: var(--text-hi); }
 #sb-logo .proj { font-size: 11px; color: var(--accent); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
-#sb-nav { flex: 1; padding: 10px 8px; overflow-y: auto; }
+#sb-nav { flex: 1; padding: 10px 8px; overflow-y: auto; display: flex; flex-direction: column; }
 .nav-sect { margin-bottom: 8px; }
 .nav-lbl { font-size: 10px; letter-spacing: 0.08em; color: var(--text-xs); padding: 8px 8px 4px; text-transform: uppercase; }
 .nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: var(--r); cursor: pointer; color: var(--text-mid); transition: background 0.1s, color 0.1s; user-select: none; }
@@ -44,6 +44,15 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .nav-item .lbl { font-size: 13px; }
 .nav-item .bdg { margin-left: auto; font-size: 10px; background: var(--surface-hi); color: var(--text-lo); border-radius: 8px; padding: 1px 6px; min-width: 18px; text-align: center; }
 .nav-item.active .bdg { background: var(--accent-dim); color: var(--accent); }
+/* project context section */
+#nav-project-ctx { display: none; }
+#nav-project-ctx.visible { display: block; }
+.nav-proj-hdr { display: flex; align-items: center; gap: 7px; padding: 10px 8px 5px; cursor: pointer; }
+.nav-proj-hdr:hover .nav-proj-name { color: var(--text-hi); }
+.nav-proj-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+.nav-proj-name { font-size: 12px; font-weight: 600; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-proj-items { padding-left: 12px; border-left: 1px solid oklch(72% 0.18 75 / 0.2); margin-left: 11px; }
+.nav-no-proj { display: flex; align-items: center; gap: 8px; padding: 8px 8px 6px 10px; font-size: 11px; color: var(--text-xs); font-style: italic; }
 #sb-footer { padding: 10px 14px; border-top: 1px solid var(--border); }
 #sb-user { font-size: 12px; font-weight: 500; color: var(--text-mid); }
 #sb-path { font-size: 10px; color: var(--text-lo); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); }
@@ -211,12 +220,103 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .dr-ts { font-size: 10px; color: var(--text-lo); margin-top: 2px; }
 .drawer-item.hidden { display: none; }
 
-/* orgs */
-.org-list { display: flex; flex-direction: column; gap: 6px; }
-.org-row { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 11px 14px; cursor: pointer; transition: border-color 0.12s; }
-.org-row:hover { border-color: var(--accent); }
-.org-name { font-size: 13px; color: var(--text-hi); font-weight: 500; }
-.org-meta { font-size: 11px; color: var(--text-lo); margin-top: 3px; }
+/* orgs ── two-panel layout */
+#view-orgs { flex-direction: row; }
+#orgs-list-pane { width: 280px; flex-shrink: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+#orgs-list-head { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+#orgs-list-scroll { flex: 1; overflow-y: auto; padding: 8px; }
+#orgs-list-scroll::-webkit-scrollbar { width: 3px; }
+#orgs-list-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.orgs-view-title { font-size: 14px; font-weight: 600; color: var(--text-hi); }
+.orgs-view-sub { font-size: 11px; color: var(--text-lo); margin-top: 2px; }
+
+.org-item { display: flex; align-items: flex-start; gap: 9px; padding: 9px 10px; border-radius: var(--r); cursor: pointer; transition: background 0.09s; border: 1px solid transparent; }
+.org-item:hover { background: var(--surface-hi); }
+.org-item.active { background: var(--accent-dim); border-color: oklch(72% 0.18 75 / 0.25); }
+.oi-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex-shrink: 0; margin-top: 4px; transition: background 0.3s; }
+.oi-dot.running { background: var(--green); box-shadow: 0 0 5px oklch(65% 0.15 150 / 0.5); }
+@media (prefers-reduced-motion: no-preference) { .oi-dot.running { animation: blink 2s ease-in-out infinite; } }
+.oi-body { flex: 1; min-width: 0; }
+.oi-name { font-size: 13px; font-weight: 500; color: var(--text-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oi-goal { font-size: 11px; color: var(--text-lo); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oi-chips { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+.oi-chip { font-size: 10px; padding: 1px 6px; border-radius: 8px; background: var(--surface-hi); color: var(--text-lo); }
+.oi-chip.live { background: oklch(65% 0.15 150 / 0.12); color: var(--green); }
+
+/* detail pane */
+#org-detail-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+#org-detail-pane.empty-state { align-items: center; justify-content: center; }
+.orgs-no-sel { color: var(--text-lo); font-size: 13px; text-align: center; }
+.orgs-no-sel-ico { font-size: 28px; margin-bottom: 10px; opacity: 0.3; }
+
+#org-detail-head { padding: 12px 18px 11px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.odh-name { font-size: 16px; font-weight: 600; color: var(--text-hi); }
+.odh-badge { font-size: 11px; padding: 2px 8px; border-radius: 8px; }
+.odh-badge.idle { background: var(--surface-hi); color: var(--text-lo); }
+.odh-badge.live { background: oklch(65% 0.15 150 / 0.12); color: var(--green); }
+.odh-pill { font-size: 11px; padding: 2px 8px; border-radius: 8px; background: var(--surface); color: var(--text-lo); border: 1px solid var(--border); }
+.odh-right { margin-left: auto; display: flex; gap: 6px; }
+
+#org-detail-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); flex-shrink: 0; padding: 0 16px; }
+.odt-btn { font-size: 12px; padding: 8px 12px; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; color: var(--text-lo); font-family: var(--sans); transition: color 0.1s; }
+.odt-btn:hover { color: var(--text-hi); }
+.odt-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+#org-detail-body { flex: 1; overflow-y: auto; padding: 18px 20px; }
+#org-detail-body::-webkit-scrollbar { width: 3px; }
+#org-detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.odt-pane { display: none; }
+.odt-pane.active { display: block; }
+
+/* org meta strip */
+.org-meta-strip { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.oms-cell { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 10px 12px; }
+.oms-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-lo); margin-bottom: 4px; }
+.oms-val { font-size: 12px; color: var(--text-hi); word-break: break-word; line-height: 1.4; }
+
+/* SVG org chart */
+.org-chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; margin-bottom: 12px; }
+.org-chart-svg { width: 100%; display: block; }
+.org-chart-legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 0 2px; }
+.ocl-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-lo); }
+
+/* roles in v2 */
+.roles-v2-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.role-v2 { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 12px 14px; }
+.rv2-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+.rv2-avatar { width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0; object-fit: cover; }
+.rv2-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 2px; }
+.rv2-title { font-size: 13px; font-weight: 500; color: var(--text-hi); line-height: 1.3; }
+.rv2-agent { font-size: 10px; padding: 1px 7px; border-radius: 8px; background: var(--accent-dim); color: var(--accent); white-space: nowrap; align-self: flex-start; }
+.rv2-id { font-size: 10px; color: var(--text-lo); font-family: var(--mono); margin-bottom: 4px; }
+.rv2-reports { font-size: 11px; color: var(--text-lo); margin-bottom: 6px; }
+.rv2-reports span { color: var(--text-mid); }
+.rv2-resps { }
+.rv2-resp { font-size: 11px; color: var(--text-lo); line-height: 1.6; display: flex; gap: 6px; }
+.rv2-resp::before { content: '–'; opacity: 0.4; flex-shrink: 0; }
+/* role avatars in org list */
+.oi-avatars { display: flex; margin-top: 5px; }
+.oi-av { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; margin-right: -5px; border: 1.5px solid var(--bg); }
+.oi-av-more { width: 22px; height: 22px; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--border); font-size: 9px; color: var(--text-lo); display: flex; align-items: center; justify-content: center; margin-right: -5px; }
+/* chart avatar clip */
+.v2oc-node image { pointer-events: none; }
+
+/* activity in v2 */
+.act-v2-list { display: flex; flex-direction: column; }
+.av2-row { display: grid; grid-template-columns: 56px 90px 1fr; gap: 8px; padding: 5px 0; border-bottom: 1px solid oklch(25% 0.008 55 / 0.5); font-size: 11px; align-items: baseline; }
+.av2-row:last-child { border-bottom: none; }
+.av2-time { color: var(--text-xs); font-family: var(--mono); font-size: 10px; }
+.av2-type { color: var(--accent); font-weight: 500; }
+.av2-msg  { color: var(--text-lo); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* health in v2 */
+.health-v2-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.hv2-cell { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 10px 12px; }
+.hv2-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-lo); margin-bottom: 4px; }
+.hv2-val { font-size: 20px; font-weight: 700; color: var(--text-hi); font-family: var(--mono); }
+.hv2-val.green { color: var(--green); }
+.hv2-val.amber { color: var(--accent); }
+.hv2-val.red   { color: var(--red); }
 
 /* ── alerts rail ─────────────────────────────────────────── */
 #alerts-rail { display: none; flex-shrink: 0; border-bottom: 1px solid var(--border); padding: 0 16px; min-height: 36px; flex-direction: row; gap: 8px; align-items: center; overflow-x: auto; }
@@ -832,7 +932,111 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 .ctx-pressure-fill.warn { background:oklch(70% 0.18 80); }
 .ctx-pressure-fill.crit { background:oklch(65% 0.2 25); }
 .ctx-pressure-lbl { font-size:9px; color:var(--text-xs); white-space:nowrap; }
+/* org chart nodes — CSS fallback animation */
+.v2oc-node { transform-box: fill-box; transform-origin: center center; }
+@keyframes v2nodeIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes v2edgeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── status strip ────────────────────────────────────────── */
+#status-strip { display:flex; gap:6px; flex-wrap:wrap; padding:4px 12px 0; min-height:22px; }
+.ss-pill { font-size:10px; font-family:monospace; padding:2px 7px; border-radius:3px; background:var(--surface); color:var(--text-lo); border:1px solid var(--border); white-space:nowrap; }
+.ss-pill.on { color:var(--accent); border-color:oklch(70% 0.15 185 / 0.4); }
+.ss-pill.warn { color:var(--amber,#FFB700); border-color:oklch(75% 0.15 85 / 0.4); }
+
+/* ── tokens view ─────────────────────────────────────────── */
+.tok-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:12px 16px; min-width:110px; }
+.tok-card .tc-label { font-size:10px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-xs); margin-bottom:4px; }
+.tok-card .tc-val { font-size:18px; font-weight:700; color:var(--accent); font-family:monospace; }
+
+/* ── monograph view ──────────────────────────────────────── */
+:root { --mg-accent: oklch(65% 0.18 290); --mg-accent-dim: oklch(65% 0.18 290 / 0.12); }
+#view-monograph { overflow: hidden; }
+.mg-tab-bar { display:flex; gap:4px; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:6px; flex-wrap:wrap; }
+.mg-pane { display:none; }
+.mg-pane.active { display:block; }
+.mg-stat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; margin-bottom:18px; }
+.mg-stat-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:10px 14px; }
+.mg-stat-card .msc-lbl { font-size:10px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-xs); margin-bottom:3px; }
+.mg-stat-card .msc-val { font-size:20px; font-weight:700; color:var(--accent); font-family:var(--mono); }
+.mg-bar-row { display:flex; align-items:center; gap:8px; margin-bottom:5px; font-size:12px; }
+.mg-bar-row .mg-bar-lbl { width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-mid); flex-shrink:0; }
+.mg-bar-track { flex:1; background:var(--surface-hi); border-radius:3px; height:6px; overflow:hidden; }
+.mg-bar-fill { height:100%; border-radius:3px; background:var(--accent); transition:width 0.3s; }
+.mg-bar-fill.mg { background:var(--mg-accent); }
+.mg-bar-val { width:32px; text-align:right; color:var(--text-lo); font-size:11px; font-family:var(--mono); }
+.mg-section-title { font-size:11px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-xs); margin:16px 0 8px; }
+.mg-analyze-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px; }
+.mg-analyze-btn { cursor:pointer; padding:10px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface); text-align:left; transition:border-color 0.15s, opacity 0.15s; }
+.mg-analyze-btn:hover:not(.loading) { border-color:var(--accent); }
+.mg-analyze-btn.mg-server:hover:not(.loading) { border-color:var(--mg-accent); }
+.mg-analyze-btn.active { border-color:var(--accent); background:var(--accent-dim); }
+.mg-analyze-btn.mg-server.active { border-color:var(--mg-accent); background:var(--mg-accent-dim); }
+.mg-analyze-btn.loading { opacity:0.6; cursor:wait; }
+.mg-analyze-btn .mab-name { font-size:12px; font-weight:600; color:var(--text-hi); text-transform:uppercase; letter-spacing:0.04em; }
+.mg-analyze-btn .mab-name.mg { color:var(--mg-accent); }
+.mg-analyze-btn .mab-desc { font-size:10px; color:var(--text-xs); margin-top:2px; line-height:1.4; }
+.mg-analyze-btn .mab-spin { display:inline-block; width:10px; height:10px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.6s linear infinite; margin-left:6px; vertical-align:middle; }
+.mg-analyze-btn.mg-server .mab-spin { border-top-color:var(--mg-accent); }
+@keyframes spin { to { transform:rotate(360deg); } }
+.mg-result-panel { margin-top:16px; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px; }
+.mg-result-title { font-size:12px; font-weight:600; color:var(--text-hi); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; }
+.mg-kv-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; }
+.mg-kv-card { background:var(--surface-hi); border-radius:4px; padding:8px 10px; }
+.mg-kv-card .mkv-k { font-size:10px; color:var(--text-xs); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:2px; }
+.mg-kv-card .mkv-v { font-size:14px; font-weight:600; color:var(--text-hi); font-family:var(--mono); }
+.mg-table { width:100%; border-collapse:collapse; font-size:12px; }
+.mg-table th { text-align:left; padding:5px 8px; font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-xs); border-bottom:1px solid var(--border); }
+.mg-table td { padding:5px 8px; border-bottom:1px solid var(--border); color:var(--text-mid); }
+.mg-table tr:last-child td { border-bottom:none; }
+.mg-table td:first-child { color:var(--text-hi); font-family:var(--mono); }
+.mg-node-list { list-style:none; }
+.mg-node-list li { padding:4px 0; border-bottom:1px solid var(--border); font-size:12px; color:var(--text-mid); font-family:var(--mono); }
+.mg-node-list li:last-child { border-bottom:none; }
+.mg-node-list li span { color:var(--text-xs); font-size:10px; margin-left:6px; }
+.mg-cycle-item { padding:5px 0; border-bottom:1px solid var(--border); font-size:12px; color:var(--text-mid); font-family:var(--mono); }
+.mg-cycle-item:last-child { border-bottom:none; }
+.mg-controls-row { display:flex; align-items:center; gap:10px; padding:10px 0 4px; flex-wrap:wrap; }
+.mg-watch-indicator { font-size:12px; font-family:var(--mono); color:var(--text-lo); }
+.mg-watch-indicator.on { color:var(--green); }
+.mg-export-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.mg-export-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:12px 14px; display:flex; flex-direction:column; gap:6px; }
+.mg-export-card .mec-name { font-size:12px; font-weight:600; color:var(--text-hi); }
+.mg-export-card .mec-desc { font-size:11px; color:var(--text-lo); }
+.mg-report-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px; margin-bottom:10px; }
+.mg-report-card.wide { grid-column:1/-1; }
+.mg-report-card .mrc-head { font-size:12px; font-weight:600; color:var(--text-hi); margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+.mg-report-cards-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.mg-report-card pre { font-size:11px; font-family:var(--mono); white-space:pre-wrap; word-break:break-word; color:var(--text-mid); line-height:1.6; }
+.mg-wiki-stats { display:flex; gap:16px; padding:10px 0 14px; border-bottom:1px solid var(--border); margin-bottom:12px; }
+.mg-wiki-stat { font-size:12px; color:var(--text-lo); }
+.mg-wiki-stat strong { color:var(--text-hi); font-family:var(--mono); margin-right:4px; }
+.mg-filter-pills { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+.mg-pill { font-size:11px; padding:3px 10px; border-radius:12px; border:1px solid var(--border); cursor:pointer; color:var(--text-lo); background:var(--surface); transition:all 0.1s; }
+.mg-pill.active { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+.mg-mode-toggle { display:flex; gap:4px; margin-bottom:10px; }
+.mg-node-item { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border); cursor:pointer; }
+.mg-node-item:hover { background:var(--surface-hi); }
+.mg-node-item .mni-ico { width:18px; text-align:center; font-size:14px; flex-shrink:0; }
+.mg-node-item .mni-lbl { flex:1; font-size:12px; color:var(--text-hi); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mg-node-item .mni-path { font-size:10px; color:var(--text-xs); font-family:var(--mono); }
+.mg-node-item .mni-deg { font-size:10px; color:var(--text-lo); font-family:var(--mono); margin-left:6px; }
+.mg-detail-panel { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px; margin-top:12px; }
+.mg-detail-panel .mdp-meta { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:10px; }
+.mg-detail-panel .mdp-meta-item { font-size:11px; }
+.mg-detail-panel .mdp-meta-item .mdm-k { color:var(--text-xs); text-transform:uppercase; font-size:10px; letter-spacing:0.06em; }
+.mg-detail-panel .mdp-meta-item .mdm-v { color:var(--text-hi); font-family:var(--mono); margin-top:2px; word-break:break-all; }
+.mg-detail-panel .mdp-content-preview { background:var(--surface-hi); border-radius:4px; padding:10px; font-size:11px; font-family:var(--mono); white-space:pre-wrap; word-break:break-word; color:var(--text-mid); max-height:200px; overflow-y:auto; margin-bottom:10px; }
+.mg-detail-panel .mdp-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.mg-detail-panel .mdp-explain-result { margin-top:10px; padding:10px; background:var(--surface-hi); border-radius:4px; font-size:11px; color:var(--text-mid); white-space:pre-wrap; word-break:break-word; }
+.mg-query-section { margin-bottom:18px; }
+.mg-query-section .mqs-title { font-size:11px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-xs); margin-bottom:6px; }
+.mg-query-row { display:flex; gap:8px; align-items:flex-start; flex-wrap:wrap; }
+.mg-query-row input, .mg-query-row select, .mg-query-row textarea { background:var(--surface-hi); border:1px solid var(--border); border-radius:4px; color:var(--text-hi); padding:6px 10px; font-size:12px; font-family:var(--sans); outline:none; }
+.mg-query-row input:focus, .mg-query-row textarea:focus { border-color:var(--accent); }
+.mg-query-row textarea { resize:vertical; min-height:70px; width:100%; }
+.mg-query-result { margin-top:10px; padding:10px 12px; background:var(--surface-hi); border-radius:4px; font-size:11px; font-family:var(--mono); white-space:pre-wrap; word-break:break-word; color:var(--text-mid); max-height:300px; overflow-y:auto; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
 <div id="app">
@@ -848,30 +1052,42 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
       <div class="nav-item active" data-view="now">
         <span class="ico">◉</span><span class="lbl">Now</span>
       </div>
-    </div>
-    <div class="nav-sect">
-      <div class="nav-lbl">Workspace</div>
       <div class="nav-item" data-view="projects">
         <span class="ico">⊞</span><span class="lbl">Projects</span>
         <span class="bdg" id="bdg-projects">—</span>
       </div>
-      <div class="nav-item" data-view="sessions">
-        <span class="ico">◫</span><span class="lbl">Sessions</span>
-        <span class="bdg" id="bdg-sessions">—</span>
+    </div>
+    <!-- project-scoped section: hidden until a project is selected -->
+    <div id="nav-project-ctx">
+      <div class="nav-proj-hdr" onclick="switchView('projects')" title="Change project">
+        <div class="nav-proj-dot"></div>
+        <div class="nav-proj-name" id="nav-proj-name">—</div>
       </div>
-      <div class="nav-item" data-view="loops">
-        <span class="ico">↺</span><span class="lbl">Loops</span>
-        <span class="bdg" id="bdg-loops">—</span>
+      <div class="nav-proj-items">
+        <div class="nav-item" data-view="sessions">
+          <span class="ico">◫</span><span class="lbl">Sessions</span>
+          <span class="bdg" id="bdg-sessions">—</span>
+        </div>
+        <div class="nav-item" data-view="loops">
+          <span class="ico">↺</span><span class="lbl">Loops</span>
+          <span class="bdg" id="bdg-loops">—</span>
+        </div>
+        <div class="nav-item" data-view="tokens">
+          <span class="ico">$</span><span class="lbl">Tokens</span>
+        </div>
+        <div class="nav-item" data-view="memory">
+          <span class="ico">◈</span><span class="lbl">Memory</span>
+        </div>
+        <div class="nav-item" data-view="orgs">
+          <span class="ico">⬡</span><span class="lbl">Orgs</span>
+        </div>
+        <div class="nav-item" data-view="monograph">
+          <span class="ico">⬡</span><span class="lbl">Monograph</span>
+        </div>
       </div>
     </div>
-    <div class="nav-sect">
-      <div class="nav-lbl">Intelligence</div>
-      <div class="nav-item" data-view="memory">
-        <span class="ico">◈</span><span class="lbl">Memory</span>
-      </div>
-      <div class="nav-item" data-view="orgs">
-        <span class="ico">⬡</span><span class="lbl">Orgs</span>
-      </div>
+    <div class="nav-no-proj" id="nav-no-proj-hint">Select a project above</div>
+    <div class="nav-sect" style="margin-top:auto;padding-top:8px;">
       <div class="nav-item" data-view="global">
         <span class="ico">⊕</span><span class="lbl">Global Feed</span>
       </div>
@@ -900,6 +1116,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
   </div>
 
   <div id="alerts-rail"></div>
+  <div id="status-strip"></div>
 
   <!-- command palette -->
   <div id="cmd-backdrop" onclick="closeCmdPalette()"></div>
@@ -1165,25 +1382,263 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
       </div>
     </div>
 
+    <!-- TOKENS -->
+    <div class="view" id="view-tokens">
+      <div class="vscroll">
+        <div class="pg-title">Tokens</div>
+        <div class="pg-sub">API usage and cost breakdown</div>
+        <div id="tok-cards" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px"></div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px 14px">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-xs);margin-bottom:8px">Daily usage (last 14 days)</div>
+          <canvas id="tok-chart" height="100" style="width:100%;display:block"></canvas>
+        </div>
+        <div id="tok-table" style="margin-top:18px"></div>
+      </div>
+    </div>
+
     <!-- MEMORY -->
     <div class="view" id="view-memory">
       <div class="vscroll">
         <div class="pg-title">Memory</div>
         <div class="pg-sub">Knowledge palace — stored facts, graph, identity</div>
-        <div class="filter-bar">
-          <input class="filter-input" id="mem-filter" type="text" placeholder="Search memory…" oninput="filterMemory(this.value)">
+        <div class="mem-tab-bar" style="display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:6px">
+          <button class="odt-btn active" data-memtab="memories" onclick="switchMemTab('memories')">Memories</button>
+          <button class="odt-btn" data-memtab="routing" onclick="switchMemTab('routing')">Routing</button>
+          <button class="odt-btn" data-memtab="usage" onclick="switchMemTab('usage')">Usage</button>
+          <button class="odt-btn" data-memtab="adrs" onclick="switchMemTab('adrs')">ADRs</button>
         </div>
-        <div id="mem-ns-tabs"></div>
-        <div id="mem-content"><div class="loading-txt">Loading…</div></div>
+        <div id="mem-tab-memories">
+          <div class="filter-bar">
+            <input class="filter-input" id="mem-filter" type="text" placeholder="Search memory…" oninput="filterMemory(this.value)">
+          </div>
+          <div id="mem-ns-tabs"></div>
+          <div id="mem-content"><div class="loading-txt">Loading…</div></div>
+        </div>
+        <div id="mem-tab-routing" style="display:none"><div class="loading-txt">Loading…</div></div>
+        <div id="mem-tab-usage" style="display:none"><div class="loading-txt">Loading…</div></div>
+        <div id="mem-tab-adrs" style="display:none">
+          <div class="filter-bar" style="margin-bottom:10px">
+            <input class="filter-input" id="adr-filter" type="text" placeholder="Filter ADRs…" oninput="filterADRs(this.value)">
+          </div>
+          <div id="adr-content"><div class="loading-txt">Loading…</div></div>
+        </div>
       </div>
     </div>
 
     <!-- ORGS -->
     <div class="view" id="view-orgs">
+      <!-- List sidebar -->
+      <div id="orgs-list-pane">
+        <div id="orgs-list-head">
+          <div class="orgs-view-title">Orgs <span id="orgs-proj-label" style="font-size:11px;font-weight:400;opacity:0.5;margin-left:6px;"></span></div>
+          <div class="orgs-view-sub" id="orgs-view-sub">MASTERMIND organizations</div>
+        </div>
+        <div id="orgs-list-scroll">
+          <div class="loading-txt" id="orgs-list-content">Loading…</div>
+        </div>
+      </div>
+      <!-- Detail pane -->
+      <div id="org-detail-pane" class="empty-state">
+        <div class="orgs-no-sel">
+          <div class="orgs-no-sel-ico">⬡</div>
+          Select an org
+        </div>
+        <div id="org-detail-inner" style="display:none;width:100%;height:100%;display:none;flex-direction:column;overflow:hidden;">
+          <div id="org-detail-head">
+            <div>
+              <div class="odh-name" id="odh-name">—</div>
+            </div>
+            <span class="odh-badge idle" id="odh-badge">IDLE</span>
+            <span class="odh-pill" id="odh-topo">—</span>
+            <span class="odh-pill" id="odh-roles">0 roles</span>
+            <div class="odh-right">
+              <button class="btn" id="org-stop-btn" onclick="v2StopOrg()" style="display:none;color:var(--red);border-color:oklch(60% 0.18 25 / 0.4)">Stop</button>
+            </div>
+          </div>
+          <div id="org-detail-tabs">
+            <button class="odt-btn active" data-tab="chart" onclick="v2SwitchOrgTab('chart')">Chart</button>
+            <button class="odt-btn" data-tab="roles" onclick="v2SwitchOrgTab('roles')">Roles</button>
+            <button class="odt-btn" data-tab="activity" onclick="v2SwitchOrgTab('activity')">Activity</button>
+            <button class="odt-btn" data-tab="health" onclick="v2SwitchOrgTab('health')">Health</button>
+            <button class="odt-btn" data-tab="heartbeats" onclick="v2SwitchOrgTab('heartbeats')">Heartbeats</button>
+            <button class="odt-btn" data-tab="tasks" onclick="v2SwitchOrgTab('tasks')">Tasks</button>
+            <button class="odt-btn" data-tab="costs" onclick="v2SwitchOrgTab('costs')">Costs</button>
+            <button class="odt-btn" data-tab="members" onclick="v2SwitchOrgTab('members')">Members</button>
+          </div>
+          <div id="org-detail-body">
+            <div class="odt-pane active" id="odt-chart"></div>
+            <div class="odt-pane" id="odt-roles"></div>
+            <div class="odt-pane" id="odt-activity"></div>
+            <div class="odt-pane" id="odt-health"></div>
+            <div class="odt-pane" id="odt-heartbeats"></div>
+            <div class="odt-pane" id="odt-tasks"></div>
+            <div class="odt-pane" id="odt-costs"></div>
+            <div class="odt-pane" id="odt-members"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MONOGRAPH -->
+    <div class="view" id="view-monograph">
       <div class="vscroll">
-        <div class="pg-title">Orgs</div>
-        <div class="pg-sub">MASTERMIND organizations and swarms</div>
-        <div id="orgs-content"><div class="loading-txt">Loading…</div></div>
+        <div class="pg-title">Monograph</div>
+        <div class="pg-sub">Knowledge graph — dependencies, structure, analysis</div>
+        <!-- Tab bar -->
+        <div class="mg-tab-bar">
+          <button class="odt-btn active" data-mgtab="overview" onclick="mgSwitchTab('overview')">Overview</button>
+          <button class="odt-btn" data-mgtab="graph" onclick="mgSwitchTab('graph')">Graph</button>
+          <button class="odt-btn" data-mgtab="analyze" onclick="mgSwitchTab('analyze')">Analyze</button>
+          <button class="odt-btn" data-mgtab="query" onclick="mgSwitchTab('query')">Query</button>
+          <button class="odt-btn" data-mgtab="export" onclick="mgSwitchTab('export')">Export</button>
+          <button class="odt-btn" data-mgtab="report" onclick="mgSwitchTab('report')">Report</button>
+          <button class="odt-btn" data-mgtab="wiki" onclick="mgSwitchTab('wiki')">Wiki</button>
+        </div>
+
+        <!-- TAB 1: OVERVIEW -->
+        <div class="mg-pane active" id="mg-tab-overview">
+          <div class="mg-stat-grid" id="mg-stat-cards">
+            <div class="mg-stat-card"><div class="msc-lbl">Nodes</div><div class="msc-val" id="mg-stat-nodes">—</div></div>
+            <div class="mg-stat-card"><div class="msc-lbl">Edges</div><div class="msc-val" id="mg-stat-edges">—</div></div>
+            <div class="mg-stat-card"><div class="msc-lbl">Avg Degree</div><div class="msc-val" id="mg-stat-avgdeg">—</div></div>
+            <div class="mg-stat-card"><div class="msc-lbl">Node Types</div><div class="msc-val" id="mg-stat-types">—</div></div>
+          </div>
+          <div class="mg-section-title">Top Nodes by Degree</div>
+          <div id="mg-top-nodes"><div class="loading-txt">Loading…</div></div>
+          <div class="mg-section-title">Node Type Distribution</div>
+          <div id="mg-type-dist"></div>
+        </div>
+
+        <!-- TAB 2: GRAPH -->
+        <div class="mg-pane" id="mg-tab-graph">
+          <iframe id="mg-iframe" src="" style="width:100%;height:500px;border:none;border-radius:6px;background:var(--surface);" title="Monograph graph"></iframe>
+          <div class="mg-controls-row">
+            <button class="btn" id="mg-watch-btn" onclick="mgToggleWatch()">WATCH</button>
+            <button class="btn" id="mg-rebuild-btn" onclick="mgRebuild()">REBUILD</button>
+            <a class="btn" id="mg-open-tab-link" href="#" target="_blank" rel="noopener">OPEN IN TAB</a>
+            <span class="mg-watch-indicator" id="mg-watch-status">○ IDLE</span>
+          </div>
+        </div>
+
+        <!-- TAB 3: ANALYZE -->
+        <div class="mg-pane" id="mg-tab-analyze">
+          <div class="mg-section-title">Client-side Analysis</div>
+          <div class="mg-analyze-grid" id="mg-client-btns">
+            <!-- filled by mgRenderAnalyzeButtons() -->
+          </div>
+          <div class="mg-section-title" style="color:var(--mg-accent)">Server-side MCP Analysis</div>
+          <div class="mg-analyze-grid" id="mg-server-btns">
+            <!-- filled by mgRenderAnalyzeButtons() -->
+          </div>
+          <div id="mg-analyze-result" class="mg-result-panel" style="display:none">
+            <div class="mg-result-title" id="mg-result-title">—</div>
+            <div id="mg-result-body"></div>
+          </div>
+        </div>
+
+        <!-- TAB 4: QUERY -->
+        <div class="mg-pane" id="mg-tab-query">
+          <div class="mg-query-section">
+            <div class="mqs-title">Search nodes</div>
+            <div class="mg-query-row">
+              <input type="text" id="mg-q-search" placeholder="Node label or name…" style="flex:1;min-width:160px" oninput="mgQuerySearch(this.value)">
+            </div>
+            <div id="mg-q-search-result" class="mg-query-result" style="display:none"></div>
+          </div>
+          <div class="mg-query-section">
+            <div class="mqs-title">Impact analysis</div>
+            <div class="mg-query-row">
+              <input type="text" id="mg-q-impact-node" placeholder="Node ID / name…" style="flex:1;min-width:140px">
+              <select id="mg-q-impact-dir" style="width:120px">
+                <option value="both">Both</option>
+                <option value="upstream">Upstream</option>
+                <option value="downstream">Downstream</option>
+              </select>
+              <button class="btn" onclick="mgQueryImpact()">Run</button>
+            </div>
+            <div id="mg-q-impact-result" class="mg-query-result" style="display:none"></div>
+          </div>
+          <div class="mg-query-section">
+            <div class="mqs-title">Context</div>
+            <div class="mg-query-row">
+              <input type="text" id="mg-q-ctx-node" placeholder="Node ID / file path…" style="flex:1;min-width:200px">
+              <button class="btn" onclick="mgQueryContext()">Run</button>
+            </div>
+            <div id="mg-q-ctx-result" class="mg-query-result" style="display:none"></div>
+          </div>
+          <div class="mg-query-section">
+            <div class="mqs-title">Shortest path</div>
+            <div class="mg-query-row">
+              <input type="text" id="mg-q-path-from" placeholder="From node…" style="flex:1;min-width:120px">
+              <input type="text" id="mg-q-path-to" placeholder="To node…" style="flex:1;min-width:120px">
+              <button class="btn" onclick="mgQueryPath()">Run</button>
+            </div>
+            <div id="mg-q-path-result" class="mg-query-result" style="display:none"></div>
+          </div>
+          <div class="mg-query-section">
+            <div class="mqs-title">Cypher query</div>
+            <div class="mg-query-row" style="flex-direction:column;align-items:stretch">
+              <textarea id="mg-q-cypher" placeholder="MATCH (n) RETURN n.name LIMIT 20"></textarea>
+              <button class="btn" style="align-self:flex-end;margin-top:6px" onclick="mgQueryCypher()">Run</button>
+            </div>
+            <div id="mg-q-cypher-result" class="mg-query-result" style="display:none"></div>
+          </div>
+          <div class="mg-query-section">
+            <div class="mqs-title">Ask the graph</div>
+            <div class="mg-query-row">
+              <input type="text" id="mg-q-ask" placeholder="Question or keyword…" style="flex:1;min-width:180px">
+              <select id="mg-q-ask-mode" style="width:110px">
+                <option value="search">Search</option>
+                <option value="explain">Explain</option>
+                <option value="neighbors">Neighbors</option>
+              </select>
+              <select id="mg-q-ask-budget" style="width:80px">
+                <option value="100">100</option>
+                <option value="500">500</option>
+                <option value="1000">1000</option>
+              </select>
+              <button class="btn" onclick="mgQueryAsk()">Ask</button>
+            </div>
+            <div id="mg-q-ask-result" class="mg-query-result" style="display:none"></div>
+          </div>
+        </div>
+
+        <!-- TAB 5: EXPORT -->
+        <div class="mg-pane" id="mg-tab-export">
+          <div class="mg-export-grid" id="mg-export-cards">
+            <!-- filled by mgRenderExport() -->
+          </div>
+        </div>
+
+        <!-- TAB 6: REPORT -->
+        <div class="mg-pane" id="mg-tab-report">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+            <button class="btn" onclick="mgLoadReport()">REFRESH REPORT</button>
+          </div>
+          <div id="mg-report-content"><div class="loading-txt">Loading…</div></div>
+        </div>
+
+        <!-- TAB 7: WIKI -->
+        <div class="mg-pane" id="mg-tab-wiki">
+          <div class="mg-wiki-stats" id="mg-wiki-stats">
+            <div class="mg-wiki-stat"><strong id="mg-wiki-total">—</strong> nodes</div>
+            <div class="mg-wiki-stat"><strong id="mg-wiki-docs">—</strong> doc sections</div>
+            <div class="mg-wiki-stat"><strong id="mg-wiki-fns">—</strong> functions</div>
+          </div>
+          <div class="mg-filter-pills" id="mg-wiki-pills"></div>
+          <div class="mg-mode-toggle">
+            <button class="btn" id="mg-wiki-mode-all" onclick="mgWikiMode('all')" style="opacity:1">All</button>
+            <button class="btn" id="mg-wiki-mode-docs" onclick="mgWikiMode('docs')" style="opacity:0.5">Docs</button>
+            <button class="btn" id="mg-wiki-mode-code" onclick="mgWikiMode('code')" style="opacity:0.5">Code</button>
+          </div>
+          <div class="mg-query-row" style="margin-bottom:10px">
+            <input type="text" id="mg-wiki-search" placeholder="Search nodes…" style="flex:1" oninput="mgWikiSearchDebounced(this.value)">
+            <button class="btn" onclick="mgRebuildDocs()" id="mg-build-docs-btn">BUILD DOCS</button>
+            <button class="btn" onclick="mgWikiRefresh()">REFRESH</button>
+          </div>
+          <div id="mg-wiki-list"></div>
+          <div id="mg-wiki-detail" class="mg-detail-panel" style="display:none"></div>
+        </div>
       </div>
     </div>
 
@@ -1295,7 +1750,7 @@ function switchView(v) {
     el.classList.toggle('active', el.dataset.view === v));
   document.querySelectorAll('.view').forEach(el =>
     el.classList.toggle('active', el.id === 'view-' + v));
-  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', memory:'Memory', orgs:'Orgs', global:'Global Feed' };
+  const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed' };
   document.getElementById('view-title').textContent = titles[v] || v;
   if (!viewRendered[v]) { renderView(v); viewRendered[v] = true; }
 }
@@ -1305,8 +1760,10 @@ function renderView(v) {
   if (v === 'projects') renderProjects();
   if (v === 'sessions') renderSessions();
   if (v === 'loops') renderLoops();
+  if (v === 'tokens') loadTokensView();
   if (v === 'memory') renderMemory();
   if (v === 'orgs') renderOrgs();
+  if (v === 'monograph') loadMonograph();
   if (v === 'global') renderGlobalFeed();
 }
 
@@ -1325,6 +1782,7 @@ async function init() {
     document.getElementById('sb-user').textContent = gu.name || gu.email || '—';
     document.getElementById('sb-path').textContent = DIR;
     document.getElementById('sb-proj').textContent = DIR.split('/').filter(Boolean).pop() || '—';
+    _showNavProjectCtx(DIR);
   } catch (_) {}
   // deep-link: ?sess=<id>&proj=<path>
   const params = new URLSearchParams(window.location.search);
@@ -1334,6 +1792,7 @@ async function init() {
     DIR = projParam;
     document.getElementById('sb-proj').textContent = DIR.split('/').filter(Boolean).pop() || '—';
     document.getElementById('sb-path').textContent = DIR;
+    _showNavProjectCtx(DIR);
   }
   restoreURLParams();
   viewRendered['now'] = true;
@@ -1369,13 +1828,36 @@ async function apiFetch(url) {
 }
 
 // ── project switching ──────────────────────────────────────
+function _showNavProjectCtx(path) {
+  const projName = (path || '').split('/').filter(Boolean).pop() || '';
+  const ctx = document.getElementById('nav-project-ctx');
+  const hint = document.getElementById('nav-no-proj-hint');
+  if (projName) {
+    document.getElementById('nav-proj-name').textContent = projName;
+    ctx.classList.add('visible');
+    hint.style.display = 'none';
+  } else {
+    ctx.classList.remove('visible');
+    hint.style.display = '';
+  }
+}
+
 function switchProject(path) {
   if (DIR === path) { switchView('sessions'); return; }
   DIR = path;
   document.getElementById('sb-proj').textContent = path.split('/').filter(Boolean).pop() || '—';
   document.getElementById('sb-path').textContent = path;
+  _showNavProjectCtx(path);
   viewRendered = {};
   allSessions = [];
+  _v2SelOrg = null;
+  _v2OrgData = null;
+  _v2Orgs = [];
+  Object.keys(_v2OrgEventLog).forEach(k => delete _v2OrgEventLog[k]);
+  document.getElementById('org-detail-pane')?.classList.add('empty-state');
+  document.getElementById('org-detail-inner') && (document.getElementById('org-detail-inner').style.display = 'none');
+  const _noSel = document.querySelector('#org-detail-pane .orgs-no-sel');
+  if (_noSel) _noSel.style.display = '';
   closeDetail();
   switchView('sessions');
 }
@@ -1798,7 +2280,7 @@ function goLive() {
 // ── metrics ────────────────────────────────────────────────
 async function loadMetrics() {
   if (!DIR) return;
-  await Promise.allSettled([loadTodayMetrics(), loadLoopMetrics()]);
+  await Promise.allSettled([loadTodayMetrics(), loadLoopMetrics(), loadStatusStrip()]);
 }
 
 async function loadTodayMetrics() {
@@ -1867,6 +2349,177 @@ async function loadLoopMetrics() {
   } catch (_) {
     document.getElementById('m-loops').innerHTML = `<div class="m-group-title">Active Loops</div><div class="loading-txt">—</div>`;
   }
+}
+
+// ── status strip ───────────────────────────────────────────
+async function loadStatusStrip() {
+  const strip = document.getElementById('status-strip');
+  if (!strip) return;
+  try {
+    const data = await apiFetch('/api/status?dir=' + enc(DIR));
+    const checks = Array.isArray(data) ? data : (data.checks || data.services || []);
+    if (!checks.length) { strip.style.display = 'none'; return; }
+    strip.style.display = 'flex';
+    strip.innerHTML = checks.map(c => {
+      const cls = c.ok === false ? 'warn' : (c.ok ? 'on' : '');
+      return `<span class="ss-pill ${cls}">${esc(c.name || c.label || c.key || '?')}</span>`;
+    }).join('');
+  } catch (_) { strip.style.display = 'none'; }
+}
+
+// ── tokens view ────────────────────────────────────────────
+async function loadTokensView() {
+  const cards = document.getElementById('tok-cards');
+  const table = document.getElementById('tok-table');
+  if (!cards) return;
+  cards.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const data = await apiFetch('/api/section?name=tokens&dir=' + enc(DIR));
+    const s = data?.tokens?.summary || {};
+    const daily = Array.isArray(data?.tokens?.daily) ? data.tokens.daily : [];
+    const rows  = Array.isArray(data?.tokens?.rows)  ? data.tokens.rows  : [];
+    cards.innerHTML = [
+      { label:'Today Cost',   val: typeof s.todayCost   === 'number' ? '$' + s.todayCost.toFixed(2)   : '—' },
+      { label:'Today Calls',  val: s.todayCalls  ?? '—' },
+      { label:'Month Cost',   val: typeof s.monthCost   === 'number' ? '$' + s.monthCost.toFixed(2)   : '—' },
+      { label:'Total Tokens', val: s.totalTokens != null ? Number(s.totalTokens).toLocaleString() : '—' },
+    ].map(c => `<div class="tok-card"><div class="tc-label">${esc(c.label)}</div><div class="tc-val">${esc(String(c.val))}</div></div>`).join('');
+    renderTokChart(daily);
+    if (rows.length) {
+      table.innerHTML = '<div class="m-group-title" style="margin-bottom:6px">Session breakdown</div>' +
+        '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace">' +
+        '<thead><tr style="color:var(--text-xs);text-align:left">' +
+        '<th style="padding:4px 8px 4px 0">Session</th><th style="padding:4px 8px">Calls</th><th style="padding:4px 8px">Tokens</th><th style="padding:4px 8px">Cost</th>' +
+        '</tr></thead><tbody>' +
+        rows.slice(0, 30).map(r => `<tr style="border-top:1px solid var(--border)">
+          <td style="padding:4px 8px 4px 0;color:var(--text-hi);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.session || r.id || '—')}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${r.calls ?? '—'}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${r.tokens != null ? Number(r.tokens).toLocaleString() : '—'}</td>
+          <td style="padding:4px 8px;color:var(--accent)">$${Number(r.cost ?? 0).toFixed(4)}</td>
+        </tr>`).join('') +
+        '</tbody></table></div>';
+    } else { table.innerHTML = ''; }
+  } catch (_) {
+    cards.innerHTML = '<div class="loading-txt" style="color:var(--text-lo)">No token data available</div>';
+  }
+}
+
+function renderTokChart(daily) {
+  const canvas = document.getElementById('tok-chart');
+  if (!canvas || !daily.length) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 600, H = 100;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const vals = daily.map(d => Number(d.cost ?? d.value ?? 0));
+  const max  = Math.max(...vals, 0.0001);
+  const bar  = Math.max(2, Math.floor((W - (vals.length - 1) * 2) / vals.length));
+  ctx.clearRect(0, 0, W, H);
+  vals.forEach((v, i) => {
+    const x = i * (bar + 2);
+    const h = Math.max(2, Math.round((v / max) * (H - 10)));
+    ctx.fillStyle = 'oklch(70% 0.15 185)';
+    ctx.beginPath();
+    ctx.roundRect(x, H - h, bar, h, 2);
+    ctx.fill();
+  });
+}
+
+window.addEventListener('resize', () => {
+  if (currentView === 'tokens') {
+    const data = window._tokDaily;
+    if (data) renderTokChart(data);
+  }
+});
+
+// ── memory sub-tabs ────────────────────────────────────────
+let _currentMemTab = 'memories';
+function switchMemTab(tab) {
+  _currentMemTab = tab;
+  document.querySelectorAll('.mem-tab-bar .odt-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.memtab === tab));
+  ['memories','routing','usage','adrs'].forEach(t => {
+    const el = document.getElementById('mem-tab-' + t);
+    if (el) el.style.display = t === tab ? '' : 'none';
+  });
+  if (tab === 'routing') loadMemRouting();
+  else if (tab === 'usage') loadMemUsage();
+  else if (tab === 'adrs') loadMemADRs();
+}
+
+async function loadMemRouting() {
+  const pane = document.getElementById('mem-tab-routing');
+  if (!pane) return;
+  pane.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const data = await apiFetch('/api/routing-feedback?dir=' + enc(DIR));
+    const rows = Array.isArray(data) ? data : (data.rows || data.feedback || []);
+    if (!rows.length) { pane.innerHTML = '<div class="empty">No routing data</div>'; return; }
+    pane.innerHTML = '<div class="m-group-title" style="margin-bottom:6px">Routing Feedback</div>' +
+      rows.slice(0, 40).map(r => `<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;font-family:monospace">
+        <div style="color:var(--text-hi)">${esc(r.task || r.prompt || r.key || '—')}</div>
+        <div style="color:var(--text-lo);margin-top:2px">${esc(r.route || r.category || '')} · ${relTime(r.ts || r.created_at)}</div>
+      </div>`).join('');
+  } catch (_) { pane.innerHTML = '<div class="empty">Failed to load routing data</div>'; }
+}
+
+async function loadMemUsage() {
+  const pane = document.getElementById('mem-tab-usage');
+  if (!pane) return;
+  pane.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const data = await apiFetch('/api/memory/stats?dir=' + enc(DIR));
+    const s = data?.stats || data || {};
+    pane.innerHTML = `<div class="m-group-title" style="margin-bottom:8px">Memory Usage</div>` +
+      [
+        { label: 'Total entries', val: s.total ?? s.count ?? '—' },
+        { label: 'Namespaces',    val: s.namespaces ?? s.ns ?? '—' },
+        { label: 'DB size',       val: s.size ? (s.size / 1024).toFixed(1) + ' KB' : '—' },
+        { label: 'Last write',    val: s.lastWrite ? relTime(s.lastWrite) : '—' },
+      ].map(r => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+        <span style="color:var(--text-hi)">${esc(r.label)}</span>
+        <span style="color:var(--accent);font-family:monospace">${esc(String(r.val))}</span>
+      </div>`).join('');
+  } catch (_) { pane.innerHTML = '<div class="empty">Failed to load usage stats</div>'; }
+}
+
+let _allADRs = [];
+async function loadMemADRs() {
+  const pane = document.getElementById('adr-content');
+  if (!pane) return;
+  pane.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const data = await apiFetch('/api/adrs?dir=' + enc(DIR));
+    _allADRs = Array.isArray(data) ? data : (data.adrs || []);
+    renderADRs(_allADRs);
+  } catch (_) { pane.innerHTML = '<div class="empty">Failed to load ADRs</div>'; }
+}
+
+function renderADRs(list) {
+  const pane = document.getElementById('adr-content');
+  if (!pane) return;
+  if (!list.length) { pane.innerHTML = '<div class="empty">No ADRs found</div>'; return; }
+  pane.innerHTML = list.slice(0, 50).map(a => `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
+      <span style="color:var(--text-hi);font-size:12px;font-family:monospace">${esc(a.id || a.title || '—')}</span>
+      <span class="ss-pill ${a.status === 'accepted' ? 'on' : a.status === 'deprecated' ? 'warn' : ''}">${esc(a.status || '?')}</span>
+    </div>
+    <div style="font-size:11px;color:var(--text-lo)">${esc((a.context || a.summary || '').slice(0, 120))}</div>
+  </div>`).join('');
+}
+
+function filterADRs(q) {
+  const lq = q.toLowerCase();
+  const filtered = lq ? _allADRs.filter(a =>
+    (a.title || a.id || '').toLowerCase().includes(lq) ||
+    (a.context || a.summary || '').toLowerCase().includes(lq) ||
+    (a.status || '').toLowerCase().includes(lq)
+  ) : _allADRs;
+  renderADRs(filtered);
 }
 
 function renderMiniSessions(sessions) {
@@ -3204,25 +3857,659 @@ function filterMemoryNs(ns) {
 }
 
 // ── orgs ───────────────────────────────────────────────────
+let _v2Orgs = [];
+let _v2SelOrg = null;
+let _v2OrgData = null;
+let _v2OrgTab = 'chart';
+const _v2OrgEventLog = {};
+
 async function renderOrgs() {
-  const el = document.getElementById('orgs-content');
-  el.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const data = await apiFetch('/api/orgs');
-    const orgs = Array.isArray(data) ? data : (data.orgs || []);
-    if (!orgs.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-ico">⬡</div><div>No MASTERMIND orgs found</div></div>';
-      return;
+    const q = DIR ? '?dir=' + encodeURIComponent(DIR) : '';
+    const data = await apiFetch('/api/orgs' + q);
+    _v2Orgs = Array.isArray(data) ? data : (data.orgs || []);
+  } catch (_) { _v2Orgs = []; }
+  // Show current project name in sub-header
+  const orgProjLabel = document.getElementById('orgs-proj-label');
+  if (orgProjLabel) orgProjLabel.textContent = DIR ? DIR.split('/').filter(Boolean).pop() : '';
+  try { v2RenderOrgList(); } catch (_) {}
+}
+
+function v2RenderOrgList() {
+  const wrap = document.getElementById('orgs-list-scroll');
+  const sub  = document.getElementById('orgs-view-sub');
+  if (!wrap || !sub) return;
+  const running = _v2Orgs.filter(o => o.running).length;
+  sub.textContent = running > 0
+    ? `${_v2Orgs.length} orgs · ${running} running`
+    : `${_v2Orgs.length} org${_v2Orgs.length !== 1 ? 's' : ''}`;
+
+  if (!_v2Orgs.length) {
+    wrap.innerHTML = '<div class="empty"><div class="empty-ico">⬡</div><div>No orgs found<br><span style="font-size:11px;color:var(--text-xs)">/mastermind:createorg</span></div></div>';
+    return;
+  }
+
+  wrap.innerHTML = _v2Orgs.map(o => {
+    const rolesArr = Array.isArray(o.roles) ? o.roles : [];
+    const rolesN = rolesArr.length || (typeof o.roles === 'number' ? o.roles : 0);
+    const active = _v2SelOrg === o.name ? ' active' : '';
+    const goalSnip = (o.goal || '').slice(0, 60) + ((o.goal || '').length > 60 ? '…' : '');
+    const MAX_SHOW = 4;
+    const shownRoles = rolesArr.slice(0, MAX_SHOW);
+    const extraCount = rolesN - shownRoles.length;
+    const avatarsHtml = shownRoles.length ? `<div class="oi-avatars">
+      ${shownRoles.map(r => `<img class="oi-av" src="${v2RoleAvatar(r)}" alt="${esc(r.name||r.id||'')}" loading="lazy" title="${esc(r.name||r.id||'')}" onerror="this.src='data/avatars/coder.svg'"/>`).join('')}
+      ${extraCount > 0 ? `<div class="oi-av-more">+${extraCount}</div>` : ''}
+    </div>` : '';
+    return `<div class="org-item${active}" data-org="${esc(o.name)}" onclick="v2SelectOrg(this.dataset.org)">
+      <div class="oi-dot ${o.running ? 'running' : ''}"></div>
+      <div class="oi-body">
+        <div class="oi-name">${esc(o.name)}</div>
+        ${goalSnip ? `<div class="oi-goal">${esc(goalSnip)}</div>` : ''}
+        <div class="oi-chips">
+          ${o.running ? '<span class="oi-chip live">LIVE</span>' : ''}
+          <span class="oi-chip">${rolesN} roles</span>
+          <span class="oi-chip">${esc(o.topology || 'hierarchical')}</span>
+        </div>
+        ${avatarsHtml}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function v2SelectOrg(name) {
+  _v2SelOrg = name;
+  const requested = name;
+  const requestedDir = DIR;
+  document.querySelectorAll('.org-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.org === name);
+  });
+
+  // Show detail inner, hide placeholder
+  const pane = document.getElementById('org-detail-pane');
+  if (!pane) return;
+  pane.classList.remove('empty-state');
+  const noSel = pane.querySelector('.orgs-no-sel');
+  if (noSel) noSel.style.display = 'none';
+  const inner = document.getElementById('org-detail-inner');
+  if (!inner) return;
+  inner.style.display = 'flex';
+
+  // Populate header from list data
+  const listOrg = _v2Orgs.find(o => o.name === name) || {};
+  v2UpdateOrgHeader(listOrg, null);
+
+  // Fetch full data
+  _v2OrgData = null;
+  const _enc = encodeURIComponent(name);
+  try {
+    const [mainR, actR, healthR] = await Promise.all([
+      apiFetch(`/api/org/${_enc}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`),
+      fetch(`/api/org/${_enc}/activity${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`/api/org/${_enc}/health${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():null).catch(()=>null),
+    ]);
+    if (_v2SelOrg !== requested || DIR !== requestedDir) return;
+    // API returns {config, state, goals, ...} — flatten config; config wins for schema fields
+    _v2OrgData = mainR.config ? { ...mainR, ...mainR.config, running: mainR.running } : mainR;
+    _v2OrgData._activity = Array.isArray(actR) ? actR : [];
+    _v2OrgData._health   = healthR;
+  } catch (_) {
+    if (_v2SelOrg !== requested || DIR !== requestedDir) return;
+    _v2OrgData = { ...listOrg, communication: [], _activity: [], _health: null };
+  }
+
+  v2UpdateOrgHeader(listOrg, _v2OrgData);
+  v2RenderOrgTab(_v2OrgTab);
+}
+
+function v2UpdateOrgHeader(listOrg, data) {
+  document.getElementById('odh-name').textContent = listOrg.name || _v2SelOrg || '—';
+  const running = data ? (data.running ?? listOrg.running) : listOrg.running;
+  const badge = document.getElementById('odh-badge');
+  badge.textContent = running ? 'LIVE' : 'IDLE';
+  badge.className = 'odh-badge ' + (running ? 'live' : 'idle');
+  const roles = data ? (Array.isArray(data.roles) ? data.roles.length : (data.roles || 0)) : (listOrg.roles || 0);
+  document.getElementById('odh-roles').textContent = roles + ' role' + (roles !== 1 ? 's' : '');
+  document.getElementById('odh-topo').textContent = (data?.topology || listOrg.topology || '—');
+  document.getElementById('org-stop-btn').style.display = running ? '' : 'none';
+}
+
+window.v2SwitchOrgTab = function(tab) {
+  _v2OrgTab = tab;
+  document.querySelectorAll('#org-detail-tabs .odt-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  document.querySelectorAll('.odt-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('odt-' + tab)?.classList.add('active');
+  v2RenderOrgTab(tab);
+};
+
+function v2RenderOrgTab(tab) {
+  if (!_v2OrgData) {
+    const p = document.getElementById('odt-' + tab);
+    if (p) p.innerHTML = '<div class="empty">Loading…</div>';
+    return;
+  }
+  if (tab === 'chart')          v2RenderOrgChart();
+  else if (tab === 'roles')      v2RenderOrgRoles();
+  else if (tab === 'activity')   v2RenderOrgActivity();
+  else if (tab === 'health')     v2RenderOrgHealth();
+  else if (tab === 'heartbeats') v2RenderOrgHeartbeats();
+  else if (tab === 'tasks')      v2RenderOrgTasks();
+  else if (tab === 'costs')      v2RenderOrgCosts();
+  else if (tab === 'members')    v2RenderOrgMembers();
+}
+
+// ── org chart ───────────────────────────────
+function _v2OrgIsLeader(r) {
+  return r.id === 'boss' || r.type === 'coordinator' || r.type === 'planner';
+}
+
+function v2RenderOrgChart() {
+  if (!_v2SelOrg) return;
+  const d = _v2OrgData;
+  if (!d) return;
+  const roles = Array.isArray(d.roles) ? d.roles : [];
+  const listOrg = _v2Orgs.find(o => o.name === _v2SelOrg) || {};
+  const isRunning = listOrg.running || d.running;
+  const goalText = d.goal || '—';
+  const topo = (d.topology || 'hierarchical').toLowerCase();
+  const created = d.created_at ? new Date(d.created_at).toLocaleDateString('en', {month:'short',day:'numeric',year:'numeric'}) : '—';
+  const pane = document.getElementById('odt-chart');
+
+  // ── color palette ─────────────────────────────────────
+  const COLORS = [
+    'oklch(72% 0.18 75)',   // amber — leader
+    'oklch(65% 0.12 240)',  // blue
+    'oklch(65% 0.15 150)',  // green
+    'oklch(65% 0.13 290)',  // purple
+    'oklch(65% 0.14 35)',   // orange
+    'oklch(62% 0.12 195)',  // cyan
+  ];
+  // fix: reserve COLORS[0] for leaders; non-leaders start at index 1
+  const colorOf = (role, idx) => COLORS[_v2OrgIsLeader(role) ? 0 : (idx % (COLORS.length - 1)) + 1];
+
+  // ── auto-generate edges ───────────────────────────────
+  let comms = Array.isArray(d.communication) ? [...d.communication] : [];
+  if (!comms.length && roles.length > 1) {
+    const _lr0 = roles.find(_v2OrgIsLeader) || roles[0];
+    comms = roles.filter(r => r.id !== _lr0.id).flatMap(r => [
+      { from: _lr0.id, to: r.id, type: 'command' },
+      { from: r.id, to: _lr0.id, type: 'report' },
+    ]);
+  }
+
+  // ── layout positions ──────────────────────────────────
+  const W = 720, R = 42, PAD_X = R + 20, PAD_Y = R + 24;
+  const roleIds = new Set(roles.map(r => r.id));
+  // all leaders at depth 0 (supports co-lead orgs)
+  const leaders = roles.filter(_v2OrgIsLeader);
+  const lr = leaders[0] || roles[0];
+  const hasSubs = lr && roles.length > 1;
+
+  const pos = {};
+  let _layoutH = null; // separate from pos to avoid key collision
+
+  const _hubAndSpoke = () => {
+    if (leaders.length > 0) {
+      leaders.forEach((r, i) => {
+        const x = leaders.length === 1 ? W / 2 : PAD_X + ((W - PAD_X * 2) / (leaders.length - 1)) * i;
+        pos[r.id] = { x, y: PAD_Y };
+      });
     }
-    el.innerHTML = '<div class="org-list">' + orgs.map(o =>
-      `<div class="org-row">
-        <div class="org-name">${esc(o.name || o.id || '—')}</div>
-        <div class="org-meta">${esc(o.description || (o.agents != null ? o.agents + ' agents' : ''))}</div>
-      </div>`).join('') + '</div>';
-  } catch (err) {
-    el.innerHTML = '<div class="empty">Could not load orgs: ' + esc(err.message) + '</div>';
+    const subs = roles.filter(r => !_v2OrgIsLeader(r));
+    const usableW = W - PAD_X * 2;
+    // collapse to single row when no leaders — avoids blank 220px upper band
+    const subY = leaders.length > 0 ? PAD_Y + 220 : PAD_Y;
+    subs.forEach((r, i) => {
+      const x = subs.length === 1 ? W / 2 : PAD_X + (usableW / (subs.length - 1)) * i;
+      pos[r.id] = { x, y: subY };
+    });
+    const _hasBothRows = leaders.length > 0 && subs.length > 0;
+    _layoutH = _hasBothRows ? PAD_Y + 220 + R + 8 : PAD_Y + R + 8;
+  };
+
+  if (!roles.length) {
+    // nothing
+  } else if (!hasSubs) {
+    pos[roles[0].id] = { x: W / 2, y: 90 };
+  } else if (topo === 'mesh') {
+    // circular — radius and cy both scale with n to prevent overlap and top-clip
+    const n = roles.length, cx = W / 2;
+    const minRad = (2 * R + 6) * n / (2 * Math.PI);
+    const rad = Math.max(minRad, Math.min((W - PAD_X * 2) / 2, 130) * 0.82);
+    const cy = Math.max(170, rad + PAD_Y); // shift center down so top nodes stay in viewBox
+    roles.forEach((r, i) => {
+      const a = (2 * Math.PI * i / n) - Math.PI / 2;
+      pos[r.id] = { x: cx + rad * Math.cos(a), y: cy + rad * Math.sin(a) };
+    });
+    _layoutH = Math.round(cy + rad + PAD_Y);
+  } else if (topo === 'ring' || topo === 'pipeline') {
+    // linear sequence
+    const usableW = W - PAD_X * 2;
+    roles.forEach((r, i) => {
+      const x = roles.length === 1 ? W / 2 : PAD_X + (usableW / (roles.length - 1)) * i;
+      pos[r.id] = { x, y: 90 };
+    });
+    _layoutH = 180;
+  } else if (Array.isArray(d.communication) && d.communication.length > 0) {
+    // BFS multi-level layout — only traverse forward (non-report) edges
+    const fwdEdges = comms.filter(e => e.type !== 'report');
+    if (!fwdEdges.length) {
+      // all-report graph: render as hub-and-spoke
+      _hubAndSpoke();
+    } else {
+      const depth = {};
+      leaders.forEach(r => { depth[r.id] = 0; });
+      const queue = [...leaders.map(r => r.id)];
+      while (queue.length) {
+        const cur = queue.shift();
+        fwdEdges.forEach(e => {
+          // fix: skip ghost ids not present in roles
+          if (e.from === cur && roleIds.has(e.to) && depth[e.to] === undefined) {
+            depth[e.to] = depth[cur] + 1;
+            queue.push(e.to);
+          }
+        });
+      }
+      roles.forEach(r => { if (depth[r.id] === undefined) depth[r.id] = 1; });
+      // normalize: shift all depths so the shallowest layer is 0 — avoids blank top band when leaders=[]
+      const minDepth = Math.min(...roles.map(r => depth[r.id]));
+      if (minDepth > 0) roles.forEach(r => { depth[r.id] -= minDepth; });
+      const maxDepth = Math.max(...roles.map(r => depth[r.id]));
+      const layerOf = {};
+      for (let d2 = 0; d2 <= maxDepth; d2++) layerOf[d2] = [];
+      roles.forEach(r => layerOf[depth[r.id]].push(r));
+
+      const LAYER_H = 110;
+      _layoutH = PAD_Y + maxDepth * LAYER_H + R + 24; // bottom row center + radius + margin
+
+      for (let d2 = 0; d2 <= maxDepth; d2++) {
+        const layer = layerOf[d2];
+        const usableW = W - PAD_X * 2;
+        layer.forEach((r, i) => {
+          const x = layer.length === 1 ? W / 2 : PAD_X + (usableW / (layer.length - 1)) * i;
+          pos[r.id] = { x, y: PAD_Y + d2 * LAYER_H };
+        });
+      }
+    }
+  } else {
+    _hubAndSpoke();
+  }
+
+  const H = _layoutH || (hasSubs ? 320 : 180);
+
+  // ── build edge SVG strings with offset parallel arrows ─
+  let edgesHTML = '', particlesHTML = '';
+  const OFFSET = 8; // perpendicular offset px between cmd/report arrows
+
+  comms.forEach((edge, ei) => {
+    if (edge.from === edge.to) return; // skip self-loops — zero-length path parks a static particle
+    const fp = pos[edge.from], tp = pos[edge.to];
+    if (!fp || !tp) return;
+    const dx = tp.x - fp.x, dy = tp.y - fp.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    // Perpendicular unit vector — derived from canonical direction to stay
+    // consistent for both halves of an anti-parallel pair (A→B and B→A),
+    // so command and report arrows always offset to opposite sides.
+    const canonDir = String(edge.from) < String(edge.to) ? 1 : -1;
+    const px = (-dy / len) * canonDir, py = (dx / len) * canonDir;
+    const edgeSide = edge.type === 'report' ? -1 : 1;
+    const ox = px * OFFSET * edgeSide, oy = py * OFFSET * edgeSide;
+    // Trim from circle edges
+    const trimS = R + 3, trimE = R + 8;
+    const x1 = (fp.x + ox + dx / len * trimS).toFixed(1);
+    const y1 = (fp.y + oy + dy / len * trimS).toFixed(1);
+    const x2 = (tp.x + ox - dx / len * trimE).toFixed(1);
+    const y2 = (tp.y + oy - dy / len * trimE).toFixed(1);
+    const pid = `v2ep${ei}`;
+
+    let stroke, dash, marker, opacity, sw;
+    if (edge.type === 'command') {
+      stroke='oklch(72% 0.18 75)'; dash=''; marker='v2ac'; opacity=0.7; sw=1.8;
+    } else if (edge.type === 'report') {
+      stroke='oklch(65% 0.12 240)'; dash='5 4'; marker='v2ar'; opacity=0.55; sw=1.2;
+    } else {
+      stroke='oklch(65% 0.15 150)'; dash=''; marker='v2ah'; opacity=0.6; sw=1.5;
+    }
+    edgesHTML += `<path id="${pid}" class="v2oc-edge" d="M${x1},${y1} L${x2},${y2}" stroke="${stroke}" stroke-opacity="${opacity}" stroke-width="${sw}" ${dash?`stroke-dasharray="${dash}"`:''}  fill="none" marker-end="url(#${marker})"/>`;
+
+    // Animated flow particle on command edges
+    if (edge.type === 'command') {
+      const delay = (ei * 0.4).toFixed(2);
+      particlesHTML += `<circle class="v2oc-particle" r="3.5" fill="${stroke}" opacity="0.7">
+        <animateMotion dur="2s" repeatCount="indefinite" begin="${delay}s"><mpath href="#${pid}" xlink:href="#${pid}"/></animateMotion>
+      </circle>`;
+    }
+  });
+
+  // ── build node SVG strings ─────────────────────────────
+  // Pre-build per-node clipPath ids for avatar images
+  const nodeClipIds = roles.map((r, i) => `v2ac-${_v2SelOrg.replace(/\W/g,'')}-${i}`);
+  const avatarClipDefs = roles.map((r, i) =>
+    `<clipPath id="${nodeClipIds[i]}"><circle r="${Math.round(R * 0.52)}"/></clipPath>`
+  ).join('');
+
+  let nodesHTML = '';
+  roles.forEach((role, i) => {
+    const p = pos[role.id];
+    if (!p) return;
+    const leader = _v2OrgIsLeader(role);
+    const color = colorOf(role, i);
+    const displayName = role.name || role.title || role.id;
+    const subType = role.type || role.agent_type || '';
+    const MAX_LBL = Math.floor(R / 4.2);
+    const nameText = displayName.length > MAX_LBL ? displayName.slice(0, MAX_LBL - 1) + '…' : displayName;
+    const subTypeText = subType.length > MAX_LBL ? subType.slice(0, MAX_LBL - 1) + '…' : subType;
+    const outerRing = leader ? `<circle r="${R + 9}" fill="none" stroke="${color}" stroke-width="0.6" opacity="0.18"/>` : '';
+    const nameY = subType ? (R * 0.55 + 2).toFixed(0) : (R * 0.55 + 8).toFixed(0);
+    const avR = Math.round(R * 0.52);
+    const avatarSrc = v2RoleAvatar(role);
+    nodesHTML += `<g class="v2oc-node" transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})">
+      <title>${esc(displayName)}${subType ? ` · ${esc(subType)}` : ''}</title>
+      ${outerRing}
+      <circle r="${R}" fill="oklch(12% 0.008 55)" stroke="${color}" stroke-width="${leader ? 2.5 : 1.8}" filter="url(#v2glow)"/>
+      <image href="${avatarSrc}" x="${-avR}" y="${-R + 2}" width="${avR * 2}" height="${avR * 2}" clip-path="url(#${nodeClipIds[i]})" preserveAspectRatio="xMidYMid meet" onerror="this.setAttribute('href','data/avatars/coder.svg')"/>
+      <text text-anchor="middle" y="${nameY}" font-size="9" font-weight="${leader?'600':'500'}" font-family="'Inter',system-ui,sans-serif" fill="${color}">${esc(nameText)}</text>
+      ${subTypeText ? `<text text-anchor="middle" y="${+nameY + 11}" font-size="7.5" font-family="'Inter',system-ui,sans-serif" fill="oklch(48% 0.005 75)">${esc(subTypeText)}</text>` : ''}
+    </g>`;
+  });
+
+  // ── assemble HTML ─────────────────────────────────────
+  pane.innerHTML = `
+    <div class="org-meta-strip">
+      <div class="oms-cell"><div class="oms-lbl">Goal</div><div class="oms-val" style="color:var(--text-mid);font-size:11px;line-height:1.4">${esc(goalText)}</div></div>
+      <div class="oms-cell"><div class="oms-lbl">Topology</div><div class="oms-val">${esc(topo)}</div></div>
+      <div class="oms-cell"><div class="oms-lbl">Created</div><div class="oms-val" style="color:var(--text-mid)">${esc(created)}</div></div>
+    </div>
+    <div class="org-chart-wrap">
+      <svg class="org-chart-svg" id="v2-org-svg" viewBox="0 0 ${W} ${H}" style="min-height:${Math.round(H * 0.5)}px">
+        <defs>
+          <marker id="v2ac" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0.5 L0,6.5 L6,3.5 z" fill="oklch(72% 0.18 75 / 0.8)"/></marker>
+          <marker id="v2ar" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0.5 L0,6.5 L6,3.5 z" fill="oklch(65% 0.12 240 / 0.7)"/></marker>
+          <marker id="v2ah" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0.5 L0,6.5 L6,3.5 z" fill="oklch(65% 0.15 150 / 0.75)"/></marker>
+          <filter id="v2glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          ${avatarClipDefs}
+        </defs>
+        <rect width="${W}" height="${H}" fill="oklch(12% 0.008 55)"/>
+        <g id="v2oc-edges">${edgesHTML}</g>
+        <g id="v2oc-nodes">${nodesHTML}</g>
+        <g id="v2oc-particles" opacity="${isRunning ? 1 : 0}">${particlesHTML}</g>
+      </svg>
+    </div>
+    <div class="org-chart-legend" style="margin-top:10px">
+      <div class="ocl-item"><span style="display:inline-block;width:20px;height:2px;background:oklch(72% 0.18 75);vertical-align:middle;margin-right:3px;border-radius:1px"></span>Command</div>
+      <div class="ocl-item"><span style="display:inline-block;width:20px;height:1px;background:oklch(65% 0.12 240);vertical-align:middle;margin-right:3px;border-top:1px dashed oklch(65% 0.12 240)"></span>Report</div>
+      <div class="ocl-item"><span style="display:inline-block;width:20px;height:2px;background:oklch(65% 0.15 150);vertical-align:middle;margin-right:3px;border-radius:1px"></span>Handoff</div>
+    </div>`;
+
+  // ── GSAP entrance animation ───────────────────────────
+  if (typeof gsap !== 'undefined') {
+    const nodes = pane.querySelectorAll('.v2oc-node');
+    const edges = pane.querySelectorAll('.v2oc-edge');
+    // Nodes: scale + fade in, staggered
+    gsap.fromTo(nodes,
+      { scale: 0, autoAlpha: 0 },
+      { scale: 1, autoAlpha: 1, duration: 0.5, ease: 'back.out(1.7)', stagger: 0.08 }
+    );
+    // Edges: draw along path after nodes appear
+    edges.forEach((path, i) => {
+      const pathLen = path.getTotalLength ? path.getTotalLength() : 200;
+      gsap.fromTo(path,
+        { strokeDasharray: pathLen, strokeDashoffset: pathLen, autoAlpha: 0 },
+        { strokeDashoffset: 0, autoAlpha: 1, duration: 0.65, ease: 'power2.out', delay: 0.3 + i * 0.04 }
+      );
+    });
+  } else {
+    // CSS fallback: simple fade-in stagger
+    pane.querySelectorAll('.v2oc-node').forEach((el, i) => {
+      el.style.animation = `v2nodeIn 0.45s cubic-bezier(0.34,1.56,0.64,1) ${(i * 0.08).toFixed(2)}s forwards`;
+      el.style.opacity = '0';
+    });
   }
 }
+
+
+// ── avatar lookup ────────────────────────────
+const _v2AvatarKnown = new Set([
+  'coder','senior-developer','reviewer','tester','planner','researcher',
+  'security-architect','security-auditor','threat-detection','input-validator',
+  'path-validator','safe-executor','hierarchical-coord','mesh-coordinator',
+  'adaptive-coordinator','collective-coord','queen-coordinator','worker-specialist',
+  'byzantine-coord','raft-manager','gossip-coordinator','crdt-synchronizer',
+  'quorum-manager','consensus-coordinator','perf-analyzer','benchmarker',
+  'task-orchestrator','memory-coordinator','load-balancer','resource-allocator',
+  'pr-manager','code-review-swarm','issue-tracker','release-manager','repo-architect',
+  'workflow-automation','sparc-coord','sparc-coder','specification','pseudocode',
+  'architecture','refinement','backend-dev','frontend-developer','mobile-dev',
+  'ml-developer','cicd-engineer','system-architect','ai-engineer','model-qa',
+  'data-engineer','analytics-reporter','experiment-tracker','data-consolidator',
+  'devops-automator','sre','incident-commander','infrastructure','database-optimizer',
+  'cloud-architect','prosecutor','defender','judge','case-analyst','trial-director',
+  'legal-compliance','technical-writer','content-creator','seo-specialist',
+  'social-media','email-marketing','ai-citation','product-manager','sprint-prioritizer',
+  'launch-strategist','pricing-strategist','feedback-synthesizer','cro-specialist',
+  'sales-engineer','deal-strategist','account-strategist','outbound-strategist',
+  'pipeline-analyst','sales-coach','support-responder','discovery-coach',
+  'proposal-strategist','game-designer','narrative-designer','level-designer',
+  'game-audio-engineer','technical-artist','unity-architect','blockchain-auditor',
+  'solidity-engineer','zk-steward','studio-producer','project-shepherd',
+  'senior-pm','studio-operations','workflow-architect','adaptive-coordinator2',
+  'api-tester','evidence-collector','reality-checker','production-validator',
+  'finance-tracker','accounts-payable','recruitment','visionos-engineer',
+  'embedded-firmware','ios-developer','mobile-app-builder','mcp-builder',
+  'automation-governance','payment-agent','compliance-auditor','trend-researcher',
+  'scout-explorer'
+]);
+const _v2TypeFallback = {
+  planner:'planner', coordinator:'hierarchical-coord', researcher:'researcher',
+  analyst:'researcher', reviewer:'reviewer', coder:'coder', tester:'tester',
+  architect:'system-architect', engineer:'backend-dev', developer:'coder',
+  manager:'product-manager', security:'security-architect',
+  reporter:'analytics-reporter', strategist:'product-manager',
+  designer:'game-designer', writer:'technical-writer', auditor:'security-auditor',
+};
+function v2RoleAvatar(role) {
+  const id   = ((role && role.id)         || '').toLowerCase().replace(/\s+/g,'-');
+  const type = ((role && (role.type || role.agent_type)) || '').toLowerCase().replace(/\s+/g,'-');
+  if (_v2AvatarKnown.has(id))   return `data/avatars/${id}.svg`;
+  if (_v2AvatarKnown.has(type)) return `data/avatars/${type}.svg`;
+  for (const k of _v2AvatarKnown) {
+    if (id && (id.includes(k) || k.includes(id))) return `data/avatars/${k}.svg`;
+  }
+  for (const [t, av] of Object.entries(_v2TypeFallback)) {
+    if ((type && type.includes(t)) || (id && id.includes(t))) return `data/avatars/${av}.svg`;
+  }
+  return 'data/avatars/coder.svg';
+}
+
+// ── org roles ───────────────────────────────
+function v2RenderOrgRoles() {
+  if (!_v2SelOrg) return;
+  const roles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
+  const V2_ROLE_COLORS = ['oklch(72% 0.18 75)','oklch(65% 0.12 240)','oklch(65% 0.15 150)','oklch(65% 0.13 290)','oklch(65% 0.14 35)','oklch(62% 0.12 195)'];
+  const pane = document.getElementById('odt-roles');
+  if (!pane) return;
+  if (!roles.length) {
+    pane.innerHTML = '<div class="empty">No roles defined</div>';
+    return;
+  }
+  // Determine leader: explicit reports_to=undefined + type=planner/coordinator, or first role, or id=boss
+  const leaderIds = new Set(roles.filter(r => r.id === 'boss' || r.type === 'coordinator' || r.type === 'planner').map(r => r.id));
+  if (!leaderIds.size) leaderIds.add(roles[0]?.id);
+  pane.innerHTML = `<div class="roles-v2-grid">${roles.map((r, i) => {
+    const color = V2_ROLE_COLORS[i % V2_ROLE_COLORS.length];
+    const isLeader = leaderIds.has(r.id);
+    const resps = Array.isArray(r.responsibilities) ? r.responsibilities : [];
+    const displayName = r.name || r.title || r.id;
+    const roleType = r.type || r.agent_type || '';
+    const avatarSrc = v2RoleAvatar(r);
+    return `<div class="role-v2" style="border-top:2px solid ${color}">
+      <div class="rv2-head">
+        <img class="rv2-avatar" src="${avatarSrc}" alt="${esc(displayName)}" loading="lazy" onerror="this.src='data/avatars/coder.svg'"/>
+        <div class="rv2-info">
+          <div class="rv2-title">${esc(displayName)}${isLeader ? ' <span style="font-size:10px;color:var(--accent);font-weight:400;opacity:0.8">lead</span>' : ''}</div>
+          ${roleType ? `<span class="rv2-agent">${esc(roleType)}</span>` : ''}
+        </div>
+      </div>
+      <div class="rv2-id">${esc(r.id)}</div>
+      ${r.reports_to ? `<div class="rv2-reports">reports to <span>${esc(r.reports_to)}</span></div>` : ''}
+      ${resps.length ? `<div class="rv2-resps">${resps.map(s=>`<div class="rv2-resp">${esc(s)}</div>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// ── org activity ────────────────────────────
+function v2RenderOrgActivity() {
+  if (!_v2SelOrg) return;
+  const activity = _v2OrgData?._activity || [];
+  const orgEvents = _v2OrgEventLog[_v2SelOrg] || [];
+  const events = [...activity, ...orgEvents].sort((a,b) => (b.ts||0)-(a.ts||0)).slice(0,80);
+  const pane = document.getElementById('odt-activity');
+  if (!pane) return;
+  const fmtOrgEvType = t => {
+    const m={'org:start':'start','org:stop':'stop','org:complete':'done','org:create':'create','org:heartbeat':'hb','org:agent:online':'agent-on','org:comms':'comms'};
+    return m[t]||(t||'').replace(/^org:/,'');
+  };
+  if (!events.length) {
+    pane.innerHTML = '<div class="empty">No activity recorded</div>';
+    return;
+  }
+  pane.innerHTML = `<div class="act-v2-list">${events.map(ev => {
+    const t = ev.ts ? new Date(ev.ts).toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+    const detail = ev.role||ev.msg||ev.agent||'';
+    return `<div class="av2-row"><span class="av2-time">${esc(t)}</span><span class="av2-type">${esc(fmtOrgEvType(ev.type))}</span><span class="av2-msg">${esc(detail)}</span></div>`;
+  }).join('')}</div>`;
+}
+
+// ── org health ──────────────────────────────
+function v2RenderOrgHealth() {
+  if (!_v2SelOrg) return;
+  const listOrg = _v2Orgs.find(o => o.name === _v2SelOrg) || {};
+  const health  = _v2OrgData?._health;
+  const roles   = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles.length : 0;
+  const pane    = document.getElementById('odt-health');
+  if (!pane) return;
+  pane.innerHTML = `
+    <div class="health-v2-grid">
+      <div class="hv2-cell"><div class="hv2-lbl">Status</div><div class="hv2-val ${(_v2OrgData?.running??listOrg.running)?'green':''}">${(_v2OrgData?.running??listOrg.running)?'LIVE':'IDLE'}</div></div>
+      <div class="hv2-cell"><div class="hv2-lbl">Roles</div><div class="hv2-val">${roles}</div></div>
+      <div class="hv2-cell"><div class="hv2-lbl">Topology</div><div class="hv2-val" style="font-size:14px">${esc((_v2OrgData?.topology||'—').toUpperCase())}</div></div>
+      ${health?.agents_active!=null?`<div class="hv2-cell"><div class="hv2-lbl">Agents</div><div class="hv2-val ${health.agents_active>0?'green':''}">${health.agents_active}</div></div>`:''}
+      ${health?.tasks_pending!=null?`<div class="hv2-cell"><div class="hv2-lbl">Tasks</div><div class="hv2-val ${health.tasks_pending>5?'amber':''}">${health.tasks_pending}</div></div>`:''}
+    </div>
+    ${health?.errors?.length?`<div style="margin-top:12px"><div class="m-group-title">Errors</div>${health.errors.slice(0,5).map(e=>`<div style="font-size:11px;color:var(--red);padding:4px 0;border-bottom:1px solid var(--border)">${esc(e)}</div>`).join('')}</div>`:`<div style="margin-top:10px;font-size:12px;color:var(--text-lo)">${listOrg.running?'Running — no errors detected':'Org is idle'}</div>`}
+  `;
+}
+
+// ── org heartbeats tab ─────────────────────────────────────
+function v2RenderOrgHeartbeats() {
+  if (!_v2SelOrg) return;
+  const pane = document.getElementById('odt-heartbeats');
+  if (!pane) return;
+  const hb = Array.isArray(_v2OrgData?.heartbeats) ? _v2OrgData.heartbeats : [];
+  if (!hb.length) { pane.innerHTML = '<div class="empty">No heartbeat data</div>'; return; }
+  pane.innerHTML = `<div class="m-group-title">Heartbeats</div>` +
+    hb.slice(0, 30).map(h => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <span style="color:var(--text-hi);font-family:monospace">${esc(h.agent || '—')}</span>
+      <span style="color:var(--text-lo)">${relTime(h.ts)}</span>
+      <span class="ss-pill ${h.ok !== false ? 'on' : 'warn'}">${h.ok !== false ? 'OK' : 'WARN'}</span>
+    </div>`).join('');
+}
+
+// ── org tasks tab ──────────────────────────────────────────
+function v2RenderOrgTasks() {
+  if (!_v2SelOrg) return;
+  const pane = document.getElementById('odt-tasks');
+  if (!pane) return;
+  const tasks = Array.isArray(_v2OrgData?.tasks) ? _v2OrgData.tasks : [];
+  if (!tasks.length) { pane.innerHTML = '<div class="empty">No tasks</div>'; return; }
+  pane.innerHTML = `<div class="m-group-title">Tasks</div>` +
+    tasks.slice(0, 50).map(t => `<div style="display:flex;gap:10px;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <span class="ss-pill ${t.status === 'done' ? 'on' : t.status === 'running' ? 'warn' : ''}">${esc(t.status || '?')}</span>
+      <span style="flex:1;color:var(--text-hi);font-family:monospace;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.description || t.id || '—')}</span>
+      <span style="color:var(--text-lo);white-space:nowrap">${relTime(t.ts || t.created_at)}</span>
+    </div>`).join('');
+}
+
+// ── org costs tab ──────────────────────────────────────────
+function v2RenderOrgCosts() {
+  if (!_v2SelOrg) return;
+  const pane = document.getElementById('odt-costs');
+  if (!pane) return;
+  const costs = _v2OrgData?.costs;
+  if (!costs) { pane.innerHTML = '<div class="empty">No cost data</div>'; return; }
+  const rows = Array.isArray(costs) ? costs : Object.entries(costs).map(([k, v]) => ({ label: k, value: v }));
+  pane.innerHTML = `<div class="m-group-title">Cost Breakdown</div>` +
+    rows.slice(0, 20).map(r => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <span style="color:var(--text-hi)">${esc(String(r.label ?? r.name ?? '—'))}</span>
+      <span style="color:var(--accent);font-family:monospace">$${Number(r.value ?? r.cost ?? 0).toFixed(4)}</span>
+    </div>`).join('');
+}
+
+// ── org members tab ────────────────────────────────────────
+function v2RenderOrgMembers() {
+  if (!_v2SelOrg) return;
+  const pane = document.getElementById('odt-members');
+  if (!pane) return;
+  const roles = Array.isArray(_v2OrgData?.roles) ? _v2OrgData.roles : [];
+  if (!roles.length) { pane.innerHTML = '<div class="empty">No members</div>'; return; }
+  pane.innerHTML = `<div class="m-group-title">Members (${roles.length})</div>` +
+    roles.map(r => `<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <span style="width:28px;height:28px;border-radius:50%;background:var(--surface-hi);display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">◈</span>
+      <div style="flex:1;min-width:0">
+        <div style="color:var(--text-hi);font-family:monospace;font-size:12px">${esc(r.id || r.name || '—')}</div>
+        <div style="color:var(--text-lo);font-size:10px">${esc(r.type || r.role || '')}</div>
+      </div>
+      <span class="ss-pill ${r.running || r.active ? 'on' : ''}">${r.running || r.active ? 'ACTIVE' : 'IDLE'}</span>
+    </div>`).join('');
+}
+
+// stop org
+window.v2StopOrg = async function() {
+  if (!_v2SelOrg) return;
+  const stopped = _v2SelOrg;
+  try { await fetch(`/api/orgs/${encodeURIComponent(stopped)}/stop`, {method:'POST'}); } catch(_) {}
+  setTimeout(async () => { await renderOrgs(); if (_v2SelOrg === stopped) v2SelectOrg(stopped); }, 600);
+};
+
+// live SSE for org events
+(function v2OrgSSE() {
+  let src;
+  function connect() {
+    if (src) src.close();
+    src = new EventSource('/api/events');
+    src.onmessage = e => {
+      try {
+        const ev = JSON.parse(e.data);
+        if (!ev?.org || !ev?.type?.startsWith('org:')) return;
+        const n = ev.org;
+        const evDir = ev.dir || '';
+        if (!evDir || (DIR && evDir !== DIR)) return;
+        if (!_v2OrgEventLog[n]) _v2OrgEventLog[n] = [];
+        _v2OrgEventLog[n].push(ev);
+        if (_v2OrgEventLog[n].length > 50) _v2OrgEventLog[n].shift();
+        if (n === _v2SelOrg && _v2OrgTab === 'activity') v2RenderOrgActivity();
+        if (ev.type === 'org:start' || ev.type === 'org:stop') {
+          setTimeout(async () => {
+            await renderOrgs();
+            if (_v2SelOrg === n) {
+              const listOrg = _v2Orgs.find(o => o.name === _v2SelOrg) || {};
+              if (_v2OrgData) _v2OrgData.running = listOrg.running;
+              v2UpdateOrgHeader(listOrg, _v2OrgData);
+              if (_v2OrgTab === 'health') v2RenderOrgHealth();
+            }
+          }, 400);
+        }
+      } catch(_) {}
+    };
+    src.onerror = () => setTimeout(connect, 5000);
+  }
+  connect();
+})();
 
 // ── density toggle ─────────────────────────────────────────
 let compactMode = false;
@@ -3425,7 +4712,17 @@ function cmdSearch(q) {
       (p.path || '').toLowerCase().includes(lq))
     .slice(0, 3);
 
-  if (!sessMatches.length && !memMatches.length && !projMatches.length) {
+  const orgMatches = (Array.isArray(_v2Orgs) ? _v2Orgs : [])
+    .filter(o => !lq || (o.name || '').toLowerCase().includes(lq) ||
+      (o.topology || '').toLowerCase().includes(lq))
+    .slice(0, 4);
+
+  const skillMatches = (Array.isArray(window._allSkills) ? window._allSkills : [])
+    .filter(sk => !lq || (sk.name || sk.id || '').toLowerCase().includes(lq) ||
+      (sk.description || '').toLowerCase().includes(lq))
+    .slice(0, 4);
+
+  if (!sessMatches.length && !memMatches.length && !projMatches.length && !orgMatches.length && !skillMatches.length) {
     results.innerHTML = '<div class="cmd-empty">No results</div>';
     cmdItems = [];
     return;
@@ -3478,6 +4775,36 @@ function cmdSearch(q) {
     });
   }
 
+  if (orgMatches.length) {
+    html += '<div class="cmd-group-lbl">Orgs</div>';
+    orgMatches.forEach(o => {
+      const idx = cmdItems.length;
+      cmdItems.push({ type: 'org', data: o });
+      html += `<div class="cmd-item" data-ci="${idx}">
+        <span class="ci-ico">⬡</span>
+        <div class="cmd-item-body">
+          <div class="ci-title">${esc(o.name || '—')}</div>
+          <div class="ci-sub">${esc(o.topology || '')}${o.running ? ' · running' : ''}</div>
+        </div>
+      </div>`;
+    });
+  }
+
+  if (skillMatches.length) {
+    html += '<div class="cmd-group-lbl">Skills</div>';
+    skillMatches.forEach(sk => {
+      const idx = cmdItems.length;
+      cmdItems.push({ type: 'skill', data: sk });
+      html += `<div class="cmd-item" data-ci="${idx}">
+        <span class="ci-ico">✦</span>
+        <div class="cmd-item-body">
+          <div class="ci-title">${esc(sk.name || sk.id || '—')}</div>
+          <div class="ci-sub">${esc((sk.description || '').slice(0, 60))}</div>
+        </div>
+      </div>`;
+    });
+  }
+
   results.innerHTML = html;
   cmdFocusIdx = 0;
   updateCmdFocus();
@@ -3510,6 +4837,8 @@ function executeCmdItem() {
   if (item.type === 'session') jumpToSession(item.data.id);
   else if (item.type === 'memory') switchView('memory');
   else if (item.type === 'project') switchProject(item.data.path);
+  else if (item.type === 'org') { switchView('orgs'); setTimeout(() => v2SelectOrg(item.data.name), 80); }
+  else if (item.type === 'skill') switchView('memory');
 }
 
 // ── cross-session search ───────────────────────────────────
@@ -4571,6 +5900,840 @@ function fmtDur(ms) {
 }
 
 init();
+
+// ── monograph ──────────────────────────────────────────────
+let _mgGraph = null;   // { nodes:[], edges:[] }
+let _mgLoaded = false;
+let _mgWatching = false;
+let _mgActiveAnalysis = null;
+let _mgWikiFilter = 'all';
+let _mgWikiMode = 'all';
+let _mgWikiSearchTimer = null;
+
+async function loadMonograph() {
+  if (_mgLoaded) return;
+  try {
+    const data = await apiFetch('/api/monograph-graph?dir=' + enc(DIR) + '&limit=2000');
+    _mgGraph = data;
+    _mgLoaded = true;
+    renderMgOverview();
+    mgRenderAnalyzeButtons();
+    mgRenderExport();
+    mgInitGraph();
+    mgLoadReport();
+    mgRenderWiki();
+  } catch (e) {
+    _mgGraph = { nodes: [], edges: [] };
+    _mgLoaded = true;
+    renderMgOverview();
+    mgRenderAnalyzeButtons();
+    mgRenderExport();
+  }
+}
+
+function mgSwitchTab(t) {
+  document.querySelectorAll('.mg-tab-bar .odt-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.mgtab === t));
+  document.querySelectorAll('.mg-pane').forEach(p =>
+    p.classList.toggle('active', p.id === 'mg-tab-' + t));
+}
+
+// ── OVERVIEW ───────────────────────────────────────────────
+function renderMgOverview() {
+  const g = _mgGraph || { nodes: [], edges: [] };
+  const N = g.nodes.length;
+  const E = g.edges.length;
+  const avgDeg = N > 0 ? ((2 * E) / N).toFixed(1) : '0';
+  const typeSet = new Set(g.nodes.map(n => n.type || n.kind || 'unknown'));
+  document.getElementById('mg-stat-nodes').textContent = N;
+  document.getElementById('mg-stat-edges').textContent = E;
+  document.getElementById('mg-stat-avgdeg').textContent = avgDeg;
+  document.getElementById('mg-stat-types').textContent = typeSet.size;
+
+  // degree map
+  const degMap = {};
+  g.nodes.forEach(n => { degMap[n.id || n.name || n.label] = 0; });
+  g.edges.forEach(e => {
+    const s = e.source || e.from; const t = e.target || e.to;
+    if (s in degMap) degMap[s]++;
+    if (t in degMap) degMap[t]++;
+  });
+
+  const sorted = g.nodes.map(n => {
+    const k = n.id || n.name || n.label;
+    return { label: n.label || n.name || k, deg: degMap[k] || 0 };
+  }).sort((a, b) => b.deg - a.deg).slice(0, 6);
+  const maxDeg = sorted.length ? sorted[0].deg : 1;
+
+  const topEl = document.getElementById('mg-top-nodes');
+  if (!sorted.length) { topEl.innerHTML = '<div class="loading-txt">No data</div>'; }
+  else {
+    topEl.innerHTML = sorted.map(n => `
+      <div class="mg-bar-row">
+        <div class="mg-bar-lbl" title="${esc(n.label)}">${esc(n.label)}</div>
+        <div class="mg-bar-track"><div class="mg-bar-fill" style="width:${maxDeg ? Math.round((n.deg/maxDeg)*100) : 0}%"></div></div>
+        <div class="mg-bar-val">${n.deg}</div>
+      </div>`).join('');
+  }
+
+  // type distribution
+  const typeCounts = {};
+  g.nodes.forEach(n => { const t = n.type || n.kind || 'unknown'; typeCounts[t] = (typeCounts[t] || 0) + 1; });
+  const typeEntries = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
+  const maxTC = typeEntries.length ? typeEntries[0][1] : 1;
+  const typeEl = document.getElementById('mg-type-dist');
+  typeEl.innerHTML = typeEntries.map(([t, c]) => `
+    <div class="mg-bar-row">
+      <div class="mg-bar-lbl">${esc(t)}</div>
+      <div class="mg-bar-track"><div class="mg-bar-fill mg" style="width:${Math.round((c/maxTC)*100)}%"></div></div>
+      <div class="mg-bar-val">${c}</div>
+    </div>`).join('');
+}
+
+// ── GRAPH TAB ──────────────────────────────────────────────
+function mgInitGraph() {
+  const base = '/api/monograph-html?dir=' + enc(DIR);
+  document.getElementById('mg-iframe').src = base;
+  document.getElementById('mg-open-tab-link').href = base;
+}
+
+async function mgToggleWatch() {
+  const btn = document.getElementById('mg-watch-btn');
+  btn.disabled = true;
+  try {
+    await fetch('/api/monograph-watch-toggle?dir=' + enc(DIR), { method: 'POST' });
+  } catch (_) {}
+  // always sync indicator from server so UI reflects actual state
+  await mgPollWatchStatus();
+  btn.disabled = false;
+}
+
+async function mgPollWatchStatus() {
+  try {
+    const d = await apiFetch('/api/monograph-watch-status?dir=' + enc(DIR));
+    _mgWatching = !!(d && d.watching);
+  } catch (_) { _mgWatching = false; }
+  const ind = document.getElementById('mg-watch-status');
+  const btn = document.getElementById('mg-watch-btn');
+  if (_mgWatching) {
+    ind.textContent = '● WATCHING'; ind.className = 'mg-watch-indicator on';
+    btn.style.borderColor = 'var(--green)'; btn.style.color = 'var(--green)';
+  } else {
+    ind.textContent = '○ IDLE'; ind.className = 'mg-watch-indicator';
+    btn.style.borderColor = ''; btn.style.color = '';
+  }
+}
+
+async function mgRebuild() {
+  const btn = document.getElementById('mg-rebuild-btn');
+  btn.disabled = true; btn.textContent = 'REBUILDING…';
+  try {
+    const res = await fetch('/api/monograph-build?dir=' + enc(DIR), { method: 'POST' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    _mgLoaded = false;
+    await loadMonograph();
+  } catch (_) {}
+  btn.disabled = false; btn.textContent = 'REBUILD';
+}
+
+// ── ANALYZE TAB ────────────────────────────────────────────
+const MG_CLIENT_ANALYSES = [
+  { id:'stats',       label:'STATS',       desc:'Graph density, avg/max degree, edge-to-node ratio' },
+  { id:'pagerank',    label:'PAGERANK',    desc:'Approximate PageRank via degree centrality, top 20' },
+  { id:'deadcode',    label:'DEAD CODE',   desc:'Isolated nodes with degree 0' },
+  { id:'wcc',         label:'COMPONENTS',  desc:'Weakly connected components via union-find' },
+  { id:'topo',        label:'TOPO SORT',   desc:'Topological sort (Kahn\'s) — detects cycles' },
+  { id:'hubs',        label:'HUBS',        desc:'Top 30 nodes by degree as sortable table' },
+  { id:'cycles',      label:'CYCLES',      desc:'DFS cycle detection, up to 10 cycles shown' },
+  { id:'surprises',   label:'SURPRISES',   desc:'Cross-filetype edges between incompatible types' },
+  { id:'communities', label:'COMMUNITIES', desc:'Node type distribution as horizontal bar chart' },
+];
+const MG_SERVER_ANALYSES = [
+  { id:'cohesion',         label:'COHESION',         desc:'Community cohesion scores', tool:'monograph_cohesion', args:{} },
+  { id:'bridges',          label:'BRIDGES',          desc:'Cross-community bridge nodes', tool:'monograph_bridge', args:{} },
+  { id:'detect_changes',   label:'DETECT CHANGES',   desc:'Git-changed files mapped to graph nodes', tool:'monograph_detect_changes', args:{} },
+  { id:'diff',             label:'DIFF',             desc:'Graph diff — added/removed nodes and edges', tool:'monograph_diff', args:{} },
+  { id:'unlinked_refs',    label:'UNLINKED REFS',    desc:'Unexpected edges and unlinked references', tool:'monograph_surprises', args:{} },
+  { id:'boundary_check',   label:'BOUNDARY CHECK',   desc:'Module boundary analysis', tool:'monograph_community', args:{} },
+  { id:'health_score',     label:'HEALTH SCORE',     desc:'Composite health score card', tool:'monograph_health', args:{} },
+  { id:'vital_signs',      label:'VITAL SIGNS',      desc:'Snapshot of key health metrics', tool:'monograph_stats', args:{} },
+  { id:'hotspots',         label:'HOTSPOTS',         desc:'High-centrality nodes (churn hotspots)', tool:'monograph_god_nodes', args:{} },
+  { id:'maintainability',  label:'MAINTAINABILITY',  desc:'High-complexity nodes from graph', tool:'monograph_cypher', args:{ query:'MATCH (n) WHERE n.complexity > 10 RETURN n.name, n.complexity ORDER BY n.complexity DESC LIMIT 20' } },
+  { id:'complexity',       label:'COMPLEXITY',       desc:'High complexity function search', tool:'monograph_query', args:{ q:'high complexity functions', mode:'search', budget:3 } },
+  { id:'risk_profile',     label:'RISK PROFILE',     desc:'Composite risk via impact analysis', tool:'monograph_impact', args:{ node:'index', direction:'both' } },
+  { id:'clone_detect',     label:'CLONE DETECT',     desc:'Similar files in 2-hop neighborhood', tool:'monograph_neighbors', args:{ node:'src', hops:2 } },
+  { id:'similar_files',    label:'SIMILAR FILES',    desc:'Structurally similar files via context', tool:'monograph_context', args:{ file:'__DIR__/src' } },
+  { id:'mirrored_dirs',    label:'MIRRORED DIRS',    desc:'Directory families via community', tool:'monograph_community', args:{} },
+  { id:'regression_check', label:'REGRESSION CHECK', desc:'Diff against baseline snapshot', tool:'monograph_diff', args:{ snapshotA:'baseline' } },
+  { id:'author_analytics', label:'AUTHOR ANALYTICS', desc:'Per-section analytics report', tool:'monograph_report', args:{} },
+  { id:'crap_score',       label:'CRAP SCORE',       desc:'Change Risk Anti-Patterns by CRAP index', tool:'monograph_cypher', args:{ query:'MATCH (n:Function) RETURN n.name, n.crap ORDER BY n.crap DESC LIMIT 20' } },
+];
+
+function mgRenderAnalyzeButtons() {
+  const cEl = document.getElementById('mg-client-btns');
+  const sEl = document.getElementById('mg-server-btns');
+  cEl.innerHTML = MG_CLIENT_ANALYSES.map(a => `
+    <div class="mg-analyze-btn" id="mg-abtn-${esc(a.id)}" onclick="mgRunClient('${esc(a.id)}')">
+      <div class="mab-name">${esc(a.label)}</div>
+      <div class="mab-desc">${esc(a.desc)}</div>
+    </div>`).join('');
+  sEl.innerHTML = MG_SERVER_ANALYSES.map(a => `
+    <div class="mg-analyze-btn mg-server" id="mg-abtn-${esc(a.id)}" onclick="mgRunServer('${esc(a.id)}')">
+      <div class="mab-name mg">${esc(a.label)}</div>
+      <div class="mab-desc">${esc(a.desc)}</div>
+    </div>`).join('');
+}
+
+function mgSetActiveBtn(id) {
+  document.querySelectorAll('.mg-analyze-btn').forEach(b => b.classList.remove('active', 'loading'));
+  const btn = document.getElementById('mg-abtn-' + id);
+  if (btn) { btn.classList.add('active', 'loading'); }
+  _mgActiveAnalysis = id;
+}
+
+function mgClearActiveBtn(id) {
+  const btn = document.getElementById('mg-abtn-' + id);
+  if (btn) btn.classList.remove('loading');
+}
+
+function mgShowResult(title, html) {
+  const panel = document.getElementById('mg-analyze-result');
+  document.getElementById('mg-result-title').textContent = title;
+  document.getElementById('mg-result-body').innerHTML = html;
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── CLIENT-SIDE ALGORITHMS ─────────────────────────────────
+function mgRunClient(id) {
+  if (!_mgGraph) { mgShowResult(id, '<div class="loading-txt">Graph not loaded yet</div>'); return; }
+  mgSetActiveBtn(id);
+  let html = '';
+  const g = _mgGraph;
+  const nodes = g.nodes || [];
+  const edges = g.edges || [];
+  const N = nodes.length; const E = edges.length;
+
+  // degree map
+  const degMap = {};
+  nodes.forEach(n => { degMap[n.id || n.name || n.label || ''] = 0; });
+  edges.forEach(e => {
+    const s = String(e.source || e.from || '');
+    const t = String(e.target || e.to || '');
+    if (s in degMap) degMap[s]++;
+    if (t in degMap) degMap[t]++;
+  });
+
+  try {
+    if (id === 'stats') {
+      const density = N > 1 ? ((2 * E) / (N * (N - 1))).toFixed(6) : '0';
+      const degs = nodes.map(n => degMap[n.id || n.name || n.label || ''] || 0);
+      const maxD = degs.length ? Math.max(...degs) : 0;
+      const avgD = degs.length ? (degs.reduce((a, b) => a + b, 0) / degs.length).toFixed(2) : '0';
+      const ratio = N ? (E / N).toFixed(2) : '0';
+      html = `<div class="mg-kv-grid">
+        <div class="mg-kv-card"><div class="mkv-k">Nodes</div><div class="mkv-v">${N}</div></div>
+        <div class="mg-kv-card"><div class="mkv-k">Edges</div><div class="mkv-v">${E}</div></div>
+        <div class="mg-kv-card"><div class="mkv-k">Density</div><div class="mkv-v">${density}</div></div>
+        <div class="mg-kv-card"><div class="mkv-k">Avg Degree</div><div class="mkv-v">${avgD}</div></div>
+        <div class="mg-kv-card"><div class="mkv-k">Max Degree</div><div class="mkv-v">${maxD}</div></div>
+        <div class="mg-kv-card"><div class="mkv-k">Edge/Node Ratio</div><div class="mkv-v">${ratio}</div></div>
+      </div>`;
+
+    } else if (id === 'pagerank') {
+      const totalDeg = Object.values(degMap).reduce((a, b) => a + b, 0) || 1;
+      const ranked = nodes.map(n => {
+        const k = n.id || n.name || n.label || '';
+        return { label: n.label || n.name || k, score: (degMap[k] || 0) / totalDeg };
+      }).sort((a, b) => b.score - a.score).slice(0, 20);
+      const maxScore = ranked.length ? ranked[0].score : 1;
+      html = `<table class="mg-table"><thead><tr><th>#</th><th>Node</th><th>Score</th><th style="width:180px">Rank</th></tr></thead><tbody>` +
+        ranked.map((r, i) => `<tr><td>${i+1}</td><td>${esc(r.label)}</td><td>${r.score.toFixed(5)}</td><td><div class="mg-bar-track" style="height:8px"><div class="mg-bar-fill" style="width:${maxScore ? Math.round((r.score/maxScore)*100) : 0}%"></div></div></td></tr>`).join('') +
+        `</tbody></table>`;
+
+    } else if (id === 'deadcode') {
+      const isolated = nodes.filter(n => (degMap[n.id || n.name || n.label || ''] || 0) === 0);
+      if (!isolated.length) { html = '<div class="loading-txt">No isolated nodes found — no dead code detected</div>'; }
+      else {
+        html = `<div style="margin-bottom:8px;font-size:12px;color:var(--text-lo)">${isolated.length} isolated node(s)</div>
+          <ul class="mg-node-list">` +
+          isolated.map(n => `<li>${esc(n.label || n.name || n.id || '')} <span>${esc(n.type || n.kind || '')}</span></li>`).join('') +
+          `</ul>`;
+      }
+
+    } else if (id === 'wcc') {
+      // union-find
+      const idOf = n => n.id || n.name || n.label || String(Math.random());
+      const parent = {};
+      nodes.forEach(n => { parent[idOf(n)] = idOf(n); });
+      function find(x) { if (parent[x] !== x) parent[x] = find(parent[x]); return parent[x]; }
+      function union(a, b) { parent[find(a)] = find(b); }
+      edges.forEach(e => {
+        const s = String(e.source || e.from || '');
+        const t = String(e.target || e.to || '');
+        if (s in parent && t in parent) union(s, t);
+      });
+      const compMap = {};
+      nodes.forEach(n => { const r = find(idOf(n)); (compMap[r] = compMap[r] || []).push(n.label || n.name || idOf(n)); });
+      const comps = Object.values(compMap).sort((a, b) => b.length - a.length);
+      const top5 = comps.slice(0, 5);
+      html = `<div class="mg-kv-grid" style="margin-bottom:12px">
+        <div class="mg-kv-card"><div class="mkv-k">Components</div><div class="mkv-v">${comps.length}</div></div>
+        <div class="mg-kv-card"><div class="mkv-k">Largest</div><div class="mkv-v">${comps[0] ? comps[0].length : 0}</div></div>
+      </div>` +
+      top5.map((c, i) => `<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--text-xs);margin-bottom:3px">Component ${i+1} — ${c.length} nodes</div><div style="font-size:11px;font-family:var(--mono);color:var(--text-mid)">${c.slice(0,5).map(esc).join(', ')}${c.length > 5 ? ` … +${c.length-5} more` : ''}</div></div>`).join('');
+
+    } else if (id === 'topo') {
+      const inDeg = {}; const adj = {};
+      nodes.forEach(n => { const k = n.id || n.name || n.label || ''; inDeg[k] = 0; adj[k] = []; });
+      edges.forEach(e => {
+        const s = String(e.source || e.from || ''); const t = String(e.target || e.to || '');
+        if (s in adj && t in inDeg) { adj[s].push(t); inDeg[t]++; }
+      });
+      const queue = Object.keys(inDeg).filter(k => inDeg[k] === 0);
+      const order = [];
+      while (queue.length) {
+        const u = queue.shift(); order.push(u);
+        (adj[u] || []).forEach(v => { inDeg[v]--; if (inDeg[v] === 0) queue.push(v); });
+      }
+      if (order.length < nodes.length) {
+        const cycleNodes = nodes.filter(n => { const k = n.id || n.name || n.label || ''; return !order.includes(k); }).map(n => esc(n.label || n.name || ''));
+        html = `<div style="color:var(--red);font-size:12px;margin-bottom:8px">Cycle detected in graph</div><ul class="mg-node-list">${cycleNodes.map(l => `<li>${l}</li>`).join('')}</ul>`;
+      } else {
+        const nodeLabel = k => { const n = nodes.find(x => (x.id || x.name || x.label || '') === k); return n ? (n.label || n.name || k) : k; };
+        html = `<div style="font-size:12px;color:var(--text-lo);margin-bottom:8px">Topological order (first 20 of ${order.length})</div><ul class="mg-node-list">${order.slice(0,20).map((k,i) => `<li>${i+1}. ${esc(nodeLabel(k))}</li>`).join('')}</ul>`;
+      }
+
+    } else if (id === 'hubs') {
+      const ranked = nodes.map(n => {
+        const k = n.id || n.name || n.label || '';
+        return { rank:0, label: n.label || n.name || k, type: n.type || n.kind || '', deg: degMap[k] || 0 };
+      }).sort((a, b) => b.deg - a.deg).slice(0, 30).map((r, i) => ({ ...r, rank: i+1 }));
+      html = `<table class="mg-table"><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Degree</th></tr></thead><tbody>` +
+        ranked.map(r => `<tr><td>${r.rank}</td><td>${esc(r.label)}</td><td>${esc(r.type)}</td><td>${r.deg}</td></tr>`).join('') +
+        `</tbody></table>`;
+
+    } else if (id === 'cycles') {
+      const adj2 = {}; nodes.forEach(n => { adj2[n.id || n.name || n.label || ''] = []; });
+      edges.forEach(e => { const s = String(e.source || e.from || ''); const t = String(e.target || e.to || ''); if (s in adj2) adj2[s].push(t); });
+      const cycles = []; const visited = new Set(); const stack = new Set(); const path = [];
+      function dfs(u) {
+        if (cycles.length >= 10) return;
+        visited.add(u); stack.add(u); path.push(u);
+        for (const v of (adj2[u] || [])) {
+          if (!visited.has(v)) dfs(v);
+          else if (stack.has(v)) {
+            const idx = path.indexOf(v);
+            cycles.push(path.slice(idx).concat([v]));
+          }
+        }
+        path.pop(); stack.delete(u);
+      }
+      nodes.forEach(n => { const k = n.id || n.name || n.label || ''; if (!visited.has(k)) dfs(k); });
+      const nodeLabel2 = k => { const n = nodes.find(x => (x.id || x.name || x.label || '') === k); return n ? (n.label || n.name || k) : k; };
+      if (!cycles.length) { html = '<div class="loading-txt">No cycles detected</div>'; }
+      else {
+        html = `<div style="font-size:12px;color:var(--text-lo);margin-bottom:8px">${cycles.length} cycle(s) found</div>` +
+          cycles.map(c => `<div class="mg-cycle-item">${c.map(k => esc(nodeLabel2(k))).join(' → ')}</div>`).join('');
+      }
+
+    } else if (id === 'surprises') {
+      const ext = label => { const m = String(label).match(/\.([a-z0-9]+)$/i); return m ? m[1].toLowerCase() : null; };
+      const nodeTypeByKey = {};
+      nodes.forEach(n => { nodeTypeByKey[n.id || n.name || n.label || ''] = { ext: ext(n.label || n.name || ''), label: n.label || n.name || '' }; });
+      const crossEdges = edges.filter(e => {
+        const si = nodeTypeByKey[String(e.source || e.from || '')];
+        const ti = nodeTypeByKey[String(e.target || e.to || '')];
+        return si && ti && si.ext && ti.ext && si.ext !== ti.ext;
+      });
+      if (!crossEdges.length) { html = '<div class="loading-txt">No cross-filetype edges found</div>'; }
+      else {
+        html = `<div style="font-size:12px;color:var(--text-lo);margin-bottom:8px">${crossEdges.length} cross-filetype edge(s)</div>` +
+          crossEdges.slice(0, 30).map(e => {
+            const s = nodeTypeByKey[String(e.source || e.from || '')];
+            const t = nodeTypeByKey[String(e.target || e.to || '')];
+            return `<div class="mg-cycle-item">${esc(s.label)} <span style="color:var(--text-xs)">(${esc(s.ext)})</span> → ${esc(t.label)} <span style="color:var(--text-xs)">(${esc(t.ext)})</span></div>`;
+          }).join('');
+      }
+
+    } else if (id === 'communities') {
+      const typeCounts = {};
+      nodes.forEach(n => { const t = n.type || n.kind || 'unknown'; typeCounts[t] = (typeCounts[t] || 0) + 1; });
+      const entries = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
+      const maxC = entries.length ? entries[0][1] : 1;
+      html = entries.map(([t, c]) => `
+        <div class="mg-bar-row">
+          <div class="mg-bar-lbl">${esc(t)}</div>
+          <div class="mg-bar-track"><div class="mg-bar-fill mg" style="width:${Math.round((c/maxC)*100)}%"></div></div>
+          <div class="mg-bar-val">${c}</div>
+        </div>`).join('');
+    }
+  } catch (err) {
+    html = `<div style="color:var(--red);font-size:12px">Error: ${esc(String(err))}</div>`;
+  }
+
+  const def = MG_CLIENT_ANALYSES.find(a => a.id === id);
+  mgClearActiveBtn(id);
+  mgShowResult(def ? def.label : id, html || '<div class="loading-txt">No results</div>');
+}
+
+// ── SERVER-SIDE MCP CALLS ──────────────────────────────────
+async function mgRunServer(id) {
+  const def = MG_SERVER_ANALYSES.find(a => a.id === id);
+  if (!def) return;
+  mgSetActiveBtn(id);
+  const resultTitle = def.label;
+  const btn = document.getElementById('mg-abtn-' + id);
+  const nameEl = btn && btn.querySelector('.mab-name');
+  const origHtml = nameEl ? nameEl.innerHTML : '';
+  if (nameEl) nameEl.innerHTML = `${esc(def.label)} <span class="mab-spin"></span>`;
+
+  try {
+    const args = Object.assign({}, def.args, { dir: DIR });
+    // replace __DIR__ placeholder
+    Object.keys(args).forEach(k => { if (typeof args[k] === 'string') args[k] = args[k].replace('__DIR__', DIR); });
+    const res = await fetch('/api/mcp/call', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tool: def.tool, args })
+    });
+    const data = res.ok ? await res.json() : { error: 'HTTP ' + res.status };
+    const text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    mgShowResult(resultTitle, `<pre style="font-size:11px;font-family:var(--mono);white-space:pre-wrap;word-break:break-word;color:var(--text-mid);line-height:1.6">${esc(text)}</pre>`);
+  } catch (err) {
+    mgShowResult(resultTitle, `<div style="color:var(--red);font-size:12px">Error: ${esc(String(err))}</div>`);
+  }
+  if (nameEl) nameEl.innerHTML = origHtml;
+  mgClearActiveBtn(id);
+}
+
+// ── QUERY TAB ──────────────────────────────────────────────
+function mgQuerySearch(q) {
+  const res = document.getElementById('mg-q-search-result');
+  if (!q.trim()) { res.style.display = 'none'; return; }
+  const lq = q.toLowerCase();
+  const nodes = (_mgGraph && _mgGraph.nodes) || [];
+  const degMap = mgBuildDegMap();
+  const matches = nodes.filter(n => (n.label || n.name || '').toLowerCase().includes(lq)).slice(0, 30);
+  if (!matches.length) { res.textContent = 'No matches'; res.style.display = 'block'; return; }
+  res.innerHTML = `<table class="mg-table"><thead><tr><th>Name</th><th>Type</th><th>Degree</th></tr></thead><tbody>` +
+    matches.map(n => {
+      const k = n.id || n.name || n.label || '';
+      return `<tr><td>${esc(n.label || n.name || k)}</td><td>${esc(n.type || n.kind || '')}</td><td>${degMap[k] || 0}</td></tr>`;
+    }).join('') + `</tbody></table>`;
+  res.style.display = 'block';
+}
+
+async function mgQueryImpact() {
+  const node = document.getElementById('mg-q-impact-node').value.trim();
+  const direction = document.getElementById('mg-q-impact-dir').value;
+  const res = document.getElementById('mg-q-impact-result');
+  if (!node) return;
+  res.textContent = 'Loading…'; res.style.display = 'block';
+  try {
+    const data = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_impact', args:{ node, direction, dir:DIR } }) });
+    const json = data.ok ? await data.json() : { error: 'HTTP ' + data.status };
+    res.textContent = typeof json === 'string' ? json : JSON.stringify(json, null, 2);
+  } catch (e) { res.textContent = 'Error: ' + String(e); }
+}
+
+async function mgQueryContext() {
+  const nodeId = document.getElementById('mg-q-ctx-node').value.trim();
+  const res = document.getElementById('mg-q-ctx-result');
+  if (!nodeId) return;
+  res.textContent = 'Loading…'; res.style.display = 'block';
+  try {
+    const data = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_context', args:{ file: nodeId, dir:DIR } }) });
+    const json = data.ok ? await data.json() : { error: 'HTTP ' + data.status };
+    res.textContent = typeof json === 'string' ? json : JSON.stringify(json, null, 2);
+  } catch (e) { res.textContent = 'Error: ' + String(e); }
+}
+
+async function mgQueryPath() {
+  const from = document.getElementById('mg-q-path-from').value.trim();
+  const to = document.getElementById('mg-q-path-to').value.trim();
+  const res = document.getElementById('mg-q-path-result');
+  if (!from || !to) return;
+  res.textContent = 'Loading…'; res.style.display = 'block';
+  try {
+    const data = await apiFetch('/api/monograph-path?from=' + enc(from) + '&to=' + enc(to) + '&dir=' + enc(DIR));
+    res.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  } catch (e) { res.textContent = 'Error: ' + String(e); }
+}
+
+async function mgQueryCypher() {
+  const query = document.getElementById('mg-q-cypher').value.trim();
+  const res = document.getElementById('mg-q-cypher-result');
+  if (!query) return;
+  res.textContent = 'Loading…'; res.style.display = 'block';
+  try {
+    const data = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_cypher', args:{ query, dir:DIR } }) });
+    const json = data.ok ? await data.json() : { error: 'HTTP ' + data.status };
+    res.textContent = typeof json === 'string' ? json : JSON.stringify(json, null, 2);
+  } catch (e) { res.textContent = 'Error: ' + String(e); }
+}
+
+async function mgQueryAsk() {
+  const q = document.getElementById('mg-q-ask').value.trim();
+  const mode = document.getElementById('mg-q-ask-mode').value;
+  const budget = document.getElementById('mg-q-ask-budget').value;
+  const res = document.getElementById('mg-q-ask-result');
+  if (!q) return;
+  res.textContent = 'Loading…'; res.style.display = 'block';
+  try {
+    const data = await apiFetch('/api/monograph-query?q=' + enc(q) + '&mode=' + enc(mode) + '&budget=' + enc(budget) + '&dir=' + enc(DIR));
+    res.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  } catch (e) { res.textContent = 'Error: ' + String(e); }
+}
+
+// ── EXPORT TAB ─────────────────────────────────────────────
+const MG_EXPORTS = [
+  { id:'json',       name:'JSON',            desc:'All nodes + edges as JSON array' },
+  { id:'graphml',    name:'GraphML',         desc:'XML-based GraphML format' },
+  { id:'mermaid',    name:'Mermaid',         desc:'First 200 edges as graph LR diagram' },
+  { id:'dot',        name:'DOT / Graphviz',  desc:'Graphviz DOT language format' },
+  { id:'gexf',       name:'GEXF',            desc:'Graph Exchange XML Format' },
+  { id:'cypher',     name:'Cypher',          desc:'Neo4j CREATE statements' },
+  { id:'csv-nodes',  name:'CSV Nodes',       desc:'id, label, type, degree as CSV' },
+  { id:'csv-edges',  name:'CSV Edges',       desc:'source, target, type as CSV' },
+  { id:'matrix',     name:'Adjacency Matrix',desc:'N×N text matrix (warns if N>100)' },
+  { id:'html',       name:'HTML',            desc:'Opens interactive graph in new tab' },
+];
+
+function mgRenderExport() {
+  const el = document.getElementById('mg-export-cards');
+  el.innerHTML = MG_EXPORTS.map(x => `
+    <div class="mg-export-card">
+      <div class="mec-name">${esc(x.name)}</div>
+      <div class="mec-desc">${esc(x.desc)}</div>
+      <button class="btn" onclick="mgExport('${esc(x.id)}')" style="margin-top:auto">EXPORT</button>
+    </div>`).join('');
+}
+
+function mgExport(format) {
+  const g = _mgGraph || { nodes: [], edges: [] };
+  if (format === 'html') { window.open('/api/monograph-html?dir=' + enc(DIR), '_blank'); return; }
+  let content = '', mime = 'text/plain', filename = 'monograph.' + format;
+  const nodes = g.nodes || []; const edges = g.edges || [];
+
+  if (format === 'json') {
+    content = JSON.stringify(g, null, 2); mime = 'application/json'; filename = 'monograph.json';
+
+  } else if (format === 'graphml') {
+    const nodeXml = nodes.map(n => `  <node id="${esc(n.id || n.name || n.label || '')}">\n    <data key="label">${esc(n.label || n.name || '')}</data>\n    <data key="type">${esc(n.type || n.kind || '')}</data>\n  </node>`).join('\n');
+    const edgeXml = edges.map((e, i) => `  <edge id="e${i}" source="${esc(String(e.source || e.from || ''))}" target="${esc(String(e.target || e.to || ''))}"></edge>`).join('\n');
+    content = `<?xml version="1.0" encoding="UTF-8"?>\n<graphml xmlns="http://graphml.graphdrawing.org/graphml">\n<key id="label" for="node" attr.name="label" attr.type="string"/>\n<key id="type" for="node" attr.name="type" attr.type="string"/>\n<graph id="G" edgedefault="directed">\n${nodeXml}\n${edgeXml}\n</graph>\n</graphml>`;
+    mime = 'application/xml'; filename = 'monograph.graphml';
+
+  } else if (format === 'mermaid') {
+    const lines = edges.slice(0, 200).map(e => `  ${(String(e.source || e.from || '')).replace(/[^a-zA-Z0-9_]/g,'_')} --> ${(String(e.target || e.to || '')).replace(/[^a-zA-Z0-9_]/g,'_')}`);
+    content = 'graph LR\n' + lines.join('\n'); filename = 'monograph.mmd';
+
+  } else if (format === 'dot') {
+    const nodeLines = nodes.map(n => `  "${(n.id || n.name || n.label || '').replace(/"/g,'\\"')}" [label="${(n.label || n.name || '').replace(/"/g,'\\"')}"];`);
+    const edgeLines = edges.map(e => `  "${String(e.source || e.from || '').replace(/"/g,'\\"')}" -> "${String(e.target || e.to || '').replace(/"/g,'\\"')}";`);
+    content = `digraph monograph {\n${nodeLines.join('\n')}\n${edgeLines.join('\n')}\n}`; filename = 'monograph.dot';
+
+  } else if (format === 'gexf') {
+    const nodeXml = nodes.map(n => `      <node id="${esc(n.id || n.name || n.label || '')}" label="${esc(n.label || n.name || '')}"/>`).join('\n');
+    const edgeXml = edges.map((e, i) => `      <edge id="${i}" source="${esc(String(e.source || e.from || ''))}" target="${esc(String(e.target || e.to || ''))}"/>`).join('\n');
+    content = `<?xml version="1.0" encoding="UTF-8"?>\n<gexf xmlns="http://gexf.net/1.3">\n  <graph defaultedgetype="directed">\n    <nodes>\n${nodeXml}\n    </nodes>\n    <edges>\n${edgeXml}\n    </edges>\n  </graph>\n</gexf>`; mime = 'application/xml'; filename = 'monograph.gexf';
+
+  } else if (format === 'cypher') {
+    const nLines = nodes.map(n => `CREATE (:Node {id: "${(n.id||n.name||n.label||'').replace(/"/g,'\\"')}", label: "${(n.label||n.name||'').replace(/"/g,'\\"')}", type: "${(n.type||n.kind||'').replace(/"/g,'\\"')}"});`);
+    const eLines = edges.map(e => `MATCH (a {id:"${String(e.source||e.from||'').replace(/"/g,'\\"')}"}) MATCH (b {id:"${String(e.target||e.to||'').replace(/"/g,'\\"')}"}) CREATE (a)-[:EDGE]->(b);`);
+    content = [...nLines, ...eLines].join('\n'); filename = 'monograph.cypher';
+
+  } else if (format === 'csv-nodes') {
+    const degMap = mgBuildDegMap();
+    const rows = nodes.map(n => {
+      const k = n.id || n.name || n.label || '';
+      return [k, n.label || n.name || k, n.type || n.kind || '', degMap[k] || 0].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
+    });
+    content = 'id,label,type,degree\n' + rows.join('\n'); mime = 'text/csv'; filename = 'monograph-nodes.csv';
+
+  } else if (format === 'csv-edges') {
+    const rows = edges.map(e => [e.source || e.from || '', e.target || e.to || '', e.type || e.kind || ''].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+    content = 'source,target,type\n' + rows.join('\n'); mime = 'text/csv'; filename = 'monograph-edges.csv';
+
+  } else if (format === 'matrix') {
+    if (nodes.length > 100) {
+      if (!confirm(`Adjacency matrix for ${nodes.length} nodes will be very large. Continue?`)) return;
+    }
+    const idx = {}; nodes.forEach((n, i) => { idx[n.id || n.name || n.label || ''] = i; });
+    const mat = Array.from({ length: nodes.length }, () => new Array(nodes.length).fill(0));
+    edges.forEach(e => { const si = idx[String(e.source || e.from || '')]; const ti = idx[String(e.target || e.to || '')]; if (si !== undefined && ti !== undefined) mat[si][ti] = 1; });
+    content = mat.map(row => row.join(' ')).join('\n'); filename = 'monograph-matrix.txt';
+  }
+
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function mgBuildDegMap() {
+  const g = _mgGraph || { nodes: [], edges: [] };
+  const m = {};
+  (g.nodes || []).forEach(n => { m[n.id || n.name || n.label || ''] = 0; });
+  (g.edges || []).forEach(e => {
+    const s = String(e.source || e.from || ''); const t = String(e.target || e.to || '');
+    if (s in m) m[s]++; if (t in m) m[t]++;
+  });
+  return m;
+}
+
+// ── REPORT TAB ─────────────────────────────────────────────
+async function mgLoadReport() {
+  const el = document.getElementById('mg-report-content');
+  if (!el) return;
+  el.innerHTML = '<div class="loading-txt">Loading report…</div>';
+  try {
+    const r = await fetch('/api/monograph-report?dir=' + enc(DIR));
+    const text = r.ok ? await r.text() : '# Error\n\nFailed to load report: HTTP ' + r.status;
+    mgRenderReport(text, el);
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--red);font-size:12px">Error: ${esc(String(err))}</div>`;
+  }
+}
+
+function mgReportIcon(heading) {
+  const h = heading.toLowerCase();
+  if (h.includes('corpus') || h.includes('files')) return '📂';
+  if (h.includes('summary')) return '📊';
+  if (h.includes('god node')) return '⭐';
+  if (h.includes('surpris')) return '🔗';
+  if (h.includes('communit')) return '🏘';
+  if (h.includes('ambiguous')) return '⚠';
+  if (h.includes('gaps') || h.includes('knowledge')) return '🕳';
+  if (h.includes('suggested') || h.includes('question')) return '💡';
+  return '📄';
+}
+
+function mgReportIsWide(heading) {
+  const h = heading.toLowerCase();
+  return h.includes('summary') || h.includes('corpus') || h.includes('suggested');
+}
+
+function mgRenderReport(markdown, el) {
+  const sections = [];
+  let current = null;
+  markdown.split('\n').forEach(line => {
+    if (line.startsWith('## ')) {
+      if (current) sections.push(current);
+      current = { heading: line.slice(3).trim(), lines: [] };
+    } else if (current) {
+      current.lines.push(line);
+    }
+  });
+  if (current) sections.push(current);
+  if (!sections.length) { el.innerHTML = `<pre style="font-size:11px;font-family:var(--mono);color:var(--text-mid);white-space:pre-wrap">${esc(markdown)}</pre>`; return; }
+  const html = `<div class="mg-report-cards-grid">` +
+    sections.map(s => {
+      const icon = mgReportIcon(s.heading);
+      const wide = mgReportIsWide(s.heading);
+      const body = esc(s.lines.join('\n').trim());
+      return `<div class="mg-report-card${wide ? ' wide' : ''}"><div class="mrc-head">${icon} ${esc(s.heading)}</div><pre>${body}</pre></div>`;
+    }).join('') + `</div>`;
+  el.innerHTML = html;
+}
+
+// ── WIKI TAB ───────────────────────────────────────────────
+function mgRenderWiki() {
+  if (!_mgGraph) return;
+  const nodes = _mgGraph.nodes || [];
+  document.getElementById('mg-wiki-total').textContent = nodes.length;
+  const docCount = nodes.filter(n => ['Section','Concept','Doc'].includes(n.type || n.kind || '')).length;
+  const fnCount = nodes.filter(n => ['Function','Method'].includes(n.type || n.kind || '')).length;
+  document.getElementById('mg-wiki-docs').textContent = docCount;
+  document.getElementById('mg-wiki-fns').textContent = fnCount;
+
+  // type pills
+  const types = [...new Set(nodes.map(n => n.type || n.kind || 'unknown'))].sort();
+  const pillsEl = document.getElementById('mg-wiki-pills');
+  pillsEl.innerHTML = `<span class="mg-pill active" data-type="all" onclick="mgWikiFilterType('all')">All</span>` +
+    types.map(t => `<span class="mg-pill" data-type="${esc(t)}" onclick="mgWikiFilterType('${esc(t)}')">${esc(t)}</span>`).join('');
+
+  mgRenderWikiList('');
+}
+
+function mgNodeIcon(type) {
+  const t = String(type || '').toLowerCase();
+  if (t === 'file') return '📄';
+  if (t === 'function' || t === 'method') return 'ƒ';
+  if (t === 'class') return '◆';
+  if (t === 'interface') return '◇';
+  if (t === 'variable' || t === 'const' || t === 'let' || t === 'var') return '•';
+  if (t === 'section' || t === 'concept' || t === 'doc') return '§';
+  return '○';
+}
+
+function mgShortPath(label) {
+  const parts = String(label || '').split('/').filter(Boolean);
+  return parts.slice(-2).join('/');
+}
+
+function mgRenderWikiList(query) {
+  const nodes = (_mgGraph && _mgGraph.nodes) || [];
+  const degMap = mgBuildDegMap();
+  let filtered = nodes;
+  if (_mgWikiFilter !== 'all') filtered = filtered.filter(n => (n.type || n.kind || 'unknown') === _mgWikiFilter);
+  if (_mgWikiMode === 'docs') filtered = filtered.filter(n => ['Section','Concept','Doc'].includes(n.type || n.kind || ''));
+  if (_mgWikiMode === 'code') filtered = filtered.filter(n => ['File','Function','Method','Class','Interface','Variable'].includes(n.type || n.kind || ''));
+  if (query) { const lq = query.toLowerCase(); filtered = filtered.filter(n => (n.label || n.name || '').toLowerCase().includes(lq)); }
+  const el = document.getElementById('mg-wiki-list');
+  if (!filtered.length) { el.innerHTML = '<div class="loading-txt">No nodes match</div>'; return; }
+  el.innerHTML = filtered.slice(0, 100).map((n, idx) => {
+    const k = n.id || n.name || n.label || '';
+    const lbl = n.label || n.name || k;
+    return `<div class="mg-node-item" onclick="mgWikiShowDetail(${idx})">
+      <div class="mni-ico">${mgNodeIcon(n.type || n.kind)}</div>
+      <div class="mni-lbl">${esc(lbl)}</div>
+      <div class="mni-path">${esc(mgShortPath(lbl))}</div>
+      <div class="mni-deg">${degMap[k] || 0}</div>
+    </div>`;
+  }).join('');
+  // store filtered for detail lookup
+  el._wikiData = filtered;
+}
+
+function mgWikiFilterType(t) {
+  _mgWikiFilter = t;
+  document.querySelectorAll('#mg-wiki-pills .mg-pill').forEach(p => p.classList.toggle('active', p.dataset.type === t));
+  mgRenderWikiList(document.getElementById('mg-wiki-search').value);
+}
+
+function mgWikiMode(m) {
+  _mgWikiMode = m;
+  ['all','docs','code'].forEach(k => {
+    const btn = document.getElementById('mg-wiki-mode-' + k);
+    if (btn) btn.style.opacity = k === m ? '1' : '0.5';
+  });
+  mgRenderWikiList(document.getElementById('mg-wiki-search').value);
+}
+
+function mgWikiSearchDebounced(q) {
+  clearTimeout(_mgWikiSearchTimer);
+  _mgWikiSearchTimer = setTimeout(() => {
+    mgRenderWikiList(q);
+    if (!q.trim()) return;
+    // fallback: server search if no results
+    const el = document.getElementById('mg-wiki-list');
+    if (el.innerHTML.includes('No nodes match')) {
+      apiFetch('/api/monograph-wiki-search?q=' + enc(q) + '&dir=' + enc(DIR))
+        .then(d => {
+          if (!d || !d.nodes || !d.nodes.length) return;
+          el.innerHTML = d.nodes.slice(0, 50).map(n => {
+            const lbl = n.label || n.name || '';
+            return `<div class="mg-node-item"><div class="mni-ico">${mgNodeIcon(n.type)}</div><div class="mni-lbl">${esc(lbl)}</div><div class="mni-path">${esc(mgShortPath(lbl))}</div><div class="mni-deg">${n.degree || 0}</div></div>`;
+          }).join('');
+        }).catch(() => {});
+    }
+  }, 300);
+}
+
+function mgWikiShowDetail(idx) {
+  const el = document.getElementById('mg-wiki-list');
+  const data = el._wikiData || [];
+  const n = data[idx];
+  if (!n) return;
+  const k = n.id || n.name || n.label || '';
+  const degMap = mgBuildDegMap();
+  const contentPreview = (n.content || n.doc || '').slice(0, 2000);
+  const detail = document.getElementById('mg-wiki-detail');
+  detail.innerHTML = `
+    <div class="mdp-meta">
+      <div class="mdp-meta-item"><div class="mdm-k">Type</div><div class="mdm-v">${esc(n.type || n.kind || '—')}</div></div>
+      <div class="mdp-meta-item"><div class="mdm-k">Label</div><div class="mdm-v">${esc(n.label || n.name || k)}</div></div>
+      <div class="mdp-meta-item"><div class="mdm-k">Path</div><div class="mdm-v">${esc(n.file || n.path || '—')}</div></div>
+      <div class="mdp-meta-item"><div class="mdm-k">Degree</div><div class="mdm-v">${degMap[k] || 0}</div></div>
+    </div>
+    ${contentPreview ? `<div class="mdp-content-preview">${esc(contentPreview)}</div>` : ''}
+    <div class="mdp-actions">
+      ${contentPreview ? `<button class="btn" id="mg-copy-btn" data-copy-idx="${idx}">COPY CONTENT</button>` : ''}
+      <button class="btn" data-explain-idx="${idx}">EXPLAIN</button>
+      <button class="btn" data-related-idx="${idx}">FIND RELATED</button>
+    </div>
+    <div class="mdp-explain-result" id="mg-explain-result" style="display:none"></div>
+    <div id="mg-related-result" style="display:none;margin-top:10px"></div>`;
+  detail.style.display = 'block';
+  detail.scrollIntoView({ behavior:'smooth', block:'nearest' });
+
+  // Wire up delegated handlers (avoids inline onclick with unsafe string interpolation)
+  const copyBtn = detail.querySelector('[data-copy-idx]');
+  if (copyBtn) copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(contentPreview).then(() => {
+      copyBtn.textContent = 'COPIED'; setTimeout(() => { copyBtn.textContent = 'COPY CONTENT'; }, 1500);
+    });
+  });
+  detail.querySelector('[data-explain-idx]')?.addEventListener('click', function() {
+    mgWikiExplain(k, this);
+  });
+  detail.querySelector('[data-related-idx]')?.addEventListener('click', function() {
+    mgWikiFindRelated(k);
+  });
+}
+
+async function mgWikiExplain(nodeId, btn) {
+  const resultEl = document.getElementById('mg-explain-result');
+  if (!resultEl) return;
+  btn.disabled = true; btn.textContent = 'Explaining…';
+  resultEl.style.display = 'block'; resultEl.textContent = 'Loading…';
+  try {
+    const data = await apiFetch('/api/monograph-explain?node=' + enc(nodeId) + '&dir=' + enc(DIR));
+    resultEl.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  } catch (e) { resultEl.textContent = 'Error: ' + String(e); }
+  btn.disabled = false; btn.textContent = 'EXPLAIN';
+}
+
+function mgWikiFindRelated(nodeId) {
+  const el = document.getElementById('mg-related-result');
+  if (!el || !_mgGraph) return;
+  // 2-hop BFS
+  const adj = {}; const adj2 = {};
+  (_mgGraph.nodes || []).forEach(n => { const k = n.id || n.name || n.label || ''; adj[k] = new Set(); adj2[k] = new Set(); });
+  (_mgGraph.edges || []).forEach(e => {
+    const s = String(e.source || e.from || ''); const t = String(e.target || e.to || '');
+    if (adj[s]) adj[s].add(t); if (adj[t]) adj[t].add(s);
+  });
+  const hop1 = adj[nodeId] ? [...adj[nodeId]] : [];
+  const hop2 = new Set();
+  hop1.forEach(v => { (adj[v] ? [...adj[v]] : []).forEach(w => { if (w !== nodeId && !hop1.includes(w)) hop2.add(w); }); });
+  const related = [...hop1, ...hop2].slice(0, 20);
+  if (!related.length) { el.innerHTML = '<div class="loading-txt">No related nodes found</div>'; el.style.display = 'block'; return; }
+  el.innerHTML = `<div style="font-size:11px;color:var(--text-xs);margin-bottom:6px">Related nodes (2-hop neighborhood)</div>` +
+    `<ul class="mg-node-list">` + related.map(k => {
+      const n = (_mgGraph.nodes || []).find(x => (x.id || x.name || x.label || '') === k);
+      const lbl = n ? (n.label || n.name || k) : k;
+      return `<li>${esc(lbl)}</li>`;
+    }).join('') + `</ul>`;
+  el.style.display = 'block';
+}
+
+function mgWikiRefresh() {
+  _mgLoaded = false; _mgGraph = null;
+  document.getElementById('mg-wiki-list').innerHTML = '<div class="loading-txt">Loading…</div>';
+  loadMonograph();
+}
+
+async function mgRebuildDocs() {
+  const btn = document.getElementById('mg-build-docs-btn');
+  btn.disabled = true; btn.textContent = 'BUILDING…';
+  try {
+    await fetch('/api/monograph-build-docs?dir=' + enc(DIR), { method:'POST' });
+    // poll until done (max 60 attempts = ~2 minutes)
+    let polls = 0;
+    const poll = async () => {
+      if (++polls > 60) { btn.disabled = false; btn.textContent = 'BUILD DOCS'; return; }
+      try {
+        const d = await apiFetch('/api/monograph-build-docs-status?dir=' + enc(DIR));
+        if (d && d.done) { btn.disabled = false; btn.textContent = 'BUILD DOCS'; mgWikiRefresh(); return; }
+      } catch (_) {}
+      setTimeout(poll, 2000);
+    };
+    poll();
+  } catch (e) { btn.disabled = false; btn.textContent = 'BUILD DOCS'; }
+}
 </script>
 </body>
 </html>
