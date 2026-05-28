@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-05-06T11:40:29.427Z",
-  "totalAgents": 231,
+  "generatedAt": "2026-05-22T10:05:43.253Z",
+  "totalAgents": 224,
   "agents": [
     {
       "slug": "academic-anthropologist",
@@ -16,9 +16,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/academic/academic-anthropologist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/academic/academic-anthropologist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "academic-geographer",
@@ -33,9 +33,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/academic/academic-geographer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/academic/academic-geographer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "academic-historian",
@@ -50,9 +50,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/academic/academic-historian.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/academic/academic-historian.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "academic-narratologist",
@@ -67,9 +67,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/academic/academic-narratologist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/academic/academic-narratologist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "academic-psychologist",
@@ -84,9 +84,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/academic/academic-psychologist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/academic/academic-psychologist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "analyze-code-quality",
@@ -99,9 +99,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/analysis/analyze-code-quality.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/analysis/analyze-code-quality.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "code-analyzer",
@@ -114,9 +114,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/analysis/code-analyzer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/analysis/code-analyzer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "arch-system-design",
@@ -129,9 +129,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/architecture/system-design/arch-system-design.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/architecture/system-design/arch-system-design.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "crdt-synchronizer",
@@ -144,9 +144,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/consensus/crdt-synchronizer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/consensus/crdt-synchronizer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "performance-benchmarker",
@@ -159,9 +159,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/consensus/performance-benchmarker.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/consensus/performance-benchmarker.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "quorum-manager",
@@ -174,9 +174,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/consensus/quorum-manager.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/consensus/quorum-manager.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "security-manager",
@@ -189,9 +189,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/consensus/security-manager.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/consensus/security-manager.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "coder",
@@ -204,9 +204,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/core/coder.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/core/coder.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "planner",
@@ -219,9 +219,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/core/planner.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/core/planner.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "researcher",
@@ -234,9 +234,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/core/researcher.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/core/researcher.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "reviewer",
@@ -249,9 +249,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/core/reviewer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/core/reviewer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "tester",
@@ -264,9 +264,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/core/tester.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/core/tester.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "data-ml-model",
@@ -279,145 +279,26 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/data/ml/data-ml-model.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/data/ml/data-ml-model.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
-      "slug": "design-brand-guardian",
-      "name": "Brand Guardian",
-      "version": "0.0.0",
+      "slug": "design-monodesign",
+      "name": "Monodesign",
+      "version": "1.1.0",
       "category": "design",
       "capabilities": [],
       "taskTypes": [],
       "tools": [
-        "Read, Write, Edit, WebSearch, WebFetch"
+        "Read, Write, Edit, Bash, WebSearch, WebFetch"
       ],
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/design/design-brand-guardian.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
-    },
-    {
-      "slug": "design-image-prompt-engineer",
-      "name": "Image Prompt Engineer",
-      "version": "0.0.0",
-      "category": "design",
-      "capabilities": [],
-      "taskTypes": [],
-      "tools": [
-        "Read, Write, Edit, WebSearch, WebFetch"
-      ],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/design/design-image-prompt-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
-    },
-    {
-      "slug": "design-inclusive-visuals-specialist",
-      "name": "Inclusive Visuals Specialist",
-      "version": "0.0.0",
-      "category": "design",
-      "capabilities": [],
-      "taskTypes": [],
-      "tools": [
-        "Read, Write, Edit, WebSearch, WebFetch"
-      ],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/design/design-inclusive-visuals-specialist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
-    },
-    {
-      "slug": "design-ui-designer",
-      "name": "UI Designer",
-      "version": "0.0.0",
-      "category": "design",
-      "capabilities": [],
-      "taskTypes": [],
-      "tools": [
-        "Read, Write, Edit, WebSearch, WebFetch"
-      ],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/design/design-ui-designer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
-    },
-    {
-      "slug": "design-ux-architect",
-      "name": "UX Architect",
-      "version": "0.0.0",
-      "category": "design",
-      "capabilities": [],
-      "taskTypes": [],
-      "tools": [
-        "Read, Write, Edit, WebSearch, WebFetch"
-      ],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/design/design-ux-architect.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
-    },
-    {
-      "slug": "design-ux-researcher",
-      "name": "UX Researcher",
-      "version": "0.0.0",
-      "category": "design",
-      "capabilities": [],
-      "taskTypes": [],
-      "tools": [
-        "Read, Write, Edit, WebSearch, WebFetch"
-      ],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/design/design-ux-researcher.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
-    },
-    {
-      "slug": "design-visual-storyteller",
-      "name": "Visual Storyteller",
-      "version": "0.0.0",
-      "category": "design",
-      "capabilities": [],
-      "taskTypes": [],
-      "tools": [
-        "Read, Write, Edit, WebSearch, WebFetch"
-      ],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/design/design-visual-storyteller.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
-    },
-    {
-      "slug": "design-whimsy-injector",
-      "name": "Whimsy Injector",
-      "version": "0.0.0",
-      "category": "design",
-      "capabilities": [],
-      "taskTypes": [],
-      "tools": [
-        "Read, Write, Edit, WebSearch, WebFetch"
-      ],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/design/design-whimsy-injector.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/design/design-monodesign.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "dev-backend-api",
@@ -430,9 +311,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/development/dev-backend-api.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/development/dev-backend-api.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "ops-cicd-github",
@@ -445,9 +326,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/devops/ci-cd/ops-cicd-github.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/devops/ci-cd/ops-cicd-github.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "docs-api-openapi",
@@ -460,9 +341,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/documentation/api-docs/docs-api-openapi.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/documentation/api-docs/docs-api-openapi.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-ai-data-remediation-engineer",
@@ -477,9 +358,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-ai-data-remediation-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-ai-data-remediation-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-ai-engineer",
@@ -494,9 +375,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-ai-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-ai-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-autonomous-optimization-architect",
@@ -511,9 +392,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-autonomous-optimization-architect.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-autonomous-optimization-architect.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-backend-architect",
@@ -528,9 +409,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-backend-architect.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-backend-architect.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-code-reviewer",
@@ -545,9 +426,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-code-reviewer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-code-reviewer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-data-engineer",
@@ -562,9 +443,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-data-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-data-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-database-optimizer",
@@ -579,9 +460,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-database-optimizer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-database-optimizer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-devops-automator",
@@ -596,9 +477,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-devops-automator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-devops-automator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-embedded-firmware-engineer",
@@ -613,9 +494,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-embedded-firmware-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-embedded-firmware-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-feishu-integration-developer",
@@ -630,9 +511,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-feishu-integration-developer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-feishu-integration-developer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-frontend-developer",
@@ -647,9 +528,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-frontend-developer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-frontend-developer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-git-workflow-master",
@@ -664,9 +545,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-git-workflow-master.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-git-workflow-master.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-incident-response-commander",
@@ -681,9 +562,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-incident-response-commander.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-incident-response-commander.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-mobile-app-builder",
@@ -698,9 +579,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-mobile-app-builder.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-mobile-app-builder.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-rapid-prototyper",
@@ -715,9 +596,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-rapid-prototyper.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-rapid-prototyper.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-security-engineer",
@@ -732,9 +613,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-security-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-security-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-senior-developer",
@@ -749,9 +630,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-senior-developer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-senior-developer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-software-architect",
@@ -766,9 +647,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-software-architect.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-software-architect.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-solidity-smart-contract-engineer",
@@ -783,9 +664,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-solidity-smart-contract-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-solidity-smart-contract-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-sre",
@@ -800,9 +681,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-sre.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-sre.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-technical-writer",
@@ -817,9 +698,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-technical-writer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-technical-writer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-threat-detection-engineer",
@@ -834,9 +715,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-threat-detection-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-threat-detection-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "engineering-wechat-mini-program-developer",
@@ -851,9 +732,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/engineering/engineering-wechat-mini-program-developer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/engineering/engineering-wechat-mini-program-developer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "blender-addon-engineer",
@@ -868,9 +749,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/blender/blender-addon-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/blender/blender-addon-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "game-audio-engineer",
@@ -885,9 +766,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/game-audio-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/game-audio-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "game-designer",
@@ -902,9 +783,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/game-designer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/game-designer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "godot-gameplay-scripter",
@@ -919,9 +800,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/godot/godot-gameplay-scripter.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/godot/godot-gameplay-scripter.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "godot-multiplayer-engineer",
@@ -936,9 +817,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/godot/godot-multiplayer-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/godot/godot-multiplayer-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "godot-shader-developer",
@@ -953,9 +834,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/godot/godot-shader-developer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/godot/godot-shader-developer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "level-designer",
@@ -970,9 +851,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/level-designer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/level-designer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "narrative-designer",
@@ -987,9 +868,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/narrative-designer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/narrative-designer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "roblox-avatar-creator",
@@ -1004,9 +885,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/roblox-studio/roblox-avatar-creator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/roblox-studio/roblox-avatar-creator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "roblox-experience-designer",
@@ -1021,9 +902,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/roblox-studio/roblox-experience-designer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/roblox-studio/roblox-experience-designer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "roblox-systems-scripter",
@@ -1038,9 +919,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/roblox-studio/roblox-systems-scripter.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/roblox-studio/roblox-systems-scripter.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "technical-artist",
@@ -1055,9 +936,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/technical-artist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/technical-artist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "unity-architect",
@@ -1072,9 +953,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/unity/unity-architect.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/unity/unity-architect.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "unity-editor-tool-developer",
@@ -1089,9 +970,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/unity/unity-editor-tool-developer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/unity/unity-editor-tool-developer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "unity-multiplayer-engineer",
@@ -1106,9 +987,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/unity/unity-multiplayer-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/unity/unity-multiplayer-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "unity-shader-graph-artist",
@@ -1123,9 +1004,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/unity/unity-shader-graph-artist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/unity/unity-shader-graph-artist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "unreal-multiplayer-architect",
@@ -1140,9 +1021,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/unreal-engine/unreal-multiplayer-architect.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/unreal-engine/unreal-multiplayer-architect.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "unreal-systems-engineer",
@@ -1157,9 +1038,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/unreal-engine/unreal-systems-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/unreal-engine/unreal-systems-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "unreal-technical-artist",
@@ -1174,9 +1055,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/unreal-engine/unreal-technical-artist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/unreal-engine/unreal-technical-artist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "unreal-world-builder",
@@ -1191,9 +1072,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/game-development/unreal-engine/unreal-world-builder.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/game-development/unreal-engine/unreal-world-builder.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "code-review-swarm",
@@ -1208,9 +1089,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/github/code-review-swarm.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/github/code-review-swarm.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "github-modes",
@@ -1225,9 +1106,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/github/github-modes.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/github/github-modes.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "issue-tracker",
@@ -1237,14 +1118,14 @@
       "capabilities": [],
       "taskTypes": [],
       "tools": [
-        "mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_usage, Bash, TodoWrite, Read, Write"
+        "mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_store, Bash, TodoWrite, Read, Write"
       ],
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/github/issue-tracker.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/github/issue-tracker.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "multi-repo-swarm",
@@ -1259,9 +1140,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/github/multi-repo-swarm.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/github/multi-repo-swarm.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "pr-manager",
@@ -1271,14 +1152,14 @@
       "capabilities": [],
       "taskTypes": [],
       "tools": [
-        "Bash, Read, Write, Edit, Glob, Grep, LS, TodoWrite, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__swarm_status, mcp__monomind__memory_usage, mcp__monomind__github_pr_manage, mcp__monomind__github_code_review, mcp__monomind__github_metrics"
+        "Bash, Read, Write, Edit, Glob, Grep, LS, TodoWrite, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__swarm_status, mcp__monomind__memory_store, mcp__monomind__github_pr_manage, mcp__monomind__github_code_review, mcp__monomind__github_metrics"
       ],
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/github/pr-manager.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/github/pr-manager.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "project-board-sync",
@@ -1293,9 +1174,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/github/project-board-sync.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/github/project-board-sync.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "release-manager",
@@ -1305,14 +1186,14 @@
       "capabilities": [],
       "taskTypes": [],
       "tools": [
-        "Bash, Read, Write, Edit, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_pull_request, mcp__github__merge_pull_request, mcp__github__create_branch, mcp__github__push_files, mcp__github__create_issue, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_usage"
+        "Bash, Read, Write, Edit, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_pull_request, mcp__github__merge_pull_request, mcp__github__create_branch, mcp__github__push_files, mcp__github__create_issue, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_store"
       ],
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/github/release-manager.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/github/release-manager.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "release-swarm",
@@ -1327,9 +1208,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/github/release-swarm.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/github/release-swarm.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "repo-architect",
@@ -1339,14 +1220,14 @@
       "capabilities": [],
       "taskTypes": [],
       "tools": [
-        "Bash, Read, Write, Edit, LS, Glob, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_repository, mcp__github__fork_repository, mcp__github__search_repositories, mcp__github__push_files, mcp__github__create_or_update_file, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_usage"
+        "Bash, Read, Write, Edit, LS, Glob, TodoWrite, TodoRead, Task, WebFetch, mcp__github__create_repository, mcp__github__fork_repository, mcp__github__search_repositories, mcp__github__push_files, mcp__github__create_or_update_file, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_store"
       ],
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/github/repo-architect.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/github/repo-architect.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "swarm-issue",
@@ -1361,9 +1242,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/github/swarm-issue.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/github/swarm-issue.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "swarm-pr",
@@ -1378,9 +1259,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/github/swarm-pr.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/github/swarm-pr.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "sync-coordinator",
@@ -1390,14 +1271,14 @@
       "capabilities": [],
       "taskTypes": [],
       "tools": [
-        "mcp__github__push_files, mcp__github__create_or_update_file, mcp__github__get_file_contents, mcp__github__create_pull_request, mcp__github__search_repositories, mcp__github__list_repositories, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_usage, mcp__monomind__coordination_sync, mcp__monomind__load_balance, TodoWrite, TodoRead, Bash, Read, Write, Edit, MultiEdit"
+        "mcp__github__push_files, mcp__github__create_or_update_file, mcp__github__get_file_contents, mcp__github__create_pull_request, mcp__github__search_repositories, mcp__github__list_repositories, mcp__monomind__swarm_init, mcp__monomind__agent_spawn, mcp__monomind__task_orchestrate, mcp__monomind__memory_store, mcp__monomind__coordination_sync, mcp__monomind__load_balance, TodoWrite, TodoRead, Bash, Read, Write, Edit, MultiEdit"
       ],
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/github/sync-coordinator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/github/sync-coordinator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "workflow-automation",
@@ -1412,9 +1293,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/github/workflow-automation.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/github/workflow-automation.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "agent",
@@ -1427,9 +1308,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/goal/agent.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/goal/agent.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "code-goal-planner",
@@ -1442,9 +1323,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/goal/code-goal-planner.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/goal/code-goal-planner.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "goal-planner",
@@ -1457,9 +1338,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/goal/goal-planner.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/goal/goal-planner.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "collective-intelligence-coordinator",
@@ -1472,9 +1353,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/hive-mind/collective-intelligence-coordinator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/hive-mind/collective-intelligence-coordinator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "queen-coordinator",
@@ -1487,9 +1368,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/hive-mind/queen-coordinator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/hive-mind/queen-coordinator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "scout-explorer",
@@ -1502,9 +1383,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/hive-mind/scout-explorer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/hive-mind/scout-explorer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "swarm-memory-manager",
@@ -1517,9 +1398,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/hive-mind/swarm-memory-manager.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/hive-mind/swarm-memory-manager.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "worker-specialist",
@@ -1532,9 +1413,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/hive-mind/worker-specialist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/hive-mind/worker-specialist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-ai-citation-strategist",
@@ -1549,9 +1430,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-ai-citation-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-ai-citation-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-app-store-optimizer",
@@ -1566,9 +1447,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-app-store-optimizer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-app-store-optimizer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-baidu-seo-specialist",
@@ -1583,9 +1464,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-baidu-seo-specialist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-baidu-seo-specialist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-bilibili-content-strategist",
@@ -1600,9 +1481,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-bilibili-content-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-bilibili-content-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-book-co-author",
@@ -1617,9 +1498,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-book-co-author.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-book-co-author.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-carousel-growth-engine",
@@ -1634,9 +1515,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-carousel-growth-engine.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-carousel-growth-engine.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-china-ecommerce-operator",
@@ -1651,9 +1532,26 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-china-ecommerce-operator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-china-ecommerce-operator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
+    },
+    {
+      "slug": "marketing-competitive-content",
+      "name": "Competitive Content Strategist",
+      "version": "0.0.0",
+      "category": "marketing",
+      "capabilities": [],
+      "taskTypes": [],
+      "tools": [
+        "WebFetch, WebSearch, Read, Write, Edit"
+      ],
+      "triggers": [],
+      "deprecated": false,
+      "dependencies": [],
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-competitive-content.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-content-creator",
@@ -1668,9 +1566,26 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-content-creator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-content-creator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
+    },
+    {
+      "slug": "marketing-cro-specialist",
+      "name": "CRO Specialist",
+      "version": "0.0.0",
+      "category": "marketing",
+      "capabilities": [],
+      "taskTypes": [],
+      "tools": [
+        "WebFetch, WebSearch, Read, Write, Edit"
+      ],
+      "triggers": [],
+      "deprecated": false,
+      "dependencies": [],
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-cro-specialist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-cross-border-ecommerce",
@@ -1685,9 +1600,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-cross-border-ecommerce.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-cross-border-ecommerce.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-douyin-strategist",
@@ -1702,9 +1617,26 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-douyin-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-douyin-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
+    },
+    {
+      "slug": "marketing-email-specialist",
+      "name": "Email Marketing Specialist",
+      "version": "0.0.0",
+      "category": "marketing",
+      "capabilities": [],
+      "taskTypes": [],
+      "tools": [
+        "WebFetch, WebSearch, Read, Write, Edit"
+      ],
+      "triggers": [],
+      "deprecated": false,
+      "dependencies": [],
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-email-specialist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-growth-hacker",
@@ -1719,9 +1651,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-growth-hacker.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-growth-hacker.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-instagram-curator",
@@ -1736,9 +1668,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-instagram-curator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-instagram-curator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-kuaishou-strategist",
@@ -1753,9 +1685,26 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-kuaishou-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-kuaishou-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
+    },
+    {
+      "slug": "marketing-launch-strategist",
+      "name": "Launch Strategist",
+      "version": "0.0.0",
+      "category": "marketing",
+      "capabilities": [],
+      "taskTypes": [],
+      "tools": [
+        "WebFetch, WebSearch, Read, Write, Edit"
+      ],
+      "triggers": [],
+      "deprecated": false,
+      "dependencies": [],
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-launch-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-linkedin-content-creator",
@@ -1770,9 +1719,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-linkedin-content-creator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-linkedin-content-creator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-livestream-commerce-coach",
@@ -1787,9 +1736,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-livestream-commerce-coach.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-livestream-commerce-coach.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-podcast-strategist",
@@ -1804,9 +1753,26 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-podcast-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-podcast-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
+    },
+    {
+      "slug": "marketing-pricing-strategist",
+      "name": "Pricing Strategist",
+      "version": "0.0.0",
+      "category": "marketing",
+      "capabilities": [],
+      "taskTypes": [],
+      "tools": [
+        "WebFetch, WebSearch, Read, Write, Edit"
+      ],
+      "triggers": [],
+      "deprecated": false,
+      "dependencies": [],
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-pricing-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-private-domain-operator",
@@ -1821,9 +1787,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-private-domain-operator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-private-domain-operator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-reddit-community-builder",
@@ -1838,9 +1804,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-reddit-community-builder.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-reddit-community-builder.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-seo-specialist",
@@ -1855,9 +1821,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-seo-specialist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-seo-specialist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-short-video-editing-coach",
@@ -1872,9 +1838,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-short-video-editing-coach.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-short-video-editing-coach.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-social-media-strategist",
@@ -1889,9 +1855,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-social-media-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-social-media-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-tiktok-strategist",
@@ -1906,9 +1872,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-tiktok-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-tiktok-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-twitter-engager",
@@ -1923,9 +1889,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-twitter-engager.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-twitter-engager.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-wechat-official-account",
@@ -1940,9 +1906,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-wechat-official-account.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-wechat-official-account.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-weibo-strategist",
@@ -1957,9 +1923,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-weibo-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-weibo-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-xiaohongshu-specialist",
@@ -1974,9 +1940,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-xiaohongshu-specialist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-xiaohongshu-specialist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "marketing-zhihu-strategist",
@@ -1991,9 +1957,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/marketing/marketing-zhihu-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/marketing/marketing-zhihu-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "safla-neural",
@@ -2006,9 +1972,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/neural/safla-neural.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/neural/safla-neural.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "benchmark-suite",
@@ -2021,9 +1987,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/optimization/benchmark-suite.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/optimization/benchmark-suite.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "load-balancer",
@@ -2036,9 +2002,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/optimization/load-balancer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/optimization/load-balancer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "performance-monitor",
@@ -2051,9 +2017,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/optimization/performance-monitor.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/optimization/performance-monitor.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "resource-allocator",
@@ -2066,9 +2032,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/optimization/resource-allocator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/optimization/resource-allocator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "topology-optimizer",
@@ -2081,9 +2047,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/optimization/topology-optimizer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/optimization/topology-optimizer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "paid-media-auditor",
@@ -2098,9 +2064,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/paid-media/paid-media-auditor.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/paid-media/paid-media-auditor.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "paid-media-creative-strategist",
@@ -2115,9 +2081,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/paid-media/paid-media-creative-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/paid-media/paid-media-creative-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "paid-media-paid-social-strategist",
@@ -2132,9 +2098,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/paid-media/paid-media-paid-social-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/paid-media/paid-media-paid-social-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "paid-media-ppc-strategist",
@@ -2149,9 +2115,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/paid-media/paid-media-ppc-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/paid-media/paid-media-ppc-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "paid-media-programmatic-buyer",
@@ -2166,9 +2132,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/paid-media/paid-media-programmatic-buyer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/paid-media/paid-media-programmatic-buyer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "paid-media-search-query-analyst",
@@ -2183,9 +2149,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/paid-media/paid-media-search-query-analyst.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/paid-media/paid-media-search-query-analyst.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "paid-media-tracking-specialist",
@@ -2200,9 +2166,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/paid-media/paid-media-tracking-specialist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/paid-media/paid-media-tracking-specialist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "agentic-payments",
@@ -2215,9 +2181,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/payments/agentic-payments.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/payments/agentic-payments.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "product-behavioral-nudge-engine",
@@ -2232,9 +2198,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/product/product-behavioral-nudge-engine.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/product/product-behavioral-nudge-engine.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "product-feedback-synthesizer",
@@ -2249,9 +2215,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/product/product-feedback-synthesizer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/product/product-feedback-synthesizer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "product-manager",
@@ -2266,9 +2232,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/product/product-manager.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/product/product-manager.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "product-sprint-prioritizer",
@@ -2283,9 +2249,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/product/product-sprint-prioritizer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/product/product-sprint-prioritizer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "product-trend-researcher",
@@ -2300,9 +2266,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/product/product-trend-researcher.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/product/product-trend-researcher.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "project-management-experiment-tracker",
@@ -2317,9 +2283,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/project-management/project-management-experiment-tracker.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/project-management/project-management-experiment-tracker.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "project-management-jira-workflow-steward",
@@ -2334,9 +2300,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/project-management/project-management-jira-workflow-steward.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/project-management/project-management-jira-workflow-steward.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "project-management-project-shepherd",
@@ -2351,9 +2317,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/project-management/project-management-project-shepherd.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/project-management/project-management-project-shepherd.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "project-management-studio-operations",
@@ -2368,9 +2334,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/project-management/project-management-studio-operations.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/project-management/project-management-studio-operations.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "project-management-studio-producer",
@@ -2385,9 +2351,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/project-management/project-management-studio-producer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/project-management/project-management-studio-producer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "project-manager-senior",
@@ -2402,9 +2368,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/project-management/project-manager-senior.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/project-management/project-manager-senior.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "sales-account-strategist",
@@ -2419,9 +2385,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sales/sales-account-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sales/sales-account-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "sales-coach",
@@ -2436,9 +2402,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sales/sales-coach.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sales/sales-coach.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "sales-deal-strategist",
@@ -2453,9 +2419,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sales/sales-deal-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sales/sales-deal-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "sales-discovery-coach",
@@ -2470,9 +2436,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sales/sales-discovery-coach.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sales/sales-discovery-coach.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "sales-engineer",
@@ -2487,9 +2453,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sales/sales-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sales/sales-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "sales-outbound-strategist",
@@ -2504,9 +2470,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sales/sales-outbound-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sales/sales-outbound-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "sales-pipeline-analyst",
@@ -2521,9 +2487,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sales/sales-pipeline-analyst.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sales/sales-pipeline-analyst.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "sales-proposal-strategist",
@@ -2538,9 +2504,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sales/sales-proposal-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sales/sales-proposal-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "sona-learning-optimizer",
@@ -2553,9 +2519,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sona/sona-learning-optimizer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sona/sona-learning-optimizer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "architecture",
@@ -2568,9 +2534,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sparc/architecture.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sparc/architecture.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "pseudocode",
@@ -2583,9 +2549,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sparc/pseudocode.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sparc/pseudocode.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "refinement",
@@ -2598,9 +2564,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sparc/refinement.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sparc/refinement.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "specification",
@@ -2613,9 +2579,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sparc/specification.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sparc/specification.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "macos-spatial-metal-engineer",
@@ -2630,9 +2596,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/spatial-computing/macos-spatial-metal-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/spatial-computing/macos-spatial-metal-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "terminal-integration-specialist",
@@ -2647,9 +2613,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/spatial-computing/terminal-integration-specialist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/spatial-computing/terminal-integration-specialist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "visionos-spatial-engineer",
@@ -2664,9 +2630,69 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/spatial-computing/visionos-spatial-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/spatial-computing/visionos-spatial-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
+    },
+    {
+      "slug": "integration-architect",
+      "name": "v1-integration-architect",
+      "version": "0.0.0",
+      "category": "specialists",
+      "capabilities": [],
+      "taskTypes": [],
+      "tools": [],
+      "triggers": [],
+      "deprecated": false,
+      "dependencies": [],
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialists/integration-architect.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
+    },
+    {
+      "slug": "memory-specialist",
+      "name": "v1-memory-specialist",
+      "version": "0.0.0",
+      "category": "specialists",
+      "capabilities": [],
+      "taskTypes": [],
+      "tools": [],
+      "triggers": [],
+      "deprecated": false,
+      "dependencies": [],
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialists/memory-specialist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
+    },
+    {
+      "slug": "performance-engineer",
+      "name": "v1-performance-engineer",
+      "version": "0.0.0",
+      "category": "specialists",
+      "capabilities": [],
+      "taskTypes": [],
+      "tools": [],
+      "triggers": [],
+      "deprecated": false,
+      "dependencies": [],
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialists/performance-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
+    },
+    {
+      "slug": "security-architect",
+      "name": "v1-security-architect",
+      "version": "0.0.0",
+      "category": "specialists",
+      "capabilities": [],
+      "taskTypes": [],
+      "tools": [],
+      "triggers": [],
+      "deprecated": false,
+      "dependencies": [],
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialists/security-architect.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "accounts-payable-agent",
@@ -2681,9 +2707,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/accounts-payable-agent.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/accounts-payable-agent.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "agentic-identity-trust",
@@ -2698,9 +2724,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/agentic-identity-trust.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/agentic-identity-trust.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "agents-orchestrator",
@@ -2715,9 +2741,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/agents-orchestrator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/agents-orchestrator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "automation-governance-architect",
@@ -2732,9 +2758,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/automation-governance-architect.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/automation-governance-architect.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "blockchain-security-auditor",
@@ -2749,9 +2775,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/blockchain-security-auditor.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/blockchain-security-auditor.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "compliance-auditor",
@@ -2766,9 +2792,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/compliance-auditor.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/compliance-auditor.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "corporate-training-designer",
@@ -2783,9 +2809,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/corporate-training-designer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/corporate-training-designer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "data-consolidation-agent",
@@ -2800,9 +2826,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/data-consolidation-agent.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/data-consolidation-agent.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "government-digital-presales-consultant",
@@ -2817,9 +2843,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/government-digital-presales-consultant.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/government-digital-presales-consultant.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "healthcare-marketing-compliance",
@@ -2834,9 +2860,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/healthcare-marketing-compliance.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/healthcare-marketing-compliance.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "identity-graph-operator",
@@ -2851,9 +2877,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/identity-graph-operator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/identity-graph-operator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "lsp-index-engineer",
@@ -2868,9 +2894,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/lsp-index-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/lsp-index-engineer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "spec-mobile-react-native",
@@ -2885,9 +2911,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/mobile/spec-mobile-react-native.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/mobile/spec-mobile-react-native.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "recruitment-specialist",
@@ -2902,9 +2928,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/recruitment-specialist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/recruitment-specialist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "report-distribution-agent",
@@ -2919,9 +2945,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/report-distribution-agent.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/report-distribution-agent.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "sales-data-extraction-agent",
@@ -2936,9 +2962,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/sales-data-extraction-agent.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/sales-data-extraction-agent.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "specialized-cultural-intelligence-strategist",
@@ -2953,9 +2979,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/specialized-cultural-intelligence-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/specialized-cultural-intelligence-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "specialized-developer-advocate",
@@ -2970,9 +2996,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/specialized-developer-advocate.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/specialized-developer-advocate.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "specialized-document-generator",
@@ -2987,9 +3013,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/specialized-document-generator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/specialized-document-generator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "specialized-french-consulting-market",
@@ -3004,9 +3030,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/specialized-french-consulting-market.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/specialized-french-consulting-market.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "specialized-korean-business-navigator",
@@ -3021,9 +3047,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/specialized-korean-business-navigator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/specialized-korean-business-navigator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "specialized-mcp-builder",
@@ -3038,9 +3064,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/specialized-mcp-builder.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/specialized-mcp-builder.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "specialized-model-qa",
@@ -3055,9 +3081,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/specialized-model-qa.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/specialized-model-qa.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "specialized-salesforce-architect",
@@ -3072,9 +3098,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/specialized-salesforce-architect.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/specialized-salesforce-architect.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "specialized-workflow-architect",
@@ -3089,9 +3115,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/specialized-workflow-architect.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/specialized-workflow-architect.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "study-abroad-advisor",
@@ -3106,9 +3132,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/study-abroad-advisor.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/study-abroad-advisor.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "supply-chain-strategist",
@@ -3123,9 +3149,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/supply-chain-strategist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/supply-chain-strategist.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "zk-steward",
@@ -3140,9 +3166,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/specialized/zk-steward.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/specialized/zk-steward.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "consensus-coordinator",
@@ -3155,9 +3181,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sublinear/consensus-coordinator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sublinear/consensus-coordinator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "matrix-optimizer",
@@ -3170,9 +3196,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sublinear/matrix-optimizer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sublinear/matrix-optimizer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "pagerank-analyzer",
@@ -3185,9 +3211,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sublinear/pagerank-analyzer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sublinear/pagerank-analyzer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "performance-optimizer",
@@ -3200,9 +3226,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sublinear/performance-optimizer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sublinear/performance-optimizer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "trading-predictor",
@@ -3215,9 +3241,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/sublinear/trading-predictor.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/sublinear/trading-predictor.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "support-analytics-reporter",
@@ -3232,9 +3258,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/support/support-analytics-reporter.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/support/support-analytics-reporter.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "support-executive-summary-generator",
@@ -3249,9 +3275,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/support/support-executive-summary-generator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/support/support-executive-summary-generator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "support-finance-tracker",
@@ -3266,9 +3292,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/support/support-finance-tracker.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/support/support-finance-tracker.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "support-infrastructure-maintainer",
@@ -3283,9 +3309,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/support/support-infrastructure-maintainer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/support/support-infrastructure-maintainer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "support-legal-compliance-checker",
@@ -3300,9 +3326,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/support/support-legal-compliance-checker.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/support/support-legal-compliance-checker.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "support-support-responder",
@@ -3317,9 +3343,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/support/support-support-responder.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/support/support-support-responder.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "adaptive-coordinator",
@@ -3332,9 +3358,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/swarm/adaptive-coordinator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/swarm/adaptive-coordinator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "hierarchical-coordinator",
@@ -3347,9 +3373,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/swarm/hierarchical-coordinator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/swarm/hierarchical-coordinator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "mesh-coordinator",
@@ -3362,9 +3388,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/swarm/mesh-coordinator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/swarm/mesh-coordinator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "automation-smart-agent",
@@ -3377,9 +3403,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/templates/automation-smart-agent.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/templates/automation-smart-agent.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "coordinator-swarm-init",
@@ -3392,9 +3418,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/templates/coordinator-swarm-init.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/templates/coordinator-swarm-init.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "github-pr-manager",
@@ -3407,9 +3433,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/templates/github-pr-manager.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/templates/github-pr-manager.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "implementer-sparc-coder",
@@ -3422,9 +3448,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/templates/implementer-sparc-coder.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/templates/implementer-sparc-coder.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "memory-coordinator",
@@ -3437,9 +3463,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/templates/memory-coordinator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/templates/memory-coordinator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "migration-plan",
@@ -3452,9 +3478,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/templates/migration-plan.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/templates/migration-plan.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "orchestrator-task",
@@ -3467,9 +3493,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/templates/orchestrator-task.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/templates/orchestrator-task.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "performance-analyzer",
@@ -3482,9 +3508,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/templates/performance-analyzer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/templates/performance-analyzer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "sparc-coordinator",
@@ -3497,9 +3523,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/templates/sparc-coordinator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/templates/sparc-coordinator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "production-validator",
@@ -3514,9 +3540,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/testing/production-validator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/testing/production-validator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "tdd-london-swarm",
@@ -3531,9 +3557,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/testing/tdd-london-swarm.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/testing/tdd-london-swarm.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "testing-accessibility-auditor",
@@ -3548,9 +3574,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/testing/testing-accessibility-auditor.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/testing/testing-accessibility-auditor.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "testing-api-tester",
@@ -3565,9 +3591,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/testing/testing-api-tester.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/testing/testing-api-tester.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "testing-evidence-collector",
@@ -3582,9 +3608,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/testing/testing-evidence-collector.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/testing/testing-evidence-collector.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "testing-performance-benchmarker",
@@ -3599,9 +3625,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/testing/testing-performance-benchmarker.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/testing/testing-performance-benchmarker.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "testing-reality-checker",
@@ -3616,9 +3642,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/testing/testing-reality-checker.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/testing/testing-reality-checker.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "testing-test-results-analyzer",
@@ -3633,9 +3659,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/testing/testing-test-results-analyzer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/testing/testing-test-results-analyzer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "testing-tool-evaluator",
@@ -3650,9 +3676,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/testing/testing-tool-evaluator.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/testing/testing-tool-evaluator.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     },
     {
       "slug": "testing-workflow-optimizer",
@@ -3667,241 +3693,9 @@
       "triggers": [],
       "deprecated": false,
       "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/testing/testing-workflow-optimizer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
-    },
-    {
-      "slug": "integration-architect",
-      "name": "v1-integration-architect",
-      "version": "0.0.0",
-      "category": "v3",
-      "capabilities": [],
-      "taskTypes": [],
-      "tools": [],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/v3/integration-architect.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
-    },
-    {
-      "slug": "memory-specialist",
-      "name": "v1-memory-specialist",
-      "version": "0.0.0",
-      "category": "v3",
-      "capabilities": [],
-      "taskTypes": [],
-      "tools": [],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/v3/memory-specialist.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
-    },
-    {
-      "slug": "performance-engineer",
-      "name": "v1-performance-engineer",
-      "version": "0.0.0",
-      "category": "v3",
-      "capabilities": [],
-      "taskTypes": [],
-      "tools": [],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/v3/performance-engineer.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
-    },
-    {
-      "slug": "security-architect",
-      "name": "v1-security-architect",
-      "version": "0.0.0",
-      "category": "v3",
-      "capabilities": [],
-      "taskTypes": [],
-      "tools": [],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli/.claude/agents/v3/security-architect.md",
-      "registeredAt": "2026-05-02T20:08:05.361Z",
-      "lastUpdated": "2026-05-02T20:08:05.361Z"
-    },
-    {
-      "slug": "email-marketing-specialist",
-      "name": "Email Marketing Specialist",
-      "version": "1.0.0",
-      "category": "marketing",
-      "description": "Expert in email sequences, drip campaigns, lifecycle email programs, and cold outreach. Write and optimize welcome series, nurture sequences, re-engagement campaigns, onboarding flows, and B2B cold email.",
-      "capabilities": [
-        "email",
-        "sequences",
-        "drip",
-        "cold-outreach",
-        "lifecycle",
-        "copywriting"
-      ],
-      "taskTypes": [
-        "email-sequence",
-        "cold-email",
-        "nurture",
-        "onboarding-email"
-      ],
-      "tools": [
-        "WebFetch",
-        "WebSearch",
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": ".claude/agents/marketing/marketing-email-specialist.md",
-      "registeredAt": "2026-05-06T11:40:29.427Z",
-      "lastUpdated": "2026-05-06T11:40:29.427Z"
-    },
-    {
-      "slug": "cro-specialist",
-      "name": "CRO Specialist",
-      "version": "1.0.0",
-      "category": "marketing",
-      "description": "Expert in conversion rate optimization for marketing pages, signup flows, forms, popups, and onboarding. Analyzes why pages are not converting and delivers prioritized recommendations with test hypotheses.",
-      "capabilities": [
-        "cro",
-        "conversion",
-        "landing-page",
-        "form",
-        "popup",
-        "signup-flow",
-        "onboarding"
-      ],
-      "taskTypes": [
-        "page-cro",
-        "form-cro",
-        "popup-cro",
-        "signup-flow",
-        "onboarding-cro"
-      ],
-      "tools": [
-        "WebFetch",
-        "WebSearch",
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": ".claude/agents/marketing/marketing-cro-specialist.md",
-      "registeredAt": "2026-05-06T11:40:29.427Z",
-      "lastUpdated": "2026-05-06T11:40:29.427Z"
-    },
-    {
-      "slug": "pricing-strategist",
-      "name": "Pricing Strategist",
-      "version": "1.0.0",
-      "category": "marketing",
-      "description": "Expert in SaaS pricing strategy, packaging, tier structure, and monetization. Covers pricing decisions, plan restructuring, freemium vs trial, value metric selection, willingness-to-pay, and pricing page design.",
-      "capabilities": [
-        "pricing",
-        "packaging",
-        "monetization",
-        "saas",
-        "tier-design",
-        "freemium"
-      ],
-      "taskTypes": [
-        "pricing-strategy",
-        "tier-structure",
-        "pricing-page",
-        "monetization"
-      ],
-      "tools": [
-        "WebFetch",
-        "WebSearch",
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": ".claude/agents/marketing/marketing-pricing-strategist.md",
-      "registeredAt": "2026-05-06T11:40:29.427Z",
-      "lastUpdated": "2026-05-06T11:40:29.427Z"
-    },
-    {
-      "slug": "launch-strategist",
-      "name": "Launch Strategist",
-      "version": "1.0.0",
-      "category": "marketing",
-      "description": "Expert in product launches, feature announcements, and go-to-market strategy. Plans launches that build momentum using the ORB channel framework and five-phase launch sequence.",
-      "capabilities": [
-        "launch",
-        "gtm",
-        "product-hunt",
-        "waitlist",
-        "beta",
-        "announcement"
-      ],
-      "taskTypes": [
-        "product-launch",
-        "feature-announcement",
-        "gtm-strategy",
-        "launch-plan"
-      ],
-      "tools": [
-        "WebFetch",
-        "WebSearch",
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": ".claude/agents/marketing/marketing-launch-strategist.md",
-      "registeredAt": "2026-05-06T11:40:29.427Z",
-      "lastUpdated": "2026-05-06T11:40:29.427Z"
-    },
-    {
-      "slug": "competitive-content-strategist",
-      "name": "Competitive Content Strategist",
-      "version": "1.0.0",
-      "category": "marketing",
-      "description": "Expert in competitive positioning content, comparison pages, alternative pages, content strategy, and topic planning. Builds pages that rank for competitive search terms and content plans that drive organic growth.",
-      "capabilities": [
-        "competitive",
-        "comparison-pages",
-        "alternatives",
-        "content-strategy",
-        "seo-content",
-        "positioning"
-      ],
-      "taskTypes": [
-        "competitor-comparison",
-        "alternative-page",
-        "content-strategy",
-        "editorial-planning"
-      ],
-      "tools": [
-        "WebFetch",
-        "WebSearch",
-        "Read",
-        "Write",
-        "Edit"
-      ],
-      "triggers": [],
-      "deprecated": false,
-      "dependencies": [],
-      "filePath": ".claude/agents/marketing/marketing-competitive-content.md",
-      "registeredAt": "2026-05-06T11:40:29.427Z",
-      "lastUpdated": "2026-05-06T11:40:29.427Z"
+      "filePath": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/.claude/agents/testing/testing-workflow-optimizer.md",
+      "registeredAt": "2026-05-22T10:05:43.253Z",
+      "lastUpdated": "2026-05-22T10:05:43.253Z"
     }
   ]
 }
