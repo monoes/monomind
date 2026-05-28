@@ -4847,7 +4847,7 @@ async function v2RenderOrgApprovals() {
       approvals.slice(0, 50).map(a => {
         const cls = a.status === 'approved' ? 'on' : a.status === 'rejected' ? 'warn' : '';
         const pending = !a.status || a.status === 'pending';
-        const aid = esc(a.id || '');
+        const aid = a.id || '';
         return `<tr style="border-top:1px solid var(--border)">
           <td style="padding:6px 8px;color:var(--text-hi)">${esc(a.requester || a.agent || '—')}</td>
           <td style="padding:6px 8px;color:var(--text-lo);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((a.action || a.description || '').slice(0, 80))}</td>
