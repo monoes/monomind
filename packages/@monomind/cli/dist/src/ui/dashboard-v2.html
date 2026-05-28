@@ -1051,6 +1051,27 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 @keyframes live-fade { 0% { box-shadow: 0 0 0 1px oklch(72% 0.18 75 / 0.4); } 100% { box-shadow: none; } }
 .live-glow { animation: live-fade 8s ease-out forwards; }
 @media (prefers-reduced-motion: reduce) { .live-glow { animation: none; } }
+/* memory CRUD */
+.mem-split { display: flex; height: 420px; }
+.mem-list-pane { width: 220px; flex-shrink: 0; border-right: 1px solid var(--border); overflow-y: auto; }
+.mem-detail-pane { flex: 1; padding: 14px 16px; overflow-y: auto; }
+.mem-type-hdr { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 10px 12px 4px; color: var(--text-xs); }
+.mem-item { padding: 6px 12px; cursor: pointer; border-left: 2px solid transparent; transition: background 0.1s; display: flex; align-items: center; gap: 6px; }
+.mem-item:hover { background: var(--surface-hi); }
+.mem-item.active { background: oklch(72% 0.18 75 / 0.1); border-left-color: var(--accent); }
+.mem-item-name { font-size: 12.5px; color: var(--text-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mem-type-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.mem-badge { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 8px; font-family: var(--mono); margin-bottom: 10px; }
+.mem-body-render { font-size: 12.5px; color: var(--text-hi); line-height: 1.65; white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto; }
+.mem-actions { display: flex; gap: 8px; margin-top: 14px; }
+/* memory modal */
+#mem-modal { display: none; position: fixed; inset: 0; z-index: 3000; background: oklch(0% 0 0 / 0.65); align-items: center; justify-content: center; }
+#mem-modal.open { display: flex; }
+#mem-modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; width: min(600px, 92vw); padding: 20px; display: flex; flex-direction: column; gap: 12px; max-height: 90vh; }
+#mem-modal-title { font-size: 14px; font-weight: 600; color: var(--text-hi); }
+#mem-modal-ta { width: 100%; height: 280px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-family: var(--mono); font-size: 12px; color: var(--text-hi); resize: vertical; outline: none; overflow-y: auto; }
+#mem-modal-ta:focus { border-color: var(--accent); }
+.mem-modal-btns { display: flex; justify-content: flex-end; gap: 8px; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
@@ -1430,11 +1451,15 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
           <button class="odt-btn" data-memtab="adrs" onclick="switchMemTab('adrs')">ADRs</button>
         </div>
         <div id="mem-tab-memories">
-          <div class="filter-bar">
-            <input class="filter-input" id="mem-filter" type="text" placeholder="Search memory…" oninput="filterMemory(this.value)">
+          <div class="mem-split" id="mem-split">
+            <div class="mem-list-pane" id="mem-list-pane">
+              <div class="loading-txt" style="padding:16px">Loading…</div>
+            </div>
+            <div class="mem-detail-pane" id="mem-detail-pane">
+              <div style="color:var(--text-lo);font-size:13px;padding:20px 0">Select a memory</div>
+            </div>
           </div>
-          <div id="mem-ns-tabs"></div>
-          <div id="mem-content"><div class="loading-txt">Loading…</div></div>
+          <div style="margin-top:10px"><button class="btn" onclick="openNewMemModal()">+ New Memory</button></div>
         </div>
         <div id="mem-tab-routing" style="display:none"><div class="loading-txt">Loading…</div></div>
         <div id="mem-tab-usage" style="display:none"><div class="loading-txt">Loading…</div></div>
@@ -1679,6 +1704,17 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 </div><!-- /main -->
 <div id="app-ambient-hint">Press A to exit ambient mode</div>
 </div><!-- /app -->
+<!-- memory edit/create modal -->
+<div id="mem-modal" onclick="if(event.target===this)closeMemModal()">
+  <div id="mem-modal-box">
+    <div id="mem-modal-title">Edit Memory</div>
+    <textarea id="mem-modal-ta" spellcheck="false"></textarea>
+    <div class="mem-modal-btns">
+      <button class="btn" onclick="closeMemModal()">Cancel</button>
+      <button class="btn" style="color:var(--accent);border-color:var(--accent)" onclick="saveMemModal()">Save</button>
+    </div>
+  </div>
+</div>
 <div id="toast-rack"></div>
 
 <!-- f56: report card modal -->
@@ -2578,7 +2614,8 @@ function switchMemTab(tab) {
     const el = document.getElementById('mem-tab-' + t);
     if (el) el.style.display = t === tab ? '' : 'none';
   });
-  if (tab === 'routing') loadMemRouting();
+  if (tab === 'memories') loadMemoriesTab();
+  else if (tab === 'routing') loadMemRouting();
   else if (tab === 'usage') loadMemUsage();
   else if (tab === 'adrs') loadMemADRs();
 }
@@ -3995,55 +4032,8 @@ function buildActivityHeatmap() {
 
 // ── memory ─────────────────────────────────────────────────
 async function renderMemory() {
-  activeMemNs = 'All'; // reset on every render so stale filter doesn't persist
-  const el = document.getElementById('mem-content');
-  el.innerHTML = '<div class="loading-txt">Loading…</div>';
-  try {
-    const data = await apiFetch('/api/palace?dir=' + enc(DIR));
-    allDrawers = data.drawers || [];
-    const identity = data.identity || '';
-    let html = '';
-    if (identity) {
-      html += `<div class="mem-section">
-        <div class="mem-title">Identity</div>
-        <div class="drawer-item"><div class="dr-val" style="white-space:pre-wrap">${esc(identity.slice(0, 1200))}</div></div>
-      </div>`;
-    }
-    if (allDrawers.length) {
-      // build namespace tabs
-      const namespaces = ['All', ...new Set(allDrawers.map(d => d.namespace || 'default').filter(Boolean))];
-      const tabsEl = document.getElementById('mem-ns-tabs');
-      if (tabsEl) {
-        tabsEl.innerHTML = namespaces.map((ns, i) =>
-          `<button class="ns-tab${i === 0 ? ' active' : ''}" data-ns="${esc(ns)}" onclick="filterMemoryNs('${esc(ns)}')">${esc(ns)}</button>`
-        ).join('');
-      }
-
-      const tsValues = allDrawers.map(d => d.timestamp ? new Date(d.timestamp).getTime() : 0).filter(Boolean);
-      const oldestTs = tsValues.length ? Math.min(...tsValues) : 0;
-      const newestTs = tsValues.length ? Math.max(...tsValues) : 0;
-      const tsRange = newestTs - oldestTs || 1;
-      const items = allDrawers.map((d, i) => {
-        const ts = d.timestamp ? new Date(d.timestamp).getTime() : 0;
-        const agePct = ts && oldestTs ? Math.round(((ts - oldestTs) / tsRange) * 100) : 0;
-        const ageBar = ts ? `<div class="dr-age-bar"><div class="dr-age-bar-fill" style="width:${agePct}%"></div></div>` : '';
-        return `<div class="drawer-item" data-idx="${i}" data-ns="${esc(d.namespace || 'default')}">
-          <div class="dr-key">${esc(d.key || d.namespace || '—')}</div>
-          <div class="dr-val">${esc(String(d.value || d.text || '').slice(0, 300))}</div>
-          ${d.timestamp ? `<div class="dr-ts">${relTime(d.timestamp)}</div>` : ''}
-          ${ageBar}
-        </div>`;
-      }).join('');
-      html += `<div class="mem-section" id="drawers-section">
-        <div class="mem-title">Drawers (${allDrawers.length})</div>
-        <div id="drawers-list">${items}</div>
-      </div>`;
-    }
-    if (!html) html = '<div class="empty"><div class="empty-ico">◈</div><div>Memory palace is empty</div></div>';
-    el.innerHTML = html;
-  } catch (err) {
-    el.innerHTML = '<div class="empty">Could not load memory: ' + esc(err.message) + '</div>';
-  }
+  // Trigger the default memories sub-tab on view activation
+  loadMemoriesTab();
 }
 
 let activeMemNs = 'All';
@@ -6943,6 +6933,148 @@ async function mgRebuildDocs() {
     };
     poll();
   } catch (e) { btn.disabled = false; btn.textContent = 'BUILD DOCS'; }
+}
+
+// ── memory CRUD ────────────────────────────────────────────
+const _MEM_COLORS = {
+  user:      'oklch(65% 0.13 290)',
+  feedback:  'oklch(70% 0.14 55)',
+  project:   'oklch(72% 0.18 75)',
+  reference: 'oklch(65% 0.13 290 / 0.7)',
+  handoff:   'oklch(65% 0.16 350)',
+};
+const _MEM_COLOR_FALLBACK = 'oklch(60% 0.02 0)';
+let _memFiles = [], _selMemFilename = null, _editMemFilename = null, _memContext = 'edit';
+
+async function loadMemoriesTab() {
+  const list = document.getElementById('mem-list-pane');
+  if (!list) return;
+  list.innerHTML = '<div class="loading-txt" style="padding:16px">Loading…</div>';
+  try {
+    const data = await apiFetch('/api/memory-files?dir=' + enc(DIR));
+    _memFiles = Array.isArray(data) ? data : (data.memories || data.files || []);
+    _renderMemList();
+  } catch (e) {
+    list.innerHTML = '<div class="empty" style="padding:16px">Failed: ' + esc(e.message) + '</div>';
+  }
+}
+
+function _renderMemList() {
+  const list = document.getElementById('mem-list-pane');
+  if (!list) return;
+  if (!_memFiles.length) {
+    list.innerHTML = '<div style="padding:14px;color:var(--text-lo);font-size:12px">No memory files</div>';
+    return;
+  }
+  const byType = {};
+  _memFiles.forEach(f => { const t = f.type || 'other'; (byType[t] || (byType[t] = [])).push(f); });
+  list.innerHTML = Object.entries(byType).map(([type, files]) =>
+    '<div class="mem-type-hdr">' + esc(type) + '</div>' +
+    files.map(f => {
+      const col = _MEM_COLORS[type] || _MEM_COLOR_FALLBACK;
+      const fname = f.filename || f.name || '?';
+      const active = _selMemFilename === fname ? ' active' : '';
+      return '<div class="mem-item' + active + '" data-filename="' + esc(fname) + '" onclick="selectMem(this.dataset.filename)">' +
+        '<span class="mem-type-dot" style="background:' + esc(col) + ';flex-shrink:0"></span>' +
+        '<span class="mem-item-name">' + esc(f.name || fname.replace('.md', '')) + '</span>' +
+        '</div>';
+    }).join('')
+  ).join('');
+}
+
+function selectMem(filename) {
+  _selMemFilename = filename;
+  document.querySelectorAll('.mem-item').forEach(el => el.classList.toggle('active', el.dataset.filename === filename));
+  const detail = document.getElementById('mem-detail-pane');
+  if (!detail) return;
+  const f = _memFiles.find(m => (m.filename || m.name) === filename);
+  if (!f) { detail.innerHTML = '<div class="empty">Not found</div>'; return; }
+  const col = _MEM_COLORS[f.type || ''] || _MEM_COLOR_FALLBACK;
+  const rawBody = f.body || f.content || '';
+  const bodyHtml = rawBody
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^#{1,3} (.+)/gm, '<div style="font-weight:600;color:var(--text-hi);margin:6px 0 2px">$1</div>')
+    .replace(/^- (.+)/gm, '<div style="padding-left:12px">• $1</div>');
+  detail.innerHTML =
+    '<span class="mem-badge" style="background:' + col + '22;color:' + col + '">' + esc(f.type || '?') + '</span>' +
+    '<div style="font-size:15px;font-weight:600;color:var(--text-hi);margin-bottom:4px">' + esc(f.name || filename.replace('.md','')) + '</div>' +
+    (f.description ? '<div style="font-size:12px;color:var(--text-lo);margin-bottom:12px">' + esc(f.description) + '</div>' : '') +
+    '<div class="mem-body-render">' + bodyHtml + '</div>' +
+    '<div class="mem-actions">' +
+    '<button class="btn" onclick="openEditMemModal(' + JSON.stringify(filename) + ')">&#x270E; Edit</button>' +
+    '<button class="btn" style="color:var(--red);border-color:var(--red)" onclick="deleteMem(' + JSON.stringify(filename) + ')">&#x2715; Delete</button>' +
+    '</div>';
+}
+
+async function openEditMemModal(filename) {
+  _editMemFilename = filename;
+  _memContext = 'edit';
+  const f = _memFiles.find(m => (m.filename || m.name) === filename);
+  const raw = f ? (f.raw || f.body || '') : '';
+  document.getElementById('mem-modal-title').textContent = 'Edit: ' + filename;
+  document.getElementById('mem-modal-ta').value = raw;
+  document.getElementById('mem-modal').classList.add('open');
+}
+
+const _MEM_TEMPLATES = {
+  user:      '---\nname: \ndescription: \ntype: user\n---\n\n',
+  feedback:  '---\nname: \ndescription: \ntype: feedback\n---\n\n',
+  project:   '---\nname: \ndescription: \ntype: project\n---\n\n',
+  reference: '---\nname: \ndescription: \ntype: reference\n---\n\n',
+};
+
+function openNewMemModal() {
+  const type = prompt('Memory type (user / feedback / project / reference):') || 'project';
+  _editMemFilename = null;
+  _memContext = 'new';
+  document.getElementById('mem-modal-title').textContent = 'New Memory';
+  document.getElementById('mem-modal-ta').value = _MEM_TEMPLATES[type] || _MEM_TEMPLATES.project;
+  document.getElementById('mem-modal').classList.add('open');
+}
+
+function closeMemModal() {
+  document.getElementById('mem-modal').classList.remove('open');
+}
+
+async function saveMemModal() {
+  const content = document.getElementById('mem-modal-ta').value.trim();
+  if (!content) { showToast('Error', 'Content is empty', 'warn'); return; }
+  try {
+    let filename = _editMemFilename;
+    if (!filename) {
+      // derive filename from name frontmatter or generate timestamp-based name
+      const nameMatch = content.match(/^name:\s*(.+)$/m);
+      const baseName = nameMatch ? nameMatch[1].trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : '';
+      filename = (baseName || ('memory-' + Date.now())) + '.md';
+    }
+    const r = await fetch('/api/memory-file', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename, content, dir: DIR }),
+    });
+    if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).error) || r.statusText);
+    showToast('Saved', 'Memory saved', 'ok');
+    closeMemModal();
+    await loadMemoriesTab();
+  } catch (e) { showToast('Error', e.message, 'err'); }
+}
+
+async function deleteMem(filename) {
+  if (!confirm('Delete this memory file? This cannot be undone.')) return;
+  try {
+    const r = await fetch('/api/memory-file', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename, dir: DIR }),
+    });
+    if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).error) || r.statusText);
+    showToast('Deleted', 'Memory deleted', 'ok');
+    _selMemFilename = null;
+    const detail = document.getElementById('mem-detail-pane');
+    if (detail) detail.innerHTML = '<div style="color:var(--text-lo);font-size:13px;padding:20px 0">Select a memory</div>';
+    await loadMemoriesTab();
+  } catch (e) { showToast('Error', e.message, 'err'); }
 }
 </script>
 </body>
