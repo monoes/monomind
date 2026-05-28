@@ -1551,6 +1551,16 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <button class="odt-btn" data-tab="tasks" onclick="v2SwitchOrgTab('tasks')">Tasks</button>
             <button class="odt-btn" data-tab="costs" onclick="v2SwitchOrgTab('costs')">Costs</button>
             <button class="odt-btn" data-tab="members" onclick="v2SwitchOrgTab('members')">Members</button>
+            <button class="odt-btn" data-tab="goals"     onclick="v2SwitchOrgTab('goals')">Goals</button>
+            <button class="odt-btn" data-tab="board"     onclick="v2SwitchOrgTab('board')">Board</button>
+            <button class="odt-btn" data-tab="live"      onclick="v2SwitchOrgTab('live')">Live</button>
+            <button class="odt-btn" data-tab="approvals" onclick="v2SwitchOrgTab('approvals')">Approvals</button>
+            <button class="odt-btn" data-tab="secrets"   onclick="v2SwitchOrgTab('secrets')">Secrets</button>
+            <button class="odt-btn" data-tab="settings"  onclick="v2SwitchOrgTab('settings')">Settings</button>
+            <button class="odt-btn" data-tab="routines"  onclick="v2SwitchOrgTab('routines')">Routines</button>
+            <button class="odt-btn" data-tab="myissues"  onclick="v2SwitchOrgTab('myissues')">My Issues</button>
+            <button class="odt-btn" data-tab="budgets"   onclick="v2SwitchOrgTab('budgets')">Budgets</button>
+            <button class="odt-btn" data-tab="plugins"   onclick="v2SwitchOrgTab('plugins')">Plugins</button>
           </div>
           <div id="org-detail-body">
             <div class="odt-pane active" id="odt-chart"></div>
@@ -1561,6 +1571,16 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="odt-pane" id="odt-tasks"></div>
             <div class="odt-pane" id="odt-costs"></div>
             <div class="odt-pane" id="odt-members"></div>
+            <div class="odt-pane" id="odt-goals"></div>
+            <div class="odt-pane" id="odt-board"></div>
+            <div class="odt-pane" id="odt-live"></div>
+            <div class="odt-pane" id="odt-approvals"></div>
+            <div class="odt-pane" id="odt-secrets"></div>
+            <div class="odt-pane" id="odt-settings"></div>
+            <div class="odt-pane" id="odt-routines"></div>
+            <div class="odt-pane" id="odt-myissues"></div>
+            <div class="odt-pane" id="odt-budgets"></div>
+            <div class="odt-pane" id="odt-plugins"></div>
           </div>
         </div>
       </div>
@@ -4196,9 +4216,18 @@ async function v2SelectOrg(name) {
     _v2OrgData = mainR.config ? { ...mainR, ...mainR.config, running: mainR.running } : mainR;
     _v2OrgData._activity = Array.isArray(actR) ? actR : [];
     _v2OrgData._health   = healthR;
+    // Fetch supplemental data for new tabs
+    const agentsR  = await fetch(`/api/org/${_enc}/agents${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const budgetsR = await fetch(`/api/org/${_enc}/budgets${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():null).catch(()=>null);
+    const membersR = await fetch(`/api/org/${_enc}/members${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const issuesR  = await fetch(`/api/org/${_enc}/issues${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    _v2OrgData._agents  = Array.isArray(agentsR)  ? agentsR  : (agentsR?.agents  || []);
+    _v2OrgData._budgets = budgetsR;
+    _v2OrgData._members = Array.isArray(membersR) ? membersR : (membersR?.members || []);
+    _v2OrgData._issues  = Array.isArray(issuesR)  ? issuesR  : (issuesR?.issues   || []);
   } catch (_) {
     if (_v2SelOrg !== requested || DIR !== requestedDir) return;
-    _v2OrgData = { ...listOrg, communication: [], _activity: [], _health: null };
+    _v2OrgData = { ...listOrg, communication: [], _activity: [], _health: null, _agents: [], _budgets: null, _members: [], _issues: [] };
   }
 
   v2UpdateOrgHeader(listOrg, _v2OrgData);
@@ -4241,6 +4270,16 @@ function v2RenderOrgTab(tab) {
   else if (tab === 'tasks')      v2RenderOrgTasks();
   else if (tab === 'costs')      v2RenderOrgCosts();
   else if (tab === 'members')    v2RenderOrgMembers();
+  else if (tab === 'goals')     v2RenderOrgGoals();
+  else if (tab === 'board')     v2RenderOrgBoard();
+  else if (tab === 'live')      v2RenderOrgLive();
+  else if (tab === 'approvals') v2RenderOrgApprovals();
+  else if (tab === 'secrets')   v2RenderOrgSecrets();
+  else if (tab === 'settings')  v2RenderOrgSettings();
+  else if (tab === 'routines')  v2RenderOrgRoutines();
+  else if (tab === 'myissues')  v2RenderOrgMyIssues();
+  else if (tab === 'budgets')   v2RenderOrgBudgets();
+  else if (tab === 'plugins')   v2RenderOrgPlugins();
 }
 
 // ── org chart ───────────────────────────────
@@ -4709,6 +4748,305 @@ function v2RenderOrgMembers() {
       </div>
       <span class="ss-pill ${r.running || r.active ? 'on' : ''}">${r.running || r.active ? 'ACTIVE' : 'IDLE'}</span>
     </div>`).join('');
+}
+
+// ── GOALS ──────────────────────────────────────────────────
+function v2RenderOrgGoals() {
+  const el = document.getElementById('odt-goals');
+  if (!el || !_v2OrgData) return;
+  const goals = _v2OrgData.goals || _v2OrgData.config?.goals || [];
+  if (!goals.length) { el.innerHTML = '<div class="empty">No goals defined</div>'; return; }
+  function renderGoal(g, depth) {
+    const indent = depth * 20;
+    const pct = g.total > 0 ? Math.min(100, Math.round(g.filled / g.total * 100)) : 0;
+    const status = g.status || 'pending';
+    const statusCls = status === 'done' ? 'on' : status === 'blocked' ? 'warn' : '';
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--border);padding-left:${indent}px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="flex:1;font-size:13px;color:var(--text-hi)">${esc(g.text || g.goal || g.title || '—')}</span>
+        <span class="ss-pill ${statusCls}">${esc(status)}</span>
+      </div>
+      ${g.total > 0 ? `<div style="margin-top:5px;height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${pct >= 100 ? 'var(--green)' : 'var(--accent)'};border-radius:2px"></div></div>` : ''}
+      ${(g.children || []).map(c => renderGoal(c, depth + 1)).join('')}
+    </div>`;
+  }
+  el.innerHTML = goals.map(g => renderGoal(g, 0)).join('');
+}
+
+// ── BOARD ──────────────────────────────────────────────────
+function v2RenderOrgBoard() {
+  const el = document.getElementById('odt-board');
+  if (!el || !_v2OrgData) return;
+  const issues = _v2OrgData._issues || [];
+  if (!issues.length) { el.innerHTML = '<div class="empty">No issues</div>'; return; }
+  const cols = ['open', 'in_progress', 'blocked', 'done', 'cancelled'];
+  const PRIORITY = { urgent: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
+  el.innerHTML = `<div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px">` +
+    cols.map(col => {
+      const cards = issues.filter(i => (i.status || i.state || 'open') === col);
+      return `<div style="min-width:160px;flex:1">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-lo);padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:8px">${esc(col.replace('_', ' '))} <span style="background:var(--surface-hi);padding:1px 6px;border-radius:8px">${cards.length}</span></div>
+        ${cards.slice(0, 15).map(i => `<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 9px;margin-bottom:5px;font-size:12px">
+          <div style="color:var(--text-hi)">${PRIORITY[i.priority] || ''} ${esc((i.title || i.description || '—').slice(0, 60))}</div>
+          ${i.assignee ? `<div style="font-size:10px;color:var(--text-lo);margin-top:3px">${esc(i.assignee)}</div>` : ''}
+        </div>`).join('')}
+      </div>`;
+    }).join('') + `</div>`;
+}
+
+// ── LIVE ───────────────────────────────────────────────────
+let _orgLiveInterval = null;
+function v2RenderOrgLive() {
+  const el = document.getElementById('odt-live');
+  if (!el || !_v2OrgData) return;
+  const agents = _v2OrgData._agents || [];
+  const running = agents.filter(a => a.status === 'running' || a.running);
+  el.innerHTML = `<div style="margin-bottom:14px">
+    ${running.length
+      ? running.map(a => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+          <span class="live-dot" style="flex-shrink:0"></span>
+          <span style="font-size:13px;color:var(--text-hi)">${esc(a.type || a.title || a.id || '—')}</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--text-lo)">${esc(a.adapter || '')}</span>
+        </div>`).join('')
+      : '<div style="color:var(--text-lo);font-size:13px;padding:10px 0">No agents currently running</div>'}
+  </div>
+  <div class="m-group-title" style="margin-bottom:6px">Activity Feed</div>
+  <div style="max-height:240px;overflow-y:auto;font-size:11px;font-family:var(--mono)">
+    ${(_v2OrgData._activity || []).slice(-30).reverse().map(e => `<div style="padding:3px 0;border-bottom:1px solid var(--border);color:var(--text-lo)">
+      ${esc(relTime(e.ts || e.timestamp || e.created_at))}
+      <span style="color:var(--text-mid);margin-left:6px">${esc(e.type || e.kind || e.event || '—')}</span>
+      ${e.message ? `<span style="color:var(--text-hi);margin-left:6px">${esc(e.message.toString().slice(0, 80))}</span>` : ''}
+    </div>`).join('')}
+  </div>`;
+  // auto-refresh every 5s while tab is active
+  if (_orgLiveInterval) clearInterval(_orgLiveInterval);
+  _orgLiveInterval = setInterval(async () => {
+    if (_v2OrgTab !== 'live' || !_v2SelOrg) { clearInterval(_orgLiveInterval); _orgLiveInterval = null; return; }
+    const _enc = encodeURIComponent(_v2SelOrg);
+    try {
+      const data = await fetch(`/api/org/${_enc}/activity${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []);
+      if (_v2OrgData) { _v2OrgData._activity = Array.isArray(data) ? data : []; v2RenderOrgLive(); }
+    } catch (_) {}
+  }, 5000);
+}
+
+// ── APPROVALS ──────────────────────────────────────────────
+async function v2RenderOrgApprovals() {
+  const el = document.getElementById('odt-approvals');
+  if (!el || !_v2SelOrg) return;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const _enc = encodeURIComponent(_v2SelOrg);
+    const data = await fetch(`/api/org/${_enc}/approvals${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    const approvals = Array.isArray(data) ? data : (data.approvals || []);
+    if (!approvals.length) { el.innerHTML = '<div class="empty">No pending approvals</div>'; return; }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="color:var(--text-xs);text-align:left">
+        <th style="padding:6px 8px">Requester</th><th>Action</th><th>Status</th><th>Date</th><th></th>
+      </tr></thead><tbody>` +
+      approvals.slice(0, 50).map(a => {
+        const cls = a.status === 'approved' ? 'on' : a.status === 'rejected' ? 'warn' : '';
+        const pending = !a.status || a.status === 'pending';
+        const aid = esc(a.id || '');
+        return `<tr style="border-top:1px solid var(--border)">
+          <td style="padding:6px 8px;color:var(--text-hi)">${esc(a.requester || a.agent || '—')}</td>
+          <td style="padding:6px 8px;color:var(--text-lo);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((a.action || a.description || '').slice(0, 80))}</td>
+          <td style="padding:6px 8px"><span class="ss-pill ${cls}">${esc(a.status || 'pending')}</span></td>
+          <td style="padding:6px 8px;color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(a.created_at || a.ts)}</td>
+          <td style="padding:6px 8px;white-space:nowrap">
+            ${pending
+              ? `<button class="btn" style="font-size:10px;color:var(--green);border-color:var(--green)" onclick="orgApprovalAction(${JSON.stringify(aid)},'approve')">✓</button>
+                 <button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red);margin-left:3px" onclick="orgApprovalAction(${JSON.stringify(aid)},'reject')">✕</button>`
+              : ''}
+          </td>
+        </tr>`;
+      }).join('') + '</tbody></table>';
+  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+async function orgApprovalAction(id, action) {
+  if (!confirm(action + ' this request?')) return;
+  try {
+    const _enc = encodeURIComponent(_v2SelOrg);
+    await fetch(`/api/org/${_enc}/approvals/${encodeURIComponent(id)}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action })
+    });
+    showToast('Done', action + 'd', 'ok');
+    v2RenderOrgApprovals();
+  } catch (e) { showToast('Error', e.message, 'err'); }
+}
+
+// ── SECRETS ────────────────────────────────────────────────
+async function v2RenderOrgSecrets() {
+  const el = document.getElementById('odt-secrets');
+  if (!el || !_v2SelOrg) return;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const _enc = encodeURIComponent(_v2SelOrg);
+    const data = await fetch(`/api/org/${_enc}/secrets${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    const secrets = Array.isArray(data) ? data : (data.secrets || []);
+    el.innerHTML = '<div style="font-size:11px;color:var(--text-lo);margin-bottom:10px">Secret values are never transmitted or displayed.</div>' +
+      (secrets.length
+        ? secrets.map(s => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
+            <span style="font-family:var(--mono);color:var(--text-hi)">${esc(s.name || s.key || '—')}</span>
+            ${s.purpose ? `<span style="color:var(--text-lo)">${esc(s.purpose)}</span>` : ''}
+            <span style="margin-left:auto;font-family:var(--mono);color:var(--border)">••••••••</span>
+          </div>`).join('')
+        : '<div class="empty">No secrets configured</div>');
+  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+// ── SETTINGS ───────────────────────────────────────────────
+function v2RenderOrgSettings() {
+  const el = document.getElementById('odt-settings');
+  if (!el || !_v2OrgData) return;
+  const d = _v2OrgData;
+  const topos = ['hierarchical', 'mesh', 'hierarchical-mesh', 'adaptive', 'centralized', 'hybrid'];
+  const govs  = ['auto', 'board', 'strict'];
+  el.innerHTML = `
+    <div style="font-size:11px;color:var(--text-lo);margin-bottom:14px">Changes generate a CLI command — no direct writes from UI.</div>
+    <div style="display:flex;flex-direction:column;gap:12px;max-width:380px">
+      <div><div class="le-lbl">Goal</div><input id="os-goal" class="filter-input" value="${esc(d.goal || '')}"></div>
+      <div><div class="le-lbl">Topology</div>
+        <select id="os-topo" class="filter-input" style="cursor:pointer">
+          ${topos.map(t => `<option ${d.topology === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+        </select>
+      </div>
+      <div><div class="le-lbl">Governance</div>
+        <select id="os-gov" class="filter-input" style="cursor:pointer">
+          ${govs.map(g => `<option ${d.governance === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}
+        </select>
+      </div>
+      <div><div class="le-lbl">Budget (tokens)</div><input id="os-budget" class="filter-input" type="number" value="${esc(String(d.budgetTokens || d.budget_tokens || ''))}"></div>
+      <button class="btn" style="width:fit-content;color:var(--accent);border-color:var(--accent)" onclick="generateOrgSettingsCmd()">Generate CLI Command</button>
+      <div id="os-cmd-out" style="display:none;font-family:var(--mono);font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;word-break:break-all;cursor:pointer;color:var(--text-hi)" title="Click to copy" onclick="navigator.clipboard.writeText(this.textContent).then(()=>showToast('Copied','','ok'))"></div>
+    </div>`;
+}
+
+function generateOrgSettingsCmd() {
+  const org    = _v2SelOrg || '';
+  const goal   = document.getElementById('os-goal')?.value.trim() || '';
+  const topo   = document.getElementById('os-topo')?.value || '';
+  const gov    = document.getElementById('os-gov')?.value  || '';
+  const budget = document.getElementById('os-budget')?.value.trim() || '';
+  const parts = [`/mastermind:org-settings --org "${org.replace(/"/g, '\\"')}"`];
+  if (goal)   parts.push(`--goal "${goal.replace(/"/g, '\\"')}"`);
+  if (topo)   parts.push(`--topology ${topo}`);
+  if (gov)    parts.push(`--governance ${gov}`);
+  if (budget) parts.push(`--budget-tokens ${budget}`);
+  const out = document.getElementById('os-cmd-out');
+  if (out) { out.textContent = parts.join(' '); out.style.display = 'block'; }
+}
+
+// ── ROUTINES ───────────────────────────────────────────────
+async function v2RenderOrgRoutines() {
+  const el = document.getElementById('odt-routines');
+  if (!el || !_v2SelOrg) return;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const _enc = encodeURIComponent(_v2SelOrg);
+    const data = await fetch(`/api/org/${_enc}/routines${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    const routines = Array.isArray(data) ? data : (data.routines || _v2OrgData?.config?.routines || []);
+    if (!routines.length) { el.innerHTML = '<div class="empty">No routines configured</div>'; return; }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="color:var(--text-xs);text-align:left">
+        <th style="padding:5px 8px">Name</th><th>Cron</th><th>Last Run</th><th>Status</th>
+      </tr></thead><tbody>` +
+      routines.map(r => `<tr style="border-top:1px solid var(--border)">
+        <td style="padding:6px 8px;color:var(--text-hi)">${esc(r.name || '—')}</td>
+        <td style="padding:6px 8px;font-family:var(--mono);color:var(--text-lo)">${esc(r.cron || r.schedule || '—')}</td>
+        <td style="padding:6px 8px;color:var(--text-lo)">${r.lastRun ? relTime(r.lastRun) : '—'}</td>
+        <td style="padding:6px 8px"><span class="ss-pill ${r.active || r.status === 'active' ? 'on' : ''}">${esc(r.status || '—')}</span></td>
+      </tr>`).join('') + '</tbody></table>';
+  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+// ── MY ISSUES ──────────────────────────────────────────────
+async function v2RenderOrgMyIssues() {
+  const el = document.getElementById('odt-myissues');
+  if (!el || !_v2SelOrg) return;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const _enc = encodeURIComponent(_v2SelOrg);
+    const data = await fetch(`/api/org/${_enc}/my-issues${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    const issues = Array.isArray(data) ? data : (data.issues || []);
+    if (!issues.length) { el.innerHTML = '<div class="empty">No issues assigned to you</div>'; return; }
+    const PRIORITY = { urgent: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="color:var(--text-xs);text-align:left">
+        <th style="padding:5px 4px">P</th><th style="padding:5px 8px">Title</th><th>Status</th><th>Updated</th>
+      </tr></thead><tbody>` +
+      issues.slice(0, 50).map(i => {
+        const cls = i.status === 'done' ? 'on' : i.status === 'blocked' ? 'warn' : '';
+        return `<tr style="border-top:1px solid var(--border)">
+          <td style="padding:5px 4px">${PRIORITY[i.priority] || '·'}</td>
+          <td style="padding:5px 8px;color:var(--text-hi);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((i.title || i.description || '—').slice(0, 80))}</td>
+          <td style="padding:5px 8px"><span class="ss-pill ${cls}">${esc(i.status || 'open')}</span></td>
+          <td style="padding:5px 8px;color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(i.updated_at || i.ts)}</td>
+        </tr>`;
+      }).join('') + '</tbody></table>';
+  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+// ── BUDGETS ────────────────────────────────────────────────
+function v2RenderOrgBudgets() {
+  const el = document.getElementById('odt-budgets');
+  if (!el || !_v2OrgData) return;
+  const b = _v2OrgData._budgets || _v2OrgData.budgets || {};
+  const agents = _v2OrgData._agents || [];
+
+  function fillBar(used, limit) {
+    if (!limit) return '';
+    const pct = Math.min(100, Math.round((used / limit) * 100));
+    const col = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'oklch(70% 0.18 60)' : 'var(--accent)';
+    const filled = Math.round(pct / 5);
+    return `<div style="font-family:var(--mono);font-size:11px;color:${col}">${'█'.repeat(filled)}${'░'.repeat(20 - filled)} ${pct}%</div>`;
+  }
+
+  let html = '';
+  if (b.tokens != null || b.tokenLimit != null) {
+    html += `<div class="m-group-title">Tokens</div>${fillBar(b.tokens || 0, b.tokenLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">${Number(b.tokens || 0).toLocaleString()} / ${b.tokenLimit ? b.tokenLimit.toLocaleString() : '∞'}</div>`;
+  }
+  if (b.usd != null || b.usdLimit != null) {
+    html += `<div class="m-group-title">USD Budget</div>${fillBar(b.usd || 0, b.usdLimit)}<div style="font-size:12px;color:var(--text-lo);margin:4px 0 14px">$${Number(b.usd || 0).toFixed(4)} / ${b.usdLimit ? '$' + Number(b.usdLimit).toFixed(2) : '∞'}</div>`;
+  }
+  if (agents.length) {
+    html += '<div class="m-group-title" style="margin-bottom:6px">Per Agent</div>' +
+      `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--text-xs);text-align:left"><th style="padding:4px 8px">Agent</th><th>Tokens In</th><th>Tokens Out</th><th>Cost</th></tr></thead><tbody>` +
+      agents.slice(0, 20).map(a => {
+        const over = a.budgetLimit && ((a.tokensIn || 0) + (a.tokensOut || 0)) > a.budgetLimit;
+        return `<tr style="border-top:1px solid var(--border)${over ? ';color:var(--red)' : ''}">
+          <td style="padding:4px 8px;font-family:var(--mono);font-size:11px;color:${over ? 'var(--red)' : 'var(--text-hi)'}">${esc((a.id || a.title || '—').toString().slice(0, 14))}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${Number(a.tokensIn || 0).toLocaleString()}</td>
+          <td style="padding:4px 8px;color:var(--text-lo)">${Number(a.tokensOut || 0).toLocaleString()}</td>
+          <td style="padding:4px 8px;color:var(--accent)">$${Number(a.cost || 0).toFixed(4)}${over ? ' ⚠' : ''}</td>
+        </tr>`;
+      }).join('') + '</tbody></table>';
+  }
+  el.innerHTML = html || '<div class="empty">No budget data</div>';
+}
+
+// ── PLUGINS ────────────────────────────────────────────────
+async function v2RenderOrgPlugins() {
+  const el = document.getElementById('odt-plugins');
+  if (!el || !_v2SelOrg) return;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const _enc = encodeURIComponent(_v2SelOrg);
+    const data = await fetch(`/api/org/${_enc}/plugins${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []).catch(() => []);
+    const plugins = Array.isArray(data) ? data : (data.plugins || []);
+    if (!plugins.length) { el.innerHTML = '<div class="empty">No plugins installed</div>'; return; }
+    el.innerHTML = `<div class="proj-grid">` +
+      plugins.map(p => {
+        const status = p.status || 'installed';
+        const col = status === 'error' ? 'var(--red)' : status === 'installed' ? 'var(--accent)' : 'var(--text-lo)';
+        return `<div class="proj-card">
+          <div class="proj-card-name">${esc(p.name || '—')}</div>
+          <div class="proj-card-path">${esc((p.description || '').slice(0, 80))}</div>
+          <div style="margin-top:8px"><span class="ss-pill" style="color:${esc(col)};border-color:${esc(col)}44;background:${esc(col)}18">${esc(status)}</span></div>
+        </div>`;
+      }).join('') + `</div>`;
+  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
 }
 
 // stop org
