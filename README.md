@@ -468,6 +468,19 @@ Monomind builds on ideas, patterns, and research from the following projects:
 | [CP-WBFT](https://arxiv.org/abs/2511.10400) | Confidence-weighted voting replaces one-node-one-vote — `weightedTally()` scales each agent's vote by confidence, tolerating 85.7% fault rate (AAAI 2026) |
 | [GraphRAG](https://arxiv.org/abs/2404.16130) | Community-level global query answering — `MemoryGraph.getCommunitySummaries()` returns top-k community descriptors for prepending to semantic search results |
 | [MemPalace](https://github.com/nokhodian/mempalace) | Spatially-organized verbatim memory with Wing→Room→Hall hierarchy, Okapi BM25 + closet-topic hybrid retrieval, and temporal knowledge graph — achieves 96.6% LongMemEval recall without summarization |
+| [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) | Specialist agent roster design — personality-driven agent definitions with role, process, and deliverables; informed the agent catalog and multi-agent md layout |
+| [vercel-labs/agent-browser](https://github.com/vercel-labs/agent-browser) | Browser automation CLI for AI agents — native Rust CDP client architecture that powers `npx monomind browse` |
+| [AgentSeal/codeburn](https://github.com/AgentSeal/codeburn) | Token cost attribution model — tracking spend by task, tool, model, and project; shaped `/monomind:budget` and the token usage dashboard |
+| [fallow-rs/fallow](https://github.com/fallow-rs/fallow) | Dead code detection and duplication analysis patterns — influenced background worker heuristics for codebase health scoring |
+| [pbakaus/impeccable](https://github.com/pbakaus/impeccable) | Design anti-pattern detection CLI scanning 27 patterns across HTML/CSS/JSX/Vue — integrated directly via `npx impeccable detect` in the `monodesign` skill |
+| [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) | Marketing agent skill patterns — CRO, SEO, copywriting, and growth engineering skill templates that shaped the marketing agent category |
+| [paperclipai/paperclip](https://github.com/paperclipai/paperclip) | Business automation agent architecture — autonomous business workflow patterns that informed `mastermind:ops`, `mastermind:finance`, and `mastermind:sales` |
+| [rtk-ai/rtk](https://github.com/rtk-ai/rtk) | Shell command output compression for LLM context — rewrites verbose CLI output for 60–90% token savings; informed `@monomind/security` safe execution output filtering |
+| [hardikpandya/stop-slop](https://github.com/hardikpandya/stop-slop) | Skill for detecting and removing AI tells from prose — directly integrated as the `stop-slop` skill and influenced anti-slop heuristics in code review agents |
+| [obra/superpowers](https://github.com/obra/superpowers) | Complete software development methodology for AI coding agents — composable skills system, brainstorming workflow, TDD discipline, and systematic debugging; forms the foundation of the `superpowers` skill layer |
+| [Lum1104/Understand-Anything](https://github.com/Lum1104/Understand-Anything) | Interactive knowledge graph construction from any codebase or docs corpus — architecture influenced `@monomind/graph` traversal and the `monomind:understand` semantic enrichment command |
+| [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | UI/UX Pro Max skill for AI coding agents — design system methodology and component-first approach that influenced the `monodesign` skill's craft and shape workflows |
+| [rahulnyk/knowledge_graph](https://github.com/rahulnyk/knowledge_graph) | Text-corpus-to-knowledge-graph pipeline using LLM extraction — node/edge construction patterns referenced in `monograph_build` and the Monograph MCP tool suite |
 
 ---
 
