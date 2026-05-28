@@ -210,6 +210,12 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .loop-status { font-size: 11px; padding: 2px 8px; border-radius: 10px; flex-shrink: 0; }
 .loop-status.active { background: oklch(65% 0.15 150 / 0.12); color: var(--green); }
 .loop-status.stopped { background: var(--surface-hi); color: var(--text-lo); }
+.loop-cdown { font-family: var(--mono); font-size: 11px; color: var(--accent); white-space: nowrap; display: inline; }
+.loop-cdown.overdue { color: var(--red); }
+.lp-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 5px; overflow: hidden; }
+.lp-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; }
+.loop-stop-btn { font-size: 11px; padding: 2px 8px; background: none; border: 1px solid var(--border); border-radius: 4px; color: var(--text-lo); cursor: pointer; font-family: var(--sans); }
+.loop-stop-btn:hover { border-color: var(--red); color: var(--red); }
 
 /* memory */
 .mem-section { margin-bottom: 22px; }
@@ -3540,13 +3546,28 @@ async function renderLoops() {
       const startedAt = l.startedAt ? new Date(l.startedAt).toLocaleString() : '—';
       const lastRun = l.lastRunAt ? relTime(l.lastRunAt) : (l.startedAt ? relTime(l.startedAt) : '—');
       const runs = l.currentRep != null ? l.currentRep : '—';
+      const nextAt = l.nextRunAt ? parseInt(l.nextRunAt) : 0;
+      const maxReps = l.maxReps || 0;
+      const curRep  = l.currentRep || 0;
+      const pct = (maxReps > 0) ? Math.min(100, Math.round(curRep / maxReps * 100)) : 0;
+      const progBar = (maxReps > 0 && running)
+        ? `<div class="lp-bar"><div class="lp-fill" style="width:${pct}%"></div></div>`
+        : '';
+      const cdownSpan = (running && nextAt)
+        ? ` <span class="loop-cdown" data-nextat="${nextAt}">…</span>`
+        : '';
+      const stopBtn = running
+        ? `<button class="loop-stop-btn" data-loop-id="${esc(l.id || l.name || String(idx))}" onclick="stopLoop(event, this.dataset.loopId)">■ Stop</button>`
+        : '';
       return `<div class="loop-row" onclick="toggleLoop(this)">
           <div class="loop-ico">↺</div>
           <div class="loop-body">
             <div class="loop-name">${esc(name)}</div>
-            <div class="loop-meta">${esc([interval, l.description].filter(Boolean).join(' · ').slice(0, 80))}</div>
+            <div class="loop-meta">${esc([interval, l.description].filter(Boolean).join(' · ').slice(0, 80))}${cdownSpan}</div>
+            ${progBar}
           </div>
           <div class="loop-status ${running ? 'active' : 'stopped'}">${running ? 'active' : 'stopped'}</div>
+          ${stopBtn}
         </div>
         <div class="loop-expand">
           ${fullPrompt ? `<div class="le-row"><div class="le-lbl">Prompt</div><div class="le-val mono">${esc(fullPrompt.slice(0, 300))}</div></div>` : ''}
@@ -3558,6 +3579,7 @@ async function renderLoops() {
           ${buildLoopSparkline(l)}
         </div>`;
     }).join('');
+    startCountdowns();
   } catch (err) {
     el.innerHTML = '<div class="empty">Could not load loops: ' + esc(err.message) + '</div>';
   }
@@ -3576,6 +3598,38 @@ function showLoopForm() {
 function hideLoopForm() {
   document.getElementById('loop-create-form').style.display = 'none';
   document.getElementById('btn-new-loop').style.display = '';
+}
+
+async function stopLoop(evt, id) {
+  evt.stopPropagation();
+  if (!confirm('Stop loop "' + id + '"?')) return;
+  try {
+    await fetch('/api/loops/stop?dir=' + enc(DIR), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    showToast('Stopped', 'Loop stopped', 'ok');
+    renderLoops();
+  } catch (e) { showToast('Error', e.message, 'err'); }
+}
+
+let _cdownInterval = null;
+function startCountdowns() {
+  if (_cdownInterval) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  _cdownInterval = setInterval(() => {
+    document.querySelectorAll('.loop-cdown[data-nextat]').forEach(el => {
+      const ms = parseInt(el.dataset.nextat) - Date.now();
+      if (ms <= 0) {
+        el.textContent = 'overdue';
+        el.classList.add('overdue');
+        return;
+      }
+      const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+      el.textContent = m > 0 ? `next in ${m}m ${s}s` : `next in ${s}s`;
+      el.classList.remove('overdue');
+    });
+  }, 1000);
 }
 
 async function createLoop() {
