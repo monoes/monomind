@@ -202,6 +202,19 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .sr-compact-badge { display: inline-block; font-size: 10px; padding: 1px 6px; background: oklch(72% 0.18 75 / 0.12); color: var(--accent); border-radius: 8px; margin-left: 6px; white-space: nowrap; }
 .sr-meta { font-size: 11px; color: var(--text-lo); margin-top: 3px; }
 
+/* swarm tab */
+.swarm-run-row { padding: 7px 8px; cursor: pointer; border-radius: 5px; margin-bottom: 3px; transition: background 0.1s; }
+.swarm-run-row:hover { background: var(--surface-hi); }
+.swarm-run-row.active { background: oklch(72% 0.18 75 / 0.1); }
+.swarm-topo-pill { font-size: 10px; padding: 1px 7px; border-radius: 8px; background: var(--surface-hi); color: var(--text-lo); font-family: var(--mono); }
+.swarm-live { font-size: 10px; color: var(--green); font-weight: 600; margin-left: 6px; }
+/* chunks tab */
+.chunk-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 7px; }
+.chunk-card:hover { border-color: oklch(72% 0.18 75 / 0.5); }
+.chunk-src { font-size: 11px; color: var(--accent); font-family: var(--mono); margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chunk-excerpt { font-size: 12px; color: var(--text-hi); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.chunk-footer { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+.chunk-ns { font-size: 10px; padding: 1px 6px; border-radius: 8px; background: var(--surface-hi); color: var(--text-lo); }
 /* loops */
 .loop-list { display: flex; flex-direction: column; gap: 8px; }
 .loop-row { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 11px 14px; display: flex; align-items: center; gap: 12px; }
@@ -1449,6 +1462,9 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
           <button class="odt-btn" data-memtab="routing" onclick="switchMemTab('routing')">Routing</button>
           <button class="odt-btn" data-memtab="usage" onclick="switchMemTab('usage')">Usage</button>
           <button class="odt-btn" data-memtab="adrs" onclick="switchMemTab('adrs')">ADRs</button>
+          <button class="odt-btn" data-memtab="swarm" onclick="switchMemTab('swarm')">Swarm</button>
+          <button class="odt-btn" data-memtab="chunks" onclick="switchMemTab('chunks')">Chunks</button>
+          <button class="odt-btn" data-memtab="agent-graph" onclick="switchMemTab('agent-graph')">Agent Graph</button>
         </div>
         <div id="mem-tab-memories">
           <div class="mem-split" id="mem-split">
@@ -1468,6 +1484,30 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <input class="filter-input" id="adr-filter" type="text" placeholder="Filter ADRs…" oninput="filterADRs(this.value)">
           </div>
           <div id="adr-content"><div class="loading-txt">Loading…</div></div>
+        </div>
+        <div id="mem-tab-swarm" style="display:none">
+          <div style="display:flex;height:380px;gap:0">
+            <div id="swarm-run-list" style="width:200px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;padding:6px"></div>
+            <div id="swarm-run-detail" style="flex:1;padding:14px;overflow-y:auto">
+              <div style="color:var(--text-lo);font-size:13px">Select a swarm run</div>
+            </div>
+          </div>
+          <button class="btn" style="margin-top:10px;color:var(--red);border-color:var(--red)" onclick="cleanSwarmData()">&#x232B; Clean Data</button>
+        </div>
+        <div id="mem-tab-chunks" style="display:none">
+          <div class="filter-bar">
+            <input class="filter-input" type="text" placeholder="Filter chunks…" oninput="filterChunks(this.value)">
+          </div>
+          <div id="chunks-grid"></div>
+        </div>
+        <div id="mem-tab-agent-graph" style="display:none">
+          <div id="ag-summary-bar" style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)"></div>
+          <div style="display:flex;gap:0;min-height:280px">
+            <div id="ag-sess-list" style="width:190px;flex-shrink:0;overflow-y:auto;border-right:1px solid var(--border);padding-right:8px"></div>
+            <div id="ag-detail" style="flex:1;padding:0 14px;overflow-y:auto">
+              <div style="color:var(--text-lo);font-size:13px;padding:20px 0">Select a session</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -2610,7 +2650,7 @@ function switchMemTab(tab) {
   _currentMemTab = tab;
   document.querySelectorAll('.mem-tab-bar .odt-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.memtab === tab));
-  ['memories','routing','usage','adrs'].forEach(t => {
+  ['memories','routing','usage','adrs','swarm','chunks','agent-graph'].forEach(t => {
     const el = document.getElementById('mem-tab-' + t);
     if (el) el.style.display = t === tab ? '' : 'none';
   });
@@ -2618,6 +2658,9 @@ function switchMemTab(tab) {
   else if (tab === 'routing') loadMemRouting();
   else if (tab === 'usage') loadMemUsage();
   else if (tab === 'adrs') loadMemADRs();
+  else if (tab === 'swarm') loadSwarmTab();
+  else if (tab === 'chunks') loadChunksTab();
+  else if (tab === 'agent-graph') loadAgentGraphTab();
 }
 
 async function loadMemRouting() {
@@ -7075,6 +7118,318 @@ async function deleteMem(filename) {
     if (detail) detail.innerHTML = '<div style="color:var(--text-lo);font-size:13px;padding:20px 0">Select a memory</div>';
     await loadMemoriesTab();
   } catch (e) { showToast('Error', e.message, 'err'); }
+}
+
+// ── swarm memory tab ───────────────────────────────────────
+let _swarmRuns = [];
+
+async function loadSwarmTab() {
+  const list = document.getElementById('swarm-run-list');
+  if (!list) return;
+  list.innerHTML = '<div class="loading-txt" style="padding:8px">Loading…</div>';
+  try {
+    const data = await apiFetch('/api/swarm-history?dir=' + enc(DIR));
+    _swarmRuns = Array.isArray(data) ? data : (data.runs || data.history || []);
+    _renderSwarmRunList();
+  } catch (e) {
+    list.innerHTML = '<div class="empty" style="padding:8px">Failed: ' + esc(e.message) + '</div>';
+  }
+}
+
+function _renderSwarmRunList() {
+  const list = document.getElementById('swarm-run-list');
+  if (!_swarmRuns.length) {
+    list.innerHTML = '<div style="padding:8px;color:var(--text-lo);font-size:12px">No swarm runs found</div>';
+    return;
+  }
+  list.innerHTML = _swarmRuns.map((r, i) => {
+    const topo = r.topology || 'hierarchical';
+    const live = r.status === 'running' || r.active;
+    return '<div class="swarm-run-row" onclick="selectSwarmRun(' + i + ')">' +
+      '<div style="display:flex;align-items:center;gap:5px">' +
+      '<span class="swarm-topo-pill">' + esc(topo) + '</span>' +
+      (live ? '<span class="swarm-live">⬤ LIVE</span>' : '') +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--text-lo);margin-top:2px">' + (r.agentCount || 0) + ' agents · ' + relTime(r.startedAt || r.created_at) + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+async function selectSwarmRun(idx) {
+  const run = _swarmRuns[idx];
+  if (!run) return;
+  document.querySelectorAll('.swarm-run-row').forEach((el, i) => el.classList.toggle('active', i === idx));
+  const detail = document.getElementById('swarm-run-detail');
+  if (!detail) return;
+  detail.innerHTML =
+    '<div style="margin-bottom:10px">' +
+      '<div style="font-size:13px;font-weight:600;color:var(--text-hi)">' + esc((run.swarmId || run.id || '—').toString().slice(0, 14)) + '</div>' +
+      '<div style="font-size:11px;color:var(--text-lo);margin-top:3px">' + esc(run.topology || '—') + ' · ' + esc(run.consensus || '—') + ' · ' + (run.agentCount || 0) + ' agents</div>' +
+    '</div>' +
+    '<canvas id="swarm-topo-canvas" style="width:100%;max-width:380px;height:190px;display:block;border:1px solid var(--border);border-radius:6px;margin-bottom:12px"></canvas>' +
+    '<div id="swarm-agent-list" style="margin-bottom:10px"></div>' +
+    '<div id="swarm-event-log" style="font-size:11px;font-family:var(--mono);max-height:150px;overflow-y:auto"></div>';
+  _drawSwarmTopology(run);
+  _renderSwarmAgents(run);
+  _loadSwarmEvents(run.swarmId || run.id);
+}
+
+function _drawSwarmTopology(run) {
+  const canvas = document.getElementById('swarm-topo-canvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 380, H = 190;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const agents = run.agents || Array.from({ length: Math.min(run.agentCount || 4, 12) }, (_, i) => ({ id: 'agent-' + i, type: 'worker' }));
+  const n = agents.length;
+  if (!n) return;
+  const topo = (run.topology || 'hierarchical').toLowerCase();
+  const cx = W / 2, cy = H / 2;
+  const pos = [];
+  if (topo.includes('hierarchical') || topo.includes('centralized')) {
+    pos.push({ x: cx, y: 28 });
+    const workers = agents.slice(1);
+    workers.forEach((_, i) => {
+      const spread = Math.min(W * 0.42, 160);
+      const x = cx + (workers.length > 1 ? (i / (workers.length - 1) - 0.5) * spread * 2 : 0);
+      pos.push({ x: x, y: H - 32 });
+    });
+  } else {
+    agents.forEach((_, i) => {
+      const a = (i / n) * Math.PI * 2 - Math.PI / 2;
+      const r = Math.min(W, H) * 0.36;
+      pos.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
+    });
+  }
+  ctx.strokeStyle = 'oklch(40% 0.006 75 / 0.35)'; ctx.lineWidth = 1;
+  if (topo.includes('hierarchical') || topo.includes('centralized')) {
+    for (let i = 1; i < pos.length; i++) {
+      ctx.beginPath(); ctx.moveTo(pos[0].x, pos[0].y); ctx.lineTo(pos[i].x, pos[i].y); ctx.stroke();
+    }
+  } else {
+    let drawn = 0;
+    for (let i = 0; i < n && drawn < 30; i++)
+      for (let j = i + 1; j < n && drawn < 30; j++, drawn++) {
+        ctx.beginPath(); ctx.moveTo(pos[i].x, pos[i].y); ctx.lineTo(pos[j].x, pos[j].y); ctx.stroke();
+      }
+  }
+  agents.forEach((ag, i) => {
+    const { x, y } = pos[i];
+    const isQ = i === 0 && (topo.includes('hierarchical') || topo.includes('centralized'));
+    const r = isQ ? 9 : 5;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = isQ ? 'oklch(72% 0.18 75)' : 'oklch(52% 0.008 75)';
+    ctx.fill();
+    ctx.fillStyle = isQ ? 'oklch(11% 0.009 55)' : 'oklch(90% 0.005 75)';
+    ctx.font = isQ ? 'bold 9px sans-serif' : '8px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(isQ ? 'Q' : String(i), x, y);
+    if (!isQ) {
+      ctx.fillStyle = 'oklch(50% 0.006 75)';
+      ctx.font = '9px sans-serif';
+      ctx.fillText(esc((ag.type || '').slice(0, 5)), x, y + 14);
+    }
+  });
+}
+
+function _renderSwarmAgents(run) {
+  const el = document.getElementById('swarm-agent-list');
+  if (!el) return;
+  const agents = run.agents || [];
+  if (!agents.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="m-group-title" style="margin-bottom:4px">Agents</div>' +
+    agents.slice(0, 15).map(a =>
+      '<div style="display:flex;gap:10px;padding:3px 0;font-size:11px;border-bottom:1px solid var(--border)">' +
+        '<span style="color:var(--text-lo);font-family:var(--mono);min-width:70px">' + esc((a.id || '').toString().slice(0, 10)) + '</span>' +
+        '<span style="color:var(--text-hi)">' + esc(a.type || a.role || 'worker') + '</span>' +
+        '<span style="margin-left:auto;color:var(--text-xs)">' + esc(a.status || '—') + '</span>' +
+      '</div>'
+    ).join('');
+}
+
+async function _loadSwarmEvents(swarmId) {
+  if (!swarmId) return;
+  const el = document.getElementById('swarm-event-log');
+  if (!el) return;
+  try {
+    const data = await apiFetch('/api/swarm-events?agentId=' + enc(swarmId) + '&dir=' + enc(DIR));
+    const events = Array.isArray(data) ? data : (data.events || []);
+    if (!events.length) { el.innerHTML = ''; return; }
+    el.innerHTML = '<div class="m-group-title" style="margin-bottom:3px">Events</div>' +
+      events.slice(-40).map(e =>
+        '<div style="color:var(--text-lo);padding:2px 0;border-bottom:1px solid var(--border)">' +
+          esc(relTime(e.ts || e.timestamp)) + ' <span style="color:var(--text-mid)">' + esc(e.type || e.kind || '?') + '</span> ' +
+          esc((e.message || e.data || '').toString().slice(0, 70)) +
+        '</div>'
+      ).join('');
+    el.scrollTop = el.scrollHeight;
+  } catch (_) {}
+}
+
+async function cleanSwarmData() {
+  if (!confirm('Delete all swarm run data? This cannot be undone.')) return;
+  try {
+    await fetch('/api/swarm-clean?dir=' + enc(DIR), { method: 'DELETE' });
+    showToast('Cleaned', 'Swarm data deleted', 'ok');
+    _swarmRuns = [];
+    _renderSwarmRunList();
+    const detail = document.getElementById('swarm-run-detail');
+    if (detail) detail.innerHTML = '<div style="color:var(--text-lo);font-size:13px">Select a swarm run</div>';
+  } catch (e) { showToast('Error', e.message, 'err'); }
+}
+
+// ── chunks memory tab ──────────────────────────────────────
+let _chunks = [], _chunksLoaded = false;
+
+async function loadChunksTab() {
+  if (_chunksLoaded) return;
+  const grid = document.getElementById('chunks-grid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const data = await apiFetch('/api/section?name=knowledge&full=1&dir=' + enc(DIR));
+    _chunks = Array.isArray(data) ? data : (data.chunks || data.knowledge || []);
+    _chunksLoaded = true;
+    _renderChunks(_chunks);
+  } catch (e) {
+    grid.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '<br><span style="font-size:11px;color:var(--text-xs)">Run /monomind:understand to build the index.</span></div>';
+  }
+}
+
+function _renderChunks(list) {
+  const grid = document.getElementById('chunks-grid');
+  if (!grid) return;
+  if (!list.length) {
+    grid.innerHTML = '<div class="empty">No chunks indexed.<br><span style="font-size:11px;color:var(--text-xs)">Run /monomind:understand to build the index.</span></div>';
+    return;
+  }
+  grid.innerHTML = list.slice(0, 60).map(c => {
+    const src = (c.source || c.file || '').split('/').slice(-2).join('/');
+    const excerpt = (c.content || c.text || c.body || '').slice(0, 220);
+    const ns = c.namespace || c.type || '';
+    return '<div class="chunk-card" data-search="' + esc((src + ' ' + excerpt + ' ' + ns).toLowerCase()) + '">' +
+      '<div class="chunk-src">' + esc(src || '—') + '</div>' +
+      '<div class="chunk-excerpt">' + esc(excerpt) + '</div>' +
+      '<div class="chunk-footer">' +
+        (ns ? '<span class="chunk-ns">' + esc(ns) + '</span>' : '') +
+        '<button class="btn" style="margin-left:auto;font-size:10px;padding:1px 7px" onclick="deleteChunk(' + JSON.stringify(c.id || c.path || '') + ')">✕ Delete</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function filterChunks(q) {
+  const lq = q.toLowerCase();
+  document.querySelectorAll('#chunks-grid .chunk-card').forEach(el => {
+    el.style.display = (!lq || (el.dataset.search || '').includes(lq)) ? '' : 'none';
+  });
+}
+
+async function deleteChunk(id) {
+  if (!id) return;
+  if (!confirm('Delete this knowledge chunk?')) return;
+  try {
+    const r = await fetch('/api/knowledge-chunk', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id, dir: DIR }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+    showToast('Deleted', 'Chunk deleted', 'ok');
+    _chunksLoaded = false;
+    loadChunksTab();
+  } catch (e) { showToast('Error', e.message, 'err'); }
+}
+
+// ── agent graph memory tab ─────────────────────────────────
+let _agData = null;
+
+async function loadAgentGraphTab() {
+  if (_agData) { _renderAgSummary(); _renderAgSessList(); return; }
+  const bar = document.getElementById('ag-summary-bar');
+  if (bar) bar.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const data = await apiFetch('/api/graph?dir=' + enc(DIR));
+    _agData = data;
+    _renderAgSummary();
+    _renderAgSessList();
+  } catch (e) {
+    if (bar) bar.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>';
+  }
+}
+
+function _renderAgSummary() {
+  const el = document.getElementById('ag-summary-bar');
+  if (!_agData || !el) return;
+  const d = _agData;
+  const stats = [
+    { l: 'Sessions',    v: d.sessionCount != null ? d.sessionCount : (d.sessions && d.sessions.length != null ? d.sessions.length : '—') },
+    { l: 'Agent Types', v: d.agentTypes   != null ? d.agentTypes   : '—' },
+    { l: 'Spawns',      v: d.totalSpawns  != null ? d.totalSpawns  : '—' },
+    { l: 'Tool Calls',  v: d.totalToolCalls != null ? Number(d.totalToolCalls).toLocaleString() : '—' },
+    { l: 'Total Cost',  v: d.totalCost    != null ? '$' + Number(d.totalCost).toFixed(3) : '—' },
+  ];
+  el.innerHTML = stats.map(s =>
+    '<div>' +
+      '<div style="font-size:10px;color:var(--text-lo);text-transform:uppercase;letter-spacing:0.07em">' + esc(s.l) + '</div>' +
+      '<div style="font-size:16px;font-weight:700;color:var(--text-hi);font-family:var(--mono)">' + esc(String(s.v)) + '</div>' +
+    '</div>'
+  ).join('');
+}
+
+function _renderAgSessList() {
+  const el = document.getElementById('ag-sess-list');
+  if (!_agData || !el) return;
+  const sessions = _agData.sessions || [];
+  if (!sessions.length) { el.innerHTML = '<div class="empty" style="font-size:12px">No sessions</div>'; return; }
+  el.innerHTML = sessions.map((s, i) =>
+    '<div class="sess-row" style="margin-bottom:4px" onclick="selectAgSession(' + i + ')">' +
+      '<div class="sr-top">' +
+        '<div class="sr-prompt" style="font-size:11px">' + esc((s.id || s.file || '').slice(-16)) + '</div>' +
+      '</div>' +
+      '<div style="font-size:10px;color:var(--text-lo);margin-top:1px">' + (s.spawnCount || 0) + ' spawns · ' + (s.toolCount || 0) + ' tools</div>' +
+    '</div>'
+  ).join('');
+}
+
+function selectAgSession(idx) {
+  const s = (_agData && _agData.sessions || [])[idx];
+  if (!s) return;
+  document.querySelectorAll('#ag-sess-list .sess-row').forEach((el, i) => el.classList.toggle('active', i === idx));
+  const detail = document.getElementById('ag-detail');
+  if (!detail) return;
+  const agArr   = Object.entries(s.agentTypes || {}).sort((a, b) => b[1] - a[1]).slice(0, 12);
+  const toolArr = Object.entries(s.tools       || {}).sort((a, b) => b[1] - a[1]).slice(0, 15);
+  const maxAg   = agArr.length  ? Math.max(...agArr.map(x => x[1]))   : 1;
+  const maxTool = toolArr.length ? Math.max(...toolArr.map(x => x[1])) : 1;
+  detail.innerHTML =
+    '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;font-size:12px">' +
+      '<span>Turns: <b>' + (s.turns || 0) + '</b></span>' +
+      '<span>Spawns: <b>' + (s.spawnCount || 0) + '</b></span>' +
+      '<span>Tools: <b>' + (s.toolCount || 0) + '</b></span>' +
+      (s.cost != null ? '<span style="color:var(--accent)">$' + Number(s.cost).toFixed(4) + '</span>' : '') +
+    '</div>' +
+    (agArr.length ? '<div class="m-group-title" style="margin-bottom:5px">Agent Types</div>' +
+      agArr.map(function(entry) {
+        var type = entry[0], count = entry[1];
+        return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px">' +
+          '<div style="width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-hi)">' + esc(type) + '</div>' +
+          '<div style="flex:1;height:7px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:' + Math.round(count/maxAg*100) + '%;height:100%;background:var(--accent);border-radius:2px"></div></div>' +
+          '<div style="width:22px;text-align:right;color:var(--text-lo);font-size:11px;font-family:var(--mono)">' + count + '</div>' +
+        '</div>';
+      }).join('') : '') +
+    (toolArr.length ? '<div class="m-group-title" style="margin-bottom:5px;margin-top:14px">Top Tools</div>' +
+      toolArr.map(function(entry) {
+        var tool = entry[0], count = entry[1];
+        return '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px">' +
+          '<div style="width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-hi);font-family:var(--mono);font-size:11px">' + esc(tool) + '</div>' +
+          '<div style="flex:1;height:7px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:' + Math.round(count/maxTool*100) + '%;height:100%;background:oklch(62% 0.12 195);border-radius:2px"></div></div>' +
+          '<div style="width:22px;text-align:right;color:var(--text-lo);font-size:11px;font-family:var(--mono)">' + count + '</div>' +
+        '</div>';
+      }).join('') : '');
 }
 </script>
 </body>
