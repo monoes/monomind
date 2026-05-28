@@ -1,11 +1,11 @@
 {
-  "id": "session-1777753392633",
-  "startedAt": "2026-05-02T20:23:12.633Z",
+  "id": "session-1779017479366",
+  "startedAt": "2026-05-17T11:31:19.366Z",
   "platform": "darwin",
-  "cwd": "/Users/morteza/Desktop/tools/monobrain/packages/@monomind/cli",
+  "cwd": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli",
   "context": {},
   "metrics": {
-    "edits": 0,
+    "edits": 5,
     "commands": 0,
     "tasks": 0,
     "errors": 0
