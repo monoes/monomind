@@ -170,10 +170,6 @@ monomind swarm init --topology hierarchical --agents 8 --strategy specialized
 
 ### Self-Learning Memory — The Memory Palace
 
-<p align="center">
-  <img src="assets/memory-palace.png" alt="Memory Palace" width="100%" />
-</p>
-
 Every interaction makes Monomind smarter:
 
 | Layer | What It Stores | Tech |
