@@ -1047,6 +1047,10 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 .mg-query-row input:focus, .mg-query-row textarea:focus { border-color:var(--accent); }
 .mg-query-row textarea { resize:vertical; min-height:70px; width:100%; }
 .mg-query-result { margin-top:10px; padding:10px 12px; background:var(--surface-hi); border-radius:4px; font-size:11px; font-family:var(--mono); white-space:pre-wrap; word-break:break-word; color:var(--text-mid); max-height:300px; overflow-y:auto; }
+/* live border glow */
+@keyframes live-fade { 0% { box-shadow: 0 0 0 1px oklch(72% 0.18 75 / 0.4); } 100% { box-shadow: none; } }
+.live-glow { animation: live-fade 8s ease-out forwards; }
+@media (prefers-reduced-motion: reduce) { .live-glow { animation: none; } }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
@@ -2372,16 +2376,54 @@ async function loadLoopMetrics() {
 // ── status strip ───────────────────────────────────────────
 async function loadStatusStrip() {
   const strip = document.getElementById('status-strip');
-  if (!strip) return;
+  if (!strip || !DIR) return;
   try {
-    const data = await apiFetch('/api/status?dir=' + enc(DIR));
-    const checks = Array.isArray(data) ? data : (data.checks || data.services || []);
-    if (!checks.length) { strip.style.display = 'none'; return; }
-    strip.style.display = 'flex';
-    strip.innerHTML = checks.map(c => {
+    const [statusRes, memRes] = await Promise.allSettled([
+      apiFetch('/api/status?dir=' + enc(DIR)),
+      apiFetch('/api/memory/stats?dir=' + enc(DIR)),
+    ]);
+    const checks = statusRes.status === 'fulfilled'
+      ? (Array.isArray(statusRes.value) ? statusRes.value : (statusRes.value?.checks || []))
+      : [];
+    const mem = memRes.status === 'fulfilled'
+      ? (memRes.value?.stats || memRes.value || {})
+      : {};
+
+    const pills = [];
+
+    // existing service health pills
+    checks.forEach(c => {
       const cls = c.ok === false ? 'warn' : (c.ok ? 'on' : '');
-      return `<span class="ss-pill ${cls}">${esc(c.name || c.label || c.key || '?')}</span>`;
-    }).join('');
+      pills.push(`<span class="ss-pill ${cls}">${esc(c.name || c.label || c.key || '?')}</span>`);
+    });
+
+    // HNSW status
+    const hnswOn = mem.hnsw === true || mem.hnswEnabled === true || mem.hnsw_enabled === true;
+    pills.push(`<span class="ss-pill ${hnswOn ? 'on' : ''}">HNSW ${hnswOn ? 'ON' : 'OFF'}</span>`);
+
+    // Patterns count
+    if (mem.patterns != null) {
+      pills.push(`<span class="ss-pill">PATTERNS ${Number(mem.patterns).toLocaleString()}</span>`);
+    }
+
+    // Chunks count
+    if (mem.chunks != null) {
+      pills.push(`<span class="ss-pill">CHUNKS ${Number(mem.chunks).toLocaleString()}</span>`);
+    }
+
+    // Swarm status
+    if (window._appSwarmTopo) {
+      pills.push(`<span class="ss-pill on">SWARM ${esc(window._appSwarmTopo)}</span>`);
+    }
+
+    // Last route agent
+    if (window._lastRouteAgent) {
+      pills.push(`<span class="ss-pill">ROUTE ${esc(window._lastRouteAgent)}</span>`);
+    }
+
+    if (!pills.length) { strip.style.display = 'none'; return; }
+    strip.style.display = 'flex';
+    strip.innerHTML = pills.join('');
   } catch (_) { strip.style.display = 'none'; }
 }
 
@@ -2417,6 +2459,7 @@ async function loadTokensView() {
         </tr>`).join('') +
         '</tbody></table></div>';
     } else { table.innerHTML = ''; }
+    markLiveGlow('view-tokens');
   } catch (_) {
     cards.innerHTML = '<div class="loading-txt" style="color:var(--text-lo)">No token data available</div>';
   }
@@ -2547,6 +2590,10 @@ async function loadMemRouting() {
   try {
     const data = await apiFetch('/api/routing-feedback?dir=' + enc(DIR));
     const rows = Array.isArray(data) ? data : (data.rows || data.feedback || []);
+    if (rows.length > 0) {
+      const last = rows[rows.length - 1];
+      window._lastRouteAgent = last.route || last.category || last.agent || last.agentType || '';
+    }
     if (!rows.length) { pane.innerHTML = '<div class="empty">No routing data</div>'; return; }
     pane.innerHTML = '<div class="m-group-title" style="margin-bottom:6px">Routing Feedback</div>' +
       rows.slice(0, 40).map(r => `<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;font-family:monospace">
@@ -2838,6 +2885,7 @@ async function renderSessions() {
       return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
     }).reduce((a, s) => a + (s.totalCost || 0), 0);
     checkBudgetToast(todayCost, monthCost);
+    markLiveGlow('view-sessions');
   } catch (err) {
     el.innerHTML = '<div class="empty">Could not load sessions: ' + esc(err.message) + '</div>';
   }
@@ -3677,9 +3725,19 @@ async function renderLoops() {
         </div>`;
     }).join('');
     startCountdowns();
+    markLiveGlow('view-loops');
   } catch (err) {
     el.innerHTML = '<div class="empty">Could not load loops: ' + esc(err.message) + '</div>';
   }
+}
+
+function markLiveGlow(viewId) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const el = document.getElementById(viewId);
+  if (!el) return;
+  el.classList.remove('live-glow');
+  void el.offsetWidth; // force reflow to restart animation
+  el.classList.add('live-glow');
 }
 
 function toggleLoop(row) {
@@ -4024,6 +4082,7 @@ async function renderOrgs() {
   const orgProjLabel = document.getElementById('orgs-proj-label');
   if (orgProjLabel) orgProjLabel.textContent = DIR ? DIR.split('/').filter(Boolean).pop() : '';
   try { v2RenderOrgList(); } catch (_) {}
+  markLiveGlow('view-orgs');
 }
 
 function v2RenderOrgList() {
