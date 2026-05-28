@@ -2,193 +2,1184 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Monomind — Autonomous Business Brain</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monomind — Autonomous Claude Code Orchestration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  background: #07071a;
-  color: #e0e0ff;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  user-select: none;
+:root {
+  --bg:       oklch(11% 0.012 265);
+  --surface:  oklch(16% 0.015 265);
+  --surface2: oklch(21% 0.018 265);
+  --surface3: oklch(26% 0.020 265);
+  --border:   oklch(30% 0.015 265);
+  --text:     oklch(93% 0.005 265);
+  --text2:    oklch(75% 0.008 265);
+  --muted:    oklch(55% 0.010 265);
+  --accent:   oklch(72% 0.22 168);
+  --accent-d: oklch(58% 0.20 168);
+  --amber:    oklch(70% 0.18 60);
+  --violet:   oklch(65% 0.16 295);
+  --red:      oklch(62% 0.20 22);
+  --cyan:     oklch(78% 0.14 210);
+  --nav-w:    240px;
+  --ff-d: 'Space Grotesk', system-ui, sans-serif;
+  --ff-b: 'DM Sans', system-ui, sans-serif;
+  --ff-m: 'Fira Code', 'Cascadia Code', monospace;
 }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--ff-b); background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; overflow-x: hidden; }
 
-/* Stars */
-#stars {
-  position: fixed; inset: 0;
-  background: radial-gradient(ellipse at 50% 40%, #12123a 0%, #07071a 70%);
-  z-index: 0;
+/* Progress */
+#progress-bar { position: fixed; top: 0; left: 0; height: 2px; width: 0%; background: var(--accent); z-index: 999; transition: width 0.1s linear; }
+
+/* Sidebar */
+#sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: var(--nav-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 100; overflow-y: auto; transition: transform 0.3s cubic-bezier(0.16,1,0.3,1); }
+.sidebar-logo { display: flex; align-items: center; gap: 10px; padding: 20px 20px 16px; border-bottom: 1px solid var(--border); }
+.logo-mark { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: var(--ff-d); font-weight: 700; font-size: 14px; color: oklch(11% 0.012 265); flex-shrink: 0; }
+.logo-text { font-family: var(--ff-d); font-weight: 600; font-size: 15px; }
+.logo-ver { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.nav-section { padding: 20px 0 8px; }
+.nav-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; padding: 0 20px 8px; }
+.nav-link { display: flex; align-items: center; gap: 8px; padding: 7px 20px; font-size: 13.5px; color: var(--text2); text-decoration: none; cursor: pointer; border: none; background: none; width: 100%; text-align: left; transition: color 0.15s, background 0.15s; }
+.nav-link:hover { color: var(--text); background: var(--surface2); }
+.nav-link.active { color: var(--accent); background: oklch(72% 0.22 168 / 0.08); }
+.nav-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: var(--muted); transition: background 0.15s; }
+.nav-link.active .nav-dot { background: var(--accent); }
+
+/* Main */
+#main { margin-left: var(--nav-w); min-height: 100vh; position: relative; }
+
+/* Page overlay */
+#overlay { position: fixed; inset: 0; background: var(--accent); transform: scaleY(0); transform-origin: bottom; z-index: 200; pointer-events: none; }
+
+/* Pages */
+.page { display: none; min-height: 100vh; }
+.page.active { display: block; }
+
+/* Hero */
+#hero-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: none; }
 }
-.star {
-  position: absolute; background: #fff; border-radius: 50%;
-  animation: twinkle var(--dur) ease-in-out infinite alternate;
-  animation-delay: var(--delay);
-}
-@keyframes twinkle { from { opacity: .08; } to { opacity: .85; } }
+.hero-section { position: relative; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 80px 64px; overflow: hidden; }
+.hero-eyebrow { font-size: 11px; letter-spacing: 0.15em; font-weight: 500; color: var(--accent); text-transform: uppercase; margin-bottom: 20px; animation: fadeInUp .7s cubic-bezier(.16,1,.3,1) .1s both; }
+.hero-title { font-family: var(--ff-d); font-size: clamp(40px, 5.5vw, 72px); font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; max-width: 720px; margin-bottom: 24px; animation: fadeInUp .7s cubic-bezier(.16,1,.3,1) .22s both; }
+.hero-title em { font-style: normal; color: var(--accent); }
+.hero-sub { font-size: 18px; color: var(--text2); max-width: 520px; line-height: 1.65; margin-bottom: 40px; animation: fadeInUp .65s cubic-bezier(.16,1,.3,1) .38s both; }
+.hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 64px; animation: fadeInUp .6s cubic-bezier(.16,1,.3,1) .52s both; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; text-decoration: none; border: none; font-family: var(--ff-b); transition: transform 0.15s, box-shadow 0.15s; }
+.btn:hover { transform: translateY(-1px); }
+.btn-primary { background: var(--accent); color: oklch(11% 0.012 265); box-shadow: 0 4px 24px oklch(72% 0.22 168 / 0.3); }
+.btn-primary:hover { box-shadow: 0 8px 32px oklch(72% 0.22 168 / 0.45); }
+.btn-ghost { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+.hero-stats { display: flex; gap: 48px; animation: fadeInUp .6s cubic-bezier(.16,1,.3,1) .64s both; }
+.stat-item { display: flex; flex-direction: column; gap: 4px; }
+.stat-num { font-family: var(--ff-d); font-size: 28px; font-weight: 700; }
+.stat-label { font-size: 12px; color: var(--muted); }
 
 /* Content */
-#content {
-  position: relative; z-index: 1;
-  display: flex; flex-direction: column;
-  align-items: center; gap: 0;
-  text-align: center;
-  padding: 40px 24px;
-}
+.page-content { padding: 64px; max-width: 900px; }
+.page-header { margin-bottom: 48px; }
+.page-tag { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: 12px; display: block; }
+.page-title { font-family: var(--ff-d); font-size: clamp(28px, 3.5vw, 44px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 16px; }
+.page-desc { font-size: 16px; color: var(--text2); line-height: 1.7; max-width: 620px; }
+.section-title { font-family: var(--ff-d); font-size: 20px; font-weight: 600; margin-bottom: 20px; margin-top: 48px; }
+.section-title:first-child { margin-top: 0; }
+.reveal { }
 
-/* Logo / brain */
-#logo {
-  font-size: 88px; line-height: 1;
-  filter: drop-shadow(0 0 32px rgba(160,100,255,.9));
-  animation: pulse 2.6s ease-in-out infinite;
-  margin-bottom: 28px;
-}
-@keyframes pulse {
-  0%,100% { transform: scale(1);     filter: drop-shadow(0 0 28px rgba(160,100,255,.85)); }
-  50%      { transform: scale(1.06); filter: drop-shadow(0 0 52px rgba(200,140,255,1)); }
-}
+/* Code */
+.code-block { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; font-family: var(--ff-m); font-size: 13px; color: var(--text2); overflow-x: auto; line-height: 1.7; margin-bottom: 24px; }
+.code-block .comment { color: var(--muted); }
+.code-block .keyword { color: var(--accent); }
+.code-block .string { color: var(--amber); }
+.code-block .cmd { color: var(--cyan); }
 
-/* Wordmark */
-h1 {
-  font-size: 36px; font-weight: 900; letter-spacing: 12px;
-  background: linear-gradient(135deg, #c080ff 0%, #7040ff 50%, #ff60ff 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  margin-bottom: 8px;
-}
-.sub {
-  font-size: 10px; color: #5555aa; letter-spacing: 5px;
-  margin-bottom: 48px;
-}
+/* Terminal */
+.terminal { background: oklch(9% 0.010 265); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 32px; }
+.terminal-header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.term-dot { width: 12px; height: 12px; border-radius: 50%; }
+.term-dot:nth-child(1) { background: var(--red); }
+.term-dot:nth-child(2) { background: var(--amber); }
+.term-dot:nth-child(3) { background: var(--accent); }
+.term-title { margin-left: auto; font-size: 11px; color: var(--muted); font-family: var(--ff-m); }
+.terminal-body { padding: 20px 24px; font-family: var(--ff-m); font-size: 13px; line-height: 2; }
+.term-line { display: flex; gap: 8px; }
+.term-prompt { color: var(--accent); user-select: none; }
+.term-out { color: var(--text2); padding-left: 20px; font-size: 12px; }
+.term-out.accent { color: var(--accent); }
+.term-out.amber { color: var(--amber); }
+#typewriter-output { min-height: 200px; }
 
-/* CTA button */
-#mastermind-btn {
-  display: flex; align-items: center; gap: 10px;
-  background: linear-gradient(135deg, rgba(100,50,220,.75), rgba(60,20,160,.75));
-  border: 1px solid rgba(160,100,255,.7);
-  color: #d0b0ff;
-  padding: 16px 38px;
-  border-radius: 50px;
-  font-size: 15px; font-weight: 800; letter-spacing: 2px;
-  cursor: pointer;
-  text-decoration: none;
-  transition: all .25s cubic-bezier(.34,1.56,.64,1);
-  box-shadow: 0 0 30px rgba(120,60,255,.25), inset 0 1px 0 rgba(255,255,255,.1);
-  margin-bottom: 52px;
-}
-#mastermind-btn:hover {
-  transform: scale(1.08) translateY(-2px);
-  border-color: rgba(210,160,255,.9);
-  box-shadow: 0 0 55px rgba(140,80,255,.5), inset 0 1px 0 rgba(255,255,255,.15);
-  color: #fff;
-}
-#mastermind-btn span.arrow {
-  font-size: 18px; transition: transform .2s;
-}
-#mastermind-btn:hover span.arrow { transform: translateX(4px); }
+/* Tables */
+.doc-table { width: 100%; border-collapse: collapse; margin-bottom: 32px; font-size: 13.5px; }
+.doc-table th { text-align: left; padding: 10px 16px; background: var(--surface2); color: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+.doc-table th:first-child { border-radius: 8px 0 0 0; }
+.doc-table th:last-child { border-radius: 0 8px 0 0; }
+.doc-table td { padding: 11px 16px; border-bottom: 1px solid var(--border); color: var(--text2); vertical-align: top; }
+.doc-table tr:last-child td { border-bottom: none; }
+.doc-table tr:hover td { background: var(--surface2); color: var(--text); }
+.doc-table .mono { font-family: var(--ff-m); font-size: 12px; color: var(--cyan); }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; font-family: var(--ff-m); }
+.tag-accent { background: oklch(72% 0.22 168 / 0.15); color: var(--accent); }
+.tag-amber  { background: oklch(70% 0.18 60 / 0.15);  color: var(--amber); }
+.tag-violet { background: oklch(65% 0.16 295 / 0.15); color: var(--violet); }
+.tag-red    { background: oklch(62% 0.20 22 / 0.15);  color: var(--red); }
+.tag-cyan   { background: oklch(78% 0.14 210 / 0.15); color: var(--cyan); }
+.tag-muted  { background: var(--surface3); color: var(--muted); }
 
-/* Domain grid */
-.grid-label {
-  font-size: 9px; color: #3a3a66; letter-spacing: 4px;
-  margin-bottom: 16px;
-}
-.domain-chips {
-  display: flex; flex-wrap: wrap; gap: 8px;
-  justify-content: center; max-width: 600px;
-  margin-bottom: 52px;
-}
-.chip {
-  display: flex; align-items: center; gap: 5px;
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: 20px; padding: 5px 14px;
-  font-size: 11px; color: #888;
-  transition: all .2s;
-  cursor: default;
-}
-.chip:hover {
-  background: rgba(255,255,255,.08);
-  border-color: rgba(255,255,255,.2);
-  color: #ccc;
-}
+/* Card grid */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 32px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; transition: border-color 0.2s, transform 0.2s; }
+.card:hover { border-color: var(--accent-d); transform: translateY(-2px); }
+.card-icon { font-size: 24px; margin-bottom: 12px; }
+.card-title { font-family: var(--ff-d); font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+.card-desc { font-size: 13px; color: var(--text2); line-height: 1.6; }
 
-/* Quick start */
-.qs-box {
-  background: rgba(255,255,255,.03);
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 14px; padding: 18px 24px;
-  max-width: 400px; width: 100%;
-  text-align: left;
+/* Topology grid */
+.topo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 32px; }
+.topo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+.topo-name { font-family: var(--ff-d); font-size: 14px; font-weight: 600; margin-bottom: 6px; color: var(--accent); }
+.topo-desc { font-size: 12.5px; color: var(--text2); line-height: 1.5; }
+
+/* SVG arch */
+.arch-diagram { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px; margin-bottom: 32px; overflow: hidden; }
+.arch-diagram svg { display: block; max-width: 100%; }
+
+/* Tier stack */
+.tier-stack { display: flex; flex-direction: column; margin-bottom: 32px; }
+.tier-row { display: flex; align-items: stretch; }
+.tier-row:first-child .tier-label, .tier-row:first-child .tier-content { border-radius: 0; }
+.tier-row:first-child { border-radius: 10px 10px 0 0; overflow: hidden; }
+.tier-row:last-child { border-radius: 0 0 10px 10px; overflow: hidden; border-bottom: 1px solid var(--border); }
+.tier-label { width: 120px; flex-shrink: 0; padding: 16px 20px; font-family: var(--ff-d); font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; text-align: center; text-transform: uppercase; letter-spacing: 0.08em; border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
+.tier-content { flex: 1; padding: 16px 20px; font-size: 13px; color: var(--text2); line-height: 1.5; border-top: 1px solid var(--border); border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+.tier-l0 .tier-label { background: oklch(72% 0.22 168 / 0.15); color: var(--accent); }
+.tier-l1 .tier-label { background: oklch(70% 0.18 60 / 0.15); color: var(--amber); }
+.tier-l2 .tier-label { background: oklch(65% 0.16 295 / 0.15); color: var(--violet); }
+.tier-l3 .tier-label { background: oklch(78% 0.14 210 / 0.12); color: var(--cyan); }
+
+/* Search */
+.search-bar { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; margin-bottom: 24px; }
+.search-bar input { flex: 1; background: none; border: none; outline: none; color: var(--text); font-family: var(--ff-b); font-size: 14px; }
+.search-bar input::placeholder { color: var(--muted); }
+.search-icon { color: var(--muted); font-size: 16px; }
+
+/* Command grid */
+.cmd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-bottom: 32px; }
+.cmd-item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; transition: border-color 0.15s, background 0.15s; }
+.cmd-item:hover { background: var(--surface2); border-color: var(--accent-d); }
+.cmd-name { font-family: var(--ff-m); font-size: 12px; color: var(--cyan); margin-bottom: 4px; }
+.cmd-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.cmd-item.hidden { display: none; }
+
+/* Phase flow */
+.phase-flow { display: flex; flex-direction: column; margin-bottom: 32px; }
+.phase-step { display: flex; gap: 0; align-items: stretch; }
+.phase-connector { display: flex; flex-direction: column; align-items: center; width: 40px; flex-shrink: 0; }
+.phase-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); margin-top: 8px; flex-shrink: 0; box-shadow: 0 0 0 3px oklch(72% 0.22 168 / 0.2); }
+.phase-line { width: 2px; flex: 1; background: var(--border); margin-top: 4px; }
+.phase-step:last-child .phase-line { display: none; }
+.phase-body { flex: 1; padding: 0 0 28px 16px; }
+.phase-num { font-size: 11px; color: var(--accent); font-weight: 600; margin-bottom: 4px; font-family: var(--ff-m); }
+.phase-name { font-family: var(--ff-d); font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.phase-desc { font-size: 13.5px; color: var(--text2); line-height: 1.6; }
+
+/* Inline code */
+code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2); color: var(--cyan); padding: 2px 6px; border-radius: 4px; }
+
+/* Table wrap */
+.table-wrap { overflow-x: auto; margin-bottom: 32px; border-radius: 10px; border: 1px solid var(--border); }
+.table-wrap .doc-table { margin-bottom: 0; }
+.table-wrap .doc-table th:first-child, .table-wrap .doc-table th:last-child { border-radius: 0; }
+
+/* Mobile nav */
+#nav-toggle { display: none; position: fixed; bottom: 24px; right: 24px; width: 48px; height: 48px; border-radius: 50%; background: var(--accent); color: oklch(11% 0.012 265); border: none; font-size: 20px; cursor: pointer; z-index: 300; align-items: center; justify-content: center; box-shadow: 0 4px 16px oklch(72% 0.22 168 / 0.4); }
+#nav-overlay { display: none; position: fixed; inset: 0; background: oklch(0% 0 0 / 0.6); z-index: 99; }
+
+.divider { height: 1px; background: var(--border); margin: 40px 0; }
+
+@media (max-width: 768px) {
+  #sidebar { transform: translateX(-100%); }
+  #sidebar.open { transform: translateX(0); }
+  #main { margin-left: 0; }
+  .hero-section { padding: 60px 24px; }
+  .page-content { padding: 40px 24px; }
+  .hero-stats { flex-wrap: wrap; gap: 24px; }
+  .topo-grid { grid-template-columns: 1fr 1fr; }
+  #nav-toggle { display: flex; }
+  #nav-overlay.open { display: block; }
 }
-.qs-label {
-  font-size: 9px; color: #444; letter-spacing: 3px; margin-bottom: 10px;
+@media (max-width: 480px) { .topo-grid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) {
+  .hero-eyebrow, .hero-title, .hero-sub, .hero-actions, .hero-stats { animation: none; }
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
-.qs-box code {
-  display: block;
-  font-family: 'Cascadia Code', 'Fira Code', monospace;
-  font-size: 11px; color: #8877cc;
-  line-height: 2.1;
-}
-.qs-box code span { color: #c0a0ff; }
 </style>
 </head>
 <body>
 
-<div id="stars"></div>
+<div id="progress-bar"></div>
+<div id="overlay"></div>
 
-<div id="content">
-  <div id="logo">🧠</div>
-  <h1>MONOMIND</h1>
-  <p class="sub">AUTONOMOUS BUSINESS BRAIN &nbsp;·&nbsp; 10 DOMAINS &nbsp;·&nbsp; SELF-IMPROVING</p>
-
-  <a id="mastermind-btn" href="mastermind-diagram.html">
-    View Mastermind &nbsp;<span class="arrow">→</span>
-  </a>
-
-  <p class="grid-label">ACTIVE DOMAINS</p>
-  <div class="domain-chips">
-    <div class="chip">🔨 Build</div>
-    <div class="chip">💡 Idea</div>
-    <div class="chip">📣 Marketing</div>
-    <div class="chip">🔍 Review</div>
-    <div class="chip">🔬 Research</div>
-    <div class="chip">✍️ Content</div>
-    <div class="chip">🚀 Release</div>
-    <div class="chip">💼 Sales</div>
-    <div class="chip">⚙️ Ops</div>
-    <div class="chip">💰 Finance</div>
+<nav id="sidebar" role="navigation" aria-label="Main navigation">
+  <div class="sidebar-logo">
+    <div class="logo-mark">M</div>
+    <div>
+      <div class="logo-text">Monomind</div>
+      <div class="logo-ver">v1.10.54</div>
+    </div>
   </div>
+  <div class="nav-section">
+    <div class="nav-label">Overview</div>
+    <button class="nav-link active" data-page="home"><span class="nav-dot"></span>Home</button>
+    <button class="nav-link" data-page="getting-started"><span class="nav-dot"></span>Getting Started</button>
+    <button class="nav-link" data-page="architecture"><span class="nav-dot"></span>Architecture</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Concepts</div>
+    <button class="nav-link" data-page="memory"><span class="nav-dot"></span>Memory &amp; Knowledge</button>
+    <button class="nav-link" data-page="hooks"><span class="nav-dot"></span>Hooks &amp; Workers</button>
+    <button class="nav-link" data-page="swarm"><span class="nav-dot"></span>Swarm Coordination</button>
+    <button class="nav-link" data-page="neural"><span class="nav-dot"></span>Neural Learning</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Reference</div>
+    <button class="nav-link" data-page="commands"><span class="nav-dot"></span>CLI Commands</button>
+    <button class="nav-link" data-page="slash"><span class="nav-dot"></span>Slash Commands</button>
+    <button class="nav-link" data-page="mastermind"><span class="nav-dot"></span>Mastermind</button>
+  </div>
+</nav>
 
-  <div class="qs-box">
-    <div class="qs-label">QUICK START</div>
-    <code>
-      <span>/mastermind</span> build a SaaS MVP --auto<br>
-      <span>/mastermind</span> launch a marketing campaign<br>
-      <span>/mastermind:master</span> [prompt] --iterate 3<br>
-      <span>/mastermind:brain</span> status
-    </code>
+<div id="nav-overlay"></div>
+<button id="nav-toggle" aria-label="Toggle navigation">☰</button>
+
+<main id="main">
+
+<!-- HOME -->
+<div id="page-home" class="page active">
+  <section class="hero-section">
+    <canvas id="hero-canvas" aria-hidden="true"></canvas>
+    <div class="hero-eyebrow">Autonomous Claude Code Orchestration</div>
+    <h1 class="hero-title">Build. Learn. Evolve.<br><em>Without stopping.</em></h1>
+    <p class="hero-sub">Monomind wraps Claude Code with persistent memory, multi-agent swarms, a code knowledge graph, and self-optimizing neural training — all wired into one CLI.</p>
+    <div class="hero-actions">
+      <button class="btn btn-primary" data-page="getting-started">Get Started →</button>
+      <button class="btn btn-ghost" data-page="architecture">Architecture</button>
+    </div>
+    <div class="hero-stats">
+      <div class="stat-item"><span class="stat-num" id="stat-agents">0</span><span class="stat-label">Agent Types</span></div>
+      <div class="stat-item"><span class="stat-num" id="stat-commands">0</span><span class="stat-label">CLI Commands</span></div>
+      <div class="stat-item"><span class="stat-num" id="stat-hooks">0</span><span class="stat-label">Hook Events</span></div>
+      <div class="stat-item"><span class="stat-num" id="stat-packages">0</span><span class="stat-label">Packages</span></div>
+    </div>
+  </section>
+  <div class="page-content" style="padding-top:0">
+    <div class="section-title reveal">Why Monomind?</div>
+    <div class="card-grid">
+      <div class="card reveal"><div class="card-icon">🧠</div><div class="card-title">Persistent Memory</div><div class="card-desc">Four-tier memory palace (L0–L3) with BM25 search, HNSW vector indexing, and AgentDB backends. Context survives across sessions.</div></div>
+      <div class="card reveal"><div class="card-icon">🐝</div><div class="card-title">Swarm Topologies</div><div class="card-desc">Hierarchical, mesh, adaptive, and hybrid multi-agent swarms with Raft, Byzantine, and CRDT consensus. 15-agent domain hierarchy.</div></div>
+      <div class="card reveal"><div class="card-icon">🔗</div><div class="card-title">Knowledge Graph</div><div class="card-desc">Monograph builds a full dependency graph of your codebase — 23 MCP tools for impact analysis, path finding, and community detection.</div></div>
+      <div class="card reveal"><div class="card-icon">⚡</div><div class="card-title">Self-Optimizing</div><div class="card-desc">SONA neural architecture with LoRA fine-tuning and EWC++ memory preservation. Learns from every hook event without catastrophic forgetting.</div></div>
+      <div class="card reveal"><div class="card-icon">🔁</div><div class="card-title">Autonomous Loops</div><div class="card-desc">--tillend runs a command until nothing is left to do. /mastermind:autodev --tillend researches, builds, reviews, and loops while you sleep.</div></div>
+      <div class="card reveal"><div class="card-icon">🎣</div><div class="card-title">Hook System</div><div class="card-desc">22 hook events, 10+ background workers. Pre/post-edit, pre/post-task, session, learning, and agent-team hooks with zero-overhead dispatch.</div></div>
+    </div>
+    <div class="section-title reveal">Quick Install</div>
+    <div class="code-block reveal">
+<span class="comment"># Install globally</span>
+<span class="cmd">npm install -g monomind</span>
+
+<span class="comment"># Wire into Claude Code</span>
+<span class="cmd">claude mcp add monomind npx monomind@latest mcp start</span>
+
+<span class="comment"># Initialize a project</span>
+<span class="cmd">npx monomind init</span>
+<span class="cmd">npx monomind doctor --fix</span></div>
   </div>
 </div>
 
-<script>
-(function makeStars() {
-  const el = document.getElementById('stars');
-  for (let i = 0; i < 180; i++) {
-    const s = document.createElement('div');
-    s.className = 'star';
-    const sz = Math.random() * 2.2 + 0.4;
-    s.style.cssText =
-      `width:${sz}px;height:${sz}px;`+
-      `left:${Math.random()*100}%;top:${Math.random()*100}%;`+
-      `--dur:${(Math.random()*4+2).toFixed(1)}s;`+
-      `--delay:${(Math.random()*4).toFixed(1)}s;`+
-      `opacity:${(Math.random()*.4+.05).toFixed(2)};`;
-    el.appendChild(s);
+<!-- GETTING STARTED -->
+<div id="page-getting-started" class="page">
+  <div class="page-content">
+    <div class="page-header">
+      <span class="page-tag">Getting Started</span>
+      <h1 class="page-title">From zero to autonomous in five minutes</h1>
+      <p class="page-desc">Install Monomind, wire it into Claude Code, and run your first autonomous agent loop.</p>
+    </div>
+    <div class="section-title reveal">1. Installation</div>
+    <div class="code-block reveal">
+<span class="comment"># Option A: global install</span>
+<span class="cmd">npm install -g monomind</span>
+
+<span class="comment"># Option B: npx (always latest)</span>
+<span class="cmd">npx monomind@latest --version</span></div>
+    <div class="section-title reveal">2. MCP Setup</div>
+    <p class="reveal" style="color:var(--text2);margin-bottom:16px;font-size:14px;">The MCP server requires the explicit <code>mcp start</code> subcommand. Auto-detect is disabled by default (set <code>MONOMIND_MCP_AUTODETECT=1</code> to restore legacy behavior).</p>
+    <div class="code-block reveal">
+<span class="cmd">claude mcp add monomind npx monomind@latest mcp start</span>
+
+<span class="comment"># Verify tools are registered</span>
+<span class="cmd">claude mcp list</span></div>
+    <div class="section-title reveal">3. Project Initialization</div>
+    <div class="code-block reveal">
+<span class="cmd">cd your-project</span>
+<span class="cmd">npx monomind init</span>
+<span class="comment"># Interactive wizard: topology, memory backend, hooks</span>
+
+<span class="cmd">npx monomind daemon start</span>
+<span class="comment"># Starts background workers (security, health, learning...)</span>
+
+<span class="cmd">npx monomind doctor --fix</span>
+<span class="comment"># Checks: Node 20+, git, config, daemon, DB, MCP, disk</span></div>
+    <div class="section-title reveal">4. First Session</div>
+    <div class="terminal reveal">
+      <div class="terminal-header">
+        <div class="term-dot"></div><div class="term-dot"></div><div class="term-dot"></div>
+        <div class="term-title">claude — live session</div>
+      </div>
+      <div class="terminal-body" id="typewriter-output"></div>
+    </div>
+    <div class="section-title reveal">5. Autonomous Loop</div>
+    <div class="code-block reveal">
+<span class="comment"># Research → Build → Review until nothing left</span>
+<span class="cmd">/mastermind:autodev --tillend</span>
+
+<span class="comment"># 9 improvements, then stop</span>
+<span class="cmd">/mastermind:autodev 9 --tillend</span>
+
+<span class="comment"># Review loop until clean</span>
+<span class="cmd">/mastermind:review --tillend --auto</span></div>
+    <div class="section-title reveal">Core Commands Quick Reference</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">npx monomind init</td><td>Initialize project with wizard</td></tr>
+        <tr><td class="mono">npx monomind doctor</td><td>Health diagnostics; auto-fix with --fix</td></tr>
+        <tr><td class="mono">npx monomind daemon start</td><td>Start background worker daemon</td></tr>
+        <tr><td class="mono">npx monomind memory store</td><td>Store a memory with optional namespace</td></tr>
+        <tr><td class="mono">npx monomind memory search</td><td>BM25 + semantic hybrid search</td></tr>
+        <tr><td class="mono">npx monomind swarm init</td><td>Initialize a multi-agent swarm</td></tr>
+        <tr><td class="mono">npx monomind hooks list</td><td>Show all registered hooks</td></tr>
+        <tr><td class="mono">/mastermind:autodev</td><td>Autonomous build loop inside Claude Code</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<!-- ARCHITECTURE -->
+<div id="page-architecture" class="page">
+  <div class="page-content">
+    <div class="page-header">
+      <span class="page-tag">Architecture</span>
+      <h1 class="page-title">How Monomind is built</h1>
+      <p class="page-desc">A TypeScript monorepo with 17+ packages, each owning a bounded context. Claude Code handles all execution; MCP tools coordinate.</p>
+    </div>
+    <div class="section-title reveal">System Diagram</div>
+    <div class="arch-diagram reveal">
+      <svg id="arch-svg" viewBox="0 0 760 380" width="760" height="380" aria-label="Monomind architecture diagram" style="max-width:100%">
+        <defs>
+          <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="oklch(55% 0.010 265)"/>
+          </marker>
+        </defs>
+        <rect class="arch-box" x="10" y="10" width="220" height="110" rx="8" fill="none" stroke="oklch(30% 0.015 265)" stroke-width="1" opacity="0"/>
+        <rect class="arch-box" x="270" y="10" width="220" height="110" rx="8" fill="none" stroke="oklch(30% 0.015 265)" stroke-width="1" opacity="0"/>
+        <rect class="arch-box" x="530" y="10" width="220" height="110" rx="8" fill="none" stroke="oklch(30% 0.015 265)" stroke-width="1" opacity="0"/>
+        <rect class="arch-box" x="10" y="160" width="220" height="110" rx="8" fill="none" stroke="oklch(30% 0.015 265)" stroke-width="1" opacity="0"/>
+        <rect class="arch-box" x="270" y="160" width="220" height="110" rx="8" fill="none" stroke="oklch(30% 0.015 265)" stroke-width="1" opacity="0"/>
+        <rect class="arch-box" x="530" y="160" width="220" height="110" rx="8" fill="none" stroke="oklch(30% 0.015 265)" stroke-width="1" opacity="0"/>
+        <rect class="arch-box" x="140" y="310" width="220" height="60" rx="8" fill="none" stroke="oklch(30% 0.015 265)" stroke-width="1" opacity="0"/>
+        <rect class="arch-box" x="400" y="310" width="220" height="60" rx="8" fill="none" stroke="oklch(30% 0.015 265)" stroke-width="1" opacity="0"/>
+        <text class="arch-label" x="120" y="62" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/cli</text>
+        <text class="arch-sub" x="120" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">41 commands</text>
+        <text class="arch-sub" x="120" y="98" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Entry point</text>
+        <text class="arch-label" x="380" y="62" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/hooks</text>
+        <text class="arch-sub" x="380" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">17 hook types · 12 workers</text>
+        <text class="arch-sub" x="380" y="98" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Intelligence pipeline</text>
+        <text class="arch-label" x="640" y="62" text-anchor="middle" fill="oklch(70% 0.18 60)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/memory</text>
+        <text class="arch-sub" x="640" y="82" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">AgentDB + HNSW</text>
+        <text class="arch-sub" x="640" y="98" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Memory Palace L0–L3</text>
+        <text class="arch-label" x="120" y="212" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/swarm</text>
+        <text class="arch-sub" x="120" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">6 topologies</text>
+        <text class="arch-sub" x="120" y="248" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">5 consensus algorithms</text>
+        <text class="arch-label" x="380" y="212" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/neural</text>
+        <text class="arch-sub" x="380" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">SONA + LoRA + EWC++</text>
+        <text class="arch-sub" x="380" y="248" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Self-optimizing</text>
+        <text class="arch-label" x="640" y="212" text-anchor="middle" fill="oklch(78% 0.14 210)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/security</text>
+        <text class="arch-sub" x="640" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">CVE remediation</text>
+        <text class="arch-sub" x="640" y="248" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Input validation</text>
+        <text class="arch-label" x="250" y="347" text-anchor="middle" fill="oklch(72% 0.22 168)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">Monograph</text>
+        <text class="arch-sub" x="250" y="362" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">23 MCP tools · Code knowledge graph</text>
+        <text class="arch-label" x="510" y="347" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/guidance</text>
+        <text class="arch-sub" x="510" y="362" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Governance control plane</text>
+        <line class="arch-arrow" x1="230" y1="65" x2="265" y2="65" stroke="oklch(30% 0.015 265)" stroke-width="1.5" marker-end="url(#arr)" opacity="0"/>
+        <line class="arch-arrow" x1="490" y1="65" x2="525" y2="65" stroke="oklch(30% 0.015 265)" stroke-width="1.5" marker-end="url(#arr)" opacity="0"/>
+        <line class="arch-arrow" x1="230" y1="215" x2="265" y2="215" stroke="oklch(30% 0.015 265)" stroke-width="1.5" marker-end="url(#arr)" opacity="0"/>
+        <line class="arch-arrow" x1="490" y1="215" x2="525" y2="215" stroke="oklch(30% 0.015 265)" stroke-width="1.5" marker-end="url(#arr)" opacity="0"/>
+        <line class="arch-arrow" x1="120" y1="120" x2="120" y2="155" stroke="oklch(30% 0.015 265)" stroke-width="1.5" marker-end="url(#arr)" opacity="0"/>
+        <line class="arch-arrow" x1="380" y1="120" x2="380" y2="155" stroke="oklch(30% 0.015 265)" stroke-width="1.5" marker-end="url(#arr)" opacity="0"/>
+        <line class="arch-arrow" x1="640" y1="120" x2="640" y2="155" stroke="oklch(30% 0.015 265)" stroke-width="1.5" marker-end="url(#arr)" opacity="0"/>
+        <line class="arch-arrow" x1="250" y1="270" x2="250" y2="305" stroke="oklch(30% 0.015 265)" stroke-width="1.5" marker-end="url(#arr)" opacity="0"/>
+        <line class="arch-arrow" x1="510" y1="270" x2="510" y2="305" stroke="oklch(30% 0.015 265)" stroke-width="1.5" marker-end="url(#arr)" opacity="0"/>
+      </svg>
+    </div>
+    <div class="section-title reveal">Package Inventory</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Package</th><th>Path</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">@monomind/cli</td><td class="mono">packages/@monomind/cli/</td><td>CLI entry point — 41 commands</td></tr>
+        <tr><td class="mono">@monomind/hooks</td><td class="mono">packages/@monomind/hooks/</td><td>17 hooks + 12 background workers</td></tr>
+        <tr><td class="mono">@monomind/memory</td><td class="mono">packages/@monomind/memory/</td><td>AgentDB + HNSW vector search</td></tr>
+        <tr><td class="mono">@monomind/security</td><td class="mono">packages/@monomind/security/</td><td>Input validation, CVE remediation</td></tr>
+        <tr><td class="mono">@monomind/guidance</td><td class="mono">packages/@monomind/guidance/</td><td>Governance control plane</td></tr>
+        <tr><td class="mono">@monomind/swarm</td><td class="mono">packages/@monomind/swarm/</td><td>Multi-agent swarm coordination</td></tr>
+        <tr><td class="mono">@monomind/neural</td><td class="mono">packages/@monomind/neural/</td><td>SONA + LoRA + EWC++ training</td></tr>
+        <tr><td class="mono">monograph</td><td class="mono">packages/monograph/</td><td>Code knowledge graph, 23 MCP tools</td></tr>
+        <tr><td class="mono">monomind</td><td class="mono">/ (root)</td><td>Umbrella package published to npm</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="section-title reveal">3-Tier Model Routing</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Tier</th><th>Handler</th><th>Latency</th><th>Cost</th><th>Use Cases</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag tag-accent">1</span></td><td>Agent Booster (WASM)</td><td>&lt;1ms</td><td>$0</td><td>Simple transforms — skip LLM entirely</td></tr>
+        <tr><td><span class="tag tag-amber">2</span></td><td>Claude Haiku</td><td>~500ms</td><td>$0.0002</td><td>Simple tasks, complexity &lt;30%</td></tr>
+        <tr><td><span class="tag tag-violet">3</span></td><td>Claude Sonnet/Opus</td><td>2–5s</td><td>$0.003–0.015</td><td>Architecture, security, complex reasoning</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<!-- MEMORY -->
+<div id="page-memory" class="page">
+  <div class="page-content">
+    <div class="page-header">
+      <span class="page-tag">Concepts</span>
+      <h1 class="page-title">Memory &amp; Knowledge</h1>
+      <p class="page-desc">Four-tier memory palace, HNSW vector indexing, BM25 search, and Monograph — the code knowledge graph with 23 MCP tools.</p>
+    </div>
+    <div class="section-title reveal">Memory Palace — Four Tiers</div>
+    <div class="tier-stack reveal">
+      <div class="tier-row tier-l0"><div class="tier-label">L0<br>In-flight</div><div class="tier-content"><strong>Current session context.</strong> Stored in <code>drawers.jsonl</code>. Each drawer has a key, value, tags array, timestamp, and score. Ephemeral — not persisted across sessions unless promoted.</div></div>
+      <div class="tier-row tier-l1"><div class="tier-label">L1<br>Working</div><div class="tier-content"><strong>Cross-session working memory.</strong> Closets store aggregated entries from multiple drawers. Closet boost adds +0.5 per matching search term. BM25 parameters: K1=1.5, B=0.75.</div></div>
+      <div class="tier-row tier-l2"><div class="tier-label">L2<br>Long-term</div><div class="tier-content"><strong>Persisted embeddings.</strong> AgentDB with HNSW indexing. Hybrid backend combines SQLite for exact lookups with AgentDB for semantic search. 150x–12,500x speedup over brute-force.</div></div>
+      <div class="tier-row tier-l3"><div class="tier-label">L3<br>Shared</div><div class="tier-content"><strong>Cross-agent namespace.</strong> PartitionedHNSW shards by agent domain. Federation allows swarm agents to read each other's L3 without owning writes. Knowledge graph edges land here.</div></div>
+    </div>
+    <div class="section-title reveal">Storage Backends</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Backend</th><th>Use Case</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">SQLiteBackend</td><td>Small projects, single-agent</td><td>Default. No external deps.</td></tr>
+        <tr><td class="mono">AgentDBBackend</td><td>Vector semantic search</td><td>Pure-TypeScript HNSW index.</td></tr>
+        <tr><td class="mono">HybridBackend</td><td>Production (recommended)</td><td>SQLite + AgentDB per ADR-009. Auto-routes by query type.</td></tr>
+        <tr><td class="mono">PartitionedHNSW</td><td>Multi-agent L3</td><td>Domain-sharded; agent-scoped writes.</td></tr>
+        <tr><td class="mono">DiskAnnBackend</td><td>Very large datasets</td><td>Disk-resident ANN index.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="section-title reveal">Monograph — Code Knowledge Graph</div>
+    <p class="reveal" style="color:var(--text2);margin-bottom:24px;font-size:14px;line-height:1.7;">Monograph builds a SQLite-backed graph of your codebase — nodes are files/classes/functions, edges are imports/calls/dependencies. Use it before touching 3+ files.</p>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Tool</th><th>When to use</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">monograph_suggest</td><td>Start every task — returns relevant files ranked by task description</td></tr>
+        <tr><td class="mono">monograph_query</td><td>BM25 keyword search; returns file + line number</td></tr>
+        <tr><td class="mono">monograph_impact</td><td>Before changing anything — full blast radius analysis</td></tr>
+        <tr><td class="mono">monograph_context</td><td>360° view of a file: importers, imports, siblings</td></tr>
+        <tr><td class="mono">monograph_god_nodes</td><td>High-centrality files (external/test auto-filtered)</td></tr>
+        <tr><td class="mono">monograph_shortest_path</td><td>How two modules connect</td></tr>
+        <tr><td class="mono">monograph_rename</td><td>Dry-run multi-file rename with graph + text occurrences</td></tr>
+        <tr><td class="mono">monograph_detect_changes</td><td>Map git diff to affected graph nodes</td></tr>
+        <tr><td class="mono">monograph_community</td><td>Files forming a cohesive module cluster</td></tr>
+        <tr><td class="mono">monograph_cypher</td><td>Ad-hoc graph queries (Cypher syntax)</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="section-title reveal">Learning Pipeline</div>
+    <div class="phase-flow reveal">
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 1</div><div class="phase-name">RETRIEVE</div><div class="phase-desc">HNSW ANN search across L2/L3 tiers. Returns top-K neighbors by cosine similarity in sub-millisecond time.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 2</div><div class="phase-name">JUDGE</div><div class="phase-desc">Relevance verdicts computed by RuVector. High/low/neutral signals flow to the distillation step.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 3</div><div class="phase-name">DISTILL</div><div class="phase-desc">LoRA fine-tune on high-signal trajectories. Rank 1–16 adapter applied to base model without full retraining.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 4</div><div class="phase-name">CONSOLIDATE</div><div class="phase-desc">EWC++ (lambda 1500–2500) prevents catastrophic forgetting while incorporating new patterns. Elastic weight consolidation preserves prior task performance.</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- HOOKS -->
+<div id="page-hooks" class="page">
+  <div class="page-content">
+    <div class="page-header">
+      <span class="page-tag">Concepts</span>
+      <h1 class="page-title">Hooks &amp; Workers</h1>
+      <p class="page-desc">22 hook events, 10 core background workers, and an intelligence pipeline that learns from every edit, task, and session.</p>
+    </div>
+    <div class="section-title reveal">Hook Events</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Event</th><th>Category</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">pre-edit</td><td><span class="tag tag-accent">core</span></td><td>Context and agent suggestions before editing a file</td></tr>
+        <tr><td class="mono">post-edit</td><td><span class="tag tag-accent">core</span></td><td>Record edit outcome for neural pattern learning</td></tr>
+        <tr><td class="mono">pre-command</td><td><span class="tag tag-accent">core</span></td><td>Intercept command before execution</td></tr>
+        <tr><td class="mono">post-command</td><td><span class="tag tag-accent">core</span></td><td>Record command result</td></tr>
+        <tr><td class="mono">pre-task</td><td><span class="tag tag-accent">core</span></td><td>Register task start; get AGENT_BOOSTER_AVAILABLE or TASK_MODEL_RECOMMENDATION</td></tr>
+        <tr><td class="mono">post-task</td><td><span class="tag tag-accent">core</span></td><td>Record completion; train patterns</td></tr>
+        <tr><td class="mono">session-start</td><td><span class="tag tag-cyan">session</span></td><td>Restore cross-session context</td></tr>
+        <tr><td class="mono">session-end</td><td><span class="tag tag-cyan">session</span></td><td>Persist state; flush working memory</td></tr>
+        <tr><td class="mono">session-restore</td><td><span class="tag tag-cyan">session</span></td><td>Replay session state into context</td></tr>
+        <tr><td class="mono">notify</td><td><span class="tag tag-cyan">session</span></td><td>Push notification to user or external system</td></tr>
+        <tr><td class="mono">route</td><td><span class="tag tag-violet">intelligence</span></td><td>3-tier model routing decision</td></tr>
+        <tr><td class="mono">explain</td><td><span class="tag tag-violet">intelligence</span></td><td>Explain decision rationale</td></tr>
+        <tr><td class="mono">pretrain</td><td><span class="tag tag-violet">intelligence</span></td><td>Pre-training signal ingestion</td></tr>
+        <tr><td class="mono">build-agents</td><td><span class="tag tag-violet">intelligence</span></td><td>Auto-spawn agents for a task</td></tr>
+        <tr><td class="mono">transfer</td><td><span class="tag tag-violet">intelligence</span></td><td>Transfer learning across tasks</td></tr>
+        <tr><td class="mono">teammate-idle</td><td><span class="tag tag-amber">teams</span></td><td>Auto-assign task to idle teammate</td></tr>
+        <tr><td class="mono">task-completed</td><td><span class="tag tag-amber">teams</span></td><td>Train patterns; notify team lead</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="section-title reveal">Background Workers</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Worker</th><th>Priority</th><th>Function</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">security</td><td><span class="tag tag-red">critical</span></td><td>Continuous security scanning and CVE alerting</td></tr>
+        <tr><td class="mono">health</td><td><span class="tag tag-red">critical</span></td><td>System health monitoring, daemon watchdog</td></tr>
+        <tr><td class="mono">swarm</td><td><span class="tag tag-red">critical</span></td><td>Swarm coordinator heartbeat and agent lifecycle</td></tr>
+        <tr><td class="mono">performance</td><td><span class="tag tag-amber">normal</span></td><td>Token cost tracking, latency profiling</td></tr>
+        <tr><td class="mono">patterns</td><td><span class="tag tag-amber">normal</span></td><td>Pattern extraction from hook trajectories</td></tr>
+        <tr><td class="mono">learning</td><td><span class="tag tag-amber">normal</span></td><td>SONA LoRA fine-tune on high-signal runs</td></tr>
+        <tr><td class="mono">git</td><td><span class="tag tag-amber">normal</span></td><td>Commit analysis, branch diff summaries</td></tr>
+        <tr><td class="mono">ddd</td><td><span class="tag tag-muted">low</span></td><td>Domain-driven design pattern detection</td></tr>
+        <tr><td class="mono">adr</td><td><span class="tag tag-muted">low</span></td><td>Architecture Decision Record harvesting</td></tr>
+        <tr><td class="mono">cache</td><td><span class="tag tag-muted">bg</span></td><td>Context preloading and cache warming</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="section-title reveal">Hook Configuration</div>
+    <div class="code-block reveal">
+<span class="comment">// .claude/settings.json</span>
+{
+  <span class="string">"hooks"</span>: {
+    <span class="string">"pre-task"</span>: [{ <span class="string">"matcher"</span>: <span class="string">".*"</span>, <span class="string">"hooks"</span>: [{
+      <span class="string">"type"</span>: <span class="string">"command"</span>,
+      <span class="string">"command"</span>: <span class="string">"npx monomind hooks pre-task --description \"$TASK\""</span>
+    }]}],
+    <span class="string">"post-edit"</span>: [{ <span class="string">"matcher"</span>: <span class="string">".*"</span>, <span class="string">"hooks"</span>: [{
+      <span class="string">"type"</span>: <span class="string">"command"</span>,
+      <span class="string">"command"</span>: <span class="string">"npx monomind hooks post-edit --file \"$FILE\""</span>
+    }]}]
   }
+}</div>
+  </div>
+</div>
+
+<!-- SWARM -->
+<div id="page-swarm" class="page">
+  <div class="page-content">
+    <div class="page-header">
+      <span class="page-tag">Concepts</span>
+      <h1 class="page-title">Swarm Coordination</h1>
+      <p class="page-desc">Six topologies, five consensus algorithms, and a 15-agent domain hierarchy — from a single coordinator to a Byzantine fault-tolerant hive.</p>
+    </div>
+    <div class="section-title reveal">Topologies</div>
+    <div class="topo-grid reveal">
+      <div class="topo-card"><div class="topo-name">Hierarchical</div><div class="topo-desc">Queen → domain leads → workers. Best for complex feature development. Default.</div></div>
+      <div class="topo-card"><div class="topo-name">Mesh</div><div class="topo-desc">Peer-to-peer, all agents equal. Best for distributed analysis with no single authority.</div></div>
+      <div class="topo-card"><div class="topo-name">Hierarchical-Mesh</div><div class="topo-desc">Queen manages peer clusters. Recommended for large swarms.</div></div>
+      <div class="topo-card"><div class="topo-name">Adaptive</div><div class="topo-desc">Reconfigures topology dynamically. High overhead — use for long-running sessions.</div></div>
+      <div class="topo-card"><div class="topo-name">Centralized</div><div class="topo-desc">Single coordinator, fan-out workers. Fastest for homogeneous parallel tasks.</div></div>
+      <div class="topo-card"><div class="topo-name">Star</div><div class="topo-desc">Hub-and-spoke. Testing swarms — one orchestrator, N independent runners.</div></div>
+    </div>
+    <div class="section-title reveal">Consensus Algorithms</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Algorithm</th><th>Fault Tolerance</th><th>Best For</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">Raft</td><td>f &lt; n/2</td><td>Default. Strong consistency, single leader. Production code changes.</td></tr>
+        <tr><td class="mono">Byzantine</td><td>f &lt; n/3</td><td>Untrusted agent environments, security-critical decisions.</td></tr>
+        <tr><td class="mono">Gossip</td><td>Eventual</td><td>Large swarms where propagation latency is acceptable.</td></tr>
+        <tr><td class="mono">CRDT</td><td>Partition-tolerant</td><td>Concurrent state merges without coordination (offline agents).</td></tr>
+        <tr><td class="mono">Quorum</td><td>Majority</td><td>Read-heavy workloads with strict majority agreement.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="section-title reveal">15-Agent Domain Hierarchy</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Domain</th><th>Agents</th></tr></thead>
+      <tbody>
+        <tr><td>Queen / Orchestration</td><td>QueenCoordinator, AttentionCoordinator</td></tr>
+        <tr><td>Architecture</td><td>Architect, SystemDesigner</td></tr>
+        <tr><td>Engineering</td><td>Coder, BackendDev, FrontendDev</td></tr>
+        <tr><td>Quality</td><td>Tester, Reviewer, SecurityAuditor</td></tr>
+        <tr><td>Memory / Intelligence</td><td>MemorySpecialist, NeuralTrainer</td></tr>
+        <tr><td>Operations</td><td>PerfEngineer, MonitorAgent</td></tr>
+        <tr><td>Research</td><td>ResearchAgent</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="section-title reveal">Quick Launch</div>
+    <div class="code-block reveal">
+<span class="comment"># Hierarchical swarm, 8 agents, specialized strategy</span>
+<span class="cmd">npx monomind swarm init \
+  --topology hierarchical \
+  --max-agents 8 \
+  --strategy specialized</span>
+
+<span class="comment"># Hive-mind with Byzantine consensus</span>
+<span class="cmd">npx monomind hive-mind init \
+  --topology hierarchical-mesh \
+  --consensus byzantine</span>
+
+<span class="comment"># Interactive topology picker in Claude Code</span>
+<span class="keyword">/mastermind</span></div>
+  </div>
+</div>
+
+<!-- NEURAL -->
+<div id="page-neural" class="page">
+  <div class="page-content">
+    <div class="page-header">
+      <span class="page-tag">Concepts</span>
+      <h1 class="page-title">Neural Learning</h1>
+      <p class="page-desc">SONA self-optimizing architecture, LoRA adapters, EWC++ memory preservation, and a full RL agent suite — running automatically in the background.</p>
+    </div>
+    <div class="section-title reveal">SONA Operating Modes</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Mode</th><th>LoRA Rank</th><th>Batch</th><th>Latency Target</th><th>Memory</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag tag-accent">real-time</span></td><td>1–2</td><td>1</td><td>&lt;50ms</td><td>&lt;512MB</td></tr>
+        <tr><td><span class="tag tag-cyan">balanced</span></td><td>4–8</td><td>4</td><td>&lt;500ms</td><td>&lt;2GB</td></tr>
+        <tr><td><span class="tag tag-violet">research</span></td><td>16</td><td>16</td><td>uncapped</td><td>&lt;8GB</td></tr>
+        <tr><td><span class="tag tag-amber">edge</span></td><td>1</td><td>1</td><td>&lt;10ms</td><td>&lt;256MB</td></tr>
+        <tr><td><span class="tag tag-muted">batch</span></td><td>8–16</td><td>32</td><td>offline</td><td>&lt;16GB</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="section-title reveal">LoRA + EWC++</div>
+    <div class="card-grid reveal">
+      <div class="card"><div class="card-title">LoRA Fine-Tuning</div><div class="card-desc">Low-Rank Adaptation injects trainable rank decomposition matrices into attention layers. Rank 1–16. No full model retraining — only adapter weights update.</div></div>
+      <div class="card"><div class="card-title">EWC++ Memory</div><div class="card-desc">Elastic Weight Consolidation with lambda 1500–2500. Constrains gradient updates on weights important to prior tasks. Prevents catastrophic forgetting across training rounds.</div></div>
+    </div>
+    <div class="section-title reveal">RL Algorithms</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Algorithm</th><th>Use Case</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">PPO</td><td>Default RL trainer. Proximal Policy Optimization — stable, on-policy.</td></tr>
+        <tr><td class="mono">DQN</td><td>Deep Q-Network — discrete action spaces, tool selection.</td></tr>
+        <tr><td class="mono">A2C</td><td>Advantage Actor-Critic — faster convergence for parallel environments.</td></tr>
+        <tr><td class="mono">DecisionTransformer</td><td>Sequence-based RL — models trajectories as token sequences.</td></tr>
+        <tr><td class="mono">QLearning</td><td>Classic tabular Q — lightweight for small state spaces.</td></tr>
+        <tr><td class="mono">SARSA</td><td>On-policy TD — conservative, lower variance than Q-Learning.</td></tr>
+        <tr><td class="mono">CuriosityModule</td><td>Intrinsic motivation — exploration bonus for novel states.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="section-title reveal">CLI</div>
+    <div class="code-block reveal">
+<span class="comment"># Train with Flash Attention (2.49x–7.47x speedup)</span>
+<span class="cmd">npx monomind neural train --flash</span>
+
+<span class="comment"># Mixture-of-Experts training</span>
+<span class="cmd">npx monomind neural train --moe</span>
+
+<span class="comment"># Optimize existing model</span>
+<span class="cmd">npx monomind neural optimize --method quantize</span>
+<span class="cmd">npx monomind neural optimize --method compact</span></div>
+  </div>
+</div>
+
+<!-- CLI COMMANDS -->
+<div id="page-commands" class="page">
+  <div class="page-content">
+    <div class="page-header">
+      <span class="page-tag">Reference</span>
+      <h1 class="page-title">CLI Commands</h1>
+      <p class="page-desc">All 53+ commands across 19 categories. Run <code>npx monomind &lt;command&gt; --help</code> for full flag reference.</p>
+    </div>
+    <div class="search-bar reveal"><span class="search-icon">⌕</span><input type="text" id="cli-search" placeholder="Search commands..." aria-label="Search CLI commands"></div>
+    <div class="cmd-grid" id="cli-grid">
+      <div class="cmd-item" data-search="init wizard preset skills"><div class="cmd-name">init</div><div class="cmd-desc">Project init wizard — topology, memory, hooks</div></div>
+      <div class="cmd-item" data-search="init preset minimal"><div class="cmd-name">init --preset minimal</div><div class="cmd-desc">Initialize with a named preset configuration</div></div>
+      <div class="cmd-item" data-search="agent spawn start create"><div class="cmd-name">agent spawn</div><div class="cmd-desc">Spawn a named agent by type</div></div>
+      <div class="cmd-item" data-search="agent list show active"><div class="cmd-name">agent list</div><div class="cmd-desc">List active agents and their status</div></div>
+      <div class="cmd-item" data-search="agent status info"><div class="cmd-name">agent status &lt;id&gt;</div><div class="cmd-desc">Detailed agent info and metrics</div></div>
+      <div class="cmd-item" data-search="agent stop kill terminate"><div class="cmd-name">agent stop &lt;id&gt;</div><div class="cmd-desc">Gracefully terminate an agent</div></div>
+      <div class="cmd-item" data-search="agent metrics performance"><div class="cmd-name">agent metrics</div><div class="cmd-desc">Performance metrics by agent type</div></div>
+      <div class="cmd-item" data-search="swarm init topology start"><div class="cmd-name">swarm init</div><div class="cmd-desc">Initialize a multi-agent swarm</div></div>
+      <div class="cmd-item" data-search="swarm status health report"><div class="cmd-name">swarm status</div><div class="cmd-desc">Health report: agents, tasks, memory</div></div>
+      <div class="cmd-item" data-search="swarm spawn add agent"><div class="cmd-name">swarm spawn</div><div class="cmd-desc">Add an agent to a running swarm</div></div>
+      <div class="cmd-item" data-search="swarm monitor watch telemetry"><div class="cmd-name">swarm monitor</div><div class="cmd-desc">Live swarm telemetry stream</div></div>
+      <div class="cmd-item" data-search="swarm stop shutdown terminate"><div class="cmd-name">swarm stop</div><div class="cmd-desc">Gracefully shutdown all swarm agents</div></div>
+      <div class="cmd-item" data-search="memory store save write"><div class="cmd-name">memory store</div><div class="cmd-desc">Store a memory entry with optional namespace</div></div>
+      <div class="cmd-item" data-search="memory search query find bm25 semantic"><div class="cmd-name">memory search</div><div class="cmd-desc">BM25 + semantic hybrid search</div></div>
+      <div class="cmd-item" data-search="memory list show namespace"><div class="cmd-name">memory list</div><div class="cmd-desc">List memories by namespace or tag</div></div>
+      <div class="cmd-item" data-search="memory delete remove purge"><div class="cmd-name">memory delete &lt;key&gt;</div><div class="cmd-desc">Remove a memory entry</div></div>
+      <div class="cmd-item" data-search="memory export backup json"><div class="cmd-name">memory export</div><div class="cmd-desc">Export memories to JSON</div></div>
+      <div class="cmd-item" data-search="memory import restore load"><div class="cmd-name">memory import</div><div class="cmd-desc">Import memories from JSON</div></div>
+      <div class="cmd-item" data-search="memory stats counts backend health"><div class="cmd-name">memory stats</div><div class="cmd-desc">Entry counts, backend info, index health</div></div>
+      <div class="cmd-item" data-search="mcp start server stdio"><div class="cmd-name">mcp start</div><div class="cmd-desc">Start MCP server (required for claude mcp add)</div></div>
+      <div class="cmd-item" data-search="mcp list tools registered"><div class="cmd-name">mcp list</div><div class="cmd-desc">List all registered MCP tools</div></div>
+      <div class="cmd-item" data-search="mcp status health connection"><div class="cmd-name">mcp status</div><div class="cmd-desc">Server health and connection info</div></div>
+      <div class="cmd-item" data-search="task create new title"><div class="cmd-name">task create</div><div class="cmd-desc">Create a task with title, description, priority</div></div>
+      <div class="cmd-item" data-search="task list show board status"><div class="cmd-name">task list</div><div class="cmd-desc">Show tasks filtered by status or board</div></div>
+      <div class="cmd-item" data-search="task update status priority"><div class="cmd-name">task update &lt;id&gt;</div><div class="cmd-desc">Update task status, priority, assignee</div></div>
+      <div class="cmd-item" data-search="task delete remove"><div class="cmd-name">task delete &lt;id&gt;</div><div class="cmd-desc">Remove a task permanently</div></div>
+      <div class="cmd-item" data-search="hooks pre-task before task start"><div class="cmd-name">hooks pre-task</div><div class="cmd-desc">Register task start; get routing recommendation</div></div>
+      <div class="cmd-item" data-search="hooks post-task after task complete"><div class="cmd-name">hooks post-task</div><div class="cmd-desc">Record completion; trigger learning</div></div>
+      <div class="cmd-item" data-search="hooks pre-edit before file edit"><div class="cmd-name">hooks pre-edit</div><div class="cmd-desc">Context suggestions before file edit</div></div>
+      <div class="cmd-item" data-search="hooks post-edit after file edit"><div class="cmd-name">hooks post-edit</div><div class="cmd-desc">Record edit outcome for patterns</div></div>
+      <div class="cmd-item" data-search="hooks session start begin restore"><div class="cmd-name">hooks session-start</div><div class="cmd-desc">Restore cross-session context</div></div>
+      <div class="cmd-item" data-search="hooks session end finish persist"><div class="cmd-name">hooks session-end</div><div class="cmd-desc">Persist state; flush working memory</div></div>
+      <div class="cmd-item" data-search="hooks route model tier routing"><div class="cmd-name">hooks route</div><div class="cmd-desc">3-tier model routing decision</div></div>
+      <div class="cmd-item" data-search="hooks worker list background"><div class="cmd-name">hooks worker list</div><div class="cmd-desc">List active background workers</div></div>
+      <div class="cmd-item" data-search="hive mind init consensus topology"><div class="cmd-name">hive-mind init</div><div class="cmd-desc">Initialize hive with topology + consensus</div></div>
+      <div class="cmd-item" data-search="hive mind spawn worker queen claude"><div class="cmd-name">hive-mind spawn</div><div class="cmd-desc">Spawn workers; --claude launches Claude as Queen</div></div>
+      <div class="cmd-item" data-search="hive mind status health workers"><div class="cmd-name">hive-mind status</div><div class="cmd-desc">Active workers, metrics, consensus state</div></div>
+      <div class="cmd-item" data-search="daemon start background service"><div class="cmd-name">daemon start</div><div class="cmd-desc">Start the background worker daemon</div></div>
+      <div class="cmd-item" data-search="daemon stop shutdown kill"><div class="cmd-name">daemon stop</div><div class="cmd-desc">Gracefully stop all daemon processes</div></div>
+      <div class="cmd-item" data-search="daemon status pid uptime health"><div class="cmd-name">daemon status</div><div class="cmd-desc">PID, uptime, worker health report</div></div>
+      <div class="cmd-item" data-search="neural train flash attention speedup lora"><div class="cmd-name">neural train --flash</div><div class="cmd-desc">Train with Flash Attention (2.49x–7.47x speedup)</div></div>
+      <div class="cmd-item" data-search="neural optimize quantize compact analyze"><div class="cmd-name">neural optimize</div><div class="cmd-desc">Optimize model: quantize, analyze, compact</div></div>
+      <div class="cmd-item" data-search="neural status training lora ewc"><div class="cmd-name">neural status</div><div class="cmd-desc">Training state, LoRA rank, EWC lambda</div></div>
+      <div class="cmd-item" data-search="security scan audit cve vulnerability"><div class="cmd-name">security scan</div><div class="cmd-desc">Run CVE and vulnerability scan</div></div>
+      <div class="cmd-item" data-search="security validate input sanitize"><div class="cmd-name">security validate</div><div class="cmd-desc">Input validation and sanitization check</div></div>
+      <div class="cmd-item" data-search="performance profile benchmark latency token"><div class="cmd-name">performance profile</div><div class="cmd-desc">Record latency and token cost profiles</div></div>
+      <div class="cmd-item" data-search="performance report metrics time series"><div class="cmd-name">performance report</div><div class="cmd-desc">Time-series performance metrics</div></div>
+      <div class="cmd-item" data-search="doctor health check diagnose fix repair"><div class="cmd-name">doctor</div><div class="cmd-desc">System diagnostics — all components</div></div>
+      <div class="cmd-item" data-search="doctor fix auto repair node db daemon"><div class="cmd-name">doctor --fix</div><div class="cmd-desc">Auto-fix: Node version, DB init, daemon start</div></div>
+      <div class="cmd-item" data-search="monograph build graph code knowledge"><div class="cmd-name">monograph build</div><div class="cmd-desc">Build the code knowledge graph</div></div>
+      <div class="cmd-item" data-search="monograph search query find bm25 semantic"><div class="cmd-name">monograph search</div><div class="cmd-desc">BM25, semantic, hybrid search across graph</div></div>
+      <div class="cmd-item" data-search="monograph stats counts nodes edges"><div class="cmd-name">monograph stats</div><div class="cmd-desc">Node/edge counts, top concepts by importance</div></div>
+      <div class="cmd-item" data-search="monograph watch incremental rebuild changes"><div class="cmd-name">monograph watch</div><div class="cmd-desc">Watch mode: incremental rebuild on file changes</div></div>
+      <div class="cmd-item" data-search="browse browser ui testing open url"><div class="cmd-name">browse open &lt;url&gt;</div><div class="cmd-desc">Open URL in CDP browser client</div></div>
+      <div class="cmd-item" data-search="browse snapshot elements interactive"><div class="cmd-name">browse snapshot -i</div><div class="cmd-desc">Get interactive elements (93% less context)</div></div>
+      <div class="cmd-item" data-search="browse click element interact ref"><div class="cmd-name">browse click @e1</div><div class="cmd-desc">Click element by snapshot ref</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- SLASH COMMANDS -->
+<div id="page-slash" class="page">
+  <div class="page-content">
+    <div class="page-header">
+      <span class="page-tag">Reference</span>
+      <h1 class="page-title">Slash Commands</h1>
+      <p class="page-desc">~110 executable commands across 22 categories. Invoke via <code>/command</code> inside Claude Code.</p>
+    </div>
+    <div class="search-bar reveal"><span class="search-icon">⌕</span><input type="text" id="slash-search" placeholder="Search slash commands..." aria-label="Search slash commands"></div>
+    <div class="cmd-grid" id="slash-grid">
+      <div class="cmd-item" data-search="browse browser testing automation"><div class="cmd-name">/browse</div><div class="cmd-desc">UI testing via monomind browse CDP client</div></div>
+      <div class="cmd-item" data-search="mastermind swarm topology picker"><div class="cmd-name">/mastermind</div><div class="cmd-desc">Swarm topology picker — all 11 modes, one recommendation</div></div>
+      <div class="cmd-item" data-search="sparc methodology workflow"><div class="cmd-name">/sparc</div><div class="cmd-desc">Execute SPARC methodology workflows</div></div>
+      <div class="cmd-item" data-search="tokens usage cost dashboard"><div class="cmd-name">/tokens</div><div class="cmd-desc">Token usage dashboard: today/week/30days/month</div></div>
+      <div class="cmd-item" data-search="ts statusline toggle compact full"><div class="cmd-name">/ts</div><div class="cmd-desc">Toggle statusline between full and compact mode</div></div>
+      <div class="cmd-item" data-search="mastermind autodev build review loop autonomous tillend"><div class="cmd-name">/mastermind:autodev</div><div class="cmd-desc">Autonomous research→build→review loop</div></div>
+      <div class="cmd-item" data-search="mastermind build implement feature brief"><div class="cmd-name">/mastermind:build</div><div class="cmd-desc">Build a specific feature from a brief</div></div>
+      <div class="cmd-item" data-search="mastermind review audit code clean"><div class="cmd-name">/mastermind:review</div><div class="cmd-desc">Iterative code review until clean</div></div>
+      <div class="cmd-item" data-search="mastermind architect design system architecture"><div class="cmd-name">/mastermind:architect</div><div class="cmd-desc">System architecture and design</div></div>
+      <div class="cmd-item" data-search="mastermind research investigate deep"><div class="cmd-name">/mastermind:research</div><div class="cmd-desc">Deep research with structured output</div></div>
+      <div class="cmd-item" data-search="mastermind release version publish changelog"><div class="cmd-name">/mastermind:release</div><div class="cmd-desc">Manage a software release</div></div>
+      <div class="cmd-item" data-search="mastermind idea feature improvement generate"><div class="cmd-name">/mastermind:idea</div><div class="cmd-desc">Idea generation and evaluation</div></div>
+      <div class="cmd-item" data-search="mastermind ops operations planning tracking"><div class="cmd-name">/mastermind:ops</div><div class="cmd-desc">Operations planning and tracking</div></div>
+      <div class="cmd-item" data-search="mastermind finance model burn rate"><div class="cmd-name">/mastermind:finance</div><div class="cmd-desc">Financial modeling and analysis</div></div>
+      <div class="cmd-item" data-search="mastermind marketing strategy content launch"><div class="cmd-name">/mastermind:marketing</div><div class="cmd-desc">Marketing strategy and content</div></div>
+      <div class="cmd-item" data-search="mastermind brain context memory inspect"><div class="cmd-name">/mastermind:brain</div><div class="cmd-desc">Inspect and manage mastermind brain context</div></div>
+      <div class="cmd-item" data-search="mastermind techport technical portfolio assess"><div class="cmd-name">/mastermind:techport</div><div class="cmd-desc">Technical portfolio — assess project state</div></div>
+      <div class="cmd-item" data-search="mastermind master control high level"><div class="cmd-name">/mastermind:master</div><div class="cmd-desc">High-level project master control</div></div>
+      <div class="cmd-item" data-search="monomind do execute task board"><div class="cmd-name">/monomind:do</div><div class="cmd-desc">Execute tasks from monotask board</div></div>
+      <div class="cmd-item" data-search="monomind create task decompose ingest"><div class="cmd-name">/monomind:createtask</div><div class="cmd-desc">Decompose prompt into tasks on monotask board</div></div>
+      <div class="cmd-item" data-search="monomind improve component deep pipeline"><div class="cmd-name">/monomind:improve</div><div class="cmd-desc">Deep component improvement pipeline</div></div>
+      <div class="cmd-item" data-search="monomind review code security auto fix hil"><div class="cmd-name">/monomind:review</div><div class="cmd-desc">Multi-agent iterative review with auto-fix</div></div>
+      <div class="cmd-item" data-search="monomind repeat loop schedule every times"><div class="cmd-name">/monomind:repeat</div><div class="cmd-desc">Universal loop wrapper — repeat any command</div></div>
+      <div class="cmd-item" data-search="monomind understand semantic enrichment monograph"><div class="cmd-name">/monomind:understand</div><div class="cmd-desc">Semantic enrichment for monograph</div></div>
+      <div class="cmd-item" data-search="monomind adr architecture decision record draft"><div class="cmd-name">/monomind:adr</div><div class="cmd-desc">Draft Architecture Decision Record</div></div>
+      <div class="cmd-item" data-search="monomind budget tokens cost limits autotune"><div class="cmd-name">/monomind:budget</div><div class="cmd-desc">Budget status: today, month, limits, autotune</div></div>
+      <div class="cmd-item" data-search="monomind graph status nodes edges freshness"><div class="cmd-name">/monomind:graph-status</div><div class="cmd-desc">Single-line graph stats: nodes, edges, freshness</div></div>
+      <div class="cmd-item" data-search="monomind loops active running tillend repeat"><div class="cmd-name">/monomind:loops</div><div class="cmd-desc">List active --tillend/--repeat loops</div></div>
+      <div class="cmd-item" data-search="monomind swarm coordination reference agents"><div class="cmd-name">/monomind:swarm</div><div class="cmd-desc">Swarm coordination reference</div></div>
+      <div class="cmd-item" data-search="monomind help reference commands skills workflow"><div class="cmd-name">/monomind:help</div><div class="cmd-desc">Master quick-reference: all skills and commands</div></div>
+      <div class="cmd-item" data-search="swarm development hierarchical architect coder tester"><div class="cmd-name">/swarm:development</div><div class="cmd-desc">Hierarchical: architect→coder→tester flow</div></div>
+      <div class="cmd-item" data-search="swarm analysis mesh distributed codebase perf security"><div class="cmd-name">/swarm:analysis</div><div class="cmd-desc">Mesh + adaptive for codebase analysis</div></div>
+      <div class="cmd-item" data-search="swarm testing star parallel unit integration e2e"><div class="cmd-name">/swarm:testing</div><div class="cmd-desc">Star + parallel for all test types</div></div>
+      <div class="cmd-item" data-search="swarm optimization profiling bottleneck performance"><div class="cmd-name">/swarm:optimization</div><div class="cmd-desc">Profiling, bottleneck detection, optimization</div></div>
+      <div class="cmd-item" data-search="swarm modes topologies overview all"><div class="cmd-name">/swarm:swarm-modes</div><div class="cmd-desc">Overview of all swarm topologies</div></div>
+      <div class="cmd-item" data-search="swarm strategies selection decision matrix"><div class="cmd-name">/swarm:swarm-strategies</div><div class="cmd-desc">Decision matrix for strategy selection</div></div>
+      <div class="cmd-item" data-search="sparc architect design system"><div class="cmd-name">/sparc:architect</div><div class="cmd-desc">System architecture and design</div></div>
+      <div class="cmd-item" data-search="sparc code implement auto-coder"><div class="cmd-name">/sparc:code</div><div class="cmd-desc">Auto-coder implementation mode</div></div>
+      <div class="cmd-item" data-search="sparc tdd test driven development"><div class="cmd-name">/sparc:tdd</div><div class="cmd-desc">Test-driven development</div></div>
+      <div class="cmd-item" data-search="sparc debugger debug fix trace error"><div class="cmd-name">/sparc:debugger</div><div class="cmd-desc">Debug mode — trace + fix</div></div>
+      <div class="cmd-item" data-search="sparc reviewer code review audit"><div class="cmd-name">/sparc:reviewer</div><div class="cmd-desc">Code review mode</div></div>
+      <div class="cmd-item" data-search="sparc security audit hardening review"><div class="cmd-name">/sparc:security-review</div><div class="cmd-desc">Security audit and hardening</div></div>
+      <div class="cmd-item" data-search="sparc documenter docs api markdown"><div class="cmd-name">/sparc:documenter</div><div class="cmd-desc">Documentation generation</div></div>
+      <div class="cmd-item" data-search="github pr pull request manager lifecycle"><div class="cmd-name">/github:pr-manager</div><div class="cmd-desc">Full PR lifecycle with swarm coordination</div></div>
+      <div class="cmd-item" data-search="github issue tracker milestone creation"><div class="cmd-name">/github:issue-tracker</div><div class="cmd-desc">Issue creation and progress tracking</div></div>
+      <div class="cmd-item" data-search="github release manager version ci cd"><div class="cmd-name">/github:release-manager</div><div class="cmd-desc">Release coordination and CI/CD</div></div>
+      <div class="cmd-item" data-search="monodesign craft build ui feature shape"><div class="cmd-name">/monodesign craft</div><div class="cmd-desc">Shape + build a UI feature end-to-end</div></div>
+      <div class="cmd-item" data-search="monodesign shape plan ux brief design"><div class="cmd-name">/monodesign shape</div><div class="cmd-desc">Plan UX/UI before writing code</div></div>
+      <div class="cmd-item" data-search="monodesign audit technical quality a11y performance"><div class="cmd-name">/monodesign audit</div><div class="cmd-desc">Technical quality: a11y, perf, responsive</div></div>
+      <div class="cmd-item" data-search="monodesign critique heuristic review scoring"><div class="cmd-name">/monodesign critique</div><div class="cmd-desc">UX design review with heuristic scoring</div></div>
+      <div class="cmd-item" data-search="monodesign polish final quality ship"><div class="cmd-name">/monodesign polish</div><div class="cmd-desc">Final quality pass before shipping</div></div>
+      <div class="cmd-item" data-search="monomotion animation gsap motion scroll"><div class="cmd-name">/monomotion</div><div class="cmd-desc">GSAP animation skill — all motion work</div></div>
+      <div class="cmd-item" data-search="monograph build graph code knowledge codebase"><div class="cmd-name">/monograph:monograph-build</div><div class="cmd-desc">Build knowledge graph from codebase</div></div>
+      <div class="cmd-item" data-search="monograph search query find nodes edges"><div class="cmd-name">/monograph:monograph-search</div><div class="cmd-desc">BM25, semantic, hybrid graph search</div></div>
+      <div class="cmd-item" data-search="monograph watch incremental rebuild changes"><div class="cmd-name">/monograph:monograph-watch</div><div class="cmd-desc">Incremental rebuild on file changes</div></div>
+      <div class="cmd-item" data-search="hooks setup configure settings json"><div class="cmd-name">/hooks:setup</div><div class="cmd-desc">Configure hooks in settings.json</div></div>
+      <div class="cmd-item" data-search="hooks overview system wire claude code"><div class="cmd-name">/hooks:overview</div><div class="cmd-desc">How hooks wire into Claude Code</div></div>
+      <div class="cmd-item" data-search="memory readme reference cli subcommands mcp"><div class="cmd-name">/memory:README</div><div class="cmd-desc">Full memory CLI reference: all 14 subcommands</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MASTERMIND -->
+<div id="page-mastermind" class="page">
+  <div class="page-content">
+    <div class="page-header">
+      <span class="page-tag">Reference</span>
+      <h1 class="page-title">Mastermind</h1>
+      <p class="page-desc">18 autonomous operation commands with Brain Load/Write protocol, --tillend loop mechanics, and the autodev research-build-review cycle.</p>
+    </div>
+    <div class="section-title reveal">autodev — The Autonomous Build Loop</div>
+    <div class="phase-flow reveal">
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 1</div><div class="phase-name">Research</div><div class="phase-desc">Parallel: git log, file scan, package.json, README, TODO/FIXME grep, monograph god nodes, memory search for already-built items. Returns ranked list of 3–5 improvement candidates.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 2</div><div class="phase-name">Selection</div><div class="phase-desc">Picks best candidate by feasibility × blast-radius × focus alignment. Stores selection to AgentDB memory. Focus flags: <code>--focus security</code>, <code>--focus dx</code>, <code>--focus performance</code>.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 3</div><div class="phase-name">Build</div><div class="phase-desc">Invokes <code>mastermind:build</code> with concrete spec, acceptance criteria, and blast radius guard. Spawns architect → coder → tester → reviewer agent chain.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 4</div><div class="phase-name">Review Loop</div><div class="phase-desc">Invokes <code>mastermind:review</code> inline. Runs Code Reviewer + Security Engineer + Reality Checker in parallel. Repeats up to 5 iterations until zero findings.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Phase 5</div><div class="phase-name">Log</div><div class="phase-desc">Records completion to memory. If count &gt; 1, continues to next improvement. If <code>--tillend</code>, schedules next session via ScheduleWakeup.</div></div></div>
+    </div>
+    <div class="section-title reveal">--tillend Loop Mechanics</div>
+    <div class="code-block reveal">
+Session 1: <span class="cmd">/mastermind:autodev --tillend</span>
+  → runs → schedules ScheduleWakeup(delay=60s)
+
+Session 2: wakeup fires → checks staleness guard
+  → if --rep N &lt; state.currentRep: SKIP (stale wakeup)
+  → else: run → schedules next wakeup
+
+Session N: empty round (zero findings AND zero actions)
+  → emits loop:complete
+  → removes .monomind/loops/{id}.json → STOP
+
+<span class="comment"># Stop a loop manually</span>
+<span class="cmd">touch .monomind/loops/{loop-id}.stop</span></div>
+    <div class="section-title reveal">Universal Flags</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Flag</th><th>Default</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">--tillend</td><td>off</td><td>Repeat until empty round (zero findings, zero actions)</td></tr>
+        <tr><td class="mono">--repeat &lt;N&gt;</td><td>off</td><td>Repeat exactly N times</td></tr>
+        <tr><td class="mono">--wait &lt;seconds&gt;</td><td>60</td><td>Minimum seconds between repeat runs</td></tr>
+        <tr><td class="mono">--maxruns &lt;N&gt;</td><td>50</td><td>Safety cap for --tillend</td></tr>
+        <tr><td class="mono">--auto</td><td>off</td><td>No confirmation prompts</td></tr>
+        <tr><td class="mono">--confirm</td><td>off</td><td>Ask before each action</td></tr>
+        <tr><td class="mono">--focus &lt;area&gt;</td><td>—</td><td>Bias toward: security, dx, performance</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="section-title reveal">All Mastermind Commands</div>
+    <div class="table-wrap reveal">
+    <table class="doc-table">
+      <thead><tr><th>Command</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">/mastermind:autodev</td><td>Autonomous research → build → review loop</td></tr>
+        <tr><td class="mono">/mastermind:build</td><td>Build a specific feature from a brief</td></tr>
+        <tr><td class="mono">/mastermind:review</td><td>Iterative code review; auto-fixes findings</td></tr>
+        <tr><td class="mono">/mastermind:architect</td><td>System architecture design and review</td></tr>
+        <tr><td class="mono">/mastermind:research</td><td>Deep research with structured output</td></tr>
+        <tr><td class="mono">/mastermind:techport</td><td>Technical portfolio — assess project state</td></tr>
+        <tr><td class="mono">/mastermind:idea</td><td>Idea generation and evaluation</td></tr>
+        <tr><td class="mono">/mastermind:ops</td><td>Operations planning and tracking</td></tr>
+        <tr><td class="mono">/mastermind:finance</td><td>Financial modeling and analysis</td></tr>
+        <tr><td class="mono">/mastermind:marketing</td><td>Marketing strategy and content</td></tr>
+        <tr><td class="mono">/mastermind:sales</td><td>Sales strategy and pipeline</td></tr>
+        <tr><td class="mono">/mastermind:content</td><td>Content creation and strategy</td></tr>
+        <tr><td class="mono">/mastermind:createorg</td><td>Create and configure an organization structure</td></tr>
+        <tr><td class="mono">/mastermind:runorg</td><td>Run organization-level workflows</td></tr>
+        <tr><td class="mono">/mastermind:release</td><td>Manage a software release</td></tr>
+        <tr><td class="mono">/mastermind:master</td><td>High-level project master control</td></tr>
+        <tr><td class="mono">/mastermind:brain</td><td>Inspect and manage brain context</td></tr>
+        <tr><td class="mono">/mastermind:goals</td><td>Goal tracking and progress</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="section-title reveal">Brain Protocol</div>
+    <div class="code-block reveal">
+<span class="comment">// Brain Load (session start)</span>
+1. Search AgentDB namespace <span class="string">"mastermind:{domain}"</span>
+2. Three tiers: raw records (last 7 days)
+                → weekly summaries
+                → long-term principles
+3. Inject combined BRAIN CONTEXT block into skill
+
+<span class="comment">// Brain Write (session end)</span>
+1. Store key decisions + findings to AgentDB
+2. Update weekly summaries and principles</div>
+  </div>
+</div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/TextPlugin.min.js"></script>
+<script>
+'use strict';
+
+const motionOK = window.matchMedia('(prefers-reduced-motion: no-preference)').matches;
+gsap.registerPlugin(ScrollTrigger, TextPlugin);
+
+// ── CANVAS AGENT NETWORK ──────────────────────────────────────────────
+(function initCanvas() {
+  const canvas = document.getElementById('hero-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const DEFS = [
+    { label:'Queen',     r:'168' }, { label:'Architect', r:'295' },
+    { label:'Coder',     r:'168' }, { label:'Tester',    r:'60'  },
+    { label:'Security',  r:'22'  }, { label:'Reviewer',  r:'60'  },
+    { label:'Memory',    r:'295' }, { label:'Neural',    r:'210' },
+    { label:'Monitor',   r:'168' }, { label:'Perf',      r:'60'  },
+    { label:'Research',  r:'210' }, { label:'Optimizer', r:'295' },
+  ];
+
+  const COLS = { '168':'rgba(0,210,170,','295':'rgba(165,120,255,','60':'rgba(220,180,55,','22':'rgba(220,100,90,','210':'rgba(70,195,240,' };
+  const BASE_POS = [[.5,.4],[.35,.25],[.65,.25],[.25,.55],[.75,.55],[.3,.75],[.5,.7],[.7,.75],[.15,.4],[.85,.4],[.45,.15],[.8,.2]];
+
+  let nodes = [], frame, W, H;
+
+  function resize() {
+    W = canvas.width  = canvas.parentElement.offsetWidth;
+    H = canvas.height = canvas.parentElement.offsetHeight;
+    nodes = DEFS.map((d, i) => ({
+      ...d, col: COLS[d.r],
+      x: BASE_POS[i][0] * W, y: BASE_POS[i][1] * H,
+      vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .3,
+      pulse: 0
+    }));
+  }
+
+  let tick = 0;
+  function draw() {
+    if (!motionOK) return;
+    frame = requestAnimationFrame(draw);
+    ctx.clearRect(0, 0, W, H);
+    const thr = Math.min(W, H) * .28;
+
+    if (++tick % 120 === 0) nodes[Math.floor(Math.random() * nodes.length)].pulse = 1;
+
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < thr) {
+          ctx.beginPath(); ctx.moveTo(nodes[i].x, nodes[i].y); ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.strokeStyle = `rgba(0,180,150,${(1 - d/thr)*.16})`; ctx.lineWidth = 1; ctx.stroke();
+        }
+      }
+    }
+
+    nodes.forEach(n => {
+      n.x += n.vx; n.y += n.vy;
+      if (n.x < 20 || n.x > W-20) n.vx *= -1;
+      if (n.y < 20 || n.y > H-20) n.vy *= -1;
+      if (n.pulse > 0) {
+        const pr = 5 + (1 - n.pulse) * 22;
+        ctx.beginPath(); ctx.arc(n.x, n.y, pr, 0, Math.PI*2);
+        ctx.strokeStyle = n.col + (n.pulse * .5) + ')'; ctx.lineWidth = 1.5; ctx.stroke();
+        n.pulse = Math.max(0, n.pulse - .025);
+      }
+      ctx.beginPath(); ctx.arc(n.x, n.y, 5, 0, Math.PI*2);
+      ctx.fillStyle = n.col + '.85)'; ctx.fill();
+      ctx.font = '10px "DM Sans",sans-serif'; ctx.fillStyle = n.col + '.55)';
+      ctx.textAlign = 'center'; ctx.fillText(n.label, n.x, n.y + 17);
+    });
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+  if (motionOK) requestAnimationFrame(draw);
 })();
+
+// ── ROUTER ────────────────────────────────────────────────────────────
+const pages = {};
+document.querySelectorAll('.page').forEach(p => pages[p.id.replace('page-','')] = p);
+const navLinks = document.querySelectorAll('.nav-link[data-page]');
+const overlay  = document.getElementById('overlay');
+let current = 'home';
+
+function go(name) {
+  if (name === current || !pages[name]) return;
+  if (motionOK) {
+    overlay.style.transition = 'transform .32s cubic-bezier(.76,0,.24,1)';
+    overlay.style.transformOrigin = 'bottom';
+    overlay.style.transform = 'scaleY(1)';
+    const swap = () => {
+      pages[current].classList.remove('active'); pages[name].classList.add('active');
+      window.scrollTo(0,0); current=name; updateNav(name); initPage(name);
+      overlay.style.transition = 'transform .42s cubic-bezier(.16,1,.3,1)';
+      overlay.style.transformOrigin = 'top';
+      overlay.style.transform = 'scaleY(0)';
+    };
+    setTimeout(swap, 340);
+  } else {
+    pages[current].classList.remove('active'); pages[name].classList.add('active');
+    window.scrollTo(0,0); current=name; updateNav(name); initPage(name);
+  }
+}
+
+function updateNav(name) { navLinks.forEach(l => l.classList.toggle('active', l.dataset.page === name)); }
+navLinks.forEach(l => l.addEventListener('click', () => go(l.dataset.page)));
+document.addEventListener('click', e => { const b = e.target.closest('[data-page]'); if (b && !b.classList.contains('nav-link')) go(b.dataset.page); });
+
+// Progress bar
+const bar = document.getElementById('progress-bar');
+window.addEventListener('scroll', () => {
+  const h = document.documentElement;
+  bar.style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + '%';
+});
+
+// Mobile nav
+const sidebar = document.getElementById('sidebar');
+const toggle  = document.getElementById('nav-toggle');
+const overlay2 = document.getElementById('nav-overlay');
+toggle.addEventListener('click', () => { sidebar.classList.toggle('open'); overlay2.classList.toggle('open'); });
+overlay2.addEventListener('click', () => { sidebar.classList.remove('open'); overlay2.classList.remove('open'); });
+navLinks.forEach(l => l.addEventListener('click', () => { sidebar.classList.remove('open'); overlay2.classList.remove('open'); }));
+
+// ── SCROLL REVEALS ────────────────────────────────────────────────────
+function setupReveals(container) {
+  if (!motionOK) return;
+  container.querySelectorAll('.reveal').forEach(el => {
+    ScrollTrigger.create({
+      trigger: el, start: 'top 88%',
+      onEnter: () => gsap.from(el, { opacity:0, y:20, duration:.6, ease:'power2.out', clearProps:'transform,opacity' }),
+      once: true
+    });
+  });
+}
+
+// ── HERO COUNTERS (RAF-based, no GSAP dependency) ────────────────────
+function animateHero() {
+  const DATA = [['stat-agents',60,'+'  ],['stat-commands',53,'+'],['stat-hooks',22,''],['stat-packages',17,'+']];
+  if (!motionOK) {
+    DATA.forEach(([id,t,s]) => { const el=document.getElementById(id); if(el) el.textContent=t+s; });
+    return;
+  }
+  DATA.forEach(([id,target,suffix]) => {
+    const el = document.getElementById(id); if (!el) return;
+    el.textContent = '0' + suffix;
+    const delay = 700, dur = 1400, start = performance.now() + delay;
+    function tick(now) {
+      if (now < start) { requestAnimationFrame(tick); return; }
+      const p = Math.min((now - start) / dur, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(eased * target) + suffix;
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  });
+}
+
+// ── TYPEWRITER ────────────────────────────────────────────────────────
+let twDone = false;
+function runTypewriter() {
+  if (twDone) return; twDone = true;
+  const out = document.getElementById('typewriter-output');
+  if (!out) return;
+  const lines = [
+    {t:'cmd',text:'npx monomind init'},
+    {t:'out',text:'✓ Project configuration initialized',cls:'accent'},
+    {t:'out',text:'✓ MCP server registered',cls:'accent'},
+    {t:'out',text:'✓ Background daemon started',cls:'accent'},
+    {t:'cmd',text:'npx monomind doctor'},
+    {t:'out',text:'Node 22.0.0          ✓'},
+    {t:'out',text:'Memory backend       ✓  hybrid (SQLite + AgentDB)'},
+    {t:'out',text:'MCP tools            ✓  23 monograph + 14 monomind'},
+    {t:'cmd',text:'/mastermind:autodev --tillend --focus security'},
+    {t:'out',text:'[autodev] Research phase starting...',cls:'amber'},
+    {t:'out',text:'[autodev] 4 candidates found. Selected: CVE-1 remediation',cls:'amber'},
+    {t:'out',text:'[autodev] Build: architect → coder → tester → reviewer'},
+    {t:'out',text:'[autodev] Review loop: 0 findings. Run complete.',cls:'accent'},
+    {t:'out',text:'[tillend] Next run in 60s...'},
+  ];
+  let li=0,ci=0;
+  function step() {
+    if (li >= lines.length) return;
+    const l = lines[li];
+    if (l.t === 'cmd') {
+      const div = document.createElement('div'); div.className='term-line';
+      const pr = document.createElement('span'); pr.className='term-prompt'; pr.textContent='$ ';
+      const cm = document.createElement('span'); cm.className='term-cmd';
+      div.append(pr,cm); out.appendChild(div);
+      typeChar(cm, l.text, () => { li++; ci=0; setTimeout(step,200); });
+    } else {
+      const div = document.createElement('div'); div.className='term-out'+(l.cls?' '+l.cls:'');
+      div.textContent=l.text; out.appendChild(div); li++;
+      setTimeout(step, motionOK?75:5);
+    }
+  }
+  function typeChar(el,text,done) {
+    if (ci>=text.length) { done(); return; }
+    el.textContent+=text[ci++]; setTimeout(()=>typeChar(el,text,done), motionOK?26:1);
+  }
+  setTimeout(step,400);
+}
+
+// ── ARCH SVG REVEAL ───────────────────────────────────────────────────
+function revealArch() {
+  const all = [...document.querySelectorAll('.arch-box,.arch-label,.arch-sub,.arch-arrow')];
+  if (!motionOK) { all.forEach(el=>el.setAttribute('opacity','1')); return; }
+  gsap.timeline({delay:.2})
+    .to('.arch-box',   {opacity:1,duration:.4,stagger:.05,ease:'power2.out'})
+    .to('.arch-label', {opacity:1,duration:.35,stagger:.04,ease:'power2.out'},'-=.2')
+    .to('.arch-sub',   {opacity:1,duration:.3,stagger:.03,ease:'power2.out'},'-=.3')
+    .to('.arch-arrow', {opacity:1,duration:.3,stagger:.04,ease:'power2.out'},'-=.2');
+}
+
+// ── SEARCH ────────────────────────────────────────────────────────────
+function setupSearch(inId, gridId) {
+  const inp = document.getElementById(inId), grid = document.getElementById(gridId);
+  if (!inp||!grid) return;
+  inp.addEventListener('input', () => {
+    const q = inp.value.toLowerCase().trim();
+    grid.querySelectorAll('.cmd-item').forEach(item => {
+      const hay = (item.dataset.search||'')+' '+item.querySelector('.cmd-name').textContent.toLowerCase();
+      item.classList.toggle('hidden', q.length>0 && !hay.includes(q));
+    });
+  });
+}
+
+// ── PAGE INIT ─────────────────────────────────────────────────────────
+const inited = new Set();
+function initPage(name) {
+  if (inited.has(name)) { if (motionOK) ScrollTrigger.refresh(); return; }
+  inited.add(name);
+  setupReveals(pages[name]);
+  if (name==='home')             animateHero();
+  if (name==='getting-started')  runTypewriter();
+  if (name==='architecture')     setTimeout(revealArch, 300);
+  if (name==='commands')         setupSearch('cli-search','cli-grid');
+  if (name==='slash')            setupSearch('slash-search','slash-grid');
+  if (motionOK) ScrollTrigger.refresh();
+}
+
+initPage('home');
 </script>
 </body>
 </html>
