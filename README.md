@@ -129,7 +129,7 @@ Monomind:
 
 ## Features
 
-### 60+ Specialized Agents
+### 230+ Specialized Agents
 
 Not generic assistants — domain experts with targeted system prompts, each optimized for a specific class of work.
 
@@ -174,10 +174,10 @@ Every interaction makes Monomind smarter:
 
 | Layer | What It Stores | Tech |
 |---|---|---|
-| **L0** | In-flight context (current session) | drawers.jsonl |
-| **L1** | Working memory (recent sessions) | SQLite closets |
-| **L2** | Long-term knowledge | AgentDB + HNSW |
-| **L3** | Cross-agent shared state | PartitionedHNSW |
+| **Short-term** | In-flight context (current session) | SQLite + in-memory cache |
+| **Long-term** | Persistent knowledge and patterns | AgentDB + HNSW |
+| **Contextual** | Summarized episode clusters | RAPTOR consolidation worker |
+| **Shared** | Cross-agent state and promotions | PartitionedHNSW |
 
 - **150x–12,500x faster** semantic search via HNSW indexing
 - **Hybrid backend** — SQLite for structured data + AgentDB for semantic
@@ -186,7 +186,7 @@ Every interaction makes Monomind smarter:
 
 ### Knowledge Graph — Monograph
 
-23 graph tools that build a full dependency map of your codebase:
+30 graph tools that build a full dependency map of your codebase:
 
 ```bash
 monograph_suggest "add webhook retry logic"  # → ranked relevant files
@@ -223,7 +223,7 @@ Monomind routes every task to the cheapest model that can handle it:
 | **2** | Haiku | ~500ms | $0.0002 | Low-complexity tasks (<30%) |
 | **3** | Sonnet / Opus | 2-5s | $0.003-0.015 | Complex reasoning, architecture |
 
-### 22 Hooks + 12 Background Workers
+### 29+ Hooks + 12 Background Workers
 
 Monomind hooks into every phase of your Claude Code workflow:
 
@@ -245,7 +245,7 @@ Monomind hooks into every phase of your Claude Code workflow:
 Real-time visibility into every project, session, agent, memory operation, route decision, and token spend.
 
 ```bash
-monomind daemon start    # starts the control server on port 4242
+monomind daemon start    # starts background workers and session tracking
 ```
 
 Sessions are fully recorded and replayable — full conversation replay with tool breakdown, agent spawns, and memory operations.
@@ -262,14 +262,14 @@ monomind agent spawn --type coder          # Spawn a specific agent
 monomind swarm init --topology mesh        # Initialize a swarm
 monomind memory search "auth patterns"     # Search vector memory
 monomind hooks route --task "fix bug"      # Route to best agent
-monomind neural train --flash              # Flash Attention: 2.49x-7.47x speedup
+monomind neural train --flash              # enable Flash Attention optimization
 monomind doctor --fix                      # Diagnose and auto-fix issues
 monomind daemon start                      # Start background workers
 ```
 
 **[→ Full CLI reference](https://monoes.github.io/monomind/#commands)**
 
-### 110+ Slash Commands (inside Claude Code)
+### 160+ Slash Commands (inside Claude Code)
 
 | Command | What It Does |
 |---|---|
@@ -316,14 +316,14 @@ touch .monomind/loops/{loop-id}.stop
 ┌─────────────────────────────────────────────────────────────────┐
 │                           Monomind                              │
 ├─────────────────┬───────────────┬──────────────┬───────────────┤
-│   60+ Agents    │  Swarm Engine  │ Memory Palace │  Intelligence │
+│  230+ Agents    │  Swarm Engine  │ Memory Palace │  Intelligence │
 │                 │               │              │               │
 │  Specialized    │  6 topologies  │ AgentDB HNSW │  SONA Neural  │
 │  agent defs     │  5 consensus   │ Knowledge    │  3-tier       │
 │  + 3-tier       │  algorithms    │ Graph        │  routing      │
 │  routing        │               │ (Monograph)  │  <0.05ms      │
 ├─────────────────┴───────────────┴──────────────┴───────────────┤
-│                    22 Hooks + 12 Background Workers             │
+│                   29+ Hooks + 12 Background Workers             │
 ├─────────────────────────────────────────────────────────────────┤
 │                  MCP Server (stdio / http / WebSocket)          │
 ├─────────────────────────────────────────────────────────────────┤
@@ -333,27 +333,41 @@ touch .monomind/loops/{loop-id}.stop
 
 ### Key Packages
 
+The workspace ships 17 `@monomind/*` packages:
+
 | Package | Purpose |
 |---|---|
-| `@monomind/cli` | 53+ commands, 60+ agent defs, 110+ slash commands, hooks, MCP |
-| `@monomind/memory` | AgentDB + HNSW vector search, Memory Palace |
-| `@monomind/hooks` | 22 lifecycle hooks + 12 background workers |
-| `@monomind/security` | Input validation, CVE remediation, threat modeling |
-| `@monomind/guidance` | Governance control plane, budget management |
+| `@monoes/monomindcli` | CLI entry point — 43 top-level commands, 230+ agent defs, 160+ slash commands, hooks, MCP server |
+| `@monomind/memory` | AgentDB + HNSW vector search, PartitionedHNSW, TierManager, hybrid SQLite backend |
+| `@monomind/hooks` | Lifecycle hook bridge, 12 background workers (ultralearn, optimize, consolidate, predict, audit, map, preload, deepdive, document, refactor, benchmark, testgaps) |
+| `@monomind/neural` | SONA manager, LoRA weight adaptation, EWC++ Fisher updates, 5 operating modes |
+| `@monomind/monograph` | Knowledge graph construction, 30 MCP tools, BM25 + semantic search |
+| `@monomind/graph` | AST-based node/edge extraction, community detection, RAPTOR consolidation |
+| `@monomind/swarm` | UnifiedSwarmCoordinator, 6 topologies, 5 consensus algorithms |
+| `@monomind/security` | Input validation, prompt injection detection, CVE remediation, gVisor sandbox |
+| `@monomind/mcp` | MCP server transport (stdio / http / WebSocket) |
+| `@monomind/routing` | Two-stage LLM + keyword agent routing, confidence scoring |
+| `@monomind/embeddings` | Vector embedding generation and management |
+| `@monomind/performance` | Profiling, benchmarking, latency tracking |
+| `@monomind/plugins` | IPFS/Pinata plugin registry, install/create/list |
+| `@monomind/claims` | Claims-based authorization for agent actions |
+| `@monomind/aidefence` | Adversarial input detection, semantic scanning |
+| `@monomind/guidance` | Governance control plane, workflow templates, budget management |
+| `@monomind/shared` | Shared types, constants, utilities |
 
 ---
 
 ## Performance
 
-| Metric | Result |
-|---|---|
-| Vector search speedup | 150x–12,500x via HNSW |
-| Flash Attention speedup | 2.49x–7.47x |
-| SONA adaptation overhead | <0.05ms |
-| Agent routing (LLM) | <2s |
-| Agent routing (fallback) | <5ms |
-| Session restore | <500ms cold start |
-| Memory reduction | 50–75% vs baseline |
+| Metric | Result | Notes |
+|---|---|---|
+| Vector search speedup | 150x–12,500x via HNSW | Range from Malkov & Yashunin 2018; HNSW implemented in `hnsw-index.ts` |
+| Flash Attention speedup | 2.49x–7.47x | CPU-side attention optimization in `ruvector/flash-attention.ts`; marked in-progress |
+| SONA adaptation target | <0.05ms | Enforced as SLA with runtime warning; marked in-progress |
+| Agent routing (LLM) | <2s | Target; Haiku-based routing |
+| Agent routing (fallback) | <5ms | Keyword scoring path |
+| Session restore | <500ms cold start | Target |
+| Memory reduction | 50–75% vs baseline | Target |
 
 ---
 
@@ -377,11 +391,11 @@ touch .monomind/loops/{loop-id}.stop
 | [Getting Started](https://monoes.github.io/monomind/#getting-started) | Install, configure MCP, run first autonomous loop |
 | [Architecture](https://monoes.github.io/monomind/#architecture) | Package map, agent hierarchy, data flows |
 | [Memory & Knowledge](https://monoes.github.io/monomind/#memory) | Memory Palace tiers, AgentDB, Monograph graph tools |
-| [Hooks & Workers](https://monoes.github.io/monomind/#hooks) | 22 hook events, 12 workers, settings.json wiring |
+| [Hooks & Workers](https://monoes.github.io/monomind/#hooks) | 29+ hook events, 12 workers, settings.json wiring |
 | [Swarm Coordination](https://monoes.github.io/monomind/#swarm) | 6 topologies, 5 consensus algorithms, agent hierarchy |
 | [Neural Learning](https://monoes.github.io/monomind/#neural) | SONA modes, LoRA, EWC++, Reasoning Bank |
 | [CLI Commands](https://monoes.github.io/monomind/#commands) | All 53+ commands with flags and examples |
-| [Slash Commands](https://monoes.github.io/monomind/#slash) | All 110+ slash commands across 22 categories |
+| [Slash Commands](https://monoes.github.io/monomind/#slash) | All 160+ slash commands across 22 categories |
 | [Mastermind](https://monoes.github.io/monomind/#mastermind) | autodev loop, --tillend mechanics, Brain protocol |
 
 ---
