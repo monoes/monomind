@@ -427,3 +427,72 @@ MIT — See [LICENSE](LICENSE) for details.
   <a href="https://github.com/nokhodian/monomind">GitHub</a> &nbsp;&bull;&nbsp;
   <a href="https://github.com/nokhodian/monomind/issues">Issues</a>
 </p>
+
+---
+
+## Acknowledgements
+
+Monomind builds on ideas, patterns, and research from the following projects:
+
+| Repository | What we took |
+|---|---|
+| [ruvnet/ruflo](https://github.com/ruvnet/ruflo) | Original skeleton — swarm coordination, hooks system, and SPARC methodology |
+| [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) | Agent architecture patterns and multi-agent md files |
+| [microsoft/autogen](https://github.com/microsoft/autogen) | Human oversight interrupt gates, AutoBuild ephemeral agents, procedural skill learning from executions, and tool-retry patterns |
+| [crewAIInc/crewAI](https://github.com/crewAIInc/crewAI) | Multi-tier memory (short/long/entity/contextual), role/goal/backstory agent registry, task context chaining, and output schema patterns |
+| [langchain-ai/langgraph](https://github.com/langchain-ai/langgraph) | Graph checkpointing + resume, `StateGraph` workflow DSL (fan-out/fan-in, conditional, loops), and entity extraction from conversation state |
+| [All-Hands-AI/OpenHands](https://github.com/All-Hands-AI/OpenHands) | Per-agent Docker/WASM sandboxing, semantic versioned agent registry (AgentHub), and EventStream session replay |
+| [agno-agi/agno](https://github.com/agno-agi/agno) | `AgentMemory` knowledge base architecture and team-level agent coordination class |
+| [huggingface/smolagents](https://github.com/huggingface/smolagents) | Explicit planning step before execution and `ManagedAgent` delegation wrapper |
+| [pydantic/pydantic-ai](https://github.com/pydantic/pydantic-ai) | Typed `Agent[Deps, Result]` I/O schemas, auto-retry on validation failure, `TestModel` for deterministic CI, and dynamic system prompt functions |
+| [BAAI/AgentSwarm (Agency Swarm)](https://github.com/VRSEN/agency-swarm) | Declared directed communication flows between agents and shared instruction propagation |
+| [BerriAI/atomic-agents](https://github.com/KRunchPL/atomic-agents) | `BaseIOSchema` typed agent contracts and `SystemPromptContextProvider` composition |
+| [stanfordnlp/dspy](https://github.com/stanfordnlp/dspy) | `BootstrapFewShot` + MIPRO automatic prompt optimization pipeline |
+| [aurelio-labs/semantic-router](https://github.com/aurelio-labs/semantic-router) | Utterance-based `RouteLayer` replacing static routing codes, dynamic routes, and hybrid routing mode |
+| [langfuse/langfuse](https://github.com/langfuse/langfuse) | Unified trace/span/generation observability hierarchy, per-agent cost attribution, latency views, and prompt version management |
+| [karpathy/autoresearch](https://github.com/karpathy/autoresearch) | Experiment loop protocol (BASELINE/KEEP/DISCARD `results.tsv`), fixed time-budget per run, and Best-Fit Decreasing bin packing for API chunking — wired into `@monomind/graph` pipeline |
+| [safishamsi/graphify](https://github.com/safishamsi/graphify) | Knowledge graph construction approach, AST-based node/edge extraction, community detection with Louvain, and `GRAPH_REPORT.md` report format — foundation for `@monomind/graph` |
+| [google/gvisor](https://gvisor.dev) | gVisor `runsc` OCI-compatible runtime — reduces Docker container syscall surface from 350+ to ~50 interceptions; wired into `SandboxConfig.use_gvisor` |
+| [Indirect Injection research](https://arxiv.org/abs/2302.12173) | Prompt injection via external tool content — `validateExternalContent()` in `@monomind/security` applies pattern + optional aidefence semantic scan to all externally-sourced content |
+| [FOREVER Forgetting Curve](https://arxiv.org/html/2601.03938v1) | Exponential importance-weighted forgetting curve (`importanceScore × e^(−λt)`) — implemented in `LearningBridge.decayConfidences()` |
+| [Awesome RLVR](https://github.com/opendilab/awesome-RLVR) | Reinforcement Learning with Verifiable Rewards — `hooksModelOutcome` accepts `verifier_type` (tsc/vitest/eslint/llm_judge) for grounded binary reward signals |
+| [ERL — Experiential Reflective Learning](https://arxiv.org/abs/2603.24639) | Structured `{condition, action, confidence}` heuristics extracted at `hooks_post-task` and injected as ranked hints into `hooks_pre-task` via the `heuristics` memory namespace |
+| [A-MEM — Agentic Memory](https://arxiv.org/abs/2502.12110) | Zettelkasten-style automatic note linking — after every `bridgeStoreEntry`, top-3 HNSW neighbors above 0.7 similarity receive a `similar` causal edge via `bridgeRecordCausalEdge` |
+| [DSPy](https://dspy.ai) | Bayesian exploration option added to `PromptOptimizer.optimize()` — shuffles trace scores with U(0,0.1) noise before `selectExamples` to escape local optima |
+| [Collaborative Memory Promotion](https://arxiv.org/abs/2505.18279) | Auto-promote memory `access_level` from `private` → `team` when 3+ distinct agents read an entry within 24 h — via `checkAndPromoteEntry()` in `SQLiteBackend` |
+| [Zep / Graphiti — Bi-Temporal Knowledge Graph](https://arxiv.org/abs/2501.13956) | Separates event time T from ingestion time T' — `MemoryEntry.eventAt` nullable field for temporal filtering without index rebuilds |
+| [HippoRAG 2 — PPR Graph Retrieval](https://arxiv.org/abs/2405.14831) | Personalized PageRank over the memory reference graph — `MemoryGraph.pprRerank()` expands HNSW candidates one hop via `MemoryEntry.references` |
+| [RAPTOR — Recursive Abstractive Tree Indexing](https://arxiv.org/abs/2401.18059) | Cluster episodic entries → summarize each cluster → store as `contextual`-tier entry — implemented in the `consolidate` background worker |
+| [Multi-Agent Reflexion (MAR)](https://arxiv.org/html/2512.20845) | Heterogeneous Diagnoser → Critic×2 → Aggregator reflection loop — `hooks_post-task` returns `marReflection` on task failure |
+| [TextGrad](https://arxiv.org/abs/2406.07496) | LLM textual gradients flow backward through the pipeline — on failure a `textual_gradient` critique is stored to the `gradients` memory namespace for next-prompt injection |
+| [CP-WBFT](https://arxiv.org/abs/2511.10400) | Confidence-weighted voting replaces one-node-one-vote — `weightedTally()` scales each agent's vote by confidence, tolerating 85.7% fault rate (AAAI 2026) |
+| [GraphRAG](https://arxiv.org/abs/2404.16130) | Community-level global query answering — `MemoryGraph.getCommunitySummaries()` returns top-k community descriptors for prepending to semantic search results |
+| [MemPalace](https://github.com/nokhodian/mempalace) | Spatially-organized verbatim memory with Wing→Room→Hall hierarchy, Okapi BM25 + closet-topic hybrid retrieval, and temporal knowledge graph — achieves 96.6% LongMemEval recall without summarization |
+
+---
+
+## Research Acknowledgements
+
+Monomind implements techniques from peer-reviewed research across distributed systems, machine learning, and software engineering:
+
+| Technique | Paper | Applied In |
+|---|---|---|
+| HNSW approximate nearest neighbor | Malkov & Yashunin, 2018 — *Efficient and Robust ANN* | `@monomind/memory` vector search |
+| Flash Attention | Dao et al., 2022 — *Fast and Memory-Efficient Exact Attention* | Session context compression |
+| LoRA fine-tuning | Hu et al., 2021 — *Low-Rank Adaptation of Large Language Models* | Pattern distillation, DISTILL step |
+| EWC (Elastic Weight Consolidation) | Kirkpatrick et al., 2017 — *Overcoming Catastrophic Forgetting* | CONSOLIDATE step, session persistence |
+| Byzantine fault tolerance | Castro & Liskov, 1999 — *Practical Byzantine Fault Tolerance* | CP-WBFT hive-mind consensus |
+| Raft consensus | Ongaro & Ousterhout, 2014 — *In Search of an Understandable Consensus Algorithm* | Swarm coordinator state machine |
+| CRDT data structures | Shapiro et al., 2011 — *Conflict-Free Replicated Data Types* | Eventually consistent agent memory |
+| Gossip protocols | Demers et al., 1987 — *Epidemic Algorithms for Replicated Database Maintenance* | Cross-agent state propagation |
+| Mixture of Experts | Shazeer et al., 2017 — *Outrageously Large Neural Networks* | MoE semantic router |
+| PPO reinforcement learning | Schulman et al., 2017 — *Proximal Policy Optimization Algorithms* | Agent policy learner |
+| Hyperbolic embeddings | Nickel & Kiela, 2017 — *Poincaré Embeddings for Learning Hierarchical Representations* | Code graph vector space |
+| Int8 quantization | Dettmers et al., 2022 — *LLM.int8(): 8-bit Matrix Multiplication for Transformers* | Weight compression, memory footprint |
+| GOAP planning | Orkin, 2004 — *Applying Goal-Oriented Action Planning to Games* | `goal-planner` and `sublinear-goal-planner` agents |
+| Self-play RL | Silver et al., 2017 — *Mastering Chess and Shogi by Self-Play* | Pattern reinforcement in ReasoningBank |
+| Hierarchical memory | Tulving, 1972 — *Episodic and Semantic Memory* | AgentDB episodic/semantic namespace split |
+| PageRank influence | Page et al., 1998 — *The PageRank Citation Ranking* | `pagerank-analyzer` agent, graph centrality |
+| Hindsight Experience Replay | Andrychowicz et al., 2017 — *HER: Hindsight Experience Replay* | HER policy learner in RL router |
+| SPARC methodology | Agile/TDD literature | `sparc-coord`, `sparc-coder`, `specification`, `pseudocode`, `refinement` agents |
+| Sublinear algorithms | Various — approximation theory | `sublinear-goal-planner`, `matrix-optimizer`, `trading-predictor` agents |
