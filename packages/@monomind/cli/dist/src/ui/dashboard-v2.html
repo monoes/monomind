@@ -953,6 +953,10 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 .tok-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:12px 16px; min-width:110px; }
 .tok-card .tc-label { font-size:10px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-xs); margin-bottom:4px; }
 .tok-card .tc-val { font-size:18px; font-weight:700; color:var(--accent); font-family:monospace; }
+.tok-periods { display: flex; gap: 4px; margin-bottom: 12px; }
+.tok-period-btn { font-size: 11px; padding: 3px 10px; border: 1px solid var(--border); border-radius: 4px; background: none; color: var(--text-lo); cursor: pointer; font-family: var(--sans); transition: color 0.1s, border-color 0.1s; }
+.tok-period-btn:hover { color: var(--text-hi); border-color: var(--text-lo); }
+.tok-period-btn.active { background: oklch(72% 0.18 75 / 0.12); color: var(--accent); border-color: var(--accent); }
 
 /* ── monograph view ──────────────────────────────────────── */
 :root { --mg-accent: oklch(65% 0.18 290); --mg-accent-dim: oklch(65% 0.18 290 / 0.12); }
@@ -1396,6 +1400,12 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
         <div id="tok-cards" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px"></div>
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px 14px">
           <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-xs);margin-bottom:8px">Daily usage (last 14 days)</div>
+          <div class="tok-periods">
+            <button class="tok-period-btn active" data-period="today" onclick="setTokPeriod(this,'today')">Today</button>
+            <button class="tok-period-btn" data-period="week" onclick="setTokPeriod(this,'week')">Week</button>
+            <button class="tok-period-btn" data-period="30d" onclick="setTokPeriod(this,'30d')">30 Days</button>
+            <button class="tok-period-btn" data-period="month" onclick="setTokPeriod(this,'month')">Month</button>
+          </div>
           <canvas id="tok-chart" height="100" style="width:100%;display:block"></canvas>
         </div>
         <div id="tok-table" style="margin-top:18px"></div>
@@ -2410,35 +2420,106 @@ async function loadTokensView() {
   }
 }
 
-function renderTokChart(daily) {
+function renderTokChart(daily, animated = true) {
   const canvas = document.getElementById('tok-chart');
   if (!canvas || !daily.length) return;
+  window._tokDaily = daily;
   const dpr = window.devicePixelRatio || 1;
   const W = canvas.offsetWidth || 600, H = 100;
-  canvas.width  = W * dpr;
-  canvas.height = H * dpr;
-  canvas.style.width  = W + 'px';
-  canvas.style.height = H + 'px';
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
   const vals = daily.map(d => Number(d.cost ?? d.value ?? 0));
   const max  = Math.max(...vals, 0.0001);
+  const avg  = vals.reduce((a, b) => a + b, 0) / (vals.length || 1) || 0.0001;
   const bar  = Math.max(2, Math.floor((W - (vals.length - 1) * 2) / vals.length));
-  ctx.clearRect(0, 0, W, H);
-  vals.forEach((v, i) => {
-    const x = i * (bar + 2);
-    const h = Math.max(2, Math.round((v / max) * (H - 10)));
-    ctx.fillStyle = 'oklch(70% 0.15 185)';
-    ctx.beginPath();
-    ctx.roundRect(x, H - h, bar, h, 2);
-    ctx.fill();
-  });
+  const targets = vals.map((v, i) => ({
+    v, i,
+    isToday: i === vals.length - 1,
+    color: v >= avg * 1.5
+      ? 'oklch(60% 0.18 25)'
+      : v < avg * 0.5
+        ? 'oklch(65% 0.15 150)'
+        : 'oklch(72% 0.18 75)',
+  }));
+
+  function drawFrame(progress) {
+    ctx.clearRect(0, 0, W, H);
+    targets.forEach(({ v, i, color, isToday }) => {
+      const x = i * (bar + 2);
+      const fullH = Math.max(2, Math.round((v / max) * (H - 10)));
+      const h = Math.max(2, Math.round(fullH * progress));
+      ctx.globalAlpha = isToday ? 1 : 0.5;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(x, H - h, bar, h, 2);
+      ctx.fill();
+      if (isToday && progress >= 0.95) {
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(x, H - fullH - 2, bar, 2);
+      }
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  const noMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!animated || noMotion) { drawFrame(1); return; }
+
+  const start = performance.now();
+  const dur = 400;
+  function frame(now) {
+    const t = Math.min((now - start) / dur, 1);
+    const e = 1 - Math.pow(1 - t, 3); // ease-out-cubic
+    drawFrame(e);
+    if (t < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+async function setTokPeriod(btn, period) {
+  document.querySelectorAll('.tok-period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const cards = document.getElementById('tok-cards');
+  const table = document.getElementById('tok-table');
+  if (cards) cards.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const data = await apiFetch('/api/token-usage?period=' + enc(period) + '&dir=' + enc(DIR));
+    const s = data?.summary || data?.tokens?.summary || {};
+    const daily = Array.isArray(data?.daily) ? data.daily
+      : Array.isArray(data?.tokens?.daily) ? data.tokens.daily : [];
+    const rows  = Array.isArray(data?.rows)  ? data.rows
+      : Array.isArray(data?.tokens?.rows)  ? data.tokens.rows  : [];
+    if (cards) cards.innerHTML = [
+      { label: 'Cost',   val: typeof s.todayCost  === 'number' ? '$' + s.todayCost.toFixed(2)
+                           : typeof s.cost === 'number' ? '$' + s.cost.toFixed(2) : '—' },
+      { label: 'Calls',  val: s.todayCalls ?? s.calls ?? '—' },
+      { label: 'Tokens', val: s.totalTokens != null ? Number(s.totalTokens).toLocaleString() : '—' },
+      { label: 'Models', val: s.modelCount  ?? s.models ?? '—' },
+    ].map(c => `<div class="tok-card"><div class="tc-label">${esc(c.label)}</div><div class="tc-val">${esc(String(c.val))}</div></div>`).join('');
+    renderTokChart(daily);
+    if (table && rows.length) {
+      table.innerHTML = '<div class="m-group-title" style="margin-bottom:6px">Breakdown</div>' +
+        '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">' +
+        '<thead><tr style="color:var(--text-xs);text-align:left"><th style="padding:3px 8px 3px 0">Label</th>' +
+        '<th style="padding:3px 8px">Calls</th><th style="padding:3px 8px">Cost</th></tr></thead><tbody>' +
+        rows.slice(0, 30).map(r =>
+          `<tr style="border-top:1px solid var(--border)">` +
+          `<td style="padding:3px 8px 3px 0;color:var(--text-hi);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.session || r.label || r.id || '—')}</td>` +
+          `<td style="padding:3px 8px;color:var(--text-lo)">${r.calls ?? '—'}</td>` +
+          `<td style="padding:3px 8px;color:var(--accent)">$${Number(r.cost ?? 0).toFixed(4)}</td>` +
+          `</tr>`
+        ).join('') +
+        '</tbody></table></div>';
+    } else if (table) { table.innerHTML = ''; }
+  } catch (_) { /* silently ignore period fetch errors */ }
 }
 
 window.addEventListener('resize', () => {
   if (currentView === 'tokens') {
     const data = window._tokDaily;
-    if (data) renderTokChart(data);
+    if (data) renderTokChart(data, false);
   }
 });
 
