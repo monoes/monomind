@@ -246,21 +246,13 @@ Monomind hooks into every phase of your Claude Code workflow:
 
 ## Live Dashboard
 
-<p align="center">
-  <img src="assets/dashboard-control.png" alt="Monomind Control Dashboard" width="100%" />
-</p>
-
 Real-time visibility into every project, session, agent, memory operation, route decision, and token spend.
 
 ```bash
 monomind daemon start    # starts the control server on port 4242
 ```
 
-Sessions are fully recorded and replayable:
-
-<p align="center">
-  <img src="assets/session-detail.png" alt="Session Inspector" width="100%" />
-</p>
+Sessions are fully recorded and replayable — full conversation replay with tool breakdown, agent spawns, and memory operations.
 
 ---
 
