@@ -29,6 +29,10 @@ Mastermind skills override default system prompt behavior, but **user instructio
 
 If CLAUDE.md says "skip review" and the skill says "always review," follow the user's instructions.
 
+### User Instructions vs. Skill Workflows
+
+User instructions say **WHAT** to do, not **HOW** to do it. "Build X" or "Fix Y" is a goal statement — it does not mean skip Brain Load, skip review, or bypass the domain decomposition flow. The skills define the how. Always apply the workflow unless the user explicitly opts out.
+
 ### Command-to-Skill Routing
 
 Invoke the matching skill **before** doing anything else. Even a 1% chance a skill applies means you must check.
@@ -51,7 +55,10 @@ digraph mastermind_routing {
     "Might a mastermind skill apply?" -> "Invoke Skill() tool" [label="yes, even 1%"];
     "Might a mastermind skill apply?" -> "Respond or act" [label="definitely not"];
     "Invoke Skill() tool" -> "Announce: Using [skill] for [purpose]";
-    "Announce: Using [skill] for [purpose]" -> "Execute skill exactly";
+    "Announce: Using [skill] for [purpose]" -> "Has checklist?" [shape=diamond];
+    "Has checklist?" -> "Create TodoWrite item per checklist step" [label="yes"];
+    "Has checklist?" -> "Execute skill exactly" [label="no"];
+    "Create TodoWrite item per checklist step" -> "Execute skill exactly";
 }
 ```
 
@@ -75,14 +82,16 @@ digraph mastermind_routing {
 
 ### Skill Execution Order
 
-When multiple skills could apply:
+When multiple skills could apply to a **single-skill invocation** (not a full mastermind:master multi-domain run):
 
 1. **Process skills first** — brainstorming (`mastermind:idea`), architecture (`mastermind:architect`), research (`mastermind:research`) determine HOW to approach the work
 2. **Execution skills second** — build, review, release execute the approach
 
-"Let's build X" → `mastermind:architect` first, then `mastermind:build`.
-"Fix this" → `mastermind:research` to understand root cause, then `mastermind:build` to fix.
+"Let's build X" → `mastermind:architect` first if approach is unclear, then `mastermind:build`.
+"Fix this" → `mastermind:research` to understand root cause if unknown, then `mastermind:build` to fix.
 "Ship it" → `mastermind:review` to verify clean, then `mastermind:release`.
+
+**Multi-domain runs (Steps 4–7 of this command):** Domain manager agents for different domains run concurrently — there is no enforced serial order between `build` and `architect` domain managers when both are active. The order above applies when you (the master) are choosing which single skill to invoke directly.
 
 ### Skill Types
 
@@ -101,23 +110,32 @@ These thoughts mean **STOP** — you are rationalizing. Check for a skill first.
 | "This is just a simple task" | Simple tasks define the floor. Check for skills. |
 | "I need more context first" | Skill check comes BEFORE gathering context. |
 | "Let me explore the codebase first" | Skills tell you HOW to explore. Check first. |
+| "I can check git/files quickly before invoking a skill" | Files lack conversation context. Brain Load + skill check come first. |
+| "Let me gather information first, then I'll check" | Skills tell you HOW to gather information. Check first. |
 | "The brain isn't loaded yet — let me just answer" | Brain Load is the first step. Load it. |
 | "This doesn't need a formal skill" | If a skill exists for this domain, use it. |
+| "This doesn't count as a real task" | Action = task. Check for skills. |
 | "I remember how this works" | Skills evolve. Read current version. Always. |
+| "I know what that command does" | Knowing the concept ≠ invoking the skill. Invoke it. |
 | "The skill is overkill for this" | Small tasks become complex. Use it. |
 | "I'll just do this one thing first" | Check BEFORE doing anything. |
+| "This feels productive" | Undisciplined action creates drift. Skills prevent this. |
 | "Auto mode means I should move fast" | Speed without discipline creates drift. Use skills. |
 | "The user said --auto, so I skip confirmation" | --auto skips user confirmation. It does NOT skip skill invocation. |
 | "Spawned agents don't need to check skills" | Subagents that have Skill access MUST use it. Only subagents with the `<SUBAGENT-STOP>` gate may skip. |
 
 ### Mandatory Patterns
 
-These sequences are non-negotiable in auto mode:
+These sequences are non-negotiable in all modes:
 
 - **Before building**: Load brain → assess via `mastermind:research` or `mastermind:architect` if scope is unclear
 - **After building**: `mastermind:review` — at minimum one pass before reporting complete
 - **After any run**: Brain Write Procedure — score decisions, append to AgentDB
 - **Before releasing**: `mastermind:review --tillend --auto` — verified clean round required
+
+### Platform Note
+
+This command assumes **Claude Code** as the execution environment. The `Skill` tool is the primary mechanism for loading and invoking mastermind skills — never use the Read tool on skill files directly. Skill content is loaded and injected by the harness when you call `Skill("mastermind:name")`.
 
 ---
 
@@ -152,6 +170,10 @@ Describe your goal. Mastermind identifies the relevant domains, spawns specialis
 **Persistent agent orgs** — named teams that coordinate across sessions
 `/mastermind:createorg` — define an org: roles, hierarchy, goal
 `/mastermind:runorg` — start a saved org; boss agent assigns work to all roles
+
+**Autonomous & advanced**
+`/mastermind:autodev` — research → build → review loop until clean (`--tillend` supported)
+`/mastermind:techport` — technical portfolio assessment; port capabilities from other projects
 
 ---
 Flags: `--auto` · `--confirm` · `--project <name>` · `--iterate <N>`
