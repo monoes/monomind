@@ -1969,6 +1969,7 @@ function switchProject(path) {
   _swarmRuns = [];
   _memFiles = [];
   _selMemFilename = null;
+  _editMemFilename = null;
   document.getElementById('sb-proj').textContent = path.split('/').filter(Boolean).pop() || '—';
   document.getElementById('sb-path').textContent = path;
   _showNavProjectCtx(path);
