@@ -1,6 +1,6 @@
 ---
 name: mastermind-plan
-description: Write comprehensive implementation plans from specs or requirements before touching code. Saves plans to docs/mastermind/plans/. Replaces superpowers:writing-plans.
+description: Write comprehensive implementation plans from specs or requirements before touching code. Saves plans to docs/mastermind/plans/. No placeholders — every step has exact file paths, complete code, and expected output.
 type: domain-skill
 default_mode: confirm
 ---
