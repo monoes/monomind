@@ -4779,6 +4779,7 @@ function v2RenderOrgGoals() {
   const goals = _v2OrgData.goals || _v2OrgData.config?.goals || [];
   if (!goals.length) { el.innerHTML = '<div class="empty">No goals defined</div>'; return; }
   function renderGoal(g, depth) {
+    if (depth > 20) return '';   // Depth guard to prevent stack overflow
     const indent = depth * 20;
     const pct = g.total > 0 ? Math.min(100, Math.round(g.filled / g.total * 100)) : 0;
     const status = g.status || 'pending';
@@ -4878,8 +4879,8 @@ async function v2RenderOrgApprovals() {
           <td style="padding:6px 8px;color:var(--text-xs);font-size:11px;font-family:var(--mono)">${relTime(a.created_at || a.ts)}</td>
           <td style="padding:6px 8px;white-space:nowrap">
             ${pending
-              ? `<button class="btn" style="font-size:10px;color:var(--green);border-color:var(--green)" onclick="orgApprovalAction(${JSON.stringify(aid)},'approve')">✓</button>
-                 <button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red);margin-left:3px" onclick="orgApprovalAction(${JSON.stringify(aid)},'reject')">✕</button>`
+              ? `<button class="btn" style="font-size:10px;color:var(--green);border-color:var(--green)" title="Approve" aria-label="Approve" onclick="orgApprovalAction(${JSON.stringify(aid)},'approve')">✓</button>
+                 <button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red);margin-left:3px" title="Reject" aria-label="Reject" onclick="orgApprovalAction(${JSON.stringify(aid)},'reject')">✕</button>`
               : ''}
           </td>
         </tr>`;
@@ -4952,8 +4953,9 @@ function generateOrgSettingsCmd() {
   const topo   = document.getElementById('os-topo')?.value || '';
   const gov    = document.getElementById('os-gov')?.value  || '';
   const budget = document.getElementById('os-budget')?.value.trim() || '';
-  const parts = [`/mastermind:org-settings --org "${org.replace(/"/g, '\\"')}"`];
-  if (goal)   parts.push(`--goal "${goal.replace(/"/g, '\\"')}"`);
+  const _shellEsc = s => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/\n/g, ' ');
+  const parts = [`/mastermind:org-settings --org "${_shellEsc(org)}"`];
+  if (goal)   parts.push(`--goal "${_shellEsc(goal)}"`);
   if (topo)   parts.push(`--topology ${topo}`);
   if (gov)    parts.push(`--governance ${gov}`);
   if (budget) parts.push(`--budget-tokens ${budget}`);
