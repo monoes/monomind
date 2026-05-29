@@ -11,7 +11,7 @@ Load brain context for the `debug` domain (follow `_protocol.md` Brain Load Proc
 
 If problem description is empty: ask "What issue are you debugging?"
 
-Default mode: **confirm** (present diagnostic plan before running any fixes).
+Default mode: **auto** (proceed immediately; the skill gates on root-cause investigation, not on user confirmation).
 
 ---
 
