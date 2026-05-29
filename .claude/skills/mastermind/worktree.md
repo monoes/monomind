@@ -1,187 +1,215 @@
 ---
 name: mastermind-worktree
-description: Mastermind worktree — create isolated git worktrees for org agents. Each agent gets its own branch and working directory, preventing conflicts when multiple agents edit code simultaneously.
-type: domain-skill
-default_mode: confirm
+description: Use when starting feature work that needs isolation from the current workspace or before executing implementation plans — ensures an isolated workspace exists via native tools or git worktree fallback
 ---
 
-# Mastermind Worktree
+# Using Git Worktrees
 
-This skill is invoked by `mastermind:worktree` or directly via `/mastermind:worktree`.
+## Overview
 
----
+Ensure work happens in an isolated workspace. Prefer the platform's native worktree tools. Fall back to manual git worktrees only when no native tool is available.
 
-## Inputs
+**Core principle:** Detect existing isolation first. Then use native tools. Then fall back to git. Never fight the harness.
 
-- `brain_context`: BRAIN CONTEXT block
-- `org_name`: org whose agents need worktrees
-- `action`: list | create | assign | merge | cleanup | status
-- `agent_id`: role id of the agent to create a worktree for
-- `base_branch`: branch to create worktree from (default: current HEAD)
-- `branch_name`: explicit branch name (default: `org/<org_name>/<agent_id>/<YYYYMMDD-HHMMSS>`)
-- `worktree_path`: explicit path (default: `.monomind/worktrees/<org_name>/<agent_id>`)
-- `caller`: command | master
+**Announce at start:** "I'm using the mastermind:worktree skill to set up an isolated workspace."
 
----
+## Step 0: Detect Existing Isolation
 
-## Step 0 — Brain Load (standalone only)
-
-If `caller` is not "command", load brain context following _protocol.md Brain Load Procedure with namespace: `ops`.
-
----
-
-## Concept
-
-When multiple agents in an org need to edit files concurrently (e.g. a content writer, designer, and developer all working on different parts of a codebase), git worktrees give each agent its own checkout of the repo on a dedicated branch. Changes are isolated until the org's boss (or a human) merges them.
-
-Worktree registry is stored in `.monomind/orgs/<org_name>-worktrees.json`.
-
----
-
-## Step 1 — Load Worktree Registry
+**Before creating anything, check if you are already in an isolated workspace.**
 
 ```bash
-orgFile=".monomind/orgs/${org_name}.json"
-worktreesFile=".monomind/orgs/${org_name}-worktrees.json"
-[ ! -f "$worktreesFile" ] && echo '{"worktrees":[]}' > "$worktreesFile"
+GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
+GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
+BRANCH=$(git branch --show-current)
 ```
 
----
-
-## Step 2 — Execute Action
-
-### list (default)
+**Submodule guard:** `GIT_DIR != GIT_COMMON` is also true inside git submodules. Before concluding "already in a worktree," verify you are not in a submodule:
 
 ```bash
-echo "WORKTREES — org: $org_name"
-echo "──────────────────────────────────────────────"
-git worktree list 2>/dev/null | head -20
-
-echo ""
-echo "REGISTRY:"
-jq -r '.worktrees[] | "[\(.agent_id)] branch=\(.branch)  path=\(.path)  created=\(.created_at)"' \
-   "$worktreesFile" 2>/dev/null || echo "No registered worktrees."
+# If this returns a path, you're in a submodule, not a worktree — treat as normal repo
+git rev-parse --show-superproject-working-tree 2>/dev/null
 ```
 
-### create
+**If `GIT_DIR != GIT_COMMON` (and not a submodule):** You are already in a linked worktree. Skip to Step 3 (Project Setup). Do NOT create another worktree.
 
-Create a worktree for a specific agent:
+Report with branch state:
+- On a branch: "Already in isolated workspace at `<path>` on branch `<name>`."
+- Detached HEAD: "Already in isolated workspace at `<path>` (detached HEAD, externally managed). Branch creation needed at finish time."
+
+**If `GIT_DIR == GIT_COMMON` (or in a submodule):** You are in a normal repo checkout.
+
+Has the user already indicated their worktree preference? If not, ask for consent before creating a worktree:
+
+> "Would you like me to set up an isolated worktree? It protects your current branch from changes."
+
+Honor any existing declared preference without asking. If the user declines consent, work in place and skip to Step 3.
+
+## Step 1: Create Isolated Workspace
+
+**You have two mechanisms. Try them in this order.**
+
+### 1a. Native Worktree Tools (preferred)
+
+The user has asked for an isolated workspace (Step 0 consent). Is there a native tool to create a worktree? It might be a tool with a name like `EnterWorktree`, `WorktreeCreate`, a `/worktree` command, or a `--worktree` flag. If so, use it and skip to Step 3.
+
+Native tools handle directory placement, branch creation, and cleanup automatically. Using `git worktree add` when you have a native tool creates phantom state the harness can't see or manage.
+
+Only proceed to Step 1b if no native worktree tool is available.
+
+### 1b. Git Worktree Fallback
+
+**Only use this if Step 1a does not apply** — no native worktree tool is available. Create a worktree manually using git.
+
+#### Directory Selection
+
+Follow this priority order. Explicit user preference always beats observed filesystem state.
+
+1. **Check your instructions for a declared worktree directory preference.** If the user has already specified one, use it without asking.
+
+2. **Check for an existing project-local worktree directory:**
+   ```bash
+   ls -d .worktrees 2>/dev/null     # Preferred (hidden)
+   ls -d worktrees 2>/dev/null      # Alternative
+   ```
+   If found, use it. If both exist, `.worktrees` wins.
+
+3. **Check for an existing global directory:**
+   ```bash
+   project=$(basename "$(git rev-parse --show-toplevel)")
+   ls -d ~/.config/monomind/worktrees/$project 2>/dev/null
+   ```
+   If found, use it (backward compatibility with legacy global path).
+
+4. **If there is no other guidance available**, default to `.worktrees/` at the project root.
+
+#### Safety Verification (project-local directories only)
+
+**MUST verify directory is ignored before creating worktree:**
 
 ```bash
-agentConfig=$(jq --arg id "$agent_id" '.roles[] | select(.id == $id)' "$orgFile")
-[ -z "$agentConfig" ] && { echo "ERROR: Agent '$agent_id' not found in org."; exit 1; }
-
-# Resolve branch name
-timestamp=$(date +%Y%m%d-%H%M%S)
-branch="${branch_name:-org/${org_name}/${agent_id}/${timestamp}}"
-wtPath="${worktree_path:-.monomind/worktrees/${org_name}/${agent_id}}"
-
-# Create the worktree
-git worktree add -b "$branch" "$wtPath" "${base_branch:-HEAD}" 2>&1
-if [ $? -ne 0 ]; then
-  echo "ERROR: Failed to create worktree. Check that git is initialized and the base branch exists."
-  exit 1
-fi
-
-echo "Created worktree: $wtPath (branch: $branch)"
-
-# Register in worktrees file
-tmp="${worktreesFile}.tmp"
-jq --arg agent "$agent_id" \
-   --arg branch "$branch" \
-   --arg path "$wtPath" \
-   --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-   '.worktrees = [.worktrees[] | select(.agent_id != $agent)] +
-    [{"agent_id":$agent,"branch":$branch,"path":$path,"status":"active","created_at":$ts}]' \
-   "$worktreesFile" > "$tmp" && mv "$tmp" "$worktreesFile"
+git check-ignore -q .worktrees 2>/dev/null || git check-ignore -q worktrees 2>/dev/null
 ```
 
-Include worktree path in agent prompt when spawning:
+**If NOT ignored:** Add to .gitignore, commit the change, then proceed.
 
-```
-WORKTREE: Your isolated working directory is ${wtPath}
-All file edits should happen inside this directory.
-Branch: ${branch}
-To view your changes: git -C "${wtPath}" diff
-```
+**Why critical:** Prevents accidentally committing worktree contents to repository.
 
-### merge
+Global directories (`~/.config/monomind/worktrees/`) need no verification.
 
-Merge a completed agent's worktree branch back to the base:
+#### Create the Worktree
 
 ```bash
-wt=$(jq --arg id "$agent_id" '.worktrees[] | select(.agent_id == $id)' "$worktreesFile")
-branch=$(echo "$wt" | jq -r '.branch')
-wtPath=$(echo "$wt" | jq -r '.path')
+project=$(basename "$(git rev-parse --show-toplevel)")
 
-echo "Merging branch $branch..."
-git merge "$branch" --no-ff -m "org($org_name): merge $agent_id work from $branch"
-if [ $? -eq 0 ]; then
-  echo "Merge successful. Removing worktree..."
-  git worktree remove "$wtPath" --force 2>/dev/null || true
-  git branch -d "$branch" 2>/dev/null || true
-  # Update registry
-  tmp="${worktreesFile}.tmp"
-  jq --arg id "$agent_id" \
-     '.worktrees = [.worktrees[] | if .agent_id == $id then .status = "merged" | .merged_at = (now|todate) else . end]' \
-     "$worktreesFile" > "$tmp" && mv "$tmp" "$worktreesFile"
-  echo "Worktree merged and removed."
-else
-  echo "ERROR: Merge conflict on $branch. Resolve manually then run cleanup."
-fi
+# Determine path based on chosen location
+# For project-local: path="$LOCATION/$BRANCH_NAME"
+# For global: path="~/.config/monomind/worktrees/$project/$BRANCH_NAME"
+
+git worktree add "$path" -b "$BRANCH_NAME"
+cd "$path"
 ```
 
-### status
+**Sandbox fallback:** If `git worktree add` fails with a permission error (sandbox denial), tell the user the sandbox blocked worktree creation and you're working in the current directory instead. Then run setup and baseline tests in place.
 
-Show diff summary for all active agent worktrees:
+## Step 3: Project Setup
+
+Auto-detect and run appropriate setup:
 
 ```bash
-jq -r '.worktrees[] | select(.status == "active") | "\(.agent_id) \(.path) \(.branch)"' \
-  "$worktreesFile" | while read -r agent path branch; do
-  echo "[$agent] branch=$branch"
-  git -C "$path" diff --stat 2>/dev/null | tail -3
-  echo ""
-done
+# Node.js
+if [ -f package.json ]; then npm install; fi
+
+# Rust
+if [ -f Cargo.toml ]; then cargo build; fi
+
+# Python
+if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+if [ -f pyproject.toml ]; then poetry install; fi
+
+# Go
+if [ -f go.mod ]; then go mod download; fi
 ```
 
-### cleanup
+## Step 4: Verify Clean Baseline
 
-Remove all merged or abandoned worktrees:
+Run tests to ensure workspace starts clean:
 
 ```bash
-git worktree prune 2>/dev/null
-jq -r '.worktrees[] | select(.status != "active") | .path' "$worktreesFile" | while read -r path; do
-  [ -d "$path" ] && git worktree remove "$path" --force 2>/dev/null || true
-done
-echo "Pruned stale worktrees."
+# Use project-appropriate command
+npm test / cargo test / pytest / go test ./...
 ```
 
----
+**If tests fail:** Report failures, ask whether to proceed or investigate.
 
-## Integration with runorg / heartbeat
+**If tests pass:** Report ready.
 
-When a boss agent assigns code-editing work to an agent, it should:
+### Report
 
-1. Call `/mastermind:worktree --action create --agent-id <role_id>`
-2. Include the worktree path in the agent's task prompt
-3. When the agent marks the task Done, call `/mastermind:worktree --action merge --agent-id <role_id>`
-
----
-
-## Step 3 — Return Output
-
-```yaml
-domain: ops
-status: complete
-action: <action>
-org: <org_name>
-agent_id: <agent_id if applicable>
-branch: <branch if applicable>
-worktree_path: <path if applicable>
+```
+Worktree ready at <full-path>
+Tests passing (<N> tests, 0 failures)
+Ready to implement <feature-name>
 ```
 
----
+## Quick Reference
 
-## Step 4 — Brain Write (standalone only)
+| Situation | Action |
+|-----------|--------|
+| Already in linked worktree | Skip creation (Step 0) |
+| In a submodule | Treat as normal repo (Step 0 guard) |
+| Native worktree tool available | Use it (Step 1a) |
+| No native tool | Git worktree fallback (Step 1b) |
+| `.worktrees/` exists | Use it (verify ignored) |
+| `worktrees/` exists | Use it (verify ignored) |
+| Both exist | Use `.worktrees/` |
+| Neither exists | Check instruction file, then default `.worktrees/` |
+| Global path exists | Use it (backward compat) |
+| Directory not ignored | Add to .gitignore + commit |
+| Permission error on create | Sandbox fallback, work in place |
+| Tests fail during baseline | Report failures + ask |
+| No package.json/Cargo.toml | Skip dependency install |
 
-If `caller` is not "command", follow _protocol.md Brain Write Procedure for domain `ops`.
+## Common Mistakes
+
+### Fighting the harness
+
+- **Problem:** Using `git worktree add` when the platform already provides isolation
+- **Fix:** Step 0 detects existing isolation. Step 1a defers to native tools.
+
+### Skipping detection
+
+- **Problem:** Creating a nested worktree inside an existing one
+- **Fix:** Always run Step 0 before creating anything
+
+### Skipping ignore verification
+
+- **Problem:** Worktree contents get tracked, pollute git status
+- **Fix:** Always use `git check-ignore` before creating project-local worktree
+
+### Assuming directory location
+
+- **Problem:** Creates inconsistency, violates project conventions
+- **Fix:** Follow priority: existing > global legacy > instruction file > default
+
+### Proceeding with failing tests
+
+- **Problem:** Can't distinguish new bugs from pre-existing issues
+- **Fix:** Report failures, get explicit permission to proceed
+
+## Red Flags
+
+**Never:**
+- Create a worktree when Step 0 detects existing isolation
+- Use `git worktree add` when you have a native worktree tool (e.g., `EnterWorktree`). This is the #1 mistake — if you have it, use it.
+- Skip Step 1a by jumping straight to Step 1b's git commands
+- Create worktree without verifying it's ignored (project-local)
+- Skip baseline test verification
+- Proceed with failing tests without asking
+
+**Always:**
+- Run Step 0 detection first
+- Prefer native tools over git fallback
+- Follow directory priority: existing > global legacy > instruction file > default
+- Verify directory is ignored for project-local
+- Auto-detect and run project setup
+- Verify clean test baseline
