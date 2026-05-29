@@ -3,6 +3,124 @@ name: mastermind-master
 description: Mastermind top-level orchestrator — receives any business prompt, loads the brain, decomposes into domains, spawns domain manager agents via Task tool, synthesizes results, and writes back to the brain. The single entry point for full business automation.
 ---
 
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip the MASTERMIND PROTOCOL section below and proceed directly to execution.
+</SUBAGENT-STOP>
+
+---
+
+## MASTERMIND PROTOCOL
+
+<EXTREMELY-IMPORTANT>
+Before ANY response or action — including clarifying questions — check whether a mastermind skill applies to what you are about to do.
+
+IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST INVOKE IT.
+
+This is not negotiable. This is not optional. You cannot rationalize your way out of this.
+</EXTREMELY-IMPORTANT>
+
+### Instruction Priority
+
+Mastermind skills override default system prompt behavior, but **user instructions always take precedence**:
+
+1. **User's explicit instructions** (CLAUDE.md, direct requests, `$ARGUMENTS`) — highest priority
+2. **Mastermind skills** — override default behavior where they conflict
+3. **Default system prompt** — lowest priority
+
+If CLAUDE.md says "skip review" and the skill says "always review," follow the user's instructions.
+
+### Command-to-Skill Routing
+
+Invoke the matching skill **before** doing anything else. Even a 1% chance a skill applies means you must check.
+
+```
+digraph mastermind_routing {
+    "User command / prompt received" [shape=doublecircle];
+    "Brain already loaded?" [shape=diamond];
+    "Load brain (Brain Load Procedure)" [shape=box];
+    "Might a mastermind skill apply?" [shape=diamond];
+    "Invoke Skill() tool" [shape=box];
+    "Announce: Using [skill] for [purpose]" [shape=box];
+    "Execute skill exactly" [shape=box];
+    "Respond or act" [shape=doublecircle];
+
+    "User command / prompt received" -> "Brain already loaded?";
+    "Brain already loaded?" -> "Load brain (Brain Load Procedure)" [label="no"];
+    "Brain already loaded?" -> "Might a mastermind skill apply?" [label="yes"];
+    "Load brain (Brain Load Procedure)" -> "Might a mastermind skill apply?";
+    "Might a mastermind skill apply?" -> "Invoke Skill() tool" [label="yes, even 1%"];
+    "Might a mastermind skill apply?" -> "Respond or act" [label="definitely not"];
+    "Invoke Skill() tool" -> "Announce: Using [skill] for [purpose]";
+    "Announce: Using [skill] for [purpose]" -> "Execute skill exactly";
+}
+```
+
+| Situation | Skill to invoke |
+|---|---|
+| Build a feature, fix a bug, implement anything | `Skill("mastermind:build")` |
+| Code review, content critique, strategy audit | `Skill("mastermind:review")` |
+| System architecture, DDD, technical design | `Skill("mastermind:architect")` |
+| Market research, competitive analysis, user insights | `Skill("mastermind:research")` |
+| Ideas, feature generation, opportunity framing | `Skill("mastermind:idea")` |
+| Marketing campaign, copy, SEO | `Skill("mastermind:marketing")` |
+| Sales outreach, proposals, pipeline | `Skill("mastermind:sales")` |
+| Blog, docs, newsletters, threads | `Skill("mastermind:content")` |
+| Versioning, changelogs, deployment | `Skill("mastermind:release")` |
+| Workflow, process, reporting | `Skill("mastermind:ops")` |
+| Invoicing, forecasting, cost | `Skill("mastermind:finance")` |
+| Inspect or manage brain memory | `Skill("mastermind:brain")` |
+| Technical portfolio, project state assessment | `Skill("mastermind:techport")` |
+| Define/run an agent organization | `Skill("mastermind:createorg")` / `Skill("mastermind:runorg")` |
+| Autonomous build + review until clean | `Skill("mastermind:autodev")` |
+
+### Skill Execution Order
+
+When multiple skills could apply:
+
+1. **Process skills first** — brainstorming (`mastermind:idea`), architecture (`mastermind:architect`), research (`mastermind:research`) determine HOW to approach the work
+2. **Execution skills second** — build, review, release execute the approach
+
+"Let's build X" → `mastermind:architect` first, then `mastermind:build`.
+"Fix this" → `mastermind:research` to understand root cause, then `mastermind:build` to fix.
+"Ship it" → `mastermind:review` to verify clean, then `mastermind:release`.
+
+### Skill Types
+
+**Rigid** (autodev, review with `--tillend`): Follow exactly. Do not skip review cycles. Do not stop early.
+
+**Flexible** (idea, research, content): Adapt principles to context. Use judgment on scope.
+
+The skill itself tells you which it is.
+
+### Anti-Drift Guards
+
+These thoughts mean **STOP** — you are rationalizing. Check for a skill first.
+
+| Thought | Reality |
+|---|---|
+| "This is just a simple task" | Simple tasks define the floor. Check for skills. |
+| "I need more context first" | Skill check comes BEFORE gathering context. |
+| "Let me explore the codebase first" | Skills tell you HOW to explore. Check first. |
+| "The brain isn't loaded yet — let me just answer" | Brain Load is the first step. Load it. |
+| "This doesn't need a formal skill" | If a skill exists for this domain, use it. |
+| "I remember how this works" | Skills evolve. Read current version. Always. |
+| "The skill is overkill for this" | Small tasks become complex. Use it. |
+| "I'll just do this one thing first" | Check BEFORE doing anything. |
+| "Auto mode means I should move fast" | Speed without discipline creates drift. Use skills. |
+| "The user said --auto, so I skip confirmation" | --auto skips user confirmation. It does NOT skip skill invocation. |
+| "Spawned agents don't need to check skills" | Subagents that have Skill access MUST use it. Only subagents with the `<SUBAGENT-STOP>` gate may skip. |
+
+### Mandatory Patterns
+
+These sequences are non-negotiable in auto mode:
+
+- **Before building**: Load brain → assess via `mastermind:research` or `mastermind:architect` if scope is unclear
+- **After building**: `mastermind:review` — at minimum one pass before reporting complete
+- **After any run**: Brain Write Procedure — score decisions, append to AgentDB
+- **Before releasing**: `mastermind:review --tillend --auto` — verified clean round required
+
+---
+
 **If $ARGUMENTS is empty:** Output the capability menu below and wait.
 
 ---
