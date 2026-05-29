@@ -73,7 +73,9 @@ body { font-family: var(--ff-b); background: var(--bg); color: var(--text); line
   from { opacity: 0; transform: translateY(18px); }
   to   { opacity: 1; transform: none; }
 }
-.hero-section { position: relative; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 80px 64px; overflow: hidden; }
+.hero-section { position: relative; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 80px 64px; overflow: hidden; background-image: url('assets/hero-bg.png'); background-size: cover; background-position: center; }
+.hero-section::before { content: ''; position: absolute; inset: 0; background: oklch(11% 0.012 265 / 0.82); z-index: 0; }
+.hero-section > * { position: relative; z-index: 1; }
 .hero-eyebrow { font-size: 11px; letter-spacing: 0.15em; font-weight: 500; color: var(--accent); text-transform: uppercase; margin-bottom: 20px; animation: fadeInUp .7s cubic-bezier(.16,1,.3,1) .1s both; }
 .hero-title { font-family: var(--ff-d); font-size: clamp(40px, 5.5vw, 72px); font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; max-width: 720px; margin-bottom: 24px; animation: fadeInUp .7s cubic-bezier(.16,1,.3,1) .22s both; }
 .hero-title em { font-style: normal; color: var(--accent); }
@@ -504,8 +506,9 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <p class="page-desc">Four-tier memory palace, HNSW vector indexing, BM25 search, and Monograph — the code knowledge graph with 23 MCP tools.</p>
     </div>
     <div class="section-title reveal">Memory Palace — Four Tiers</div>
-    <div class="reveal" style="margin-bottom:24px">
-      <img src="assets/memory-illustration.svg" alt="Memory Palace tier diagram" style="width:100%;max-width:600px;border-radius:10px;display:block">
+    <div class="reveal" style="margin-bottom:24px;display:flex;gap:12px;flex-wrap:wrap">
+      <img src="assets/memory-photo.png" alt="Memory Palace visualization" style="flex:1;min-width:200px;border-radius:10px;object-fit:cover;max-height:200px">
+      <img src="assets/memory-illustration.svg" alt="Memory Palace tier diagram" style="flex:2;min-width:280px;border-radius:10px">
     </div>
     <div class="tier-stack reveal">
       <div class="tier-row tier-l0"><div class="tier-label">L0<br>In-flight</div><div class="tier-content"><strong>Current session context.</strong> Stored in <code>drawers.jsonl</code>. Each drawer has a key, value, tags array, timestamp, and score. Ephemeral — not persisted across sessions unless promoted.</div></div>
@@ -697,6 +700,9 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <span class="page-tag">Concepts</span>
       <h1 class="page-title">Neural Learning</h1>
       <p class="page-desc">SONA self-optimizing architecture, LoRA adapters, EWC++ memory preservation, and a full RL agent suite — running automatically in the background.</p>
+    </div>
+    <div class="reveal" style="margin-bottom:24px">
+      <img src="assets/neural-photo.png" alt="Neural learning visualization" style="width:100%;max-width:600px;border-radius:10px;display:block;object-fit:cover;max-height:260px">
     </div>
     <div class="section-title reveal">SONA Operating Modes</div>
     <div class="table-wrap reveal">
