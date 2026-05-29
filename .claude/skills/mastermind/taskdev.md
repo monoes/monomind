@@ -1,6 +1,6 @@
 ---
 name: mastermind-taskdev
-description: Execute implementation plans with independent tasks using fresh subagents per task, with two-stage review (spec compliance then code quality) after each. Replaces superpowers:subagent-driven-development.
+description: Execute implementation plans with independent tasks using fresh subagents per task, with two-stage review (spec compliance then code quality) after each.
 type: domain-skill
 default_mode: auto
 ---
