@@ -14,6 +14,8 @@ Parse `$ARGUMENTS` for:
 
 If source_path is empty: ask "What is the path to the project you want to analyze?"
 
+Load brain context for the `techport` domain (follow `_protocol.md` Brain Load Procedure).
+
 Default mode: **confirm** (show analysis + port plan, wait before executing anything).
 
 > **Note for `--tillend` / `--repeat` loops:** This command defaults to `--confirm`, which presents a plan but doesn't execute it. In an unattended loop, this means each run will find items (findings = yes) but take no action (actions = no), so `TILLEND_EMPTY` never becomes true and the loop runs until the safety cap. Always add `--auto` when using this command in a loop:
@@ -22,5 +24,7 @@ Default mode: **confirm** (show analysis + port plan, wait before executing anyt
 > ```
 
 Invoke `Skill("mastermind:techport")` passing: source_path, focus_hint, mode.
+
+After skill returns: follow `_protocol.md` Brain Write Procedure for domain `techport`.
 
 Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

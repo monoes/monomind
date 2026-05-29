@@ -95,3 +95,6 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
 ```
 
 Follow _protocol.md Brain Write Procedure for domain `ops`.
+
+
+Invoke `Skill("mastermind:_repeat")` now to execute the REPEAT POSTAMBLE. This is a required tool call — do not skip it.

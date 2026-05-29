@@ -9,7 +9,7 @@ Parse `$ARGUMENTS` for `--auto`, `--confirm`, `--project <name>`, and remaining 
 
 Load brain context (follow `_protocol.md` Brain Load Procedure).
 
-Default mode: **confirm**.
+Default mode: **auto**.
 
 ---
 

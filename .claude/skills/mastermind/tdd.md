@@ -1,6 +1,6 @@
 ---
 name: mastermind-tdd
-description: Mastermind TDD domain — enforces Red-Green-Refactor cycle with the Iron Law that no production code may exist without a failing test first. Invokes mastermind:verify for all completion gates.
+description: Use when writing new code, fixing bugs, or adding any production logic — enforces test-first discipline before touching implementation. Use ESPECIALLY when under time pressure or when a fix seems obvious.
 type: domain-skill
 default_mode: auto
 ---
