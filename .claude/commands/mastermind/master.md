@@ -64,6 +64,7 @@ digraph mastermind_routing {
 
 | Situation | Skill to invoke |
 |---|---|
+| Debug a bug, test failure, unexpected behavior | `Skill("mastermind:debug")` |
 | Build a feature, fix a bug, implement anything | `Skill("mastermind:build")` |
 | Code review, content critique, strategy audit | `Skill("mastermind:review")` |
 | System architecture, DDD, technical design | `Skill("mastermind:architect")` |
@@ -148,6 +149,9 @@ This command assumes **Claude Code** as the execution environment. The `Skill` t
 Describe your goal. Mastermind identifies the relevant domains, spawns specialist agents in parallel, and synthesizes results. Or invoke a domain directly.
 
 ---
+
+**Debug & fix**
+`/mastermind:debug` — systematic root-cause investigation before any fix attempt
 
 **Build & ship**
 `/mastermind:build` — code, features, bug fixes, test suites
