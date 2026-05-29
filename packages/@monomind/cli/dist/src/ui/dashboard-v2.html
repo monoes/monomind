@@ -1963,6 +1963,12 @@ function _showNavProjectCtx(path) {
 function switchProject(path) {
   if (DIR === path) { switchView('sessions'); return; }
   DIR = path;
+  // Reset cached tab data on project change
+  _chunksLoaded = false;
+  _agData = null;
+  _swarmRuns = [];
+  _memFiles = [];
+  _selMemFilename = null;
   document.getElementById('sb-proj').textContent = path.split('/').filter(Boolean).pop() || '—';
   document.getElementById('sb-path').textContent = path;
   _showNavProjectCtx(path);
@@ -2654,7 +2660,18 @@ async function setTokPeriod(btn, period) {
         ).join('') +
         '</tbody></table></div>';
     } else if (table) { table.innerHTML = ''; }
-  } catch (_) { /* silently ignore period fetch errors */ }
+    markLiveGlow('view-tokens');
+    // Update topbar badge when showing today's data
+    if (period === 'today') {
+      const badge = document.getElementById('topbar-cost');
+      const cost = s.todayCost ?? s.cost;
+      if (badge && typeof cost === 'number') {
+        badge.textContent = '$' + cost.toFixed(2) + ' today';
+      }
+    }
+  } catch (e) {
+    if (cards) cards.innerHTML = '<div class="loading-txt" style="color:var(--red)">Failed to load period data</div>';
+  }
 }
 
 window.addEventListener('resize', () => {
@@ -4247,6 +4264,11 @@ function v2UpdateOrgHeader(listOrg, data) {
 }
 
 window.v2SwitchOrgTab = function(tab) {
+  // Clear live interval when switching away from live tab
+  if (tab !== 'live' && _orgLiveInterval) {
+    clearInterval(_orgLiveInterval);
+    _orgLiveInterval = null;
+  }
   _v2OrgTab = tab;
   document.querySelectorAll('#org-detail-tabs .odt-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.tab === tab);
@@ -4819,15 +4841,16 @@ function v2RenderOrgLive() {
     </div>`).join('')}
   </div>`;
   // auto-refresh every 5s while tab is active
-  if (_orgLiveInterval) clearInterval(_orgLiveInterval);
-  _orgLiveInterval = setInterval(async () => {
-    if (_v2OrgTab !== 'live' || !_v2SelOrg) { clearInterval(_orgLiveInterval); _orgLiveInterval = null; return; }
-    const _enc = encodeURIComponent(_v2SelOrg);
-    try {
-      const data = await fetch(`/api/org/${_enc}/activity${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []);
-      if (_v2OrgData) { _v2OrgData._activity = Array.isArray(data) ? data : []; v2RenderOrgLive(); }
-    } catch (_) {}
-  }, 5000);
+  if (!_orgLiveInterval) {
+    _orgLiveInterval = setInterval(async () => {
+      if (_v2OrgTab !== 'live' || !_v2SelOrg) { clearInterval(_orgLiveInterval); _orgLiveInterval = null; return; }
+      const _enc = encodeURIComponent(_v2SelOrg);
+      try {
+        const data = await fetch(`/api/org/${_enc}/activity${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`).then(r => r.ok ? r.json() : []);
+        if (_v2OrgData) { _v2OrgData._activity = Array.isArray(data) ? data : []; v2RenderOrgLive(); }
+      } catch (_) {}
+    }, 5000);
+  }
 }
 
 // ── APPROVALS ──────────────────────────────────────────────
@@ -7335,6 +7358,7 @@ async function loadMemoriesTab() {
     const data = await apiFetch('/api/memory-files?dir=' + enc(DIR));
     _memFiles = Array.isArray(data) ? data : (data.memories || data.files || []);
     _renderMemList();
+    markLiveGlow('view-memory');
   } catch (e) {
     list.innerHTML = '<div class="empty" style="padding:16px">Failed: ' + esc(e.message) + '</div>';
   }
@@ -7374,9 +7398,9 @@ function selectMem(filename) {
   const rawBody = f.body || f.content || '';
   const bodyHtml = rawBody
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/^#{1,3} (.+)/gm, '<div style="font-weight:600;color:var(--text-hi);margin:6px 0 2px">$1</div>')
-    .replace(/^- (.+)/gm, '<div style="padding-left:12px">• $1</div>');
+    .replace(/\*\*(.+?)\*\*/g, (_, g) => '<strong>' + esc(g) + '</strong>')
+    .replace(/^#{1,3} (.+)/gm, (_, g) => '<div style="font-weight:600;color:var(--text-hi);margin:6px 0 2px">' + esc(g) + '</div>')
+    .replace(/^- (.+)/gm, (_, g) => '<div style="padding-left:12px">• ' + esc(g) + '</div>');
   detail.innerHTML =
     '<span class="mem-badge" style="background:' + col + '22;color:' + col + '">' + esc(f.type || '?') + '</span>' +
     '<div style="font-size:15px;font-weight:600;color:var(--text-hi);margin-bottom:4px">' + esc(f.name || filename.replace('.md','')) + '</div>' +
@@ -7568,7 +7592,7 @@ function _drawSwarmTopology(run) {
     if (!isQ) {
       ctx.fillStyle = 'oklch(50% 0.006 75)';
       ctx.font = '9px sans-serif';
-      ctx.fillText(esc((ag.type || '').slice(0, 5)), x, y + 14);
+      ctx.fillText((ag.type || '').slice(0, 5), x, y + 14);
     }
   });
 }
