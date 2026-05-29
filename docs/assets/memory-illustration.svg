@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" width="600" height="300">
+  <defs>
+    <radialGradient id="node-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00D2AA" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#00D2AA" stop-opacity="0"/>
+    </radialGradient>
+    <style>
+      .tier-label { font-family: 'Space Grotesk', monospace, sans-serif; font-size: 11px; fill: #00D2AA; letter-spacing: 0.08em; text-transform: uppercase; }
+      .tier-desc { font-family: 'DM Sans', sans-serif; font-size: 12px; fill: #a8b8b4; }
+      .tier-val { font-family: 'Fira Code', monospace; font-size: 11px; fill: #6ecfc0; }
+    </style>
+  </defs>
+  <rect width="600" height="300" fill="oklch(11% 0.012 265)" rx="12"/>
+
+  <!-- Memory tier bars — horizontal stacked layout -->
+  <!-- L0 short-term -->
+  <rect x="32" y="36" width="536" height="52" rx="8" fill="oklch(72% 0.22 168 / 0.08)" stroke="#00D2AA" stroke-width="1"/>
+  <rect x="32" y="36" width="160" height="52" rx="8" fill="oklch(72% 0.22 168 / 0.12)"/>
+  <text x="48" y="58" class="tier-label">Short-term</text>
+  <text x="48" y="76" class="tier-desc">In-flight context · current session</text>
+  <text x="480" y="67" class="tier-val">SQLite + RAM</text>
+
+  <!-- L1 long-term -->
+  <rect x="32" y="100" width="536" height="52" rx="8" fill="oklch(65% 0.16 295 / 0.07)" stroke="oklch(65% 0.16 295)" stroke-opacity="0.4" stroke-width="1"/>
+  <rect x="32" y="100" width="260" height="52" rx="8" fill="oklch(65% 0.16 295 / 0.10)"/>
+  <text x="48" y="122" class="tier-label" fill="oklch(65% 0.16 295)">Long-term</text>
+  <text x="48" y="140" class="tier-desc">Persistent patterns · cross-session</text>
+  <text x="452" y="131" class="tier-val" fill="oklch(65% 0.16 295)">AgentDB + HNSW</text>
+
+  <!-- L2 contextual -->
+  <rect x="32" y="164" width="536" height="52" rx="8" fill="oklch(70% 0.18 60 / 0.07)" stroke="oklch(70% 0.18 60)" stroke-opacity="0.4" stroke-width="1"/>
+  <rect x="32" y="164" width="380" height="52" rx="8" fill="oklch(70% 0.18 60 / 0.10)"/>
+  <text x="48" y="186" class="tier-label" fill="oklch(70% 0.18 60)">Contextual</text>
+  <text x="48" y="204" class="tier-desc">Clustered episode summaries · RAPTOR</text>
+  <text x="474" y="195" class="tier-val" fill="oklch(70% 0.18 60)">Consolidate</text>
+
+  <!-- L3 shared -->
+  <rect x="32" y="228" width="536" height="52" rx="8" fill="oklch(62% 0.20 22 / 0.07)" stroke="oklch(62% 0.20 22)" stroke-opacity="0.4" stroke-width="1"/>
+  <rect x="32" y="228" width="536" height="52" rx="8" fill="oklch(62% 0.20 22 / 0.10)"/>
+  <text x="48" y="250" class="tier-label" fill="oklch(62% 0.20 22)">Shared</text>
+  <text x="48" y="268" class="tier-desc">Cross-agent state · multi-project</text>
+  <text x="449" y="259" class="tier-val" fill="oklch(62% 0.20 22)">PartitionedHNSW</text>
+
+  <!-- Speed indicator -->
+  <text x="300" y="22" text-anchor="middle" font-family="'Space Grotesk', sans-serif" font-size="11px" fill="oklch(55% 0.010 265)" letter-spacing="0.05em">MEMORY PALACE — 150×–12,500× FASTER SEARCH VIA HNSW</text>
+</svg>

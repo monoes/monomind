@@ -1,80 +1,74 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0f0f1a"/>
-      <stop offset="100%" style="stop-color:#1a1a2e"/>
-    </linearGradient>
-    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#7c3aed"/>
-      <stop offset="100%" style="stop-color:#3b82f6"/>
-    </linearGradient>
-    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3b82f6"/>
-      <stop offset="100%" style="stop-color:#06b6d4"/>
-    </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <radialGradient id="face-grad" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="oklch(25% 0.025 168)"/>
+      <stop offset="100%" stop-color="oklch(14% 0.015 265)"/>
+    </radialGradient>
+    <radialGradient id="ear-grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="oklch(55% 0.12 168)"/>
+      <stop offset="100%" stop-color="oklch(35% 0.08 168)"/>
+    </radialGradient>
+    <radialGradient id="muzzle-grad" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="oklch(38% 0.035 168)"/>
+      <stop offset="100%" stop-color="oklch(22% 0.020 168)"/>
+    </radialGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft-shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="oklch(0% 0 0 / 0.5)"/>
     </filter>
   </defs>
 
-  <!-- Background circle -->
-  <circle cx="60" cy="60" r="58" fill="url(#bg)" stroke="url(#grad1)" stroke-width="1.5"/>
+  <!-- Outer ring / glow -->
+  <circle cx="60" cy="60" r="58" fill="oklch(13% 0.015 265)" stroke="oklch(72% 0.22 168)" stroke-width="1.5" opacity="0.9"/>
 
-  <!-- Neural network nodes -->
-  <!-- Center node -->
-  <circle cx="60" cy="60" r="7" fill="url(#grad1)" filter="url(#glow)"/>
+  <!-- Ears — left -->
+  <ellipse cx="22" cy="52" rx="12" ry="13" fill="url(#ear-grad)"/>
+  <ellipse cx="22" cy="52" rx="7" ry="8" fill="oklch(55% 0.18 10)" opacity="0.5"/>
 
-  <!-- Inner ring nodes -->
-  <circle cx="60" cy="35" r="4.5" fill="url(#grad2)" filter="url(#glow)"/>
-  <circle cx="60" cy="85" r="4.5" fill="url(#grad2)" filter="url(#glow)"/>
-  <circle cx="35" cy="60" r="4.5" fill="url(#grad2)" filter="url(#glow)"/>
-  <circle cx="85" cy="60" r="4.5" fill="url(#grad2)" filter="url(#glow)"/>
-  <circle cx="41" cy="41" r="4" fill="url(#grad2)" filter="url(#glow)"/>
-  <circle cx="79" cy="41" r="4" fill="url(#grad2)" filter="url(#glow)"/>
-  <circle cx="41" cy="79" r="4" fill="url(#grad2)" filter="url(#glow)"/>
-  <circle cx="79" cy="79" r="4" fill="url(#grad2)" filter="url(#glow)"/>
+  <!-- Ears — right -->
+  <ellipse cx="98" cy="52" rx="12" ry="13" fill="url(#ear-grad)"/>
+  <ellipse cx="98" cy="52" rx="7" ry="8" fill="oklch(55% 0.18 10)" opacity="0.5"/>
 
-  <!-- Outer ring nodes -->
-  <circle cx="60" cy="18" r="3" fill="#7c3aed" opacity="0.8"/>
-  <circle cx="60" cy="102" r="3" fill="#7c3aed" opacity="0.8"/>
-  <circle cx="18" cy="60" r="3" fill="#7c3aed" opacity="0.8"/>
-  <circle cx="102" cy="60" r="3" fill="#7c3aed" opacity="0.8"/>
-  <circle cx="28" cy="28" r="3" fill="#3b82f6" opacity="0.7"/>
-  <circle cx="92" cy="28" r="3" fill="#3b82f6" opacity="0.7"/>
-  <circle cx="28" cy="92" r="3" fill="#3b82f6" opacity="0.7"/>
-  <circle cx="92" cy="92" r="3" fill="#3b82f6" opacity="0.7"/>
+  <!-- Head -->
+  <ellipse cx="60" cy="56" rx="33" ry="31" fill="url(#face-grad)" filter="url(#soft-shadow)"/>
 
-  <!-- Connections: center to inner ring -->
-  <line x1="60" y1="60" x2="60" y2="35" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
-  <line x1="60" y1="60" x2="60" y2="85" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
-  <line x1="60" y1="60" x2="35" y2="60" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
-  <line x1="60" y1="60" x2="85" y2="60" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
-  <line x1="60" y1="60" x2="41" y2="41" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
-  <line x1="60" y1="60" x2="79" y2="41" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
-  <line x1="60" y1="60" x2="41" y2="79" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
-  <line x1="60" y1="60" x2="79" y2="79" stroke="url(#grad1)" stroke-width="1.2" opacity="0.7"/>
+  <!-- Brow ridge -->
+  <ellipse cx="60" cy="36" rx="22" ry="6" fill="oklch(20% 0.020 265)" opacity="0.7"/>
 
-  <!-- Connections: inner to outer -->
-  <line x1="60" y1="35" x2="60" y2="18" stroke="#3b82f6" stroke-width="0.8" opacity="0.5"/>
-  <line x1="60" y1="85" x2="60" y2="102" stroke="#3b82f6" stroke-width="0.8" opacity="0.5"/>
-  <line x1="35" y1="60" x2="18" y2="60" stroke="#3b82f6" stroke-width="0.8" opacity="0.5"/>
-  <line x1="85" y1="60" x2="102" y2="60" stroke="#3b82f6" stroke-width="0.8" opacity="0.5"/>
-  <line x1="41" y1="41" x2="28" y2="28" stroke="#7c3aed" stroke-width="0.8" opacity="0.5"/>
-  <line x1="79" y1="41" x2="92" y2="28" stroke="#7c3aed" stroke-width="0.8" opacity="0.5"/>
-  <line x1="41" y1="79" x2="28" y2="92" stroke="#7c3aed" stroke-width="0.8" opacity="0.5"/>
-  <line x1="79" y1="79" x2="92" y2="92" stroke="#7c3aed" stroke-width="0.8" opacity="0.5"/>
+  <!-- Muzzle -->
+  <ellipse cx="60" cy="68" rx="16" ry="12" fill="url(#muzzle-grad)"/>
 
-  <!-- Cross connections inner ring -->
-  <line x1="60" y1="35" x2="41" y2="41" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
-  <line x1="60" y1="35" x2="79" y2="41" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
-  <line x1="60" y1="85" x2="41" y2="79" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
-  <line x1="60" y1="85" x2="79" y2="79" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
-  <line x1="35" y1="60" x2="41" y2="41" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
-  <line x1="35" y1="60" x2="41" y2="79" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
-  <line x1="85" y1="60" x2="79" y2="41" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
-  <line x1="85" y1="60" x2="79" y2="79" stroke="#06b6d4" stroke-width="0.6" opacity="0.3"/>
+  <!-- Eyes — whites -->
+  <ellipse cx="47" cy="51" rx="7" ry="6.5" fill="oklch(92% 0.005 265)"/>
+  <ellipse cx="73" cy="51" rx="7" ry="6.5" fill="oklch(92% 0.005 265)"/>
+
+  <!-- Eyes — irises (teal) -->
+  <circle cx="47" cy="51" r="4.5" fill="oklch(72% 0.22 168)" filter="url(#glow)"/>
+  <circle cx="73" cy="51" r="4.5" fill="oklch(72% 0.22 168)" filter="url(#glow)"/>
+
+  <!-- Eyes — pupils -->
+  <circle cx="47" cy="51" r="2.5" fill="oklch(8% 0.010 265)"/>
+  <circle cx="73" cy="51" r="2.5" fill="oklch(8% 0.010 265)"/>
+
+  <!-- Eye shine -->
+  <circle cx="48.5" cy="49.5" r="1.2" fill="oklch(95% 0.005 265)" opacity="0.9"/>
+  <circle cx="74.5" cy="49.5" r="1.2" fill="oklch(95% 0.005 265)" opacity="0.9"/>
+
+  <!-- Nose -->
+  <ellipse cx="60" cy="61" rx="4.5" ry="3" fill="oklch(18% 0.015 265)"/>
+  <circle cx="58" cy="60" r="1.3" fill="oklch(12% 0.010 265)"/>
+  <circle cx="62" cy="60" r="1.3" fill="oklch(12% 0.010 265)"/>
+
+  <!-- Mouth — subtle smile -->
+  <path d="M 51 68 Q 60 74 69 68" stroke="oklch(18% 0.015 265)" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+
+  <!-- Neural circuit lines on forehead — tiny teal details -->
+  <circle cx="52" cy="38" r="1.5" fill="oklch(72% 0.22 168)" opacity="0.6"/>
+  <circle cx="60" cy="35" r="1.5" fill="oklch(72% 0.22 168)" opacity="0.6"/>
+  <circle cx="68" cy="38" r="1.5" fill="oklch(72% 0.22 168)" opacity="0.6"/>
+  <line x1="52" y1="38" x2="60" y2="35" stroke="oklch(72% 0.22 168)" stroke-width="0.7" opacity="0.4"/>
+  <line x1="68" y1="38" x2="60" y2="35" stroke="oklch(72% 0.22 168)" stroke-width="0.7" opacity="0.4"/>
 </svg>
