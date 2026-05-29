@@ -65,8 +65,15 @@ digraph mastermind_routing {
 | Situation | Skill to invoke |
 |---|---|
 | Debug a bug, test failure, unexpected behavior | `Skill("mastermind:debug")` |
+| Verify a claim — tests pass, feature works, fix resolved | `Skill("mastermind:verify")` |
+| Write tests first, enforce Red-Green-Refactor | `Skill("mastermind:tdd")` |
+| Write a structured implementation plan (no placeholders) | `Skill("mastermind:plan")` |
+| Execute a written plan step-by-step with stop-on-blocker | `Skill("mastermind:execute")` |
+| Execute a plan via fresh subagents with 2-stage review | `Skill("mastermind:taskdev")` |
+| Design first — spec, approaches, approval gate before code | `Skill("mastermind:design")` |
 | Build a feature, fix a bug, implement anything | `Skill("mastermind:build")` |
 | Code review, content critique, strategy audit | `Skill("mastermind:review")` |
+| Receive a code review and apply it correctly | `Skill("mastermind:receive-review")` |
 | System architecture, DDD, technical design | `Skill("mastermind:architect")` |
 | Market research, competitive analysis, user insights | `Skill("mastermind:research")` |
 | Ideas, feature generation, opportunity framing | `Skill("mastermind:idea")` |
@@ -74,12 +81,15 @@ digraph mastermind_routing {
 | Sales outreach, proposals, pipeline | `Skill("mastermind:sales")` |
 | Blog, docs, newsletters, threads | `Skill("mastermind:content")` |
 | Versioning, changelogs, deployment | `Skill("mastermind:release")` |
+| Finish a branch — tests, options menu, merge/PR/discard | `Skill("mastermind:finish")` |
 | Workflow, process, reporting | `Skill("mastermind:ops")` |
 | Invoicing, forecasting, cost | `Skill("mastermind:finance")` |
 | Inspect or manage brain memory | `Skill("mastermind:brain")` |
 | Technical portfolio, project state assessment | `Skill("mastermind:techport")` |
 | Define/run an agent organization | `Skill("mastermind:createorg")` / `Skill("mastermind:runorg")` |
 | Autonomous build + review until clean | `Skill("mastermind:autodev")` |
+| Isolate work in a git worktree | `Skill("mastermind:worktree")` |
+| Write or improve a mastermind skill | `Skill("mastermind:skill-builder")` |
 
 ### Skill Execution Order
 
@@ -129,10 +139,13 @@ These thoughts mean **STOP** — you are rationalizing. Check for a skill first.
 
 These sequences are non-negotiable in all modes:
 
-- **Before building**: Load brain → assess via `mastermind:research` or `mastermind:architect` if scope is unclear
+- **Before building**: Load brain → `mastermind:design` if approach is unclear → `mastermind:plan` for complex work → then build
+- **When fixing bugs**: `mastermind:debug` first (root cause) → write failing test via `mastermind:tdd` → fix → `mastermind:verify`
 - **After building**: `mastermind:review` — at minimum one pass before reporting complete
+- **Consuming a review**: `mastermind:receive-review` — verify before implementing, clarify unclear items first
 - **After any run**: Brain Write Procedure — score decisions, append to AgentDB
-- **Before releasing**: `mastermind:review --tillend --auto` — verified clean round required
+- **Before releasing**: `mastermind:review --tillend --auto` → `mastermind:verify` → `mastermind:finish`
+- **Isolated work**: `mastermind:worktree` before making changes to avoid contaminating main
 
 ### Platform Note
 
@@ -150,8 +163,17 @@ Describe your goal. Mastermind identifies the relevant domains, spawns specialis
 
 ---
 
-**Debug & fix**
+**Debug & quality**
 `/mastermind:debug` — systematic root-cause investigation before any fix attempt
+`/mastermind:verify` — confirm claims with evidence: tests pass, feature works, fix resolved
+`/mastermind:tdd` — enforce Red-Green-Refactor; no production code before failing test
+
+**Plan & execute**
+`/mastermind:design` — brainstorm, propose approaches, write approved spec before building
+`/mastermind:plan` — write a complete implementation plan (no placeholders, exact file paths)
+`/mastermind:execute` — run a written plan step-by-step with stop-on-blocker discipline
+`/mastermind:taskdev` — execute a plan via fresh subagents with two-stage per-task review
+`/mastermind:finish` — complete a branch: verify tests → options menu → merge/PR/keep/discard
 
 **Build & ship**
 `/mastermind:build` — code, features, bug fixes, test suites
@@ -159,9 +181,12 @@ Describe your goal. Mastermind identifies the relevant domains, spawns specialis
 `/mastermind:idea` — products, features, pivots, opportunity framing
 `/mastermind:content` — blog, threads, documentation, newsletters
 
+**Review & improve**
+`/mastermind:review` — code quality, content critique, strategy audit
+`/mastermind:receive-review` — consume a code review correctly: verify, clarify, push back with evidence
+
 **Understand & decide**
 `/mastermind:research` — market intelligence, competitors, user insights
-`/mastermind:review` — code quality, content critique, strategy audit
 `/mastermind:brain` — inspect and manage business memory
 
 **Go to market & operate**
@@ -178,6 +203,8 @@ Describe your goal. Mastermind identifies the relevant domains, spawns specialis
 **Autonomous & advanced**
 `/mastermind:autodev` — research → build → review loop until clean (`--tillend` supported)
 `/mastermind:techport` — technical portfolio assessment; port capabilities from other projects
+`/mastermind:worktree` — isolate work in a git worktree safely
+`/mastermind:skill-builder` — write or improve a mastermind skill with TDD discipline
 
 ---
 Flags: `--auto` · `--confirm` · `--project <name>` · `--iterate <N>`
