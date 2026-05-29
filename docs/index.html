@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Monomind — Autonomous Claude Code Orchestration</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="alternate icon" href="favicon.svg">
+<meta name="theme-color" content="#00D2AA">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -233,7 +236,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
 
 <nav id="sidebar" role="navigation" aria-label="Main navigation">
   <div class="sidebar-logo">
-    <div class="logo-mark">M</div>
+    <img src="assets/logo.svg" alt="Monomind logo" width="32" height="32" style="border-radius:6px;flex-shrink:0">
     <div>
       <div class="logo-text">Monomind</div>
       <div class="logo-ver">v1.10.54</div>
@@ -501,6 +504,9 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <p class="page-desc">Four-tier memory palace, HNSW vector indexing, BM25 search, and Monograph — the code knowledge graph with 23 MCP tools.</p>
     </div>
     <div class="section-title reveal">Memory Palace — Four Tiers</div>
+    <div class="reveal" style="margin-bottom:24px">
+      <img src="assets/memory-illustration.svg" alt="Memory Palace tier diagram" style="width:100%;max-width:600px;border-radius:10px;display:block">
+    </div>
     <div class="tier-stack reveal">
       <div class="tier-row tier-l0"><div class="tier-label">L0<br>In-flight</div><div class="tier-content"><strong>Current session context.</strong> Stored in <code>drawers.jsonl</code>. Each drawer has a key, value, tags array, timestamp, and score. Ephemeral — not persisted across sessions unless promoted.</div></div>
       <div class="tier-row tier-l1"><div class="tier-label">L1<br>Working</div><div class="tier-content"><strong>Cross-session working memory.</strong> Closets store aggregated entries from multiple drawers. Closet boost adds +0.5 per matching search term. BM25 parameters: K1=1.5, B=0.75.</div></div>
@@ -625,6 +631,9 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <span class="page-tag">Concepts</span>
       <h1 class="page-title">Swarm Coordination</h1>
       <p class="page-desc">Six topologies, five consensus algorithms, and a 15-agent domain hierarchy — from a single coordinator to a Byzantine fault-tolerant hive.</p>
+    </div>
+    <div class="reveal" style="margin-bottom:24px">
+      <img src="assets/swarm-illustration.svg" alt="Swarm topology diagram" style="width:100%;max-width:600px;border-radius:10px;display:block">
     </div>
     <div class="section-title reveal">Topologies</div>
     <div class="topo-grid reveal">
