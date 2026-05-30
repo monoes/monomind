@@ -542,11 +542,9 @@ export class HNSWIndex extends EventEmitter {
   }
 
   private getRandomLevel(): number {
-    let level = 0;
-    while (Math.random() < 0.5 && level < 16) {
-      level++;
-    }
-    return level;
+    // Malkov & Yashunin (2018): level = floor(-ln(uniform(0,1)) * mL)
+    // where mL = 1/ln(M) (already stored as this.levelMult)
+    return Math.floor(-Math.log(Math.random()) * this.levelMult);
   }
 
   private async insertNode(node: HNSWNode): Promise<void> {
@@ -595,8 +593,9 @@ export class HNSWIndex extends EventEmitter {
         const neighborNode = this.nodes.get(neighbor.id);
         if (neighborNode) {
           const neighborConns = neighborNode.connections.get(level)!;
-          if (neighborConns.size > this.config.M * 2) {
-            this.pruneConnections(neighborNode, level, this.config.M);
+          const maxConns = level === 0 ? this.config.M * 2 : this.config.M;
+          if (neighborConns.size > maxConns) {
+            this.pruneConnections(neighborNode, level, maxConns);
           }
         }
       }
@@ -936,7 +935,7 @@ class Quantizer {
   getCompressionRatio(): number {
     switch (this.config.type) {
       case 'binary':
-        return 32; // 32x compression (32 bits -> 1 bit per dimension)
+        return 1.0; // sign quantization: same dimension, no compression
       case 'scalar':
         return 32 / (this.config.bits || 8);
       case 'product':
@@ -947,20 +946,13 @@ class Quantizer {
   }
 
   private binaryQuantize(vector: Float32Array): Float32Array {
-    // Simple binary quantization: > 0 becomes 1, <= 0 becomes 0
-    // Stored in packed format in a smaller Float32Array
-    const packedLength = Math.ceil(vector.length / 32);
-    const packed = new Float32Array(packedLength);
-
+    // Sign quantization: map each component to 0.0 (≤0) or 1.0 (>0).
+    // Result is a valid float vector compatible with all distance metrics.
+    const binary = new Float32Array(vector.length);
     for (let i = 0; i < vector.length; i++) {
-      const packedIndex = Math.floor(i / 32);
-      const bitPosition = i % 32;
-      if (vector[i] > 0) {
-        packed[packedIndex] = (packed[packedIndex] || 0) | (1 << bitPosition);
-      }
+      binary[i] = vector[i] > 0 ? 1.0 : 0.0;
     }
-
-    return packed;
+    return binary;
   }
 
   private scalarQuantize(vector: Float32Array): Float32Array {
@@ -976,14 +968,12 @@ class Quantizer {
     const bits = this.config.bits || 8;
     const levels = Math.pow(2, bits);
 
-    // Quantize each value
-    const quantized = new Float32Array(vector.length + 2); // +2 for min/range
-    quantized[0] = min;
-    quantized[1] = range;
-
+    // Quantize each value to [0, levels-1] and normalize back to [0, 1]
+    // so the resulting vector is compatible with cosine/euclidean distance.
+    const quantized = new Float32Array(vector.length);
     for (let i = 0; i < vector.length; i++) {
       const normalized = (vector[i] - min) / range;
-      quantized[i + 2] = Math.round(normalized * (levels - 1));
+      quantized[i] = Math.round(normalized * (levels - 1)) / (levels - 1);
     }
 
     return quantized;

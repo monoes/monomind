@@ -42,15 +42,17 @@ export class HnswLite {
     if (vector.length !== this.dimensions) {
       throw new RangeError(`Vector dimension mismatch: expected ${this.dimensions}, got ${vector.length}`);
     }
-    this.vectors.set(id, vector);
 
-    if (this.vectors.size === 1) {
+    if (this.vectors.size === 0) {
+      this.vectors.set(id, vector);
       this.neighbors.set(id, new Set());
       this.entryPoint = id;
       return;
     }
 
+    // Find nearest BEFORE adding to vectors, to avoid self-inclusion
     const nearest = this.findNearest(vector, this.maxNeighbors);
+    this.vectors.set(id, vector);
     const neighborSet = new Set<string>();
 
     for (const n of nearest) {
@@ -194,6 +196,7 @@ export class HnswLite {
     for (const nId of myNeighbors) {
       if (!keep.has(nId)) {
         myNeighbors.delete(nId);
+        this.neighbors.get(nId)?.delete(id);  // remove the reverse edge too
       }
     }
   }
