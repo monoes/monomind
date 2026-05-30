@@ -146,6 +146,12 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
   // O(1) reverse lookup for numeric ID -> string ID (fixes O(n) linear scan)
   private numericToStringIdMap: Map<number, string> = new Map();
 
+  // Forward map for string ID -> numeric ID (collision-free sequential IDs)
+  private stringToNumericIdMap: Map<string, number> = new Map();
+
+  // Monotonically incrementing counter for collision-free HNSW numeric IDs
+  private _nextNumericId = 1;
+
   // Performance tracking
   private stats = {
     queryCount: 0,
@@ -241,6 +247,12 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     // Generate embedding if needed
     if (entry.content && !entry.embedding && this.config.embeddingGenerator) {
       entry.embedding = await this.config.embeddingGenerator(entry.content);
+    }
+
+    // Normalise namespace so stored object and indexes agree
+    const defaultNs = this.config.namespace || 'default';
+    if (!entry.namespace) {
+      entry = { ...entry, namespace: defaultNs };
     }
 
     // Store in-memory for quick access
@@ -784,7 +796,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     options: SearchOptions
   ): Promise<SearchResult[]> {
     if (!this.agentdb || !HNSWIndex) {
-      return [];
+      return this.bruteForceSearch(embedding, options);
     }
 
     try {
@@ -829,6 +841,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
 
     for (const entry of this.entries.values()) {
       if (!entry.embedding) continue;
+      if (entry.embedding.length !== embedding.length) continue;
 
       const score = this.cosineSimilarity(embedding, entry.embedding);
       const distance = 1 - score;
@@ -890,6 +903,22 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
       );
     }
 
+    if (query.sortField && query.sortField !== 'score') {
+      const field = query.sortField;
+      const dir = query.sortDirection === 'asc' ? 1 : -1;
+      results = results.slice().sort((a, b) => {
+        const av = field === 'key' ? a.key : field === 'updatedAt' ? a.updatedAt
+          : field === 'lastAccessedAt' ? (a.lastAccessedAt ?? 0)
+          : field === 'accessCount' ? a.accessCount : a.createdAt;
+        const bv = field === 'key' ? b.key : field === 'updatedAt' ? b.updatedAt
+          : field === 'lastAccessedAt' ? (b.lastAccessedAt ?? 0)
+          : field === 'accessCount' ? b.accessCount : b.createdAt;
+        if (av < bv) return -dir;
+        if (av > bv) return dir;
+        return 0;
+      });
+    }
+
     return results.slice(0, query.limit);
   }
 
@@ -936,15 +965,18 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
   }
 
   /**
-   * Convert string ID to numeric for HNSW
+   * Convert string ID to numeric for HNSW using a collision-free sequential counter.
+   * Returns the existing numeric ID if already mapped, otherwise allocates a new one.
    */
   private stringIdToNumeric(id: string): number {
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) {
-      hash = (hash << 5) - hash + id.charCodeAt(i);
-      hash |= 0;
+    const existing = this.stringToNumericIdMap.get(id);
+    if (existing !== undefined) {
+      return existing;
     }
-    return Math.abs(hash);
+    const numericId = this._nextNumericId++;
+    this.stringToNumericIdMap.set(id, numericId);
+    this.numericToStringIdMap.set(numericId, id);
+    return numericId;
   }
 
   /**
@@ -962,21 +994,25 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
   }
 
   /**
-   * Register string ID in reverse lookup map
-   * Called when storing entries to maintain bidirectional mapping
+   * Register string ID in bidirectional lookup maps.
+   * Called when storing entries to maintain bidirectional mapping.
+   * Delegates to stringIdToNumeric which handles allocation idempotently.
    */
   private registerIdMapping(stringId: string): void {
-    const numericId = this.stringIdToNumeric(stringId);
-    this.numericToStringIdMap.set(numericId, stringId);
+    // stringIdToNumeric allocates and registers both directions on first call
+    this.stringIdToNumeric(stringId);
   }
 
   /**
-   * Unregister string ID from reverse lookup map
-   * Called when deleting entries
+   * Unregister string ID from bidirectional lookup maps.
+   * Called when deleting entries.
    */
   private unregisterIdMapping(stringId: string): void {
-    const numericId = this.stringIdToNumeric(stringId);
-    this.numericToStringIdMap.delete(numericId);
+    const numericId = this.stringToNumericIdMap.get(stringId);
+    if (numericId !== undefined) {
+      this.numericToStringIdMap.delete(numericId);
+      this.stringToNumericIdMap.delete(stringId);
+    }
   }
 
   /**

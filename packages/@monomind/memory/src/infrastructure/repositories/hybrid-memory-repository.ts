@@ -21,7 +21,8 @@ import {
  * Repository configuration
  */
 export interface HybridRepositoryConfig {
-  sqlitePath: string;
+  /** Path to the SQLite database file. Defaults to ':memory:' (in-process store). */
+  sqlitePath?: string;
   agentDbPath?: string;
   enableVectorSearch?: boolean;
   cacheSize?: number;
@@ -45,6 +46,8 @@ interface CacheEntry {
 export class HybridMemoryRepository implements IMemoryRepository {
   private entries: Map<string, MemoryEntry> = new Map();
   private namespaceIndex: Map<string, Set<string>> = new Map();
+  /** O(1) key lookup — maps "namespace:key" → entry id */
+  private keyIndex: Map<string, string> = new Map();
   private vectorIndex: Map<string, Float32Array> = new Map();
   private cache: Map<string, CacheEntry> = new Map();
   private initialized = false;
@@ -62,6 +65,7 @@ export class HybridMemoryRepository implements IMemoryRepository {
     // For now, using in-memory implementation
     this.entries = new Map();
     this.namespaceIndex = new Map();
+    this.keyIndex = new Map();
     this.vectorIndex = new Map();
     this.cache = new Map();
 
@@ -77,6 +81,7 @@ export class HybridMemoryRepository implements IMemoryRepository {
   async clear(): Promise<void> {
     this.entries.clear();
     this.namespaceIndex.clear();
+    this.keyIndex.clear();
     this.vectorIndex.clear();
     this.cache.clear();
   }
@@ -96,6 +101,9 @@ export class HybridMemoryRepository implements IMemoryRepository {
       this.namespaceIndex.set(entry.namespace, new Set());
     }
     this.namespaceIndex.get(entry.namespace)!.add(entry.id);
+
+    // Update key index for O(1) findByKey
+    this.keyIndex.set(`${entry.namespace}:${entry.key}`, entry.id);
 
     // Store vector if present
     if (entry.vector) {
@@ -121,16 +129,17 @@ export class HybridMemoryRepository implements IMemoryRepository {
   async findByKey(namespace: string, key: string): Promise<MemoryEntry | null> {
     this.ensureInitialized();
 
-    for (const entry of this.entries.values()) {
-      if (entry.namespace === namespace && entry.key === key) {
-        return entry;
-      }
-    }
-    return null;
+    const id = this.keyIndex.get(`${namespace}:${key}`);
+    return id ? (this.entries.get(id) ?? null) : null;
   }
 
   async findByCompositeKey(compositeKey: string): Promise<MemoryEntry | null> {
-    const [namespace, key] = compositeKey.split(':');
+    // Split only on the FIRST colon — keys may themselves contain colons
+    // (e.g. "ctx-summary:abc-123")
+    const colonIdx = compositeKey.indexOf(':');
+    if (colonIdx === -1) return null;
+    const namespace = compositeKey.slice(0, colonIdx);
+    const key = compositeKey.slice(colonIdx + 1);
     return this.findByKey(namespace, key);
   }
 
@@ -143,6 +152,7 @@ export class HybridMemoryRepository implements IMemoryRepository {
     // Remove from all indexes
     this.entries.delete(id);
     this.namespaceIndex.get(entry.namespace)?.delete(id);
+    this.keyIndex.delete(`${entry.namespace}:${entry.key}`);
     this.vectorIndex.delete(id);
     this.cache.delete(id);
 
@@ -229,7 +239,12 @@ export class HybridMemoryRepository implements IMemoryRepository {
       results = results.filter((e) => e.type === options.type);
     }
     if (options?.status) {
-      results = results.filter((e) => e.status === options.status);
+      results = results.filter((e) => {
+        if (e.status !== options.status) return false;
+        // Active entries past their TTL are no longer accessible
+        if (options.status === 'active' && e.isExpired()) return false;
+        return true;
+      });
     }
 
     // Apply sorting
@@ -395,10 +410,10 @@ export class HybridMemoryRepository implements IMemoryRepository {
       totalAccessCount += entry.accessCount;
       totalSize += JSON.stringify(entry.value).length;
 
-      // Count by status
+      // Count by status — active entries past their TTL are no longer accessible
       switch (entry.status) {
         case 'active':
-          activeCount++;
+          if (!entry.isExpired()) activeCount++;
           break;
         case 'archived':
           archivedCount++;

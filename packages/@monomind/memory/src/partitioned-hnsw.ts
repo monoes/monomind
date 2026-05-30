@@ -65,10 +65,30 @@ function l2Norm(v: Float32Array): Float32Array {
 
 class TimeBucket {
   private readonly entries: BucketEntry[] = [];
+  private _oldest: number = Infinity;
+  private _newest: number = 0;
 
   add(entry: MemoryEntry): void {
     const normVec = entry.embedding ? l2Norm(entry.embedding) : null;
     this.entries.push({ entry, normVec });
+    if (entry.createdAt < this._oldest) this._oldest = entry.createdAt;
+    if (entry.createdAt > this._newest) this._newest = entry.createdAt;
+  }
+
+  remove(id: string): boolean {
+    const idx = this.entries.findIndex(e => e.entry.id === id);
+    if (idx === -1) return false;
+    const removed = this.entries.splice(idx, 1)[0];
+    // Recompute _oldest/_newest if the removed entry was an extremum
+    if (removed.entry.createdAt === this._oldest || removed.entry.createdAt === this._newest) {
+      this._oldest = Infinity;
+      this._newest = 0;
+      for (const e of this.entries) {
+        if (e.entry.createdAt < this._oldest) this._oldest = e.entry.createdAt;
+        if (e.entry.createdAt > this._newest) this._newest = e.entry.createdAt;
+      }
+    }
+    return true;
   }
 
   /** Approximate k-NN by brute-force within the bucket (buckets are small). */
@@ -92,8 +112,8 @@ class TimeBucket {
   }
 
   get size(): number { return this.entries.length; }
-  get oldest(): number { return this.entries.length ? this.entries[0].entry.createdAt : Infinity; }
-  get newest(): number { return this.entries.length ? this.entries[this.entries.length - 1].entry.createdAt : 0; }
+  get oldest(): number { return this.entries.length ? this._oldest : Infinity; }
+  get newest(): number { return this.entries.length ? this._newest : 0; }
 }
 
 // ===== PartitionedHNSW =====
@@ -118,6 +138,9 @@ export class PartitionedHNSW {
     if (!this.buckets.has(bucketKey)) {
       this.buckets.set(bucketKey, new TimeBucket());
       this.evictOldBuckets();
+      // After eviction the bucket we just created may have been removed
+      // (entry predates the retention window) — discard it silently.
+      if (!this.buckets.has(bucketKey)) return;
     }
     this.buckets.get(bucketKey)!.add(entry);
   }
@@ -152,7 +175,7 @@ export class PartitionedHNSW {
       if (fromMs !== undefined && bucket.newest < fromMs) continue;
       if (toMs !== undefined && bucket.oldest > toMs) continue;
 
-      const hits = bucket.search(normQuery, this.k, textQuery);
+      const hits = bucket.search(normQuery, Math.max(limit, this.k), textQuery);
       for (const h of hits) {
         if (fromMs !== undefined && h.entry.createdAt < fromMs) continue;
         if (toMs !== undefined && h.entry.createdAt > toMs) continue;
@@ -173,6 +196,17 @@ export class PartitionedHNSW {
       if (results.length >= limit) break;
     }
     return results;
+  }
+
+  /**
+   * Remove an entry from its time-bucket by id and original createdAt timestamp.
+   * Returns true if the entry was found and removed, false otherwise.
+   */
+  remove(id: string, createdAt: number): boolean {
+    const bucketKey = this.bucketKeyFor(createdAt);
+    const bucket = this.buckets.get(bucketKey);
+    if (!bucket) return false;
+    return bucket.remove(id);
   }
 
   /** Stats per bucket for observability. */
@@ -202,8 +236,12 @@ export class PartitionedHNSW {
   /** Evict the oldest bucket(s) when we exceed maxBuckets. */
   private evictOldBuckets(): void {
     while (this.buckets.size > this.maxBuckets) {
-      // Map preserves insertion order — oldest key is first
-      const oldestKey = this.buckets.keys().next().value;
+      // Find the smallest bucket key (oldest in time), not first in insertion order.
+      // Insertion order diverges from temporal order during bulk inserts or migrations.
+      let oldestKey: number | undefined;
+      for (const k of this.buckets.keys()) {
+        if (oldestKey === undefined || k < oldestKey) oldestKey = k;
+      }
       if (oldestKey !== undefined) this.buckets.delete(oldestKey);
     }
   }

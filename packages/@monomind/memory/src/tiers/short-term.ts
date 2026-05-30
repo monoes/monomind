@@ -72,6 +72,15 @@ export class ShortTermMemory {
   // ---- Lifecycle ----
 
   /**
+   * Return a stable copy of all currently buffered entries without mutating
+   * the buffer. Used by callers (e.g. TierManager) that need to process
+   * entries alongside a flush operation.
+   */
+  snapshot(): MemoryEntry[] {
+    return Array.from(this.buffer.values());
+  }
+
+  /**
    * Promote all buffered entries to the given long-term backend,
    * then clear the buffer. Returns the number of flushed entries.
    */

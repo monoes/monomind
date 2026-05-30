@@ -184,9 +184,18 @@ export class TierManager {
 
   /**
    * Flush the short-term buffer into the long-term backend.
+   * Promoted entries are also added to the partitioned HNSW index so they
+   * remain visible in partition-based searches after promotion.
    * Returns the number of entries promoted.
    */
   async flushShortTerm(): Promise<number> {
-    return this.shortTerm.flush(this.longTermBackend);
+    // Snapshot the entries before flush so we can index them afterwards.
+    // ShortTermMemory.flush() clears the buffer, so we must read first.
+    const toPromote = this.shortTerm.snapshot();
+    const count = await this.shortTerm.flush(this.longTermBackend);
+    for (const entry of toPromote) {
+      this.partitionedIndex.add(entry);
+    }
+    return count;
   }
 }
