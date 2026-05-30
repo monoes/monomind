@@ -23,6 +23,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync, spawn } from 'child_process';
 import Database from 'better-sqlite3';
+import { HnswLite } from '../../packages/@monomind/memory/dist/hnsw-lite.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -167,23 +168,16 @@ function initializeDatabase(db) {
 }
 
 // =============================================================================
-// HNSW Index (In-Memory with SQLite persistence)
+// HnswLite helper — thin factory so call sites stay terse
 // =============================================================================
 
-// TODO: Replace HNSWIndex with shared HnswLite from @monomind/memory once
-// API differences are resolved. Migration notes:
-//   - HnswLite constructor: (dimensions: number, m: number, efConstruction: number, metric: string)
-//     vs HNSWIndex constructor: (config: { embedding: { dimension }, hnsw: { m, efConstruction } })
-//   - HnswLite.add(id: string, vector: Float32Array): void
-//     vs HNSWIndex.add(patternId, embedding): vectorId (numeric)
-//   - HnswLite.search(query: Float32Array, k: number, threshold?): { id, score }[]
-//     vs HNSWIndex.search(queryEmbedding, k): { results: { patternId, similarity, vectorId }[], searchTimeMs }
-//   - HnswLite.remove(id: string): void (no return)
-//     vs HNSWIndex.remove(patternId): boolean
-//   - dist/hnsw-lite.js exists at packages/@monomind/memory/dist/hnsw-lite.js
-//   - Import: import { HnswLite } from '../../packages/@monomind/memory/dist/hnsw-lite.js'
-// Distance metric: HNSWIndex uses cosine similarity (1 - distance) in _searchGraph;
-//                  HnswLite defaults to cosineSimilarity — compatible. See D3 comment in hnsw-lite.ts.
+function makeHnswLite() {
+  return new HnswLite(CONFIG.embedding.dimension, CONFIG.hnsw.M, CONFIG.hnsw.efConstruction, 'cosine');
+}
+
+// Kept only for backward-compat deserialization of old SQLite snapshots that
+// still carry the legacy HNSWIndex serialized format.  Once all persisted
+// snapshots have been replaced by the HnswLite format this class can be removed.
 class HNSWIndex {
   constructor(config) {
     this.config = config;
@@ -620,9 +614,19 @@ class LearningService {
     this.embeddingService = new EmbeddingService(CONFIG);
     await this.embeddingService.initialize();
 
+    // Detect embedder change — ONNX and fallback produce incompatible vector spaces.
+    // Invalidate saved snapshots when the active embedder differs from the last session.
+    const activeEmbedder = this.embeddingService.useAgenticFlow ? 'onnx' : 'fallback';
+    const savedEmbedder = this._getState('embedder_type');
+    if (savedEmbedder && savedEmbedder !== activeEmbedder) {
+      console.log(`[Learning] Embedder changed (${savedEmbedder} → ${activeEmbedder}), discarding incompatible snapshots`);
+      this.db.prepare("DELETE FROM session_state WHERE key IN ('hnsw_short_term', 'hnsw_long_term')").run();
+    }
+    this._setState('embedder_type', activeEmbedder);
+
     // Initialize HNSW indexes
-    this.shortTermIndex = new HNSWIndex(CONFIG);
-    this.longTermIndex = new HNSWIndex(CONFIG);
+    this.shortTermIndex = makeHnswLite();
+    this.longTermIndex = makeHnswLite();
 
     // Load existing patterns into indexes
     await this._loadIndexes();
@@ -632,13 +636,13 @@ class LearningService {
     this._setState('session_start', Date.now().toString());
 
     console.log(`[Learning] Initialized session ${this.sessionId}`);
-    console.log(`[Learning] Short-term patterns: ${this.shortTermIndex.size()}`);
-    console.log(`[Learning] Long-term patterns: ${this.longTermIndex.size()}`);
+    console.log(`[Learning] Short-term patterns: ${this.shortTermIndex.size}`);
+    console.log(`[Learning] Long-term patterns: ${this.longTermIndex.size}`);
 
     return {
       sessionId: this.sessionId,
-      shortTermPatterns: this.shortTermIndex.size(),
-      longTermPatterns: this.longTermIndex.size(),
+      shortTermPatterns: this.shortTermIndex.size,
+      longTermPatterns: this.longTermIndex.size,
     };
   }
 
@@ -651,12 +655,12 @@ class LearningService {
     const embedding = await this.embeddingService.embed(strategy);
 
     // Check for duplicates
-    const { results } = this.shortTermIndex.search(embedding, 1);
-    if (results.length > 0 && results[0].similarity > CONFIG.patterns.dedupThreshold) {
+    const results = this.shortTermIndex.search(embedding, 1);
+    if (results.length > 0 && results[0].score > CONFIG.patterns.dedupThreshold) {
       // Update existing pattern instead
-      const existingId = results[0].patternId;
+      const existingId = results[0].id;
       this._updatePatternUsage(existingId, 'short_term');
-      return { id: existingId, action: 'updated', similarity: results[0].similarity };
+      return { id: existingId, action: 'updated', similarity: results[0].score };
     }
 
     // Store in database
@@ -698,28 +702,30 @@ class LearningService {
     const results = [];
 
     // Search long-term first (higher quality)
+    const ltStart = performance.now();
     const longTermResults = this.longTermIndex.search(embedding, k);
-    results.push(...longTermResults.results.map(r => ({ ...r, type: 'long_term' })));
+    const searchTimeMs = performance.now() - ltStart;
+    results.push(...longTermResults.map(r => ({ ...r, type: 'long_term' })));
 
     // Search short-term if needed
     if (includeShortTerm) {
       const shortTermResults = this.shortTermIndex.search(embedding, k);
-      results.push(...shortTermResults.results.map(r => ({ ...r, type: 'short_term' })));
+      results.push(...shortTermResults.map(r => ({ ...r, type: 'short_term' })));
     }
 
     // Sort by similarity and dedupe
-    results.sort((a, b) => b.similarity - a.similarity);
+    results.sort((a, b) => b.score - a.score);
     const seen = new Set();
     const deduped = results.filter(r => {
-      if (seen.has(r.patternId)) return false;
-      seen.add(r.patternId);
+      if (seen.has(r.id)) return false;
+      seen.add(r.id);
       return true;
     }).slice(0, k);
 
     // Get full pattern data
     const patterns = deduped.map(r => {
       const table = r.type === 'long_term' ? 'long_term_patterns' : 'short_term_patterns';
-      const row = this.db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(r.patternId);
+      const row = this.db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(r.id);
       return {
         ...r,
         strategy: row?.strategy,
@@ -731,13 +737,13 @@ class LearningService {
 
     this.metrics.patternsRetrieved += patterns.length;
     this.metrics.searchCount++;
-    this.metrics.searchTimeTotal += longTermResults.searchTimeMs;
+    this.metrics.searchTimeTotal += searchTimeMs;
 
     return {
       patterns,
-      searchTimeMs: longTermResults.searchTimeMs,
-      totalLongTerm: this.longTermIndex.size(),
-      totalShortTerm: this.shortTermIndex.size(),
+      searchTimeMs,
+      totalLongTerm: this.longTermIndex.size,
+      totalShortTerm: this.shortTermIndex.size,
     };
   }
 
@@ -746,10 +752,11 @@ class LearningService {
     // Try short-term first
     let updated = this._updatePatternUsage(patternId, 'short_term', success);
     if (!updated) {
-      updated = this._updatePatternUsage(patternId, 'long_term', success);
+      // Long-term patterns are stored with 'lt_' prefix after promotion
+      updated = this._updatePatternUsage(`lt_${patternId}`, 'long_term', success);
     }
 
-    // Check for promotion
+    // Check for promotion (only meaningful while still in short-term)
     if (updated) {
       this._checkPromotion(patternId);
     }
@@ -842,8 +849,8 @@ class LearningService {
     `).run(oldThreshold, CONFIG.patterns.promotionThreshold);
     stats.patternsProned = pruned.changes;
 
-    // 2. Rebuild indexes
-    await this._loadIndexes();
+    // 2. Rebuild indexes from DB — bypass snapshot (it contains pre-pruning state)
+    await this._loadIndexes(true);
 
     // 3. Remove duplicates in long-term (simhash-bucketed to avoid O(n²) cosine)
     const longTermPatterns = this.db.prepare('SELECT * FROM long_term_patterns').all();
@@ -885,8 +892,8 @@ class LearningService {
     `).run(pruneAge, CONFIG.consolidation.minUsageForKeep);
     stats.patternsProned += oldPruned.changes;
 
-    // Rebuild indexes after changes
-    await this._loadIndexes();
+    // Rebuild indexes after changes — bypass snapshot (contains pre-pruning state)
+    await this._loadIndexes(true);
 
     this.metrics.consolidations++;
 
@@ -975,8 +982,8 @@ class LearningService {
       patterns: sessionPatterns.length,
       trajectories: trajectories.length,
       metrics: this.metrics,
-      shortTermTotal: this.shortTermIndex.size(),
-      longTermTotal: this.longTermIndex.size(),
+      shortTermTotal: this.shortTermIndex.size,
+      longTermTotal: this.longTermIndex.size,
     };
   }
 
@@ -1026,22 +1033,34 @@ class LearningService {
     }
   }
 
-  // Load indexes from database — try serialized snapshot first, fall back to rebuild
-  async _loadIndexes() {
-    try {
-      const shortRow = this.db.prepare("SELECT value FROM session_state WHERE key = 'hnsw_short_term'").get();
-      const longRow = this.db.prepare("SELECT value FROM session_state WHERE key = 'hnsw_long_term'").get();
-      if (shortRow && longRow) {
-        this.shortTermIndex = HNSWIndex.deserialize(JSON.parse(shortRow.value), CONFIG);
-        this.longTermIndex = HNSWIndex.deserialize(JSON.parse(longRow.value), CONFIG);
-        return;
+  // Load indexes from database.
+  // forceRebuild=true bypasses the snapshot and always rebuilds from DB tables.
+  // Use forceRebuild after any operation that deletes DB rows (consolidate) so
+  // the live index reflects the pruned state rather than the stale snapshot.
+  async _loadIndexes(forceRebuild = false) {
+    if (!forceRebuild) {
+      try {
+        const shortRow = this.db.prepare("SELECT value FROM session_state WHERE key = 'hnsw_short_term'").get();
+        const longRow = this.db.prepare("SELECT value FROM session_state WHERE key = 'hnsw_long_term'").get();
+        if (shortRow && longRow) {
+          const shortData = JSON.parse(shortRow.value);
+          const longData = JSON.parse(longRow.value);
+          // HnswLite snapshots carry a `dimensions` field; legacy HNSWIndex snapshots don't.
+          // Fall through to rebuild when the format is incompatible.
+          if (shortData.dimensions !== undefined && longData.dimensions !== undefined) {
+            this.shortTermIndex = HnswLite.deserialize(shortData);
+            this.longTermIndex = HnswLite.deserialize(longData);
+            return;
+          }
+          console.log('[LearningService] Legacy HNSW snapshot detected, rebuilding with HnswLite format');
+        }
+      } catch (e) {
+        console.error('[LearningService] Failed to restore HNSW snapshots, rebuilding:', e.message);
       }
-    } catch (e) {
-      console.error('[LearningService] Failed to restore HNSW snapshots, rebuilding:', e.message);
     }
 
     // Rebuild from patterns tables (fallback)
-    this.shortTermIndex = new HNSWIndex(CONFIG);
+    this.shortTermIndex = makeHnswLite();
     const shortTermPatterns = this.db.prepare('SELECT id, embedding FROM short_term_patterns').all();
     for (const row of shortTermPatterns) {
       const embedding = this._bufferToFloat32Array(row.embedding);
@@ -1050,7 +1069,7 @@ class LearningService {
       }
     }
 
-    this.longTermIndex = new HNSWIndex(CONFIG);
+    this.longTermIndex = makeHnswLite();
     const longTermPatterns = this.db.prepare('SELECT id, embedding FROM long_term_patterns').all();
     for (const row of longTermPatterns) {
       const embedding = this._bufferToFloat32Array(row.embedding);
@@ -1058,6 +1077,11 @@ class LearningService {
         this.longTermIndex.add(row.id, embedding);
       }
     }
+
+    // Persist the rebuilt indexes immediately so the next startup finds the new
+    // HnswLite format and skips the rebuild (prevents infinite rebuild loop on
+    // legacy snapshot detection).
+    await this._saveIndexes();
   }
 
   // Prune short-term patterns if over limit
