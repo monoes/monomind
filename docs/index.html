@@ -262,6 +262,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <button class="nav-link" data-page="commands"><span class="nav-dot"></span>CLI Commands</button>
     <button class="nav-link" data-page="slash"><span class="nav-dot"></span>Slash Commands</button>
     <button class="nav-link" data-page="mastermind"><span class="nav-dot"></span>Mastermind</button>
+    <button class="nav-link" data-page="dashboard"><span class="nav-dot"></span>Dashboard</button>
   </div>
   <div class="sidebar-footer">
     <a class="sidebar-link" href="https://github.com/monoes/monomind" target="_blank" rel="noopener">
@@ -977,6 +978,363 @@ Session N: empty round (zero findings AND zero actions)
 <span class="comment">// Brain Write (session end)</span>
 1. Store key decisions + findings to AgentDB
 2. Update weekly summaries and principles</div>
+  </div>
+</div>
+
+
+<div id="page-dashboard" class="page">
+  <div class="page-content">
+    <div class="page-header">
+      <span class="page-tag">Reference</span>
+      <h1 class="page-title">Dashboard</h1>
+      <p class="page-desc">The Neural Control Room — a local web dashboard served at <code>localhost:4242</code> with live session feeds, memory inspection, swarm monitoring, knowledge graph exploration, and full agent organization management.</p>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div class="section-title reveal">Overview</div>
+    <p class="reveal" style="margin-bottom:1.2rem">The dashboard is a single-page application with a 196px fixed sidebar and a scrollable main area. URL parameters support deep-linking: <code>?proj=&lt;path&gt;</code> switches project context and <code>&amp;sess=&lt;id&gt;</code> opens a specific session.</p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Topbar Element</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Live dot</td><td>Pulses green when an active Claude Code session is detected</td></tr>
+          <tr><td>Today cost badge</td><td>Cumulative USD spend for the current calendar day</td></tr>
+          <tr><td>Session cost ticker</td><td>Running cost of the currently focused session, updates in real time</td></tr>
+          <tr><td>Activity chip</td><td>Current agent type and task description from the most recent hook event</td></tr>
+          <tr><td>⬡ Mastermind</td><td>Opens the Mastermind overlay (violet hexagon button)</td></tr>
+          <tr><td>⚑ Budget</td><td>Opens the budget panel showing spend vs. configured limits</td></tr>
+          <tr><td>⌘K Search</td><td>Opens the command palette for cross-view navigation</td></tr>
+          <tr><td>? Help</td><td>Shows keyboard shortcuts reference</td></tr>
+          <tr><td>↺ Refresh</td><td>Force-reloads current view data</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:1rem 0 0.5rem">Status strip (shown below topbar when data is present):</p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Chip</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>HNSW ON / OFF</td><td>Whether the HNSW vector index is loaded and searchable</td></tr>
+          <tr><td>PATTERNS N</td><td>Number of learned routing patterns in AgentDB</td></tr>
+          <tr><td>CHUNKS N</td><td>Number of indexed text chunks available for semantic search</td></tr>
+          <tr><td>SWARM topology</td><td>Active swarm topology name (hierarchical, mesh, adaptive…)</td></tr>
+          <tr><td>LAST ROUTE</td><td>Agent name that the routing hook most recently selected</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:1rem 0">The sidebar footer shows your GitHub username and the absolute path of the current working directory.</p>
+
+    <!-- NOW VIEW -->
+    <div class="section-title reveal">Now — Live Feed</div>
+    <p class="reveal" style="margin-bottom:1rem">The <strong>Now</strong> view is a three-column layout: feed pane (left), optional detail panel (slides in from the right edge of the feed), and metrics pane (252px, fixed right).</p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Feed Control</th><th>Key</th><th>Behavior</th></tr></thead>
+        <tbody>
+          <tr><td>Play / Pause</td><td>Space</td><td>Toggle live-tail; pausing freezes the list without disconnecting</td></tr>
+          <tr><td>Clear</td><td>—</td><td>Removes all entries from the visible feed buffer</td></tr>
+          <tr><td>Filter</td><td>/</td><td>Opens inline search — filters entries by text or tool name</td></tr>
+          <tr><td>Jump to live</td><td>G</td><td>Scrolls to the newest entry and resumes live-tail</td></tr>
+          <tr><td>Ambient mode</td><td>A</td><td>Hides all chrome; only the feed remains</td></tr>
+          <tr><td>Replay</td><td>—</td><td>Re-plays the current session from the beginning at configurable speed</td></tr>
+          <tr><td>Focus</td><td>F</td><td>Expands the feed to full width, hiding metrics pane</td></tr>
+          <tr><td>Export</td><td>—</td><td>Downloads visible feed entries as JSONL</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:1rem 0 0.5rem">Feed entry types:</p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Type</th><th>Appearance</th></tr></thead>
+        <tbody>
+          <tr><td>Tool events</td><td>Colored category icon (file, bash, web, memory, agent…), tool name, condensed args</td></tr>
+          <tr><td>User messages</td><td>Italic text with a person icon and timestamp</td></tr>
+          <tr><td>Error entries</td><td>Red left border, error message, optional stack trace expand</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:1rem 0 0.5rem">Additional feed UI elements:</p>
+    <ul class="reveal" style="padding-left:1.5rem;line-height:2">
+      <li><strong>Session context bar</strong> — pinned at top of feed: session ID, model, start time, current cost</li>
+      <li><strong>Recap card</strong> — collapsible summary of the previous session's key decisions</li>
+      <li><strong>Replay bar</strong> — scrubber, speed selector (0.5×, 1×, 2×, 4×), play/pause when in replay mode</li>
+      <li><strong>Timeline bar</strong> — horizontal ruler showing tool-call density over session time</li>
+      <li><strong>Time-range filter</strong> — drag handles on the timeline to zoom into a time window</li>
+      <li><strong>Weekly card</strong> — dismissible summary card (stored in localStorage) showing 7-day stats</li>
+      <li><strong>Daily digest card</strong> — dismissible AI-generated digest of today's activity</li>
+      <li><strong>Feed minimap</strong> — 8px-wide column of colored pips on the right scroll edge for quick navigation</li>
+    </ul>
+    <p class="reveal" style="margin:1rem 0 0.5rem">Detail panel: slides in 280px when an entry is clicked. Shows full event metadata, raw JSON payload, and a Copy button.</p>
+    <p class="reveal" style="margin:1rem 0 0.5rem">Metrics pane groups (252px, right):</p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Group</th><th>What it shows</th></tr></thead>
+        <tbody>
+          <tr><td>Today</td><td>Cost and call count for today + a 12-week activity heatmap</td></tr>
+          <tr><td>Active Loops</td><td>Running loop names with live countdown timers</td></tr>
+          <tr><td>Recent Sessions</td><td>Last 5 sessions with cost and duration chips</td></tr>
+          <tr><td>Tool Usage</td><td>Bar chart of most-called tools in the current session</td></tr>
+          <tr><td>Burn Rate</td><td>USD/hour gauge based on a rolling 15-minute window</td></tr>
+          <tr><td>Session Lanes</td><td>Parallel swimlanes showing concurrent agent activity</td></tr>
+          <tr><td>Cache Efficiency</td><td>Prompt-cache hit rate % with trend arrow</td></tr>
+          <tr><td>Token Velocity</td><td>Tokens/minute sparkline for the current session</td></tr>
+          <tr><td>30-Day Cost Trend</td><td>Area chart of daily spend over the last 30 days</td></tr>
+          <tr><td>Activity Heatmap</td><td>Hour-of-day × day-of-week grid colored by event density</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PROJECTS -->
+    <div class="section-title reveal">Projects</div>
+    <p class="reveal" style="margin-bottom:1rem">Projects are discovered from Monomind's config registry. The view renders an auto-fill card grid (min 240px) with a filter input at the top.</p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Card Element</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Active badge</td><td>Green "ACTIVE" pill — shown when the project's directory is the current working directory</td></tr>
+          <tr><td>Health score circle</td><td>0–100 score: green ≥ 70, amber 40–69, red &lt; 40</td></tr>
+          <tr><td>Name &amp; path</td><td>Project display name and filesystem path</td></tr>
+          <tr><td>Sessions count</td><td>Total recorded sessions for this project</td></tr>
+          <tr><td>Memories count</td><td>Number of memory files scoped to this project</td></tr>
+          <tr><td>Last active</td><td>Relative time since the last session event</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:0.8rem 0">Clicking a card switches the global project context (updates the <code>?proj=</code> URL param) and navigates to the Sessions view filtered to that project.</p>
+
+    <!-- SESSIONS -->
+    <div class="section-title reveal">Sessions</div>
+    <p class="reveal" style="margin-bottom:1rem">Sessions are grouped by recency: <strong>Today</strong>, <strong>Yesterday</strong>, <strong>This week</strong>, <strong>Older</strong> — each group header is collapsible. A 12-week heatmap at the top lets you click any cell to filter to that week.</p>
+    <p class="reveal" style="margin-bottom:0.5rem">Each session row includes:</p>
+    <ul class="reveal" style="padding-left:1.5rem;line-height:2">
+      <li>Prompt text (truncated) with expand on hover</li>
+      <li>Timestamp (relative) and compacted badge (when the session was auto-compacted)</li>
+      <li>Summary excerpt — 2-line clamp of the AI-generated session summary</li>
+      <li>Meta line: <code>duration · N messages · $cost</code></li>
+      <li>Anomaly badges: <code>costly</code> (cost &gt; 2× average) and <code>errors</code> (tool errors detected)</li>
+      <li>Auto-tags: topic tags inferred from session content (e.g. <code>refactor</code>, <code>bug-fix</code>)</li>
+      <li>File chips: up to 5 file paths touched in the session</li>
+      <li>Context saturation bar: horizontal progress showing % of context window consumed</li>
+    </ul>
+    <p class="reveal" style="margin:1rem 0 0.5rem">Toolbar toggle buttons:</p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Button</th><th>Effect</th></tr></thead>
+        <tbody>
+          <tr><td>Starred</td><td>Filter to bookmarked sessions only</td></tr>
+          <tr><td>Leaderboard</td><td>Sort by cost descending — shows most expensive sessions first</td></tr>
+          <tr><td>Models</td><td>Show model name chip on each row</td></tr>
+          <tr><td>Errors</td><td>Filter to sessions that contain tool errors</td></tr>
+          <tr><td>Tools</td><td>Show tool-call summary chips on each row</td></tr>
+          <tr><td>Projects</td><td>Show project path chip on each row</td></tr>
+          <tr><td>CSV</td><td>Export current filtered session list as CSV</td></tr>
+          <tr><td>Patterns</td><td>Show learned routing pattern badges</td></tr>
+          <tr><td>Compare</td><td>Enable multi-select mode for session diff (select exactly 2)</td></tr>
+          <tr><td>Timeline</td><td>Switch to a Gantt-style timeline visualization</td></tr>
+          <tr><td>Donut</td><td>Show a cost-by-model donut chart above the list</td></tr>
+          <tr><td>Report</td><td>Generate and download a markdown session report</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:1rem 0">Period filter: <strong>Day / Week / Month / All</strong> — scopes the session list and heatmap to the selected window. Bulk actions become available when multiple rows are checked: Export, Bookmark, Clear.</p>
+    <p class="reveal">Session diff: selecting exactly 2 sessions with Compare mode opens a side-by-side panel showing cost delta, duration delta, tool overlap, and unique tool calls per session.</p>
+
+    <!-- LOOPS -->
+    <div class="section-title reveal">Loops</div>
+    <p class="reveal" style="margin-bottom:1rem">A <strong>loop</strong> is a scheduled automation: a prompt that re-runs at a fixed interval until a max-rep limit is reached or it is manually stopped.</p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Loop Card Element</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Name</td><td>Human-readable loop label</td></tr>
+          <tr><td>Interval chip</td><td>Repeat cadence (e.g. <code>1h</code>, <code>30m</code>, <code>daily</code>)</td></tr>
+          <tr><td>Countdown timer</td><td>Live seconds-ticking countdown to the next run</td></tr>
+          <tr><td>Progress bar</td><td>currentRep / maxReps fill bar</td></tr>
+          <tr><td>Status badge</td><td><code>running</code>, <code>paused</code>, or <code>completed</code></td></tr>
+          <tr><td>Stop button</td><td>Immediately cancels the loop and records final state</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:1rem 0 0.5rem">Expand a loop card to see: full prompt text, interval, started-at timestamp, last-run timestamp, run count, and a sparkline of per-run duration history.</p>
+    <p class="reveal" style="margin-bottom:0.5rem">Create Loop form fields:</p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Field</th><th>Required</th><th>Default</th></tr></thead>
+        <tbody>
+          <tr><td>Prompt</td><td>Yes</td><td>—</td></tr>
+          <tr><td>Name</td><td>No</td><td>Auto-generated from prompt</td></tr>
+          <tr><td>Interval</td><td>No</td><td><code>1h</code></td></tr>
+          <tr><td>Max Reps</td><td>No</td><td>Unlimited</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- TOKENS -->
+    <div class="section-title reveal">Tokens</div>
+    <p class="reveal" style="margin-bottom:1rem">The Tokens view provides cost and usage analytics with period-based filtering.</p>
+    <div class="card-grid reveal">
+      <div class="card"><div class="card-icon">💵</div><div class="card-title">Today Cost</div><div class="card-desc">Cumulative USD spend for the current calendar day across all sessions</div></div>
+      <div class="card"><div class="card-icon">📞</div><div class="card-title">Today Calls</div><div class="card-desc">Total API calls made today</div></div>
+      <div class="card"><div class="card-icon">📅</div><div class="card-title">Month Cost</div><div class="card-desc">Spend for the current calendar month</div></div>
+      <div class="card"><div class="card-icon">🔢</div><div class="card-title">Total Tokens</div><div class="card-desc">Cumulative input + output tokens across all recorded sessions</div></div>
+    </div>
+    <p class="reveal" style="margin:1.2rem 0 0.5rem">Period tabs — <strong>Today / Week / 30 Days / Month</strong> — each fetches <code>/api/token-usage?period=X</code> and re-renders the chart and table.</p>
+    <p class="reveal" style="margin-bottom:0.5rem">Animated bar chart: 400ms ease-out-cubic entrance animation. Bar colors follow threshold logic:</p>
+    <ul class="reveal" style="padding-left:1.5rem;line-height:2">
+      <li>Green — cost &lt; average × 0.5 (low spend day)</li>
+      <li>Amber — cost in normal range</li>
+      <li>Red — cost ≥ average × 1.5 (high spend day)</li>
+    </ul>
+    <p class="reveal">The current day's bar is full opacity; all other bars render at 50% opacity. Below the chart, a session breakdown table shows: Session, Calls, Tokens, Cost per row.</p>
+
+    <!-- MEMORY -->
+    <div class="section-title reveal">Memory</div>
+    <p class="reveal" style="margin-bottom:1rem">The Memory view has two distinct data sources: <strong>Memories</strong> are explicit <code>.md</code> files with YAML frontmatter stored in the <code>.monomind/memories/</code> directory. <strong>Chunks</strong> are indexed text segments extracted from project source files and documentation for semantic search.</p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Memory Type</th><th>Color</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>user</code></td><td>Indigo</td><td>Personal preferences, identity, working style</td></tr>
+          <tr><td><code>feedback</code></td><td>Amber</td><td>Agent routing decisions and confidence scores</td></tr>
+          <tr><td><code>project</code></td><td>Teal</td><td>Project-scoped facts, patterns, decisions</td></tr>
+          <tr><td><code>reference</code></td><td>Violet</td><td>Reference documentation, API facts</td></tr>
+          <tr><td><code>handoff</code></td><td>Pink</td><td>Cross-session state for next session pickup</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:1rem 0 0.5rem">The Memory view has 7 sub-tabs:</p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Tab</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Memories</td><td>Split-pane list + detail editor. Full CRUD: create, edit (modal with type/title/content fields), delete. New Memory button offers 4 content templates (Decision, Pattern, Reference, Handoff)</td></tr>
+          <tr><td>Routing</td><td>Routing feedback log — each entry shows agent chosen, confidence %, task description, and timestamp</td></tr>
+          <tr><td>Usage</td><td>Period tabs + stat grid (cost, calls, tokens, cache efficiency) + 5 bar charts: Models, Activity by hour, Tools, MCP Servers, Projects</td></tr>
+          <tr><td>ADRs</td><td>Architecture Decision Records as filterable cards. Status badges: Accepted, Proposed, Deprecated. Category filters: implementation, guidance</td></tr>
+          <tr><td>Swarm</td><td>Swarm run list + canvas topology visualization (hierarchical shows queen node + worker nodes; mesh shows nodes in a circle). Event log for selected run. Clean Data button purges stale run data</td></tr>
+          <tr><td>Chunks</td><td>Stats bar (chunk count, skill namespaces, total namespaces). Filter by namespace or keyword. Chunk cards show source file, excerpt, and namespace. Edit/Delete per card. Build Docs button triggers indexing with progress polling</td></tr>
+          <tr><td>Agent Graph</td><td>Summary stat cards, session list, agent spawn bar chart (agents per session), tool usage bar chart (calls per tool across all sessions)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ORGS -->
+    <div class="section-title reveal">Orgs</div>
+    <p class="reveal" style="margin-bottom:1rem">Organizations are multi-agent structures with roles, goals, routines, and approval workflows. Each org card shows: a running dot (live indicator), name, goal description, topology/role chips, and an avatar stack of active agents.</p>
+    <p class="reveal" style="margin-bottom:0.5rem">Each org has 29 tabs:</p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Tab</th><th>What it shows</th></tr></thead>
+        <tbody>
+          <tr><td>Chart</td><td>Org hierarchy as an animated SVG — nodes for each role, animated edges for reporting lines</td></tr>
+          <tr><td>Roles</td><td>Role cards listing responsibilities, required skills, and reporting structure</td></tr>
+          <tr><td>Activity</td><td>Chronological event log of all agent actions within the org</td></tr>
+          <tr><td>Health</td><td>Metrics grid: task completion rate, error rate, average response time, agent uptime</td></tr>
+          <tr><td>Heartbeats</td><td>Per-agent heartbeat list showing last ping time and status (alive/stale/dead)</td></tr>
+          <tr><td>Tasks</td><td>Full task list with status, assignee, priority, and due date</td></tr>
+          <tr><td>Costs</td><td>Cost breakdown by agent, role, and time period with totals</td></tr>
+          <tr><td>Members</td><td>Human and agent member list with role assignments</td></tr>
+          <tr><td>Goals</td><td>Hierarchical goal tree with progress bars for each objective and sub-objective</td></tr>
+          <tr><td>Board</td><td>Kanban board with columns: Open, In Progress, Blocked, Done, Cancelled</td></tr>
+          <tr><td>Live</td><td>Real-time agent activity feed; auto-refreshes every 5 seconds. Shows currently running agents and their current task</td></tr>
+          <tr><td>Approvals</td><td>Approve/reject queue for actions that require human sign-off</td></tr>
+          <tr><td>Secrets</td><td>Secret names and scopes — values are always masked (never shown in plaintext)</td></tr>
+          <tr><td>Settings</td><td>Org configuration form that generates the equivalent CLI command for reproducibility</td></tr>
+          <tr><td>Routines</td><td>Cron table of scheduled automations: name, schedule expression, last run, next run, status</td></tr>
+          <tr><td>My Issues</td><td>Issues assigned to the current user or agent</td></tr>
+          <tr><td>Budgets</td><td>Fill bars showing spend vs. budget limit per agent and in aggregate</td></tr>
+          <tr><td>Plugins</td><td>Installed plugin status cards: name, version, enabled toggle, health indicator</td></tr>
+          <tr><td>Charts</td><td>14-day activity heatmap + per-agent bar charts for calls and cost</td></tr>
+          <tr><td>Projects</td><td>Card grid of projects associated with this org</td></tr>
+          <tr><td>Skills</td><td>Role × skill matrix — cells show proficiency level (none/basic/expert)</td></tr>
+          <tr><td>Workspaces</td><td>Per-agent workspace rows: branch, working directory path, running services</td></tr>
+          <tr><td>Invites</td><td>Pending invitations with invite token, role, and expiry timestamp</td></tr>
+          <tr><td>Agents</td><td>Full agent table: name, type, status, model, last active, total calls, total cost</td></tr>
+          <tr><td>Environments</td><td>Agent environment configs: driver (node/python/docker), host, status</td></tr>
+          <tr><td>Access</td><td>Members grouped by role tier with their granted permissions listed</td></tr>
+          <tr><td>Issues</td><td>Full issue table (up to 100 rows): title, status, priority, assignee, labels, created date</td></tr>
+          <tr><td>Join Queue</td><td>Pending join requests showing requester (human 👤 or agent 🤖 emoji) and approval status</td></tr>
+          <tr><td>Threads</td><td>Discussion threads: subject, author, message count, linked issue</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- MONOGRAPH -->
+    <div class="section-title reveal">Monograph</div>
+    <p class="reveal" style="margin-bottom:1rem">The Monograph view provides a full knowledge-graph interface for your codebase. It has 7 tabs:</p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Tab</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Overview</td><td>Stat cards (total nodes, total edges, average degree, type counts), top 6 nodes by degree, and a type-distribution breakdown</td></tr>
+          <tr><td>Graph</td><td>Interactive force-directed graph in an iframe. WATCH toggle enables file-system watching so the graph auto-rebuilds on file changes. REBUILD button forces a full rebuild immediately</td></tr>
+          <tr><td>Analyze</td><td>Two groups of analyses: 9 client-side (Stats, PageRank, Dead Code, Components, Topological Sort, Hubs, Cycles, Surprises, Communities) and 21 server-side MCP analyses (Health Score, Risk Profile, Hotspots, Maintainability, Complexity, CRAP Score, Instability, Coupling Balance, Circular Dependencies, Unlinked References, Dead Exports, Reachability, Boundary Check, Bridges, Cohesion, Largest Files, Languages, Churn Hotspots, Detect Changes, Authors, and more)</td></tr>
+          <tr><td>Query</td><td>6 query forms: Search nodes (BM25 keyword), Impact analysis (upstream/downstream dependents), Context (360° view of a file), Shortest path (between two nodes), Cypher query (raw graph query), Ask the graph (natural language)</td></tr>
+          <tr><td>Export</td><td>Download the graph in: JSON, SVG, GraphML, or Cypher format</td></tr>
+          <tr><td>Report</td><td>Rendered GRAPH_REPORT with summary stats, top nodes by degree, and type distribution</td></tr>
+          <tr><td>Wiki</td><td>Searchable node browser — type filter pills, mode toggle (All / Docs / Code), full-text search. Clicking a node opens a detail panel with Impact, Context, and Explain actions</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- MASTERMIND OVERLAY -->
+    <div class="section-title reveal">Mastermind Overlay</div>
+    <p class="reveal" style="margin-bottom:1rem">The Mastermind overlay opens by clicking the violet <strong>⬡ Mastermind</strong> button in the topbar. It has 6 tabs:</p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Tab</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Orgs</td><td>List of all orgs — click to switch the dashboard's active org context</td></tr>
+          <tr><td>Skills</td><td>Searchable catalog of all 35+ slash-command skills. Click any skill to copy the <code>/skill-name</code> command to clipboard</td></tr>
+          <tr><td>Loops</td><td>Running loops with live countdown timers and Stop buttons — mirrors the Loops view in a compact panel</td></tr>
+          <tr><td>Create Org</td><td>Form that generates and copies the equivalent <code>/mastermind:createorg</code> CLI command when submitted</td></tr>
+          <tr><td>Metrics</td><td>Summary cards for current cost, API calls, routing confidence distribution, and active swarm topology</td></tr>
+          <tr><td>Graph</td><td>Node and edge counts for the Monograph index, list of top god nodes, and an Open Monograph button</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- COMMAND PALETTE -->
+    <div class="section-title reveal">Command Palette ⌘K</div>
+    <p class="reveal" style="margin-bottom:1rem">Open with <strong>⌘K</strong> or the Search button in the topbar. Results are grouped:</p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Group</th><th>Contents</th></tr></thead>
+        <tbody>
+          <tr><td>Sessions</td><td>Recent sessions — select to open that session in the Now view</td></tr>
+          <tr><td>Memory</td><td>Memory entries — select to open the memory detail editor</td></tr>
+          <tr><td>Projects</td><td>Registered projects — select to switch project context</td></tr>
+          <tr><td>Orgs</td><td>Organizations — select to switch to that org's view</td></tr>
+          <tr><td>Skills</td><td>Slash-command skills — select to copy the command</td></tr>
+          <tr><td>Actions</td><td>Quick actions: Open Monograph, Refresh, Toggle Compact, Open Loops</td></tr>
+          <tr><td>Tabs</td><td>Appears when an org is selected — lists all 29 org tabs for direct navigation</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin-top:0.8rem">Type a <code>&gt;</code> prefix in the palette input to switch to cross-session full-text search mode — queries all session content, not just titles.</p>
+
+    <!-- KEYBOARD SHORTCUTS -->
+    <div class="section-title reveal">Keyboard Shortcuts</div>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Key</th><th>Action</th><th>Context</th></tr></thead>
+        <tbody>
+          <tr><td><code>⌘K</code></td><td>Open command palette</td><td>Global</td></tr>
+          <tr><td><code>?</code></td><td>Show keyboard shortcuts help</td><td>Global</td></tr>
+          <tr><td><code>R</code></td><td>Refresh current view</td><td>Global</td></tr>
+          <tr><td><code>Esc</code></td><td>Close open panels or modals</td><td>Global</td></tr>
+          <tr><td><code>J</code></td><td>Navigate down in list</td><td>Now, Sessions</td></tr>
+          <tr><td><code>K</code></td><td>Navigate up in list</td><td>Now, Sessions</td></tr>
+          <tr><td><code>↵</code></td><td>Open detail panel / jump to session</td><td>Now, Sessions</td></tr>
+          <tr><td><code>/</code></td><td>Open feed search</td><td>Now</td></tr>
+          <tr><td><code>G</code></td><td>Jump to live session (newest entry)</td><td>Now</td></tr>
+          <tr><td><code>A</code></td><td>Toggle ambient mode</td><td>Now</td></tr>
+          <tr><td><code>F</code></td><td>Toggle focus mode (full-width feed)</td><td>Now</td></tr>
+          <tr><td><code>Space</code></td><td>Play / pause live tail</td><td>Now</td></tr>
+        </tbody>
+      </table>
+    </div>
+
   </div>
 </div>
 
