@@ -1707,6 +1707,17 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <button class="odt-btn" data-tab="myissues"  onclick="v2SwitchOrgTab('myissues')">My Issues</button>
             <button class="odt-btn" data-tab="budgets"   onclick="v2SwitchOrgTab('budgets')">Budgets</button>
             <button class="odt-btn" data-tab="plugins"   onclick="v2SwitchOrgTab('plugins')">Plugins</button>
+            <button class="odt-btn" data-tab="charts"       onclick="v2SwitchOrgTab('charts')">Charts</button>
+            <button class="odt-btn" data-tab="projects"     onclick="v2SwitchOrgTab('projects')">Projects</button>
+            <button class="odt-btn" data-tab="skills"       onclick="v2SwitchOrgTab('skills')">Skills</button>
+            <button class="odt-btn" data-tab="workspaces"   onclick="v2SwitchOrgTab('workspaces')">Workspaces</button>
+            <button class="odt-btn" data-tab="invites"      onclick="v2SwitchOrgTab('invites')">Invites</button>
+            <button class="odt-btn" data-tab="agents-full"  onclick="v2SwitchOrgTab('agents-full')">Agents</button>
+            <button class="odt-btn" data-tab="environments" onclick="v2SwitchOrgTab('environments')">Environments</button>
+            <button class="odt-btn" data-tab="access"       onclick="v2SwitchOrgTab('access')">Access</button>
+            <button class="odt-btn" data-tab="issues-full"  onclick="v2SwitchOrgTab('issues-full')">Issues</button>
+            <button class="odt-btn" data-tab="join-requests" onclick="v2SwitchOrgTab('join-requests')">Join Queue</button>
+            <button class="odt-btn" data-tab="threads"      onclick="v2SwitchOrgTab('threads')">Threads</button>
           </div>
           <div id="org-detail-body">
             <div class="odt-pane active" id="odt-chart"></div>
@@ -1727,6 +1738,17 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="odt-pane" id="odt-myissues"></div>
             <div class="odt-pane" id="odt-budgets"></div>
             <div class="odt-pane" id="odt-plugins"></div>
+            <div class="odt-pane" id="odt-charts"></div>
+            <div class="odt-pane" id="odt-projects"></div>
+            <div class="odt-pane" id="odt-skills"></div>
+            <div class="odt-pane" id="odt-workspaces"></div>
+            <div class="odt-pane" id="odt-invites"></div>
+            <div class="odt-pane" id="odt-agents-full"></div>
+            <div class="odt-pane" id="odt-environments"></div>
+            <div class="odt-pane" id="odt-access"></div>
+            <div class="odt-pane" id="odt-issues-full"></div>
+            <div class="odt-pane" id="odt-join-requests"></div>
+            <div class="odt-pane" id="odt-threads"></div>
           </div>
         </div>
       </div>
@@ -4597,6 +4619,17 @@ function v2RenderOrgTab(tab) {
   else if (tab === 'myissues')  v2RenderOrgMyIssues();
   else if (tab === 'budgets')   v2RenderOrgBudgets();
   else if (tab === 'plugins')   v2RenderOrgPlugins();
+  else if (tab === 'charts')       v2RenderOrgCharts();
+  else if (tab === 'projects')     v2RenderOrgProjects();
+  else if (tab === 'skills')       v2RenderOrgSkills();
+  else if (tab === 'workspaces')   v2RenderOrgWorkspaces();
+  else if (tab === 'invites')      v2RenderOrgInvites();
+  else if (tab === 'agents-full')  v2RenderOrgAgentsFull();
+  else if (tab === 'environments') v2RenderOrgEnvironments();
+  else if (tab === 'access')       v2RenderOrgAccess();
+  else if (tab === 'issues-full')  v2RenderOrgIssuesFull();
+  else if (tab === 'join-requests') v2RenderOrgJoinRequests();
+  else if (tab === 'threads')      v2RenderOrgThreads();
 }
 
 // ── org chart ───────────────────────────────
@@ -5369,6 +5402,306 @@ async function v2RenderOrgPlugins() {
   } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
 }
 
+// ── CHARTS ─────────────────────────────────────────────────
+function v2RenderOrgCharts() {
+  const el = document.getElementById('odt-charts');
+  if (!el || !_v2OrgData) return;
+  const activity = _v2OrgData._activity || [];
+  const agents   = _v2OrgData._agents   || [];
+
+  // Build 14-day buckets from activity
+  const now = Date.now();
+  const DAY = 86400000;
+  const buckets = Array.from({length: 14}, (_, i) => ({
+    day: new Date(now - (13 - i) * DAY).toLocaleDateString('en', {month:'short', day:'numeric'}),
+    ts:  now - (13 - i) * DAY,
+    events: 0, errors: 0,
+  }));
+  activity.forEach(e => {
+    const ts = new Date(e.ts || e.timestamp || e.created_at || 0).getTime();
+    const idx = buckets.findIndex((b, i) =>
+      ts >= b.ts && (i === 13 || ts < buckets[i + 1].ts));
+    if (idx >= 0) {
+      buckets[idx].events++;
+      if (e.type === 'error' || e.status === 'error') buckets[idx].errors++;
+    }
+  });
+  const maxEvents = Math.max(...buckets.map(b => b.events), 1);
+
+  // Heatmap bar chart
+  const heatmap = buckets.map(b => {
+    const h = Math.max(4, Math.round((b.events / maxEvents) * 80));
+    const col = b.errors > 0 ? 'var(--red)' : b.events > 0 ? 'var(--accent)' : 'var(--border)';
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;min-width:0">
+      <div style="height:80px;display:flex;align-items:flex-end">
+        <div style="width:100%;height:${h}px;background:${col};border-radius:2px 2px 0 0;min-width:8px" title="${b.events} events${b.errors ? ', ' + b.errors + ' errors' : ''}"></div>
+      </div>
+      <div style="font-size:9px;color:var(--text-xs);transform:rotate(-45deg);transform-origin:top left;white-space:nowrap;margin-top:6px;margin-left:4px">${b.day}</div>
+    </div>`;
+  }).join('');
+
+  // Per-agent run bars
+  const agentRuns = agents.slice(0, 10).map(a => {
+    const runs = activity.filter(e => e.agentId === a.id || e.agent === a.id).length;
+    return { name: (a.type || a.title || a.id || '—').toString().slice(0, 20), runs };
+  }).filter(a => a.runs > 0).sort((x, y) => y.runs - x.runs);
+  const maxRuns = Math.max(...agentRuns.map(a => a.runs), 1);
+
+  const totalEvents = activity.length;
+  const errorCount  = activity.filter(e => e.type === 'error' || e.status === 'error').length;
+  const successRate = totalEvents > 0 ? Math.round((1 - errorCount / totalEvents) * 100) : 100;
+  const activeCount = agents.filter(a => a.status === 'running' || a.running).length;
+
+  el.innerHTML = `
+    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+      <div class="chunk-stat"><div class="chunk-stat-val">${totalEvents}</div><div class="chunk-stat-lbl">Events</div></div>
+      <div class="chunk-stat"><div class="chunk-stat-val" style="color:${errorCount>0?'var(--red)':'var(--green)'}">${errorCount}</div><div class="chunk-stat-lbl">Errors</div></div>
+      <div class="chunk-stat"><div class="chunk-stat-val" style="color:var(--green)">${successRate}%</div><div class="chunk-stat-lbl">Success</div></div>
+      <div class="chunk-stat"><div class="chunk-stat-val" style="color:${activeCount>0?'var(--green)':'var(--text-lo)'}">${activeCount}</div><div class="chunk-stat-lbl">Active</div></div>
+    </div>
+    <div class="m-group-title" style="margin-bottom:8px">14-Day Activity</div>
+    <div style="display:flex;gap:2px;align-items:flex-end;padding-bottom:28px;margin-bottom:16px;overflow-x:auto">${heatmap}</div>
+    ${agentRuns.length ? `<div class="m-group-title" style="margin-bottom:6px">Per-Agent Runs</div>
+    ${agentRuns.map(a => `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px">
+      <div style="width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc(a.name)}</div>
+      <div style="flex:1;height:7px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${Math.round(a.runs/maxRuns*100)}%;height:100%;background:var(--accent);border-radius:2px"></div></div>
+      <div style="width:30px;text-align:right;color:var(--text-lo);font-family:var(--mono);font-size:11px">${a.runs}</div>
+    </div>`).join('')}` : ''}
+  `;
+}
+
+// ── PROJECTS ───────────────────────────────────────────────
+async function v2RenderOrgProjects() {
+  const el = document.getElementById('odt-projects');
+  if (!el || !_v2SelOrg) return;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const _enc = encodeURIComponent(_v2SelOrg);
+    const data = await fetch(`/api/org/${_enc}/projects${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const projects = Array.isArray(data) ? data : (data.projects || []);
+    if (!projects.length) { el.innerHTML = '<div class="empty">No projects configured</div>'; return; }
+    el.innerHTML = `<div class="proj-grid">${projects.map(p => `<div class="proj-card">
+      <div class="proj-card-name">${esc(p.name || p.title || '—')}</div>
+      <div class="proj-card-path">${esc((p.description || p.path || '').slice(0,80))}</div>
+      <div class="proj-card-stats" style="margin-top:8px">
+        ${p.status ? `<span class="ss-pill ${p.status==='active'?'on':''}">${esc(p.status)}</span>` : ''}
+      </div>
+    </div>`).join('')}</div>`;
+  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+// ── SKILLS ─────────────────────────────────────────────────
+function v2RenderOrgSkills() {
+  const el = document.getElementById('odt-skills');
+  if (!el || !_v2OrgData) return;
+  const roles = Array.isArray(_v2OrgData.roles) ? _v2OrgData.roles : [];
+  if (!roles.length) { el.innerHTML = '<div class="empty">No roles with skills defined</div>'; return; }
+
+  // Build role→skills matrix
+  const allSkills = [...new Set(roles.flatMap(r => Array.isArray(r.skills) ? r.skills : []))];
+  if (!allSkills.length) {
+    // Flat skill list per role
+    el.innerHTML = roles.map(r => `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:600;color:var(--text-hi);margin-bottom:4px">${esc(r.id || r.name || '—')}</div>
+      <div style="font-size:12px;color:var(--text-lo)">${esc((r.description || r.goal || 'No skills listed'))}</div>
+    </div>`).join('');
+    return;
+  }
+  el.innerHTML = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead><tr style="color:var(--text-xs);text-align:left">
+      <th style="padding:5px 8px;min-width:100px">Role</th>
+      ${allSkills.slice(0,10).map(s => `<th style="padding:5px 4px;font-family:var(--mono);white-space:nowrap">${esc(s.slice(0,16))}</th>`).join('')}
+    </tr></thead>
+    <tbody>${roles.map(r => `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:5px 8px;color:var(--text-hi);font-weight:500">${esc(r.id || r.name || '—')}</td>
+      ${allSkills.slice(0,10).map(s => `<td style="padding:5px 4px;text-align:center">${(r.skills||[]).includes(s)?'<span style="color:var(--green)">✓</span>':'<span style="color:var(--border)">·</span>'}</td>`).join('')}
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+// ── WORKSPACES ─────────────────────────────────────────────
+async function v2RenderOrgWorkspaces() {
+  const el = document.getElementById('odt-workspaces');
+  if (!el || !_v2SelOrg) return;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const _enc = encodeURIComponent(_v2SelOrg);
+    const data = await fetch(`/api/org/${_enc}/workspaces${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const ws = Array.isArray(data) ? data : (data.workspaces || []);
+    if (!ws.length) { el.innerHTML = '<div class="empty">No workspaces configured</div>'; return; }
+    el.innerHTML = ws.map(w => `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-size:13px;color:var(--text-hi);font-weight:500">${esc(w.name || w.id || '—')}</span>
+        ${w.branch ? `<span class="ss-pill">${esc(w.branch)}</span>` : ''}
+      </div>
+      ${w.path ? `<div style="font-size:11px;color:var(--text-lo);font-family:var(--mono)">${esc(w.path)}</div>` : ''}
+      ${w.services && w.services.length ? `<div style="font-size:11px;color:var(--text-lo);margin-top:3px">${w.services.map(s=>esc(s)).join(', ')}</div>` : ''}
+    </div>`).join('');
+  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+// ── INVITES ────────────────────────────────────────────────
+async function v2RenderOrgInvites() {
+  const el = document.getElementById('odt-invites');
+  if (!el || !_v2SelOrg) return;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const _enc = encodeURIComponent(_v2SelOrg);
+    const data = await fetch(`/api/org/${_enc}/invites${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const invites = Array.isArray(data) ? data : (data.invites || []);
+    if (!invites.length) { el.innerHTML = '<div class="empty">No active invite tokens</div>'; return; }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="color:var(--text-xs);text-align:left">
+        <th style="padding:5px 8px">Token</th><th>Role</th><th>Expires</th><th>Created</th>
+      </tr></thead>
+      <tbody>${invites.map(i => `<tr style="border-top:1px solid var(--border)">
+        <td style="padding:5px 8px;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc((i.token||i.id||'—').slice(0,16))}…</td>
+        <td style="padding:5px 8px"><span class="ss-pill">${esc(i.role||'viewer')}</span></td>
+        <td style="padding:5px 8px;color:var(--text-lo)">${i.expiresAt ? relTime(i.expiresAt) : '—'}</td>
+        <td style="padding:5px 8px;color:var(--text-lo)">${i.createdAt ? relTime(i.createdAt) : '—'}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+// ── AGENTS (FULL) ──────────────────────────────────────────
+function v2RenderOrgAgentsFull() {
+  const el = document.getElementById('odt-agents-full');
+  if (!el || !_v2OrgData) return;
+  const agents = _v2OrgData._agents || [];
+  if (!agents.length) { el.innerHTML = '<div class="empty">No agents found</div>'; return; }
+  el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="color:var(--text-xs);text-align:left">
+      <th style="padding:5px 8px">ID</th><th>Type</th><th>Adapter</th><th>Status</th><th>Heartbeat</th><th>Tokens In</th><th>Tokens Out</th>
+    </tr></thead>
+    <tbody>${agents.map(a => `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:5px 8px;color:var(--text-hi);font-family:var(--mono);font-size:11px">${esc((a.id||'—').toString().slice(0,12))}</td>
+      <td style="padding:5px 8px;color:var(--text-hi)">${esc(a.type||a.title||'—')}</td>
+      <td style="padding:5px 8px;color:var(--text-lo)">${esc(a.adapter||'—')}</td>
+      <td style="padding:5px 8px"><span class="ss-pill ${(a.status==='running'||a.running)?'on':''}">${esc(a.status||'idle')}</span></td>
+      <td style="padding:5px 8px;color:var(--text-lo)">${a.lastHeartbeat ? relTime(a.lastHeartbeat) : '—'}</td>
+      <td style="padding:5px 8px;color:var(--text-lo)">${a.tokensIn != null ? Number(a.tokensIn).toLocaleString() : '—'}</td>
+      <td style="padding:5px 8px;color:var(--text-lo)">${a.tokensOut != null ? Number(a.tokensOut).toLocaleString() : '—'}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+// ── ENVIRONMENTS ───────────────────────────────────────────
+async function v2RenderOrgEnvironments() {
+  const el = document.getElementById('odt-environments');
+  if (!el || !_v2SelOrg) return;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const _enc = encodeURIComponent(_v2SelOrg);
+    const data = await fetch(`/api/org/${_enc}/environments${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const envs = Array.isArray(data) ? data : (data.environments || []);
+    if (!envs.length) { el.innerHTML = '<div class="empty">No environments configured</div>'; return; }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="color:var(--text-xs);text-align:left">
+        <th style="padding:5px 8px">Name</th><th>Driver</th><th>Host</th><th>Status</th>
+      </tr></thead>
+      <tbody>${envs.map(e => `<tr style="border-top:1px solid var(--border)">
+        <td style="padding:5px 8px;color:var(--text-hi);font-weight:500">${esc(e.name||e.id||'—')}</td>
+        <td style="padding:5px 8px;color:var(--text-lo);font-family:var(--mono)">${esc(e.driver||e.type||'—')}</td>
+        <td style="padding:5px 8px;color:var(--text-lo);font-family:var(--mono)">${esc(e.host||'—')}</td>
+        <td style="padding:5px 8px"><span class="ss-pill ${e.status==='active'||e.active?'on':''}">${esc(e.status||'—')}</span></td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+// ── ACCESS ─────────────────────────────────────────────────
+function v2RenderOrgAccess() {
+  const el = document.getElementById('odt-access');
+  if (!el || !_v2OrgData) return;
+  const members = _v2OrgData._members || [];
+  if (!members.length) { el.innerHTML = '<div class="empty">No members found</div>'; return; }
+  const TIER = { owner: 0, admin: 1, operator: 2, viewer: 3 };
+  const byRole = {};
+  members.forEach(m => { const r = m.role || 'viewer'; (byRole[r] || (byRole[r] = [])).push(m); });
+  const sorted = Object.entries(byRole).sort((a,b) => (TIER[a[0]]??9) - (TIER[b[0]]??9));
+  el.innerHTML = sorted.map(([role, mems]) => `
+    <div style="margin-bottom:14px">
+      <div class="m-group-title" style="margin-bottom:6px;text-transform:capitalize">${esc(role)}</div>
+      ${mems.map(m => `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent-dim);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">${esc((m.name||m.username||m.id||'?')[0].toUpperCase())}</div>
+        <span style="color:var(--text-hi);flex:1">${esc(m.name || m.username || m.id || '—')}</span>
+        ${m.grants && m.grants.length ? m.grants.map(g => `<span class="ss-pill" style="font-size:10px">${esc(g)}</span>`).join('') : ''}
+        ${m.suspended ? '<span class="ss-pill warn">suspended</span>' : ''}
+      </div>`).join('')}
+    </div>`).join('');
+}
+
+// ── ISSUES (FULL) ──────────────────────────────────────────
+function v2RenderOrgIssuesFull() {
+  const el = document.getElementById('odt-issues-full');
+  if (!el || !_v2OrgData) return;
+  const issues = _v2OrgData._issues || [];
+  if (!issues.length) { el.innerHTML = '<div class="empty">No issues found</div>'; return; }
+  const PRIORITY = { urgent:'🔴', high:'🟠', medium:'🟡', low:'🟢' };
+  el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="color:var(--text-xs);text-align:left">
+      <th style="padding:5px 4px">P</th><th style="padding:5px 8px">Title</th><th>Assignee</th><th>Status</th><th>Updated</th>
+    </tr></thead>
+    <tbody>${issues.slice(0,100).map(i => `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:5px 4px">${PRIORITY[i.priority]||'·'}</td>
+      <td style="padding:5px 8px;color:var(--text-hi);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((i.title||i.description||'—').slice(0,80))}</td>
+      <td style="padding:5px 8px;color:var(--text-lo)">${esc(i.assignee||'—')}</td>
+      <td style="padding:5px 8px"><span class="ss-pill ${i.status==='done'?'on':i.status==='blocked'?'warn':''}">${esc(i.status||'open')}</span></td>
+      <td style="padding:5px 8px;color:var(--text-xs);font-family:var(--mono);font-size:11px">${relTime(i.updated_at||i.ts)}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+// ── JOIN REQUESTS ──────────────────────────────────────────
+async function v2RenderOrgJoinRequests() {
+  const el = document.getElementById('odt-join-requests');
+  if (!el || !_v2SelOrg) return;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const _enc = encodeURIComponent(_v2SelOrg);
+    const data = await fetch(`/api/org/${_enc}/join-requests${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const reqs = Array.isArray(data) ? data : (data.joinRequests || data.join_requests || []);
+    if (!reqs.length) { el.innerHTML = '<div class="empty">No pending join requests</div>'; return; }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="color:var(--text-xs);text-align:left">
+        <th style="padding:5px 8px">Requester</th><th>Type</th><th>Status</th><th>Created</th>
+      </tr></thead>
+      <tbody>${reqs.map(r => `<tr style="border-top:1px solid var(--border)">
+        <td style="padding:5px 8px;color:var(--text-hi)">${esc(r.name||r.username||r.id||'—')}</td>
+        <td style="padding:5px 8px;color:var(--text-lo)">${r.type==='agent'?'🤖 agent':'👤 human'}</td>
+        <td style="padding:5px 8px"><span class="ss-pill ${r.status==='approved'?'on':r.status==='rejected'?'warn':''}">${esc(r.status||'pending')}</span></td>
+        <td style="padding:5px 8px;color:var(--text-lo)">${r.createdAt ? relTime(r.createdAt) : '—'}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+// ── THREADS ────────────────────────────────────────────────
+async function v2RenderOrgThreads() {
+  const el = document.getElementById('odt-threads');
+  if (!el || !_v2SelOrg) return;
+  el.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const _enc = encodeURIComponent(_v2SelOrg);
+    const data = await fetch(`/api/org/${_enc}/threads${DIR?'?dir='+encodeURIComponent(DIR):''}`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const threads = Array.isArray(data) ? data : (data.threads || []);
+    if (!threads.length) { el.innerHTML = '<div class="empty">No threads found</div>'; return; }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="color:var(--text-xs);text-align:left">
+        <th style="padding:5px 8px">Subject</th><th>Author</th><th>Messages</th><th>Issue</th><th>Created</th>
+      </tr></thead>
+      <tbody>${threads.map(t => `<tr style="border-top:1px solid var(--border)">
+        <td style="padding:5px 8px;color:var(--text-hi);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((t.subject||t.title||'—').slice(0,50))}</td>
+        <td style="padding:5px 8px;color:var(--text-lo)">${esc(t.author||t.createdBy||'—')}</td>
+        <td style="padding:5px 8px;color:var(--text-lo);text-align:center">${t.messageCount ?? t.messages ?? '—'}</td>
+        <td style="padding:5px 8px;color:var(--text-lo);font-family:var(--mono);font-size:11px">${t.issueId ? '#'+esc(t.issueId.toString().slice(0,8)) : '—'}</td>
+        <td style="padding:5px 8px;color:var(--text-lo)">${t.createdAt ? relTime(t.createdAt) : '—'}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  } catch (e) { el.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
 // stop org
 window.v2StopOrg = async function() {
   if (!_v2SelOrg) return;
@@ -5396,7 +5729,7 @@ window.v2StopOrg = async function() {
         _v2OrgEventLog[n].push(ev);
         if (_v2OrgEventLog[n].length > 50) _v2OrgEventLog[n].shift();
         if (n === _v2SelOrg && _v2OrgTab === 'activity') v2RenderOrgActivity();
-        if (ev.type === 'org:start' || ev.type === 'org:stop' || ev.type === 'org:delete') {
+        if (ev.type === 'org:start' || ev.type === 'org:stop' || ev.type === 'org:delete' || ev.type === 'org:create') {
           setTimeout(async () => {
             await renderOrgs();
             if (_v2SelOrg === n) {
@@ -5404,7 +5737,9 @@ window.v2StopOrg = async function() {
                 // Org was deleted — clear detail panel
                 _v2SelOrg = null;
                 _v2OrgData = null;
-                document.getElementById('org-detail').style.display = 'none';
+                document.getElementById('org-detail-pane')?.classList.add('empty-state');
+                const _detInner = document.getElementById('org-detail-inner');
+                if (_detInner) _detInner.style.display = 'none';
               } else {
                 const listOrg = _v2Orgs.find(o => o.name === _v2SelOrg) || {};
                 if (_v2OrgData) _v2OrgData.running = listOrg.running;
