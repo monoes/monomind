@@ -209,12 +209,27 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .swarm-topo-pill { font-size: 10px; padding: 1px 7px; border-radius: 8px; background: var(--surface-hi); color: var(--text-lo); font-family: var(--mono); }
 .swarm-live { font-size: 10px; color: var(--green); font-weight: 600; margin-left: 6px; }
 /* chunks tab */
+.chunk-stats-bar { display: flex; gap: 20px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); align-items: center; }
+.chunk-stat { display: flex; flex-direction: column; gap: 2px; }
+.chunk-stat-val { font-size: 18px; font-weight: 700; color: var(--text-hi); font-family: var(--mono); }
+.chunk-stat-lbl { font-size: 10px; color: var(--text-lo); text-transform: uppercase; letter-spacing: 0.07em; }
+.chunk-build-btn { margin-left: auto; }
+.chunk-build-status { font-size: 11px; color: var(--text-lo); margin-left: 8px; font-family: var(--mono); }
 .chunk-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 7px; }
 .chunk-card:hover { border-color: oklch(72% 0.18 75 / 0.5); }
 .chunk-src { font-size: 11px; color: var(--accent); font-family: var(--mono); margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chunk-excerpt { font-size: 12px; color: var(--text-hi); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .chunk-footer { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
 .chunk-ns { font-size: 10px; padding: 1px 6px; border-radius: 8px; background: var(--surface-hi); color: var(--text-lo); }
+/* chunk edit modal */
+#chunk-modal { display: none; position: fixed; inset: 0; z-index: 3000; background: oklch(0% 0 0 / 0.65); align-items: center; justify-content: center; }
+#chunk-modal.open { display: flex; }
+#chunk-modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; width: min(620px, 93vw); padding: 20px; display: flex; flex-direction: column; gap: 12px; max-height: 90vh; }
+#chunk-modal-title { font-size: 14px; font-weight: 600; color: var(--text-hi); }
+#chunk-modal-src { font-size: 11px; color: var(--accent); font-family: var(--mono); margin-top: -6px; }
+#chunk-modal-ta { width: 100%; height: 300px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-family: var(--mono); font-size: 12px; color: var(--text-hi); resize: vertical; outline: none; overflow-y: auto; }
+#chunk-modal-ta:focus { border-color: var(--accent); }
+.chunk-modal-btns { display: flex; justify-content: flex-end; gap: 8px; }
 /* loops */
 .loop-list { display: flex; flex-direction: column; gap: 8px; }
 .loop-row { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 11px 14px; display: flex; align-items: center; gap: 12px; }
@@ -1003,8 +1018,70 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 .mg-analyze-btn .mab-spin { display:inline-block; width:10px; height:10px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.6s linear infinite; margin-left:6px; vertical-align:middle; }
 .mg-analyze-btn.mg-server .mab-spin { border-top-color:var(--mg-accent); }
 @keyframes spin { to { transform:rotate(360deg); } }
-.mg-result-panel { margin-top:16px; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px; }
-.mg-result-title { font-size:12px; font-weight:600; color:var(--text-hi); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; }
+.mg-result-panel { margin-top:16px; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:16px 18px; }
+.mg-result-title { font-size:10px; font-weight:600; color:var(--text-lo); text-transform:uppercase; letter-spacing:0.10em; margin-bottom:14px; font-family:var(--mono); }
+
+/* ── rich analysis renderers ────────────────────────────── */
+/* stat grid (health score, vital signs) */
+.mgr-stat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:1px; background:var(--border); border-radius:4px; overflow:hidden; margin-bottom:8px; }
+.mgr-stat-cell { background:var(--surface); padding:10px 12px; }
+.mgr-stat-k { font-size:10px; color:var(--text-lo); font-family:var(--mono); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:3px; }
+.mgr-stat-v { font-size:18px; font-weight:700; font-family:var(--mono); color:var(--text-hi); line-height:1; }
+.mgr-stat-v.ok { color:var(--green); }
+.mgr-stat-v.warn { color:var(--accent); }
+.mgr-stat-v.crit { color:var(--red); }
+/* ranked list (hotspots, complexity, crap, largest, churn) */
+.mgr-ranked { display:flex; flex-direction:column; gap:0; }
+.mgr-ranked-row { display:grid; grid-template-columns:24px 1fr 80px 54px; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid oklch(25% 0.008 55 / 0.4); }
+.mgr-ranked-row:last-child { border-bottom:none; }
+.mgr-ranked-num { font-size:10px; font-family:var(--mono); color:var(--text-lo); text-align:right; }
+.mgr-ranked-name { font-size:12px; color:var(--text-hi); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mgr-ranked-bar-wrap { height:3px; background:oklch(25% 0.008 55); border-radius:2px; overflow:hidden; }
+.mgr-ranked-bar-fill { height:100%; border-radius:2px; background:var(--accent); transition:width 0.45s cubic-bezier(0.16,1,0.3,1); }
+.mgr-ranked-val { font-size:11px; font-family:var(--mono); color:var(--accent); text-align:right; white-space:nowrap; }
+/* risk items */
+.mgr-risk-list { display:flex; flex-direction:column; gap:6px; }
+.mgr-risk-row { display:flex; align-items:baseline; gap:10px; padding:7px 10px; border-radius:4px; background:oklch(15% 0.009 55); }
+.mgr-risk-badge { font-size:10px; font-weight:700; font-family:var(--mono); letter-spacing:0.05em; white-space:nowrap; flex-shrink:0; }
+.mgr-risk-badge.low  { color:oklch(55% 0.006 75); }
+.mgr-risk-badge.medium { color:var(--accent); }
+.mgr-risk-badge.high   { color:oklch(65% 0.18 45); }
+.mgr-risk-badge.critical { color:var(--red); }
+.mgr-risk-text { font-size:12px; color:var(--text-mid); }
+/* table (coupling balance, instability) */
+.mgr-table { width:100%; font-size:11px; font-family:var(--mono); border-collapse:collapse; }
+.mgr-table th { font-size:9px; color:var(--text-lo); text-transform:uppercase; letter-spacing:0.07em; text-align:left; padding:0 6px 6px 0; font-weight:600; }
+.mgr-table td { padding:5px 6px 5px 0; color:var(--text-mid); border-top:1px solid oklch(25% 0.008 55 / 0.5); }
+.mgr-table td.name { color:var(--text-hi); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mgr-table td.num { color:var(--accent); text-align:right; white-space:nowrap; }
+.mgr-table td.hi { color:var(--red); text-align:right; }
+.mgr-table td.lo { color:var(--green); text-align:right; }
+/* file list (reachability, detect changes) */
+.mgr-file-list { display:flex; flex-direction:column; gap:0; max-height:320px; overflow-y:auto; }
+.mgr-file-item { padding:5px 0; border-bottom:1px solid oklch(25% 0.008 55 / 0.4); }
+.mgr-file-item:last-child { border-bottom:none; }
+.mgr-file-name { font-size:12px; color:var(--text-hi); font-family:var(--mono); }
+.mgr-file-path { font-size:10px; color:var(--text-lo); font-family:var(--mono); margin-top:1px; }
+.mgr-file-meta { font-size:10px; color:var(--accent); margin-left:6px; }
+/* bar chart (language, author, cohesion) */
+.mgr-bars { display:flex; flex-direction:column; gap:7px; }
+.mgr-bar-row { display:grid; grid-template-columns:130px 1fr 70px; align-items:center; gap:10px; }
+.mgr-bar-label { font-size:11px; font-family:var(--mono); color:var(--text-mid); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mgr-bar-track { height:4px; background:oklch(25% 0.008 55); border-radius:2px; overflow:hidden; }
+.mgr-bar-fill { height:100%; border-radius:2px; transition:width 0.5s cubic-bezier(0.16,1,0.3,1); }
+.mgr-bar-count { font-size:11px; font-family:var(--mono); color:var(--text-lo); text-align:right; white-space:nowrap; }
+/* all-clear */
+.mgr-clear { font-size:12px; color:var(--green); font-family:var(--mono); padding:8px 0; display:flex; align-items:center; gap:8px; }
+.mgr-clear::before { content:'✓'; font-size:14px; }
+/* summary line */
+.mgr-summary { font-size:11px; color:var(--text-lo); font-family:var(--mono); margin-top:12px; padding-top:10px; border-top:1px solid var(--border); }
+/* section header inside results */
+.mgr-section { font-size:10px; color:var(--text-lo); text-transform:uppercase; letter-spacing:0.08em; margin:14px 0 6px; font-family:var(--mono); }
+.mgr-section:first-child { margin-top:0; }
+
+@media (prefers-reduced-motion:reduce) {
+  .mgr-ranked-bar-fill, .mgr-bar-fill { transition:none; }
+}
 .mg-kv-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; }
 .mg-kv-card { background:var(--surface-hi); border-radius:4px; padding:8px 10px; }
 .mg-kv-card .mkv-k { font-size:10px; color:var(--text-xs); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:2px; }
@@ -1027,6 +1104,44 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 .mg-export-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:12px 14px; display:flex; flex-direction:column; gap:6px; }
 .mg-export-card .mec-name { font-size:12px; font-weight:600; color:var(--text-hi); }
 .mg-export-card .mec-desc { font-size:11px; color:var(--text-lo); }
+/* ── redesigned report rendering ───────────────────────── */
+.mgr-report { display:flex; flex-direction:column; gap:28px; padding:4px 0; }
+.mgr-section-label { font-size:10px; letter-spacing:0.10em; text-transform:uppercase; color:var(--text-lo); font-family:var(--mono); margin-bottom:12px; }
+
+/* Overview stat row */
+.mgr-overview { display:flex; gap:0; }
+.mgr-stat { flex:1; padding:0 24px 0 0; }
+.mgr-stat:first-child { padding-left:0; }
+.mgr-stat + .mgr-stat { border-left:1px solid var(--border); padding-left:24px; }
+.mgr-stat-value { font-size:22px; font-weight:700; font-family:var(--mono); color:var(--accent); line-height:1.1; letter-spacing:-0.02em; }
+.mgr-stat-label { font-size:10px; letter-spacing:0.07em; text-transform:uppercase; color:var(--text-lo); margin-top:5px; font-family:var(--mono); }
+.mgr-stat-sub { font-size:11px; color:var(--text-lo); margin-top:3px; }
+
+/* Top nodes ranked list */
+.mgr-node-list { display:flex; flex-direction:column; gap:0; }
+.mgr-node-row { display:grid; grid-template-columns:28px 1fr auto 120px 52px; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid oklch(25% 0.008 55 / 0.5); }
+.mgr-node-row:last-child { border-bottom:none; }
+.mgr-node-rank { font-size:11px; font-family:var(--mono); color:var(--text-lo); text-align:right; }
+.mgr-node-name { font-size:12px; font-weight:600; color:var(--text-hi); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mgr-node-type { font-size:10px; font-family:var(--mono); color:var(--text-lo); background:oklch(25% 0.008 55); padding:2px 7px; border-radius:3px; white-space:nowrap; }
+.mgr-node-bar-wrap { height:3px; background:oklch(25% 0.008 55); border-radius:2px; overflow:hidden; }
+.mgr-node-bar-fill { height:100%; background:var(--accent); border-radius:2px; transition:width 0.4s cubic-bezier(0.16,1,0.3,1); }
+.mgr-node-count { font-size:11px; font-family:var(--mono); color:var(--accent); text-align:right; white-space:nowrap; }
+
+/* Type distribution */
+.mgr-type-list { display:flex; flex-direction:column; gap:9px; }
+.mgr-type-row { display:grid; grid-template-columns:100px 1fr 52px 44px; align-items:center; gap:12px; }
+.mgr-type-name { font-size:11px; font-family:var(--mono); color:var(--text-mid); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mgr-type-bar-wrap { height:4px; background:oklch(25% 0.008 55); border-radius:2px; overflow:hidden; }
+.mgr-type-bar-fill { height:100%; border-radius:2px; transition:width 0.5s cubic-bezier(0.16,1,0.3,1); }
+.mgr-type-count { font-size:11px; font-family:var(--mono); color:var(--text-mid); text-align:right; }
+.mgr-type-pct { font-size:10px; font-family:var(--mono); color:var(--text-lo); text-align:right; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mgr-node-bar-fill, .mgr-type-bar-fill { transition:none; }
+}
+
+/* Legacy — keep for backward compat */
 .mg-report-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:14px 16px; margin-bottom:10px; }
 .mg-report-card.wide { grid-column:1/-1; }
 .mg-report-card .mrc-head { font-size:12px; font-weight:600; color:var(--text-hi); margin-bottom:8px; display:flex; align-items:center; gap:6px; }
@@ -1495,8 +1610,16 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
           <button class="btn" style="margin-top:10px;color:var(--red);border-color:var(--red)" onclick="cleanSwarmData()">&#x232B; Clean Data</button>
         </div>
         <div id="mem-tab-chunks" style="display:none">
+          <div class="chunk-stats-bar" id="chunk-stats-bar">
+            <div class="chunk-stat"><div class="chunk-stat-val" id="chunk-count-val">—</div><div class="chunk-stat-lbl">Chunks</div></div>
+            <div class="chunk-stat"><div class="chunk-stat-val" id="chunk-skills-val">—</div><div class="chunk-stat-lbl">Skills</div></div>
+            <div class="chunk-stat"><div class="chunk-stat-val" id="chunk-ns-val">—</div><div class="chunk-stat-lbl">Namespaces</div></div>
+            <button class="btn chunk-build-btn" id="btn-build-docs" onclick="buildKnowledgeDocs()" title="Index .md/.mdx/.txt/.rst files">⊕ Build Docs</button>
+            <span class="chunk-build-status" id="chunk-build-status"></span>
+          </div>
           <div class="filter-bar">
             <input class="filter-input" type="text" placeholder="Filter chunks…" oninput="filterChunks(this.value)">
+            <button class="btn" onclick="_chunksLoaded=false;loadChunksTab()" title="Refresh">↺</button>
           </div>
           <div id="chunks-grid"></div>
         </div>
@@ -1764,6 +1887,18 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 </div><!-- /main -->
 <div id="app-ambient-hint">Press A to exit ambient mode</div>
 </div><!-- /app -->
+<!-- chunk edit modal -->
+<div id="chunk-modal" onclick="if(event.target===this)closeChunkModal()">
+  <div id="chunk-modal-box">
+    <div id="chunk-modal-title">Edit Chunk</div>
+    <div id="chunk-modal-src"></div>
+    <textarea id="chunk-modal-ta" spellcheck="false"></textarea>
+    <div class="chunk-modal-btns">
+      <button class="btn" onclick="closeChunkModal()">Cancel</button>
+      <button class="btn" style="color:var(--accent);border-color:var(--accent)" onclick="saveChunkModal()">Save</button>
+    </div>
+  </div>
+</div>
 <!-- memory edit/create modal -->
 <div id="mem-modal" onclick="if(event.target===this)closeMemModal()">
   <div id="mem-modal-box">
@@ -1870,6 +2005,8 @@ function switchView(v) {
     el.classList.toggle('active', el.id === 'view-' + v));
   const titles = { now:'Now', projects:'Projects', sessions:'Sessions', loops:'Loops', tokens:'Tokens', memory:'Memory', orgs:'Orgs', monograph:'Monograph', global:'Global Feed' };
   document.getElementById('view-title').textContent = titles[v] || v;
+  // Projects always re-fetches so onclick paths in cards stay current
+  if (v === 'projects') { renderProjects(); return; }
   if (!viewRendered[v]) { renderView(v); viewRendered[v] = true; }
 }
 
@@ -1904,9 +2041,31 @@ async function init() {
   } catch (_) {}
   // deep-link: ?sess=<id>&proj=<path>
   const params = new URLSearchParams(window.location.search);
-  const projParam = params.get('proj');
+  let projParam = params.get('proj');
   const sessParam = params.get('sess');
   if (projParam) {
+    // Validate the URL path against the real project list.
+    // Slugs are built by replacing ALL '/' with '-', so a path like
+    // /Desktop/agent-f/agf-accounting becomes /Desktop/agent/f/agf/accounting.
+    // To detect this: for each real project, compute what the corrupted URL
+    // would look like (path → slug → re-corrupt) and compare to projParam.
+    try {
+      const { projects = [] } = await apiFetch('/api/projects');
+      let corrected = null;
+      for (const p of projects) {
+        if (p.path === projParam) { corrected = p.path; break; } // exact match
+        // Compute the corrupted version of this project's real path
+        const slug = '-' + p.path.replace(/^\//,'').replace(/\//g,'-');
+        const corrupt = slug.replace(/-/g, '/');
+        if (corrupt === projParam) { corrected = p.path; break; }
+      }
+      if (corrected && corrected !== projParam) {
+        projParam = corrected;
+        const newP = new URLSearchParams(window.location.search);
+        newP.set('proj', projParam);
+        history.replaceState(null, '', '?' + newP.toString());
+      }
+    } catch (_) {}
     DIR = projParam;
     document.getElementById('sb-proj').textContent = DIR.split('/').filter(Boolean).pop() || '—';
     document.getElementById('sb-path').textContent = DIR;
@@ -1970,6 +2129,9 @@ function switchProject(path) {
   _memFiles = [];
   _selMemFilename = null;
   _editMemFilename = null;
+  // Reset Monograph cache so it reloads for the new project
+  _mgLoaded = false;
+  _mgGraph = null;
   document.getElementById('sb-proj').textContent = path.split('/').filter(Boolean).pop() || '—';
   document.getElementById('sb-path').textContent = path;
   _showNavProjectCtx(path);
@@ -2710,14 +2872,24 @@ async function loadMemRouting() {
     const rows = Array.isArray(data) ? data : (data.rows || data.feedback || []);
     if (rows.length > 0) {
       const last = rows[rows.length - 1];
-      window._lastRouteAgent = last.route || last.category || last.agent || last.agentType || '';
+      window._lastRouteAgent = last.suggestedAgent || last.route || last.category || last.agent || last.agentType || '';
     }
     if (!rows.length) { pane.innerHTML = '<div class="empty">No routing data</div>'; return; }
     pane.innerHTML = '<div class="m-group-title" style="margin-bottom:6px">Routing Feedback</div>' +
-      rows.slice(0, 40).map(r => `<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;font-family:monospace">
-        <div style="color:var(--text-hi)">${esc(r.task || r.prompt || r.key || '—')}</div>
-        <div style="color:var(--text-lo);margin-top:2px">${esc(r.route || r.category || '')} · ${relTime(r.ts || r.created_at)}</div>
-      </div>`).join('');
+      rows.slice(-40).reverse().map(r => {
+        const agent = r.suggestedAgent || r.route || r.category || r.agent || '—';
+        const task  = r.task || r.prompt || r.description || r.sessionId?.slice(0, 8) || '—';
+        const ts    = r.timestamp || r.ts || r.created_at;
+        const conf  = r.confidence != null ? Math.round(r.confidence * 100) + '%' : '';
+        return `<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;font-family:monospace">
+          <div style="color:var(--text-hi);display:flex;align-items:center;gap:8px">
+            <span style="color:var(--accent)">${esc(agent)}</span>
+            ${conf ? `<span style="color:var(--text-lo)">${esc(conf)}</span>` : ''}
+            <span style="color:var(--text-lo);margin-left:auto;font-size:10px">${relTime(ts)}</span>
+          </div>
+          <div style="color:var(--text-lo);margin-top:1px">${esc(task)}</div>
+        </div>`;
+      }).join('');
   } catch (_) { pane.innerHTML = '<div class="empty">Failed to load routing data</div>'; }
 }
 
@@ -2728,13 +2900,16 @@ async function loadMemUsage() {
   try {
     const data = await apiFetch('/api/memory/stats?dir=' + enc(DIR));
     const s = data?.stats || data || {};
+    const rows = [
+      { label: 'Total entries', val: s.total ?? s.count ?? 0 },
+      { label: 'Namespaces',    val: s.namespaces ?? s.ns ?? Object.keys(s.byType || {}).length },
+      { label: 'DB size',       val: s.size ? (s.size / 1024).toFixed(1) + ' KB' : '—' },
+      { label: 'Last write',    val: s.lastWrite ? relTime(s.lastWrite) : '—' },
+      { label: 'HNSW index',    val: s.hnsw ? '✓ present' : '✗ absent' },
+      { label: 'AgentDB',       val: s.agentdb ? '✓ present' : (s.rvf ? 'RVF backend' : '✗ absent') },
+    ];
     pane.innerHTML = `<div class="m-group-title" style="margin-bottom:8px">Memory Usage</div>` +
-      [
-        { label: 'Total entries', val: s.total ?? s.count ?? '—' },
-        { label: 'Namespaces',    val: s.namespaces ?? s.ns ?? '—' },
-        { label: 'DB size',       val: s.size ? (s.size / 1024).toFixed(1) + ' KB' : '—' },
-        { label: 'Last write',    val: s.lastWrite ? relTime(s.lastWrite) : '—' },
-      ].map(r => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+      rows.map(r => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
         <span style="color:var(--text-hi)">${esc(r.label)}</span>
         <span style="color:var(--accent);font-family:monospace">${esc(String(r.val))}</span>
       </div>`).join('');
@@ -6519,8 +6694,11 @@ let _mgWikiSearchTimer = null;
 
 async function loadMonograph() {
   if (_mgLoaded) return;
+  const loadDir = DIR; // snapshot DIR at call time
   try {
-    const data = await apiFetch('/api/monograph-graph?dir=' + enc(DIR) + '&limit=2000');
+    const data = await apiFetch('/api/monograph-graph?dir=' + enc(loadDir) + '&limit=2000');
+    // Guard: if DIR changed while the fetch was in-flight, discard stale result
+    if (DIR !== loadDir) return;
     _mgGraph = data;
     _mgLoaded = true;
     renderMgOverview();
@@ -6529,12 +6707,28 @@ async function loadMonograph() {
     mgInitGraph();
     mgLoadReport();
     mgRenderWiki();
+    // Show helpful empty-state if the graph loaded but has no nodes
+    if (!data.nodes || !data.nodes.length) {
+      const topEl = document.getElementById('mg-top-nodes');
+      if (topEl) topEl.innerHTML = `<div style="font-size:11px;color:var(--text-lo);padding:8px 0;line-height:1.8">
+        No graph data found for:<br>
+        <span style="font-family:var(--mono);color:var(--accent);font-size:10px">${esc(loadDir)}</span><br><br>
+        Run <span style="font-family:var(--mono);color:var(--accent)">/monograph:monograph-build</span> or click REBUILD to index this project.
+      </div>`;
+    }
   } catch (e) {
+    if (DIR !== loadDir) return;
     _mgGraph = { nodes: [], edges: [] };
     _mgLoaded = true;
     renderMgOverview();
     mgRenderAnalyzeButtons();
     mgRenderExport();
+    const topEl = document.getElementById('mg-top-nodes');
+    if (topEl) topEl.innerHTML = `<div style="font-size:11px;color:var(--red);padding:8px 0">
+      Failed to load graph for:<br>
+      <span style="font-family:var(--mono);font-size:10px">${esc(loadDir)}</span><br>
+      <span style="color:var(--text-lo)">${esc(String(e))}</span>
+    </div>`;
   }
 }
 
@@ -6656,24 +6850,30 @@ const MG_CLIENT_ANALYSES = [
   { id:'communities', label:'COMMUNITIES', desc:'Node type distribution as horizontal bar chart' },
 ];
 const MG_SERVER_ANALYSES = [
-  { id:'cohesion',         label:'COHESION',         desc:'Community cohesion scores', tool:'monograph_cohesion', args:{} },
-  { id:'bridges',          label:'BRIDGES',          desc:'Cross-community bridge nodes', tool:'monograph_bridge', args:{} },
-  { id:'detect_changes',   label:'DETECT CHANGES',   desc:'Git-changed files mapped to graph nodes', tool:'monograph_detect_changes', args:{} },
-  { id:'diff',             label:'DIFF',             desc:'Graph diff — added/removed nodes and edges', tool:'monograph_diff', args:{} },
-  { id:'unlinked_refs',    label:'UNLINKED REFS',    desc:'Unexpected edges and unlinked references', tool:'monograph_surprises', args:{} },
-  { id:'boundary_check',   label:'BOUNDARY CHECK',   desc:'Module boundary analysis', tool:'monograph_community', args:{} },
-  { id:'health_score',     label:'HEALTH SCORE',     desc:'Composite health score card', tool:'monograph_health', args:{} },
-  { id:'vital_signs',      label:'VITAL SIGNS',      desc:'Snapshot of key health metrics', tool:'monograph_stats', args:{} },
-  { id:'hotspots',         label:'HOTSPOTS',         desc:'High-centrality nodes (churn hotspots)', tool:'monograph_god_nodes', args:{} },
-  { id:'maintainability',  label:'MAINTAINABILITY',  desc:'High-complexity nodes from graph', tool:'monograph_cypher', args:{ query:'MATCH (n) WHERE n.complexity > 10 RETURN n.name, n.complexity ORDER BY n.complexity DESC LIMIT 20' } },
-  { id:'complexity',       label:'COMPLEXITY',       desc:'High complexity function search', tool:'monograph_query', args:{ q:'high complexity functions', mode:'search', budget:3 } },
-  { id:'risk_profile',     label:'RISK PROFILE',     desc:'Composite risk via impact analysis', tool:'monograph_impact', args:{ node:'index', direction:'both' } },
-  { id:'clone_detect',     label:'CLONE DETECT',     desc:'Similar files in 2-hop neighborhood', tool:'monograph_neighbors', args:{ node:'src', hops:2 } },
-  { id:'similar_files',    label:'SIMILAR FILES',    desc:'Structurally similar files via context', tool:'monograph_context', args:{ file:'__DIR__/src' } },
-  { id:'mirrored_dirs',    label:'MIRRORED DIRS',    desc:'Directory families via community', tool:'monograph_community', args:{} },
-  { id:'regression_check', label:'REGRESSION CHECK', desc:'Diff against baseline snapshot', tool:'monograph_diff', args:{ snapshotA:'baseline' } },
-  { id:'author_analytics', label:'AUTHOR ANALYTICS', desc:'Per-section analytics report', tool:'monograph_report', args:{} },
-  { id:'crap_score',       label:'CRAP SCORE',       desc:'Change Risk Anti-Patterns by CRAP index', tool:'monograph_cypher', args:{ query:'MATCH (n:Function) RETURN n.name, n.crap ORDER BY n.crap DESC LIMIT 20' } },
+  // ── Health & Quality ───────────────────────────────────────
+  { id:'health_score',     label:'HEALTH SCORE',     desc:'Score (0–100), dead symbols, hub density', tool:'monograph_health_score', args:{} },
+  { id:'risk_profile',     label:'RISK PROFILE',     desc:'Hub nodes, orphan files, coupling risks', tool:'monograph_risk_profile', args:{} },
+  { id:'hotspots',         label:'HOTSPOTS',         desc:'Most-connected files — change blast radius', tool:'monograph_hotspots', args:{} },
+  { id:'maintainability',  label:'MAINTAINABILITY',  desc:'Fan-out/fan-in ratio per file (lower MI = harder)', tool:'monograph_maintainability', args:{} },
+  { id:'complexity',       label:'COMPLEXITY',       desc:'Out-degree complexity — most tangled nodes first', tool:'monograph_complexity', args:{} },
+  { id:'crap_score',       label:'CRAP SCORE',       desc:'Degree² proxy — change-risk anti-patterns', tool:'monograph_crap_score', args:{} },
+  // ── Coupling & Architecture ────────────────────────────────
+  { id:'instability',      label:'INSTABILITY',      desc:"Robert Martin's Ce/(Ca+Ce) — high instability + many dependents = blast radius", tool:'monograph_instability', args:{} },
+  { id:'coupling_balance', label:'COUPLING BALANCE', desc:'Fan-out vs fan-in per file — who gives vs takes', tool:'monograph_coupling_balance', args:{} },
+  { id:'circular_deps',    label:'CIRCULAR DEPS',    desc:'Import cycles — dependency loops to break', tool:'monograph_circular_deps', args:{} },
+  { id:'unlinked_refs',    label:'UNLINKED REFS',    desc:'Exported symbols with no inbound references', tool:'monograph_unlinked_refs', args:{} },
+  { id:'dead_exports',     label:'DEAD EXPORTS',     desc:'Public API symbols never imported anywhere', tool:'monograph_dead_exports', args:{} },
+  { id:'reachability',     label:'REACHABILITY',     desc:'Files with zero inbound refs — orphaned modules', tool:'monograph_reachability', args:{} },
+  { id:'boundary_check',   label:'BOUNDARY CHECK',   desc:'Cross-file coupling groups and violations', tool:'monograph_boundary_check', args:{} },
+  { id:'bridges',          label:'BRIDGES',          desc:'Files connecting otherwise-separate modules', tool:'monograph_bridge', args:{} },
+  { id:'cohesion',         label:'COHESION',         desc:'Type distribution and community clustering', tool:'monograph_cohesion', args:{} },
+  // ── File-Level ─────────────────────────────────────────────
+  { id:'largest_files',    label:'LARGEST FILES',    desc:'Biggest files by line count — refactor candidates', tool:'monograph_largest_files', args:{} },
+  { id:'language_breakdown', label:'LANGUAGES',      desc:'Node count by programming language', tool:'monograph_language_breakdown', args:{} },
+  // ── Activity & History ─────────────────────────────────────
+  { id:'churn_hotspots',   label:'CHURN HOTSPOTS',   desc:'Files with high git churn × high coupling — top refactor ROI', tool:'monograph_churn_hotspots', args:{} },
+  { id:'detect_changes',   label:'DETECT CHANGES',   desc:'Git-changed files since last commit', tool:'monograph_detect_changes', args:{} },
+  { id:'author_analytics', label:'AUTHORS',          desc:'Commit counts per contributor', tool:'monograph_author_analytics', args:{} },
 ];
 
 function mgRenderAnalyzeButtons() {
@@ -6709,6 +6909,14 @@ function mgShowResult(title, html) {
   document.getElementById('mg-result-body').innerHTML = html;
   panel.style.display = 'block';
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  // Animate bars in after paint
+  requestAnimationFrame(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    panel.querySelectorAll('.mgr-ranked-bar-fill, .mgr-bar-fill').forEach(b => {
+      const w = b.style.width; b.style.width = '0';
+      requestAnimationFrame(() => { b.style.width = w; });
+    });
+  });
 }
 
 // ── CLIENT-SIDE ALGORITHMS ─────────────────────────────────
@@ -6885,6 +7093,225 @@ function mgRunClient(id) {
 }
 
 // ── SERVER-SIDE MCP CALLS ──────────────────────────────────
+// ── Smart analysis result renderer ─────────────────────────
+function mgRenderAnalysisResult(toolId, text) {
+  if (!text || !text.trim()) return `<div class="mgr-clear">No data returned for this analysis.</div>`;
+
+  // ── helpers ──
+  const h = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const lines = text.split('\n');
+  const noIssues = /^(no |all |clean|no circular|no unlinked|no dead|no bridge|boundary check: 0|no similar|no mirrored)/i;
+  const isClean = lines.some(l => noIssues.test(l.trim())) && lines.filter(l => l.trim()).length < 5;
+
+  // ── clean / all-clear tools ──
+  if (isClean || toolId === 'unlinked_refs' || toolId === 'dead_exports' || toolId === 'bridges' || toolId === 'boundary_check' || toolId === 'circular_deps') {
+    const msg = lines.find(l => l.trim()) || text.trim();
+    if (noIssues.test(msg.trim())) return `<div class="mgr-clear">${h(msg.trim())}</div>`;
+  }
+
+  // ── stat grid (health score) ──
+  if (toolId === 'health_score' || toolId === 'vital_signs') {
+    const kvs = [];
+    for (const l of lines) {
+      const m = l.match(/^\s+([^:]+?):\s+(.+?)(?:\s+[✓⚠✗].*)?$/);
+      if (m && !l.includes('──')) {
+        const k = m[1].trim(), v = m[2].trim();
+        const isScore = k.toLowerCase().includes('score');
+        const numMatch = v.match(/^(\d+)/);
+        const num = numMatch ? parseInt(numMatch[1]) : null;
+        let cls = '';
+        if (isScore && num !== null) cls = num >= 80 ? 'ok' : num >= 60 ? 'warn' : 'crit';
+        kvs.push({ k, v, cls });
+      }
+    }
+    if (!kvs.length) return _mgrFallback(text);
+    const ts = lines[0]?.replace(/Vital Signs.*—\s*/, '').replace(/T\d{2}:\d{2}:\d{2}.*/, '').trim() || '';
+    return `${ts ? `<div class="mgr-summary">${h(ts)}</div>` : ''}
+      <div class="mgr-stat-grid">${kvs.map(({k,v,cls}) =>
+        `<div class="mgr-stat-cell"><div class="mgr-stat-k">${h(k)}</div><div class="mgr-stat-v${cls?' '+cls:''}">${h(v)}</div></div>`
+      ).join('')}</div>`;
+  }
+
+  // ── risk profile ──
+  if (toolId === 'risk_profile') {
+    const risks = [], summaries = [];
+    for (const l of lines) {
+      const m = l.match(/^\s+(LOW|MEDIUM|HIGH|CRITICAL)\s+(.+)$/i);
+      if (m) risks.push({ level: m[1].toUpperCase(), text: m[2].trim() });
+      else if (l.toLowerCase().startsWith('summary:')) summaries.push(l.trim());
+    }
+    if (!risks.length) return _mgrFallback(text);
+    const lvlClass = { LOW:'low', MEDIUM:'medium', HIGH:'high', CRITICAL:'critical' };
+    return `<div class="mgr-risk-list">
+      ${risks.map(r => `<div class="mgr-risk-row"><span class="mgr-risk-badge ${lvlClass[r.level]||'low'}">${r.level}</span><span class="mgr-risk-text">${h(r.text)}</span></div>`).join('')}
+    </div>${summaries.length ? `<div class="mgr-summary">${h(summaries.join(' · '))}</div>` : ''}`;
+  }
+
+  // ── ranked list: hotspots, complexity, crap, largest files ──
+  if (['hotspots','complexity','crap_score','largest_files','maintainability'].includes(toolId)) {
+    const rows = [];
+    for (const l of lines) {
+      // "  N. name  [metric: N]" or "  N.  NNNN lines  N symbols  path"
+      const m1 = l.match(/^\s+(\d+)\.\s+(.+?)\s+\[.*?(\d+)\s*\]/);
+      const m2 = l.match(/^\s+(\d+)\.\s+(\d+)\s+lines\s+\d+\s+symbols\s+(\S+)/);
+      const m3 = l.match(/^\s+(\d+)\.\s+(.+?)\s{2,}complexity:\s*(\d+)/i);
+      const m4 = l.match(/^\s+(\d+)\.\s+(.+?)\s{2,}(?:MI|CRAP|degree|out).*?(\d+)/i);
+      if (m2) rows.push({ rank: +m2[1], name: m2[3].split('/').slice(-2).join('/'), val: m2[2] + ' lines', raw: +m2[2] });
+      else if (m1) rows.push({ rank: +m1[1], name: m1[2].trim(), val: m1[3], raw: +m1[3] });
+      else if (m3) rows.push({ rank: +m3[1], name: m3[2].trim(), val: 'complexity: '+m3[3], raw: +m3[3] });
+      else if (m4) rows.push({ rank: +m4[1], name: m4[2].trim(), val: m4[3], raw: +m4[3] });
+    }
+    if (!rows.length) return _mgrFallback(text);
+    const maxRaw = Math.max(...rows.map(r => r.raw || 0), 1);
+    return `<div class="mgr-ranked">${rows.map(r => {
+      const pct = Math.max(2, Math.round((r.raw||0)/maxRaw*100));
+      return `<div class="mgr-ranked-row">
+        <span class="mgr-ranked-num">${r.rank}</span>
+        <span class="mgr-ranked-name" title="${h(r.name)}">${h(r.name)}</span>
+        <div class="mgr-ranked-bar-wrap"><div class="mgr-ranked-bar-fill" style="width:${pct}%"></div></div>
+        <span class="mgr-ranked-val">${h(String(r.val))}</span>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  // ── churn hotspots (table: File / Churn / Deps / Score) ──
+  if (toolId === 'churn_hotspots') {
+    const rows = [];
+    for (const l of lines) {
+      const m = l.match(/^\s+(\S.{0,40}?)\s{2,}(\d+)\s{2,}(\d+)\s{2,}(\d+)%/);
+      if (m) rows.push({ name: m[1].trim(), churn: +m[2], deps: +m[3], score: +m[4] });
+    }
+    if (!rows.length) return _mgrFallback(text);
+    const maxScore = Math.max(...rows.map(r => r.score), 1);
+    return `<table class="mgr-table"><thead><tr><th>File</th><th>Churn</th><th>Deps</th><th>Score</th></tr></thead><tbody>
+      ${rows.map(r => `<tr>
+        <td class="name">${h(r.name)}</td>
+        <td class="num">${r.churn}</td>
+        <td class="num">${r.deps}</td>
+        <td class="${r.score>=70?'hi':r.score>=40?'num':'lo'}">${r.score}%</td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  }
+
+  // ── coupling balance (table: File / Out / In / Ratio) ──
+  if (toolId === 'coupling_balance') {
+    const rows = [];
+    for (const l of lines) {
+      const m = l.match(/^\s+(\S.{0,40}?)\s{2,}(\d+)\s{2,}(\d+)\s{2,}([\d.∞]+)/);
+      if (m) rows.push({ name: m[1].trim(), out: +m[2], inn: +m[3], ratio: m[4] });
+    }
+    if (!rows.length) return _mgrFallback(text);
+    return `<table class="mgr-table"><thead><tr><th>File</th><th>Out</th><th>In</th><th>Ratio</th></tr></thead><tbody>
+      ${rows.map(r => `<tr>
+        <td class="name">${h(r.name)}</td>
+        <td class="${r.out>r.inn*3?'hi':'num'}">${r.out}</td>
+        <td class="${r.inn>r.out*3?'lo':'num'}">${r.inn}</td>
+        <td class="num">${h(r.ratio)}</td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  }
+
+  // ── instability ──
+  if (toolId === 'instability') {
+    const risky = [], stable = [];
+    let section = '';
+    for (const l of lines) {
+      if (l.includes('High instability')) section = 'risky';
+      else if (l.includes('Stable')) section = 'stable';
+      const m = l.match(/^\s{5}(\S.{0,45}?)\s{2,}I=([\d.]+)\s+Ca=(\d+)\s+Ce=(\d+)/);
+      if (m) (section === 'risky' ? risky : stable).push({ name: m[1].trim(), inst: +m[2], ca: +m[3], ce: +m[4] });
+    }
+    const total = lines.find(l => /Total files analyzed/.test(l));
+    const rows = (label, arr, cls) => !arr.length ? `<div class="mgr-clear" style="color:var(--green)">${h(label)}: none found</div>` :
+      `<div class="mgr-section">${h(label)}</div><table class="mgr-table"><thead><tr><th>File</th><th>I</th><th>Ca</th><th>Ce</th></tr></thead><tbody>
+        ${arr.map(r => `<tr><td class="name">${h(r.name)}</td><td class="${cls}">${r.inst.toFixed(2)}</td><td class="num">${r.ca}</td><td class="num">${r.ce}</td></tr>`).join('')}
+      </tbody></table>`;
+    return rows('High instability — blast radius risk', risky, 'hi') +
+           rows('Stable anchors — protect these', stable, 'lo') +
+           (total ? `<div class="mgr-summary">${h(total.trim())}</div>` : '');
+  }
+
+  // ── bar charts: language breakdown, authors ──
+  if (toolId === 'language_breakdown' || toolId === 'author_analytics') {
+    const bars = [];
+    for (const l of lines) {
+      const mLang = l.match(/^\s+(\S+)\s+[█░]+\s+(\d+)/);
+      const mAuth = l.match(/^\s+(\S+@\S+|\S{3,})\s{3,}(\d+)\s+commits?/i);
+      if (mLang) bars.push({ label: mLang[1], count: +mLang[2] });
+      else if (mAuth) bars.push({ label: mAuth[1], count: +mAuth[2] });
+    }
+    if (!bars.length) return _mgrFallback(text);
+    const maxC = Math.max(...bars.map(b => b.count), 1);
+    const colors = ['var(--accent)','var(--mg-accent)','oklch(65% 0.15 200)','var(--green)','oklch(60% 0.12 310)'];
+    return `<div class="mgr-bars">${bars.map((b, i) => {
+      const pct = Math.max(2, Math.round(b.count/maxC*100));
+      return `<div class="mgr-bar-row">
+        <span class="mgr-bar-label" title="${h(b.label)}">${h(b.label)}</span>
+        <div class="mgr-bar-track"><div class="mgr-bar-fill" style="width:${pct}%;background:${colors[i%colors.length]}"></div></div>
+        <span class="mgr-bar-count">${b.count.toLocaleString()}</span>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  // ── reachability: file + path pairs ──
+  if (toolId === 'reachability') {
+    const summary = lines.find(l => /unreachable files/i.test(l));
+    const items = [];
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/^\s{2}(\S.+?)\s+\(imports (\d+)/);
+      if (m) {
+        const pathLine = lines[i+1]?.match(/^\s{4}(\S.+)/);
+        items.push({ name: m[1].trim(), imports: m[2], path: pathLine ? pathLine[1].trim() : '' });
+      }
+    }
+    if (!items.length) return _mgrFallback(text);
+    return `${summary ? `<div class="mgr-summary" style="margin-bottom:12px;margin-top:0">${h(summary.trim())}</div>` : ''}
+      <div class="mgr-file-list">${items.map(f =>
+        `<div class="mgr-file-item">
+          <span class="mgr-file-name">${h(f.name)}</span><span class="mgr-file-meta">${h(f.imports)} imports</span>
+          ${f.path ? `<div class="mgr-file-path">${h(f.path)}</div>` : ''}
+        </div>`
+      ).join('')}</div>`;
+  }
+
+  // ── detect changes: plain file list ──
+  if (toolId === 'detect_changes') {
+    const files = lines.filter(l => l.trim() && !l.includes('──') && !l.startsWith('Git'));
+    if (!files.length) return _mgrFallback(text);
+    return `<div class="mgr-file-list">${files.map(f =>
+      `<div class="mgr-file-item"><span class="mgr-file-name" style="font-size:11px">${h(f.trim())}</span></div>`
+    ).join('')}</div>`;
+  }
+
+  // ── largest files with more structure ──
+  if (toolId === 'largest_files') {
+    const rows = [];
+    for (const l of lines) {
+      const m = l.match(/^\s+(\d+)\.\s+(\d+)\s+lines\s+(\d+)\s+symbols\s+(\S+)/);
+      if (m) rows.push({ rank: +m[1], lines: +m[2], symbols: +m[3], path: m[4] });
+    }
+    if (!rows.length) return _mgrFallback(text);
+    const maxLines = rows[0]?.lines || 1;
+    return `<div class="mgr-ranked">${rows.map(r => {
+      const pct = Math.max(2, Math.round(r.lines/maxLines*100));
+      const name = r.path.split('/').slice(-2).join('/');
+      return `<div class="mgr-ranked-row">
+        <span class="mgr-ranked-num">${r.rank}</span>
+        <span class="mgr-ranked-name" title="${h(r.path)}">${h(name)}</span>
+        <div class="mgr-ranked-bar-wrap"><div class="mgr-ranked-bar-fill" style="width:${pct}%"></div></div>
+        <span class="mgr-ranked-val">${r.lines.toLocaleString()}</span>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  // ── fallback ──
+  return _mgrFallback(text);
+}
+
+function _mgrFallback(text) {
+  return `<pre style="font-size:11px;font-family:var(--mono);white-space:pre-wrap;word-break:break-word;color:var(--text-mid);line-height:1.65;margin:0">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>`;
+}
+
 async function mgRunServer(id) {
   const def = MG_SERVER_ANALYSES.find(a => a.id === id);
   if (!def) return;
@@ -6905,8 +7332,12 @@ async function mgRunServer(id) {
       body: JSON.stringify({ tool: def.tool, args })
     });
     const data = res.ok ? await res.json() : { error: 'HTTP ' + res.status };
-    const text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-    mgShowResult(resultTitle, `<pre style="font-size:11px;font-family:var(--mono);white-space:pre-wrap;word-break:break-word;color:var(--text-mid);line-height:1.6">${esc(text)}</pre>`);
+    // Unwrap MCP content envelope: {content:[{type:'text',text:'...'}]}
+    const text = typeof data === 'string' ? data
+      : data.error ? data.error
+      : Array.isArray(data.content) ? data.content.map(c => c.text || '').join('\n')
+      : JSON.stringify(data, null, 2);
+    mgShowResult(resultTitle, mgRenderAnalysisResult(id, text));
   } catch (err) {
     mgShowResult(resultTitle, `<div style="color:var(--red);font-size:12px">Error: ${esc(String(err))}</div>`);
   }
@@ -6940,7 +7371,10 @@ async function mgQueryImpact() {
   try {
     const data = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_impact', args:{ node, direction, dir:DIR } }) });
     const json = data.ok ? await data.json() : { error: 'HTTP ' + data.status };
-    res.textContent = typeof json === 'string' ? json : JSON.stringify(json, null, 2);
+    res.textContent = typeof json === 'string' ? json
+      : json.error ? json.error
+      : Array.isArray(json.content) ? json.content.map(c => c.text || '').join('\n')
+      : JSON.stringify(json, null, 2);
   } catch (e) { res.textContent = 'Error: ' + String(e); }
 }
 
@@ -6952,7 +7386,10 @@ async function mgQueryContext() {
   try {
     const data = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_context', args:{ file: nodeId, dir:DIR } }) });
     const json = data.ok ? await data.json() : { error: 'HTTP ' + data.status };
-    res.textContent = typeof json === 'string' ? json : JSON.stringify(json, null, 2);
+    res.textContent = typeof json === 'string' ? json
+      : json.error ? json.error
+      : Array.isArray(json.content) ? json.content.map(c => c.text || '').join('\n')
+      : JSON.stringify(json, null, 2);
   } catch (e) { res.textContent = 'Error: ' + String(e); }
 }
 
@@ -6964,7 +7401,8 @@ async function mgQueryPath() {
   res.textContent = 'Loading…'; res.style.display = 'block';
   try {
     const data = await apiFetch('/api/monograph-path?from=' + enc(from) + '&to=' + enc(to) + '&dir=' + enc(DIR));
-    res.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    res.textContent = typeof data === 'string' ? data
+      : data.path || data.result || data.error || JSON.stringify(data, null, 2);
   } catch (e) { res.textContent = 'Error: ' + String(e); }
 }
 
@@ -6976,7 +7414,10 @@ async function mgQueryCypher() {
   try {
     const data = await fetch('/api/mcp/call', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tool:'monograph_cypher', args:{ query, dir:DIR } }) });
     const json = data.ok ? await data.json() : { error: 'HTTP ' + data.status };
-    res.textContent = typeof json === 'string' ? json : JSON.stringify(json, null, 2);
+    res.textContent = typeof json === 'string' ? json
+      : json.error ? json.error
+      : Array.isArray(json.content) ? json.content.map(c => c.text || '').join('\n')
+      : JSON.stringify(json, null, 2);
   } catch (e) { res.textContent = 'Error: ' + String(e); }
 }
 
@@ -6989,7 +7430,8 @@ async function mgQueryAsk() {
   res.textContent = 'Loading…'; res.style.display = 'block';
   try {
     const data = await apiFetch('/api/monograph-query?q=' + enc(q) + '&mode=' + enc(mode) + '&budget=' + enc(budget) + '&dir=' + enc(DIR));
-    res.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    res.textContent = typeof data === 'string' ? data
+      : data.result || data.answer || data.text || data.error || JSON.stringify(data, null, 2);
   } catch (e) { res.textContent = 'Error: ' + String(e); }
 }
 
@@ -7097,52 +7539,171 @@ async function mgLoadReport() {
   el.innerHTML = '<div class="loading-txt">Loading report…</div>';
   try {
     const r = await fetch('/api/monograph-report?dir=' + enc(DIR));
-    const text = r.ok ? await r.text() : '# Error\n\nFailed to load report: HTTP ' + r.status;
-    mgRenderReport(text, el);
+    if (!r.ok) { el.innerHTML = `<div style="color:var(--red);font-size:12px">HTTP ${r.status}</div>`; return; }
+    const data = await r.json();
+    // Extract markdown from JSON envelope {exists, report, stats}
+    const markdown = (data && data.report) ? data.report : (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+    const stats = (data && data.stats) || {};
+    mgRenderReport(markdown, el, stats);
   } catch (err) {
     el.innerHTML = `<div style="color:var(--red);font-size:12px">Error: ${esc(String(err))}</div>`;
   }
 }
 
-function mgReportIcon(heading) {
-  const h = heading.toLowerCase();
-  if (h.includes('corpus') || h.includes('files')) return '📂';
-  if (h.includes('summary')) return '📊';
-  if (h.includes('god node')) return '⭐';
-  if (h.includes('surpris')) return '🔗';
-  if (h.includes('communit')) return '🏘';
-  if (h.includes('ambiguous')) return '⚠';
-  if (h.includes('gaps') || h.includes('knowledge')) return '🕳';
-  if (h.includes('suggested') || h.includes('question')) return '💡';
-  return '📄';
+// ── Type color palette ──────────────────────────────────────
+const _MG_TYPE_COLORS = {
+  'Section':   'var(--accent)',
+  'Function':  'var(--mg-accent)',
+  'Method':    'oklch(65% 0.15 200)',
+  'Interface': 'var(--green)',
+  'File':      'oklch(55% 0.06 75)',
+  'Class':     'oklch(62% 0.17 40)',
+  'Concept':   'oklch(60% 0.12 290)',
+  'Struct':    'oklch(55% 0.08 150)',
+  'Enum':      'oklch(55% 0.10 320)',
+};
+
+function _mgrFmt(n) {
+  if (n == null) return '—';
+  return Number(n).toLocaleString();
 }
 
-function mgReportIsWide(heading) {
-  const h = heading.toLowerCase();
-  return h.includes('summary') || h.includes('corpus') || h.includes('suggested');
+function _mgrFmtBytes(b) {
+  if (!b) return '—';
+  const gb = b / 1073741824;
+  if (gb >= 1) return gb.toFixed(1) + ' GB';
+  const mb = b / 1048576;
+  if (mb >= 1) return mb.toFixed(0) + ' MB';
+  return (b / 1024).toFixed(0) + ' KB';
 }
 
-function mgRenderReport(markdown, el) {
-  const sections = [];
-  let current = null;
+function mgRenderReport(markdown, el, stats) {
+  // Parse sections
+  const sections = {};
+  let cur = null;
   markdown.split('\n').forEach(line => {
-    if (line.startsWith('## ')) {
-      if (current) sections.push(current);
-      current = { heading: line.slice(3).trim(), lines: [] };
-    } else if (current) {
-      current.lines.push(line);
-    }
+    if (line.startsWith('## ')) { cur = line.slice(3).trim(); sections[cur] = []; }
+    else if (cur) sections[cur].push(line);
   });
-  if (current) sections.push(current);
-  if (!sections.length) { el.innerHTML = `<pre style="font-size:11px;font-family:var(--mono);color:var(--text-mid);white-space:pre-wrap">${esc(markdown)}</pre>`; return; }
-  const html = `<div class="mg-report-cards-grid">` +
-    sections.map(s => {
-      const icon = mgReportIcon(s.heading);
-      const wide = mgReportIsWide(s.heading);
-      const body = esc(s.lines.join('\n').trim());
-      return `<div class="mg-report-card${wide ? ' wide' : ''}"><div class="mrc-head">${icon} ${esc(s.heading)}</div><pre>${body}</pre></div>`;
-    }).join('') + `</div>`;
-  el.innerHTML = html;
+
+  const parts = [];
+
+  // ── OVERVIEW ──
+  const overview = sections['Overview'] || [];
+  const ovMap = {};
+  overview.forEach(l => {
+    const m = l.match(/\*\*(.+?)\*\*:\s*(.+)/);
+    if (m) ovMap[m[1].trim().toLowerCase()] = m[2].trim();
+  });
+  const nodes = ovMap['nodes'] || (stats.nodes ? _mgrFmt(stats.nodes) : '—');
+  const edges = ovMap['edges'] || (stats.edges ? _mgrFmt(stats.edges) : '—');
+  const lastBuilt = ovMap['last built'] || '—';
+  const dbSize = _mgrFmtBytes(stats.size);
+
+  parts.push(`<div>
+    <div class="mgr-section-label">Graph overview</div>
+    <div class="mgr-overview">
+      <div class="mgr-stat">
+        <div class="mgr-stat-value">${esc(nodes)}</div>
+        <div class="mgr-stat-label">Nodes</div>
+      </div>
+      <div class="mgr-stat">
+        <div class="mgr-stat-value">${esc(edges)}</div>
+        <div class="mgr-stat-label">Edges</div>
+      </div>
+      <div class="mgr-stat">
+        <div class="mgr-stat-value" style="font-size:14px">${esc(dbSize)}</div>
+        <div class="mgr-stat-label">Index size</div>
+      </div>
+      <div class="mgr-stat">
+        <div class="mgr-stat-value" style="font-size:13px;color:var(--text-mid)">${esc(lastBuilt)}</div>
+        <div class="mgr-stat-label">Last built</div>
+      </div>
+    </div>
+  </div>`);
+
+  // ── TOP NODES ──
+  const topLines = sections['Top 20 Nodes by Degree'] || [];
+  const topNodes = [];
+  topLines.forEach(l => {
+    const m = l.match(/(\d+)\.\s+\*\*(.+?)\*\*\s+`(.+?)`\s+[—–-]+\s+(\d+)\s+connections?/);
+    if (m) topNodes.push({ rank: +m[1], name: m[2], type: m[3], conns: +m[4] });
+  });
+  if (topNodes.length) {
+    const maxConns = topNodes[0].conns;
+    parts.push(`<div>
+      <div class="mgr-section-label">Top nodes by connectivity</div>
+      <div class="mgr-node-list">
+        ${topNodes.map(n => {
+          const pct = Math.max(2, Math.round(n.conns / maxConns * 100));
+          const col = _MG_TYPE_COLORS[n.type] || 'var(--text-lo)';
+          return `<div class="mgr-node-row">
+            <span class="mgr-node-rank">${n.rank}</span>
+            <span class="mgr-node-name" title="${esc(n.name)}">${esc(n.name)}</span>
+            <span class="mgr-node-type" style="color:${col}">${esc(n.type)}</span>
+            <div class="mgr-node-bar-wrap"><div class="mgr-node-bar-fill" style="width:${pct}%;background:${col};opacity:0.55"></div></div>
+            <span class="mgr-node-count">${_mgrFmt(n.conns)}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`);
+  }
+
+  // ── TYPE DISTRIBUTION ──
+  const typeLines = sections['Node Type Distribution'] || [];
+  const types = [];
+  typeLines.forEach(l => {
+    const m = l.match(/\*\*(.+?)\*\*:\s*(\d+)/);
+    if (m) types.push({ name: m[1], count: +m[2] });
+  });
+  if (types.length) {
+    const total = types.reduce((s, t) => s + t.count, 0);
+    const maxCount = types[0].count;
+    parts.push(`<div>
+      <div class="mgr-section-label">Node type distribution — ${_mgrFmt(total)} total</div>
+      <div class="mgr-type-list">
+        ${types.map(t => {
+          const pct = total > 0 ? (t.count / total * 100) : 0;
+          const barW = Math.max(1, Math.round(t.count / maxCount * 100));
+          const col = _MG_TYPE_COLORS[t.name] || 'var(--text-lo)';
+          return `<div class="mgr-type-row">
+            <span class="mgr-type-name">${esc(t.name)}</span>
+            <div class="mgr-type-bar-wrap"><div class="mgr-type-bar-fill" style="width:${barW}%;background:${col}"></div></div>
+            <span class="mgr-type-count">${_mgrFmt(t.count)}</span>
+            <span class="mgr-type-pct">${pct.toFixed(1)}%</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`);
+  }
+
+  // ── FALLBACK for other sections ──
+  Object.entries(sections).forEach(([heading, lines]) => {
+    if (['Overview','Top 20 Nodes by Degree','Node Type Distribution'].includes(heading)) return;
+    const body = lines.join('\n').trim();
+    if (!body) return;
+    parts.push(`<div>
+      <div class="mgr-section-label">${esc(heading)}</div>
+      <pre style="font-size:11px;font-family:var(--mono);color:var(--text-mid);white-space:pre-wrap;line-height:1.65;margin:0">${esc(body)}</pre>
+    </div>`);
+  });
+
+  if (!parts.length) {
+    el.innerHTML = `<pre style="font-size:11px;font-family:var(--mono);color:var(--text-mid);white-space:pre-wrap">${esc(markdown)}</pre>`;
+    return;
+  }
+
+  el.innerHTML = `<div class="mgr-report">${parts.join('')}</div>`;
+
+  // Animate bars in after paint
+  requestAnimationFrame(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    el.querySelectorAll('.mgr-node-bar-fill, .mgr-type-bar-fill').forEach(b => {
+      const w = b.style.width;
+      b.style.width = '0';
+      requestAnimationFrame(() => { b.style.width = w; });
+    });
+  });
 }
 
 // ── WIKI TAB ───────────────────────────────────────────────
@@ -7288,7 +7849,8 @@ async function mgWikiExplain(nodeId, btn) {
   resultEl.style.display = 'block'; resultEl.textContent = 'Loading…';
   try {
     const data = await apiFetch('/api/monograph-explain?node=' + enc(nodeId) + '&dir=' + enc(DIR));
-    resultEl.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    resultEl.textContent = typeof data === 'string' ? data
+      : data.explanation || data.result || data.text || data.error || JSON.stringify(data, null, 2);
   } catch (e) { resultEl.textContent = 'Error: ' + String(e); }
   btn.disabled = false; btn.textContent = 'EXPLAIN';
 }
@@ -7360,6 +7922,15 @@ async function loadMemoriesTab() {
   try {
     const data = await apiFetch('/api/memory-files?dir=' + enc(DIR));
     _memFiles = Array.isArray(data) ? data : (data.memories || data.files || []);
+    const detail = document.getElementById('mem-detail-pane');
+    if (!_memFiles.length && detail) {
+      detail.innerHTML = '<div style="color:var(--text-lo);font-size:12px;padding:16px 0;line-height:1.7">'
+        + '<div style="font-size:13px;color:var(--text-hi);margin-bottom:8px">No auto-memory files yet</div>'
+        + 'Auto-memory files are created automatically during Claude Code sessions<br>'
+        + 'at: <span style="font-family:var(--mono);font-size:11px;color:var(--accent)">' + esc(data.memDir || '') + '</span><br><br>'
+        + 'Use <span style="font-family:var(--mono);color:var(--accent)">/memory save</span> or complete tasks to populate.'
+        + '</div>';
+    }
     _renderMemList();
     markLiveGlow('view-memory');
   } catch (e) {
@@ -7647,7 +8218,7 @@ async function cleanSwarmData() {
 }
 
 // ── chunks memory tab ──────────────────────────────────────
-let _chunks = [], _chunksLoaded = false;
+let _chunks = [], _chunksLoaded = false, _editChunkId = null;
 
 async function loadChunksTab() {
   if (_chunksLoaded) return;
@@ -7656,11 +8227,31 @@ async function loadChunksTab() {
   grid.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
     const data = await apiFetch('/api/section?name=knowledge&full=1&dir=' + enc(DIR));
-    _chunks = Array.isArray(data) ? data : (data.chunks || data.knowledge || []);
+    // /api/section returns {"knowledge":{"chunks":N,"allChunks":[...]}} — extract the array
+    const kn = data.knowledge;
+    _chunks = Array.isArray(data) ? data
+      : Array.isArray(kn) ? kn
+      : (kn && Array.isArray(kn.allChunks) ? kn.allChunks : (data.chunks || data.knowledge_list || []));
     _chunksLoaded = true;
+    _renderChunkStats(_chunks);
     _renderChunks(_chunks);
   } catch (e) {
     grid.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '<br><span style="font-size:11px;color:var(--text-xs)">Run /monomind:understand to build the index.</span></div>';
+  }
+}
+
+function _renderChunkStats(list) {
+  const countEl = document.getElementById('chunk-count-val');
+  const skillsEl = document.getElementById('chunk-skills-val');
+  const nsEl = document.getElementById('chunk-ns-val');
+  if (countEl) countEl.textContent = list.length.toLocaleString();
+  if (skillsEl) {
+    const skills = list.filter(c => (c.namespace || c.type || '') === 'skills' || (c.source || '').includes('skills')).length;
+    skillsEl.textContent = skills > 0 ? skills : (list.filter(c => (c.type || '') === 'skill').length || '—');
+  }
+  if (nsEl) {
+    const namespaces = new Set(list.map(c => c.namespace || c.type || 'default').filter(Boolean));
+    nsEl.textContent = namespaces.size;
   }
 }
 
@@ -7671,19 +8262,92 @@ function _renderChunks(list) {
     grid.innerHTML = '<div class="empty">No chunks indexed.<br><span style="font-size:11px;color:var(--text-xs)">Run /monomind:understand to build the index.</span></div>';
     return;
   }
-  grid.innerHTML = list.slice(0, 60).map(c => {
+  grid.innerHTML = list.slice(0, 200).map(c => {
     const src = (c.source || c.file || '').split('/').slice(-2).join('/');
     const excerpt = (c.content || c.text || c.body || '').slice(0, 220);
     const ns = c.namespace || c.type || '';
+    const chunkId = JSON.stringify(c.id || c.path || c.source || '');
+    const chunkContent = JSON.stringify(c.content || c.text || c.body || '');
+    const chunkSrc = JSON.stringify(src);
     return '<div class="chunk-card" data-search="' + esc((src + ' ' + excerpt + ' ' + ns).toLowerCase()) + '">' +
       '<div class="chunk-src">' + esc(src || '—') + '</div>' +
       '<div class="chunk-excerpt">' + esc(excerpt) + '</div>' +
       '<div class="chunk-footer">' +
         (ns ? '<span class="chunk-ns">' + esc(ns) + '</span>' : '') +
-        '<button class="btn" style="margin-left:auto;font-size:10px;padding:1px 7px" onclick="deleteChunk(' + JSON.stringify(c.id || c.path || '') + ')">✕ Delete</button>' +
+        '<button class="btn" style="margin-left:auto;font-size:10px;padding:1px 7px" onclick="openChunkEdit(' + chunkId + ',' + chunkContent + ',' + chunkSrc + ')">✎ Edit</button>' +
+        '<button class="btn" style="font-size:10px;padding:1px 7px;color:var(--red);border-color:var(--red)" onclick="deleteChunk(' + chunkId + ')">✕</button>' +
       '</div>' +
     '</div>';
   }).join('');
+}
+
+function openChunkEdit(id, content, srcLabel) {
+  _editChunkId = id;
+  document.getElementById('chunk-modal-title').textContent = 'Edit Chunk';
+  document.getElementById('chunk-modal-src').textContent = srcLabel || id || '';
+  document.getElementById('chunk-modal-ta').value = content || '';
+  document.getElementById('chunk-modal').classList.add('open');
+}
+
+function closeChunkModal() {
+  document.getElementById('chunk-modal').classList.remove('open');
+  _editChunkId = null;
+}
+
+async function saveChunkModal() {
+  const content = document.getElementById('chunk-modal-ta').value.trim();
+  if (!content) { showToast('Error', 'Content is empty', 'warn'); return; }
+  try {
+    const r = await fetch('/api/knowledge-chunk', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: _editChunkId, content, dir: DIR }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+    showToast('Saved', 'Chunk updated', 'ok');
+    closeChunkModal();
+    _chunksLoaded = false;
+    loadChunksTab();
+  } catch (e) { showToast('Error', e.message, 'err'); }
+}
+
+async function buildKnowledgeDocs() {
+  const btn = document.getElementById('btn-build-docs');
+  const status = document.getElementById('chunk-build-status');
+  if (btn) { btn.disabled = true; btn.textContent = '⟳ Building…'; }
+  if (status) status.textContent = 'indexing…';
+  try {
+    const r = await fetch('/api/monograph-build-docs?dir=' + enc(DIR), { method: 'POST' });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+    if (status) status.textContent = 'polling…';
+    // Poll for completion
+    let polls = 0;
+    const poll = setInterval(async () => {
+      polls++;
+      try {
+        const d = await apiFetch('/api/monograph-build-docs-status?dir=' + enc(DIR));
+        if (d.done || d.status === 'complete' || d.complete) {
+          clearInterval(poll);
+          if (status) status.textContent = 'done ✓';
+          if (btn) { btn.disabled = false; btn.textContent = '⊕ Build Docs'; }
+          showToast('Done', 'Knowledge index built', 'ok');
+          _chunksLoaded = false;
+          loadChunksTab();
+          setTimeout(() => { if (status) status.textContent = ''; }, 3000);
+        } else if (polls > 60) {
+          clearInterval(poll);
+          if (status) status.textContent = '';
+          if (btn) { btn.disabled = false; btn.textContent = '⊕ Build Docs'; }
+        } else {
+          if (status) status.textContent = d.progress ? d.progress + '…' : 'building…';
+        }
+      } catch (_) { clearInterval(poll); if (btn) { btn.disabled = false; btn.textContent = '⊕ Build Docs'; } }
+    }, 2000);
+  } catch (e) {
+    showToast('Error', e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = '⊕ Build Docs'; }
+    if (status) status.textContent = '';
+  }
 }
 
 function filterChunks(q) {
