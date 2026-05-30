@@ -1200,6 +1200,28 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
 #mem-modal-ta { width: 100%; height: 280px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-family: var(--mono); font-size: 12px; color: var(--text-hi); resize: vertical; outline: none; overflow-y: auto; }
 #mem-modal-ta:focus { border-color: var(--accent); }
 .mem-modal-btns { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Mastermind overlay */
+#mm-overlay { display: none; position: fixed; top: 0; right: 0; bottom: 0; width: min(680px, 100vw); background: var(--surface); border-left: 1px solid oklch(65% 0.16 295 / 0.3); z-index: 500; flex-direction: column; box-shadow: -8px 0 32px oklch(0% 0 0 / 0.4); transition: transform 0.3s cubic-bezier(0.16,1,0.3,1); transform: translateX(100%); }
+#mm-overlay.open { display: flex; transform: translateX(0); }
+#mm-backdrop { display: none; position: fixed; inset: 0; z-index: 499; }
+#mm-backdrop.open { display: block; }
+#mm-header { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+#mm-title { font-family: var(--sans); font-weight: 700; font-size: 15px; color: oklch(65% 0.16 295); letter-spacing: 0.04em; flex: 1; }
+#mm-close { background: none; border: none; color: var(--text-lo); font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1; }
+#mm-close:hover { color: var(--text-hi); }
+#mm-tabs-bar { display: flex; padding: 0 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-x: auto; }
+.mm-tab-btn { font-size: 11px; padding: 10px 12px; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; color: var(--text-lo); font-family: var(--sans); letter-spacing: 0.06em; text-transform: uppercase; transition: color 0.1s; white-space: nowrap; }
+.mm-tab-btn:hover { color: var(--text-hi); }
+.mm-tab-btn.active { color: oklch(65% 0.16 295); border-bottom-color: oklch(65% 0.16 295); }
+#mm-body { flex: 1; overflow-y: auto; padding: 18px 20px; }
+#mm-body::-webkit-scrollbar { width: 4px; }
+#mm-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.mm-skill-item { padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: background 0.1s; display: flex; align-items: baseline; gap: 10px; }
+.mm-skill-item:hover { background: oklch(65% 0.16 295 / 0.08); }
+.mm-skill-name { font-family: var(--mono); font-size: 12px; color: oklch(65% 0.16 295); flex-shrink: 0; }
+.mm-skill-desc { font-size: 12px; color: var(--text-lo); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mm-skill-item:hover .mm-skill-name { color: oklch(75% 0.16 295); }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
@@ -1273,6 +1295,7 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
     <span id="live-cost-ticker" title="Current session accumulated cost"></span>
     <span id="topbar-activity"></span>
     <div id="tb-right">
+      <button class="btn" onclick="openMastermind()" style="color:oklch(65% 0.16 295);border-color:oklch(65% 0.16 295 / 0.4)" title="Mastermind — orgs, skills, loops, metrics">⬡ Mastermind</button>
       <button class="btn" id="btn-budget" onclick="openBudgetModal()" title="Set daily/monthly cost budget">⚑ Budget</button>
       <button class="btn" onclick="openCmdPalette()">⌕ Search <kbd style="font-size:10px;opacity:0.6;margin-left:3px">⌘K</kbd></button>
       <button class="btn" onclick="openShortcutHelp()" title="Keyboard shortcuts (?)">? Help</button>
@@ -1886,6 +1909,24 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
   </div><!-- /view-wrap -->
 </div><!-- /main -->
 <div id="app-ambient-hint">Press A to exit ambient mode</div>
+
+<!-- Mastermind overlay -->
+<div id="mm-backdrop" onclick="closeMastermind()"></div>
+<div id="mm-overlay" role="dialog" aria-label="Mastermind">
+  <div id="mm-header">
+    <span id="mm-title">MASTERMIND</span>
+    <button id="mm-close" onclick="closeMastermind()" aria-label="Close">✕</button>
+  </div>
+  <div id="mm-tabs-bar">
+    <button class="mm-tab-btn active" data-mmtab="orgs" onclick="mmSwitchTab('orgs')">Orgs</button>
+    <button class="mm-tab-btn" data-mmtab="skills" onclick="mmSwitchTab('skills')">Skills</button>
+    <button class="mm-tab-btn" data-mmtab="loops" onclick="mmSwitchTab('loops')">Loops</button>
+    <button class="mm-tab-btn" data-mmtab="createorg" onclick="mmSwitchTab('createorg')">Create Org</button>
+    <button class="mm-tab-btn" data-mmtab="metrics" onclick="mmSwitchTab('metrics')">Metrics</button>
+    <button class="mm-tab-btn" data-mmtab="graph" onclick="mmSwitchTab('graph')">Graph</button>
+  </div>
+  <div id="mm-body"></div>
+</div>
 </div><!-- /app -->
 <!-- chunk edit modal -->
 <div id="chunk-modal" onclick="if(event.target===this)closeChunkModal()">
@@ -5341,14 +5382,16 @@ window.v2StopOrg = async function() {
   let src;
   function connect() {
     if (src) src.close();
-    src = new EventSource('/api/events');
+    src = new EventSource('/api/mastermind-stream');
     src.onmessage = e => {
       try {
         const ev = JSON.parse(e.data);
         if (!ev?.org || !ev?.type?.startsWith('org:')) return;
         const n = ev.org;
-        const evDir = ev.dir || '';
-        if (!evDir || (DIR && evDir !== DIR)) return;
+        // Filter by project dir if the event carries one; skip events from other projects.
+        // Events without a project field are treated as belonging to the current project.
+        const evProject = ev.project || '';
+        if (DIR && evProject && !evProject.startsWith(DIR) && !DIR.startsWith(evProject)) return;
         if (!_v2OrgEventLog[n]) _v2OrgEventLog[n] = [];
         _v2OrgEventLog[n].push(ev);
         if (_v2OrgEventLog[n].length > 50) _v2OrgEventLog[n].shift();
@@ -8608,6 +8651,216 @@ function selectAgSession(idx) {
           '<div style="width:22px;text-align:right;color:var(--text-lo);font-size:11px;font-family:var(--mono)">' + count + '</div>' +
         '</div>';
       }).join('') : '');
+}
+
+// ── Mastermind overlay ─────────────────────────────────────
+let _mmCurrentTab = 'orgs';
+const _MM_SKILLS_CATALOG = [
+  { name: '/mastermind:autodev', desc: 'Autonomous research → build → review loop' },
+  { name: '/mastermind:autodev --tillend', desc: 'Run until nothing left to fix' },
+  { name: '/mastermind:build', desc: 'Build a specific feature or improvement' },
+  { name: '/mastermind:review --tillend --auto', desc: 'Review and auto-fix until clean' },
+  { name: '/mastermind:architect', desc: 'System architecture design and review' },
+  { name: '/mastermind:research', desc: 'Deep research with structured output' },
+  { name: '/mastermind:debug', desc: 'Systematic root-cause investigation before fixes' },
+  { name: '/mastermind:verify', desc: 'Confirm claims with evidence before completion' },
+  { name: '/mastermind:tdd', desc: 'Enforce test-first discipline (Red-Green-Refactor)' },
+  { name: '/mastermind:plan', desc: 'Write a complete implementation plan (no placeholders)' },
+  { name: '/mastermind:execute', desc: 'Run a written plan step-by-step' },
+  { name: '/mastermind:taskdev', desc: 'Execute plan via fresh subagents with 2-stage review' },
+  { name: '/mastermind:design', desc: 'Design first — spec, approaches, approval gate before code' },
+  { name: '/mastermind:finish', desc: 'Complete a branch: verify → options → merge/PR/keep/discard' },
+  { name: '/mastermind:receive-review', desc: 'Consume a code review correctly (verify before implementing)' },
+  { name: '/mastermind:idea', desc: 'Idea generation and evaluation for the project' },
+  { name: '/mastermind:content', desc: 'Blog, threads, docs, newsletters' },
+  { name: '/mastermind:marketing', desc: 'Campaigns, copy, SEO, social strategy' },
+  { name: '/mastermind:sales', desc: 'Outreach, proposals, pipeline management' },
+  { name: '/mastermind:ops', desc: 'Workflow automation, process reporting' },
+  { name: '/mastermind:finance', desc: 'Invoicing, forecasting, cost tracking' },
+  { name: '/mastermind:release', desc: 'Versioning, changelogs, deployment' },
+  { name: '/mastermind:createorg', desc: 'Define an agent org: roles, hierarchy, goal' },
+  { name: '/mastermind:runorg', desc: 'Start a saved org; boss assigns work to all roles' },
+  { name: '/mastermind:brain', desc: 'Inspect and manage Mastermind brain memory' },
+  { name: '/mastermind:techport', desc: 'Technical portfolio — port capabilities from other projects' },
+  { name: '/mastermind:worktree', desc: 'Isolate work in a git worktree safely' },
+  { name: '/mastermind:skill-builder', desc: 'Write or improve a mastermind skill with TDD discipline' },
+  { name: '/monomind:do', desc: 'Execute tasks from the monotask board' },
+  { name: '/monomind:createtask', desc: 'Decompose a prompt/file into tasks on monotask board' },
+  { name: '/monomind:idea', desc: 'Research → evaluate → create implementation tasks' },
+  { name: '/monomind:improve', desc: 'Deep component improvement pipeline' },
+  { name: '/monomind:review', desc: 'Multi-agent iterative review with auto-fix' },
+  { name: '/monomind:understand', desc: 'Semantic enrichment for Monograph knowledge graph' },
+  { name: '/mastermind', desc: 'Topology picker — recommends best swarm for your task' },
+];
+
+function openMastermind() {
+  document.getElementById('mm-overlay').classList.add('open');
+  document.getElementById('mm-backdrop').classList.add('open');
+  mmSwitchTab(_mmCurrentTab);
+}
+
+function closeMastermind() {
+  document.getElementById('mm-overlay').classList.remove('open');
+  document.getElementById('mm-backdrop').classList.remove('open');
+}
+
+function mmSwitchTab(tab) {
+  _mmCurrentTab = tab;
+  document.querySelectorAll('.mm-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.mmtab === tab));
+  const body = document.getElementById('mm-body');
+  if (!body) return;
+  if (tab === 'orgs')           mmRenderOrgs(body);
+  else if (tab === 'skills')    mmRenderSkills(body);
+  else if (tab === 'loops')     mmRenderLoops(body);
+  else if (tab === 'createorg') mmRenderCreateOrg(body);
+  else if (tab === 'metrics')   mmRenderMetrics(body);
+  else if (tab === 'graph')     mmRenderGraph(body);
+}
+
+function mmRenderOrgs(body) {
+  const orgs = _v2Orgs || [];
+  if (!orgs.length) { body.innerHTML = '<div class="empty">No orgs found. Run /mastermind:createorg to create one.</div>'; return; }
+  body.innerHTML = orgs.map(o => {
+    const running = o.running;
+    return `<div class="mm-skill-item" onclick="closeMastermind();v2SelectOrg(${JSON.stringify(o.name)});switchView('orgs')">
+      <span class="mm-skill-name">${esc(o.name)}</span>
+      <span class="mm-skill-desc">${esc((o.goal || '').slice(0, 60))} ${running ? '⬤ LIVE' : ''}</span>
+    </div>`;
+  }).join('');
+}
+
+let _mmSkillFilter = '';
+function mmRenderSkills(body) {
+  const q = _mmSkillFilter.toLowerCase();
+  const filtered = q ? _MM_SKILLS_CATALOG.filter(s => s.name.toLowerCase().includes(q) || s.desc.toLowerCase().includes(q)) : _MM_SKILLS_CATALOG;
+  body.innerHTML = `<div class="filter-bar" style="margin-bottom:12px"><input class="filter-input" type="text" placeholder="Search skills…" value="${esc(_mmSkillFilter)}" oninput="_mmSkillFilter=this.value;mmRenderSkills(document.getElementById('mm-body'))"></div>` +
+    filtered.map(s => `<div class="mm-skill-item" onclick="navigator.clipboard.writeText(${JSON.stringify(s.name)}).then(()=>showToast('Copied',${JSON.stringify(s.name)},'ok'))">
+      <span class="mm-skill-name">${esc(s.name)}</span>
+      <span class="mm-skill-desc">${esc(s.desc)}</span>
+    </div>`).join('');
+}
+
+async function mmRenderLoops(body) {
+  body.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const data = await apiFetch('/api/loops?dir=' + enc(DIR));
+    const loops = Array.isArray(data) ? data : (data.loops || []);
+    if (!loops.length) { body.innerHTML = '<div class="empty">No active loops. Use /mastermind:autodev --tillend to start one.</div>'; return; }
+    body.innerHTML = loops.map(l => {
+      const running = l.status !== 'stopped' && l.status !== 'paused';
+      const name = (l.name || l.prompt || 'loop').split('--')[0].trim().slice(0, 60);
+      const nextAt = l.nextRunAt ? parseInt(l.nextRunAt) : 0;
+      const ms = nextAt ? nextAt - Date.now() : 0;
+      const cdown = ms > 0 ? (Math.floor(ms/60000) + 'm ' + Math.floor((ms%60000)/1000) + 's') : (running ? 'running' : 'stopped');
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;color:var(--text-hi);flex:1">${esc(name)}</span>
+          <span class="ss-pill ${running ? 'on' : ''}">${running ? 'active' : 'stopped'}</span>
+          ${running ? `<button class="btn" style="font-size:10px;color:var(--red);border-color:var(--red)" onclick="stopLoop(event,${JSON.stringify(l.id||l.name||'')});mmSwitchTab('loops')">■ Stop</button>` : ''}
+        </div>
+        <div style="font-size:11px;color:var(--text-lo);margin-top:4px;font-family:var(--mono)">${esc(l.interval||l.schedule||'')} ${cdown ? '· ' + cdown : ''} ${l.currentRep != null ? '· run ' + l.currentRep : ''}</div>
+      </div>`;
+    }).join('');
+  } catch (e) { body.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+function mmRenderCreateOrg(body) {
+  const topos = ['hierarchical','mesh','hierarchical-mesh','adaptive','centralized','hybrid'];
+  const adapters = ['claude-code','claude-api','openai','gemini','local'];
+  body.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px;max-width:480px">
+      <div><div class="le-lbl">Org Name</div><input id="mco-name" class="filter-input" placeholder="my-team"></div>
+      <div><div class="le-lbl">Goal</div><input id="mco-goal" class="filter-input" placeholder="Build and ship features autonomously"></div>
+      <div><div class="le-lbl">Topology</div>
+        <select id="mco-topo" class="filter-input" style="cursor:pointer">
+          ${topos.map(t => `<option>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div><div class="le-lbl">Adapter</div>
+        <select id="mco-adapter" class="filter-input" style="cursor:pointer">
+          ${adapters.map(a => `<option>${a}</option>`).join('')}
+        </select>
+      </div>
+      <div><div class="le-lbl">Max Agents</div><input id="mco-agents" class="filter-input" type="number" value="8" min="1" max="50"></div>
+      <button class="btn" style="width:fit-content;color:oklch(65% 0.16 295);border-color:oklch(65% 0.16 295)" onclick="mmGenerateOrgCmd()">Generate CLI Command</button>
+      <div id="mco-cmd-out" style="display:none;font-family:var(--mono);font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;word-break:break-all;cursor:pointer;color:var(--text-hi)" title="Click to copy" onclick="navigator.clipboard.writeText(this.textContent).then(()=>showToast('Copied','','ok'))"></div>
+    </div>`;
+}
+
+function mmGenerateOrgCmd() {
+  const name = document.getElementById('mco-name')?.value.trim() || '';
+  const goal = document.getElementById('mco-goal')?.value.trim() || '';
+  const topo = document.getElementById('mco-topo')?.value || 'hierarchical';
+  const adapter = document.getElementById('mco-adapter')?.value || 'claude-code';
+  const agents = document.getElementById('mco-agents')?.value || '8';
+  const parts = ['/mastermind:createorg'];
+  if (name) parts.push(`--name "${name.replace(/"/g,'\\"')}"`);
+  if (goal) parts.push(`--goal "${goal.replace(/"/g,'\\"')}"`);
+  parts.push(`--topology ${topo}`, `--adapter ${adapter}`, `--max-agents ${agents}`);
+  const out = document.getElementById('mco-cmd-out');
+  if (out) { out.textContent = parts.join(' '); out.style.display = 'block'; }
+}
+
+async function mmRenderMetrics(body) {
+  body.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const [tokData, statusData] = await Promise.allSettled([
+      apiFetch('/api/section?name=tokens&dir=' + enc(DIR)),
+      apiFetch('/api/status?dir=' + enc(DIR)),
+    ]);
+    const tok = tokData.status === 'fulfilled' ? (tokData.value?.tokens?.summary || tokData.value?.summary || {}) : {};
+    const status = statusData.status === 'fulfilled' ? statusData.value : {};
+    const lastRoute = window._lastRouteAgent || '—';
+    const swarmTopo = window._appSwarmTopo || 'IDLE';
+
+    body.innerHTML = `
+      <div class="m-group-title" style="margin-bottom:8px">Token Usage</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+        <div class="chunk-stat"><div class="chunk-stat-val" style="color:var(--accent)">${typeof tok.todayCost==='number' ? '$'+tok.todayCost.toFixed(3) : '—'}</div><div class="chunk-stat-lbl">Today</div></div>
+        <div class="chunk-stat"><div class="chunk-stat-val">${tok.todayCalls??'—'}</div><div class="chunk-stat-lbl">API Calls</div></div>
+        <div class="chunk-stat"><div class="chunk-stat-val">${typeof tok.monthCost==='number' ? '$'+tok.monthCost.toFixed(2) : '—'}</div><div class="chunk-stat-lbl">Month</div></div>
+      </div>
+      <div class="m-group-title" style="margin-bottom:8px">Routing Intelligence</div>
+      <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--text-hi)">Last Route</span><span style="color:var(--accent);font-family:var(--mono)">${esc(lastRoute)}</span></div>
+      </div>
+      <div class="m-group-title" style="margin-bottom:8px">Swarm</div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)"><span style="color:var(--text-hi)">Topology</span><span style="color:${swarmTopo !== 'IDLE' ? 'var(--green)' : 'var(--text-lo)'};font-family:var(--mono)">${esc(swarmTopo)}</span></div>
+    `;
+  } catch (e) { body.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
+}
+
+async function mmRenderGraph(body) {
+  body.innerHTML = '<div class="loading-txt">Loading…</div>';
+  try {
+    const [graphData, reportData] = await Promise.allSettled([
+      apiFetch('/api/monograph-graph?dir=' + enc(DIR) + '&limit=100'),
+      apiFetch('/api/monograph-report?dir=' + enc(DIR)),
+    ]);
+    const graph = graphData.status === 'fulfilled' ? graphData.value : {};
+    const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+    const edges = Array.isArray(graph.edges) ? graph.edges : [];
+    const nodeTypes = {};
+    nodes.forEach(n => { const t = n.label || n.type || 'other'; nodeTypes[t] = (nodeTypes[t] || 0) + 1; });
+    const topNodes = nodes.sort((a, b) => (b.degree || 0) - (a.degree || 0)).slice(0, 6);
+
+    body.innerHTML = `
+      <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+        <div class="chunk-stat"><div class="chunk-stat-val">${nodes.length.toLocaleString()}</div><div class="chunk-stat-lbl">Nodes</div></div>
+        <div class="chunk-stat"><div class="chunk-stat-val">${edges.length.toLocaleString()}</div><div class="chunk-stat-lbl">Edges</div></div>
+        <div class="chunk-stat"><div class="chunk-stat-val">${Object.keys(nodeTypes).length}</div><div class="chunk-stat-lbl">Types</div></div>
+      </div>
+      ${topNodes.length ? `<div class="m-group-title" style="margin-bottom:6px">God Nodes</div>
+      ${topNodes.map(n => `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid var(--border)">
+        <span style="color:var(--text-hi);font-family:var(--mono);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%">${esc(n.name || n.id || '—')}</span>
+        <span style="color:var(--text-lo);font-family:var(--mono);font-size:11px">${n.degree ?? '—'}</span>
+      </div>`).join('')}` : ''}
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="switchView('monograph');closeMastermind()">Open Monograph →</button>
+        <button class="btn" onclick="fetch('/api/monograph-build?dir='+enc(DIR),{method:'POST'}).then(()=>showToast('Building','Graph rebuild started','ok'))">↺ Rebuild Graph</button>
+      </div>
+    `;
+  } catch (e) { body.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>'; }
 }
 </script>
 </body>
