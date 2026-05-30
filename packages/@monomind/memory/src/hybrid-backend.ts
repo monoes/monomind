@@ -531,7 +531,10 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   async querySemantic(query: SemanticQuery): Promise<MemoryEntry[]> {
     this.stats.agentdbQueries++;
 
+    let searchResults: SearchResult[] = [];
+
     // MemoRAG: expand the query into multiple sub-queries for richer recall
+    let memoragUsed = false;
     if (query.content && typeof this.config.memoragRewriter === 'function') {
       try {
         const subQueries = await this.config.memoragRewriter(query.content);
@@ -550,31 +553,34 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
             }),
           );
           this.emit('memorag:rewritten', { original: query.content, subQueries, count: subResults.flat().length });
-          // RRF-fuse the sub-query results, then continue with HippoRAG/injection pipeline
+          // RRF-fuse the sub-query results; assign to searchResults to fall through to PPR/GraphRAG
           const fused = this.rrfFuse(subResults);
-          return this.postProcessSemanticResults(fused, query);
+          searchResults = fused.map(entry => ({ entry, score: 1.0, distance: 0 }));
+          memoragUsed = true;
         }
       } catch {
         // Rewriter failed — fall through to standard path
       }
     }
 
-    let embedding = query.embedding;
+    if (!memoragUsed) {
+      let embedding = query.embedding;
 
-    // Generate embedding if content provided
-    if (!embedding && query.content && this.config.embeddingGenerator) {
-      embedding = await this.config.embeddingGenerator(query.content);
+      // Generate embedding if content provided
+      if (!embedding && query.content && this.config.embeddingGenerator) {
+        embedding = await this.config.embeddingGenerator(query.content);
+      }
+
+      if (!embedding) {
+        throw new Error('SemanticQuery requires either content or embedding');
+      }
+
+      searchResults = await this.agentdb.search(embedding, {
+        k: (query.k || 10) * 2, // Over-fetch to account for post-filtering
+        threshold: query.threshold || this.config.semanticThreshold,
+        filters: query.filters as MemoryQuery | undefined,
+      });
     }
-
-    if (!embedding) {
-      throw new Error('SemanticQuery requires either content or embedding');
-    }
-
-    const searchResults = await this.agentdb.search(embedding, {
-      k: (query.k || 10) * 2, // Over-fetch to account for post-filtering
-      threshold: query.threshold || this.config.semanticThreshold,
-      filters: query.filters as MemoryQuery | undefined,
-    });
 
     // HippoRAG PPR re-ranking: expand one hop through MemoryEntry.references
     // Source: https://arxiv.org/abs/2405.14831
@@ -592,6 +598,9 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
       } else {
         for (const r of searchResults) {
           this.memoryGraph.addNode(r.entry);
+          for (const refId of (r.entry.references ?? [])) {
+            this.memoryGraph.addEdge(r.entry.id, refId, 'reference', 1.0);
+          }
         }
       }
       // GraphRAG: compute community summaries before PPR so communities are populated.
@@ -780,9 +789,9 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
       entriesByType: agentdbStats.entriesByType,
       memoryUsage: sqliteStats.memoryUsage + agentdbStats.memoryUsage,
       hnswStats: agentdbStats.hnswStats ?? {
-        vectorCount: agentdbStats.totalEntries,
+        vectorCount: 0,          // 0 = no active HNSW index; do not fabricate from totalEntries
         memoryUsage: 0,
-        avgSearchTime: agentdbStats.avgSearchTime,
+        avgSearchTime: 0,
         buildTime: 0,
         compressionRatio: 1.0,
       },
