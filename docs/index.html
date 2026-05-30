@@ -1105,7 +1105,10 @@ Session N: empty round (zero findings AND zero actions)
 
     <!-- SESSIONS -->
     <div class="section-title reveal">Sessions</div>
-    <p class="reveal" style="margin-bottom:1rem">Sessions are grouped by recency: <strong>Today</strong>, <strong>Yesterday</strong>, <strong>This week</strong>, <strong>Older</strong> — each group header is collapsible. A 12-week clickable calendar heatmap appears above the session list. Each cell represents one day; opacity scales with session count. Clicking a cell filters the session list to that day. The heatmap header shows a week-over-week delta indicator (e.g. ↑12%, ↓5%, → flat).</p>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;">Sessions are created automatically when you use Claude Code in any project. Start a session by opening Claude Code in your project directory:</p>
+    <div class="code-block reveal"><span class="comment"># Sessions appear automatically — just use Claude Code</span>
+<span class="comment"># The dashboard discovers sessions from ~/.claude/projects/&lt;project&gt;/</span></div>
+    <p class="reveal" style="margin-bottom:1rem;margin-top:1rem">Sessions are grouped by recency: <strong>Today</strong>, <strong>Yesterday</strong>, <strong>This week</strong>, <strong>Older</strong> — each group header is collapsible. A 12-week clickable calendar heatmap appears above the session list. Each cell represents one day; opacity scales with session count. Clicking a cell filters the session list to that day. The heatmap header shows a week-over-week delta indicator (e.g. ↑12%, ↓5%, → flat).</p>
     <p class="reveal" style="margin-bottom:0.5rem">Each session row includes:</p>
     <ul class="reveal" style="padding-left:1.5rem;line-height:2">
       <li>Prompt text (truncated) with expand on hover</li>
@@ -1146,7 +1149,12 @@ Session N: empty round (zero findings AND zero actions)
 
     <!-- LOOPS -->
     <div class="section-title reveal">Loops</div>
-    <p class="reveal" style="margin-bottom:1rem">A <strong>loop</strong> is a scheduled automation: a prompt that re-runs at a fixed interval until a max-rep limit is reached or it is manually stopped.</p>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;">Loops are created manually from the dashboard (+New Loop button) or via slash commands:</p>
+    <div class="code-block reveal"><span class="comment"># Create a loop from Claude Code</span>
+<span class="cmd">/mastermind:autodev --tillend</span>          <span class="comment"># autonomous loop until nothing left</span>
+<span class="cmd">/mastermind:review --tillend --auto</span>    <span class="comment"># review loop until clean</span>
+<span class="cmd">/monomind:repeat --every 1h /mastermind:autodev</span>  <span class="comment"># custom repeat schedule</span></div>
+    <p class="reveal" style="margin-bottom:1rem;margin-top:1rem">A <strong>loop</strong> is a scheduled automation: a prompt that re-runs at a fixed interval until a max-rep limit is reached or it is manually stopped.</p>
     <div class="table-wrap reveal">
       <table class="doc-table">
         <thead><tr><th>Loop Card Element</th><th>Description</th></tr></thead>
@@ -1176,6 +1184,7 @@ Session N: empty round (zero findings AND zero actions)
 
     <!-- TOKENS -->
     <div class="section-title reveal">Tokens</div>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:16px;">Token data is collected automatically from every Claude Code session. No setup required — costs appear as soon as API calls are made.</p>
     <p class="reveal" style="margin-bottom:1rem">The Tokens view provides cost and usage analytics with period-based filtering.</p>
     <div class="card-grid reveal">
       <div class="card"><div class="card-icon">💵</div><div class="card-title">Today Cost</div><div class="card-desc">Cumulative USD spend for the current calendar day across all sessions</div></div>
@@ -1207,6 +1216,15 @@ Session N: empty round (zero findings AND zero actions)
         </tbody>
       </table>
     </div>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem">Memories are created in three ways:</p>
+    <div class="code-block reveal"><span class="comment"># 1. Auto-memory hook (runs during Claude Code sessions)</span>
+<span class="comment">#    Files written to: ~/.claude/projects/&lt;project&gt;/memory/</span>
+
+<span class="comment"># 2. From the dashboard</span>
+<span class="comment">#    Click &quot;+ New Memory&quot; → choose type → fill frontmatter</span>
+
+<span class="comment"># 3. Via Claude Code memory commands</span>
+<span class="cmd">monomind memory store --key "preference" --value "..." --namespace user</span></div>
     <p class="reveal" style="margin:1rem 0 0.5rem">The Memory view has 7 sub-tabs:</p>
     <div class="table-wrap reveal">
       <table class="doc-table">
@@ -1222,10 +1240,28 @@ Session N: empty round (zero findings AND zero actions)
         </tbody>
       </table>
     </div>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-top:1rem;margin-bottom:4px;"><strong>Routing tab:</strong> Routing data is collected automatically whenever Claude Code routes a task to an agent. No setup required. Use <code>/hooks:overview</code> to understand the routing hook.</p>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>ADRs tab:</strong> ADRs are created via the slash command or discovered automatically from existing ADR files:</p>
+    <div class="code-block reveal"><span class="cmd">/monomind:adr</span>    <span class="comment"># draft an ADR from accumulated decision markers in the codebase</span></div>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>Swarm tab:</strong> Swarm history is created when you run agent organizations:</p>
+    <div class="code-block reveal"><span class="cmd">/mastermind:createorg</span>    <span class="comment"># create an org with roles and topology</span>
+<span class="cmd">/mastermind:runorg</span>       <span class="comment"># start the org — agents run and swarm data is recorded</span></div>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;margin-top:1rem"><strong>Chunks tab:</strong> Chunks are built by indexing your project's documentation and skill files:</p>
+    <div class="code-block reveal"><span class="comment"># From the dashboard: click "⊕ Build Docs" in the Chunks tab</span>
+
+<span class="comment"># From Claude Code:</span>
+<span class="cmd">/monomind:understand</span>    <span class="comment"># semantic enrichment — indexes all .md/.txt files</span>
+<span class="cmd">monomind daemon start</span>   <span class="comment"># background daemon also indexes incrementally</span></div>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-top:1rem;"><strong>Agent Graph tab:</strong> The Agent Graph is populated automatically by sessions that spawn sub-agents. Spawn agents by running complex tasks via <code>/mastermind:build</code>, <code>/mastermind:autodev</code>, or any orchestration command.</p>
 
     <!-- ORGS -->
     <div class="section-title reveal">Orgs</div>
-    <p class="reveal" style="margin-bottom:1rem">Organizations are multi-agent structures with roles, goals, routines, and approval workflows. Each org card shows: a running dot (live indicator), name, goal description, topology/role chips, and an avatar stack of active agents.</p>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;">Create and manage agent organizations:</p>
+    <div class="code-block reveal"><span class="cmd">/mastermind:createorg</span>    <span class="comment"># define a new org: roles, hierarchy, goal, topology</span>
+<span class="cmd">/mastermind:runorg</span>       <span class="comment"># start a saved org</span>
+
+<span class="comment"># Or use the "⬡ Mastermind" button → Create Org tab for a form-based workflow</span></div>
+    <p class="reveal" style="margin-bottom:1rem;margin-top:1rem">Organizations are multi-agent structures with roles, goals, routines, and approval workflows. Each org card shows: a running dot (live indicator), name, goal description, topology/role chips, and an avatar stack of active agents.</p>
     <p class="reveal" style="margin-bottom:0.5rem">Each org has 29 tabs:</p>
     <div class="table-wrap reveal">
       <table class="doc-table">
@@ -1266,7 +1302,14 @@ Session N: empty round (zero findings AND zero actions)
 
     <!-- MONOGRAPH -->
     <div class="section-title reveal">Monograph</div>
-    <p class="reveal" style="margin-bottom:1rem">The Monograph view provides a full knowledge-graph interface for your codebase. It has 7 tabs:</p>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-bottom:8px;">The knowledge graph must be built before Monograph tabs show data:</p>
+    <div class="code-block reveal"><span class="comment"># Build the graph (analyzes imports, calls, dependencies)</span>
+<span class="cmd">/monograph:monograph-build</span>           <span class="comment"># full build</span>
+<span class="cmd">monomind monograph build --code-only</span> <span class="comment"># code only, skip docs</span>
+
+<span class="comment"># From the dashboard: Graph tab → click "↺ REBUILD"</span>
+<span class="comment"># Enable watch mode to auto-rebuild on file changes: WATCH toggle in Graph tab</span></div>
+    <p class="reveal" style="margin-bottom:1rem;margin-top:1rem">The Monograph view provides a full knowledge-graph interface for your codebase. It has 7 tabs:</p>
     <div class="table-wrap reveal">
       <table class="doc-table">
         <thead><tr><th>Tab</th><th>Description</th></tr></thead>
@@ -1281,11 +1324,13 @@ Session N: empty round (zero findings AND zero actions)
         </tbody>
       </table>
     </div>
+    <p class="reveal" style="font-size:13px;color:var(--text2);margin-top:1rem;">The Wiki tab shows code nodes immediately after a graph build. To also see documentation nodes (from .md/.mdx/.txt files), click <strong>BUILD DOCS</strong> inside the Wiki tab or run <code>/monomind:understand</code>.</p>
 
     <!-- GLOBAL FEED -->
     <div class="section-title reveal">Global Feed</div>
     <div class="reveal" style="margin-bottom:24px">
       <p style="font-size:14px;color:var(--text2);margin-bottom:16px">A unified activity stream across all registered projects, accessible from the sidebar "⊕ Global Feed" item.</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">The Global Feed populates automatically as you use Claude Code across multiple projects. No setup required — add more projects via <code>monomind init</code> in each project directory.</p>
       <p style="font-size:14px;color:var(--text2);margin-bottom:16px">Each event entry displays a project tag chip alongside the event data, so you can see which project generated each activity. The feed is assembled by fetching <code>/api/projects</code> and then merging session events from all project paths.</p>
       <p style="font-size:14px;color:var(--text2)">Unlike the Now view (which is scoped to one project), the Global Feed gives a workspace-wide perspective — useful for multi-project workflows and general activity monitoring.</p>
     </div>
@@ -1299,7 +1344,7 @@ Session N: empty round (zero findings AND zero actions)
         <tbody>
           <tr><td>Orgs</td><td>List of all orgs — click to switch the dashboard's active org context</td></tr>
           <tr><td>Skills</td><td>Searchable catalog of all 35+ slash-command skills. Click any skill to copy the <code>/skill-name</code> command to clipboard</td></tr>
-          <tr><td>Loops</td><td>Running loops with live countdown timers and Stop buttons — mirrors the Loops view in a compact panel</td></tr>
+          <tr><td>Loops</td><td>Running loops with live countdown timers and Stop buttons — mirrors the Loops view in a compact panel. Create loops with <code>/mastermind:autodev --tillend</code> or the +New Loop button in the Loops view.</td></tr>
           <tr><td>Create Org</td><td>Form that generates and copies the equivalent <code>/mastermind:createorg</code> CLI command when submitted</td></tr>
           <tr><td>Metrics</td><td>Summary cards for current cost, API calls, routing confidence distribution, and active swarm topology</td></tr>
           <tr><td>Graph</td><td>Node and edge counts for the Monograph index, list of top god nodes, and an Open Monograph button</td></tr>
