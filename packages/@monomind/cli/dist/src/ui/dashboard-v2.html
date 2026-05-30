@@ -2897,23 +2897,101 @@ async function loadMemUsage() {
   const pane = document.getElementById('mem-tab-usage');
   if (!pane) return;
   pane.innerHTML = '<div class="loading-txt">Loading…</div>';
+  // Period tabs
+  pane.innerHTML = `
+    <div class="tok-periods" style="margin-bottom:14px">
+      <button class="tok-period-btn active" data-period="today" onclick="loadMemUsagePeriod(this,'today')">Today</button>
+      <button class="tok-period-btn" data-period="week" onclick="loadMemUsagePeriod(this,'week')">Week</button>
+      <button class="tok-period-btn" data-period="30d" onclick="loadMemUsagePeriod(this,'30d')">30 Days</button>
+      <button class="tok-period-btn" data-period="month" onclick="loadMemUsagePeriod(this,'month')">Month</button>
+    </div>
+    <div id="mem-usage-content"><div class="loading-txt">Loading…</div></div>
+  `;
+  loadMemUsagePeriod(pane.querySelector('[data-period="today"]'), 'today');
+}
+
+async function loadMemUsagePeriod(btn, period) {
+  document.querySelectorAll('#mem-tab-usage .tok-period-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const content = document.getElementById('mem-usage-content');
+  if (!content) return;
+  content.innerHTML = '<div class="loading-txt">Loading…</div>';
   try {
-    const data = await apiFetch('/api/memory/stats?dir=' + enc(DIR));
-    const s = data?.stats || data || {};
-    const rows = [
-      { label: 'Total entries', val: s.total ?? s.count ?? 0 },
-      { label: 'Namespaces',    val: s.namespaces ?? s.ns ?? Object.keys(s.byType || {}).length },
-      { label: 'DB size',       val: s.size ? (s.size / 1024).toFixed(1) + ' KB' : '—' },
-      { label: 'Last write',    val: s.lastWrite ? relTime(s.lastWrite) : '—' },
-      { label: 'HNSW index',    val: s.hnsw ? '✓ present' : '✗ absent' },
-      { label: 'AgentDB',       val: s.agentdb ? '✓ present' : (s.rvf ? 'RVF backend' : '✗ absent') },
-    ];
-    pane.innerHTML = `<div class="m-group-title" style="margin-bottom:8px">Memory Usage</div>` +
-      rows.map(r => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
-        <span style="color:var(--text-hi)">${esc(r.label)}</span>
-        <span style="color:var(--accent);font-family:monospace">${esc(String(r.val))}</span>
-      </div>`).join('');
-  } catch (_) { pane.innerHTML = '<div class="empty">Failed to load usage stats</div>'; }
+    const data = await apiFetch('/api/token-usage?period=' + enc(period) + '&dir=' + enc(DIR));
+    const s = data?.summary || data?.tokens?.summary || {};
+    const rows = Array.isArray(data?.rows) ? data.rows : (data?.tokens?.rows || []);
+    const models = Array.isArray(data?.models) ? data.models : (data?.byModel || []);
+    const tools = Array.isArray(data?.tools) ? data.tools : (data?.topTools || []);
+    const mcps = Array.isArray(data?.mcpServers) ? data.mcpServers : (data?.mcp || []);
+    const categories = Array.isArray(data?.categories) ? data.categories : (data?.activity || []);
+    const projects = Array.isArray(data?.projects) ? data.projects : (data?.topProjects || []);
+
+    function barChart(items, valKey, labelKey, color, maxItems) {
+      if (!items.length) return '<div class="empty" style="font-size:12px">No data</div>';
+      const maxVal = Math.max(...items.slice(0, maxItems).map(x => Number(x[valKey] || 0)), 0.0001);
+      return items.slice(0, maxItems).map(item => {
+        const pct = Math.round((Number(item[valKey] || 0) / maxVal) * 100);
+        const label = esc(String(item[labelKey] || '—').slice(0, 24));
+        const val = typeof item[valKey] === 'number' && valKey === 'cost'
+          ? '$' + Number(item[valKey]).toFixed(4)
+          : String(item[valKey] || 0);
+        return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px">
+          <div style="width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-hi);font-family:var(--mono);font-size:11px">${label}</div>
+          <div style="flex:1;height:7px;background:var(--border);border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${color};border-radius:2px"></div></div>
+          <div style="width:60px;text-align:right;color:var(--text-lo);font-size:11px;font-family:var(--mono)">${esc(val)}</div>
+        </div>`;
+      }).join('');
+    }
+
+    const totalCost = typeof s.todayCost === 'number' ? s.todayCost : (typeof s.cost === 'number' ? s.cost : null);
+    const cacheEff = s.cacheTokens && s.totalTokensIn
+      ? Math.round(s.cacheTokens / s.totalTokensIn * 100) : null;
+
+    content.innerHTML = `
+      <!-- Overview stats -->
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+        ${totalCost !== null ? `<div class="chunk-stat"><div class="chunk-stat-val" style="color:var(--accent)">$${totalCost.toFixed(3)}</div><div class="chunk-stat-lbl">Total Cost</div></div>` : ''}
+        ${s.todayCalls != null || s.calls != null ? `<div class="chunk-stat"><div class="chunk-stat-val">${(s.todayCalls ?? s.calls ?? 0).toLocaleString()}</div><div class="chunk-stat-lbl">API Calls</div></div>` : ''}
+        ${s.totalTokensIn != null ? `<div class="chunk-stat"><div class="chunk-stat-val">${Number(s.totalTokensIn).toLocaleString()}</div><div class="chunk-stat-lbl">Tokens In</div></div>` : ''}
+        ${s.totalTokensOut != null ? `<div class="chunk-stat"><div class="chunk-stat-val">${Number(s.totalTokensOut).toLocaleString()}</div><div class="chunk-stat-lbl">Tokens Out</div></div>` : ''}
+        ${cacheEff !== null ? `<div class="chunk-stat"><div class="chunk-stat-val" style="color:var(--green)">${cacheEff}%</div><div class="chunk-stat-lbl">Cache Eff.</div></div>` : ''}
+      </div>
+
+      <!-- Models -->
+      ${models.length ? `<div class="m-group-title" style="margin-bottom:6px">Models</div>
+      <div style="margin-bottom:14px">${barChart(models, 'cost', 'model', 'oklch(65% 0.13 290)', 8)}</div>` : ''}
+
+      <!-- Activity categories -->
+      ${categories.length ? `<div class="m-group-title" style="margin-bottom:6px">Activity</div>
+      <div style="margin-bottom:14px">${barChart(categories, 'turns', 'category', 'var(--accent)', 8)}</div>` : ''}
+
+      <!-- Top tools -->
+      ${tools.length ? `<div class="m-group-title" style="margin-bottom:6px">Top Tools</div>
+      <div style="margin-bottom:14px">${barChart(tools, 'count', 'tool', 'oklch(72% 0.18 75)', 10)}</div>` : ''}
+
+      <!-- MCP Servers -->
+      ${mcps.length ? `<div class="m-group-title" style="margin-bottom:6px">MCP Servers</div>
+      <div style="margin-bottom:14px">${barChart(mcps, 'count', 'server', 'oklch(70% 0.18 60)', 8)}</div>` : ''}
+
+      <!-- Projects -->
+      ${projects.length ? `<div class="m-group-title" style="margin-bottom:6px">Projects</div>
+      <div style="margin-bottom:14px">${barChart(projects, 'cost', 'project', 'oklch(65% 0.15 150)', 5)}</div>` : ''}
+
+      <!-- Fallback: session breakdown table if no breakdown data -->
+      ${!models.length && !tools.length && rows.length ? `
+      <div class="m-group-title" style="margin-bottom:6px">Session Breakdown</div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr style="color:var(--text-xs);text-align:left"><th style="padding:3px 8px 3px 0">Session</th><th>Calls</th><th>Cost</th></tr></thead>
+        <tbody>${rows.slice(0,30).map(r => `<tr style="border-top:1px solid var(--border)">
+          <td style="padding:3px 8px 3px 0;color:var(--text-hi);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:11px">${esc(r.session||r.label||r.id||'—')}</td>
+          <td style="padding:3px 8px;color:var(--text-lo)">${r.calls??'—'}</td>
+          <td style="padding:3px 8px;color:var(--accent)">$${Number(r.cost??0).toFixed(4)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>` : ''}
+    `;
+  } catch (e) {
+    content.innerHTML = '<div class="empty">Failed: ' + esc(e.message) + '</div>';
+  }
 }
 
 let _allADRs = [];
@@ -5275,14 +5353,21 @@ window.v2StopOrg = async function() {
         _v2OrgEventLog[n].push(ev);
         if (_v2OrgEventLog[n].length > 50) _v2OrgEventLog[n].shift();
         if (n === _v2SelOrg && _v2OrgTab === 'activity') v2RenderOrgActivity();
-        if (ev.type === 'org:start' || ev.type === 'org:stop') {
+        if (ev.type === 'org:start' || ev.type === 'org:stop' || ev.type === 'org:delete') {
           setTimeout(async () => {
             await renderOrgs();
             if (_v2SelOrg === n) {
-              const listOrg = _v2Orgs.find(o => o.name === _v2SelOrg) || {};
-              if (_v2OrgData) _v2OrgData.running = listOrg.running;
-              v2UpdateOrgHeader(listOrg, _v2OrgData);
-              if (_v2OrgTab === 'health') v2RenderOrgHealth();
+              if (ev.type === 'org:delete') {
+                // Org was deleted — clear detail panel
+                _v2SelOrg = null;
+                _v2OrgData = null;
+                document.getElementById('org-detail').style.display = 'none';
+              } else {
+                const listOrg = _v2Orgs.find(o => o.name === _v2SelOrg) || {};
+                if (_v2OrgData) _v2OrgData.running = listOrg.running;
+                v2UpdateOrgHeader(listOrg, _v2OrgData);
+                if (_v2OrgTab === 'health') v2RenderOrgHealth();
+              }
             }
           }, 400);
         }
@@ -5450,6 +5535,25 @@ function setFeedTimeFilter(f) {
   if (sess) loadFeedForSession(sess);
 }
 
+// ── mastermind skills catalogue ─────────────────────────────
+const _MASTERMIND_SKILLS = [
+  '/mastermind:autodev','mastermind:build','mastermind:review','mastermind:architect',
+  '/mastermind:research','mastermind:debug','mastermind:verify','mastermind:tdd',
+  '/mastermind:plan','mastermind:execute','mastermind:taskdev','mastermind:design',
+  '/mastermind:finish','mastermind:receive-review','mastermind:worktree',
+  '/mastermind:skill-builder','mastermind:idea','mastermind:content','mastermind:marketing',
+  '/mastermind:sales','mastermind:ops','mastermind:finance','mastermind:release',
+  '/mastermind:createorg','mastermind:runorg','mastermind:brain','mastermind:techport',
+  '/mastermind:master','mastermind:autodev --tillend','mastermind:review --tillend --auto',
+  '/monomind:do','monomind:createtask','monomind:idea','monomind:improve',
+  '/monomind:repeat','monomind:review','monomind:understand','monomind:adr',
+  '/monomind:budget','monomind:graph-status','monomind:loops','monomind:swarm',
+  '/swarm:development','swarm:analysis','swarm:testing','swarm:optimization',
+  '/sparc:architect','sparc:code','sparc:tdd','sparc:reviewer','sparc:security-review',
+  '/github:pr-manager','github:issue-tracker','github:release-manager',
+];
+window._allSkills = _MASTERMIND_SKILLS;
+
 // ── command palette ────────────────────────────────────────
 function openCmdPalette() {
   document.getElementById('cmd-backdrop').classList.add('open');
@@ -5499,12 +5603,26 @@ function cmdSearch(q) {
       (o.topology || '').toLowerCase().includes(lq))
     .slice(0, 4);
 
-  const skillMatches = (Array.isArray(window._allSkills) ? window._allSkills : [])
-    .filter(sk => !lq || (sk.name || sk.id || '').toLowerCase().includes(lq) ||
-      (sk.description || '').toLowerCase().includes(lq))
-    .slice(0, 4);
+  const skillMatches = (_MASTERMIND_SKILLS || window._allSkills || [])
+    .filter(sk => !lq || (typeof sk === 'string' ? sk.toLowerCase().includes(lq) : (sk.name || sk.id || '').toLowerCase().includes(lq) || (sk.description || '').toLowerCase().includes(lq)))
+    .slice(0, 6);
 
-  if (!sessMatches.length && !memMatches.length && !projMatches.length && !orgMatches.length && !skillMatches.length) {
+  // ACTIONS group
+  const actionItems = [
+    { label: 'Open Monograph', action: () => { const l = document.querySelector('.nav-item[data-view="monograph"]'); if (l) l.click(); } },
+    { label: 'Refresh Dashboard', action: () => refreshCurrent() },
+    { label: 'Toggle Compact View', action: () => toggleDensity() },
+    { label: 'Open Loops', action: () => { const l = document.querySelector('.nav-item[data-view="loops"]'); if (l) l.click(); } },
+  ].filter(a => !lq || a.label.toLowerCase().includes(lq));
+
+  // TABS group — only if org room is open
+  const orgTabs = (_v2SelOrg && currentView === 'orgs') ? [
+    'chart','roles','activity','health','heartbeats','tasks','costs','members',
+    'goals','board','live','approvals','secrets','settings','routines','myissues','budgets','plugins'
+  ].filter(t => !lq || t.includes(lq))
+    .map(t => ({ label: 'Org Tab: ' + t, tab: t })) : [];
+
+  if (!sessMatches.length && !memMatches.length && !projMatches.length && !orgMatches.length && !skillMatches.length && !actionItems.length && !orgTabs.length) {
     results.innerHTML = '<div class="cmd-empty">No results</div>';
     cmdItems = [];
     return;
@@ -5576,12 +5694,41 @@ function cmdSearch(q) {
     html += '<div class="cmd-group-lbl">Skills</div>';
     skillMatches.forEach(sk => {
       const idx = cmdItems.length;
+      const skLabel = typeof sk === 'string' ? sk : (sk.name || sk.id || '—');
       cmdItems.push({ type: 'skill', data: sk });
       html += `<div class="cmd-item" data-ci="${idx}">
         <span class="ci-ico">✦</span>
         <div class="cmd-item-body">
-          <div class="ci-title">${esc(sk.name || sk.id || '—')}</div>
-          <div class="ci-sub">${esc((sk.description || '').slice(0, 60))}</div>
+          <div class="ci-title">${esc(skLabel)}</div>
+          <div class="ci-sub">${typeof sk === 'string' ? '' : esc((sk.description || '').slice(0, 60))}</div>
+        </div>
+      </div>`;
+    });
+  }
+
+  if (actionItems.length) {
+    html += '<div class="cmd-group-lbl">Actions</div>';
+    actionItems.forEach(a => {
+      const idx = cmdItems.length;
+      cmdItems.push({ type: 'action', data: a });
+      html += `<div class="cmd-item" data-ci="${idx}">
+        <span class="ci-ico">⚡</span>
+        <div class="cmd-item-body">
+          <div class="ci-title">${esc(a.label)}</div>
+        </div>
+      </div>`;
+    });
+  }
+
+  if (orgTabs.length) {
+    html += '<div class="cmd-group-lbl">Tabs</div>';
+    orgTabs.forEach(t => {
+      const idx = cmdItems.length;
+      cmdItems.push({ type: 'orgtab', data: t });
+      html += `<div class="cmd-item" data-ci="${idx}">
+        <span class="ci-ico">⊟</span>
+        <div class="cmd-item-body">
+          <div class="ci-title">${esc(t.label)}</div>
         </div>
       </div>`;
     });
@@ -5621,6 +5768,8 @@ function executeCmdItem() {
   else if (item.type === 'project') switchProject(item.data.path);
   else if (item.type === 'org') { switchView('orgs'); setTimeout(() => v2SelectOrg(item.data.name), 80); }
   else if (item.type === 'skill') switchView('memory');
+  else if (item.type === 'action') { if (item.data.action) item.data.action(); }
+  else if (item.type === 'orgtab') { const btn = document.querySelector(`.odt-btn[data-tab="${item.data.tab}"]`); if (btn) btn.click(); }
 }
 
 // ── cross-session search ───────────────────────────────────
