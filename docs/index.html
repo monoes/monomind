@@ -1002,7 +1002,7 @@ Session N: empty round (zero findings AND zero actions)
           <tr><td>Session cost ticker</td><td>Running cost of the currently focused session, updates in real time</td></tr>
           <tr><td>Activity chip</td><td>Current agent type and task description from the most recent hook event</td></tr>
           <tr><td>⬡ Mastermind</td><td>Opens the Mastermind overlay (violet hexagon button)</td></tr>
-          <tr><td>⚑ Budget</td><td>Opens the budget panel showing spend vs. configured limits</td></tr>
+          <tr><td>⚑ Budget</td><td>Opens a modal for setting daily and monthly spend limits (USD). Fields: Daily limit, Monthly limit. Once saved, the alerts rail shows a warning when actual spend approaches the limit.</td></tr>
           <tr><td>⌘K Search</td><td>Opens the command palette for cross-view navigation</td></tr>
           <tr><td>? Help</td><td>Shows keyboard shortcuts reference</td></tr>
           <tr><td>↺ Refresh</td><td>Force-reloads current view data</td></tr>
@@ -1064,21 +1064,22 @@ Session N: empty round (zero findings AND zero actions)
       <li><strong>Daily digest card</strong> — dismissible AI-generated digest of today's activity</li>
       <li><strong>Feed minimap</strong> — 8px-wide column of colored pips on the right scroll edge for quick navigation</li>
     </ul>
+    <p class="reveal" style="margin:1rem 0 0.5rem"><strong>Group rows</strong> — when 3 or more consecutive events share the same category, they are collapsed into a single row showing the count and a ▸ expand affordance. Clicking the group row expands all entries in place.</p>
     <p class="reveal" style="margin:1rem 0 0.5rem">Detail panel: slides in 280px when an entry is clicked. Shows full event metadata, raw JSON payload, and a Copy button.</p>
     <p class="reveal" style="margin:1rem 0 0.5rem">Metrics pane groups (252px, right):</p>
     <div class="table-wrap reveal">
       <table class="doc-table">
         <thead><tr><th>Group</th><th>What it shows</th></tr></thead>
         <tbody>
-          <tr><td>Today</td><td>Cost and call count for today + a 12-week activity heatmap</td></tr>
+          <tr><td>Today</td><td>Today API cost, call count, and a 7-day activity sparkline</td></tr>
           <tr><td>Active Loops</td><td>Running loop names with live countdown timers</td></tr>
           <tr><td>Recent Sessions</td><td>Last 5 sessions with cost and duration chips</td></tr>
           <tr><td>Tool Usage</td><td>Bar chart of most-called tools in the current session</td></tr>
-          <tr><td>Burn Rate</td><td>USD/hour gauge based on a rolling 15-minute window</td></tr>
+          <tr><td>Burn Rate</td><td>Three rolling gauge rows — 5 min, 15 min, 60 min — each showing tool-call rate in calls/minute. Color: green &lt; 4 calls/min, amber 4–10, red ≥ 10</td></tr>
           <tr><td>Session Lanes</td><td>Parallel swimlanes showing concurrent agent activity</td></tr>
-          <tr><td>Cache Efficiency</td><td>Prompt-cache hit rate % with trend arrow</td></tr>
+          <tr><td>Cache Efficiency</td><td>Per-session cache hit rate rows (cached tokens / total input tokens), with the rolling average shown in the group header.</td></tr>
           <tr><td>Token Velocity</td><td>Tokens/minute sparkline for the current session</td></tr>
-          <tr><td>30-Day Cost Trend</td><td>Area chart of daily spend over the last 30 days</td></tr>
+          <tr><td>30-Day Cost Trend</td><td>Bar chart of daily spend over the last 30 days</td></tr>
           <tr><td>Activity Heatmap</td><td>Hour-of-day × day-of-week grid colored by event density</td></tr>
         </tbody>
       </table>
@@ -1104,7 +1105,7 @@ Session N: empty round (zero findings AND zero actions)
 
     <!-- SESSIONS -->
     <div class="section-title reveal">Sessions</div>
-    <p class="reveal" style="margin-bottom:1rem">Sessions are grouped by recency: <strong>Today</strong>, <strong>Yesterday</strong>, <strong>This week</strong>, <strong>Older</strong> — each group header is collapsible. A 12-week heatmap at the top lets you click any cell to filter to that week.</p>
+    <p class="reveal" style="margin-bottom:1rem">Sessions are grouped by recency: <strong>Today</strong>, <strong>Yesterday</strong>, <strong>This week</strong>, <strong>Older</strong> — each group header is collapsible. A 12-week clickable calendar heatmap appears above the session list. Each cell represents one day; opacity scales with session count. Clicking a cell filters the session list to that day. The heatmap header shows a week-over-week delta indicator (e.g. ↑12%, ↓5%, → flat).</p>
     <p class="reveal" style="margin-bottom:0.5rem">Each session row includes:</p>
     <ul class="reveal" style="padding-left:1.5rem;line-height:2">
       <li>Prompt text (truncated) with expand on hover</li>
@@ -1114,7 +1115,11 @@ Session N: empty round (zero findings AND zero actions)
       <li>Anomaly badges: <code>costly</code> (cost &gt; 2× average) and <code>errors</code> (tool errors detected)</li>
       <li>Auto-tags: topic tags inferred from session content (e.g. <code>refactor</code>, <code>bug-fix</code>)</li>
       <li>File chips: up to 5 file paths touched in the session</li>
-      <li>Context saturation bar: horizontal progress showing % of context window consumed</li>
+      <li>Context saturation bar: horizontal progress showing % of context window consumed (message count vs. limit)</li>
+      <li><strong>Notes</strong> — each row has a ✎ notes toggle (shown in blue when a note exists). Click to expand an inline textarea for free-form notes stored in localStorage, keyed by session ID.</li>
+      <li><strong>Error drawer</strong> — the error anomaly badge (N err) is clickable. Clicking it toggles an inline drawer below the row listing all tool error messages from that session.</li>
+      <li><strong>Custom tags</strong> — a '+ tag' affordance on each row adds manually typed labels (stored in localStorage). Custom tags appear as blue-toned pills alongside auto-tags and are included in the sessions filter.</li>
+      <li><strong>Context window pressure gauge</strong> — a separate 3px bar based on actual input token count vs the 200k context ceiling. Color: green (normal), amber (warn), red (critical). Shows a 'N% ctx' label. Distinct from the message-count saturation bar.</li>
     </ul>
     <p class="reveal" style="margin:1rem 0 0.5rem">Toolbar toggle buttons:</p>
     <div class="table-wrap reveal">
@@ -1132,7 +1137,7 @@ Session N: empty round (zero findings AND zero actions)
           <tr><td>Compare</td><td>Enable multi-select mode for session diff (select exactly 2)</td></tr>
           <tr><td>Timeline</td><td>Switch to a Gantt-style timeline visualization</td></tr>
           <tr><td>Donut</td><td>Show a cost-by-model donut chart above the list</td></tr>
-          <tr><td>Report</td><td>Generate and download a markdown session report</td></tr>
+          <tr><td>Report</td><td>Opens the Report Card modal with a structured plain-text summary of session activity for the current period. Includes a ⎘ Copy button — content is copied to clipboard, not downloaded.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1207,11 +1212,11 @@ Session N: empty round (zero findings AND zero actions)
       <table class="doc-table">
         <thead><tr><th>Tab</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>Memories</td><td>Split-pane list + detail editor. Full CRUD: create, edit (modal with type/title/content fields), delete. New Memory button offers 4 content templates (Decision, Pattern, Reference, Handoff)</td></tr>
-          <tr><td>Routing</td><td>Routing feedback log — each entry shows agent chosen, confidence %, task description, and timestamp</td></tr>
+          <tr><td>Memories</td><td>Split-pane list + detail editor. Full CRUD: create, edit (modal with type/title/content fields), delete. New Memory button offers 4 type templates: <strong>user</strong> (personal preferences/identity), <strong>feedback</strong> (routing decisions), <strong>project</strong> (project-scoped facts), <strong>reference</strong> (documentation/API facts). Each pre-populates a minimal YAML front matter stub.</td></tr>
+          <tr><td>Routing</td><td>Routing feedback log — each entry shows agent chosen, confidence %, task description, and timestamp. YAML front matter stub format for new memories:<br><code>---<br>name: my preference<br>description: Short description of this memory<br>type: user<br>---<br><br>Content body here...</code></td></tr>
           <tr><td>Usage</td><td>Period tabs + stat grid (cost, calls, tokens, cache efficiency) + 5 bar charts: Models, Activity by hour, Tools, MCP Servers, Projects</td></tr>
           <tr><td>ADRs</td><td>Architecture Decision Records as filterable cards. Status badges: Accepted, Proposed, Deprecated. Category filters: implementation, guidance</td></tr>
-          <tr><td>Swarm</td><td>Swarm run list + canvas topology visualization (hierarchical shows queen node + worker nodes; mesh shows nodes in a circle). Event log for selected run. Clean Data button purges stale run data</td></tr>
+          <tr><td>Swarm</td><td>Swarm run list + canvas topology visualization — static snapshot drawing, drawn once when a run is selected. Hierarchical: queen node (labeled Q, teal, larger) at top, worker nodes spread below, straight edges connecting them. Mesh/other: nodes in a circle with all-to-all edges. Event log for selected run. Clean Data button purges stale run data</td></tr>
           <tr><td>Chunks</td><td>Stats bar (chunk count, skill namespaces, total namespaces). Filter by namespace or keyword. Chunk cards show source file, excerpt, and namespace. Edit/Delete per card. Build Docs button triggers indexing with progress polling</td></tr>
           <tr><td>Agent Graph</td><td>Summary stat cards, session list, agent spawn bar chart (agents per session), tool usage bar chart (calls per tool across all sessions)</td></tr>
         </tbody>
@@ -1268,13 +1273,21 @@ Session N: empty round (zero findings AND zero actions)
         <tbody>
           <tr><td>Overview</td><td>Stat cards (total nodes, total edges, average degree, type counts), top 6 nodes by degree, and a type-distribution breakdown</td></tr>
           <tr><td>Graph</td><td>Interactive force-directed graph in an iframe. WATCH toggle enables file-system watching so the graph auto-rebuilds on file changes. REBUILD button forces a full rebuild immediately</td></tr>
-          <tr><td>Analyze</td><td>Two groups of analyses: 9 client-side (Stats, PageRank, Dead Code, Components, Topological Sort, Hubs, Cycles, Surprises, Communities) and 21 server-side MCP analyses (Health Score, Risk Profile, Hotspots, Maintainability, Complexity, CRAP Score, Instability, Coupling Balance, Circular Dependencies, Unlinked References, Dead Exports, Reachability, Boundary Check, Bridges, Cohesion, Largest Files, Languages, Churn Hotspots, Detect Changes, Authors, and more)</td></tr>
+          <tr><td>Analyze</td><td>Two groups of analyses: 9 client-side (Stats, PageRank, Dead Code, Components, Topological Sort, Hubs, Cycles, Surprises, Communities) and 20 server-side MCP analyses (Health Score, Risk Profile, Hotspots, Maintainability, Complexity, CRAP Score, Instability, Coupling Balance, Circular Dependencies, Unlinked References, Dead Exports, Reachability, Boundary Check, Bridges, Cohesion, Largest Files, Languages, Churn Hotspots, Detect Changes, Authors)</td></tr>
           <tr><td>Query</td><td>6 query forms: Search nodes (BM25 keyword), Impact analysis (upstream/downstream dependents), Context (360° view of a file), Shortest path (between two nodes), Cypher query (raw graph query), Ask the graph (natural language)</td></tr>
           <tr><td>Export</td><td>Download the graph in: JSON, SVG, GraphML, or Cypher format</td></tr>
           <tr><td>Report</td><td>Rendered GRAPH_REPORT with summary stats, top nodes by degree, and type distribution</td></tr>
           <tr><td>Wiki</td><td>Searchable node browser — type filter pills, mode toggle (All / Docs / Code), full-text search. Clicking a node opens a detail panel with Impact, Context, and Explain actions</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- GLOBAL FEED -->
+    <div class="section-title reveal">Global Feed</div>
+    <div class="reveal" style="margin-bottom:24px">
+      <p style="font-size:14px;color:var(--text2);margin-bottom:16px">A unified activity stream across all registered projects, accessible from the sidebar "⊕ Global Feed" item.</p>
+      <p style="font-size:14px;color:var(--text2);margin-bottom:16px">Each event entry displays a project tag chip alongside the event data, so you can see which project generated each activity. The feed is assembled by fetching <code>/api/projects</code> and then merging session events from all project paths.</p>
+      <p style="font-size:14px;color:var(--text2)">Unlike the Now view (which is scoped to one project), the Global Feed gives a workspace-wide perspective — useful for multi-project workflows and general activity monitoring.</p>
     </div>
 
     <!-- MASTERMIND OVERLAY -->
@@ -1331,6 +1344,133 @@ Session N: empty round (zero findings AND zero actions)
           <tr><td><code>A</code></td><td>Toggle ambient mode</td><td>Now</td></tr>
           <tr><td><code>F</code></td><td>Toggle focus mode (full-width feed)</td><td>Now</td></tr>
           <tr><td><code>Space</code></td><td>Play / pause live tail</td><td>Now</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- API REFERENCE -->
+    <div class="section-title reveal">API Reference</div>
+    <p class="reveal" style="margin-bottom:1rem">All endpoints are served by the local dashboard server at <code>localhost:4242</code>. SSE endpoints stream newline-delimited JSON.</p>
+    <p class="reveal" style="margin-bottom:0.5rem"><strong>Navigation / Init</strong></p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td><code>/api/git-user</code></td><td>Git username and email</td></tr>
+          <tr><td>GET</td><td><code>/api/projects</code></td><td>All registered projects</td></tr>
+          <tr><td>GET</td><td><code>/api/status</code></td><td>System health: HNSW, memory</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:1rem 0 0.5rem"><strong>Sessions</strong></p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td><code>/api/session-journal</code></td><td>Session metadata list</td></tr>
+          <tr><td>GET</td><td><code>/api/session</code></td><td>Events for one session file</td></tr>
+          <tr><td>GET (SSE)</td><td><code>/api/events-stream</code></td><td>Live tool event stream</td></tr>
+          <tr><td>GET</td><td><code>/api/search-sessions</code></td><td>Full-text session search</td></tr>
+          <tr><td>GET</td><td><code>/api/session-errors</code></td><td>Session error list</td></tr>
+          <tr><td>GET</td><td><code>/api/tool-errors</code></td><td>Tool error list per session</td></tr>
+          <tr><td>GET</td><td><code>/api/tool-ranking</code></td><td>Tool call frequency</td></tr>
+          <tr><td>GET</td><td><code>/api/project-costs</code></td><td>Per-project cost breakdown</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:1rem 0 0.5rem"><strong>Memory</strong></p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td><code>/api/section</code></td><td>Named data sections (e.g. tokens)</td></tr>
+          <tr><td>GET</td><td><code>/api/memory/stats</code></td><td>AgentDB stats</td></tr>
+          <tr><td>GET</td><td><code>/api/memory-files</code></td><td>.md file list</td></tr>
+          <tr><td>PUT / DELETE</td><td><code>/api/memory-file</code></td><td>Create or delete memory file</td></tr>
+          <tr><td>GET</td><td><code>/api/token-usage</code></td><td>Token usage, accepts <code>period</code> param</td></tr>
+          <tr><td>GET</td><td><code>/api/routing-feedback</code></td><td>Routing feedback log</td></tr>
+          <tr><td>GET</td><td><code>/api/adrs</code></td><td>Architecture Decision Records</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:1rem 0 0.5rem"><strong>Loops</strong></p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td><code>/api/loops</code></td><td>Active loops</td></tr>
+          <tr><td>POST</td><td><code>/api/loops/create</code></td><td>Create loop</td></tr>
+          <tr><td>GET</td><td><code>/api/loops/stop</code></td><td>Stop a loop</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:1rem 0 0.5rem"><strong>Swarm</strong></p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td><code>/api/swarm-history</code></td><td>Swarm run list</td></tr>
+          <tr><td>GET</td><td><code>/api/swarm-events</code></td><td>Events for a run</td></tr>
+          <tr><td>DELETE</td><td><code>/api/swarm-clean</code></td><td>Purge swarm data</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:1rem 0 0.5rem"><strong>Knowledge (Chunks)</strong></p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td><code>/api/section?name=knowledge</code></td><td>Indexed chunks</td></tr>
+          <tr><td>POST / DELETE</td><td><code>/api/knowledge-chunk</code></td><td>Chunk CRUD</td></tr>
+          <tr><td>POST</td><td><code>/api/monograph-build-docs</code></td><td>Trigger docs indexing</td></tr>
+          <tr><td>GET</td><td><code>/api/monograph-build-docs-status</code></td><td>Indexing progress</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:1rem 0 0.5rem"><strong>Graph (Monograph)</strong></p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>POST</td><td><code>/api/monograph-build</code></td><td>Rebuild graph</td></tr>
+          <tr><td>POST</td><td><code>/api/monograph-watch-toggle</code></td><td>Toggle file watch</td></tr>
+          <tr><td>GET</td><td><code>/api/monograph-watch-status</code></td><td>Watch state</td></tr>
+          <tr><td>GET</td><td><code>/api/monograph-graph</code></td><td>Graph nodes/edges</td></tr>
+          <tr><td>GET</td><td><code>/api/monograph-report</code></td><td>GRAPH_REPORT</td></tr>
+          <tr><td>GET</td><td><code>/api/monograph-query</code></td><td>BM25 node search</td></tr>
+          <tr><td>GET</td><td><code>/api/monograph-path</code></td><td>Shortest path between two nodes</td></tr>
+          <tr><td>GET</td><td><code>/api/monograph-explain</code></td><td>Node explanation</td></tr>
+          <tr><td>GET</td><td><code>/api/monograph-wiki-search</code></td><td>Wiki full-text search</td></tr>
+          <tr><td>GET</td><td><code>/api/graph</code></td><td>Agent graph data</td></tr>
+          <tr><td>POST</td><td><code>/api/mcp/call</code></td><td>MCP tool proxy</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="margin:1rem 0 0.5rem"><strong>Orgs</strong></p>
+    <div class="table-wrap reveal">
+      <table class="doc-table">
+        <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td><code>/api/orgs</code></td><td>Org list</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name</code></td><td>Org detail</td></tr>
+          <tr><td>POST</td><td><code>/api/orgs/:name/stop</code></td><td>Stop org</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/activity</code></td><td>Org activity log</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/health</code></td><td>Org health metrics</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/agents</code></td><td>Org agents</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/budgets</code></td><td>Org budgets</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/members</code></td><td>Org members</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/issues</code></td><td>Org issues</td></tr>
+          <tr><td>GET / POST</td><td><code>/api/org/:name/approvals</code></td><td>Approval queue</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/secrets</code></td><td>Secret names and scopes</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/routines</code></td><td>Scheduled routines</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/my-issues</code></td><td>Issues assigned to current user</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/plugins</code></td><td>Installed plugins</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/projects</code></td><td>Associated projects</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/workspaces</code></td><td>Agent workspaces</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/invites</code></td><td>Pending invitations</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/environments</code></td><td>Agent environment configs</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/join-requests</code></td><td>Pending join requests</td></tr>
+          <tr><td>GET</td><td><code>/api/org/:name/threads</code></td><td>Discussion threads</td></tr>
         </tbody>
       </table>
     </div>
