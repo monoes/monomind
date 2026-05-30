@@ -251,6 +251,48 @@ function bindServer(server, port) {
  * @param {boolean} [options.openBrowser=true] - Whether to open the dashboard in the default browser.
  * @returns {Promise<{port: number, url: string, server: http.Server}>}
  */
+/**
+ * Resolve a Claude project slug back to the real filesystem path.
+ * Slugs are created by replacing all '/' with '-', so paths containing
+ * hyphens (like agent-f/agf-accounting) are ambiguous. This function
+ * uses a greedy BFS over the real filesystem to find the correct path.
+ * Falls back to cwd in session files, then to direct slug replacement.
+ */
+function resolveSlugToPath(slug, projDir) {
+  // 1. Try filesystem BFS (most reliable)
+  const parts = slug.replace(/^-/, '').split('-');
+  function tryPaths(idx, current) {
+    if (idx === parts.length) return fs.existsSync(current) ? current : null;
+    // Option A: next part is a new path component
+    const asDir = path.join(current, parts[idx]);
+    const r1 = tryPaths(idx + 1, asDir);
+    if (r1) return r1;
+    // Option B: combine with hyphen into current basename
+    if (current !== '/') {
+      const combined = path.join(path.dirname(current), path.basename(current) + '-' + parts[idx]);
+      const r2 = tryPaths(idx + 1, combined);
+      if (r2) return r2;
+    }
+    return null;
+  }
+  const fsResolved = parts.length ? tryPaths(1, '/' + parts[0]) : null;
+  if (fsResolved) return fsResolved;
+
+  // 2. Try reading cwd from a session file
+  try {
+    const sfiles = fs.readdirSync(projDir).filter(f => f.endsWith('.jsonl'));
+    for (const sf of sfiles) {
+      try {
+        const line = fs.readFileSync(path.join(projDir, sf), 'utf-8').split('\n').find(l => l.includes('"cwd"'));
+        if (line) { const m = line.match(/"cwd"\s*:\s*"([^"]+)"/); if (m?.[1]) return m[1]; }
+      } catch {}
+    }
+  } catch {}
+
+  // 3. Dumb fallback (known-broken for hyphenated dirs, but last resort)
+  return slug.replace(/-/g, '/');
+}
+
 export async function startServer({ port = 4242, projectDir, openBrowser = true } = {}) {
   const server = http.createServer(async (req, res) => {
     const url = req.url.split('?')[0];
@@ -269,17 +311,10 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
       return;
     }
 
-    // ----------------------------------------------------------------- GET /v2
+    // ----------------------------------------------------------------- GET /v2 (alias → /)
     if (req.method === 'GET' && url === '/v2') {
-      const htmlPath = path.join(__dirname, 'dashboard-v2.html');
-      try {
-        const html = fs.readFileSync(htmlPath, 'utf8');
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(html);
-      } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end(`Failed to load dashboard-v2.html: ${err.message}`);
-      }
+      res.writeHead(301, { 'Location': '/' });
+      res.end();
       return;
     }
 
@@ -601,7 +636,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const projectCosts = [];
         for (const slug of slugDirs) {
           const projDir = path.join(projectsBase, slug);
-          const projPath = '/' + slug.replace(/^-/, '').replace(/-/g, '/');
+          const projPath = resolveSlugToPath(slug, projDir);
           let sessionFiles = [];
           try { sessionFiles = fs.readdirSync(projDir).filter(f => f.endsWith('.jsonl')).map(f => path.join(projDir, f)); } catch {}
           if (!sessionFiles.length) continue;
@@ -635,9 +670,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         try { slugDirs = fs.readdirSync(projectsBase, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name); } catch {}
         const projects = slugDirs.map(slug => {
           const projDir = path.join(projectsBase, slug);
-          // convert slug back to path: replace leading - and then each - that was /
-          const projPath = slug.replace(/-/g, '/');
-          const name = slug.split('-').filter(Boolean).pop() || slug;
+          const projPath = resolveSlugToPath(slug, projDir);
+          const name = projPath.split('/').filter(Boolean).pop() || slug.split('-').filter(Boolean).pop() || slug;
           let sessionCount = 0; let lastActivity = 0; let memoryCount = 0;
           try {
             const files = fs.readdirSync(projDir).filter(f => f.endsWith('.jsonl'));
@@ -847,6 +881,79 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           res.end(JSON.stringify({ error: err.message }));
         }
       });
+      return;
+    }
+
+    // ------------------------------------------------- GET /api/routing-feedback
+    if (req.method === 'GET' && url === '/api/routing-feedback') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const d = path.resolve(qs.get('dir') || projectDir || process.cwd());
+        const feedbackPath = path.join(d, '.monomind', 'routing-feedback.jsonl');
+        let rows = [];
+        if (fs.existsSync(feedbackPath)) {
+          const raw = fs.readFileSync(feedbackPath, 'utf-8');
+          rows = raw.split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify(rows));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+
+    // ---------------------------------------------------- GET /api/memory/stats
+    if (req.method === 'GET' && url === '/api/memory/stats') {
+      try {
+        const qs = new URL(req.url, 'http://localhost').searchParams;
+        const d = path.resolve(qs.get('dir') || projectDir || process.cwd());
+        const slug = d.replace(/\//g, '-');
+        const memDir = path.join(os.homedir(), '.claude', 'projects', slug, 'memory');
+
+        let total = 0, namespaces = 0, size = 0, lastWrite = null;
+        const byType = {};
+        if (fs.existsSync(memDir)) {
+          const files = fs.readdirSync(memDir).filter(f => f.endsWith('.md'));
+          total = files.length;
+          namespaces = files.length; // each .md file is a memory namespace
+          files.forEach(f => {
+            const fp = path.join(memDir, f);
+            try {
+              const st = fs.statSync(fp);
+              size += st.size;
+              if (!lastWrite || st.mtimeMs > lastWrite) lastWrite = st.mtimeMs;
+            } catch {}
+            const type = f.replace('.md', '');
+            byType[type] = (byType[type] || 0) + 1;
+          });
+        }
+
+        // Check for AgentDB / HNSW / RVF backends
+        const dbPath     = path.join(d, '.monomind', 'agentdb.db');
+        const hnswPath   = path.join(d, '.monomind', 'hnsw.index');
+        const rvfPath    = path.join(d, '.monomind', 'memory.rvf');
+
+        const stats = {
+          total,
+          count: total,
+          namespaces,
+          ns: Object.keys(byType).length,
+          size,
+          byType,
+          hnsw: fs.existsSync(hnswPath),
+          agentdb: fs.existsSync(dbPath),
+          rvf: fs.existsSync(rvfPath),
+          lastWrite,
+          memDir,
+        };
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ stats }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
       return;
     }
 
@@ -1165,7 +1272,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
 
         // Generate HTML on-the-fly from SQLite DB using the improved toHtml export
         if (fs.existsSync(dbPath)) {
-          const { openDb, closeDb, toHtml } = await import('@monoes/monograph');
+          const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
+          const { toHtml } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/export/html.js');
           const db = openDb(dbPath);
           let html;
           try {
@@ -1225,7 +1333,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         let report = null, exists = false, stats = null;
         if (fs.existsSync(dbPath)) {
           exists = true;
-          const { openDb, closeDb } = await import('@monoes/monograph');
+          const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
           const db = openDb(dbPath);
           try {
             const nodeCount = db.prepare('SELECT COUNT(*) AS c FROM nodes').get().c;
@@ -1268,7 +1376,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         let nodes = [], edges = [];
         if (fs.existsSync(dbPath)) {
-          const { openDb, closeDb } = await import('@monoes/monograph');
+          const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
           const db = openDb(dbPath);
           try {
             const nodeLimit = Math.min(parseInt(qs.get('limit') || '500', 10), 5000);
@@ -1406,7 +1514,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
 
         // Run doc parsing in background
         (async () => {
-          const { openDb, closeDb, isFileCached, updateFileCache, hashFileContent } = await import('@monoes/monograph');
+          const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
+          const { isFileCached, updateFileCache, hashFileContent } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/file-cache.js');
           const { readFileSync, readdirSync, statSync } = fs;
 
           const docExts = new Set(['.md', '.mdx', '.txt', '.rst']);
@@ -1569,7 +1678,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!id) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?id=' })); return; }
         if (!fs.existsSync(dbPath)) { res.writeHead(404); res.end(JSON.stringify({ error: 'Graph not built' })); return; }
-        const { openDb, closeDb } = await import('@monoes/monograph');
+        const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
         const db = openDb(dbPath);
         let content = '', filePath = '', startLine = 0, endLine = 0, language = '', name = '', type = '';
         try {
@@ -1619,7 +1728,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!q) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?q=' })); return; }
         if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ nodes: [] })); return; }
-        const { openDb, closeDb, ftsSearch } = await import('@monoes/monograph');
+        const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
+          const { ftsSearch } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/fts-store.js');
         const db = openDb(dbPath);
         let nodes = [];
         try {
@@ -1650,7 +1760,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!id || !fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ related: [] })); return; }
-        const { openDb, closeDb } = await import('@monoes/monograph');
+        const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
         const db = openDb(dbPath);
         const related = [];
         try {
@@ -1691,7 +1801,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const d = path.resolve(dir || process.cwd());
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!id || !fs.existsSync(dbPath)) { res.writeHead(404); res.end(JSON.stringify({ error: 'Not found' })); return; }
-        const { openDb, closeDb } = await import('@monoes/monograph');
+        const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
         const db = openDb(dbPath);
         let result = { node: null, content: '', neighbors: [], markdown: '' };
         try {
@@ -1751,7 +1861,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!q) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?q= parameter' })); return; }
         if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ success: false, result: 'Graph not built yet. Run: monomind monograph build' })); return; }
-        const { openDb, closeDb, ftsSearch } = await import('@monoes/monograph');
+        const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
+          const { ftsSearch } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/fts-store.js');
         const db = openDb(dbPath);
         let result = '';
         try {
@@ -1787,7 +1898,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!nodeQ) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?node= parameter' })); return; }
         if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ success: false, explanation: 'Graph not built yet. Run: monomind monograph build' })); return; }
-        const { openDb, closeDb, ftsSearch } = await import('@monoes/monograph');
+        const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
+          const { ftsSearch } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/fts-store.js');
         const db = openDb(dbPath);
         let explanation = '';
         try {
@@ -1829,7 +1941,33 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const dbPath = path.join(d, '.monomind', 'monograph.db');
         if (!from || !to) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing ?from= and ?to= parameters' })); return; }
         if (!fs.existsSync(dbPath)) { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ success: false, path: 'Graph not built yet.' })); return; }
-        const { openDb, closeDb, getShortestPath, ftsSearch } = await import('@monoes/monograph');
+        // Import only graphology-free storage modules to avoid broken graphology dep
+        const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
+        const { ftsSearch } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/fts-store.js');
+        // SQL-based BFS for shortest path (avoids graphology)
+        const getShortestPath = (db, fromId, toId, maxDepth = 6) => {
+          if (fromId === toId) return [fromId];
+          const visited = new Set([fromId]);
+          let frontier = [[fromId]];
+          for (let depth = 0; depth < maxDepth; depth++) {
+            const next = [];
+            for (const chain of frontier) {
+              const cur = chain[chain.length - 1];
+              const neighbors = db.prepare('SELECT target_id AS id FROM edges WHERE source_id=? UNION SELECT source_id AS id FROM edges WHERE target_id=?').all(cur, cur);
+              for (const { id } of neighbors) {
+                if (!visited.has(id)) {
+                  const newChain = [...chain, id];
+                  if (id === toId) return newChain;
+                  visited.add(id);
+                  next.push(newChain);
+                }
+              }
+            }
+            if (!next.length) break;
+            frontier = next;
+          }
+          return null;
+        };
         const db = openDb(dbPath);
         let pathResult = '';
         try {
@@ -1924,13 +2062,41 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const ok = (data) => { json(res); res.end(JSON.stringify({ content: [{ type: 'text', text: typeof data === 'string' ? data : JSON.stringify(data, null, 2) }] })); };
         const err = (msg) => { json(res); res.end(JSON.stringify({ error: msg })); };
         try {
-          const { tool, input = {} } = JSON.parse(body);
+          const { tool, input = {}, args = {} } = JSON.parse(body);
           const qs2 = new URL(req.url, 'http://localhost').searchParams;
-          const dir2 = qs2.get('dir') || projectDir;
+          // dir can come from: URL query string, body.args.dir, body.input.dir, or server default
+          const dir2 = qs2.get('dir') || args.dir || input.dir || projectDir;
           const d2 = path.resolve(dir2 || process.cwd());
           const dbPath2 = path.join(d2, '.monomind', 'monograph.db');
           if (!fs.existsSync(dbPath2)) { err('monograph.db not found — run monograph build first'); return; }
-          const { openDb, closeDb, ftsSearch, getShortestPath, countNodes, countEdges } = await import('@monoes/monograph');
+          // Import only graphology-free storage modules to avoid broken graphology dep
+          const { openDb, closeDb } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/db.js');
+          const { ftsSearch } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/fts-store.js');
+          const { countNodes } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/node-store.js');
+          const { countEdges } = await import('/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/dist/src/storage/edge-store.js');
+          const getShortestPath = (db, fromId, toId, maxDepth = 6) => {
+            if (fromId === toId) return [fromId];
+            const visited = new Set([fromId]);
+            let frontier = [[fromId]];
+            for (let depth = 0; depth < maxDepth; depth++) {
+              const next = [];
+              for (const chain of frontier) {
+                const cur = chain[chain.length - 1];
+                const neighbors = db.prepare('SELECT target_id AS id FROM edges WHERE source_id=? UNION SELECT source_id AS id FROM edges WHERE target_id=?').all(cur, cur);
+                for (const { id } of neighbors) {
+                  if (!visited.has(id)) {
+                    const newChain = [...chain, id];
+                    if (id === toId) return newChain;
+                    visited.add(id);
+                    next.push(newChain);
+                  }
+                }
+              }
+              if (!next.length) break;
+              frontier = next;
+            }
+            return null;
+          };
           const db2 = openDb(dbPath2);
           try {
             if (tool === 'monograph_stats') {
@@ -2180,6 +2346,145 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
                 if (!log.trim()) { ok('No git history found for this project directory.'); }
                 else { ok(`Author Analytics (by commit count):\n${'─'.repeat(50)}\n${log.trim().split('\n').map(l => { const m = l.trim().match(/^(\d+)\s+(.+)$/); return m ? `  ${m[2].padEnd(45)} ${m[1]} commits` : l; }).join('\n')}`); }
               } catch { ok('Author analytics requires git. Ensure this directory is a git repository.'); }
+
+            } else if (tool === 'monograph_reachability') {
+              // Files with no inbound edges (nothing imports them)
+              const allNodes = db2.prepare(`SELECT id, name, file_path FROM nodes WHERE label IN ('File','Module') LIMIT 5000`).all();
+              const inboundSet = new Set(db2.prepare(`SELECT DISTINCT target_id FROM edges`).all().map(r => r.target_id));
+              const unreachable = allNodes.filter(n => !inboundSet.has(n.id)).slice(0, 40);
+              const outdeg = db2.prepare(`SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id`);
+              const degMap = {};
+              for (const r of outdeg.all()) degMap[r.source_id] = r.c;
+              if (!unreachable.length) { ok('All files have at least one inbound reference.'); }
+              else ok(`Unreachable Files (${unreachable.length} of ${allNodes.length} total):\n${'─'.repeat(50)}\n${unreachable.slice(0,30).map(n => `  ${n.name || n.id.split('/').pop()} (imports ${degMap[n.id]||0} others)\n    ${n.file_path||''}`).join('\n\n')}`);
+
+            } else if (tool === 'monograph_vital_signs_snapshot') {
+              // Same as health_score — kept for backward compatibility
+              const n = db2.prepare('SELECT COUNT(*) as c FROM nodes').get().c;
+              const e = db2.prepare('SELECT COUNT(*) as c FROM edges').get().c;
+              const dead = db2.prepare(`SELECT COUNT(*) as c FROM nodes n WHERE NOT EXISTS (SELECT 1 FROM edges WHERE source_id=n.id OR target_id=n.id)`).get().c;
+              const hubs = db2.prepare(`SELECT COUNT(*) as c FROM (SELECT source_id FROM edges GROUP BY source_id HAVING COUNT(*)>20)`).get().c;
+              const density = n > 1 ? (e / (n * (n-1))).toFixed(6) : '0';
+              const score = Math.max(0, Math.min(100, Math.round(100 - (dead/Math.max(n,1)*30) - (hubs/Math.max(n,1)*500))));
+              ok(`Vital Signs — ${new Date().toISOString()}\n${'─'.repeat(50)}\n  Health Score:  ${score}/100  ${score>=80?'✓ OK':score>=60?'⚠ Warning':'✗ Critical'}\n  Nodes:         ${n}\n  Edges:         ${e}\n  Density:       ${density}\n  Dead symbols:  ${dead} (${(dead/Math.max(n,1)*100).toFixed(1)}%)\n  Hub nodes:     ${hubs} nodes with >20 edges`);
+
+            } else if (tool === 'monograph_circular_deps') {
+              // Find import cycles using iterative DFS
+              const limit = Math.min(parseInt(input.limit||'10'), 20);
+              const importEdges = db2.prepare(`SELECT source_id, target_id FROM edges WHERE relation IN ('IMPORTS','REQUIRES','USES','DEPENDS_ON') LIMIT 50000`).all();
+              const adj = {};
+              for (const e of importEdges) { (adj[e.source_id] = adj[e.source_id]||[]).push(e.target_id); }
+              const cycles = [];
+              const visited = new Set(), inStack = new Set();
+              function dfs(node, path) {
+                if (cycles.length >= limit) return;
+                if (inStack.has(node)) {
+                  const cycleStart = path.indexOf(node);
+                  if (cycleStart >= 0) cycles.push(path.slice(cycleStart).concat(node));
+                  return;
+                }
+                if (visited.has(node)) return;
+                visited.add(node); inStack.add(node); path.push(node);
+                for (const nb of (adj[node]||[])) dfs(nb, path);
+                path.pop(); inStack.delete(node);
+              }
+              for (const node of Object.keys(adj).slice(0, 2000)) dfs(node, []);
+              const getName = id => id.split('/').slice(-2).join('/');
+              if (!cycles.length) ok(`No circular dependencies found among ${Object.keys(adj).length} nodes with import edges.`);
+              else ok(`Circular Dependencies (${cycles.length} found):\n${'─'.repeat(50)}\n${cycles.slice(0,limit).map((c,i) => `  ${i+1}. ${c.map(getName).join(' → ')}`).join('\n')}`);
+
+            } else if (tool === 'monograph_largest_files') {
+              const limit2 = Math.min(parseInt(input.limit||'25'), 50);
+              const rows = db2.prepare(`SELECT file_path, MAX(end_line) as lines, COUNT(*) as symbols FROM nodes WHERE file_path IS NOT NULL AND end_line IS NOT NULL AND end_line > 0 GROUP BY file_path ORDER BY lines DESC LIMIT ${limit2}`).all();
+              if (!rows.length) ok('No line-count data available. Ensure the index was built with source parsing enabled.');
+              else ok(`Largest Files by Line Count:\n${'─'.repeat(50)}\n${rows.map((r,i) => `  ${String(i+1).padStart(2)}. ${r.lines.toString().padStart(5)} lines  ${r.symbols} symbols  ${r.file_path.split('/').slice(-2).join('/')}`).join('\n')}`);
+
+            } else if (tool === 'monograph_coupling_balance') {
+              // Fan-out (what this file uses) vs Fan-in (what uses this file)
+              const limit3 = Math.min(parseInt(input.limit||'20'), 40);
+              const fanOut = db2.prepare(`SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id`).all();
+              const fanIn  = db2.prepare(`SELECT target_id, COUNT(*) as c FROM edges GROUP BY target_id`).all();
+              const outMap = {}, inMap = {};
+              for (const r of fanOut) outMap[r.source_id] = r.c;
+              for (const r of fanIn)  inMap[r.target_id]  = r.c;
+              const allIds = new Set([...Object.keys(outMap), ...Object.keys(inMap)]);
+              const nodes3 = db2.prepare(`SELECT id, name, file_path FROM nodes WHERE label='File' LIMIT 10000`).all();
+              const fileSet = new Set(nodes3.map(n => n.id));
+              const entries = [...allIds].filter(id => fileSet.has(id)).map(id => {
+                const o = outMap[id]||0, i = inMap[id]||0;
+                const n = nodes3.find(x=>x.id===id);
+                return { name: n?.name || id.split('/').pop(), path: n?.file_path||'', out: o, inn: i, ratio: i > 0 ? (o/i).toFixed(1) : '∞' };
+              }).filter(x => x.out > 0 || x.inn > 0).sort((a,b) => (b.out+b.inn) - (a.out+a.inn)).slice(0, limit3);
+              ok(`Coupling Balance (Fan-out vs Fan-in, top ${limit3} by activity):\n${'─'.repeat(60)}\n  ${'File'.padEnd(35)} Out  In  Ratio\n${'─'.repeat(60)}\n${entries.map(e => `  ${e.name.slice(0,35).padEnd(35)} ${String(e.out).padStart(3)}  ${String(e.inn).padStart(2)}  ${e.ratio}`).join('\n')}`);
+
+            } else if (tool === 'monograph_dead_exports') {
+              // Exported symbols with zero inbound edges
+              const exported = db2.prepare(`SELECT id, name, label, file_path FROM nodes WHERE is_exported=1 LIMIT 10000`).all();
+              const inbound = new Set(db2.prepare(`SELECT DISTINCT target_id FROM edges`).all().map(r => r.target_id));
+              const dead2 = exported.filter(n => !inbound.has(n.id));
+              if (!dead2.length) ok('No dead exports found — all exported symbols have at least one inbound reference.');
+              else ok(`Dead Exports — exported but never imported (${dead2.length} of ${exported.length} exported symbols):\n${'─'.repeat(50)}\n${dead2.slice(0,30).map(n => `  ${n.label.padEnd(12)} ${n.name}  →  ${(n.file_path||'').split('/').slice(-2).join('/')}`).join('\n')}`);
+
+            } else if (tool === 'monograph_language_breakdown') {
+              const rows2 = db2.prepare(`SELECT language, COUNT(*) as c FROM nodes WHERE language IS NOT NULL AND language != '' GROUP BY language ORDER BY c DESC`).all();
+              if (!rows2.length) ok('No language metadata available in this graph index.');
+              else {
+                const total2 = rows2.reduce((s,r) => s+r.c, 0);
+                const maxC = rows2[0].c;
+                ok(`Language Breakdown:\n${'─'.repeat(50)}\n${rows2.map(r => { const bar = '█'.repeat(Math.round(r.c/maxC*20)); const pct = (r.c/total2*100).toFixed(1); return `  ${r.language.padEnd(15)} ${bar.padEnd(20)} ${String(r.c).padStart(6)} (${pct}%)`; }).join('\n')}\n\n  Total nodes: ${total2}`);
+              }
+
+            } else if (tool === 'monograph_instability') {
+              // Robert Martin's Instability = Ce / (Ca + Ce)
+              // Ca = afferent coupling (in-degree), Ce = efferent coupling (out-degree)
+              const limit4 = Math.min(parseInt(input.limit||'25'), 50);
+              const outRows = db2.prepare(`SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id`).all();
+              const inRows  = db2.prepare(`SELECT target_id, COUNT(*) as c FROM edges GROUP BY target_id`).all();
+              const Ce = {}, Ca = {};
+              for (const r of outRows) Ce[r.source_id] = r.c;
+              for (const r of inRows)  Ca[r.target_id]  = r.c;
+              const fileNodes = db2.prepare(`SELECT id, name, file_path FROM nodes WHERE label='File' LIMIT 10000`).all();
+              const entries4 = fileNodes.map(n => {
+                const ca = Ca[n.id]||0, ce = Ce[n.id]||0;
+                const total = ca + ce;
+                const inst = total > 0 ? ce / total : 0;
+                return { name: n.name||n.id.split('/').pop(), ca, ce, inst };
+              }).filter(x => x.ca+x.ce > 0).sort((a,b) => b.inst - a.inst);
+              const risky = entries4.filter(x => x.inst > 0.7 && x.ca > 3);
+              const stable = entries4.filter(x => x.inst < 0.2 && x.ce > 3);
+              ok(`Instability Index (Ce÷(Ca+Ce), 0=stable 1=unstable):\n${'─'.repeat(60)}\n\n  ⚠  High instability + high dependents (blast radius risk):\n${risky.slice(0,10).map(x => `     ${x.name.slice(0,40).padEnd(40)} I=${x.inst.toFixed(2)}  Ca=${x.ca}  Ce=${x.ce}`).join('\n')||'  none'}\n\n  ✓  Stable (low instability, many dependents on them):\n${stable.slice(0,8).map(x => `     ${x.name.slice(0,40).padEnd(40)} I=${x.inst.toFixed(2)}  Ca=${x.ca}  Ce=${x.ce}`).join('\n')||'  none'}\n\n  Total files analyzed: ${entries4.length}`);
+
+            } else if (tool === 'monograph_churn_hotspots') {
+              // Combines git churn frequency with structural complexity (out-degree)
+              const limit5 = Math.min(parseInt(input.limit||'15'), 30);
+              const { execSync: execS2 } = await import('child_process');
+              let churnMap = {};
+              try {
+                const since = input.since || '6 months ago';
+                const log2 = execS2(`git log --since="${since}" --name-only --format="" -- . 2>/dev/null | grep -v '^$' | sort | uniq -c | sort -rn | head -200`, { cwd: d2, encoding: 'utf-8', timeout: 8000 });
+                for (const line of log2.trim().split('\n')) {
+                  const m = line.trim().match(/^(\d+)\s+(.+)$/);
+                  if (m) churnMap[m[2]] = parseInt(m[1]);
+                }
+              } catch {}
+              if (!Object.keys(churnMap).length) { ok('No git history found — churn analysis requires a git repository.'); }
+              else {
+                const outDeg = db2.prepare(`SELECT source_id, COUNT(*) as c FROM edges GROUP BY source_id`).all();
+                const degMap2 = {};
+                for (const r of outDeg) degMap2[r.source_id] = r.c;
+                const fileNodes2 = db2.prepare(`SELECT id, name, file_path FROM nodes WHERE label='File' LIMIT 10000`).all();
+                const maxChurn = Math.max(...Object.values(churnMap), 1);
+                const maxDeg2 = Math.max(...Object.values(degMap2), 1);
+                const scored = fileNodes2.map(n => {
+                  const fp = n.file_path || '';
+                  const churn = churnMap[fp] || Object.entries(churnMap).find(([k]) => fp.endsWith(k))?.[1] || 0;
+                  const deg = degMap2[n.id] || 0;
+                  const score2 = (churn/maxChurn * 0.6) + (deg/maxDeg2 * 0.4);
+                  return { name: n.name||fp.split('/').pop(), fp, churn, deg, score: score2 };
+                }).filter(x => x.churn > 0 || x.deg > 5).sort((a,b) => b.score - a.score).slice(0, limit5);
+                if (!scored.length) ok('No files matched both churn and complexity criteria.');
+                else ok(`Churn × Complexity Hotspots (60% churn weight + 40% coupling weight):\n${'─'.repeat(60)}\n  ${'File'.padEnd(38)} Churn  Deps  Score\n${'─'.repeat(60)}\n${scored.map(x => `  ${x.name.slice(0,38).padEnd(38)} ${String(x.churn).padStart(5)}  ${String(x.deg).padStart(4)}  ${(x.score*100).toFixed(0)}%`).join('\n')}\n\n  Analyzed: ${scored.length} hotspot candidates from last ${input.since||'6 months'}`);
+              }
 
             } else {
               ok(`Tool "${tool}" not implemented in control panel`);
@@ -2938,7 +3243,7 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
           Object.values(agents).forEach(a => {
             if (a.status === 'running') agentsRunning++;
             else agentsIdle++;
-            budgetUsedTokens += (a.tokens_used || 0);
+            budgetUsedTokens += (a.tokens_used || ((a.tokens_in || 0) + (a.tokens_out || 0)));
           });
         } catch(_) {}
 
@@ -2977,13 +3282,16 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         res.end(JSON.stringify({
           agents_running: agentsRunning,
           agents_idle: agentsIdle,
+          agents_active: agentsRunning,
           open_issues: openIssues,
           in_progress_issues: inProgressIssues,
+          tasks_pending: openIssues + inProgressIssues,
           budget_used_tokens: budgetUsedTokens,
           budget_max_tokens: budgetMaxTokens,
           budget_used_pct: budgetUsedPct,
           run_success_rate_7d: successRate,
           total_runs_7d: totalRuns,
+          errors: [],
         }));
       } catch(_) { res.writeHead(500); res.end('{}'); }
       return;
@@ -3174,23 +3482,73 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const readJsonSafe = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch(_) { return null; } };
         const data = readJsonSafe(path.join(base, `${orgName}-approvals.json`)) || { approvals: [] };
         const approvals = (data.approvals || [])
-          .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+          .sort((a, b) => new Date(b.createdAt || b.created_at || b.requested_at || 0) - new Date(a.createdAt || a.created_at || a.requested_at || 0))
           .map(a => ({
             id: a.id,
             title: a.title || a.action || null,
+            action: a.action || a.title || null,
+            description: a.description || a.action || a.title || null,
             status: a.status || 'pending',
             agentId: a.agentId || a.agent_id || null,
             agentTitle: a.agentTitle || null,
+            requester: a.requester || a.agentTitle || a.agent_id || a.agentId || null,
+            agent: a.agent || a.agent_id || a.agentId || null,
             payload: a.payload || null,
-            createdAt: a.createdAt || null,
+            risk_level: a.risk_level || 'medium',
+            created_at: a.created_at || a.createdAt || a.requested_at || null,
+            createdAt: a.createdAt || a.created_at || a.requested_at || null,
             updatedAt: a.updatedAt || null,
             resolvedAt: a.resolvedAt || null,
             resolvedBy: a.resolvedBy || null,
+            ts: a.ts || null,
           }));
         const pending = approvals.filter(a => a.status === 'pending' || a.status === 'revision_requested').length;
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ approvals, pending }));
       } catch(_) { res.writeHead(500); res.end('{"approvals":[],"pending":0}'); }
+      return;
+    }
+
+    // POST /api/org/:name/approvals/:id — approve or reject a pending approval request
+    // Body: { action: "approve" | "reject" | "revision_requested" }
+    if (req.method === 'POST' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/approvals\/[^/]+$/i)) {
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      try {
+        const parts = url.split('/');
+        const orgName = decodeURIComponent(parts[3]);
+        const approvalId = decodeURIComponent(parts[5]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        if (!approvalId) { res.writeHead(400); res.end('{"error":"approval id required"}'); return; }
+        const parsed = JSON.parse(body);
+        const action = parsed.action;
+        if (!['approve', 'reject', 'revision_requested'].includes(action)) {
+          res.writeHead(400); res.end('{"error":"action must be approve, reject, or revision_requested"}'); return;
+        }
+        const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        const approvalsFile = path.join(base, `${orgName}-approvals.json`);
+        let data = { approvals: [] };
+        try { data = JSON.parse(fs.readFileSync(approvalsFile, 'utf8')); } catch(_) {}
+        const idx = (data.approvals || []).findIndex(a => a.id === approvalId);
+        if (idx === -1) { res.writeHead(404); res.end('{"error":"approval not found"}'); return; }
+        const status = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'revision_requested';
+        data.approvals[idx] = {
+          ...data.approvals[idx],
+          status,
+          resolvedAt: new Date().toISOString(),
+          resolvedBy: 'operator',
+        };
+        const tmp = `${approvalsFile}.tmp`;
+        fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
+        fs.renameSync(tmp, approvalsFile);
+        // Emit org:approval:resolved event so boss agent unblocks
+        const event = { type: 'org:approval:resolved', org: orgName, approval_id: approvalId, status, ts: Date.now() };
+        try { fs.appendFileSync(path.join(projectDir || process.cwd(), 'data', 'mastermind-events.jsonl'), JSON.stringify(event) + '\n'); } catch(_) {}
+        const msg = `data: ${JSON.stringify(event)}\n\n`;
+        for (const c of mmSseClients) { try { c.write(msg); } catch(_) { mmSseClients.delete(c); } }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ ok: true, status }));
+      } catch(_) { res.writeHead(500); res.end('{}'); }
       return;
     }
 
@@ -3229,13 +3587,25 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const base = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
         let budgetData = { org_budget: {}, agent_budgets: {}, period: 'monthly', currency: 'USD' };
         try { budgetData = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-budgets.json`), 'utf8')); } catch(_) {}
-        // Enrich with per-agent spend from state file
+        // Enrich with per-agent spend from state file.
+        // State file format: { agents: { "<role_id>": { tokens_in, tokens_out, ... } } }
         let agents = [];
         try {
           const state = JSON.parse(fs.readFileSync(path.join(base, `${orgName}-state.json`), 'utf8'));
-          agents = (state.roles || []).map(r => ({
-            id: r.id, title: r.title,
-            tokens_in: r.tokens_in || 0, tokens_out: r.tokens_out || 0, total_cost_usd: r.total_cost_usd || 0
+          const agentMap = state.agents || {};
+          // Also load role titles from org config for enrichment
+          let roleMap = {};
+          try {
+            const cfg = JSON.parse(fs.readFileSync(path.join(base, `${orgName}.json`), 'utf8'));
+            (cfg.roles || []).forEach(r => { roleMap[r.id] = r.title || r.id; });
+          } catch(_) {}
+          agents = Object.entries(agentMap).map(([id, s]) => ({
+            id,
+            title: roleMap[id] || s.title || id,
+            tokens_in: s.tokens_in || 0,
+            tokens_out: s.tokens_out || 0,
+            tokens_used: s.tokens_used || (s.tokens_in || 0) + (s.tokens_out || 0),
+            total_cost_usd: s.total_cost_usd || 0,
           }));
         } catch(_) {}
         // Also include roles from org config if state is empty
@@ -3295,6 +3665,105 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ requests, pending }));
       } catch(_) { res.writeHead(500); res.end('{"requests":[],"pending":0}'); }
+      return;
+    }
+
+    // GET /api/org/:name/goals — read org goals
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/goals$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const goalsFile = path.join(projectDir || process.cwd(), '.monomind', 'orgs', `${orgName}-goals.json`);
+        let data = { goals: [] };
+        try { data = JSON.parse(fs.readFileSync(goalsFile, 'utf8')); } catch(_) {}
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ goals: data.goals || [] }));
+      } catch(_) { res.writeHead(500); res.end('{"goals":[]}'); }
+      return;
+    }
+
+    // GET /api/org/:name/routines — read org routines
+    if (req.method === 'GET' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/routines$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const routinesFile = path.join(projectDir || process.cwd(), '.monomind', 'orgs', `${orgName}-routines.json`);
+        let data = { routines: [] };
+        try { data = JSON.parse(fs.readFileSync(routinesFile, 'utf8')); } catch(_) {}
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ routines: data.routines || [] }));
+      } catch(_) { res.writeHead(500); res.end('{"routines":[]}'); }
+      return;
+    }
+
+    // POST /api/org/:name/goals — upsert the org goals file
+    // Body: { goals: [{id, title, description, status, priority, assignee_id, created_at}] }
+    if (req.method === 'POST' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/goals$/i)) {
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const parsed = JSON.parse(body);
+        if (!parsed || !Array.isArray(parsed.goals)) { res.writeHead(400); res.end('{"error":"goals array required"}'); return; }
+        const goalsFile = path.join(projectDir || process.cwd(), '.monomind', 'orgs', `${orgName}-goals.json`);
+        const tmp = `${goalsFile}.tmp`;
+        const payload = { org: orgName, updated_at: new Date().toISOString(), goals: parsed.goals };
+        fs.writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf-8');
+        fs.renameSync(tmp, goalsFile);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ ok: true, count: parsed.goals.length }));
+      } catch(_) { res.writeHead(500); res.end('{"error":"' + String(_).replace(/"/g, '\\"') + '"}'); }
+      return;
+    }
+
+    // POST /api/org/:name/routines — upsert the org routines file
+    // Body: { routines: [{name, description, schedule, enabled, last_run, next_run}] }
+    if (req.method === 'POST' && url.match(/^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/routines$/i)) {
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const parsed = JSON.parse(body);
+        if (!parsed || !Array.isArray(parsed.routines)) { res.writeHead(400); res.end('{"error":"routines array required"}'); return; }
+        const routinesFile = path.join(projectDir || process.cwd(), '.monomind', 'orgs', `${orgName}-routines.json`);
+        const tmp = `${routinesFile}.tmp`;
+        const payload = { org: orgName, updated_at: new Date().toISOString(), routines: parsed.routines };
+        fs.writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf-8');
+        fs.renameSync(tmp, routinesFile);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ ok: true, count: parsed.routines.length }));
+      } catch(_) { res.writeHead(500); res.end('{"error":"' + String(_).replace(/"/g, '\\"') + '"}'); }
+      return;
+    }
+
+    // DELETE /api/orgs/:name — delete an org config and all associated data files
+    if (req.method === 'DELETE' && url.match(/^\/api\/orgs\/[a-z0-9][a-z0-9_-]{0,63}$/i)) {
+      try {
+        const orgName = decodeURIComponent(url.split('/')[3]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('Invalid org name'); return; }
+        const orgsDir = path.join(projectDir || process.cwd(), '.monomind', 'orgs');
+        const configFile = path.join(orgsDir, `${orgName}.json`);
+        if (!fs.existsSync(configFile)) { res.writeHead(404); res.end('{"error":"org not found"}'); return; }
+        // Remove all org-associated files (config + state + data)
+        const suffixes = ['', '-state', '-goals', '-routines', '-approvals', '-activity', '-issues', '-members', '-projects', '-workspaces', '-worktrees', '-environments', '-plugins', '-adapters'];
+        for (const suf of suffixes) {
+          const f = path.join(orgsDir, `${orgName}${suf}.json`);
+          try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch(_) {}
+          const fjsonl = path.join(orgsDir, `${orgName}${suf}.jsonl`);
+          try { if (fs.existsSync(fjsonl)) fs.unlinkSync(fjsonl); } catch(_) {}
+        }
+        // Remove stop file if present
+        try { fs.unlinkSync(path.join(orgsDir, '.stops', `${orgName}.stop`)); } catch(_) {}
+        // Emit org:delete event
+        const deleteEvent = { type: 'org:delete', org: orgName, ts: Date.now() };
+        try { fs.appendFileSync(path.join(projectDir || process.cwd(), 'data', 'mastermind-events.jsonl'), JSON.stringify(deleteEvent) + '\n'); } catch(_) {}
+        const msg = `data: ${JSON.stringify(deleteEvent)}\n\n`;
+        for (const c of mmSseClients) { try { c.write(msg); } catch(_) { mmSseClients.delete(c); } }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end('{"ok":true}');
+      } catch(_) { res.writeHead(500); res.end('{}'); }
       return;
     }
 
