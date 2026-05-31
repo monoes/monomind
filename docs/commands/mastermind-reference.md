@@ -52,8 +52,9 @@ Researches the project, picks the single best improvement, builds it, reviews un
 /mastermind:autodev                    # 1 improvement (default)
 /mastermind:autodev 3                  # 3 improvements in sequence
 /mastermind:autodev 3 --tillend        # 3 per session, repeat until done
-/mastermind:autodev --focus security  # bias toward security improvements
-/mastermind:autodev --focus dx        # bias toward developer experience
+/mastermind:autodev --focus security   # bias toward security improvements
+/mastermind:autodev --focus dx         # bias toward developer experience
+/mastermind:autodev --newfeature 5     # discover & fully deliver 5 brand-new features
 ```
 
 **Phases (per improvement):**
@@ -64,6 +65,33 @@ Researches the project, picks the single best improvement, builds it, reviews un
 5. **Log** — records completion to memory; continues to next improvement if count > 1
 
 **Leading integer = number of improvements** per session. `--tillend` keeps scheduling new sessions until an empty round.
+
+#### `--newfeature N` — Feature Discovery Mode
+
+Switches from improvement mode to a full end-to-end feature delivery pipeline. Instead of fixing or improving existing code, it discovers the N best genuinely-new capabilities the project is missing and delivers each one completely.
+
+```
+/mastermind:autodev --newfeature 3               # discover and deliver 3 new features
+/mastermind:autodev --newfeature 5 --confirm     # review shortlist before building
+/mastermind:autodev --newfeature 3 --focus dx    # bias discovery toward DX features
+```
+
+**Pipeline (per feature):**
+
+| Phase | What happens |
+|---|---|
+| **FP-0 Discovery** | Researches the project (git log, monograph, memory dedup) and produces a ranked shortlist of N genuinely-new features — not bugfixes, not refactors |
+| **Phase A — Build** | Invokes `mastermind:build` with a detailed spec: declared file list, acceptance criteria (3–5), blast radius guard, test requirements |
+| **Phase B — Review** | Inline review loop (max 5 iterations) until clean; uses before/after snapshots to track only files this phase touches |
+| **Phase C — Documentation** | Generates inline docstrings, README bullet, and CHANGELOG entry (only if CHANGELOG.md already exists) |
+| **Phase D — Delivery** | Stages only this feature's files — never `git add --all`; prints a suggested commit message |
+| **FP-End** | Summary table with per-feature status (`staged` / `no-op` / `skipped`), tmp cleanup, and staged count |
+
+**Notes:**
+- `--newfeature` is **incompatible with `--tillend`** — the flag is silently stripped if both are present
+- Features are capped at 10 per session (parse-time enforcement)
+- Nothing is committed — staging only; the user runs `git commit`
+- `--confirm` shows the ranked shortlist and waits for approval before building anything
 
 ---
 
