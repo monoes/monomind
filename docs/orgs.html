@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Organizations — Monomind</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta name="theme-color" content="#00D2AA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       oklch(9% 0.015 200);
+  --bg2:      oklch(12% 0.018 200);
+  --surface:  oklch(15% 0.020 200);
+  --surface2: oklch(19% 0.022 200);
+  --surface3: oklch(24% 0.020 200);
+  --border:   oklch(28% 0.018 200);
+  --border2:  oklch(35% 0.015 200);
+  --text:     oklch(94% 0.005 200);
+  --text2:    oklch(72% 0.010 200);
+  --muted:    oklch(50% 0.012 200);
+  --accent:   oklch(72% 0.22 168);
+  --accent-d: oklch(58% 0.20 168);
+  --accent-dim: oklch(72% 0.22 168 / 0.12);
+  --amber:    oklch(72% 0.18 65);
+  --amber-dim: oklch(72% 0.18 65 / 0.12);
+  --violet:   oklch(66% 0.17 295);
+  --violet-dim: oklch(66% 0.17 295 / 0.12);
+  --ff-d: 'Space Grotesk', system-ui, sans-serif;
+  --ff-b: 'DM Sans', system-ui, sans-serif;
+  --ff-m: 'Fira Code', 'Cascadia Code', monospace;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--ff-b);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── Back nav ── */
+.top-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 40px;
+  background: oklch(9% 0.015 200 / 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.top-nav a {
+  font-family: var(--ff-d); font-size: 13px; font-weight: 500;
+  color: var(--text2); text-decoration: none;
+  display: flex; align-items: center; gap: 6px;
+  transition: color 0.15s;
+}
+.top-nav a:hover { color: var(--accent); }
+.top-nav a svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+.top-nav-sep { color: var(--muted); font-size: 13px; }
+.top-nav-title { font-family: var(--ff-d); font-size: 13px; font-weight: 600; color: var(--text); }
+
+/* ── Hero ── */
+#hero {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  padding: 120px 80px 80px;
+  gap: 80px;
+  position: relative;
+  overflow: hidden;
+}
+.hero-bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 70% 50%, oklch(72% 0.22 168 / 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 20% 80%, oklch(66% 0.17 295 / 0.05) 0%, transparent 60%);
+  pointer-events: none;
+}
+.hero-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.25;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%);
+}
+.hero-left { position: relative; z-index: 1; }
+.hero-eyebrow {
+  font-size: 10.5px; letter-spacing: 0.18em; font-weight: 600;
+  color: var(--accent); text-transform: uppercase; margin-bottom: 24px;
+  display: flex; align-items: center; gap: 10px;
+}
+.hero-eyebrow::before {
+  content: ''; display: block; width: 28px; height: 1px; background: var(--accent);
+}
+.hero-title {
+  font-family: var(--ff-d);
+  font-size: clamp(38px, 4.5vw, 68px);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  margin-bottom: 28px;
+}
+.hero-title em {
+  font-style: normal;
+  color: var(--accent);
+}
+.hero-sub {
+  font-size: 17px; color: var(--text2); max-width: 520px;
+  line-height: 1.65; margin-bottom: 44px;
+}
+.hero-commands {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-bottom: 48px;
+}
+.hero-cmd {
+  font-family: var(--ff-m); font-size: 13.5px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 16px;
+  display: flex; align-items: center; gap: 12px;
+  color: var(--text2);
+}
+.hero-cmd .cmd-prompt { color: var(--accent); }
+.hero-cmd .cmd-name { color: var(--text); font-weight: 500; }
+.hero-cmd .cmd-arg { color: var(--amber); }
+.hero-cmd .cmd-comment { color: var(--muted); font-size: 12px; }
+.hero-badges {
+  display: flex; gap: 10px; flex-wrap: wrap;
+}
+.badge {
+  font-family: var(--ff-d); font-size: 11.5px; font-weight: 500;
+  padding: 5px 12px; border-radius: 100px;
+  border: 1px solid currentColor;
+}
+.badge-accent { color: var(--accent); border-color: oklch(72% 0.22 168 / 0.4); background: var(--accent-dim); }
+.badge-amber { color: var(--amber); border-color: oklch(72% 0.18 65 / 0.4); background: var(--amber-dim); }
+.badge-violet { color: var(--violet); border-color: oklch(66% 0.17 295 / 0.4); background: var(--violet-dim); }
+
+/* Org graph in hero */
+.hero-right { position: relative; z-index: 1; }
+#org-graph-svg {
+  width: 100%; height: 520px;
+  overflow: visible;
+}
+
+/* ── Section base ── */
+.section {
+  padding: 100px 80px;
+  position: relative;
+}
+.section-label {
+  font-size: 10px; letter-spacing: 0.2em; font-weight: 600;
+  color: var(--muted); text-transform: uppercase; margin-bottom: 14px;
+}
+.section-title {
+  font-family: var(--ff-d); font-size: clamp(26px, 3vw, 42px);
+  font-weight: 700; letter-spacing: -0.025em; margin-bottom: 18px;
+}
+.section-sub {
+  font-size: 16px; color: var(--text2); max-width: 580px; line-height: 1.65;
+}
+
+/* ── How it works ── */
+#how { background: var(--bg2); }
+.how-steps {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 2px; margin-top: 60px;
+  border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+}
+.how-step {
+  padding: 44px 36px;
+  background: var(--surface);
+  position: relative;
+}
+.how-step:not(:last-child)::after {
+  content: '';
+  position: absolute; top: 50%; right: -1px;
+  width: 1px; height: 60%;
+  transform: translateY(-50%);
+  background: linear-gradient(to bottom, transparent, var(--border), transparent);
+}
+.step-num {
+  font-family: var(--ff-m); font-size: 11px; font-weight: 500;
+  color: var(--muted); letter-spacing: 0.1em;
+  margin-bottom: 20px;
+}
+.step-cmd {
+  font-family: var(--ff-m); font-size: 14px;
+  color: var(--accent); font-weight: 500;
+  margin-bottom: 14px;
+}
+.step-title {
+  font-family: var(--ff-d); font-size: 19px; font-weight: 600;
+  margin-bottom: 12px;
+}
+.step-desc { font-size: 14px; color: var(--text2); line-height: 1.6; }
+.step-arrow {
+  position: absolute; right: -20px; top: 50%;
+  transform: translateY(-50%);
+  width: 40px; height: 40px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  z-index: 2;
+  color: var(--accent);
+}
+
+/* ── createorg deep dive ── */
+#createorg-section {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 80px; align-items: start;
+}
+.terminal-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+}
+.terminal-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.term-dot { width: 10px; height: 10px; border-radius: 50%; }
+.term-dot-r { background: oklch(62% 0.20 22); }
+.term-dot-y { background: oklch(72% 0.18 65); }
+.term-dot-g { background: oklch(72% 0.22 168); }
+.terminal-title {
+  font-family: var(--ff-m); font-size: 11px; color: var(--muted);
+  margin-left: auto;
+}
+.terminal-body {
+  padding: 24px 24px;
+  font-family: var(--ff-m); font-size: 12.5px; line-height: 1.8;
+}
+.t-prompt { color: var(--accent); }
+.t-cmd { color: var(--text); }
+.t-arg { color: var(--amber); }
+.t-comment { color: var(--muted); }
+.t-out { color: var(--text2); }
+.t-success { color: var(--accent); }
+.t-key { color: var(--violet); }
+.t-val { color: var(--amber); }
+.t-str { color: oklch(72% 0.16 140); }
+.t-line { display: block; }
+.t-indent { padding-left: 20px; }
+.t-cursor {
+  display: inline-block; width: 8px; height: 14px;
+  background: var(--accent); vertical-align: middle;
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+.createorg-features {
+  display: flex; flex-direction: column; gap: 28px;
+  padding-top: 10px;
+}
+.feature-item {
+  display: flex; gap: 18px; align-items: flex-start;
+}
+.feature-icon {
+  width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.fi-accent { background: var(--accent-dim); }
+.fi-amber { background: var(--amber-dim); }
+.fi-violet { background: var(--violet-dim); }
+.feature-label {
+  font-family: var(--ff-d); font-size: 14px; font-weight: 600;
+  margin-bottom: 5px;
+}
+.feature-desc { font-size: 13.5px; color: var(--text2); line-height: 1.5; }
+
+/* ── runorg section ── */
+#runorg-section { background: var(--bg2); }
+.runorg-inner {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 80px; align-items: start;
+  margin-top: 60px;
+}
+.agent-list {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.agent-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px 20px;
+  display: flex; align-items: center; gap: 16px;
+  transition: border-color 0.3s, background 0.3s;
+}
+.agent-card.running {
+  border-color: oklch(72% 0.22 168 / 0.5);
+  background: oklch(72% 0.22 168 / 0.04);
+}
+.agent-card.spawning {
+  border-color: oklch(72% 0.18 65 / 0.5);
+  background: oklch(72% 0.18 65 / 0.04);
+}
+.agent-status-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  background: var(--muted);
+  transition: background 0.3s;
+}
+.agent-card.running .agent-status-dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.agent-card.spawning .agent-status-dot { background: var(--amber); animation: pulse-dot 1s ease-in-out infinite; }
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 4px var(--amber); }
+  50% { box-shadow: 0 0 12px var(--amber); }
+}
+.agent-info { flex: 1; min-width: 0; }
+.agent-title { font-family: var(--ff-d); font-size: 13px; font-weight: 600; }
+.agent-type { font-family: var(--ff-m); font-size: 11px; color: var(--muted); margin-top: 2px; }
+.agent-tag {
+  font-family: var(--ff-m); font-size: 10px; font-weight: 500;
+  padding: 3px 8px; border-radius: 4px;
+}
+.tag-running { background: var(--accent-dim); color: var(--accent); }
+.tag-idle { background: var(--surface2); color: var(--muted); }
+.tag-spawning { background: var(--amber-dim); color: var(--amber); }
+
+.task-board {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+}
+.board-header {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border);
+}
+.board-col-header {
+  flex: 1; padding: 12px 16px;
+  font-family: var(--ff-d); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted);
+  border-right: 1px solid var(--border);
+}
+.board-col-header:last-child { border-right: none; }
+.board-body {
+  display: flex; min-height: 280px;
+}
+.board-col {
+  flex: 1; padding: 12px;
+  border-right: 1px solid var(--border);
+}
+.board-col:last-child { border-right: none; }
+.task-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 7px; padding: 10px 12px;
+  margin-bottom: 8px; font-size: 12px;
+}
+.task-card-title { font-weight: 500; margin-bottom: 4px; color: var(--text); }
+.task-card-role { font-family: var(--ff-m); font-size: 10px; color: var(--muted); }
+.task-card.doing { border-color: oklch(72% 0.22 168 / 0.4); }
+.task-card.done { border-color: oklch(72% 0.22 168 / 0.25); opacity: 0.7; }
+.task-card.done .task-card-title { text-decoration: line-through; color: var(--muted); }
+
+/* ── Use cases ── */
+#usecases { padding: 100px 80px; }
+.cases-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 12px; margin-top: 60px;
+}
+.case-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px; padding: 28px 22px;
+  cursor: pointer; transition: border-color 0.25s, transform 0.25s var(--ease);
+  position: relative; overflow: hidden;
+}
+.case-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: var(--case-glow, var(--accent-dim));
+  opacity: 0; transition: opacity 0.3s;
+}
+.case-card:hover { border-color: var(--case-color, var(--accent)); transform: translateY(-4px); }
+.case-card:hover::before { opacity: 1; }
+.case-card.active { border-color: var(--case-color, var(--accent)); }
+.case-card.active::before { opacity: 1; }
+.case-icon {
+  font-size: 28px; margin-bottom: 16px;
+  filter: grayscale(0);
+}
+.case-title {
+  font-family: var(--ff-d); font-size: 14px; font-weight: 700;
+  margin-bottom: 8px; line-height: 1.3;
+  position: relative; z-index: 1;
+}
+.case-sub {
+  font-size: 12px; color: var(--text2); line-height: 1.5;
+  position: relative; z-index: 1;
+}
+.case-roles {
+  display: flex; gap: 4px; flex-wrap: wrap; margin-top: 14px;
+  position: relative; z-index: 1;
+}
+.case-role-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--case-color, var(--accent));
+  opacity: 0.6;
+}
+
+/* Case detail panel */
+.case-detail {
+  margin-top: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px; padding: 40px;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  min-height: 340px;
+}
+.case-detail-team h4 {
+  font-family: var(--ff-d); font-size: 12px; font-weight: 600;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em;
+  margin-bottom: 20px;
+}
+.case-detail-roles { display: flex; flex-direction: column; gap: 10px; }
+.case-detail-role {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 13px;
+}
+.cdr-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--case-color, var(--accent));
+  flex-shrink: 0;
+}
+.cdr-title { font-weight: 500; }
+.cdr-type { font-family: var(--ff-m); font-size: 11px; color: var(--muted); }
+.case-detail-command h4 {
+  font-family: var(--ff-d); font-size: 12px; font-weight: 600;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em;
+  margin-bottom: 20px;
+}
+
+/* ── Topology diagram ── */
+.topo-svg { width: 100%; height: 260px; }
+
+/* ── Footer ── */
+.page-footer {
+  border-top: 1px solid var(--border);
+  padding: 40px 80px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.footer-left { font-size: 13px; color: var(--muted); }
+.footer-links { display: flex; gap: 24px; }
+.footer-links a { font-size: 13px; color: var(--text2); text-decoration: none; transition: color 0.15s; }
+.footer-links a:hover { color: var(--accent); }
+
+/* ── Scroll animations base ── */
+.reveal { opacity: 0; transform: translateY(24px); }
+
+/* ── Divider ── */
+.section-divider {
+  height: 1px; background: var(--border);
+  margin: 0 80px;
+}
+
+/* ── Topology showcase ── */
+#topology { padding: 100px 80px; background: var(--bg2); }
+.topo-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 20px; margin-top: 60px;
+}
+.topo-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 32px 28px;
+}
+.topo-name {
+  font-family: var(--ff-m); font-size: 12px; color: var(--accent);
+  margin-bottom: 8px;
+}
+.topo-title {
+  font-family: var(--ff-d); font-size: 17px; font-weight: 600;
+  margin-bottom: 8px;
+}
+.topo-desc { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
+.topo-when {
+  font-size: 11.5px; color: var(--muted);
+  border-top: 1px solid var(--border); padding-top: 14px; margin-top: 14px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1100px) {
+  #hero { grid-template-columns: 1fr; padding: 100px 40px 60px; gap: 60px; }
+  .hero-right { display: none; }
+  .section { padding: 60px 40px; }
+  #createorg-section { grid-template-columns: 1fr; gap: 40px; }
+  .how-steps { grid-template-columns: 1fr; }
+  .runorg-inner { grid-template-columns: 1fr; }
+  .cases-grid { grid-template-columns: repeat(2, 1fr); }
+  .case-detail { grid-template-columns: 1fr; }
+  .topo-grid { grid-template-columns: 1fr; }
+  #usecases { padding: 60px 40px; }
+  #topology { padding: 60px 40px; }
+  .page-footer { padding: 30px 40px; flex-direction: column; gap: 16px; text-align: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; }
+  .t-cursor { animation: none; }
+  .agent-card.spawning .agent-status-dot { animation: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="top-nav">
+  <a href="index.html">
+    <svg viewBox="0 0 16 16"><polyline points="10 12 4 8 10 4"/></svg>
+    Monomind
+  </a>
+  <span class="top-nav-sep">/</span>
+  <span class="top-nav-title">Organizations</span>
+</nav>
+
+<!-- ═══════════════════════ HERO ═══════════════════════ -->
+<section id="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+
+  <div class="hero-left">
+    <div class="hero-eyebrow">Autonomous Organizations</div>
+    <h1 class="hero-title">
+      Assemble an AI team.<br>
+      Let it <em>run itself.</em>
+    </h1>
+    <p class="hero-sub">
+      Design a multi-agent organization in one command. Define roles, hierarchy, and communication topology — then start it as a persistent daemon that coordinates agents, manages tasks, and delivers output while you focus elsewhere.
+    </p>
+
+    <div class="hero-commands">
+      <div class="hero-cmd">
+        <span class="cmd-prompt">/</span>
+        <span class="cmd-name">mastermind:createorg</span>
+        <span class="cmd-arg">content-team</span>
+        <span class="cmd-comment">&nbsp;# design the org</span>
+      </div>
+      <div class="hero-cmd">
+        <span class="cmd-prompt">/</span>
+        <span class="cmd-name">mastermind:runorg</span>
+        <span class="cmd-arg">--org content-team</span>
+        <span class="cmd-comment">&nbsp;# start it</span>
+      </div>
+    </div>
+
+    <div class="hero-badges">
+      <span class="badge badge-accent">Persistent daemon</span>
+      <span class="badge badge-amber">Shared task board</span>
+      <span class="badge badge-violet">Memory-backed</span>
+      <span class="badge badge-accent">Auto-topology</span>
+    </div>
+  </div>
+
+  <div class="hero-right" aria-hidden="true">
+    <svg id="org-graph-svg" viewBox="0 0 480 520">
+      <defs>
+        <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L6,3 z" fill="oklch(72% 0.22 168 / 0.6)"/>
+        </marker>
+        <marker id="arrow-amber" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L6,3 z" fill="oklch(72% 0.18 65 / 0.6)"/>
+        </marker>
+        <filter id="glow-accent">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+          <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+        <filter id="glow-amber">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+          <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+      </defs>
+
+      <!-- Connection lines -->
+      <!-- Boss → Middle Manager -->
+      <line class="org-edge" x1="240" y1="80" x2="240" y2="185" stroke="oklch(72% 0.22 168 / 0.4)" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6 3"/>
+      <!-- Middle Manager → Content Writer -->
+      <line class="org-edge" x1="210" y1="230" x2="120" y2="315" stroke="oklch(72% 0.22 168 / 0.3)" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6 3"/>
+      <!-- Middle Manager → Designer -->
+      <line class="org-edge" x1="240" y1="235" x2="240" y2="315" stroke="oklch(72% 0.22 168 / 0.3)" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6 3"/>
+      <!-- Middle Manager → Marketer -->
+      <line class="org-edge" x1="270" y1="230" x2="360" y2="315" stroke="oklch(72% 0.22 168 / 0.3)" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="6 3"/>
+      <!-- Content Writer → Reviewer handoff -->
+      <line class="org-edge" x1="120" y1="365" x2="120" y2="425" stroke="oklch(72% 0.18 65 / 0.35)" stroke-width="1.5" marker-end="url(#arrow-amber)" stroke-dasharray="4 4"/>
+
+      <!-- Boss node -->
+      <g class="org-node" id="node-boss">
+        <circle cx="240" cy="52" r="36" fill="oklch(15% 0.020 200)" stroke="oklch(72% 0.22 168)" stroke-width="2" filter="url(#glow-accent)"/>
+        <text x="240" y="47" text-anchor="middle" font-family="Space Grotesk" font-size="11" font-weight="600" fill="oklch(72% 0.22 168)">CEO</text>
+        <text x="240" y="61" text-anchor="middle" font-family="Fira Code" font-size="9" fill="oklch(72% 0.22 168 / 0.7)">coordinator</text>
+      </g>
+
+      <!-- Middle Manager node -->
+      <g class="org-node" id="node-mm">
+        <circle cx="240" cy="210" r="30" fill="oklch(15% 0.020 200)" stroke="oklch(72% 0.22 168 / 0.7)" stroke-width="1.5"/>
+        <text x="240" y="205" text-anchor="middle" font-family="Space Grotesk" font-size="10" font-weight="600" fill="oklch(93% 0.005 200)">Manager</text>
+        <text x="240" y="218" text-anchor="middle" font-family="Fira Code" font-size="8" fill="oklch(72% 0.22 168 / 0.6)">shepherd</text>
+      </g>
+
+      <!-- Content Writer -->
+      <g class="org-node" id="node-writer">
+        <rect x="72" y="322" width="96" height="42" rx="8" fill="oklch(15% 0.020 200)" stroke="oklch(72% 0.18 65 / 0.7)" stroke-width="1.5"/>
+        <text x="120" y="338" text-anchor="middle" font-family="Space Grotesk" font-size="10" font-weight="600" fill="oklch(93% 0.005 200)">Writer</text>
+        <text x="120" y="353" text-anchor="middle" font-family="Fira Code" font-size="8" fill="oklch(72% 0.18 65 / 0.7)">Content Creator</text>
+      </g>
+
+      <!-- Reviewer -->
+      <g class="org-node" id="node-reviewer">
+        <rect x="72" y="432" width="96" height="42" rx="8" fill="oklch(15% 0.020 200)" stroke="oklch(66% 0.17 295 / 0.7)" stroke-width="1.5"/>
+        <text x="120" y="448" text-anchor="middle" font-family="Space Grotesk" font-size="10" font-weight="600" fill="oklch(93% 0.005 200)">Reviewer</text>
+        <text x="120" y="463" text-anchor="middle" font-family="Fira Code" font-size="8" fill="oklch(66% 0.17 295 / 0.7)">reviewer</text>
+      </g>
+
+      <!-- Designer -->
+      <g class="org-node" id="node-designer">
+        <rect x="192" y="322" width="96" height="42" rx="8" fill="oklch(15% 0.020 200)" stroke="oklch(66% 0.17 295 / 0.7)" stroke-width="1.5"/>
+        <text x="240" y="338" text-anchor="middle" font-family="Space Grotesk" font-size="10" font-weight="600" fill="oklch(93% 0.005 200)">Designer</text>
+        <text x="240" y="353" text-anchor="middle" font-family="Fira Code" font-size="8" fill="oklch(66% 0.17 295 / 0.7)">Monodesign</text>
+      </g>
+
+      <!-- Marketer -->
+      <g class="org-node" id="node-marketer">
+        <rect x="312" y="322" width="96" height="42" rx="8" fill="oklch(15% 0.020 200)" stroke="oklch(72% 0.18 65 / 0.7)" stroke-width="1.5"/>
+        <text x="360" y="338" text-anchor="middle" font-family="Space Grotesk" font-size="10" font-weight="600" fill="oklch(93% 0.005 200)">Marketer</text>
+        <text x="360" y="353" text-anchor="middle" font-family="Fira Code" font-size="8" fill="oklch(72% 0.18 65 / 0.7)">Growth Hacker</text>
+      </g>
+
+      <!-- Pulse particles (animated by JS) -->
+      <circle class="pulse-particle" r="4" fill="oklch(72% 0.22 168)" opacity="0"/>
+      <circle class="pulse-particle pulse-amber" r="4" fill="oklch(72% 0.18 65)" opacity="0"/>
+
+      <!-- Legend -->
+      <g transform="translate(0, 490)">
+        <line x1="10" y1="8" x2="40" y2="8" stroke="oklch(72% 0.22 168 / 0.6)" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#arrow)"/>
+        <text x="48" y="12" font-family="DM Sans" font-size="10" fill="oklch(50% 0.012 200)">command / report</text>
+        <line x1="160" y1="8" x2="190" y2="8" stroke="oklch(72% 0.18 65 / 0.6)" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#arrow-amber)"/>
+        <text x="198" y="12" font-family="DM Sans" font-size="10" fill="oklch(50% 0.012 200)">handoff</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- ═══════════════════════ HOW IT WORKS ═══════════════════════ -->
+<section id="how" class="section">
+  <div class="section-label reveal">Two commands. One autonomous team.</div>
+  <h2 class="section-title reveal">From goal to running organization</h2>
+  <p class="section-sub reveal">createorg designs and persists the org structure. runorg loads it and starts the boss agent, which coordinates all roles autonomously from a shared task board.</p>
+
+  <div class="how-steps">
+    <div class="how-step reveal">
+      <div class="step-num">01</div>
+      <div class="step-cmd">/mastermind:createorg</div>
+      <div class="step-title">Design the org</div>
+      <p class="step-desc">Describe a goal. Monomind derives roles, maps agent types, builds the communication topology, and saves a config to <code style="font-family:var(--ff-m);font-size:11px;color:var(--accent)">.monomind/orgs/</code>.</p>
+    </div>
+    <div class="how-step reveal">
+      <div class="step-num">02</div>
+      <div class="step-cmd">Org config saved</div>
+      <div class="step-title">Roles + topology</div>
+      <p class="step-desc">JSON definition with role IDs, agent type slugs, communication edges (command, report, feedback, handoff), governance policy, and a monotask board.</p>
+    </div>
+    <div class="how-step reveal">
+      <div class="step-num">03</div>
+      <div class="step-cmd">/mastermind:runorg</div>
+      <div class="step-title">Start the daemon</div>
+      <p class="step-desc">Spawns the boss agent in the background. Boss coordinates all roles, claims and dispatches tasks from the board, checkpoints every 30 minutes, and loops until stopped.</p>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ═══════════════════════ CREATEORG ═══════════════════════ -->
+<section class="section">
+  <div class="section-label reveal">/mastermind:createorg</div>
+  <h2 class="section-title reveal">Design your organization</h2>
+  <p class="section-sub reveal">One prompt. Monomind infers roles, maps each to a specialized agent type, derives the optimal communication topology for the team size, and saves a persistent JSON config ready to run.</p>
+
+  <div id="createorg-section" style="margin-top:56px;">
+    <div class="terminal-block reveal">
+      <div class="terminal-header">
+        <span class="term-dot term-dot-r"></span>
+        <span class="term-dot term-dot-y"></span>
+        <span class="term-dot term-dot-g"></span>
+        <span class="terminal-title">mastermind:createorg — content-team</span>
+      </div>
+      <div class="terminal-body">
+        <span class="t-line"><span class="t-prompt">/ </span><span class="t-cmd">mastermind:createorg</span> <span class="t-arg">content-team</span></span>
+        <span class="t-line t-comment">  "Build and publish 3 blog posts per week on AI dev tools"</span>
+        <span class="t-line">&nbsp;</span>
+        <span class="t-line t-out">Deriving roles from goal...</span>
+        <span class="t-line">&nbsp;</span>
+        <span class="t-line"><span style="color:var(--accent)">╔</span> ORG: content-team</span>
+        <span class="t-line"><span style="color:var(--accent)">║</span> GOAL: 3 blog posts/week on AI dev tools</span>
+        <span class="t-line"><span style="color:var(--accent)">╚</span> TOPOLOGY: star (5 roles)</span>
+        <span class="t-line">&nbsp;</span>
+        <span class="t-line"><span class="t-out">ROLES</span></span>
+        <span class="t-line t-indent"><span class="t-key">boss</span> <span class="t-out">→</span> <span class="t-val">coordinator</span> <span class="t-comment"># strategic oversight</span></span>
+        <span class="t-line t-indent"><span class="t-key">writer</span> <span class="t-out">→</span> <span class="t-val">Content Creator</span> <span class="t-comment"># drafts posts</span></span>
+        <span class="t-line t-indent"><span class="t-key">reviewer</span> <span class="t-out">→</span> <span class="t-val">reviewer</span> <span class="t-comment"># edits + approves</span></span>
+        <span class="t-line t-indent"><span class="t-key">marketer</span> <span class="t-out">→</span> <span class="t-val">Growth Hacker</span> <span class="t-comment"># distribution</span></span>
+        <span class="t-line t-indent"><span class="t-key">seo</span> <span class="t-out">→</span> <span class="t-val">SEO Specialist</span> <span class="t-comment"># keyword + meta</span></span>
+        <span class="t-line">&nbsp;</span>
+        <span class="t-line t-out">Type "go" to save, or describe changes.</span>
+        <span class="t-line">&nbsp;</span>
+        <span class="t-line"><span class="t-prompt">→ </span><span class="t-cmd">go</span></span>
+        <span class="t-line">&nbsp;</span>
+        <span class="t-line"><span class="t-success">✓</span> Saved to .monomind/orgs/content-team.json</span>
+        <span class="t-line t-out">  → Run: /mastermind:runorg --org content-team</span>
+        <span class="t-line">&nbsp;</span>
+        <span class="t-cursor"></span>
+      </div>
+    </div>
+
+    <div class="createorg-features reveal">
+      <div class="feature-item">
+        <div class="feature-icon fi-accent">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="oklch(72% 0.22 168)" stroke-width="1.5">
+            <circle cx="10" cy="6" r="3"/><path d="M4 17c0-3.3 2.7-6 6-6s6 2.7 6 6"/>
+          </svg>
+        </div>
+        <div>
+          <div class="feature-label">Goal-derived roles</div>
+          <div class="feature-desc">Describe what the org should achieve. Monomind infers which roles are needed and maps each to the right specialist agent type from 60+ available.</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon fi-amber">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="oklch(72% 0.18 65)" stroke-width="1.5">
+            <polygon points="10,2 18,18 2,18"/><line x1="10" y1="8" x2="10" y2="12"/><circle cx="10" cy="15" r="0.5" fill="oklch(72% 0.18 65)"/>
+          </svg>
+        </div>
+        <div>
+          <div class="feature-label">Auto topology</div>
+          <div class="feature-desc">1–3 roles get mesh (direct), 4–6 get star, 7+ get hierarchical with middle managers. Communication edges (command, report, handoff) are derived automatically.</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon fi-violet">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="oklch(66% 0.17 295)" stroke-width="1.5">
+            <rect x="3" y="3" width="14" height="14" rx="2"/>
+            <line x1="7" y1="7" x2="13" y2="7"/><line x1="7" y1="10" x2="13" y2="10"/><line x1="7" y1="13" x2="10" y2="13"/>
+          </svg>
+        </div>
+        <div>
+          <div class="feature-label">Persistent config</div>
+          <div class="feature-desc">The org definition is saved to JSON with board IDs, column IDs, governance policy, token budget, and memory namespace — ready to run any time.</div>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon fi-accent">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="oklch(72% 0.22 168)" stroke-width="1.5">
+            <path d="M3 10h14M3 6h14M3 14h8"/>
+          </svg>
+        </div>
+        <div>
+          <div class="feature-label">Governance modes</div>
+          <div class="feature-desc"><code style="font-family:var(--ff-m);font-size:11px">auto</code> — agents act freely. <code style="font-family:var(--ff-m);font-size:11px">board</code> — sensitive actions require approval. <code style="font-family:var(--ff-m);font-size:11px">strict</code> — every external action gates on human review.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ═══════════════════════ RUNORG ═══════════════════════ -->
+<section id="runorg-section" class="section">
+  <div class="section-label reveal">/mastermind:runorg</div>
+  <h2 class="section-title reveal">Start the autonomous loop</h2>
+  <p class="section-sub reveal">The boss agent spawns in the background. It coordinates all roles, assigns tasks from a shared board, collects results into memory, and loops on a checkpoint interval — running until you stop it.</p>
+
+  <div class="runorg-inner">
+    <div class="reveal">
+      <h3 style="font-family:var(--ff-d);font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:20px;">Active agents</h3>
+      <div class="agent-list" id="agent-list-demo">
+        <div class="agent-card running">
+          <div class="agent-status-dot"></div>
+          <div class="agent-info">
+            <div class="agent-title">CEO / Boss</div>
+            <div class="agent-type">coordinator · reports_to: none</div>
+          </div>
+          <span class="agent-tag tag-running">running</span>
+        </div>
+        <div class="agent-card running">
+          <div class="agent-status-dot"></div>
+          <div class="agent-info">
+            <div class="agent-title">Content Writer</div>
+            <div class="agent-type">Content Creator · reports_to: boss</div>
+          </div>
+          <span class="agent-tag tag-running">running</span>
+        </div>
+        <div class="agent-card spawning">
+          <div class="agent-status-dot"></div>
+          <div class="agent-info">
+            <div class="agent-title">SEO Specialist</div>
+            <div class="agent-type">SEO Specialist · reports_to: boss</div>
+          </div>
+          <span class="agent-tag tag-spawning">spawning</span>
+        </div>
+        <div class="agent-card" style="opacity:0.55">
+          <div class="agent-status-dot"></div>
+          <div class="agent-info">
+            <div class="agent-title">Content Reviewer</div>
+            <div class="agent-type">reviewer · reports_to: boss</div>
+          </div>
+          <span class="agent-tag tag-idle">waiting</span>
+        </div>
+        <div class="agent-card" style="opacity:0.55">
+          <div class="agent-status-dot"></div>
+          <div class="agent-info">
+            <div class="agent-title">Growth Marketer</div>
+            <div class="agent-type">Growth Hacker · reports_to: boss</div>
+          </div>
+          <span class="agent-tag tag-idle">waiting</span>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;">
+        <div style="font-size:11px;color:var(--muted);font-family:var(--ff-m);margin-bottom:6px;">Stop running org:</div>
+        <code style="font-family:var(--ff-m);font-size:12px;color:var(--text2)">curl -X POST http://localhost:4242/api/orgs/content-team/stop</code>
+      </div>
+    </div>
+
+    <div class="reveal">
+      <h3 style="font-family:var(--ff-d);font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:20px;">Task board — content-team/org-tasks</h3>
+      <div class="task-board">
+        <div class="board-header">
+          <div class="board-col-header">Todo</div>
+          <div class="board-col-header">Doing</div>
+          <div class="board-col-header">Done</div>
+        </div>
+        <div class="board-body">
+          <div class="board-col">
+            <div class="task-card">
+              <div class="task-card-title">Write post: "HNSW vs brute-force"</div>
+              <div class="task-card-role">role: writer</div>
+            </div>
+            <div class="task-card">
+              <div class="task-card-title">Keyword research — MCP tooling</div>
+              <div class="task-card-role">role: seo</div>
+            </div>
+          </div>
+          <div class="board-col">
+            <div class="task-card doing">
+              <div class="task-card-title">Draft: "Claude Code vs Cursor"</div>
+              <div class="task-card-role">role: writer · claimed</div>
+            </div>
+            <div class="task-card doing" style="border-color:oklch(72% 0.18 65 / 0.4)">
+              <div class="task-card-title">SEO audit — recent posts</div>
+              <div class="task-card-role">role: seo · spawning</div>
+            </div>
+          </div>
+          <div class="board-col">
+            <div class="task-card done">
+              <div class="task-card-title">Post: "Monomind v1 walkthrough"</div>
+              <div class="task-card-role">role: writer</div>
+            </div>
+            <div class="task-card done">
+              <div class="task-card-title">Edit + approve — intro post</div>
+              <div class="task-card-role">role: reviewer</div>
+            </div>
+            <div class="task-card done">
+              <div class="task-card-title">Social distribution — week 1</div>
+              <div class="task-card-role">role: marketer</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;display:flex;gap:10px;font-size:12px;color:var(--muted)">
+        <span><span style="color:var(--accent)">●</span> checkpoint every 30 min</span>
+        <span><span style="color:var(--violet)">●</span> memory: org:content-team</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ TOPOLOGY ═══════════════════════ -->
+<section id="topology">
+  <div class="section-label reveal">Communication topology</div>
+  <h2 class="section-title reveal">Three structures, auto-selected</h2>
+  <p class="section-sub reveal">createorg picks the topology from team size. You can override it. Every topology uses the same edge types: command, report, feedback, handoff.</p>
+
+  <div class="topo-grid">
+    <div class="topo-card reveal">
+      <div class="topo-name">topology: mesh</div>
+      <div class="topo-title">Mesh</div>
+      <div class="topo-desc">All agents communicate directly. Best for small, tight collaborations where everyone coordinates with everyone else.</div>
+      <svg class="topo-svg" viewBox="0 0 240 180" aria-hidden="true">
+        <!-- Three nodes in a triangle -->
+        <line x1="120" y1="40" x2="60" y2="140" stroke="oklch(72% 0.22 168 / 0.4)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <line x1="120" y1="40" x2="180" y2="140" stroke="oklch(72% 0.22 168 / 0.4)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <line x1="60" y1="140" x2="180" y2="140" stroke="oklch(72% 0.22 168 / 0.4)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <circle cx="120" cy="40" r="22" fill="var(--surface)" stroke="oklch(72% 0.22 168)" stroke-width="2"/>
+        <text x="120" y="36" text-anchor="middle" font-family="Space Grotesk" font-size="9" font-weight="600" fill="var(--text)">Boss</text>
+        <text x="120" y="48" text-anchor="middle" font-family="Fira Code" font-size="8" fill="oklch(72% 0.22 168)">CEO</text>
+        <circle cx="60" cy="140" r="20" fill="var(--surface)" stroke="oklch(66% 0.17 295 / 0.8)" stroke-width="1.5"/>
+        <text x="60" y="136" text-anchor="middle" font-family="Space Grotesk" font-size="9" font-weight="600" fill="var(--text)">Dev</text>
+        <text x="60" y="147" text-anchor="middle" font-family="Fira Code" font-size="8" fill="oklch(66% 0.17 295)">coder</text>
+        <circle cx="180" cy="140" r="20" fill="var(--surface)" stroke="oklch(72% 0.18 65 / 0.8)" stroke-width="1.5"/>
+        <text x="180" y="136" text-anchor="middle" font-family="Space Grotesk" font-size="9" font-weight="600" fill="var(--text)">QA</text>
+        <text x="180" y="147" text-anchor="middle" font-family="Fira Code" font-size="8" fill="oklch(72% 0.18 65)">tester</text>
+      </svg>
+      <div class="topo-when">Best for 1–3 roles. Quick iteration, no bottleneck coordinator.</div>
+    </div>
+
+    <div class="topo-card reveal">
+      <div class="topo-name">topology: star</div>
+      <div class="topo-title">Star</div>
+      <div class="topo-desc">Boss at center. All roles report directly. Optimal for 4–6 agents — central coordination without the overhead of middle management.</div>
+      <svg class="topo-svg" viewBox="0 0 240 180" aria-hidden="true">
+        <line x1="120" y1="80" x2="50" y2="30" stroke="oklch(72% 0.22 168 / 0.4)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <line x1="120" y1="80" x2="190" y2="30" stroke="oklch(72% 0.22 168 / 0.4)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <line x1="120" y1="80" x2="30" y2="120" stroke="oklch(72% 0.22 168 / 0.4)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <line x1="120" y1="80" x2="210" y2="120" stroke="oklch(72% 0.22 168 / 0.4)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <line x1="120" y1="80" x2="120" y2="158" stroke="oklch(72% 0.22 168 / 0.4)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <circle cx="120" cy="80" r="26" fill="var(--surface)" stroke="oklch(72% 0.22 168)" stroke-width="2" filter="url(#glow-accent)"/>
+        <text x="120" y="77" text-anchor="middle" font-family="Space Grotesk" font-size="10" font-weight="700" fill="oklch(72% 0.22 168)">Boss</text>
+        <text x="120" y="89" text-anchor="middle" font-family="Fira Code" font-size="8" fill="oklch(72% 0.22 168 / 0.7)">coord.</text>
+        <circle cx="50" cy="30" r="16" fill="var(--surface)" stroke="oklch(66% 0.17 295 / 0.7)" stroke-width="1.5"/>
+        <circle cx="190" cy="30" r="16" fill="var(--surface)" stroke="oklch(72% 0.18 65 / 0.7)" stroke-width="1.5"/>
+        <circle cx="30" cy="120" r="16" fill="var(--surface)" stroke="oklch(66% 0.17 295 / 0.7)" stroke-width="1.5"/>
+        <circle cx="210" cy="120" r="16" fill="var(--surface)" stroke="oklch(72% 0.18 65 / 0.7)" stroke-width="1.5"/>
+        <circle cx="120" cy="158" r="16" fill="var(--surface)" stroke="oklch(72% 0.22 168 / 0.5)" stroke-width="1.5"/>
+      </svg>
+      <div class="topo-when">Best for 4–6 roles. Direct reporting, fast feedback loops.</div>
+    </div>
+
+    <div class="topo-card reveal">
+      <div class="topo-name">topology: hierarchical</div>
+      <div class="topo-title">Hierarchical</div>
+      <div class="topo-desc">Boss at top, middle manager(s) in between, executors at leaf level. Scales to large orgs with many concurrent roles and clear chains of command.</div>
+      <svg class="topo-svg" viewBox="0 0 240 180" aria-hidden="true">
+        <line x1="120" y1="30" x2="80" y2="90" stroke="oklch(72% 0.22 168 / 0.4)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <line x1="120" y1="30" x2="160" y2="90" stroke="oklch(72% 0.22 168 / 0.4)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <line x1="80" y1="90" x2="40" y2="155" stroke="oklch(72% 0.22 168 / 0.3)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <line x1="80" y1="90" x2="80" y2="155" stroke="oklch(72% 0.22 168 / 0.3)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <line x1="160" y1="90" x2="160" y2="155" stroke="oklch(72% 0.22 168 / 0.3)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <line x1="160" y1="90" x2="200" y2="155" stroke="oklch(72% 0.22 168 / 0.3)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <circle cx="120" cy="30" r="22" fill="var(--surface)" stroke="oklch(72% 0.22 168)" stroke-width="2"/>
+        <text x="120" y="34" text-anchor="middle" font-family="Space Grotesk" font-size="9" font-weight="700" fill="oklch(72% 0.22 168)">CEO</text>
+        <circle cx="80" cy="90" r="18" fill="var(--surface)" stroke="oklch(66% 0.17 295 / 0.8)" stroke-width="1.5"/>
+        <text x="80" y="94" text-anchor="middle" font-family="Space Grotesk" font-size="8" font-weight="600" fill="var(--text)">Mgr</text>
+        <circle cx="160" cy="90" r="18" fill="var(--surface)" stroke="oklch(66% 0.17 295 / 0.8)" stroke-width="1.5"/>
+        <text x="160" y="94" text-anchor="middle" font-family="Space Grotesk" font-size="8" font-weight="600" fill="var(--text)">Mgr</text>
+        <circle cx="40" cy="155" r="13" fill="var(--surface)" stroke="oklch(72% 0.18 65 / 0.6)" stroke-width="1.5"/>
+        <circle cx="80" cy="155" r="13" fill="var(--surface)" stroke="oklch(72% 0.18 65 / 0.6)" stroke-width="1.5"/>
+        <circle cx="160" cy="155" r="13" fill="var(--surface)" stroke="oklch(72% 0.18 65 / 0.6)" stroke-width="1.5"/>
+        <circle cx="200" cy="155" r="13" fill="var(--surface)" stroke="oklch(72% 0.18 65 / 0.6)" stroke-width="1.5"/>
+      </svg>
+      <div class="topo-when">Best for 7+ roles. Scales coordination without overloading the boss.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ USE CASES ═══════════════════════ -->
+<section id="usecases">
+  <div class="section-label reveal">Use cases</div>
+  <h2 class="section-title reveal">Five teams you can launch today</h2>
+  <p class="section-sub reveal">Every org is just a JSON definition and two commands. Here are five real configurations — copy the createorg prompt and run.</p>
+
+  <div class="cases-grid">
+    <div class="case-card active" data-case="0" style="--case-color:oklch(72% 0.22 168);--case-glow:oklch(72% 0.22 168 / 0.06)">
+      <div class="case-icon">✍️</div>
+      <div class="case-title">Content Marketing</div>
+      <div class="case-sub">Weekly blog posts, SEO-optimized, reviewed and distributed autonomously</div>
+      <div class="case-roles">
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+      </div>
+    </div>
+    <div class="case-card" data-case="1" style="--case-color:oklch(72% 0.18 65);--case-glow:oklch(72% 0.18 65 / 0.06)">
+      <div class="case-icon">⚙️</div>
+      <div class="case-title">Software Development</div>
+      <div class="case-sub">Architect + coders + tester building features end-to-end</div>
+      <div class="case-roles">
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+      </div>
+    </div>
+    <div class="case-card" data-case="2" style="--case-color:oklch(66% 0.17 295);--case-glow:oklch(66% 0.17 295 / 0.06)">
+      <div class="case-icon">🔬</div>
+      <div class="case-title">Research Lab</div>
+      <div class="case-sub">Researchers gather, analysts synthesize, writers produce structured reports</div>
+      <div class="case-roles">
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+      </div>
+    </div>
+    <div class="case-card" data-case="3" style="--case-color:oklch(72% 0.22 168);--case-glow:oklch(72% 0.22 168 / 0.06)">
+      <div class="case-icon">📣</div>
+      <div class="case-title">Sales Outreach</div>
+      <div class="case-sub">Research prospects, write sequences, track pipeline and follow up</div>
+      <div class="case-roles">
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+      </div>
+    </div>
+    <div class="case-card" data-case="4" style="--case-color:oklch(72% 0.18 65);--case-glow:oklch(72% 0.18 65 / 0.06)">
+      <div class="case-icon">🛡️</div>
+      <div class="case-title">DevOps & Security</div>
+      <div class="case-sub">SRE lead + security auditor + perf engineer monitoring and remediating</div>
+      <div class="case-roles">
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+        <div class="case-role-dot"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Case detail panel -->
+  <div class="case-detail reveal" id="case-detail">
+    <div class="case-detail-team">
+      <h4>Team composition</h4>
+      <div class="case-detail-roles" id="case-roles-list"></div>
+    </div>
+    <div class="case-detail-command">
+      <h4>Run it</h4>
+      <div class="terminal-block" id="case-terminal">
+        <div class="terminal-header">
+          <span class="term-dot term-dot-r"></span>
+          <span class="term-dot term-dot-y"></span>
+          <span class="term-dot term-dot-g"></span>
+          <span class="terminal-title" id="case-term-title">content-team</span>
+        </div>
+        <div class="terminal-body" id="case-term-body"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ FOOTER ═══════════════════════ -->
+<footer class="page-footer">
+  <div class="footer-left">Monomind · Organizations · /mastermind:createorg &amp; /mastermind:runorg</div>
+  <div class="footer-links">
+    <a href="commands/mastermind-reference.html#createorg">Command reference</a>
+    <a href="getting-started.html">Getting started</a>
+    <a href="https://github.com/nokhodian/monomind">GitHub</a>
+  </div>
+</footer>
+
+<!-- ═══════════════════════ SCRIPTS ═══════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/ScrollTrigger.min.js"></script>
+<script>
+const prefersMotion = window.matchMedia('(prefers-reduced-motion: no-preference)').matches;
+
+// ── Case data ──
+const CASES = [
+  {
+    title: "Content Marketing",
+    orgName: "content-team",
+    color: "oklch(72% 0.22 168)",
+    goal: "Publish 3 SEO-optimized blog posts per week on AI dev tools",
+    roles: [
+      { title: "Content Director", type: "coordinator", color: "oklch(72% 0.22 168)" },
+      { title: "Content Writer", type: "Content Creator", color: "oklch(72% 0.22 168 / 0.7)" },
+      { title: "Content Reviewer", type: "reviewer", color: "oklch(66% 0.17 295)" },
+      { title: "SEO Specialist", type: "SEO Specialist", color: "oklch(66% 0.17 295)" },
+      { title: "Growth Marketer", type: "Growth Hacker", color: "oklch(72% 0.18 65)" },
+    ]
+  },
+  {
+    title: "Software Development",
+    orgName: "dev-squad",
+    color: "oklch(72% 0.18 65)",
+    goal: "Build new features from design specs, with tests and review",
+    roles: [
+      { title: "Engineering Lead", type: "coordinator", color: "oklch(72% 0.18 65)" },
+      { title: "Software Architect", type: "Software Architect", color: "oklch(72% 0.18 65 / 0.7)" },
+      { title: "Developer", type: "coder", color: "oklch(72% 0.22 168)" },
+      { title: "QA Engineer", type: "tester", color: "oklch(66% 0.17 295)" },
+    ]
+  },
+  {
+    title: "Research Lab",
+    orgName: "research-lab",
+    color: "oklch(66% 0.17 295)",
+    goal: "Produce weekly competitive intelligence reports on AI tooling",
+    roles: [
+      { title: "Research Director", type: "coordinator", color: "oklch(66% 0.17 295)" },
+      { title: "Researcher", type: "researcher", color: "oklch(66% 0.17 295 / 0.7)" },
+      { title: "Data Analyst", type: "Analytics Reporter", color: "oklch(72% 0.18 65)" },
+      { title: "Technical Writer", type: "Technical Writer", color: "oklch(72% 0.22 168)" },
+    ]
+  },
+  {
+    title: "Sales Outreach",
+    orgName: "sales-engine",
+    color: "oklch(72% 0.22 168)",
+    goal: "Research ICP prospects, write personalized sequences, manage pipeline",
+    roles: [
+      { title: "Sales Director", type: "coordinator", color: "oklch(72% 0.22 168)" },
+      { title: "Outbound Strategist", type: "Outbound Strategist", color: "oklch(72% 0.22 168 / 0.7)" },
+      { title: "Email Copywriter", type: "Email Marketing Specialist", color: "oklch(72% 0.18 65)" },
+      { title: "Researcher", type: "researcher", color: "oklch(66% 0.17 295)" },
+    ]
+  },
+  {
+    title: "DevOps & Security",
+    orgName: "ops-squad",
+    color: "oklch(72% 0.18 65)",
+    goal: "24/7 monitoring, security audits, and incident response",
+    roles: [
+      { title: "SRE Lead", type: "SRE", color: "oklch(72% 0.18 65)" },
+      { title: "Security Auditor", type: "Security Engineer", color: "oklch(72% 0.18 65 / 0.7)" },
+      { title: "Perf Engineer", type: "Performance Benchmarker", color: "oklch(72% 0.22 168)" },
+      { title: "Incident Commander", type: "Incident Response Commander", color: "oklch(66% 0.17 295)" },
+    ]
+  }
+];
+
+// ── Render case detail ──
+function renderCase(idx) {
+  const c = CASES[idx];
+  const rolesList = document.getElementById('case-roles-list');
+  const termTitle = document.getElementById('case-term-title');
+  const termBody = document.getElementById('case-term-body');
+
+  rolesList.innerHTML = c.roles.map(r => `
+    <div class="case-detail-role">
+      <div class="cdr-dot" style="background:${r.color}"></div>
+      <div>
+        <div class="cdr-title">${r.title}</div>
+        <div class="cdr-type">${r.type}</div>
+      </div>
+    </div>
+  `).join('');
+
+  termTitle.textContent = c.orgName;
+  termBody.innerHTML = `
+    <span class="t-line"><span class="t-prompt">/ </span><span class="t-cmd">mastermind:createorg</span> <span class="t-arg">${c.orgName}</span></span>
+    <span class="t-line t-comment">&nbsp;&nbsp;"${c.goal}"</span>
+    <span class="t-line">&nbsp;</span>
+    <span class="t-line t-success">✓ Saved .monomind/orgs/${c.orgName}.json</span>
+    <span class="t-line">&nbsp;</span>
+    <span class="t-line"><span class="t-prompt">/ </span><span class="t-cmd">mastermind:runorg</span> <span class="t-arg">--org ${c.orgName}</span></span>
+    <span class="t-line">&nbsp;</span>
+    <span class="t-line t-success">✓ Boss agent spawned in background</span>
+    <span class="t-line t-out">&nbsp;&nbsp;Board: ${c.orgName}/org-tasks</span>
+    <span class="t-line t-out">&nbsp;&nbsp;Memory: org:${c.orgName}</span>
+    <span class="t-line t-out">&nbsp;&nbsp;Checkpoint: every 30 min</span>
+    <span class="t-line">&nbsp;</span>
+    <span class="t-cursor"></span>
+  `;
+}
+
+// ── Case card interaction ──
+document.querySelectorAll('.case-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.case-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+    const idx = parseInt(card.dataset.case);
+    renderCase(idx);
+    if (prefersMotion) {
+      gsap.fromTo('#case-detail', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+    }
+  });
+});
+
+// ── Initial case ──
+renderCase(0);
+
+// ── GSAP animations ──
+if (prefersMotion) {
+  gsap.registerPlugin(ScrollTrigger);
+
+  // Scroll-reveal
+  gsap.utils.toArray('.reveal').forEach(el => {
+    gsap.fromTo(el,
+      { opacity: 0, y: 24 },
+      {
+        opacity: 1, y: 0, duration: 0.7,
+        ease: 'power2.out',
+        scrollTrigger: {
+          trigger: el,
+          start: 'top 88%',
+          once: true
+        }
+      }
+    );
+  });
+
+  // ── Org graph node entrance ──
+  const orgNodes = gsap.utils.toArray('#org-graph-svg .org-node');
+  const orgEdges = gsap.utils.toArray('#org-graph-svg .org-edge');
+
+  gsap.set(orgNodes, { opacity: 0, scale: 0.5, transformOrigin: 'center center' });
+  gsap.set(orgEdges, { opacity: 0, strokeDashoffset: 100 });
+
+  const heroTl = gsap.timeline({ delay: 0.4 });
+  heroTl
+    .to('#node-boss', { opacity: 1, scale: 1, duration: 0.5, ease: 'back.out(1.4)' })
+    .to(orgEdges, { opacity: 1, strokeDashoffset: 0, duration: 0.6, stagger: 0.08, ease: 'power2.out' }, '+=0.2')
+    .to('#node-mm', { opacity: 1, scale: 1, duration: 0.4, ease: 'back.out(1.2)' }, '-=0.3')
+    .to(['#node-writer','#node-designer','#node-marketer'], { opacity: 1, scale: 1, duration: 0.4, stagger: 0.1, ease: 'back.out(1.2)' }, '-=0.1')
+    .to('#node-reviewer', { opacity: 1, scale: 1, duration: 0.4, ease: 'back.out(1.2)' });
+
+  // ── Pulse particles on org edges ──
+  function animatePulse(particle, x1, y1, x2, y2, delay) {
+    gsap.set(particle, { attr: { cx: x1, cy: y1 }, opacity: 0 });
+    gsap.timeline({ delay, repeat: -1, repeatDelay: 3 })
+      .to(particle, { attr: { cx: x2, cy: y2 }, opacity: 1, duration: 0.8, ease: 'power1.inOut' })
+      .to(particle, { opacity: 0, duration: 0.2 }, '-=0.1');
+  }
+
+  const particles = document.querySelectorAll('.pulse-particle');
+  setTimeout(() => {
+    animatePulse(particles[0], 240, 80, 240, 185, 2);
+    animatePulse(particles[1], 210, 230, 120, 315, 3.5);
+  }, 1500);
+
+  // ── Agent card stagger entrance ──
+  ScrollTrigger.create({
+    trigger: '#agent-list-demo',
+    start: 'top 85%',
+    once: true,
+    onEnter: () => {
+      gsap.fromTo('.agent-card',
+        { opacity: 0, x: -16 },
+        { opacity: 1, x: 0, duration: 0.5, stagger: 0.08, ease: 'power2.out' }
+      );
+    }
+  });
+
+  // ── Task cards stagger ──
+  ScrollTrigger.create({
+    trigger: '.task-board',
+    start: 'top 88%',
+    once: true,
+    onEnter: () => {
+      gsap.fromTo('.task-card',
+        { opacity: 0, y: 10 },
+        { opacity: 1, y: 0, duration: 0.4, stagger: 0.06, ease: 'power2.out' }
+      );
+    }
+  });
+
+  // ── Case cards stagger ──
+  ScrollTrigger.create({
+    trigger: '.cases-grid',
+    start: 'top 85%',
+    once: true,
+    onEnter: () => {
+      gsap.fromTo('.case-card',
+        { opacity: 0, y: 20, scale: 0.97 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.5, stagger: 0.07, ease: 'power2.out' }
+      );
+    }
+  });
+
+  // ── How-steps stagger ──
+  ScrollTrigger.create({
+    trigger: '.how-steps',
+    start: 'top 85%',
+    once: true,
+    onEnter: () => {
+      gsap.fromTo('.how-step',
+        { opacity: 0, y: 24 },
+        { opacity: 1, y: 0, duration: 0.6, stagger: 0.12, ease: 'power2.out' }
+      );
+    }
+  });
+
+  // ── Topology cards ──
+  ScrollTrigger.create({
+    trigger: '.topo-grid',
+    start: 'top 85%',
+    once: true,
+    onEnter: () => {
+      gsap.fromTo('.topo-card',
+        { opacity: 0, y: 24 },
+        { opacity: 1, y: 0, duration: 0.6, stagger: 0.1, ease: 'power2.out' }
+      );
+    }
+  });
+
+  // ── Active agent breathing glow ──
+  gsap.to('.agent-card.running .agent-status-dot', {
+    boxShadow: '0 0 14px oklch(72% 0.22 168)',
+    duration: 1.4,
+    repeat: -1,
+    yoyo: true,
+    ease: 'sine.inOut'
+  });
+
+} // end prefersMotion
+</script>
+</body>
+</html>
