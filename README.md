@@ -107,6 +107,8 @@ Phase 5  Log          Records completion. Continues to next improvement.
 /mastermind:autodev --tillend           # run until nothing is left
 /mastermind:autodev --focus security    # bias toward security work
 /mastermind:autodev --focus dx          # bias toward developer experience
+/mastermind:autodev --newfeature 3      # discover & fully deliver 3 brand-new features
+                                        # (build → review → document → stage each one)
 ```
 
 ### From Prompt to Coordinated Execution
@@ -436,53 +438,47 @@ MIT — See [LICENSE](LICENSE) for details.
 
 Monomind builds on ideas, patterns, and research from the following projects:
 
-| Repository | What we took |
+| Repository | Used for |
 |---|---|
-| [ruvnet/ruflo](https://github.com/ruvnet/ruflo) | Original skeleton — swarm coordination, hooks system, and SPARC methodology |
-| [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) | Agent architecture patterns and multi-agent md files |
-| [microsoft/autogen](https://github.com/microsoft/autogen) | Human oversight interrupt gates, AutoBuild ephemeral agents, procedural skill learning from executions, and tool-retry patterns |
-| [crewAIInc/crewAI](https://github.com/crewAIInc/crewAI) | Multi-tier memory (short/long/entity/contextual), role/goal/backstory agent registry, task context chaining, and output schema patterns |
-| [langchain-ai/langgraph](https://github.com/langchain-ai/langgraph) | Graph checkpointing + resume, `StateGraph` workflow DSL (fan-out/fan-in, conditional, loops), and entity extraction from conversation state |
-| [All-Hands-AI/OpenHands](https://github.com/All-Hands-AI/OpenHands) | Per-agent Docker/WASM sandboxing, semantic versioned agent registry (AgentHub), and EventStream session replay |
-| [agno-agi/agno](https://github.com/agno-agi/agno) | `AgentMemory` knowledge base architecture and team-level agent coordination class |
-| [huggingface/smolagents](https://github.com/huggingface/smolagents) | Explicit planning step before execution and `ManagedAgent` delegation wrapper |
-| [pydantic/pydantic-ai](https://github.com/pydantic/pydantic-ai) | Typed `Agent[Deps, Result]` I/O schemas, auto-retry on validation failure, `TestModel` for deterministic CI, and dynamic system prompt functions |
-| [BAAI/AgentSwarm (Agency Swarm)](https://github.com/VRSEN/agency-swarm) | Declared directed communication flows between agents and shared instruction propagation |
-| [BerriAI/atomic-agents](https://github.com/KRunchPL/atomic-agents) | `BaseIOSchema` typed agent contracts and `SystemPromptContextProvider` composition |
-| [stanfordnlp/dspy](https://github.com/stanfordnlp/dspy) | `BootstrapFewShot` + MIPRO automatic prompt optimization pipeline |
-| [aurelio-labs/semantic-router](https://github.com/aurelio-labs/semantic-router) | Utterance-based `RouteLayer` replacing static routing codes, dynamic routes, and hybrid routing mode |
-| [langfuse/langfuse](https://github.com/langfuse/langfuse) | Unified trace/span/generation observability hierarchy, per-agent cost attribution, latency views, and prompt version management |
-| [karpathy/autoresearch](https://github.com/karpathy/autoresearch) | Experiment loop protocol (BASELINE/KEEP/DISCARD `results.tsv`), fixed time-budget per run, and Best-Fit Decreasing bin packing for API chunking — wired into `@monomind/graph` pipeline |
-| [safishamsi/graphify](https://github.com/safishamsi/graphify) | Knowledge graph construction approach, AST-based node/edge extraction, community detection with Louvain, and `GRAPH_REPORT.md` report format — foundation for `@monomind/graph` |
-| [google/gvisor](https://gvisor.dev) | gVisor `runsc` OCI-compatible runtime — reduces Docker container syscall surface from 350+ to ~50 interceptions; wired into `SandboxConfig.use_gvisor` |
-| [Indirect Injection research](https://arxiv.org/abs/2302.12173) | Prompt injection via external tool content — `validateExternalContent()` in `@monomind/security` applies pattern + optional aidefence semantic scan to all externally-sourced content |
-| [FOREVER Forgetting Curve](https://arxiv.org/html/2601.03938v1) | Exponential importance-weighted forgetting curve (`importanceScore × e^(−λt)`) — implemented in `LearningBridge.decayConfidences()` |
-| [Awesome RLVR](https://github.com/opendilab/awesome-RLVR) | Reinforcement Learning with Verifiable Rewards — `hooksModelOutcome` accepts `verifier_type` (tsc/vitest/eslint/llm_judge) for grounded binary reward signals |
-| [ERL — Experiential Reflective Learning](https://arxiv.org/abs/2603.24639) | Structured `{condition, action, confidence}` heuristics extracted at `hooks_post-task` and injected as ranked hints into `hooks_pre-task` via the `heuristics` memory namespace |
-| [A-MEM — Agentic Memory](https://arxiv.org/abs/2502.12110) | Zettelkasten-style automatic note linking — after every `bridgeStoreEntry`, top-3 HNSW neighbors above 0.7 similarity receive a `similar` causal edge via `bridgeRecordCausalEdge` |
-| [DSPy](https://dspy.ai) | Bayesian exploration option added to `PromptOptimizer.optimize()` — shuffles trace scores with U(0,0.1) noise before `selectExamples` to escape local optima |
-| [Collaborative Memory Promotion](https://arxiv.org/abs/2505.18279) | Auto-promote memory `access_level` from `private` → `team` when 3+ distinct agents read an entry within 24 h — via `checkAndPromoteEntry()` in `SQLiteBackend` |
-| [Zep / Graphiti — Bi-Temporal Knowledge Graph](https://arxiv.org/abs/2501.13956) | Separates event time T from ingestion time T' — `MemoryEntry.eventAt` nullable field for temporal filtering without index rebuilds |
-| [HippoRAG 2 — PPR Graph Retrieval](https://arxiv.org/abs/2405.14831) | Personalized PageRank over the memory reference graph — `MemoryGraph.pprRerank()` expands HNSW candidates one hop via `MemoryEntry.references` |
-| [RAPTOR — Recursive Abstractive Tree Indexing](https://arxiv.org/abs/2401.18059) | Cluster episodic entries → summarize each cluster → store as `contextual`-tier entry — implemented in the `consolidate` background worker |
-| [Multi-Agent Reflexion (MAR)](https://arxiv.org/html/2512.20845) | Heterogeneous Diagnoser → Critic×2 → Aggregator reflection loop — `hooks_post-task` returns `marReflection` on task failure |
-| [TextGrad](https://arxiv.org/abs/2406.07496) | LLM textual gradients flow backward through the pipeline — on failure a `textual_gradient` critique is stored to the `gradients` memory namespace for next-prompt injection |
-| [CP-WBFT](https://arxiv.org/abs/2511.10400) | Confidence-weighted voting replaces one-node-one-vote — `weightedTally()` scales each agent's vote by confidence, tolerating 85.7% fault rate (AAAI 2026) |
-| [GraphRAG](https://arxiv.org/abs/2404.16130) | Community-level global query answering — `MemoryGraph.getCommunitySummaries()` returns top-k community descriptors for prepending to semantic search results |
-| [MemPalace](https://github.com/nokhodian/mempalace) | Spatially-organized verbatim memory with Wing→Room→Hall hierarchy, Okapi BM25 + closet-topic hybrid retrieval, and temporal knowledge graph — achieves 96.6% LongMemEval recall without summarization |
-| [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) | Specialist agent roster design — personality-driven agent definitions with role, process, and deliverables; informed the agent catalog and multi-agent md layout |
-| [vercel-labs/agent-browser](https://github.com/vercel-labs/agent-browser) | Browser automation CLI for AI agents — native Rust CDP client architecture that powers `npx monomind browse` |
-| [AgentSeal/codeburn](https://github.com/AgentSeal/codeburn) | Token cost attribution model — tracking spend by task, tool, model, and project; shaped `/monomind:budget` and the token usage dashboard |
-| [fallow-rs/fallow](https://github.com/fallow-rs/fallow) | Dead code detection and duplication analysis patterns — influenced background worker heuristics for codebase health scoring |
-| [pbakaus/impeccable](https://github.com/pbakaus/impeccable) | Design anti-pattern detection CLI scanning 27 patterns across HTML/CSS/JSX/Vue — integrated directly via `npx impeccable detect` in the `monodesign` skill |
-| [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) | Marketing agent skill patterns — CRO, SEO, copywriting, and growth engineering skill templates that shaped the marketing agent category |
-| [paperclipai/paperclip](https://github.com/paperclipai/paperclip) | Business automation agent architecture — autonomous business workflow patterns that informed `mastermind:ops`, `mastermind:finance`, and `mastermind:sales` |
-| [rtk-ai/rtk](https://github.com/rtk-ai/rtk) | Shell command output compression for LLM context — rewrites verbose CLI output for 60–90% token savings; informed `@monomind/security` safe execution output filtering |
-| [hardikpandya/stop-slop](https://github.com/hardikpandya/stop-slop) | Skill for detecting and removing AI tells from prose — directly integrated as the `stop-slop` skill and influenced anti-slop heuristics in code review agents |
-| [obra/superpowers](https://github.com/obra/superpowers) | Complete software development methodology for AI coding agents — composable skills system, brainstorming workflow, TDD discipline, and systematic debugging; forms the foundation of the `superpowers` skill layer |
-| [Lum1104/Understand-Anything](https://github.com/Lum1104/Understand-Anything) | Interactive knowledge graph construction from any codebase or docs corpus — architecture influenced `@monomind/graph` traversal and the `monomind:understand` semantic enrichment command |
-| [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | UI/UX Pro Max skill for AI coding agents — design system methodology and component-first approach that influenced the `monodesign` skill's craft and shape workflows |
-| [rahulnyk/knowledge_graph](https://github.com/rahulnyk/knowledge_graph) | Text-corpus-to-knowledge-graph pipeline using LLM extraction — node/edge construction patterns referenced in `monograph_build` and the Monograph MCP tool suite |
+| [ruvnet/ruflo](https://github.com/ruvnet/ruflo) | Original skeleton that provided the foundational hooks system, swarm coordination, and SPARC agent methodology. |
+| [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) | Informs the multi-agent instruction file layout and specialist agent catalog design. |
+| [microsoft/autogen](https://github.com/microsoft/autogen) | Provides the human-in-the-loop interrupt gate pattern and auto-retry tool logic in `@monomind/hooks`. |
+| [crewAIInc/crewAI](https://github.com/crewAIInc/crewAI) | Provides the multi-tier memory architecture (`ShortTermMemory`, `EntityMemory`, `ContextualMemory`, `LongTermMemory`) in `@monomind/memory`. |
+| [langchain-ai/langgraph](https://github.com/langchain-ai/langgraph) | Provides the `SwarmCheckpointer` graph-checkpoint-and-resume pattern and fan-out/fan-in workflow DSL. |
+| [All-Hands-AI/OpenHands](https://github.com/All-Hands-AI/OpenHands) | Provides the per-agent `SandboxConfig` sandboxing model and EventStream session replay architecture. |
+| [agno-agi/agno](https://github.com/agno-agi/agno) | Provides the `AgentMemory` knowledge-base architecture and team-level agent coordination class. |
+| [huggingface/smolagents](https://github.com/huggingface/smolagents) | Provides the explicit planning-before-execution step in `LATSPlanner` and the `PlanStore` persistence layer. |
+| [pydantic/pydantic-ai](https://github.com/pydantic/pydantic-ai) | Provides typed agent I/O schema patterns and auto-retry-on-validation-failure used throughout agent contracts. |
+| [BerriAI/atomic-agents](https://github.com/KRunchPL/atomic-agents) | Provides `BaseIOSchema` typed agent contracts and `SystemPromptContextProvider` composition patterns. |
+| [stanfordnlp/dspy](https://github.com/stanfordnlp/dspy) | Provides the `BootstrapFewShot`/MIPRO prompt optimization pipeline and Bayesian exploration in `PromptOptimizer.optimize()`. |
+| [aurelio-labs/semantic-router](https://github.com/aurelio-labs/semantic-router) | Provides the utterance-based `RouteLayer` that replaced static routing codes in the agent dispatcher. |
+| [langfuse/langfuse](https://github.com/langfuse/langfuse) | Provides the trace/span/generation observability hierarchy and prompt version management in `@monomind/hooks`. |
+| [karpathy/autoresearch](https://github.com/karpathy/autoresearch) | Provides the BASELINE/KEEP/DISCARD experiment loop protocol and time-budget pattern used in `@monomind/graph`. |
+| [safishamsi/graphify](https://github.com/safishamsi/graphify) | Provides the AST-based knowledge graph construction, Louvain community detection, and `GRAPH_REPORT.md` format that form `@monomind/graph`. |
+| [google/gvisor](https://gvisor.dev) | Provides the `runsc` OCI runtime that reduces container syscall surface to ~50 interceptions, wired into `SandboxConfig.use_gvisor`. |
+| [Indirect Injection research](https://arxiv.org/abs/2302.12173) | `validateExternalContent()` in `@monomind/security` applies the injection pattern detection to all externally-sourced tool content. |
+| [FOREVER Forgetting Curve](https://arxiv.org/html/2601.03938v1) | `LearningBridge.decayConfidences()` implements the importance-weighted exponential forgetting curve (`importanceScore × e^(−λt)`). |
+| [Awesome RLVR](https://github.com/opendilab/awesome-RLVR) | `hooksModelOutcome` `verifier_type` field (tsc/vitest/eslint/llm_judge) provides grounded binary reward signals. |
+| [ERL — Experiential Reflective Learning](https://arxiv.org/abs/2603.24639) | Structured `{condition, action, confidence}` heuristics extracted at `hooks_post-task` and injected as ranked hints into `hooks_pre-task`. |
+| [A-MEM — Agentic Memory](https://arxiv.org/abs/2502.12110) | Auto-links top-3 HNSW neighbors via `bridgeRecordCausalEdge` after every `bridgeStoreEntry` call in `@monomind/memory`. |
+| [Collaborative Memory Promotion](https://arxiv.org/abs/2505.18279) | `checkAndPromoteEntry()` in `SQLiteBackend` auto-promotes entries from `private` to `team` scope after 3+ distinct agent reads within 24 h. |
+| [Zep / Graphiti — Bi-Temporal Knowledge Graph](https://arxiv.org/abs/2501.13956) | `MemoryEntry.eventAt` separates event time T from ingestion time T' for bi-temporal filtering without index rebuilds. |
+| [HippoRAG 2 — PPR Graph Retrieval](https://arxiv.org/abs/2405.14831) | `MemoryGraph.pprRerank()` expands HNSW candidates one hop via `MemoryEntry.references` edges. |
+| [RAPTOR — Recursive Abstractive Tree Indexing](https://arxiv.org/abs/2401.18059) | `RaptorWorker` clusters episodic entries, summarizes each cluster, and stores results as `contextual`-tier entries. |
+| [Multi-Agent Reflexion (MAR)](https://arxiv.org/html/2512.20845) | `hooks_post-task` returns `marReflection` on task failure via a Diagnoser/Critic/Aggregator reflection loop. |
+| [TextGrad](https://arxiv.org/abs/2406.07496) | Stores `textual_gradient` critiques to the `gradients` memory namespace for injection into the next prompt on failure. |
+| [CP-WBFT](https://arxiv.org/abs/2511.10400) | `weightedTally()` scales each agent's vote by confidence in `@monomind/hooks` hive-mind consensus (AAAI 2026). |
+| [GraphRAG](https://arxiv.org/abs/2404.16130) | `MemoryGraph.getCommunitySummaries()` prepends community-level descriptors to semantic search results. |
+| [MemPalace](https://github.com/nokhodian/mempalace) | Foundation of the memory palace system with BM25 verbatim retrieval, Wing/Room/Hall hierarchy, and temporal knowledge graph. |
+| [vercel-labs/agent-browser](https://github.com/vercel-labs/agent-browser) | Native Rust CDP client architecture that powers `npx monomind browse`. |
+| [AgentSeal/codeburn](https://github.com/AgentSeal/codeburn) | Token cost attribution model tracking spend by task, tool, model, and project used in `features/codeburn.md`. |
+| [fallow-rs/fallow](https://github.com/fallow-rs/fallow) | Dead code detection patterns used in `monograph-tools.ts` via `deadCodePct()` and `unusedDepsPct()`. |
+| [pbakaus/impeccable](https://github.com/pbakaus/impeccable) | 27-pattern HTML/CSS anti-pattern detection CLI integrated via `npx impeccable detect` in the `monodesign` skill. |
+| [hardikpandya/stop-slop](https://github.com/hardikpandya/stop-slop) | Directly integrated as the `stop-slop` skill for detecting and removing AI writing tells from prose. |
+| [obra/superpowers](https://github.com/obra/superpowers) | Forms the complete `superpowers` skill layer providing brainstorming, TDD, systematic debugging, and finishing workflows. |
+| [Lum1104/Understand-Anything](https://github.com/Lum1104/Understand-Anything) | Informs `monomind:understand` semantic enrichment and `@monomind/graph` knowledge graph traversal architecture. |
+| [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | Provides the design system methodology and component-first craft approach that forms the `monodesign` skill. |
+| [paperclipai/paperclip](https://github.com/paperclipai/paperclip) | Autonomous business workflow patterns that informed `mastermind:ops`, `mastermind:finance`, and `mastermind:sales`. |
 
 ---
 
@@ -492,22 +488,21 @@ Monomind implements techniques from peer-reviewed research across distributed sy
 
 | Technique | Paper | Applied In |
 |---|---|---|
-| HNSW approximate nearest neighbor | Malkov & Yashunin, 2018 — *Efficient and Robust ANN* | `@monomind/memory` vector search |
-| Flash Attention | Dao et al., 2022 — *Fast and Memory-Efficient Exact Attention* | Session context compression |
-| LoRA fine-tuning | Hu et al., 2021 — *Low-Rank Adaptation of Large Language Models* | Pattern distillation, DISTILL step |
-| EWC (Elastic Weight Consolidation) | Kirkpatrick et al., 2017 — *Overcoming Catastrophic Forgetting* | CONSOLIDATE step, session persistence |
-| Byzantine fault tolerance | Castro & Liskov, 1999 — *Practical Byzantine Fault Tolerance* | CP-WBFT hive-mind consensus |
-| Raft consensus | Ongaro & Ousterhout, 2014 — *In Search of an Understandable Consensus Algorithm* | Swarm coordinator state machine |
-| CRDT data structures | Shapiro et al., 2011 — *Conflict-Free Replicated Data Types* | Eventually consistent agent memory |
-| Gossip protocols | Demers et al., 1987 — *Epidemic Algorithms for Replicated Database Maintenance* | Cross-agent state propagation |
-| Mixture of Experts | Shazeer et al., 2017 — *Outrageously Large Neural Networks* | MoE semantic router |
-| PPO reinforcement learning | Schulman et al., 2017 — *Proximal Policy Optimization Algorithms* | Agent policy learner |
-| Hyperbolic embeddings | Nickel & Kiela, 2017 — *Poincaré Embeddings for Learning Hierarchical Representations* | Code graph vector space |
-| Int8 quantization | Dettmers et al., 2022 — *LLM.int8(): 8-bit Matrix Multiplication for Transformers* | Weight compression, memory footprint |
-| GOAP planning | Orkin, 2004 — *Applying Goal-Oriented Action Planning to Games* | `goal-planner` and `sublinear-goal-planner` agents |
-| Self-play RL | Silver et al., 2017 — *Mastering Chess and Shogi by Self-Play* | Pattern reinforcement in ReasoningBank |
-| Hierarchical memory | Tulving, 1972 — *Episodic and Semantic Memory* | AgentDB episodic/semantic namespace split |
-| PageRank influence | Page et al., 1998 — *The PageRank Citation Ranking* | `pagerank-analyzer` agent, graph centrality |
-| Hindsight Experience Replay | Andrychowicz et al., 2017 — *HER: Hindsight Experience Replay* | HER policy learner in RL router |
-| SPARC methodology | Agile/TDD literature | `sparc-coord`, `sparc-coder`, `specification`, `pseudocode`, `refinement` agents |
-| Sublinear algorithms | Various — approximation theory | `sublinear-goal-planner`, `matrix-optimizer`, `trading-predictor` agents |
+| HNSW approximate nearest neighbor | Malkov & Yashunin, 2018 — *Efficient and Robust ANN* | `HNSWIndex` and `HnswLite` in `@monomind/memory` vector search |
+| Flash Attention | Dao et al., 2022 — *Fast and Memory-Efficient Exact Attention* | Session context compression in `@monomind/hooks` |
+| LoRA fine-tuning | Hu et al., 2021 — *Low-Rank Adaptation of Large Language Models* | Pattern distillation DISTILL step in `RvfLearningStore` |
+| EWC (Elastic Weight Consolidation) | Kirkpatrick et al., 2017 — *Overcoming Catastrophic Forgetting* | CONSOLIDATE step session persistence in `@monomind/memory` |
+| Byzantine fault tolerance | Castro & Liskov, 1999 — *Practical Byzantine Fault Tolerance* | `weightedTally()` in CP-WBFT hive-mind consensus |
+| Raft consensus | Ongaro & Ousterhout, 2014 — *In Search of an Understandable Consensus Algorithm* | `RaftManager` swarm coordinator state machine |
+| CRDT data structures | Shapiro et al., 2011 — *Conflict-Free Replicated Data Types* | `CrdtSynchronizer` for eventually consistent agent memory |
+| Gossip protocols | Demers et al., 1987 — *Epidemic Algorithms for Replicated Database Maintenance* | `GossipCoordinator` cross-agent state propagation |
+| Mixture of Experts | Shazeer et al., 2017 — *Outrageously Large Neural Networks* | MoE semantic router for agent task routing |
+| Hyperbolic embeddings | Nickel & Kiela, 2017 — *Poincaré Embeddings for Learning Hierarchical Representations* | Code graph hierarchical vector space in `@monomind/memory` |
+| Int8 quantization | Dettmers et al., 2022 — *LLM.int8(): 8-bit Matrix Multiplication for Transformers* | Weight compression for neural pattern memory footprint reduction |
+| GOAP planning | Orkin, 2004 — *Applying Goal-Oriented Action Planning to Games* | `code-goal-planner` and `sublinear-goal-planner` agents |
+| Self-play RL | Silver et al., 2017 — *Mastering Chess and Shogi by Self-Play* | Pattern reinforcement loop in ReasoningBank |
+| Hierarchical memory | Tulving, 1972 — *Episodic and Semantic Memory* | AgentDB episodic/semantic namespace split in `@monomind/memory` |
+| PageRank influence | Page et al., 1998 — *The PageRank Citation Ranking* | `pagerank-analyzer` agent and `MemoryGraph` graph centrality scoring |
+| Hindsight Experience Replay | Andrychowicz et al., 2017 — *HER: Hindsight Experience Replay* | HER policy learner in the RL router |
+| SPARC methodology | Agile/TDD literature | `sparc-coord`, `sparc-coder`, `specification`, `pseudocode`, and `refinement` agents |
+| Sublinear algorithms | Various — approximation theory | `sublinear-goal-planner`, `matrix-optimizer`, and `trading-predictor` agents |
