@@ -204,9 +204,6 @@ The swarm automatically:
 # Core MCP (required)
 claude mcp add monomind npx monomind@alpha mcp start
 
-# Enhanced coordination (optional)
-claude mcp add ruv-swarm npx ruv-swarm mcp start
-
 # Cloud features (optional - requires auth)
 ```
 

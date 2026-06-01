@@ -98,10 +98,6 @@ The plugin configures 3 MCP servers:
    - Swarm coordination
    - Agent management
 
-2. **ruv-swarm** (Optional)
-   - Enhanced coordination
-   - WASM acceleration
-
    - 70+ cloud tools
    - Requires authentication
 
@@ -116,7 +112,7 @@ The plugin configures 3 MCP servers:
 
 ## Version
 
-- **Version**: 2.5.0
+- **Version**: 1.5.3
 - **License**: MIT
 - **Author**: rUv
 - **Compatibility**: Claude Code >= 2.0.0

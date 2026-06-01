@@ -219,9 +219,9 @@ export const benchmarkCommand: Command = {
 
     try {
       // Import pg
-      let pg: typeof import('pg') | null = null;
+      let pg: any | null = null;
       try {
-        pg = await import('pg');
+        pg = await import('pg' as string);
       } catch {
         spinner.fail('PostgreSQL driver not found');
         output.printError('Install pg package: npm install pg');

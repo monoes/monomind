@@ -302,7 +302,7 @@ describe('ruvllm-wasm integration', () => {
       const { createSonaInstant } = await import('../../src/ruvector/ruvllm-wasm.js');
       const sona = await createSonaInstant();
       sona.recordPattern([0.1, 0.2, 0.3], true);
-      expect(mockSonaInstant.recordPattern).toHaveBeenCalledWith([0.1, 0.2, 0.3], true);
+      expect(mockSonaInstant.recordPattern).toHaveBeenCalledWith(new Float32Array([0.1, 0.2, 0.3]), true);
     });
 
     it('should suggest actions', async () => {

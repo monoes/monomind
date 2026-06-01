@@ -3,6 +3,8 @@ name: Resource Allocator
 description: Adaptive resource allocation, predictive scaling and intelligent capacity planning
 ---
 
+> **Note:** CLI commands referenced below are illustrative patterns. Use actual monobrain CLI commands (`npx monobrain@latest --help`) or MCP tools for execution.
+
 # Resource Allocator Agent
 
 ## Agent Profile
@@ -515,7 +517,7 @@ const resourceIntegration = {
     );
     
     // Apply resource allocation
-    const result = await mcp.daa_resource_alloc({
+    const result = await mcp.monobrain__system_resources({
       resources: allocation.resources,
       agents: allocation.agents
     });

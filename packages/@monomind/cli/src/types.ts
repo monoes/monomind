@@ -229,27 +229,6 @@ export interface MultiSelectPromptOptions<T = string> {
 }
 
 // ============================================
-// Event Types
-// ============================================
-
-export type CLIEventType =
-  | 'command:start'
-  | 'command:end'
-  | 'command:error'
-  | 'prompt:start'
-  | 'prompt:complete'
-  | 'output:write'
-  | 'progress:update'
-  | 'spinner:start'
-  | 'spinner:stop';
-
-export interface CLIEvent {
-  type: CLIEventType;
-  timestamp: number;
-  data?: unknown;
-}
-
-// ============================================
 // Error Types
 // ============================================
 
@@ -262,26 +241,5 @@ export class CLIError extends Error {
   ) {
     super(message);
     this.name = 'CLIError';
-  }
-}
-
-export class ValidationError extends CLIError {
-  constructor(message: string, details?: unknown) {
-    super(message, 'VALIDATION_ERROR', 1, details);
-    this.name = 'ValidationError';
-  }
-}
-
-export class ConfigError extends CLIError {
-  constructor(message: string, details?: unknown) {
-    super(message, 'CONFIG_ERROR', 1, details);
-    this.name = 'ConfigError';
-  }
-}
-
-export class CommandNotFoundError extends CLIError {
-  constructor(commandName: string) {
-    super(`Unknown command: ${commandName}`, 'COMMAND_NOT_FOUND', 127);
-    this.name = 'CommandNotFoundError';
   }
 }

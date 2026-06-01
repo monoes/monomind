@@ -1,1 +1,0 @@
-{"version":3,"file":"wasm-sandbox.d.ts","sourceRoot":"","sources":["../../src/sandbox/wasm-sandbox.ts"],"names":[],"mappings":"AAAA;;;;;;;;GAQG;AAGH,OAAO,KAAK,EAAE,aAAa,EAAqB,cAAc,EAAE,MAAM,YAAY,CAAC;AAEnF;;GAEG;AACH,wBAAgB,MAAM,CAAC,OAAO,EAAE,MAAM,EAAE,MAAM,EAAE,aAAa,GAAG,cAAc,CA4F7E"}
