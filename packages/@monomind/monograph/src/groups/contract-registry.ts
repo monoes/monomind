@@ -191,9 +191,6 @@ export function saveContractRegistry(
       );
     `);
 
-    // Overwrite existing data
-    db.exec(`DELETE FROM contracts; DELETE FROM links;`);
-
     const insertContract = db.prepare(
       `INSERT INTO contracts (method, path, handler_name, handler_file, repo)
        VALUES (?, ?, ?, ?, ?)`,
@@ -203,7 +200,10 @@ export function saveContractRegistry(
        VALUES (?, ?, ?, ?)`,
     );
 
+    // Truncate and repopulate atomically — DELETEs inside the transaction so a
+    // crash between clear and insert cannot leave the registry partially empty.
     const storeAll = db.transaction(() => {
+      db.exec(`DELETE FROM contracts; DELETE FROM links;`);
       for (const c of contracts) {
         insertContract.run(c.method, c.path, c.handlerName, c.handlerFile, c.repo);
       }
