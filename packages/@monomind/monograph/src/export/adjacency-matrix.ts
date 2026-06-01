@@ -33,6 +33,13 @@ export function buildAdjacencyMatrix(
   const indexMap = new Map<string, number>(nodeIds.map((id, i) => [id, i]));
   const n = nodeIds.length;
 
+  if (n > 5000) {
+    throw new Error(
+      `adjacency matrix would be ${n}×${n} (${n * n} cells). ` +
+      'Pass a pre-filtered node list via the nodeIds parameter, or use a different export format.'
+    );
+  }
+
   const matrix: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
 
   for (const edge of edges) {

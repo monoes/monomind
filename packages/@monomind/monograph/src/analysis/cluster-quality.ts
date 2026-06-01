@@ -100,16 +100,19 @@ export function modularityScore(
   memberships: Map<string, number>,
   edges: Edge[],
 ): number {
-  const m = edges.length;
-  if (m === 0) return 0;
-
   const adj = buildAdjacency(edges);
 
-  // Degree map (undirected)
+  // Degree map (undirected) — use adj to count undirected edges correctly
   const degree = new Map<string, number>();
   for (const [nodeId, neighbors] of adj) {
     degree.set(nodeId, neighbors.size);
   }
+
+  // m_undirected: each undirected edge is counted once in adj (both directions added)
+  // so sum of degrees = 2 * m_undirected
+  const totalDegree = [...degree.values()].reduce((s, d) => s + d, 0);
+  const m = totalDegree / 2;
+  if (m === 0) return 0;
 
   const twoM = 2 * m;
   let Q = 0;

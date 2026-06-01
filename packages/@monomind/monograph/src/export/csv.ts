@@ -7,8 +7,10 @@ export interface CsvExport {
 
 function escape(v: string | number | boolean | undefined | null): string {
   const s = String(v ?? '');
-  return s.includes(',') || s.includes('"') || s.includes('\n')
-    ? `"${s.replace(/"/g, '""')}"` : s;
+  // Prefix formula-injection characters to prevent spreadsheet execution
+  const safe = /^[=+\-@]/.test(s) ? `'${s}` : s;
+  return safe.includes(',') || safe.includes('"') || safe.includes('\n')
+    ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
 export function toCsv(nodes: MonographNode[], edges: MonographEdge[]): CsvExport {

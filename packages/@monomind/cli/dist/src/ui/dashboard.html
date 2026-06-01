@@ -7365,7 +7365,7 @@ function mgApproxBetweenness(g) {
     // BFS + dependency accumulation (Brandes simplified)
     const dist = {[src]: 0}, sigma = {[src]: 1}, pred = {}, stack = [];
     const q = [src];
-    ids.forEach(id => { if (id !== src) { dist[id] = -1; sigma[id] = 0; pred[id] = []; }});
+    ids.forEach(id => { dist[id] = id === src ? 0 : -1; sigma[id] = id === src ? 1 : 0; pred[id] = []; });
     while (q.length) {
       const v = q.shift(); stack.push(v);
       (adj[v]||[]).forEach(w => {
