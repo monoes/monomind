@@ -221,11 +221,8 @@ export { guidanceCommand } from './guidance.js';
 export { applianceCommand } from './appliance.js';
 export { cleanupCommand } from './cleanup.js';
 export { autopilotCommand } from './autopilot.js';
-<<<<<<< HEAD
 export { monographCommand } from './monograph.js';
-=======
 export { platformsCommand } from './platforms.js';
->>>>>>> feat/gitnexus-feature-parity
 
 // Lazy-loaded command re-exports (for backwards compatibility, but async-only)
 export async function getConfigCommand() { return loadCommand('config'); }
@@ -282,11 +279,8 @@ export const commands: Command[] = [
   guidanceCommand,
   cleanupCommand,
   autopilotCommand,
-<<<<<<< HEAD
   monographCommand,
-=======
   platformsCommand,
->>>>>>> feat/gitnexus-feature-parity
 ];
 
 /**
@@ -341,12 +335,9 @@ export const commandsByCategory = {
     updateCommand,
     processCommand,
     applianceCommand,
-<<<<<<< HEAD
     storeCommand,
-=======
     cleanupCommand,
     platformsCommand,
->>>>>>> feat/gitnexus-feature-parity
   ],
 };
 

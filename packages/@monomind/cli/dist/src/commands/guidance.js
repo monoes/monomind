@@ -37,7 +37,7 @@ const compileCommand = {
             if (localPath && existsSync(localPath)) {
                 localContent = await readFile(localPath, 'utf-8');
             }
-            const { GuidanceCompiler } = await import('@monoes/guidance/compiler');
+            const { GuidanceCompiler } = await import('@monomind/guidance/compiler');
             const compiler = new GuidanceCompiler();
             const bundle = compiler.compile(rootContent, localContent);
             if (jsonOutput) {
@@ -108,8 +108,8 @@ const retrieveCommand = {
         try {
             const { readFile } = await import('node:fs/promises');
             const { existsSync } = await import('node:fs');
-            const { GuidanceCompiler } = await import('@monoes/guidance/compiler');
-            const { ShardRetriever, HashEmbeddingProvider } = await import('@monoes/guidance/retriever');
+            const { GuidanceCompiler } = await import('@monomind/guidance/compiler');
+            const { ShardRetriever, HashEmbeddingProvider } = await import('@monomind/guidance/retriever');
             if (!existsSync(rootPath)) {
                 output.writeln(output.error(`Root guidance file not found: ${rootPath}`));
                 return { success: false, message: `File not found: ${rootPath}` };
@@ -185,7 +185,7 @@ const gatesCommand = {
         output.writeln(output.bold('Enforcement Gates'));
         output.writeln(output.dim('─'.repeat(50)));
         try {
-            const { EnforcementGates } = await import('@monoes/guidance/gates');
+            const { EnforcementGates } = await import('@monomind/guidance/gates');
             const gates = new EnforcementGates();
             const results = [];
             if (command) {
@@ -279,7 +279,7 @@ const statusCommand = {
                 output.writeln(`  Data directory: ${statusData.dataDir === 'exists' ? output.success('exists') : output.dim('not created')}`);
                 if (rootExists) {
                     const { readFile } = await import('node:fs/promises');
-                    const { GuidanceCompiler } = await import('@monoes/guidance/compiler');
+                    const { GuidanceCompiler } = await import('@monomind/guidance/compiler');
                     const rootContent = await readFile('./CLAUDE.md', 'utf-8');
                     const compiler = new GuidanceCompiler();
                     const bundle = compiler.compile(rootContent);
@@ -343,7 +343,7 @@ const optimizeCommand = {
                 localContent = await readFile(localPath, 'utf-8');
             }
             // Step 1: Analyze current state
-            const { analyze, formatReport, optimizeForSize, formatBenchmark } = await import('@monoes/guidance/analyzer');
+            const { analyze, formatReport, optimizeForSize, formatBenchmark } = await import('@monomind/guidance/analyzer');
             const analysis = analyze(rootContent, localContent);
             if (jsonOutput && !applyChanges) {
                 output.writeln(JSON.stringify(analysis, null, 2));
@@ -434,7 +434,7 @@ const abTestCommand = {
         try {
             const { readFile } = await import('node:fs/promises');
             const { existsSync } = await import('node:fs');
-            const { abBenchmark, getDefaultABTasks } = await import('@monoes/guidance/analyzer');
+            const { abBenchmark, getDefaultABTasks } = await import('@monomind/guidance/analyzer');
             // Load Config B (candidate) content
             if (!existsSync(configBPath)) {
                 output.writeln(output.error(`Config B file not found: ${configBPath}`));
