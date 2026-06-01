@@ -1,0 +1,15 @@
+{
+  "id": "session-1777823684507",
+  "startedAt": "2026-05-03T15:54:44.507Z",
+  "platform": "darwin",
+  "cwd": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph",
+  "context": {},
+  "metrics": {
+    "edits": 34,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "endedAt": "2026-05-04T21:07:59.511Z",
+  "duration": 105195004
+}

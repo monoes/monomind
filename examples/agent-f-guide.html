@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent-F × Monomind: Autonomous Orgs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           oklch(8% 0.008 250);
+      --bg-raised:    oklch(11% 0.009 250);
+      --bg-float:     oklch(14% 0.01 250);
+      --bg-border:    oklch(20% 0.01 250);
+      --ink:          oklch(93% 0.012 80);
+      --ink-mid:      oklch(68% 0.008 80);
+      --ink-dim:      oklch(58% 0.006 80);
+      --amber:        oklch(77% 0.17 73);
+      --amber-bright: oklch(87% 0.16 78);
+      --amber-dim:    oklch(77% 0.17 73 / 0.14);
+      --amber-border: oklch(77% 0.17 73 / 0.3);
+      --cyan:         oklch(76% 0.14 197);
+      --cyan-dim:     oklch(76% 0.14 197 / 0.12);
+      --cyan-border:  oklch(76% 0.14 197 / 0.3);
+      --violet:       oklch(65% 0.18 288);
+      --violet-dim:   oklch(65% 0.18 288 / 0.12);
+      --violet-border:oklch(65% 0.18 288 / 0.3);
+      --green:        oklch(72% 0.16 145);
+      --red:          oklch(62% 0.2 25);
+      --ease-out:     cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-in-out:  cubic-bezier(0.65, 0, 0.35, 1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Figtree', system-ui, sans-serif;
+      font-size: clamp(15px, 1.5vw, 17px);
+      line-height: 1.65;
+    }
+
+    /* ── Typography ──────────────────────────────── */
+
+    h1, h2, h3, h4 {
+      font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+
+    h1 {
+      font-size: clamp(3rem, 7vw, 6.5rem);
+      font-weight: 800;
+      color: var(--amber-bright);
+    }
+
+    h2 {
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    h3 {
+      font-size: clamp(1.1rem, 2vw, 1.5rem);
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    code, .mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88em;
+    }
+
+    /* ── Layout ──────────────────────────────────── */
+
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    section { padding: clamp(80px, 10vw, 140px) clamp(24px, 5vw, 80px); }
+
+    /* ── Scroll reveal ───────────────────────────── */
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out);
+    }
+    .reveal.visible { opacity: 1; transform: none; }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+    .reveal-delay-4 { transition-delay: 0.4s; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1; transform: none; transition: none; }
+    }
+
+    /* ── Step number texture ─────────────────────── */
+
+    .step-label {
+      font-family: 'Bricolage Grotesque', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--amber);
+      opacity: 0.85;
+      margin-bottom: 20px;
+    }
+
+    .step-number {
+      font-family: 'Bricolage Grotesque', sans-serif;
+      font-size: clamp(6rem, 14vw, 11rem);
+      font-weight: 800;
+      line-height: 0.9;
+      color: var(--bg-float);
+      user-select: none;
+      pointer-events: none;
+      letter-spacing: -0.04em;
+    }
+
+    /* ── Command blocks ──────────────────────────── */
+
+    .cmd-block {
+      background: var(--bg-raised);
+      border: 1px solid var(--bg-border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 28px 0;
+    }
+
+    .cmd-block-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--bg-border);
+      background: var(--bg-float);
+    }
+
+    .cmd-block-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--ink-dim);
+      letter-spacing: 0.03em;
+    }
+
+    .cmd-dots { display: flex; gap: 6px; }
+    .cmd-dots span {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--bg-border);
+    }
+
+    .cmd-body {
+      padding: 20px 24px;
+      overflow-x: auto;
+    }
+
+    .cmd-line {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+    .cmd-line:last-child { margin-bottom: 0; }
+
+    .cmd-prompt { color: var(--amber); user-select: none; flex-shrink: 0; }
+    .cmd-text { color: var(--ink); }
+    .cmd-text .flag { color: var(--cyan); }
+    .cmd-text .value { color: var(--green); }
+    .cmd-text .comment { color: var(--ink-dim); font-style: italic; }
+    .cmd-output { color: var(--ink-mid); margin-left: 24px; font-size: 0.85em; }
+
+    .copy-btn {
+      background: transparent;
+      border: 1px solid var(--bg-border);
+      border-radius: 5px;
+      padding: 4px 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--ink-dim);
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+      letter-spacing: 0.04em;
+    }
+    .copy-btn:hover { border-color: var(--amber-border); color: var(--amber); }
+    .copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+    /* ── Pill tag ────────────────────────────────── */
+
+    .tag {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      padding: 3px 9px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .tag-amber { background: var(--amber-dim); color: var(--amber); border: 1px solid var(--amber-border); }
+    .tag-cyan  { background: var(--cyan-dim);  color: var(--cyan);  border: 1px solid var(--cyan-border); }
+    .tag-violet{ background: var(--violet-dim);color: var(--violet);border: 1px solid var(--violet-border); }
+
+    /* ── Info rows ───────────────────────────────── */
+
+    .info-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 32px;
+    }
+    @media (max-width: 640px) { .info-row { grid-template-columns: 1fr; } }
+
+    .info-item {
+      padding: 20px 24px;
+      background: var(--bg-raised);
+      border-radius: 8px;
+      border: 1px solid var(--bg-border);
+    }
+    .info-item-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-dim);
+      margin-bottom: 8px;
+    }
+    .info-item-value { font-weight: 600; font-size: 0.95rem; color: var(--ink); }
+
+    /* ──────────────────────────────────────────────
+       HERO
+    ─────────────────────────────────────────────── */
+
+    #hero {
+      min-height: 100svh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      gap: 40px;
+      padding: clamp(60px, 10vw, 120px) clamp(24px, 5vw, 80px);
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+    @media (max-width: 900px) {
+      #hero { grid-template-columns: 1fr; min-height: auto; padding-top: 80px; }
+      #hero-network { order: -1; }
+    }
+
+    #hero-left { max-width: 580px; }
+
+    .hero-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--amber);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+      opacity: 0.9;
+    }
+
+    .hero-sub {
+      font-size: clamp(1.05rem, 2vw, 1.25rem);
+      color: var(--ink-mid);
+      margin-top: 24px;
+      max-width: 500px;
+      line-height: 1.6;
+    }
+
+    .hero-sub strong { color: var(--ink); }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 40px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 22px;
+      border-radius: 7px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.2s var(--ease-out), box-shadow 0.2s;
+      border: none;
+    }
+    .btn:hover { transform: translateY(-2px); }
+
+    .btn-primary {
+      background: var(--amber);
+      color: oklch(9% 0.015 73);
+      box-shadow: 0 8px 24px -4px oklch(77% 0.17 73 / 0.35);
+    }
+    .btn-primary:hover { box-shadow: 0 16px 32px -4px oklch(77% 0.17 73 / 0.45); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--ink-mid);
+      border: 1px solid var(--bg-border);
+    }
+    .btn-ghost:hover { border-color: var(--bg-float); color: var(--ink); background: var(--bg-raised); }
+
+    /* Agent network SVG */
+
+    #hero-network {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .network-svg { width: 100%; max-width: 460px; height: auto; }
+
+    .agent-node circle.ring {
+      fill: none;
+      stroke-width: 1;
+    }
+    .agent-node circle.core {
+      stroke-width: 1.5;
+    }
+    .agent-node text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      text-anchor: middle;
+    }
+
+    .edge {
+      fill: none;
+      stroke-dasharray: 6 5;
+      stroke-width: 1;
+      stroke-linecap: round;
+    }
+
+    .edge-amber  { stroke: oklch(77% 0.17 73 / 0.35); }
+    .edge-cyan   { stroke: oklch(76% 0.14 197 / 0.35); }
+    .edge-violet { stroke: oklch(65% 0.18 288 / 0.35); }
+
+    @keyframes dash-flow {
+      to { stroke-dashoffset: -22; }
+    }
+    @keyframes pulse-ring {
+      0%, 100% { r: 22; opacity: 0.3; }
+      50%       { r: 30; opacity: 0; }
+    }
+    @keyframes node-breathe {
+      0%, 100% { opacity: 0.9; }
+      50%       { opacity: 1; }
+    }
+
+    .edge { animation: dash-flow 2.8s linear infinite; }
+    .edge:nth-child(2) { animation-duration: 3.2s; }
+    .edge:nth-child(3) { animation-duration: 2.5s; animation-delay: -0.8s; }
+    .edge:nth-child(4) { animation-duration: 3.6s; animation-delay: -1.2s; }
+    .edge:nth-child(5) { animation-duration: 2.9s; animation-delay: -0.4s; }
+    .edge:nth-child(6) { animation-duration: 3.1s; animation-delay: -1.6s; }
+
+    .pulse-ring { animation: pulse-ring 3s ease-out infinite; }
+    .agent-node { animation: node-breathe 4s ease-in-out infinite; }
+    .agent-node:nth-child(2) { animation-delay: -0.8s; }
+    .agent-node:nth-child(3) { animation-delay: -1.6s; }
+    .agent-node:nth-child(4) { animation-delay: -2.4s; }
+    .agent-node:nth-child(5) { animation-delay: -3.2s; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .edge, .pulse-ring, .agent-node { animation: none; }
+    }
+
+    /* Scroll cue */
+    .scroll-cue {
+      position: absolute;
+      bottom: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink-dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+    }
+    .scroll-cue-line {
+      width: 1px;
+      height: 40px;
+      background: linear-gradient(to bottom, var(--amber), transparent);
+      animation: scroll-pulse 2s ease-in-out infinite;
+    }
+    @keyframes scroll-pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) { .scroll-cue-line { animation: none; } }
+
+    /* ──────────────────────────────────────────────
+       SECTION SHARED
+    ─────────────────────────────────────────────── */
+
+    .section-inner {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 60px;
+      align-items: start;
+    }
+    @media (max-width: 840px) {
+      .section-inner { grid-template-columns: 1fr; gap: 32px; }
+    }
+
+    .section-aside { padding-top: 8px; }
+
+    .section-body p {
+      color: var(--ink-mid);
+      margin-bottom: 16px;
+      max-width: 64ch;
+    }
+    .section-body p strong { color: var(--ink); font-weight: 600; }
+
+    /* ──────────────────────────────────────────────
+       SETUP (S1)
+    ─────────────────────────────────────────────── */
+
+    #setup { background: var(--bg); }
+
+    .setup-checks {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 28px;
+    }
+
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 7px;
+      border: 1px solid var(--bg-border);
+      background: var(--bg-raised);
+    }
+    .check-icon {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .check-icon.amber { background: var(--amber-dim); color: var(--amber); }
+    .check-icon.cyan  { background: var(--cyan-dim);  color: var(--cyan); }
+    .check-icon.violet{ background: var(--violet-dim);color: var(--violet); }
+    .check-label { font-size: 0.88rem; font-weight: 500; }
+    .check-meta  { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--ink-dim); margin-left: auto; }
+
+    /* ──────────────────────────────────────────────
+       MONOGRAPH (S3)
+    ─────────────────────────────────────────────── */
+
+    #monograph { background: var(--bg-raised); }
+
+    .graph-preview {
+      margin-top: 32px;
+      background: var(--bg);
+      border: 1px solid var(--bg-border);
+      border-radius: 10px;
+      padding: 28px;
+      overflow: hidden;
+    }
+
+    .graph-svg { width: 100%; height: auto; }
+
+    /* ──────────────────────────────────────────────
+       CREATEORG (S4)
+    ─────────────────────────────────────────────── */
+
+    #createorg { background: var(--bg); }
+
+    .org-integrations {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 28px;
+    }
+
+    .integration-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px;
+      border-radius: 8px;
+      background: var(--bg-raised);
+      border: 1px solid var(--bg-border);
+    }
+    .integration-badge-icon {
+      font-size: 18px;
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 6px;
+    }
+    .int-linear .integration-badge-icon { background: var(--violet-dim); }
+    .int-github .integration-badge-icon { background: var(--bg-float); }
+    .int-aws    .integration-badge-icon { background: oklch(60% 0.18 40 / 0.12); color: oklch(72% 0.18 40); }
+    .integration-badge-text { font-size: 0.88rem; font-weight: 600; }
+    .integration-badge-detail { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--ink-dim); margin-top: 2px; }
+
+    /* ──────────────────────────────────────────────
+       THE TEAM (S5)
+    ─────────────────────────────────────────────── */
+
+    #team { background: var(--bg-raised); }
+
+    .team-roles {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-top: 36px;
+      border: 1px solid var(--bg-border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .role-row {
+      display: grid;
+      grid-template-columns: 56px 180px 1fr 220px;
+      align-items: center;
+      gap: 24px;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--bg-border);
+      transition: background 0.15s;
+    }
+    .role-row:last-child { border-bottom: none; }
+    .role-row:hover { background: var(--bg-float); }
+
+    @media (max-width: 760px) {
+      .role-row { grid-template-columns: 56px 1fr; }
+      .role-reads { display: none; }
+    }
+
+    .role-num {
+      font-family: 'Bricolage Grotesque', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--bg-float);
+      line-height: 1;
+    }
+    .role-num.active { color: var(--amber); }
+
+    .role-title {
+      font-family: 'Bricolage Grotesque', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .role-desc { font-size: 0.88rem; color: var(--ink-mid); line-height: 1.5; }
+
+    .role-reads {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .role-reads-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--ink-dim);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .role-reads-items { display: flex; gap: 5px; flex-wrap: wrap; }
+
+    /* ──────────────────────────────────────────────
+       RUNORG / LOOP (S6)
+    ─────────────────────────────────────────────── */
+
+    #runorg { background: var(--bg); }
+
+    .pipeline {
+      margin-top: 40px;
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+
+    .pipe-stage {
+      display: flex;
+      flex-direction: column;
+      min-width: 130px;
+    }
+
+    .pipe-node {
+      background: var(--bg-raised);
+      border: 1px solid var(--bg-border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      text-align: center;
+      position: relative;
+    }
+
+    .pipe-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-dim);
+      margin-bottom: 5px;
+    }
+
+    .pipe-name {
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--ink);
+    }
+
+    .pipe-node.active-linear  { border-color: var(--violet-border); background: var(--violet-dim); }
+    .pipe-node.active-code    { border-color: var(--amber-border);  background: var(--amber-dim); }
+    .pipe-node.active-test    { border-color: var(--cyan-border);   background: var(--cyan-dim); }
+    .pipe-node.active-deploy  { border-color: oklch(72% 0.16 145 / 0.3); background: oklch(72% 0.16 145 / 0.08); }
+
+    .pipe-node.active-linear .pipe-name  { color: var(--violet); }
+    .pipe-node.active-code   .pipe-name  { color: var(--amber); }
+    .pipe-node.active-test   .pipe-name  { color: var(--cyan); }
+    .pipe-node.active-deploy .pipe-name  { color: var(--green); }
+
+    .pipe-arrow {
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      color: var(--ink-dim);
+      font-size: 0.85rem;
+      margin-top: 14px;
+    }
+
+    /* Activity ticker */
+
+    .activity-ticker {
+      margin-top: 40px;
+      background: var(--bg-raised);
+      border: 1px solid var(--bg-border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .ticker-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      background: var(--bg-float);
+      border-bottom: 1px solid var(--bg-border);
+    }
+
+    .live-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: live-blink 1.8s ease-in-out infinite;
+    }
+    @keyframes live-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
+    .ticker-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--ink-mid);
+      letter-spacing: 0.04em;
+    }
+
+    .ticker-body {
+      padding: 16px 20px;
+      height: 220px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+
+    .ticker-log {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .log-entry {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);
+    }
+    .log-entry.show { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .log-entry { opacity: 1; transform: none; transition: none; }
+    }
+
+    .log-time { color: var(--ink-dim); white-space: nowrap; }
+    .log-agent { min-width: 80px; font-weight: 500; }
+    .log-msg { color: var(--ink-mid); }
+    .log-msg .hi-amber  { color: var(--amber); }
+    .log-msg .hi-cyan   { color: var(--cyan); }
+    .log-msg .hi-violet { color: var(--violet); }
+    .log-msg .hi-green  { color: var(--green); }
+
+    /* ──────────────────────────────────────────────
+       FOOTER
+    ─────────────────────────────────────────────── */
+
+    footer {
+      background: var(--bg-raised);
+      border-top: 1px solid var(--bg-border);
+      padding: 60px clamp(24px, 5vw, 80px);
+    }
+
+    .footer-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    .footer-brand {
+      font-family: 'Bricolage Grotesque', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .footer-brand span { color: var(--amber); }
+
+    .footer-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--ink-dim);
+      letter-spacing: 0.04em;
+    }
+
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--ink-dim);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .footer-links a:hover { color: var(--amber); }
+
+    /* ──────────────────────────────────────────────
+       DIVIDER
+    ─────────────────────────────────────────────── */
+
+    .section-divider {
+      width: 100%;
+      height: 1px;
+      background: var(--bg-border);
+      margin: 0;
+    }
+
+    /* ──────────────────────────────────────────────
+       NAV
+    ─────────────────────────────────────────────── */
+
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 16px clamp(24px, 5vw, 80px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: oklch(8% 0.008 250 / 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--bg-border);
+    }
+
+    .nav-logo {
+      font-family: 'Bricolage Grotesque', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .nav-logo span { color: var(--amber); }
+
+    .nav-links { display: flex; gap: 24px; align-items: center; }
+    .nav-links a {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--ink-dim);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .nav-links a:hover { color: var(--amber); }
+
+    @media (max-width: 600px) { .nav-links { display: none; } }
+  </style>
+</head>
+<body>
+
+  <!-- ── NAV ──────────────────────────────────── -->
+  <nav>
+    <a href="#" class="nav-logo">agent<span>-f</span> × monomind</a>
+    <div class="nav-links">
+      <a href="#setup">Setup</a>
+      <a href="#monograph">Monograph</a>
+      <a href="#createorg">createorg</a>
+      <a href="#runorg">runorg</a>
+    </div>
+  </nav>
+
+  <!-- ── HERO ──────────────────────────────────── -->
+  <div style="position:relative;">
+    <section id="hero" style="padding-top: 100px;">
+      <div id="hero-left" class="reveal">
+        <h1>Your Mac<br>Mini ships<br>at 3am.</h1>
+        <p class="hero-sub">
+          <strong>agent-f × monomind.</strong> Set up once, create one org per project.
+          Watch five agents read Linear, write code, run tests on AWS,
+          and merge PRs while you sleep.
+        </p>
+        <div class="hero-actions">
+          <a href="#setup" class="btn btn-primary">Get started →</a>
+          <a href="#runorg" class="btn btn-ghost">See the loop</a>
+        </div>
+      </div>
+
+      <div id="hero-network" class="reveal reveal-delay-2">
+        <svg class="network-svg" viewBox="0 0 460 440" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Five autonomous agents (PM, Architect, Developer, Tester, Reviewer) connected in a mesh network">
+
+          <!-- Edges (connection lines) -->
+          <!-- PM(230,60) → Architect(388,172) -->
+          <path class="edge edge-amber" d="M 248 72 L 372 162"/>
+          <!-- Architect(388,172) → Developer(330,350) -->
+          <path class="edge edge-amber" d="M 382 192 L 342 332"/>
+          <!-- Developer(330,350) → Tester(130,350) -->
+          <path class="edge edge-cyan" d="M 312 350 L 148 350"/>
+          <!-- Tester(130,350) → Reviewer(72,172) -->
+          <path class="edge edge-cyan" d="M 118 332 L 84 190"/>
+          <!-- Reviewer(72,172) → PM(230,60) -->
+          <path class="edge edge-violet" d="M 90 160 L 213 70"/>
+          <!-- PM → Developer (cross) -->
+          <path class="edge edge-violet" d="M 243 78 L 322 333" stroke-dasharray="4 8" opacity="0.4"/>
+
+          <!-- PM Node at (230,60) -->
+          <g class="agent-node">
+            <circle class="pulse-ring" cx="230" cy="60" r="22" stroke="oklch(77% 0.17 73 / 0.2)"/>
+            <circle class="core" cx="230" cy="60" r="20" fill="oklch(14% 0.01 250)" stroke="oklch(77% 0.17 73 / 0.7)"/>
+            <text x="230" y="56" fill="oklch(87% 0.16 78)" dy="0.35em" font-size="10">PM</text>
+            <text x="230" y="76" fill="oklch(60% 0.008 80)" dy="0.35em" font-size="8">product mgr</text>
+          </g>
+
+          <!-- Architect Node at (390,172) -->
+          <g class="agent-node">
+            <circle class="pulse-ring" cx="390" cy="172" r="22" stroke="oklch(77% 0.17 73 / 0.2)"/>
+            <circle class="core" cx="390" cy="172" r="20" fill="oklch(14% 0.01 250)" stroke="oklch(77% 0.17 73 / 0.5)"/>
+            <text x="390" y="168" fill="oklch(87% 0.16 78)" dy="0.35em" font-size="9">ARCH</text>
+            <text x="390" y="186" fill="oklch(60% 0.008 80)" dy="0.35em" font-size="8">architect</text>
+          </g>
+
+          <!-- Developer Node at (330,352) -->
+          <g class="agent-node">
+            <circle class="pulse-ring" cx="330" cy="352" r="22" stroke="oklch(77% 0.17 73 / 0.2)"/>
+            <circle class="core" cx="330" cy="352" r="20" fill="oklch(14% 0.01 250)" stroke="oklch(77% 0.17 73 / 0.8)"/>
+            <text x="330" y="348" fill="oklch(87% 0.16 78)" dy="0.35em" font-size="9">DEV</text>
+            <text x="330" y="366" fill="oklch(60% 0.008 80)" dy="0.35em" font-size="8">developer</text>
+          </g>
+
+          <!-- Tester Node at (130,352) -->
+          <g class="agent-node">
+            <circle class="pulse-ring" cx="130" cy="352" r="22" stroke="oklch(76% 0.14 197 / 0.2)"/>
+            <circle class="core" cx="130" cy="352" r="20" fill="oklch(14% 0.01 250)" stroke="oklch(76% 0.14 197 / 0.6)"/>
+            <text x="130" y="348" fill="oklch(76% 0.14 197)" dy="0.35em" font-size="9">TEST</text>
+            <text x="130" y="366" fill="oklch(60% 0.008 80)" dy="0.35em" font-size="8">tester</text>
+          </g>
+
+          <!-- Reviewer Node at (70,172) -->
+          <g class="agent-node">
+            <circle class="pulse-ring" cx="70" cy="172" r="22" stroke="oklch(65% 0.18 288 / 0.2)"/>
+            <circle class="core" cx="70" cy="172" r="20" fill="oklch(14% 0.01 250)" stroke="oklch(65% 0.18 288 / 0.6)"/>
+            <text x="70" y="168" fill="oklch(65% 0.18 288)" dy="0.35em" font-size="9">REV</text>
+            <text x="70" y="186" fill="oklch(60% 0.008 80)" dy="0.35em" font-size="8">reviewer</text>
+          </g>
+
+          <!-- Center label -->
+          <text x="230" y="210" text-anchor="middle" fill="oklch(42% 0.006 80)" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="0.12em">MONOMIND ORG</text>
+          <text x="230" y="226" text-anchor="middle" fill="oklch(35% 0.005 80)" font-family="JetBrains Mono, monospace" font-size="8">spec-driven · always on</text>
+        </svg>
+      </div>
+    </section>
+
+    <div class="scroll-cue">
+      <span>scroll</span>
+      <div class="scroll-cue-line"></div>
+    </div>
+  </div>
+
+  <div class="section-divider"></div>
+
+  <!-- ── S1: SETUP ─────────────────────────────── -->
+  <section id="setup">
+    <div class="container">
+      <div class="section-inner">
+        <div class="section-aside">
+          <div class="step-number reveal" aria-hidden="true">→</div>
+          <div class="step-label reveal reveal-delay-1">The Foundation</div>
+        </div>
+        <div class="section-body">
+          <h2 class="reveal">Mac Mini to<br>Claude Code<br>in 4 commands.</h2>
+          <p class="reveal reveal-delay-1">
+            A fresh Mac Mini. Node 20+, git, and your Anthropic API key.
+            That's the entire prerequisite list.
+          </p>
+
+          <div class="cmd-block reveal reveal-delay-2">
+            <div class="cmd-block-header">
+              <div class="cmd-dots"><span></span><span></span><span></span></div>
+              <div class="cmd-block-title">terminal: mac mini setup</div>
+              <button class="copy-btn" data-copy="brew install node git&#10;node --version&#10;npm install -g @anthropic-ai/claude-code&#10;export ANTHROPIC_API_KEY=sk-ant-...">copy</button>
+            </div>
+            <div class="cmd-body">
+              <div class="cmd-line">
+                <span class="cmd-prompt mono">$</span>
+                <span class="cmd-text mono">brew install node git</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono"># node 20.x or higher required</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-prompt mono">$</span>
+                <span class="cmd-text mono">node --version</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono">v22.3.0</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-prompt mono">$</span>
+                <span class="cmd-text mono">npm install -g @anthropic-ai/claude-code</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-prompt mono">$</span>
+                <span class="cmd-text mono">export <span class="flag">ANTHROPIC_API_KEY</span>=<span class="value">sk-ant-...</span></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="cmd-block reveal reveal-delay-3">
+            <div class="cmd-block-header">
+              <div class="cmd-dots"><span></span><span></span><span></span></div>
+              <div class="cmd-block-title">activate monomind</div>
+              <button class="copy-btn" data-copy="npx monomind@latest init&#10;npx monomind@latest doctor">copy</button>
+            </div>
+            <div class="cmd-body">
+              <div class="cmd-line">
+                <span class="cmd-prompt mono">$</span>
+                <span class="cmd-text mono">npx monomind@latest init</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono">✓ Installed 17 hooks + 12 background workers</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono">✓ AgentDB initialized (SQLite + HNSW)</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono">✓ Neural SONA enabled</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono">✓ Knowledge graph ready</span>
+              </div>
+              <div class="cmd-line" style="margin-top: 12px;">
+                <span class="cmd-prompt mono">$</span>
+                <span class="cmd-text mono">npx monomind@latest doctor</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono" style="color: var(--green);">All systems operational.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="check-list reveal reveal-delay-4">
+            <div class="setup-checks">
+              <div class="check-item">
+                <div class="check-icon amber">⊕</div>
+                <div>
+                  <div class="check-label">17 hooks installed</div>
+                  <div style="font-size:0.8rem;color:var(--ink-dim);">pre-edit, post-edit, route, session-start, teammate-idle and more</div>
+                </div>
+                <div class="check-meta">auto</div>
+              </div>
+              <div class="check-item">
+                <div class="check-icon violet">◎</div>
+                <div>
+                  <div class="check-label">AgentDB memory</div>
+                  <div style="font-size:0.8rem;color:var(--ink-dim);">persistent context across sessions, 150x search via HNSW</div>
+                </div>
+                <div class="check-meta">hybrid</div>
+              </div>
+              <div class="check-item">
+                <div class="check-icon cyan">◈</div>
+                <div>
+                  <div class="check-label">Neural SONA active</div>
+                  <div style="font-size:0.8rem;color:var(--ink-dim);">self-learning from every task, improves over time</div>
+                </div>
+                <div class="check-meta">&lt;0.05ms</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ── S2: MONOGRAPH ─────────────────────────── -->
+  <section id="monograph">
+    <div class="container">
+      <div class="section-inner">
+        <div class="section-aside">
+          <div class="step-number reveal" aria-hidden="true">◈</div>
+          <div class="step-label reveal reveal-delay-1">Monograph</div>
+        </div>
+        <div class="section-body">
+          <h2 class="reveal">Build the<br>knowledge graph.</h2>
+          <p class="reveal reveal-delay-1">
+            Before agents touch a single line of code, Monograph maps every file,
+            import, and dependency into a queryable graph. Agents know <strong>exactly
+            what changes what</strong> before they act.
+          </p>
+
+          <div class="cmd-block reveal reveal-delay-2">
+            <div class="cmd-block-header">
+              <div class="cmd-dots"><span></span><span></span><span></span></div>
+              <div class="cmd-block-title">monograph: index the codebase</div>
+              <button class="copy-btn" data-copy="npx monomind@latest monograph build --codeOnly&#10;npx monomind@latest monograph suggest &quot;what does this codebase do?&quot;&#10;npx monomind@latest monograph impact src/auth/middleware.ts">copy</button>
+            </div>
+            <div class="cmd-body">
+              <div class="cmd-line">
+                <span class="cmd-prompt mono">$</span>
+                <span class="cmd-text mono">npx monomind@latest monograph build <span class="flag">--codeOnly</span></span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono">Building knowledge graph for agent-f/api...</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono">✓ 847 nodes, 3,204 edges indexed</span>
+              </div>
+              <div class="cmd-line" style="margin-top: 12px;">
+                <span class="cmd-prompt mono">$</span>
+                <span class="cmd-text mono">npx monomind@latest monograph suggest <span class="value">"what changes auth?"</span></span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono">src/auth/middleware.ts (line 42)</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono">src/users/session.ts (line 18)</span>
+              </div>
+              <div class="cmd-line" style="margin-top: 12px;">
+                <span class="cmd-prompt mono">$</span>
+                <span class="cmd-text mono">npx monomind@latest monograph impact <span class="value">src/auth/middleware.ts</span></span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono" style="color: var(--amber);">14 dependents will be affected.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="graph-preview reveal reveal-delay-3">
+            <svg class="graph-svg" viewBox="0 0 600 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Simplified knowledge graph showing file dependencies">
+              <!-- Node connections -->
+              <line x1="100" y1="100" x2="240" y2="60"  stroke="oklch(65% 0.18 288 / 0.3)" stroke-width="1" stroke-dasharray="4 4"/>
+              <line x1="100" y1="100" x2="240" y2="100" stroke="oklch(65% 0.18 288 / 0.3)" stroke-width="1" stroke-dasharray="4 4"/>
+              <line x1="100" y1="100" x2="240" y2="140" stroke="oklch(65% 0.18 288 / 0.3)" stroke-width="1" stroke-dasharray="4 4"/>
+              <line x1="240" y1="60"  x2="380" y2="70"  stroke="oklch(65% 0.18 288 / 0.2)" stroke-width="1" stroke-dasharray="4 4"/>
+              <line x1="240" y1="100" x2="380" y2="70"  stroke="oklch(65% 0.18 288 / 0.2)" stroke-width="1" stroke-dasharray="4 4"/>
+              <line x1="240" y1="100" x2="380" y2="110" stroke="oklch(65% 0.18 288 / 0.2)" stroke-width="1" stroke-dasharray="4 4"/>
+              <line x1="240" y1="140" x2="380" y2="150" stroke="oklch(65% 0.18 288 / 0.2)" stroke-width="1" stroke-dasharray="4 4"/>
+              <line x1="380" y1="70"  x2="500" y2="80"  stroke="oklch(65% 0.18 288 / 0.15)" stroke-width="1" stroke-dasharray="4 4"/>
+              <line x1="380" y1="110" x2="500" y2="100" stroke="oklch(65% 0.18 288 / 0.15)" stroke-width="1" stroke-dasharray="4 4"/>
+              <line x1="380" y1="150" x2="500" y2="130" stroke="oklch(65% 0.18 288 / 0.15)" stroke-width="1" stroke-dasharray="4 4"/>
+
+              <!-- Root node -->
+              <circle cx="100" cy="100" r="14" fill="oklch(14% 0.01 250)" stroke="oklch(65% 0.18 288 / 0.8)" stroke-width="1.5"/>
+              <text x="100" y="123" text-anchor="middle" fill="oklch(65% 0.18 288)" font-family="JetBrains Mono, monospace" font-size="8">index.ts</text>
+
+              <!-- L2 nodes -->
+              <circle cx="240" cy="60"  r="10" fill="oklch(14% 0.01 250)" stroke="oklch(65% 0.18 288 / 0.5)" stroke-width="1"/>
+              <circle cx="240" cy="100" r="10" fill="oklch(14% 0.01 250)" stroke="oklch(77% 0.17 73 / 0.6)" stroke-width="1"/>
+              <circle cx="240" cy="140" r="10" fill="oklch(14% 0.01 250)" stroke="oklch(76% 0.14 197 / 0.5)" stroke-width="1"/>
+              <text x="240" y="50"  text-anchor="middle" fill="oklch(65% 0.18 288)" font-family="JetBrains Mono, monospace" font-size="7">routes/</text>
+              <text x="240" y="116" text-anchor="middle" fill="oklch(77% 0.17 73)"  font-family="JetBrains Mono, monospace" font-size="7">auth/</text>
+              <text x="240" y="156" text-anchor="middle" fill="oklch(76% 0.14 197)" font-family="JetBrains Mono, monospace" font-size="7">db/</text>
+
+              <!-- L3 nodes -->
+              <circle cx="380" cy="70"  r="7" fill="oklch(14% 0.01 250)" stroke="oklch(65% 0.18 288 / 0.4)"/>
+              <circle cx="380" cy="110" r="7" fill="oklch(14% 0.01 250)" stroke="oklch(77% 0.17 73 / 0.5)"/>
+              <circle cx="380" cy="150" r="7" fill="oklch(14% 0.01 250)" stroke="oklch(76% 0.14 197 / 0.4)"/>
+
+              <!-- L4 nodes -->
+              <circle cx="500" cy="80"  r="5" fill="oklch(14% 0.01 250)" stroke="oklch(42% 0.006 80)"/>
+              <circle cx="500" cy="100" r="5" fill="oklch(14% 0.01 250)" stroke="oklch(42% 0.006 80)"/>
+              <circle cx="500" cy="130" r="5" fill="oklch(14% 0.01 250)" stroke="oklch(42% 0.006 80)"/>
+
+              <!-- Legend -->
+              <circle cx="30" cy="165" r="4" fill="oklch(14% 0.01 250)" stroke="oklch(65% 0.18 288 / 0.6)"/>
+              <text x="40" y="168.5" fill="oklch(60% 0.008 80)" font-family="JetBrains Mono, monospace" font-size="7">entry point</text>
+              <circle cx="110" cy="165" r="4" fill="oklch(14% 0.01 250)" stroke="oklch(77% 0.17 73 / 0.6)"/>
+              <text x="120" y="168.5" fill="oklch(60% 0.008 80)" font-family="JetBrains Mono, monospace" font-size="7">auth module</text>
+              <circle cx="195" cy="165" r="4" fill="oklch(14% 0.01 250)" stroke="oklch(76% 0.14 197 / 0.6)"/>
+              <text x="205" y="168.5" fill="oklch(60% 0.008 80)" font-family="JetBrains Mono, monospace" font-size="7">data layer</text>
+            </svg>
+          </div>
+
+          <div class="info-row reveal reveal-delay-4">
+            <div class="info-item">
+              <div class="info-item-label">blast radius</div>
+              <div class="info-item-value" style="color:var(--amber);">monograph_impact</div>
+              <div style="font-size:0.8rem;color:var(--ink-dim);margin-top:6px;">Find all upstream dependents before changing anything</div>
+            </div>
+            <div class="info-item">
+              <div class="info-item-label">targeted lookup</div>
+              <div class="info-item-value" style="color:var(--violet);">monograph_query</div>
+              <div style="font-size:0.8rem;color:var(--ink-dim);margin-top:6px;">BM25 search returns file path + line number</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ── S3: CREATEORG ─────────────────────────── -->
+  <section id="createorg">
+    <div class="container">
+      <div class="section-inner">
+        <div class="section-aside">
+          <div class="step-number reveal" aria-hidden="true">⊕</div>
+          <div class="step-label reveal reveal-delay-1">createorg</div>
+        </div>
+        <div class="section-body">
+          <h2 class="reveal">One org per<br>project. Every<br>project.</h2>
+          <p class="reveal reveal-delay-1">
+            <code>createorg</code> provisions a dedicated autonomous organization
+            for a repository. It links <strong>Linear</strong> for task intake,
+            <strong>GitHub</strong> for execution, and <strong>AWS</strong> for
+            test and deploy infrastructure.
+          </p>
+
+          <div class="cmd-block reveal reveal-delay-2">
+            <div class="cmd-block-header">
+              <div class="cmd-dots"><span></span><span></span><span></span></div>
+              <div class="cmd-block-title">createorg: provision project org</div>
+              <button class="copy-btn" data-copy="npx monomind@latest createorg \&#10;  --name agent-f-api \&#10;  --repo github.com/agent-f/api \&#10;  --linear-team API \&#10;  --aws-profile agent-f-prod \&#10;  --spec-driven">copy</button>
+            </div>
+            <div class="cmd-body">
+              <div class="cmd-line">
+                <span class="cmd-prompt mono">$</span>
+                <span class="cmd-text mono">npx monomind@latest createorg \</span>
+              </div>
+              <div class="cmd-line" style="padding-left: 24px;">
+                <span class="cmd-text mono"><span class="flag">  --name</span> <span class="value">agent-f-api</span> \</span>
+              </div>
+              <div class="cmd-line" style="padding-left: 24px;">
+                <span class="cmd-text mono"><span class="flag">  --repo</span> <span class="value">github.com/agent-f/api</span> \</span>
+              </div>
+              <div class="cmd-line" style="padding-left: 24px;">
+                <span class="cmd-text mono"><span class="flag">  --linear-team</span> <span class="value">API</span> \</span>
+              </div>
+              <div class="cmd-line" style="padding-left: 24px;">
+                <span class="cmd-text mono"><span class="flag">  --aws-profile</span> <span class="value">agent-f-prod</span> \</span>
+              </div>
+              <div class="cmd-line" style="padding-left: 24px;">
+                <span class="cmd-text mono"><span class="flag">  --spec-driven</span></span>
+              </div>
+              <div class="cmd-line" style="margin-top: 12px;">
+                <span class="cmd-output mono" style="color:var(--green);">✓ Org "agent-f-api" created with 5 agents</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono">✓ Linear webhook registered (team: API)</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono">✓ GitHub App installed on agent-f/api</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono">✓ AWS profile validated (us-east-1)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="org-integrations reveal reveal-delay-3">
+            <div class="integration-badge int-linear">
+              <div class="integration-badge-icon">◆</div>
+              <div>
+                <div class="integration-badge-text">Linear</div>
+                <div class="integration-badge-detail">issue intake · spec source</div>
+              </div>
+              <div style="margin-left: auto;"><span class="tag tag-violet">webhook</span></div>
+            </div>
+            <div class="integration-badge int-github">
+              <div class="integration-badge-icon">◉</div>
+              <div>
+                <div class="integration-badge-text">GitHub</div>
+                <div class="integration-badge-detail">code · PRs · reviews</div>
+              </div>
+              <div style="margin-left: auto;"><span class="tag tag-amber">app</span></div>
+            </div>
+            <div class="integration-badge int-aws">
+              <div class="integration-badge-icon">▲</div>
+              <div>
+                <div class="integration-badge-text">AWS</div>
+                <div class="integration-badge-detail">test env · deploy target</div>
+              </div>
+              <div style="margin-left: auto;"><span class="tag tag-cyan">profile</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ── S4: THE TEAM ───────────────────────────── -->
+  <section id="team">
+    <div class="container">
+      <div class="section-inner">
+        <div class="section-aside">
+          <div class="step-number reveal" aria-hidden="true">◎</div>
+          <div class="step-label reveal reveal-delay-1">The Agents</div>
+        </div>
+        <div class="section-body">
+          <h2 class="reveal">Five agents.<br>One shared<br>goal.</h2>
+          <p class="reveal reveal-delay-1">
+            Each org gets a team of five specialized agents. They share memory
+            via AgentDB, coordinate through the swarm, and each has a distinct
+            read/write surface.
+          </p>
+
+          <div class="team-roles reveal reveal-delay-2">
+            <div class="role-row">
+              <div class="role-num active">◆</div>
+              <div>
+                <div class="role-title" style="color:var(--amber);">PM</div>
+                <div style="font-size:0.78rem;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;margin-top:3px;">product manager</div>
+              </div>
+              <div class="role-desc">
+                Watches Linear for new issues. Writes specs. Breaks epics into tasks.
+                Assigns work to the team. Nothing ships without a spec.
+              </div>
+              <div class="role-reads">
+                <div class="role-reads-label">reads / writes</div>
+                <div class="role-reads-items">
+                  <span class="tag tag-violet">Linear</span>
+                  <span class="tag tag-amber">specs</span>
+                </div>
+              </div>
+            </div>
+            <div class="role-row">
+              <div class="role-num">◉</div>
+              <div>
+                <div class="role-title">Architect</div>
+                <div style="font-size:0.78rem;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;margin-top:3px;">system designer</div>
+              </div>
+              <div class="role-desc">
+                Reads the spec. Queries Monograph for blast radius.
+                Designs the solution: files to create, APIs to change, DB migrations needed.
+              </div>
+              <div class="role-reads">
+                <div class="role-reads-label">reads / writes</div>
+                <div class="role-reads-items">
+                  <span class="tag tag-amber">specs</span>
+                  <span class="tag tag-violet">graph</span>
+                </div>
+              </div>
+            </div>
+            <div class="role-row">
+              <div class="role-num">⌨</div>
+              <div>
+                <div class="role-title">Developer</div>
+                <div style="font-size:0.78rem;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;margin-top:3px;">implementer</div>
+              </div>
+              <div class="role-desc">
+                Implements the architect's design. Writes code, runs linters,
+                opens the PR. Uses TDD London School: tests first, implementation second.
+              </div>
+              <div class="role-reads">
+                <div class="role-reads-label">reads / writes</div>
+                <div class="role-reads-items">
+                  <span class="tag tag-amber">design</span>
+                  <span class="tag tag-cyan">GitHub</span>
+                </div>
+              </div>
+            </div>
+            <div class="role-row">
+              <div class="role-num">⊛</div>
+              <div>
+                <div class="role-title">Tester</div>
+                <div style="font-size:0.78rem;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;margin-top:3px;">qa / infra</div>
+              </div>
+              <div class="role-desc">
+                Runs the full test suite against AWS ephemeral environments.
+                Reports failures back to Developer. Validates deploy before merge.
+              </div>
+              <div class="role-reads">
+                <div class="role-reads-label">reads / writes</div>
+                <div class="role-reads-items">
+                  <span class="tag tag-cyan">AWS</span>
+                  <span class="tag tag-cyan">test results</span>
+                </div>
+              </div>
+            </div>
+            <div class="role-row">
+              <div class="role-num">◎</div>
+              <div>
+                <div class="role-title">Reviewer</div>
+                <div style="font-size:0.78rem;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;margin-top:3px;">code quality</div>
+              </div>
+              <div class="role-desc">
+                Reviews the PR. Checks security, performance, correctness.
+                Either approves or sends back with specific inline comments.
+              </div>
+              <div class="role-reads">
+                <div class="role-reads-label">reads / writes</div>
+                <div class="role-reads-items">
+                  <span class="tag tag-cyan">PR diff</span>
+                  <span class="tag tag-violet">review</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ── S5: RUNORG ────────────────────────────── -->
+  <section id="runorg">
+    <div class="container">
+      <div class="section-inner">
+        <div class="section-aside">
+          <div class="step-number reveal" aria-hidden="true">↺</div>
+          <div class="step-label reveal reveal-delay-1">runorg</div>
+        </div>
+        <div class="section-body">
+          <h2 class="reveal">Start the<br>loop. Walk<br>away.</h2>
+          <p class="reveal reveal-delay-1">
+            <code>runorg</code> starts the autonomous loop. Your org polls Linear
+            continuously. Every new issue becomes a spec, a design, implemented code,
+            a passing test suite, a merged PR, and a live deploy.
+          </p>
+
+          <div class="cmd-block reveal reveal-delay-2">
+            <div class="cmd-block-header">
+              <div class="cmd-dots"><span></span><span></span><span></span></div>
+              <div class="cmd-block-title">runorg: start autonomous loop</div>
+              <button class="copy-btn" data-copy="npx monomind@latest runorg --name agent-f-api">copy</button>
+            </div>
+            <div class="cmd-body">
+              <div class="cmd-line">
+                <span class="cmd-prompt mono">$</span>
+                <span class="cmd-text mono">npx monomind@latest runorg <span class="flag">--name</span> <span class="value">agent-f-api</span></span>
+              </div>
+              <div class="cmd-line" style="margin-top:8px;">
+                <span class="cmd-output mono" style="color:var(--violet);">◆ agent-f-api org is live</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono">  Monitoring Linear team: API</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono">  Swarm topology: hierarchical (5 agents)</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono">  Memory: AgentDB + HNSW enabled</span>
+              </div>
+              <div class="cmd-line">
+                <span class="cmd-output mono" style="color:var(--green);margin-top:8px;">  Waiting for issues... (press Ctrl+C to stop)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pipeline diagram -->
+          <div class="pipeline reveal reveal-delay-3" aria-label="Autonomous pipeline: Linear issue flows through spec, build, test, review, and deploy stages">
+            <div class="pipe-stage">
+              <div class="pipe-node active-linear">
+                <div class="pipe-label">intake</div>
+                <div class="pipe-name">Linear</div>
+              </div>
+            </div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-stage">
+              <div class="pipe-node active-code">
+                <div class="pipe-label">spec</div>
+                <div class="pipe-name">PM</div>
+              </div>
+            </div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-stage">
+              <div class="pipe-node active-code">
+                <div class="pipe-label">design</div>
+                <div class="pipe-name">Architect</div>
+              </div>
+            </div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-stage">
+              <div class="pipe-node active-code">
+                <div class="pipe-label">code</div>
+                <div class="pipe-name">Developer</div>
+              </div>
+            </div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-stage">
+              <div class="pipe-node active-test">
+                <div class="pipe-label">test</div>
+                <div class="pipe-name">Tester</div>
+              </div>
+            </div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-stage">
+              <div class="pipe-node active-test">
+                <div class="pipe-label">review</div>
+                <div class="pipe-name">Reviewer</div>
+              </div>
+            </div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-stage">
+              <div class="pipe-node active-deploy">
+                <div class="pipe-label">deploy</div>
+                <div class="pipe-name">AWS</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Activity ticker -->
+          <div class="activity-ticker reveal reveal-delay-4">
+            <div class="ticker-header">
+              <div class="live-dot"></div>
+              <div class="ticker-title">agent-f-api: live activity</div>
+              <div style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--ink-dim);">3 issues in progress</div>
+            </div>
+            <div class="ticker-body">
+              <div class="ticker-log" id="ticker-log">
+                <!-- JS fills this -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ── FOOTER ────────────────────────────────── -->
+  <footer>
+    <div class="footer-inner">
+      <div>
+        <div class="footer-brand">agent<span>-f</span></div>
+        <div class="footer-meta" style="margin-top:6px;">autonomous organizations for spec-driven development</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:12px;">
+        <div class="footer-links">
+          <a href="https://github.com/nokhodian/monomind">github</a>
+          <a href="https://github.com/nokhodian/monomind/issues">issues</a>
+        </div>
+        <div class="footer-meta">npx monomind@latest init</div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // ── Scroll reveal ─────────────────────────────
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          revealObserver.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+    // ── Copy buttons ──────────────────────────────
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const text = btn.dataset.copy;
+        navigator.clipboard.writeText(text).then(() => {
+          btn.textContent = 'copied';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = 'copy';
+            btn.classList.remove('copied');
+          }, 1800);
+        }).catch(() => {
+          btn.textContent = 'copy';
+        });
+      });
+    });
+
+    // ── Activity ticker ───────────────────────────
+    const LOG_ENTRIES = [
+      { time: '03:14:02', agent: '[PM]',       color: 'amber',  msg: 'Pulled issue <span class="hi-violet">API-234</span>: Add rate limiting to /auth endpoint' },
+      { time: '03:14:04', agent: '[PM]',       color: 'amber',  msg: 'Spec written: <span class="hi-amber">3 acceptance criteria</span>, 1 migration required' },
+      { time: '03:14:07', agent: '[ARCH]',     color: '',       msg: 'Querying Monograph: <span class="hi-violet">blast radius: 4 files</span>' },
+      { time: '03:14:09', agent: '[ARCH]',     color: '',       msg: 'Design complete: middleware.ts + rate-limit-store.ts' },
+      { time: '03:14:11', agent: '[DEV]',      color: 'amber',  msg: 'Writing tests first (TDD): <span class="hi-cyan">8 test cases</span>' },
+      { time: '03:14:28', agent: '[DEV]',      color: 'amber',  msg: 'Implementation complete: <span class="hi-green">8/8 tests passing</span>' },
+      { time: '03:14:30', agent: '[DEV]',      color: 'amber',  msg: 'PR opened: <span class="hi-cyan">github.com/agent-f/api/pull/87</span>' },
+      { time: '03:14:32', agent: '[TESTER]',   color: 'cyan',   msg: 'Provisioning ephemeral AWS env... <span class="hi-cyan">us-east-1</span>' },
+      { time: '03:14:51', agent: '[TESTER]',   color: 'cyan',   msg: 'Full suite: <span class="hi-green">247 passed</span>, 0 failed, 0 skipped' },
+      { time: '03:14:53', agent: '[REVIEWER]', color: '',       msg: 'Code review: checking security, perf, correctness...' },
+      { time: '03:15:04', agent: '[REVIEWER]', color: '',       msg: '<span class="hi-green">Approved.</span> No issues. Ready to merge.' },
+      { time: '03:15:05', agent: '[DEV]',      color: 'amber',  msg: 'Merged to main. Deploying to <span class="hi-cyan">prod-us-east-1</span>...' },
+      { time: '03:15:22', agent: '[TESTER]',   color: 'cyan',   msg: '<span class="hi-green">Deploy confirmed.</span> API-234 closed in Linear.' },
+      { time: '03:15:23', agent: '[PM]',       color: 'amber',  msg: 'Pulling next issue: <span class="hi-violet">API-235</span>...' },
+    ];
+
+    const ticker = document.getElementById('ticker-log');
+    let currentIdx = 0;
+    let entries = [];
+
+    function addLogEntry(data) {
+      const div = document.createElement('div');
+      div.className = 'log-entry';
+      const agentColor = data.color === 'amber' ? 'var(--amber)' : data.color === 'cyan' ? 'var(--cyan)' : 'var(--ink-mid)';
+      div.innerHTML = `
+        <span class="log-time">${data.time}</span>
+        <span class="log-agent" style="color:${agentColor}">${data.agent}</span>
+        <span class="log-msg">${data.msg}</span>
+      `;
+      ticker.appendChild(div);
+      entries.push(div);
+      requestAnimationFrame(() => div.classList.add('show'));
+
+      if (entries.length > 7) {
+        const old = entries.shift();
+        old.style.transition = 'opacity 0.3s';
+        old.style.opacity = '0';
+        setTimeout(() => old.remove(), 300);
+      }
+    }
+
+    function tick() {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        LOG_ENTRIES.forEach(e => addLogEntry(e));
+        return;
+      }
+      addLogEntry(LOG_ENTRIES[currentIdx % LOG_ENTRIES.length]);
+      currentIdx++;
+      const delay = currentIdx % LOG_ENTRIES.length === 0 ? 2400 : 1100 + Math.random() * 600;
+      setTimeout(tick, delay);
+    }
+
+    setTimeout(tick, 600);
+  </script>
+</body>
+</html>

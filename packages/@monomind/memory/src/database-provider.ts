@@ -325,6 +325,8 @@ export async function getAvailableProviders(): Promise<{
  */
 class JsonBackend implements IMemoryBackend {
   private entries: Map<string, MemoryEntry> = new Map();
+  /** O(1) key lookup — maps "namespace:key" → entry id */
+  private keyIndex: Map<string, string> = new Map();
   private path: string;
   private verbose: boolean;
   private initialized: boolean = false;
@@ -350,6 +352,7 @@ class JsonBackend implements IMemoryBackend {
             entry.embedding = new Float32Array(entry.embedding);
           }
           this.entries.set(entry.id, entry);
+          this.keyIndex.set(`${entry.namespace}:${entry.key}`, entry.id);
         }
 
         if (this.verbose) {
@@ -372,6 +375,7 @@ class JsonBackend implements IMemoryBackend {
 
   async store(entry: MemoryEntry): Promise<void> {
     this.entries.set(entry.id, entry);
+    this.keyIndex.set(`${entry.namespace}:${entry.key}`, entry.id);
     await this.persist();
   }
 
@@ -380,12 +384,8 @@ class JsonBackend implements IMemoryBackend {
   }
 
   async getByKey(namespace: string, key: string): Promise<MemoryEntry | null> {
-    for (const entry of this.entries.values()) {
-      if (entry.namespace === namespace && entry.key === key) {
-        return entry;
-      }
-    }
-    return null;
+    const id = this.keyIndex.get(`${namespace}:${key}`);
+    return id ? (this.entries.get(id) ?? null) : null;
   }
 
   async update(id: string, updateData: MemoryEntryUpdate): Promise<MemoryEntry | null> {
@@ -399,6 +399,8 @@ class JsonBackend implements IMemoryBackend {
   }
 
   async delete(id: string): Promise<boolean> {
+    const entry = this.entries.get(id);
+    if (entry) this.keyIndex.delete(`${entry.namespace}:${entry.key}`);
     const result = this.entries.delete(id);
     await this.persist();
     return result;
@@ -417,6 +419,22 @@ class JsonBackend implements IMemoryBackend {
 
     if (query.tags && query.tags.length > 0) {
       results = results.filter((e) => query.tags!.every((tag) => e.tags.includes(tag)));
+    }
+
+    if (query.sortField && query.sortField !== 'score') {
+      const field = query.sortField;
+      const dir = query.sortDirection === 'asc' ? 1 : -1;
+      results = results.slice().sort((a, b) => {
+        const av = field === 'key' ? a.key : field === 'updatedAt' ? a.updatedAt
+          : field === 'lastAccessedAt' ? (a.lastAccessedAt ?? 0)
+          : field === 'accessCount' ? a.accessCount : a.createdAt;
+        const bv = field === 'key' ? b.key : field === 'updatedAt' ? b.updatedAt
+          : field === 'lastAccessedAt' ? (b.lastAccessedAt ?? 0)
+          : field === 'accessCount' ? b.accessCount : b.createdAt;
+        if (av < bv) return -dir;
+        if (av > bv) return dir;
+        return 0;
+      });
     }
 
     return results.slice(0, query.limit);
@@ -442,6 +460,7 @@ class JsonBackend implements IMemoryBackend {
   async bulkInsert(entries: MemoryEntry[]): Promise<void> {
     for (const entry of entries) {
       this.entries.set(entry.id, entry);
+      this.keyIndex.set(`${entry.namespace}:${entry.key}`, entry.id);
     }
     await this.persist();
   }
@@ -449,6 +468,8 @@ class JsonBackend implements IMemoryBackend {
   async bulkDelete(ids: string[]): Promise<number> {
     let count = 0;
     for (const id of ids) {
+      const entry = this.entries.get(id);
+      if (entry) this.keyIndex.delete(`${entry.namespace}:${entry.key}`);
       if (this.entries.delete(id)) count++;
     }
     await this.persist();

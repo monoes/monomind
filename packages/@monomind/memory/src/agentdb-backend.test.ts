@@ -310,6 +310,31 @@ describe('AgentDBBackend', () => {
     });
   });
 
+  describe('Namespace normalization', () => {
+    it('entry stored without namespace is queryable by default namespace', async () => {
+      // Simulate entry with empty/undefined namespace (pre-fix scenario)
+      const entry = createDefaultEntry({ key: 'no-ns', content: 'hello' });
+      // Explicitly clear namespace to test normalization
+      (entry as any).namespace = '';
+      await backend.store(entry);
+
+      // Should be indexed under the backend's default namespace 'test'
+      const retrieved = await backend.getByKey('test', 'no-ns');
+      expect(retrieved).toBeDefined();
+      expect(retrieved?.namespace).toBe('test');
+    });
+
+    it('namespaceIndex uses normalized namespace', async () => {
+      const entry = createDefaultEntry({ key: 'ns-norm', content: 'x' });
+      (entry as any).namespace = '';
+      await backend.store(entry);
+
+      const namespaces = await backend.listNamespaces();
+      expect(namespaces).toContain('test');
+      expect(namespaces).not.toContain('');
+    });
+  });
+
   describe('Graceful Degradation', () => {
     it('should work without agentdb package', async () => {
       const fallbackBackend = new AgentDBBackend({

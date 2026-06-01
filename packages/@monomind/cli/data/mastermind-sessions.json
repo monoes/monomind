@@ -1,0 +1,244 @@
+[
+  {
+    "id": "mm-demo-1778433292",
+    "ts": 1778433292438,
+    "prompt": "Build SaaS analytics + launch campaign",
+    "status": "running",
+    "domains": [
+      "build",
+      "marketing",
+      "research"
+    ],
+    "events": [
+      {
+        "type": "session:start",
+        "session": "mm-demo-1778433292",
+        "prompt": "Build SaaS analytics + launch campaign",
+        "mode": "auto",
+        "ts": 1778433292438
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-demo-1778433292",
+        "domain": "build",
+        "cmd": "Spawn architect+coder+tester",
+        "ts": 1778433292438
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-demo-1778433292",
+        "domain": "marketing",
+        "cmd": "Craft launch copy",
+        "ts": 1778433292438
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-demo-1778433292",
+        "domain": "research",
+        "cmd": "Competitor analysis",
+        "ts": 1778433292438
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-demo-1778433292",
+        "domain": "build",
+        "agent": "architect",
+        "task": "Design schema",
+        "ts": 1778433292438
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-demo-1778433292",
+        "domain": "build",
+        "agent": "coder",
+        "task": "Implement API",
+        "ts": 1778433292438
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-demo-1778433292",
+        "domain": "marketing",
+        "agent": "coordinator",
+        "task": "Plan campaign",
+        "ts": 1778433292438
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-demo-1778433292",
+        "domain": "research",
+        "agent": "researcher",
+        "task": "Scrape competitors",
+        "ts": 1778433292438
+      },
+      {
+        "type": "intercom",
+        "session": "mm-demo-1778433292",
+        "from": "research",
+        "to": "marketing",
+        "msg": "competitor data ready",
+        "ts": 1778433292438
+      },
+      {
+        "type": "domain:complete",
+        "session": "mm-demo-1778433292",
+        "domain": "research",
+        "status": "complete",
+        "ts": 1778433292438
+      }
+    ]
+  },
+  {
+    "id": "mm-live-1778433221",
+    "ts": 1778433221771,
+    "prompt": "Build SaaS analytics + launch campaign",
+    "status": "running",
+    "domains": [
+      "build",
+      "marketing",
+      "research"
+    ],
+    "events": [
+      {
+        "type": "session:start",
+        "session": "mm-live-1778433221",
+        "prompt": "Build SaaS analytics + launch campaign",
+        "mode": "auto",
+        "ts": 1778433221771
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-live-1778433221",
+        "domain": "build",
+        "cmd": "Running build agents",
+        "ts": 1778433222295
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-live-1778433221",
+        "domain": "marketing",
+        "cmd": "Running marketing agents",
+        "ts": 1778433222557
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-live-1778433221",
+        "domain": "research",
+        "cmd": "Running research agents",
+        "ts": 1778433222857
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-live-1778433221",
+        "domain": "build",
+        "agent": "architect",
+        "task": "Working on build tasks",
+        "ts": 1778433223111
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-live-1778433221",
+        "domain": "build",
+        "agent": "coder",
+        "task": "Working on build tasks",
+        "ts": 1778433223362
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-live-1778433221",
+        "domain": "build",
+        "agent": "tester",
+        "task": "Working on build tasks",
+        "ts": 1778433223626
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-live-1778433221",
+        "domain": "marketing",
+        "agent": "coordinator",
+        "task": "Working on marketing tasks",
+        "ts": 1778433223876
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-live-1778433221",
+        "domain": "research",
+        "agent": "researcher",
+        "task": "Working on research tasks",
+        "ts": 1778433224130
+      },
+      {
+        "type": "intercom",
+        "session": "mm-live-1778433221",
+        "from": "research",
+        "to": "marketing",
+        "msg": "competitor data ready",
+        "ts": 1778433224412
+      }
+    ]
+  },
+  {
+    "id": "mm-demo-001",
+    "ts": 1778404557841,
+    "prompt": "Build a SaaS analytics dashboard with auth, charts, and billing",
+    "status": "running",
+    "domains": [
+      "build",
+      "marketing"
+    ],
+    "events": [
+      {
+        "type": "session:start",
+        "session": "mm-demo-001",
+        "prompt": "Build a SaaS analytics dashboard with auth, charts, and billing",
+        "mode": "auto",
+        "ts": 1778404557841
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-demo-001",
+        "domain": "build",
+        "cmd": "Spawn architect + coder + tester for dashboard",
+        "ts": 1778404558207
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-demo-001",
+        "domain": "marketing",
+        "cmd": "Craft launch campaign and landing copy",
+        "ts": 1778404558549
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-demo-001",
+        "domain": "build",
+        "agent": "architect",
+        "task": "Design system schema and API contracts",
+        "ts": 1778404558897
+      },
+      {
+        "type": "intercom",
+        "session": "mm-demo-001",
+        "from": "build",
+        "to": "marketing",
+        "msg": "API ready — landing page can reference /v1/analytics endpoint",
+        "ts": 1778404559442
+      }
+    ]
+  },
+  {
+    "id": "test-001",
+    "ts": 1234567890,
+    "prompt": "test connectivity",
+    "status": "running",
+    "domains": [],
+    "events": [
+      {
+        "type": "session:start",
+        "session": "test-001",
+        "prompt": "test connectivity",
+        "mode": "auto",
+        "ts": 1234567890
+      }
+    ]
+  }
+]

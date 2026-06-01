@@ -61,17 +61,25 @@ export interface TransferResult {
  * Find the git root directory by walking up from a starting directory.
  * Synchronous variant for path resolution (no async needed for stat checks).
  */
+// Cache git-root lookups — the result is stable for the process lifetime
+const gitRootCache = new Map<string, string | null>();
+
 function findGitRootSync(dir: string): string | null {
-  let current = path.resolve(dir);
+  const resolved = path.resolve(dir);
+  if (gitRootCache.has(resolved)) return gitRootCache.get(resolved)!;
+
+  let current = resolved;
   const root = path.parse(current).root;
 
   while (current !== root) {
     if (existsSync(path.join(current, '.git'))) {
+      gitRootCache.set(resolved, current);
       return current;
     }
     current = path.dirname(current);
   }
 
+  gitRootCache.set(resolved, null);
   return null;
 }
 

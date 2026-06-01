@@ -45,6 +45,13 @@ export interface LearningBridgeConfig {
    * Primarily used for testing.
    */
   neuralLoader?: NeuralLoader;
+  /**
+   * Optional real embedder function injected by the CLI.
+   * When provided, replaces the cross-package dynamic import of memory-bridge.js,
+   * eliminating the architectural coupling between @monomind/memory and @monomind/cli.
+   * Signature: (text: string) => Promise<number[]>
+   */
+  embedder?: (text: string) => Promise<number[]>;
 }
 
 /** Aggregated learning statistics */
@@ -76,9 +83,10 @@ export interface PatternMatch {
 
 // ===== Defaults =====
 
-/** Internal resolved config type where neuralLoader stays optional */
-type ResolvedConfig = Required<Omit<LearningBridgeConfig, 'neuralLoader'>> & {
+/** Internal resolved config type where optional fields stay optional */
+type ResolvedConfig = Required<Omit<LearningBridgeConfig, 'neuralLoader' | 'embedder'>> & {
   neuralLoader?: NeuralLoader;
+  embedder?: (text: string) => Promise<number[]>;
 };
 
 const DEFAULT_CONFIG: ResolvedConfig = {
@@ -147,12 +155,14 @@ export class LearningBridge extends EventEmitter {
         this.activeTrajectories.set(entryId, trajectoryId);
         this.stats.totalTrajectories++;
 
-        const embedding = this.createHashEmbedding(insight.summary);
-        this.neural.recordStep(trajectoryId, {
-          action: `record:${insight.category}`,
-          reward: insight.confidence,
-          stateEmbedding: embedding,
-        });
+        // V1: use real embeddings from the memory bridge rather than hash noise
+        const embedding = await this.createEmbedding(insight.summary);
+        this.neural.recordStep(
+          trajectoryId,
+          `record:${insight.category}`,
+          insight.confidence,
+          embedding,
+        );
       } catch {
         // Neural system failure is non-fatal
       }
@@ -188,10 +198,13 @@ export class LearningBridge extends EventEmitter {
     if (this.neural && this.activeTrajectories.has(entryId)) {
       try {
         const trajectoryId = this.activeTrajectories.get(entryId)!;
-        this.neural.recordStep(trajectoryId, {
-          action: 'access',
-          reward: this.config.accessBoostAmount,
-        });
+        const accessEmbedding = await this.createEmbedding(`access:${entryId}`);
+        this.neural.recordStep(
+          trajectoryId,
+          'access',
+          this.config.accessBoostAmount,
+          accessEmbedding,
+        );
       } catch {
         // Non-fatal
       }
@@ -229,7 +242,16 @@ export class LearningBridge extends EventEmitter {
     const entries = Array.from(this.activeTrajectories.entries());
     for (const [entryId, trajectoryId] of entries) {
       try {
-        await this.neural.completeTask(trajectoryId, 1.0);
+        // V2: use the entry's stored confidence as quality rather than hardcoded 1.0
+        // so the reward signal actually reflects insight importance
+        let quality = 1.0;
+        try {
+          const entry = await this.backend.get(entryId);
+          const stored = (entry?.metadata?.confidence as number) ?? (entry?.importanceScore as number);
+          if (Number.isFinite(stored) && stored >= 0 && stored <= 1) quality = stored;
+        } catch { /* use default */ }
+
+        await this.neural.completeTask(trajectoryId, quality);
         completed++;
         patternsLearned++;
         toRemove.push(entryId);
@@ -244,6 +266,13 @@ export class LearningBridge extends EventEmitter {
 
     this.stats.completedTrajectories += completed;
     this.stats.totalConsolidations++;
+
+    // Pipeline A→B bridge: flush PatternLearner patterns to patterns.json so
+    // intelligence.ts (the routing path) can find patterns learned by the neural
+    // package. This closes the loop between automatic session learning and routing.
+    if (completed > 0 && this.neural && typeof (this.neural as any).getLearnedPatterns === 'function') {
+      void this.flushNeuralPatternsToFile().catch(() => {});
+    }
 
     const result: ConsolidateResult = {
       trajectoriesCompleted: completed,
@@ -403,10 +432,7 @@ export class LearningBridge extends EventEmitter {
       const NeuralLearningSystem = mod.NeuralLearningSystem ?? mod.default;
       if (!NeuralLearningSystem) return;
 
-      const instance = new NeuralLearningSystem({
-        mode: this.config.sonaMode,
-        ewcLambda: this.config.ewcLambda,
-      });
+      const instance = new NeuralLearningSystem(this.config.sonaMode);
 
       if (typeof instance.initialize === 'function') {
         await instance.initialize();
@@ -421,9 +447,159 @@ export class LearningBridge extends EventEmitter {
   }
 
   /**
-   * Create a deterministic hash-based embedding for content.
-   * This is a lightweight stand-in for a real embedding model,
-   * suitable for pattern matching within the neural trajectory system.
+   * Write PatternLearner patterns to .monomind/neural/patterns.json so that
+   * intelligence.ts (Pipeline B) can find them via findSimilarPatterns / getAllPatterns.
+   * This is the Pipeline A→B bridge: automatic session learning → routing.
+   */
+  private async flushNeuralPatternsToFile(): Promise<void> {
+    const learnedRaw: Array<{ id: string; domain: string; strategy: string; successRate: number; usageCount: number }>
+      = (this.neural as any).getLearnedPatterns?.() ?? [];
+    if (learnedRaw.length === 0) return;
+
+    const { writeFileSync, mkdirSync, existsSync, readFileSync, renameSync } = await import('node:fs');
+    const { join } = await import('node:path');
+
+    const dir = join(process.cwd(), '.monomind', 'neural');
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    const patternsPath = join(dir, 'patterns.json');
+
+    let existing: Array<Record<string, unknown>> = [];
+    try {
+      const raw = readFileSync(patternsPath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) existing = parsed;
+    } catch { /* start fresh */ }
+
+    // Map PatternLearner domains to valid monomind agent type strings.
+    // Domain values ('code', 'reasoning', 'general', etc.) are not agent names;
+    // without this mapping every flushed pattern is rejected by the VALID_AGENT_TYPES
+    // filter in suggestAgentsFromIntelligence, making the A→B bridge a no-op.
+    const DOMAIN_TO_AGENT: Record<string, string> = {
+      code: 'coder',
+      coding: 'coder',
+      reasoning: 'researcher',
+      research: 'researcher',
+      testing: 'tester',
+      review: 'reviewer',
+      security: 'security-architect',
+      performance: 'performance-engineer',
+      architecture: 'architect',
+      creative: 'researcher',
+      math: 'researcher',
+      chat: 'coder',
+      general: 'coder',
+    };
+
+    const existingIds = new Set(existing.map(p => p['id']));
+    const now = Date.now();
+    const newEntries = learnedRaw
+      .filter(p => !existingIds.has(`neural:${p.id}`) && p.successRate >= 0.3)
+      .map(p => ({
+        id: `neural:${p.id}`,
+        type: DOMAIN_TO_AGENT[p.domain] ?? 'coder',
+        content: p.strategy,
+        confidence: p.successRate,
+        usageCount: p.usageCount,
+        embedding: [] as number[],
+        createdAt: now,
+        lastUsedAt: now,
+      }));
+
+    if (newEntries.length === 0) return;
+
+    const merged = [...existing, ...newEntries];
+    const tmp = `${patternsPath}.${process.pid}.${now}.tmp`;
+    writeFileSync(tmp, JSON.stringify(merged, null, 2), 'utf-8');
+    renameSync(tmp, patternsPath);
+
+    void this.backfillEmbeddings(patternsPath).catch(() => {});
+  }
+
+  /**
+   * Background task: generate embeddings for patterns written with empty
+   * embedding arrays. Runs fire-and-forget after flushNeuralPatternsToFile.
+   * Non-fatal — any error is silently swallowed.
+   */
+  private async backfillEmbeddings(patternsPath: string): Promise<void> {
+    try {
+      const { readFileSync, writeFileSync, renameSync } = await import('node:fs');
+
+      const raw = readFileSync(patternsPath, 'utf-8');
+      const patterns: Array<Record<string, unknown>> = JSON.parse(raw);
+      if (!Array.isArray(patterns)) return;
+
+      let changed = false;
+      for (const entry of patterns) {
+        const emb = entry['embedding'];
+        if (Array.isArray(emb) && emb.length === 0) {
+          const content = typeof entry['content'] === 'string' ? entry['content'] : '';
+          const vec = await this.createEmbedding(content, 768);
+          entry['embedding'] = Array.from(vec);
+          changed = true;
+        }
+      }
+
+      if (!changed) return;
+
+      const now = Date.now();
+      const tmp = `${patternsPath}.backfill.${process.pid}.${now}.tmp`;
+      writeFileSync(tmp, JSON.stringify(patterns, null, 2), 'utf-8');
+      renameSync(tmp, patternsPath);
+    } catch {
+      // Non-fatal: backfill failure does not affect the flush result
+    }
+  }
+
+  /**
+   * Generate a real semantic embedding via the memory bridge embedder,
+   * falling back to a deterministic hash embedding when unavailable.
+   * V1: using real embeddings is critical for meaningful LoRA weight updates.
+   */
+  private async createEmbedding(text: string, dimensions: number = 768): Promise<Float32Array> {
+    // Prefer the injected embedder (CLI wires this in via LearningBridgeConfig.embedder)
+    // — no cross-package import needed, clean dependency boundary.
+    const embeddingSource = this.config.embedder;
+    if (embeddingSource) {
+      try {
+        const raw = await embeddingSource(text);
+        if (Array.isArray(raw) && raw.length > 0) {
+          const arr = new Float32Array(dimensions);
+          const copyLen = Math.min(raw.length, dimensions);
+          for (let i = 0; i < copyLen; i++) arr[i] = raw[i];
+          let norm = 0;
+          for (let i = 0; i < dimensions; i++) norm += arr[i] * arr[i];
+          norm = Math.sqrt(norm);
+          if (norm > 0) for (let i = 0; i < dimensions; i++) arr[i] /= norm;
+          return arr;
+        }
+      } catch { /* fall through */ }
+    }
+
+    // Fallback: try @monomind/cli's memory-bridge when running inside the CLI process
+    try {
+      const bridge = await import('@monomind/cli/src/memory/memory-bridge.js' as string)
+        .catch(() => null);
+      if (bridge?.bridgeGenerateEmbedding) {
+        const result = await bridge.bridgeGenerateEmbedding(text);
+        if (result?.embedding && Array.isArray(result.embedding) && result.embedding.length > 0) {
+          const arr = new Float32Array(dimensions);
+          const copyLen = Math.min(result.embedding.length, dimensions);
+          for (let i = 0; i < copyLen; i++) arr[i] = result.embedding[i];
+          let norm = 0;
+          for (let i = 0; i < dimensions; i++) norm += arr[i] * arr[i];
+          norm = Math.sqrt(norm);
+          if (norm > 0) for (let i = 0; i < dimensions; i++) arr[i] /= norm;
+          return arr;
+        }
+      }
+    } catch { /* fall through to hash */ }
+
+    return this.createHashEmbedding(text, dimensions);
+  }
+
+  /**
+   * Deterministic hash-based embedding fallback.
+   * Used only when no real embedder is available.
    */
   private createHashEmbedding(text: string, dimensions: number = 768): Float32Array {
     const embedding = new Float32Array(dimensions);

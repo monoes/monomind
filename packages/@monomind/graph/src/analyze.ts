@@ -228,6 +228,9 @@ export function suggestQuestions(graph: Graph, communities?: Record<number, stri
     });
 
   // LOW_COHESION_COMMUNITY: communities where >70% of edges are cross-community
+  // Use a seenEdges Set to avoid double-counting: iterating all members visits
+  // internal edges twice (source + target) but cross-community edges only once.
+  // The old halving approach underestimates cross-edge count when n_cross is odd.
   const commIds = Object.keys(commMap).map(Number);
   const lowCohesion: Array<{ id: number; ratio: number }> = [];
   for (const commId of commIds) {
@@ -235,18 +238,17 @@ export function suggestQuestions(graph: Graph, communities?: Record<number, stri
     if (members.size === 0) continue;
     let total = 0;
     let crossEdges = 0;
+    const seenEdges = new Set<string>();
     members.forEach((nodeId) => {
       graph.edges(nodeId).forEach((e) => {
+        if (seenEdges.has(e)) return;
+        seenEdges.add(e);
         total++;
         const src = graph.source(e);
         const tgt = graph.target(e);
-        const otherNode = src === nodeId ? tgt : src;
-        if (!members.has(otherNode)) crossEdges++;
+        if (!members.has(src) || !members.has(tgt)) crossEdges++;
       });
     });
-    // Each edge is counted twice (once per endpoint), halve the totals
-    total = Math.ceil(total / 2);
-    crossEdges = Math.ceil(crossEdges / 2);
     if (total > 0 && crossEdges / total > 0.7) {
       lowCohesion.push({ id: commId, ratio: crossEdges / total });
     }
