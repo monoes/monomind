@@ -13,11 +13,11 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@monomind/memory": "workspace:*",
-    "@ruvector/sona": "latest"
+    "@monomind/memory": "workspace:*"
   },
   "optionalDependencies": {
-    "agentdb": "^2.0.0 || ^3.0.0-alpha.11"
+    "agentdb": "^2.0.0 || ^3.0.0-alpha.11",
+    "@ruvector/sona": "latest"
   },
   "publishConfig": {
     "access": "public",

@@ -844,6 +844,7 @@ export class WorkerManager extends EventEmitter {
       this.autoSaveTimer = setInterval(() => {
         this.saveState().catch(() => {});
       }, 300_000);
+      if (this.autoSaveTimer.unref) this.autoSaveTimer.unref();
     }
 
     // Update statusline file periodically
@@ -851,6 +852,7 @@ export class WorkerManager extends EventEmitter {
       this.statuslineTimer = setInterval(() => {
         this.exportStatusline().catch(() => {});
       }, STATUSLINE_UPDATE_INTERVAL);
+      if (this.statuslineTimer.unref) this.statuslineTimer.unref();
     }
 
     this.emit('manager:started');

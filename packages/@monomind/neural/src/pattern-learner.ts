@@ -488,13 +488,15 @@ export class PatternLearner {
   }
 
   private computeMatchConfidence(pattern: Pattern, similarity: number): number {
-    // Combine similarity with pattern reliability
+    // Blend raw similarity with pattern reliability.
+    // Higher usageWeight and qualityWeight should monotonically increase confidence,
+    // so we add their bonuses rather than partially subtracting them from the
+    // similarity coefficient (which was the previous inverted behaviour).
     const usageWeight = Math.min(pattern.usageCount / 10, 1);
     const qualityWeight = pattern.successRate;
 
-    return similarity * (1 - usageWeight * 0.2 - qualityWeight * 0.2) +
-           usageWeight * 0.1 +
-           qualityWeight * 0.1;
+    // similarity contributes 80%, reliability bonus adds up to 20%
+    return Math.min(1, similarity * 0.8 + usageWeight * 0.1 + qualityWeight * 0.1);
   }
 
   private getCandidatesFromClusters(queryEmbedding: Float32Array): Pattern[] {
@@ -554,12 +556,13 @@ export class PatternLearner {
     const dim = trajectory.steps[0].stateAfter.length;
     const embedding = new Float32Array(dim);
 
-    // Weighted average (higher weight for later steps)
+    // H4: clamp per-step dim to prevent NaN from mixed-dimension embeddings
     let totalWeight = 0;
     for (let i = 0; i < trajectory.steps.length; i++) {
       const weight = (i + 1) / trajectory.steps.length;
       totalWeight += weight;
-      for (let j = 0; j < dim; j++) {
+      const stepDim = Math.min(dim, trajectory.steps[i].stateAfter.length);
+      for (let j = 0; j < stepDim; j++) {
         embedding[j] += trajectory.steps[i].stateAfter[j] * weight;
       }
     }
@@ -742,7 +745,7 @@ export class PatternLearner {
   ): 'improvement' | 'merge' | 'split' | 'prune' {
     const delta = curr - prev;
     if (delta > 0.05) return 'improvement';
-    if (delta < -0.15) return 'prune';
+    if (delta < 0) return 'prune';
     return 'improvement';
   }
 }

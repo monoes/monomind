@@ -138,6 +138,7 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
           this.emit('error', { operation: 'auto-persist', error: err });
         });
       }, this.config.autoPersistInterval);
+      if (this.persistTimer.unref) this.persistTimer.unref();
     }
 
     this.initialized = true;
@@ -428,7 +429,15 @@ export class SqlJsBackend extends EventEmitter implements IMemoryBackend {
     }
 
     // Ordering and pagination
-    sql += ' ORDER BY created_at DESC';
+    const colMap: Record<string, string> = {
+      createdAt: 'created_at', updatedAt: 'updated_at',
+      lastAccessedAt: 'last_accessed_at', accessCount: 'access_count', key: 'key',
+    };
+    const orderCol = (query.sortField && query.sortField !== 'score' && colMap[query.sortField])
+      ? colMap[query.sortField]
+      : 'created_at';
+    const orderDir = query.sortDirection === 'asc' ? 'ASC' : 'DESC';
+    sql += ` ORDER BY ${orderCol} ${orderDir}`;
     if (query.limit) {
       sql += ' LIMIT ?';
       params.push(query.limit);

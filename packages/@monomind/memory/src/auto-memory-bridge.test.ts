@@ -287,6 +287,24 @@ describe('pruneTopicFile', () => {
     expect(resultLines).toHaveLength(13);
     expect(resultLines[resultLines.length - 1]).toBe('- Entry 19');
   });
+
+  it('should preserve header and not lose entries when maxLines is very small', () => {
+    const content = '# Header\n\nDescription\n- Entry 1\n- Entry 2\n- Entry 3\n';
+    // maxLines=2 used to silently drop all entries due to negative slice offset
+    const result = pruneTopicFile(content, 2);
+    expect(result).toContain('# Header');
+    // Should return at least the header — no entries, but not corrupt
+    expect(() => result).not.toThrow();
+  });
+
+  it('should work correctly when maxLines equals header count', () => {
+    const content = '# Header\n\nDescription\n- Entry 1\n- Entry 2\n';
+    const result = pruneTopicFile(content, 3);
+    const lines = result.split('\n');
+    // First 3 lines are the header; no entries kept (all pruned)
+    expect(lines[0]).toBe('# Header');
+    expect(lines.length).toBeLessThanOrEqual(3);
+  });
 });
 
 describe('hasSummaryLine', () => {

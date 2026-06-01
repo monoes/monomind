@@ -214,6 +214,23 @@ export class RvfBackend implements IMemoryBackend {
       results = results.filter(e => idSet.has(e.id));
     }
 
+    // Apply sort if requested
+    if (q.sortField && q.sortField !== 'score') {
+      const field = q.sortField;
+      const dir = q.sortDirection === 'asc' ? 1 : -1;
+      results = results.slice().sort((a, b) => {
+        const av = field === 'key' ? a.key : field === 'updatedAt' ? a.updatedAt
+          : field === 'lastAccessedAt' ? (a.lastAccessedAt ?? 0)
+          : field === 'accessCount' ? a.accessCount : a.createdAt;
+        const bv = field === 'key' ? b.key : field === 'updatedAt' ? b.updatedAt
+          : field === 'lastAccessedAt' ? (b.lastAccessedAt ?? 0)
+          : field === 'accessCount' ? b.accessCount : b.createdAt;
+        if (av < bv) return -dir;
+        if (av > bv) return dir;
+        return 0;
+      });
+    }
+
     const offset = q.offset ?? 0;
     results = results.slice(offset, offset + q.limit);
 

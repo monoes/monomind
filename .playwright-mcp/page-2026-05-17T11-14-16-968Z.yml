@@ -1,0 +1,234 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: monomind
+      - generic [ref=e6]: monomind
+    - generic [ref=e7]:
+      - generic [ref=e9] [cursor=pointer]:
+        - generic [ref=e10]: ◉
+        - generic [ref=e11]: Now
+      - generic [ref=e12]:
+        - generic [ref=e13]: Workspace
+        - generic [ref=e14] [cursor=pointer]:
+          - generic [ref=e15]: ⊞
+          - generic [ref=e16]: Projects
+          - generic [ref=e17]: —
+        - generic [ref=e18] [cursor=pointer]:
+          - generic [ref=e19]: ◫
+          - generic [ref=e20]: Sessions
+          - generic [ref=e21]: "13"
+        - generic [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: ↺
+          - generic [ref=e24]: Loops
+          - generic [ref=e25]: "7"
+      - generic [ref=e26]:
+        - generic [ref=e27]: Intelligence
+        - generic [ref=e28] [cursor=pointer]:
+          - generic [ref=e29]: ◈
+          - generic [ref=e30]: Memory
+        - generic [ref=e31] [cursor=pointer]:
+          - generic [ref=e32]: ⬡
+          - generic [ref=e33]: Orgs
+    - generic [ref=e34]:
+      - generic [ref=e35]: nokhodian
+      - generic [ref=e36]: /Users/morteza/Desktop/tools/monomind
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e39]: Now
+      - generic [ref=e40]: live
+      - generic [ref=e111]: $42.44 today
+      - generic [ref=e42]:
+        - button "⌕ Search ⌘K" [ref=e43] [cursor=pointer]
+        - button "↺ Refresh" [ref=e44] [cursor=pointer]
+    - generic [ref=e112]:
+      - generic [ref=e349]:
+        - generic [ref=e350]: ⚠
+        - text: "High spend: $42.44 today"
+        - generic [ref=e351] [cursor=pointer]: ✕
+      - generic [ref=e352]:
+        - generic [ref=e353]: ↺
+        - text: "Long-running loop: /monomind:do"
+        - generic [ref=e354] [cursor=pointer]: ✕
+      - generic [ref=e355]:
+        - generic [ref=e356]: ↺
+        - text: "Long-running loop: /mastermind:techport"
+        - generic [ref=e357] [cursor=pointer]: ✕
+      - generic [ref=e358]:
+        - generic [ref=e359]: ↺
+        - text: "Long-running loop: /mastermind:techport"
+        - generic [ref=e360] [cursor=pointer]: ✕
+      - generic [ref=e361]:
+        - generic [ref=e362]: ↺
+        - text: "Long-running loop: /mastermind:review"
+        - generic [ref=e363] [cursor=pointer]: ✕
+      - generic [ref=e364]:
+        - generic [ref=e365]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e366] [cursor=pointer]: ✕
+      - generic [ref=e367]:
+        - generic [ref=e368]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e369] [cursor=pointer]: ✕
+      - generic [ref=e370]:
+        - generic [ref=e371]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e372] [cursor=pointer]: ✕
+    - generic [ref=e46]:
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - heading "Live Feed" [level=2] [ref=e49]
+          - generic [ref=e50]: f4844d50…
+          - generic [ref=e51]:
+            - button "⎘ Copy" [ref=e52] [cursor=pointer]
+            - button "⊟" [ref=e53] [cursor=pointer]
+            - button "⌕" [ref=e54] [cursor=pointer]
+            - button "‹" [ref=e55] [cursor=pointer]
+            - button "›" [ref=e56] [cursor=pointer]
+        - generic "Session tool activity timeline" [ref=e57]:
+          - generic "Edit dashboard-v2.html" [ref=e236]
+          - generic "Edit dashboard-v2.html" [ref=e237]
+          - generic "Edit dashboard-v2.html" [ref=e238]
+          - generic "Edit dashboard-v2.html" [ref=e239]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e240]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e241]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e242]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e243]
+          - generic "Edit dashboard-v2.html" [ref=e244]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e245]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e246]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e247]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e248]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e249]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e250]
+          - generic "user message" [ref=e251]
+          - generic "Read dashboard-v2.html" [ref=e252]
+          - generic "Read dashboard-v2.html" [ref=e253]
+          - generic "Read dashboard-v2.html" [ref=e254]
+          - generic "Edit dashboard-v2.html" [ref=e255]
+          - generic "Edit dashboard-v2.html" [ref=e256]
+          - generic "Edit dashboard-v2.html" [ref=e257]
+          - generic "Edit dashboard-v2.html" [ref=e258]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e259]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e260]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e261]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e262]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e263]
+          - generic "⬡ plugin_playwright_playwright__browser_" [ref=e264]
+        - generic [ref=e58]:
+          - generic [ref=e59]: Range
+          - button "All" [ref=e60] [cursor=pointer]
+          - button "1h" [ref=e61] [cursor=pointer]
+          - button "6h" [ref=e62] [cursor=pointer]
+          - button "24h" [ref=e63] [cursor=pointer]
+          - generic [ref=e64]:
+            - generic [ref=e65]: J
+            - generic [ref=e66]: K
+            - text: navigate
+            - generic [ref=e67]: ↵
+            - text: detail
+            - generic [ref=e68]: /
+            - text: find
+            - generic [ref=e69]: G
+            - text: live
+            - generic [ref=e70]: ⌘K
+            - text: search
+        - generic [ref=e72]:
+          - generic [ref=e265] [cursor=pointer]:
+            - generic [ref=e266]: ⬡
+            - generic [ref=e267]: 6 MCP calls
+            - generic [ref=e268]: ▸ expand
+          - generic [ref=e269] [cursor=pointer]:
+            - generic [ref=e270]: ◧
+            - generic [ref=e271]: 7 file operations
+            - generic [ref=e272]: ▸ expand
+          - generic [ref=e274] [cursor=pointer]:
+            - generic [ref=e275]: ↵
+            - generic [ref=e277]: can you review them
+            - generic [ref=e278]: 3m
+          - generic [ref=e279] [cursor=pointer]:
+            - generic [ref=e280]: ⬡
+            - generic [ref=e281]: 6 MCP calls
+            - generic [ref=e282]: ▸ expand
+          - generic [ref=e283] [cursor=pointer]:
+            - generic [ref=e284]: ◧
+            - generic [ref=e286]: Edit dashboard-v2.html
+            - generic [ref=e287]: 4m
+          - generic [ref=e288] [cursor=pointer]:
+            - generic [ref=e289]: ⬡
+            - generic [ref=e290]: 4 MCP calls
+            - generic [ref=e291]: ▸ expand
+          - generic [ref=e292] [cursor=pointer]:
+            - generic [ref=e293]: ◧
+            - generic [ref=e294]: 4 file operations
+            - generic [ref=e295]: ▸ expand
+      - generic [ref=e75]:
+        - heading "Detail" [level=3]
+        - button "✕" [ref=e76] [cursor=pointer]
+      - generic [ref=e78]:
+        - generic [ref=e79]:
+          - generic [ref=e296]: Today
+          - generic [ref=e297]:
+            - generic [ref=e298]: API cost
+            - generic [ref=e299]: $42.44
+          - generic [ref=e300]:
+            - generic [ref=e301]: API calls
+            - generic [ref=e302]: "815"
+          - generic [ref=e303]:
+            - generic [ref=e304]: Month total
+            - generic [ref=e305]: $4507.64
+          - generic [ref=e306]:
+            - generic [ref=e307]: 7-day activity
+            - generic [ref=e308]:
+              - 'generic "6d: 0 sessions" [ref=e309]'
+              - 'generic "5d: 0 sessions" [ref=e310]'
+              - 'generic "4d: 0 sessions" [ref=e311]'
+              - 'generic "3d: 0 sessions" [ref=e312]'
+              - 'generic "2d: 0 sessions" [ref=e313]'
+              - 'generic "1d: 8 sessions" [ref=e314]'
+              - 'generic "now: 5 sessions" [ref=e315]'
+        - generic [ref=e82]:
+          - generic [ref=e316]: Active Loops
+          - generic [ref=e317]:
+            - generic [ref=e318]: /monomind:do
+            - generic [ref=e319]: running
+          - generic [ref=e321]:
+            - generic [ref=e322]: /mastermind:techport
+            - generic [ref=e323]: "1"
+          - generic [ref=e325]:
+            - generic [ref=e326]: /mastermind:techport
+            - generic [ref=e327]: "1"
+          - generic [ref=e329]:
+            - generic [ref=e330]: /mastermind:review
+            - generic [ref=e331]: "2"
+          - generic [ref=e333]:
+            - generic [ref=e334]: /monomind:repeat
+            - generic [ref=e335]: "1"
+        - generic [ref=e85]:
+          - generic [ref=e204]: Recent Sessions
+          - generic [ref=e205] [cursor=pointer]:
+            - generic [ref=e206]: i dont wanna use agent-browser package i want it to be part of monomind
+            - generic [ref=e207]: now
+          - generic [ref=e208] [cursor=pointer]:
+            - generic [ref=e209]: can you review them
+            - generic [ref=e210]: now
+          - generic [ref=e211] [cursor=pointer]:
+            - generic [ref=e212]: do them all
+            - generic [ref=e213]: 25s
+          - generic [ref=e214] [cursor=pointer]:
+            - generic [ref=e215]: review more if its still issue
+            - generic [ref=e216]: 23h
+          - generic [ref=e217] [cursor=pointer]:
+            - generic [ref=e218]: do it all
+            - generic [ref=e219]: 18h
+          - generic [ref=e220] [cursor=pointer]:
+            - generic [ref=e221]: "Reply with literal: NO_BARE_OK"
+            - generic [ref=e222]: 1d
+        - generic [ref=e88]:
+          - generic [ref=e337]: Tool Usage
+          - generic [ref=e338]:
+            - generic [ref=e339]:
+              - generic [ref=e340]: mcp
+              - generic [ref=e343]: "16"
+            - generic [ref=e344]:
+              - generic [ref=e345]: file
+              - generic [ref=e348]: "12"

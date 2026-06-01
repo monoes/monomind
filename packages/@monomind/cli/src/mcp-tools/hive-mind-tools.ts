@@ -9,6 +9,36 @@ import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { weightedTally } from '../consensus/vote-signer.js';
 
+// Module-level QueenCoordinator singleton — persists for the lifetime of the
+// MCP server process so task routing and learning are stateful across calls.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let queenCoordinator: any = null;
+let queenCoordinatorHiveId: string | null = null;
+
+async function getOrCreateQueenCoordinator(hiveId: string): Promise<any> {
+  if (queenCoordinator && queenCoordinatorHiveId === hiveId) return queenCoordinator;
+  try {
+    const swarmPkg = await import('@monomind/swarm' as string).catch(() => null);
+    if (!swarmPkg?.createQueenCoordinatorWithNeural) return null;
+    // UnifiedSwarmCoordinator satisfies ISwarmCoordinator for stub purposes
+    const stubSwarm = {
+      getActiveAgents: async () => [],
+      spawnAgent: async () => ({ agentId: 'stub' }),
+      terminateAgent: async () => {},
+      broadcastMessage: async () => {},
+    };
+    queenCoordinator = await swarmPkg.createQueenCoordinatorWithNeural(stubSwarm, {
+      enableLearning: true,
+      patternRetrievalK: 3,
+    });
+    await queenCoordinator.initialize();
+    queenCoordinatorHiveId = hiveId;
+  } catch {
+    queenCoordinator = null;
+  }
+  return queenCoordinator;
+}
+
 // Storage paths
 const STORAGE_DIR = '.monomind';
 const HIVE_DIR = 'hive-mind';
@@ -338,12 +368,20 @@ export const hiveMindTools: MCPTool[] = [
 
       saveHiveState(state);
 
+      // Start QueenCoordinator with neural learning when topology is hierarchical
+      let neuralEnabled = false;
+      if (state.topology === 'hierarchical' || state.topology === 'mesh') {
+        const queen = await getOrCreateQueenCoordinator(hiveId);
+        neuralEnabled = !!queen;
+      }
+
       return {
         success: true,
         hiveId,
         topology: state.topology,
         consensus: (input.consensus as string) || 'byzantine',
         queenId,
+        neuralLearning: neuralEnabled ? 'active' : 'unavailable',
         status: 'initialized',
         config: {
           topology: state.topology,

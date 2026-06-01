@@ -77,7 +77,11 @@ export interface AutoMemoryBridgeConfig {
   /** Prune strategy for MEMORY.md (default: 'confidence-weighted') */
   pruneStrategy?: PruneStrategy;
 
-  /** Learning bridge config (ADR-049). When set, insights trigger neural learning. */
+  /**
+   * Learning bridge config (ADR-049). When set, insights trigger neural learning.
+   * Tip: pass `embedder: bridgeGenerateEmbedding` from @monomind/cli's memory-bridge
+   * to give LearningBridge real semantic embeddings instead of hash fallback.
+   */
   learning?: LearningBridgeConfig;
 
   /** Knowledge graph config (ADR-049). When set, graph-aware curation is enabled. */
@@ -880,9 +884,12 @@ export function pruneTopicFile(content: string, maxLines: number): string {
   const lines = content.split('\n');
   if (lines.length <= maxLines) return content;
 
-  const header = lines.slice(0, 3);
-  const entries = lines.slice(3);
-  const kept = entries.slice(entries.length - (maxLines - 3));
+  const headerCount = Math.min(3, lines.length);
+  const header = lines.slice(0, headerCount);
+  const entries = lines.slice(headerCount);
+  // Guard: if maxLines is too small to keep any entries, keep at least the header
+  const keepCount = Math.max(0, maxLines - headerCount);
+  const kept = keepCount > 0 ? entries.slice(entries.length - keepCount) : [];
   return [...header, ...kept].join('\n');
 }
 

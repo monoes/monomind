@@ -184,8 +184,10 @@ export class PersistentSonaCoordinator {
     };
 
     this.patterns.set(id, record);
-    // Mark for persistence on next persist() call
-    void this.store.savePatterns([record]).catch(() => {});
+    // M4: surface persist errors to logs rather than swallowing silently
+    void this.store.savePatterns([record]).catch(err =>
+      console.warn('[PersistentSona] Pattern persist failed:', err)
+    );
     return id;
   }
 
@@ -237,19 +239,21 @@ export class PersistentSonaCoordinator {
   prunePatterns(minSuccessRate: number = 0.3, minUseCount: number = 5): number {
     this.ensureInitialized();
 
-    let pruned = 0;
+    const prunedIds: string[] = [];
     for (const [id, pattern] of this.patterns) {
       if (pattern.useCount >= minUseCount && pattern.successRate < minSuccessRate) {
         this.patterns.delete(id);
-        pruned++;
+        prunedIds.push(id);
       }
     }
 
-    if (pruned > 0) {
-      this.log(`Pruned ${pruned} low-performing patterns`);
+    if (prunedIds.length > 0) {
+      this.log(`Pruned ${prunedIds.length} low-performing patterns`);
+      // Persist the deletion so pruned patterns don't reload on next initialize()
+      void this.store.deletePatterns(prunedIds).catch(() => {});
     }
 
-    return pruned;
+    return prunedIds.length;
   }
 
   // ===== Trajectory tracking =====
@@ -325,10 +329,9 @@ export class PersistentSonaCoordinator {
       await this.store.saveEwcState(this.ewcState);
     }
 
-    // Persist any buffered trajectories that have not yet been saved
-    for (const traj of this.trajectoryBuffer) {
-      await this.store.appendTrajectory(traj);
-    }
+    // Note: trajectories are appended to the store immediately in recordTrajectory(),
+    // so DO NOT re-append here — doing so would write each trajectory twice and
+    // produce duplicate records in the sidecar after reload.
 
     await this.store.persist();
   }

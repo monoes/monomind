@@ -105,6 +105,7 @@ export type {
 export {
   QueenCoordinator,
   createQueenCoordinator,
+  createQueenCoordinatorWithNeural,
 } from './queen-coordinator.js';
 
 // Queen Coordinator types
