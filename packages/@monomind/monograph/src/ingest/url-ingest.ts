@@ -55,9 +55,10 @@ export async function ingestUrl(url: string, options: IngestOptions = {}): Promi
 
   const { fetch: fetchFn = globalThis.fetch, maxBytes = 10 * 1024 * 1024 } = options;
 
-  // Disable automatic redirect following so SSRF validation isn't bypassed by a redirect
-  const response = await fetchFn(url, { redirect: 'error' } as RequestInit);
+  const response = await fetchFn(url, { redirect: 'follow' } as RequestInit);
   if (!response.ok) throw new Error(`HTTP ${response.status} fetching ${url}`);
+  // Re-validate the final URL after any redirects to prevent SSRF via open redirects
+  if (response.url && response.url !== url) validateUrl(response.url);
 
   const contentLength = response.headers.get('content-length');
   if (contentLength && parseInt(contentLength, 10) > maxBytes) {

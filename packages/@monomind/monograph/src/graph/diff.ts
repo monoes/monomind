@@ -35,13 +35,15 @@ function buildDiffSummary(
 export function diffSnapshots(before: GraphSnapshot, after: GraphSnapshot): GraphDiff {
   const beforeNodeIds = new Map(before.nodes.map(n => [n.id, n]));
   const afterNodeIds = new Map(after.nodes.map(n => [n.id, n]));
-  const beforeEdgeIds = new Set(before.edges.map(e => e.id));
-  const afterEdgeIds = new Set(after.edges.map(e => e.id));
+  // Key edges by sourceId+relation+targetId — stable across snapshots regardless of synthetic id
+  const edgeKey = (e: MonographEdge) => `${e.sourceId}|${e.relation}|${e.targetId}`;
+  const beforeEdgeKeys = new Set(before.edges.map(edgeKey));
+  const afterEdgeKeys = new Set(after.edges.map(edgeKey));
 
   const newNodes = after.nodes.filter(n => !beforeNodeIds.has(n.id));
   const removedNodes = before.nodes.filter(n => !afterNodeIds.has(n.id));
-  const newEdges = after.edges.filter(e => !beforeEdgeIds.has(e.id));
-  const removedEdges = before.edges.filter(e => !afterEdgeIds.has(e.id));
+  const newEdges = after.edges.filter(e => !beforeEdgeKeys.has(edgeKey(e)));
+  const removedEdges = before.edges.filter(e => !afterEdgeKeys.has(edgeKey(e)));
   const modifiedNodes = after.nodes
     .filter(n => beforeNodeIds.has(n.id))
     .filter(n => JSON.stringify(n) !== JSON.stringify(beforeNodeIds.get(n.id)))
