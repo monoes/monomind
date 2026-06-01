@@ -1,10 +1,10 @@
 import type Database from 'better-sqlite3';
-import type { MonographEdge } from '../types.js';
+import type { EvidenceEntry, MonographEdge } from '../types.js';
 
 export function insertEdge(db: Database.Database, edge: MonographEdge): void {
   db.prepare(`
-    INSERT OR REPLACE INTO edges (id, source_id, target_id, relation, confidence, confidence_score, weight)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO edges (id, source_id, target_id, relation, confidence, confidence_score, reason, evidence)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     edge.id,
     edge.sourceId,
@@ -12,7 +12,8 @@ export function insertEdge(db: Database.Database, edge: MonographEdge): void {
     edge.relation,
     edge.confidence,
     edge.confidenceScore,
-    edge.weight ?? 1.0,
+    (edge.properties?.reason as string) ?? null,
+    edge.evidence != null ? JSON.stringify(edge.evidence) : null,
   );
 }
 
@@ -58,6 +59,7 @@ function rowToEdge(row: Record<string, unknown>): MonographEdge {
     relation: row.relation as MonographEdge['relation'],
     confidence: row.confidence as MonographEdge['confidence'],
     confidenceScore: row.confidence_score as number,
-    weight: (row.weight as number | undefined) ?? 1.0,
+    properties: row.reason ? { reason: row.reason } : undefined,
+    evidence: row.evidence ? JSON.parse(row.evidence as string) as EvidenceEntry[] : undefined,
   };
 }

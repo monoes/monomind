@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS edges (
   confidence TEXT NOT NULL DEFAULT 'EXTRACTED',
   confidence_score REAL NOT NULL DEFAULT 1.0,
   weight REAL NOT NULL DEFAULT 1.0,
+  reason TEXT,
+  evidence TEXT,
   FOREIGN KEY (source_id) REFERENCES nodes(id),
   FOREIGN KEY (target_id) REFERENCES nodes(id)
 )`;
@@ -51,6 +53,19 @@ CREATE VIRTUAL TABLE IF NOT EXISTS nodes_fts USING fts5(
   content='nodes',
   content_rowid='rowid',
   tokenize='trigram'
+)`;
+
+export const CREATE_EMBEDDINGS = `
+CREATE TABLE IF NOT EXISTS embeddings (
+  node_id TEXT PRIMARY KEY,
+  vector BLOB NOT NULL
+)`;
+
+export const CREATE_WIKI_PAGES = `
+CREATE TABLE IF NOT EXISTS wiki_pages (
+  community_id TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  generated_at TEXT NOT NULL
 )`;
 
 export const CREATE_INDEXES = [

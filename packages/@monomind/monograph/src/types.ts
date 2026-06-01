@@ -6,7 +6,7 @@ export type NodeLabel =
   | 'Namespace' | 'Trait' | 'Impl' | 'TypeAlias' | 'Const' | 'Static'
   | 'Property' | 'Record' | 'Delegate' | 'Annotation' | 'Constructor'
   | 'Template' | 'Module' | 'Process' | 'Route' | 'Community' | 'Concept'
-  | 'Section';
+  | 'Section' | 'Document' | 'Tool' | 'Entity' | 'Field';
 
 export const SYMBOL_NODE_LABELS = new Set<NodeLabel>([
   'Function', 'Class', 'Method', 'Interface', 'Variable', 'Struct', 'Enum',
@@ -22,7 +22,7 @@ export type EdgeRelation =
   | 'HAS_METHOD' | 'HAS_PROPERTY' | 'ACCESSES' | 'METHOD_OVERRIDES'
   | 'METHOD_IMPLEMENTS' | 'MEMBER_OF' | 'STEP_IN_PROCESS' | 'HANDLES_ROUTE'
   | 'FETCHES' | 'HANDLES_TOOL' | 'ENTRY_POINT_OF' | 'WRAPS' | 'QUERIES'
-  | 'REFERENCES' | 'PARENT_SECTION' | 'TAGGED_AS'
+  | 'REFERENCES' | 'PARENT_SECTION' | 'TAGGED_AS' | 'HAS_FIELD'
   // Doc KG — contextual proximity
   | 'CO_OCCURS'
   // Doc KG — LLM-inferred semantic relations
@@ -55,6 +55,14 @@ export interface MonographNode {
   properties?: Record<string, unknown>;
 }
 
+// ── Evidence ──────────────────────────────────────────────────────────────────
+
+export interface EvidenceEntry {
+  kind: string;      // e.g., 'import', 'call', 'heuristic', 'inferred'
+  weight: number;    // 0-1
+  note?: string;     // human-readable explanation
+}
+
 // ── Edges ─────────────────────────────────────────────────────────────────────
 
 export interface MonographEdge {
@@ -65,6 +73,7 @@ export interface MonographEdge {
   confidence: EdgeConfidence;
   confidenceScore: number;
   weight?: number;
+  evidence?: EvidenceEntry[];
 }
 
 // ── Communities ───────────────────────────────────────────────────────────────
@@ -115,7 +124,9 @@ export type SuggestedQuestion =
   | { type: 'bridge_node'; node: MonographNode; commA: number; commB: number }
   | { type: 'verify_inferred'; edge: MonographEdge; inferredFrom: string }
   | { type: 'isolated_nodes'; nodes: MonographNode[]; reason: string }
-  | { type: 'low_cohesion'; community: MonographCommunity };
+  | { type: 'low_cohesion'; community: MonographCommunity }
+  | { type: 'no_signal'; edge: MonographEdge; reason: string }
+  | { type: 'thin_community'; communityId: number; memberCount: number; reason: string };
 
 // ── Finding actions (structured remediation steps) ────────────────────────────
 

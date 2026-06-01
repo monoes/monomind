@@ -2277,6 +2277,13 @@ export const analyzeCommand: Command = {
       type: 'string',
       default: 'text',
     },
+    {
+      name: 'embedding-device',
+      description: 'Embedding device: auto, cpu, cuda, dml, wasm (default: auto)',
+      type: 'string' as const,
+      default: 'auto',
+      choices: ['auto', 'cpu', 'dml', 'cuda', 'wasm'],
+    },
   ],
   examples: [
     { command: 'monomind analyze ast src/', description: 'Analyze code with AST parsing' },
