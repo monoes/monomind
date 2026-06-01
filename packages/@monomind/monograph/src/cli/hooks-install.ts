@@ -71,6 +71,9 @@ export function installGitHooks(repoPath: string, hooks: string[]): void {
     throw new Error(`No .git/hooks directory found at ${repoPath}`);
   }
   for (const hook of hooks) {
+    if (!/^[\w-]+$/.test(hook)) {
+      throw new Error(`Invalid hook name: "${hook}" — must be alphanumeric with hyphens only`);
+    }
     const hookPath = join(hooksDir, hook);
     const block = buildHookBlock(hook);
 
@@ -122,7 +125,6 @@ export function uninstallGitHooks(repoPath: string, hooks: string[]): void {
     if (!meaningful) {
       // Remove the file — nothing custom was there
       try {
-        const { unlinkSync } = require('fs') as typeof import('fs');
         unlinkSync(hookPath);
       } catch {
         writeFileSync(hookPath, stripped, 'utf8');
