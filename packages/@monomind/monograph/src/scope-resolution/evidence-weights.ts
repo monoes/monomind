@@ -1,6 +1,5 @@
 /**
  * Evidence weight constants for scope-based resolution.
- * Ported from GitNexus RFC Appendix A.
  */
 
 export const EvidenceWeights = {
