@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import Graph from 'graphology';
 import type { SerializedGraph } from './types.js';
@@ -28,7 +28,10 @@ export function saveGraph(graph: Graph, outputDir: string, projectPath: string):
     multigraph: graph.multi,
   };
 
-  writeFileSync(graphPath, JSON.stringify(serialized, null, 2), 'utf-8');
+  // Atomic write: write to tmp then rename so a crash mid-write can't corrupt graph.json
+  const tmp = `${graphPath}.tmp`;
+  writeFileSync(tmp, JSON.stringify(serialized, null, 2), 'utf-8');
+  renameSync(tmp, graphPath);
   return graphPath;
 }
 
@@ -39,6 +42,10 @@ export function saveGraph(graph: Graph, outputDir: string, projectPath: string):
 export function loadGraph(graphPath: string): Graph {
   const raw = readFileSync(graphPath, 'utf-8');
   const data = JSON.parse(raw) as SerializedGraph;
+
+  if (!Array.isArray(data.nodes) || !Array.isArray(data.links)) {
+    throw new Error(`Malformed graph.json at ${graphPath}: missing nodes or links array`);
+  }
 
   const graph = new Graph({
     type: data.directed ? 'directed' : 'undirected',

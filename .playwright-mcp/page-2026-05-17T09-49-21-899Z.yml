@@ -1,0 +1,154 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: monomind
+      - generic [ref=e6]: monomind
+    - generic [ref=e7]:
+      - generic [ref=e9] [cursor=pointer]:
+        - generic [ref=e10]: ◉
+        - generic [ref=e11]: Now
+      - generic [ref=e12]:
+        - generic [ref=e13]: Workspace
+        - generic [ref=e14] [cursor=pointer]:
+          - generic [ref=e15]: ⊞
+          - generic [ref=e16]: Projects
+          - generic [ref=e17]: —
+        - generic [ref=e18] [cursor=pointer]:
+          - generic [ref=e19]: ◫
+          - generic [ref=e20]: Sessions
+          - generic [ref=e21]: "12"
+        - generic [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: ↺
+          - generic [ref=e24]: Loops
+          - generic [ref=e25]: "7"
+      - generic [ref=e26]:
+        - generic [ref=e27]: Intelligence
+        - generic [ref=e28] [cursor=pointer]:
+          - generic [ref=e29]: ◈
+          - generic [ref=e30]: Memory
+        - generic [ref=e31] [cursor=pointer]:
+          - generic [ref=e32]: ⬡
+          - generic [ref=e33]: Orgs
+    - generic [ref=e34]:
+      - generic [ref=e35]: nokhodian
+      - generic [ref=e36]: /Users/morteza/Desktop/tools/monomind
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e39]: Sessions
+      - generic [ref=e40]: live
+      - button "↺ Refresh" [ref=e43] [cursor=pointer]
+    - generic [ref=e70]:
+      - generic [ref=e71]:
+        - generic [ref=e72]: ↺
+        - text: "Long-running loop: /monomind:do"
+        - generic [ref=e73] [cursor=pointer]: ✕
+      - generic [ref=e74]:
+        - generic [ref=e75]: ↺
+        - text: "Long-running loop: /mastermind:techport"
+        - generic [ref=e76] [cursor=pointer]: ✕
+      - generic [ref=e77]:
+        - generic [ref=e78]: ↺
+        - text: "Long-running loop: /mastermind:techport"
+        - generic [ref=e79] [cursor=pointer]: ✕
+      - generic [ref=e80]:
+        - generic [ref=e81]: ↺
+        - text: "Long-running loop: /mastermind:review"
+        - generic [ref=e82] [cursor=pointer]: ✕
+      - generic [ref=e83]:
+        - generic [ref=e84]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e85] [cursor=pointer]: ✕
+      - generic [ref=e86]:
+        - generic [ref=e87]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e88] [cursor=pointer]: ✕
+      - generic [ref=e89]:
+        - generic [ref=e90]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e91] [cursor=pointer]: ✕
+    - generic [ref=e93]:
+      - generic [ref=e94]: Sessions
+      - generic [ref=e95]: 12 sessions · monomind
+      - generic [ref=e96]:
+        - generic [ref=e97] [cursor=pointer]:
+          - generic [ref=e98]:
+            - generic [ref=e99]: do the 2 and 3 for now lets keep both dashboard seperate
+            - generic [ref=e100]: now
+            - generic [ref=e101]: → view
+          - generic [ref=e102]: 33m · 200 msg
+          - generic [ref=e103]:
+            - generic [ref=e104]: "1. Primary Request and Intent: The us"
+            - generic [ref=e105]: "1. Primary Request and Intent: The us"
+        - generic [ref=e106] [cursor=pointer]:
+          - generic [ref=e107]:
+            - generic [ref=e108]: ok fix them
+            - generic [ref=e109]: 8m
+            - generic [ref=e110]: → view
+          - generic [ref=e111]: 1h 59m · 327 msg
+          - generic [ref=e113]: "1. Primary Request and Intent: The us"
+        - generic [ref=e114] [cursor=pointer]:
+          - generic [ref=e115]:
+            - generic [ref=e116]: review more if its still issue
+            - generic [ref=e117]: 22h
+            - generic [ref=e118]: → view
+          - generic [ref=e119]: 1h 51m · 644 msg
+          - generic [ref=e120]:
+            - generic [ref=e121]: "1. Primary Request and Intent: The us"
+            - generic [ref=e122]: "1. Primary Request and Intent: The user"
+        - generic [ref=e123] [cursor=pointer]:
+          - generic [ref=e124]:
+            - generic [ref=e125]: do it all
+            - generic [ref=e126]: 16h
+            - generic [ref=e127]: → view
+          - generic [ref=e128]: 6h 19m · 2451 msg
+          - generic [ref=e129]:
+            - generic [ref=e130]: "1. Primary Request and Intent: The se"
+            - generic [ref=e131]: "1. Primary Request and Intent: The us"
+        - generic [ref=e132] [cursor=pointer]:
+          - generic [ref=e133]:
+            - generic [ref=e134]: "Reply with literal: NO_BARE_OK"
+            - generic [ref=e135]: 1d
+            - generic [ref=e136]: → view
+          - generic [ref=e137]: 79a8ea3f-1832-40
+        - generic [ref=e138] [cursor=pointer]:
+          - generic [ref=e139]:
+            - generic [ref=e140]: "Reply with literal: STDIN_OK"
+            - generic [ref=e141]: 1d
+            - generic [ref=e142]: → view
+          - generic [ref=e143]: 51f97f5e-66a1-47
+        - generic [ref=e144] [cursor=pointer]:
+          - generic [ref=e145]:
+            - generic [ref=e146]: "Reply with literal: ARG_OK"
+            - generic [ref=e147]: 1d
+            - generic [ref=e148]: → view
+          - generic [ref=e149]: 3e555d15-bfbf-46
+        - generic [ref=e150] [cursor=pointer]:
+          - generic [ref=e151]:
+            - generic [ref=e152]: 3006d6c3-1d63-4d27-99bc-e50b7d4e1b8c
+            - generic [ref=e153]: 1d
+            - generic [ref=e154]: → view
+          - generic [ref=e155]: 3006d6c3-1d63-4d
+        - generic [ref=e156] [cursor=pointer]:
+          - generic [ref=e157]:
+            - generic [ref=e158]: 03ed32c8-5757-4e21-9c48-f957b7e11032
+            - generic [ref=e159]: 1d
+            - generic [ref=e160]: → view
+          - generic [ref=e161]: 03ed32c8-5757-4e
+        - generic [ref=e162] [cursor=pointer]:
+          - generic [ref=e163]:
+            - generic [ref=e164]: "Reply with: WORKING_OK_123"
+            - generic [ref=e165]: 1d
+            - generic [ref=e166]: → view
+          - generic [ref=e167]: 81bdd458-7931-43
+        - generic [ref=e168] [cursor=pointer]:
+          - generic [ref=e169]:
+            - generic [ref=e170]: "Reply only with the literal word: WORKING"
+            - generic [ref=e171]: 1d
+            - generic [ref=e172]: → view
+          - generic [ref=e173]: 4ce318fe-64a6-4d
+        - generic [ref=e174] [cursor=pointer]:
+          - generic [ref=e175]:
+            - generic [ref=e176]: "Say: yes, working"
+            - generic [ref=e177]: 1d
+            - generic [ref=e178]: → view
+          - generic [ref=e179]: 0f02c6fd-1e11-4d

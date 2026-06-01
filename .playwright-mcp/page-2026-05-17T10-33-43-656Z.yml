@@ -1,0 +1,222 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: monomind
+      - generic [ref=e6]: monomind
+    - generic [ref=e7]:
+      - generic [ref=e9] [cursor=pointer]:
+        - generic [ref=e10]: ◉
+        - generic [ref=e11]: Now
+      - generic [ref=e12]:
+        - generic [ref=e13]: Workspace
+        - generic [ref=e14] [cursor=pointer]:
+          - generic [ref=e15]: ⊞
+          - generic [ref=e16]: Projects
+          - generic [ref=e17]: —
+        - generic [ref=e18] [cursor=pointer]:
+          - generic [ref=e19]: ◫
+          - generic [ref=e20]: Sessions
+          - generic [ref=e21]: "13"
+        - generic [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: ↺
+          - generic [ref=e24]: Loops
+          - generic [ref=e25]: "7"
+      - generic [ref=e26]:
+        - generic [ref=e27]: Intelligence
+        - generic [ref=e28] [cursor=pointer]:
+          - generic [ref=e29]: ◈
+          - generic [ref=e30]: Memory
+        - generic [ref=e31] [cursor=pointer]:
+          - generic [ref=e32]: ⬡
+          - generic [ref=e33]: Orgs
+    - generic [ref=e34]:
+      - generic [ref=e35]: nokhodian
+      - generic [ref=e36]: /Users/morteza/Desktop/tools/monomind
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e39]: Now
+      - generic [ref=e40]: live
+      - generic [ref=e42]:
+        - button "⌕ Search ⌘K" [ref=e43] [cursor=pointer]
+        - button "↺ Refresh" [ref=e44] [cursor=pointer]
+    - generic [ref=e83]:
+      - generic [ref=e84]:
+        - generic [ref=e85]: ⚠
+        - text: "High spend: $23.44 today"
+        - generic [ref=e86] [cursor=pointer]: ✕
+      - generic [ref=e87]:
+        - generic [ref=e88]: ↺
+        - text: "Long-running loop: /monomind:do"
+        - generic [ref=e89] [cursor=pointer]: ✕
+      - generic [ref=e90]:
+        - generic [ref=e91]: ↺
+        - text: "Long-running loop: /mastermind:techport"
+        - generic [ref=e92] [cursor=pointer]: ✕
+      - generic [ref=e93]:
+        - generic [ref=e94]: ↺
+        - text: "Long-running loop: /mastermind:techport"
+        - generic [ref=e95] [cursor=pointer]: ✕
+      - generic [ref=e96]:
+        - generic [ref=e97]: ↺
+        - text: "Long-running loop: /mastermind:review"
+        - generic [ref=e98] [cursor=pointer]: ✕
+      - generic [ref=e99]:
+        - generic [ref=e100]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e101] [cursor=pointer]: ✕
+      - generic [ref=e102]:
+        - generic [ref=e103]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e104] [cursor=pointer]: ✕
+      - generic [ref=e105]:
+        - generic [ref=e106]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e107] [cursor=pointer]: ✕
+    - dialog "Command palette" [ref=e109]:
+      - generic [ref=e110]:
+        - generic [ref=e111]: ⌕
+        - textbox "Search sessions, memory, projects…" [active] [ref=e112]
+      - generic [ref=e113]:
+        - generic [ref=e114]: Sessions
+        - generic [ref=e115] [cursor=pointer]:
+          - generic [ref=e116]: ◫
+          - generic [ref=e117]:
+            - generic [ref=e118]: go ahead
+            - generic [ref=e119]: 11s
+        - generic [ref=e120] [cursor=pointer]:
+          - generic [ref=e121]: ◫
+          - generic [ref=e122]:
+            - generic [ref=e123]: /mastermind:techport --tillend auto /Users/morteza/Desktop/tools/agent-browser to implement all feature for it and improve it if its possible
+            - generic [ref=e124]: 1m
+        - generic [ref=e125] [cursor=pointer]:
+          - generic [ref=e126]: ◫
+          - generic [ref=e127]:
+            - generic [ref=e128]: go ahead
+            - generic [ref=e129]: 1m
+        - generic [ref=e130] [cursor=pointer]:
+          - generic [ref=e131]: ◫
+          - generic [ref=e132]:
+            - generic [ref=e133]: review more if its still issue
+            - generic [ref=e134]: 23h
+        - generic [ref=e135] [cursor=pointer]:
+          - generic [ref=e136]: ◫
+          - generic [ref=e137]:
+            - generic [ref=e138]: do it all
+            - generic [ref=e139]: 17h
+      - generic [ref=e140]:
+        - generic [ref=e141]:
+          - generic [ref=e142]: ↑↓
+          - text: navigate
+        - generic [ref=e143]:
+          - generic [ref=e144]: ↵
+          - text: select
+        - generic [ref=e145]:
+          - generic [ref=e146]: esc
+          - text: close
+    - generic [ref=e46]:
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - heading "Live Feed" [level=2] [ref=e49]
+          - generic [ref=e50]: 20243f7d…
+          - generic [ref=e51]:
+            - button "‹" [ref=e52] [cursor=pointer]
+            - button "›" [ref=e53] [cursor=pointer]
+        - generic [ref=e54]:
+          - generic [ref=e55]: Range
+          - button "All" [ref=e56] [cursor=pointer]
+          - button "1h" [ref=e57] [cursor=pointer]
+          - button "6h" [ref=e58] [cursor=pointer]
+          - button "24h" [ref=e59] [cursor=pointer]
+          - generic [ref=e60]:
+            - generic [ref=e61]: J
+            - generic [ref=e62]: K
+            - text: navigate
+            - generic [ref=e63]: ↵
+            - text: detail
+            - generic [ref=e64]: G
+            - text: live
+            - generic [ref=e65]: ⌘K
+            - text: search
+        - generic [ref=e67]:
+          - generic [ref=e147] [cursor=pointer]:
+            - generic [ref=e148]: ⬡
+            - generic [ref=e150]: ⬡ plugin_playwright_playwright__browser_
+            - generic [ref=e151]: now
+          - generic [ref=e152] [cursor=pointer]:
+            - generic [ref=e153]: ◧
+            - generic [ref=e154]: 14 file operations
+            - generic [ref=e155]: ▸ expand
+          - generic [ref=e157] [cursor=pointer]:
+            - generic [ref=e158]: ↵
+            - generic [ref=e160]: go ahead
+            - generic [ref=e161]: 5m
+          - generic [ref=e162] [cursor=pointer]:
+            - generic [ref=e163]: ↵
+            - generic [ref=e165]: what is next?
+            - generic [ref=e166]: 8m
+          - generic [ref=e167] [cursor=pointer]:
+            - generic [ref=e168]: ⬡
+            - generic [ref=e169]: 8 MCP calls
+            - generic [ref=e170]: ▸ expand
+      - generic [ref=e70]:
+        - heading "Detail" [level=3]
+        - button "✕" [ref=e71] [cursor=pointer]
+      - generic [ref=e73]:
+        - generic [ref=e74]:
+          - generic [ref=e171]: Today
+          - generic [ref=e172]:
+            - generic [ref=e173]: API cost
+            - generic [ref=e174]: $23.44
+          - generic [ref=e175]:
+            - generic [ref=e176]: API calls
+            - generic [ref=e177]: "439"
+          - generic [ref=e178]:
+            - generic [ref=e179]: Month total
+            - generic [ref=e180]: $4488.64
+          - generic [ref=e181]:
+            - generic [ref=e182]: 7-day activity
+            - generic [ref=e183]:
+              - 'generic "6d: 0 sessions" [ref=e184]'
+              - 'generic "5d: 0 sessions" [ref=e185]'
+              - 'generic "4d: 0 sessions" [ref=e186]'
+              - 'generic "3d: 0 sessions" [ref=e187]'
+              - 'generic "2d: 0 sessions" [ref=e188]'
+              - 'generic "1d: 0 sessions" [ref=e189]'
+              - 'generic "now: 0 sessions" [ref=e190]'
+        - generic [ref=e77]:
+          - generic [ref=e191]: Active Loops
+          - generic [ref=e192]:
+            - generic [ref=e193]: /monomind:do
+            - generic [ref=e194]: running
+          - generic [ref=e196]:
+            - generic [ref=e197]: /mastermind:techport
+            - generic [ref=e198]: "1"
+          - generic [ref=e200]:
+            - generic [ref=e201]: /mastermind:techport
+            - generic [ref=e202]: "1"
+          - generic [ref=e204]:
+            - generic [ref=e205]: /mastermind:review
+            - generic [ref=e206]: "2"
+          - generic [ref=e208]:
+            - generic [ref=e209]: /monomind:repeat
+            - generic [ref=e210]: "1"
+        - generic [ref=e80]:
+          - generic [ref=e212]: Recent Sessions
+          - generic [ref=e213] [cursor=pointer]:
+            - generic [ref=e214]: go ahead
+            - generic [ref=e215]: now
+          - generic [ref=e216] [cursor=pointer]:
+            - generic [ref=e217]: /mastermind:techport --tillend auto /Users/morteza/Desktop/tools/agent-browser to implement all feature for it and improve it if its possible
+            - generic [ref=e218]: 1m
+          - generic [ref=e219] [cursor=pointer]:
+            - generic [ref=e220]: go ahead
+            - generic [ref=e221]: 1m
+          - generic [ref=e222] [cursor=pointer]:
+            - generic [ref=e223]: review more if its still issue
+            - generic [ref=e224]: 23h
+          - generic [ref=e225] [cursor=pointer]:
+            - generic [ref=e226]: do it all
+            - generic [ref=e227]: 17h
+          - generic [ref=e228] [cursor=pointer]:
+            - generic [ref=e229]: "Reply with literal: NO_BARE_OK"
+            - generic [ref=e230]: 1d

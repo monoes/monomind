@@ -1,0 +1,240 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: monomind
+      - generic [ref=e6]: monomind
+    - generic [ref=e7]:
+      - generic [ref=e9] [cursor=pointer]:
+        - generic [ref=e10]: ◉
+        - generic [ref=e11]: Now
+      - generic [ref=e12]:
+        - generic [ref=e13]: Workspace
+        - generic [ref=e14] [cursor=pointer]:
+          - generic [ref=e15]: ⊞
+          - generic [ref=e16]: Projects
+          - generic [ref=e17]: —
+        - generic [ref=e18] [cursor=pointer]:
+          - generic [ref=e19]: ◫
+          - generic [ref=e20]: Sessions
+          - generic [ref=e21]: "13"
+        - generic [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: ↺
+          - generic [ref=e24]: Loops
+          - generic [ref=e25]: "7"
+      - generic [ref=e26]:
+        - generic [ref=e27]: Intelligence
+        - generic [ref=e28] [cursor=pointer]:
+          - generic [ref=e29]: ◈
+          - generic [ref=e30]: Memory
+        - generic [ref=e31] [cursor=pointer]:
+          - generic [ref=e32]: ⬡
+          - generic [ref=e33]: Orgs
+    - generic [ref=e34]:
+      - generic [ref=e35]: nokhodian
+      - generic [ref=e36]: /Users/morteza/Desktop/tools/monomind
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e39]: Now
+      - generic [ref=e40]: live
+      - generic [ref=e111]: $42.44 today
+      - generic [ref=e42]:
+        - button "⌕ Search ⌘K" [ref=e43] [cursor=pointer]
+        - button "↺ Refresh" [ref=e44] [cursor=pointer]
+    - generic [ref=e112]:
+      - generic [ref=e373]:
+        - generic [ref=e374]: ⚠
+        - text: "High spend: $42.44 today"
+        - generic [ref=e375] [cursor=pointer]: ✕
+      - generic [ref=e376]:
+        - generic [ref=e377]: ↺
+        - text: "Long-running loop: /monomind:do"
+        - generic [ref=e378] [cursor=pointer]: ✕
+      - generic [ref=e379]:
+        - generic [ref=e380]: ↺
+        - text: "Long-running loop: /mastermind:techport"
+        - generic [ref=e381] [cursor=pointer]: ✕
+      - generic [ref=e382]:
+        - generic [ref=e383]: ↺
+        - text: "Long-running loop: /mastermind:techport"
+        - generic [ref=e384] [cursor=pointer]: ✕
+      - generic [ref=e385]:
+        - generic [ref=e386]: ↺
+        - text: "Long-running loop: /mastermind:review"
+        - generic [ref=e387] [cursor=pointer]: ✕
+      - generic [ref=e388]:
+        - generic [ref=e389]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e390] [cursor=pointer]: ✕
+      - generic [ref=e391]:
+        - generic [ref=e392]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e393] [cursor=pointer]: ✕
+      - generic [ref=e394]:
+        - generic [ref=e395]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e396] [cursor=pointer]: ✕
+    - generic [ref=e46]:
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - heading "Live Feed" [level=2] [ref=e49]
+          - generic [ref=e50]: f4844d50…
+          - generic [ref=e51]:
+            - button "⎘ Copy" [ref=e52] [cursor=pointer]
+            - button "⊟" [ref=e53] [cursor=pointer]
+            - button "⌕" [ref=e54] [cursor=pointer]
+            - button "‹" [ref=e55] [cursor=pointer]
+            - button "›" [ref=e56] [cursor=pointer]
+        - generic [ref=e137]:
+          - textbox "Search feed…" [active] [ref=e138]
+          - button "✕" [ref=e139] [cursor=pointer]
+        - generic "Session tool activity timeline" [ref=e57]:
+          - generic "Read session-restore-handler.cjs" [ref=e397]
+          - generic "Edit session-restore-handler.cjs" [ref=e398]
+          - generic "Find inline god-node injection block in session-restore-hand" [ref=e399]
+          - generic "Read session-restore-handler.cjs" [ref=e400]
+          - generic "Edit session-restore-handler.cjs" [ref=e401]
+          - generic "Read session-restore-handler.cjs" [ref=e402]
+          - generic "Edit session-restore-handler.cjs" [ref=e403]
+          - generic "Write session-restore-handler.test.mjs" [ref=e404]
+          - generic "Run session-restore handler tests" [ref=e405]
+          - generic "Read package.json" [ref=e406]
+          - generic "Read package.json" [ref=e407]
+          - generic "Edit package.json" [ref=e408]
+          - generic "Edit package.json" [ref=e409]
+          - generic "Read session-restore test results" [ref=e410]
+          - generic "Run session-restore handler tests synchronously" [ref=e411]
+          - generic "Wait for test output" [ref=e412]
+          - generic "Run tests with direct node invocation" [ref=e413]
+          - generic "Run vitest via npx with exit code" [ref=e414]
+          - generic "Check task output files" [ref=e415]
+          - generic "user message" [ref=e416]
+          - generic "Run session-restore-handler tests" [ref=e417]
+          - generic "Read test output" [ref=e418]
+          - generic "Run tests synchronously" [ref=e419]
+          - generic "Wait and read test output" [ref=e420]
+        - generic [ref=e58]:
+          - generic [ref=e59]: Range
+          - button "All" [ref=e60] [cursor=pointer]
+          - button "1h" [ref=e61] [cursor=pointer]
+          - button "6h" [ref=e62] [cursor=pointer]
+          - button "24h" [ref=e63] [cursor=pointer]
+          - generic [ref=e64]:
+            - generic [ref=e65]: J
+            - generic [ref=e66]: K
+            - text: navigate
+            - generic [ref=e67]: ↵
+            - text: detail
+            - generic [ref=e68]: /
+            - text: find
+            - generic [ref=e69]: G
+            - text: live
+            - generic [ref=e70]: ⌘K
+            - text: search
+        - generic [ref=e72]:
+          - generic [ref=e421] [cursor=pointer]:
+            - generic [ref=e422]: $
+            - generic [ref=e423]: 4 shell commands
+            - generic [ref=e424]: ▸ expand
+          - generic [ref=e426] [cursor=pointer]:
+            - generic [ref=e427]: ↵
+            - generic [ref=e429]: This session is being continued from a previous conversation that ran out of context. The …
+            - generic [ref=e430]: 3m
+          - generic [ref=e431] [cursor=pointer]:
+            - generic [ref=e432]: $
+            - generic [ref=e433]: 6 shell commands
+            - generic [ref=e434]: ▸ expand
+          - generic [ref=e435] [cursor=pointer]:
+            - generic [ref=e436]: ◧
+            - generic [ref=e437]: 4 file operations
+            - generic [ref=e438]: ▸ expand
+          - generic [ref=e439] [cursor=pointer]:
+            - generic [ref=e440]: $
+            - generic [ref=e442]: Run session-restore handler tests
+            - generic [ref=e443]: 17m
+          - generic [ref=e444] [cursor=pointer]:
+            - generic [ref=e445]: ◧
+            - generic [ref=e446]: 5 file operations
+            - generic [ref=e447]: ▸ expand
+          - generic [ref=e448] [cursor=pointer]:
+            - generic [ref=e449]: $
+            - generic [ref=e451]: Find inline god-node injection block in session-restore-hand
+            - generic [ref=e452]: 19m
+          - generic [ref=e453] [cursor=pointer]:
+            - generic [ref=e454]: ◧
+            - generic [ref=e456]: Edit session-restore-handler.cjs
+            - generic [ref=e457]: 19m
+          - generic [ref=e458] [cursor=pointer]:
+            - generic [ref=e459]: ◧
+            - generic [ref=e461]: Read session-restore-handler.cjs
+            - generic [ref=e462]: 19m
+      - generic [ref=e75]:
+        - heading "Detail" [level=3]
+        - button "✕" [ref=e76] [cursor=pointer]
+      - generic [ref=e78]:
+        - generic [ref=e79]:
+          - generic [ref=e463]: Today
+          - generic [ref=e464]:
+            - generic [ref=e465]: API cost
+            - generic [ref=e466]: $42.44
+          - generic [ref=e467]:
+            - generic [ref=e468]: API calls
+            - generic [ref=e469]: "815"
+          - generic [ref=e470]:
+            - generic [ref=e471]: Month total
+            - generic [ref=e472]: $4507.64
+          - generic [ref=e473]:
+            - generic [ref=e474]: 7-day activity
+            - generic [ref=e475]:
+              - 'generic "6d: 0 sessions" [ref=e476]'
+              - 'generic "5d: 0 sessions" [ref=e477]'
+              - 'generic "4d: 0 sessions" [ref=e478]'
+              - 'generic "3d: 0 sessions" [ref=e479]'
+              - 'generic "2d: 0 sessions" [ref=e480]'
+              - 'generic "1d: 8 sessions" [ref=e481]'
+              - 'generic "now: 5 sessions" [ref=e482]'
+        - generic [ref=e82]:
+          - generic [ref=e483]: Active Loops
+          - generic [ref=e484]:
+            - generic [ref=e485]: /monomind:do
+            - generic [ref=e486]: running
+          - generic [ref=e488]:
+            - generic [ref=e489]: /mastermind:techport
+            - generic [ref=e490]: "1"
+          - generic [ref=e492]:
+            - generic [ref=e493]: /mastermind:techport
+            - generic [ref=e494]: "1"
+          - generic [ref=e496]:
+            - generic [ref=e497]: /mastermind:review
+            - generic [ref=e498]: "2"
+          - generic [ref=e500]:
+            - generic [ref=e501]: /monomind:repeat
+            - generic [ref=e502]: "1"
+        - generic [ref=e85]:
+          - generic [ref=e204]: Recent Sessions
+          - generic [ref=e205] [cursor=pointer]:
+            - generic [ref=e206]: i dont wanna use agent-browser package i want it to be part of monomind
+            - generic [ref=e207]: now
+          - generic [ref=e208] [cursor=pointer]:
+            - generic [ref=e209]: can you review them
+            - generic [ref=e210]: now
+          - generic [ref=e211] [cursor=pointer]:
+            - generic [ref=e212]: do them all
+            - generic [ref=e213]: 25s
+          - generic [ref=e214] [cursor=pointer]:
+            - generic [ref=e215]: review more if its still issue
+            - generic [ref=e216]: 23h
+          - generic [ref=e217] [cursor=pointer]:
+            - generic [ref=e218]: do it all
+            - generic [ref=e219]: 18h
+          - generic [ref=e220] [cursor=pointer]:
+            - generic [ref=e221]: "Reply with literal: NO_BARE_OK"
+            - generic [ref=e222]: 1d
+        - generic [ref=e88]:
+          - generic [ref=e504]: Tool Usage
+          - generic [ref=e505]:
+            - generic [ref=e506]:
+              - generic [ref=e507]: bash
+              - generic [ref=e510]: "12"
+            - generic [ref=e511]:
+              - generic [ref=e512]: file
+              - generic [ref=e515]: "11"
