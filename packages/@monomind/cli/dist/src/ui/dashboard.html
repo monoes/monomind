@@ -1777,9 +1777,14 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="mg-stat-card"><div class="msc-lbl">Edges</div><div class="msc-val" id="mg-stat-edges">—</div></div>
             <div class="mg-stat-card"><div class="msc-lbl">Avg Degree</div><div class="msc-val" id="mg-stat-avgdeg">—</div></div>
             <div class="mg-stat-card"><div class="msc-lbl">Node Types</div><div class="msc-val" id="mg-stat-types">—</div></div>
+            <div class="mg-stat-card" title="Nodes with no importers — safe to delete"><div class="msc-lbl">Dead Code</div><div class="msc-val" id="mg-stat-dead" style="color:var(--red,#f87171)">—</div></div>
+            <div class="mg-stat-card" title="Weakly connected components — isolated clusters"><div class="msc-lbl">Clusters</div><div class="msc-val" id="mg-stat-wcc">—</div></div>
+            <div class="mg-stat-card" title="Top architectural bottleneck by betweenness centrality"><div class="msc-lbl">Top Bridge</div><div class="msc-val" id="mg-stat-bridge" style="font-size:11px;word-break:break-all">—</div></div>
           </div>
-          <div class="mg-section-title">Top Nodes by Degree</div>
+          <div class="mg-section-title">Top Nodes by PageRank</div>
           <div id="mg-top-nodes"><div class="loading-txt">Loading…</div></div>
+          <div class="mg-section-title">Dead Code <span style="font-size:10px;color:var(--text-xs);font-weight:400">(in-degree 0, non-file)</span></div>
+          <div id="mg-dead-list"></div>
           <div class="mg-section-title">Node Type Distribution</div>
           <div id="mg-type-dist"></div>
         </div>
@@ -1875,6 +1880,29 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
               <button class="btn" onclick="mgQueryAsk()">Ask</button>
             </div>
             <div id="mg-q-ask-result" class="mg-query-result" style="display:none"></div>
+          </div>
+          <div class="mg-query-section">
+            <div class="mqs-title">Ripple impact <span style="font-size:10px;color:var(--text-xs);font-weight:400">multi-hop cascade</span></div>
+            <div class="mg-query-row">
+              <input type="text" id="mg-q-ripple-node" placeholder="Node name or file…" style="flex:1;min-width:160px">
+              <select id="mg-q-ripple-hops" style="width:80px" title="Max hops">
+                <option value="2">2 hops</option>
+                <option value="3" selected>3 hops</option>
+                <option value="4">4 hops</option>
+                <option value="5">5 hops</option>
+              </select>
+              <button class="btn" onclick="mgQueryRipple()">Run</button>
+            </div>
+            <div id="mg-q-ripple-result" class="mg-query-result" style="display:none"></div>
+          </div>
+          <div class="mg-query-section">
+            <div class="mqs-title">Import chain <span style="font-size:10px;color:var(--text-xs);font-weight:400">all paths A → B</span></div>
+            <div class="mg-query-row">
+              <input type="text" id="mg-q-chain-from" placeholder="From node…" style="flex:1;min-width:120px">
+              <input type="text" id="mg-q-chain-to" placeholder="To node…" style="flex:1;min-width:120px">
+              <button class="btn" onclick="mgQueryImportChain()">Run</button>
+            </div>
+            <div id="mg-q-chain-result" class="mg-query-result" style="display:none"></div>
           </div>
         </div>
 
@@ -7267,6 +7295,94 @@ function mgSwitchTab(t) {
 }
 
 // ── OVERVIEW ───────────────────────────────────────────────
+function mgComputePageRank(g, d = 0.85, iterations = 50) {
+  const nodes = g.nodes || [];
+  const edges = g.edges || [];
+  if (!nodes.length) return {};
+  const N = nodes.length;
+  const ids = nodes.map(n => n.id || n.name || n.label);
+  const rank = {}; ids.forEach(id => { rank[id] = 1 / N; });
+  // build outbound adjacency
+  const outbound = {}; ids.forEach(id => { outbound[id] = []; });
+  edges.forEach(e => {
+    const s = e.source || e.from; const t = e.target || e.to;
+    if (s in outbound) outbound[s].push(t);
+  });
+  for (let i = 0; i < iterations; i++) {
+    const next = {}; ids.forEach(id => { next[id] = (1 - d) / N; });
+    ids.forEach(src => {
+      const outs = outbound[src] || [];
+      if (!outs.length) { // dangling — distribute equally
+        const share = d * rank[src] / N;
+        ids.forEach(id => { next[id] = (next[id] || 0) + share; });
+      } else {
+        const share = d * rank[src] / outs.length;
+        outs.forEach(tgt => { if (tgt in next) next[tgt] += share; });
+      }
+    });
+    ids.forEach(id => { rank[id] = next[id]; });
+  }
+  return rank;
+}
+
+function mgComputeWCC(g) {
+  const nodes = g.nodes || []; const edges = g.edges || [];
+  const parent = {}; nodes.forEach(n => { const k = n.id || n.name || n.label; parent[k] = k; });
+  function find(x) { if (parent[x] !== x) parent[x] = find(parent[x]); return parent[x]; }
+  function union(a, b) { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; }
+  edges.forEach(e => { const s = e.source || e.from; const t = e.target || e.to; if (s in parent && t in parent) union(s, t); });
+  const roots = new Set(nodes.map(n => find(n.id || n.name || n.label)));
+  return roots.size;
+}
+
+function mgComputeDeadCode(g) {
+  const nodes = g.nodes || []; const edges = g.edges || [];
+  const inDeg = {}; nodes.forEach(n => { inDeg[n.id || n.name || n.label] = 0; });
+  edges.forEach(e => { const t = e.target || e.to; if (t in inDeg) inDeg[t]++; });
+  return nodes.filter(n => {
+    const tp = (n.type || n.kind || n.label || '').toLowerCase();
+    if (tp === 'file' || tp === 'folder') return false;
+    const k = n.id || n.name || n.label;
+    return inDeg[k] === 0;
+  });
+}
+
+function mgApproxBetweenness(g) {
+  // Sample-based approximate betweenness: run BFS from up to 100 random sources
+  const nodes = g.nodes || []; const edges = g.edges || [];
+  if (nodes.length < 3) return {};
+  const adj = {}; nodes.forEach(n => { adj[n.id||n.name||n.label] = []; });
+  edges.forEach(e => {
+    const s = e.source||e.from, t = e.target||e.to;
+    if (s in adj) adj[s].push(t);
+    if (t in adj) adj[t].push(s); // undirected for betweenness
+  });
+  const ids = nodes.map(n => n.id||n.name||n.label);
+  const bc = {}; ids.forEach(id => { bc[id] = 0; });
+  const sampleSize = Math.min(80, ids.length);
+  const sources = ids.slice().sort(() => Math.random()-0.5).slice(0, sampleSize);
+  sources.forEach(src => {
+    // BFS + dependency accumulation (Brandes simplified)
+    const dist = {[src]: 0}, sigma = {[src]: 1}, pred = {}, stack = [];
+    const q = [src];
+    ids.forEach(id => { if (id !== src) { dist[id] = -1; sigma[id] = 0; pred[id] = []; }});
+    while (q.length) {
+      const v = q.shift(); stack.push(v);
+      (adj[v]||[]).forEach(w => {
+        if (dist[w] < 0) { q.push(w); dist[w] = dist[v]+1; }
+        if (dist[w] === dist[v]+1) { sigma[w] += sigma[v]; pred[w].push(v); }
+      });
+    }
+    const delta = {}; ids.forEach(id => { delta[id] = 0; });
+    while (stack.length) {
+      const w = stack.pop();
+      pred[w].forEach(v => { delta[v] += (sigma[v]/sigma[w]) * (1+delta[w]); });
+      if (w !== src) bc[w] += delta[w];
+    }
+  });
+  return bc;
+}
+
 function renderMgOverview() {
   const g = _mgGraph || { nodes: [], edges: [] };
   const N = g.nodes.length;
@@ -7278,30 +7394,51 @@ function renderMgOverview() {
   document.getElementById('mg-stat-avgdeg').textContent = avgDeg;
   document.getElementById('mg-stat-types').textContent = typeSet.size;
 
-  // degree map
-  const degMap = {};
-  g.nodes.forEach(n => { degMap[n.id || n.name || n.label] = 0; });
-  g.edges.forEach(e => {
-    const s = e.source || e.from; const t = e.target || e.to;
-    if (s in degMap) degMap[s]++;
-    if (t in degMap) degMap[t]++;
-  });
+  // dead code
+  const dead = mgComputeDeadCode(g);
+  document.getElementById('mg-stat-dead').textContent = dead.length;
 
-  const sorted = g.nodes.map(n => {
+  // weakly connected components
+  document.getElementById('mg-stat-wcc').textContent = N > 0 ? mgComputeWCC(g) : '—';
+
+  // betweenness top bridge (async-friendly: defer so page paints first)
+  document.getElementById('mg-stat-bridge').textContent = '…';
+  setTimeout(() => {
+    if (!_mgGraph || !_mgGraph.nodes.length) return;
+    const bc = mgApproxBetweenness(g);
+    const topBridge = Object.entries(bc).sort((a,b) => b[1]-a[1])[0];
+    document.getElementById('mg-stat-bridge').textContent = topBridge
+      ? mgShortLabel(topBridge[0]) : '—';
+  }, 50);
+
+  // PageRank (power iteration)
+  const rank = mgComputePageRank(g);
+  const prSorted = g.nodes.map(n => {
     const k = n.id || n.name || n.label;
-    return { label: n.label || n.name || k, deg: degMap[k] || 0 };
-  }).sort((a, b) => b.deg - a.deg).slice(0, 6);
-  const maxDeg = sorted.length ? sorted[0].deg : 1;
+    return { label: n.label || n.name || k, score: rank[k] || 0 };
+  }).sort((a, b) => b.score - a.score).slice(0, 8);
+  const maxPR = prSorted.length ? prSorted[0].score : 1;
 
   const topEl = document.getElementById('mg-top-nodes');
-  if (!sorted.length) { topEl.innerHTML = '<div class="loading-txt">No data</div>'; }
+  if (!prSorted.length) { topEl.innerHTML = '<div class="loading-txt">No data</div>'; }
   else {
-    topEl.innerHTML = sorted.map(n => `
+    topEl.innerHTML = prSorted.map(n => `
       <div class="mg-bar-row">
-        <div class="mg-bar-lbl" title="${esc(n.label)}">${esc(n.label)}</div>
-        <div class="mg-bar-track"><div class="mg-bar-fill" style="width:${maxDeg ? Math.round((n.deg/maxDeg)*100) : 0}%"></div></div>
-        <div class="mg-bar-val">${n.deg}</div>
+        <div class="mg-bar-lbl" title="${esc(n.label)}">${esc(mgShortLabel(n.label))}</div>
+        <div class="mg-bar-track"><div class="mg-bar-fill" style="width:${maxPR ? Math.round((n.score/maxPR)*100) : 0}%"></div></div>
+        <div class="mg-bar-val">${n.score.toExponential(1)}</div>
       </div>`).join('');
+  }
+
+  // dead code list (top 12)
+  const deadEl = document.getElementById('mg-dead-list');
+  if (!dead.length) { deadEl.innerHTML = '<div style="font-size:12px;color:var(--text-xs)">None detected — clean codebase!</div>'; }
+  else {
+    const show = dead.slice(0, 12);
+    deadEl.innerHTML = `<table class="mg-table"><thead><tr><th>Name</th><th>Type</th></tr></thead><tbody>` +
+      show.map(n => `<tr><td title="${esc(n.id||n.name||n.label)}">${esc(mgShortLabel(n.label||n.name||n.id||''))}</td><td>${esc(n.type||n.kind||'')}</td></tr>`).join('') +
+      (dead.length > 12 ? `<tr><td colspan="2" style="color:var(--text-xs);font-size:11px">…and ${dead.length-12} more</td></tr>` : '') +
+      `</tbody></table>`;
   }
 
   // type distribution
@@ -7316,6 +7453,13 @@ function renderMgOverview() {
       <div class="mg-bar-track"><div class="mg-bar-fill mg" style="width:${Math.round((c/maxTC)*100)}%"></div></div>
       <div class="mg-bar-val">${c}</div>
     </div>`).join('');
+}
+
+function mgShortLabel(s) {
+  if (!s) return s;
+  // shorten long paths: show last 2 segments
+  const parts = String(s).replace(/\\/g,'/').split('/');
+  return parts.length > 2 ? '…/' + parts.slice(-2).join('/') : s;
 }
 
 // ── GRAPH TAB ──────────────────────────────────────────────
@@ -7366,15 +7510,17 @@ async function mgRebuild() {
 
 // ── ANALYZE TAB ────────────────────────────────────────────
 const MG_CLIENT_ANALYSES = [
-  { id:'stats',       label:'STATS',       desc:'Graph density, avg/max degree, edge-to-node ratio' },
-  { id:'pagerank',    label:'PAGERANK',    desc:'Approximate PageRank via degree centrality, top 20' },
-  { id:'deadcode',    label:'DEAD CODE',   desc:'Isolated nodes with degree 0' },
-  { id:'wcc',         label:'COMPONENTS',  desc:'Weakly connected components via union-find' },
-  { id:'topo',        label:'TOPO SORT',   desc:'Topological sort (Kahn\'s) — detects cycles' },
-  { id:'hubs',        label:'HUBS',        desc:'Top 30 nodes by degree as sortable table' },
-  { id:'cycles',      label:'CYCLES',      desc:'DFS cycle detection, up to 10 cycles shown' },
-  { id:'surprises',   label:'SURPRISES',   desc:'Cross-filetype edges between incompatible types' },
-  { id:'communities', label:'COMMUNITIES', desc:'Node type distribution as horizontal bar chart' },
+  { id:'stats',        label:'STATS',        desc:'Graph density, avg/max degree, edge-to-node ratio' },
+  { id:'pagerank',     label:'PAGERANK',     desc:'Power-iteration PageRank (d=0.85, 50 iter) — top 20 influential nodes' },
+  { id:'betweenness',  label:'BETWEENNESS',  desc:'Approx betweenness centrality — architectural bridges and bottlenecks' },
+  { id:'deadcode',     label:'DEAD CODE',    desc:'Nodes with zero in-degree (non-file) — safe cleanup candidates' },
+  { id:'jaccard',      label:'SIMILARITY',   desc:'Jaccard neighbour similarity — nodes structurally alike a chosen node' },
+  { id:'wcc',          label:'COMPONENTS',   desc:'Weakly connected components via union-find — isolated clusters' },
+  { id:'topo',         label:'TOPO SORT',    desc:'Topological sort (Kahn\'s) — detects cycles' },
+  { id:'hubs',         label:'HUBS',         desc:'Top 30 nodes by degree as sortable table' },
+  { id:'cycles',       label:'CYCLES',       desc:'DFS cycle detection, up to 10 cycles shown' },
+  { id:'surprises',    label:'SURPRISES',    desc:'Cross-filetype edges between incompatible types' },
+  { id:'communities',  label:'COMMUNITIES',  desc:'Node type distribution as horizontal bar chart' },
 ];
 const MG_SERVER_ANALYSES = [
   // ── Health & Quality ───────────────────────────────────────
@@ -7483,14 +7629,15 @@ function mgRunClient(id) {
       </div>`;
 
     } else if (id === 'pagerank') {
-      const totalDeg = Object.values(degMap).reduce((a, b) => a + b, 0) || 1;
+      // Proper power-iteration PageRank (d=0.85, 50 iterations)
+      const prMap = mgComputePageRank(g);
       const ranked = nodes.map(n => {
         const k = n.id || n.name || n.label || '';
-        return { label: n.label || n.name || k, score: (degMap[k] || 0) / totalDeg };
+        return { label: n.label || n.name || k, score: prMap[k] || 0 };
       }).sort((a, b) => b.score - a.score).slice(0, 20);
       const maxScore = ranked.length ? ranked[0].score : 1;
-      html = `<table class="mg-table"><thead><tr><th>#</th><th>Node</th><th>Score</th><th style="width:180px">Rank</th></tr></thead><tbody>` +
-        ranked.map((r, i) => `<tr><td>${i+1}</td><td>${esc(r.label)}</td><td>${r.score.toFixed(5)}</td><td><div class="mg-bar-track" style="height:8px"><div class="mg-bar-fill" style="width:${maxScore ? Math.round((r.score/maxScore)*100) : 0}%"></div></div></td></tr>`).join('') +
+      html = `<table class="mg-table"><thead><tr><th>#</th><th>Node</th><th>PageRank</th><th style="width:180px">Weight</th></tr></thead><tbody>` +
+        ranked.map((r, i) => `<tr><td>${i+1}</td><td title="${esc(r.label)}">${esc(mgShortLabel(r.label))}</td><td>${r.score.toExponential(3)}</td><td><div class="mg-bar-track" style="height:8px"><div class="mg-bar-fill" style="width:${maxScore ? Math.round((r.score/maxScore)*100) : 0}%"></div></div></td></tr>`).join('') +
         `</tbody></table>`;
 
     } else if (id === 'deadcode') {
@@ -7596,6 +7743,41 @@ function mgRunClient(id) {
             const t = nodeTypeByKey[String(e.target || e.to || '')];
             return `<div class="mg-cycle-item">${esc(s.label)} <span style="color:var(--text-xs)">(${esc(s.ext)})</span> → ${esc(t.label)} <span style="color:var(--text-xs)">(${esc(t.ext)})</span></div>`;
           }).join('');
+      }
+
+    } else if (id === 'betweenness') {
+      const bc = mgApproxBetweenness(g);
+      const bcRanked = Object.entries(bc).sort((a,b) => b[1]-a[1]).slice(0,20);
+      const maxBC = bcRanked.length ? bcRanked[0][1] : 1;
+      if (!bcRanked.length || maxBC === 0) { html = '<div class="loading-txt">Not enough graph data for betweenness</div>'; }
+      else {
+        html = `<div style="font-size:11px;color:var(--text-xs);margin-bottom:8px">Approximate betweenness centrality (sample-based BFS). High score = architectural bridge.</div>
+          <table class="mg-table"><thead><tr><th>#</th><th>Node</th><th>Score</th><th style="width:160px">Weight</th></tr></thead><tbody>` +
+          bcRanked.map(([k, v], i) => `<tr><td>${i+1}</td><td title="${esc(k)}">${esc(mgShortLabel(k))}</td><td>${v.toFixed(1)}</td><td><div class="mg-bar-track" style="height:8px"><div class="mg-bar-fill mg" style="width:${Math.round((v/maxBC)*100)}%"></div></div></td></tr>`).join('') +
+          `</tbody></table>`;
+      }
+
+    } else if (id === 'jaccard') {
+      // Prompt-style: pick top node by degree then find neighbours with highest Jaccard overlap
+      const topNode = nodes.sort((a,b) => (degMap[b.id||b.name||b.label]||0) - (degMap[a.id||a.name||a.label]||0))[0];
+      if (!topNode) { html = '<div class="loading-txt">No nodes</div>'; }
+      else {
+        const tk = topNode.id||topNode.name||topNode.label;
+        const adj = {}; nodes.forEach(n => { adj[n.id||n.name||n.label] = new Set(); });
+        g.edges.forEach(e => { const s=e.source||e.from, t=e.target||e.to; if(s in adj) adj[s].add(t); if(t in adj) adj[t].add(s); });
+        const tSet = adj[tk] || new Set();
+        const results = nodes.filter(n => { const k=n.id||n.name||n.label; return k !== tk && (adj[k]||new Set()).size > 0; }).map(n => {
+          const k = n.id||n.name||n.label;
+          const nSet = adj[k] || new Set();
+          const inter = [...tSet].filter(x => nSet.has(x)).length;
+          const union = new Set([...tSet, ...nSet]).size;
+          return { label: n.label||n.name||k, score: union ? inter/union : 0 };
+        }).sort((a,b) => b.score-a.score).slice(0,15);
+        const maxJ = results.length ? results[0].score : 1;
+        html = `<div style="font-size:11px;color:var(--text-xs);margin-bottom:8px">Jaccard neighbour similarity relative to <strong>${esc(mgShortLabel(tk))}</strong> (highest-degree node).<br>Score 1.0 = identical neighbour set.</div>
+          <table class="mg-table"><thead><tr><th>#</th><th>Node</th><th>Jaccard</th><th style="width:160px">Similarity</th></tr></thead><tbody>` +
+          results.map((r,i) => `<tr><td>${i+1}</td><td title="${esc(r.label)}">${esc(mgShortLabel(r.label))}</td><td>${r.score.toFixed(3)}</td><td><div class="mg-bar-track" style="height:8px"><div class="mg-bar-fill" style="width:${maxJ?Math.round((r.score/maxJ)*100):0}%"></div></div></td></tr>`).join('') +
+          `</tbody></table>`;
       }
 
     } else if (id === 'communities') {
@@ -7946,6 +8128,91 @@ async function mgQueryCypher() {
       : Array.isArray(json.content) ? json.content.map(c => c.text || '').join('\n')
       : JSON.stringify(json, null, 2);
   } catch (e) { res.textContent = 'Error: ' + String(e); }
+}
+
+async function mgQueryRipple() {
+  const node = document.getElementById('mg-q-ripple-node').value.trim();
+  const hops = parseInt(document.getElementById('mg-q-ripple-hops').value) || 3;
+  const res = document.getElementById('mg-q-ripple-result');
+  if (!node) return;
+  res.textContent = 'Computing…'; res.style.display = 'block';
+  const g = _mgGraph || { nodes: [], edges: [] };
+  // Build outbound adj for BFS
+  const adj = {};
+  g.nodes.forEach(n => { adj[n.id||n.name||n.label] = []; });
+  g.edges.forEach(e => { const s = e.source||e.from, t = e.target||e.to; if (s in adj) adj[s].push(t); });
+  // Find start node (fuzzy match)
+  const lq = node.toLowerCase();
+  const start = g.nodes.find(n => (n.id||n.name||n.label||'').toLowerCase().includes(lq));
+  if (!start) { res.textContent = `No node matching "${node}"`; return; }
+  const startKey = start.id||start.name||start.label;
+  // BFS by hop
+  const visited = new Map([[startKey, 0]]);
+  let frontier = [startKey];
+  const layers = [];
+  for (let h = 1; h <= hops; h++) {
+    const next = [];
+    frontier.forEach(src => {
+      (adj[src]||[]).forEach(tgt => {
+        if (!visited.has(tgt)) { visited.set(tgt, h); next.push(tgt); }
+      });
+    });
+    if (!next.length) break;
+    layers.push({ hop: h, nodes: next });
+    frontier = next;
+  }
+  if (!layers.length) { res.textContent = 'No downstream dependents found.'; return; }
+  const total = layers.reduce((s, l) => s + l.nodes.length, 0);
+  res.innerHTML = `<div style="margin-bottom:8px;font-size:12px;color:var(--text-mid)">Starting from <strong>${esc(mgShortLabel(startKey))}</strong> — <strong>${total}</strong> nodes affected across ${layers.length} hop(s)</div>` +
+    layers.map(l => `
+      <div style="margin-bottom:6px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-xs);margin-bottom:3px">Hop ${l.hop} — ${l.nodes.length} node(s)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
+          ${l.nodes.slice(0,20).map(id => `<span style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-family:var(--mono);font-size:11px">${esc(mgShortLabel(id))}</span>`).join('')}
+          ${l.nodes.length > 20 ? `<span style="font-size:11px;color:var(--text-xs)">+${l.nodes.length-20} more</span>` : ''}
+        </div>
+      </div>`).join('');
+}
+
+async function mgQueryImportChain() {
+  const from = document.getElementById('mg-q-chain-from').value.trim();
+  const to = document.getElementById('mg-q-chain-to').value.trim();
+  const res = document.getElementById('mg-q-chain-result');
+  if (!from || !to) return;
+  res.textContent = 'Computing…'; res.style.display = 'block';
+  const g = _mgGraph || { nodes: [], edges: [] };
+  // Build outbound adj
+  const adj = {};
+  g.nodes.forEach(n => { adj[n.id||n.name||n.label] = []; });
+  g.edges.forEach(e => { const s = e.source||e.from, t = e.target||e.to; if (s in adj) adj[s].push(t); });
+  // Fuzzy-match start/end nodes
+  const lf = from.toLowerCase(), lt = to.toLowerCase();
+  const startN = g.nodes.find(n => (n.id||n.name||n.label||'').toLowerCase().includes(lf));
+  const endN = g.nodes.find(n => (n.id||n.name||n.label||'').toLowerCase().includes(lt));
+  if (!startN) { res.textContent = `No node matching "${from}"`; return; }
+  if (!endN) { res.textContent = `No node matching "${to}"`; return; }
+  const src = startN.id||startN.name||startN.label;
+  const dst = endN.id||endN.name||endN.label;
+  if (src === dst) { res.textContent = 'Source and target are the same node.'; return; }
+  // DFS to find all simple paths (cap at 200 paths or depth 8)
+  const paths = [];
+  const stack = [[src]];
+  while (stack.length && paths.length < 200) {
+    const path = stack.pop();
+    const cur = path[path.length - 1];
+    if (cur === dst) { paths.push([...path]); continue; }
+    if (path.length >= 9) continue;
+    (adj[cur]||[]).forEach(nxt => {
+      if (!path.includes(nxt)) stack.push([...path, nxt]);
+    });
+  }
+  if (!paths.length) { res.textContent = `No path found from "${mgShortLabel(src)}" to "${mgShortLabel(dst)}".`; return; }
+  res.innerHTML = `<div style="margin-bottom:8px;font-size:12px;color:var(--text-mid)"><strong>${paths.length}</strong> path(s) from <strong>${esc(mgShortLabel(src))}</strong> → <strong>${esc(mgShortLabel(dst))}</strong></div>` +
+    paths.slice(0,15).map((p, i) => `
+      <div style="margin-bottom:4px;font-size:11px;font-family:var(--mono);color:var(--text-mid)">
+        <span style="color:var(--text-xs)">${i+1}.</span> ${p.map(id => esc(mgShortLabel(id))).join(' <span style="color:var(--accent)">→</span> ')}
+      </div>`).join('') +
+    (paths.length > 15 ? `<div style="font-size:11px;color:var(--text-xs);margin-top:4px">…and ${paths.length-15} more paths</div>` : '');
 }
 
 async function mgQueryAsk() {
