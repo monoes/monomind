@@ -524,6 +524,50 @@ function suggestAgentsForTask(task) {
     // Default fallback
     return { agents: ['coder', 'researcher', 'tester'], confidence: 0.7 };
 }
+/**
+ * V3: Augment agent suggestions with semantic matches from intelligence.ts ReasoningBank.
+ * Returns null when the intelligence system is unavailable or has no relevant patterns.
+ * Kept sync-safe by returning a Promise — callers that need a sync result use the
+ * non-async suggestAgentsForTask above and optionally merge async results.
+ */
+// Canonical set of valid monomind agent type strings.
+// Patterns whose type is not in this set (e.g. 'action', 'observation', 'routing')
+// are structural labels, not agent names, and must be excluded from routing.
+const VALID_AGENT_TYPES = new Set([
+    'coder', 'reviewer', 'tester', 'planner', 'researcher',
+    'architect', 'security-architect', 'security-auditor',
+    'performance-engineer', 'backend-dev', 'mobile-dev',
+    'ml-developer', 'cicd-engineer', 'api-docs', 'system-architect',
+    'code-analyzer', 'devops', 'debugger', 'documenter', 'optimizer',
+]);
+async function suggestAgentsFromIntelligence(task) {
+    try {
+        const intel = await import('../memory/intelligence.js');
+        await intel.initializeIntelligence();
+        const matches = await intel.findSimilarPatterns(task, { k: 5 });
+        if (!matches || matches.length === 0)
+            return null;
+        // Only count patterns whose type is a valid agent name.
+        // Trajectory-derived patterns use type='action'|'observation' etc. — skip those.
+        const agentCounts = {};
+        for (const m of matches) {
+            const agent = m.type ?? '';
+            if (!VALID_AGENT_TYPES.has(agent))
+                continue;
+            agentCounts[agent] = (agentCounts[agent] ?? 0) + (m.similarity ?? m.confidence ?? 0.5);
+        }
+        const sorted = Object.entries(agentCounts).sort((a, b) => b[1] - a[1]);
+        if (sorted.length === 0)
+            return null;
+        // Return top-3 ranked agents so callers can build multi-agent task assignments
+        const topAgents = sorted.slice(0, 3).map(([agent]) => agent);
+        const confidence = Math.min(0.9, sorted[0][1] / matches.length);
+        return { agents: topAgents, confidence };
+    }
+    catch {
+        return null;
+    }
+}
 function assessCommandRisk(command) {
     const warnings = [];
     let level = 0;
@@ -843,13 +887,31 @@ export const hooksRoute = {
             matchedPattern = topMatch.intent;
         }
         else {
-            // Fall back to keyword matching
-            const suggestion = suggestAgentsForTask(task);
-            agents = suggestion.agents;
-            confidence = suggestion.confidence;
+            // Keyword fallback is the baseline
+            const keywordSuggestion = suggestAgentsForTask(task);
+            agents = keywordSuggestion.agents;
+            confidence = keywordSuggestion.confidence;
             matchedPattern = 'keyword-fallback';
             routingMethod = 'keyword';
             backendInfo = 'keyword matching';
+            // V3: augment with neural ReasoningBank patterns — merge into agent list
+            // rather than replacing, so keyword precision is preserved while neural
+            // adds learned agents from past sessions.
+            const intelSuggestion = await suggestAgentsFromIntelligence(task).catch(() => null);
+            if (intelSuggestion && intelSuggestion.confidence > 0.5) {
+                // Prepend neural agents (deduped) and boost confidence
+                const existingSet = new Set(agents);
+                const neuralOnly = intelSuggestion.agents.filter(a => !existingSet.has(a));
+                agents = [...intelSuggestion.agents, ...agents.filter(a => !new Set(intelSuggestion.agents).has(a))];
+                const neuralWeight = intelSuggestion.confidence > 0.7 ? 0.65 : 0.5;
+                const keywordWeight = 1 - neuralWeight;
+                confidence = Math.min(0.95, intelSuggestion.confidence * neuralWeight +
+                    confidence * keywordWeight +
+                    (neuralOnly.length > 0 ? 0.03 : 0));
+                matchedPattern = 'neural+keyword';
+                routingMethod = 'neural-augmented';
+                backendInfo = 'intelligence ReasoningBank + keyword matching';
+            }
         }
         // Determine complexity
         const taskLower = task.toLowerCase();
@@ -1438,6 +1500,25 @@ export const hooksPretrain = {
             patternsStored = patterns.length;
         }
         catch { /* AgentDB not available */ }
+        // Feed extracted import patterns into the neural training system so
+        // pretrain actually trains, not just scans.
+        let neuralPatternsLearned = 0;
+        if (patterns.length > 0) {
+            try {
+                const intel = await import('../memory/intelligence.js');
+                await intel.initializeIntelligence({ loraLearningRate: 0.002, maxTrajectorySize: patterns.length });
+                // Record each extracted pattern as an action step
+                for (const pat of patterns.slice(0, 50)) {
+                    await intel.recordStep({ type: 'action', content: pat, metadata: { source: 'pretrain', depth } });
+                }
+                // Record the entire scan as a completed trajectory
+                const steps = patterns.slice(0, 50).map(p => ({ type: 'action', content: p }));
+                await intel.recordTrajectory(steps, 'success');
+                intel.flushPatterns();
+                neuralPatternsLearned = steps.length;
+            }
+            catch { /* intelligence not available */ }
+        }
         return {
             success: true,
             _real: true,
@@ -1449,6 +1530,7 @@ export const hooksPretrain = {
                 totalLines,
                 patternsExtracted: patterns.length,
                 patternsStored,
+                neuralPatternsLearned,
                 fileTypes: Object.entries(extCounts).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([ext, count]) => ({ ext, count })),
             },
         };

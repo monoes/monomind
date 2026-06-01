@@ -49,8 +49,6 @@ export interface DiffAnalysis {
 }
 export declare class DiffClassifier {
     private config;
-    private ruvectorEngine;
-    private useNative;
     private classificationCache;
     private static readonly MAX_CLASSIFICATION_CACHE;
     constructor(config?: Partial<DiffClassifierConfig>);
