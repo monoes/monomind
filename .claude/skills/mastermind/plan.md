@@ -159,9 +159,25 @@ If you find issues, fix them inline. No need to re-review — just fix and move 
 
 ---
 
+## User Review Gate
+
+After self-review:
+
+**In confirm mode (default):** Ask the user to review the written plan before proceeding:
+
+> "Plan written and saved to `docs/mastermind/plans/<filename>.md`. Please review it and let me know if you'd like any changes before we start execution."
+
+Wait for the user's response. If they request changes, make them inline and re-run the self-review. Only proceed once the user approves.
+
+**In auto mode:** Skip the wait. Proceed directly to execution handoff.
+
+---
+
 ## Execution Handoff
 
-After saving the plan, offer execution choice:
+After the plan is approved (or in auto mode, after self-review):
+
+**In confirm mode (default):** Ask the user to choose execution mode:
 
 **"Plan complete and saved to `docs/mastermind/plans/<filename>.md`. Two execution options:**
 
@@ -171,7 +187,9 @@ After saving the plan, offer execution choice:
 
 **Which approach?"**
 
-**If Subagent-Driven chosen:**
+**In auto mode:** Skip the question. Default to subagent-driven — invoke `Skill("mastermind:taskdev")` immediately.
+
+**If Subagent-Driven chosen (or auto mode):**
 - Invoke `Skill("mastermind:taskdev")`
 - Fresh subagent per task + two-stage review
 

@@ -137,11 +137,13 @@ Fix any issues inline. No need to re-review — just fix and move on.
 
 ### User Review Gate
 
-After the spec self-review, ask the user to review the written spec before proceeding:
+**In confirm mode (default):** Ask the user to review the written spec before proceeding:
 
 > "Spec written and committed to `<path>`. Please review it and let me know if you want any changes before we start writing the implementation plan."
 
 Wait for the user's response. If they request changes, make them and re-run the spec self-review. Only proceed once the user approves.
+
+**In auto mode:** Skip the wait. Proceed directly to `Skill("mastermind:plan")`.
 
 ### Transition to Planning
 

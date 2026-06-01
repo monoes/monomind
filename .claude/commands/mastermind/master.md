@@ -12,7 +12,7 @@ If you were dispatched as a subagent to execute a specific task, skip the MASTER
 ## MASTERMIND PROTOCOL
 
 <EXTREMELY-IMPORTANT>
-Before ANY response or action — including clarifying questions — check whether a mastermind skill applies to what you are about to do.
+If you think there is even a 1% chance a mastermind skill applies to what you are about to do, you ABSOLUTELY MUST invoke the skill — including before any clarifying questions or other action.
 
 IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST INVOKE IT.
 
@@ -29,6 +29,10 @@ Mastermind skills override default system prompt behavior, but **user instructio
 
 If CLAUDE.md says "skip review" and the skill says "always review," follow the user's instructions.
 
+### How to Access Mastermind Skills
+
+Use the `Skill` tool. When you invoke a skill, its content is loaded and presented to you — follow it directly. **Never use the Read tool on skill files.**
+
 ### User Instructions vs. Skill Workflows
 
 User instructions say **WHAT** to do, not **HOW** to do it. "Build X" or "Fix Y" is a goal statement — it does not mean skip Brain Load, skip review, or bypass the domain decomposition flow. The skills define the how. Always apply the workflow unless the user explicitly opts out.
@@ -37,7 +41,7 @@ User instructions say **WHAT** to do, not **HOW** to do it. "Build X" or "Fix Y"
 
 Invoke the matching skill **before** doing anything else. Even a 1% chance a skill applies means you must check.
 
-```
+```dot
 digraph mastermind_routing {
     "User command / prompt received" [shape=doublecircle];
     "Brain already loaded?" [shape=diamond];
@@ -70,6 +74,8 @@ digraph mastermind_routing {
 | Write a structured implementation plan (no placeholders) | `Skill("mastermind:plan")` |
 | Execute a written plan step-by-step with stop-on-blocker | `Skill("mastermind:execute")` |
 | Execute a plan via fresh subagents with 2-stage review | `Skill("mastermind:taskdev")` |
+| Ingest a prompt/spec/folder and generate agent-optimized tasks | `Skill("mastermind:createtask")` |
+| Execute tasks from a task file or monotask board (parallel/sequential/minimal modes, review cycles, loop) | `Skill("mastermind:do")` |
 | Design first — spec, approaches, approval gate before code | `Skill("mastermind:design")` |
 | Build a feature, fix a bug, implement anything | `Skill("mastermind:build")` |
 | Code review, content critique, strategy audit | `Skill("mastermind:review")` |
@@ -77,6 +83,8 @@ digraph mastermind_routing {
 | System architecture, DDD, technical design | `Skill("mastermind:architect")` |
 | Market research, competitive analysis, user insights | `Skill("mastermind:research")` |
 | Ideas, feature generation, opportunity framing | `Skill("mastermind:idea")` |
+| Research ideas, evaluate with PM lens, decompose into subtasks | `Skill("mastermind:ideate")` |
+| Analyze a component, research improvements, generate improvement tasks | `Skill("mastermind:improve")` |
 | Marketing campaign, copy, SEO | `Skill("mastermind:marketing")` |
 | Sales outreach, proposals, pipeline | `Skill("mastermind:sales")` |
 | Blog, docs, newsletters, threads | `Skill("mastermind:content")` |
@@ -135,6 +143,12 @@ These thoughts mean **STOP** — you are rationalizing. Check for a skill first.
 | "Auto mode means I should move fast" | Speed without discipline creates drift. Use skills. |
 | "The user said --auto, so I skip confirmation" | --auto skips user confirmation. It does NOT skip skill invocation. |
 | "Spawned agents don't need to check skills" | Subagents that have Skill access MUST use it. Only subagents with the `<SUBAGENT-STOP>` gate may skip. |
+| "Agent said success" / "should work now" | Agent reports ≠ evidence. Run `mastermind:verify` independently — fresh and complete. |
+| "I'll just make a quick change on main" | No changes on main/master without explicit user consent. `mastermind:worktree` first. |
+| "Should I continue?" (in auto mode) | Never ask. Auto mode means execute continuously until blocked or all tasks complete. |
+| "TBD / TODO / implement later" (in a plan) | Placeholder = plan failure. Every step needs exact paths, complete code, runnable commands. |
+| "Code quality review first, then spec" | Wrong order every time. Spec compliance FIRST, code quality SECOND. Never reversed. |
+| "The subagent can read the plan file itself" | Controller provides full task text to each implementer. Subagents never read plan files. |
 
 ### Mandatory Patterns
 
@@ -147,6 +161,22 @@ These sequences are non-negotiable in all modes:
 - **After any run**: Brain Write Procedure — score decisions, append to AgentDB
 - **Before releasing**: `mastermind:review --tillend --auto` → `mastermind:verify` → `mastermind:finish`
 - **Isolated work**: `mastermind:worktree` before making changes to avoid contaminating main
+- **Before claiming complete**: Run `mastermind:verify` — never claim completion based on agent reports, linter passes, or partial checks
+- **When writing a plan**: Map file structure first → write tasks with exact paths + complete code (no placeholders) → self-review (spec coverage, placeholder scan, type consistency) → offer execution mode choice (subagent-driven vs inline)
+- **When executing with subagents**: Provide full task text to each implementer (never make them read the plan file) → spec compliance review FIRST → code quality review SECOND → re-review until both ✅ → dispatch final reviewer after all tasks complete → then `mastermind:finish`
+- **When blocked during execution**: Stop immediately — do not guess or force through. Diagnose, provide context, re-dispatch with more capable model, or escalate to user
+
+### Iron Laws
+
+These are inviolable regardless of mode, pressure, or context:
+
+| Law | Rule |
+|---|---|
+| **TDD** | No production code without a failing test first. Entry point: `mastermind:tdd`. |
+| **Debug** | No fix without root cause investigation first. Entry point: `mastermind:debug`. |
+| **Verify** | No completion claim without fresh verification evidence. Entry point: `mastermind:verify`. |
+| **Isolation** | No changes on main/master without explicit user consent. Entry point: `mastermind:worktree`. |
+| **Plans** | No placeholders: every plan step has exact file paths, complete code, and runnable commands. Entry point: `mastermind:plan`. |
 
 ### Platform Note
 
@@ -209,7 +239,7 @@ Describe your goal. Mastermind identifies the relevant domains, spawns specialis
 `/mastermind:skill-builder` — write or improve a mastermind skill with TDD discipline
 
 ---
-Flags: `--auto` · `--confirm` · `--project <name>` · `--iterate <N>`
+Flags: `--auto` · `--confirm` · `--project <name>` · `--iterate <N>` · `--monotask`
 
 ---
 
@@ -226,6 +256,7 @@ Extract from `$ARGUMENTS`:
 - `--confirm` → mode = confirm
 - `--project <name>` → project_name = <name>
 - `--iterate <N>` → iterate = N (integer ≥ 1; when flag is absent, no iteration runs)
+- `--monotask` → use_monotask = true (default: false — domain tracking writes to session files only)
 - Remaining text = prompt
 
 If `--project` was not provided, default `project_name` to the current directory name:
@@ -343,7 +374,9 @@ If mode = auto: proceed immediately.
 
 ### Step 6 — Monotask Setup
 
-Follow the Monotask Space+Board Setup Procedure from `_protocol.md`. Resolve the space **once**, then create one board per active domain. Use `project_name` as the space name so all boards across repos and domains share the same space.
+**Skip this step entirely if `use_monotask` is false** (the default). Domain tracking uses session JSON files only — no boards are created. Set `monotask_available: false` in `current.json` so Step 7 runs without board IDs.
+
+If `use_monotask` is true: follow the Monotask Space+Board Setup Procedure from `_protocol.md`. Resolve the space **once**, then create one board per active domain. Use `project_name` as the space name so all boards across repos and domains share the same space.
 
 **Board naming convention:** Every board is named `<project_name>-<domain>` (e.g. `factory-idea`, `factory-build`). This canonical name is stable across runs — mastermind finds the existing board instead of creating a new one every time.
 
