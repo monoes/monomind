@@ -12,8 +12,8 @@ export interface PageRankOptions {
 /**
  * Compute PageRank scores for all nodes using power iteration.
  *
- * Each node's score is initialized to 1.0 (so scores sum to N).
- * After convergence the scores still sum to N (un-normalized).
+ * Each node's score is initialized to 1/N (so scores sum to 1).
+ * After convergence the scores still sum to ~1 (standard normalized PageRank).
  * Dangling nodes (out-degree 0) distribute their rank equally to all nodes.
  *
  * @param db - The MonographDb instance
@@ -49,8 +49,8 @@ export function pageRank(db: MonographDb, options: PageRankOptions = {}): Map<st
     inEdges[ti].push(si);
   }
 
-  // Power iteration
-  let scores = new Float64Array(n).fill(1.0);
+  // Power iteration — initialize to uniform 1/N so scores sum to 1
+  let scores = new Float64Array(n).fill(1 / n);
   const dangling1OverN = (1 - dampingFactor) / n;
 
   for (let iter = 0; iter < maxIterations; iter++) {

@@ -36,7 +36,7 @@ export function detectDeadCode(db: MonographDb): string[] {
 
   const dead: string[] = [];
   for (const { id, is_exported } of nodeRows) {
-    if ((inDegree.get(id) ?? 0) === 0 && !is_exported) {
+    if ((inDegree.get(id) ?? 0) === 0 && is_exported !== 1) {
       dead.push(id);
     }
   }
