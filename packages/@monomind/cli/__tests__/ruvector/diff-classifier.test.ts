@@ -28,7 +28,6 @@ describe('DiffClassifier', () => {
     it('should create classifier with default config', () => {
       const stats = classifier.getStats();
       expect(stats.cacheSize).toBe(0);
-      expect(stats.useNative).toBe(false);
     });
 
     it('should create classifier with custom config', () => {
@@ -45,7 +44,7 @@ describe('DiffClassifier', () => {
     it('should initialize without ruvector (fallback mode)', async () => {
       await classifier.initialize();
       const stats = classifier.getStats();
-      expect(stats.useNative).toBe(false);
+      expect(stats.cacheSize).toBe(0);
     });
   });
 

@@ -10,6 +10,28 @@ import { memoryCommand } from '../src/commands/memory.js';
 import { configCommand } from '../src/commands/config.js';
 import type { CommandContext } from '../src/types.js';
 
+// Mock memory-initializer (search/list commands use direct imports, not MCP)
+vi.mock('../src/memory/memory-initializer.js', () => ({
+  searchEntries: vi.fn(async (options: Record<string, unknown>) => ({
+    success: true,
+    results: [
+      { id: '1', key: 'result-1', content: 'auth pattern 1', score: 0.95, namespace: 'default' },
+      { id: '2', key: 'result-2', content: 'auth pattern 2', score: 0.85, namespace: 'default' }
+    ],
+    searchTime: 0.5
+  })),
+  listEntries: vi.fn(async (options: Record<string, unknown>) => ({
+    success: true,
+    entries: [
+      { id: '1', key: 'entry-1', namespace: 'default', size: 100, accessCount: 10, createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z', hasEmbedding: false },
+      { id: '2', key: 'entry-2', namespace: 'default', size: 200, accessCount: 5, createdAt: '2024-01-01T00:01:00Z', updatedAt: '2024-01-01T00:01:00Z', hasEmbedding: true }
+    ],
+    total: 2
+  })),
+  getHNSWIndex: vi.fn(async () => null),
+  getHNSWStatus: vi.fn(() => ({ entryCount: 0, dimensions: 384 }))
+}));
+
 // Mock MCP client
 vi.mock('../src/mcp-client.js', () => ({
   callMCPTool: vi.fn(async (toolName: string, input: Record<string, unknown>) => {
