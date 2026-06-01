@@ -57,8 +57,11 @@ export async function ingestUrl(url: string, options: IngestOptions = {}): Promi
 
   const response = await fetchFn(url, { redirect: 'follow' } as RequestInit);
   if (!response.ok) throw new Error(`HTTP ${response.status} fetching ${url}`);
-  // Re-validate the final URL after any redirects to prevent SSRF via open redirects
-  if (response.url && response.url !== url) validateUrl(response.url);
+  // Re-validate the final URL after redirects to prevent SSRF via open redirects.
+  // Always validate — not guarded by response.url presence to prevent silent bypass
+  // when injected fetch implementations omit response.url.
+  const finalUrl = response.url || url;
+  if (finalUrl !== url) validateUrl(finalUrl);
 
   const contentLength = response.headers.get('content-length');
   if (contentLength && parseInt(contentLength, 10) > maxBytes) {

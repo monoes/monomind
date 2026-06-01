@@ -71,9 +71,9 @@ export function dependencyHealth(input: DependencyHealthInput): DependencyHealth
     };
   }
 
-  // 1. Cycle penalty: approximate nodes-in-cycles as 2 * cycleCount (each cycle has ≥2 nodes)
+  // 1. Cycle penalty: cycleCount is the number of nodes in cycles (from topologicalLevelSort)
   //    Normalised by node count. Capped at 1.
-  const cyclePenalty = clamp((2 * cycleCount) / n);
+  const cyclePenalty = clamp(cycleCount / n);
 
   // 2. Dead-code ratio
   const deadCodeRatio = clamp(deadNodeCount / n);
@@ -94,7 +94,10 @@ export function dependencyHealth(input: DependencyHealthInput): DependencyHealth
   for (const { targetId } of edges) {
     inDegree.set(targetId, (inDegree.get(targetId) ?? 0) + 1);
   }
-  const maxInDeg = Math.max(...inDegree.values(), 0);
+  // Use reduce instead of spread to avoid RangeError on graphs with 65k+ nodes
+  const maxInDeg = inDegree.size > 0
+    ? [...inDegree.values()].reduce((a, b) => Math.max(a, b), 0)
+    : 0;
   const godNodeConcentration = m > 0 ? clamp(maxInDeg / m) : 0;
 
   // Weighted composite penalty (weights sum to 1)
