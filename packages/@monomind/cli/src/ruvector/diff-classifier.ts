@@ -83,8 +83,6 @@ const IMPACT_KEYWORDS: Record<string, number> = {
 
 export class DiffClassifier {
   private config: DiffClassifierConfig;
-  private ruvectorEngine: unknown = null;
-  private useNative = false;
   private classificationCache: Map<string, DiffClassification> = new Map();
   private static readonly MAX_CLASSIFICATION_CACHE = 100;
 
@@ -93,14 +91,7 @@ export class DiffClassifier {
   }
 
   async initialize(): Promise<void> {
-    try {
-      // @ruvector/diff is optional - gracefully fallback if not installed
-      const ruvector = await import('@ruvector/diff' as string).catch(() => null);
-      if (ruvector) {
-        this.ruvectorEngine = (ruvector as any).createDiffClassifier?.(this.config);
-        this.useNative = !!this.ruvectorEngine;
-      }
-    } catch { this.useNative = false; }
+    // No-op: JS-based classification is always used
   }
 
   parseDiff(diffContent: string): FileDiff[] {
@@ -141,7 +132,7 @@ export class DiffClassifier {
   }
 
   getStats(): Record<string, number | boolean> {
-    return { useNative: this.useNative, cacheSize: this.classificationCache.size };
+    return { cacheSize: this.classificationCache.size };
   }
 
   clearCache(): void { this.classificationCache.clear(); }
