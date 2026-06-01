@@ -1,0 +1,58 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: monomind
+      - generic [ref=e6]: —
+    - generic [ref=e7]:
+      - generic [ref=e9] [cursor=pointer]:
+        - generic [ref=e10]: ◉
+        - generic [ref=e11]: Now
+      - generic [ref=e12]:
+        - generic [ref=e13]: Workspace
+        - generic [ref=e14] [cursor=pointer]:
+          - generic [ref=e15]: ⊞
+          - generic [ref=e16]: Projects
+          - generic [ref=e17]: —
+        - generic [ref=e18] [cursor=pointer]:
+          - generic [ref=e19]: ◫
+          - generic [ref=e20]: Sessions
+          - generic [ref=e21]: —
+        - generic [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: ↺
+          - generic [ref=e24]: Loops
+          - generic [ref=e25]: —
+      - generic [ref=e26]:
+        - generic [ref=e27]: Intelligence
+        - generic [ref=e28] [cursor=pointer]:
+          - generic [ref=e29]: ◈
+          - generic [ref=e30]: Memory
+        - generic [ref=e31] [cursor=pointer]:
+          - generic [ref=e32]: ⬡
+          - generic [ref=e33]: Orgs
+    - generic [ref=e34]:
+      - generic [ref=e35]: —
+      - generic [ref=e36]: —
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e39]: Now
+      - generic [ref=e40]: live
+      - button "↺ Refresh" [ref=e43] [cursor=pointer]
+    - generic [ref=e45]:
+      - generic [ref=e46]:
+        - generic [ref=e47]:
+          - heading "Live Feed" [level=2] [ref=e48]
+          - generic [ref=e49]: —
+          - generic [ref=e50]:
+            - button "‹" [ref=e51] [cursor=pointer]
+            - button "›" [ref=e52] [cursor=pointer]
+        - generic [ref=e55]: Loading activity…
+      - generic [ref=e56]:
+        - generic [ref=e57]:
+          - generic [ref=e58]: Today
+          - generic [ref=e59]: Loading…
+        - generic [ref=e60]:
+          - generic [ref=e61]: Active Loops
+          - generic [ref=e62]: Loading…
+        - generic [ref=e63]:
+          - generic [ref=e64]: Recent Sessions
+          - generic [ref=e65]: Loading…

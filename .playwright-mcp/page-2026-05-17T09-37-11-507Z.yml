@@ -1,0 +1,183 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: monomind
+      - generic [ref=e6]: monomind
+    - generic [ref=e7]:
+      - generic [ref=e9] [cursor=pointer]:
+        - generic [ref=e10]: ◉
+        - generic [ref=e11]: Now
+      - generic [ref=e12]:
+        - generic [ref=e13]: Workspace
+        - generic [ref=e14] [cursor=pointer]:
+          - generic [ref=e15]: ⊞
+          - generic [ref=e16]: Projects
+          - generic [ref=e17]: —
+        - generic [ref=e18] [cursor=pointer]:
+          - generic [ref=e19]: ◫
+          - generic [ref=e20]: Sessions
+          - generic [ref=e21]: "12"
+        - generic [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: ↺
+          - generic [ref=e24]: Loops
+          - generic [ref=e25]: "7"
+      - generic [ref=e26]:
+        - generic [ref=e27]: Intelligence
+        - generic [ref=e28] [cursor=pointer]:
+          - generic [ref=e29]: ◈
+          - generic [ref=e30]: Memory
+        - generic [ref=e31] [cursor=pointer]:
+          - generic [ref=e32]: ⬡
+          - generic [ref=e33]: Orgs
+    - generic [ref=e34]:
+      - generic [ref=e35]: nokhodian
+      - generic [ref=e36]: /Users/morteza/Desktop/tools/monomind
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e39]: Now
+      - generic [ref=e40]: live
+      - button "↺ Refresh" [ref=e43] [cursor=pointer]
+    - generic [ref=e70]:
+      - generic [ref=e180]:
+        - generic [ref=e181]: ↺
+        - text: "Long-running loop: /monomind:do"
+        - generic [ref=e182] [cursor=pointer]: ✕
+      - generic [ref=e183]:
+        - generic [ref=e184]: ↺
+        - text: "Long-running loop: /mastermind:techport"
+        - generic [ref=e185] [cursor=pointer]: ✕
+      - generic [ref=e186]:
+        - generic [ref=e187]: ↺
+        - text: "Long-running loop: /mastermind:techport"
+        - generic [ref=e188] [cursor=pointer]: ✕
+      - generic [ref=e189]:
+        - generic [ref=e190]: ↺
+        - text: "Long-running loop: /mastermind:review"
+        - generic [ref=e191] [cursor=pointer]: ✕
+      - generic [ref=e192]:
+        - generic [ref=e193]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e194] [cursor=pointer]: ✕
+      - generic [ref=e195]:
+        - generic [ref=e196]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e197] [cursor=pointer]: ✕
+      - generic [ref=e198]:
+        - generic [ref=e199]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e200] [cursor=pointer]: ✕
+    - generic [ref=e45]:
+      - generic [ref=e46]:
+        - generic [ref=e47]:
+          - heading "Live Feed" [level=2] [ref=e48]
+          - generic [ref=e49]: 20243f7d…
+          - generic [ref=e50]:
+            - button "‹" [ref=e51] [cursor=pointer]
+            - button "›" [ref=e52] [cursor=pointer]
+        - generic [ref=e54]:
+          - generic [ref=e201] [cursor=pointer]:
+            - generic [ref=e202]: ↵
+            - generic [ref=e204]: what is next?
+            - generic [ref=e205]: 2m
+          - generic [ref=e206] [cursor=pointer]:
+            - generic [ref=e207]: ↵
+            - generic [ref=e209]: so does it mean hnsw is not functional yet?
+            - generic [ref=e210]: 3m
+          - generic [ref=e211] [cursor=pointer]:
+            - generic [ref=e212]: ↵
+            - generic [ref=e214]: are all of it fixed?
+            - generic [ref=e215]: 1h
+          - generic [ref=e216] [cursor=pointer]:
+            - generic [ref=e217]: $
+            - generic [ref=e218]: 6 shell commands
+            - generic [ref=e219]: ▸ expand
+          - generic [ref=e220] [cursor=pointer]:
+            - generic [ref=e221]: ◧
+            - generic [ref=e222]: 4 file operations
+            - generic [ref=e223]: ▸ expand
+          - generic [ref=e224] [cursor=pointer]:
+            - generic [ref=e225]: $
+            - generic [ref=e227]: Find hnsw_index and session_state table definitions
+            - generic [ref=e228]: 10h
+          - generic [ref=e229] [cursor=pointer]:
+            - generic [ref=e230]: ◧
+            - generic [ref=e231]: 3 file operations
+            - generic [ref=e232]: ▸ expand
+          - generic [ref=e233] [cursor=pointer]:
+            - generic [ref=e234]: $
+            - generic [ref=e236]: Read simhash context in learning-service.mjs
+            - generic [ref=e237]: 10h
+          - generic [ref=e238] [cursor=pointer]:
+            - generic [ref=e239]: ◧
+            - generic [ref=e240]: 3 file operations
+            - generic [ref=e241]: ▸ expand
+          - generic [ref=e242] [cursor=pointer]:
+            - generic [ref=e243]: $
+            - generic [ref=e245]: Find acquireLock in daemons/index.ts
+            - generic [ref=e246]: 10h
+          - generic [ref=e247] [cursor=pointer]:
+            - generic [ref=e248]: $
+            - generic [ref=e250]: Find simhash and p.content references
+            - generic [ref=e251]: 10h
+          - generic [ref=e252] [cursor=pointer]:
+            - generic [ref=e253]: ◧
+            - generic [ref=e255]: Read hnsw-lite.ts
+            - generic [ref=e256]: 10h
+          - generic [ref=e257] [cursor=pointer]:
+            - generic [ref=e258]: →
+            - generic [ref=e259]:
+              - generic [ref=e260]: → feature-dev:code-reviewer
+              - generic [ref=e261]: feature-dev:code-reviewer
+            - generic [ref=e262]: 10h
+      - generic [ref=e57]:
+        - heading "Detail" [level=3]
+        - button "✕" [ref=e58] [cursor=pointer]
+      - generic [ref=e60]:
+        - generic [ref=e61]:
+          - generic [ref=e263]: Today
+          - generic [ref=e264]:
+            - generic [ref=e265]: API cost
+            - generic [ref=e266]: $10.16
+          - generic [ref=e267]:
+            - generic [ref=e268]: API calls
+            - generic [ref=e269]: "164"
+          - generic [ref=e270]:
+            - generic [ref=e271]: Month total
+            - generic [ref=e272]: $4475.36
+        - generic [ref=e64]:
+          - generic [ref=e273]: Active Loops
+          - generic [ref=e274]:
+            - generic [ref=e275]: /monomind:do
+            - generic [ref=e276]: running
+          - generic [ref=e278]:
+            - generic [ref=e279]: /mastermind:techport
+            - generic [ref=e280]: "1"
+          - generic [ref=e282]:
+            - generic [ref=e283]: /mastermind:techport
+            - generic [ref=e284]: "1"
+          - generic [ref=e286]:
+            - generic [ref=e287]: /mastermind:review
+            - generic [ref=e288]: "2"
+          - generic [ref=e290]:
+            - generic [ref=e291]: /monomind:repeat
+            - generic [ref=e292]: "1"
+        - generic [ref=e67]:
+          - generic [ref=e294]: Recent Sessions
+          - generic [ref=e295] [cursor=pointer]:
+            - generic [ref=e296]: do the 2 and 3 for now lets keep both dashboard seperate
+            - generic [ref=e297]: now
+          - generic [ref=e298] [cursor=pointer]:
+            - generic [ref=e299]: are all of it fixed?
+            - generic [ref=e300]: 1m
+          - generic [ref=e301] [cursor=pointer]:
+            - generic [ref=e302]: review more if its still issue
+            - generic [ref=e303]: 22h
+          - generic [ref=e304] [cursor=pointer]:
+            - generic [ref=e305]: do it all
+            - generic [ref=e306]: 16h
+          - generic [ref=e307] [cursor=pointer]:
+            - generic [ref=e308]: "Reply with literal: NO_BARE_OK"
+            - generic [ref=e309]: 1d
+          - generic [ref=e310] [cursor=pointer]:
+            - generic [ref=e311]: "Reply with literal: STDIN_OK"
+            - generic [ref=e312]: 1d

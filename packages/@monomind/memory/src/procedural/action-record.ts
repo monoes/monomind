@@ -29,7 +29,7 @@ export class ActionRecordStore {
     if (!existsSync(this.filePath)) return [];
     const content = readFileSync(this.filePath, 'utf-8').trim();
     if (!content) return [];
-    return content.split('\n').map((line) => JSON.parse(line) as ActionRecord);
+    return content.split('\n').filter(Boolean).map((line) => JSON.parse(line) as ActionRecord);
   }
 
   /** Query records by agent slug, optionally filtering by lookback days */

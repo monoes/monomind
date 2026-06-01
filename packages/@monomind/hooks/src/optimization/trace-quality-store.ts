@@ -85,6 +85,6 @@ export class TraceQualityStore {
     if (!fs.existsSync(this.filePath)) return [];
     const content = fs.readFileSync(this.filePath, 'utf-8').trim();
     if (!content) return [];
-    return content.split('\n').map((line) => fromJSON(JSON.parse(line)));
+    return content.split('\n').filter(Boolean).map((line) => fromJSON(JSON.parse(line)));
   }
 }

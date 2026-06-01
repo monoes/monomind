@@ -1,0 +1,16 @@
+{
+  "id": "test-001",
+  "ts": 1234567890,
+  "prompt": "test connectivity",
+  "status": "running",
+  "domains": [],
+  "events": [
+    {
+      "type": "session:start",
+      "session": "test-001",
+      "prompt": "test connectivity",
+      "mode": "auto",
+      "ts": 1234567890
+    }
+  ]
+}

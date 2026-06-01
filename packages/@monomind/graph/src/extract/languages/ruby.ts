@@ -25,6 +25,12 @@ function extractWithTreeSitter(filePath: string, content: string): ExtractionRes
 
   const classStack: string[] = [];
 
+
+  // leave callback: pop stacks so sibling nodes aren't mis-attributed to a previous class
+  const leave = (n: SyntaxNodeLike) => {
+    if (['class', 'module', 'singleton_class'].includes(n.type)) classStack.pop();
+  };
+
   walk(tree.rootNode, (n) => {
     if (n.type === 'class') {
       const nameNode = n.childForFieldName('name');
@@ -67,7 +73,7 @@ function extractWithTreeSitter(filePath: string, content: string): ExtractionRes
         }
       }
     }
-  });
+  }, leave);
 
   return { nodes, edges, filesProcessed: 1, fromCache: 0, errors };
 }

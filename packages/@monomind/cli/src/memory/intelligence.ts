@@ -754,6 +754,37 @@ async function _doInitializeIntelligence(config?: Partial<SonaConfig>): Promise<
     // Load persisted stats if available
     loadPersistedStats();
 
+    // Seed SONA routing patterns into the ReasoningBank so keyword-based
+    // routing knowledge from .swarm/sona-patterns.json participates in
+    // similarity search alongside neural patterns.
+    const sonaRouting = loadSonaRoutingPatterns();
+    if (sonaRouting.length > 0) {
+      const { generateEmbedding } = await import('./memory-initializer.js').catch(() => ({ generateEmbedding: null }));
+      for (const p of sonaRouting.slice(0, 100)) { // cap seeding to 100 entries
+        try {
+          // M2: validate before seeding — malformed sona-patterns.json must not corrupt bank
+          if (!p.id || typeof p.id !== 'string' || p.id.length > 512) continue;
+          if (!Number.isFinite(p.confidence) || p.confidence < 0 || p.confidence > 1) continue;
+          if (!p.content || typeof p.content !== 'string' || p.content.length > 4096) continue;
+
+          const embResult = generateEmbedding ? await generateEmbedding(p.content) : null;
+          const embedding = embResult?.embedding ?? [];
+
+          // Reject NaN/Infinity in embedding
+          if (embedding.some((v: number) => !Number.isFinite(v))) continue;
+
+          reasoningBank!.store({
+            id: p.id,
+            type: p.type,
+            content: p.content,
+            confidence: p.confidence,
+            embedding,
+            usageCount: p.usageCount,
+          });
+        } catch { /* skip unembeddable entries */ }
+      }
+    }
+
     intelligenceInitialized = true;
 
     return {
@@ -1106,8 +1137,38 @@ export function benchmarkAdaptation(iterations: number = 1000): {
 // ============================================================================
 
 /**
- * Get all patterns from ReasoningBank
- * Returns persisted patterns even after process restart
+ * Read routing patterns from the SONA optimizer's .swarm/sona-patterns.json
+ * and convert them to the standard Pattern shape used by intelligence.ts.
+ * Returns an empty array when the file is absent or unreadable.
+ */
+function loadSonaRoutingPatterns(): Pattern[] {
+  try {
+    const sonaPath = join(process.cwd(), '.swarm', 'sona-patterns.json');
+    if (!existsSync(sonaPath)) return [];
+
+    const raw = JSON.parse(readFileSync(sonaPath, 'utf-8'));
+    const persisted = raw as { patterns?: Record<string, { keywords?: string[]; agent?: string; confidence?: number; successCount?: number; failureCount?: number; createdAt?: number }> };
+    if (!persisted.patterns || typeof persisted.patterns !== 'object') return [];
+
+    const now = Date.now();
+  return Object.entries(persisted.patterns).map(([key, p]) => ({
+      id: `sona:${key}`,
+      type: p.agent ?? 'routing',
+      content: (p.keywords ?? [key]).join(' '),
+      confidence: p.confidence ?? 0.5,
+      usageCount: (p.successCount ?? 0) + (p.failureCount ?? 0),
+      embedding: [] as number[],
+      createdAt: p.createdAt ?? now,
+      lastUsedAt: now,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Get all patterns from ReasoningBank, merged with SONA routing patterns.
+ * Returns persisted patterns even after process restart.
  */
 export async function getAllPatterns(): Promise<Pattern[]> {
   if (!reasoningBank) {
@@ -1115,7 +1176,7 @@ export async function getAllPatterns(): Promise<Pattern[]> {
     if (!init.success) return [];
   }
 
-  return reasoningBank!.getAll().map(p => ({
+  const bankPatterns = reasoningBank!.getAll().map(p => ({
     id: p.id,
     type: p.type,
     embedding: p.embedding,
@@ -1125,6 +1186,13 @@ export async function getAllPatterns(): Promise<Pattern[]> {
     createdAt: p.createdAt,
     lastUsedAt: p.lastUsedAt
   }));
+
+  // Merge in SONA routing patterns so `neural patterns list` shows what
+  // the hooks SONA optimizer has learned, not just ReasoningBank entries.
+  const bankIds = new Set(bankPatterns.map(p => p.id));
+  const sonaPatterns = loadSonaRoutingPatterns().filter(p => !bankIds.has(p.id));
+
+  return [...bankPatterns, ...sonaPatterns];
 }
 
 /**

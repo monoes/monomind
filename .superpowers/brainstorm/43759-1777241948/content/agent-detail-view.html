@@ -1,0 +1,99 @@
+<h2>Agent Detail View</h2>
+<p class="subtitle">When you click an agent in the list, how should their detail appear?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Slide-in Panel (replaces topology)</h3>
+      <p>Clicking an agent replaces the topology canvas area with the agent's detail view. A back button returns to topology. Communication log shows as a timeline (like session events).</p>
+      <div class="mockup" style="margin-top:12px;">
+        <div class="mockup-header">Agent: coder &mdash; WORKER</div>
+        <div class="mockup-body" style="padding:0;background:#0d0d1a;">
+          <div style="padding:8px 12px;display:flex;gap:16px;border-bottom:1px solid rgba(58,58,90,0.3);font-size:8px;font-family:monospace;color:#8888aa;">
+            <span style="color:#00e5c8;cursor:pointer;">&larr; BACK TO TOPOLOGY</span>
+          </div>
+          <div style="padding:8px 12px;display:flex;gap:20px;border-bottom:1px solid rgba(58,58,90,0.2);font-size:8px;font-family:monospace;">
+            <span><span style="color:#666;">TYPE</span> <span style="color:#b4b4dc;">coder</span></span>
+            <span><span style="color:#666;">ROLE</span> <span style="color:#b4b4dc;">worker</span></span>
+            <span><span style="color:#666;">TASKS</span> <span style="color:#00e5c8;">3/3</span></span>
+            <span><span style="color:#666;">MSGS</span> <span style="color:#00e5c8;">8</span></span>
+            <span><span style="color:#666;">UTIL</span> <span style="color:#4caf50;">85%</span></span>
+          </div>
+          <div style="padding:8px 12px;">
+            <div style="font-size:8px;color:#666;letter-spacing:0.1em;margin-bottom:6px;">COMMUNICATION LOG</div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <div style="padding:4px 8px;background:rgba(0,100,200,0.08);border-left:2px solid #4488cc;border-radius:0 3px 3px 0;">
+                <div style="font-size:7px;color:#666;font-family:monospace;">09:14:02 &middot; RECEIVED from coordinator</div>
+                <div style="font-size:9px;color:#b4b4dc;font-family:monospace;">task_assignment: Implement auth middleware</div>
+              </div>
+              <div style="padding:4px 8px;background:rgba(0,229,200,0.05);border-left:2px solid #00e5c8;border-radius:0 3px 3px 0;">
+                <div style="font-size:7px;color:#666;font-family:monospace;">09:14:38 &middot; SENT to coordinator</div>
+                <div style="font-size:9px;color:#b4b4dc;font-family:monospace;">status_update: Starting implementation</div>
+              </div>
+              <div style="padding:4px 8px;background:rgba(0,229,200,0.05);border-left:2px solid #00e5c8;border-radius:0 3px 3px 0;">
+                <div style="font-size:7px;color:#666;font-family:monospace;">09:16:12 &middot; SENT to tester</div>
+                <div style="font-size:9px;color:#b4b4dc;font-family:monospace;">review_request: auth.ts ready for tests</div>
+              </div>
+              <div style="padding:4px 8px;background:rgba(0,100,200,0.08);border-left:2px solid #4488cc;border-radius:0 3px 3px 0;">
+                <div style="font-size:7px;color:#666;font-family:monospace;">09:17:45 &middot; RECEIVED from tester</div>
+                <div style="font-size:9px;color:#b4b4dc;font-family:monospace;">task_complete: 4/4 tests passing</div>
+              </div>
+              <div style="padding:4px 8px;background:rgba(0,229,200,0.05);border-left:2px solid #00e5c8;border-radius:0 3px 3px 0;">
+                <div style="font-size:7px;color:#666;font-family:monospace;">09:18:01 &middot; SENT to coordinator</div>
+                <div style="font-size:9px;color:#b4b4dc;font-family:monospace;">task_complete: Auth middleware done</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Bottom Drawer (topology stays visible)</h3>
+      <p>Topology canvas shrinks to ~40% height. Agent detail slides up from below with communication timeline. The selected agent node highlights on the canvas above.</p>
+      <div class="mockup" style="margin-top:12px;">
+        <div class="mockup-header">Topology + Agent Detail (split)</div>
+        <div class="mockup-body" style="padding:0;background:#0d0d1a;">
+          <!-- Shrunk topology -->
+          <div style="height:80px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid rgba(58,58,90,0.3);position:relative;">
+            <div style="font-size:7px;color:rgba(0,229,200,0.3);position:absolute;top:4px;left:8px;">TOPOLOGY</div>
+            <svg width="140" height="60" viewBox="0 0 140 60">
+              <line x1="70" y1="15" x2="25" y2="48" stroke="rgba(0,229,200,0.15)"/>
+              <line x1="70" y1="15" x2="70" y2="50" stroke="rgba(0,229,200,0.15)"/>
+              <line x1="70" y1="15" x2="115" y2="48" stroke="rgba(0,229,200,0.15)"/>
+              <circle cx="70" cy="15" r="6" fill="rgba(0,229,200,0.7)" stroke="rgba(0,229,200,1)"/>
+              <text x="70" y="18" text-anchor="middle" fill="white" font-size="6" font-weight="bold" font-family="monospace">Q</text>
+              <circle cx="25" cy="48" r="4" fill="rgba(0,229,200,0.3)" stroke="rgba(0,229,200,0.6)"/>
+              <circle cx="70" cy="50" r="5" fill="rgba(255,180,0,0.4)" stroke="rgba(255,180,0,0.8)" stroke-width="1.5"/>
+              <circle cx="115" cy="48" r="4" fill="rgba(0,229,200,0.3)" stroke="rgba(0,229,200,0.6)"/>
+            </svg>
+            <div style="font-size:7px;color:rgba(255,180,0,0.6);position:absolute;bottom:4px;right:8px;">SELECTED: CODER</div>
+          </div>
+          <!-- Agent detail drawer -->
+          <div style="padding:6px 10px;border-bottom:1px solid rgba(58,58,90,0.2);display:flex;gap:16px;font-size:8px;font-family:monospace;">
+            <span style="color:#ffb400;font-weight:bold;">coder</span>
+            <span style="color:#666;">worker &middot; 3 tasks &middot; 8 msgs &middot; 85% util</span>
+            <span style="color:#666;margin-left:auto;cursor:pointer;">&times; close</span>
+          </div>
+          <div style="padding:6px 10px;max-height:80px;overflow-y:auto;">
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <div style="padding:3px 6px;border-left:2px solid #4488cc;font-size:8px;font-family:monospace;color:#8888aa;">
+                <span style="color:#555;">09:14:02</span> &larr; coordinator: task_assignment
+              </div>
+              <div style="padding:3px 6px;border-left:2px solid #00e5c8;font-size:8px;font-family:monospace;color:#8888aa;">
+                <span style="color:#555;">09:14:38</span> &rarr; coordinator: status_update
+              </div>
+              <div style="padding:3px 6px;border-left:2px solid #00e5c8;font-size:8px;font-family:monospace;color:#8888aa;">
+                <span style="color:#555;">09:16:12</span> &rarr; tester: review_request
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

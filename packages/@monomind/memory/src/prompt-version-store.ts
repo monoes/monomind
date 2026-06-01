@@ -231,7 +231,7 @@ export class PromptVersionStore {
     if (!fs.existsSync(this.versionsPath)) return [];
     const content = fs.readFileSync(this.versionsPath, 'utf-8').trim();
     if (!content) return [];
-    return content.split('\n').map((line) => recordToVersion(JSON.parse(line)));
+    return content.split('\n').filter(Boolean).map((line) => recordToVersion(JSON.parse(line)));
   }
 
   private writeVersions(versions: PromptVersion[]): void {
@@ -243,7 +243,7 @@ export class PromptVersionStore {
     if (!fs.existsSync(this.experimentsPath)) return [];
     const content = fs.readFileSync(this.experimentsPath, 'utf-8').trim();
     if (!content) return [];
-    return content.split('\n').map((line) => recordToExperiment(JSON.parse(line)));
+    return content.split('\n').filter(Boolean).map((line) => recordToExperiment(JSON.parse(line)));
   }
 
   private writeExperiments(experiments: PromptExperiment[]): void {

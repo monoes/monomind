@@ -74,7 +74,8 @@ export function splitOversizedCommunities(
 ): Record<number, string[]> {
   const maxSize = threshold * graph.order;
   const allIds = Object.keys(communities).map(Number);
-  let nextId = allIds.length > 0 ? Math.max(...allIds) + 1 : 0;
+  // Avoid Math.max(...allIds) spread — throws RangeError for large community counts
+  let nextId = allIds.length > 0 ? allIds.reduce((max, id) => id > max ? id : max, -1) + 1 : 0;
 
   for (const [cidStr, members] of Object.entries(communities)) {
     if (members.length <= maxSize) continue;

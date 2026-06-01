@@ -133,7 +133,6 @@ yarn-error.log*
 monomind.config.json
 .swarm/
 .hive-mind/
-.monomind/
 /memory/
 /coordination/
 /memory/monomind-data.json
@@ -161,8 +160,6 @@ hive-mind-prompt-*.txt
 .codex/
 
 # monomind runtime data — never commit, contain machine-specific paths
-.monomind/
-**/.monomind/
 .claude-flow/
 **/.claude-flow/
 data/mastermind-*.json

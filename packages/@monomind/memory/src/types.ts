@@ -226,6 +226,12 @@ export interface MemoryQuery {
 
   /** Distance metric for semantic search */
   distanceMetric?: DistanceMetric;
+
+  /** Field to sort results by (backends that support it) */
+  sortField?: 'createdAt' | 'updatedAt' | 'lastAccessedAt' | 'accessCount' | 'key' | 'score';
+
+  /** Sort direction — 'desc' (default) or 'asc' */
+  sortDirection?: 'asc' | 'desc';
 }
 
 /**

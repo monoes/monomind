@@ -10,7 +10,55 @@
  * @module sona-integration
  */
 
-import { SonaEngine, type JsSonaConfig, type JsLearnedPattern } from '@ruvector/sona';
+// C2: @ruvector/sona is optional — inline types so a missing WASM binary does not
+// prevent the pure-JS SONAManager from loading. The dynamic import below is cached
+// by the module system after the first successful load.
+
+// Inline-compatible types (match the @ruvector/sona public surface)
+export interface JsSonaConfig {
+  hiddenDim?: number;
+  embeddingDim?: number;
+  microLoraRank?: number;
+  baseLoraRank?: number;
+  microLoraLr?: number;
+  baseLoraLr?: number;
+  ewcLambda?: number;
+  patternClusters?: number;
+  trajectoryCapacity?: number;
+  qualityThreshold?: number;
+  enableSimd?: boolean;
+  backgroundIntervalMs?: number;
+}
+export interface JsLearnedPattern {
+  id: string;
+  embedding: number[];
+  avgQuality: number;
+  useCount: number;
+  context?: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _sonaEngineClass: any = null;
+let _sonaLoadAttempted = false;
+
+// Lazy loader — called on first SONALearningEngine construction.
+// Avoids top-level await which breaks ESM circular-import loading order in Vitest.
+async function loadSonaEngine(): Promise<any> {
+  if (_sonaLoadAttempted) return _sonaEngineClass;
+  _sonaLoadAttempted = true;
+  try {
+    const mod = await import('@ruvector/sona' as string);
+    _sonaEngineClass = mod.SonaEngine ?? mod.default?.SonaEngine ?? null;
+  } catch {
+    _sonaEngineClass = null;
+  }
+  return _sonaEngineClass;
+}
+
+// Kept for backward compat with code that checks `SonaEngine` at module scope.
+// Will be null until loadSonaEngine() is awaited.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let SonaEngine: any = null;
 import type {
   Trajectory,
   TrajectoryStep,
@@ -138,7 +186,8 @@ function modeToConfig(mode: SONAMode, modeConfig: SONAModeConfig): JsSonaConfig 
  * - Full learning cycle: <10ms
  */
 export class SONALearningEngine {
-  private engine: SonaEngine;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private engine: any;
   private trajectoryMap: Map<string, number> = new Map();
   private adaptationTimeMs: number = 0;
   private learningTimeMs: number = 0;
@@ -148,8 +197,20 @@ export class SONALearningEngine {
   constructor(mode: SONAMode, modeConfig: SONAModeConfig) {
     this.mode = mode;
     this.modeConfig = modeConfig;
-    const config = modeToConfig(mode, modeConfig);
-    this.engine = SonaEngine.withConfig(config);
+    // Engine will be initialized lazily in initialize()
+  }
+
+  /**
+   * Initialize the underlying WASM engine (must be called before other methods).
+   */
+  async initialize(): Promise<void> {
+    const EngineClass = await loadSonaEngine();
+    SonaEngine = EngineClass; // update module-level ref for callers
+    if (!EngineClass) {
+      throw new Error('@ruvector/sona is not installed. Install it as an optional dependency or use SONAManager (JS fallback).');
+    }
+    const config = modeToConfig(this.mode, this.modeConfig);
+    this.engine = EngineClass.withConfig(config);
   }
 
   /**
@@ -403,7 +464,7 @@ export class SONALearningEngine {
       pattern.avgQuality > best.avgQuality ? pattern : best
     );
 
-    return bestPattern.patternType || `${context.domain}-default`;
+    return (bestPattern as any).patternType || `${context.domain}-default`;
   }
 }
 
@@ -425,8 +486,4 @@ export function createSONALearningEngine(
   return new SONALearningEngine(mode, modeConfig);
 }
 
-// =============================================================================
-// Exports
-// =============================================================================
-
-export type { JsLearnedPattern, JsSonaConfig };
+// JsLearnedPattern and JsSonaConfig are already exported via inline interface declarations above.

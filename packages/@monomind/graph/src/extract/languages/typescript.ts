@@ -57,6 +57,12 @@ function extractWithTreeSitter(
   const classStack: string[] = [];
   const methodStack: string[] = [];
 
+  // leave callback: pop stacks so sibling nodes aren't mis-attributed to a previous class/method
+  const leave = (n: SyntaxNodeLike) => {
+    if (CLASS_TYPES.has(n.type)) classStack.pop();
+    if (FUNCTION_TYPES.has(n.type) || n.type === 'method_definition' || n.type === 'public_field_definition') methodStack.pop();
+  };
+
   const addNode = (name: string, n: SyntaxNodeLike): void => {
     if (!name) return;
     nodes.push({
@@ -243,7 +249,7 @@ function extractWithTreeSitter(
         });
       }
     }
-  });
+  }, leave);
 
   return { nodes, edges, filesProcessed: 1, fromCache: 0, errors };
 }

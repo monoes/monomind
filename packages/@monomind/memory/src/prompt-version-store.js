@@ -153,7 +153,7 @@ export class PromptVersionStore {
         const content = fs.readFileSync(this.versionsPath, 'utf-8').trim();
         if (!content)
             return [];
-        return content.split('\n').map((line) => recordToVersion(JSON.parse(line)));
+        return content.split('\n').filter(Boolean).map((line) => recordToVersion(JSON.parse(line)));
     }
     writeVersions(versions) {
         const data = versions.map((v) => JSON.stringify(versionToRecord(v))).join('\n') + '\n';
@@ -165,7 +165,7 @@ export class PromptVersionStore {
         const content = fs.readFileSync(this.experimentsPath, 'utf-8').trim();
         if (!content)
             return [];
-        return content.split('\n').map((line) => recordToExperiment(JSON.parse(line)));
+        return content.split('\n').filter(Boolean).map((line) => recordToExperiment(JSON.parse(line)));
     }
     writeExperiments(experiments) {
         const data = experiments.map((e) => JSON.stringify(experimentToRecord(e))).join('\n') + '\n';

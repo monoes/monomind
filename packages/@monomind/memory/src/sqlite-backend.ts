@@ -406,7 +406,15 @@ export class SQLiteBackend extends EventEmitter implements IMemoryBackend {
       Math.max(1, query.limit ?? MAX_QUERY_LIMIT),
       MAX_QUERY_LIMIT
     );
-    sql += ' ORDER BY created_at DESC';
+    const colMap: Record<string, string> = {
+      createdAt: 'created_at', updatedAt: 'updated_at',
+      lastAccessedAt: 'last_accessed_at', accessCount: 'access_count', key: 'key',
+    };
+    const orderCol = (query.sortField && query.sortField !== 'score' && colMap[query.sortField])
+      ? colMap[query.sortField]
+      : 'created_at';
+    const orderDir = query.sortDirection === 'asc' ? 'ASC' : 'DESC';
+    sql += ` ORDER BY ${orderCol} ${orderDir}`;
     sql += ' LIMIT ?';
     params.push(effectiveLimit);
     if (query.offset) {

@@ -294,6 +294,7 @@ export async function executeInit(options: InitOptions): Promise<InitResult> {
       directories: [],
       files: [],
     },
+    updated: [],
     skipped: [],
     errors: [],
     summary: {

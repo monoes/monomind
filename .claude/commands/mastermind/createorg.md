@@ -32,6 +32,8 @@ Use orgs when the work is ongoing, not single-shot. A content team that ships 10
 `--roles <list>` — explicit role list (e.g. "boss, writer, reviewer, marketer")
 `--auto` — skip confirmation, create immediately
 `--confirm` — always ask before saving (default)
+`--delete <name>` — delete a saved org and all associated data files
+`--list` — list all saved orgs with their status
 
 Once created, start the org with `/mastermind:runorg --org <name>`.
 
@@ -46,11 +48,45 @@ Parse `$ARGUMENTS` for:
 - `--confirm` flag → mode = confirm
 - `--name <name>` → org_name = <name> (must match `^[a-z0-9][a-z0-9-]{0,63}$`; if omitted, derived from goal)
 - `--roles <desc>` → roles_desc = <desc> (explicit role list, e.g. "boss, writer, reviewer, marketer")
+- `--delete <name>` → delete_mode = true, delete_name = <name>
+- `--list` flag → list_mode = true
 - Remaining text = prompt (goal description)
+
+**If `--list` flag is set:**
+```bash
+orgs_dir=".monomind/orgs"
+if [ ! -d "$orgs_dir" ] || [ -z "$(ls "$orgs_dir"/*.json 2>/dev/null)" ]; then
+  echo "No saved orgs. Run /mastermind:createorg <goal> to create one."
+else
+  echo "Saved orgs:"
+  for f in "$orgs_dir"/*.json; do
+    name=$(jq -r '.name // empty' "$f" 2>/dev/null)
+    goal=$(jq -r '.goal // ""' "$f" 2>/dev/null | cut -c1-60)
+    [ -n "$name" ] && echo "  • ${name} — ${goal}"
+  done
+fi
+```
+Stop after listing. Do not proceed to skill invocation.
+
+**If `--delete <name>` is set:**
+1. Confirm the org exists:
+   ```bash
+   [ -f ".monomind/orgs/${delete_name}.json" ] || { echo "Org '${delete_name}' not found."; exit 1; }
+   ```
+2. In confirm mode (default): ask "Delete org '${delete_name}' and all its data? This cannot be undone. Type 'yes' to confirm."
+   In auto mode: proceed without asking.
+3. Call the server DELETE endpoint:
+   ```bash
+   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
+   result=$(curl -s -X DELETE "${CTRL_URL}/api/orgs/${delete_name}")
+   echo "$result" | jq -r 'if .ok then "Org '\'''"${delete_name}"'''\'' deleted." else "Error: " + (.error // "unknown") end'
+   ```
+4. Stop after deleting. Do not proceed to skill invocation.
 
 If neither `--auto` nor `--confirm` was provided, default: **mode = confirm**.
 
-If prompt is empty: ask "Describe your org's goal and optionally list the roles you want (e.g. 'a content team with a boss, writer, reviewer, and marketer to produce 10 blog posts per month')."
+If prompt is empty (and not list/delete mode): ask "Describe your org's goal and optionally list the roles you want (e.g. 'a content team with a boss, writer, reviewer, and marketer to produce 10 blog posts per month')."
 
 Load brain context for the `ops` domain (follow _protocol.md Brain Load Procedure, namespace: `ops`).
 

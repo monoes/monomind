@@ -87,6 +87,7 @@ digraph mastermind_routing {
 | Inspect or manage brain memory | `Skill("mastermind:brain")` |
 | Technical portfolio, project state assessment | `Skill("mastermind:techport")` |
 | Define/run an agent organization | `Skill("mastermind:createorg")` / `Skill("mastermind:runorg")` |
+| Review and action pending agent approval requests | `Skill("mastermind:approve")` |
 | Autonomous build + review until clean | `Skill("mastermind:autodev")` |
 | Isolate work in a git worktree | `Skill("mastermind:worktree")` |
 | Write or improve a mastermind skill | `Skill("mastermind:skill-builder")` |
@@ -199,6 +200,7 @@ Describe your goal. Mastermind identifies the relevant domains, spawns specialis
 **Persistent agent orgs** — named teams that coordinate across sessions
 `/mastermind:createorg` — define an org: roles, hierarchy, goal
 `/mastermind:runorg` — start a saved org; boss agent assigns work to all roles
+`/mastermind:approve` — review and action pending approval requests from running org agents
 
 **Autonomous & advanced**
 `/mastermind:autodev` — research → build → review loop until clean (`--tillend` supported)
@@ -893,10 +895,10 @@ Log this as a decision in the cycle's output schema with `confidence` set accord
 
 #### 12c — Execute
 
-Execute the chosen activity by invoking the appropriate domain skill via the `Skill` tool (Steps 4–10 of the main flow, condensed). Use `Skill("mastermind:<domain>")` — do NOT use slash command syntax (`/<name>`), which only works in the Claude Code CLI prompt and not inside a running skill:
+Execute the chosen activity by invoking the appropriate domain skill via the `Skill` tool (Steps 4–10 of the main flow, condensed). Use `Skill("mastermind:<domain>")` — do NOT use slash command syntax (`/<name>`), which only works when typed interactively in the Claude Code CLI, not within an executing command or skill:
 
-- Test → `Skill("mastermind:build")` with a testing-focused prompt
-- Debug/Fix → `Skill("mastermind:build")` with the specific failing test or error as prompt
+- Test → `Skill("mastermind:tdd")` with the untested artifacts as prompt (enforce Red-Green-Refactor)
+- Debug/Fix → `Skill("mastermind:debug")` with the failing test or error as prompt (root-cause first, then fix)
 - Review → `Skill("mastermind:review")` with scope = artifacts from last run
 - Improve/Refactor → `Skill("mastermind:build")` with refactor prompt
 - Add feature → `Skill("mastermind:build")` with the next feature from the `next_actions` array printed by the Step 12a output above
@@ -904,9 +906,16 @@ Execute the chosen activity by invoking the appropriate domain skill via the `Sk
 - Content/Docs → `Skill("mastermind:content")` with scope = new artifacts
 - Release → `Skill("mastermind:release")` with project scope
 
-Always pass: the current brain_context, project_name (from the `project_name` field above), the relevant board_id (look up `.board_ids[<chosen_domain>]` from the `board_ids` map printed above), and mode = auto (iteration cycles never pause for confirmation).
+Always pass: the current brain_context, project_name (from the `project_name` field above), the relevant board_id, and mode = auto (iteration cycles never pause for confirmation).
 
-**Constraint:** Only invoke domains whose board_id already exists in the `board_ids` map. If the chosen activity maps to a domain not in `board_ids` (e.g. `release` was not activated in Step 6), choose the next highest-priority activity whose domain IS in `board_ids`, or invoke `build` as the safe fallback — its board is almost always present.
+**Board ID lookup per activity:**
+- `tdd`, `debug`, `Improve/Refactor`, `Add feature` → use `board_ids['build']` (these are build-domain activities)
+- `review` → use `board_ids['review']`; fallback to `board_ids['build']` if not present
+- `research` → use `board_ids['research']`; fallback to `board_ids['build']`
+- `content` → use `board_ids['content']`; fallback to `board_ids['build']`
+- `release` → use `board_ids['release']`; fallback to `board_ids['build']`
+
+**Constraint:** Only invoke a skill whose domain board_id exists in the `board_ids` map. If `board_ids['build']` is missing (rare), skip to the next activity whose board IS present. `build` is almost always present.
 
 #### 12d — Brain Write
 

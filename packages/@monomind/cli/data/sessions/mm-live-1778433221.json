@@ -1,0 +1,89 @@
+{
+  "id": "mm-live-1778433221",
+  "ts": 1778433221771,
+  "prompt": "Build SaaS analytics + launch campaign",
+  "status": "running",
+  "domains": [
+    "build",
+    "marketing",
+    "research"
+  ],
+  "events": [
+    {
+      "type": "session:start",
+      "session": "mm-live-1778433221",
+      "prompt": "Build SaaS analytics + launch campaign",
+      "mode": "auto",
+      "ts": 1778433221771
+    },
+    {
+      "type": "domain:dispatch",
+      "session": "mm-live-1778433221",
+      "domain": "build",
+      "cmd": "Running build agents",
+      "ts": 1778433222295
+    },
+    {
+      "type": "domain:dispatch",
+      "session": "mm-live-1778433221",
+      "domain": "marketing",
+      "cmd": "Running marketing agents",
+      "ts": 1778433222557
+    },
+    {
+      "type": "domain:dispatch",
+      "session": "mm-live-1778433221",
+      "domain": "research",
+      "cmd": "Running research agents",
+      "ts": 1778433222857
+    },
+    {
+      "type": "agent:spawn",
+      "session": "mm-live-1778433221",
+      "domain": "build",
+      "agent": "architect",
+      "task": "Working on build tasks",
+      "ts": 1778433223111
+    },
+    {
+      "type": "agent:spawn",
+      "session": "mm-live-1778433221",
+      "domain": "build",
+      "agent": "coder",
+      "task": "Working on build tasks",
+      "ts": 1778433223362
+    },
+    {
+      "type": "agent:spawn",
+      "session": "mm-live-1778433221",
+      "domain": "build",
+      "agent": "tester",
+      "task": "Working on build tasks",
+      "ts": 1778433223626
+    },
+    {
+      "type": "agent:spawn",
+      "session": "mm-live-1778433221",
+      "domain": "marketing",
+      "agent": "coordinator",
+      "task": "Working on marketing tasks",
+      "ts": 1778433223876
+    },
+    {
+      "type": "agent:spawn",
+      "session": "mm-live-1778433221",
+      "domain": "research",
+      "agent": "researcher",
+      "task": "Working on research tasks",
+      "ts": 1778433224130
+    },
+    {
+      "type": "intercom",
+      "session": "mm-live-1778433221",
+      "from": "research",
+      "to": "marketing",
+      "msg": "competitor data ready",
+      "ts": 1778433224412
+    }
+  ]
+}

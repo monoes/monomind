@@ -1,0 +1,85 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: monomind
+      - generic [ref=e6]: monomind
+    - generic [ref=e7]:
+      - generic [ref=e9] [cursor=pointer]:
+        - generic [ref=e10]: ◉
+        - generic [ref=e11]: Now
+      - generic [ref=e12]:
+        - generic [ref=e13]: Workspace
+        - generic [ref=e14] [cursor=pointer]:
+          - generic [ref=e15]: ⊞
+          - generic [ref=e16]: Projects
+          - generic [ref=e17]: —
+        - generic [ref=e18] [cursor=pointer]:
+          - generic [ref=e19]: ◫
+          - generic [ref=e20]: Sessions
+          - generic [ref=e21]: "12"
+        - generic [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: ↺
+          - generic [ref=e24]: Loops
+          - generic [ref=e25]: "7"
+      - generic [ref=e26]:
+        - generic [ref=e27]: Intelligence
+        - generic [ref=e28] [cursor=pointer]:
+          - generic [ref=e29]: ◈
+          - generic [ref=e30]: Memory
+        - generic [ref=e31] [cursor=pointer]:
+          - generic [ref=e32]: ⬡
+          - generic [ref=e33]: Orgs
+    - generic [ref=e34]:
+      - generic [ref=e35]: nokhodian
+      - generic [ref=e36]: /Users/morteza/Desktop/tools/monomind
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e39]: Loops
+      - generic [ref=e40]: live
+      - button "↺ Refresh" [ref=e43] [cursor=pointer]
+    - generic [ref=e502]:
+      - generic [ref=e503]: Loops
+      - generic [ref=e504]: Scheduled automation loops
+      - generic [ref=e505]:
+        - generic [ref=e506]:
+          - generic [ref=e507]: ↺
+          - generic [ref=e508]:
+            - generic [ref=e509]: /monomind:do --space e4c23ab8-bc08-474e-a5f3-bc9db58b421f --board 2d9a3b0d-9907-4b85-b621-920b5b56bf95 --mode sequential
+            - generic [ref=e510]: ·
+          - generic [ref=e511]: active
+        - generic [ref=e512]:
+          - generic [ref=e513]: ↺
+          - generic [ref=e514]:
+            - generic [ref=e515]: "/mastermind:techport --tillend --maxruns 50 --wait 60 --rep 7 --loop mastermind-techport-1778659658234 /Users/morteza/Desktop/tools/paperclip do another round of: i want to associate these repo functionalities into mastermind:createorg and mastermind:runorg feel free to add more mastermind slash com"
+            - generic [ref=e516]: 1 ·
+          - generic [ref=e517]: active
+        - generic [ref=e518]:
+          - generic [ref=e519]: ↺
+          - generic [ref=e520]:
+            - generic [ref=e521]: "/mastermind:techport --tillend --auto /Users/morteza/Desktop/tools/paperclip do another round of: i want to associate these repo functionalities into mastermind:createorg and mastermind:runorg feel free to add more mastermind slash commands via this repo and start porting them all, as well you can build a UI for it in a new sub page for mastermind section on dashboard porting UIs of this"
+            - generic [ref=e522]: 1 · /mastermind:techport
+          - generic [ref=e523]: active
+        - generic [ref=e524]:
+          - generic [ref=e525]: ↺
+          - generic [ref=e526]:
+            - generic [ref=e527]: /mastermind:review --tillend --maxruns 50 --wait 120 --rep 5 --loop review-1778656300725 find and fix all wiring issues of repeat and tillend
+            - generic [ref=e528]: 2 ·
+          - generic [ref=e529]: active
+        - generic [ref=e530]:
+          - generic [ref=e531]: ↺
+          - generic [ref=e532]:
+            - generic [ref=e533]: /monomind:repeat --every 1 --times 5 --rep 5 --loop repeat-1778564734411-14156-41052 -- do a deep review of mastermind:master IDEA PIPELINE DOWN TO THE TASKS AND FIX THEM
+            - generic [ref=e534]: 1 ·
+          - generic [ref=e535]: active
+        - generic [ref=e536]:
+          - generic [ref=e537]: ↺
+          - generic [ref=e538]:
+            - generic [ref=e539]: /monomind:repeat --every 1 --times 10 --rep 10 --loop repeat-1778276065659-11559-66009 -- /mastermind:architect do another round of review this project and find issues, make sure the suggestions and fixes are adding value to the project and they are not useless stuff for all human in loop and import
+            - generic [ref=e540]: 1 ·
+          - generic [ref=e541]: active
+        - generic [ref=e542]:
+          - generic [ref=e543]: ↺
+          - generic [ref=e544]:
+            - generic [ref=e545]: /monomind:repeat --every 30 --times 10 --rep 6 i want you to do another round of complete analyses and comparison with /Users/morteza/Desktop/tools/GitNexus as well as /Users/morteza/Desktop/tools/graphify to monograph to get 100% coverage of all deepest feature and start doing all you find except o
+            - generic [ref=e546]: 30 ·
+          - generic [ref=e547]: active

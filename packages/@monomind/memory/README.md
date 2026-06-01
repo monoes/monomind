@@ -107,36 +107,48 @@ const stats = index.getStats();
 import { AgentDBAdapter } from '@monomind/memory';
 
 const adapter = new AgentDBAdapter({
-  dimension: 1536,
-  indexType: 'hnsw',
-  metric: 'cosine',
-  hnswM: 16,
-  hnswEfConstruction: 200,
-  enableCache: true,
-  cacheSizeMb: 256
+  dimensions: 1536,           // vector dimensions
+  hnswM: 16,                  // max connections per HNSW layer
+  hnswEfConstruction: 200,    // construction-time search depth
+  cacheEnabled: true,         // LRU result cache
+  cacheSize: 10000,           // max cached entries
+  cacheTtl: 300000,           // 5 minutes
+  defaultNamespace: 'default',
+  embeddingGenerator: async (text) => myEmbedder.embed(text),
 });
 
 await adapter.initialize();
 
-// Store memory
+// Store memory — namespace is normalised to defaultNamespace when empty
 await adapter.store({
   id: 'mem-123',
+  key: 'user-preference',
   content: 'User prefers dark mode',
-  embedding: vector,
-  metadata: { type: 'preference', agentId: 'agent-1' }
+  type: 'semantic',
+  namespace: 'preferences',
+  tags: ['ui'],
+  metadata: {},
+  accessLevel: 'private',
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+  version: 1,
+  references: [],
+  accessCount: 0,
+  lastAccessedAt: Date.now(),
 });
 
 // Semantic search
-const memories = await adapter.search(queryVector, {
-  limit: 10,
-  threshold: 0.7,
-  filter: { type: 'preference' }
-});
+const results = await adapter.semanticSearch('dark mode preference', 10, 0.7);
+// [{ entry: MemoryEntry, score: number, distance: number }, ...]
 
-// Cross-agent memory sharing
-await adapter.enableCrossAgentSharing({
-  shareTypes: ['patterns', 'preferences'],
-  excludeTypes: ['secrets']
+// Convenience: store from plain input (auto-generates id, timestamps)
+const entry = await adapter.storeEntry({
+  key: 'my-fact',
+  content: 'TypeScript 5+ required',
+  namespace: 'learnings',
+  type: 'semantic',
+  tags: ['setup'],
+  metadata: {},
 });
 ```
 
@@ -145,58 +157,91 @@ await adapter.enableCrossAgentSharing({
 ```typescript
 import { CacheManager } from '@monomind/memory';
 
-const cache = new CacheManager({
-  maxSize: 1000,
-  ttlMs: 3600000,  // 1 hour
-  strategy: 'lru'
+const cache = new CacheManager<MemoryEntry>({
+  maxSize: 1000,       // max entries before LRU eviction
+  ttl: 3_600_000,     // entry TTL in ms (1 hour)
+  maxMemory: 50 * 1024 * 1024, // optional memory cap (50 MB)
+  lruEnabled: true,   // enable LRU ordering (default: true)
 });
 
 // Cache operations
-cache.set('key', value);
-const value = cache.get('key');
+cache.set('key', entry);
+const entry = cache.get('key');     // null if missing or expired
 const exists = cache.has('key');
 cache.delete('key');
-cache.clear();
+cache.clear();                      // emits 'cache:cleared' with correct previousSize
+
+// Batch prefetch
+await cache.prefetch(['k1', 'k2'], async (keys) => loadFromDB(keys));
 
 // Statistics
 const stats = cache.getStats();
-// { size, hits, misses, hitRate }
+// { size, hits, misses, hitRate, evictions, memoryUsage }
+
+// Cleanup — call on process exit to stop the internal cleanup timer
+cache.shutdown();
 ```
 
 ### Query Builder
 
 ```typescript
-import { QueryBuilder } from '@monomind/memory';
+import { query, QueryTemplates } from '@monomind/memory';
 
-const results = await new QueryBuilder()
-  .semantic(queryVector)
-  .where('agentId', '=', 'agent-1')
-  .where('type', 'in', ['pattern', 'strategy'])
-  .where('createdAt', '>', Date.now() - 86400000)
-  .orderBy('relevance', 'desc')
+// Fluent query construction — produces a MemoryQuery object
+const q = query()
+  .semantic('authentication patterns')   // type = semantic, embeds content
+  .inNamespace('security')
+  .withTags(['auth', 'patterns'])
+  .ofType('semantic')
+  .threshold(0.7)
   .limit(20)
-  .execute();
+  .sortByNewest()                         // sortField: createdAt, sortDirection: desc
+  .build();
+
+// Exact-key lookup
+const exact = query().exact('my-key', 'my-namespace').build();
+
+// Prefix search
+const prefix = query().prefix('session-').inNamespace('sessions').build();
+
+// Sorting options
+query().semantic('...').sortBy('accessCount', 'desc').build();  // most-accessed first
+query().semantic('...').oldestFirst().build();                   // createdAt asc
+query().semantic('...').recentlyAccessed().build();              // lastAccessedAt desc
+
+// sortField and sortDirection are passed through to all backends that support them
+// (agentdb-adapter, rvf-backend, sqlite-backend, sqljs-backend, JsonBackend)
+
+// Predefined templates
+const recent = QueryTemplates.recentInNamespace('learnings', 10);
+const stale = QueryTemplates.staleEntries('session-cache', 10);
 ```
 
 ### Migration
 
 ```typescript
-import { MemoryMigration } from '@monomind/memory';
+import { MemoryMigrator, createMigrator } from '@monomind/memory';
 
-const migration = new MemoryMigration({
-  source: './data/v2-memory.db',
-  destination: './data/v1-memory.db'
+// Migrate from a legacy SQLite, JSON, or Markdown source
+const migrator = createMigrator(targetAdapter, {
+  source: 'sqlite',          // 'sqlite' | 'json' | 'markdown' | 'memory-manager' | 'swarm-memory'
+  sourcePath: './data/v2-memory.db',
+  batchSize: 100,
+  generateEmbeddings: true,  // generate vector embeddings for each entry
+  continueOnError: true,     // skip bad entries instead of aborting
+  validateData: true,
 });
 
-// Dry run
-const preview = await migration.preview();
-console.log(`Will migrate ${preview.recordCount} records`);
+const result = await migrator.migrate();
+console.log(`Migrated ${result.progress.migrated} entries`);
+console.log(`Failed: ${result.progress.failed}`);
 
-// Execute migration
-await migration.execute({
-  batchSize: 1000,
-  onProgress: (progress) => console.log(`${progress.percent}%`)
-});
+// RVF ↔ JSON bidirectional migration
+import { RvfMigrator } from '@monomind/memory';
+
+await RvfMigrator.fromSqlite('./old.db', './new.rvf');
+await RvfMigrator.fromJsonFile('./export.json', './new.rvf');
+await RvfMigrator.toJsonFile('./store.rvf', './export.json');
 ```
 
 ## Quantization Options
@@ -795,26 +840,47 @@ const results = await tier.search('authentication patterns', 10);
 
 ```typescript
 import type {
-  // Core
-  HNSWConfig, HNSWStats, SearchResult, MemoryEntry,
-  QuantizationConfig, DistanceMetric,
+  // Core entry and query types
+  MemoryEntry, MemoryEntryInput, MemoryEntryUpdate,
+  MemoryQuery, MemoryType, AccessLevel,
+  SearchResult, SearchOptions,
+
+  // Query builder sort fields
+  SortField,        // 'createdAt' | 'updatedAt' | 'lastAccessedAt' | 'accessCount' | 'key' | 'score'
+  SortDirection,    // 'asc' | 'desc'
+
+  // HNSW
+  HNSWConfig, HNSWStats, QuantizationConfig, DistanceMetric,
+
+  // Backend interfaces
+  IMemoryBackend, BackendStats, HealthCheckResult,
+
+  // Cache
+  CacheConfig, CacheStats,
 
   // Auto Memory Bridge (ADR-048)
   AutoMemoryBridgeConfig, MemoryInsight, InsightCategory,
-  SyncDirection, SyncMode, PruneStrategy,
-  SyncResult, ImportResult,
-
-  // Learning Bridge (ADR-049)
-  LearningBridgeConfig, LearningStats,
-  ConsolidateResult, PatternMatch,
-
-  // Knowledge Graph (ADR-049)
-  MemoryGraphConfig, GraphNode, GraphEdge,
-  GraphStats, RankedResult, EdgeType,
+  SyncMode, SyncResult, ImportResult,
 
   // Agent Scope (ADR-049)
   AgentMemoryScope, AgentScopedConfig,
   TransferOptions, TransferResult,
+
+  // Learning Bridge (ADR-049)
+  LearningBridgeConfig, ConsolidateResult, PatternMatch,
+
+  // Knowledge Graph (ADR-049)
+  MemoryGraphConfig, GraphNode, GraphEdge,
+  GraphStats, RankedResult,
+
+  // Tiers
+  MemoryTier, EntityFact, SessionSummary,
+
+  // Migration
+  MigrationSource, MigrationConfig, MigrationResult,
+
+  // Checkpointing
+  AgentState, SwarmCheckpoint, CheckpointMeta,
 } from '@monomind/memory';
 ```
 

@@ -1,0 +1,103 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: monomind
+      - generic [ref=e6]: monomind
+    - generic [ref=e7]:
+      - generic [ref=e9] [cursor=pointer]:
+        - generic [ref=e10]: ◉
+        - generic [ref=e11]: Now
+      - generic [ref=e12]:
+        - generic [ref=e13]: Workspace
+        - generic [ref=e14] [cursor=pointer]:
+          - generic [ref=e15]: ⊞
+          - generic [ref=e16]: Projects
+          - generic [ref=e17]: —
+        - generic [ref=e18] [cursor=pointer]:
+          - generic [ref=e19]: ◫
+          - generic [ref=e20]: Sessions
+          - generic [ref=e21]: "12"
+        - generic [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: ↺
+          - generic [ref=e24]: Loops
+          - generic [ref=e25]: "7"
+      - generic [ref=e26]:
+        - generic [ref=e27]: Intelligence
+        - generic [ref=e28] [cursor=pointer]:
+          - generic [ref=e29]: ◈
+          - generic [ref=e30]: Memory
+        - generic [ref=e31] [cursor=pointer]:
+          - generic [ref=e32]: ⬡
+          - generic [ref=e33]: Orgs
+    - generic [ref=e34]:
+      - generic [ref=e35]: nokhodian
+      - generic [ref=e36]: /Users/morteza/Desktop/tools/monomind
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e39]: Sessions
+      - generic [ref=e40]: live
+      - button "↺ Refresh" [ref=e43] [cursor=pointer]
+    - generic [ref=e549]:
+      - generic [ref=e550]: Sessions
+      - generic [ref=e551]: 12 sessions found
+      - generic [ref=e552]:
+        - generic [ref=e553] [cursor=pointer]:
+          - generic [ref=e554]:
+            - generic [ref=e555]: i want to rethink about entire dashboard i want it to be more userful and gathering pages and information that they are useful for user organize them in a better looking and more userfriendly dashboar…
+            - generic [ref=e556]: 7s
+          - generic [ref=e557]: 20243f7d-c1c9-47
+        - generic [ref=e558] [cursor=pointer]:
+          - generic [ref=e559]:
+            - generic [ref=e560]: are all of it fixed?
+            - generic [ref=e561]: 29m
+          - generic [ref=e562]: 1h 55m · 250 msg
+        - generic [ref=e563] [cursor=pointer]:
+          - generic [ref=e564]:
+            - generic [ref=e565]: review more if its still issue
+            - generic [ref=e566]: 21h
+          - generic [ref=e567]: 1h 51m · 644 msg
+        - generic [ref=e568] [cursor=pointer]:
+          - generic [ref=e569]:
+            - generic [ref=e570]: do it all
+            - generic [ref=e571]: 15h
+          - generic [ref=e572]: 6h 19m · 2451 msg
+        - generic [ref=e573] [cursor=pointer]:
+          - generic [ref=e574]:
+            - generic [ref=e575]: "Reply with literal: NO_BARE_OK"
+            - generic [ref=e576]: 1d
+          - generic [ref=e577]: 79a8ea3f-1832-40
+        - generic [ref=e578] [cursor=pointer]:
+          - generic [ref=e579]:
+            - generic [ref=e580]: "Reply with literal: STDIN_OK"
+            - generic [ref=e581]: 1d
+          - generic [ref=e582]: 51f97f5e-66a1-47
+        - generic [ref=e583] [cursor=pointer]:
+          - generic [ref=e584]:
+            - generic [ref=e585]: "Reply with literal: ARG_OK"
+            - generic [ref=e586]: 1d
+          - generic [ref=e587]: 3e555d15-bfbf-46
+        - generic [ref=e588] [cursor=pointer]:
+          - generic [ref=e589]:
+            - generic [ref=e590]: 3006d6c3-1d63-4d27-99bc-e50b7d4e1b8c
+            - generic [ref=e591]: 1d
+          - generic [ref=e592]: 3006d6c3-1d63-4d
+        - generic [ref=e593] [cursor=pointer]:
+          - generic [ref=e594]:
+            - generic [ref=e595]: 03ed32c8-5757-4e21-9c48-f957b7e11032
+            - generic [ref=e596]: 1d
+          - generic [ref=e597]: 03ed32c8-5757-4e
+        - generic [ref=e598] [cursor=pointer]:
+          - generic [ref=e599]:
+            - generic [ref=e600]: "Reply with: WORKING_OK_123"
+            - generic [ref=e601]: 1d
+          - generic [ref=e602]: 81bdd458-7931-43
+        - generic [ref=e603] [cursor=pointer]:
+          - generic [ref=e604]:
+            - generic [ref=e605]: "Reply only with the literal word: WORKING"
+            - generic [ref=e606]: 1d
+          - generic [ref=e607]: 4ce318fe-64a6-4d
+        - generic [ref=e608] [cursor=pointer]:
+          - generic [ref=e609]:
+            - generic [ref=e610]: "Say: yes, working"
+            - generic [ref=e611]: 1d
+          - generic [ref=e612]: 0f02c6fd-1e11-4d

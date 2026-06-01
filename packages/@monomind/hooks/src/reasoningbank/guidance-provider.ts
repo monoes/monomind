@@ -117,16 +117,18 @@ export class GuidanceProvider {
 
     const lines: string[] = [];
 
-    // Add domain-specific guidance
-    if (guidance.recommendations.length > 0) {
-      const domains = this.detectDomains(prompt);
-      for (const domain of domains) {
-        lines.push(`**${this.capitalize(domain)} Guidance**:`);
+    // Domain detection runs regardless of whether there are recommendations —
+    // the test and the caller both expect domain labels in the output for
+    // domain-matched prompts even before any patterns are stored.
+    const domains = this.detectDomains(prompt);
+    for (const domain of domains) {
+      lines.push(`**${this.capitalize(domain)} Guidance**:`);
+      if (guidance.recommendations.length > 0) {
         for (const rec of guidance.recommendations.slice(0, 5)) {
           lines.push(`- ${rec}`);
         }
-        lines.push('');
       }
+      lines.push('');
     }
 
     // Add relevant patterns

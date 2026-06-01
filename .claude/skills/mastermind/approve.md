@@ -97,7 +97,7 @@ approval=$(jq --arg id "$approval_id" '.approvals[] | select(.id == $id)' "$appr
 agent_id=$(echo "$approval" | jq -r '.agent_id')
 memNs="org:${org_name}"
 npx monomind@latest memory store \
-  --key "${memNs}:approval:${approval_id}" \
+  --key "approval:${approval_id}" \
   --namespace "$memNs" \
   --value '{"status":"approved","approval_id":"'"$approval_id"'","ts":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
 
@@ -118,7 +118,7 @@ approval=$(jq --arg id "$approval_id" '.approvals[] | select(.id == $id)' "$appr
 agent_id=$(echo "$approval" | jq -r '.agent_id')
 memNs="org:${org_name}"
 npx monomind@latest memory store \
-  --key "${memNs}:approval:${approval_id}" \
+  --key "approval:${approval_id}" \
   --namespace "$memNs" \
   --value '{"status":"rejected","approval_id":"'"$approval_id"'","reason":"'"${reason:-No reason given}"'","ts":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}'
 
@@ -150,13 +150,21 @@ jq --arg id "$approval_id" \
 
 2. Emit `org:approval:requested` event to dashboard (so the human is notified).
 
-3. Poll memory for the approval decision:
+3. Poll for the approval decision — check the approvals file first (authoritative, updated by both the dashboard UI and `/mastermind:approve`), then fall back to memory:
 ```bash
+approvalsFile=".monomind/orgs/${orgName}-approvals.json"
 while true; do
-  result=$(npx monomind@latest memory search --query "approval:${approval_id}" --namespace "${memNs}" 2>/dev/null)
-  status=$(echo "$result" | jq -r '.[0].value.status // ""' 2>/dev/null)
-  [ "$status" = "approved" ] && break
-  [ "$status" = "rejected" ] && { echo "Action rejected: $(echo $result | jq -r '.[0].value.reason // ""')"; exit 1; }
+  # Check file first — dashboard approve/reject button only updates the file (not memory)
+  file_status=$(jq --arg id "$approval_id" '.approvals[] | select(.id == $id) | .status // ""' "$approvalsFile" 2>/dev/null || echo "")
+  if [ -z "$file_status" ] || [ "$file_status" = '"pending"' ] || [ "$file_status" = "pending" ]; then
+    mem_result=$(npx monomind@latest memory search --query "approval:${approval_id}" --namespace "${memNs}" 2>/dev/null)
+    mem_status=$(echo "$mem_result" | jq -r '.[0].value.status // ""' 2>/dev/null)
+    [ -n "$mem_status" ] && [ "$mem_status" != "pending" ] && file_status="$mem_status"
+  fi
+  # Strip quotes from jq output
+  file_status=$(echo "$file_status" | tr -d '"')
+  [ "$file_status" = "approved" ] && break
+  [ "$file_status" = "rejected" ] && { echo "Action rejected by governance policy — skip this action"; exit 1; }
   sleep 30
 done
 ```

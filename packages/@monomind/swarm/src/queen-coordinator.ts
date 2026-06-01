@@ -987,8 +987,8 @@ export class QueenCoordinator extends EventEmitter {
     }
 
     try {
-      // Create a simple embedding from task description
-      const embedding = this.createSimpleEmbedding(task.description || task.name);
+      // Use real embeddings when available for better pattern matching
+      const embedding = await this.getRealEmbedding(task.description || task.name);
 
       // Query ReasoningBank for similar patterns
       const results = await this.neural.findPatterns(embedding, this.config.patternRetrievalK);
@@ -1016,9 +1016,32 @@ export class QueenCoordinator extends EventEmitter {
    * Create a simple embedding from text using hash-based approach.
    * For higher quality embeddings, integrate agentic-flow's computeEmbedding.
    */
+  /**
+   * Try to obtain a real ONNX/agentic-flow embedding; fall back to the
+   * hash-based approach so callers always get a valid Float32Array.
+   */
+  private async getRealEmbedding(text: string): Promise<Float32Array> {
+    try {
+      const bridge = await import('@monomind/cli/src/memory/memory-bridge.js' as string).catch(() => null);
+      if (bridge?.bridgeGenerateEmbedding) {
+        const result = await bridge.bridgeGenerateEmbedding(text);
+        if (result?.embedding && Array.isArray(result.embedding) && result.embedding.length > 0) {
+          const arr = new Float32Array(768);
+          const len = Math.min(result.embedding.length, 768);
+          for (let i = 0; i < len; i++) arr[i] = result.embedding[i];
+          let norm = 0;
+          for (let i = 0; i < arr.length; i++) norm += arr[i] * arr[i];
+          norm = Math.sqrt(norm);
+          if (norm > 0) for (let i = 0; i < arr.length; i++) arr[i] /= norm;
+          return arr;
+        }
+      }
+    } catch { /* fall through */ }
+    return this.createSimpleEmbedding(text);
+  }
+
   private createSimpleEmbedding(text: string): Float32Array {
-    // Hash-based embedding - lightweight and fast for local similarity matching
-    // For production ML embeddings, use: import('agentic-flow').computeEmbedding
+    // Hash-based embedding — lightweight fallback when real embedder unavailable
     const embedding = new Float32Array(768);
     const words = text.toLowerCase().split(/\s+/);
 
@@ -1030,18 +1053,10 @@ export class QueenCoordinator extends EventEmitter {
       }
     }
 
-    // Normalize
     let norm = 0;
-    for (let i = 0; i < embedding.length; i++) {
-      norm += embedding[i] * embedding[i];
-    }
+    for (let i = 0; i < embedding.length; i++) norm += embedding[i] * embedding[i];
     norm = Math.sqrt(norm);
-    if (norm > 0) {
-      for (let i = 0; i < embedding.length; i++) {
-        embedding[i] /= norm;
-      }
-    }
-
+    if (norm > 0) for (let i = 0; i < embedding.length; i++) embedding[i] /= norm;
     return embedding;
   }
 
@@ -1871,8 +1886,8 @@ export class QueenCoordinator extends EventEmitter {
       result.domain
     );
 
-    // Record the execution step
-    const embedding = this.createSimpleEmbedding(task.description || task.name);
+    // Record the execution step — prefer real embeddings when available
+    const embedding = await this.getRealEmbedding(task.description || task.name);
     const reward = result.success
       ? result.metrics.qualityScore * 0.8 + 0.2
       : result.metrics.qualityScore * 0.3;
@@ -2020,6 +2035,35 @@ export function createQueenCoordinator(
   memory?: IMemoryService
 ): QueenCoordinator {
   return new QueenCoordinator(swarm, config, neural, memory);
+}
+
+/**
+ * V4: Create a Queen Coordinator wired to a real NeuralLearningSystem so
+ * `findMatchingPatterns` and `learnFromOutcome` are active in production.
+ * Falls back to a coordinator without neural if the module is unavailable.
+ */
+export async function createQueenCoordinatorWithNeural(
+  swarm: ISwarmCoordinator,
+  config?: Partial<QueenCoordinatorConfig>,
+  memory?: IMemoryService
+): Promise<QueenCoordinator> {
+  let neural: INeuralLearningSystem | undefined;
+  try {
+    // Dynamic import keeps @monomind/neural out of swarm's hard dependencies
+    const mod = await import('@monomind/neural' as string);
+    const factory = mod.createNeuralLearningSystem ?? mod.default?.createNeuralLearningSystem;
+    if (factory) {
+      const instance = factory('balanced') as INeuralLearningSystem;
+      // initialize() must be called so WASM loads and SONAManager is configured
+      await instance.initialize();
+      neural = instance;
+    }
+  } catch {
+    // @monomind/neural not installed or failed to init; run without neural learning
+  }
+  const coordinator = new QueenCoordinator(swarm, config, neural, memory);
+  // QueenCoordinator.initialize() also calls neural.initialize() but that's idempotent
+  return coordinator;
 }
 
 export default QueenCoordinator;

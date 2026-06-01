@@ -368,6 +368,8 @@ export class QueryBuilder {
     if (this.state.threshold !== undefined) query.threshold = this.state.threshold;
     if (this.state.includeExpired) query.includeExpired = this.state.includeExpired;
     if (this.state.distanceMetric) query.distanceMetric = this.state.distanceMetric;
+    if (this.state.sortField) query.sortField = this.state.sortField;
+    if (this.state.sortDirection !== 'desc') query.sortDirection = this.state.sortDirection;
 
     return query;
   }

@@ -180,11 +180,16 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
       entry.embedding = await this.config.embeddingGenerator(entry.content);
     }
 
+    // Normalise namespace so indexes and the entry object agree
+    const namespace = entry.namespace || this.config.defaultNamespace;
+    if (entry.namespace !== namespace) {
+      entry = { ...entry, namespace };
+    }
+
     // Store in main storage
     this.entries.set(entry.id, entry);
 
     // Update namespace index
-    const namespace = entry.namespace || this.config.defaultNamespace;
     if (!this.namespaceIndex.has(namespace)) {
       this.namespaceIndex.set(namespace, new Set());
     }
@@ -385,6 +390,27 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
     // Apply common filters
     results = this.applyFilters(results, query);
 
+    // Apply sort if requested
+    if (query.sortField && query.sortField !== 'score') {
+      const field = query.sortField;
+      const dir = query.sortDirection === 'asc' ? 1 : -1;
+      results = results.slice().sort((a, b) => {
+        const aVal = field === 'key' ? a.key
+          : field === 'updatedAt' ? a.updatedAt
+          : field === 'lastAccessedAt' ? (a.lastAccessedAt ?? 0)
+          : field === 'accessCount' ? a.accessCount
+          : a.createdAt;
+        const bVal = field === 'key' ? b.key
+          : field === 'updatedAt' ? b.updatedAt
+          : field === 'lastAccessedAt' ? (b.lastAccessedAt ?? 0)
+          : field === 'accessCount' ? b.accessCount
+          : b.createdAt;
+        if (aVal < bVal) return -dir;
+        if (aVal > bVal) return dir;
+        return 0;
+      });
+    }
+
     // Apply pagination
     const offset = query.offset || 0;
     results = results.slice(offset, offset + query.limit);
@@ -459,12 +485,17 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
     // Phase 2: Store all entries (skip individual cache updates)
     const embeddings: Array<{ id: string; embedding: Float32Array }> = [];
 
-    for (const entry of entries) {
+    for (let entry of entries) {
+      // Normalise namespace so indexes and stored object agree
+      const namespace = entry.namespace || this.config.defaultNamespace;
+      if (entry.namespace !== namespace) {
+        entry = { ...entry, namespace };
+      }
+
       // Store in main storage
       this.entries.set(entry.id, entry);
 
       // Update namespace index
-      const namespace = entry.namespace || this.config.defaultNamespace;
       if (!this.namespaceIndex.has(namespace)) {
         this.namespaceIndex.set(namespace, new Set());
       }

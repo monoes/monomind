@@ -21,12 +21,47 @@ export interface SessionSummary {
 export class ContextualMemory {
   private summaries: Map<string, SessionSummary> = new Map();
   private readonly namespace: string;
+  private warmed = false;
 
   constructor(
     private readonly backend: IMemoryBackend,
     namespace = 'contextual-summaries',
   ) {
     this.namespace = namespace;
+  }
+
+  /**
+   * Load persisted summaries from the backend into the in-memory cache.
+   * Called automatically before the first read so cross-session summaries
+   * are visible without an explicit initialization step.
+   */
+  async warm(): Promise<void> {
+    if (this.warmed) return;
+    this.warmed = true;
+
+    try {
+      const entries = await this.backend.query({
+        type: 'hybrid',
+        namespace: this.namespace,
+        tags: ['session-summary'],
+        limit: 10000,
+      });
+
+      for (const entry of entries) {
+        const sessionId = entry.metadata?.sessionId as string | undefined;
+        if (!sessionId || this.summaries.has(sessionId)) continue;
+
+        this.summaries.set(sessionId, {
+          sessionId,
+          agentSlugs: (entry.metadata?.agentSlugs as string[]) ?? [],
+          summary: entry.content,
+          tokenCount: (entry.metadata?.tokenCount as number) ?? 0,
+          createdAt: entry.createdAt,
+        });
+      }
+    } catch {
+      // Backend unavailable — proceed with empty cache
+    }
   }
 
   /**
@@ -60,6 +95,7 @@ export class ContextualMemory {
    * token budget. Summaries are returned newest-first.
    */
   async retrieveContext(query: string, maxTokens = 2000): Promise<string> {
+    await this.warm();
     const lowerQuery = query.toLowerCase();
     const sorted = Array.from(this.summaries.values()).sort(
       (a, b) => b.createdAt - a.createdAt,

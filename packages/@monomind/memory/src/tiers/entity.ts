@@ -122,6 +122,7 @@ export class EntityMemory {
     if (raw.length === 0) return [];
     return raw
       .split('\n')
+      .filter(Boolean)
       .map((line) => JSON.parse(line) as EntityFact);
   }
 

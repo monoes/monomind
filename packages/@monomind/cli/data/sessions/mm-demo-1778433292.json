@@ -1,0 +1,88 @@
+{
+  "id": "mm-demo-1778433292",
+  "ts": 1778433292438,
+  "prompt": "Build SaaS analytics + launch campaign",
+  "status": "running",
+  "domains": [
+    "build",
+    "marketing",
+    "research"
+  ],
+  "events": [
+    {
+      "type": "session:start",
+      "session": "mm-demo-1778433292",
+      "prompt": "Build SaaS analytics + launch campaign",
+      "mode": "auto",
+      "ts": 1778433292438
+    },
+    {
+      "type": "domain:dispatch",
+      "session": "mm-demo-1778433292",
+      "domain": "build",
+      "cmd": "Spawn architect+coder+tester",
+      "ts": 1778433292438
+    },
+    {
+      "type": "domain:dispatch",
+      "session": "mm-demo-1778433292",
+      "domain": "marketing",
+      "cmd": "Craft launch copy",
+      "ts": 1778433292438
+    },
+    {
+      "type": "domain:dispatch",
+      "session": "mm-demo-1778433292",
+      "domain": "research",
+      "cmd": "Competitor analysis",
+      "ts": 1778433292438
+    },
+    {
+      "type": "agent:spawn",
+      "session": "mm-demo-1778433292",
+      "domain": "build",
+      "agent": "architect",
+      "task": "Design schema",
+      "ts": 1778433292438
+    },
+    {
+      "type": "agent:spawn",
+      "session": "mm-demo-1778433292",
+      "domain": "build",
+      "agent": "coder",
+      "task": "Implement API",
+      "ts": 1778433292438
+    },
+    {
+      "type": "agent:spawn",
+      "session": "mm-demo-1778433292",
+      "domain": "marketing",
+      "agent": "coordinator",
+      "task": "Plan campaign",
+      "ts": 1778433292438
+    },
+    {
+      "type": "agent:spawn",
+      "session": "mm-demo-1778433292",
+      "domain": "research",
+      "agent": "researcher",
+      "task": "Scrape competitors",
+      "ts": 1778433292438
+    },
+    {
+      "type": "intercom",
+      "session": "mm-demo-1778433292",
+      "from": "research",
+      "to": "marketing",
+      "msg": "competitor data ready",
+      "ts": 1778433292438
+    },
+    {
+      "type": "domain:complete",
+      "session": "mm-demo-1778433292",
+      "domain": "research",
+      "status": "complete",
+      "ts": 1778433292438
+    }
+  ]
+}

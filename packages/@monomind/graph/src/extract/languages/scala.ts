@@ -29,6 +29,12 @@ function extractWithTreeSitter(filePath: string, content: string): ExtractionRes
 
   const classStack: string[] = [];
 
+
+  // leave callback: pop stacks so sibling nodes aren't mis-attributed to a previous class
+  const leave = (n: SyntaxNodeLike) => {
+    if (['class_definition', 'object_definition', 'trait_definition', 'case_class_definition'].includes(n.type)) classStack.pop();
+  };
+
   walk(tree.rootNode, (n) => {
     if (['class_definition', 'object_definition', 'trait_definition', 'case_class_definition'].includes(n.type)) {
       const name = nodeName(n);
@@ -61,7 +67,7 @@ function extractWithTreeSitter(filePath: string, content: string): ExtractionRes
       const expr = n.children.find((c) => c.type !== 'import');
       if (expr) edges.push({ source: basename(filePath), target: expr.text.replace(/\._$/, '._'), relation: 'imports', confidence: 'EXTRACTED', sourceFile: filePath, sourceLocation: loc(n) });
     }
-  });
+  }, leave);
 
   return { nodes, edges, filesProcessed: 1, fromCache: 0, errors };
 }

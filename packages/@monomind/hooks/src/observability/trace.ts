@@ -129,7 +129,7 @@ function readJsonl<T>(filePath: string): T[] {
   if (!existsSync(filePath)) return [];
   const content = readFileSync(filePath, 'utf-8').trim();
   if (!content) return [];
-  return content.split('\n').map((line) => JSON.parse(line) as T);
+  return content.split('\n').filter(Boolean).map((line) => JSON.parse(line) as T);
 }
 
 function appendJsonl(filePath: string, record: unknown): void {

@@ -366,7 +366,7 @@ export class MemoryDomainService {
    */
   async analyzeNamespace(namespace: string): Promise<NamespaceAnalysis> {
     const entries = await this.repository.findByNamespace(namespace);
-    const active = entries.filter((e) => e.status === 'active');
+    const active = entries.filter((e) => e.status === 'active' && !e.isExpired());
 
     const typeDistribution: Record<MemoryType, number> = {
       semantic: 0,

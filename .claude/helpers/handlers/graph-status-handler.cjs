@@ -27,7 +27,8 @@ module.exports = {
                + (usage.graph_assist_search || 0) + (usage.graph_assist_neighbors || 0);
       var search = (usage.grep_call || 0) + (usage.glob_call || 0)
                  + (usage.bash_grep_call || 0) + (usage.bash_find_call || 0);
-      var pct = (wins + search) > 0 ? Math.round((wins / (wins + search)) * 100) : 0;
+      var total = wins + search + (usage.preresolve_miss || 0);
+      var pct = total > 0 ? Math.round((wins / total) * 100) : 0;
       var saved = usage.dollars_saved || 0;
       console.log('Monograph: ' + n.toLocaleString() + ' nodes · ' + e.toLocaleString() + ' edges');
       console.log('Usage: ' + pct + '% graph · ' + (100 - pct) + '% grep · ' +

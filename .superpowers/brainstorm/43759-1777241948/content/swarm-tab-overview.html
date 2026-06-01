@@ -1,0 +1,38 @@
+<h2>Swarm Tab Redesign</h2>
+<p class="subtitle">Three-level drill-down: Swarm History &rarr; Session Topology &rarr; Agent Detail</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Mirror Sessions Tab (Recommended)</h3>
+      <p>Left sidebar lists all past swarm runs (ID, topology, agent count, timestamp). Clicking one shows the topology canvas + agent list in the right panel. Clicking an agent opens a detail drawer with type, role, metrics, and full communication log &mdash; same pattern as the Sessions tab.</p>
+      <div class="pros-cons" style="margin-top:12px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Consistent UX with Sessions tab</li><li>Users already know the pattern</li><li>Left sidebar scales to many swarm runs</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Canvas topology gets less horizontal space</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Dropdown + Full-Width Canvas</h3>
+      <p>A dropdown at the top selects the swarm run. Full-width canvas below shows topology. Below that, a scrollable agent list with expandable rows for communication logs.</p>
+      <div class="pros-cons" style="margin-top:12px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Maximum canvas space for topology visualization</li><li>Clean when there are few runs</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Doesn't scale well with many swarm runs</li><li>Different pattern from Sessions tab</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Three-Column Layout</h3>
+      <p>Left: swarm run list. Center: topology canvas. Right: agent detail panel (appears on click). All three visible simultaneously.</p>
+      <div class="pros-cons" style="margin-top:12px;">
+        <div class="pros"><h4>Pros</h4><ul><li>No context switching &mdash; everything visible</li><li>Fast agent comparison</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Cramped on smaller screens</li><li>Each column fights for space</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

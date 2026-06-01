@@ -195,20 +195,37 @@ export class NeuralLearningSystem {
   private sona: SONAManager;
   private reasoningBank: ReasoningBank;
   private patternLearner: PatternLearner;
+  private sonaEngine: SONALearningEngine | null = null;
   private initialized = false;
+  private mode: SONAMode;
 
   constructor(mode: SONAMode = 'balanced') {
+    this.mode = mode;
     this.sona = createSONAManager(mode);
     this.reasoningBank = createReasoningBank();
     this.patternLearner = createPatternLearner();
   }
 
   /**
-   * Initialize the learning system
+   * Initialize the learning system.
+   * Attempts to start the real @ruvector/sona WASM engine; falls back to
+   * the pure-JS SONAManager silently if the native engine is unavailable.
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
     await this.sona.initialize();
+
+    // Wire the real WASM SONA engine when available (lazy-loaded to avoid circular import)
+    try {
+      const { getModeConfig } = await import('./sona-manager.js');
+      const engine = createSONALearningEngine(this.mode, getModeConfig(this.mode));
+      await engine.initialize(); // loads WASM, throws if @ruvector/sona unavailable
+      this.sonaEngine = engine;
+    } catch {
+      // @ruvector/sona not installed or failed to init — JS SONAManager fallback active
+      this.sonaEngine = null;
+    }
+
     this.initialized = true;
   }
 
@@ -260,7 +277,9 @@ export class NeuralLearningSystem {
   }
 
   /**
-   * Complete a task and trigger learning
+   * Complete a task and trigger learning.
+   * Feeds the trajectory into both the JS ReasoningBank pipeline and, when
+   * available, the real @ruvector/sona WASM engine.
    */
   async completeTask(trajectoryId: string, quality?: number): Promise<void> {
     const trajectory = this.sona.completeTrajectory(trajectoryId, quality);
@@ -275,23 +294,84 @@ export class NeuralLearningSystem {
 
       // Extract pattern if successful
       if (memory) {
-        this.patternLearner.extractPattern(trajectory, memory);
+        const extracted = this.patternLearner.extractPattern(trajectory, memory);
+        if (extracted) {
+          this.sona.storePattern({
+            name: extracted.name,
+            domain: extracted.domain,
+            strategy: extracted.strategy,
+            embedding: extracted.embedding,
+            successRate: extracted.successRate,
+            usageCount: extracted.usageCount,
+            qualityHistory: extracted.qualityHistory,
+            evolutionHistory: extracted.evolutionHistory,
+          });
+        }
+      }
+
+      // Also feed into the real WASM SONA engine when available
+      if (this.sonaEngine) {
+        try {
+          await this.sonaEngine.learn(trajectory);
+        } catch {
+          // SONA engine failure is non-fatal; JS path already ran above
+        }
       }
     }
   }
 
   /**
-   * Find similar patterns for a task
+   * Return all patterns currently held by the PatternLearner.
+   * Used by LearningBridge to flush learned patterns to patterns.json so the
+   * intelligence.ts routing path (Pipeline B) can find them.
    */
-  async findPatterns(queryEmbedding: Float32Array, k: number = 3): Promise<import('./types.js').PatternMatch[]> {
-    return this.patternLearner.findMatches(queryEmbedding, k);
+  getLearnedPatterns(): Array<{ id: string; domain: string; strategy: string; successRate: number; usageCount: number }> {
+    return this.patternLearner.getPatterns().map(p => ({
+      id: p.patternId,
+      domain: p.domain,
+      strategy: p.strategy,
+      successRate: p.successRate,
+      usageCount: p.usageCount,
+    }));
   }
 
   /**
-   * Retrieve relevant memories
+   * Find similar patterns for a task.
+   * Prefers the real WASM micro-LoRA transformation when the SONA engine is
+   * available; falls back to the JS LoRA adaptation from SONAManager.
+   */
+  async findPatterns(queryEmbedding: Float32Array, k: number = 3): Promise<import('./types.js').PatternMatch[]> {
+    let adapted = queryEmbedding;
+    if (this.sonaEngine) {
+      try {
+        const behavior = await this.sonaEngine.adapt({ domain: 'general', queryEmbedding });
+        adapted = behavior.transformedQuery;
+      } catch {
+        adapted = await this.sona.applyAdaptations(queryEmbedding);
+      }
+    } else {
+      adapted = await this.sona.applyAdaptations(queryEmbedding);
+    }
+    return this.patternLearner.findMatches(adapted, k);
+  }
+
+  /**
+   * Retrieve relevant memories.
+   * Applies WASM or JS LoRA adaptation to the query before retrieval.
    */
   async retrieveMemories(queryEmbedding: Float32Array, k: number = 3): Promise<import('./reasoning-bank.js').RetrievalResult[]> {
-    return this.reasoningBank.retrieve(queryEmbedding, k);
+    let adapted = queryEmbedding;
+    if (this.sonaEngine) {
+      try {
+        const behavior = await this.sonaEngine.adapt({ domain: 'general', queryEmbedding });
+        adapted = behavior.transformedQuery;
+      } catch {
+        adapted = await this.sona.applyAdaptations(queryEmbedding);
+      }
+    } else {
+      adapted = await this.sona.applyAdaptations(queryEmbedding);
+    }
+    return this.reasoningBank.retrieve(adapted, k);
   }
 
   /**
@@ -331,6 +411,10 @@ export class NeuralLearningSystem {
    */
   async cleanup(): Promise<void> {
     await this.sona.cleanup();
+    // M5: shut down ReasoningBank to close any open AgentDB SQLite handle
+    if (typeof (this.reasoningBank as any).shutdown === 'function') {
+      await (this.reasoningBank as any).shutdown();
+    }
     this.initialized = false;
   }
 }

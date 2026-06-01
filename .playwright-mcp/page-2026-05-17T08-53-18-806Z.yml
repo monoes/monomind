@@ -1,0 +1,44 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: monomind
+      - generic [ref=e6]: monomind
+    - generic [ref=e7]:
+      - generic [ref=e9] [cursor=pointer]:
+        - generic [ref=e10]: ◉
+        - generic [ref=e11]: Now
+      - generic [ref=e12]:
+        - generic [ref=e13]: Workspace
+        - generic [ref=e14] [cursor=pointer]:
+          - generic [ref=e15]: ⊞
+          - generic [ref=e16]: Projects
+          - generic [ref=e17]: —
+        - generic [ref=e18] [cursor=pointer]:
+          - generic [ref=e19]: ◫
+          - generic [ref=e20]: Sessions
+          - generic [ref=e21]: "12"
+        - generic [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: ↺
+          - generic [ref=e24]: Loops
+          - generic [ref=e25]: "7"
+      - generic [ref=e26]:
+        - generic [ref=e27]: Intelligence
+        - generic [ref=e28] [cursor=pointer]:
+          - generic [ref=e29]: ◈
+          - generic [ref=e30]: Memory
+        - generic [ref=e31] [cursor=pointer]:
+          - generic [ref=e32]: ⬡
+          - generic [ref=e33]: Orgs
+    - generic [ref=e34]:
+      - generic [ref=e35]: nokhodian
+      - generic [ref=e36]: /Users/morteza/Desktop/tools/monomind
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e39]: Projects
+      - generic [ref=e40]: live
+      - button "↺ Refresh" [ref=e43] [cursor=pointer]
+    - generic [ref=e232]:
+      - generic [ref=e233]: Projects
+      - generic [ref=e234]: All monomind-enabled Claude Code projects
+      - textbox "Filter projects…" [ref=e236]
+      - generic [ref=e238]: "Could not load projects: 500"

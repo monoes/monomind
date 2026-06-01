@@ -184,6 +184,17 @@ export class RvfLearningStore {
     return this.patterns.size;
   }
 
+  /** Delete patterns by ID. Returns the number of patterns actually removed. */
+  async deletePatterns(ids: string[]): Promise<number> {
+    this.ensureInitialized();
+    let removed = 0;
+    for (const id of ids) {
+      if (this.patterns.delete(id)) removed++;
+    }
+    if (removed > 0) this.dirty = true;
+    return removed;
+  }
+
   // ===== LoRA operations =====
 
   /** Save or update a LoRA adapter record */

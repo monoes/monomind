@@ -1,0 +1,183 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: monomind
+      - generic [ref=e6]: monomind
+    - generic [ref=e7]:
+      - generic [ref=e9] [cursor=pointer]:
+        - generic [ref=e10]: ◉
+        - generic [ref=e11]: Now
+      - generic [ref=e12]:
+        - generic [ref=e13]: Workspace
+        - generic [ref=e14] [cursor=pointer]:
+          - generic [ref=e15]: ⊞
+          - generic [ref=e16]: Projects
+          - generic [ref=e17]: —
+        - generic [ref=e18] [cursor=pointer]:
+          - generic [ref=e19]: ◫
+          - generic [ref=e20]: Sessions
+          - generic [ref=e21]: "13"
+        - generic [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: ↺
+          - generic [ref=e24]: Loops
+          - generic [ref=e25]: "7"
+      - generic [ref=e26]:
+        - generic [ref=e27]: Intelligence
+        - generic [ref=e28] [cursor=pointer]:
+          - generic [ref=e29]: ◈
+          - generic [ref=e30]: Memory
+        - generic [ref=e31] [cursor=pointer]:
+          - generic [ref=e32]: ⬡
+          - generic [ref=e33]: Orgs
+    - generic [ref=e34]:
+      - generic [ref=e35]: nokhodian
+      - generic [ref=e36]: /Users/morteza/Desktop/tools/monomind
+  - generic [ref=e37]:
+    - generic [ref=e38]:
+      - generic [ref=e39]: Now
+      - generic [ref=e40]: live
+      - button "↺ Refresh" [ref=e43] [cursor=pointer]
+    - generic [ref=e70]:
+      - generic [ref=e71]:
+        - generic [ref=e72]: ⚠
+        - text: "High spend: $23.04 today"
+        - generic [ref=e73] [cursor=pointer]: ✕
+      - generic [ref=e74]:
+        - generic [ref=e75]: ↺
+        - text: "Long-running loop: /monomind:do"
+        - generic [ref=e76] [cursor=pointer]: ✕
+      - generic [ref=e77]:
+        - generic [ref=e78]: ↺
+        - text: "Long-running loop: /mastermind:techport"
+        - generic [ref=e79] [cursor=pointer]: ✕
+      - generic [ref=e80]:
+        - generic [ref=e81]: ↺
+        - text: "Long-running loop: /mastermind:techport"
+        - generic [ref=e82] [cursor=pointer]: ✕
+      - generic [ref=e83]:
+        - generic [ref=e84]: ↺
+        - text: "Long-running loop: /mastermind:review"
+        - generic [ref=e85] [cursor=pointer]: ✕
+      - generic [ref=e86]:
+        - generic [ref=e87]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e88] [cursor=pointer]: ✕
+      - generic [ref=e89]:
+        - generic [ref=e90]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e91] [cursor=pointer]: ✕
+      - generic [ref=e92]:
+        - generic [ref=e93]: ↺
+        - text: "Long-running loop: /monomind:repeat"
+        - generic [ref=e94] [cursor=pointer]: ✕
+    - generic [ref=e45]:
+      - generic [ref=e46]:
+        - generic [ref=e47]:
+          - heading "Live Feed" [level=2] [ref=e48]
+          - generic [ref=e49]: 20243f7d…
+          - generic [ref=e50]:
+            - button "‹" [ref=e51] [cursor=pointer]
+            - button "›" [ref=e52] [cursor=pointer]
+        - generic [ref=e54]:
+          - generic [ref=e160] [cursor=pointer]:
+            - generic [ref=e161]: ⬡
+            - generic [ref=e163]: ⬡ plugin_playwright_playwright__browser_
+            - generic [ref=e164]: now
+          - generic [ref=e165] [cursor=pointer]:
+            - generic [ref=e166]: /
+            - generic [ref=e168]: ToolSearch
+            - generic [ref=e169]: now
+          - generic [ref=e171] [cursor=pointer]:
+            - generic [ref=e172]: ↵
+            - generic [ref=e174]: This session is being continued from a previous conversation that ran out of context. The …
+            - generic [ref=e175]: 11s
+          - generic [ref=e177] [cursor=pointer]:
+            - generic [ref=e178]: ◧
+            - generic [ref=e180]: Read dv2-now-clean.png
+            - generic [ref=e181]: 4m
+          - generic [ref=e182] [cursor=pointer]:
+            - generic [ref=e183]: ⬡
+            - generic [ref=e185]: ⬡ plugin_playwright_playwright__browser_
+            - generic [ref=e186]: 4m
+          - generic [ref=e187] [cursor=pointer]:
+            - generic [ref=e188]: ⬡
+            - generic [ref=e190]: ⬡ plugin_playwright_playwright__browser_
+            - generic [ref=e191]: 4m
+          - generic [ref=e192] [cursor=pointer]:
+            - generic [ref=e193]: ◧
+            - generic [ref=e194]: 5 file operations
+            - generic [ref=e195]: ▸ expand
+          - generic [ref=e196] [cursor=pointer]:
+            - generic [ref=e197]: $
+            - generic [ref=e198]: 3 shell commands
+            - generic [ref=e199]: ▸ expand
+          - generic [ref=e200] [cursor=pointer]:
+            - generic [ref=e201]: ◧
+            - generic [ref=e202]: 5 file operations
+            - generic [ref=e203]: ▸ expand
+          - generic [ref=e205] [cursor=pointer]:
+            - generic [ref=e206]: ↵
+            - generic [ref=e208]: do 2,3,4
+            - generic [ref=e209]: 7m
+      - generic [ref=e57]:
+        - heading "Detail" [level=3]
+        - button "✕" [ref=e58] [cursor=pointer]
+      - generic [ref=e60]:
+        - generic [ref=e61]:
+          - generic [ref=e210]: Today
+          - generic [ref=e211]:
+            - generic [ref=e212]: API cost
+            - generic [ref=e213]: $23.04
+          - generic [ref=e214]:
+            - generic [ref=e215]: API calls
+            - generic [ref=e216]: "428"
+          - generic [ref=e217]:
+            - generic [ref=e218]: Month total
+            - generic [ref=e219]: $4488.25
+          - generic [ref=e220]:
+            - generic [ref=e221]: 7-day activity
+            - generic [ref=e222]:
+              - 'generic "6d: 0 sessions" [ref=e223]'
+              - 'generic "5d: 0 sessions" [ref=e224]'
+              - 'generic "4d: 0 sessions" [ref=e225]'
+              - 'generic "3d: 0 sessions" [ref=e226]'
+              - 'generic "2d: 0 sessions" [ref=e227]'
+              - 'generic "1d: 8 sessions" [ref=e228]'
+              - 'generic "now: 5 sessions" [ref=e229]'
+        - generic [ref=e64]:
+          - generic [ref=e230]: Active Loops
+          - generic [ref=e231]:
+            - generic [ref=e232]: /monomind:do
+            - generic [ref=e233]: running
+          - generic [ref=e235]:
+            - generic [ref=e236]: /mastermind:techport
+            - generic [ref=e237]: "1"
+          - generic [ref=e239]:
+            - generic [ref=e240]: /mastermind:techport
+            - generic [ref=e241]: "1"
+          - generic [ref=e243]:
+            - generic [ref=e244]: /mastermind:review
+            - generic [ref=e245]: "2"
+          - generic [ref=e247]:
+            - generic [ref=e248]: /monomind:repeat
+            - generic [ref=e249]: "1"
+        - generic [ref=e67]:
+          - generic [ref=e251]: Recent Sessions
+          - generic [ref=e252] [cursor=pointer]:
+            - generic [ref=e253]: do 2,3,4
+            - generic [ref=e254]: now
+          - generic [ref=e255] [cursor=pointer]:
+            - generic [ref=e256]: i want to make a very comprehensive and state of the art browsing agent for testing on web, first i want you do a comprehensive search of what is the best way and smooth not to waste too much token an…
+            - generic [ref=e257]: 1m
+          - generic [ref=e258] [cursor=pointer]:
+            - generic [ref=e259]: yeah fix that too
+            - generic [ref=e260]: 2m
+          - generic [ref=e261] [cursor=pointer]:
+            - generic [ref=e262]: review more if its still issue
+            - generic [ref=e263]: 22h
+          - generic [ref=e264] [cursor=pointer]:
+            - generic [ref=e265]: do it all
+            - generic [ref=e266]: 17h
+          - generic [ref=e267] [cursor=pointer]:
+            - generic [ref=e268]: "Reply with literal: NO_BARE_OK"
+            - generic [ref=e269]: 1d

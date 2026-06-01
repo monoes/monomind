@@ -42,6 +42,12 @@ function extractWithTreeSitter(filePath: string, content: string): ExtractionRes
   const functionStack: string[] = [];
   const classStack: string[] = [];
 
+  // leave callback: pop stacks so sibling nodes aren't mis-attributed
+  const leave = (n: SyntaxNodeLike) => {
+    if (n.type === 'class_definition') classStack.pop();
+    if (n.type === 'function_definition' || n.type === 'decorated_definition') functionStack.pop();
+  };
+
   walk(tree.rootNode, (n) => {
     // ---- class definitions ----
     if (n.type === 'class_definition') {
@@ -197,7 +203,7 @@ function extractWithTreeSitter(filePath: string, content: string): ExtractionRes
         });
       }
     }
-  });
+  }, leave);
 
   return { nodes, edges, filesProcessed: 1, fromCache: 0, errors };
 }
