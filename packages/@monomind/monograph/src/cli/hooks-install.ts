@@ -4,6 +4,7 @@ import {
   chmodSync,
   readdirSync,
   readFileSync,
+  unlinkSync,
 } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
@@ -115,6 +116,9 @@ function removeMarkerBlock(content: string): string {
 export function uninstallGitHooks(repoPath: string, hooks: string[]): void {
   const hooksDir = getHooksDir(repoPath);
   for (const hook of hooks) {
+    if (!/^[\w-]+$/.test(hook)) {
+      throw new Error(`Invalid hook name: "${hook}" — must be alphanumeric with hyphens only`);
+    }
     const hookPath = join(hooksDir, hook);
     if (!existsSync(hookPath)) continue;
     const original = readFileSync(hookPath, 'utf8');
