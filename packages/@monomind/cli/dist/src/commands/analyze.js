@@ -1764,9 +1764,9 @@ const dependenciesCommand = {
             output.writeln(output.bold('Most Connected Files'));
             output.writeln();
             const nodesByDegree = Array.from(graph.nodes.values())
-                .map(n => ({
+                .map((n) => ({
                 ...n,
-                degree: graph.edges.filter(e => e.source === n.id || e.target === n.id).length,
+                degree: graph.edges.filter((e) => e.source === n.id || e.target === n.id).length,
             }))
                 .sort((a, b) => b.degree - a.degree)
                 .slice(0, 10);
@@ -1986,6 +1986,13 @@ export const analyzeCommand = {
             description: 'Output format: text, json, table',
             type: 'string',
             default: 'text',
+        },
+        {
+            name: 'embedding-device',
+            description: 'Embedding device: auto, cpu, cuda, dml, wasm (default: auto)',
+            type: 'string',
+            default: 'auto',
+            choices: ['auto', 'cpu', 'dml', 'cuda', 'wasm'],
         },
     ],
     examples: [

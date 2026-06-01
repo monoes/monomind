@@ -24,7 +24,7 @@ async function getAIDefence() {
     if (aidefenceInstance) {
         return aidefenceInstance;
     }
-    const packageName = '@monoes/aidefence';
+    const packageName = '@monomind/aidefence';
     // First attempt - try to load via dynamic import (ESM)
     try {
         const aidefence = await import(packageName);
@@ -45,14 +45,14 @@ async function getAIDefence() {
     }
     // Don't attempt install more than once per session
     if (installAttempted) {
-        throw new Error('AIDefence package not available. Install with: npm install @monoes/aidefence');
+        throw new Error('AIDefence package not available. Install with: npm install @monomind/aidefence');
     }
     installAttempted = true;
     // Second attempt - auto-install and retry
     console.error(`[monomind] ${packageName} not found, attempting auto-install...`);
     const installed = await autoInstallPackage(packageName);
     if (!installed) {
-        throw new Error('AIDefence package not available. Install with: npm install @monoes/aidefence');
+        throw new Error('AIDefence package not available. Install with: npm install @monomind/aidefence');
     }
     // Retry with ESM cache busting via file:// URL + timestamp
     try {
@@ -360,7 +360,7 @@ const aidefenceIsSafeTool = {
     handler: async (args) => {
         const input = args.input;
         try {
-            const { isSafe } = await import('@monoes/aidefence');
+            const { isSafe } = await import('@monomind/aidefence');
             const safe = isSafe(input);
             return {
                 content: [{
