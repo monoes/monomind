@@ -40,14 +40,46 @@ export {
 } from './diff-classifier.js';
 
 // Stub types for removed modules (q-learning-router, moe-router, etc. removed by minimal cleanup)
-export interface QLearningRouter { route: (task: string) => Promise<RouteDecision>; }
-export interface RouteDecision { agentType: string; confidence: number; reasoning?: string; }
+export interface QLearningRouter {
+  route: (task: string, context?: unknown) => Promise<RouteDecision>;
+  initialize?: () => Promise<void>;
+  getStats?: () => Record<string, unknown>;
+  update?: (feedback: unknown) => void;
+  reset?: () => void;
+  export?: () => unknown;
+  import?: (data: unknown) => void;
+}
+export interface RouteDecision { agentType: string; confidence: number; reasoning?: string; route?: string; qValues?: number[]; explored?: boolean; alternatives?: string[]; }
 export interface QLearningRouterConfig { learningRate?: number; discountFactor?: number; }
 export interface MoERouter { route: (input: string) => Promise<RoutingResult>; }
 export interface RoutingResult { expert: string; confidence: number; }
 export interface MoERouterConfig { numExperts?: number; }
 export interface LoadBalanceStats { [expert: string]: number; }
 export type ExpertType = string;
+
+export function createQLearningRouter(_config?: QLearningRouterConfig): QLearningRouter {
+  const agentTypes = ['coder', 'tester', 'reviewer', 'architect', 'researcher', 'optimizer', 'debugger', 'documenter'];
+  return {
+    async route(task: string): Promise<RouteDecision> {
+      const lower = task.toLowerCase();
+      let agentType = 'coder';
+      if (lower.includes('test')) agentType = 'tester';
+      else if (lower.includes('review') || lower.includes('security')) agentType = 'reviewer';
+      else if (lower.includes('design') || lower.includes('architect')) agentType = 'architect';
+      else if (lower.includes('research') || lower.includes('analyz')) agentType = 'researcher';
+      else if (lower.includes('optim') || lower.includes('perform')) agentType = 'optimizer';
+      else if (lower.includes('debug') || lower.includes('fix') || lower.includes('bug')) agentType = 'debugger';
+      else if (lower.includes('doc')) agentType = 'documenter';
+      return { agentType, confidence: 0.75, reasoning: 'keyword-based routing', route: agentType, qValues: [], explored: false, alternatives: agentTypes.filter(a => a !== agentType).slice(0, 3) };
+    },
+    async initialize() {},
+    getStats() { return {}; },
+    update() {},
+    reset() {},
+    export() { return {}; },
+    import() {},
+  };
+}
 
 // ── RuVector LLM WASM (inference utilities) ─────────────────
 export {
