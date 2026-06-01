@@ -14,7 +14,7 @@ export interface TopoSortResult {
  *
  * In the reverse graph, an edge A→B in the original (A imports B) becomes B→A.
  * Files with no incoming edges on the reverse graph (i.e., no one imports them)
- * are leaves and appear in level 0. This mirrors GitNexus's `topologicalLevelSort`.
+ * are leaves and appear in level 0.
  *
  * @param db - The MonographDb instance
  * @returns Object with `levels` (array of independent groups, leaf-first) and `cycleCount`.

@@ -4,8 +4,8 @@
  * Shallow-clones repositories into ~/.monograph/repos/{name}/.
  * If already cloned, runs `git pull --ff-only` instead.
  *
- * SSRF protection mirrors GitNexus's git-clone.ts: only https:// and http://
- * are allowed, and private/internal IP ranges are blocked.
+ * SSRF protection: only https:// and http:// are allowed,
+ * and private/internal IP ranges are blocked.
  */
 
 import { spawn } from 'child_process';
