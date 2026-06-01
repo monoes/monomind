@@ -162,7 +162,10 @@ function generateSimpleEmbedding(text: string, dimension: number = 384): Float32
 // ── Runtime routing outcome persistence ──────────────────────────────
 // Closes the learning loop: post-task records outcomes → route loads them.
 
-const ROUTING_OUTCOMES_PATH = join(resolve('.'), '.monomind/routing-outcomes.json');
+// Evaluated lazily via getter so it uses runtime CWD, not import-time CWD
+function getRoutingOutcomesPath(): string {
+  return join(getProjectCwd(), '.monomind', 'routing-outcomes.json');
+}
 
 const ROUTING_STOPWORDS = new Set([
   'the','a','an','is','are','was','were','be','been','being','have','has','had',
@@ -194,8 +197,8 @@ function extractKeywords(text: string): string[] {
 
 function loadRoutingOutcomes(): RoutingOutcome[] {
   try {
-    if (existsSync(ROUTING_OUTCOMES_PATH)) {
-      const data = JSON.parse(readFileSync(ROUTING_OUTCOMES_PATH, 'utf-8'));
+    if (existsSync(getRoutingOutcomesPath())) {
+      const data = JSON.parse(readFileSync(getRoutingOutcomesPath(), 'utf-8'));
       return data.outcomes || [];
     }
   } catch { /* corrupt file, start fresh */ }
@@ -204,13 +207,13 @@ function loadRoutingOutcomes(): RoutingOutcome[] {
 
 function saveRoutingOutcomes(outcomes: RoutingOutcome[]): void {
   try {
-    const dir = dirname(ROUTING_OUTCOMES_PATH);
+    const dir = dirname(getRoutingOutcomesPath());
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     // Cap at 500 entries to bound file size
     const capped = outcomes.slice(-500);
-    const tmp = ROUTING_OUTCOMES_PATH + '.tmp';
+    const tmp = getRoutingOutcomesPath() + '.tmp';
     writeFileSync(tmp, JSON.stringify({ outcomes: capped }, null, 2));
-    renameSync(tmp, ROUTING_OUTCOMES_PATH);
+    renameSync(tmp, getRoutingOutcomesPath());
   } catch { /* non-critical */ }
 }
 
@@ -659,6 +662,45 @@ function suggestAgentsForTask(task: string): { agents: string[]; confidence: num
 // Canonical set of valid monomind agent type strings.
 // Patterns whose type is not in this set (e.g. 'action', 'observation', 'routing')
 // are structural labels, not agent names, and must be excluded from routing.
+// Singleton neural router — initialized once per process and reused across route calls.
+// Creating + destroying NeuralLearningSystem on every call would read learned-state.json
+// on each invocation and call consolidateEWC() on cleanup, both of which are wrong.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _neuralRouterInstance: any = null;
+let _neuralRouterInitPromise: Promise<void> | null = null;
+
+async function applyNeuralAdaptation(text: string, dimensions: number): Promise<Float32Array | null> {
+  if (!_neuralRouterInitPromise) {
+    _neuralRouterInitPromise = (async () => {
+      try {
+        const neural = await import('@monomind/neural' as string).catch(() => null);
+        if (neural?.createNeuralLearningSystem) {
+          const sys = neural.createNeuralLearningSystem('balanced');
+          await sys.initialize();
+          _neuralRouterInstance = sys;
+        }
+      } catch { _neuralRouterInstance = null; }
+    })();
+  }
+  await _neuralRouterInitPromise;
+  if (!_neuralRouterInstance) return null;
+  try {
+    const base = new Float32Array(dimensions);
+    // Use a hash embedding as the base for the LoRA transform
+    const words = text.toLowerCase().split(/\s+/);
+    for (let i = 0; i < dimensions; i++) {
+      let v = 0;
+      for (let w = 0; w < words.length; w++) {
+        for (let c = 0; c < words[w].length; c++) {
+          v += Math.sin((words[w].charCodeAt(c) * (i + 1) + w * 17) * 0.0137);
+        }
+      }
+      base[i] = v;
+    }
+    return await _neuralRouterInstance.getSONAManager().applyAdaptations(base);
+  } catch { return null; }
+}
+
 const VALID_AGENT_TYPES = new Set([
   'coder', 'reviewer', 'tester', 'planner', 'researcher',
   'architect', 'security-architect', 'security-auditor',
@@ -983,7 +1025,14 @@ export const hooksRoute: MCPTool = {
     let backendInfo = '';
 
     const queryText = context ? `${task} ${context}` : task;
-    const queryEmbedding = generateSimpleEmbedding(queryText);
+    // Apply LoRA adaptations from the neural system when available.
+    // The adapted embedding reflects what was learned in prior sessions
+    // (loaded from learned-state.json during _neuralRouterInstance.initialize()).
+    let queryEmbedding = generateSimpleEmbedding(queryText);
+    try {
+      const adapted = await applyNeuralAdaptation(queryText, 768);
+      if (adapted) queryEmbedding = adapted.slice(0, 384);
+    } catch { /* fall through to hash embedding */ }
 
     // Try native VectorDb (HNSW-backed)
     if (native && backend === 'native') {
@@ -1541,7 +1590,7 @@ export const hooksExplain: MCPTool = {
     let historicalSuccess: number | null = null;
     let historicalNote = 'No historical data yet';
     try {
-      const outcomesPath = join(resolve('.'), '.monomind/routing-outcomes.json');
+      const outcomesPath = getRoutingOutcomesPath();
       if (existsSync(outcomesPath)) {
         const data = JSON.parse(readFileSync(outcomesPath, 'utf-8'));
         const outcomes: Array<{ success: boolean }> = data.outcomes || [];
@@ -1972,7 +2021,11 @@ export const hooksSessionEnd: MCPTool = {
   handler: async (params: Record<string, unknown>) => {
     const saveState = params.saveState !== false;
     const shouldStopDaemon = params.stopDaemon !== false;
-    const sessionId = `session-${Date.now() - 3600000}`; // Default session (1 hour ago)
+    // Use caller-supplied sessionId if provided, otherwise generate a current-time ID.
+    // The -3600000 offset was incorrect — it prevented matching session-start IDs.
+    const sessionId = typeof params.sessionId === 'string' && params.sessionId
+      ? params.sessionId
+      : `session-${Date.now()}`;
 
     // Stop daemon if enabled
     let daemonStopped = false;
