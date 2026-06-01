@@ -6,11 +6,13 @@ import { parseFile } from '../../parsers/loader.js';
 import { insertNodes } from '../../storage/node-store.js';
 import { insertEdges } from '../../storage/edge-store.js';
 import type { StructureOutput } from './structure.js';
+import { extractVariables, variableToNode } from './variables.js';
 
 export interface ParseOutput {
   symbolNodes: MonographNode[];
   allEdges: MonographEdge[];
   parseErrors: string[];
+  fileContents: Map<string, string>;
 }
 
 export const parsePhase: PipelinePhase<ParseOutput> = {
@@ -21,6 +23,7 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
     const symbolNodes: MonographNode[] = [];
     const allEdges: MonographEdge[] = [];
     const parseErrors: string[] = [];
+    const fileContents = new Map<string, string>();
     let processed = 0;
 
     for (const fileNode of fileNodes) {
@@ -34,12 +37,49 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
           continue;
         }
         source = readFileSync(absPath, 'utf-8');
+        fileContents.set(fileNode.filePath ?? absPath, source);
       } catch { continue; }
 
       const result = await parseFile(absPath, source, fileNode.filePath ?? '');
       symbolNodes.push(...result.nodes);
       allEdges.push(...result.edges);
       parseErrors.push(...result.parseErrors);
+
+      // Extract C# namespace declarations
+      if (ext === '.cs') {
+        const csNamespaces = extractCsharpNamespaces(source, fileNode.filePath ?? '');
+        for (const ns of csNamespaces) {
+          symbolNodes.push({
+            id: `${ns.filePath}::namespace::${ns.name}`,
+            name: ns.name,
+            label: 'Namespace',
+            normLabel: 'namespace',
+            filePath: ns.filePath,
+            line: ns.line,
+            isExported: true,
+          } as import('../../types.js').MonographNode);
+        }
+      }
+
+      // Extract top-level variable declarations for TS/JS files
+      if (['.ts', '.tsx', '.js', '.jsx'].includes(ext)) {
+        const varInfos = extractVariables(source, fileNode.filePath ?? '');
+        symbolNodes.push(...varInfos.map(v => variableToNode(v)));
+
+        // Extract named arrow functions
+        const arrowFns = extractArrowFunctions(source, fileNode.filePath ?? '');
+        for (const fn of arrowFns) {
+          symbolNodes.push({
+            id: `${fn.filePath}::fn::${fn.name}`,
+            name: fn.name,
+            label: 'Function',
+            normLabel: 'function',
+            filePath: fn.filePath,
+            line: fn.line,
+            isExported: fn.isExported,
+          } as import('../../types.js').MonographNode);
+        }
+      }
       processed++;
 
       if (processed % 50 === 0) {
@@ -57,6 +97,45 @@ export const parsePhase: PipelinePhase<ParseOutput> = {
       insertEdges(ctx.db, resolvableEdges);
     }
 
-    return { symbolNodes, allEdges, parseErrors };
+    return { symbolNodes, allEdges, parseErrors, fileContents };
   },
 };
+
+export function extractCsharpNamespaces(
+  source: string,
+  filePath: string,
+): Array<{ name: string; label: 'Namespace'; filePath: string; line: number }> {
+  const results: Array<{ name: string; label: 'Namespace'; filePath: string; line: number }> = [];
+  const re = /^[ \t]*namespace\s+([\w.]+)\s*[\{;]/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(source)) !== null) {
+    const charsBefore = source.slice(0, m.index);
+    const line = (charsBefore.match(/\n/g)?.length ?? 0) + 1;
+    results.push({ name: m[1]!, label: 'Namespace', filePath, line });
+  }
+  return results;
+}
+
+export function extractArrowFunctions(
+  source: string,
+  filePath: string,
+): Array<{ name: string; isExported: boolean; line: number; filePath: string }> {
+  const results: Array<{ name: string; isExported: boolean; line: number; filePath: string }> = [];
+  // Match: (export)? const/let NAME = (async)? (...) =>
+  const re = /^([ \t]*)(export\s+)?(?:const|let)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/gm;
+
+  let m: RegExpExecArray | null;
+  re.lastIndex = 0;
+  while ((m = re.exec(source)) !== null) {
+    const charsBefore = source.slice(0, m.index);
+    const lineNum = (charsBefore.match(/\n/g)?.length ?? 0) + 1;
+    results.push({
+      name: m[3]!,
+      isExported: !!(m[2]?.trim()),
+      line: lineNum,
+      filePath,
+    });
+  }
+
+  return results;
+}
