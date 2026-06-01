@@ -107,7 +107,7 @@ export function assignService(
   for (const boundary of boundaries) {
     const rel = relative(boundary.servicePath, filePath);
     // relative() returns a path that starts with '..' if filePath is outside boundary
-    if (!rel.startsWith('..') && rel !== '') {
+    if (!rel.startsWith('..') && rel !== '' && rel !== '.') {
       if (boundary.servicePath.length > bestLen) {
         bestLen = boundary.servicePath.length;
         best = boundary;

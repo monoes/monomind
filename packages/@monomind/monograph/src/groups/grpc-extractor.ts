@@ -9,7 +9,8 @@ export interface GrpcContract {
 }
 
 // Proto: service definition
-const PROTO_SERVICE_RE = /\bservice\s+(\w+)\s*\{([^}]*)\}/gs;
+// Matches service bodies up to one level of nested braces (covers rpc Foo() returns (Bar) {})
+const PROTO_SERVICE_RE = /\bservice\s+(\w+)\s*\{((?:[^{}]|\{[^}]*\})*)\}/gs;
 const PROTO_RPC_RE = /\brpc\s+(\w+)\s*\(/g;
 const PROTO_PACKAGE_RE = /^package\s+([\w.]+);/m;
 
