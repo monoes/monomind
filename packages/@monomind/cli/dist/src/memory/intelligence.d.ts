@@ -289,8 +289,8 @@ export declare function benchmarkAdaptation(iterations?: number): {
     targetMet: boolean;
 };
 /**
- * Get all patterns from ReasoningBank
- * Returns persisted patterns even after process restart
+ * Get all patterns from ReasoningBank, merged with SONA routing patterns.
+ * Returns persisted patterns even after process restart.
  */
 export declare function getAllPatterns(): Promise<Pattern[]>;
 /**

@@ -90,19 +90,46 @@ const initAction = async (ctx) => {
             return { success: false, exitCode: 1 };
         }
         spinner.succeed('Monomind initialized successfully!');
-        // Start monograph watch for ongoing file-change rebuilds.
-        // NOTE: watchAsync uses ignoreInitial:true — it does NOT do an initial build.
-        // The initial build is handled by initKnowledgeGraph() above via a detached spawn.
-        try {
-            const { spawn } = await import('child_process');
-            const proc = spawn(process.execPath, [process.argv[1], 'monograph', 'watch'], {
-                detached: true, stdio: 'ignore', cwd: ctx.cwd, env: process.env,
-            });
-            proc.unref();
-            output.printInfo('◈ Building knowledge graph in background… (watch mode active)');
-        }
-        catch {
-            // non-critical
+        // Start monograph watch for ongoing file-change rebuilds, unless --no-watch was passed.
+        // Guard: skip if a watcher PID file already exists and the process is still alive,
+        // preventing duplicate watchers from accumulating on repeated `init --force` runs.
+        const noWatch = ctx.flags['no-watch'];
+        if (!noWatch) {
+            try {
+                const { spawn } = await import('child_process');
+                const pidFile = path.join(ctx.cwd, '.monomind', 'monograph-watch.pid');
+                let alreadyRunning = false;
+                if (fs.existsSync(pidFile)) {
+                    const existingPid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+                    if (!isNaN(existingPid)) {
+                        try {
+                            process.kill(existingPid, 0);
+                            alreadyRunning = true;
+                        }
+                        catch { /* process gone */ }
+                    }
+                }
+                if (!alreadyRunning) {
+                    const logPath = path.join(ctx.cwd, '.monomind', 'monograph-watch.log');
+                    const { openSync } = fs;
+                    const logFd = openSync(logPath, 'a');
+                    const proc = spawn(process.execPath, [process.argv[1], 'monograph', 'watch'], {
+                        detached: true,
+                        stdio: ['ignore', logFd, logFd],
+                        cwd: ctx.cwd,
+                        env: process.env,
+                    });
+                    fs.writeFileSync(pidFile, String(proc.pid));
+                    proc.unref();
+                    output.printInfo('◈ Knowledge graph watch started in background');
+                }
+                else {
+                    output.printInfo('◈ Knowledge graph watch already running — skipping');
+                }
+            }
+            catch {
+                // non-critical
+            }
         }
         output.writeln();
         // Display summary
@@ -895,6 +922,12 @@ export const initCommand = {
             default: false,
         },
         {
+            name: 'no-watch',
+            description: 'Skip starting the monograph knowledge graph watcher after init',
+            type: 'boolean',
+            default: false,
+        },
+        {
             name: 'with-embeddings',
             description: 'Initialize ONNX embedding subsystem with hyperbolic support',
             type: 'boolean',
@@ -918,6 +951,7 @@ export const initCommand = {
         { command: 'monomind init --only-claude', description: 'Only create Claude Code integration' },
         { command: 'monomind init --skip-claude', description: 'Only create v1 runtime' },
         { command: 'monomind init wizard', description: 'Interactive setup wizard' },
+        { command: 'monomind init --no-watch', description: 'Initialize without starting the background graph watcher' },
         { command: 'monomind init --with-embeddings', description: 'Initialize with ONNX embeddings' },
         { command: 'monomind init --with-embeddings --embedding-model Xenova/all-mpnet-base-v2', description: 'Use larger embedding model' },
         { command: 'monomind init skills --all', description: 'Install all available skills' },

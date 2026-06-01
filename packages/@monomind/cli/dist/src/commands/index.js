@@ -70,6 +70,7 @@ const commandLoaders = {
     replay: () => import('./replay.js'),
     // Native browser automation (TypeScript CDP client)
     browse: () => import('./browse.js'),
+    platforms: () => import('./platforms.js'),
 };
 // Cache for loaded commands
 const loadedCommands = new Map();
@@ -146,6 +147,7 @@ import replayCommand from './replay.js';
 import { benchmarkCommand } from './benchmark.js';
 import storeCommand from './transfer-store.js';
 import tokensCommand from './tokens.js';
+import { platformsCommand } from './platforms.js';
 // Pre-populate cache with core commands
 loadedCommands.set('init', initCommand);
 loadedCommands.set('start', startCommand);
@@ -173,6 +175,7 @@ loadedCommands.set('replay', replayCommand);
 loadedCommands.set('benchmark', benchmarkCommand);
 loadedCommands.set('transfer-store', storeCommand);
 loadedCommands.set('tokens', tokensCommand);
+loadedCommands.set('platforms', platformsCommand);
 // =============================================================================
 // Exports (maintain backwards compatibility)
 // =============================================================================
@@ -200,6 +203,7 @@ export { applianceCommand } from './appliance.js';
 export { cleanupCommand } from './cleanup.js';
 export { autopilotCommand } from './autopilot.js';
 export { monographCommand } from './monograph.js';
+export { platformsCommand } from './platforms.js';
 // Lazy-loaded command re-exports (for backwards compatibility, but async-only)
 export async function getConfigCommand() { return loadCommand('config'); }
 export async function getMigrateCommand() { return loadCommand('migrate'); }
@@ -255,6 +259,7 @@ export const commands = [
     cleanupCommand,
     autopilotCommand,
     monographCommand,
+    platformsCommand,
 ];
 /**
  * Commands organized by category for help display
@@ -309,6 +314,8 @@ export const commandsByCategory = {
         processCommand,
         applianceCommand,
         storeCommand,
+        cleanupCommand,
+        platformsCommand,
     ],
 };
 /**

@@ -9,8 +9,6 @@
  * - Extracts keywords from tasks for pattern matching
  * - Maintains learned routing patterns with confidence scoring
  * - Persists patterns to .swarm/sona-patterns.json
- * - Integrates with Q-learning router for combined routing
- *
  * @module v1/cli/memory/sona-optimizer
  */
 /**
@@ -57,10 +55,8 @@ export interface RoutingSuggestion {
     agent: string;
     /** Confidence in recommendation (0-1) */
     confidence: number;
-    /** Whether Q-learning was used */
-    usedQLearning: boolean;
     /** Source of recommendation */
-    source: 'sona-pattern' | 'q-learning' | 'keyword-match' | 'default';
+    source: 'sona-pattern' | 'keyword-match' | 'default';
     /** Alternative agents with scores */
     alternatives: Array<{
         agent: string;
@@ -83,8 +79,6 @@ export interface SONAStats {
     trajectoriesProcessed: number;
     /** Average confidence of patterns */
     avgConfidence: number;
-    /** Q-learning integration status */
-    qLearningEnabled: boolean;
     /** Time of last learning update */
     lastUpdate: number | null;
 }
@@ -92,7 +86,6 @@ export interface SONAStats {
  * SONA Optimizer for adaptive routing based on trajectory outcomes
  *
  * Learns from past task outcomes to improve future routing decisions.
- * Integrates with Q-learning router for hybrid routing strategy.
  */
 export declare class SONAOptimizer {
     private patterns;
@@ -101,8 +94,6 @@ export declare class SONAOptimizer {
     private failedRoutings;
     private lastUpdate;
     private persistencePath;
-    private qLearningRouter;
-    private qLearningEnabled;
     constructor(options?: {
         persistencePath?: string;
     });

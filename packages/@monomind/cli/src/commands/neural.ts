@@ -459,6 +459,18 @@ const statusCommand: Command = {
 
       spinner.succeed('Neural systems checked');
 
+      const fs_status = await import('fs');
+      const path_status = await import('path');
+      const learnedStatePath = path_status.join(process.cwd(), '.monomind', 'neural', 'learned-state.json');
+      const hasLearnedState = fs_status.existsSync(learnedStatePath);
+      let learnedStateAge = '';
+      if (hasLearnedState) {
+        const stat = fs_status.statSync(learnedStatePath);
+        const ageMs = Date.now() - stat.mtimeMs;
+        const ageMins = Math.round(ageMs / 60000);
+        learnedStateAge = ageMins < 60 ? `${ageMins}m ago` : `${Math.round(ageMins/60)}h ago`;
+      }
+
       output.writeln();
       output.printTable({
         columns: [
@@ -540,6 +552,11 @@ const statusCommand: Command = {
               };
             }
           })(),
+          {
+            component: 'LoRA Persistence',
+            status: hasLearnedState ? output.success('Saved') : output.dim('None'),
+            details: hasLearnedState ? `Weights persisted ${learnedStateAge}` : 'No prior session weights',
+          },
         ],
       });
 

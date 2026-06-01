@@ -96,7 +96,7 @@ const DEFAULT_CONFIG: ResolvedConfig = {
   maxConfidence: 1.0,
   minConfidence: 0.1,
   ewcLambda: 2000,
-  consolidationThreshold: 10,
+  consolidationThreshold: 5,
   enabled: true,
 };
 
@@ -130,6 +130,7 @@ export class LearningBridge extends EventEmitter {
   };
   private destroyed = false;
   private neuralInitPromise: Promise<void> | null = null;
+  private backfillInProgress = false;
 
   constructor(backend: IMemoryBackend, config?: LearningBridgeConfig) {
     super();
@@ -521,6 +522,8 @@ export class LearningBridge extends EventEmitter {
    * Non-fatal — any error is silently swallowed.
    */
   private async backfillEmbeddings(patternsPath: string): Promise<void> {
+    if (this.backfillInProgress) return;
+    this.backfillInProgress = true;
     try {
       const { readFileSync, writeFileSync, renameSync } = await import('node:fs');
 
@@ -547,6 +550,8 @@ export class LearningBridge extends EventEmitter {
       renameSync(tmp, patternsPath);
     } catch {
       // Non-fatal: backfill failure does not affect the flush result
+    } finally {
+      this.backfillInProgress = false;
     }
   }
 

@@ -25,25 +25,13 @@ const IMPACT_KEYWORDS = {
 };
 export class DiffClassifier {
     config;
-    ruvectorEngine = null;
-    useNative = false;
     classificationCache = new Map();
     static MAX_CLASSIFICATION_CACHE = 100;
     constructor(config = {}) {
         this.config = { ...DEFAULT_CONFIG, ...config };
     }
     async initialize() {
-        try {
-            // @ruvector/diff is optional - gracefully fallback if not installed
-            const ruvector = await import('@ruvector/diff').catch(() => null);
-            if (ruvector) {
-                this.ruvectorEngine = ruvector.createDiffClassifier?.(this.config);
-                this.useNative = !!this.ruvectorEngine;
-            }
-        }
-        catch {
-            this.useNative = false;
-        }
+        // No-op: JS-based classification is always used
     }
     parseDiff(diffContent) {
         const files = [];
@@ -82,7 +70,7 @@ export class DiffClassifier {
         return 'unknown';
     }
     getStats() {
-        return { useNative: this.useNative, cacheSize: this.classificationCache.size };
+        return { cacheSize: this.classificationCache.size };
     }
     clearCache() { this.classificationCache.clear(); }
     parseHunks(block) {

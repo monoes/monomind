@@ -13,26 +13,9 @@
  * @module @monomind/cli/ruvector
  */
 
-export { QLearningRouter, createQLearningRouter, type QLearningRouterConfig, type RouteDecision } from './q-learning-router.js';
-export {
-  MoERouter,
-  getMoERouter,
-  resetMoERouter,
-  createMoERouter,
-  EXPERT_NAMES,
-  NUM_EXPERTS,
-  INPUT_DIM,
-  HIDDEN_DIM,
-  type ExpertType,
-  type MoERouterConfig,
-  type RoutingResult,
-  type LoadBalanceStats,
-} from './moe-router.js';
-export { ASTAnalyzer, createASTAnalyzer, type ASTAnalysis, type ASTNode, type ASTAnalyzerConfig } from './ast-analyzer.js';
 export {
   DiffClassifier,
   createDiffClassifier,
-  // MCP tool exports
   analyzeDiff,
   analyzeDiffSync,
   assessFileRisk,
@@ -41,10 +24,8 @@ export {
   suggestReviewers,
   getGitDiffNumstat,
   getGitDiffNumstatAsync,
-  // Cache control
   clearDiffCache,
   clearAllDiffCaches,
-  // Types
   type DiffClassification,
   type DiffHunk,
   type DiffChange,
@@ -57,85 +38,16 @@ export {
   type OverallRisk,
   type DiffAnalysisResult,
 } from './diff-classifier.js';
-export {
-  CoverageRouter,
-  createCoverageRouter,
-  // MCP tool exports
-  coverageRoute,
-  coverageSuggest,
-  coverageGaps,
-  // Cache utilities (NEW)
-  clearCoverageCache,
-  getCoverageCacheStats,
-  // Types
-  type CoverageRouterConfig,
-  type FileCoverage,
-  type CoverageReport,
-  type CoverageRouteResult,
-  type CoverageSuggestResult,
-  type CoverageGapsResult,
-  type CoverageRouteOptions,
-  type CoverageSuggestOptions,
-  type CoverageGapsOptions,
-} from './coverage-router.js';
-export { coverageRouterTools, hooksCoverageRoute, hooksCoverageSuggest, hooksCoverageGaps } from './coverage-tools.js';
-export {
-  buildDependencyGraph,
-  analyzeGraph,
-  analyzeMinCutBoundaries,
-  analyzeModuleCommunities,
-  detectCircularDependencies,
-  exportToDot,
-  loadRuVector,
-  fallbackMinCut,
-  fallbackLouvain,
-  // Cache utilities (NEW)
-  clearGraphCaches,
-  getGraphCacheStats,
-  type GraphNode,
-  type GraphEdge,
-  type DependencyGraph,
-  type MinCutBoundary,
-  type ModuleCommunity,
-  type CircularDependency,
-  type GraphAnalysisResult,
-} from './graph-analyzer.js';
-export {
-  FlashAttention,
-  getFlashAttention,
-  resetFlashAttention,
-  computeAttention,
-  benchmarkFlashAttention,
-  getFlashAttentionSpeedup,
-  type FlashAttentionConfig,
-  type AttentionResult,
-  type BenchmarkResult,
-} from './flash-attention.js';
-// lora-adapter removed — superseded by SONA instant adaptation
-export {
-  ModelRouter,
-  getModelRouter,
-  resetModelRouter,
-  createModelRouter,
-  routeToModel,
-  routeToModelFull,
-  analyzeTaskComplexity,
-  getModelRouterStats,
-  recordModelOutcome,
-  MODEL_CAPABILITIES,
-  COMPLEXITY_INDICATORS,
-  type ClaudeModel,
-  type ModelRouterConfig,
-  type ModelRoutingResult,
-  type ComplexityAnalysis,
-} from './model-router.js';
-export {
-  SemanticRouter,
-  createSemanticRouter,
-  type Intent,
-  type RouteResult,
-  type RouterConfig,
-} from './semantic-router.js';
+
+// Stub types for removed modules (q-learning-router, moe-router, etc. removed by minimal cleanup)
+export interface QLearningRouter { route: (task: string) => Promise<RouteDecision>; }
+export interface RouteDecision { agentType: string; confidence: number; reasoning?: string; }
+export interface QLearningRouterConfig { learningRate?: number; discountFactor?: number; }
+export interface MoERouter { route: (input: string) => Promise<RoutingResult>; }
+export interface RoutingResult { expert: string; confidence: number; }
+export interface MoERouterConfig { numExperts?: number; }
+export interface LoadBalanceStats { [expert: string]: number; }
+export type ExpertType = string;
 
 // ── RuVector LLM WASM (inference utilities) ─────────────────
 export {
@@ -196,6 +108,7 @@ export {
  */
 export async function isRuvectorAvailable(): Promise<boolean> {
   try {
+    // @ts-expect-error optional peer dependency
     await import('@ruvector/core');
     return true;
   } catch {
@@ -220,6 +133,7 @@ export async function isWasmBackendAvailable(): Promise<boolean> {
  */
 export async function getRuvectorVersion(): Promise<string | null> {
   try {
+    // @ts-expect-error optional peer dependency
     const ruvector = await import('@ruvector/core');
     return (ruvector as any).version || '1.0.0';
   } catch {

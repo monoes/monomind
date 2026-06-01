@@ -20,14 +20,25 @@ async function getOrCreateQueenCoordinator(hiveId: string): Promise<any> {
   try {
     const swarmPkg = await import('@monomind/swarm' as string).catch(() => null);
     if (!swarmPkg?.createQueenCoordinatorWithNeural) return null;
-    // UnifiedSwarmCoordinator satisfies ISwarmCoordinator for stub purposes
-    const stubSwarm = {
-      getActiveAgents: async () => [],
-      spawnAgent: async () => ({ agentId: 'stub' }),
-      terminateAgent: async () => {},
-      broadcastMessage: async () => {},
+    const realSwarm = {
+      getActiveAgents: async () => {
+        try {
+          const store = loadAgentStore();
+          return Object.entries(store.agents || {}).map(([id, agent]: [string, any]) => ({
+            agentId: id,
+            type: (agent as any).type || 'coder',
+            status: (agent as any).status || 'active',
+          }));
+        } catch { return []; }
+      },
+      spawnAgent: async (config: any) => {
+        const id = `queen-spawned-${Date.now()}`;
+        return { agentId: id };
+      },
+      terminateAgent: async (_agentId: string) => {},
+      broadcastMessage: async (_message: any) => {},
     };
-    queenCoordinator = await swarmPkg.createQueenCoordinatorWithNeural(stubSwarm, {
+    queenCoordinator = await swarmPkg.createQueenCoordinatorWithNeural(realSwarm, {
       enableLearning: true,
       patternRetrievalK: 3,
     });
