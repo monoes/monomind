@@ -212,7 +212,10 @@ export class ReasoningBank extends EventEmitter {
   constructor(config: Partial<ReasoningBankConfig> = {}) {
     super();
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.embeddingService = new FallbackEmbeddingService(this.config.dimensions);
+    this.embeddingService = new FallbackEmbeddingService(
+      this.config.dimensions,
+      this.config.useMockEmbeddings ?? false,
+    );
   }
 
   /**
@@ -961,15 +964,26 @@ class RealEmbeddingService implements IEmbeddingService {
 class FallbackEmbeddingService implements IEmbeddingService {
   private dimensions: number;
   private cache: Map<string, Float32Array> = new Map();
+  // When true (e.g. during tests), skip the costly external agentic-flow call
+  // and go directly to the deterministic hash-based implementation.
+  private readonly skipExternalCall: boolean;
 
-  constructor(dimensions: number = 384) {
+  constructor(dimensions: number = 384, skipExternalCall = false) {
     this.dimensions = dimensions;
+    this.skipExternalCall = skipExternalCall;
   }
 
   async embed(text: string): Promise<Float32Array> {
     const cacheKey = text.slice(0, 200);
     if (this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey)!;
+    }
+
+    // Skip the external npx call in mock/test mode — it times out (10 s) when
+    // agentic-flow is not installed, making every storePattern/searchPatterns
+    // call very slow.
+    if (this.skipExternalCall) {
+      return this.hashEmbed(text);
     }
 
     // Try agentic-flow ONNX embeddings first

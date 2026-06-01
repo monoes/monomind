@@ -1,0 +1,49 @@
+{
+  "id": "mm-demo-001",
+  "ts": 1778404557841,
+  "prompt": "Build a SaaS analytics dashboard with auth, charts, and billing",
+  "status": "running",
+  "domains": [
+    "build",
+    "marketing"
+  ],
+  "events": [
+    {
+      "type": "session:start",
+      "session": "mm-demo-001",
+      "prompt": "Build a SaaS analytics dashboard with auth, charts, and billing",
+      "mode": "auto",
+      "ts": 1778404557841
+    },
+    {
+      "type": "domain:dispatch",
+      "session": "mm-demo-001",
+      "domain": "build",
+      "cmd": "Spawn architect + coder + tester for dashboard",
+      "ts": 1778404558207
+    },
+    {
+      "type": "domain:dispatch",
+      "session": "mm-demo-001",
+      "domain": "marketing",
+      "cmd": "Craft launch campaign and landing copy",
+      "ts": 1778404558549
+    },
+    {
+      "type": "agent:spawn",
+      "session": "mm-demo-001",
+      "domain": "build",
+      "agent": "architect",
+      "task": "Design system schema and API contracts",
+      "ts": 1778404558897
+    },
+    {
+      "type": "intercom",
+      "session": "mm-demo-001",
+      "from": "build",
+      "to": "marketing",
+      "msg": "API ready — landing page can reference /v1/analytics endpoint",
+      "ts": 1778404559442
+    }
+  ]
+}

@@ -152,7 +152,8 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     --arg session "$sessionId" \
     --arg org "$orgName" \
     --arg goal "$goal" \
-    '{type:"org:start",session:$session,org:$org,goal:$goal,ts:(now*1000|floor)}')" || true
+    --arg proj "$(pwd)" \
+    '{type:"org:start",session:$session,org:$org,goal:$goal,project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
 ---
@@ -244,16 +245,22 @@ APPROVAL GATE (when governance.policy is "board" or "strict"):
   curl -s -X POST "${CTRL_URL}/api/mastermind/event" -H "Content-Type: application/json" \
     -d "$(jq -cn --arg org "${orgName}" --arg id "$approval_id" --arg title "<title>" \
       '{type:"org:approval:requested",org:$org,approval_id:$id,title:$title,ts:(now*1000|floor)}')" || true
-  # Poll until approved or rejected (max 30 min):
+  # Poll until approved or rejected (max 30 min).
+  # Check the approvals file first (updated by both dashboard UI and /mastermind:approve command),
+  # then fall back to memory in case an external notifier wrote there.
   for i in $(seq 1 60); do
-    status=$(npx monomind@latest memory search --query "approval:${approval_id}" --namespace "${memNs}" 2>/dev/null | jq -r '.[0].value.status // ""' 2>/dev/null)
+    status=$(jq --arg id "$approval_id" '.approvals[] | select(.id == $id) | .status // ""' "$approvalsFile" 2>/dev/null || echo "")
+    if [ -z "$status" ] || [ "$status" = "pending" ]; then
+      mem_status=$(npx monomind@latest memory search --query "approval:${approval_id}" --namespace "${memNs}" 2>/dev/null | jq -r '.[0].value.status // ""' 2>/dev/null)
+      [ -n "$mem_status" ] && status="$mem_status"
+    fi
     [ "$status" = "approved" ] && break
     [ "$status" = "rejected" ] && { echo "Action rejected by governance policy — skip this action"; break; }
     sleep 30
   done
 
 STOP DETECTION (check this FIRST in every loop iteration):
-  ls ${stopFile} 2>/dev/null && echo STOP_REQUESTED
+  [ -f "${stopFile}" ] && echo STOP_REQUESTED
 If the file exists: emit org:complete event, clean up with "rm -f ${stopFile}", then exit.
 
 OPERATING LOOP:
@@ -270,8 +277,14 @@ OPERATING LOOP:
    - Emit org:agent:online event to dashboard before starting (use curl, see below)
 5. Collect completed results from memory (search "${memNs}:report:")
 6. Synthesize reports, make decisions, create new cards in Todo column based on progress toward goal
-7. Emit org:checkpoint event with progress summary
-8. Wait ${checkpointMin} minutes, then loop back to step 1
+7. Write a run-completion entry to the activity log (used by the health dashboard for 7-day success rate):
+   activityFile=".monomind/orgs/${orgName}-activity.jsonl"
+   # Count Todo cards not yet claimed as the pending_tasks metric
+   pending_count=$(monotask card list ${board_id} --col ${todo_col} --json 2>/dev/null | jq '[.[] | select(.labels | index("claimed") | not)] | length' 2>/dev/null || echo 0)
+   echo "{\"type\":\"run:complete\",\"org\":\"${orgName}\",\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"pending\":${pending_count:-0}}" >> "$activityFile"
+   (On error/exception, write: {"type":"run:error","ts":"...", "org":"..."})
+8. Emit org:checkpoint event with progress summary
+9. Wait ${checkpointMin} minutes, then loop back to step 1
 
 AGENT TYPES FOR YOUR TEAM:
 ${orgConfig.roles.filter(r => r.id !== bossRole.id).map(r =>
@@ -283,12 +296,13 @@ DASHBOARD EVENTS — emit via curl (NOT WebFetch — WebFetch does not support P
   CTRL_URL=$(jq -r '.url // "http://localhost:4242"' "$REPO_ROOT/.monomind/control.json" 2>/dev/null || echo "http://localhost:4242")
   curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     -H "Content-Type: application/json" \
-    -d "$(jq -cn --arg type TYPE --arg session SESSION --arg org ORG '{type:$type,session:$session,org:$org,ts:(now*1000|floor)}')"
+    -d "$(jq -cn --arg type TYPE --arg session SESSION --arg org ORG --arg proj "$REPO_ROOT" '{type:$type,session:$session,org:$org,project:$proj,ts:(now*1000|floor)}')"
 Payloads:
 - org:agent:online → add fields: role, title, agent_type
 - org:comms → add fields: from, to, msg
 - org:checkpoint → add fields: progress, pending_tasks
 - org:complete → no additional fields
+Note: always include project:$REPO_ROOT in all event payloads for correct multi-project SSE filtering
 
 START NOW: check for stop signal, assess the board, create initial tasks if none exist, then begin the operating loop.`
 })
@@ -311,7 +325,8 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     --arg role "$bossRole_id" \
     --arg title "$bossRole_title" \
     --arg agent_type "$bossRole_agent_type" \
-    '{type:"org:agent:online",session:$session,org:$org,role:$role,title:$title,agent_type:$agent_type,ts:(now*1000|floor)}')" || true
+    --arg proj "$REPO_ROOT" \
+    '{type:"org:agent:online",session:$session,org:$org,role:$role,title:$title,agent_type:$agent_type,project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
 (Use the scalar string variables `$bossRole_id`, `$bossRole_title`, `$bossRole_agent_type` derived by extracting fields from `bossRole` before constructing the curl call.)

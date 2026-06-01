@@ -1,0 +1,21 @@
+{
+  "tasks": {
+    "task-1778335619444-tlvsr9": {
+      "taskId": "task-1778335619444-tlvsr9",
+      "type": "custom",
+      "description": "test task for architect domain",
+      "priority": "normal",
+      "status": "cancelled",
+      "progress": 0,
+      "assignedTo": [],
+      "tags": [],
+      "createdAt": "2026-05-09T14:06:59.444Z",
+      "startedAt": null,
+      "completedAt": "2026-05-09T14:07:06.100Z",
+      "result": {
+        "cancelReason": "Cancelled by user via CLI"
+      }
+    }
+  },
+  "version": "3.0.0"
+}

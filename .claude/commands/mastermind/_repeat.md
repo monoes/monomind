@@ -34,6 +34,27 @@ If both `--tillend` and `--repeat <N>` are present, `--tillend` takes precedence
 - Set `is_continuation = true`
 - The calling command MUST skip its empty-prompt check and intake when `is_continuation = true`
 
+**First — staleness guard (run before anything else):**
+
+Check whether the loop file exists and whether this wakeup is stale:
+
+```bash
+LOOP_FILE=".monomind/loops/${LOOP_ID}.json"
+if [ ! -f "$LOOP_FILE" ]; then
+  echo "[repeat] Stale wakeup: loop ${LOOP_ID} is already complete (state file gone). Skipping."
+  # STOP — do not execute the command
+else
+  LOOP_CURRENT_REP=$(python3 -c "import json; print(json.load(open('${LOOP_FILE}'))['currentRep'])" 2>/dev/null \
+    || jq -r '.currentRep // 0' "${LOOP_FILE}" 2>/dev/null || echo "0")
+  if [ "${current_rep}" -lt "${LOOP_CURRENT_REP}" ]; then
+    echo "[repeat] Stale wakeup: got --rep ${current_rep} but loop is already at rep ${LOOP_CURRENT_REP}. Skipping."
+    # STOP — do not execute the command
+  fi
+fi
+```
+
+If the stale guard fires (either branch): **STOP immediately. Do not proceed to HIL check or command execution.**
+
 **Before proceeding, check for a pending HIL file:**
 ```bash
 HIL_FILE=".monomind/loops/${LOOP_ID}-hil.md"

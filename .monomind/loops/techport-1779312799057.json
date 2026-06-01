@@ -1,0 +1,16 @@
+{
+  "id": "techport-1779312799057",
+  "sessionId": "techport-1779312799057",
+  "type": "tillend",
+  "command": "/mastermind:techport",
+  "prompt": "/mastermind:techport --tillend --auto /Users/morteza/Desktop/tools/rtk",
+  "maxReps": 50,
+  "interval": 1,
+  "wait": 60,
+  "currentRep": 1,
+  "startedAt": 1779312799057,
+  "lastRunAt": 1779312799057,
+  "nextRunAt": 1779312799057,
+  "status": "running",
+  "source": "_repeat.md"
+}

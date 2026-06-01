@@ -1,0 +1,18 @@
+{
+  "domain": "review",
+  "lastReview": {
+    "ts": 1779706712,
+    "verdict": "all-pass",
+    "runs": 1,
+    "findings": "1 \u2014 graph-status-handler.cjs in monoagent + monotask missing preresolve_miss in denominator",
+    "scope": "graph-usage telemetry + statusline across monomind, monoagent, monotask"
+  },
+  "fixes": [
+    "hook-handler.cjs: added pre-bash, pre-search, post-graph-tool handlers (all 3 projects)",
+    "statusline.cjs: preresolve_miss counted in denominator (all 3 projects)",
+    "graph-status-handler.cjs: preresolve_miss counted in denominator (all 3 projects)",
+    "statusline-generator.ts + .js: preresolve_miss counted in denominator",
+    "monotask: upgraded from old flat helpers to modular handlers/ via init --force"
+  ],
+  "status": "green"
+}

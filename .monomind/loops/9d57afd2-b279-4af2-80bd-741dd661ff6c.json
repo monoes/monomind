@@ -1,0 +1,15 @@
+{
+  "id": "9d57afd2-b279-4af2-80bd-741dd661ff6c",
+  "sessionId": "9d57afd2-b279-4af2-80bd-741dd661ff6c",
+  "type": "repeat",
+  "status": "waiting",
+  "prompt": "/monomind:repeat --every 1 --times 5 --rep 5 --loop repeat-1778564734411-14156-41052 -- do a deep review of mastermind:master IDEA PIPELINE DOWN TO THE TASKS AND FIX THEM",
+  "reason": "repeat run 5/5 of /monomind:repeat",
+  "startedAt": 1778435700641,
+  "lastRunAt": 1778565694144,
+  "nextRunAt": 1778565754144,
+  "currentRep": 5,
+  "maxReps": 5,
+  "interval": 1,
+  "source": "schedule_wakeup_hook"
+}

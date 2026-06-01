@@ -62,7 +62,7 @@ describe('SONALearningEngine', () => {
   let engine: SONALearningEngine;
   let modeConfig: SONAModeConfig;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     modeConfig = {
       mode: 'balanced',
       loraRank: 4,
@@ -76,6 +76,8 @@ describe('SONALearningEngine', () => {
       ewcLambda: 2000,
     };
     engine = new SONALearningEngine('balanced', modeConfig);
+    // initialize() must be called to load the (mocked) WASM engine
+    await engine.initialize();
   });
 
   describe('Initialization', () => {
@@ -84,7 +86,7 @@ describe('SONALearningEngine', () => {
       expect(engine.isEnabled()).toBe(true);
     });
 
-    it('should initialize with real-time mode', () => {
+    it('should initialize with real-time mode', async () => {
       const rtEngine = createSONALearningEngine('real-time', {
         mode: 'real-time',
         loraRank: 2,
@@ -97,6 +99,7 @@ describe('SONALearningEngine', () => {
         memoryBudgetMb: 25,
         ewcLambda: 2000,
       });
+      await rtEngine.initialize();
       expect(rtEngine).toBeDefined();
       expect(rtEngine.isEnabled()).toBe(true);
     });
@@ -329,6 +332,7 @@ describe('SONALearningEngine', () => {
       vi.mocked(SonaEngine.withConfig).mockReturnValueOnce(emptyPatternsEngine as any);
 
       const freshEngine = new SONALearningEngine('balanced', modeConfig);
+      await freshEngine.initialize();
       const context: Context = {
         domain: 'code',
         queryEmbedding: new Float32Array(768).fill(0.5),

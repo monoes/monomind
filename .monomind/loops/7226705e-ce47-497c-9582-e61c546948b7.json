@@ -1,0 +1,15 @@
+{
+  "id": "7226705e-ce47-497c-9582-e61c546948b7",
+  "sessionId": "7226705e-ce47-497c-9582-e61c546948b7",
+  "type": "do",
+  "status": "waiting",
+  "prompt": "/mastermind:review --tillend --auto can you do another round of review future organization depiction would work good and wont have issue --rep 3 --loop mastermind-review-1779440119289",
+  "reason": "tillend run 3 of /mastermind:review — final pass to confirm org chart rendering is clean with no remaining issues",
+  "startedAt": 1779441068599,
+  "lastRunAt": 1779694361932,
+  "nextRunAt": 1779694421932,
+  "currentRep": 3,
+  "maxReps": 0,
+  "interval": 1,
+  "source": "schedule_wakeup_hook"
+}

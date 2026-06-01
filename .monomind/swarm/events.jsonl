@@ -1,0 +1,6 @@
+{"ts":"2026-04-27T09:24:26.066Z","source":"mcp","kind":"swarm.init","swarmId":"swarm-1777281866063-hjn1m7","topology":"hierarchical-mesh","strategy":"specialized","maxAgents":6,"config":{"topology":"hierarchical-mesh","maxAgents":6,"strategy":"specialized","communicationProtocol":"message-bus","autoScaling":true,"consensusMechanism":"majority"}}
+{"ts":"2026-04-27T09:24:26.143Z","source":"mcp","kind":"agent.spawn","agentId":"agent-1777281866077-f0q7b2","agentType":"coder","model":"sonnet","routedBy":"router","task":"implement auth feature"}
+{"ts":"2026-04-27T09:24:26.159Z","source":"mcp","kind":"agent.spawn","agentId":"agent-1777281866148-5vvxrr","agentType":"tester","model":"haiku","routedBy":"router","task":"write tests for auth"}
+{"ts":"2026-04-27T09:24:26.163Z","source":"mcp","kind":"agent.spawn","agentId":"agent-1777281866159-5uwudo","agentType":"reviewer","model":"sonnet","routedBy":"router","task":"review auth implementation"}
+{"ts":"2026-04-27T09:24:26.173Z","source":"mcp","kind":"agent.terminate","agentId":"agent-1777281866077-f0q7b2","agentType":"coder"}
+{"ts":"2026-04-27T09:24:26.180Z","source":"mcp","kind":"swarm.shutdown","swarmId":"swarm-1777281866063-hjn1m7","topology":"hierarchical-mesh","agentCount":0,"graceful":true}

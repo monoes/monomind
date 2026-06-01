@@ -1,0 +1,8 @@
+{
+  "dailyLimit": 309,
+  "monthlyLimit": 9247,
+  "autoTuned": true,
+  "tunedAt": "2026-05-15T10:20:10.517Z",
+  "basis": "rolling avg $205.49/day × 1.5",
+  "note": "Edit these values to set a hard ceiling. Delete the file to re-tune."
+}

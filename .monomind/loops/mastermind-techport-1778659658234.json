@@ -1,0 +1,16 @@
+{
+  "id": "mastermind-techport-1778659658234",
+  "sessionId": "mastermind-techport-1778659658234",
+  "type": "tillend",
+  "command": "/mastermind:techport",
+  "prompt": "/mastermind:techport --tillend --auto /Users/morteza/Desktop/tools/paperclip do another round of: i want to associate these repo functionalities into mastermind:createorg and mastermind:runorg feel free to add more mastermind slash commands via this repo and start porting them all, as well you can build a UI for it in a new sub page for mastermind section on dashboard porting UIs of this",
+  "maxReps": 50,
+  "interval": 1,
+  "wait": 60,
+  "currentRep": 7,
+  "startedAt": 1778659658234,
+  "lastRunAt": 1778662774322,
+  "nextRunAt": 1778662834322,
+  "status": "running",
+  "source": "_repeat.md"
+}

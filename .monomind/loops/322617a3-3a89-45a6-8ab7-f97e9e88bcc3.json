@@ -1,0 +1,15 @@
+{
+  "id": "322617a3-3a89-45a6-8ab7-f97e9e88bcc3",
+  "sessionId": "322617a3-3a89-45a6-8ab7-f97e9e88bcc3",
+  "type": "do",
+  "status": "waiting",
+  "prompt": "/mastermind:review --tillend --maxruns 50 --wait 120 --rep 5 --loop review-1778656300725 find and fix all wiring issues of repeat and tillend",
+  "reason": "tillend run 5 of /mastermind:review — verification pass after fixing loop:tick mode field",
+  "startedAt": 1778656564747,
+  "lastRunAt": 1778657380013,
+  "nextRunAt": 1778657500013,
+  "currentRep": 5,
+  "maxReps": 0,
+  "interval": 2,
+  "source": "schedule_wakeup_hook"
+}

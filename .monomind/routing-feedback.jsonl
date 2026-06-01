@@ -1,0 +1,554 @@
+{"timestamp":"2026-04-16T21:53:20.571Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"fab91855-a77b-4f57-8ada-62d6b4aa1df9","intelligenceFeedback":null}
+{"timestamp":"2026-04-17T09:50:59.034Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"fab91855-a77b-4f57-8ada-62d6b4aa1df9","intelligenceFeedback":null}
+{"timestamp":"2026-04-17T19:11:58.869Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"fab91855-a77b-4f57-8ada-62d6b4aa1df9","intelligenceFeedback":null}
+{"timestamp":"2026-04-17T19:12:02.887Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"fab91855-a77b-4f57-8ada-62d6b4aa1df9","intelligenceFeedback":null}
+{"timestamp":"2026-04-17T19:57:29.663Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-17T20:09:57.575Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-18T22:39:47.539Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-18T22:55:42.590Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-19T09:25:27.045Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-19T09:31:16.024Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-19T10:38:06.290Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-19T12:16:24.332Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-19T20:58:46.960Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-19T21:51:47.027Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-19T23:01:14.473Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-19T23:29:29.439Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-20T05:17:08.503Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-20T06:06:18.427Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-20T06:06:22.837Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-20T06:09:06.966Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-20T08:02:22.865Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"84c500ad-d24c-4521-a321-f5b8a3fa9414","intelligenceFeedback":null}
+{"timestamp":"2026-04-21T07:42:20.322Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-21T08:33:49.034Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-21T10:23:04.431Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-21T13:09:08.251Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-21T13:32:52.760Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-21T14:39:11.295Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-21T21:33:28.301Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-22T11:45:53.842Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-22T13:28:18.662Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-22T15:30:42.179Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-23T13:40:01.411Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-23T19:00:31.637Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-23T19:16:26.866Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"10739303-48d3-4355-b903-3ef8fbbaf67e","intelligenceFeedback":null}
+{"timestamp":"2026-04-23T20:33:04.248Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-23T22:23:48.565Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-24T09:59:40.274Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-24T11:49:21.932Z","suggestedAgent":"extras","confidence":0.85,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-24T13:46:56.756Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-24T15:38:40.165Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-24T20:23:38.898Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-24T22:25:33.296Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-25T05:58:59.531Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-25T06:33:15.708Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-25T06:39:15.173Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-25T07:52:22.372Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-25T08:54:19.311Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-25T15:28:35.081Z","suggestedAgent":"/review","confidence":1,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-25T15:32:42.421Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-26T10:22:26.282Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-26T10:27:14.480Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-26T11:02:57.704Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-26T20:40:08.300Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-26T21:46:42.778Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-26T22:55:08.185Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-26T23:19:23.370Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-27T08:57:12.785Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-27T10:26:48.554Z","suggestedAgent":"frontend-dev","confidence":0.8,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-27T12:49:29.870Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-27T21:30:21.329Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-28T09:23:41.055Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-29T08:08:56.393Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-29T08:49:38.520Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"50dbb877-73c3-488b-ab65-8a1d444b3202","intelligenceFeedback":null}
+{"timestamp":"2026-04-29T10:47:48.473Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-29T12:39:27.083Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-29T14:16:59.485Z","suggestedAgent":"frontend-dev","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-29T20:46:24.861Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-30T08:04:09.082Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-30T12:15:13.922Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-30T14:34:16.237Z","suggestedAgent":"architect","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-30T14:34:37.095Z","suggestedAgent":"architect","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-30T14:34:37.784Z","suggestedAgent":"architect","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-30T14:34:53.217Z","suggestedAgent":"architect","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-30T14:35:05.566Z","suggestedAgent":"architect","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-30T14:35:19.773Z","suggestedAgent":"architect","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-30T14:47:14.717Z","suggestedAgent":"architect","confidence":0.8,"sessionId":"6c5ae03f-e9ab-48cf-9b71-e10c1bf2ad47","intelligenceFeedback":null}
+{"timestamp":"2026-04-30T14:55:53.871Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-30T15:13:44.290Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-30T18:54:28.834Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-30T19:41:00.953Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-30T20:55:05.139Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-04-30T22:19:40.875Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-01T06:03:54.504Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-01T07:01:48.007Z","suggestedAgent":"architect","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-01T10:12:33.208Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-01T17:36:50.824Z","suggestedAgent":"architect","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-01T18:13:41.331Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-01T20:01:48.064Z","suggestedAgent":"architect","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-01T20:14:03.410Z","suggestedAgent":"architect","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-01T21:27:02.651Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-01T21:30:57.391Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-01T21:58:06.139Z","suggestedAgent":"tester","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-01T22:12:19.028Z","suggestedAgent":"architect","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-01T22:47:47.741Z","suggestedAgent":"/monomind-repeat","confidence":1,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-01T23:29:06.904Z","suggestedAgent":"/monomind-repeat","confidence":1,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T00:09:03.656Z","suggestedAgent":"/monomind-repeat","confidence":1,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T00:50:03.593Z","suggestedAgent":"/monomind-repeat","confidence":1,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T01:34:33.014Z","suggestedAgent":"/monomind-repeat","confidence":1,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T01:41:54.597Z","suggestedAgent":"/monomind-repeat","confidence":1,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T06:12:55.729Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"64c26c5b-e91b-4e1a-8c61-837014565d50","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T07:03:31.402Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"255603c0-0a00-4df1-9bef-611c9f7fc108","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T08:28:04.020Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T10:25:25.939Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T11:46:20.132Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T11:55:53.958Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T11:58:57.429Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T12:25:56.474Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T19:42:23.770Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T20:21:39.845Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T22:57:09.485Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-02T22:59:36.512Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T07:23:28.180Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T14:28:36.503Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T15:52:50.961Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T16:50:08.187Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T16:52:10.617Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T17:24:39.331Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T17:27:36.882Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T18:05:16.021Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T18:13:16.639Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T19:46:04.439Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T20:13:28.283Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T20:21:56.174Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T20:36:40.548Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T20:45:30.414Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T20:55:49.455Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T20:56:22.012Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T21:01:47.870Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-03T21:20:22.702Z","suggestedAgent":"UX Researcher","confidence":0.85,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T04:47:45.242Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T06:59:16.745Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T07:45:58.019Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T08:03:02.267Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T08:05:13.242Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T08:06:42.919Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T08:08:26.082Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T08:09:51.773Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T08:11:38.127Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T08:13:31.288Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T08:19:40.738Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T08:39:50.623Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T08:50:25.807Z","suggestedAgent":"tester","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T08:51:54.469Z","suggestedAgent":"tester","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T09:05:37.977Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T09:20:54.043Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T09:25:58.816Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T09:27:17.255Z","suggestedAgent":"Data Consolidation Agent","confidence":0.85,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T12:06:07.622Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T12:06:54.372Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T12:13:06.932Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"1c2260ff-166b-4747-84c2-d197c7333c4b","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T12:21:35.962Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T12:59:51.195Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T21:07:59.513Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-04T21:59:02.384Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"1c2260ff-166b-4747-84c2-d197c7333c4b","intelligenceFeedback":null}
+{"timestamp":"2026-05-05T08:26:48.315Z","suggestedAgent":"/monomotion","confidence":1,"sessionId":"1c2260ff-166b-4747-84c2-d197c7333c4b","intelligenceFeedback":null}
+{"timestamp":"2026-05-05T11:39:17.776Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"1c2260ff-166b-4747-84c2-d197c7333c4b","intelligenceFeedback":null}
+{"timestamp":"2026-05-05T14:44:47.395Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-05T15:04:31.816Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-05T21:16:46.609Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T07:32:36.651Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T08:31:43.375Z","suggestedAgent":"frontend-dev","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T08:37:15.372Z","suggestedAgent":"frontend-dev","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T09:48:06.427Z","suggestedAgent":"China E-Commerce Operator","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T09:49:21.827Z","suggestedAgent":"China E-Commerce Operator","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T13:47:08.668Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T18:40:18.669Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T19:50:36.182Z","suggestedAgent":"Kuaishou Strategist","confidence":0.65,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T19:59:59.510Z","suggestedAgent":"AI Data Remediation Engineer","confidence":0.65,"sessionId":"ebf41235-4bce-4b11-b689-b67bf584447e","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T20:03:27.510Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T20:38:29.261Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T20:57:05.372Z","suggestedAgent":"China E-Commerce Operator","confidence":0.85,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T21:13:36.834Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T21:18:00.442Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T21:27:48.476Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T21:43:19.751Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T21:48:11.317Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-06T22:08:09.228Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T07:41:11.950Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T07:42:40.375Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T07:48:20.275Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T08:12:33.695Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T08:22:37.138Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T08:22:40.120Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T08:55:25.592Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T08:57:38.996Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T11:06:50.963Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T11:45:00.724Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T12:20:08.422Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T12:22:53.440Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T12:49:13.456Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T12:50:34.313Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T12:55:48.503Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T13:03:40.766Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T13:35:21.825Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T13:37:51.204Z","suggestedAgent":"Bilibili Content Strategist","confidence":0.55,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T18:39:29.495Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T18:39:40.573Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T19:12:26.624Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T19:15:12.608Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T19:16:04.272Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T19:22:29.209Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T19:22:29.814Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T19:22:31.201Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T19:40:23.857Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T19:42:14.216Z","suggestedAgent":"Kuaishou Strategist","confidence":0.8,"sessionId":"1c2260ff-166b-4747-84c2-d197c7333c4b","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T19:59:47.742Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T20:18:29.085Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-07T20:59:11.149Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T03:22:04.589Z","suggestedAgent":"architect","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T03:25:39.808Z","suggestedAgent":"Livestream Commerce Coach","confidence":0.85,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T03:27:22.631Z","suggestedAgent":"Livestream Commerce Coach","confidence":0.85,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T03:43:46.485Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.65,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T03:57:13.230Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T04:00:32.295Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T05:03:45.905Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T19:37:55.876Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T19:37:55.877Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"df24578e-3ca3-43b4-a882-51f5c3872593","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T19:37:56.295Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T19:37:56.626Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"1c2260ff-166b-4747-84c2-d197c7333c4b","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T19:39:20.622Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"1c3fc0dd-558f-4572-b032-10c4cf66f385","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T19:39:23.874Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"9fc13d86-99eb-459e-a34c-4cc3cd95e96a","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T19:44:38.759Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T19:45:13.354Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T19:54:38.874Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T19:57:06.527Z","suggestedAgent":"China E-Commerce Operator","confidence":0.85,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T20:47:45.650Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T20:57:20.191Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T21:18:14.420Z","suggestedAgent":"AI Citation Strategist","confidence":0.55,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T21:47:45.125Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-08T22:14:26.134Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-09T03:06:04.662Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-09T03:21:27.074Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-09T03:36:50.119Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-09T05:42:40.306Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"567cf5a7-93ce-4d61-b96b-da8eca296eee","intelligenceFeedback":null}
+{"timestamp":"2026-05-09T06:09:58.324Z","suggestedAgent":"Weibo Strategist","confidence":0.85,"sessionId":"3ba2ee49-13eb-432c-a52b-3ba83f801798","intelligenceFeedback":null}
+{"timestamp":"2026-05-09T08:55:33.587Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"3ba2ee49-13eb-432c-a52b-3ba83f801798","intelligenceFeedback":null}
+{"timestamp":"2026-05-09T09:21:09.120Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"3ba2ee49-13eb-432c-a52b-3ba83f801798","intelligenceFeedback":null}
+{"timestamp":"2026-05-09T09:37:36.307Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"ac358524-6a0b-4ee2-aecb-f4d1c5e3bf56","intelligenceFeedback":null}
+{"timestamp":"2026-05-09T13:43:19.965Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"5e4a4f82-e6ea-455e-a0cb-e9c88b75870e","intelligenceFeedback":null}
+{"timestamp":"2026-05-09T13:45:42.258Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-09T16:16:41.751Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"3ba2ee49-13eb-432c-a52b-3ba83f801798","intelligenceFeedback":null}
+{"timestamp":"2026-05-09T18:13:20.604Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"5e4a4f82-e6ea-455e-a0cb-e9c88b75870e","intelligenceFeedback":null}
+{"timestamp":"2026-05-09T22:59:10.611Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-09T23:03:21.436Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"3ba2ee49-13eb-432c-a52b-3ba83f801798","intelligenceFeedback":null}
+{"timestamp":"2026-05-09T23:15:06.992Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"5db0c810-8096-4db3-936b-7b085e6d3b4b","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T05:36:22.909Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"5db0c810-8096-4db3-936b-7b085e6d3b4b","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T06:14:13.028Z","suggestedAgent":"Weibo Strategist","confidence":0.85,"sessionId":"5e4a4f82-e6ea-455e-a0cb-e9c88b75870e","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T06:14:35.321Z","suggestedAgent":"Bilibili Content Strategist","confidence":0.75,"sessionId":"5e4a4f82-e6ea-455e-a0cb-e9c88b75870e","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T08:09:36.031Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"73f76335-9eb6-4e3c-8eaa-2e3d6b140335","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T08:12:23.944Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"f61d5336-19d1-4a17-a1c7-7e9c4478479b","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T08:12:38.721Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"b6abe180-b937-41c6-8aec-fd492c0ebd7e","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T08:15:36.321Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"f1a9232e-7218-48bc-8611-faebe3071545","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T08:17:04.208Z","suggestedAgent":"AI Data Remediation Engineer","confidence":0.6,"sessionId":"d2fa689f-8873-46b7-a872-8f1fad968c24","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T08:19:30.256Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"3e79eee8-3c90-48db-8bca-0a8fab0f5455","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T08:19:51.465Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T08:36:22.139Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"038dd350-5cbf-4190-893f-50ee73711549","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T08:41:34.423Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"59f6d203-ef55-4db4-8e31-5006a4e07577","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T08:43:32.262Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"95b13761-af0e-484e-aae8-47218747bf24","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T08:43:47.783Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"7cec2fad-0a46-4e77-8585-5925c048ca14","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T08:47:24.969Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"27164871-704a-4511-b8d6-d6748a2f7142","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T08:51:12.756Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"4b712bd8-08dc-4b24-b18a-5141fec25171","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T08:58:40.502Z","suggestedAgent":"China E-Commerce Operator","confidence":0.85,"sessionId":"5db0c810-8096-4db3-936b-7b085e6d3b4b","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T09:02:30.627Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"96b19af5-3267-4eb8-aa24-c91cf6c5c79a","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T09:05:43.041Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"2db0e008-3e8a-4f07-a965-22afbae58e48","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T09:05:49.226Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"f23d9818-9fd2-4a7a-82d5-c7d2345ea14d","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T09:07:39.402Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"83cc0e0e-bd6a-4ab1-b291-bdc6ed8faf4d","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T10:55:53.484Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"becd9efa-cf5f-47f4-853d-aeb0a4dc02ae","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T10:56:21.021Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"42db0f23-364b-42d7-aec3-d648dd3347f2","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T10:58:05.127Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"becd9efa-cf5f-47f4-853d-aeb0a4dc02ae","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T10:59:33.608Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"42db0f23-364b-42d7-aec3-d648dd3347f2","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T11:02:35.969Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"becd9efa-cf5f-47f4-853d-aeb0a4dc02ae","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T11:07:05.676Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"8779bb53-8c61-432e-810b-9a611cd78170","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T11:08:37.599Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"8779bb53-8c61-432e-810b-9a611cd78170","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T11:09:05.642Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"752c9581-0d38-4889-83a2-a76b216562e8","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T11:12:35.268Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"752c9581-0d38-4889-83a2-a76b216562e8","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T11:25:36.583Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"42eb5b44-db8c-48f4-b4ac-c561ae29bbaa","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T11:30:02.910Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"660d3013-f652-4337-953a-e1dc420bddbf","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T11:33:21.172Z","suggestedAgent":"Bilibili Content Strategist","confidence":0.6,"sessionId":"fda49c2d-a64e-4e34-9db5-1d3d07225b12","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T11:42:28.876Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"27845ae6-07d2-45eb-9be5-77c30a108287","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T11:43:46.836Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"ecd938ec-5775-4ad8-bfc5-97b999336516","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T11:49:19.271Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"870c95f5-c5d2-4ae4-8160-fa4d8bd2746f","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T11:54:08.359Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"d9528576-11f4-403f-b37c-85a5401dcb52","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T11:54:54.426Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"25b4d16d-fa0e-4aa0-b7db-6cd117c5c5ef","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T11:57:21.844Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"25b4d16d-fa0e-4aa0-b7db-6cd117c5c5ef","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T11:57:46.443Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"25b4d16d-fa0e-4aa0-b7db-6cd117c5c5ef","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:00:20.996Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"3b1eb188-cd94-4be3-b257-a3867e1e6c6e","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:05:01.179Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"8d0ae76a-f0b8-4569-89a6-a229bc4c261a","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:05:50.548Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"b49bbcf1-e4cc-44b5-8d81-822256addf32","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:08:06.408Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"8d0ae76a-f0b8-4569-89a6-a229bc4c261a","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:10:04.230Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"b49bbcf1-e4cc-44b5-8d81-822256addf32","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:10:52.008Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"8d0ae76a-f0b8-4569-89a6-a229bc4c261a","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:21:54.950Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"2483602b-dfcb-4768-8e79-f229e6c4a9f6","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:26:05.638Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"efdc3457-1d41-4aaf-ac99-6cdd4fe41f62","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:28:40.368Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"fedadc57-8c4b-424f-85d7-fcdcdd1b0e8b","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:29:17.542Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"78cdf38b-97d7-4ea8-9b2d-7de2393ae7a0","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:32:48.332Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"cb64f097-6e4e-4c58-8337-af4ff4ff1809","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:33:05.379Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"78cdf38b-97d7-4ea8-9b2d-7de2393ae7a0","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:36:04.246Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"cb64f097-6e4e-4c58-8337-af4ff4ff1809","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:36:06.920Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"78cdf38b-97d7-4ea8-9b2d-7de2393ae7a0","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:38:47.002Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"cb64f097-6e4e-4c58-8337-af4ff4ff1809","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:46:38.391Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"72f53db6-972d-4fc7-8d3d-64324791ea44","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:48:35.022Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"52beb144-fe5b-49ae-8fb8-5e1a41f187c1","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:53:39.246Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"ff0fb312-3ad4-421d-95b0-717658e4ce8e","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T12:55:26.355Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"ff0fb312-3ad4-421d-95b0-717658e4ce8e","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T13:02:13.819Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"65cda48c-f697-40ab-9c24-f68a2348c166","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T13:02:40.160Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"b4d676ab-0699-4783-9192-75d8f1db78bc","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T13:06:33.259Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"65cda48c-f697-40ab-9c24-f68a2348c166","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T13:07:53.185Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"b4d676ab-0699-4783-9192-75d8f1db78bc","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T13:09:41.946Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"d2d8d52e-f3e5-4530-a411-565c636190fa","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T13:12:42.442Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"d2d8d52e-f3e5-4530-a411-565c636190fa","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T13:16:13.993Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"53795834-bb0a-44df-a215-64de251f3345","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T13:16:14.102Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"dde7fcb2-860d-4047-8bd0-b46a44e7caec","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T13:20:37.333Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"53795834-bb0a-44df-a215-64de251f3345","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T13:22:43.404Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"53795834-bb0a-44df-a215-64de251f3345","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T13:22:43.915Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"dde7fcb2-860d-4047-8bd0-b46a44e7caec","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T13:26:34.089Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"323c5dc9-572f-4b3a-9c97-7e6fe73bf148","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T13:28:15.134Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"323c5dc9-572f-4b3a-9c97-7e6fe73bf148","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T13:33:03.531Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"2e5d0dad-2c26-4bed-8d70-040107f1a15a","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T16:35:24.371Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"dc94b0b5-cc65-4703-96fa-2f6a24798d99","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:05:27.092Z","suggestedAgent":"devops","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:13:20.488Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"520b6536-b2f8-4359-94d0-04c8fbb059c5","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:14:08.209Z","suggestedAgent":"Cross-Border E-Commerce Specialist","confidence":0.85,"sessionId":"18204606-4d30-4c43-9d3d-77c33a53d112","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:14:49.470Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"f7c3a271-c5e8-4f51-9780-82c3d9b8f8ed","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:15:26.797Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"5db0c810-8096-4db3-936b-7b085e6d3b4b","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:17:01.035Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"f7c3a271-c5e8-4f51-9780-82c3d9b8f8ed","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:18:26.756Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"f7c3a271-c5e8-4f51-9780-82c3d9b8f8ed","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:26:22.974Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"ba96c38c-4278-40c7-bb11-8381a88b6038","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:28:21.822Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"ff69ff24-81f2-4f2d-bfa2-e673e0592242","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:32:58.535Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"fa71e380-c9a2-4f2e-826b-a683a62e0aac","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:33:45.159Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"b0331d32-1bf6-434e-88be-bb580c90d63f","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:33:53.281Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"fa71e380-c9a2-4f2e-826b-a683a62e0aac","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:36:14.460Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"b0331d32-1bf6-434e-88be-bb580c90d63f","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:40:06.913Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"b04652cc-fc11-4716-a3a3-94d364a11c11","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:42:25.961Z","suggestedAgent":"China E-Commerce Operator","confidence":0.8,"sessionId":"b04652cc-fc11-4716-a3a3-94d364a11c11","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:49:44.146Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"c2ddde8e-82df-42c3-a5c1-b3c887dbb915","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:49:44.708Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"b8870bf4-ac60-4282-8178-03115a80a4d4","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:55:27.201Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"b8870bf4-ac60-4282-8178-03115a80a4d4","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:55:27.226Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"c2ddde8e-82df-42c3-a5c1-b3c887dbb915","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T17:59:59.941Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"34e238bf-6e04-4016-97df-246677d684ed","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T18:00:29.212Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"34e238bf-6e04-4016-97df-246677d684ed","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T18:06:07.178Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T18:29:01.629Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"9046b381-ef63-4042-95b8-be1ad7141d27","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T18:31:18.660Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"b64d36b0-7b8e-4365-8fb2-56d7a1930159","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T18:47:46.199Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"43afb4ab-fba9-4f2a-a9a8-12a1cbae62a8","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T18:47:51.415Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"155500d8-8a30-4b05-b0fb-35c9f4711b44","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T18:51:05.214Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"07add8c5-b977-4d73-b03e-847a284bff21","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T18:52:48.042Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"07add8c5-b977-4d73-b03e-847a284bff21","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T18:59:35.354Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"37557b6b-bf14-4062-a6c3-be5d7140c239","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:02:32.807Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"c07aa7be-d173-40ae-ac67-408eb5a6b7cd","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:09:41.102Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"8d6ad7a3-1176-4c08-9bba-5f34f336ec94","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:12:41.719Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"5a8d272f-ef89-4daf-8fc1-98f47145efbb","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:19:42.847Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"4c59ebdd-2f09-4b42-9ae9-251b1c0ee9a1","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:20:44.836Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"3683f522-7dc3-4ffc-abec-c05b3c030bb7","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:22:37.791Z","suggestedAgent":"China E-Commerce Operator","confidence":0.6,"sessionId":"faf2b568-de12-47db-b2be-d04db66ac4dd","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:24:27.661Z","suggestedAgent":"China E-Commerce Operator","confidence":0.6,"sessionId":"faf2b568-de12-47db-b2be-d04db66ac4dd","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:25:22.051Z","suggestedAgent":"China E-Commerce Operator","confidence":0.6,"sessionId":"55119171-b4d0-4612-b163-91d43314630a","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:25:46.441Z","suggestedAgent":"China E-Commerce Operator","confidence":0.6,"sessionId":"faf2b568-de12-47db-b2be-d04db66ac4dd","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:30:49.418Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"7cc3200a-a95f-48ad-bee3-1889c615e0f8","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:31:35.603Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"cc1ff665-795d-4e63-8fe2-3f74704d6410","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:35:30.369Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"cc1ff665-795d-4e63-8fe2-3f74704d6410","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:38:46.118Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"6ae1df1e-f6ac-441c-b45a-b988effca2b5","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:43:32.442Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"6ae1df1e-f6ac-441c-b45a-b988effca2b5","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:47:50.984Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"5db0c810-8096-4db3-936b-7b085e6d3b4b","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:48:04.887Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"69c5aa8c-c296-4863-8a04-1df48c1dcfa7","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:48:27.351Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"d05b8cfc-ae33-443a-9029-479720af04e5","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:49:22.831Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"d05b8cfc-ae33-443a-9029-479720af04e5","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:52:48.662Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"d05b8cfc-ae33-443a-9029-479720af04e5","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T19:58:53.557Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"d54b7d9b-4747-4dce-bea3-9424b57e4ab7","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:03:21.671Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:03:49.708Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"8d6989c3-192f-426d-8162-e2161655d485","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:08:54.010Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"417afa0a-d773-4002-a886-fd194bde3d27","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:09:41.177Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"90087032-194a-4641-8cc5-6e562fa55853","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:11:43.423Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"417afa0a-d773-4002-a886-fd194bde3d27","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:12:57.677Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"90087032-194a-4641-8cc5-6e562fa55853","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:15:55.178Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"91499fa2-779a-4d45-be76-804346b3dbcf","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:20:00.338Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"91499fa2-779a-4d45-be76-804346b3dbcf","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:21:40.338Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"401e39a8-4aba-416c-ab6c-d3d19dda61c5","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:24:29.807Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"401e39a8-4aba-416c-ab6c-d3d19dda61c5","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:25:01.653Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"401e39a8-4aba-416c-ab6c-d3d19dda61c5","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:29:07.495Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"0be6f805-0d04-4bdf-b2ae-7d1c0832bba8","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:29:59.628Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"df0fe243-ca50-47f9-87ec-31d0e01507e8","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:31:04.127Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"0be6f805-0d04-4bdf-b2ae-7d1c0832bba8","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:34:38.685Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"df0fe243-ca50-47f9-87ec-31d0e01507e8","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:37:06.269Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"a6c2eebb-0641-4fd9-ae4b-878f1b0ea854","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:39:48.413Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"a6c2eebb-0641-4fd9-ae4b-878f1b0ea854","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:44:38.973Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"a6c2eebb-0641-4fd9-ae4b-878f1b0ea854","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:45:44.920Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"e8d1444b-ace1-41d7-bce3-252296ba73f4","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:51:34.436Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"b39803b3-f749-4bd8-af78-6740f7bced57","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:51:45.207Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"e8d1444b-ace1-41d7-bce3-252296ba73f4","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:53:26.170Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"cea3b943-ef8d-407d-a776-e919cd04fb70","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:57:34.909Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"2f909042-4feb-43c3-8b99-97919abbb05f","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T20:58:35.501Z","suggestedAgent":"AI Data Remediation Engineer","confidence":0.7,"sessionId":"5ba4bd73-1456-4c2b-a960-7f138650468c","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:01:34.722Z","suggestedAgent":"Bilibili Content Strategist","confidence":0.65,"sessionId":"5ba4bd73-1456-4c2b-a960-7f138650468c","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:03:11.058Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"606eff6a-7915-4cf9-8232-84c8275f6ce0","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:07:01.676Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"9081a043-194b-4b8c-baf4-311f4112b6f7","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:07:23.888Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"8a68d9a9-ebd3-41fe-934b-cc4c022c9007","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:08:53.789Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"9081a043-194b-4b8c-baf4-311f4112b6f7","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:10:13.579Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"8a68d9a9-ebd3-41fe-934b-cc4c022c9007","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:14:09.058Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"30b8acc0-32a3-45ec-9ab3-d2ee32723b20","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:18:28.954Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"30b8acc0-32a3-45ec-9ab3-d2ee32723b20","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:28:21.223Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"058b3296-2657-4367-a301-bd9f46480537","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:30:53.009Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:31:31.094Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"1b7d4db1-26c3-4715-be04-56ba4f21a41d","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:32:00.013Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"058b3296-2657-4367-a301-bd9f46480537","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:33:58.377Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"1b7d4db1-26c3-4715-be04-56ba4f21a41d","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:35:15.933Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"058b3296-2657-4367-a301-bd9f46480537","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:39:14.591Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"d59298ed-0757-485b-8753-ef7c4530a39a","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:41:17.421Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"d59298ed-0757-485b-8753-ef7c4530a39a","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:43:22.277Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"d19d38a4-3ae8-4a55-86c6-dc29aa97a70b","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:45:16.367Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"d19d38a4-3ae8-4a55-86c6-dc29aa97a70b","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:47:20.030Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"d19d38a4-3ae8-4a55-86c6-dc29aa97a70b","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:49:16.423Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"d19d38a4-3ae8-4a55-86c6-dc29aa97a70b","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:51:19.470Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"d19d38a4-3ae8-4a55-86c6-dc29aa97a70b","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:57:21.026Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"ff41c492-a644-45a2-949c-2bc3e9151f0f","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T21:58:33.715Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"b1c6520c-d693-4236-b302-5a3f730106eb","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T22:00:17.830Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"b1c6520c-d693-4236-b302-5a3f730106eb","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T22:02:24.541Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"b1c6520c-d693-4236-b302-5a3f730106eb","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T22:06:47.128Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"2ec2d12c-02ff-43d4-a6ef-bc03dd42ef39","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T22:08:45.960Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"2ec2d12c-02ff-43d4-a6ef-bc03dd42ef39","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T22:09:25.966Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"0a17ece2-cda1-4daa-bcc0-ede5de05d6c1","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T22:13:38.430Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"9e496e08-d266-4967-9bab-91742c5d9dba","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T22:15:18.877Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"8cab3222-d63e-45a9-8550-8c81d0d1436b","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T22:17:10.573Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.85,"sessionId":"8cab3222-d63e-45a9-8550-8c81d0d1436b","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T22:22:04.443Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"927f149e-6a1f-4363-a052-ec4abaa1cedc","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T22:22:09.585Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"5043b8a2-0e22-4883-ab66-98d54bc2dd2e","intelligenceFeedback":null}
+{"timestamp":"2026-05-10T22:24:25.240Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"927f149e-6a1f-4363-a052-ec4abaa1cedc","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T08:40:06.187Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"5db0c810-8096-4db3-936b-7b085e6d3b4b","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T08:40:06.187Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"5e4a4f82-e6ea-455e-a0cb-e9c88b75870e","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T08:40:06.610Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"de87c1b6-8fd5-4281-be38-f50fe81366f1","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T08:40:45.160Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"f5db56c1-90e7-424e-92c9-4120c0b3ac14","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T08:46:52.430Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"9859c269-1217-4c5f-8bd9-84ff39299aff","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T09:04:41.752Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T09:29:10.218Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T10:12:51.645Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T11:17:02.939Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"5db0c810-8096-4db3-936b-7b085e6d3b4b","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T11:22:14.981Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T14:03:34.548Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T18:49:51.990Z","suggestedAgent":"tester","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T19:00:45.985Z","suggestedAgent":"Kuaishou Strategist","confidence":0.7,"sessionId":"5e4a4f82-e6ea-455e-a0cb-e9c88b75870e","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T20:01:54.525Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"4f428d21-ed9f-4625-8638-60f323a57b7c","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T20:02:48.189Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T20:22:57.518Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T20:25:50.799Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T20:27:22.618Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T20:27:36.097Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-11T21:36:58.090Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-12T05:08:05.245Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-12T05:15:03.237Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-12T05:49:00.710Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-12T07:43:14.496Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-12T10:17:46.883Z","suggestedAgent":"China E-Commerce Operator","confidence":0.85,"sessionId":"9d57afd2-b279-4af2-80bd-741dd661ff6c","intelligenceFeedback":null}
+{"timestamp":"2026-05-12T10:17:50.156Z","suggestedAgent":"China E-Commerce Operator","confidence":0.85,"sessionId":"5e4a4f82-e6ea-455e-a0cb-e9c88b75870e","intelligenceFeedback":null}
+{"timestamp":"2026-05-12T10:17:51.502Z","suggestedAgent":"China E-Commerce Operator","confidence":0.85,"sessionId":"4f428d21-ed9f-4625-8638-60f323a57b7c","intelligenceFeedback":null}
+{"timestamp":"2026-05-12T12:33:06.971Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"322617a3-3a89-45a6-8ab7-f97e9e88bcc3","intelligenceFeedback":null}
+{"timestamp":"2026-05-12T12:59:10.860Z","suggestedAgent":"Baidu SEO Specialist","confidence":0.55,"sessionId":"322617a3-3a89-45a6-8ab7-f97e9e88bcc3","intelligenceFeedback":null}
+{"timestamp":"2026-05-12T20:12:36.728Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"322617a3-3a89-45a6-8ab7-f97e9e88bcc3","intelligenceFeedback":null}
+{"timestamp":"2026-05-12T20:16:32.270Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"4b02677e-b284-401e-9086-417362ea7cc9","intelligenceFeedback":null}
+{"timestamp":"2026-05-12T20:18:25.025Z","suggestedAgent":"AI Data Remediation Engineer","confidence":0.65,"sessionId":"4b02677e-b284-401e-9086-417362ea7cc9","intelligenceFeedback":null}
+{"timestamp":"2026-05-12T20:39:23.197Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"4b02677e-b284-401e-9086-417362ea7cc9","intelligenceFeedback":null}
+{"timestamp":"2026-05-13T06:48:22.983Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"4b02677e-b284-401e-9086-417362ea7cc9","intelligenceFeedback":null}
+{"timestamp":"2026-05-13T07:11:46.976Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"322617a3-3a89-45a6-8ab7-f97e9e88bcc3","intelligenceFeedback":null}
+{"timestamp":"2026-05-13T07:12:27.288Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"4b02677e-b284-401e-9086-417362ea7cc9","intelligenceFeedback":null}
+{"timestamp":"2026-05-13T08:01:06.728Z","suggestedAgent":"China E-Commerce Operator","confidence":0.65,"sessionId":"4b02677e-b284-401e-9086-417362ea7cc9","intelligenceFeedback":null}
+{"timestamp":"2026-05-13T08:17:18.381Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"4b02677e-b284-401e-9086-417362ea7cc9","intelligenceFeedback":null}
+{"timestamp":"2026-05-13T08:36:17.417Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"322617a3-3a89-45a6-8ab7-f97e9e88bcc3","intelligenceFeedback":null}
+{"timestamp":"2026-05-13T08:37:54.705Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"4b02677e-b284-401e-9086-417362ea7cc9","intelligenceFeedback":null}
+{"timestamp":"2026-05-13T09:24:42.230Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"4b02677e-b284-401e-9086-417362ea7cc9","intelligenceFeedback":null}
+{"timestamp":"2026-05-14T12:14:20.203Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"322617a3-3a89-45a6-8ab7-f97e9e88bcc3","intelligenceFeedback":null}
+{"timestamp":"2026-05-15T14:01:44.918Z","suggestedAgent":"AI Data Remediation Engineer","confidence":0.55,"sessionId":"0f02c6fd-1e11-4db6-a8ce-62a2236550f7","intelligenceFeedback":null}
+{"timestamp":"2026-05-15T14:02:58.572Z","suggestedAgent":"system-architect","confidence":0.7,"sessionId":"4ce318fe-64a6-4d83-8517-b2d359cd7efd","intelligenceFeedback":null}
+{"timestamp":"2026-05-15T14:04:20.924Z","suggestedAgent":"coder","confidence":0.7,"sessionId":"81bdd458-7931-4377-8542-f5d2a1c76a8a","intelligenceFeedback":null}
+{"timestamp":"2026-05-15T19:53:24.801Z","suggestedAgent":"system-architect","confidence":0.7,"sessionId":"b6eeccfb-00f6-4f76-bb63-bcc98940a89d","intelligenceFeedback":null}
+{"timestamp":"2026-05-15T19:53:43.851Z","suggestedAgent":"China E-Commerce Operator","confidence":0.65,"sessionId":"79a8ea3f-1832-40dd-9442-cf58db2faf6d","intelligenceFeedback":null}
+{"timestamp":"2026-05-15T19:54:03.112Z","suggestedAgent":"China E-Commerce Operator","confidence":0.65,"sessionId":"4adbe0b4-5fd0-4330-aba9-6c507755ff83","intelligenceFeedback":null}
+{"timestamp":"2026-05-15T20:59:57.839Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"9065ef19-8fe6-490d-83cc-edab6d600b61","intelligenceFeedback":null}
+{"timestamp":"2026-05-16T11:36:02.159Z","suggestedAgent":"coder","confidence":0.7,"sessionId":"4b02677e-b284-401e-9086-417362ea7cc9","intelligenceFeedback":null}
+{"timestamp":"2026-05-16T16:33:17.742Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"4b02677e-b284-401e-9086-417362ea7cc9","intelligenceFeedback":null}
+{"timestamp":"2026-05-16T21:14:13.899Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"4b02677e-b284-401e-9086-417362ea7cc9","intelligenceFeedback":null}
+{"timestamp":"2026-05-16T21:30:00.421Z","suggestedAgent":"coder","confidence":0.7,"sessionId":"7226705e-ce47-497c-9582-e61c546948b7","intelligenceFeedback":null}
+{"timestamp":"2026-05-16T21:48:46.893Z","suggestedAgent":"coder","confidence":0.7,"sessionId":"322617a3-3a89-45a6-8ab7-f97e9e88bcc3","intelligenceFeedback":null}
+{"timestamp":"2026-05-16T22:33:51.833Z","suggestedAgent":"Bilibili Content Strategist","confidence":0.85,"sessionId":"7226705e-ce47-497c-9582-e61c546948b7","intelligenceFeedback":true}
+{"timestamp":"2026-05-16T23:13:07.241Z","suggestedAgent":"Book Co-Author","confidence":0.55,"sessionId":"","intelligenceFeedback":true}
+{"timestamp":"2026-05-16T23:14:35.358Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"","intelligenceFeedback":true}
+{"timestamp":"2026-05-16T23:21:09.463Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T08:22:47.195Z","suggestedAgent":"China E-Commerce Operator","confidence":0.85,"sessionId":"20243f7d-c1c9-473d-8e2e-423a03fe37b8","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T08:47:25.088Z","suggestedAgent":"Baidu SEO Specialist","confidence":0.55,"sessionId":"20243f7d-c1c9-473d-8e2e-423a03fe37b8","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T09:39:56.614Z","suggestedAgent":"Baidu SEO Specialist","confidence":0.55,"sessionId":"","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T10:03:55.552Z","suggestedAgent":"Carousel Growth Engine","confidence":0.55,"sessionId":"20243f7d-c1c9-473d-8e2e-423a03fe37b8","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T10:05:34.437Z","suggestedAgent":"Carousel Growth Engine","confidence":0.55,"sessionId":"7226705e-ce47-497c-9582-e61c546948b7","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T10:53:38.777Z","suggestedAgent":"Baidu SEO Specialist","confidence":0.55,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T11:03:25.208Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"7226705e-ce47-497c-9582-e61c546948b7","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T11:14:50.805Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"20243f7d-c1c9-473d-8e2e-423a03fe37b8","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T11:29:39.698Z","suggestedAgent":"LinkedIn Content Creator","confidence":0.75,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T11:46:17.227Z","suggestedAgent":"Bilibili Content Strategist","confidence":0.6,"sessionId":"7226705e-ce47-497c-9582-e61c546948b7","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T15:52:51.048Z","suggestedAgent":"Baidu SEO Specialist","confidence":0.55,"sessionId":"20243f7d-c1c9-473d-8e2e-423a03fe37b8","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T16:42:08.892Z","suggestedAgent":"China E-Commerce Operator","confidence":0.6,"sessionId":"7226705e-ce47-497c-9582-e61c546948b7","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T17:06:22.889Z","suggestedAgent":"Baidu SEO Specialist","confidence":0.55,"sessionId":"7226705e-ce47-497c-9582-e61c546948b7","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T17:07:25.348Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"20243f7d-c1c9-473d-8e2e-423a03fe37b8","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T17:08:52.143Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T20:29:11.195Z","suggestedAgent":"Baidu SEO Specialist","confidence":0.55,"sessionId":"7226705e-ce47-497c-9582-e61c546948b7","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T21:17:35.131Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"7226705e-ce47-497c-9582-e61c546948b7","intelligenceFeedback":true}
+{"timestamp":"2026-05-17T21:28:27.703Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T07:17:19.499Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"20243f7d-c1c9-473d-8e2e-423a03fe37b8","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T09:10:45.993Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"20243f7d-c1c9-473d-8e2e-423a03fe37b8","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T09:14:03.843Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T09:26:50.629Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"20243f7d-c1c9-473d-8e2e-423a03fe37b8","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T09:28:49.060Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T09:43:22.888Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T09:57:06.630Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T10:19:32.545Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T10:46:23.050Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T11:49:26.639Z","suggestedAgent":"reviewer","confidence":1,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T14:08:54.446Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T14:37:58.975Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T14:59:21.279Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T15:18:31.384Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T15:59:32.334Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T16:11:48.339Z","suggestedAgent":"coder","confidence":0.5,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T16:34:05.855Z","suggestedAgent":"coder","confidence":0.75,"sessionId":"7226705e-ce47-497c-9582-e61c546948b7","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T16:50:08.206Z","suggestedAgent":"coder","confidence":0.75,"sessionId":"f4844d50-15e7-4a71-a03f-1991fe6f291f","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T18:54:51.274Z","suggestedAgent":"reviewer","confidence":1,"sessionId":"3af23cbb-c980-45b8-bb8b-239f8a7b9b0d","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T19:28:19.079Z","suggestedAgent":"reviewer","confidence":1,"sessionId":"3af23cbb-c980-45b8-bb8b-239f8a7b9b0d","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T19:51:31.376Z","suggestedAgent":"reviewer","confidence":1,"sessionId":"7226705e-ce47-497c-9582-e61c546948b7","intelligenceFeedback":true}
+{"timestamp":"2026-05-18T20:33:16.900Z","suggestedAgent":"Bilibili Content Strategist","confidence":0.55,"sessionId":"0f76a653-4afa-4d20-839d-f6cc435cd91b","intelligenceFeedback":true}
+{"timestamp":"2026-05-19T08:04:26.260Z","suggestedAgent":"coder","confidence":1,"sessionId":"20243f7d-c1c9-473d-8e2e-423a03fe37b8","intelligenceFeedback":true}
+{"timestamp":"2026-05-19T08:07:39.538Z","suggestedAgent":"coder","confidence":1,"sessionId":"20243f7d-c1c9-473d-8e2e-423a03fe37b8","intelligenceFeedback":true}
+{"timestamp":"2026-05-19T15:19:23.217Z","suggestedAgent":"reviewer","confidence":1,"sessionId":"7226705e-ce47-497c-9582-e61c546948b7","intelligenceFeedback":true}
+{"timestamp":"2026-05-20T21:30:52.230Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"20243f7d-c1c9-473d-8e2e-423a03fe37b8","intelligenceFeedback":true}
+{"timestamp":"2026-05-20T21:33:31.238Z","suggestedAgent":"coder","confidence":0.75,"sessionId":"3af23cbb-c980-45b8-bb8b-239f8a7b9b0d","intelligenceFeedback":true}
+{"timestamp":"2026-05-21T05:28:03.123Z","suggestedAgent":"reviewer","confidence":1,"sessionId":"7226705e-ce47-497c-9582-e61c546948b7","intelligenceFeedback":true}
+{"timestamp":"2026-05-21T07:09:11.724Z","suggestedAgent":"coder","confidence":0.75,"sessionId":"3af23cbb-c980-45b8-bb8b-239f8a7b9b0d","intelligenceFeedback":true}
+{"timestamp":"2026-05-21T23:40:21.672Z","suggestedAgent":"frontend-dev","confidence":0.8,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
+{"timestamp":"2026-05-22T05:08:42.077Z","suggestedAgent":"coder","confidence":0.75,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
+{"timestamp":"2026-05-22T07:49:28.695Z","suggestedAgent":"coder","confidence":0.8,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
+{"timestamp":"2026-05-22T09:01:27.909Z","suggestedAgent":"reviewer","confidence":1,"sessionId":"7226705e-ce47-497c-9582-e61c546948b7","intelligenceFeedback":true}
+{"timestamp":"2026-05-22T10:00:37.230Z","suggestedAgent":"reviewer","confidence":0.8,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
+{"timestamp":"2026-05-22T15:29:29.339Z","suggestedAgent":"coder","confidence":1,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
+{"timestamp":"2026-05-24T17:58:37.554Z","suggestedAgent":"reviewer","confidence":1,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
+{"timestamp":"2026-05-24T21:26:56.590Z","suggestedAgent":"coder","confidence":0.75,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
+{"timestamp":"2026-05-24T21:35:39.725Z","suggestedAgent":"coder","confidence":0.75,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
+{"timestamp":"2026-05-25T09:25:50.348Z","suggestedAgent":"coder","confidence":0.75,"sessionId":"7226705e-ce47-497c-9582-e61c546948b7","intelligenceFeedback":true}
+{"timestamp":"2026-05-25T09:34:17.779Z","suggestedAgent":"coder","confidence":0.75,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
+{"timestamp":"2026-05-26T08:06:19.073Z","suggestedAgent":"reviewer","confidence":1,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
+{"timestamp":"2026-05-26T14:29:30.379Z","suggestedAgent":"AI selecting","confidence":0.85,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
+{"timestamp":"2026-05-27T13:52:25.657Z","suggestedAgent":"coder","confidence":1,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
+{"timestamp":"2026-05-27T14:09:19.874Z","suggestedAgent":"coder","confidence":1,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
+{"timestamp":"2026-05-28T05:13:41.012Z","suggestedAgent":"coder","confidence":1,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
+{"timestamp":"2026-05-29T09:01:17.204Z","suggestedAgent":"AI selecting","confidence":0.65,"sessionId":"92cfea4b-6a1b-4efe-9b8f-ad916fda13da","intelligenceFeedback":true}
+{"timestamp":"2026-05-30T07:41:23.862Z","suggestedAgent":"coder","confidence":0.7,"sessionId":"8c5e2409-74f8-4742-ab7c-08aa7e124b19","intelligenceFeedback":true}
+{"timestamp":"2026-05-30T20:37:50.446Z","suggestedAgent":"coder","confidence":0.75,"sessionId":"b2091404-eb35-4cb3-90c4-1034667bf2d5","intelligenceFeedback":true}
+{"timestamp":"2026-05-30T20:38:58.849Z","suggestedAgent":"reviewer","confidence":1,"sessionId":"8c5e2409-74f8-4742-ab7c-08aa7e124b19","intelligenceFeedback":true}
+{"timestamp":"2026-05-31T17:03:12.873Z","suggestedAgent":"reviewer","confidence":1,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
+{"timestamp":"2026-05-31T20:57:34.888Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"2b479586-0770-4487-8265-be1a4cf86cac","intelligenceFeedback":true}
+{"timestamp":"2026-06-01T07:29:46.797Z","suggestedAgent":"command","confidence":1,"sessionId":"9d53fe4e-0ed9-409c-bf63-c39dc372324c","intelligenceFeedback":true}

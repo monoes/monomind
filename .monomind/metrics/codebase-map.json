@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-05-10T22:09:26.642Z",
+  "projectRoot": "/Users/morteza/Desktop/tools/monomind",
+  "structure": {
+    "hasPackageJson": true,
+    "hasTsConfig": true,
+    "hasClaudeConfig": true,
+    "hasMonomind": true
+  },
+  "scannedAt": 1778450966643
+}

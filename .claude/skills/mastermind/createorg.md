@@ -128,6 +128,7 @@ Ask the user (or infer from prompt) for the optional Paperclip-style fields:
       "agent_type": "<subagent_type slug from mapping table>",
       "responsibilities": ["<1-3 bullet responsibilities>"],
       "reports_to": "<role id or null>",
+      "skills": [],
       "adapter_config": {
         "model": "<claude model id>",
         "max_tokens": 8192
@@ -226,18 +227,32 @@ mkdir -p .monomind/orgs
 Write the confirmed org config as JSON using `jq` to guarantee valid encoding:
 
 ```bash
-# Build the config JSON from the confirmed org plan and write atomically
-# (Claude constructs the full jq expression from the confirmed roles/edges in Step 5)
+# Build the config JSON from the confirmed org plan and write atomically.
+# Set shell variables from the confirmed plan before running this block:
+#   governance_policy  — "auto" | "board" | "strict"  (from Step 4)
+#   budget_tokens_val  — integer or 0 for unlimited     (from Step 4)
+#   ceo_adapter        — model id string                (from Step 4)
 jq -n \
   --arg name "$org_name" \
   --arg goal "$goal" \
   --arg topology "$topology" \
   --argjson roles "$roles_json" \
   --argjson communication "$communication_json" \
+  --arg gov_policy "${governance_policy:-auto}" \
+  --argjson budget_tokens "${budget_tokens_val:-0}" \
+  --arg ceo_adapter "${ceo_adapter:-claude-sonnet-4-6}" \
   '{name:$name,goal:$goal,mode:"daemon",topology:$topology,
     created_at:(now|todate),roles:$roles,communication:$communication,
+    governance:{policy:$gov_policy,approvals_file:(".monomind/orgs/"+$name+"-approvals.json")},
     board_space:$name,board_name:"org-tasks",
-    run_config:{checkpoint_interval_min:30,max_concurrent_agents:6,memory_namespace:("org:"+$name)}}' \
+    run_config:{
+      checkpoint_interval_min:30,
+      max_concurrent_agents:6,
+      memory_namespace:("org:"+$name),
+      budget_tokens:$budget_tokens,
+      alert_threshold:0.8,
+      ceo_adapter:$ceo_adapter
+    }}' \
   > "${orgJson}.tmp" && mv "${orgJson}.tmp" "$orgJson"
 ```
 
@@ -296,14 +311,15 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
     '{type:"domain:complete",session:$session,domain:"ops",status:"complete",
       org:$orgName,goal:$goal,roles_count:$rolesCount,ts:(now*1000|floor)}')" || true
 
-# org:create — so handleOrgEvent routes it to the Orgs panel event log
+# org:create — so handleOrgEvent routes it to the Orgs panel event log and SSE triggers list refresh
 curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
   -H "Content-Type: application/json" \
   -d "$(jq -cn \
     --arg session "$session_id" \
     --arg org "$orgName" \
     --arg goal "$goal_val" \
-    '{type:"org:create",session:$session,org:$org,goal:$goal,ts:(now*1000|floor)}')" || true
+    --arg proj "$(pwd)" \
+    '{type:"org:create",session:$session,org:$org,goal:$goal,project:$proj,ts:(now*1000|floor)}')" || true
 ```
 
 ---

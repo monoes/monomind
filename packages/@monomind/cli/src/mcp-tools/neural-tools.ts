@@ -290,6 +290,40 @@ export const neuralTools: MCPTool[] = [
       model.trainedAt = new Date().toISOString();
       saveNeuralStore(store);
 
+      // Mirror patterns to patterns.json so CLI commands (neural patterns list,
+      // neural predict) can find patterns trained via MCP and vice versa.
+      if (patternsStored > 0) {
+        try {
+          const patternsPath = join(getNeuralDir(), PATTERNS_FILE);
+          let existing: Array<Record<string, unknown>> = [];
+          if (existsSync(patternsPath)) {
+            const raw = readFileSync(patternsPath, 'utf-8');
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) existing = parsed;
+          }
+          const existingIds = new Set(existing.map(p => p['id']));
+          const newEntries = Object.values(store.patterns)
+            .filter(p => p.id.startsWith(modelId) && !existingIds.has(p.id))
+            .map(p => ({
+              id: p.id,
+              type: p.type,
+              content: p.name,
+              confidence: 0.8,
+              usageCount: 0,
+              embedding: p.embedding,
+              createdAt: p.createdAt,
+            }));
+          if (newEntries.length > 0) {
+            const merged = [...existing, ...newEntries];
+            const tmp = `${patternsPath}.${process.pid}.${Date.now()}.tmp`;
+            writeFileSync(tmp, JSON.stringify(merged, null, 2), 'utf-8');
+            renameSync(tmp, patternsPath);
+          }
+        } catch {
+          // Mirror is best-effort; don't fail the train operation
+        }
+      }
+
       return {
         success: true,
         _realEmbedding: !!realEmbeddings,
@@ -342,12 +376,36 @@ export const neuralTools: MCPTool[] = [
       const latency = Math.round(performance.now() - startTime);
 
       // Search stored patterns via real cosine similarity.
-      // Cap at MAX_PATTERNS to prevent O(N) blowup if the store grew unbounded
-      // through some other path. Skip patterns below an early-exit threshold
-      // before sorting to avoid O(N log N) on irrelevant rows.
+      // Merge MCP models.json patterns with CLI patterns.json so both training
+      // paths are visible from predict.
       const MAX_SCAN = 10000;
       const EARLY_EXIT_THRESHOLD = 0.1;
-      const storedPatterns = Object.values(store.patterns).slice(0, MAX_SCAN);
+      const mcpPatterns = Object.values(store.patterns);
+      const cliPatternsRaw: Array<{ id?: string; type?: string; content?: string; name?: string; embedding?: number[] }> = [];
+      try {
+        const cliPath = join(getNeuralDir(), PATTERNS_FILE);
+        if (existsSync(cliPath)) {
+          const raw = JSON.parse(readFileSync(cliPath, 'utf-8'));
+          if (Array.isArray(raw)) {
+            const mcpIds = new Set(mcpPatterns.map(p => p.id));
+            for (const p of raw) {
+              if (p?.id && !mcpIds.has(p.id) && Array.isArray(p.embedding)) {
+                cliPatternsRaw.push(p);
+              }
+            }
+          }
+        }
+      } catch { /* best-effort */ }
+      const cliMapped: Pattern[] = cliPatternsRaw.map(p => ({
+        id: p.id ?? '',
+        name: p.content ?? p.name ?? p.type ?? '',
+        type: p.type ?? 'general',
+        embedding: p.embedding ?? [],
+        metadata: {},
+        createdAt: new Date().toISOString(),
+        usageCount: 0,
+      }));
+      const storedPatterns = [...mcpPatterns, ...cliMapped].slice(0, MAX_SCAN);
       let predictions;
 
       if (storedPatterns.length > 0) {

@@ -72,7 +72,7 @@ export class PlanStore {
     if (!content) {
       return [];
     }
-    return content.split('\n').map((line) => {
+    return content.split('\n').filter(Boolean).map((line) => {
       const raw: SerializedPlan = JSON.parse(line);
       return {
         ...raw,

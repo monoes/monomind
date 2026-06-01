@@ -1,0 +1,38 @@
+{
+  "agents": {
+    "agent-1777281866077-f0q7b2": {
+      "agentId": "agent-1777281866077-f0q7b2",
+      "agentType": "coder",
+      "status": "terminated",
+      "health": 1,
+      "taskCount": 0,
+      "config": {},
+      "createdAt": "2026-04-27T09:24:26.117Z",
+      "model": "sonnet",
+      "modelRoutedBy": "router"
+    },
+    "agent-1777281866148-5vvxrr": {
+      "agentId": "agent-1777281866148-5vvxrr",
+      "agentType": "tester",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {},
+      "createdAt": "2026-04-27T09:24:26.157Z",
+      "model": "haiku",
+      "modelRoutedBy": "router"
+    },
+    "agent-1777281866159-5uwudo": {
+      "agentId": "agent-1777281866159-5uwudo",
+      "agentType": "reviewer",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {},
+      "createdAt": "2026-04-27T09:24:26.160Z",
+      "model": "sonnet",
+      "modelRoutedBy": "router"
+    }
+  },
+  "version": "3.0.0"
+}

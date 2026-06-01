@@ -112,11 +112,14 @@ export function tryLoadParser(language: string): ParserInstance | null {
 export function walk(
   node: SyntaxNodeLike,
   visitor: (n: SyntaxNodeLike) => void,
+  /** Optional leave callback — called after all children have been visited. */
+  leave?: (n: SyntaxNodeLike) => void,
 ): void {
   visitor(node);
   for (const child of node.children) {
-    walk(child, visitor);
+    walk(child, visitor, leave);
   }
+  leave?.(node);
 }
 
 // ---- main entry point ----

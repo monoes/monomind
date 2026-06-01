@@ -1,0 +1,62 @@
+{"type":"session:start","session":"test-001","prompt":"test connectivity","mode":"auto","ts":1234567890}
+{"type":"session:start","session":"mm-demo-001","prompt":"Build a SaaS analytics dashboard with auth, charts, and billing","mode":"auto","ts":1778404557841}
+{"type":"domain:dispatch","session":"mm-demo-001","domain":"build","cmd":"Spawn architect + coder + tester for dashboard","ts":1778404558207}
+{"type":"domain:dispatch","session":"mm-demo-001","domain":"marketing","cmd":"Craft launch campaign and landing copy","ts":1778404558549}
+{"type":"agent:spawn","session":"mm-demo-001","domain":"build","agent":"architect","task":"Design system schema and API contracts","ts":1778404558897}
+{"type":"intercom","session":"mm-demo-001","from":"build","to":"marketing","msg":"API ready — landing page can reference /v1/analytics endpoint","ts":1778404559442}
+{"type":"session:start","session":"mm-live-1778433221","prompt":"Build SaaS analytics + launch campaign","mode":"auto","ts":1778433221771}
+{"type":"domain:dispatch","session":"mm-live-1778433221","domain":"build","cmd":"Running build agents","ts":1778433222295}
+{"type":"domain:dispatch","session":"mm-live-1778433221","domain":"marketing","cmd":"Running marketing agents","ts":1778433222557}
+{"type":"domain:dispatch","session":"mm-live-1778433221","domain":"research","cmd":"Running research agents","ts":1778433222857}
+{"type":"agent:spawn","session":"mm-live-1778433221","domain":"build","agent":"architect","task":"Working on build tasks","ts":1778433223111}
+{"type":"agent:spawn","session":"mm-live-1778433221","domain":"build","agent":"coder","task":"Working on build tasks","ts":1778433223362}
+{"type":"agent:spawn","session":"mm-live-1778433221","domain":"build","agent":"tester","task":"Working on build tasks","ts":1778433223626}
+{"type":"agent:spawn","session":"mm-live-1778433221","domain":"marketing","agent":"coordinator","task":"Working on marketing tasks","ts":1778433223876}
+{"type":"agent:spawn","session":"mm-live-1778433221","domain":"research","agent":"researcher","task":"Working on research tasks","ts":1778433224130}
+{"type":"intercom","session":"mm-live-1778433221","from":"research","to":"marketing","msg":"competitor data ready","ts":1778433224412}
+{"type":"session:start","session":"mm-demo-1778433292","prompt":"Build SaaS analytics + launch campaign","mode":"auto","ts":1778433292438}
+{"type":"domain:dispatch","session":"mm-demo-1778433292","domain":"build","cmd":"Spawn architect+coder+tester","ts":1778433292438}
+{"type":"domain:dispatch","session":"mm-demo-1778433292","domain":"marketing","cmd":"Craft launch copy","ts":1778433292438}
+{"type":"domain:dispatch","session":"mm-demo-1778433292","domain":"research","cmd":"Competitor analysis","ts":1778433292438}
+{"type":"agent:spawn","session":"mm-demo-1778433292","domain":"build","agent":"architect","task":"Design schema","ts":1778433292438}
+{"type":"agent:spawn","session":"mm-demo-1778433292","domain":"build","agent":"coder","task":"Implement API","ts":1778433292438}
+{"type":"agent:spawn","session":"mm-demo-1778433292","domain":"marketing","agent":"coordinator","task":"Plan campaign","ts":1778433292438}
+{"type":"agent:spawn","session":"mm-demo-1778433292","domain":"research","agent":"researcher","task":"Scrape competitors","ts":1778433292438}
+{"type":"intercom","session":"mm-demo-1778433292","from":"research","to":"marketing","msg":"competitor data ready","ts":1778433292438}
+{"type":"domain:complete","session":"mm-demo-1778433292","domain":"research","status":"complete","ts":1778433292438}
+{"type":"loop:start","loopId":"mastermind-review-1779440119289","command":"/mastermind:review","mode":"tillend","repeat":"50(cap)","wait":60,"ts":1779440119000}
+{"type":"loop:start","loopId":"review-1779440486449","command":"/mastermind:review","mode":"tillend","repeat":"50(cap)","wait":60,"ts":1779440494000}
+{"type":"loop:tick","loopId":"review-1779440486449","command":"/mastermind:review","mode":"tillend","completedRep":1,"nextRep":2,"nextAt":1779440565678,"ts":1779440505000}
+{"type":"loop:tick","loopId":"review-1779440486449","command":"/mastermind:review","mode":"tillend","completedRep":2,"nextRep":3,"nextAt":1779440990276,"ts":1779440930000}
+{"type":"loop:tick","loopId":"review-1779440486449","command":"/mastermind:review","mode":"tillend","completedRep":3,"nextRep":4,"nextAt":1779441272093,"ts":1779441212000}
+{"type":"loop:complete","loopId":"review-1779440486449","command":"/mastermind:review","mode":"tillend","ranReps":4,"reason":"empty-round","ts":1779441565000}
+{"type":"loop:tick","loopId":"mastermind-review-1779440119289","command":"/mastermind:review","mode":"tillend","completedRep":2,"nextRep":3,"nextAt":1779444668205,"ts":1779444616000}
+{"type":"loop:tick","loopId":"mastermind-review-1779440119289","command":"/mastermind:review","mode":"tillend","completedRep":3,"nextRep":4,"nextAt":1779445179821,"ts":1779445120000}
+{"type":"loop:tick","loopId":"mastermind-review-1779440119289","command":"/mastermind:review","mode":"tillend","completedRep":4,"nextRep":5,"nextAt":1779445597966,"ts":1779445538000}
+{"type":"loop:tick","loopId":"mastermind-review-1779440119289","command":"/mastermind:review","mode":"tillend","completedRep":5,"nextRep":6,"nextAt":1779446001110,"ts":1779445942000}
+{"type":"loop:tick","loopId":"mastermind-review-1779440119289","command":"/mastermind:review","mode":"tillend","completedRep":6,"nextRep":7,"nextAt":1779446435158,"ts":1779446375000}
+{"type":"loop:tick","loopId":"mastermind-review-1779440119289","command":"/mastermind:review","mode":"tillend","completedRep":7,"nextRep":8,"nextAt":1779446708844,"ts":1779446649000}
+{"type":"loop:tick","loopId":"mastermind-review-1779440119289","command":"/mastermind:review","mode":"tillend","completedRep":8,"nextRep":9,"nextAt":1779447049799,"ts":1779446990000}
+{"type":"loop:tick","loopId":"mastermind-review-1779440119289","command":"/mastermind:review","mode":"tillend","completedRep":9,"nextRep":10,"nextAt":1779447433043,"ts":1779447373000}
+{"type":"loop:tick","loopId":"mastermind-review-1779440119289","command":"/mastermind:review","mode":"tillend","completedRep":10,"nextRep":11,"nextAt":1779447814969,"ts":1779447755000}
+{"type":"loop:tick","loopId":"mastermind-review-1779440119289","command":"/mastermind:review","mode":"tillend","completedRep":11,"nextRep":12,"nextAt":1779448105724,"ts":1779448046000}
+{"type":"loop:tick","loopId":"mastermind-review-1779440119289","command":"/mastermind:review","mode":"tillend","completedRep":12,"nextRep":13,"nextAt":1779448319684,"ts":1779448260000}
+{"type":"loop:complete","loopId":"mastermind-review-1779440119289","command":"/mastermind:review","mode":"tillend","ranReps":13,"reason":"empty-round","ts":1779448523000}
+{"type":"domain:dispatch","session":"mm-20260524T150608","domain":"ops","cmd":"Starting org trial-sim as persistent daemon","ts":1779635168714}
+{"type":"loop:start","loopId":"mastermind-review-1779646158186","command":"/mastermind:review","mode":"tillend","repeat":"50(cap)","wait":60,"ts":1779646158000}
+{"type":"loop:tick","loopId":"mastermind-review-1779646158186","command":"/mastermind:review","mode":"tillend","completedRep":1,"nextRep":2,"nextAt":1779646558324,"ts":1779646498000}
+{"type":"loop:tick","loopId":"mastermind-review-1779646158186","command":"/mastermind:review","mode":"tillend","completedRep":2,"nextRep":3,"nextAt":1779646763516,"ts":1779646703000}
+{"type":"loop:tick","loopId":"mastermind-review-1779646158186","command":"/mastermind:review","mode":"tillend","completedRep":3,"nextRep":4,"nextAt":1779646941485,"ts":1779646881000}
+{"type":"loop:complete","loopId":"mastermind-review-1779646158186","command":"/mastermind:review","mode":"tillend","ranReps":4,"reason":"empty-round","ts":1779647010000}
+{"type":"loop:tick","loopId":"mastermind-review-1779665112832","command":"/mastermind:review","mode":"tillend","completedRep":1,"nextRep":2,"nextAt":1779665535724,"ts":1779665476000}
+{"type":"loop:tick","loopId":"mastermind-review-1779665112832","command":"/mastermind:review","mode":"tillend","completedRep":2,"nextRep":3,"nextAt":1779665841051,"ts":1779665781000}
+{"type":"loop:tick","loopId":"mastermind-review-1779665112832","command":"/mastermind:review","mode":"tillend","completedRep":3,"nextRep":4,"nextAt":1779666094918,"ts":1779666035000}
+{"type":"loop:complete","loopId":"mastermind-review-1779665112832","command":"/mastermind:review","mode":"tillend","ranReps":4,"reason":"empty-round","ts":1779666321000}
+{"type":"loop:start","loopId":"mastermind-review-1779706249794","command":"/mastermind:review","mode":"tillend","repeat":"50(cap)","wait":60,"ts":1779706256000}
+{"type":"loop:tick","loopId":"mastermind-review-1779706249794","command":"/mastermind:review","mode":"tillend","completedRep":1,"nextRep":2,"nextAt":1779706795170,"ts":1779706735000}
+{"type":"loop:complete","loopId":"mastermind-review-1779706249794","command":"/mastermind:review","mode":"tillend","ranReps":2,"reason":"empty-round","ts":1779707187000}
+{"type":"loop:start","loopId":"mastermind-review-1779782770770","command":"/mastermind:review","mode":"tillend","repeat":"50(cap)","wait":60,"ts":1779782770000}
+{"type":"loop:tick","loopId":"mastermind-review-1779782770770","command":"/mastermind:review","mode":"tillend","completedRep":1,"nextRep":2,"ts":1779783087000}
+{"type":"loop:tick","loopId":"mastermind-review-1779782770770","command":"/mastermind:review","mode":"tillend","completedRep":2,"nextRep":3,"nextAt":1779797190763,"ts":1779797131000}
+{"type":"loop:tick","loopId":"mastermind-review-1779782770770","command":"/mastermind:review","mode":"tillend","completedRep":2,"nextRep":3,"nextAt":1779797270981,"ts":1779797211000}
+{"type":"loop:complete","loopId":"mastermind-review-1779782770770","command":"/mastermind:review","mode":"tillend","ranReps":3,"reason":"empty-round","ts":1779800261000}

@@ -1,0 +1,12 @@
+{
+  "id": "do-1778969262190",
+  "type": "do",
+  "prompt": "/monomind:do --space e4c23ab8-bc08-474e-a5f3-bc9db58b421f --board 2d9a3b0d-9907-4b85-b621-920b5b56bf95 --mode sequential",
+  "mode": "sequential",
+  "currentTask": "starting...",
+  "spaceId": "e4c23ab8-bc08-474e-a5f3-bc9db58b421f",
+  "boardId": "2d9a3b0d-9907-4b85-b621-920b5b56bf95",
+  "startedAt": 1778969262190,
+  "lastRunAt": 1778969262190,
+  "status": "running"
+}

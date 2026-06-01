@@ -39,7 +39,7 @@ import { BalancedMode } from './modes/balanced.js';
 import { ResearchMode } from './modes/research.js';
 import { EdgeMode } from './modes/edge.js';
 import { BatchMode } from './modes/batch.js';
-import type { ModeImplementation } from './modes/index.js';
+import type { ModeImplementation } from './modes/base.js';
 
 /**
  * Default mode configurations
@@ -170,6 +170,7 @@ export class SONAManager {
   private eventListeners: Set<NeuralEventListener> = new Set();
   private stats: NeuralStats;
   private isInitialized = false;
+  private isLearning = false; // reentrancy guard for triggerLearning
 
   // Performance tracking
   private operationCount = 0;
@@ -203,6 +204,7 @@ export class SONAManager {
     };
 
     this.isInitialized = true;
+    await this.loadLearnedState();
   }
 
   /**
@@ -220,6 +222,10 @@ export class SONAManager {
     this.currentMode = mode;
     this.config = { ...MODE_CONFIGS[mode] };
     this.optimizations = { ...MODE_OPTIMIZATIONS[mode] };
+
+    // M1: clear stale LoRA weights — B matrix size depends on rank which changes per mode
+    this.loraWeights.clear();
+    void this.persistLearnedState();
 
     // Create new mode implementation
     this.modeImpl = this.createModeImplementation(mode);
@@ -290,6 +296,9 @@ export class SONAManager {
   ): void {
     const startTime = performance.now();
 
+    // C1: reject non-finite rewards before they corrupt LoRA weights / EWC state
+    if (!Number.isFinite(reward)) return;
+
     const trajectory = this.trajectories.get(trajectoryId);
     if (!trajectory || trajectory.isComplete) return;
 
@@ -326,7 +335,8 @@ export class SONAManager {
     trajectory.endTime = Date.now();
 
     if (finalQuality !== undefined) {
-      trajectory.qualityScore = finalQuality;
+      // C1: clamp to [0,1] so non-finite caller values can't corrupt LoRA/EWC
+      trajectory.qualityScore = Math.max(0, Math.min(1, Number.isFinite(finalQuality) ? finalQuality : 0));
     } else {
       trajectory.qualityScore = this.calculateQualityScore(trajectory);
     }
@@ -428,10 +438,18 @@ export class SONAManager {
    * Trigger a learning cycle
    */
   async triggerLearning(reason: string = 'manual'): Promise<void> {
+    // H2: reentrancy guard — concurrent trajectory completions can race here
+    if (this.isLearning) return;
+    this.isLearning = true;
+
     const startTime = performance.now();
 
+    try {
     const completedTrajectories = Array.from(this.trajectories.values())
       .filter(t => t.isComplete && t.qualityScore >= this.config.qualityThreshold);
+
+    // H1: always prune regardless of whether any trajectories met quality threshold
+    this.pruneTrajectories();
 
     if (completedTrajectories.length === 0) return;
 
@@ -441,12 +459,30 @@ export class SONAManager {
       trajectoryCount: completedTrajectories.length,
     });
 
+    // Ensure LoRA weights are initialized for the default domain
+    if (!this.loraWeights.has('default')) {
+      this.initializeLoRAWeights('default');
+    }
+
     // Perform learning via mode implementation
     const improvementDelta = await this.modeImpl.learn(
       completedTrajectories,
       this.config,
       this.ewcState!
     );
+
+    // Apply gradient update to LoRA B matrices using trajectory rewards
+    this.updateLoRAFromTrajectories(completedTrajectories);
+
+    // Update EWC Fisher information from current LoRA weights
+    this.updateEWCFisher();
+
+    // Consolidate EWC (decay Fisher, increment task count)
+    this.consolidateEWC();
+
+    void this.persistLearnedState().catch(err => {
+      console.error('[SONAManager] Failed to persist learned state:', err);
+    });
 
     this.learningCycles++;
 
@@ -455,10 +491,11 @@ export class SONAManager {
       improvementDelta,
     });
 
-    // Prune old trajectories if over capacity
-    this.pruneTrajectories();
-
     this.trackLatency(performance.now() - startTime);
+    } finally {
+      // H2: always release reentrancy guard even if an error is thrown
+      this.isLearning = false;
+    }
   }
 
   /**
@@ -567,10 +604,29 @@ export class SONAManager {
 
     const config = this.getEWCConfig();
 
-    // Update Fisher information with decay
+    // Decay Fisher and — critically — snapshot current B into means.
+    // This is the task-boundary update: means now freezes at the weights
+    // learned by this task, so next task's EWC penalty measures drift from HERE.
     for (const [key, fisher] of this.ewcState.fisher) {
       for (let i = 0; i < fisher.length; i++) {
         fisher[i] *= config.decay;
+      }
+
+      // Snapshot current B into means at task boundary
+      const parts = key.split(':');
+      const domain = parts[0];
+      const module = parts.slice(1).join(':');
+      const weights = this.loraWeights.get(domain);
+      const B = weights?.B.get(module);
+      if (B) {
+        let means = this.ewcState.means.get(key);
+        if (!means || means.length !== B.length) {
+          means = new Float32Array(B.length);
+          this.ewcState.means.set(key, means);
+        }
+        for (let i = 0; i < B.length; i++) {
+          means[i] = B[i];
+        }
       }
     }
 
@@ -619,6 +675,7 @@ export class SONAManager {
     await this.modeImpl.cleanup();
     this.trajectories.clear();
     this.patterns.clear();
+    await this.persistLearnedState();
     this.loraWeights.clear();
     this.eventListeners.clear();
     this.isInitialized = false;
@@ -658,14 +715,21 @@ export class SONAManager {
   }
 
   private checkLearningTrigger(): void {
-    const completedCount = Array.from(this.trajectories.values())
-      .filter(t => t.isComplete).length;
+    const trajectoryArray = Array.from(this.trajectories.values());
+    const completedCount = trajectoryArray.filter(t => t.isComplete).length;
 
+    // Trigger learning when either:
+    //   (a) 80% of capacity is used (original threshold — for high-volume workloads), OR
+    //   (b) at least MIN_TRIGGER_COUNT trajectories have completed (for normal sessions
+    //       where capacity is 3000+ and 2400 trajectories are unreachable in practice).
+    const MIN_TRIGGER_COUNT = 10;
     const utilization = completedCount / this.config.trajectoryCapacity;
+    const shouldTrigger = utilization >= 0.8 || completedCount >= MIN_TRIGGER_COUNT;
 
-    // Trigger learning at 80% utilization
-    if (utilization >= 0.8) {
-      this.triggerLearning('capacity_threshold');
+    if (shouldTrigger) {
+      this.triggerLearning('capacity_threshold').catch(err => {
+        console.error('[SONAManager] Auto-triggered learning failed:', err);
+      });
     }
   }
 
@@ -810,6 +874,274 @@ export class SONAManager {
       bytes += pattern.evolutionHistory.length * 100;
     }
     return bytes;
+  }
+
+  /**
+   * Apply a reward-weighted gradient update to LoRA B matrices.
+   * Uses each completed trajectory's final state embedding projected
+   * through A to produce a rank-dimensional update signal for B.
+   */
+  private updateLoRAFromTrajectories(trajectories: Trajectory[]): void {
+    const weights = this.loraWeights.get('default');
+    if (!weights) return;
+
+    const lr = this.config.learningRate;
+    const rank = this.config.loraRank;
+
+    for (const module of ['q_proj', 'v_proj', 'k_proj', 'o_proj']) {
+      const B = weights.B.get(module);
+      const A = weights.A.get(module);
+      if (!B || !A) continue;
+
+      const hiddenDim = B.length / rank;
+      const gradSignal = new Float32Array(rank);
+      let count = 0;
+
+      for (const traj of trajectories) {
+        if (traj.steps.length === 0) continue;
+        const reward = traj.qualityScore;
+        const embedding = traj.steps[traj.steps.length - 1].stateAfter;
+        if (!embedding) continue;
+
+        // Project embedding into rank-space via A: gradSignal[r] += reward * (A_row_r · embedding)
+        for (let r = 0; r < rank; r++) {
+          let dot = 0;
+          for (let d = 0; d < Math.min(hiddenDim, embedding.length); d++) {
+            dot += A[r * hiddenDim + d] * embedding[d];
+          }
+          gradSignal[r] += reward * dot;
+        }
+        count++;
+      }
+
+      if (count === 0) continue;
+
+      // H3: apply EWC regularization penalty to constrain updates near task means
+      const ewcKey = `default:${module}`;
+      const fisher = this.ewcState?.fisher.get(ewcKey);
+      const means = this.ewcState?.means.get(ewcKey);
+      const ewcLambda = this.config.ewcLambda;
+
+      // Apply averaged gradient update to B with optional EWC penalty
+      for (let r = 0; r < rank; r++) {
+        const grad = gradSignal[r] / count;
+        for (let d = 0; d < hiddenDim; d++) {
+          const idx = r * hiddenDim + d;
+          let update = lr * grad;
+          // Subtract EWC penalty: lambda * fisher * (B - means)
+          if (fisher && means && idx < fisher.length && idx < means.length) {
+            update -= lr * ewcLambda * fisher[idx] * (B[idx] - means[idx]);
+          }
+          B[idx] += update;
+        }
+      }
+    }
+
+    weights.iterations++;
+    weights.updatedAt = Date.now();
+  }
+
+  /**
+   * Get LoRA weight norms and EWC statistics.
+   */
+  getLoRAStats(): { domains: number; totalIterations: number; avgBNorm: number; ewcTaskCount: number; ewcFisherKeys: number } {
+    let totalIterations = 0;
+    let totalBNorm = 0;
+    let normCount = 0;
+    for (const weights of this.loraWeights.values()) {
+      totalIterations += weights.iterations;
+      for (const B of weights.B.values()) {
+        let norm = 0;
+        for (let i = 0; i < B.length; i++) norm += B[i] * B[i];
+        totalBNorm += Math.sqrt(norm);
+        normCount++;
+      }
+    }
+    return {
+      domains: this.loraWeights.size,
+      totalIterations,
+      avgBNorm: normCount > 0 ? totalBNorm / normCount : 0,
+      ewcTaskCount: this.ewcState?.taskCount ?? 0,
+      ewcFisherKeys: this.ewcState?.fisher.size ?? 0,
+    };
+  }
+
+  /**
+   * Update EWC Fisher information from the current LoRA B matrices.
+   * Uses B^2 as a proxy for parameter importance (online EWC).
+   */
+  private updateEWCFisher(): void {
+    if (!this.ewcState) return;
+
+    const decayRate = 0.9;
+
+    for (const [domain, weights] of this.loraWeights) {
+      for (const [module, B] of weights.B) {
+        const key = `${domain}:${module}`;
+        let fisher = this.ewcState.fisher.get(key);
+        let means = this.ewcState.means.get(key);
+
+        if (!fisher) {
+          // First task: initialize Fisher and means from current B
+          fisher = new Float32Array(B.length);
+          means = new Float32Array(B);
+          for (let i = 0; i < B.length; i++) {
+            fisher[i] = B[i] * B[i];
+          }
+          this.ewcState.fisher.set(key, fisher);
+          this.ewcState.means.set(key, means);
+        } else {
+          // Accumulate B² into Fisher each cycle — consolidateEWC applies the decay.
+          // IMPORTANT: do NOT update means here. means is frozen at task-boundary
+          // snapshots (taken in consolidateEWC) so that (B - means) in the EWC
+          // penalty reflects how far the current weights have drifted from the
+          // weights at the end of the last learned task. Updating means every cycle
+          // collapses (B - means) to zero, making the penalty a permanent no-op.
+          for (let i = 0; i < B.length; i++) {
+            fisher[i] = fisher[i] + B[i] * B[i];
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Serialize loraWeights and ewcState to disk atomically.
+   * Float32Array values are stored as plain number arrays.
+   * Non-fatal: errors are logged and swallowed.
+   */
+  private async persistLearnedState(): Promise<void> {
+    try {
+      const { mkdirSync, writeFileSync, renameSync } = await import('node:fs');
+      const { join } = await import('node:path');
+
+      const dir = join(process.cwd(), '.monomind', 'neural');
+      mkdirSync(dir, { recursive: true });
+
+      // Serialize loraWeights
+      const loraWeightsObj: Record<string, unknown> = {};
+      for (const [domain, weights] of this.loraWeights) {
+        const A: Record<string, number[]> = {};
+        const B: Record<string, number[]> = {};
+        for (const [mod, arr] of weights.A) {
+          A[mod] = Array.from(arr);
+        }
+        for (const [mod, arr] of weights.B) {
+          B[mod] = Array.from(arr);
+        }
+        loraWeightsObj[domain] = {
+          adapterId: weights.adapterId,
+          domain: weights.domain,
+          iterations: weights.iterations,
+          createdAt: weights.createdAt,
+          updatedAt: weights.updatedAt,
+          A,
+          B,
+        };
+      }
+
+      // Serialize ewcState
+      let ewcStateObj: unknown = null;
+      if (this.ewcState) {
+        const means: Record<string, number[]> = {};
+        const fisher: Record<string, number[]> = {};
+        for (const [key, arr] of this.ewcState.means) {
+          means[key] = Array.from(arr);
+        }
+        for (const [key, arr] of this.ewcState.fisher) {
+          fisher[key] = Array.from(arr);
+        }
+        ewcStateObj = {
+          taskCount: this.ewcState.taskCount,
+          lastConsolidation: this.ewcState.lastConsolidation,
+          means,
+          fisher,
+        };
+      }
+
+      const payload = JSON.stringify({ version: '1', loraWeights: loraWeightsObj, ewcState: ewcStateObj });
+      const targetPath = join(dir, 'learned-state.json');
+      const tmpPath = targetPath + '.tmp';
+      writeFileSync(tmpPath, payload, 'utf8');
+      renameSync(tmpPath, targetPath);
+    } catch (err) {
+      console.error('[SONAManager] Failed to persist learned state:', err);
+    }
+  }
+
+  /**
+   * Restore loraWeights and ewcState from disk.
+   * Non-fatal: errors are logged and swallowed.
+   */
+  private async loadLearnedState(): Promise<void> {
+    try {
+      const { readFileSync } = await import('node:fs');
+      const { join } = await import('node:path');
+
+      const filePath = join(process.cwd(), '.monomind', 'neural', 'learned-state.json');
+      const raw = readFileSync(filePath, 'utf8');
+      const parsed = JSON.parse(raw) as {
+        version: string;
+        loraWeights: Record<string, {
+          adapterId: string;
+          domain: string;
+          iterations: number;
+          createdAt: number;
+          updatedAt: number;
+          A: Record<string, number[]>;
+          B: Record<string, number[]>;
+        }>;
+        ewcState: {
+          taskCount: number;
+          lastConsolidation: number;
+          means: Record<string, number[]>;
+          fisher: Record<string, number[]>;
+        } | null;
+      };
+
+      if (parsed.version !== '1') return;
+
+      // Restore loraWeights
+      for (const [domain, data] of Object.entries(parsed.loraWeights)) {
+        const A = new Map<string, Float32Array>();
+        const B = new Map<string, Float32Array>();
+        for (const [mod, arr] of Object.entries(data.A)) {
+          A.set(mod, new Float32Array(arr));
+        }
+        for (const [mod, arr] of Object.entries(data.B)) {
+          B.set(mod, new Float32Array(arr));
+        }
+        this.loraWeights.set(domain, {
+          adapterId: data.adapterId,
+          domain: data.domain,
+          iterations: data.iterations,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+          A,
+          B,
+        });
+      }
+
+      // Restore ewcState
+      if (parsed.ewcState) {
+        const means = new Map<string, Float32Array>();
+        const fisher = new Map<string, Float32Array>();
+        for (const [key, arr] of Object.entries(parsed.ewcState.means)) {
+          means.set(key, new Float32Array(arr));
+        }
+        for (const [key, arr] of Object.entries(parsed.ewcState.fisher)) {
+          fisher.set(key, new Float32Array(arr));
+        }
+        this.ewcState = {
+          taskCount: parsed.ewcState.taskCount,
+          lastConsolidation: parsed.ewcState.lastConsolidation,
+          means,
+          fisher,
+        };
+      }
+    } catch (_err) {
+      // File missing or unreadable — start fresh, non-fatal
+    }
   }
 }
 

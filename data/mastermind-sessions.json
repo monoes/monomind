@@ -1,5 +1,334 @@
 [
   {
+    "id": "mm-20260518T183437",
+    "ts": 1779129277944,
+    "prompt": "full review of mastermind:monitor skill",
+    "status": "running",
+    "domains": [],
+    "events": [
+      {
+        "type": "session:start",
+        "session": "mm-20260518T183437",
+        "prompt": "full review of mastermind:monitor skill",
+        "mode": "auto",
+        "project": "/Users/morteza/Desktop/tools/monomind",
+        "ts": 1779129277944
+      }
+    ],
+    "project": "/Users/morteza/Desktop/tools/monomind"
+  },
+  {
+    "id": "mm-brain-1",
+    "ts": 1778442352000,
+    "prompt": "Build analytics API",
+    "status": "running",
+    "domains": [],
+    "events": [
+      {
+        "type": "session:start",
+        "session": "mm-brain-1",
+        "prompt": "Build analytics API",
+        "mode": "auto",
+        "project": "/Users/morteza/Desktop/tools/monomind",
+        "ts": 1778442352000
+      }
+    ],
+    "project": "/Users/morteza/Desktop/tools/monomind"
+  },
+  {
+    "id": "mm-proj-a-test",
+    "ts": 1778442287000,
+    "prompt": "Build API endpoints",
+    "status": "running",
+    "domains": [],
+    "events": [
+      {
+        "type": "session:start",
+        "session": "mm-proj-a-test",
+        "prompt": "Build API endpoints",
+        "mode": "auto",
+        "project": "/Users/morteza/Desktop/tools/monomind",
+        "ts": 1778442287000
+      }
+    ],
+    "project": "/Users/morteza/Desktop/tools/monomind"
+  },
+  {
+    "id": "mm-final-1778434267",
+    "ts": 1778434267000,
+    "prompt": "Build SaaS analytics + launch campaign",
+    "status": "running",
+    "domains": [
+      "build",
+      "marketing",
+      "research"
+    ],
+    "events": [
+      {
+        "type": "session:start",
+        "session": "mm-final-1778434267",
+        "prompt": "Build SaaS analytics + launch campaign",
+        "mode": "auto",
+        "ts": 1778434267000
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-final-1778434267",
+        "domain": "build",
+        "cmd": "Spawn build specialists",
+        "ts": 1778434274000
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-final-1778434267",
+        "domain": "marketing",
+        "cmd": "Spawn marketing specialists",
+        "ts": 1778434274000
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-final-1778434267",
+        "domain": "research",
+        "cmd": "Spawn research specialists",
+        "ts": 1778434274000
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-final-1778434267",
+        "domain": "build",
+        "agent": "architect",
+        "task": "Run architect task",
+        "ts": 1778434274000
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-final-1778434267",
+        "domain": "build",
+        "agent": "coder",
+        "task": "Run coder task",
+        "ts": 1778434275000
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-final-1778434267",
+        "domain": "marketing",
+        "agent": "coordinator",
+        "task": "Run coordinator task",
+        "ts": 1778434278000
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-final-1778434267",
+        "domain": "research",
+        "agent": "researcher",
+        "task": "Run researcher task",
+        "ts": 1778434278000
+      },
+      {
+        "type": "intercom",
+        "session": "mm-final-1778434267",
+        "from": "research",
+        "to": "marketing",
+        "msg": "competitor data ready",
+        "ts": 1778434279000
+      },
+      {
+        "type": "domain:complete",
+        "session": "mm-final-1778434267",
+        "domain": "research",
+        "status": "complete",
+        "ts": 1778434279000
+      }
+    ]
+  },
+  {
+    "id": "mm-live-demo",
+    "ts": 1778434147000,
+    "prompt": "Build auth service + launch campaign",
+    "status": "running",
+    "domains": [
+      "build",
+      "marketing",
+      "research"
+    ],
+    "events": [
+      {
+        "type": "session:start",
+        "session": "mm-live-demo",
+        "prompt": "Build auth service + launch campaign",
+        "mode": "auto",
+        "ts": 1778434147000
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-live-demo",
+        "domain": "build",
+        "cmd": "Spawn build specialists",
+        "ts": 1778434147000
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-live-demo",
+        "domain": "marketing",
+        "cmd": "Spawn marketing specialists",
+        "ts": 1778434147000
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-live-demo",
+        "domain": "research",
+        "cmd": "Spawn research specialists",
+        "ts": 1778434147000
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-live-demo",
+        "domain": "build",
+        "agent": "architect",
+        "task": "Design JWT auth schema",
+        "ts": 1778434147000
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-live-demo",
+        "domain": "build",
+        "agent": "coder",
+        "task": "Implement middleware",
+        "ts": 1778434147000
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-live-demo",
+        "domain": "marketing",
+        "agent": "coordinator",
+        "task": "Plan launch sequence",
+        "ts": 1778434148000
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-live-demo",
+        "domain": "research",
+        "agent": "researcher",
+        "task": "Competitor analysis",
+        "ts": 1778434148000
+      },
+      {
+        "type": "intercom",
+        "session": "mm-live-demo",
+        "from": "research",
+        "to": "marketing",
+        "msg": "competitor data ready",
+        "ts": 1778434148000
+      }
+    ]
+  },
+  {
+    "id": "mm-test-live",
+    "ts": 1778433909000,
+    "prompt": "Build auth service + marketing campaign",
+    "status": "running",
+    "domains": [
+      "build",
+      "marketing"
+    ],
+    "events": [
+      {
+        "type": "session:start",
+        "session": "mm-test-live",
+        "prompt": "Build auth service + marketing campaign",
+        "mode": "auto",
+        "ts": 1778433909000
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-test-live",
+        "domain": "build",
+        "cmd": "Run build specialists",
+        "ts": 1778433909000
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-test-live",
+        "domain": "marketing",
+        "cmd": "Run marketing specialists",
+        "ts": 1778433909000
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-test-live",
+        "domain": "build",
+        "agent": "architect",
+        "task": "Design JWT auth schema",
+        "ts": 1778433909000
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-test-live",
+        "domain": "build",
+        "agent": "coder",
+        "task": "Implement auth middleware",
+        "ts": 1778433910000
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-test-live",
+        "domain": "marketing",
+        "agent": "coordinator",
+        "task": "Plan launch sequence",
+        "ts": 1778433910000
+      }
+    ]
+  },
+  {
+    "id": "mm-test-fix-1",
+    "ts": 1778433807000,
+    "prompt": "Fix validation test",
+    "status": "running",
+    "domains": [
+      "build",
+      "review"
+    ],
+    "events": [
+      {
+        "type": "session:start",
+        "session": "mm-test-fix-1",
+        "prompt": "Fix validation test",
+        "mode": "auto",
+        "ts": 1778433807000
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-test-fix-1",
+        "domain": "build",
+        "cmd": "Run build agents",
+        "ts": 1778433807000
+      },
+      {
+        "type": "domain:dispatch",
+        "session": "mm-test-fix-1",
+        "domain": "review",
+        "cmd": "Run review agents",
+        "ts": 1778433807000
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-test-fix-1",
+        "domain": "build",
+        "agent": "coder",
+        "task": "Implement input validator",
+        "ts": 1778433807000
+      },
+      {
+        "type": "agent:spawn",
+        "session": "mm-test-fix-1",
+        "domain": "review",
+        "agent": "reviewer",
+        "task": "Audit security edge cases",
+        "ts": 1778433808000
+      }
+    ]
+  },
+  {
     "id": "mm-20260509T032100",
     "ts": 1778296809000,
     "prompt": "",

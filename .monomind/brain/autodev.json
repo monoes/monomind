@@ -1,0 +1,21 @@
+{
+  "domain": "autodev",
+  "lastRun": "2026-05-28",
+  "focus": "memory",
+  "improvements": [
+    {"id":1,"title":"Rebuild better-sqlite3 native bindings","file":"node_modules/.pnpm/better-sqlite3","impact":"+20 tests"},
+    {"id":2,"title":"Fix hardcoded container paths in findGitRoot tests","file":"auto-memory-bridge.test.ts","impact":"+2 tests"},
+    {"id":3,"title":"HNSW entry point missing from search candidates","file":"hnsw-lite.ts","impact":"correctness fix"},
+    {"id":4,"title":"HNSW persistent entry point + dimension validation","file":"hnsw-lite.ts","impact":"performance + correctness"},
+    {"id":5,"title":"Fix test isolation in database-provider.test.ts","file":"database-provider.test.ts","impact":"+1 test"},
+    {"id":6,"title":"CacheManager.clear() emits wrong previousSize","file":"cache-manager.ts","impact":"correctness fix"},
+    {"id":7,"title":"CacheManager cleanup timer keeps Node.js alive","file":"cache-manager.ts","impact":"reliability fix"},
+    {"id":8,"title":"agentdb-adapter.ts store() doesn't normalize entry.namespace","file":"agentdb-adapter.ts","description":"namespace was normalised for indexes but not updated in the stored entry object. Entries with empty namespace were findable by ID but invisible to namespace queries. Fixed by spreading { ...entry, namespace } when namespace needs normalisation, matching rvf-backend.ts pattern.","impact":"correctness fix"}
+  ],
+  "testResults": {"after": "353 passing, 0 failing"},
+  "nextTargets": [
+    "agentdb-adapter.ts: bulkInsert doesn't normalize namespace either (same bug class)",
+    "hybrid-backend.ts: query routing logic",
+    "migration.ts: edge cases in legacy format parsing"
+  ]
+}
