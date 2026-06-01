@@ -8,7 +8,7 @@ const MAX_NODES = 200;
  */
 function sanitizeLabel(s: string): string {
   return s
-    .replace(/["<>&{}()[\]]/g, '')
+    .replace(/["<>&{}()[\]|]/g, '')
     .substring(0, 40)
     .trim();
 }
