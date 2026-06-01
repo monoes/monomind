@@ -8,6 +8,10 @@ function escapeDotString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
 }
 
+function safeDotId(s: string): string {
+  return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(s) ? s : `"${escapeDotString(s)}"`;
+}
+
 /**
  * Export nodes and edges to Graphviz DOT format.
  *
@@ -21,10 +25,10 @@ export function toDot(
   edges: MonographEdge[],
   options: DotOptions = {},
 ): string {
-  const graphName = options.graphName ?? 'monograph';
+  const graphName = safeDotId(options.graphName ?? 'monograph');
 
   const nodeLines = nodes.map(n => {
-    const label = escapeDotString(`${n.name}\\n[${n.label}]`);
+    const label = escapeDotString(`${n.name}\n[${n.label}]`);
     return `  "${escapeDotString(n.id)}" [label="${label}"];`;
   });
 
@@ -36,7 +40,7 @@ export function toDot(
   });
 
   const lines = [
-    `digraph ${graphName} {`,
+    `digraph ${graphName} {`,  // graphName is already quoted/validated by safeDotId
     '  rankdir=LR;',
     '  node [shape=box, fontsize=10];',
     ...nodeLines,
