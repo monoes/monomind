@@ -18,7 +18,7 @@
  * - GenerateConfig float precision loss (f32 roundtrip)
  * - MicroLoRA apply() hardcoded to 768 dims regardless of config
  *
- * @module @monoes/cli/ruvector/ruvllm-wasm
+ * @module @monomind/cli/ruvector/ruvllm-wasm
  */
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -148,7 +148,7 @@ export async function createSonaInstant(config = {}) {
             sona.instantAdapt(quality);
         },
         recordPattern(embedding, success) {
-            sona.recordPattern(embedding, success);
+            sona.recordPattern(new Float32Array(embedding), success);
         },
         suggestAction(context) {
             return sona.suggestAction(context);

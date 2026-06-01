@@ -1,6 +1,6 @@
 /**
  * CLI Update Command
- * Auto-update system for @monoes packages (ADR-025)
+ * Auto-update system for @monomind packages (ADR-025)
  */
 import { output } from '../output.js';
 import { checkForUpdates, getInstalledVersion, DEFAULT_CONFIG, } from '../update/checker.js';
@@ -36,7 +36,7 @@ function formatPriority(priority) {
 // Subcommand: check
 const checkCommand = {
     name: 'check',
-    description: 'Check for available @monoes package updates',
+    description: 'Check for available @monomind package updates',
     options: [
         { name: 'force', description: 'Force check (ignore rate limit)', type: 'boolean' },
         { name: 'json', description: 'Output as JSON', type: 'boolean' },
@@ -58,7 +58,7 @@ const checkCommand = {
                 return { success: true };
             }
             if (results.length === 0) {
-                output.printSuccess('All @monoes packages are up to date!');
+                output.printSuccess('All @monomind packages are up to date!');
                 return { success: true };
             }
             output.writeln();
@@ -103,7 +103,7 @@ const checkCommand = {
 // Subcommand: all
 const allCommand = {
     name: 'all',
-    description: 'Update all @monoes packages',
+    description: 'Update all @monomind packages',
     options: [
         { name: 'dry-run', description: 'Show what would be updated', type: 'boolean' },
         { name: 'include-major', description: 'Include major version updates', type: 'boolean' },
@@ -244,14 +244,14 @@ const clearCacheCommand = {
 // Main update command
 const updateCommand = {
     name: 'update',
-    description: 'Manage @monoes package updates (ADR-025)',
+    description: 'Manage @monomind package updates (ADR-025)',
     subcommands: [checkCommand, allCommand, historyCommand, rollbackCommand, clearCacheCommand],
     async action() {
         // Show help if no subcommand
         output.writeln();
         output.writeln(output.highlight('═══ Update Command ═══'));
         output.writeln();
-        output.writeln('Manage @monoes package updates with auto-update support.');
+        output.writeln('Manage @monomind package updates with auto-update support.');
         output.writeln();
         output.writeln('Subcommands:');
         output.printList([

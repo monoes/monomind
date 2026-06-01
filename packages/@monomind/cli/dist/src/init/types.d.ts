@@ -303,6 +303,7 @@ export interface InitResult {
         directories: string[];
         files: string[];
     };
+    updated: string[];
     skipped: string[];
     errors: string[];
     summary: {

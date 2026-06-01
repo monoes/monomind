@@ -174,25 +174,10 @@ export interface MultiSelectPromptOptions<T = string> {
     min?: number;
     max?: number;
 }
-export type CLIEventType = 'command:start' | 'command:end' | 'command:error' | 'prompt:start' | 'prompt:complete' | 'output:write' | 'progress:update' | 'spinner:start' | 'spinner:stop';
-export interface CLIEvent {
-    type: CLIEventType;
-    timestamp: number;
-    data?: unknown;
-}
 export declare class CLIError extends Error {
     code: string;
     exitCode: number;
     details?: unknown | undefined;
     constructor(message: string, code: string, exitCode?: number, details?: unknown | undefined);
-}
-export declare class ValidationError extends CLIError {
-    constructor(message: string, details?: unknown);
-}
-export declare class ConfigError extends CLIError {
-    constructor(message: string, details?: unknown);
-}
-export declare class CommandNotFoundError extends CLIError {
-    constructor(commandName: string);
 }
 //# sourceMappingURL=types.d.ts.map

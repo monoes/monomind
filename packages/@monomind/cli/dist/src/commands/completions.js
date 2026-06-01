@@ -118,7 +118,7 @@ _monomind_completions() {
 }
 
 complete -F _monomind_completions monomind
-complete -F _monomind_completions npx\\ @monoes/cli@v1alpha
+complete -F _monomind_completions npx\\ @monomind/cli@v1alpha
 `;
 }
 // Generate zsh completion script

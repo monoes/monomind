@@ -272,6 +272,7 @@ export async function executeInit(options) {
             directories: [],
             files: [],
         },
+        updated: [],
         skipped: [],
         errors: [],
         summary: {
@@ -1490,6 +1491,8 @@ daemon.pid
         result.created.files.push('.monomind/.gitignore');
     }
     // Ensure the project-level .gitignore does NOT blanket-ignore .monomind/
+    // A blanket ignore prevents config, metrics, and knowledge graph from being committed.
+    // We remove any bare `.monomind/` or `**/.monomind/` lines and add specific excludes instead.
     const projectGitignorePath = path.join(targetDir, '.gitignore');
     if (fs.existsSync(projectGitignorePath)) {
         const existing = fs.readFileSync(projectGitignorePath, 'utf-8');
