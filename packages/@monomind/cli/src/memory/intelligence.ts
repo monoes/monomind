@@ -754,6 +754,45 @@ async function _doInitializeIntelligence(config?: Partial<SonaConfig>): Promise<
     // Load persisted stats if available
     loadPersistedStats();
 
+    // Seed neural learned patterns from @monomind/neural's LearningBridge flush.
+    // This is the A→B bridge reader: connects the automatic learning loop to routing.
+    const neuralPatternsPath = join(getDataDir(), 'patterns.json');
+    if (existsSync(neuralPatternsPath)) {
+      try {
+        const { generateEmbedding: genEmb } = await import('./memory-initializer.js').catch(() => ({ generateEmbedding: null }));
+        const raw = readFileSync(neuralPatternsPath, 'utf-8');
+        const entries = JSON.parse(raw) as Array<{ id?: string; type?: string; content?: string; confidence?: number; usageCount?: number; embedding?: number[] }>;
+        if (Array.isArray(entries)) {
+          for (const p of entries.slice(0, 200)) {
+            try {
+              if (!p.id || typeof p.id !== 'string' || p.id.length > 512) continue;
+              if (!p.content || typeof p.content !== 'string' || p.content.length > 4096) continue;
+              const conf = p.confidence ?? 0.5;
+              if (!Number.isFinite(conf) || conf < 0 || conf > 1) continue;
+              const embedding = (p.embedding && Array.isArray(p.embedding) && p.embedding.length > 0)
+                ? p.embedding
+                : (genEmb ? (await genEmb(p.content))?.embedding ?? [] : []);
+              if (embedding.some((v: number) => !Number.isFinite(v))) continue;
+              // Only store if not already present, or if we now have an embedding
+              // where the existing entry has none — avoids inflating usageCount on
+              // every cold-start re-seed.
+              const existing = reasoningBank!.get(p.id);
+              if (!existing || (existing.embedding.length === 0 && embedding.length > 0)) {
+                reasoningBank!.store({
+                  id: p.id,
+                  type: p.type ?? 'general',
+                  content: p.content,
+                  confidence: conf,
+                  embedding,
+                  usageCount: p.usageCount ?? 0,
+                });
+              }
+            } catch { /* skip invalid entries */ }
+          }
+        }
+      } catch { /* neural patterns file unreadable — skip */ }
+    }
+
     // Seed SONA routing patterns into the ReasoningBank so keyword-based
     // routing knowledge from .swarm/sona-patterns.json participates in
     // similarity search alongside neural patterns.
