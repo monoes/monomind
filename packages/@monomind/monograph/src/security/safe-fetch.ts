@@ -7,6 +7,9 @@ const PRIVATE_IP_PATTERNS: RegExp[] = [
   /^::1$|\[::1\]/,
   /^fc00:|^\[fc00:/i,
   /^fe80:|^\[fe80:/i,
+  // IPv4-mapped IPv6 (e.g. ::ffff:192.168.1.1) — covers private ranges via mapped form
+  /^::ffff:/i,
+  /^\[::ffff:/i,
 ];
 
 const CLOUD_METADATA_HOSTS = new Set([
