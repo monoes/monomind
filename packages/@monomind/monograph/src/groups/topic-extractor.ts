@@ -53,6 +53,19 @@ export function extractTopicContracts(source: string, filePath: string): TopicCo
     }
   }
 
+  if (broker === 'sqs') {
+    SQS_SEND_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = SQS_SEND_RE.exec(source)) !== null) {
+      results.push({ topicName: m[1]!, role: 'producer', broker: 'sqs', filePath });
+    }
+    // SQS receive — ReceiveMessage with QueueUrl
+    const SQS_RECV_RE = /(?:receiveMessage|ReceiveMessage)\s*\(\s*\{[^}]*?QueueUrl\s*:\s*['"`][^'"`]*\/([^'"`/]+)['"`]/g;
+    while ((m = SQS_RECV_RE.exec(source)) !== null) {
+      results.push({ topicName: m[1]!, role: 'consumer', broker: 'sqs', filePath });
+    }
+  }
+
   if (results.length === 0 && broker === 'unknown') {
     GENERIC_TOPIC_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
