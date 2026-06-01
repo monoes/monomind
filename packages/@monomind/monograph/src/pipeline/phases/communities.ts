@@ -1,4 +1,5 @@
 import louvain from 'graphology-communities-louvain';
+import { leiden } from './leiden.js';
 import type { PipelinePhase, PipelineContext } from '../types.js';
 import type { MonographEdge } from '../../types.js';
 import { loadGraphFromEdges } from '../../graph/loader.js';
@@ -8,11 +9,40 @@ import type { ParseOutput } from './parse.js';
 export interface CommunitiesOutput {
   memberships: Map<string, number>;
   communityLabels: Map<number, string>;
+  cohesionScores: Map<number, number>;
+}
+
+export function computeCohesion(
+  communityId: number,
+  memberships: Map<string, number>,
+  edges: Array<{ sourceId: string; targetId: string }>,
+): number {
+  const members = [...memberships.entries()].filter(([, c]) => c === communityId).map(([id]) => id);
+  const n = members.length;
+  if (n <= 1) return 1;
+
+  const memberSet = new Set(members);
+  const maxEdges = (n * (n - 1)) / 2; // undirected: n*(n-1)/2
+  if (maxEdges === 0) return 1;
+
+  // Count unique undirected internal edges
+  const seen = new Set<string>();
+  let internalCount = 0;
+  for (const e of edges) {
+    if (memberSet.has(e.sourceId) && memberSet.has(e.targetId)) {
+      const key = [e.sourceId, e.targetId].sort().join('\0');
+      if (!seen.has(key)) {
+        seen.add(key);
+        internalCount++;
+      }
+    }
+  }
+  return internalCount / maxEdges;
 }
 
 export const communitiesPhase: PipelinePhase<CommunitiesOutput> = {
   name: 'communities',
-  deps: ['cross-file', 'mro'],
+  deps: ['parse', 'cross-file', 'mro'],
   async execute(_ctx, deps) {
     const { resolvedEdges } = deps.get('cross-file') as CrossFileOutput;
     const { allEdges } = deps.get('parse') as ParseOutput;
@@ -21,9 +51,14 @@ export const communitiesPhase: PipelinePhase<CommunitiesOutput> = {
     const graph = loadGraphFromEdges(allUsedEdges);
     let communities: Record<string, number> = {};
     try {
-      communities = louvain(graph);
-    } catch {
-      // Empty or disconnected graph
+      communities = leiden(graph, { seed: 42 });
+    } catch (e) {
+      console.warn('[monograph] Leiden failed, falling back to Louvain:', e);
+      try {
+        communities = louvain(graph, { randomWalk: false });
+      } catch {
+        // Empty or disconnected graph
+      }
     }
 
     const memberships = new Map<string, number>(Object.entries(communities).map(([k, v]) => [k, v]));
@@ -40,6 +75,25 @@ export const communitiesPhase: PipelinePhase<CommunitiesOutput> = {
       communityLabels.set(commId, `community-${commId}(${topNode.slice(0, 20)})`);
     }
 
-    return { memberships, communityLabels };
+    const communityIds = new Set([...memberships.values()]);
+    const cohesionScores = new Map<number, number>();
+    for (const cid of communityIds) {
+      cohesionScores.set(cid, computeCohesion(cid, memberships, allUsedEdges));
+    }
+
+    return { memberships, communityLabels, cohesionScores };
   },
 };
+
+/**
+ * Split a community that is too large into smaller sub-groups.
+ * By graphify convention, communities >25% of total graph nodes are split.
+ */
+export function splitOversizedCommunity(memberIds: string[], maxGroupSize: number): string[][] {
+  if (memberIds.length <= maxGroupSize) return [memberIds];
+  const groups: string[][] = [];
+  for (let i = 0; i < memberIds.length; i += maxGroupSize) {
+    groups.push(memberIds.slice(i, i + maxGroupSize));
+  }
+  return groups;
+}

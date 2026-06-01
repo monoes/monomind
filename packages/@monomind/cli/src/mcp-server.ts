@@ -599,6 +599,98 @@ export class MCPServerManager extends EventEmitter {
           }
         }
 
+        case 'resources/list':
+          return {
+            jsonrpc: '2.0',
+            id: message.id,
+            result: {
+              resources: [
+                {
+                  uri: 'monograph://repo/processes',
+                  name: 'Processes',
+                  description: 'All detected Process nodes with their steps',
+                  mimeType: 'application/json',
+                },
+                {
+                  uri: 'monograph://repo/communities',
+                  name: 'Communities',
+                  description: 'All community clusters with member symbols',
+                  mimeType: 'application/json',
+                },
+                {
+                  uri: 'monograph://repo/schema',
+                  name: 'Schema',
+                  description: 'Graph schema: node labels, edge relations, counts',
+                  mimeType: 'application/json',
+                },
+                {
+                  uri: 'monograph://repo/graph',
+                  name: 'Graph',
+                  description: 'Full graph export (nodes + edges, up to 2000 nodes)',
+                  mimeType: 'application/json',
+                },
+              ],
+            },
+          };
+
+        case 'resources/read': {
+          const uri = (params.uri as string) ?? '';
+          try {
+            const { join } = await import('path');
+            const { openDb, closeDb, getProcessesResource, getCommunitiesResource, getSchemaResource, getGraphResource } = await import('@monoes/monograph');
+            const projectCwd = process.env['MONOMIND_CWD'] || process.cwd();
+            const dbPath = join(projectCwd, '.monomind', 'monograph.db');
+            const resDb = openDb(dbPath);
+            let data: unknown;
+            try {
+              switch (uri) {
+                case 'monograph://repo/processes':
+                  data = getProcessesResource(resDb);
+                  break;
+                case 'monograph://repo/communities':
+                  data = getCommunitiesResource(resDb);
+                  break;
+                case 'monograph://repo/schema':
+                  data = getSchemaResource(resDb);
+                  break;
+                case 'monograph://repo/graph':
+                  data = getGraphResource(resDb);
+                  break;
+                default:
+                  return {
+                    jsonrpc: '2.0',
+                    id: message.id,
+                    error: { code: -32602, message: `Unknown resource URI: ${uri}` },
+                  };
+              }
+            } finally {
+              closeDb(resDb);
+            }
+            return {
+              jsonrpc: '2.0',
+              id: message.id,
+              result: {
+                contents: [
+                  {
+                    uri,
+                    text: JSON.stringify(data),
+                    mimeType: 'application/json',
+                  },
+                ],
+              },
+            };
+          } catch (err) {
+            return {
+              jsonrpc: '2.0',
+              id: message.id,
+              error: {
+                code: -32603,
+                message: err instanceof Error ? err.message : 'Failed to read resource',
+              },
+            };
+          }
+        }
+
         case 'notifications/initialized':
           // Client notification - no response needed
           console.error(
