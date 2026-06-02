@@ -1,11 +1,10 @@
 [package]
-name = "ruvector-exotic-wasm"
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-license.workspace = true
-authors.workspace = true
-repository.workspace = true
+name = "monovector-exotic-wasm"
+version = "0.1.29"
+edition = "2021"
+rust-version = "1.70"
+license = "MIT"
+repository = "https://github.com/nokhodian/monomind"
 readme = "README.md"
 description = "Exotic AI mechanisms for emergent behavior - Neural Autonomous Orgs, Morphogenetic Networks, Time Crystals"
 
@@ -14,20 +13,20 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # WASM
-wasm-bindgen = { workspace = true }
-js-sys = { workspace = true }
-getrandom = { workspace = true }
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+getrandom = "0.2"
 
 # Serialization
-serde = { workspace = true }
-serde_json = { workspace = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 serde-wasm-bindgen = "0.6"
 
 # Utils
 console_error_panic_hook = { version = "0.1", optional = true }
 
 # Math and randomness
-rand = { workspace = true }
+rand = "0.8"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
@@ -38,7 +37,7 @@ console_error_panic_hook = ["dep:console_error_panic_hook"]
 
 # Ensure getrandom uses wasm_js/js feature for WASM
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { workspace = true, features = ["wasm_js"] }
+getrandom = { version = "0.2", features = ["wasm_js"] }
 getrandom02 = { package = "getrandom", version = "0.2", features = ["js"] }
 
 [profile.release]

@@ -1,22 +1,22 @@
 [package]
-name = "rvagent-core"
+name = "monovector-rvagent-core"
 version = "0.1.0"
 edition = "2021"
 description = "rvAgent core — typed agent state, config, model resolution, agent graph"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/ruvnet/RuVector"
+license = "MIT"
+repository = "https://github.com/nokhodian/monomind"
 
 [dependencies]
-serde = { workspace = true }
-serde_json = { workspace = true }
-tokio = { workspace = true }
-thiserror = { workspace = true }
-anyhow = { workspace = true }
-tracing = { workspace = true }
-uuid = { workspace = true }
-chrono = { workspace = true }
-dashmap = { workspace = true }
-parking_lot = { workspace = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt"] }
+thiserror = "1"
+anyhow = "1"
+tracing = "0.1"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+dashmap = "6"
+parking_lot = "0.12"
 async-trait = "0.1"
 smallvec = { version = "1.13", features = ["serde"] }
 aes-gcm = "0.10"
@@ -24,10 +24,10 @@ sha3 = "0.10"
 rand = "0.8"
 
 [dev-dependencies]
-criterion = { workspace = true }
-tokio = { workspace = true, features = ["test-util"] }
-proptest = { workspace = true }
-mockall = { workspace = true }
+criterion = { version = "0.5", features = ["html_reports"] }
+tokio = { version = "1", features = ["test-util"] }
+proptest = "1"
+mockall = "0.13"
 hex = "0.4"
 
 [[bench]]
