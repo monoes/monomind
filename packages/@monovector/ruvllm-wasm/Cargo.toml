@@ -1,11 +1,10 @@
 [package]
-name = "ruvllm-wasm"
+name = "monovector-ruvllm-wasm"
 version = "2.0.2"
 edition = "2021"
 rust-version = "1.77"
 license = "MIT"
-authors = ["Ruvector Team"]
-repository = "https://github.com/ruvnet/ruvector"
+repository = "https://github.com/nokhodian/monomind"
 description = "WASM bindings for RuvLLM - browser-compatible LLM inference runtime with WebGPU acceleration"
 keywords = ["wasm", "llm", "inference", "browser", "webgpu"]
 categories = ["wasm", "api-bindings", "web-programming"]
