@@ -67,7 +67,7 @@ export const contextualProximityPhase: PipelinePhase<ContextualProximityOutput> 
     }
 
     if (conceptDegree.size > 0) {
-      const maxDeg = Math.max(...conceptDegree.values());
+      const maxDeg = [...conceptDegree.values()].reduce((a, b) => Math.max(a, b), 0);
       const update = ctx.db.prepare(
         `UPDATE nodes SET properties = json_set(COALESCE(properties, '{}'), '$.importance', ?) WHERE id = ?`,
       );

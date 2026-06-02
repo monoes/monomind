@@ -11,7 +11,7 @@
  * github.com/nokhodian/monomind
  */
 import { output } from '../output.js';
-import { createQLearningRouter, isRuvectorAvailable, } from '../ruvector/index.js';
+import { createQLearningRouter, isMonovectorAvailable, } from '../monovector/index.js';
 /**
  * Available agent types for routing
  */
@@ -281,14 +281,14 @@ const statsCommand = {
         try {
             const router = await getRouter();
             const stats = router.getStats();
-            const ruvectorAvailable = await isRuvectorAvailable();
-            const ruvectorStatus = {
-                available: ruvectorAvailable,
+            const monovectorAvailable = await isMonovectorAvailable();
+            const monovectorStatus = {
+                available: monovectorAvailable,
                 wasmAccelerated: stats.useNative === 1,
-                backend: stats.useNative === 1 ? 'ruvector-native' : 'fallback',
+                backend: stats.useNative === 1 ? 'monovector-native' : 'fallback',
             };
             if (jsonOutput) {
-                output.printJson({ stats, ruvector: ruvectorStatus });
+                output.printJson({ stats, monovector: monovectorStatus });
             }
             else {
                 output.writeln();
@@ -309,14 +309,14 @@ const statsCommand = {
                     ],
                 });
                 output.writeln();
-                output.writeln(output.bold('RuVector Status'));
+                output.writeln(output.bold('MonoVector Status'));
                 output.printList([
-                    `Available: ${ruvectorStatus.available ? output.success('Yes') : output.warning('No (using fallback)')}`,
-                    `WASM Accelerated: ${ruvectorStatus.wasmAccelerated ? output.success('Yes') : 'No'}`,
-                    `Backend: ${ruvectorStatus.backend}`,
+                    `Available: ${monovectorStatus.available ? output.success('Yes') : output.warning('No (using fallback)')}`,
+                    `WASM Accelerated: ${monovectorStatus.wasmAccelerated ? output.success('Yes') : 'No'}`,
+                    `Backend: ${monovectorStatus.backend}`,
                 ]);
             }
-            return { success: true, data: { stats, ruvector: ruvectorStatus } };
+            return { success: true, data: { stats, monovector: monovectorStatus } };
         }
         catch (error) {
             output.printError(error instanceof Error ? error.message : String(error));
@@ -606,7 +606,7 @@ const coverageRouteCommand = {
         spinner.start();
         try {
             // Lazy load coverage router
-            const { coverageRoute, coverageSuggest, coverageGaps } = await import('../ruvector/coverage-router.js');
+            const { coverageRoute, coverageSuggest, coverageGaps } = await import('../monovector/coverage-router.js');
             if (gapsMode) {
                 // List coverage gaps with agent assignments
                 const result = await coverageGaps({ threshold, groupByAgent: true });
@@ -924,11 +924,11 @@ export const routeCommand = {
         ]);
         output.writeln();
         // Show quick status
-        const ruvectorAvailable = await isRuvectorAvailable();
+        const monovectorAvailable = await isMonovectorAvailable();
         output.writeln(output.bold('Backend Status:'));
         output.printList([
-            `RuVector: ${ruvectorAvailable ? output.success('Available') : output.warning('Fallback mode')}`,
-            `Backend: ${ruvectorAvailable ? 'ruvector-native' : 'JavaScript fallback'}`,
+            `MonoVector: ${monovectorAvailable ? output.success('Available') : output.warning('Fallback mode')}`,
+            `Backend: ${monovectorAvailable ? 'monovector-native' : 'JavaScript fallback'}`,
         ]);
         output.writeln();
         output.writeln(output.dim('Run "monomind route <subcommand> --help" for more info'));

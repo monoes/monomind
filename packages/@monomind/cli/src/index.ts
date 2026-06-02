@@ -486,7 +486,7 @@ export class CLI {
   private async initSubsystems(): Promise<void> {
     // GAP-003: TierManager
     try {
-      const { TierManager, createPersistentService } = await import('@monomind/memory' as string);
+      const { TierManager, createPersistentService } = await import('@monoes/memory' as string);
       const backend = createPersistentService('.monomind/memory');
       const _tierManager = new TierManager(backend, { shortTermCapacity: 1000 });
       void _tierManager;
@@ -500,7 +500,7 @@ export class CLI {
 
     // GAP-007: SwarmCheckpointer — write checkpoint files so crashed swarms can resume
     try {
-      const { SwarmCheckpointer } = await import('@monomind/memory' as string);
+      const { SwarmCheckpointer } = await import('@monoes/memory' as string);
       const _swarmCheckpointer = new SwarmCheckpointer({
         dbPath: '.monomind/checkpoints/swarm.jsonl',
         swarmId: 'default',

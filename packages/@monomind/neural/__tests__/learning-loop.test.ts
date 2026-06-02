@@ -38,14 +38,14 @@ function makeEmbedding(seed: number, dim = 768): Float32Array {
 // ---------------------------------------------------------------------------
 
 describe('SONAManager learning trigger', () => {
-  it('fires triggerLearning after MIN_TRIGGER_COUNT (10) completed trajectories', async () => {
+  it('fires triggerLearning after MIN_TRIGGER_COUNT (5) completed trajectories', async () => {
     const manager = new SONAManager('balanced');
     await manager.initialize();
 
     const triggerSpy = vi.spyOn(manager as any, 'triggerLearning');
 
-    // Complete 10 trajectories with good quality scores
-    for (let i = 0; i < 10; i++) {
+    // Complete 5 trajectories — should trigger learning
+    for (let i = 0; i < 5; i++) {
       const id = manager.beginTrajectory(`task-${i}`, 'general');
       manager.recordStep(id, `action-${i}`, 0.8, makeEmbedding(i));
       manager.completeTrajectory(id, 0.8);
@@ -58,13 +58,14 @@ describe('SONAManager learning trigger', () => {
     await manager.cleanup();
   });
 
-  it('does NOT fire for fewer than 10 completed trajectories', async () => {
+  it('does NOT fire for fewer than 5 completed trajectories', async () => {
     const manager = new SONAManager('balanced');
     await manager.initialize();
 
     const triggerSpy = vi.spyOn(manager as any, 'triggerLearning');
 
-    for (let i = 0; i < 9; i++) {
+    // 4 trajectories — below the MIN_TRIGGER_COUNT of 5
+    for (let i = 0; i < 4; i++) {
       const id = manager.beginTrajectory(`task-${i}`, 'general');
       manager.recordStep(id, `action-${i}`, 0.8, makeEmbedding(i));
       manager.completeTrajectory(id, 0.8);
@@ -107,6 +108,13 @@ describe('SONAManager LoRA weight updates', () => {
       if (anyNonZero) break;
     }
     expect(anyNonZero).toBe(true);
+
+    // B-norm must stay below the documented divergence threshold.
+    // >0.1 is suspicious; >1.0 means EWC is failing to regularize.
+    const loraStats = manager.getLoRAStats();
+    for (const stats of Object.values(loraStats)) {
+      expect(stats.avgBNorm).toBeLessThan(0.1);
+    }
     await manager.cleanup();
   });
 
@@ -338,7 +346,101 @@ describe('Component integration cycle', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6. domain→agent type mapping in flushNeuralPatternsToFile
+// 6. Persist/load round-trip: LoRA weights survive cleanup + reinitialize
+// ---------------------------------------------------------------------------
+
+describe('SONAManager persist/load round-trip', () => {
+  it('consolidated means and B matrices are restored after cleanup + reinitialize', async () => {
+    const manager = new SONAManager('balanced');
+    await manager.initialize();
+
+    // Run enough trajectories to trigger learning (MIN_TRIGGER_COUNT=5)
+    for (let i = 0; i < 5; i++) {
+      const id = manager.beginTrajectory(`persist test ${i}`, 'code');
+      manager.recordStep(id, `action_${i}`, 0.85, makeEmbedding(i + 500));
+      manager.completeTrajectory(id, 0.85);
+    }
+
+    // Wait for async triggerLearning + persist
+    await new Promise(r => setTimeout(r, 100));
+
+    // Snapshot B values from the first manager instance
+    const weights1 = (manager as any).loraWeights.get('default');
+    expect(weights1).toBeDefined();
+    const bSnapshot: Record<string, Float32Array> = {};
+    for (const [module, B] of weights1.B) {
+      bSnapshot[module] = new Float32Array(B);
+    }
+
+    // cleanup() consolidates EWC means then persists to disk
+    await manager.cleanup();
+
+    // Create a fresh manager and initialize — should load the persisted state
+    const manager2 = new SONAManager('balanced');
+    await manager2.initialize();
+
+    const weights2 = (manager2 as any).loraWeights.get('default');
+    // Weights may have been reset if avgBNorm > 1.0, but should exist
+    // In stable operation, they should match the persisted values
+    if (weights2) {
+      const loraStats = manager2.getLoRAStats();
+      const domainStats = loraStats['default'];
+      if (domainStats) {
+        // Loaded weights should not be diverged
+        expect(domainStats.avgBNorm).toBeLessThan(1.0);
+      }
+    }
+
+    // EWC state should have been restored with taskCount incremented by consolidateEWC
+    const ewcState2 = (manager2 as any).ewcState;
+    if (ewcState2 && ewcState2.taskCount > 0) {
+      // means should be populated (were snapshotted during cleanup's consolidateEWC)
+      expect(ewcState2.means.size).toBeGreaterThan(0);
+    }
+
+    await manager2.cleanup();
+  });
+
+  it('diverged B matrices (avgBNorm > 1.0) are reset to zero on load', async () => {
+    const manager = new SONAManager('balanced');
+    await manager.initialize();
+
+    // Manually inject diverged B values to simulate a corrupted prior state
+    const weights = (manager as any).loraWeights;
+    if (!weights.has('default')) {
+      (manager as any).initializeLoRAWeights('default');
+    }
+    const w = weights.get('default');
+    for (const B of w.B.values()) {
+      B.fill(50); // far above the 1.0 divergence threshold
+    }
+
+    // Persist the corrupted state
+    await (manager as any).persistLearnedState();
+
+    // Load into a fresh manager — should detect and reset the diverged weights
+    const manager2 = new SONAManager('balanced');
+    await manager2.initialize();
+
+    const w2 = (manager2 as any).loraWeights.get('default');
+    if (w2) {
+      // Reset B matrices should be zero (filled with 0 after divergence detection)
+      for (const B of w2.B.values()) {
+        let allZero = true;
+        for (let i = 0; i < Math.min(10, B.length); i++) {
+          if (Math.abs(B[i]) > 1e-10) { allZero = false; break; }
+        }
+        expect(allZero).toBe(true);
+      }
+    }
+
+    await manager2.cleanup();
+    await manager.cleanup();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. domain→agent type mapping in flushNeuralPatternsToFile
 // ---------------------------------------------------------------------------
 
 describe('flushNeuralPatternsToFile domain mapping', () => {

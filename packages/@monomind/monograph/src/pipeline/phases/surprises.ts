@@ -29,7 +29,7 @@ export const surprisesPhase: PipelinePhase<SurprisesOutput> = {
     const labelIndex = new Map(symbolNodes.map(n => [n.id, n.label]));
     const inDeg = new Map<string, number>();
     for (const e of edges) inDeg.set(e.targetId, (inDeg.get(e.targetId) ?? 0) + 1);
-    const maxDeg = Math.max(...inDeg.values(), 1);
+    const maxDeg = [...inDeg.values()].reduce((a, b) => Math.max(a, b), 1);
     const peripheralThreshold = maxDeg * 0.1;
 
     const surprises: SurprisingConnection[] = edges

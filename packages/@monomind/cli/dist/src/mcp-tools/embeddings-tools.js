@@ -472,7 +472,7 @@ export const embeddingsTools = [
     },
     {
         name: 'embeddings_neural',
-        description: 'Neural substrate operations (RuVector integration)',
+        description: 'Neural substrate operations (MonoVector integration)',
         category: 'embeddings',
         inputSchema: {
             type: 'object',
@@ -510,7 +510,7 @@ export const embeddingsTools = [
                         enabled: true,
                         driftThreshold: input.driftThreshold || 0.3,
                         decayRate: input.decayRate || 0.01,
-                        ruvector: {
+                        monovector: {
                             enabled: true,
                             sona: true,
                             flashAttention: true,
@@ -529,7 +529,7 @@ export const embeddingsTools = [
                         success: true,
                         action: 'init',
                         neural: config.neural,
-                        message: 'Neural substrate initialized with RuVector integration',
+                        message: 'Neural substrate initialized with MonoVector integration',
                     };
                 case 'drift':
                     // Get real drift metrics if available
@@ -628,7 +628,7 @@ export const embeddingsTools = [
                             neural: {
                                 enabled: config.neural.enabled,
                                 sonaEnabled: stats.sonaEnabled,
-                                ruvector: config.neural.ruvector || { enabled: false },
+                                monovector: config.neural.monovector || { enabled: false },
                                 features: config.neural.features || {},
                                 realMetrics: {
                                     patternsLearned: stats.patternsLearned,
@@ -655,7 +655,7 @@ export const embeddingsTools = [
                             action: 'status',
                             neural: {
                                 enabled: config.neural.enabled,
-                                ruvector: config.neural.ruvector || { enabled: false },
+                                monovector: config.neural.monovector || { enabled: false },
                                 features: config.neural.features || {},
                             },
                             message: 'Intelligence module not available - showing config only',
@@ -802,7 +802,7 @@ export const embeddingsTools = [
                     hyperbolic: config.hyperbolic,
                     neural: {
                         enabled: config.neural.enabled,
-                        ruvector: config.neural.ruvector?.enabled ?? false,
+                        monovector: config.neural.monovector?.enabled ?? false,
                     },
                 },
                 paths: {

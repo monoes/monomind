@@ -57,12 +57,12 @@
   "pnpm": {
     "neverBuiltDependencies": ["sharp"],
     "overrides": {
-      "@ruvector/gnn": "0.1.25",
-      "@ruvector/gnn-linux-x64-gnu": "0.1.25"
+      "@monoes/gnn": "0.1.25",
+      "@monoes/gnn-linux-x64-gnu": "0.1.25"
     },
     "peerDependencyRules": {
       "ignoreMissing": [
-        "@ruvector/*",
+        "@monoes/*",
         "prime-radiant-advanced-wasm",
         "@anthropic-ai/claude-code"
       ]

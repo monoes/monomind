@@ -7,7 +7,7 @@
  *
  * WASM Modules:
  * - gastown-formula-wasm: TOML parsing and formula cooking (352x faster)
- * - ruvector-gnn-wasm: Graph operations and neural network (150x faster)
+ * - monovector-gnn-wasm: Graph operations and neural network (150x faster)
  *
  * @module gastown-bridge/wasm-loader
  * @version 0.1.0
@@ -66,7 +66,7 @@ interface FormulaWasmExports {
 }
 
 /**
- * WASM module exports for ruvector-gnn-wasm
+ * WASM module exports for monovector-gnn-wasm
  */
 interface GnnWasmExports {
   /** Initialize the WASM module */
@@ -140,7 +140,7 @@ const lazyFormulaWasm = new LazyWasm<FormulaWasmExports>(
 );
 
 /**
- * Lazy loader for ruvector-gnn-wasm module.
+ * Lazy loader for monovector-gnn-wasm module.
  * Only loads WASM when first accessed, not during startup.
  * Supports idle timeout for memory cleanup.
  */
@@ -149,17 +149,17 @@ const lazyGnnWasm = new LazyWasm<GnnWasmExports>(
     if (!isWasmAvailable()) {
       throw new Error('WASM not available');
     }
-    const module = await import('ruvector-gnn-wasm') as unknown as GnnWasmExports;
+    const module = await import('monovector-gnn-wasm') as unknown as GnnWasmExports;
     if (typeof module.default === 'function') {
       await module.default();
     }
     return module;
   },
   {
-    name: 'ruvector-gnn-wasm',
+    name: 'monovector-gnn-wasm',
     idleTimeout: 5 * 60 * 1000, // 5 minutes idle timeout for memory cleanup
     onError: (error) => {
-      console.debug('[WASM Loader] ruvector-gnn-wasm load error:', error);
+      console.debug('[WASM Loader] monovector-gnn-wasm load error:', error);
     },
   }
 );
@@ -363,7 +363,7 @@ export async function loadFormulaWasm(): Promise<FormulaWasmExports | null> {
 }
 
 /**
- * Lazy-load the ruvector-gnn-wasm module.
+ * Lazy-load the monovector-gnn-wasm module.
  * Uses LazyWasm for true lazy loading - only loads when first accessed.
  * Includes idle timeout for automatic memory cleanup.
  *
@@ -386,7 +386,7 @@ export async function loadGnnWasm(): Promise<GnnWasmExports | null> {
     return await lazyGnnWasm.get();
   } catch (error) {
     // Module not available, will use JS fallback
-    console.debug('[WASM Loader] ruvector-gnn-wasm not available:', error);
+    console.debug('[WASM Loader] monovector-gnn-wasm not available:', error);
     return null;
   }
 }
@@ -1165,7 +1165,7 @@ export function scheduleIdlePreload(): void {
     return loadFormulaWasm();
   }, 10); // High priority
 
-  modulePreloader.register('ruvector-gnn-wasm', async () => {
+  modulePreloader.register('monovector-gnn-wasm', async () => {
     return loadGnnWasm();
   }, 5); // Medium priority
 

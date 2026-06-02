@@ -1,0 +1,22 @@
+{
+  "name": "@monoes/sona",
+  "version": "0.1.6",
+  "description": "MonoVector SONA — on-device learning engine",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "build": "napi build --platform --release --features napi --manifest-path ../sona-rs/Cargo.toml --output-dir .",
+    "prepublishOnly": "npm run build"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@napi-rs/cli": "^3.0.0"
+  },
+  "optionalDependencies": {
+    "@monoes/sona-darwin-arm64": "0.1.6",
+    "@monoes/sona-darwin-x64": "0.1.6",
+    "@monoes/sona-linux-x64-gnu": "0.1.6",
+    "@monoes/sona-linux-arm64-gnu": "0.1.6",
+    "@monoes/sona-win32-x64-msvc": "0.1.6"
+  }
+}

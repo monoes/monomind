@@ -373,24 +373,25 @@ export async function getHNSWIndex(options) {
         if (hnswInitializing) {
             throw new Error('HNSW initialization timed out after 5s');
         }
-        return hnswIndex;
+        // Init may have failed — return null rather than a non-initialized index object
+        return hnswIndex?.initialized ? hnswIndex : null;
     }
     hnswInitializing = true;
     try {
-        // Import @ruvector/core dynamically
+        // Import @monoes/core dynamically
         // Handle both ESM (default export) and CJS patterns
-        const ruvectorModule = await import('@ruvector/core').catch(() => null);
-        if (!ruvectorModule) {
+        const monovectorModule = await import('@monoes/core').catch(() => null);
+        if (!monovectorModule) {
             hnswInitializing = false;
             return null; // HNSW not available
         }
         // ESM returns { default: { VectorDb, ... } }, CJS returns { VectorDb, ... }
-        const ruvectorCore = ruvectorModule.default || ruvectorModule;
-        if (!ruvectorCore?.VectorDb) {
+        const monovectorCore = monovectorModule.default || monovectorModule;
+        if (!monovectorCore?.VectorDb) {
             hnswInitializing = false;
             return null; // VectorDb not found
         }
-        const { VectorDb } = ruvectorCore;
+        const { VectorDb } = monovectorCore;
         // Persistent storage paths — resolve to absolute to survive CWD changes
         const swarmDir = path.resolve(process.cwd(), '.swarm');
         if (!fs.existsSync(swarmDir)) {
@@ -400,7 +401,7 @@ export async function getHNSWIndex(options) {
         const metadataPath = path.join(swarmDir, 'hnsw.metadata.json');
         const dbPath = options?.dbPath ? path.resolve(options.dbPath) : path.join(swarmDir, 'memory.db');
         // Create HNSW index with persistent storage
-        // @ruvector/core uses string enum for distanceMetric: 'Cosine', 'Euclidean', 'DotProduct', 'Manhattan'
+        // @monoes/core uses string enum for distanceMetric: 'Cosine', 'Euclidean', 'DotProduct', 'Manhattan'
         const db = new VectorDb({
             dimensions,
             distanceMetric: 'Cosine',
@@ -486,6 +487,8 @@ export async function getHNSWIndex(options) {
                 // SQLite load failed, start with empty index
             }
         }
+        // initialized = true even on empty DB — absence of vectors is a valid ready state,
+        // not a failure. The concurrent-waiter null-check at line ~395 relies on this.
         hnswIndex.initialized = true;
         hnswInitializing = false;
         return hnswIndex;
@@ -572,7 +575,7 @@ export async function searchHNSWIndex(queryEmbedding, options) {
                 continue;
             }
             // Convert cosine distance to similarity score (1 - distance)
-            // Cosine distance from @ruvector/core: 0 = identical, 2 = opposite
+            // Cosine distance from @monoes/core: 0 = identical, 2 = opposite
             const score = 1 - (result.score / 2);
             filtered.push({
                 id: entry.id.substring(0, 12),
@@ -1375,22 +1378,22 @@ export async function loadEmbeddingModel(options) {
                 loadTime: Date.now() - startTime
             };
         }
-        // Fallback: Check for ruvector ONNX embedder (bundled MiniLM-L6-v2 since v0.2.15)
+        // Fallback: Check for monovector ONNX embedder (bundled MiniLM-L6-v2 since v0.2.15)
         // v0.2.16: LoRA B=0 fix makes AdaptiveEmbedder safe (identity when untrained)
         // Note: isReady() returns false until first embed() call (lazy init), so we
         // skip the isReady() gate and verify with a probe embed instead.
-        const ruvector = await import('ruvector').catch(() => null);
-        if (ruvector?.initOnnxEmbedder) {
+        const monovector = await import('monovector').catch(() => null);
+        if (monovector?.initOnnxEmbedder) {
             try {
-                await ruvector.initOnnxEmbedder();
+                await monovector.initOnnxEmbedder();
                 // Fallback: OptimizedOnnxEmbedder (raw ONNX, lazy-inits on first embed)
-                const onnxEmb = ruvector.getOptimizedOnnxEmbedder?.();
+                const onnxEmb = monovector.getOptimizedOnnxEmbedder?.();
                 if (onnxEmb?.embed) {
                     // Probe embed to trigger lazy ONNX init and verify it works
                     const probe = await onnxEmb.embed('test');
                     if (probe && probe.length > 0 && (Array.isArray(probe) ? probe.some((v) => v !== 0) : true)) {
                         if (verbose) {
-                            console.log(`Loading ruvector ONNX embedder (all-MiniLM-L6-v2, ${probe.length}d)...`);
+                            console.log(`Loading monovector ONNX embedder (all-MiniLM-L6-v2, ${probe.length}d)...`);
                         }
                         embeddingModelState = {
                             loaded: true,
@@ -1401,14 +1404,14 @@ export async function loadEmbeddingModel(options) {
                         return {
                             success: true,
                             dimensions: probe.length || 384,
-                            modelName: 'ruvector/onnx',
+                            modelName: 'monovector/onnx',
                             loadTime: Date.now() - startTime
                         };
                     }
                 }
             }
             catch {
-                // ruvector ONNX init failed, continue to next fallback
+                // monovector ONNX init failed, continue to next fallback
             }
         }
         // Legacy fallback: Check for agentic-flow core embeddings
@@ -1481,7 +1484,7 @@ export async function generateEmbedding(text) {
     if (state.model && typeof state.model === 'function') {
         try {
             const output = await state.model(text, { pooling: 'mean', normalize: true });
-            // Handle both @xenova/transformers (output.data) and ruvector (plain array) formats
+            // Handle both @xenova/transformers (output.data) and monovector (plain array) formats
             const embedding = output?.data
                 ? Array.from(output.data)
                 : Array.isArray(output) ? output : null;
@@ -1822,13 +1825,14 @@ export async function storeEntry(options) {
         // Add to HNSW index for faster future searches (validated to reject malformed embeddings)
         if (embeddingJson) {
             const embResult = safeParseEmbeddingLocal(embeddingJson);
-            if (embResult)
+            if (embResult) {
                 await addToHNSWIndex(id, embResult, {
                     id,
                     key,
                     namespace,
                     content: value
                 });
+            }
         }
         return {
             success: true,
@@ -1915,10 +1919,12 @@ export async function searchEntries(options) {
                 if (score < threshold) {
                     const lowerContent = (content || '').toLowerCase();
                     const lowerQuery = query.toLowerCase();
-                    const words = lowerQuery.split(/\s+/);
-                    const matchCount = words.filter(w => lowerContent.includes(w)).length;
-                    const keywordScore = matchCount / words.length * 0.5;
-                    score = Math.max(score, keywordScore);
+                    const words = lowerQuery.split(/\s+/).filter(w => w.length > 0);
+                    if (words.length > 0) {
+                        const matchCount = words.filter(w => lowerContent.includes(w)).length;
+                        const keywordScore = matchCount / words.length * 0.5;
+                        score = Math.max(score, keywordScore);
+                    }
                 }
                 if (score >= threshold) {
                     results.push({

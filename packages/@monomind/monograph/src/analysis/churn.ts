@@ -33,7 +33,7 @@ export function parseSince(s: string): SinceDuration {
   if (dMatch) return { raw: s, days: parseInt(dMatch[1], 10) };
 
   const wMatch = s.match(/^(\d+)w$/);
-  if (wMatch) return { raw: s, days: parseInt(wMatch[1], 10) * 14 };
+  if (wMatch) return { raw: s, days: parseInt(wMatch[1], 10) * 7 };
 
   const mMatch = s.match(/^(\d+)m$/);
   if (mMatch) return { raw: s, days: parseInt(mMatch[1], 10) * 30 };
@@ -81,7 +81,7 @@ export async function analyzeChurn(
   let treeHash = '';
   try {
     treeHash = execSync('git rev-parse HEAD', { cwd: root }).toString().trim();
-    const cacheFile = join(cacheDir, `churn-${treeHash}.json`);
+    const cacheFile = join(cacheDir, `churn-${treeHash}-${sinceDuration.days}.json`);
     if (existsSync(cacheFile)) {
       try {
         const cached = JSON.parse(readFileSync(cacheFile, 'utf8'));
@@ -205,7 +205,7 @@ export async function analyzeChurn(
   if (treeHash) {
     try {
       mkdirSync(cacheDir, { recursive: true });
-      const cacheFile = join(cacheDir, `churn-${treeHash}.json`);
+      const cacheFile = join(cacheDir, `churn-${treeHash}-${sinceDuration.days}.json`);
       writeFileSync(cacheFile, JSON.stringify(result), 'utf8');
     } catch {
       // cache write failure is non-fatal

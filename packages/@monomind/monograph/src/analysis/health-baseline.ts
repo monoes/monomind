@@ -57,7 +57,8 @@ export function filterNewHealthFindings(
   baseline: HealthBaselineData,
   root: string,
 ): HealthFinding[] {
-  const baselineCounts = buildCountsFromFindings(current, root);
+  // Build counts from CURRENT findings (not the baseline) to compare per-kind per-file
+  const currentCounts = buildCountsFromFindings(current, root);
   return current.filter(f => {
     const key = toRelativePath(f.filePath, root);
     const saved = baseline.counts.get(key);
@@ -72,7 +73,7 @@ export function filterNewHealthFindings(
     };
     const field = fieldMap[f.kind];
     if (!field) return true;
-    const currentCount = baselineCounts.get(key)?.[field] ?? 0;
+    const currentCount = currentCounts.get(key)?.[field] ?? 0;
     const savedCount = saved[field];
     return currentCount > savedCount;
   });

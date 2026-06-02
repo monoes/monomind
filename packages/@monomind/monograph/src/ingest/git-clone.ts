@@ -148,7 +148,12 @@ function assertNotPrivateIPv4(ip: string): void {
 export function extractRepoName(url: string): string {
   const cleaned = url.replace(/\/+$/, '');
   const lastSegment = cleaned.split(/[/:]/).pop() ?? 'unknown';
-  return lastSegment.replace(/\.git$/, '');
+  const name = lastSegment.replace(/\.git$/, '');
+  // Guard against path traversal: reject segments containing .. or path separators
+  if (!name || name.includes('..') || name.includes('/') || name.includes('\\')) {
+    return 'unknown-repo';
+  }
+  return name;
 }
 
 /**

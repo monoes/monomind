@@ -91,7 +91,7 @@ import { issuesCommand } from '../src/commands/issues.js';
 import { guidanceCommand } from '../src/commands/guidance.js';
 import { applianceCommand } from '../src/commands/appliance.js';
 import updateCommand from '../src/commands/update.js';
-import { ruvectorCommand } from '../src/commands/ruvector/index.js';
+import { monovectorCommand } from '../src/commands/monovector/index.js';
 
 import type { Command } from '../src/types.js';
 
@@ -445,9 +445,9 @@ describe('Command Definitions', () => {
     });
   });
 
-  describe('ruvector command', () => {
+  describe('monovector command', () => {
     it('should have correct name', () => {
-      expectValidCommand(ruvectorCommand, 'ruvector');
+      expectValidCommand(monovectorCommand, 'monovector');
     });
   });
 });
@@ -487,7 +487,7 @@ const allCommands: { cmd: Command; name: string }[] = [
   { cmd: updateCommand, name: 'update' },
   { cmd: guidanceCommand, name: 'guidance' },
   { cmd: applianceCommand, name: 'appliance' },
-  { cmd: ruvectorCommand, name: 'ruvector' },
+  { cmd: monovectorCommand, name: 'monovector' },
 ];
 
 describe('Bulk Command Structure Validation', () => {
@@ -556,7 +556,7 @@ describe('Command Registry (commands/index.ts)', () => {
     expect(indexModule.hiveMindCommand).toBeDefined();
     expect(indexModule.guidanceCommand).toBeDefined();
     expect(indexModule.applianceCommand).toBeDefined();
-    expect(indexModule.ruvectorCommand).toBeDefined();
+    expect(indexModule.monovectorCommand).toBeDefined();
   });
 
   it('should export commandsByCategory with all categories', async () => {

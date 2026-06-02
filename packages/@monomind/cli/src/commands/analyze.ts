@@ -3,7 +3,7 @@
  * Code analysis, diff classification, AST analysis, and change risk assessment
  *
  * Features:
- * - AST analysis using ruvector (tree-sitter) with graceful fallback
+ * - AST analysis using monovector (tree-sitter) with graceful fallback
  * - Symbol extraction (functions, classes, variables, types)
  * - Cyclomatic complexity scoring
  * - Diff classification and risk assessment
@@ -26,7 +26,7 @@ import { execSync } from 'child_process';
 // Dynamic import for AST analyzer
 async function getASTAnalyzer() {
   try {
-    return await import('../ruvector/ast-analyzer.js' as string);
+    return await import('../monovector/ast-analyzer.js' as string);
   } catch {
     return null;
   }
@@ -35,7 +35,7 @@ async function getASTAnalyzer() {
 // Dynamic import for graph analyzer
 async function getGraphAnalyzer() {
   try {
-    return await import('../ruvector/graph-analyzer.js' as string);
+    return await import('../monovector/graph-analyzer.js' as string);
   } catch {
     return null;
   }
@@ -468,7 +468,7 @@ const codeCommand: Command = {
 };
 
 // ============================================================================
-// AST Analysis Subcommands (using ruvector tree-sitter with fallback)
+// AST Analysis Subcommands (using monovector tree-sitter with fallback)
 // ============================================================================
 
 /**
@@ -517,7 +517,7 @@ function getComplexityRatingAst(value: number): string {
  */
 const astCommand: Command = {
   name: 'ast',
-  description: 'Analyze code using AST parsing (tree-sitter via ruvector)',
+  description: 'Analyze code using AST parsing (tree-sitter via monovector)',
   options: [
     {
       name: 'complexity',
@@ -1323,7 +1323,7 @@ async function scanSourceFiles(dir: string, maxDepth: number = 10): Promise<stri
 }
 
 /**
- * Fallback analysis when ruvector is not available
+ * Fallback analysis when monovector is not available
  */
 function fallbackAnalyze(code: string, filePath: string) {
   const lines = code.split('\n');

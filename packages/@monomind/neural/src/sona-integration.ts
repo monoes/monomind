@@ -1,7 +1,7 @@
 /**
  * SONA Integration for V1 Neural Module
  *
- * Wraps @ruvector/sona package for V1 usage with:
+ * Wraps @monoes/sona package for V1 usage with:
  * - Trajectory tracking and verdict judgment
  * - Pattern extraction and memory distillation
  * - Sub-0.05ms learning performance target
@@ -20,11 +20,11 @@ import type {
 } from './types.js';
 
 // =============================================================================
-// Inline type definitions (replaces static @ruvector/sona import)
+// Inline type definitions (replaces static @monoes/sona import)
 // =============================================================================
 
 /**
- * Configuration for the @ruvector/sona WASM engine
+ * Configuration for the @monoes/sona WASM engine
  */
 export interface JsSonaConfig {
   hiddenDim?: number;
@@ -42,7 +42,7 @@ export interface JsSonaConfig {
 }
 
 /**
- * A learned pattern returned by the @ruvector/sona engine
+ * A learned pattern returned by the @monoes/sona engine
  */
 export interface JsLearnedPattern {
   patternType?: string;
@@ -60,7 +60,8 @@ async function loadSonaEngine(): Promise<any> {
   if (_sonaLoadAttempted) return _sonaEngineClass;
   _sonaLoadAttempted = true;
   try {
-    const mod = await import('@ruvector/sona');
+    // @ts-ignore — optional peer dependency; not always installed
+    const mod = await import('@monoes/sona');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     _sonaEngineClass = (mod as any).SonaEngine ?? (mod as any).default?.SonaEngine ?? null;
   } catch {
@@ -125,7 +126,7 @@ export interface SONAStats {
 // =============================================================================
 
 /**
- * Convert V1 SONA mode to @ruvector/sona config
+ * Convert V1 SONA mode to @monoes/sona config
  */
 function modeToConfig(mode: SONAMode, modeConfig: SONAModeConfig): Record<string, unknown> {
   const baseConfig: JsSonaConfig = {
@@ -184,7 +185,7 @@ function modeToConfig(mode: SONAMode, modeConfig: SONAModeConfig): Record<string
 // =============================================================================
 
 /**
- * SONA Learning Engine - wraps @ruvector/sona for V1 usage
+ * SONA Learning Engine - wraps @monoes/sona for V1 usage
  *
  * Performance targets:
  * - learn(): <0.05ms
@@ -214,7 +215,7 @@ export class SONALearningEngine {
     SonaEngine = EngineClass; // update module-level ref for callers
     if (!EngineClass) {
       throw new Error(
-        '@ruvector/sona is not installed. Install it as an optional dependency or use SONAManager (JS fallback).'
+        '@monoes/sona is not installed. Install it as an optional dependency or use SONAManager (JS fallback).'
       );
     }
     const config = modeToConfig(this.mode, this.modeConfig);

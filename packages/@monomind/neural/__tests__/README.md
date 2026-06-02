@@ -5,7 +5,7 @@ Comprehensive test coverage for the V1 neural module with **106 tests** across 3
 ## Test Files
 
 ### 1. `sona.test.ts` (23 tests)
-Tests for SONA Learning Engine integration with `@ruvector/sona`:
+Tests for SONA Learning Engine integration with `@monoes/sona`:
 
 **Initialization (5 tests)**
 - Balanced mode initialization
@@ -222,7 +222,7 @@ Tests validate the 4-step ReasoningBank pipeline:
 
 ## Mocking Strategy
 
-- **@ruvector/sona**: Mocked to isolate SONA integration tests
+- **@monoes/sona**: Mocked to isolate SONA integration tests
 - **All algorithms**: Pure TypeScript, no mocking needed
 - **ReasoningBank**: Pure TypeScript, no mocking needed
 

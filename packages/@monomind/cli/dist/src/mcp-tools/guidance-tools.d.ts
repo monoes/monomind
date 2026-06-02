@@ -4,7 +4,7 @@
  * Helps the system navigate Monomind's capabilities by providing structured
  * discovery of tools, commands, agents, skills, and recommended workflows.
  *
- * @module @monoes/cli/mcp-tools/guidance
+ * @module @monomind/cli/mcp-tools/guidance
  */
 import { type MCPTool } from './types.js';
 /**

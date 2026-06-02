@@ -432,7 +432,7 @@ CVE remediation, input validation, path security:
 | `metrics`          | View learning metrics dashboard          | `--v1-dashboard`, `--format`                |
 | `transfer`         | Transfer patterns via IPFS registry      | `store`, `from-project`                     |
 | `list`             | List all registered hooks                | `--format`                                  |
-| `intelligence`     | RuVector intelligence system             | `trajectory-*`, `pattern-*`, `stats`        |
+| `intelligence`     | MonoVector intelligence system             | `trajectory-*`, `pattern-*`, `stats`        |
 | `worker`           | Background worker management             | `list`, `dispatch`, `status`, `detect`      |
 | `progress`         | Check V1 implementation progress         | `--detailed`, `--format`                    |
 | `statusline`       | Generate dynamic statusline              | `--json`, `--compact`, `--no-color`         |
@@ -510,9 +510,9 @@ npx @monomind/cli@latest migrate rollback
 npx @monomind/cli@latest migrate validate
 ```
 
-## 🧠 Intelligence System (RuVector)
+## 🧠 Intelligence System (MonoVector)
 
-V1 includes the RuVector Intelligence System:
+V1 includes the MonoVector Intelligence System:
 
 - **SONA**: Self-Optimizing Neural Architecture (<0.05ms adaptation)
 - **MoE**: Mixture of Experts for specialized routing
@@ -536,7 +536,7 @@ Features:
 - **Normalization**: L2, L1, min-max, z-score
 - **Hyperbolic embeddings**: Poincaré ball model for hierarchical data
 - **75x faster**: With agentic-flow ONNX integration
-- **Neural substrate**: Integration with RuVector
+- **Neural substrate**: Integration with MonoVector
 
 ## 🐝 Hive-Mind Consensus
 

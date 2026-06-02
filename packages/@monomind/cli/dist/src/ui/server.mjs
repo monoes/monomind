@@ -167,7 +167,7 @@ function pathToSections(filename) {
   if (f.includes('route') || f.includes('worker-dispatch'))  return ['hooks'];
   if (f.includes('chunk') || f.includes('skills')) return ['knowledge'];
   if (f.includes('memory.db') || f.includes('memory.graph') || f.includes('hnsw.index') ||
-      f.includes('ruvector.db') || f.includes('ranked-context') ||
+      f.includes('monovector.db') || f.includes('ranked-context') ||
       (f.includes('/memory/') && f.endsWith('.md'))) return ['memory', 'sessions'];
   if (f.includes('palace') || f.includes('drawers') || f.includes('identity')) return ['memory', 'sessions'];
   if (f.includes('ddd') || f.includes('learning') || f.includes('audit')) return ['metrics'];

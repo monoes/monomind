@@ -1,6 +1,6 @@
 /**
- * RuVector Training Service
- * Real WASM-accelerated neural training using @ruvector packages
+ * MonoVector Training Service
+ * Real WASM-accelerated neural training using @monovector packages
  *
  * Features:
  * - MicroLoRA: <1µs adaptation with rank-2 LoRA (2.3M ops/s)
@@ -45,8 +45,8 @@ export interface TrainingResult {
     benchmark?: BenchmarkResult[];
 }
 /**
- * Initialize the RuVector training system.
- * Attempts to load @ruvector/learning-wasm for WASM-accelerated training.
+ * Initialize the MonoVector training system.
+ * Attempts to load @monoes/learning-wasm for WASM-accelerated training.
  * Falls back to a pure-JS implementation if WASM is unavailable.
  */
 export declare function initializeTraining(config?: TrainingConfig): Promise<{
@@ -219,4 +219,4 @@ export declare function exportWeights(): {
  */
 export declare function cleanup(): void;
 export {};
-//# sourceMappingURL=ruvector-training.d.ts.map
+//# sourceMappingURL=monovector-training.d.ts.map

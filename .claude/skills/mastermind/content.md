@@ -147,7 +147,7 @@ Stage 2 draft: subagent_type "Content Creator"
 Stage 3 edit: subagent_type "Technical Writer"
 Stage 4 format/publish: subagent_type "Content Creator"
 
-Also run /monomind:do --board <board_id> to track execution.
+Also run /mastermind:do --board <board_id> to track execution.
 
 STEP 4 — COLLECT AND RETURN
 Collect the final formatted content. Return to caller:

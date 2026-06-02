@@ -31,7 +31,7 @@ function globToRegex(glob: string): RegExp {
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')
     .replace(/\*/g, '[^/]*')
     .split(DOUBLE_STAR).join('.*');
-  return new RegExp(pattern);
+  return new RegExp('^' + pattern + '$');
 }
 
 /**

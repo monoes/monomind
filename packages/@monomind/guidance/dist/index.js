@@ -16,7 +16,7 @@
  * Integration with Claude Code:
  * - Headless mode (claude -p --output-format json) for automated testing
  * - Hook system for enforcement gates
- * - RuVector/HNSW for semantic shard retrieval
+ * - MonoVector/HNSW for semantic shard retrieval
  *
  * @module @monomind/guidance
  */

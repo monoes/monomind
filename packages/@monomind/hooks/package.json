@@ -60,9 +60,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@monomind/memory": "workspace:*",
-    "@monomind/neural": "workspace:*",
-    "@monomind/shared": "workspace:*",
+    "@monoes/memory": "workspace:*",
     "zod": "^3.23.0"
   },
   "optionalDependencies": {
@@ -74,9 +72,7 @@
     "typescript": "^5.3.0",
     "vitest": "^4.1.4"
   },
-  "peerDependencies": {
-    "@monomind/shared": "workspace:*"
-  },
+  "peerDependencies": {},
   "engines": {
     "node": ">=20.0.0"
   },

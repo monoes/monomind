@@ -121,7 +121,7 @@ export const toolsPhase: PipelinePhase<ToolsOutput> = {
           // Find nodes whose name contains the tool name (case-insensitive, stripped)
           const matches = rows.filter(row => {
             const n = row.name.toLowerCase().replace(/[_-]/g, '');
-            return n.includes(lowerTool) || lowerTool.includes(n);
+            return n.includes(lowerTool) || (n.length > 0 && lowerTool.includes(n));
           });
 
           if (matches.length === 1) {

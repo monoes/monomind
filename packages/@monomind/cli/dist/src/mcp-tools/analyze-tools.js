@@ -2,7 +2,7 @@
  * Analyze MCP Tools
  * Provides diff analysis and classification via MCP protocol
  */
-import { analyzeDiff, assessFileRisk, assessOverallRisk, classifyDiff, suggestReviewers, getGitDiffNumstat, } from '../ruvector/diff-classifier.js';
+import { analyzeDiff, assessFileRisk, assessOverallRisk, classifyDiff, suggestReviewers, getGitDiffNumstat, } from '../monovector/diff-classifier.js';
 /**
  * Diff Analysis Tool
  * Analyzes git diffs for change risk assessment and classification
@@ -30,9 +30,9 @@ export const analyzeDiffTool = {
                 description: 'Include recommended reviewers',
                 default: true,
             },
-            useRuVector: {
+            useMonoVector: {
                 type: 'boolean',
-                description: 'Attempt to use ruvector for analysis (graceful fallback if unavailable)',
+                description: 'Attempt to use monovector for analysis (graceful fallback if unavailable)',
                 default: true,
             },
         },
@@ -41,11 +41,11 @@ export const analyzeDiffTool = {
         const ref = params.ref || 'HEAD';
         const includeFileRisks = params.includeFileRisks === true;
         const includeReviewers = params.includeReviewers !== false;
-        const useRuVector = params.useRuVector !== false;
+        const useMonoVector = params.useMonoVector !== false;
         try {
             const result = await analyzeDiff({
                 ref,
-                useRuVector,
+                useMonoVector,
             });
             // Build response
             const response = {

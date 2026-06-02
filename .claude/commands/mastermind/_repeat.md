@@ -459,7 +459,7 @@ curl -s -X POST "${CTRL_URL}/api/mastermind/event" \
 
 ## Notes for Calling Commands
 
-- **`<command_slug>`**: lowercase command name without namespace (`build` for `/mastermind:build`, `monomind-idea` for `/monomind:idea`)
+- **`<command_slug>`**: lowercase command name without namespace (`build` for `/mastermind:build`, `mastermind-idea` for `/mastermind:idea`)
 - **Dashboard**: the monomind panel reads `.monomind/loops/*.json`; `type` field is `"repeat"` or `"tillend"`; HIL status shows as `"hil:pending"`
 - **Stopping a loop**: create `.monomind/loops/${LOOP_ID}.stop` or delete the `.json` file; the next wake-up detects it
 - **`wait_seconds` < 60**: ScheduleWakeup clamps to 60; the state file may reflect the user's requested value

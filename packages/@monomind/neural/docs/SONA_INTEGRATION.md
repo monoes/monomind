@@ -1,6 +1,6 @@
 # SONA Integration Guide
 
-Integration of `@ruvector/sona` package (v0.1.5) into the v1 Neural Module.
+Integration of `@monoes/sona` package (v0.1.5) into the v1 Neural Module.
 
 ## Overview
 
@@ -16,7 +16,7 @@ The SONA (Self-Optimizing Neural Architecture) integration provides runtime-adap
 The package is already installed as a dependency:
 
 ```bash
-npm install @ruvector/sona@0.1.5
+npm install @monoes/sona@0.1.5
 ```
 
 ## Quick Start
@@ -386,7 +386,7 @@ Runtime selection is automatic based on platform.
 ### Custom Configuration
 
 ```typescript
-import { SonaEngine, type JsSonaConfig } from "@ruvector/sona";
+import { SonaEngine, type JsSonaConfig } from "@monoes/sona";
 
 const customConfig: JsSonaConfig = {
   hiddenDim: 512,
@@ -451,7 +451,7 @@ console.log(status);
 
 ## References
 
-- [SONA Package](https://www.npmjs.com/package/@ruvector/sona)
+- [SONA Package](https://www.npmjs.com/package/@monoes/sona)
 - [LoRA Paper](https://arxiv.org/abs/2106.09685)
 - [EWC Paper](https://arxiv.org/abs/1612.00796)
 - [v1 Neural Module](../README.md)

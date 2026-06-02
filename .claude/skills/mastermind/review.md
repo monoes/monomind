@@ -119,7 +119,7 @@ Spawn one Task agent per review angle (mesh topology — reviewers share finding
 - Analytics/metrics: subagent_type "Analytics Reporter"
 - Accessibility: subagent_type "Accessibility Auditor"
 
-Also run /monomind:do --board <board_id> to track execution.
+Also run /mastermind:do --board <board_id> to track execution.
 
 STEP 4 — COLLECT AND RETURN
 Synthesize all review findings. Return to caller:

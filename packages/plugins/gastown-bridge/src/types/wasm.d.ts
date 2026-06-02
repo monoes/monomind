@@ -28,7 +28,7 @@ declare module 'gastown-formula-wasm' {
   export function cook_batch(formulas: ParsedFormula[], varsArray: Record<string, string>[]): CookedFormula[];
 }
 
-declare module 'ruvector-gnn-wasm' {
+declare module 'monovector-gnn-wasm' {
   export interface GraphNode {
     id: string;
     dependencies: string[];

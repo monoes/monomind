@@ -898,11 +898,11 @@ async function loadMemoryPackage() {
   try {
     const { createRequire } = await import('module');
     const require = createRequire(join(PROJECT_ROOT, 'package.json'));
-    return require('@monomind/memory');
+    return require('@monoes/memory');
   } catch { /* fall through */ }
 
   // Strategy 2: ESM import (works when @monomind/memory is a direct dependency)
-  try { return await import('@monomind/memory'); } catch { /* fall through */ }
+  try { return await import('@monoes/memory'); } catch { /* fall through */ }
 
   // Strategy 3: Walk up from PROJECT_ROOT looking for the package in any node_modules
   let searchDir = PROJECT_ROOT;

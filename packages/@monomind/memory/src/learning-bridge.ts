@@ -544,9 +544,28 @@ export class LearningBridge extends EventEmitter {
 
       if (!changed) return;
 
+      // M1: re-read the file just before writing so a concurrent flush that ran
+      // during our embedding computation is not silently overwritten (lost-update).
+      // We merge: apply our computed embeddings onto the freshest on-disk snapshot.
+      let finalPatterns = patterns;
+      try {
+        const freshRaw = readFileSync(patternsPath, 'utf-8');
+        const freshPatterns: Array<Record<string, unknown>> = JSON.parse(freshRaw);
+        if (Array.isArray(freshPatterns)) {
+          const embeddingById = new Map(patterns.map(p => [p['id'], p['embedding']]));
+          finalPatterns = freshPatterns.map(p => {
+            const backfilledEmb = embeddingById.get(p['id']);
+            if (backfilledEmb && Array.isArray(backfilledEmb) && backfilledEmb.length > 0) {
+              return { ...p, embedding: backfilledEmb };
+            }
+            return p;
+          });
+        }
+      } catch { /* use original patterns on re-read failure */ }
+
       const now = Date.now();
       const tmp = `${patternsPath}.backfill.${process.pid}.${now}.tmp`;
-      writeFileSync(tmp, JSON.stringify(patterns, null, 2), 'utf-8');
+      writeFileSync(tmp, JSON.stringify(finalPatterns, null, 2), 'utf-8');
       renameSync(tmp, patternsPath);
     } catch {
       // Non-fatal: backfill failure does not affect the flush result

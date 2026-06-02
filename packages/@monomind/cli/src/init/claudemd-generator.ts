@@ -234,7 +234,7 @@ function hooksSystem(): string {
 | \`pre-edit\` / \`post-edit\` | File editing with neural training |
 | \`session-start\` / \`session-end\` | Session state persistence |
 | \`route\` | Route task to optimal agent |
-| \`intelligence\` | RuVector intelligence system |
+| \`intelligence\` | MonoVector intelligence system |
 | \`worker\` | Background worker management |
 
 ### 12 Background Workers
@@ -366,7 +366,7 @@ npx monomind@latest performance metrics --format table
 }
 
 function intelligenceSystem(): string {
-  return `## Intelligence System (RuVector)
+  return `## Intelligence System (MonoVector)
 
 - **SONA**: Self-Optimizing Neural Architecture (<0.05ms adaptation)
 - **HNSW**: 150x-12,500x faster pattern search

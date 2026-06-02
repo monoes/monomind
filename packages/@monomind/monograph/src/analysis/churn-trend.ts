@@ -5,8 +5,8 @@ const COOLING_RATIO = 0.67;
 
 export function computeChurnTrend(timestampsEpochSec: number[]): ChurnTrend {
   if (timestampsEpochSec.length < 2) return 'stable';
-  const minTs = Math.min(...timestampsEpochSec);
-  const maxTs = Math.max(...timestampsEpochSec);
+  const minTs = timestampsEpochSec.reduce((a, b) => (b < a ? b : a));
+  const maxTs = timestampsEpochSec.reduce((a, b) => (b > a ? b : a));
   if (maxTs === minTs) return 'stable';
   const midpoint = minTs + (maxTs - minTs) / 2;
   const recent = timestampsEpochSec.filter(ts => ts > midpoint).length;

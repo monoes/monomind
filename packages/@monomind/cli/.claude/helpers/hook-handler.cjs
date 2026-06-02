@@ -267,6 +267,25 @@ const handlers = {
     h.handle(hCtx);
   },
 
+  'pre-bash': () => {
+    // Record bash grep/find calls for graph-vs-grep telemetry
+    var cmd = (hCtx.toolInput && (hCtx.toolInput.command || hCtx.toolInput.cmd)) || '';
+    if (/\bgrep\b/.test(cmd)) _recordGraphTelemetry('bash_grep_call');
+    else if (/\bfind\b/.test(cmd)) _recordGraphTelemetry('bash_find_call');
+  },
+
+  'pre-search': () => {
+    // Record Grep/Glob tool calls for graph-vs-grep telemetry
+    var tool = hCtx.toolName || '';
+    if (tool === 'Grep') _recordGraphTelemetry('grep_call');
+    else if (tool === 'Glob') _recordGraphTelemetry('glob_call');
+  },
+
+  'post-graph-tool': () => {
+    // Record monograph MCP tool calls as graph wins
+    _recordGraphTelemetry('monograph_call');
+  },
+
   'graph-status': () => {
     const h = require('./handlers/graph-status-handler.cjs');
     h.handle(hCtx);

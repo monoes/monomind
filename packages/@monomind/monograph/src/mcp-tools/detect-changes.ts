@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import type Database from 'better-sqlite3';
 import type { MonographNode } from '../types.js';
 
@@ -18,16 +18,25 @@ export function detectMonographChanges(
   input: { baseBranch?: string; includeTests?: boolean },
   repoPath: string,
 ): MonographDetectChangesResult {
-  const baseBranch = input.baseBranch ?? 'main';
+  const rawBranch = input.baseBranch ?? 'main';
+  // Reject branch names that could be shell-injected or path-traversed
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._\-/]*$/.test(rawBranch)) {
+    return { changedFiles: [], affectedSymbols: [], affectedProcesses: [], error: `Invalid branch name: ${rawBranch}` };
+  }
+  const baseBranch = rawBranch;
   const includeTests = input.includeTests ?? true;
 
   let changedFiles: string[];
 
   try {
-    const output = execSync(`git diff --name-only ${baseBranch}...HEAD`, {
+    // Use spawnSync with argument array to eliminate shell injection entirely
+    const result = spawnSync('git', ['diff', '--name-only', `${baseBranch}...HEAD`], {
       cwd: repoPath,
       encoding: 'utf-8',
-    }).trim();
+    });
+    if (result.error) throw result.error;
+    if (result.status !== 0) throw new Error(result.stderr ?? `git exited ${result.status}`);
+    const output = result.stdout.trim();
 
     changedFiles = output
       .split('\n')

@@ -383,21 +383,21 @@ function collectMemory(projectDir) {
   const hnswHit = probeFile(...hnswCandidates);
   const hnsw = !!hnswHit;
 
-  // RuVector DB
-  const ruvectorHit = probeFile(
-    path.join(monomindDir, 'data', 'ruvector.db'),
-    path.join(d, 'data', 'ruvector.db'),
+  // MonoVector DB
+  const monovectorHit = probeFile(
+    path.join(monomindDir, 'data', 'monovector.db'),
+    path.join(d, 'data', 'monovector.db'),
   );
-  const ruvectorSize = ruvectorHit ? ruvectorHit.size : 0;
-  const ruvectorExists = !!ruvectorHit;
+  const monovectorSize = monovectorHit ? monovectorHit.size : 0;
+  const monovectorExists = !!monovectorHit;
 
-  let ruvectorPatterns = 0;
+  let monovectorPatterns = 0;
   const ranked = readJSON(path.join(monomindDir, 'data', 'ranked-context.json'));
-  if (ranked && ranked.entries) ruvectorPatterns = ranked.entries.length;
+  if (ranked && ranked.entries) monovectorPatterns = ranked.entries.length;
 
   const files = collectMemoryFiles(projectDir);
 
-  return { dbSize, dbPath, hnsw, ruvectorSize, ruvectorExists, ruvectorPatterns, files, count: files.length };
+  return { dbSize, dbPath, hnsw, monovectorSize, monovectorExists, monovectorPatterns, files, count: files.length };
 }
 
 function collectSystem() {
@@ -598,7 +598,7 @@ export function getWatchPaths(projectDir) {
     path.join(resolvedDir, '.swarm', 'memory.db'),
     path.join(resolvedDir, '.swarm', 'hnsw.index'),
     path.join(m, 'memory.db'),
-    path.join(m, 'data', 'ruvector.db'),
+    path.join(m, 'data', 'monovector.db'),
     path.join(m, 'data', 'ranked-context.json'),
     // Sessions
     path.join(c, 'sessions')

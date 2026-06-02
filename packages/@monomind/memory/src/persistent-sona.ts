@@ -5,7 +5,7 @@
  * brute-force cosine similarity, trajectory buffering, EWC tracking,
  * and automatic periodic persistence to disk.
  *
- * This is intentionally decoupled from the ruvector SONA classes:
+ * This is intentionally decoupled from the monovector SONA classes:
  * it defines its own compatible types and delegates persistence to
  * RvfLearningStore.
  *

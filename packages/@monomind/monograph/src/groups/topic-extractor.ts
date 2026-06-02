@@ -12,8 +12,9 @@ export interface TopicContract {
 const KAFKA_PRODUCE_RE = /(?:producer\.send|sendMessage)\s*\(\s*\{[^}]*?topic\s*:\s*['"`]([^'"`]+)['"`]/g;
 const KAFKA_CONSUME_RE = /consumer\.subscribe\s*\(\s*\{[^}]*?topic\s*:\s*['"`]([^'"`]+)['"`]/g;
 
-// RabbitMQ patterns
-const RABBIT_EXCHANGE_RE = /channel\.(?:assertExchange|publish|bindQueue)\s*\(\s*['"`]([^'"`]+)['"`]/g;
+// RabbitMQ patterns — publish/assertExchange = producer, bindQueue/consume = consumer
+const RABBIT_PRODUCE_RE = /channel\.(?:assertExchange|publish)\s*\(\s*['"`]([^'"`]+)['"`]/g;
+const RABBIT_CONSUME_RE = /channel\.(?:bindQueue|consume)\s*\(\s*['"`]([^'"`]+)['"`]/g;
 
 // AWS SQS
 const SQS_SEND_RE = /(?:sendMessage|SendMessage)\s*\(\s*\{[^}]*?QueueUrl\s*:\s*['"`][^'"`]*\/([^'"`/]+)['"`]/g;
@@ -46,10 +47,14 @@ export function extractTopicContracts(source: string, filePath: string): TopicCo
   }
 
   if (broker === 'rabbitmq' || broker === 'unknown') {
-    RABBIT_EXCHANGE_RE.lastIndex = 0;
+    RABBIT_PRODUCE_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
-    while ((m = RABBIT_EXCHANGE_RE.exec(source)) !== null) {
+    while ((m = RABBIT_PRODUCE_RE.exec(source)) !== null) {
       results.push({ topicName: m[1]!, role: 'producer', broker: 'rabbitmq', filePath });
+    }
+    RABBIT_CONSUME_RE.lastIndex = 0;
+    while ((m = RABBIT_CONSUME_RE.exec(source)) !== null) {
+      results.push({ topicName: m[1]!, role: 'consumer', broker: 'rabbitmq', filePath });
     }
   }
 

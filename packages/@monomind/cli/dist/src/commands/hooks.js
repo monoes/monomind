@@ -1427,7 +1427,7 @@ const preTaskCommand = {
             }
             // Enhanced model routing with Agent Booster AST (ADR-026)
             try {
-                const { getEnhancedModelRouter } = await import('../ruvector/enhanced-model-router.js');
+                const { getEnhancedModelRouter } = await import('../monovector/enhanced-model-router.js');
                 const router = getEnhancedModelRouter();
                 const routeResult = await router.route(description, { filePath: ctx.flags.file });
                 output.writeln();
@@ -1714,7 +1714,7 @@ const sessionRestoreCommand = {
 // Intelligence subcommand (SONA, MoE, HNSW)
 const intelligenceCommand = {
     name: 'intelligence',
-    description: 'RuVector intelligence system (SONA, MoE, HNSW 150x faster)',
+    description: 'MonoVector intelligence system (SONA, MoE, HNSW 150x faster)',
     options: [
         {
             name: 'mode',
@@ -1786,7 +1786,7 @@ const intelligenceCommand = {
         const enableHnsw = ctx.flags['enable-hnsw'] ?? true;
         const embeddingProvider = ctx.flags['embedding-provider'] || 'transformers';
         output.writeln();
-        output.writeln(output.bold('RuVector Intelligence System'));
+        output.writeln(output.bold('MonoVector Intelligence System'));
         output.writeln();
         if (reset) {
             const confirmed = await confirm({
@@ -2462,7 +2462,7 @@ function formatWorkerStatus(status) {
 // Coverage route subcommand
 const coverageRouteCommand = {
     name: 'coverage-route',
-    description: 'Route task to agents based on test coverage gaps (ruvector integration)',
+    description: 'Route task to agents based on test coverage gaps (monovector integration)',
     options: [
         {
             name: 'task',
@@ -2478,8 +2478,8 @@ const coverageRouteCommand = {
             default: 80
         },
         {
-            name: 'no-ruvector',
-            description: 'Disable ruvector integration',
+            name: 'no-monovector',
+            description: 'Disable monovector integration',
             type: 'boolean',
             default: false
         }
@@ -2491,7 +2491,7 @@ const coverageRouteCommand = {
     action: async (ctx) => {
         const task = ctx.args[0] || ctx.flags.task;
         const threshold = ctx.flags.threshold || 80;
-        const useRuvector = !ctx.flags['no-ruvector'];
+        const useMonovector = !ctx.flags['no-monovector'];
         if (!task) {
             output.printError('Task description is required. Use --task or -t flag.');
             return { success: false, exitCode: 1 };
@@ -2614,7 +2614,7 @@ const coverageRouteCommand = {
             const result = await callMCPTool('hooks_coverage-route', {
                 task,
                 threshold,
-                useRuvector,
+                useMonovector,
             });
             spinner.stop();
             if (ctx.flags.format === 'json') {
@@ -2681,7 +2681,7 @@ const coverageRouteCommand = {
 // Coverage suggest subcommand
 const coverageSuggestCommand = {
     name: 'coverage-suggest',
-    description: 'Suggest coverage improvements for a path (ruvector integration)',
+    description: 'Suggest coverage improvements for a path (monovector integration)',
     options: [
         {
             name: 'path',
@@ -2761,7 +2761,7 @@ const coverageSuggestCommand = {
                     filesBelowThreshold: belowThreshold.length,
                 },
                 prioritizedFiles,
-                ruvectorAvailable: false,
+                monovectorAvailable: false,
                 source: diskCoverage.source,
             };
             if (ctx.flags.format === 'json') {
@@ -2823,7 +2823,7 @@ const coverageSuggestCommand = {
                 `Line Coverage: ${result.summary.overallLineCoverage.toFixed(1)}%`,
                 `Branch Coverage: ${result.summary.overallBranchCoverage.toFixed(1)}%`,
                 `Below Threshold: ${result.summary.filesBelowThreshold} files`,
-                `RuVector: ${result.ruvectorAvailable ? output.success('Available') : output.dim('Not installed')}`
+                `MonoVector: ${result.monovectorAvailable ? output.success('Available') : output.dim('Not installed')}`
             ].join('\n'), 'Coverage Summary');
             if (result.suggestions.length > 0) {
                 output.writeln();
@@ -2947,7 +2947,7 @@ const coverageGapsCommand = {
                     coverageThreshold: threshold,
                 },
                 agentAssignments,
-                ruvectorAvailable: false,
+                monovectorAvailable: false,
                 source: diskCoverage.source,
             };
             if (ctx.flags.format === 'json') {
@@ -3026,7 +3026,7 @@ const coverageGapsCommand = {
                 `Line Coverage: ${result.summary.overallLineCoverage.toFixed(1)}%`,
                 `Branch Coverage: ${result.summary.overallBranchCoverage.toFixed(1)}%`,
                 `Below ${result.summary.coverageThreshold}%: ${result.summary.filesBelowThreshold} files`,
-                `RuVector: ${result.ruvectorAvailable ? output.success('Available') : output.dim('Not installed')}`
+                `MonoVector: ${result.monovectorAvailable ? output.success('Available') : output.dim('Not installed')}`
             ].join('\n'), 'Coverage Gap Analysis');
             if (gaps.length > 0) {
                 output.writeln();
@@ -4427,7 +4427,7 @@ export const hooksCommand = {
             `${output.highlight('worker')}          - Background worker management (12 workers)`,
             `${output.highlight('progress')}        - Check implementation progress`,
             `${output.highlight('statusline')}      - Generate dynamic statusline display`,
-            `${output.highlight('coverage-route')}  - Route tasks based on coverage gaps (ruvector)`,
+            `${output.highlight('coverage-route')}  - Route tasks based on coverage gaps (monovector)`,
             `${output.highlight('coverage-suggest')}- Suggest coverage improvements`,
             `${output.highlight('coverage-gaps')}   - List all coverage gaps with agents`,
             `${output.highlight('token-optimize')} - Token optimization (30-50% savings)`,

@@ -44,7 +44,6 @@ export function computeRefactoringTargets(db: MonographDb): RefactoringTargetsRe
       n.id,
       n.file_path,
       n.properties,
-      (SELECT np.value FROM node_properties np WHERE np.ident = 'reachabilityRole' LIMIT 1) as reachability_role_dummy,
       COUNT(DISTINCT e_in.id) as in_degree,
       COUNT(DISTINCT e_out.id) as out_degree
     FROM nodes n
@@ -63,8 +62,8 @@ export function computeRefactoringTargets(db: MonographDb): RefactoringTargetsRe
   const p95Index = Math.floor(fanIns.length * 0.95);
   const p95FanIn = fanIns[p95Index] ?? fanIns[fanIns.length - 1] ?? 1;
 
-  const maxInDegree = Math.max(...rows.map(r => r.in_degree), 1);
-  const maxOutDegree = Math.max(...rows.map(r => r.out_degree), 1);
+  const maxInDegree  = rows.reduce((m, r) => r.in_degree  > m ? r.in_degree  : m, 1);
+  const maxOutDegree = rows.reduce((m, r) => r.out_degree > m ? r.out_degree : m, 1);
 
   const targets: RefactoringTarget[] = [];
 

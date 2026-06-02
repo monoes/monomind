@@ -41,7 +41,7 @@ export function exportCompact(db: MonographDb, repoRoot?: string): string {
     SELECT n.name, n.file_path, COALESCE(n.start_line, 1) AS line,
            COUNT(e.id) AS in_degree
     FROM nodes n
-    LEFT JOIN edges e ON e.target_id = n.id
+    LEFT JOIN edges e ON e.target_id = n.id AND e.relation IN ('IMPORTS', 'RE_EXPORTS')
     WHERE n.file_path IS NOT NULL AND n.label = 'File'
     GROUP BY n.id
     ORDER BY in_degree DESC

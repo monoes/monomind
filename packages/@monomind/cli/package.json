@@ -103,12 +103,12 @@
     "@monoes/memory": "workspace:*",
     "@monomind/plugin-gastown-bridge": "^0.1.3",
     "agentic-flow": "^3.0.0-alpha.1",
-    "@monovector/attention": "^0.1.4",
-    "@monovector/learning-wasm": "workspace:*",
-    "@monovector/router": "^0.1.27",
-    "@monovector/rvagent-wasm": "workspace:*",
-    "@monovector/ruvllm-wasm": "workspace:*",
-    "@monovector/sona": "workspace:*",
+    "@monoes/attention": "^0.1.4",
+    "@monoes/learning-wasm": "workspace:*",
+    "@monoes/router": "^0.1.27",
+    "@monoes/rvagent-wasm": "workspace:*",
+    "@monoes/ruvllm-wasm": "workspace:*",
+    "@monoes/sona": "workspace:*",
     "@anthropic-ai/sdk": "*"
   },
   "publishConfig": {

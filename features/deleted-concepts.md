@@ -162,5 +162,5 @@ All returned fake "placeholder" success messages. Listed here in case real imple
 - 28 empty `tmp.json` placeholder files
 - `tsconfig.vitest-temp.json` (temporary build file)
 - `monomind/.monomind/` (empty umbrella package artifact)
-- Root `ruvector.db` → moved to `.monomind/data/`
+- Root `monovector.db` → moved to `.monomind/data/`
 - Root `test-database-provider.rvf` → moved to `packages/__tests__/fixtures/`

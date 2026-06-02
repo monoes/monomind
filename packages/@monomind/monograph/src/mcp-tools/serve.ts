@@ -27,13 +27,14 @@ export async function serveMonograph(options: ServeOptions): Promise<ServeResult
   const handle = await startServer({ port, db });
 
   if (open) {
-    const { exec } = await import('child_process');
-    const cmd = process.platform === 'win32'
-      ? `start "" "${handle.url}"`
+    // Use spawn with an argument array to avoid shell injection via URL characters
+    const { spawn } = await import('child_process');
+    const [bin, ...args] = process.platform === 'win32'
+      ? ['cmd', '/c', 'start', '', handle.url]
       : process.platform === 'darwin'
-        ? `open "${handle.url}"`
-        : `xdg-open "${handle.url}"`;
-    exec(cmd);
+        ? ['open', handle.url]
+        : ['xdg-open', handle.url];
+    spawn(bin as string, args, { stdio: 'ignore', detached: true }).unref();
   }
 
   return { url: handle.url, status: 'started' };

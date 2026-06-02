@@ -109,4 +109,4 @@ Task({ subagent_type: "reviewer", description: "Security and code review", run_i
 - Store important decisions in memory across phases
 - All tasks should end with verification against acceptance criteria
 
-See `/monomind:help` for all available commands.
+See `/mastermind:help` for all available commands.

@@ -38,9 +38,9 @@ dependencies:
     - "@monomind/embeddings": ">=3.0.0"
   optional:
     - "@monomind/browser": ">=3.0.0"  # For E2E/visual testing
-    - "@ruvector/attention": ">=1.0.0"   # Enhanced pattern matching
-    - "@ruvector/gnn": ">=1.0.0"         # Code graph analysis
-    - "@ruvector/sona": ">=1.0.0"        # Self-optimizing learning
+    - "@monoes/attention": ">=1.0.0"   # Enhanced pattern matching
+    - "@monoes/gnn": ">=1.0.0"         # Code graph analysis
+    - "@monoes/sona": ">=1.0.0"        # Self-optimizing learning
 
 # Bounded contexts and their agents
 contexts:

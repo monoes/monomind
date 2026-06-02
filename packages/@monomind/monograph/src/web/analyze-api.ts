@@ -3,7 +3,7 @@ import { buildAsync } from '../pipeline/orchestrator.js';
 import { countNodes } from '../storage/node-store.js';
 import { countEdges } from '../storage/edge-store.js';
 import { openDb, closeDb } from '../storage/db.js';
-import { resolve, join } from 'path';
+import { resolve, join, sep } from 'path';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -56,7 +56,7 @@ async function handleAnalyze(req: IncomingMessage, res: ServerResponse): Promise
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': 'http://localhost',
   });
 
   const dbPath = resolve(join(repoPath, '.monomind', 'monograph.db'));
@@ -106,6 +106,8 @@ async function handleAnalyze(req: IncomingMessage, res: ServerResponse): Promise
 export function registerAnalyzeRoute(
   server: Server,
   pathPrefix: string = '/api',
+  /** Allowlisted repo root — only this path (and its subdirectories) may be analyzed */
+  allowedRepoRoot?: string,
 ): void {
   const analyzePath = `${pathPrefix}/analyze`;
 
@@ -113,8 +115,30 @@ export function registerAnalyzeRoute(
     const url = req.url ?? '/';
     const pathname = url.split('?')[0];
 
-    if (pathname === analyzePath && req.method === 'GET') {
-      void handleAnalyze(req, res);
+    if (pathname !== analyzePath || req.method !== 'GET') return;
+
+    // DNS rebinding protection: reject requests with a non-localhost Host header
+    const host = ((req.headers['host'] ?? '').split(':')[0] ?? '').toLowerCase();
+    if (host !== 'localhost' && host !== '127.0.0.1' && host !== '::1' && host !== '') {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Forbidden' }));
+      return;
     }
+
+    // If an allowedRepoRoot was provided, enforce it before handling
+    if (allowedRepoRoot) {
+      const { repoPath } = parseQueryParams(url);
+      if (repoPath) {
+        const resolved = resolve(repoPath);
+        const root = resolve(allowedRepoRoot);
+        if (resolved !== root && !resolved.startsWith(root + sep)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'repoPath outside allowed root' }));
+          return;
+        }
+      }
+    }
+
+    void handleAnalyze(req, res);
   });
 }

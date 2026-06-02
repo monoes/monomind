@@ -32,7 +32,7 @@ const mockLora = {
   pendingUpdates: vi.fn().mockReturnValue(0),
 };
 
-vi.mock('../src/ruvector/ruvllm-wasm.js', () => ({
+vi.mock('../src/monovector/ruvllm-wasm.js', () => ({
   isRuvllmWasmAvailable: vi.fn().mockResolvedValue(true),
   initRuvllmWasm: vi.fn().mockResolvedValue(undefined),
   getRuvllmStatus: vi.fn().mockResolvedValue({ available: true, initialized: true, version: '2.0.1' }),

@@ -1,11 +1,11 @@
 /**
- * RuVector LLM WASM MCP Tools
+ * MonoVector LLM WASM MCP Tools
  *
- * Exposes @ruvector/ruvllm-wasm operations via MCP protocol.
+ * Exposes @monoes/ruvllm-wasm operations via MCP protocol.
  * All tools gracefully degrade when the WASM package is not installed.
  */
 async function loadRuvllmWasm() {
-    return import('../ruvector/ruvllm-wasm.js');
+    return import('../monovector/ruvllm-wasm.js');
 }
 // ── Instance Registries ──────────────────────────────────────
 const hnswRouters = new Map();

@@ -70,8 +70,8 @@ export interface AgentDBBackendConfig {
   /** Force WASM backend (skip native hnswlib) */
   forceWasm?: boolean;
 
-  /** Vector backend: 'auto', 'ruvector', 'hnswlib' */
-  vectorBackend?: 'auto' | 'ruvector' | 'hnswlib';
+  /** Vector backend: 'auto', 'monovector', 'hnswlib' */
+  vectorBackend?: 'auto' | 'monovector' | 'hnswlib';
 
   /** Vector dimensions (default: 1536) */
   vectorDimension?: number;
@@ -122,7 +122,7 @@ const DEFAULT_CONFIG: Required<
  *
  * Features:
  * - HNSW indexing for fast approximate nearest neighbor search
- * - Automatic fallback: native hnswlib → ruvector → WASM
+ * - Automatic fallback: native hnswlib → monovector → WASM
  * - Graceful handling of optional native dependencies
  * - Semantic search with filtering
  * - Compatible with HybridBackend for combined SQLite+AgentDB queries

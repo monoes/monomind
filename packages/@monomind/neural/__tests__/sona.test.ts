@@ -1,7 +1,7 @@
 /**
  * SONA Learning Engine Tests
  *
- * Tests for SONA integration with @ruvector/sona package.
+ * Tests for SONA integration with @monoes/sona package.
  * Covers initialization, learning, adaptation, mode switching, and performance.
  *
  * Performance targets:
@@ -49,8 +49,8 @@ function createMockEngine() {
   };
 }
 
-// Mock @ruvector/sona
-vi.mock('@ruvector/sona', () => {
+// Mock @monoes/sona
+vi.mock('@monoes/sona', () => {
   return {
     SonaEngine: {
       withConfig: vi.fn(() => createMockEngine()),
@@ -62,7 +62,7 @@ describe('SONALearningEngine', () => {
   let engine: SONALearningEngine;
   let modeConfig: SONAModeConfig;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     modeConfig = {
       mode: 'balanced',
       loraRank: 4,
@@ -76,6 +76,7 @@ describe('SONALearningEngine', () => {
       ewcLambda: 2000,
     };
     engine = new SONALearningEngine('balanced', modeConfig);
+    await engine.initialize();
   });
 
   describe('Initialization', () => {
@@ -84,7 +85,7 @@ describe('SONALearningEngine', () => {
       expect(engine.isEnabled()).toBe(true);
     });
 
-    it('should initialize with real-time mode', () => {
+    it('should initialize with real-time mode', async () => {
       const rtEngine = createSONALearningEngine('real-time', {
         mode: 'real-time',
         loraRank: 2,
@@ -97,6 +98,7 @@ describe('SONALearningEngine', () => {
         memoryBudgetMb: 25,
         ewcLambda: 2000,
       });
+      await rtEngine.initialize();
       expect(rtEngine).toBeDefined();
       expect(rtEngine.isEnabled()).toBe(true);
     });
@@ -306,7 +308,7 @@ describe('SONALearningEngine', () => {
     });
 
     it('should handle adaptation with no patterns found', async () => {
-      const { SonaEngine } = await import('@ruvector/sona');
+      const { SonaEngine } = await import('@monoes/sona');
       // Create a complete mock with findPatterns returning empty array
       const emptyPatternsEngine = {
         beginTrajectory: vi.fn().mockReturnValue(1),
@@ -329,6 +331,7 @@ describe('SONALearningEngine', () => {
       vi.mocked(SonaEngine.withConfig).mockReturnValueOnce(emptyPatternsEngine as any);
 
       const freshEngine = new SONALearningEngine('balanced', modeConfig);
+      await freshEngine.initialize();
       const context: Context = {
         domain: 'code',
         queryEmbedding: new Float32Array(768).fill(0.5),

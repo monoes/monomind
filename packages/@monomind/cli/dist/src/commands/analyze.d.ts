@@ -3,7 +3,7 @@
  * Code analysis, diff classification, AST analysis, and change risk assessment
  *
  * Features:
- * - AST analysis using ruvector (tree-sitter) with graceful fallback
+ * - AST analysis using monovector (tree-sitter) with graceful fallback
  * - Symbol extraction (functions, classes, variables, types)
  * - Cyclomatic complexity scoring
  * - Diff classification and risk assessment

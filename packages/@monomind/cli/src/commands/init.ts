@@ -310,9 +310,9 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     // Recommend semantic enrichment — prominent callout, not buried tip
     output.writeln('');
     output.writeln(output.bold('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-    output.writeln(output.bold('  Run /monomind:understand next'));
+    output.writeln(output.bold('  Run /mastermind:understand next'));
     output.writeln('');
-    output.writeln('  In Claude Code, type:  /monomind:understand');
+    output.writeln('  In Claude Code, type:  /mastermind:understand');
     output.writeln('');
     output.writeln('  This analyzes your project with an LLM and enriches the');
     output.writeln('  knowledge graph with semantic summaries, tags, and layers.');

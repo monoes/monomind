@@ -251,7 +251,7 @@ export function detectCycles(db: MonographDb): CycleDetectionResult {
   // Sort by length ascending
   cycles.sort((a, b) => a.length - b.length);
 
-  const longestCycle = cycles.length > 0 ? Math.max(...cycles.map(c => c.length)) : 0;
+  const longestCycle = cycles.length > 0 ? cycles.reduce((a, c) => Math.max(a, c.length), 0) : 0;
   const crossCommunityCycles = cycles.filter(c => c.isCrossCommunity).length;
 
   return {

@@ -76,9 +76,11 @@ export function computeHotspots(
   for (const line of gitOutput.split('\n')) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    // Detect date line (ISO format from %ci)
-    if (trimmed.match(/^\d{4}-\d{2}-\d{2}/)) {
-      currentDate = trimmed.split(' ')[0]; // YYYY-MM-DD
+    // Detect date line (ISO format from %ci: "YYYY-MM-DD HH:MM:SS +ZZZZ")
+    // Full-format match prevents dated filenames like "2026-01-01-notes.md" from
+    // being misidentified as commit timestamps and poisoning subsequent churn scores.
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}$/.test(trimmed)) {
+      currentDate = trimmed.slice(0, 10); // YYYY-MM-DD
       continue;
     }
     // File path line

@@ -1070,12 +1070,14 @@ export class ReasoningBank {
     const aggregate = new Float32Array(dim);
 
     // Weighted average of step embeddings (higher weight for later steps)
+    // Clamp per-step dim to prevent NaN from mixed-dimension embeddings
     let totalWeight = 0;
     for (let i = 0; i < trajectory.steps.length; i++) {
       const weight = (i + 1) / trajectory.steps.length;
       totalWeight += weight;
       const step = trajectory.steps[i];
-      for (let j = 0; j < dim; j++) {
+      const stepDim = Math.min(dim, step.stateAfter.length);
+      for (let j = 0; j < stepDim; j++) {
         aggregate[j] += step.stateAfter[j] * weight;
       }
     }
@@ -1091,9 +1093,13 @@ export class ReasoningBank {
   private async deduplicateMemories(): Promise<number> {
     let removed = 0;
     const entries = Array.from(this.memories.entries());
+    // Track IDs removed mid-loop so we don't compare against already-deleted entries
+    const deleted = new Set<string>();
 
     for (let i = 0; i < entries.length; i++) {
+      if (deleted.has(entries[i][0])) continue;
       for (let j = i + 1; j < entries.length; j++) {
+        if (deleted.has(entries[j][0])) continue;
         const sim = this.cosineSimilarity(
           entries[i][1].memory.embedding,
           entries[j][1].memory.embedding
@@ -1102,11 +1108,14 @@ export class ReasoningBank {
         if (sim > this.config.dedupThreshold) {
           // Keep the higher quality one
           if (entries[i][1].memory.quality >= entries[j][1].memory.quality) {
+            deleted.add(entries[j][0]);
             this.memories.delete(entries[j][0]);
             await this.deleteFromAgentDB(entries[j][0]);
           } else {
+            deleted.add(entries[i][0]);
             this.memories.delete(entries[i][0]);
             await this.deleteFromAgentDB(entries[i][0]);
+            break; // entries[i] is gone; skip its remaining inner comparisons
           }
           removed++;
         }
@@ -1168,9 +1177,13 @@ export class ReasoningBank {
   private async mergePatterns(): Promise<number> {
     let merged = 0;
     const patterns = Array.from(this.patterns.entries());
+    // Track removed IDs so stale snapshot entries aren't double-merged
+    const removed = new Set<string>();
 
     for (let i = 0; i < patterns.length; i++) {
+      if (removed.has(patterns[i][0])) continue;
       for (let j = i + 1; j < patterns.length; j++) {
+        if (removed.has(patterns[j][0])) continue;
         const sim = this.cosineSimilarity(
           patterns[i][1].embedding,
           patterns[j][1].embedding
@@ -1188,14 +1201,18 @@ export class ReasoningBank {
           // Combine statistics
           keep.usageCount += remove.usageCount;
           keep.qualityHistory.push(...remove.qualityHistory);
+          const mergedQuality = keep.qualityHistory.reduce((a, b) => a + b, 0) / keep.qualityHistory.length;
           keep.evolutionHistory.push({
             timestamp: Date.now(),
             type: 'merge',
             previousQuality: keep.successRate,
-            newQuality: (keep.successRate + remove.successRate) / 2,
+            newQuality: mergedQuality,
             description: `Merged with pattern ${removeId}`,
           });
+          // Update successRate to reflect the merged history
+          keep.successRate = mergedQuality;
 
+          removed.add(removeId);
           this.patterns.delete(removeId);
           merged++;
         }
@@ -1242,7 +1259,7 @@ export class ReasoningBank {
   ): 'improvement' | 'merge' | 'split' | 'prune' {
     const delta = curr - prev;
     if (delta > 0.05) return 'improvement';
-    if (delta < -0.1) return 'prune';
+    if (delta < 0) return 'prune';
     return 'improvement';
   }
 

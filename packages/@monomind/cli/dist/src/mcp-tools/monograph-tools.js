@@ -4,7 +4,7 @@
  * Native TypeScript code intelligence — replaces Python graphify.
  * All monograph_* tools are backed by @monoes/monograph package.
  */
-import { join } from 'path';
+import { join, resolve, sep } from 'path';
 import { getProjectCwd } from './types.js';
 function getDbPath() {
     return join(getProjectCwd(), '.monomind', 'monograph.db');
@@ -107,6 +107,9 @@ const monographHealthTool = {
             const lastCommit = meta?.value ?? null;
             if (!lastCommit)
                 return text('Index has never been built. Run monograph_build first.');
+            if (!/^[0-9a-f]{7,40}$/i.test(lastCommit)) {
+                return text('Index metadata is corrupt: invalid commit SHA. Run monograph_build to re-index.');
+            }
             let commitsBehind = 0;
             try {
                 const out = execSync(`git rev-list --count ${lastCommit}..HEAD`, {
@@ -221,11 +224,11 @@ const monographShortestPathTool = {
 // ── monograph_community ───────────────────────────────────────────────────────
 const monographCommunityTool = {
     name: 'monograph_community',
-    description: 'Get all nodes belonging to a community (by numeric ID or label fragment).',
+    description: 'Get all nodes belonging to a community (by numeric community ID).',
     inputSchema: {
         type: 'object',
         properties: {
-            id: { type: 'string', description: 'Community ID (number) or label fragment' },
+            id: { type: 'string', description: 'Community ID (number)' },
         },
         required: ['id'],
     },
@@ -295,6 +298,9 @@ const monographSuggestTool = {
             if (task && process.env['MONOGRAPH_EMBEDDINGS'] === 'true') {
                 const hits = await hybridQuery(db, task, { limit: 20 });
                 const hitIds = new Set(hits.map(h => h.id));
+                if (hitIds.size === 0) {
+                    return text('No suggestions for this task. Run monograph_build first or try a different query.');
+                }
                 const rows = db.prepare(`
           SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt, n1.file_path as src_file
           FROM edges e
@@ -427,7 +433,11 @@ const monographReportTool = {
                 '## Top 10 Most Connected Entities\n',
                 ...topNodes.map((n, i) => `${i + 1}. **${n.name}** (${n.label}) — degree ${n.degree}  \`${n.file_path ?? ''}\``),
             ].join('\n');
-            const outPath = input.path ?? join(getProjectCwd(), '.monomind', 'GRAPH_REPORT.md');
+            const outPath = resolve(input.path ?? join(getProjectCwd(), '.monomind', 'GRAPH_REPORT.md'));
+            const allowedRoot = resolve(getProjectCwd());
+            if (outPath !== allowedRoot && !outPath.startsWith(allowedRoot + sep)) {
+                return text(`Error: path must be within the project directory (${allowedRoot})`);
+            }
             mkdirSync(join(outPath, '..'), { recursive: true });
             writeFileSync(outPath, report);
             return text(`Report written to ${outPath}`);
@@ -488,7 +498,12 @@ const monographExportTool = {
             const nodes = db.prepare('SELECT * FROM nodes').all();
             const edges = db.prepare('SELECT * FROM edges').all();
             const fmt = input.format;
-            const outDir = input.outputPath ?? join(getProjectCwd(), '.monomind', 'export');
+            const requestedOut = input.outputPath ?? join(getProjectCwd(), '.monomind', 'export');
+            const outDir = resolve(requestedOut);
+            const allowedRoot = resolve(getProjectCwd());
+            if (outDir !== allowedRoot && !outDir.startsWith(allowedRoot + sep)) {
+                return text(`Error: outputPath must be within the project directory (${allowedRoot})`);
+            }
             mkdirSync(outDir, { recursive: true });
             if (fmt === 'json') {
                 const p = join(outDir, 'graph.json');
@@ -992,7 +1007,14 @@ const monographSkillGenTool = {
     handler: async (input) => {
         const { generateSkillFiles } = await import('@monoes/monograph');
         const repoPath = getProjectCwd();
-        const result = await generateSkillFiles(repoPath, input.outputDir);
+        const allowedRoot = resolve(repoPath);
+        if (input.outputDir) {
+            const outDir = resolve(input.outputDir);
+            if (outDir !== allowedRoot && !outDir.startsWith(allowedRoot + sep)) {
+                return text(`Error: outputDir must be within the project directory (${allowedRoot})`);
+            }
+        }
+        const result = await generateSkillFiles(repoPath, input.outputDir ? resolve(input.outputDir) : undefined);
         const dir = result.filesWritten.length > 0
             ? result.filesWritten[0].replace(/\/[^/]+$/, '/')
             : join(repoPath, '.monomind', 'skills') + '/';
@@ -1020,7 +1042,12 @@ const monographInstallSkillsTool = {
     handler: async (input) => {
         const { openDb, closeDb } = await import('@monoes/monograph');
         const { installSkillsForPlatform } = await import('@monoes/monograph');
-        const repoPath = input.repoPath ?? getProjectCwd();
+        const rawRepoPath = input.repoPath ?? getProjectCwd();
+        const repoPath = resolve(rawRepoPath);
+        const allowedRoot = resolve(getProjectCwd());
+        if (repoPath !== allowedRoot && !repoPath.startsWith(allowedRoot + sep)) {
+            return text(`Error: repoPath must be within the project directory (${allowedRoot})`);
+        }
         const platform = input.platform;
         const validPlatforms = ['claude', 'cursor', 'vscode', 'zed'];
         if (!validPlatforms.includes(platform)) {

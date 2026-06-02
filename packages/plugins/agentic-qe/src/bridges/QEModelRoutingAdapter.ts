@@ -25,7 +25,7 @@ import type {
   QELogger,
 } from '../interfaces.js';
 
-// Router types (would be imported from @monomind/cli/ruvector in production)
+// Router types (would be imported from @monomind/cli/monovector in production)
 interface IEnhancedModelRouter {
   route(
     task: string,

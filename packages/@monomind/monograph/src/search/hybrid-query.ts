@@ -100,7 +100,7 @@ export async function hybridQuery(
     const meta = bm25ById.get(vs.id);
     return {
       id: vs.id,
-      name: (meta?.name as string | undefined) ?? vs.id,
+      name: (meta?.name as string | undefined) ?? '',
       normLabel: (meta?.normLabel as string | undefined) ?? '',
       filePath: (meta?.filePath as string | null | undefined) ?? null,
       label: (meta?.label as string | undefined) ?? '',

@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join, relative, resolve } from 'path';
 
 export interface WorkspacePackage {
@@ -13,7 +13,7 @@ function findWorkspaceRoots(projectRoot: string): string[] {
   let pkg: Record<string, unknown>;
   try {
     pkg = JSON.parse(
-      require('fs').readFileSync(join(projectRoot, 'package.json'), 'utf8'),
+      readFileSync(join(projectRoot, 'package.json'), 'utf8'),
     );
   } catch { return []; }
 

@@ -1,7 +1,7 @@
 /**
  * WASM Agent MCP Tools
  *
- * Exposes @ruvector/rvagent-wasm operations via MCP protocol.
+ * Exposes @monoes/rvagent-wasm operations via MCP protocol.
  * All tools gracefully degrade when the WASM package is not installed.
  */
 import type { MCPTool } from './types.js';

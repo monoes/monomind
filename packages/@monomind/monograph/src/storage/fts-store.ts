@@ -51,7 +51,8 @@ export function ftsSearch(
   // For short queries (≤2 chars) trigram requires at least 3 characters to fire, so
   // supplement with a LIKE fallback to catch single/double-character matches.
   if (safeQuery.length <= 2) {
-    const likePattern = `%${safeQuery}%`;
+    const escapedQuery = safeQuery.replace(/%/g, '\\%').replace(/_/g, '\\_');
+    const likePattern = `%${escapedQuery}%`;
     let likeSql = `
       SELECT n.id, n.name, n.norm_label, n.file_path, n.label,
              0 AS rank
@@ -168,8 +169,9 @@ export function hybridSearch(
   // ── Strategy 1: FTS5 BM25 ──────────────────────────────────────────────────
   const ftsRows = ftsSearch(db, safeQuery, limit * 2, label);
   for (const row of ftsRows) {
-    // FTS5 rank is negative; normalise to (0, 1]
-    const ftsScore = 1 / (1 + Math.abs(row.rank));
+    // FTS5 rank is negative; larger magnitude = better match. Map to (0,1) with higher = better.
+    const absRank = Math.abs(row.rank);
+    const ftsScore = absRank / (1 + absRank);
     const fuzz = computeFuzzyScore(row.name, safeQuery);
     const combined = ftsScore + fuzz + computeNodeTypeBonus(row.label);
     upsert({ ...row, combinedScore: combined, matchStrategy: 'fts' });
@@ -178,7 +180,8 @@ export function hybridSearch(
   // ── Strategy 2: LIKE fallback ──────────────────────────────────────────────
   // Always run for short queries (≤3 chars) or when FTS returned nothing.
   if (safeQuery.length <= 3 || ftsRows.length === 0) {
-    const likePattern = `%${safeQuery}%`;
+    const escapedSafeQuery = safeQuery.replace(/%/g, '\\%').replace(/_/g, '\\_');
+    const likePattern = `%${escapedSafeQuery}%`;
     let likeSql = `
       SELECT n.id, n.name, n.norm_label, n.file_path, n.label
       FROM nodes n

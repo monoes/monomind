@@ -1,6 +1,7 @@
 import type { Application } from 'express';
 import type Database from 'better-sqlite3';
 import { readFileSync } from 'fs';
+import { resolve, sep } from 'path';
 import { ftsSearch } from '../storage/fts-store.js';
 import { globalJobRegistry } from './async-jobs.js';
 
@@ -335,7 +336,7 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
       }
       res.json(queryGraph(db));
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      console.error('[api error]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -348,7 +349,7 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
       }
       res.json(detail);
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      console.error('[api error]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -361,7 +362,7 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
       }
       res.json(querySearch(db, q));
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      console.error('[api error]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -369,7 +370,7 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
     try {
       res.json(queryStats(db));
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      console.error('[api error]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -380,11 +381,29 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
         res.status(400).json({ error: 'path query param required' });
         return;
       }
+      // Only serve files that are indexed in the graph DB to prevent arbitrary file read.
+      const resolvedPath = resolve(filePath);
+      const tracked = db.prepare('SELECT 1 FROM nodes WHERE file_path = ? LIMIT 1').get(resolvedPath);
+      if (!tracked) {
+        // Also accept the path as stored (may be relative or use different separators)
+        const trackedRelative = db.prepare('SELECT 1 FROM nodes WHERE file_path = ? LIMIT 1').get(filePath);
+        if (!trackedRelative) {
+          res.status(403).json({ error: 'File not indexed in graph' });
+          return;
+        }
+      }
       const startLine = req.query['start'] ? parseInt(req.query['start'] as string, 10) : undefined;
       const endLine = req.query['end'] ? parseInt(req.query['end'] as string, 10) : undefined;
-      res.json(readFileContent(filePath, startLine, endLine));
+      if (startLine !== undefined && isNaN(startLine)) {
+        res.status(400).json({ error: 'start must be a positive integer' }); return;
+      }
+      if (endLine !== undefined && isNaN(endLine)) {
+        res.status(400).json({ error: 'end must be a positive integer' }); return;
+      }
+      res.json(readFileContent(resolvedPath, startLine, endLine));
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      console.error('[api/file]', err);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -427,7 +446,7 @@ export function setupApiRoutes(app: Application, db: Database.Database): void {
       const caseSensitive = req.query['case'] === 'true';
       res.json(queryGrep(db, pattern, caseSensitive));
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      console.error('[api error]', err); res.status(500).json({ error: 'Internal server error' });
     }
   });
 

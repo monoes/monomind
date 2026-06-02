@@ -7,19 +7,13 @@ import type { MonographDb } from '../storage/db.js';
  * @returns The number of dangling edges pruned
  */
 export function pruneDanglingEdges(db: MonographDb): number {
-  // Find all edge ids where source or target is missing from nodes
-  const danglingIds = db.prepare(`
-    SELECT e.id
-    FROM edges e
-    WHERE NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = e.source_id)
-       OR NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = e.target_id)
-  `).all() as { id: string }[];
+  // Single-statement DELETE avoids fetching all dangling IDs then re-binding them
+  // as SQL variables (which would fail when edge count exceeds SQLITE_MAX_VARIABLE_NUMBER).
+  const result = db.prepare(`
+    DELETE FROM edges
+    WHERE NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = source_id)
+       OR NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = target_id)
+  `).run();
 
-  if (danglingIds.length === 0) return 0;
-
-  const placeholders = danglingIds.map(() => '?').join(',');
-  const ids = danglingIds.map(r => r.id);
-  db.prepare(`DELETE FROM edges WHERE id IN (${placeholders})`).run(...ids);
-
-  return danglingIds.length;
+  return result.changes;
 }

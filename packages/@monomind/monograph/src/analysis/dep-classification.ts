@@ -76,10 +76,9 @@ export function classifyDependencies(db: MonographDb): DepClassificationResult {
         // fall through — infer from confidence
       }
     }
-    // Infer from confidence field if not set in properties
-    if (!isTypeOnly && row.confidence === 'INFERRED') {
-      isTypeOnly = true;
-    }
+    // Note: INFERRED confidence is NOT a reliable signal for type-only imports —
+    // re-export propagation and wildcard synthesis both emit INFERRED edges for real
+    // runtime imports. Only trust the explicit isTypeOnly property.
 
     const existing = packageMap.get(packageName) ?? { valueImports: 0, typeImports: 0 };
     if (isTypeOnly) {

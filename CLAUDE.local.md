@@ -38,7 +38,7 @@ npx monomind@latest hooks route --task "[task]"
 npx monomind@latest hooks worker list
 ```
 
-## Intelligence System (RuVector)
+## Intelligence System (MonoVector)
 
 4-step pipeline: RETRIEVE (HNSW) → JUDGE (verdicts) → DISTILL (LoRA) → CONSOLIDATE (EWC++)
 

@@ -2,7 +2,7 @@
 
 ## Installation
 
-Already installed: `@ruvector/sona@0.1.5`
+Already installed: `@monoes/sona@0.1.5`
 
 ## Basic Usage (30 seconds)
 
@@ -163,6 +163,6 @@ packages/@monobrain/neural/
 
 **Location**: `/workspaces/monobrain/packages/@monobrain/neural/`
 
-**Package**: `@ruvector/sona@0.1.5`
+**Package**: `@monoes/sona@0.1.5`
 
 **Performance**: <0.05ms learning target achieved

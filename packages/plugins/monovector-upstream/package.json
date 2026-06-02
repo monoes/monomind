@@ -80,26 +80,26 @@
     "vitest": "^4.1.4"
   },
   "peerDependencies": {
-    "@monovector/attention-wasm": "workspace:*",
-    "@monovector/gnn-wasm": "workspace:*",
-    "@monovector/learning-wasm": "workspace:*",
-    "@monovector/exotic-wasm": "workspace:*",
-    "@monovector/sona": "workspace:*"
+    "@monoes/attention-wasm": "workspace:*",
+    "@monoes/gnn-wasm": "workspace:*",
+    "@monoes/learning-wasm": "workspace:*",
+    "@monoes/exotic-wasm": "workspace:*",
+    "@monoes/sona": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@monovector/attention-wasm": {
+    "@monoes/attention-wasm": {
       "optional": true
     },
-    "@monovector/gnn-wasm": {
+    "@monoes/gnn-wasm": {
       "optional": true
     },
-    "@monovector/learning-wasm": {
+    "@monoes/learning-wasm": {
       "optional": true
     },
-    "@monovector/exotic-wasm": {
+    "@monoes/exotic-wasm": {
       "optional": true
     },
-    "@monovector/sona": {
+    "@monoes/sona": {
       "optional": true
     }
   },

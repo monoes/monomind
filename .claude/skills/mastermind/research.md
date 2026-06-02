@@ -118,7 +118,7 @@ Spawn one Task agent per research stream (mesh topology — findings cross-polli
 - User behavior and UX signals: subagent_type "UX Researcher"
 - Data and metrics analysis: subagent_type "Analytics Reporter"
 
-Also run /monomind:do --board <board_id> to track execution.
+Also run /mastermind:do --board <board_id> to track execution.
 
 STEP 4 — COLLECT AND RETURN
 Synthesize all research streams into an intelligence report. Return to caller:

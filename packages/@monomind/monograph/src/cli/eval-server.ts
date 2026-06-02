@@ -38,7 +38,7 @@ export type SearchResult = HybridResult;
  *  - `stop()` — closes the DB and server
  */
 export function createEvalServer(repoPath: string, _port?: number): EvalServerHandle {
-  const dbPath = `${repoPath}/.monograph/graph.db`;
+  const dbPath = `${repoPath}/.monomind/monograph.db`;
   const db = openDb(dbPath);
 
   let server: Server | null = null;

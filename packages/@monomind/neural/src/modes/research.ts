@@ -404,9 +404,9 @@ export class ResearchMode extends BaseModeImplementation {
       }
     }
 
-    // Add EWC penalty
-    const ewcPenalty = this.computeEWCLoss(ewcState, ewcLambda);
-    totalLoss += ewcPenalty;
+    // EWC regularization is applied directly to B matrices in SONAManager.updateLoRAFromTrajectories.
+    // computeEWCLoss here used adamM keys ('step_0', 'step_1') but ewcState.fisher uses
+    // 'domain:module' keys — they never matched, always returning 0. Dead code removed.
 
     return totalLoss / batch.length;
   }
@@ -464,23 +464,12 @@ export class ResearchMode extends BaseModeImplementation {
   }
 
   /**
-   * Compute EWC loss for continual learning
+   * @deprecated Dead code — key format mismatch made this always return 0.
+   * EWC is applied via SONAManager.updateLoRAFromTrajectories instead.
+   * Kept as a tombstone to explain the removal above.
    */
-  private computeEWCLoss(ewcState: EWCState, lambda: number): number {
-    let loss = 0;
-
-    for (const [key, fisher] of ewcState.fisher) {
-      const means = ewcState.means.get(key);
-      const current = this.adamM.get(key);
-
-      if (means && current) {
-        for (let i = 0; i < Math.min(fisher.length, means.length, current.length); i++) {
-          const diff = current[i] - means[i];
-          loss += fisher[i] * diff * diff;
-        }
-      }
-    }
-
-    return lambda * loss * 0.5;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private _removedComputeEWCLoss(_ewcState: never, _lambda: never): 0 {
+    return 0;
   }
 }

@@ -50,11 +50,12 @@ export function createHealthReportSummary(
   totalLoc: number,
   coverageModel = 'none',
 ): HealthReportSummary {
-  const grade =
+  // Use canonical thresholds from health-report-types.ts (A≥90, B≥75, C≥60, D≥40)
+  const grade: HealthReportSummary['healthGrade'] =
     healthScore >= 90 ? 'A' :
-    healthScore >= 80 ? 'B' :
-    healthScore >= 65 ? 'C' :
-    healthScore >= 50 ? 'D' : 'F';
+    healthScore >= 75 ? 'B' :
+    healthScore >= 60 ? 'C' :
+    healthScore >= 40 ? 'D' : 'F';
   return {
     healthScore,
     healthGrade: grade,

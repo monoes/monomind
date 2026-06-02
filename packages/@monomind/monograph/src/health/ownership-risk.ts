@@ -78,8 +78,13 @@ export function computeOwnershipRisk(
   const staleDays = Math.max(0, Math.floor((now - lastCommitMs) / MS_PER_DAY));
   const isStale = staleDays > STALE_DAYS_THRESHOLD;
 
-  const originalTop = sorted[0];
-  const isDrifted = sorted.length > 1 && originalTop.email !== sorted[0].email;
+  // Drift: current top-committer differs from the contributor with the oldest last-commit
+  // (proxy for "original owner" when first-commit timestamps aren't available).
+  const byAge = [...human].sort(
+    (a, b) => new Date(a.lastCommit).getTime() - new Date(b.lastCommit).getTime(),
+  );
+  const originalTop = byAge[0];
+  const isDrifted = sorted.length > 1 && originalTop !== undefined && originalTop.email !== sorted[0]!.email;
 
   return {
     busFactor,

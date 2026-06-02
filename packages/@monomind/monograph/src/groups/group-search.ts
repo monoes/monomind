@@ -7,7 +7,7 @@
 import { join } from 'path';
 import { existsSync } from 'fs';
 import Database from 'better-sqlite3';
-import { mergeRanks, type RankedResult } from '../search/rrf.js';
+import { type RankedResult } from '../search/rrf.js';
 import type { GroupConfig } from './group-config.js';
 
 export interface GroupResult {
@@ -124,27 +124,34 @@ export async function groupQuery(
 
   if (repoResults.length === 0) return [];
 
-  // Merge all repo result lists pairwise using RRF
-  let merged: RankedResult[] = repoResults[0];
-  for (let i = 1; i < repoResults.length; i++) {
-    merged = mergeRanks(merged, repoResults[i]);
+  // Merge all repo result lists using direct RRF accumulation (not pairwise fold).
+  // Pairwise folding distorts scores because items from earlier repos get re-ranked
+  // at their merged-list position on each fold iteration instead of their original rank.
+  type RepoResult = (typeof repoResults)[0][0];
+  const scoreMap = new Map<string, { rrf: number; payload: RepoResult }>();
+  for (const results of repoResults) {
+    for (let idx = 0; idx < results.length; idx++) {
+      const item = results[idx]!;
+      const contribution = 1 / (60 + idx + 1);
+      const existing = scoreMap.get(item.id);
+      if (existing) {
+        existing.rrf += contribution;
+      } else {
+        scoreMap.set(item.id, { rrf: contribution, payload: item });
+      }
+    }
   }
+  const merged = [...scoreMap.values()]
+    .sort((a, b) => b.rrf - a.rrf)
+    .map(({ rrf, payload }) => ({ ...payload, score: rrf }));
 
   // Build final output, preserving repo metadata from merged payload
-  return merged.slice(0, limit).map((r) => {
-    const payload = r as typeof r & {
-      name: string;
-      label: string;
-      filePath: string | null;
-      repo: string;
-    };
-    return {
-      id: r.id,
-      name: payload.name ?? '',
-      label: payload.label ?? '',
-      filePath: payload.filePath ?? null,
-      repo: payload.repo ?? '',
-      score: r.score,
-    };
-  });
+  return merged.slice(0, limit).map((r) => ({
+    id: r.id,
+    name: r.name ?? '',
+    label: r.label ?? '',
+    filePath: r.filePath ?? null,
+    repo: r.repo ?? '',
+    score: r.score,
+  }));
 }

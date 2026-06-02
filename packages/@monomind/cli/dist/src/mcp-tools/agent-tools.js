@@ -83,7 +83,7 @@ let modelRouterInstance = null;
 async function getModelRouter() {
     if (!modelRouterInstance) {
         try {
-            const { getModelRouter } = await import('../ruvector/model-router.js');
+            const { getModelRouter } = await import('../monovector/model-router.js');
             modelRouterInstance = getModelRouter();
         }
         catch (e) {
@@ -109,7 +109,7 @@ async function determineAgentModel(agentType, config, task) {
     if (task) {
         try {
             // Try enhanced router first (includes Agent Booster detection)
-            const { getEnhancedModelRouter } = await import('../ruvector/enhanced-model-router.js');
+            const { getEnhancedModelRouter } = await import('../monovector/enhanced-model-router.js');
             const enhancedRouter = getEnhancedModelRouter();
             const routeResult = await enhancedRouter.route(task, { filePath: config.filePath });
             if (routeResult.tier === 1 && routeResult.canSkipLLM) {

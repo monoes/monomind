@@ -25,7 +25,7 @@ export async function getChangedFiles(root: string, sinceRef: string): Promise<S
 
   let output: string;
   try {
-    output = execSync(`git diff --name-only ${sinceRef} HEAD`, {
+    output = execSync(`git diff --name-only -z ${sinceRef} HEAD`, {
       cwd: root,
       encoding: 'utf8',
     });
@@ -37,9 +37,10 @@ export async function getChangedFiles(root: string, sinceRef: string): Promise<S
   }
 
   try {
+    // Use NUL delimiter (-z) to handle non-ASCII filenames and paths with spaces;
+    // git's default core.quotePath=true wraps such names in quotes with octal escapes.
     const files = output
-      .split('\n')
-      .map((line) => line.trim())
+      .split('\0')
       .filter((line) => line.length > 0)
       .map((relative) => path.resolve(root, relative));
     return new Set(files);

@@ -1,14 +1,14 @@
 /**
  * WASM Agent CLI Subcommands
  *
- * Exposes @ruvector/rvagent-wasm operations via the `agent` CLI command.
- * Wraps functions from ruvector/agent-wasm.ts for CLI usage.
+ * Exposes @monoes/rvagent-wasm operations via the `agent` CLI command.
+ * Wraps functions from monovector/agent-wasm.ts for CLI usage.
  */
 import { output } from '../output.js';
-const WASM_NOT_AVAILABLE_MSG = '@ruvector/rvagent-wasm is not installed.\n' +
-    'Install it with: npm install @ruvector/rvagent-wasm';
+const WASM_NOT_AVAILABLE_MSG = '@monoes/rvagent-wasm is not installed.\n' +
+    'Install it with: npm install @monoes/rvagent-wasm';
 async function loadWasm() {
-    const mod = await import('../ruvector/agent-wasm.js');
+    const mod = await import('../monovector/agent-wasm.js');
     return mod;
 }
 // agent wasm-status

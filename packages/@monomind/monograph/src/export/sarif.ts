@@ -211,14 +211,14 @@ export interface SarifHealthFinding {
 
 export function exportHealthSarif(findings: SarifHealthFinding[], root?: string): SarifDocument {
   const rules: SarifRule[] = [
-    { id: 'complexity/cyclomatic', name: 'High Cyclomatic Complexity', shortDescription: 'Function exceeds cyclomatic complexity threshold', fullDescription: 'Cyclomatic complexity indicates the number of linearly independent paths through a function.' },
-    { id: 'complexity/cognitive', name: 'High Cognitive Complexity', shortDescription: 'Function exceeds cognitive complexity threshold', fullDescription: 'Cognitive complexity measures how difficult a function is to understand.' },
-    { id: 'complexity/crap', name: 'High CRAP Score', shortDescription: 'Function has a high CRAP score due to complexity and low coverage', fullDescription: 'CRAP = cyclomatic^2 * (1 - coverage/100)^3 + cyclomatic' },
+    { id: 'complexity/cyclomatic', name: 'High Cyclomatic Complexity', shortDescription: { text: 'Function exceeds cyclomatic complexity threshold' }, fullDescription: { text: 'Cyclomatic complexity indicates the number of linearly independent paths through a function.' } },
+    { id: 'complexity/cognitive', name: 'High Cognitive Complexity', shortDescription: { text: 'Function exceeds cognitive complexity threshold' }, fullDescription: { text: 'Cognitive complexity measures how difficult a function is to understand.' } },
+    { id: 'complexity/crap', name: 'High CRAP Score', shortDescription: { text: 'Function has a high CRAP score due to complexity and low coverage' }, fullDescription: { text: 'CRAP = cyclomatic^2 * (1 - coverage/100)^3 + cyclomatic' } },
   ];
 
   const results: SarifResult[] = findings.map(f => ({
     ruleId: f.ruleId,
-    message: f.message,
+    message: { text: f.message },
     level: f.severity === 'error' ? 'error' : f.severity === 'warning' ? 'warning' : 'note',
     locations: [{
       physicalLocation: {
@@ -228,5 +228,9 @@ export function exportHealthSarif(findings: SarifHealthFinding[], root?: string)
     }],
   }));
 
-  return { version: '2.1.0', runs: [{ tool: { driver: { name: 'monograph-health', rules } }, results }] };
+  return {
+    $schema: 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json',
+    version: '2.1.0',
+    runs: [{ tool: { driver: { name: 'monograph-health', version: '1.0.0', rules } }, results }],
+  };
 }

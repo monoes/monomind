@@ -55,7 +55,7 @@ All hooks are invoked as `npx monomind hooks <subcommand>`:
 | Subcommand | Purpose |
 |---|---|
 | `worker` | Background worker management (12 workers) |
-| `intelligence` | RuVector trajectory and pattern system |
+| `intelligence` | MonoVector trajectory and pattern system |
 | `notify` | Send a notification |
 | `statusline` | Generate dynamic statusline display |
 | `list` | List all registered hooks |

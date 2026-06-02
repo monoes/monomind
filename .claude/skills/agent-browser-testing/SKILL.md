@@ -5,7 +5,7 @@ version: 4.0.0
 triggers:
   - /agent-browser-testing
   - /ui-test
-  - /browse
+  - /monobrowse
   - /qa
   - /crawl
   - ui test

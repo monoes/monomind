@@ -601,7 +601,7 @@ See [MCP Tools Documentation](./docs/mcp-tools.md) for complete API reference.
 │  │  (I/O Operations)   │    │           (352x faster)              │ │
 │  │                     │    │                                      │ │
 │  │  • gt commands      │    │  ┌──────────────┐ ┌──────────────┐  │ │
-│  │  • bd commands      │    │  │ gastown-     │ │ ruvector-    │  │ │
+│  │  • bd commands      │    │  │ gastown-     │ │ monovector-    │  │ │
 │  │  • File read/write  │    │  │ formula-wasm │ │ gnn-wasm     │  │ │
 │  │  • SQLite queries   │    │  │              │ │              │  │ │
 │  │                     │    │  │ • TOML parse │ │ • DAG ops    │  │ │
@@ -613,7 +613,7 @@ See [MCP Tools Documentation](./docs/mcp-tools.md) for complete API reference.
 │                             │                   └──────────────┘  │ │
 │                             │                                      │ │
 │                             │  ┌──────────────┐ ┌──────────────┐  │ │
-│                             │  │ micro-hnsw-  │ │ ruvector-    │  │ │
+│                             │  │ micro-hnsw-  │ │ monovector-    │  │ │
 │                             │  │ wasm         │ │ learning-wasm│  │ │
 │                             │  │              │ │              │  │ │
 │                             │  │ • Pattern    │ │ • SONA       │  │ │

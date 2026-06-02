@@ -34,7 +34,7 @@ import { coordinationTools } from './mcp-tools/coordination-tools.js';
 import { browserTools } from './mcp-tools/browser-tools.js';
 // Phase 6: AgentDB v1 controller tools
 import { agentdbTools } from './mcp-tools/agentdb-tools.js';
-// RuVector WASM tools
+// MonoVector WASM tools
 import { ruvllmWasmTools } from './mcp-tools/ruvllm-tools.js';
 import { wasmAgentTools } from './mcp-tools/wasm-agent-tools.js';
 import { guidanceTools } from './mcp-tools/guidance-tools.js';
@@ -43,7 +43,7 @@ import { autopilotTools } from './mcp-tools/autopilot-tools.js';
 import { graphifyTools } from './mcp-tools/graphify-tools.js';
 import { monographTools } from './mcp-tools/monograph-tools.js';
 // Coverage-aware routing tools
-import { coverageRouterTools } from './ruvector/coverage-tools.js';
+import { coverageRouterTools } from './monovector/coverage-tools.js';
 // A2A Agent Card protocol (source: https://a2a-protocol.org)
 import { a2aTools } from './mcp-tools/a2a-tools.js';
 /**
@@ -91,7 +91,7 @@ registerTools([
     ...browserTools,
     // Phase 6: AgentDB v1 controller tools
     ...agentdbTools,
-    // RuVector WASM tools
+    // MonoVector WASM tools
     ...ruvllmWasmTools,
     ...wasmAgentTools,
     // Guidance & discovery tools

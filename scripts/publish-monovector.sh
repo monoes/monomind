@@ -9,7 +9,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PACKAGES=(learning-wasm exotic-wasm attention-wasm gnn-wasm ruvllm-wasm rvagent-wasm)
 
 for pkg in "${PACKAGES[@]}"; do
-  PKG_DIR="$REPO_ROOT/packages/@monovector/$pkg/pkg"
+  PKG_DIR="$REPO_ROOT/packages/@monoes/$pkg/pkg"
   echo "Publishing @monovector/$pkg from $PKG_DIR..."
   (cd "$PKG_DIR" && npm publish --access public)
   echo "  ✓ @monovector/$pkg published"

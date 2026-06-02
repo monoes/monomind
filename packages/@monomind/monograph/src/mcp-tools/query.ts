@@ -58,7 +58,7 @@ export const monographQueryTool = {
     }
 
     try {
-      const hits = await hybridQuery(db, query, { limit: topK });
+      const hits = await hybridQuery(db, query, { limit: topK * 3 });
       const results: QueryResult[] = hits
         .filter(h => includeProcesses || h.label !== 'Process')
         .map(h => ({

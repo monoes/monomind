@@ -37,9 +37,12 @@ const FIELD_MAP: Record<string, string> = {
 // ── Security check ─────────────────────────────────────────────────────────────
 
 function checkForbiddenKeywords(query: string): string | null {
-  const upper = query.toUpperCase();
+  // Strip quoted string literals before scanning to avoid false positives on
+  // node names like "createServer" (contains CREATE) or "dropdown" (contains DROP).
+  const stripped = query.replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");
+  const upper = stripped.toUpperCase();
   for (const kw of FORBIDDEN_KEYWORDS) {
-    if (upper.includes(kw)) {
+    if (new RegExp(`\\b${kw}\\b`).test(upper)) {
       return `Write operations not supported: ${kw}`;
     }
   }
@@ -257,71 +260,82 @@ function buildNodeConditions(
   label?: string,
   props?: Record<string, string>,
   whereClause?: { alias: string; field: string; value: string },
-): string[] {
+): { conditions: string[]; params: unknown[] } {
   const conditions: string[] = [];
+  const params: unknown[] = [];
   if (label) {
-    conditions.push(`${nodeAlias}.label = '${label}'`);
+    conditions.push(`${nodeAlias}.label = ?`);
+    params.push(label);
   }
   if (props) {
     for (const [field, value] of Object.entries(props)) {
       const col = FIELD_MAP[field];
       if (col) {
-        conditions.push(`${nodeAlias}.${col} = '${value}'`);
+        conditions.push(`${nodeAlias}.${col} = ?`);
+        params.push(value);
       }
     }
   }
   if (whereClause && whereClause.alias === nodeAlias) {
     const col = FIELD_MAP[whereClause.field];
     if (col) {
-      conditions.push(`${nodeAlias}.${col} = '${whereClause.value}'`);
+      conditions.push(`${nodeAlias}.${col} = ?`);
+      params.push(whereClause.value);
     }
   }
-  return conditions;
+  return { conditions, params };
 }
 
 /**
- * Translate a parsed CypherQuery to a SQL string.
+ * Translate a parsed CypherQuery to a SQL string and bound parameters.
+ * Returns parameterized SQL — never interpolates user values into the query string.
  */
-export function cypherToSql(parsed: CypherQuery): string {
+export function cypherToSql(parsed: CypherQuery): { sql: string; params: unknown[] } {
   const select = buildSelectClause(parsed.returnFields);
+  const allParams: unknown[] = [];
 
   if (parsed.type === 'relationship' && parsed.nodeB && parsed.relation) {
     const { nodeA, nodeB, relation, whereClause } = parsed;
     const aAlias = nodeA.alias;
     const bAlias = nodeB.alias;
 
-    const conditions = [
-      ...buildNodeConditions(aAlias, nodeA.label, nodeA.props, whereClause),
-      ...buildNodeConditions(bAlias, nodeB.label, nodeB.props, whereClause),
-    ];
+    const aResult = buildNodeConditions(aAlias, nodeA.label, nodeA.props, whereClause);
+    const bResult = buildNodeConditions(bAlias, nodeB.label, nodeB.props, whereClause);
+    const conditions = [...aResult.conditions, ...bResult.conditions];
+    allParams.push(...aResult.params, ...bResult.params);
+    // relation goes through the relation-type allowlist check upstream; still parameterize it
+    allParams.unshift(relation); // prepend — used in JOIN before WHERE params
 
-    const whereStr =
-      conditions.length > 0 ? `WHERE ${conditions.join('\n  AND ')}` : '';
+    const whereStr = conditions.length > 0 ? `WHERE ${conditions.join('\n  AND ')}` : '';
 
-    return [
+    const sql = [
       `SELECT ${select}`,
       `FROM nodes ${aAlias}`,
-      `JOIN edges e ON ${aAlias}.id = e.source_id AND e.relation = '${relation}'`,
+      `JOIN edges e ON ${aAlias}.id = e.source_id AND e.relation = ?`,
       `JOIN nodes ${bAlias} ON ${bAlias}.id = e.target_id`,
       whereStr,
       `LIMIT ${MAX_ROWS}`,
     ]
       .filter(Boolean)
       .join('\n');
+
+    return { sql, params: allParams };
   }
 
   // Node-only
   const { nodeA, whereClause } = parsed;
   const alias = nodeA.alias;
 
-  const conditions = buildNodeConditions(alias, nodeA.label, nodeA.props, whereClause);
+  const { conditions, params } = buildNodeConditions(alias, nodeA.label, nodeA.props, whereClause);
+  allParams.push(...params);
 
-  const whereStr =
-    conditions.length > 0 ? `WHERE ${conditions.join('\n  AND ')}` : '';
+  const whereStr = conditions.length > 0 ? `WHERE ${conditions.join('\n  AND ')}` : '';
 
-  return [`SELECT ${select}`, `FROM nodes ${alias}`, whereStr, `LIMIT ${MAX_ROWS}`]
+  const sql = [`SELECT ${select}`, `FROM nodes ${alias}`, whereStr, `LIMIT ${MAX_ROWS}`]
     .filter(Boolean)
     .join('\n');
+
+  return { sql, params: allParams };
 }
 
 // ── Executor ───────────────────────────────────────────────────────────────────
@@ -339,8 +353,8 @@ export function executeCypherQuery(db: Database.Database, query: string): Cypher
       return { rows: [], queryTime: 0, error };
     }
 
-    const sql = cypherToSql(parsed);
-    const rows = db.prepare(sql).all() as Record<string, string | number | null>[];
+    const { sql, params } = cypherToSql(parsed);
+    const rows = db.prepare(sql).all(...params) as Record<string, string | number | null>[];
 
     return { rows, queryTime: Date.now() - start };
   } catch (err) {

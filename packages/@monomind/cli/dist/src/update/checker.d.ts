@@ -1,5 +1,5 @@
 /**
- * Update checker for @monoes packages
+ * Update checker for @monomind packages
  * Queries npm registry and compares versions
  */
 export interface UpdateCheckResult {
