@@ -56,10 +56,7 @@
   },
   "pnpm": {
     "neverBuiltDependencies": ["sharp"],
-    "overrides": {
-      "@monoes/gnn": "0.1.25",
-      "@monoes/gnn-linux-x64-gnu": "0.1.25"
-    },
+    "overrides": {},
     "peerDependencyRules": {
       "ignoreMissing": [
         "@monoes/*",

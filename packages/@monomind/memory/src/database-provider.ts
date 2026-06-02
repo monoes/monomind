@@ -148,7 +148,7 @@ async function selectProvider(
     console.log(`[DatabaseProvider] Recommended provider: ${platformInfo.recommendedProvider}`);
   }
 
-  // Try RVF first (always available via pure-TS fallback, native when @monoes/rvf installed)
+  // Try RVF first (always available via pure-TS fallback)
   if (await testRvf()) {
     if (verbose) {
       console.log('[DatabaseProvider] RVF backend available');
