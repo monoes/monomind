@@ -1,11 +1,14 @@
 {
   "name": "@monovector/ruvllm-wasm",
   "version": "2.0.2",
-  "description": "MonoVector LLM WASM – re-exported from @ruvector/ruvllm-wasm",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "description": "MonoVector LLM WASM — inference runtime in WebAssembly",
+  "main": "pkg/monovector_ruvllm_wasm.js",
+  "types": "pkg/monovector_ruvllm_wasm.d.ts",
+  "scripts": {
+    "build": "wasm-pack build --target nodejs --out-dir pkg --out-name monovector_ruvllm_wasm",
+    "build:web": "wasm-pack build --target web --out-dir pkg-web --out-name monovector_ruvllm_wasm",
+    "build:bundler": "wasm-pack build --target bundler --out-dir pkg-bundler --out-name monovector_ruvllm_wasm"
+  },
   "license": "MIT",
-  "dependencies": {
-    "@ruvector/ruvllm-wasm": "^2.0.2"
-  }
+  "files": ["pkg/", "src/", "Cargo.toml"]
 }

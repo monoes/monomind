@@ -1,11 +1,14 @@
 {
   "name": "@monovector/attention-wasm",
   "version": "2.2.2",
-  "description": "MonoVector Attention WASM – re-exported from @ruvector/attention-wasm",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "description": "MonoVector Attention WASM — flash-attention implementation",
+  "main": "pkg/monovector_attention_wasm.js",
+  "types": "pkg/monovector_attention_wasm.d.ts",
+  "scripts": {
+    "build": "wasm-pack build --target nodejs --out-dir pkg --out-name monovector_attention_wasm",
+    "build:web": "wasm-pack build --target web --out-dir pkg-web --out-name monovector_attention_wasm",
+    "build:bundler": "wasm-pack build --target bundler --out-dir pkg-bundler --out-name monovector_attention_wasm"
+  },
   "license": "MIT",
-  "dependencies": {
-    "@ruvector/attention-wasm": "^2.2.2"
-  }
+  "files": ["pkg/", "src/", "Cargo.toml"]
 }
