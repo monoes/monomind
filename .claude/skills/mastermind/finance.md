@@ -116,7 +116,7 @@ Spawn one Task agent per workstream:
 - Financial tracking and invoicing: subagent_type "Finance Tracker"
 - Analysis and reporting: subagent_type "Analytics Reporter"
 
-Also run /monomind:do --board <board_id> to track execution.
+Also run /mastermind:do --board <board_id> to track execution.
 
 STEP 4 — COLLECT AND RETURN
 Collect all financial outputs. Return to caller:

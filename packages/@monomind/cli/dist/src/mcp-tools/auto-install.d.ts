@@ -46,11 +46,11 @@ export declare function resetInstallAttempts(): void;
  * Optional package dependencies and their purposes
  */
 export declare const OPTIONAL_PACKAGES: {
-    readonly '@monoes/aidefence': {
+    readonly '@monomind/aidefence': {
         readonly description: "AI manipulation defense (prompt injection, PII detection)";
         readonly tools: readonly ["aidefence_scan", "aidefence_analyze", "aidefence_stats", "aidefence_learn"];
     };
-    readonly '@monoes/embeddings': {
+    readonly '@monomind/embeddings': {
         readonly description: "Vector embeddings with ONNX support";
         readonly tools: readonly ["embeddings_generate", "embeddings_search", "embeddings_batch"];
     };
@@ -65,11 +65,11 @@ declare const _default: {
     isPackageAvailable: typeof isPackageAvailable;
     resetInstallAttempts: typeof resetInstallAttempts;
     OPTIONAL_PACKAGES: {
-        readonly '@monoes/aidefence': {
+        readonly '@monomind/aidefence': {
             readonly description: "AI manipulation defense (prompt injection, PII detection)";
             readonly tools: readonly ["aidefence_scan", "aidefence_analyze", "aidefence_stats", "aidefence_learn"];
         };
-        readonly '@monoes/embeddings': {
+        readonly '@monomind/embeddings': {
             readonly description: "Vector embeddings with ONNX support";
             readonly tools: readonly ["embeddings_generate", "embeddings_search", "embeddings_batch"];
         };

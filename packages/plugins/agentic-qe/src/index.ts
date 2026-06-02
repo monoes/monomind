@@ -316,9 +316,9 @@ export const PLUGIN_METADATA = {
     ],
     optional: [
       '@monomind/browser',
-      '@ruvector/attention',
-      '@ruvector/gnn',
-      '@ruvector/sona',
+      '@monoes/attention',
+      '@monoes/gnn',
+      '@monoes/sona',
     ],
   },
 } as const;

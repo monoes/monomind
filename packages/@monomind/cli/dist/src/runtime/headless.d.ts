@@ -4,9 +4,9 @@
  * Runs without TTY for daemon processes and scheduled tasks
  *
  * Usage:
- *   npx @monoes/cli headless --worker <type>
- *   npx @monoes/cli headless --daemon
- *   npx @monoes/cli headless --benchmark
+ *   npx @monomind/cli headless --worker <type>
+ *   npx @monomind/cli headless --daemon
+ *   npx @monomind/cli headless --benchmark
  *
  * Environment:
  *   MONOMIND_HEADLESS=true

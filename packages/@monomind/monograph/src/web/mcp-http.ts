@@ -70,11 +70,19 @@ function parseQueryParams(url: string): Record<string, string> {
  * GET  {path}/stream — SSE stream; client sends tool name+args via query params
  * GET  {path}/tools  — list available tools (name + description)
  */
+const ALLOWED_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
+
 export function createMcpHttpServer(config?: McpHttpConfig): McpHttpServer {
   const port = config?.port ?? 3001;
-  const host = config?.host ?? '127.0.0.1';
+  const requestedHost = config?.host ?? '127.0.0.1';
+  // Restrict to loopback to prevent accidental external exposure
+  if (!ALLOWED_HOSTS.has(requestedHost)) {
+    throw new Error(`createMcpHttpServer: host must be 127.0.0.1, ::1, or localhost — got "${requestedHost}"`);
+  }
+  const host = requestedHost;
   const pathPrefix = config?.path ?? '/mcp';
-  const corsOrigin = config?.corsOrigin ?? '*';
+  // Default to restrictive CORS; wildcard is a footgun for a localhost-only server
+  const corsOrigin = config?.corsOrigin ?? '127.0.0.1';
   const tools = config?.tools ?? [];
 
   // Build lookup map
@@ -188,7 +196,7 @@ export function createMcpHttpServer(config?: McpHttpConfig): McpHttpServer {
       return actualPort;
     },
     get url() {
-      return `http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${actualPort}`;
+      return `http://${host}:${actualPort}`;
     },
     start(): Promise<void> {
       return new Promise((resolve, reject) => {

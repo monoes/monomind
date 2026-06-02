@@ -1,0 +1,14 @@
+/Users/morteza/Desktop/tools/monomind/target/wasm32-unknown-unknown/release/deps/serde-24e3b54722de33b3.d: /Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/morteza/Desktop/tools/monomind/target/wasm32-unknown-unknown/release/build/serde-b5dc78c7a8c5cf93/out/private.rs
+
+/Users/morteza/Desktop/tools/monomind/target/wasm32-unknown-unknown/release/deps/libserde-24e3b54722de33b3.rlib: /Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/morteza/Desktop/tools/monomind/target/wasm32-unknown-unknown/release/build/serde-b5dc78c7a8c5cf93/out/private.rs
+
+/Users/morteza/Desktop/tools/monomind/target/wasm32-unknown-unknown/release/deps/libserde-24e3b54722de33b3.rmeta: /Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/morteza/Desktop/tools/monomind/target/wasm32-unknown-unknown/release/build/serde-b5dc78c7a8c5cf93/out/private.rs
+
+/Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/Users/morteza/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/Users/morteza/Desktop/tools/monomind/target/wasm32-unknown-unknown/release/build/serde-b5dc78c7a8c5cf93/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/morteza/Desktop/tools/monomind/target/wasm32-unknown-unknown/release/build/serde-b5dc78c7a8c5cf93/out

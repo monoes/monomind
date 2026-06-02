@@ -54,14 +54,10 @@
     "node": ">=20.0.0"
   },
   "peerDependencies": {
-    "@monomind/memory": "workspace:*",
-    "@monomind/security": "workspace:*"
+    "@monoes/memory": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@monomind/memory": {
-      "optional": true
-    },
-    "@monomind/security": {
+    "@monoes/memory": {
       "optional": true
     }
   },

@@ -19,7 +19,7 @@ const mockAgentInfo = {
   createdAt: '2026-03-17T00:00:00.000Z',
 };
 
-vi.mock('../src/ruvector/agent-wasm.js', () => ({
+vi.mock('../src/monovector/agent-wasm.js', () => ({
   isAgentWasmAvailable: vi.fn().mockResolvedValue(true),
   initAgentWasm: vi.fn().mockResolvedValue(undefined),
   createWasmAgent: vi.fn().mockResolvedValue({ ...mockAgentInfo }),

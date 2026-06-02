@@ -1,8 +1,8 @@
 /**
  * WASM Agent CLI Subcommands
  *
- * Exposes @ruvector/rvagent-wasm operations via the `agent` CLI command.
- * Wraps functions from ruvector/agent-wasm.ts for CLI usage.
+ * Exposes @monoes/rvagent-wasm operations via the `agent` CLI command.
+ * Wraps functions from monovector/agent-wasm.ts for CLI usage.
  */
 import type { Command } from '../types.js';
 export declare const wasmStatusCommand: Command;

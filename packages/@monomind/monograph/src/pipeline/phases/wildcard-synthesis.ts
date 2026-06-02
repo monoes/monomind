@@ -1,3 +1,4 @@
+import { dirname, resolve, basename } from 'path';
 import type { MonographNode, MonographEdge } from '../../types.js';
 import { makeId, CONFIDENCE_SCORE } from '../../types.js';
 
@@ -80,6 +81,41 @@ export function extractWildcardMemberAccesses(
 }
 
 /**
+ * Resolve a relative module specifier to an absolute file path (without extension).
+ * Returns null when `sourceFilePath` is unavailable or the specifier is non-relative.
+ */
+function resolveSpecifierPath(
+  sourceFilePath: string | undefined | null,
+  moduleSpecifier: string,
+): string | null {
+  if (!sourceFilePath) return null;
+  if (!moduleSpecifier.startsWith('.')) return null;
+  const dir = dirname(sourceFilePath);
+  const resolved = resolve(dir, moduleSpecifier);
+  // Strip extension so we can match .ts, .js, .tsx, .mjs, etc.
+  return resolved.replace(/\.[^./\\]+$/, '');
+}
+
+/**
+ * Return true when a candidate file path matches the resolved specifier path.
+ *
+ * Handles:
+ * - Exact basename-without-extension match (resolvedPath is a bare module path)
+ * - Index file: `resolvedPath/index` matches `candidatePath` ending in `/index.<ext>`
+ */
+function specifierMatchesFilePath(
+  resolvedPath: string,
+  candidateFilePath: string,
+): boolean {
+  // Strip extension from candidate for comparison
+  const candidateBase = candidateFilePath.replace(/\.[^./\\]+$/, '');
+  if (candidateBase === resolvedPath) return true;
+  // Handle implicit /index
+  if (candidateBase === resolvedPath + '/index') return true;
+  return false;
+}
+
+/**
  * Synthesizes direct symbol edges from wildcard namespace member accesses.
  *
  * Given source code that has `import * as X from './module'` and uses `X.foo`,
@@ -104,17 +140,21 @@ export function synthesizeWildcardImports(
   // Build an index of existing edge IDs to avoid duplicates
   const existingEdgeIds = new Set(edges.map(e => e.id));
 
-  // Build a name→nodeId index for fast lookup
-  const nameIndex = new Map<string, string[]>();
+  // Build id→node map for path-based filtering and name→nodes index
+  const nodeById = new Map<string, MonographNode>(nodes.map(n => [n.id, n]));
+  const sourceNode = nodeById.get(sourceFileId);
+
+  // Build a name→node[] index restricted to exported nodes
+  const nameIndex = new Map<string, MonographNode[]>();
   for (const node of nodes) {
     if (!node.isExported) continue;
     const existing = nameIndex.get(node.name) ?? [];
-    existing.push(node.id);
+    existing.push(node);
     nameIndex.set(node.name, existing);
     // Also index by normLabel if different
     if (node.normLabel && node.normLabel !== node.name) {
       const byNorm = nameIndex.get(node.normLabel) ?? [];
-      byNorm.push(node.id);
+      byNorm.push(node);
       nameIndex.set(node.normLabel, byNorm);
     }
   }
@@ -122,21 +162,44 @@ export function synthesizeWildcardImports(
   const synthesizedEdges: MonographEdge[] = [];
 
   for (const binding of bindings) {
+    // Resolve the module specifier to an absolute path (extension-stripped)
+    const resolvedPath = resolveSpecifierPath(sourceNode?.filePath, binding.moduleSpecifier);
+
+    // Basename of the specifier for fallback matching
+    const specBase = basename(binding.moduleSpecifier).replace(/\.[^.]+$/, '').toLowerCase();
+
     const accesses = extractWildcardMemberAccesses(source, binding.alias);
 
     for (const access of accesses) {
-      // Skip the import line itself (alias declaration)
-      const targetCandidates =
+      const candidateNodes: MonographNode[] =
         nameIndex.get(access.member) ?? nameIndex.get(access.member.toLowerCase()) ?? [];
 
-      for (const targetId of targetCandidates) {
-        const edgeId = makeId(sourceFileId, targetId, 'wildcard', access.member);
+      // Filter candidates to only those belonging to the target module
+      let filtered: MonographNode[];
+      if (resolvedPath !== null) {
+        // Strong filter: match by resolved absolute path
+        filtered = candidateNodes.filter(
+          n => n.filePath != null && specifierMatchesFilePath(resolvedPath, n.filePath),
+        );
+      } else {
+        // Fallback: match by basename (mirrors cross-file.ts resolution)
+        filtered = candidateNodes.filter(
+          n => n.filePath != null &&
+            basename(n.filePath).replace(/\.[^.]+$/, '').toLowerCase() === specBase,
+        );
+      }
+
+      // If still no match with basename fallback, skip — no cross-module edge
+      if (filtered.length === 0) continue;
+
+      for (const target of filtered) {
+        const edgeId = makeId(sourceFileId, target.id, 'wildcard', access.member);
         if (existingEdgeIds.has(edgeId)) continue;
 
         synthesizedEdges.push({
           id: edgeId,
           sourceId: sourceFileId,
-          targetId,
+          targetId: target.id,
           relation: 'IMPORTS',
           confidence: 'INFERRED',
           confidenceScore: CONFIDENCE_SCORE.INFERRED,

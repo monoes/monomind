@@ -1,6 +1,6 @@
 /**
- * RuVector Training Service
- * Real WASM-accelerated neural training using @ruvector packages
+ * MonoVector Training Service
+ * Real WASM-accelerated neural training using @monovector packages
  *
  * Features:
  * - MicroLoRA: <1µs adaptation with rank-2 LoRA (2.3M ops/s)
@@ -13,17 +13,17 @@
  *
  * github.com/nokhodian/monomind
  */
-const ALLOWED_RUVECTOR_PACKAGES = new Set([
-    '@ruvector/learning-wasm',
-    '@ruvector/attention',
-    '@ruvector/sona',
+const ALLOWED_MONOVECTOR_PACKAGES = new Set([
+    '@monoes/learning-wasm',
+    '@monoes/attention',
+    '@monoes/sona',
 ]);
 /**
  * ESM/CJS interop helper — handles `.default` for CJS modules.
  * Uses `'default' in mod` check which is safer than `mod.default || mod`.
  */
 async function importWithInterop(packageName) {
-    if (!ALLOWED_RUVECTOR_PACKAGES.has(packageName)) {
+    if (!ALLOWED_MONOVECTOR_PACKAGES.has(packageName)) {
         throw new Error(`Disallowed dynamic import: ${packageName}`);
     }
     const mod = await import(packageName);
@@ -224,8 +224,8 @@ class JsTrajectoryBuffer {
     free() { this.entries = []; }
 }
 /**
- * Initialize the RuVector training system.
- * Attempts to load @ruvector/learning-wasm for WASM-accelerated training.
+ * Initialize the MonoVector training system.
+ * Attempts to load @monoes/learning-wasm for WASM-accelerated training.
  * Falls back to a pure-JS implementation if WASM is unavailable.
  */
 export async function initializeTraining(config = {}) {
@@ -239,9 +239,9 @@ export async function initializeTraining(config = {}) {
         const fs = await import('fs');
         const { createRequire } = await import('module');
         const require = createRequire(import.meta.url);
-        const wasmPath = require.resolve('@ruvector/learning-wasm/ruvector_learning_wasm_bg.wasm');
+        const wasmPath = require.resolve('@monoes/learning-wasm/monovector_learning_wasm_bg.wasm');
         const wasmBuffer = fs.readFileSync(wasmPath);
-        const learningWasm = await import('@ruvector/learning-wasm');
+        const learningWasm = await import('@monoes/learning-wasm');
         learningWasm.initSync({ module: wasmBuffer });
         microLoRA = new learningWasm.WasmMicroLoRA(dim, alpha, lr);
         features.push(`MicroLoRA/WASM (${dim}-dim, <1μs adaptation)`);
@@ -256,7 +256,7 @@ export async function initializeTraining(config = {}) {
     catch (wasmError) {
         // WASM not available - fall back to JS implementation
         const reason = wasmError instanceof Error ? wasmError.message : String(wasmError);
-        console.warn(`[ruvector] WASM backend unavailable (${reason}), using JS fallback`);
+        console.warn(`[monovector] WASM backend unavailable (${reason}), using JS fallback`);
         microLoRA = new JsMicroLoRA(dim, alpha, lr);
         features.push(`MicroLoRA/JS (${dim}-dim, JS fallback)`);
         scopedLoRA = new JsScopedLoRA(dim, alpha, lr);
@@ -268,7 +268,7 @@ export async function initializeTraining(config = {}) {
     }
     // --- Attention mechanisms (optional, independent of WASM) ---
     try {
-        const attention = await importWithInterop('@ruvector/attention');
+        const attention = await importWithInterop('@monoes/attention');
         if (config.useFlashAttention !== false) {
             flashAttention = new attention.FlashAttention(dim, 64);
             features.push('FlashAttention');
@@ -298,14 +298,14 @@ export async function initializeTraining(config = {}) {
         }
     }
     catch (attentionError) {
-        // @ruvector/attention not available - attention features skipped
+        // @monoes/attention not available - attention features skipped
         const reason = attentionError instanceof Error ? attentionError.message : String(attentionError);
-        console.warn(`[ruvector] @ruvector/attention unavailable (${reason}), attention features disabled`);
+        console.warn(`[monovector] @monoes/attention unavailable (${reason}), attention features disabled`);
     }
     // --- SONA (optional, backward compatible) ---
     if (config.useSona !== false) {
         try {
-            const sona = await importWithInterop('@ruvector/sona');
+            const sona = await importWithInterop('@monoes/sona');
             const sonaRank = config.sonaRank || 4;
             sonaEngine = new sona.SonaEngine(dim, sonaRank, alpha, lr);
             sonaAvailable = true;
@@ -488,7 +488,7 @@ export function mineHardNegatives(anchor, candidates) {
  * Benchmark the training system
  */
 export async function benchmarkTraining(dim, iterations) {
-    const attention = await importWithInterop('@ruvector/attention');
+    const attention = await importWithInterop('@monoes/attention');
     lastBenchmark = attention.benchmarkAttention(dim || 256, 100, iterations || 1000);
     return lastBenchmark ?? [];
 }
@@ -693,4 +693,4 @@ export function cleanup() {
     totalSonaSearches = 0;
     lastBenchmark = null;
 }
-//# sourceMappingURL=ruvector-training.js.map
+//# sourceMappingURL=monovector-training.js.map

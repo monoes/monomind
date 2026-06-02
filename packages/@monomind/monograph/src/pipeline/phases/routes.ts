@@ -12,9 +12,9 @@ import type { StructureOutput } from './structure.js';
 const CODE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 
 // Next.js pages dir (classic router)
-const PAGES_RE = /^pages\//;
-// Next.js app router route files
-const APP_ROUTE_RE = /^app\/(.*\/)?route\.(ts|tsx|js|jsx)$/;
+const PAGES_RE = /^(?:src\/)?pages\//;
+// Next.js app router route files — support both project root and src/ layout
+const APP_ROUTE_RE = /^(?:src\/)?app\/(.*\/)?route\.(ts|tsx|js|jsx)$/;
 
 // Express/Fastify route methods
 const EXPRESS_METHODS = ['get', 'post', 'put', 'delete', 'patch', 'use'] as const;

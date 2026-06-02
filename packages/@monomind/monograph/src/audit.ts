@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import type { MonographDb } from './storage/db.js';
 
 export type AuditVerdict = 'Pass' | 'Warn' | 'Fail';
@@ -46,10 +46,13 @@ export function runAudit(
 
   if (options?.changedSince) {
     try {
-      const output = execSync(
-        `git diff --name-only ${options.changedSince} HEAD`,
-        { cwd: repoPath, maxBuffer: 5 * 1024 * 1024 }
-      ).toString();
+      // Use spawnSync with argument array to prevent shell injection via changedSince
+      const result = spawnSync(
+        'git', ['diff', '--name-only', options.changedSince, 'HEAD'],
+        { cwd: repoPath, maxBuffer: 5 * 1024 * 1024, encoding: 'utf-8' },
+      );
+      if (result.status !== 0 || result.error) throw result.error ?? new Error(`git exited ${result.status}`);
+      const output = result.stdout;
       for (const line of output.split('\n')) {
         const trimmed = line.trim();
         if (trimmed) changedFilePaths.add(trimmed);
@@ -95,8 +98,9 @@ export function runAudit(
   let deadCodeIssues = 0;
   for (const n of fileNodes) {
     if (!changedNodeIds.has(n.id)) continue;
-    const props = n.properties ? JSON.parse(n.properties) : {};
-    if (props.reachabilityRole === 'unreachable') deadCodeIssues++;
+    let props: Record<string, unknown> = {};
+    try { props = n.properties ? JSON.parse(n.properties) : {}; } catch { /* skip malformed */ }
+    if (props['reachabilityRole'] === 'unreachable') deadCodeIssues++;
   }
 
   // ── Step 4: Complexity findings (Symbol nodes in changed files with CC > 10) ─
@@ -124,7 +128,8 @@ export function runAudit(
       }
       if (!inChangedFile) continue;
 
-      const props = sym.properties ? JSON.parse(sym.properties) : {};
+      let props: Record<string, unknown> = {};
+      try { props = sym.properties ? JSON.parse(sym.properties) : {}; } catch { continue; }
       const cc: number = typeof props.cyclomaticComplexity === 'number' ? props.cyclomaticComplexity : 0;
       if (cc > 10) complexityFindings++;
       if (cc > maxCyclomatic) maxCyclomatic = cc;

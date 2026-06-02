@@ -92,11 +92,11 @@ async function getEWCConsolidator() {
 }
 
 // MoE Router - lazy loaded
-let moeRouter: Awaited<ReturnType<typeof import('../ruvector/moe-router.js').getMoERouter>> | null = null;
+let moeRouter: Awaited<ReturnType<typeof import('../monovector/moe-router.js').getMoERouter>> | null = null;
 async function getMoERouter() {
   if (!moeRouter) {
     try {
-      const { getMoERouter: getMoE } = await import('../ruvector/moe-router.js');
+      const { getMoERouter: getMoE } = await import('../monovector/moe-router.js');
       moeRouter = await getMoE();
     } catch {
       moeRouter = null;
@@ -107,7 +107,7 @@ async function getMoERouter() {
 
 // Semantic Router - lazy loaded
 // Tries native VectorDb first (16k+ routes/s HNSW), falls back to pure JS (47k routes/s cosine)
-let semanticRouter: import('../ruvector/semantic-router.js').SemanticRouter | null = null;
+let semanticRouter: import('../monovector/semantic-router.js').SemanticRouter | null = null;
 let nativeVectorDb: unknown = null;
 let semanticRouterInitialized = false;
 let routerBackend: 'native' | 'pure-js' | 'none' = 'none';
@@ -318,14 +318,14 @@ async function getSemanticRouter() {
   }
   semanticRouterInitialized = true;
 
-  // STEP 1: Try native VectorDb from @ruvector/router (HNSW-backed)
+  // STEP 1: Try native VectorDb from @monoes/router (HNSW-backed)
   // Note: Native VectorDb uses a persistent database file which can have lock issues
   // in concurrent environments. We try it first but fall back gracefully to pure JS.
   try {
     // Use createRequire for ESM compatibility with native modules
     const { createRequire } = await import('module');
     const require = createRequire(import.meta.url);
-    const router = require('@ruvector/router');
+    const router = require('@monoes/router');
 
     if (router.VectorDb && router.DistanceMetric) {
       // Try to create VectorDb - may fail with lock error in concurrent envs
@@ -360,7 +360,7 @@ async function getSemanticRouter() {
 
   // STEP 2: Fall back to pure JS SemanticRouter
   try {
-    const { SemanticRouter } = await import('../ruvector/semantic-router.js');
+    const { SemanticRouter } = await import('../monovector/semantic-router.js');
     semanticRouter = new SemanticRouter({ dimension: 384 });
 
     for (const [patternName, { keywords, agents }] of Object.entries(getMergedTaskPatterns())) {
@@ -399,11 +399,11 @@ function getRouterBackendInfo(): { backend: string; speed: string } {
 }
 
 // Flash Attention - lazy loaded
-let flashAttention: Awaited<ReturnType<typeof import('../ruvector/flash-attention.js').getFlashAttention>> | null = null;
+let flashAttention: Awaited<ReturnType<typeof import('../monovector/flash-attention.js').getFlashAttention>> | null = null;
 async function getFlashAttention() {
   if (!flashAttention) {
     try {
-      const { getFlashAttention: getFlash } = await import('../ruvector/flash-attention.js');
+      const { getFlashAttention: getFlash } = await import('../monovector/flash-attention.js');
       flashAttention = await getFlash();
     } catch {
       flashAttention = null;
@@ -1295,7 +1295,7 @@ export const hooksPreTask: MCPTool = {
     // Enhanced model routing with Agent Booster AST (ADR-026)
     let modelRouting: Record<string, unknown> | undefined;
     try {
-      const { getEnhancedModelRouter } = await import('../ruvector/enhanced-model-router.js');
+      const { getEnhancedModelRouter } = await import('../monovector/enhanced-model-router.js');
       const router = getEnhancedModelRouter();
       const routeResult = await router.route(description, { filePath });
 
@@ -2050,7 +2050,7 @@ export const hooksSessionEnd: MCPTool = {
     // Check for pending-insights.jsonl
     let insightCount = 0;
     try {
-      const insightsPath = resolve(join('.monomind', 'data', 'pending-insights.jsonl'));
+      const insightsPath = join(getProjectCwd(), '.monomind', 'data', 'pending-insights.jsonl');
       if (existsSync(insightsPath)) {
         const content = readFileSync(insightsPath, 'utf-8').trim();
         insightCount = content ? content.split('\n').length : 0;
@@ -2214,10 +2214,10 @@ export const hooksInit: MCPTool = {
   },
 };
 
-// Intelligence hook - RuVector intelligence system
+// Intelligence hook - MonoVector intelligence system
 export const hooksIntelligence: MCPTool = {
   name: 'hooks_intelligence',
-  description: 'RuVector intelligence system status (shows REAL metrics from memory store)',
+  description: 'MonoVector intelligence system status (shows REAL metrics from memory store)',
   inputSchema: {
     type: 'object',
     properties: {
@@ -2801,7 +2801,7 @@ export const hooksPatternSearch: MCPTool = {
 // Intelligence stats hook
 export const hooksIntelligenceStats: MCPTool = {
   name: 'hooks_intelligence_stats',
-  description: 'Get RuVector intelligence layer statistics',
+  description: 'Get MonoVector intelligence layer statistics',
   inputSchema: {
     type: 'object',
     properties: {
@@ -3160,7 +3160,7 @@ export const hooksIntelligenceAttention: MCPTool = {
         speedup: implementation.startsWith('real-') ? (mode === 'flash' ? '2.49x-7.47x' : '1.5x-3x') : null,
         memoryReduction: implementation.startsWith('real-') ? (mode === 'flash' ? '50-75%' : '25-40%') : null,
         _stub: implementation === 'none',
-        _note: implementation === 'none' ? 'No attention backend available. Install @ruvector/attention for real computation.' : undefined,
+        _note: implementation === 'none' ? 'No attention backend available. Install @monoes/attention for real computation.' : undefined,
       },
       implementation,
     };
@@ -3691,11 +3691,11 @@ export const hooksWorkerDetect: MCPTool = {
 };
 
 // Model router - lazy loaded
-let modelRouterInstance: Awaited<ReturnType<typeof import('../ruvector/model-router.js').getModelRouter>> | null = null;
+let modelRouterInstance: Awaited<ReturnType<typeof import('../monovector/model-router.js').getModelRouter>> | null = null;
 async function getModelRouterInstance() {
   if (!modelRouterInstance) {
     try {
-      const { getModelRouter } = await import('../ruvector/model-router.js');
+      const { getModelRouter } = await import('../monovector/model-router.js');
       modelRouterInstance = getModelRouter();
     } catch {
       modelRouterInstance = null;

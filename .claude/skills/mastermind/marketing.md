@@ -172,7 +172,7 @@ Spawn one Task agent per workstream (all in parallel — star topology, hub aggr
 - Product launch / GTM: subagent_type "Launch Strategist" (slug: launch-strategist)
 - Competitive content / comparison pages: subagent_type "Competitive Content Strategist" (slug: competitive-content)
 
-Also run /monomind:do --board <board_id> to track execution.
+Also run /mastermind:do --board <board_id> to track execution.
 
 STEP 4 — COLLECT AND RETURN
 Collect all agent outputs. Return to caller:

@@ -9,13 +9,17 @@ export interface MroOutput {
 
 export const mroPhase: PipelinePhase<MroOutput> = {
   name: 'mro',
-  deps: ['cross-file'],
+  deps: ['parse'],
   async execute(_ctx, deps) {
     const { allEdges, symbolNodes } = deps.get('parse') as ParseOutput;
 
+    // Method nodes — used to filter CONTAINS edges (the relation actually emitted by the extractor)
+    const methodIds = new Set(symbolNodes.filter(n => n.label === 'Method').map(n => n.id));
+
     const classMethodsIndex = new Map<string, string[]>();
     for (const edge of allEdges) {
-      if (edge.relation === 'HAS_METHOD') {
+      // Extractor emits CONTAINS for method-in-class; HAS_METHOD is never produced
+      if (edge.relation === 'CONTAINS' && methodIds.has(edge.targetId)) {
         const methods = classMethodsIndex.get(edge.sourceId) ?? [];
         methods.push(edge.targetId);
         classMethodsIndex.set(edge.sourceId, methods);

@@ -48,7 +48,7 @@ function parseRepInfo(prompt, reason) {
 
 function detectType(prompt, maxReps) {
   if (maxReps > 0) return 'repeat';
-  if ((prompt || '').startsWith('/monomind-repeat') || (prompt || '').startsWith('/loop')) return 'repeat';
+  if ((prompt || '').startsWith('/mastermind-repeat') || (prompt || '').startsWith('/loop')) return 'repeat';
   return 'do';
 }
 

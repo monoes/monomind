@@ -120,7 +120,7 @@ Spawn one Task agent per task (all in parallel where dependencies allow):
 - Code review: subagent_type "reviewer"
 - TDD/SPARC work: subagent_type "sparc-coder"
 
-Also run /monomind:do --board <board_id> to track execution.
+Also run /mastermind:do --board <board_id> to track execution.
 
 STEP 4 — COLLECT AND RETURN
 Collect all agent output schemas. Return to caller:

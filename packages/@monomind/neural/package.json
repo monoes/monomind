@@ -13,7 +13,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@monovector/sona": "workspace:*"
+    "@monoes/sona": "workspace:*"
   },
   "optionalDependencies": {
     "agentdb": "^2.0.0 || ^3.0.0-alpha.11"

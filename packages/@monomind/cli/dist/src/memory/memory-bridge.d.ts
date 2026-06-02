@@ -310,7 +310,7 @@ export declare function bridgeSessionEnd(options: {
 } | null>;
 /**
  * Route a task via AgentDB's SemanticRouter.
- * Returns null to fall back to local ruvector router.
+ * Returns null to fall back to local monovector router.
  */
 export declare function bridgeRouteTask(options: {
     task: string;
@@ -401,7 +401,7 @@ export declare function bridgeContextSynthesize(params: {
 }): Promise<any>;
 /**
  * Route via SemanticRouter.
- * Available since agentdb 3.0.0-alpha.10 — uses @ruvector/router for
+ * Available since agentdb 3.0.0-alpha.10 — uses @monoes/router for
  * semantic matching with keyword fallback.
  */
 export declare function bridgeSemanticRoute(params: {

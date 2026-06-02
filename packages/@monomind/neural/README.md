@@ -247,7 +247,7 @@ import type {
 ## Dependencies
 
 - [@monobrain/memory](../memory) - Memory integration
-- `@ruvector/sona` - SONA learning engine
+- `@monoes/sona` - SONA learning engine
 
 ## Related Packages
 

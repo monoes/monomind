@@ -605,7 +605,7 @@ const indexCommand: Command = {
             { key: 'value', header: 'Value', width: 30 },
           ],
           data: [
-            { metric: 'HNSW Available', value: status.available ? output.success('Yes (@ruvector/core)') : output.warning('No') },
+            { metric: 'HNSW Available', value: status.available ? output.success('Yes (@monoes/core)') : output.warning('No') },
             { metric: 'Index Initialized', value: status.initialized ? output.success('Yes') : output.dim('No') },
             { metric: 'Vector Count', value: status.entryCount.toLocaleString() },
             { metric: 'Dimensions', value: String(status.dimensions) },
@@ -639,8 +639,8 @@ const indexCommand: Command = {
           ].join('\n'), 'Search Performance');
         } else if (!status.available) {
           output.writeln();
-          output.printWarning('@ruvector/core not available');
-          output.printInfo('Install: npm install @ruvector/core');
+          output.printWarning('@monoes/core not available');
+          output.printInfo('Install: npm install @monoes/core');
         } else {
           output.writeln();
           output.printInfo('Index is empty. Store some entries to populate it.');
@@ -664,8 +664,8 @@ const indexCommand: Command = {
         const index = await getHNSWIndex({ forceRebuild: action === 'rebuild' });
 
         if (!index) {
-          spinner.fail('@ruvector/core not available');
-          output.printInfo('Install: npm install @ruvector/core');
+          spinner.fail('@monoes/core not available');
+          output.printInfo('Install: npm install @monoes/core');
           return { success: false, exitCode: 1 };
         }
 
@@ -1130,16 +1130,16 @@ const hyperbolicCommand: Command = {
 // Neural subcommand
 const neuralCommand: Command = {
   name: 'neural',
-  description: 'Neural substrate features (RuVector integration)',
+  description: 'Neural substrate features (MonoVector integration)',
   options: [
     { name: 'feature', short: 'f', type: 'string', description: 'Feature: drift, memory, swarm, coherence, all', default: 'all' },
-    { name: 'init', type: 'boolean', description: 'Initialize neural substrate with RuVector' },
+    { name: 'init', type: 'boolean', description: 'Initialize neural substrate with MonoVector' },
     { name: 'drift-threshold', type: 'string', description: 'Semantic drift detection threshold', default: '0.3' },
     { name: 'decay-rate', type: 'string', description: 'Memory decay rate (hippocampal dynamics)', default: '0.01' },
     { name: 'consolidation-interval', type: 'string', description: 'Memory consolidation interval (ms)', default: '60000' },
   ],
   examples: [
-    { command: 'monomind embeddings neural --init', description: 'Initialize RuVector substrate' },
+    { command: 'monomind embeddings neural --init', description: 'Initialize MonoVector substrate' },
     { command: 'monomind embeddings neural -f drift', description: 'Semantic drift detection' },
     { command: 'monomind embeddings neural -f memory', description: 'Memory physics (hippocampal)' },
     { command: 'monomind embeddings neural -f coherence', description: 'Safety & alignment monitoring' },
@@ -1153,7 +1153,7 @@ const neuralCommand: Command = {
     const consolidationInterval = parseInt((ctx.flags['consolidation-interval'] || ctx.flags.consolidationInterval || '60000') as string, 10);
 
     output.writeln();
-    output.writeln(output.bold('Neural Embedding Substrate (RuVector)'));
+    output.writeln(output.bold('Neural Embedding Substrate (MonoVector)'));
     output.writeln(output.dim('Treating embeddings as a synthetic nervous system'));
     output.writeln(output.dim('─'.repeat(60)));
 
@@ -1183,7 +1183,7 @@ const neuralCommand: Command = {
         driftThreshold,
         decayRate,
         consolidationInterval,
-        ruvector: {
+        monovector: {
           enabled: true,
           sona: true, // Self-Optimizing Neural Architecture
           flashAttention: true,
@@ -1213,7 +1213,7 @@ const neuralCommand: Command = {
 
     const neuralConfig = (config.neural || {}) as Record<string, unknown>;
     const features = (neuralConfig.features || {}) as Record<string, boolean>;
-    const ruvector = (neuralConfig.ruvector || {}) as Record<string, boolean>;
+    const monovector = (neuralConfig.monovector || {}) as Record<string, boolean>;
 
     output.printTable({
       columns: [
@@ -1251,7 +1251,7 @@ const neuralCommand: Command = {
     });
 
     output.writeln();
-    output.writeln(output.bold('RuVector Integration'));
+    output.writeln(output.bold('MonoVector Integration'));
     output.printTable({
       columns: [
         { key: 'component', header: 'Component', width: 24 },
@@ -1262,17 +1262,17 @@ const neuralCommand: Command = {
         {
           component: 'SONA',
           description: 'Self-Optimizing Neural Architecture (<0.05ms)',
-          status: ruvector.sona ? output.success('Enabled') : output.dim('Disabled')
+          status: monovector.sona ? output.success('Enabled') : output.dim('Disabled')
         },
         {
           component: 'Flash Attention',
           description: '2.49x-7.47x attention speedup',
-          status: ruvector.flashAttention ? output.success('Enabled') : output.dim('Disabled')
+          status: monovector.flashAttention ? output.success('Enabled') : output.dim('Disabled')
         },
         {
           component: 'EWC++',
           description: 'Elastic Weight Consolidation (anti-forgetting)',
-          status: ruvector.ewcPlusPlus ? output.success('Enabled') : output.dim('Disabled')
+          status: monovector.ewcPlusPlus ? output.success('Enabled') : output.dim('Disabled')
         },
         {
           component: 'Hyperbolic Space',

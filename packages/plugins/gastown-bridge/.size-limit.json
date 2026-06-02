@@ -43,7 +43,7 @@
   },
   {
     "name": "WASM: GNN Graph",
-    "path": "wasm/ruvector-gnn-wasm/pkg/ruvector_gnn_wasm_bg.wasm.gz",
+    "path": "wasm/monovector-gnn-wasm/pkg/monovector_gnn_wasm_bg.wasm.gz",
     "limit": "50 KB",
     "gzip": false,
     "import": false
