@@ -2,23 +2,14 @@
 resolver = "2"
 members = [
   "packages/@monoes/learning-wasm",
-  "packages/@monoes/exotic-wasm",
-  "packages/@monoes/attention-wasm",
-  "packages/@monoes/gnn-wasm",
-  "packages/@monoes/ruvllm-wasm",
   "packages/@monoes/rvagent-wasm",
   "packages/@monoes/rvagent-core",
   # Phase 2: napi-rs native binding crates
   "packages/@monoes/sona-rs",
   "packages/@monoes/attention-rs",
-  "packages/@monoes/gnn-rs",
   "packages/@monoes/router-rs",
-  "packages/@monoes/rvf-rs",
   "packages/@monoes/core-rs",
   # Dependency libs for napi-rs binding crates
   "packages/@monoes/ruvector-attention-lib",
-  "packages/@monoes/ruvector-gnn-lib",
   "packages/@monoes/ruvector-router-core-lib",
-  "packages/@monoes/rvf-runtime-lib",
-  "packages/@monoes/rvf-types-lib",
 ]
