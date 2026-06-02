@@ -81,36 +81,6 @@ export function createQLearningRouter(_config?: QLearningRouterConfig): QLearnin
   };
 }
 
-// ── Agent WASM (sandboxed agent runtime) ────────────────────
-export {
-  isAgentWasmAvailable,
-  initAgentWasm,
-  createWasmAgent,
-  promptWasmAgent,
-  executeWasmTool,
-  getWasmAgent,
-  listWasmAgents,
-  terminateWasmAgent,
-  getWasmAgentState,
-  getWasmAgentTools,
-  getWasmAgentTodos,
-  exportWasmState,
-  createWasmMcpServer,
-  listGalleryTemplates,
-  getGalleryCount,
-  getGalleryCategories,
-  searchGalleryTemplates,
-  getGalleryTemplate,
-  createAgentFromTemplate,
-  buildRvfContainer,
-  buildRvfFromTemplate,
-  type WasmAgentConfig,
-  type WasmAgentInfo,
-  type GalleryTemplate,
-  type GalleryTemplateDetail,
-  type ToolResult,
-} from './agent-wasm.js';
-
 /**
  * Check if monovector packages are available
  */

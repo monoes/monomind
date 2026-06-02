@@ -2,8 +2,6 @@
 resolver = "2"
 members = [
   "packages/@monoes/learning-wasm",
-  "packages/@monoes/rvagent-wasm",
-  "packages/@monoes/rvagent-core",
   # Phase 2: napi-rs native binding crates
   "packages/@monoes/sona-rs",
   "packages/@monoes/attention-rs",
