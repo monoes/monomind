@@ -30,13 +30,6 @@ proptest = "1"
 mockall = "0.13"
 hex = "0.4"
 
-[[bench]]
-name = "state_bench"
-harness = false
-
-[[bench]]
-name = "rvf_bridge_bench"
-harness = false
 
 # Workspace cleanup pass: research-tier crate, doc/style churn deferred. Correctness + suspicious lints stay denied.
 [lints.rust]
