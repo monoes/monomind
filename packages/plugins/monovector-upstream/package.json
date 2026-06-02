@@ -80,23 +80,11 @@
     "vitest": "^4.1.4"
   },
   "peerDependencies": {
-    "@monoes/attention-wasm": "workspace:*",
-    "@monoes/gnn-wasm": "workspace:*",
     "@monoes/learning-wasm": "workspace:*",
-    "@monoes/exotic-wasm": "workspace:*",
     "@monoes/sona": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@monoes/attention-wasm": {
-      "optional": true
-    },
-    "@monoes/gnn-wasm": {
-      "optional": true
-    },
     "@monoes/learning-wasm": {
-      "optional": true
-    },
-    "@monoes/exotic-wasm": {
       "optional": true
     },
     "@monoes/sona": {
