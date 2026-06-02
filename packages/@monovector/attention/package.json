@@ -1,0 +1,11 @@
+{
+  "name": "@monovector/attention",
+  "version": "0.1.32",
+  "description": "MonoVector Attention – re-exported from @ruvector/attention",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "dependencies": {
+    "@ruvector/attention": "^0.1.32"
+  }
+}

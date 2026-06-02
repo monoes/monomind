@@ -1,0 +1,11 @@
+{
+  "name": "@monovector/rvagent-wasm",
+  "version": "0.1.0",
+  "description": "MonoVector RV Agent WASM – re-exported from @ruvector/rvagent-wasm",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "dependencies": {
+    "@ruvector/rvagent-wasm": "^0.1.0"
+  }
+}
