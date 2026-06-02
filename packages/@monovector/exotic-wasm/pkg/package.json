@@ -1,5 +1,5 @@
 {
-  "name": "monovector-exotic-wasm",
+  "name": "@monovector/exotic-wasm",
   "description": "Exotic AI mechanisms for emergent behavior - Neural Autonomous Orgs, Morphogenetic Networks, Time Crystals",
   "version": "0.1.29",
   "license": "MIT",

@@ -1,5 +1,5 @@
 {
-  "name": "monovector-ruvllm-wasm",
+  "name": "@monovector/ruvllm-wasm",
   "description": "WASM bindings for RuvLLM - browser-compatible LLM inference runtime with WebGPU acceleration",
   "version": "2.0.2",
   "license": "MIT",

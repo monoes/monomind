@@ -1,5 +1,5 @@
 {
-  "name": "monovector-attention-wasm",
+  "name": "@monovector/attention-wasm",
   "description": "High-performance WebAssembly attention mechanisms: Multi-Head, Flash, Hyperbolic, MoE, CGT Sheaf Attention with GPU acceleration for transformers and LLMs",
   "version": "2.2.2",
   "license": "MIT",

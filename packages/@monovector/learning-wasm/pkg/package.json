@@ -1,5 +1,5 @@
 {
-  "name": "monovector-learning-wasm",
+  "name": "@monovector/learning-wasm",
   "description": "Ultra-fast MicroLoRA adaptation for WASM - rank-2 LoRA with <100us latency for per-operator learning",
   "version": "0.1.29",
   "license": "MIT",
