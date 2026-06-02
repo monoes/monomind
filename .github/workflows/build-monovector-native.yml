@@ -46,42 +46,44 @@ jobs:
 
       - name: Install cross-compile tools (Linux ARM64)
         if: matrix.cross
+        shell: bash
         run: |
           sudo apt-get install -y gcc-aarch64-linux-gnu
           echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
       - name: Install napi-rs CLI
+        shell: bash
         run: npm install -g @napi-rs/cli
 
       - name: Build sona
+        shell: bash
         run: |
           cd packages/@monoes/sona
-          napi build --platform --release --features napi --target ${{ matrix.target }} \
-            --manifest-path ../sona-rs/Cargo.toml --output-dir .
+          napi build --platform --release --features napi --target ${{ matrix.target }} --manifest-path ../sona-rs/Cargo.toml --output-dir .
 
       - name: Build router
+        shell: bash
         run: |
           cd packages/@monoes/router
-          napi build --platform --release --target ${{ matrix.target }} \
-            --manifest-path ../router-rs/Cargo.toml --output-dir .
+          napi build --platform --release --target ${{ matrix.target }} --manifest-path ../router-rs/Cargo.toml --output-dir .
 
       - name: Build attention
+        shell: bash
         run: |
           cd packages/@monoes/attention
-          napi build --platform --release --target ${{ matrix.target }} \
-            --manifest-path ../attention-rs/Cargo.toml --output-dir .
+          napi build --platform --release --target ${{ matrix.target }} --manifest-path ../attention-rs/Cargo.toml --output-dir .
 
       - name: Build gnn
+        shell: bash
         run: |
           cd packages/@monoes/gnn
-          napi build --platform --release --target ${{ matrix.target }} \
-            --manifest-path ../gnn-rs/Cargo.toml --output-dir .
+          napi build --platform --release --target ${{ matrix.target }} --manifest-path ../gnn-rs/Cargo.toml --output-dir .
 
       - name: Build rvf
+        shell: bash
         run: |
           cd packages/@monoes/rvf
-          napi build --platform --release --target ${{ matrix.target }} \
-            --manifest-path ../rvf-rs/Cargo.toml --output-dir .
+          napi build --platform --release --target ${{ matrix.target }} --manifest-path ../rvf-rs/Cargo.toml --output-dir .
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
