@@ -181,3 +181,12 @@ graphify-out/
 packages/@monomind/cli/.claude/
 packages/@monomind/cli/bundled-graph/
 packages/@monomind/cli/.monomind/
+
+# Rust build output
+target/
+
+# Rust build output
+target/
+
+# Rust build output
+target/
