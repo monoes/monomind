@@ -77,12 +77,6 @@ jobs:
           napi build --platform --release --target ${{ matrix.target }} \
             --manifest-path ../gnn-rs/Cargo.toml --output-dir .
 
-      - name: Build core
-        run: |
-          cd packages/@monovector/core
-          napi build --platform --release --target ${{ matrix.target }} \
-            --manifest-path ../core-rs/Cargo.toml --output-dir .
-
       - name: Build rvf
         run: |
           cd packages/@monovector/rvf
@@ -98,5 +92,4 @@ jobs:
             packages/@monovector/router/*.node
             packages/@monovector/attention/*.node
             packages/@monovector/gnn/*.node
-            packages/@monovector/core/*.node
             packages/@monovector/rvf/*.node
