@@ -1,28 +1,65 @@
 /**
- * Minimal interface describing the @monoes/sona SonaEngine WASM surface.
- * Kept in sync manually with package updates.
+ * Minimal interface describing the @monoes/sona SonaEngine NAPI surface.
+ * Kept in sync with @ruvector/sona (which @monoes/sona re-exports).
+ *
+ * Ground-truth source: packages/@monoes/sona/node_modules/@ruvector/sona/index.d.ts
  */
 
 export interface SonaEngineAPI {
-  withConfig(config: SonaConfig): SonaEngineAPI;
-  beginTrajectory(id: string, context?: string): void;
+  /**
+   * Start a new trajectory recording.
+   * @param queryEmbedding - Query embedding vector
+   * @returns Numeric trajectory ID
+   */
+  beginTrajectory(queryEmbedding: number[]): number;
+  /**
+   * Add a step to a trajectory.
+   * @param trajectoryId - ID returned by beginTrajectory
+   * @param activations   - Layer activations
+   * @param attentionWeights - Attention weights
+   * @param reward        - Reward signal for this step
+   */
   addTrajectoryStep(
-    trajectoryId: string,
-    action: string,
-    stateBefore: number[],
-    stateAfter: number[],
+    trajectoryId: number,
+    activations: number[],
+    attentionWeights: number[],
     reward: number
   ): void;
-  addTrajectoryContext(trajectoryId: string, key: string, value: string): void;
-  endTrajectory(trajectoryId: string, verdict: string, quality: number): void;
+  /**
+   * Attach a context label to a trajectory.
+   * @param trajectoryId - Trajectory ID
+   * @param contextId    - Context identifier string
+   */
+  addTrajectoryContext(trajectoryId: number, contextId: string): void;
+  /**
+   * Complete a trajectory and submit for learning.
+   * @param trajectoryId - Trajectory ID
+   * @param quality      - Final quality score [0.0, 1.0]
+   */
+  endTrajectory(trajectoryId: number, quality: number): void;
+  /** Flush instant loop updates. */
   flush(): void;
-  applyMicroLora(gradient: Float32Array): void;
-  findPatterns(embedding: Float32Array, topK: number): LearnedPattern[];
-  /** Returns JSON string — always parse with try/catch */
+  /**
+   * Apply micro-LoRA transformation to input.
+   * @param input - Input vector
+   * @returns Transformed output vector
+   */
+  applyMicroLora(input: number[]): number[];
+  /**
+   * Find similar learned patterns to query.
+   * @param queryEmbedding - Query embedding vector
+   * @param k              - Number of patterns to return
+   */
+  findPatterns(queryEmbedding: number[], k: number): LearnedPattern[];
+  /** Returns engine statistics as a JSON string — always parse with try/catch. */
   getStats(): string;
+  /** Force background learning cycle immediately. */
   forceLearn(): string;
+  /** Run background learning cycle if due. */
   tick(): string | null;
+  /** Check if engine is enabled. */
   isEnabled(): boolean;
+  /** Enable or disable the engine. */
   setEnabled(enabled: boolean): void;
 }
 
@@ -47,6 +84,10 @@ export interface LearnedPattern {
   [key: string]: unknown;
 }
 
+/**
+ * Shape of the @monoes/sona (= @ruvector/sona) module export.
+ * SonaEngine is a class with a static `withConfig` factory.
+ */
 export interface SonaModule {
   SonaEngine: { withConfig(config: SonaConfig): SonaEngineAPI };
 }
