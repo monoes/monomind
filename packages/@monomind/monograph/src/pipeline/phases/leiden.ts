@@ -32,6 +32,11 @@ export function leiden(graph: Graph, _options: { seed?: number } = {}): Record<s
     communitySizes.set(comm, (communitySizes.get(comm) ?? 0) + 1);
   }
 
+  // Refinement: merge singletons into their largest neighbor's community.
+  // Pass 1: update communitySizes eagerly (so adjacent singletons see each other's moves
+  //         and avoid mutual-swap cycles), collect community writes into `pending`.
+  // Pass 2: apply community writes — keeps the community map consistent at all times.
+  const pending = new Map<string, number>();
   for (const [nodeId, commId] of Object.entries(communities)) {
     if ((communitySizes.get(commId) ?? 0) <= 1) {
       let bestComm = commId;
@@ -48,11 +53,17 @@ export function leiden(graph: Graph, _options: { seed?: number } = {}): Record<s
       });
 
       if (bestComm !== commId) {
+        // Update sizes eagerly so subsequent singletons see the correct community sizes
         communitySizes.set(commId, (communitySizes.get(commId) ?? 1) - 1);
         communitySizes.set(bestComm, (communitySizes.get(bestComm) ?? 0) + 1);
-        communities[nodeId] = bestComm;
+        pending.set(nodeId, bestComm);
       }
     }
+  }
+
+  // Apply deferred community writes
+  for (const [nodeId, bestComm] of pending) {
+    communities[nodeId] = bestComm;
   }
 
   return communities;

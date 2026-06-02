@@ -1,0 +1,14 @@
+{
+  "name": "@monoes/learning-wasm",
+  "version": "0.1.29",
+  "description": "MonoVector Learning WASM — on-device LoRA/trajectory learning",
+  "main": "pkg/monovector_learning_wasm.js",
+  "types": "pkg/monovector_learning_wasm.d.ts",
+  "scripts": {
+    "build": "wasm-pack build --target nodejs --out-dir pkg --out-name monovector_learning_wasm",
+    "build:web": "wasm-pack build --target web --out-dir pkg-web --out-name monovector_learning_wasm",
+    "build:bundler": "wasm-pack build --target bundler --out-dir pkg-bundler --out-name monovector_learning_wasm"
+  },
+  "license": "MIT",
+  "files": ["pkg/", "src/", "Cargo.toml"]
+}

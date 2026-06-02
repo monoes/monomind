@@ -86,8 +86,9 @@ export function installGitHooks(repoPath: string, hooks: string[]): void {
     // Remove any existing monograph block (for idempotence)
     const stripped = removeMarkerBlock(existing);
 
-    // If there was no prior content, start with a shebang
-    const preamble = stripped.trim()
+    // If there was no prior content (beyond whitespace/shebang), start fresh with a shebang
+    const hasMeaningfulContent = stripped.replace(/^#!.*$/m, '').trim().length > 0;
+    const preamble = hasMeaningfulContent
       ? stripped.trimEnd() + '\n\n'
       : '#!/bin/sh\n\n';
 

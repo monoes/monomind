@@ -1757,7 +1757,7 @@ const preTaskCommand: Command = {
 
       // Enhanced model routing with Agent Booster AST (ADR-026)
       try {
-        const { getEnhancedModelRouter } = await import('../ruvector/enhanced-model-router.js' as string);
+        const { getEnhancedModelRouter } = await import('../monovector/enhanced-model-router.js' as string);
         const router = getEnhancedModelRouter();
         const routeResult = await router.route(description, { filePath: ctx.flags.file as string });
 
@@ -2092,7 +2092,7 @@ const sessionRestoreCommand: Command = {
 // Intelligence subcommand (SONA, MoE, HNSW)
 const intelligenceCommand: Command = {
   name: 'intelligence',
-  description: 'RuVector intelligence system (SONA, MoE, HNSW 150x faster)',
+  description: 'MonoVector intelligence system (SONA, MoE, HNSW 150x faster)',
   options: [
     {
       name: 'mode',
@@ -2165,7 +2165,7 @@ const intelligenceCommand: Command = {
     const embeddingProvider = ctx.flags['embedding-provider'] as string || 'transformers';
 
     output.writeln();
-    output.writeln(output.bold('RuVector Intelligence System'));
+    output.writeln(output.bold('MonoVector Intelligence System'));
     output.writeln();
 
     if (reset) {
@@ -2985,7 +2985,7 @@ function formatWorkerStatus(status: string): string {
 // Coverage route subcommand
 const coverageRouteCommand: Command = {
   name: 'coverage-route',
-  description: 'Route task to agents based on test coverage gaps (ruvector integration)',
+  description: 'Route task to agents based on test coverage gaps (monovector integration)',
   options: [
     {
       name: 'task',
@@ -3001,8 +3001,8 @@ const coverageRouteCommand: Command = {
       default: 80
     },
     {
-      name: 'no-ruvector',
-      description: 'Disable ruvector integration',
+      name: 'no-monovector',
+      description: 'Disable monovector integration',
       type: 'boolean',
       default: false
     }
@@ -3014,7 +3014,7 @@ const coverageRouteCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const task = ctx.args[0] || ctx.flags.task as string;
     const threshold = ctx.flags.threshold as number || 80;
-    const useRuvector = !ctx.flags['no-ruvector'];
+    const useMonovector = !ctx.flags['no-monovector'];
 
     if (!task) {
       output.printError('Task description is required. Use --task or -t flag.');
@@ -3179,7 +3179,7 @@ const coverageRouteCommand: Command = {
       }>('hooks_coverage-route', {
         task,
         threshold,
-        useRuvector,
+        useMonovector,
       });
 
       spinner.stop();
@@ -3256,7 +3256,7 @@ const coverageRouteCommand: Command = {
 // Coverage suggest subcommand
 const coverageSuggestCommand: Command = {
   name: 'coverage-suggest',
-  description: 'Suggest coverage improvements for a path (ruvector integration)',
+  description: 'Suggest coverage improvements for a path (monovector integration)',
   options: [
     {
       name: 'path',
@@ -3345,7 +3345,7 @@ const coverageSuggestCommand: Command = {
           filesBelowThreshold: belowThreshold.length,
         },
         prioritizedFiles,
-        ruvectorAvailable: false,
+        monovectorAvailable: false,
         source: diskCoverage.source,
       };
 
@@ -3416,7 +3416,7 @@ const coverageSuggestCommand: Command = {
           filesBelowThreshold: number;
         };
         prioritizedFiles: string[];
-        ruvectorAvailable: boolean;
+        monovectorAvailable: boolean;
       }>('hooks_coverage-suggest', {
         path: targetPath,
         threshold,
@@ -3438,7 +3438,7 @@ const coverageSuggestCommand: Command = {
           `Line Coverage: ${result.summary.overallLineCoverage.toFixed(1)}%`,
           `Branch Coverage: ${result.summary.overallBranchCoverage.toFixed(1)}%`,
           `Below Threshold: ${result.summary.filesBelowThreshold} files`,
-          `RuVector: ${result.ruvectorAvailable ? output.success('Available') : output.dim('Not installed')}`
+          `MonoVector: ${result.monovectorAvailable ? output.success('Available') : output.dim('Not installed')}`
         ].join('\n'),
         'Coverage Summary'
       );
@@ -3572,7 +3572,7 @@ const coverageGapsCommand: Command = {
           coverageThreshold: threshold,
         },
         agentAssignments,
-        ruvectorAvailable: false,
+        monovectorAvailable: false,
         source: diskCoverage.source,
       };
 
@@ -3658,7 +3658,7 @@ const coverageGapsCommand: Command = {
           coverageThreshold: number;
         };
         agentAssignments: Record<string, string[]>;
-        ruvectorAvailable: boolean;
+        monovectorAvailable: boolean;
       }>('hooks_coverage-gaps', {
         threshold,
         groupByAgent,
@@ -3682,7 +3682,7 @@ const coverageGapsCommand: Command = {
           `Line Coverage: ${result.summary.overallLineCoverage.toFixed(1)}%`,
           `Branch Coverage: ${result.summary.overallBranchCoverage.toFixed(1)}%`,
           `Below ${result.summary.coverageThreshold}%: ${result.summary.filesBelowThreshold} files`,
-          `RuVector: ${result.ruvectorAvailable ? output.success('Available') : output.dim('Not installed')}`
+          `MonoVector: ${result.monovectorAvailable ? output.success('Available') : output.dim('Not installed')}`
         ].join('\n'),
         'Coverage Gap Analysis'
       );
@@ -5234,7 +5234,7 @@ export const hooksCommand: Command = {
       `${output.highlight('worker')}          - Background worker management (12 workers)`,
       `${output.highlight('progress')}        - Check implementation progress`,
       `${output.highlight('statusline')}      - Generate dynamic statusline display`,
-      `${output.highlight('coverage-route')}  - Route tasks based on coverage gaps (ruvector)`,
+      `${output.highlight('coverage-route')}  - Route tasks based on coverage gaps (monovector)`,
       `${output.highlight('coverage-suggest')}- Suggest coverage improvements`,
       `${output.highlight('coverage-gaps')}   - List all coverage gaps with agents`,
       `${output.highlight('token-optimize')} - Token optimization (30-50% savings)`,

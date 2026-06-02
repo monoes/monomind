@@ -75,7 +75,7 @@ export interface EmbedAllResult {
  * @param embedder - Feature extraction pipeline function
  * @param force    - When true, re-embed nodes even if they already have an embedding
  */
-const CODE_LABELS = new Set(['Function', 'Method', 'Class', 'Module', 'Interface', 'Enum', 'Struct', 'Constructor', 'Variable', 'Constant', 'Type']);
+const CODE_LABELS = new Set(['Function', 'Method', 'Class', 'Module', 'Interface', 'Enum', 'Struct', 'Constructor', 'Variable', 'Const', 'TypeAlias']);
 
 export async function embedAll(
   db: Database.Database,

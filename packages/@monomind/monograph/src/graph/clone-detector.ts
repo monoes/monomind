@@ -67,7 +67,7 @@ function sharedTokenCount(a: string[], b: string[]): number {
 export function detectClones(
   db: MonographDb,
   minSimilarity = 0.8,
-  minTokens = 50,
+  minTokens = 2,
 ): CloneDetectionResult {
   // Query all File nodes with file_path
   const rows = db

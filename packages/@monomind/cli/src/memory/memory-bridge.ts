@@ -50,6 +50,12 @@ export function safeParseEmbedding(raw: string | null | undefined): number[] | n
   return parsed as number[];
 }
 
+// ===== Embedding model constants — single source of truth =====
+// Changing these requires rebuilding stored embeddings (dimension mismatch silently
+// degrades search to BM25-only; see bridgeSearchEntries dimension-mismatch handling).
+const BRIDGE_EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2';
+const BRIDGE_EMBEDDING_DIMS = 384;
+
 // ===== Lazy singleton =====
 // registryInstance is typed as `any` because ControllerRegistry lives in @monomind/memory
 // and cross-package type resolution is currently broken. When that is fixed, replace with
@@ -58,6 +64,11 @@ export function safeParseEmbedding(raw: string | null | undefined): number[] | n
 let registryPromise: Promise<any> | null = null;
 let registryInstance: any = null;
 let bridgeAvailable: boolean | null = null;
+// Allow up to 3 init attempts before permanently latching unavailable.
+// Transient failures (e.g. model not yet downloaded, sqlite cold-start) should
+// not permanently degrade the process. After MAX_INIT_ATTEMPTS the latch is set.
+const MAX_INIT_ATTEMPTS = 3;
+let initAttempts = 0;
 
 /** Backpressure flag for A-MEM Zettelkasten linking — see bridgeStoreEntry. */
 let _amemInFlight = false;
@@ -78,6 +89,11 @@ function getDbPath(customPath?: string): string {
   if (rel.startsWith('..') || path.isAbsolute(rel)) {
     return path.join(swarmDir, 'memory.db'); // fallback to safe default
   }
+  // Reject non-.db paths — prevents plugins from passing e.g. 'package.json'
+  // and having SQLite truncate/corrupt it on first open.
+  if (!resolved.endsWith('.db')) {
+    return path.join(swarmDir, 'memory.db');
+  }
   return resolved;
 }
 
@@ -94,13 +110,14 @@ function generateId(prefix: string): string {
  */
 async function getRegistry(dbPath?: string): Promise<any | null> {
   if (bridgeAvailable === false) return null;
+  if (initAttempts >= MAX_INIT_ATTEMPTS) { bridgeAvailable = false; return null; }
 
   if (registryInstance) return registryInstance;
 
   if (!registryPromise) {
     registryPromise = (async () => {
       try {
-        const { ControllerRegistry } = await import('@monomind/memory' as string);
+        const { ControllerRegistry } = await import('@monoes/memory' as string);
         const registry = new ControllerRegistry();
 
         // Suppress noisy console.log during init
@@ -111,18 +128,21 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
               msg.includes('better-sqlite3') ||
               msg.includes('[AgentDB]') ||
               msg.includes('[HNSWLibBackend]') ||
-              msg.includes('RuVector graph')) return;
+              msg.includes('MonoVector graph')) return;
           origLog.apply(console, args);
         };
 
         try {
           await (registry as any).initialize({
             dbPath: dbPath || getDbPath(),
-            embeddingModel: 'Xenova/all-MiniLM-L6-v2',
-            dimension: 384,
+            embeddingModel: BRIDGE_EMBEDDING_MODEL,
+            dimension: BRIDGE_EMBEDDING_DIMS,
             controllers: {
               reasoningBank: true,
-              learningBridge: false,
+              // learningBridge enables SONA/LoRA pattern learning — re-enabled after
+              // confirming LearningBridge init errors are isolated per-controller in
+              // ControllerRegistry and do not propagate to bridgeAvailable = false.
+              learningBridge: true,
               tieredCache: true,
               hierarchicalMemory: true,
               memoryConsolidation: true,
@@ -137,8 +157,11 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
         bridgeAvailable = true;
         return registry;
       } catch {
-        bridgeAvailable = false;
+        initAttempts++;
         registryPromise = null;
+        if (initAttempts >= MAX_INIT_ATTEMPTS) {
+          bridgeAvailable = false;
+        }
         return null;
       }
     })();
@@ -423,7 +446,7 @@ export async function bridgeStoreEntry(options: {
           if (emb) {
             embeddingJson = JSON.stringify(Array.from(emb));
             dimensions = emb.length;
-            model = 'Xenova/all-MiniLM-L6-v2';
+            model = BRIDGE_EMBEDDING_MODEL;
           }
         }
       } catch {
@@ -480,7 +503,12 @@ export async function bridgeStoreEntry(options: {
       void (async () => {
         try {
           const neighbors = await bridgeSearchEntries({
-            query: options.value,
+            query: (() => {
+              // Snap to last sentence boundary within 512 chars to avoid cutting mid-phrase.
+              const raw = options.value.slice(0, 512);
+              const snapped = raw.replace(/[^.!?\n]*$/, '');
+              return snapped.trim() || raw;
+            })(),
             namespace: options.namespace,
             limit: 3,
             threshold: 0.7,
@@ -818,22 +846,41 @@ export async function bridgeGetEntry(options: {
 
     // Collaborative memory promotion: track agent reads for auto-promotion to 'team'
     // Source: https://arxiv.org/abs/2505.18279
+    //
+    // Security: agentId is caller-supplied. Two guards prevent a single process
+    // from fabricating 3 different IDs to force-promote a private entry:
+    //   1. Format validation — rejects non-standard IDs before they touch the DB
+    //   2. Time-spread check — the 3 reads must span ≥5 minutes, making rapid
+    //      batch escalation observable and impractical within a single session
     if (options.agentId) {
-      try {
-        ctx.db.prepare(
-          'INSERT OR IGNORE INTO agent_reads (entry_id, agent_id, read_at) VALUES (?, ?, ?)'
-        ).run(row.id, options.agentId, Date.now());
-        // Check if 3+ distinct agents read in past 24h → promote to 'team'
-        const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-        const countRow = ctx.db.prepare(
-          'SELECT COUNT(DISTINCT agent_id) as cnt FROM agent_reads WHERE entry_id = ? AND read_at > ?'
-        ).get(row.id, cutoff) as { cnt: number } | undefined;
-        if ((countRow?.cnt ?? 0) >= 3) {
+      const AGENT_ID_RE = /^[a-zA-Z0-9_\-.]{1,128}$/;
+      if (AGENT_ID_RE.test(options.agentId)) {
+        try {
+          const now = Date.now();
           ctx.db.prepare(
-            "UPDATE memory_entries SET access_level = 'team' WHERE id = ? AND access_level = 'private'"
-          ).run(row.id);
-        }
-      } catch { /* non-critical */ }
+            'INSERT OR IGNORE INTO agent_reads (entry_id, agent_id, read_at) VALUES (?, ?, ?)'
+          ).run(row.id, options.agentId, now);
+
+          const cutoff = now - 24 * 60 * 60 * 1000;
+          const SPREAD_MS = 5 * 60 * 1000; // reads must span ≥5 min to count
+          const stats = ctx.db.prepare(
+            `SELECT COUNT(DISTINCT agent_id) as cnt,
+                    MIN(read_at) as earliest,
+                    MAX(read_at) as latest
+             FROM agent_reads WHERE entry_id = ? AND read_at > ?`
+          ).get(row.id, cutoff) as { cnt: number; earliest: number; latest: number } | undefined;
+
+          // Require 3+ distinct-agent reads AND earliest+latest span ≥5 min
+          const distinctAgents = stats?.cnt ?? 0;
+          const spread = stats ? (stats.latest - stats.earliest) : 0;
+
+          if (distinctAgents >= 3 && spread >= SPREAD_MS) {
+            ctx.db.prepare(
+              "UPDATE memory_entries SET access_level = 'team' WHERE id = ? AND access_level = 'private'"
+            ).run(row.id);
+          }
+        } catch { /* non-critical */ }
+      }
     }
 
     // Bounded tags read — refuse to JSON.parse a multi-MB tags blob that an
@@ -970,7 +1017,7 @@ export async function bridgeGenerateEmbedding(
     return {
       embedding: Array.from(emb),
       dimensions: emb.length,
-      model: 'Xenova/all-MiniLM-L6-v2',
+      model: BRIDGE_EMBEDDING_MODEL,
     };
   } catch {
     return null;
@@ -1005,7 +1052,7 @@ export async function bridgeLoadEmbeddingModel(
     return {
       success: true,
       dimensions: test.length,
-      modelName: 'Xenova/all-MiniLM-L6-v2',
+      modelName: BRIDGE_EMBEDDING_MODEL,
       loadTime: Date.now() - startTime,
     };
   } catch {
@@ -1049,7 +1096,7 @@ export async function bridgeGetHNSWStatus(
       available: true,
       initialized: true,
       entryCount,
-      dimensions: 384,
+      dimensions: BRIDGE_EMBEDDING_DIMS,
     };
   } catch {
     return null;
@@ -1162,10 +1209,10 @@ export async function bridgeAddToHNSW(
         id, key, namespace, content, type,
         embedding, embedding_dimensions, embedding_model,
         created_at, updated_at, status
-      ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, 'Xenova/all-MiniLM-L6-v2', ?, ?, 'active')
+      ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, 'active')
     `).run(
       id, entry.key, entry.namespace, entry.content,
-      embeddingJson, embedding.length,
+      embeddingJson, embedding.length, BRIDGE_EMBEDDING_MODEL,
       now, now,
     );
     return true;
@@ -1257,6 +1304,7 @@ export async function shutdownBridge(): Promise<void> {
     registryInstance = null;
     registryPromise = null;
     bridgeAvailable = null;
+    initAttempts = 0;
   }
 }
 
@@ -1623,7 +1671,7 @@ export async function bridgeSessionEnd(options: {
 
 /**
  * Route a task via AgentDB's SemanticRouter.
- * Returns null to fall back to local ruvector router.
+ * Returns null to fall back to local monovector router.
  */
 export async function bridgeRouteTask(options: {
   task: string;
@@ -1899,7 +1947,7 @@ export async function bridgeContextSynthesize(params: { query: string; maxEntrie
 
 /**
  * Route via SemanticRouter.
- * Available since agentdb 3.0.0-alpha.10 — uses @ruvector/router for
+ * Available since agentdb 3.0.0-alpha.10 — uses @monoes/router for
  * semantic matching with keyword fallback.
  */
 export async function bridgeSemanticRoute(params: { input: string }): Promise<any> {

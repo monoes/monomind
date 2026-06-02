@@ -120,7 +120,7 @@ Spawn one Task agent per workstream:
 - Account expansion: subagent_type "Account Strategist"
 - Competitive research: subagent_type "researcher"
 
-Also run /monomind:do --board <board_id> to track execution.
+Also run /mastermind:do --board <board_id> to track execution.
 
 STEP 4 — COLLECT AND RETURN
 Collect all agent outputs. Return to caller:

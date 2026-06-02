@@ -1,6 +1,6 @@
 /**
  * Tests for .claude/helpers/context-persistence-hook.mjs
- * Focuses on pure exported utility functions (no SQLite / RuVector needed).
+ * Focuses on pure exported utility functions (no SQLite / MonoVector needed).
  * Imports the ESM module directly — better-sqlite3 is only loaded lazily inside
  * SQLiteBackend.initialize() which is not called in these tests.
  */
@@ -22,7 +22,7 @@ import {
   formatTokens,
   buildProgressBar,
   computeImportance,
-  getRuVectorConfig,
+  getMonoVectorConfig,
   estimateContextTokens,
   NAMESPACE,
 } from '../../.claude/helpers/context-persistence-hook.mjs';
@@ -146,14 +146,14 @@ describe('context-persistence buildProgressBar', () => {
   });
 });
 
-// ── getRuVectorConfig ────────────────────────────────────────────────────────
+// ── getMonoVectorConfig ────────────────────────────────────────────────────────
 
-describe('context-persistence getRuVectorConfig', () => {
-  it('returns null when RUVECTOR_HOST, PGHOST, etc. are not set', () => {
-    const ALL_KEYS = ['RUVECTOR_HOST', 'PGHOST', 'RUVECTOR_DATABASE', 'PGDATABASE', 'RUVECTOR_USER', 'PGUSER'];
+describe('context-persistence getMonoVectorConfig', () => {
+  it('returns null when MONOVECTOR_HOST, PGHOST, etc. are not set', () => {
+    const ALL_KEYS = ['MONOVECTOR_HOST', 'PGHOST', 'MONOVECTOR_DATABASE', 'PGDATABASE', 'MONOVECTOR_USER', 'PGUSER'];
     const saved = {};
     for (const k of ALL_KEYS) { saved[k] = process.env[k]; delete process.env[k]; }
-    expect(getRuVectorConfig()).toBeNull();
+    expect(getMonoVectorConfig()).toBeNull();
     for (const k of ALL_KEYS) { if (saved[k] !== undefined) process.env[k] = saved[k]; }
   });
 });

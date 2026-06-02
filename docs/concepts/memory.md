@@ -117,7 +117,7 @@ Pure-TypeScript Hierarchical Navigable Small World implementation:
 | `SQLiteBackend` | ACID, exact matches, metadata filters |
 | `AgentDBBackend` | Semantic vector search via HNSW; wraps `agentdb@2.0.0-alpha.3.4` |
 | `HybridBackend` | Default: routes semantic → AgentDB, structured → SQLite; dual-write option |
-| `RvfBackend` | RuVector feature backend |
+| `RvfBackend` | MonoVector feature backend |
 | `SqljsBackend` | sql.js WASM fallback (browser/edge) |
 | `PartitionedHNSW` | Timestamp-partitioned HNSW for temporally-local search |
 | `DiskAnnBackend` | Disk-resident ANN graph for large corpora (Tier 4) |

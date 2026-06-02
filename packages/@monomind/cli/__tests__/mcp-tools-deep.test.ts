@@ -97,18 +97,18 @@ vi.mock('../src/memory/intelligence.js', () => ({
   benchmarkAdaptation: vi.fn(() => ({ avgMs: 0.01, minMs: 0.005, maxMs: 0.02, targetMet: true })),
 }));
 
-// Mock ruvector modules
-vi.mock('../src/ruvector/model-router.js', () => ({
+// Mock monovector modules
+vi.mock('../src/monovector/model-router.js', () => ({
   getModelRouter: vi.fn(() => ({ route: async () => ({ model: 'sonnet', routedBy: 'router' }) })),
 }));
 
-vi.mock('../src/ruvector/enhanced-model-router.js', () => ({
+vi.mock('../src/monovector/enhanced-model-router.js', () => ({
   getEnhancedModelRouter: vi.fn(() => ({
     route: async () => ({ tier: 2, model: 'sonnet', canSkipLLM: false }),
   })),
 }));
 
-vi.mock('../src/ruvector/diff-classifier.js', () => ({
+vi.mock('../src/monovector/diff-classifier.js', () => ({
   analyzeDiff: vi.fn(async () => ({
     ref: 'HEAD', timestamp: new Date().toISOString(), files: [],
     risk: { overall: 'low', score: 10 }, classification: { type: 'patch' },
@@ -121,7 +121,7 @@ vi.mock('../src/ruvector/diff-classifier.js', () => ({
   getGitDiffNumstat: vi.fn(() => []),
 }));
 
-vi.mock('../src/ruvector/moe-router.js', () => ({
+vi.mock('../src/monovector/moe-router.js', () => ({
   getMoERouter: vi.fn(async () => null),
 }));
 

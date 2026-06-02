@@ -438,7 +438,7 @@ CVE remediation, input validation, path security:
 | `metrics`          | View learning metrics dashboard          | `--v1-dashboard`, `--format`                |
 | `transfer`         | Transfer patterns via IPFS registry      | `store`, `from-project`                     |
 | `list`             | List all registered hooks                | `--format`                                  |
-| `intelligence`     | RuVector intelligence system             | `trajectory-*`, `pattern-*`, `stats`        |
+| `intelligence`     | MonoVector intelligence system             | `trajectory-*`, `pattern-*`, `stats`        |
 | `worker`           | Background worker management             | `list`, `dispatch`, `status`, `detect`      |
 | `progress`         | Check V1 implementation progress         | `--detailed`, `--format`                    |
 | `statusline`       | Generate dynamic statusline              | `--json`, `--compact`, `--no-color`         |
@@ -516,9 +516,9 @@ npx monomind@latest migrate rollback
 npx monomind@latest migrate validate
 ```
 
-## 🧠 Intelligence System (RuVector)
+## 🧠 Intelligence System (MonoVector)
 
-V1 includes the RuVector Intelligence System:
+V1 includes the MonoVector Intelligence System:
 
 - **SONA**: Self-Optimizing Neural Architecture (<0.05ms adaptation)
 - **MoE**: Mixture of Experts for specialized routing
@@ -542,7 +542,7 @@ Features:
 - **Normalization**: L2, L1, min-max, z-score
 - **Hyperbolic embeddings**: Poincaré ball model for hierarchical data
 - **75x faster**: With agentic-flow ONNX integration
-- **Neural substrate**: Integration with RuVector
+- **Neural substrate**: Integration with MonoVector
 
 ## 🐝 Hive-Mind Consensus
 
@@ -739,7 +739,7 @@ This includes:
 - All 60+ agent types with routing recommendations
 - All 26 CLI commands with 140+ subcommands
 - All 27 hooks + 12 background workers
-- RuVector intelligence system details
+- MonoVector intelligence system details
 - Hive-Mind consensus mechanisms
 - Integration ecosystem (agentic-flow, agentdb, ruv-swarm,  agentic-jujutsu)
 - Performance targets and status

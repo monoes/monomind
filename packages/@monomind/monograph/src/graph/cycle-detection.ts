@@ -284,7 +284,9 @@ export function findCycles(
   });
 
   return result.map(cycle => ({
-    files: [...cycle].sort().map(id => idToPath.get(id) ?? String(id)),
+    files: [...cycle]
+      .sort((a, b) => (idToPath.get(a) ?? '').localeCompare(idToPath.get(b) ?? ''))
+      .map(id => idToPath.get(id) ?? String(id)),
     length: cycle.length,
   }));
 }

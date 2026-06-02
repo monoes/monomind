@@ -3,7 +3,7 @@
  * Code analysis, diff classification, AST analysis, and change risk assessment
  *
  * Features:
- * - AST analysis using ruvector (tree-sitter) with graceful fallback
+ * - AST analysis using monovector (tree-sitter) with graceful fallback
  * - Symbol extraction (functions, classes, variables, types)
  * - Cyclomatic complexity scoring
  * - Diff classification and risk assessment
@@ -23,7 +23,7 @@ import { execSync } from 'child_process';
 // Dynamic import for AST analyzer
 async function getASTAnalyzer() {
     try {
-        return await import('../ruvector/ast-analyzer.js');
+        return await import('../monovector/ast-analyzer.js');
     }
     catch {
         return null;
@@ -32,7 +32,7 @@ async function getASTAnalyzer() {
 // Dynamic import for graph analyzer
 async function getGraphAnalyzer() {
     try {
-        return await import('../ruvector/graph-analyzer.js');
+        return await import('../monovector/graph-analyzer.js');
     }
     catch {
         return null;
@@ -395,7 +395,7 @@ const codeCommand = {
     },
 };
 // ============================================================================
-// AST Analysis Subcommands (using ruvector tree-sitter with fallback)
+// AST Analysis Subcommands (using monovector tree-sitter with fallback)
 // ============================================================================
 /**
  * Helper: Truncate file path for display
@@ -445,7 +445,7 @@ function getComplexityRatingAst(value) {
  */
 const astCommand = {
     name: 'ast',
-    description: 'Analyze code using AST parsing (tree-sitter via ruvector)',
+    description: 'Analyze code using AST parsing (tree-sitter via monovector)',
     options: [
         {
             name: 'complexity',
@@ -1142,7 +1142,7 @@ async function scanSourceFiles(dir, maxDepth = 10) {
     return files;
 }
 /**
- * Fallback analysis when ruvector is not available
+ * Fallback analysis when monovector is not available
  */
 function fallbackAnalyze(code, filePath) {
     const lines = code.split('\n');

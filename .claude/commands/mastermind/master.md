@@ -643,7 +643,7 @@ Each Task call must include a complete briefing following the Monotask Task Brie
 - The specific goal for this domain
 - The project name and run context
 - Instruction to create monotask cards directly using `monotask card create $BOARD_ID $COL_TODO_ID "<title>" --json` for all sub-tasks
-- Instruction to use `Skill("monomind:do")` to execute tasks (Task agents have Skill tool access — do NOT use slash command syntax)
+- Instruction to use `Skill("mastermind:do")` to execute tasks (Task agents have Skill tool access — do NOT use slash command syntax)
 - Instruction to spawn specialized agents using the domain-appropriate swarm topology
 - Instruction to return the unified output schema when done
 
@@ -693,7 +693,7 @@ Task({
     "     -H 'Content-Type: application/json' \\\n" +
     "     -d \"$(jq -cn --arg sid '<SESSION_ID>' --arg to '<domain>' --arg msg '<summary>' \\\n" +
     "       '{type:\"intercom\",session:$sid,from:\"build\",to:$to,msg:$msg,ts:(now*1000|floor)}')\" || true\n\n" +
-    "5. Execute tasks via Skill(\"monomind:do\") --board <board_build>  (use Skill tool — slash command syntax does not work inside a Task agent)\n" +
+    "5. Execute tasks via Skill(\"mastermind:do\") --board <board_build>  (use Skill tool — slash command syntax does not work inside a Task agent)\n" +
     "6. Collect all agent outputs\n\n" +
     "7. BEFORE returning, write your output schema to disk AND emit domain:complete:\n" +
     "   REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)\n" +

@@ -13,7 +13,7 @@ module.exports = {
 
     var db = _openMonographDb();
     if (!db) {
-      console.log('No monograph.db found. Run /monomind:understand to build.');
+      console.log('No monograph.db found. Run /mastermind:understand to build.');
       return;
     }
     try {

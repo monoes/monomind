@@ -262,7 +262,7 @@ export async function loadGnnWasm(
   // Start loading
   gnnLoading = (async () => {
     try {
-      const bytes = await loadWasmBytes('ruvector-gnn-wasm', options);
+      const bytes = await loadWasmBytes('monovector-gnn-wasm', options);
       gnnModule = await instantiateWasm<GnnWasm>(bytes);
       return gnnModule;
     } finally {

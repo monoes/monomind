@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import type { MonographDb } from '../storage/db.js';
 
 export type ChurnTrend = 'accelerating' | 'stable' | 'declining';
@@ -78,31 +78,36 @@ export function computeAuthorAnalytics(repoPath: string, db: MonographDb): Autho
   // ── File ownership ─────────────────────────────────────────────────────────
   // Get File nodes with degree > 2
   const fileRows = db.prepare(`
-    SELECT n.id, n.name
+    SELECT n.id, n.name, n.file_path
     FROM nodes n
     WHERE n.label = 'File'
+      AND n.file_path IS NOT NULL
       AND (
         SELECT COUNT(*) FROM edges e
         WHERE e.source_id = n.id OR e.target_id = n.id
       ) > 2
     LIMIT 200
-  `).all() as { id: string; name: string }[];
+  `).all() as { id: string; name: string; file_path: string }[];
 
   // Map: file path → winning author email (majority owner) or null
   const fileOwner = new Map<string, string | null>();
   const filesOwnedByAuthor = new Map<string, number>();
 
   for (const file of fileRows) {
-    const filePath = file.name;
+    const filePath = file.file_path;
     if (!filePath) { fileOwner.set(file.id, null); continue; }
 
     let fileLog: string;
     try {
-      fileLog = execSync(`git log --follow --format="%ae" -- "${filePath}"`, {
+      const result = spawnSync('git', ['log', '--follow', '--format=%ae', '--', filePath], {
         cwd: repoPath,
         encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
       });
+      if (result.status !== 0 || result.error) {
+        fileOwner.set(file.id, null);
+        continue;
+      }
+      fileLog = result.stdout;
     } catch {
       fileOwner.set(file.id, null);
       continue;

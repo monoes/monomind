@@ -63,7 +63,7 @@ export default defineConfig([
       '@monomind/memory',
       // WASM modules - loaded dynamically
       'gastown-formula-wasm',
-      'ruvector-gnn-wasm',
+      'monovector-gnn-wasm',
       // Node built-ins
       'child_process',
       'util',

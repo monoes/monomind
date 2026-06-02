@@ -48,7 +48,7 @@ npx monomind neural train --pattern prediction --curriculum --epochs 150
 | `--learning-rate` | `0.01` | Learning rate |
 | `--batch-size` | `32` | Batch size |
 | `--dim` | `256` | Embedding dimension (max 256) |
-| `--wasm` | `true` | Use RuVector WASM SIMD acceleration |
+| `--wasm` | `true` | Use MonoVector WASM SIMD acceleration |
 | `--flash` | `true` | Enable Flash Attention (2.49x-7.47x speedup) |
 | `--moe` | `false` | Enable Mixture of Experts routing (8 experts) |
 | `--hyperbolic` | `false` | Hyperbolic attention for hierarchical patterns |
