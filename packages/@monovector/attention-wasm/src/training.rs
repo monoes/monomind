@@ -1,5 +1,135 @@
-use ruvector_attention::training::{Adam, AdamW, InfoNCELoss, Loss, Optimizer, SGD};
 use wasm_bindgen::prelude::*;
+
+// ── Inline implementations (ruvector_attention crate is not in WASM build) ──
+
+struct InfoNCELoss {
+    temperature: f32,
+}
+
+impl InfoNCELoss {
+    fn new(temperature: f32) -> Self {
+        Self { temperature }
+    }
+
+    fn compute(&self, anchor: &[f32], positive: &[f32], negatives: &[&[f32]]) -> f32 {
+        let dot = |a: &[f32], b: &[f32]| -> f32 { a.iter().zip(b).map(|(x, y)| x * y).sum() };
+        let pos_sim = dot(anchor, positive) / self.temperature;
+        let neg_sims: Vec<f32> = negatives.iter().map(|n| dot(anchor, n) / self.temperature).collect();
+        let max_sim = neg_sims.iter().cloned().fold(pos_sim, f32::max);
+        let denom = (pos_sim - max_sim).exp()
+            + neg_sims.iter().map(|s| (s - max_sim).exp()).sum::<f32>();
+        -((pos_sim - max_sim).exp() / denom).ln()
+    }
+}
+
+struct Adam {
+    param_count: usize,
+    lr: f32,
+    beta1: f32,
+    beta2: f32,
+    eps: f32,
+    m: Vec<f32>,
+    v: Vec<f32>,
+    t: usize,
+}
+
+impl Adam {
+    fn new(param_count: usize, learning_rate: f32) -> Self {
+        Self {
+            param_count,
+            lr: learning_rate,
+            beta1: 0.9,
+            beta2: 0.999,
+            eps: 1e-8,
+            m: vec![0.0; param_count],
+            v: vec![0.0; param_count],
+            t: 0,
+        }
+    }
+
+    fn step(&mut self, params: &mut [f32], gradients: &[f32]) {
+        self.t += 1;
+        let bc1 = 1.0 - self.beta1.powi(self.t as i32);
+        let bc2 = 1.0 - self.beta2.powi(self.t as i32);
+        for i in 0..self.param_count.min(params.len()).min(gradients.len()) {
+            self.m[i] = self.beta1 * self.m[i] + (1.0 - self.beta1) * gradients[i];
+            self.v[i] = self.beta2 * self.v[i] + (1.0 - self.beta2) * gradients[i] * gradients[i];
+            let m_hat = self.m[i] / bc1;
+            let v_hat = self.v[i] / bc2;
+            params[i] -= self.lr * m_hat / (v_hat.sqrt() + self.eps);
+        }
+    }
+
+    fn reset(&mut self) {
+        self.m.fill(0.0);
+        self.v.fill(0.0);
+        self.t = 0;
+    }
+
+    fn learning_rate(&self) -> f32 { self.lr }
+    fn set_learning_rate(&mut self, lr: f32) { self.lr = lr; }
+}
+
+struct AdamW {
+    inner: Adam,
+    weight_decay: f32,
+}
+
+impl AdamW {
+    fn new(param_count: usize, learning_rate: f32) -> Self {
+        Self { inner: Adam::new(param_count, learning_rate), weight_decay: 0.01 }
+    }
+
+    fn with_weight_decay(mut self, wd: f32) -> Self {
+        self.weight_decay = wd;
+        self
+    }
+
+    fn step(&mut self, params: &mut [f32], gradients: &[f32]) {
+        // Apply weight decay before Adam update
+        let wd = self.weight_decay;
+        let lr = self.inner.lr;
+        for p in params.iter_mut() {
+            *p -= lr * wd * *p;
+        }
+        self.inner.step(params, gradients);
+    }
+
+    fn reset(&mut self) { self.inner.reset(); }
+    fn learning_rate(&self) -> f32 { self.inner.lr }
+    fn set_learning_rate(&mut self, lr: f32) { self.inner.set_learning_rate(lr); }
+}
+
+struct SGD {
+    param_count: usize,
+    lr: f32,
+    momentum: f32,
+    velocity: Vec<f32>,
+}
+
+impl SGD {
+    fn new(param_count: usize, learning_rate: f32) -> Self {
+        Self { param_count, lr: learning_rate, momentum: 0.0, velocity: vec![0.0; param_count] }
+    }
+
+    fn with_momentum(mut self, m: f32) -> Self {
+        self.momentum = m;
+        self
+    }
+
+    fn step(&mut self, params: &mut [f32], gradients: &[f32]) {
+        for i in 0..self.param_count.min(params.len()).min(gradients.len()) {
+            self.velocity[i] = self.momentum * self.velocity[i] + gradients[i];
+            params[i] -= self.lr * self.velocity[i];
+        }
+    }
+
+    fn reset(&mut self) { self.velocity.fill(0.0); }
+    fn learning_rate(&self) -> f32 { self.lr }
+    fn set_learning_rate(&mut self, lr: f32) { self.lr = lr; }
+}
+
+// ── WASM bindings ────────────────────────────────────────────────────────────
 
 /// InfoNCE contrastive loss for training
 #[wasm_bindgen]
@@ -10,9 +140,6 @@ pub struct WasmInfoNCELoss {
 #[wasm_bindgen]
 impl WasmInfoNCELoss {
     /// Create a new InfoNCE loss instance
-    ///
-    /// # Arguments
-    /// * `temperature` - Temperature parameter for softmax
     #[wasm_bindgen(constructor)]
     pub fn new(temperature: f32) -> WasmInfoNCELoss {
         Self {
@@ -21,11 +148,6 @@ impl WasmInfoNCELoss {
     }
 
     /// Compute InfoNCE loss
-    ///
-    /// # Arguments
-    /// * `anchor` - Anchor embedding
-    /// * `positive` - Positive example embedding
-    /// * `negatives` - Array of negative example embeddings
     pub fn compute(
         &self,
         anchor: &[f32],
@@ -51,11 +173,6 @@ pub struct WasmAdam {
 
 #[wasm_bindgen]
 impl WasmAdam {
-    /// Create a new Adam optimizer
-    ///
-    /// # Arguments
-    /// * `param_count` - Number of parameters
-    /// * `learning_rate` - Learning rate
     #[wasm_bindgen(constructor)]
     pub fn new(param_count: usize, learning_rate: f32) -> WasmAdam {
         Self {
@@ -63,27 +180,19 @@ impl WasmAdam {
         }
     }
 
-    /// Perform optimization step
-    ///
-    /// # Arguments
-    /// * `params` - Current parameter values (will be updated in-place)
-    /// * `gradients` - Gradient values
     pub fn step(&mut self, params: &mut [f32], gradients: &[f32]) {
         self.inner.step(params, gradients);
     }
 
-    /// Reset optimizer state
     pub fn reset(&mut self) {
         self.inner.reset();
     }
 
-    /// Get current learning rate
     #[wasm_bindgen(getter)]
     pub fn learning_rate(&self) -> f32 {
         self.inner.learning_rate()
     }
 
-    /// Set learning rate
     #[wasm_bindgen(setter)]
     pub fn set_learning_rate(&mut self, lr: f32) {
         self.inner.set_learning_rate(lr);
@@ -99,12 +208,6 @@ pub struct WasmAdamW {
 
 #[wasm_bindgen]
 impl WasmAdamW {
-    /// Create a new AdamW optimizer
-    ///
-    /// # Arguments
-    /// * `param_count` - Number of parameters
-    /// * `learning_rate` - Learning rate
-    /// * `weight_decay` - Weight decay coefficient
     #[wasm_bindgen(constructor)]
     pub fn new(param_count: usize, learning_rate: f32, weight_decay: f32) -> WasmAdamW {
         let optimizer = AdamW::new(param_count, learning_rate).with_weight_decay(weight_decay);
@@ -114,29 +217,24 @@ impl WasmAdamW {
         }
     }
 
-    /// Perform optimization step with weight decay
     pub fn step(&mut self, params: &mut [f32], gradients: &[f32]) {
         self.inner.step(params, gradients);
     }
 
-    /// Reset optimizer state
     pub fn reset(&mut self) {
         self.inner.reset();
     }
 
-    /// Get current learning rate
     #[wasm_bindgen(getter)]
     pub fn learning_rate(&self) -> f32 {
         self.inner.learning_rate()
     }
 
-    /// Set learning rate
     #[wasm_bindgen(setter)]
     pub fn set_learning_rate(&mut self, lr: f32) {
         self.inner.set_learning_rate(lr);
     }
 
-    /// Get weight decay
     #[wasm_bindgen(getter)]
     pub fn weight_decay(&self) -> f32 {
         self.wd
@@ -151,12 +249,6 @@ pub struct WasmSGD {
 
 #[wasm_bindgen]
 impl WasmSGD {
-    /// Create a new SGD optimizer
-    ///
-    /// # Arguments
-    /// * `param_count` - Number of parameters
-    /// * `learning_rate` - Learning rate
-    /// * `momentum` - Momentum coefficient (default: 0)
     #[wasm_bindgen(constructor)]
     pub fn new(param_count: usize, learning_rate: f32, momentum: Option<f32>) -> WasmSGD {
         let mut optimizer = SGD::new(param_count, learning_rate);
@@ -166,23 +258,19 @@ impl WasmSGD {
         Self { inner: optimizer }
     }
 
-    /// Perform optimization step
     pub fn step(&mut self, params: &mut [f32], gradients: &[f32]) {
         self.inner.step(params, gradients);
     }
 
-    /// Reset optimizer state
     pub fn reset(&mut self) {
         self.inner.reset();
     }
 
-    /// Get current learning rate
     #[wasm_bindgen(getter)]
     pub fn learning_rate(&self) -> f32 {
         self.inner.learning_rate()
     }
 
-    /// Set learning rate
     #[wasm_bindgen(setter)]
     pub fn set_learning_rate(&mut self, lr: f32) {
         self.inner.set_learning_rate(lr);
@@ -200,12 +288,6 @@ pub struct WasmLRScheduler {
 
 #[wasm_bindgen]
 impl WasmLRScheduler {
-    /// Create a new learning rate scheduler with warmup and cosine decay
-    ///
-    /// # Arguments
-    /// * `initial_lr` - Initial learning rate
-    /// * `warmup_steps` - Number of warmup steps
-    /// * `total_steps` - Total training steps
     #[wasm_bindgen(constructor)]
     pub fn new(initial_lr: f32, warmup_steps: usize, total_steps: usize) -> WasmLRScheduler {
         Self {
@@ -216,13 +298,10 @@ impl WasmLRScheduler {
         }
     }
 
-    /// Get learning rate for current step
     pub fn get_lr(&self) -> f32 {
         if self.current_step < self.warmup_steps {
-            // Linear warmup
             self.initial_lr * (self.current_step as f32 / self.warmup_steps as f32)
         } else {
-            // Cosine decay
             let progress = (self.current_step - self.warmup_steps) as f32
                 / (self.total_steps - self.warmup_steps) as f32;
             let cosine = 0.5 * (1.0 + (std::f32::consts::PI * progress).cos());
@@ -230,12 +309,10 @@ impl WasmLRScheduler {
         }
     }
 
-    /// Advance to next step
     pub fn step(&mut self) {
         self.current_step += 1;
     }
 
-    /// Reset scheduler
     pub fn reset(&mut self) {
         self.current_step = 0;
     }

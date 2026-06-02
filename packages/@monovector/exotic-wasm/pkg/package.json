@@ -1,0 +1,17 @@
+{
+  "name": "monovector-exotic-wasm",
+  "description": "Exotic AI mechanisms for emergent behavior - Neural Autonomous Orgs, Morphogenetic Networks, Time Crystals",
+  "version": "0.1.29",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nokhodian/monomind"
+  },
+  "files": [
+    "monovector_exotic_wasm_bg.wasm",
+    "monovector_exotic_wasm.js",
+    "monovector_exotic_wasm.d.ts"
+  ],
+  "main": "monovector_exotic_wasm.js",
+  "types": "monovector_exotic_wasm.d.ts"
+}

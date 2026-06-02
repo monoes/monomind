@@ -1,0 +1,32 @@
+/* tslint:disable */
+/* eslint-disable */
+export const memory: WebAssembly.Memory;
+export const init: () => void;
+export const __wbg_searchconfig_free: (a: number, b: number) => void;
+export const __wbg_get_searchconfig_k: (a: number) => number;
+export const __wbg_set_searchconfig_k: (a: number, b: number) => void;
+export const __wbg_get_searchconfig_temperature: (a: number) => number;
+export const __wbg_set_searchconfig_temperature: (a: number, b: number) => void;
+export const searchconfig_new: (a: number, b: number) => number;
+export const __wbg_jsruvectorlayer_free: (a: number, b: number) => void;
+export const jsruvectorlayer_new: (a: number, b: number, c: number, d: number) => [number, number, number];
+export const jsruvectorlayer_forward: (a: number, b: number, c: number, d: any, e: number, f: number) => [number, number, number, number];
+export const jsruvectorlayer_outputDim: (a: number) => number;
+export const __wbg_jstensorcompress_free: (a: number, b: number) => void;
+export const jstensorcompress_new: () => number;
+export const jstensorcompress_compress: (a: number, b: number, c: number, d: number) => [number, number, number];
+export const jstensorcompress_compressWithLevel: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
+export const jstensorcompress_decompress: (a: number, b: any) => [number, number, number, number];
+export const jstensorcompress_getCompressionRatio: (a: number, b: number) => number;
+export const differentiableSearch: (a: number, b: number, c: any, d: number) => [number, number, number];
+export const hierarchicalForward: (a: number, b: number, c: any, d: number, e: number) => [number, number, number, number];
+export const version: () => [number, number];
+export const cosineSimilarity: (a: number, b: number, c: number, d: number) => [number, number, number];
+export const __wbindgen_malloc: (a: number, b: number) => number;
+export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+export const __wbindgen_exn_store: (a: number) => void;
+export const __externref_table_alloc: () => number;
+export const __wbindgen_externrefs: WebAssembly.Table;
+export const __externref_table_dealloc: (a: number) => void;
+export const __wbindgen_free: (a: number, b: number, c: number) => void;
+export const __wbindgen_start: () => void;

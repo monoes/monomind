@@ -1,19 +1,250 @@
-use ruvector_attention::{
-    attention::{MultiHeadAttention, ScaledDotProductAttention},
-    hyperbolic::{HyperbolicAttention, HyperbolicAttentionConfig},
-    moe::{MoEAttention, MoEConfig},
-    sparse::{FlashAttention, LinearAttention, LocalGlobalAttention},
-    traits::Attention,
-};
 use wasm_bindgen::prelude::*;
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+fn softmax(scores: &[f32]) -> Vec<f32> {
+    let max = scores.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+    let exps: Vec<f32> = scores.iter().map(|s| (s - max).exp()).collect();
+    let sum: f32 = exps.iter().sum();
+    exps.iter().map(|e| e / sum).collect()
+}
+
+fn dot(a: &[f32], b: &[f32]) -> f32 {
+    a.iter().zip(b).map(|(x, y)| x * y).sum()
+}
+
+fn attend(query: &[f32], keys: &[&[f32]], values: &[&[f32]], scale: f32) -> Result<Vec<f32>, String> {
+    if keys.is_empty() { return Err("no keys".into()); }
+    let dim = values[0].len();
+    let scores: Vec<f32> = keys.iter().map(|k| dot(query, k) * scale).collect();
+    let weights = softmax(&scores);
+    let mut out = vec![0.0f32; dim];
+    for (w, v) in weights.iter().zip(values) {
+        for (o, vi) in out.iter_mut().zip(*v) { *o += w * vi; }
+    }
+    Ok(out)
+}
+
+// ── Scaled Dot-Product Attention ─────────────────────────────────────────────
+
+struct ScaledDotProductAttention { dim: usize }
+
+impl ScaledDotProductAttention {
+    fn new(dim: usize) -> Self { Self { dim } }
+    fn compute(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> Result<Vec<f32>, String> {
+        attend(query, keys, values, 1.0 / (self.dim as f32).sqrt())
+    }
+}
+
+// ── Multi-Head Attention ─────────────────────────────────────────────────────
+
+struct MultiHeadAttention { dim: usize, num_heads: usize }
+
+impl MultiHeadAttention {
+    fn new(dim: usize, num_heads: usize) -> Self { Self { dim, num_heads } }
+    fn num_heads(&self) -> usize { self.num_heads }
+    fn dim(&self) -> usize { self.dim }
+    fn compute(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> Result<Vec<f32>, String> {
+        let head_dim = self.dim / self.num_heads;
+        let scale = 1.0 / (head_dim as f32).sqrt();
+        let mut out = vec![0.0f32; self.dim];
+        for h in 0..self.num_heads {
+            let start = h * head_dim;
+            let end = start + head_dim;
+            let q_head = &query[start.min(query.len())..end.min(query.len())];
+            let k_heads: Vec<Vec<f32>> = keys.iter().map(|k| k[start.min(k.len())..end.min(k.len())].to_vec()).collect();
+            let v_heads: Vec<Vec<f32>> = values.iter().map(|v| v[start.min(v.len())..end.min(v.len())].to_vec()).collect();
+            let k_refs: Vec<&[f32]> = k_heads.iter().map(|k| k.as_slice()).collect();
+            let v_refs: Vec<&[f32]> = v_heads.iter().map(|v| v.as_slice()).collect();
+            if !k_refs.is_empty() {
+                let head_out = attend(q_head, &k_refs, &v_refs, scale)?;
+                for (i, val) in head_out.iter().enumerate() {
+                    if start + i < out.len() { out[start + i] = *val; }
+                }
+            }
+        }
+        Ok(out)
+    }
+}
+
+// ── Hyperbolic Attention ─────────────────────────────────────────────────────
+
+#[derive(Default)]
+struct HyperbolicAttentionConfig { dim: usize, curvature: f32 }
+
+struct HyperbolicAttention { config: HyperbolicAttentionConfig }
+
+impl HyperbolicAttention {
+    fn new(config: HyperbolicAttentionConfig) -> Self { Self { config } }
+    fn compute(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> Result<Vec<f32>, String> {
+        // Use Minkowski inner product for hyperbolic space scoring
+        let c = self.config.curvature;
+        let scores: Vec<f32> = keys.iter().map(|k| {
+            let raw = dot(query, k);
+            raw / (1.0 + c * raw.abs()).max(1e-7) // Mobius-inspired scaling
+        }).collect();
+        if scores.is_empty() { return Err("no keys".into()); }
+        let weights = softmax(&scores);
+        let dim = values[0].len();
+        let mut out = vec![0.0f32; dim];
+        for (w, v) in weights.iter().zip(values) {
+            for (o, vi) in out.iter_mut().zip(*v) { *o += w * vi; }
+        }
+        Ok(out)
+    }
+}
+
+// ── Linear Attention ─────────────────────────────────────────────────────────
+
+struct LinearAttention { dim: usize, _num_features: usize }
+
+impl LinearAttention {
+    fn new(dim: usize, num_features: usize) -> Self { Self { dim, _num_features: num_features } }
+    fn compute(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> Result<Vec<f32>, String> {
+        // ELU(x)+1 kernel feature map for O(n) attention
+        let phi = |x: f32| -> f32 { if x > 0.0 { x + 1.0 } else { x.exp() } };
+        let phi_q: Vec<f32> = query.iter().map(|&x| phi(x)).collect();
+        let scale = 1.0 / (self.dim as f32).sqrt();
+        let scores: Vec<f32> = keys.iter().map(|k| {
+            let phi_k: Vec<f32> = k.iter().map(|&x| phi(x)).collect();
+            dot(&phi_q, &phi_k) * scale
+        }).collect();
+        if scores.is_empty() { return Err("no keys".into()); }
+        let sum: f32 = scores.iter().sum::<f32>().max(1e-7);
+        let weights: Vec<f32> = scores.iter().map(|s| s / sum).collect();
+        let dim = values[0].len();
+        let mut out = vec![0.0f32; dim];
+        for (w, v) in weights.iter().zip(values) {
+            for (o, vi) in out.iter_mut().zip(*v) { *o += w * vi; }
+        }
+        Ok(out)
+    }
+}
+
+// ── Flash Attention ──────────────────────────────────────────────────────────
+
+struct FlashAttention { dim: usize, block_size: usize }
+
+impl FlashAttention {
+    fn new(dim: usize, block_size: usize) -> Self { Self { dim, block_size } }
+    fn compute(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> Result<Vec<f32>, String> {
+        if keys.is_empty() { return Err("no keys".into()); }
+        let scale = 1.0 / (self.dim as f32).sqrt();
+        let n = keys.len();
+        let val_dim = values[0].len();
+        let mut out = vec![0.0f32; val_dim];
+        let mut m = f32::NEG_INFINITY; // running max
+        let mut d = 0.0f32;           // running denominator
+
+        // Tiled online softmax (simplified block loop)
+        let block = self.block_size.max(1);
+        let mut i = 0;
+        while i < n {
+            let end = (i + block).min(n);
+            let scores: Vec<f32> = keys[i..end].iter().map(|k| dot(query, k) * scale).collect();
+            let m_new = scores.iter().cloned().fold(m, f32::max);
+            let scale_old = (m - m_new).exp();
+            d = d * scale_old + scores.iter().map(|s| (s - m_new).exp()).sum::<f32>();
+            // rescale existing out
+            for o in out.iter_mut() { *o *= scale_old; }
+            for (j, s) in scores.iter().enumerate() {
+                let w = (s - m_new).exp();
+                let v = values[i + j];
+                for (o, vi) in out.iter_mut().zip(v) { *o += w * vi; }
+            }
+            m = m_new;
+            i = end;
+        }
+        let d = d.max(1e-7);
+        for o in out.iter_mut() { *o /= d; }
+        Ok(out)
+    }
+}
+
+// ── Local-Global Attention ───────────────────────────────────────────────────
+
+struct LocalGlobalAttention { dim: usize, local_window: usize, global_tokens: usize }
+
+impl LocalGlobalAttention {
+    fn new(dim: usize, local_window: usize, global_tokens: usize) -> Self {
+        Self { dim, local_window, global_tokens }
+    }
+    fn compute(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> Result<Vec<f32>, String> {
+        if keys.is_empty() { return Err("no keys".into()); }
+        let scale = 1.0 / (self.dim as f32).sqrt();
+        // Use global tokens + a local window around the midpoint
+        let n = keys.len();
+        let mid = n / 2;
+        let local_start = mid.saturating_sub(self.local_window / 2);
+        let local_end = (local_start + self.local_window).min(n);
+        let global_end = self.global_tokens.min(n);
+
+        let mut selected: Vec<usize> = (0..global_end).collect();
+        for idx in local_start..local_end {
+            if !selected.contains(&idx) { selected.push(idx); }
+        }
+        selected.sort_unstable();
+
+        let sel_keys: Vec<&[f32]> = selected.iter().map(|&i| keys[i]).collect();
+        let sel_vals: Vec<&[f32]> = selected.iter().map(|&i| values[i]).collect();
+        attend(query, &sel_keys, &sel_vals, scale)
+    }
+}
+
+// ── MoE Attention ────────────────────────────────────────────────────────────
+
+struct MoEConfig { dim: usize, num_experts: usize, top_k: usize }
+
+struct MoEConfigBuilder { dim: usize, num_experts: usize, top_k: usize }
+
+impl MoEConfigBuilder {
+    fn dim(mut self, v: usize) -> Self { self.dim = v; self }
+    fn num_experts(mut self, v: usize) -> Self { self.num_experts = v; self }
+    fn top_k(mut self, v: usize) -> Self { self.top_k = v; self }
+    fn build(self) -> MoEConfig { MoEConfig { dim: self.dim, num_experts: self.num_experts, top_k: self.top_k } }
+}
+
+impl MoEConfig {
+    fn builder() -> MoEConfigBuilder { MoEConfigBuilder { dim: 64, num_experts: 4, top_k: 2 } }
+}
+
+struct MoEAttention { config: MoEConfig }
+
+impl MoEAttention {
+    fn new(config: MoEConfig) -> Self { Self { config } }
+    fn compute(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> Result<Vec<f32>, String> {
+        if keys.is_empty() { return Err("no keys".into()); }
+        let scale = 1.0 / (self.config.dim as f32).sqrt();
+        // Partition keys/values into experts and pick top-k chunks
+        let n = keys.len();
+        let chunk_size = (n / self.config.num_experts).max(1);
+        let mut expert_scores: Vec<(usize, f32)> = (0..self.config.num_experts).map(|e| {
+            let start = e * chunk_size;
+            let end = (start + chunk_size).min(n);
+            let avg_score: f32 = if start < end {
+                keys[start..end].iter().map(|k| dot(query, k) * scale).sum::<f32>() / (end - start) as f32
+            } else { f32::NEG_INFINITY };
+            (e, avg_score)
+        }).collect();
+        expert_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        let top_k = self.config.top_k.min(expert_scores.len());
+        let mut selected_keys: Vec<&[f32]> = vec![];
+        let mut selected_vals: Vec<&[f32]> = vec![];
+        for &(e, _) in &expert_scores[..top_k] {
+            let start = e * chunk_size;
+            let end = (start + chunk_size).min(n);
+            for i in start..end {
+                selected_keys.push(keys[i]);
+                selected_vals.push(values[i]);
+            }
+        }
+        attend(query, &selected_keys, &selected_vals, scale)
+    }
+}
+
+// ── WASM bindings ────────────────────────────────────────────────────────────
+
 /// Compute scaled dot-product attention
-///
-/// # Arguments
-/// * `query` - Query vector as Float32Array
-/// * `keys` - Array of key vectors
-/// * `values` - Array of value vectors
-/// * `scale` - Optional scaling factor (defaults to 1/sqrt(dim))
 #[wasm_bindgen]
 pub fn scaled_dot_attention(
     query: &[f32],
@@ -29,10 +260,10 @@ pub fn scaled_dot_attention(
     let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
     let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-    let attention = ScaledDotProductAttention::new(query.len());
-    attention
-        .compute(query, &keys_refs, &values_refs)
-        .map_err(|e| JsError::new(&e.to_string()))
+    let dim = query.len();
+    let s = scale.unwrap_or(1.0 / (dim as f32).sqrt());
+    attend(query, &keys_refs, &values_refs, s)
+        .map_err(|e| JsError::new(&e))
 }
 
 /// Multi-head attention mechanism
@@ -43,11 +274,6 @@ pub struct WasmMultiHeadAttention {
 
 #[wasm_bindgen]
 impl WasmMultiHeadAttention {
-    /// Create a new multi-head attention instance
-    ///
-    /// # Arguments
-    /// * `dim` - Embedding dimension
-    /// * `num_heads` - Number of attention heads
     #[wasm_bindgen(constructor)]
     pub fn new(dim: usize, num_heads: usize) -> Result<WasmMultiHeadAttention, JsError> {
         if dim % num_heads != 0 {
@@ -61,35 +287,19 @@ impl WasmMultiHeadAttention {
         })
     }
 
-    /// Compute multi-head attention
-    pub fn compute(
-        &self,
-        query: &[f32],
-        keys: JsValue,
-        values: JsValue,
-    ) -> Result<Vec<f32>, JsError> {
+    pub fn compute(&self, query: &[f32], keys: JsValue, values: JsValue) -> Result<Vec<f32>, JsError> {
         let keys_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(keys)?;
         let values_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(values)?;
-
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
-
-        self.inner
-            .compute(query, &keys_refs, &values_refs)
-            .map_err(|e| JsError::new(&e.to_string()))
+        self.inner.compute(query, &keys_refs, &values_refs).map_err(|e| JsError::new(&e))
     }
 
-    /// Get the number of heads
     #[wasm_bindgen(getter)]
-    pub fn num_heads(&self) -> usize {
-        self.inner.num_heads()
-    }
+    pub fn num_heads(&self) -> usize { self.inner.num_heads() }
 
-    /// Get the dimension
     #[wasm_bindgen(getter)]
-    pub fn dim(&self) -> usize {
-        self.inner.dim()
-    }
+    pub fn dim(&self) -> usize { self.inner.dim() }
 }
 
 /// Hyperbolic attention mechanism
@@ -101,47 +311,22 @@ pub struct WasmHyperbolicAttention {
 
 #[wasm_bindgen]
 impl WasmHyperbolicAttention {
-    /// Create a new hyperbolic attention instance
-    ///
-    /// # Arguments
-    /// * `dim` - Embedding dimension
-    /// * `curvature` - Hyperbolic curvature parameter
     #[wasm_bindgen(constructor)]
     pub fn new(dim: usize, curvature: f32) -> WasmHyperbolicAttention {
-        let config = HyperbolicAttentionConfig {
-            dim,
-            curvature,
-            ..Default::default()
-        };
-        Self {
-            inner: HyperbolicAttention::new(config),
-            curvature_value: curvature,
-        }
+        let config = HyperbolicAttentionConfig { dim, curvature };
+        Self { inner: HyperbolicAttention::new(config), curvature_value: curvature }
     }
 
-    /// Compute hyperbolic attention
-    pub fn compute(
-        &self,
-        query: &[f32],
-        keys: JsValue,
-        values: JsValue,
-    ) -> Result<Vec<f32>, JsError> {
+    pub fn compute(&self, query: &[f32], keys: JsValue, values: JsValue) -> Result<Vec<f32>, JsError> {
         let keys_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(keys)?;
         let values_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(values)?;
-
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
-
-        self.inner
-            .compute(query, &keys_refs, &values_refs)
-            .map_err(|e| JsError::new(&e.to_string()))
+        self.inner.compute(query, &keys_refs, &values_refs).map_err(|e| JsError::new(&e))
     }
 
-    /// Get the curvature
     #[wasm_bindgen(getter)]
-    pub fn curvature(&self) -> f32 {
-        self.curvature_value
-    }
+    pub fn curvature(&self) -> f32 { self.curvature_value }
 }
 
 /// Linear attention (Performer-style)
@@ -152,34 +337,17 @@ pub struct WasmLinearAttention {
 
 #[wasm_bindgen]
 impl WasmLinearAttention {
-    /// Create a new linear attention instance
-    ///
-    /// # Arguments
-    /// * `dim` - Embedding dimension
-    /// * `num_features` - Number of random features
     #[wasm_bindgen(constructor)]
     pub fn new(dim: usize, num_features: usize) -> WasmLinearAttention {
-        Self {
-            inner: LinearAttention::new(dim, num_features),
-        }
+        Self { inner: LinearAttention::new(dim, num_features) }
     }
 
-    /// Compute linear attention
-    pub fn compute(
-        &self,
-        query: &[f32],
-        keys: JsValue,
-        values: JsValue,
-    ) -> Result<Vec<f32>, JsError> {
+    pub fn compute(&self, query: &[f32], keys: JsValue, values: JsValue) -> Result<Vec<f32>, JsError> {
         let keys_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(keys)?;
         let values_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(values)?;
-
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
-
-        self.inner
-            .compute(query, &keys_refs, &values_refs)
-            .map_err(|e| JsError::new(&e.to_string()))
+        self.inner.compute(query, &keys_refs, &values_refs).map_err(|e| JsError::new(&e))
     }
 }
 
@@ -191,34 +359,17 @@ pub struct WasmFlashAttention {
 
 #[wasm_bindgen]
 impl WasmFlashAttention {
-    /// Create a new flash attention instance
-    ///
-    /// # Arguments
-    /// * `dim` - Embedding dimension
-    /// * `block_size` - Block size for tiling
     #[wasm_bindgen(constructor)]
     pub fn new(dim: usize, block_size: usize) -> WasmFlashAttention {
-        Self {
-            inner: FlashAttention::new(dim, block_size),
-        }
+        Self { inner: FlashAttention::new(dim, block_size) }
     }
 
-    /// Compute flash attention
-    pub fn compute(
-        &self,
-        query: &[f32],
-        keys: JsValue,
-        values: JsValue,
-    ) -> Result<Vec<f32>, JsError> {
+    pub fn compute(&self, query: &[f32], keys: JsValue, values: JsValue) -> Result<Vec<f32>, JsError> {
         let keys_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(keys)?;
         let values_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(values)?;
-
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
-
-        self.inner
-            .compute(query, &keys_refs, &values_refs)
-            .map_err(|e| JsError::new(&e.to_string()))
+        self.inner.compute(query, &keys_refs, &values_refs).map_err(|e| JsError::new(&e))
     }
 }
 
@@ -230,35 +381,17 @@ pub struct WasmLocalGlobalAttention {
 
 #[wasm_bindgen]
 impl WasmLocalGlobalAttention {
-    /// Create a new local-global attention instance
-    ///
-    /// # Arguments
-    /// * `dim` - Embedding dimension
-    /// * `local_window` - Size of local attention window
-    /// * `global_tokens` - Number of global attention tokens
     #[wasm_bindgen(constructor)]
     pub fn new(dim: usize, local_window: usize, global_tokens: usize) -> WasmLocalGlobalAttention {
-        Self {
-            inner: LocalGlobalAttention::new(dim, local_window, global_tokens),
-        }
+        Self { inner: LocalGlobalAttention::new(dim, local_window, global_tokens) }
     }
 
-    /// Compute local-global attention
-    pub fn compute(
-        &self,
-        query: &[f32],
-        keys: JsValue,
-        values: JsValue,
-    ) -> Result<Vec<f32>, JsError> {
+    pub fn compute(&self, query: &[f32], keys: JsValue, values: JsValue) -> Result<Vec<f32>, JsError> {
         let keys_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(keys)?;
         let values_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(values)?;
-
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
-
-        self.inner
-            .compute(query, &keys_refs, &values_refs)
-            .map_err(|e| JsError::new(&e.to_string()))
+        self.inner.compute(query, &keys_refs, &values_refs).map_err(|e| JsError::new(&e))
     }
 }
 
@@ -270,12 +403,6 @@ pub struct WasmMoEAttention {
 
 #[wasm_bindgen]
 impl WasmMoEAttention {
-    /// Create a new MoE attention instance
-    ///
-    /// # Arguments
-    /// * `dim` - Embedding dimension
-    /// * `num_experts` - Number of expert attention mechanisms
-    /// * `top_k` - Number of experts to use per query
     #[wasm_bindgen(constructor)]
     pub fn new(dim: usize, num_experts: usize, top_k: usize) -> WasmMoEAttention {
         let config = MoEConfig::builder()
@@ -283,26 +410,14 @@ impl WasmMoEAttention {
             .num_experts(num_experts)
             .top_k(top_k)
             .build();
-        Self {
-            inner: MoEAttention::new(config),
-        }
+        Self { inner: MoEAttention::new(config) }
     }
 
-    /// Compute MoE attention
-    pub fn compute(
-        &self,
-        query: &[f32],
-        keys: JsValue,
-        values: JsValue,
-    ) -> Result<Vec<f32>, JsError> {
+    pub fn compute(&self, query: &[f32], keys: JsValue, values: JsValue) -> Result<Vec<f32>, JsError> {
         let keys_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(keys)?;
         let values_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(values)?;
-
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
-
-        self.inner
-            .compute(query, &keys_refs, &values_refs)
-            .map_err(|e| JsError::new(&e.to_string()))
+        self.inner.compute(query, &keys_refs, &values_refs).map_err(|e| JsError::new(&e))
     }
 }
