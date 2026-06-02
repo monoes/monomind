@@ -11,6 +11,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import type { AttentionModule } from '../monovector/monoes-types.js';
 
 /**
  * Local validator for stored embeddings — rejects oversized JSON, NaN/Infinity
@@ -791,6 +792,32 @@ export function getQuantizationStats(embedding: number[] | Float32Array): {
 // FLASH ATTENTION-STYLE BATCH OPERATIONS (V8-Optimized)
 // ============================================================================
 
+// ── Native attention acceleration ────────────────────────────────────────────
+
+let _attentionMod: AttentionModule | null | undefined = undefined; // undefined = not tried yet
+
+async function loadAttention(): Promise<AttentionModule | null> {
+  if (_attentionMod !== undefined) return _attentionMod;
+  try {
+    const mod = await import('@monoes/attention');
+    if (typeof (mod as any).FlashAttention === 'function') {
+      _attentionMod = mod as unknown as AttentionModule;
+    } else {
+      _attentionMod = null;
+    }
+  } catch {
+    _attentionMod = null;
+  }
+  return _attentionMod;
+}
+
+/**
+ * Pre-warm the native attention module. Call once at startup for zero-latency first search.
+ */
+export async function warmAttention(): Promise<void> {
+  await loadAttention();
+}
+
 /**
  * Batch cosine similarity - compute query against multiple vectors
  * Optimized for V8 JIT with typed arrays
@@ -912,8 +939,9 @@ export function topKIndices(scores: Float32Array, k: number): number[] {
 
 /**
  * Flash Attention-style search
- * Combines batch similarity, softmax, and top-k in one pass
- * Returns indices and attention weights
+ * Combines batch similarity, softmax, and top-k in one pass.
+ * Uses native @monoes/attention (WASM) when already loaded; falls back to pure JS.
+ * Returns indices and attention weights.
  */
 export function flashAttentionSearch(
   query: Float32Array | number[],
@@ -926,25 +954,31 @@ export function flashAttentionSearch(
 ): { indices: number[]; scores: Float32Array; weights: Float32Array } {
   const { k = 10, temperature = 1.0, threshold = 0 } = options;
 
-  // Compute batch similarity
-  const scores = batchCosineSim(query, vectors);
+  // Use native @monoes/attention if already loaded synchronously
+  const attn = _attentionMod; // undefined = not loaded yet, null = unavailable
+  if (attn) {
+    try {
+      const q = query instanceof Float32Array ? query : new Float32Array(query);
+      const keys = vectors.map(v => v instanceof Float32Array ? v : new Float32Array(v));
+      const flash = new attn.FlashAttention(q.length, 64);
+      const rawScores = flash.computeRaw(q, keys);
+      flash.free();
 
-  // Get top-k indices
-  const indices = topKIndices(scores, k);
-
-  // Filter by threshold
-  const filtered = indices.filter(i => scores[i] >= threshold);
-
-  // Extract scores for filtered results
-  const topScores = new Float32Array(filtered.length);
-  for (let i = 0; i < filtered.length; i++) {
-    topScores[i] = scores[filtered[i]];
+      const indices = topKIndices(rawScores, k).filter(i => rawScores[i] >= threshold);
+      const topScores = new Float32Array(indices.map(i => rawScores[i]));
+      const weights = softmaxAttention(topScores, temperature);
+      return { indices, scores: topScores, weights };
+    } catch {
+      // Fall through to JS implementation on any WASM error
+    }
   }
 
-  // Compute attention weights (softmax over top-k)
+  // JS fallback path (always works)
+  const scores = batchCosineSim(query, vectors);
+  const indices = topKIndices(scores, k).filter(i => scores[i] >= threshold);
+  const topScores = new Float32Array(indices.map(i => scores[i]));
   const weights = softmaxAttention(topScores, temperature);
-
-  return { indices: filtered, scores: topScores, weights };
+  return { indices, scores: topScores, weights };
 }
 
 // ============================================================================
@@ -1211,6 +1245,9 @@ export async function initializeMemoryDatabase(options: {
   const swarmDir = path.join(process.cwd(), '.swarm');
   const dbPath = customPath || path.join(swarmDir, 'memory.db');
   const dbDir = path.dirname(dbPath);
+
+  // Warm native attention module in background — doesn't block startup
+  warmAttention().catch(() => {});
 
   try {
     // Create directory if needed
