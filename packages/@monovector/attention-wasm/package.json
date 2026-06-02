@@ -1,0 +1,11 @@
+{
+  "name": "@monovector/attention-wasm",
+  "version": "2.2.2",
+  "description": "MonoVector Attention WASM – re-exported from @ruvector/attention-wasm",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "dependencies": {
+    "@ruvector/attention-wasm": "^2.2.2"
+  }
+}
