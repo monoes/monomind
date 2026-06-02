@@ -1,0 +1,17 @@
+{
+  "name": "monovector-rvagent-wasm",
+  "description": "rvAgent WASM bindings — browser and Node.js agent execution",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nokhodian/monomind"
+  },
+  "files": [
+    "monovector_rvagent_wasm_bg.wasm",
+    "monovector_rvagent_wasm.js",
+    "monovector_rvagent_wasm.d.ts"
+  ],
+  "main": "monovector_rvagent_wasm.js",
+  "types": "monovector_rvagent_wasm.d.ts"
+}
