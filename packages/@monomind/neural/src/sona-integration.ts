@@ -18,6 +18,7 @@ import type {
   SONAMode,
   SONAModeConfig,
 } from './types.js';
+import type { SonaEngineAPI, SonaModule } from './sona-types.js';
 
 // =============================================================================
 // Inline type definitions (replaces static @monoes/sona import)
@@ -50,20 +51,19 @@ export interface JsLearnedPattern {
   [key: string]: unknown;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _sonaEngineClass: any = null;
+let _sonaEngineClass: SonaModule['SonaEngine'] | null = null;
 let _sonaLoadAttempted = false;
 
 // Lazy loader — called on first SONALearningEngine.initialize().
 // Avoids top-level await which breaks ESM circular-import loading order in Vitest.
-async function loadSonaEngine(): Promise<any> {
+async function loadSonaEngine(): Promise<SonaModule['SonaEngine'] | null> {
   if (_sonaLoadAttempted) return _sonaEngineClass;
   _sonaLoadAttempted = true;
   try {
     // @ts-ignore — optional peer dependency; not always installed
     const mod = await import('@monoes/sona');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    _sonaEngineClass = (mod as any).SonaEngine ?? (mod as any).default?.SonaEngine ?? null;
+    const m = mod as unknown as SonaModule;
+    _sonaEngineClass = m.SonaEngine ?? null;
   } catch {
     _sonaEngineClass = null;
   }
@@ -72,8 +72,7 @@ async function loadSonaEngine(): Promise<any> {
 
 // Kept for backward compat with code that checks `SonaEngine` at module scope.
 // Will be null until loadSonaEngine() is awaited.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let SonaEngine: any = null;
+let SonaEngine: SonaModule['SonaEngine'] | null = null;
 
 // =============================================================================
 // Types
@@ -193,8 +192,7 @@ function modeToConfig(mode: SONAMode, modeConfig: SONAModeConfig): Record<string
  * - Full learning cycle: <10ms
  */
 export class SONALearningEngine {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private engine: any;
+  private engine: SonaEngineAPI | null = null;
   private trajectoryMap: Map<string, number> = new Map();
   private adaptationTimeMs: number = 0;
   private learningTimeMs: number = 0;
@@ -233,6 +231,7 @@ export class SONALearningEngine {
     const startTime = performance.now();
 
     try {
+      if (!this.engine) throw new Error('Engine not initialized — call initialize() first');
       // Begin trajectory recording
       const queryEmbedding = this.trajectoryToQueryEmbedding(trajectory);
       const trajectoryId = this.engine.beginTrajectory(
@@ -241,13 +240,10 @@ export class SONALearningEngine {
 
       // Add trajectory steps
       for (const step of trajectory.steps) {
-        const activations = this.stateToActivations(step.stateBefore);
-        const attentionWeights = this.stateToAttentionWeights(step.stateAfter);
-
         this.engine.addTrajectoryStep(
           trajectoryId,
-          Array.from(activations),
-          Array.from(attentionWeights),
+          Array.from(step.stateBefore),
+          Array.from(step.stateAfter),
           step.reward
         );
       }
@@ -280,6 +276,7 @@ export class SONALearningEngine {
     const startTime = performance.now();
 
     try {
+      if (!this.engine) throw new Error('Engine not initialized — call initialize() first');
       // Apply micro-LoRA transformation
       const transformedQuery = this.engine.applyMicroLora(
         Array.from(context.queryEmbedding)
@@ -332,8 +329,8 @@ export class SONALearningEngine {
   resetLearning(): void {
     // Create a new engine with the same config (requires engine already initialized)
     const config = modeToConfig(this.mode, this.modeConfig);
-    if (SonaEngine) {
-      this.engine = SonaEngine.withConfig(config);
+    if (_sonaEngineClass) {
+      this.engine = _sonaEngineClass.withConfig(config);
     }
     this.trajectoryMap.clear();
     this.adaptationTimeMs = 0;
@@ -346,6 +343,7 @@ export class SONALearningEngine {
    * @returns Status message
    */
   forceLearning(): string {
+    if (!this.engine) throw new Error('Engine not initialized — call initialize() first');
     return this.engine.forceLearn();
   }
 
@@ -355,6 +353,7 @@ export class SONALearningEngine {
    * @returns Status message if learning occurred
    */
   tick(): string | null {
+    if (!this.engine) return null;
     return this.engine.tick();
   }
 
@@ -364,13 +363,21 @@ export class SONALearningEngine {
    * @returns SONA engine statistics
    */
   getStats(): SONAStats {
-    const statsJson = this.engine.getStats();
-    const stats = JSON.parse(statsJson);
+    if (!this.engine) {
+      return { totalTrajectories: 0, patternsLearned: 0, avgQuality: 0, lastLearningMs: 0, enabled: false };
+    }
+    let stats: Record<string, unknown> = {};
+    try {
+      const statsJson = this.engine.getStats();
+      stats = JSON.parse(statsJson);
+    } catch {
+      // WASM returned malformed JSON — return safe defaults
+    }
 
     return {
-      totalTrajectories: stats.total_trajectories || 0,
-      patternsLearned: stats.patterns_learned || 0,
-      avgQuality: stats.avg_quality || 0,
+      totalTrajectories: (stats.total_trajectories as number) || 0,
+      patternsLearned: (stats.patterns_learned as number) || 0,
+      avgQuality: (stats.avg_quality as number) || 0,
       lastLearningMs: this.learningTimeMs,
       enabled: this.engine.isEnabled(),
     };
@@ -382,6 +389,7 @@ export class SONALearningEngine {
    * @param enabled - Whether to enable the engine
    */
   setEnabled(enabled: boolean): void {
+    if (!this.engine) throw new Error('Engine not initialized — call initialize() first');
     this.engine.setEnabled(enabled);
   }
 
@@ -391,7 +399,7 @@ export class SONALearningEngine {
    * @returns Whether the engine is enabled
    */
   isEnabled(): boolean {
-    return this.engine.isEnabled();
+    return this.engine?.isEnabled() ?? false;
   }
 
   /**
@@ -402,7 +410,7 @@ export class SONALearningEngine {
    * @returns Learned patterns
    */
   findPatterns(queryEmbedding: Float32Array, k: number = 5): JsLearnedPattern[] {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    if (!this.engine) return [];
     return this.engine.findPatterns(Array.from(queryEmbedding), k);
   }
 
@@ -420,31 +428,6 @@ export class SONALearningEngine {
     }
     // Fallback to zero embedding
     return new Float32Array(768);
-  }
-
-  /**
-   * Convert state embedding to activations
-   */
-  private stateToActivations(state: Float32Array): Float32Array {
-    // For now, use state directly as activations
-    // In a real implementation, this would extract layer activations
-    return state;
-  }
-
-  /**
-   * Convert state embedding to attention weights
-   */
-  private stateToAttentionWeights(state: Float32Array): Float32Array {
-    // For now, use normalized state as attention weights
-    // In a real implementation, this would extract attention patterns
-    const sum = state.reduce((acc, val) => acc + Math.abs(val), 0);
-    if (sum === 0) return state;
-
-    const weights = new Float32Array(state.length);
-    for (let i = 0; i < state.length; i++) {
-      weights[i] = Math.abs(state[i]) / sum;
-    }
-    return weights;
   }
 
   /**
