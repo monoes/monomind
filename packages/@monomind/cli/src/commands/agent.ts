@@ -7,7 +7,6 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { select, confirm, input } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
-import { wasmSubcommands } from './agent-wasm.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -1013,7 +1012,7 @@ function formatLogLevel(level: string): string {
 export const agentCommand: Command = {
   name: 'agent',
   description: 'Agent management commands',
-  subcommands: [spawnCommand, listCommand, statusCommand, stopCommand, metricsCommand, poolCommand, healthCommand, logsCommand, ...wasmSubcommands],
+  subcommands: [spawnCommand, listCommand, statusCommand, stopCommand, metricsCommand, poolCommand, healthCommand, logsCommand],
   options: [],
   examples: [
     { command: 'monomind agent spawn -t coder', description: 'Spawn a coder agent' },
@@ -1037,10 +1036,6 @@ export const agentCommand: Command = {
       `${output.highlight('pool')}          - Manage agent pool`,
       `${output.highlight('health')}        - Show agent health`,
       `${output.highlight('logs')}          - Show agent logs`,
-      `${output.highlight('wasm-status')}   - Check WASM runtime availability`,
-      `${output.highlight('wasm-create')}   - Create a WASM-sandboxed agent`,
-      `${output.highlight('wasm-prompt')}   - Send a prompt to a WASM agent`,
-      `${output.highlight('wasm-gallery')}  - List WASM agent gallery templates`,
     ]);
     output.writeln();
     output.writeln('Run "monomind agent <subcommand> --help" for subcommand help');

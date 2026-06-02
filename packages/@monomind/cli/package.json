@@ -106,7 +106,6 @@
     "@monoes/attention": "^0.1.4",
     "@monoes/learning-wasm": "workspace:*",
     "@monoes/router": "^0.1.27",
-    "@monoes/rvagent-wasm": "workspace:*",
     "@monoes/sona": "workspace:*",
     "@anthropic-ai/sdk": "*"
   },
