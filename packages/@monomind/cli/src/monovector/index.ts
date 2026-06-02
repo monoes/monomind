@@ -13,6 +13,8 @@
  * @module @monomind/cli/monovector
  */
 
+export { getCapabilities, getCachedCapabilities, resetCapabilitiesCache, type MonoesCapabilities } from './capabilities.js';
+
 export {
   DiffClassifier,
   createDiffClassifier,
