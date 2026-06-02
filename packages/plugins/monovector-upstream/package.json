@@ -1,0 +1,113 @@
+{
+  "name": "@monomind/monovector-upstream",
+  "version": "1.0.0",
+  "description": "MonoVector WASM package bridges for Monomind plugins",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./hnsw": {
+      "import": "./dist/bridges/hnsw.js",
+      "types": "./dist/bridges/hnsw.d.ts"
+    },
+    "./attention": {
+      "import": "./dist/bridges/attention.js",
+      "types": "./dist/bridges/attention.d.ts"
+    },
+    "./gnn": {
+      "import": "./dist/bridges/gnn.js",
+      "types": "./dist/bridges/gnn.d.ts"
+    },
+    "./hyperbolic": {
+      "import": "./dist/bridges/hyperbolic.js",
+      "types": "./dist/bridges/hyperbolic.d.ts"
+    },
+    "./learning": {
+      "import": "./dist/bridges/learning.js",
+      "types": "./dist/bridges/learning.d.ts"
+    },
+    "./exotic": {
+      "import": "./dist/bridges/exotic.js",
+      "types": "./dist/bridges/exotic.d.ts"
+    },
+    "./cognitive": {
+      "import": "./dist/bridges/cognitive.js",
+      "types": "./dist/bridges/cognitive.d.ts"
+    },
+    "./sona": {
+      "import": "./dist/bridges/sona.js",
+      "types": "./dist/bridges/sona.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "monomind",
+    "monovector",
+    "wasm",
+    "vector-search",
+    "neural",
+    "graph",
+    "quantum"
+  ],
+  "author": "Monomind Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nokhodian/monomind.git",
+    "directory": "packages/plugins/monovector-upstream"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.0",
+    "vitest": "^4.1.4"
+  },
+  "peerDependencies": {
+    "@monovector/attention-wasm": "workspace:*",
+    "@monovector/gnn-wasm": "workspace:*",
+    "@monovector/learning-wasm": "workspace:*",
+    "@monovector/exotic-wasm": "workspace:*",
+    "@monovector/sona": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@monovector/attention-wasm": {
+      "optional": true
+    },
+    "@monovector/gnn-wasm": {
+      "optional": true
+    },
+    "@monovector/learning-wasm": {
+      "optional": true
+    },
+    "@monovector/exotic-wasm": {
+      "optional": true
+    },
+    "@monovector/sona": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  }
+}

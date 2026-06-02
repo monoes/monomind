@@ -51,13 +51,13 @@
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
     },
-    "./ruvector": {
-      "types": "./dist/src/ruvector/index.d.ts",
-      "import": "./dist/src/ruvector/index.js"
+    "./monovector": {
+      "types": "./dist/src/monovector/index.d.ts",
+      "import": "./dist/src/monovector/index.js"
     },
-    "./ruvector/*": {
-      "types": "./dist/src/ruvector/*.d.ts",
-      "import": "./dist/src/ruvector/*.js"
+    "./monovector/*": {
+      "types": "./dist/src/monovector/*.d.ts",
+      "import": "./dist/src/monovector/*.js"
     },
     "./mcp-tools": {
       "types": "./dist/src/mcp-tools/index.d.ts",
@@ -100,15 +100,15 @@
   },
   "optionalDependencies": {
     "sql.js": "^1.14.1",
-    "@monomind/memory": "workspace:*",
+    "@monoes/memory": "workspace:*",
     "@monomind/plugin-gastown-bridge": "^0.1.3",
     "agentic-flow": "^3.0.0-alpha.1",
-    "@ruvector/attention": "^0.1.4",
-    "@ruvector/learning-wasm": "^0.1.29",
-    "@ruvector/router": "^0.1.27",
-    "@ruvector/rvagent-wasm": "^0.1.0",
-    "@ruvector/ruvllm-wasm": "^2.0.2",
-    "@ruvector/sona": "^0.1.5",
+    "@monovector/attention": "^0.1.4",
+    "@monovector/learning-wasm": "workspace:*",
+    "@monovector/router": "^0.1.27",
+    "@monovector/rvagent-wasm": "workspace:*",
+    "@monovector/ruvllm-wasm": "workspace:*",
+    "@monovector/sona": "workspace:*",
     "@anthropic-ai/sdk": "*"
   },
   "publishConfig": {
