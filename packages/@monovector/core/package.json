@@ -1,0 +1,11 @@
+{
+  "name": "@monovector/core",
+  "version": "0.1.31",
+  "description": "MonoVector Core – re-exported from @ruvector/core",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "dependencies": {
+    "@ruvector/core": "^0.1.31"
+  }
+}

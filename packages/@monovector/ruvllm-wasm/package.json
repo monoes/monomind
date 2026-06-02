@@ -1,0 +1,11 @@
+{
+  "name": "@monovector/ruvllm-wasm",
+  "version": "2.0.2",
+  "description": "MonoVector LLM WASM – re-exported from @ruvector/ruvllm-wasm",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "dependencies": {
+    "@ruvector/ruvllm-wasm": "^2.0.2"
+  }
+}

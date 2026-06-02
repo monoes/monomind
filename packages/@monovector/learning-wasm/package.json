@@ -1,0 +1,11 @@
+{
+  "name": "@monovector/learning-wasm",
+  "version": "0.1.29",
+  "description": "MonoVector Learning WASM – re-exported from @ruvector/learning-wasm",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "dependencies": {
+    "@ruvector/learning-wasm": "^0.1.29"
+  }
+}

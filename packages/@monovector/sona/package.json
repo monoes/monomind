@@ -1,0 +1,11 @@
+{
+  "name": "@monovector/sona",
+  "version": "0.1.6",
+  "description": "MonoVector SONA – re-exported from @ruvector/sona",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "dependencies": {
+    "@ruvector/sona": "^0.1.6"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@monovector/gnn-wasm",
+  "version": "0.1.0",
+  "description": "MonoVector GNN WASM – re-exported from @ruvector/gnn-wasm",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "dependencies": {
+    "@ruvector/gnn-wasm": "^0.1.0"
+  }
+}

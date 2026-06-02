@@ -1,0 +1,11 @@
+{
+  "name": "@monovector/router",
+  "version": "0.1.30",
+  "description": "MonoVector Router – re-exported from @ruvector/router",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "dependencies": {
+    "@ruvector/router": "^0.1.30"
+  }
+}

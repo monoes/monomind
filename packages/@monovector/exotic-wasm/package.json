@@ -1,0 +1,11 @@
+{
+  "name": "@monovector/exotic-wasm",
+  "version": "0.1.29",
+  "description": "MonoVector Exotic WASM – re-exported from @ruvector/exotic-wasm",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "dependencies": {
+    "@ruvector/exotic-wasm": "^0.1.29"
+  }
+}
