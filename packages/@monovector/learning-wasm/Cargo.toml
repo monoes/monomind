@@ -1,13 +1,12 @@
 [package]
-name = "ruvector-learning-wasm"
-version = "0.1.0"
+name = "monovector-learning-wasm"
+version = "0.1.29"
 edition = "2021"
 description = "Ultra-fast MicroLoRA adaptation for WASM - rank-2 LoRA with <100us latency for per-operator learning"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/ruvnet/ruvector"
-homepage = "https://ruv.io"
-documentation = "https://docs.rs/ruvector-learning-wasm"
-authors = ["rUv <ruvnet@users.noreply.github.com>"]
+license = "MIT"
+repository = "https://github.com/nokhodian/monomind"
+homepage = "https://github.com/nokhodian/monomind"
+documentation = "https://docs.rs/monovector-learning-wasm"
 keywords = ["lora", "machine-learning", "wasm", "neural-network", "adaptation"]
 categories = ["algorithms", "wasm", "science", "no-std"]
 rust-version = "1.70"
