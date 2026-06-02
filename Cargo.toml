@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+members = [
+  "packages/@monovector/learning-wasm",
+  "packages/@monovector/exotic-wasm",
+  "packages/@monovector/attention-wasm",
+  "packages/@monovector/gnn-wasm",
+  "packages/@monovector/ruvllm-wasm",
+  "packages/@monovector/rvagent-wasm",
+  "packages/@monovector/rvagent-core",
+]
