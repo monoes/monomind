@@ -1,5 +1,5 @@
 {
-  "name": "monovector-rvagent-wasm",
+  "name": "@monovector/rvagent-wasm",
   "description": "rvAgent WASM bindings — browser and Node.js agent execution",
   "version": "0.1.0",
   "license": "MIT",
