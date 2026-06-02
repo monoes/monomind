@@ -1,5 +1,5 @@
 {
-  "name": "monovector-gnn-wasm",
+  "name": "@monovector/gnn-wasm",
   "description": "WebAssembly bindings for RuVector GNN with tensor compression and differentiable search",
   "version": "0.1.0",
   "license": "MIT",
