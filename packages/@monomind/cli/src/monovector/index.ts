@@ -40,7 +40,7 @@ export {
 } from './diff-classifier.js';
 
 // Stub types for removed modules (q-learning-router, moe-router, etc. removed by minimal cleanup)
-export interface QLearningRouter {
+export interface KeywordRouter {
   route: (task: string, context?: unknown) => Promise<RouteDecision>;
   initialize?: () => Promise<void>;
   getStats?: () => Record<string, unknown>;
@@ -49,15 +49,24 @@ export interface QLearningRouter {
   export?: () => unknown;
   import?: (data: unknown) => void;
 }
+
+/** @deprecated Use KeywordRouter instead */
+export type QLearningRouter = KeywordRouter;
+
 export interface RouteDecision { agentType: string; confidence: number; reasoning?: string; route?: string; qValues?: number[]; explored?: boolean; alternatives?: string[]; }
-export interface QLearningRouterConfig { learningRate?: number; discountFactor?: number; }
+
+export interface KeywordRouterConfig { learningRate?: number; discountFactor?: number; }
+
+/** @deprecated Use KeywordRouterConfig instead */
+export type QLearningRouterConfig = KeywordRouterConfig;
+
 export interface MoERouter { route: (input: string) => Promise<RoutingResult>; }
 export interface RoutingResult { expert: string; confidence: number; }
 export interface MoERouterConfig { numExperts?: number; }
 export interface LoadBalanceStats { [expert: string]: number; }
 export type ExpertType = string;
 
-export function createQLearningRouter(_config?: QLearningRouterConfig): QLearningRouter {
+export function createKeywordRouter(_config?: KeywordRouterConfig): KeywordRouter {
   const agentTypes = ['coder', 'tester', 'reviewer', 'architect', 'researcher', 'optimizer', 'debugger', 'documenter'];
   return {
     async route(task: string): Promise<RouteDecision> {
@@ -81,6 +90,9 @@ export function createQLearningRouter(_config?: QLearningRouterConfig): QLearnin
   };
 }
 
+/** @deprecated Use createKeywordRouter — this function does keyword matching, not Q-learning */
+export const createQLearningRouter = createKeywordRouter;
+
 /**
  * Check if monovector packages are available
  */
@@ -96,14 +108,19 @@ export async function isMonovectorAvailable(): Promise<boolean> {
 
 /**
  * Check if @monoes/learning-wasm is available and loadable
+ * Result is cached after first check
  */
+let _wasmBackendAvailable: boolean | null = null;
+
 export async function isWasmBackendAvailable(): Promise<boolean> {
+  if (_wasmBackendAvailable !== null) return _wasmBackendAvailable;
   try {
     const wasm = await import('@monoes/learning-wasm');
-    return typeof wasm.WasmMicroLoRA === 'function' && typeof wasm.initSync === 'function';
+    _wasmBackendAvailable = typeof wasm.WasmMicroLoRA === 'function';
   } catch {
-    return false;
+    _wasmBackendAvailable = false;
   }
+  return _wasmBackendAvailable;
 }
 
 /**
