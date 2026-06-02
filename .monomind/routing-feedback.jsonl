@@ -552,3 +552,10 @@
 {"timestamp":"2026-05-31T17:03:12.873Z","suggestedAgent":"reviewer","confidence":1,"sessionId":"a094f0b1-25d3-4f49-a9d6-39bbe99fb3de","intelligenceFeedback":true}
 {"timestamp":"2026-05-31T20:57:34.888Z","suggestedAgent":"researcher","confidence":0.8,"sessionId":"2b479586-0770-4487-8265-be1a4cf86cac","intelligenceFeedback":true}
 {"timestamp":"2026-06-01T07:29:46.797Z","suggestedAgent":"command","confidence":1,"sessionId":"9d53fe4e-0ed9-409c-bf63-c39dc372324c","intelligenceFeedback":true}
+{"timestamp":"2026-06-01T10:53:12.487Z","suggestedAgent":"AI selecting","confidence":0.6,"sessionId":"e05266fd-0cf2-4d2e-b46d-a3639702b731","intelligenceFeedback":true}
+{"timestamp":"2026-06-01T12:08:05.497Z","suggestedAgent":"AI selecting","confidence":0.6,"sessionId":"0faf89fd-4d1f-4ee7-a708-658224b847e8","intelligenceFeedback":true}
+{"timestamp":"2026-06-01T12:25:29.517Z","suggestedAgent":"AI selecting","confidence":0.6,"sessionId":"fdce627c-8e50-4892-a3ca-38f7e57c7f03","intelligenceFeedback":true}
+{"timestamp":"2026-06-01T12:26:52.059Z","suggestedAgent":"AI selecting","confidence":0.6,"sessionId":"8be9709b-527f-4d3a-8170-620ecd7bb5d5","intelligenceFeedback":true}
+{"timestamp":"2026-06-01T16:07:05.954Z","suggestedAgent":"AI selecting","confidence":0.6,"sessionId":"0f7d10b3-0970-4a14-af96-38b1c676c7e8","intelligenceFeedback":true}
+{"timestamp":"2026-06-01T20:23:04.370Z","suggestedAgent":"AI selecting","confidence":0.6,"sessionId":"d3f0cd10-554c-4a80-9fab-d01e3ac4c341","intelligenceFeedback":true}
+{"timestamp":"2026-06-02T09:12:33.784Z","suggestedAgent":"AI selecting","confidence":0.6,"sessionId":"3e8b300e-7686-434e-8b28-b178f3f6660b","intelligenceFeedback":true}

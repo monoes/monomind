@@ -36,6 +36,16 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
   const app = express();
   app.use(express.json());
 
+  // DNS rebinding protection: reject requests with a Host header that isn't localhost
+  app.use((req, res, next) => {
+    const host = (req.headers['host'] ?? '').split(':')[0].toLowerCase();
+    if (host !== 'localhost' && host !== '127.0.0.1' && host !== '::1' && host !== '') {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+    next();
+  });
+
   // Mount API routes
   setupApiRoutes(app, db);
 
@@ -54,7 +64,7 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
 
   return new Promise((resolve, reject) => {
     server.on('error', reject);
-    server.listen(port, () => {
+    server.listen(port, '127.0.0.1', () => {
       const addr = server.address();
       const actualPort = typeof addr === 'object' && addr ? addr.port : port;
       const url = `http://localhost:${actualPort}`;

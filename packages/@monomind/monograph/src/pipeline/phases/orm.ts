@@ -153,11 +153,13 @@ function detectTypeOrmEntities(
     entityNodes.push(entityNode);
 
     const fields: FieldDef[] = [];
+    // Use a per-call local regex to avoid shared lastIndex state on the module-level global
+    const colDecRe = new RegExp(TYPEORM_COLUMN_DECORATOR_RE.source, 'g');
     const lines = source.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (TYPEORM_COLUMN_DECORATOR_RE.test(line)) {
-        TYPEORM_COLUMN_DECORATOR_RE.lastIndex = 0; // reset after test
+      if (colDecRe.test(line)) {
+        colDecRe.lastIndex = 0; // reset after test
         // Look at the next non-empty line for the property declaration
         for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
           const propLine = lines[j].trim();
@@ -169,7 +171,7 @@ function detectTypeOrmEntities(
           break;
         }
       }
-      TYPEORM_COLUMN_DECORATOR_RE.lastIndex = 0; // always reset
+      colDecRe.lastIndex = 0; // always reset
     }
 
     entities.push({ name: entityName, filePath, fields, entityNodeId });
@@ -401,9 +403,15 @@ function detectSQLAlchemyEntities(
     entityNodes.push(entityNode);
 
     const fields: FieldDef[] = [];
+    // Scope column scan to this class's body — slice from the match end to the next
+    // unindented `class ` keyword or end-of-string to avoid assigning columns from
+    // other classes to this entity.
+    const classBodyStart = m.index + m[0].length;
+    const nextClassIdx = source.indexOf('\nclass ', classBodyStart);
+    const classBody = nextClassIdx >= 0 ? source.slice(classBodyStart, nextClassIdx) : source.slice(classBodyStart);
     const columnRe = new RegExp(SQLALCHEMY_COLUMN_RE.source, 'g');
     let cm: RegExpExecArray | null;
-    while ((cm = columnRe.exec(source)) !== null) {
+    while ((cm = columnRe.exec(classBody)) !== null) {
       const fieldName = cm[1];
       addField(entityName, fieldName, 'Column', filePath, language, entityNodeId, fields, fieldNodes, edges);
     }

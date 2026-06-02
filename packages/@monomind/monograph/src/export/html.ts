@@ -389,15 +389,21 @@ function resetHighlight() {
   edgesDS.update(ALL_EDGES.map(e => ({ id: e.id, opacity: 0.6 })));
 }
 
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 function showInfoCard(nodeId) {
   const node = ALL_NODES.find(n => n.id === nodeId);
   if (!node) return;
   const neighbors = network.getConnectedNodes(nodeId);
   document.getElementById('ic-type').textContent = node._nodeType || '';
   document.getElementById('ic-name').textContent = node.label;
+  const fp = node._filePath ? escHtml(node._filePath) : '';
+  const fpShort = node._filePath ? escHtml(node._filePath.split('/').pop()) : '';
   document.getElementById('ic-meta').innerHTML =
-    (node._filePath ? '<span style="color:#00E5C8">' + node._filePath.split('/').pop() + '</span><br>' +
-      '<span style="color:#475569;font-size:9px">' + node._filePath + '</span><br>' : '') +
+    (fp ? '<span style="color:#00E5C8">' + fpShort + '</span><br>' +
+      '<span style="color:#475569;font-size:9px">' + fp + '</span><br>' : '') +
     '<b style="color:#7B61FF">' + neighbors.length + '</b> connections';
   document.getElementById('ic-badge').textContent = node._deg + ' degree';
   document.getElementById('infocard').style.display = 'block';
@@ -523,13 +529,17 @@ function lighten(hex: string): string {
   return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
 }
 
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function buildTooltip(n: MonographNode, deg: number): string {
   const props = n.properties as Record<string, unknown> | undefined;
   return [
     `<div style="font-family:monospace;font-size:11px;background:#0d0d1a;color:#e2e8f0;padding:8px 10px;border-radius:4px;border:1px solid rgba(255,255,255,0.1);max-width:260px;">`,
-    `<b style="color:#7B61FF">${n.name}</b>`,
-    `<br><span style="color:#64748b">${n.label}</span>`,
-    n.filePath ? `<br><span style="color:#00E5C8;font-size:10px">${n.filePath}</span>` : '',
+    `<b style="color:#7B61FF">${esc(n.name)}</b>`,
+    `<br><span style="color:#64748b">${esc(n.label)}</span>`,
+    n.filePath ? `<br><span style="color:#00E5C8;font-size:10px">${esc(n.filePath)}</span>` : '',
     `<br><span style="color:#94a3b8">degree: ${deg}</span>`,
     props?.importance ? `<br><span style="color:#f59e0b">${'★'.repeat(props.importance as number)}${'☆'.repeat(5 - (props.importance as number))}</span>` : '',
     `</div>`,

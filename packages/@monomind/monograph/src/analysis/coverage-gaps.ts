@@ -102,9 +102,12 @@ export function computeCoverageGaps(db: MonographDb): CoverageGapsResult {
     }
   }
 
-  // Compute in-degree from runtime files for untested files
+  // Compute in-degree from runtime files only (not test files) so fan-in reflects
+  // real dependency weight, not test coverage depth.
+  const runtimeFileIdSet = new Set(runtimeFiles.map(rf => rf.id));
   const inDegreeMap = new Map<string, number>();
   for (const edge of allImportEdges) {
+    if (!runtimeFileIdSet.has(edge.source_id)) continue;
     const current = inDegreeMap.get(edge.target_id) ?? 0;
     inDegreeMap.set(edge.target_id, current + 1);
   }

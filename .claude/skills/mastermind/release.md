@@ -118,7 +118,7 @@ Spawn Task agents in release order (hierarchical raft — coordinator maintains 
 - Infrastructure and deploy: subagent_type "DevOps Automator"
 - CI/CD pipeline: subagent_type "cicd-engineer"
 
-Also run /monomind:do --board <board_id> to track execution.
+Also run /mastermind:do --board <board_id> to track execution.
 
 STEP 4 — COLLECT AND RETURN
 Collect all stage outcomes. Return to caller:

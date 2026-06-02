@@ -1,22 +1,22 @@
 /**
- * RuVector LLM WASM MCP Tools
+ * MonoVector LLM WASM MCP Tools
  *
- * Exposes @ruvector/ruvllm-wasm operations via MCP protocol.
+ * Exposes @monoes/ruvllm-wasm operations via MCP protocol.
  * All tools gracefully degrade when the WASM package is not installed.
  */
 
 import type { MCPTool } from './types.js';
-import type { ChatMessage } from '../ruvector/ruvllm-wasm.js';
+import type { ChatMessage } from '../monovector/ruvllm-wasm.js';
 
 async function loadRuvllmWasm() {
-  return import('../ruvector/ruvllm-wasm.js');
+  return import('../monovector/ruvllm-wasm.js');
 }
 
 // ── Instance Registries ──────────────────────────────────────
 
-const hnswRouters = new Map<string, Awaited<ReturnType<typeof import('../ruvector/ruvllm-wasm.js').createHnswRouter>>>();
-const sonaInstances = new Map<string, Awaited<ReturnType<typeof import('../ruvector/ruvllm-wasm.js').createSonaInstant>>>();
-const loraInstances = new Map<string, Awaited<ReturnType<typeof import('../ruvector/ruvllm-wasm.js').createMicroLora>>>();
+const hnswRouters = new Map<string, Awaited<ReturnType<typeof import('../monovector/ruvllm-wasm.js').createHnswRouter>>>();
+const sonaInstances = new Map<string, Awaited<ReturnType<typeof import('../monovector/ruvllm-wasm.js').createSonaInstant>>>();
+const loraInstances = new Map<string, Awaited<ReturnType<typeof import('../monovector/ruvllm-wasm.js').createMicroLora>>>();
 
 // ── Map eviction (prevents WASM object leaks in long-running MCP servers) ────
 

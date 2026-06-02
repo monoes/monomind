@@ -62,8 +62,8 @@ const commandLoaders: Record<string, CommandLoader> = {
   issues: () => import('./issues.js'),
   // Auto-update System (ADR-025)
   update: () => import('./update.js'),
-  // RuVector PostgreSQL Bridge
-  ruvector: () => import('./ruvector/index.js'),
+  // MonoVector PostgreSQL Bridge
+  monovector: () => import('./monovector/index.js'),
   // Benchmark Suite (Pre-training, Neural, Memory)
   benchmark: () => import('./benchmark.js'),
   // Guidance Control Plane
@@ -137,7 +137,7 @@ import { embeddingsCommand } from './embeddings.js';
 import { neuralCommand } from './neural.js';
 import { performanceCommand } from './performance.js';
 import { securityCommand } from './security.js';
-import { ruvectorCommand } from './ruvector/index.js';
+import { monovectorCommand } from './monovector/index.js';
 import { hiveMindCommand } from './hive-mind.js';
 // Additional commands for categorized help display
 import { configCommand } from './config.js';
@@ -182,7 +182,7 @@ loadedCommands.set('embeddings', embeddingsCommand);
 loadedCommands.set('neural', neuralCommand);
 loadedCommands.set('performance', performanceCommand);
 loadedCommands.set('security', securityCommand);
-loadedCommands.set('ruvector', ruvectorCommand);
+loadedCommands.set('monovector', monovectorCommand);
 loadedCommands.set('hive-mind', hiveMindCommand);
 loadedCommands.set('guidance', guidanceCommand);
 loadedCommands.set('cleanup', cleanupCommand);
@@ -215,7 +215,7 @@ export { embeddingsCommand } from './embeddings.js';
 export { neuralCommand } from './neural.js';
 export { performanceCommand } from './performance.js';
 export { securityCommand } from './security.js';
-export { ruvectorCommand } from './ruvector/index.js';
+export { monovectorCommand } from './monovector/index.js';
 export { hiveMindCommand } from './hive-mind.js';
 export { guidanceCommand } from './guidance.js';
 export { applianceCommand } from './appliance.js';
@@ -245,7 +245,7 @@ export async function getAnalyzeCommand() { return loadCommand('analyze'); }
 export async function getRouteCommand() { return loadCommand('route'); }
 export async function getProgressCommand() { return loadCommand('progress'); }
 export async function getIssuesCommand() { return loadCommand('issues'); }
-export async function getRuvectorCommand() { return loadCommand('ruvector'); }
+export async function getMonovectorCommand() { return loadCommand('monovector'); }
 export async function getGuidanceCommand() { return loadCommand('guidance'); }
 export async function getApplianceCommand() { return loadCommand('appliance'); }
 export async function getCleanupCommand() { return loadCommand('cleanup'); }
@@ -274,7 +274,7 @@ export const commands: Command[] = [
   neuralCommand,
   performanceCommand,
   securityCommand,
-  ruvectorCommand,
+  monovectorCommand,
   hiveMindCommand,
   guidanceCommand,
   cleanupCommand,
@@ -305,7 +305,7 @@ export const commandsByCategory = {
     performanceCommand,
     embeddingsCommand,
     hiveMindCommand,
-    ruvectorCommand,
+    monovectorCommand,
     guidanceCommand,
     autopilotCommand,
     benchmarkCommand,

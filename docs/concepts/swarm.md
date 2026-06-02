@@ -162,7 +162,7 @@ monomind swarm stop
 ## Slash Commands
 
 ```
-/monomind:swarm       — full swarm reference
+/mastermind:swarm       — full swarm reference
 /swarm:development    — hierarchical swarm for feature dev
 /swarm:research       — mesh swarm for research
 /swarm:testing        — star swarm for parallel testing

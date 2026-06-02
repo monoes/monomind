@@ -29,7 +29,7 @@ OpenHands captures every agent action as an event in an append-only stream, enab
 
 OpenHands demonstrated that production AI agents require hard isolation boundaries between agents — not just logical separation but runtime-level sandboxing. This influenced Monomind's security model to treat every agent as a potentially hostile process that must be contained.
 
-The session replay model also proved essential for the learning system: without capturing every step as a structured event, the RuVector intelligence pipeline could not retroactively judge and distill lessons from past executions.
+The session replay model also proved essential for the learning system: without capturing every step as a structured event, the MonoVector intelligence pipeline could not retroactively judge and distill lessons from past executions.
 
 ## Key Files Influenced
 

@@ -152,9 +152,9 @@ export class BalancedMode extends BaseModeImplementation {
       }
     }
 
-    // Apply EWC regularization
-    const ewcPenalty = this.computeEWCPenalty(ewcState, config.ewcLambda);
-    totalGradientNorm += ewcPenalty;
+    // EWC regularization is applied directly to B matrices in SONAManager.updateLoRAFromTrajectories.
+    // computeEWCPenalty in this class used a mismatched key format ('positive'/'negative'
+    // vs the 'domain:module' format in ewcState.fisher), making it always return 0 — dead code.
 
     // Compute improvement delta
     const avgGoodQuality = goodTrajectories.reduce((s, t) => s + t.qualityScore, 0) / goodTrajectories.length;
@@ -276,24 +276,4 @@ export class BalancedMode extends BaseModeImplementation {
     return Math.sqrt(norm);
   }
 
-  /**
-   * Compute EWC penalty for continual learning
-   */
-  private computeEWCPenalty(ewcState: EWCState, lambda: number): number {
-    let penalty = 0;
-
-    for (const [key, fisher] of ewcState.fisher) {
-      const means = ewcState.means.get(key);
-      const current = this.gradientAccumulator.get(key);
-
-      if (means && current) {
-        for (let i = 0; i < Math.min(fisher.length, means.length, current.length); i++) {
-          const diff = current[i] - means[i];
-          penalty += fisher[i] * diff * diff;
-        }
-      }
-    }
-
-    return lambda * penalty * 0.5;
-  }
 }

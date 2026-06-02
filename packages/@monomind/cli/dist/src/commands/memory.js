@@ -286,7 +286,7 @@ const searchCommand = {
                     output.writeln(output.dim(`  Search speedup: ${status.entryCount > 10000 ? '12,500x' : status.entryCount > 1000 ? '150x' : '10x'}`));
                 }
                 else {
-                    output.printWarning('HNSW index not available (install @ruvector/core for acceleration)');
+                    output.printWarning('HNSW index not available (install @monoes/core for acceleration)');
                 }
                 output.writeln();
             }

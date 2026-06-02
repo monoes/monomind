@@ -69,7 +69,7 @@ let moeRouter = null;
 async function getMoERouter() {
     if (!moeRouter) {
         try {
-            const { getMoERouter: getMoE } = await import('../ruvector/moe-router.js');
+            const { getMoERouter: getMoE } = await import('../monovector/moe-router.js');
             moeRouter = await getMoE();
         }
         catch {
@@ -125,7 +125,10 @@ function generateSimpleEmbedding(text, dimension = 384) {
 }
 // ── Runtime routing outcome persistence ──────────────────────────────
 // Closes the learning loop: post-task records outcomes → route loads them.
-const ROUTING_OUTCOMES_PATH = join(resolve('.'), '.monomind/routing-outcomes.json');
+// Evaluated lazily via getter so it uses runtime CWD, not import-time CWD
+function getRoutingOutcomesPath() {
+    return join(getProjectCwd(), '.monomind', 'routing-outcomes.json');
+}
 const ROUTING_STOPWORDS = new Set([
     'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
     'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'shall', 'can',
@@ -146,8 +149,8 @@ function extractKeywords(text) {
 }
 function loadRoutingOutcomes() {
     try {
-        if (existsSync(ROUTING_OUTCOMES_PATH)) {
-            const data = JSON.parse(readFileSync(ROUTING_OUTCOMES_PATH, 'utf-8'));
+        if (existsSync(getRoutingOutcomesPath())) {
+            const data = JSON.parse(readFileSync(getRoutingOutcomesPath(), 'utf-8'));
             return data.outcomes || [];
         }
     }
@@ -156,14 +159,14 @@ function loadRoutingOutcomes() {
 }
 function saveRoutingOutcomes(outcomes) {
     try {
-        const dir = dirname(ROUTING_OUTCOMES_PATH);
+        const dir = dirname(getRoutingOutcomesPath());
         if (!existsSync(dir))
             mkdirSync(dir, { recursive: true });
         // Cap at 500 entries to bound file size
         const capped = outcomes.slice(-500);
-        const tmp = ROUTING_OUTCOMES_PATH + '.tmp';
+        const tmp = getRoutingOutcomesPath() + '.tmp';
         writeFileSync(tmp, JSON.stringify({ outcomes: capped }, null, 2));
-        renameSync(tmp, ROUTING_OUTCOMES_PATH);
+        renameSync(tmp, getRoutingOutcomesPath());
     }
     catch { /* non-critical */ }
 }
@@ -266,14 +269,14 @@ async function getSemanticRouter() {
         return { router: semanticRouter, backend: routerBackend, native: nativeVectorDb };
     }
     semanticRouterInitialized = true;
-    // STEP 1: Try native VectorDb from @ruvector/router (HNSW-backed)
+    // STEP 1: Try native VectorDb from @monoes/router (HNSW-backed)
     // Note: Native VectorDb uses a persistent database file which can have lock issues
     // in concurrent environments. We try it first but fall back gracefully to pure JS.
     try {
         // Use createRequire for ESM compatibility with native modules
         const { createRequire } = await import('module');
         const require = createRequire(import.meta.url);
-        const router = require('@ruvector/router');
+        const router = require('@monoes/router');
         if (router.VectorDb && router.DistanceMetric) {
             // Try to create VectorDb - may fail with lock error in concurrent envs
             const db = new router.VectorDb({
@@ -305,7 +308,7 @@ async function getSemanticRouter() {
     }
     // STEP 2: Fall back to pure JS SemanticRouter
     try {
-        const { SemanticRouter } = await import('../ruvector/semantic-router.js');
+        const { SemanticRouter } = await import('../monovector/semantic-router.js');
         semanticRouter = new SemanticRouter({ dimension: 384 });
         for (const [patternName, { keywords, agents }] of Object.entries(getMergedTaskPatterns())) {
             const embeddings = keywords.map(kw => generateSimpleEmbedding(kw));
@@ -343,7 +346,7 @@ let flashAttention = null;
 async function getFlashAttention() {
     if (!flashAttention) {
         try {
-            const { getFlashAttention: getFlash } = await import('../ruvector/flash-attention.js');
+            const { getFlashAttention: getFlash } = await import('../monovector/flash-attention.js');
             flashAttention = await getFlash();
         }
         catch {
@@ -533,6 +536,50 @@ function suggestAgentsForTask(task) {
 // Canonical set of valid monomind agent type strings.
 // Patterns whose type is not in this set (e.g. 'action', 'observation', 'routing')
 // are structural labels, not agent names, and must be excluded from routing.
+// Singleton neural router — initialized once per process and reused across route calls.
+// Creating + destroying NeuralLearningSystem on every call would read learned-state.json
+// on each invocation and call consolidateEWC() on cleanup, both of which are wrong.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _neuralRouterInstance = null;
+let _neuralRouterInitPromise = null;
+async function applyNeuralAdaptation(text, dimensions) {
+    if (!_neuralRouterInitPromise) {
+        _neuralRouterInitPromise = (async () => {
+            try {
+                const neural = await import('@monomind/neural').catch(() => null);
+                if (neural?.createNeuralLearningSystem) {
+                    const sys = neural.createNeuralLearningSystem('balanced');
+                    await sys.initialize();
+                    _neuralRouterInstance = sys;
+                }
+            }
+            catch {
+                _neuralRouterInstance = null;
+            }
+        })();
+    }
+    await _neuralRouterInitPromise;
+    if (!_neuralRouterInstance)
+        return null;
+    try {
+        const base = new Float32Array(dimensions);
+        // Use a hash embedding as the base for the LoRA transform
+        const words = text.toLowerCase().split(/\s+/);
+        for (let i = 0; i < dimensions; i++) {
+            let v = 0;
+            for (let w = 0; w < words.length; w++) {
+                for (let c = 0; c < words[w].length; c++) {
+                    v += Math.sin((words[w].charCodeAt(c) * (i + 1) + w * 17) * 0.0137);
+                }
+            }
+            base[i] = v;
+        }
+        return await _neuralRouterInstance.getSONAManager().applyAdaptations(base);
+    }
+    catch {
+        return null;
+    }
+}
 const VALID_AGENT_TYPES = new Set([
     'coder', 'reviewer', 'tester', 'planner', 'researcher',
     'architect', 'security-architect', 'security-auditor',
@@ -840,7 +887,16 @@ export const hooksRoute = {
         let routingLatencyMs = 0;
         let backendInfo = '';
         const queryText = context ? `${task} ${context}` : task;
-        const queryEmbedding = generateSimpleEmbedding(queryText);
+        // Apply LoRA adaptations from the neural system when available.
+        // The adapted embedding reflects what was learned in prior sessions
+        // (loaded from learned-state.json during _neuralRouterInstance.initialize()).
+        let queryEmbedding = generateSimpleEmbedding(queryText);
+        try {
+            const adapted = await applyNeuralAdaptation(queryText, 768);
+            if (adapted)
+                queryEmbedding = adapted.slice(0, 384);
+        }
+        catch { /* fall through to hash embedding */ }
         // Try native VectorDb (HNSW-backed)
         if (native && backend === 'native') {
             const routeStart = performance.now();
@@ -1086,7 +1142,7 @@ export const hooksPreTask = {
         // Enhanced model routing with Agent Booster AST (ADR-026)
         let modelRouting;
         try {
-            const { getEnhancedModelRouter } = await import('../ruvector/enhanced-model-router.js');
+            const { getEnhancedModelRouter } = await import('../monovector/enhanced-model-router.js');
             const router = getEnhancedModelRouter();
             const routeResult = await router.route(description, { filePath });
             if (routeResult.tier === 1) {
@@ -1374,7 +1430,7 @@ export const hooksExplain = {
         let historicalSuccess = null;
         let historicalNote = 'No historical data yet';
         try {
-            const outcomesPath = join(resolve('.'), '.monomind/routing-outcomes.json');
+            const outcomesPath = getRoutingOutcomesPath();
             if (existsSync(outcomesPath)) {
                 const data = JSON.parse(readFileSync(outcomesPath, 'utf-8'));
                 const outcomes = data.outcomes || [];
@@ -1790,7 +1846,11 @@ export const hooksSessionEnd = {
     handler: async (params) => {
         const saveState = params.saveState !== false;
         const shouldStopDaemon = params.stopDaemon !== false;
-        const sessionId = `session-${Date.now() - 3600000}`; // Default session (1 hour ago)
+        // Use caller-supplied sessionId if provided, otherwise generate a current-time ID.
+        // The -3600000 offset was incorrect — it prevented matching session-start IDs.
+        const sessionId = typeof params.sessionId === 'string' && params.sessionId
+            ? params.sessionId
+            : `session-${Date.now()}`;
         // Stop daemon if enabled
         let daemonStopped = false;
         if (shouldStopDaemon) {
@@ -1813,7 +1873,7 @@ export const hooksSessionEnd = {
         // Check for pending-insights.jsonl
         let insightCount = 0;
         try {
-            const insightsPath = resolve(join('.monomind', 'data', 'pending-insights.jsonl'));
+            const insightsPath = join(getProjectCwd(), '.monomind', 'data', 'pending-insights.jsonl');
             if (existsSync(insightsPath)) {
                 const content = readFileSync(insightsPath, 'utf-8').trim();
                 insightCount = content ? content.split('\n').length : 0;
@@ -1966,10 +2026,10 @@ export const hooksInit = {
         };
     },
 };
-// Intelligence hook - RuVector intelligence system
+// Intelligence hook - MonoVector intelligence system
 export const hooksIntelligence = {
     name: 'hooks_intelligence',
-    description: 'RuVector intelligence system status (shows REAL metrics from memory store)',
+    description: 'MonoVector intelligence system status (shows REAL metrics from memory store)',
     inputSchema: {
         type: 'object',
         properties: {
@@ -2522,7 +2582,7 @@ export const hooksPatternSearch = {
 // Intelligence stats hook
 export const hooksIntelligenceStats = {
     name: 'hooks_intelligence_stats',
-    description: 'Get RuVector intelligence layer statistics',
+    description: 'Get MonoVector intelligence layer statistics',
     inputSchema: {
         type: 'object',
         properties: {
@@ -2860,7 +2920,7 @@ export const hooksIntelligenceAttention = {
                 speedup: implementation.startsWith('real-') ? (mode === 'flash' ? '2.49x-7.47x' : '1.5x-3x') : null,
                 memoryReduction: implementation.startsWith('real-') ? (mode === 'flash' ? '50-75%' : '25-40%') : null,
                 _stub: implementation === 'none',
-                _note: implementation === 'none' ? 'No attention backend available. Install @ruvector/attention for real computation.' : undefined,
+                _note: implementation === 'none' ? 'No attention backend available. Install @monoes/attention for real computation.' : undefined,
             },
             implementation,
         };
@@ -3313,7 +3373,7 @@ let modelRouterInstance = null;
 async function getModelRouterInstance() {
     if (!modelRouterInstance) {
         try {
-            const { getModelRouter } = await import('../ruvector/model-router.js');
+            const { getModelRouter } = await import('../monovector/model-router.js');
             modelRouterInstance = getModelRouter();
         }
         catch {

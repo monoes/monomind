@@ -1,1 +1,30 @@
-[]
+[
+  {
+    "id": "agentdb:entry_1780342936060_571586ac07b73a0d",
+    "key": "bridge-test",
+    "namespace": "default",
+    "content": "Testing cross-store bridge. This should appear in MEMORY.md at session end.",
+    "type": "semantic",
+    "tags": [],
+    "metadata": {},
+    "createdAt": 1780342936060,
+    "updatedAt": 1780342936060,
+    "lastAccessedAt": 1780342938897,
+    "accessCount": 1,
+    "status": "active"
+  },
+  {
+    "id": "agentdb:entry_1780390268893_0f070819327166e9",
+    "key": "x-store-test",
+    "namespace": "probe",
+    "content": "cross store bridge verification entry",
+    "type": "semantic",
+    "tags": [],
+    "metadata": {},
+    "createdAt": 1780390268894,
+    "updatedAt": 1780390268894,
+    "lastAccessedAt": 1780390269325,
+    "accessCount": 1,
+    "status": "active"
+  }
+]

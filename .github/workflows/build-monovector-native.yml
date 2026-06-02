@@ -3,8 +3,8 @@ name: Build MonoVector Native Packages
 on:
   push:
     paths:
-      - 'packages/@monovector/**-rs/**'
-      - 'packages/@monovector/**-lib/**'
+      - 'packages/@monoes/**-rs/**'
+      - 'packages/@monoes/**-lib/**'
       - '.github/workflows/build-monovector-native.yml'
   workflow_dispatch:
 
@@ -55,31 +55,31 @@ jobs:
 
       - name: Build sona
         run: |
-          cd packages/@monovector/sona
+          cd packages/@monoes/sona
           napi build --platform --release --features napi --target ${{ matrix.target }} \
             --manifest-path ../sona-rs/Cargo.toml --output-dir .
 
       - name: Build router
         run: |
-          cd packages/@monovector/router
+          cd packages/@monoes/router
           napi build --platform --release --target ${{ matrix.target }} \
             --manifest-path ../router-rs/Cargo.toml --output-dir .
 
       - name: Build attention
         run: |
-          cd packages/@monovector/attention
+          cd packages/@monoes/attention
           napi build --platform --release --target ${{ matrix.target }} \
             --manifest-path ../attention-rs/Cargo.toml --output-dir .
 
       - name: Build gnn
         run: |
-          cd packages/@monovector/gnn
+          cd packages/@monoes/gnn
           napi build --platform --release --target ${{ matrix.target }} \
             --manifest-path ../gnn-rs/Cargo.toml --output-dir .
 
       - name: Build rvf
         run: |
-          cd packages/@monovector/rvf
+          cd packages/@monoes/rvf
           napi build --platform --release --target ${{ matrix.target }} \
             --manifest-path ../rvf-rs/Cargo.toml --output-dir .
 
@@ -88,8 +88,8 @@ jobs:
         with:
           name: monovector-native-${{ matrix.suffix }}
           path: |
-            packages/@monovector/sona/*.node
-            packages/@monovector/router/*.node
-            packages/@monovector/attention/*.node
-            packages/@monovector/gnn/*.node
-            packages/@monovector/rvf/*.node
+            packages/@monoes/sona/*.node
+            packages/@monoes/router/*.node
+            packages/@monoes/attention/*.node
+            packages/@monoes/gnn/*.node
+            packages/@monoes/rvf/*.node

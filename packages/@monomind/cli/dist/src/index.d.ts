@@ -50,7 +50,7 @@ export declare class CLI {
     /**
      * Initialize optional subsystems at startup (non-blocking, all failures are silent).
      * Wires TierManager, ObservabilityBus + TraceCollector, and SwarmCheckpointer
-     * so that packages/@monoes/* actually contribute to the live runtime.
+     * so that packages/@monomind/* actually contribute to the live runtime.
      */
     private initSubsystems;
     /**

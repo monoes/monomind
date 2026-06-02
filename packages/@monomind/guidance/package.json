@@ -141,8 +141,7 @@
   },
   "dependencies": {
     "@monomind/hooks": "workspace:*",
-    "@monomind/memory": "workspace:*",
-    "@monomind/shared": "workspace:*"
+    "@monoes/memory": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

@@ -5,7 +5,7 @@
  * All monograph_* tools are backed by @monoes/monograph package.
  */
 
-import { join } from 'path';
+import { join, resolve, sep } from 'path';
 import type { MCPTool } from './types.js';
 import { getProjectCwd } from './types.js';
 
@@ -112,6 +112,9 @@ const monographHealthTool: MCPTool = {
       const meta = db.prepare("SELECT value FROM index_meta WHERE key = 'lastCommit'").get() as { value: string } | undefined;
       const lastCommit = meta?.value ?? null;
       if (!lastCommit) return text('Index has never been built. Run monograph_build first.');
+      if (!/^[0-9a-f]{7,40}$/i.test(lastCommit)) {
+        return text('Index metadata is corrupt: invalid commit SHA. Run monograph_build to re-index.');
+      }
 
       let commitsBehind = 0;
       try {
@@ -220,11 +223,11 @@ const monographShortestPathTool: MCPTool = {
 
 const monographCommunityTool: MCPTool = {
   name: 'monograph_community',
-  description: 'Get all nodes belonging to a community (by numeric ID or label fragment).',
+  description: 'Get all nodes belonging to a community (by numeric community ID).',
   inputSchema: {
     type: 'object',
     properties: {
-      id: { type: 'string', description: 'Community ID (number) or label fragment' },
+      id: { type: 'string', description: 'Community ID (number)' },
     },
     required: ['id'],
   },
@@ -291,6 +294,9 @@ const monographSuggestTool: MCPTool = {
       if (task && process.env['MONOGRAPH_EMBEDDINGS'] === 'true') {
         const hits = await hybridQuery(db, task, { limit: 20 });
         const hitIds = new Set(hits.map(h => h.id));
+        if (hitIds.size === 0) {
+          return text('No suggestions for this task. Run monograph_build first or try a different query.');
+        }
         const rows = db.prepare(`
           SELECT e.relation, e.confidence, n1.name as src, n2.name as tgt, n1.file_path as src_file
           FROM edges e
@@ -432,7 +438,11 @@ const monographReportTool: MCPTool = {
         ...topNodes.map((n: any, i: number) => `${i + 1}. **${n.name}** (${n.label}) — degree ${n.degree}  \`${n.file_path ?? ''}\``),
       ].join('\n');
 
-      const outPath = (input.path as string | undefined) ?? join(getProjectCwd(), '.monomind', 'GRAPH_REPORT.md');
+      const outPath = resolve((input.path as string | undefined) ?? join(getProjectCwd(), '.monomind', 'GRAPH_REPORT.md'));
+      const allowedRoot = resolve(getProjectCwd());
+      if (outPath !== allowedRoot && !outPath.startsWith(allowedRoot + sep)) {
+        return text(`Error: path must be within the project directory (${allowedRoot})`);
+      }
       mkdirSync(join(outPath, '..'), { recursive: true });
       writeFileSync(outPath, report);
       return text(`Report written to ${outPath}`);
@@ -496,7 +506,12 @@ const monographExportTool: MCPTool = {
       const nodes = db.prepare('SELECT * FROM nodes').all() as any[];
       const edges = db.prepare('SELECT * FROM edges').all() as any[];
       const fmt = input.format as string;
-      const outDir = (input.outputPath as string | undefined) ?? join(getProjectCwd(), '.monomind', 'export');
+      const requestedOut = (input.outputPath as string | undefined) ?? join(getProjectCwd(), '.monomind', 'export');
+      const outDir = resolve(requestedOut);
+      const allowedRoot = resolve(getProjectCwd());
+      if (outDir !== allowedRoot && !outDir.startsWith(allowedRoot + sep)) {
+        return text(`Error: outputPath must be within the project directory (${allowedRoot})`);
+      }
       mkdirSync(outDir, { recursive: true });
 
       if (fmt === 'json') {
@@ -996,7 +1011,17 @@ const monographSkillGenTool: MCPTool = {
   handler: async (input) => {
     const { generateSkillFiles } = await import('@monoes/monograph');
     const repoPath = getProjectCwd();
-    const result = await generateSkillFiles(repoPath, input.outputDir as string | undefined);
+    const allowedRoot = resolve(repoPath);
+    if (input.outputDir) {
+      const outDir = resolve(input.outputDir as string);
+      if (outDir !== allowedRoot && !outDir.startsWith(allowedRoot + sep)) {
+        return text(`Error: outputDir must be within the project directory (${allowedRoot})`);
+      }
+    }
+    const result = await generateSkillFiles(
+      repoPath,
+      input.outputDir ? resolve(input.outputDir as string) : undefined,
+    );
     const dir = result.filesWritten.length > 0
       ? result.filesWritten[0].replace(/\/[^/]+$/, '/')
       : join(repoPath, '.monomind', 'skills') + '/';
@@ -1026,7 +1051,12 @@ const monographInstallSkillsTool: MCPTool = {
   handler: async (input) => {
     const { openDb, closeDb } = await import('@monoes/monograph');
     const { installSkillsForPlatform } = await import('@monoes/monograph');
-    const repoPath = (input.repoPath as string | undefined) ?? getProjectCwd();
+    const rawRepoPath = (input.repoPath as string | undefined) ?? getProjectCwd();
+    const repoPath = resolve(rawRepoPath);
+    const allowedRoot = resolve(getProjectCwd());
+    if (repoPath !== allowedRoot && !repoPath.startsWith(allowedRoot + sep)) {
+      return text(`Error: repoPath must be within the project directory (${allowedRoot})`);
+    }
     const platform = input.platform as string;
 
     const validPlatforms = ['claude', 'cursor', 'vscode', 'zed'];

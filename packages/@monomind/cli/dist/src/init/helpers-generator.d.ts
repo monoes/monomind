@@ -38,7 +38,7 @@ export declare function generateIntelligenceStub(): string;
 /**
  * Generate a minimal auto-memory-hook.mjs fallback for fresh installs.
  * This ESM script handles import/sync/status commands gracefully when
- * @monoes/memory is not installed. Gets overwritten when source copy succeeds.
+ * @monomind/memory is not installed. Gets overwritten when source copy succeeds.
  */
 export declare function generateAutoMemoryHook(): string;
 /**

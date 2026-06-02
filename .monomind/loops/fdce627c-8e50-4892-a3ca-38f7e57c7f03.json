@@ -1,0 +1,15 @@
+{
+  "id": "fdce627c-8e50-4892-a3ca-38f7e57c7f03",
+  "sessionId": "fdce627c-8e50-4892-a3ca-38f7e57c7f03",
+  "type": "do",
+  "status": "waiting",
+  "prompt": "/mastermind:review --tillend --maxruns 50 --wait 60 --rep 2 --loop mastermind-review-1780311558665 deeper review making sure default is always file until --monotask flag is presented",
+  "reason": "tillend run 2 — verify --space/--board auto-promote fix, confirm all monotask CLI correctly guarded",
+  "startedAt": 1780307945388,
+  "lastRunAt": 1780311704561,
+  "nextRunAt": 1780311764561,
+  "currentRep": 2,
+  "maxReps": 0,
+  "interval": 1,
+  "source": "schedule_wakeup_hook"
+}

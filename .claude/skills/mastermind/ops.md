@@ -118,7 +118,7 @@ Spawn one Task agent per workstream (star topology — hub aggregates independen
 - Infrastructure automation: subagent_type "DevOps Automator"
 - CI/CD pipelines: subagent_type "cicd-engineer"
 
-Also run /monomind:do --board <board_id> to track execution.
+Also run /mastermind:do --board <board_id> to track execution.
 
 STEP 4 — COLLECT AND RETURN
 Collect all agent outputs. Return to caller:

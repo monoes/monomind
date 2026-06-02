@@ -1,7 +1,7 @@
 {
-  "lastRun": "2026-06-01T08:05:39.051Z",
+  "lastRun": "2026-06-02T07:42:54.809Z",
   "mode": "incremental",
-  "file": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/neural/src/sona-manager.ts",
+  "file": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/monograph/src/staleness/git-staleness.ts",
   "pluginFound": true,
   "graphFound": true
 }

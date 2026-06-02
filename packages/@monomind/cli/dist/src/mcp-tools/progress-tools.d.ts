@@ -3,7 +3,7 @@
  *
  * Provides MCP tools for checking and syncing V1 implementation progress.
  *
- * @module @monoes/cli/mcp-tools/progress
+ * @module @monomind/cli/mcp-tools/progress
  */
 import type { MCPTool } from './types.js';
 /**

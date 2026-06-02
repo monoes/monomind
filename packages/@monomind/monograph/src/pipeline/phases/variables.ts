@@ -11,13 +11,31 @@ export interface VariableInfo {
 // We detect nesting depth by counting braces before the match.
 const TOP_LEVEL_VAR = /^(export\s+)?(const|let|var)\s+(\w+)\s*[=:]/gm;
 
+/**
+ * Strip string literals, template literals, and comments from source text before
+ * brace-depth counting, so braces inside those constructs don't skew the depth.
+ */
+function stripNonCodeBraces(src: string): string {
+  // Replace content inside single/double-quoted strings and block comments with
+  // equal-length spaces (preserving offsets/line numbers), then strip line comments.
+  return src
+    .replace(/`[^`\\]*(?:\\[\s\S][^`\\]*)*`/g, m => ' '.repeat(m.length))
+    .replace(/"(?:[^"\\]|\\.)*"/g, m => ' '.repeat(m.length))
+    .replace(/'(?:[^'\\]|\\.)*'/g, m => ' '.repeat(m.length))
+    .replace(/\/\*[\s\S]*?\*\//g, m => ' '.repeat(m.length))
+    .replace(/\/\/[^\n]*/g, m => ' '.repeat(m.length));
+}
+
 export function extractVariables(source: string, filePath: string): VariableInfo[] {
   const results: VariableInfo[] = [];
   let match: RegExpExecArray | null;
   TOP_LEVEL_VAR.lastIndex = 0;
 
+  // Pre-process: strip string/comment content so braces inside them don't count
+  const stripped = stripNonCodeBraces(source);
+
   while ((match = TOP_LEVEL_VAR.exec(source)) !== null) {
-    const before = source.slice(0, match.index);
+    const before = stripped.slice(0, match.index);
     // Count brace depth — top-level means depth == 0
     let depth = 0;
     for (const ch of before) {

@@ -157,7 +157,7 @@ export async function generateWikiPage(
       messages: [{ role: 'user', content: prompt }],
     });
     const block = msg.content[0];
-    content = block.type === 'text' ? block.text : '';
+    content = (block?.type === 'text') ? block.text : '';
   }
 
   // 7. Persist to DB

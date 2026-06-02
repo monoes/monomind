@@ -729,7 +729,7 @@ const breakingCommand: Command = {
           { change: 'Provider changed', from: 'OpenAI API / TF.js', to: 'ONNX Runtime (local)' },
           { change: 'Geometry support', from: 'Euclidean only', to: 'Hyperbolic (Poincaré ball)' },
           { change: 'Cache system', from: 'Memory-only', to: 'sql.js persistent cache' },
-          { change: 'Neural substrate', from: 'None', to: 'RuVector integration' }
+          { change: 'Neural substrate', from: 'None', to: 'MonoVector integration' }
         ]
       }
     ];

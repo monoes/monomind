@@ -280,10 +280,10 @@ monomind daemon start                      # Start background workers
 | `/mastermind:build <brief>` | Build a specific feature with an agent chain |
 | `/mastermind:architect` | System architecture design and review |
 | `/mastermind:research` | Deep research with structured output |
-| `/monomind:createtask` | Decompose a spec into executable tasks |
-| `/monomind:idea` | Research → evaluate → create implementation tasks |
-| `/monomind:do` | Execute tasks from the board with parallel agents |
-| `/monomind:review` | Multi-agent iterative review with auto-fix |
+| `/mastermind:createtask` | Decompose a spec into executable tasks |
+| `/mastermind:idea` | Research → evaluate → create implementation tasks |
+| `/mastermind:do` | Execute tasks from the board with parallel agents |
+| `/mastermind:review` | Multi-agent iterative review with auto-fix |
 | `/mastermind` | Topology picker — recommends best swarm for your task |
 
 **[→ Full slash command reference](https://monoes.github.io/monomind/#slash)**
@@ -364,7 +364,7 @@ The workspace ships 17 `@monomind/*` packages:
 | Metric | Result | Notes |
 |---|---|---|
 | Vector search speedup | 150x–12,500x via HNSW | Range from Malkov & Yashunin 2018; HNSW implemented in `hnsw-index.ts` |
-| Flash Attention speedup | 2.49x–7.47x | CPU-side attention optimization in `ruvector/flash-attention.ts`; marked in-progress |
+| Flash Attention speedup | 2.49x–7.47x | CPU-side attention optimization in `monovector/flash-attention.ts`; marked in-progress |
 | SONA adaptation target | <0.05ms | Enforced as SLA with runtime warning; marked in-progress |
 | Agent routing (LLM) | <2s | Target; Haiku-based routing |
 | Agent routing (fallback) | <5ms | Keyword scoring path |

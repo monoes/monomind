@@ -1,0 +1,15 @@
+{
+  "id": "0f7d10b3-0970-4a14-af96-38b1c676c7e8",
+  "sessionId": "0f7d10b3-0970-4a14-af96-38b1c676c7e8",
+  "type": "do",
+  "status": "waiting",
+  "prompt": "/mastermind:review --tillend --maxruns 50 --wait 60 --rep 2 --loop review-1780320137906 can you review monograph now with the new stuff merged if everything looks good?",
+  "reason": "tillend run 2 of /mastermind:review — verifying 3 CLI fixes (routing path, session ID, usageCount inflation)",
+  "startedAt": 1780307713700,
+  "lastRunAt": 1780320931921,
+  "nextRunAt": 1780320991921,
+  "currentRep": 2,
+  "maxReps": 0,
+  "interval": 1,
+  "source": "schedule_wakeup_hook"
+}
