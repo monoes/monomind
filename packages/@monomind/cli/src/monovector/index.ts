@@ -81,30 +81,6 @@ export function createQLearningRouter(_config?: QLearningRouterConfig): QLearnin
   };
 }
 
-// ── MonoVector LLM WASM (inference utilities) ─────────────────
-export {
-  isRuvllmWasmAvailable,
-  initRuvllmWasm,
-  getRuvllmStatus,
-  createHnswRouter,
-  createSonaInstant,
-  createMicroLora,
-  formatChat,
-  createKvCache,
-  createGenerateConfig,
-  createBufferPool,
-  createInferenceArena,
-  HNSW_MAX_SAFE_PATTERNS,
-  type HnswRouterConfig,
-  type HnswPattern,
-  type HnswRouteResult,
-  type SonaConfig,
-  type MicroLoraConfig,
-  type ChatMessage,
-  type GenerateOptions,
-  type RuvllmStatus,
-} from './ruvllm-wasm.js';
-
 // ── Agent WASM (sandboxed agent runtime) ────────────────────
 export {
   isAgentWasmAvailable,

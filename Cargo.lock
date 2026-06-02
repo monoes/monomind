@@ -2053,6 +2053,7 @@ name = "monovector-rvf"
 version = "0.1.0"
 dependencies = [
  "napi",
+ "napi-build",
  "napi-derive",
  "rvf-runtime",
  "rvf-types",

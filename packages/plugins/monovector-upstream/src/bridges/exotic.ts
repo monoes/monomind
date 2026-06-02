@@ -88,7 +88,8 @@ export class ExoticBridge implements WasmBridge<ExoticModule> {
     this._status = 'loading';
 
     try {
-      const wasmModule = await import('@monoes/exotic-wasm').catch(() => null);
+      // @monoes/exotic-wasm removed — use mock module fallback
+      const wasmModule: any = null;
 
       if (wasmModule) {
         this._module = wasmModule as unknown as ExoticModule;

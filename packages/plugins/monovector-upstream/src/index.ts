@@ -8,7 +8,6 @@
 // Bridge exports
 export * from './bridges/hnsw.js';
 export * from './bridges/attention.js';
-export * from './bridges/gnn.js';
 export * from './bridges/hyperbolic.js';
 export * from './bridges/learning.js';
 export * from './bridges/exotic.js';

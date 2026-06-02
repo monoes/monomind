@@ -110,7 +110,7 @@ export class RvfBackend implements IMemoryBackend {
 
     this.initialized = true;
     if (this.config.verbose) {
-      const mode = this.nativeDb ? 'native @monoes/rvf' : 'pure-TS fallback';
+      const mode = this.nativeDb ? 'native' : 'pure-TS fallback';
       console.log(`[RvfBackend] Initialized (${mode}), ${this.entries.size} entries loaded`);
     }
   }
@@ -354,7 +354,7 @@ export class RvfBackend implements IMemoryBackend {
     if (!this.initialized) issues.push('Backend not initialized');
     if (!this.hnswIndex && !this.nativeDb) {
       issues.push('No vector index available');
-      recommendations.push('Install @monoes/rvf for native HNSW performance');
+      recommendations.push('Enable HNSW index for native vector search performance');
     }
 
     const status = issues.length === 0
@@ -375,28 +375,8 @@ export class RvfBackend implements IMemoryBackend {
   }
 
   private async tryNativeInit(): Promise<boolean> {
-    try {
-      const rvf = await import('@monoes/rvf' as string);
-      this.nativeDb = new rvf.RvfDatabase({
-        path: this.config.databasePath,
-        dimensions: this.config.dimensions,
-        metric: this.config.metric,
-        quantization: this.config.quantization,
-        hnswM: this.config.hnswM,
-        hnswEfConstruction: this.config.hnswEfConstruction,
-        maxElements: this.config.maxElements,
-      });
-      await this.nativeDb.open();
-      if (this.config.verbose) {
-        console.log('[RvfBackend] Native @monoes/rvf loaded successfully');
-      }
-      return true;
-    } catch {
-      if (this.config.verbose) {
-        console.log('[RvfBackend] @monoes/rvf not available, using pure-TS fallback');
-      }
-      return false;
-    }
+    // Native @monoes/rvf removed — using pure-TS fallback
+    return false;
   }
 
   private compositeKey(namespace: string, key: string): string {

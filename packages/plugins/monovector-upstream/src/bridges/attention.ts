@@ -58,7 +58,8 @@ export class AttentionBridge implements WasmBridge<AttentionModule> {
     this._status = 'loading';
 
     try {
-      const wasmModule = await import('@monoes/attention-wasm').catch(() => null);
+      // @monoes/attention-wasm removed — use mock module fallback
+      const wasmModule: any = null;
 
       if (wasmModule) {
         this._module = wasmModule as unknown as AttentionModule;

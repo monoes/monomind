@@ -70,9 +70,6 @@
     "@monoes/attention": {
       "optional": true
     },
-    "@monoes/gnn": {
-      "optional": true
-    },
     "@monoes/sona": {
       "optional": true
     }
