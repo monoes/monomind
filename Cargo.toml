@@ -8,4 +8,17 @@ members = [
   "packages/@monovector/ruvllm-wasm",
   "packages/@monovector/rvagent-wasm",
   "packages/@monovector/rvagent-core",
+  # Phase 2: napi-rs native binding crates
+  "packages/@monovector/sona-rs",
+  "packages/@monovector/attention-rs",
+  "packages/@monovector/gnn-rs",
+  "packages/@monovector/router-rs",
+  "packages/@monovector/rvf-rs",
+  "packages/@monovector/core-rs",
+  # Dependency libs for napi-rs binding crates
+  "packages/@monovector/ruvector-attention-lib",
+  "packages/@monovector/ruvector-gnn-lib",
+  "packages/@monovector/ruvector-router-core-lib",
+  "packages/@monovector/rvf-runtime-lib",
+  "packages/@monovector/rvf-types-lib",
 ]
