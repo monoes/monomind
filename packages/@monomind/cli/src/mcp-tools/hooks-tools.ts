@@ -356,6 +356,10 @@ async function getSemanticRouter() {
     // Native not available or database locked - fall back to pure JS
     // Common errors: "Database already open. Cannot acquire lock." or "MODULE_NOT_FOUND"
     // This is expected in concurrent environments or when binary isn't installed
+    const reason = err instanceof Error ? err.message : String(err);
+    if (!reason.includes('Cannot acquire lock') && !reason.includes('MODULE_NOT_FOUND')) {
+      console.debug('[hooks-tools] @monoes/router init failed:', reason);
+    }
   }
 
   // STEP 2: Fall back to pure JS SemanticRouter
