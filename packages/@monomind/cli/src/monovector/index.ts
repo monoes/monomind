@@ -15,6 +15,8 @@
 
 export { getCapabilities, getCachedCapabilities, resetCapabilitiesCache, type MonoesCapabilities } from './capabilities.js';
 
+export { createInitState, type InitState, type InitStatus } from './init-state.js';
+
 export {
   DiffClassifier,
   createDiffClassifier,

@@ -6,6 +6,7 @@
 import { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, statSync, unlinkSync, readdirSync, rmSync } from 'fs';
 import { dirname, join, resolve, sep } from 'path';
 import { type MCPTool, getProjectCwd } from './types.js';
+import { createInitState } from '../monovector/init-state.js';
 
 // Real vector search functions - lazy loaded to avoid circular imports
 let searchEntriesFn: ((options: {
@@ -109,7 +110,7 @@ async function getMoERouter() {
 // Tries native VectorDb first (16k+ routes/s HNSW), falls back to pure JS (47k routes/s cosine)
 let semanticRouter: import('../monovector/semantic-router.js').SemanticRouter | null = null;
 let nativeVectorDb: unknown = null;
-let semanticRouterInitialized = false;
+const _routerInitState = createInitState({ maxAttempts: 3 });
 let routerBackend: 'native' | 'pure-js' | 'none' = 'none';
 
 // Pre-computed embeddings for common task patterns (cached, capped to prevent unbounded growth)
@@ -313,10 +314,12 @@ const TASK_PATTERNS: Record<string, { keywords: string[]; agents: string[] }> = 
  * Tries native VectorDb first (HNSW, 16k routes/s), falls back to pure JS (47k routes/s cosine).
  */
 async function getSemanticRouter() {
-  if (semanticRouterInitialized) {
+  if (_routerInitState.isReady()) {
     return { router: semanticRouter, backend: routerBackend, native: nativeVectorDb };
   }
-  semanticRouterInitialized = true;
+  if (_routerInitState.isFailed() || !_routerInitState.canTry()) {
+    return { router: semanticRouter, backend: routerBackend, native: null };
+  }
 
   // STEP 1: Try native VectorDb from @monoes/router (HNSW-backed)
   // Note: Native VectorDb uses a persistent database file which can have lock issues
@@ -350,6 +353,7 @@ async function getSemanticRouter() {
 
       nativeVectorDb = db;
       routerBackend = 'native';
+      _routerInitState.markReady();
       return { router: null, backend: routerBackend, native: nativeVectorDb };
     }
   } catch (err) {
@@ -360,6 +364,7 @@ async function getSemanticRouter() {
     if (!reason.includes('Cannot acquire lock') && !reason.includes('MODULE_NOT_FOUND')) {
       console.debug('[hooks-tools] @monoes/router init failed:', reason);
     }
+    _routerInitState.markFailed();
   }
 
   // STEP 2: Fall back to pure JS SemanticRouter
@@ -380,9 +385,11 @@ async function getSemanticRouter() {
     }
 
     routerBackend = 'pure-js';
+    _routerInitState.markReady();
   } catch {
     semanticRouter = null;
     routerBackend = 'none';
+    _routerInitState.markFailed();
   }
 
   return { router: semanticRouter, backend: routerBackend, native: nativeVectorDb };
