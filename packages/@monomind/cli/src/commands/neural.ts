@@ -6,6 +6,7 @@
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
+import type { LearningWasmModule } from '../monovector/monoes-types.js';
 import { output } from '../output.js';
 
 // Train subcommand - REAL WASM training with MonoVector
@@ -1768,48 +1769,56 @@ const benchmarkCommand: Command = {
       spinner.start();
       spinner.setText('Benchmarking MicroLoRA adaptation...');
 
-      // Load WASM file directly (Node.js compatible)
-      const fs = await import('fs');
-      const { createRequire } = await import('module');
-      const require = createRequire(import.meta.url);
-      const wasmPath = require.resolve('@monoes/learning-wasm/monovector_learning_wasm_bg.wasm');
-      const wasmBuffer = fs.readFileSync(wasmPath);
+      const learningWasm = await import('@monoes/learning-wasm') as unknown as LearningWasmModule;
 
-      const learningWasm = await import('@monoes/learning-wasm');
-      learningWasm.initSync({ module: wasmBuffer });
+      // Initialize WASM — try to load binary directly, fall back gracefully
+      try {
+        const { createRequire } = await import('module');
+        const req = createRequire(import.meta.url);
+        const wasmFile = (() => {
+          try { return req.resolve('@monoes/learning-wasm/monovector_learning_wasm_bg.wasm'); } catch { return null; }
+        })();
+        if (wasmFile) {
+          const fsModule = await import('fs');
+          const wasmBuffer = fsModule.readFileSync(wasmFile);
+          learningWasm.initSync({ module: wasmBuffer });
+        }
+      } catch { /* already initialized by nodejs target auto-init, or binary unavailable */ }
 
       const lora = new learningWasm.WasmMicroLoRA(dim, 0.1, 0.01);
-      const gradient = new Float32Array(dim);
-      for (let i = 0; i < dim; i++) gradient[i] = Math.random() - 0.5;
+      try {
+        const gradient = new Float32Array(dim);
+        for (let i = 0; i < dim; i++) gradient[i] = Math.random() - 0.5;
 
-      const loraStart = performance.now();
-      for (let i = 0; i < iterations; i++) {
-        lora.adapt_array(gradient);
+        const loraStart = performance.now();
+        for (let i = 0; i < iterations; i++) {
+          lora.adapt_array(gradient);
+        }
+        const loraTime = performance.now() - loraStart;
+        const loraAvg = loraTime / iterations;
+
+        spinner.succeed('MicroLoRA benchmark complete');
+
+        output.writeln();
+        output.printTable({
+          columns: [
+            { key: 'metric', header: 'MicroLoRA Metric', width: 25 },
+            { key: 'value', header: 'Value', width: 25 },
+          ],
+          data: [
+            { metric: 'Dimension', value: String(dim) },
+            { metric: 'Iterations', value: iterations.toLocaleString() },
+            { metric: 'Total Time', value: `${loraTime.toFixed(2)}ms` },
+            { metric: 'Avg Adaptation', value: `${(loraAvg * 1000).toFixed(2)}μs` },
+            { metric: 'Adaptations/sec', value: Math.round(1000 / loraAvg).toLocaleString() },
+            { metric: 'Target (<100μs)', value: loraAvg * 1000 < 100 ? output.success('✓ PASS') : output.warning('✗ FAIL') },
+          ],
+        });
+
+        return { success: true, data: { results, loraAvg } };
+      } finally {
+        lora.free(); // always release WASM memory, even if benchmark throws
       }
-      const loraTime = performance.now() - loraStart;
-      const loraAvg = loraTime / iterations;
-
-      spinner.succeed('MicroLoRA benchmark complete');
-
-      output.writeln();
-      output.printTable({
-        columns: [
-          { key: 'metric', header: 'MicroLoRA Metric', width: 25 },
-          { key: 'value', header: 'Value', width: 25 },
-        ],
-        data: [
-          { metric: 'Dimension', value: String(dim) },
-          { metric: 'Iterations', value: iterations.toLocaleString() },
-          { metric: 'Total Time', value: `${loraTime.toFixed(2)}ms` },
-          { metric: 'Avg Adaptation', value: `${(loraAvg * 1000).toFixed(2)}μs` },
-          { metric: 'Adaptations/sec', value: Math.round(1000 / loraAvg).toLocaleString() },
-          { metric: 'Target (<100μs)', value: loraAvg * 1000 < 100 ? output.success('✓ PASS') : output.warning('✗ FAIL') },
-        ],
-      });
-
-      lora.free();
-
-      return { success: true, data: { results, loraAvg } };
     } catch (error) {
       spinner.fail('Benchmark failed');
       output.printError(error instanceof Error ? error.message : String(error));
