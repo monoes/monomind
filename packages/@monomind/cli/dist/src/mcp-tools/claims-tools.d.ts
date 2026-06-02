@@ -4,7 +4,7 @@
  * Implements MCP tools for ADR-016: Collaborative Issue Claims
  * Provides programmatic access to claim operations for MCP clients.
  *
- * @module @monoes/cli/mcp-tools/claims
+ * @module @monomind/cli/mcp-tools/claims
  */
 import type { MCPTool } from './types.js';
 export declare const claimsTools: MCPTool[];

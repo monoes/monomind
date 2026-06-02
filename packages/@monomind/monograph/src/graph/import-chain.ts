@@ -55,9 +55,9 @@ export function traceImportChain(
 
   while (stack.length > 0 && results.length < maxPaths) {
     const { node, path, visited } = stack.pop()!;
-    // path.length includes the source node, so depth = path.length - 1
-    // Use > (not >=) so paths of exactly maxDepth edges are explored
-    if (path.length - 1 > maxDepth) continue;
+    // depth = path.length - 1 (edges from source). Stop exploring when at the limit;
+    // the target would require one more edge which would exceed maxDepth.
+    if (path.length - 1 >= maxDepth) continue;
 
     for (const neighbor of adj.get(node) ?? []) {
       if (visited.has(neighbor)) continue;

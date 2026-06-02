@@ -555,11 +555,13 @@ export class PatternLearner {
     const embedding = new Float32Array(dim);
 
     // Weighted average (higher weight for later steps)
+    // Clamp per-step dim to prevent NaN from mixed-dimension embeddings
     let totalWeight = 0;
     for (let i = 0; i < trajectory.steps.length; i++) {
       const weight = (i + 1) / trajectory.steps.length;
       totalWeight += weight;
-      for (let j = 0; j < dim; j++) {
+      const stepDim = Math.min(dim, trajectory.steps[i].stateAfter.length);
+      for (let j = 0; j < stepDim; j++) {
         embedding[j] += trajectory.steps[i].stateAfter[j] * weight;
       }
     }

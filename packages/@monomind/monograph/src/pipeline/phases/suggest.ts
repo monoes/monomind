@@ -28,7 +28,9 @@ export const suggestPhase: PipelinePhase<SuggestOutput> = {
       const srcComm = memberships.get(edge.sourceId);
       const tgtComm = memberships.get(edge.targetId);
       if (srcComm !== undefined && tgtComm !== undefined && srcComm !== tgtComm) {
-        for (const [nid, comm] of [[edge.sourceId, srcComm], [edge.targetId, tgtComm]] as const) {
+        // Record the NEIGHBOR's community for each endpoint so a node accumulates
+        // the communities it bridges TO, enabling comms.size >= 2 to fire correctly.
+        for (const [nid, comm] of [[edge.sourceId, tgtComm], [edge.targetId, srcComm]] as const) {
           const s = nodeCommSet.get(nid) ?? new Set();
           s.add(comm);
           nodeCommSet.set(nid, s);

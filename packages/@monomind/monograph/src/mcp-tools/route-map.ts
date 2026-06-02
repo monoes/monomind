@@ -38,7 +38,7 @@ export function getMonographRouteMap(
       // name is like "GET /api/users" — find the path part
       const spaceIdx = name.indexOf(' ');
       const path = spaceIdx >= 0 ? name.slice(spaceIdx + 1) : name;
-      return path.includes(prefix);
+      return path.startsWith(prefix);
     });
   }
 

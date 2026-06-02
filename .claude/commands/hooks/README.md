@@ -44,7 +44,7 @@ token-optimize    Token optimization (30-50% savings)
 model-route       Route to optimal model (haiku/sonnet/opus)
 model-outcome     Record model routing outcome
 model-stats       View model routing statistics
-intelligence      RuVector intelligence system (trajectory, patterns, stats)
+intelligence      MonoVector intelligence system (trajectory, patterns, stats)
 notify            Send notification with level and message
 worker list       List all 12 background workers
 worker dispatch   Dispatch a specific worker

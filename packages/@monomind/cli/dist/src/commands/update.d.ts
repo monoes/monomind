@@ -1,6 +1,6 @@
 /**
  * CLI Update Command
- * Auto-update system for @monoes packages (ADR-025)
+ * Auto-update system for @monomind packages (ADR-025)
  */
 import type { Command } from '../types.js';
 declare const updateCommand: Command;

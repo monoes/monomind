@@ -7,16 +7,21 @@ export interface FieldAccess {
   line: number;
 }
 
+function escapeRegexChars(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export function extractFieldAccesses(source: string, varName: string, filePath: string): FieldAccess[] {
   const results: FieldAccess[] = [];
   const lines = source.split('\n');
+  const escapedName = escapeRegexChars(varName);
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     // Write: varName.field = or varName.field +=/-=/*=
-    const writeRe = new RegExp(`\\b${varName}\\.(\\w+)\\s*(?:\\+|-|\\*|\\/|%)?=(?!=)`, 'g');
+    const writeRe = new RegExp(`\\b${escapedName}\\.(\\w+)\\s*(?:\\+|-|\\*|\\/|%)?=(?!=)`, 'g');
     // Read: varName.field NOT followed by assignment operator
-    const readRe = new RegExp(`\\b${varName}\\.(\\w+)`, 'g');
+    const readRe = new RegExp(`\\b${escapedName}\\.(\\w+)`, 'g');
 
     const writeFields = new Set<string>();
     let m: RegExpExecArray | null;

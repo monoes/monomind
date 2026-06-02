@@ -2,7 +2,7 @@
  * Google Cloud Storage Backend
  * Real storage implementation using gcloud CLI or GCS APIs
  *
- * @module @monoes/cli/transfer/storage/gcs
+ * @module @monomind/cli/transfer/storage/gcs
  * @version 3.0.0
  */
 /**
