@@ -7,6 +7,7 @@ import { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, statSyn
 import { dirname, join, resolve, sep } from 'path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { createInitState } from '../monovector/init-state.js';
+import type { RouterModule } from '../monovector/monoes-types.js';
 
 // Real vector search functions - lazy loaded to avoid circular imports
 let searchEntriesFn: ((options: {
@@ -310,6 +311,15 @@ const TASK_PATTERNS: Record<string, { keywords: string[]; agents: string[] }> = 
 };
 
 /**
+ * @monoes/router usage: OPTIONAL performance enhancement only.
+ * - When available: native HNSW via VectorDb (fast approximate search).
+ * - When absent or locked: pure-JS SemanticRouter (keyword matching).
+ * Callers see the same interface regardless of which backend runs.
+ *
+ * To use @monoes/router elsewhere, import RouterModule from
+ * '../monovector/monoes-types.js' and use the same try/catch pattern.
+ */
+/**
  * Get the semantic router with environment detection.
  * Tries native VectorDb first (HNSW, 16k routes/s), falls back to pure JS (47k routes/s cosine).
  */
@@ -328,7 +338,7 @@ async function getSemanticRouter() {
     // Use createRequire for ESM compatibility with native modules
     const { createRequire } = await import('module');
     const require = createRequire(import.meta.url);
-    const router = require('@monoes/router');
+    const router = require('@monoes/router') as RouterModule;
 
     if (router.VectorDb && router.DistanceMetric) {
       // Try to create VectorDb - may fail with lock error in concurrent envs
