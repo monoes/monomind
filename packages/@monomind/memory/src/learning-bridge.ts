@@ -142,6 +142,14 @@ export class LearningBridge extends EventEmitter {
   private backend: IMemoryBackend;
   private config: ResolvedConfig;
   private activeTrajectories: Map<string, string> = new Map();
+  /**
+   * Parallel map of entryId → the insight confidence captured at record time.
+   * Used as the authoritative reward/quality in consolidate() so the LoRA update
+   * reflects the real task outcome rather than a hardcoded default. Kept separate
+   * from activeTrajectories (which stays string→string) to avoid touching every
+   * read site of that map.
+   */
+  private trajectoryConfidence: Map<string, number> = new Map();
   private stats = {
     totalTrajectories: 0,
     completedTrajectories: 0,
@@ -177,6 +185,12 @@ export class LearningBridge extends EventEmitter {
       try {
         const trajectoryId = this.neural.beginTask(insight.summary, 'general');
         this.activeTrajectories.set(entryId, trajectoryId);
+        // Capture the real outcome confidence now, while we have it, so consolidate()
+        // can use it as the reward instead of defaulting to 1.0 (a failed task must
+        // produce a low reward, a succeeded one a high reward).
+        if (Number.isFinite(insight.confidence) && insight.confidence >= 0 && insight.confidence <= 1) {
+          this.trajectoryConfidence.set(entryId, insight.confidence);
+        }
         this.stats.totalTrajectories++;
 
         // V1: use real embeddings from the memory bridge rather than hash noise
@@ -268,14 +282,22 @@ export class LearningBridge extends EventEmitter {
     const entries = Array.from(this.activeTrajectories.entries());
     for (const [entryId, trajectoryId] of entries) {
       try {
-        // V2: use the entry's stored confidence as quality rather than hardcoded 1.0
-        // so the reward signal actually reflects insight importance
-        let quality = 1.0;
-        try {
-          const entry = await this.backend.get(entryId);
-          const stored = (entry?.metadata?.confidence as number) ?? (entry?.importanceScore as number);
-          if (Number.isFinite(stored) && stored >= 0 && stored <= 1) quality = stored;
-        } catch { /* use default */ }
+        // V3: prefer the insight confidence captured at record time — it reflects
+        // the real task outcome and does not depend on a backend entry existing for
+        // this entryId (callers like bridgeRecordFeedback pass a bare taskId that has
+        // no confidence-bearing backend row, so the V2 lookup below silently fell back
+        // to 1.0). Backend lookup is kept as a fallback for trajectories populated by
+        // other paths.
+        let quality = this.trajectoryConfidence.get(entryId);
+        if (!(Number.isFinite(quality) && (quality as number) >= 0 && (quality as number) <= 1)) {
+          // V2 fallback: use the entry's stored confidence as quality
+          quality = 1.0;
+          try {
+            const entry = await this.backend.get(entryId);
+            const stored = (entry?.metadata?.confidence as number) ?? (entry?.importanceScore as number);
+            if (Number.isFinite(stored) && stored >= 0 && stored <= 1) quality = stored;
+          } catch { /* use default */ }
+        }
 
         await this.neural.completeTask(trajectoryId, quality);
         completed++;
@@ -288,6 +310,7 @@ export class LearningBridge extends EventEmitter {
 
     for (const key of toRemove) {
       this.activeTrajectories.delete(key);
+      this.trajectoryConfidence.delete(key);
     }
 
     this.stats.completedTrajectories += completed;

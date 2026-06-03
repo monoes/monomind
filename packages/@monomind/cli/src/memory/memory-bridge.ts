@@ -1423,6 +1423,20 @@ export async function bridgeRecordFeedback(options: {
   agent?: string;
   duration?: number;
   patterns?: string[];
+  /**
+   * Real task description text. When present it is embedded into the SONA
+   * trajectory instead of the opaque `task:${taskId}` ID, so the MiniLM embedder
+   * encodes meaningful semantics rather than a meaningless identifier.
+   */
+  task?: string;
+  description?: string;
+  /**
+   * Whether the success/quality reflects a real, measured outcome rather than an
+   * unverified caller assertion. When false, the SONA LoRA update is skipped so the
+   * learning engine is never fed a fabricated label. Defaults to true to preserve
+   * existing callers that pass an explicit, intentional success flag.
+   */
+  outcomeKnown?: boolean;
   dbPath?: string;
 }): Promise<{ success: boolean; controller: string; updated: number } | null> {
   const registry = await getRegistry(options.dbPath);
@@ -1481,13 +1495,17 @@ export async function bridgeRecordFeedback(options: {
       }
     }
 
-    // Wire agent task outcomes into SONA learning engine via LearningBridge
+    // Wire agent task outcomes into SONA learning engine via LearningBridge.
+    // B1.3: skip the feed entirely when the outcome is not a measured/known result —
+    // feeding nothing beats feeding a fabricated success or failure label.
     const lb = registry.get('learningBridge') as any;
-    if (lb && typeof lb.onInsightRecorded === 'function') {
+    if (options.outcomeKnown !== false && lb && typeof lb.onInsightRecorded === 'function') {
       try {
         await lb.onInsightRecorded(
           {
-            summary: `task:${options.taskId ?? 'unknown'}`,
+            // Embed the real task text so the MiniLM embedder encodes meaningful
+            // semantics; fall back to the opaque ID only when no text is available.
+            summary: options.task || options.description || `task:${options.taskId ?? 'unknown'}`,
             category: 'task',
             confidence: options.quality ?? 0.5,
           },

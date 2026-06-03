@@ -901,6 +901,9 @@ export const hooksPostEdit: MCPTool = {
         success,
         quality: success ? 0.85 : 0.3,
         agent,
+        // B1.2: give the SONA embedder real semantics (the edited file) instead of
+        // the opaque task ID.
+        task: `edit ${filePath}`,
       });
     } catch {
       // Bridge not available — continue with basic response
@@ -1498,6 +1501,19 @@ export const hooksPostTask: MCPTool = {
   },
   handler: async (params: Record<string, unknown>) => {
     const taskId = params.taskId as string;
+    // B1.3: The success flag is caller-asserted (the LLM says --success true), not
+    // measured. There is NO task-scoped command store to correlate a real exitCode
+    // against (post-command keys entries `cmd-${Date.now()}` with no taskId — line
+    // ~981), so any "recent command" join would be a fabricated correlation, which
+    // the task explicitly forbids. Conservative behavior instead: when the caller
+    // does NOT explicitly provide success, treat the outcome as UNKNOWN — do not
+    // optimistically assume true (which would train every unverified task as a
+    // success) and do not collapse it to a low-reward failure either (which would be
+    // an equally wrong inverted label). An unknown outcome is excluded from the SONA
+    // learning feed (see `outcomeKnown` below); feeding nothing beats feeding a
+    // wrong label. A measured-outcome precedent exists elsewhere in this file (the
+    // verifier exit_code → effectiveOutcome logic), but that is a separate tool.
+    const outcomeKnown = typeof params.success === 'boolean';
     const success = params.success !== false;
     const agent = params.agent as string | undefined;
     const quality = (params.quality as number) || (success ? 0.85 : 0.3);
@@ -1512,6 +1528,11 @@ export const hooksPostTask: MCPTool = {
         success,
         quality,
         agent,
+        // B1.2: thread the real task description into the SONA trajectory so the
+        // embedder encodes meaning, not the opaque task ID.
+        task: (params.task as string) || undefined,
+        // B1.3: only feed the SONA LoRA update when the outcome is actually known.
+        outcomeKnown,
         duration: (params.duration as number) || undefined,
         patterns: (params.patterns as string[]) || undefined,
       });
@@ -1532,11 +1553,14 @@ export const hooksPostTask: MCPTool = {
       // Non-fatal
     }
 
-    // Persist routing outcome for runtime learning (file-based, always reliable)
+    // Persist routing outcome for runtime learning (file-based, always reliable).
+    // B1.3: also gate this sibling learning sink on a known outcome — an unverified
+    // task must not train the router as a success either. When the caller did not
+    // assert success, the outcome is unknown and we skip persisting a labeled sample.
     const taskText = (params.task as string) || '';
     const outcomeKeywords = extractKeywords(taskText);
     let outcomePersisted = false;
-    if (taskText && agent && agent.length <= 100 && /^[a-zA-Z0-9_-]+$/.test(agent)) {
+    if (outcomeKnown && taskText && agent && agent.length <= 100 && /^[a-zA-Z0-9_-]+$/.test(agent)) {
       try {
         const outcomes = loadRoutingOutcomes();
         outcomes.push({
