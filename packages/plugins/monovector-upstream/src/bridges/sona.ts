@@ -140,7 +140,7 @@ export class SonaBridge implements WasmBridge<SonaModule> {
         const sonaConfig = {
           hiddenDim: 768,
           embeddingDim: 768,
-          microLoraRank: 4,
+          microLoraRank: 1,  // valid range: 1-2 (higher values cause Rust panic/SIGABRT)
           baseLoraRank: 8,
           microLoraLr: 0.001,
           baseLoraLr: 0.0001,

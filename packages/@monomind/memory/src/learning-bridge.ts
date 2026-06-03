@@ -371,7 +371,8 @@ export class LearningBridge extends EventEmitter {
     if (!this.neural) return [];
 
     try {
-      const embedding = this.createHashEmbedding(content);
+      const dim = await this.getEmbeddingDim();
+      const embedding = await this.createEmbedding(content, dim);
       const results = await this.neural.findPatterns(embedding, k);
 
       if (!Array.isArray(results)) return [];
@@ -442,7 +443,7 @@ export class LearningBridge extends EventEmitter {
     if (this.config.embedder) {
       try {
         const probe = await this.config.embedder('probe');
-        this._detectedEmbeddingDim = probe.length;
+        this._detectedEmbeddingDim = probe.length || 768; // guard against empty probe result
       } catch {
         this._detectedEmbeddingDim = 768; // safe default
       }
