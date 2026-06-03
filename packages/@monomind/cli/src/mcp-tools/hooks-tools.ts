@@ -9,6 +9,13 @@ import { type MCPTool, getProjectCwd } from './types.js';
 import { createInitState } from '../monovector/init-state.js';
 import type { RouterModule } from '../monovector/monoes-types.js';
 import { getCapabilities } from '../monovector/capabilities.js';
+import { randomUUID } from 'node:crypto';
+import { recordRoute, joinOutcome } from '../monovector/route-outcomes.js';
+
+// Base dir for per-route outcome records — sits alongside routing-outcomes.json
+function getRouteOutcomesBaseDir(): string {
+  return join(getProjectCwd(), '.monomind');
+}
 
 // Real vector search functions - lazy loaded to avoid circular imports
 let searchEntriesFn: ((options: {
@@ -1029,10 +1036,27 @@ export const hooksRoute: MCPTool = {
         if (agentdbRoute && agentdbRoute.confidence > 0.5) {
           const agents = agentdbRoute.agents.length > 0 ? agentdbRoute.agents : ['coder', 'researcher'];
           const complexity = task.length > 200 ? 'high' : task.length < 50 ? 'low' : 'medium';
+          const agentdbMethod = `agentdb-${agentdbRoute.controller}`;
+          const agentdbConfidence = Math.round(agentdbRoute.confidence * 100) / 100;
+          // Record the route recommendation so post-task can join the actual outcome
+          const routeId = randomUUID();
+          const caps = await getCapabilities();
+          const learningMode: 'native' | 'js' =
+            (caps.sona || caps.router === 'native' || caps.attention) ? 'native' : 'js';
+          await recordRoute(getRouteOutcomesBaseDir(), {
+            routeId,
+            ts: Date.now(),
+            task,
+            recommendedAgent: agents[0],
+            routingMethod: agentdbMethod,
+            confidence: agentdbConfidence,
+            learningMode,
+          });
           return {
+            routeId,
             task,
             routing: {
-              method: `agentdb-${agentdbRoute.controller}`,
+              method: agentdbMethod,
               backend: agentdbRoute.controller,
               latencyMs: 0,
               throughput: 'N/A',
@@ -1168,7 +1192,24 @@ export const hooksRoute: MCPTool = {
         ? 'low'
         : 'medium';
 
+    const primaryConfidence = Math.round(confidence * 100) / 100;
+    // Record the route recommendation so post-task can join the actual outcome
+    const routeId = randomUUID();
+    const caps = await getCapabilities();
+    const learningMode: 'native' | 'js' =
+      (caps.sona || caps.router === 'native' || caps.attention) ? 'native' : 'js';
+    await recordRoute(getRouteOutcomesBaseDir(), {
+      routeId,
+      ts: Date.now(),
+      task,
+      recommendedAgent: agents[0],
+      routingMethod,
+      confidence: primaryConfidence,
+      learningMode,
+    });
+
     return {
+      routeId,
       task,
       routing: {
         method: routingMethod,
@@ -1451,6 +1492,7 @@ export const hooksPostTask: MCPTool = {
       quality: { type: 'number', description: 'Quality score (0-1)' },
       task: { type: 'string', description: 'Task description text (used for learning keyword extraction)' },
       storeDecisions: { type: 'boolean', description: 'Also store routing decision in memory DB' },
+      routeId: { type: 'string', description: 'Route ID from a prior hooks_route call — joins the recommendation to this outcome' },
     },
     required: ['taskId'],
   },
@@ -1508,6 +1550,17 @@ export const hooksPostTask: MCPTool = {
         saveRoutingOutcomes(outcomes);
         outcomePersisted = true;
       } catch { /* non-critical */ }
+    }
+
+    // Join this outcome back onto the original route recommendation (if a routeId
+    // was threaded through from the hooks_route call). This is the recommendation→
+    // actual→success link that routing-accuracy metrics and SONA labels depend on.
+    if (params.routeId) {
+      await joinOutcome(getRouteOutcomesBaseDir(), params.routeId as string, {
+        agentActuallyUsed: agent,
+        measuredSuccess: success,
+        quality: typeof params.quality === 'number' ? (params.quality as number) : undefined,
+      });
     }
 
     // ERL: Extract and persist structured heuristic for future pre-task injection
