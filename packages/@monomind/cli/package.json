@@ -102,6 +102,7 @@
     "sql.js": "^1.14.1",
     "@monoes/memory": "workspace:*",
     "@monomind/plugin-gastown-bridge": "^0.1.3",
+    "@monomind/monovector-upstream": "workspace:*",
     "agentic-flow": "^3.0.0-alpha.1",
     "@monoes/attention": "^0.1.4",
     "@monoes/learning-wasm": "workspace:*",
