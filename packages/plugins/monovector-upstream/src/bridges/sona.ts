@@ -133,12 +133,12 @@ export class SonaBridge implements WasmBridge<SonaModule> {
         return;
       }
 
-      // Real module has SonaEngine — use it
-      this._module = wasmModule as unknown as SonaModule;
-      // Guard setMode call since real module surface may differ
-      if (typeof this._module.setMode === 'function') {
-        this._module.setMode(this.config.mode);
-      }
+      // Real module has SonaEngine but its surface (withConfig/beginTrajectory/etc.)
+      // does not match SonaModule (learn/predict/findPatterns/applyLoRA/getMode).
+      // Assigning the raw module would make every method call throw TypeError.
+      // Use the mock for now — the real engine is wired directly via sona-integration.ts.
+      // TODO: implement a proper SonaEngine adapter when this bridge is promoted to production.
+      this._module = this.createMockModule();
       this._status = 'ready';
     } catch (error) {
       this._status = 'error';
