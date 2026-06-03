@@ -20,6 +20,13 @@ const _cache = new Map<string, CacheEntry<unknown>>();
 export async function tryLoad<T = Record<string, unknown>>(
   specifier: string
 ): Promise<T | null> {
+  // Native kill-switch — force-skip all native package loads. tryLoad() is only
+  // used for optional native @monoes deps, so gating everything here is safe.
+  if (process.env.MONOMIND_DISABLE_NATIVE === '1' || process.env.MONOMIND_FORCE_JS === '1') {
+    _cache.set(specifier, null);
+    return null;
+  }
+
   if (_cache.has(specifier)) {
     return (await _cache.get(specifier)) as T | null;
   }

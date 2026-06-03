@@ -60,6 +60,11 @@ let _sonaLoadError: string | null = null;
 // Lazy loader — called on first SONALearningEngine.initialize().
 // Avoids top-level await which breaks ESM circular-import loading order in Vitest.
 async function loadSonaEngine(): Promise<SonaModule['SonaEngine'] | null> {
+  // Native kill-switch — force pure-JS fallback, skip the @monoes/sona load.
+  if (process.env.MONOMIND_DISABLE_NATIVE === '1' || process.env.MONOMIND_FORCE_JS === '1') {
+    _sonaEngineClass = null;
+    return null;
+  }
   if (_sonaLoadAttempted) return _sonaEngineClass;
   _sonaLoadAttempted = true;
   try {

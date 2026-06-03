@@ -476,6 +476,12 @@ export class LearningBridge extends EventEmitter {
   }
 
   private async loadNeural(): Promise<void> {
+    // Native kill-switch — force pure-JS fallback. Leaves neural null so the
+    // bridge degrades to a no-op, bypassing even an injected neuralLoader.
+    if (process.env.MONOMIND_DISABLE_NATIVE === '1' || process.env.MONOMIND_FORCE_JS === '1') {
+      this.neural = null;
+      return;
+    }
     try {
       if (this.config.neuralLoader) {
         // Use injected loader (test / custom integrations)

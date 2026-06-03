@@ -6,7 +6,7 @@
  */
 
 import type { WasmBridge, WasmModuleStatus, SonaConfig } from '../types.js';
-import { SonaConfigSchema } from '../types.js';
+import { SonaConfigSchema, isNativeDisabled } from '../types.js';
 
 /**
  * SONA trajectory for learning
@@ -110,6 +110,13 @@ export class SonaBridge implements WasmBridge<SonaModule> {
     if (this._status === 'ready') return;
     if (this._status === 'loading') return;
     if (this._status === 'error') return;
+
+    // Native kill-switch — force pure-JS mock, skip the @monoes/sona load.
+    if (isNativeDisabled()) {
+      this._module = this.createMockModule();
+      this._status = 'ready';
+      return;
+    }
 
     this._status = 'loading';
 

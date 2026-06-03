@@ -10,6 +10,15 @@ import { z } from 'zod';
 export type WasmModuleStatus = 'unloaded' | 'loading' | 'ready' | 'error';
 
 /**
+ * Native kill-switch — when set, bridges force pure-JS mock modules and skip
+ * all native @monoes/* loads. Read independently here (this package must not
+ * import from @monomind/cli) so it stays self-contained.
+ */
+export function isNativeDisabled(): boolean {
+  return process.env.MONOMIND_DISABLE_NATIVE === '1' || process.env.MONOMIND_FORCE_JS === '1';
+}
+
+/**
  * Base WASM bridge interface
  */
 export interface WasmBridge<T = unknown> {

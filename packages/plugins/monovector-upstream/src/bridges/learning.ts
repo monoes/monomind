@@ -6,7 +6,7 @@
  */
 
 import type { WasmBridge, WasmModuleStatus, LearningConfig } from '../types.js';
-import { LearningConfigSchema } from '../types.js';
+import { LearningConfigSchema, isNativeDisabled } from '../types.js';
 
 /**
  * Learning experience tuple
@@ -99,6 +99,13 @@ export class LearningBridge implements WasmBridge<LearningModule> {
   async init(): Promise<void> {
     if (this._status === 'ready') return;
     if (this._status === 'loading') return;
+
+    // Native kill-switch — force pure-JS mock, skip the @monoes/learning-wasm load.
+    if (isNativeDisabled()) {
+      this._module = this.createMockModule();
+      this._status = 'ready';
+      return;
+    }
 
     this._status = 'loading';
 

@@ -6,7 +6,7 @@
  */
 
 import type { WasmBridge, WasmModuleStatus, AttentionConfig } from '../types.js';
-import { AttentionConfigSchema } from '../types.js';
+import { AttentionConfigSchema, isNativeDisabled } from '../types.js';
 
 /**
  * Attention WASM module interface
@@ -54,6 +54,13 @@ export class AttentionBridge implements WasmBridge<AttentionModule> {
   async init(): Promise<void> {
     if (this._status === 'ready') return;
     if (this._status === 'loading') return;
+
+    // Native kill-switch — force pure-JS mock, skip the @monoes/attention load.
+    if (isNativeDisabled()) {
+      this._module = this.createMockModule();
+      this._status = 'ready';
+      return;
+    }
 
     this._status = 'loading';
 
