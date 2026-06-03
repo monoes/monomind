@@ -6,7 +6,7 @@
  */
 
 import type { WasmBridge, WasmModuleStatus, HnswConfig, SearchResult } from '../types.js';
-import { HnswConfigSchema } from '../types.js';
+import { HnswConfigSchema, isNativeDisabled } from '../types.js';
 
 /**
  * HNSW WASM module interface
@@ -50,6 +50,14 @@ export class HnswBridge implements WasmBridge<HnswModule> {
   async init(): Promise<void> {
     if (this._status === 'ready') return;
     if (this._status === 'loading') return;
+
+    // Native kill-switch — force pure-JS mock, skip the @monoes/micro-hnsw-wasm load.
+    if (isNativeDisabled()) {
+      this._module = this.createMockModule();
+      this._index = this._module.create(this.config);
+      this._status = 'ready';
+      return;
+    }
 
     this._status = 'loading';
 
