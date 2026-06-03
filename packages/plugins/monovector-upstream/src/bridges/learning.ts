@@ -85,6 +85,7 @@ export class LearningBridge implements WasmBridge<LearningModule> {
 
   private _status: WasmModuleStatus = 'unloaded';
   private _module: LearningModule | null = null;
+  private _realWasmModule: RealWasmModule | null = null; // stores real module for future direct use
   private config: LearningConfig;
 
   constructor(config?: Partial<LearningConfig>) {
@@ -104,13 +105,15 @@ export class LearningBridge implements WasmBridge<LearningModule> {
     try {
       const wasmModule = await import('@monoes/learning-wasm').catch(() => null);
 
-      if (!wasmModule || typeof wasmModule.WasmMicroLoRA !== 'function') {
-        // Real WASM module not available or missing required exports, use mock
+      if (wasmModule && typeof (wasmModule as any).WasmMicroLoRA === 'function') {
+        // Real WASM module has correct exports — store it and use mock adapter for now
+        // since the real WASM API (constructor classes) differs from the LearningModule interface.
+        // _realWasmModule is available for future direct use without going through the adapter.
+        this._realWasmModule = wasmModule as unknown as RealWasmModule;
         this._module = this.createMockModule();
       } else {
-        // Real WASM module has correct exports, use it
-        // Note: Real module exports constructor classes; mock interface defines the fallback
-        this._module = this.createMockModule(); // Use mock for now since real API differs
+        // Real WASM module not available or missing required exports, use mock
+        this._module = this.createMockModule();
       }
 
       this._status = 'ready';

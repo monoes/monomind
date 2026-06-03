@@ -114,13 +114,30 @@ export class SonaBridge implements WasmBridge<SonaModule> {
     try {
       const wasmModule = await import('@monoes/sona').catch(() => null);
 
-      if (wasmModule) {
-        this._module = wasmModule as unknown as SonaModule;
-      } else {
+      if (!wasmModule) {
         this._module = this.createMockModule();
+        this._status = 'ready'; // mock is always ready
+        return;
       }
 
-      this._module.setMode(this.config.mode);
+      // Guard: check if real @monoes/sona has the expected interface.
+      // The real NAPI surface uses SonaEngine.withConfig() not top-level setMode/learn.
+      const hasSonaEngine =
+        typeof (wasmModule as any).SonaEngine === 'function' ||
+        !!(wasmModule as any).SonaEngine;
+      if (!hasSonaEngine) {
+        // Real module doesn't match our expected interface — use mock to avoid TypeError loops
+        this._module = this.createMockModule();
+        this._status = 'ready';
+        return;
+      }
+
+      // Real module has SonaEngine — use it
+      this._module = wasmModule as unknown as SonaModule;
+      // Guard setMode call since real module surface may differ
+      if (typeof this._module.setMode === 'function') {
+        this._module.setMode(this.config.mode);
+      }
       this._status = 'ready';
     } catch (error) {
       this._status = 'error';
