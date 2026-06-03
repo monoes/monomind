@@ -14,28 +14,6 @@ import type {
   EWCState,
 } from '../types.js';
 
-// Minimal inline interface — avoids cross-package import
-interface WasmMicroLoRAInstance {
-  adapt_array(gradient: Float32Array): void;
-  get_weights(): Float32Array;
-  free(): void;
-}
-interface WasmMicroLoRAConstructor {
-  new (dim: number, alpha: number, lr: number): WasmMicroLoRAInstance;
-}
-
-let _wasmLoRAClass: WasmMicroLoRAConstructor | null | undefined = undefined;
-
-function getWasmLoRA(): WasmMicroLoRAConstructor | null {
-  return _wasmLoRAClass ?? null;
-}
-
-// Fire-and-forget at module load — no await needed
-void import('@monoes/learning-wasm').then(
-  (mod: any) => { _wasmLoRAClass = typeof mod.WasmMicroLoRA === 'function' ? mod.WasmMicroLoRA : null; },
-  () => { _wasmLoRAClass = null; }
-);
-
 /**
  * Common interface for all mode implementations
  */
@@ -129,7 +107,7 @@ export abstract class BaseModeImplementation implements ModeImplementation {
 
   /**
    * Apply LoRA: output = input + BA * input (simplified).
-   * Tries the WasmMicroLoRA path first (sync, no-await); falls back to pure-JS.
+   * Pure-JS implementation.
    */
   protected applyLoRATransform(
     input: Float32Array,
@@ -139,44 +117,6 @@ export abstract class BaseModeImplementation implements ModeImplementation {
   ): Float32Array {
     const dim = input.length;
 
-    // Try WASM path if module already loaded (sync check — no await)
-    const WasmLoRA = getWasmLoRA();
-    if (WasmLoRA) {
-      try {
-        // Step 1: A * input -> intermediate (rank dimensions)
-        const intermediate = new Float32Array(rank);
-        for (let r = 0; r < rank; r++) {
-          let sum = 0;
-          for (let d = 0; d < dim; d++) {
-            sum += A[d * rank + r] * input[d];
-          }
-          intermediate[r] = sum;
-        }
-
-        const lora = new WasmLoRA(rank, 1.0, 0.0);
-        try {
-          lora.adapt_array(intermediate);
-          const w = lora.get_weights();
-          // Step 2: B * w -> delta, add to input
-          const output = new Float32Array(dim);
-          output.set(input);
-          for (let d = 0; d < dim; d++) {
-            let sum = 0;
-            for (let r = 0; r < rank; r++) {
-              sum += B[r * dim + d] * (w[r] ?? intermediate[r]);
-            }
-            output[d] += sum;
-          }
-          return output;
-        } finally {
-          lora.free();
-        }
-      } catch {
-        // fall through to JS implementation
-      }
-    }
-
-    // JS fallback
     const output = new Float32Array(dim);
 
     // Copy input to output

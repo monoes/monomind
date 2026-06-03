@@ -94,19 +94,8 @@ async function getEWCConsolidator() {
   return ewcConsolidator;
 }
 
-// MoE Router - lazy loaded
-let moeRouter: Awaited<ReturnType<typeof import('../monovector/moe-router.js').getMoERouter>> | null = null;
-async function getMoERouter() {
-  if (!moeRouter) {
-    try {
-      const { getMoERouter: getMoE } = await import('../monovector/moe-router.js');
-      moeRouter = await getMoE();
-    } catch {
-      moeRouter = null;
-    }
-  }
-  return moeRouter;
-}
+// MoE Router — module removed; stub always returns null
+async function getMoERouter(): Promise<null> { return null; }
 
 // Semantic Router - lazy loaded
 // Tries native VectorDb first (16k+ routes/s HNSW), falls back to pure JS (47k routes/s cosine)
@@ -424,19 +413,8 @@ function getRouterBackendInfo(): { backend: string; speed: string } {
   }
 }
 
-// Flash Attention - lazy loaded
-let flashAttention: Awaited<ReturnType<typeof import('../monovector/flash-attention.js').getFlashAttention>> | null = null;
-async function getFlashAttention() {
-  if (!flashAttention) {
-    try {
-      const { getFlashAttention: getFlash } = await import('../monovector/flash-attention.js');
-      flashAttention = await getFlash();
-    } catch {
-      flashAttention = null;
-    }
-  }
-  return flashAttention;
-}
+// Flash Attention — module removed; stub always returns null
+async function getFlashAttention(): Promise<null> { return null; }
 
 // Trajectory storage for SONA learning
 interface TrajectoryStep {
@@ -3697,19 +3675,8 @@ export const hooksWorkerDetect: MCPTool = {
   },
 };
 
-// Model router - lazy loaded
-let modelRouterInstance: Awaited<ReturnType<typeof import('../monovector/model-router.js').getModelRouter>> | null = null;
-async function getModelRouterInstance() {
-  if (!modelRouterInstance) {
-    try {
-      const { getModelRouter } = await import('../monovector/model-router.js');
-      modelRouterInstance = getModelRouter();
-    } catch {
-      modelRouterInstance = null;
-    }
-  }
-  return modelRouterInstance;
-}
+// Model router — module removed; stub always returns null
+async function getModelRouterInstance(): Promise<null> { return null; }
 
 // Model route tool - intelligent model selection
 export const hooksModelRoute: MCPTool = {

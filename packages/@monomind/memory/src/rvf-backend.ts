@@ -356,6 +356,9 @@ export class RvfBackend implements IMemoryBackend {
       issues.push('No vector index available');
       recommendations.push('Enable HNSW index for native vector search performance');
     }
+    if (!this.nativeDb) {
+      recommendations.push('Running in pure-TS HnswLite fallback — @monoes/rvf not installed');
+    }
 
     const status = issues.length === 0
       ? 'healthy'
@@ -363,6 +366,7 @@ export class RvfBackend implements IMemoryBackend {
 
     return {
       status,
+      mode: this.nativeDb ? 'native-rvf' : 'pure-ts-fallback',
       components: {
         storage: { status: this.initialized ? 'healthy' : 'unhealthy', latency: 0 },
         index: { status: this.hnswIndex || this.nativeDb ? 'healthy' : 'degraded', latency: 0 },

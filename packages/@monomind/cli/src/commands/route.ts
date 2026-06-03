@@ -14,9 +14,9 @@
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import {
-  createQLearningRouter,
+  createKeywordRouter,
   isMonovectorAvailable,
-  type QLearningRouter,
+  type KeywordRouter,
   type RouteDecision,
 } from '../monovector/index.js';
 
@@ -50,15 +50,15 @@ const AGENT_TYPES: AgentType[] = [
 // Router Singleton
 // ============================================================================
 
-let routerInstance: QLearningRouter | null = null;
+let routerInstance: KeywordRouter | null = null;
 let routerInitialized = false;
 
 /**
  * Get or create the router instance
  */
-async function getRouter(): Promise<QLearningRouter> {
+async function getRouter(): Promise<KeywordRouter> {
   if (!routerInstance) {
-    routerInstance = createQLearningRouter();
+    routerInstance = createKeywordRouter();
   }
   if (!routerInitialized) {
     await routerInstance.initialize();

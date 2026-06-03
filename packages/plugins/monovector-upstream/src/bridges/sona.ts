@@ -108,6 +108,7 @@ export class SonaBridge implements WasmBridge<SonaModule> {
   async init(): Promise<void> {
     if (this._status === 'ready') return;
     if (this._status === 'loading') return;
+    if (this._status === 'error') return;
 
     this._status = 'loading';
 
