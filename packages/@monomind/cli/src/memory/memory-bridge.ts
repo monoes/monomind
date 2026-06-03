@@ -1478,6 +1478,26 @@ export async function bridgeRecordFeedback(options: {
       }
     }
 
+    // Wire agent task outcomes into SONA learning engine via LearningBridge
+    const lb = registry.get('learningBridge') as any;
+    if (lb && typeof lb.onInsightRecorded === 'function') {
+      try {
+        await lb.onInsightRecorded(
+          {
+            summary: `task:${options.taskId ?? 'unknown'}`,
+            category: 'task',
+            confidence: options.quality ?? 0.5,
+          },
+          options.taskId
+        );
+        // Non-blocking consolidation — triggers SONA.flush() when threshold met
+        void (lb.consolidate() as Promise<void>).catch(() => {});
+        updated++;
+      } catch {
+        // Non-fatal — SONA learning failure must not affect task recording
+      }
+    }
+
     // Always store feedback as a memory entry for retrieval (ensures it persists)
     const storeResult = await bridgeStoreEntry({
       key: `feedback-${options.taskId}`,
