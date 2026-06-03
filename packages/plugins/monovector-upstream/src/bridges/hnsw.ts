@@ -138,6 +138,12 @@ export class HnswBridge implements WasmBridge<HnswModule> {
             vectors.set(id, { vector: new Float32Array(vector), metadata });
           },
 
+          /**
+           * M-3: Mock search using cosine similarity in [−1, 1] (higher = more similar).
+           * The real @monoes/micro-hnsw-wasm uses cosine DISTANCE (0 = identical, 2 = opposite),
+           * so results from the mock are sorted opposite to the real module.
+           * TODO: Invert mock scores when wiring to the real module: mockScore = 1 − wasmDistance
+           */
           search(query: Float32Array, k: number): SearchResult[] {
             const results: SearchResult[] = [];
 
