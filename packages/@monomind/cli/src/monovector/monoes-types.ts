@@ -50,10 +50,9 @@ export interface LearningWasmModule {
 // ── @monoes/router ───────────────────────────────────────────────────────────
 
 export interface RouterVectorDbAPI {
-  insert(id: string, vector: Float32Array): void;
-  search(vector: Float32Array, k: number): Array<{ id: string; distance: number }>;
-  delete(id: string): void;
-  close(): void;
+  insert(id: string, vector: Float32Array): string;
+  search(queryVector: Float32Array, k: number): Array<{ id: string; score: number }>;
+  delete(id: string): boolean;
 }
 
 export interface RouterModule {
