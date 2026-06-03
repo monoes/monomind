@@ -376,6 +376,50 @@ async function getSemanticRouter() {
     }
   }
 
+  // STEP 1.5: Try HnswBridge from @monomind/monovector-upstream as a fallback HNSW backend.
+  // Activated only when @monoes/router is absent. Uses direct factory import (not the
+  // WasmRegistry singleton, which is unpopulated at this point) so no registration ceremony
+  // is needed. An inline adapter bridges insert()/search() to the HnswBridge API.
+  try {
+    const upstreamMod = await import('@monomind/monovector-upstream').catch(() => null);
+    if (upstreamMod?.createHnswBridge) {
+      const bridge = upstreamMod.createHnswBridge({ dimensions: 384 });
+      await bridge.init();
+      if (bridge.isReady()) {
+        // Thin adapter: exposes the same insert()/search() surface used by the native VectorDb
+        // code path. insert() maps to bridge.add(); search() delegates directly and returns
+        // { id, score } tuples which the caller already handles with `1 - r.score` inversion.
+        const hnswAdapter = {
+          insert(id: string, embedding: Float32Array): void {
+            bridge.add(id, embedding);
+          },
+          search(query: Float32Array, k: number): { id: string; score: number }[] {
+            return bridge.search(query, k);
+          },
+        };
+
+        // Seed with the same merged task patterns used by the native backend
+        for (const [patternName, { keywords }] of Object.entries(getMergedTaskPatterns())) {
+          for (const keyword of keywords) {
+            const embedding = generateSimpleEmbedding(keyword);
+            hnswAdapter.insert(`${patternName}:${keyword}`, embedding);
+            if (TASK_PATTERN_EMBEDDINGS.size < MAX_PATTERN_EMBEDDINGS) {
+              TASK_PATTERN_EMBEDDINGS.set(`${patternName}:${keyword}`, embedding);
+            }
+          }
+        }
+
+        nativeVectorDb = hnswAdapter;
+        routerBackend = 'native';
+        _routerInitState.markReady();
+        console.debug('[hooks-tools] Using HnswBridge (monovector-upstream) as HNSW backend');
+        return { router: null, backend: routerBackend, native: nativeVectorDb };
+      }
+    }
+  } catch {
+    // HnswBridge not available or failed to init — continue to pure-JS fallback
+  }
+
   // STEP 2: Fall back to pure JS SemanticRouter
   try {
     const { SemanticRouter } = await import('../monovector/semantic-router.js');
