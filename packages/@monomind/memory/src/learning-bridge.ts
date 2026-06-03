@@ -52,6 +52,8 @@ export interface LearningBridgeConfig {
    * Signature: (text: string) => Promise<number[]>
    */
   embedder?: (text: string) => Promise<number[]>;
+  /** Expected embedding dimension — auto-detected on first embed if not set */
+  embeddingDim?: number;
 }
 
 /** Aggregated learning statistics */
@@ -84,9 +86,10 @@ export interface PatternMatch {
 // ===== Defaults =====
 
 /** Internal resolved config type where optional fields stay optional */
-type ResolvedConfig = Required<Omit<LearningBridgeConfig, 'neuralLoader' | 'embedder'>> & {
+type ResolvedConfig = Required<Omit<LearningBridgeConfig, 'neuralLoader' | 'embedder' | 'embeddingDim'>> & {
   neuralLoader?: NeuralLoader;
   embedder?: (text: string) => Promise<number[]>;
+  embeddingDim?: number;
 };
 
 const DEFAULT_CONFIG: ResolvedConfig = {
@@ -145,6 +148,7 @@ export class LearningBridge extends EventEmitter {
   private destroyed = false;
   private neuralInitPromise: Promise<void> | null = null;
   private backfillInProgress = false;
+  private _detectedEmbeddingDim: number | null = null;
 
   constructor(backend: IMemoryBackend, config?: LearningBridgeConfig) {
     super();
@@ -171,7 +175,8 @@ export class LearningBridge extends EventEmitter {
         this.stats.totalTrajectories++;
 
         // V1: use real embeddings from the memory bridge rather than hash noise
-        const embedding = await this.createEmbedding(insight.summary);
+        const dim = await this.getEmbeddingDim();
+        const embedding = await this.createEmbedding(insight.summary, dim);
         this.neural.recordStep(
           trajectoryId,
           `record:${insight.category}`,
@@ -213,7 +218,8 @@ export class LearningBridge extends EventEmitter {
     if (this.neural && this.activeTrajectories.has(entryId)) {
       try {
         const trajectoryId = this.activeTrajectories.get(entryId)!;
-        const accessEmbedding = await this.createEmbedding(`access:${entryId}`);
+        const dim = await this.getEmbeddingDim();
+        const accessEmbedding = await this.createEmbedding(`access:${entryId}`, dim);
         this.neural.recordStep(
           trajectoryId,
           'access',
@@ -420,6 +426,34 @@ export class LearningBridge extends EventEmitter {
   // ===== Private =====
 
   /**
+   * Detect and cache the actual output dimension of the injected embedder.
+   * On first call, probes the embedder with a short string and stores the
+   * resulting vector length. Subsequent calls return the cached value.
+   * Falls back to 768 when no embedder is configured or the probe fails.
+   */
+  private async getEmbeddingDim(): Promise<number> {
+    if (this._detectedEmbeddingDim !== null) return this._detectedEmbeddingDim;
+
+    if (this.config.embeddingDim) {
+      this._detectedEmbeddingDim = this.config.embeddingDim;
+      return this._detectedEmbeddingDim;
+    }
+
+    if (this.config.embedder) {
+      try {
+        const probe = await this.config.embedder('probe');
+        this._detectedEmbeddingDim = probe.length;
+      } catch {
+        this._detectedEmbeddingDim = 768; // safe default
+      }
+    } else {
+      this._detectedEmbeddingDim = 768;
+    }
+
+    return this._detectedEmbeddingDim;
+  }
+
+  /**
    * Lazily attempt to load and initialize the NeuralLearningSystem.
    * The promise is cached so that repeated calls do not re-attempt
    * after a failure.
@@ -454,6 +488,20 @@ export class LearningBridge extends EventEmitter {
       }
 
       this.neural = instance;
+
+      // Warn if the embedder produces vectors of a different dimension than SONA
+      // expects (balanced mode uses 768 by default). Silent misalignment causes
+      // trajectory embeddings to be truncated or zero-padded against the weight matrix.
+      const actualDim = await this.getEmbeddingDim();
+      // SONA balanced mode is hard-wired to 768; other modes use the same default
+      const sonaDim = 768;
+      if (actualDim !== sonaDim) {
+        process.emitWarning(
+          `LearningBridge: embedder produces ${actualDim}-dim vectors but SONA expects ${sonaDim}. ` +
+            `Configure embeddingDim in LearningBridgeConfig or adjust SONA's embeddingDim.`,
+          'MonoesWarning',
+        );
+      }
     } catch {
       // @monomind/neural not installed or failed to initialize.
       // This is expected in many environments; degrade silently.
@@ -550,7 +598,8 @@ export class LearningBridge extends EventEmitter {
         const emb = entry['embedding'];
         if (Array.isArray(emb) && emb.length === 0) {
           const content = typeof entry['content'] === 'string' ? entry['content'] : '';
-          const vec = await this.createEmbedding(content, 768);
+          const dim = await this.getEmbeddingDim();
+          const vec = await this.createEmbedding(content, dim);
           entry['embedding'] = Array.from(vec);
           changed = true;
         }
