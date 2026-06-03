@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url';
 import { execSync, exec } from 'child_process';
 import { homedir } from 'os';
 import { promisify } from 'util';
+import { getCapabilities } from '../monovector/capabilities.js';
 
 // Promisified exec with proper shell and env inheritance for cross-platform support
 const execAsync = promisify(exec);
@@ -545,6 +546,37 @@ async function checkAgenticFlow(): Promise<HealthCheck> {
   }
 }
 
+// Check @monoes native acceleration integration (sona/router/attention/learning-wasm)
+async function checkMonoesIntegration(): Promise<HealthCheck> {
+  try {
+    const caps = await getCapabilities();
+    const parts = [
+      `sona=${caps.sona ? 'native' : 'js'}`,
+      `router=${caps.router}`,
+      `attention=${caps.attention ? 'native' : 'js'}`,
+      `learningWasm=${caps.learningWasm ? 'wasm' : 'js'}`,
+    ];
+    const nativeDisabled = process.env.MONOMIND_DISABLE_NATIVE === '1' || process.env.MONOMIND_FORCE_JS === '1';
+    const allJs = !caps.sona && caps.router !== 'native' && !caps.attention && !caps.learningWasm;
+    return {
+      name: 'monoes Integration',
+      status: nativeDisabled ? 'warn' : (allJs ? 'warn' : 'pass'),
+      message: nativeDisabled
+        ? `Native disabled via env — all JS fallback (${parts.join(' ')})`
+        : `@monoes: ${parts.join(' ')}`,
+      fix: allJs && !nativeDisabled
+        ? 'npm install @monoes/sona @monoes/router @monoes/attention @monoes/learning-wasm'
+        : undefined,
+    };
+  } catch (err) {
+    return {
+      name: 'monoes Integration',
+      status: 'warn',
+      message: `Could not probe @monoes capabilities: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
 // Format health check result
 function formatCheck(check: HealthCheck): string {
   const icon = check.status === 'pass' ? output.success('✓') :
@@ -575,7 +607,7 @@ export const doctorCommand: Command = {
     {
       name: 'component',
       short: 'c',
-      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph)',
+      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, claude, disk, typescript, monograph, monoes)',
       type: 'string'
     },
     {
@@ -621,7 +653,8 @@ export const doctorCommand: Command = {
       checkBuildTools,
       checkMonograph,
       checkHelpersFresh,
-      checkAgenticFlow
+      checkAgenticFlow,
+      checkMonoesIntegration
     ];
 
     const componentMap: Record<string, () => Promise<HealthCheck>> = {
@@ -640,7 +673,8 @@ export const doctorCommand: Command = {
       'typescript': checkBuildTools,
       'monograph': checkMonograph,
       'helpers': checkHelpersFresh,
-      'agentic-flow': checkAgenticFlow
+      'agentic-flow': checkAgenticFlow,
+      'monoes': checkMonoesIntegration
     };
 
     let checksToRun = allChecks;
