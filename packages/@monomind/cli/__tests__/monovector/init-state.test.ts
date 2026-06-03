@@ -44,4 +44,12 @@ describe('createInitState', () => {
     s.markFailed();
     expect(s.isFailed()).toBe(true);
   });
+
+  it('markPermanentlyFailed immediately sets isFailed without retries', () => {
+    const s = createInitState({ maxAttempts: 5 });
+    s.markPermanentlyFailed();
+    expect(s.isFailed()).toBe(true);
+    expect(s.canTry()).toBe(false);
+    expect(s.attempts()).toBe(5); // count is set to max
+  });
 });
