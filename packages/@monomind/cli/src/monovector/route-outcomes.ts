@@ -73,3 +73,41 @@ export async function readOutcomes(baseDir: string): Promise<RouteOutcomeRecord[
     return [];
   }
 }
+
+export interface RoutingAccuracy {
+  window: number;            // how many recent records considered
+  totalWithOutcome: number;  // records that have measuredSuccess joined
+  accuracy: number | null;   // successes / totalWithOutcome, null if no data
+  byMode: { native: number | null; js: number | null }; // accuracy split by learningMode
+  recentVsPrior: number | null; // delta: recent-half accuracy minus prior-half (trend)
+}
+
+/**
+ * Compute routing accuracy over the most recent N records that have a joined outcome.
+ * accuracy = fraction of records whose joined outcome reports measuredSuccess === true.
+ * (agentActuallyUsed is recorded per row but not required to match the recommendation;
+ * the success label already reflects whether the chosen routing worked out.)
+ */
+export async function computeRoutingAccuracy(baseDir: string, window = 100): Promise<RoutingAccuracy> {
+  const all = await readOutcomes(baseDir);
+  // Only records with a measured outcome count
+  const withOutcome = all.filter(r => typeof r.measuredSuccess === 'boolean').slice(-window);
+  const n = withOutcome.length;
+  if (n === 0) {
+    return { window, totalWithOutcome: 0, accuracy: null, byMode: { native: null, js: null }, recentVsPrior: null };
+  }
+  const succ = (recs: typeof withOutcome) =>
+    recs.length ? recs.filter(r => r.measuredSuccess).length / recs.length : null;
+  const native = withOutcome.filter(r => r.learningMode === 'native');
+  const js = withOutcome.filter(r => r.learningMode === 'js');
+  const mid = Math.floor(n / 2);
+  const prior = succ(withOutcome.slice(0, mid));
+  const recent = succ(withOutcome.slice(mid));
+  return {
+    window,
+    totalWithOutcome: n,
+    accuracy: succ(withOutcome),
+    byMode: { native: succ(native), js: succ(js) },
+    recentVsPrior: (recent !== null && prior !== null) ? recent - prior : null,
+  };
+}
