@@ -54,21 +54,63 @@ export function resetCapabilitiesCache(): void {
   _inFlight = null;
 }
 
+/**
+ * Declarative probe table — one row per @monoes capability. Replaces the prior
+ * index-correlated parallel array (probe order had to match return-field order,
+ * a silent drift hazard). The `key` ties each probe to its MonoesCapabilities
+ * field by name, so adding/reordering rows can never desync.
+ *
+ * Router is handled separately (3-state: native | js | none).
+ */
+interface CapabilityProbe {
+  key: keyof MonoesCapabilities;
+  specifier: string;
+  check: (m: unknown) => boolean;
+}
+
+const CAPABILITY_PROBES: CapabilityProbe[] = [
+  {
+    key: 'sona',
+    specifier: '@monoes/sona',
+    check: m =>
+      typeof (m as Record<string, unknown>).SonaEngine === 'function' ||
+      !!(m as Record<string, unknown>).SonaEngine,
+  },
+  {
+    key: 'attention',
+    specifier: '@monoes/attention',
+    check: m => typeof (m as AttentionModule).FlashAttention === 'function',
+  },
+  {
+    key: 'learningWasm',
+    specifier: '@monoes/learning-wasm',
+    check: m => typeof (m as LearningWasmModule).WasmMicroLoRA === 'function',
+  },
+];
+
 async function _probe(): Promise<MonoesCapabilities> {
-  const [sonaResult, routerResult, attentionResult, wasmResult, pluginResult] = await Promise.allSettled([
-    tryLoad('@monoes/sona').then(m => !!m && (typeof (m as Record<string, unknown>).SonaEngine === 'function' || !!(m as Record<string, unknown>).SonaEngine)),
-    _probeRouter(),
-    tryLoad<AttentionModule>('@monoes/attention').then(m => !!m && typeof m.FlashAttention === 'function'),
-    tryLoad<LearningWasmModule>('@monoes/learning-wasm').then(m => !!m && typeof m.WasmMicroLoRA === 'function'),
-    import('@monomind/monovector-upstream').then(m => !!(m as Record<string, unknown>).createHnswBridge).catch(() => false),
-  ]);
+  // Router has 3-state logic — handled separately.
+  const router = await _probeRouter();
+
+  // Upstream plugin is a pure-JS workspace package; probe via tryLoad and keep
+  // the shape check (loaded ≠ has-the-factory) so a broken build reads as false.
+  const upstreamMod = await tryLoad('@monomind/monovector-upstream');
+  const upstreamPlugin = !!(upstreamMod as Record<string, unknown> | null)?.createHnswBridge;
+
+  const flags: Record<string, boolean> = {};
+  await Promise.all(
+    CAPABILITY_PROBES.map(async p => {
+      const mod = await tryLoad(p.specifier);
+      flags[p.key] = mod !== null && p.check(mod);
+    })
+  );
 
   return {
-    sona: sonaResult.status === 'fulfilled' ? sonaResult.value : false,
-    router: routerResult.status === 'fulfilled' ? routerResult.value : 'none',
-    attention: attentionResult.status === 'fulfilled' ? attentionResult.value : false,
-    learningWasm: wasmResult.status === 'fulfilled' ? wasmResult.value : false,
-    upstreamPlugin: pluginResult.status === 'fulfilled' ? (pluginResult.value as boolean) : false,
+    router,
+    upstreamPlugin,
+    sona: flags.sona ?? false,
+    attention: flags.attention ?? false,
+    learningWasm: flags.learningWasm ?? false,
   };
 }
 

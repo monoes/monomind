@@ -6,6 +6,7 @@
  */
 
 // Bridge exports
+export { BaseBridge } from './bridges/base-bridge.js';
 export * from './bridges/hnsw.js';
 export * from './bridges/attention.js';
 export * from './bridges/hyperbolic.js';
@@ -19,3 +20,6 @@ export * from './types.js';
 
 // Registry
 export { WasmRegistry, getWasmRegistry } from './registry.js';
+
+// Bridge manifest (one row per @monoes bridge)
+export { MONOES_BRIDGES, type MonoesBridgeDescriptor } from './manifest.js';

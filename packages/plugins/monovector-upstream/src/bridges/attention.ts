@@ -5,8 +5,9 @@
  * Achieves 2.49x-7.47x speedup over standard attention.
  */
 
-import type { WasmBridge, WasmModuleStatus, AttentionConfig } from '../types.js';
-import { AttentionConfigSchema, isNativeDisabled } from '../types.js';
+import type { AttentionConfig } from '../types.js';
+import { AttentionConfigSchema } from '../types.js';
+import { BaseBridge } from './base-bridge.js';
 
 /**
  * Attention WASM module interface
@@ -35,63 +36,27 @@ interface AttentionModule {
 /**
  * Flash Attention Bridge implementation
  */
-export class AttentionBridge implements WasmBridge<AttentionModule> {
+export class AttentionBridge extends BaseBridge<AttentionModule> {
   readonly name = 'monoes-attention';
   readonly version = '0.1.0';
 
-  private _status: WasmModuleStatus = 'unloaded';
-  private _module: AttentionModule | null = null;
   private config: AttentionConfig;
 
   constructor(config?: Partial<AttentionConfig>) {
+    super();
     this.config = AttentionConfigSchema.parse(config ?? {});
   }
 
-  get status(): WasmModuleStatus {
-    return this._status;
+  protected specifier(): string {
+    return '@monoes/attention';
   }
 
-  async init(): Promise<void> {
-    if (this._status === 'ready') return;
-    if (this._status === 'loading') return;
-
-    // Native kill-switch — force pure-JS mock, skip the @monoes/attention load.
-    if (isNativeDisabled()) {
-      this._module = this.createMockModule();
-      this._status = 'ready';
-      return;
-    }
-
-    this._status = 'loading';
-
-    try {
-      const wasmModule = await import('@monoes/attention').catch(() => null);
-
-      if (wasmModule && typeof (wasmModule as any).FlashAttention === 'function') {
-        this._module = wasmModule as unknown as AttentionModule;
-        this._status = 'ready';
-      } else {
-        this._module = this.createMockModule();
-        // error if module loaded but had wrong shape; ready if simply absent
-        this._status = wasmModule ? 'error' : 'ready';
-      }
-    } catch (error) {
-      this._status = 'error';
-      throw error;
-    }
+  protected validateShape(mod: unknown): boolean {
+    return typeof (mod as any)?.FlashAttention === 'function';
   }
 
-  async destroy(): Promise<void> {
-    this._module = null;
-    this._status = 'unloaded';
-  }
-
-  isReady(): boolean {
-    return this._status === 'ready';
-  }
-
-  getModule(): AttentionModule | null {
-    return this._module;
+  protected createMock(): AttentionModule {
+    return this.createMockModule();
   }
 
   /**
