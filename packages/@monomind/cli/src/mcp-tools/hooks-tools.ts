@@ -8,6 +8,7 @@ import { dirname, join, resolve, sep } from 'path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { createInitState } from '../monovector/init-state.js';
 import type { RouterModule } from '../monovector/monoes-types.js';
+import { getCapabilities } from '../monovector/capabilities.js';
 
 // Real vector search functions - lazy loaded to avoid circular imports
 let searchEntriesFn: ((options: {
@@ -334,7 +335,9 @@ async function getSemanticRouter() {
   // STEP 1: Try native VectorDb from @monoes/router (HNSW-backed)
   // Note: Native VectorDb uses a persistent database file which can have lock issues
   // in concurrent environments. We try it first but fall back gracefully to pure JS.
-  try {
+  // Use getCapabilities() to skip native init when @monoes/router is not installed.
+  const caps = await getCapabilities();
+  if (caps.router !== 'none') try {
     // Use createRequire for ESM compatibility with native modules
     const { createRequire } = await import('module');
     const require = createRequire(import.meta.url);
