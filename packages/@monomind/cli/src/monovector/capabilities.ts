@@ -53,8 +53,11 @@ export function resetCapabilitiesCache(): void {
 
 async function _probe(): Promise<MonoesCapabilities> {
   const [sonaResult, routerResult, attentionResult, wasmResult] = await Promise.allSettled([
-    // @ts-expect-error optional peer dependency — index.d.ts may be empty
-    import('@monoes/sona').then((m: any) => typeof m.SonaEngine === 'function' || !!m.SonaEngine),
+    // @ts-expect-error optional peer dependency with no types at root
+    import('@monoes/sona').then((m: unknown) => {
+      const mod = m as Record<string, unknown>;
+      return typeof mod.SonaEngine === 'function' || !!mod.SonaEngine;
+    }),
     _probeRouter(),
     import('@monoes/attention').then(m => typeof (m as unknown as AttentionModule).FlashAttention === 'function'),
     import('@monoes/learning-wasm').then(m => typeof (m as unknown as LearningWasmModule).WasmMicroLoRA === 'function'),
