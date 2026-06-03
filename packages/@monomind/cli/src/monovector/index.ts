@@ -18,6 +18,15 @@ export { getCapabilities, getCachedCapabilities, resetCapabilitiesCache, refresh
 export { createInitState, type InitState, type InitStatus } from './init-state.js';
 
 export {
+  recordRoute,
+  joinOutcome,
+  readOutcomes,
+  computeRoutingAccuracy,
+  type RouteOutcomeRecord,
+  type RoutingAccuracy,
+} from './route-outcomes.js';
+
+export {
   DiffClassifier,
   createDiffClassifier,
   analyzeDiff,
