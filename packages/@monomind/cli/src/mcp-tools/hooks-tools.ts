@@ -724,7 +724,35 @@ function suggestAgentsForTask(task: string): { agents: string[]; confidence: num
 let _neuralRouterInstance: any = null;
 let _neuralRouterInitPromise: Promise<void> | null = null;
 
-async function applyNeuralAdaptation(text: string, dimensions: number): Promise<Float32Array | null> {
+// One-time guard so the dim-mismatch warning is logged at most once per process.
+let _loraDimMismatchWarned = false;
+
+/**
+ * Apply SONA's learned LoRA adaptation to the SAME query embedding used by the
+ * routing index (B1.4 fix).
+ *
+ * Previously this built a bespoke 768-dim, sin-only, unnormalized base, ran the
+ * LoRA transform, then sliced to 384. The result lived in a different basis AND
+ * scale than the indexed patterns (which are `generateSimpleEmbedding` output:
+ * 384-dim, sin+cos, L2-normalized), so it always scored below the 0.4 gate and
+ * routing silently fell back to keyword. SONA's learned weights never reached
+ * routing AND the clean query was clobbered with off-distribution noise.
+ *
+ * The fix: take the already-computed, normalized 384-dim query, apply the LoRA
+ * transform in that same space, and re-normalize to unit length.
+ *
+ * No-op invariant: with an UNTRAINED LoRA (B = 0), `applyLoRATransform` produces
+ * a zero delta, the mode blend returns the input unchanged, and re-normalizing a
+ * unit vector yields the same vector — i.e. cosine-identical to the plain query.
+ *
+ * Dim gate: SONA still builds LoRA weights at hiddenDim (768) while the router
+ * query is 384-dim. Feeding a 384-dim vector through 768-dim weight matrices
+ * reads the wrong matrix layout and produces garbage. So we ONLY apply the
+ * adaptation when SONA's weight dim matches the query dim; otherwise we return
+ * the query untouched and warn once. This keeps routing correct today; learned
+ * weights will flow once SONA builds weights at the embedder dim.
+ */
+async function applyNeuralAdaptation(query: Float32Array): Promise<Float32Array | null> {
   if (!_neuralRouterInitPromise) {
     _neuralRouterInitPromise = (async () => {
       try {
@@ -740,19 +768,41 @@ async function applyNeuralAdaptation(text: string, dimensions: number): Promise<
   await _neuralRouterInitPromise;
   if (!_neuralRouterInstance) return null;
   try {
-    const base = new Float32Array(dimensions);
-    // Use a hash embedding as the base for the LoRA transform
-    const words = text.toLowerCase().split(/\s+/);
-    for (let i = 0; i < dimensions; i++) {
-      let v = 0;
-      for (let w = 0; w < words.length; w++) {
-        for (let c = 0; c < words[w].length; c++) {
-          v += Math.sin((words[w].charCodeAt(c) * (i + 1) + w * 17) * 0.0137);
-        }
+    const sona = _neuralRouterInstance.getSONAManager();
+    // Gate (FAIL-CLOSED): apply only on a POSITIVE dim match.
+    // SONA's mode configs do not currently expose hiddenDim (it's optional and
+    // unset for the 'balanced' preset), so getConfig().config.hiddenDim is
+    // `undefined` at runtime. A fail-OPEN gate (skip only when a number mismatches)
+    // would therefore run the 768-dim trained weights against a 384-dim query —
+    // the exact off-distribution garbage this fix exists to prevent. So we skip
+    // unless the weight dim is explicitly known AND equal to the query dim.
+    // Today that means we always skip (weights build at 768); the adaptation flips
+    // on automatically once SONA builds weights at the embedder dim.
+    const cfg = sona.getConfig?.();
+    const weightDim: number | undefined = cfg?.config?.hiddenDim;
+    if (weightDim !== query.length) {
+      if (!_loraDimMismatchWarned) {
+        _loraDimMismatchWarned = true;
+        console.warn(
+          `[routing] SONA LoRA weight dim (${weightDim ?? 'unknown'}) != query embedding dim ` +
+          `(${query.length}); skipping neural adaptation to avoid off-distribution queries. ` +
+          `Learned weights will apply once SONA builds at the embedder dim.`,
+        );
       }
-      base[i] = v;
+      return null;
     }
-    return await _neuralRouterInstance.getSONAManager().applyAdaptations(base);
+    // Apply LoRA in the SAME 384-dim normalized space as the index.
+    const adapted: Float32Array = await sona.applyAdaptations(query);
+    if (!adapted || adapted.length !== query.length) return null;
+    // Re-normalize to unit length so cosine/HNSW scores are comparable to the
+    // indexed patterns. (Untrained LoRA → adapted === query → no-op.)
+    let norm = 0;
+    for (let i = 0; i < adapted.length; i++) norm += adapted[i] * adapted[i];
+    norm = Math.sqrt(norm);
+    if (norm > 0) {
+      for (let i = 0; i < adapted.length; i++) adapted[i] /= norm;
+    }
+    return adapted;
   } catch { return null; }
 }
 
@@ -1105,8 +1155,11 @@ export const hooksRoute: MCPTool = {
     // (loaded from learned-state.json during _neuralRouterInstance.initialize()).
     let queryEmbedding = generateSimpleEmbedding(queryText);
     try {
-      const adapted = await applyNeuralAdaptation(queryText, 768);
-      if (adapted) queryEmbedding = adapted.slice(0, 384);
+      // B1.4: apply LoRA in the SAME 384-dim normalized space as the index,
+      // not a bespoke 768-dim base that gets sliced (which clobbered the query
+      // with an off-distribution vector and forced keyword fallback).
+      const adapted = await applyNeuralAdaptation(queryEmbedding);
+      if (adapted) queryEmbedding = adapted;
     } catch { /* fall through to hash embedding */ }
 
     // Try native VectorDb (HNSW-backed)
