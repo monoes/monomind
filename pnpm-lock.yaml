@@ -37,11 +37,65 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
 
+  packages/@monoes/attention:
+    dependencies:
+      '@ruvector/attention':
+        specifier: ^0.1.32
+        version: 0.1.32
+
+  packages/@monoes/attention-rs:
+    devDependencies:
+      '@napi-rs/cli':
+        specifier: ^2.18.0
+        version: 2.18.4
+    optionalDependencies:
+      '@ruvector/attention-darwin-arm64':
+        specifier: 0.1.4
+        version: 0.1.4
+      '@ruvector/attention-darwin-x64':
+        specifier: 0.1.4
+        version: 0.1.4
+      '@ruvector/attention-linux-arm64-gnu':
+        specifier: 0.1.4
+        version: 0.1.4
+      '@ruvector/attention-linux-x64-gnu':
+        specifier: 0.1.4
+        version: 0.1.4
+      '@ruvector/attention-win32-x64-msvc':
+        specifier: 0.1.4
+        version: 0.1.4
+
+  packages/@monoes/core:
+    dependencies:
+      '@ruvector/core':
+        specifier: ^0.1.31
+        version: 0.1.31
+
+  packages/@monoes/learning-wasm: {}
+
   packages/@monoes/monodesign:
     dependencies:
       impeccable:
         specifier: '*'
         version: 2.3.2(typescript@5.9.3)
+
+  packages/@monoes/router:
+    dependencies:
+      '@ruvector/router':
+        specifier: ^0.1.30
+        version: 0.1.30
+
+  packages/@monoes/router-rs:
+    devDependencies:
+      '@napi-rs/cli':
+        specifier: ^2.16.0
+        version: 2.18.4
+
+  packages/@monoes/sona:
+    devDependencies:
+      '@napi-rs/cli':
+        specifier: ^3.0.0
+        version: 3.7.0(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(@types/node@20.19.39)(node-addon-api@8.7.0)
 
   packages/@monomind/aidefence:
     dependencies:
@@ -105,27 +159,27 @@ importers:
       '@anthropic-ai/sdk':
         specifier: '*'
         version: 0.39.0
-      '@monoes/memory':
-        specifier: workspace:*
-        version: link:../memory
       '@monoes/attention':
         specifier: ^0.1.4
         version: 0.1.32
       '@monoes/learning-wasm':
         specifier: workspace:*
         version: link:../../@monoes/learning-wasm
+      '@monoes/memory':
+        specifier: workspace:*
+        version: link:../memory
       '@monoes/router':
         specifier: ^0.1.27
         version: 0.1.30
-      '@monoes/ruvllm-wasm':
-        specifier: workspace:*
-        version: link:../../@monoes/ruvllm-wasm
-      '@monoes/rvagent-wasm':
-        specifier: workspace:*
-        version: link:../../@monoes/rvagent-wasm
       '@monoes/sona':
         specifier: workspace:*
         version: link:../../@monoes/sona
+      '@monomind/monovector-upstream':
+        specifier: workspace:*
+        version: link:../../plugins/monovector-upstream
+      '@monomind/neural':
+        specifier: workspace:*
+        version: link:../neural
       agentic-flow:
         specifier: ^3.0.0-alpha.1
         version: 3.0.0-alpha.2(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))
@@ -323,6 +377,10 @@ importers:
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@opentelemetry/api@1.9.1)(@types/node@20.19.39)(@vitest/coverage-v8@4.1.8)(vite@8.0.8(@types/node@20.19.39)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.8.3))
+    optionalDependencies:
+      '@monomind/neural':
+        specifier: workspace:*
+        version: link:../neural
 
   packages/@monomind/monograph:
     dependencies:
@@ -429,121 +487,13 @@ importers:
         version: 3.8.1
 
   packages/@monomind/neural:
-    dependencies:
+    optionalDependencies:
       '@monoes/sona':
         specifier: workspace:*
         version: link:../../@monoes/sona
-    optionalDependencies:
       agentdb:
         specifier: ^2.0.0 || ^3.0.0-alpha.11
         version: 3.0.0-alpha.11(@types/node@20.19.39)(zod@4.3.6)
-
-  packages/@monoes/attention:
-    dependencies:
-      '@ruvector/attention':
-        specifier: ^0.1.32
-        version: 0.1.32
-
-  packages/@monoes/attention-rs:
-    devDependencies:
-      '@napi-rs/cli':
-        specifier: ^2.18.0
-        version: 2.18.4
-    optionalDependencies:
-      '@ruvector/attention-darwin-arm64':
-        specifier: 0.1.4
-        version: 0.1.4
-      '@ruvector/attention-darwin-x64':
-        specifier: 0.1.4
-        version: 0.1.4
-      '@ruvector/attention-linux-arm64-gnu':
-        specifier: 0.1.4
-        version: 0.1.4
-      '@ruvector/attention-linux-x64-gnu':
-        specifier: 0.1.4
-        version: 0.1.4
-      '@ruvector/attention-win32-x64-msvc':
-        specifier: 0.1.4
-        version: 0.1.4
-
-  packages/@monoes/attention-wasm: {}
-
-  packages/@monoes/core:
-    dependencies:
-      '@ruvector/core':
-        specifier: ^0.1.31
-        version: 0.1.31
-
-  packages/@monoes/exotic-wasm: {}
-
-  packages/@monoes/gnn:
-    dependencies:
-      '@ruvector/gnn':
-        specifier: ^0.1.25
-        version: 0.1.25
-
-  packages/@monoes/gnn-rs:
-    devDependencies:
-      '@napi-rs/cli':
-        specifier: ^2.16.0
-        version: 2.18.4
-    optionalDependencies:
-      '@ruvector/gnn-darwin-arm64':
-        specifier: 0.1.25
-        version: 0.1.25
-      '@ruvector/gnn-darwin-x64':
-        specifier: 0.1.25
-        version: 0.1.25
-      '@ruvector/gnn-linux-arm64-gnu':
-        specifier: 0.1.25
-        version: 0.1.25
-      '@ruvector/gnn-linux-x64-gnu':
-        specifier: 0.1.25
-        version: 0.1.25
-      '@ruvector/gnn-linux-x64-musl':
-        specifier: 0.1.25
-        version: 0.1.25
-      '@ruvector/gnn-win32-x64-msvc':
-        specifier: 0.1.25
-        version: 0.1.25
-
-  packages/@monoes/gnn-wasm: {}
-
-  packages/@monoes/learning-wasm: {}
-
-  packages/@monoes/router:
-    dependencies:
-      '@ruvector/router':
-        specifier: ^0.1.30
-        version: 0.1.30
-
-  packages/@monoes/router-rs:
-    devDependencies:
-      '@napi-rs/cli':
-        specifier: ^2.16.0
-        version: 2.18.4
-
-  packages/@monoes/ruvllm-wasm: {}
-
-  packages/@monoes/rvagent-wasm: {}
-
-  packages/@monoes/rvf:
-    dependencies:
-      '@ruvector/rvf':
-        specifier: ^0.1.9
-        version: 0.1.9
-
-  packages/@monoes/rvf-rs:
-    devDependencies:
-      '@napi-rs/cli':
-        specifier: ^2.18.0
-        version: 2.18.4
-
-  packages/@monoes/sona:
-    devDependencies:
-      '@napi-rs/cli':
-        specifier: ^3.0.0
-        version: 3.7.0(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(@types/node@20.19.39)(node-addon-api@8.7.0)
 
   packages/plugins/agentic-qe:
     dependencies:
@@ -612,15 +562,6 @@ importers:
 
   packages/plugins/monovector-upstream:
     dependencies:
-      '@monoes/attention-wasm':
-        specifier: workspace:*
-        version: link:../../@monoes/attention-wasm
-      '@monoes/exotic-wasm':
-        specifier: workspace:*
-        version: link:../../@monoes/exotic-wasm
-      '@monoes/gnn-wasm':
-        specifier: workspace:*
-        version: link:../../@monoes/gnn-wasm
       '@monoes/learning-wasm':
         specifier: workspace:*
         version: link:../../@monoes/learning-wasm
@@ -1777,72 +1718,14 @@ packages:
       '@cfworker/json-schema':
         optional: true
 
+  '@monoes/attention@0.1.32':
+    resolution: {integrity: sha512-fnMaLbNCrTUeIxe4D/ZjF0MBRsdxoZ22PmLaohszN/9A0+6v1ClK6L9GUwY4VgqtOSmjqlEWfM8n0S0bWBk+cA==}
+
   '@monoes/monograph@1.1.0':
     resolution: {integrity: sha512-fH3gYvzWW+RXA/AStsFcr/8dhiLQ/GdY4Ptjng6QBcGUaybio+mXP3tL/cql5d5+9q9meNsu2lmAp2vvlA5owg==}
 
-  '@monoes/attention-darwin-arm64@0.1.32':
-    resolution: {integrity: sha512-CQ/oftq9o9t2EEBwCfUfdZsxuzHRXrHhtdZk05GZfvPxiDbsuw3NLgDQRR3cvg+8xU9lAmzer+8WCGdxbgX7vQ==}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@monoes/attention-darwin-x64@0.1.32':
-    resolution: {integrity: sha512-S11zMfLn+nZJlozLE4b8zVERdSTzD4DJ4Xb+bAUavTLrptYdIhJ0EzqPvCjF1XcSyAgAAkE9+u0oLEjVmAhT3Q==}
-    cpu: [x64]
-    os: [darwin]
-
-  '@monoes/attention-linux-arm64-gnu@0.1.32':
-    resolution: {integrity: sha512-eySb6dYHy1WZ3RWuR80PP9r3X6wDWrTZ26bzZ7jEhg3o61bYwoRJ9BphSj0cSUdz1OMwcu163M/ddR1SM8/Ieg==}
-    cpu: [arm64]
-    os: [linux]
-
-  '@monoes/attention-linux-x64-gnu@0.1.32':
-    resolution: {integrity: sha512-Xch9eOJVMPouOB3L05VUHVA8RofzRnXh6tpEpIScSrkG6oqHwWaVf4Ku8SHe5YZ3FIsM+Oj1jrv11jtN56rpDg==}
-    cpu: [x64]
-    os: [linux]
-
-  '@monoes/attention-win32-x64-msvc@0.1.32':
-    resolution: {integrity: sha512-KMeo9ruZySGtyw1NFIE/6wWoGgPa07FhUplCVP75Y3y5JSFXrd6NjgEIfSItQOZ0RVRzTeXuUglkOzMo0kb/6Q==}
-    cpu: [x64]
-    os: [win32]
-
-  '@monoes/attention@0.1.32':
-    resolution: {integrity: sha512-7ePEASX4+Y8qVU2p2CszL/fgP+E3BRSZm7oukDaTwED5HSrw1jdQk75LijR488s3dYYeHdgoSv67P+WWHbM98A==}
-
-  '@monoes/router-darwin-arm64@0.1.30':
-    resolution: {integrity: sha512-TWC8ei18jlODekVwSyzEC55XUnmgU+br1cD/w7I3iEW6FL6Vbl3neZU8b03cHtgEN9xxnrKDRr7jq3T41UY40A==}
-    engines: {node: '>=18.0.0'}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@monoes/router-darwin-x64@0.1.30':
-    resolution: {integrity: sha512-nxnPGUx2BYAgSzJ3bC/hiCOVAPnAORvJToKnwRV3V+b/KhuUd09qSEP1ykUjbT4Y8oxnA4DklTvVTMwKRFFE1w==}
-    engines: {node: '>= 18'}
-    cpu: [x64]
-    os: [darwin]
-
-  '@monoes/router-linux-arm64-gnu@0.1.30':
-    resolution: {integrity: sha512-7FD16wlCVgQ+4Zvd3d5noTRrCpbT2SvEzmhVj+L9HVV3u8NHCfHVLSb8gObf9RS9PW1X4pm60b5X39SgxKbDTg==}
-    engines: {node: '>= 18'}
-    cpu: [arm64]
-    os: [linux]
-    libc: [glibc]
-
-  '@monoes/router-linux-x64-gnu@0.1.30':
-    resolution: {integrity: sha512-NHognWMJBEfoRt5+22TvYAoA+XPzZpd1DHP3z4fLAoKI85SZOqYy9sxyZo/oyYVsMDPrrBJKi3wdufPzgLFeOQ==}
-    engines: {node: '>= 18'}
-    cpu: [x64]
-    os: [linux]
-    libc: [glibc]
-
-  '@monoes/router-win32-x64-msvc@0.1.30':
-    resolution: {integrity: sha512-E9j57ZMVS9CvHYwlPyBEZfmbMoMySWePUcqlhktglZbA22BD1soYUgIKPf2jUkEJTLfxvwLDqBjtyNThXAojiQ==}
-    engines: {node: '>= 18'}
-    cpu: [x64]
-    os: [win32]
-
   '@monoes/router@0.1.30':
-    resolution: {integrity: sha512-gtZAdxp0UYrOJd3Kz+kNtFNfG53aW2xkZ7u3XNT+JdViTEVnpYMEdDfpc2ByQBy+kf600Cp5xVMQR3qVXajWtw==}
-    engines: {node: '>=18.0.0'}
+    resolution: {integrity: sha512-AMWgWOwPPt7RvHwkrVKB9PmCqaBSAuXCiuCwb7IMABASLAaRzRNxv9rs/ZdbMViCDPlgC+Mxdq7Oqi6gaVcINQ==}
 
   '@napi-rs/cli@2.18.4':
     resolution: {integrity: sha512-SgJeA4df9DE2iAEpr3M2H0OKl/yjtg1BnRI5/JyowS71tUWhrfSu2LT0V3vlHET+g1hBVlrO60PmEXwUEKp8Mg==}
@@ -7861,6 +7744,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@monoes/attention@0.1.32':
+    dependencies:
+      '@ruvector/attention': 0.1.32
+    optional: true
+
   '@monoes/monograph@1.1.0':
     dependencies:
       better-sqlite3: 12.9.0
@@ -7878,52 +7766,9 @@ snapshots:
       tree-sitter-rust: 0.23.3(tree-sitter@0.22.4)
       tree-sitter-typescript: 0.23.2(tree-sitter@0.22.4)
 
-  '@monoes/attention-darwin-arm64@0.1.32':
-    optional: true
-
-  '@monoes/attention-darwin-x64@0.1.32':
-    optional: true
-
-  '@monoes/attention-linux-arm64-gnu@0.1.32':
-    optional: true
-
-  '@monoes/attention-linux-x64-gnu@0.1.32':
-    optional: true
-
-  '@monoes/attention-win32-x64-msvc@0.1.32':
-    optional: true
-
-  '@monoes/attention@0.1.32':
-    optionalDependencies:
-      '@monoes/attention-darwin-arm64': 0.1.32
-      '@monoes/attention-darwin-x64': 0.1.32
-      '@monoes/attention-linux-arm64-gnu': 0.1.32
-      '@monoes/attention-linux-x64-gnu': 0.1.32
-      '@monoes/attention-win32-x64-msvc': 0.1.32
-    optional: true
-
-  '@monoes/router-darwin-arm64@0.1.30':
-    optional: true
-
-  '@monoes/router-darwin-x64@0.1.30':
-    optional: true
-
-  '@monoes/router-linux-arm64-gnu@0.1.30':
-    optional: true
-
-  '@monoes/router-linux-x64-gnu@0.1.30':
-    optional: true
-
-  '@monoes/router-win32-x64-msvc@0.1.30':
-    optional: true
-
   '@monoes/router@0.1.30':
-    optionalDependencies:
-      '@monoes/router-darwin-arm64': 0.1.30
-      '@monoes/router-darwin-x64': 0.1.30
-      '@monoes/router-linux-arm64-gnu': 0.1.30
-      '@monoes/router-linux-x64-gnu': 0.1.30
-      '@monoes/router-win32-x64-msvc': 0.1.30
+    dependencies:
+      '@ruvector/router': 0.1.30
     optional: true
 
   '@napi-rs/cli@2.18.4': {}
@@ -9545,6 +9390,7 @@ snapshots:
       '@ruvector/rvf-node-linux-arm64-gnu': 0.1.7
       '@ruvector/rvf-node-linux-x64-gnu': 0.1.7
       '@ruvector/rvf-node-win32-x64-msvc': 0.1.7
+    optional: true
 
   '@ruvector/rvf-solver@0.1.8':
     optional: true
@@ -9558,6 +9404,7 @@ snapshots:
     optionalDependencies:
       '@ruvector/rvf-solver': 0.1.8
       '@ruvector/rvf-wasm': 0.1.6
+    optional: true
 
   '@ruvector/sona-darwin-arm64@0.1.4':
     optional: true
