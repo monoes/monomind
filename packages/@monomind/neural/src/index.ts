@@ -16,7 +16,13 @@
 // Dimensional Constants
 // =============================================================================
 
-export { SONA_HIDDEN_DIM, DEFAULT_VECTOR_DIM, SONA_EDGE_DIM } from './constants.js';
+export {
+  SONA_HIDDEN_DIM,
+  DEFAULT_VECTOR_DIM,
+  SONA_EDGE_DIM,
+  SONA_MICRO_LORA_RANK_MAX,
+  safeMicroLoraRank,
+} from './constants.js';
 
 // =============================================================================
 // Core Types
@@ -204,9 +210,11 @@ export class NeuralLearningSystem {
   private sonaEngine: SONALearningEngine | null = null;
   private initialized = false;
   private mode: SONAMode;
+  private embeddingDim?: number;
 
-  constructor(mode: SONAMode = 'balanced') {
+  constructor(mode: SONAMode = 'balanced', options?: { embeddingDim?: number }) {
     this.mode = mode;
+    this.embeddingDim = options?.embeddingDim;
     this.sona = createSONAManager(mode);
     this.reasoningBank = createReasoningBank();
     this.patternLearner = createPatternLearner();
@@ -223,7 +231,15 @@ export class NeuralLearningSystem {
     // Wire the real WASM SONA engine when available (lazy-loaded to avoid circular import)
     try {
       const { getModeConfig } = await import('./sona-manager.js');
-      const engine = createSONALearningEngine(this.mode, getModeConfig(this.mode));
+      // Thread the embedder's vector dimension into the mode config so SONA's
+      // input-projection matrices are built at the embedder's dim (e.g. 384)
+      // instead of the default SONA_HIDDEN_DIM (768). Spread to avoid mutating
+      // the returned config.
+      const modeConfig =
+        this.embeddingDim != null
+          ? { ...getModeConfig(this.mode), embeddingDim: this.embeddingDim }
+          : getModeConfig(this.mode);
+      const engine = createSONALearningEngine(this.mode, modeConfig);
       await engine.initialize(); // loads WASM, throws if @monoes/sona unavailable
       this.sonaEngine = engine;
     } catch {

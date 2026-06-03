@@ -487,27 +487,20 @@ export class LearningBridge extends EventEmitter {
       const NeuralLearningSystem = mod.NeuralLearningSystem ?? mod.default;
       if (!NeuralLearningSystem) return;
 
-      const instance = new NeuralLearningSystem(this.config.sonaMode);
+      // Thread the embedder's vector dimension into SONA so its input-projection
+      // matrices are built at the embedder's dim (e.g. 384) rather than the
+      // default SONA_HIDDEN_DIM (768). This eliminates the silent truncation /
+      // zero-padding of trajectory embeddings against mismatched weight matrices.
+      const actualDim = await this.getEmbeddingDim();
+      const instance = new NeuralLearningSystem(this.config.sonaMode, {
+        embeddingDim: actualDim,
+      });
 
       if (typeof instance.initialize === 'function') {
         await instance.initialize();
       }
 
       this.neural = instance;
-
-      // Warn if the embedder produces vectors of a different dimension than SONA
-      // expects (balanced mode uses 768 by default). Silent misalignment causes
-      // trajectory embeddings to be truncated or zero-padded against the weight matrix.
-      const actualDim = await this.getEmbeddingDim();
-      // SONA balanced mode is hard-wired to SONA_HIDDEN_DIM; other modes use the same default
-      const sonaDim = SONA_HIDDEN_DIM;
-      if (actualDim !== sonaDim) {
-        process.emitWarning(
-          `LearningBridge: embedder produces ${actualDim}-dim vectors but SONA expects ${sonaDim}. ` +
-            `Configure embeddingDim in LearningBridgeConfig or adjust SONA's embeddingDim.`,
-          'MonoesWarning',
-        );
-      }
     } catch {
       // @monomind/neural not installed or failed to initialize.
       // This is expected in many environments; degrade silently.
