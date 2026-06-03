@@ -1,14 +1,12 @@
 /**
  * MonoVector Integration Module for Monomind CLI
  *
- * Provides integration with @monovector packages for:
- * - Q-Learning based task routing
- * - Mixture of Experts (MoE) routing
- * - AST code analysis
- * - Diff classification
- * - Coverage-based routing
- * - Graph boundary analysis
- * - Flash Attention for faster similarity computations
+ * Provides integration with @monoes/* packages:
+ * - Capability probing: getCapabilities(), getCachedCapabilities()
+ * - Initialization state: createInitState()
+ * - Keyword-based task routing: createKeywordRouter()
+ * - AST diff classification: DiffClassifier
+ * - Package loader: tryLoad() from ./pkg-loader
  *
  * @module @monomind/cli/monovector
  */
@@ -54,21 +52,12 @@ export interface KeywordRouter {
   import?: (data: unknown) => void;
 }
 
-/** @deprecated Use KeywordRouter instead */
-export type QLearningRouter = KeywordRouter;
 
 export interface RouteDecision { agentType: string; confidence: number; reasoning?: string; route?: string; qValues?: number[]; explored?: boolean; alternatives?: string[]; }
 
 export interface KeywordRouterConfig { learningRate?: number; discountFactor?: number; }
 
-/** @deprecated Use KeywordRouterConfig instead */
-export type QLearningRouterConfig = KeywordRouterConfig;
 
-export interface MoERouter { route: (input: string) => Promise<RoutingResult>; }
-export interface RoutingResult { expert: string; confidence: number; }
-export interface MoERouterConfig { numExperts?: number; }
-export interface LoadBalanceStats { [expert: string]: number; }
-export type ExpertType = string;
 
 export function createKeywordRouter(_config?: KeywordRouterConfig): KeywordRouter {
   const agentTypes = ['coder', 'tester', 'reviewer', 'architect', 'researcher', 'optimizer', 'debugger', 'documenter'];
@@ -94,48 +83,14 @@ export function createKeywordRouter(_config?: KeywordRouterConfig): KeywordRoute
   };
 }
 
-/** @deprecated Use createKeywordRouter — this function does keyword matching, not Q-learning */
-export const createQLearningRouter = createKeywordRouter;
 
-/**
- * Check if monovector packages are available
- */
+/** @deprecated Use (await getCapabilities()).sona */
 export async function isMonovectorAvailable(): Promise<boolean> {
-  try {
-    // @ts-expect-error optional peer dependency
-    await import('@monoes/core');
-    return true;
-  } catch {
-    return false;
-  }
+  return (await getCapabilities()).sona;
 }
 
-/**
- * Check if @monoes/learning-wasm is available and loadable
- * Result is cached after first check
- */
-let _wasmBackendAvailable: boolean | null = null;
-
+/** @deprecated Use (await getCapabilities()).learningWasm */
 export async function isWasmBackendAvailable(): Promise<boolean> {
-  if (_wasmBackendAvailable !== null) return _wasmBackendAvailable;
-  try {
-    const wasm = await import('@monoes/learning-wasm');
-    _wasmBackendAvailable = typeof wasm.WasmMicroLoRA === 'function';
-  } catch {
-    _wasmBackendAvailable = false;
-  }
-  return _wasmBackendAvailable;
+  return (await getCapabilities()).learningWasm;
 }
 
-/**
- * Get monovector version if available
- */
-export async function getMonovectorVersion(): Promise<string | null> {
-  try {
-    // @ts-expect-error optional peer dependency
-    const monovector = await import('@monoes/core');
-    return (monovector as any).version || '1.0.0';
-  } catch {
-    return null;
-  }
-}
