@@ -50,6 +50,12 @@ export interface SONAModeConfig {
 
   /** EWC lambda for catastrophic forgetting prevention */
   ewcLambda: number;
+
+  /** SONA transformer hidden width (model internal). Defaults to SONA_HIDDEN_DIM. */
+  hiddenDim?: number;
+
+  /** Embedding/data vector dimension fed into SONA. Defaults to SONA_HIDDEN_DIM. */
+  embeddingDim?: number;
 }
 
 /**

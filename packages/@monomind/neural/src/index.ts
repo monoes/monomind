@@ -9,8 +9,14 @@
  * - Pattern matching: <1ms
  * - Learning step: <10ms
  *
- * @module @monobrain/neural
+ * @module @monomind/neural
  */
+
+// =============================================================================
+// Dimensional Constants
+// =============================================================================
+
+export { SONA_HIDDEN_DIM, DEFAULT_VECTOR_DIM, SONA_EDGE_DIM } from './constants.js';
 
 // =============================================================================
 // Core Types

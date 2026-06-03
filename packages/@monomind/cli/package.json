@@ -108,6 +108,7 @@
     "@monoes/learning-wasm": "workspace:*",
     "@monoes/router": "^0.1.27",
     "@monoes/sona": "workspace:*",
+    "@monomind/neural": "workspace:*",
     "@anthropic-ai/sdk": "*"
   },
   "publishConfig": {
