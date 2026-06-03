@@ -19,7 +19,7 @@ import type {
   SONAModeConfig,
 } from './types.js';
 import type { SonaEngineAPI, SonaModule } from './sona-types.js';
-import { SONA_HIDDEN_DIM, SONA_EDGE_DIM } from './constants.js';
+import { SONA_HIDDEN_DIM, SONA_EDGE_DIM, safeMicroLoraRank } from './constants.js';
 
 // =============================================================================
 // Inline type definitions (replaces static @monoes/sona import)
@@ -141,7 +141,7 @@ function modeToConfig(mode: SONAMode, modeConfig: SONAModeConfig): Record<string
   const baseConfig: JsSonaConfig = {
     hiddenDim: modeConfig?.hiddenDim ?? SONA_HIDDEN_DIM, // Standard transformer dimension
     embeddingDim: modeConfig?.embeddingDim ?? SONA_HIDDEN_DIM,
-    microLoraRank: modeConfig.loraRank <= 2 ? modeConfig.loraRank : 1,
+    microLoraRank: safeMicroLoraRank(modeConfig.loraRank),
     baseLoraRank: modeConfig.loraRank,
     microLoraLr: modeConfig.learningRate,
     baseLoraLr: modeConfig.learningRate * 0.1,

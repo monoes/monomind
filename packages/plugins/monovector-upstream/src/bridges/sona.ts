@@ -140,7 +140,10 @@ export class SonaBridge implements WasmBridge<SonaModule> {
         const sonaConfig = {
           hiddenDim: 768,
           embeddingDim: 768,
-          microLoraRank: 1,  // valid range: 1-2 (higher values cause Rust panic/SIGABRT)
+          // valid range: 1-2 (higher values cause an uncatchable Rust SIGABRT).
+          // If this ever becomes config-driven, clamp via @monomind/neural's
+          // safeMicroLoraRank (or a local Math.min(rank, 2)) before passing it.
+          microLoraRank: 1,
           baseLoraRank: 8,
           microLoraLr: 0.001,
           baseLoraLr: 0.0001,
