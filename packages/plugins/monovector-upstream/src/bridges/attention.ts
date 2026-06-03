@@ -36,7 +36,7 @@ interface AttentionModule {
  * Flash Attention Bridge implementation
  */
 export class AttentionBridge implements WasmBridge<AttentionModule> {
-  readonly name = 'monovector-attention-wasm';
+  readonly name = 'monoes-attention';
   readonly version = '0.1.0';
 
   private _status: WasmModuleStatus = 'unloaded';
@@ -58,16 +58,16 @@ export class AttentionBridge implements WasmBridge<AttentionModule> {
     this._status = 'loading';
 
     try {
-      // @monoes/attention-wasm removed — use mock module fallback
-      const wasmModule: any = null;
+      const wasmModule = await import('@monoes/attention').catch(() => null);
 
-      if (wasmModule) {
+      if (wasmModule && typeof (wasmModule as any).FlashAttention === 'function') {
         this._module = wasmModule as unknown as AttentionModule;
+        this._status = 'ready';
       } else {
         this._module = this.createMockModule();
+        // error if module loaded but had wrong shape; ready if simply absent
+        this._status = wasmModule ? 'error' : 'ready';
       }
-
-      this._status = 'ready';
     } catch (error) {
       this._status = 'error';
       throw error;
