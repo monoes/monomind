@@ -61,6 +61,12 @@ export interface SonaEngineAPI {
   isEnabled(): boolean;
   /** Enable or disable the engine. */
   setEnabled(enabled: boolean): void;
+  /**
+   * Attach a route label to a trajectory (used by the semantic router).
+   * @param trajectoryId - Trajectory ID returned by beginTrajectory
+   * @param route        - Route/intent string
+   */
+  setTrajectoryRoute(trajectoryId: number, route: string): void;
 }
 
 export interface SonaConfig {
@@ -79,9 +85,16 @@ export interface SonaConfig {
 }
 
 export interface LearnedPattern {
+  id?: string;
+  centroid?: number[];
+  clusterSize?: number;
+  totalWeight?: number;
+  createdAt?: string;
+  lastAccessed?: string;
+  accessCount?: number;
   patternType?: string;
   avgQuality: number;
-  [key: string]: unknown;
+  [key: string]: unknown; // allow extra fields from future versions
 }
 
 /**
