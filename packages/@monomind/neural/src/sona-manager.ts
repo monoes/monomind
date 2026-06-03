@@ -40,6 +40,7 @@ import { ResearchMode } from './modes/research.js';
 import { EdgeMode } from './modes/edge.js';
 import { BatchMode } from './modes/batch.js';
 import type { ModeImplementation } from './modes/base.js';
+import { SONA_HIDDEN_DIM } from './constants.js';
 
 /**
  * Default mode configurations
@@ -177,10 +178,18 @@ export class SONAManager {
   private totalLatencyMs = 0;
   private learningCycles = 0;
   private lastStatsUpdate = Date.now();
+  /** One-time guard so stale-dim weight discards log at most once per instance. */
+  private staleWeightsDiscardedWarned = false;
 
-  constructor(mode: SONAMode = 'balanced') {
+  constructor(mode: SONAMode = 'balanced', embeddingDim?: number) {
     this.currentMode = mode;
     this.config = { ...MODE_CONFIGS[mode] };
+    // Thread the embedder's vector dimension so LoRA weights build at this dim
+    // (e.g. 384) instead of the default SONA_HIDDEN_DIM (768). This is what lets
+    // the fail-closed routing gate match the query dim and apply learned weights.
+    if (embeddingDim != null) {
+      this.config.embeddingDim = embeddingDim;
+    }
     this.optimizations = { ...MODE_OPTIMIZATIONS[mode] };
     this.modeImpl = this.createModeImplementation(mode);
     this.stats = this.createInitialStats();
@@ -214,6 +223,9 @@ export class SONAManager {
     if (mode === this.currentMode) return;
 
     const previousMode = this.currentMode;
+    // Preserve the configured embedding dim across the mode swap — MODE_CONFIGS
+    // does not carry it, so a naive spread would silently revert weights to 768.
+    const preservedEmbeddingDim = this.config.embeddingDim;
 
     // Cleanup current mode
     await this.modeImpl.cleanup();
@@ -221,6 +233,9 @@ export class SONAManager {
     // Update configuration
     this.currentMode = mode;
     this.config = { ...MODE_CONFIGS[mode] };
+    if (preservedEmbeddingDim != null) {
+      this.config.embeddingDim = preservedEmbeddingDim;
+    }
     this.optimizations = { ...MODE_OPTIMIZATIONS[mode] };
     this.loraWeights.clear();
     // L1: reset EWC state so old-rank Fisher/means don't contaminate the new mode's updates
@@ -569,7 +584,9 @@ export class SONAManager {
     for (const module of config.targetModules) {
       // A: (hidden_dim, rank) initialized with small random values
       // B: (rank, hidden_dim) initialized to zero
-      const hiddenDim = 768; // Typical transformer hidden dim
+      // Build at the configured embedder dim (e.g. 384) so the routing gate's
+      // weightDim === query.length check passes; falls back to SONA_HIDDEN_DIM.
+      const hiddenDim = this.config.embeddingDim ?? SONA_HIDDEN_DIM;
       const A = new Float32Array(hiddenDim * config.rank);
       const B = new Float32Array(config.rank * hiddenDim);
 
@@ -1100,6 +1117,33 @@ export class SONAManager {
           weights.B.set(module, new Float32Array(arr));
         }
 
+        // Dim guard: discard persisted weights built at a different dim/rank than
+        // the current runtime expects (e.g. legacy 768-dim weights loaded into a
+        // 384-dim runtime). Loading them at the wrong dim feeds the apply path a
+        // mismatched matrix layout and produces off-distribution output.
+        const expectedLen =
+          (this.config.embeddingDim ?? SONA_HIDDEN_DIM) * this.getLoRAConfig().rank;
+        let dimMismatch = false;
+        for (const A of weights.A.values()) {
+          if (A.length !== expectedLen) { dimMismatch = true; break; }
+        }
+        if (!dimMismatch) {
+          for (const B of weights.B.values()) {
+            if (B.length !== expectedLen) { dimMismatch = true; break; }
+          }
+        }
+        if (dimMismatch) {
+          if (!this.staleWeightsDiscardedWarned) {
+            this.staleWeightsDiscardedWarned = true;
+            console.debug(
+              `[SONAManager] Discarded persisted LoRA weights for domain '${domain}' ` +
+              `(stale dim/rank: expected per-module length ${expectedLen}). ` +
+              `Weights will be rebuilt at the current embedder dim.`,
+            );
+          }
+          continue;
+        }
+
         // Sanity-check loaded B norms. avgBNorm > 1.0 indicates prior divergence.
         // Reset to zero to prevent corrupted weights poisoning future sessions.
         let totalNorm = 0;
@@ -1119,12 +1163,20 @@ export class SONAManager {
         this.loraWeights.set(domain, weights);
       }
 
-      // Restore ewcState
+      // Restore ewcState — same dim guard as LoRA weights. EWC means/fisher are
+      // B-matrix shaped (length hiddenDim * rank), so stale-dim entries must be
+      // discarded too. Loading 768-dim Fisher/means into a 384-dim runtime would
+      // poison the first learning cycle's EWC penalty (modeImpl.learn runs before
+      // updateEWCFisher refreshes it) — the same hazard setMode's L1 fix guards.
       if (state.ewcState && this.ewcState) {
+        const ewcExpectedLen =
+          (this.config.embeddingDim ?? SONA_HIDDEN_DIM) * this.getLoRAConfig().rank;
         for (const [key, arr] of Object.entries(state.ewcState.means)) {
+          if (arr.length !== ewcExpectedLen) continue;
           this.ewcState.means.set(key, new Float32Array(arr));
         }
         for (const [key, arr] of Object.entries(state.ewcState.fisher)) {
+          if (arr.length !== ewcExpectedLen) continue;
           this.ewcState.fisher.set(key, new Float32Array(arr));
         }
         this.ewcState.taskCount = state.ewcState.taskCount;
@@ -1171,8 +1223,8 @@ export class SONAManager {
 /**
  * Factory function for creating SONA manager
  */
-export function createSONAManager(mode: SONAMode = 'balanced'): SONAManager {
-  return new SONAManager(mode);
+export function createSONAManager(mode: SONAMode = 'balanced', embeddingDim?: number): SONAManager {
+  return new SONAManager(mode, embeddingDim);
 }
 
 /**
