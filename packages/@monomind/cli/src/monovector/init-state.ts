@@ -22,6 +22,8 @@ export interface InitState {
   markReady(): void;
   /** Mark this attempt as failed; permanently fails after maxAttempts */
   markFailed(): void;
+  /** Immediately mark as permanently failed without consuming retry budget */
+  markPermanentlyFailed(): void;
   /** True if init succeeded */
   isReady(): boolean;
   /** True if permanently failed (exhausted retries) */
@@ -41,6 +43,10 @@ export function createInitState(opts: { maxAttempts?: number } = {}): InitState 
     markFailed() {
       count++;
       if (count >= max) status = 'failed';
+    },
+    markPermanentlyFailed() {
+      count = max;
+      status = 'failed';
     },
     isReady() { return status === 'ready'; },
     isFailed() { return status === 'failed'; },
