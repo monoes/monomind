@@ -95,6 +95,7 @@ export class SonaBridge implements WasmBridge<SonaModule> {
 
   private _status: WasmModuleStatus = 'unloaded';
   private _module: SonaModule | null = null;
+  private _sonaEngine: any | null = null; // real SonaEngine instance
   private config: SonaConfig;
 
   constructor(config?: Partial<SonaConfig>) {
@@ -133,11 +134,34 @@ export class SonaBridge implements WasmBridge<SonaModule> {
         return;
       }
 
-      // Real module has SonaEngine but its surface (withConfig/beginTrajectory/etc.)
-      // does not match SonaModule (learn/predict/findPatterns/applyLoRA/getMode).
-      // Assigning the raw module would make every method call throw TypeError.
-      // Use the mock for now — the real engine is wired directly via sona-integration.ts.
-      // TODO: implement a proper SonaEngine adapter when this bridge is promoted to production.
+      // Real module has SonaEngine — create an engine instance via the withConfig factory.
+      const SonaEngineClass = (wasmModule as any).SonaEngine;
+      try {
+        const sonaConfig = {
+          hiddenDim: 768,
+          embeddingDim: 768,
+          microLoraRank: 4,
+          baseLoraRank: 8,
+          microLoraLr: 0.001,
+          baseLoraLr: 0.0001,
+          ewcLambda: 1000,
+          patternClusters: 50,
+          trajectoryCapacity: 100,
+          qualityThreshold: 0.6,
+          enableSimd: true,
+          backgroundIntervalMs: 1000,
+        };
+        this._sonaEngine = SonaEngineClass.withConfig(sonaConfig);
+      } catch (err) {
+        this._sonaEngine = null;
+        console.debug(
+          '[SonaBridge] SonaEngine.withConfig() failed, using mock:',
+          err instanceof Error ? err.message : String(err)
+        );
+      }
+      // Always set up mock for SonaModule interface methods that have no real-engine
+      // equivalent (predict, applyLoRA, consolidate, setMode). learn/findPatterns/getStats
+      // delegate to the real engine when available.
       this._module = this.createMockModule();
       this._status = 'ready';
     } catch (error) {
@@ -148,6 +172,7 @@ export class SonaBridge implements WasmBridge<SonaModule> {
 
   async destroy(): Promise<void> {
     this._module = null;
+    this._sonaEngine = null;
     this._status = 'unloaded';
   }
 
@@ -160,9 +185,55 @@ export class SonaBridge implements WasmBridge<SonaModule> {
   }
 
   /**
-   * Learn from trajectories
+   * Whether the real @monoes/sona engine is active (vs. mock)
+   */
+  get hasRealEngine(): boolean {
+    return this._sonaEngine !== null;
+  }
+
+  /**
+   * Learn from trajectories.
+   * Delegates to the real SonaEngine when available; falls back to mock.
+   *
+   * Mapping from SonaTrajectory to SonaEngineAPI:
+   *   beginTrajectory(queryEmbedding)   — uses first step's stateBefore as query embedding
+   *   addTrajectoryStep(id, activations, attentionWeights, reward) — activations = stateAfter
+   *   addTrajectoryContext(id, domain)
+   *   endTrajectory(id, qualityScore)
    */
   learn(trajectories: SonaTrajectory[], config?: Partial<SonaConfig>): number {
+    if (this._sonaEngine) {
+      try {
+        let totalLearned = 0;
+        for (const traj of trajectories) {
+          // Use first step's stateBefore as the query embedding for trajectory start,
+          // falling back to an empty array if no steps exist.
+          const queryEmbedding =
+            traj.steps.length > 0 ? Array.from(traj.steps[0].stateBefore) : [];
+          const trajId: number = this._sonaEngine.beginTrajectory(queryEmbedding);
+
+          for (const step of traj.steps) {
+            // activations = stateAfter; attentionWeights = [] (no equivalent in bridge type)
+            this._sonaEngine.addTrajectoryStep(
+              trajId,
+              Array.from(step.stateAfter),
+              [],
+              step.reward
+            );
+          }
+
+          // Attach domain as context label
+          this._sonaEngine.addTrajectoryContext(trajId, traj.domain);
+
+          this._sonaEngine.endTrajectory(trajId, traj.qualityScore);
+          totalLearned++;
+        }
+        this._sonaEngine.flush();
+        return totalLearned;
+      } catch {
+        // Fall through to mock
+      }
+    }
     if (!this._module) throw new Error('SONA module not initialized');
     const mergedConfig = { ...this.config, ...config };
     return this._module.learn(trajectories, mergedConfig);
@@ -185,9 +256,29 @@ export class SonaBridge implements WasmBridge<SonaModule> {
   }
 
   /**
-   * Find similar patterns
+   * Find similar patterns.
+   * Delegates to the real SonaEngine when available; falls back to mock.
+   *
+   * Mapping from LearnedPattern (engine) to SonaPattern (bridge):
+   *   successRate  = avgQuality
+   *   usageCount   = accessCount (may be absent, defaults to 1)
+   *   domain       = patternType (may be absent, defaults to 'general')
    */
   findPatterns(query: Float32Array, k: number): SonaPattern[] {
+    if (this._sonaEngine) {
+      try {
+        const rawPatterns: any[] = this._sonaEngine.findPatterns(Array.from(query), k);
+        return rawPatterns.map((p: any) => ({
+          id: p.id ?? String(Math.random()),
+          embedding: new Float32Array(p.centroid ?? Array.from(query)),
+          successRate: p.avgQuality ?? 0,
+          usageCount: p.accessCount ?? 1,
+          domain: p.patternType ?? 'general',
+        }));
+      } catch {
+        // Fall through to mock
+      }
+    }
     if (!this._module) throw new Error('SONA module not initialized');
     return this._module.findPatterns(query, k);
   }
@@ -222,6 +313,23 @@ export class SonaBridge implements WasmBridge<SonaModule> {
    */
   getMode(): SonaConfig['mode'] {
     return this._module?.getMode() ?? this.config.mode;
+  }
+
+  /**
+   * Get engine statistics.
+   * Returns parsed JSON from the real engine when available; falls back to mock.
+   */
+  getStats(): Record<string, unknown> {
+    if (this._sonaEngine) {
+      try {
+        const statsJson: string = this._sonaEngine.getStats();
+        return JSON.parse(statsJson) as Record<string, unknown>;
+      } catch {
+        // Fall through to mock
+      }
+    }
+    // SonaModule interface has no getStats — cast to access it if present
+    return (this._module as any)?.getStats?.() ?? {};
   }
 
   /**
