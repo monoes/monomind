@@ -215,7 +215,7 @@ export class NeuralLearningSystem {
   constructor(mode: SONAMode = 'balanced', options?: { embeddingDim?: number }) {
     this.mode = mode;
     this.embeddingDim = options?.embeddingDim;
-    this.sona = createSONAManager(mode);
+    this.sona = createSONAManager(mode, this.embeddingDim);
     this.reasoningBank = createReasoningBank();
     this.patternLearner = createPatternLearner();
   }
@@ -430,8 +430,11 @@ export class NeuralLearningSystem {
 /**
  * Create a complete neural learning system
  */
-export function createNeuralLearningSystem(mode: SONAMode = 'balanced'): NeuralLearningSystem {
-  return new NeuralLearningSystem(mode);
+export function createNeuralLearningSystem(
+  mode: SONAMode = 'balanced',
+  options?: { embeddingDim?: number },
+): NeuralLearningSystem {
+  return new NeuralLearningSystem(mode, options);
 }
 
 // =============================================================================

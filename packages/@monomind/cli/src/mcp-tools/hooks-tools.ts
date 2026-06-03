@@ -745,12 +745,12 @@ let _loraDimMismatchWarned = false;
  * a zero delta, the mode blend returns the input unchanged, and re-normalizing a
  * unit vector yields the same vector — i.e. cosine-identical to the plain query.
  *
- * Dim gate: SONA still builds LoRA weights at hiddenDim (768) while the router
- * query is 384-dim. Feeding a 384-dim vector through 768-dim weight matrices
- * reads the wrong matrix layout and produces garbage. So we ONLY apply the
- * adaptation when SONA's weight dim matches the query dim; otherwise we return
- * the query untouched and warn once. This keeps routing correct today; learned
- * weights will flow once SONA builds weights at the embedder dim.
+ * Dim gate: SONA builds LoRA weights at the embedding dim we thread in at
+ * construction (DEFAULT_VECTOR_DIM, 384), matching the router query dim. We ONLY
+ * apply the adaptation when SONA's weight dim equals the query dim; otherwise we
+ * return the query untouched and warn once. With the dim threaded the gate opens
+ * and learned weights flow; a non-threaded SONA (weights at 768) still mismatches
+ * and is safely skipped.
  */
 async function applyNeuralAdaptation(query: Float32Array): Promise<Float32Array | null> {
   if (!_neuralRouterInitPromise) {
@@ -758,7 +758,12 @@ async function applyNeuralAdaptation(query: Float32Array): Promise<Float32Array 
       try {
         const neural = await import('@monomind/neural' as string).catch(() => null);
         if (neural?.createNeuralLearningSystem) {
-          const sys = neural.createNeuralLearningSystem('balanced');
+          // Build SONA's LoRA weights at the router query's embedding dim so the
+          // fail-closed gate below matches and learned weights actually apply.
+          // The router query is produced by generateSimpleEmbedding at 384 dims;
+          // DEFAULT_VECTOR_DIM (re-exported from @monomind/neural) is that same dim.
+          const embeddingDim: number = neural.DEFAULT_VECTOR_DIM ?? 384;
+          const sys = neural.createNeuralLearningSystem('balanced', { embeddingDim });
           await sys.initialize();
           _neuralRouterInstance = sys;
         }
@@ -770,16 +775,17 @@ async function applyNeuralAdaptation(query: Float32Array): Promise<Float32Array 
   try {
     const sona = _neuralRouterInstance.getSONAManager();
     // Gate (FAIL-CLOSED): apply only on a POSITIVE dim match.
-    // SONA's mode configs do not currently expose hiddenDim (it's optional and
-    // unset for the 'balanced' preset), so getConfig().config.hiddenDim is
-    // `undefined` at runtime. A fail-OPEN gate (skip only when a number mismatches)
-    // would therefore run the 768-dim trained weights against a 384-dim query —
-    // the exact off-distribution garbage this fix exists to prevent. So we skip
-    // unless the weight dim is explicitly known AND equal to the query dim.
-    // Today that means we always skip (weights build at 768); the adaptation flips
-    // on automatically once SONA builds weights at the embedder dim.
+    // SONA now builds LoRA weights at config.embeddingDim (threaded from this
+    // router's 384-dim query embedder), so config.embeddingDim === query.length
+    // and the gate opens. If embeddingDim is unset (legacy / non-threaded path),
+    // it falls back to 768, which mismatches the 384-dim query and the gate stays
+    // closed — the conservative behavior that prevents off-distribution queries.
     const cfg = sona.getConfig?.();
-    const weightDim: number | undefined = cfg?.config?.hiddenDim;
+    // Mirror the exact expression initializeLoRAWeights builds weights at:
+    // config.embeddingDim ?? SONA_HIDDEN_DIM. Reading hiddenDim here was the bug —
+    // hiddenDim is the model-internal transformer width (768) and is unset for the
+    // 'balanced' preset, so the gate never matched even once weights were threaded.
+    const weightDim: number = cfg?.config?.embeddingDim ?? 768;
     if (weightDim !== query.length) {
       if (!_loraDimMismatchWarned) {
         _loraDimMismatchWarned = true;
