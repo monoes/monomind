@@ -16,6 +16,8 @@ export interface MonoesCapabilities {
   attention: boolean;
   /** @monoes/learning-wasm WasmMicroLoRA available */
   learningWasm: boolean;
+  /** @monomind/monovector-upstream plugin (HnswBridge, SonaBridge, etc.) loaded */
+  upstreamPlugin: boolean;
 }
 
 let _cached: MonoesCapabilities | null = null;
@@ -53,11 +55,12 @@ export function resetCapabilitiesCache(): void {
 }
 
 async function _probe(): Promise<MonoesCapabilities> {
-  const [sonaResult, routerResult, attentionResult, wasmResult] = await Promise.allSettled([
+  const [sonaResult, routerResult, attentionResult, wasmResult, pluginResult] = await Promise.allSettled([
     tryLoad('@monoes/sona').then(m => !!m && (typeof (m as Record<string, unknown>).SonaEngine === 'function' || !!(m as Record<string, unknown>).SonaEngine)),
     _probeRouter(),
     tryLoad<AttentionModule>('@monoes/attention').then(m => !!m && typeof m.FlashAttention === 'function'),
     tryLoad<LearningWasmModule>('@monoes/learning-wasm').then(m => !!m && typeof m.WasmMicroLoRA === 'function'),
+    import('@monomind/monovector-upstream').then(m => !!(m as Record<string, unknown>).createHnswBridge).catch(() => false),
   ]);
 
   return {
@@ -65,6 +68,7 @@ async function _probe(): Promise<MonoesCapabilities> {
     router: routerResult.status === 'fulfilled' ? routerResult.value : 'none',
     attention: attentionResult.status === 'fulfilled' ? attentionResult.value : false,
     learningWasm: wasmResult.status === 'fulfilled' ? wasmResult.value : false,
+    upstreamPlugin: pluginResult.status === 'fulfilled' ? (pluginResult.value as boolean) : false,
   };
 }
 
