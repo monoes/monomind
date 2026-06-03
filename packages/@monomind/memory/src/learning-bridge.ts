@@ -13,6 +13,11 @@ import { EventEmitter } from 'node:events';
 import type { IMemoryBackend, MemoryEntry, SONAMode } from './types.js';
 import type { MemoryInsight, InsightCategory } from './auto-memory-bridge.js';
 
+// ===== Constants =====
+
+// SONA's transformer hidden dim — must match @monomind/neural SONA_HIDDEN_DIM.
+const SONA_HIDDEN_DIM = 768;
+
 // ===== Types =====
 
 /**
@@ -443,12 +448,12 @@ export class LearningBridge extends EventEmitter {
     if (this.config.embedder) {
       try {
         const probe = await this.config.embedder('probe');
-        this._detectedEmbeddingDim = probe.length || 768; // guard against empty probe result
+        this._detectedEmbeddingDim = probe.length || SONA_HIDDEN_DIM; // guard against empty probe result
       } catch {
-        this._detectedEmbeddingDim = 768; // safe default
+        this._detectedEmbeddingDim = SONA_HIDDEN_DIM; // safe default
       }
     } else {
-      this._detectedEmbeddingDim = 768;
+      this._detectedEmbeddingDim = SONA_HIDDEN_DIM;
     }
 
     return this._detectedEmbeddingDim;
@@ -494,8 +499,8 @@ export class LearningBridge extends EventEmitter {
       // expects (balanced mode uses 768 by default). Silent misalignment causes
       // trajectory embeddings to be truncated or zero-padded against the weight matrix.
       const actualDim = await this.getEmbeddingDim();
-      // SONA balanced mode is hard-wired to 768; other modes use the same default
-      const sonaDim = 768;
+      // SONA balanced mode is hard-wired to SONA_HIDDEN_DIM; other modes use the same default
+      const sonaDim = SONA_HIDDEN_DIM;
       if (actualDim !== sonaDim) {
         process.emitWarning(
           `LearningBridge: embedder produces ${actualDim}-dim vectors but SONA expects ${sonaDim}. ` +
@@ -643,7 +648,7 @@ export class LearningBridge extends EventEmitter {
    * falling back to a deterministic hash embedding when unavailable.
    * V1: using real embeddings is critical for meaningful LoRA weight updates.
    */
-  private async createEmbedding(text: string, dimensions: number = 768): Promise<Float32Array> {
+  private async createEmbedding(text: string, dimensions: number = SONA_HIDDEN_DIM): Promise<Float32Array> {
     // Prefer the injected embedder (CLI wires this in via LearningBridgeConfig.embedder)
     // — no cross-package import needed, clean dependency boundary.
     const embeddingSource = this.config.embedder;
@@ -673,7 +678,7 @@ export class LearningBridge extends EventEmitter {
    * Deterministic hash-based embedding fallback.
    * Used only when no real embedder is available.
    */
-  private createHashEmbedding(text: string, dimensions: number = 768): Float32Array {
+  private createHashEmbedding(text: string, dimensions: number = SONA_HIDDEN_DIM): Float32Array {
     const embedding = new Float32Array(dimensions);
     const normalized = text.toLowerCase().trim();
 

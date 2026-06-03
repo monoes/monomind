@@ -637,6 +637,9 @@ export class ControllerRegistry extends EventEmitter {
           accessBoostAmount: config.accessBoostAmount,
           consolidationThreshold: config.consolidationThreshold,
           embedder,
+          // Thread the real vector dimension so SONA and the embedder agree
+          // (AgentDB MiniLM produces 384-dim vectors, not SONA's 768 hidden width).
+          embeddingDim: this.config.dimension ?? config.embeddingDim,
           enabled: true,
         });
         return bridge;

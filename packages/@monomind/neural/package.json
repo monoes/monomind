@@ -1,5 +1,5 @@
 {
-  "name": "@monobrain/neural",
+  "name": "@monomind/neural",
   "version": "1.0.0",
   "type": "module",
   "description": "Neural module - SONA learning integration, neural modes",
@@ -12,11 +12,9 @@
     "test": "vitest run",
     "build": "tsc"
   },
-  "dependencies": {
-    "@monoes/sona": "workspace:*"
-  },
   "optionalDependencies": {
-    "agentdb": "^2.0.0 || ^3.0.0-alpha.11"
+    "agentdb": "^2.0.0 || ^3.0.0-alpha.11",
+    "@monoes/sona": "workspace:*"
   },
   "publishConfig": {
     "access": "public",

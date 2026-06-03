@@ -21,6 +21,9 @@
     "better-sqlite3": "^11.0.0",
     "sql.js": "^1.10.3"
   },
+  "optionalDependencies": {
+    "@monomind/neural": "workspace:*"
+  },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",
     "@types/sql.js": "^1.4.9",

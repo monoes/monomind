@@ -19,6 +19,7 @@ import type {
   SONAModeConfig,
 } from './types.js';
 import type { SonaEngineAPI, SonaModule } from './sona-types.js';
+import { SONA_HIDDEN_DIM, SONA_EDGE_DIM } from './constants.js';
 
 // =============================================================================
 // Inline type definitions (replaces static @monoes/sona import)
@@ -138,8 +139,8 @@ export interface SONAStats {
  */
 function modeToConfig(mode: SONAMode, modeConfig: SONAModeConfig): Record<string, unknown> {
   const baseConfig: JsSonaConfig = {
-    hiddenDim: 768, // Standard transformer dimension
-    embeddingDim: 768,
+    hiddenDim: modeConfig?.hiddenDim ?? SONA_HIDDEN_DIM, // Standard transformer dimension
+    embeddingDim: modeConfig?.embeddingDim ?? SONA_HIDDEN_DIM,
     microLoraRank: modeConfig.loraRank <= 2 ? modeConfig.loraRank : 1,
     baseLoraRank: modeConfig.loraRank,
     microLoraLr: modeConfig.learningRate,
@@ -162,8 +163,8 @@ function modeToConfig(mode: SONAMode, modeConfig: SONAModeConfig): Record<string
     case 'edge':
       return {
         ...baseConfig,
-        hiddenDim: 384, // Smaller for edge devices
-        embeddingDim: 384,
+        hiddenDim: SONA_EDGE_DIM, // Smaller for edge devices
+        embeddingDim: SONA_EDGE_DIM,
         microLoraRank: 1,
         patternClusters: 25,
         backgroundIntervalMs: 300000, // 5 minutes
@@ -437,7 +438,7 @@ export class SONALearningEngine {
       return trajectory.steps[0].stateBefore;
     }
     // Fallback to zero embedding
-    return new Float32Array(768);
+    return new Float32Array(SONA_HIDDEN_DIM);
   }
 
   /**
