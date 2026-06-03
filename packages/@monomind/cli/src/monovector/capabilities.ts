@@ -5,6 +5,7 @@
  */
 
 import type { AttentionModule, LearningWasmModule, RouterModule } from './monoes-types.js';
+import { tryLoad } from './pkg-loader.js';
 
 export interface MonoesCapabilities {
   /** @monoes/sona SonaEngine available */
@@ -53,14 +54,10 @@ export function resetCapabilitiesCache(): void {
 
 async function _probe(): Promise<MonoesCapabilities> {
   const [sonaResult, routerResult, attentionResult, wasmResult] = await Promise.allSettled([
-    // @ts-expect-error optional peer dependency with no types at root
-    import('@monoes/sona').then((m: unknown) => {
-      const mod = m as Record<string, unknown>;
-      return typeof mod.SonaEngine === 'function' || !!mod.SonaEngine;
-    }),
+    tryLoad('@monoes/sona').then(m => !!m && (typeof (m as Record<string, unknown>).SonaEngine === 'function' || !!(m as Record<string, unknown>).SonaEngine)),
     _probeRouter(),
-    import('@monoes/attention').then(m => typeof (m as unknown as AttentionModule).FlashAttention === 'function'),
-    import('@monoes/learning-wasm').then(m => typeof (m as unknown as LearningWasmModule).WasmMicroLoRA === 'function'),
+    tryLoad<AttentionModule>('@monoes/attention').then(m => !!m && typeof m.FlashAttention === 'function'),
+    tryLoad<LearningWasmModule>('@monoes/learning-wasm').then(m => !!m && typeof m.WasmMicroLoRA === 'function'),
   ]);
 
   return {
@@ -72,11 +69,8 @@ async function _probe(): Promise<MonoesCapabilities> {
 }
 
 async function _probeRouter(): Promise<'native' | 'js' | 'none'> {
-  try {
-    const mod = await import('@monoes/router') as unknown as RouterModule;
-    if (typeof mod.VectorDb === 'function') return 'native';
-    return 'js';
-  } catch {
-    return 'none';
-  }
+  const mod = await tryLoad<RouterModule>('@monoes/router');
+  if (mod && typeof mod.VectorDb === 'function') return 'native';
+  if (mod) return 'js';
+  return 'none';
 }

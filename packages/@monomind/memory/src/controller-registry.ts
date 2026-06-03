@@ -623,11 +623,20 @@ export class ControllerRegistry extends EventEmitter {
       case 'learningBridge': {
         if (!this.backend) return null;
         const config = this.config.memory?.learningBridge || {};
+        // IC-2: Inject real embedder so SONA adapts to semantics, not hash noise.
+        // Prefer a caller-supplied embedder; fall back to the AgentDB embedder that
+        // is already initialised at this point (initAgentDB() runs before level-1 controllers).
+        let embedder = config.embedder;
+        if (!embedder && this.agentdb?.embedder?.embed) {
+          embedder = async (text: string): Promise<number[]> =>
+            Array.from(await this.agentdb.embedder.embed(text) as ArrayLike<number>);
+        }
         const bridge = new LearningBridge(this.backend, {
           sonaMode: config.sonaMode || this.config.neural?.sonaMode || 'balanced',
           confidenceDecayRate: config.confidenceDecayRate,
           accessBoostAmount: config.accessBoostAmount,
           consolidationThreshold: config.consolidationThreshold,
+          embedder,
           enabled: true,
         });
         return bridge;

@@ -170,6 +170,27 @@ export class LearningBridge implements WasmBridge<LearningModule> {
   }
 
   /**
+   * Adapt using the real @monoes/learning-wasm WasmMicroLoRA when available.
+   * IC-3: The real WASM API (constructor classes) differs from the LearningModule
+   * interface, so we expose this separately rather than overriding train().
+   *
+   * @param input - Gradient/input vector to adapt on
+   */
+  adaptWithWasm(input: Float32Array): void {
+    if (this._realWasmModule) {
+      const lora = new this._realWasmModule.WasmMicroLoRA(input.length, 0.1, 0.01);
+      try {
+        lora.adapt_array(input);
+        // Weights are updated inside the WASM instance; free after use
+      } finally {
+        lora.free();
+      }
+      return;
+    }
+    // No real WASM — no-op (mock module does not expose an equivalent method)
+  }
+
+  /**
    * Decision Transformer sequence prediction
    */
   sequencePredict(

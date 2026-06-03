@@ -103,6 +103,8 @@ let semanticRouter: import('../monovector/semantic-router.js').SemanticRouter | 
 let nativeVectorDb: unknown = null;
 const _routerInitState = createInitState({ maxAttempts: 3 });
 let routerBackend: 'native' | 'pure-js' | 'none' = 'none';
+// IC-5: Deduplicates concurrent callers so only one init runs at a time.
+let _routerInitInFlight: Promise<{ router: unknown; backend: string; native: unknown }> | null = null;
 
 // Pre-computed embeddings for common task patterns (cached, capped to prevent unbounded growth)
 const MAX_PATTERN_EMBEDDINGS = 2000;
@@ -321,6 +323,9 @@ async function getSemanticRouter() {
     return { router: semanticRouter, backend: routerBackend, native: null };
   }
 
+  // IC-5: Deduplicate concurrent callers — only one init runs at a time.
+  if (_routerInitInFlight) return _routerInitInFlight;
+  _routerInitInFlight = (async () => {
   // STEP 1: Try native VectorDb from @monoes/router (HNSW-backed)
   // Note: Native VectorDb uses a persistent database file which can have lock issues
   // in concurrent environments. We try it first but fall back gracefully to pure JS.
@@ -397,6 +402,8 @@ async function getSemanticRouter() {
   }
 
   return { router: semanticRouter, backend: routerBackend, native: nativeVectorDb };
+  })().finally(() => { _routerInitInFlight = null; });
+  return _routerInitInFlight;
 }
 
 /**

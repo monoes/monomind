@@ -53,6 +53,8 @@ export interface JsLearnedPattern {
 
 let _sonaEngineClass: SonaModule['SonaEngine'] | null = null;
 let _sonaLoadAttempted = false;
+/** OR-4: Stores the load error message so getStats() can surface it. */
+let _sonaLoadError: string | null = null;
 
 // Lazy loader — called on first SONALearningEngine.initialize().
 // Avoids top-level await which breaks ESM circular-import loading order in Vitest.
@@ -64,8 +66,13 @@ async function loadSonaEngine(): Promise<SonaModule['SonaEngine'] | null> {
     const mod = await import('@monoes/sona');
     const m = mod as unknown as SonaModule;
     _sonaEngineClass = m.SonaEngine ?? null;
-  } catch {
+  } catch (err) {
     _sonaEngineClass = null;
+    _sonaLoadError = err instanceof Error ? err.message : String(err);
+    process.emitWarning(
+      `@monoes/sona failed to load — SONA learning disabled: ${_sonaLoadError}`,
+      'MonoesWarning'
+    );
   }
   return _sonaEngineClass;
 }
@@ -118,6 +125,8 @@ export interface SONAStats {
   lastLearningMs: number;
   /** Engine enabled state */
   enabled: boolean;
+  /** OR-4: Error message if @monoes/sona failed to load; null when load succeeded */
+  sonaLoadError?: string | null;
 }
 
 // =============================================================================
@@ -364,7 +373,7 @@ export class SONALearningEngine {
    */
   getStats(): SONAStats {
     if (!this.engine) {
-      return { totalTrajectories: 0, patternsLearned: 0, avgQuality: 0, lastLearningMs: 0, enabled: false };
+      return { totalTrajectories: 0, patternsLearned: 0, avgQuality: 0, lastLearningMs: 0, enabled: false, sonaLoadError: _sonaLoadError };
     }
     let stats: Record<string, unknown> = {};
     try {
@@ -380,6 +389,7 @@ export class SONALearningEngine {
       avgQuality: (stats.avg_quality as number) || 0,
       lastLearningMs: this.learningTimeMs,
       enabled: this.engine.isEnabled(),
+      sonaLoadError: _sonaLoadError,
     };
   }
 
