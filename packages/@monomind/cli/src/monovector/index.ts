@@ -11,7 +11,9 @@
  * @module @monomind/cli/monovector
  */
 
-export { getCapabilities, getCachedCapabilities, resetCapabilitiesCache, type MonoesCapabilities } from './capabilities.js';
+import { getCapabilities } from './capabilities.js';
+
+export { getCapabilities, getCachedCapabilities, resetCapabilitiesCache, refreshCapabilities, type MonoesCapabilities } from './capabilities.js';
 
 export { createInitState, type InitState, type InitStatus } from './init-state.js';
 

@@ -5,7 +5,7 @@
  */
 
 import type { AttentionModule, LearningWasmModule, RouterModule } from './monoes-types.js';
-import { tryLoad } from './pkg-loader.js';
+import { tryLoad, clearCache as clearPkgLoaderCache } from './pkg-loader.js';
 
 export interface MonoesCapabilities {
   /** @monoes/sona SonaEngine available */
@@ -47,11 +47,23 @@ export function getCachedCapabilities(): MonoesCapabilities | null {
 }
 
 /**
- * Reset cache for testing.
+ * Reset cache for testing — also clears the underlying pkg-loader cache so a
+ * subsequent probe re-attempts the dynamic imports (otherwise a package
+ * installed after the first probe would stay reported as absent forever).
  */
 export function resetCapabilitiesCache(): void {
   _cached = null;
   _inFlight = null;
+  clearPkgLoaderCache(); // cascade: clear the underlying load cache so a refresh re-probes
+}
+
+/**
+ * Force a fresh capability probe — for long-lived daemon/MCP processes after a
+ * package is installed at runtime. Resets both caches, then re-probes.
+ */
+export async function refreshCapabilities(): Promise<MonoesCapabilities> {
+  resetCapabilitiesCache();
+  return getCapabilities();
 }
 
 /**
