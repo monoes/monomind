@@ -6,6 +6,7 @@
  */
 
 import type { WasmBridge, WasmModuleStatus } from './types.js';
+import { MONOES_BRIDGES } from './manifest.js';
 
 /**
  * Registry entry for a WASM module
@@ -172,11 +173,18 @@ export class WasmRegistry {
 let registryInstance: WasmRegistry | null = null;
 
 /**
- * Get the global WASM registry instance
+ * Get the global WASM registry instance.
+ *
+ * On first call, the registry is populated from the declarative MONOES_BRIDGES
+ * manifest — one `register()` call per descriptor. Adding a bridge is a one-row
+ * change in manifest.ts and requires no edits here.
  */
 export function getWasmRegistry(): WasmRegistry {
   if (!registryInstance) {
     registryInstance = new WasmRegistry();
+    for (const desc of MONOES_BRIDGES) {
+      registryInstance.register(desc.key, desc.create());
+    }
   }
   return registryInstance;
 }
