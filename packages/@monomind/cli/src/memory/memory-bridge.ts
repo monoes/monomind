@@ -73,6 +73,9 @@ let initAttempts = 0;
 /** Backpressure flag for A-MEM Zettelkasten linking — see bridgeStoreEntry. */
 let _amemInFlight = false;
 
+/** OR-3: Count SONA learning failures so callers can detect degraded state. */
+let _sonaErrorCount = 0;
+
 /**
  * Resolve database path with path traversal protection.
  * Only allows paths within or below the project's .swarm directory,
@@ -1493,8 +1496,15 @@ export async function bridgeRecordFeedback(options: {
         // Non-blocking consolidation — triggers SONA.flush() when threshold met
         void (lb.consolidate() as Promise<void>).catch(() => {});
         updated++;
-      } catch {
-        // Non-fatal — SONA learning failure must not affect task recording
+      } catch (err) {
+        // OR-3: Non-fatal — count errors and emit periodic warnings so callers can detect degraded state
+        _sonaErrorCount++;
+        if (_sonaErrorCount === 1 || _sonaErrorCount % 100 === 0) {
+          process.emitWarning(
+            `SONA learning failure #${_sonaErrorCount}: ${err instanceof Error ? err.message : String(err)}`,
+            'MonoesWarning'
+          );
+        }
       }
     }
 
@@ -1753,6 +1763,7 @@ export async function bridgeHealthCheck(
   controllers: Array<{ name: string; enabled: boolean; level: number }>;
   attestationCount?: number;
   cacheStats?: { size: number; hits: number; misses: number };
+  sonaErrorCount?: number;
 } | null> {
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
@@ -1775,7 +1786,7 @@ export async function bridgeHealthCheck(
       cacheStats = { size: s.size ?? 0, hits: s.hits ?? 0, misses: s.misses ?? 0 };
     }
 
-    return { available: true, controllers, attestationCount, cacheStats };
+    return { available: true, controllers, attestationCount, cacheStats, sonaErrorCount: _sonaErrorCount };
   } catch {
     return null;
   }
