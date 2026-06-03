@@ -17,8 +17,8 @@ export interface AttentionModule {
   DotProductAttention: { new (dim: number): AttentionInstanceAPI };
   FlashAttention: { new (dim: number, blockSize: number): AttentionInstanceAPI };
   MultiHeadAttention: { new (dim: number, heads: number): AttentionInstanceAPI };
-  HyperbolicAttention: { new (dim: number): AttentionInstanceAPI };
-  LinearAttention: { new (dim: number): AttentionInstanceAPI };
+  HyperbolicAttention: { new (dim: number, curvature?: number): AttentionInstanceAPI };
+  LinearAttention: { new (dim: number, features?: number): AttentionInstanceAPI };
 }
 
 // ── @monoes/learning-wasm ────────────────────────────────────────────────────

@@ -6,7 +6,8 @@
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
-import type { LearningWasmModule } from '../monovector/monoes-types.js';
+import type { LearningWasmModule, AttentionModule } from '../monovector/monoes-types.js';
+import { getCapabilities } from '../monovector/capabilities.js';
 import { output } from '../output.js';
 
 // Train subcommand - REAL WASM training with MonoVector
@@ -558,6 +559,23 @@ const statusCommand: Command = {
             status: hasLearnedState ? output.success('Saved') : output.dim('None'),
             details: hasLearnedState ? `Weights persisted ${learnedStateAge}` : 'No prior session weights',
           },
+        ],
+      });
+
+      // Package Availability table
+      const pkgCaps = await getCapabilities();
+      output.writeln();
+      output.writeln(output.highlight('Package Availability'));
+      output.printTable({
+        columns: [
+          { key: 'pkg', header: 'Package', width: 30 },
+          { key: 'status', header: 'Status', width: 20 },
+        ],
+        data: [
+          { pkg: '@monoes/sona', status: pkgCaps.sona ? output.success('✓ native') : output.warning('JS fallback') },
+          { pkg: '@monoes/router', status: pkgCaps.router === 'native' ? output.success('✓ native HNSW') : pkgCaps.router === 'js' ? output.warning('JS fallback') : output.error('not installed') },
+          { pkg: '@monoes/attention', status: pkgCaps.attention ? output.success('✓ native') : output.warning('JS fallback') },
+          { pkg: '@monoes/learning-wasm', status: pkgCaps.learningWasm ? output.success('✓ WASM') : output.warning('JS fallback') },
         ],
       });
 
@@ -1678,7 +1696,7 @@ const benchmarkCommand: Command = {
     spinner.start();
 
     try {
-      const attention: any = await import('@monoes/attention');
+      const attention = await import('@monoes/attention') as unknown as AttentionModule;
 
       // Manual benchmark since benchmarkAttention has a binding bug
       const benchmarkMechanism = async (name: string, mechanism: { computeRaw: (q: Float32Array, k: Float32Array[], v: Float32Array[]) => Float32Array }) => {

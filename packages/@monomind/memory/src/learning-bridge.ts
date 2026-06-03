@@ -102,6 +102,20 @@ const DEFAULT_CONFIG: ResolvedConfig = {
 
 const MS_PER_HOUR = 3_600_000;
 
+// ===== NeuralSystem interface =====
+
+/**
+ * Structural interface for the NeuralLearningSystem dependency.
+ * Replaces the `any` field type so call-site mismatches surface as TypeScript errors.
+ */
+interface NeuralSystem {
+  beginTask(context: string, domain: string): string;
+  recordStep(id: string, action: string, reward: number, embedding: Float32Array): void;
+  completeTask(id: string, quality?: number): Promise<void>;
+  findPatterns(embedding: Float32Array, k: number): Promise<unknown[]>;
+  cleanup(): Promise<void>;
+}
+
 // ===== LearningBridge =====
 
 /**
@@ -116,7 +130,7 @@ const MS_PER_HOUR = 3_600_000;
  * ```
  */
 export class LearningBridge extends EventEmitter {
-  private neural: any | null = null;
+  private neural: NeuralSystem | null = null;
   private backend: IMemoryBackend;
   private config: ResolvedConfig;
   private activeTrajectories: Map<string, string> = new Map();
