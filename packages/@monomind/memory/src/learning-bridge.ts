@@ -613,24 +613,8 @@ export class LearningBridge extends EventEmitter {
       } catch { /* fall through */ }
     }
 
-    // Fallback: try @monomind/cli's memory-bridge when running inside the CLI process
-    try {
-      const bridge = await import('@monomind/cli/src/memory/memory-bridge.js' as string)
-        .catch(() => null);
-      if (bridge?.bridgeGenerateEmbedding) {
-        const result = await bridge.bridgeGenerateEmbedding(text);
-        if (result?.embedding && Array.isArray(result.embedding) && result.embedding.length > 0) {
-          const arr = new Float32Array(dimensions);
-          const copyLen = Math.min(result.embedding.length, dimensions);
-          for (let i = 0; i < copyLen; i++) arr[i] = result.embedding[i];
-          let norm = 0;
-          for (let i = 0; i < dimensions; i++) norm += arr[i] * arr[i];
-          norm = Math.sqrt(norm);
-          if (norm > 0) for (let i = 0; i < dimensions; i++) arr[i] /= norm;
-          return arr;
-        }
-      }
-    } catch { /* fall through to hash */ }
+    // CLI-layer dependencies must be injected via config (e.g., LearningBridgeConfig.embedder)
+    // @monomind/memory must never import from @monomind/cli — inverted dependency
 
     return this.createHashEmbedding(text, dimensions);
   }

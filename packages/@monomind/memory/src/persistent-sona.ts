@@ -15,6 +15,7 @@
 import {
   RvfLearningStore,
 } from './rvf-learning-store.js';
+import { cosineSimilarity } from './math-utils.js';
 import type {
   RvfLearningStoreConfig,
   PatternRecord,
@@ -45,32 +46,7 @@ const DEFAULT_AUTO_PERSIST_MS = 30_000;
 
 // ===== Helpers =====
 
-/**
- * Compute cosine similarity between two number arrays.
- * Returns 0 when either vector has zero magnitude.
- */
-function cosineSimilarity(a: number[], b: number[]): number {
-  const len = Math.min(a.length, b.length);
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-
-  // Process in groups of 4 for better throughput
-  let i = 0;
-  for (; i + 3 < len; i += 4) {
-    dot += a[i] * b[i] + a[i + 1] * b[i + 1] + a[i + 2] * b[i + 2] + a[i + 3] * b[i + 3];
-    normA += a[i] * a[i] + a[i + 1] * a[i + 1] + a[i + 2] * a[i + 2] + a[i + 3] * a[i + 3];
-    normB += b[i] * b[i] + b[i + 1] * b[i + 1] + b[i + 2] * b[i + 2] + b[i + 3] * b[i + 3];
-  }
-  for (; i < len; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-
-  const denom = Math.sqrt(normA) * Math.sqrt(normB);
-  return denom > 0 ? dot / denom : 0;
-}
+// cosineSimilarity imported from math-utils.ts — single source of truth
 
 function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
