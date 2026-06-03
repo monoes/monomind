@@ -4,6 +4,8 @@
  * Result is cached after the first resolution — call anywhere, pay once.
  */
 
+import type { AttentionModule, LearningWasmModule, RouterModule } from './monoes-types.js';
+
 export interface MonoesCapabilities {
   /** @monoes/sona SonaEngine available */
   sona: boolean;
@@ -54,8 +56,8 @@ async function _probe(): Promise<MonoesCapabilities> {
     // @ts-expect-error optional peer dependency — index.d.ts may be empty
     import('@monoes/sona').then((m: any) => typeof m.SonaEngine === 'function' || !!m.SonaEngine),
     _probeRouter(),
-    import('@monoes/attention').then(m => typeof (m as any).FlashAttention === 'function'),
-    import('@monoes/learning-wasm').then(m => typeof (m as any).WasmMicroLoRA === 'function'),
+    import('@monoes/attention').then(m => typeof (m as unknown as AttentionModule).FlashAttention === 'function'),
+    import('@monoes/learning-wasm').then(m => typeof (m as unknown as LearningWasmModule).WasmMicroLoRA === 'function'),
   ]);
 
   return {
@@ -68,8 +70,8 @@ async function _probe(): Promise<MonoesCapabilities> {
 
 async function _probeRouter(): Promise<'native' | 'js' | 'none'> {
   try {
-    const mod = await import('@monoes/router');
-    if (typeof (mod as any).VectorDb === 'function') return 'native';
+    const mod = await import('@monoes/router') as unknown as RouterModule;
+    if (typeof mod.VectorDb === 'function') return 'native';
     return 'js';
   } catch {
     return 'none';
