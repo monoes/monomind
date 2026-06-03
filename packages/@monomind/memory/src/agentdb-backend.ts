@@ -11,6 +11,7 @@
  */
 
 import { EventEmitter } from 'node:events';
+import { cosineSimilarity } from './math-utils.js';
 import {
   IMemoryBackend,
   MemoryEntry,
@@ -843,7 +844,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
       if (!entry.embedding) continue;
       if (entry.embedding.length !== embedding.length) continue;
 
-      const score = this.cosineSimilarity(embedding, entry.embedding);
+      const score = cosineSimilarity(embedding, entry.embedding);
       const distance = 1 - score;
 
       if (options.threshold && score < options.threshold) continue;
@@ -1015,23 +1016,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     }
   }
 
-  /**
-   * Cosine similarity (returns value in range [0, 1] where 1 = identical)
-   */
-  private cosineSimilarity(a: Float32Array, b: Float32Array): number {
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-
-    const magnitude = Math.sqrt(normA) * Math.sqrt(normB);
-    return magnitude === 0 ? 0 : dotProduct / magnitude;
-  }
+  // cosineSimilarity removed — use shared math-utils.ts implementation
 
   /**
    * Estimate memory usage

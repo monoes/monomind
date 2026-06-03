@@ -11,6 +11,7 @@
 
 import { platform } from 'node:os';
 import { existsSync } from 'node:fs';
+import { cosineSimilarity } from './math-utils.js';
 import {
   IMemoryBackend,
   MemoryEntry,
@@ -447,7 +448,7 @@ class JsonBackend implements IMemoryBackend {
     for (const entry of this.entries.values()) {
       if (!entry.embedding) continue;
 
-      const similarity = this.cosineSimilarity(embedding, entry.embedding);
+      const similarity = cosineSimilarity(embedding, entry.embedding);
       if (options.threshold && similarity < options.threshold) continue;
 
       results.push({ entry, score: similarity, distance: 1 - similarity });
@@ -544,18 +545,5 @@ class JsonBackend implements IMemoryBackend {
     await fs.writeFile(this.path, JSON.stringify(entries, null, 2));
   }
 
-  private cosineSimilarity(a: Float32Array, b: Float32Array): number {
-    let dot = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < a.length; i++) {
-      dot += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-
-    if (normA === 0 || normB === 0) return 0;
-    return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-  }
+  // cosineSimilarity removed — use shared math-utils.ts implementation
 }
