@@ -421,6 +421,9 @@ export interface HealthCheckResult {
   /** Overall health status */
   status: 'healthy' | 'degraded' | 'unhealthy';
 
+  /** Backend mode in use */
+  mode?: 'native-rvf' | 'pure-ts-fallback';
+
   /** Individual component health */
   components: {
     storage: ComponentHealth;
