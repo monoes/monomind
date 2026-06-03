@@ -5,8 +5,9 @@
  * Achieves 150x-12,500x faster search compared to brute-force.
  */
 
-import type { WasmBridge, WasmModuleStatus, HnswConfig, SearchResult } from '../types.js';
-import { HnswConfigSchema, isNativeDisabled } from '../types.js';
+import type { HnswConfig, SearchResult } from '../types.js';
+import { HnswConfigSchema } from '../types.js';
+import { BaseBridge } from './base-bridge.js';
 
 /**
  * HNSW WASM module interface
@@ -30,69 +31,42 @@ interface HnswIndex {
 /**
  * HNSW Bridge implementation
  */
-export class HnswBridge implements WasmBridge<HnswModule> {
+export class HnswBridge extends BaseBridge<HnswModule> {
   readonly name = 'micro-hnsw-wasm';
   readonly version = '0.1.0';
 
-  private _status: WasmModuleStatus = 'unloaded';
-  private _module: HnswModule | null = null;
   private _index: HnswIndex | null = null;
   private config: HnswConfig;
 
   constructor(config?: Partial<HnswConfig>) {
+    super();
     this.config = HnswConfigSchema.parse(config ?? {});
   }
 
-  get status(): WasmModuleStatus {
-    return this._status;
+  protected specifier(): string {
+    return '@monoes/micro-hnsw-wasm';
   }
 
-  async init(): Promise<void> {
-    if (this._status === 'ready') return;
-    if (this._status === 'loading') return;
+  protected validateShape(mod: unknown): boolean {
+    return typeof (mod as any)?.create === 'function';
+  }
 
-    // Native kill-switch — force pure-JS mock, skip the @monoes/micro-hnsw-wasm load.
-    if (isNativeDisabled()) {
-      this._module = this.createMockModule();
-      this._index = this._module.create(this.config);
-      this._status = 'ready';
-      return;
-    }
+  protected createMock(): HnswModule {
+    return this.createMockModule();
+  }
 
-    this._status = 'loading';
-
-    try {
-      // Dynamic import of WASM module
-      const wasmModule = await import('@monoes/micro-hnsw-wasm').catch(() => null);
-
-      if (wasmModule) {
-        this._module = wasmModule as unknown as HnswModule;
-        this._index = this._module.create(this.config);
-      } else {
-        // Fallback to mock implementation for development
-        this._module = this.createMockModule();
-        this._index = this._module.create(this.config);
-      }
-
-      this._status = 'ready';
-    } catch (error) {
-      this._status = 'error';
-      throw error;
-    }
+  /**
+   * Build the index from whichever module was adopted (real or mock).
+   * BaseBridge sets this._module before calling adoptModule in both branches,
+   * so the index is always created from the active module.
+   */
+  protected adoptModule(_mod: unknown): void {
+    this._index = this._module ? this._module.create(this.config) : null;
   }
 
   async destroy(): Promise<void> {
     this._index = null;
-    this._module = null;
-    this._status = 'unloaded';
-  }
-
-  isReady(): boolean {
-    return this._status === 'ready';
-  }
-
-  getModule(): HnswModule | null {
-    return this._module;
+    await super.destroy();
   }
 
   /**
