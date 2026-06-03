@@ -367,14 +367,16 @@ async function getSemanticRouter() {
       return { router: null, backend: routerBackend, native: nativeVectorDb };
     }
   } catch (err) {
-    // Native not available or database locked - fall back to pure JS
-    // Common errors: "Database already open. Cannot acquire lock." or "MODULE_NOT_FOUND"
-    // This is expected in concurrent environments or when binary isn't installed
     const reason = err instanceof Error ? err.message : String(err);
-    if (!reason.includes('Cannot acquire lock') && !reason.includes('MODULE_NOT_FOUND')) {
+    if (reason.includes('Cannot acquire lock')) {
+      // Transient lock collision — don't burn a retry slot; next call will try again
+    } else if (reason.includes('MODULE_NOT_FOUND') || reason.includes('Cannot find module')) {
+      // Permanent — exhaust retries immediately
+      _routerInitState.markPermanentlyFailed();
+    } else {
+      _routerInitState.markFailed();
       console.debug('[hooks-tools] @monoes/router init failed:', reason);
     }
-    _routerInitState.markFailed();
   }
 
   // STEP 2: Fall back to pure JS SemanticRouter
@@ -431,13 +433,6 @@ async function getFlashAttention() {
     }
   }
   return flashAttention;
-}
-
-// LoRA Adapter removed — superseded by SONA instant adaptation
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let loraAdapter: any = null;
-async function getLoRAAdapter() {
-  return loraAdapter;
 }
 
 // Trajectory storage for SONA learning
@@ -2264,7 +2259,7 @@ export const hooksIntelligence: MCPTool = {
     const moeAvailable = (await getMoERouter()) !== null;
     const flashAvailable = (await getFlashAttention()) !== null;
     const ewcAvailable = (await getEWCConsolidator()) !== null;
-    const loraAvailable = (await getLoRAAdapter()) !== null;
+    const loraAvailable = false;
 
     return {
       mode,
@@ -2837,8 +2832,6 @@ export const hooksIntelligenceStats: MCPTool = {
     const ewc = await getEWCConsolidator();
     const moe = await getMoERouter();
     const flash = await getFlashAttention();
-    const lora = await getLoRAAdapter();
-
     // Fallback to memory store for legacy data
     const memoryStats = getIntelligenceStatsFromMemory();
 
@@ -2936,24 +2929,14 @@ export const hooksIntelligenceStats: MCPTool = {
       };
     }
 
-    // LoRA stats from real implementation
-    let loraStats = {
+    // LoRA Adapter removed — superseded by SONA instant adaptation
+    const loraStats = {
       rank: 8,
       alpha: 16,
       adaptations: 0,
       avgLoss: 0,
       implementation: 'not-loaded' as string,
     };
-    if (lora) {
-      const realLora = lora.getStats();
-      loraStats = {
-        rank: realLora.rank,
-        alpha: 16, // Default alpha from config
-        adaptations: realLora.totalAdaptations,
-        avgLoss: Math.round(realLora.avgAdaptationNorm * 10000) / 10000,
-        implementation: 'real-lora',
-      };
-    }
 
     const stats = {
       sona: sonaStats,
@@ -2981,7 +2964,7 @@ export const hooksIntelligenceStats: MCPTool = {
           ewc: ewc ? 'loaded' : 'not-loaded',
           moe: moe ? 'loaded' : 'not-loaded',
           flash: flash ? 'loaded' : 'not-loaded',
-          lora: lora ? 'loaded' : 'not-loaded',
+          lora: 'not-loaded',
         },
         performance: {
           sonaLearningMs: sonaStats.avgLearningTimeMs,
