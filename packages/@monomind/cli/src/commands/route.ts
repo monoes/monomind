@@ -169,7 +169,7 @@ const routeTaskCommand: Command = {
 
       // Use Q-Learning routing
       const router = await getRouter();
-      const result: RouteDecision = router.route(taskDescription, useExploration);
+      const result: RouteDecision = await router.route(taskDescription, useExploration);
       const agent = getAgentType(result.route) || AGENT_TYPES[0];
 
       spinner.succeed(`Routed to ${agent.name}`);
