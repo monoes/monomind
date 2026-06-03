@@ -547,6 +547,30 @@ async function checkAgenticFlow(): Promise<HealthCheck> {
 }
 
 // Check @monoes native acceleration integration (sona/router/attention/learning-wasm)
+// Format a 0..1 accuracy as a whole-percent string, or 'n/a' when null.
+function fmtPct(v: number | null): string {
+  return v === null ? 'n/a' : `${Math.round(v * 100)}%`;
+}
+
+// Render the windowed routing-accuracy metric (C1) as a one-line summary.
+// Tells an operator whether routing learning is actually helping.
+async function routingAccuracyLine(): Promise<string> {
+  try {
+    const { computeRoutingAccuracy } = await import('../monovector/route-outcomes.js');
+    const acc = await computeRoutingAccuracy(join(process.cwd(), '.monomind'), 100);
+    if (acc.accuracy === null) {
+      return 'routing accuracy (last 100): no outcome data yet';
+    }
+    const trend = acc.recentVsPrior === null
+      ? ''
+      : ` trend ${acc.recentVsPrior >= 0 ? '+' : ''}${Math.round(acc.recentVsPrior * 100)}%`;
+    return `routing accuracy (last ${acc.window}): ${fmtPct(acc.accuracy)} ` +
+      `[native ${fmtPct(acc.byMode.native)} / js ${fmtPct(acc.byMode.js)}]${trend}`;
+  } catch {
+    return 'routing accuracy (last 100): no outcome data yet';
+  }
+}
+
 async function checkMonoesIntegration(): Promise<HealthCheck> {
   try {
     const caps = await getCapabilities();
@@ -556,14 +580,15 @@ async function checkMonoesIntegration(): Promise<HealthCheck> {
       `attention=${caps.attention ? 'native' : 'js'}`,
       `learningWasm=${caps.learningWasm ? 'wasm' : 'js'}`,
     ];
+    const accLine = await routingAccuracyLine();
     const nativeDisabled = process.env.MONOMIND_DISABLE_NATIVE === '1' || process.env.MONOMIND_FORCE_JS === '1';
     const allJs = !caps.sona && caps.router !== 'native' && !caps.attention && !caps.learningWasm;
     return {
       name: 'monoes Integration',
       status: nativeDisabled ? 'warn' : (allJs ? 'warn' : 'pass'),
       message: nativeDisabled
-        ? `Native disabled via env — all JS fallback (${parts.join(' ')})`
-        : `@monoes: ${parts.join(' ')}`,
+        ? `Native disabled via env — all JS fallback (${parts.join(' ')}) | ${accLine}`
+        : `@monoes: ${parts.join(' ')} | ${accLine}`,
       fix: allJs && !nativeDisabled
         ? 'npm install @monoes/sona @monoes/router @monoes/attention @monoes/learning-wasm'
         : undefined,

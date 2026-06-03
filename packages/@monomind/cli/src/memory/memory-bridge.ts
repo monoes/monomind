@@ -1498,8 +1498,19 @@ export async function bridgeRecordFeedback(options: {
     // Wire agent task outcomes into SONA learning engine via LearningBridge.
     // B1.3: skip the feed entirely when the outcome is not a measured/known result —
     // feeding nothing beats feeding a fabricated success or failure label.
+    //
+    // A2: the SONA write-path (onInsightRecorded → ONNX load + embedding inference,
+    // then consolidate()) only pays off in a long-lived host (MCP server / daemon),
+    // where trajectories accumulate across calls and reach the consolidation
+    // threshold. In one-shot CLI mode (e.g. `monomind hooks post-task`) it loads
+    // ONNX, records exactly ONE in-memory trajectory that never reaches threshold,
+    // and the trajectory map is discarded on process exit — pure cost, zero benefit.
+    // The file-based keyword learning (Pipeline C, above) still runs and persists in
+    // CLI mode, so routing learning is NOT lost — only the throwaway SONA trajectory.
+    // MONOMIND_PERSISTENT_HOST=1 is set by the MCP server and daemon entry points.
+    const isPersistentHost = process.env.MONOMIND_PERSISTENT_HOST === '1';
     const lb = registry.get('learningBridge') as any;
-    if (options.outcomeKnown !== false && lb && typeof lb.onInsightRecorded === 'function') {
+    if (isPersistentHost && options.outcomeKnown !== false && lb && typeof lb.onInsightRecorded === 'function') {
       try {
         await lb.onInsightRecorded(
           {
