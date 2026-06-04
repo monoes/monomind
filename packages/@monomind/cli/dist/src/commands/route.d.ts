@@ -1,9 +1,9 @@
 /**
  * CLI Route Command
- * Intelligent task-to-agent routing using Q-Learning
+ * Intelligent task-to-agent routing using keyword matching
  *
  * Features:
- * - Q-Learning based agent selection
+ * - Keyword-based agent selection
  * - Semantic task understanding
  * - Confidence scoring
  * - Learning from feedback

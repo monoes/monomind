@@ -1,9 +1,9 @@
 /**
  * CLI Route Command
- * Intelligent task-to-agent routing using Q-Learning
+ * Intelligent task-to-agent routing using keyword matching
  *
  * Features:
- * - Q-Learning based agent selection
+ * - Keyword-based agent selection
  * - Semantic task understanding
  * - Confidence scoring
  * - Learning from feedback
@@ -80,19 +80,19 @@ function getAgentType(route: string): AgentType | undefined {
 
 const routeTaskCommand: Command = {
   name: 'task',
-  description: 'Route a task to the optimal agent using Q-Learning',
+  description: 'Route a task to the optimal agent using keyword matching',
   options: [
     {
       name: 'q-learning',
       short: 'q',
-      description: 'Use Q-Learning for agent selection (default: true)',
+      description: 'Use keyword routing for agent selection (default: true)',
       type: 'boolean',
       default: true,
     },
     {
       name: 'agent',
       short: 'a',
-      description: 'Force specific agent (bypasses Q-Learning)',
+      description: 'Force specific agent (bypasses keyword routing)',
       type: 'string',
     },
     {
