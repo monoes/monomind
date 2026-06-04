@@ -61,6 +61,40 @@ export async function joinOutcome(
   }
 }
 
+/**
+ * Join an outcome to the most recent route record that has no measured outcome yet.
+ * Used when the caller does not thread an explicit routeId — auto-correlates the
+ * latest recommendation to the next task completion. Returns the joined routeId or null.
+ */
+export async function joinLatestUnresolved(
+  baseDir: string,
+  outcome: { agentActuallyUsed?: string; measuredSuccess?: boolean; quality?: number },
+  maxAgeMs = 600_000  // only correlate within 10 minutes to avoid stale joins
+): Promise<string | null> {
+  try {
+    const path = storePath(baseDir);
+    const content = await fs.readFile(path, 'utf8').catch(() => '');
+    if (!content) return null;
+    const lines = content.trim().split('\n');
+    const now = Date.now();
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const rec = JSON.parse(lines[i]) as RouteOutcomeRecord;
+        // Skip already-joined records
+        if (typeof rec.measuredSuccess === 'boolean') continue;
+        // Skip stale records beyond the correlation window
+        if (now - rec.ts > maxAgeMs) return null;
+        lines[i] = JSON.stringify({ ...rec, ...outcome });
+        await fs.writeFile(path, lines.join('\n') + '\n', 'utf8');
+        return rec.routeId;
+      } catch { /* skip malformed */ }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /** Read all outcome records (for metrics). */
 export async function readOutcomes(baseDir: string): Promise<RouteOutcomeRecord[]> {
   try {
@@ -110,4 +144,13 @@ export async function computeRoutingAccuracy(baseDir: string, window = 100): Pro
     byMode: { native: succ(native), js: succ(js) },
     recentVsPrior: (recent !== null && prior !== null) ? recent - prior : null,
   };
+}
+
+/** Fraction of joined routes where the agent actually used matched the recommendation. */
+export async function computeAdherence(baseDir: string, window = 100): Promise<{ adherence: number | null; sample: number }> {
+  const all = await readOutcomes(baseDir);
+  const joined = all.filter(r => r.agentActuallyUsed && r.recommendedAgent).slice(-window);
+  if (joined.length === 0) return { adherence: null, sample: 0 };
+  const matches = joined.filter(r => r.agentActuallyUsed === r.recommendedAgent).length;
+  return { adherence: matches / joined.length, sample: joined.length };
 }

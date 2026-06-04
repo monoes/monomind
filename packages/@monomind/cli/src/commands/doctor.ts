@@ -556,16 +556,19 @@ function fmtPct(v: number | null): string {
 // Tells an operator whether routing learning is actually helping.
 async function routingAccuracyLine(): Promise<string> {
   try {
-    const { computeRoutingAccuracy } = await import('../monovector/route-outcomes.js');
-    const acc = await computeRoutingAccuracy(join(process.cwd(), '.monomind'), 100);
+    const { computeRoutingAccuracy, computeAdherence } = await import('../monovector/route-outcomes.js');
+    const baseDir = join(process.cwd(), '.monomind');
+    const acc = await computeRoutingAccuracy(baseDir, 100);
+    const adh = await computeAdherence(baseDir);
+    const adhStr = ` | adherence ${fmtPct(adh.adherence)} (n=${adh.sample})`;
     if (acc.accuracy === null) {
-      return 'routing accuracy (last 100): no outcome data yet';
+      return `routing accuracy (last 100): no outcome data yet${adhStr}`;
     }
     const trend = acc.recentVsPrior === null
       ? ''
       : ` trend ${acc.recentVsPrior >= 0 ? '+' : ''}${Math.round(acc.recentVsPrior * 100)}%`;
     return `routing accuracy (last ${acc.window}): ${fmtPct(acc.accuracy)} ` +
-      `[native ${fmtPct(acc.byMode.native)} / js ${fmtPct(acc.byMode.js)}]${trend}`;
+      `[native ${fmtPct(acc.byMode.native)} / js ${fmtPct(acc.byMode.js)}]${trend}${adhStr}`;
   } catch {
     return 'routing accuracy (last 100): no outcome data yet';
   }

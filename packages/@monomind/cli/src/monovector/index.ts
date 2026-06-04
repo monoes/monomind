@@ -20,8 +20,10 @@ export { createInitState, type InitState, type InitStatus } from './init-state.j
 export {
   recordRoute,
   joinOutcome,
+  joinLatestUnresolved,
   readOutcomes,
   computeRoutingAccuracy,
+  computeAdherence,
   type RouteOutcomeRecord,
   type RoutingAccuracy,
 } from './route-outcomes.js';
