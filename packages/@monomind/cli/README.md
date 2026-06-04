@@ -181,7 +181,7 @@ Every interaction makes Monomind smarter:
 | **Contextual** | Summarized episode clusters | RAPTOR consolidation worker |
 | **Shared** | Cross-agent state and promotions | PartitionedHNSW |
 
-- **150x–12,500x faster** semantic search via HNSW indexing
+- **Pure-JS HNSW** semantic search via AgentDB indexing
 - **Hybrid backend** — SQLite for structured data + AgentDB for semantic
 - **BM25 + vector** hybrid retrieval — precision + recall
 - **Session continuity** — pick up exactly where you left off
@@ -199,21 +199,15 @@ monograph_impact "auth.ts"                   # → blast radius before changing
 
 Queried automatically before every task. No manual invocation needed.
 
-### Neural Learning — SONA
+### Keyword Routing & Outcome Measurement
 
-Self-Optimizing Neural Adaptation learns from every task:
+Monomind routes tasks deterministically and measures whether the routing helped:
 
-| Mode | Use Case | Latency |
-|---|---|---|
-| **Real-time** | Interactive sessions | <0.05ms |
-| **Balanced** | General usage | 2-5ms |
-| **Research** | Deep analysis | 50ms |
-| **Edge** | Low-resource | <0.01ms |
-| **Batch** | Offline training | — |
+- **Keyword routing** — `createKeywordRouter` maps tasks to handlers without an LLM call
+- **Route-outcome correlation** — recommended routes are auto-correlated with actual outcomes; `doctor` surfaces routing accuracy and recommended-vs-actual adherence
+- **Trajectory + outcome logging** — steps, trajectories, and command results are recorded for later analysis
 
-- **LoRA fine-tuning** — rank 1–16, domain-specific adaptation
-- **EWC++ memory preservation** — λ 1500–2500, prevents catastrophic forgetting
-- **Reasoning Bank** — 3-tier storage: volatile / pattern / principle
+> The full neural learning loop (SONA modes, LoRA, EWC++, Reasoning Bank) lives on the `monoes-full-loop` branch.
 
 ### 3-Tier Model Routing
 
@@ -320,10 +314,10 @@ touch .monomind/loops/{loop-id}.stop
 ├─────────────────┬───────────────┬──────────────┬───────────────┤
 │  230+ Agents    │  Swarm Engine  │ Memory Palace │  Intelligence │
 │                 │               │              │               │
-│  Specialized    │  6 topologies  │ AgentDB HNSW │  SONA Neural  │
-│  agent defs     │  5 consensus   │ Knowledge    │  3-tier       │
-│  + 3-tier       │  algorithms    │ Graph        │  routing      │
-│  routing        │               │ (Monograph)  │  <0.05ms      │
+│  Specialized    │  6 topologies  │ AgentDB HNSW │  Keyword      │
+│  agent defs     │  5 consensus   │ Knowledge    │  routing +    │
+│  + 3-tier       │  algorithms    │ Graph        │  outcome      │
+│  routing        │               │ (Monograph)  │  measurement  │
 ├─────────────────┴───────────────┴──────────────┴───────────────┤
 │                   29+ Hooks + 12 Background Workers             │
 ├─────────────────────────────────────────────────────────────────┤
@@ -335,14 +329,13 @@ touch .monomind/loops/{loop-id}.stop
 
 ### Key Packages
 
-The workspace ships 17 `@monomind/*` packages:
+The workspace ships 16 `@monomind/*` packages:
 
 | Package | Purpose |
 |---|---|
 | `@monoes/monomindcli` | CLI entry point — 43 top-level commands, 230+ agent defs, 160+ slash commands, hooks, MCP server |
 | `@monomind/memory` | AgentDB + HNSW vector search, PartitionedHNSW, TierManager, hybrid SQLite backend |
 | `@monomind/hooks` | Lifecycle hook bridge, 12 background workers (ultralearn, optimize, consolidate, predict, audit, map, preload, deepdive, document, refactor, benchmark, testgaps) |
-| `@monomind/neural` | SONA manager, LoRA weight adaptation, EWC++ Fisher updates, 5 operating modes |
 | `@monomind/monograph` | Knowledge graph construction, 30 MCP tools, BM25 + semantic search |
 | `@monomind/graph` | AST-based node/edge extraction, community detection, RAPTOR consolidation |
 | `@monomind/swarm` | UnifiedSwarmCoordinator, 6 topologies, 5 consensus algorithms |
@@ -363,7 +356,7 @@ The workspace ships 17 `@monomind/*` packages:
 
 | Metric | Result | Notes |
 |---|---|---|
-| Vector search speedup | 150x–12,500x via HNSW | Range from Malkov & Yashunin 2018; HNSW implemented in `hnsw-index.ts` |
+| Vector search | Pure-JS HNSW via AgentDB | Approximate nearest-neighbor (Malkov & Yashunin 2018); implemented in `hnsw-index.ts` |
 | Agent routing (LLM) | <2s | Target; Haiku-based routing |
 | Agent routing (fallback) | <5ms | Keyword scoring path |
 | Session restore | <500ms cold start | Target |
@@ -393,7 +386,6 @@ The workspace ships 17 `@monomind/*` packages:
 | [Memory & Knowledge](https://monoes.github.io/monomind/#memory) | Memory Palace tiers, AgentDB, Monograph graph tools |
 | [Hooks & Workers](https://monoes.github.io/monomind/#hooks) | 29+ hook events, 12 workers, settings.json wiring |
 | [Swarm Coordination](https://monoes.github.io/monomind/#swarm) | 6 topologies, 5 consensus algorithms, agent hierarchy |
-| [Neural Learning](https://monoes.github.io/monomind/#neural) | SONA modes, LoRA, EWC++, Reasoning Bank |
 | [CLI Commands](https://monoes.github.io/monomind/#commands) | All 53+ commands with flags and examples |
 | [Slash Commands](https://monoes.github.io/monomind/#slash) | All 160+ slash commands across 22 categories |
 | [Mastermind](https://monoes.github.io/monomind/#mastermind) | autodev loop, --tillend mechanics, Brain protocol |
@@ -487,13 +479,10 @@ Monomind implements techniques from peer-reviewed research across distributed sy
 | Technique | Paper | Applied In |
 |---|---|---|
 | HNSW approximate nearest neighbor | Malkov & Yashunin, 2018 — *Efficient and Robust ANN* | `HNSWIndex` and `HnswLite` in `@monomind/memory` vector search |
-| LoRA fine-tuning | Hu et al., 2021 — *Low-Rank Adaptation of Large Language Models* | Pattern distillation DISTILL step in `RvfLearningStore` |
-| EWC (Elastic Weight Consolidation) | Kirkpatrick et al., 2017 — *Overcoming Catastrophic Forgetting* | CONSOLIDATE step session persistence in `@monomind/memory` |
 | Byzantine fault tolerance | Castro & Liskov, 1999 — *Practical Byzantine Fault Tolerance* | `weightedTally()` in CP-WBFT hive-mind consensus |
 | Raft consensus | Ongaro & Ousterhout, 2014 — *In Search of an Understandable Consensus Algorithm* | `RaftManager` swarm coordinator state machine |
 | CRDT data structures | Shapiro et al., 2011 — *Conflict-Free Replicated Data Types* | `CrdtSynchronizer` for eventually consistent agent memory |
 | Gossip protocols | Demers et al., 1987 — *Epidemic Algorithms for Replicated Database Maintenance* | `GossipCoordinator` cross-agent state propagation |
-| Mixture of Experts | Shazeer et al., 2017 — *Outrageously Large Neural Networks* | MoE semantic router for agent task routing |
 | Hyperbolic embeddings | Nickel & Kiela, 2017 — *Poincaré Embeddings for Learning Hierarchical Representations* | Code graph hierarchical vector space in `@monomind/memory` |
 | Int8 quantization | Dettmers et al., 2022 — *LLM.int8(): 8-bit Matrix Multiplication for Transformers* | Weight compression for neural pattern memory footprint reduction |
 | GOAP planning | Orkin, 2004 — *Applying Goal-Oriented Action Planning to Games* | `code-goal-planner` and `sublinear-goal-planner` agents |

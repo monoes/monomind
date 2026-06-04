@@ -5,7 +5,7 @@ description: AgentDB memory system — store, search, retrieve, list, delete, an
 
 # Monomind Memory System
 
-Persistent memory backed by AgentDB with HNSW vector indexing for semantic search (150x-12,500x faster than brute-force). Supports cross-session and cross-agent collaboration.
+Persistent memory backed by AgentDB with pure-JS HNSW vector indexing for semantic search (O(log n) approximate nearest neighbor). Supports cross-session and cross-agent collaboration.
 
 ## Subcommands
 
