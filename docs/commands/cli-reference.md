@@ -230,16 +230,14 @@ monomind daemon logs                    # view worker logs
 ## `monomind neural`
 
 ```bash
-monomind neural train                   # train on current patterns
-monomind neural train --flash           # Flash Attention (2.49x-7.47x speedup)
-monomind neural train --moe             # Mixture of Experts
-monomind neural train --contrastive    # contrastive learning
-monomind neural train --curriculum    # curriculum schedule
 monomind neural patterns list
 monomind neural patterns search "auth"
+monomind neural predict --input "implement auth"   # predict routing from logged patterns
 monomind neural optimize --method quantize
 monomind neural status
 ```
+
+> Neural training (`neural train`, `--flash`/`--moe`) was removed in the lean build; it lives on the `monoes-full-loop` branch.
 
 ---
 

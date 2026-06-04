@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-%3E%3D2.0.0-purple.svg)](https://claude.com/code)
 
-> **Enterprise-grade AI agent orchestration plugin with 150+ commands, 74+ specialized agents, SPARC methodology, swarm coordination, GitHub integration, and neural training capabilities**
+> **Enterprise-grade AI agent orchestration plugin with 150+ commands, 74+ specialized agents, SPARC methodology, swarm coordination, GitHub integration, persistent memory, and a knowledge graph**
 
 ---
 
@@ -544,7 +544,6 @@ Monomind integrates with 3 MCP servers providing 110+ tools:
 
 **Tools**: 70+ cloud features
 - E2B sandbox execution
-- Distributed neural training
 - Event-driven workflows
 - Application marketplace
 - Real-time collaboration

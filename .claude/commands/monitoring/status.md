@@ -65,7 +65,7 @@ npx monomind status memory
 - **Tasks** — pending / running / completed / failed / total
 - **Memory** — backend, entries, size, search time, cache hit rate
 - **MCP Server** — running state, transport, port
-- **Performance** — CPU usage, memory usage, Flash Attention, vector search speed
+- **Performance** — CPU usage, memory usage, vector search speed
 
 ## Health Check Mode
 

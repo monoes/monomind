@@ -59,8 +59,8 @@ npx monomind monograph build
 npx monomind monograph search -q "authentication"
 npx monomind monograph stats
 
-# Neural patterns
-npx monomind neural train --pattern coordination --epochs 50
+# Pattern logging
+npx monomind neural patterns --action list
 npx monomind neural status --verbose
 
 # Hooks

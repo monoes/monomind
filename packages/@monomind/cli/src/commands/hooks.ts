@@ -1324,7 +1324,6 @@ const metricsCommand: Command = {
           avgRiskScore: number;
         };
         performance: {
-          flashAttention: string;
           memoryReduction: string;
           searchImprovement: string;
           tokenReduction: string;
@@ -1392,7 +1391,6 @@ const metricsCommand: Command = {
         output.writeln();
         output.writeln(output.bold('🚀 v1 Performance Gains'));
         output.printList([
-          `Flash Attention: ${output.success(p.flashAttention ?? 'N/A')}`,
           `Memory Reduction: ${output.success(p.memoryReduction ?? 'N/A')}`,
           `Search Improvement: ${output.success(p.searchImprovement ?? 'N/A')}`,
           `Token Reduction: ${output.success(p.tokenReduction ?? 'N/A')}`
@@ -2089,10 +2087,10 @@ const sessionRestoreCommand: Command = {
   }
 };
 
-// Intelligence subcommand (SONA, MoE, HNSW)
+// Intelligence subcommand (JS pattern/trajectory logging)
 const intelligenceCommand: Command = {
   name: 'intelligence',
-  description: 'MonoVector intelligence system (SONA, MoE, HNSW 150x faster)',
+  description: 'JS pattern/trajectory logging (stats, pattern-*, trajectory-*)',
   options: [
     {
       name: 'mode',
@@ -2165,7 +2163,7 @@ const intelligenceCommand: Command = {
     const embeddingProvider = ctx.flags['embedding-provider'] as string || 'transformers';
 
     output.writeln();
-    output.writeln(output.bold('MonoVector Intelligence System'));
+    output.writeln(output.bold('Intelligence System'));
     output.writeln();
 
     if (reset) {
@@ -2280,7 +2278,7 @@ const intelligenceCommand: Command = {
             enabled: enableHnsw,
             status: String(mcpHnsw?.status ?? (localStats.reasoningBankSize > 0 ? 'active' : 'idle')),
             indexSize: Math.max(localStats.reasoningBankSize, Number(mcpHnsw?.indexSize ?? 0)),
-            searchSpeedup: String(mcpHnsw?.searchSpeedup ?? (localStats.reasoningBankSize > 0 ? '150x' : 'N/A')),
+            searchSpeedup: String(mcpHnsw?.searchSpeedup ?? (localStats.reasoningBankSize > 0 ? 'pure-JS HNSW' : 'N/A')),
             memoryUsage: String(mcpHnsw?.memoryUsage ?? (patternsFileSize > 0 ? `${(patternsFileSize / 1024).toFixed(1)} KB` : 'N/A')),
             dimension: Number(mcpHnsw?.dimension ?? 384),
           },
@@ -2297,9 +2295,8 @@ const intelligenceCommand: Command = {
           },
         },
         performance: mcpPerf ?? {
-          flashAttention: 'N/A',
           memoryReduction: patternsFileSize > 0 ? `${(patternsFileSize / 1024).toFixed(1)} KB on disk` : 'N/A',
-          searchImprovement: localStats.reasoningBankSize > 0 ? '150x-12,500x' : 'N/A',
+          searchImprovement: localStats.reasoningBankSize > 0 ? 'pure-JS HNSW' : 'N/A',
           tokenReduction: 'N/A',
           sweBenchScore: 'N/A',
         },
@@ -2411,7 +2408,7 @@ const intelligenceCommand: Command = {
 
       // HNSW Component
       output.writeln();
-      output.writeln(output.bold('HNSW (150x Faster Search)'));
+      output.writeln(output.bold('HNSW (Pure-JS Vector Search)'));
       const hnsw = result.components.hnsw;
       if (hnsw.enabled) {
         output.printTable({
@@ -2462,7 +2459,7 @@ const intelligenceCommand: Command = {
         ]);
         if (!persistence.patternsExist && !persistence.statsExist) {
           output.writeln();
-          output.writeln(output.dim('  No neural data. Run: neural train'));
+          output.writeln(output.dim('  No pattern data yet. Patterns accrue as hooks run.'));
         }
       }
 
@@ -2472,7 +2469,6 @@ const intelligenceCommand: Command = {
         output.writeln();
         output.writeln(output.bold('v1 Performance Gains'));
         output.printList([
-          `Flash Attention: ${output.success(String(perf.flashAttention ?? 'N/A'))}`,
           `Memory Reduction: ${output.success(String(perf.memoryReduction ?? 'N/A'))}`,
           `Search Improvement: ${output.success(String(perf.searchImprovement ?? 'N/A'))}`,
           `Token Reduction: ${output.success(String(perf.tokenReduction ?? 'N/A'))}`,
@@ -3438,7 +3434,7 @@ const coverageSuggestCommand: Command = {
           `Line Coverage: ${result.summary.overallLineCoverage.toFixed(1)}%`,
           `Branch Coverage: ${result.summary.overallBranchCoverage.toFixed(1)}%`,
           `Below Threshold: ${result.summary.filesBelowThreshold} files`,
-          `MonoVector: ${result.monovectorAvailable ? output.success('Available') : output.dim('Not installed')}`
+          `Keyword routing: ${result.monovectorAvailable ? output.success('Available') : output.dim('Unavailable')}`
         ].join('\n'),
         'Coverage Summary'
       );
@@ -3682,7 +3678,7 @@ const coverageGapsCommand: Command = {
           `Line Coverage: ${result.summary.overallLineCoverage.toFixed(1)}%`,
           `Branch Coverage: ${result.summary.overallBranchCoverage.toFixed(1)}%`,
           `Below ${result.summary.coverageThreshold}%: ${result.summary.filesBelowThreshold} files`,
-          `MonoVector: ${result.monovectorAvailable ? output.success('Available') : output.dim('Not installed')}`
+          `Keyword routing: ${result.monovectorAvailable ? output.success('Available') : output.dim('Unavailable')}`
         ].join('\n'),
         'Coverage Gap Analysis'
       );
@@ -4367,10 +4363,9 @@ const statuslineCommand: Command = {
 
     const domainsColor = progress.domainsCompleted >= 3 ? c.brightGreen : progress.domainsCompleted > 0 ? c.yellow : c.red;
     // Dynamic perf indicator based on patterns/HNSW
-    let perfIndicator = `${c.dim}⚡ target: 150x-12500x${c.reset}`;
+    let perfIndicator = `${c.dim}⚡ HNSW: idle${c.reset}`;
     if (agentdbStats.hasHnsw && agentdbStats.vectorCount > 0) {
-      const speedup = agentdbStats.vectorCount > 10000 ? '12500x' : agentdbStats.vectorCount > 1000 ? '150x' : '10x';
-      perfIndicator = `${c.brightGreen}⚡ HNSW ${speedup}${c.reset}`;
+      perfIndicator = `${c.brightGreen}⚡ HNSW ${agentdbStats.vectorCount.toLocaleString()} vec${c.reset}`;
     } else if (progress.patternsLearned > 0) {
       const patternsK = progress.patternsLearned >= 1000 ? `${(progress.patternsLearned / 1000).toFixed(1)}k` : String(progress.patternsLearned);
       perfIndicator = `${c.brightYellow}📚 ${patternsK} patterns${c.reset}`;
@@ -5251,12 +5246,10 @@ export const hooksCommand: Command = {
     output.writeln();
     output.writeln(output.bold('v1 Features:'));
     output.printList([
-      '🧠 ReasoningBank adaptive learning',
-      '⚡ Flash Attention (2.49x-7.47x speedup)',
-      '🔍 AgentDB integration (150x faster search)',
-      '📊 84.8% SWE-Bench solve rate',
+      '🧠 Trajectory + outcome logging',
+      '🎯 Keyword routing + route-outcome measurement',
+      '🔍 AgentDB integration (pure-JS HNSW search)',
       '🎯 32.3% token reduction',
-      '🚀 2.8-4.4x speed improvement',
       '👥 Agent Teams integration (auto task assignment)'
     ]);
 

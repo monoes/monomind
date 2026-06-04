@@ -2,7 +2,7 @@
 
 ## Overview
 
-The v1 memory module now integrates with **agentdb@2.0.0-alpha.3.4** to provide high-performance vector search capabilities with HNSW indexing (150x-12,500x faster than brute-force approaches).
+The v1 memory module now integrates with **agentdb@2.0.0-alpha.3.4** to provide vector search capabilities with pure-JS HNSW indexing (O(log n) approximate nearest neighbor vs O(n) brute-force).
 
 ## Features
 
@@ -19,9 +19,9 @@ The `AgentDBBackend` class provides:
 
 Based on ADR-006 and ADR-009:
 
-- **150x-12,500x** faster vector search compared to brute-force
+- **O(log n)** vector search vs O(n) brute-force
 - **Sub-millisecond** query latency for k-NN search
-- **Automatic backend selection**: Native hnswlib → monovector → WASM fallback
+- **Automatic backend selection**: pure-JS HNSW with graceful fallback
 
 ## Installation
 
@@ -86,7 +86,7 @@ await memory.initialize();
 // Structured queries go to SQLite
 const user = await memory.getByKey("users", "john@example.com");
 
-// Semantic queries go to AgentDB (150x faster)
+// Semantic queries go to AgentDB (HNSW-indexed)
 const similar = await memory.querySemantic({
   content: "authentication patterns",
   k: 10,
@@ -236,13 +236,12 @@ if (backend.isAvailable()) {
 
 ## Performance Metrics
 
-### Benchmarks (from agentdb@2.0.0-alpha.3.4)
+### Query complexity
 
-| Operation          | Brute Force | HNSW (hnswlib) | Speedup |
-| ------------------ | ----------- | -------------- | ------- |
-| 10k vectors, k=10  | 150ms       | 1ms            | 150x    |
-| 100k vectors, k=10 | 1500ms      | 2ms            | 750x    |
-| 1M vectors, k=10   | 15000ms     | 3ms            | 5000x   |
+The pure-JS HNSW path gives O(log n) approximate-nearest-neighbor queries versus
+O(n) brute-force linear scan. Actual latency depends on corpus size, vector
+dimensionality, and the configured `ef`/`M` parameters — run your own benchmark for
+figures specific to your workload.
 
 ### Memory Usage
 
