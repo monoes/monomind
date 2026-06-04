@@ -24,7 +24,7 @@ Tests for HybridBackend with SQLite + AgentDB integration:
 
 **Key Features Tested:**
 - SQLite + AgentDB hybrid backend
-- Vector search (150x-12,500x faster)
+- Vector search (AgentDB pure-JS HNSW)
 - Cross-backend query coordination
 - Transaction consistency
 - Concurrent operations
@@ -232,8 +232,7 @@ When adding new integration tests:
 ## Performance Targets (from V1 Goals)
 
 Integration tests verify these targets:
-- ⚡ Flash Attention: 2.49x-7.47x speedup
-- 🔍 AgentDB Search: 150x-12,500x improvement
+- 🔍 AgentDB Search (pure-JS HNSW)
 - 💾 Memory Reduction: 50-75%
 - 🚀 Startup Time: <500ms
 
