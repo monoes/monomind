@@ -11,7 +11,6 @@ import { fileURLToPath } from 'url';
 import { execSync, exec } from 'child_process';
 import { homedir } from 'os';
 import { promisify } from 'util';
-import { getCapabilities } from '../monovector/capabilities.js';
 // Promisified exec with proper shell and env inheritance for cross-platform support
 const execAsync = promisify(exec);
 /**
@@ -559,34 +558,24 @@ async function routingAccuracyLine() {
         return 'routing accuracy (last 100): no outcome data yet';
     }
 }
+// Lean teardown: the native @monoes acceleration matrix (sona/router/attention/
+// learning-wasm) has been removed. This check now reports only the honest routing
+// learning metric — the windowed recommendation→outcome accuracy and adherence,
+// which is the lean system's measurable signal.
 async function checkMonoesIntegration() {
     try {
-        const caps = await getCapabilities();
-        const parts = [
-            `sona=${caps.sona ? 'native' : 'js'}`,
-            `router=${caps.router}`,
-            `attention=${caps.attention ? 'native' : 'js'}`,
-            `learningWasm=${caps.learningWasm ? 'wasm' : 'js'}`,
-        ];
         const accLine = await routingAccuracyLine();
-        const nativeDisabled = process.env.MONOMIND_DISABLE_NATIVE === '1' || process.env.MONOMIND_FORCE_JS === '1';
-        const allJs = !caps.sona && caps.router !== 'native' && !caps.attention && !caps.learningWasm;
         return {
-            name: 'monoes Integration',
-            status: nativeDisabled ? 'warn' : (allJs ? 'warn' : 'pass'),
-            message: nativeDisabled
-                ? `Native disabled via env — all JS fallback (${parts.join(' ')}) | ${accLine}`
-                : `@monoes: ${parts.join(' ')} | ${accLine}`,
-            fix: allJs && !nativeDisabled
-                ? 'npm install @monoes/sona @monoes/router @monoes/attention @monoes/learning-wasm'
-                : undefined,
+            name: 'Routing Learning',
+            status: 'pass',
+            message: accLine,
         };
     }
     catch (err) {
         return {
-            name: 'monoes Integration',
+            name: 'Routing Learning',
             status: 'warn',
-            message: `Could not probe @monoes capabilities: ${err instanceof Error ? err.message : String(err)}`,
+            message: `Could not compute routing accuracy: ${err instanceof Error ? err.message : String(err)}`,
         };
     }
 }

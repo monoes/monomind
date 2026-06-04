@@ -111,7 +111,6 @@ async function getSystemStatus() {
             performance: {
                 cpuUsage: getProcessCpuUsage(),
                 memoryUsage: getProcessMemoryUsage(),
-                flashAttention: 'not measured',
                 searchSpeed: 'not measured'
             }
         };
@@ -139,7 +138,6 @@ async function getSystemStatus() {
             performance: {
                 cpuUsage: 0,
                 memoryUsage: 0,
-                flashAttention: 'N/A',
                 searchSpeed: 'N/A'
             }
         };
@@ -238,7 +236,6 @@ function displayStatus(status) {
     if (status.running) {
         output.writeln(output.bold('v1 Performance Gains'));
         output.printList([
-            `Flash Attention: ${output.success(status.performance.flashAttention)}`,
             `Vector Search: ${output.success(status.performance.searchSpeed)}`,
             `CPU Usage: ${status.performance.cpuUsage.toFixed(1)}%`,
             `Memory Usage: ${status.performance.memoryUsage.toFixed(1)}%`

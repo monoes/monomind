@@ -1,1 +1,1 @@
-{"version":3,"file":"performance.d.ts","sourceRoot":"","sources":["../../../src/commands/performance.ts"],"names":[],"mappings":"AAAA;;;;;GAKG;AAEH,OAAO,KAAK,EAAE,OAAO,EAAiC,MAAM,aAAa,CAAC;AAunB1E,eAAO,MAAM,kBAAkB,EAAE,OAkChC,CAAC;AAEF,eAAe,kBAAkB,CAAC"}
+{"version":3,"file":"performance.d.ts","sourceRoot":"","sources":["../../../src/commands/performance.ts"],"names":[],"mappings":"AAAA;;;;;GAKG;AAEH,OAAO,KAAK,EAAE,OAAO,EAAiC,MAAM,aAAa,CAAC;AAqnB1E,eAAO,MAAM,kBAAkB,EAAE,OAiChC,CAAC;AAEF,eAAe,kBAAkB,CAAC"}

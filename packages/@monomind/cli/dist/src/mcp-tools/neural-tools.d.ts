@@ -9,7 +9,7 @@
  * - Pattern storage and search with cosine similarity (real math in all tiers)
  * - Training stores patterns as searchable embeddings (not simulated)
  *
- * Note: For production neural features, use @monomind/neural module
+ * Note: The lean build has no neural training. The full loop lives on monoes-full-loop.
  */
 import { type MCPTool } from './types.js';
 export declare const neuralTools: MCPTool[];

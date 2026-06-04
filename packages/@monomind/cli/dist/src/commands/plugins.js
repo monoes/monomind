@@ -388,7 +388,7 @@ const infoCommand = {
         { name: 'registry', short: 'r', type: 'string', description: 'Registry to use' },
     ],
     examples: [
-        { command: 'monomind plugins info -n @monomind/neural', description: 'Show plugin info' },
+        { command: 'monomind plugins info -n @monomind/security', description: 'Show plugin info' },
     ],
     action: async (ctx) => {
         const name = ctx.flags.name;
@@ -563,8 +563,8 @@ const upgradeCommand = {
         { name: 'version', short: 'v', type: 'string', description: 'Target version (default: latest)' },
     ],
     examples: [
-        { command: 'monomind plugins upgrade -n @monomind/neural', description: 'Upgrade to latest' },
-        { command: 'monomind plugins upgrade -n @monomind/neural -v 3.1.0', description: 'Upgrade to specific version' },
+        { command: 'monomind plugins upgrade -n @monomind/security', description: 'Upgrade to latest' },
+        { command: 'monomind plugins upgrade -n @monomind/security -v 3.1.0', description: 'Upgrade to specific version' },
     ],
     action: async (ctx) => {
         const name = ctx.flags.name;
@@ -779,7 +779,6 @@ export const pluginsCommand = {
         output.writeln();
         output.writeln(output.bold('Official Plugins:'));
         output.printList([
-            '@monomind/neural              - Neural patterns and inference (WASM SIMD)',
             '@monomind/security            - Security scanning and CVE detection',
             '@monomind/embeddings          - Vector embeddings with hyperbolic support',
             '@monomind/claims              - Claims-based authorization',

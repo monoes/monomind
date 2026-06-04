@@ -283,99 +283,9 @@ async function getSemanticRouter() {
     if (_routerInitInFlight)
         return _routerInitInFlight;
     _routerInitInFlight = (async () => {
-        // STEP 1: Try native VectorDb from @monoes/router (HNSW-backed)
-        // Note: Native VectorDb uses a persistent database file which can have lock issues
-        // in concurrent environments. We try it first but fall back gracefully to pure JS.
-        // Use getCapabilities() to skip native init when @monoes/router is not installed.
-        const caps = await getCapabilities();
-        if (caps.router !== 'none')
-            try {
-                // Use createRequire for ESM compatibility with native modules
-                const { createRequire } = await import('module');
-                const require = createRequire(import.meta.url);
-                const router = require('@monoes/router');
-                if (router.VectorDb && router.DistanceMetric) {
-                    // Try to create VectorDb - may fail with lock error in concurrent envs
-                    const db = new router.VectorDb({
-                        dimensions: 384,
-                        distanceMetric: router.DistanceMetric.Cosine,
-                        hnswM: 16,
-                        hnswEfConstruction: 200,
-                        hnswEfSearch: 100,
-                    });
-                    // Initialize with static + runtime-learned task patterns
-                    for (const [patternName, { keywords }] of Object.entries(getMergedTaskPatterns())) {
-                        for (const keyword of keywords) {
-                            const embedding = generateSimpleEmbedding(keyword);
-                            db.insert(`${patternName}:${keyword}`, embedding);
-                            if (TASK_PATTERN_EMBEDDINGS.size < MAX_PATTERN_EMBEDDINGS) {
-                                TASK_PATTERN_EMBEDDINGS.set(`${patternName}:${keyword}`, embedding);
-                            }
-                        }
-                    }
-                    nativeVectorDb = db;
-                    routerBackend = 'native';
-                    _routerInitState.markReady();
-                    return { router: null, backend: routerBackend, native: nativeVectorDb };
-                }
-            }
-            catch (err) {
-                const reason = err instanceof Error ? err.message : String(err);
-                if (reason.includes('Cannot acquire lock')) {
-                    // Transient lock collision — don't burn a retry slot; next call will try again
-                }
-                else if (reason.includes('MODULE_NOT_FOUND') || reason.includes('Cannot find module')) {
-                    // Permanent — exhaust retries immediately
-                    _routerInitState.markPermanentlyFailed();
-                }
-                else {
-                    _routerInitState.markFailed();
-                    console.debug('[hooks-tools] @monoes/router init failed:', reason);
-                }
-            }
-        // STEP 1.5: Try HnswBridge from @monomind/monovector-upstream as a fallback HNSW backend.
-        // Activated only when @monoes/router is absent. Uses direct factory import (not the
-        // WasmRegistry singleton, which is unpopulated at this point) so no registration ceremony
-        // is needed. An inline adapter bridges insert()/search() to the HnswBridge API.
-        try {
-            const upstreamMod = await import('@monomind/monovector-upstream').catch(() => null);
-            if (upstreamMod?.createHnswBridge) {
-                const bridge = upstreamMod.createHnswBridge({ dimensions: 384 });
-                await bridge.init();
-                if (bridge.isReady()) {
-                    // Thin adapter: exposes the same insert()/search() surface used by the native VectorDb
-                    // code path. insert() maps to bridge.add(); search() delegates directly and returns
-                    // { id, score } tuples which the caller already handles with `1 - r.score` inversion.
-                    const hnswAdapter = {
-                        insert(id, embedding) {
-                            bridge.add(id, embedding);
-                        },
-                        search(query, k) {
-                            return bridge.search(query, k);
-                        },
-                    };
-                    // Seed with the same merged task patterns used by the native backend
-                    for (const [patternName, { keywords }] of Object.entries(getMergedTaskPatterns())) {
-                        for (const keyword of keywords) {
-                            const embedding = generateSimpleEmbedding(keyword);
-                            hnswAdapter.insert(`${patternName}:${keyword}`, embedding);
-                            if (TASK_PATTERN_EMBEDDINGS.size < MAX_PATTERN_EMBEDDINGS) {
-                                TASK_PATTERN_EMBEDDINGS.set(`${patternName}:${keyword}`, embedding);
-                            }
-                        }
-                    }
-                    nativeVectorDb = hnswAdapter;
-                    routerBackend = 'native';
-                    _routerInitState.markReady();
-                    console.debug('[hooks-tools] Using HnswBridge (monovector-upstream) as HNSW backend');
-                    return { router: null, backend: routerBackend, native: nativeVectorDb };
-                }
-            }
-        }
-        catch {
-            // HnswBridge not available or failed to init — continue to pure-JS fallback
-        }
-        // STEP 2: Fall back to pure JS SemanticRouter
+        // Native HNSW (@monoes/router) and the monovector-upstream HnswBridge were removed in
+        // the lean teardown. Routing uses the pure-JS SemanticRouter over keyword embeddings.
+        // Pure-JS SemanticRouter
         try {
             const { SemanticRouter } = await import('../monovector/semantic-router.js');
             semanticRouter = new SemanticRouter({ dimension: 384 });
@@ -591,106 +501,12 @@ function suggestAgentsForTask(task) {
 // Canonical set of valid monomind agent type strings.
 // Patterns whose type is not in this set (e.g. 'action', 'observation', 'routing')
 // are structural labels, not agent names, and must be excluded from routing.
-// Singleton neural router — initialized once per process and reused across route calls.
-// Creating + destroying NeuralLearningSystem on every call would read learned-state.json
-// on each invocation and call consolidateEWC() on cleanup, both of which are wrong.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _neuralRouterInstance = null;
-let _neuralRouterInitPromise = null;
-// One-time guard so the dim-mismatch warning is logged at most once per process.
-let _loraDimMismatchWarned = false;
-/**
- * Apply SONA's learned LoRA adaptation to the SAME query embedding used by the
- * routing index (B1.4 fix).
- *
- * Previously this built a bespoke 768-dim, sin-only, unnormalized base, ran the
- * LoRA transform, then sliced to 384. The result lived in a different basis AND
- * scale than the indexed patterns (which are `generateSimpleEmbedding` output:
- * 384-dim, sin+cos, L2-normalized), so it always scored below the 0.4 gate and
- * routing silently fell back to keyword. SONA's learned weights never reached
- * routing AND the clean query was clobbered with off-distribution noise.
- *
- * The fix: take the already-computed, normalized 384-dim query, apply the LoRA
- * transform in that same space, and re-normalize to unit length.
- *
- * No-op invariant: with an UNTRAINED LoRA (B = 0), `applyLoRATransform` produces
- * a zero delta, the mode blend returns the input unchanged, and re-normalizing a
- * unit vector yields the same vector — i.e. cosine-identical to the plain query.
- *
- * Dim gate: SONA builds LoRA weights at the embedding dim we thread in at
- * construction (DEFAULT_VECTOR_DIM, 384), matching the router query dim. We ONLY
- * apply the adaptation when SONA's weight dim equals the query dim; otherwise we
- * return the query untouched and warn once. With the dim threaded the gate opens
- * and learned weights flow; a non-threaded SONA (weights at 768) still mismatches
- * and is safely skipped.
- */
-async function applyNeuralAdaptation(query) {
-    if (!_neuralRouterInitPromise) {
-        _neuralRouterInitPromise = (async () => {
-            try {
-                const neural = await import('@monomind/neural').catch(() => null);
-                if (neural?.createNeuralLearningSystem) {
-                    // Build SONA's LoRA weights at the router query's embedding dim so the
-                    // fail-closed gate below matches and learned weights actually apply.
-                    // The router query is produced by generateSimpleEmbedding at 384 dims;
-                    // DEFAULT_VECTOR_DIM (re-exported from @monomind/neural) is that same dim.
-                    const embeddingDim = neural.DEFAULT_VECTOR_DIM ?? 384;
-                    const sys = neural.createNeuralLearningSystem('balanced', { embeddingDim });
-                    await sys.initialize();
-                    _neuralRouterInstance = sys;
-                }
-            }
-            catch {
-                _neuralRouterInstance = null;
-            }
-        })();
-    }
-    await _neuralRouterInitPromise;
-    if (!_neuralRouterInstance)
-        return null;
-    try {
-        const sona = _neuralRouterInstance.getSONAManager();
-        // Gate (FAIL-CLOSED): apply only on a POSITIVE dim match.
-        // SONA now builds LoRA weights at config.embeddingDim (threaded from this
-        // router's 384-dim query embedder), so config.embeddingDim === query.length
-        // and the gate opens. If embeddingDim is unset (legacy / non-threaded path),
-        // it falls back to 768, which mismatches the 384-dim query and the gate stays
-        // closed — the conservative behavior that prevents off-distribution queries.
-        const cfg = sona.getConfig?.();
-        // Mirror the exact expression initializeLoRAWeights builds weights at:
-        // config.embeddingDim ?? SONA_HIDDEN_DIM. Reading hiddenDim here was the bug —
-        // hiddenDim is the model-internal transformer width (768) and is unset for the
-        // 'balanced' preset, so the gate never matched even once weights were threaded.
-        const weightDim = cfg?.config?.embeddingDim ?? 768;
-        if (weightDim !== query.length) {
-            if (!_loraDimMismatchWarned) {
-                _loraDimMismatchWarned = true;
-                console.warn(`[routing] SONA LoRA weight dim (${weightDim ?? 'unknown'}) != query embedding dim ` +
-                    `(${query.length}); skipping neural adaptation to avoid off-distribution queries. ` +
-                    `Learned weights will apply once SONA builds at the embedder dim.`);
-            }
-            return null;
-        }
-        // Apply LoRA in the SAME 384-dim normalized space as the index.
-        const adapted = await sona.applyAdaptations(query);
-        if (!adapted || adapted.length !== query.length)
-            return null;
-        // Re-normalize to unit length so cosine/HNSW scores are comparable to the
-        // indexed patterns. (Untrained LoRA → adapted === query → no-op.)
-        let norm = 0;
-        for (let i = 0; i < adapted.length; i++)
-            norm += adapted[i] * adapted[i];
-        norm = Math.sqrt(norm);
-        if (norm > 0) {
-            for (let i = 0; i < adapted.length; i++)
-                adapted[i] /= norm;
-        }
-        return adapted;
-    }
-    catch {
-        return null;
-    }
-}
+//
+// Lean teardown: the SONA neural LoRA routing adaptation (applyNeuralAdaptation +
+// the @monomind/neural NeuralLearningSystem singleton) has been removed. Routing now
+// uses the pure keyword path plus the deterministic generateSimpleEmbedding query
+// against the pattern index, with outcomes recorded via route-outcomes. No ONNX /
+// LoRA inference happens on the routing hot path anymore.
 const VALID_AGENT_TYPES = new Set([
     'coder', 'reviewer', 'tester', 'planner', 'researcher',
     'architect', 'security-architect', 'security-auditor',
@@ -1025,19 +841,8 @@ export const hooksRoute = {
         let routingLatencyMs = 0;
         let backendInfo = '';
         const queryText = context ? `${task} ${context}` : task;
-        // Apply LoRA adaptations from the neural system when available.
-        // The adapted embedding reflects what was learned in prior sessions
-        // (loaded from learned-state.json during _neuralRouterInstance.initialize()).
-        let queryEmbedding = generateSimpleEmbedding(queryText);
-        try {
-            // B1.4: apply LoRA in the SAME 384-dim normalized space as the index,
-            // not a bespoke 768-dim base that gets sliced (which clobbered the query
-            // with an off-distribution vector and forced keyword fallback).
-            const adapted = await applyNeuralAdaptation(queryEmbedding);
-            if (adapted)
-                queryEmbedding = adapted;
-        }
-        catch { /* fall through to hash embedding */ }
+        // Lean teardown: deterministic query embedding only — no SONA LoRA adaptation.
+        const queryEmbedding = generateSimpleEmbedding(queryText);
         // Try native VectorDb (HNSW-backed)
         if (native && backend === 'native') {
             const routeStart = performance.now();
@@ -2237,10 +2042,10 @@ export const hooksInit = {
         };
     },
 };
-// Intelligence hook - MonoVector intelligence system
+// Intelligence hook - JS pattern/trajectory logging
 export const hooksIntelligence = {
     name: 'hooks_intelligence',
-    description: 'MonoVector intelligence system status (shows REAL metrics from memory store)',
+    description: 'Intelligence status: pattern/trajectory logging metrics from the memory store',
     inputSchema: {
         type: 'object',
         properties: {
@@ -2261,29 +2066,25 @@ export const hooksIntelligence = {
         const realStats = getIntelligenceStatsFromMemory();
         // Check actual implementation availability
         const sonaAvailable = (await getSONAOptimizer()) !== null;
-        const moeAvailable = (await getMoERouter()) !== null;
-        const flashAvailable = (await getFlashAttention()) !== null;
-        const ewcAvailable = (await getEWCConsolidator()) !== null;
-        const loraAvailable = false;
         return {
             mode,
             status: 'active',
             components: {
                 sona: {
                     enabled: enableSona,
-                    status: sonaAvailable ? 'active' : 'loading',
-                    implemented: true, // NOW IMPLEMENTED in alpha.102
+                    status: sonaAvailable ? 'active' : 'idle',
+                    implemented: true,
                     trajectoriesRecorded: realStats.trajectories.total,
                     trajectoriesSuccessful: realStats.trajectories.successful,
                     patternsLearned: realStats.patterns.learned,
-                    note: sonaAvailable ? 'SONA optimizer active - learning from trajectories' : 'SONA loading...',
+                    note: 'Trajectory + pattern logging (no neural training in the lean build)',
                 },
                 moe: {
-                    enabled: enableMoe,
-                    status: moeAvailable ? 'active' : 'loading',
-                    implemented: true, // NOW IMPLEMENTED in alpha.102
+                    enabled: false,
+                    status: 'removed',
+                    implemented: false,
                     routingDecisions: realStats.routing.decisions,
-                    note: moeAvailable ? 'MoE router with 8 experts (coder, tester, reviewer, architect, security, performance, researcher, coordinator)' : 'MoE loading...',
+                    note: 'MoE removed in lean build; keyword routing is used instead (see monoes-full-loop)',
                 },
                 hnsw: {
                     enabled: enableHnsw,
@@ -2291,25 +2092,25 @@ export const hooksIntelligence = {
                     implemented: true,
                     indexSize: realStats.memory.indexSize,
                     memorySizeBytes: realStats.memory.memorySizeBytes,
-                    note: 'HNSW vector indexing with 150x-12,500x speedup',
+                    note: 'Pure-JS HNSW vector indexing (O(log n) vs O(n))',
                 },
                 flashAttention: {
-                    enabled: true,
-                    status: flashAvailable ? 'active' : 'loading',
-                    implemented: true, // NOW IMPLEMENTED in alpha.102
-                    note: flashAvailable ? 'Flash Attention with O(N) memory (2.49x-7.47x speedup)' : 'Flash Attention loading...',
+                    enabled: false,
+                    status: 'removed',
+                    implemented: false,
+                    note: 'Flash Attention removed in lean build; lives on monoes-full-loop branch',
                 },
                 ewc: {
-                    enabled: true,
-                    status: ewcAvailable ? 'active' : 'loading',
-                    implemented: true, // NOW IMPLEMENTED in alpha.102
-                    note: ewcAvailable ? 'EWC++ consolidation prevents catastrophic forgetting' : 'EWC++ loading...',
+                    enabled: false,
+                    status: 'removed',
+                    implemented: false,
+                    note: 'EWC++ removed in lean build; lives on monoes-full-loop branch',
                 },
                 lora: {
-                    enabled: true,
-                    status: loraAvailable ? 'active' : 'loading',
-                    implemented: true, // NOW IMPLEMENTED in alpha.102
-                    note: loraAvailable ? 'LoRA adapter with 128x memory compression (rank=8)' : 'LoRA loading...',
+                    enabled: false,
+                    status: 'removed',
+                    implemented: false,
+                    note: 'LoRA removed in lean build; lives on monoes-full-loop branch',
                 },
                 embeddings: {
                     provider: 'transformers',
@@ -2328,11 +2129,13 @@ export const hooksIntelligence = {
             implementationStatus: {
                 working: [
                     'memory-store', 'embeddings', 'trajectory-recording', 'claims', 'swarm-coordination',
-                    'hnsw-index', 'pattern-storage', 'sona-optimizer', 'ewc-consolidation', 'moe-routing',
-                    'flash-attention', 'lora-adapter'
+                    'hnsw-index', 'pattern-storage', 'keyword-routing'
                 ],
                 partial: [],
                 notImplemented: [],
+                removed: [
+                    'sona-optimizer', 'ewc-consolidation', 'moe-routing', 'flash-attention', 'lora-adapter'
+                ],
             },
             version: '3.0.0-alpha.102',
         };
@@ -2793,7 +2596,7 @@ export const hooksPatternSearch = {
 // Intelligence stats hook
 export const hooksIntelligenceStats = {
     name: 'hooks_intelligence_stats',
-    description: 'Get MonoVector intelligence layer statistics',
+    description: 'Get intelligence-layer statistics (pattern/trajectory logging)',
     inputSchema: {
         type: 'object',
         properties: {
@@ -3019,7 +2822,7 @@ export const hooksIntelligenceLearn = {
 // Intelligence attention hook
 export const hooksIntelligenceAttention = {
     name: 'hooks_intelligence_attention',
-    description: 'Compute attention-weighted similarity using MoE/Flash/Hyperbolic',
+    description: 'Compute attention-weighted similarity (pure-JS cosine/hyperbolic)',
     inputSchema: {
         type: 'object',
         properties: {
@@ -3117,10 +2920,8 @@ export const hooksIntelligenceAttention = {
             results,
             stats: {
                 computeTimeMs,
-                speedup: implementation.startsWith('real-') ? (mode === 'flash' ? '2.49x-7.47x' : '1.5x-3x') : null,
-                memoryReduction: implementation.startsWith('real-') ? (mode === 'flash' ? '50-75%' : '25-40%') : null,
                 _stub: implementation === 'none',
-                _note: implementation === 'none' ? 'No attention backend available. Install @monoes/attention for real computation.' : undefined,
+                _note: implementation === 'none' ? 'Pure-JS similarity only; native attention backends are not part of the lean build.' : undefined,
             },
             implementation,
         };

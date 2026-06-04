@@ -260,9 +260,8 @@ const initCommand = {
             output.writeln(output.dim('  Initializing memory namespace...'));
             output.writeln(output.dim('  Setting up communication channels...'));
             if (v1Mode) {
-                output.writeln(output.dim('  Enabling Flash Attention (2.49x-7.47x speedup)...'));
-                output.writeln(output.dim('  Configuring AgentDB integration (150x faster)...'));
-                output.writeln(output.dim('  Initializing SONA learning system...'));
+                output.writeln(output.dim('  Configuring AgentDB integration (pure-JS HNSW)...'));
+                output.writeln(output.dim('  Initializing keyword routing + outcome measurement...'));
             }
             output.writeln();
             output.printTable({
