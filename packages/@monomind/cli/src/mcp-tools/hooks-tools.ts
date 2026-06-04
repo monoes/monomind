@@ -10,7 +10,7 @@ import { createInitState } from '../monovector/init-state.js';
 import type { RouterModule } from '../monovector/monoes-types.js';
 import { getCapabilities } from '../monovector/capabilities.js';
 import { randomUUID } from 'node:crypto';
-import { recordRoute, joinOutcome } from '../monovector/route-outcomes.js';
+import { recordRoute, joinOutcome, joinLatestUnresolved } from '../monovector/route-outcomes.js';
 
 // Base dir for per-route outcome records — sits alongside routing-outcomes.json
 function getRouteOutcomesBaseDir(): string {
@@ -1635,15 +1635,24 @@ export const hooksPostTask: MCPTool = {
       } catch { /* non-critical */ }
     }
 
-    // Join this outcome back onto the original route recommendation (if a routeId
-    // was threaded through from the hooks_route call). This is the recommendation→
-    // actual→success link that routing-accuracy metrics and SONA labels depend on.
-    if (params.routeId) {
-      await joinOutcome(getRouteOutcomesBaseDir(), params.routeId as string, {
+    // Join this outcome back onto the original route recommendation. This is the
+    // recommendation→actual→success link that routing-accuracy metrics and SONA
+    // labels depend on. When the caller threads an explicit routeId we join that
+    // record; otherwise we auto-correlate to the most recent unresolved route
+    // (within a 10-min window) so the loop closes without the LLM manually
+    // threading the routeId. Only join when the outcome is actually measured —
+    // per "unknown ≠ success", an unverified task must not pollute the metric.
+    if (outcomeKnown) {
+      const outcome = {
         agentActuallyUsed: agent,
         measuredSuccess: success,
         quality: typeof params.quality === 'number' ? (params.quality as number) : undefined,
-      });
+      };
+      if (params.routeId) {
+        await joinOutcome(getRouteOutcomesBaseDir(), params.routeId as string, outcome);
+      } else {
+        await joinLatestUnresolved(getRouteOutcomesBaseDir(), outcome);
+      }
     }
 
     // ERL: Extract and persist structured heuristic for future pre-task injection
