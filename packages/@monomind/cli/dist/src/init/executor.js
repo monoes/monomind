@@ -1442,7 +1442,6 @@ memory:
   # ADR-049: Self-Learning Memory
   learningBridge:
     enabled: ${options.runtime.enableLearningBridge ?? options.runtime.enableNeural}
-    sonaMode: balanced
     confidenceDecayRate: 0.005
     accessBoostAmount: 0.03
     consolidationThreshold: 10
@@ -1648,7 +1647,7 @@ async function writeCapabilitiesDoc(targetDir, options, result) {
 3. [Available Agents (60+)](#available-agents)
 4. [CLI Commands (26 Commands, 140+ Subcommands)](#cli-commands)
 5. [Hooks System (27 Hooks + 12 Workers)](#hooks-system)
-6. [Memory & Intelligence (MonoVector)](#memory--intelligence)
+6. [Memory & Intelligence](#memory--intelligence)
 7. [Hive-Mind Consensus](#hive-mind-consensus)
 8. [Performance Targets](#performance-targets)
 9. [Integration Ecosystem](#integration-ecosystem)
@@ -1660,8 +1659,8 @@ async function writeCapabilitiesDoc(targetDir, options, result) {
 Monomind is a domain-driven design architecture for multi-agent AI coordination with:
 
 - **15-Agent Swarm Coordination** with hierarchical and mesh topologies
-- **HNSW Vector Search** - 150x-12,500x faster pattern retrieval
-- **SONA Neural Learning** - Self-optimizing with <0.05ms adaptation
+- **HNSW Vector Search** - pure-JS indexed pattern retrieval via AgentDB
+- **Keyword Routing** - deterministic task→agent routing with outcome measurement
 - **Byzantine Fault Tolerance** - Queen-led consensus mechanisms
 - **MCP Server Integration** - Model Context Protocol support
 
@@ -1673,7 +1672,7 @@ Monomind is a domain-driven design architecture for multi-agent AI coordination 
 | Memory Backend | ${options.runtime.memoryBackend} |
 | HNSW Indexing | ${options.runtime.enableHNSW ? 'Enabled' : 'Disabled'} |
 | Neural Learning | ${options.runtime.enableNeural ? 'Enabled' : 'Disabled'} |
-| LearningBridge | ${options.runtime.enableLearningBridge ? 'Enabled (SONA + ReasoningBank)' : 'Disabled'} |
+| LearningBridge | ${options.runtime.enableLearningBridge ? 'Enabled (ReasoningBank)' : 'Disabled'} |
 | Knowledge Graph | ${options.runtime.enableMemoryGraph ? 'Enabled (PageRank + Communities)' : 'Disabled'} |
 | Agent Scopes | ${options.runtime.enableAgentScopes ? 'Enabled (project/local/user)' : 'Disabled'} |
 
@@ -1862,25 +1861,20 @@ npx monomind@latest doctor --fix
 
 ## Memory & Intelligence
 
-### MonoVector Intelligence System
-- **SONA**: Self-Optimizing Neural Architecture (<0.05ms)
-- **MoE**: Mixture of Experts routing
-- **HNSW**: 150x-12,500x faster search
-- **EWC++**: Prevents catastrophic forgetting
-- **Flash Attention**: 2.49x-7.47x speedup
-- **Int8 Quantization**: 3.92x memory reduction
+### Intelligence System
+- **Keyword routing**: Deterministic task→agent routing with outcome measurement
+- **HNSW pattern search**: Pure-JS indexed vector search via AgentDB
+- **ReasoningBank**: Stores learned patterns and trajectories for retrieval
+- **Int8 Quantization**: ~4x memory reduction for stored embeddings
 
-### 4-Step Intelligence Pipeline
-1. **RETRIEVE** - HNSW pattern search
-2. **JUDGE** - Success/failure verdicts
-3. **DISTILL** - LoRA learning extraction
-4. **CONSOLIDATE** - EWC++ preservation
+Routing and learning are JS-only — no native neural engine is required. Route
+and command outcomes are recorded and scored so routing quality is measured.
 
 ### Self-Learning Memory (ADR-049)
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| **LearningBridge** | ${options.runtime.enableLearningBridge ? '✅ Enabled' : '⏸ Disabled'} | Connects insights to SONA/ReasoningBank neural pipeline |
+| **LearningBridge** | ${options.runtime.enableLearningBridge ? '✅ Enabled' : '⏸ Disabled'} | Connects insights to the ReasoningBank pattern store |
 | **MemoryGraph** | ${options.runtime.enableMemoryGraph ? '✅ Enabled' : '⏸ Disabled'} | PageRank knowledge graph + community detection |
 | **AgentMemoryScope** | ${options.runtime.enableAgentScopes ? '✅ Enabled' : '⏸ Disabled'} | 3-scope agent memory (project/local/user) |
 
@@ -1954,13 +1948,11 @@ npx monomind@latest hive-mind consensus --propose "task"
 
 | Metric | Target | Status |
 |--------|--------|--------|
-| HNSW Search | 150x-12,500x faster | ✅ Implemented |
-| Memory Reduction | 50-75% | ✅ Implemented (3.92x) |
-| SONA Integration | Pattern learning | ✅ Implemented |
-| Flash Attention | 2.49x-7.47x | 🔄 In Progress |
+| HNSW Search | Indexed vector search | ✅ Implemented (pure-JS via AgentDB) |
+| Memory Reduction | 50-75% | ✅ Implemented (~4x via Int8 quantization) |
+| Pattern Learning | Recorded + retrievable | ✅ Implemented (ReasoningBank) |
 | MCP Response | <100ms | ✅ Achieved |
 | CLI Startup | <500ms | ✅ Achieved |
-| SONA Adaptation | <0.05ms | 🔄 In Progress |
 | Graph Build (1k) | <200ms | ✅ 2.78ms (71.9x headroom) |
 | PageRank (1k) | <100ms | ✅ 12.21ms (8.2x headroom) |
 | Insight Recording | <5ms/each | ✅ 0.12ms (41x headroom) |
@@ -1976,8 +1968,6 @@ npx monomind@latest hive-mind consensus --propose "task"
 |---------|---------|---------|
 | agentic-flow | 3.0.0-alpha.1 | Core coordination + ReasoningBank + Router |
 | agentdb | 3.0.0-alpha.10 | Vector database + 8 controllers |
-| @monoes/attention | 0.1.3 | Flash attention |
-| @monoes/sona | 0.1.5 | Neural learning |
 
 ### Optional Integrations
 | Package | Command |

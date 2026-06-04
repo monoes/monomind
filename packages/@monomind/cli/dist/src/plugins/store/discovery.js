@@ -204,7 +204,6 @@ export class PluginDiscoveryService {
             newest: ['@monomind/plugin-agentic-qe', '@monomind/plugin-prime-radiant'],
             official: ['@monomind/plugin-agentic-qe', '@monomind/plugin-prime-radiant', '@monomind/security', '@monomind/claims'],
             compatibilityMatrix: [
-                { pluginId: '@monomind/neural', pluginVersion: '3.0.0', monomindVersions: ['3.x'], tested: true },
                 { pluginId: '@monomind/security', pluginVersion: '3.0.0', monomindVersions: ['3.x'], tested: true },
             ],
         };
@@ -243,35 +242,6 @@ export class PluginDiscoveryService {
             reputation: 85,
         };
         return [
-            {
-                id: '@monomind/neural',
-                name: '@monomind/neural',
-                displayName: 'Neural Patterns',
-                description: 'Neural pattern training and inference with WASM SIMD acceleration, MoE routing, and Flash Attention optimization',
-                version: '3.0.0',
-                cid: 'bafybeineuralpatternplugin',
-                size: 245000,
-                checksum: 'sha256:abc123neural',
-                author: officialAuthor,
-                license: 'MIT',
-                categories: ['ai-ml'],
-                tags: ['neural', 'training', 'inference', 'wasm', 'simd'],
-                keywords: ['neural', 'patterns', 'ml'],
-                downloads: 15000,
-                rating: 4.9,
-                ratingCount: 245,
-                lastUpdated: baseTime,
-                createdAt: '2024-01-01T00:00:00Z',
-                minMonomindVersion: '3.0.0',
-                dependencies: [{ name: '@monomind/core', version: '^3.0.0' }],
-                type: 'core',
-                hooks: ['neural:train', 'neural:inference', 'pattern:learn'],
-                commands: ['neural train', 'neural predict', 'neural patterns'],
-                permissions: ['memory', 'network'],
-                exports: ['NeuralTrainer', 'PatternRecognizer', 'FlashAttention'],
-                verified: true,
-                trustLevel: 'official',
-            },
             {
                 id: '@monomind/security',
                 name: '@monomind/security',
@@ -743,7 +713,6 @@ export class PluginDiscoveryService {
             '@monomind/security',
             '@monomind/plugins',
             '@monomind/embeddings',
-            '@monomind/neural',
             '@monomind/performance',
             '@monomind/teammate-plugin',
             // Gas Town Bridge
