@@ -1,16 +1,3 @@
-/**
- * Self-Learning Pre-Training Benchmark Suite
- * Comprehensive benchmarks for SONA, EWC++, MoE, pattern learning
- *
- * Metrics measured:
- * - SONA adaptation latency (<0.05ms target)
- * - Pattern learning throughput
- * - EWC++ consolidation effectiveness
- * - Memory retrieval accuracy
- * - Pre-training convergence speed
- *
- * @module v1/cli/benchmarks/pretrain
- */
 export interface BenchmarkResult {
     name: string;
     iterations: number;
