@@ -1,1 +1,1 @@
-{"version":3,"file":"browser-tools.d.ts","sourceRoot":"","sources":["../../../src/mcp-tools/browser-tools.ts"],"names":[],"mappings":"AAAA;;;;;GAKG;AAEH,OAAO,KAAK,EAAE,OAAO,EAAiB,MAAM,YAAY,CAAC;AA2JzD;;GAEG;AACH,eAAO,MAAM,YAAY,EAAE,OAAO,EAilBjC,CAAC;AAEF,eAAe,YAAY,CAAC"}
+{"version":3,"file":"browser-tools.d.ts","sourceRoot":"","sources":["../../../src/mcp-tools/browser-tools.ts"],"names":[],"mappings":"AAAA;;;;;GAKG;AAEH,OAAO,KAAK,EAAE,OAAO,EAAiB,MAAM,YAAY,CAAC;AAiKzD;;GAEG;AACH,eAAO,MAAM,YAAY,EAAE,OAAO,EA8jBjC,CAAC;AAEF,eAAe,YAAY,CAAC"}

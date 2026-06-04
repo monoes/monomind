@@ -35,8 +35,9 @@ function rejectFlagLike(value, field) {
 }
 /** Validate a session ID against a strict allowlist. */
 function validateSessionId(value) {
-    if (value === undefined || value === null || value === '')
+    if (value === undefined || value === null || value === '') {
         return 'default';
+    }
     if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(value)) {
         throw new Error('session: must match ^[A-Za-z0-9_-]{1,64}$');
     }
@@ -78,8 +79,8 @@ async function validateScreenshotPath(value) {
     if (value.startsWith('-')) {
         throw new Error('path: must not start with "-"');
     }
-    const path = await import('path');
-    const fs = await import('fs');
+    const path = await import('node:path');
+    const fs = await import('node:fs');
     const projectRoot = process.cwd();
     const root = path.resolve(projectRoot, '.monomind', 'screenshots');
     await fs.promises.mkdir(root, { recursive: true });
@@ -98,7 +99,7 @@ const MAX_BROWSER_EVAL_BYTES = 16 * 1024;
  * Execute agent-browser CLI command
  */
 async function execBrowserCommand(args, session = 'default') {
-    const { execFileSync } = await import('child_process');
+    const { execFileSync } = await import('node:child_process');
     try {
         // Validate session even when the upstream handler forgot.
         const safeSession = validateSessionId(session);
@@ -690,7 +691,7 @@ export const browserTools = [
             }
             // Audit log every eval call so it's traceable in hindsight.
             try {
-                const crypto = await import('crypto');
+                const crypto = await import('node:crypto');
                 const hash = crypto.createHash('sha256').update(raw.script).digest('hex').slice(0, 16);
                 console.error(`[${new Date().toISOString()}] AUDIT browser_eval session=${safeSession} script_sha256_16=${hash}`);
             }

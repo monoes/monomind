@@ -850,11 +850,37 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
               }
             }
           }
-          return { filename: fname, name, description, type, body, mtime: stat ? stat.mtimeMs : null };
+          return { filename: fname, name, description, type, body, source: 'file', readonly: false, mtime: stat ? stat.mtimeMs : null };
         }).sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
 
+        // Merge backend store (AgentDB / auto-memory bridge). These live in the
+        // SQLite-backed store, not as .md files, so the file-only listing above
+        // misses them. Surface them read-only with a source badge so the dashboard
+        // reflects ALL memory, not just whatever has been flushed to disk.
+        let backend = [];
+        try {
+          const storePath = path.join(d, '.monomind', 'data', 'auto-memory-store.json');
+          if (fs.existsSync(storePath)) {
+            const raw = JSON.parse(fs.readFileSync(storePath, 'utf8'));
+            const rows = Array.isArray(raw) ? raw : (raw.entries || []);
+            backend = rows
+              .filter(e => e && (e.content != null) && e.status !== 'deleted')
+              .map(e => ({
+                filename: 'backend:' + (e.key || e.id),
+                name: e.key || e.id || 'entry',
+                description: e.namespace ? ('namespace: ' + e.namespace) : '',
+                type: e.type || 'semantic',
+                body: String(e.content),
+                source: 'backend',
+                readonly: true,
+                mtime: e.updatedAt || e.createdAt || null,
+              }))
+              .sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+          }
+        } catch {}
+
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
-        res.end(JSON.stringify({ memories, memDir }));
+        res.end(JSON.stringify({ memories: memories.concat(backend), memDir }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));

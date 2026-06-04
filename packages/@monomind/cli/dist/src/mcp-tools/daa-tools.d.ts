@@ -8,6 +8,6 @@
  * - No distributed network communication
  * - Useful for workflow orchestration and state tracking
  */
-import { type MCPTool } from './types.js';
+import type { MCPTool } from './types.js';
 export declare const daaTools: MCPTool[];
 //# sourceMappingURL=daa-tools.d.ts.map

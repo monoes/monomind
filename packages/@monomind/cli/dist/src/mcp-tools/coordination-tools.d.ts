@@ -8,6 +8,6 @@
  * - No actual distributed coordination
  * - Useful for single-machine workflow orchestration
  */
-import { type MCPTool } from './types.js';
+import type { MCPTool } from './types.js';
 export declare const coordinationTools: MCPTool[];
 //# sourceMappingURL=coordination-tools.d.ts.map

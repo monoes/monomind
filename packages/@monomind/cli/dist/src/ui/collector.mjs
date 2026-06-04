@@ -173,7 +173,47 @@ function collectSwarm(projectDir) {
 
 function collectSwarmHistory(projectDir) {
   const historyPath = path.join(projectDir, '.monomind', 'swarm', 'history.jsonl');
-  return readJSONL(historyPath).reverse(); // newest-first
+  const byId = new Map();
+
+  // 1. Persisted history (if any swarm ever appended on terminal status)
+  for (const e of readJSONL(historyPath)) {
+    const id = e && (e.swarmId || e.id);
+    if (id) byId.set(id, e);
+  }
+
+  // 2. Derive from the live swarm-state.json. The writer stores a NESTED
+  //    { swarms: { <id>: {...} } } map, but collectSwarm() only appends to
+  //    history.jsonl when a FLAT top-level swarmId/status is present — which
+  //    this format never has. So without this fallback the tab is empty even
+  //    though swarms exist. Derive entries directly from the map here.
+  try {
+    const state = readJSON(path.join(projectDir, '.monomind', 'swarm', 'swarm-state.json')) || {};
+    const swarmsMap = state.swarms || (state.swarmId ? { [state.swarmId]: state } : {});
+    for (const [key, s] of Object.entries(swarmsMap)) {
+      if (!s || typeof s !== 'object') continue;
+      const sid = s.swarmId || s.id || key;
+      if (byId.has(sid)) continue; // a real history entry wins over derived
+      const cfg = s.config || {};
+      const agents = Array.isArray(s.agents) ? s.agents : [];
+      byId.set(sid, {
+        swarmId: sid,
+        topology: s.topology || cfg.topology || '—',
+        consensus: s.consensus || cfg.consensusMechanism || '—',
+        strategy: s.strategy || cfg.strategy || '—',
+        status: s.status || 'unknown',
+        agentCount: agents.length || s.maxAgents || cfg.maxAgents || 0,
+        agents,
+        taskCount: Array.isArray(s.tasks) ? s.tasks.length : (s.taskCount || 0),
+        startedAt: s.createdAt || s.startedAt || null,
+        endedAt: s.updatedAt || s.endedAt || null,
+        derived: true,
+      });
+    }
+  } catch {}
+
+  // newest-first
+  return Array.from(byId.values()).sort((a, b) =>
+    new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime());
 }
 
 function appendSwarmHistory(projectDir, entry) {

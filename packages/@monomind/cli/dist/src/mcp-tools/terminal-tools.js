@@ -1,8 +1,3 @@
-/**
- * Terminal MCP Tools for CLI
- *
- * Terminal session management with real command execution.
- */
 import { getProjectCwd } from './types.js';
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -63,7 +58,15 @@ export const terminalTools = [
             if (Object.keys(store.sessions).length >= MAX_SESSIONS) {
                 return { success: false, error: 'Session limit reached' };
             }
-            const FORBIDDEN_ENV_KEYS = new Set(['PATH', 'LD_PRELOAD', 'LD_LIBRARY_PATH', 'NODE_OPTIONS', 'NODE_PATH', 'DYLD_INSERT_LIBRARIES', 'DYLD_LIBRARY_PATH']);
+            const FORBIDDEN_ENV_KEYS = new Set([
+                'PATH',
+                'LD_PRELOAD',
+                'LD_LIBRARY_PATH',
+                'NODE_OPTIONS',
+                'NODE_PATH',
+                'DYLD_INSERT_LIBRARIES',
+                'DYLD_LIBRARY_PATH',
+            ]);
             const rawEnv = input.env || {};
             const safeEnv = {};
             for (const [k, v] of Object.entries(rawEnv)) {
@@ -115,11 +118,14 @@ export const terminalTools = [
             const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
             // Reject inherited keys (incl. toString/hasOwnProperty/etc.) so a tampered
             // store.json can't redirect bracket access into Object.prototype.
-            if (sessionId && (typeof sessionId !== 'string' || FORBIDDEN_KEYS.has(sessionId) || !Object.hasOwn(store.sessions, sessionId))) {
+            if (sessionId &&
+                (typeof sessionId !== 'string' || FORBIDDEN_KEYS.has(sessionId) || !Object.hasOwn(store.sessions, sessionId))) {
                 return { success: false, error: 'Invalid sessionId' };
             }
             // Find or create default session
-            let session = sessionId ? store.sessions[sessionId] : Object.values(store.sessions).find(s => s.status === 'active');
+            let session = sessionId
+                ? store.sessions[sessionId]
+                : Object.values(store.sessions).find((s) => s.status === 'active');
             if (!session) {
                 // Create default session
                 const id = `term-${Date.now()}-${randomBytes(4).toString('hex')}`;
@@ -148,9 +154,7 @@ export const terminalTools = [
                 return { error: 'Command must not start with "-"', allowed: false };
             }
             const rawTimeout = Number(input.timeout);
-            const timeout = Number.isFinite(rawTimeout) && rawTimeout > 0
-                ? Math.min(rawTimeout, 5 * 60_000)
-                : 30_000;
+            const timeout = Number.isFinite(rawTimeout) && rawTimeout > 0 ? Math.min(rawTimeout, 5 * 60_000) : 30_000;
             const cwd = session.workingDir || getProjectCwd();
             const startTime = Date.now();
             let output;
@@ -167,8 +171,9 @@ export const terminalTools = [
                 exitCode = 0;
             }
             catch (err) {
-                output = (err.stdout || '') + (err.stderr ? `\n[stderr] ${err.stderr}` : '');
-                exitCode = err.status ?? 1;
+                const e = err;
+                output = (e.stdout?.toString() || '') + (e.stderr ? `\n[stderr] ${e.stderr.toString()}` : '');
+                exitCode = e.status ?? 1;
             }
             const duration = Date.now() - startTime;
             const timestamp = new Date().toISOString();
@@ -203,18 +208,23 @@ export const terminalTools = [
         inputSchema: {
             type: 'object',
             properties: {
-                status: { type: 'string', enum: ['all', 'active', 'idle', 'closed'], description: 'Filter by status' },
+                status: {
+                    type: 'string',
+                    enum: ['all', 'active', 'idle', 'closed'],
+                    description: 'Filter by status',
+                },
                 includeHistory: { type: 'boolean', description: 'Include command history' },
             },
         },
         handler: async (input) => {
             const store = loadTerminalStore();
             let sessions = Object.values(store.sessions);
-            if (input.status && input.status !== 'all') {
-                sessions = sessions.filter(s => s.status === input.status);
+            const status = input.status;
+            if (status && status !== 'all') {
+                sessions = sessions.filter((s) => s.status === status);
             }
             return {
-                sessions: sessions.map(s => ({
+                sessions: sessions.map((s) => ({
                     id: s.id,
                     name: s.name,
                     status: s.status,
@@ -225,7 +235,7 @@ export const terminalTools = [
                     ...(input.includeHistory ? { history: s.history.slice(-10) } : {}),
                 })),
                 total: sessions.length,
-                active: sessions.filter(s => s.status === 'active').length,
+                active: sessions.filter((s) => s.status === 'active').length,
             };
         },
     },
@@ -296,7 +306,7 @@ export const terminalTools = [
             }
             // Return combined history from all sessions
             const allHistory = Object.values(store.sessions)
-                .flatMap(s => s.history.map(h => ({ ...h, sessionId: s.id })))
+                .flatMap((s) => s.history.map((h) => ({ ...h, sessionId: s.id })))
                 .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                 .slice(offset, offset + limit);
             return {
