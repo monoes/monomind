@@ -78,21 +78,6 @@ const AGENT_TYPE_MODEL_DEFAULTS = {
     'linter': 'haiku',
     'documenter': 'haiku',
 };
-// Lazy-loaded model router
-let modelRouterInstance = null;
-async function getModelRouter() {
-    if (!modelRouterInstance) {
-        try {
-            const { getModelRouter } = await import('../monovector/model-router.js');
-            modelRouterInstance = getModelRouter();
-        }
-        catch (e) {
-            // Log but don't fail - model router is optional
-            console.error('[agent-tools] Model router load failed:', e.message);
-        }
-    }
-    return modelRouterInstance;
-}
 /**
  * Determine model for agent based on (ADR-026 3-tier routing):
  * 1. Explicit model in config
@@ -105,43 +90,7 @@ async function determineAgentModel(agentType, config, task) {
     if (config.model && ['haiku', 'sonnet', 'opus', 'inherit'].includes(config.model)) {
         return { model: config.model, routedBy: 'explicit' };
     }
-    // 2. Enhanced task-based routing with Agent Booster AST
-    if (task) {
-        try {
-            // Try enhanced router first (includes Agent Booster detection)
-            const { getEnhancedModelRouter } = await import('../monovector/enhanced-model-router.js');
-            const enhancedRouter = getEnhancedModelRouter();
-            const routeResult = await enhancedRouter.route(task, { filePath: config.filePath });
-            if (routeResult.tier === 1 && routeResult.canSkipLLM) {
-                // Agent Booster can handle this task
-                return {
-                    model: 'haiku', // Use haiku as fallback if AB fails
-                    routedBy: 'agent-booster',
-                    canSkipLLM: true,
-                    agentBoosterIntent: routeResult.agentBoosterIntent?.type,
-                    tier: 1,
-                };
-            }
-            return {
-                model: (routeResult.model ?? 'sonnet'),
-                routedBy: 'router',
-                tier: routeResult.tier,
-            };
-        }
-        catch {
-            // Enhanced router not available, try basic router
-            const router = await getModelRouter();
-            if (router) {
-                try {
-                    const result = await router.route(task);
-                    return { model: result.model, routedBy: 'router' };
-                }
-                catch {
-                    // Fall through to defaults on router error
-                }
-            }
-        }
-    }
+    // 2. Task-based model router modules were never shipped — fall through to agent-type defaults.
     // 3. Agent type defaults
     const defaultModel = AGENT_TYPE_MODEL_DEFAULTS[agentType];
     if (defaultModel) {

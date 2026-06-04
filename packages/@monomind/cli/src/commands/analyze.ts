@@ -23,13 +23,20 @@ import { writeFile } from 'fs/promises';
 import { resolve } from 'path';
 import { execSync } from 'child_process';
 
+// The AST/graph analyzer modules were never shipped. These resolvers always
+// return null, so every call site takes its regex / null-guarded fallback path.
+// The return type stays loose (as the old dynamic-import did) so the unreachable
+// "module loaded" branches at the call sites still type-check.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnalyzerModule = any;
+
 // AST analyzer module was never shipped — always falls back to the regex path.
-async function getASTAnalyzer(): Promise<null> {
+async function getASTAnalyzer(): Promise<AnalyzerModule | null> {
   return null;
 }
 
 // Graph analyzer module was never shipped — callers handle the null path.
-async function getGraphAnalyzer(): Promise<null> {
+async function getGraphAnalyzer(): Promise<AnalyzerModule | null> {
   return null;
 }
 
