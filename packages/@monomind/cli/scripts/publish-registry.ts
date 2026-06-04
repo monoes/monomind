@@ -196,7 +196,6 @@ async function generateRegistry(): Promise<PluginRegistry> {
     '@monomind/security',
     '@monomind/claims',
     '@monomind/embeddings',
-    '@monomind/neural',
     '@monomind/performance',
     '@monomind/plugins',
   ];

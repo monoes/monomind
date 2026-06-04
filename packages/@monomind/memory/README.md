@@ -4,16 +4,15 @@
 [![npm downloads](https://img.shields.io/npm/dm/@monomind/memory.svg)](https://www.npmjs.com/package/@monomind/memory)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![Performance](https://img.shields.io/badge/Performance-150x--12500x%20Faster-brightgreen.svg)](https://github.com/nokhodian/monomind)
 
 > High-performance memory module for Monomind V1 - AgentDB unification, HNSW indexing, vector search, self-learning knowledge graph, and hybrid SQLite+AgentDB backend (ADR-009).
 
 ## Features
 
-- **150x-12,500x Faster Search** - HNSW (Hierarchical Navigable Small World) vector index for ultra-fast similarity search
+- **Indexed Vector Search** - HNSW (Hierarchical Navigable Small World) vector index for fast similarity search
 - **Hybrid Backend** - SQLite for structured data + AgentDB for vectors (ADR-009)
 - **Auto Memory Bridge** - Bidirectional sync between Claude Code auto memory and AgentDB (ADR-048)
-- **Self-Learning** - LearningBridge connects insights to SONA/ReasoningBank neural pipeline (ADR-049)
+- **Self-Learning** - LearningBridge connects insights to the ReasoningBank pattern store (ADR-049)
 - **Knowledge Graph** - PageRank + label propagation community detection + HippoRAG PPR re-ranking (ADR-049)
 - **Agent-Scoped Memory** - 3-scope agent memory (project/local/user) with cross-agent knowledge transfer (ADR-049)
 - **Vector Quantization** - Binary, scalar, and product quantization for 4-32x memory reduction
@@ -363,7 +362,7 @@ import type {
 
 ## Self-Learning Bridge (ADR-049)
 
-Connects insights to the `@monomind/neural` learning pipeline. When neural is unavailable, all operations degrade to no-ops.
+Connects insights to the ReasoningBank pattern store. The optional neural learning system can be injected via `neuralLoader`; when none is provided, learning operations degrade to no-ops while pattern storage and retrieval continue to work.
 
 ### Quick Start
 
@@ -398,11 +397,10 @@ await bridge.syncToAutoMemory(); // Calls consolidate() first
 import { LearningBridge } from '@monomind/memory';
 
 const lb = new LearningBridge(backend, {
-  // Optional: inject neural loader for custom setups
-  neuralLoader: async () => {
-    const { NeuralLearningSystem } = await import('@monomind/neural');
-    return new NeuralLearningSystem();
-  },
+  // Optional: inject a custom neural learning system (structural interface).
+  // Without a neuralLoader, learning degrades to no-ops; pattern storage
+  // and ReasoningBank retrieval still work.
+  neuralLoader: async () => myNeuralLearningSystem,
 });
 
 // Boost confidence when insight is accessed
@@ -889,11 +887,9 @@ import type {
 - `agentdb` - Vector database engine
 - `better-sqlite3` - SQLite driver (native)
 - `sql.js` - SQLite driver (WASM fallback)
-- `@monomind/neural` - **Optional peer dependency** for self-learning (graceful fallback when unavailable)
 
 ## Related Packages
 
-- [@monomind/neural](../neural) - Neural learning integration (SONA, ReasoningBank, EWC++)
 - [@monomind/shared](../shared) - Shared types and utilities
 - [@monomind/hooks](../hooks) - Session lifecycle hooks for auto memory sync
 

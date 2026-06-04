@@ -264,7 +264,7 @@ monomind agent spawn --type coder          # Spawn a specific agent
 monomind swarm init --topology mesh        # Initialize a swarm
 monomind memory search "auth patterns"     # Search vector memory
 monomind hooks route --task "fix bug"      # Route to best agent
-monomind neural train --flash              # enable Flash Attention optimization
+monomind neural status                      # Inspect pattern-learning status
 monomind doctor --fix                      # Diagnose and auto-fix issues
 monomind daemon start                      # Start background workers
 ```
@@ -364,8 +364,6 @@ The workspace ships 17 `@monomind/*` packages:
 | Metric | Result | Notes |
 |---|---|---|
 | Vector search speedup | 150x–12,500x via HNSW | Range from Malkov & Yashunin 2018; HNSW implemented in `hnsw-index.ts` |
-| Flash Attention speedup | 2.49x–7.47x | CPU-side attention optimization in `monovector/flash-attention.ts`; marked in-progress |
-| SONA adaptation target | <0.05ms | Enforced as SLA with runtime warning; marked in-progress |
 | Agent routing (LLM) | <2s | Target; Haiku-based routing |
 | Agent routing (fallback) | <5ms | Keyword scoring path |
 | Session restore | <500ms cold start | Target |
@@ -489,7 +487,6 @@ Monomind implements techniques from peer-reviewed research across distributed sy
 | Technique | Paper | Applied In |
 |---|---|---|
 | HNSW approximate nearest neighbor | Malkov & Yashunin, 2018 — *Efficient and Robust ANN* | `HNSWIndex` and `HnswLite` in `@monomind/memory` vector search |
-| Flash Attention | Dao et al., 2022 — *Fast and Memory-Efficient Exact Attention* | Session context compression in `@monomind/hooks` |
 | LoRA fine-tuning | Hu et al., 2021 — *Low-Rank Adaptation of Large Language Models* | Pattern distillation DISTILL step in `RvfLearningStore` |
 | EWC (Elastic Weight Consolidation) | Kirkpatrick et al., 2017 — *Overcoming Catastrophic Forgetting* | CONSOLIDATE step session persistence in `@monomind/memory` |
 | Byzantine fault tolerance | Castro & Liskov, 1999 — *Practical Byzantine Fault Tolerance* | `weightedTally()` in CP-WBFT hive-mind consensus |
