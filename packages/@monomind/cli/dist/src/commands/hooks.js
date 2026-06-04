@@ -1424,53 +1424,7 @@ const preTaskCommand = {
                 output.writeln(output.bold('Recommendations'));
                 output.printList(result.recommendations);
             }
-            // Enhanced model routing with Agent Booster AST (ADR-026)
-            try {
-                const { getEnhancedModelRouter } = await import('../monovector/enhanced-model-router.js');
-                const router = getEnhancedModelRouter();
-                const routeResult = await router.route(description, { filePath: ctx.flags.file });
-                output.writeln();
-                output.writeln(output.bold('Intelligent Model Routing'));
-                if (routeResult.tier === 1) {
-                    // Agent Booster can handle this task - skip LLM entirely
-                    output.writeln(output.success(`  Tier 1: Agent Booster (WASM)`));
-                    output.writeln(output.dim(`  Intent: ${routeResult.agentBoosterIntent?.type}`));
-                    output.writeln(output.dim(`  Latency: <1ms | Cost: $0`));
-                    output.writeln();
-                    output.writeln(output.dim('─'.repeat(60)));
-                    output.writeln(output.bold(output.success(`[AGENT_BOOSTER_AVAILABLE] Skip LLM - use Agent Booster for "${routeResult.agentBoosterIntent?.type}"`)));
-                    output.writeln(output.dim(`Confidence: ${(routeResult.confidence * 100).toFixed(0)}% | Intent: ${routeResult.agentBoosterIntent?.description}`));
-                    output.writeln(output.dim('─'.repeat(60)));
-                }
-                else {
-                    // LLM required - show tier and model recommendation
-                    output.writeln(`  Tier ${routeResult.tier}: ${routeResult.handler.toUpperCase()}`);
-                    output.writeln(output.dim(`  Complexity: ${((routeResult.complexity || 0) * 100).toFixed(0)}%`));
-                    output.writeln(output.dim(`  Est. Latency: ${routeResult.estimatedLatencyMs}ms | Cost: $${routeResult.estimatedCost.toFixed(4)}`));
-                    output.writeln();
-                    // Clear instruction for Claude
-                    output.writeln(output.dim('─'.repeat(60)));
-                    output.writeln(output.bold(output.success(`[TASK_MODEL_RECOMMENDATION] Use model="${routeResult.model}" for this task`)));
-                    output.writeln(output.dim(`Complexity: ${((routeResult.complexity || 0) * 100).toFixed(0)}% | Confidence: ${(routeResult.confidence * 100).toFixed(0)}%`));
-                    output.writeln(output.dim('─'.repeat(60)));
-                }
-                // Add routing result for programmatic use
-                result.routeResult = routeResult;
-                result.recommendedModel = routeResult.model;
-                result.modelRouting = {
-                    tier: routeResult.tier,
-                    handler: routeResult.handler,
-                    model: routeResult.model,
-                    confidence: routeResult.confidence,
-                    complexity: routeResult.complexity,
-                    reasoning: routeResult.reasoning,
-                    canSkipLLM: routeResult.canSkipLLM,
-                    agentBoosterIntent: routeResult.agentBoosterIntent
-                };
-            }
-            catch {
-                // Enhanced router not available, skip recommendation
-            }
+            // Enhanced model routing module was never shipped — no recommendation to add.
             return { success: true, data: result };
         }
         catch (error) {
