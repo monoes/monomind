@@ -59,9 +59,6 @@ const commandLoaders = {
     benchmark: () => import('./benchmark.js'),
     // Guidance Control Plane
     guidance: () => import('./guidance.js'),
-    // RVFA Appliance Management
-    appliance: () => import('./appliance.js'),
-    'appliance-advanced': () => import('./appliance-advanced.js'),
     'transfer-store': () => import('./transfer-store.js'),
     cleanup: () => import('./cleanup.js'),
     autopilot: () => import('./autopilot.js'),
@@ -139,7 +136,6 @@ import { issuesCommand } from './issues.js';
 import updateCommand from './update.js';
 import { processCommand } from './process.js';
 import { guidanceCommand } from './guidance.js';
-import { applianceCommand } from './appliance.js';
 import { cleanupCommand } from './cleanup.js';
 import { autopilotCommand } from './autopilot.js';
 import { monographCommand } from './monograph.js';
@@ -199,7 +195,6 @@ export { securityCommand } from './security.js';
 export { monovectorCommand } from './monovector/index.js';
 export { hiveMindCommand } from './hive-mind.js';
 export { guidanceCommand } from './guidance.js';
-export { applianceCommand } from './appliance.js';
 export { cleanupCommand } from './cleanup.js';
 export { autopilotCommand } from './autopilot.js';
 export { monographCommand } from './monograph.js';
@@ -227,7 +222,6 @@ export async function getProgressCommand() { return loadCommand('progress'); }
 export async function getIssuesCommand() { return loadCommand('issues'); }
 export async function getMonovectorCommand() { return loadCommand('monovector'); }
 export async function getGuidanceCommand() { return loadCommand('guidance'); }
-export async function getApplianceCommand() { return loadCommand('appliance'); }
 export async function getCleanupCommand() { return loadCommand('cleanup'); }
 export async function getAutopilotCommand() { return loadCommand('autopilot'); }
 export async function getMonographCommand() { return loadCommand('monograph'); }
@@ -312,7 +306,6 @@ export const commandsByCategory = {
         issuesCommand,
         updateCommand,
         processCommand,
-        applianceCommand,
         storeCommand,
         cleanupCommand,
         platformsCommand,

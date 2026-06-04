@@ -20,23 +20,13 @@ import * as fs from 'fs/promises';
 import { writeFile } from 'fs/promises';
 import { resolve } from 'path';
 import { execSync } from 'child_process';
-// Dynamic import for AST analyzer
+// AST analyzer module was never shipped — always falls back to the regex path.
 async function getASTAnalyzer() {
-    try {
-        return await import('../monovector/ast-analyzer.js');
-    }
-    catch {
-        return null;
-    }
+    return null;
 }
-// Dynamic import for graph analyzer
+// Graph analyzer module was never shipped — callers handle the null path.
 async function getGraphAnalyzer() {
-    try {
-        return await import('../monovector/graph-analyzer.js');
-    }
-    catch {
-        return null;
-    }
+    return null;
 }
 // Diff subcommand
 const diffCommand = {
