@@ -280,7 +280,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 .oi-chip.live { background: oklch(65% 0.15 150 / 0.12); color: var(--green); }
 
 /* detail pane */
-#org-detail-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+#org-detail-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; position: relative; }
 #org-detail-pane.empty-state { align-items: center; justify-content: center; }
 .orgs-no-sel { color: var(--text-lo); font-size: 13px; text-align: center; }
 .orgs-no-sel-ico { font-size: 28px; margin-bottom: 10px; opacity: 0.3; }
@@ -303,6 +303,61 @@ html, body { height: 100%; background: var(--bg); color: var(--text-hi); font-fa
 #org-detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 .odt-pane { display: none; }
 .odt-pane.active { display: block; }
+
+/* agent detail drawer (slides in from right within the org detail pane) */
+#org-agent-drawer {
+  position: absolute; top: 0; right: 0; height: 100%;
+  width: min(420px, 82%);
+  background: var(--surface); border-left: 1px solid var(--border);
+  box-shadow: -16px 0 44px -14px oklch(0% 0 0 / 0.5);
+  transform: translateX(101%);
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex; flex-direction: column; z-index: 40; min-width: 0;
+}
+#org-agent-drawer.open { transform: translateX(0); }
+@media (prefers-reduced-motion: reduce) { #org-agent-drawer { transition: none; } }
+#oad-head { display: flex; align-items: center; gap: 11px; padding: 16px 16px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.oad-avatar { width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; background: var(--surface-hi); object-fit: cover; }
+.oad-id { flex: 1; min-width: 0; }
+.oad-name { font-size: 15px; font-weight: 600; color: var(--text-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oad-pills { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+.oad-pill { font-size: 10px; padding: 2px 7px; border-radius: 7px; background: var(--surface-hi); color: var(--text-lo); }
+.oad-pill.model { color: var(--accent); background: oklch(72% 0.18 75 / 0.1); }
+.oad-close { background: none; border: none; color: var(--text-lo); font-size: 14px; cursor: pointer; padding: 4px 7px; border-radius: 6px; line-height: 1; flex-shrink: 0; }
+.oad-close:hover { color: var(--text-hi); background: var(--surface-hi); }
+#oad-body { flex: 1; overflow-y: auto; padding: 16px; }
+#oad-body::-webkit-scrollbar { width: 3px; }
+#oad-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.oad-loading, .oad-empty { color: var(--text-lo); font-size: 12px; padding: 6px 0; line-height: 1.5; }
+.oad-empty code, .oad-doc code { background: var(--surface-hi); padding: 1px 5px; border-radius: 4px; font-family: var(--mono); font-size: 0.92em; }
+.oad-desc { font-size: 12.5px; color: var(--text-mid); line-height: 1.5; margin-bottom: 16px; }
+.oad-sec { margin-bottom: 18px; }
+.oad-sec-h { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-lo); margin-bottom: 9px; display: flex; align-items: baseline; gap: 8px; }
+.oad-file { text-transform: none; letter-spacing: 0; opacity: 0.55; font-size: 10px; font-family: var(--mono); }
+.oad-chars { display: flex; flex-direction: column; gap: 7px; }
+.oad-char { display: grid; grid-template-columns: 96px 1fr; gap: 10px; font-size: 12px; align-items: start; }
+.oad-char-k { color: var(--text-lo); }
+.oad-char-v { color: var(--text-hi); }
+.oad-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.oad-chip { font-size: 11px; padding: 3px 9px; border-radius: 9px; background: oklch(65% 0.12 240 / 0.13); color: oklch(74% 0.1 240); }
+.oad-chip.alt { background: oklch(65% 0.15 150 / 0.11); color: oklch(72% 0.13 150); }
+.oad-list { margin: 0; padding-left: 17px; }
+.oad-list li { font-size: 12px; color: var(--text-mid); line-height: 1.5; margin-bottom: 3px; }
+.oad-doc { font-size: 12.5px; color: var(--text-mid); line-height: 1.55; }
+.oad-doc h1, .oad-doc h2, .oad-doc h3, .oad-doc h4, .oad-doc h5, .oad-doc h6 { color: var(--text-hi); margin: 15px 0 7px; line-height: 1.3; }
+.oad-doc h1 { font-size: 15px; } .oad-doc h2 { font-size: 13.5px; } .oad-doc h3 { font-size: 12.5px; } .oad-doc h4 { font-size: 12px; }
+.oad-doc p { margin: 0 0 9px; }
+.oad-doc ul, .oad-doc ol { margin: 0 0 9px; padding-left: 18px; }
+.oad-doc li { margin-bottom: 3px; }
+.oad-doc strong { color: var(--text-hi); font-weight: 600; }
+.oad-doc pre { background: var(--surface-hi); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; overflow-x: auto; margin: 0 0 10px; }
+.oad-doc pre code { background: none; padding: 0; font-size: 11.5px; color: var(--text-mid); }
+/* clickable org chart nodes + role cards */
+.v2oc-node { cursor: pointer; }
+.v2oc-node.selected > circle { stroke-width: 3.4 !important; }
+.role-v2 { cursor: pointer; transition: border-color 0.12s, transform 0.12s; }
+.role-v2:hover { transform: translateY(-1px); }
+.rv2-more { margin-top: 9px; font-size: 10.5px; color: var(--accent); opacity: 0.85; }
 
 /* org meta strip */
 .org-meta-strip { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px; }
@@ -1750,6 +1805,11 @@ textarea.sess-note-input:focus { border-color:var(--accent); }
             <div class="odt-pane" id="odt-join-requests"></div>
             <div class="odt-pane" id="odt-threads"></div>
           </div>
+        </div>
+        <!-- agent detail drawer (node-click / role-card-click) -->
+        <div id="org-agent-drawer" aria-hidden="true">
+          <div id="oad-head"></div>
+          <div id="oad-body"></div>
         </div>
       </div>
     </div>
@@ -4544,6 +4604,7 @@ function v2RenderOrgList() {
 
 async function v2SelectOrg(name) {
   _v2SelOrg = name;
+  if (typeof v2CloseAgent === 'function') v2CloseAgent();
   const requested = name;
   const requestedDir = DIR;
   document.querySelectorAll('.org-item').forEach(el => {
@@ -4865,8 +4926,8 @@ function v2RenderOrgChart() {
     const nameY = subType ? (R * 0.55 + 2).toFixed(0) : (R * 0.55 + 8).toFixed(0);
     const avR = Math.round(R * 0.52);
     const avatarSrc = v2RoleAvatar(role);
-    nodesHTML += `<g class="v2oc-node" transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})">
-      <title>${esc(displayName)}${subType ? ` · ${esc(subType)}` : ''}</title>
+    nodesHTML += `<g class="v2oc-node" data-role="${esc(role.id)}" onclick="v2OpenAgent('${String(role.id).replace(/['\\]/g,'\\$&')}')" transform="translate(${p.x.toFixed(1)},${p.y.toFixed(1)})">
+      <title>${esc(displayName)}${subType ? ` · ${esc(subType)}` : ''} — click for details</title>
       ${outerRing}
       <circle r="${R}" fill="oklch(12% 0.008 55)" stroke="${color}" stroke-width="${leader ? 2.5 : 1.8}" filter="url(#v2glow)"/>
       <image href="${avatarSrc}" x="${-avR}" y="${-R + 2}" width="${avR * 2}" height="${avR * 2}" clip-path="url(#${nodeClipIds[i]})" preserveAspectRatio="xMidYMid meet" onerror="this.setAttribute('href','data/avatars/coder.svg')"/>
@@ -5007,7 +5068,7 @@ function v2RenderOrgRoles() {
     const displayName = r.name || r.title || r.id;
     const roleType = r.type || r.agent_type || '';
     const avatarSrc = v2RoleAvatar(r);
-    return `<div class="role-v2" style="border-top:2px solid ${color}">
+    return `<div class="role-v2" style="border-top:2px solid ${color}" onclick="v2OpenAgent('${String(r.id).replace(/['\\]/g,'\\$&')}')" title="View agent characteristics, skills & instructions">
       <div class="rv2-head">
         <img class="rv2-avatar" src="${avatarSrc}" alt="${esc(displayName)}" loading="lazy" onerror="this.src='data/avatars/coder.svg'"/>
         <div class="rv2-info">
@@ -5018,8 +5079,124 @@ function v2RenderOrgRoles() {
       <div class="rv2-id">${esc(r.id)}</div>
       ${r.reports_to ? `<div class="rv2-reports">reports to <span>${esc(r.reports_to)}</span></div>` : ''}
       ${resps.length ? `<div class="rv2-resps">${resps.map(s=>`<div class="rv2-resp">${esc(s)}</div>`).join('')}</div>` : ''}
+      <div class="rv2-more">View characteristics, skills &amp; instructions →</div>
     </div>`;
   }).join('')}</div>`;
+}
+
+// ── agent detail drawer ──────────────────────
+function v2HighlightAgentNode(roleId) {
+  document.querySelectorAll('#v2oc-nodes .v2oc-node').forEach(n =>
+    n.classList.toggle('selected', !!roleId && n.getAttribute('data-role') === roleId));
+}
+function v2CloseAgent() {
+  const drawer = document.getElementById('org-agent-drawer');
+  if (drawer) { drawer.classList.remove('open'); drawer.setAttribute('aria-hidden', 'true'); }
+  v2HighlightAgentNode(null);
+}
+async function v2OpenAgent(roleId) {
+  if (!_v2SelOrg || !roleId) return;
+  const drawer = document.getElementById('org-agent-drawer');
+  const bodyEl = document.getElementById('oad-body');
+  const headEl = document.getElementById('oad-head');
+  if (!drawer || !bodyEl || !headEl) return;
+  drawer.classList.add('open'); drawer.setAttribute('aria-hidden', 'false');
+  v2HighlightAgentNode(roleId);
+  headEl.innerHTML = '<button class="oad-close" onclick="v2CloseAgent()" aria-label="Close">✕</button>';
+  bodyEl.innerHTML = '<div class="oad-loading">Loading agent…</div>';
+  try {
+    const r = await fetch(`/api/org/${encodeURIComponent(_v2SelOrg)}/agent/${encodeURIComponent(roleId)}`);
+    if (!r.ok) throw new Error('not found');
+    v2RenderAgentDrawer(await r.json());
+  } catch (_) {
+    bodyEl.innerHTML = '<div class="oad-loading">Could not load agent detail.</div>';
+  }
+}
+function v2RenderAgentDrawer(data) {
+  const role = (data && data.role) || {};
+  const def = (data && data.definition) || { found: false };
+  const cap = def.capability || {};
+  const headEl = document.getElementById('oad-head');
+  const bodyEl = document.getElementById('oad-body');
+  if (!headEl || !bodyEl) return;
+  const name = role.name || role.title || role.id || 'Agent';
+  const type = role.agent_type || role.type || '';
+  const model = (role.adapter_config && role.adapter_config.model) || cap.model_preference || '';
+  const avatar = v2RoleAvatar(role);
+
+  headEl.innerHTML = `
+    <img class="oad-avatar" src="${avatar}" alt="${esc(name)}" onerror="this.src='data/avatars/coder.svg'"/>
+    <div class="oad-id">
+      <div class="oad-name">${esc(name)}</div>
+      <div class="oad-pills">
+        ${type ? `<span class="oad-pill">${esc(type)}</span>` : ''}
+        ${model ? `<span class="oad-pill model">${esc(model)}</span>` : ''}
+      </div>
+    </div>
+    <button class="oad-close" onclick="v2CloseAgent()" aria-label="Close">✕</button>`;
+
+  const chars = [];
+  if (cap.goal) chars.push(['Goal', cap.goal]);
+  if (role.reports_to) chars.push(['Reports to', role.reports_to]);
+  if (model) chars.push(['Model', model]);
+  if (role.adapter_config && role.adapter_config.max_tokens) chars.push(['Max tokens', String(role.adapter_config.max_tokens)]);
+  if (cap.output_type) chars.push(['Output', cap.output_type]);
+  if (cap.termination) chars.push(['Done when', cap.termination]);
+  if (cap.version) chars.push(['Version', cap.version]);
+
+  const skills = [];
+  (Array.isArray(role.skills) ? role.skills : []).forEach(s => { if (s && !skills.includes(s)) skills.push(s); });
+  (Array.isArray(cap.expertise) ? cap.expertise : []).forEach(s => { if (s && !skills.includes(s)) skills.push(s); });
+  const taskTypes = Array.isArray(cap.task_types) ? cap.task_types : [];
+  const resps = Array.isArray(role.responsibilities) ? role.responsibilities : [];
+
+  let html = '';
+  if (def.description) html += `<div class="oad-desc">${esc(def.description)}</div>`;
+  if (chars.length) html += `<div class="oad-sec"><div class="oad-sec-h">Characteristics</div><div class="oad-chars">${chars.map(([k, v]) => `<div class="oad-char"><span class="oad-char-k">${esc(k)}</span><span class="oad-char-v">${esc(v)}</span></div>`).join('')}</div></div>`;
+  if (skills.length) html += `<div class="oad-sec"><div class="oad-sec-h">Skills &amp; expertise</div><div class="oad-chips">${skills.map(s => `<span class="oad-chip">${esc(s)}</span>`).join('')}</div></div>`;
+  if (resps.length) html += `<div class="oad-sec"><div class="oad-sec-h">Responsibilities</div><ul class="oad-list">${resps.map(s => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
+  if (taskTypes.length) html += `<div class="oad-sec"><div class="oad-sec-h">Task types</div><div class="oad-chips">${taskTypes.map(s => `<span class="oad-chip alt">${esc(s)}</span>`).join('')}</div></div>`;
+  if (def.found && def.document) {
+    html += `<div class="oad-sec"><div class="oad-sec-h">Instructions &amp; document${def.file ? ` <span class="oad-file">${esc(def.file)}</span>` : ''}</div><div class="oad-doc">${v2RenderMarkdown(def.document)}</div></div>`;
+  } else {
+    html += `<div class="oad-sec"><div class="oad-empty">No instruction document is defined for agent type <code>${esc(type || '?')}</code>. Showing org-configured details only.</div></div>`;
+  }
+  bodyEl.innerHTML = html;
+  bodyEl.scrollTop = 0;
+}
+// Minimal, XSS-safe markdown → HTML (headings, lists, code, bold/italic, inline code).
+function v2RenderMarkdown(md) {
+  if (!md) return '';
+  const escHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const blocks = [];
+  let src = String(md).replace(/```(\w*)\n([\s\S]*?)```/g, (_m, _lang, code) => {
+    blocks.push('<pre><code>' + escHtml(code.replace(/\n$/, '')) + '</code></pre>');
+    return ' B' + (blocks.length - 1) + ' ';
+  });
+  src = escHtml(src);
+  src = src.replace(/^######\s+(.+)$/gm, '<h6>$1</h6>')
+           .replace(/^#####\s+(.+)$/gm, '<h5>$1</h5>')
+           .replace(/^####\s+(.+)$/gm, '<h4>$1</h4>')
+           .replace(/^###\s+(.+)$/gm, '<h3>$1</h3>')
+           .replace(/^##\s+(.+)$/gm, '<h2>$1</h2>')
+           .replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
+  src = src.replace(/`([^`]+)`/g, '<code>$1</code>');
+  src = src.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+  let html = '', inUl = false, inOl = false;
+  const closeLists = () => { if (inUl) { html += '</ul>'; inUl = false; } if (inOl) { html += '</ol>'; inOl = false; } };
+  for (const ln of src.split('\n')) {
+    const ul = ln.match(/^\s*[-*]\s+(.+)$/);
+    const ol = ln.match(/^\s*\d+\.\s+(.+)$/);
+    if (ul) { if (inOl) { html += '</ol>'; inOl = false; } if (!inUl) { html += '<ul>'; inUl = true; } html += '<li>' + ul[1] + '</li>'; continue; }
+    if (ol) { if (inUl) { html += '</ul>'; inUl = false; } if (!inOl) { html += '<ol>'; inOl = true; } html += '<li>' + ol[1] + '</li>'; continue; }
+    closeLists();
+    if (/^<h[1-6]>/.test(ln) || /^ B\d+ $/.test(ln.trim())) { html += ln; continue; }
+    if (ln.trim() === '') continue;
+    html += '<p>' + ln + '</p>';
+  }
+  closeLists();
+  html = html.replace(/<p>( B\d+ )<\/p>/g, '$1').replace(/ B(\d+) /g, (_m, i) => blocks[+i] || '');
+  return html;
 }
 
 // ── org activity ────────────────────────────

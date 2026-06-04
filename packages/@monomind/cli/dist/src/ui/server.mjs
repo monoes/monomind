@@ -294,6 +294,36 @@ function resolveSlugToPath(slug, projDir) {
 }
 
 export async function startServer({ port = 4242, projectDir, openBrowser = true } = {}) {
+  // Parse a .claude/agents/*.md definition into { name, description, capability{}, document }.
+  // Tolerant line-based parse of the YAML frontmatter (expertise / task_types as lists).
+  function parseAgentDef(raw) {
+    const out = { name: '', description: '', capability: {}, document: '' };
+    const fm = String(raw).match(/^---\s*\n([\s\S]*?)\n---\s*\n?([\s\S]*)$/);
+    let front = '', body = String(raw);
+    if (fm) { front = fm[1]; body = fm[2]; }
+    out.document = body.trim();
+    const strip = (s) => s.trim().replace(/^["']|["']$/g, '');
+    let inCap = false, listKey = null;
+    for (const line of front.split('\n')) {
+      const top = line.match(/^([a-z_]+):\s*(.*)$/i);
+      if (top && !/^\s/.test(line)) {
+        inCap = (top[1] === 'capability'); listKey = null;
+        if (top[1] === 'name') out.name = strip(top[2]);
+        else if (top[1] === 'description') out.description = strip(top[2]);
+        continue;
+      }
+      if (!inCap) continue;
+      const li = line.match(/^\s+-\s+(.+)$/);
+      if (li && listKey) { (out.capability[listKey] = out.capability[listKey] || []).push(strip(li[1])); continue; }
+      const kv = line.match(/^\s+([a-z_]+):\s*(.*)$/i);
+      if (kv) {
+        if (kv[2].trim() === '') { listKey = kv[1]; out.capability[kv[1]] = out.capability[kv[1]] || []; }
+        else { listKey = null; out.capability[kv[1]] = strip(kv[2]); }
+      }
+    }
+    return out;
+  }
+
   const server = http.createServer(async (req, res) => {
     const url = req.url.split('?')[0];
 
@@ -308,6 +338,21 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         res.writeHead(500, { 'Content-Type': 'text/plain' });
         res.end(`Failed to load dashboard.html: ${err.message}`);
       }
+      return;
+    }
+
+    // ------------------------------------------------- GET /data/avatars/*.svg (agent avatars)
+    if (req.method === 'GET' && /^\/data\/avatars\/[A-Za-z0-9._-]+\.svg$/.test(url)) {
+      try {
+        const name = path.basename(decodeURIComponent(url));
+        if (!/^[A-Za-z0-9._-]+\.svg$/.test(name) || name.includes('..')) { res.writeHead(400); res.end(); return; }
+        const avatarsDir = path.join(__dirname, 'data', 'avatars');
+        const filePath = path.join(avatarsDir, name);
+        if (!filePath.startsWith(avatarsDir + path.sep) || !fs.existsSync(filePath)) { res.writeHead(404); res.end(); return; }
+        const svg = fs.readFileSync(filePath);
+        res.writeHead(200, { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
+        res.end(svg);
+      } catch (_) { res.writeHead(404); res.end(); }
       return;
     }
 
@@ -3122,6 +3167,61 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ skills, role_skill_map: roleSkillMap }));
       } catch(_) { res.writeHead(500); res.end('{}'); }
+      return;
+    }
+
+    // GET /api/org/:name/agent/:roleId — full agent detail: org role + .claude/agents definition
+    //   (characteristics, skills/expertise, responsibilities, instructions document)
+    if (req.method === 'GET' && /^\/api\/org\/[a-z0-9][a-z0-9_-]{0,63}\/agent\/[a-z0-9][a-z0-9_-]{0,63}$/i.test(url)) {
+      try {
+        const parts = url.split('/');
+        const orgName = decodeURIComponent(parts[3]);
+        const roleId = decodeURIComponent(parts[5]);
+        if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('{}'); return; }
+        if (roleId.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(roleId)) { res.writeHead(400); res.end('{}'); return; }
+        const d = projectDir || process.cwd();
+        const orgFile = path.join(d, '.monomind', 'orgs', `${orgName}.json`);
+        if (!fs.existsSync(orgFile)) { res.writeHead(404); res.end('{}'); return; }
+        const config = JSON.parse(fs.readFileSync(orgFile, 'utf8'));
+        const role = (config.roles || []).find(r => r.id === roleId);
+        if (!role) { res.writeHead(404); res.end('{}'); return; }
+
+        const agentType = String(role.agent_type || role.type || '').toLowerCase();
+        const wanted = [agentType, String(role.id).toLowerCase()].filter(Boolean);
+
+        // Find a matching agent definition under .claude/agents (recursive); match frontmatter name then filename.
+        const agentsDir = path.join(d, '.claude', 'agents');
+        let definition = { found: false };
+        if (wanted.length && fs.existsSync(agentsDir)) {
+          const stack = [agentsDir];
+          let nameMatch = null, slugMatch = null;
+          while (stack.length && !nameMatch) {
+            const dir = stack.pop();
+            let entries = [];
+            try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { continue; }
+            for (const e of entries) {
+              const full = path.join(dir, e.name);
+              if (e.isDirectory()) { stack.push(full); continue; }
+              if (!e.name.endsWith('.md') || e.name.startsWith('_')) continue;
+              const slug = e.name.replace(/\.md$/, '').toLowerCase();
+              let raw = '';
+              try { raw = fs.readFileSync(full, 'utf8'); } catch (_) { continue; }
+              const fmName = ((raw.match(/^name:\s*(.+)$/m) || [])[1] || '').trim().toLowerCase();
+              if (fmName && wanted.includes(fmName)) { nameMatch = { full, raw }; break; }
+              if (!slugMatch && wanted.includes(slug)) slugMatch = { full, raw };
+            }
+          }
+          const match = nameMatch || slugMatch;
+          if (match) {
+            definition = parseAgentDef(match.raw);
+            definition.found = true;
+            definition.file = path.relative(d, match.full);
+          }
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ role, definition }));
+      } catch (_) { res.writeHead(500); res.end('{}'); }
       return;
     }
 
