@@ -3179,7 +3179,8 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         const roleId = decodeURIComponent(parts[5]);
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('{}'); return; }
         if (roleId.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(roleId)) { res.writeHead(400); res.end('{}'); return; }
-        const d = projectDir || process.cwd();
+        const _agentQs = new URL(req.url, 'http://localhost').searchParams;
+        const d = path.resolve(_agentQs.get('dir') || projectDir || process.cwd());
         const orgFile = path.join(d, '.monomind', 'orgs', `${orgName}.json`);
         if (!fs.existsSync(orgFile)) { res.writeHead(404); res.end('{}'); return; }
         const config = JSON.parse(fs.readFileSync(orgFile, 'utf8'));
