@@ -499,8 +499,12 @@ export class LearningBridge extends EventEmitter {
   }
 
   private async loadNeural(): Promise<void> {
-    // Native kill-switch — force pure-JS fallback. Leaves neural null so the
-    // bridge degrades to a no-op, bypassing even an injected neuralLoader.
+    // Lean teardown: the SONA neural-learning backend (@monomind/neural) has been
+    // removed. The only remaining way to obtain a neural system is an explicitly
+    // injected neuralLoader (used by tests / custom integrations). Without one the
+    // bridge stays a graceful no-op — every public method short-circuits on a null
+    // `this.neural`, so insight recording, consolidation and pattern search become
+    // inert while the surrounding memory backend keeps working unchanged.
     if (process.env.MONOMIND_DISABLE_NATIVE === '1' || process.env.MONOMIND_FORCE_JS === '1') {
       this.neural = null;
       return;
@@ -511,28 +515,9 @@ export class LearningBridge extends EventEmitter {
         this.neural = await this.config.neuralLoader();
         return;
       }
-
-      const mod = await import('@monomind/neural' as string);
-      const NeuralLearningSystem = mod.NeuralLearningSystem ?? mod.default;
-      if (!NeuralLearningSystem) return;
-
-      // Thread the embedder's vector dimension into SONA so its input-projection
-      // matrices are built at the embedder's dim (e.g. 384) rather than the
-      // default SONA_HIDDEN_DIM (768). This eliminates the silent truncation /
-      // zero-padding of trajectory embeddings against mismatched weight matrices.
-      const actualDim = await this.getEmbeddingDim();
-      const instance = new NeuralLearningSystem(this.config.sonaMode, {
-        embeddingDim: actualDim,
-      });
-
-      if (typeof instance.initialize === 'function') {
-        await instance.initialize();
-      }
-
-      this.neural = instance;
+      // No bundled neural backend anymore — degrade to no-op.
+      this.neural = null;
     } catch {
-      // @monomind/neural not installed or failed to initialize.
-      // This is expected in many environments; degrade silently.
       this.neural = null;
     }
   }

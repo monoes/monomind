@@ -261,6 +261,20 @@ export declare function bridgeRecordFeedback(options: {
     agent?: string;
     duration?: number;
     patterns?: string[];
+    /**
+     * Real task description text. When present it is embedded into the SONA
+     * trajectory instead of the opaque `task:${taskId}` ID, so the MiniLM embedder
+     * encodes meaningful semantics rather than a meaningless identifier.
+     */
+    task?: string;
+    description?: string;
+    /**
+     * Whether the success/quality reflects a real, measured outcome rather than an
+     * unverified caller assertion. When false, the SONA LoRA update is skipped so the
+     * learning engine is never fed a fabricated label. Defaults to true to preserve
+     * existing callers that pass an explicit, intentional success flag.
+     */
+    outcomeKnown?: boolean;
     dbPath?: string;
 }): Promise<{
     success: boolean;
@@ -338,6 +352,7 @@ export declare function bridgeHealthCheck(dbPath?: string): Promise<{
         hits: number;
         misses: number;
     };
+    sonaErrorCount?: number;
 } | null>;
 /**
  * Store to hierarchical memory with tier.

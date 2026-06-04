@@ -11,7 +11,7 @@
  * github.com/nokhodian/monomind
  */
 import { output } from '../output.js';
-import { createQLearningRouter, isMonovectorAvailable, } from '../monovector/index.js';
+import { createKeywordRouter, isMonovectorAvailable, } from '../monovector/index.js';
 /**
  * Available agent types for routing
  */
@@ -35,7 +35,7 @@ let routerInitialized = false;
  */
 async function getRouter() {
     if (!routerInstance) {
-        routerInstance = createQLearningRouter();
+        routerInstance = createKeywordRouter();
     }
     if (!routerInitialized) {
         await routerInstance.initialize();
@@ -136,7 +136,7 @@ const routeTaskCommand = {
             }
             // Use Q-Learning routing
             const router = await getRouter();
-            const result = router.route(taskDescription, useExploration);
+            const result = await router.route(taskDescription, useExploration);
             const agent = getAgentType(result.route) || AGENT_TYPES[0];
             spinner.succeed(`Routed to ${agent.name}`);
             if (jsonOutput) {

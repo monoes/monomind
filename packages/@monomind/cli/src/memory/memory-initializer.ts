@@ -398,12 +398,13 @@ export async function getHNSWIndex(options?: {
   hnswInitializing = true;
 
   try {
-    // Import @monoes/core dynamically
-    // Handle both ESM (default export) and CJS patterns
-    const monovectorModule = await import('@monoes/core').catch(() => null);
+    // Lean teardown: the native @monoes/core HNSW backend (WASM VectorDb) has been
+    // removed. Callers of getHNSWIndex() already treat a null return as "no native
+    // index — use the pure-JS / brute-force fallback", so we short-circuit here.
+    const monovectorModule = await import('@monoes/core' as string).catch(() => null);
     if (!monovectorModule) {
       hnswInitializing = false;
-      return null; // HNSW not available
+      return null; // HNSW not available — pure-JS fallback path
     }
 
     // ESM returns { default: { VectorDb, ... } }, CJS returns { VectorDb, ... }

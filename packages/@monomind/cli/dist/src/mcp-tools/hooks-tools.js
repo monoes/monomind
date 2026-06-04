@@ -5,6 +5,15 @@
 import { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, statSync, unlinkSync, readdirSync } from 'fs';
 import { dirname, join, resolve, sep } from 'path';
 import { getProjectCwd } from './types.js';
+import { createInitState } from '../monovector/init-state.js';
+import { getCapabilities } from '../monovector/capabilities.js';
+import { randomUUID } from 'node:crypto';
+import { recordRoute, joinOutcome, joinLatestUnresolved } from '../monovector/route-outcomes.js';
+import { recordCommand, deriveRecentSuccess } from '../monovector/command-outcomes.js';
+// Base dir for per-route outcome records — sits alongside routing-outcomes.json
+function getRouteOutcomesBaseDir() {
+    return join(getProjectCwd(), '.monomind');
+}
 // Real vector search functions - lazy loaded to avoid circular imports
 let searchEntriesFn = null;
 async function getRealSearchFunction() {
@@ -64,26 +73,16 @@ async function getEWCConsolidator() {
     }
     return ewcConsolidator;
 }
-// MoE Router - lazy loaded
-let moeRouter = null;
-async function getMoERouter() {
-    if (!moeRouter) {
-        try {
-            const { getMoERouter: getMoE } = await import('../monovector/moe-router.js');
-            moeRouter = await getMoE();
-        }
-        catch {
-            moeRouter = null;
-        }
-    }
-    return moeRouter;
-}
+// MoE Router — module removed; stub always returns null
+async function getMoERouter() { return null; }
 // Semantic Router - lazy loaded
 // Tries native VectorDb first (16k+ routes/s HNSW), falls back to pure JS (47k routes/s cosine)
 let semanticRouter = null;
 let nativeVectorDb = null;
-let semanticRouterInitialized = false;
+const _routerInitState = createInitState({ maxAttempts: 3 });
 let routerBackend = 'none';
+// IC-5: Deduplicates concurrent callers so only one init runs at a time.
+let _routerInitInFlight = null;
 // Pre-computed embeddings for common task patterns (cached, capped to prevent unbounded growth)
 const MAX_PATTERN_EMBEDDINGS = 2000;
 const TASK_PATTERN_EMBEDDINGS = new Map();
@@ -261,72 +260,146 @@ const TASK_PATTERNS = {
     },
 };
 /**
+ * @monoes/router usage: OPTIONAL performance enhancement only.
+ * - When available: native HNSW via VectorDb (fast approximate search).
+ * - When absent or locked: pure-JS SemanticRouter (keyword matching).
+ * Callers see the same interface regardless of which backend runs.
+ *
+ * To use @monoes/router elsewhere, import RouterModule from
+ * '../monovector/monoes-types.js' and use the same try/catch pattern.
+ */
+/**
  * Get the semantic router with environment detection.
  * Tries native VectorDb first (HNSW, 16k routes/s), falls back to pure JS (47k routes/s cosine).
  */
 async function getSemanticRouter() {
-    if (semanticRouterInitialized) {
+    if (_routerInitState.isReady()) {
         return { router: semanticRouter, backend: routerBackend, native: nativeVectorDb };
     }
-    semanticRouterInitialized = true;
-    // STEP 1: Try native VectorDb from @monoes/router (HNSW-backed)
-    // Note: Native VectorDb uses a persistent database file which can have lock issues
-    // in concurrent environments. We try it first but fall back gracefully to pure JS.
-    try {
-        // Use createRequire for ESM compatibility with native modules
-        const { createRequire } = await import('module');
-        const require = createRequire(import.meta.url);
-        const router = require('@monoes/router');
-        if (router.VectorDb && router.DistanceMetric) {
-            // Try to create VectorDb - may fail with lock error in concurrent envs
-            const db = new router.VectorDb({
-                dimensions: 384,
-                distanceMetric: router.DistanceMetric.Cosine,
-                hnswM: 16,
-                hnswEfConstruction: 200,
-                hnswEfSearch: 100,
-            });
-            // Initialize with static + runtime-learned task patterns
-            for (const [patternName, { keywords }] of Object.entries(getMergedTaskPatterns())) {
-                for (const keyword of keywords) {
-                    const embedding = generateSimpleEmbedding(keyword);
-                    db.insert(`${patternName}:${keyword}`, embedding);
-                    if (TASK_PATTERN_EMBEDDINGS.size < MAX_PATTERN_EMBEDDINGS) {
-                        TASK_PATTERN_EMBEDDINGS.set(`${patternName}:${keyword}`, embedding);
+    if (_routerInitState.isFailed() || !_routerInitState.canTry()) {
+        return { router: semanticRouter, backend: routerBackend, native: null };
+    }
+    // IC-5: Deduplicate concurrent callers — only one init runs at a time.
+    if (_routerInitInFlight)
+        return _routerInitInFlight;
+    _routerInitInFlight = (async () => {
+        // STEP 1: Try native VectorDb from @monoes/router (HNSW-backed)
+        // Note: Native VectorDb uses a persistent database file which can have lock issues
+        // in concurrent environments. We try it first but fall back gracefully to pure JS.
+        // Use getCapabilities() to skip native init when @monoes/router is not installed.
+        const caps = await getCapabilities();
+        if (caps.router !== 'none')
+            try {
+                // Use createRequire for ESM compatibility with native modules
+                const { createRequire } = await import('module');
+                const require = createRequire(import.meta.url);
+                const router = require('@monoes/router');
+                if (router.VectorDb && router.DistanceMetric) {
+                    // Try to create VectorDb - may fail with lock error in concurrent envs
+                    const db = new router.VectorDb({
+                        dimensions: 384,
+                        distanceMetric: router.DistanceMetric.Cosine,
+                        hnswM: 16,
+                        hnswEfConstruction: 200,
+                        hnswEfSearch: 100,
+                    });
+                    // Initialize with static + runtime-learned task patterns
+                    for (const [patternName, { keywords }] of Object.entries(getMergedTaskPatterns())) {
+                        for (const keyword of keywords) {
+                            const embedding = generateSimpleEmbedding(keyword);
+                            db.insert(`${patternName}:${keyword}`, embedding);
+                            if (TASK_PATTERN_EMBEDDINGS.size < MAX_PATTERN_EMBEDDINGS) {
+                                TASK_PATTERN_EMBEDDINGS.set(`${patternName}:${keyword}`, embedding);
+                            }
+                        }
                     }
+                    nativeVectorDb = db;
+                    routerBackend = 'native';
+                    _routerInitState.markReady();
+                    return { router: null, backend: routerBackend, native: nativeVectorDb };
                 }
             }
-            nativeVectorDb = db;
-            routerBackend = 'native';
-            return { router: null, backend: routerBackend, native: nativeVectorDb };
-        }
-    }
-    catch (err) {
-        // Native not available or database locked - fall back to pure JS
-        // Common errors: "Database already open. Cannot acquire lock." or "MODULE_NOT_FOUND"
-        // This is expected in concurrent environments or when binary isn't installed
-    }
-    // STEP 2: Fall back to pure JS SemanticRouter
-    try {
-        const { SemanticRouter } = await import('../monovector/semantic-router.js');
-        semanticRouter = new SemanticRouter({ dimension: 384 });
-        for (const [patternName, { keywords, agents }] of Object.entries(getMergedTaskPatterns())) {
-            const embeddings = keywords.map(kw => generateSimpleEmbedding(kw));
-            semanticRouter.addIntentWithEmbeddings(patternName, embeddings, { agents, keywords });
-            // Cache embeddings for keywords (capped)
-            keywords.forEach((kw, i) => {
-                if (TASK_PATTERN_EMBEDDINGS.size < MAX_PATTERN_EMBEDDINGS) {
-                    TASK_PATTERN_EMBEDDINGS.set(kw, embeddings[i]);
+            catch (err) {
+                const reason = err instanceof Error ? err.message : String(err);
+                if (reason.includes('Cannot acquire lock')) {
+                    // Transient lock collision — don't burn a retry slot; next call will try again
                 }
-            });
+                else if (reason.includes('MODULE_NOT_FOUND') || reason.includes('Cannot find module')) {
+                    // Permanent — exhaust retries immediately
+                    _routerInitState.markPermanentlyFailed();
+                }
+                else {
+                    _routerInitState.markFailed();
+                    console.debug('[hooks-tools] @monoes/router init failed:', reason);
+                }
+            }
+        // STEP 1.5: Try HnswBridge from @monomind/monovector-upstream as a fallback HNSW backend.
+        // Activated only when @monoes/router is absent. Uses direct factory import (not the
+        // WasmRegistry singleton, which is unpopulated at this point) so no registration ceremony
+        // is needed. An inline adapter bridges insert()/search() to the HnswBridge API.
+        try {
+            const upstreamMod = await import('@monomind/monovector-upstream').catch(() => null);
+            if (upstreamMod?.createHnswBridge) {
+                const bridge = upstreamMod.createHnswBridge({ dimensions: 384 });
+                await bridge.init();
+                if (bridge.isReady()) {
+                    // Thin adapter: exposes the same insert()/search() surface used by the native VectorDb
+                    // code path. insert() maps to bridge.add(); search() delegates directly and returns
+                    // { id, score } tuples which the caller already handles with `1 - r.score` inversion.
+                    const hnswAdapter = {
+                        insert(id, embedding) {
+                            bridge.add(id, embedding);
+                        },
+                        search(query, k) {
+                            return bridge.search(query, k);
+                        },
+                    };
+                    // Seed with the same merged task patterns used by the native backend
+                    for (const [patternName, { keywords }] of Object.entries(getMergedTaskPatterns())) {
+                        for (const keyword of keywords) {
+                            const embedding = generateSimpleEmbedding(keyword);
+                            hnswAdapter.insert(`${patternName}:${keyword}`, embedding);
+                            if (TASK_PATTERN_EMBEDDINGS.size < MAX_PATTERN_EMBEDDINGS) {
+                                TASK_PATTERN_EMBEDDINGS.set(`${patternName}:${keyword}`, embedding);
+                            }
+                        }
+                    }
+                    nativeVectorDb = hnswAdapter;
+                    routerBackend = 'native';
+                    _routerInitState.markReady();
+                    console.debug('[hooks-tools] Using HnswBridge (monovector-upstream) as HNSW backend');
+                    return { router: null, backend: routerBackend, native: nativeVectorDb };
+                }
+            }
         }
-        routerBackend = 'pure-js';
-    }
-    catch {
-        semanticRouter = null;
-        routerBackend = 'none';
-    }
-    return { router: semanticRouter, backend: routerBackend, native: nativeVectorDb };
+        catch {
+            // HnswBridge not available or failed to init — continue to pure-JS fallback
+        }
+        // STEP 2: Fall back to pure JS SemanticRouter
+        try {
+            const { SemanticRouter } = await import('../monovector/semantic-router.js');
+            semanticRouter = new SemanticRouter({ dimension: 384 });
+            for (const [patternName, { keywords, agents }] of Object.entries(getMergedTaskPatterns())) {
+                const embeddings = keywords.map(kw => generateSimpleEmbedding(kw));
+                semanticRouter.addIntentWithEmbeddings(patternName, embeddings, { agents, keywords });
+                // Cache embeddings for keywords (capped)
+                keywords.forEach((kw, i) => {
+                    if (TASK_PATTERN_EMBEDDINGS.size < MAX_PATTERN_EMBEDDINGS) {
+                        TASK_PATTERN_EMBEDDINGS.set(kw, embeddings[i]);
+                    }
+                });
+            }
+            routerBackend = 'pure-js';
+            _routerInitState.markReady();
+        }
+        catch {
+            semanticRouter = null;
+            routerBackend = 'none';
+            _routerInitState.markFailed();
+        }
+        return { router: semanticRouter, backend: routerBackend, native: nativeVectorDb };
+    })().finally(() => { _routerInitInFlight = null; });
+    return _routerInitInFlight;
 }
 /**
  * Get router backend info for status display.
@@ -341,26 +414,8 @@ function getRouterBackendInfo() {
             return { backend: 'none', speed: 'N/A' };
     }
 }
-// Flash Attention - lazy loaded
-let flashAttention = null;
-async function getFlashAttention() {
-    if (!flashAttention) {
-        try {
-            const { getFlashAttention: getFlash } = await import('../monovector/flash-attention.js');
-            flashAttention = await getFlash();
-        }
-        catch {
-            flashAttention = null;
-        }
-    }
-    return flashAttention;
-}
-// LoRA Adapter removed — superseded by SONA instant adaptation
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let loraAdapter = null;
-async function getLoRAAdapter() {
-    return loraAdapter;
-}
+// Flash Attention — module removed; stub always returns null
+async function getFlashAttention() { return null; }
 // In-memory trajectory tracking (persisted on end)
 const activeTrajectories = new Map();
 const MEMORY_DIR = '.monomind/memory';
@@ -542,13 +597,45 @@ function suggestAgentsForTask(task) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _neuralRouterInstance = null;
 let _neuralRouterInitPromise = null;
-async function applyNeuralAdaptation(text, dimensions) {
+// One-time guard so the dim-mismatch warning is logged at most once per process.
+let _loraDimMismatchWarned = false;
+/**
+ * Apply SONA's learned LoRA adaptation to the SAME query embedding used by the
+ * routing index (B1.4 fix).
+ *
+ * Previously this built a bespoke 768-dim, sin-only, unnormalized base, ran the
+ * LoRA transform, then sliced to 384. The result lived in a different basis AND
+ * scale than the indexed patterns (which are `generateSimpleEmbedding` output:
+ * 384-dim, sin+cos, L2-normalized), so it always scored below the 0.4 gate and
+ * routing silently fell back to keyword. SONA's learned weights never reached
+ * routing AND the clean query was clobbered with off-distribution noise.
+ *
+ * The fix: take the already-computed, normalized 384-dim query, apply the LoRA
+ * transform in that same space, and re-normalize to unit length.
+ *
+ * No-op invariant: with an UNTRAINED LoRA (B = 0), `applyLoRATransform` produces
+ * a zero delta, the mode blend returns the input unchanged, and re-normalizing a
+ * unit vector yields the same vector — i.e. cosine-identical to the plain query.
+ *
+ * Dim gate: SONA builds LoRA weights at the embedding dim we thread in at
+ * construction (DEFAULT_VECTOR_DIM, 384), matching the router query dim. We ONLY
+ * apply the adaptation when SONA's weight dim equals the query dim; otherwise we
+ * return the query untouched and warn once. With the dim threaded the gate opens
+ * and learned weights flow; a non-threaded SONA (weights at 768) still mismatches
+ * and is safely skipped.
+ */
+async function applyNeuralAdaptation(query) {
     if (!_neuralRouterInitPromise) {
         _neuralRouterInitPromise = (async () => {
             try {
                 const neural = await import('@monomind/neural').catch(() => null);
                 if (neural?.createNeuralLearningSystem) {
-                    const sys = neural.createNeuralLearningSystem('balanced');
+                    // Build SONA's LoRA weights at the router query's embedding dim so the
+                    // fail-closed gate below matches and learned weights actually apply.
+                    // The router query is produced by generateSimpleEmbedding at 384 dims;
+                    // DEFAULT_VECTOR_DIM (re-exported from @monomind/neural) is that same dim.
+                    const embeddingDim = neural.DEFAULT_VECTOR_DIM ?? 384;
+                    const sys = neural.createNeuralLearningSystem('balanced', { embeddingDim });
                     await sys.initialize();
                     _neuralRouterInstance = sys;
                 }
@@ -562,19 +649,43 @@ async function applyNeuralAdaptation(text, dimensions) {
     if (!_neuralRouterInstance)
         return null;
     try {
-        const base = new Float32Array(dimensions);
-        // Use a hash embedding as the base for the LoRA transform
-        const words = text.toLowerCase().split(/\s+/);
-        for (let i = 0; i < dimensions; i++) {
-            let v = 0;
-            for (let w = 0; w < words.length; w++) {
-                for (let c = 0; c < words[w].length; c++) {
-                    v += Math.sin((words[w].charCodeAt(c) * (i + 1) + w * 17) * 0.0137);
-                }
+        const sona = _neuralRouterInstance.getSONAManager();
+        // Gate (FAIL-CLOSED): apply only on a POSITIVE dim match.
+        // SONA now builds LoRA weights at config.embeddingDim (threaded from this
+        // router's 384-dim query embedder), so config.embeddingDim === query.length
+        // and the gate opens. If embeddingDim is unset (legacy / non-threaded path),
+        // it falls back to 768, which mismatches the 384-dim query and the gate stays
+        // closed — the conservative behavior that prevents off-distribution queries.
+        const cfg = sona.getConfig?.();
+        // Mirror the exact expression initializeLoRAWeights builds weights at:
+        // config.embeddingDim ?? SONA_HIDDEN_DIM. Reading hiddenDim here was the bug —
+        // hiddenDim is the model-internal transformer width (768) and is unset for the
+        // 'balanced' preset, so the gate never matched even once weights were threaded.
+        const weightDim = cfg?.config?.embeddingDim ?? 768;
+        if (weightDim !== query.length) {
+            if (!_loraDimMismatchWarned) {
+                _loraDimMismatchWarned = true;
+                console.warn(`[routing] SONA LoRA weight dim (${weightDim ?? 'unknown'}) != query embedding dim ` +
+                    `(${query.length}); skipping neural adaptation to avoid off-distribution queries. ` +
+                    `Learned weights will apply once SONA builds at the embedder dim.`);
             }
-            base[i] = v;
+            return null;
         }
-        return await _neuralRouterInstance.getSONAManager().applyAdaptations(base);
+        // Apply LoRA in the SAME 384-dim normalized space as the index.
+        const adapted = await sona.applyAdaptations(query);
+        if (!adapted || adapted.length !== query.length)
+            return null;
+        // Re-normalize to unit length so cosine/HNSW scores are comparable to the
+        // indexed patterns. (Untrained LoRA → adapted === query → no-op.)
+        let norm = 0;
+        for (let i = 0; i < adapted.length; i++)
+            norm += adapted[i] * adapted[i];
+        norm = Math.sqrt(norm);
+        if (norm > 0) {
+            for (let i = 0; i < adapted.length; i++)
+                adapted[i] /= norm;
+        }
+        return adapted;
     }
     catch {
         return null;
@@ -715,6 +826,9 @@ export const hooksPostEdit = {
                 success,
                 quality: success ? 0.85 : 0.3,
                 agent,
+                // B1.2: give the SONA embedder real semantics (the edited file) instead of
+                // the opaque task ID.
+                task: `edit ${filePath}`,
             });
         }
         catch {
@@ -782,6 +896,14 @@ export const hooksPostCommand = {
         const command = params.command;
         const exitCode = params.exitCode || 0;
         const success = exitCode === 0;
+        // Record the real exit code in the time-windowed command-outcome store so
+        // post-task can derive a MEASURED success signal (grounded in actual exit
+        // codes) when the caller does not explicitly assert --success. Non-fatal.
+        await recordCommand(getRouteOutcomesBaseDir(), {
+            ts: Date.now(),
+            command: typeof command === 'string' ? command.slice(0, 200) : String(command).slice(0, 200),
+            exitCode,
+        });
         // Persist command outcome via AgentDB
         let _storedIn = 'none';
         try {
@@ -845,10 +967,26 @@ export const hooksRoute = {
                 if (agentdbRoute && agentdbRoute.confidence > 0.5) {
                     const agents = agentdbRoute.agents.length > 0 ? agentdbRoute.agents : ['coder', 'researcher'];
                     const complexity = task.length > 200 ? 'high' : task.length < 50 ? 'low' : 'medium';
+                    const agentdbMethod = `agentdb-${agentdbRoute.controller}`;
+                    const agentdbConfidence = Math.round(agentdbRoute.confidence * 100) / 100;
+                    // Record the route recommendation so post-task can join the actual outcome
+                    const routeId = randomUUID();
+                    const caps = await getCapabilities();
+                    const learningMode = (caps.sona || caps.router === 'native' || caps.attention) ? 'native' : 'js';
+                    await recordRoute(getRouteOutcomesBaseDir(), {
+                        routeId,
+                        ts: Date.now(),
+                        task,
+                        recommendedAgent: agents[0],
+                        routingMethod: agentdbMethod,
+                        confidence: agentdbConfidence,
+                        learningMode,
+                    });
                     return {
+                        routeId,
                         task,
                         routing: {
-                            method: `agentdb-${agentdbRoute.controller}`,
+                            method: agentdbMethod,
                             backend: agentdbRoute.controller,
                             latencyMs: 0,
                             throughput: 'N/A',
@@ -892,9 +1030,12 @@ export const hooksRoute = {
         // (loaded from learned-state.json during _neuralRouterInstance.initialize()).
         let queryEmbedding = generateSimpleEmbedding(queryText);
         try {
-            const adapted = await applyNeuralAdaptation(queryText, 768);
+            // B1.4: apply LoRA in the SAME 384-dim normalized space as the index,
+            // not a bespoke 768-dim base that gets sliced (which clobbered the query
+            // with an off-distribution vector and forced keyword fallback).
+            const adapted = await applyNeuralAdaptation(queryEmbedding);
             if (adapted)
-                queryEmbedding = adapted.slice(0, 384);
+                queryEmbedding = adapted;
         }
         catch { /* fall through to hash embedding */ }
         // Try native VectorDb (HNSW-backed)
@@ -976,7 +1117,22 @@ export const hooksRoute = {
             : taskLower.includes('simple') || taskLower.includes('fix') || task.length < 50
                 ? 'low'
                 : 'medium';
+        const primaryConfidence = Math.round(confidence * 100) / 100;
+        // Record the route recommendation so post-task can join the actual outcome
+        const routeId = randomUUID();
+        const caps = await getCapabilities();
+        const learningMode = (caps.sona || caps.router === 'native' || caps.attention) ? 'native' : 'js';
+        await recordRoute(getRouteOutcomesBaseDir(), {
+            routeId,
+            ts: Date.now(),
+            task,
+            recommendedAgent: agents[0],
+            routingMethod,
+            confidence: primaryConfidence,
+            learningMode,
+        });
         return {
+            routeId,
             task,
             routing: {
                 method: routingMethod,
@@ -1249,12 +1405,37 @@ export const hooksPostTask = {
             quality: { type: 'number', description: 'Quality score (0-1)' },
             task: { type: 'string', description: 'Task description text (used for learning keyword extraction)' },
             storeDecisions: { type: 'boolean', description: 'Also store routing decision in memory DB' },
+            routeId: { type: 'string', description: 'Route ID from a prior hooks_route call — joins the recommendation to this outcome' },
         },
         required: ['taskId'],
     },
     handler: async (params) => {
         const taskId = params.taskId;
-        const success = params.success !== false;
+        // The success flag, when the caller asserts it (--success true), is taken as
+        // ground truth. But callers usually do NOT pass it. Rather than treating every
+        // unverified task as "unknown" (and thus excluding it from learning), we now
+        // derive a MEASURED success signal from the real command exit codes recorded by
+        // post-command within a recent time window. post-command appends each exit code
+        // to the command-outcome store keyed by timestamp; deriveRecentSuccess returns:
+        //   true  → recent commands exist and ALL exited 0
+        //   false → recent commands exist and ANY exited non-zero
+        //   null  → no recent commands (genuinely no signal → stays unknown)
+        // Precedence: an explicit --success ALWAYS wins; the derived signal only fills
+        // in when no explicit flag is given; only when there is also no recent command
+        // signal does the outcome stay unknown (and excluded from SONA + route join,
+        // per the existing "unknown ≠ success" principle).
+        const explicitSuccess = typeof params.success === 'boolean';
+        let outcomeKnown = explicitSuccess;
+        let success = params.success !== false;
+        let successSource = explicitSuccess ? 'explicit' : 'unknown';
+        if (!explicitSuccess) {
+            const derived = await deriveRecentSuccess(getRouteOutcomesBaseDir());
+            if (derived !== null) {
+                outcomeKnown = true;
+                success = derived;
+                successSource = 'derived-commands';
+            }
+        }
         const agent = params.agent;
         const quality = params.quality || (success ? 0.85 : 0.3);
         const startTime = Date.now();
@@ -1267,6 +1448,11 @@ export const hooksPostTask = {
                 success,
                 quality,
                 agent,
+                // B1.2: thread the real task description into the SONA trajectory so the
+                // embedder encodes meaning, not the opaque task ID.
+                task: params.task || undefined,
+                // B1.3: only feed the SONA LoRA update when the outcome is actually known.
+                outcomeKnown,
                 duration: params.duration || undefined,
                 patterns: params.patterns || undefined,
             });
@@ -1287,11 +1473,14 @@ export const hooksPostTask = {
         catch {
             // Non-fatal
         }
-        // Persist routing outcome for runtime learning (file-based, always reliable)
+        // Persist routing outcome for runtime learning (file-based, always reliable).
+        // B1.3: also gate this sibling learning sink on a known outcome — an unverified
+        // task must not train the router as a success either. When the caller did not
+        // assert success, the outcome is unknown and we skip persisting a labeled sample.
         const taskText = params.task || '';
         const outcomeKeywords = extractKeywords(taskText);
         let outcomePersisted = false;
-        if (taskText && agent && agent.length <= 100 && /^[a-zA-Z0-9_-]+$/.test(agent)) {
+        if (outcomeKnown && taskText && agent && agent.length <= 100 && /^[a-zA-Z0-9_-]+$/.test(agent)) {
             try {
                 const outcomes = loadRoutingOutcomes();
                 outcomes.push({
@@ -1306,6 +1495,26 @@ export const hooksPostTask = {
                 outcomePersisted = true;
             }
             catch { /* non-critical */ }
+        }
+        // Join this outcome back onto the original route recommendation. This is the
+        // recommendation→actual→success link that routing-accuracy metrics and SONA
+        // labels depend on. When the caller threads an explicit routeId we join that
+        // record; otherwise we auto-correlate to the most recent unresolved route
+        // (within a 10-min window) so the loop closes without the LLM manually
+        // threading the routeId. Only join when the outcome is actually measured —
+        // per "unknown ≠ success", an unverified task must not pollute the metric.
+        if (outcomeKnown) {
+            const outcome = {
+                agentActuallyUsed: agent,
+                measuredSuccess: success,
+                quality: typeof params.quality === 'number' ? params.quality : undefined,
+            };
+            if (params.routeId) {
+                await joinOutcome(getRouteOutcomesBaseDir(), params.routeId, outcome);
+            }
+            else {
+                await joinLatestUnresolved(getRouteOutcomesBaseDir(), outcome);
+            }
         }
         // ERL: Extract and persist structured heuristic for future pre-task injection
         // Source: https://arxiv.org/abs/2603.24639
@@ -1379,6 +1588,8 @@ export const hooksPostTask = {
         return {
             taskId,
             success,
+            outcomeKnown,
+            successSource,
             duration,
             learningUpdates: {
                 patternsUpdated: feedbackResult?.updated || (success ? 2 : 1),
@@ -2053,7 +2264,7 @@ export const hooksIntelligence = {
         const moeAvailable = (await getMoERouter()) !== null;
         const flashAvailable = (await getFlashAttention()) !== null;
         const ewcAvailable = (await getEWCConsolidator()) !== null;
-        const loraAvailable = (await getLoRAAdapter()) !== null;
+        const loraAvailable = false;
         return {
             mode,
             status: 'active',
@@ -2596,7 +2807,6 @@ export const hooksIntelligenceStats = {
         const ewc = await getEWCConsolidator();
         const moe = await getMoERouter();
         const flash = await getFlashAttention();
-        const lora = await getLoRAAdapter();
         // Fallback to memory store for legacy data
         const memoryStats = getIntelligenceStatsFromMemory();
         // SONA stats from real implementation
@@ -2689,24 +2899,14 @@ export const hooksIntelligenceStats = {
                 implementation: 'real-flash-attention',
             };
         }
-        // LoRA stats from real implementation
-        let loraStats = {
+        // LoRA Adapter removed — superseded by SONA instant adaptation
+        const loraStats = {
             rank: 8,
             alpha: 16,
             adaptations: 0,
             avgLoss: 0,
             implementation: 'not-loaded',
         };
-        if (lora) {
-            const realLora = lora.getStats();
-            loraStats = {
-                rank: realLora.rank,
-                alpha: 16, // Default alpha from config
-                adaptations: realLora.totalAdaptations,
-                avgLoss: Math.round(realLora.avgAdaptationNorm * 10000) / 10000,
-                implementation: 'real-lora',
-            };
-        }
         const stats = {
             sona: sonaStats,
             moe: moeStats,
@@ -2732,7 +2932,7 @@ export const hooksIntelligenceStats = {
                     ewc: ewc ? 'loaded' : 'not-loaded',
                     moe: moe ? 'loaded' : 'not-loaded',
                     flash: flash ? 'loaded' : 'not-loaded',
-                    lora: lora ? 'loaded' : 'not-loaded',
+                    lora: 'not-loaded',
                 },
                 performance: {
                     sonaLearningMs: sonaStats.avgLearningTimeMs,
@@ -3368,20 +3568,8 @@ export const hooksWorkerDetect = {
         return result;
     },
 };
-// Model router - lazy loaded
-let modelRouterInstance = null;
-async function getModelRouterInstance() {
-    if (!modelRouterInstance) {
-        try {
-            const { getModelRouter } = await import('../monovector/model-router.js');
-            modelRouterInstance = getModelRouter();
-        }
-        catch {
-            modelRouterInstance = null;
-        }
-    }
-    return modelRouterInstance;
-}
+// Model router — module removed; stub always returns null
+async function getModelRouterInstance() { return null; }
 // Model route tool - intelligent model selection
 export const hooksModelRoute = {
     name: 'hooks_model-route',
