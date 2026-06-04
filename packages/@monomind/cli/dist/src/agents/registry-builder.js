@@ -97,7 +97,10 @@ function parseTriggers(val) {
     const arr = Array.isArray(val) ? val : [val];
     return arr.map((t) => {
         if (typeof t === 'object' && t !== null && 'pattern' in t) {
-            return { pattern: String(t.pattern), mode: String(t.mode ?? 'glob') };
+            return {
+                pattern: String(t.pattern),
+                mode: String(t.mode ?? 'glob'),
+            };
         }
         return { pattern: String(t), mode: 'glob' };
     });
@@ -163,21 +166,22 @@ export function buildUnifiedRegistry(roots, outputPath) {
                 continue;
             }
             const fm = parseFrontmatter(content);
-            const slug = fm.slug || slugFromFilename(file);
+            const slug = (typeof fm.slug === 'string' ? fm.slug : undefined) || slugFromFilename(file);
             // Skip duplicates — first root wins
             if (seen.has(slug))
                 continue;
             seen.set(slug, {
                 slug,
-                name: fm.name || slug,
-                version: fm.version || '0.0.0',
-                category: fm.category || categoryFromPath(file, root),
+                name: (typeof fm.name === 'string' ? fm.name : undefined) || slug,
+                version: (typeof fm.version === 'string' ? fm.version : undefined) || '0.0.0',
+                category: (typeof fm.category === 'string' ? fm.category : undefined) ||
+                    categoryFromPath(file, root),
                 capabilities: toStringArray(fm.capabilities),
                 taskTypes: toStringArray(fm.taskTypes ?? fm['task-types'] ?? fm.task_types),
                 tools: toStringArray(fm.tools),
                 triggers: parseTriggers(fm.triggers),
                 deprecated: fm.deprecated === true,
-                deprecatedBy: fm.deprecatedBy,
+                deprecatedBy: typeof fm.deprecatedBy === 'string' ? fm.deprecatedBy : undefined,
                 dependencies: toStringArray(fm.dependencies),
                 filePath: file,
                 registeredAt: now,
