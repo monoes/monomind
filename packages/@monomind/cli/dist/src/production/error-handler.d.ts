@@ -9,35 +9,65 @@
  *
  * @module @monomind/cli/production/error-handler
  */
-export interface ErrorContext {
-    operation: string;
-    tool?: string;
-    input?: Record<string, unknown>;
-    userId?: string;
-    agentId?: string;
-    requestId?: string;
-    timestamp: string;
-}
-export interface ErrorHandlerConfig {
-    includeStack: boolean;
-    sanitize: boolean;
-    reportToMonitoring: boolean;
-    maxErrorsPerMinute: number;
-    errorCategories: Record<string, string[]>;
-}
+/**
+ * Error category derived from message-pattern classification.
+ */
 export type ErrorCategory = 'validation' | 'authentication' | 'authorization' | 'not_found' | 'rate_limit' | 'timeout' | 'circuit_open' | 'external_service' | 'internal' | 'unknown';
+/**
+ * Configuration for the {@link ErrorHandler}.
+ */
+export interface ErrorHandlerConfig {
+    /** Include stack traces in structured errors (default: off in production). */
+    includeStack: boolean;
+    /** Redact sensitive keys/values from context and messages. */
+    sanitize: boolean;
+    /** Whether errors should be forwarded to monitoring. */
+    reportToMonitoring: boolean;
+    /** Per-category cap before responses are rate-limited. */
+    maxErrorsPerMinute: number;
+    /** Optional per-category overrides. */
+    errorCategories: Record<string, unknown>;
+}
+/**
+ * Contextual metadata attached to a handled error.
+ */
+export interface ErrorContext {
+    /** The input that triggered the error (sanitized when handled). */
+    input?: unknown;
+    /** Arbitrary additional context fields. */
+    [key: string]: unknown;
+}
+/**
+ * The error payload embedded in a structured error response.
+ */
+export interface StructuredErrorPayload {
+    code: string;
+    message: string;
+    category: ErrorCategory;
+    retryable: boolean;
+    retryAfterMs?: number;
+    details?: {
+        stack: string;
+    };
+}
+/**
+ * A standardized, structured error response.
+ */
 export interface StructuredError {
     success: false;
-    error: {
-        code: string;
-        message: string;
-        category: ErrorCategory;
-        retryable: boolean;
-        retryAfterMs?: number;
-        details?: Record<string, unknown>;
-    };
-    context?: Partial<ErrorContext>;
+    error: StructuredErrorPayload;
+    context: ErrorContext;
     timestamp: string;
+}
+/**
+ * Aggregated error statistics returned by {@link ErrorHandler.getStats}.
+ */
+export interface ErrorStats {
+    totalErrors: number;
+    byCategory: Record<string, number>;
+    recentErrors: StructuredError[];
+    /** Errors per minute over the last 5 minutes. */
+    errorRate: number;
 }
 export declare class ErrorHandler {
     private config;
@@ -58,24 +88,19 @@ export declare class ErrorHandler {
      * Cycle-safe and depth-bounded — circular references and deeply nested objects
      * will not cause stack overflow.
      */
-    sanitize(input: Record<string, unknown>, _seen?: WeakSet<object>, _depth?: number): Record<string, unknown>;
+    sanitize(input: unknown, _seen?: WeakSet<object>, _depth?: number): unknown;
     /**
      * Handle an error and return a structured response
      */
-    handle(error: Error | string, context?: Partial<ErrorContext>): StructuredError;
+    handle(error: Error | string, context?: ErrorContext): StructuredError;
     /**
      * Wrap a handler with error handling
      */
-    wrap<T extends (...args: unknown[]) => Promise<unknown>>(handler: T, context: Partial<ErrorContext>): T;
+    wrap<TArgs extends unknown[], TResult>(handler: (...args: TArgs) => Promise<TResult>, context?: ErrorContext): (...args: TArgs) => Promise<TResult | StructuredError>;
     /**
      * Get error statistics
      */
-    getStats(): {
-        totalErrors: number;
-        byCategory: Record<string, number>;
-        recentErrors: StructuredError[];
-        errorRate: number;
-    };
+    getStats(): ErrorStats;
     /**
      * Clear error log
      */
@@ -89,6 +114,6 @@ export declare class ErrorHandler {
 /**
  * Wrap a handler with error handling (convenience function)
  */
-export declare function withErrorHandling<T extends (...args: unknown[]) => Promise<unknown>>(handler: T, context?: Partial<ErrorContext>): T;
+export declare function withErrorHandling<TArgs extends unknown[], TResult>(handler: (...args: TArgs) => Promise<TResult>, context?: ErrorContext): (...args: TArgs) => Promise<TResult | StructuredError>;
 export default ErrorHandler;
 //# sourceMappingURL=error-handler.d.ts.map

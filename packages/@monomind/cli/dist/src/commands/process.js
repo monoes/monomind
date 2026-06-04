@@ -2,8 +2,8 @@
  * CLI Process Management Command
  * Background process management, daemon mode, and monitoring
  */
-import { writeFileSync, readFileSync, unlinkSync, existsSync, mkdirSync } from 'fs';
-import { dirname, resolve } from 'path';
+import { writeFileSync, readFileSync, unlinkSync, existsSync, mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 // Helper functions for PID file management
 function writePidFile(pidFile, pid, port) {
     const resolved = resolve(pidFile);
@@ -23,8 +23,7 @@ function writePidFile(pidFile, pid, port) {
             // Stale PID file — caller is expected to have already verified the
             // referenced process is dead. Unlink and retry once.
             try {
-                const fs = require('fs');
-                fs.unlinkSync(resolved);
+                unlinkSync(resolved);
                 writeFileSync(resolved, data, { encoding: 'utf-8', flag: 'wx', mode: 0o600 });
             }
             catch (retryErr) {
@@ -270,7 +269,7 @@ const monitorCommand = {
         const totalMemMB = Math.round(totalMem / 1024 / 1024);
         // Try to read agent and task counts from local store files
         let agentCount = 0;
-        let taskCounts = { running: 0, queued: 0, completed: 0, failed: 0 };
+        const taskCounts = { running: 0, queued: 0, completed: 0, failed: 0 };
         try {
             const agentStorePath = resolve('.monomind/agents/store.json');
             if (existsSync(agentStorePath)) {
@@ -619,13 +618,7 @@ const logsCommand = {
         console.log('─'.repeat(70));
         // Read actual log files from .monomind/logs/ if they exist
         const logsDir = resolve('.monomind/logs');
-        let logEntries = [];
-        const levelIcons = {
-            debug: '🔍',
-            info: 'ℹ️ ',
-            warn: '⚠️ ',
-            error: '❌',
-        };
+        const logEntries = [];
         const levels = ['debug', 'info', 'warn', 'error'];
         const minLevelIdx = levels.indexOf(level);
         if (existsSync(logsDir)) {
