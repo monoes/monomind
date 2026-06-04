@@ -5,7 +5,6 @@
 import { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, statSync, unlinkSync, readdirSync } from 'fs';
 import { dirname, join, resolve, sep } from 'path';
 import { getProjectCwd } from './types.js';
-import { createInitState } from '../monovector/init-state.js';
 import { getCapabilities } from '../monovector/capabilities.js';
 import { randomUUID } from 'node:crypto';
 import { recordRoute, joinOutcome, joinLatestUnresolved } from '../monovector/route-outcomes.js';
@@ -75,17 +74,6 @@ async function getEWCConsolidator() {
 }
 // MoE Router — module removed; stub always returns null
 async function getMoERouter() { return null; }
-// Semantic Router - lazy loaded
-// Tries native VectorDb first (16k+ routes/s HNSW), falls back to pure JS (47k routes/s cosine)
-let semanticRouter = null;
-let nativeVectorDb = null;
-const _routerInitState = createInitState({ maxAttempts: 3 });
-let routerBackend = 'none';
-// IC-5: Deduplicates concurrent callers so only one init runs at a time.
-let _routerInitInFlight = null;
-// Pre-computed embeddings for common task patterns (cached, capped to prevent unbounded growth)
-const MAX_PATTERN_EMBEDDINGS = 2000;
-const TASK_PATTERN_EMBEDDINGS = new Map();
 function generateSimpleEmbedding(text, dimension = 384) {
     // Simple deterministic embedding based on character codes
     // This is for routing purposes where we need consistent, fast embeddings
@@ -259,71 +247,6 @@ const TASK_PATTERNS = {
         agents: ['memory-specialist', 'architect', 'coder'],
     },
 };
-/**
- * @monoes/router usage: OPTIONAL performance enhancement only.
- * - When available: native HNSW via VectorDb (fast approximate search).
- * - When absent or locked: pure-JS SemanticRouter (keyword matching).
- * Callers see the same interface regardless of which backend runs.
- *
- * To use @monoes/router elsewhere, import RouterModule from
- * '../monovector/monoes-types.js' and use the same try/catch pattern.
- */
-/**
- * Get the semantic router with environment detection.
- * Tries native VectorDb first (HNSW, 16k routes/s), falls back to pure JS (47k routes/s cosine).
- */
-async function getSemanticRouter() {
-    if (_routerInitState.isReady()) {
-        return { router: semanticRouter, backend: routerBackend, native: nativeVectorDb };
-    }
-    if (_routerInitState.isFailed() || !_routerInitState.canTry()) {
-        return { router: semanticRouter, backend: routerBackend, native: null };
-    }
-    // IC-5: Deduplicate concurrent callers — only one init runs at a time.
-    if (_routerInitInFlight)
-        return _routerInitInFlight;
-    _routerInitInFlight = (async () => {
-        // Native HNSW (@monoes/router) and the monovector-upstream HnswBridge were removed in
-        // the lean teardown. Routing uses the pure-JS SemanticRouter over keyword embeddings.
-        // Pure-JS SemanticRouter
-        try {
-            const { SemanticRouter } = await import('../monovector/semantic-router.js');
-            semanticRouter = new SemanticRouter({ dimension: 384 });
-            for (const [patternName, { keywords, agents }] of Object.entries(getMergedTaskPatterns())) {
-                const embeddings = keywords.map(kw => generateSimpleEmbedding(kw));
-                semanticRouter.addIntentWithEmbeddings(patternName, embeddings, { agents, keywords });
-                // Cache embeddings for keywords (capped)
-                keywords.forEach((kw, i) => {
-                    if (TASK_PATTERN_EMBEDDINGS.size < MAX_PATTERN_EMBEDDINGS) {
-                        TASK_PATTERN_EMBEDDINGS.set(kw, embeddings[i]);
-                    }
-                });
-            }
-            routerBackend = 'pure-js';
-            _routerInitState.markReady();
-        }
-        catch {
-            semanticRouter = null;
-            routerBackend = 'none';
-            _routerInitState.markFailed();
-        }
-        return { router: semanticRouter, backend: routerBackend, native: nativeVectorDb };
-    })().finally(() => { _routerInitInFlight = null; });
-    return _routerInitInFlight;
-}
-/**
- * Get router backend info for status display.
- */
-function getRouterBackendInfo() {
-    switch (routerBackend) {
-        case 'native':
-            return { backend: 'native VectorDb (HNSW)', speed: '16k+ routes/s' };
-        case 'pure-js':
-            return { backend: 'pure JS (cosine)', speed: '47k routes/s' };
-        default:
-            return { backend: 'none', speed: 'N/A' };
-    }
-}
 // Flash Attention — module removed; stub always returns null
 async function getFlashAttention() { return null; }
 // In-memory trajectory tracking (persisted on end)
@@ -832,63 +755,16 @@ export const hooksRoute = {
                 // AgentDB router not available — fall through to local routing
             }
         }
-        // Get router (tries native VectorDb first, falls back to pure JS)
-        const { router, backend, native } = useSemanticRouter
-            ? await getSemanticRouter()
-            : { router: null, backend: 'none', native: null };
-        let semanticResult = [];
+        // Deterministic keyword routing is the baseline (and only) local path.
+        const semanticResult = [];
         let routingMethod = 'keyword';
-        let routingLatencyMs = 0;
+        const routingLatencyMs = 0;
         let backendInfo = '';
-        const queryText = context ? `${task} ${context}` : task;
-        // Lean teardown: deterministic query embedding only — no SONA LoRA adaptation.
-        const queryEmbedding = generateSimpleEmbedding(queryText);
-        // Try native VectorDb (HNSW-backed)
-        if (native && backend === 'native') {
-            const routeStart = performance.now();
-            try {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const results = native.search(queryEmbedding, 5);
-                routingLatencyMs = performance.now() - routeStart;
-                routingMethod = 'semantic-native';
-                backendInfo = 'native VectorDb (HNSW)';
-                // Convert results to semantic format
-                const mergedPatterns = getMergedTaskPatterns();
-                semanticResult = results.map((r) => {
-                    const [patternName] = r.id.split(':');
-                    const pattern = mergedPatterns[patternName];
-                    return {
-                        intent: patternName,
-                        score: 1 - r.score, // Native uses distance (lower is better), convert to similarity
-                        metadata: {
-                            agents: pattern?.agents || (patternName.startsWith('learned-') ? [patternName.slice(8)] : ['coder']),
-                        },
-                    };
-                });
-            }
-            catch {
-                // Native failed, try pure JS fallback
-            }
-        }
-        // Try pure JS SemanticRouter fallback
-        if (router && backend === 'pure-js' && semanticResult.length === 0) {
-            const routeStart = performance.now();
-            semanticResult = router.routeWithEmbedding(queryEmbedding, 3);
-            routingLatencyMs = performance.now() - routeStart;
-            routingMethod = 'semantic-pure-js';
-            backendInfo = 'pure JS (cosine similarity)';
-        }
-        // Get agents from semantic routing or fall back to keyword
+        // Get agents from keyword routing
         let agents;
         let confidence;
         let matchedPattern = '';
-        if (semanticResult.length > 0 && semanticResult[0].score > 0.4) {
-            const topMatch = semanticResult[0];
-            agents = topMatch.metadata.agents || ['coder', 'researcher'];
-            confidence = topMatch.score;
-            matchedPattern = topMatch.intent;
-        }
-        else {
+        {
             // Keyword fallback is the baseline
             const keywordSuggestion = suggestAgentsForTask(task);
             agents = keywordSuggestion.agents;
@@ -1100,43 +976,8 @@ export const hooksPreTask = {
             : descLower.includes('simple') || descLower.includes('fix') || description.length < 50
                 ? 'low'
                 : 'medium';
-        // Enhanced model routing with Agent Booster AST (ADR-026)
-        let modelRouting;
-        try {
-            const { getEnhancedModelRouter } = await import('../monovector/enhanced-model-router.js');
-            const router = getEnhancedModelRouter();
-            const routeResult = await router.route(description, { filePath });
-            if (routeResult.tier === 1) {
-                // Agent Booster can handle this task
-                modelRouting = {
-                    tier: 1,
-                    handler: 'agent-booster',
-                    canSkipLLM: true,
-                    agentBoosterIntent: routeResult.agentBoosterIntent?.type,
-                    intentDescription: routeResult.agentBoosterIntent?.description,
-                    confidence: routeResult.confidence,
-                    estimatedLatencyMs: routeResult.estimatedLatencyMs,
-                    estimatedCost: routeResult.estimatedCost,
-                    recommendation: `[AGENT_BOOSTER_AVAILABLE] Skip LLM - use Agent Booster for "${routeResult.agentBoosterIntent?.type}"`,
-                };
-            }
-            else {
-                // LLM required
-                modelRouting = {
-                    tier: routeResult.tier,
-                    handler: routeResult.handler,
-                    model: routeResult.model,
-                    complexity: routeResult.complexity,
-                    confidence: routeResult.confidence,
-                    estimatedLatencyMs: routeResult.estimatedLatencyMs,
-                    estimatedCost: routeResult.estimatedCost,
-                    recommendation: `[TASK_MODEL_RECOMMENDATION] Use model="${routeResult.model}" for this task`,
-                };
-            }
-        }
-        catch {
-            // Enhanced router not available
-        }
+        // Enhanced model routing module was never shipped — modelRouting stays undefined.
+        const modelRouting = undefined;
         // ERL: Retrieve past heuristics to inject into recommendations
         // Source: https://arxiv.org/abs/2603.24639
         const erlHints = [];
