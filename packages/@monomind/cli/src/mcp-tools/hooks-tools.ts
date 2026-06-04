@@ -11,6 +11,7 @@ import type { RouterModule } from '../monovector/monoes-types.js';
 import { getCapabilities } from '../monovector/capabilities.js';
 import { randomUUID } from 'node:crypto';
 import { recordRoute, joinOutcome, joinLatestUnresolved } from '../monovector/route-outcomes.js';
+import { recordCommand, deriveRecentSuccess } from '../monovector/command-outcomes.js';
 
 // Base dir for per-route outcome records — sits alongside routing-outcomes.json
 function getRouteOutcomesBaseDir(): string {
@@ -1032,6 +1033,15 @@ export const hooksPostCommand: MCPTool = {
     const exitCode = (params.exitCode as number) || 0;
     const success = exitCode === 0;
 
+    // Record the real exit code in the time-windowed command-outcome store so
+    // post-task can derive a MEASURED success signal (grounded in actual exit
+    // codes) when the caller does not explicitly assert --success. Non-fatal.
+    await recordCommand(getRouteOutcomesBaseDir(), {
+      ts: Date.now(),
+      command: typeof command === 'string' ? command.slice(0, 200) : String(command).slice(0, 200),
+      exitCode,
+    });
+
     // Persist command outcome via AgentDB
     let _storedIn: 'agentdb' | 'json-store' | 'none' = 'none';
     try {
@@ -1560,20 +1570,32 @@ export const hooksPostTask: MCPTool = {
   },
   handler: async (params: Record<string, unknown>) => {
     const taskId = params.taskId as string;
-    // B1.3: The success flag is caller-asserted (the LLM says --success true), not
-    // measured. There is NO task-scoped command store to correlate a real exitCode
-    // against (post-command keys entries `cmd-${Date.now()}` with no taskId — line
-    // ~981), so any "recent command" join would be a fabricated correlation, which
-    // the task explicitly forbids. Conservative behavior instead: when the caller
-    // does NOT explicitly provide success, treat the outcome as UNKNOWN — do not
-    // optimistically assume true (which would train every unverified task as a
-    // success) and do not collapse it to a low-reward failure either (which would be
-    // an equally wrong inverted label). An unknown outcome is excluded from the SONA
-    // learning feed (see `outcomeKnown` below); feeding nothing beats feeding a
-    // wrong label. A measured-outcome precedent exists elsewhere in this file (the
-    // verifier exit_code → effectiveOutcome logic), but that is a separate tool.
-    const outcomeKnown = typeof params.success === 'boolean';
-    const success = params.success !== false;
+    // The success flag, when the caller asserts it (--success true), is taken as
+    // ground truth. But callers usually do NOT pass it. Rather than treating every
+    // unverified task as "unknown" (and thus excluding it from learning), we now
+    // derive a MEASURED success signal from the real command exit codes recorded by
+    // post-command within a recent time window. post-command appends each exit code
+    // to the command-outcome store keyed by timestamp; deriveRecentSuccess returns:
+    //   true  → recent commands exist and ALL exited 0
+    //   false → recent commands exist and ANY exited non-zero
+    //   null  → no recent commands (genuinely no signal → stays unknown)
+    // Precedence: an explicit --success ALWAYS wins; the derived signal only fills
+    // in when no explicit flag is given; only when there is also no recent command
+    // signal does the outcome stay unknown (and excluded from SONA + route join,
+    // per the existing "unknown ≠ success" principle).
+    const explicitSuccess = typeof params.success === 'boolean';
+    let outcomeKnown = explicitSuccess;
+    let success = params.success !== false;
+    let successSource: 'explicit' | 'derived-commands' | 'unknown' = explicitSuccess ? 'explicit' : 'unknown';
+
+    if (!explicitSuccess) {
+      const derived = await deriveRecentSuccess(getRouteOutcomesBaseDir());
+      if (derived !== null) {
+        outcomeKnown = true;
+        success = derived;
+        successSource = 'derived-commands';
+      }
+    }
     const agent = params.agent as string | undefined;
     const quality = (params.quality as number) || (success ? 0.85 : 0.3);
     const startTime = Date.now();
@@ -1729,6 +1751,8 @@ export const hooksPostTask: MCPTool = {
     return {
       taskId,
       success,
+      outcomeKnown,
+      successSource,
       duration,
       learningUpdates: {
         patternsUpdated: feedbackResult?.updated || (success ? 2 : 1),
