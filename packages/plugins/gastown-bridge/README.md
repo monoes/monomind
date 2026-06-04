@@ -40,7 +40,6 @@ Gas Town is a 75,000-line Go codebase that implements:
 | DAG topological sort | 75ms | 0.5ms | **150x** |
 | Cycle detection | 45ms | 0.3ms | **150x** |
 | Critical path analysis | 120ms | 0.8ms | **150x** |
-| Pattern search (HNSW) | 5000ms | 5ms | **1000x-12500x** |
 
 ### 🔗 20 MCP Tools
 
@@ -96,7 +95,7 @@ Seamlessly sync between Gas Town's Beads and Monomind's AgentDB:
 | **Agent Roles** | Mayor, Polecats, Crew | Hierarchical swarm | Interoperable |
 | **Crash Recovery** | GUPP hooks | Session persistence | Combined |
 | **Work Distribution** | Slinging | Task orchestration | Bridge via sling tool |
-| **Pattern Search** | N/A | HNSW (slow JS) | HNSW WASM (1000x faster) |
+| **Pattern Search** | N/A | pure-JS HNSW | pure-JS HNSW via AgentDB |
 
 ### Performance Comparison
 
@@ -104,7 +103,6 @@ Seamlessly sync between Gas Town's Beads and Monomind's AgentDB:
 |--------|-----------------|-------------------|-------------|
 | Formula parse | 53ms | 0.15ms | 352x faster |
 | 100-node DAG sort | 75ms | 0.5ms | 150x faster |
-| Pattern search (10k) | 5000ms | 5ms | 1000x faster |
 | Memory usage | 48MB | 12MB | 4x reduction |
 | Startup time | 850ms | 120ms | 7x faster |
 
@@ -212,7 +210,7 @@ const cooked = await plugin.tools.gt_wasm_cook_batch({
   vars: [{ env: 'prod' }, { env: 'staging' }],
 });
 
-// Find similar patterns (1000x-12500x faster)
+// Find similar patterns (pure-JS HNSW via AgentDB)
 const matches = await plugin.tools.gt_wasm_match_pattern({
   query: 'authentication flow',
   candidates: formulaNames,
@@ -612,15 +610,15 @@ See [MCP Tools Documentation](./docs/mcp-tools.md) for complete API reference.
 │                             │  └──────────────┘ │   path       │  │ │
 │                             │                   └──────────────┘  │ │
 │                             │                                      │ │
-│                             │  ┌──────────────┐ ┌──────────────┐  │ │
-│                             │  │ micro-hnsw-  │ │ monovector-    │  │ │
-│                             │  │ wasm         │ │ learning-wasm│  │ │
-│                             │  │              │ │              │  │ │
-│                             │  │ • Pattern    │ │ • SONA       │  │ │
-│                             │  │   search     │ │   patterns   │  │ │
-│                             │  │ • 1000x+     │ │ • MoE routing│  │ │
-│                             │  │   speedup    │ │ • EWC++      │  │ │
-│                             │  └──────────────┘ └──────────────┘  │ │
+│                             │  ┌──────────────┐                   │ │
+│                             │  │ AgentDB HNSW │                   │ │
+│                             │  │ (pure JS)    │                   │ │
+│                             │  │              │                   │ │
+│                             │  │ • Pattern    │                   │ │
+│                             │  │   search     │                   │ │
+│                             │  │ • O(log n)   │                   │ │
+│                             │  │   ANN        │                   │ │
+│                             │  └──────────────┘                   │ │
 │                             │                                      │ │
 │                             │  [wasm-bindgen interface]            │ │
 │                             └─────────────────────────────────────┘ │

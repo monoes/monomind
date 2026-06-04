@@ -124,10 +124,6 @@ Top-level hive-mind orchestrator:
 - Monitors domain health
 - Runs consensus on major decisions
 
-### AttentionCoordinator
-
-Coordinates Flash Attention, MoE routing, GraphRoPE positional encoding across agent outputs for better collective reasoning.
-
 ### FederationHub
 
 Coordinates multiple swarms as a federation:

@@ -119,7 +119,6 @@ cd monomind
 
    - 70+ cloud tools
    - E2B sandbox execution
-   - Distributed neural training
    - Event-driven workflows
    - Application marketplace
 
