@@ -45,14 +45,14 @@ describe('command-outcomes store', () => {
     expect(await deriveRecentSuccess(dir)).toBe(false);
   });
 
-  it('deriveRecentSuccess returns true for iterate-until-green (early failure, trailing success)', async () => {
+  it('deriveRecentSuccess returns true for iterate-until-green (fail immediately followed by pass)', async () => {
     const now = Date.now();
-    // Real workflow: tests fail, then get fixed, then pass. Final state is success.
+    // The COMMON shape: tests fail, then pass after a fix — no command in between.
+    // Final state (last command) is the passing run.
     await recordCommand(dir, { command: 'vitest', exitCode: 1, ts: now });        // first run fails
-    await recordCommand(dir, { command: 'edit', exitCode: 0, ts: now + 1 });        // fix
-    await recordCommand(dir, { command: 'vitest', exitCode: 0, ts: now + 2 });      // re-run passes
+    await recordCommand(dir, { command: 'vitest', exitCode: 0, ts: now + 1 });      // re-run passes
 
-    // Final-state semantics: the early failure does NOT mark the task failed.
+    // Last command decides → success. (A "last 2 must pass" rule would wrongly say false here.)
     expect(await deriveRecentSuccess(dir)).toBe(true);
   });
 
