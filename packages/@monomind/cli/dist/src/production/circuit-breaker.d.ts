@@ -6,20 +6,40 @@
  * - Open: Failing fast, not calling service
  * - Half-Open: Testing if service recovered
  *
- * @module @monoes/cli/production/circuit-breaker
+ * @module @monomind/cli/production/circuit-breaker
+ */
+/**
+ * Circuit breaker states.
+ * - `closed`: Normal operation, requests pass through.
+ * - `open`: Failing fast, requests are rejected immediately.
+ * - `half-open`: Testing recovery, a percentage of requests pass through.
  */
 export type CircuitState = 'closed' | 'open' | 'half-open';
+/**
+ * Circuit breaker configuration options.
+ */
 export interface CircuitBreakerConfig {
+    /** Number of failures within the window before opening the circuit. */
     failureThreshold: number;
+    /** Time (ms) to wait in the open state before transitioning to half-open. */
     resetTimeoutMs: number;
+    /** Number of consecutive successes in half-open before closing. */
     successThreshold: number;
+    /** Sliding window (ms) over which failures are counted. */
     failureWindowMs: number;
+    /** Fraction of requests (0-1) allowed through while half-open. */
     halfOpenRequestPercentage: number;
-    onStateChange?: (from: CircuitState, to: CircuitState) => void;
-    onOpen?: (failures: number) => void;
+    /** Called when the circuit transitions to the open state. */
+    onOpen?: (failureCount: number) => void;
+    /** Called when the circuit transitions to the closed state. */
     onClose?: () => void;
+    /** Called on any state transition. */
+    onStateChange?: (oldState: CircuitState, newState: CircuitState) => void;
 }
-export interface CircuitStats {
+/**
+ * Snapshot of circuit breaker statistics.
+ */
+export interface CircuitBreakerStats {
     state: CircuitState;
     failures: number;
     successes: number;
@@ -77,7 +97,7 @@ export declare class CircuitBreaker {
     /**
      * Get circuit statistics
      */
-    getStats(): CircuitStats;
+    getStats(): CircuitBreakerStats;
     /**
      * Get failure rate
      */
@@ -92,7 +112,7 @@ export declare function getCircuitBreaker(name: string, config?: Partial<Circuit
 /**
  * Get all circuit breaker stats
  */
-export declare function getAllCircuitStats(): Record<string, CircuitStats>;
+export declare function getAllCircuitStats(): Record<string, CircuitBreakerStats>;
 /**
  * Reset all circuit breakers
  */
