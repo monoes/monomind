@@ -153,7 +153,7 @@ statusline --help
 ```
 ▊ Monomind V1 ● agentic-flow@alpha  │  ⎇ v1
 ─────────────────────────────────────────────────────
-🏗️  DDD Domains    [●●●●●]  5/5    ⚡ 1.0x → 2.49x-7.47x
+🏗️  DDD Domains    [●●●●●]  5/5    ⚡ ACTIVE
 🤖 Swarm Agents    ◉ [ 5/15]      🟢 CVE 3/3    💾 156 patterns
 🔧 Architecture    DDD ●93%  │  Security ●CLEAN  │  Hooks ●ACTIVE
 📊 Routing         89% accuracy │  Avg 4.2ms │  1547 operations
@@ -810,7 +810,6 @@ Add to your Claude settings (`~/.claude/settings.json`):
 ## Related Packages
 
 - [@monomind/shared](../shared) - Shared utilities and types
-- [@monomind/neural](../neural) - Neural network and SONA learning
 - [@monomind/swarm](../swarm) - Multi-agent coordination
 - [@monomind/memory](../memory) - AgentDB memory system
 
