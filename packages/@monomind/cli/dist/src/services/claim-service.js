@@ -12,10 +12,10 @@
  *
  * @see /packages/implementation/adrs/ADR-016-collaborative-issue-claims.md
  */
-import { EventEmitter } from 'events';
-import * as fs from 'fs';
-import * as path from 'path';
-import { execFileSync } from 'child_process';
+import { EventEmitter } from 'node:events';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { execFileSync } from 'node:child_process';
 // ============================================================================
 // Default Configuration
 // ============================================================================
@@ -102,7 +102,7 @@ export class ClaimService extends EventEmitter {
         };
         // Unique tmp filename so a previous in-flight write cannot be clobbered
         // by a concurrent fs.writeFileSync truncating the same .tmp path.
-        const { randomBytes } = await import('crypto');
+        const { randomBytes } = await import('node:crypto');
         const tmp = `${claimsFile}.${process.pid}.${Date.now()}.${randomBytes(4).toString('hex')}.tmp`;
         fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
         fs.renameSync(tmp, claimsFile);
@@ -314,9 +314,12 @@ export class ClaimService extends EventEmitter {
         const info = this.stealableInfo.get(issueId);
         const previousOwner = claim.claimant;
         // Check if steal is allowed
-        if (this.config.requireSameType && stealer.type === 'agent' && previousOwner.type === 'agent') {
+        if (this.config.requireSameType &&
+            stealer.type === 'agent' &&
+            previousOwner.type === 'agent') {
             if (stealer.agentType !== previousOwner.agentType) {
-                const allowed = this.config.allowCrossTypeSteal.some(pair => pair.includes(stealer.agentType) && pair.includes(previousOwner.agentType));
+                const allowed = this.config.allowCrossTypeSteal.some((pair) => pair.includes(stealer.agentType) &&
+                    pair.includes(previousOwner.agentType));
                 if (!allowed) {
                     return { success: false, error: `Cross-type steal not allowed` };
                 }
@@ -380,7 +383,8 @@ export class ClaimService extends EventEmitter {
                     blockedCount++;
             }
         }
-        const agentType = claims[0]?.claimant.type === 'agent' ? claims[0].claimant.agentType : 'unknown';
+        const first = claims[0]?.claimant;
+        const agentType = first?.type === 'agent' ? first.agentType : 'unknown';
         return {
             agentId,
             agentType,
@@ -392,7 +396,7 @@ export class ClaimService extends EventEmitter {
             currentBlockedCount: blockedCount,
         };
     }
-    async rebalance(swarmId) {
+    async rebalance(_swarmId) {
         const result = { moved: [], suggested: [] };
         // Get all agent loads
         const agentLoads = new Map();
@@ -409,17 +413,17 @@ export class ClaimService extends EventEmitter {
         }
         // For each agent type, calculate average load
         for (const agentType of agentTypes) {
-            const typeLoads = Array.from(agentLoads.values()).filter(l => l.agentType === agentType);
+            const typeLoads = Array.from(agentLoads.values()).filter((l) => l.agentType === agentType);
             const avgLoad = typeLoads.reduce((sum, l) => sum + l.utilization, 0) / typeLoads.length;
-            const overloaded = typeLoads.filter(l => l.utilization > avgLoad * 1.5);
-            const underloaded = typeLoads.filter(l => l.utilization < avgLoad * 0.5);
+            const overloaded = typeLoads.filter((l) => l.utilization > avgLoad * 1.5);
+            const underloaded = typeLoads.filter((l) => l.utilization < avgLoad * 0.5);
             // Generate suggestions
             for (const over of overloaded) {
                 const lowProgressClaims = over.claims
-                    .filter(c => c.progress < 25)
+                    .filter((c) => c.progress < 25)
                     .sort((a, b) => a.progress - b.progress);
                 for (const claim of lowProgressClaims) {
-                    const target = underloaded.find(u => u.claimCount < u.maxClaims);
+                    const target = underloaded.find((u) => u.claimCount < u.maxClaims);
                     if (target) {
                         result.suggested.push({
                             issueId: claim.issueId,
@@ -441,7 +445,7 @@ export class ClaimService extends EventEmitter {
     // Queries
     // ==========================================================================
     async getClaimedBy(claimant) {
-        return Array.from(this.claims.values()).filter(c => this.isSameClaimant(c.claimant, claimant));
+        return Array.from(this.claims.values()).filter((c) => this.isSameClaimant(c.claimant, claimant));
     }
     async getAvailableIssues(_filters) {
         // This would integrate with GitHub API
@@ -455,7 +459,7 @@ export class ClaimService extends EventEmitter {
         return Array.from(this.claims.values());
     }
     async getByStatus(status) {
-        return Array.from(this.claims.values()).filter(c => c.status === status);
+        return Array.from(this.claims.values()).filter((c) => c.status === status);
     }
     // ==========================================================================
     // Auto-Management
@@ -590,7 +594,9 @@ export class GitHubSync {
             return isValidRepo(this.config.repo) ? this.config.repo : null;
         }
         try {
-            const remote = execFileSync('git', ['remote', 'get-url', 'origin'], { encoding: 'utf-8' }).trim();
+            const remote = execFileSync('git', ['remote', 'get-url', 'origin'], {
+                encoding: 'utf-8',
+            }).trim();
             const match = remote.match(/github\.com[/:]([\w.-]+\/[\w.-]+)/);
             const repo = match ? match[1].replace('.git', '') : null;
             return repo && isValidRepo(repo) ? repo : null;
@@ -610,7 +616,11 @@ export class GitHubSync {
         }
         const repo = this.getRepo();
         if (!repo) {
-            return { success: false, synced: 0, errors: ['Could not determine GitHub repository'] };
+            return {
+                success: false,
+                synced: 0,
+                errors: ['Could not determine GitHub repository'],
+            };
         }
         // Validate state parameter (whitelist)
         const validStates = ['open', 'closed', 'all'];
@@ -619,11 +629,16 @@ export class GitHubSync {
         }
         try {
             const issuesJson = execFileSync('gh', [
-                'issue', 'list',
-                '--repo', repo,
-                '--state', state,
-                '--json', 'number,title,body,state,labels,assignees,url,createdAt,updatedAt',
-                '--limit', '100'
+                'issue',
+                'list',
+                '--repo',
+                repo,
+                '--state',
+                state,
+                '--json',
+                'number,title,body,state,labels,assignees,url,createdAt,updatedAt',
+                '--limit',
+                '100',
             ], { encoding: 'utf-8' });
             const rawIssues = JSON.parse(issuesJson);
             for (const raw of rawIssues) {
@@ -667,16 +682,24 @@ export class GitHubSync {
         }
         // Validate claim label
         if (!isValidLabel(this.config.claimLabel)) {
-            return { success: false, synced: 0, errors: ['Invalid claim label configuration'] };
+            return {
+                success: false,
+                synced: 0,
+                errors: ['Invalid claim label configuration'],
+            };
         }
         try {
             // Add claim label
             if (this.config.syncLabels) {
                 try {
                     execFileSync('gh', [
-                        'issue', 'edit', String(issueNumber),
-                        '--repo', repo,
-                        '--add-label', this.config.claimLabel
+                        'issue',
+                        'edit',
+                        String(issueNumber),
+                        '--repo',
+                        repo,
+                        '--add-label',
+                        this.config.claimLabel,
                     ], { stdio: 'ignore' });
                 }
                 catch {
@@ -691,9 +714,13 @@ export class GitHubSync {
                 else {
                     try {
                         execFileSync('gh', [
-                            'issue', 'edit', String(issueNumber),
-                            '--repo', repo,
-                            '--add-assignee', claimant.name
+                            'issue',
+                            'edit',
+                            String(issueNumber),
+                            '--repo',
+                            repo,
+                            '--add-assignee',
+                            claimant.name,
                         ], { stdio: 'ignore' });
                     }
                     catch {
@@ -708,11 +735,7 @@ export class GitHubSync {
                     : `Agent: ${(claimant.agentType || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '')}`;
                 const comment = `🤖 **Issue claimed** by ${claimantStr}\n\n_Coordinated by Monomind_`;
                 try {
-                    execFileSync('gh', [
-                        'issue', 'comment', String(issueNumber),
-                        '--repo', repo,
-                        '--body', comment
-                    ], { stdio: 'ignore' });
+                    execFileSync('gh', ['issue', 'comment', String(issueNumber), '--repo', repo, '--body', comment], { stdio: 'ignore' });
                 }
                 catch {
                     errors.push('Failed to add comment');
@@ -746,16 +769,24 @@ export class GitHubSync {
         }
         // Validate claim label
         if (!isValidLabel(this.config.claimLabel)) {
-            return { success: false, synced: 0, errors: ['Invalid claim label configuration'] };
+            return {
+                success: false,
+                synced: 0,
+                errors: ['Invalid claim label configuration'],
+            };
         }
         try {
             // Remove claim label
             if (this.config.syncLabels) {
                 try {
                     execFileSync('gh', [
-                        'issue', 'edit', String(issueNumber),
-                        '--repo', repo,
-                        '--remove-label', this.config.claimLabel
+                        'issue',
+                        'edit',
+                        String(issueNumber),
+                        '--repo',
+                        repo,
+                        '--remove-label',
+                        this.config.claimLabel,
                     ], { stdio: 'ignore' });
                 }
                 catch {
@@ -767,9 +798,13 @@ export class GitHubSync {
                 if (isValidClaimantName(claimant.name)) {
                     try {
                         execFileSync('gh', [
-                            'issue', 'edit', String(issueNumber),
-                            '--repo', repo,
-                            '--remove-assignee', claimant.name
+                            'issue',
+                            'edit',
+                            String(issueNumber),
+                            '--repo',
+                            repo,
+                            '--remove-assignee',
+                            claimant.name,
                         ], { stdio: 'ignore' });
                     }
                     catch {
@@ -784,11 +819,7 @@ export class GitHubSync {
                     : `Agent: ${(claimant.agentType || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '')}`;
                 const comment = `🔓 **Issue released** by ${claimantStr}\n\n_This issue is now available for others to claim._`;
                 try {
-                    execFileSync('gh', [
-                        'issue', 'comment', String(issueNumber),
-                        '--repo', repo,
-                        '--body', comment
-                    ], { stdio: 'ignore' });
+                    execFileSync('gh', ['issue', 'comment', String(issueNumber), '--repo', repo, '--body', comment], { stdio: 'ignore' });
                 }
                 catch {
                     errors.push('Failed to add release comment');
@@ -829,11 +860,13 @@ export class GitHubSync {
         if (!syncResult.success || !syncResult.issues)
             return [];
         const localClaims = await this.claimService.getAllClaims();
-        const claimedIds = new Set(localClaims.map(c => {
+        const claimedIds = new Set(localClaims
+            .map((c) => {
             const match = c.issueId.match(/(\d+)/);
             return match ? parseInt(match[1], 10) : null;
-        }).filter(Boolean));
-        return syncResult.issues.filter(issue => claimedIds.has(issue.number));
+        })
+            .filter((n) => n !== null));
+        return syncResult.issues.filter((issue) => claimedIds.has(issue.number));
     }
 }
 // ============================================================================

@@ -149,9 +149,17 @@ const pursuitTask = {
     stepBudget: 10,
     evaluate(agentOutputs) {
         const target = 'TARGET_FOUND';
-        const hits = agentOutputs.filter(o => o.includes(target)).length;
+        const hits = agentOutputs.filter((o) => o.includes(target)).length;
         const score = agentOutputs.length > 0 ? hits / agentOutputs.length : 0;
-        return { taskId: this.id, type: this.type, passed: score >= 0.75, score, stepsTaken: 1, agentCount: agentOutputs.length, details: `${hits}/${agentOutputs.length} agents converged` };
+        return {
+            taskId: this.id,
+            type: this.type,
+            passed: score >= 0.75,
+            score,
+            stepsTaken: 1,
+            agentCount: agentOutputs.length,
+            details: `${hits}/${agentOutputs.length} agents converged`,
+        };
     },
 };
 /** Synchronization — all agents must emit the same token at the same logical step. */
@@ -163,7 +171,15 @@ const synchronizationTask = {
     stepBudget: 5,
     evaluate(agentOutputs) {
         if (agentOutputs.length === 0)
-            return { taskId: this.id, type: this.type, passed: false, score: 0, stepsTaken: 0, agentCount: 0, details: 'no outputs' };
+            return {
+                taskId: this.id,
+                type: this.type,
+                passed: false,
+                score: 0,
+                stepsTaken: 0,
+                agentCount: 0,
+                details: 'no outputs',
+            };
         const counts = new Map();
         for (const o of agentOutputs) {
             const tok = o.trim().split(/\s+/)[0] ?? '';
@@ -171,7 +187,15 @@ const synchronizationTask = {
         }
         const maxAgree = Math.max(...counts.values());
         const score = maxAgree / agentOutputs.length;
-        return { taskId: this.id, type: this.type, passed: score >= 0.8, score, stepsTaken: 1, agentCount: agentOutputs.length, details: `majority agreement: ${(score * 100).toFixed(0)}%` };
+        return {
+            taskId: this.id,
+            type: this.type,
+            passed: score >= 0.8,
+            score,
+            stepsTaken: 1,
+            agentCount: agentOutputs.length,
+            details: `majority agreement: ${(score * 100).toFixed(0)}%`,
+        };
     },
 };
 /** Foraging — agents must collectively mention ≥ N distinct resources. */
@@ -190,7 +214,15 @@ const foragingTask = {
         }
         const goal = 4;
         const score = Math.min(1, found.size / goal);
-        return { taskId: this.id, type: this.type, passed: found.size >= goal, score, stepsTaken: 1, agentCount: agentOutputs.length, details: `${found.size}/${goal} resources found: ${[...found].join(', ')}` };
+        return {
+            taskId: this.id,
+            type: this.type,
+            passed: found.size >= goal,
+            score,
+            stepsTaken: 1,
+            agentCount: agentOutputs.length,
+            details: `${found.size}/${goal} resources found: ${[...found].join(', ')}`,
+        };
     },
 };
 /** Flocking — each agent must maintain formation by referencing its neighbour. */
@@ -202,9 +234,17 @@ const flockingTask = {
     stepBudget: 20,
     evaluate(agentOutputs) {
         const cohesionKeyword = 'NEIGHBOUR_OK';
-        const aligned = agentOutputs.filter(o => o.includes(cohesionKeyword)).length;
+        const aligned = agentOutputs.filter((o) => o.includes(cohesionKeyword)).length;
         const score = agentOutputs.length > 0 ? aligned / agentOutputs.length : 0;
-        return { taskId: this.id, type: this.type, passed: score >= 0.7, score, stepsTaken: 1, agentCount: agentOutputs.length, details: `${aligned}/${agentOutputs.length} in formation` };
+        return {
+            taskId: this.id,
+            type: this.type,
+            passed: score >= 0.7,
+            score,
+            stepsTaken: 1,
+            agentCount: agentOutputs.length,
+            details: `${aligned}/${agentOutputs.length} in formation`,
+        };
     },
 };
 /** Transport — item must appear in successive agent outputs showing relay progress. */
@@ -217,9 +257,19 @@ const transportTask = {
     evaluate(agentOutputs) {
         const payload = 'PAYLOAD_DELIVERED';
         const lastAgentDelivered = agentOutputs.length > 0 && agentOutputs[agentOutputs.length - 1].includes(payload);
-        const relayCount = agentOutputs.filter(o => o.includes('RELAY')).length;
+        const relayCount = agentOutputs.filter((o) => o.includes('RELAY')).length;
         const score = lastAgentDelivered ? 1 : relayCount / Math.max(agentOutputs.length, 1);
-        return { taskId: this.id, type: this.type, passed: lastAgentDelivered, score, stepsTaken: agentOutputs.length, agentCount: agentOutputs.length, details: lastAgentDelivered ? 'payload delivered' : `relay progress: ${relayCount}/${agentOutputs.length}` };
+        return {
+            taskId: this.id,
+            type: this.type,
+            passed: lastAgentDelivered,
+            score,
+            stepsTaken: agentOutputs.length,
+            agentCount: agentOutputs.length,
+            details: lastAgentDelivered
+                ? 'payload delivered'
+                : `relay progress: ${relayCount}/${agentOutputs.length}`,
+        };
     },
 };
 export const SWARM_BENCH_TASKS = [
@@ -229,6 +279,10 @@ export const SWARM_BENCH_TASKS = [
     flockingTask,
     transportTask,
 ];
+/**
+ * Alias for {@link SWARM_BENCH_TASKS}. Kept for ergonomic imports.
+ */
+export const SWARM = SWARM_BENCH_TASKS;
 /**
  * SwarmBenchRunner — runs the 5 SwarmBench coordination task types.
  * Wraps BenchmarkRunner for regression baseline tracking.
@@ -240,14 +294,14 @@ export class SwarmBenchRunner {
     baselines = new Map();
     /** Run all (or a subset of) SwarmBench tasks against simulated agent outputs. */
     runAll(agentOutputsByTask) {
-        return SWARM_BENCH_TASKS.map(task => {
+        return SWARM_BENCH_TASKS.map((task) => {
             const outputs = agentOutputsByTask.get(task.id) ?? [];
             return task.evaluate(outputs);
         });
     }
     /** Run a single task type by id. */
     runTask(taskId, agentOutputs) {
-        const task = SWARM_BENCH_TASKS.find(t => t.id === taskId);
+        const task = SWARM_BENCH_TASKS.find((t) => t.id === taskId);
         return task?.evaluate(agentOutputs);
     }
     /** Pin current results as the regression baseline. */
@@ -259,11 +313,11 @@ export class SwarmBenchRunner {
     /** Detect regression: returns task IDs whose score dropped below baseline. */
     detectRegressions(current) {
         return current
-            .filter(r => {
+            .filter((r) => {
             const baseline = this.baselines.get(r.taskId);
             return baseline !== undefined && r.score < baseline.score;
         })
-            .map(r => r.taskId);
+            .map((r) => r.taskId);
     }
     /** Expose underlying BenchmarkRunner for general benchmarks. */
     get benchmarkRunner() {

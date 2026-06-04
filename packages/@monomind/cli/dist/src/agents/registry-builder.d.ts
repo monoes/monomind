@@ -1,9 +1,3 @@
-/**
- * Registry Builder (Task 30)
- *
- * Scans agent definition .md files, parses YAML frontmatter,
- * and produces a unified AgentRegistry JSON.
- */
 import type { AgentRegistry } from '../../../shared/src/types/agent-registry.js';
 /**
  * Build the agent registry by scanning `.md` files under `agentsRoot`.

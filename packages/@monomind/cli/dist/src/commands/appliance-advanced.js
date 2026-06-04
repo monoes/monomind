@@ -1,7 +1,3 @@
-/**
- * CLI Appliance Advanced Commands (Phase 3-4)
- * Sign, publish, and hot-patch RVFA appliances.
- */
 import { output } from '../output.js';
 import * as path from 'node:path';
 function fmtSize(bytes) {
@@ -226,7 +222,7 @@ export const updateAppCommand = {
             }
             else {
                 output.printError('Patch failed');
-                result.errors.forEach(e => output.writeln(`  ${output.error('X')} ${e}`));
+                result.errors.forEach((e) => output.writeln(`  ${output.error('X')} ${e}`));
             }
             return { success: result.success, exitCode: result.success ? 0 : 1, data: result };
         }

@@ -1,12 +1,58 @@
-/**
- * Benchmark Runner for Regression Testing (Task 34)
- * Loads benchmark definitions, evaluates quality metrics, and detects regressions.
- */
-type BenchmarkDefinition = any;
-type BenchmarkResult = any;
-type BenchmarkBaseline = any;
-type QualityMetric = any;
-type MetricResult = any;
+/** A single quality metric to evaluate against agent output. */
+export interface QualityMetric {
+    /** Discriminator selecting which evaluator runs. */
+    type: 'contains_expected' | 'length_range' | 'no_hallucination' | 'json_valid' | 'custom_regex' | string;
+    /** Per-metric configuration; shape depends on `type`. */
+    config?: Record<string, unknown>;
+}
+/** Result of evaluating one quality metric. */
+export interface MetricResult {
+    /** The metric type that produced this result. */
+    type: string;
+    /** Whether the metric passed. */
+    passed: boolean;
+    /** Observed value (metric-specific). */
+    actual: unknown;
+    /** Expected value (metric-specific). */
+    expected: unknown;
+    /** Human-readable explanation. */
+    message: string;
+}
+/** A benchmark definition loaded from a JSON file. */
+export interface BenchmarkDefinition {
+    /** Unique benchmark identifier. */
+    benchmarkId: string;
+    /** Agent slug this benchmark targets. */
+    agentSlug: string;
+    /** Quality metrics to evaluate. */
+    qualityMetrics: QualityMetric[];
+}
+/** Result of running a single benchmark. */
+export interface BenchmarkResult {
+    /** The benchmark that was run. */
+    benchmarkId: string;
+    /** Unique run identifier. */
+    runId: string;
+    /** Agent slug the benchmark targeted. */
+    agentSlug: string;
+    /** Whether all metrics passed. */
+    passed: boolean;
+    /** Per-metric results. */
+    metricResults: MetricResult[];
+    /** ISO timestamp of the run. */
+    runAt: string;
+    /** Wall-clock duration in milliseconds. */
+    durationMs: number;
+}
+/** A pinned baseline for regression comparison. */
+export interface BenchmarkBaseline {
+    /** ISO timestamp when the baseline was pinned. */
+    pinnedAt: string;
+    /** Fraction of results that passed [0, 1]. */
+    passRate: number;
+    /** Average run duration in milliseconds. */
+    avgDurationMs: number;
+}
 export declare class BenchmarkRunner {
     private baselines;
     /**
@@ -37,8 +83,6 @@ export declare class BenchmarkRunner {
     getBaseline(benchmarkId: string): BenchmarkBaseline | undefined;
     private evaluateSingleMetric;
 }
-/** Minimal local type aliases so SwarmBench doesn't depend on the broken
- *  @monomind/shared exports at the top of this file. */
 export interface SwarmBenchTask {
     /** Unique task ID */
     id: string;
@@ -64,6 +108,10 @@ export interface SwarmBenchResult {
 }
 export declare const SWARM_BENCH_TASKS: readonly SwarmBenchTask[];
 /**
+ * Alias for {@link SWARM_BENCH_TASKS}. Kept for ergonomic imports.
+ */
+export declare const SWARM: readonly SwarmBenchTask[];
+/**
  * SwarmBenchRunner — runs the 5 SwarmBench coordination task types.
  * Wraps BenchmarkRunner for regression baseline tracking.
  *
@@ -83,5 +131,4 @@ export declare class SwarmBenchRunner {
     /** Expose underlying BenchmarkRunner for general benchmarks. */
     get benchmarkRunner(): BenchmarkRunner;
 }
-export {};
 //# sourceMappingURL=benchmark-runner.d.ts.map

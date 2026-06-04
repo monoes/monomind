@@ -12,19 +12,20 @@
  *
  * @see /packages/implementation/adrs/ADR-016-collaborative-issue-claims.md
  */
-import { EventEmitter } from 'events';
-export type Claimant = {
+import { EventEmitter } from 'node:events';
+export type ClaimStatus = 'active' | 'paused' | 'handoff-pending' | 'review-requested' | 'blocked' | 'stealable' | 'completed';
+export interface HumanClaimant {
     type: 'human';
     userId: string;
     name: string;
-} | {
+}
+export interface AgentClaimant {
     type: 'agent';
     agentId: string;
     agentType: string;
-};
-export type ClaimStatus = 'active' | 'paused' | 'handoff-pending' | 'review-requested' | 'blocked' | 'stealable' | 'completed';
-export type StealReason = 'overloaded' | 'stale' | 'blocked-timeout' | 'voluntary';
-export interface IssueClaim {
+}
+export type Claimant = HumanClaimant | AgentClaimant;
+export interface Claim {
     issueId: string;
     claimant: Claimant;
     claimedAt: Date;
@@ -38,48 +39,53 @@ export interface IssueClaim {
     context?: string;
 }
 export interface StealableInfo {
-    reason: StealReason;
+    reason: string;
     stealableAt: Date;
-    preferredTypes?: string[];
     progress: number;
     context?: string;
+    preferredTypes?: string[];
 }
 export interface ClaimResult {
     success: boolean;
-    claim?: IssueClaim;
+    claim?: Claim;
     error?: string;
 }
 export interface StealResult {
     success: boolean;
-    claim?: IssueClaim;
+    claim?: Claim;
     previousOwner?: Claimant;
     context?: StealableInfo;
     error?: string;
 }
-export interface AgentLoadInfo {
+export interface AgentLoad {
     agentId: string;
     agentType: string;
     claimCount: number;
     maxClaims: number;
     utilization: number;
-    claims: IssueClaim[];
+    claims: Claim[];
     avgCompletionTime: number;
     currentBlockedCount: number;
 }
-export interface RebalanceResult {
-    moved: Array<{
-        issueId: string;
-        from: Claimant;
-        to: Claimant;
-    }>;
-    suggested: Array<{
-        issueId: string;
-        currentOwner: Claimant;
-        suggestedOwner: Claimant;
-        reason: string;
-    }>;
+export interface RebalanceSuggestion {
+    issueId: string;
+    currentOwner: Claimant;
+    suggestedOwner: Claimant;
+    reason: string;
 }
-export interface WorkStealingConfig {
+export interface RebalanceResult {
+    moved: string[];
+    suggested: RebalanceSuggestion[];
+}
+export interface ClaimEvent {
+    type: string;
+    timestamp: Date;
+    issueId: string;
+    claimant?: Claimant;
+    previousClaimant?: Claimant;
+    data?: Record<string, unknown>;
+}
+export interface ClaimServiceConfig {
     staleThresholdMinutes: number;
     blockedThresholdMinutes: number;
     overloadThreshold: number;
@@ -88,12 +94,6 @@ export interface WorkStealingConfig {
     contestWindowMinutes: number;
     requireSameType: boolean;
     allowCrossTypeSteal: string[][];
-}
-export interface IssueFilters {
-    status?: ClaimStatus[];
-    labels?: string[];
-    agentTypes?: string[];
-    priority?: string[];
 }
 export interface GitHubIssue {
     number: number;
@@ -108,27 +108,18 @@ export interface GitHubIssue {
 }
 export interface GitHubSyncConfig {
     enabled: boolean;
-    repo?: string;
     syncLabels: boolean;
     claimLabel: string;
     autoAssign: boolean;
     commentOnClaim: boolean;
     commentOnRelease: boolean;
+    repo?: string;
 }
-export interface GitHubSyncResult {
+export interface SyncResult {
     success: boolean;
     synced: number;
     errors: string[];
     issues?: GitHubIssue[];
-}
-export type ClaimEventType = 'issue:claimed' | 'issue:released' | 'issue:handoff:requested' | 'issue:handoff:accepted' | 'issue:handoff:rejected' | 'issue:status:changed' | 'issue:review:requested' | 'issue:expired' | 'issue:stealable' | 'issue:stolen' | 'issue:steal:contested' | 'issue:steal:resolved' | 'swarm:rebalanced' | 'agent:overloaded' | 'agent:underloaded';
-export interface ClaimEvent {
-    type: ClaimEventType;
-    timestamp: Date;
-    issueId?: string;
-    claimant?: Claimant;
-    previousClaimant?: Claimant;
-    data?: Record<string, unknown>;
 }
 export declare class ClaimService extends EventEmitter {
     private claims;
@@ -136,7 +127,7 @@ export declare class ClaimService extends EventEmitter {
     private storagePath;
     private config;
     private eventLog;
-    constructor(projectRoot: string, config?: Partial<WorkStealingConfig>);
+    constructor(projectRoot: string, config?: Partial<ClaimServiceConfig>);
     initialize(): Promise<void>;
     private loadClaims;
     private _saveQueue;
@@ -149,19 +140,19 @@ export declare class ClaimService extends EventEmitter {
     rejectHandoff(issueId: string, claimant: Claimant, reason: string): Promise<void>;
     updateStatus(issueId: string, status: ClaimStatus, note?: string): Promise<void>;
     updateProgress(issueId: string, progress: number): Promise<void>;
-    requestReview(issueId: string, reviewers: Claimant[]): Promise<void>;
+    requestReview(issueId: string, reviewers: string[]): Promise<void>;
     markStealable(issueId: string, info: StealableInfo, claimant?: Claimant): Promise<void>;
     steal(issueId: string, stealer: Claimant): Promise<StealResult>;
-    getStealable(agentType?: string): Promise<IssueClaim[]>;
+    getStealable(agentType?: string): Promise<Claim[]>;
     contestSteal(issueId: string, originalClaimant: Claimant, reason: string): Promise<void>;
-    getAgentLoad(agentId: string): Promise<AgentLoadInfo>;
-    rebalance(swarmId: string): Promise<RebalanceResult>;
-    getClaimedBy(claimant: Claimant): Promise<IssueClaim[]>;
-    getAvailableIssues(_filters?: IssueFilters): Promise<string[]>;
-    getIssueStatus(issueId: string): Promise<IssueClaim | null>;
-    getAllClaims(): Promise<IssueClaim[]>;
-    getByStatus(status: ClaimStatus): Promise<IssueClaim[]>;
-    expireStale(maxAgeMinutes?: number): Promise<IssueClaim[]>;
+    getAgentLoad(agentId: string): Promise<AgentLoad>;
+    rebalance(_swarmId: string): Promise<RebalanceResult>;
+    getClaimedBy(claimant: Claimant): Promise<Claim[]>;
+    getAvailableIssues(_filters?: unknown): Promise<GitHubIssue[]>;
+    getIssueStatus(issueId: string): Promise<Claim | null>;
+    getAllClaims(): Promise<Claim[]>;
+    getByStatus(status: ClaimStatus): Promise<Claim[]>;
+    expireStale(maxAgeMinutes?: number): Promise<Claim[]>;
     private formatClaimant;
     private isSameClaimant;
     private emitEvent;
@@ -182,25 +173,25 @@ export declare class GitHubSync {
     /**
      * Sync issues from GitHub
      */
-    syncIssues(state?: 'open' | 'closed' | 'all'): Promise<GitHubSyncResult>;
+    syncIssues(state?: 'open' | 'closed' | 'all'): Promise<SyncResult>;
     /**
      * Sync a local claim to GitHub (add label/assignee/comment)
      */
-    claimOnGitHub(issueNumber: number, claimant: Claimant): Promise<GitHubSyncResult>;
+    claimOnGitHub(issueNumber: number, claimant: Claimant): Promise<SyncResult>;
     /**
      * Release claim on GitHub (remove label/assignee/comment)
      */
-    releaseOnGitHub(issueNumber: number, claimant: Claimant): Promise<GitHubSyncResult>;
+    releaseOnGitHub(issueNumber: number, claimant: Claimant): Promise<SyncResult>;
     /**
      * Bulk sync all local claims to GitHub
      */
-    syncAllClaimsToGitHub(): Promise<GitHubSyncResult>;
+    syncAllClaimsToGitHub(): Promise<SyncResult>;
     /**
      * Get GitHub issues that are claimed locally
      */
     getClaimedGitHubIssues(): Promise<GitHubIssue[]>;
 }
-export declare function createClaimService(projectRoot: string, config?: Partial<WorkStealingConfig>): ClaimService;
+export declare function createClaimService(projectRoot: string, config?: Partial<ClaimServiceConfig>): ClaimService;
 export declare function createGitHubSync(claimService: ClaimService, config?: Partial<GitHubSyncConfig>): GitHubSync;
 export default ClaimService;
 //# sourceMappingURL=claim-service.d.ts.map
