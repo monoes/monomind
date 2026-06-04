@@ -5105,7 +5105,7 @@ async function v2OpenAgent(roleId) {
   headEl.innerHTML = '<button class="oad-close" onclick="v2CloseAgent()" aria-label="Close">✕</button>';
   bodyEl.innerHTML = '<div class="oad-loading">Loading agent…</div>';
   try {
-    const r = await fetch(`/api/org/${encodeURIComponent(_v2SelOrg)}/agent/${encodeURIComponent(roleId)}`);
+    const r = await fetch(`/api/org/${encodeURIComponent(_v2SelOrg)}/agent/${encodeURIComponent(roleId)}${DIR ? '?dir=' + encodeURIComponent(DIR) : ''}`);
     if (!r.ok) throw new Error('not found');
     v2RenderAgentDrawer(await r.json());
   } catch (_) {
