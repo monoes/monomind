@@ -1,1 +1,1 @@
-{"agent":"AI selecting","agentSlug":"china-e-commerce-operator","confidence":0.6,"reason":"Keyword 2-stage: marketing → China E-Commerce Operator","semanticRouting":false,"llmRouting":true,"updatedAt":"2026-06-01T07:48:49.423Z","extrasMatches":[{"name":"Agentic Identity & Trust Architect","slug":"agentic-identity-trust-architect","category":"specialized"}]}
+{"agent":"/agent-browser-testing","confidence":1,"reason":"predefined command — no routing needed","semanticRouting":false,"updatedAt":"2026-06-04T14:33:10.819Z"}
