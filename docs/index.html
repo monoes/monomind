@@ -263,7 +263,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <button class="nav-link" data-page="architecture"><span class="nav-dot"></span>Architecture</button>
     <button class="nav-link" data-page="memory"><span class="nav-dot"></span>Memory &amp; Knowledge</button>
     <button class="nav-link" data-page="hooks"><span class="nav-dot"></span>Hooks &amp; Workers</button>
-    <button class="nav-link" data-page="neural"><span class="nav-dot"></span>Neural Learning</button>
+    <button class="nav-link" data-page="neural"><span class="nav-dot"></span>Intelligence</button>
   </div>
   <div class="sidebar-footer">
     <a class="sidebar-link" href="https://github.com/monoes/monomind" target="_blank" rel="noopener">
@@ -301,7 +301,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <canvas id="hero-canvas" aria-hidden="true"></canvas>
     <div class="hero-eyebrow">Autonomous Claude Code Orchestration</div>
     <h1 class="hero-title">Build. Learn. Evolve.<br><em>Without stopping.</em></h1>
-    <p class="hero-sub">Monomind wraps Claude Code with persistent memory, multi-agent swarms, a code knowledge graph, and self-optimizing neural training — all wired into one CLI.</p>
+    <p class="hero-sub">Monomind wraps Claude Code with persistent memory, multi-agent swarms, a code knowledge graph, and keyword routing with outcome measurement — all wired into one CLI.</p>
     <div class="hero-actions">
       <button class="btn btn-primary" data-page="getting-started">Get Started →</button>
       <button class="btn btn-ghost" data-page="architecture">Architecture</button>
@@ -323,7 +323,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <div class="card reveal"><div class="card-icon">🧠</div><div class="card-title">Persistent Memory</div><div class="card-desc">Four-tier memory palace (L0–L3) with BM25 search, HNSW vector indexing, and AgentDB backends. Context survives across sessions.</div></div>
       <div class="card reveal"><div class="card-icon">🐝</div><div class="card-title">Swarm Topologies</div><div class="card-desc">Hierarchical, mesh, adaptive, and hybrid multi-agent swarms with Raft, Byzantine, and CRDT consensus. 15-agent domain hierarchy.</div></div>
       <div class="card reveal"><div class="card-icon">🔗</div><div class="card-title">Knowledge Graph</div><div class="card-desc">Monograph builds a full dependency graph of your codebase — 23 MCP tools for impact analysis, path finding, and community detection.</div></div>
-      <div class="card reveal"><div class="card-icon">⚡</div><div class="card-title">Self-Optimizing</div><div class="card-desc">SONA neural architecture with LoRA fine-tuning and EWC++ memory preservation. Learns from every hook event without catastrophic forgetting.</div></div>
+      <div class="card reveal"><div class="card-icon">⚡</div><div class="card-title">Outcome-Measured Routing</div><div class="card-desc">Deterministic keyword routing with route-outcome correlation. Every hook event is logged so routing accuracy and adherence can be measured by <code>doctor</code>.</div></div>
       <div class="card reveal"><div class="card-icon">🔁</div><div class="card-title">Autonomous Loops</div><div class="card-desc">--tillend runs a command until nothing is left to do. /mastermind:autodev --tillend researches, builds, reviews, and loops while you sleep.</div></div>
       <div class="card reveal"><div class="card-icon">🎣</div><div class="card-title">Hook System</div><div class="card-desc">22 hook events, 10+ background workers. Pre/post-edit, pre/post-task, session, learning, and agent-team hooks with zero-overhead dispatch.</div></div>
     </div>
@@ -447,9 +447,9 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <text class="arch-label" x="120" y="212" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/swarm</text>
         <text class="arch-sub" x="120" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">6 topologies</text>
         <text class="arch-sub" x="120" y="248" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">5 consensus algorithms</text>
-        <text class="arch-label" x="380" y="212" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/neural</text>
-        <text class="arch-sub" x="380" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">SONA + LoRA + EWC++</text>
-        <text class="arch-sub" x="380" y="248" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Self-optimizing</text>
+        <text class="arch-label" x="380" y="212" text-anchor="middle" fill="oklch(65% 0.16 295)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/routing</text>
+        <text class="arch-sub" x="380" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">keyword routing</text>
+        <text class="arch-sub" x="380" y="248" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">route-outcome measurement</text>
         <text class="arch-label" x="640" y="212" text-anchor="middle" fill="oklch(78% 0.14 210)" font-family="Space Grotesk" font-weight="600" font-size="13" opacity="0">@monomind/security</text>
         <text class="arch-sub" x="640" y="232" text-anchor="middle" fill="oklch(75% 0.008 265)" font-size="11" opacity="0">CVE remediation</text>
         <text class="arch-sub" x="640" y="248" text-anchor="middle" fill="oklch(55% 0.010 265)" font-size="11" opacity="0">Input validation</text>
@@ -479,7 +479,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <tr><td class="mono">@monomind/security</td><td class="mono">packages/@monomind/security/</td><td>Input validation, CVE remediation</td></tr>
         <tr><td class="mono">@monomind/guidance</td><td class="mono">packages/@monomind/guidance/</td><td>Governance control plane</td></tr>
         <tr><td class="mono">@monomind/swarm</td><td class="mono">packages/@monomind/swarm/</td><td>Multi-agent swarm coordination</td></tr>
-        <tr><td class="mono">@monomind/neural</td><td class="mono">packages/@monomind/neural/</td><td>SONA + LoRA + EWC++ training</td></tr>
+        <tr><td class="mono">@monomind/routing</td><td class="mono">packages/@monomind/routing/</td><td>Keyword routing, route-outcome measurement</td></tr>
         <tr><td class="mono">monograph</td><td class="mono">packages/monograph/</td><td>Code knowledge graph, 23 MCP tools</td></tr>
         <tr><td class="mono">monomind</td><td class="mono">/ (root)</td><td>Umbrella package published to npm</td></tr>
       </tbody>
@@ -515,7 +515,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     <div class="tier-stack reveal">
       <div class="tier-row tier-l0"><div class="tier-label">L0<br>In-flight</div><div class="tier-content"><strong>Current session context.</strong> Stored in <code>drawers.jsonl</code>. Each drawer has a key, value, tags array, timestamp, and score. Ephemeral — not persisted across sessions unless promoted.</div></div>
       <div class="tier-row tier-l1"><div class="tier-label">L1<br>Working</div><div class="tier-content"><strong>Cross-session working memory.</strong> Closets store aggregated entries from multiple drawers. Closet boost adds +0.5 per matching search term. BM25 parameters: K1=1.5, B=0.75.</div></div>
-      <div class="tier-row tier-l2"><div class="tier-label">L2<br>Long-term</div><div class="tier-content"><strong>Persisted embeddings.</strong> AgentDB with HNSW indexing. Hybrid backend combines SQLite for exact lookups with AgentDB for semantic search. 150x–12,500x speedup over brute-force.</div></div>
+      <div class="tier-row tier-l2"><div class="tier-label">L2<br>Long-term</div><div class="tier-content"><strong>Persisted embeddings.</strong> AgentDB with HNSW indexing. Hybrid backend combines SQLite for exact lookups with AgentDB for semantic search. Pure-JS HNSW gives O(log n) approximate nearest neighbor vs O(n) brute-force.</div></div>
       <div class="tier-row tier-l3"><div class="tier-label">L3<br>Shared</div><div class="tier-content"><strong>Cross-agent namespace.</strong> PartitionedHNSW shards by agent domain. Federation allows swarm agents to read each other's L3 without owning writes. Knowledge graph edges land here.</div></div>
     </div>
     <div class="section-title reveal">Storage Backends</div>
@@ -552,10 +552,10 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
     </div>
     <div class="section-title reveal">Learning Pipeline</div>
     <div class="phase-flow reveal">
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 1</div><div class="phase-name">RETRIEVE</div><div class="phase-desc">HNSW ANN search across L2/L3 tiers. Returns top-K neighbors by cosine similarity in sub-millisecond time.</div></div></div>
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 2</div><div class="phase-name">JUDGE</div><div class="phase-desc">Relevance verdicts computed by RuVector. High/low/neutral signals flow to the distillation step.</div></div></div>
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 3</div><div class="phase-name">DISTILL</div><div class="phase-desc">LoRA fine-tune on high-signal trajectories. Rank 1–16 adapter applied to base model without full retraining.</div></div></div>
-      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 4</div><div class="phase-name">CONSOLIDATE</div><div class="phase-desc">EWC++ (lambda 1500–2500) prevents catastrophic forgetting while incorporating new patterns. Elastic weight consolidation preserves prior task performance.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 1</div><div class="phase-name">RETRIEVE</div><div class="phase-desc">Pure-JS HNSW ANN search across L2/L3 tiers. Returns top-K neighbors by cosine similarity.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 2</div><div class="phase-name">LOG</div><div class="phase-desc">Trajectories, steps, and command/route outcomes are recorded (<code>intelligence.ts</code>, <code>command-outcomes.ts</code>, <code>route-outcomes.ts</code>).</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 3</div><div class="phase-name">MEASURE</div><div class="phase-desc">Recommended routes are correlated with actual outcomes; <code>doctor</code> reports routing accuracy and adherence.</div></div></div>
+      <div class="phase-step"><div class="phase-connector"><div class="phase-dot"></div><div class="phase-line"></div></div><div class="phase-body"><div class="phase-num">Step 4</div><div class="phase-name">CONSOLIDATE</div><div class="phase-desc">Dedup, detect contradictions, and prune old patterns from <code>patterns.json</code>. The neural judge/distill loop lives on the <code>monoes-full-loop</code> branch.</div></div></div>
     </div>
   </div>
 </div>
@@ -574,7 +574,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <thead><tr><th>Event</th><th>Category</th><th>Description</th></tr></thead>
       <tbody>
         <tr><td class="mono">pre-edit</td><td><span class="tag tag-accent">core</span></td><td>Context and agent suggestions before editing a file</td></tr>
-        <tr><td class="mono">post-edit</td><td><span class="tag tag-accent">core</span></td><td>Record edit outcome for neural pattern learning</td></tr>
+        <tr><td class="mono">post-edit</td><td><span class="tag tag-accent">core</span></td><td>Record edit outcome for pattern logging</td></tr>
         <tr><td class="mono">pre-command</td><td><span class="tag tag-accent">core</span></td><td>Intercept command before execution</td></tr>
         <tr><td class="mono">post-command</td><td><span class="tag tag-accent">core</span></td><td>Record command result</td></tr>
         <tr><td class="mono">pre-task</td><td><span class="tag tag-accent">core</span></td><td>Register task start; get AGENT_BOOSTER_AVAILABLE or TASK_MODEL_RECOMMENDATION</td></tr>
@@ -603,7 +603,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <tr><td class="mono">swarm</td><td><span class="tag tag-red">critical</span></td><td>Swarm coordinator heartbeat and agent lifecycle</td></tr>
         <tr><td class="mono">performance</td><td><span class="tag tag-amber">normal</span></td><td>Token cost tracking, latency profiling</td></tr>
         <tr><td class="mono">patterns</td><td><span class="tag tag-amber">normal</span></td><td>Pattern extraction from hook trajectories</td></tr>
-        <tr><td class="mono">learning</td><td><span class="tag tag-amber">normal</span></td><td>SONA LoRA fine-tune on high-signal runs</td></tr>
+        <tr><td class="mono">learning</td><td><span class="tag tag-amber">normal</span></td><td>Outcome/trajectory logging and pattern consolidation</td></tr>
         <tr><td class="mono">git</td><td><span class="tag tag-amber">normal</span></td><td>Commit analysis, branch diff summaries</td></tr>
         <tr><td class="mono">ddd</td><td><span class="tag tag-muted">low</span></td><td>Domain-driven design pattern detection</td></tr>
         <tr><td class="mono">adr</td><td><span class="tag tag-muted">low</span></td><td>Architecture Decision Record harvesting</td></tr>
@@ -671,7 +671,7 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
         <tr><td>Architecture</td><td>Architect, SystemDesigner</td></tr>
         <tr><td>Engineering</td><td>Coder, BackendDev, FrontendDev</td></tr>
         <tr><td>Quality</td><td>Tester, Reviewer, SecurityAuditor</td></tr>
-        <tr><td>Memory / Intelligence</td><td>MemorySpecialist, NeuralTrainer</td></tr>
+        <tr><td>Memory / Intelligence</td><td>MemorySpecialist, MemoryCoordinator</td></tr>
         <tr><td>Operations</td><td>PerfEngineer, MonitorAgent</td></tr>
         <tr><td>Research</td><td>ResearchAgent</td></tr>
       </tbody>
@@ -700,56 +700,34 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
   <div class="page-content">
     <div class="page-header">
       <span class="page-tag">Concepts</span>
-      <h1 class="page-title">Neural Learning</h1>
-      <p class="page-desc">SONA self-optimizing architecture, LoRA adapters, EWC++ memory preservation, and a full RL agent suite — running automatically in the background.</p>
+      <h1 class="page-title">Intelligence</h1>
+      <p class="page-desc">Deterministic keyword routing, route-outcome measurement, and trajectory + pattern logging — running automatically in the background. No neural training in the lean build.</p>
     </div>
     <div class="reveal" style="margin-bottom:24px">
-      <img src="assets/neural-photo.png" alt="Neural learning visualization" style="width:100%;max-width:600px;border-radius:10px;display:block;object-fit:cover;max-height:260px">
+      <img src="assets/neural-photo.png" alt="Intelligence subsystem visualization" style="width:100%;max-width:600px;border-radius:10px;display:block;object-fit:cover;max-height:260px">
     </div>
-    <div class="section-title reveal">SONA Operating Modes</div>
-    <div class="table-wrap reveal">
-    <table class="doc-table">
-      <thead><tr><th>Mode</th><th>LoRA Rank</th><th>Batch</th><th>Latency Target</th><th>Memory</th></tr></thead>
-      <tbody>
-        <tr><td><span class="tag tag-accent">real-time</span></td><td>1–2</td><td>1</td><td>&lt;50ms</td><td>&lt;512MB</td></tr>
-        <tr><td><span class="tag tag-cyan">balanced</span></td><td>4–8</td><td>4</td><td>&lt;500ms</td><td>&lt;2GB</td></tr>
-        <tr><td><span class="tag tag-violet">research</span></td><td>16</td><td>16</td><td>uncapped</td><td>&lt;8GB</td></tr>
-        <tr><td><span class="tag tag-amber">edge</span></td><td>1</td><td>1</td><td>&lt;10ms</td><td>&lt;256MB</td></tr>
-        <tr><td><span class="tag tag-muted">batch</span></td><td>8–16</td><td>32</td><td>offline</td><td>&lt;16GB</td></tr>
-      </tbody>
-    </table>
-    </div>
-    <div class="section-title reveal">LoRA + EWC++</div>
+    <div class="section-title reveal">How it works</div>
     <div class="card-grid reveal">
-      <div class="card"><div class="card-title">LoRA Fine-Tuning</div><div class="card-desc">Low-Rank Adaptation injects trainable rank decomposition matrices into attention layers. Rank 1–16. No full model retraining — only adapter weights update.</div></div>
-      <div class="card"><div class="card-title">EWC++ Memory</div><div class="card-desc">Elastic Weight Consolidation with lambda 1500–2500. Constrains gradient updates on weights important to prior tasks. Prevents catastrophic forgetting across training rounds.</div></div>
-    </div>
-    <div class="section-title reveal">RL Algorithms</div>
-    <div class="table-wrap reveal">
-    <table class="doc-table">
-      <thead><tr><th>Algorithm</th><th>Use Case</th></tr></thead>
-      <tbody>
-        <tr><td class="mono">PPO</td><td>Default RL trainer. Proximal Policy Optimization — stable, on-policy.</td></tr>
-        <tr><td class="mono">DQN</td><td>Deep Q-Network — discrete action spaces, tool selection.</td></tr>
-        <tr><td class="mono">A2C</td><td>Advantage Actor-Critic — faster convergence for parallel environments.</td></tr>
-        <tr><td class="mono">DecisionTransformer</td><td>Sequence-based RL — models trajectories as token sequences.</td></tr>
-        <tr><td class="mono">QLearning</td><td>Classic tabular Q — lightweight for small state spaces.</td></tr>
-        <tr><td class="mono">SARSA</td><td>On-policy TD — conservative, lower variance than Q-Learning.</td></tr>
-        <tr><td class="mono">CuriosityModule</td><td>Intrinsic motivation — exploration bonus for novel states.</td></tr>
-      </tbody>
-    </table>
+      <div class="card"><div class="card-title">Keyword Routing</div><div class="card-desc"><code>createKeywordRouter</code> maps a task description to an agent type by keyword scoring — no LLM call and no learned weights. Deterministic and sub-millisecond.</div></div>
+      <div class="card"><div class="card-title">Route-Outcome Measurement</div><div class="card-desc">Recommended routes are auto-correlated with actual outcomes. <code>doctor</code> surfaces routing accuracy and recommended-vs-actual adherence over a rolling window.</div></div>
+      <div class="card"><div class="card-title">Trajectory + Outcome Logging</div><div class="card-desc">Steps and trajectories (<code>intelligence.ts</code>) plus command and route outcomes (<code>command-outcomes.ts</code>, <code>route-outcomes.ts</code>) are recorded as plain JSON for later analysis.</div></div>
+      <div class="card"><div class="card-title">Pattern Consolidation</div><div class="card-desc">The <code>learning</code> worker dedups, detects contradictions, and prunes old entries from <code>patterns.json</code> on a 30-minute interval.</div></div>
     </div>
     <div class="section-title reveal">CLI</div>
     <div class="code-block reveal">
-<span class="comment"># Train with Flash Attention (2.49x–7.47x speedup)</span>
-<span class="cmd">npx monomind neural train --flash</span>
+<span class="comment"># Inspect logged patterns</span>
+<span class="cmd">npx monomind neural patterns --action list</span>
 
-<span class="comment"># Mixture-of-Experts training</span>
-<span class="cmd">npx monomind neural train --moe</span>
+<span class="comment"># Predict routing for a task from logged patterns</span>
+<span class="cmd">npx monomind neural predict --input "implement auth"</span>
 
-<span class="comment"># Optimize existing model</span>
+<span class="comment"># Optimize the pattern store</span>
 <span class="cmd">npx monomind neural optimize --method quantize</span>
-<span class="cmd">npx monomind neural optimize --method compact</span></div>
+<span class="cmd">npx monomind neural optimize --method compact</span>
+
+<span class="comment"># Routing accuracy / adherence</span>
+<span class="cmd">npx monomind doctor</span></div>
+    <p class="page-desc reveal" style="margin-top:20px">The full neural learning loop — SONA self-optimizing architecture, LoRA adapters, EWC++ memory preservation, Flash Attention, MoE routing, and the RL agent suite — lives on the <code>monoes-full-loop</code> branch and is not available in the lean build.</p>
   </div>
 </div>
 
@@ -803,9 +781,10 @@ code { font-family: var(--ff-m); font-size: 0.85em; background: var(--surface2);
       <div class="cmd-item" data-search="daemon start background service"><div class="cmd-name">daemon start</div><div class="cmd-desc">Start the background worker daemon</div></div>
       <div class="cmd-item" data-search="daemon stop shutdown kill"><div class="cmd-name">daemon stop</div><div class="cmd-desc">Gracefully stop all daemon processes</div></div>
       <div class="cmd-item" data-search="daemon status pid uptime health"><div class="cmd-name">daemon status</div><div class="cmd-desc">PID, uptime, worker health report</div></div>
-      <div class="cmd-item" data-search="neural train flash attention speedup lora"><div class="cmd-name">neural train --flash</div><div class="cmd-desc">Train with Flash Attention (2.49x–7.47x speedup)</div></div>
-      <div class="cmd-item" data-search="neural optimize quantize compact analyze"><div class="cmd-name">neural optimize</div><div class="cmd-desc">Optimize model: quantize, analyze, compact</div></div>
-      <div class="cmd-item" data-search="neural status training lora ewc"><div class="cmd-name">neural status</div><div class="cmd-desc">Training state, LoRA rank, EWC lambda</div></div>
+      <div class="cmd-item" data-search="neural patterns list logged"><div class="cmd-name">neural patterns</div><div class="cmd-desc">List logged patterns</div></div>
+      <div class="cmd-item" data-search="neural predict route input"><div class="cmd-name">neural predict</div><div class="cmd-desc">Predict routing for a task from logged patterns</div></div>
+      <div class="cmd-item" data-search="neural optimize quantize compact analyze"><div class="cmd-name">neural optimize</div><div class="cmd-desc">Optimize pattern store: quantize, analyze, compact</div></div>
+      <div class="cmd-item" data-search="neural status patterns count"><div class="cmd-name">neural status</div><div class="cmd-desc">Pattern store status</div></div>
       <div class="cmd-item" data-search="security scan audit cve vulnerability"><div class="cmd-name">security scan</div><div class="cmd-desc">Run CVE and vulnerability scan</div></div>
       <div class="cmd-item" data-search="security validate input sanitize"><div class="cmd-name">security validate</div><div class="cmd-desc">Input validation and sanitization check</div></div>
       <div class="cmd-item" data-search="performance profile benchmark latency token"><div class="cmd-name">performance profile</div><div class="cmd-desc">Record latency and token cost profiles</div></div>

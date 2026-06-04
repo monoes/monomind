@@ -106,7 +106,6 @@ UnifiedMemoryService
 Pure-TypeScript Hierarchical Navigable Small World implementation:
 
 - **Complexity:** O(log n) query vs O(n) brute force
-- **Speedup:** 150x–12,500x at scale
 - **Optimizations:** BinaryMinHeap/BinaryMaxHeap for O(log n) priority queue, pre-normalized vectors for O(1) cosine, bounded max-heap for top-k
 - **Distance metrics:** `cosine` (default), `euclidean`, `dot`, `manhattan`
 
@@ -117,7 +116,6 @@ Pure-TypeScript Hierarchical Navigable Small World implementation:
 | `SQLiteBackend` | ACID, exact matches, metadata filters |
 | `AgentDBBackend` | Semantic vector search via HNSW; wraps `agentdb@2.0.0-alpha.3.4` |
 | `HybridBackend` | Default: routes semantic → AgentDB, structured → SQLite; dual-write option |
-| `RvfBackend` | MonoVector feature backend |
 | `SqljsBackend` | sql.js WASM fallback (browser/edge) |
 | `PartitionedHNSW` | Timestamp-partitioned HNSW for temporally-local search |
 | `DiskAnnBackend` | Disk-resident ANN graph for large corpora (Tier 4) |
@@ -275,15 +273,16 @@ All memory persists across sessions in `.monomind/`:
 
 ## 5. Learning Pipeline
 
-The 4-step intelligence pipeline runs during `session-end` and `consolidate`:
+The lean build records trajectories and outcomes rather than training a neural model.
+During `session-end` and `consolidate`:
 
-1. **RETRIEVE** — top-k memory injection with MMR diversity
-2. **JUDGE** — LLM-as-judge trajectory evaluation
-3. **DISTILL** — extract strategy memories from trajectories
-4. **CONSOLIDATE** — dedup, detect contradictions, prune old patterns
+- **Trajectory + outcome logging** — steps and trajectories are recorded (`intelligence.ts`); command and route outcomes are tracked (`command-outcomes.ts`, `route-outcomes.ts`)
+- **Consolidation** — dedup, detect contradictions, prune old patterns from `patterns.json`
 
 Optional extensions:
 - **EMBED** — ONNX document indexing
 - **HYPERBOLIC** — Poincaré ball projection for hierarchy-preserving embeddings
 
-These are also backed by specialized workers (`ERLWorker`, `TextGradWorker`, `MARWorker`, `RaptorWorker`, `ForgettingCurveWorker`) running on a 30-minute interval in the background.
+These are backed by specialized workers (`ERLWorker`, `TextGradWorker`, `MARWorker`, `RaptorWorker`, `ForgettingCurveWorker`) running on a 30-minute interval in the background.
+
+> The neural judge/distill loop (LLM-as-judge, strategy distillation, EWC++ consolidation) lives on the `monoes-full-loop` branch.

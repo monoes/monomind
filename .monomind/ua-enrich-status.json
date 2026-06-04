@@ -1,7 +1,7 @@
 {
-  "lastRun": "2026-06-04T14:39:37.402Z",
+  "lastRun": "2026-06-04T16:27:03.674Z",
   "mode": "incremental",
-  "file": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/mcp-tools/hooks-tools.ts",
+  "file": "/Users/morteza/Desktop/tools/monomind/packages/@monomind/cli/src/commands/hooks.ts",
   "pluginFound": true,
   "graphFound": true
 }

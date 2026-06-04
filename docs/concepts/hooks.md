@@ -130,7 +130,7 @@ Workers run on fixed intervals during sessions:
 | `ddd` | 10 min | Low | Track DDD domain implementation progress across @monomind packages |
 | `adr` | 15 min | Low | Check ADR compliance (ADR-001 through ADR-012) |
 | `security` | 30 min | High | Scan for secrets, vulnerabilities, insecure patterns (7 CVEs tracked) |
-| `learning` | 30 min | Normal | Optimize learning, SONA adaptation; runs ERL, TextGrad, RAPTOR, forgetting-curve sub-tasks |
+| `learning` | 30 min | Normal | Outcome/trajectory logging and pattern consolidation; runs ERL, TextGrad, RAPTOR, forgetting-curve sub-tasks |
 | `cache` | 1 hour | Background | Clean `.monomind/cache` and `.monomind/temp`, files older than 7 days |
 | `git` | 5 min | Normal | Track uncommitted changes, branch, staged/modified counts |
 | `swarm` | 1 min | High | Monitor swarm activity and queue pending agent messages |
@@ -199,7 +199,7 @@ monomind hooks token-optimize   # Optimize token usage
 ### Workers & utilities (7)
 ```bash
 monomind hooks worker list      # List all workers and status
-monomind hooks intelligence     # Run intelligence pipeline step
+monomind hooks intelligence     # Pattern/trajectory logging (stats, pattern-*, trajectory-*)
 monomind hooks notify           # Send notification
 monomind hooks statusline       # Generate statusline output
 monomind hooks list             # List all registered hooks

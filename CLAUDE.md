@@ -232,7 +232,7 @@ Enabled via `npx monomind@latest init` (sets `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEA
 
 ## Project Configuration (Anti-Drift Defaults)
 
-Topology: hierarchical | Max Agents: 8 | Strategy: specialized | Consensus: raft | Memory: hybrid (SQLite + AgentDB) | HNSW: enabled | Neural: SONA enabled.
+Topology: hierarchical | Max Agents: 8 | Strategy: specialized | Consensus: raft | Routing: keyword + route-outcomes | Memory: hybrid (SQLite + AgentDB) | HNSW: pure-JS via AgentDB.
 
 ## Quick Setup
 

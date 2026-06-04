@@ -1,673 +1,84 @@
-# MonoVector NPM Package API Documentation
-
-Version: 0.1.95
-Package: `monovector`
-Repository: https://github.com/nokhodian/monovector
-
-## Overview
-
-MonoVector is a high-performance vector database for Node.js with automatic native/WASM fallback. It provides self-learning intelligence for Claude Code with Q-learning optimization, vector memory, and automatic agent routing.
-
-## Installation
-
-```bash
-npm install monovector
-```
-
-## MCP Server Integration
-
-Add to Claude Code:
-
-```bash
-claude mcp add monovector-mcp -- npx monovector mcp-server
-```
-
----
-
-## Hooks API Reference
-
-The hooks API provides 30+ MCP tools for intelligent agent routing, code analysis, and self-learning capabilities.
-
-### Core Routing Functions
-
-#### `hooks_route`
-
-Routes a task to the best agent based on learned patterns.
-
-**Input Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `task` | string | Yes | Task description to route |
-| `file` | string | No | File path for context-aware routing |
-
-**Return Type:**
-```typescript
-interface RouteResult {
-  success: boolean;
-  task: string;
-  file?: string;
-  agent: string;           // Recommended agent (e.g., "typescript-developer")
-  confidence: number;      // Confidence score 0.0-1.0
-  reason: string;          // Explanation for routing decision
-  alternates?: string[];   // Alternative agent suggestions
-  sonaPatterns?: number;   // Number of SONA patterns used (if engine enabled)
-  engineRouted?: boolean;  // Whether full engine was used
-}
-```
-
-**Example Usage:**
-```javascript
-// MCP Tool Call
-const result = await mcp.call('hooks_route', {
-  task: 'implement user authentication',
-  file: 'src/auth/login.ts'
-});
-
-// CLI Usage
-npx monovector hooks route "implement user login"
-```
-
-**Error Handling:**
-- Returns default agent mapping if no patterns learned
-- Falls back to file extension-based routing if task unclear
-
----
-
-#### `hooks_route_enhanced`
-
-Enhanced routing using AST complexity, coverage, and diff analysis signals.
-
-**Input Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `task` | string | Yes | Task description |
-| `file` | string | No | File context for analysis |
-
-**Return Type:**
-```typescript
-interface EnhancedRouteResult {
-  success: boolean;
-  agent: string;
-  confidence: number;
-  signals: {
-    complexity?: number;    // Cyclomatic complexity
-    coverage?: number;      // Test coverage percentage
-    riskScore?: number;     // Change risk assessment
-    diffCategory?: string;  // feature/bugfix/refactor
-  };
-  explanation: string;
-}
-```
-
-**Example Usage:**
-```javascript
-const result = await mcp.call('hooks_route_enhanced', {
-  task: 'refactor authentication module',
-  file: 'src/auth/handlers.ts'
-});
-```
-
----
-
-### AST Analysis Functions
-
-#### `hooks_ast_analyze`
-
-Parses file AST and extracts symbols, imports, and complexity metrics.
-
-**Input Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `file` | string | Yes | File path to analyze |
-
-**Return Type:**
-```typescript
-interface FileAnalysis {
-  file: string;
-  language: string;           // TypeScript, JavaScript, Python, etc.
-  imports: ImportInfo[];      // Import statements
-  exports: ExportInfo[];      // Export statements
-  functions: FunctionInfo[];  // Function definitions
-  classes: ClassInfo[];       // Class definitions
-  variables: string[];        // Variable declarations
-  types: string[];           // Type definitions
-  complexity: number;        // Overall complexity score
-  lines: number;             // Total lines
-  parseTime: number;         // Parse duration in ms
-}
-
-interface FunctionInfo {
-  name: string;
-  params: string[];
-  returnType?: string;
-  async: boolean;
-  exported: boolean;
-  startLine: number;
-  endLine: number;
-  complexity: number;
-  calls: string[];           // Functions called within
-}
-
-interface ClassInfo {
-  name: string;
-  extends?: string;
-  implements: string[];
-  methods: FunctionInfo[];
-  properties: string[];
-  exported: boolean;
-  startLine: number;
-  endLine: number;
-}
-
-interface ImportInfo {
-  source: string;
-  default?: string;
-  named: string[];
-  namespace?: string;
-  type: 'esm' | 'commonjs' | 'dynamic';
-}
-```
-
-**Example Usage:**
-```javascript
-const analysis = await mcp.call('hooks_ast_analyze', {
-  file: 'src/api/routes.ts'
-});
-
-// CLI Usage
-npx monovector hooks ast-analyze src/api/routes.ts --json
-```
-
-**Error Handling:**
-- Returns `{ success: false, error: message }` if file not found
-- Falls back to regex-based analysis if tree-sitter unavailable
-
----
-
-#### `hooks_ast_complexity`
-
-Calculates cyclomatic and cognitive complexity metrics for files.
-
-**Input Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `files` | string[] | Yes | Array of file paths to analyze |
-| `threshold` | number | No | Warn if complexity exceeds (default: 10) |
-
-**Return Type:**
-```typescript
-interface ComplexityResult {
-  success: boolean;
-  files: Array<{
-    file: string;
-    complexity: number;
-    functions: Array<{
-      name: string;
-      complexity: number;
-      exceeds: boolean;
-    }>;
-  }>;
-  warnings: string[];
-  averageComplexity: number;
-}
-```
-
-**Example Usage:**
-```javascript
-const result = await mcp.call('hooks_ast_complexity', {
-  files: ['src/auth/*.ts'],
-  threshold: 15
-});
-```
-
----
-
-### Diff Analysis Functions
-
-#### `hooks_diff_analyze`
-
-Analyzes git diff with semantic embeddings and risk scoring.
-
-**Input Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `commit` | string | No | Commit hash (defaults to staged changes) |
-
-**Return Type:**
-```typescript
-interface CommitAnalysis {
-  hash: string;
-  message: string;
-  author: string;
-  date: string;
-  files: DiffAnalysis[];
-  totalAdditions: number;
-  totalDeletions: number;
-  riskScore: number;        // 0.0-1.0 risk assessment
-  embedding?: number[];     // Semantic embedding
-}
-
-interface DiffAnalysis {
-  file: string;
-  hunks: DiffHunk[];
-  totalAdditions: number;
-  totalDeletions: number;
-  complexity: number;
-  riskScore: number;
-  category: 'feature' | 'bugfix' | 'refactor' | 'docs' | 'test' | 'config' | 'unknown';
-  embedding?: number[];
-}
-
-interface DiffHunk {
-  file: string;
-  oldStart: number;
-  oldLines: number;
-  newStart: number;
-  newLines: number;
-  content: string;
-  additions: string[];
-  deletions: string[];
-}
-```
-
-**Example Usage:**
-```javascript
-// Analyze staged changes
-const staged = await mcp.call('hooks_diff_analyze', {});
-
-// Analyze specific commit
-const commit = await mcp.call('hooks_diff_analyze', {
-  commit: 'abc123'
-});
-
-// CLI Usage
-npx monovector hooks diff-analyze --json
-npx monovector hooks diff-analyze abc123 --json
-```
-
-**Error Handling:**
-- Returns empty analysis if no changes found
-- Handles merge commits and binary files gracefully
-
----
-
-#### `hooks_diff_classify`
-
-Classifies change type based on diff patterns.
-
-**Input Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `commit` | string | No | Commit hash (defaults to HEAD) |
-
-**Return Type:**
-```typescript
-interface ClassifyResult {
-  success: boolean;
-  category: 'feature' | 'bugfix' | 'refactor' | 'docs' | 'test' | 'config' | 'unknown';
-  confidence: number;
-  indicators: string[];  // Patterns that led to classification
-}
-```
-
-**Example Usage:**
-```javascript
-const classification = await mcp.call('hooks_diff_classify', {
-  commit: 'HEAD~1'
-});
-```
-
----
-
-### Coverage Analysis Functions
-
-#### `hooks_coverage_route`
-
-Gets coverage-aware agent routing for a file.
-
-**Input Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `file` | string | Yes | File to analyze |
-
-**Return Type:**
-```typescript
-interface CoverageRouteResult {
-  success: boolean;
-  file: string;
-  route: boolean;          // Whether to route to tester
-  reason: string;          // Explanation
-  coverage: number;        // Coverage percentage (0-100)
-  weights: {
-    coder: number;         // Weight for coder agent
-    tester: number;        // Weight for tester agent
-    reviewer: number;      // Weight for reviewer agent
-  };
-}
-```
-
-**Example Usage:**
-```javascript
-const routing = await mcp.call('hooks_coverage_route', {
-  file: 'src/services/auth.ts'
-});
-
-// CLI Usage
-npx monovector hooks coverage-route src/services/auth.ts
-```
-
-**Error Handling:**
-- Returns default weights if no coverage report found
-- Searches common locations: coverage/, .nyc_output/, lcov.info
-
----
-
-#### `hooks_coverage_suggest`
-
-Suggests tests for files based on coverage data.
-
-**Input Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `files` | string[] | Yes | Files to analyze |
-
-**Return Type:**
-```typescript
-interface TestSuggestion {
-  file: string;
-  testFile: string;           // Suggested test file path
-  reason: string;
-  priority: 'high' | 'medium' | 'low';
-  coverage: number;           // Current coverage %
-  uncoveredFunctions: string[];
-}
-
-interface SuggestResult {
-  success: boolean;
-  suggestions: TestSuggestion[];
-  overall: {
-    lines: number;
-    functions: number;
-    branches: number;
-  };
-}
-```
-
-**Example Usage:**
-```javascript
-const suggestions = await mcp.call('hooks_coverage_suggest', {
-  files: ['src/api/*.ts', 'src/services/*.ts']
-});
-```
-
----
-
-### Graph Analysis Functions
-
-#### `hooks_graph_mincut`
-
-Finds optimal code boundaries using MinCut algorithm (Stoer-Wagner).
-
-**Input Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `files` | string[] | Yes | Files to analyze for module boundaries |
-
-**Return Type:**
-```typescript
-interface Partition {
-  groups: string[][];    // Two groups of files
-  cutWeight: number;     // Weight of edges between groups
-  modularity: number;    // Modularity score
-}
-
-interface MinCutResult {
-  success: boolean;
-  partition: Partition;
-  bridges: Array<{       // Critical connections
-    from: string;
-    to: string;
-  }>;
-  articulationPoints: string[];  // Critical nodes
-}
-```
-
-**Example Usage:**
-```javascript
-const boundaries = await mcp.call('hooks_graph_mincut', {
-  files: ['src/**/*.ts']
-});
-
-// CLI Usage
-npx monovector hooks graph-mincut src/**/*.ts
-```
-
-**Error Handling:**
-- Requires at least 2 connected files
-- Returns empty partition for disconnected graphs
-
----
-
-#### `hooks_graph_cluster`
-
-Detects code communities using spectral or Louvain clustering.
-
-**Input Parameters:**
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `files` | string[] | Yes | Files to analyze |
-| `method` | string | No | 'spectral' or 'louvain' (default: 'louvain') |
-| `clusters` | number | No | Number of clusters for spectral (default: 3) |
-
-**Return Type:**
-```typescript
-interface ClusterResult {
-  success: boolean;
-  method: string;
-  clusters: Map<string, number>;  // file -> cluster ID
-  numClusters: number;
-  modularity: number;
-  // For spectral method only:
-  eigenvalues?: number[];
-  coordinates?: Map<string, number[]>;
-}
-```
-
-**Example Usage:**
-```javascript
-// Louvain community detection (automatic cluster count)
-const louvain = await mcp.call('hooks_graph_cluster', {
-  files: ['src/**/*.ts'],
-  method: 'louvain'
-});
-
-// Spectral clustering (specify cluster count)
-const spectral = await mcp.call('hooks_graph_cluster', {
-  files: ['src/**/*.ts'],
-  method: 'spectral',
-  clusters: 5
-});
-
-// CLI Usage
-npx monovector hooks graph-cluster src/**/*.ts --method louvain
-npx monovector hooks graph-cluster src/**/*.ts --method spectral --clusters 5
-```
-
----
-
-## Additional MCP Tools
-
-### Memory Functions
-
-| Tool | Description |
-|------|-------------|
-| `hooks_remember` | Store context in vector memory |
-| `hooks_recall` | Search vector memory for relevant context |
-
-### Learning Functions
-
-| Tool | Description |
-|------|-------------|
-| `hooks_learn` | Combined learning: record experience and get recommendation |
-| `hooks_batch_learn` | Record multiple experiences in batch |
-| `hooks_learning_config` | Configure learning algorithms (9 algorithms available) |
-| `hooks_learning_stats` | Get learning statistics |
-
-### Trajectory Functions
-
-| Tool | Description |
-|------|-------------|
-| `hooks_trajectory_begin` | Begin tracking execution trajectory |
-| `hooks_trajectory_step` | Add step to current trajectory |
-| `hooks_trajectory_end` | End trajectory with quality score |
-
-### Security Functions
-
-| Tool | Description |
-|------|-------------|
-| `hooks_security_scan` | Parallel vulnerability pattern detection |
-
-### Neural Functions
-
-| Tool | Description |
-|------|-------------|
-| `hooks_attention_info` | Get available attention mechanisms |
-| `hooks_gnn_info` | Get GNN layer capabilities |
-| `hooks_rag_context` | RAG-enhanced context retrieval |
-
----
-
-## Programmatic API
-
-### VectorDB
+# monovector/ — Keyword Routing & Outcome Measurement
+
+This directory is the lean replacement for the removed `monovector` vector-DB / SONA
+intelligence package. There is no neural training, no native/WASM engine, and no
+`@monoes/*` runtime dependency here. What ships is a small set of pure-TypeScript
+modules that route tasks deterministically and measure whether the routing helped.
+
+> The full neural learning loop (SONA, MoE, Flash Attention, EWC++/LoRA, the native
+> `VectorDb`) lives on the `monoes-full-loop` branch. None of it is available in the
+> lean build — do not advertise it as installable.
+
+## Modules
+
+| File | Purpose |
+|---|---|
+| `index.ts` | Public surface: `createKeywordRouter`, capability/availability probes, re-exports |
+| `capabilities.ts` | Reports lean capabilities (no native engine); `getCapabilities()` is a JS stub |
+| `route-outcomes.ts` | Records recommended routes and correlates them with actual outcomes |
+| `command-outcomes.ts` | Records command exit codes; derives recent success/failure signal |
+| `diff-classifier.ts` | Pure-JS git-diff classification + risk scoring (feature/bugfix/refactor/…) |
+| `init-state.ts` | Tracks initialization status |
+
+## Keyword Router
+
+`createKeywordRouter()` returns a deterministic router that maps a task description to
+an agent type using keyword scoring — no LLM call, no learned weights.
 
 ```typescript
-import { VectorDb } from 'monovector';
+import { createKeywordRouter } from './index.js';
 
-const db = new VectorDb({
-  dimensions: 384,           // Must match embedding model
-  maxElements: 10000,
-  storagePath: './vectors.db'
-});
-
-// Insert
-await db.insert({
-  id: 'doc1',
-  vector: new Float32Array(384),
-  metadata: { title: 'Document 1' }
-});
-
-// Search
-const results = await db.search({
-  vector: queryVector,
-  k: 5,
-  threshold: 0.7
-});
-
-// Get
-const doc = await db.get('doc1');
-
-// Delete
-await db.delete('doc1');
+const router = createKeywordRouter();
+const decision = router.route('implement user authentication');
+// → { agentType, confidence, reasoning?, route?, alternatives? }
 ```
 
-### Core Modules
+`isMonovectorAvailable()` and `isWasmBackendAvailable()` exist for backward
+compatibility and report the lean reality (no native/WASM engine).
+
+## Route-Outcome Measurement
+
+The routing loop is closed by correlation, not by training. A recommended route is
+recorded, then later joined to the observed outcome; `doctor` surfaces the resulting
+accuracy and recommended-vs-actual adherence.
 
 ```typescript
-// AST Parser
-import { getCodeParser } from 'monovector/dist/core/ast-parser';
-const parser = getCodeParser();
-await parser.init();
-const analysis = await parser.analyze('file.ts');
+import {
+  recordRoute,
+  joinLatestUnresolved,
+  computeRoutingAccuracy,
+  computeAdherence,
+} from './route-outcomes.js';
 
-// Diff Embeddings
-import diffEmbeddings from 'monovector/dist/core/diff-embeddings';
-const commit = await diffEmbeddings.analyzeCommit('HEAD');
-const similar = await diffEmbeddings.findSimilarCommits(diff, 50, 5);
+await recordRoute(baseDir, { /* RouteOutcomeRecord */ });
+await joinLatestUnresolved(baseDir, /* outcome */);
 
-// Coverage Router
-import coverage from 'monovector/dist/core/coverage-router';
-const data = coverage.getFileCoverage('file.ts');
-const tests = coverage.suggestTests(['file.ts']);
-
-// Graph Algorithms
-import graph from 'monovector/dist/core/graph-algorithms';
-const g = graph.buildGraph(nodes, edges);
-const partition = graph.minCut(g);
-const clusters = graph.louvainCommunities(g);
+const { accuracy, sample } = await computeRoutingAccuracy(baseDir);
+const { adherence } = await computeAdherence(baseDir);
 ```
 
----
+## Command-Outcome Logging
 
-## Performance Characteristics
+```typescript
+import { recordCommand, deriveRecentSuccess } from './command-outcomes.js';
 
-| Operation | Latency | Notes |
-|-----------|---------|-------|
-| ONNX inference | ~400ms | Initial embedding |
-| HNSW search | ~0.045ms | 8,800x faster than inference |
-| Memory cache | ~0.01ms | 40,000x speedup |
-| Native Rust | <0.5ms | p50 latency |
-| WASM fallback | 10-50ms | Universal compatibility |
-
----
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MONOVECTOR_INTELLIGENCE_ENABLED` | `true` | Enable/disable intelligence |
-| `MONOVECTOR_LEARNING_RATE` | `0.1` | Q-learning rate (0.0-1.0) |
-| `MONOVECTOR_MEMORY_BACKEND` | `rvlite` | Memory storage backend |
-| `INTELLIGENCE_MODE` | `treatment` | A/B testing mode |
-
----
-
-## CLI Commands
-
-```bash
-# Initialize hooks
-npx monovector hooks init --pretrain --build-agents quality
-
-# Verify setup
-npx monovector hooks verify
-npx monovector hooks doctor --fix
-
-# Analysis
-npx monovector hooks ast-analyze <file> --json
-npx monovector hooks ast-complexity <files> --threshold 10
-npx monovector hooks diff-analyze [commit] --json
-npx monovector hooks diff-classify [commit]
-npx monovector hooks coverage-route <file>
-npx monovector hooks coverage-suggest <files>
-npx monovector hooks graph-mincut <files>
-npx monovector hooks graph-cluster <files> --method louvain
-
-# Memory
-npx monovector hooks remember "context" -t project
-npx monovector hooks recall "query"
-npx monovector hooks route "task description"
-
-# Stats and export
-npx monovector hooks stats
-npx monovector hooks export -o backup.json
-npx monovector hooks import backup.json --merge
+await recordCommand(baseDir, { command: 'build', exitCode: 0, ts: Date.now() });
+const recentlyHealthy = await deriveRecentSuccess(baseDir); // boolean | null
 ```
 
----
+## Diff Classification
 
-## Dependencies
+```typescript
+import { createDiffClassifier, getGitDiffNumstat, assessOverallRisk } from './diff-classifier.js';
 
-- `@modelcontextprotocol/sdk`: ^1.0.0
-- `@monoes/attention`: ^0.1.3
-- `@monoes/core`: ^0.1.25
-- `@monoes/gnn`: ^0.1.22
-- `@monoes/sona`: ^0.1.4
-- `@xenova/transformers`: ^2.17.2
+const files = getGitDiffNumstat('HEAD');
+const classifier = createDiffClassifier();
+// classifier.classify(...) → DiffClassification
+```
 
----
+## Persistence
 
-## Links
-
-- [npm Package](https://www.npmjs.com/package/monovector)
-- [GitHub Repository](https://github.com/nokhodian/monovector)
-- [Hooks Documentation](https://github.com/nokhodian/monovector/blob/main/npm/packages/monovector/HOOKS.md)
+All outcome records are plain JSON files under the project's `.monomind` base
+directory — there is no vector database, no embedding store, and no quantized weight
+file in the lean build. Semantic memory search is provided separately by
+`@monomind/memory` (pure-JS HNSW via AgentDB).
