@@ -35,14 +35,19 @@ export async function recordCommand(baseDir: string, cmd: { command: string; exi
  *   - false if the task ended on a failing command
  *   - null  if there are no recent commands (no signal — caller should treat as unknown)
  *
- * Heuristic: FINAL-STATE, not "any failed". Within a task the dominant workflow is
- * iterate-until-green (run tests → fail → fix → run tests → pass), so an intermediate
- * non-zero exit is NOT evidence of task failure. Crucially, many benign commands exit
- * non-zero in normal work (`grep` no-match → 1, `test -f`, `diff`), so "all must pass"
- * produces pervasive false failures and would feed SONA noisy labels. Instead we look at
- * the trailing command(s): the task is judged by the state it ended in. To avoid a single
- * trailing benign command (e.g. `ls`) masking a real failure, we treat it as failure if
- * EITHER of the last 2 in-window commands failed, otherwise success.
+ * Heuristic: FINAL-STATE — the exit code of the LAST command in the window.
+ * Within a task the dominant workflow is iterate-until-green (run tests → fail → fix →
+ * run tests → pass), so the task is judged by the state it ENDED in, not by whether any
+ * intermediate command failed. "All must pass" would produce pervasive false failures
+ * because benign commands routinely exit non-zero (`grep` no-match → 1, `test -f`, `diff`)
+ * and the fail-then-pass shape is the norm. Using the last command correctly scores
+ * fail→fix→pass as success and ends-on-failure as failure.
+ *
+ * Known limitation: the store is global (not task-scoped — no taskId exists at command
+ * time), so a trailing benign command after a real failure (e.g. `git status` after a
+ * failed test) could mask it, and the final command of a prior task could bleed in if a
+ * new task records no commands of its own. The time window bounds the latter; per-task
+ * scoping would require threading a taskId into post-command.
  */
 export async function deriveRecentSuccess(baseDir: string, windowMs = 300_000): Promise<boolean | null> {
   try {
@@ -57,9 +62,8 @@ export async function deriveRecentSuccess(baseDir: string, windowMs = 300_000): 
       } catch { /* skip malformed */ }
     }
     if (recent.length === 0) return null;
-    // Final-state: judge by the trailing command(s), not the whole batch.
-    const tail = recent.slice(-2);
-    return tail.every(r => r.success);
+    // Final-state: the last command in the window decides the outcome.
+    return recent[recent.length - 1].success;
   } catch {
     return null;
   }
