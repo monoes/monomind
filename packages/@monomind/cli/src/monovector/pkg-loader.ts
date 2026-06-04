@@ -38,7 +38,10 @@ export async function tryLoad<T = Record<string, unknown>>(
   // binding only on `.default`. Normalize that here so consumers (the capability
   // probes, neural features) read the real binding's named symbols uniformly,
   // regardless of whether the package resolves to a workspace file or a published
-  // pnpm package. The fallback to `mod` preserves pure-ESM packages unchanged.
+  // pnpm package. This is safe here because tryLoad is only used for the native
+  // @monoes bindings and the pure-JS @monomind workspace deps probed in
+  // capabilities.ts — none export a meaningful ESM `default` alongside named
+  // exports that callers depend on, so unwrapping `default` never drops symbols.
   const promise = import(specifier).then(
     (mod) => {
       const m = mod as { default?: unknown } & T;
