@@ -657,7 +657,6 @@ monomind embeddings cache clear --older-than 7d
 
 - [@monomind/memory](../memory) - HNSW indexing and vector storage
 - [@monomind/providers](../providers) - Multi-LLM provider system
-- [@monomind/neural](../neural) - SONA learning integration
 
 ## License
 
