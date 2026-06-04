@@ -1696,7 +1696,11 @@ const benchmarkCommand: Command = {
     spinner.start();
 
     try {
-      const attention = await import('@monoes/attention') as unknown as AttentionModule;
+      // @monoes/attention is a CJS .node binding; under `await import()` the
+      // named symbols (FlashAttention, DotProductAttention, …) are surfaced only
+      // on `.default`. Normalize so the constructors below resolve.
+      const attentionMod = await import('@monoes/attention') as unknown as { default?: AttentionModule };
+      const attention = (attentionMod.default ?? attentionMod) as unknown as AttentionModule;
 
       // Manual benchmark since benchmarkAttention has a binding bug
       const benchmarkMechanism = async (name: string, mechanism: { computeRaw: (q: Float32Array, k: Float32Array[], v: Float32Array[]) => Float32Array }) => {
