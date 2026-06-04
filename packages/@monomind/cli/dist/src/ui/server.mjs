@@ -3064,16 +3064,44 @@ export async function startServer({ port = 4242, projectDir, openBrowser = true 
         if (orgName.length > 64 || !/^[a-z0-9][a-z0-9_-]*$/i.test(orgName)) { res.writeHead(400); res.end('[]'); return; }
         const _actQs = new URL(req.url, 'http://localhost').searchParams;
         const d = path.resolve(_actQs.get('dir') || projectDir || process.cwd());
+        const orgsDir = path.join(d, '.monomind', 'orgs');
+        const readJ = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch(_) { return null; } };
+        const events = [];
+
+        // 1) Global mastermind events that EXPLICITLY belong to this org (strict — no untagged leak)
         const eventsFile = path.join(d, 'data', 'mastermind-events.jsonl');
-        let events = [];
         if (fs.existsSync(eventsFile)) {
           const lines = fs.readFileSync(eventsFile, 'utf8').split('\n').filter(Boolean);
-          events = lines.slice(-500).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean)
-            .filter(e => e.org === orgName || !e.org)
-            .reverse().slice(0, 100);
+          for (const l of lines.slice(-1000)) {
+            try { const e = JSON.parse(l); if (e && e.org === orgName) events.push(e); } catch(_) {}
+          }
         }
+
+        // 2) Synthesize an org-scoped timeline from this org's own records (real data, distinct per org)
+        const cfg = readJ(path.join(orgsDir, `${orgName}.json`));
+        if (cfg) {
+          const createdMs = cfg.created_at ? Date.parse(cfg.created_at) : null;
+          if (createdMs) events.push({ type: 'org:create', ts: createdMs, msg: String(cfg.goal || 'Org created').slice(0, 80) });
+          (cfg.roles || []).forEach((r, i) => {
+            events.push({ type: 'role:defined', ts: createdMs ? createdMs + (i + 1) * 1000 : null, role: r.title || r.id, msg: r.agent_type || '' });
+          });
+        }
+        const goals = readJ(path.join(orgsDir, `${orgName}-goals.json`));
+        (goals?.goals || []).forEach(g => events.push({ type: 'goal', ts: Date.parse(g.created_at || g.updated_at || '') || null, role: g.status || '', msg: String(g.text || g.title || g.goal || '').slice(0, 80) }));
+        const appr = readJ(path.join(orgsDir, `${orgName}-approvals.json`));
+        (appr?.approvals || []).forEach(a => { const ts = (typeof a.ts === 'number') ? a.ts : (Date.parse(a.created_at || a.ts || '') || null); events.push({ type: 'approval', ts, role: a.agent_id || a.requester || '', msg: String(a.title || a.action || '').slice(0, 80) }); });
+        const state = readJ(path.join(orgsDir, `${orgName}-state.json`));
+        if (state && state.agents) {
+          for (const [aid, a] of Object.entries(state.agents)) {
+            const raw = a.lastHeartbeat || a.last_seen || a.updated_at || null;
+            const ts = (typeof raw === 'number') ? raw : (raw ? Date.parse(raw) : null);
+            events.push({ type: 'org:heartbeat', ts, agent: aid, msg: a.status || '' });
+          }
+        }
+
+        const out = events.filter(e => e && e.ts).sort((a, b) => b.ts - a.ts).slice(0, 100);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify(events));
+        res.end(JSON.stringify(out));
       } catch(_) { res.writeHead(500); res.end('[]'); }
       return;
     }
