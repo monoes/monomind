@@ -899,6 +899,13 @@ export function getServerManager(options) {
  * Quick start MCP server
  */
 export async function startMCPServer(options) {
+    // A2: mark this as a long-lived host so the SONA write-path (trajectory record +
+    // consolidation) stays enabled. In one-shot CLI mode this env var is absent and
+    // the per-call SONA trajectory — which would never reach the consolidation
+    // threshold and is discarded on process exit — is skipped to avoid wasted
+    // ONNX/embedding overhead. Across MCP calls the registry singleton persists, so
+    // trajectories accumulate and DO reach threshold here.
+    process.env.MONOMIND_PERSISTENT_HOST = '1';
     const manager = getServerManager(options);
     return await manager.start();
 }

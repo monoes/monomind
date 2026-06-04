@@ -123,8 +123,8 @@ export declare function softmaxAttention(scores: Float32Array, temperature?: num
 export declare function topKIndices(scores: Float32Array, k: number): number[];
 /**
  * Flash Attention-style search
- * Combines batch similarity, softmax, and top-k in one pass
- * Returns indices and attention weights
+ * Combines batch similarity, softmax, and top-k in one pass.
+ * Returns indices and attention weights.
  */
 export declare function flashAttentionSearch(query: Float32Array | number[], vectors: (Float32Array | number[])[], options?: {
     k?: number;

@@ -1,134 +1,54 @@
 /**
- * Unified capability surface for @monoes/* packages.
- * Single async call to know what's available before choosing code paths.
- * Result is cached after the first resolution — call anywhere, pay once.
+ * Capability surface for the (removed) @monoes/* native learning packages.
+ *
+ * Lean teardown: the SONA / native / WASM learning layer (@monoes/sona, router,
+ * attention, learning-wasm, core, and @monomind/monovector-upstream) has been
+ * removed. This module is now a stub that always reports "nothing native is
+ * available", so every caller takes the pure-JS / keyword-routing path. The
+ * function and type surface is preserved so importers (index.ts, hooks-tools.ts,
+ * doctor.ts, neural.ts) keep compiling without change.
  */
 
-import type { AttentionModule, LearningWasmModule, RouterModule } from './monoes-types.js';
-import { tryLoad, clearCache as clearPkgLoaderCache } from './pkg-loader.js';
-
 export interface MonoesCapabilities {
-  /** @monoes/sona SonaEngine available */
+  /** @monoes/sona SonaEngine available — always false after teardown */
   sona: boolean;
-  /** @monoes/router backend: native HNSW, pure-JS, or absent */
+  /** @monoes/router backend — always 'none' after teardown */
   router: 'native' | 'js' | 'none';
-  /** @monoes/attention FlashAttention available */
+  /** @monoes/attention FlashAttention available — always false after teardown */
   attention: boolean;
-  /** @monoes/learning-wasm WasmMicroLoRA available */
+  /** @monoes/learning-wasm WasmMicroLoRA available — always false after teardown */
   learningWasm: boolean;
-  /** @monomind/monovector-upstream plugin (HnswBridge, SonaBridge, etc.) loaded */
+  /** @monomind/monovector-upstream plugin loaded — always false after teardown */
   upstreamPlugin: boolean;
 }
 
-let _cached: MonoesCapabilities | null = null;
-let _inFlight: Promise<MonoesCapabilities> | null = null;
+const STUB_CAPABILITIES: MonoesCapabilities = {
+  sona: false,
+  router: 'none',
+  attention: false,
+  learningWasm: false,
+  upstreamPlugin: false,
+};
 
 /**
- * Probe all @monoes packages and return their availability.
- * Cached after first call — safe to call anywhere.
+ * Returns the stubbed capability surface — all native backends report absent.
+ * Async to preserve the original signature; callers `await` this everywhere.
  */
 export async function getCapabilities(): Promise<MonoesCapabilities> {
-  if (_cached) return _cached;
-  if (_inFlight) return _inFlight;
-
-  _inFlight = _probe().then(caps => {
-    _cached = caps;
-    _inFlight = null;
-    return caps;
-  });
-  return _inFlight;
+  return STUB_CAPABILITIES;
 }
 
-/**
- * Synchronous read of the cached result. Returns null if not yet resolved.
- */
+/** Synchronous read of the (constant) capability surface. */
 export function getCachedCapabilities(): MonoesCapabilities | null {
-  return _cached;
+  return STUB_CAPABILITIES;
 }
 
-/**
- * Reset cache for testing — also clears the underlying pkg-loader cache so a
- * subsequent probe re-attempts the dynamic imports (otherwise a package
- * installed after the first probe would stay reported as absent forever).
- */
+/** No-op after teardown — there is nothing to re-probe. */
 export function resetCapabilitiesCache(): void {
-  _cached = null;
-  _inFlight = null;
-  clearPkgLoaderCache(); // cascade: clear the underlying load cache so a refresh re-probes
+  /* no-op */
 }
 
-/**
- * Force a fresh capability probe — for long-lived daemon/MCP processes after a
- * package is installed at runtime. Resets both caches, then re-probes.
- */
+/** Returns the stubbed capability surface — kept for API compatibility. */
 export async function refreshCapabilities(): Promise<MonoesCapabilities> {
-  resetCapabilitiesCache();
-  return getCapabilities();
-}
-
-/**
- * Declarative probe table — one row per @monoes capability. Replaces the prior
- * index-correlated parallel array (probe order had to match return-field order,
- * a silent drift hazard). The `key` ties each probe to its MonoesCapabilities
- * field by name, so adding/reordering rows can never desync.
- *
- * Router is handled separately (3-state: native | js | none).
- */
-interface CapabilityProbe {
-  key: keyof MonoesCapabilities;
-  specifier: string;
-  check: (m: unknown) => boolean;
-}
-
-const CAPABILITY_PROBES: CapabilityProbe[] = [
-  {
-    key: 'sona',
-    specifier: '@monoes/sona',
-    check: m =>
-      typeof (m as Record<string, unknown>).SonaEngine === 'function' ||
-      !!(m as Record<string, unknown>).SonaEngine,
-  },
-  {
-    key: 'attention',
-    specifier: '@monoes/attention',
-    check: m => typeof (m as AttentionModule).FlashAttention === 'function',
-  },
-  {
-    key: 'learningWasm',
-    specifier: '@monoes/learning-wasm',
-    check: m => typeof (m as LearningWasmModule).WasmMicroLoRA === 'function',
-  },
-];
-
-async function _probe(): Promise<MonoesCapabilities> {
-  // Router has 3-state logic — handled separately.
-  const router = await _probeRouter();
-
-  // Upstream plugin is a pure-JS workspace package; probe via tryLoad and keep
-  // the shape check (loaded ≠ has-the-factory) so a broken build reads as false.
-  const upstreamMod = await tryLoad('@monomind/monovector-upstream');
-  const upstreamPlugin = !!(upstreamMod as Record<string, unknown> | null)?.createHnswBridge;
-
-  const flags: Record<string, boolean> = {};
-  await Promise.all(
-    CAPABILITY_PROBES.map(async p => {
-      const mod = await tryLoad(p.specifier);
-      flags[p.key] = mod !== null && p.check(mod);
-    })
-  );
-
-  return {
-    router,
-    upstreamPlugin,
-    sona: flags.sona ?? false,
-    attention: flags.attention ?? false,
-    learningWasm: flags.learningWasm ?? false,
-  };
-}
-
-async function _probeRouter(): Promise<'native' | 'js' | 'none'> {
-  const mod = await tryLoad<RouterModule>('@monoes/router');
-  if (mod && typeof mod.VectorDb === 'function') return 'native';
-  if (mod) return 'js';
-  return 'none';
+  return STUB_CAPABILITIES;
 }

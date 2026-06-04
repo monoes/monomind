@@ -161,24 +161,6 @@ const CAPABILITY_CATALOG = {
         skills: ['agentdb-vector-search', 'agentdb-optimization'],
         whenToUse: 'When you need semantic search, document embedding, or vector similarity operations.',
     },
-    'wasm-agents': {
-        name: 'WASM Sandboxed Agents',
-        description: 'Sandboxed AI agents running in WebAssembly with virtual filesystem, no OS access.',
-        tools: ['wasm_agent_create', 'wasm_agent_prompt', 'wasm_agent_tool', 'wasm_agent_list', 'wasm_agent_terminate', 'wasm_agent_files', 'wasm_agent_export', 'wasm_gallery_list', 'wasm_gallery_search', 'wasm_gallery_create'],
-        commands: [],
-        agents: [],
-        skills: [],
-        whenToUse: 'When you need sandboxed agent execution without OS access (safe, isolated environments).',
-    },
-    'ruvllm-inference': {
-        name: 'RuVLLM Inference',
-        description: 'WASM-based HNSW routing, SONA instant adaptation, MicroLoRA, chat formatting.',
-        tools: ['ruvllm_status', 'ruvllm_hnsw_create', 'ruvllm_sona_create', 'ruvllm_microlora_create', 'ruvllm_chat_format', 'ruvllm_kvcache_create'],
-        commands: [],
-        agents: [],
-        skills: [],
-        whenToUse: 'When you need WASM-native HNSW routing, SONA adaptation, or MicroLoRA fine-tuning.',
-    },
     'code-analysis': {
         name: 'Code Analysis & Diff',
         description: 'AST analysis, diff classification, coverage routing, dependency graph analysis.',
@@ -219,7 +201,6 @@ const TASK_ROUTES = [
     { pattern: /\b(release|deploy|publish|version|changelog)\b/i, areas: ['github-integration', 'session-workflow'], workflow: 'release' },
     { pattern: /\b(swarm|multi.agent|coordin|hive|consensus)\b/i, areas: ['swarm-orchestration', 'hive-mind'], workflow: 'swarm' },
     { pattern: /\b(learn|train|neural|pattern|sona|lora)\b/i, areas: ['intelligence-learning'], workflow: 'learning' },
-    { pattern: /\b(wasm|sandbox|isolated|gallery)\b/i, areas: ['wasm-agents', 'ruvllm-inference'], workflow: 'wasm' },
     { pattern: /\b(hook|pre.task|post.task|worker|daemon)\b/i, areas: ['hooks-automation', 'session-workflow'], workflow: 'automation' },
     { pattern: /\b(config|setup|init|provider|doctor)\b/i, areas: ['config-system'], workflow: 'setup' },
 ];
@@ -277,11 +258,6 @@ const WORKFLOW_TEMPLATES = {
     learning: {
         steps: ['Pretrain on codebase', 'Record trajectories', 'Compute rewards', 'Distill learning', 'Consolidate (EWC++)'],
         agents: ['sona-learning-optimizer'],
-        topology: 'hierarchical',
-    },
-    wasm: {
-        steps: ['Check WASM availability', 'Create sandboxed agent', 'Execute tools in sandbox', 'Export results'],
-        agents: [],
         topology: 'hierarchical',
     },
     automation: {

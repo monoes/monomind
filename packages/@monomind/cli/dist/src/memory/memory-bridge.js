@@ -75,6 +75,8 @@ const MAX_INIT_ATTEMPTS = 3;
 let initAttempts = 0;
 /** Backpressure flag for A-MEM Zettelkasten linking — see bridgeStoreEntry. */
 let _amemInFlight = false;
+/** OR-3: Count SONA learning failures so callers can detect degraded state. */
+let _sonaErrorCount = 0;
 /**
  * Resolve database path with path traversal protection.
  * Only allows paths within or below the project's .swarm directory,
@@ -1244,6 +1246,42 @@ export async function bridgeRecordFeedback(options) {
                 controller += '+skills';
             }
         }
+        // Wire agent task outcomes into SONA learning engine via LearningBridge.
+        // B1.3: skip the feed entirely when the outcome is not a measured/known result —
+        // feeding nothing beats feeding a fabricated success or failure label.
+        //
+        // A2: the SONA write-path (onInsightRecorded → ONNX load + embedding inference,
+        // then consolidate()) only pays off in a long-lived host (MCP server / daemon),
+        // where trajectories accumulate across calls and reach the consolidation
+        // threshold. In one-shot CLI mode (e.g. `monomind hooks post-task`) it loads
+        // ONNX, records exactly ONE in-memory trajectory that never reaches threshold,
+        // and the trajectory map is discarded on process exit — pure cost, zero benefit.
+        // The file-based keyword learning (Pipeline C, above) still runs and persists in
+        // CLI mode, so routing learning is NOT lost — only the throwaway SONA trajectory.
+        // MONOMIND_PERSISTENT_HOST=1 is set by the MCP server and daemon entry points.
+        const isPersistentHost = process.env.MONOMIND_PERSISTENT_HOST === '1';
+        const lb = registry.get('learningBridge');
+        if (isPersistentHost && options.outcomeKnown !== false && lb && typeof lb.onInsightRecorded === 'function') {
+            try {
+                await lb.onInsightRecorded({
+                    // Embed the real task text so the MiniLM embedder encodes meaningful
+                    // semantics; fall back to the opaque ID only when no text is available.
+                    summary: options.task || options.description || `task:${options.taskId ?? 'unknown'}`,
+                    category: 'task',
+                    confidence: options.quality ?? 0.5,
+                }, options.taskId);
+                // Non-blocking consolidation — triggers SONA.flush() when threshold met
+                void lb.consolidate().catch(() => { });
+                updated++;
+            }
+            catch (err) {
+                // OR-3: Non-fatal — count errors and emit periodic warnings so callers can detect degraded state
+                _sonaErrorCount++;
+                if (_sonaErrorCount === 1 || _sonaErrorCount % 100 === 0) {
+                    process.emitWarning(`SONA learning failure #${_sonaErrorCount}: ${err instanceof Error ? err.message : String(err)}`, 'MonoesWarning');
+                }
+            }
+        }
         // Always store feedback as a memory entry for retrieval (ensures it persists)
         const storeResult = await bridgeStoreEntry({
             key: `feedback-${options.taskId}`,
@@ -1457,7 +1495,7 @@ export async function bridgeHealthCheck(dbPath) {
             const s = cache.stats();
             cacheStats = { size: s.size ?? 0, hits: s.hits ?? 0, misses: s.misses ?? 0 };
         }
-        return { available: true, controllers, attestationCount, cacheStats };
+        return { available: true, controllers, attestationCount, cacheStats, sonaErrorCount: _sonaErrorCount };
     }
     catch {
         return null;

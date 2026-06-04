@@ -53,6 +53,19 @@ export interface MonomindConfig {
     mcp: MCPConfig;
     cli: CLIPreferences;
     hooks: HooksConfig;
+    neural?: NeuralConfig;
+}
+export interface NeuralConfig {
+    /** Enable neural/SONA learning (default: true) */
+    enabled?: boolean;
+    /** Force pure-JS fallback, skip all native @monoes packages (default: false) */
+    disableNative?: boolean;
+    sona?: {
+        mode?: 'real-time' | 'balanced' | 'research' | 'edge' | 'batch';
+        learningRate?: number;
+        ewcLambda?: number;
+        embeddingDim?: number;
+    };
 }
 export interface AgentConfig {
     defaultType: string;

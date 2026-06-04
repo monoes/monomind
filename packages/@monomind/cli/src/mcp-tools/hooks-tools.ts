@@ -7,7 +7,6 @@ import { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, statSyn
 import { dirname, join, resolve, sep } from 'path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { createInitState } from '../monovector/init-state.js';
-import type { RouterModule } from '../monovector/monoes-types.js';
 import { getCapabilities } from '../monovector/capabilities.js';
 import { randomUUID } from 'node:crypto';
 import { recordRoute, joinOutcome, joinLatestUnresolved } from '../monovector/route-outcomes.js';
@@ -343,7 +342,8 @@ async function getSemanticRouter() {
     // Use createRequire for ESM compatibility with native modules
     const { createRequire } = await import('module');
     const require = createRequire(import.meta.url);
-    const router = require('@monoes/router') as RouterModule;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const router = require('@monoes/router' as string) as any;
 
     if (router.VectorDb && router.DistanceMetric) {
       // Try to create VectorDb - may fail with lock error in concurrent envs
@@ -389,7 +389,7 @@ async function getSemanticRouter() {
   // WasmRegistry singleton, which is unpopulated at this point) so no registration ceremony
   // is needed. An inline adapter bridges insert()/search() to the HnswBridge API.
   try {
-    const upstreamMod = await import('@monomind/monovector-upstream').catch(() => null);
+    const upstreamMod = await import('@monomind/monovector-upstream' as string).catch(() => null) as any;
     if (upstreamMod?.createHnswBridge) {
       const bridge = upstreamMod.createHnswBridge({ dimensions: 384 });
       await bridge.init();
@@ -718,100 +718,12 @@ function suggestAgentsForTask(task: string): { agents: string[]; confidence: num
 // Canonical set of valid monomind agent type strings.
 // Patterns whose type is not in this set (e.g. 'action', 'observation', 'routing')
 // are structural labels, not agent names, and must be excluded from routing.
-// Singleton neural router — initialized once per process and reused across route calls.
-// Creating + destroying NeuralLearningSystem on every call would read learned-state.json
-// on each invocation and call consolidateEWC() on cleanup, both of which are wrong.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _neuralRouterInstance: any = null;
-let _neuralRouterInitPromise: Promise<void> | null = null;
-
-// One-time guard so the dim-mismatch warning is logged at most once per process.
-let _loraDimMismatchWarned = false;
-
-/**
- * Apply SONA's learned LoRA adaptation to the SAME query embedding used by the
- * routing index (B1.4 fix).
- *
- * Previously this built a bespoke 768-dim, sin-only, unnormalized base, ran the
- * LoRA transform, then sliced to 384. The result lived in a different basis AND
- * scale than the indexed patterns (which are `generateSimpleEmbedding` output:
- * 384-dim, sin+cos, L2-normalized), so it always scored below the 0.4 gate and
- * routing silently fell back to keyword. SONA's learned weights never reached
- * routing AND the clean query was clobbered with off-distribution noise.
- *
- * The fix: take the already-computed, normalized 384-dim query, apply the LoRA
- * transform in that same space, and re-normalize to unit length.
- *
- * No-op invariant: with an UNTRAINED LoRA (B = 0), `applyLoRATransform` produces
- * a zero delta, the mode blend returns the input unchanged, and re-normalizing a
- * unit vector yields the same vector — i.e. cosine-identical to the plain query.
- *
- * Dim gate: SONA builds LoRA weights at the embedding dim we thread in at
- * construction (DEFAULT_VECTOR_DIM, 384), matching the router query dim. We ONLY
- * apply the adaptation when SONA's weight dim equals the query dim; otherwise we
- * return the query untouched and warn once. With the dim threaded the gate opens
- * and learned weights flow; a non-threaded SONA (weights at 768) still mismatches
- * and is safely skipped.
- */
-async function applyNeuralAdaptation(query: Float32Array): Promise<Float32Array | null> {
-  if (!_neuralRouterInitPromise) {
-    _neuralRouterInitPromise = (async () => {
-      try {
-        const neural = await import('@monomind/neural' as string).catch(() => null);
-        if (neural?.createNeuralLearningSystem) {
-          // Build SONA's LoRA weights at the router query's embedding dim so the
-          // fail-closed gate below matches and learned weights actually apply.
-          // The router query is produced by generateSimpleEmbedding at 384 dims;
-          // DEFAULT_VECTOR_DIM (re-exported from @monomind/neural) is that same dim.
-          const embeddingDim: number = neural.DEFAULT_VECTOR_DIM ?? 384;
-          const sys = neural.createNeuralLearningSystem('balanced', { embeddingDim });
-          await sys.initialize();
-          _neuralRouterInstance = sys;
-        }
-      } catch { _neuralRouterInstance = null; }
-    })();
-  }
-  await _neuralRouterInitPromise;
-  if (!_neuralRouterInstance) return null;
-  try {
-    const sona = _neuralRouterInstance.getSONAManager();
-    // Gate (FAIL-CLOSED): apply only on a POSITIVE dim match.
-    // SONA now builds LoRA weights at config.embeddingDim (threaded from this
-    // router's 384-dim query embedder), so config.embeddingDim === query.length
-    // and the gate opens. If embeddingDim is unset (legacy / non-threaded path),
-    // it falls back to 768, which mismatches the 384-dim query and the gate stays
-    // closed — the conservative behavior that prevents off-distribution queries.
-    const cfg = sona.getConfig?.();
-    // Mirror the exact expression initializeLoRAWeights builds weights at:
-    // config.embeddingDim ?? SONA_HIDDEN_DIM. Reading hiddenDim here was the bug —
-    // hiddenDim is the model-internal transformer width (768) and is unset for the
-    // 'balanced' preset, so the gate never matched even once weights were threaded.
-    const weightDim: number = cfg?.config?.embeddingDim ?? 768;
-    if (weightDim !== query.length) {
-      if (!_loraDimMismatchWarned) {
-        _loraDimMismatchWarned = true;
-        console.warn(
-          `[routing] SONA LoRA weight dim (${weightDim ?? 'unknown'}) != query embedding dim ` +
-          `(${query.length}); skipping neural adaptation to avoid off-distribution queries. ` +
-          `Learned weights will apply once SONA builds at the embedder dim.`,
-        );
-      }
-      return null;
-    }
-    // Apply LoRA in the SAME 384-dim normalized space as the index.
-    const adapted: Float32Array = await sona.applyAdaptations(query);
-    if (!adapted || adapted.length !== query.length) return null;
-    // Re-normalize to unit length so cosine/HNSW scores are comparable to the
-    // indexed patterns. (Untrained LoRA → adapted === query → no-op.)
-    let norm = 0;
-    for (let i = 0; i < adapted.length; i++) norm += adapted[i] * adapted[i];
-    norm = Math.sqrt(norm);
-    if (norm > 0) {
-      for (let i = 0; i < adapted.length; i++) adapted[i] /= norm;
-    }
-    return adapted;
-  } catch { return null; }
-}
+//
+// Lean teardown: the SONA neural LoRA routing adaptation (applyNeuralAdaptation +
+// the @monomind/neural NeuralLearningSystem singleton) has been removed. Routing now
+// uses the pure keyword path plus the deterministic generateSimpleEmbedding query
+// against the pattern index, with outcomes recorded via route-outcomes. No ONNX /
+// LoRA inference happens on the routing hot path anymore.
 
 const VALID_AGENT_TYPES = new Set([
   'coder', 'reviewer', 'tester', 'planner', 'researcher',
@@ -1166,17 +1078,8 @@ export const hooksRoute: MCPTool = {
     let backendInfo = '';
 
     const queryText = context ? `${task} ${context}` : task;
-    // Apply LoRA adaptations from the neural system when available.
-    // The adapted embedding reflects what was learned in prior sessions
-    // (loaded from learned-state.json during _neuralRouterInstance.initialize()).
-    let queryEmbedding = generateSimpleEmbedding(queryText);
-    try {
-      // B1.4: apply LoRA in the SAME 384-dim normalized space as the index,
-      // not a bespoke 768-dim base that gets sliced (which clobbered the query
-      // with an off-distribution vector and forced keyword fallback).
-      const adapted = await applyNeuralAdaptation(queryEmbedding);
-      if (adapted) queryEmbedding = adapted;
-    } catch { /* fall through to hash embedding */ }
+    // Lean teardown: deterministic query embedding only — no SONA LoRA adaptation.
+    const queryEmbedding = generateSimpleEmbedding(queryText);
 
     // Try native VectorDb (HNSW-backed)
     if (native && backend === 'native') {
