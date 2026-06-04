@@ -1,6 +1,6 @@
 /**
  * CLI Neural Command
- * Neural pattern training, MoE, Flash Attention, pattern learning
+ * Pattern learning, search, and prediction backed by the pure-JS intelligence layer
  *
  * github.com/nokhodian/monomind
  */

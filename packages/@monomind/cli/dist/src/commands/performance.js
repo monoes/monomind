@@ -69,9 +69,9 @@ const benchmarkCommand = {
                 targetMet: embedTargetMet,
             });
         }
-        // 2. Flash Attention-style Batch Operations
+        // 2. Batch Vector Operations
         if (suite === 'all' || suite === 'wasm') {
-            spinner.setText('Benchmarking Flash Attention batch ops...');
+            spinner.setText('Benchmarking batch vector ops...');
             const flashTimes = [];
             // Generate test vectors
             const testVectors = Array.from({ length: 100 }, () => new Float32Array(Array.from({ length: 384 }, () => Math.random())));
@@ -92,7 +92,7 @@ const benchmarkCommand = {
             const speedup = baselineMs / mean;
             const flashTargetMet = speedup > 1;
             results.push({
-                operation: 'Flash Attention',
+                operation: 'Batch Vector Ops',
                 mean: `${mean.toFixed(3)}ms`,
                 p95: `${percentile(flashTimes, 95).toFixed(3)}ms`,
                 p99: `${percentile(flashTimes, 99).toFixed(3)}ms`,
@@ -150,13 +150,13 @@ const benchmarkCommand = {
                 });
             }
         }
-        // 4. SONA Adaptation Benchmark
+        // 4. Pattern Adaptation Benchmark (JS)
         if (suite === 'all' || suite === 'neural') {
-            spinner.setText('Benchmarking SONA adaptation...');
+            spinner.setText('Benchmarking pattern adaptation...');
             await initializeIntelligence();
             const sonaResult = benchmarkAdaptation(iterations);
             results.push({
-                operation: 'SONA Adaptation',
+                operation: 'Pattern Adaptation',
                 mean: `${(sonaResult.avgMs * 1000).toFixed(2)}μs`,
                 p95: `${(sonaResult.maxMs * 1000).toFixed(2)}μs`,
                 p99: `${(sonaResult.maxMs * 1000).toFixed(2)}μs`,
@@ -515,7 +515,6 @@ const optimizeCommand = {
             data: [
                 { priority: output.error('P0'), area: 'Memory', recommendation: 'Enable HNSW index quantization', impact: '+50% reduction' },
                 { priority: output.warning('P1'), area: 'CPU', recommendation: 'Enable WASM SIMD acceleration', impact: '+4x speedup' },
-                { priority: output.warning('P1'), area: 'Latency', recommendation: 'Enable Flash Attention', impact: '+2.49x speedup' },
                 { priority: output.info('P2'), area: 'Cache', recommendation: 'Increase pattern cache size', impact: '+15% hit rate' },
                 { priority: output.info('P2'), area: 'Network', recommendation: 'Enable request batching', impact: '-30% latency' },
             ],
@@ -554,7 +553,6 @@ const bottleneckCommand = {
             ],
             data: [
                 { component: 'Vector Search', bottleneck: 'Linear scan O(n)', severity: output.error('High'), solution: 'Enable HNSW indexing' },
-                { component: 'Neural Inference', bottleneck: 'Sequential attention', severity: output.warning('Medium'), solution: 'Enable Flash Attention' },
                 { component: 'Memory Store', bottleneck: 'Lock contention', severity: output.info('Low'), solution: 'Use sharded storage' },
             ],
         });
@@ -588,8 +586,7 @@ export const performanceCommand = {
         output.writeln();
         output.writeln('Performance Targets:');
         output.printList([
-            'HNSW Search: 150x-12,500x faster than brute force',
-            'Flash Attention: 2.49x-7.47x speedup',
+            'HNSW Search: O(log n) vs O(n) brute force (pure-JS)',
             'Memory: 50-75% reduction with quantization',
         ]);
         output.writeln();

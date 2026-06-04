@@ -1,430 +1,51 @@
 /**
  * CLI Neural Command
- * Neural pattern training, MoE, Flash Attention, pattern learning
+ * Pattern learning, search, and prediction backed by the pure-JS intelligence layer
  *
  * github.com/nokhodian/monomind
  */
-import { getCapabilities } from '../monovector/capabilities.js';
 import { output } from '../output.js';
-// Train subcommand - REAL WASM training with MonoVector
-const trainCommand = {
-    name: 'train',
-    description: 'Train neural patterns with WASM SIMD acceleration (MicroLoRA + Flash Attention)',
-    options: [
-        { name: 'pattern', short: 'p', type: 'string', description: 'Pattern type: coordination, optimization, prediction, security, testing', default: 'coordination' },
-        { name: 'epochs', short: 'e', type: 'number', description: 'Number of training epochs', default: '50' },
-        { name: 'data', short: 'd', type: 'string', description: 'Training data file or inline JSON' },
-        { name: 'model', short: 'm', type: 'string', description: 'Model ID to train' },
-        { name: 'learning-rate', short: 'l', type: 'number', description: 'Learning rate', default: '0.01' },
-        { name: 'batch-size', short: 'b', type: 'number', description: 'Batch size', default: '32' },
-        { name: 'dim', type: 'number', description: 'Embedding dimension (max 256)', default: '256' },
-        { name: 'wasm', short: 'w', type: 'boolean', description: 'Use MonoVector WASM acceleration', default: 'true' },
-        { name: 'flash', type: 'boolean', description: 'Enable Flash Attention (2.49x-7.47x speedup)', default: 'true' },
-        { name: 'moe', type: 'boolean', description: 'Enable Mixture of Experts routing', default: 'false' },
-        { name: 'hyperbolic', type: 'boolean', description: 'Enable hyperbolic attention for hierarchical patterns', default: 'false' },
-        { name: 'contrastive', type: 'boolean', description: 'Use contrastive learning (InfoNCE)', default: 'true' },
-        { name: 'curriculum', type: 'boolean', description: 'Enable curriculum learning', default: 'false' },
-    ],
-    examples: [
-        { command: 'monomind neural train -p coordination -e 100', description: 'Train coordination patterns' },
-        { command: 'monomind neural train -d ./training-data.json --flash', description: 'Train from file with Flash Attention' },
-        { command: 'monomind neural train -p security --wasm --contrastive', description: 'Security patterns with contrastive learning' },
-    ],
-    action: async (ctx) => {
-        const patternType = ctx.flags['pattern'] || 'coordination';
-        const epochs = parseInt(ctx.flags.epochs || '50', 10);
-        const learningRate = parseFloat(ctx.flags['learning-rate'] || '0.01');
-        const batchSize = parseInt(ctx.flags['batch-size'] || '32', 10);
-        const dim = Math.min(parseInt(ctx.flags.dim || '256', 10), 256);
-        const useWasm = ctx.flags.wasm !== false;
-        const useFlash = ctx.flags.flash !== false;
-        const useMoE = ctx.flags.moe === true;
-        const useHyperbolic = ctx.flags.hyperbolic === true;
-        const useContrastive = ctx.flags.contrastive !== false;
-        const useCurriculum = ctx.flags.curriculum === true;
-        const dataFile = ctx.flags.data;
-        output.writeln();
-        output.writeln(output.bold('Neural Pattern Training (MonoVector WASM)'));
-        output.writeln(output.dim('─'.repeat(55)));
-        const spinner = output.createSpinner({ text: 'Initializing MonoVector training systems...', spinner: 'dots' });
-        spinner.start();
-        try {
-            // Import MonoVector training service
-            const monovector = await import('../services/monovector-training.js');
-            const { generateEmbedding } = await import('../memory/memory-initializer.js');
-            const { initializeIntelligence, recordStep, recordTrajectory, getIntelligenceStats, flushPatterns, getPersistenceStatus } = await import('../memory/intelligence.js');
-            // Initialize MonoVector WASM training
-            let wasmFeatures = [];
-            if (useWasm) {
-                const initResult = await monovector.initializeTraining({
-                    dim,
-                    learningRate,
-                    alpha: 0.1,
-                    trajectoryCapacity: epochs * batchSize,
-                    useFlashAttention: useFlash,
-                    useMoE,
-                    useHyperbolic,
-                    totalSteps: useCurriculum ? epochs : undefined,
-                    warmupSteps: useCurriculum ? Math.floor(epochs * 0.1) : undefined,
-                });
-                if (initResult.success) {
-                    wasmFeatures = initResult.features;
-                    const backendLabel = initResult.backend === 'wasm' ? 'WASM' : 'JS fallback';
-                    spinner.setText(`MonoVector initialized [${backendLabel}]: ${wasmFeatures.join(', ')}`);
-                }
-                else {
-                    output.writeln(output.warning(`WASM init failed: ${initResult.error} - falling back`));
-                }
-            }
-            // Also initialize SONA + ReasoningBank for persistence
-            await initializeIntelligence({
-                loraLearningRate: learningRate,
-                maxTrajectorySize: epochs
-            });
-            // Pattern type to operator mapping
-            const operatorMap = {
-                coordination: monovector.OperatorType.COORDINATION,
-                optimization: monovector.OperatorType.OPTIMIZATION,
-                prediction: monovector.OperatorType.ROUTING,
-                security: monovector.OperatorType.SECURITY,
-                testing: monovector.OperatorType.TESTING,
-                debugging: monovector.OperatorType.DEBUGGING,
-                memory: monovector.OperatorType.MEMORY,
-                reasoning: monovector.OperatorType.REASONING,
-            };
-            const operatorType = operatorMap[patternType] ?? monovector.OperatorType.GENERAL;
-            spinner.setText(`Training ${patternType} patterns...`);
-            // Training data - load from file or generate synthetic
-            let trainingData = [];
-            if (dataFile) {
-                const fs = await import('fs');
-                const p = await import('path');
-                if (fs.existsSync(dataFile)) {
-                    // Path containment check
-                    const resolvedData = p.resolve(dataFile);
-                    const cwd = process.cwd();
-                    if (!resolvedData.startsWith(cwd + p.sep) && resolvedData !== cwd) {
-                        spinner.fail(`--data path escapes project directory: ${dataFile}`);
-                        return { success: false, exitCode: 1 };
-                    }
-                    // File size guard
-                    const MAX_TRAINING_BYTES = 50 * 1024 * 1024;
-                    const statResult = fs.statSync(dataFile);
-                    if (statResult.size > MAX_TRAINING_BYTES) {
-                        spinner.fail(`Training data file too large: ${statResult.size} bytes (max ${MAX_TRAINING_BYTES})`);
-                        return { success: false, exitCode: 1 };
-                    }
-                    const raw = fs.readFileSync(dataFile, 'utf8');
-                    const parsedData = JSON.parse(raw);
-                    if (parsedData && typeof parsedData === 'object' && ('__proto__' in parsedData || 'constructor' in parsedData)) {
-                        spinner.fail('Prototype pollution attempt detected in training data');
-                        return { success: false, exitCode: 1 };
-                    }
-                    trainingData = parsedData;
-                }
-                else {
-                    spinner.fail(`Training data file not found: ${dataFile}`);
-                    return { success: false, exitCode: 1 };
-                }
-            }
-            else {
-                // Generate synthetic training data based on pattern type
-                const templates = {
-                    coordination: [
-                        'Route task to coder agent for implementation',
-                        'Coordinate researcher and architect for design phase',
-                        'Distribute workload across mesh topology',
-                        'Synchronize agents via gossip protocol',
-                        'Balance load between active workers',
-                        'Spawn hierarchical swarm for complex task',
-                        'Assign reviewer to completed implementation'
-                    ],
-                    optimization: [
-                        'Apply Int8 quantization for memory reduction',
-                        'Enable HNSW indexing for faster search',
-                        'Batch operations for throughput improvement',
-                        'Cache frequently accessed patterns',
-                        'Prune unused neural pathways',
-                        'Use Flash Attention for large sequences',
-                        'Enable SIMD for vector operations'
-                    ],
-                    prediction: [
-                        'Predict optimal agent for task type',
-                        'Forecast resource requirements',
-                        'Anticipate failure modes and mitigate',
-                        'Estimate completion time for workflow',
-                        'Predict pattern similarity before search'
-                    ],
-                    security: [
-                        'Validate input at system boundaries',
-                        'Check for path traversal attempts',
-                        'Sanitize user-provided data',
-                        'Apply parameterized queries for SQL',
-                        'Verify JWT token signatures',
-                        'Audit sensitive operation access'
-                    ],
-                    testing: [
-                        'Generate unit tests for function',
-                        'Create integration test suite',
-                        'Mock external dependencies',
-                        'Assert expected outcomes',
-                        'Coverage gap analysis'
-                    ]
-                };
-                const patterns = templates[patternType] || templates.coordination;
-                for (let i = 0; i < epochs; i++) {
-                    trainingData.push({
-                        content: patterns[i % patterns.length],
-                        type: patternType
-                    });
-                }
-            }
-            // Training metrics
-            const startTime = Date.now();
-            const epochTimes = [];
-            let patternsRecorded = 0;
-            let trajectoriesCompleted = 0;
-            let totalLoss = 0;
-            let adaptations = 0;
-            // Generate embeddings for training data
-            const embeddings = [];
-            spinner.setText('Generating embeddings...');
-            for (const item of trainingData.slice(0, Math.min(100, trainingData.length))) {
-                const embeddingResult = await generateEmbedding(item.content);
-                if (embeddingResult && embeddingResult.embedding) {
-                    // Convert to Float32Array and resize to dim
-                    const embeddingArray = embeddingResult.embedding;
-                    const resized = new Float32Array(dim);
-                    for (let i = 0; i < Math.min(embeddingArray.length, dim); i++) {
-                        resized[i] = embeddingArray[i];
-                    }
-                    embeddings.push(resized);
-                }
-            }
-            spinner.setText(`Training with ${embeddings.length} embeddings...`);
-            // Main training loop with WASM acceleration
-            for (let epoch = 0; epoch < epochs; epoch++) {
-                const epochStart = performance.now();
-                // Get curriculum difficulty if enabled
-                const difficulty = useCurriculum ? monovector.getCurriculumDifficulty(epoch) : 1.0;
-                // Process batch
-                const batchStart = (epoch * batchSize) % embeddings.length;
-                const batch = embeddings.slice(batchStart, batchStart + batchSize);
-                if (batch.length === 0)
-                    continue;
-                // Training step with contrastive learning
-                if (useContrastive && batch.length >= 3 && useWasm && wasmFeatures.length > 0) {
-                    const anchor = batch[0];
-                    const positives = [batch[1]];
-                    const negatives = batch.slice(2);
-                    try {
-                        // Compute contrastive loss
-                        const { loss, gradient } = monovector.computeContrastiveLoss(anchor, positives, negatives);
-                        totalLoss += loss;
-                        // Scale gradient by difficulty
-                        const scaledGradient = new Float32Array(gradient.length);
-                        for (let i = 0; i < gradient.length; i++) {
-                            scaledGradient[i] = gradient[i] * difficulty;
-                        }
-                        // Train with MicroLoRA
-                        await monovector.trainPattern(anchor, scaledGradient, operatorType);
-                        adaptations++;
-                        // Record trajectory for learning
-                        const baselineMs = 10; // Baseline execution time
-                        const executionMs = performance.now() - epochStart;
-                        monovector.recordTrajectory(anchor, operatorType, useFlash ? 1 : 0, executionMs, baselineMs);
-                    }
-                    catch {
-                        // WASM training failed, fall back to basic
-                    }
-                }
-                // Also record in SONA/ReasoningBank for persistence
-                const item = trainingData[epoch % trainingData.length];
-                await recordStep({
-                    type: 'action',
-                    content: item.content,
-                    metadata: { epoch, patternType, learningRate, difficulty }
-                });
-                patternsRecorded++;
-                // Record trajectory every 10 epochs
-                if ((epoch + 1) % 10 === 0 || epoch === epochs - 1) {
-                    const steps = trainingData.slice(Math.max(0, epoch - 9), epoch + 1).map(d => ({ type: 'action', content: d.content }));
-                    await recordTrajectory(steps, 'success');
-                    trajectoriesCompleted++;
-                }
-                const epochTime = performance.now() - epochStart;
-                epochTimes.push(epochTime);
-                // Update progress
-                const progress = Math.round(((epoch + 1) / epochs) * 100);
-                const avgEpochTime = epochTimes.reduce((a, b) => a + b, 0) / epochTimes.length;
-                const eta = Math.round((epochs - epoch - 1) * avgEpochTime / 1000);
-                spinner.setText(`Training ${patternType} patterns... ${progress}% (ETA: ${eta}s, loss: ${(totalLoss / Math.max(1, epoch + 1)).toFixed(4)})`);
-            }
-            const totalTime = Date.now() - startTime;
-            // Get MonoVector stats
-            const monovectorStats = useWasm && wasmFeatures.length > 0 ? monovector.getTrainingStats() : null;
-            const trajectoryStats = monovectorStats?.trajectoryStats;
-            // Benchmark if WASM was used
-            let benchmark = null;
-            if (useWasm && wasmFeatures.length > 0) {
-                try {
-                    spinner.setText('Running benchmark...');
-                    benchmark = await monovector.benchmarkTraining(dim, 100);
-                }
-                catch {
-                    // Benchmark failed, continue
-                }
-            }
-            // Get SONA stats
-            const stats = getIntelligenceStats();
-            spinner.succeed(`Training complete: ${epochs} epochs in ${(totalTime / 1000).toFixed(1)}s`);
-            // Flush patterns to disk
-            flushPatterns();
-            const persistence = getPersistenceStatus();
-            output.writeln();
-            // Display results
-            const tableData = [
-                { metric: 'Pattern Type', value: patternType },
-                { metric: 'Epochs', value: String(epochs) },
-                { metric: 'Batch Size', value: String(batchSize) },
-                { metric: 'Embedding Dim', value: String(dim) },
-                { metric: 'Learning Rate', value: String(learningRate) },
-                { metric: 'Patterns Recorded', value: patternsRecorded.toLocaleString() },
-                { metric: 'Trajectories', value: String(trajectoriesCompleted) },
-                { metric: 'Total Time', value: `${(totalTime / 1000).toFixed(1)}s` },
-                { metric: 'Avg Epoch Time', value: `${(epochTimes.reduce((a, b) => a + b, 0) / epochTimes.length).toFixed(2)}ms` },
-            ];
-            // Add WASM-specific metrics
-            if (useWasm && wasmFeatures.length > 0) {
-                const backendUsed = monovectorStats?.backend || 'unknown';
-                tableData.push({ metric: 'Backend', value: backendUsed === 'wasm' ? 'WASM (native)' : 'JS (fallback)' }, { metric: 'WASM Features', value: wasmFeatures.slice(0, 3).join(', ') }, { metric: 'LoRA Adaptations', value: String(adaptations) }, { metric: 'Avg Loss', value: (totalLoss / Math.max(1, epochs)).toFixed(4) });
-                if (monovectorStats?.microLoraStats) {
-                    tableData.push({ metric: 'MicroLoRA Delta Norm', value: monovectorStats.microLoraStats.deltaNorm.toFixed(6) });
-                }
-                if (trajectoryStats) {
-                    tableData.push({ metric: 'Success Rate', value: `${(trajectoryStats.successRate * 100).toFixed(1)}%` }, { metric: 'Mean Improvement', value: `${(trajectoryStats.meanImprovement * 100).toFixed(1)}%` });
-                }
-                if (benchmark && benchmark.length > 0) {
-                    const flashBench = benchmark.find(b => b.name.includes('Flash'));
-                    if (flashBench) {
-                        tableData.push({ metric: 'Flash Attention', value: `${flashBench.opsPerSecond.toLocaleString()} ops/s` });
-                    }
-                }
-            }
-            tableData.push({ metric: 'ReasoningBank Size', value: stats.reasoningBankSize.toLocaleString() }, { metric: 'Persisted To', value: output.dim(persistence.dataDir) });
-            output.printTable({
-                columns: [
-                    { key: 'metric', header: 'Metric', width: 26 },
-                    { key: 'value', header: 'Value', width: 32 },
-                ],
-                data: tableData,
-            });
-            output.writeln();
-            output.writeln(output.success(`✓ ${patternsRecorded} patterns saved to ${persistence.patternsFile}`));
-            if (useWasm && wasmFeatures.length > 0) {
-                const backendUsed = monovectorStats?.backend || 'unknown';
-                const backendMsg = backendUsed === 'wasm'
-                    ? `MonoVector WASM backend: ${wasmFeatures.join(', ')}`
-                    : `MonoVector JS fallback (install @monoes/learning-wasm for native speed): ${wasmFeatures.join(', ')}`;
-                output.writeln(output.highlight(`✓ ${backendMsg}`));
-            }
-            return {
-                success: true,
-                data: {
-                    epochs,
-                    patternsRecorded,
-                    trajectoriesCompleted,
-                    totalTime,
-                    wasmFeatures,
-                    monovectorStats,
-                    benchmark,
-                    stats,
-                    persistence
-                }
-            };
-        }
-        catch (error) {
-            spinner.fail('Training failed');
-            output.printError(error instanceof Error ? error.message : String(error));
-            return { success: false, exitCode: 1 };
-        }
-    },
-};
-// Status subcommand - REAL measurements
+// Status subcommand - reports only the surviving pure-JS pattern-learning layer
 const statusCommand = {
     name: 'status',
-    description: 'Check neural network status and loaded models',
+    description: 'Check pattern-learning status (JS intelligence layer)',
     options: [
-        { name: 'model', short: 'm', type: 'string', description: 'Specific model ID to check' },
         { name: 'verbose', short: 'v', type: 'boolean', description: 'Show detailed metrics' },
     ],
     examples: [
-        { command: 'monomind neural status', description: 'Show all neural status' },
-        { command: 'monomind neural status -m model-123', description: 'Check specific model' },
+        { command: 'monomind neural status', description: 'Show pattern-learning status' },
+        { command: 'monomind neural status -v', description: 'Show detailed metrics' },
     ],
     action: async (ctx) => {
         const verbose = ctx.flags.verbose === true;
         output.writeln();
-        output.writeln(output.bold('Neural Network Status (Real)'));
+        output.writeln(output.bold('Pattern Learning Status'));
         output.writeln(output.dim('─'.repeat(50)));
-        const spinner = output.createSpinner({ text: 'Checking neural systems...', spinner: 'dots' });
+        const spinner = output.createSpinner({ text: 'Checking pattern-learning systems...', spinner: 'dots' });
         spinner.start();
         try {
-            // Import real implementations
-            const { getIntelligenceStats, initializeIntelligence, benchmarkAdaptation } = await import('../memory/intelligence.js');
+            const { getIntelligenceStats, initializeIntelligence, getPersistenceStatus } = await import('../memory/intelligence.js');
             const { getHNSWStatus, loadEmbeddingModel } = await import('../memory/memory-initializer.js');
-            const monovector = await import('../services/monovector-training.js');
             // Initialize if needed and get real stats
             await initializeIntelligence();
             const stats = getIntelligenceStats();
             const hnswStatus = getHNSWStatus();
-            // Quick benchmark for actual adaptation time
-            const adaptBench = benchmarkAdaptation(100);
+            const persistence = getPersistenceStatus();
             // Check embedding model
             const modelInfo = await loadEmbeddingModel({ verbose: false });
-            // Check MonoVector WASM status
-            const monovectorStats = monovector.getTrainingStats();
-            const sonaAvailable = monovector.isSonaAvailable();
-            spinner.succeed('Neural systems checked');
-            const fs_status = await import('fs');
-            const path_status = await import('path');
-            const learnedStatePath = path_status.join(process.cwd(), '.monomind', 'neural', 'learned-state.json');
-            const hasLearnedState = fs_status.existsSync(learnedStatePath);
-            let learnedStateAge = '';
-            if (hasLearnedState) {
-                const stat = fs_status.statSync(learnedStatePath);
-                const ageMs = Date.now() - stat.mtimeMs;
-                const ageMins = Math.round(ageMs / 60000);
-                learnedStateAge = ageMins < 60 ? `${ageMins}m ago` : `${Math.round(ageMins / 60)}h ago`;
-            }
+            spinner.succeed('Pattern-learning systems checked');
             output.writeln();
             output.printTable({
                 columns: [
                     { key: 'component', header: 'Component', width: 22 },
                     { key: 'status', header: 'Status', width: 12 },
-                    { key: 'details', header: 'Details', width: 32 },
+                    { key: 'details', header: 'Details', width: 34 },
                 ],
                 data: [
                     {
-                        component: 'SONA Coordinator',
+                        component: 'Pattern Learning',
                         status: stats.sonaEnabled ? output.success('Active') : output.warning('Inactive'),
-                        details: stats.sonaEnabled
-                            ? `Adaptation: ${(adaptBench.avgMs * 1000).toFixed(2)}μs avg`
-                            : 'Not initialized',
-                    },
-                    {
-                        component: 'MonoVector Training',
-                        status: monovectorStats.initialized ? output.success('Active') : output.dim('Not loaded'),
-                        details: monovectorStats.initialized
-                            ? `${monovectorStats.backend === 'wasm' ? 'WASM' : 'JS fallback'} | MicroLoRA: ${monovectorStats.totalAdaptations} adapts`
-                            : 'Call neural train to initialize',
-                    },
-                    {
-                        component: 'SONA Engine',
-                        status: sonaAvailable ? output.success('Active') : output.dim('Not loaded'),
-                        details: sonaAvailable && monovectorStats.sonaStats
-                            ? `${monovectorStats.sonaStats.totalLearns} learns, ${monovectorStats.sonaStats.totalSearches} searches`
-                            : 'Optional, enable with --sona',
+                        details: stats.sonaEnabled ? 'JS pattern-learning layer initialized' : 'Not initialized',
                     },
                     {
                         component: 'ReasoningBank',
@@ -432,75 +53,22 @@ const statusCommand = {
                         details: `${stats.patternsLearned} patterns stored`,
                     },
                     {
-                        component: 'HNSW Index',
-                        status: hnswStatus.available ? output.success('Ready') : output.dim('Not loaded'),
+                        component: 'Pattern Index',
+                        status: hnswStatus.available ? output.success('Ready') : output.dim('Empty'),
                         details: hnswStatus.available
-                            ? `${hnswStatus.entryCount} vectors, ${hnswStatus.dimensions}-dim [HNSW search]`
-                            : 'Brute-force linear scan (install @monoes/core for HNSW)',
+                            ? `${hnswStatus.entryCount} vectors, ${hnswStatus.dimensions}-dim (pure-JS HNSW via AgentDB)`
+                            : 'No vectors indexed yet',
                     },
                     {
                         component: 'Embedding Model',
                         status: modelInfo.success ? output.success('Loaded') : output.warning('Fallback'),
                         details: `${modelInfo.modelName} (${modelInfo.dimensions}-dim)`,
                     },
-                    await (async () => {
-                        try {
-                            await import('@monoes/attention');
-                            return {
-                                component: 'Flash Attention Ops',
-                                status: output.success('Available'),
-                                details: 'batchCosineSim, softmax, topK',
-                            };
-                        }
-                        catch {
-                            return {
-                                component: 'Flash Attention Ops',
-                                status: output.warning('Not installed'),
-                                details: 'npm install @monoes/attention',
-                            };
-                        }
-                    })(),
-                    await (async () => {
-                        try {
-                            const { quantizeInt8 } = await import('../memory/memory-initializer.js');
-                            if (typeof quantizeInt8 === 'function') {
-                                return {
-                                    component: 'Int8 Quantization',
-                                    status: output.success('Available'),
-                                    details: '~4x memory reduction',
-                                };
-                            }
-                            throw new Error('not exported');
-                        }
-                        catch {
-                            return {
-                                component: 'Int8 Quantization',
-                                status: output.warning('Not available'),
-                                details: 'quantizeInt8 not found in memory-initializer',
-                            };
-                        }
-                    })(),
                     {
-                        component: 'LoRA Persistence',
-                        status: hasLearnedState ? output.success('Saved') : output.dim('None'),
-                        details: hasLearnedState ? `Weights persisted ${learnedStateAge}` : 'No prior session weights',
+                        component: 'Persistence',
+                        status: persistence.patternsExist ? output.success('Saved') : output.dim('None'),
+                        details: persistence.patternsExist ? output.dim(persistence.dataDir) : 'No persisted patterns',
                     },
-                ],
-            });
-            // Package Availability table
-            const pkgCaps = await getCapabilities();
-            output.writeln();
-            output.writeln(output.highlight('Package Availability'));
-            output.printTable({
-                columns: [
-                    { key: 'pkg', header: 'Package', width: 30 },
-                    { key: 'status', header: 'Status', width: 20 },
-                ],
-                data: [
-                    { pkg: '@monoes/sona', status: pkgCaps.sona ? output.success('✓ native') : output.warning('JS fallback') },
-                    { pkg: '@monoes/router', status: pkgCaps.router === 'native' ? output.success('✓ native HNSW') : pkgCaps.router === 'js' ? output.warning('JS fallback') : output.error('not installed') },
-                    { pkg: '@monoes/attention', status: pkgCaps.attention ? output.success('✓ native') : output.warning('JS fallback') },
-                    { pkg: '@monoes/learning-wasm', status: pkgCaps.learningWasm ? output.success('✓ WASM') : output.warning('JS fallback') },
                 ],
             });
             if (verbose) {
@@ -509,10 +77,9 @@ const statusCommand = {
                 const detailedData = [
                     { metric: 'Trajectories Recorded', value: String(stats.trajectoriesRecorded) },
                     { metric: 'Patterns Learned', value: String(stats.patternsLearned) },
-                    { metric: 'HNSW Dimensions', value: String(hnswStatus.dimensions) },
-                    { metric: 'SONA Adaptation (avg)', value: `${(adaptBench.avgMs * 1000).toFixed(2)}μs` },
-                    { metric: 'SONA Adaptation (max)', value: `${(adaptBench.maxMs * 1000).toFixed(2)}μs` },
-                    { metric: 'Target Met (<0.05ms)', value: adaptBench.targetMet ? output.success('Yes') : output.warning('No') },
+                    { metric: 'ReasoningBank Size', value: String(stats.reasoningBankSize) },
+                    { metric: 'Index Dimensions', value: String(hnswStatus.dimensions) },
+                    { metric: 'Avg Adaptation Time', value: `${stats.avgAdaptationTime.toFixed(3)}ms` },
                     {
                         metric: 'Last Adaptation',
                         value: stats.lastAdaptation
@@ -520,26 +87,6 @@ const statusCommand = {
                             : 'Never',
                     },
                 ];
-                // Add MonoVector WASM metrics if initialized
-                if (monovectorStats.initialized) {
-                    detailedData.push({ metric: 'MonoVector Adaptations', value: String(monovectorStats.totalAdaptations) }, { metric: 'MonoVector Forwards', value: String(monovectorStats.totalForwards) });
-                    if (monovectorStats.microLoraStats) {
-                        detailedData.push({ metric: 'MicroLoRA Delta Norm', value: monovectorStats.microLoraStats.deltaNorm.toFixed(6) }, { metric: 'MicroLoRA Adapt Count', value: String(monovectorStats.microLoraStats.adaptCount) });
-                    }
-                    if (sonaAvailable && monovectorStats.sonaStats?.stats) {
-                        const sonaStats = monovectorStats.sonaStats.stats;
-                        detailedData.push({ metric: 'SONA Patterns Stored', value: String(sonaStats.patterns_stored || 0) }, { metric: 'SONA EWC Tasks', value: String(sonaStats.ewc_tasks || 0) });
-                    }
-                    detailedData.push({
-                        metric: 'LoRA Domains Trained',
-                        value: (monovectorStats.microLoraStats?.adaptCount ?? 0) > 0 ? 'active' : 'none',
-                    }, {
-                        metric: 'EWC Tasks Learned',
-                        value: String(sonaAvailable && monovectorStats.sonaStats?.stats
-                            ? (monovectorStats.sonaStats.stats.ewc_tasks ?? 0)
-                            : 0),
-                    });
-                }
                 output.printTable({
                     columns: [
                         { key: 'metric', header: 'Metric', width: 28 },
@@ -548,10 +95,10 @@ const statusCommand = {
                     data: detailedData,
                 });
             }
-            return { success: true, data: { stats, hnswStatus, adaptBench, modelInfo, monovectorStats } };
+            return { success: true, data: { stats, hnswStatus, modelInfo, persistence } };
         }
         catch (error) {
-            spinner.fail('Failed to check neural systems');
+            spinner.fail('Failed to check pattern-learning systems');
             output.printError(error instanceof Error ? error.message : String(error));
             return { success: false, exitCode: 1 };
         }
@@ -1431,181 +978,20 @@ const importCommand = {
         }
     },
 };
-// Benchmark subcommand - Real WASM benchmarks
-const benchmarkCommand = {
-    name: 'benchmark',
-    description: 'Benchmark MonoVector WASM training performance',
-    options: [
-        { name: 'dim', short: 'd', type: 'number', description: 'Embedding dimension (max 256)', default: '256' },
-        { name: 'iterations', short: 'i', type: 'number', description: 'Number of iterations', default: '1000' },
-        { name: 'keys', short: 'k', type: 'number', description: 'Number of keys for attention', default: '100' },
-    ],
-    examples: [
-        { command: 'monomind neural benchmark', description: 'Run default benchmark' },
-        { command: 'monomind neural benchmark -d 128 -i 5000', description: 'Custom benchmark' },
-    ],
-    action: async (ctx) => {
-        const dim = Math.min(parseInt(ctx.flags.dim || '256', 10), 256);
-        const iterations = parseInt(ctx.flags.iterations || '1000', 10);
-        const numKeys = parseInt(ctx.flags.keys || '100', 10);
-        output.writeln();
-        output.writeln(output.bold('MonoVector WASM Benchmark'));
-        output.writeln(output.dim('─'.repeat(50)));
-        const spinner = output.createSpinner({ text: 'Running benchmarks...', spinner: 'dots' });
-        spinner.start();
-        try {
-            // @monoes/attention is a CJS .node binding; under `await import()` the
-            // named symbols (FlashAttention, DotProductAttention, …) are surfaced only
-            // on `.default`. Normalize so the constructors below resolve.
-            const attentionMod = await import('@monoes/attention');
-            const attention = (attentionMod.default ?? attentionMod);
-            // Manual benchmark since benchmarkAttention has a binding bug
-            const benchmarkMechanism = async (name, mechanism) => {
-                const query = new Float32Array(dim);
-                const keys = [];
-                const values = [];
-                for (let i = 0; i < dim; i++)
-                    query[i] = Math.random();
-                for (let k = 0; k < numKeys; k++) {
-                    const key = new Float32Array(dim);
-                    const val = new Float32Array(dim);
-                    for (let i = 0; i < dim; i++) {
-                        key[i] = Math.random();
-                        val[i] = Math.random();
-                    }
-                    keys.push(key);
-                    values.push(val);
-                }
-                // Warmup
-                for (let i = 0; i < 10; i++)
-                    mechanism.computeRaw(query, keys, values);
-                const start = performance.now();
-                for (let i = 0; i < iterations; i++) {
-                    mechanism.computeRaw(query, keys, values);
-                }
-                const elapsed = performance.now() - start;
-                return {
-                    name,
-                    averageTimeMs: elapsed / iterations,
-                    opsPerSecond: Math.round((iterations / elapsed) * 1000),
-                };
-            };
-            spinner.setText(`Benchmarking attention mechanisms (dim=${dim}, keys=${numKeys}, iter=${iterations})...`);
-            const results = [];
-            // Benchmark each mechanism
-            const dotProduct = new attention.DotProductAttention(dim);
-            results.push(await benchmarkMechanism('DotProduct', dotProduct));
-            const flash = new attention.FlashAttention(dim, 64);
-            results.push(await benchmarkMechanism('FlashAttention', flash));
-            const multiHead = new attention.MultiHeadAttention(dim, 4);
-            results.push(await benchmarkMechanism('MultiHead (4 heads)', multiHead));
-            const hyperbolic = new attention.HyperbolicAttention(dim, 1.0);
-            results.push(await benchmarkMechanism('Hyperbolic', hyperbolic));
-            const linear = new attention.LinearAttention(dim, dim);
-            results.push(await benchmarkMechanism('Linear', linear));
-            spinner.succeed('Benchmark complete');
-            output.writeln();
-            output.printTable({
-                columns: [
-                    { key: 'name', header: 'Mechanism', width: 25 },
-                    { key: 'avgTime', header: 'Avg Time (ms)', width: 15 },
-                    { key: 'opsPerSec', header: 'Ops/sec', width: 15 },
-                ],
-                data: results.map(r => ({
-                    name: r.name,
-                    avgTime: r.averageTimeMs.toFixed(4),
-                    opsPerSec: r.opsPerSecond.toLocaleString(),
-                })),
-            });
-            // Show speedup comparisons
-            const dotProductResult = results.find(r => r.name.includes('DotProduct'));
-            const flashResult = results.find(r => r.name.includes('Flash'));
-            const hyperbolicResult = results.find(r => r.name.includes('Hyperbolic'));
-            if (dotProductResult && flashResult) {
-                const speedup = dotProductResult.averageTimeMs / flashResult.averageTimeMs;
-                output.writeln();
-                output.writeln(output.highlight(`Flash Attention speedup: ${speedup.toFixed(2)}x faster than DotProduct`));
-            }
-            if (dotProductResult && hyperbolicResult) {
-                output.writeln(output.dim(`Hyperbolic overhead: ${(hyperbolicResult.averageTimeMs / dotProductResult.averageTimeMs).toFixed(2)}x (expected for manifold ops)`));
-            }
-            // Also benchmark MicroLoRA
-            spinner.start();
-            spinner.setText('Benchmarking MicroLoRA adaptation...');
-            const learningWasm = await import('@monoes/learning-wasm');
-            // Initialize WASM — try to load binary directly, fall back gracefully
-            try {
-                const { createRequire } = await import('module');
-                const req = createRequire(import.meta.url);
-                const wasmFile = (() => {
-                    try {
-                        return req.resolve('@monoes/learning-wasm/monovector_learning_wasm_bg.wasm');
-                    }
-                    catch {
-                        return null;
-                    }
-                })();
-                if (wasmFile) {
-                    const fsModule = await import('fs');
-                    const wasmBuffer = fsModule.readFileSync(wasmFile);
-                    learningWasm.initSync({ module: wasmBuffer });
-                }
-            }
-            catch { /* already initialized by nodejs target auto-init, or binary unavailable */ }
-            const lora = new learningWasm.WasmMicroLoRA(dim, 0.1, 0.01);
-            try {
-                const gradient = new Float32Array(dim);
-                for (let i = 0; i < dim; i++)
-                    gradient[i] = Math.random() - 0.5;
-                const loraStart = performance.now();
-                for (let i = 0; i < iterations; i++) {
-                    lora.adapt_array(gradient);
-                }
-                const loraTime = performance.now() - loraStart;
-                const loraAvg = loraTime / iterations;
-                spinner.succeed('MicroLoRA benchmark complete');
-                output.writeln();
-                output.printTable({
-                    columns: [
-                        { key: 'metric', header: 'MicroLoRA Metric', width: 25 },
-                        { key: 'value', header: 'Value', width: 25 },
-                    ],
-                    data: [
-                        { metric: 'Dimension', value: String(dim) },
-                        { metric: 'Iterations', value: iterations.toLocaleString() },
-                        { metric: 'Total Time', value: `${loraTime.toFixed(2)}ms` },
-                        { metric: 'Avg Adaptation', value: `${(loraAvg * 1000).toFixed(2)}μs` },
-                        { metric: 'Adaptations/sec', value: Math.round(1000 / loraAvg).toLocaleString() },
-                        { metric: 'Target (<100μs)', value: loraAvg * 1000 < 100 ? output.success('✓ PASS') : output.warning('✗ FAIL') },
-                    ],
-                });
-                return { success: true, data: { results, loraAvg } };
-            }
-            finally {
-                lora.free(); // always release WASM memory, even if benchmark throws
-            }
-        }
-        catch (error) {
-            spinner.fail('Benchmark failed');
-            output.printError(error instanceof Error ? error.message : String(error));
-            return { success: false, exitCode: 1 };
-        }
-    },
-};
 // Main neural command
 export const neuralCommand = {
     name: 'neural',
-    description: 'Neural pattern training, MoE, Flash Attention, pattern learning',
-    subcommands: [trainCommand, statusCommand, patternsCommand, predictCommand, optimizeCommand, benchmarkCommand, listCommand, exportCommand, importCommand],
+    description: 'Pattern learning, search, and prediction (pure-JS intelligence layer)',
+    subcommands: [statusCommand, patternsCommand, predictCommand, optimizeCommand, listCommand, exportCommand, importCommand],
     examples: [
-        { command: 'monomind neural status', description: 'Check neural system status' },
-        { command: 'monomind neural train -p coordination', description: 'Train coordination patterns' },
+        { command: 'monomind neural status', description: 'Check pattern-learning system status' },
         { command: 'monomind neural patterns --action list', description: 'List learned patterns' },
+        { command: 'monomind neural predict -i "implement authentication"', description: 'Predict routing for a task' },
     ],
     action: async () => {
         output.writeln();
-        output.writeln(output.bold('MonoMind Neural System'));
-        output.writeln(output.dim('Advanced AI pattern learning and inference'));
+        output.writeln(output.bold('MonoMind Pattern Learning'));
+        output.writeln(output.dim('Pattern learning, search, and prediction (pure-JS)'));
         output.writeln();
         output.writeln('Use --help with subcommands for more info');
         output.writeln();
